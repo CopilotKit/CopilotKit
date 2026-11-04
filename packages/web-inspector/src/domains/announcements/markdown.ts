@@ -143,6 +143,11 @@ function renderNode(node: MarkdownNode, context: RenderContext): string {
     case "citation":
       // The article has no footnotes; show the reference as it was typed.
       return escapeText(`[^${node.idRef}]`);
+    case "math": {
+      // Math parsing is off here; show the source if it is ever turned on.
+      const fence = node.display ? "$$" : "$";
+      return escapeText(fence + node.text + fence);
+    }
     default: {
       const unhandled: never = node;
       return unhandled;
@@ -219,22 +224,19 @@ function isLooseList(
   );
 }
 
-const TASK_MARKER = /^\[([ xX])\][ \t]+/;
-
-/** Render inline nodes, turning a leading `[ ]` / `[x]` into a checkbox. */
+/**
+ * Render inline nodes, starting with a checkbox when the item is a task. The
+ * parser strips the `[ ]` / `[x]` marker into `checked`.
+ */
 function renderTaskAwareInline(
   nodes: readonly MarkdownNode[],
+  checked: boolean | undefined,
   context: RenderContext,
 ): string {
-  const [first, ...rest] = nodes;
-  const task = first?.type === "text" ? TASK_MARKER.exec(first.text) : null;
-  if (!first || first.type !== "text" || !task) {
-    return nodes.map((node) => renderNode(node, context)).join("");
-  }
-  const checked = task[1] === " " ? "" : 'checked="" ';
-  const label = escapeText(first.text.slice(task[0].length));
-  const tail = rest.map((node) => renderNode(node, context)).join("");
-  return `<input ${checked}disabled="" type="checkbox"> ${label}${tail}`;
+  const inline = nodes.map((node) => renderNode(node, context)).join("");
+  if (checked === undefined) return inline;
+  const checkedAttr = checked ? 'checked="" ' : "";
+  return `<input ${checkedAttr}disabled="" type="checkbox"> ${inline}`;
 }
 
 function renderList(node: NodeOfType<"list">, context: RenderContext): string {
@@ -249,13 +251,17 @@ function renderList(node: NodeOfType<"list">, context: RenderContext): string {
   const parts = items.map((item) => itemParts(item, context));
   const loose = isLooseList(items, parts, context);
   const body = parts
-    .map((itemContent) => {
+    .map((itemContent, itemIndex) => {
       const content = itemContent
         .map((part, index) => {
           if (part.kind === "block") return renderNode(part.node, context);
           const inline =
             index === 0
-              ? renderTaskAwareInline(part.nodes, context)
+              ? renderTaskAwareInline(
+                  part.nodes,
+                  items[itemIndex]?.checked,
+                  context,
+                )
               : part.nodes.map((n) => renderNode(n, context)).join("");
           return loose ? `<p>${inline}</p>\n` : inline;
         })

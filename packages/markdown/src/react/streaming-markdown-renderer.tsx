@@ -1,42 +1,30 @@
+import {
+  STREAMING_MARKDOWN_CARET_ATTRS,
+  STREAMING_MARKDOWN_CARET_STYLE,
+  STREAMING_MARKDOWN_ROOT_CLASS,
+  buildStreamingMarkdownRenderTree,
+  findStreamingMarkdownOpenNode,
+  getStreamingMarkdownStyles,
+} from "@copilotkit/markdown";
 import type {
-  CitationDefinition,
-  CitationState,
   StreamingMarkdownAstNode,
+  StreamingMarkdownCitationRenderData,
+  StreamingMarkdownNodeClassNames,
+  StreamingMarkdownNodeRendererKey,
   StreamingMarkdownNodeType,
   StreamingMarkdownParserOptions,
-  TextSegment,
+  StreamingMarkdownRenderChild,
+  StreamingMarkdownRenderElement,
+  StreamingMarkdownRenderNode,
 } from "@copilotkit/markdown";
-import { Fragment, useMemo, useRef } from "react";
+import { Fragment, createElement, useMemo, useRef } from "react";
 import type { MouseEvent, ReactNode } from "react";
 import { useStreamingMarkdownParser } from "./use-streaming-markdown-parser";
 
-// URL allowlists for link/image rendering — mirrors the Vue renderer so both
-// frameworks honor the documented XSS guarantee (only http(s), mailto, tel,
-// relative, anchor, and non-SVG data:image/* URLs are allowed). Anything else
-// (javascript:, data:text/html, data:image/svg+xml, vbscript:, …) is dropped.
-const SAFE_HREF = /^(https?:|mailto:|tel:|#|\/|\.\/|\.\.\/)/i;
-const SAFE_IMG_SRC = /^(https?:|data:image\/(?!svg)|\/|\.\/|\.\.\/)/i;
-
-function sanitizeHref(href: string | undefined): string | undefined {
-  if (!href) return undefined;
-  return SAFE_HREF.test(href.trim()) ? href : undefined;
-}
-
-function sanitizeImgSrc(src: string | undefined): string | undefined {
-  if (!src) return undefined;
-  return SAFE_IMG_SRC.test(src.trim()) ? src : undefined;
-}
-
-/**
- * Metadata available when a citation node is rendered.
- *
- * @public
- */
-export interface StreamingMarkdownCitationRenderData {
-  id: string;
-  number: number | string;
-  definition?: CitationDefinition;
-}
+export type {
+  StreamingMarkdownCitationRenderData,
+  StreamingMarkdownNodeRendererKey,
+} from "@copilotkit/markdown";
 
 /**
  * Props for the `StreamingMarkdownRenderer` component.
@@ -96,6 +84,12 @@ export interface StreamingMarkdownRendererProps {
    * Optional custom renderers keyed by streaming markdown node type.
    */
   nodeRenderers?: StreamingMarkdownNodeRenderers;
+
+  /**
+   * Extra classes for the default element of a node type, for example
+   * `{ codeBlock: "my-code-block" }`.
+   */
+  nodeClassNames?: StreamingMarkdownNodeClassNames;
 }
 
 /**
@@ -175,36 +169,6 @@ export type StreamingMarkdownCaret =
 type StreamingMarkdownNodeOfType<TNodeType extends StreamingMarkdownNodeType> =
   Extract<StreamingMarkdownAstNode, { type: TNodeType }>;
 
-/**
- * Supported key names for `nodeRenderers`.
- *
- * @public
- */
-export type StreamingMarkdownNodeRendererKey =
-  | "node"
-  | "document"
-  | "paragraph"
-  | "heading"
-  | "blockquote"
-  | "list"
-  | "listItem"
-  | "codeBlock"
-  | "table"
-  | "tableRow"
-  | "tableCell"
-  | "thematicBreak"
-  | "text"
-  | "em"
-  | "strong"
-  | "strikethrough"
-  | "inlineCode"
-  | "softBreak"
-  | "hardBreak"
-  | "image"
-  | "link"
-  | "autolink"
-  | "citation";
-
 type StreamingMarkdownNodeByRendererKey = {
   node: StreamingMarkdownAstNode;
   document: StreamingMarkdownNodeOfType<"document">;
@@ -229,6 +193,7 @@ type StreamingMarkdownNodeByRendererKey = {
   link: StreamingMarkdownNodeOfType<"link">;
   autolink: StreamingMarkdownNodeOfType<"autolink">;
   citation: StreamingMarkdownNodeOfType<"citation">;
+  math: StreamingMarkdownNodeOfType<"math">;
 };
 
 /**
@@ -254,198 +219,19 @@ export function createStreamingMarkdownNodeRenderers<
 }
 
 type RenderContext = {
-  nodeById: Map<number, StreamingMarkdownAstNode>;
-  citations: CitationState;
   onLinkClickRef: { current: StreamingMarkdownRendererProps["onLinkClick"] };
   onCitationClickRef: {
     current: StreamingMarkdownRendererProps["onCitationClick"];
   };
   nodeRenderers?: StreamingMarkdownNodeRenderers;
-  caretTargetNodeId: number | null;
   caretNode: ReactNode;
 };
 
-type StreamingMarkdownTextNode = Extract<
-  StreamingMarkdownAstNode,
-  { type: "text" }
->;
-type StreamingMarkdownCitationNode = Extract<
-  StreamingMarkdownAstNode,
-  { type: "citation" }
->;
-
-const WORD_JOINER = "\u2060";
-const DEFAULT_ROOT_CLASS = "cpk-streaming-markdown-root";
-const DEFAULT_CITATION_CLASS = "cpk-streaming-markdown-citation";
-const DEFAULT_CITATION_LABEL_CLASS = "cpk-streaming-markdown-citation-label";
-const DEFAULT_STYLES = `
-  .${DEFAULT_ROOT_CLASS} .cpk-streaming-markdown-segment {
-    opacity: 1;
-    transition: opacity 400ms ease-out;
-    @starting-style {
-      opacity: 0;
-    }
-  }
-
-  .${DEFAULT_ROOT_CLASS} .${DEFAULT_CITATION_CLASS} {
-    vertical-align: baseline;
-  }
-
-  .${DEFAULT_ROOT_CLASS} .${DEFAULT_CITATION_LABEL_CLASS} {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    inline-size: 1.4em;
-    block-size: 1.4em;
-    border-radius: 999px;
-    border: 1px solid hsl(0 0% 50% / 0.35);
-    background-color: hsl(0 0% 50% / 0.16);
-    color: inherit;
-    font-size: 0.7em;
-    line-height: 1;
-    font-variant-numeric: tabular-nums;
-    text-decoration: none;
-    transform: translateY(-0.15em);
-  }
-`;
-
-const DEFAULT_STYLES_FALLBACK = `
-  .${DEFAULT_ROOT_CLASS} .cpk-streaming-markdown-segment {
-    opacity: 1;
-    transition: opacity 400ms ease-out;
-  }
-
-  .${DEFAULT_ROOT_CLASS} .${DEFAULT_CITATION_CLASS} {
-    vertical-align: baseline;
-  }
-
-  .${DEFAULT_ROOT_CLASS} .${DEFAULT_CITATION_LABEL_CLASS} {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    inline-size: 1.4em;
-    block-size: 1.4em;
-    border-radius: 999px;
-    border: 1px solid hsl(0 0% 50% / 0.35);
-    background-color: hsl(0 0% 50% / 0.16);
-    color: inherit;
-    font-size: 0.7em;
-    line-height: 1;
-    font-variant-numeric: tabular-nums;
-    text-decoration: none;
-    transform: translateY(-0.15em);
-  }
-`;
-
-type ContainerNodeType = Extract<
-  StreamingMarkdownNodeType,
-  | "document"
-  | "paragraph"
-  | "heading"
-  | "blockquote"
-  | "list"
-  | "list-item"
-  | "table"
-  | "table-row"
-  | "table-cell"
-  | "em"
-  | "strong"
-  | "strikethrough"
-  | "link"
->;
-
-const NODE_TYPE_TO_RENDERER_KEY: Record<
-  StreamingMarkdownNodeType,
-  StreamingMarkdownNodeRendererKey
-> = {
-  document: "document",
-  paragraph: "paragraph",
-  heading: "heading",
-  blockquote: "blockquote",
-  list: "list",
-  "list-item": "listItem",
-  "code-block": "codeBlock",
-  table: "table",
-  "table-row": "tableRow",
-  "table-cell": "tableCell",
-  "thematic-break": "thematicBreak",
-  text: "text",
-  em: "em",
-  strong: "strong",
-  strikethrough: "strikethrough",
-  "inline-code": "inlineCode",
-  "soft-break": "softBreak",
-  "hard-break": "hardBreak",
-  image: "image",
-  link: "link",
-  autolink: "autolink",
-  citation: "citation",
-};
-
-function renderWithOverride<TNode extends StreamingMarkdownAstNode>(
-  node: TNode,
-  context: RenderContext,
-  defaultNode: ReactNode,
-  children: ReactNode = null,
-  citation?: StreamingMarkdownCitationRenderData,
-): ReactNode {
-  const rendererKey = NODE_TYPE_TO_RENDERER_KEY[node.type];
-  const renderer = (context.nodeRenderers?.[rendererKey] ??
-    context.nodeRenderers?.node) as
-    | StreamingMarkdownNodeRenderer<TNode>
-    | undefined;
-
-  if (!renderer) {
-    return defaultNode;
-  }
-
-  return renderer({
-    node,
-    children,
-    defaultNode,
-    citation,
-  });
-}
-
-function renderChildren(
-  node: { children: number[] },
-  context: RenderContext,
-): ReactNode {
-  return node.children.map((childId) => {
-    const childNode = context.nodeById.get(childId);
-
-    if (!childNode) {
-      return null;
-    }
-
-    return <Fragment key={childId}>{renderNode(childNode, context)}</Fragment>;
-  });
-}
-
-function renderCaret(nodeId: number, context: RenderContext): ReactNode {
-  if (context.caretTargetNodeId !== nodeId) {
-    return null;
-  }
-
-  return <Fragment key={`caret-${nodeId}`}>{context.caretNode}</Fragment>;
-}
-
-function renderDefaultCaret(): ReactNode {
+function renderDefaultCaret() {
   return (
     <span
-      aria-hidden
-      className="cpk-streaming-markdown-caret"
-      data-streaming-markdown-caret
-      style={{
-        display: "inline-block",
-        width: "0.48em",
-        height: "0.48em",
-        marginInlineStart: "0.08em",
-        verticalAlign: "-0.08em",
-        borderRadius: "999px",
-        backgroundColor: "currentColor",
-        opacity: 0.55,
-      }}
+      {...STREAMING_MARKDOWN_CARET_ATTRS}
+      style={STREAMING_MARKDOWN_CARET_STYLE}
     />
   );
 }
@@ -469,481 +255,102 @@ function resolveCaretNode(
   return caret;
 }
 
-function renderTextSegments(node: StreamingMarkdownTextNode): ReactNode {
-  if (node.text.length === 0) {
-    return null;
-  }
-
-  if (node.segments.length === 0) {
-    return (
-      <span
-        key={`segment-${node.id}-full`}
-        className="cpk-streaming-markdown-segment"
-        data-streaming-markdown-segment-kind="full"
-        data-streaming-markdown-whitespace="false"
-      >
-        {node.text}
-      </span>
-    );
-  }
-
-  return node.segments.map((segment: TextSegment) => (
-    <span
-      key={`segment-${node.id}-${segment.start}-${segment.kind}`}
-      className="cpk-streaming-markdown-segment"
-      data-streaming-markdown-segment-kind={segment.kind}
-      data-streaming-markdown-whitespace={String(segment.isWhitespace)}
-    >
-      {segment.noBreakBefore ? `${WORD_JOINER}${segment.text}` : segment.text}
-    </span>
-  ));
-}
-
-function handleLinkClick(
+function toReactProps(
+  element: StreamingMarkdownRenderElement,
   context: RenderContext,
-  node: StreamingMarkdownAstNode,
-  url: string,
 ) {
-  return (event: MouseEvent<HTMLAnchorElement>) => {
-    context.onLinkClickRef.current?.(event, url, node);
-  };
+  const props: Record<string, unknown> = { key: element.key };
+  const entries = Object.entries(element.attrs);
+  for (const [name, value] of entries) {
+    props[name === "class" ? "className" : name] = value;
+  }
+  // A task-list checkbox is display-only; readOnly tells React it is
+  // intentionally uncontrolled by user input.
+  if (element.tag === "input") props.readOnly = true;
+
+  const action = element.action;
+  if (action?.type === "link") {
+    props.onClick = (event: MouseEvent<HTMLAnchorElement>) => {
+      context.onLinkClickRef.current?.(event, action.url, action.node);
+    };
+  }
+  if (action?.type === "citation") {
+    props.onClick = (event: MouseEvent<HTMLAnchorElement>) => {
+      context.onCitationClickRef.current?.(event, action.citation, action.node);
+    };
+  }
+  return props;
 }
 
-function getCitationRenderData(
-  node: StreamingMarkdownCitationNode,
+const VOID_TAGS = new Set(["br", "hr", "img", "input"]);
+
+function renderList(
+  children: StreamingMarkdownRenderChild[],
   context: RenderContext,
-): StreamingMarkdownCitationRenderData {
-  const number =
-    node.number ?? context.citations.numbers[node.idRef] ?? node.idRef;
-  const definition = context.citations.definitions[node.idRef];
-  return {
-    id: node.idRef,
-    number,
-    definition,
-  } satisfies StreamingMarkdownCitationRenderData;
+  slot: ReactNode,
+): ReactNode[] {
+  return children.map((child) => renderChild(child, context, slot));
 }
 
-function renderDefaultCitation(
-  node: StreamingMarkdownCitationNode,
+/** Unwraps single-entry lists so overrides see `"text"` rather than `["text"]`. */
+function collapse(nodes: ReactNode[]): ReactNode {
+  return nodes.length === 1 ? nodes[0] : nodes;
+}
+
+function renderChild(
+  child: StreamingMarkdownRenderChild,
   context: RenderContext,
-  citation: StreamingMarkdownCitationRenderData,
+  slot: ReactNode,
 ): ReactNode {
-  const label = String(citation.number);
-  const href = sanitizeHref(citation.definition?.url);
-
-  if (!href) {
-    return (
-      <sup
-        key={node.id}
-        className={DEFAULT_CITATION_CLASS}
-        data-streaming-markdown-node={node.type}
-        data-node-open={String(!node.closed)}
-      >
-        <span role="doc-noteref" className={DEFAULT_CITATION_LABEL_CLASS}>
-          {label}
-        </span>
-      </sup>
-    );
-  }
-
-  return (
-    <sup
-      key={node.id}
-      className={DEFAULT_CITATION_CLASS}
-      data-streaming-markdown-node={node.type}
-      data-node-open={String(!node.closed)}
-    >
-      <a
-        href={href}
-        target="_blank"
-        rel="noopener noreferrer"
-        role="doc-noteref"
-        className={DEFAULT_CITATION_LABEL_CLASS}
-        onClick={(event) => {
-          context.onCitationClickRef.current?.(event, citation, node);
-        }}
-      >
-        {label}
-      </a>
-    </sup>
-  );
-}
-
-function renderContainerNode(
-  node: Extract<StreamingMarkdownAstNode, { type: ContainerNodeType }>,
-  context: RenderContext,
-): ReactNode {
-  const children = (
-    <>
-      {renderChildren(node, context)}
-      {renderCaret(node.id, context)}
-    </>
-  );
-
-  if (node.type === "document") {
-    return renderWithOverride(
-      node,
-      context,
-      <Fragment key={node.id}>{children}</Fragment>,
-      children,
-    );
-  }
-
-  if (node.type === "paragraph") {
-    const defaultNode = (
-      <p
-        key={node.id}
-        data-streaming-markdown-node={node.type}
-        data-node-open={String(!node.closed)}
-      >
-        {children}
-      </p>
-    );
-    return renderWithOverride(node, context, defaultNode, children);
-  }
-
-  if (node.type === "heading") {
-    const headingTag = `h${node.level}` as const;
-    const defaultNode =
-      headingTag === "h1" ? (
-        <h1
-          key={node.id}
-          data-streaming-markdown-node={node.type}
-          data-node-open={String(!node.closed)}
-        >
-          {children}
-        </h1>
-      ) : headingTag === "h2" ? (
-        <h2
-          key={node.id}
-          data-streaming-markdown-node={node.type}
-          data-node-open={String(!node.closed)}
-        >
-          {children}
-        </h2>
-      ) : headingTag === "h3" ? (
-        <h3
-          key={node.id}
-          data-streaming-markdown-node={node.type}
-          data-node-open={String(!node.closed)}
-        >
-          {children}
-        </h3>
-      ) : headingTag === "h4" ? (
-        <h4
-          key={node.id}
-          data-streaming-markdown-node={node.type}
-          data-node-open={String(!node.closed)}
-        >
-          {children}
-        </h4>
-      ) : headingTag === "h5" ? (
-        <h5
-          key={node.id}
-          data-streaming-markdown-node={node.type}
-          data-node-open={String(!node.closed)}
-        >
-          {children}
-        </h5>
-      ) : (
-        <h6
-          key={node.id}
-          data-streaming-markdown-node={node.type}
-          data-node-open={String(!node.closed)}
-        >
-          {children}
-        </h6>
-      );
-    return renderWithOverride(node, context, defaultNode, children);
-  }
-
-  if (node.type === "blockquote") {
-    const defaultNode = (
-      <blockquote
-        key={node.id}
-        data-streaming-markdown-node={node.type}
-        data-node-open={String(!node.closed)}
-      >
-        {children}
-      </blockquote>
-    );
-    return renderWithOverride(node, context, defaultNode, children);
-  }
-
-  if (node.type === "list") {
-    if (node.ordered) {
-      const defaultNode = (
-        <ol
-          key={node.id}
-          start={node.start ?? undefined}
-          data-streaming-markdown-node={node.type}
-          data-node-open={String(!node.closed)}
-          data-list-tight={String(node.tight)}
-        >
-          {children}
-        </ol>
-      );
-      return renderWithOverride(node, context, defaultNode, children);
+  switch (child.kind) {
+    case "node":
+      return renderRenderNode(child, context);
+    case "element": {
+      const props = toReactProps(child, context);
+      return VOID_TAGS.has(child.tag)
+        ? createElement(child.tag, props)
+        : createElement(
+            child.tag,
+            props,
+            ...renderList(child.children, context, slot),
+          );
     }
-
-    const defaultNode = (
-      <ul
-        key={node.id}
-        data-streaming-markdown-node={node.type}
-        data-node-open={String(!node.closed)}
-        data-list-tight={String(node.tight)}
-      >
-        {children}
-      </ul>
-    );
-    return renderWithOverride(node, context, defaultNode, children);
-  }
-
-  if (node.type === "list-item") {
-    const defaultNode = (
-      <li
-        key={node.id}
-        data-streaming-markdown-node={node.type}
-        data-node-open={String(!node.closed)}
-      >
-        {children}
-      </li>
-    );
-    return renderWithOverride(node, context, defaultNode, children);
-  }
-
-  if (node.type === "table") {
-    const defaultNode = (
-      <table
-        key={node.id}
-        data-streaming-markdown-node={node.type}
-        data-node-open={String(!node.closed)}
-      >
-        <tbody>{children}</tbody>
-      </table>
-    );
-    return renderWithOverride(node, context, defaultNode, children);
-  }
-
-  if (node.type === "table-row") {
-    const defaultNode = (
-      <tr
-        key={node.id}
-        data-streaming-markdown-node={node.type}
-        data-node-open={String(!node.closed)}
-      >
-        {children}
-      </tr>
-    );
-    return renderWithOverride(node, context, defaultNode, children);
-  }
-
-  if (node.type === "table-cell") {
-    const parent =
-      node.parentId == null ? undefined : context.nodeById.get(node.parentId);
-    const isHeaderRow = parent?.type === "table-row" && parent.isHeader;
-    if (isHeaderRow) {
-      const defaultNode = (
-        <th
-          key={node.id}
-          data-streaming-markdown-node={node.type}
-          data-node-open={String(!node.closed)}
-        >
-          {children}
-        </th>
-      );
-      return renderWithOverride(node, context, defaultNode, children);
+    case "text":
+      return child.text;
+    case "caret":
+      return <Fragment key={child.key}>{context.caretNode}</Fragment>;
+    case "slot":
+      return <Fragment key={child.key}>{slot}</Fragment>;
+    default: {
+      const unreachable: never = child;
+      return unreachable;
     }
-
-    const defaultNode = (
-      <td
-        key={node.id}
-        data-streaming-markdown-node={node.type}
-        data-node-open={String(!node.closed)}
-      >
-        {children}
-      </td>
-    );
-    return renderWithOverride(node, context, defaultNode, children);
   }
-
-  if (node.type === "em") {
-    const defaultNode = (
-      <em
-        key={node.id}
-        data-streaming-markdown-node={node.type}
-        data-node-open={String(!node.closed)}
-      >
-        {children}
-      </em>
-    );
-    return renderWithOverride(node, context, defaultNode, children);
-  }
-
-  if (node.type === "strong") {
-    const defaultNode = (
-      <strong
-        key={node.id}
-        data-streaming-markdown-node={node.type}
-        data-node-open={String(!node.closed)}
-      >
-        {children}
-      </strong>
-    );
-    return renderWithOverride(node, context, defaultNode, children);
-  }
-
-  if (node.type === "strikethrough") {
-    const defaultNode = (
-      <s
-        key={node.id}
-        data-streaming-markdown-node={node.type}
-        data-node-open={String(!node.closed)}
-      >
-        {children}
-      </s>
-    );
-    return renderWithOverride(node, context, defaultNode, children);
-  }
-
-  const href = sanitizeHref(node.url);
-  const defaultNode = (
-    <a
-      key={node.id}
-      href={href}
-      target="_blank"
-      rel="noopener noreferrer"
-      title={node.title}
-      onClick={href ? handleLinkClick(context, node, href) : undefined}
-      data-streaming-markdown-node={node.type}
-      data-node-open={String(!node.closed)}
-    >
-      {children}
-    </a>
-  );
-  return renderWithOverride(node, context, defaultNode, children);
 }
 
-function renderNode(
-  node: StreamingMarkdownAstNode,
+function renderRenderNode(
+  renderNode: StreamingMarkdownRenderNode,
   context: RenderContext,
 ): ReactNode {
-  if (
-    node.type === "document" ||
-    node.type === "paragraph" ||
-    node.type === "heading" ||
-    node.type === "blockquote" ||
-    node.type === "list" ||
-    node.type === "list-item" ||
-    node.type === "table" ||
-    node.type === "table-row" ||
-    node.type === "table-cell" ||
-    node.type === "em" ||
-    node.type === "strong" ||
-    node.type === "strikethrough" ||
-    node.type === "link"
-  ) {
-    return renderContainerNode(node, context);
-  }
+  const children =
+    renderNode.children === null
+      ? null
+      : collapse(renderList(renderNode.children, context, null));
+  const defaultNode = collapse(
+    renderList(renderNode.output, context, children),
+  );
+  const renderer = (context.nodeRenderers?.[renderNode.rendererKey] ??
+    context.nodeRenderers?.node) as StreamingMarkdownNodeRenderer | undefined;
 
-  if (node.type === "code-block") {
-    const defaultNode = (
-      <pre
-        key={node.id}
-        data-streaming-markdown-node={node.type}
-        data-node-open={String(!node.closed)}
-      >
-        <code data-code-info={node.info ?? undefined}>
-          {node.text}
-          {renderCaret(node.id, context)}
-        </code>
-      </pre>
-    );
-    return renderWithOverride(node, context, defaultNode);
-  }
-
-  if (node.type === "thematic-break") {
-    const defaultNode = (
-      <hr
-        key={node.id}
-        data-streaming-markdown-node={node.type}
-        data-node-open={String(!node.closed)}
-      />
-    );
-    return renderWithOverride(node, context, defaultNode);
-  }
-
-  if (node.type === "text") {
-    const children = renderTextSegments(node);
-    const defaultNode = <Fragment key={node.id}>{children}</Fragment>;
-    return renderWithOverride(node, context, defaultNode, children);
-  }
-
-  if (node.type === "inline-code") {
-    const defaultNode = (
-      <code
-        key={node.id}
-        data-streaming-markdown-node={node.type}
-        data-node-open={String(!node.closed)}
-      >
-        {node.text}
-      </code>
-    );
-    return renderWithOverride(node, context, defaultNode, node.text);
-  }
-
-  if (node.type === "soft-break") {
-    const children = "\n";
-    const defaultNode = <Fragment key={node.id}>{children}</Fragment>;
-    return renderWithOverride(node, context, defaultNode, children);
-  }
-
-  if (node.type === "hard-break") {
-    const defaultNode = (
-      <br
-        key={node.id}
-        data-streaming-markdown-node={node.type}
-        data-node-open={String(!node.closed)}
-      />
-    );
-    return renderWithOverride(node, context, defaultNode);
-  }
-
-  if (node.type === "image") {
-    const defaultNode = (
-      <img
-        key={node.id}
-        src={sanitizeImgSrc(node.url)}
-        alt={node.alt}
-        title={node.title}
-        data-streaming-markdown-node={node.type}
-        data-node-open={String(!node.closed)}
-      />
-    );
-    return renderWithOverride(node, context, defaultNode);
-  }
-
-  if (node.type === "autolink") {
-    const href = sanitizeHref(node.url);
-    const defaultNode = (
-      <a
-        key={node.id}
-        href={href}
-        target="_blank"
-        rel="noopener noreferrer"
-        onClick={href ? handleLinkClick(context, node, href) : undefined}
-        data-streaming-markdown-node={node.type}
-        data-node-open={String(!node.closed)}
-      >
-        {node.text}
-      </a>
-    );
-    return renderWithOverride(node, context, defaultNode, node.text);
-  }
-
-  const citation = getCitationRenderData(node, context);
-  const defaultNode = renderDefaultCitation(node, context, citation);
-  return renderWithOverride(node, context, defaultNode, null, citation);
+  const rendered = renderer
+    ? renderer({
+        node: renderNode.node,
+        children,
+        defaultNode,
+        citation: renderNode.citation,
+      })
+    : defaultNode;
+  return <Fragment key={renderNode.key}>{rendered}</Fragment>;
 }
 
 /**
@@ -960,6 +367,7 @@ export function StreamingMarkdownRenderer({
   onLinkClick,
   onCitationClick,
   nodeRenderers,
+  nodeClassNames,
 }: StreamingMarkdownRendererProps) {
   const text = children ?? "";
   const parserState = useStreamingMarkdownParser(text, options, isComplete);
@@ -970,84 +378,34 @@ export function StreamingMarkdownRenderer({
   onLinkClickRef.current = onLinkClick;
   onCitationClickRef.current = onCitationClick;
 
-  const nodeById = useMemo(() => {
-    const map = new Map<number, StreamingMarkdownAstNode>();
-
-    for (const node of parserState.nodes) {
-      map.set(node.id, node);
-    }
-
-    return map;
-  }, [parserState.nodes]);
-
-  const context = useMemo(() => {
-    const openNode = findDeepestOpenRenderableNode(parserState.stack, nodeById);
+  const content = useMemo(() => {
     const caretNode = resolveCaretNode(caret, {
       isComplete: parserState.isComplete,
-      openNode,
+      openNode: findStreamingMarkdownOpenNode(parserState),
     });
-    const caretTargetNodeId =
-      !parserState.isComplete && openNode != null && caretNode != null
-        ? openNode.id
-        : null;
-
-    return {
-      nodeById,
-      citations: parserState.citations,
+    const tree = buildStreamingMarkdownRenderTree(parserState, {
+      caret: caretNode != null,
+      nodeClassNames,
+    });
+    if (!tree.root) return null;
+    return renderRenderNode(tree.root, {
       onLinkClickRef,
       onCitationClickRef,
       nodeRenderers,
-      caretTargetNodeId,
       caretNode,
-    };
-  }, [
-    nodeById,
-    parserState.citations,
-    parserState.isComplete,
-    parserState.stack,
-    nodeRenderers,
-    caret,
-  ]);
+    });
+  }, [parserState, nodeRenderers, nodeClassNames, caret]);
 
-  const rootNode =
-    parserState.rootId == null ? undefined : nodeById.get(parserState.rootId);
   const rootClassName = className
-    ? `${DEFAULT_ROOT_CLASS} ${className}`
-    : DEFAULT_ROOT_CLASS;
-  const styleText =
-    typeof navigator !== "undefined" && /jsdom/i.test(navigator.userAgent)
-      ? DEFAULT_STYLES_FALLBACK
-      : DEFAULT_STYLES;
-
-  if (!rootNode) {
-    return (
-      <>
-        <style>{styleText}</style>
-        <div className={rootClassName} data-streaming-markdown-root />
-      </>
-    );
-  }
+    ? `${STREAMING_MARKDOWN_ROOT_CLASS} ${className}`
+    : STREAMING_MARKDOWN_ROOT_CLASS;
 
   return (
     <>
-      <style>{styleText}</style>
+      <style>{getStreamingMarkdownStyles()}</style>
       <div className={rootClassName} data-streaming-markdown-root>
-        {renderNode(rootNode, context)}
+        {content}
       </div>
     </>
   );
-}
-
-function findDeepestOpenRenderableNode(
-  stack: number[],
-  nodeById: Map<number, StreamingMarkdownAstNode>,
-): StreamingMarkdownAstNode | null {
-  for (let index = stack.length - 1; index >= 0; index -= 1) {
-    const candidate = nodeById.get(stack[index]) ?? null;
-    if (candidate && candidate.type !== "document") {
-      return candidate;
-    }
-  }
-
-  return null;
 }

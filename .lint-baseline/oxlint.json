@@ -199,7 +199,7 @@
       "packages/core/src/utils/runtime-request.ts": 1,
       "packages/intelligence-langgraph/src/invocation.ts": 1,
       "packages/markdown/src/react-native/streaming-markdown-renderer.tsx": 23,
-      "packages/markdown/src/vue/streaming-markdown-renderer.ts": 3,
+      "packages/markdown/src/vue/streaming-markdown-renderer.ts": 2,
       "packages/mcp-apps-renderer/src/request-queue.ts": 1,
       "packages/mcp-apps-renderer/src/session.ts": 4,
       "packages/react-core/src/components/CopilotKitInspector.tsx": 1,

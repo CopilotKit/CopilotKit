@@ -2200,6 +2200,9 @@ importers:
       '@copilotkit/core':
         specifier: workspace:^
         version: link:../core
+      '@copilotkit/markdown':
+        specifier: workspace:^
+        version: link:../markdown
       '@copilotkit/mcp-apps-renderer':
         specifier: workspace:^
         version: link:../mcp-apps-renderer
@@ -2212,15 +2215,9 @@ importers:
       '@copilotkit/web-inspector':
         specifier: workspace:^
         version: link:../web-inspector
-      dompurify:
-        specifier: '>=3.3.2'
-        version: 3.4.1
       katex:
         specifier: ^0.16.22
         version: 0.16.27
-      marked:
-        specifier: ^12.0.2
-        version: 12.0.2
       zod:
         specifier: ^4.2.0
         version: 4.6.7
@@ -25015,7 +25012,7 @@ packages:
   vite-hot-client@2.2.0:
     resolution: {integrity: sha512-76Zs9zrHbH7M7wqeyooGQKdX+yg0pQ0xuQ1PbFp4z5a0Lzn2e5IPFoCswnmqZ4GiwqB4Jo3WcDAMO9jARTJl8w==}
     peerDependencies:
-      vite: '>=6.4.2'
+      vite: 7.3.2
 
   vite-node@3.2.4:
     resolution: {integrity: sha512-EbKSKh+bh1E1IFxeO0pg1n4dvoOTt0UDiXMd/qn++r98+jPO1xtJilvXldeuQ8giIB5IkpjCgMleHMNEsGH6pg==}

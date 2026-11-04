@@ -251,6 +251,13 @@ CSS that targets `[data-streamdown]` no longer matches. Search the stylesheets f
 
 Vue: delete every `useKatexStyles` import and call, including in `.vue` files. The export was removed.
 
+Code that reads the `@copilotkit/markdown` AST (the codemod marks imports of `StreamingMarkdownAstNode`, `StreamingMarkdownNodeType`, `StreamingMarkdownNodeRendererKey`, and `VueStreamingMarkdownNodeRendererKey`):
+
+- Add a `math` case to each exhaustive `switch (node.type)` and to each map keyed by every node type. The parser makes `math` nodes (`text`, `display`) only when the `enableMath` option is `true`.
+- A task-list item (`- [x] done`) is a `list-item` node with `checked: true` or `checked: false`. Its text no longer starts with `[ ]` or `[x]`. Read `node.checked` instead of the text.
+
+Behavior changes with no code to mark (tell the user, do not change code): Angular now uses the same renderer as React and Vue, so raw HTML in model output shows as text and a single newline is a soft break. Angular no longer installs `marked` or `dompurify`. React and Vue render task-list items as disabled checkboxes. Docs: https://docs.copilotkit.ai/migrate/markdown-renderer#rendering-changes-in-20
+
 ## Generative UI
 
 Docs: https://docs.copilotkit.ai/migrate/generative-ui-2.0

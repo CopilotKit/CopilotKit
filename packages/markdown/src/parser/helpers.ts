@@ -8,6 +8,7 @@ export const DEFAULT_OPTIONS: StreamingMarkdownParserOptions = {
   segmenter: true,
   enableTables: true,
   enableAutolinks: true,
+  enableMath: false,
 };
 
 /**
@@ -24,6 +25,7 @@ export function normalizeOptions(
     enableTables: options?.enableTables ?? DEFAULT_OPTIONS.enableTables,
     enableAutolinks:
       options?.enableAutolinks ?? DEFAULT_OPTIONS.enableAutolinks,
+    enableMath: options?.enableMath ?? DEFAULT_OPTIONS.enableMath,
   };
 }
 

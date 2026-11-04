@@ -46,6 +46,12 @@ export default defineConfig([
   },
   {
     ...shared,
+    entry: { index: "src/dom/index.ts" },
+    outDir: "dist/dom",
+    clean: false,
+  },
+  {
+    ...shared,
     entry: { index: "src/react-native/index.ts" },
     outDir: "dist/react-native",
     clean: false,
