@@ -568,6 +568,8 @@ export interface SubscribeToMemoriesResponse {
 export type ConnectThreadResponse = ThreadConnectionResponse | null;
 
 export interface AcquireThreadLockResponse extends ThreadConnectionResponse {
+  /** Authenticated admission policy for a backend that already stores history. */
+  inputPolicy?: "native-history-delta-v1";
   /** Server-owned native ID for backend execution; public identity remains threadId. */
   backendThreadId?: string;
   /** Canonical platform run identifier for the acquired lock. */
@@ -650,6 +652,8 @@ export interface ThreadMessage {
 
 /** Response from {@link CopilotKitIntelligence.getThreadMessages}. */
 export interface ThreadMessagesResponse {
+  /** Confirms the native replay read passed the accepted-event projection barrier. */
+  consistency?: "runner-accepted";
   messages: ThreadMessage[];
 }
 
@@ -690,6 +694,8 @@ export type ThreadStateResponse =
 export interface AcquireThreadLockRequest {
   /** Caller can forward a server-owned native ID while retaining public ownership. */
   supportsBackendThreadId?: boolean;
+  /** Version of the native history delta contract implemented by this caller. */
+  supportsNativeHistoryDelta?: 1;
   threadId: string;
   runId: string;
   userId: string;
@@ -2219,10 +2225,14 @@ export class CopilotKitIntelligence {
   async getThreadMessages(params: {
     threadId: string;
     userId: string;
+    /** Wait for accepted runner events to reach the complete SQL replay view. */
+    consistency?: "runner-accepted";
     /** Internal managed-Channel delivery context for shared Thread access. */
     channelDeliveryId?: string;
   }): Promise<ThreadMessagesResponse> {
-    const qs = new URLSearchParams({ userId: params.userId }).toString();
+    const query = new URLSearchParams({ userId: params.userId });
+    if (params.consistency) query.set("consistency", params.consistency);
+    const qs = query.toString();
     return this.#request<ThreadMessagesResponse>(
       "GET",
       `/api/threads/${encodeURIComponent(params.threadId)}/messages?${qs}`,
@@ -2447,6 +2457,9 @@ export class CopilotKitIntelligence {
       {
         runId: params.runId,
         userId: params.userId,
+        ...(params.supportsNativeHistoryDelta === undefined
+          ? {}
+          : { supportsNativeHistoryDelta: params.supportsNativeHistoryDelta }),
         agentId: params.agentId,
         ...(params.supportsBackendThreadId === undefined
           ? {}
