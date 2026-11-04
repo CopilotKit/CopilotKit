@@ -1,5 +1,6 @@
 import React from "react";
 import { render, screen, fireEvent } from "@testing-library/react";
+import "@testing-library/jest-dom";
 import { describe, it, expect, vi } from "vitest";
 import { CopilotChatSuggestionView } from "../CopilotChatSuggestionView";
 import { CopilotKitProvider } from "../../../providers/CopilotKitProvider";
@@ -38,10 +39,10 @@ describe("CopilotChatSuggestionView Slot System E2E Tests", () => {
           </TestWrapper>,
         );
 
-        const containerEl = container.querySelector(".bg-blue-50");
-        expect(containerEl).toBeDefined();
-        expect(containerEl?.classList.contains("gap-4")).toBe(true);
-        expect(containerEl?.classList.contains("p-4")).toBe(true);
+        expect(container.querySelector(".bg-blue-50")).toHaveClass(
+          "gap-4",
+          "p-4",
+        );
       });
 
       it("should merge container classes with default flex-wrap", () => {
@@ -55,8 +56,10 @@ describe("CopilotChatSuggestionView Slot System E2E Tests", () => {
           </TestWrapper>,
         );
 
-        const containerEl = container.querySelector(".custom-container-class");
-        expect(containerEl).toBeDefined();
+        expect(screen.getByTestId("copilot-suggestions")).toHaveClass(
+          "cpk-suggestion-view",
+          "custom-container-class",
+        );
       });
     });
 
@@ -100,8 +103,9 @@ describe("CopilotChatSuggestionView Slot System E2E Tests", () => {
           </TestWrapper>,
         );
 
-        const containerEl = screen.queryByTestId("custom-container");
-        expect(containerEl).toBeDefined();
+        expect(screen.getByTestId("custom-container")).toHaveTextContent(
+          "Suggestion 1",
+        );
       });
 
       it("should pass custom onClick to container", () => {
@@ -120,11 +124,8 @@ describe("CopilotChatSuggestionView Slot System E2E Tests", () => {
           </TestWrapper>,
         );
 
-        const containerEl = screen.queryByTestId("clickable-container");
-        if (containerEl) {
-          fireEvent.click(containerEl);
-          expect(onClick).toHaveBeenCalled();
-        }
+        fireEvent.click(screen.getByTestId("clickable-container"));
+        expect(onClick).toHaveBeenCalledTimes(1);
       });
     });
 
@@ -227,9 +228,9 @@ describe("CopilotChatSuggestionView Slot System E2E Tests", () => {
         </TestWrapper>,
       );
 
-      const custom = screen.queryByTestId("custom-container-component");
-      expect(custom).toBeDefined();
-      expect(custom?.textContent).toContain("Suggestions:");
+      expect(
+        screen.getByTestId("custom-container-component"),
+      ).toHaveTextContent("Suggestions:");
     });
 
     it("should allow custom component for suggestion pills", () => {
@@ -320,8 +321,6 @@ describe("CopilotChatSuggestionView Slot System E2E Tests", () => {
       expect(callArgs).toHaveProperty("suggestion");
       expect(callArgs).toHaveProperty("suggestions");
       expect(callArgs).toHaveProperty("onSelectSuggestion");
-
-      expect(screen.queryByTestId("children-render")).toBeDefined();
     });
 
     it("should pass suggestions array through children render function", () => {
@@ -386,10 +385,9 @@ describe("CopilotChatSuggestionView Slot System E2E Tests", () => {
         </TestWrapper>,
       );
 
-      const customLayout = screen.queryByTestId("custom-layout");
-      expect(customLayout).toBeDefined();
-      expect(customLayout?.textContent).toContain("Quick Actions");
-      expect(customLayout?.textContent).toContain("Total: 3");
+      const customLayout = screen.getByTestId("custom-layout");
+      expect(customLayout).toHaveTextContent("Quick Actions");
+      expect(customLayout).toHaveTextContent("Total: 3");
     });
   });
 
@@ -409,7 +407,7 @@ describe("CopilotChatSuggestionView Slot System E2E Tests", () => {
       );
 
       const containerEl = container.querySelector(".custom-root-class");
-      expect(containerEl).toBeDefined();
+      expect(containerEl).not.toBeNull();
       expect(containerEl?.classList.contains("mt-4")).toBe(true);
     });
 
@@ -427,24 +425,9 @@ describe("CopilotChatSuggestionView Slot System E2E Tests", () => {
 
       // Both classes should be present
       const containerEl = container.querySelector(".container-class");
-      expect(containerEl).toBeDefined();
+      expect(containerEl).not.toBeNull();
       // root className is passed to container
       expect(containerEl?.classList.contains("root-class")).toBe(true);
-    });
-
-    it("should allow overriding default pointer-events-none", () => {
-      const suggestions = createSuggestions();
-      const { container } = render(
-        <TestWrapper>
-          <CopilotChatSuggestionView
-            suggestions={suggestions}
-            container="pointer-events-auto"
-          />
-        </TestWrapper>,
-      );
-
-      const containerEl = container.querySelector(".pointer-events-auto");
-      expect(containerEl).toBeDefined();
     });
   });
 
@@ -467,7 +450,9 @@ describe("CopilotChatSuggestionView Slot System E2E Tests", () => {
         </TestWrapper>,
       );
 
-      expect(container.querySelector(".container-style")).toBeDefined();
+      expect(screen.getByTestId("copilot-suggestions")).toHaveClass(
+        "container-style",
+      );
       expect(container.querySelectorAll(".suggestion-style").length).toBe(3);
     });
 
@@ -482,10 +467,14 @@ describe("CopilotChatSuggestionView Slot System E2E Tests", () => {
         </TestWrapper>,
       );
 
-      // The second suggestion should show loading state
-      const buttons = screen.getAllByRole("button");
-      // Check for loading indicator or disabled state on second button
-      expect(buttons.length).toBeGreaterThan(0);
+      // Only the second suggestion shows the loading state.
+      const pills = screen.getAllByTestId("copilot-suggestion");
+      expect(pills.map((pill) => pill.getAttribute("aria-busy"))).toEqual([
+        null,
+        "true",
+        null,
+      ]);
+      expect(pills[1]).toBeDisabled();
     });
 
     it("should handle empty suggestions array", () => {
@@ -528,14 +517,12 @@ describe("CopilotChatSuggestionView Slot System E2E Tests", () => {
         </TestWrapper>,
       );
 
-      expect(container.querySelector(".flex.gap-2")).toBeDefined();
       expect(container.querySelectorAll(".pill-style").length).toBe(3);
 
-      const containerEl = container.querySelector(".flex.gap-2");
-      if (containerEl) {
-        fireEvent.click(containerEl);
-        expect(onClick).toHaveBeenCalled();
-      }
+      const containerEl = screen.getByTestId("copilot-suggestions");
+      expect(containerEl).toHaveClass("flex", "gap-2");
+      fireEvent.click(containerEl);
+      expect(onClick).toHaveBeenCalledTimes(1);
     });
   });
 });

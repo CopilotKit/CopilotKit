@@ -1,7 +1,9 @@
 import React from "react";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, within } from "@testing-library/react";
+import "@testing-library/jest-dom";
 import { describe, it, expect, vi } from "vitest";
 import { CopilotChatInput } from "../CopilotChatInput";
+import type { CopilotChatInputProps } from "../CopilotChatInput";
 import type { AudioRecorderRef } from "../CopilotChatAudioRecorder";
 import { CopilotKitProvider } from "../../../providers/CopilotKitProvider";
 import { CopilotChatConfigurationProvider } from "../../../providers/CopilotChatConfigurationProvider";
@@ -15,354 +17,217 @@ const TestWrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => (
   </CopilotKitProvider>
 );
 
+function renderInput(props: CopilotChatInputProps = {}) {
+  return render(
+    <TestWrapper>
+      <CopilotChatInput {...props} />
+    </TestWrapper>,
+  );
+}
+
+// Props that make each optional slot render in the default layout.
+const transcribing = {
+  mode: "transcribe",
+  onCancelTranscribe: () => {},
+  onFinishTranscribe: () => {},
+} as const satisfies CopilotChatInputProps;
+
 describe("CopilotChatInput Slot System E2E Tests", () => {
-  // ============================================================================
-  // 1. TAILWIND CLASS TESTS
-  // ============================================================================
+  // The textArea and sendButton string slots are covered by
+  // "accepts custom slot classes" in CopilotChatInput.test.tsx.
   describe("1. Tailwind Class Slot Override", () => {
-    describe("textArea slot", () => {
-      it("should apply tailwind class string to textArea", () => {
-        const { container } = render(
-          <TestWrapper>
-            <CopilotChatInput textArea="border-2 border-blue-500 rounded-lg p-4" />
-          </TestWrapper>,
-        );
+    it.each([
+      {
+        slot: "startTranscribeButton",
+        props: {
+          onStartTranscribe: () => {},
+          startTranscribeButton: "bg-red-500 rounded",
+        },
+        find: () => screen.getByTestId("copilot-start-transcribe-button"),
+        defaultClass: "cpk-chat-input-start-transcribe-button",
+      },
+      {
+        slot: "cancelTranscribeButton",
+        props: { ...transcribing, cancelTranscribeButton: "bg-red-500" },
+        find: () => screen.getByTestId("copilot-cancel-transcribe-button"),
+        defaultClass: "cpk-chat-input-cancel-transcribe-button",
+      },
+      {
+        slot: "finishTranscribeButton",
+        props: { ...transcribing, finishTranscribeButton: "bg-red-500" },
+        find: () => screen.getByTestId("copilot-finish-transcribe-button"),
+        defaultClass: "cpk-chat-input-finish-transcribe-button",
+      },
+      {
+        slot: "addMenuButton",
+        props: {
+          toolsMenu: [{ label: "Test", action: () => {} }],
+          addMenuButton: "bg-red-500",
+        },
+        find: () => screen.getByTestId("copilot-add-menu-button"),
+        defaultClass: "cpk-chat-input-add-menu-button",
+      },
+      {
+        slot: "audioRecorder",
+        props: { mode: "transcribe", audioRecorder: "bg-red-500" },
+        find: () => document.querySelector<HTMLElement>(".cpk-audio-recorder"),
+        defaultClass: "cpk-audio-recorder",
+      },
+      {
+        slot: "disclaimer",
+        props: { showDisclaimer: true, disclaimer: "bg-red-500 italic" },
+        find: () =>
+          document.querySelector<HTMLElement>(".cpk-chat-input-disclaimer"),
+        defaultClass: "cpk-chat-input-disclaimer",
+      },
+    ] satisfies {
+      slot: string;
+      props: CopilotChatInputProps;
+      find: () => HTMLElement | null;
+      defaultClass: string;
+    }[])(
+      "merges a string $slot slot into the default className",
+      ({ props, find, defaultClass }) => {
+        renderInput(props);
 
-        const textAreaEl = container.querySelector(".border-blue-500");
-        expect(textAreaEl).toBeDefined();
-      });
-
-      it("should override default textArea className", () => {
-        const { container } = render(
-          <TestWrapper>
-            <CopilotChatInput textArea="custom-textarea-class" />
-          </TestWrapper>,
-        );
-
-        expect(container.querySelector(".custom-textarea-class")).toBeDefined();
-      });
-    });
-
-    describe("sendButton slot", () => {
-      it("should apply tailwind class string to sendButton", () => {
-        const { container } = render(
-          <TestWrapper>
-            <CopilotChatInput sendButton="bg-green-500 hover:bg-green-600 rounded-full" />
-          </TestWrapper>,
-        );
-
-        const sendBtn = container.querySelector(".bg-green-500");
-        expect(sendBtn).toBeDefined();
-      });
-    });
-
-    describe("startTranscribeButton slot", () => {
-      it("should apply tailwind class string to startTranscribeButton", () => {
-        const { container } = render(
-          <TestWrapper>
-            <CopilotChatInput
-              onStartTranscribe={() => {}}
-              startTranscribeButton="bg-red-500 rounded"
-            />
-          </TestWrapper>,
-        );
-
-        const transcribeBtn = container.querySelector(".bg-red-500");
-        // Button may only appear when transcription is enabled
-      });
-    });
-
-    describe("cancelTranscribeButton slot", () => {
-      it("should apply tailwind class string to cancelTranscribeButton", () => {
-        const { container } = render(
-          <TestWrapper>
-            <CopilotChatInput
-              mode="transcribe"
-              onCancelTranscribe={() => {}}
-              cancelTranscribeButton="bg-gray-500"
-            />
-          </TestWrapper>,
-        );
-
-        const cancelBtn = container.querySelector(".bg-gray-500");
-        // Button appears in transcribe mode
-      });
-    });
-
-    describe("finishTranscribeButton slot", () => {
-      it("should apply tailwind class string to finishTranscribeButton", () => {
-        const { container } = render(
-          <TestWrapper>
-            <CopilotChatInput
-              mode="transcribe"
-              onFinishTranscribe={() => {}}
-              finishTranscribeButton="bg-purple-500"
-            />
-          </TestWrapper>,
-        );
-
-        const finishBtn = container.querySelector(".bg-purple-500");
-        // Button appears in transcribe mode
-      });
-    });
-
-    describe("addMenuButton slot", () => {
-      it("should apply tailwind class string to addMenuButton", () => {
-        const { container } = render(
-          <TestWrapper>
-            <CopilotChatInput
-              toolsMenu={[{ label: "Test", action: () => {} }]}
-              addMenuButton="bg-yellow-500"
-            />
-          </TestWrapper>,
-        );
-
-        const addBtn = container.querySelector(".bg-yellow-500");
-        // Button appears when toolsMenu is provided
-      });
-    });
-
-    describe("audioRecorder slot", () => {
-      it("should apply tailwind class string to audioRecorder", () => {
-        const { container } = render(
-          <TestWrapper>
-            <CopilotChatInput
-              mode="transcribe"
-              audioRecorder="border-dashed border-2"
-            />
-          </TestWrapper>,
-        );
-
-        const recorder = container.querySelector(".border-dashed");
-        // Recorder appears in transcribe mode
-      });
-    });
+        const el = find();
+        expect(el).toHaveClass("bg-red-500", defaultClass);
+      },
+    );
   });
 
-  // ============================================================================
-  // 2. PROPERTIES (onClick, etc.) TESTS
-  // ============================================================================
   describe("2. Properties Slot Override", () => {
     describe("textArea props", () => {
       it("should pass placeholder prop to textArea", async () => {
-        render(
-          <TestWrapper>
-            <CopilotChatInput
-              textArea={{ placeholder: "Custom placeholder..." }}
-            />
-          </TestWrapper>,
-        );
+        renderInput({ textArea: { placeholder: "Custom placeholder..." } });
 
-        const textarea = await screen.findByPlaceholderText(
-          "Custom placeholder...",
-        );
-        expect(textarea).toBeDefined();
+        expect(
+          await screen.findByPlaceholderText("Custom placeholder..."),
+        ).toBeInTheDocument();
       });
 
       it("should pass disabled prop to textArea", () => {
-        render(
-          <TestWrapper>
-            <CopilotChatInput
-              textArea={
-                { disabled: true, "data-testid": "disabled-textarea" } as any
-              }
-            />
-          </TestWrapper>,
-        );
+        renderInput({ textArea: { disabled: true } });
 
-        const textarea = screen.queryByTestId("disabled-textarea");
-        if (textarea) {
-          expect(textarea.hasAttribute("disabled")).toBe(true);
-        }
+        expect(screen.getByTestId("copilot-chat-textarea")).toBeDisabled();
       });
 
-      it("should pass onKeyDown prop to textArea", async () => {
+      it("should pass onKeyDown prop to textArea", () => {
         const handleKeyDown = vi.fn();
+        renderInput({ textArea: { onKeyDown: handleKeyDown } });
 
-        render(
-          <TestWrapper>
-            <CopilotChatInput textArea={{ onKeyDown: handleKeyDown }} />
-          </TestWrapper>,
-        );
+        fireEvent.keyDown(screen.getByTestId("copilot-chat-textarea"), {
+          key: "a",
+        });
 
-        const textarea = await screen.findByRole("textbox");
-        fireEvent.keyDown(textarea, { key: "a" });
-        // Handler should be called
+        expect(handleKeyDown).toHaveBeenCalledTimes(1);
       });
 
       it("should pass autoFocus prop to textArea", () => {
-        render(
-          <TestWrapper>
-            <CopilotChatInput textArea={{ autoFocus: true }} />
-          </TestWrapper>,
-        );
+        renderInput({ textArea: { autoFocus: true } });
 
-        const textarea = document.querySelector("textarea");
-        // autoFocus behavior may vary
+        expect(screen.getByTestId("copilot-chat-textarea")).toHaveFocus();
+      });
+
+      it("should allow className prop in textArea object slot", () => {
+        renderInput({ textArea: { className: "textarea-class-override" } });
+
+        expect(screen.getByTestId("copilot-chat-textarea")).toHaveClass(
+          "textarea-class-override",
+        );
       });
     });
 
+    // The aria-label override is covered by "keeps an aria-label passed
+    // through a button slot" in CopilotChatInput.test.tsx.
     describe("sendButton props", () => {
       it("should pass onClick handler to sendButton", () => {
         const handleClick = vi.fn();
+        renderInput({
+          sendButton: { onClick: handleClick, disabled: false },
+        });
 
-        render(
-          <TestWrapper>
-            <CopilotChatInput
-              // Need to provide onSubmitMessage and value to enable the button, or override disabled
-              sendButton={
-                {
-                  onClick: handleClick,
-                  disabled: false,
-                  "data-testid": "send-btn",
-                } as any
-              }
-            />
-          </TestWrapper>,
-        );
+        fireEvent.click(screen.getByTestId("copilot-send-button"));
 
-        const sendBtn = screen.queryByTestId("send-btn");
-        if (sendBtn) {
-          fireEvent.click(sendBtn);
-          expect(handleClick).toHaveBeenCalled();
-        }
+        expect(handleClick).toHaveBeenCalledTimes(1);
       });
 
       it("should pass disabled prop to sendButton", () => {
-        render(
-          <TestWrapper>
-            <CopilotChatInput
-              sendButton={
-                { disabled: true, "data-testid": "disabled-send" } as any
-              }
-            />
-          </TestWrapper>,
-        );
+        // A value and a submit handler enable the default send button.
+        renderInput({
+          value: "hello",
+          onSubmitMessage: () => {},
+          sendButton: { disabled: true },
+        });
 
-        const sendBtn = screen.queryByTestId("disabled-send");
-        if (sendBtn) {
-          expect(sendBtn.hasAttribute("disabled")).toBe(true);
-        }
+        expect(screen.getByTestId("copilot-send-button")).toBeDisabled();
       });
 
-      it("should pass aria-label prop to sendButton", () => {
-        render(
-          <TestWrapper>
-            <CopilotChatInput sendButton={{ "aria-label": "Submit message" }} />
-          </TestWrapper>,
-        );
+      it("user disabled should override default disabled state", () => {
+        // An empty composer disables the default send button.
+        renderInput({ sendButton: { disabled: false } });
 
-        const sendBtn = document.querySelector("[aria-label='Submit message']");
-        expect(sendBtn).toBeDefined();
+        expect(screen.getByTestId("copilot-send-button")).toBeEnabled();
       });
     });
 
     describe("addMenuButton props", () => {
       it("should pass onClick handler to addMenuButton", () => {
         const handleClick = vi.fn();
+        renderInput({
+          toolsMenu: [{ label: "Item", action: () => {} }],
+          addMenuButton: { onClick: handleClick },
+        });
 
-        render(
-          <TestWrapper>
-            <CopilotChatInput
-              toolsMenu={[{ label: "Item", action: () => {} }]}
-              addMenuButton={
-                { onClick: handleClick, "data-testid": "add-menu" } as any
-              }
-            />
-          </TestWrapper>,
-        );
+        fireEvent.click(screen.getByTestId("copilot-add-menu-button"));
 
-        const addBtn = screen.queryByTestId("add-menu");
-        if (addBtn) {
-          fireEvent.click(addBtn);
-        }
-      });
-    });
-
-    describe("user props override pre-set props", () => {
-      it("user disabled should override default disabled state", () => {
-        render(
-          <TestWrapper>
-            <CopilotChatInput
-              sendButton={
-                { disabled: false, "data-testid": "override-send" } as any
-              }
-            />
-          </TestWrapper>,
-        );
-
-        const sendBtn = screen.queryByTestId("override-send");
-        // User's disabled=false should take effect
+        expect(handleClick).toHaveBeenCalledTimes(1);
       });
     });
   });
 
-  // ============================================================================
-  // 3. CUSTOM COMPONENT TESTS
-  // ============================================================================
   describe("3. Custom Component Slot Override", () => {
     describe("textArea custom component", () => {
       it("should render custom textArea component", () => {
-        const CustomTextArea = React.forwardRef<HTMLTextAreaElement, any>(
-          ({ value, onChange, ...props }, ref) => (
-            <textarea
-              ref={ref}
-              data-testid="custom-textarea"
-              value={value}
-              onChange={(e) => onChange?.(e.target.value)}
-              className="custom-input"
-              {...props}
-            />
-          ),
-        );
+        const CustomTextArea = React.forwardRef<
+          HTMLTextAreaElement,
+          React.TextareaHTMLAttributes<HTMLTextAreaElement>
+        >((props, ref) => (
+          <textarea ref={ref} data-testid="custom-textarea" {...props} />
+        ));
 
-        render(
-          <TestWrapper>
-            <CopilotChatInput textArea={CustomTextArea} />
-          </TestWrapper>,
-        );
+        renderInput({ textArea: CustomTextArea });
 
-        expect(screen.getByTestId("custom-textarea")).toBeDefined();
+        expect(screen.getByTestId("custom-textarea")).toBeInTheDocument();
       });
 
       it("custom textArea should receive value and onChange props", () => {
-        let receivedValue: string | undefined;
-        let receivedOnChange: any;
+        const onChange = vi.fn();
+        const CustomTextArea = React.forwardRef<
+          HTMLTextAreaElement,
+          React.TextareaHTMLAttributes<HTMLTextAreaElement>
+        >((props, ref) => (
+          <textarea ref={ref} data-testid="value-check-textarea" {...props} />
+        ));
 
-        const CustomTextArea = React.forwardRef<HTMLTextAreaElement, any>(
-          ({ value, onChange, ...props }, ref) => {
-            receivedValue = value;
-            receivedOnChange = onChange;
-            return (
-              <textarea
-                ref={ref}
-                data-testid="value-check-textarea"
-                value={value || ""}
-                onChange={(e) => onChange?.(e.target.value)}
-                {...props}
-              />
-            );
-          },
-        );
+        renderInput({
+          textArea: CustomTextArea,
+          value: "test value",
+          onChange,
+        });
+        const textarea = screen.getByTestId("value-check-textarea");
+        fireEvent.change(textarea, { target: { value: "next" } });
 
-        render(
-          <TestWrapper>
-            <CopilotChatInput
-              textArea={CustomTextArea}
-              value="test value"
-              onChange={() => {}}
-            />
-          </TestWrapper>,
-        );
-
-        expect(receivedValue).toBe("test value");
-        expect(receivedOnChange).toBeDefined();
+        expect(textarea).toHaveValue("test value");
+        expect(onChange).toHaveBeenCalledWith("next");
       });
     });
 
     describe("sendButton custom component", () => {
       it("should render custom sendButton component", () => {
-        const CustomSendButton: React.FC<any> = ({ onClick, disabled }) => (
+        const CustomSendButton: React.FC<
+          React.ButtonHTMLAttributes<HTMLButtonElement>
+        > = ({ onClick, disabled }) => (
           <button
             data-testid="custom-send"
             onClick={onClick}
@@ -372,370 +237,146 @@ describe("CopilotChatInput Slot System E2E Tests", () => {
           </button>
         );
 
-        render(
-          <TestWrapper>
-            <CopilotChatInput sendButton={CustomSendButton} />
-          </TestWrapper>,
-        );
+        renderInput({ sendButton: CustomSendButton });
 
-        expect(screen.getByTestId("custom-send")).toBeDefined();
-        expect(screen.getByText("🚀 Send Message")).toBeDefined();
+        expect(screen.getByTestId("custom-send")).toHaveTextContent(
+          "🚀 Send Message",
+        );
       });
 
       it("custom sendButton should receive onClick callback", () => {
         const submitHandler = vi.fn();
-
-        const CustomSendButton: React.FC<any> = ({ onClick }) => (
+        const CustomSendButton: React.FC<
+          React.ButtonHTMLAttributes<HTMLButtonElement>
+        > = ({ onClick }) => (
           <button data-testid="onclick-send" onClick={onClick}>
             Send
           </button>
         );
 
-        render(
-          <TestWrapper>
-            <CopilotChatInput
-              sendButton={CustomSendButton}
-              onSubmitMessage={submitHandler}
-            />
-          </TestWrapper>,
-        );
-
-        fireEvent.click(screen.getByTestId("onclick-send"));
-        // onClick should trigger submission flow
-      });
-    });
-
-    describe("startTranscribeButton custom component", () => {
-      it("should render custom startTranscribeButton component", () => {
-        const CustomStart: React.FC<any> = ({ onClick }) => (
-          <button data-testid="custom-start-transcribe" onClick={onClick}>
-            🎤 Start Recording
-          </button>
-        );
-
-        render(
-          <TestWrapper>
-            <CopilotChatInput
-              onStartTranscribe={() => {}}
-              startTranscribeButton={CustomStart}
-            />
-          </TestWrapper>,
-        );
-
-        const btn = screen.queryByTestId("custom-start-transcribe");
-        if (btn) {
-          expect(btn.textContent).toContain("Start Recording");
-        }
-      });
-    });
-
-    describe("cancelTranscribeButton custom component", () => {
-      it("should render custom cancelTranscribeButton component", () => {
-        const CustomCancel: React.FC<any> = ({ onClick }) => (
-          <button data-testid="custom-cancel-transcribe" onClick={onClick}>
-            ❌ Cancel
-          </button>
-        );
-
-        render(
-          <TestWrapper>
-            <CopilotChatInput
-              mode="transcribe"
-              onCancelTranscribe={() => {}}
-              cancelTranscribeButton={CustomCancel}
-            />
-          </TestWrapper>,
-        );
-
-        const btn = screen.queryByTestId("custom-cancel-transcribe");
-        if (btn) {
-          expect(btn.textContent).toContain("Cancel");
-        }
-      });
-    });
-
-    describe("finishTranscribeButton custom component", () => {
-      it("should render custom finishTranscribeButton component", () => {
-        const CustomFinish: React.FC<any> = ({ onClick }) => (
-          <button data-testid="custom-finish-transcribe" onClick={onClick}>
-            ✓ Done
-          </button>
-        );
-
-        render(
-          <TestWrapper>
-            <CopilotChatInput
-              mode="transcribe"
-              onFinishTranscribe={() => {}}
-              finishTranscribeButton={CustomFinish}
-            />
-          </TestWrapper>,
-        );
-
-        const btn = screen.queryByTestId("custom-finish-transcribe");
-        if (btn) {
-          expect(btn.textContent).toContain("Done");
-        }
-      });
-    });
-
-    describe("addMenuButton custom component", () => {
-      it("should render custom addMenuButton component", () => {
-        const CustomAddMenu: React.FC<any> = ({ onClick }) => (
-          <button data-testid="custom-add-menu" onClick={onClick}>
-            ➕ Add
-          </button>
-        );
-
-        render(
-          <TestWrapper>
-            <CopilotChatInput
-              toolsMenu={[{ label: "Tool", action: () => {} }]}
-              addMenuButton={CustomAddMenu}
-            />
-          </TestWrapper>,
-        );
-
-        const btn = screen.queryByTestId("custom-add-menu");
-        if (btn) {
-          expect(btn.textContent).toContain("Add");
-        }
-      });
-    });
-
-    describe("audioRecorder custom component", () => {
-      it("should render custom audioRecorder component", () => {
-        const CustomRecorder = React.forwardRef<
-          AudioRecorderRef,
-          React.HTMLAttributes<HTMLDivElement>
-        >(function CustomRecorder(_props, _ref) {
-          return (
-            <div data-testid="custom-recorder">
-              <button>Custom Recorder</button>
-            </div>
-          );
+        renderInput({
+          sendButton: CustomSendButton,
+          value: "hello",
+          onSubmitMessage: submitHandler,
         });
+        fireEvent.click(screen.getByTestId("onclick-send"));
 
-        render(
-          <TestWrapper>
-            <CopilotChatInput
-              mode="transcribe"
-              onFinishTranscribeWithAudio={async () => {}}
-              audioRecorder={CustomRecorder}
-            />
-          </TestWrapper>,
-        );
-
-        const recorder = screen.queryByTestId("custom-recorder");
-        if (recorder) {
-          expect(recorder.textContent).toContain("Custom Recorder");
-        }
+        expect(submitHandler).toHaveBeenCalledWith("hello");
       });
     });
 
-    describe("multiple custom components", () => {
-      it("should render multiple custom components together", () => {
-        const CustomTextArea = React.forwardRef<HTMLTextAreaElement, any>(
-          (props, ref) => (
-            <textarea ref={ref} data-testid="multi-textarea" {...props} />
-          ),
-        );
+    it.each([
+      {
+        slot: "startTranscribeButton",
+        props: (C: React.FC) => ({
+          onStartTranscribe: () => {},
+          startTranscribeButton: C,
+        }),
+      },
+      {
+        slot: "cancelTranscribeButton",
+        props: (C: React.FC) => ({
+          ...transcribing,
+          cancelTranscribeButton: C,
+        }),
+      },
+      {
+        slot: "finishTranscribeButton",
+        props: (C: React.FC) => ({
+          ...transcribing,
+          finishTranscribeButton: C,
+        }),
+      },
+      {
+        slot: "addMenuButton",
+        props: (C: React.FC) => ({
+          toolsMenu: [{ label: "Tool", action: () => {} }],
+          addMenuButton: C,
+        }),
+      },
+      {
+        slot: "disclaimer",
+        props: (C: React.FC) => ({ showDisclaimer: true, disclaimer: C }),
+      },
+    ] satisfies {
+      slot: string;
+      props: (C: React.FC) => CopilotChatInputProps;
+    }[])("should render custom $slot component", ({ slot, props }) => {
+      const Custom: React.FC = () => <span data-testid="custom">{slot}</span>;
 
-        const CustomSendButton: React.FC<any> = (props) => (
-          <button data-testid="multi-send" {...props}>
-            Send
-          </button>
-        );
+      renderInput(props(Custom));
 
-        render(
-          <TestWrapper>
-            <CopilotChatInput
-              textArea={CustomTextArea}
-              sendButton={CustomSendButton}
-            />
-          </TestWrapper>,
-        );
-
-        expect(screen.getByTestId("multi-textarea")).toBeDefined();
-        expect(screen.getByTestId("multi-send")).toBeDefined();
-      });
-    });
-  });
-
-  // ============================================================================
-  // 4. RECURSIVE DRILL-DOWN TESTS (Input has no sub-slots, but test nested props)
-  // ============================================================================
-  describe("4. Nested Props and Complex Configurations", () => {
-    describe("complex textArea configuration", () => {
-      it("should support complex props configuration", () => {
-        render(
-          <TestWrapper>
-            <CopilotChatInput
-              textArea={
-                {
-                  className: "complex-textarea",
-                  placeholder: "Complex placeholder",
-                  "data-testid": "complex-ta",
-                  rows: 4,
-                } as any
-              }
-            />
-          </TestWrapper>,
-        );
-
-        const textarea = screen.queryByTestId("complex-ta");
-        if (textarea) {
-          expect(textarea.getAttribute("placeholder")).toBe(
-            "Complex placeholder",
-          );
-        }
-      });
+      expect(screen.getByTestId("custom")).toHaveTextContent(slot);
     });
 
-    describe("complex sendButton configuration", () => {
-      it("should support complex props on sendButton", () => {
-        render(
-          <TestWrapper>
-            <CopilotChatInput
-              sendButton={
-                {
-                  className: "complex-send",
-                  "data-testid": "complex-send-btn",
-                  "aria-label": "Send your message",
-                  title: "Click to send",
-                } as any
-              }
-            />
-          </TestWrapper>,
-        );
-
-        const btn = screen.queryByTestId("complex-send-btn");
-        if (btn) {
-          expect(btn.getAttribute("aria-label")).toBe("Send your message");
-          expect(btn.getAttribute("title")).toBe("Click to send");
-        }
-      });
-    });
-  });
-
-  // ============================================================================
-  // 5. CLASSNAME OVERRIDE TESTS
-  // ============================================================================
-  describe("5. className Override with Tailwind", () => {
-    describe("className prop in object slots", () => {
-      it("should allow className prop in textArea object slot", () => {
-        const { container } = render(
-          <TestWrapper>
-            <CopilotChatInput
-              textArea={{ className: "textarea-class-override" }}
-            />
-          </TestWrapper>,
-        );
-
-        expect(
-          container.querySelector(".textarea-class-override"),
-        ).toBeDefined();
+    it("should render custom audioRecorder component", () => {
+      const CustomRecorder = React.forwardRef<
+        AudioRecorderRef,
+        React.HTMLAttributes<HTMLDivElement>
+      >(function CustomRecorder(_props, _ref) {
+        return <div data-testid="custom-recorder">Custom Recorder</div>;
       });
 
-      it("should allow className prop in sendButton object slot", () => {
-        const { container } = render(
-          <TestWrapper>
-            <CopilotChatInput
-              sendButton={{ className: "send-class-override" }}
-            />
-          </TestWrapper>,
-        );
-
-        expect(container.querySelector(".send-class-override")).toBeDefined();
+      renderInput({
+        mode: "transcribe",
+        onFinishTranscribeWithAudio: async () => {},
+        audioRecorder: CustomRecorder,
       });
+
+      expect(screen.getByTestId("custom-recorder")).toHaveTextContent(
+        "Custom Recorder",
+      );
     });
 
-    describe("string slot vs className prop equivalence", () => {
-      it("string slot should set className on textArea", () => {
-        const { container } = render(
-          <TestWrapper>
-            <CopilotChatInput textArea="string-class-textarea" />
-          </TestWrapper>,
-        );
-
-        expect(container.querySelector(".string-class-textarea")).toBeDefined();
-      });
-
-      it("string slot should set className on sendButton", () => {
-        const { container } = render(
-          <TestWrapper>
-            <CopilotChatInput sendButton="string-class-send" />
-          </TestWrapper>,
-        );
-
-        expect(container.querySelector(".string-class-send")).toBeDefined();
-      });
-    });
-
-    describe("tailwind utility classes", () => {
-      it("should apply tailwind focus utilities to textArea", () => {
-        const { container } = render(
-          <TestWrapper>
-            <CopilotChatInput textArea="focus:ring-2 focus:ring-blue-500 focus:outline-none" />
-          </TestWrapper>,
-        );
-
-        const el = container.querySelector(".focus\\:ring-2");
-        expect(el).toBeDefined();
-      });
-
-      it("should apply tailwind hover utilities to sendButton", () => {
-        const { container } = render(
-          <TestWrapper>
-            <CopilotChatInput sendButton="hover:bg-blue-600 active:bg-blue-700" />
-          </TestWrapper>,
-        );
-
-        const el = container.querySelector(".hover\\:bg-blue-600");
-        expect(el).toBeDefined();
-      });
-    });
-  });
-
-  // ============================================================================
-  // 6. CHILDREN RENDER FUNCTION TESTS
-  // ============================================================================
-  describe("6. Children Render Function", () => {
-    it("should support children render function for custom layout", () => {
-      render(
-        <TestWrapper>
-          <CopilotChatInput>
-            {({ textArea, sendButton }) => (
-              <div data-testid="custom-input-layout">
-                <div className="input-row">
-                  {textArea}
-                  {sendButton}
-                </div>
-              </div>
-            )}
-          </CopilotChatInput>
-        </TestWrapper>,
+    it("should render multiple custom components together", () => {
+      const CustomTextArea = React.forwardRef<
+        HTMLTextAreaElement,
+        React.TextareaHTMLAttributes<HTMLTextAreaElement>
+      >((props, ref) => (
+        <textarea ref={ref} data-testid="multi-textarea" {...props} />
+      ));
+      const CustomSendButton: React.FC<
+        React.ButtonHTMLAttributes<HTMLButtonElement>
+      > = (props) => (
+        <button data-testid="multi-send" {...props}>
+          Send
+        </button>
       );
 
-      expect(screen.getByTestId("custom-input-layout")).toBeDefined();
-    });
+      renderInput({ textArea: CustomTextArea, sendButton: CustomSendButton });
 
+      expect(screen.getByTestId("multi-textarea")).toBeInTheDocument();
+      expect(screen.getByTestId("multi-send")).toBeInTheDocument();
+    });
+  });
+
+  describe("6. Children Render Function", () => {
     it("children render function should receive all slot elements", () => {
-      const receivedKeys: string[] = [];
+      let receivedKeys: string[] = [];
 
       render(
         <TestWrapper>
           <CopilotChatInput>
             {(slots) => {
-              receivedKeys.push(...Object.keys(slots));
+              receivedKeys = Object.keys(slots);
               return <div data-testid="slots-check">Rendered</div>;
             }}
           </CopilotChatInput>
         </TestWrapper>,
       );
 
-      expect(screen.getByTestId("slots-check")).toBeDefined();
-      // Should receive textArea, sendButton, etc.
+      expect(receivedKeys).toEqual(
+        expect.arrayContaining([
+          "textArea",
+          "audioRecorder",
+          "sendButton",
+          "startTranscribeButton",
+          "cancelTranscribeButton",
+          "finishTranscribeButton",
+          "addMenuButton",
+          "disclaimer",
+        ]),
+      );
     });
 
     it("children render function allows complete layout control", () => {
@@ -743,26 +384,32 @@ describe("CopilotChatInput Slot System E2E Tests", () => {
         <TestWrapper>
           <CopilotChatInput toolsMenu={[{ label: "Tool", action: () => {} }]}>
             {({ textArea, sendButton, addMenuButton }) => (
-              <div data-testid="full-control-layout">
-                <div className="toolbar">{addMenuButton}</div>
-                <div className="main">{textArea}</div>
-                <div className="actions">{sendButton}</div>
+              <div>
+                <div data-testid="toolbar">{addMenuButton}</div>
+                <div data-testid="main">{textArea}</div>
+                <div data-testid="actions">{sendButton}</div>
               </div>
             )}
           </CopilotChatInput>
         </TestWrapper>,
       );
 
-      expect(screen.getByTestId("full-control-layout")).toBeDefined();
-      expect(document.querySelector(".toolbar")).toBeDefined();
-      expect(document.querySelector(".main")).toBeDefined();
-      expect(document.querySelector(".actions")).toBeDefined();
+      expect(
+        within(screen.getByTestId("toolbar")).getByTestId(
+          "copilot-add-menu-button",
+        ),
+      ).toBeInTheDocument();
+      expect(
+        within(screen.getByTestId("main")).getByTestId("copilot-chat-textarea"),
+      ).toBeInTheDocument();
+      expect(
+        within(screen.getByTestId("actions")).getByTestId(
+          "copilot-send-button",
+        ),
+      ).toBeInTheDocument();
     });
   });
 
-  // ============================================================================
-  // 7. POSITIONING PROP TESTS
-  // ============================================================================
   describe("7. Positioning Prop", () => {
     it("should render static positioning by default", () => {
       const { container } = render(
@@ -837,94 +484,33 @@ describe("CopilotChatInput Slot System E2E Tests", () => {
     });
   });
 
-  // ============================================================================
-  // 8. DISCLAIMER SLOT TESTS
-  // ============================================================================
   describe("8. Disclaimer Slot", () => {
     it("should render disclaimer when showDisclaimer=true", () => {
-      render(
-        <TestWrapper>
-          <CopilotChatInput showDisclaimer={true} />
-        </TestWrapper>,
-      );
+      const { container } = renderInput({ showDisclaimer: true });
 
-      // Look for disclaimer text (from labels)
       expect(
-        screen.queryByText(/AI-generated responses/i) ||
-          document.querySelector(".cpk-chat-input-disclaimer"),
-      ).toBeDefined();
+        container.querySelector(".cpk-chat-input-disclaimer"),
+      ).toBeInTheDocument();
     });
 
     it("should hide disclaimer when showDisclaimer=false", () => {
-      const { container } = render(
-        <TestWrapper>
-          <CopilotChatInput showDisclaimer={false} />
-        </TestWrapper>,
-      );
+      const { container } = renderInput({ showDisclaimer: false });
 
-      // Disclaimer should not be rendered
-      const disclaimer = container.querySelector(".cpk-chat-input-disclaimer");
-      expect(disclaimer).toBeNull();
+      expect(container.querySelector(".cpk-chat-input-disclaimer")).toBeNull();
     });
 
     it("should show disclaimer by default with absolute positioning", () => {
-      const { container } = render(
-        <TestWrapper>
-          <CopilotChatInput positioning="absolute" />
-        </TestWrapper>,
-      );
+      const { container } = renderInput({ positioning: "absolute" });
 
-      // Disclaimer should be present with absolute positioning (default showDisclaimer=true)
-      const disclaimer = container.querySelector(".cpk-chat-input-disclaimer");
-      expect(disclaimer).not.toBeNull();
+      expect(
+        container.querySelector(".cpk-chat-input-disclaimer"),
+      ).not.toBeNull();
     });
 
     it("should hide disclaimer by default with static positioning", () => {
-      const { container } = render(
-        <TestWrapper>
-          <CopilotChatInput positioning="static" />
-        </TestWrapper>,
-      );
+      const { container } = renderInput({ positioning: "static" });
 
-      // Disclaimer should NOT be present with static positioning (default showDisclaimer=false)
-      const disclaimer = container.querySelector(".cpk-chat-input-disclaimer");
-      expect(disclaimer).toBeNull();
-    });
-
-    it("should apply tailwind class to disclaimer", () => {
-      const { container } = render(
-        <TestWrapper>
-          <CopilotChatInput
-            showDisclaimer={true}
-            disclaimer="text-red-500 italic"
-          />
-        </TestWrapper>,
-      );
-
-      const disclaimer = container.querySelector(".text-red-500");
-      if (disclaimer) {
-        expect(disclaimer.classList.contains("italic")).toBe(true);
-      }
-    });
-
-    it("should render custom disclaimer component", () => {
-      const CustomDisclaimer: React.FC<any> = () => (
-        <div data-testid="custom-disclaimer">Custom Disclaimer Content</div>
-      );
-
-      render(
-        <TestWrapper>
-          <CopilotChatInput
-            showDisclaimer={true}
-            disclaimer={CustomDisclaimer}
-          />
-        </TestWrapper>,
-      );
-
-      const disclaimer = screen.queryByTestId("custom-disclaimer");
-      if (disclaimer) {
-        expect(disclaimer.textContent).toContain("Custom Disclaimer");
-      }
+      expect(container.querySelector(".cpk-chat-input-disclaimer")).toBeNull();
     });
   });
 });

@@ -79,7 +79,7 @@ describe("CopilotChatAssistantMessage", () => {
       const container = document.querySelector(
         '[data-message-id="empty-message"]',
       );
-      expect(container).toBeDefined();
+      expect(container).not.toBeNull();
 
       // Should NOT have a copy button since there's no content to copy
       expect(screen.queryByRole("button", { name: /copy/i })).toBeNull();
@@ -624,7 +624,7 @@ describe("CopilotChatAssistantMessage", () => {
       const containerElement = container.querySelector(
         ".custom-container-class",
       );
-      expect(containerElement).toBeDefined();
+      expect(containerElement).not.toBeNull();
     });
 
     it("applies custom className to MarkdownRenderer slot", () => {
@@ -636,7 +636,7 @@ describe("CopilotChatAssistantMessage", () => {
       );
 
       const markdownElement = container.querySelector(".custom-markdown-class");
-      expect(markdownElement).toBeDefined();
+      expect(markdownElement).not.toBeNull();
     });
 
     it("applies custom className to Toolbar slot", () => {
@@ -648,7 +648,7 @@ describe("CopilotChatAssistantMessage", () => {
       );
 
       const toolbarElement = container.querySelector(".custom-toolbar-class");
-      expect(toolbarElement).toBeDefined();
+      expect(toolbarElement).not.toBeNull();
     });
 
     it("applies custom className to CopyButton slot", () => {
@@ -662,7 +662,7 @@ describe("CopilotChatAssistantMessage", () => {
       const copyButtonElement = container.querySelector(
         ".custom-copy-button-class",
       );
-      expect(copyButtonElement).toBeDefined();
+      expect(copyButtonElement).not.toBeNull();
     });
   });
 
@@ -926,7 +926,7 @@ describe("CopilotChatAssistantMessage", () => {
       const container = document.querySelector(
         '[data-message-id="null-content"]',
       );
-      expect(container).toBeDefined();
+      expect(container).not.toBeNull();
 
       // Should NOT have a copy button since there's no content to copy
       expect(screen.queryByRole("button", { name: /copy/i })).toBeNull();
