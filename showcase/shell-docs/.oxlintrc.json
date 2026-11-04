@@ -1,7 +1,20 @@
 {
   "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["typescript", "react", "import", "nextjs"],
-  "categories": {},
+  "plugins": [
+    "typescript",
+    "unicorn",
+    "oxc",
+    "react",
+    "import",
+    "nextjs"
+  ],
+  "jsPlugins": [
+    "../../packages/react-ui/oxlint-rules/copilotkit-plugin.mjs"
+  ],
+  "categories": {
+    "correctness": "warn",
+    "suspicious": "warn"
+  },
   "env": {
     "builtin": true
   },
@@ -10,8 +23,41 @@
       "version": "19.3.1"
     },
     "tailwindcss": {
-      "callees": ["clsx", "cva", "cn"]
+      "callees": [
+        "clsx",
+        "cva",
+        "cn"
+      ]
     }
   },
-  "ignorePatterns": ["node_modules/", "dist/"]
+  "rules": {
+    "react/react-in-jsx-scope": "off",
+    "import/no-unassigned-import": "off",
+    "unicorn/no-array-sort": "off"
+  },
+  "overrides": [
+    {
+      "files": [
+        "src/**/*.{ts,tsx}"
+      ],
+      "rules": {
+        "copilotkit/no-public-env-shell-read": "error"
+      }
+    },
+    {
+      "files": [
+        "src/content/**",
+        "src/lib/runtime-config*.{ts,tsx}",
+        "**/*.test.{ts,tsx}",
+        "**/*.spec.{ts,tsx}"
+      ],
+      "rules": {
+        "copilotkit/no-public-env-shell-read": "off"
+      }
+    }
+  ],
+  "ignorePatterns": [
+    "node_modules/",
+    "dist/"
+  ]
 }
