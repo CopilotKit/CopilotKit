@@ -16,9 +16,7 @@ import type {
   CopilotChatInputMode,
 } from "./CopilotChatInput";
 import CopilotChatInput from "./CopilotChatInput";
-import CopilotChatSuggestionView, {
-  CopilotChatSuggestionViewProps,
-} from "./CopilotChatSuggestionView";
+import CopilotChatSuggestionView from "./CopilotChatSuggestionView";
 import {
   ɵgetChatViewState,
   ɵisContentScrolledToBottom,
@@ -29,11 +27,7 @@ import type { Suggestion } from "@copilotkit/core";
 import type { Message } from "@ag-ui/core";
 import type { Attachment } from "@copilotkit/shared";
 import { CopilotChatAttachmentQueue } from "./CopilotChatAttachmentQueue";
-import {
-  StickToBottom,
-  useStickToBottom,
-  useStickToBottomContext,
-} from "use-stick-to-bottom";
+import { StickToBottom, useStickToBottomContext } from "use-stick-to-bottom";
 import { CopilotIcon } from "../icons/CopilotIcon";
 import { Button } from "../../components/ui/button";
 import { cn } from "../../lib/utils";
@@ -219,8 +213,7 @@ export function CopilotChatView({
   const [isResizing, setIsResizing] = useState(false);
 
   // Track keyboard state for mobile
-  const { isKeyboardOpen, keyboardHeight, availableHeight } =
-    useKeyboardHeight();
+  const { isKeyboardOpen, keyboardHeight } = useKeyboardHeight();
 
   // Track input container height changes. While the height settles, the
   // scroll-to-bottom button hides (see ɵwatchElementHeight).

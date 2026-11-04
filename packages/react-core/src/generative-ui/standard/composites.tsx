@@ -9,7 +9,7 @@ import {
 import { sizeValue } from "./layout";
 import { Lightbox, openUrl } from "./lightbox";
 import { safeHref } from "./markdown";
-import { LucideIcon, hostOf } from "./media";
+import { hostOf } from "./media";
 import { ACCENT, useStandardStyles } from "./styles";
 import {
   FONT_WEIGHT,

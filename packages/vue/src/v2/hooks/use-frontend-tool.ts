@@ -52,7 +52,7 @@ export function useFrontendTool<T extends Record<string, unknown>>(
       // so past calls still render in the chat history.
       onCleanup(
         ɵregisterFrontendTools(core, [tool], (renderer) =>
-          core.addHookRenderToolCall(renderer as VueToolCallRenderer<unknown>),
+          core.addHookRenderToolCall(renderer as VueToolCallRenderer),
         ),
       );
     },

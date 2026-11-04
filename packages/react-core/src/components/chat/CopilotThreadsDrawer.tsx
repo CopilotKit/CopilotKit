@@ -13,7 +13,6 @@ import {
 } from "@copilotkit/web-components/threads-drawer";
 import type {
   CopilotKitThreadsDrawer as CopilotKitThreadsDrawerElement,
-  DrawerThread,
   ThreadSelectedDetail,
   ArchiveDetail,
   UnarchiveDetail,

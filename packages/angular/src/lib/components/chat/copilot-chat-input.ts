@@ -389,11 +389,11 @@ export class CopilotChatInput implements OnDestroy {
 
   // Output events
   submitMessage = output<string>();
-  startTranscribe = output<void>();
-  cancelTranscribe = output<void>();
-  finishTranscribe = output<void>();
+  startTranscribe = output();
+  cancelTranscribe = output();
+  finishTranscribe = output();
   finishTranscribeWithAudio = output<Blob>();
-  addFile = output<void>();
+  addFile = output();
   valueChange = output<string>();
 
   // Icons and default classes

@@ -54,7 +54,7 @@ export class StickToBottom implements AfterViewInit, OnDestroy {
   debounceMs = input<number>(100);
 
   isAtBottomChange = output<boolean>();
-  scrollToBottomRequested = output<void>();
+  scrollToBottomRequested = output();
 
   private elementRef = inject<ElementRef<HTMLElement>>(ElementRef);
   private platformId = inject(PLATFORM_ID);

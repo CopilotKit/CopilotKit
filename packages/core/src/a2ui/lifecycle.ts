@@ -196,7 +196,7 @@ export function formatA2UIRetryLabel(
  */
 export function formatA2UIDebugPayload(value: unknown) {
   if (typeof value === "string") return value;
-  const seen = new WeakSet<object>();
+  const seen = new WeakSet();
   try {
     const serialized = JSON.stringify(
       value,

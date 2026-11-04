@@ -180,7 +180,7 @@ export class CopilotA2UISurface implements OnDestroy {
   readonly action = output<A2UIClientEventMessage>();
   readonly error = output<A2UISurfaceError>();
   /** Emits after each applied batch of operations. */
-  readonly rendered = output<void>();
+  readonly rendered = output();
 
   protected readonly surfaces = signal<Surface[]>([]);
   protected readonly errorMessage = signal<string | null>(null);

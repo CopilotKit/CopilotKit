@@ -34,10 +34,6 @@ export function createLearningState(): LearningState {
   };
 }
 
-export function setRecallQuery(state: LearningState, query: string): void {
-  state.recallQuery = query;
-}
-
 export function beginRecall(state: LearningState, query: string): number {
   state.recallSequence += 1;
   state.recallQuery = query;

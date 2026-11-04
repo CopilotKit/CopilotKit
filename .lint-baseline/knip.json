@@ -12,6 +12,35 @@
       "packages/shared/package.json": 1,
       "packages/web-components/package.json": 1
     },
+    "knip(duplicates)": {
+      "packages/a2ui-renderer/src/react-renderer/core/A2UIRenderer.tsx": 1,
+      "packages/a2ui-renderer/src/react-renderer/index.ts": 1,
+      "packages/channels-ui/src/jsx-runtime.ts": 1,
+      "packages/react-core/src/components/chat/CopilotChatAssistantMessage.tsx": 1,
+      "packages/react-core/src/components/chat/CopilotChatAttachmentRenderer.tsx": 1,
+      "packages/react-core/src/components/chat/CopilotChatInput.tsx": 1,
+      "packages/react-core/src/components/chat/CopilotChatMessageView.tsx": 1,
+      "packages/react-core/src/components/chat/CopilotChatReasoningMessage.tsx": 1,
+      "packages/react-core/src/components/chat/CopilotChatSuggestionPill.tsx": 1,
+      "packages/react-core/src/components/chat/CopilotChatSuggestionView.tsx": 1,
+      "packages/react-core/src/components/chat/CopilotChatToggleButton.tsx": 1,
+      "packages/react-core/src/components/chat/CopilotChatToolCallGroup.tsx": 1,
+      "packages/react-core/src/components/chat/CopilotChatToolCallsView.tsx": 1,
+      "packages/react-core/src/components/chat/CopilotChatUserMessage.tsx": 1,
+      "packages/react-core/src/components/chat/CopilotChatView.tsx": 1,
+      "packages/react-core/src/components/chat/CopilotChatWorkSummary.tsx": 1,
+      "packages/react-core/src/components/chat/CopilotModalHeader.tsx": 1,
+      "packages/react-core/src/components/chat/CopilotPopup.tsx": 1,
+      "packages/react-core/src/components/chat/CopilotPopupView.tsx": 1,
+      "packages/react-core/src/components/chat/CopilotSidebar.tsx": 1,
+      "packages/react-core/src/components/chat/CopilotSidebarView.tsx": 1,
+      "packages/react-core/src/components/chat/CopilotThreadsDrawer.tsx": 1,
+      "packages/shared/src/utils/errors.ts": 1,
+      "packages/vue/src/v2/components/MCPAppsActivityRenderer.ts": 1
+    },
+    "knip(enumMembers)": {
+      "packages/shared/src/utils/errors.ts": 1
+    },
     "knip(exports)": {
       "packages/a2ui-renderer/src/react-renderer/a2ui-react/adapter.tsx": 1,
       "packages/a2ui-renderer/src/react-renderer/core/A2UIRenderer.tsx": 1,

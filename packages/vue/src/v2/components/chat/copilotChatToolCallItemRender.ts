@@ -47,7 +47,7 @@ export function getToolCallMemoDeps(
   toolCall: ToolCall,
   messages: Message[],
   executingToolCallIds: ReadonlySet<string>,
-  renderToolCalls: readonly VueToolCallRenderer<unknown>[],
+  renderToolCalls: readonly VueToolCallRenderer[],
   agentId: string = ɵresolveToolCallAgentId(undefined, undefined),
 ): unknown[] {
   return [

@@ -275,7 +275,6 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
   messageFilter,
   publicApiKey,
   publicLicenseKey,
-  licenseToken,
   properties = EMPTY_PROPERTIES,
   agents__unsafe_dev_only: agents = EMPTY_AGENTS,
   selfManagedAgents = EMPTY_AGENTS,
@@ -573,7 +572,7 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
       return {
         tools: assembled.tools,
         renderToolCalls:
-          assembled.renderToolCalls as ReactToolCallRenderer<unknown>[],
+          assembled.renderToolCalls as ReactToolCallRenderer[],
       };
     }, [
       renderToolCallsList,

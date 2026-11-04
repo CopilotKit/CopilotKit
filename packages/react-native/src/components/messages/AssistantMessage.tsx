@@ -11,7 +11,6 @@ import { formatTimestamp } from "./utils";
 
 // ─── Colors ──────────────────────────────────────────────────────────────────
 const ASSISTANT_BUBBLE_BG = "#F0F0F0";
-const ASSISTANT_TEXT_COLOR = "#1A1A1A";
 const TIMESTAMP_COLOR = "#999999";
 
 /**
