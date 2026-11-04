@@ -4,13 +4,13 @@ title: Documentation Contributions
 
 We move quickly and our docs sometimes lag the code, so contributions to the documentation site are very welcome.
 
-The documentation site lives in `showcase/shell-docs` inside the [CopilotKit](https://github.com/CopilotKit/CopilotKit) monorepo. It is a [Fumadocs](https://fumadocs.dev/) site; the legacy Nextra `docs/` tree is being phased out and is no longer the right place to author new content.
+The documentation site lives in `showcase/shell-docs` inside the [CopilotKit](https://github.com/CopilotKit/CopilotKit) monorepo. It is a [Fumadocs](https://fumadocs.dev/) site. Author pages under `showcase/shell-docs/src/content/`.
 
 ## Prerequisites
 
 - [Node.js](https://nodejs.org/en/) 20.x or later
 - [pnpm](https://pnpm.io/) v10.x installed globally (`npm i -g pnpm@^10`)
-- [Nx](https://nx.dev/) — used to drive all tasks in the monorepo. You don't need to install it globally; the repo's `pnpm install` provides everything.
+- [Nx](https://nx.dev/): drives all tasks in the monorepo. You don't need to install it globally; the repo's `pnpm install` provides everything.
 
 ## How To Contribute
 
@@ -26,23 +26,21 @@ cd CopilotKit
 pnpm install
 ```
 
-`pnpm install` at the repo root installs every package in the workspace and wires up the lefthook pre-commit hook (lint, format, test) — running it once is required before your first commit.
+`pnpm install` at the repo root installs every package in the workspace and wires up the lefthook pre-commit hook (lint, format, test). You must run it once before your first commit.
 
   </Step>
   <Step>
   ### Run the documentation site locally
 
-The shell-docs site is an Nx project (`@copilotkit/showcase-shell-docs`). Run it through Nx from the repo root:
+The shell-docs site is a standalone npm app, so the root `pnpm install` does not install its dependencies. Install and run it from its own folder:
 
 ```shell
-nx run shell-docs:dev
+cd showcase/scripts && npm install
+cd ../shell-docs && npm install
+npm run dev
 ```
 
-The site is served at [http://localhost:3003](http://localhost:3003). If you prefer to run it from the package directory, `cd showcase/shell-docs && pnpm dev` works too — both go through the same script.
-
-<Callout type="info">
-Always prefer running tasks via Nx (`nx run`, `nx run-many`, `nx affected`) rather than the underlying tooling directly. This is the convention across the monorepo and ensures task dependencies are respected.
-</Callout>
+The site is served at [http://localhost:3003](http://localhost:3003).
 
   </Step>
   <Step>
@@ -57,7 +55,8 @@ showcase/shell-docs/src/content/docs/
 A few conventions to keep in mind:
 
 - The site is built with **Fumadocs**. Content is authored in MDX. Frontmatter (`title`, `description`, `icon`, etc.) drives the sidebar and metadata.
-- For code samples, prefer the **`<Snippet>` region pattern** over hand-inlining code blocks. `<Snippet>` pulls real source from the showcase integrations under `showcase/integrations/<framework>/...` using region markers (e.g. `// region:my-region` … `// endregion:my-region`). This keeps every code sample tied to runnable demo code and lets us catch drift automatically. When in doubt, look at how an adjacent page references the same integration and follow that pattern.
+- For code samples, use **`<Snippet>`** to show code from a showcase demo under `showcase/integrations/<framework>/...`. Do not paste the code inline.
+- Mark the code in the demo with `// @region[name]` and `// @endregion[name]`. To see the pattern, look at how an adjacent page references the same integration.
 - Reference pages for hooks, components, and runtime APIs use a `<PropertyReference>` component to render the prop / parameter table. Match the style of an existing reference page in the same directory.
 
 <Callout type="info">
@@ -69,9 +68,9 @@ Please review your changes for grammar, spelling, and formatting, and confirm th
 
   ### Review changes and submit a pull request
 
-Before pushing, the lefthook pre-commit hook will run lint, format, and tests on the affected projects via Nx. If anything fails, fix the issue and commit again — don't bypass the hook.
+When you commit, the lefthook pre-commit hook lints and formats staged code files and tests changed packages. It does not check `.mdx` pages. If the hook fails, fix the issue and commit again. Do not bypass the hook.
 
-When you're happy with the result, push and open a PR against the [CopilotKit/CopilotKit](https://github.com/CopilotKit/CopilotKit/pulls) repo. Thank you for your contribution!
+When you're happy with the result, push and open a PR against the [CopilotKit/CopilotKit](https://github.com/CopilotKit/CopilotKit/pulls) repo. Thank you for your contribution.
 
   </Step>
 </Steps>

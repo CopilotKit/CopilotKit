@@ -89,8 +89,8 @@ import { ToolCallStatus } from "@copilotkit/react-core/v2";
 </Button>
 ```
 
-`sendResponse` awaits `respond` and keeps the buttons disabled while the
-request is in flight. It also keeps a failed result so the user can retry.
+`sendResponse` awaits `respond`. After the first click, the buttons stay
+disabled, so each approval card sends only one answer.
 
 ## Handle a rejection in the agent
 

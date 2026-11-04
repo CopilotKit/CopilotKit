@@ -11,10 +11,6 @@ snippet_cell: shared-state-streaming
 
 State rendering lets you build UI that reflects your agent's state in real-time. As your agent progresses through nodes and emits state updates, your frontend renders those changes, showing progress, drafts, or intermediate results.
 
-<Callout type="info">
-  **Free course:** See this pattern built end-to-end in [Build Interactive Agents with Generative UI](https://www.deeplearning.ai/short-courses/build-interactive-agents-with-generative-ui/) — a free DeepLearning.AI short course taught by CopilotKit's CEO covering the full Generative UI spectrum (Controlled, Declarative, and Open-Ended).
-</Callout>
-
 ## When should I use this?
 
 Use state rendering when you want to:
@@ -26,21 +22,32 @@ Use state rendering when you want to:
 
 ## How it works in code
 
-On the frontend, subscribe to the agent's state. Each time the backend
-forwards a fresh value, your component re-renders with the latest partial
-output.
+1. On the backend, write the value to a key in the
+   [agent state](/shared-state). To stream a tool argument into a state key
+   token by token, see [State Streaming](/shared-state/streaming).
+2. On the frontend, import `useAgent` from `@copilotkit/react-core/v2`:
 
-<Snippet region="frontend-use-coagent-state" title="frontend/src/app/page.tsx — agent state subscription" />
+   ```tsx
+   import { useAgent, UseAgentUpdate } from "@copilotkit/react-core/v2";
+   ```
 
-On the backend, a state-streaming mapping forwards a specific tool argument
-straight into a state key *as it's being generated*. Some frameworks provide
-that as middleware; direct SDK adapters can emit `STATE_SNAPSHOT` events from
-their streaming loop. Either way, the UI can watch the answer assemble
-token-by-token rather than appearing in one burst between checkpoints.
+3. Subscribe to the agent state. Each time the state changes, your component
+   renders again with the latest value:
 
-<FrameworkSetup concept="state-streaming-setup" />
+   <Snippet region="frontend-use-coagent-state" title="frontend/src/app/page.tsx — agent state subscription" />
 
-<Snippet region="state-streaming-middleware" title="backend — state streaming mapping" />
+4. Read the key from `agent.state` and render it:
+
+   ```tsx
+   const document = (agent.state as { document?: string }).document ?? "";
+   ```
+
+To check it, ask the agent to write a short poem. Your component renders the
+poem each time the agent updates `document` in its state.
+
+<Callout type="info">
+  **Free course:** See this pattern built end-to-end in [Build Interactive Agents with Generative UI](https://www.deeplearning.ai/short-courses/build-interactive-agents-with-generative-ui/). This free DeepLearning.AI short course is taught by CopilotKit's CEO. It covers the full Generative UI spectrum (Controlled, Declarative, and Open-Ended).
+</Callout>
 
 <IntegrationGrid
   path="generative-ui/state-rendering"

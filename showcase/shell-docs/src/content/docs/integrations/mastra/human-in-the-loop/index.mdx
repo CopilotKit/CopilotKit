@@ -20,32 +20,27 @@ Human-in-the-loop (HITL) allows agents to request human input or approval during
 
 ## When should I use this?
 
-HITL combines the efficiency of AI with human judgment, creating a system that's both powerful and reliable. The key advantages include:
-
-- **Quality Control**: Human oversight at critical decision points
-- **Edge Cases**: Graceful handling of low-confidence situations
-- **Expert Input**: Leverage human expertise when needed
-- **Reliability**: More robust system for real-world use
+Use HITL when the agent must ask a person before it acts, for example before it books a meeting.
 
 ## How can I use this?
 
-Mastra supports HITL through frontend tools that render UI and collect user input.
+Mastra supports two HITL patterns: frontend tools that render UI and collect user input, and tools that call `suspend()` to pause the run.
 
 <CTACards
   columns={2}
   cards={[
     {
       iconKey: "share2",
-      title: "Tool-based (Supported)",
+      title: "Tool-based",
       description:
-        "Register frontend tools with useHumanInTheLoop that render UI and wait for user responses. This is the working approach for Mastra.",
+        "Register frontend tools with useHumanInTheLoop that render UI and wait for user responses.",
       href: "/human-in-the-loop/tool-based",
     },
     {
       iconKey: "circlePause",
-      title: "Interrupt-based (Not Supported)",
+      title: "Interrupt-based",
       description:
-        "Mastra does not support native interrupt flow. See this page to understand why and learn about the tool-based alternative.",
+        "Pause a Mastra tool with suspend() and answer it in your UI with useInterrupt.",
       href: "/human-in-the-loop/interrupt-flow",
     },
   ]}

@@ -4,8 +4,13 @@ icon: "lucide/SlidersHorizontal"
 description: Control a Vue popup or sidebar from your UI and capture assistant-message feedback.
 ---
 
-Two common controls for the prebuilt chat are opening it from your own UI and
-capturing thumbs-up or thumbs-down feedback on assistant messages.
+This page covers two separate tasks for the prebuilt chat. Go to the one you
+need:
+
+- [Open or close the chat from your own UI](#programmatically-open-or-close-chat),
+  with your own launcher button.
+- [Capture message feedback](#capture-message-feedback) from the thumbs-up and
+  thumbs-down buttons on assistant messages.
 
 ## Programmatically open or close chat
 
@@ -29,10 +34,9 @@ import { CopilotPopup } from "@copilotkit/vue/v2";
 </template>
 ```
 
-Set the initial state declaratively with `:default-open="true"` on
-`CopilotPopup` or `CopilotSidebar`. These Vue components do not expose a
-controlled `open` / `onOpenChange`-style API; use the scoped-slot actions to
-control the surface after it mounts.
+`CopilotPopup` and `CopilotSidebar` open on mount by default. To start closed,
+set `:default-open="false"`. To open or close the surface after it mounts,
+call the `open`, `close`, or `toggle` action from the `toggle-button` slot.
 
 ## Capture message feedback
 

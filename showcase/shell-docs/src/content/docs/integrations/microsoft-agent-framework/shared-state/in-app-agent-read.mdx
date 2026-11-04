@@ -22,7 +22,7 @@ description: Read the realtime agent state in your native application.
 
 ## What is this?
 
-You can easily use the realtime agent state not only in the chat UI, but also in the native application UX.
+Show the agent's state in your own components, outside the chat. The UI updates each time the agent state changes.
 
 ## When should I use this?
 
@@ -48,6 +48,8 @@ state updates, you can reflect these updates natively in your application.
             public string Language { get; set; } = "english";
         }
         ```
+
+        To show this object in the UI, the agent sends it as a `DataContent` update with the `application/json` media type. For a full agent that does this, see [`SharedStateAgent.cs`](https://github.com/CopilotKit/CopilotKit/blob/main/showcase/integrations/ms-agent-dotnet/agent/SharedStateAgent.cs).
       </Tab>
       <Tab value="Python">
         ```python title="main.py"
@@ -150,8 +152,7 @@ state updates, you can reflect these updates natively in your application.
   </Step>
   <Step>
     ### Use the `useAgent` Hook
-    With your agent connected and running all that is left is to call the `useAgent` hook, pass the agent's name, and
-    initialize missing UI-owned state after the connected agent is ready.
+    Call `useAgent` with the ID of your agent. When `isReady` is true, set any missing state with `agent.setState`.
 
     ```tsx title="ui/app/page.tsx"
     import { useEffect } from "react";
@@ -165,7 +166,7 @@ state updates, you can reflect these updates natively in your application.
     function YourMainContent() {
       // [!code highlight:4]
       const { agent, isReady } = useAgent({
-        agentId: "sample_agent",
+        agentId: "my_agent",
       });
       const state = (agent.state ?? {}) as Partial<AgentState>;
 
@@ -192,49 +193,13 @@ state updates, you can reflect these updates natively in your application.
 
   </Step>
   <Step>
-    ### Give it a try!
-    As the agent state updates, your `state` variable will automatically update with it! In this case, you'll see the
-    language set to "english" after the connected agent is ready.
-
-    <Frame>
-      <ImageZoom src="https://cdn.copilotkit.ai/docs/copilotkit/images/microsoft-agent-framework/read-agent-state.png" alt="read agent state" width={1000} height={1000} className="my-0"/>
-    </Frame>
-
-    <Callout type="info">
-      Pictured above is the [agent starter](https://github.com/copilotkit/copilotkit/tree/main/examples/agents-starter) with
-      the implementation section applied!
-    </Callout>
+    ### Give it a try
+    Ask the agent to answer in Spanish. When the agent sets `language` to spanish in its state, the Language line on the page changes to spanish.
+    The Python agent above does this with the `update_language` tool.
 
   </Step>
 </Steps>
 
-## Rendering agent state in your app
-
-You can render the agent state in any React component under `<CopilotKit>`. Read `agent.state` and return ordinary JSX.
-
-```tsx title="ui/app/page.tsx"
-import { useAgent } from "@copilotkit/react-core/v2";
-
-type AgentState = {
-  language: "english" | "spanish";
-};
-
-function YourMainContent() {
-  const { agent } = useAgent({
-    agentId: "sample_agent",
-  });
-  const state = (agent.state ?? {}) as Partial<AgentState>;
-
-  if (!state.language) return null;
-  return <div>Language: {state.language}</div>;
-}
-```
-
-<Callout type="info">
-  The `agent.state` in `useAgent` is reactive and will automatically update when
-  the agent's state changes.
-</Callout>
-
 ## Advanced: Emitting Intermediate State
 
-By default, agent state updates arrive at natural checkpoints during agent execution. For more granular, real-time updates during long-running operations, you can emit state snapshots from within your agent logic. Consult the [Microsoft Agent Framework documentation](https://learn.microsoft.com/en-us/agent-framework/user-guide/overview) for patterns on streaming custom state events during execution.
+By default, agent state updates arrive at natural checkpoints during agent execution. For more granular, real-time updates during long-running operations, you can emit state snapshots from within your agent logic. To stream state while a tool runs, see [Predictive state updates](/shared-state/predictive-state-updates).

@@ -57,18 +57,6 @@ import { CopilotChat } from "@copilotkit/vue/v2";
 </style>
 ```
 
-## CSS Variables (Easiest)
-
-The easiest customization is a CSS-variable override because every nested Vue
-chat component picks it up automatically.
-
-<Callout type="info" title="Vue uses the v2 token system">
-  The older `--copilot-kit-*` variables and `.copilotKit...` classes documented
-  for `@copilotkit/react-ui` style v1 React components do not style
-  `@copilotkit/vue/v2`. Vue's public stylesheet is
-  `@copilotkit/vue/styles.css` and uses the v2 tokens below.
-</Callout>
-
 ## v2 Design Tokens (shadcn)
 
 The tokens are scoped to `[data-copilotkit]` and wired into the prefixed
@@ -127,9 +115,7 @@ safer selectors:
 ```
 
 Use [slots](/vue/custom-look-and-feel/slots) to introduce
-`.support-message-card` or to replace structure. The Vue package does not
-expose the v1 React `.copilotKitMessages`, `.copilotKitInput`, or
-`.copilotKitUserMessage` class contract.
+`.support-message-card` or to replace structure.
 
 ## Custom Fonts
 
@@ -144,8 +130,8 @@ set it for every Vue chat:
 
 ## Custom Icons
 
-Vue uses slots instead of an `icons` prop. `CopilotPopup` and
-`CopilotSidebar` expose a `toggle-button` slot with open state and actions, so
+Replace the launcher icons with the `toggle-button` slot on `CopilotPopup` or
+`CopilotSidebar`. The slot gives you the open state and the toggle action, so
 you can replace the launcher and its icons together:
 
 ```vue

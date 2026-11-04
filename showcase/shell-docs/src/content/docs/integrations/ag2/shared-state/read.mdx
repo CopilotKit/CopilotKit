@@ -18,7 +18,7 @@ description: Read the realtime agent state in your native application.
 
 ## What is this?
 
-You can easily use the realtime agent state not only in the chat UI, but also in the native application UX.
+Show the agent's state in your own components, outside the chat. For example, show the language that the agent uses in your page header.
 
 <Callout type="info">
   CopilotKit consumes AG-UI protocol events streamed by AG2 over <code>/chat</code>. See the <a href="https://docs.ag2.ai/docs/user-guide/ag-ui/" target="_blank">AG2 AG-UI integration docs</a>.
@@ -34,12 +34,18 @@ state updates, you can reflect these updates natively in your application.
 <Steps>
   <Step>
     ### Run and connect your agent
-    Start your AG2 backend and connect your CopilotKit frontend to the AG-UI `/chat` endpoint.
+    Start your AG2 backend and connect your CopilotKit frontend to the AG-UI `/chat` endpoint. See the [quickstart](/ag2/quickstart#connect-your-own-ag2-agent) for the endpoint and runtime code.
   </Step>
   <Step>
     ### Define the Agent State
 
-    In AG2, shared state lives in the agent's **conversation variables**. `AGUIStream` handles the synchronization for you: incoming state from the UI is merged into the variables for the run, and the variables are streamed back as `STATE_SNAPSHOT` events — at the start of the run (only when the agent or `dispatch()` defines initial variables) and, if a tool changed `context.variables`, at the end of the run. No manual event construction needed.
+    In AG2, shared state lives in the agent's **conversation variables**. `AGUIStream` handles the synchronization for you:
+
+    - Incoming state from the UI merges into the variables for the run.
+    - At the start of the run, `AGUIStream` sends a `STATE_SNAPSHOT` if the merged variables differ from the state the client sent.
+    - At the end of the run, it sends another `STATE_SNAPSHOT` if a tool changed `context.variables`.
+
+    You do not build these events yourself.
 
     ```python title="agent.py"
     from typing import Annotated
@@ -86,7 +92,7 @@ state updates, you can reflect these updates natively in your application.
     ```
 
     <Callout type="warn">
-      Don't seed the initial value with `Agent(variables={"language": "english"})` — agent variables take precedence over the incoming `RunAgentInput.state` on every run, so the agent would reset the language back to `english` on the turn after it set `spanish`. Provide the default in the UI (as the `?? "english"` fallback below does) or with `context.variables.setdefault` inside a tool.
+      Don't seed the initial value with `Agent(variables={"language": "english"})`. Agent variables take precedence over the incoming `RunAgentInput.state` on every run, so the agent would reset the language back to `english` on the turn after it set `spanish`. Provide the default in the UI (as the `?? "english"` fallback below does) or with `context.variables.setdefault` inside a tool.
     </Callout>
 
   </Step>
@@ -132,7 +138,7 @@ state updates, you can reflect these updates natively in your application.
     ```
 
     <Callout type="warn" title="Important">
-      The `agentId` parameter must exactly match the agent name you defined in your CopilotRuntime configuration (e.g., `my_agent` from the quickstart).
+      The `agentId` parameter must exactly match the agent name you defined in your CopilotRuntime configuration (for example, the key `my_agent` in `agents: { my_agent: new HttpAgent({ url }) }` in your runtime route).
     </Callout>
 
     <Callout type="info">
@@ -142,8 +148,7 @@ state updates, you can reflect these updates natively in your application.
   </Step>
   <Step>
     ### Give it a try
-    As the agent state updates, your `state` variable will automatically update with it. In this case, you'll see the
-    language set to "english" after the connected agent is ready.
+    Ask the agent: "Speak Spanish from now on." The page changes from "Language: english" to "Language: spanish".
   </Step>
 </Steps>
 

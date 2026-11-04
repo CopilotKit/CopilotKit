@@ -57,28 +57,33 @@ function useFrontendTool<T extends Record<string, unknown>>(
   >
     An async function that executes when the agent calls the tool. Receives the
     parsed arguments, typed from `parameters` but not validated against it, and
-    the context object: `toolCall` (the raw tool call metadata), `agent` (the
-    agent instance that invoked the tool; absent when the tool is invoked
-    through WebMCP), `signal` (an `AbortSignal` that is aborted when the
-    user stops the agent), and `isReplay` (`true` when the call is run while
-    the thread's history is restored; see `reconnectBehavior`).
+    the context object:
+
+    - `toolCall`: the raw tool call metadata.
+    - `agent`: the agent that called the tool. Absent when the tool is called through WebMCP.
+    - `signal`: an `AbortSignal` that aborts when the user stops the agent.
+    - `isReplay`: `true` when the call runs while the thread history is restored. See `reconnectBehavior`.
+
     Long-running handlers can check `signal.aborted` or pass `signal` to
     `fetch` to cancel cooperatively. The resolved value is surfaced back to the
     agent as the tool result. `FrontendToolHandlerContext` is exported from
-    `@copilotkit/core`.
+    `@copilotkit/vue/v2`.
   </PropertyReference>
 
   <PropertyReference
     name="render"
-    type="Component<RenderProps<T>> | ((props: RenderProps<T>) => VNodeChild)"
+    type="Component<VueToolCallRendererRenderProps<T>> | ((props: VueToolCallRendererRenderProps<T>) => VNodeChild)"
   >
     An optional Vue component or render function used to visualize tool
-    execution in the chat. It receives a props object: `name` (the tool name),
-    `toolCallId` (the unique id of this tool call), `args` (the arguments,
-    partial while streaming during `InProgress`, complete during `Executing`
-    and `Complete`), `status` (one of `ToolCallStatus.InProgress`,
-    `ToolCallStatus.Executing`, or `ToolCallStatus.Complete`), and `result`
-    (the string result, available only when status is `Complete`).
+    execution in the chat. It receives these props:
+
+    - `name`: the tool name.
+    - `toolCallId`: the unique id of this tool call.
+    - `args`: the arguments. Partial while streaming during `InProgress`, complete during `Executing` and `Complete`.
+    - `status`: one of `ToolCallStatus.InProgress`, `ToolCallStatus.Executing`, or `ToolCallStatus.Complete`.
+    - `result`: the string result. Available only when status is `Complete`.
+
+    To render a tool call without a handler, use [`useRenderTool`](/reference/vue/hooks/useRenderTool). To render a component from tool arguments, use [`useComponent`](/reference/vue/hooks/useComponent).
   </PropertyReference>
 
   <PropertyReference name="available" type="boolean" default="true">
@@ -98,7 +103,7 @@ function useFrontendTool<T extends Record<string, unknown>>(
   </PropertyReference>
 
   <PropertyReference name="reconnectBehavior" type='"passive" | "resume-pending"' default='"passive"'>
-    What happens to a call of this tool that is still unanswered when the thread's history is restored, for example after a page reload. With `"passive"`, the call is shown but the handler does not run. With `"resume-pending"`, the handler runs for that call with `isReplay: true` in its context, and the run then continues as usual. Opt in only for a handler that is safe to run more than once. A call does not start twice at the same time on one page, but it can run again after a stop or a thread switch if its result never reached the agent, and two tabs that restore the same thread can each run it. If the agent calls this tool together with a tool that stays passive, the follow-up run sends the passive call without a result, which some model providers reject.
+    What happens to a call of this tool that is still unanswered when the thread's history is restored, for example after a page reload. With `"passive"`, the call is shown but the handler does not run. With `"resume-pending"`, the handler runs for that call with `isReplay: true` in its context, and the run then continues as usual. Opt in only for a handler that is safe to run more than once. A call does not start twice at the same time on one page. A call can run again after a stop or a thread switch, if its result never reached the agent. Two tabs that restore the same thread can each run the call. If the agent calls this tool together with a tool that stays passive, the follow-up run sends the passive call without a result, which some model providers reject.
   </PropertyReference>
 
   <PropertyReference name="webmcp" type="boolean | { annotations?: { readOnlyHint?: boolean; untrustedContentHint?: boolean } }">
@@ -169,7 +174,7 @@ Provide a `render` component to visualize the tool call in chat. The component r
 ```vue
 <!-- WeatherToolView.vue -->
 <script setup lang="ts">
-import { ToolCallStatus } from "@copilotkit/core";
+import { ToolCallStatus } from "@copilotkit/vue/v2";
 
 defineProps<{
   name: string;
@@ -251,23 +256,3 @@ useFrontendTool(
 );
 </script>
 ```
-
-## Related
-
-<Cards>
-  <Card
-    title="useComponent"
-    description="Convenience composable that renders a Vue component from tool args. Built on useFrontendTool."
-    href="/reference/vue/hooks/useComponent"
-  />
-  <Card
-    title="useRenderTool"
-    description="Register a renderer for a tool call with full access to status (in progress, executing, complete) and results."
-    href="/reference/vue/hooks/useRenderTool"
-  />
-  <Card
-    title="CopilotKitProvider"
-    description="The provider that must wrap any component calling useFrontendTool."
-    href="/reference/vue/components/CopilotKitProvider"
-  />
-</Cards>

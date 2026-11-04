@@ -14,35 +14,38 @@ This page shows exactly how the two sides connect so you can build predictable, 
 
 | Backend (Python SDK) | Frontend (React v2) | What it does |
 |---|---|---|
-| `copilotkit_emit_tool_call(config, name, args)` | `useFrontendTool` | Agent manually fires a tool call; the registered handler runs in the browser |
+| `copilotkit_emit_tool_call(config, name=..., args=...)` | `useFrontendTool` | Agent emits a tool call. The registered handler runs in the browser |
 | LLM calls a frontend tool normally (via `bind_tools`) | `useFrontendTool` | Agent lets the LLM decide when to call the tool; same handler, same result |
 | LLM calls a frontend tool (via `bind_tools`) | `useComponent` | Agent calls a tool and the registered component is rendered inline in the chat |
 | `copilotkit_customize_config(config, emit_tool_calls=["ToolName"])` | `useFrontendTool` / `useComponent` | Controls which tool calls are streamed to the frontend; use this to filter noise |
-| `copilotkit_customize_config(config, emit_tool_calls=False)` | — | Suppresses all tool call streaming for that LLM invocation |
+| `copilotkit_customize_config(config, emit_tool_calls=False)` | None | Suppresses all tool call streaming for that LLM invocation |
 
 ### Persisted vs. emitted tool calls
 
-<Callout type="info" title="Key concept: persisted vs. transient">
 - **Persisted tool calls** are LLM-generated tool call messages stored in `state["messages"]`. They appear in chat history and are replayed on page refresh.
-- **Emitted tool calls** (`copilotkit_emit_tool_call`) are transient events that fire a frontend handler immediately. They are **not** stored in chat history unless you explicitly add a message to state.
+- **Emitted tool calls** (`copilotkit_emit_tool_call`) are transient events that run a frontend handler when the agent run ends. They are **not** stored in chat history unless you explicitly add a message to state.
 
-`useComponent` and `useFrontendTool` both respond to persisted tool calls triggered by the LLM. `copilotkit_emit_tool_call` lets you fire the same frontend mechanism imperatively, without waiting for the LLM.
-</Callout>
+`useComponent` and `useFrontendTool` both respond to persisted tool calls that the LLM makes. `copilotkit_emit_tool_call` lets a node emit the same tool call without waiting for the LLM.
 
 ## End-to-end example: `copilotkit_emit_tool_call` → `useFrontendTool`
 
-This pattern lets a LangGraph node **directly invoke** a frontend function — for example, to update React state, show a toast, or trigger a browser API — without the LLM needing to decide when to call it.
+This pattern lets a LangGraph node emit a tool call that runs a frontend function, for example to update React state, show a toast, or use a browser API. The LLM does not decide when to call it.
 
 ### Step 1: Register the frontend tool
 
+For the full `useFrontendTool` guide, see [Frontend Tools](/frontend-tools).
+
 ```tsx title="app/page.tsx"
+"use client";
+
+import { useState } from "react";
 import { z } from "zod";
 import { useFrontendTool } from "@copilotkit/react-core/v2"; // [!code highlight]
 
-export function Page() {
-  const [status, setStatus] = React.useState("");
+export default function Page() {
+  const [status, setStatus] = useState("");
 
-  // [!code highlight:10]
+  // [!code highlight:11]
   useFrontendTool({
     name: "updateStatus",
     description: "Update the status displayed in the UI.",
@@ -53,6 +56,7 @@ export function Page() {
       setStatus(message);
       return `Status updated to: ${message}`;
     },
+    followUp: false,
   });
 
   return <div>Agent says: {status}</div>;
@@ -90,9 +94,11 @@ async def my_node(state: AgentState, config: RunnableConfig):
 
 When `copilotkit_emit_tool_call` is called:
 1. CopilotKit sends the tool call event to the frontend over SSE.
-2. The `useFrontendTool` handler matching `"updateStatus"` runs in the browser immediately.
-3. The return value of the handler is sent back to the agent as the tool result.
+2. After the agent run ends, the `useFrontendTool` handler matching `"updateStatus"` runs in the browser.
+3. The return value of the handler is added to the chat as the tool result. Because the tool sets `followUp: false`, CopilotKit does not start a new agent run for it.
 4. The call is **not** saved to `state["messages"]` unless you add it yourself.
+
+The handlers run in order after the run ends, so the UI shows the last status. To show progress while a node still runs, emit state with `copilotkit_emit_state`.
 
 ## End-to-end example: LLM tool call → `useComponent`
 
@@ -100,7 +106,11 @@ This pattern lets the LLM decide when to render a custom React component in the 
 
 ### Step 1: Register the component
 
+For the full `useComponent` guide, see [Display-only components](/integrations/langgraph/generative-ui/your-components/display-only).
+
 ```tsx title="app/page.tsx"
+"use client";
+
 import { useComponent } from "@copilotkit/react-core/v2"; // [!code highlight]
 import { z } from "zod";
 
@@ -118,7 +128,7 @@ function WeatherCard({ city, temperature, condition }: {
   );
 }
 
-export function Page() {
+export default function Page() {
   // [!code highlight:10]
   useComponent({
     name: "showWeather",
@@ -161,7 +171,7 @@ When the LLM calls `showWeather`:
 
 ## Controlling which tool calls are streamed with `copilotkit_customize_config`
 
-By default, CopilotKit streams all LLM tool calls to the frontend. Use `copilotkit_customize_config` to filter them.
+By default, CopilotKit streams all LLM tool calls to the frontend. Use `copilotkit_customize_config` to filter them. To also stop message streaming, see [Disabling message streaming](/integrations/langgraph/advanced/disabling-state-streaming).
 
 ```python title="agent.py"
 from copilotkit.langgraph import copilotkit_customize_config # [!code highlight]
@@ -181,7 +191,7 @@ async def chat_node(state: AgentState, config: RunnableConfig):
 ```
 
 <Callout type="warn" title="Use a new variable">
-Always assign the result to a **new variable** (e.g. `streaming_config`) rather than overwriting `config`. In LangGraph Python, `config` is implicitly passed to all LangChain LLM calls in scope — overwriting it changes the behavior of every subsequent call unexpectedly.
+Always assign the result to a **new variable** (e.g. `streaming_config`) rather than overwriting `config`. In LangGraph Python, `config` is implicitly passed to all LangChain LLM calls in scope. Overwriting it changes the behavior of every subsequent call unexpectedly.
 </Callout>
 
 ### `emit_tool_calls` options at a glance
@@ -197,14 +207,8 @@ Always assign the result to a **new variable** (e.g. `streaming_config`) rather 
 
 | Goal | Recommended pattern |
 |---|---|
-| Agent imperatively triggers a browser action (toast, state update) | `copilotkit_emit_tool_call` → `useFrontendTool` |
-| LLM decides when to trigger a browser action | `bind_tools(state["copilotkit"]["actions"])` → `useFrontendTool` |
+| Agent emits a tool call for a browser action (toast, state update) | `copilotkit_emit_tool_call` → `useFrontendTool` |
+| LLM decides when to run a browser action | `bind_tools(state["copilotkit"]["actions"])` → `useFrontendTool` |
 | LLM renders a rich component in chat (persisted in history) | `bind_tools(state["copilotkit"]["actions"])` → `useComponent` |
 | Hide certain LLM tool calls from the frontend | `copilotkit_customize_config(emit_tool_calls=[...])` |
 | Hide all tool calls from the frontend for a sensitive LLM call | `copilotkit_customize_config(emit_tool_calls=False)` |
-
-## See also
-
-- [Frontend Tools](/integrations/langgraph/frontend-tools) — full guide to `useFrontendTool`
-- [Display-only components](/integrations/langgraph/generative-ui/your-components/display-only) — full guide to `useComponent`
-- [Disabling state streaming](/integrations/langgraph/advanced/disabling-state-streaming) — `copilotkit_customize_config` reference

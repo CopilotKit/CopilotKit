@@ -63,11 +63,18 @@ Read through `store().state()` so Angular tracks changes. Write through the
 plain AG-UI agent at `store().agent`. Replace the object instead of mutating it
 in place.
 
+Click **Mark high priority**, then ask the agent for the current priority. It
+answers "high".
+
 The same store gives you:
 
 - `store().messages()` for the current conversation
 - `store().isRunning()` for loading controls
-- `store().agent` for `setState`, `addMessage`, `runAgent`, and `abortRun`
+- `store().agent` for `setState`, `addMessage`, and `abortRun`
+
+To start a run, call `inject(CopilotKit).core.runAgent({ agent })`, as in the
+[headless chat](/angular/guides/threads-memory-attachments-headless#build-a-headless-chat).
+That call sends your registered frontend tools and agent context with the run.
 
 ## Send read-only application context
 

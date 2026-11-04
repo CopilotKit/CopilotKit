@@ -1,172 +1,200 @@
 "use client";
 
-import React, {
+import {
   createContext,
   useContext,
-  useEffect,
-  useRef,
+  useLayoutEffect,
+  useMemo,
   useState,
+  useSyncExternalStore,
+  type ReactNode,
 } from "react";
+import { useStory } from "@fumadocs/story";
+import { defineStoryFactory, type Story } from "@fumadocs/story/next/client";
+import { DynamicCodeBlock } from "fumadocs-ui/components/dynamic-codeblock";
 import {
   CopilotKitProvider,
   EventType,
   HttpAgent,
-  useAgent,
-  useCopilotKit,
 } from "@copilotkit/react-core/v2";
 import {
   GenerativeUISurface,
   standardUI,
+  useGenerativeUIRuntime,
 } from "@copilotkit/react-core/v2/generative-ui";
-import { SAMPLES, sampleOperations, sampleSurfaceId } from "./catalog-data";
+import { STAGE_WINDOW, Stage } from "@/components/brand/stage";
+import { brandDark, brandLight } from "@/proto/code-theme";
+import {
+  catalogVariants,
+  variantNode,
+  variantOperations,
+  type CatalogVariant,
+} from "./catalog-story";
 
-const RenderErrors = createContext<Record<string, string>>({});
+// The catalog pages' previews: a Fumadocs Story per component, its controls
+// the component's props. Each preview draws its surface straight from the
+// operations, with no model or runtime. A local agent takes the events its
+// inputs send, so a click goes somewhere.
 
-function createSampleAgent(index: number) {
-  const surfaceId = sampleSurfaceId(index);
+const THREAD = "docs-standard-catalog";
+const AGENT = "default";
+
+const { defineStory } = defineStoryFactory();
+const stories = new Map<string, Story>();
+
+function catalogStory(name: string) {
+  let story = stories.get(name);
+  if (!story) {
+    const variants = catalogVariants(name);
+    const Component = (args: Record<string, unknown>) => (
+      <Preview variants={variants} args={args} />
+    );
+    story = defineStory({
+      displayName: name,
+      Component,
+      args: variants.map((variant) => ({
+        variant: variant.variant,
+        description: variant.description,
+        initial: variant.initial,
+        controls: { node: variant.controls },
+      })),
+    });
+    stories.set(name, story);
+  }
+  return story;
+}
+
+/** The shown component's node, for the JSON under the story. */
+function createNodeStore() {
+  let value: object | null = null;
+  const listeners = new Set<() => void>();
+  return {
+    get: () => value,
+    set(next: object) {
+      value = next;
+      listeners.forEach((listener) => listener());
+    },
+    subscribe(listener: () => void) {
+      listeners.add(listener);
+      return () => listeners.delete(listener);
+    },
+  };
+}
+type NodeStore = ReturnType<typeof createNodeStore>;
+const ShownNode = createContext<NodeStore | null>(null);
+
+function createLocalAgent() {
   return new HttpAgent({
-    agentId: surfaceId,
-    // All surfaces belong to this page's thread; each sample has its own agent history.
-    threadId: "docs-standard-catalog",
+    agentId: AGENT,
+    threadId: THREAD,
     url: "/catalog/agent",
     fetch: async (_url, init) => {
-      const { threadId, runId } = JSON.parse(String(init.body)) as {
+      const { threadId, runId } = JSON.parse(String(init?.body)) as {
         threadId: string;
         runId: string;
       };
       const events = [
         { type: EventType.RUN_STARTED, threadId, runId },
-        {
-          type: EventType.ACTIVITY_SNAPSHOT,
-          messageId: `catalog:${surfaceId}`,
-          activityType: "generative-ui-surface",
-          replace: true,
-          content: {
-            surfaceId,
-            target: surfaceId,
-            catalogId: standardUI.id,
-            operations: sampleOperations(
-              SAMPLES[index],
-              surfaceId,
-              standardUI.id,
-            ),
-            status: "ready",
-            rejected: [],
-          },
-        },
         { type: EventType.RUN_FINISHED, threadId, runId },
       ];
       return new Response(
         events.map((event) => `data: ${JSON.stringify(event)}\n\n`).join(""),
-        {
-          headers: { "Content-Type": "text/event-stream" },
-        },
+        { headers: { "Content-Type": "text/event-stream" } },
       );
     },
   });
 }
 
-export function CatalogProvider({
-  children,
-  indices,
+/**
+ * The component on a canvas: a white card on the frame's lilac-grey, the way
+ * the docs set cards in a tray, so it reads as a rendered component and not
+ * as part of the page. The canvas fills the story's preview box.
+ */
+function Preview({
+  variants,
+  args,
 }: {
-  children: React.ReactNode;
-  indices?: number[];
+  variants: CatalogVariant[];
+  args: Record<string, unknown>;
 }) {
-  const [agents] = useState(() =>
-    Object.fromEntries(
-      (indices ?? SAMPLES.map((_, index) => index)).map((index) => [
-        sampleSurfaceId(index),
-        createSampleAgent(index),
-      ]),
-    ),
+  const { variant: name } = useStory();
+  const variant = variants.find((v) => v.variant === name) ?? variants[0];
+  const operations = useMemo(
+    () => variantOperations(variant, args),
+    [variant, args],
   );
-  const [errors, setErrors] = useState<Record<string, string>>({});
+  const runtime = useGenerativeUIRuntime();
+  const store = useContext(ShownNode);
+  useLayoutEffect(() => {
+    if (!runtime) return;
+    runtime.manager.setActiveThread(THREAD);
+    runtime.manager.ingest(THREAD, AGENT, {
+      surfaceId: variant.surfaceId,
+      target: variant.surfaceId,
+      catalogId: standardUI.id,
+      operations: operations as never,
+      status: "ready",
+      rejected: [],
+    });
+    store?.set(variantNode(variant, args));
+  }, [runtime, store, variant, args, operations]);
   return (
-    <RenderErrors.Provider value={errors}>
+    <div className="-mx-2.25 -my-4 rounded-md bg-frame p-4 sm:p-8">
+      <div className="min-w-0 rounded-xl bg-tray-card p-5">
+        <GenerativeUISurface id={variant.surfaceId} autoScroll={false} />
+      </div>
+    </div>
+  );
+}
+
+function NodeCode({ name }: { name: string }) {
+  const store = useContext(ShownNode)!;
+  const node = useSyncExternalStore(store.subscribe, store.get, store.get);
+  if (!node) return null;
+  return (
+    <Stage className="mt-4">
+      <DynamicCodeBlock
+        lang="json"
+        code={JSON.stringify(node, null, 2)}
+        codeblock={{
+          title: `${name} as JSON`,
+          className: `my-0 ${STAGE_WINDOW}`,
+        }}
+        options={{ themes: { light: brandLight, dark: brandDark } }}
+      />
+    </Stage>
+  );
+}
+
+/** A CopilotKit of its own for the preview, apart from the docs' chat. */
+function StoryProvider({ children }: { children: ReactNode }) {
+  const [agents] = useState(() => ({ [AGENT]: createLocalAgent() }));
+  const [store] = useState(createNodeStore);
+  return (
+    <ShownNode.Provider value={store}>
       <CopilotKitProvider
         agents__unsafe_dev_only={agents}
         enableInspector={false}
-        generativeUI={{
-          ui: standardUI,
-          errorBoundary: {
-            onError: (info) =>
-              setErrors((current) =>
-                current[info.surfaceId] === info.error.message
-                  ? current
-                  : { ...current, [info.surfaceId]: info.error.message },
-              ),
-          },
-        }}
+        generativeUI={{ ui: standardUI }}
       >
         {children}
       </CopilotKitProvider>
-    </RenderErrors.Provider>
+    </ShownNode.Provider>
   );
 }
 
-function LiveSurface({ index }: { index: number }) {
-  const surfaceId = sampleSurfaceId(index);
-  const { copilotkit } = useCopilotKit();
-  const { agent } = useAgent({ agentId: surfaceId });
-  const started = useRef(false);
-  const [failed, setFailed] = useState(false);
-  const errors = useContext(RenderErrors);
-  useEffect(() => {
-    if (started.current) return;
-    started.current = true;
-    void copilotkit.runAgent({ agent }).catch(() => setFailed(true));
-  }, [copilotkit, agent]);
-
-  if (failed || errors[surfaceId])
-    return (
-      <p role="alert" className="text-sm">
-        This example could not render. Its sample code is still available below.
-      </p>
-    );
-  const events = agent.messages.filter(
-    (message) => message.role === "user",
-  ).length;
+/**
+ * A component's story: its variants, a live preview with a control for each
+ * of its props, and the component as the agent writes it.
+ */
+export function CatalogStory({ name }: { name: string }) {
+  const story = catalogStory(name);
   return (
-    <div className="min-w-0 space-y-3">
-      <GenerativeUISurface
-        id={surfaceId}
-        autoScroll={false}
-        fallback={
-          <p className="text-xs text-[var(--text-muted)]">Loading preview…</p>
-        }
-      />
-      {events > 0 && (
-        <p role="status" className="text-xs text-[var(--text-muted)]">
-          {events} local {events === 1 ? "event" : "events"}
-        </p>
-      )}
-    </div>
-  );
-}
-
-export function CatalogSurface({ index }: { index: number }) {
-  return (
-    <div className="min-h-32 min-w-0 p-6">
-      <LiveSurface index={index} />
-    </div>
-  );
-}
-
-export function CatalogEventLog({ index }: { index: number }) {
-  const { agent } = useAgent({ agentId: sampleSurfaceId(index) });
-  const message = agent.messages
-    .filter((entry) => entry.role === "user")
-    .at(-1);
-  if (!message || typeof message.content !== "string") return null;
-  return (
-    <div className="space-y-1">
-      <p className="text-xs font-medium text-[var(--text-muted)]">
-        Last local event
-      </p>
-      <pre className="max-h-32 overflow-auto whitespace-pre-wrap break-words text-xs">
-        {message.content}
-      </pre>
+    <div className="not-prose my-6">
+      <StoryProvider>
+        <story.WithControl />
+        <NodeCode name={name} />
+      </StoryProvider>
     </div>
   );
 }

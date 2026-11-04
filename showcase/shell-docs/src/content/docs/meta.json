@@ -2,13 +2,13 @@
   "title": "Overview",
   "pages": [
     "---Get Started---",
-    "index",
     "quickstart",
     "cli",
     "build-with-agents",
     "---Concepts---",
     "...concepts",
     "...agentic-protocols",
+    "faq",
     "---Build Chat UIs---",
     "prebuilt-components",
     {

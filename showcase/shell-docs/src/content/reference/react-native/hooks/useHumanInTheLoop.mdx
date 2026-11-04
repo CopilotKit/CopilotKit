@@ -5,13 +5,13 @@ description: "React hook for interactive tools that pause agent execution and wa
 
 ## Overview
 
-`useHumanInTheLoop` registers an interactive tool that pauses agent execution until the user responds through your custom UI. Unlike `useFrontendTool`, there is no `handler` function. Instead, the hook provides an internal status machine (`InProgress` -> `Executing` -> `Complete`) and supplies a `respond` callback to the render component while the tool is in the `Executing` state. The agent remains paused until `respond` is called with the user's input.
+`useHumanInTheLoop` registers an interactive tool that pauses agent execution until the user responds through your custom UI. Unlike [`useFrontendTool`](/reference/react-native/hooks/useFrontendTool), there is no `handler` function. Instead, the hook provides an internal status machine (`InProgress` -> `Executing` -> `Complete`) and supplies a `respond` callback to the render component while the tool is in the `Executing` state. The agent remains paused until `respond` is called with the user's input.
 
 <Callout type="info">
   Re-exported from `@copilotkit/react-core/v2`, identical to the [React (V2) `useHumanInTheLoop`](/reference/v2/hooks/useHumanInTheLoop). The only difference is the import path.
 </Callout>
 
-This hook is built on top of `useFrontendTool` with an internally managed handler that resolves the tool call promise when `respond` is invoked. Use it for confirmation dialogs, approval workflows, form collection, or any scenario where a human must provide input before the agent can continue. The `render` component returns React Native elements that CopilotKit surfaces in the chat, through the same shared renderer registry [`useRenderTool`](/reference/react-native/hooks/useRenderTool) and `useFrontendTool` write to.
+This hook is built on top of `useFrontendTool` with an internally managed handler that resolves the tool call promise when `respond` is called. Use it for confirmation dialogs, approval workflows, form collection, or any scenario where a human must provide input before the agent can continue. The `render` component returns React Native elements that CopilotKit surfaces in the chat, through the same shared renderer registry [`useRenderTool`](/reference/react-native/hooks/useRenderTool) and `useFrontendTool` write to.
 
 ## Signature
 
@@ -34,19 +34,19 @@ function useHumanInTheLoop<T extends Record<string, unknown>>(
   input.
 </PropertyReference>
 
-<PropertyReference name="description" type="string" required>
+<PropertyReference name="description" type="string">
   A natural-language description that tells the agent what the tool does and
-  when to invoke it (e.g., "Ask the user to confirm before deleting records").
+  when to call it (e.g., "Ask the user to confirm before deleting records").
 </PropertyReference>
 
-<PropertyReference name="parameters" type="z.ZodSchema" required>
-  A Zod schema defining the arguments the agent passes to the tool. These
+<PropertyReference name="parameters" type="StandardSchemaV1">
+  A Standard Schema (for example a Zod schema) that defines the arguments the agent passes to the tool. These
   arguments are forwarded to the render component so you can build context-aware
   UI.
 </PropertyReference>
 
   <PropertyReference name="render" type="React.ComponentType<RenderProps>" required>
-    A React Native component that drives the human interaction. The component receives different props depending on the current status:
+    A React Native component that drives the human interaction. In every status, the component receives `name`, `description`, `toolCallId`, and `agentId` (the agent the tool is registered to). The other props depend on the current status:
 
     **When `status` is `ToolCallStatus.InProgress`:**
     - `args: Partial<T>`: partially streamed arguments
@@ -65,8 +65,16 @@ function useHumanInTheLoop<T extends Record<string, unknown>>(
 
   </PropertyReference>
 
-  <PropertyReference name="available" type='"enabled" | "disabled" | "remote"' default='"enabled"'>
-    Controls tool availability. Set to `"disabled"` to temporarily prevent the agent from requesting human input through this tool.
+  <PropertyReference name="available" type="boolean" default="true">
+    Set to `false` to hide the tool from the agent without unregistering it.
+  </PropertyReference>
+
+  <PropertyReference name="followUp" type="boolean" default="true">
+    Set to `false` so the agent does not run again after the user responds.
+  </PropertyReference>
+
+  <PropertyReference name="agentId" type="string">
+    Make the tool available only to this agent.
   </PropertyReference>
 </PropertyReference>
 
@@ -76,10 +84,20 @@ function useHumanInTheLoop<T extends Record<string, unknown>>(
 
   `deps` compares plain data (strings, numbers, booleans, `null`, dates, and
   plain objects and arrays of those) by value, so an inline literal such as
-  `[{ status }]` re-registers only when its contents change. A function never counts as changed, as before, so keep a changing callback
+  `[{ status }]` re-registers only when its contents change. A function never counts as changed, so keep a changing callback
   in a ref. Class instances and other objects compare by identity, so a
   circular value such as the `agent` from `useAgent` is safe to pass. Adding or removing an entry counts as a change.
 </PropertyReference>
+
+## ToolCallStatus
+
+The `ToolCallStatus` enum is exported from `@copilotkit/react-native` and defines the three phases of tool execution:
+
+| Value                       | Description                                                                                 |
+| --------------------------- | ------------------------------------------------------------------------------------------- |
+| `ToolCallStatus.InProgress` | Arguments are being streamed from the agent. The tool has not started executing yet.        |
+| `ToolCallStatus.Executing`  | Arguments are fully resolved. For `useHumanInTheLoop`, the `respond` callback is available. |
+| `ToolCallStatus.Complete`   | Execution is finished. The `result` string is available.                                    |
 
 ## Usage
 
@@ -311,26 +329,9 @@ function ExpenseApproval() {
 
 ## Behavior
 
-- **Blocks agent execution**: The agent pauses when this tool is called and waits for the `respond` callback to be invoked before continuing.
+- **Blocks agent execution**: The agent pauses when this tool is called and waits for the `respond` callback to be called before continuing.
 - **Internal status machine**: The hook manages three states: `InProgress` (arguments streaming in), `Executing` (waiting for user response), and `Complete` (user has responded). Your render component receives the appropriate props for each state.
-- **Single response**: The `respond` callback should only be called once per tool invocation. Calling it resolves the tool call promise with the provided value.
-- **Built on `useFrontendTool`**: Under the hood, this hook wraps `useFrontendTool` with an internally generated handler, so all the same lifecycle behavior (mount/unmount registration, duplicate warnings) applies.
+- **Single response**: Call the `respond` callback only once per tool call. Calling it resolves the tool call promise with the provided value.
+- **Built on `useFrontendTool`**: Internally, this hook wraps `useFrontendTool` with an internally generated handler, so all the same lifecycle behavior (mount/unmount registration, duplicate warnings) applies.
 - **Mount/Unmount lifecycle**: The tool and its render component are registered on mount and removed on unmount.
 - **No return value**: The hook returns `void`.
-
-## Related
-
-- [`useFrontendTool`](/reference/react-native/hooks/useFrontendTool): for tools with automated handlers that do not require user interaction
-- [`useRenderTool`](/reference/react-native/hooks/useRenderTool): register renderer-only tool call UI (named or wildcard)
-- [`ToolCallStatus`](#toolcallstatus): the status enum used across tool hooks
-- [React (V2) reference](/reference/v2/hooks/useHumanInTheLoop)
-
-## ToolCallStatus
-
-The `ToolCallStatus` enum is exported from `@copilotkit/react-native` and defines the three phases of tool execution:
-
-| Value                       | Description                                                                                 |
-| --------------------------- | ------------------------------------------------------------------------------------------- |
-| `ToolCallStatus.InProgress` | Arguments are being streamed from the agent. The tool has not started executing yet.        |
-| `ToolCallStatus.Executing`  | Arguments are fully resolved. For `useHumanInTheLoop`, the `respond` callback is available. |
-| `ToolCallStatus.Complete`   | Execution is finished. The `result` string is available.                                    |

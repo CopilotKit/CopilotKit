@@ -37,8 +37,8 @@ import "@copilotkit/vue/styles.css";
 
 `CopilotSidebar` accepts the chat props plus `width` and `default-open`. Use
 the `header` scoped slot to replace the header and `toggle-button` to replace
-the launcher. Their slot props include the current open state and actions such
-as `toggle`, `open`, and `close`.
+the launcher. The `toggle-button` slot receives `isOpen`, `toggle`, `open`, and
+`close`. The `header` slot receives `title`, `isOpen`, and `onClose`.
 
 The component reports the same chat interaction events as `CopilotChat`,
 including `@submit-message`, `@input-change`, and `@select-suggestion`.

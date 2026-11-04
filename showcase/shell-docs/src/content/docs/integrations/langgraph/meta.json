@@ -27,8 +27,6 @@
     "guardrails",
     "---Deploy---",
     "deploy-agentcore",
-    "deploy-langsmith",
-    "---Tutorials---",
-    "...tutorials"
+    "deploy-langsmith"
   ]
 }

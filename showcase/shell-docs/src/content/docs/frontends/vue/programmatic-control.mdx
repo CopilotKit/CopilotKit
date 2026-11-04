@@ -1,7 +1,7 @@
 ---
 title: Programmatic Control
 icon: "lucide/Terminal"
-description: Drive agent runs directly from code — no chat UI required.
+description: Drive agent runs directly from code, with no chat UI.
 hideTOC: true
 ---
 
@@ -9,9 +9,9 @@ hideTOC: true
 
 Programmatic control is what you reach for when you want to drive an agent run from code rather than from a chat composer: a button, a form, a cron job, a keyboard shortcut, or a graph callback. CopilotKit exposes three primitives that cover every triggering pattern:
 
-- `agent.addMessage(...)` — append a message to the conversation without running the agent. Pair it with `copilotkit.runAgent({ agent })` when the message should kick off a turn.
-- `copilotkit.runAgent({ agent })` — the same entry point `<CopilotChat />` calls under the hood. It orchestrates frontend tools, follow-up runs, and the subscriber lifecycle.
-- `agent.subscribe(subscriber)` — low-level AG-UI event subscription (`onCustomEvent`, `onRunStartedEvent`, `onRunFinalized`, `onRunFailed`, and streaming deltas).
+- `agent.addMessage(...)`: append a message to the conversation without running the agent. Pair it with `copilotkit.runAgent({ agent })` when the message starts a turn.
+- `copilotkit.runAgent({ agent })`: the same entry point that `<CopilotChat />` calls internally. It orchestrates frontend tools, follow-up runs, and the subscriber lifecycle. To build your own chat surface on it, see [Headless UI](/vue/custom-look-and-feel/headless-ui).
+- `agent.subscribe(subscriber)`: low-level AG-UI event subscription (`onCustomEvent`, `onRunStartedEvent`, `onRunFinalized`, `onRunFailed`, and streaming deltas).
 
 ## When should I use this?
 
@@ -69,23 +69,26 @@ function stop() {
 
 ```vue title="src/App.vue"
 <script setup lang="ts">
-import { CopilotKitProvider } from "@copilotkit/vue/v2";
+import { CopilotChat, CopilotKitProvider } from "@copilotkit/vue/v2";
 import AgentTrigger from "./components/AgentTrigger.vue";
 </script>
 
 <template>
   <CopilotKitProvider runtime-url="/api/copilotkit">
     <AgentTrigger />
+    <CopilotChat agent-id="sales" />
   </CopilotKitProvider>
 </template>
 ```
+
+Click **Run agent**. The message and the agent's reply appear in the chat, and **Stop** is enabled while the run is in progress.
 
 ### `copilotkit.runAgent()` vs `agent.runAgent()`
 
 Both methods trigger the agent, but they operate at different levels:
 
-- **`copilotkit.runAgent({ agent })`** — the recommended default. It orchestrates the full lifecycle, executes frontend tools, handles follow-up runs, and routes errors through the subscriber system.
-- **`agent.runAgent(options)`** — a low-level method on the agent instance. It sends the request to the runtime but does **not** execute frontend tools or chain follow-ups. Reach for it only when you need direct control.
+- **`copilotkit.runAgent({ agent })`**: the recommended default. It orchestrates the full lifecycle, executes frontend tools, handles follow-up runs, and routes errors through the subscriber system.
+- **`agent.runAgent(options)`**: a low-level method on the agent instance. It sends the request to the runtime but does **not** execute frontend tools or chain follow-ups. Reach for it only when you need direct control.
 
 ## Subscribing to agent events
 
@@ -113,7 +116,7 @@ watch(
 
 ## Resolving a LangGraph interrupt from a button
 
-For product UI, use `useInterrupt({ renderInChat: false })`. It subscribes to the standard AG-UI interrupt outcome and the legacy `on_interrupt` event, stages the pending interrupt until finalization, and exposes `resolve` / `cancel` methods that resume through `copilotkit.runAgent`:
+For product UI, use `useInterrupt({ renderInChat: false })`. It subscribes to the standard AG-UI interrupt outcome and the `on_interrupt` custom event that the LangGraph adapter sends by default, stages the pending interrupt until finalization, and exposes `resolve` / `cancel` methods that resume through `copilotkit.runAgent`:
 
 ```ts
 const { slotProps } = useInterrupt({
@@ -126,7 +129,7 @@ async function approve() {
 }
 ```
 
-The resulting reactive state is pure data; any Vue UI can drive it. If you need custom accumulation logic for a test fixture, build it from `agent.subscribe(...)` and `copilotkit.runAgent(...)`. Standard interrupts resume with the `resume` array; legacy interrupts resume through `forwardedProps.command`.
+The resulting reactive state is pure data. Any Vue UI can drive it. If you need custom accumulation logic for a test fixture, build it from `agent.subscribe(...)` and `copilotkit.runAgent(...)`. Standard interrupts resume with the `resume` array. Custom-event interrupts resume through `forwardedProps.command`. To compare `useInterrupt` with `useHumanInTheLoop`, see [Human-in-the-Loop](/vue/human-in-the-loop).
 
 </WhenFrameworkHas>
 
@@ -134,7 +137,7 @@ The resulting reactive state is pure data; any Vue UI can drive it. If you need 
 
 ## Resolving a frontend tool call from a button
 
-For promise-based integrations there is no native interrupt primitive. Register a `useHumanInTheLoop` frontend tool instead. Its handler remains pending, the rendered Vue component exposes the approval in any application surface, and calling `respond(...)` resolves the Promise the agent's tool call is awaiting.
+For promise-based integrations there is no native interrupt primitive. Register a [`useHumanInTheLoop`](/vue/human-in-the-loop) frontend tool instead. Its handler remains pending, the rendered Vue component exposes the approval in any application surface, and calling `respond(...)` resolves the Promise the agent's tool call is awaiting.
 
 The resulting pending state and response callback are pure data; the same pattern can power a modal, toast, sidebar form, or voice UI.
 
@@ -147,10 +150,5 @@ The resulting pending state and response callback are pure data; the same patter
 > **Interrupt-style pause/resume isn't available on this framework.** The interrupt path requires either a native runtime interrupt or a Promise-resolving frontend-tool path. Use [`useHumanInTheLoop`](./human-in-the-loop) for tool-call-based pause/resume. The `agent.addMessage`, `copilotkit.runAgent`, and `agent.subscribe` primitives above still apply; only interrupt resolution is framework-specific.
 
 </WhenFrameworkHas>
-
-## See also
-
-- [Headless UI](/vue/custom-look-and-feel/headless-ui) — build your own chat surface from lower-level components.
-- [Human-in-the-Loop](./human-in-the-loop) — compare `useHumanInTheLoop` and `useInterrupt` for paused runs.
 
 <IntegrationGrid path="programmatic-control" />

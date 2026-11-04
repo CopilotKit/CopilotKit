@@ -71,7 +71,7 @@ function useComponent<TSchema extends StandardSchemaV1 | undefined = undefined>(
 - **Default instruction.** The composable prepends a default instruction to the description: _"Use this tool to display the \"&lt;name&gt;\" component in the chat. This tool renders a visual UI component for the user."_. Your `description`, if provided, is appended after it.
 - **Built on `useFrontendTool`.** It calls [`useFrontendTool`](/reference/vue/hooks/useFrontendTool) internally with a render function that mounts your component (via Vue's `h`) and spreads the tool's `args` as the component's props.
 - **Inherited lifecycle.** It inherits `useFrontendTool` behavior: a duplicate-name registration logs an override warning and replaces the previous tool, and the tool is removed automatically when the owning scope is disposed.
-- **Reactivity.** The registration is reactive to `config.name` and the `deps` watch sources. Pass any changing reactive values you depend on through `deps`.
+- **Reactivity.** The composable reads `config` one time. The registration runs again only when a `deps` watch source changes. Pass any changing reactive values you depend on through `deps`.
 
 ## Usage
 
@@ -89,7 +89,7 @@ defineProps<{
 <template>
   <div class="rounded border p-3">
     <div class="text-sm text-zinc-500">Weather request</div>
-    <div class="font-medium">{{ city }} ({{ unit.toUpperCase() }})</div>
+    <div class="font-medium">{{ city }} ({{ (unit ?? "c").toUpperCase() }})</div>
   </div>
 </template>
 ```
@@ -114,6 +114,8 @@ useComponent({
 });
 </script>
 ```
+
+While the agent streams the arguments, the component gets only the fields received so far. Schema defaults are not applied.
 
 ### Without parameters
 
@@ -162,18 +164,3 @@ useComponent(
   through `deps`. To scope a component to a different agent at runtime,
   conditionally render the component that calls `useComponent`.
 </Callout>
-
-## Related
-
-<Cards>
-  <Card
-    title="useFrontendTool"
-    description="Register a frontend tool with an optional renderer. useComponent is built on top of this."
-    href="/reference/vue/hooks/useFrontendTool"
-  />
-  <Card
-    title="useRenderTool"
-    description="Render a tool call with full access to status (in progress, executing, complete) and results."
-    href="/reference/vue/hooks/useRenderTool"
-  />
-</Cards>

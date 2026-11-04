@@ -1,12 +1,12 @@
 ---
 title: "Deploy to any runtime"
 icon: "lucide/Server"
-description: Deploy the CopilotKit runtime on any backend framework — Node.js, Express, Hono, Bun, Deno, Cloudflare Workers, and more.
+description: "Deploy the CopilotKit runtime on any backend framework: Node.js, Express, Hono, Bun, Deno, Cloudflare Workers, and more."
 frontend:
   kind: universal
 ---
 
-The TypeScript CopilotKit runtime is **framework-agnostic**. At its core, it's a pure Fetch handler — a function that takes a `Request` and returns a `Response`. This means it runs natively on any platform that supports the [Fetch API](https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API), and thin adapters are provided for Node.js-based frameworks like Express and Hono.
+Your agent needs a backend endpoint, and you already run a server. Pick your server below and copy its handler. The TypeScript CopilotKit runtime is a Fetch handler: a function that takes a `Request` and returns a `Response`. It runs on any platform that supports the [Fetch API](https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API). For Node.js HTTP servers, Express, and Hono, CopilotKit ships thin adapters.
 
 <Callout type="info" title="TypeScript server adapters">
 This guide covers the TypeScript runtime, which works with or without Intelligence. For Python, Go, Ruby, or C#/.NET servers, follow the [Intelligence quickstart](/intelligence/quickstart#connect-your-runtime). Those runtimes require Intelligence and expose multi-route endpoints.
@@ -25,27 +25,27 @@ This guide covers the TypeScript runtime, which works with or without Intelligen
 
 The runtime supports two endpoint modes:
 
-- **Multi-route** (default) — exposes individual URL endpoints:
+- **Multi-route** (default) exposes individual URL endpoints:
   - `GET  {basePath}/info`
   - `POST {basePath}/agent/:agentId/run`
   - `POST {basePath}/agent/:agentId/connect`
   - `POST {basePath}/agent/:agentId/stop/:threadId`
   - `POST {basePath}/transcribe`
 
-- **Single-route** — a single `POST {basePath}` endpoint that accepts a JSON envelope:
+- **Single-route** exposes a single `POST {basePath}` endpoint that accepts a JSON envelope:
   ```json
   { "method": "agent/run", "params": { "agentId": "default" }, "body": { ... } }
   ```
 
-Both modes use the same Runtime handlers. A current client and Runtime also carry Intelligence thread, memory, and annotation operations through the single endpoint. They negotiate this support through Runtime info, so older clients and servers keep their existing behavior.
+Both modes use the same Runtime handlers. Single-route mode also carries Intelligence thread, memory, and annotation operations.
 
 Single-route mode is useful when your platform only allows one route handler, or when you prefer a simpler URL structure.
 
 <FrontendOnly frontend="react">
 <Callout type="warn" title="The mode you pick here binds the frontend">
-  Both `<CopilotKit>` and `<CopilotKitProvider>` detect the mode when you pass
-  no transport prop, so either one follows whichever mode you pick here. Pin it
-  with `useSingleEndpoint` only if you want to skip that detection — and then it
+  Both `<CopilotKit>` and `<CopilotKitProvider>` detect the mode when you do not
+  pass `useSingleEndpoint`, so either one follows the mode you pick here. Pin it
+  with `useSingleEndpoint` only if you want to skip that detection, and then it
   has to match. The full mapping is in
   [Provider and handler pairs](/backend/runtime-endpoints#provider-and-handler-pairs).
 </Callout>
@@ -53,7 +53,7 @@ Single-route mode is useful when your platform only allows one route handler, or
 
 ## Fetch-Native Runtimes
 
-If your platform supports the Fetch API natively (Bun, Deno, Cloudflare Workers, etc.), you can use `createCopilotRuntimeHandler` directly — no adapter needed.
+If your platform supports the Fetch API natively (Bun, Deno, Cloudflare Workers, etc.), you can use `createCopilotRuntimeHandler` directly. No adapter is needed.
 
 ```ts
 import { CopilotRuntime, createCopilotRuntimeHandler, BuiltInAgent } from "@copilotkit/runtime/v2";
@@ -402,18 +402,18 @@ export { handler as POST };
 ```
 
 <Callout type="info">
-In single-route mode, no `[...path]` catch-all is needed — everything goes through a single `POST /api/copilotkit`.
+In single-route mode, no `[...path]` catch-all is needed. Everything goes through a single `POST /api/copilotkit`.
 </Callout>
 </Tab>
 </Tabs>
 
 <Callout type="info">
-No `cors: true` needed for Next.js — same-origin requests don't require CORS headers.
+No `cors: true` needed for Next.js. Same-origin requests don't require CORS headers.
 </Callout>
 
 ## React Router (Framework Mode)
 
-React Router v7 in framework mode uses file-based routing with Fetch API handlers — the CopilotKit handler works directly as a resource route.
+React Router v7 in framework mode uses file-based routing with Fetch API handlers. The CopilotKit handler works directly as a resource route.
 
 <Tabs groupId="runtime-mode" items={["Multi-route", "Single-route"]}>
 <Tab value="Multi-route">
@@ -444,7 +444,7 @@ export function action({ request }: Route.ActionArgs) {
 ```
 
 <Callout type="info">
-The `$` splat segment in the filename (`api.copilotkit.$.ts`) captures all subpaths under `/api/copilotkit/`, allowing the CopilotKit router to handle `/info`, `/agent/:id/run`, etc.
+The `$` splat segment in the filename (`api.copilotkit.$.ts`) captures all subpaths under `/api/copilotkit/`. The CopilotKit router then handles `/info` and `/agent/:id/run`.
 </Callout>
 </Tab>
 <Tab value="Single-route">
@@ -471,7 +471,7 @@ export function action({ request }: Route.ActionArgs) {
 ```
 
 <Callout type="info">
-In single-route mode, no `$` splat is needed — the filename is just `api.copilotkit.ts` and all dispatch happens via the JSON envelope.
+In single-route mode, no `$` splat is needed. The filename is just `api.copilotkit.ts` and all dispatch happens via the JSON envelope.
 </Callout>
 </Tab>
 </Tabs>
@@ -534,7 +534,7 @@ export const APIRoute = createAPIFileRoute("/api/copilotkit")({
 ```
 
 <Callout type="info">
-In single-route mode, no `$` splat is needed — the file is `copilotkit.ts` (not `$.ts`) and only `POST` is required.
+In single-route mode, no `$` splat is needed. The file is `copilotkit.ts` (not `$.ts`) and only `POST` is required.
 </Callout>
 </Tab>
 </Tabs>
@@ -644,9 +644,8 @@ server.listen(4000, () => {
 
 ## Express
 
-The Express adapter returns a router that you mount with `app.use()`. The value
-is a real `express.Router()`. Its declared type is `CopilotExpressRouter`, which
-names no Express major, so it mounts on Express 4 and Express 5 alike.
+The Express adapter returns an Express router. Mount it with `app.use()`. It
+works with Express 4 and Express 5.
 
 `express` is an optional peer dependency of `@copilotkit/runtime`, so install it
 in your own app. Both majors are supported.
@@ -759,8 +758,8 @@ app.listen(4000, () => {
 | `runtime` | `CopilotRuntime` | *required* | The runtime instance |
 | `basePath` | `string` | *required* | URL path prefix (e.g. `"/api/copilotkit"`) |
 | `mode` | `"multi-route"` \| `"single-route"` | `"multi-route"` | Multi-route exposes individual endpoints; single-route uses a JSON envelope |
-| `cors` | `boolean` \| `CorsOptions` | `false` | CORS configuration. `true` for permissive defaults, or pass a `cors` options object |
-| `hooks` | `CopilotRuntimeHooks` | — | [Lifecycle hooks](#lifecycle-hooks) |
+| `cors` | `boolean` \| `CorsOptions` | `true` | CORS configuration. Defaults to permissive (`origin: "*"`). Pass `false` to handle CORS yourself, or pass a `cors` options object |
+| `hooks` | `CopilotRuntimeHooks` | none | [Lifecycle hooks](#lifecycle-hooks) |
 
 <Callout type="info">
 The Express adapter is compatible with `express.json()` body parsing. If you have `app.use(express.json())` before the CopilotKit router, the adapter will detect the pre-parsed body and handle it correctly.
@@ -771,7 +770,7 @@ The Express adapter is compatible with `express.json()` body parsing. If you hav
 The Hono adapter returns a Hono app that you mount with `app.route()`.
 
 ```
-npm install
+npm install hono @hono/node-server
 ```
 
 <Tabs groupId="runtime-mode" items={["Multi-route", "Single-route", "Existing server"]}>
@@ -947,7 +946,9 @@ const handler = createCopilotRuntimeHandler({
 
     // After routing — route-specific authorization
     onBeforeHandler: async ({ request, route }) => {
-      console.log(`Handling ${route.method} for agent ${route.agentId}`);
+      if ("agentId" in route) {
+        console.log(`Handling ${route.method} for agent ${route.agentId}`);
+      }
     },
 
     // After handler — modify response headers
@@ -1023,7 +1024,7 @@ createCopilotHonoHandler({
 ```
 
 <Callout type="warn">
-When using `credentials: true`, you must specify an explicit origin — wildcard (`*`) is not allowed by the CORS spec.
+When using `credentials: true`, you must specify an explicit origin. A wildcard (`*`) is not allowed by the CORS spec.
 </Callout>
 
 ## Connecting Your Frontend
@@ -1032,18 +1033,16 @@ Once your runtime is running, point your frontend at it:
 
 <FrontendOnly frontend="react">
 ```tsx
-<CopilotKit runtimeUrl="http://localhost:4000/api/copilotkit" useSingleEndpoint={false}>
+<CopilotKit runtimeUrl="http://localhost:4000/api/copilotkit">
   <YourApp />
 </CopilotKit>
 ```
 
 <Callout type="warn" title="Match the prop to the mode you chose">
-  `useSingleEndpoint={false}` is what a **multi-route** handler needs — the
-  default, and what every example above uses unless you passed
-  `mode: "single-route"`. If you did choose single-route, drop the prop: the v1
-  `<CopilotKit>` wrapper already defaults to that transport. `<CopilotKitProvider>`
-  detects the mode and needs no prop either way. Getting this wrong 404s the
-  startup `/info` call, and the runtime will say so in your server logs.
+  Both `<CopilotKit>` and `<CopilotKitProvider>` detect the mode. Set
+  `useSingleEndpoint` only to pin it, and then match your handler: `true` for
+  single-route, `false` for multi-route. If the two do not match, the startup
+  `/info` request returns a `404`.
 </Callout>
 </FrontendOnly>
 
@@ -1066,8 +1065,10 @@ provideCopilotKit({
 <FrontendOnly frontend="react">
 For same-origin deployments, use a relative path:
 ```tsx
-<CopilotKit runtimeUrl="/api/copilotkit" useSingleEndpoint={false}>
+<CopilotKit runtimeUrl="/api/copilotkit">
   <YourApp />
 </CopilotKit>
 ```
 </FrontendOnly>
+
+To check the runtime, run `curl http://localhost:4000/api/copilotkit/info` against a multi-route handler. The JSON response lists your agents under `agents`. Then open your app and send a message. The agent replies.
