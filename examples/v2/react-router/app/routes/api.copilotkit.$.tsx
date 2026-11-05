@@ -9,7 +9,7 @@ import {
   convertToolsToVercelAITools,
 } from "@copilotkit/runtime/v2";
 import { chat, toolDefinition } from "@tanstack/ai";
-import { openaiText } from "@tanstack/ai-openai";
+import { openaiText } from "../lib/openai-text";
 import { streamText, tool } from "ai";
 import { openai } from "@ai-sdk/openai";
 import { z } from "zod";

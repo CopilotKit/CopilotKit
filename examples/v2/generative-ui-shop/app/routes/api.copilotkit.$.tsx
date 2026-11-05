@@ -1,5 +1,5 @@
 import { chat } from "@tanstack/ai";
-import { openaiText } from "@tanstack/ai-openai";
+import { openaiText } from "../lib/openai-text";
 import {
   BuiltInAgent,
   CopilotRuntime,
