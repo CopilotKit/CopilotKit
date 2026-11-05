@@ -57,10 +57,8 @@ export const STATE_TOOLS: readonly AnyServerTool[] = [
       required: ["snapshot"],
       additionalProperties: false,
     },
-    execute: async ({ snapshot }: { snapshot?: unknown }) => ({
-      success: true,
-      snapshot,
-    }),
+    execute: ({ snapshot }: { snapshot?: unknown }) =>
+      Promise.resolve({ success: true, snapshot }),
   },
   {
     __toolSide: "server",
@@ -98,7 +96,7 @@ export const STATE_TOOLS: readonly AnyServerTool[] = [
       required: ["delta"],
       additionalProperties: false,
     },
-    execute: async ({
+    execute: ({
       delta,
     }: {
       delta: {
@@ -106,7 +104,7 @@ export const STATE_TOOLS: readonly AnyServerTool[] = [
         path: string;
         value?: unknown;
       }[];
-    }) => ({ success: true, delta }),
+    }) => Promise.resolve({ success: true, delta }),
   },
 ];
 
