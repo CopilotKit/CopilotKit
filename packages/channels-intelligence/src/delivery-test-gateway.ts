@@ -97,7 +97,7 @@ export class DeliveryTestGateway implements RealtimeGatewaySession {
 /** Build one valid prepared delivery for SDK integration tests. */
 export function preparedDelivery(
   suffix: string,
-  adapter: "slack" | "teams",
+  adapter: "slack" | "teams" | "discord",
   input:
     | PreparedChannelDelivery["turn"]["input"]
     | {

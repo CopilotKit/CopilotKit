@@ -193,3 +193,43 @@ test("managed text selects onMention with onMessage fallback", async () => {
     await fallbackHandle.stop();
   }
 });
+
+test("managed Discord slash commands dispatch to onCommand", async () => {
+  const gateway = new DeliveryTestGateway();
+  const observed: Record<string, string> = {};
+  const channel = createChannel({
+    identifyUser: "platform",
+    name: "support",
+  });
+  channel.onMessage(() => undefined);
+  channel.onCommand("triage", ({ command, text, platform }) => {
+    observed.command = command;
+    observed.commandText = text;
+    observed.commandPlatform = platform;
+  });
+  const handle = await startChannelsWithGatewayControl([channel], {
+    session: gateway,
+    scope: { projectId: 1, channelName: "support" },
+    runtimeInstanceId: "rti_discord_command",
+    runCanonical: async (args) => args.execute({}),
+    loadHistory: async () => [],
+  });
+
+  try {
+    await gateway.deliver(
+      preparedDelivery("command", "discord", {
+        kind: "command",
+        command: "triage",
+        text: "summarize",
+        triggerId: "interaction_01",
+      }),
+    );
+    expect(observed).toEqual({
+      command: "triage",
+      commandText: "summarize",
+      commandPlatform: "discord",
+    });
+  } finally {
+    await handle.stop();
+  }
+});

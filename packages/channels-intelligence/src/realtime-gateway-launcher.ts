@@ -330,6 +330,7 @@ export async function startChannelsOverRealtimeGateway(
       channels: activation.declaredChannels.flatMap((channel) => [
         { channelName: channel.channelName, adapter: "slack" },
         { channelName: channel.channelName, adapter: "teams" },
+        { channelName: channel.channelName, adapter: "discord" },
       ]),
     },
     ...(config.timeoutMs !== undefined ? { timeoutMs: config.timeoutMs } : {}),
