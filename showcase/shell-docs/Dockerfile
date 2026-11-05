@@ -76,8 +76,10 @@ RUN test "$(node --version)" = "v22.23.4"
 
 # Exercise the final runtime filesystem, including Turbopack's generated module
 # links. Compilation and a Node-version check cannot catch a broken MDX import.
-# Only loopback is available; this check needs no model, credentials, or backend.
-RUN --network=none node --input-type=module <<'JS'
+# It talks only to loopback and needs no model, credentials, or backend. No
+# `--network=none`: Railway, which builds the docs PR previews from this file,
+# rejects that RUN flag.
+RUN node --input-type=module <<'JS'
 import { spawn } from 'node:child_process';
 import { connect } from 'node:net';
 import { setTimeout as delay } from 'node:timers/promises';
@@ -104,7 +106,7 @@ try {
 
   let componentHtml = '';
   for (const [path, marker] of [
-    ['/generative-ui/components', 'Let your agent render your React components'],
+    ['/generative-ui/components', 'Let your agent render your own components'],
     ['/generative-ui/components/standard-catalog', 'standardUI'],
     ['/generative-ui/components/standard-catalog/button', 'Button'],
   ]) {
@@ -129,7 +131,7 @@ try {
   });
   if (markdown.status !== 200 ||
       !markdown.headers.get('content-type')?.includes('text/markdown') ||
-      !(await markdown.text()).includes('Let your agent render your React components')) {
+      !(await markdown.text()).includes('Let your agent render your own components')) {
     throw new Error(`${markdownPath}: missing expected Markdown content`);
   }
   console.log(`${markdownPath}: HTTP 200 and expected Markdown content`);

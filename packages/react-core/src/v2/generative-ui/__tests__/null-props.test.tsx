@@ -2,7 +2,7 @@ import React from "react";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 import { createGenerativeUI } from "../catalog";
-import { withoutRejectedNulls } from "../schema";
+import { withoutRejectedNulls } from "@copilotkit/shared/generative-ui";
 import { renderSurface } from "../standard/__tests__/render";
 
 /** A test leaf that shows its optional text, or "unset". */

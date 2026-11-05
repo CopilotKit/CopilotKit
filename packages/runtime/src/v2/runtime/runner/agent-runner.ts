@@ -87,6 +87,15 @@ export interface AgentRunnerRunRequest {
    * anonymous owner. When omitted, the run acts as {@link ɵSERVER_THREAD_OWNER}.
    */
   ownerId?: string;
+  /**
+   * Records a stop of this run with Intelligence. An Intelligence runner calls
+   * it when the runtime stops the run itself (not when Intelligence relayed
+   * the stop), and sends the run's terminal event only once it settles or a
+   * short deadline passes, so Intelligence counts the run as cancelled. The
+   * signal aborts when that deadline passes. A failure never stops the run
+   * from stopping. Runners that do not deliver to Intelligence ignore it.
+   */
+  recordStop?: (signal: AbortSignal) => Promise<void>;
 }
 
 export interface AgentRunnerConnectRequest {

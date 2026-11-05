@@ -176,10 +176,7 @@ export async function verifyDocsDeployment(
   }
 
   for (const [path, marker] of [
-    [
-      "/generative-ui/components",
-      "Let your agent render your React components",
-    ],
+    ["/generative-ui/components", "Let your agent render your own components"],
     ["/generative-ui/components/standard-catalog", "standardUI"],
   ]) {
     const response = await fetchImpl(
