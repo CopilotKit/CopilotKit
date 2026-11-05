@@ -133,7 +133,11 @@ preseed_system_prompt(
 
 def _build_crew() -> Crew:
     agent = Agent(
-        llm=LLM(model="gpt-6-luna", additional_params={"reasoning_effort": "none"}),
+        llm=LLM(
+            model="openai/gpt-6-luna",
+            is_litellm=True,
+            additional_params={"extra_body": {"reasoning_effort": "none"}},
+        ),
         role="Beautiful Chat Demo Assistant",
         goal=(
             "Answer users crisply and rely on tools to render rich UI: "
@@ -168,7 +172,9 @@ def _build_crew() -> Crew:
         process=Process.sequential,
         verbose=False,
         chat_llm=LLM(
-            model="gpt-6-luna", additional_params={"reasoning_effort": "none"}
+            model="openai/gpt-6-luna",
+            is_litellm=True,
+            additional_params={"extra_body": {"reasoning_effort": "none"}},
         ),
     )
 

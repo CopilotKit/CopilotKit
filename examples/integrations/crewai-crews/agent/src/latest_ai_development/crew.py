@@ -24,7 +24,11 @@ class LatestAiDevelopment:
     @agent
     def researcher(self) -> Agent:
         return Agent(
-            llm=LLM(model="gpt-6-luna", additional_params={"reasoning_effort": "none"}),
+            llm=LLM(
+                model="openai/gpt-6-luna",
+                is_litellm=True,
+                additional_params={"extra_body": {"reasoning_effort": "none"}},
+            ),
             config=self.agents_config["researcher"],  # type: ignore[index]
             verbose=True,
         )
@@ -32,7 +36,11 @@ class LatestAiDevelopment:
     @agent
     def reporting_analyst(self) -> Agent:
         return Agent(
-            llm=LLM(model="gpt-6-luna", additional_params={"reasoning_effort": "none"}),
+            llm=LLM(
+                model="openai/gpt-6-luna",
+                is_litellm=True,
+                additional_params={"extra_body": {"reasoning_effort": "none"}},
+            ),
             config=self.agents_config["reporting_analyst"],  # type: ignore[index]
             verbose=True,
         )
@@ -66,7 +74,9 @@ class LatestAiDevelopment:
             process=Process.sequential,
             verbose=True,
             chat_llm=LLM(
-                model="gpt-6-luna", additional_params={"reasoning_effort": "none"}
+                model="openai/gpt-6-luna",
+                is_litellm=True,
+                additional_params={"extra_body": {"reasoning_effort": "none"}},
             ),
             # process=Process.hierarchical, # In case you wanna use that instead https://docs.crewai.com/how-to/Hierarchical/
         )

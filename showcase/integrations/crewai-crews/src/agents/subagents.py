@@ -97,7 +97,11 @@ _LLM = "gpt-6-luna"
 # the crew's final raw output (returned via `Crew.kickoff(...)`).
 def _build_research_crew() -> Crew:
     researcher = Agent(
-        llm=LLM(model="gpt-6-luna", additional_params={"reasoning_effort": "none"}),
+        llm=LLM(
+            model="openai/gpt-6-luna",
+            is_litellm=True,
+            additional_params={"extra_body": {"reasoning_effort": "none"}},
+        ),
         role="Researcher",
         goal="Produce a concise bulleted list of 3-5 key facts on the topic.",
         backstory=(
@@ -128,7 +132,11 @@ def _build_research_crew() -> Crew:
 
 def _build_writing_crew() -> Crew:
     writer = Agent(
-        llm=LLM(model="gpt-6-luna", additional_params={"reasoning_effort": "none"}),
+        llm=LLM(
+            model="openai/gpt-6-luna",
+            is_litellm=True,
+            additional_params={"extra_body": {"reasoning_effort": "none"}},
+        ),
         role="Writer",
         goal="Turn a brief and any source facts into a polished single paragraph.",
         backstory=(
@@ -159,7 +167,11 @@ def _build_writing_crew() -> Crew:
 
 def _build_critique_crew() -> Crew:
     critic = Agent(
-        llm=LLM(model="gpt-6-luna", additional_params={"reasoning_effort": "none"}),
+        llm=LLM(
+            model="openai/gpt-6-luna",
+            is_litellm=True,
+            additional_params={"extra_body": {"reasoning_effort": "none"}},
+        ),
         role="Editorial Critic",
         goal="Give 2-3 crisp, actionable critiques of a draft.",
         backstory=(

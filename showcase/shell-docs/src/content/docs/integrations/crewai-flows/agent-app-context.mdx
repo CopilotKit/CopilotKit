@@ -142,7 +142,7 @@ and `useAgentContext` is how the agent gets it.
                     backstory=BASE_BACKSTORY,
                     llm=LLM(
                         model="openai/gpt-6-luna",
-                        additional_params={"reasoning_effort": "none"},
+                        additional_params={"extra_body": {"reasoning_effort": "none"}},
                     ),
                 )
                 task = Task(

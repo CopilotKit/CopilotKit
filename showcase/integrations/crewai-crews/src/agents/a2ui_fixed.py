@@ -139,7 +139,11 @@ preseed_system_prompt(
 
 def _build_crew() -> Crew:
     agent = Agent(
-        llm=LLM(model="gpt-6-luna", additional_params={"reasoning_effort": "none"}),
+        llm=LLM(
+            model="openai/gpt-6-luna",
+            is_litellm=True,
+            additional_params={"extra_body": {"reasoning_effort": "none"}},
+        ),
         role="A2UI Fixed-Schema Flight Finder",
         goal=(
             "Answer the user's flight questions by calling display_flight "
@@ -166,7 +170,9 @@ def _build_crew() -> Crew:
         process=Process.sequential,
         verbose=False,
         chat_llm=LLM(
-            model="gpt-6-luna", additional_params={"reasoning_effort": "none"}
+            model="openai/gpt-6-luna",
+            is_litellm=True,
+            additional_params={"extra_body": {"reasoning_effort": "none"}},
         ),
     )
 

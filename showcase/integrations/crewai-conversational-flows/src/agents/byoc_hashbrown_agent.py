@@ -118,7 +118,11 @@ def _build_crew() -> Crew:
     overrides the system message passed to the chat LLM at request time.
     """
     agent = Agent(
-        llm=LLM(model="gpt-6-luna", additional_params={"reasoning_effort": "none"}),
+        llm=LLM(
+            model="openai/gpt-6-luna",
+            is_litellm=True,
+            additional_params={"extra_body": {"reasoning_effort": "none"}},
+        ),
         role="Hashbrown JSON Emitter",
         goal="Emit hashbrown-shaped JSON responses.",
         backstory=BYOC_HASHBROWN_SYSTEM_PROMPT,
@@ -139,7 +143,9 @@ def _build_crew() -> Crew:
         process=Process.sequential,
         verbose=False,
         chat_llm=LLM(
-            model="gpt-6-luna", additional_params={"reasoning_effort": "none"}
+            model="openai/gpt-6-luna",
+            is_litellm=True,
+            additional_params={"extra_body": {"reasoning_effort": "none"}},
         ),
     )
 

@@ -72,9 +72,14 @@ def test_every_crewai_agent_uses_luna_with_chat_tool_calling():
             additional = options.get("additional_params")
             if (
                 not isinstance(model, ast.Constant)
-                or model.value != "gpt-6-luna"
+                or model.value != "openai/gpt-6-luna"
+                or not isinstance(options.get("is_litellm"), ast.Constant)
+                or options["is_litellm"].value is not True
                 or not isinstance(additional, ast.Dict)
-                or ast.literal_eval(additional).get("reasoning_effort") != "none"
+                or ast.literal_eval(additional)
+                .get("extra_body", {})
+                .get("reasoning_effort")
+                != "none"
             ):
                 missing_or_wrong.append(f"{source_path.name}:{node.lineno}")
 
