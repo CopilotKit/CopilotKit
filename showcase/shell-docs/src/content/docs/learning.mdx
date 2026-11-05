@@ -124,10 +124,10 @@ When you are done, your Runtime will send selected Threads to a Learning contain
 
     ```ts title="Your CopilotKit runtime"
     import {
-      BuiltInAgent,
       CopilotKitIntelligence,
       CopilotRuntime,
     } from "@copilotkit/runtime";
+    import { BuiltInAgent } from "@copilotkit/runtime/agent";
     import { verifyAppSession } from "./auth"; // Your server-side auth.
 
     const intelligence = new CopilotKitIntelligence({

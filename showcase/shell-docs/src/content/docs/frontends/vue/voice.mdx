@@ -84,11 +84,11 @@ service implements:
 
 ```ts
 import {
-  BuiltInAgent,
   CopilotRuntime,
   TranscriptionService,
   type TranscribeFileOptions,
 } from "@copilotkit/runtime";
+import { BuiltInAgent } from "@copilotkit/runtime/agent";
 import { transcribeWithYourProvider } from "./transcription";
 
 class MyTranscriptionService extends TranscriptionService {

@@ -56,7 +56,8 @@ Single-route mode is useful when your platform only allows one route handler, or
 If your platform supports the Fetch API natively (Bun, Deno, Cloudflare Workers, etc.), you can use `createCopilotRuntimeHandler` directly — no adapter needed.
 
 ```ts
-import { CopilotRuntime, createCopilotRuntimeHandler, BuiltInAgent } from "@copilotkit/runtime";
+import { CopilotRuntime, createCopilotRuntimeHandler } from "@copilotkit/runtime";
+import { BuiltInAgent } from "@copilotkit/runtime/agent";
 
 // 1. Create the runtime with your agent(s)
 const runtime = new CopilotRuntime({
@@ -83,7 +84,8 @@ For framework-specific examples, see the sections below.
 <Tabs groupId="runtime-mode" items={["Multi-route", "Single-route", "Existing server"]}>
 <Tab value="Multi-route">
 ```ts title="server.ts"
-import { CopilotRuntime, createCopilotRuntimeHandler, BuiltInAgent } from "@copilotkit/runtime";
+import { CopilotRuntime, createCopilotRuntimeHandler } from "@copilotkit/runtime";
+import { BuiltInAgent } from "@copilotkit/runtime/agent";
 
 // Configure the runtime with your agent(s)
 const runtime = new CopilotRuntime({
@@ -105,7 +107,8 @@ Bun.serve({ fetch: handler, port: 4000 });
 </Tab>
 <Tab value="Single-route">
 ```ts title="server.ts"
-import { CopilotRuntime, createCopilotRuntimeHandler, BuiltInAgent } from "@copilotkit/runtime";
+import { CopilotRuntime, createCopilotRuntimeHandler } from "@copilotkit/runtime";
+import { BuiltInAgent } from "@copilotkit/runtime/agent";
 
 const runtime = new CopilotRuntime({
   agents: {
@@ -126,7 +129,8 @@ Bun.serve({ fetch: handler, port: 4000 });
 </Tab>
 <Tab value="Existing server">
 ```ts title="server.ts"
-import { CopilotRuntime, createCopilotRuntimeHandler, BuiltInAgent } from "@copilotkit/runtime";
+import { CopilotRuntime, createCopilotRuntimeHandler } from "@copilotkit/runtime";
+import { BuiltInAgent } from "@copilotkit/runtime/agent";
 
 const runtime = new CopilotRuntime({
   agents: {
@@ -167,7 +171,8 @@ Bun.serve({
 <Tabs groupId="runtime-mode" items={["Multi-route", "Single-route", "Existing server"]}>
 <Tab value="Multi-route">
 ```ts title="server.ts"
-import { CopilotRuntime, createCopilotRuntimeHandler, BuiltInAgent } from "@copilotkit/runtime";
+import { CopilotRuntime, createCopilotRuntimeHandler } from "@copilotkit/runtime";
+import { BuiltInAgent } from "@copilotkit/runtime/agent";
 
 const runtime = new CopilotRuntime({
   agents: {
@@ -187,7 +192,8 @@ Deno.serve({ port: 4000 }, handler);
 </Tab>
 <Tab value="Single-route">
 ```ts title="server.ts"
-import { CopilotRuntime, createCopilotRuntimeHandler, BuiltInAgent } from "@copilotkit/runtime";
+import { CopilotRuntime, createCopilotRuntimeHandler } from "@copilotkit/runtime";
+import { BuiltInAgent } from "@copilotkit/runtime/agent";
 
 const runtime = new CopilotRuntime({
   agents: {
@@ -208,7 +214,8 @@ Deno.serve({ port: 4000 }, handler);
 </Tab>
 <Tab value="Existing server">
 ```ts title="server.ts"
-import { CopilotRuntime, createCopilotRuntimeHandler, BuiltInAgent } from "@copilotkit/runtime";
+import { CopilotRuntime, createCopilotRuntimeHandler } from "@copilotkit/runtime";
+import { BuiltInAgent } from "@copilotkit/runtime/agent";
 
 const runtime = new CopilotRuntime({
   agents: {
@@ -252,7 +259,8 @@ Deno.serve({ port: 4000 }, (request) => {
   factory on each request:
 
   ```ts
-  import { BuiltInAgent, CopilotRuntime } from "@copilotkit/runtime";
+  import { CopilotRuntime } from "@copilotkit/runtime";
+  import { BuiltInAgent } from "@copilotkit/runtime/agent";
 
   const runtime = new CopilotRuntime({
     agents: () => ({
@@ -265,7 +273,8 @@ Deno.serve({ port: 4000 }, (request) => {
 <Tabs groupId="runtime-mode" items={["Multi-route", "Single-route", "Existing worker"]}>
 <Tab value="Multi-route">
 ```ts title="src/index.ts"
-import { CopilotRuntime, createCopilotRuntimeHandler, BuiltInAgent } from "@copilotkit/runtime";
+import { CopilotRuntime, createCopilotRuntimeHandler } from "@copilotkit/runtime";
+import { BuiltInAgent } from "@copilotkit/runtime/agent";
 
 export interface Env {
   OPENAI_API_KEY: string;
@@ -293,7 +302,8 @@ export default {
 </Tab>
 <Tab value="Single-route">
 ```ts title="src/index.ts"
-import { CopilotRuntime, createCopilotRuntimeHandler, BuiltInAgent } from "@copilotkit/runtime";
+import { CopilotRuntime, createCopilotRuntimeHandler } from "@copilotkit/runtime";
+import { BuiltInAgent } from "@copilotkit/runtime/agent";
 
 export interface Env {
   OPENAI_API_KEY: string;
@@ -322,7 +332,8 @@ export default {
 </Tab>
 <Tab value="Existing worker">
 ```ts title="src/index.ts"
-import { CopilotRuntime, createCopilotRuntimeHandler, BuiltInAgent } from "@copilotkit/runtime";
+import { CopilotRuntime, createCopilotRuntimeHandler } from "@copilotkit/runtime";
+import { BuiltInAgent } from "@copilotkit/runtime/agent";
 
 export interface Env {
   OPENAI_API_KEY: string;
@@ -366,7 +377,8 @@ export default {
 <Tabs groupId="runtime-mode" items={["Multi-route", "Single-route"]}>
 <Tab value="Multi-route">
 ```ts title="app/api/copilotkit/[...path]/route.ts"
-import { CopilotRuntime, createCopilotRuntimeHandler, BuiltInAgent } from "@copilotkit/runtime";
+import { CopilotRuntime, createCopilotRuntimeHandler } from "@copilotkit/runtime";
+import { BuiltInAgent } from "@copilotkit/runtime/agent";
 
 const runtime = new CopilotRuntime({
   agents: {
@@ -385,7 +397,8 @@ export { handler as GET, handler as POST, handler as PATCH, handler as DELETE };
 </Tab>
 <Tab value="Single-route">
 ```ts title="app/api/copilotkit/[[...slug]]/route.ts"
-import { CopilotRuntime, createCopilotRuntimeHandler, BuiltInAgent } from "@copilotkit/runtime";
+import { CopilotRuntime, createCopilotRuntimeHandler } from "@copilotkit/runtime";
+import { BuiltInAgent } from "@copilotkit/runtime/agent";
 
 const runtime = new CopilotRuntime({
   agents: {
@@ -420,7 +433,8 @@ React Router v7 in framework mode uses file-based routing with Fetch API handler
 <Tabs groupId="runtime-mode" items={["Multi-route", "Single-route"]}>
 <Tab value="Multi-route">
 ```ts title="app/routes/api.copilotkit.$.ts"
-import { CopilotRuntime, createCopilotRuntimeHandler, BuiltInAgent } from "@copilotkit/runtime";
+import { CopilotRuntime, createCopilotRuntimeHandler } from "@copilotkit/runtime";
+import { BuiltInAgent } from "@copilotkit/runtime/agent";
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "react-router";
 
 const runtime = new CopilotRuntime({
@@ -451,7 +465,8 @@ The `$` splat segment in the filename (`api.copilotkit.$.ts`) captures all subpa
 </Tab>
 <Tab value="Single-route">
 ```ts title="app/routes/api.copilotkit.ts"
-import { CopilotRuntime, createCopilotRuntimeHandler, BuiltInAgent } from "@copilotkit/runtime";
+import { CopilotRuntime, createCopilotRuntimeHandler } from "@copilotkit/runtime";
+import { BuiltInAgent } from "@copilotkit/runtime/agent";
 import type { ActionFunctionArgs } from "react-router";
 
 const runtime = new CopilotRuntime({
@@ -487,7 +502,8 @@ TanStack Start serves API requests from [server routes](https://tanstack.com/sta
 {/* kiira: ignore, the route path and the `server` option are typed by the routeTree.gen.ts that TanStack Start generates in the reader's project; the CopilotKit handler code is the same as the checked tabs above */}
 ```ts ignore title="src/routes/api/copilotkit/$.ts"
 import { createFileRoute } from "@tanstack/react-router";
-import { CopilotRuntime, createCopilotRuntimeHandler, BuiltInAgent } from "@copilotkit/runtime";
+import { CopilotRuntime, createCopilotRuntimeHandler } from "@copilotkit/runtime";
+import { BuiltInAgent } from "@copilotkit/runtime/agent";
 
 const runtime = new CopilotRuntime({
   agents: {
@@ -521,7 +537,8 @@ The `$` in the filename is TanStack Start's splat parameter, matching all subpat
 {/* kiira: ignore, the route path and the `server` option are typed by the routeTree.gen.ts that TanStack Start generates in the reader's project; the CopilotKit handler code is the same as the checked tabs above */}
 ```ts ignore title="src/routes/api/copilotkit.ts"
 import { createFileRoute } from "@tanstack/react-router";
-import { CopilotRuntime, createCopilotRuntimeHandler, BuiltInAgent } from "@copilotkit/runtime";
+import { CopilotRuntime, createCopilotRuntimeHandler } from "@copilotkit/runtime";
+import { BuiltInAgent } from "@copilotkit/runtime/agent";
 
 const runtime = new CopilotRuntime({
   agents: {
@@ -559,7 +576,8 @@ For vanilla Node.js HTTP servers, use the `/node` subpath which bridges Fetch to
 <Tab value="Multi-route">
 ```ts title="server.ts"
 import { createServer } from "node:http";
-import { CopilotRuntime, BuiltInAgent } from "@copilotkit/runtime";
+import { CopilotRuntime } from "@copilotkit/runtime";
+import { BuiltInAgent } from "@copilotkit/runtime/agent";
 import { createCopilotNodeListener } from "@copilotkit/runtime/node";
 
 const runtime = new CopilotRuntime({
@@ -584,7 +602,8 @@ createServer(listener).listen(4000, () => {
 <Tab value="Single-route">
 ```ts title="server.ts"
 import { createServer } from "node:http";
-import { CopilotRuntime, BuiltInAgent } from "@copilotkit/runtime";
+import { CopilotRuntime } from "@copilotkit/runtime";
+import { BuiltInAgent } from "@copilotkit/runtime/agent";
 import { createCopilotNodeListener } from "@copilotkit/runtime/node";
 
 const runtime = new CopilotRuntime({
@@ -608,7 +627,8 @@ createServer(listener).listen(4000, () => {
 <Tab value="Existing server">
 ```ts title="server.ts"
 import { createServer } from "node:http";
-import { CopilotRuntime, createCopilotRuntimeHandler, BuiltInAgent } from "@copilotkit/runtime";
+import { CopilotRuntime, createCopilotRuntimeHandler } from "@copilotkit/runtime";
+import { BuiltInAgent } from "@copilotkit/runtime/agent";
 import { createCopilotNodeHandler } from "@copilotkit/runtime/node";
 
 const runtime = new CopilotRuntime({
@@ -676,7 +696,8 @@ npm install express
 <Tab value="Multi-route">
 ```ts title="server.ts"
 import express from "express";
-import { CopilotRuntime, BuiltInAgent } from "@copilotkit/runtime";
+import { CopilotRuntime } from "@copilotkit/runtime";
+import { BuiltInAgent } from "@copilotkit/runtime/agent";
 import { createCopilotNodeListener } from "@copilotkit/runtime/node";
 
 const runtime = new CopilotRuntime({
@@ -705,7 +726,8 @@ app.listen(4000, () => {
 <Tab value="Single-route">
 ```ts title="server.ts"
 import express from "express";
-import { CopilotRuntime, BuiltInAgent } from "@copilotkit/runtime";
+import { CopilotRuntime } from "@copilotkit/runtime";
+import { BuiltInAgent } from "@copilotkit/runtime/agent";
 import { createCopilotNodeListener } from "@copilotkit/runtime/node";
 
 const runtime = new CopilotRuntime({
@@ -735,7 +757,8 @@ app.listen(4000, () => {
 <Tab value="Existing server">
 ```ts title="server.ts"
 import express from "express";
-import { CopilotRuntime, BuiltInAgent } from "@copilotkit/runtime";
+import { CopilotRuntime } from "@copilotkit/runtime";
+import { BuiltInAgent } from "@copilotkit/runtime/agent";
 import { createCopilotNodeListener } from "@copilotkit/runtime/node";
 
 const runtime = new CopilotRuntime({
@@ -803,7 +826,8 @@ npm install hono @hono/node-server
 ```ts title="server.ts"
 import { Hono } from "hono";
 import { serve } from "@hono/node-server";
-import { CopilotRuntime, createCopilotRuntimeHandler, BuiltInAgent } from "@copilotkit/runtime";
+import { CopilotRuntime, createCopilotRuntimeHandler } from "@copilotkit/runtime";
+import { BuiltInAgent } from "@copilotkit/runtime/agent";
 
 const runtime = new CopilotRuntime({
   agents: {
@@ -830,7 +854,8 @@ serve({ fetch: app.fetch, port: 4000 }, () => {
 ```ts title="server.ts"
 import { Hono } from "hono";
 import { serve } from "@hono/node-server";
-import { CopilotRuntime, createCopilotRuntimeHandler, BuiltInAgent } from "@copilotkit/runtime";
+import { CopilotRuntime, createCopilotRuntimeHandler } from "@copilotkit/runtime";
+import { BuiltInAgent } from "@copilotkit/runtime/agent";
 
 const runtime = new CopilotRuntime({
   agents: {
@@ -858,7 +883,8 @@ serve({ fetch: app.fetch, port: 4000 }, () => {
 ```ts title="server.ts"
 import { Hono } from "hono";
 import { serve } from "@hono/node-server";
-import { CopilotRuntime, createCopilotRuntimeHandler, BuiltInAgent } from "@copilotkit/runtime";
+import { CopilotRuntime, createCopilotRuntimeHandler } from "@copilotkit/runtime";
+import { BuiltInAgent } from "@copilotkit/runtime/agent";
 
 const runtime = new CopilotRuntime({
   agents: {
@@ -899,7 +925,8 @@ bun add elysia
 <Tab value="Multi-route">
 ```ts title="server.ts"
 import { Elysia } from "elysia";
-import { CopilotRuntime, createCopilotRuntimeHandler, BuiltInAgent } from "@copilotkit/runtime";
+import { CopilotRuntime, createCopilotRuntimeHandler } from "@copilotkit/runtime";
+import { BuiltInAgent } from "@copilotkit/runtime/agent";
 
 const runtime = new CopilotRuntime({
   agents: {
@@ -918,7 +945,8 @@ new Elysia()
 <Tab value="Single-route">
 ```ts title="server.ts"
 import { Elysia } from "elysia";
-import { CopilotRuntime, createCopilotRuntimeHandler, BuiltInAgent } from "@copilotkit/runtime";
+import { CopilotRuntime, createCopilotRuntimeHandler } from "@copilotkit/runtime";
+import { BuiltInAgent } from "@copilotkit/runtime/agent";
 
 const runtime = new CopilotRuntime({
   agents: {
@@ -942,7 +970,8 @@ new Elysia()
 <Tab value="Existing server">
 ```ts title="server.ts"
 import { Elysia } from "elysia";
-import { CopilotRuntime, createCopilotRuntimeHandler, BuiltInAgent } from "@copilotkit/runtime";
+import { CopilotRuntime, createCopilotRuntimeHandler } from "@copilotkit/runtime";
+import { BuiltInAgent } from "@copilotkit/runtime/agent";
 
 const runtime = new CopilotRuntime({
   agents: {
@@ -968,7 +997,8 @@ new Elysia()
 `createCopilotRuntimeHandler` and `createCopilotNodeListener` both take lifecycle hooks for cross-cutting concerns like authentication, logging, and response modification.
 
 ```ts
-import { CopilotRuntime, createCopilotRuntimeHandler, BuiltInAgent } from "@copilotkit/runtime";
+import { CopilotRuntime, createCopilotRuntimeHandler } from "@copilotkit/runtime";
+import { BuiltInAgent } from "@copilotkit/runtime/agent";
 
 const runtime = new CopilotRuntime({
   agents: {
@@ -1025,7 +1055,8 @@ const handler = createCopilotRuntimeHandler({
 The handlers send no CORS headers by default. Pass `cors: true` for permissive defaults (`Access-Control-Allow-Origin: *`), or provide a `CopilotCorsConfig` object. The same option works on `createCopilotRuntimeHandler` (Fetch runtimes and Hono) and on `createCopilotNodeListener` (Node.js HTTP and Express):
 
 ```ts
-import { CopilotRuntime, createCopilotRuntimeHandler, BuiltInAgent } from "@copilotkit/runtime";
+import { CopilotRuntime, createCopilotRuntimeHandler } from "@copilotkit/runtime";
+import { BuiltInAgent } from "@copilotkit/runtime/agent";
 
 const runtime = new CopilotRuntime({
   agents: {

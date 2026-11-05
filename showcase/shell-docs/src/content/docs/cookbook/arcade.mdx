@@ -136,11 +136,10 @@ tool's parameter names to the Arcade tool's own schema, or unknown params are si
 
 ```ts title="app/api/copilotkit/[[...slug]]/route.ts"
 import {
-  BuiltInAgent,
   CopilotRuntime,
   createCopilotRuntimeHandler,
-  defineTool,
 } from "@copilotkit/runtime";
+import { BuiltInAgent, defineTool } from "@copilotkit/runtime/agent";
 import { z } from "zod";
 import { getArcadeUserId, runArcadeTool } from "@/lib/arcade";
 

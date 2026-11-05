@@ -159,7 +159,7 @@ export class AgentConfigComponent {
 The runtime hands the same object to the agent factory on every call as `input.forwardedProps`. The factory uses those fields to build a system prompt before returning the agent for that turn:
 
 ```ts title="backend/agent factory — synthesise the system prompt per turn"
-import { BuiltInAgent, convertInputToTanStackAI } from "@copilotkit/runtime";
+import { BuiltInAgent, convertInputToTanStackAI } from "@copilotkit/runtime/agent";
 import { chat } from "@tanstack/ai";
 import { openaiText } from "@tanstack/ai-openai";
 

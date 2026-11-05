@@ -67,11 +67,8 @@ Read the current conversation from `agent.value.messages`; replace or append wit
 Your application owns end-user authentication. For an Intelligence-enabled runtime, implement `identifyUser(request)` with the server-verified session or token and return a stable user id and name:
 
 ```ts title="server.ts"
-import {
-  BuiltInAgent,
-  CopilotKitIntelligence,
-  CopilotRuntime,
-} from "@copilotkit/runtime";
+import { CopilotKitIntelligence, CopilotRuntime } from "@copilotkit/runtime";
+import { BuiltInAgent } from "@copilotkit/runtime/agent";
 import { verifyAppSession } from "./auth";
 
 const runtime = new CopilotRuntime({

@@ -320,7 +320,8 @@ Single-route and multi-route handlers both expose AG-UI Streams. Use single-rout
 when your server should expose only one `POST` endpoint:
 
 ```ts title="lib/copilotkit.ts"
-import { BuiltInAgent, CopilotRuntime, createCopilotRuntimeHandler } from "@copilotkit/runtime";
+import { CopilotRuntime, createCopilotRuntimeHandler } from "@copilotkit/runtime";
+import { BuiltInAgent } from "@copilotkit/runtime/agent";
 
 const runtime = new CopilotRuntime({
   agents: { default: new BuiltInAgent({ model: "openai/gpt-4o-mini" }) },
@@ -415,7 +416,8 @@ to an application user. Add `identifyUser` and resolve the user from a
 server-verified session or token:
 
 ```ts title="lib/copilotkit.ts"
-import { BuiltInAgent, CopilotKitIntelligence, CopilotRuntime } from "@copilotkit/runtime";
+import { CopilotKitIntelligence, CopilotRuntime } from "@copilotkit/runtime";
+import { BuiltInAgent } from "@copilotkit/runtime/agent";
 import { authenticateApplicationUser } from "./auth";
 
 const intelligence = new CopilotKitIntelligence({
@@ -526,7 +528,8 @@ the runtime exposes one `POST {basePath}` endpoint that accepts a JSON envelope
 
 ```ts title="server.ts (Express)"
 import express from "express";
-import { CopilotRuntime, BuiltInAgent } from "@copilotkit/runtime";
+import { CopilotRuntime } from "@copilotkit/runtime";
+import { BuiltInAgent } from "@copilotkit/runtime/agent";
 import { createCopilotNodeListener } from "@copilotkit/runtime/node";
 
 const runtime = new CopilotRuntime({
@@ -649,7 +652,8 @@ option is the same on `createCopilotRuntimeHandler` and
 `createCopilotNodeListener`:
 
 ```ts
-import { BuiltInAgent, CopilotRuntime, createCopilotRuntimeHandler } from "@copilotkit/runtime";
+import { CopilotRuntime, createCopilotRuntimeHandler } from "@copilotkit/runtime";
+import { BuiltInAgent } from "@copilotkit/runtime/agent";
 
 const runtime = new CopilotRuntime({
   agents: { default: new BuiltInAgent({ model: "openai/gpt-4o-mini" }) },
@@ -676,7 +680,8 @@ auth. The handlers accept lifecycle `hooks`. An `onRequest` hook runs before
 every request and can reject the request by throwing a `Response`:
 
 ```ts
-import { BuiltInAgent, CopilotRuntime, createCopilotRuntimeHandler } from "@copilotkit/runtime";
+import { CopilotRuntime, createCopilotRuntimeHandler } from "@copilotkit/runtime";
+import { BuiltInAgent } from "@copilotkit/runtime/agent";
 
 const runtime = new CopilotRuntime({
   agents: { default: new BuiltInAgent({ model: "openai/gpt-4o-mini" }) },
@@ -700,7 +705,8 @@ per-thread decisions use `onBeforeHandler`, which runs after routing and
 receives the resolved `route`, including its `threadId`:
 
 ```ts
-import { BuiltInAgent, CopilotRuntime, createCopilotRuntimeHandler } from "@copilotkit/runtime";
+import { CopilotRuntime, createCopilotRuntimeHandler } from "@copilotkit/runtime";
+import { BuiltInAgent } from "@copilotkit/runtime/agent";
 import { resolveUser, userOwnsThread } from "./auth";
 
 const runtime = new CopilotRuntime({

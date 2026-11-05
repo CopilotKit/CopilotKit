@@ -45,19 +45,19 @@ Use this prompt to connect your Vue app to Copilot Runtime with the selected age
         <Tabs groupId="package-manager" items={['npm', 'pnpm', 'yarn']}>
             <Tab value="npm">
                 ```bash
-                npm install @copilotkit/vue @copilotkit/runtime
+                npm install @copilotkit/vue @copilotkit/runtime @tanstack/ai @tanstack/ai-openai
                 npm install -D tsx typescript @types/node
                 ```
             </Tab>
             <Tab value="pnpm">
                 ```bash
-                pnpm add @copilotkit/vue @copilotkit/runtime
+                pnpm add @copilotkit/vue @copilotkit/runtime @tanstack/ai @tanstack/ai-openai
                 pnpm add -D tsx typescript @types/node
                 ```
             </Tab>
             <Tab value="yarn">
                 ```bash
-                yarn add @copilotkit/vue @copilotkit/runtime
+                yarn add @copilotkit/vue @copilotkit/runtime @tanstack/ai @tanstack/ai-openai
                 yarn add -D tsx typescript @types/node
                 ```
             </Tab>
@@ -81,7 +81,8 @@ Use this prompt to connect your Vue app to Copilot Runtime with the selected age
 
         ```ts title="server.ts"
         import { createServer } from "node:http";
-        import { BuiltInAgent, CopilotRuntime } from "@copilotkit/runtime";
+        import { CopilotRuntime } from "@copilotkit/runtime";
+        import { BuiltInAgent } from "@copilotkit/runtime/agent";
         import { createCopilotNodeListener } from "@copilotkit/runtime/node";
 
         const runtime = new CopilotRuntime({

@@ -156,7 +156,8 @@ for a single-user surface.
 If you register an agent under the name `"default"`, CopilotKit's prebuilt UI components will use it automatically without any additional configuration on the frontend. This is useful when you have one primary agent and don't want to specify an `agentId` everywhere.
 
 ```ts title="app/api/copilotkit/[[...slug]]/route.ts"
-import { BuiltInAgent, CopilotRuntime } from "@copilotkit/runtime";
+import { CopilotRuntime } from "@copilotkit/runtime";
+import { BuiltInAgent } from "@copilotkit/runtime/agent";
 
 const runtime = new CopilotRuntime({
   agents: {
@@ -246,7 +247,8 @@ The runtime exposes two first-class middleware options you can enable directly o
 Pass `a2ui: {}` to automatically apply `A2UIMiddleware` to all registered agents:
 
 ```ts title="app/api/copilotkit/route.ts"
-import { BuiltInAgent, CopilotRuntime } from "@copilotkit/runtime";
+import { CopilotRuntime } from "@copilotkit/runtime";
+import { BuiltInAgent } from "@copilotkit/runtime/agent";
 
 const myAgent = new BuiltInAgent({ model: "openai/gpt-4o-mini" });
 
@@ -259,7 +261,8 @@ const runtime = new CopilotRuntime({
 To scope it to specific agents only, pass an `agents` list:
 
 ```ts title="app/api/copilotkit/route.ts"
-import { BuiltInAgent, CopilotRuntime } from "@copilotkit/runtime";
+import { CopilotRuntime } from "@copilotkit/runtime";
+import { BuiltInAgent } from "@copilotkit/runtime/agent";
 
 const myAgent = new BuiltInAgent({ model: "openai/gpt-4o-mini" });
 
@@ -319,7 +322,8 @@ export const appConfig: ApplicationConfig = {
 Pass `mcpApps` to configure MCP servers for all agents from a single place:
 
 ```ts title="app/api/copilotkit/route.ts"
-import { BuiltInAgent, CopilotRuntime } from "@copilotkit/runtime";
+import { CopilotRuntime } from "@copilotkit/runtime";
+import { BuiltInAgent } from "@copilotkit/runtime/agent";
 
 const myAgent = new BuiltInAgent({ model: "openai/gpt-4o-mini" });
 
@@ -363,7 +367,8 @@ Headers you set on an agent (e.g. `new HttpAgent({ headers: { Authorization: "Be
 Pass `forwardHeaders` to `CopilotRuntime` to tune what forwards:
 
 ```ts title="app/api/copilotkit/route.ts"
-import { BuiltInAgent, CopilotRuntime } from "@copilotkit/runtime";
+import { CopilotRuntime } from "@copilotkit/runtime";
+import { BuiltInAgent } from "@copilotkit/runtime/agent";
 
 const myAgent = new BuiltInAgent({ model: "openai/gpt-4o-mini" });
 
@@ -386,7 +391,8 @@ The options:
 Empty or whitespace-only entries are ignored in every list.
 
 ```ts title="app/api/copilotkit/route.ts"
-import { BuiltInAgent, CopilotRuntime } from "@copilotkit/runtime";
+import { CopilotRuntime } from "@copilotkit/runtime";
+import { BuiltInAgent } from "@copilotkit/runtime/agent";
 
 const myAgent = new BuiltInAgent({ model: "openai/gpt-4o-mini" });
 

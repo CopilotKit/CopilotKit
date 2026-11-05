@@ -53,10 +53,10 @@ before exposing thread lists or lifecycle actions.
 
         ```typescript title="server.ts"
         import {
-          BuiltInAgent,
           CopilotKitIntelligence,
           CopilotRuntime,
         } from "@copilotkit/runtime";
+        import { BuiltInAgent } from "@copilotkit/runtime/agent";
         // Your app's own session check.
         import { verifyAppSession } from "./auth";
 

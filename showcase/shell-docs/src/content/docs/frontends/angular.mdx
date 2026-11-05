@@ -57,19 +57,19 @@ headless APIs, and it supports zoneless applications.
         <Tabs groupId="package-manager" items={['npm', 'pnpm', 'yarn']}>
             <Tab value="npm">
                 ```bash
-                npm install @copilotkit/angular @angular/cdk @copilotkit/runtime
+                npm install @copilotkit/angular @angular/cdk @copilotkit/runtime @tanstack/ai @tanstack/ai-openai
                 npm install -D tsx typescript @types/node
                 ```
             </Tab>
             <Tab value="pnpm">
                 ```bash
-                pnpm add @copilotkit/angular @angular/cdk @copilotkit/runtime
+                pnpm add @copilotkit/angular @angular/cdk @copilotkit/runtime @tanstack/ai @tanstack/ai-openai
                 pnpm add -D tsx typescript @types/node
                 ```
             </Tab>
             <Tab value="yarn">
                 ```bash
-                yarn add @copilotkit/angular @angular/cdk @copilotkit/runtime
+                yarn add @copilotkit/angular @angular/cdk @copilotkit/runtime @tanstack/ai @tanstack/ai-openai
                 yarn add -D tsx typescript @types/node
                 ```
             </Tab>
@@ -87,7 +87,8 @@ headless APIs, and it supports zoneless applications.
 
         ```ts title="server.ts"
         import { createServer } from "node:http";
-        import { BuiltInAgent, CopilotRuntime } from "@copilotkit/runtime";
+        import { CopilotRuntime } from "@copilotkit/runtime";
+        import { BuiltInAgent } from "@copilotkit/runtime/agent";
         import { createCopilotNodeListener } from "@copilotkit/runtime/node";
 
         const runtime = new CopilotRuntime({

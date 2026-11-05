@@ -39,7 +39,8 @@ export function Providers({ children }: { children: React.ReactNode }) {
 ```
 
 ```ts title="Runtime, before"
-import { BuiltInAgent, CopilotRuntime } from "@copilotkit/runtime";
+import { CopilotRuntime } from "@copilotkit/runtime";
+import { BuiltInAgent } from "@copilotkit/runtime/agent";
 
 const runtime = new CopilotRuntime({
   agents: { shop: new BuiltInAgent({ model: "openai/gpt-5.4" }) },
@@ -48,7 +49,8 @@ const runtime = new CopilotRuntime({
 ```
 
 ```ts title="Runtime, after"
-import { BuiltInAgent, CopilotRuntime } from "@copilotkit/runtime";
+import { CopilotRuntime } from "@copilotkit/runtime";
+import { BuiltInAgent } from "@copilotkit/runtime/agent";
 
 // Nothing: a run that carries a catalog gets the render_ui tool and the guide.
 // To force or limit it: generativeUI: true, or generativeUI: { agents: ["shop"] }.

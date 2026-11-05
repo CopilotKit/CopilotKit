@@ -74,7 +74,7 @@ Start with a fresh Next.js app and add CopilotKit. Already have a CopilotKit app
 ```bash
 npx create-next-app@latest web --yes
 cd web
-npm install @copilotkit/react-core @copilotkit/runtime
+npm install @copilotkit/react-core @copilotkit/runtime @tanstack/ai @tanstack/ai-openai
 ```
 
 CopilotKit's provider is a client component, so give it its own file:
@@ -404,10 +404,10 @@ runs.
 
 ```ts title="app/api/copilotkit/[[...slug]]/route.ts" doctest="component"
 import {
-  BuiltInAgent,
   CopilotRuntime,
   createCopilotRuntimeHandler,
 } from "@copilotkit/runtime";
+import { BuiltInAgent } from "@copilotkit/runtime/agent";
 
 const agent = new BuiltInAgent({
   model: "openai/gpt-5.5",

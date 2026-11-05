@@ -71,10 +71,10 @@ Before you start, have a working CopilotKit frontend and agent. The TypeScript t
 
     ```ts title="Your CopilotKit runtime" group=intelligence-runtime
     import {
-      BuiltInAgent,
       CopilotKitIntelligence,
       CopilotRuntime,
     } from "@copilotkit/runtime";
+    import { BuiltInAgent } from "@copilotkit/runtime/agent";
     import { authenticateApplicationUser } from "./auth";
 
     // Create the Intelligence client with your project API key. Keep this key on the server.

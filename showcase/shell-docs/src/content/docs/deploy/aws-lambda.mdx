@@ -39,8 +39,8 @@ import type { LambdaFunctionURLEvent } from "aws-lambda";
 import {
   CopilotRuntime,
   createCopilotRuntimeHandler,
-  BuiltInAgent,
 } from "@copilotkit/runtime";
+import { BuiltInAgent } from "@copilotkit/runtime/agent";
 
 // Created once per container, reused across warm invocations.
 const runtime = new CopilotRuntime({
@@ -374,13 +374,14 @@ CopilotKitMethod:
 Behind an HTTP API or an Application Load Balancer there is no streaming path, so `serverless-http` adapting an Express app that mounts the runtime's Node listener is as good as it gets. Chat still functions end to end, but every response arrives in one piece at the end of the run.
 
 ```
-npm install express serverless-http @copilotkit/runtime
+npm install express serverless-http @copilotkit/runtime @tanstack/ai @tanstack/ai-openai
 ```
 
 ```ts title="src/handler.ts"
 import express from "express";
 import serverlessHttp from "serverless-http";
-import { CopilotRuntime, BuiltInAgent } from "@copilotkit/runtime";
+import { CopilotRuntime } from "@copilotkit/runtime";
+import { BuiltInAgent } from "@copilotkit/runtime/agent";
 import { createCopilotNodeListener } from "@copilotkit/runtime/node";
 
 const runtime = new CopilotRuntime({
@@ -414,7 +415,8 @@ Single-route mode pairs well here, since it collapses the runtime to one `POST` 
 ```ts title="src/handler.ts"
 import express from "express";
 import serverlessHttp from "serverless-http";
-import { CopilotRuntime, BuiltInAgent } from "@copilotkit/runtime";
+import { CopilotRuntime } from "@copilotkit/runtime";
+import { BuiltInAgent } from "@copilotkit/runtime/agent";
 import { createCopilotNodeListener } from "@copilotkit/runtime/node";
 
 const runtime = new CopilotRuntime({
@@ -443,7 +445,8 @@ export const handler = serverlessHttp(app);
 Use the runtime's `onRequest` hook to reject unauthenticated calls before any routing happens. It works identically on every front door above.
 
 ```ts title="src/handler.ts"
-import { CopilotRuntime, createCopilotRuntimeHandler, BuiltInAgent } from "@copilotkit/runtime";
+import { CopilotRuntime, createCopilotRuntimeHandler } from "@copilotkit/runtime";
+import { BuiltInAgent } from "@copilotkit/runtime/agent";
 import { verifyToken } from "./auth";
 
 const runtime = new CopilotRuntime({

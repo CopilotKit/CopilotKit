@@ -43,19 +43,19 @@ Use this prompt to set up CopilotKit in your React Native app, configure Metro a
         <Tabs groupId="package-manager" items={['npm', 'pnpm', 'yarn']}>
             <Tab value="npm">
                 ```bash
-                npm install @copilotkit/react-native @copilotkit/runtime
+                npm install @copilotkit/react-native @copilotkit/runtime @tanstack/ai @tanstack/ai-openai
                 npm install -D tsx typescript @types/node
                 ```
             </Tab>
             <Tab value="pnpm">
                 ```bash
-                pnpm add @copilotkit/react-native @copilotkit/runtime
+                pnpm add @copilotkit/react-native @copilotkit/runtime @tanstack/ai @tanstack/ai-openai
                 pnpm add -D tsx typescript @types/node
                 ```
             </Tab>
             <Tab value="yarn">
                 ```bash
-                yarn add @copilotkit/react-native @copilotkit/runtime
+                yarn add @copilotkit/react-native @copilotkit/runtime @tanstack/ai @tanstack/ai-openai
                 yarn add -D tsx typescript @types/node
                 ```
             </Tab>
@@ -110,7 +110,8 @@ Use this prompt to set up CopilotKit in your React Native app, configure Metro a
 
         ```ts title="server.ts"
         import { createServer } from "node:http";
-        import { BuiltInAgent, CopilotRuntime } from "@copilotkit/runtime";
+        import { CopilotRuntime } from "@copilotkit/runtime";
+        import { BuiltInAgent } from "@copilotkit/runtime/agent";
         import { createCopilotNodeListener } from "@copilotkit/runtime/node";
 
         const runtime = new CopilotRuntime({
@@ -520,14 +521,14 @@ The runtime from the quickstart hosts a `BuiltInAgent` and serves it with `creat
 `BuiltInAgent` accepts a model **string** in `provider:model` (or `provider/model`) form for OpenAI, Anthropic, and Google:
 
 ```ts
-import { BuiltInAgent } from "@copilotkit/runtime";
+import { BuiltInAgent } from "@copilotkit/runtime/agent";
 
 const openai = new BuiltInAgent({ model: "openai:gpt-5-mini", prompt: "..." }); // OPENAI_API_KEY
 const anthropic = new BuiltInAgent({ model: "anthropic:claude-sonnet-4-6", prompt: "..." }); // ANTHROPIC_API_KEY
 const google = new BuiltInAgent({ model: "google:gemini-3.8-flash", prompt: "..." }); // GOOGLE_API_KEY
 ```
 
-The string form reads the matching provider API key from the environment. You can also pass `apiKey` on the config, or an already-constructed AI SDK `LanguageModel` instance in place of the string.
+The string form reads the matching provider API key from the environment. You can also pass `apiKey` on the config. In place of the string, you can pass a TanStack AI text adapter, such as `openaiText("gpt-5")` from `@tanstack/ai-openai`.
 
 ### OpenAI-compatible endpoints
 
@@ -544,7 +545,14 @@ On a host other than OpenAI or Azure, `openai:` models use the Chat Completions 
 The same applies to `ANTHROPIC_BASE_URL` and `GOOGLE_GENERATIVE_AI_BASE_URL`. When the variable is unset, the provider falls back to its default endpoint, so this is fully backward compatible — you do **not** need to build a custom model instance just to change the base URL.
 
 <Callout type="info" title="Other BuiltInAgent options">
-  Beyond `model` and `prompt`, `BuiltInAgent` accepts `maxSteps` (tool-calling iterations, default `1`), `tools` (server-executed tools via `defineTool`), `temperature`, `maxOutputTokens`, `providerOptions` (e.g. OpenAI `reasoningEffort`), and `mcpServers` / `mcpClients`. Tools that mutate the app's UI belong on the **client** via `useFrontendTool` (below), not in the server `tools` list.
+  Beyond `model` and `prompt`, `BuiltInAgent` accepts these options:
+
+  - `maxSteps`: the maximum number of model calls in one run. Default: `1`.
+  - `tools`: tools that run on the server. Make them with `defineTool`.
+  - `modelOptions`: provider options, with the names that the provider uses.
+  - `mcpServers` and `mcpClients`: tools from MCP servers. They need `@tanstack/ai-mcp`.
+
+  Tools that mutate the app's UI belong on the **client** via `useFrontendTool` (below), not in the server `tools` list.
 </Callout>
 
 ## Connecting from a device or bench

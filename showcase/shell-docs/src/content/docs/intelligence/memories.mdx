@@ -215,11 +215,8 @@ Configure `memory.access` whenever either surface is on.
 </Callout>
 
 ```ts title="runtime.ts"
-import {
-  BuiltInAgent,
-  CopilotKitIntelligence,
-  CopilotRuntime,
-} from "@copilotkit/runtime";
+import { CopilotKitIntelligence, CopilotRuntime } from "@copilotkit/runtime";
+import { BuiltInAgent } from "@copilotkit/runtime/agent";
 import { isFreePlan, resolveUser } from "./auth";
 
 const intelligence = new CopilotKitIntelligence({

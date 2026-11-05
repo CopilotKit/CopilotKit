@@ -91,7 +91,8 @@ agents at all. The prebuilt components default to the agent named `"default"`.
 - Register the agent under the id you're requesting (or under `"default"` if you
   pass no `agentId`):
   ```ts
-  import { BuiltInAgent, CopilotRuntime } from "@copilotkit/runtime";
+  import { CopilotRuntime } from "@copilotkit/runtime";
+  import { BuiltInAgent } from "@copilotkit/runtime/agent";
 
   const runtime = new CopilotRuntime({
     agents: { default: new BuiltInAgent({ model: "openai/gpt-5.4" }) },

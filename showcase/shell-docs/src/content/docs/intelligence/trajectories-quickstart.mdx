@@ -74,17 +74,14 @@ The CLI saves the previous configuration before it makes changes. It refuses to 
 Install the packages used by the examples:
 
 ```bash
-npm install @copilotkit/react-core @copilotkit/runtime
+npm install @copilotkit/react-core @copilotkit/runtime @tanstack/ai @tanstack/ai-openai
 ```
 
 Use the values from `.env` to configure the Intelligence client in your existing Runtime:
 
 ```ts title="Your CopilotKit Runtime"
-import {
-  BuiltInAgent,
-  CopilotKitIntelligence,
-  CopilotRuntime,
-} from "@copilotkit/runtime";
+import { CopilotKitIntelligence, CopilotRuntime } from "@copilotkit/runtime";
+import { BuiltInAgent } from "@copilotkit/runtime/agent";
 import { identifyUser } from "./auth";
 
 const intelligence = new CopilotKitIntelligence({
