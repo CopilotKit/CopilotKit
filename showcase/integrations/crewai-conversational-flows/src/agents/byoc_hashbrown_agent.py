@@ -36,7 +36,7 @@ entirely by the custom system message.
 
 from __future__ import annotations
 
-from crewai import Agent, Crew, Process, Task
+from crewai import LLM, Agent, Crew, Process, Task
 
 from agents._chat_flow_helpers import (
     install_custom_system_message,
@@ -118,7 +118,7 @@ def _build_crew() -> Crew:
     overrides the system message passed to the chat LLM at request time.
     """
     agent = Agent(
-        llm="gpt-6-luna",
+        llm=LLM(model="gpt-6-luna", additional_params={"reasoning_effort": "none"}),
         role="Hashbrown JSON Emitter",
         goal="Emit hashbrown-shaped JSON responses.",
         backstory=BYOC_HASHBROWN_SYSTEM_PROMPT,
@@ -138,7 +138,9 @@ def _build_crew() -> Crew:
         tasks=[task],
         process=Process.sequential,
         verbose=False,
-        chat_llm="gpt-6-luna",
+        chat_llm=LLM(
+            model="gpt-6-luna", additional_params={"reasoning_effort": "none"}
+        ),
     )
 
 

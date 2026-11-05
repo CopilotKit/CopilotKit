@@ -140,7 +140,10 @@ and `useAgentContext` is how the agent gets it.
                     role="Colleague assistant",
                     goal="Answer about the colleagues the page sent, and nothing else.",
                     backstory=BASE_BACKSTORY,
-                    llm=LLM(model="openai/gpt-6-luna"),
+                    llm=LLM(
+                        model="openai/gpt-6-luna",
+                        additional_params={"reasoning_effort": "none"},
+                    ),
                 )
                 task = Task(
                     description=(

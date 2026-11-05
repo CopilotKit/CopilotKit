@@ -48,7 +48,7 @@ import json
 import uuid
 from typing import List, Literal, Optional
 
-from crewai import Agent, Crew, Process, Task
+from crewai import LLM, Agent, Crew, Process, Task
 from crewai.flow.flow import Flow, start
 from litellm import acompletion
 from pydantic import BaseModel, Field
@@ -97,7 +97,7 @@ _LLM = "gpt-6-luna"
 # the crew's final raw output (returned via `Crew.kickoff(...)`).
 def _build_research_crew() -> Crew:
     researcher = Agent(
-        llm="gpt-6-luna",
+        llm=LLM(model="gpt-6-luna", additional_params={"reasoning_effort": "none"}),
         role="Researcher",
         goal="Produce a concise bulleted list of 3-5 key facts on the topic.",
         backstory=(
@@ -128,7 +128,7 @@ def _build_research_crew() -> Crew:
 
 def _build_writing_crew() -> Crew:
     writer = Agent(
-        llm="gpt-6-luna",
+        llm=LLM(model="gpt-6-luna", additional_params={"reasoning_effort": "none"}),
         role="Writer",
         goal="Turn a brief and any source facts into a polished single paragraph.",
         backstory=(
@@ -159,7 +159,7 @@ def _build_writing_crew() -> Crew:
 
 def _build_critique_crew() -> Crew:
     critic = Agent(
-        llm="gpt-6-luna",
+        llm=LLM(model="gpt-6-luna", additional_params={"reasoning_effort": "none"}),
         role="Editorial Critic",
         goal="Give 2-3 crisp, actionable critiques of a draft.",
         backstory=(

@@ -160,7 +160,7 @@ install_custom_system_message(CREW_NAME, BYOC_JSON_RENDER_SYSTEM_PROMPT)
 
 def _build_crew() -> Crew:
     agent = Agent(
-        llm=LLM(model="gpt-6-luna", reasoning_effort="none"),
+        llm=LLM(model="gpt-6-luna", additional_params={"reasoning_effort": "none"}),
         role="JSON-Render Spec Emitter",
         goal="Emit a valid `{root, elements}` JSON spec.",
         backstory=BYOC_JSON_RENDER_SYSTEM_PROMPT,
@@ -183,7 +183,9 @@ def _build_crew() -> Crew:
         tasks=[task],
         process=Process.sequential,
         verbose=False,
-        chat_llm=LLM(model="gpt-6-luna", reasoning_effort="none"),
+        chat_llm=LLM(
+            model="gpt-6-luna", additional_params={"reasoning_effort": "none"}
+        ),
     )
 
 
