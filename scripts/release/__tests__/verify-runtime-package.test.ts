@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
+  BUILT_IN_AGENT_PEERS,
   CHANNELS_INTELLIGENCE,
   createRuntimeConsumerManifest,
+  declaredPeerRanges,
   RUNTIME,
   workspaceDependencyClosure,
 } from "../lib/pack-workspace.js";
@@ -128,6 +130,27 @@ describe("createRuntimeConsumerManifest", () => {
     }
   });
 
+  it("installs only the runtime when no peers are asked for", () => {
+    // The root entry must load with no LLM package installed.
+    expect(manifest.dependencies).toEqual({
+      [RUNTIME]: "file:/tmp/tarballs/copilotkit-runtime-1.63.2.tgz",
+    });
+  });
+
+  it("installs the given peers next to the runtime", () => {
+    const withPeers = createRuntimeConsumerManifest({
+      runtimeTarball: "/tmp/tarballs/copilotkit-runtime-1.63.2.tgz",
+      packageManager: "pnpm@10.33.4",
+      overrides,
+      peers: { "@tanstack/ai": "^1.2.0", "@tanstack/ai-openai": "^1.1.1" },
+    });
+    expect(withPeers.dependencies).toEqual({
+      [RUNTIME]: "file:/tmp/tarballs/copilotkit-runtime-1.63.2.tgz",
+      "@tanstack/ai": "^1.2.0",
+      "@tanstack/ai-openai": "^1.1.1",
+    });
+  });
+
   it("omits the overrides block when nothing needs pinning", () => {
     expect(
       createRuntimeConsumerManifest({
@@ -136,5 +159,34 @@ describe("createRuntimeConsumerManifest", () => {
         overrides: new Map(),
       }),
     ).not.toHaveProperty("pnpm");
+  });
+});
+
+describe("declaredPeerRanges", () => {
+  const packedRuntime = {
+    name: RUNTIME,
+    version: "2.0.0",
+    peerDependencies: {
+      "@tanstack/ai": "^1.2.0",
+      "@tanstack/ai-mcp": "^1.1.0",
+      "@tanstack/ai-openai": "^1.1.1",
+      ai: ">=6.0.104",
+    },
+  };
+
+  it("returns the ranges the runtime declares for the Built-in Agent peers", () => {
+    expect(declaredPeerRanges(packedRuntime, BUILT_IN_AGENT_PEERS)).toEqual({
+      "@tanstack/ai": "^1.2.0",
+      "@tanstack/ai-openai": "^1.1.1",
+    });
+  });
+
+  it("throws when the runtime does not declare a peer", () => {
+    expect(() =>
+      declaredPeerRanges(
+        { name: RUNTIME, version: "2.0.0", peerDependencies: {} },
+        BUILT_IN_AGENT_PEERS,
+      ),
+    ).toThrow(`${RUNTIME} must declare @tanstack/ai as a peer`);
   });
 });

@@ -40,10 +40,7 @@ function readSourceManifest(name: string): SourceManifest {
   ) as SourceManifest;
 }
 
-export function packPackage(
-  name: string,
-  tarballDir: string,
-): { manifest: PackedManifest; tarball: string } {
+export function packPackage(name: string, tarballDir: string) {
   const cwd = packageDirectory(name);
   const source = JSON.parse(
     readFileSync(join(cwd, "package.json"), "utf8"),
@@ -53,7 +50,7 @@ export function packPackage(
   const tarball = join(tarballDir, tarballName(source));
   const manifest = JSON.parse(
     capture("tar", ["-xOf", tarball, "package/package.json"]),
-  ) as PackedManifest;
+  ) as PackedManifest & SourceManifest;
 
   return { manifest, tarball };
 }
@@ -122,16 +119,51 @@ export function toFileOverrides(
 export const RUNTIME = "@copilotkit/runtime";
 export const CHANNELS_INTELLIGENCE = "@copilotkit/channels-intelligence";
 
+/**
+ * The optional peers a consumer installs to run the classic `BuiltInAgent`
+ * on an `"openai/..."` model string: TanStack AI and its OpenAI adapter.
+ * `@tanstack/ai-mcp` is left out because no consumer here runs `mcpServers`.
+ */
+export const BUILT_IN_AGENT_PEERS = [
+  "@tanstack/ai",
+  "@tanstack/ai-openai",
+] as const;
+
+/**
+ * The ranges `runtime` declares for `names`, so a consumer installs exactly
+ * what the packed runtime asks for. Throws when a peer is not declared.
+ */
+export function declaredPeerRanges(
+  runtime: PackedManifest & SourceManifest,
+  names: readonly string[],
+) {
+  return Object.fromEntries(
+    names.map((name) => {
+      const range = runtime.peerDependencies?.[name];
+      if (!range) {
+        throw new Error(`${runtime.name} must declare ${name} as a peer`);
+      }
+      return [name, range];
+    }),
+  );
+}
+
 interface RuntimeConsumerOptions {
   runtimeTarball: string;
   packageManager: string;
   overrides: ReadonlyMap<string, string>;
+  /**
+   * Optional peers to install next to the runtime. Leave empty for a
+   * consumer that must load the runtime with no LLM package installed.
+   */
+  peers?: Readonly<Record<string, string>>;
 }
 
 export function createRuntimeConsumerManifest({
   runtimeTarball,
   packageManager,
   overrides,
+  peers = {},
 }: RuntimeConsumerOptions): Record<string, unknown> {
   const manifest: Record<string, unknown> = {
     name: "runtime-package-consumer",
@@ -141,6 +173,7 @@ export function createRuntimeConsumerManifest({
     packageManager,
     dependencies: {
       [RUNTIME]: `file:${runtimeTarball}`,
+      ...peers,
     },
   };
 
