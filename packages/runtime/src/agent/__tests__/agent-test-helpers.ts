@@ -480,7 +480,7 @@ export async function collectEventsIncludingErrors(
 export function eventsOfType<T extends EventType>(
   events: BaseEvent[],
   type: T,
-) {
+): Array<AGUIEventOf<T> & BaseEvent> {
   return events.filter(
     (event): event is AGUIEventOf<T> & BaseEvent => event.type === type,
   );
