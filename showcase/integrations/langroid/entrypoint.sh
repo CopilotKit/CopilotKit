@@ -65,7 +65,7 @@ trap cleanup EXIT
 # ``gemini/gemini-3.8-flash`` to the env var that langroid's ``OpenAIGPT``
 # client actually reads at request time. Mappings verified against
 # langroid's installed ``language_models/openai_gpt.py`` — in particular:
-#   * Bare OpenAI names (``gpt-*``, ``gpt-6-luna*``, ``gpt-6-luna*``, ``gpt-6-luna*``, anything with
+#   * Bare OpenAI names (``gpt-*``, ``o1*``, ``o3*``, ``o4*``, anything with
 #                        NO ``/`` separator)
 #                     -> ``OPENAI_API_KEY``. langroid strips no prefix from
 #                        ``openai/<model>`` — it passes the model string
@@ -103,7 +103,7 @@ trap cleanup EXIT
 #                        required (local-inference); ``_check_key`` returns
 #                        the ``NO_KEY_REQUIRED`` sentinel and logs INFO.
 _expected_key_for_model() {
-    local model="${1:-gpt-5-mini}"
+    local model="${1:-gpt-6-luna}"
     # ORDER MATTERS: ``litellm/anthropic/*`` must precede the bare
     # ``anthropic/*`` arm below. Otherwise ``litellm/anthropic/...`` would
     # never match — bash ``case`` uses first-match-wins, and an earlier bare
@@ -157,8 +157,8 @@ _expected_key_for_model() {
         # anthropic variants.
         litellm/*)            echo "NO_KEY_REQUIRED_LITELLM" ;;
         # Bare model names with no ``/`` separator are treated as OpenAI
-        # (gpt-*, gpt-6-luna*, gpt-6-luna*, gpt-6-luna*, chatgpt-*, etc.). This matches langroid's
-        # canonical convention (``OpenAIChatModel.GPT4_1.value == "gpt-6-luna"``)
+        # (gpt-*, o1*, o3*, o4*, chatgpt-*, etc.). This matches langroid's
+        # canonical convention (``OpenAIChatModel.GPT4_1.value == "gpt-4.1"``)
         # — and the OpenAI SDK accepts them directly.
         */*)                  echo "" ;;
         *)                    echo "OPENAI_API_KEY" ;;
@@ -170,7 +170,7 @@ _expected_key_for_model() {
 if [ -z "${LANGROID_MODEL:-}" ]; then
     echo "[entrypoint] INFO: LANGROID_MODEL not set — defaulting to 'gpt-6-luna' (OPENAI_API_KEY will be required)" >&2
 fi
-LANGROID_MODEL_EFFECTIVE="${LANGROID_MODEL:-gpt-5-mini}"
+LANGROID_MODEL_EFFECTIVE="${LANGROID_MODEL:-gpt-6-luna}"
 A2UI_MODEL_EFFECTIVE="${A2UI_MODEL:-$LANGROID_MODEL_EFFECTIVE}"
 
 _check_key() {
