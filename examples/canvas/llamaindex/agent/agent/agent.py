@@ -1,7 +1,7 @@
 from typing import Annotated, List, Optional, Dict, Any
 
 from llama_index.core.workflow import Context
-from llama_index.llms.openai import OpenAI
+from .openai_models import OpenAI
 from llama_index.protocols.ag_ui.events import StateSnapshotWorkflowEvent
 from llama_index.protocols.ag_ui.router import get_ag_ui_workflow_router
 
@@ -226,7 +226,7 @@ SYSTEM_PROMPT = (
 )
 
 agentic_chat_router = get_ag_ui_workflow_router(
-    llm=OpenAI(model="gpt-6-luna", additional_kwargs={"reasoning_effort": "none"}),
+    llm=OpenAI(model="gpt-6-luna"),
     # Provide frontend tool stubs so the model knows their names/signatures.
     frontend_tools=[
         createItem,
