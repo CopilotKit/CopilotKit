@@ -62,6 +62,7 @@ import {
   formatToolError,
   getAISDKRunFinishedDetails,
   resolveStreamPartMessageId,
+  toolCallThoughtSignatureEvent,
 } from "./converters/aisdk";
 import { convertTanStackStream } from "./converters/tanstack";
 import {
@@ -764,6 +765,13 @@ export function convertMessagesToVercelAISDKMessages(
           toolCallId: toolCall.id,
           toolName: toolCall.function.name,
           input: safeParseToolArgs(toolCall.function.arguments),
+          ...(toolCall.encryptedValue
+            ? {
+                providerOptions: {
+                  google: { thoughtSignature: toolCall.encryptedValue },
+                },
+              }
+            : {}),
         };
         parts.push(toolCallPart);
       }
@@ -2062,6 +2070,11 @@ export class BuiltInAgent extends AbstractAgent {
                 }
 
                 if (!state.ended) {
+                  const signatureEvent = toolCallThoughtSignatureEvent(
+                    toolCallId,
+                    part.providerMetadata,
+                  );
+                  if (signatureEvent) subscriber.next(signatureEvent);
                   state.ended = true;
                   const endEvent: ToolCallEndEvent = {
                     type: EventType.TOOL_CALL_END,
