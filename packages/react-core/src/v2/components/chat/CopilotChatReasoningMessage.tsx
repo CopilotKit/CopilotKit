@@ -5,6 +5,10 @@ import { twMerge } from "tailwind-merge";
 import { Streamdown } from "streamdown";
 import type { WithSlots } from "../../lib/slots";
 import { renderSlot } from "../../lib/slots";
+import {
+  useCopilotChatConfiguration,
+  CopilotChatDefaultLabels,
+} from "../../providers/CopilotChatConfigurationProvider";
 
 export type CopilotChatReasoningMessageProps = WithSlots<
   {
@@ -38,6 +42,12 @@ function formatDuration(seconds: number): string {
   return `${mins}m ${secs}s`;
 }
 
+/**
+ * A reasoning message as a collapsible block. While the model reasons it is
+ * open and the header shows `labels.reasoningMessageThinkingLabel`; when
+ * streaming ends it collapses and the header reads "Thought for …". The
+ * `header` slot also receives `elapsedSeconds`.
+ */
 export function CopilotChatReasoningMessage({
   message,
   messages,
@@ -50,6 +60,8 @@ export function CopilotChatReasoningMessage({
   className,
   ...props
 }: CopilotChatReasoningMessageProps) {
+  const config = useCopilotChatConfiguration();
+  const labels = config?.labels ?? CopilotChatDefaultLabels;
   const isLatest =
     isLatestProp ?? messages?.[messages.length - 1]?.id === message.id;
   const isStreaming = !!(isRunning && isLatest);
@@ -107,7 +119,7 @@ export function CopilotChatReasoningMessage({
     : undefined;
 
   const label = isStreaming
-    ? "Thinking…"
+    ? labels.reasoningMessageThinkingLabel
     : `Thought for ${formatDuration(elapsed)}`;
 
   const boundHeader = renderSlot(header, CopilotChatReasoningMessage.Header, {
@@ -115,6 +127,7 @@ export function CopilotChatReasoningMessage({
     label,
     hasContent,
     isStreaming,
+    elapsedSeconds: elapsed,
     onClick: handleToggle,
   });
 
@@ -167,12 +180,19 @@ export namespace CopilotChatReasoningMessage {
       label?: string;
       hasContent?: boolean;
       isStreaming?: boolean;
+      /**
+       * Seconds spent reasoning so far, updated every second while streaming.
+       * The default label formats it in English ("Thought for 12 seconds");
+       * a custom header can use it to build a localized label.
+       */
+      elapsedSeconds?: number;
     }
   > = ({
     isOpen,
     label = "Thoughts",
     hasContent,
     isStreaming,
+    elapsedSeconds: _elapsedSeconds,
     className,
     children: headerChildren,
     ...headerProps

@@ -56,7 +56,7 @@
       "title": "AG-UI Streams",
       "defaultOpen": true,
       "pages": [
-        "threads",
+        "AG-UI-Streams",
         "intelligence/bring-your-own-thread-system",
         "threads-import",
         "threads-lifecycle",

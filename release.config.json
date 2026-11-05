@@ -6,6 +6,7 @@
         "@copilotkit/a2ui-renderer",
         "@copilotkit/agentcore-runner",
         "@copilotkit/core",
+        "@copilotkit/learning",
         "@copilotkit/mcp-apps-renderer",
         "@copilotkit/react-core",
         "@copilotkit/react-native",
@@ -23,11 +24,6 @@
       ],
       "versionSource": "@copilotkit/react-core",
       "sharedVersion": true
-    },
-    "learning": {
-      "packages": ["@copilotkit/learning"],
-      "versionSource": "@copilotkit/learning",
-      "sharedVersion": false
     },
     "angular": {
       "packages": ["@copilotkit/angular"],

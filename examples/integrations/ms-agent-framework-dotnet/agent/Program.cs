@@ -1,3 +1,5 @@
+using AGUI.Abstractions;
+using AGUI.Server;
 using Microsoft.Agents.AI;
 using Microsoft.Agents.AI.Hosting.AGUI.AspNetCore;
 using Microsoft.AspNetCore.Http.Json;
@@ -6,12 +8,33 @@ using Microsoft.Extensions.Options;
 using OpenAI;
 using OpenAI.Chat;
 using System.ComponentModel;
+using System.Text.Json;
 using System.Text.Json.Serialization;
 
 WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 
 builder.Services.ConfigureHttpJsonOptions(options => options.SerializerOptions.TypeInfoResolverChain.Add(ProverbsAgentSerializerContext.Default));
 builder.Services.AddAGUIServer();
+// The AG-UI converter requires an explicit mapping for the wrapper's JSON
+// DataContent; otherwise its merged state never reaches the client.
+builder.Services.Configure<AGUIStreamOptions>(options => options.MapContent(content =>
+{
+    if (content is not DataContent { MediaType: "application/json" } data) return null;
+    try
+    {
+        using var document = JsonDocument.Parse(data.Data);
+        var state = document.RootElement;
+        if (state.ValueKind != JsonValueKind.Object ||
+            !state.TryGetProperty("proverbs", out var proverbs) ||
+            proverbs.ValueKind != JsonValueKind.Array ||
+            proverbs.EnumerateArray().Any(proverb => proverb.ValueKind != JsonValueKind.String)) return null;
+        return [new StateSnapshotEvent { Snapshot = state.Clone() }];
+    }
+    catch (JsonException)
+    {
+        return null; // Malformed or unrelated data is not a proverbs state snapshot.
+    }
+}));
 
 WebApplication app = builder.Build();
 
@@ -114,25 +137,29 @@ public class ProverbsAgentFactory
 
     public AIAgent CreateProverbsAgent()
     {
-        var chatClientAgent = _openAiClient.GetChatClient(_model).AsAIAgent(
-            new ChatClientAgentOptions
+        IChatClient provider = _openAiClient.GetChatClient(_model).AsIChatClient();
+        var agentOptions = new ChatClientAgentOptions
+        {
+            Name = "ProverbsAgent",
+            Description = "A helpful assistant that helps manage and discuss proverbs.",
+            ChatOptions = new ChatOptions
             {
-                Name = "ProverbsAgent",
-                Description = "A helpful assistant that helps manage and discuss proverbs.",
-                ChatOptions = new ChatOptions
-                {
-                    Instructions = @"You have tools available to add, set, or retrieve proverbs from the list.
+                Instructions = @"You have tools available to add, set, or retrieve proverbs from the list.
                     When discussing proverbs, ALWAYS use the get_proverbs tool to see the current list before mentioning, updating, or discussing proverbs with the user.",
-                    Tools = [
-                        AIFunctionFactory.Create(GetProverbs, options: new() { Name = "get_proverbs", SerializerOptions = _jsonSerializerOptions }),
-                        AIFunctionFactory.Create(AddProverbs, options: new() { Name = "add_proverbs", SerializerOptions = _jsonSerializerOptions }),
-                        AIFunctionFactory.Create(SetProverbs, options: new() { Name = "set_proverbs", SerializerOptions = _jsonSerializerOptions }),
-                        AIFunctionFactory.Create(GetWeather, options: new() { Name = "get_weather", SerializerOptions = _jsonSerializerOptions })
-                    ]
-                }
-            });
+                Tools = [
+                    AIFunctionFactory.Create(GetProverbs, options: new() { Name = "get_proverbs", SerializerOptions = _jsonSerializerOptions }),
+                    AIFunctionFactory.Create(AddProverbs, options: new() { Name = "add_proverbs", SerializerOptions = _jsonSerializerOptions }),
+                    AIFunctionFactory.Create(SetProverbs, options: new() { Name = "set_proverbs", SerializerOptions = _jsonSerializerOptions }),
+                    AIFunctionFactory.Create(GetWeather, options: new() { Name = "get_weather", SerializerOptions = _jsonSerializerOptions })
+                ]
+            }
+        };
+        var chatClientAgent = provider.AsAIAgent(agentOptions);
 
-        return new SharedStateAgent(chatClientAgent, _jsonSerializerOptions);
+        // Reapply the complete SDK default middleware recipe around the guarded
+        // provider. The original agent still owns both runs and session/history.
+        return new SharedStateAgent(chatClientAgent, _jsonSerializerOptions,
+            decorateProvider => decorateProvider(provider).AsAIAgent(agentOptions).ChatClient);
     }
 
     // =================

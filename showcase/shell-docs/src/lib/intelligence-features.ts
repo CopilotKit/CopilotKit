@@ -2,8 +2,8 @@
 export const INTELLIGENCE_FEATURES = [
   {
     title: "AG-UI Streams",
-    body: "Let users reconnect, catch up, and resume conversations across devices.",
-    href: "/threads",
+    body: "Complement your existing threads with generative UI, multimodal inputs and file uploads, plus reconnection and catch-up across tabs and devices.",
+    href: "/AG-UI-Streams",
     icon: "threads",
   },
   {

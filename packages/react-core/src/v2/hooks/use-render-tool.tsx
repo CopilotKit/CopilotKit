@@ -39,6 +39,7 @@ type RenderToolConfig<S extends StandardSchemaV1> = {
   parameters?: S;
   render: (props: RenderToolProps<S>) => React.ReactElement | null;
   agentId?: string;
+  group?: boolean;
 };
 
 /**
@@ -70,6 +71,8 @@ export function useRenderTool(
     name: "*";
     render: (props: any) => React.ReactElement | null;
     agentId?: string;
+    /** Let the chat group the calls this renderer draws (see `toolCallDisplay`). */
+    group?: boolean;
   },
   deps?: ReadonlyArray<unknown>,
 ): void;
@@ -107,6 +110,8 @@ export function useRenderTool<S extends StandardSchemaV1>(
     parameters: S;
     render: (props: RenderToolProps<S>) => React.ReactElement | null;
     agentId?: string;
+    /** Let the chat group the calls this renderer draws (see `toolCallDisplay`). */
+    group?: boolean;
   },
   deps?: ReadonlyArray<unknown>,
 ): void;
@@ -171,6 +176,7 @@ export function useRenderTool<S extends StandardSchemaV1>(
             render: (props) =>
               config.render({ ...props, parameters: props.args }),
             ...(config.agentId ? { agentId: config.agentId } : {}),
+            group: config.group,
           })
         : defineToolCallRenderer({
             name: config.name,
@@ -187,10 +193,11 @@ export function useRenderTool<S extends StandardSchemaV1>(
               return config.render({ ...props, parameters: props.args });
             },
             ...(config.agentId ? { agentId: config.agentId } : {}),
+            group: config.group,
           });
 
     copilotkit.addHookRenderToolCall(renderer);
 
     // No cleanup removal — keeps renderer for chat history, same as useFrontendTool
-  }, [config.name, copilotkit, depsVersion]);
+  }, [config.name, config.group, copilotkit, depsVersion]);
 }

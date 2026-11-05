@@ -704,6 +704,8 @@ async function runCanonicalChannelAgent(
     userId: args.userId,
     agentId: args.agentId,
     channelDeliveryId: args.deliveryId,
+    // A Channels delivery is one request, so its delivery ID is the request ID.
+    requestId: args.deliveryId,
     ...(learningContainerId !== undefined ? { learningContainerId } : {}),
     ttlSeconds: lockTtlSeconds,
     ...(lockKeyPrefix !== undefined ? { lockKeyPrefix } : {}),
@@ -722,6 +724,11 @@ async function runCanonicalChannelAgent(
   );
   let stopPromise: Promise<boolean | undefined> | undefined;
   let heartbeatError: unknown;
+  // The delivery's signal aborts when Intelligence supersedes the delivery or
+  // the Channel transport stops. Neither goes through Intelligence's run stop,
+  // so this runtime records it. A lost lock also stops the run, but that is a
+  // failure rather than a cancellation, so it records nothing.
+  let stoppedByDelivery = false;
   const stopCanonicalRun = (): void => {
     stopPromise ??= Promise.resolve()
       .then(() =>
@@ -733,6 +740,7 @@ async function runCanonicalChannelAgent(
       .catch(() => false);
   };
   const abortCanonicalRun = (): void => {
+    stoppedByDelivery = true;
     try {
       args.agent.abortRun();
     } catch {
@@ -794,6 +802,16 @@ async function runCanonicalChannelAgent(
           runId: canonicalRunId,
         },
         persistedInputMessages: args.persistedInputMessages,
+        recordStop: (signal) =>
+          stoppedByDelivery
+            ? intelligence.ɵrecordRunStop({
+                threadId: canonicalThreadId,
+                runId: canonicalRunId,
+                userId: args.userId,
+                agentId: args.agentId,
+                signal,
+              })
+            : Promise.resolve(),
       });
       stream.subscribe({
         next: (event: BaseEvent) => {

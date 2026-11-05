@@ -10,7 +10,6 @@ export const A2UIActivityContentSchema = z.object({
 
 export function getOperationSurfaceId(operation: A2UIOperation): string {
   const surfaceId =
-    (operation.surfaceId as string | undefined) ??
     ((operation.beginRendering as { surfaceId?: string } | undefined)
       ?.surfaceId as string | undefined) ??
     ((operation.surfaceUpdate as { surfaceId?: string } | undefined)
@@ -24,7 +23,10 @@ export function getOperationSurfaceId(operation: A2UIOperation): string {
     ((operation.updateComponents as { surfaceId?: string } | undefined)
       ?.surfaceId as string | undefined) ??
     ((operation.updateDataModel as { surfaceId?: string } | undefined)
-      ?.surfaceId as string | undefined);
+      ?.surfaceId as string | undefined) ??
+    // Match React: the processor addresses the nested ID; a top-level ID is
+    // only a fallback for noncanonical payloads, never an override.
+    (operation.surfaceId as string | undefined);
 
   return surfaceId ?? "default";
 }

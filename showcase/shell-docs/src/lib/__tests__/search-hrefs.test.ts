@@ -178,7 +178,7 @@ describe("search href helpers", () => {
       expect.arrayContaining([
         expect.objectContaining({
           slug: "deepagents",
-          name: "Deep Agents",
+          name: "Langchain DeepAgents",
           logo: null,
         }),
       ]),

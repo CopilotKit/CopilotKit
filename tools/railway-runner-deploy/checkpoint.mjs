@@ -1,5 +1,6 @@
 import {
   DEPLOY_WORKFLOW,
+  DEV_DEPLOY_WORKFLOW,
   SHA256,
   equal,
   requireThat,
@@ -109,6 +110,10 @@ export function validateCheckpoint(value, { run, releaseSha256, operationId }) {
 /** Recover authority across at most twenty authenticated preflight-only attempts. */
 export async function readAttemptCheckpoint(github, context) {
   const { run } = context;
+  requireThat(
+    [DEPLOY_WORKFLOW, DEV_DEPLOY_WORKFLOW].includes(run.workflowPath),
+    "Unsupported checkpoint workflow",
+  );
   for (
     let attempt = run.attempt - 1, visited = 0;
     attempt >= 1;
@@ -120,7 +125,7 @@ export async function readAttemptCheckpoint(github, context) {
       runId: run.id,
       runAttempt: attempt,
       sourceRevision: run.sha,
-      workflowPath: DEPLOY_WORKFLOW,
+      workflowPath: run.workflowPath,
       success: false,
     });
     const receipt = await github.receipt(previous);

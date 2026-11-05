@@ -1049,7 +1049,7 @@ export function normalizeSidebarNav(
   const threadUiChildren =
     authoredThreads?.type === "group" ? authoredThreads.children : [];
   const threadDeliverySlugs = [
-    "threads",
+    "AG-UI-Streams",
     "intelligence/bring-your-own-thread-system",
     "threads-import",
     "threads-lifecycle",
@@ -1177,7 +1177,7 @@ export function normalizeSidebarNav(
     "AG-UI Streams",
     "sidebar#ag-ui-streams",
     [
-      intelligencePage("threads", "Overview"),
+      intelligencePage("AG-UI-Streams", "Overview"),
       intelligencePage(
         "intelligence/bring-your-own-thread-system",
         "Bring your own thread system",
@@ -1459,7 +1459,7 @@ function isRichThreadsGroup(
 ): node is Extract<NavNode, { type: "group" }> {
   return (
     node.type === "group" &&
-    hasPageSlug(node.children, "threads") &&
+    hasPageSlug(node.children, "AG-UI-Streams") &&
     node.title === "AG-UI Streams"
   );
 }

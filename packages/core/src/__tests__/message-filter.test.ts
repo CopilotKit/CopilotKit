@@ -81,6 +81,22 @@ function sentMessages(init: RequestInit): Message[] {
 }
 
 describe("ɵrepairToolCallPairs", () => {
+  const reusedToolCall = (id: string) =>
+    createToolCallMessage(
+      "lookup",
+      {},
+      {
+        id,
+        toolCalls: [
+          {
+            id: "call_0",
+            type: "function",
+            function: { name: "lookup", arguments: "{}" },
+          },
+        ],
+      },
+    );
+
   it("restores the assistant call in front of a kept tool result", () => {
     const call = createToolCallMessage("lookup");
     const result = createToolResultMessage(toolCallIdOf(call), "done");
@@ -91,6 +107,24 @@ describe("ɵrepairToolCallPairs", () => {
     // Dropping the result would be valid but would throw away the only new
     // information in a human-in-the-loop turn.
     expect(repaired.map((m) => m.id)).toEqual([call.id, result.id]);
+  });
+
+  it("ignores malformed tool-call entries instead of throwing", () => {
+    // A persisted or hand-built message can carry junk in `toolCalls`; the
+    // repair must degrade to "this entry opens no pair", not fail the run.
+    const call = {
+      id: "a1",
+      role: "assistant",
+      toolCalls: [null, 5, { id: 3 }, { id: "c" }],
+    } as unknown as Message;
+    const result = createToolResultMessage("c", "done");
+    const full = [createMessage({ id: "u1" }), call, result];
+    const kept = [full[0]!, call];
+
+    expect(() => ɵrepairToolCallPairs(kept, full)).not.toThrow();
+    // The malformed entries are ignored, but the valid "c" pair is still
+    // restored from the untrimmed thread.
+    expect(ɵrepairToolCallPairs(kept, full)).toEqual(full);
   });
 
   it("restores every sibling result when it restores a parallel call", () => {
@@ -163,6 +197,47 @@ describe("ɵrepairToolCallPairs", () => {
     ];
 
     expect(ɵrepairToolCallPairs(full, full)).toEqual(full);
+  });
+
+  it("pairs reused tool-call ids with the nearest preceding call", () => {
+    const firstCall = reusedToolCall("a1");
+    const firstResult = createToolResultMessage("call_0", "first", {
+      id: "t1",
+    });
+    const secondCall = reusedToolCall("a2");
+    const secondResult = createToolResultMessage("call_0", "second", {
+      id: "t2",
+    });
+    const full = [
+      createMessage({ id: "u1" }),
+      firstCall,
+      firstResult,
+      createAssistantMessage({ id: "x1" }),
+      createMessage({ id: "u2" }),
+      secondCall,
+      secondResult,
+      createAssistantMessage({ id: "x2" }),
+    ];
+
+    expect(
+      ɵrepairToolCallPairs(full, full).map((message) => message.id),
+    ).toEqual(full.map((message) => message.id));
+  });
+
+  it("restores the matching call when a filter keeps one of two reused-id results", () => {
+    const firstCall = reusedToolCall("a1");
+    const firstResult = createToolResultMessage("call_0", "first", {
+      id: "t1",
+    });
+    const secondCall = reusedToolCall("a2");
+    const secondResult = createToolResultMessage("call_0", "second", {
+      id: "t2",
+    });
+    const full = [firstCall, firstResult, secondCall, secondResult];
+
+    expect(
+      ɵrepairToolCallPairs([firstResult], full).map((message) => message.id),
+    ).toEqual([firstCall.id, firstResult.id]);
   });
 });
 

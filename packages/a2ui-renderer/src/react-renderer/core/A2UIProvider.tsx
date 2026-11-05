@@ -1,11 +1,5 @@
-import {
-  createContext,
-  useContext,
-  useRef,
-  useState,
-  useMemo,
-  type ReactNode,
-} from "react";
+import { createContext, useContext, useRef, useState, useMemo } from "react";
+import type { ReactNode } from "react";
 import { MessageProcessor } from "@a2ui/web_core/v0_9";
 import { basicCatalog } from "../a2ui-react";
 import type { A2UIContextValue, A2UIActions } from "./store";
@@ -24,7 +18,25 @@ const A2UIActionsContext = createContext<A2UIActions | null>(null);
 const A2UIStateContext = createContext<{
   version: number;
   error: string | null;
+  surfaceErrors: Readonly<Record<string, string>>;
 } | null>(null);
+
+/**
+ * Surface IDs whose component tree a message replaces or removes. A rejected
+ * component update stays reported until one of these succeeds; a data model
+ * update leaves it in place, since it cannot fix the rejected components.
+ */
+function surfacesResetBy(messages: Array<Record<string, unknown>>): string[] {
+  const ids: string[] = [];
+  for (const message of messages) {
+    for (const key of ["createSurface", "updateComponents", "deleteSurface"]) {
+      const surfaceId = (message?.[key] as { surfaceId?: unknown } | undefined)
+        ?.surfaceId;
+      if (typeof surfaceId === "string") ids.push(surfaceId);
+    }
+  }
+  return ids;
+}
 
 /**
  * Props for the A2UIProvider component.
@@ -56,27 +68,48 @@ export function A2UIProvider({
   const onActionRef = useRef<OnActionCallback | null>(onAction ?? null);
   onActionRef.current = onAction ?? null;
 
+  // Processing errors per surface. web_core validates components against the
+  // catalog when a message is processed and rejects the whole message, so a
+  // malformed component never reaches the renderer; A2UIRenderer shows these.
+  const [surfaceErrors, setSurfaceErrors] = useState<
+    Readonly<Record<string, string>>
+  >({});
+
   // Create v0.9 MessageProcessor only once using ref
   const processorRef = useRef<MessageProcessor<any> | null>(null);
   if (!processorRef.current) {
+    // Action handler: convert v0.9 Action to A2UIClientEventMessage format
+    const handleAction = (action: any) => {
+      if (onActionRef.current) {
+        const message: A2UIClientEventMessage = {
+          userAction: {
+            name: action?.name ?? "unknown",
+            surfaceId: action?.surfaceId ?? "default",
+            sourceComponentId: action?.sourceComponentId,
+            context: action?.context,
+            timestamp: action?.timestamp ?? new Date().toISOString(),
+          },
+        };
+        return onActionRef.current(message);
+      }
+    };
     processorRef.current = new MessageProcessor(
       [catalog ?? basicCatalog],
-      // Action handler: convert v0.9 Action to A2UIClientEventMessage format
-      (action: any) => {
-        if (onActionRef.current) {
-          const message: A2UIClientEventMessage = {
-            userAction: {
-              name: action?.name ?? "unknown",
-              surfaceId: action?.surfaceId ?? "default",
-              sourceComponentId: action?.sourceComponentId,
-              context: action?.context,
-              timestamp: action?.timestamp ?? new Date().toISOString(),
-            },
-          };
-          onActionRef.current(message);
-        }
+      // No processor-level action handler: the surface group forwards actions
+      // without awaiting its listeners, so `surface.dispatchAction` would
+      // settle before `onAction` does. Each surface awaits its own listeners.
+      undefined,
+      {
+        errorHandler: ({ error }) => {
+          const { surfaceId, message } = error;
+          if (!surfaceId) return;
+          setSurfaceErrors((prev) => ({ ...prev, [surfaceId]: message }));
+        },
       },
     );
+    processorRef.current.onSurfaceCreated((surface) => {
+      surface.onAction.subscribe(handleAction);
+    });
   }
   const processor = processorRef.current;
 
@@ -99,14 +132,19 @@ export function A2UIProvider({
           return;
         }
         setError(null);
+        const reset = surfacesResetBy(messages);
+        if (reset.length > 0) {
+          setSurfaceErrors((prev) => {
+            if (!reset.some((id) => id in prev)) return prev;
+            const next = { ...prev };
+            for (const id of reset) delete next[id];
+            return next;
+          });
+        }
         setVersion((v) => v + 1);
       },
 
-      dispatch: (message: any) => {
-        if (onActionRef.current) {
-          onActionRef.current(message);
-        }
-      },
+      dispatch: (message: any) => onActionRef.current?.(message),
 
       getSurface: (surfaceId: string) => {
         return processor.model.getSurface(surfaceId);
@@ -120,6 +158,7 @@ export function A2UIProvider({
             { version: "v0.9", deleteSurface: { surfaceId: id } } as any,
           ]);
         }
+        setSurfaceErrors({});
         setVersion((v) => v + 1);
       },
     };
@@ -127,7 +166,10 @@ export function A2UIProvider({
   const actions = actionsRef.current;
 
   // State context value - changes when version or error changes
-  const stateValue = useMemo(() => ({ version, error }), [version, error]);
+  const stateValue = useMemo(
+    () => ({ version, error, surfaceErrors }),
+    [version, error, surfaceErrors],
+  );
 
   return (
     <A2UIActionsContext.Provider value={actions}>
@@ -186,6 +228,15 @@ export const useA2UIStore = useA2UIContext;
 export function useA2UIError(): string | null {
   const state = useContext(A2UIStateContext);
   return state?.error ?? null;
+}
+
+/**
+ * Hook to access the error that rejected the last component update for a
+ * surface, or null when its components were accepted.
+ */
+export function useA2UISurfaceError(surfaceId: string): string | null {
+  const state = useContext(A2UIStateContext);
+  return state?.surfaceErrors[surfaceId] ?? null;
 }
 
 /** @deprecated Use useA2UIContext() or useA2UI() directly instead. */

@@ -90,7 +90,14 @@ function fixture() {
     receipts = [];
   let auth;
   const railway = {
-    inspect: async () => structuredClone(provider),
+    inspect: async () =>
+      structuredClone({
+        ...provider,
+        latest:
+          provider.latest?.id === row.id
+            ? { ...provider.latest, status: row.status }
+            : provider.latest,
+      }),
     handoffInventory: async () => structuredClone(rows),
     readDeploymentStatus: async () => structuredClone(row),
     removeDeployment: async () => {
@@ -129,6 +136,24 @@ function fixture() {
         templateSha256: SECOND_TEMPLATE,
       };
       state.phase = "draining";
+      const second = {
+        status: "prepared",
+        operationId,
+        runnerRunId: SECOND_RECOVERY.runnerRunId,
+        lifecycleRunId: SECOND_RECOVERY.lifecycleRunId,
+        oldJournalSha256: "c".repeat(64),
+        watchSha256: "d".repeat(64),
+        observationCount: 0,
+        providerFinality: "unknown",
+        originalStatus: "failed",
+        deadlineExceeded: true,
+      };
+      state.recovery = {
+        ...second,
+        authorizationSha256: bindingDigest(auth),
+        journalBindingSha256: SECOND_RECOVERY.journalSha256,
+        watches: [firstWatch, second],
+      };
       return "new";
     },
     deployment: async (id) => ({ id, status: "SUCCESS" }),
@@ -272,10 +297,23 @@ test("remove acknowledgement without REMOVED never permits an image update or a 
   };
   await assert.rejects(deploySecondRecoveryRunner(h.options), /deadline/);
   const previousCheckpoint = h.receipts.at(-1).checkpoint;
+  const readDeploymentStatus = h.railway.readDeploymentStatus;
+  let restartStatusReads = 0;
+  h.railway.readDeploymentStatus = async () => {
+    restartStatusReads++;
+    return readDeploymentStatus();
+  };
+  assert.deepEqual(h.calls, ["remove"]);
   h.calls.length = 0;
   await assert.rejects(
-    deploySecondRecoveryRunner({ ...h.options, previousCheckpoint }),
+    deploySecondRecoveryRunner({
+      ...h.options,
+      previousCheckpoint,
+      deadline: h.options.clock() + 10000,
+    }),
+    /deadline/,
   );
+  assert.ok(restartStatusReads > 0, "restart must read deployment status");
   assert.deepEqual(h.calls, []);
   assert.equal(previousCheckpoint.stage, "remove-requested");
 });
@@ -330,7 +368,15 @@ test("lost deploy response can adopt exact candidate but cannot deploy twice", a
   assert.deepEqual(unknown.calls, []);
 });
 
-for (const change of ["binding", "outcome", "missing"]) {
+for (const change of [
+  "binding",
+  "outcome",
+  "missing",
+  "missing-list",
+  "empty-list",
+  "flat-watch",
+  "swapped",
+]) {
   test(`changed original watch ${change} blocks recover before mutation and on candidate restart`, async () => {
     const h = fixture();
     const deploy = h.railway.deploy;
@@ -338,9 +384,15 @@ for (const change of ["binding", "outcome", "missing"]) {
       const id = await deploy();
       h.state.recovery = structuredClone(h.state.recovery);
       if (change === "binding")
-        h.state.recovery.oldJournalSha256 = "0".repeat(64);
-      if (change === "outcome") h.state.recovery.originalStatus = "passed";
+        h.state.recovery.watches[0].oldJournalSha256 = "0".repeat(64);
+      if (change === "outcome")
+        h.state.recovery.watches[0].originalStatus = "passed";
       if (change === "missing") h.state.recovery = null;
+      if (change === "missing-list") delete h.state.recovery.watches;
+      if (change === "empty-list") h.state.recovery.watches = [];
+      if (change === "flat-watch")
+        h.state.recovery = h.state.recovery.watches[0];
+      if (change === "swapped") h.state.recovery.watches.reverse();
       return id;
     };
     await assert.rejects(deploySecondRecoveryRunner(h.options));
@@ -727,3 +779,65 @@ for (const boundary of ["authorize", "image"]) {
     });
   }
 }
+
+for (const restart of [false, true])
+  test(`second recovery ${restart ? "resumes removed checkpoint" : "completes"} with provider latestDeployment null`, async () => {
+    const h = fixture();
+    const remove = h.railway.removeDeployment;
+    h.railway.removeDeployment = async () => {
+      await remove();
+      h.provider.latest = null;
+    };
+    if (restart) {
+      const authorize = h.railway.setRecoveryAuthorization;
+      h.railway.setRecoveryAuthorization = async () => {
+        throw Error("interrupted");
+      };
+      await assert.rejects(
+        deploySecondRecoveryRunner(h.options),
+        /interrupted/,
+      );
+      const previousCheckpoint = h.receipts.at(-1).checkpoint;
+      assert.equal(previousCheckpoint.stage, "removed");
+      h.railway.setRecoveryAuthorization = authorize;
+      h.options.previousCheckpoint = previousCheckpoint;
+    }
+    const result = await deploySecondRecoveryRunner(h.options);
+    assert.equal(result.finalState.verified, true);
+    assert.equal(h.calls.filter((call) => call === "remove").length, 1);
+  });
+
+for (const restart of [false, true])
+  test(`prepared second-recovery response ${restart ? "resumes its candidate checkpoint" : "recovers"} with the original watch nested in watches`, async () => {
+    const h = fixture();
+    const recover = h.runner.recover;
+    h.runner.recover = async (request) => {
+      assert.equal(h.state.recovery.status, "prepared");
+      assert.equal(h.state.recovery.operationId, h.options.operationId);
+      assert.equal(
+        h.state.recovery.watches[0].operationId,
+        ORIGINAL_WATCH.operationId,
+      );
+      assert.deepEqual(request, {
+        operationId: h.options.operationId,
+        expectedRuntimeIdentity: h.options.release.candidate.runtimeIdentity,
+      });
+      if (restart) throw Error("interrupted before recovery");
+      await recover();
+    };
+    if (restart) {
+      await assert.rejects(
+        deploySecondRecoveryRunner(h.options),
+        /interrupted before recovery/,
+      );
+      h.options.previousCheckpoint = h.receipts.at(-1).checkpoint;
+      assert.equal(h.options.previousCheckpoint.stage, "candidate-deployed");
+      h.calls.length = 0;
+      h.runner.recover = recover;
+    }
+    const result = await deploySecondRecoveryRunner(h.options);
+    assert.equal(result.finalState.verified, true);
+    assert.equal(result.recovery.watches[0].originalStatus, "failed");
+    assert.equal(result.recovery.watches[1].originalStatus, "failed");
+    if (restart) assert.deepEqual(h.calls, ["recover", "resume"]);
+  });

@@ -1,6 +1,7 @@
 import React from "react";
 import { render, act } from "@testing-library/react";
 import { CopilotKitProvider } from "../../providers/CopilotKitProvider";
+import type { CopilotKitProviderProps } from "../../providers/CopilotKitProvider";
 import { CopilotChat } from "../../components/chat/CopilotChat";
 import { CopilotChatConfigurationProvider } from "../../providers/CopilotChatConfigurationProvider";
 import { DEFAULT_AGENT_ID } from "@copilotkit/shared";
@@ -194,6 +195,7 @@ export function renderWithCopilotKit({
   agentId,
   threadId,
   defaultThrottleMs,
+  mcpApps,
   children,
 }: {
   agent?: AbstractAgent;
@@ -206,6 +208,7 @@ export function renderWithCopilotKit({
   agentId?: string;
   threadId?: string;
   defaultThrottleMs?: number;
+  mcpApps?: CopilotKitProviderProps["mcpApps"];
   children?: React.ReactNode;
 }): ReturnType<typeof render> {
   const resolvedAgents = agents || (agent ? { default: agent } : undefined);
@@ -221,6 +224,7 @@ export function renderWithCopilotKit({
       frontendTools={frontendTools}
       humanInTheLoop={humanInTheLoop}
       defaultThrottleMs={defaultThrottleMs}
+      mcpApps={mcpApps}
     >
       <CopilotChatConfigurationProvider
         agentId={resolvedAgentId}

@@ -15,7 +15,11 @@ search: false
 
 This guide uses the CopilotKit CLI to run CopilotKit Intelligence on your machine and connect an existing React app. You will record browser activity and find the saved Trajectory in Intelligence.
 
-Trajectories are in early access. This guide is for a demo with our team. It assumes that your license and Trajectories access are ready.
+<Callout type="info" title="Early access with our engineering team">
+  Trajectories are in early access. This guide is for a proof of concept with our engineering team. It assumes that your license and Trajectories access are ready.
+
+  If you are unsure, [book time with our engineers](https://www.copilotkit.ai/talk-to-an-engineer) before you start.
+</Callout>
 
 The CLI installs and manages the local stack. You do not need to install its internal tools or create installation configuration files. This setup is for local evaluation, not a production deployment.
 
@@ -35,7 +39,7 @@ Run all CLI commands in your existing app's folder. Sign in with your existing a
 npx copilotkit@latest login
 ```
 
-Choose the organization for this demo. Then install the local stack:
+Choose the organization for this proof of concept. Then install the local stack:
 
 ```bash
 npx copilotkit@latest local setup --defer-model --no-samples
@@ -161,6 +165,10 @@ npx copilotkit@latest local start
 ```
 
 ## Troubleshooting
+
+<Callout type="warn" title="License and access errors need our team">
+  If you see `TRAJECTORIES_NOT_ENABLED`, `TRAJECTORIES_UNAVAILABLE`, or `MARKETPLACE_LICENSE_REQUIRED`, [book time with our engineers](https://www.copilotkit.ai/talk-to-an-engineer) before you continue. Our team can check your license, project access, and deployment support.
+</Callout>
 
 | Problem | Action |
 | --- | --- |

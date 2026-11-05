@@ -104,7 +104,8 @@ both are passed, `open` wins.
 
 The assistant-message toolbar can show thumbs-up and thumbs-down buttons. In v2
 you opt in by passing `onThumbsUp` / `onThumbsDown` to the **assistant message
-slot**. The buttons only render when a handler is provided:
+slot**. Without Automatic Learning capture, the buttons only render when a
+handler or a custom thumb slot is provided:
 
 ```tsx
 import { CopilotChat } from "@copilotkit/react-core/v2";
@@ -138,6 +139,15 @@ The button labels come from the chat labels (`assistantMessageToolbarThumbsUpLab
 defaults to `"Good response"`, `assistantMessageToolbarThumbsDownLabel` to
 `"Bad response"`); override them via
 [chat labels](/reference/hooks/useCopilotChatConfiguration#copilotchatlabels).
+
+With [Automatic Learning capture](/intelligence/capture-interactions#collect-reply-ratings)
+on and a Trajectory started, the buttons appear without handlers in every chat
+that renders messages with `CopilotChatMessageView` inside a
+`CopilotChatConfigurationProvider`, as `CopilotChat`, `CopilotPopup`, and
+`CopilotSidebar` do. A rating then also goes to the active
+Trajectory, the user can add a comment, and clicking the chosen thumb again
+removes the rating. Your handlers run when a rating is given, not when it is
+removed.
 
 <Callout type="info">
 Building a fully custom message component instead of using the slot? The

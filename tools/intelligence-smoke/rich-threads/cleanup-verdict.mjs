@@ -94,10 +94,18 @@ export function activeCleanupVerified(cleanup) {
       Date.parse(evidence.observedAt) < first ||
       Date.parse(evidence.observedAt) > latest ||
       !Array.isArray(evidence.instances) ||
-      evidence.instances.length === 0 ||
       !Array.isArray(evidence.environmentReferences) ||
       !Array.isArray(evidence.inspectedEnvironmentIds) ||
       !evidence.inspectedEnvironmentIds.every(text)
+    )
+      return false;
+    if (
+      evidence.instances.length === 0 &&
+      !(
+        receipt.outcome === "acknowledged" &&
+        receipt.response === true &&
+        evidence.environmentReferences.length === 0
+      )
     )
       return false;
     /** Match a retained instance to its owner and require explicit pending detachment. */

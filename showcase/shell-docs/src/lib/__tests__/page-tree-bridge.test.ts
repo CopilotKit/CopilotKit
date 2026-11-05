@@ -43,7 +43,7 @@ describe("navTreeToPageTree sidebar hierarchy", () => {
       type: "group",
       title: "AG-UI Streams",
       slug: "sidebar#rich-threads",
-      children: [{ type: "page", title: "Overview", slug: "threads" }],
+      children: [{ type: "page", title: "Overview", slug: "AG-UI-Streams" }],
       defaultOpen: false,
     },
     { type: "section", title: "Generative UI" },
@@ -87,7 +87,7 @@ describe("navTreeToPageTree sidebar hierarchy", () => {
       threads?.children
         .filter((child): child is PageTree.Item => child.type === "page")
         .map((child) => child.url),
-    ).toEqual(["/threads"]);
+    ).toEqual(["/AG-UI-Streams"]);
   });
 
   it("leaves empty trailing separators as labels", () => {
