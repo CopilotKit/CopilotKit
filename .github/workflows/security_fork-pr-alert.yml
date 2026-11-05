@@ -1,7 +1,9 @@
 name: "Security: Fork PR Alert"
 
 on:
-  pull_request:
+  # Fork pull_request tokens are read-only. Use the trusted base workflow so
+  # this API-only monitor can post alerts; never check out or execute PR code.
+  pull_request_target:
     types: [opened, synchronize, closed, reopened]
 
 permissions:
