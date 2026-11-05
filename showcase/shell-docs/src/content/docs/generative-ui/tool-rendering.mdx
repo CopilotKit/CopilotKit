@@ -102,6 +102,11 @@ Pick how calls show with `toolCallDisplay` on the message view:
 | `"turn"`     | The agent works in the open, then everything before the reply folds into "Worked for 9s". |
 | `"separate"` | Every call gets its own card.                                                             |
 
+To compare the displays side by side, run the
+[Tool call display stories](https://github.com/CopilotKit/CopilotKit/blob/main/examples/v2/react/storybook/stories/ToolCallDisplay.stories.tsx)
+in the React Storybook. They play a scripted run through the real message view,
+with a control to switch `toolCallDisplay`.
+
 To restyle or replace the group, use the `group` slot of the tool-calls view
 (it applies to the grouped, line and stacked displays):
 

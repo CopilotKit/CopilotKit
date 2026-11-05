@@ -280,8 +280,8 @@ describe("WS-C: all gate-managed services gateValidated, with correct overrides"
     ["harness", "showcase-harness"],
   ] as const;
 
-  it("has 43 gate-managed services plus seven staging-only Intelligence services", () => {
-    expect(Object.keys(SERVICES)).toHaveLength(50);
+  it("has 43 gate-managed services plus eight staging-only services (seven Intelligence, docs-preview)", () => {
+    expect(Object.keys(SERVICES)).toHaveLength(51);
   });
 
   it("marks every gate-managed service gateValidated (no Phase-2 holdouts)", () => {

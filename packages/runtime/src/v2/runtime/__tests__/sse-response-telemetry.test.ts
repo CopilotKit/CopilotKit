@@ -183,7 +183,7 @@ describe("sse-response.ts — telemetry lifecycle", () => {
       expect(captureSpy).toHaveBeenCalledWith(
         "oss.runtime.agent_execution_stream_errored",
         {
-          error: "upstream died",
+          error: "AGENT_EXECUTION_FAILED",
           model: "claude-opus-5",
           provider: "claude-opus-5",
         },
@@ -214,7 +214,7 @@ describe("sse-response.ts — telemetry lifecycle", () => {
     });
   });
 
-  it("fires agent_execution_stream_errored with the error message when the observable errors", async () => {
+  it("fires agent_execution_stream_errored with a fixed code, not the error message", async () => {
     const failing = new Observable<BaseEvent>((subscriber) => {
       subscriber.error(new Error("stream blew up"));
     });
@@ -226,9 +226,13 @@ describe("sse-response.ts — telemetry lifecycle", () => {
     await vi.waitFor(() => {
       expect(captureSpy).toHaveBeenCalledWith(
         "oss.runtime.agent_execution_stream_errored",
-        expect.objectContaining({ error: "stream blew up" }),
+        expect.objectContaining({ error: "AGENT_EXECUTION_FAILED" }),
       );
     });
+    // Error text can quote prompts, tool arguments or URLs; it never reaches analytics.
+    expect(JSON.stringify(captureSpy.mock.calls)).not.toContain(
+      "stream blew up",
+    );
 
     expect(captureSpy).toHaveBeenCalledWith(
       "oss.runtime.agent_execution_stream_started",
@@ -276,7 +280,7 @@ describe("sse-response.ts — telemetry lifecycle", () => {
     await vi.waitFor(() => expect(onError).toHaveBeenCalledOnce());
     expect(captureSpy).toHaveBeenCalledWith(
       "oss.runtime.agent_execution_stream_errored",
-      expect.objectContaining({ error: "subscription failed" }),
+      expect.objectContaining({ error: "AGENT_EXECUTION_FAILED" }),
     );
   });
 

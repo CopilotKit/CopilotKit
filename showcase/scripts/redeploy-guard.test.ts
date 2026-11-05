@@ -289,6 +289,7 @@ function contextFor(
         outputs: { has_changes: String(opts.hasChanges ?? true) },
       },
       build: { result: buildResult },
+      "verify-image-refs": { result: "success" },
       "aggregate-build-results": {
         outputs: aggregatorRan
           ? {
@@ -367,6 +368,7 @@ function starterContextFor(
         outputs: { has_changes: String(opts.hasChanges ?? true) },
       },
       "build-starters": { result: rollupBuildResult(legResults) },
+      "verify-image-refs": { result: "success" },
     },
   };
 }
@@ -682,4 +684,84 @@ describe("notify-cancelled-builds guard", () => {
   it("does NOT fire when there were no changes to build", () => {
     expect(jobRuns(guard, contextFor([], { hasChanges: false }))).toBe(false);
   });
+});
+
+describe("image publication and deployment eligibility", () => {
+  function dependencies(jobId: string): string[] {
+    const needs = jobOf(jobId).needs ?? [];
+    return typeof needs === "string" ? [needs] : needs;
+  }
+
+  function ancestors(jobId: string): string[] {
+    return dependencies(jobId).flatMap((id) => [id, ...ancestors(id)]);
+  }
+
+  it.each(["build", "build-starters"])(
+    "%s can publish even when live image refs fail policy",
+    (jobId) => {
+      // A failed ancestor suppresses a job with an implicit success() guard,
+      // even if the live-state check is not a direct dependency.
+      expect(ancestors(jobId)).not.toContain("verify-image-refs");
+      const ctx: GhContext = {
+        runCancelled: false,
+        needs: {
+          "detect-changes": { outputs: { has_changes: "true" } },
+          "detect-starter-changes": { outputs: { has_changes: "true" } },
+          "verify-image-refs": { result: "failure" },
+        },
+      };
+      expect(evalGuard(readJobGuard(jobId), ctx)).toBe(true);
+    },
+  );
+
+  it.each([
+    [true, false, true],
+    [false, true, true],
+    [true, true, true],
+    [false, false, false],
+  ])(
+    "checks live refs for showcase=%s, starters=%s",
+    (showcase, starters, expected) => {
+      expect(dependencies("verify-image-refs")).toEqual(
+        expect.arrayContaining(["detect-changes", "detect-starter-changes"]),
+      );
+      expect(
+        evalGuard(readJobGuard("verify-image-refs"), {
+          runCancelled: false,
+          needs: {
+            "detect-changes": { outputs: { has_changes: String(showcase) } },
+            "detect-starter-changes": {
+              outputs: { has_changes: String(starters) },
+            },
+          },
+        }),
+      ).toBe(expected);
+    },
+  );
+
+  describe.each(["redeploy-staging", "redeploy-staging-starters"])(
+    "%s requires successful live image policy",
+    (jobId) => {
+      it.each(["success", "failure", "cancelled", "skipped"])(
+        "handles image-policy result %s with auto-deploy on or off",
+        (result) => {
+          expect(dependencies(jobId)).toContain("verify-image-refs");
+          for (const autoDeploy of ["true", "false"]) {
+            // Keep the existing partial-build behavior: one cancelled matrix
+            // leg does not block eligible successful slots, but a non-success
+            // policy check must block both retagging and deployment.
+            const ctx =
+              jobId === "redeploy-staging"
+                ? contextFor(["success", "cancelled"])
+                : starterContextFor(["success", "cancelled"]);
+            ctx.needs["verify-image-refs"] = { result };
+            ctx.vars = { SHOWCASE_AUTO_REDEPLOY: autoDeploy };
+            expect(evalGuard(readJobGuard(jobId), ctx)).toBe(
+              result === "success" && autoDeploy === "true",
+            );
+          }
+        },
+      );
+    },
+  );
 });

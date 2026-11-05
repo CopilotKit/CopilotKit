@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import path from "node:path";
 
 interface PermanentRedirect {
   readonly source: string;
@@ -524,11 +525,17 @@ const AG_UI_MIRROR_REDIRECTS: MovedPermanentlyRedirect[] = [
 // `console.error` from `runtime-config.ts` instead.
 
 const nextConfig: NextConfig = {
+  output: "standalone",
+  // Keep the generated server and traced shared files in the builder's layout.
+  outputFileTracingRoot: path.resolve(__dirname, ".."),
   // The raw-MDX route intentionally traces runtime-readable content. Next
   // 16.2.10 also reports this config file as an "unexpected" NFT entry even
   // though the config has no application imports. Keep the filter exact so
   // every other Turbopack issue remains visible.
   turbopack: {
+    // The standalone Docker build has no monorepo lockfile. Include sibling
+    // shared sources explicitly instead of relying on local root inference.
+    root: path.resolve(__dirname, ".."),
     ignoreIssue: [
       {
         path: /showcase\/shell-docs\/next\.config\.ts$/,

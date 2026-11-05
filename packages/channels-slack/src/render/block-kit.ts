@@ -487,7 +487,8 @@ function renderActionElement(node: ChannelNode): object | null {
         },
       };
       // Link button: opens the URL natively. Slack still requires an action_id
-      // (kept above); clicks on a url button are not dispatched as actions.
+      // (kept above) and still delivers the click; without a handler its
+      // fallback id is not a minted one, so the engine ignores it quietly.
       if (typeof props.url === "string" && props.url.length > 0) {
         el.url = props.url;
       }

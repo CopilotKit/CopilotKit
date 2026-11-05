@@ -44,7 +44,7 @@ export const Modal = createReactComponent(ModalApi, ({ props, buildChild }) => {
         >
           <div
             style={{
-              backgroundColor: "#fff",
+              backgroundColor: "var(--a2ui-color-surface, #fff)",
               padding: "24px",
               borderRadius: "8px",
               maxWidth: "90%",

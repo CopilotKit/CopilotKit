@@ -1,4 +1,4 @@
-FROM node:20-slim AS builder
+FROM node:22.23.4-bookworm-slim@sha256:de170b39439eb0e5a3444ad7d60b015614a381e10fecae2e30ec9e735122f38d AS builder
 ARG COMMIT_SHA=unknown
 ARG BRANCH=unknown
 WORKDIR /app
@@ -49,20 +49,112 @@ RUN cd scripts && node node_modules/tsx/dist/cli.mjs generate-registry.ts \
     && node node_modules/tsx/dist/cli.mjs generate-search-index.ts \
     && cd ../shell-docs && npx next build
 
-FROM node:20-slim AS runner
-WORKDIR /app
+FROM node:22.23.4-bookworm-slim@sha256:de170b39439eb0e5a3444ad7d60b015614a381e10fecae2e30ec9e735122f38d AS runner
+# Preserve the builder layout: Turbopack's .next/node_modules aliases contain
+# relative links back to /app/shell-docs/node_modules.
+WORKDIR /app/shell-docs
 ARG COMMIT_SHA=unknown
 ARG BRANCH=unknown
 ENV NODE_ENV=production
 ENV PORT=10000
+ENV HOSTNAME=0.0.0.0
 ENV NEXT_PUBLIC_COMMIT_SHA=${COMMIT_SHA}
 ENV NEXT_PUBLIC_BRANCH=${BRANCH}
 
-COPY --from=builder /app/shell-docs/.next ./.next
-COPY --from=builder /app/shell-docs/node_modules ./node_modules
-COPY --from=builder /app/shell-docs/package.json ./
+# The tracing root is /app, so standalone contains shell-docs/server.js and
+# preserves the relative paths used by Turbopack's external-module aliases.
+COPY --from=builder /app/shell-docs/.next/standalone/ /app/
+COPY --from=builder /app/shell-docs/.next/static ./.next/static
 COPY --from=builder /app/shell-docs/public ./public
 COPY --from=builder /app/shell-docs/src/content ./src/content
 
 EXPOSE 10000
-CMD ["npx", "next", "start", "-p", "10000"]
+CMD ["node", "server.js"]
+
+# Fail the build if any base or install path regresses the accepted Node runtime.
+RUN test "$(node --version)" = "v22.23.4"
+
+# Exercise the final runtime filesystem, including Turbopack's generated module
+# links. Compilation and a Node-version check cannot catch a broken MDX import.
+# It talks only to loopback and needs no model, credentials, or backend. No
+# `--network=none`: Railway, which builds the docs PR previews from this file,
+# rejects that RUN flag.
+RUN node --input-type=module <<'JS'
+import { spawn } from 'node:child_process';
+import { connect } from 'node:net';
+import { setTimeout as delay } from 'node:timers/promises';
+
+const server = spawn(process.execPath, ['server.js'], {
+  stdio: 'inherit', env: { ...process.env, HOSTNAME: '127.0.0.1' },
+});
+
+try {
+  const deadline = Date.now() + 30_000;
+  for (;;) {
+    const listening = await new Promise((resolve) => {
+      const socket = connect(10000, '127.0.0.1');
+      socket.once('connect', () => { socket.destroy(); resolve(true); });
+      socket.once('error', () => { socket.destroy(); resolve(false); });
+    });
+    if (listening) break;
+    if (server.exitCode !== null || server.signalCode !== null) {
+      throw new Error('Docs server exited before listening');
+    }
+    if (Date.now() >= deadline) throw new Error('Docs server did not start');
+    await delay(250);
+  }
+
+  let componentHtml = '';
+  for (const [path, marker] of [
+    ['/generative-ui/components', 'Let your agent render your React components'],
+    ['/generative-ui/components/standard-catalog', 'standardUI'],
+    ['/generative-ui/components/standard-catalog/button', 'Button'],
+  ]) {
+    const response = await fetch(`http://127.0.0.1:10000${path}`, {
+      redirect: 'error', signal: AbortSignal.timeout(15_000),
+    });
+    if (response.status !== 200) {
+      throw new Error(`${path}: HTTP ${response.status}`);
+    }
+    const body = await response.text();
+    if (!body.includes(marker)) {
+      throw new Error(`${path}: missing expected content`);
+    }
+    if (path.endsWith('/button')) componentHtml = body;
+    console.log(`${path}: HTTP 200 and expected content`);
+  }
+
+  // Raw Markdown reads content from disk; HTML alone cannot prove it was copied.
+  const markdownPath = '/generative-ui/components.md';
+  const markdown = await fetch(`http://127.0.0.1:10000${markdownPath}`, {
+    redirect: 'error', signal: AbortSignal.timeout(15_000),
+  });
+  if (markdown.status !== 200 ||
+      !markdown.headers.get('content-type')?.includes('text/markdown') ||
+      !(await markdown.text()).includes('Let your agent render your React components')) {
+    throw new Error(`${markdownPath}: missing expected Markdown content`);
+  }
+  console.log(`${markdownPath}: HTTP 200 and expected Markdown content`);
+
+  // Standalone does not automatically copy public or .next/static assets.
+  const assetUrls = [...new Set(
+    [...componentHtml.matchAll(/(?:src|href)="([^\"]+)"/g)]
+      .map((match) => match[1].replaceAll('&amp;', '&'))
+      .filter((url) => url.startsWith('/_next/static/')),
+  )];
+  const script = assetUrls.find((url) => /\.js(?:\?|$)/.test(url));
+  const stylesheet = assetUrls.find((url) => /\.css(?:\?|$)/.test(url));
+  if (!script || !stylesheet) throw new Error('Component page is missing JS/CSS assets');
+  for (const path of [script, stylesheet, '/images/ag-ui-overview-with-partners.png']) {
+    const asset = await fetch(`http://127.0.0.1:10000${path}`, {
+      redirect: 'error', signal: AbortSignal.timeout(15_000),
+    });
+    if (asset.status !== 200 || (await asset.arrayBuffer()).byteLength === 0) {
+      throw new Error(`${path}: missing runtime asset`);
+    }
+    console.log(`${path}: HTTP 200 and non-empty asset`);
+  }
+} finally {
+  server.kill('SIGTERM');
+}
+JS

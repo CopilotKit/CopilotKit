@@ -30,6 +30,18 @@ npm install @copilotkit/sdk-js zod@3
 ```
 
 An unversioned `zod` install selects Zod 4, which does not satisfy the SDK's `zod` peer dependency (`^3`). Use `zod@3` with pnpm or Yarn too. If your agent already requires Zod 4, check SDK compatibility before changing its dependencies; do not bypass the conflict with `--force` or `--legacy-peer-deps`.
+
+The SDK also has a peer dependency on `langchain`. If your agent pins `@langchain/core` to an exact version, npm installs the newest `langchain`, which can require a newer `@langchain/core` and fail with `ERESOLVE`. Install a `langchain` release whose peer range includes your `@langchain/core`. To see each release's range, run:
+
+```bash
+npm view langchain@1 peerDependencies
+```
+
+For example, `langchain@1.5.9` requires `@langchain/core ^1.2.8`, so it is the newest release that works with `@langchain/core@1.2.8`. Pin it exactly. A caret range such as `^1.5.9` lets a later install pick `langchain@1.5.19`, which requires `@langchain/core ^1.2.20`:
+
+```bash
+npm install --save-exact @copilotkit/sdk-js zod@3 langchain@1.5.9
+```
 </Callout>
 
 ## Getting started
@@ -454,19 +466,22 @@ An unversioned `zod` install selects Zod 4, which does not satisfy the SDK's `zo
               Create an API route to connect CopilotKit to your LangGraph agent:
 
               ```sh
-              mkdir -p app/api/copilotkit && touch app/api/copilotkit/route.ts
+              mkdir -p "app/api/copilotkit/[[...slug]]" && touch "app/api/copilotkit/[[...slug]]/route.ts"
               ```
 
-              <Callout type="info" title="One route supports the full Intelligence experience">
-                A current client and Runtime can carry chat, AG-UI Streams, User Memory,
-                annotations, and Inspector requests through one `POST`
-                endpoint. They negotiate this support before sending resource
-                requests. The example below uses that mode.
+              <Callout type="info" title="A catch-all route for four verbs">
+                The example below mounts the Runtime on a catch-all route
+                (`app/api/copilotkit/[[...slug]]/route.ts`) for `GET`, `POST`,
+                `PATCH`, and `DELETE`. The LangGraph starters, the
+                [Intelligence quickstart](/intelligence/quickstart), and the
+                [runtime endpoints page](/backend/runtime-endpoints) use the
+                same mount.
 
-                The [Intelligence quickstart](/intelligence/quickstart) mounts a
-                catch-all route (`app/api/copilotkit/[[...slug]]/route.ts`) for
-                `GET`, `POST`, `PATCH`, and `DELETE` instead. Both handlers work.
-                Pick one, and set `useSingleEndpoint` on the provider to match it.
+                If your app already serves the Runtime on one `POST` route with
+                `mode: "single-route"`, keep it. It also carries AG-UI Streams,
+                User Memory, and Inspector requests. Set `useSingleEndpoint` on
+                the provider to match. See
+                [Provider and handler pairs](/backend/runtime-endpoints#provider-and-handler-pairs).
               </Callout>
 
               If your agent is in TypeScript, use the **LangSmith** tab.
@@ -475,7 +490,7 @@ An unversioned `zod` install selects Zod 4, which does not satisfy the SDK's `zo
 
               <Tabs groupId="deployment_method" items={['LangSmith', 'FastAPI']}>
                 <Tab value="LangSmith">
-                  ```tsx title="app/api/copilotkit/route.ts"
+                  ```tsx title="app/api/copilotkit/[[...slug]]/route.ts"
                   import {
                     CopilotKitIntelligence,
                     CopilotRuntime,
@@ -507,14 +522,16 @@ An unversioned `zod` install selects Zod 4, which does not satisfy the SDK's `zo
                   const handler = createCopilotRuntimeHandler({
                     runtime,
                     basePath: "/api/copilotkit",
-                    mode: "single-route",
                   });
 
+                  export const GET = handler;
                   export const POST = handler;
+                  export const PATCH = handler;
+                  export const DELETE = handler;
                 ```
               </Tab>
               <Tab value="FastAPI">
-                ```tsx title="app/api/copilotkit/route.ts" doctest="component"
+                ```tsx title="app/api/copilotkit/[[...slug]]/route.ts" doctest="component"
                 import {
                   CopilotKitIntelligence,
                   CopilotRuntime,
@@ -544,10 +561,12 @@ An unversioned `zod` install selects Zod 4, which does not satisfy the SDK's `zo
                 const handler = createCopilotRuntimeHandler({
                   runtime,
                   basePath: "/api/copilotkit",
-                  mode: "single-route",
                 });
 
+                export const GET = handler;
                 export const POST = handler;
+                export const PATCH = handler;
+                export const DELETE = handler;
               ```
               </Tab>
             </Tabs>
@@ -578,7 +597,7 @@ An unversioned `zod` install selects Zod 4, which does not satisfy the SDK's `zo
               Wrap your application with the CopilotKit provider:
 
               <Callout type="info" title="Match the provider to the handler">
-                `useSingleEndpoint` pins the provider to the single-route
+                `useSingleEndpoint={false}` pins the provider to the multi-route
                 handler above. See
                 [Provider and handler pairs](/backend/runtime-endpoints#provider-and-handler-pairs).
               </Callout>
@@ -590,7 +609,7 @@ An unversioned `zod` install selects Zod 4, which does not satisfy the SDK's `zo
 
               export function Providers({ children }: { children: React.ReactNode }) {
                 return (
-                  <CopilotKitProvider runtimeUrl="/api/copilotkit" agentId="sample_agent" useSingleEndpoint>
+                  <CopilotKitProvider runtimeUrl="/api/copilotkit" agentId="sample_agent" useSingleEndpoint={false}>
                     {children}
                   </CopilotKitProvider>
                 );

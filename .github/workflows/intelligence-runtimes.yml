@@ -2,7 +2,7 @@ name: test / intelligence runtimes
 
 on:
   pull_request:
-    branches: [main]
+    branches: [main, "[0-9]+.[0-9]+.[0-9]+"]
   # No `paths` filter: the scope job's gate.mjs is the single source of truth
   # for which changes need the matrix, and it skips the matrix otherwise.
   push:
@@ -107,7 +107,7 @@ jobs:
 
       - name: Setup .NET
         if: matrix.language == 'dotnet'
-        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6
+        uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6.1.0
         with:
           dotnet-version: "8.0.x"
 

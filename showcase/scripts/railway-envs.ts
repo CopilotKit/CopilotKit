@@ -1664,6 +1664,24 @@ export const SERVICES: Record<
       },
     },
   },
+  // Staging-only base for docs PR previews. Railway builds it from the repo
+  // (showcase/shell-docs/Dockerfile, watch path showcase/shell-docs/**), and
+  // the project's focused PR environments copy it for each PR that changes
+  // the docs. Not CI-built, probed, or promoted; `docs` stays the real site.
+  "docs-preview": {
+    serviceId: "a5ff33b4-8b8d-4fbc-94b1-177374464bb8",
+    autoUpdates: { staging: "unmanaged" },
+    ciBuilt: false,
+    gateValidated: false,
+    gateIgnore: true,
+    probeDriver: "shell", // inert: staging probe is disabled
+    environments: {
+      staging: {
+        instanceId: "99cd81df-b32e-413a-9c04-91811ec59806",
+        probe: false,
+      },
+    },
+  },
   // ───────────────────────── starter-* container fleet ─────────────────────
   // The 12 starter-template containers (ghcr.io/copilotkit/starter-<slug>),
   // live in BOTH staging and prod. Folded into the cluster-promote SSOT (S1)

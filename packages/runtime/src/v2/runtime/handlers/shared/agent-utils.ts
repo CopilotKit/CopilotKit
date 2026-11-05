@@ -1,11 +1,13 @@
 import type { AbstractAgent, RunAgentInput } from "@ag-ui/client";
 import { RunAgentInputSchema } from "@ag-ui/core/schemas";
+import type { CopilotKitUIEnvelope } from "@copilotkit/shared";
 import {
   A2UIMiddleware,
   OpenGenerativeUIMiddleware,
 } from "@copilotkit/shared/event-transforms";
 import { MCPAppsMiddleware } from "@ag-ui/mcp-apps-middleware";
 import { MCPMiddleware } from "@ag-ui/mcp-middleware";
+import { GenerativeUIMiddleware } from "../../generative-ui";
 import type { CopilotRuntimeLike } from "../../core/runtime";
 import {
   isA2UIEnabled,
@@ -89,6 +91,11 @@ export function configureAgentForRequest(params: {
    * has to also set `a2ui.injectA2UITool` on the runtime.
    */
   providerA2UIHasCatalog?: boolean;
+  /**
+   * The transport of the generative UI envelope that the client sent on this
+   * run (`forwardedProps.copilotkit.ui`). Not set when the run has no envelope.
+   */
+  providerGenerativeUITransport?: CopilotKitUIEnvelope["metadata"]["extensions"]["copilotkit_transport"];
   /** Retain proxy rejection even when no server is available to this agent. */
   isMcpProxyRequest?: boolean;
 }): void {
@@ -160,14 +167,32 @@ export function configureAgentForRequest(params: {
     }
   }
 
-  // Forward inbound request headers onto the clone under the runtime's resolved
-  // forwarding policy (`authorization` / custom `x-*`, with known infra/proxy/
-  // platform headers stripped by the default denylist — #5712), but let headers
-  // the server explicitly configured on the agent WIN on collision
-  // (case-insensitively): a server-set service-to-service token (e.g. an IAM
-  // bearer) must never be silently overridden by a browser/edge/platform-injected
-  // inbound header. See `mergeForwardableHeaders` for the casing/duplicate-key
-  // rationale and `shouldForwardHeader` for breadth.
+  // A "markdown" envelope means the model writes ```a2ui fences, so the run
+  // gets no render tool, even when the runtime turns generative UI on.
+  const generativeUI = runtime.generativeUI;
+  const transport = params.providerGenerativeUITransport;
+  const isGenerativeUIRun =
+    transport === "tool" || (transport !== "markdown" && !!generativeUI);
+  if (
+    isGenerativeUIRun &&
+    generativeUI !== false &&
+    typeof agent.use === "function"
+  ) {
+    const targetAgents =
+      typeof generativeUI === "object" ? generativeUI.agents : undefined;
+    if (!targetAgents || targetAgents.includes(agentId)) {
+      agent.use(new GenerativeUIMiddleware());
+    }
+  }
+
+  // Forward eligible inbound headers onto the outgoing agent call under the
+  // runtime's resolved forwarding policy (`authorization` / custom `x-*`, with
+  // known infra/proxy/platform headers stripped by the default denylist (#5712)),
+  // but let headers the server explicitly configured on the agent WIN
+  // on collision (case-insensitively): a server-set service-to-service token
+  // (e.g. an IAM bearer) must never be silently overridden by a
+  // browser/edge/platform-injected inbound header. See `mergeForwardableHeaders`
+  // for the casing/duplicate-key rationale and `shouldForwardHeader` for breadth.
   agent.headers = mergeForwardableHeaders(
     agent.headers,
     request,

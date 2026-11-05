@@ -5,6 +5,7 @@ import type { CopilotRuntimeLike } from "../core/runtime";
 import { mergeForwardableHeaders, policyFor } from "./header-utils";
 import { cloneAgentForRequest, parseRunRequest } from "./shared/agent-utils";
 import { createSseEventResponse } from "./shared/sse-response";
+import { takeAnalyticsContext } from "../intelligence-platform/analytics-context";
 
 /**
  * Parameters for {@link handleSuggestAgent}.
@@ -65,10 +66,13 @@ export async function handleSuggestAgent({
   // the run sees the correct agentId.
   agent.agentId = agentId;
 
-  const input = await parseRunRequest(request);
-  if (input instanceof Response) {
-    return input;
+  const parsed = await parseRunRequest(request);
+  if (parsed instanceof Response) {
+    return parsed;
   }
+  // Suggestions are not Intelligence runs, so an app's analytics context goes
+  // nowhere from here; it is only kept away from the agent.
+  const { input } = takeAnalyticsContext(parsed);
 
   // Forward eligible inbound headers onto the clone under the runtime's resolved
   // forwarding policy (same helper the run handler uses: `authorization` /

@@ -441,7 +441,7 @@ onBeforeUnmount(() => {
 <template>
   <div
     data-copilotkit
-    class="cpk:@container cpk:relative cpk:h-full"
+    class="copilotKitChat cpk:@container cpk:relative cpk:h-full"
     data-testid="copilot-chat-view"
     v-bind="$attrs"
     @dragover="handleDragOver"
