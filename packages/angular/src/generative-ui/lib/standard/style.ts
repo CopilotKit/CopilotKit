@@ -97,6 +97,20 @@ export function defined(style: StyleMap): StyleMap {
   return result;
 }
 
+/**
+ * The `gap` of the layout props, with `rowGap` and `columnGap` winning over
+ * it. Angular applies a `[style]` object in sorted key order, not in object
+ * order, so `columnGap` would come before the `gap` shorthand and lose to
+ * it. A longhand therefore sets both longhands and no shorthand.
+ */
+function gapStyle(props: LayoutProps): StyleMap {
+  const gap = spacing(props.gap) ?? (props.disableAutoSpacing ? 0 : undefined);
+  const rowGap = spacing(props.rowGap);
+  const columnGap = spacing(props.columnGap);
+  if (rowGap === undefined && columnGap === undefined) return { gap };
+  return { rowGap: rowGap ?? gap, columnGap: columnGap ?? gap };
+}
+
 /** The CSS of the shared layout props. An unset prop gives no CSS. */
 export function layoutStyle(props: LayoutProps): StyleMap {
   const overflow = props.scrollable
@@ -109,9 +123,7 @@ export function layoutStyle(props: LayoutProps): StyleMap {
     alignItems: props.align ? ALIGN_CSS[props.align] : undefined,
     justifyContent: props.justify ? JUSTIFY_CSS[props.justify] : undefined,
     flexWrap: props.wrap,
-    gap: spacing(props.gap) ?? (props.disableAutoSpacing ? 0 : undefined),
-    rowGap: spacing(props.rowGap),
-    columnGap: spacing(props.columnGap),
+    ...gapStyle(props),
     padding: props.flush ? 0 : spacing(props.padding),
     background: backgroundColor(props.background),
     border: props.border

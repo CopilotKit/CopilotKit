@@ -1,8 +1,10 @@
+import { A2UI_VERSION } from "@copilotkit/shared";
 import type {
   A2UIComponentNode,
   A2UIOperation,
   GenerativeUIUserEvent,
 } from "@copilotkit/shared";
+import type { ManagedSurface } from "./surface-manager";
 
 /** Context keys that supply the message's first line, in priority order. */
 const TEXT_KEYS: readonly string[] = ["message", "label"];
@@ -139,4 +141,24 @@ export function createComponentLabelResolver(
     }
     return undefined;
   };
+}
+
+/**
+ * The label resolver of a rendered surface: the components the surface has
+ * now, as one `updateComponents` operation, so that the label of the
+ * component that sent an event can be found.
+ */
+export function surfaceLabelResolver(surface: ManagedSurface) {
+  const entries = [...surface.model.componentsModel.entries];
+  const components = entries.map(([id, model]) => ({
+    ...model.properties,
+    id,
+    component: model.type,
+  }));
+  return createComponentLabelResolver([
+    {
+      version: A2UI_VERSION,
+      updateComponents: { surfaceId: surface.surfaceId, components },
+    },
+  ]);
 }

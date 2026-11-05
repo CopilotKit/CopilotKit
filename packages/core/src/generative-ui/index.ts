@@ -1,10 +1,12 @@
 // The `@copilotkit/core/generative-ui` entry: the framework-free runtime of
 // generative UI. Surfaces, data binding, expressions, the basic functions,
-// the function dispatcher, events, the envelope and the markdown transport
-// source. The framework packages build their rendering on it. The catalog
-// definitions are in `@copilotkit/shared/generative-ui`.
+// the function dispatcher, the runner of the agent's function calls, events,
+// the envelope and the markdown transport source. The framework packages
+// build their rendering on it. The catalog definitions are in
+// `@copilotkit/shared/generative-ui`.
 export * from "./runtime";
 export * from "./functions";
+export * from "./function-calls";
 export * from "./calc";
 export * from "./resolve";
 export * from "./surface-manager";

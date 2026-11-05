@@ -11,7 +11,6 @@ import type { Signal, Type } from "@angular/core";
 import type { AbstractAgent } from "@ag-ui/client";
 import { CopilotKit } from "@copilotkit/angular";
 import {
-  A2UI_VERSION,
   COPILOTKIT_FORWARDED_PROPS_KEY,
   DEFAULT_AGENT_ID,
   GENERATIVE_UI_ACTIVITY_TYPE,
@@ -21,24 +20,27 @@ import {
 } from "@copilotkit/shared";
 import type {
   A2UIActionMessage,
-  A2UIOperation,
   GenerativeUISurfaceContent,
 } from "@copilotkit/shared";
 import {
   GenerativeUISurfaceManager,
+  activityFunctionCalls,
   buildActionMessageText,
   buildGenerativeUIEnvelope,
-  createComponentLabelResolver,
+  createFunctionCallRunner,
   createGenerativeUIDebugSource,
   createGenerativeUIDispatcher,
   describeGenerativeUIRun,
+  envelopeOptionsFor,
   getMarkdownSurfaceSource,
+  markdownFunctionCalls,
+  surfaceLabelResolver,
 } from "@copilotkit/core/generative-ui";
 import type {
+  FunctionCallRunner,
   GenerativeUIDispatcher,
   GenerativeUIEngine,
-  GenerativeUIEnvelopeOptions,
-  ManagedSurface,
+  ReadonlyMessages,
 } from "@copilotkit/core/generative-ui";
 import { GenerativeUIError } from "@copilotkit/shared/generative-ui";
 import type {
@@ -51,47 +53,8 @@ import type { GenerativeUI } from "./catalog";
 import { CopilotGenerativeUIRenderToolCall } from "./chat";
 import { GENERATIVE_UI_CONFIG } from "./config";
 import type { GenerativeUIConfig } from "./config";
-import {
-  activityFunctionCalls,
-  createFunctionCallRunner,
-  markdownFunctionCalls,
-} from "./function-calls";
-import type { FunctionCallRunner, ReadonlyMessages } from "./function-calls";
 import { registerGenerativeUIMarkdownContext } from "./markdown-context";
 import type { GenerativeUIRuntime } from "./runtime";
-
-/** What the envelope of a run says, from the config. */
-function envelopeOptionsFor(
-  config: GenerativeUIConfig,
-): GenerativeUIEnvelopeOptions {
-  if (config.transport === "markdown") {
-    return {
-      transport: "markdown",
-      includeCatalog: config.includeCatalog !== false,
-      contextSent: config.sendContext !== false,
-    };
-  }
-  return { transport: "tool", includeCatalog: true, contextSent: false };
-}
-
-/**
- * The components of a surface as one `updateComponents` operation, so that
- * the label of the component that sent an event can be found.
- */
-function surfaceComponents(surface: ManagedSurface): A2UIOperation[] {
-  const entries = [...surface.model.componentsModel.entries];
-  const components = entries.map(([id, model]) => ({
-    ...model.properties,
-    id,
-    component: model.type,
-  }));
-  return [
-    {
-      version: A2UI_VERSION,
-      updateComponents: { surfaceId: surface.surfaceId, components },
-    },
-  ];
-}
 
 /** The action of a user event, on its way to the agent's run. */
 interface PendingAction {
@@ -265,9 +228,7 @@ export class CopilotGenerativeUI implements GenerativeUIRuntime {
       const surface = agent.threadId
         ? this.manager.getSurface(agent.threadId, event.surfaceId)
         : undefined;
-      const resolveLabel = surface
-        ? createComponentLabelResolver(surfaceComponents(surface))
-        : undefined;
+      const resolveLabel = surface ? surfaceLabelResolver(surface) : undefined;
       agent.addMessage({
         id: randomUUID(),
         role: "user",

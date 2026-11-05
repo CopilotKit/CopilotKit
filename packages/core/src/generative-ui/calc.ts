@@ -420,7 +420,10 @@ class CalcParser {
     }
     if (this.skipDepth > 0) return null;
     if (!Object.prototype.hasOwnProperty.call(this.scope, name)) {
-      const constant = CONSTANTS[name];
+      // An own key only: `constructor` or `__proto__` is no constant.
+      const constant = Object.prototype.hasOwnProperty.call(CONSTANTS, name)
+        ? CONSTANTS[name]
+        : undefined;
       if (constant !== undefined) return constant;
       this.fail(`unknown name ${name}; pass it as an arg`);
     }

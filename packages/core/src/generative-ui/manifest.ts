@@ -141,6 +141,29 @@ export interface GenerativeUIEnvelopeOptions {
   action?: A2UIActionMessage;
 }
 
+/** The transport options of a framework's generative UI config. */
+export interface GenerativeUITransportConfig {
+  transport?: "tool" | "markdown";
+  /** Markdown only. Default `true`. */
+  sendContext?: boolean;
+  /** Markdown only. Default `true`. */
+  includeCatalog?: boolean;
+}
+
+/** What the envelope of a run says, from the provider config. */
+export function envelopeOptionsFor(
+  config: GenerativeUITransportConfig,
+): GenerativeUIEnvelopeOptions {
+  if (config.transport === "markdown") {
+    return {
+      transport: "markdown",
+      includeCatalog: config.includeCatalog !== false,
+      contextSent: config.sendContext !== false,
+    };
+  }
+  return { transport: "tool", includeCatalog: true, contextSent: false };
+}
+
 /**
  * Builds the envelope that a run sends as `forwardedProps.copilotkit.ui`,
  * from the per-run manifest. It has the A2UI v1.0 renderer capabilities

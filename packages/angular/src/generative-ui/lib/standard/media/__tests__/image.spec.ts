@@ -251,6 +251,22 @@ describe("Image lightbox", () => {
     expect(lightbox()).toBeNull();
   });
 
+  it("closes the lightbox when the Image that opened it is destroyed", () => {
+    const v = renderSurface(standardUI, [
+      {
+        id: "root",
+        component: "Image",
+        url: "https://example.com/c.png",
+        description: "C",
+      },
+    ]);
+    const img = v.container.querySelector<HTMLElement>('img[alt="C"]')!;
+    v.act(() => img.click());
+    expect(lightbox()).not.toBeNull();
+    v.fixture.destroy();
+    expect(lightbox()).toBeNull();
+  });
+
   it("does not open a lightbox when lightbox is false", () => {
     const v = renderSurface(standardUI, [
       {

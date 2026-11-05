@@ -1,4 +1,4 @@
-import { Component, computed, inject, input } from "@angular/core";
+import { Component, DestroyRef, computed, inject, input } from "@angular/core";
 import { radius, spacing } from "@copilotkit/shared/generative-ui";
 import type {
   gridImage,
@@ -48,6 +48,7 @@ export class CopilotGenerativeUIImageGrid {
   readonly layout = input<ImageGridProps["layout"]>();
 
   readonly #lightbox = inject(GenerativeUILightbox);
+  readonly #destroyRef = inject(DestroyRef);
   readonly #aria = injectGenerativeUIAccessibility();
 
   protected readonly shownImages = computed(() => this.images() ?? []);
@@ -115,6 +116,7 @@ export class CopilotGenerativeUIImageGrid {
       })),
       index,
       this.#aria(),
+      this.#destroyRef,
     );
   }
 }

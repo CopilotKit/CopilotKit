@@ -1,5 +1,6 @@
 import {
   Component,
+  DestroyRef,
   ElementRef,
   InjectionToken,
   PLATFORM_ID,
@@ -392,6 +393,7 @@ export class CopilotGenerativeUICarouselMediaItem extends CopilotGenerativeUILay
   readonly onVisible = input<GenerativeUIEventProp>();
 
   readonly #lightbox = inject(GenerativeUILightbox);
+  readonly #destroyRef = inject(DestroyRef);
   readonly #aria = injectGenerativeUIAccessibility();
   readonly #host = inject<ElementRef<HTMLElement>>(ElementRef).nativeElement;
 
@@ -468,12 +470,13 @@ export class CopilotGenerativeUICarouselMediaItem extends CopilotGenerativeUILay
       slides.findIndex((img) => img === own),
     );
     if (images.length > 0) {
-      this.#lightbox.open(images, index, this.#aria());
+      this.#lightbox.open(images, index, this.#aria(), this.#destroyRef);
     } else {
       this.#lightbox.open(
         [{ src: this.url(), alt: this.description() }],
         0,
         this.#aria(),
+        this.#destroyRef,
       );
     }
   }

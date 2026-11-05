@@ -1,5 +1,6 @@
 import {
   Component,
+  DestroyRef,
   Injectable,
   Injector,
   computed,
@@ -141,11 +142,15 @@ export class GenerativeUILightbox {
    * Shows `images`, starting at `index`. Returns a function that closes it.
    *
    * @param aria - The ARIA attributes of the component that opens it.
+   * @param owner - The `DestroyRef` of the component that opens it. The
+   *   service is a root service, so without it the lightbox outlives a
+   *   surface that the agent replaces or a route that the app leaves.
    */
   open(
     images: LightboxImage[],
     index = 0,
     aria: GenerativeUIAriaAttributes = {},
+    owner?: DestroyRef,
   ): () => void {
     if (images.length === 0) return () => {};
     const overlayRef = this.#overlay.create({
@@ -154,6 +159,7 @@ export class GenerativeUILightbox {
       height: "100%",
       positionStrategy: this.#overlay.position().global().top("0").left("0"),
       scrollStrategy: this.#overlay.scrollStrategies.block(),
+      disposeOnNavigation: true,
     });
     const ref = overlayRef.attach(
       new ComponentPortal(CopilotGenerativeUILightbox, null, this.#injector),
@@ -162,11 +168,14 @@ export class GenerativeUILightbox {
     ref.setInput("index", index);
     ref.setInput("aria", aria);
     let isOpen = true;
+    // Every way out ends here: `close`, and a navigation, which disposes the
+    // overlay itself (`disposeOnNavigation`).
+    overlayRef.detachments().subscribe(() => (isOpen = false));
     const close = () => {
-      if (!isOpen) return;
-      isOpen = false;
-      overlayRef.dispose();
+      if (isOpen) overlayRef.dispose();
     };
+    // Closing does nothing once it is closed, so the hook can stay.
+    owner?.onDestroy(close);
     ref.instance.closed.subscribe(close);
     overlayRef.keydownEvents().subscribe((event) => {
       if (event.key === "Escape") {

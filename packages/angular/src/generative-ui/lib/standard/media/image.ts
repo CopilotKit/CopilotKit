@@ -1,4 +1,11 @@
-import { Component, computed, inject, input, signal } from "@angular/core";
+import {
+  Component,
+  DestroyRef,
+  computed,
+  inject,
+  input,
+  signal,
+} from "@angular/core";
 import { controlAria } from "@copilotkit/core/generative-ui";
 import type { GenerativeUIAriaAttributes } from "@copilotkit/core/generative-ui";
 import {
@@ -138,6 +145,7 @@ export class CopilotGenerativeUIImage {
   );
   protected readonly hovered = signal(false);
   readonly #lightbox = inject(GenerativeUILightbox);
+  readonly #destroyRef = inject(DestroyRef);
   protected readonly overlayStyle: StyleMap = {
     position: "absolute",
     right: "8px",
@@ -245,7 +253,12 @@ export class CopilotGenerativeUIImage {
   protected open() {
     const url = this.url();
     if (!this.showsLightbox() || !url) return;
-    this.#lightbox.open([{ src: url, alt: this.alt() }], 0, this.aria());
+    this.#lightbox.open(
+      [{ src: url, alt: this.alt() }],
+      0,
+      this.aria(),
+      this.#destroyRef,
+    );
   }
 
   protected onOverlay(

@@ -21,7 +21,9 @@ describe("standard text", () => {
     expect(trigger.getAttribute("aria-describedby")).toBe(tooltip.id);
     expect(tooltip.hidden).toBe(true);
 
-    view.act(() => trigger.dispatchEvent(new FocusEvent("focus")));
+    view.act(() =>
+      trigger.dispatchEvent(new FocusEvent("focusin", { bubbles: true })),
+    );
     expect(tooltip.hidden).toBe(false);
     view.act(() =>
       trigger.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" })),
@@ -32,6 +34,31 @@ describe("standard text", () => {
     view.act(() => wrapper.dispatchEvent(new MouseEvent("mouseenter")));
     expect(tooltip.hidden).toBe(false);
     view.act(() => wrapper.dispatchEvent(new MouseEvent("mouseleave")));
+    expect(tooltip.hidden).toBe(true);
+  });
+
+  it("follows focus on a control inside the trigger", () => {
+    const view = renderSurface(standardUI, [
+      { id: "root", component: "Tooltip", trigger: "b", content: "c" },
+      { id: "b", component: "Button", label: "Deploy" },
+      { id: "c", component: "Text", text: "Ships to production" },
+    ]);
+    const button = view.container.querySelector<HTMLElement>("button")!;
+    const tooltip =
+      view.container.querySelector<HTMLElement>("[role=tooltip]")!;
+    expect(tooltip.hidden).toBe(true);
+    view.act(() =>
+      button.dispatchEvent(new FocusEvent("focusin", { bubbles: true })),
+    );
+    expect(tooltip.hidden).toBe(false);
+    view.act(() =>
+      button.dispatchEvent(
+        new FocusEvent("focusout", {
+          bubbles: true,
+          relatedTarget: document.body,
+        }),
+      ),
+    );
     expect(tooltip.hidden).toBe(true);
   });
 });

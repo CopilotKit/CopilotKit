@@ -1,5 +1,5 @@
 import type { AbstractAgent, Message } from "@ag-ui/client";
-import type { CopilotKitCore } from "@copilotkit/core";
+import type { CopilotKitCore } from "../core";
 import {
   A2UI_VERSION,
   GENERATIVE_UI_FUNCTION_CALL_ACTIVITY_TYPE,
@@ -10,10 +10,8 @@ import type {
   A2UIOperation,
   ValidateOperationOptions,
 } from "@copilotkit/shared";
-import type {
-  GenerativeUIDispatcher,
-  MarkdownFunctionCall,
-} from "@copilotkit/core/generative-ui";
+import type { GenerativeUIDispatcher } from "./dispatcher";
+import type { MarkdownFunctionCall } from "./markdown-source";
 import type { GenerativeUIErrorCode } from "@copilotkit/shared/generative-ui";
 
 // The function calls of the agent (`callRendererFunction`), for both
@@ -27,7 +25,7 @@ const MAX_FUNCTION_FOLLOW_UPS = 5;
 export type ReadonlyMessages = ReadonlyArray<Readonly<Message>>;
 
 /** One agent-called function, as the model sent it. */
-interface FunctionCallRequest {
+export interface FunctionCallRequest {
   functionCallId: string;
   /** A `callRendererFunction` operation. It is not validated yet. */
   operation: unknown;
@@ -176,13 +174,15 @@ const overCapAnswer = (functionCallId: string): FunctionCallAnswer => ({
   followUp: false,
 });
 
-interface FunctionCallRunnerOptions {
-  core: CopilotKitCore;
+export interface FunctionCallRunnerOptions {
+  /** Starts the follow-up runs. A framework's core subclass fits. */
+  core: Pick<CopilotKitCore, "runAgent">;
   dispatcher: GenerativeUIDispatcher;
   manifest: ValidateOperationOptions["manifest"];
   /**
    * Lets the app apply the state that the handlers set before the follow-up
-   * run reads it. The Angular root runs a change detection tick.
+   * run reads it: React commits its pending updates, Angular runs a change
+   * detection tick.
    */
   settle: () => Promise<void>;
   /** Gets a failed follow-up run. Development only. */

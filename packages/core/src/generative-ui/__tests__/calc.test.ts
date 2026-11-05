@@ -65,6 +65,10 @@ describe("calc", () => {
 
   it("refuses what the language does not have", () => {
     expect(() => evaluateCalc("seats * 29", {})).toThrow("unknown name seats");
+    // Object.prototype keys are not constants.
+    for (const name of ["constructor", "__proto__", "toString"]) {
+      expect(() => evaluateCalc(name, {})).toThrow(`unknown name ${name}`);
+    }
     expect(() => evaluateCalc("1 / 0", {})).toThrow("division by zero");
     expect(() => evaluateCalc("sin(4)", {})).toThrow("unknown function sin");
     expect(() => evaluateCalc("a.b", { a: {} })).toThrow(ExpressionError);

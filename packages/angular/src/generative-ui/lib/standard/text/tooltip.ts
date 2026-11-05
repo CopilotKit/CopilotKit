@@ -30,8 +30,8 @@ let tooltipCount = 0;
       data-a2ui-tooltip-trigger
       [attr.aria-describedby]="id"
       style="display: inline-flex"
-      (focus)="open()"
-      (blur)="onBlur($event)"
+      (focusin)="open()"
+      (focusout)="onFocusOut($event)"
       (keydown)="onKeyDown($event)"
     >
       <ng-container *copilotGenerativeUIChildren="trigger()" />
@@ -94,7 +94,11 @@ export class CopilotGenerativeUITooltip {
     this.isOpen.set(false);
   }
 
-  protected onBlur(event: FocusEvent) {
+  /**
+   * Focus events of a control inside the trigger (a Button) bubble here, so
+   * the tip follows focus inside the trigger too.
+   */
+  protected onFocusOut(event: FocusEvent) {
     const target = event.currentTarget as HTMLElement | null;
     const isFocusInside = target?.contains(event.relatedTarget as Node | null);
     if (!isFocusInside) this.close();
