@@ -312,8 +312,9 @@ The shared reader also accepts an operator-configured HTTPS URL in
 info, query, fragment, or redirects. Set `SHOWCASE_DISPOSABLE_RUN_RECORDS_TOKEN`
 and the actual `SHOWCASE_REGISTRY_CONSUMER` role (`image-gate`, `ruby-promotion`,
 `harness`). Each classification fetches fresh bytes with a ten-second timeout
-and eight-MiB bound, verifies snapshot and committed-policy hashes, parses the
-same schema above, then acknowledges those bytes to `/consumers/<role>`.
+and eight-MiB bound, verifies snapshot and committed-policy hashes (or the exact
+reviewed transition below), parses the same schema against the current committed
+policy, then acknowledges those bytes to `/consumers/<role>`.
 Configured network, authentication, hash, or acknowledgment errors return invalid
 evidence. There is no stale-file or empty-snapshot fallback.
 
@@ -343,5 +344,32 @@ For the Staging harness, bind the same URL and token on the Staging service and
 set `SHOWCASE_REGISTRY_CONSUMER=harness` only after deploying a reader image with
 the matching generated policy. Do not configure HTTPS on a file-only reader.
 The permanent runner, harness, and workflow readers must agree on the policy
-hash. Keep scheduled provisioning off until real consumer reads establish all
+hash or use the exact reviewed transition below. Keep scheduled provisioning off until real consumer reads establish all
 three activations. Never run a Production promotion just to obtain a receipt.
+
+### Bounded docs-preview policy recovery
+
+Commit `21552a22b2` added `docs-preview` to permanent-service protection. The
+independently pinned staging runner still publishes the preceding policy. The
+shared reader permits exactly this publisher/validator pair:
+
+- Publisher: `4ded223bb02ea0cdf7ffed4fb8f78b70fbb50c9f74ae82d34addfc94f712c751`
+- Current validator: `d3a7fe0c6eeda2fce0dc73779d2e19fdfbf9174abeaa07468b3aca21bd097410`
+
+The current validator adds only the permanent name and ID for `docs-preview`;
+project, forbidden environments, previous permanent services and approved image
+pins are unchanged. Every record and inventory classification still uses the
+current policy, including rejection of disposable ownership of `docs-preview`.
+The acknowledgement names the publisher policy and exact fetched bytes; it does
+not claim the runner has adopted the newer policy. Authentication, fresh reads,
+snapshot checksums and acknowledgement acceptance remain mandatory. Unknown
+policy pairs fail with `records-policy-mismatch`. The regression test uses the
+real committed policy so further changes require compatibility review before merge.
+
+This recovery changes readers only. It neither replaces the runner nor clears
+its ownership journals, recovery blocks, leases or deployment fence. Scheduling
+stays off. Existing deployed consumers need the updated reader before they can
+use this transition; a local invocation does not prove workflow or harness rollout.
+Retire the exception after a coordinated runner policy release and verification
+that deployed readers accept matching policy hashes. A future policy must not
+inherit this exception without a new review.

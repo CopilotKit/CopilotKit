@@ -1,0 +1,105 @@
+{
+  "description": "OpenBot telemetry contract, version 1. Shared by OpenBot (producer), CopilotKit (runtime forwarding), Intelligence app-api (validation, persistence) and realtime-gateway (run summary). See Notion: OpenBot telemetry: Intelligence build.",
+  "valid": [
+    {
+      "name": "human run",
+      "context": {
+        "app_context_version": 1,
+        "app_id": "openbot",
+        "deployment_id": "dep_fixture_01",
+        "app_user_hash": "ob_1111111111111111111111111111111111111111111111111111111111111111",
+        "trigger": "human",
+        "surface": "web",
+        "environment": "test",
+        "purpose": "ordinary",
+        "root_task_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "attempt": 1
+      }
+    },
+    {
+      "name": "retry of the same task",
+      "context": {
+        "app_context_version": 1,
+        "app_id": "openbot",
+        "deployment_id": "dep_fixture_01",
+        "app_user_hash": "ob_1111111111111111111111111111111111111111111111111111111111111111",
+        "trigger": "human",
+        "surface": "web",
+        "environment": "test",
+        "purpose": "ordinary",
+        "root_task_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "attempt": 2
+      }
+    },
+    {
+      "name": "subagent run under the same task",
+      "context": {
+        "app_context_version": 1,
+        "app_id": "openbot",
+        "deployment_id": "dep_fixture_01",
+        "app_user_hash": "ob_1111111111111111111111111111111111111111111111111111111111111111",
+        "trigger": "subagent",
+        "surface": "web",
+        "environment": "test",
+        "purpose": "ordinary",
+        "root_task_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "parent_run_id": "run_fixture_parent_01",
+        "attempt": 1
+      }
+    },
+    {
+      "name": "second user, second app, desktop routine",
+      "context": {
+        "app_context_version": 1,
+        "app_id": "other-app",
+        "deployment_id": "dep_fixture_02",
+        "app_user_hash": "ob_2222222222222222222222222222222222222222222222222222222222222222",
+        "trigger": "routine",
+        "surface": "desktop",
+        "environment": "test",
+        "purpose": "ordinary",
+        "root_task_id": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "attempt": 1
+      }
+    }
+  ],
+  "invalid": [
+    {
+      "name": "unknown version",
+      "context": { "app_context_version": 2, "app_id": "openbot" }
+    },
+    {
+      "name": "app id with capitals and punctuation",
+      "context": { "app_context_version": 1, "app_id": "OpenBot!" }
+    },
+    {
+      "name": "extra field not in the contract",
+      "context": {
+        "app_context_version": 1,
+        "app_id": "openbot",
+        "email": "person@example.com"
+      }
+    },
+    {
+      "name": "user hash that is not a pseudonym",
+      "context": {
+        "app_context_version": 1,
+        "app_id": "openbot",
+        "app_user_hash": "person@example.com"
+      }
+    },
+    {
+      "name": "trigger outside the allowed values",
+      "context": {
+        "app_context_version": 1,
+        "app_id": "openbot",
+        "trigger": "admin"
+      }
+    },
+    {
+      "name": "attempt out of range",
+      "context": { "app_context_version": 1, "app_id": "openbot", "attempt": 0 }
+    },
+    { "name": "not an object", "context": "openbot" }
+  ]
+}

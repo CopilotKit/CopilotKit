@@ -3,7 +3,12 @@ import type { CSSProperties } from "react";
 import { createPortal } from "react-dom";
 import { useGenerativeUIAccessibility, wrapperAria } from "../accessibility";
 import { useOverlayEscape } from "./overlay-stack";
-import { BACKDROP, ON_ACCENT, SHADOW_MD, radius } from "./tokens";
+import {
+  BACKDROP,
+  ON_ACCENT,
+  SHADOW_MD,
+  radius,
+} from "@copilotkit/shared/generative-ui";
 
 export interface LightboxImage {
   src: string;
