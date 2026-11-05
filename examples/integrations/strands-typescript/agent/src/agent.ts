@@ -199,7 +199,7 @@ const searchFlights = tool({
 });
 
 // COPILOTKIT_AGENT_MODEL (e.g. "anthropic:claude-sonnet-4-5") picks the model
-// for BOTH model sites below; unset, both use MODEL_ID or gpt-4o on OpenAI.
+// for BOTH model sites below; unset, both use MODEL_ID or gpt-6-luna on OpenAI.
 const agentModel = resolveAgentModel();
 const clientExtras = {
   defaultHeaders: { "x-aimock-context": AIMOCK_CONTEXT },
@@ -221,6 +221,9 @@ const generateA2ui = tool({
   callback: async ({ user_intent }) => {
     const response = await getChatClient().chat.completions.create({
       model: agentModel.model,
+      ...(agentModel.provider === "openai" && agentModel.model === "gpt-6-luna"
+        ? { reasoning_effort: "none" as const }
+        : {}),
       messages: [
         {
           role: "system",

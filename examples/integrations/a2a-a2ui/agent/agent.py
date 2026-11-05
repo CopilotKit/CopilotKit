@@ -104,7 +104,14 @@ class RestaurantAgent:
             instruction = get_text_prompt()
 
         return LlmAgent(
-            model=LiteLlm(model=LITELLM_MODEL),
+            model=LiteLlm(
+                model=LITELLM_MODEL,
+                **(
+                    {"reasoning_effort": "none"}
+                    if LITELLM_MODEL in ("gpt-6-luna", "openai/gpt-6-luna")
+                    else {}
+                ),
+            ),
             name="restaurant_agent",
             description="An agent that finds restaurants and helps book tables.",
             instruction=instruction,

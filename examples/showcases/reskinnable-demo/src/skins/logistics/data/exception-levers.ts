@@ -56,7 +56,7 @@ export const EXCEPTION_SORTS = [
  *
  * `showExceptionQueue`'s levers were `.optional()` first. A model facing an
  * optional enum fills it anyway: told in as many words "take me to the Control
- * Tower, do not filter anything, just limit it to the top 3 rows", gpt-5.4 still
+ * Tower, do not filter anything, just limit it to the top 3 rows", gpt-6-luna still
  * returned `exception=PORT_CONGESTION` AND `status=on_track` — a pair no
  * shipment satisfies, so the maneuver landed on an EMPTY board. There is no
  * prompt sentence that reliably fixes that, because the model has no way to SAY

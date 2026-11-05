@@ -62,7 +62,7 @@ def create_llm(
     """Build the LlamaIndex LLM.
 
     Args:
-        default_spec: The default when the variable is unset, e.g. ``"openai:gpt-5-mini"``.
+        default_spec: The default when the variable is unset, e.g. ``"openai:gpt-6-luna"``.
         openai_class: The OpenAI LLM class to use for the openai provider.
     """
     provider, model = parse_agent_model(
@@ -83,6 +83,8 @@ def create_llm(
     # api.openai.com. Forward it explicitly as api_base.
     base_url = os.environ.get("OPENAI_BASE_URL")
     kwargs = {"api_base": base_url} if base_url else {}
+    if model == "gpt-6-luna":
+        kwargs["additional_kwargs"] = {"reasoning_effort": "none"}
     if model in ALL_AVAILABLE_MODELS:
         return openai_class(model=model, **kwargs)
     compatible_class = type(

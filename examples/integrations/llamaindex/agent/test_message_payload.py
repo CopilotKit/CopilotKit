@@ -26,7 +26,7 @@ def stream_response():
         "id": "chatcmpl-test",
         "object": "chat.completion.chunk",
         "created": 0,
-        "model": "gpt-5-mini",
+        "model": "gpt-6-luna",
         "choices": [
             {"index": 0, "delta": {"content": "Done"}, "finish_reason": "stop"}
         ],
@@ -79,7 +79,7 @@ class MessagePayloadTest(unittest.TestCase):
                     "id": "chatcmpl-test",
                     "object": "chat.completion",
                     "created": 0,
-                    "model": "gpt-5-mini",
+                    "model": "gpt-6-luna",
                     "choices": [
                         {
                             "index": 0,
@@ -96,7 +96,7 @@ class MessagePayloadTest(unittest.TestCase):
             )
 
         client = httpx.Client(transport=httpx.MockTransport(respond))
-        llm = OpenAI(model="gpt-5-mini", api_key="test", http_client=client)
+        llm = OpenAI(model="gpt-6-luna", api_key="test", http_client=client)
         history = [UserMessage(id="user-1", content="Hello", role="user")]
 
         for turn in range(2):
@@ -133,7 +133,10 @@ class ToolResultPayloadTest(unittest.IsolatedAsyncioTestCase):
                 "index": 0,
                 "id": "call-weather",
                 "type": "function",
-                "function": {"name": "get_weather", "arguments": '{"location":"Paris"}'},
+                "function": {
+                    "name": "get_weather",
+                    "arguments": '{"location":"Paris"}',
+                },
             }
             chunks = [
                 {"role": "assistant", "tool_calls": [call]},
@@ -145,7 +148,7 @@ class ToolResultPayloadTest(unittest.IsolatedAsyncioTestCase):
                     "id": "chatcmpl-test",
                     "object": "chat.completion.chunk",
                     "created": 0,
-                    "model": "gpt-5-mini",
+                    "model": "gpt-6-luna",
                     "choices": [
                         {
                             "index": 0,
@@ -164,7 +167,7 @@ class ToolResultPayloadTest(unittest.IsolatedAsyncioTestCase):
         client = httpx.AsyncClient(transport=httpx.MockTransport(respond))
         workflow = AGUIChatWorkflow(
             llm=StarterOpenAI(
-                model="gpt-5-mini", api_key="test", async_http_client=client
+                model="gpt-6-luna", api_key="test", async_http_client=client
             ),
             backend_tools=[get_weather],
             system_prompt="You can get the weather.",
@@ -173,7 +176,9 @@ class ToolResultPayloadTest(unittest.IsolatedAsyncioTestCase):
             input_data=RunAgentInput(
                 thread_id="thread-1",
                 run_id="run-weather",
-                messages=[UserMessage(id="user-1", content="Weather in Paris?", role="user")],
+                messages=[
+                    UserMessage(id="user-1", content="Weather in Paris?", role="user")
+                ],
                 state={},
             )
         )
@@ -246,7 +251,7 @@ class ToolResultPayloadTest(unittest.IsolatedAsyncioTestCase):
         ]
         client = httpx.AsyncClient(transport=httpx.MockTransport(respond))
         llm = StarterOpenAI(
-            model="gpt-5-mini", api_key="test", async_http_client=client
+            model="gpt-6-luna", api_key="test", async_http_client=client
         )
         workflow = AGUIChatWorkflow(
             llm=llm,
@@ -323,7 +328,7 @@ class ToolResultPayloadTest(unittest.IsolatedAsyncioTestCase):
         client = httpx.AsyncClient(transport=httpx.MockTransport(respond))
         workflow = AGUIChatWorkflow(
             llm=StarterOpenAI(
-                model="gpt-5-mini", api_key="test", async_http_client=client
+                model="gpt-6-luna", api_key="test", async_http_client=client
             ),
             frontend_tools=[change_theme_color],
             system_prompt="You can change the background color.",
@@ -385,7 +390,7 @@ class ToolResultPayloadTest(unittest.IsolatedAsyncioTestCase):
         client = httpx.AsyncClient(transport=httpx.MockTransport(respond))
         workflow = AGUIChatWorkflow(
             llm=StarterOpenAI(
-                model="gpt-5-mini", api_key="test", async_http_client=client
+                model="gpt-6-luna", api_key="test", async_http_client=client
             ),
             frontend_tools=[change_theme_color],
             system_prompt="You can change the background color.",
@@ -417,8 +422,7 @@ class ToolResultPayloadTest(unittest.IsolatedAsyncioTestCase):
             if error:
                 return httpx.Response(400, json={"error": error})
             state_count = sum(
-                (message.get("content") or "").count("<state>")
-                for message in messages
+                (message.get("content") or "").count("<state>") for message in messages
             )
             if state_count != 1:
                 return httpx.Response(400, json={"error": "Repeated state"})
@@ -451,7 +455,7 @@ class ToolResultPayloadTest(unittest.IsolatedAsyncioTestCase):
         client = httpx.AsyncClient(transport=httpx.MockTransport(respond))
         workflow = AGUIChatWorkflow(
             llm=StarterOpenAI(
-                model="gpt-5-mini", api_key="test", async_http_client=client
+                model="gpt-6-luna", api_key="test", async_http_client=client
             ),
             frontend_tools=[change_theme_color],
             system_prompt="You can change the background color.",

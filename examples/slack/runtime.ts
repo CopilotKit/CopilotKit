@@ -238,10 +238,10 @@ const SYSTEM_PROMPT = [
 // OpenAI-only here: web search is an OpenAI hosted (provider) tool, so this
 // agent runs on the OpenAI Responses API via TanStack AI's `openaiText`
 // adapter. Override the model with AGENT_MODEL (a bare OpenAI id, or
-// "openai/<id>" — the prefix is stripped); defaults to gpt-5.5. The cast is
+// "openai/<id>" — the prefix is stripped); defaults to gpt-6-luna. The cast is
 // needed because AGENT_MODEL is dynamic and `openaiText` types its argument to
 // the known OpenAI model literals.
-const model = (process.env["AGENT_MODEL"] ?? "openai/gpt-5.5").replace(
+const model = (process.env["AGENT_MODEL"] ?? "openai/gpt-6-luna").replace(
   /^openai\//,
   "",
 ) as Parameters<typeof openaiText>[0];

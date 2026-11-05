@@ -84,7 +84,14 @@ def adk_model(default_spec: str):
         return model
     from google.adk.models.lite_llm import LiteLlm
 
-    return LiteLlm(model=f"{provider}/{model}")
+    return LiteLlm(
+        model=f"{provider}/{model}",
+        **(
+            {"reasoning_effort": "none"}
+            if provider == "openai" and model == "gpt-6-luna"
+            else {}
+        ),
+    )
 
 
 # Our provider ids -> LangChain's init_chat_model provider ids.
@@ -100,6 +107,12 @@ def langchain_model(default_spec: str, **kwargs):
     from langchain.chat_models import init_chat_model
 
     provider, model = _resolve(default_spec)
+    if (
+        provider == "openai"
+        and model == "gpt-6-luna"
+        and not kwargs.get("use_responses_api")
+    ):
+        kwargs["reasoning_effort"] = "none"
     return init_chat_model(
         model, model_provider=_LANGCHAIN_PROVIDERS[provider], **kwargs
     )

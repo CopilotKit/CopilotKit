@@ -15,7 +15,7 @@ import { findSimilarProducts, searchProducts } from "#app/tools/products.ts";
 import type { Route } from "./+types/api.compare";
 
 const adapter = openaiText(
-  (process.env.OPENAI_MODEL ?? "gpt-5.5") as "gpt-5.5",
+  (process.env.OPENAI_MODEL ?? "gpt-6-luna") as "gpt-6-luna",
 );
 
 export const action = async ({ request }: Route.ActionArgs) => {

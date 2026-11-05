@@ -590,9 +590,13 @@ export async function deriveWithLlm(
       maxRetries: 0,
     });
     const res = await client.chat.completions.create({
-      model: opts.model ?? process.env.LEARN_MODEL ?? "gpt-4.1",
+      model: opts.model ?? process.env.LEARN_MODEL ?? "gpt-6-luna",
       response_format: { type: "json_object" },
       temperature: 0.2,
+      ...((opts.model ?? process.env.LEARN_MODEL ?? "gpt-6-luna") ===
+      "gpt-6-luna"
+        ? { reasoning_effort: "none" as const }
+        : {}),
       messages: [
         { role: "system", content: SYSTEM },
         { role: "user", content: JSON.stringify(compactInput(d)) },

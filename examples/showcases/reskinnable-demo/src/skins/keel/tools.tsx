@@ -1019,7 +1019,7 @@ export function KeelTools() {
   // ("all", or 0 for the limit — `ANY_LEVER` in `data/register-levers.ts`),
   // rather than `.optional()`. Measured in logistics, which
   // needed a fix commit for exactly this: told in as many words to leave the
-  // filters alone, gpt-5.4 still filled the optional enums and put an EMPTY board
+  // filters alone, gpt-6-luna still filled the optional enums and put an EMPTY board
   // on screen under four confidently tinted controls. A model facing an optional
   // enum fills it anyway, because omission is not a choice it can STATE. The
   // sentinels are that way of saying it, and `normalizeRegisterLevers` drops them

@@ -63,6 +63,6 @@ class LatestAiDevelopment:
             tasks=self.tasks,  # Automatically created by the @task decorator
             process=Process.sequential,
             verbose=True,
-            chat_llm="gpt-4o",
+            chat_llm="gpt-6-luna",
             # process=Process.hierarchical, # In case you wanna use that instead https://docs.crewai.com/how-to/Hierarchical/
         )

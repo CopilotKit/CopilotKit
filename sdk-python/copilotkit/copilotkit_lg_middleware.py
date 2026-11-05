@@ -8,7 +8,7 @@ Example:
     from copilotkit import CopilotKitMiddleware
 
     agent = create_agent(
-        model="openai:gpt-4o",
+        model="openai:gpt-6-luna",
         tools=[backend_tool],
         middleware=[CopilotKitMiddleware()],
     )

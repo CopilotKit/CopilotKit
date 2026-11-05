@@ -30,7 +30,7 @@ const shopAssistant = new BuiltInAgent({
   factory: ({ input, abortController }) => {
     const { messages, systemPrompts, tools } = convertInputToTanStackAI(input);
     return chat({
-      adapter: openaiText("gpt-5.5"),
+      adapter: openaiText("gpt-6-luna"),
       messages,
       systemPrompts: [SHOP_ASSISTANT_PROMPT, ...systemPrompts],
       tools: [

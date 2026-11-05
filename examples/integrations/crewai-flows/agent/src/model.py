@@ -46,7 +46,7 @@ def resolve_model(default_spec: str) -> str:
     """Return a LiteLLM model string, e.g. ``"anthropic/claude-sonnet-4-6"``.
 
     Args:
-        default_spec: The default when the variable is unset, e.g. ``"openai:gpt-5-mini"``.
+        default_spec: The default when the variable is unset, e.g. ``"openai:gpt-6-luna"``.
     """
     provider, model = parse_agent_model(
         (os.getenv("COPILOTKIT_AGENT_MODEL") or "").strip() or default_spec
@@ -66,4 +66,7 @@ def completion_options(model: str) -> dict:
     """
     if model.startswith("gemini/"):
         return {}
-    return {"parallel_tool_calls": False}
+    return {
+        "parallel_tool_calls": False,
+        **({"reasoning_effort": "none"} if model == "openai/gpt-6-luna" else {}),
+    }

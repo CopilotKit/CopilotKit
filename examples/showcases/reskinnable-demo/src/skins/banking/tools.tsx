@@ -1050,7 +1050,7 @@ export function BankingTools() {
               });
               // Directive result so the agent reliably chains the NEXT step
               // during recall: finalize THIS exception (by id) before any
-              // approval. gpt-5.4-mini otherwise tends to jump straight to
+              // approval. gpt-6-luna otherwise tends to jump straight to
               // approving, which the gate then rejects.
               respond?.(
                 ok
@@ -1243,7 +1243,7 @@ export function BankingTools() {
             denyLabel="Not now"
             onApprove={() => {
               beginRecording();
-              // Directive result. With a bare "started", gpt-5.4-mini tends to
+              // Directive result. With a bare "started", gpt-6-luna tends to
               // just SAY awaitDashboardDemonstration's "go ahead and I'll watch"
               // line (from its description) instead of CALLING it — leaving this
               // card frozen with no live recording card. Tell it explicitly to
@@ -1328,7 +1328,7 @@ export function BankingTools() {
               const code = getDemonstratedCode();
               // Directive result so the agent reliably renders the Save card as
               // its next step instead of just asking "should I save this?" in
-              // prose (gpt-5.4-mini otherwise tends to summarize in text and
+              // prose (gpt-6-luna otherwise tends to summarize in text and
               // stall, leaving the user nothing to click). saveLearnedWorkflow
               // IS the way it asks.
               respond?.(

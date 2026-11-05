@@ -109,7 +109,7 @@ export const OPTION_SORT_LABELS: Record<OptionSort, string> = {
  *
  * These levers were `.optional()` in every skin that shipped before logistics. A
  * model facing an optional enum fills it anyway: told in as many words "do not
- * filter anything, just show me the top 3", gpt-5.4 still returned two filters
+ * filter anything, just show me the top 3", gpt-6-luna still returned two filters
  * that no row satisfied, so the maneuver landed on an EMPTY board with four
  * confidently tinted controls. No prompt sentence fixes that, because omission
  * is not a choice a model can state.

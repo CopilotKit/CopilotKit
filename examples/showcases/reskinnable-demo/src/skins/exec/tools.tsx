@@ -1734,7 +1734,7 @@ export function ExecTools() {
   // fix commit for exactly this (`src/skins/logistics/tools.tsx`, and keel's
   // `showRegister` / `ANY_LEVER` in `src/skins/keel/data/register-levers.ts`
   // make the same argument): told in as many words to leave the filters
-  // alone, gpt-5.4 still filled the optional enums and put an EMPTY board on
+  // alone, gpt-6-luna still filled the optional enums and put an EMPTY board on
   // screen under four confidently tinted controls. A model facing an
   // optional enum fills it anyway, because omission is not a choice it can
   // STATE. The sentinels are that way of saying it; the handler below maps

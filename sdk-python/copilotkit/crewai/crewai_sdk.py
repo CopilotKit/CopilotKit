@@ -310,7 +310,7 @@ async def copilotkit_stream(response):
     ```python
     response = await copilotkit_stream(
         completion(
-            model="openai/gpt-4o",
+            model="openai/gpt-6-luna",
             messages=messages,
             tools=tools,
             stream=True # this must be set to True for streaming

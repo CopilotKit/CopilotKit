@@ -178,7 +178,7 @@ more than two suggestions.
 
 def build_fixed_agent():
     return create_agent(
-        model="openai:gpt-5.5",
+        model="openai:gpt-6-luna",
         tools=[render_dashboard],
         # CopilotKitMiddleware forwards frontend tools + agent context (e.g.
         # useAgentContext payloads) to the LLM.
