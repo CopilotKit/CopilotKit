@@ -1,5 +1,6 @@
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { createRequire } from "node:module";
+import { resolve } from "node:path";
 import { Injectable } from "@angular/core";
 import { TestBed } from "@angular/core/testing";
 import type { ComponentFixture } from "@angular/core/testing";
@@ -93,15 +94,11 @@ describe("CopilotChatAssistantMessage", () => {
     );
   });
 
-  it("adds KaTeX's fonts to the page as embedded woff2 only", () => {
-    fixture.detectChanges();
-    const css = Array.from(document.head.querySelectorAll("style"))
-      .map((style) => style.textContent ?? "")
-      .find((text) => text.includes("font-family:KaTeX_Main"));
-    expect(css).toBeDefined();
-
+  it("styles math with a KaTeX stylesheet that lists only woff2 fonts", () => {
+    const katexDir = resolve(process.cwd(), "src/lib/components/chat/katex");
+    const css = readFileSync(resolve(katexDir, "katex.css"), "utf8");
     const sources = Array.from(
-      css!.matchAll(/@font-face\{[^}]*?src:((?:url\([^)]*\)|[^;}])+)/g),
+      css.matchAll(/@font-face\{[^}]*?src:([^;}]+)/g),
       (match) => match[1],
     );
     const katexCss = readFileSync(
@@ -110,9 +107,10 @@ describe("CopilotChatAssistantMessage", () => {
     );
     expect(sources).toHaveLength(katexCss.match(/@font-face/g)!.length);
     for (const source of sources) {
-      expect(source).toMatch(
-        /^url\(data:font\/woff2;base64,[A-Za-z0-9+/=]+\) format\("woff2"\)$/,
-      );
+      const font =
+        /^url\((fonts\/KaTeX_[\w-]+\.woff2)\) format\("woff2"\)$/.exec(source);
+      expect(font, source).not.toBeNull();
+      expect(existsSync(resolve(katexDir, font![1])), font![1]).toBe(true);
     }
   });
 

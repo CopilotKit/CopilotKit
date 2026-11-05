@@ -2,4 +2,4 @@
 # Generated before build, test and type checking.
 /src/lib/package-version.ts
 /src/lib/components/stylesheet.ts
-/src/lib/components/chat/katex-stylesheet.ts
+/src/lib/components/chat/katex/
