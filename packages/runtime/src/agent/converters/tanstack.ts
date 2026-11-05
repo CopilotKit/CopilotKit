@@ -579,7 +579,12 @@ export async function* convertTanStackStream(
   initialState?: unknown,
   runFinishedDetails?: AgentRunFinishedDetails,
 ): AsyncGenerator<BaseEvent> {
-  const messageId = randomUUID();
+  // The id of the current assistant text message. Each TEXT_MESSAGE_START
+  // (one per text segment, so one per model step) opens a new message with a
+  // fresh UUID. The adapter's id is not used: providers repeat ids such as
+  // "0" or "txt-0" on every step and run (#3410, #3623). A tool call is a
+  // child of the message that precedes it.
+  let messageId = randomUUID();
   const toolNamesById = new Map<string, string>();
   // Track the reasoning lifecycle at two granularities so closeReasoningIfOpen
   // emits exactly the events still owed. A single boolean conflates the run
@@ -668,7 +673,9 @@ export async function* convertTanStackStream(
       );
     }
 
-    if (type === "TEXT_MESSAGE_CONTENT" && raw.delta != null) {
+    if (type === "TEXT_MESSAGE_START") {
+      messageId = randomUUID();
+    } else if (type === "TEXT_MESSAGE_CONTENT" && raw.delta != null) {
       yield* closeReasoningIfOpen();
       const textEvent: TextMessageChunkEvent = {
         type: EventType.TEXT_MESSAGE_CHUNK,

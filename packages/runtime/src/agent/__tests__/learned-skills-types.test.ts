@@ -1,6 +1,7 @@
 import { it, expectTypeOf } from "vitest";
 import type { AnyTool } from "@tanstack/ai";
-import type { AgentFactoryContext, BuiltInAgentFactoryContext } from "../..";
+import type { AgentFactoryContext } from "../..";
+import type { BuiltInAgentFactoryContext } from "../index";
 import type { BuiltInAgentLearnedSkills } from "../learned-skills";
 
 it("exports distinct runtime and BuiltInAgent contexts", () => {

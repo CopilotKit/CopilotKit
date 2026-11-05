@@ -9,6 +9,7 @@ import {
   expectLifecycleWrapped,
   expectEventSequence,
   eventField,
+  eventsOfType,
   tanstackTextChunk,
   tanstackToolCallStart,
   tanstackToolCallArgs,
@@ -20,6 +21,13 @@ import {
   tanstackReasoningMessageEnd,
   tanstackReasoningEnd,
 } from "./agent-test-helpers";
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+
+/** TanStack chunk that opens a text message, with the adapter's message id. */
+function tanstackTextStart(messageId: string) {
+  return { type: "TEXT_MESSAGE_START", messageId, role: "assistant" } as const;
+}
 
 describe("TanStack AI converter (via Agent)", () => {
   // -------------------------------------------------------------------------
@@ -67,6 +75,35 @@ describe("TanStack AI converter (via Agent)", () => {
         textEvents.map((e) => eventField<string>(e, "messageId")),
       );
       expect(messageIds.size).toBe(1);
+    });
+
+    it("TEXT_MESSAGE_START opens a new message with a fresh id, even when the adapter repeats its id", async () => {
+      const agent = createAgent("tanstack", [
+        tanstackTextStart("0"),
+        tanstackTextChunk("Before tool"),
+        tanstackToolCallStart("tc-1", "myTool"),
+        tanstackToolCallEnd("tc-1"),
+        { type: "RUN_FINISHED" },
+        tanstackToolCallResult("tc-1", { ok: true }),
+        { type: "RUN_STARTED" },
+        tanstackTextStart("0"),
+        tanstackTextChunk("After tool"),
+        { type: "RUN_FINISHED" },
+      ]);
+      const events = await collectEvents(agent.run(createDefaultInput()));
+
+      const [before, after] = eventsOfType(
+        events,
+        EventType.TEXT_MESSAGE_CHUNK,
+      );
+      expect(before).toMatchObject({ delta: "Before tool" });
+      expect(after).toMatchObject({ delta: "After tool" });
+      expect(before?.messageId).toMatch(UUID);
+      expect(after?.messageId).toMatch(UUID);
+      expect(after?.messageId).not.toBe(before?.messageId);
+      expect(eventsOfType(events, EventType.TOOL_CALL_START)).toEqual([
+        expect.objectContaining({ parentMessageId: before?.messageId }),
+      ]);
     });
 
     it("empty stream produces only RUN_STARTED + RUN_FINISHED", async () => {

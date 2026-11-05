@@ -52,6 +52,7 @@ import { assertNotAISDKModel, classifyModelSpec, resolveModel } from "./model";
 import type { BuiltInAgentModel } from "./model";
 import { loadOptionalPeer } from "./optional-peers";
 import {
+  assertFrontendToolSchemas,
   STATE_TOOLS,
   toTanStackTools,
   withClassicToolRules,
@@ -584,6 +585,7 @@ export class BuiltInAgent extends AbstractAgent {
           );
           signal.throwIfAborted();
 
+          assertFrontendToolSchemas(input.tools ?? []);
           const converted = convertInputToTanStackAI(input, {
             forwardSystemMessages: config.forwardSystemMessages ?? false,
             forwardDeveloperMessages: config.forwardDeveloperMessages ?? false,

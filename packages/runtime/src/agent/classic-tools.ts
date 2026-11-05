@@ -1,4 +1,4 @@
-import type { Interrupt } from "@ag-ui/client";
+import type { Interrupt, RunAgentInput } from "@ag-ui/client";
 import { schemaToJsonSchema } from "@copilotkit/shared";
 import type { AnyServerTool } from "@tanstack/ai";
 import { formatToolError } from "./converters/aisdk";
@@ -51,6 +51,43 @@ function toTanStackTool(tool: ToolDefinition) {
  */
 export function toTanStackTools(tools: readonly ToolDefinition[]) {
   return tools.map(toTanStackTool);
+}
+
+const JSON_SCHEMA_TYPES = new Set([
+  "object",
+  "string",
+  "number",
+  "integer",
+  "boolean",
+  "array",
+]);
+
+/**
+ * Whether a frontend tool's parameters are a JSON Schema: an empty object
+ * (the tool takes no input), or an object whose `type` is a JSON Schema type
+ * name.
+ */
+function isJsonSchema(value: unknown) {
+  if (!isRecord(value)) return false;
+  if (Object.keys(value).length === 0) return true;
+  return typeof value.type === "string" && JSON_SCHEMA_TYPES.has(value.type);
+}
+
+/**
+ * Checks that every frontend (AG-UI) tool's parameters are a JSON Schema, so
+ * the classic agent fails the run before the model call instead of sending
+ * an invalid schema to the provider.
+ *
+ * @param tools - The run input's frontend tools.
+ * @throws Error `Invalid JSON schema for tool <name>` for the first tool whose
+ *   parameters are not a JSON Schema.
+ */
+export function assertFrontendToolSchemas(tools: RunAgentInput["tools"]) {
+  for (const tool of tools) {
+    if (!isJsonSchema(tool.parameters)) {
+      throw new Error(`Invalid JSON schema for tool ${tool.name}`);
+    }
+  }
 }
 
 /**
