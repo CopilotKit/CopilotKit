@@ -72,10 +72,11 @@ def generate_a2ui() -> dict:
     )
 
 
+_MODEL = os.getenv("OPENAI_MODEL", "gpt-6-luna")
+_MODEL_KWARGS = {"reasoning_effort": "none"} if _MODEL == "gpt-6-luna" else {}
+
 graph = create_agent(
-    model=ChatOpenAI(
-        reasoning_effort="none", model=os.getenv("OPENAI_MODEL", "gpt-6-luna")
-    ),
+    model=ChatOpenAI(model=_MODEL, **_MODEL_KWARGS),
     tools=[generate_a2ui],
     middleware=[CopilotKitMiddleware()],
     system_prompt=SYSTEM_PROMPT,

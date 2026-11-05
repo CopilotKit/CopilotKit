@@ -69,20 +69,23 @@ export async function createModel(
     const { OpenAIModel } = await import("@strands-agents/sdk/models/openai");
     // OPENAI_BASE_URL routes through aimock during showcase record/replay.
     const baseURL = process.env.OPENAI_BASE_URL;
+    const modelId =
+      options.openaiModelId ?? process.env.MODEL_ID ?? "gpt-6-luna";
+    const api = options.openaiApi ?? "chat";
     return new OpenAIModel({
       apiKey,
-      modelId: options.openaiModelId ?? process.env.MODEL_ID ?? "gpt-6-luna",
+      modelId,
       // Default to chat completions (incremental tool-arg streaming).
-      api: options.openaiApi ?? "chat",
+      api,
       // `summary: "detailed"` rather than `"auto"`: with `"auto"` the model
       // decides, and with tools in play it routinely skips the summary, which
       // leaves the frontend's reasoning slot unmounted. Responses-API only:
       // chat completions rejects the `reasoning` param, so asking for
       // reasoning without switching API mode would break the request rather
       // than quietly do nothing.
-      ...(reasoning && (options.openaiApi ?? "chat") === "responses"
+      ...(reasoning && api === "responses"
         ? { params: { reasoning: { effort: "medium", summary: "detailed" } } }
-        : (options.openaiApi ?? "chat") === "chat"
+        : api === "chat" && modelId === "gpt-6-luna"
           ? { params: { reasoning_effort: "none" } }
           : {}),
       clientConfig: {
