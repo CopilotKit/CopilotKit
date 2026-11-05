@@ -12,7 +12,7 @@ import {
   InMemoryAgentRunner,
 } from "@copilotkit/runtime/v2";
 import { chat } from "@tanstack/ai";
-import { openaiText } from "@tanstack/ai-openai";
+import { openaiText } from "@/lib/openai-text";
 // `withForwardedHeaders` snapshots inbound x-* headers (e.g.
 // x-aimock-context) into an AsyncLocalStorage scope; `forwardingFetch`
 // re-attaches them on every outbound LLM call. Required because

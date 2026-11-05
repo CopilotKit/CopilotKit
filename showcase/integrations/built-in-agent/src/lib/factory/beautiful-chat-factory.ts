@@ -2,7 +2,7 @@ import { BuiltInAgent, convertInputToTanStackAI } from "@copilotkit/runtime/v2";
 import { EventType } from "@ag-ui/client";
 import type { BaseEvent, RunAgentInput } from "@ag-ui/client";
 import { chat, toolDefinition } from "@tanstack/ai";
-import { openaiText } from "@tanstack/ai-openai";
+import { openaiText } from "../openai-text";
 import { z } from "zod";
 import { jsonSchemaToZod } from "./tanstack-factory";
 // Custom fetch that injects ALS-bound inbound x-* headers (e.g.

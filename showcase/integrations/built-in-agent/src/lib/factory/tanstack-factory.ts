@@ -3,7 +3,7 @@ import type { TanStackChatMessage } from "@copilotkit/runtime/v2";
 import { EventType } from "@ag-ui/client";
 import type { BaseEvent } from "@ag-ui/client";
 import { chat, toolDefinition } from "@tanstack/ai";
-import { openaiText } from "@tanstack/ai-openai";
+import { openaiText } from "../openai-text";
 import { z } from "zod";
 import { stateTools } from "./state-tools";
 import { baseServerTools } from "./server-tools";

@@ -2,7 +2,7 @@ import { BuiltInAgent, convertInputToTanStackAI } from "@copilotkit/runtime/v2";
 import { EventType } from "@ag-ui/client";
 import type { BaseEvent } from "@ag-ui/client";
 import { chat } from "@tanstack/ai";
-import { openaiText } from "@tanstack/ai-openai";
+import { openaiText } from "../openai-text";
 import { baseServerTools } from "./server-tools";
 // Custom fetch that injects ALS-bound inbound x-* headers (e.g.
 // x-aimock-context) onto every outbound OpenAI call. Required so aimock
@@ -192,7 +192,7 @@ export function createAgenticChatReasoningAgent() {
     factory: ({ input, abortController }) => {
       const { messages, systemPrompts } = convertInputToTanStackAI(input);
       const stream = chat({
-        adapter: openaiText(REASONING_MODEL as "gpt-6-luna", {
+        adapter: openaiText(REASONING_MODEL, {
           fetch: forwardingFetch,
         }),
         messages,

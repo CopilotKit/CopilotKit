@@ -1,6 +1,6 @@
 import { BuiltInAgent, convertInputToTanStackAI } from "@copilotkit/runtime/v2";
 import { chat, toolDefinition } from "@tanstack/ai";
-import { openaiText } from "@tanstack/ai-openai";
+import { openaiText } from "../openai-text";
 import { z } from "zod";
 // Custom fetch that injects ALS-bound inbound x-* headers (e.g.
 // x-aimock-context) onto every outbound OpenAI call. Required so aimock
