@@ -33,7 +33,7 @@ import {
                 // Access the tools from the copilotkit property
 
                 const tools = state.copilotkit?.actions; // [!code highlight]
-                const model = ChatOpenAI({ model: 'gpt-6-luna' }).bindTools(tools);
+                const model = ChatOpenAI(reasoning_effort="none", { model: 'gpt-6-luna' }).bindTools(tools);
 
                 // ...
                 }
@@ -49,11 +49,12 @@ import {
         <Tabs groupId="language_langgraph_agent" items={['Python', 'TypeScript']} default="Python" persist>
             <Tab value="Python">
                 ```python title="agent.py"
+from langchain_openai import ChatOpenAI
                 from langchain.agents import create_agent
                 from copilotkit import CopilotKitMiddleware, CopilotKitState # [!code highlight]
 
                 graph = create_agent( # create_agent supersedes the deprecated create_react_agent, which accepts neither middleware= nor system_prompt=
-                    model="openai:gpt-6-luna",
+                    model=ChatOpenAI(model="gpt-6-luna", reasoning_effort="none"),
                     tools=[],  # Backend tools go here
                     middleware=[CopilotKitMiddleware()], # [!code highlight]
                     system_prompt="You are a helpful assistant.",

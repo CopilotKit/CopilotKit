@@ -175,6 +175,8 @@ Before you begin, you'll need the following:
                         Build a minimal agent and serve it via AG-UI:
 
                         ```csharp title="Program.cs"
+#pragma warning disable OPENAI001
+using Microsoft.Extensions.AI;
                         using Microsoft.Agents.AI;
                         // [!code highlight:1]
                         using Microsoft.Agents.AI.Hosting.AGUI.AspNetCore;
@@ -190,7 +192,11 @@ Before you begin, you'll need the following:
                             ?? throw new InvalidOperationException("Set OPENAI_API_KEY");
                         var openAI = new OpenAIClient(openAiApiKey);
 
-                        var agent = openAI.GetChatClient("gpt-6-luna").AsAIAgent(
+                        var agent = openAI.GetChatClient("gpt-6-luna")
+    .AsIChatClient().AsBuilder()
+    .ConfigureOptions(options => options.RawRepresentationFactory = _ =>
+        new OpenAI.Chat.ChatCompletionOptions { ReasoningEffortLevel = new("none") })
+    .Build().AsAIAgent(
                             name: "MyAgent",
                             instructions: "You are a helpful assistant.");
 

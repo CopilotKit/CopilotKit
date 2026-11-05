@@ -134,7 +134,7 @@ When a node in your LangGraph finishes executing, **its returned state becomes t
 
                         // Define your custom graph node
                         async function chatNode(state: AgentState, config: RunnableConfig) {
-                            const model = new ChatOpenAI({ reasoningEffort: "none", model: "gpt-6-luna" });
+                            const model = new ChatOpenAI(reasoning_effort="none", { reasoningEffort: "none", model: "gpt-6-luna" });
 
                             const steps = [
                                 "Analyzing input data...",
@@ -363,7 +363,7 @@ When a node in your LangGraph finishes executing, **its returned state becomes t
 
                         // 3. Define the chat node
                         async function chatNode(state: AgentState, config: RunnableConfig) {
-                          const model = new ChatOpenAI({
+                          const model = new ChatOpenAI(reasoning_effort="none", {
                             reasoningEffort: "none",
                             model: "gpt-6-luna",
                             modelKwargs: { parallel_tool_calls: false },
@@ -527,6 +527,7 @@ When a node in your LangGraph finishes executing, **its returned state becomes t
         <Tabs groupId="agent_language" items={["Python", "TypeScript"]} persist>
           <Tab value="Python">
             ```python title="agent.py"
+from langchain_openai import ChatOpenAI
             from copilotkit import CopilotKitMiddleware, StateStreamingMiddleware, StateItem  # [!code highlight]
             from deepagents import create_deep_agent
             from langchain.tools import tool
@@ -536,7 +537,7 @@ When a node in your LangGraph finishes executing, **its returned state becomes t
                 """Reports the current steps being executed"""
 
             agent = create_deep_agent(
-                model="openai:gpt-6-luna",
+                model=ChatOpenAI(model="gpt-6-luna", reasoning_effort="none"),
                 tools=[step_progress_tool],
                 middleware=[
                     CopilotKitMiddleware(),

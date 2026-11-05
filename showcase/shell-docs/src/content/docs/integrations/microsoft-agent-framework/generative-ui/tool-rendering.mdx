@@ -48,6 +48,7 @@ Define a tool function that your agent can call. Microsoft Agent Framework will 
 <Tabs groupId="language_microsoft-agent-framework_agent" items={['.NET', 'Python']} persist>
   <Tab value=".NET">
     ```csharp title="Program.cs"
+#pragma warning disable OPENAI001
     using System.ComponentModel;
     using Microsoft.Agents.AI;
     using Microsoft.Agents.AI.Hosting.AGUI.AspNetCore;
@@ -73,6 +74,10 @@ Define a tool function that your agent can call. Microsoft Agent Framework will 
     // Create the agent with tools
     var agent = new OpenAIClient(openAiApiKey)
         .GetChatClient("gpt-6-luna")
+    .AsIChatClient().AsBuilder()
+    .ConfigureOptions(options => options.RawRepresentationFactory = _ =>
+        new OpenAI.Chat.ChatCompletionOptions { ReasoningEffortLevel = new("none") })
+    .Build()
         .AsAIAgent(
             name: "AGUIAssistant",
             tools: [getWeather]);

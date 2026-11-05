@@ -188,7 +188,11 @@ import { choosePanel } from "./choose-panel";
 import { candidates, clarificationOptions, StateSchema, type PickerState } from "./workspaces";
 
 async function explain(message: string, state: PickerState, signal: AbortSignal) {
-  const model = new ChatOpenAI({ model: process.env.OPENAI_MODEL || "gpt-6-luna" });
+  const model = new ChatOpenAI({
+    model: process.env.OPENAI_MODEL || "gpt-6-luna",
+    modelKwargs: (process.env.OPENAI_MODEL || "gpt-6-luna") === "gpt-6-luna"
+      ? { reasoning_effort: "none" } : {},
+  });
   const response = await model.invoke([
     { role: "system", content: "Help choose among the supplied workspaces. " +
       "You can explain but cannot book, change a selection, or claim an action succeeded. " +

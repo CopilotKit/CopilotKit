@@ -41,6 +41,7 @@ when your agent is calling tools. CopilotKit allows you to fully customize how t
 <Tabs groupId="agent_language" items={['Python', 'TypeScript']} persist>
     <Tab value="Python">
         ```python title="agent.py"
+from langchain_openai import ChatOpenAI
         from deepagents import create_deep_agent
         from langchain.tools import tool
 
@@ -53,7 +54,7 @@ when your agent is calling tools. CopilotKit allows you to fully customize how t
             return f"The weather for {location} is 70 degrees."
 
         agent = create_deep_agent(
-            model="openai:gpt-6-luna",
+            model=ChatOpenAI(model="gpt-6-luna", reasoning_effort="none"),
             tools=[get_weather], # [!code highlight]
             system_prompt="You are a helpful assistant.",
         )

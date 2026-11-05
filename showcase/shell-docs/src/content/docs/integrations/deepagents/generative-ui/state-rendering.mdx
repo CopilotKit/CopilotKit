@@ -40,6 +40,7 @@ Use state rendering when you want to:
     <Tabs groupId="agent_language" items={['Python', 'TypeScript']} persist>
       <Tab value="Python">
         ```python title="agent.py"
+from langchain_openai import ChatOpenAI
         from typing import Any, TypedDict
 
         from copilotkit import (
@@ -83,7 +84,7 @@ Use state rendering when you want to:
             )
 
         agent = create_deep_agent(
-            model="openai:gpt-6-luna",
+            model=ChatOpenAI(model="gpt-6-luna", reasoning_effort="none"),
             tools=[report_research_progress],
             middleware=[
                 SearchesStateMiddleware(),

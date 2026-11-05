@@ -160,7 +160,7 @@ Before you begin, you'll need the following:
                 Add LlamaIndex with AG-UI support and uvicorn to your project:
 
                 ```bash
-                uv add llama-index llama-index-llms-openai llama-index-protocols-ag-ui fastapi uvicorn
+                uv add llama-index llama-index-llms-openai-like llama-index-protocols-ag-ui fastapi uvicorn
                 ```
 
                 <Callout type="info" title="What is AG-UI?">
@@ -187,11 +187,17 @@ Before you begin, you'll need the following:
 
                 ```python title="main.py"
                 from fastapi import FastAPI
-                from llama_index.llms.openai import OpenAI
+                from llama_index.llms.openai_like import OpenAILike
                 from llama_index.protocols.ag_ui.router import get_ag_ui_workflow_router
 
                 # Initialize the LLM
-                llm = OpenAI(model="gpt-6-luna")
+                llm = OpenAILike(
+                    model="gpt-6-luna",
+                    context_window=1_050_000,
+                    is_chat_model=True,
+                    is_function_calling_model=True,
+                    additional_kwargs={"reasoning_effort": "none"},
+                )
 
                 # Create the AG-UI workflow router
                 agentic_chat_router = get_ag_ui_workflow_router(

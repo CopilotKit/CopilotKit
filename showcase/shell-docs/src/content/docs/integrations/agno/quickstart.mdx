@@ -156,7 +156,7 @@ Before you begin, you'll need the following:
                 from agno.os.interfaces.agui import AGUI
 
                 agent = Agent(
-                    model=OpenAIChat(id="gpt-6-luna"),
+                    model=OpenAIChat(reasoning_effort="none", id="gpt-6-luna"),
                     description="A helpful assistant that can answer questions and provide information.",
                     instructions="Be helpful and friendly. Format your responses using markdown where appropriate.",
                 )

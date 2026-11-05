@@ -63,6 +63,7 @@ This context can then be shared with your AG-UI server and agent logic.
         <Tabs groupId="language_microsoft-agent-framework_agent" items={['.NET', 'Python']} persist>
           <Tab value=".NET">
             ```csharp title="Program.cs"
+#pragma warning disable OPENAI001
             using System.Runtime.CompilerServices;
             using System.Text;
             using AGUI.Abstractions;
@@ -85,6 +86,10 @@ This context can then be shared with your AG-UI server and agent logic.
             // Create the base agent
             AIAgent baseAgent = new OpenAIClient(openAiApiKey)
                 .GetChatClient("gpt-6-luna")
+    .AsIChatClient().AsBuilder()
+    .ConfigureOptions(options => options.RawRepresentationFactory = _ =>
+        new OpenAI.Chat.ChatCompletionOptions { ReasoningEffortLevel = new("none") })
+    .Build()
                 .AsAIAgent(
                     name: "AGUIAssistant",
                     instructions: "You are a helpful assistant. Use the provided context about colleagues to answer questions.");

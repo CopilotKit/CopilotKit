@@ -20,7 +20,7 @@ import { ChatOpenAI } from "@langchain/openai";
  
 const copilotKit = new CopilotRuntime();
  
-const model = new ChatOpenAI({
+const model = new ChatOpenAI(reasoning_effort="none", {
   reasoningEffort: "none",
   model: "gpt-6-luna",
   apiKey: "<your-api-key>",

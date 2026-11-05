@@ -104,6 +104,7 @@ is a situation where a user and an agent are working together to solve a problem
     <Tabs groupId="language_microsoft-agent-framework_agent" items={['.NET', 'Python']} persist>
       <Tab value=".NET">
         ```csharp title="Program.cs"
+#pragma warning disable OPENAI001
         using System.Runtime.CompilerServices;
         using System.Text.Json;
         using AGUI.Abstractions;
@@ -133,6 +134,10 @@ is a situation where a user and an agent are working together to solve a problem
         // Create the base agent
         AIAgent baseAgent = new OpenAIClient(openAiApiKey)
             .GetChatClient("gpt-6-luna")
+    .AsIChatClient().AsBuilder()
+    .ConfigureOptions(options => options.RawRepresentationFactory = _ =>
+        new OpenAI.Chat.ChatCompletionOptions { ReasoningEffortLevel = new("none") })
+    .Build()
             .AsAIAgent(
                 name: "ResearchAssistant",
                 instructions: "You are a research assistant that tracks your progress.");

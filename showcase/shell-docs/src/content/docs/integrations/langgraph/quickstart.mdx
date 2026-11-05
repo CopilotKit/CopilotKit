@@ -235,7 +235,7 @@ npm install --save-exact @copilotkit/sdk-js zod@3 langchain@1.5.9
                 } from "@langchain/langgraph";
 
                 async function mockLlm(state: typeof MessagesAnnotation.State) {
-                  const model = new ChatOpenAI({ reasoningEffort: "none", model: "gpt-6-luna" });
+                  const model = new ChatOpenAI(reasoning_effort="none", { reasoningEffort: "none", model: "gpt-6-luna" });
                   const response = await model.invoke([
                     new SystemMessage("You are a helpful assistant."),
                     ...state.messages,

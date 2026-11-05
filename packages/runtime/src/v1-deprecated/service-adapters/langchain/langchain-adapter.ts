@@ -30,6 +30,7 @@
  *
  * const model = new ChatOpenAI({
  *   model: "gpt-6-luna",
+ *   reasoning: { effort: "none" },
  *   apiKey: "<your-api-key>",
  * });
  *
