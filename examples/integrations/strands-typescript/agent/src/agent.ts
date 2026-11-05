@@ -213,27 +213,33 @@ function getChatClient(): OpenAI {
   return chatClient;
 }
 
-const generateA2ui = tool({
+export const generateA2ui = tool({
   name: "generate_a2ui",
   description:
     "Design and render a dashboard with A2UI components for the user's request.",
   inputSchema: z.object({ user_intent: z.string() }),
   callback: async ({ user_intent }) => {
-    const response = await getChatClient().chat.completions.create({
-      model: agentModel.model,
-      ...(agentModel.provider === "openai" && agentModel.model === "gpt-6-luna"
-        ? { reasoning_effort: "none" as const }
-        : {}),
-      messages: [
-        {
-          role: "system",
-          content: DYNAMIC_A2UI_SYSTEM_PROMPT,
-        },
-        { role: "user", content: user_intent },
-      ],
-      tools: [RENDER_A2UI_TOOL],
-      tool_choice: { type: "function", function: { name: "render_a2ui" } },
-    });
+    const request: OpenAI.Chat.Completions.ChatCompletionCreateParamsNonStreaming =
+      {
+        model: agentModel.model,
+        messages: [
+          {
+            role: "system",
+            content: DYNAMIC_A2UI_SYSTEM_PROMPT,
+          },
+          { role: "user", content: user_intent },
+        ],
+        tools: [RENDER_A2UI_TOOL],
+        tool_choice: { type: "function", function: { name: "render_a2ui" } },
+      };
+    // The pinned SDK predates Luna's "none" effort. Extend the validated
+    // request through its body override while preserving every tool field.
+    const response = await getChatClient().chat.completions.create(
+      request,
+      agentModel.provider === "openai" && agentModel.model === "gpt-6-luna"
+        ? { body: { ...request, reasoning_effort: "none" } }
+        : undefined,
+    );
 
     const call = response.choices[0]?.message.tool_calls?.[0];
     if (!call || call.type !== "function") {
