@@ -2008,20 +2008,10 @@
         },
         "peerDependencies": {
           "@tanstack/ai": "^1.2.0",
-          "@tanstack/ai-anthropic": "^1.1.1",
-          "@tanstack/ai-gemini": "^1.1.1",
-          "@tanstack/ai-mcp": "^1.1.0",
-          "@tanstack/ai-openai": "^1.1.1",
-          "@tanstack/ai-vertex": "^1.0.1",
           "ai": ">=6.0.104"
         },
         "optionalPeerDependencies": [
           "@tanstack/ai",
-          "@tanstack/ai-anthropic",
-          "@tanstack/ai-gemini",
-          "@tanstack/ai-mcp",
-          "@tanstack/ai-openai",
-          "@tanstack/ai-vertex",
           "ai"
         ],
         "provenance": [

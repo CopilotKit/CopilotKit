@@ -34,7 +34,7 @@ describe("resolveMCPToolNames", () => {
     });
     expect(warn).toHaveBeenCalledWith(
       expect.stringContaining(
-        'More than one MCP server uses the prefix "prod"',
+        'More than one MCP source uses the prefix "prod"',
       ),
     );
   });
@@ -136,7 +136,9 @@ describe("resolveMCPToolNames", () => {
     ]);
 
     expect(warn).toHaveBeenCalledWith(
-      expect.stringContaining("`mcpClients` entries always use `mcp<N>`"),
+      expect.stringContaining(
+        "Each `mcpClients` entry uses the prefix `mcp<N>`, where N is the client's position in the list, from 1.",
+      ),
     );
   });
 

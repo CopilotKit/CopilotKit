@@ -91,10 +91,6 @@
     "zod": "^4.2.0"
   },
   "devDependencies": {
-    "@ai-sdk/anthropic": "^3.0.49",
-    "@ai-sdk/google": "^3.0.33",
-    "@ai-sdk/mcp": "^1.0.21",
-    "@ai-sdk/openai": "^3.0.36",
     "@copilotkit/aimock": "latest",
     "@copilotkit/channels": "workspace:*",
     "@copilotkit/typescript-config": "workspace:*",
@@ -143,30 +139,10 @@
   },
   "peerDependencies": {
     "@tanstack/ai": "^1.2.0",
-    "@tanstack/ai-anthropic": "^1.1.1",
-    "@tanstack/ai-gemini": "^1.1.1",
-    "@tanstack/ai-mcp": "^1.1.0",
-    "@tanstack/ai-openai": "^1.1.1",
-    "@tanstack/ai-vertex": "^1.0.1",
     "ai": ">=6.0.104"
   },
   "peerDependenciesMeta": {
     "@tanstack/ai": {
-      "optional": true
-    },
-    "@tanstack/ai-anthropic": {
-      "optional": true
-    },
-    "@tanstack/ai-gemini": {
-      "optional": true
-    },
-    "@tanstack/ai-mcp": {
-      "optional": true
-    },
-    "@tanstack/ai-openai": {
-      "optional": true
-    },
-    "@tanstack/ai-vertex": {
       "optional": true
     },
     "ai": {

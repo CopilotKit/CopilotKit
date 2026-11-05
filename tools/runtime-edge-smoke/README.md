@@ -35,8 +35,38 @@ is out and the runtime uses it, build the agent at module scope.
 
 ## BuiltInAgent on Workers
 
-The test does not run `BuiltInAgent`. A model string such as `"openai/gpt-5"`
-loads its adapter package with a runtime `import()`, and Workers cannot do
-that. On Workers, import `BuiltInAgent` from `@copilotkit/runtime/agent` and
-give it a factory (`type: "tanstack"` or `type: "custom"`) or a TanStack AI
-adapter instance as `model`.
+The test does not run `BuiltInAgent`, but `BuiltInAgent` runs on Workers. Its
+`model` is a TanStack AI adapter instance, so the bundler sees every package
+that the agent loads.
+
+Workers have no `process.env` without `nodejs_compat`. Give the API key to the
+adapter from the Worker `env`:
+
+```ts
+import {
+  CopilotRuntime,
+  createCopilotRuntimeHandler,
+} from "@copilotkit/runtime";
+import { BuiltInAgent } from "@copilotkit/runtime/agent";
+import { createOpenaiChat } from "@tanstack/ai-openai";
+
+export default {
+  fetch(request: Request, env: { OPENAI_API_KEY: string }) {
+    const runtime = new CopilotRuntime({
+      agents: () => ({
+        default: new BuiltInAgent({
+          model: createOpenaiChat("gpt-5", env.OPENAI_API_KEY),
+        }),
+      }),
+    });
+    const handler = createCopilotRuntimeHandler({
+      runtime,
+      basePath: "/api/copilotkit",
+    });
+    return handler(request);
+  },
+};
+```
+
+Install `@tanstack/ai` and the adapter package (here `@tanstack/ai-openai`) in
+the Worker project.

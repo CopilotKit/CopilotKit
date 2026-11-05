@@ -11,7 +11,6 @@ import type {
 } from "@ag-ui/client";
 import { AbstractAgent, EventType, PROTOCOL_VERSION } from "@ag-ui/client";
 import type { AgentCapabilities } from "@ag-ui/core";
-import { chat, maxIterations } from "@tanstack/ai";
 import type { AnyTextAdapter, AnyTool, ToolChoice } from "@tanstack/ai";
 import { Observable } from "rxjs";
 import { randomUUID } from "@copilotkit/shared";
@@ -591,6 +590,10 @@ export class BuiltInAgent extends AbstractAgent {
           }
           signal.throwIfAborted();
 
+          // @tanstack/ai is ESM-only, so the CommonJS build cannot require()
+          // it. A literal import() loads it from both builds, and bundlers
+          // and output tracing still follow it.
+          const { chat, maxIterations } = await import("@tanstack/ai");
           const stream = chat({
             adapter,
             messages: converted.messages,

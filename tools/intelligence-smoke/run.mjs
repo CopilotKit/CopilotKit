@@ -74,8 +74,8 @@ try {
         dependencies: {
           ...artifacts.dependencies,
           "@copilotkit/aimock": "1.19.1",
-          // BuiltInAgent's optional peers: exercise.mjs builds its model with
-          // @tanstack/ai-openai, and --legacy-peer-deps skips peers.
+          // exercise.mjs builds its BuiltInAgent model with @tanstack/ai-openai,
+          // which needs @tanstack/ai. --legacy-peer-deps skips peers.
           "@tanstack/ai": "1.2.0",
           "@tanstack/ai-openai": "1.1.1",
           yaml: "2.8.3",

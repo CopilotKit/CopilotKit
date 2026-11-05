@@ -6,14 +6,6 @@ export interface MCPToolSource {
   tools: readonly AnyTool[];
 }
 
-/**
- * Reduces a server name to the characters that model providers accept in a
- * tool name (`^[a-zA-Z0-9_-]+$`).
- */
-export function toToolNamePrefix(name: string): string {
-  return name.replace(/[^a-zA-Z0-9_-]/g, "_");
-}
-
 // A collision is usually permanent configuration, and agents resolve tools on
 // every run. Warning each time would repeat one message for every request.
 const warnedCollisions = new Set<string>();
@@ -46,7 +38,7 @@ function warnOnce(message: string): void {
 export function resolveMCPToolNames(
   appToolNames: ReadonlySet<string>,
   sources: { label: string; names: string[] }[],
-  hint = " Set `name` on an `mcpServers` entry to choose its prefix. `mcpClients` entries always use `mcp<N>`.",
+  hint = " Each `mcpClients` entry uses the prefix `mcp<N>`, where N is the client's position in the list, from 1.",
 ): string[][] {
   const sourceCount = new Map<string, number>();
   for (const { names } of sources) {
@@ -87,7 +79,7 @@ export function resolveMCPToolNames(
   for (const [label, count] of labelCount) {
     if (count < 2 || !numberedLabels.has(label)) continue;
     warnOnce(
-      `[CopilotKit] More than one MCP server uses the prefix "${label}", so their colliding tools differ only by a number. Give each server a different \`name\`.`,
+      `[CopilotKit] More than one MCP source uses the prefix "${label}", so their colliding tools differ only by a number.`,
     );
   }
 
