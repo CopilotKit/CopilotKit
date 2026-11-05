@@ -92,6 +92,7 @@ import { handleInspectorMetadata } from "../handlers/handle-inspector-metadata";
 import { handleInspectorLearning } from "../handlers/handle-inspector-learning";
 import { handleTranscribe } from "../handlers/handle-transcribe";
 import { handleDebugEvents } from "../handlers/handle-debug-events";
+import { isDebugEventFeedEnabled } from "./debug-event-bus";
 import {
   handleClearThreads,
   handleListThreads,
@@ -392,6 +393,9 @@ export function createCopilotRuntimeHandler(
         handlerPath = resolved.path;
         const { methodCall } = resolved;
         if (methodCall.method === "resource/request") {
+          if (isHiddenRoute(runtime, route)) {
+            throw jsonResponse({ error: "Not found" }, 404);
+          }
           const methodError = validateHttpMethod(request.method, route);
           if (methodError) {
             throw methodError;
@@ -465,15 +469,11 @@ export function createCopilotRuntimeHandler(
           throw jsonResponse({ error: "Not found" }, 404);
         }
 
-        // Opt-in gate for the client-facing memory proxy routes (secure
-        // default: off). Runs BEFORE method validation so a hidden route 404s
-        // uniformly regardless of HTTP method — a 405 here would otherwise leak
-        // that the route exists. `dispatchRoute` re-applies the same gate as
+        // Runs BEFORE method validation so a hidden route 404s uniformly
+        // regardless of HTTP method — a 405 here would otherwise leak that the
+        // route exists. `dispatchRoute` re-applies the same gate as
         // defense-in-depth (and to cover the single-route path).
-        if (
-          matched.method.startsWith("memories/") &&
-          runtime.exposeMemoryRoutes !== true
-        ) {
+        if (isHiddenRoute(runtime, matched)) {
           route = matched;
           throw jsonResponse({ error: "Not found" }, 404);
         }
@@ -611,6 +611,36 @@ export function createCopilotRuntimeHandler(
  * Route dispatch
  * --------------------------------------------------------------------------------------------- */
 
+/**
+ * True for a route that must 404 as if it did not exist, whatever the HTTP
+ * method.
+ */
+function isHiddenRoute(runtime: CopilotRuntimeLike, route: RouteInfo): boolean {
+  if (
+    isIntelligenceRuntime(runtime) &&
+    runtime.identifyUser === undefined &&
+    route.method !== "info" &&
+    route.method !== "trajectory/connect"
+  ) {
+    return true;
+  }
+
+  // Opt-in gate for the client-facing memory proxy routes (secure default:
+  // off). When not explicitly enabled, every `/memories/*` route 404s as if it
+  // did not exist — this MUST run before the per-handler `isIntelligenceRuntime`
+  // check so an un-opted-in deployment reveals nothing about memory (not even
+  // whether Intelligence is configured). Coalesce a missing flag (external
+  // `CopilotRuntimeLike` implementor) to `false`.
+  if (route.method.startsWith("memories/")) {
+    return runtime.exposeMemoryRoutes !== true;
+  }
+
+  return (
+    route.method === "cpk-debug-events" &&
+    !isDebugEventFeedEnabled(runtime.debug, runtime.exposeDebugEvents)
+  );
+}
+
 function dispatchRoute(
   runtime: CopilotRuntimeLike,
   request: Request,
@@ -620,25 +650,7 @@ function dispatchRoute(
     singleRouteResourceOperationsEnabled: boolean;
   },
 ): Promise<Response> {
-  if (
-    isIntelligenceRuntime(runtime) &&
-    runtime.identifyUser === undefined &&
-    route.method !== "info" &&
-    route.method !== "trajectory/connect"
-  ) {
-    throw jsonResponse({ error: "Not found" }, 404);
-  }
-
-  // Opt-in gate for the client-facing memory proxy routes (secure default:
-  // off). When not explicitly enabled, every `/memories/*` route 404s as if it
-  // did not exist — this MUST run before the per-handler `isIntelligenceRuntime`
-  // check so an un-opted-in deployment reveals nothing about memory (not even
-  // whether Intelligence is configured). Coalesce a missing flag (external
-  // `CopilotRuntimeLike` implementor) to `false`.
-  if (
-    route.method.startsWith("memories/") &&
-    runtime.exposeMemoryRoutes !== true
-  ) {
+  if (isHiddenRoute(runtime, route)) {
     throw jsonResponse({ error: "Not found" }, 404);
   }
 

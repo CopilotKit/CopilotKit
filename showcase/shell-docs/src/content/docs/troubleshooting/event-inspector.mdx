@@ -20,16 +20,22 @@ Use it when:
 
 ## Prerequisites
 
-- A CopilotKit runtime running locally with `NODE_ENV` set to `development`, or with `debug` enabled on the runtime
+- A CopilotKit runtime running locally with `NODE_ENV` set to `development`, or with `exposeDebugEvents: true` on the runtime
 - The [CopilotKit VS Code extension](/vs-code-extension) installed
 
 <Callout type="warning">
-  The `/cpk-debug-events` endpoint streams every event of every thread, including full message content, to any subscriber. It is served in exactly two cases: `NODE_ENV` is `development`, or the runtime sets `debug`. Everywhere else it returns 404.
+  The `/cpk-debug-events` endpoint streams every event of every thread, including full message content, to any subscriber, and `identifyUser` does not scope it. Whether it is served depends on `NODE_ENV` and on two runtime options:
 
-  An *unset* `NODE_ENV` counts as everywhere else. A plain `node server.js` sets no value, so a self-hosted runtime does not expose the feed by accident. If you need it on such a host, ask for it explicitly:
+  | `NODE_ENV` | `debug` off | `debug` on | `exposeDebugEvents: true` |
+  |---|---|---|---|
+  | `development` | Served | Served | Served |
+  | `test` | 404 | Served | Served |
+  | Anything else, including unset, `prod` and `staging` | 404 | 404 | Served, with a warning |
+
+  A plain `node server.js` sets no `NODE_ENV`, so a self-hosted runtime does not expose the feed by accident, and `debug` alone keeps the route closed there. You can keep debug logging without publishing conversations. To open the route on such a host, set `NODE_ENV=development` for a local runtime, or opt in by name. The runtime logs a warning once per process when the option opens the route outside `development` and `test`:
 
   ```ts
-  const runtime = new CopilotRuntime({ agents, debug: true });
+  const runtime = new CopilotRuntime({ agents, exposeDebugEvents: true });
   ```
 
   Treat that as you would any other way of reading conversation content, and do not enable it on a runtime the public can reach.

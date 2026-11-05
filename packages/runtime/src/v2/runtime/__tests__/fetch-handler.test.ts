@@ -998,6 +998,26 @@ test("keeps Inspector Learning unavailable for runtimes without a web identity r
   expect(getInspectorLearning).not.toHaveBeenCalled();
 });
 
+test("answers a wrong method 404 on routes hidden from a runtime without a web identity resolver", async () => {
+  const { runtime } = setupInspectorLearningRoute();
+  const handler = createCopilotRuntimeHandler({
+    runtime: {
+      ...runtime,
+      mode: "intelligence",
+      intelligence: runtime.intelligence,
+      identifyUser: undefined,
+    } as unknown as CopilotRuntimeLike,
+    basePath: "/api/copilotkit",
+  });
+  const response = await handler(
+    new Request("https://runtime.example/api/copilotkit/inspector-learning", {
+      method: "POST",
+    }),
+  );
+  expect(response.status).toBe(404);
+  expect(response.headers.has("Allow")).toBe(false);
+});
+
 test("fetch-handler routes multi-route inspector metadata through hooks without forwarding browser auth", async () => {
   const { getInspectorMetadata, metadata, runtime } =
     setupInspectorMetadataRoute();

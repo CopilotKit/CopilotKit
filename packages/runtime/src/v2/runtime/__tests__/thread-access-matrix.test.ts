@@ -226,6 +226,40 @@ describe("default mode (no identifyUser, access owner)", () => {
     await expectStopOutcomes(h, { otherIsSame: true });
   });
 
+  it("a second caller's run leaves the stored history and the replay intact", async () => {
+    const h = makeHandler();
+    const threadId = uniqueThreadId("anon");
+    const send = (id: string, content: string) =>
+      post(
+        h,
+        "/agent/secret/run",
+        undefined,
+        JSON.stringify({
+          ...JSON.parse(runBody(threadId, content)),
+          messages: [{ id, role: "user", content }],
+        }),
+      ).then((response) => response.text());
+    await send("first-caller-message", "FIRST_CALLER");
+    await send("second-caller-message", "SECOND_CALLER");
+
+    const stored = await (await get(h, `/threads/${threadId}/messages`)).json();
+    expect(
+      (stored as { messages: { content: string }[] }).messages.map(
+        (message) => message.content,
+      ),
+    ).toEqual(["FIRST_CALLER", "SECOND_CALLER"]);
+
+    const replay = await post(
+      h,
+      "/agent/secret/connect",
+      undefined,
+      runBody(threadId, "connect"),
+    );
+    const replayed = await replay.text();
+    expect(replayed).toContain("FIRST_CALLER");
+    expect(replayed).toContain("SECOND_CALLER");
+  });
+
   it("refuses list and clear with an error that names the configuration", async () => {
     const h = makeHandler();
     const threadId = uniqueThreadId("anon");

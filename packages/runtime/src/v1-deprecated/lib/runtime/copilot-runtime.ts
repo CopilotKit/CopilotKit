@@ -390,6 +390,14 @@ export interface CopilotRuntimeConstructorParams_BASE<
    */
   debug?: DebugConfig;
 
+  /**
+   * Serve `/cpk-debug-events` whatever `NODE_ENV` and `debug` say. This is the
+   * only way to open the feed when `NODE_ENV` is neither `development` nor
+   * `test`, unset included. The feed streams
+   * every thread's events to any caller that reaches the route.
+   */
+  exposeDebugEvents?: boolean;
+
   // /** Optional transcription service for audio processing. */
   // transcriptionService?: CopilotRuntimeOptionsVNext["transcriptionService"];
   // /** Optional *before* middleware – callback function or webhook URL. */
@@ -553,6 +561,7 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
       ɵtelemetry: this.telemetry,
       telemetryProperties: params?.telemetryProperties,
       debug: params?.debug,
+      exposeDebugEvents: params?.exposeDebugEvents,
       // TODO: add support for transcriptionService from CopilotRuntimeOptionsVNext once it is ready
       // transcriptionService: params?.transcriptionService,
 
