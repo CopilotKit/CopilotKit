@@ -38,16 +38,24 @@ import { CopilotKitProvider } from "@copilotkit/react-native";
   `localhost`) when testing on a physical device.
 </PropertyReference>
 
-<PropertyReference name="headers" type="Record<string, string> | (() => Record<string, string>)" default="{}">
-  Custom headers sent with every runtime request. Pass a function to compute
-  headers lazily (e.g. to attach a fresh auth token). The function is called
-  when the provider renders, not per request — see
+<PropertyReference name="headers" type="Record<string, string> | (() => Record<string, string>) | (() => Promise<Record<string, string>>)" default="{}">
+  Custom headers sent with every runtime request. Pass a plain object for
+  static headers, or a function (sync or async) that returns them. A builder
+  runs when each request is sent, so a refreshed token is always used — see
   [Frontends: React Native](/frontends/react-native#provider-options) for the
   rotating-token pattern.
 
-  The web provider's builder now runs at send time and also accepts an async
-  function. Neither is supported here yet: only a sync function, evaluated at
-  render, works on React Native.
+  Cache inside the builder. Clerk's `getToken()` already caches. A builder
+  that calls the network every time adds one call per request.
+
+  If the builder throws or rejects, that request is not sent and `onError`
+  gets `header_resolution_failed`. A header whose value is `undefined` is not
+  sent, so ``{ Authorization: token ? `Bearer ${token}` : undefined }`` omits
+  it while signed out.
+
+  Passing a new function through the `headers` prop doesn't reset anything:
+  the provider keeps one stable wrapper for any builder. On a user switch,
+  remount the provider (for example with `key={userId}`).
 </PropertyReference>
 
 <PropertyReference name="credentials" type="RequestCredentials">
@@ -146,7 +154,7 @@ export default function App() {
 
 - **Auto-polyfills**: importing the package installs the Web API polyfills CopilotKit relies on (`ReadableStream`, `TextEncoder`, `crypto.getRandomValues`, `DOMException`, `location`) before any CopilotKit code runs.
 - **Shared render-tool registry**: the provider instantiates the CopilotKit client whose renderer registry is shared with the rest of CopilotKit. Render functions registered by [`useRenderTool`](/reference/react-native/hooks/useRenderTool), [`useFrontendTool`](/reference/react-native/hooks/useFrontendTool) or [`useComponent`](/reference/react-native/hooks/useComponent) write into that one registry, so they and [`useRenderToolCall`](/reference/react-native/hooks/useRenderTool#rendering-a-tool-call-outside-the-chat) work anywhere below the provider. There is no second registry and no extra provider to mount for rendering.
-- **Stable references**: header functions and `properties` are memoized internally to avoid effect churn on re-render.
+- **Stable references**: a header builder is wrapped once and read when each request is sent, and record headers and `properties` are compared by content, so inline values don't cause effect churn on re-render.
 
 ## Related
 
