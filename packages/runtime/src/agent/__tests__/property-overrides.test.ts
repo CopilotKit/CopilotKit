@@ -2,16 +2,17 @@
  * `forwardedProps` overrides. A run may replace `model`, `toolChoice`,
  * `prompt`, or `modelOptions`, but only the ones the agent lists in
  * `overridableProperties`, and only with a value of the right shape. The
- * fake model records what `chat()` sent it; the forwarded-model test stubs
- * `fetch` at the network boundary to see the request the real adapter makes.
+ * fake model records what `chat()` sent it. A forwarded model name goes
+ * through the agent's `resolveModel`.
  */
 import { describe, it, expect, vi, afterEach } from "vitest";
 import type { RunAgentInput } from "@ag-ui/client";
 import {
-  collectEventsIncludingErrors,
+  collectEvents,
   createAgent,
   createClassicAgent,
   createDefaultInput,
+  createFakeModel,
   runClassicAgent,
 } from "./agent-test-helpers";
 import type { ClassicTestConfig } from "./agent-test-helpers";
@@ -26,71 +27,114 @@ async function requestWith(
   return requests[0]!;
 }
 
-/** Stubs the Anthropic API and records the body of each request to it. */
-function stubAnthropicApi() {
-  const sent: { url: string; body: unknown }[] = [];
-  vi.stubEnv("ANTHROPIC_API_KEY", "test-key");
-  vi.stubGlobal(
-    "fetch",
-    vi.fn(async (url: string | URL | Request, init?: RequestInit) => {
-      sent.push({ url: String(url), body: JSON.parse(String(init?.body)) });
-      return Response.json(
-        { type: "error", error: { type: "api_error", message: "stubbed" } },
-        { status: 400 },
-      );
-    }),
+/** Silences `console.warn` for one test and returns the spy. */
+function spyOnWarn() {
+  return vi.spyOn(console, "warn").mockImplementation(() => {});
+}
+
+/**
+ * A classic agent whose `resolveModel` maps `"fast"` to a second fake model.
+ * Returns both models' requests, so a test can see which one ran.
+ */
+function agentWithFastModel(config: ClassicTestConfig = {}) {
+  const fast = createFakeModel([{ text: "fast" }, { text: "fast" }]);
+  const configured = createClassicAgent(
+    {
+      overridableProperties: ["model"],
+      resolveModel: (name) => (name === "fast" ? fast.model : undefined),
+      ...config,
+    },
+    [{}, {}],
   );
-  return sent;
+  return {
+    agent: configured.agent,
+    configuredRequests: configured.requests,
+    fastRequests: fast.requests,
+  };
+}
+
+/** Runs `agent` once per `runIds` entry with `forwardedProps`. */
+async function runWith(
+  agent: ReturnType<typeof createClassicAgent>["agent"],
+  forwardedProps: RunAgentInput["forwardedProps"],
+  runIds = ["run1"],
+) {
+  for (const runId of runIds) {
+    await collectEvents(
+      agent.run(createDefaultInput({ forwardedProps, runId })),
+    );
+  }
 }
 
 describe("Property overrides", () => {
   afterEach(() => {
-    vi.unstubAllGlobals();
-    vi.unstubAllEnvs();
+    vi.restoreAllMocks();
   });
 
   describe("model", () => {
-    const forwardedProps = { model: "anthropic/claude-sonnet-4-5" };
+    it("runs the adapter that resolveModel returns for the forwarded name", async () => {
+      const { agent, configuredRequests, fastRequests } = agentWithFastModel();
 
-    it("runs a forwarded model string instead of the configured model", async () => {
-      const sent = stubAnthropicApi();
-      const { agent, requests } = createClassicAgent(
-        { overridableProperties: ["model"] },
-        [{ text: "fake" }],
-      );
+      await runWith(agent, { model: "fast" });
 
-      await collectEventsIncludingErrors(
-        agent.run(
-          createDefaultInput({
-            forwardedProps,
-            messages: [{ id: "u1", role: "user", content: "Hi" }],
-          }),
-        ),
-      );
+      expect(fastRequests).toHaveLength(1);
+      expect(configuredRequests).toHaveLength(0);
+    });
 
-      expect(requests).toHaveLength(0);
-      expect(sent).toEqual([
-        {
-          url: expect.stringMatching(/^https:\/\/api\.anthropic\.com\/v1\//),
-          body: expect.objectContaining({ model: "claude-sonnet-4-5" }),
-        },
-      ]);
+    it("a clone keeps resolveModel", async () => {
+      const { agent, configuredRequests, fastRequests } = agentWithFastModel();
+
+      await runWith(agent.clone(), { model: "fast" });
+
+      expect(fastRequests).toHaveLength(1);
+      expect(configuredRequests).toHaveLength(0);
     });
 
     it.each([
-      ["model is not overridable", {}, forwardedProps],
       [
-        "the forwarded model is not a string",
-        { overridableProperties: ["model" as const] },
-        { model: { modelId: "custom-model", provider: "custom" } },
+        "resolveModel returns undefined",
+        {},
+        "resolveModel returned undefined for it",
       ],
-    ])("keeps the configured model when %s", async (_case, config, props) => {
-      const sent = stubAnthropicApi();
+      [
+        "the agent has no resolveModel",
+        { resolveModel: undefined },
+        "the agent has no resolveModel",
+      ],
+    ])(
+      "keeps the configured adapter and warns once when %s",
+      async (_case, config, reason) => {
+        const warn = spyOnWarn();
+        const { agent, configuredRequests } = agentWithFastModel(config);
 
-      await requestWith(config, props);
+        await runWith(agent, { model: "slow" }, ["run1", "run2"]);
 
-      expect(sent).toEqual([]);
-    });
+        expect(configuredRequests).toHaveLength(2);
+        expect(warn.mock.calls).toEqual([
+          [
+            `[CopilotKit] Ignoring the forwarded model "slow": ${reason}. The run uses the configured model adapter.`,
+          ],
+        ]);
+      },
+    );
+
+    it.each([
+      ["model is not overridable", { overridableProperties: [] }, "fast"],
+      ["the forwarded model is not a string", {}, { modelId: "fast" }],
+    ])(
+      "keeps the configured adapter without a warning when %s",
+      async (_case, config, model) => {
+        const warn = spyOnWarn();
+        const { agent, configuredRequests, fastRequests } =
+          agentWithFastModel(config);
+
+        await runWith(agent, { model });
+
+        expect(configuredRequests).toHaveLength(1);
+        expect(fastRequests).toHaveLength(0);
+        expect(warn).not.toHaveBeenCalled();
+      },
+    );
   });
 
   describe("toolChoice", () => {

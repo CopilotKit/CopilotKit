@@ -462,55 +462,15 @@ describe("BuiltInAgent (classic)", () => {
       expect(aiSdkShape.toolChoice).toEqual({ type: "tool", name: "lookup" });
       expect(invalid.toolChoice).toBeUndefined();
     });
-
-    it("resolves a forwarded model string only when model is overridable", async () => {
-      const forwardedProps = { model: "anthropic/claude-sonnet-4-6" };
-      const run = async (config: Parameters<typeof createClassicAgent>[0]) => {
-        const { agent, requests } = createClassicAgent(config, [
-          { text: "fake" },
-        ]);
-        const result = await collectEventsIncludingErrors(
-          agent.run(createDefaultInput({ forwardedProps })),
-        );
-        return { ...result, requests };
-      };
-
-      const locked = await run({});
-      const open = await run({ overridableProperties: ["model"] });
-
-      expect(streamedText(locked.events)).toBe("fake");
-      // The forwarded model string is resolved instead of the fake model,
-      // and fails on the missing Anthropic key before any model call.
-      expect(open.requests).toHaveLength(0);
-      expect(open.errored).toBe(true);
-      expect(eventsOfType(open.events, EventType.RUN_ERROR)).toEqual([
-        expect.objectContaining({
-          message:
-            'Missing API key for "anthropic/claude-sonnet-4-6". Pass apiKey, or set ANTHROPIC_API_KEY.',
-        }),
-      ]);
-    });
   });
 
-  describe("Model resolution", () => {
-    it("resolves a model string when the run starts and reports a missing key as RUN_ERROR", async () => {
-      const agent = new BuiltInAgent({ model: "openai/gpt-4o" });
-
-      const { events, errored } = await collectEventsIncludingErrors(
-        agent.run(createDefaultInput({ threadId: "t1", runId: "r1" })),
+  describe("Model guard", () => {
+    it("rejects a model string when the agent is constructed", () => {
+      // A JavaScript caller can still pass a string; the types forbid it.
+      // @ts-expect-error model must be a TanStack AI text adapter
+      expect(() => new BuiltInAgent({ model: "openai/gpt-5" })).toThrow(
+        'BuiltInAgent "model" got the string "openai/gpt-5". Pass a TanStack AI text adapter instead, such as openaiText("gpt-5") from "@tanstack/ai-openai".',
       );
-
-      expect(errored).toBe(true);
-      expect(events.map((e) => e.type)).toEqual([
-        EventType.RUN_STARTED,
-        EventType.RUN_ERROR,
-      ]);
-      expect(events[1]).toMatchObject({
-        threadId: "t1",
-        runId: "r1",
-        message:
-          'Missing API key for "openai/gpt-4o". Pass apiKey, or set OPENAI_API_KEY.',
-      });
     });
 
     it("rejects an AI SDK model object when the agent is constructed", () => {
@@ -523,7 +483,7 @@ describe("BuiltInAgent (classic)", () => {
 
       // An AI SDK model is not a TanStack adapter; this is the wrong value a
       // JavaScript caller can still pass.
-      // @ts-expect-error model must be a string or a TanStack AI adapter
+      // @ts-expect-error model must be a TanStack AI text adapter
       expect(() => new BuiltInAgent({ model: aiSdkModel })).toThrow(
         'Run AI SDK models with a factory: new BuiltInAgent({ type: "aisdk", factory: ... })',
       );

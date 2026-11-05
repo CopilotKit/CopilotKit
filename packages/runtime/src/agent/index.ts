@@ -11,14 +11,8 @@ import type {
 } from "@ag-ui/client";
 import { AbstractAgent, EventType, PROTOCOL_VERSION } from "@ag-ui/client";
 import type { AgentCapabilities } from "@ag-ui/core";
-import type * as TanStackAI from "@tanstack/ai";
+import { chat, maxIterations } from "@tanstack/ai";
 import type { AnyTextAdapter, AnyTool, ToolChoice } from "@tanstack/ai";
-import type * as TanStackMCP from "@tanstack/ai-mcp";
-import type {
-  HttpTransportConfig,
-  MCPClient,
-  SseTransportConfig,
-} from "@tanstack/ai-mcp";
 import { Observable } from "rxjs";
 import { randomUUID } from "@copilotkit/shared";
 import type {
@@ -36,7 +30,6 @@ import {
   isRecord,
 } from "./converters/usage";
 import type { AgentRunFinishedDetails } from "./converters/usage";
-import { describeEndpoint } from "../runtime/handlers/shared/describe-endpoint";
 import { SkillRegistry } from "../runtime/intelligence-platform/skill-registry";
 import {
   prepareLearnedSkills,
@@ -46,11 +39,9 @@ import type {
   BuiltInAgentLearnedSkills,
   BuiltInAgentLearnedSkillsOptions,
 } from "./learned-skills";
-import { mergeMCPTools, toToolNamePrefix } from "./mcp-tool-names";
+import { mergeMCPTools } from "./mcp-tool-names";
 import type { MCPToolSource } from "./mcp-tool-names";
-import { assertNotAISDKModel, classifyModelSpec, resolveModel } from "./model";
-import type { BuiltInAgentModel } from "./model";
-import { loadOptionalPeer } from "./optional-peers";
+import { assertTextAdapter } from "./model";
 import {
   assertFrontendToolSchemas,
   STATE_TOOLS,
@@ -62,21 +53,14 @@ export type {
   BuiltInAgentLearnedSkills,
   BuiltInAgentLearnedSkillsOptions,
 } from "./learned-skills";
-export { resolveModel, classifyModelSpec, isAISDKLanguageModel } from "./model";
-export type { BuiltInAgentModel, ModelSpecifier } from "./model";
-export type {
-  MCPClient,
-  MCPClientOptions,
-  HttpTransportConfig,
-  SseTransportConfig,
-  Transport as MCPTransport,
-} from "@tanstack/ai-mcp";
+export { isAISDKLanguageModel } from "./model";
 
 /**
  * Properties that a run's `forwardedProps` can override, when the agent lists
  * them in `overridableProperties`:
  *
- * - `model`: a model string, such as `"anthropic/claude-sonnet-4-6"`.
+ * - `model`: a model name, such as `"fast"`. The agent's `resolveModel`
+ *   turns it into an adapter.
  * - `toolChoice`: `"auto"`, `"none"`, `"required"`, or
  *   `{ type: "tool", name }`.
  * - `prompt`: the agent's prompt, as a string.
@@ -89,52 +73,12 @@ export type OverridableProperty =
   | "modelOptions";
 
 /**
- * MCP server reached over Streamable HTTP. The fields other than `name` are
- * the `@tanstack/ai-mcp` HTTP transport config: `url`, plus optional
- * `headers`, `fetch` (wrap it to add static and dynamic headers to each
- * request), and `authProvider`.
- */
-export interface MCPClientConfigHTTP extends HttpTransportConfig {
-  /**
-   * Optional name for this server. When a tool name collides with another
-   * MCP server's tool or with an app tool, the MCP tool is exposed as
-   * `<name>_<tool>`. Without a name, the prefix is `mcp<N>`, where N is the
-   * server's position among `mcpClients` and then `mcpServers`, from 1.
-   * Give each server a different name: if a prefixed name is already in use,
-   * a number is added (`<name>_<tool>_2`).
-   */
-  name?: string;
-}
-
-/**
- * MCP server reached over SSE. The fields other than `name` are the
- * `@tanstack/ai-mcp` SSE transport config: `url`, plus optional `headers`
- * (for example for authentication), `fetch`, and `authProvider`.
- */
-export interface MCPClientConfigSSE extends SseTransportConfig {
-  /**
-   * Optional name for this server. When a tool name collides with another
-   * MCP server's tool or with an app tool, the MCP tool is exposed as
-   * `<name>_<tool>`. Without a name, the prefix is `mcp<N>`, where N is the
-   * server's position among `mcpClients` and then `mcpServers`, from 1.
-   * Give each server a different name: if a prefixed name is already in use,
-   * a number is added (`<name>_<tool>_2`).
-   */
-  name?: string;
-}
-
-/**
- * MCP Client configuration
- */
-export type MCPClientConfig = MCPClientConfigHTTP | MCPClientConfigSSE;
-
-/**
- * A user-managed MCP client that provides tools to the agent.
- * The user is responsible for creating, configuring, and closing the client.
- * A client from `createMCPClient()` in `@tanstack/ai-mcp` fits this type.
+ * An MCP client that provides tools to the agent. A client from
+ * `createMCPClient()` in `@tanstack/ai-mcp` fits this type.
  *
- * Unlike mcpServers, the agent does NOT create or close these clients.
- * This allows persistent connections, custom auth, and tool caching.
+ * You create, configure, and close the client. The agent only reads its
+ * tools, on each run, so the client can keep its connection, auth, and tool
+ * cache between runs.
  */
 export interface MCPClientProvider {
   /** Return TanStack AI tools to be merged into the agent's tools. */
@@ -306,27 +250,34 @@ export type BuiltInAgentFactoryConfig =
  * Classic config: BuiltInAgent runs the model with TanStack AI `chat()` and
  * handles tools, MCP, state tools, and the system prompt.
  *
- * Install `@tanstack/ai` and the adapter package for your model, for example
- * `@tanstack/ai-openai` for `"openai/..."` models.
+ * Install `@tanstack/ai` and the adapter package for your provider, for
+ * example `@tanstack/ai-openai`.
  */
 export interface BuiltInAgentClassicConfig {
   /** Opt in to automatic snapshot acquisition before each run, including resumes. */
   learnedSkills?: BuiltInAgentLearnedSkillsOptions;
   /**
-   * The model: a model string such as `"openai/gpt-5"`, or a TanStack AI
-   * text adapter such as `openaiText("gpt-5")` from `@tanstack/ai-openai`.
-   * See `resolveModel` for the providers and their env vars.
+   * The model, as a TanStack AI text adapter, for example
+   * `openaiText("gpt-5")` from `@tanstack/ai-openai`. The adapter holds its
+   * own API key and base URL.
    */
-  model: BuiltInAgentModel | AnyTextAdapter;
+  model: AnyTextAdapter;
   /**
-   * API key for the model provider (OpenAI, Anthropic, Google)
-   * If not provided, falls back to environment variables:
-   * - OPENAI_API_KEY for OpenAI models
-   * - ANTHROPIC_API_KEY for Anthropic models
-   * - GOOGLE_API_KEY for Google models
-   * - MINIMAX_API_KEY for MiniMax models
+   * Turns a forwarded model name into an adapter, when `"model"` is in
+   * `overridableProperties`. Return `undefined` for a name you do not
+   * accept: the run then uses `model`.
+   *
+   * @example
+   * ```ts
+   * new BuiltInAgent({
+   *   model: openaiText("gpt-5"),
+   *   overridableProperties: ["model"],
+   *   resolveModel: (name) =>
+   *     name === "fast" ? openaiText("gpt-5-mini") : undefined,
+   * });
+   * ```
    */
-  apiKey?: string;
+  resolveModel?: (name: string) => AnyTextAdapter | undefined;
   /**
    * Maximum number of model calls in one run. Tools that the last call asks
    * for still run. Default: 1, or 10 when learned skills are available.
@@ -345,7 +296,7 @@ export interface BuiltInAgentClassicConfig {
    * @example
    * ```ts
    * new BuiltInAgent({
-   *   model: "openai/gpt-5",
+   *   model: openaiText("gpt-5"),
    *   modelOptions: { temperature: 0.2, max_output_tokens: 2048 },
    * });
    * ```
@@ -360,22 +311,21 @@ export interface BuiltInAgentClassicConfig {
    */
   overridableProperties?: OverridableProperty[];
   /**
-   * MCP servers to connect to on each run. Needs `@tanstack/ai-mcp`. The
-   * agent creates the clients when the run starts and closes them when it
-   * ends. A server that fails to connect is skipped for that run.
-   */
-  mcpServers?: MCPClientConfig[];
-  /**
-   * Optional list of user-managed MCP clients.
-   * Unlike mcpServers, the agent does NOT create or close these clients.
-   * The user controls the lifecycle, persistence, auth, and caching.
+   * MCP clients whose tools the agent offers to the model on each run. You
+   * create and close them; the agent does not. A tool name that collides
+   * with another client's tool or an app tool is exposed as `mcp<N>_<tool>`,
+   * where N is the client's position in this list, from 1.
    *
-   * A client from `createMCPClient()` in `@tanstack/ai-mcp` fits:
    * ```typescript
+   * import { createMCPClient } from "@tanstack/ai-mcp";
+   *
    * const client = await createMCPClient({
    *   transport: { type: "http", url: "https://mcp.example.com/mcp" },
    * });
-   * const agent = new BuiltInAgent({ model: "...", mcpClients: [client] });
+   * const agent = new BuiltInAgent({
+   *   model: openaiText("gpt-5"),
+   *   mcpClients: [client],
+   * });
    * ```
    */
   mcpClients?: MCPClientProvider[];
@@ -442,35 +392,29 @@ export class BuiltInAgent extends AbstractAgent {
   private abortController?: AbortController;
   private skillRegistry?: SkillRegistry;
 
-  /**
-   * Which vendor this agent's configured model reaches. Read by the SSE layer
-   * onto `agent_execution_stream_*` telemetry.
-   *
-   * Computed once, from the configured model, because that is what holds for
-   * the agent's lifetime. A per-request `forwardedProps.model` override
-   * (handled further down in `run`) can point somewhere else for one run and
-   * is not reflected here — overrides are rare and the field describes the
-   * agent, not the call.
-   *
-   * Factory-mode configs own their own LLM call, so there is no model for us
-   * to classify.
-   */
-  readonly modelHostClass: ModelHostClass;
+  /** Whether this agent already warned about an unresolved model override. */
+  private warnedUnresolvedModel = false;
 
   /**
-   * @throws Error when a classic config's `model` is an AI SDK model object.
-   *   Run AI SDK models with a `type: "aisdk"` factory instead.
+   * Which vendor this agent's model reaches, read by the SSE layer onto
+   * `agent_execution_stream_*` telemetry. Always `"unknown"`: a TanStack AI
+   * adapter keeps its base URL private, and a factory config owns its own
+   * LLM call.
+   */
+  readonly modelHostClass: ModelHostClass = "unknown";
+
+  /**
+   * @throws Error when a classic config's `model` is a model string or an AI
+   *   SDK model object. Pass a TanStack AI text adapter, or run AI SDK models
+   *   with a `type: "aisdk"` factory.
    */
   constructor(private config: BuiltInAgentConfiguration) {
     super();
-    if (!isFactoryConfig(config)) assertNotAISDKModel(config.model);
+    if (!isFactoryConfig(config)) assertTextAdapter(config.model);
     this.skillRegistry =
       config.learnedSkills === undefined
         ? undefined
         : new SkillRegistry(config.learnedSkills);
-    this.modelHostClass = isFactoryConfig(config)
-      ? "unknown"
-      : classifyModelSpec(config.model);
   }
 
   /**
@@ -503,6 +447,30 @@ export class BuiltInAgent extends AbstractAgent {
         ? props.modelOptions
         : undefined;
     return { model, toolChoice, prompt, modelOptions };
+  }
+
+  /**
+   * The adapter for this run: the forwarded model name through
+   * `resolveModel`, else the configured adapter. An override that does not
+   * resolve logs one warning per agent.
+   */
+  private adapterFor(
+    config: BuiltInAgentClassicConfig,
+    modelName: string | undefined,
+  ) {
+    if (modelName === undefined) return config.model;
+    const resolved = config.resolveModel?.(modelName);
+    if (resolved) return resolved;
+    if (!this.warnedUnresolvedModel) {
+      this.warnedUnresolvedModel = true;
+      const reason = config.resolveModel
+        ? "resolveModel returned undefined for it"
+        : "the agent has no resolveModel";
+      console.warn(
+        `[CopilotKit] Ignoring the forwarded model ${JSON.stringify(modelName)}: ${reason}. The run uses the configured model adapter.`,
+      );
+    }
+    return config.model;
   }
 
   async getCapabilities(): Promise<AgentCapabilities> {
@@ -566,24 +534,12 @@ export class BuiltInAgent extends AbstractAgent {
       };
       subscriber.next(startEvent);
 
-      // MCP clients the agent created for this run; closed when it ends.
-      const mcpClients: MCPClient[] = [];
-
       void (async () => {
         const runFinishedDetails: AgentRunFinishedDetails = {};
         const pendingInterrupts: Interrupt[] = [];
         try {
-          const { chat, maxIterations } = await loadOptionalPeer<
-            typeof TanStackAI
-          >("@tanstack/ai", "BuiltInAgent with a model");
-          signal.throwIfAborted();
-
           const overrides = this.forwardedOverrides(input.forwardedProps);
-          const adapter = await resolveModel(
-            overrides.model ?? config.model,
-            config.apiKey,
-          );
-          signal.throwIfAborted();
+          const adapter = this.adapterFor(config, overrides.model);
 
           assertFrontendToolSchemas(input.tools ?? []);
           const converted = convertInputToTanStackAI(input, {
@@ -619,61 +575,13 @@ export class BuiltInAgent extends AbstractAgent {
           // that two sources share keeps both tools instead of the later one
           // replacing the earlier.
           const mcpToolSources: MCPToolSource[] = [];
-          const userMcpClients = config.mcpClients ?? [];
+          const mcpClients = config.mcpClients ?? [];
 
-          // Tools from user-managed MCP clients (user controls lifecycle)
-          for (const [index, client] of userMcpClients.entries()) {
+          // The user owns these clients, so the agent never closes them.
+          for (const [index, client] of mcpClients.entries()) {
             const mcpTools = await client.tools();
             signal.throwIfAborted();
             mcpToolSources.push({ label: `mcp${index + 1}`, tools: mcpTools });
-          }
-
-          const mcpServers = config.mcpServers ?? [];
-          if (mcpServers.length > 0) {
-            const { createMCPClient } = await loadOptionalPeer<
-              typeof TanStackMCP
-            >("@tanstack/ai-mcp", "BuiltInAgent mcpServers");
-            signal.throwIfAborted();
-
-            for (const [index, serverConfig] of mcpServers.entries()) {
-              const { name, ...transport } = serverConfig;
-              const label = name
-                ? toToolNamePrefix(name)
-                : `mcp${userMcpClients.length + index + 1}`;
-
-              // A single MCP server being unavailable (down, 5xx, timeout,
-              // bad auth) must NOT fail the whole run — skip it and continue
-              // with the healthy servers and the agent's own tools.
-              let mcpClient: MCPClient;
-              try {
-                mcpClient = await createMCPClient({ transport });
-              } catch (err) {
-                signal.throwIfAborted();
-                console.error(
-                  `[CopilotKit] MCP server ${describeEndpoint(serverConfig.url)} failed to connect — skipping it for this run:`,
-                  err,
-                );
-                continue;
-              }
-              // Unsubscribe may have already cleaned up while connection was pending.
-              if (signal.aborted) {
-                await mcpClient.close();
-                signal.throwIfAborted();
-              }
-              // Track it so it's closed on cleanup even if tools() fails.
-              mcpClients.push(mcpClient);
-              try {
-                const mcpTools = await mcpClient.tools();
-                signal.throwIfAborted();
-                mcpToolSources.push({ label, tools: mcpTools });
-              } catch (err) {
-                signal.throwIfAborted();
-                console.error(
-                  `[CopilotKit] MCP server ${describeEndpoint(serverConfig.url)} tools() failed — skipping its tools for this run:`,
-                  err,
-                );
-              }
-            }
           }
 
           const tools = mergeMCPTools(appTools, mcpToolSources);
@@ -760,7 +668,6 @@ export class BuiltInAgent extends AbstractAgent {
         } finally {
           if (this.abortController === abortController)
             this.abortController = undefined;
-          await Promise.all(mcpClients.map((client) => client.close()));
         }
       })();
 
@@ -769,10 +676,6 @@ export class BuiltInAgent extends AbstractAgent {
         abortController.abort();
         if (this.abortController === abortController)
           this.abortController = undefined;
-        // Cleanup MCP clients if stream is unsubscribed
-        Promise.all(mcpClients.map((client) => client.close())).catch(() => {
-          // Ignore cleanup errors
-        });
       };
     });
   }

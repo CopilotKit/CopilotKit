@@ -13,8 +13,9 @@ import {
   runClassicAgent,
 } from "./agent-test-helpers";
 
-// User-managed MCP clients: the agent reads their tools on each run and never
-// closes them.
+// MCP clients the user creates: the agent reads their tools on each run and
+// never closes them. Real MCP servers run in this process and real
+// `@tanstack/ai-mcp` clients reach them; only the model is a fake.
 
 const cleanups: Array<() => Promise<void>> = [];
 
@@ -38,10 +39,12 @@ function objectProvider(tools: AnyTool[]) {
 
 /**
  * An MCPMock served over Streamable HTTP. Each tool answers with
- * `result for <query>`. Returns the MCP endpoint URL.
+ * `<label> result for <args>`, so a test can tell which server ran it.
+ * Returns the MCP endpoint URL.
  */
 async function startHttpMCPServer(
   tools: Array<{ name: string; description: string }>,
+  label = "server",
 ) {
   const mock = new MCPMock();
   for (const tool of tools) {
@@ -52,13 +55,27 @@ async function startHttpMCPServer(
         properties: { query: { type: "string" } },
       },
     });
-    mock.onToolCall(tool.name, (args) => `result for ${JSON.stringify(args)}`);
+    mock.onToolCall(
+      tool.name,
+      (args) => `${label} result for ${JSON.stringify(args)}`,
+    );
   }
   const server = new LLMock({ port: 0 });
   server.mount("/mcp", mock);
   await server.start();
   cleanups.push(() => server.stop());
   return `${server.url}/mcp`;
+}
+
+/** A real `@tanstack/ai-mcp` client for an HTTP MCPMock with `tools`. */
+async function connectMCPClient(
+  tools: Array<{ name: string; description: string }>,
+  label?: string,
+) {
+  const url = await startHttpMCPServer(tools, label);
+  const client = await createMCPClient({ transport: { type: "http", url } });
+  cleanups.push(() => client.close());
+  return client;
 }
 
 function findTool(request: TextOptions, name: string) {
@@ -74,11 +91,9 @@ function spyOnWarn() {
 
 describe("mcpClients: user-managed MCP clients", () => {
   it("runs the tools of a real @tanstack/ai-mcp client and leaves the client open", async () => {
-    const url = await startHttpMCPServer([
+    const client = await connectMCPClient([
       { name: "get_weather", description: "Get the weather" },
     ]);
-    const client = await createMCPClient({ transport: { type: "http", url } });
-    cleanups.push(() => client.close());
 
     const { events, requests } = await runClassicAgent(
       { mcpClients: [client], maxSteps: 2 },
@@ -140,26 +155,32 @@ describe("mcpClients: user-managed MCP clients", () => {
 });
 
 describe("mcpClients: tool names", () => {
-  it("a name shared by an mcpClient and an mcpServer keeps both tools, prefixed", async () => {
+  it("a tool that two real clients share is prefixed, and each copy calls its own server", async () => {
     const warn = spyOnWarn();
-    const url = await startHttpMCPServer([
-      { name: "sharedTool", description: "from server" },
-    ]);
+    const search = { name: "search", description: "Search" };
+    const staging = await connectMCPClient([search], "staging");
+    const production = await connectMCPClient([search], "production");
 
-    const { requests } = await runClassicAgent({
-      mcpClients: [objectProvider([fakeTool("sharedTool", "from client")])],
-      mcpServers: [{ type: "http", url, name: "docs" }],
-    });
+    const { events, requests } = await runClassicAgent(
+      { mcpClients: [staging, production], maxSteps: 2 },
+      [
+        {
+          toolCalls: [
+            { id: "tc1", name: "mcp2_search", input: { query: "NYC" } },
+          ],
+        },
+        { text: "done" },
+      ],
+    );
 
-    // A user-managed client has no name, so it falls back to its position.
-    expect(findTool(requests[0], "mcp1_sharedTool")?.description).toBe(
-      "from client",
+    const names = requestToolNames(requests[0]);
+    expect(names).toEqual(
+      expect.arrayContaining(["mcp1_search", "mcp2_search"]),
     );
-    expect(findTool(requests[0], "docs_sharedTool")?.description).toBe(
-      "from server",
-    );
-    expect(requestToolNames(requests[0])).not.toContain("sharedTool");
-    expect(warn).toHaveBeenCalledWith(expect.stringContaining('"sharedTool"'));
+    expect(names).not.toContain("search");
+    const [result] = eventsOfType(events, EventType.TOOL_CALL_RESULT);
+    expect(result.content).toContain("production result for");
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('"search"'));
   });
 
   it("multiple mcpClients keep unique names and prefix only the shared one", async () => {
@@ -211,20 +232,6 @@ describe("mcpClients: tool names", () => {
     expect(findTool(requests[0], "search")?.description).toBe("from app");
     expect(findTool(requests[0], "mcp1_search")?.description).toBe("from mcp");
     expect(warn).toHaveBeenCalledWith(expect.stringContaining('"search"'));
-  });
-
-  it("a server name is reduced to characters that model providers accept", async () => {
-    spyOnWarn();
-    const url = await startHttpMCPServer([
-      { name: "lookup", description: "from server" },
-    ]);
-
-    const { requests } = await runClassicAgent({
-      mcpClients: [objectProvider([fakeTool("lookup", "from client")])],
-      mcpServers: [{ type: "http", url, name: "Prod API (eu)" }],
-    });
-
-    expect(requestToolNames(requests[0])).toContain("Prod_API__eu__lookup");
   });
 
   it("warns about a collision once, not on every run", async () => {
