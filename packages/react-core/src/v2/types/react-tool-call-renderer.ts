@@ -1,4 +1,5 @@
 import type { StandardSchemaV1 } from "@copilotkit/shared";
+import type { ToolMessage } from "@ag-ui/core";
 import type { ToolCallStatus } from "@copilotkit/core";
 
 export interface ReactToolCallRenderer<T = unknown> {
@@ -27,6 +28,7 @@ export interface ReactToolCallRenderer<T = unknown> {
         args: Partial<T>;
         status: ToolCallStatus.InProgress;
         result: undefined;
+        resultContent?: undefined;
       }
     | {
         name: string;
@@ -34,6 +36,7 @@ export interface ReactToolCallRenderer<T = unknown> {
         args: T;
         status: ToolCallStatus.Executing;
         result: undefined;
+        resultContent?: undefined;
       }
     | {
         name: string;
@@ -41,6 +44,8 @@ export interface ReactToolCallRenderer<T = unknown> {
         args: T;
         status: ToolCallStatus.Complete;
         result: string;
+        /** Original tool result, including ordered media parts when present. */
+        resultContent?: ToolMessage["content"];
       }
   >;
 }

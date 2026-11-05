@@ -43,6 +43,7 @@ import type {
 } from "@copilotkit/shared";
 import { randomUUID } from "@copilotkit/shared";
 import { StateManager } from "./state-manager";
+import { ɵChildHistoryStore } from "../child-history";
 import type { CopilotKitCoreContinuationHandoff } from "./state-manager";
 import { ThreadStoreRegistry } from "./thread-store-registry";
 import { LearningBridge } from "./learning-bridge";
@@ -473,6 +474,8 @@ export interface CopilotKitCoreFriendsAccess {
 }
 
 export class CopilotKitCore {
+  /** @internal Read-only child presentation, separate from agent model input. */
+  readonly ɵchildHistories = new ɵChildHistoryStore();
   private headerSource: HeaderSourceResolver;
   private _credentials?: RequestCredentials;
   private _messageFilter?: CopilotKitMessageFilter;

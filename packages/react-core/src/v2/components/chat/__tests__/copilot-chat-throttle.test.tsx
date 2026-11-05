@@ -5,7 +5,10 @@ import { CopilotChat } from "../CopilotChat";
 import { useAgent } from "../../../hooks/use-agent";
 import { useCopilotKit } from "../../../context";
 import { MockStepwiseAgent } from "../../../__tests__/utils/test-helpers";
-import { CopilotKitCoreRuntimeConnectionStatus } from "@copilotkit/core";
+import {
+  CopilotKitCore,
+  CopilotKitCoreRuntimeConnectionStatus,
+} from "@copilotkit/core";
 
 // Mock useAgent to inspect the props it receives
 vi.mock("../../../hooks/use-agent", () => ({
@@ -70,6 +73,7 @@ const mockUseCopilotKit = useCopilotKit as ReturnType<typeof vi.fn>;
 function createMockChatContext(agent: MockStepwiseAgent) {
   return {
     copilotkit: {
+      ɵchildHistories: new CopilotKitCore({}).ɵchildHistories,
       getAgent: () => agent,
       runtimeUrl: "http://localhost:3000/api/copilot",
       runtimeConnectionStatus: CopilotKitCoreRuntimeConnectionStatus.Connected,

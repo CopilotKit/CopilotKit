@@ -53,6 +53,8 @@ import { useFeedbackComment, useMessageFeedback } from "./message-feedback";
 import type { FeedbackComment } from "./message-feedback";
 import { MESSAGE_FEEDBACK_MAX_COMMENT_LENGTH } from "../../lib/message-feedback";
 import type { MessageFeedbackRating } from "../../lib/message-feedback";
+import { ChildContentContext } from "./child-content-context";
+import { CopilotChatContentParts } from "./CopilotChatContentParts";
 
 export type CopilotChatFeedbackMessage = AssistantMessage & {
   rawEvent?: unknown;
@@ -365,6 +367,7 @@ export function CopilotChatAssistantMessage({
   className,
   ...props
 }: CopilotChatAssistantMessageProps) {
+  const contentParts = useContext(ChildContentContext).get(message.id);
   useKatexStyles();
   const { isInspectorEnabled, openInspector } = useCopilotKitInspector();
   const shortcutsHidden = useInspectorShortcutsHidden();
@@ -463,13 +466,22 @@ export function CopilotChatAssistantMessage({
     };
   };
 
-  const boundMarkdownRenderer = renderSlot(
-    markdownRenderer,
-    CopilotChatAssistantMessage.MarkdownRenderer,
-    {
+  const boundMarkdownRenderer = contentParts ? (
+    <CopilotChatContentParts
+      content={contentParts}
+      renderText={(content) =>
+        renderSlot(
+          markdownRenderer,
+          CopilotChatAssistantMessage.MarkdownRenderer,
+          { content, messageId: message.id },
+        )
+      }
+    />
+  ) : (
+    renderSlot(markdownRenderer, CopilotChatAssistantMessage.MarkdownRenderer, {
       content: message.content || "",
       messageId: message.id,
-    },
+    })
   );
 
   const boundCopyButton = renderSlot(

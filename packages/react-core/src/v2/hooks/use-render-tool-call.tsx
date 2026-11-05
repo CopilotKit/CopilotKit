@@ -58,10 +58,9 @@ const ToolCallRenderer = React.memo(
           toolCallId={toolCall.id}
           args={args}
           status={ToolCallStatus.Complete}
-          // AG-UI 1.0 lets a tool result carry content parts; the renderer
-          // contract is `result: string`, so it gets the text parts (media is
-          // not something a string can hold — the message itself keeps it).
           result={contentToText(toolMessage.content)}
+          // Keep the legacy text fallback alongside the full ordered content.
+          resultContent={toolMessage.content}
         />
       );
     } else if (isExecuting) {

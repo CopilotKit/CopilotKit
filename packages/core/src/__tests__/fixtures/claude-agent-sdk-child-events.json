@@ -1,0 +1,326 @@
+{
+  "source": "@ag-ui/claude-agent-sdk@0.0.8, recorded via scripted SDK stream",
+  "scenarios": {
+    "delegation": [
+      {
+        "type": "RUN_STARTED",
+        "threadId": "thread-1",
+        "runId": "run-1",
+        "protocolVersion": "1.0",
+        "input": {
+          "threadId": "thread-1",
+          "runId": "run-1",
+          "tools": [],
+          "context": [],
+          "state": {},
+          "forwardedProps": {},
+          "messages": [
+            {
+              "id": "user-1",
+              "role": "user",
+              "content": "Find me a flight to Lisbon"
+            }
+          ]
+        }
+      },
+      {
+        "type": "STATE_SNAPSHOT",
+        "snapshot": {}
+      },
+      {
+        "type": "CUSTOM",
+        "name": "system:init",
+        "value": {
+          "type": "system",
+          "subtype": "init",
+          "uuid": "u-init",
+          "session_id": "session-1",
+          "model": "claude-sonnet-4-5",
+          "tools": ["Task", "WebSearch"],
+          "mcp_servers": [],
+          "permissionMode": "default",
+          "cwd": "/workspace"
+        }
+      },
+      {
+        "type": "TOOL_CALL_START",
+        "threadId": "thread-1",
+        "runId": "run-1",
+        "toolCallId": "toolu_task_1",
+        "toolCallName": "Task",
+        "parentMessageId": "msg_root_1"
+      },
+      {
+        "type": "TOOL_CALL_ARGS",
+        "threadId": "thread-1",
+        "runId": "run-1",
+        "toolCallId": "toolu_task_1",
+        "delta": "{\"description\":\"Research flights\",\"prompt\":\"Find flights to Lisbon\",\"subagent_type\":\"general-purpose\"}"
+      },
+      {
+        "type": "TOOL_CALL_END",
+        "threadId": "thread-1",
+        "runId": "run-1",
+        "toolCallId": "toolu_task_1"
+      },
+      {
+        "type": "CUSTOM",
+        "name": "claude:assistant_content",
+        "value": {
+          "messageId": "msg_root_1",
+          "uuid": "u-root-1",
+          "parentToolUseId": null,
+          "content": [
+            {
+              "type": "tool_use",
+              "id": "toolu_task_1",
+              "name": "Task",
+              "input": {
+                "description": "Research flights",
+                "prompt": "Find flights to Lisbon",
+                "subagent_type": "general-purpose"
+              }
+            }
+          ]
+        }
+      },
+      {
+        "type": "CUSTOM",
+        "name": "claude:assistant_content",
+        "value": {
+          "messageId": "msg_child_1",
+          "uuid": "u-child-1a",
+          "parentToolUseId": "toolu_task_1",
+          "content": [
+            {
+              "type": "text",
+              "text": "Searching for flights."
+            }
+          ]
+        }
+      },
+      {
+        "type": "CUSTOM",
+        "name": "claude:assistant_content",
+        "value": {
+          "messageId": "msg_child_1",
+          "uuid": "u-child-1b",
+          "parentToolUseId": "toolu_task_1",
+          "content": [
+            {
+              "type": "tool_use",
+              "id": "toolu_search_1",
+              "name": "WebSearch",
+              "input": {
+                "query": "flights to Lisbon"
+              }
+            }
+          ]
+        }
+      },
+      {
+        "type": "TOOL_CALL_START",
+        "threadId": "thread-1",
+        "runId": "run-1",
+        "toolCallId": "toolu_search_1",
+        "toolCallName": "WebSearch",
+        "parentMessageId": "msg_child_1"
+      },
+      {
+        "type": "TOOL_CALL_ARGS",
+        "threadId": "thread-1",
+        "runId": "run-1",
+        "toolCallId": "toolu_search_1",
+        "delta": "{\"query\":\"flights to Lisbon\"}"
+      },
+      {
+        "type": "TOOL_CALL_END",
+        "threadId": "thread-1",
+        "runId": "run-1",
+        "toolCallId": "toolu_search_1"
+      },
+      {
+        "type": "TOOL_CALL_RESULT",
+        "threadId": "thread-1",
+        "runId": "run-1",
+        "messageId": "toolu_search_1-result",
+        "toolCallId": "toolu_search_1",
+        "content": "TAP 09:40, 312 EUR",
+        "rawEvent": {
+          "type": "tool_result",
+          "tool_use_id": "toolu_search_1",
+          "content": [
+            {
+              "type": "text",
+              "text": "TAP 09:40, 312 EUR"
+            }
+          ],
+          "uuid": "u-child-result",
+          "parent_tool_use_id": "toolu_task_1"
+        },
+        "role": "tool"
+      },
+      {
+        "type": "CUSTOM",
+        "name": "claude:assistant_content",
+        "value": {
+          "messageId": "msg_child_2",
+          "uuid": "u-child-2",
+          "parentToolUseId": "toolu_task_1",
+          "content": [
+            {
+              "type": "text",
+              "text": "Best option: TAP 09:40 for 312 EUR."
+            }
+          ]
+        }
+      },
+      {
+        "type": "TOOL_CALL_RESULT",
+        "threadId": "thread-1",
+        "runId": "run-1",
+        "messageId": "toolu_task_1-result",
+        "toolCallId": "toolu_task_1",
+        "content": "Best option: TAP 09:40 for 312 EUR.",
+        "rawEvent": {
+          "type": "tool_result",
+          "tool_use_id": "toolu_task_1",
+          "content": [
+            {
+              "type": "text",
+              "text": "Best option: TAP 09:40 for 312 EUR."
+            }
+          ],
+          "uuid": "u-task-result",
+          "parent_tool_use_id": null,
+          "tool_use_result": {
+            "status": "completed",
+            "agentId": "agent-1",
+            "content": [
+              {
+                "type": "text",
+                "text": "Best option: TAP 09:40 for 312 EUR."
+              }
+            ],
+            "totalDurationMs": 1200,
+            "totalTokens": 300,
+            "totalToolUseCount": 1
+          }
+        },
+        "role": "tool"
+      },
+      {
+        "type": "TEXT_MESSAGE_START",
+        "threadId": "thread-1",
+        "runId": "run-1",
+        "messageId": "msg_root_2",
+        "role": "assistant"
+      },
+      {
+        "type": "TEXT_MESSAGE_CONTENT",
+        "threadId": "thread-1",
+        "runId": "run-1",
+        "messageId": "msg_root_2",
+        "delta": "I found a TAP flight at 09:40 for 312 EUR."
+      },
+      {
+        "type": "TEXT_MESSAGE_END",
+        "threadId": "thread-1",
+        "runId": "run-1",
+        "messageId": "msg_root_2"
+      },
+      {
+        "type": "CUSTOM",
+        "name": "claude:assistant_content",
+        "value": {
+          "messageId": "msg_root_2",
+          "uuid": "u-root-2",
+          "parentToolUseId": null,
+          "content": [
+            {
+              "type": "text",
+              "text": "I found a TAP flight at 09:40 for 312 EUR."
+            }
+          ]
+        }
+      },
+      {
+        "type": "MESSAGES_SNAPSHOT",
+        "messages": [
+          {
+            "id": "user-1",
+            "role": "user",
+            "content": "Find me a flight to Lisbon"
+          },
+          {
+            "id": "msg_root_1",
+            "role": "assistant",
+            "toolCalls": [
+              {
+                "id": "toolu_task_1",
+                "type": "function",
+                "function": {
+                  "name": "Task",
+                  "arguments": "{\"description\":\"Research flights\",\"prompt\":\"Find flights to Lisbon\",\"subagent_type\":\"general-purpose\"}"
+                }
+              }
+            ]
+          },
+          {
+            "id": "msg_child_1",
+            "role": "assistant",
+            "content": "Searching for flights.",
+            "toolCalls": [
+              {
+                "id": "toolu_search_1",
+                "type": "function",
+                "function": {
+                  "name": "WebSearch",
+                  "arguments": "{\"query\":\"flights to Lisbon\"}"
+                }
+              }
+            ]
+          },
+          {
+            "id": "toolu_search_1-result",
+            "role": "tool",
+            "content": "TAP 09:40, 312 EUR",
+            "toolCallId": "toolu_search_1"
+          },
+          {
+            "id": "msg_child_2",
+            "role": "assistant",
+            "content": "Best option: TAP 09:40 for 312 EUR."
+          },
+          {
+            "id": "toolu_task_1-result",
+            "role": "tool",
+            "content": "Best option: TAP 09:40 for 312 EUR.",
+            "toolCallId": "toolu_task_1"
+          },
+          {
+            "id": "msg_root_2",
+            "role": "assistant",
+            "content": "I found a TAP flight at 09:40 for 312 EUR."
+          }
+        ]
+      },
+      {
+        "type": "RUN_FINISHED",
+        "threadId": "thread-1",
+        "runId": "run-1",
+        "result": {
+          "isError": false,
+          "durationMs": 1500,
+          "durationApiMs": 1400,
+          "numTurns": 3,
+          "totalCostUsd": 0,
+          "usage": {
+            "input_tokens": 30,
+            "output_tokens": 37
+          }
+        }
+      }
+    ]
+  }
+}

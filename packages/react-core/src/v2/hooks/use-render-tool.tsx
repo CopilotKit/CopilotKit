@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import type { ToolMessage } from "@ag-ui/core";
 import type { StandardSchemaV1, InferSchemaOutput } from "@copilotkit/shared";
 import { ToolCallStatus } from "@copilotkit/core";
 import { useCopilotKit } from "../context";
@@ -11,6 +12,7 @@ export interface RenderToolInProgressProps<S extends StandardSchemaV1> {
   parameters: Partial<InferSchemaOutput<S>>;
   status: "inProgress";
   result: undefined;
+  resultContent?: undefined;
 }
 
 export interface RenderToolExecutingProps<S extends StandardSchemaV1> {
@@ -19,6 +21,7 @@ export interface RenderToolExecutingProps<S extends StandardSchemaV1> {
   parameters: InferSchemaOutput<S>;
   status: "executing";
   result: undefined;
+  resultContent?: undefined;
 }
 
 export interface RenderToolCompleteProps<S extends StandardSchemaV1> {
@@ -27,6 +30,8 @@ export interface RenderToolCompleteProps<S extends StandardSchemaV1> {
   parameters: InferSchemaOutput<S>;
   status: "complete";
   result: string;
+  /** Original tool result, including ordered media parts when present. */
+  resultContent?: ToolMessage["content"];
 }
 
 export type RenderToolProps<S extends StandardSchemaV1> =

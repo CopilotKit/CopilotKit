@@ -1,4 +1,5 @@
 import React from "react";
+import type { ToolMessage } from "@ag-ui/core";
 import { z } from "zod";
 import type { StandardSchemaV1, InferSchemaOutput } from "@copilotkit/shared";
 import type { ReactToolCallRenderer } from "./react-tool-call-renderer";
@@ -18,6 +19,7 @@ type RenderProps<T> =
       args: Partial<T>;
       status: ToolCallStatus.InProgress;
       result: undefined;
+      resultContent?: undefined;
     }
   | {
       name: string;
@@ -25,6 +27,7 @@ type RenderProps<T> =
       args: T;
       status: ToolCallStatus.Executing;
       result: undefined;
+      resultContent?: undefined;
     }
   | {
       name: string;
@@ -32,6 +35,8 @@ type RenderProps<T> =
       args: T;
       status: ToolCallStatus.Complete;
       result: string;
+      /** Original tool result, including ordered media parts when present. */
+      resultContent?: ToolMessage["content"];
     };
 
 // Overload for wildcard tools without args

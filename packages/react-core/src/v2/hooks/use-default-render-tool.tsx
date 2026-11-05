@@ -1,4 +1,7 @@
 import React, { useContext, useState } from "react";
+import type { ToolMessage } from "@ag-ui/core";
+import { ChildHistoryReadOnlyContext } from "../components/chat/child-content-context";
+import { CopilotChatContentParts } from "../components/chat/CopilotChatContentParts";
 import { ToolCallStatus } from "@copilotkit/core";
 import { useRenderTool } from "./use-render-tool";
 import {
@@ -17,6 +20,8 @@ export type DefaultRenderProps = {
   status: "inProgress" | "executing" | "complete";
   /** The tool call result string, available only when `status` is `"complete"`. */
   result: string | undefined;
+  /** Original tool result, preserving ordered text and media parts. */
+  resultContent?: ToolMessage["content"];
 };
 
 /**
@@ -34,6 +39,7 @@ type RawRendererProps = {
   args: unknown;
   status: ToolCallStatus;
   result: string | undefined;
+  resultContent?: ToolMessage["content"];
 };
 
 /**
@@ -90,6 +96,9 @@ export function adaptRendererProps(
     parameters: props.args,
     status: mapToolCallStatus(props.status),
     result: props.result,
+    ...(props.resultContent !== undefined
+      ? { resultContent: props.resultContent }
+      : {}),
   };
 }
 
@@ -197,8 +206,10 @@ export function DefaultToolCallRenderer({
   parameters,
   status,
   result,
+  resultContent,
 }: DefaultRenderProps): React.ReactElement {
   const group = useContext(ToolCallGroupContext);
+  const isChildHistory = useContext(ChildHistoryReadOnlyContext);
   const [isExpanded, setIsExpanded] = useState(false);
 
   const isActive = status === "inProgress" || status === "executing";
@@ -217,6 +228,7 @@ export function DefaultToolCallRenderer({
         name={name}
         parameters={parameters}
         result={result}
+        resultContent={resultContent}
         status={
           isComplete
             ? group.failedIds.has(toolCallId)
@@ -318,11 +330,17 @@ export function DefaultToolCallRenderer({
                 <div className="cpk:text-[10px] cpk:uppercase cpk:text-zinc-500 cpk:dark:text-zinc-400">
                   Result
                 </div>
-                <pre className="cpk:mt-1.5 cpk:max-h-[200px] cpk:overflow-auto cpk:rounded-md cpk:bg-zinc-100 cpk:p-2.5 cpk:text-[11px] cpk:leading-relaxed cpk:text-zinc-800 cpk:whitespace-pre-wrap cpk:break-words cpk:dark:bg-zinc-800/60 cpk:dark:text-zinc-200">
-                  {typeof result === "string"
-                    ? result
-                    : safeStringifyForPre(result)}
-                </pre>
+                {isChildHistory &&
+                Array.isArray(resultContent) &&
+                resultContent.some((part) => part.type !== "text") ? (
+                  <CopilotChatContentParts content={resultContent} />
+                ) : (
+                  <pre className="cpk:mt-1.5 cpk:max-h-[200px] cpk:overflow-auto cpk:rounded-md cpk:bg-zinc-100 cpk:p-2.5 cpk:text-[11px] cpk:leading-relaxed cpk:text-zinc-800 cpk:whitespace-pre-wrap cpk:break-words cpk:dark:bg-zinc-800/60 cpk:dark:text-zinc-200">
+                    {typeof result === "string"
+                      ? result
+                      : safeStringifyForPre(result)}
+                  </pre>
+                )}
               </div>
             )}
           </div>
