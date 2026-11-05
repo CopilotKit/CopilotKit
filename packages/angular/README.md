@@ -142,7 +142,7 @@ export interface CopilotKitConfig {
 - `defaultToolRendering`: Opt in to the text-only renderer for unknown tools.
   It is disabled by default so missing renderers remain visible integration
   errors rather than silently changing the experience.
-- `a2ui`: Theme, catalog, schema, loading UI, and recovery policy for A2UI.
+- `a2ui`: Theme, catalog, schema, loading UI, action interception, and recovery policy for A2UI.
   Surfaces render with the catalog from `@copilotkit/angular/a2ui` (see
   below); without one, A2UI stays off.
 - `openGenerativeUI`: Sandboxed UI functions and optional design guidance.
@@ -443,6 +443,42 @@ provideCopilotKit({
   a2ui: { catalog: basicCatalog },
 });
 ```
+
+Set `a2ui.onAction` to intercept an action before it reaches the agent. This
+applies to both activity-message and tool-result surfaces inside chat:
+
+```ts
+import { signal } from "@angular/core";
+import {
+  provideCopilotKit,
+  type A2UIActionInterceptor,
+} from "@copilotkit/angular";
+import { basicCatalog } from "@copilotkit/angular/a2ui";
+
+const selectedProductId = signal<string | null>(null);
+const onAction: A2UIActionInterceptor = (action) => {
+  const productId = action.context?.["productId"];
+  if (action.name === "select_product" && typeof productId === "string") {
+    selectedProductId.set(productId);
+    return null; // Handled locally; do not run the agent.
+  }
+  // Returning undefined forwards the original action to the agent.
+};
+
+provideCopilotKit({
+  runtimeUrl: "/api/copilotkit",
+  a2ui: { catalog: basicCatalog, onAction },
+});
+```
+
+The callback receives an `A2UIUserAction` with the action name, surface and
+component IDs, timestamp, and resolved context. Return a modified action to
+forward it instead. Async callbacks are awaited. For manual forwarding, await
+the second argument, `forward(action)` (or `forward()` for the original), and
+return `null` to prevent a second agent run. Rejected callbacks stop forwarding
+and propagate the error. With no callback, actions continue to run the agent.
+Standalone `<copilot-a2ui-surface>` instances keep their `(action)` output;
+their host owns action handling.
 
 For your own components, build a catalog with `createAngularCatalog`. It
 contains exactly the components you register unless you pass
