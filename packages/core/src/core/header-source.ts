@@ -197,15 +197,14 @@ export function ɵoverlayCoreHeaders(
   const base: Record<string, string> = Array.isArray(existing)
     ? Object.fromEntries(existing)
     : { ...existing };
-  const keyByLower = new Map(
-    Object.keys(base).map((k) => [k.toLowerCase(), k]),
-  );
   for (const [key, value] of Object.entries(core)) {
-    const existingKey = keyByLower.get(key.toLowerCase());
-    if (existingKey !== undefined) {
-      if (PROTOCOL_HEADERS.has(key.toLowerCase())) continue;
-      delete base[existingKey];
+    const existingKeys = Object.keys(base).filter(
+      (existingKey) => existingKey.toLowerCase() === key.toLowerCase(),
+    );
+    if (existingKeys.length > 0 && PROTOCOL_HEADERS.has(key.toLowerCase())) {
+      continue;
     }
+    for (const existingKey of existingKeys) delete base[existingKey];
     base[key] = value;
   }
   return base;
