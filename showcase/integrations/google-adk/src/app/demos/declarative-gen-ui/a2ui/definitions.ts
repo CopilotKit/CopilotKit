@@ -43,7 +43,7 @@ export const myDefinitions = {
       "Vertical layout container. Use `gap` (px) to space stacked sections.",
     props: z.object({
       // Keep `children` first. A2UI Express maps positional arguments in
-      // property order, so `Row([...], gap=16)` must bind the list to it.
+      // property order, so `Column([...], gap=16)` must bind the list to it.
       children: z
         .array(z.string())
         .describe("REF:common_types.json#/$defs/ChildList"),
