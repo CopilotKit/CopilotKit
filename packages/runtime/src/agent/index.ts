@@ -2629,9 +2629,7 @@ export class BuiltInAgent extends AbstractAgent {
     });
     cloned.config = this.config;
     cloned.skillRegistry = this.skillRegistry;
-    // AbstractAgent.middlewares is private in @ag-ui/client — no public accessor exists.
-    // This coupling is intentional: clone() must preserve middleware chains.
-    // @ts-expect-error accessing private AbstractAgent.middlewares
+    // clone() must preserve middleware chains.
     cloned.middlewares = [...this.middlewares];
     return cloned;
   }
