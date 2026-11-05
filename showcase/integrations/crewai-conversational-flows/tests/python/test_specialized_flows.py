@@ -569,7 +569,7 @@ async def test_tool_rendering_reasoning_combines_reasoning_and_tool_results(
     await flow.chat()
 
     assert not hasattr(module, "acompletion")
-    assert calls[0]["reasoning"] == {"effort": "medium", "summary": "detailed"}
+    assert calls[0]["reasoning"] == {"effort": "high", "summary": "detailed"}
     assert calls[0]["tool_choice"] == "required"
     assert calls[1]["tool_choice"] == "auto"
     assert emitted[0][0] == "call_reasoned_weather"

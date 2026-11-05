@@ -270,7 +270,7 @@ class ToolRenderingReasoningFlow(Flow[CopilotKitState]):
                     model=f"openai/{REASONING_MODEL}",
                     messages=messages,
                     tools=_tools_for_required_step(tools, required_step),
-                    reasoning={"effort": "medium", "summary": "detailed"},
+                    reasoning={"effort": "high", "summary": "detailed"},
                     parallel_tool_calls=False,
                     tool_choice=(
                         "required"
