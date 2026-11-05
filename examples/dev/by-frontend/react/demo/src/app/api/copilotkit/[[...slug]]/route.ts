@@ -4,6 +4,9 @@ import {
   InMemoryAgentRunner,
 } from "@copilotkit/runtime";
 import { BuiltInAgent } from "@copilotkit/runtime/agent";
+import { anthropicText } from "@tanstack/ai-anthropic";
+import { geminiText } from "@tanstack/ai-gemini";
+import { openaiText } from "@tanstack/ai-openai";
 import { openaiCompatibleText } from "@tanstack/ai-openai/compatible";
 import { TranscriptionServiceOpenAI } from "@copilotkit/voice";
 import OpenAI from "openai";
@@ -27,16 +30,17 @@ const determineModel = () => {
     });
   }
   if (openAIApiKey) {
-    return "openai/gpt-5.2";
+    return openaiText("gpt-5.2");
   }
   if (process.env.ANTHROPIC_API_KEY?.trim()) {
     // Claude Opus 4.8 supports adaptive thinking
-    return "anthropic/claude-opus-4-8";
+    return anthropicText("claude-opus-4-8");
   }
   if (process.env.GOOGLE_API_KEY?.trim()) {
-    return "google/gemini-3.8-flash";
+    return geminiText("gemini-3.8-flash");
   }
-  return "openai/gpt-5.2";
+  // No key found: the OpenAI adapter throws an error that names OPENAI_API_KEY.
+  return openaiText("gpt-5.2");
 };
 
 // Options for the provider that determineModel picked, in that provider's

@@ -2,11 +2,12 @@ import { Hono } from "hono";
 import { serve } from "@hono/node-server";
 import { CopilotRuntime } from "@copilotkit/runtime";
 import { BuiltInAgent } from "@copilotkit/runtime/agent";
+import { openaiText } from "@tanstack/ai-openai";
 import { createCopilotRuntimeHandler } from "@copilotkit/runtime";
 
 const runtime = new CopilotRuntime({
   agents: {
-    default: new BuiltInAgent({ model: "openai/gpt-5-mini" }),
+    default: new BuiltInAgent({ model: openaiText("gpt-5-mini") }),
   },
 });
 

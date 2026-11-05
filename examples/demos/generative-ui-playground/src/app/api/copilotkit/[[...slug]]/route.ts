@@ -14,12 +14,13 @@ import {
   InMemoryAgentRunner,
 } from "@copilotkit/runtime";
 import { BuiltInAgent } from "@copilotkit/runtime/agent";
+import { openaiText } from "@tanstack/ai-openai";
 import { MCPAppsMiddleware } from "@ag-ui/mcp-apps-middleware";
 import { A2AAgent } from "@ag-ui/a2a";
 import { A2AClient } from "@a2a-js/sdk/client";
 
 // Use OpenAI gpt-5.2 as specified in project requirements
-const MODEL = "openai/gpt-5.2";
+const MODEL = openaiText("gpt-5.2");
 
 /**
  * "default" Agent: BuiltInAgent with MCPAppsMiddleware

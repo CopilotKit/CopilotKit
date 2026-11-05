@@ -11,8 +11,9 @@ import {
   InMemoryAgentRunner,
 } from "@copilotkit/runtime";
 import { BuiltInAgent } from "@copilotkit/runtime/agent";
+import { openaiText } from "@tanstack/ai-openai";
 
-const MODEL = "openai/gpt-5-mini";
+const MODEL = openaiText("gpt-5-mini");
 
 const agent = new BuiltInAgent({
   model: MODEL,

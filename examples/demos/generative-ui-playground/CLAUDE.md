@@ -101,7 +101,7 @@ The legacy `ui-protocols-demo` Railway deployment is being retired. Do not use i
   "@copilotkit/a2ui-renderer": "A2UI message renderer",
   "@copilotkit/runtime": "CopilotRuntime backend",
   "@copilotkit/runtime/agent": "BuiltInAgent class",
-  "@tanstack/ai-openai": "OpenAI adapter for the BuiltInAgent model string",
+  "@tanstack/ai-openai": "OpenAI adapter (openaiText) for the BuiltInAgent model",
   "@ag-ui/mcp-apps-middleware": "MCP Apps → AG-UI bridge"
 }
 ```

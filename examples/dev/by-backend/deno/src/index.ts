@@ -3,10 +3,11 @@ import {
   createCopilotRuntimeHandler,
 } from "@copilotkit/runtime";
 import { BuiltInAgent } from "@copilotkit/runtime/agent";
+import { openaiText } from "@tanstack/ai-openai";
 
 const runtime = new CopilotRuntime({
   agents: {
-    default: new BuiltInAgent({ model: "openai/gpt-5-mini" }),
+    default: new BuiltInAgent({ model: openaiText("gpt-5-mini") }),
   },
 });
 
