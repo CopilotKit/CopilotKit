@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { createRequire } from "node:module";
 import { Injectable } from "@angular/core";
 import { TestBed } from "@angular/core/testing";
 import type { ComponentFixture } from "@angular/core/testing";
@@ -89,6 +91,29 @@ describe("CopilotChatAssistantMessage", () => {
     expect(fixture.componentInstance.markdownRendererContext().content).toBe(
       "Assistant message",
     );
+  });
+
+  it("adds KaTeX's fonts to the page as embedded woff2 only", () => {
+    fixture.detectChanges();
+    const css = Array.from(document.head.querySelectorAll("style"))
+      .map((style) => style.textContent ?? "")
+      .find((text) => text.includes("font-family:KaTeX_Main"));
+    expect(css).toBeDefined();
+
+    const sources = Array.from(
+      css!.matchAll(/@font-face\{[^}]*?src:((?:url\([^)]*\)|[^;}])+)/g),
+      (match) => match[1],
+    );
+    const katexCss = readFileSync(
+      createRequire(import.meta.url).resolve("katex/dist/katex.min.css"),
+      "utf8",
+    );
+    expect(sources).toHaveLength(katexCss.match(/@font-face/g)!.length);
+    for (const source of sources) {
+      expect(source).toMatch(
+        /^url\(data:font\/woff2;base64,[A-Za-z0-9+/=]+\) format\("woff2"\)$/,
+      );
+    }
   });
 
   it("exposes stable cross-frontend message classes", () => {

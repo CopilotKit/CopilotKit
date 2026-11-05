@@ -18,6 +18,8 @@ import { CopilotSlot } from "../../slots/copilot-slot";
 import { CopilotChatToolCallsView } from "./copilot-chat-tool-calls-view";
 import { CopilotCollapsible } from "../tools/tool-call-parts";
 import { TOOL_CALL_DISPLAY_CONTEXT } from "./tool-call-display-context";
+// Generated from katex/dist/katex.min.css before build, test and type checking.
+import { katexStylesheet } from "./katex-stylesheet";
 import type { Message } from "@ag-ui/core";
 import {
   type AssistantMessage,
@@ -235,13 +237,7 @@ import { CopilotChatViewHandlers } from "./copilot-chat-view-handlers";
       }
     </div>
   `,
-  styles: [
-    hostStyles,
-    `
-      /* Import KaTeX styles */
-      @import "katex/dist/katex.min.css";
-    `,
-  ],
+  styles: [hostStyles, katexStylesheet],
 })
 export class CopilotChatAssistantMessage {
   // Capture templates from content projection
