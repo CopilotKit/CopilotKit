@@ -663,8 +663,9 @@ const V0_9_ACTION_KEYS = [
  * Drops a top-level `surfaceId` from a v0.9 message before it reaches
  * `MessageProcessor`.
  *
- * `getOperationSurfaceId` reads that key only to route an operation to a
- * surface. It is not part of the v0.9 envelope, and `@a2ui/web_core` 0.15
+ * Compatibility with noncanonical agent payloads (see OSS-1048), not a key
+ * added by react-core. `getOperationSurfaceId` reads it only as a routing
+ * fallback. It is not part of the v0.9 envelope, and `@a2ui/web_core` 0.15
  * validates envelopes strictly, so leaving it in rejects the whole message
  * ("Unrecognized key(s) in object: 'surfaceId'"). The nested action keeps its
  * own `surfaceId`, which is the one the processor uses.

@@ -785,13 +785,22 @@ describe("A2UIMessageRenderer — resolving which surface an operation addresses
             {
               version: "v0.9",
               surfaceId: "top-level",
+              updateDataModel: {
+                surfaceId: "nested",
+                path: "/",
+                value: { message: "Nested wins" },
+              },
+            },
+            {
+              version: "v0.9",
+              surfaceId: "top-level",
               updateComponents: {
                 surfaceId: "nested",
                 components: [
                   {
                     id: "root",
                     component: "Text",
-                    text: "Nested wins",
+                    text: { path: "/message" },
                     variant: "body",
                   },
                 ],
@@ -809,6 +818,9 @@ describe("A2UIMessageRenderer — resolving which surface an operation addresses
       ).not.toBeNull();
     });
     expect(container.querySelector("[data-surface-id='top-level']")).toBeNull();
+    expect(container.textContent).toContain("Nested wins");
+    expect(container.textContent).not.toContain("A2UI render error");
+    expect(container.querySelector('[role="alert"]')).toBeNull();
 
     // Grouping under "top-level" would file the operations against a surface
     // createSurface never made, which is the silence the report names.
