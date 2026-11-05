@@ -10,7 +10,7 @@ using OpenAI;
 //
 // Design mirrors the LangGraph reference
 // (showcase/integrations/langgraph-python/src/agents/multimodal_agent.py):
-//  - Use a vision-capable chat model (gpt-6-luna / gpt-6-luna) so images are
+//  - Use a vision-capable chat model (gpt-6-luna) so images are
 //    consumed natively by the model via OpenAI's image content parts.
 //  - No tools are registered — the model handles image/PDF analysis directly.
 //  - PDF handling: Microsoft.Extensions.AI passes document/data content parts
@@ -44,11 +44,7 @@ internal static class MultimodalAgentFactory
     {
         ArgumentNullException.ThrowIfNull(openAiClient);
 
-        // gpt-6-luna supports vision natively. Matches the rest of the
-        // dotnet showcase (which uses gpt-6-luna for every cell) so we don't
-        // introduce a new model id just for this cell. The LangGraph
-        // reference uses gpt-6-luna for slightly higher image-reasoning quality;
-        // gpt-6-luna is cheaper and still vision-capable.
+        // Use the shared Luna chat model for image input as well as text.
         var chatClient = openAiClient.GetChatClient("gpt-6-luna").AsLunaChatClient();
 
         return new ChatClientAgent(

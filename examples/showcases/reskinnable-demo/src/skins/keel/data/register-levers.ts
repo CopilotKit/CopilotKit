@@ -68,7 +68,7 @@ export const REGISTER_SORTS = [
  * The value a lever takes when it is NOT being pulled.
  *
  * Measured rather than assumed, in logistics: told in as many words "do not
- * filter anything, just limit it to the top 3 rows", gpt-6-luna still returned two
+ * filter anything, just limit it to the top 3 rows", gpt-5.4 still returned two
  * filters that no row satisfied, and the maneuver landed on an EMPTY board with
  * four confidently tinted controls. No prompt sentence fixed it, because the
  * model had no way to SAY "no filter". This sentinel is that way.
