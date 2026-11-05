@@ -1,9 +1,9 @@
-import type { ToolSet } from "ai";
+import type { AnyTool } from "@tanstack/ai";
 
-/** The tools that one MCP source contributed, with the label used to prefix them. */
+/** The TanStack AI tools that one MCP source contributed, with the label used to prefix them. */
 export interface MCPToolSource {
   label: string;
-  tools: ToolSet;
+  tools: readonly AnyTool[];
 }
 
 /**
@@ -105,25 +105,30 @@ export function resolveMCPToolNames(
   return resolved;
 }
 
-/** Merges MCP tools into the agent's own tools under {@link resolveMCPToolNames}. */
+/**
+ * Merges MCP tools into the agent's own tools under {@link resolveMCPToolNames}.
+ * A renamed MCP tool is a copy with the new `name`, so the source tool is not
+ * changed.
+ *
+ * @returns The app's tools first, then every MCP tool, in source order.
+ */
 export function mergeMCPTools(
-  appTools: ToolSet,
+  appTools: readonly AnyTool[],
   sources: MCPToolSource[],
-): ToolSet {
-  const entries = sources.map((source) => Object.entries(source.tools));
+) {
   const names = resolveMCPToolNames(
-    new Set(Object.keys(appTools)),
-    sources.map((source, i) => ({
+    new Set(appTools.map((tool) => tool.name)),
+    sources.map((source) => ({
       label: source.label,
-      names: entries[i]!.map(([name]) => name),
+      names: source.tools.map((tool) => tool.name),
     })),
   );
 
-  const merged: ToolSet = { ...appTools };
-  entries.forEach((sourceEntries, i) => {
-    sourceEntries.forEach(([, tool], j) => {
-      merged[names[i]![j]!] = tool;
-    });
-  });
-  return merged;
+  const mcpTools = sources.flatMap((source, i) =>
+    source.tools.map((tool, j) => {
+      const name = names[i]![j]!;
+      return name === tool.name ? tool : { ...tool, name };
+    }),
+  );
+  return [...appTools, ...mcpTools];
 }
