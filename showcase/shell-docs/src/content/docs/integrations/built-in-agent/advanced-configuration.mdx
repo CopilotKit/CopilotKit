@@ -1,11 +1,49 @@
 ---
 title: "Advanced Configuration"
 icon: "lucide/Cog"
-description: "Fine-tune your Built-in Agent's behavior with advanced options."
+description: "Set reasoning, prompt caching, retries, middleware, and the other chat() options, typed by your model."
 ---
 
-The `BuiltInAgent` takes options that control model behavior, tool calls, and
-what the frontend can change at run time.
+You want the agent to think harder, cache its prompt, or retry when the
+provider limits your rate. `BuiltInAgent` takes the TanStack AI `chat()`
+options next to `model`. The adapter in `model` types them, so an option that
+your model does not support fails at compile time.
+
+```typescript title="src/copilotkit.ts"
+import { BuiltInAgent } from "@copilotkit/runtime/agent";
+import { openaiText } from "@tanstack/ai-openai";
+
+const agent = new BuiltInAgent({
+  model: openaiText("gpt-5.2"),
+  reasoning: "high",                    // only the levels of gpt-5.2
+  modelOptions: { verbosity: "low" },   // only OpenAI provider options
+  promptCache: "long",
+  retry: { maxRetries: 3 },
+});
+```
+
+## Options are typed by your model
+
+The agent reads its option types from the adapter, the same way `chat()` does.
+Your editor completes the values, and a wrong value is a type error:
+
+```typescript
+import { BuiltInAgent } from "@copilotkit/runtime/agent";
+import { openaiText } from "@tanstack/ai-openai";
+
+const agent = new BuiltInAgent({
+  model: openaiText("gpt-5.2"),
+  // @ts-expect-error gpt-5.2 has no "max" reasoning level
+  reasoning: "max",
+});
+```
+
+These options get their type from the adapter:
+
+- `reasoning`: the levels of the model. See [Reasoning](/model-selection#reasoning).
+- `modelOptions`: the provider options of the adapter package.
+- `tools`: provider tools, such as `webSearchTool()`, must be tools that the model has. See [Server Tools](/server-tools).
+- `systemPrompts`: the `metadata` of each prompt.
 
 ## Multi-step tool calling
 
@@ -39,8 +77,25 @@ const agent = new BuiltInAgent({
 });
 ```
 
-With `maxSteps: 5`, the agent can make up to 5 model calls in one run. Use this
-when the agent must chain several tool calls.
+With `maxSteps: 5`, the agent can make up to 5 model calls in one run. The
+default is `1`, or `10` when the agent has learned skills.
+
+To control the loop in more detail, pass a TanStack AI loop strategy as
+`agentLoopStrategy`. If you set both, `agentLoopStrategy` wins over `maxSteps`:
+
+```typescript
+import { BuiltInAgent } from "@copilotkit/runtime/agent";
+import { combineStrategies, maxIterations, untilFinishReason } from "@tanstack/ai";
+import { openaiText } from "@tanstack/ai-openai";
+
+const agent = new BuiltInAgent({
+  model: openaiText("gpt-5.4-mini"),
+  agentLoopStrategy: combineStrategies([ // [!code highlight:4]
+    maxIterations(5),
+    untilFinishReason(["length"]),
+  ]),
+});
+```
 
 ## Tool choice
 
@@ -61,9 +116,10 @@ const agent = new BuiltInAgent({
 
 If you do not set `toolChoice`, the provider default applies.
 
-## System prompt
+## System prompts
 
-Customize the agent's system prompt:
+Set the main instructions with `prompt`. It is one string, and the frontend can
+replace it (see [Overridable properties](#overridable-properties)):
 
 ```typescript
 import { BuiltInAgent } from "@copilotkit/runtime/agent";
@@ -75,11 +131,39 @@ const agent = new BuiltInAgent({
 });
 ```
 
+To add more system prompts, use `systemPrompts`. Each entry is a string or a
+`{ content, metadata }` object. The adapter types `metadata`. For example,
+Anthropic takes `cache_control` to cache a long, stable prompt:
+
+```typescript
+import { BuiltInAgent } from "@copilotkit/runtime/agent";
+import { anthropicText } from "@tanstack/ai-anthropic";
+
+const agent = new BuiltInAgent({
+  model: anthropicText("claude-sonnet-4-6"),
+  prompt: "You are a support agent for Acme Corp.",
+  systemPrompts: [ // [!code highlight:7]
+    {
+      content: "Product manual: ...",
+      metadata: { cache_control: { type: "ephemeral" } },
+    },
+    "Answer in the language of the user.",
+  ],
+});
+```
+
+The model gets the system prompts in this order:
+
+1. The catalog of learned skills, if the agent has skills.
+2. `prompt`.
+3. `systemPrompts`, in array order.
+4. The context from the frontend and the forwarded messages.
+
 ## Provider options
 
-Put temperature, token limits, reasoning effort, and other provider settings in
-`modelOptions`. The agent sends them to the provider unchanged, so use the names
-from your provider's API.
+Put temperature, token limits, and other provider settings in `modelOptions`.
+The adapter types them, so use the names that your editor completes. The agent
+sends them to the provider.
 
 For OpenAI:
 
@@ -90,8 +174,8 @@ import { openaiText } from "@tanstack/ai-openai";
 const agent = new BuiltInAgent({
   model: openaiText("gpt-5.4-mini"),
   modelOptions: { // [!code highlight:4]
-    reasoning: { effort: "low" },
     max_output_tokens: 1000,
+    verbosity: "low",
   },
 });
 ```
@@ -111,11 +195,104 @@ const agent = new BuiltInAgent({
 });
 ```
 
+To set how hard the model thinks, use the `reasoning` option, not
+`modelOptions`. See [Reasoning](/model-selection#reasoning).
+
 <Callout type="info">
   OpenAI reasoning models, such as GPT-5 and the o-series, do not accept
-  `temperature` or `top_p`. The OpenAI adapter removes them unless reasoning
-  effort is `none`.
+  `temperature` or `top_p`. The OpenAI adapter removes them unless `reasoning`
+  is `"off"`.
 </Callout>
+
+## Prompt caching
+
+The agent caches the prompt for a short time by default. The cache key is the
+thread id. Set `promptCache` to change this:
+
+```typescript
+import { BuiltInAgent } from "@copilotkit/runtime/agent";
+import { openaiText } from "@tanstack/ai-openai";
+
+const agent = new BuiltInAgent({
+  model: openaiText("gpt-5.4-mini"),
+  promptCache: "long", // [!code highlight]
+});
+```
+
+`promptCache` takes one of these values:
+
+- `"short"`: the default.
+- `"long"`: keep the cache longer, on providers that support it.
+- `"none"`: turn caching off.
+- `{ retention, key }`: set the retention and your own cache key.
+
+## Retries
+
+When the provider limits your rate, the model call fails. Set `retry` to call
+the model again after the wait that the provider asks for:
+
+```typescript
+import { BuiltInAgent } from "@copilotkit/runtime/agent";
+import { openaiText } from "@tanstack/ai-openai";
+
+const agent = new BuiltInAgent({
+  model: openaiText("gpt-5.4-mini"),
+  retry: { maxRetries: 3 }, // [!code highlight]
+});
+```
+
+`maxRetries` counts the extra calls after the first one. Retry is off by default.
+
+## Middleware
+
+Middleware hooks into each run: the config, each chunk, each tool call, the
+token usage, and the end of the run. Hooks run in array order. `context` is a
+value that every hook gets as `ctx.context`:
+
+```typescript
+import { BuiltInAgent } from "@copilotkit/runtime/agent";
+import { openaiText } from "@tanstack/ai-openai";
+
+const agent = new BuiltInAgent({
+  model: openaiText("gpt-5.4-mini"),
+  context: { service: "support-bot" }, // [!code highlight:9]
+  middleware: [
+    {
+      name: "log-usage",
+      onUsage: (ctx, usage) => {
+        console.log(ctx.context.service, ctx.runId, usage.totalTokens);
+      },
+    },
+  ],
+});
+```
+
+Each run now logs its token usage. For all the hooks, see the TanStack AI
+[middleware docs](https://tanstack.com/ai).
+
+## Other chat() options
+
+The agent also passes these options to `chat()`. TanStack AI types them:
+
+| Option | What it does |
+|--------|--------------|
+| `wrapFetch` | Wraps the fetch of each model call, for example to add a header. The adapter must support it. |
+| `toolExecution` | `"parallel"` (default) or `"sequential"`: how the server tools of one model turn run. |
+| `repairToolInput` | A function that repairs a tool input that fails its schema. Default `false`: no repair. |
+| `lazyToolsConfig` | How much of each lazy tool's description goes into the discovery catalog. |
+| `metadata` | Metadata to attach to the request. |
+| `debug` | `true` logs all categories. A `DebugConfig` object picks categories or a logger. |
+
+## Options that the agent sets
+
+The agent sets some `chat()` options itself on each run. They are not in the
+config type, and a value that you pass does not replace them:
+
+- Conversation: `messages`, `state`, `resume`.
+- Ids: `threadId`, `runId`, `parentRunId`, `subagentRunId`, `subagentName`, `parentSubagentRunId`.
+- Streaming: `abortController`, `stream`, `outputSchema`.
+
+The agent does not take `interrupts` or `subagents`.
 
 ## Overridable properties
 
@@ -159,7 +336,7 @@ const agent = new BuiltInAgent({
 });
 ```
 
-The forwarded messages become system prompts after the agent's `prompt`.
+The forwarded messages become system prompts after `prompt` and `systemPrompts`.
 
 ## URL attachments
 
@@ -173,19 +350,33 @@ download URLs safely there, pass `createSafeUrlDownload` from
 
 ## Full configuration reference
 
+The agent options:
+
 | Property | Type | Default | Description |
 |----------|------|---------|-------------|
-| `model` | `AnyTextAdapter` | none | TanStack AI text adapter, such as `openaiText("gpt-5.4-mini")` |
-| `resolveModel` | `(name: string) => AnyTextAdapter \| undefined` | none | Turns a model name from the frontend into an adapter |
+| `model` | `AnyTextAdapter` | none | TanStack AI text adapter, such as `openaiText("gpt-5.4-mini")`. It types the other options. |
+| `resolveModel` | `(name: string) => adapter \| createChatOptions(...) \| undefined` | none | Turns a model name from the frontend into a model. See [Switch models from the frontend](/model-selection#switch-models-from-the-frontend) |
+| `prompt` | `string` | none | Main system prompt. The frontend can override it |
 | `maxSteps` | `number` | `1` (`10` with skills) | Max model calls in one run |
-| `toolChoice` | `"auto" \| "required" \| "none" \| { type: "tool", name: string }` | provider default | How tools are selected |
-| `modelOptions` | `Record<string, unknown>` | none | Provider options, sent unchanged |
-| `prompt` | `string` | none | System prompt |
-| `tools` | `ToolDefinition[]` | `[]` | Server-side tools |
-| `mcpClients` | `MCPClientProvider[]` | `[]` | MCP clients that you create and close. See [MCP Servers](/mcp-servers) |
+| `tools` | typed by the adapter | `[]` | Server tools and provider tools. See [Server Tools](/server-tools) |
+| `mcp` | `ChatMCPOptions` | none | MCP clients for the run. See [MCP Servers](/mcp-servers) |
 | `overridableProperties` | `OverridableProperty[]` | `[]` | Properties the frontend can override |
 | `forwardSystemMessages` | `boolean` | `false` | Forward system messages |
 | `forwardDeveloperMessages` | `boolean` | `false` | Forward developer messages |
+
+The `chat()` options. The adapter or TanStack AI types each one:
+
+| Property | Default | Description |
+|----------|---------|-------------|
+| `reasoning` | provider default | How hard the model thinks: a level, or `{ level, summary, budgetTokens }` |
+| `modelOptions` | none | Provider options of the adapter |
+| `toolChoice` | provider default | How tools are selected |
+| `systemPrompts` | none | More system prompts, after `prompt` |
+| `agentLoopStrategy` | from `maxSteps` | Loop strategy. Wins over `maxSteps` |
+| `promptCache` | `"short"` | Prompt caching |
+| `retry` | off | `{ maxRetries }` for rate-limited calls |
+| `middleware`, `context` | none | Run hooks, and the value they get as `ctx.context` |
+| `wrapFetch`, `toolExecution`, `repairToolInput`, `lazyToolsConfig`, `metadata`, `debug` | see [Other chat() options](#other-chat-options) | Passed to `chat()` |
 
 <Callout type="info" title="Need even more control?">
   To write the model call yourself, for example with the AI SDK, TanStack AI

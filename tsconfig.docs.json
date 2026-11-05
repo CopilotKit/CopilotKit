@@ -27,11 +27,19 @@
       // node_modules come before kiira's cache in the "*" fallback. Pin the
       // copies from externalPackages so docs check against the current release.
       "@tanstack/ai": ["./node_modules/.kiira/node_modules/@tanstack/ai"],
+      // The runtime's agent types import `TextActivityOptions` from this
+      // subpath. Pin it to the same copy, or its tool types do not match.
+      "@tanstack/ai/adapters": [
+        "./node_modules/.kiira/node_modules/@tanstack/ai/dist/esm/activities/index.d.ts"
+      ],
       "@tanstack/ai-openai": [
         "./node_modules/.kiira/node_modules/@tanstack/ai-openai"
       ],
       "@tanstack/ai-openai/compatible": [
         "./node_modules/.kiira/node_modules/@tanstack/ai-openai/dist/esm/compatible/index.d.ts"
+      ],
+      "@tanstack/ai-openai/tools": [
+        "./node_modules/.kiira/node_modules/@tanstack/ai-openai/dist/esm/tools/index.d.ts"
       ],
       "@tanstack/ai-anthropic": [
         "./node_modules/.kiira/node_modules/@tanstack/ai-anthropic"
@@ -53,8 +61,8 @@
       ],
       // ai@6 and @ai-sdk/mcp each pin an exact @ai-sdk/provider-utils, and the
       // workspace lockfile resolves them to two different releases, so their
-      // `schemaSymbol`s differ and an MCP client is not assignable to the
-      // runtime's mcpClients. A reader's fresh install gets one matching
+      // `schemaSymbol`s differ and their schema and tool types are not
+      // assignable to each other. A reader's fresh install gets one matching
       // release; resolve every import of it to the single copy kiira installs.
       "@ai-sdk/provider-utils": [
         "./node_modules/.kiira/node_modules/@ai-sdk/provider-utils"

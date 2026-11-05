@@ -413,15 +413,15 @@ describe("convertToolsToVercelAITools", () => {
 
 describe("convertToolDefinitionsToVercelAITools", () => {
   it("should convert ToolDefinitions to Vercel AI tools", () => {
-    const tools: ToolDefinition[] = [
-      {
+    const tools = [
+      defineTool({
         name: "testTool",
         description: "A test tool",
         parameters: z.object({
           input: z.string(),
         }),
         execute: async () => undefined,
-      },
+      }),
     ];
 
     const result = convertToolDefinitionsToVercelAITools(tools);
@@ -432,18 +432,18 @@ describe("convertToolDefinitionsToVercelAITools", () => {
 
   it("should handle multiple tool definitions", () => {
     const tools: ToolDefinition[] = [
-      {
+      defineTool({
         name: "tool1",
         description: "First tool",
         parameters: z.object({}),
         execute: async () => undefined,
-      },
-      {
+      }),
+      defineTool({
         name: "tool2",
         description: "Second tool",
         parameters: z.object({ value: z.number() }),
         execute: async () => undefined,
-      },
+      }),
     ];
 
     const result = convertToolDefinitionsToVercelAITools(tools);
@@ -511,29 +511,35 @@ describe("defineTool", () => {
     });
 
     expect(tool).toEqual({
+      __toolSide: "server",
       name: "myTool",
       description: "My test tool",
-      parameters: expect.any(Object),
+      inputSchema: expect.objectContaining({
+        type: "object",
+        properties: { input: { type: "string" } },
+        required: ["input"],
+      }),
+      metadata: { copilotkit: {} },
       execute: expect.any(Function),
     });
-
-    expect(tool.name).toBe("myTool");
-    expect(tool.description).toBe("My test tool");
   });
 
-  it("should preserve type information", () => {
+  it("passes the parsed arguments to execute", async () => {
+    const seen: unknown[] = [];
     const tool = defineTool({
       name: "calc",
       description: "Calculate",
       parameters: z.object({
         a: z.number(),
-        b: z.number(),
+        b: z.number().default(2),
       }),
-      execute: async () => undefined,
+      execute: async (args) => {
+        seen.push(args);
+        return args.a + args.b;
+      },
     });
 
-    // Should be able to parse valid input
-    const result = tool.parameters.parse({ a: 1, b: 2 });
-    expect(result).toEqual({ a: 1, b: 2 });
+    await expect(tool.execute?.({ a: 1 })).resolves.toBe(3);
+    expect(seen).toEqual([{ a: 1, b: 2 }]);
   });
 });

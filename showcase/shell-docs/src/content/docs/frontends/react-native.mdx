@@ -563,7 +563,7 @@ See [Model Selection](/model-selection) for more providers.
   - `maxSteps`: the maximum number of model calls in one run. Default: `1`.
   - `tools`: tools that run on the server. Make them with `defineTool`.
   - `modelOptions`: provider options, with the names that the provider uses.
-  - `mcpClients`: tools from MCP servers. Make the clients with `createMCPClient` from `@tanstack/ai-mcp`.
+  - `mcp`: tools from MCP servers. Pass `{ clients: [client] }`. Make each client with `createMCPClient` from `@tanstack/ai-mcp`.
 
   Tools that mutate the app's UI belong on the **client** via `useFrontendTool` (below), not in the server `tools` list.
 </Callout>

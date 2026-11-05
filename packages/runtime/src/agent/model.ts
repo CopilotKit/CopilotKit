@@ -23,20 +23,25 @@ export function isAISDKLanguageModel(value: unknown) {
 }
 
 /**
- * Throws when a classic config's `model` is not a TanStack AI text adapter.
- * The types already require an adapter; this catches the two wrong values a
- * JavaScript caller (or a cast) can still pass: a model string, and an AI SDK
- * model object. Each error names the fix.
+ * Throws when a model value is not a TanStack AI text adapter. The types
+ * already require an adapter; this catches the two wrong values a JavaScript
+ * caller (or a cast) can still pass: a model string, and an AI SDK model
+ * object. Each error names the fix.
+ *
+ * @param value - The value to check.
+ * @param source - Where the value came from, for the error message. Default:
+ *   `"model"`, the classic config's `model`. The agent passes
+ *   `resolveModel("<name>")` for the adapter that `resolveModel` returned.
  */
-export function assertTextAdapter(value: unknown) {
+export function assertTextAdapter(value: unknown, source = '"model"') {
   if (typeof value === "string") {
     throw new Error(
-      `BuiltInAgent "model" got the string ${JSON.stringify(value)}. Pass a TanStack AI text adapter instead, such as openaiText("gpt-5") from "@tanstack/ai-openai".`,
+      `BuiltInAgent ${source} got the string ${JSON.stringify(value)}. Pass a TanStack AI text adapter instead, such as openaiText("gpt-5") from "@tanstack/ai-openai".`,
     );
   }
   if (isAISDKLanguageModel(value)) {
     throw new Error(
-      'BuiltInAgent "model" got an AI SDK model object. Run AI SDK models with a factory: new BuiltInAgent({ type: "aisdk", factory: ... }), with the helpers in "@copilotkit/runtime/agent/ai-sdk". Or pass a TanStack AI text adapter such as openaiText("gpt-5") from "@tanstack/ai-openai".',
+      `BuiltInAgent ${source} got an AI SDK model object. Run AI SDK models with a factory: new BuiltInAgent({ type: "aisdk", factory: ... }), with the helpers in "@copilotkit/runtime/agent/ai-sdk". Or pass a TanStack AI text adapter such as openaiText("gpt-5") from "@tanstack/ai-openai".`,
     );
   }
 }

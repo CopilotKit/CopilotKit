@@ -119,7 +119,7 @@ export default handler;
 </Tab>
 <Tab value="Custom">
 ```npm
-npm install @copilotkit/runtime @tanstack/ai
+npm install @copilotkit/runtime @tanstack/ai @ag-ui/client
 ```
 
 ```typescript title="src/copilotkit.ts"
@@ -281,20 +281,24 @@ const agent = new BuiltInAgent({
 `ToolSet` format automatically.
 </Tab>
 <Tab value="TanStack AI">
+You define a tool once with `defineTool()` and pass it to `chat()` as it is. The same tool also works in a `BuiltInAgent` with a `model`.
+
 ```typescript title="src/copilotkit.ts"
 import {
   BuiltInAgent,
   convertInputToTanStackAI,
+  defineTool,
 } from "@copilotkit/runtime/agent";
-import { chat, toolDefinition } from "@tanstack/ai";
+import { chat } from "@tanstack/ai";
 import { openaiText } from "@tanstack/ai-openai";
 import { z } from "zod";
 
-const getWeather = toolDefinition({
+const getWeather = defineTool({
   name: "getWeather",
   description: "Get the weather for a city",
-  inputSchema: z.object({ city: z.string() }),
-}).server(async ({ city }) => ({ temp: 72, city }));
+  parameters: z.object({ city: z.string() }),
+  execute: async ({ city }) => ({ temp: 72, city }),
+});
 
 const agent = new BuiltInAgent({
   type: "tanstack",
@@ -311,6 +315,8 @@ const agent = new BuiltInAgent({
   },
 });
 ```
+
+TanStack AI tools, such as `toolDefinition({...}).server(fn)`, and provider tools go in the same `tools` array. See [Server Tools](/server-tools#add-tanstack-and-provider-tools).
 </Tab>
 <Tab value="Custom">
 ```typescript title="src/copilotkit.ts"

@@ -7,6 +7,7 @@ import type { FakeResponse } from "@tanstack/ai/testing";
 import { z } from "zod";
 import { EventType } from "@ag-ui/client";
 import { convertMessagesToVercelAISDKMessages, toAISDKTools } from "../ai-sdk";
+import { defineTool } from "../index";
 import {
   BuiltInAgent,
   collectEvents,
@@ -215,12 +216,12 @@ describe("skill delivery over canonical HTTP transport", () => {
         {
           learnedSkills: server.options,
           tools: [
-            {
+            defineTool({
               name: "approve",
               description: "Ask for approval",
               parameters: z.object({}),
               interrupt: true,
-            },
+            }),
           ],
         },
         loadFirst ? [loadSkill, approve] : [approve],

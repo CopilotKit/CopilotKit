@@ -6,8 +6,9 @@
  *    with the Zod-parsed arguments (defaults applied).
  * 2. Arguments that fail a Zod check (here a URL) come back as an Error
  *    result, and `execute` does not run.
- * 3. `convertToolDefinitionsToVercelAITools` (AI SDK factories) passes Zod
- *    schemas to the AI SDK directly, not through JSON Schema.
+ * 3. `convertToolDefinitionsToVercelAITools` (AI SDK factories) checks the
+ *    arguments with the Zod schema before `execute`, so a failed check
+ *    rejects and `execute` does not run.
  */
 import { describe, it, expect } from "vitest";
 import { z } from "zod";
@@ -184,27 +185,21 @@ describe("BuiltInAgent with Zod tools", () => {
 });
 
 describe("convertToolDefinitionsToVercelAITools Zod regression", () => {
-  it("passes each Zod schema to the AI SDK directly, not through JSON Schema", () => {
-    const tools = [
-      recordingTool("tool1", z.object({ a: z.string() })).tool,
-      recordingTool(
-        "tool2",
-        z.object({ b: z.number(), c: z.boolean().optional() }),
-      ).tool,
-      recordingTool(
-        "tool3",
-        z.object({ nested: z.object({ x: z.number(), y: z.number() }) }),
-      ).tool,
-    ];
+  it("rejects arguments that fail a Zod check instead of running execute", async () => {
+    const { tool, calls } = recordingTool(
+      "navigate",
+      z.object({ url: z.url() }),
+    );
 
-    const aiTools = convertToolDefinitionsToVercelAITools(tools);
+    const aiTool = convertToolDefinitionsToVercelAITools([tool]).navigate;
+    const run = aiTool?.execute?.(
+      { url: "not a url" },
+      { toolCallId: "tc-1", messages: [] },
+    );
 
-    expect(Object.keys(aiTools)).toEqual(["tool1", "tool2", "tool3"]);
-    for (const tool of tools) {
-      // A jsonSchema() wrapper would not keep the Zod object itself.
-      expect(aiTools[tool.name]?.inputSchema).toBe(tool.parameters);
-      expect(aiTools[tool.name]?.description).toBe(tool.description);
-      expect(aiTools[tool.name]?.execute).toBeTypeOf("function");
-    }
+    await expect(run).rejects.toThrow(
+      "Invalid arguments for tool navigate: Invalid URL",
+    );
+    expect(calls).toEqual([]);
   });
 });

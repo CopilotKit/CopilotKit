@@ -106,8 +106,8 @@ const BUILT_IN_AGENT_GUIDE =
   "https://docs.copilotkit.ai/migrate/runtime-2.0#built-in-agent";
 const MCP_GUIDE =
   "https://docs.copilotkit.ai/integrations/built-in-agent/mcp-servers";
-const MCP_CLIENTS_NOTE =
-  'Create each MCP client with `createMCPClient` from "@tanstack/ai-mcp" and pass the clients in `mcpClients`.';
+const MCP_NOTE =
+  'Create each MCP client with `await createMCPClient({ transport: { type: "http", url } })` from "@tanstack/ai-mcp". Then pass the clients as `mcp: { clients: [client] }`.';
 const BUILT_IN_AGENT = builtInAgentOverrides();
 
 /** Decisions made for 2.0 that the v1 snapshot does not know about. */
@@ -197,7 +197,7 @@ function builtInAgentOverrides() {
     ),
     ...removed(
       ["MCPClientConfig", "MCPClientConfigHTTP", "MCPClientConfigSSE"],
-      MCP_CLIENTS_NOTE,
+      MCP_NOTE,
       MCP_GUIDE,
     ),
     ...moveTo(AGENT_ENTRY, [
@@ -1058,7 +1058,6 @@ const REMOVED_AGENT_CONFIG: Record<string, string> = {
       "frequencyPenalty",
       "stopSequences",
       "seed",
-      "maxRetries",
       "providerOptions",
     ].map((key) => [
       key,
@@ -1067,7 +1066,7 @@ const REMOVED_AGENT_CONFIG: Record<string, string> = {
   ),
   apiKey: `\`apiKey\` was removed in 2.0. The adapter reads its key from the environment, or pass it to the adapter (for example \`createOpenaiChat(model, apiKey)\`). See ${BUILT_IN_AGENT_GUIDE}`,
   urlDownload: `\`urlDownload\` was removed in 2.0. The server no longer downloads attachment URLs. See ${BUILT_IN_AGENT_GUIDE}`,
-  mcpServers: `\`mcpServers\` was removed in 2.0. ${MCP_CLIENTS_NOTE} See ${MCP_GUIDE}`,
+  mcpServers: `\`mcpServers\` was removed in 2.0. ${MCP_NOTE} See ${MCP_GUIDE}`,
 };
 
 interface ModelAdapter {
@@ -1180,6 +1179,8 @@ function namesFrom(rootNode: Node, isSource: (source: string) => boolean) {
  *   imported;
  * - any other `model` that is not a TanStack AI adapter is marked, with an AI
  *   SDK model getting its own note;
+ * - `maxRetries` moves into chat()'s retry option: `maxRetries: 3` becomes
+ *   `retry: { maxRetries: 3 }`;
  * - the keys that 2.0 removed are marked. Their 2.0 values depend on the
  *   provider, so the codemod does not rewrite them.
  */
@@ -1230,6 +1231,10 @@ function builtInAgentConfigEdits(rootNode: Node, source: string): Edit[] {
       if (value && adapter) {
         const call = `${factoryName(adapter)}(${requote(value, adapter.model)})`;
         edits.push(value.replace(call));
+        continue;
+      }
+      if (key === "maxRetries") {
+        edits.push(entry.replace(`retry: { ${entry.text()} }`));
         continue;
       }
       const message =

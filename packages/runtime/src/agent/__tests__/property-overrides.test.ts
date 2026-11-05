@@ -3,7 +3,8 @@
  * `prompt`, or `modelOptions`, but only the ones the agent lists in
  * `overridableProperties`, and only with a value of the right shape. The
  * fake model records what `chat()` sent it. A forwarded model name goes
- * through the agent's `resolveModel`.
+ * through the agent's `resolveModel`, which returns an adapter or
+ * `{ adapter, modelOptions, reasoning }`.
  */
 import { describe, it, expect, vi, afterEach } from "vitest";
 import type { RunAgentInput } from "@ag-ui/client";
@@ -16,6 +17,11 @@ import {
   runClassicAgent,
 } from "./agent-test-helpers";
 import type { ClassicTestConfig } from "./agent-test-helpers";
+
+type FakeModel = ReturnType<typeof createFakeModel>["model"];
+type ResolveModelResult = ReturnType<
+  NonNullable<ClassicTestConfig["resolveModel"]>
+>;
 
 /** Runs the agent with `forwardedProps` and returns the one model request. */
 async function requestWith(
@@ -33,15 +39,20 @@ function spyOnWarn() {
 }
 
 /**
- * A classic agent whose `resolveModel` maps `"fast"` to a second fake model.
- * Returns both models' requests, so a test can see which one ran.
+ * A classic agent whose `resolveModel` maps `"fast"` to a second fake model,
+ * or to what `resolveFast` returns for it. Returns both models' requests, so
+ * a test can see which one ran.
  */
-function agentWithFastModel(config: ClassicTestConfig = {}) {
+function agentWithFastModel(
+  config: ClassicTestConfig = {},
+  resolveFast: (fast: FakeModel) => ResolveModelResult = (fast) => fast,
+) {
   const fast = createFakeModel([{ text: "fast" }, { text: "fast" }]);
   const configured = createClassicAgent(
     {
       overridableProperties: ["model"],
-      resolveModel: (name) => (name === "fast" ? fast.model : undefined),
+      resolveModel: (name) =>
+        name === "fast" ? resolveFast(fast.model) : undefined,
       ...config,
     },
     [{}, {}],
@@ -135,6 +146,65 @@ describe("Property overrides", () => {
         expect(warn).not.toHaveBeenCalled();
       },
     );
+  });
+
+  describe("model options of a resolved model", () => {
+    const config: ClassicTestConfig = {
+      modelOptions: { temperature: 0.5 },
+      reasoning: "high",
+    };
+    const HIGH = { level: "high", summary: true };
+
+    /** Runs with the forwarded model "fast" and returns the fast model's one request. */
+    async function fastRequest(
+      resolveFast: (fast: FakeModel) => ResolveModelResult,
+      overrides: { config?: ClassicTestConfig; forwardedProps?: object } = {},
+    ) {
+      const { agent, fastRequests } = agentWithFastModel(
+        { ...config, ...overrides.config },
+        resolveFast,
+      );
+      await runWith(agent, { model: "fast", ...overrides.forwardedProps });
+      expect(fastRequests).toHaveLength(1);
+      return fastRequests[0]!;
+    }
+
+    it("keeps the configured modelOptions and reasoning for a bare adapter", async () => {
+      const request = await fastRequest((fast) => fast);
+
+      expect(request.modelOptions).toEqual({ temperature: 0.5 });
+      expect(request.reasoning).toEqual(HIGH);
+    });
+
+    it("uses the modelOptions and reasoning of a { adapter, ... } result", async () => {
+      const request = await fastRequest((fast) => ({
+        adapter: fast,
+        modelOptions: { temperature: 0.1 },
+        reasoning: "low",
+      }));
+
+      expect(request.modelOptions).toEqual({ temperature: 0.1 });
+      expect(request.reasoning).toEqual({ level: "low", summary: true });
+    });
+
+    it("drops the configured modelOptions and reasoning for a { adapter } result without them", async () => {
+      const request = await fastRequest((fast) => ({ adapter: fast }));
+
+      expect(request.modelOptions).toBeUndefined();
+      expect(request.reasoning).toBeUndefined();
+    });
+
+    it("lets a forwarded modelOptions replace the result's modelOptions", async () => {
+      const request = await fastRequest(
+        (fast) => ({ adapter: fast, modelOptions: { temperature: 0.1 } }),
+        {
+          config: { overridableProperties: ["model", "modelOptions"] },
+          forwardedProps: { modelOptions: { temperature: 0.9 } },
+        },
+      );
+
+      expect(request.modelOptions).toEqual({ temperature: 0.9 });
+    });
   });
 
   describe("toolChoice", () => {

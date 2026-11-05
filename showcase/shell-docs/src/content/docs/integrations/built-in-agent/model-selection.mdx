@@ -48,6 +48,7 @@ models that these docs use.
 | ------------ | ---------------------------- |
 | GPT-5.5      | `openaiText("gpt-5.5")`      |
 | GPT-5.4 Mini | `openaiText("gpt-5.4-mini")` |
+| GPT-5.2      | `openaiText("gpt-5.2")`      |
 | GPT-5        | `openaiText("gpt-5")`        |
 | GPT-5 Mini   | `openaiText("gpt-5-mini")`   |
 | GPT-4.1      | `openaiText("gpt-4.1")`      |
@@ -206,6 +207,42 @@ const agent = new BuiltInAgent({
 });
 ```
 
+## Reasoning
+
+Some tasks need the model to think longer before it answers. Set `reasoning` to
+a level:
+
+```typescript
+import { BuiltInAgent } from "@copilotkit/runtime/agent";
+import { openaiText } from "@tanstack/ai-openai";
+
+const agent = new BuiltInAgent({
+  model: openaiText("gpt-5.2"),
+  reasoning: "high", // [!code highlight]
+});
+```
+
+Only the levels of your model type-check. For example, `gpt-5.2` has `"off"`,
+`"low"`, `"medium"`, `"high"`, and `"xhigh"`. If you do not set `reasoning`, the
+provider default applies. `"off"` turns thinking off.
+
+For more control, pass an object:
+
+```typescript
+import { BuiltInAgent } from "@copilotkit/runtime/agent";
+import { anthropicText } from "@tanstack/ai-anthropic";
+
+const agent = new BuiltInAgent({
+  model: anthropicText("claude-sonnet-4-6"),
+  reasoning: { level: "high", summary: false, budgetTokens: 8000 }, // [!code highlight]
+});
+```
+
+- `level`: one of the levels of the model.
+- `summary`: stream the thinking text to the frontend. Default `true`.
+- `budgetTokens`: an exact thinking budget. It type-checks only on models that
+  take a budget, such as Claude Sonnet 4.6.
+
 ## OpenRouter, proxies, and bring-your-own LLM
 
 Use `openaiCompatibleText` for any server with an OpenAI-compatible API. For
@@ -231,7 +268,7 @@ If the endpoint serves the Responses API, add `api: "responses"`.
 
 Sometimes the user picks the model, for example "fast" or "smart" in a menu. The
 frontend sends a model name, and your `resolveModel` function turns that name
-into an adapter.
+into a model.
 
 1. On the agent, list `"model"` in `overridableProperties` and add
    `resolveModel`:
@@ -239,7 +276,6 @@ into an adapter.
    ```typescript
    import { BuiltInAgent } from "@copilotkit/runtime/agent";
    import { openaiText } from "@tanstack/ai-openai";
-   import { anthropicText } from "@tanstack/ai-anthropic";
 
    const agent = new BuiltInAgent({
      model: openaiText("gpt-5.4-mini"),
@@ -249,7 +285,7 @@ into an adapter.
          case "fast":
            return openaiText("gpt-5.4-mini");
          case "smart":
-           return anthropicText("claude-sonnet-4-6");
+           return openaiText("gpt-5.5");
          default:
            return undefined;
        }
@@ -271,9 +307,52 @@ into an adapter.
    }
    ```
 
-The run now uses Claude Sonnet 4.6. If `resolveModel` returns `undefined`, the
-run uses the configured `model`. The agent then logs one warning. The same
-happens when the agent has no `resolveModel`.
+The run now uses GPT-5.5. `resolveModel` can return three things:
+
+- An adapter: the run uses it with the configured `modelOptions` and
+  `reasoning`.
+- The result of `createChatOptions(...)`: the run uses its adapter, and its
+  `modelOptions` and `reasoning` replace the configured ones.
+- `undefined`: the run uses the configured `model`. The agent logs one warning.
+  The same happens when the agent has no `resolveModel`.
+
+### Give each model its own options
+
+The configured `modelOptions` and `reasoning` are typed for the configured
+model. When a name picks a model from another provider, give that model its own
+options. Build them with `createChatOptions` from `@tanstack/ai`, so that the
+new adapter types them:
+
+```typescript
+import { BuiltInAgent } from "@copilotkit/runtime/agent";
+import { createChatOptions } from "@tanstack/ai"; // [!code highlight]
+import { openaiText } from "@tanstack/ai-openai";
+import { anthropicText } from "@tanstack/ai-anthropic";
+
+const agent = new BuiltInAgent({
+  model: openaiText("gpt-5.4-mini"),
+  modelOptions: { verbosity: "low" },
+  overridableProperties: ["model"],
+  resolveModel: (name) => {
+    switch (name) {
+      case "fast":
+        return openaiText("gpt-5.4-mini");
+      case "smart":
+        return createChatOptions({ // [!code highlight:5]
+          adapter: anthropicText("claude-sonnet-4-6"),
+          modelOptions: { max_tokens: 8000 },
+          reasoning: { level: "high", budgetTokens: 4000 },
+        });
+      default:
+        return undefined;
+    }
+  },
+});
+```
+
+The "smart" run now uses Claude Sonnet 4.6 with its own options. It does not
+get `verbosity`, which is an OpenAI option. The tools stay as configured,
+provider tools too.
 
 Only the names that `resolveModel` accepts can change the model. The frontend
 cannot send an API key or a base URL.

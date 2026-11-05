@@ -196,6 +196,7 @@ The codemod (`npx codemod @copilotkit/v2-migration`) does this for you:
   `@copilotkit/runtime/agent/ai-sdk`.
 - It changes each `model` string for `openai`, `anthropic`, `google`, `gemini`,
   `google-gemini`, and `vertex` to its adapter, and it adds the adapter import.
+- It changes `maxRetries: 3` to `retry: { maxRetries: 3 }`.
 
 1.x:
 
@@ -215,24 +216,25 @@ const agent = new BuiltInAgent({ model: openaiText("gpt-5") });
 ```
 
 The codemod does not install packages. It adds a `TODO(copilotkit-2.0)` comment
-that links here for each item that needs your decision:
+with a docs link for each item that needs your decision:
 
 - A `model` that it cannot change: a MiniMax string, a value from a variable,
   or an AI SDK model.
-- `apiKey`.
-- `mcpServers`.
-- The sampling options, `providerOptions`, and `urlDownload`.
+- `apiKey` and `urlDownload`.
+- The sampling options and `providerOptions`. The comment tells you to use
+  `modelOptions`.
+- `mcpServers` and imports of `MCPClientConfig`. The comment tells you to create
+  each client with `createMCPClient` and pass it in `mcp: { clients: [client] }`.
 - Imports of the removed `resolveModel`, `classifyModelSpec`,
-  `BuiltInAgentModel`, `ModelSpecifier`, `MCPClientConfig`, `MCPClient`, and
-  `MCPTransport`.
+  `BuiltInAgentModel`, `ModelSpecifier`, `MCPClient`, and `MCPTransport`.
 
 Do these steps:
 
 1. Install the packages.
 2. Replace the models that the codemod did not change.
 3. Move API keys and base URLs to the adapter.
-4. Replace `mcpServers` with `mcpClients`.
-5. Move provider options to `modelOptions`.
+4. Replace `mcpServers` with `mcp`.
+5. Move provider options to `modelOptions` and `reasoning`.
 
 ### 1. Install the packages
 
@@ -381,10 +383,11 @@ const agent = new BuiltInAgent({
 See [Configure the provider](/model-selection#configure-the-provider) for the
 other adapter options.
 
-### 4. Replace `mcpServers` with `mcpClients`
+### 4. Replace `mcpServers` with `mcp`
 
 The agent no longer opens MCP connections. Create a client for each server with
-`createMCPClient` from `@tanstack/ai-mcp`, and pass the clients in `mcpClients`:
+`createMCPClient` from `@tanstack/ai-mcp` (you installed it in step 1). Pass the
+clients in `mcp: { clients: [client] }`:
 
 1.x:
 
@@ -410,29 +413,30 @@ const client = await createMCPClient({
 
 const agent = new BuiltInAgent({
   model: openaiText("gpt-5"),
-  mcpClients: [client],
+  mcp: { clients: [client] },
 });
 ```
 
 Make these changes too:
 
-- The client stays open between runs. The agent does not close it, so call
+- The agent keeps the client open between runs (`connection` is
+  `"keep-alive"` by default). The agent does not close it, so call
   `await client.close()` when your server shuts down.
 - `headers` and `fetch` move into `transport`.
-- `name` is gone. A tool name that collides gets the prefix `mcp<N>_`, where N
-  is the position of the client in `mcpClients`, from 1. To choose a prefix for
-  every tool of a client, set `prefix` on `createMCPClient`.
+- `name` is gone. If two tools have the same name, the run fails. This applies
+  to tools from two clients, and to a client tool and a tool in `tools`.
+  To give every tool of a client a prefix, set `prefix` on `createMCPClient`.
 - `MCPClientConfig`, `MCPClient`, and `MCPTransport` are no longer exported. If
   you need the MCP types, import them from `@tanstack/ai-mcp`.
 
 See [MCP Servers](/mcp-servers).
 
-### 5. Move provider options to `modelOptions`
+### 5. Move provider options to `modelOptions` and `reasoning`
 
 These options are removed: `temperature`, `maxOutputTokens`, `topP`, `topK`,
 `presencePenalty`, `frequencyPenalty`, `stopSequences`, `seed`, and
-`providerOptions`. Put the provider's own option names in `modelOptions`. The
-agent sends them to the provider unchanged:
+`providerOptions`. Put the provider's own option names in `modelOptions`. Put
+the reasoning effort in `reasoning`:
 
 ```typescript
 import { BuiltInAgent } from "@copilotkit/runtime/agent";
@@ -441,17 +445,18 @@ import { openaiText } from "@tanstack/ai-openai";
 const agent = new BuiltInAgent({
   model: openaiText("gpt-5"),
   // Was: maxOutputTokens: 1000, providerOptions: { openai: { reasoningEffort: "low" } }
-  modelOptions: {
-    max_output_tokens: 1000,
-    reasoning: { effort: "low" },
-  },
+  modelOptions: { max_output_tokens: 1000 },
+  reasoning: { level: "low" },
 });
 ```
 
+The adapter in `model` gives the types. `modelOptions` takes only the options
+of that provider. `reasoning.level` takes only the levels of that model.
+
 Make these changes too:
 
-- `maxRetries`: it is a setting of the provider client. Pass it to the adapter,
-  for example `openaiText("gpt-5", { maxRetries: 3 })`.
+- `maxRetries`: write `retry: { maxRetries: 3 }`. The codemod does this for
+  you.
 - `overridableProperties`: you can list `model`, `toolChoice`, `prompt`, and
   `modelOptions`. Replace a removed option name with `modelOptions`.
 - `toolChoice`: write `{ type: "tool", name: "searchDocs" }`, not `toolName`.
@@ -461,6 +466,10 @@ Make these changes too:
 In an AI SDK factory, you can still let the AI SDK download URLs. Pass
 `createSafeUrlDownload({ signal: ctx.abortSignal })` from
 `@copilotkit/runtime/agent/ai-sdk` as `experimental_download`.
+
+The agent also takes other TanStack AI `chat()` options, such as `promptCache`,
+`middleware`, `systemPrompts`, and `agentLoopStrategy`. See
+[Advanced Configuration](/advanced-configuration).
 
 ### If you used `resolveModel` or `classifyModelSpec`
 
@@ -503,7 +512,10 @@ Messages:
 
 Tools:
 
-- A custom `mcpClients` provider's `tools()` must return TanStack AI tools.
+- `defineTool` takes the same arguments as in 1.x. It returns a TanStack AI
+  server tool, so the tool also works in your own `chat()` call.
+- `tools` also takes TanStack AI tools and provider tools. See
+  [Server Tools](/server-tools).
 - In a factory, `ctx.learnedSkills.tools` is an array of TanStack AI tools. For
   `streamText()`, convert it with `toAISDKTools` from
   `@copilotkit/runtime/agent/ai-sdk`. See [Skill delivery](/intelligence/learned-skills#factory-mode).

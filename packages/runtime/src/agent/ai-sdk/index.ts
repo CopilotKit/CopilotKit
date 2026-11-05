@@ -20,7 +20,6 @@ import type {
   FilePart,
   ImagePart,
   ModelMessage,
-  Schema,
   SystemModelMessage,
   TextPart,
   ToolCallPart,
@@ -452,20 +451,6 @@ function isJsonSchema(obj: unknown): obj is JsonSchema {
 }
 
 /**
- * Type-only pass-through for handing a Zod schema to the AI SDK's `tool()`.
- * The raw Zod schema is returned unchanged at runtime: the SDK's `asSchema()`
- * converts and validates it internally.
- *
- * The Zod type is erased through `unknown` deliberately: letting tsc relate
- * Zod schema types to the AI SDK's `FlexibleSchema` union (conditional types
- * spanning zod v3/v4) makes type instantiation explode (TS2589 / compiler
- * OOM) under this package's `moduleResolution: node`.
- */
-function toLanguageModelSchema(schema: StandardSchemaV1) {
-  return schema as unknown as Schema<unknown>;
-}
-
-/**
  * Converts AG-UI tools (the run's frontend tools, `ctx.input.tools`) to an AI
  * SDK `ToolSet`, for `streamText` calls in a `type: "aisdk"` factory.
  *
@@ -506,41 +491,6 @@ export function convertToolsToVercelAITools(tools: RunAgentInput["tools"]) {
       // A2UI components require open objects. Other tools keep the provider's
       // existing strictness default instead of opting every tool out.
       ...(tool.name === RENDER_A2UI_TOOL.name ? { strict: false } : {}),
-    });
-  }
-
-  return result;
-}
-
-/** Whether a schema is a Zod schema, by its Standard Schema vendor. */
-function isZodSchema(schema: StandardSchemaV1) {
-  return schema["~standard"]?.vendor === "zod";
-}
-
-/**
- * Converts tools made with `defineTool()` to an AI SDK `ToolSet`, for
- * `streamText` calls in a `type: "aisdk"` factory.
- *
- * A Zod schema goes to the AI SDK as is. Any other Standard Schema is
- * converted to JSON Schema first. Each tool keeps its `execute`.
- *
- * @param tools - Tool definitions from `defineTool()`.
- * @throws Error when a non-Zod schema cannot describe itself as JSON Schema.
- *
- * ```ts
- * streamText({ model, tools: convertToolDefinitionsToVercelAITools([weatherTool]) })
- * ```
- */
-export function convertToolDefinitionsToVercelAITools(tools: ToolDefinition[]) {
-  const result: ToolSet = {};
-
-  for (const tool of tools) {
-    result[tool.name] = createVercelAISDKTool({
-      description: tool.description,
-      inputSchema: isZodSchema(tool.parameters)
-        ? toLanguageModelSchema(tool.parameters)
-        : aiJsonSchema(schemaToJsonSchema(tool.parameters)),
-      execute: tool.execute,
     });
   }
 
@@ -602,4 +552,25 @@ export function toAISDKTools(tools: readonly AnyTool[]) {
   }
 
   return result;
+}
+
+/**
+ * Converts tools made with `defineTool()` to an AI SDK `ToolSet`, for
+ * `streamText` calls in a `type: "aisdk"` factory.
+ *
+ * Each tool offers its JSON Schema to the model. Its `execute` validates the
+ * arguments with the tool's parameters schema and runs your `execute` with the
+ * parsed output. A tool without `execute` (an interrupt tool) stays
+ * client-side.
+ *
+ * @param tools - Tools from `defineTool()`.
+ *
+ * ```ts
+ * streamText({ model, tools: convertToolDefinitionsToVercelAITools([weatherTool]) })
+ * ```
+ */
+export function convertToolDefinitionsToVercelAITools(
+  tools: readonly ToolDefinition[],
+) {
+  return toAISDKTools(tools);
 }

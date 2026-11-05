@@ -179,7 +179,7 @@ See [MCP Apps](/generative-ui/mcp-apps) for setup.
         #### Connect to MCP Servers
 
         Create an MCP client for the server in your runtime route, and give it
-        to the agent in `mcpClients`. The client stays open between runs. The
+        to the agent in `mcp.clients`. The client stays open between runs. The
         agent reads its tools at the start of each run.
 
         Install the agent packages and the MCP client:
@@ -212,7 +212,7 @@ See [MCP Apps](/generative-ui/mcp-apps) for setup.
           agents: {
             default: new BuiltInAgent({
               model: openaiText("gpt-4o"),
-              mcpClients: [mcpClient],
+              mcp: { clients: [mcpClient] },
             }),
           },
         });
@@ -227,7 +227,7 @@ See [MCP Apps](/generative-ui/mcp-apps) for setup.
         ```
 
         See [MCP servers](/docs/integrations/built-in-agent/mcp-servers) for the
-        HTTP transport, multiple servers, tool caching, and auth that refreshes.
+        HTTP transport, multiple servers, lazy tools, and error handling.
       </Step>
       <Step>
         #### Add the Chat Interface

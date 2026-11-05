@@ -10,6 +10,7 @@ import { geminiText } from "@tanstack/ai-gemini";
 
 const modelName = process.env.MODEL ?? "openai/gpt-5";
 const servers: MCPClientConfig[] = [];
+const maxRetries = 2;
 
 export const runtime = new CopilotRuntime({
   agents: {
@@ -34,6 +35,16 @@ export const runtime = new CopilotRuntime({
       model: "openai/gpt-5",
       mcpServers: servers,
     }),
+    retryLiteral: new BuiltInAgent({
+      model: "openai/gpt-5",
+      maxRetries: 3,
+      temperature: 0.2,
+    }),
+    retryExpression: new BuiltInAgent({
+      model: "openai/gpt-5",
+      maxRetries: Number(process.env.MAX_RETRIES ?? 2),
+    }),
+    retryShorthand: new BuiltInAgent({ model: "openai/gpt-5", maxRetries }),
   },
 });
 

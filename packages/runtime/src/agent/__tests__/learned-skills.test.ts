@@ -94,7 +94,10 @@ describe("BuiltInAgent learned skills", () => {
 
   it("does not start classic MCP setup after immediate unsubscribe", async () => {
     const tools = vi.fn(async () => []);
-    const { agent, requests } = classicAgent({ mcpClients: [{ tools }] });
+    const close = vi.fn(async () => {});
+    const { agent, requests } = classicAgent({
+      mcp: { clients: [{ tools, close }] },
+    });
     agent.run(createDefaultInput()).subscribe().unsubscribe();
     await new Promise((resolve) => setImmediate(resolve));
     expect(tools).not.toHaveBeenCalled();

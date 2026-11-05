@@ -1,57 +1,7 @@
 import type { Interrupt, RunAgentInput } from "@ag-ui/client";
-import { schemaToJsonSchema } from "@copilotkit/shared";
-import type { AnyServerTool } from "@tanstack/ai";
+import type { AnyServerTool, AnyTool } from "@tanstack/ai";
 import { formatToolError } from "./converters/aisdk";
 import { isRecord } from "./converters/usage";
-import type { ToolDefinition } from "./index";
-
-/**
- * Turns a `ToolDefinition` into a TanStack AI tool for `chat()`.
- *
- * The parameters become the JSON Schema that the model sees and that
- * `chat()` checks the arguments against. Before `execute` runs, the arguments
- * also go through the schema's own Standard Schema validation, so `execute`
- * gets the parsed output (for example with Zod defaults applied). An error
- * that `execute` throws becomes the tool's error result, with the same text
- * as before.
- *
- * A tool without `execute` (an interrupt tool) has no executor, so `chat()`
- * stops the run when the model calls it.
- */
-function toTanStackTool(tool: ToolDefinition) {
-  const serverTool: AnyServerTool = {
-    __toolSide: "server",
-    name: tool.name,
-    description: tool.description,
-    inputSchema: schemaToJsonSchema(tool.parameters),
-  };
-  const { execute } = tool;
-  if (!execute) return serverTool;
-
-  const validate = tool.parameters["~standard"].validate;
-  const executeWithParsedArgs = async (args: unknown) => {
-    const parsed = await validate(args);
-    if (!("value" in parsed) || parsed.issues) {
-      const issues = parsed.issues ?? [];
-      const details = issues.map((issue) => issue.message).join("; ");
-      throw new Error(`Invalid arguments for tool ${tool.name}: ${details}`);
-    }
-    try {
-      return await execute(parsed.value);
-    } catch (error) {
-      throw new Error(formatToolError(error));
-    }
-  };
-  return { ...serverTool, execute: executeWithParsedArgs };
-}
-
-/**
- * Turns the classic config's `tools` into TanStack AI tools, in the same
- * order.
- */
-export function toTanStackTools(tools: readonly ToolDefinition[]) {
-  return tools.map(toTanStackTool);
-}
 
 const JSON_SCHEMA_TYPES = new Set([
   "object",
@@ -183,11 +133,32 @@ function isToolErrorResult(chunk: Record<string, unknown>) {
   return tanstack.state === "output-error";
 }
 
+/** The `Interrupt` fields that a call to an interrupt tool raises. */
+type ToolInterrupt = { reason: string; message?: string };
+
+/**
+ * Reads the interrupt settings that `defineTool()` puts in
+ * `metadata.copilotkit`. A tool without `interrupt: true` there has none.
+ */
+function toolInterrupt(tool: Pick<AnyTool, "metadata">) {
+  const settings = tool.metadata?.copilotkit;
+  if (!isRecord(settings) || settings.interrupt !== true) return undefined;
+  const { interruptReason, interruptMessage } = settings;
+  const interrupt: ToolInterrupt = {
+    reason: typeof interruptReason === "string" ? interruptReason : "tool_call",
+  };
+  if (typeof interruptMessage === "string" && interruptMessage) {
+    interrupt.message = interruptMessage;
+  }
+  return interrupt;
+}
+
 /**
  * Applies the classic tool rules to a TanStack AI `chat()` stream, before
  * `convertTanStackStream` turns it into AG-UI events.
  *
- * - A call to an interrupt tool (`interrupt: true`) adds one `Interrupt` to
+ * - A call to an interrupt tool (`interrupt: true` in the tool's
+ *   `metadata.copilotkit`, as `defineTool()` sets it) adds one `Interrupt` to
  *   `pendingInterrupts` when the call ends, keyed by the tool call id. A
  *   result for that call is dropped: the human supplies it on the resume run.
  * - A failed tool call's result reads `Error: <message>`, for every tool
@@ -199,13 +170,15 @@ function isToolErrorResult(chunk: Record<string, unknown>) {
  */
 export async function* withClassicToolRules(
   stream: AsyncIterable<unknown>,
-  tools: readonly ToolDefinition[],
+  tools: readonly Pick<AnyTool, "name" | "metadata">[],
   pendingInterrupts: Interrupt[],
 ) {
-  const interruptTools = new Map(
-    tools.filter((tool) => tool.interrupt).map((tool) => [tool.name, tool]),
-  );
-  const interruptToolByCallId = new Map<string, ToolDefinition>();
+  const interruptTools = new Map<string, ToolInterrupt>();
+  for (const tool of tools) {
+    const interrupt = toolInterrupt(tool);
+    if (interrupt) interruptTools.set(tool.name, interrupt);
+  }
+  const interruptByCallId = new Map<string, ToolInterrupt>();
   const interruptedCallIds = new Set<string>();
 
   for await (const chunk of stream) {
@@ -217,27 +190,22 @@ export async function* withClassicToolRules(
 
     switch (chunk.type) {
       case "TOOL_CALL_START": {
-        const tool =
+        const interrupt =
           typeof chunk.toolCallName === "string"
             ? interruptTools.get(chunk.toolCallName)
             : undefined;
-        if (tool) interruptToolByCallId.set(toolCallId, tool);
+        if (interrupt) interruptByCallId.set(toolCallId, interrupt);
         break;
       }
       case "TOOL_CALL_END": {
-        const tool = interruptToolByCallId.get(toolCallId);
-        if (!tool || interruptedCallIds.has(toolCallId)) break;
+        const interrupt = interruptByCallId.get(toolCallId);
+        if (!interrupt || interruptedCallIds.has(toolCallId)) break;
         interruptedCallIds.add(toolCallId);
-        pendingInterrupts.push({
-          id: toolCallId,
-          toolCallId,
-          reason: tool.interruptReason ?? "tool_call",
-          ...(tool.interruptMessage ? { message: tool.interruptMessage } : {}),
-        });
+        pendingInterrupts.push({ id: toolCallId, toolCallId, ...interrupt });
         break;
       }
       case "TOOL_CALL_RESULT": {
-        if (interruptToolByCallId.has(toolCallId)) continue;
+        if (interruptByCallId.has(toolCallId)) continue;
         if (isToolErrorResult(chunk)) {
           yield { ...chunk, content: `Error: ${toolErrorText(chunk.content)}` };
           continue;

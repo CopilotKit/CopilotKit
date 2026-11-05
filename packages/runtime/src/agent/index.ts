@@ -11,15 +11,22 @@ import type {
 } from "@ag-ui/client";
 import { AbstractAgent, EventType, PROTOCOL_VERSION } from "@ag-ui/client";
 import type { AgentCapabilities } from "@ag-ui/core";
-import type { AnyTextAdapter, AnyTool, ToolChoice } from "@tanstack/ai";
+import type {
+  AnyTextAdapter,
+  AnyTool,
+  ChatMCPOptions,
+  SystemPrompt,
+  ToolChoice,
+} from "@tanstack/ai";
+import type { TextActivityOptions } from "@tanstack/ai/adapters";
 import { Observable } from "rxjs";
-import { randomUUID } from "@copilotkit/shared";
+import { randomUUID, schemaToJsonSchema } from "@copilotkit/shared";
 import type {
   InferSchemaOutput,
   ModelHostClass,
   StandardSchemaV1,
 } from "@copilotkit/shared";
-import { convertAISDKStream } from "./converters/aisdk";
+import { convertAISDKStream, formatToolError } from "./converters/aisdk";
 import {
   convertInputToTanStackAI,
   convertTanStackStream,
@@ -38,13 +45,10 @@ import type {
   BuiltInAgentLearnedSkills,
   BuiltInAgentLearnedSkillsOptions,
 } from "./learned-skills";
-import { mergeMCPTools } from "./mcp-tool-names";
-import type { MCPToolSource } from "./mcp-tool-names";
 import { assertTextAdapter } from "./model";
 import {
   assertFrontendToolSchemas,
   STATE_TOOLS,
-  toTanStackTools,
   withClassicToolRules,
 } from "./classic-tools";
 
@@ -72,19 +76,6 @@ export type OverridableProperty =
   | "modelOptions";
 
 /**
- * An MCP client that provides tools to the agent. A client from
- * `createMCPClient()` in `@tanstack/ai-mcp` fits this type.
- *
- * You create, configure, and close the client. The agent only reads its
- * tools, on each run, so the client can keep its connection, auth, and tool
- * cache between runs.
- */
-export interface MCPClientProvider {
-  /** Return TanStack AI tools to be merged into the agent's tools. */
-  tools(): Promise<readonly AnyTool[]>;
-}
-
-/**
  * Thrown by `AgentFactoryContext.interrupt()` on a fresh (non-resume) run to
  * pause the factory. Caught in `runFactory` and translated into a RUN_FINISHED
  * event carrying `outcome:{type:"interrupt",interrupts}`. Not a real error.
@@ -97,19 +88,10 @@ export class InterruptSignal extends Error {
 }
 
 /**
- * Tool definition for BuiltInAgent
+ * The CopilotKit settings of a `defineTool()` tool. They live in the tool's
+ * `metadata.copilotkit`, which TanStack AI passes through without reading.
  */
-export interface ToolDefinition<
-  TParameters extends StandardSchemaV1 = StandardSchemaV1,
-> {
-  name: string;
-  description: string;
-  parameters: TParameters;
-  /**
-   * Server-side executor. Optional ONLY for interrupt tools (`interrupt:true`),
-   * which pause the run instead of executing.
-   */
-  execute?: (args: InferSchemaOutput<TParameters>) => Promise<unknown>;
+export type CopilotKitToolSettings = {
   /**
    * When true, calling this tool pauses the run and emits a standard AG-UI
    * interrupt (RUN_FINISHED outcome:interrupt) keyed by the tool call's id.
@@ -122,34 +104,111 @@ export interface ToolDefinition<
   interruptReason?: string;
   /** Optional human-readable prompt surfaced on the Interrupt. */
   interruptMessage?: string;
-}
+};
 
 /**
- * Define a tool for use with BuiltInAgent
- * @param name - The name of the tool
- * @param description - Description of what the tool does
- * @param parameters - Schema for the tool's input parameters (any Standard Schema V1 compatible library: Zod, Valibot, ArkType, etc.)
- * @param execute - Function to execute the tool server-side
- * @returns Tool definition
+ * A tool made with `defineTool()`. It is a TanStack AI server tool as a plain
+ * object, so it works in the BuiltInAgent `tools`, in your own `chat()` call,
+ * and in a `type: "tanstack"` factory.
+ *
+ * - `inputSchema` is the JSON Schema of the tool's parameters.
+ * - `execute` validates its arguments with the parameters schema first, then
+ *   calls your `execute` with the parsed output.
+ * - `metadata.copilotkit` holds the interrupt settings.
  */
-export function defineTool<TParameters extends StandardSchemaV1>(config: {
+export type ToolDefinition<
+  TParameters extends StandardSchemaV1 = StandardSchemaV1,
+> = {
+  __toolSide: "server";
   name: string;
   description: string;
-  parameters: TParameters;
-  execute?: (args: InferSchemaOutput<TParameters>) => Promise<unknown>;
-  interrupt?: boolean;
-  interruptReason?: string;
-  interruptMessage?: string;
-}): ToolDefinition<TParameters> {
-  return {
+  inputSchema: Record<string, unknown>;
+  /**
+   * Server-side executor. Not set for interrupt tools, which pause the run
+   * instead of executing.
+   */
+  execute?: (
+    args: StandardSchemaV1.InferInput<TParameters>,
+  ) => Promise<unknown>;
+  metadata: { copilotkit: CopilotKitToolSettings };
+};
+
+/**
+ * Defines a server tool for BuiltInAgent, or for any TanStack AI `chat()`
+ * call.
+ *
+ * The parameters become the tool's JSON Schema, which the model sees. Before
+ * `execute` runs, the arguments go through the schema's own Standard Schema
+ * validation, so `execute` gets the parsed output (for example with Zod
+ * defaults applied). Arguments that fail the schema, and errors that `execute`
+ * throws, become the tool's error result.
+ *
+ * A tool without `execute` (an interrupt tool) has no executor, so `chat()`
+ * stops the run when the model calls it.
+ *
+ * @param config.name - The name of the tool.
+ * @param config.description - What the tool does, for the model.
+ * @param config.parameters - Schema for the tool's input parameters (any
+ *   Standard Schema V1 library that can describe itself as JSON Schema: Zod,
+ *   Valibot, ArkType, etc.).
+ * @param config.execute - Runs the tool server-side with the parsed arguments.
+ * @param config.interrupt - Pause the run for human input instead of
+ *   executing. See {@link CopilotKitToolSettings}.
+ * @throws Error when the parameters schema cannot describe itself as JSON
+ *   Schema.
+ *
+ * ```ts
+ * const weather = defineTool({
+ *   name: "get_weather",
+ *   description: "Get the weather for a city.",
+ *   parameters: z.object({ city: z.string() }),
+ *   execute: async ({ city }) => ({ city, temperature: 21 }),
+ * });
+ * ```
+ */
+export function defineTool<TParameters extends StandardSchemaV1>(
+  config: {
+    name: string;
+    description: string;
+    parameters: TParameters;
+    execute?: (args: InferSchemaOutput<TParameters>) => Promise<unknown>;
+  } & CopilotKitToolSettings,
+) {
+  const tool: ToolDefinition<TParameters> = {
+    __toolSide: "server",
     name: config.name,
     description: config.description,
-    parameters: config.parameters,
-    execute: config.execute,
-    interrupt: config.interrupt,
-    interruptReason: config.interruptReason,
-    interruptMessage: config.interruptMessage,
+    inputSchema: schemaToJsonSchema(config.parameters),
+    metadata: {
+      copilotkit: {
+        interrupt: config.interrupt,
+        interruptReason: config.interruptReason,
+        interruptMessage: config.interruptMessage,
+      },
+    },
   };
+  const { execute, parameters } = config;
+  if (!execute) return tool;
+
+  const executeWithParsedArgs = async (args: unknown) => {
+    const parsed = await parameters["~standard"].validate(args);
+    if (!("value" in parsed) || parsed.issues) {
+      const issues = parsed.issues ?? [];
+      const details = issues.map((issue) => issue.message).join("; ");
+      throw new Error(`Invalid arguments for tool ${config.name}: ${details}`);
+    }
+    // `validate` on a schema whose type is the generic `TParameters` resolves
+    // to its constraint, so TypeScript types the output as `unknown`. It is
+    // the schema's output.
+    const value = parsed.value as InferSchemaOutput<TParameters>;
+    try {
+      return await execute(value);
+    } catch (error) {
+      throw new Error(formatToolError(error), { cause: error });
+    }
+  };
+  tool.execute = executeWithParsedArgs;
+  return tool;
 }
 
 /**
@@ -246,13 +305,124 @@ export type BuiltInAgentFactoryConfig =
   | BuiltInAgentCustomFactoryConfig;
 
 /**
+ * The TanStack AI `chat()` options for a text adapter, as `chat()` types them
+ * for a streamed run without an output schema.
+ */
+type ChatOptionsFor<
+  TAdapter extends AnyTextAdapter,
+  TContext,
+> = TextActivityOptions<TAdapter, undefined, true, TContext>;
+
+/**
+ * The TanStack AI `chat()` options that BuiltInAgent's classic config takes
+ * next to `model`. Their types come from the adapter in `model`, the same way
+ * `chat({ adapter, ... })` types them:
+ *
+ * - `modelOptions`: the provider options of the adapter.
+ * - `reasoning`: only the levels the model has.
+ * - `tools`: server tools (`defineTool()`, `toolDefinition().server()`) and
+ *   the provider tools that the model supports, such as `webSearchTool` from
+ *   `@tanstack/ai-openai/tools`.
+ * - `systemPrompts`: strings, or `{ content, metadata }` with the metadata
+ *   the adapter accepts.
+ * - `middleware` and `context`: the hooks get the type of `context` as
+ *   `ctx.context`.
+ *
+ * The agent passes these to `chat()` on each run. See the TanStack AI docs of
+ * `chat()` for each option.
+ */
+export type BuiltInAgentChatOptions<
+  TAdapter extends AnyTextAdapter = AnyTextAdapter,
+  TContext = unknown,
+> = Pick<
+  ChatOptionsFor<TAdapter, TContext>,
+  | "promptCache"
+  | "retry"
+  | "wrapFetch"
+  | "middleware"
+  | "context"
+  | "toolExecution"
+  | "lazyToolsConfig"
+  | "metadata"
+  | "debug"
+  | "agentLoopStrategy"
+  | "repairToolInput"
+  | "modelOptions"
+  | "toolChoice"
+  | "tools"
+> & {
+  /**
+   * How hard the model thinks: a level, or `{ level, summary?,
+   * budgetTokens? }`. Only the levels the model has are accepted. A model
+   * that does not reason takes no `reasoning`.
+   */
+  reasoning?: NeverAsUndefined<ChatOptionsFor<TAdapter, TContext>["reasoning"]>;
+  /**
+   * More system prompts, after `prompt`: strings, or `{ content, metadata }`
+   * with the metadata the adapter accepts (for example Anthropic
+   * `cache_control`). An adapter without system prompt metadata takes
+   * strings and `{ content }` only.
+   */
+  systemPrompts?: Array<
+    SystemPrompt<NeverAsUndefined<TAdapter["~types"]["systemPromptMetadata"]>>
+  >;
+};
+
+/**
+ * `undefined` in place of `never`. TanStack AI types an option `never` when
+ * the model does not support it (`reasoning` on a model that does not
+ * reason, system prompt `metadata` on an adapter without any). As `undefined`,
+ * the option still takes no value, and a config written for any adapter can
+ * be spread into a config for such a model.
+ */
+type NeverAsUndefined<T> = [T] extends [never] ? undefined : T;
+
+/**
+ * A model that `resolveModel` picked for one run, with the options for it:
+ *
+ * - `adapter`: the TanStack AI text adapter.
+ * - `modelOptions`: replaces the configured `modelOptions` for this run.
+ * - `reasoning`: replaces the configured `reasoning` for this run.
+ *
+ * TanStack AI's `createChatOptions({ adapter, modelOptions, reasoning })`
+ * returns this shape, typed by that adapter.
+ */
+export type ResolvedModelOptions = Pick<
+  ChatOptionsFor<AnyTextAdapter, unknown>,
+  "adapter" | "modelOptions" | "reasoning"
+>;
+
+/**
  * Classic config: BuiltInAgent runs the model with TanStack AI `chat()` and
  * handles tools, MCP, state tools, and the system prompt.
  *
  * Install `@tanstack/ai` and the adapter package for your provider, for
  * example `@tanstack/ai-openai`.
+ *
+ * Next to the CopilotKit settings below, it takes the `chat()` options in
+ * {@link BuiltInAgentChatOptions}, typed by the adapter in `model`:
+ *
+ * ```ts
+ * new BuiltInAgent({
+ *   model: openaiText("gpt-5.2"),
+ *   reasoning: { level: "high", summary: true },
+ *   modelOptions: { text: { verbosity: "low" } },
+ *   tools: [refund, webSearchTool({ type: "web_search" })],
+ *   retry: { maxRetries: 3 },
+ * });
+ * ```
+ *
+ * The agent sets the run's `messages`, `threadId`, `abortController`, and
+ * `stream` itself, so the config has no such keys.
+ *
+ * @typeParam TAdapter - The adapter type, inferred from `model`.
+ * @typeParam TContext - The type of `context`, inferred from it. The
+ *   `middleware` hooks get it as `ctx.context`.
  */
-export interface BuiltInAgentClassicConfig {
+export interface BuiltInAgentClassicConfig<
+  TAdapter extends AnyTextAdapter = AnyTextAdapter,
+  TContext = unknown,
+> extends BuiltInAgentChatOptions<TAdapter, TContext> {
   /** Opt in to automatic snapshot acquisition before each run, including resumes. */
   learnedSkills?: BuiltInAgentLearnedSkillsOptions;
   /**
@@ -260,11 +430,20 @@ export interface BuiltInAgentClassicConfig {
    * `openaiText("gpt-5")` from `@tanstack/ai-openai`. The adapter holds its
    * own API key and base URL.
    */
-  model: AnyTextAdapter;
+  model: TAdapter;
   /**
-   * Turns a forwarded model name into an adapter, when `"model"` is in
-   * `overridableProperties`. Return `undefined` for a name you do not
-   * accept: the run then uses `model`.
+   * Turns a forwarded model name into a model, when `"model"` is in
+   * `overridableProperties`. It returns one of these:
+   *
+   * - An adapter. The run uses the configured `modelOptions` and
+   *   `reasoning` with it.
+   * - `{ adapter, modelOptions?, reasoning? }`. Its `modelOptions` and
+   *   `reasoning` replace the configured ones for this run. Build it with
+   *   TanStack AI's `createChatOptions()` to type the options by that
+   *   adapter.
+   * - `undefined`, for a name you do not accept. The run then uses `model`.
+   *
+   * The configured `tools`, provider tools included, do not change.
    *
    * @example
    * ```ts
@@ -272,37 +451,29 @@ export interface BuiltInAgentClassicConfig {
    *   model: openaiText("gpt-5"),
    *   overridableProperties: ["model"],
    *   resolveModel: (name) =>
-   *     name === "fast" ? openaiText("gpt-5-mini") : undefined,
+   *     name === "deep"
+   *       ? createChatOptions({
+   *           adapter: openaiText("gpt-5.2"),
+   *           reasoning: "high",
+   *           modelOptions: { text: { verbosity: "low" } },
+   *         })
+   *       : undefined,
    * });
    * ```
    */
-  resolveModel?: (name: string) => AnyTextAdapter | undefined;
+  resolveModel?: (
+    name: string,
+  ) => AnyTextAdapter | ResolvedModelOptions | undefined;
   /**
    * Maximum number of model calls in one run. Tools that the last call asks
    * for still run. Default: 1, or 10 when learned skills are available.
+   * `agentLoopStrategy`, when set, is used instead.
    */
   maxSteps?: number;
   /**
-   * How the model uses the tools: `"auto"`, `"none"`, `"required"`, or
-   * `{ type: "tool", name }`. Not set: the provider default.
-   */
-  toolChoice?: ToolChoice;
-  /**
-   * Provider options, passed to TanStack AI `chat()` as `modelOptions`
-   * without changes. Their names and values are the provider's own, so see
-   * the docs of your adapter package.
-   *
-   * @example
-   * ```ts
-   * new BuiltInAgent({
-   *   model: openaiText("gpt-5"),
-   *   modelOptions: { temperature: 0.2, max_output_tokens: 2048 },
-   * });
-   * ```
-   */
-  modelOptions?: Record<string, unknown>;
-  /**
-   * Prompt for the agent
+   * The agent's system prompt. The frontend can replace it when `"prompt"`
+   * is in `overridableProperties`. It goes after the learned-skills catalog
+   * and before `systemPrompts`.
    */
   prompt?: string;
   /**
@@ -310,10 +481,22 @@ export interface BuiltInAgentClassicConfig {
    */
   overridableProperties?: OverridableProperty[];
   /**
-   * MCP clients whose tools the agent offers to the model on each run. You
-   * create and close them; the agent does not. A tool name that collides
-   * with another client's tool or an app tool is exposed as `mcp<N>_<tool>`,
-   * where N is the client's position in this list, from 1.
+   * MCP servers whose tools the agent offers to the model, as TanStack AI's
+   * `chat()` `mcp` option. On each run, `chat()` reads the tools of each
+   * client in `clients`.
+   *
+   * - `connection`: the agent sets `"keep-alive"` unless you set it. The
+   *   clients in the config are used by every run, so the agent does not
+   *   close them. Close them yourself when your server shuts down. With
+   *   `"close"`, `chat()` closes them when the first run ends.
+   * - `lazyTools`: read the tool schemas only when the model needs them.
+   * - `onDiscoveryError`: called when one client fails to list its tools.
+   *   Return to skip that client, or throw to fail the run. Without it, the
+   *   error fails the run.
+   *
+   * Tool names must be unique. If two MCP servers have a tool with the same
+   * name, or an MCP tool has the name of an app or frontend tool, the run
+   * fails. Give a client a `prefix` to keep its tool names apart.
    *
    * ```typescript
    * import { createMCPClient } from "@tanstack/ai-mcp";
@@ -323,15 +506,11 @@ export interface BuiltInAgentClassicConfig {
    * });
    * const agent = new BuiltInAgent({
    *   model: openaiText("gpt-5"),
-   *   mcpClients: [client],
+   *   mcp: { clients: [client] },
    * });
    * ```
    */
-  mcpClients?: MCPClientProvider[];
-  /**
-   * Optional tools available to the agent
-   */
-  tools?: ToolDefinition[];
+  mcp?: ChatMCPOptions;
   /**
    * Forward system-role messages from input to the LLM, as system prompts.
    * Default: false
@@ -360,9 +539,10 @@ export interface BuiltInAgentClassicConfig {
  * - **Classic** (model + params): BuiltInAgent handles everything — the TanStack AI `chat()` call, tools, MCP, state tools.
  * - **Factory** (type + factory): You own the LLM call. BuiltInAgent handles lifecycle only.
  */
-export type BuiltInAgentConfiguration =
-  | BuiltInAgentClassicConfig
-  | BuiltInAgentFactoryConfig;
+export type BuiltInAgentConfiguration<
+  TAdapter extends AnyTextAdapter = AnyTextAdapter,
+  TContext = unknown,
+> = BuiltInAgentClassicConfig<TAdapter, TContext> | BuiltInAgentFactoryConfig;
 
 /**
  * Type guard: returns true if this is a factory-mode config.
@@ -387,7 +567,62 @@ function toToolChoice(value: unknown) {
   return typeof name === "string" ? { type: "tool" as const, name } : undefined;
 }
 
-export class BuiltInAgent extends AbstractAgent {
+/**
+ * The `chat()` options of a classic config that the agent passes to `chat()`
+ * as they are. It leaves out the CopilotKit settings, and the options that
+ * the agent merges or replaces on each run (`systemPrompts`, `tools`,
+ * `toolChoice`, `modelOptions`, `reasoning`, `agentLoopStrategy`,
+ * `repairToolInput`). Keys the config does not set stay out.
+ */
+function passThroughChatOptions(config: BuiltInAgentClassicConfig) {
+  // An allowlist, not a rest spread: a JavaScript caller that sets a key the
+  // agent owns (`outputSchema`, `state`, `resume`, `runId`, ...) must not
+  // reach chat().
+  const {
+    promptCache,
+    retry,
+    wrapFetch,
+    middleware,
+    context,
+    toolExecution,
+    lazyToolsConfig,
+    metadata,
+    debug,
+  } = config;
+  return {
+    promptCache,
+    retry,
+    wrapFetch,
+    middleware,
+    context,
+    toolExecution,
+    lazyToolsConfig,
+    metadata,
+    debug,
+  };
+}
+
+/**
+ * An AG-UI agent that runs a model with TanStack AI `chat()` (classic config),
+ * or runs your own LLM call (factory config).
+ *
+ * @typeParam TAdapter - The adapter type of a classic config, inferred from
+ *   `model`. It types the `chat()` options of the config.
+ * @typeParam TContext - The type of the classic config's `context`, inferred
+ *   from it.
+ *
+ * ```ts
+ * const agent = new BuiltInAgent({
+ *   model: openaiText("gpt-5.2"),
+ *   prompt: "You are a helpful assistant.",
+ *   reasoning: "low",
+ * });
+ * ```
+ */
+export class BuiltInAgent<
+  TAdapter extends AnyTextAdapter = AnyTextAdapter,
+  TContext = unknown,
+> extends AbstractAgent {
   private abortController?: AbortController;
   private skillRegistry?: SkillRegistry;
 
@@ -407,7 +642,7 @@ export class BuiltInAgent extends AbstractAgent {
    *   SDK model object. Pass a TanStack AI text adapter, or run AI SDK models
    *   with a `type: "aisdk"` factory.
    */
-  constructor(private config: BuiltInAgentConfiguration) {
+  constructor(private config: BuiltInAgentConfiguration<TAdapter, TContext>) {
     super();
     if (!isFactoryConfig(config)) assertTextAdapter(config.model);
     this.skillRegistry =
@@ -449,17 +684,32 @@ export class BuiltInAgent extends AbstractAgent {
   }
 
   /**
-   * The adapter for this run: the forwarded model name through
-   * `resolveModel`, else the configured adapter. An override that does not
-   * resolve logs one warning per agent.
+   * The model for this run: the forwarded model name through `resolveModel`,
+   * else the configured `model`. Returns the adapter with the `modelOptions`
+   * and `reasoning` to use with it. An override that does not resolve logs
+   * one warning per agent.
+   *
+   * @throws Error when `resolveModel` returns a model string or an AI SDK
+   *   model object.
    */
-  private adapterFor(
+  private modelFor(
     config: BuiltInAgentClassicConfig,
     modelName: string | undefined,
   ) {
-    if (modelName === undefined) return config.model;
+    const configured = {
+      adapter: config.model,
+      modelOptions: config.modelOptions,
+      reasoning: config.reasoning,
+    };
+    if (modelName === undefined) return configured;
     const resolved = config.resolveModel?.(modelName);
-    if (resolved) return resolved;
+    if (resolved) {
+      const source = `resolveModel(${JSON.stringify(modelName)})`;
+      assertTextAdapter(resolved, source);
+      if (!("adapter" in resolved)) return { ...configured, adapter: resolved };
+      assertTextAdapter(resolved.adapter, source);
+      return resolved;
+    }
     if (!this.warnedUnresolvedModel) {
       this.warnedUnresolvedModel = true;
       const reason = config.resolveModel
@@ -469,7 +719,7 @@ export class BuiltInAgent extends AbstractAgent {
         `[CopilotKit] Ignoring the forwarded model ${JSON.stringify(modelName)}: ${reason}. The run uses the configured model adapter.`,
       );
     }
-    return config.model;
+    return configured;
   }
 
   async getCapabilities(): Promise<AgentCapabilities> {
@@ -509,8 +759,11 @@ export class BuiltInAgent extends AbstractAgent {
     }
 
     // Capture the narrowed classic config — the narrowing of `this.config`
-    // above does not survive into the Observable/async closures below.
-    const config = this.config;
+    // above does not survive into the Observable/async closures below. The
+    // run reads it with the default type arguments: `chat()` gets a model
+    // that `resolveModel` may have picked, so its options are typed for any
+    // adapter.
+    const config: BuiltInAgentClassicConfig = this.config;
 
     if (this.abortController) {
       throw new Error(
@@ -538,13 +791,19 @@ export class BuiltInAgent extends AbstractAgent {
         const pendingInterrupts: Interrupt[] = [];
         try {
           const overrides = this.forwardedOverrides(input.forwardedProps);
-          const adapter = this.adapterFor(config, overrides.model);
+          const model = this.modelFor(config, overrides.model);
+          const prompt = overrides.prompt ?? config.prompt;
+          const configSystemPrompts = config.systemPrompts ?? [];
+          // The classic converter joins `prompt` with the context and state
+          // into one system prompt. Config `systemPrompts` go between the
+          // two, so with them the prompt is sent on its own.
+          const promptJoinsContext = configSystemPrompts.length === 0;
 
           assertFrontendToolSchemas(input.tools ?? []);
           const converted = convertInputToTanStackAI(input, {
             forwardSystemMessages: config.forwardSystemMessages ?? false,
             forwardDeveloperMessages: config.forwardDeveloperMessages ?? false,
-            prompt: overrides.prompt ?? config.prompt,
+            prompt: promptJoinsContext ? prompt : undefined,
             resume: input.resume,
             keepToolResultMedia: true,
             format: "classic",
@@ -555,59 +814,59 @@ export class BuiltInAgent extends AbstractAgent {
             signal,
           );
           signal.throwIfAborted();
-          const systemPrompts = learnedSkills.catalog
-            ? [learnedSkills.catalog, ...converted.systemPrompts]
-            : converted.systemPrompts;
+          const promptOnItsOwn = !promptJoinsContext && prompt ? [prompt] : [];
+          const systemPrompts = [
+            ...(learnedSkills.catalog ? [learnedSkills.catalog] : []),
+            ...promptOnItsOwn,
+            ...configSystemPrompts,
+            ...converted.systemPrompts,
+          ];
 
           // Frontend tools, then config tools, then the state tools. A later
           // tool replaces an earlier one with the same name.
           const ownTools: AnyTool[] = [
             ...converted.tools,
-            ...toTanStackTools(config.tools ?? []),
+            ...(config.tools ?? []),
             ...STATE_TOOLS,
           ];
           const appTools = [
             ...new Map(ownTools.map((tool) => [tool.name, tool])).values(),
           ];
-
-          // MCP tools are collected per source and merged once, so a name
-          // that two sources share keeps both tools instead of the later one
-          // replacing the earlier.
-          const mcpToolSources: MCPToolSource[] = [];
-          const mcpClients = config.mcpClients ?? [];
-
-          // The user owns these clients, so the agent never closes them.
-          for (const [index, client] of mcpClients.entries()) {
-            const mcpTools = await client.tools();
-            signal.throwIfAborted();
-            mcpToolSources.push({ label: `mcp${index + 1}`, tools: mcpTools });
-          }
-
-          const tools = mergeMCPTools(appTools, mcpToolSources);
           if (this.skillRegistry) {
-            assertNoSkillToolConflicts(tools);
-            tools.push(...learnedSkills.tools);
+            assertNoSkillToolConflicts(appTools);
+            appTools.push(...learnedSkills.tools);
           }
-          signal.throwIfAborted();
 
           // @tanstack/ai is ESM-only, so the CommonJS build cannot require()
           // it. A literal import() loads it from both builds, and bundlers
           // and output tracing still follow it.
           const { chat, maxIterations } = await import("@tanstack/ai");
           const stream = chat({
-            adapter,
+            ...passThroughChatOptions(config),
+            // The keys below are the agent's. They come after the config's
+            // options, so a config key of the same name cannot replace them.
+            adapter: model.adapter,
             messages: converted.messages,
             systemPrompts,
-            tools,
+            tools: appTools,
+            // chat() adds the MCP tools after these. Config clients serve
+            // every run, so chat() keeps them open unless the config says
+            // otherwise.
+            ...(config.mcp
+              ? { mcp: { connection: "keep-alive" as const, ...config.mcp } }
+              : {}),
             toolChoice: overrides.toolChoice ?? config.toolChoice,
-            modelOptions: overrides.modelOptions ?? config.modelOptions,
+            modelOptions: overrides.modelOptions ?? model.modelOptions,
+            reasoning: model.reasoning,
             // Loading a skill must leave room for a model step that uses it.
-            agentLoopStrategy: maxIterations(
-              config.maxSteps || (learnedSkills.catalog ? 10 : 1),
-            ),
+            agentLoopStrategy:
+              config.agentLoopStrategy ??
+              maxIterations(
+                config.maxSteps || (learnedSkills.catalog ? 10 : 1),
+              ),
             // Arguments that fail a tool's schema go back to the model as an
             // error result, without an attempt to repair them first.
-            repairToolInput: false,
+            repairToolInput: config.repairToolInput ?? false,
             abortController,
             threadId: input.threadId,
             stream: true,

@@ -12,7 +12,7 @@ import {
   convertToolDefinitionsToVercelAITools,
   convertToolsToVercelAITools,
 } from "../index";
-import type { ToolDefinition } from "../../index";
+import { defineTool } from "../../index";
 
 type StreamPart =
   Awaited<
@@ -154,13 +154,16 @@ describe("AI SDK v6 compatibility of the helpers", () => {
     expect(parts.some((part) => part.type === "tool-result")).toBe(false);
   });
 
-  it("runs a zod tool definition's execute through streamText", async () => {
-    const weather: ToolDefinition = {
+  it("offers a defineTool() tool's JSON Schema and runs execute with the parsed arguments", async () => {
+    const weather = defineTool({
       name: "get_weather",
       description: "Get the weather.",
-      parameters: z.object({ city: z.string() }),
+      parameters: z.object({
+        city: z.string(),
+        units: z.string().default("celsius"),
+      }),
       execute: async (args) => `sunny for ${JSON.stringify(args)}`,
-    };
+    });
     const model = scriptedModel([
       toolCallStep("get_weather", { city: "Paris" }),
       textStep,
@@ -175,9 +178,20 @@ describe("AI SDK v6 compatibility of the helpers", () => {
       }),
     );
 
+    expect(model.doStreamCalls[0]!.tools).toMatchObject([
+      {
+        type: "function",
+        name: "get_weather",
+        inputSchema: {
+          type: "object",
+          properties: { city: { type: "string" }, units: { type: "string" } },
+          required: ["city"],
+        },
+      },
+    ]);
     expect(parts.find((part) => part.type === "tool-result")).toMatchObject({
       toolName: "get_weather",
-      output: 'sunny for {"city":"Paris"}',
+      output: 'sunny for {"city":"Paris","units":"celsius"}',
     });
   });
 });

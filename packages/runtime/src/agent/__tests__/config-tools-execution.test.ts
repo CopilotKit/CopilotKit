@@ -2,13 +2,16 @@
  * Config tools (`tools` with `execute`) run on the server: the fake model
  * calls them, the real `chat()` runs their `execute`, and the result goes
  * back as a TOOL_CALL_RESULT. Frontend tools have no executor and stay with
- * the client. A throwing `execute` is pinned in tool-error.test.ts.
+ * the client. A throwing `execute` is pinned in tool-error.test.ts. A
+ * `defineTool()` tool also runs in a plain TanStack AI `chat()` call.
  */
 import { describe, it, expect } from "vitest";
 import { z } from "zod";
 import { EventType } from "@ag-ui/client";
+import { chat, maxIterations } from "@tanstack/ai";
 import { defineTool } from "../index";
 import {
+  createFakeModel,
   eventsOfType,
   requestToolNames,
   runClassicAgent,
@@ -170,6 +173,40 @@ describe("Config tools vs input tools", () => {
     expect(
       eventsOfType(events, EventType.TOOL_CALL_RESULT).map((e) => e.toolCallId),
     ).toEqual(["c1"]);
+  });
+});
+
+describe("defineTool in a plain TanStack AI chat() call", () => {
+  it("runs execute with the parsed arguments and returns its result", async () => {
+    const weather = recordingTool(
+      "getWeather",
+      z.object({ city: z.string(), units: z.string().default("celsius") }),
+      { temp: 21 },
+    );
+    const { model } = createFakeModel([
+      {
+        toolCalls: [
+          { id: "tc-1", name: "getWeather", input: { city: "Oslo" } },
+        ],
+      },
+      {},
+    ]);
+
+    const chunks = [];
+    const stream = chat({
+      adapter: model,
+      messages: [{ role: "user", content: "weather?" }],
+      tools: [weather.tool],
+      agentLoopStrategy: maxIterations(2),
+      threadId: "thread-1",
+      stream: true,
+    });
+    for await (const chunk of stream) chunks.push(chunk);
+
+    expect(weather.calls).toEqual([{ city: "Oslo", units: "celsius" }]);
+    expect(
+      chunks.find((chunk) => chunk.type === "TOOL_CALL_RESULT"),
+    ).toMatchObject({ toolCallId: "tc-1", content: '{"temp":21}' });
   });
 });
 

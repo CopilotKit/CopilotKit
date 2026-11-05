@@ -2,7 +2,7 @@ import { describe, it, expect, vi, afterEach } from "vitest";
 import { EventType } from "@ag-ui/client";
 import { LLMock, MCPMock } from "@copilotkit/aimock";
 import { createMCPClient } from "@tanstack/ai-mcp";
-import type { AnyTool, TextOptions } from "@tanstack/ai";
+import type { AnyServerTool, TextOptions } from "@tanstack/ai";
 import {
   collectEvents,
   collectEventsIncludingErrors,
@@ -12,10 +12,12 @@ import {
   requestToolNames,
   runClassicAgent,
 } from "./agent-test-helpers";
+import type { ClassicTestConfig } from "./agent-test-helpers";
 
-// MCP clients the user creates: the agent reads their tools on each run and
-// never closes them. Real MCP servers run in this process and real
-// `@tanstack/ai-mcp` clients reach them; only the model is a fake.
+// The agent passes its config `mcp` to TanStack AI chat(), which reads the
+// tools of each client. The MCP sources below are the boundary: a real
+// `@tanstack/ai-mcp` client on an in-process MCP server, or a fake source
+// object. The model is a fake; chat() is real.
 
 const cleanups: Array<() => Promise<void>> = [];
 
@@ -24,23 +26,40 @@ afterEach(async () => {
   await Promise.all(pending.map((cleanup) => cleanup().catch(() => {})));
 });
 
-/** A TanStack AI tool that answers with its description. */
-function fakeTool(name: string, description: string): AnyTool {
-  return { name, description, execute: async () => description };
-}
-
-/** The smallest `mcpClients` entry: an object with `tools()`, plus a `close` spy. */
-function objectProvider(tools: AnyTool[]) {
+/** A TanStack AI server tool that answers with its description. */
+function fakeTool(name: string, description: string): AnyServerTool {
   return {
-    tools: vi.fn(async (): Promise<readonly AnyTool[]> => tools),
-    close: vi.fn(async () => {}),
+    __toolSide: "server",
+    name,
+    description,
+    execute: async () => description,
   };
 }
 
 /**
+ * A fake MCP source, the shape chat() reads: `tools()` and `close()`. Like a
+ * real MCP client, it marks its tools lazy when chat() asks for lazy tools.
+ */
+function fakeSource(tools: AnyServerTool[]) {
+  return {
+    tools: vi.fn(
+      async (options?: { lazy?: boolean }): Promise<AnyServerTool[]> =>
+        tools.map((tool) => ({ ...tool, lazy: options?.lazy ?? false })),
+    ),
+    close: vi.fn(async () => {}),
+  };
+}
+
+/** A fake MCP source whose tool listing fails with `message`. */
+function failingSource(message: string) {
+  const source = fakeSource([]);
+  source.tools.mockRejectedValue(new Error(message));
+  return source;
+}
+
+/**
  * An MCPMock served over Streamable HTTP. Each tool answers with
- * `<label> result for <args>`, so a test can tell which server ran it.
- * Returns the MCP endpoint URL.
+ * `<label> result for <args>`. Returns the MCP endpoint URL.
  */
 async function startHttpMCPServer(
   tools: Array<{ name: string; description: string }>,
@@ -70,9 +89,8 @@ async function startHttpMCPServer(
 /** A real `@tanstack/ai-mcp` client for an HTTP MCPMock with `tools`. */
 async function connectMCPClient(
   tools: Array<{ name: string; description: string }>,
-  label?: string,
 ) {
-  const url = await startHttpMCPServer(tools, label);
+  const url = await startHttpMCPServer(tools);
   const client = await createMCPClient({ transport: { type: "http", url } });
   cleanups.push(() => client.close());
   return client;
@@ -82,21 +100,27 @@ function findTool(request: TextOptions, name: string) {
   return request.tools?.find((tool) => tool.name === name);
 }
 
-/** Silences `console.warn` for one test and returns the spy. */
-function spyOnWarn() {
-  const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
-  cleanups.push(async () => warn.mockRestore());
-  return warn;
+/** Runs a classic agent once and returns its events, RUN_ERROR included. */
+async function runExpectingError(
+  config: ClassicTestConfig,
+  input?: Parameters<typeof createDefaultInput>[0],
+) {
+  const { agent, requests } = createClassicAgent(config);
+  const { events } = await collectEventsIncludingErrors(
+    agent.run(createDefaultInput(input)),
+  );
+  const [runError] = eventsOfType(events, EventType.RUN_ERROR);
+  return { runError, requests };
 }
 
-describe("mcpClients: user-managed MCP clients", () => {
+describe("mcp: MCP tools", () => {
   it("runs the tools of a real @tanstack/ai-mcp client and leaves the client open", async () => {
     const client = await connectMCPClient([
       { name: "get_weather", description: "Get the weather" },
     ]);
 
     const { events, requests } = await runClassicAgent(
-      { mcpClients: [client], maxSteps: 2 },
+      { mcp: { clients: [client] }, maxSteps: 2 },
       [
         {
           toolCalls: [
@@ -113,111 +137,139 @@ describe("mcpClients: user-managed MCP clients", () => {
     const [result] = eventsOfType(events, EventType.TOOL_CALL_RESULT);
     expect(result.toolCallId).toBe("tc1");
     expect(result.content).toContain("NYC");
-    // The agent did not close the client, so it still reaches the server.
+    // The run kept the connection open, so the client still reaches the server.
     const after = await client.callTool("get_weather", { query: "Paris" });
     expect(JSON.stringify(after.content)).toContain("Paris");
   });
 
-  it("lists the tools of an object provider and does not close it", async () => {
-    const provider = objectProvider([
-      fakeTool("listEnvelopes", "List envelopes"),
-    ]);
+  it("offers MCP tools after the frontend tools", async () => {
+    const source = fakeSource([fakeTool("listEnvelopes", "List envelopes")]);
 
-    const { requests } = await runClassicAgent({ mcpClients: [provider] });
+    const { requests } = await runClassicAgent(
+      { mcp: { clients: [source] } },
+      [{}],
+      {
+        tools: [
+          {
+            name: "showCard",
+            description: "Show a card",
+            parameters: { type: "object", properties: {} },
+          },
+        ],
+      },
+    );
 
+    const names = requestToolNames(requests[0]);
+    expect(names.indexOf("showCard")).toBeLessThan(
+      names.indexOf("listEnvelopes"),
+    );
     expect(findTool(requests[0], "listEnvelopes")?.description).toBe(
       "List envelopes",
     );
-    expect(provider.tools).toHaveBeenCalledOnce();
-    expect(provider.close).not.toHaveBeenCalled();
   });
 
-  it("runs the model with no MCP tools when mcpClients is empty", async () => {
-    const { events } = await runClassicAgent({ mcpClients: [] }, [
-      { text: "Hi" },
-    ]);
+  it("reads the tools again on each run, also from a clone", async () => {
+    const source = fakeSource([fakeTool("cloned", "from source")]);
+    const { agent, requests } = createClassicAgent(
+      { mcp: { clients: [source] } },
+      [{}, {}],
+    );
 
-    const text = eventsOfType(events, EventType.TEXT_MESSAGE_CHUNK)
-      .map((event) => event.delta)
-      .join("");
-    expect(text).toBe("Hi");
-  });
+    await collectEvents(agent.run(createDefaultInput()));
+    await collectEvents(agent.clone().run(createDefaultInput({ runId: "r2" })));
 
-  it("a clone reads the tools of the same mcpClients", async () => {
-    const provider = objectProvider([fakeTool("cloned", "from provider")]);
-    const { agent, requests } = createClassicAgent({ mcpClients: [provider] });
-
-    await collectEvents(agent.clone().run(createDefaultInput()));
-
-    expect(requestToolNames(requests[0])).toContain("cloned");
-    expect(provider.tools).toHaveBeenCalledOnce();
+    expect(requestToolNames(requests[1])).toContain("cloned");
+    expect(source.tools).toHaveBeenCalledTimes(2);
   });
 });
 
-describe("mcpClients: tool names", () => {
-  it("a tool that two real clients share is prefixed, and each copy calls its own server", async () => {
-    const warn = spyOnWarn();
-    const search = { name: "search", description: "Search" };
-    const staging = await connectMCPClient([search], "staging");
-    const production = await connectMCPClient([search], "production");
+describe("mcp: connection", () => {
+  it("keeps the clients open by default", async () => {
+    const source = fakeSource([fakeTool("search", "Search")]);
 
-    const { events, requests } = await runClassicAgent(
-      { mcpClients: [staging, production], maxSteps: 2 },
-      [
-        {
-          toolCalls: [
-            { id: "tc1", name: "mcp2_search", input: { query: "NYC" } },
-          ],
-        },
-        { text: "done" },
-      ],
-    );
+    await runClassicAgent({ mcp: { clients: [source] } });
 
-    const names = requestToolNames(requests[0]);
-    expect(names).toEqual(
-      expect.arrayContaining(["mcp1_search", "mcp2_search"]),
-    );
-    expect(names).not.toContain("search");
-    const [result] = eventsOfType(events, EventType.TOOL_CALL_RESULT);
-    expect(result.content).toContain("production result for");
-    expect(warn).toHaveBeenCalledWith(expect.stringContaining('"search"'));
+    expect(source.close).not.toHaveBeenCalled();
   });
 
-  it("multiple mcpClients keep unique names and prefix only the shared one", async () => {
-    spyOnWarn();
+  it('closes the clients when the run ends with connection: "close"', async () => {
+    const source = fakeSource([fakeTool("search", "Search")]);
+
+    await runClassicAgent({
+      mcp: { clients: [source], connection: "close" },
+    });
+
+    expect(source.close).toHaveBeenCalledOnce();
+  });
+
+  it("stops after a tool listing that the run cancelled, and keeps the client open", async () => {
+    let resolveTools!: (tools: AnyServerTool[]) => void;
+    const source = fakeSource([]);
+    source.tools.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolveTools = resolve;
+        }),
+    );
+    const { agent, requests } = createClassicAgent({
+      mcp: { clients: [source] },
+    });
+
+    const run = collectEvents(agent.run(createDefaultInput()));
+    await vi.waitFor(() => expect(source.tools).toHaveBeenCalledOnce());
+    agent.abortRun();
+    resolveTools([]);
+    await run;
+
+    expect(requests).toHaveLength(0);
+    expect(source.close).not.toHaveBeenCalled();
+  });
+});
+
+describe("mcp: discovery options", () => {
+  it("offers lazy MCP tools through the discovery tool with lazyTools", async () => {
+    const source = fakeSource([fakeTool("get_weather", "Get the weather")]);
 
     const { requests } = await runClassicAgent({
-      mcpClients: [
-        objectProvider([
-          fakeTool("toolA", "from provider 1"),
-          fakeTool("shared", "from provider 1"),
-        ]),
-        objectProvider([
-          fakeTool("toolB", "from provider 2"),
-          fakeTool("shared", "from provider 2"),
-        ]),
-      ],
+      mcp: { clients: [source], lazyTools: true },
     });
 
     const names = requestToolNames(requests[0]);
-    expect(names).toEqual(
-      expect.arrayContaining(["toolA", "toolB", "mcp1_shared", "mcp2_shared"]),
-    );
-    expect(names).not.toContain("shared");
-    expect(findTool(requests[0], "mcp1_shared")?.description).toBe(
-      "from provider 1",
-    );
-    expect(findTool(requests[0], "mcp2_shared")?.description).toBe(
-      "from provider 2",
-    );
+    expect(names).toContain("__lazy__tool__discovery__");
+    expect(names).not.toContain("get_weather");
   });
 
-  it("an MCP tool never replaces an app tool of the same name", async () => {
-    const warn = spyOnWarn();
+  it("fails the run with RUN_ERROR when a client cannot list its tools", async () => {
+    const { runError, requests } = await runExpectingError({
+      mcp: { clients: [failingSource("MCP connection lost")] },
+    });
 
-    const { requests } = await runClassicAgent(
-      { mcpClients: [objectProvider([fakeTool("search", "from mcp")])] },
-      [{}],
+    expect(runError.message).toBe("MCP connection lost");
+    expect(requests).toHaveLength(0);
+  });
+
+  it("skips a failing client when onDiscoveryError returns", async () => {
+    const failing = failingSource("MCP connection lost");
+    const working = fakeSource([fakeTool("search", "Search")]);
+    const onDiscoveryError = vi.fn();
+
+    const { requests } = await runClassicAgent({
+      mcp: { clients: [failing, working], onDiscoveryError },
+    });
+
+    expect(requestToolNames(requests[0])).toContain("search");
+    expect(onDiscoveryError).toHaveBeenCalledOnce();
+    expect(onDiscoveryError.mock.calls[0][0]).toEqual(
+      new Error("MCP connection lost"),
+    );
+    expect(onDiscoveryError.mock.calls[0][1]).toBe(failing);
+  });
+});
+
+describe("mcp: tool names", () => {
+  it("fails the run when an MCP tool has the name of a frontend tool", async () => {
+    const { runError, requests } = await runExpectingError(
+      { mcp: { clients: [fakeSource([fakeTool("search", "from mcp")])] } },
       {
         tools: [
           {
@@ -229,91 +281,21 @@ describe("mcpClients: tool names", () => {
       },
     );
 
-    expect(findTool(requests[0], "search")?.description).toBe("from app");
-    expect(findTool(requests[0], "mcp1_search")?.description).toBe("from mcp");
-    expect(warn).toHaveBeenCalledWith(expect.stringContaining('"search"'));
-  });
-
-  it("warns about a collision once, not on every run", async () => {
-    const warn = spyOnWarn();
-    const { agent } = createClassicAgent(
-      {
-        mcpClients: [
-          objectProvider([fakeTool("repeated", "a")]),
-          objectProvider([fakeTool("repeated", "b")]),
-        ],
-      },
-      [{}, {}],
-    );
-
-    await collectEvents(agent.run(createDefaultInput()));
-    await collectEvents(agent.run(createDefaultInput({ runId: "run2" })));
-
-    const collisionWarnings = warn.mock.calls.filter(([message]) =>
-      String(message).includes('"repeated"'),
-    );
-    expect(collisionWarnings).toHaveLength(1);
-  });
-
-  it("tools with unique names keep their names and log no warning", async () => {
-    const warn = spyOnWarn();
-
-    const { requests } = await runClassicAgent({
-      mcpClients: [
-        objectProvider([fakeTool("uniqueA", "a")]),
-        objectProvider([fakeTool("uniqueB", "b")]),
-      ],
-    });
-
-    expect(requestToolNames(requests[0])).toEqual(
-      expect.arrayContaining(["uniqueA", "uniqueB"]),
-    );
-    expect(warn).not.toHaveBeenCalledWith(
-      expect.stringContaining("MCP tool name"),
-    );
-  });
-});
-
-describe("mcpClients: failures and cancellation", () => {
-  it("a tools() rejection fails the run with RUN_ERROR before the model runs", async () => {
-    const failing = {
-      tools: vi.fn(async (): Promise<readonly AnyTool[]> => {
-        throw new Error("MCP connection lost");
-      }),
-    };
-    const { agent, requests } = createClassicAgent({ mcpClients: [failing] });
-
-    const { events } = await collectEventsIncludingErrors(
-      agent.run(createDefaultInput()),
-    );
-
-    const [runError] = eventsOfType(events, EventType.RUN_ERROR);
-    expect(runError.message).toBe("MCP connection lost");
+    expect(runError.message).toContain('Cannot pass two tools named "search"');
     expect(requests).toHaveLength(0);
   });
 
-  it("stops after a tool lookup that the run cancelled, and does not close the client", async () => {
-    let resolveTools!: (tools: readonly AnyTool[]) => void;
-    const first = objectProvider([]);
-    first.tools.mockImplementation(
-      () =>
-        new Promise((resolve) => {
-          resolveTools = resolve;
-        }),
-    );
-    const second = objectProvider([]);
-    const { agent, requests } = createClassicAgent({
-      mcpClients: [first, second],
+  it("fails the run when two MCP clients have a tool of the same name", async () => {
+    const { runError, requests } = await runExpectingError({
+      mcp: {
+        clients: [
+          fakeSource([fakeTool("shared", "from client 1")]),
+          fakeSource([fakeTool("shared", "from client 2")]),
+        ],
+      },
     });
 
-    const run = collectEvents(agent.run(createDefaultInput()));
-    await vi.waitFor(() => expect(first.tools).toHaveBeenCalledOnce());
-    agent.abortRun();
-    resolveTools([]);
-    await run;
-
-    expect(second.tools).not.toHaveBeenCalled();
-    expect(first.close).not.toHaveBeenCalled();
+    expect(runError.message).toContain('Duplicate MCP tool name "shared"');
     expect(requests).toHaveLength(0);
   });
 });

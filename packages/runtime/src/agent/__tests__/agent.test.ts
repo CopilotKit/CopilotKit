@@ -13,6 +13,7 @@ import type {
   ToolMessage,
 } from "@ag-ui/client";
 import { z } from "zod";
+import { defineTool } from "../index";
 import {
   BuiltInAgent,
   createDefaultInput,
@@ -686,14 +687,14 @@ describe("BuiltInAgent factory interrupt() primitive", () => {
 // ---------------------------------------------------------------------------
 
 describe("BuiltInAgent classic interrupt tools", () => {
-  const interruptTool = {
+  const interruptTool = defineTool({
     name: "confirm_action",
     description: "Ask the human to confirm",
     parameters: z.object({ summary: z.string() }),
-    interrupt: true as const,
+    interrupt: true,
     interruptReason: "confirmation",
     interruptMessage: "Please confirm",
-  };
+  });
   const askToConfirm = [
     {
       toolCalls: [
@@ -736,11 +737,12 @@ describe("BuiltInAgent classic interrupt tools", () => {
     const { events } = await runClassicAgent(
       {
         tools: [
-          {
-            ...interruptTool,
-            interruptReason: undefined,
-            interruptMessage: undefined,
-          },
+          defineTool({
+            name: "confirm_action",
+            description: "Ask the human to confirm",
+            parameters: z.object({ summary: z.string() }),
+            interrupt: true,
+          }),
         ],
       },
       askToConfirm,

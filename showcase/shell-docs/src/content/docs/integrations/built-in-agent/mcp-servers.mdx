@@ -1,55 +1,69 @@
 ---
 title: "MCP Servers"
 icon: "lucide/Plug"
-description: "Connect MCP servers to your Built-in Agent, with support for persistent clients, tool caching, and dynamic auth."
+description: "Connect MCP servers to your Built-in Agent, with lazy tools, error handling, and dynamic auth."
 ---
 
-## What are MCP Servers?
-
-MCP (Model Context Protocol) servers give your agent more tools. You connect to
-a server with an MCP client from `@tanstack/ai-mcp`, over **HTTP** or **SSE**.
-Then you give the client to the Built-in Agent in `mcpClients`.
+Your agent needs tools that live on an MCP server: a search index, a database,
+a third-party API. Connect to each server once, then give the clients to the
+Built-in Agent in `mcp`. The agent gets the tools on every run. You do not
+open or close a connection for each run.
 
 ## When should I use this?
 
-- You want to connect your agent to existing MCP-compatible tool servers
-- You need to add capabilities from third-party MCP providers
-- You want to share tools across multiple agents or applications
-
-## Install the MCP package
-
-```npm
-npm install @tanstack/ai-mcp
-```
+- You want to connect your agent to existing MCP-compatible tool servers.
+- You need to add capabilities from third-party MCP providers.
+- You want to share tools across multiple agents or applications.
 
 ## Connect a server
 
-Create the client once, when your server starts. Then pass it in `mcpClients`:
+1. Install the MCP client:
 
-```typescript title="src/copilotkit.ts"
-import { BuiltInAgent } from "@copilotkit/runtime/agent";
-import { openaiText } from "@tanstack/ai-openai";
-import { createMCPClient } from "@tanstack/ai-mcp"; // [!code highlight]
+   ```npm
+   npm install @tanstack/ai-mcp
+   ```
 
-const client = await createMCPClient({ // [!code highlight:3]
-  transport: { type: "http", url: "https://my-mcp-server.example.com/mcp" },
-});
+2. Create the client once, when your server starts. Then pass it in
+   `mcp.clients`:
 
-const builtInAgent = new BuiltInAgent({
-  model: openaiText("gpt-5.4-mini"),
-  mcpClients: [client], // [!code highlight]
+   ```typescript title="src/copilotkit.ts" group=mcp-setup
+   import { BuiltInAgent } from "@copilotkit/runtime/agent";
+   import { openaiText } from "@tanstack/ai-openai";
+   import { createMCPClient } from "@tanstack/ai-mcp"; // [!code highlight]
+
+   const client = await createMCPClient({ // [!code highlight:3]
+     transport: { type: "http", url: "https://my-mcp-server.example.com/mcp" },
+   });
+
+   const builtInAgent = new BuiltInAgent({
+     model: openaiText("gpt-5.4-mini"),
+     mcp: { clients: [client] }, // [!code highlight]
+   });
+   ```
+
+At the start of each run, the agent gets the tools from each client and gives
+them to the model. The model can now call the tools of your MCP server.
+
+## Close the clients at shutdown
+
+The agent keeps the clients open between runs. It never closes them. Close them
+yourself when your server stops:
+
+```typescript group=mcp-setup
+process.on("SIGTERM", async () => {
+  await client.close();
 });
 ```
 
-At the start of each run, the agent calls `client.tools()` and gives the tools
-to the model. If `tools()` throws, the run ends with that error.
+To close the clients when a run ends, set `connection: "close"`. A closed
+client cannot serve the next run. Use `"close"` only for clients that you
+create for one run.
 
-The agent never creates or closes the client. You control the lifecycle. Call
-`await client.close()` when your server shuts down.
+## Transports and auth
 
 ### SSE transport
 
-For a server that uses Server-Sent Events, set `type: "sse"`:
+If the server uses Server-Sent Events, set `type: "sse"`:
 
 ```typescript
 import { createMCPClient } from "@tanstack/ai-mcp";
@@ -104,59 +118,48 @@ const analytics = await createMCPClient({
 
 const builtInAgent = new BuiltInAgent({
   model: openaiText("gpt-5.4-mini"),
-  mcpClients: [search, db, analytics], // [!code highlight]
+  mcp: { clients: [search, db, analytics] }, // [!code highlight]
 });
 ```
 
-### Tool name collisions
+### Keep tool names unique
 
-Two servers can expose tools with the same name. For example, a staging server
-and a production server expose the same tools. The agent keeps every copy. When
-a name collides, each MCP copy gets the prefix `mcp<N>_`, and the agent logs a
-warning. N is the position of the client in `mcpClients`, from 1:
+Each tool name must be unique in a run. This covers:
+
+- the tools of all your MCP servers,
+- your server tools in `tools`,
+- the frontend tools of your app.
+
+If two of these tools have the same name, the run fails with a duplicate tool
+name error.
+
+Two servers often expose the same tools. For example, a staging server and a
+production server both expose `search`. Set `prefix` on each client. Every tool
+of that client then gets the prefix:
 
 ```typescript
-import { BuiltInAgent } from "@copilotkit/runtime/agent";
-import { openaiText } from "@tanstack/ai-openai";
 import { createMCPClient } from "@tanstack/ai-mcp";
 
 const staging = await createMCPClient({
   transport: { type: "http", url: "https://staging.example.com/mcp" },
+  prefix: "staging", // [!code highlight]
 });
-const production = await createMCPClient({
-  transport: { type: "http", url: "https://prod.example.com/mcp" },
-});
-
-const builtInAgent = new BuiltInAgent({
-  model: openaiText("gpt-5.4-mini"),
-  mcpClients: [staging, production],
-});
-// Both servers expose `search`, so the model sees `mcp1_search` and `mcp2_search`.
-```
-
-- Only names that collide get a prefix. Other tools keep their names.
-- If an MCP tool has the same name as one of your own tools, your tool keeps the
-  name, and the MCP tool gets the prefix.
-- A tool renderer that you register in the frontend matches only the exposed
-  name. If `search` becomes `mcp2_search`, register the renderer for
-  `mcp2_search`.
-
-To choose the names yourself, set `prefix` on the client. Every tool of that
-client then has the prefix, so no name collides:
-
-```typescript
-import { createMCPClient } from "@tanstack/ai-mcp";
-
 const production = await createMCPClient({
   transport: { type: "http", url: "https://prod.example.com/mcp" },
   prefix: "production", // [!code highlight]
 });
-// The model sees `production_search`.
+// The model sees `staging_search` and `production_search`.
 ```
+
+If an MCP tool has the same name as one of your own tools, use the same fix.
+Set `prefix` on that client, or rename your own tool.
+
+A tool renderer in the frontend matches the name that the model sees. With
+`prefix: "production"`, register the renderer for `production_search`.
 
 ## Combining with server tools
 
-MCP clients work together with `defineTool` server tools. The agent sees the
+MCP tools work together with `defineTool` server tools. The agent sees the
 tools from both:
 
 ```typescript
@@ -165,7 +168,7 @@ import { openaiText } from "@tanstack/ai-openai";
 import { createMCPClient } from "@tanstack/ai-mcp";
 import { z } from "zod";
 
-const customTool = defineTool({
+const getUser = defineTool({
   name: "getUser",
   description: "Get the current user",
   parameters: z.object({}),
@@ -180,20 +183,63 @@ const search = await createMCPClient({
 
 const builtInAgent = new BuiltInAgent({
   model: openaiText("gpt-5.4-mini"),
-  tools: [customTool], // Your custom tools
-  mcpClients: [search], // Plus tools from MCP servers
+  tools: [getUser], // Your server tools
+  mcp: { clients: [search] }, // Plus tools from MCP servers
 });
 ```
 
-## Custom tool providers
+## Lazy tools
 
-`mcpClients` accepts any object with a `tools()` method that returns a promise
-of TanStack AI tools. Use this to cache tools or to refresh auth.
+An MCP server can expose dozens of tools. The full schema of each tool goes to
+the model on every call, and that costs tokens. Set `lazyTools: true`:
+
+```typescript ignore
+const builtInAgent = new BuiltInAgent({
+  model: openaiText("gpt-5.4-mini"),
+  mcp: {
+    clients: [search, db, analytics],
+    lazyTools: true, // [!code highlight]
+  },
+});
+```
+
+The model then gets one discovery tool in place of the MCP tools. When the
+model needs a tool, it asks for that tool by name. Then it gets the schema of
+that tool and can call it.
+
+## When a server is down
+
+By default, if one server cannot list its tools, the run fails with that error.
+To skip the failed server and keep the tools of the other servers, pass
+`onDiscoveryError`:
+
+```typescript ignore
+const builtInAgent = new BuiltInAgent({
+  model: openaiText("gpt-5.4-mini"),
+  mcp: {
+    clients: [search, db, analytics],
+    onDiscoveryError: (error) => { // [!code highlight:3]
+      console.warn("Skipped an MCP server for this run", error);
+    },
+  },
+});
+```
+
+If you throw from `onDiscoveryError`, the run fails with your error.
+
+## Custom tool sources
+
+`mcp.clients` accepts any object with two methods:
+
+- `tools()`: returns a promise of TanStack AI tools.
+- `close()`: closes the connection.
+
+Use a custom source to cache tools or to refresh auth.
 
 ### Tool caching
 
-By default, `client.tools()` asks the MCP server on every agent run. To ask once
-at startup, keep the promise and return it on each run:
+By default, the agent asks the MCP server for its tools on every run. To ask
+once at startup, keep the promise and return it on each run:
 
 ```typescript
 import { BuiltInAgent } from "@copilotkit/runtime/agent";
@@ -208,7 +254,9 @@ const cachedTools = client.tools(); // [!code highlight]
 
 const builtInAgent = new BuiltInAgent({
   model: openaiText("gpt-5.4-mini"),
-  mcpClients: [{ tools: () => cachedTools }], // [!code highlight]
+  mcp: {
+    clients: [{ tools: () => cachedTools, close: () => client.close() }], // [!code highlight]
+  },
 });
 ```
 
@@ -217,8 +265,8 @@ Later runs get the tools from the cache.
 
 ### Dynamic authentication
 
-The auth token can expire between runs. Make a new client inside your provider
-when that happens:
+The auth token can expire between runs. When it expires, make a new client in
+your source:
 
 ```typescript
 import { BuiltInAgent } from "@copilotkit/runtime/agent";
@@ -238,7 +286,7 @@ async function connect() {
 
 let currentClient = await connect();
 
-const provider = {
+const source = {
   async tools() {
     if (isTokenExpired()) {
       await currentClient.close();
@@ -246,19 +294,31 @@ const provider = {
     }
     return currentClient.tools();
   },
+  close: () => currentClient.close(),
 };
 
 const builtInAgent = new BuiltInAgent({
   model: openaiText("gpt-5.4-mini"),
-  mcpClients: [provider],
+  mcp: { clients: [source] },
 });
 ```
 
-The provider reconnects only when the token expires, not on every run.
+The source connects again only when the token expires, not on every run.
 
-## Client reference
+## Reference
 
-`createMCPClient` takes these fields:
+### The `mcp` option
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `clients` | `MCPToolSource[]` | The clients to get tools from. Required. |
+| `connection` | `"keep-alive" \| "close"` | `"keep-alive"` (default): the agent never closes the clients. `"close"`: the agent closes them when each run ends. |
+| `lazyTools` | `boolean` | If `true`, the model gets each tool schema only when it asks for that tool. Default: `false`. |
+| `onDiscoveryError` | `(error, source) => void \| Promise<void>` | Runs when one client cannot list its tools. Return to skip that client. Throw to fail the run. If you do not set it, the run fails. |
+
+`MCPToolSource` and `ChatMCPOptions` are types from `@tanstack/ai`.
+
+### `createMCPClient`
 
 | Property | Type | Description |
 |----------|------|-------------|
@@ -267,5 +327,6 @@ The provider reconnects only when the token expires, not on every run.
 | `transport.headers` | `Record<string, string>` | Optional HTTP headers, for example for auth |
 | `transport.fetch` | `typeof fetch` | Optional `fetch` to use for each request |
 | `prefix` | `string` | Optional prefix for every tool name of this client |
+| `toolName` | `(tool) => string` | Optional function that sets the name the model sees. It overrides `prefix`. |
 
 For all client options, see the `@tanstack/ai-mcp` package.
