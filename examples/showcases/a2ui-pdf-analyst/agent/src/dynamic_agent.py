@@ -221,7 +221,7 @@ above. Skip charts unless the user explicitly asked for data viz.
 
 def build_dynamic_agent():
     return create_agent(
-        model="openai:gpt-6-luna",
+        model=ChatOpenAI(model="gpt-6-luna", reasoning_effort="none"),
         tools=[query_pdf, generate_a2ui],
         middleware=[CopilotKitMiddleware()],
         system_prompt=SYSTEM_PROMPT,

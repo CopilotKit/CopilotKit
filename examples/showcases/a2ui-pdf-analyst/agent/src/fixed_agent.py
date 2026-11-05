@@ -14,6 +14,7 @@ from pathlib import Path
 from typing import TypedDict
 
 from copilotkit import CopilotKitMiddleware, a2ui
+from langchain_openai import ChatOpenAI
 from langchain.agents import create_agent
 from langchain.tools import tool
 from langgraph.checkpoint.memory import MemorySaver
@@ -178,7 +179,7 @@ more than two suggestions.
 
 def build_fixed_agent():
     return create_agent(
-        model="openai:gpt-6-luna",
+        model=ChatOpenAI(model="gpt-6-luna", reasoning_effort="none"),
         tools=[render_dashboard],
         # CopilotKitMiddleware forwards frontend tools + agent context (e.g.
         # useAgentContext payloads) to the LLM.
