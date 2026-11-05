@@ -30,12 +30,12 @@ export async function readRailwayLifecycleEvidence(
   signal?.throwIfAborted();
   let contents: string;
   let endpoint: URL | undefined;
-  const validationPolicySha256 = createHash("sha256")
-    .update(JSON.stringify(policy))
-    .digest("hex");
-  let publicationPolicySha256 = validationPolicySha256;
+  let publicationPolicySha256: string | undefined;
   try {
     if (filePath.startsWith("https://")) {
+      const validationPolicySha256 = createHash("sha256")
+        .update(JSON.stringify(policy))
+        .digest("hex");
       endpoint = new URL(filePath);
       if (
         endpoint.username ||

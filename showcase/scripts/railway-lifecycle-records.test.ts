@@ -1,5 +1,8 @@
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { createHash } from "node:crypto";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { readRailwayLifecycleEvidence } from "../harness/src/shared/railway-lifecycle-records";
 import { DISPOSABLE_LIFECYCLE_POLICY } from "./railway-envs";
 import type {
@@ -45,6 +48,43 @@ beforeEach(() => {
 afterEach(() => {
   vi.unstubAllEnvs();
   vi.unstubAllGlobals();
+});
+
+it("returns a typed error for cyclic HTTPS policy metadata before any network request", async () => {
+  const policy = { ...DISPOSABLE_LIFECYCLE_POLICY, metadata: {} };
+  policy.metadata = policy;
+  const fetcher = vi.fn();
+  vi.stubGlobal("fetch", fetcher);
+
+  await expect(
+    readRailwayLifecycleEvidence(endpoint, policy, now),
+  ).resolves.toMatchObject({
+    status: "invalid",
+    issues: [{ code: "records-unreadable" }],
+  });
+  expect(fetcher).not.toHaveBeenCalled();
+});
+
+it("returns the parser error for cyclic local-file policy metadata without network requests", async () => {
+  const policy = { ...DISPOSABLE_LIFECYCLE_POLICY, metadata: {} };
+  policy.metadata = policy;
+  const fetcher = vi.fn();
+  vi.stubGlobal("fetch", fetcher);
+  const directory = await mkdtemp(join(tmpdir(), "lifecycle-records-"));
+  try {
+    const filePath = join(directory, "records.json");
+    await writeFile(filePath, bytes);
+
+    await expect(
+      readRailwayLifecycleEvidence(filePath, policy, now),
+    ).resolves.toMatchObject({
+      status: "invalid",
+      issues: [{ code: "invalid-fields" }],
+    });
+    expect(fetcher).not.toHaveBeenCalled();
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
 });
 
 it("authenticates a fresh snapshot and acknowledges its exact bytes and policy", async () => {
