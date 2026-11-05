@@ -79,7 +79,15 @@ jobs:
               );
 
               if (largeNewFiles.length > 0) {
-                alerts.push(`⚠️ **Large files added by fork PR** — ${largeNewFiles.map(f => '`' + f.filename + '` (' + f.additions + ' lines)').join(', ')}. Bundled payloads are a common supply-chain attack vector.`);
+                // Keep fork-controlled filenames inside a single Markdown code span.
+                const inlineCode = value => {
+                  const text = value.replace(/\r/g, '\\r').replace(/\n/g, '\\n');
+                  const runs = text.match(/`+/g) || [];
+                  const delimiter = '`'.repeat(Math.max(0, ...runs.map(run => run.length)) + 1);
+                  const padding = /^ +$/.test(text) ? '' : ' ';
+                  return delimiter + padding + text + padding + delimiter;
+                };
+                alerts.push(`⚠️ **Large files added by fork PR** — ${largeNewFiles.map(f => inlineCode(f.filename) + ' (' + f.additions + ' lines)').join(', ')}. Bundled payloads are a common supply-chain attack vector.`);
               }
             }
 
