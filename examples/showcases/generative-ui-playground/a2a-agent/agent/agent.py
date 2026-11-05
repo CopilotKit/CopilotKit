@@ -121,7 +121,10 @@ class UIGeneratorAgent:
             model=LiteLlm(
                 model=LITELLM_MODEL,
                 **(
-                    {"reasoning_effort": "none"}
+                    {
+                        "reasoning_effort": "none",
+                        "allowed_openai_params": ["reasoning_effort"],
+                    }
                     if LITELLM_MODEL in ("gpt-6-luna", "openai/gpt-6-luna")
                     else {}
                 ),

@@ -58,6 +58,7 @@ class SharedStateStreamingFlow(Flow[SharedStateStreamingState]):
         tools = [*self.state.copilotkit.actions, WRITE_DOCUMENT_TOOL]
         response = await copilotkit_stream(
             await acompletion(
+                allowed_openai_params=["reasoning_effort"],
                 reasoning_effort="none",
                 model="openai/gpt-6-luna",
                 messages=[
@@ -104,6 +105,7 @@ class SharedStateStreamingFlow(Flow[SharedStateStreamingState]):
 
         confirmation = await copilotkit_stream(
             await acompletion(
+                allowed_openai_params=["reasoning_effort"],
                 reasoning_effort="none",
                 model="openai/gpt-6-luna",
                 messages=[

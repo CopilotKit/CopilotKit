@@ -497,7 +497,7 @@ def build_model():
         model=MODEL,
         parallel_tool_calls=False,
         **(
-            {"reasoning_effort": "none"}
+            {"reasoning_effort": "none", "allowed_openai_params": ["reasoning_effort"]}
             if MODEL in ("gpt-6-luna", "openai/gpt-6-luna")
             else {}
         ),

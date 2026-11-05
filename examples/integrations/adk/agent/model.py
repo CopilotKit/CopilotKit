@@ -51,7 +51,7 @@ def resolve_model(default_spec: str) -> str | BaseLlm:
     return LiteLlm(
         model=f"{provider}/{model}",
         **(
-            {"reasoning_effort": "none"}
+            {"reasoning_effort": "none", "allowed_openai_params": ["reasoning_effort"]}
             if provider == "openai" and model == "gpt-6-luna"
             else {}
         ),

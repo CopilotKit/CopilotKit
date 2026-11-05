@@ -68,5 +68,9 @@ def completion_options(model: str) -> dict:
         return {}
     return {
         "parallel_tool_calls": False,
-        **({"reasoning_effort": "none"} if model == "openai/gpt-6-luna" else {}),
+        **(
+            {"reasoning_effort": "none", "allowed_openai_params": ["reasoning_effort"]}
+            if model == "openai/gpt-6-luna"
+            else {}
+        ),
     }

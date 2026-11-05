@@ -361,7 +361,14 @@ class SubagentsFlow(Flow[AgentState]):
 
             response = await copilotkit_stream(
                 await acompletion(
-                    reasoning_effort="none",
+                    **(
+                        {
+                            "reasoning_effort": "none",
+                            "allowed_openai_params": ["reasoning_effort"],
+                        }
+                        if f"openai/{_LLM}" in ("openai/gpt-6-luna", "gpt-6-luna")
+                        else {}
+                    ),
                     model=f"openai/{_LLM}",
                     messages=messages,
                     tools=tools,

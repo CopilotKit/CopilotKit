@@ -73,7 +73,14 @@ class A2UIRecoveryFlow(Flow[A2UIRecoveryState]):
 
         response = await copilotkit_stream(
             await acompletion(
-                reasoning_effort="none",
+                **(
+                    {
+                        "reasoning_effort": "none",
+                        "allowed_openai_params": ["reasoning_effort"],
+                    }
+                    if MODEL in ("openai/gpt-6-luna", "gpt-6-luna")
+                    else {}
+                ),
                 model=MODEL,
                 messages=[
                     {"role": "system", "content": SYSTEM_PROMPT},
@@ -121,7 +128,14 @@ class A2UIRecoveryFlow(Flow[A2UIRecoveryState]):
 
         confirmation = await copilotkit_stream(
             await acompletion(
-                reasoning_effort="none",
+                **(
+                    {
+                        "reasoning_effort": "none",
+                        "allowed_openai_params": ["reasoning_effort"],
+                    }
+                    if MODEL in ("openai/gpt-6-luna", "gpt-6-luna")
+                    else {}
+                ),
                 model=MODEL,
                 messages=[
                     {"role": "system", "content": SYSTEM_PROMPT},
