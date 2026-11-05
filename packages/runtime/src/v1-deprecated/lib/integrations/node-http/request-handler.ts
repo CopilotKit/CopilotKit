@@ -27,29 +27,6 @@ export function readableStreamToNodeStream(
   });
 }
 
-export function nodeStreamToReadableStream(
-  nodeStream: Readable,
-): ReadableStream<Uint8Array> {
-  return new ReadableStream({
-    start(controller) {
-      nodeStream.on("data", (chunk) => {
-        controller.enqueue(
-          chunk instanceof Buffer ? new Uint8Array(chunk) : chunk,
-        );
-      });
-      nodeStream.on("end", () => {
-        controller.close();
-      });
-      nodeStream.on("error", (err) => {
-        controller.error(err);
-      });
-    },
-    cancel() {
-      nodeStream.destroy();
-    },
-  });
-}
-
 export function getFullUrl(req: IncomingMessage): string {
   // Use req.url (path relative to mount point) for Hono routing to work correctly.
   // Express sets req.url to the path after the mount point (e.g., "/" when mounted at "/copilotkit").

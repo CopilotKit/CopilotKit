@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
-import { buildFileContentParts, type SlackFileRef } from "../download-files.js";
+import { buildFileContentParts } from "../download-files.js";
+import type { SlackFileRef } from "../download-files.js";
 
 function fakeFetch(
   bodyByUrl: Record<string, { ok?: boolean; status?: number; bytes?: Buffer }>,
@@ -7,16 +8,9 @@ function fakeFetch(
   return vi.fn(async (url: string) => {
     const e = bodyByUrl[url];
     if (!e) return { ok: false, status: 404 } as never;
-    return {
-      ok: e.ok ?? true,
-      status: e.status ?? 200,
-      arrayBuffer: async () =>
-        (e.bytes ?? Buffer.from("")).buffer.slice(
-          (e.bytes ?? Buffer.from("")).byteOffset,
-          (e.bytes ?? Buffer.from("")).byteOffset +
-            (e.bytes ?? Buffer.from("")).byteLength,
-        ),
-    } as never;
+    return new Response(new Uint8Array(e.bytes ?? []), {
+      status: e.ok === false ? (e.status ?? 500) : (e.status ?? 200),
+    }) as never;
   });
 }
 
@@ -168,5 +162,60 @@ describe("buildFileContentParts", () => {
     });
     expect(parts).toHaveLength(3);
     expect(notes.some((n) => n.includes("first 3 of 8"))).toBe(true);
+  });
+
+  it("stops reading a body that passes the cap, whatever size was declared", async () => {
+    let pulled = 0;
+    const cancel = vi.fn();
+    const body = new ReadableStream<Uint8Array>({
+      pull(controller) {
+        pulled += 1;
+        controller.enqueue(new Uint8Array(1024));
+      },
+      cancel,
+    });
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => new Response(body)),
+    );
+
+    const { parts, notes } = await buildFileContentParts(
+      [{ ...img, size: 10 }],
+      "tok",
+      { maxBytesPerFile: 4096 },
+    );
+
+    expect(parts).toEqual([]);
+    expect(notes).toEqual(['skipped "shot.png": exceeds the 4096-byte cap']);
+    expect(cancel).toHaveBeenCalledOnce();
+    expect(pulled).toBeLessThan(10);
+  });
+
+  it("keeps a body of exactly the cap", async () => {
+    const bytes = Buffer.alloc(4096, 1);
+    vi.stubGlobal("fetch", fakeFetch({ [img.url_private!]: { bytes } }));
+    const { parts, notes } = await buildFileContentParts([img], "tok", {
+      maxBytesPerFile: 4096,
+    });
+    expect(notes).toEqual([]);
+    expect(parts).toHaveLength(1);
+  });
+
+  it("rejects on a Content-Length over the cap without reading", async () => {
+    const pull = vi.fn();
+    const body = new ReadableStream<Uint8Array>({ pull }, { highWaterMark: 0 });
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(
+        async () =>
+          new Response(body, { headers: { "content-length": "5000" } }),
+      ),
+    );
+    const { parts, notes } = await buildFileContentParts([img], "tok", {
+      maxBytesPerFile: 4096,
+    });
+    expect(parts).toEqual([]);
+    expect(notes).toEqual(['skipped "shot.png": exceeds the 4096-byte cap']);
+    expect(pull).not.toHaveBeenCalled();
   });
 });

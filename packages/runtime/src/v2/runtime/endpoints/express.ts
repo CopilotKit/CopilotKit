@@ -95,6 +95,18 @@ export interface CopilotExpressEndpointParams {
   hooks?: CopilotRuntimeHooks;
 
   /**
+   * Largest request body, in bytes. See
+   * `CopilotRuntimeHandlerOptions.maxBodyBytes`.
+   */
+  maxBodyBytes?: number;
+
+  /**
+   * Largest transcription request body, in bytes. See
+   * `CopilotRuntimeHandlerOptions.maxTranscriptionBodyBytes`.
+   */
+  maxTranscriptionBodyBytes?: number;
+
+  /**
    * Whether the underlying handler builds the control surface for the runtime's
    * declared managed Channels — and, because Express is a long-running host,
    * starts their activation at creation. Defaults to `true`. Set `false` to
@@ -167,6 +179,8 @@ export function createCopilotExpressHandler({
   mode = "multi-route",
   cors: corsOption = true,
   hooks,
+  maxBodyBytes,
+  maxTranscriptionBodyBytes,
   activateChannels,
   __channelEngine,
 }: CopilotExpressEndpointParams): CopilotExpressRouter {
@@ -178,6 +192,8 @@ export function createCopilotExpressHandler({
     mode,
     cors: false, // CORS is handled at the Express middleware layer
     hooks,
+    maxBodyBytes,
+    maxTranscriptionBodyBytes,
     activateChannels,
     __channelEngine,
   });

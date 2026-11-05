@@ -73,6 +73,18 @@ interface CopilotEndpointParams {
   hooks?: CopilotRuntimeHooks;
 
   /**
+   * Largest request body, in bytes. See
+   * `CopilotRuntimeHandlerOptions.maxBodyBytes`.
+   */
+  maxBodyBytes?: number;
+
+  /**
+   * Largest transcription request body, in bytes. See
+   * `CopilotRuntimeHandlerOptions.maxTranscriptionBodyBytes`.
+   */
+  maxTranscriptionBodyBytes?: number;
+
+  /**
    * Whether the underlying handler builds the control surface for the runtime's
    * declared managed Channels. Defaults to `true`. Building it opens no
    * connection — activation is deferred to the first `channels.ready()`. See
@@ -95,6 +107,8 @@ export function createCopilotHonoHandler({
   mode = "multi-route",
   cors: corsConfig,
   hooks,
+  maxBodyBytes,
+  maxTranscriptionBodyBytes,
   activateChannels,
   __channelEngine,
 }: CopilotEndpointParams): CopilotHonoApp {
@@ -104,6 +118,8 @@ export function createCopilotHonoHandler({
     mode,
     cors: corsConfig ? toFetchCorsConfig(corsConfig) : true,
     hooks,
+    maxBodyBytes,
+    maxTranscriptionBodyBytes,
     activateChannels,
     __channelEngine,
   });

@@ -23,13 +23,13 @@ import telemetry, {
   getRuntimeInstanceTelemetryInfo,
 } from "../../telemetry-client";
 import { createCopilotEndpointSingleRoute } from "../../../../v2/runtime/endpoints/hono-single";
+import { createNodeBodyStream } from "../../../../v2/runtime/endpoints/node-fetch-handler";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import type { IncomingWithBody } from "./request-handler";
 import {
   getFullUrl,
   isDisturbedOrLockedError,
   isStreamConsumed,
-  nodeStreamToReadableStream,
   readableStreamToNodeStream,
   synthesizeBodyFromParsedBody,
   toHeaders,
@@ -89,7 +89,7 @@ export function copilotRuntimeNodeHttpEndpoint(
     let useDuplex = false;
 
     if (hasBody && canStream) {
-      requestBody = nodeStreamToReadableStream(req);
+      requestBody = createNodeBodyStream(req, res);
       useDuplex = true;
     }
 

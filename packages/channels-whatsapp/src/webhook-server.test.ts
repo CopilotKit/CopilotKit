@@ -162,4 +162,39 @@ describe("WebhookServer", () => {
       await server.stop();
     }
   });
+
+  it.each([
+    ["with Content-Length", (body: Buffer) => body],
+    [
+      "chunked",
+      (body: Buffer) =>
+        new ReadableStream({
+          start(controller) {
+            controller.enqueue(new Uint8Array(body));
+            controller.close();
+          },
+        }),
+    ],
+  ])("answers 413 past the size limit, %s", async (_name, toBody) => {
+    const onEvent = vi.fn(async () => {});
+    const server = new WebhookServer({
+      path: "/webhook",
+      verifyToken: "VTOK",
+      appSecret: "SECRET",
+      onEvent,
+    });
+    await server.start(0);
+    try {
+      const port = (server.address() as any).port;
+      const res = await fetch(`http://127.0.0.1:${port}/webhook`, {
+        method: "POST",
+        body: toBody(Buffer.alloc(6 * 1024 * 1024)),
+        duplex: "half",
+      } as RequestInit);
+      expect(res.status).toBe(413);
+      expect(onEvent).not.toHaveBeenCalled();
+    } finally {
+      await server.stop();
+    }
+  });
 });

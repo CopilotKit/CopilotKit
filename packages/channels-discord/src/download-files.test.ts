@@ -213,4 +213,33 @@ describe("buildFileContentParts", () => {
     expect(parts[0]).toMatchObject({ type: "text" });
     expect(JSON.stringify(parts[0])).toContain("a,b");
   });
+
+  it("stops reading a streamed body that passes the cap", async () => {
+    let pulled = 0;
+    const cancel = vi.fn();
+    const body = new ReadableStream<Uint8Array>({
+      pull(controller) {
+        pulled += 1;
+        controller.enqueue(new Uint8Array(1024));
+      },
+      cancel,
+    });
+    const parts = await buildFileContentParts(
+      [
+        {
+          url: "https://cdn/x.png",
+          name: "x.png",
+          contentType: "image/png",
+          size: 10,
+        },
+      ],
+      {
+        fetchImpl: vi.fn(async () => new Response(body)) as any,
+        maxBytes: 4096,
+      },
+    );
+    expect(parts[0]).toMatchObject({ type: "text" });
+    expect(cancel).toHaveBeenCalledOnce();
+    expect(pulled).toBeLessThan(10);
+  });
 });
