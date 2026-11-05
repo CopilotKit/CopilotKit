@@ -1,105 +1,150 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
-import { resolveModel } from "../index";
+import { chat } from "@tanstack/ai";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { resolveModel } from "../model";
 
-// Mock the SDK provider factories so we can assert the options resolveModel passes them
-// (the returned LanguageModel does not expose baseURL publicly, so we verify at the factory).
-const createOpenAI = vi.fn((_opts?: unknown) =>
-  Object.assign((modelId: string) => ({ modelId, provider: "openai" }), {
-    chat: (modelId: string) => ({ modelId, provider: "openai.chat" }),
-  }),
-);
-const createAnthropic = vi.fn((_opts?: unknown) => (modelId: string) => ({
-  modelId,
-  provider: "anthropic",
-}));
-const createGoogleGenerativeAI = vi.fn(
-  (_opts?: unknown) => (modelId: string) => ({
-    modelId,
-    provider: "google",
-  }),
-);
+/**
+ * The requests a resolved model string sends. The network is the only mock:
+ * `fetch` records each request and answers 400, so the run ends after one
+ * request with no retry.
+ */
+async function sentRequests(spec: string) {
+  const adapter = await resolveModel(spec);
+  const sent: Array<{ url: string; authorization: string | null }> = [];
+  vi.stubGlobal(
+    "fetch",
+    async (input: RequestInfo | URL, init?: RequestInit) => {
+      const request = new Request(input, init);
+      sent.push({
+        url: request.url,
+        authorization: request.headers.get("authorization"),
+      });
+      return new Response(JSON.stringify({ error: { message: "stop" } }), {
+        status: 400,
+        headers: { "content-type": "application/json" },
+      });
+    },
+  );
+  const stream = chat({
+    adapter,
+    threadId: "thread-1",
+    messages: [{ role: "user", content: "hi" }],
+    stream: true,
+    debug: false,
+  });
+  for await (const _chunk of stream) {
+    // Drain the stream; the request is what this records.
+  }
+  return sent;
+}
 
-vi.mock("@ai-sdk/openai", () => ({
-  createOpenAI: (opts: unknown) => createOpenAI(opts),
-}));
-vi.mock("@ai-sdk/anthropic", () => ({
-  createAnthropic: (opts: unknown) => createAnthropic(opts),
-}));
-vi.mock("@ai-sdk/google", () => ({
-  createGoogleGenerativeAI: (opts: unknown) => createGoogleGenerativeAI(opts),
-}));
+async function requestedUrls(spec: string) {
+  const sent = await sentRequests(spec);
+  return sent.map(({ url }) => url);
+}
 
-describe("resolveModel — custom baseURL via env", () => {
+describe("resolveModel: endpoints from env", () => {
   const originalEnv = process.env;
 
   beforeEach(() => {
-    vi.clearAllMocks();
     process.env = { ...originalEnv };
     process.env.OPENAI_API_KEY = "test-openai-key";
     process.env.ANTHROPIC_API_KEY = "test-anthropic-key";
     process.env.GOOGLE_API_KEY = "test-google-key";
     process.env.MINIMAX_API_KEY = "test-minimax-key";
+    delete process.env.OPENAI_BASE_URL;
+    delete process.env.COPILOTKIT_OPENAI_API;
+    delete process.env.ANTHROPIC_BASE_URL;
+    delete process.env.GOOGLE_GENERATIVE_AI_BASE_URL;
     delete process.env.MINIMAX_BASE_URL;
+    vi.spyOn(console, "info").mockImplementation(() => {});
   });
 
   afterEach(() => {
     process.env = originalEnv;
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
   });
 
-  it("passes OPENAI_BASE_URL to the OpenAI provider (OpenAI-compatible endpoints)", () => {
-    process.env.OPENAI_BASE_URL = "https://openrouter.ai/api/v1";
-    resolveModel("openai/gpt-4o-mini");
-    expect(createOpenAI).toHaveBeenCalledWith(
-      expect.objectContaining({ baseURL: "https://openrouter.ai/api/v1" }),
-    );
+  it.each([
+    // OpenAI-compatible hosts get Chat Completions.
+    [
+      "https://openrouter.ai/api/v1",
+      "https://openrouter.ai/api/v1/chat/completions",
+    ],
+    // OpenAI's own host keeps the Responses API.
+    ["https://api.openai.com/v1", "https://api.openai.com/v1/responses"],
+  ])("with OPENAI_BASE_URL=%s posts to %s", async (baseURL, expectedUrl) => {
+    process.env.OPENAI_BASE_URL = baseURL;
+    expect(await requestedUrls("openai/gpt-5")).toEqual([expectedUrl]);
   });
 
-  it("passes ANTHROPIC_BASE_URL to the Anthropic provider", () => {
-    process.env.ANTHROPIC_BASE_URL = "https://anthropic.internal/v1";
-    resolveModel("anthropic/claude-sonnet-4.5");
-    expect(createAnthropic).toHaveBeenCalledWith(
-      expect.objectContaining({ baseURL: "https://anthropic.internal/v1" }),
-    );
+  it("uses api.openai.com when OPENAI_BASE_URL is unset", async () => {
+    expect(await requestedUrls("openai/gpt-5")).toEqual([
+      "https://api.openai.com/v1/responses",
+    ]);
   });
 
-  it("passes GOOGLE_GENERATIVE_AI_BASE_URL to the Google provider", () => {
-    process.env.GOOGLE_GENERATIVE_AI_BASE_URL =
-      "https://google.internal/v1beta";
-    resolveModel("google/gemini-2.5-pro");
-    expect(createGoogleGenerativeAI).toHaveBeenCalledWith(
-      expect.objectContaining({ baseURL: "https://google.internal/v1beta" }),
-    );
+  it("COPILOTKIT_OPENAI_API=responses posts to /responses on a proxy", async () => {
+    process.env.OPENAI_BASE_URL = "https://my-gateway.example.com/v1";
+    process.env.COPILOTKIT_OPENAI_API = "responses";
+    expect(await requestedUrls("openai/gpt-5")).toEqual([
+      "https://my-gateway.example.com/v1/responses",
+    ]);
   });
 
-  it("leaves baseURL undefined when the env var is unset (default endpoint, backward compatible)", () => {
-    delete process.env.OPENAI_BASE_URL;
-    resolveModel("openai/gpt-4o");
-    expect(createOpenAI).toHaveBeenCalledWith(
-      expect.objectContaining({ baseURL: undefined }),
-    );
+  it.each([
+    ["https://anthropic.internal/v1", "https://anthropic.internal/v1/messages"],
+    [
+      "https://anthropic.internal/v1/",
+      "https://anthropic.internal/v1/messages",
+    ],
+    [undefined, "https://api.anthropic.com/v1/messages"],
+  ])("with ANTHROPIC_BASE_URL=%s posts to %s", async (baseURL, expectedUrl) => {
+    if (baseURL !== undefined) process.env.ANTHROPIC_BASE_URL = baseURL;
+    const [url] = await requestedUrls("anthropic/claude-sonnet-4.5");
+    // The adapter adds `?beta=true`; the endpoint is the part before it.
+    expect(url?.split("?")[0]).toBe(expectedUrl);
   });
 
-  it.each(["MiniMax-M3", "MiniMax-M2.7"])(
-    "resolves MiniMax model %s with the global endpoint",
-    (modelId) => {
-      const model = resolveModel(`minimax/${modelId}`);
-
-      expect(createOpenAI).toHaveBeenCalledWith({
-        name: "minimax",
-        apiKey: "test-minimax-key",
-        baseURL: "https://api.minimax.io/v1",
-      });
-      expect(model).toMatchObject({ modelId });
+  it.each([
+    [
+      "https://google.internal/v1beta",
+      "https://google.internal/v1beta/models/gemini-2.5-pro:streamGenerateContent?alt=sse",
+    ],
+    [
+      undefined,
+      "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:streamGenerateContent?alt=sse",
+    ],
+  ])(
+    "with GOOGLE_GENERATIVE_AI_BASE_URL=%s posts to %s",
+    async (baseURL, expectedUrl) => {
+      if (baseURL !== undefined) {
+        process.env.GOOGLE_GENERATIVE_AI_BASE_URL = baseURL;
+      }
+      expect(await requestedUrls("google/gemini-2.5-pro")).toEqual([
+        expectedUrl,
+      ]);
     },
   );
 
-  it("passes MINIMAX_BASE_URL to the MiniMax provider", () => {
+  it.each(["MiniMax-M3", "MiniMax-M2.7"])(
+    "posts MiniMax model %s to the global endpoint",
+    async (modelId) => {
+      expect(await requestedUrls(`minimax/${modelId}`)).toEqual([
+        "https://api.minimax.io/v1/chat/completions",
+      ]);
+    },
+  );
+
+  it("sends MINIMAX_API_KEY, not OPENAI_API_KEY, to MiniMax", async () => {
+    const [request] = await sentRequests("minimax/MiniMax-M3");
+    expect(request?.authorization).toBe("Bearer test-minimax-key");
+  });
+
+  it("posts MiniMax models to MINIMAX_BASE_URL", async () => {
     process.env.MINIMAX_BASE_URL = "https://api.minimaxi.com/v1";
-
-    resolveModel("minimax:MiniMax-M3");
-
-    expect(createOpenAI).toHaveBeenCalledWith(
-      expect.objectContaining({ baseURL: "https://api.minimaxi.com/v1" }),
-    );
+    expect(await requestedUrls("minimax:MiniMax-M3")).toEqual([
+      "https://api.minimaxi.com/v1/chat/completions",
+    ]);
   });
 });

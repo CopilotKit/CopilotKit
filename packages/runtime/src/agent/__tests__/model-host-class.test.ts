@@ -1,42 +1,37 @@
 /**
  * `classifyModelSpec` mirrors `resolveModel`'s provider switch. Nothing in the
  * type system keeps the two together, so these tests walk every provider that
- * switch accepts and fail if one of them classifies as `unknown` — which is
+ * switch accepts and fail if one of them classifies as `unknown`, which is
  * what a newly added provider would do until someone teaches the classifier
  * about it.
  */
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { BuiltInAgent, classifyModelSpec, resolveModel } from "../index";
+import { BuiltInAgent } from "../index";
+import { classifyModelSpec, resolveModel } from "../model";
 import { MODEL_HOST_CLASSES } from "@copilotkit/shared";
 
-/** Every provider prefix `resolveModel` accepts, with the env var that redirects it. */
+/** Every provider prefix `resolveModel` accepts, with the host class it gets by default. */
 const PROVIDERS = [
-  { spec: "openai/gpt-4o", env: "OPENAI_BASE_URL", default: "openai" },
-  {
-    spec: "anthropic/claude-sonnet-4.5",
-    env: "ANTHROPIC_BASE_URL",
-    default: "anthropic",
-  },
-  {
-    spec: "google/gemini-2.5-pro",
-    env: "GOOGLE_GENERATIVE_AI_BASE_URL",
-    default: "google",
-  },
-  {
-    spec: "gemini/gemini-2.5-flash",
-    env: "GOOGLE_GENERATIVE_AI_BASE_URL",
-    default: "google",
-  },
-  {
-    spec: "google-gemini/gemini-2.5-flash",
-    env: "GOOGLE_GENERATIVE_AI_BASE_URL",
-    default: "google",
-  },
-  { spec: "minimax/abab6.5", env: "MINIMAX_BASE_URL", default: "minimax" },
-  { spec: "vertex/gemini-2.5-pro", env: null, default: "vertex" },
+  { spec: "openai/gpt-4o", default: "openai" },
+  { spec: "anthropic/claude-sonnet-4.5", default: "anthropic" },
+  { spec: "google/gemini-2.5-pro", default: "google" },
+  { spec: "gemini/gemini-2.5-flash", default: "google" },
+  { spec: "google-gemini/gemini-2.5-flash", default: "google" },
+  { spec: "minimax/abab6.5", default: "minimax" },
+  { spec: "vertex/gemini-2.5-pro", default: "vertex" },
 ] as const;
 
-const TOUCHED_ENV = [
+/** Credentials so `resolveModel` builds every adapter. */
+const CREDENTIALS = {
+  OPENAI_API_KEY: "test-openai-key",
+  ANTHROPIC_API_KEY: "test-anthropic-key",
+  GOOGLE_API_KEY: "test-google-key",
+  MINIMAX_API_KEY: "test-minimax-key",
+  GOOGLE_VERTEX_PROJECT: "test-project",
+  GOOGLE_VERTEX_LOCATION: "us-central1",
+};
+
+const BASE_URL_ENV = [
   "OPENAI_BASE_URL",
   "ANTHROPIC_BASE_URL",
   "GOOGLE_GENERATIVE_AI_BASE_URL",
@@ -44,38 +39,34 @@ const TOUCHED_ENV = [
 ];
 
 describe("classifyModelSpec", () => {
-  let saved: Record<string, string | undefined>;
+  const originalEnv = process.env;
 
   beforeEach(() => {
-    saved = Object.fromEntries(TOUCHED_ENV.map((k) => [k, process.env[k]]));
-    for (const key of TOUCHED_ENV) delete process.env[key];
+    process.env = { ...originalEnv, ...CREDENTIALS };
+    for (const key of BASE_URL_ENV) delete process.env[key];
   });
 
   afterEach(() => {
-    for (const [key, value] of Object.entries(saved)) {
-      if (value === undefined) delete process.env[key];
-      else process.env[key] = value;
-    }
+    process.env = originalEnv;
   });
 
   describe("stays in step with resolveModel", () => {
     it.each(PROVIDERS)(
       "resolveModel accepts $spec and classifyModelSpec knows it",
-      ({ spec, default: expected }) => {
+      async ({ spec, default: expected }) => {
         // Both halves matter. The first proves the provider is real; the
         // second proves the classifier was taught about it.
-        //
-        // Asserted against "Unknown provider" specifically rather than against
-        // throwing at all: `vertex` builds from ambient Google credentials and
-        // raises a settings error without them, which still means resolveModel
-        // recognised the provider.
-        expect(() => resolveModel(spec)).not.toThrow("Unknown provider");
+        await expect(resolveModel(spec)).resolves.toMatchObject({
+          kind: "text",
+        });
         expect(classifyModelSpec(spec)).toBe(expected);
       },
     );
 
-    it("classifies a provider resolveModel rejects as unknown", () => {
-      expect(() => resolveModel("nonesuch/model")).toThrow("Unknown provider");
+    it("classifies a provider resolveModel rejects as unknown", async () => {
+      await expect(resolveModel("nonesuch/model")).rejects.toThrow(
+        "Unknown provider",
+      );
       expect(classifyModelSpec("nonesuch/model")).toBe("unknown");
     });
   });
@@ -97,6 +88,15 @@ describe("classifyModelSpec", () => {
         "anthropic",
       );
     });
+
+    it.each([
+      ["ANTHROPIC_BASE_URL", "anthropic/claude-sonnet-4.5"],
+      ["GOOGLE_GENERATIVE_AI_BASE_URL", "google/gemini-2.5-pro"],
+      ["MINIMAX_BASE_URL", "minimax/abab6.5"],
+    ])("reads %s for %s", (envVar, spec) => {
+      process.env[envVar] = "http://localhost:8080/v1";
+      expect(classifyModelSpec(spec)).toBe("local");
+    });
   });
 
   describe("spec parsing matches resolveModel", () => {
@@ -109,11 +109,10 @@ describe("classifyModelSpec", () => {
     });
   });
 
-  it("reports unknown for an already-built model", () => {
+  it("reports unknown for an already-built adapter", async () => {
     // The endpoint was chosen before it reached us and is not recoverable:
-    // an Azure-backed model reports provider "openai.responses", the same
-    // label as one on api.openai.com.
-    const prebuilt = resolveModel("openai/gpt-4o");
+    // an adapter aimed at Azure looks the same as one on api.openai.com.
+    const prebuilt = await resolveModel("openai/gpt-4o");
     expect(classifyModelSpec(prebuilt)).toBe("unknown");
   });
 
@@ -130,15 +129,10 @@ describe("BuiltInAgent.modelHostClass", () => {
     expect(agent.modelHostClass).toBe("anthropic");
   });
 
-  it("reports unknown for a developer-supplied model", () => {
-    const agent = new BuiltInAgent({ model: resolveModel("openai/gpt-4o") });
-    expect(agent.modelHostClass).toBe("unknown");
-  });
-
   it("reports unknown for a factory config, which owns its own LLM call", () => {
     const agent = new BuiltInAgent({
       type: "custom",
-      // Never invoked — constructing the agent is the whole test.
+      // Never invoked: constructing the agent is the whole test.
       factory: async function* () {},
     });
     expect(agent.modelHostClass).toBe("unknown");
