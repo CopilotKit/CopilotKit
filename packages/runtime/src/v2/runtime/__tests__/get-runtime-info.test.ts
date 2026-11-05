@@ -11,6 +11,7 @@ import { CopilotKitIntelligence } from "../intelligence-platform";
 import { TranscriptionService } from "../transcription-service/transcription-service";
 import { describe, it, expect, test, vi, beforeEach, afterEach } from "vitest";
 import type { AbstractAgent } from "@ag-ui/client";
+import { HttpAgent } from "@ag-ui/client";
 import { createLicenseChecker } from "@copilotkit/license-verifier";
 import type { RuntimeInfo } from "@copilotkit/shared";
 import {
@@ -29,6 +30,136 @@ class MockTranscriptionService extends TranscriptionService {
 }
 
 const mockRequest = new Request("https://example.com/info");
+
+describe("trusted tool-result continuation capability", () => {
+  it("advertises only configured agent names and copies the configuration", async () => {
+    const selected = ["enabled"];
+    const runtime = new CopilotRuntime({
+      agents: {
+        enabled: new HttpAgent({ url: "https://example.com/agent" }),
+        ordinary: new HttpAgent({ url: "https://example.com/agent" }),
+      },
+      toolResultContinuationAgents: selected,
+    });
+    selected.push("ordinary");
+    const response = await handleGetRuntimeInfo({
+      runtime,
+      request: mockRequest,
+    });
+    const info = await response.json();
+    expect(
+      info.agents.enabled.capabilities.custom[
+        "copilotkit.toolResultContinuation"
+      ],
+    ).toBe(true);
+    expect(
+      info.agents.ordinary.capabilities?.custom?.[
+        "copilotkit.toolResultContinuation"
+      ],
+    ).toBeUndefined();
+  });
+
+  it("does not trust an agent's self-reported opt-in", async () => {
+    class SelfReportedAgent extends HttpAgent {
+      override async getCapabilities() {
+        return { custom: { "copilotkit.toolResultContinuation": true } };
+      }
+    }
+    const runtime = new CopilotRuntime({
+      agents: {
+        untrusted: new SelfReportedAgent({ url: "https://example.com/agent" }),
+      },
+    });
+    const response = await handleGetRuntimeInfo({
+      runtime,
+      request: mockRequest,
+    });
+    const info = await response.json();
+    expect(
+      info.agents.untrusted.capabilities?.custom?.[
+        "copilotkit.toolResultContinuation"
+      ],
+    ).toBeUndefined();
+  });
+});
+describe("trusted partial native approval capability", () => {
+  it("copies the explicit list and advertises only selected agents", async () => {
+    const selected = ["enabled"];
+    const runtime = new CopilotRuntime({
+      agents: {
+        enabled: new HttpAgent({ url: "https://example.com" }),
+        ordinary: new HttpAgent({ url: "https://example.com" }),
+      },
+      partialNativeApprovalAgents: selected,
+    });
+    selected.push("ordinary");
+    const info = await (
+      await handleGetRuntimeInfo({ runtime, request: mockRequest })
+    ).json();
+    expect(
+      info.agents.enabled.capabilities.custom[
+        "copilotkit.partialNativeApprovals"
+      ],
+    ).toBe(true);
+    expect(
+      info.agents.ordinary.capabilities?.custom?.[
+        "copilotkit.partialNativeApprovals"
+      ],
+    ).toBeUndefined();
+    expect(
+      info.agents.enabled.capabilities.custom[
+        "copilotkit.toolResultContinuation"
+      ],
+    ).toBeUndefined();
+  });
+  it("strips agent self-report without removing unrelated capabilities", async () => {
+    class ReportingAgent extends HttpAgent {
+      override async getCapabilities() {
+        return {
+          custom: {
+            "copilotkit.partialNativeApprovals": true,
+            "other.feature": true,
+          },
+        };
+      }
+    }
+    const runtime = new CopilotRuntime({
+      agents: { default: new ReportingAgent({ url: "https://example.com" }) },
+      toolResultContinuationAgents: ["default"],
+    });
+    const info = await (
+      await handleGetRuntimeInfo({ runtime, request: mockRequest })
+    ).json();
+    expect(info.agents.default.capabilities.custom).toEqual({
+      "other.feature": true,
+      "copilotkit.toolResultContinuation": true,
+    });
+  });
+  it("trusted configuration overrides false self-report and composes contracts", async () => {
+    class ReportingAgent extends HttpAgent {
+      override async getCapabilities() {
+        return {
+          custom: {
+            "copilotkit.partialNativeApprovals": false,
+            "copilotkit.toolResultContinuation": false,
+          },
+        };
+      }
+    }
+    const runtime = new CopilotRuntime({
+      agents: { default: new ReportingAgent({ url: "https://example.com" }) },
+      partialNativeApprovalAgents: ["default"],
+      toolResultContinuationAgents: ["default"],
+    });
+    const info = await (
+      await handleGetRuntimeInfo({ runtime, request: mockRequest })
+    ).json();
+    expect(info.agents.default.capabilities.custom).toEqual({
+      "copilotkit.partialNativeApprovals": true,
+      "copilotkit.toolResultContinuation": true,
+    });
+  });
+});
 const INVALID_LEGACY_LICENSE_TOKEN = `header.${Buffer.from(
   '{"telemetry_id":"legacy-license-id"}',
 ).toString("base64url")}.signature`;

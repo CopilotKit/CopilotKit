@@ -1513,6 +1513,12 @@ export class AgentRegistry {
               this.applyMessageFilterToAgent(existing);
               this.applyRuntimeFetchToAgent(existing);
               this.applyRuntimeModeToAgent(existing, runtimeInfoResponse);
+              existing.allowPartialNativeApprovals =
+                capabilities?.custom?.["copilotkit.partialNativeApprovals"] ===
+                true;
+              existing.allowToolResultContinuation =
+                capabilities?.custom?.["copilotkit.toolResultContinuation"] ===
+                true;
               return [id, existing];
             }
             const agent = new ProxiedCopilotRuntimeAgent({
