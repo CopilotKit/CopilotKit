@@ -149,6 +149,18 @@ function apiKeyFor(
 }
 
 /**
+ * Throws when `value` is an AI SDK model object. Classic BuiltInAgent runs on
+ * TanStack AI; AI SDK models run through a `type: "aisdk"` factory.
+ */
+export function assertNotAISDKModel(value: unknown): void {
+  if (isAISDKLanguageModel(value)) {
+    throw new Error(
+      'BuiltInAgent "model" got an AI SDK model object. Run AI SDK models with a factory: new BuiltInAgent({ type: "aisdk", factory: ... }), with the helpers in "@copilotkit/runtime/agent/ai-sdk". Or pass a model string such as "openai/gpt-5", or a TanStack AI adapter such as openaiText("gpt-5").',
+    );
+  }
+}
+
+/**
  * Whether a value is an AI SDK `LanguageModel` object (for example
  * `openai("gpt-5")` from `@ai-sdk/openai`). It checks the shape only, so it
  * loads no AI SDK package.
@@ -214,11 +226,7 @@ export async function resolveModel(
   apiKey?: string,
 ): Promise<AnyTextAdapter> {
   if (typeof spec !== "string") {
-    if (isAISDKLanguageModel(spec)) {
-      throw new Error(
-        'BuiltInAgent "model" got an AI SDK model object. Run AI SDK models with a factory: new BuiltInAgent({ type: "aisdk", factory: ... }), with the helpers in "@copilotkit/runtime/agent/ai-sdk". Or pass a model string such as "openai/gpt-5", or a TanStack AI adapter such as openaiText("gpt-5").',
-      );
-    }
+    assertNotAISDKModel(spec);
     return spec;
   }
 

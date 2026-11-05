@@ -9,6 +9,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { BuiltInAgent } from "../index";
 import { classifyModelSpec, resolveModel } from "../model";
 import { MODEL_HOST_CLASSES } from "@copilotkit/shared";
+import { fakeText } from "@tanstack/ai/testing";
 
 /** Every provider prefix `resolveModel` accepts, with the host class it gets by default. */
 const PROVIDERS = [
@@ -127,6 +128,11 @@ describe("BuiltInAgent.modelHostClass", () => {
   it("classifies a configured model string", () => {
     const agent = new BuiltInAgent({ model: "anthropic/claude-sonnet-4.5" });
     expect(agent.modelHostClass).toBe("anthropic");
+  });
+
+  it("reports unknown for a TanStack AI adapter, whose endpoint was chosen before it reached us", () => {
+    const agent = new BuiltInAgent({ model: fakeText() });
+    expect(agent.modelHostClass).toBe("unknown");
   });
 
   it("reports unknown for a factory config, which owns its own LLM call", () => {

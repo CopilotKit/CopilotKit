@@ -147,6 +147,23 @@ export interface TanStackInputOptions {
    * @default false
    */
   keepToolResultMedia?: boolean;
+  /**
+   * How the system prompts and the frontend tool schemas are built.
+   *
+   * - `"factory"`: `systemPrompts` is `prompt`, then each forwarded message,
+   *   then one entry per context item, then the state. Open objects in the
+   *   tool schemas are closed (`additionalProperties: false`).
+   * - `"classic"`: what BuiltInAgent's classic mode sends. The first system
+   *   prompt joins `prompt`, the context under `## Context from the
+   *   application`, and the state under `## Application State`, with a note
+   *   that the model can change the state with `AGUISendStateSnapshot` or
+   *   `AGUISendStateDelta`. Each forwarded message follows as its own
+   *   prompt. The tool schemas are kept as the client sent them, so A2UI
+   *   components keep their open objects.
+   *
+   * @default "factory"
+   */
+  format?: "factory" | "classic";
 }
 
 /**
@@ -355,11 +372,46 @@ function sanitizeClientToolSchema(schema: unknown): unknown {
 }
 
 /**
+ * The system prompt of BuiltInAgent's classic mode: `prompt`, then the
+ * context, then the state, joined into one string. Empty when there is
+ * nothing to add. Any state other than `undefined`, `null`, or an empty
+ * object is included.
+ */
+function classicSystemPrompt(input: RunAgentInput, prompt: string | undefined) {
+  const parts: string[] = [];
+  if (prompt) parts.push(prompt);
+
+  if (input.context?.length) {
+    parts.push("\n## Context from the application\n");
+    for (const ctx of input.context) {
+      parts.push(`${ctx.description}:\n${ctx.value}\n`);
+    }
+  }
+
+  const isEmptyObject =
+    typeof input.state === "object" &&
+    input.state !== null &&
+    Object.keys(input.state).length === 0;
+  const hasState =
+    input.state !== undefined && input.state !== null && !isEmptyObject;
+  if (hasState) {
+    parts.push(
+      "\n## Application State\n" +
+        "This is state from the application that you can edit by calling AGUISendStateSnapshot or AGUISendStateDelta.\n" +
+        `\`\`\`json\n${JSON.stringify(input.state, null, 2)}\n\`\`\`\n`,
+    );
+  }
+
+  return parts.join("");
+}
+
+/**
  * Converts a RunAgentInput into the format expected by TanStack AI's `chat()`.
  *
  * - Keeps only user/assistant/tool messages (activity, reasoning, and other roles are also excluded)
  * - Builds `systemPrompts` in this order: `options.prompt`, system/developer
- *   messages, context entries, then application state
+ *   messages, context entries, then application state (see
+ *   {@link TanStackInputOptions.format} for the classic layout)
  * - Preserves tool calls on assistant messages and toolCallId on tool messages
  * - Appends `options.resume` entries as tool results for interrupt tool calls
  *
@@ -375,6 +427,7 @@ function sanitizeClientToolSchema(schema: unknown): unknown {
  *   forwardDeveloperMessages: false,
  *   resume: input.resume,
  *   keepToolResultMedia: true,
+ *   format: "classic",
  * });
  * ```
  */
@@ -388,6 +441,7 @@ export function convertInputToTanStackAI(
     prompt,
     resume = [],
     keepToolResultMedia = false,
+    format = "factory",
   } = options;
 
   // Allowlist: only pass user/assistant/tool messages to TanStack.
@@ -450,37 +504,44 @@ export function convertInputToTanStackAI(
     });
   }
 
-  const systemPrompts: string[] = [];
-  if (prompt) {
-    systemPrompts.push(prompt);
-  }
-
+  const forwardedPrompts: string[] = [];
   for (const m of input.messages) {
     const isForwarded =
       (m.role === "system" && forwardSystemMessages) ||
       (m.role === "developer" && forwardDeveloperMessages);
     if (isForwarded && m.content) {
-      systemPrompts.push(
+      forwardedPrompts.push(
         typeof m.content === "string" ? m.content : JSON.stringify(m.content),
       );
     }
   }
 
-  if (input.context?.length) {
-    for (const ctx of input.context) {
-      systemPrompts.push(`${ctx.description}:\n${ctx.value}`);
-    }
-  }
+  const isClassic = format === "classic";
+  const systemPrompts: string[] = [];
+  if (isClassic) {
+    const classicPrompt = classicSystemPrompt(input, prompt);
+    if (classicPrompt) systemPrompts.push(classicPrompt);
+    systemPrompts.push(...forwardedPrompts);
+  } else {
+    if (prompt) systemPrompts.push(prompt);
+    systemPrompts.push(...forwardedPrompts);
 
-  if (
-    input.state !== undefined &&
-    input.state !== null &&
-    typeof input.state === "object" &&
-    Object.keys(input.state).length > 0
-  ) {
-    systemPrompts.push(
-      `Application State:\n\`\`\`json\n${JSON.stringify(input.state, null, 2)}\n\`\`\``,
-    );
+    if (input.context?.length) {
+      for (const ctx of input.context) {
+        systemPrompts.push(`${ctx.description}:\n${ctx.value}`);
+      }
+    }
+
+    if (
+      input.state !== undefined &&
+      input.state !== null &&
+      typeof input.state === "object" &&
+      Object.keys(input.state).length > 0
+    ) {
+      systemPrompts.push(
+        `Application State:\n\`\`\`json\n${JSON.stringify(input.state, null, 2)}\n\`\`\``,
+      );
+    }
   }
 
   // Frontend-provided tools become client-side TanStack tools (no executor):
@@ -490,7 +551,9 @@ export function convertInputToTanStackAI(
     __toolSide: "client",
     name: t.name,
     description: t.description,
-    inputSchema: sanitizeClientToolSchema(t.parameters),
+    inputSchema: isClassic
+      ? t.parameters
+      : sanitizeClientToolSchema(t.parameters),
   }));
 
   return { messages, systemPrompts, tools };

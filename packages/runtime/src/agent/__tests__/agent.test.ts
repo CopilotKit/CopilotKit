@@ -3,8 +3,14 @@ import { EventType } from "@ag-ui/client";
 import type {
   BaseEvent,
   Interrupt,
+  Message,
   ResumeEntry,
   RunAgentInput,
+  RunFinishedEvent,
+  TextMessageContentEvent,
+  TextMessageEndEvent,
+  TextMessageStartEvent,
+  ToolMessage,
 } from "@ag-ui/client";
 import { z } from "zod";
 import {
@@ -13,11 +19,11 @@ import {
   createAgent,
   createThrowingAgent,
   createMidStreamErrorAgent,
-  createClassicAgentWithTools,
+  runClassicAgent,
   collectEvents,
   collectEventsIncludingErrors,
   expectLifecycleWrapped,
-  eventField,
+  eventsOfType,
   textDelta,
   finish,
   toolCall,
@@ -39,6 +45,16 @@ import type {
 // ---------------------------------------------------------------------------
 
 const allTypes: AgentType[] = ["aisdk", "tanstack", "custom"];
+
+function isToolMessage(message: Message): message is ToolMessage {
+  return message.role === "tool";
+}
+
+/** The interrupts of a RUN_FINISHED event, or none when it did not pause. */
+function interruptsOf(finished: RunFinishedEvent | undefined) {
+  const outcome = finished?.outcome;
+  return outcome?.type === "interrupt" ? outcome.interrupts : [];
+}
 
 function minimalStreamData(
   type: AgentType,
@@ -89,8 +105,8 @@ describe.each(allTypes)("Agent [%s]", (type) => {
       expect(events.length).toBeGreaterThanOrEqual(2);
       const first = events[0];
       expect(first.type).toBe(EventType.RUN_STARTED);
-      expect(eventField<string>(first, "threadId")).toBe("t1");
-      expect(eventField<string>(first, "runId")).toBe("r1");
+      expect(first.threadId).toBe("t1");
+      expect(first.runId).toBe("r1");
     });
 
     it("emits RUN_FINISHED as the last event with correct threadId/runId", async () => {
@@ -100,8 +116,8 @@ describe.each(allTypes)("Agent [%s]", (type) => {
 
       const last = events[events.length - 1];
       expect(last.type).toBe(EventType.RUN_FINISHED);
-      expect(eventField<string>(last, "threadId")).toBe("t2");
-      expect(eventField<string>(last, "runId")).toBe("r2");
+      expect(last.threadId).toBe("t2");
+      expect(last.runId).toBe("r2");
     });
 
     it("emits RUN_FINISHED for an empty stream", async () => {
@@ -145,9 +161,7 @@ describe.each(allTypes)("Agent [%s]", (type) => {
       expect(errored).toBe(true);
       const errorEvents = events.filter((e) => e.type === EventType.RUN_ERROR);
       expect(errorEvents.length).toBe(1);
-      expect(eventField<string>(errorEvents[0], "message")).toBe(
-        "factory-boom",
-      );
+      expect(errorEvents[0].message).toBe("factory-boom");
     });
 
     it("emits RUN_ERROR when stream throws mid-iteration", async () => {
@@ -160,9 +174,7 @@ describe.each(allTypes)("Agent [%s]", (type) => {
       expect(errored).toBe(true);
       const errorEvents = events.filter((e) => e.type === EventType.RUN_ERROR);
       expect(errorEvents.length).toBe(1);
-      expect(eventField<string>(errorEvents[0], "message")).toBe(
-        "mid-stream-boom",
-      );
+      expect(errorEvents[0].message).toBe("mid-stream-boom");
     });
 
     it("does not emit RUN_FINISHED after RUN_ERROR", async () => {
@@ -428,7 +440,7 @@ describe("Agent type discrimination", () => {
       (e) => e.type === EventType.TEXT_MESSAGE_CHUNK,
     );
     expect(textEvents.length).toBe(1);
-    expect(eventField<string>(textEvents[0], "delta")).toBe("hello from aisdk");
+    expect(textEvents[0].delta).toBe("hello from aisdk");
   });
 
   it('"tanstack" routes to TanStack converter and produces text content', async () => {
@@ -442,9 +454,7 @@ describe("Agent type discrimination", () => {
       (e) => e.type === EventType.TEXT_MESSAGE_CHUNK,
     );
     expect(textEvents.length).toBe(1);
-    expect(eventField<string>(textEvents[0], "delta")).toBe(
-      "hello from tanstack",
-    );
+    expect(textEvents[0].delta).toBe("hello from tanstack");
   });
 
   it('"custom" forwards events directly without conversion', async () => {
@@ -462,9 +472,7 @@ describe("Agent type discrimination", () => {
       (e) => e.type === EventType.TEXT_MESSAGE_CHUNK,
     );
     expect(textEvents.length).toBe(1);
-    expect(eventField<string>(textEvents[0], "delta")).toBe(
-      "hello from custom",
-    );
+    expect(textEvents[0].delta).toBe("hello from custom");
   });
 });
 
@@ -495,7 +503,7 @@ describe("Async factory (Promise-returning)", () => {
       (e) => e.type === EventType.TEXT_MESSAGE_CHUNK,
     );
     expect(textEvents).toHaveLength(1);
-    expect(eventField<string>(textEvents[0], "delta")).toBe("async-aisdk");
+    expect(textEvents[0].delta).toBe("async-aisdk");
   });
 
   it("tanstack: async factory resolves and streams correctly", async () => {
@@ -516,7 +524,7 @@ describe("Async factory (Promise-returning)", () => {
       (e) => e.type === EventType.TEXT_MESSAGE_CHUNK,
     );
     expect(textEvents).toHaveLength(1);
-    expect(eventField<string>(textEvents[0], "delta")).toBe("async-tanstack");
+    expect(textEvents[0].delta).toBe("async-tanstack");
   });
 
   it("custom: async factory resolves and streams correctly", async () => {
@@ -541,7 +549,7 @@ describe("Async factory (Promise-returning)", () => {
       (e) => e.type === EventType.TEXT_MESSAGE_CHUNK,
     );
     expect(textEvents).toHaveLength(1);
-    expect(eventField<string>(textEvents[0], "delta")).toBe("async-custom");
+    expect(textEvents[0].delta).toBe("async-custom");
   });
 });
 
@@ -568,8 +576,8 @@ describe("RUN_ERROR correlation fields", () => {
     expect(errored).toBe(true);
     const errorEvents = events.filter((e) => e.type === EventType.RUN_ERROR);
     expect(errorEvents).toHaveLength(1);
-    expect(eventField<string>(errorEvents[0], "threadId")).toBe("err-thread");
-    expect(eventField<string>(errorEvents[0], "runId")).toBe("err-run");
+    expect(errorEvents[0].threadId).toBe("err-thread");
+    expect(errorEvents[0].runId).toBe("err-run");
   });
 });
 
@@ -624,17 +632,23 @@ describe("BuiltInAgent factory interrupt() primitive", () => {
       factory: async function* (ctx) {
         const responses = await ctx.interrupt([INT]); // pauses on fresh run
         // resume run continues here:
-        yield {
+        const start: TextMessageStartEvent = {
           type: EventType.TEXT_MESSAGE_START,
           messageId: "m1",
           role: "assistant",
-        } as any;
-        yield {
+        };
+        const content: TextMessageContentEvent = {
           type: EventType.TEXT_MESSAGE_CONTENT,
           messageId: "m1",
           delta: `resolved:${JSON.stringify(responses)}`,
-        } as any;
-        yield { type: EventType.TEXT_MESSAGE_END, messageId: "m1" } as any;
+        };
+        const end: TextMessageEndEvent = {
+          type: EventType.TEXT_MESSAGE_END,
+          messageId: "m1",
+        };
+        yield start;
+        yield content;
+        yield end;
       },
     });
   }
@@ -642,11 +656,9 @@ describe("BuiltInAgent factory interrupt() primitive", () => {
   it("emits RUN_FINISHED with outcome:interrupt on a fresh run", async () => {
     const agent = makeCustomInterruptAgent();
     const events = await collectEvents(agent.run(createDefaultInput()));
-    const finished = events.find(
-      (e) => e.type === EventType.RUN_FINISHED,
-    ) as any;
+    const [finished] = eventsOfType(events, EventType.RUN_FINISHED);
     expect(finished).toBeDefined();
-    expect(finished.outcome).toEqual({ type: "interrupt", interrupts: [INT] });
+    expect(finished?.outcome).toEqual({ type: "interrupt", interrupts: [INT] });
     // No text emitted on the paused run:
     expect(events.some((e) => e.type === EventType.TEXT_MESSAGE_CONTENT)).toBe(
       false,
@@ -661,15 +673,11 @@ describe("BuiltInAgent factory interrupt() primitive", () => {
     const events = await collectEvents(
       agent.run(createDefaultInput({ resume })),
     );
-    const content = events.find(
-      (e) => e.type === EventType.TEXT_MESSAGE_CONTENT,
-    ) as any;
-    expect(content.delta).toContain("resolved:");
-    expect(content.delta).toContain('"ok":true');
-    const finished = events.find(
-      (e) => e.type === EventType.RUN_FINISHED,
-    ) as any;
-    expect(finished.outcome).toBeUndefined(); // normal completion
+    const [content] = eventsOfType(events, EventType.TEXT_MESSAGE_CONTENT);
+    expect(content?.delta).toContain("resolved:");
+    expect(content?.delta).toContain('"ok":true');
+    const [finished] = eventsOfType(events, EventType.RUN_FINISHED);
+    expect(finished?.outcome).toBeUndefined(); // normal completion
   });
 });
 
@@ -686,86 +694,108 @@ describe("BuiltInAgent classic interrupt tools", () => {
     interruptReason: "confirmation",
     interruptMessage: "Please confirm",
   };
+  const askToConfirm = [
+    {
+      toolCalls: [
+        { id: "tc-1", name: "confirm_action", input: { summary: "delete X" } },
+      ],
+    },
+    { text: "should not be reached" },
+  ];
 
   it("pauses + emits outcome:interrupt (keyed by toolCallId), withholding the tool result", async () => {
-    // mock stream: assistant calls the interrupt tool, then 'finish'
-    const agent = createClassicAgentWithTools(
-      [toolCall("tc-1", "confirm_action", { summary: "delete X" }), finish()],
-      [interruptTool],
-    );
-    const events = await collectEvents(
-      agent.run(
-        createDefaultInput({
-          messages: [{ id: "u1", role: "user", content: "do it" }] as any,
-        }),
-      ),
+    const { events, requests } = await runClassicAgent(
+      { tools: [interruptTool], maxSteps: 5 },
+      askToConfirm,
+      { messages: [{ id: "u1", role: "user", content: "do it" }] },
     );
 
     expect(events.some((e) => e.type === EventType.TOOL_CALL_START)).toBe(true);
     expect(events.some((e) => e.type === EventType.TOOL_CALL_END)).toBe(true);
-    // result withheld:
+    // result withheld, and the run stops even though maxSteps allows more:
     expect(events.some((e) => e.type === EventType.TOOL_CALL_RESULT)).toBe(
       false,
     );
-    const finished = events.find(
-      (e) => e.type === EventType.RUN_FINISHED,
-    ) as any;
-    expect(finished.outcome.type).toBe("interrupt");
-    expect(finished.outcome.interrupts[0]).toMatchObject({
-      id: "tc-1",
-      toolCallId: "tc-1",
-      reason: "confirmation",
-      message: "Please confirm",
+    expect(requests).toHaveLength(1);
+    expect(events.at(-1)?.type).toBe(EventType.RUN_FINISHED);
+    const [finished] = eventsOfType(events, EventType.RUN_FINISHED);
+    expect(finished?.outcome).toEqual({
+      type: "interrupt",
+      interrupts: [
+        {
+          id: "tc-1",
+          toolCallId: "tc-1",
+          reason: "confirmation",
+          message: "Please confirm",
+        },
+      ],
+    });
+  });
+
+  it("defaults the interrupt reason to tool_call and leaves out an unset message", async () => {
+    const { events } = await runClassicAgent(
+      {
+        tools: [
+          {
+            ...interruptTool,
+            interruptReason: undefined,
+            interruptMessage: undefined,
+          },
+        ],
+      },
+      askToConfirm,
+    );
+
+    const [finished] = eventsOfType(events, EventType.RUN_FINISHED);
+    expect(finished?.outcome).toEqual({
+      type: "interrupt",
+      interrupts: [{ id: "tc-1", toolCallId: "tc-1", reason: "tool_call" }],
     });
   });
 
   it("on resume, injects the resume payload as the interrupt tool's result and continues", async () => {
-    // Resume run: the model just replies after the injected tool result.
-    const agent = createClassicAgentWithTools(
-      [textDelta("done"), finish()],
-      [interruptTool],
-    );
-    const input = createDefaultInput({
-      resume: [
-        {
-          interruptId: "tc-1",
-          status: "resolved",
-          payload: { approved: true },
-        },
-      ],
-      messages: [
-        { id: "u1", role: "user", content: "do it" },
-        {
-          id: "a1",
-          role: "assistant",
-          content: "",
-          toolCalls: [
-            {
-              id: "tc-1",
-              type: "function",
-              function: {
-                name: "confirm_action",
-                arguments: '{"summary":"delete X"}',
+    const { events, requests } = await runClassicAgent(
+      { tools: [interruptTool] },
+      [{ text: "done" }],
+      {
+        resume: [
+          {
+            interruptId: "tc-1",
+            status: "resolved",
+            payload: { approved: true },
+          },
+        ],
+        messages: [
+          { id: "u1", role: "user", content: "do it" },
+          {
+            id: "a1",
+            role: "assistant",
+            content: "",
+            toolCalls: [
+              {
+                id: "tc-1",
+                type: "function",
+                function: {
+                  name: "confirm_action",
+                  arguments: '{"summary":"delete X"}',
+                },
               },
-            },
-          ],
-        },
-      ] as any,
-    });
-
-    const events = await collectEvents(agent.run(input));
+            ],
+          },
+        ],
+      },
+    );
 
     // The run completes normally (no interrupt outcome on the resume run):
-    const finished = events.find(
-      (e) => e.type === EventType.RUN_FINISHED,
-    ) as any;
-    expect(finished.outcome).toBeUndefined();
+    expect(events.at(-1)?.type).toBe(EventType.RUN_FINISHED);
+    expect(events.at(-1)).not.toHaveProperty("outcome");
 
-    // The synthesized tool result reached the model: a tool-role message
-    // addressing tc-1 with the resume payload must be present.
-    expect(agent.__lastModelMessages).toEqual(
-      expect.arrayContaining([expect.objectContaining({ role: "tool" })]),
-    );
+    // The synthesized tool result reached the model as the answer to tc-1:
+    expect(requests[0]!.messages.at(-1)).toEqual({
+      role: "tool",
+      toolCallId: "tc-1",
+      content: '{"approved":true}',
+    });
   });
 });
 
@@ -807,11 +837,9 @@ describe("BuiltInAgent factory native approval interrupts", () => {
     expect(events.some((e) => e.type === EventType.TOOL_CALL_START)).toBe(true);
     expect(events.some((e) => e.type === EventType.TOOL_CALL_END)).toBe(true);
 
-    const finished = events.find(
-      (e) => e.type === EventType.RUN_FINISHED,
-    ) as any;
-    expect(finished.outcome.type).toBe("interrupt");
-    expect(finished.outcome.interrupts[0]).toMatchObject({
+    const [finished] = eventsOfType(events, EventType.RUN_FINISHED);
+    expect(finished?.outcome).toMatchObject({ type: "interrupt" });
+    expect(interruptsOf(finished)[0]).toMatchObject({
       id: "tc-1",
       toolCallId: "tc-1",
     });
@@ -826,11 +854,9 @@ describe("BuiltInAgent factory native approval interrupts", () => {
       finish(),
     ]);
     const events = await collectEvents(agent.run(createDefaultInput()));
-    const finished = events.find(
-      (e) => e.type === EventType.RUN_FINISHED,
-    ) as any;
-    expect(finished.outcome.type).toBe("interrupt");
-    expect(finished.outcome.interrupts.map((i: any) => i.toolCallId)).toEqual([
+    const [finished] = eventsOfType(events, EventType.RUN_FINISHED);
+    expect(finished?.outcome).toMatchObject({ type: "interrupt" });
+    expect(interruptsOf(finished).map((i) => i.toolCallId)).toEqual([
       "tc-1",
       "tc-2",
     ]);
@@ -862,9 +888,7 @@ describe("BuiltInAgent factory native approval interrupts", () => {
         }),
       ),
     );
-    const toolMsgs = captured!.messages.filter(
-      (m) => m.role === "tool",
-    ) as any[];
+    const toolMsgs = captured!.messages.filter(isToolMessage);
     expect(toolMsgs.map((m) => m.toolCallId)).toEqual(["tc-1", "tc-2"]);
     expect(toolMsgs[0].content).toContain("approved");
     expect(toolMsgs[1].content).toContain("cancelled");
@@ -918,9 +942,9 @@ describe("BuiltInAgent factory native approval interrupts", () => {
         }),
       ),
     );
-    const toolMsgs = captured!.messages.filter(
-      (m) => m.role === "tool" && (m as any).toolCallId === "tc-1",
-    );
+    const toolMsgs = captured!.messages
+      .filter(isToolMessage)
+      .filter((m) => m.toolCallId === "tc-1");
     expect(toolMsgs).toHaveLength(1);
   });
 
@@ -935,11 +959,9 @@ describe("BuiltInAgent factory native approval interrupts", () => {
     ]);
     const events = await collectEvents(agent.run(createDefaultInput()));
 
-    const finished = events.find(
-      (e) => e.type === EventType.RUN_FINISHED,
-    ) as any;
-    expect(finished.outcome.type).toBe("interrupt");
-    expect(finished.outcome.interrupts[0]).toMatchObject({
+    const [finished] = eventsOfType(events, EventType.RUN_FINISHED);
+    expect(finished?.outcome).toMatchObject({ type: "interrupt" });
+    expect(interruptsOf(finished)[0]).toMatchObject({
       id: "tc-9",
       toolCallId: "tc-9",
       message: 'Approve "bookFlight"?',
@@ -974,16 +996,14 @@ describe("BuiltInAgent factory native approval interrupts", () => {
     );
 
     // Normal completion on the resume run (no re-interrupt).
-    const finished = events.find(
-      (e) => e.type === EventType.RUN_FINISHED,
-    ) as any;
-    expect(finished.outcome).toBeUndefined();
+    const [finished] = eventsOfType(events, EventType.RUN_FINISHED);
+    expect(finished?.outcome).toBeUndefined();
 
-    const toolMsg = captured!.messages.find(
-      (m) => m.role === "tool" && (m as any).toolCallId === "tc-1",
-    ) as any;
+    const toolMsg = captured!.messages
+      .filter(isToolMessage)
+      .find((m) => m.toolCallId === "tc-1");
     expect(toolMsg).toBeDefined();
-    expect(toolMsg.content).toContain("approved");
+    expect(toolMsg?.content).toContain("approved");
   });
 
   it("tanstack: cancelled resume injects a cancellation tool-role message", async () => {
@@ -1012,10 +1032,10 @@ describe("BuiltInAgent factory native approval interrupts", () => {
       ),
     );
 
-    const toolMsg = captured!.messages.find(
-      (m) => m.role === "tool" && (m as any).toolCallId === "tc-9",
-    ) as any;
+    const toolMsg = captured!.messages
+      .filter(isToolMessage)
+      .find((m) => m.toolCallId === "tc-9");
     expect(toolMsg).toBeDefined();
-    expect(toolMsg.content).toContain("cancelled");
+    expect(toolMsg?.content).toContain("cancelled");
   });
 });
