@@ -64,9 +64,11 @@ export type {
 export { resolveModel, classifyModelSpec, isAISDKLanguageModel } from "./model";
 export type { BuiltInAgentModel, ModelSpecifier } from "./model";
 export type {
+  MCPClient,
   MCPClientOptions,
   HttpTransportConfig,
   SseTransportConfig,
+  Transport as MCPTransport,
 } from "@tanstack/ai-mcp";
 
 /**
