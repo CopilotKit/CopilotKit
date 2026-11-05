@@ -317,7 +317,7 @@ async def handle_run(request: Request) -> StreamingResponse:
         client = openai.AsyncOpenAI()
         try:
             completion = await client.chat.completions.create(
-                reasoning_effort="none",
+                reasoning_effort="none" if model == "gpt-6-luna" else openai.NOT_GIVEN,
                 model=model,
                 messages=oai_messages,
                 tools=[_DISPLAY_FLIGHT_TOOL],

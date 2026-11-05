@@ -194,7 +194,7 @@ async def _call_openai(
     model = os.getenv("LANGROID_MODEL", "gpt-6-luna")
     client = openai.AsyncOpenAI()
     response = await client.chat.completions.create(
-        reasoning_effort="none",
+        reasoning_effort="none" if model == "gpt-6-luna" else openai.NOT_GIVEN,
         model=model,
         messages=messages,
         tools=tools if tools else openai.NOT_GIVEN,

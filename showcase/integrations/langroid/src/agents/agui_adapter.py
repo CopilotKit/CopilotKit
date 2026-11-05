@@ -456,7 +456,7 @@ async def _call_openai(
     """
     client = openai.AsyncOpenAI()
     response = await client.chat.completions.create(
-        reasoning_effort="none",
+        reasoning_effort="none" if model == "gpt-6-luna" else openai.NOT_GIVEN,
         model=model,
         messages=messages,
         tools=tools if tools else openai.NOT_GIVEN,
