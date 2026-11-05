@@ -3129,10 +3129,10 @@ importers:
     dependencies:
       '@ag-ui/client':
         specifier: 1.0.4
-        version: 1.0.4(zod@3.25.76)
+        version: 1.0.4(zod@4.6.7)
       '@ai-sdk/openai':
         specifier: ^3.0.36
-        version: 3.0.36(zod@3.25.76)
+        version: 3.0.36(zod@4.6.7)
       '@ai-sdk/provider':
         specifier: ^3.0.8
         version: 3.0.14
@@ -3150,7 +3150,7 @@ importers:
         version: link:../../packages/shared
       ai:
         specifier: '>=5.0.52'
-        version: 6.0.156(zod@3.25.76)
+        version: 6.0.156(zod@4.6.7)
       jsonrepair:
         specifier: ^3.15.0
         version: 3.15.0
@@ -3161,8 +3161,8 @@ importers:
         specifier: ^4.21.0
         version: 4.21.0
       zod:
-        specifier: ^3.25.18
-        version: 3.25.76
+        specifier: ^4.2.0
+        version: 4.6.7
     devDependencies:
       '@types/node':
         specifier: ^22.15.3
@@ -23418,12 +23418,6 @@ snapshots:
       pkce-challenge: 5.0.1
       zod: 4.6.7
 
-  '@ai-sdk/openai@3.0.36(zod@3.25.76)':
-    dependencies:
-      '@ai-sdk/provider': 3.0.8
-      '@ai-sdk/provider-utils': 4.0.15(zod@3.25.76)
-      zod: 3.25.76
-
   '@ai-sdk/openai@3.0.36(zod@4.6.7)':
     dependencies:
       '@ai-sdk/provider': 3.0.8
@@ -23442,13 +23436,6 @@ snapshots:
       '@standard-schema/spec': 1.1.0
       eventsource-parser: 3.0.8
       zod: 4.6.7
-
-  '@ai-sdk/provider-utils@4.0.15(zod@3.25.76)':
-    dependencies:
-      '@ai-sdk/provider': 3.0.8
-      '@standard-schema/spec': 1.1.0
-      eventsource-parser: 3.0.8
-      zod: 3.25.76
 
   '@ai-sdk/provider-utils@4.0.15(zod@4.6.7)':
     dependencies:
