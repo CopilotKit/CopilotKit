@@ -24,9 +24,9 @@ import {
   toolCallChunkEvent,
 } from "../../__tests__/utils/test-helpers";
 import { createGenerativeUI } from "../catalog";
-import { createGenerativeUIDispatcher } from "../dispatcher";
-import { GenerativeUISurfaceManager } from "../surface-manager";
-import { buildGenerativeUIManifest } from "../manifest";
+import { createGenerativeUIDispatcher } from "@copilotkit/core/generative-ui";
+import { GenerativeUISurfaceManager } from "@copilotkit/core/generative-ui";
+import { buildGenerativeUIManifest } from "@copilotkit/core/generative-ui";
 import { useGenerativeUIFunction } from "../hooks";
 import { useGenerativeUIRuntime } from "../runtime-context";
 import type {

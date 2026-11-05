@@ -1,7 +1,7 @@
 import { Marked, TokenizerAndRendererExtension } from "marked";
-import hljs from "highlight.js";
+import type { HLJSApi } from "highlight.js";
+import type { KatexOptions } from "katex";
 import DOMPurify from "dompurify";
-import { renderToString } from "katex";
 import { completePartialMarkdown } from "@copilotkit/core";
 
 /**
@@ -16,6 +16,86 @@ purifier?.addHook("afterSanitizeAttributes", (node) => {
     node.setAttribute("rel", "noopener noreferrer");
   }
 });
+
+// highlight.js and KaTeX are the two heavy libraries of the chat. Neither
+// is needed until a reply has a code block or a formula, so each loads on
+// its first use, in its own chunk. Until it arrives, a code block shows its
+// plain text and a formula its TeX source; the renderers listen for the
+// arrival and render again.
+
+type MathRenderer = (tex: string, options: KatexOptions) => string;
+
+let highlighter: HLJSApi | undefined;
+let highlighterLoading: Promise<void> | undefined;
+let mathRenderer: MathRenderer | undefined;
+let mathLoading: Promise<void> | undefined;
+const listeners = new Set<() => void>();
+
+const notify = () => {
+  for (const listener of [...listeners]) listener();
+};
+
+function loadHighlighter() {
+  if (highlighter || typeof window === "undefined") return highlighterLoading;
+  highlighterLoading ??= import("highlight.js/lib/common").then(
+    (module) => {
+      highlighter = module.default;
+      notify();
+    },
+    (error: unknown) => {
+      // A failed chunk load is not cached, so the next render tries again.
+      highlighterLoading = undefined;
+      throw error;
+    },
+  );
+  return highlighterLoading;
+}
+
+function loadMath() {
+  if (mathRenderer || typeof window === "undefined") return mathLoading;
+  mathLoading ??= import("katex").then(
+    (module) => {
+      const katex =
+        (module as { default?: { renderToString: MathRenderer } }).default ??
+        (module as unknown as { renderToString: MathRenderer });
+      mathRenderer = katex.renderToString.bind(katex);
+      notify();
+    },
+    (error: unknown) => {
+      mathLoading = undefined;
+      throw error;
+    },
+  );
+  return mathLoading;
+}
+
+/** A load from a render keeps the plain fallback when it fails. */
+const ignoreFailure = () => undefined;
+
+/**
+ * Calls `listener` when highlight.js or KaTeX has loaded, so a rendered
+ * message can render again with highlighted code or typeset math. Returns
+ * the function that removes the listener.
+ */
+export function onMarkdownLibrariesLoaded(listener: () => void): () => void {
+  listeners.add(listener);
+  return () => listeners.delete(listener);
+}
+
+/**
+ * Loads highlight.js and KaTeX now instead of on first use. The chat does
+ * not need it; a test, or an app that wants no late re-render, may call it.
+ */
+export async function preloadMarkdownLibraries(): Promise<void> {
+  await Promise.all([loadHighlighter(), loadMath()]);
+}
+
+const escapeHtml = (text: string) =>
+  text
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
 
 /**
  * Sanitizes rendered markdown into a DOM fragment with DOMPurify's default
@@ -67,11 +147,17 @@ const mathExtension: TokenizerAndRendererExtension = {
     }
     return undefined;
   },
-  renderer: (token) =>
-    renderToString(token["text"], {
+  renderer: (token) => {
+    if (!mathRenderer) {
+      // The TeX source shows until KaTeX arrives.
+      void loadMath()?.catch(ignoreFailure);
+      return `<span class="katex-pending">${escapeHtml(token["raw"])}</span>`;
+    }
+    return mathRenderer(token["text"], {
       displayMode: token["display"],
       throwOnError: false,
-    }),
+    });
+  },
 };
 
 const marked = new Marked(
@@ -82,17 +168,24 @@ const marked = new Marked(
 /**
  * Highlights a code block in place. marked has already escaped the code and
  * its language class; the highlighted markup is sanitized before insertion.
- * Returns the fence language.
+ * Returns the fence language. Before highlight.js arrives, the code stays
+ * plain text.
  */
 function highlightCode(code: HTMLElement): string {
   const lang = /\blanguage-(\S+)/.exec(code.className)?.[1] ?? "";
-  const language = hljs.getLanguage(lang) ? lang : "plaintext";
+  code.classList.add("hljs");
+  if (!highlighter) {
+    void loadHighlighter()?.catch(ignoreFailure);
+    return lang;
+  }
+  const language = highlighter.getLanguage(lang) ? lang : "plaintext";
   const source = (code.textContent ?? "").replace(/\n$/, "");
-  const highlighted = sanitizeHtml(hljs.highlight(source, { language }).value);
+  const highlighted = sanitizeHtml(
+    highlighter.highlight(source, { language }).value,
+  );
   if (highlighted) {
     code.replaceChildren(highlighted);
   }
-  code.classList.add("hljs");
   return lang;
 }
 

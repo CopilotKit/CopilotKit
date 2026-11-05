@@ -106,7 +106,7 @@ try {
 
   let componentHtml = '';
   for (const [path, marker] of [
-    ['/generative-ui/components', 'Let your agent render your React components'],
+    ['/generative-ui/components', 'Let your agent render your own components'],
     ['/generative-ui/components/standard-catalog', 'standardUI'],
     ['/generative-ui/components/standard-catalog/button', 'Button'],
   ]) {
@@ -131,7 +131,7 @@ try {
   });
   if (markdown.status !== 200 ||
       !markdown.headers.get('content-type')?.includes('text/markdown') ||
-      !(await markdown.text()).includes('Let your agent render your React components')) {
+      !(await markdown.text()).includes('Let your agent render your own components')) {
     throw new Error(`${markdownPath}: missing expected Markdown content`);
   }
   console.log(`${markdownPath}: HTTP 200 and expected Markdown content`);
