@@ -19,11 +19,14 @@ import asyncio.base_events as _base_events
 import sys
 from pathlib import Path
 
-import httpx
 import pytest
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
+_PKG_ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(_PKG_ROOT / "src"))
+# The forwarding shim imports shared helpers through the integration's symlink.
+sys.path.insert(0, str(_PKG_ROOT))
 
+from _shared.httpx_transports import available_httpx_transports  # noqa: E402
 from agents import _header_forwarding as hf  # noqa: E402
 
 
@@ -34,21 +37,25 @@ def _restore_executor_ctxvar_patch():
     Also snapshots/restores the GLOBAL httpx patch that
     ``test_forwarding_hardening.py`` installs via
     ``install_global_httpx_hook()`` — it permanently rebinds
-    ``httpx.Client.__init__`` / ``httpx.AsyncClient.__init__`` and flips
+    ``Client.__init__`` / ``AsyncClient.__init__`` for both httpx transports
+    (including OpenAI 3's optional ``httpx2``) and flips
     ``hf._GLOBAL_HTTPX_PATCHED``. Without restoring these, the global httpx
     rebinding leaks across tests and the patch can no longer reinstall in a
     later test, making the suite order-dependent.
     """
     orig_run_in_executor = _base_events.BaseEventLoop.run_in_executor
     orig_sentinel = hf._EXECUTOR_CTXVAR_PATCHED
-    orig_sync_init = httpx.Client.__init__
-    orig_async_init = httpx.AsyncClient.__init__
+    orig_client_inits = [
+        (transport, transport.Client.__init__, transport.AsyncClient.__init__)
+        for transport in available_httpx_transports()
+    ]
     orig_global_patched = hf._GLOBAL_HTTPX_PATCHED
     try:
         yield
     finally:
         _base_events.BaseEventLoop.run_in_executor = orig_run_in_executor
         hf._EXECUTOR_CTXVAR_PATCHED = orig_sentinel
-        httpx.Client.__init__ = orig_sync_init
-        httpx.AsyncClient.__init__ = orig_async_init
+        for transport, sync_init, async_init in orig_client_inits:
+            transport.Client.__init__ = sync_init
+            transport.AsyncClient.__init__ = async_init
         hf._GLOBAL_HTTPX_PATCHED = orig_global_patched
