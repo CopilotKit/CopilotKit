@@ -10,6 +10,8 @@ aliases of ``google``). An OpenAI-compatible provider is
 import os
 import re
 
+import tiktoken
+
 from llama_index.core.base.llms.types import LLMMetadata
 from llama_index.core.llms.function_calling import FunctionCallingLLM
 from llama_index.llms.openai import OpenAI
@@ -42,28 +44,46 @@ class CompatibleModelMetadata:
 
     LlamaIndex's OpenAI LLM looks up a context window for the model id and
     rejects ids it does not know, which is every OpenAI-compatible provider's
-    model. This reports generic chat + function-calling metadata instead.
+    model. Luna has explicit metadata; other unknown models use generic
+    chat + function-calling metadata.
     """
 
     @property
     def metadata(self) -> LLMMetadata:
         return LLMMetadata(
-            context_window=128000,
+            context_window=1_050_000 if self.model == "gpt-6-luna" else 128000,
             num_output=self.max_tokens or -1,
             is_chat_model=True,
             is_function_calling_model=True,
             model_name=self.model,
         )
 
+    @property
+    def _tokenizer(self):
+        if self.model == "gpt-6-luna":
+            return tiktoken.get_encoding("o200k_base")
+        return super()._tokenizer
+
+    def _get_model_kwargs(self, **kwargs):
+        params = super()._get_model_kwargs(**kwargs)
+        if self.model == "gpt-6-luna":
+            params["reasoning_effort"] = "none"
+            if "max_tokens" in params:
+                params["max_completion_tokens"] = params.pop("max_tokens")
+        return params
+
 
 def create_llm(
-    default_spec: str, openai_class: type[OpenAI] = OpenAI
+    default_spec: str,
+    openai_class: type[OpenAI] = OpenAI,
+    **openai_kwargs,
 ) -> FunctionCallingLLM:
     """Build the LlamaIndex LLM.
 
     Args:
         default_spec: The default when the variable is unset, e.g. ``"openai:gpt-6-luna"``.
         openai_class: The OpenAI LLM class to use for the openai provider.
+        **openai_kwargs: OpenAI client options, applied only for OpenAI.
     """
     provider, model = parse_agent_model(
         (os.getenv("COPILOTKIT_AGENT_MODEL") or "").strip() or default_spec
@@ -82,10 +102,10 @@ def create_llm(
     # aimock-backed docker-compose.test.yml) is ignored and requests go to
     # api.openai.com. Forward it explicitly as api_base.
     base_url = os.environ.get("OPENAI_BASE_URL")
-    kwargs = {"api_base": base_url} if base_url else {}
-    if model == "gpt-6-luna":
-        kwargs["additional_kwargs"] = {"reasoning_effort": "none"}
-    if model in ALL_AVAILABLE_MODELS:
+    kwargs = dict(openai_kwargs)
+    if base_url:
+        kwargs.setdefault("api_base", base_url)
+    if model in ALL_AVAILABLE_MODELS and model != "gpt-6-luna":
         return openai_class(model=model, **kwargs)
     compatible_class = type(
         f"Compatible{openai_class.__name__}",
