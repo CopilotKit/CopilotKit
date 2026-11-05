@@ -109,6 +109,24 @@ def test_openai_sync_forwards_aimock_context(forwarding, provider):
         assert len(client._client.event_hooks["request"]) == 1
 
 
+@pytest.mark.parametrize("forwarding", ("agno", "langroid"), indirect=True)
+@pytest.mark.parametrize("transport", (httpx, httpx2), ids=("httpx", "httpx2"))
+def test_sync_subclass_named_asyncclient_forwards_aimock_context(
+    forwarding, provider, transport
+):
+    # A valid sync transport can have a misleading subclass name. The actual
+    # transport type must determine which kind of request hook it consumes.
+    class AsyncClient(transport.Client):
+        pass
+
+    slug, module = forwarding
+    module.set_forwarded_headers({"x-aimock-context": slug})
+    with AsyncClient() as client:
+        response = client.post(provider + "/chat/completions", json={})
+        assert context_from(openai.types.chat.ChatCompletion(**response.json())) == slug
+        assert len(client.event_hooks["request"]) == 1
+
+
 def test_openai_async_keeps_concurrent_contexts_isolated(forwarding, provider):
     slug, module = forwarding
 
@@ -139,6 +157,22 @@ def test_legacy_httpx_still_forwards_aimock_context(forwarding, provider):
         response = client.post(provider + "/chat/completions", json={})
         assert context_from(openai.types.chat.ChatCompletion(**response.json())) == slug
         assert len(client.event_hooks["request"]) == 1
+
+
+def test_legacy_httpx_async_still_forwards_aimock_context(forwarding, provider):
+    slug, module = forwarding
+
+    async def run():
+        module.set_forwarded_headers({"x-aimock-context": slug})
+        async with httpx.AsyncClient() as client:
+            response = await client.post(provider + "/chat/completions", json={})
+            assert (
+                context_from(openai.types.chat.ChatCompletion(**response.json()))
+                == slug
+            )
+            assert len(client.event_hooks["request"]) == 1
+
+    asyncio.run(run())
 
 
 def test_older_providers_do_not_require_httpx2(monkeypatch):

@@ -177,23 +177,20 @@ def _find_event_hooks_target(client: Any) -> Optional[Any]:
 
 
 def _is_async_httpx_target(target: Any) -> bool:
-    """Best-effort detection: is this an httpx async client?
+    """Best-effort detection: is this an httpx/httpx2 async client?
 
-    Detection is HIGH-CONFIDENCE when ``isinstance`` against the real
-    ``httpx.AsyncClient`` / ``httpx.Client`` succeeds. The MRO name-only
+    Detection is HIGH-CONFIDENCE when ``isinstance`` against an installed
+    transport's ``AsyncClient`` / ``Client`` succeeds. The MRO name-only
     fallback (matching a class literally named ``AsyncClient``) is
     LOW-CONFIDENCE: a wrapped/duck-typed client whose class happens to be
     named ``AsyncClient`` (or that is async but is NOT so named) can be
     misclassified, which would install a sync hook on an async client (an
     un-awaited coroutine → silent header drop) or vice versa. Each path
     emits a CVDIAG breadcrumb tagged with the chosen confidence so a
-    misdetection is greppable in the logs. The return values themselves are
-    unchanged — only the diagnostics are new.
+    misdetection is greppable in the logs.
     """
-    try:
-        import httpx
-
-        if isinstance(target, httpx.AsyncClient):
+    for transport in available_httpx_transports():
+        if isinstance(target, transport.AsyncClient):
             _cvdiag(
                 "async-detect",
                 {},
@@ -201,7 +198,7 @@ def _is_async_httpx_target(target: Any) -> bool:
                 error="path=isinstance-async confidence=high",
             )
             return True
-        if isinstance(target, httpx.Client):
+        if isinstance(target, transport.Client):
             _cvdiag(
                 "async-detect",
                 {},
@@ -209,8 +206,6 @@ def _is_async_httpx_target(target: Any) -> bool:
                 error="path=isinstance-sync confidence=high",
             )
             return False
-    except ImportError:  # pragma: no cover
-        pass
 
     # Fall back to exact class-name match for wrapped/duck-typed clients.
     # LOW-CONFIDENCE: this can misdetect async-vs-sync for oddly-named
