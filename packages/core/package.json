@@ -46,8 +46,8 @@
     "attw": "attw --pack . --profile node16 --exclude-entrypoints ./styles.css"
   },
   "dependencies": {
-    "@ag-ui/client": "1.0.2",
-    "@ag-ui/core": "1.0.2",
+    "@ag-ui/client": "1.0.4",
+    "@ag-ui/core": "1.0.4",
     "@copilotkit/learning": "workspace:*",
     "@copilotkit/shared": "workspace:*",
     "@jetbrains/websandbox": "^1.1.3",
