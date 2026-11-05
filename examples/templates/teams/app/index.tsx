@@ -32,12 +32,13 @@ import {
 } from "@copilotkit/channels";
 import { teams } from "@copilotkit/channels/teams";
 import {
-  BuiltInAgent,
   CopilotSseRuntime,
   CopilotRuntime,
   CopilotKitIntelligence,
 } from "@copilotkit/runtime";
+import { BuiltInAgent } from "@copilotkit/runtime/agent";
 import { createCopilotNodeListener } from "@copilotkit/runtime/node";
+import { openaiText } from "@tanstack/ai-openai";
 import { z } from "zod";
 import { hitlTools } from "./human-in-the-loop/index.js";
 import { renderChartTool } from "./tools/render-chart.js";
@@ -133,10 +134,18 @@ const agentId = "assistant";
 const runtimePort = Number(process.env.RUNTIME_PORT ?? 8200);
 const runtimeAgentUrl = `http://localhost:${runtimePort}/api/copilotkit/agent/${agentId}/run`;
 
+// OPENAI_MODEL is a bare OpenAI id or "openai/<id>" (the prefix is stripped).
+// The cast is needed because the value is dynamic and `openaiText` types its
+// argument to the known OpenAI model literals.
+const model = (process.env.OPENAI_MODEL ?? "openai/gpt-5.5").replace(
+  /^openai\//,
+  "",
+) as Parameters<typeof openaiText>[0];
+
 const runtime = new CopilotSseRuntime({
   agents: {
     [agentId]: new BuiltInAgent({
-      model: process.env.OPENAI_MODEL ?? "openai/gpt-5.5",
+      model: openaiText(model),
       prompt: SYSTEM_PROMPT,
     }),
   },

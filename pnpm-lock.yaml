@@ -1460,6 +1460,12 @@ importers:
       '@microsoft/agents-hosting':
         specifier: ^1.5.3
         version: 1.6.1(@opentelemetry/api-logs@0.220.0)(@opentelemetry/api@1.9.1)
+      '@tanstack/ai':
+        specifier: ^1.2.0
+        version: 1.2.0(@opentelemetry/api@1.9.1)(zod@4.6.7)
+      '@tanstack/ai-openai':
+        specifier: ^1.1.1
+        version: 1.1.1(@aws-sdk/credential-provider-node@3.972.29)(@tanstack/ai@1.2.0(@opentelemetry/api@1.9.1)(zod@4.6.7))(google-auth-library@10.6.2)(undici@7.30.0)(ws@8.21.3)(zod@4.6.7)
       zod:
         specifier: ^4.2.0
         version: 4.6.7
@@ -2514,21 +2520,12 @@ importers:
       '@tanstack/ai':
         specifier: ^1.2.0
         version: 1.2.0(@opentelemetry/api@1.9.1)(zod@4.6.7)
-      '@tanstack/ai-anthropic':
-        specifier: ^1.1.1
-        version: 1.1.1(@tanstack/ai@1.2.0(@opentelemetry/api@1.9.1)(zod@4.6.7))(zod@4.6.7)
-      '@tanstack/ai-gemini':
-        specifier: ^1.1.1
-        version: 1.1.1(@modelcontextprotocol/sdk@1.29.0(@cfworker/json-schema@4.1.1)(zod@4.6.7))(@tanstack/ai@1.2.0(@opentelemetry/api@1.9.1)(zod@4.6.7))
       '@tanstack/ai-mcp':
         specifier: ^1.1.0
         version: 1.1.0(@opentelemetry/api@1.9.1)(zod@4.6.7)
       '@tanstack/ai-openai':
         specifier: ^1.1.1
         version: 1.1.1(@aws-sdk/credential-provider-node@3.972.29)(@tanstack/ai@1.2.0(@opentelemetry/api@1.9.1)(zod@4.6.7))(google-auth-library@10.6.2)(undici@7.30.0)(ws@8.19.0)(zod@4.6.7)
-      '@tanstack/ai-vertex':
-        specifier: ^1.0.1
-        version: 1.0.1(@modelcontextprotocol/sdk@1.29.0(@cfworker/json-schema@4.1.1)(zod@4.6.7))(@tanstack/ai@1.2.0(@opentelemetry/api@1.9.1)(zod@4.6.7))
       '@tanstack/intent':
         specifier: ^0.0.29
         version: 0.0.29
@@ -12584,11 +12581,6 @@ packages:
 
   '@tanstack/ai-utils@1.1.0':
     resolution: {integrity: sha512-li47v/794azVLourgteS/+jjH/ZF+cIp/3RMVA1VybtKAFiMy3ZGxREU10OzfUghMzYLdfpK2l6ahvlWxNVHug==}
-
-  '@tanstack/ai-vertex@1.0.1':
-    resolution: {integrity: sha512-PYsriD3VzcTh7pLMUw+x2g6vVejMXcFREb8U3hUnWPJgUHZXmkVbt0FzyVDee23lmmVmktB58gfIPtcxUOTJpw==}
-    peerDependencies:
-      '@tanstack/ai': ^1.2.0
 
   '@tanstack/ai@0.14.0':
     resolution: {integrity: sha512-oiyYHcWMmyVoKDf018xZMEX62BaJVhdgeeRQeRbqP3p5Nvar2UZUhKzFkUiE4L9KzklPqrtI5aYhVdAp9Z142g==}
@@ -35178,16 +35170,6 @@ snapshots:
   '@tanstack/ai-utils@0.3.1': {}
 
   '@tanstack/ai-utils@1.1.0': {}
-
-  '@tanstack/ai-vertex@1.0.1(@modelcontextprotocol/sdk@1.29.0(@cfworker/json-schema@4.1.1)(zod@4.6.7))(@tanstack/ai@1.2.0(@opentelemetry/api@1.9.1)(zod@4.6.7))':
-    dependencies:
-      '@tanstack/ai': 1.2.0(@opentelemetry/api@1.9.1)(zod@4.6.7)
-      '@tanstack/ai-gemini': 1.1.1(@modelcontextprotocol/sdk@1.29.0(@cfworker/json-schema@4.1.1)(zod@4.6.7))(@tanstack/ai@1.2.0(@opentelemetry/api@1.9.1)(zod@4.6.7))
-    transitivePeerDependencies:
-      - '@modelcontextprotocol/sdk'
-      - bufferutil
-      - supports-color
-      - utf-8-validate
 
   '@tanstack/ai@0.14.0':
     dependencies:

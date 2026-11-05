@@ -30,8 +30,26 @@
       "@tanstack/ai-openai": [
         "./node_modules/.kiira/node_modules/@tanstack/ai-openai"
       ],
+      "@tanstack/ai-openai/compatible": [
+        "./node_modules/.kiira/node_modules/@tanstack/ai-openai/dist/esm/compatible/index.d.ts"
+      ],
       "@tanstack/ai-anthropic": [
         "./node_modules/.kiira/node_modules/@tanstack/ai-anthropic"
+      ],
+      "@tanstack/ai-gemini": [
+        "./node_modules/.kiira/node_modules/@tanstack/ai-gemini"
+      ],
+      "@tanstack/ai-vertex": [
+        "./node_modules/.kiira/node_modules/@tanstack/ai-vertex"
+      ],
+      "@tanstack/ai-mcp": [
+        "./node_modules/.kiira/node_modules/@tanstack/ai-mcp"
+      ],
+      // The runtime no longer installs AI SDK providers, and the example apps
+      // pin older majors. Pin the `type: "aisdk"` factory providers the same way.
+      "@ai-sdk/openai": ["./node_modules/.kiira/node_modules/@ai-sdk/openai"],
+      "@ai-sdk/anthropic": [
+        "./node_modules/.kiira/node_modules/@ai-sdk/anthropic"
       ],
       // ai@6 and @ai-sdk/mcp each pin an exact @ai-sdk/provider-utils, and the
       // workspace lockfile resolves them to two different releases, so their
@@ -151,6 +169,10 @@
         "./packages/react-native/src/polyfills/streams.ts"
       ],
       "@copilotkit/runtime": ["./packages/runtime/src/index.ts"],
+      "@copilotkit/runtime/agent": ["./packages/runtime/src/agent/index.ts"],
+      "@copilotkit/runtime/agent/ai-sdk": [
+        "./packages/runtime/src/agent/ai-sdk/index.ts"
+      ],
       "@copilotkit/runtime/internal/learned-skills": [
         "./packages/runtime/src/internal/learned-skills.ts"
       ],

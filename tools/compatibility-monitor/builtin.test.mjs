@@ -34,8 +34,12 @@ test("built-in consumer uses public runtime and preserves every native contract"
       join(work, "learned-skills-native.test.ts"),
       "utf8",
     );
-    assert.match(native, /from "@copilotkit\/runtime"/);
+    assert.match(native, /from "@copilotkit\/runtime\/agent\/ai-sdk"/);
     assert.doesNotMatch(native, /from "\.\.\//);
+    const helpers = readFileSync(join(work, "agent-test-helpers.ts"), "utf8");
+    assert.match(helpers, /from "@copilotkit\/runtime\/agent"/);
+    assert.match(helpers, /export function createClassicAgent/);
+    assert.doesNotMatch(helpers, /from "\.\.\//);
     assert.match(native, /classic-single-step/);
     assert.match(native, /pauses on an interrupt/);
     assert.match(native, /server\.empty\(\)/);
@@ -44,6 +48,7 @@ test("built-in consumer uses public runtime and preserves every native contract"
       "utf8",
     );
     assert.doesNotMatch(types, /from "\.\.\//);
+    assert.match(types, /from "@copilotkit\/runtime\/agent"/);
     assert.match(types, /@ts-expect-error/);
     assert.match(
       readFileSync(join(work, "tsconfig.json"), "utf8"),

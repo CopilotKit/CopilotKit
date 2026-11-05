@@ -48,12 +48,18 @@ export default defineConfig({
     "@mastra/libsql": "^1.14.3",
     "@mastra/memory": "^1.22.0",
     deepagents: "^1.16.0",
-    // BuiltInAgent factories. The runtime types TanStack AI structurally and
-    // does not depend on it, so check against the release a reader installs.
-    "@tanstack/ai": "^1.0.0",
-    "@tanstack/ai-openai": "^1.0.0",
-    "@tanstack/ai-anthropic": "^1.0.0",
-    // Same AI SDK major as the runtime's `ai` / `@ai-sdk/openai`.
+    // BuiltInAgent models and factories. The runtime takes TanStack AI as an
+    // optional peer, so check against the releases a reader installs.
+    "@tanstack/ai": "^1.2.0",
+    "@tanstack/ai-openai": "^1.1.1",
+    "@tanstack/ai-anthropic": "^1.1.1",
+    "@tanstack/ai-gemini": "^1.1.1",
+    "@tanstack/ai-vertex": "^1.0.1",
+    "@tanstack/ai-mcp": "^1.1.0",
+    // AI SDK providers for `type: "aisdk"` factories, on the major that goes
+    // with the runtime's optional `ai` peer.
+    "@ai-sdk/openai": "^3.0.0",
+    "@ai-sdk/anthropic": "^3.0.0",
     "@ai-sdk/azure": "^3.0.0",
     // One copy for every import (see tsconfig.docs.json for why).
     "@ai-sdk/provider-utils": "^4.0.0",
