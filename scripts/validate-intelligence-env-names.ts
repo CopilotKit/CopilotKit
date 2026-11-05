@@ -81,6 +81,8 @@ const ALIAS_ALLOWLIST = [
   "examples/teams/app/index.tsx",
   "scripts/validate-intelligence-env-names.ts",
   // The importer genuinely accepts both names; these lines document that.
+  "showcase/shell-docs/src/content/docs/cookbook/claude-managed-agents-import.mdx",
+  "showcase/shell-docs/src/content/snippets/integrations/claude-sdk/threads-import.mdx",
   "showcase/shell-docs/src/content/docs/integrations/adk/threads-import.mdx",
   "showcase/shell-docs/src/content/docs/integrations/langgraph/threads-import.mdx",
   "showcase/shell-docs/src/content/snippets/shared/cli/cli.mdx",

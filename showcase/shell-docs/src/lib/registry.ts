@@ -264,6 +264,12 @@ export function getDocsFolder(slug: string): string {
  * component's existing behavior (first label wins).
  */
 const TAB_DEFAULTS_BY_SLUG: Record<string, Record<string, string>> = {
+  "claude-sdk-python": {
+    language_claude_sdk_import: "Python",
+  },
+  "claude-sdk-typescript": {
+    language_claude_sdk_import: "TypeScript",
+  },
   "langgraph-python": {
     language_langgraph_agent: "Python",
     deployment_method: "LangSmith",
