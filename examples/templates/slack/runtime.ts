@@ -315,6 +315,7 @@ const agent = new BuiltInAgent({
       ...(clients.length > 0 ? { mcp: { clients } } : {}),
       // TanStack AI needs the full AbortController (not just the signal).
       abortController: ctx.abortController,
+      threadId: ctx.input.threadId,
     });
   },
 });

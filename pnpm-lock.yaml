@@ -1394,14 +1394,14 @@ importers:
         specifier: ^2.21.1
         version: 2.21.1
       '@tanstack/ai':
-        specifier: ^0.42.0
-        version: 0.42.0(@opentelemetry/api@1.9.1)
+        specifier: ^1.2.0
+        version: 1.2.0(@opentelemetry/api@1.9.1)(zod@4.6.7)
       '@tanstack/ai-mcp':
-        specifier: ^0.2.5
-        version: 0.2.5(@cfworker/json-schema@4.1.1)(@opentelemetry/api@1.9.1)(zod@4.6.7)
+        specifier: ^1.1.0
+        version: 1.1.0(@opentelemetry/api@1.9.1)(zod@4.6.7)
       '@tanstack/ai-openai':
-        specifier: ^0.17.1
-        version: 0.17.1(@tanstack/ai@0.42.0(@opentelemetry/api@1.9.1))(ws@8.21.3)(zod@4.6.7)
+        specifier: ^1.1.1
+        version: 1.1.1(@aws-sdk/credential-provider-node@3.972.29)(@tanstack/ai@1.2.0(@opentelemetry/api@1.9.1)(zod@4.6.7))(google-auth-library@10.6.2)(undici@7.30.0)(ws@8.21.3)(zod@4.6.7)
       playwright:
         specifier: ^1.49.0
         version: 1.59.1
@@ -12533,10 +12533,6 @@ packages:
     resolution: {integrity: sha512-3Po6xCLVkXEAq208io/czP1RP4q7WYmQhnwIXt55Y8gRUXY9Iur/j2JD97Aei5txK3bBQl7U+fIVL57dopIV6w==}
     peerDependencies:
       '@tanstack/ai': ^1.2.0
-
-  '@tanstack/ai-mcp@0.2.5':
-    resolution: {integrity: sha512-GDF9NpT58EcFbYU3D041LqyGLMdQQg9+rDLr4VmLVtutnyEjQBN5XzKEPqoTQtNAzz4Tjtdm5U9Ud7QtGFSiPQ==}
-    hasBin: true
 
   '@tanstack/ai-mcp@1.1.0':
     resolution: {integrity: sha512-l+iA+Z73ZqeeZQ0uaqYB0yIKjTFDbBCnToyo/cP5ou3K6Gmt3KeHnyl3WR4m5T4SBT7r+jy2kDglFI6XxrqF5Q==}
@@ -35088,16 +35084,6 @@ snapshots:
       - bufferutil
       - supports-color
       - utf-8-validate
-
-  '@tanstack/ai-mcp@0.2.5(@cfworker/json-schema@4.1.1)(@opentelemetry/api@1.9.1)(zod@4.6.7)':
-    dependencies:
-      '@modelcontextprotocol/sdk': 1.29.0(@cfworker/json-schema@4.1.1)(zod@4.6.7)
-      '@tanstack/ai': 0.42.0(@opentelemetry/api@1.9.1)
-    transitivePeerDependencies:
-      - '@cfworker/json-schema'
-      - '@opentelemetry/api'
-      - supports-color
-      - zod
 
   '@tanstack/ai-mcp@1.1.0(@opentelemetry/api@1.9.1)(zod@4.6.7)':
     dependencies:
