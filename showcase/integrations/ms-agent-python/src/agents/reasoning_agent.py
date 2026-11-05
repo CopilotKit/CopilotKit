@@ -58,6 +58,7 @@ def create_reasoning_agent(
         name="reasoning_agent",
         instructions=SYSTEM_PROMPT,
         tools=[],
+        default_options={"reasoning": {"effort": "medium", "summary": "detailed"}},
     )
 
     return AgentFrameworkAgent(
