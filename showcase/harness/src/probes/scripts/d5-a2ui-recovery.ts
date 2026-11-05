@@ -1,3 +1,7 @@
+import {
+  prepareA2uiEvidence,
+  checkA2uiEvidence,
+} from "../helpers/a2ui-format.js";
 /**
  * D5 — a2ui-recovery script.
  *
@@ -303,11 +307,35 @@ export function buildTurns(ctx: D5BuildContext): ConversationTurn[] {
     captured: false,
   };
 
+  let format = ctx.a2uiFormat;
+  let reloaded = false;
+  const prepareHeal: NonNullable<ConversationTurn["preFill"]> = async (
+    page,
+  ) => {
+    await buildBaselineCapture(healRef)(page);
+    format = await prepareA2uiEvidence(page, ctx.a2uiFormat);
+  };
+  const prepareExhaust: NonNullable<ConversationTurn["preFill"]> = async (
+    page,
+  ) => {
+    await buildBaselineCapture(exhaustRef)(page);
+    format = await prepareA2uiEvidence(page, ctx.a2uiFormat);
+  };
   return [
     {
       input: prompts.heal,
-      preFill: buildBaselineCapture(healRef),
-      assertions: buildHealAssertion(healRef),
+      preFill: prepareHeal,
+      afterReload: async (page) => {
+        reloaded = true;
+        await prepareHeal(page);
+      },
+      assertions: async (page) => {
+        await buildHealAssertion(healRef)(page);
+        // A reload can consume the scripted rejection; the replay fallback
+        // must still prove progressive rendering on the recovered attempt.
+        if (format)
+          await checkA2uiEvidence(page, format, reloaded ? "stream" : "heal");
+      },
       responseTimeoutMs: RECOVERY_RESPONSE_TIMEOUT_MS,
       // The healed surface paints `render_a2ui` output; treat the turn as
       // complete when the metric surface mounts (same swap the declarative
@@ -320,8 +348,12 @@ export function buildTurns(ctx: D5BuildContext): ConversationTurn[] {
     },
     {
       input: prompts.exhaust,
-      preFill: buildBaselineCapture(exhaustRef),
-      assertions: buildExhaustAssertion(exhaustRef),
+      preFill: prepareExhaust,
+      afterReload: prepareExhaust,
+      assertions: async (page) => {
+        await buildExhaustAssertion(exhaustRef)(page);
+        if (format) await checkA2uiEvidence(page, format, "exhaust");
+      },
       responseTimeoutMs: RECOVERY_RESPONSE_TIMEOUT_MS,
       // The hard-failure card renders REAL text ("Couldn't generate the
       // UI") inside the assistant bubble, so the runner's default

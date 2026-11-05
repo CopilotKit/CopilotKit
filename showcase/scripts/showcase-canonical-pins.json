@@ -15,6 +15,13 @@
       "@copilotkit/runtime": "1.76.0",
       "@copilotkit/shared": "1.76.0",
       "@copilotkit/voice": "1.76.0"
+    },
+    "google-adk": {
+      "@copilotkit/a2ui-renderer": "1.84.1",
+      "@copilotkit/react-core": "1.84.1",
+      "@copilotkit/runtime": "1.84.1",
+      "@copilotkit/shared": "1.84.1",
+      "@copilotkit/voice": "1.84.1"
     }
   }
 }
