@@ -12,14 +12,13 @@ PydanticAI's AG-UI bridge surfaces reasoning summaries from
 ``OpenAIResponsesModel`` as ``THINKING_*`` / ``REASONING_*`` events on the
 AG-UI stream when the underlying OpenAI Responses API returns reasoning
 items. The Responses API only returns reasoning content for native
-reasoning models (gpt-6-luna, etc.) — gpt-6-luna / gpt-6-luna do not
-emit reasoning items, so a non-reasoning model would never produce the
-events the frontend renders. We therefore pin a reasoning model here.
+reasoning models such as gpt-6-luna. These demos explicitly request summaries
+so the frontend receives the reasoning events it renders.
 
 Model choice:
 ``gpt-6-luna`` is the team default for reasoning-bearing showcase cells. It is
-the latest OpenAI reasoning-capable model available through the Responses
-API and emits reasoning summaries that the AG-UI bridge translates to
+a reasoning-capable model available through the Responses API and emits
+reasoning summaries that the AG-UI bridge translates to
 THINKING events.
 """
 

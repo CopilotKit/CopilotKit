@@ -95,9 +95,8 @@ const demoAgentIdOverrides: Partial<Record<DemoAgentName, string>> = {
   "gen-ui-interrupt": "interruptAgent",
   "interrupt-headless": "interruptAgent",
   // Reasoning cells use a dedicated reasoning-capable agent (Responses API +
-  // reasoning-summary streaming). Mapping them to the default weatherAgent
-  // (gpt-6-luna) meant no reasoning items were ever emitted and the reasoning slot
-  // stayed dark. See src/mastra/agents/index.ts (reasoningAgent).
+  // reasoning-summary streaming). The default weatherAgent does not request
+  // summaries. See src/mastra/agents/index.ts (reasoningAgent).
   "reasoning-default": "reasoningAgent",
   "reasoning-custom": "reasoningAgent",
   // Reasoning + backend tool-rendering chain: dedicated agent registers the

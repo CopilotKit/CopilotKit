@@ -379,9 +379,8 @@ The \`set_steps\` tool persists the steps to working memory itself — you do NO
  * @ag-ui/mastra bridge translates those into AG-UI REASONING_MESSAGE_* events
  * (`role: "reasoning"`), which the frontend renders via the built-in
  * `CopilotChatReasoningMessage` (reasoning-default) or a custom
- * `reasoningMessage` slot (reasoning-custom). gpt-6-luna / gpt-6-luna emit no
- * reasoning items, so mapping these demos to the default weatherAgent (gpt-6-luna)
- * meant the reasoning slot never lit up. Override via `OPENAI_REASONING_MODEL`.
+ * `reasoningMessage` slot (reasoning-custom). These demos explicitly request
+ * reasoning summaries. Override the model via `OPENAI_REASONING_MODEL`.
  */
 export const REASONING_MODEL =
   process.env.OPENAI_REASONING_MODEL ?? "gpt-6-luna";
