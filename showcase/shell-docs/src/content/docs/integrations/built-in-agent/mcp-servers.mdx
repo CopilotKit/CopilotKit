@@ -6,7 +6,8 @@ description: "Connect MCP servers to your Built-in Agent, with support for persi
 
 ## What are MCP Servers?
 
-MCP (Model Context Protocol) servers provide additional tools and capabilities to your agent. The Built-in Agent supports connecting to MCP servers via **HTTP** or **SSE** transports.
+MCP (Model Context Protocol) servers give your agent more tools. The Built-in
+Agent connects to MCP servers over **HTTP** or **SSE**.
 
 ## When should I use this?
 
@@ -14,12 +15,23 @@ MCP (Model Context Protocol) servers provide additional tools and capabilities t
 - You need to add capabilities from third-party MCP providers
 - You want to share tools across multiple agents or applications
 
+## Install the MCP package
+
+The Built-in Agent connects to MCP servers with `@tanstack/ai-mcp`:
+
+```npm
+npm install @tanstack/ai-mcp
+```
+
+If the package is missing, a run with `mcpServers` fails with an error that
+names the package to install.
+
 ## SSE transport
 
 The SSE (Server-Sent Events) transport is the most common option:
 
 ```typescript title="src/copilotkit.ts"
-import { BuiltInAgent } from "@copilotkit/runtime";
+import { BuiltInAgent } from "@copilotkit/runtime/agent";
 
 const builtInAgent = new BuiltInAgent({
   model: "openai:gpt-5.4-mini",
@@ -37,7 +49,7 @@ const builtInAgent = new BuiltInAgent({
 Pass custom headers for authentication:
 
 ```typescript
-import { BuiltInAgent } from "@copilotkit/runtime";
+import { BuiltInAgent } from "@copilotkit/runtime/agent";
 
 const builtInAgent = new BuiltInAgent({
   model: "openai:gpt-5.4-mini",
@@ -58,7 +70,7 @@ const builtInAgent = new BuiltInAgent({
 The HTTP (Streamable HTTP) transport uses standard HTTP requests:
 
 ```typescript
-import { BuiltInAgent } from "@copilotkit/runtime";
+import { BuiltInAgent } from "@copilotkit/runtime/agent";
 
 const builtInAgent = new BuiltInAgent({
   model: "openai:gpt-5.4-mini",
@@ -71,14 +83,14 @@ const builtInAgent = new BuiltInAgent({
 });
 ```
 
-The HTTP transport also accepts optional `options` for advanced configuration of the underlying `StreamableHTTPClientTransport`.
+The HTTP transport takes `headers` the same way as SSE.
 
 ## Multiple servers
 
-Connect multiple MCP servers — tools from all servers are available to the agent:
+Connect multiple MCP servers. The agent gets the tools from all of them:
 
 ```typescript
-import { BuiltInAgent } from "@copilotkit/runtime";
+import { BuiltInAgent } from "@copilotkit/runtime/agent";
 
 const builtInAgent = new BuiltInAgent({
   model: "openai:gpt-5.4-mini",
@@ -100,12 +112,15 @@ const builtInAgent = new BuiltInAgent({
 });
 ```
 
+If a server fails to connect, the agent skips it for that run and logs the
+error. The run continues with the other servers and your own tools.
+
 ### Tool name collisions
 
 Two servers can expose tools with the same name. For example, a staging server and a production server expose the same tools. The agent keeps every copy. When a name collides, each MCP copy gets a prefix, and the agent logs a warning:
 
 ```typescript
-import { BuiltInAgent } from "@copilotkit/runtime";
+import { BuiltInAgent } from "@copilotkit/runtime/agent";
 
 const builtInAgent = new BuiltInAgent({
   model: "openai:gpt-5.4-mini",
@@ -126,10 +141,11 @@ const builtInAgent = new BuiltInAgent({
 
 ## Combining with server tools
 
-MCP servers work alongside `defineTool` server tools — the agent sees all tools from both sources:
+MCP servers work together with `defineTool` server tools. The agent sees the
+tools from both:
 
 ```typescript
-import { BuiltInAgent, defineTool } from "@copilotkit/runtime";
+import { BuiltInAgent, defineTool } from "@copilotkit/runtime/agent";
 import { z } from "zod";
 
 const customTool = defineTool({
@@ -152,18 +168,19 @@ const builtInAgent = new BuiltInAgent({
 
 ## User-managed MCP clients
 
-The `mcpServers` approach creates a fresh MCP connection on every agent run. For latency-sensitive setups — or when you need persistent connections, dynamic auth, or tool caching — use `mcpClients` instead. You create and manage the MCP client yourself; the agent just calls `.tools()` to get tool definitions.
+With `mcpServers`, the agent opens a new MCP connection on every run and closes
+it at the end. To keep one connection open, cache tools, or refresh auth, create
+the client yourself and pass it in `mcpClients`. The agent calls `.tools()` on
+each client at the start of each run.
 
 ```typescript
-import { BuiltInAgent } from "@copilotkit/runtime";
-import { createMCPClient } from "@ai-sdk/mcp";
-import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
+import { BuiltInAgent } from "@copilotkit/runtime/agent";
+import { createMCPClient } from "@tanstack/ai-mcp";
 
 // Create a persistent client at startup
-const transport = new StreamableHTTPClientTransport(
-  new URL("https://my-mcp-server.example.com/mcp"),
-);
-const client = await createMCPClient({ transport });
+const client = await createMCPClient({
+  transport: { type: "http", url: "https://my-mcp-server.example.com/mcp" },
+});
 
 const builtInAgent = new BuiltInAgent({
   model: "openai:gpt-5.4-mini",
@@ -171,25 +188,29 @@ const builtInAgent = new BuiltInAgent({
 });
 ```
 
-Unlike `mcpServers`, the agent **never** creates or closes these clients — you control the full lifecycle.
+The agent **never** creates or closes these clients. You control the lifecycle.
+Call `await client.close()` when your server shuts down.
+
+`mcpClients` accepts any object with a `tools()` method that returns a promise of
+TanStack AI tools. The next two sections use this to add caching and auth.
 
 ### Tool caching
 
 By default, `.tools()` fetches from the MCP server on every agent run. To cache tools at startup:
 
 ```typescript
-import { BuiltInAgent } from "@copilotkit/runtime";
-import { createMCPClient } from "@ai-sdk/mcp";
-import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
-import type { ToolSet } from "ai";
+import { BuiltInAgent } from "@copilotkit/runtime/agent";
+import { createMCPClient } from "@tanstack/ai-mcp";
+import type { AnyTool } from "@tanstack/ai";
 
-const transport = new StreamableHTTPClientTransport(
-  new URL("https://my-mcp-server.example.com/mcp"),
-);
-const client = await createMCPClient({ transport });
+const client = await createMCPClient({
+  transport: { type: "http", url: "https://my-mcp-server.example.com/mcp" },
+});
 
-let cachedTools: ToolSet | null = null;
-const warmupPromise = client.tools().then(tools => { cachedTools = tools; });
+let cachedTools: AnyTool[] | null = null;
+const warmupPromise = client.tools().then((tools) => {
+  cachedTools = tools;
+});
 
 const provider = {
   async tools() {
@@ -205,36 +226,36 @@ const builtInAgent = new BuiltInAgent({
 });
 ```
 
-Tool discovery runs once in the background. The first request waits only if warmup hasn't finished yet; subsequent requests return instantly from cache.
+Tool discovery runs once in the background. If warmup is not done, the first
+request waits for it. Later requests get the tools from the cache.
 
 ### Dynamic authentication
 
-When using a persistent client, auth tokens may expire between requests. Handle this inside your provider:
+With a persistent client, the auth token can expire between requests. Make a
+new client inside your provider when that happens:
 
 ```typescript
-import { BuiltInAgent } from "@copilotkit/runtime";
-import { createMCPClient } from "@ai-sdk/mcp";
-import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
+import { BuiltInAgent } from "@copilotkit/runtime/agent";
+import { createMCPClient } from "@tanstack/ai-mcp";
 import { getFreshToken, isTokenExpired } from "./auth";
 
-function makeTransport(token: string) {
-  return new StreamableHTTPClientTransport(
-    new URL("https://my-mcp-server.example.com/mcp"),
-    { requestInit: { headers: { Authorization: `Bearer ${token}` } } },
-  );
+async function connect() {
+  return createMCPClient({
+    transport: {
+      type: "http",
+      url: "https://my-mcp-server.example.com/mcp",
+      headers: { Authorization: `Bearer ${await getFreshToken()}` },
+    },
+  });
 }
 
-let currentClient = await createMCPClient({
-  transport: makeTransport(await getFreshToken()),
-});
+let currentClient = await connect();
 
 const provider = {
   async tools() {
     if (isTokenExpired()) {
       await currentClient.close();
-      currentClient = await createMCPClient({
-        transport: makeTransport(await getFreshToken()),
-      });
+      currentClient = await connect();
     }
     return currentClient.tools();
   },
@@ -246,21 +267,20 @@ const builtInAgent = new BuiltInAgent({
 });
 ```
 
-You only pay the reconnection cost when the token actually expires, not on every request.
+The provider reconnects only when the token expires, not on every request.
 
 ### Combining with mcpServers
 
-`mcpClients` and `mcpServers` can be used together. Tools from both are merged — on name collision, `mcpServers` tools take precedence:
+You can use `mcpClients` and `mcpServers` together. The agent merges the tools
+from both. Names that collide get a prefix, as
+[Tool name collisions](#tool-name-collisions) shows.
 
 ```typescript
-import { BuiltInAgent } from "@copilotkit/runtime";
-import { createMCPClient } from "@ai-sdk/mcp";
-import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
+import { BuiltInAgent } from "@copilotkit/runtime/agent";
+import { createMCPClient } from "@tanstack/ai-mcp";
 
 const persistentClient = await createMCPClient({
-  transport: new StreamableHTTPClientTransport(
-    new URL("https://my-mcp-server.example.com/mcp"),
-  ),
+  transport: { type: "http", url: "https://my-mcp-server.example.com/mcp" },
 });
 
 const builtInAgent = new BuiltInAgent({
@@ -274,9 +294,12 @@ const builtInAgent = new BuiltInAgent({
 
 ## Transport reference
 
-| Property | SSE | HTTP | Description |
-|----------|-----|------|-------------|
-| `type` | `"sse"` | `"http"` | Transport type |
-| `url` | string | string | MCP server URL |
-| `headers` | `Record<string, string>` | — | Custom HTTP headers (SSE only) |
-| `options` | — | `StreamableHTTPClientTransportOptions` | Transport options (HTTP only) |
+Each `mcpServers` entry takes these fields. SSE and HTTP take the same fields.
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `type` | `"sse" \| "http"` | Transport type |
+| `url` | `string` | MCP server URL |
+| `headers` | `Record<string, string>` | Optional HTTP headers, for example for auth |
+| `name` | `string` | Optional prefix for tool names that collide |
+| `fetch` | `typeof fetch` | Optional `fetch` to use for each request |
