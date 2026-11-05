@@ -11,6 +11,7 @@ import { CopilotKitIntelligence } from "../intelligence-platform";
 import { TranscriptionService } from "../transcription-service/transcription-service";
 import { describe, it, expect, test, vi, beforeEach, afterEach } from "vitest";
 import type { AbstractAgent } from "@ag-ui/client";
+import { HttpAgent } from "@ag-ui/client";
 import { createLicenseChecker } from "@copilotkit/license-verifier";
 import type { RuntimeInfo } from "@copilotkit/shared";
 import {
@@ -29,6 +30,58 @@ class MockTranscriptionService extends TranscriptionService {
 }
 
 const mockRequest = new Request("https://example.com/info");
+
+describe("trusted tool-result continuation capability", () => {
+  it("advertises only configured agent names and copies the configuration", async () => {
+    const selected = ["enabled"];
+    const runtime = new CopilotRuntime({
+      agents: {
+        enabled: new HttpAgent({ url: "https://example.com/agent" }),
+        ordinary: new HttpAgent({ url: "https://example.com/agent" }),
+      },
+      toolResultContinuationAgents: selected,
+    });
+    selected.push("ordinary");
+    const response = await handleGetRuntimeInfo({
+      runtime,
+      request: mockRequest,
+    });
+    const info = await response.json();
+    expect(
+      info.agents.enabled.capabilities.custom[
+        "copilotkit.toolResultContinuation"
+      ],
+    ).toBe(true);
+    expect(
+      info.agents.ordinary.capabilities?.custom?.[
+        "copilotkit.toolResultContinuation"
+      ],
+    ).toBeUndefined();
+  });
+
+  it("does not trust an agent's self-reported opt-in", async () => {
+    class SelfReportedAgent extends HttpAgent {
+      override async getCapabilities() {
+        return { custom: { "copilotkit.toolResultContinuation": true } };
+      }
+    }
+    const runtime = new CopilotRuntime({
+      agents: {
+        untrusted: new SelfReportedAgent({ url: "https://example.com/agent" }),
+      },
+    });
+    const response = await handleGetRuntimeInfo({
+      runtime,
+      request: mockRequest,
+    });
+    const info = await response.json();
+    expect(
+      info.agents.untrusted.capabilities?.custom?.[
+        "copilotkit.toolResultContinuation"
+      ],
+    ).toBeUndefined();
+  });
+});
 const INVALID_LEGACY_LICENSE_TOKEN = `header.${Buffer.from(
   '{"telemetry_id":"legacy-license-id"}',
 ).toString("base64url")}.signature`;

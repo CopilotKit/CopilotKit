@@ -566,6 +566,7 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
         : {}),
       a2ui: params?.a2ui,
       mcpApps: params?.mcpApps,
+      toolResultContinuationAgents: params?.toolResultContinuationAgents,
       openGenerativeUI: params?.openGenerativeUI,
       [runtimeErrorReporterOption]: createRuntimeErrorReporter(params?.onError),
       forwardHeaders: params?.forwardHeaders,

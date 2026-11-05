@@ -1513,6 +1513,9 @@ export class AgentRegistry {
               this.applyMessageFilterToAgent(existing);
               this.applyRuntimeFetchToAgent(existing);
               this.applyRuntimeModeToAgent(existing, runtimeInfoResponse);
+              existing.allowToolResultContinuation =
+                capabilities?.custom?.["copilotkit.toolResultContinuation"] ===
+                true;
               return [id, existing];
             }
             const agent = new ProxiedCopilotRuntimeAgent({

@@ -146,6 +146,29 @@ export async function handleGetRuntimeInfo({
           capabilities = undefined;
         }
 
+        // Only trusted runtime configuration enables the result-only contract.
+        // Backend-reported or request-supplied capabilities cannot enable it.
+        const {
+          ["copilotkit.toolResultContinuation"]: _untrusted,
+          ...otherCustom
+        } = capabilities?.custom ?? {};
+        const otherCapabilities = capabilities
+          ? {
+              ...capabilities,
+              ...(capabilities.custom ? { custom: otherCustom } : {}),
+            }
+          : {};
+        capabilities = runtime.toolResultContinuationAgents?.includes(name)
+          ? {
+              ...otherCapabilities,
+              custom: {
+                ...otherCustom,
+                "copilotkit.toolResultContinuation": true,
+              },
+            }
+          : capabilities !== undefined
+            ? otherCapabilities
+            : undefined;
         const description: AgentDescription = {
           name,
           description: agent.description,
