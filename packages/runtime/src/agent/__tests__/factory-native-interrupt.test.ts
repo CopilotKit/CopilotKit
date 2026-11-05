@@ -203,34 +203,29 @@ describe("factory aisdk native interrupt (real streamText)", () => {
 });
 
 describe("factory tanstack native interrupt (real chat())", () => {
-  // Known bug: @tanstack/ai 1.2.0 chat() no longer emits the CUSTOM
-  // "approval-requested" chunk. It ends the turn with RUN_FINISHED
-  // `outcome: { type: "interrupt" }` instead, which convertTanStackStream
-  // drops, so the run finishes as a success. Remove `.fails` once the
-  // converter reads that outcome.
-  it.fails(
-    "a needsApproval tool call → RUN_FINISHED outcome:interrupt",
-    async () => {
-      const { agent } = tanstackApprovalAgent([
-        {
-          toolCalls: [
-            { id: "tc-1", name: "bookFlight", input: { destination: "Tokyo" } },
-          ],
-        },
-      ]);
+  // @tanstack/ai 1.2 chat() ends the turn with RUN_FINISHED
+  // `outcome: { type: "interrupt" }` instead of a CUSTOM "approval-requested"
+  // chunk.
+  it("a needsApproval tool call → RUN_FINISHED outcome:interrupt", async () => {
+    const { agent } = tanstackApprovalAgent([
+      {
+        toolCalls: [
+          { id: "tc-1", name: "bookFlight", input: { destination: "Tokyo" } },
+        ],
+      },
+    ]);
 
-      const events = await collectEvents(
-        agent.run(createDefaultInput({ messages: [askToBook] })),
-      );
+    const events = await collectEvents(
+      agent.run(createDefaultInput({ messages: [askToBook] })),
+    );
 
-      expect(runFinished(events)).toMatchObject({
-        outcome: {
-          type: "interrupt",
-          interrupts: [{ id: "tc-1", toolCallId: "tc-1" }],
-        },
-      });
-    },
-  );
+    expect(runFinished(events)).toMatchObject({
+      outcome: {
+        type: "interrupt",
+        interrupts: [{ id: "tc-1", toolCallId: "tc-1" }],
+      },
+    });
+  });
 
   it("on resume, the injected tool-result is accepted and the run completes", async () => {
     const { agent, requests } = tanstackApprovalAgent([

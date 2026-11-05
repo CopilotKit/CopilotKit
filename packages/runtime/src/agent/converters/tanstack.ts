@@ -567,7 +567,9 @@ export function convertInputToTanStackAI(
  * is responsible for those.
  *
  * `pendingInterrupts`, when provided, is filled with one AG-UI Interrupt per
- * CUSTOM "approval-requested" chunk (a tool declared `needsApproval: true`).
+ * tool call that waits for approval (a tool declared `needsApproval: true`):
+ * from a CUSTOM "approval-requested" chunk (@tanstack/ai before 1.2) or from
+ * a RUN_FINISHED `outcome:interrupt` approval entry (1.2 and later).
  * The caller turns a non-empty array into a RUN_FINISHED `outcome:interrupt`.
  */
 export async function* convertTanStackStream(
@@ -632,32 +634,27 @@ export async function* convertTanStackStream(
     const raw = chunk as Record<string, unknown>;
     const type = raw.type as string;
 
-    // TanStack native human-in-the-loop: a tool declared `needsApproval: true`
-    // emits a CUSTOM "approval-requested" chunk. These are built from the
-    // finish event and can arrive around lifecycle markers, so handle them
-    // before dropping TanStack's per-turn lifecycle events.
-    // The tool-call lifecycle was already streamed in the model pass.
+    // TanStack native human-in-the-loop for a tool declared
+    // `needsApproval: true`. @tanstack/ai before 1.2 emits a CUSTOM
+    // "approval-requested" chunk. 1.2 and later end the turn with RUN_FINISHED
+    // `outcome: { type: "interrupt" }` instead (handled below). Both can arrive
+    // around lifecycle markers, so handle this before dropping TanStack's
+    // per-turn lifecycle events. The tool-call lifecycle was already streamed
+    // in the model pass.
     if (type === "CUSTOM" && raw.name === "approval-requested") {
-      const value = (raw.value ?? {}) as {
-        toolCallId?: string;
-        toolName?: string;
-      };
-      const toolCallId = value.toolCallId;
-      if (toolCallId) {
-        pendingInterrupts?.push({
-          id: toolCallId,
-          toolCallId,
-          reason: "tool_approval",
-          message: value.toolName ? `Approve "${value.toolName}"?` : undefined,
-          ...(value.toolName ? { metadata: { toolName: value.toolName } } : {}),
-        });
-      }
+      const value = isRecord(raw.value) ? raw.value : {};
+      addApprovalInterrupt(
+        pendingInterrupts,
+        getNonEmptyString(value.toolCallId),
+        getNonEmptyString(value.toolName),
+      );
       continue;
     }
 
     // Per-turn lifecycle markers are owned by the Agent wrapper, not forwarded.
     if (type === "RUN_FINISHED") {
       collectTanStackRunFinishedDetails(raw, runFinishedDetails);
+      collectTanStackApprovalInterrupts(raw, pendingInterrupts);
       continue;
     }
     if (type === "RUN_STARTED") continue;
@@ -836,24 +833,94 @@ export async function* convertTanStackStream(
   yield* closeReasoningIfOpen();
 }
 
-/** Normalizes legacy and standard TanStack usage into AG-UI token usage. */
+/**
+ * Adds one AG-UI approval interrupt for a `needsApproval` tool call, keyed by
+ * the tool call id. A call that already has an interrupt is skipped, so a
+ * stream that reports the same approval twice (CUSTOM chunk and RUN_FINISHED
+ * outcome) produces one interrupt.
+ */
+function addApprovalInterrupt(
+  pendingInterrupts: Interrupt[] | undefined,
+  toolCallId: string | undefined,
+  toolName: string | undefined,
+): void {
+  if (!pendingInterrupts || !toolCallId) return;
+  if (pendingInterrupts.some((entry) => entry.toolCallId === toolCallId)) {
+    return;
+  }
+  pendingInterrupts.push({
+    id: toolCallId,
+    toolCallId,
+    reason: "tool_approval",
+    message: toolName ? `Approve "${toolName}"?` : undefined,
+    ...(toolName ? { metadata: { toolName } } : {}),
+  });
+}
+
+/**
+ * Reads the approval interrupts of a @tanstack/ai 1.2+ RUN_FINISHED
+ * `outcome: { type: "interrupt" }`. Only `kind: "approval"` entries are mapped.
+ * Client tool interrupts (a tool without `execute`) are already handled by
+ * the frontend tool flow and by `withClassicToolRules`.
+ */
+function collectTanStackApprovalInterrupts(
+  event: Record<string, unknown>,
+  pendingInterrupts?: Interrupt[],
+): void {
+  const outcome = event.outcome;
+  if (!isRecord(outcome) || outcome.type !== "interrupt") return;
+  if (!Array.isArray(outcome.interrupts)) return;
+
+  for (const interrupt of outcome.interrupts) {
+    if (!isRecord(interrupt) || !isRecord(interrupt.metadata)) continue;
+    if (interrupt.metadata.kind !== "approval") continue;
+    addApprovalInterrupt(
+      pendingInterrupts,
+      getNonEmptyString(interrupt.toolCallId),
+      getNonEmptyString(interrupt.metadata.toolName),
+    );
+  }
+}
+
+/**
+ * Normalizes legacy and standard TanStack usage into AG-UI token usage.
+ *
+ * @tanstack/ai 1.2+ puts the model, the finish reason, and the provider under
+ * `metadata.tanstack` (internal to TanStack). Older versions put the model and
+ * the finish reason at the top level. Both are read, the top level first, and
+ * `metadata.tanstack` is not forwarded as AG-UI metadata.
+ */
 function collectTanStackRunFinishedDetails(
   event: Record<string, unknown>,
   details?: AgentRunFinishedDetails,
 ): void {
   if (!details) return;
 
+  const { metadata, tanstack } = splitTanStackMetadata(event.metadata);
+  const source = isRecord(tanstack.source) ? tanstack.source : {};
   const fallbackIdentity = {
-    provider: getNonEmptyString(event.provider),
-    model: getNonEmptyString(event.model),
+    provider:
+      getNonEmptyString(event.provider) ?? getNonEmptyString(source.provider),
+    model:
+      getNonEmptyString(event.model) ??
+      getNonEmptyString(tanstack.model) ??
+      getNonEmptyString(source.model),
   };
-  collectStandardRunFinishedDetails(event, details, fallbackIdentity);
+  collectStandardRunFinishedDetails(
+    { ...event, metadata },
+    details,
+    fallbackIdentity,
+  );
 
   // TanStack's native finish reason becomes AG-UI terminal metadata.
-  if (typeof event.finishReason === "string") {
+  const finishReason =
+    typeof event.finishReason === "string"
+      ? event.finishReason
+      : tanstack.finishReason;
+  if (typeof finishReason === "string") {
     details.metadata = {
       ...details.metadata,
-      finishReason: event.finishReason,
+      finishReason,
     };
   }
 
@@ -881,6 +948,25 @@ function collectTanStackRunFinishedDetails(
       cachedInputTokens: getTokenCount(promptDetails.cachedTokens),
     },
   ]);
+}
+
+/**
+ * Splits RUN_FINISHED metadata into the AG-UI metadata to forward and
+ * TanStack's internal `metadata.tanstack` object. When `tanstack` was the only
+ * key, nothing is left to forward.
+ */
+function splitTanStackMetadata(value: unknown): {
+  metadata: Record<string, unknown> | undefined;
+  tanstack: Record<string, unknown>;
+} {
+  if (!isRecord(value)) return { metadata: undefined, tanstack: {} };
+  if (!("tanstack" in value)) return { metadata: value, tanstack: {} };
+
+  const { tanstack, ...metadata } = value;
+  return {
+    metadata: Object.keys(metadata).length > 0 ? metadata : undefined,
+    tanstack: isRecord(tanstack) ? tanstack : {},
+  };
 }
 
 function safeParse(value: string): unknown {

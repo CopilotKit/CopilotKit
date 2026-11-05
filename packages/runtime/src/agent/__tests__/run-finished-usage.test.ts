@@ -89,23 +89,18 @@ test("classic runs aggregate token usage from every model turn on RUN_FINISHED",
   });
 });
 
-// Known bug: @tanstack/ai 1.2.0 chat() moves `model` and `finishReason` from
-// RUN_FINISHED into `metadata.tanstack`, and collectTanStackRunFinishedDetails
-// only reads the top-level fields. Remove `.fails` once the converter reads
-// them from there.
-test.fails(
-  "classic runs report the finish reason and the model on RUN_FINISHED",
-  async () => {
-    const agent = classicAgentWithUsage(classicTurns, classicUsages);
+// @tanstack/ai 1.2 chat() reports the model, the provider, and the finish
+// reason under RUN_FINISHED `metadata.tanstack`, which is not forwarded.
+test("classic runs report the finish reason and the model on RUN_FINISHED", async () => {
+  const agent = classicAgentWithUsage(classicTurns, classicUsages);
 
-    const finished = await runAndCollectFinished(agent);
+  const finished = await runAndCollectFinished(agent);
 
-    expect(finished).toMatchObject({
-      metadata: { finishReason: "stop" },
-      usage: [{ provider: "fake", model: "fake-model" }],
-    });
-  },
-);
+  expect(finished.metadata).toEqual({ finishReason: "stop" });
+  expect(finished).toMatchObject({
+    usage: [{ provider: "fake", model: "fake-model" }],
+  });
+});
 
 test("AI SDK factory runs include total token usage on RUN_FINISHED", async () => {
   const agent = new BuiltInAgent({
