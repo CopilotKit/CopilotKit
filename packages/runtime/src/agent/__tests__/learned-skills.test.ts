@@ -1,21 +1,20 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { streamText } from "ai";
-import type { SystemModelMessage, ToolSet } from "ai";
-import type * as AISDK from "ai";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { EventType } from "@ag-ui/client";
 import { BuiltInAgent } from "../index";
 import type { AgentFactoryContext } from "../index";
+import type { AnyTool } from "@tanstack/ai";
+import type { BuiltInAgentLearnedSkillsOptions } from "../learned-skills";
 import { CopilotKitIntelligence } from "../../runtime/intelligence-platform/client";
 import { LearnedSkillsError } from "../../runtime/intelligence-platform/learned-skills";
 import type { LearnedSkillsSnapshotResult } from "../../runtime/intelligence-platform/learned-skills";
 import fixtures from "../../../../intelligence-delivery-core/conformance/snapshots.v1.json";
-import { createDefaultInput, collectEvents } from "./agent-test-helpers";
-import { mockStreamTextResponse, finish } from "./test-helpers";
-
-vi.mock("ai", async (original) => ({
-  ...(await original<typeof AISDK>()),
-  streamText: vi.fn(),
-}));
+import {
+  createClassicAgent,
+  createDefaultInput,
+  collectEvents,
+  requestToolNames,
+} from "./agent-test-helpers";
+import type { ClassicTestConfig } from "./agent-test-helpers";
 
 function response(name = "text-skill"): LearnedSkillsSnapshotResult {
   const fixture = fixtures.cases.find((item) => item.name === name)!;
@@ -37,9 +36,7 @@ function setup() {
     learnedSkills: { client, containerId: "learning", freshnessWindowMs: 0 },
   };
 }
-function factoryAgent(
-  learnedSkills?: ReturnType<typeof setup>["learnedSkills"],
-) {
+function factoryAgent(learnedSkills?: BuiltInAgentLearnedSkillsOptions) {
   const contexts: AgentFactoryContext[] = [];
   const agent = new BuiltInAgent({
     type: "custom",
@@ -50,18 +47,21 @@ function factoryAgent(
   });
   return { agent, contexts };
 }
+/** Runs the learned-skill tool `name`, as chat() would after validating `args`. */
 async function execute(
-  tools: ToolSet,
+  tools: readonly AnyTool[],
   name: string,
   args: Record<string, string>,
 ) {
-  return tools[name].execute!(args, { toolCallId: "test", messages: [] });
+  const tool = tools.find((candidate) => candidate.name === name);
+  if (!tool?.execute) throw new Error(`No executable tool named ${name}`);
+  return tool.execute(args);
 }
-beforeEach(() => {
-  vi.mocked(streamText).mockImplementation(
-    () => mockStreamTextResponse([finish()]) as ReturnType<typeof streamText>,
-  );
-});
+/** A classic agent on a fake model that answers each call with no content. */
+function classicAgent(config: ClassicTestConfig) {
+  return createClassicAgent(config, [{}, {}]);
+}
+const noSkills = { catalog: "", tools: [] };
 afterEach(() => {
   vi.restoreAllMocks();
   vi.unstubAllEnvs();
@@ -80,7 +80,7 @@ describe("BuiltInAgent learned skills", () => {
     );
     const { agent, contexts } = factoryAgent();
     await collectEvents(agent.run(createDefaultInput()));
-    expect(contexts[0].learnedSkills).toEqual({ catalog: "", tools: {} });
+    expect(contexts[0].learnedSkills).toEqual(noSkills);
     expect(fetch).not.toHaveBeenCalled();
   });
 
@@ -93,15 +93,12 @@ describe("BuiltInAgent learned skills", () => {
   });
 
   it("does not start classic MCP setup after immediate unsubscribe", async () => {
-    const tools = vi.fn(async () => ({}));
-    const agent = new BuiltInAgent({
-      model: "openai/gpt-4o",
-      mcpClients: [{ tools }],
-    });
+    const tools = vi.fn(async () => []);
+    const { agent, requests } = classicAgent({ mcpClients: [{ tools }] });
     agent.run(createDefaultInput()).subscribe().unsubscribe();
     await new Promise((resolve) => setImmediate(resolve));
     expect(tools).not.toHaveBeenCalled();
-    expect(streamText).not.toHaveBeenCalled();
+    expect(requests).toHaveLength(0);
   });
 
   it("keeps a configured empty snapshot empty and discovers skills on a later run", async () => {
@@ -109,11 +106,11 @@ describe("BuiltInAgent learned skills", () => {
     fetch.mockResolvedValueOnce(response("empty"));
     const { agent, contexts } = factoryAgent(learnedSkills);
     await collectEvents(agent.run(createDefaultInput()));
-    expect(contexts[0].learnedSkills).toEqual({ catalog: "", tools: {} });
+    expect(contexts[0].learnedSkills).toEqual(noSkills);
     await collectEvents(agent.run(createDefaultInput({ runId: "next" })));
     expect(contexts[1].learnedSkills.catalog).toContain("refund-policy");
     expect(contexts[1].learnedSkills.catalog).not.toContain("30 days");
-    expect(Object.keys(contexts[1].learnedSkills.tools)).toEqual([
+    expect(contexts[1].learnedSkills.tools.map((tool) => tool.name)).toEqual([
       "copilotkit_load_skill",
       "copilotkit_read_skill_file",
     ]);
@@ -130,9 +127,9 @@ describe("BuiltInAgent learned skills", () => {
     const { tools } = contexts[0].learnedSkills;
     expect(
       JSON.parse(
-        (await execute(tools, "copilotkit_load_skill", {
+        await execute(tools, "copilotkit_load_skill", {
           skill_name: "refund-policy",
-        })) as string,
+        }),
       ),
     ).toMatchObject({ skill_name: "refund-policy", files: ["reference.txt"] });
     expect(
@@ -160,11 +157,13 @@ describe("BuiltInAgent learned skills", () => {
       factory: async function* (context) {
         contexts.push(context);
         const delta = context.learnedSkills.catalog
-          ? ((await execute(
+          ? await execute(
               context.learnedSkills.tools,
               "copilotkit_load_skill",
-              { skill_name: "refund-policy" },
-            )) as string)
+              {
+                skill_name: "refund-policy",
+              },
+            )
           : "No skills";
         yield { type: "TEXT_MESSAGE_CONTENT", delta };
       },
@@ -184,15 +183,14 @@ describe("BuiltInAgent learned skills", () => {
         }),
       ),
     );
-    expect(contexts[1].learnedSkills).toEqual({ catalog: "", tools: {} });
+    expect(contexts[1].learnedSkills).toEqual(noSkills);
     expect(JSON.stringify(resumed)).toContain("No skills");
     expect(fetch).toHaveBeenCalledTimes(2);
   });
 
   it("automatically adds the catalog and executable tools to classic model calls", async () => {
     const { learnedSkills } = setup();
-    const agent = new BuiltInAgent({
-      model: "openai/gpt-4o",
+    const { agent, requests } = classicAgent({
       prompt: "Host rules",
       learnedSkills,
     });
@@ -203,16 +201,22 @@ describe("BuiltInAgent learned skills", () => {
         }),
       ),
     );
-    const params = vi.mocked(streamText).mock.calls[0][0];
+    const [request] = requests;
     // Catalog first, then the host prompt; neither goes in `messages`.
-    const system = params.system as SystemModelMessage[];
-    expect(system).toHaveLength(2);
-    expect(system[0].content).toContain("refund-policy");
-    expect(system[0].content).not.toContain("30 days");
-    expect(system[1].content).toBe("Host rules");
-    expect(params.messages!.some((m) => m.role === "system")).toBe(false);
+    const systemPrompts = request.systemPrompts ?? [];
+    expect(systemPrompts).toHaveLength(2);
+    expect(systemPrompts[0]).toContain("refund-policy");
+    expect(systemPrompts[0]).not.toContain("30 days");
+    expect(systemPrompts[1]).toBe("Host rules");
+    expect(request.messages).toEqual([{ role: "user", content: "Hello" }]);
+    expect(requestToolNames(request)).toEqual(
+      expect.arrayContaining([
+        "copilotkit_load_skill",
+        "copilotkit_read_skill_file",
+      ]),
+    );
     expect(
-      await execute(params.tools!, "copilotkit_read_skill_file", {
+      await execute(request.tools ?? [], "copilotkit_read_skill_file", {
         skill_name: "refund-policy",
         path: "reference.txt",
       }),
@@ -224,27 +228,23 @@ describe("BuiltInAgent learned skills", () => {
     async (configured) => {
       const { fetch, learnedSkills } = setup();
       fetch.mockResolvedValue(response("empty"));
-      const agent = new BuiltInAgent({
-        model: "openai/gpt-4o",
-        ...(configured ? { learnedSkills } : {}),
-      });
+      const { agent, requests } = classicAgent(
+        configured ? { learnedSkills } : {},
+      );
       await collectEvents(agent.run(createDefaultInput()));
-      const params = vi.mocked(streamText).mock.calls[0][0];
-      expect(params.tools).not.toHaveProperty("copilotkit_load_skill");
-      expect(JSON.stringify(params.messages)).not.toContain(
+      const [request] = requests;
+      expect(requestToolNames(request)).not.toContain("copilotkit_load_skill");
+      expect(JSON.stringify(request.messages)).not.toContain(
         "copilotkit_learned_skills",
       );
-      expect(params.system).toBeUndefined();
+      expect(request.systemPrompts ?? []).toEqual([]);
       expect(fetch).toHaveBeenCalledTimes(configured ? 1 : 0);
     },
   );
 
   it("passes exact revision to the canonical client", async () => {
     const { fetch, learnedSkills } = setup();
-    const { agent } = factoryAgent({
-      ...learnedSkills,
-      revision: "r1",
-    } as typeof learnedSkills);
+    const { agent } = factoryAgent({ ...learnedSkills, revision: "r1" });
     await collectEvents(agent.run(createDefaultInput()));
     expect(fetch).toHaveBeenCalledWith(
       expect.objectContaining({ containerId: "learning", revision: "r1" }),
@@ -266,7 +266,7 @@ describe("BuiltInAgent learned skills", () => {
         }),
       ),
     );
-    expect(contexts[1].learnedSkills).toEqual({ catalog: "", tools: {} });
+    expect(contexts[1].learnedSkills).toEqual(noSkills);
     expect(
       await execute(
         contexts[0].learnedSkills.tools,
@@ -340,10 +340,8 @@ describe("BuiltInAgent learned skills", () => {
       );
       const factory = factoryAgent(learnedSkills);
       const { contexts } = factory;
-      const agent =
-        mode === "classic"
-          ? new BuiltInAgent({ model: "openai/gpt-4o", learnedSkills })
-          : factory.agent;
+      const classic = classicAgent({ learnedSkills });
+      const agent = mode === "classic" ? classic.agent : factory.agent;
       const events: string[] = [];
       await expect(
         new Promise<void>((resolve, reject) =>
@@ -356,7 +354,7 @@ describe("BuiltInAgent learned skills", () => {
       ).rejects.toMatchObject({ code });
       expect(contexts).toHaveLength(0);
       expect(events).toEqual([EventType.RUN_STARTED, EventType.RUN_ERROR]);
-      expect(streamText).not.toHaveBeenCalled();
+      expect(classic.requests).toHaveLength(0);
     },
   );
 
@@ -378,7 +376,7 @@ describe("BuiltInAgent learned skills", () => {
 
   it("rejects a client tool that shadows a learned skill tool before calling the model", async () => {
     const { learnedSkills } = setup();
-    const agent = new BuiltInAgent({ model: "openai/gpt-4o", learnedSkills });
+    const { agent, requests } = classicAgent({ learnedSkills });
     await expect(
       collectEvents(
         agent.run(
@@ -394,7 +392,7 @@ describe("BuiltInAgent learned skills", () => {
         ),
       ),
     ).rejects.toThrow("copilotkit_load_skill");
-    expect(streamText).not.toHaveBeenCalled();
+    expect(requests).toHaveLength(0);
   });
 });
 

@@ -1,82 +1,14 @@
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { describe, it, expect } from "vitest";
 import { z } from "zod";
 import {
-  resolveModel,
   convertMessagesToVercelAISDKMessages,
   convertJsonSchemaToZodSchema,
   convertToolsToVercelAITools,
   convertToolDefinitionsToVercelAITools,
-  defineTool,
-} from "../index";
+} from "../ai-sdk";
+import { defineTool } from "../index";
 import type { ToolDefinition } from "../index";
 import type { Message } from "@ag-ui/client";
-
-describe("resolveModel", () => {
-  const originalEnv = process.env;
-
-  beforeEach(() => {
-    process.env = { ...originalEnv };
-    process.env.OPENAI_API_KEY = "test-openai-key";
-    process.env.ANTHROPIC_API_KEY = "test-anthropic-key";
-    process.env.GOOGLE_API_KEY = "test-google-key";
-  });
-
-  afterEach(() => {
-    process.env = originalEnv;
-  });
-
-  it("should resolve OpenAI models with / separator", () => {
-    const model = resolveModel("openai/gpt-4o");
-    expect(model).toBeDefined();
-    expect((model as { modelId: string }).modelId).toBe("gpt-4o");
-  });
-
-  it("should resolve OpenAI models with : separator", () => {
-    const model = resolveModel("openai:gpt-4o-mini");
-    expect(model).toBeDefined();
-    expect((model as { modelId: string }).modelId).toBe("gpt-4o-mini");
-  });
-
-  it("should resolve Anthropic models", () => {
-    const model = resolveModel("anthropic/claude-sonnet-4.5");
-    expect(model).toBeDefined();
-    expect((model as { modelId: string }).modelId).toBe("claude-sonnet-4.5");
-  });
-
-  it("should pass retired Anthropic model identifiers through unchanged", () => {
-    const retiredModel = ["claude", "3.7", "sonnet"].join("-");
-    const model = resolveModel(`anthropic/${retiredModel}`);
-
-    expect(model).toBeDefined();
-    expect((model as { modelId: string }).modelId).toBe(retiredModel);
-  });
-
-  it("should resolve Google models", () => {
-    const model = resolveModel("google/gemini-2.5-pro");
-    expect(model).toBeDefined();
-    expect((model as { modelId: string }).modelId).toBe("gemini-2.5-pro");
-  });
-
-  it("should handle gemini provider alias", () => {
-    const model = resolveModel("gemini/gemini-2.5-flash");
-    expect(model).toBeDefined();
-    expect((model as { modelId: string }).modelId).toBe("gemini-2.5-flash");
-  });
-
-  it("should throw error for invalid format", () => {
-    expect(() => resolveModel("invalid")).toThrow("Invalid model string");
-  });
-
-  it("should throw error for unknown provider", () => {
-    expect(() => resolveModel("unknown/model")).toThrow("Unknown provider");
-  });
-
-  it("should pass through LanguageModel instances", () => {
-    const mockModel = resolveModel("openai/gpt-4o");
-    const result = resolveModel(mockModel as any);
-    expect(result).toBe(mockModel);
-  });
-});
 
 describe("convertMessagesToVercelAISDKMessages", () => {
   it("should convert user messages", () => {
@@ -300,7 +232,10 @@ describe("convertJsonSchemaToZodSchema", () => {
       required: ["status"],
     };
     const result = convertJsonSchemaToZodSchema(jsonSchema, true);
-    const statusSchema = (result as z.ZodObject<any>).shape.status;
+    if (!(result instanceof z.ZodObject)) {
+      throw new Error("Expected an object schema");
+    }
+    const statusSchema = result.shape.status;
     expect(statusSchema).toBeInstanceOf(z.ZodEnum);
     expect(statusSchema.options).toEqual(["todo", "done"]);
   });
@@ -349,7 +284,7 @@ describe("convertJsonSchemaToZodSchema", () => {
           required: ["kind", "url"],
         },
       ],
-    } as any;
+    };
 
     const zodSchema = convertJsonSchemaToZodSchema(jsonSchema, true);
     expect(zodSchema).toBeInstanceOf(z.ZodUnion);
@@ -395,7 +330,7 @@ describe("convertJsonSchemaToZodSchema", () => {
         },
       },
       required: ["blocks"],
-    } as any;
+    };
 
     const zodSchema = convertJsonSchemaToZodSchema(jsonSchema, true);
     const parsed = zodSchema.parse({
@@ -440,7 +375,7 @@ describe("convertToolsToVercelAITools", () => {
       {
         name: "testTool",
         description: "A test tool",
-        parameters: { invalid: "schema" } as any,
+        parameters: { invalid: "schema" },
       },
     ];
 
@@ -520,8 +455,9 @@ describe("convertToolDefinitionsToVercelAITools", () => {
 });
 
 describe("ensureObjectArgs via convertMessagesToVercelAISDKMessages", () => {
-  function makeAssistantWithToolArgs(argsJson: string): Message[] {
-    return [
+  /** Converts an assistant tool call with `argsJson` and returns its input. */
+  function convertedToolCallInput(argsJson: string) {
+    const [message] = convertMessagesToVercelAISDKMessages([
       {
         id: "1",
         role: "assistant",
@@ -530,70 +466,36 @@ describe("ensureObjectArgs via convertMessagesToVercelAISDKMessages", () => {
           {
             id: "call1",
             type: "function",
-            function: {
-              name: "myTool",
-              arguments: argsJson,
-            },
+            function: { name: "myTool", arguments: argsJson },
           },
         ],
       },
-    ];
+    ]);
+    if (message.role !== "assistant" || typeof message.content === "string") {
+      throw new Error("Expected an assistant message with parts");
+    }
+    const toolCall = message.content.find((part) => part.type === "tool-call");
+    if (toolCall?.type !== "tool-call") {
+      throw new Error("Expected a tool-call part");
+    }
+    return toolCall.input;
   }
 
   it("should pass through valid object arguments", () => {
-    const result = convertMessagesToVercelAISDKMessages(
-      makeAssistantWithToolArgs('{"key":"value"}'),
-    );
-    const toolCall = (result[0] as any).content[1];
-    expect(toolCall.input).toEqual({ key: "value" });
+    expect(convertedToolCallInput('{"key":"value"}')).toEqual({
+      key: "value",
+    });
   });
 
-  it("should replace a string argument with an empty object", () => {
-    const result = convertMessagesToVercelAISDKMessages(
-      makeAssistantWithToolArgs('""'),
-    );
-    const toolCall = (result[0] as any).content[1];
-    expect(toolCall.input).toEqual({});
-  });
-
-  it("should replace an array argument with an empty object", () => {
-    const result = convertMessagesToVercelAISDKMessages(
-      makeAssistantWithToolArgs("[1,2,3]"),
-    );
-    const toolCall = (result[0] as any).content[1];
-    expect(toolCall.input).toEqual({});
-  });
-
-  it("should replace a null argument with an empty object", () => {
-    const result = convertMessagesToVercelAISDKMessages(
-      makeAssistantWithToolArgs("null"),
-    );
-    const toolCall = (result[0] as any).content[1];
-    expect(toolCall.input).toEqual({});
-  });
-
-  it("should replace a numeric argument with an empty object", () => {
-    const result = convertMessagesToVercelAISDKMessages(
-      makeAssistantWithToolArgs("42"),
-    );
-    const toolCall = (result[0] as any).content[1];
-    expect(toolCall.input).toEqual({});
-  });
-
-  it("should replace a boolean argument with an empty object", () => {
-    const result = convertMessagesToVercelAISDKMessages(
-      makeAssistantWithToolArgs("true"),
-    );
-    const toolCall = (result[0] as any).content[1];
-    expect(toolCall.input).toEqual({});
-  });
-
-  it("should replace unparseable JSON with an empty object", () => {
-    const result = convertMessagesToVercelAISDKMessages(
-      makeAssistantWithToolArgs("{broken"),
-    );
-    const toolCall = (result[0] as any).content[1];
-    expect(toolCall.input).toEqual({});
+  it.each([
+    ["a string", '""'],
+    ["an array", "[1,2,3]"],
+    ["a null", "null"],
+    ["a numeric", "42"],
+    ["a boolean", "true"],
+    ["unparseable JSON", "{broken"],
+  ])("should replace %s argument with an empty object", (_kind, argsJson) => {
+    expect(convertedToolCallInput(argsJson)).toEqual({});
   });
 });
 
