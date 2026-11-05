@@ -213,6 +213,8 @@ See [MCP Apps](/generative-ui/mcp-apps) for setup.
             default: new BuiltInAgent({
               model: openaiText("gpt-4o"),
               mcp: { clients: [mcpClient] },
+              // One step calls a tool, the next answers with its result.
+              maxSteps: 3,
             }),
           },
         });

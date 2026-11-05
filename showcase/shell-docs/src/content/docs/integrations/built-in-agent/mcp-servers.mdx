@@ -38,11 +38,16 @@ open or close a connection for each run.
    const builtInAgent = new BuiltInAgent({
      model: openaiText("gpt-5.4-mini"),
      mcp: { clients: [client] }, // [!code highlight]
+     maxSteps: 3, // [!code highlight]
    });
    ```
 
 At the start of each run, the agent gets the tools from each client and gives
 them to the model. The model can now call the tools of your MCP server.
+
+Set `maxSteps` to 2 or more. The model needs one step to call a tool, and one
+more step to answer with the result. With the default of 1, the run stops after
+the tool call.
 
 ## Close the clients at shutdown
 
