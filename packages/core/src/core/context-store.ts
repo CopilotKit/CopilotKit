@@ -36,7 +36,10 @@ function toStoredEntry({
  * Context represents additional information available to agents during execution.
  */
 export class ContextStore {
-  private _context: Record<string, ScopedContext> = {};
+  // No prototype: any string id (`__proto__`, `toString`) is an ordinary own
+  // key, so `upsertContext` always stores it and `removeContext` never matches
+  // an inherited name.
+  private _context: Record<string, ScopedContext> = Object.create(null);
 
   constructor(private core: CopilotKitCore) {}
 

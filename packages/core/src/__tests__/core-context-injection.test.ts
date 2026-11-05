@@ -285,6 +285,32 @@ describe("Per-thread context scoping and stable upserts", () => {
     expect(onContextChanged).not.toHaveBeenCalled();
   });
 
+  it("stores an entry whose id is __proto__ like any other", async () => {
+    const agent = agentOnThread("test", "thread-a");
+
+    core.upsertContext("__proto__", {
+      description: "Widget state",
+      value: "x",
+    });
+    await core.runAgent({ agent: agent as any });
+
+    expect(Object.keys(core.context)).toEqual(["__proto__"]);
+    expect(agent.runAgentCalls[0].context).toEqual([
+      { description: "Widget state", value: "x" },
+    ]);
+  });
+
+  it("removing an inherited name does not notify subscribers", async () => {
+    const onContextChanged = vi.fn();
+    core.subscribe({ onContextChanged });
+
+    core.removeContext("toString");
+    core.removeContext("__proto__");
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(onContextChanged).not.toHaveBeenCalled();
+  });
+
   it("a thread deletion for one agent keeps an entry shared with another agent for that other agent", () => {
     const deletions = new Subject<string>();
     core.upsertContext("shared", {
