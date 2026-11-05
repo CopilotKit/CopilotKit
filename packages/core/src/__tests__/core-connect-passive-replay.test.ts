@@ -1,5 +1,11 @@
 import { AbstractAgent, EventType, HttpAgent } from "@ag-ui/client";
-import type { Message, RunAgentInput } from "@ag-ui/client";
+import type {
+  BaseEvent,
+  ToolCallArgsEvent,
+  ToolCallStartEvent,
+  Message,
+  RunAgentInput,
+} from "@ag-ui/client";
 import { of } from "rxjs";
 import { setImmediate } from "node:timers/promises";
 import { describe, expect, it, vi } from "vitest";
@@ -16,6 +22,8 @@ import {
 /** Replay durable snapshots and capture subsequent requests without a backend. */
 class ReplayAgent extends AbstractAgent {
   readonly runs: RunAgentInput[] = [];
+  replayEvents: BaseEvent[] = [];
+  canonicalSnapshot = true;
   runMessages: Message[] = [];
   readonly connections: RunAgentInput[] = [];
   constructor(public replayMessages: Message[]) {
@@ -30,6 +38,11 @@ class ReplayAgent extends AbstractAgent {
         runId: input.runId,
       },
       { type: EventType.MESSAGES_SNAPSHOT, messages: this.replayMessages },
+      ...this.replayEvents,
+      // The canonical projection retains the original owner of a repeated ID.
+      ...(this.replayEvents.length && this.canonicalSnapshot
+        ? [{ type: EventType.MESSAGES_SNAPSHOT, messages: this.replayMessages }]
+        : []),
       {
         type: EventType.RUN_FINISHED,
         threadId: input.threadId,
@@ -1187,5 +1200,202 @@ describe('CopilotKitCore.connectAgent with reconnectBehavior "resume-pending"', 
     expect(handler).toHaveBeenCalledTimes(1);
     result.resolve("done");
     await first;
+  });
+});
+
+describe("explicit pending call re-emission after ordinary input", () => {
+  function pendingReplay() {
+    const call = getAssistantMessage(
+      createToolCallMessage("approval", { topic: "sales" }),
+    );
+    const toolCall = call.toolCalls![0]!;
+    const history: Message[] = [
+      { id: "original-user", role: "user", content: "schedule" },
+      call,
+      { id: "ordinary-user", role: "user", content: "please keep waiting" },
+    ];
+    const agent = new ReplayAgent(structuredClone(history));
+    agent.replayEvents = [
+      {
+        type: EventType.TOOL_CALL_START,
+        toolCallId: toolCall.id,
+        toolCallName: "approval",
+      },
+      {
+        type: EventType.TOOL_CALL_ARGS,
+        toolCallId: toolCall.id,
+        delta: toolCall.function.arguments,
+      },
+      { type: EventType.TOOL_CALL_END, toolCallId: toolCall.id },
+    ] as BaseEvent[];
+    return { agent, history, toolCall };
+  }
+
+  it("restores the original call once, preserves ordinary input, and follows up once", async () => {
+    const { agent, history, toolCall } = pendingReplay();
+    agent.canonicalSnapshot = false;
+    const protectedCall = getAssistantMessage(
+      createToolCallMessage("protected", {}),
+    );
+    const savedDecline: Message = {
+      id: "saved-decline",
+      role: "tool",
+      toolCallId: protectedCall.toolCalls![0]!.id,
+      content: '{"approved":false}',
+    };
+    history.splice(1, 0, protectedCall, savedDecline);
+    agent.replayMessages = structuredClone(history);
+    const protectedHandler = vi.fn(async () => "must never execute");
+    const core = new CopilotKitCore({});
+    core.addTool(createTool({ name: "protected", handler: protectedHandler }));
+    const answer = deferredAnswer();
+    const handler = vi.fn(() => answer.promise);
+    core.addTool(
+      createTool({
+        name: "approval",
+        type: "human-in-the-loop",
+        handler,
+        followUp: true,
+      }),
+    );
+    await core.connectAgent({ agent });
+    await vi.waitFor(() => expect(handler).toHaveBeenCalledTimes(1));
+    await core.connectAgent({ agent });
+    expect(handler).toHaveBeenCalledTimes(1);
+    answer.resolve("selected original slot");
+    await vi.waitFor(() => expect(agent.runs).toHaveLength(1));
+    expect(agent.messages.filter((m) => m.role !== "tool")).toEqual(
+      history.filter((m) => m.role !== "tool"),
+    );
+    expect(protectedHandler).not.toHaveBeenCalled();
+    expect(agent.messages.filter((m) => m.role === "tool")).toEqual([
+      savedDecline,
+      expect.objectContaining({
+        toolCallId: toolCall.id,
+        content: "selected original slot",
+      }),
+    ]);
+    agent.replayMessages = structuredClone(agent.messages);
+    await core.connectAgent({ agent });
+    await setImmediate();
+    expect(handler).toHaveBeenCalledTimes(1);
+    expect(agent.runs).toHaveLength(1);
+  });
+
+  it.each(["later-user", "remote-result", "thread-switch", "changed-call"])(
+    "discards an answer after %s revokes its authorization",
+    async (kind) => {
+      const { agent, toolCall } = pendingReplay();
+      const core = new CopilotKitCore({});
+      const answer = deferredAnswer();
+      const handler = vi.fn(() => answer.promise);
+      core.addTool(
+        createTool({
+          name: "approval",
+          type: "human-in-the-loop",
+          handler,
+          followUp: true,
+        }),
+      );
+      await core.connectAgent({ agent });
+      await vi.waitFor(() => expect(handler).toHaveBeenCalledTimes(1));
+      if (kind === "later-user")
+        agent.addMessage({
+          id: "changed-mind",
+          role: "user",
+          content: "cancel",
+        });
+      if (kind === "remote-result")
+        agent.addMessage({
+          id: "remote-result",
+          role: "tool",
+          toolCallId: toolCall.id,
+          content: "remote answer",
+        });
+      if (kind === "thread-switch") agent.threadId = "another-thread";
+      if (kind === "changed-call") {
+        agent.setMessages(
+          agent.messages.map((message) =>
+            message.role === "assistant"
+              ? {
+                  ...message,
+                  toolCalls: message.toolCalls?.map((call) => ({
+                    ...call,
+                    function: {
+                      ...call.function,
+                      arguments: '{"topic":"changed"}',
+                    },
+                  })),
+                }
+              : message,
+          ),
+        );
+      }
+      const before = structuredClone(agent.messages);
+      answer.resolve("stale answer");
+      await setImmediate();
+      expect(agent.messages).toEqual(before);
+      expect(agent.runs).toHaveLength(0);
+    },
+  );
+
+  it.each([
+    "missing-end",
+    "wrong-args",
+    "wrong-name",
+    "ordinary-tool",
+    "wildcard",
+    "completed",
+    "later-user",
+  ])("does not restore %s", async (kind) => {
+    const { agent, toolCall } = pendingReplay();
+    const core = new CopilotKitCore({});
+    const handler = vi.fn(async () => "unexpected");
+    core.addTool(
+      createTool({
+        name: kind === "wildcard" ? "*" : "approval",
+        type: kind === "ordinary-tool" ? "frontend" : "human-in-the-loop",
+        handler,
+        followUp: true,
+      }),
+    );
+    if (kind === "missing-end") agent.replayEvents.pop();
+    if (kind === "wrong-args")
+      (agent.replayEvents[1] as ToolCallArgsEvent).delta =
+        '{"topic":"different"}';
+    if (kind === "wrong-name")
+      (agent.replayEvents[0] as ToolCallStartEvent).toolCallName = "protected";
+    if (kind === "completed")
+      agent.replayMessages.push({
+        id: "saved-result",
+        role: "tool",
+        toolCallId: toolCall.id,
+        content: "saved decline",
+      });
+    if (kind === "later-user")
+      agent.replayEvents.push({
+        type: EventType.MESSAGES_SNAPSHOT,
+        messages: [
+          ...agent.replayMessages,
+          { id: "newer-user", role: "user", content: "cancel" },
+        ],
+      } as BaseEvent);
+    // Keep the final canonical snapshot for the newer-user case too.
+    if (kind === "later-user") {
+      const original = structuredClone(agent.replayMessages);
+      agent.replayMessages.push({
+        id: "newer-user",
+        role: "user",
+        content: "cancel",
+      });
+      agent.replayEvents.unshift({
+        type: EventType.MESSAGES_SNAPSHOT,
+        messages: original,
+      } as BaseEvent);
+    }
+    await core.connectAgent({ agent });
+    await setImmediate();
+    expect(handler).not.toHaveBeenCalled();
+    expect(agent.runs).toHaveLength(0);
   });
 });
