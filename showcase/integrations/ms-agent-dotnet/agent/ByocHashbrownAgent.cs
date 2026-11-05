@@ -96,7 +96,7 @@ Example response (sales dashboard):
 
     public AIAgent CreateAgent()
     {
-        var chatClient = _openAiClient.GetChatClient("gpt-5-mini").AsIChatClient();
+        var chatClient = _openAiClient.GetChatClient("gpt-6-luna").AsLunaChatClient();
 
         // Mirror langgraph-python: force JSON-object mode so the frontend's
         // useJsonParser does not receive prose/code fences and bail to null.

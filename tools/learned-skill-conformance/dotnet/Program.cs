@@ -15,7 +15,7 @@ using var skills = new SkillRegistryContextProvider(new SkillRegistryOptions {
 });
 await skills.InitializeAsync();
 using var model = new OpenAIClient(new ApiKeyCredential("aimock"), new OpenAIClientOptions { Endpoint = new Uri(endpoint + "/v1") })
-    .GetChatClient("gpt-6-luna").AsIChatClient();
+    .GetChatClient("gpt-6-luna").AsLunaChatClient();
 var agent = skills.CreateAgent(model, new ChatClientAgentOptions {
     ChatOptions = new() { Instructions = "Developer policy: follow the published refund procedure." }
 });
