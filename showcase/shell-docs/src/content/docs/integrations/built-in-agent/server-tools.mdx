@@ -39,6 +39,7 @@ render-only registration.
 
 ```typescript title="src/copilotkit.ts"
 import { BuiltInAgent, defineTool } from "@copilotkit/runtime/agent";
+import { openaiText } from "@tanstack/ai-openai";
 import { z } from "zod";
 
 const getWeather = defineTool({
@@ -54,7 +55,7 @@ const getWeather = defineTool({
 });
 
 const builtInAgent = new BuiltInAgent({
-  model: "openai:gpt-5.4-mini",
+  model: openaiText("gpt-5.4-mini"),
   tools: [getWeather],
   maxSteps: 2                   //Important for tool calls
 });
@@ -87,6 +88,7 @@ each side a distinct name when both need their own.
 
 ```typescript title="src/copilotkit.ts"
 import { BuiltInAgent, defineTool } from "@copilotkit/runtime/agent";
+import { openaiText } from "@tanstack/ai-openai";
 import { z } from "zod";
 import { db } from "./db";
 import { search } from "./search";
@@ -118,7 +120,7 @@ const createTicket = defineTool({
 });
 
 const builtInAgent = new BuiltInAgent({
-  model: "openai:gpt-5.4-mini",
+  model: openaiText("gpt-5.4-mini"),
   tools: [searchDocs, createTicket], // [!code highlight]
   maxSteps: 2                        
 });
@@ -194,6 +196,7 @@ By default, the agent performs a single step. If your agent needs to chain tool 
 
 ```typescript
 import { BuiltInAgent, defineTool } from "@copilotkit/runtime/agent";
+import { openaiText } from "@tanstack/ai-openai";
 import { z } from "zod";
 
 const searchDocs = defineTool({
@@ -211,7 +214,7 @@ const createTicket = defineTool({
 });
 
 const builtInAgent = new BuiltInAgent({
-  model: "openai:gpt-5.4-mini",
+  model: openaiText("gpt-5.4-mini"),
   maxSteps: 5, // [!code highlight]
   tools: [searchDocs, createTicket],
 });

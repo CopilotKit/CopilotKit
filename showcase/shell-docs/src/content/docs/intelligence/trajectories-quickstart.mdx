@@ -82,6 +82,7 @@ Use the values from `.env` to configure the Intelligence client in your existing
 ```ts title="Your CopilotKit Runtime"
 import { CopilotKitIntelligence, CopilotRuntime } from "@copilotkit/runtime";
 import { BuiltInAgent } from "@copilotkit/runtime/agent";
+import { openaiText } from "@tanstack/ai-openai";
 import { identifyUser } from "./auth";
 
 const intelligence = new CopilotKitIntelligence({
@@ -92,7 +93,7 @@ const intelligence = new CopilotKitIntelligence({
 
 const runtime = new CopilotRuntime({
   // Your existing agent registration
-  agents: { default: new BuiltInAgent({ model: "openai/gpt-5.4" }) },
+  agents: { default: new BuiltInAgent({ model: openaiText("gpt-5.5") }) },
   intelligence,
   identifyUser,
 });

@@ -112,12 +112,13 @@ Use this prompt to set up CopilotKit in your React Native app, configure Metro a
         import { createServer } from "node:http";
         import { CopilotRuntime } from "@copilotkit/runtime";
         import { BuiltInAgent } from "@copilotkit/runtime/agent";
+        import { openaiText } from "@tanstack/ai-openai";
         import { createCopilotNodeListener } from "@copilotkit/runtime/node";
 
         const runtime = new CopilotRuntime({
           agents: {
             default: new BuiltInAgent({
-              model: "openai:gpt-5-mini",
+              model: openaiText("gpt-5-mini"),
               prompt: "You are a helpful assistant for a React Native app.",
             }),
           },
@@ -518,31 +519,43 @@ The runtime from the quickstart hosts a `BuiltInAgent` and serves it with `creat
 
 `cors: true` adds `Access-Control-*` response headers and answers `OPTIONS` preflights. That matters for **browser** clients — Expo Web or `react-native-web` — but it has no bearing on whether a native iOS or Android build can reach the server: CORS is enforced by the browser, and React Native's native networking stack (`NSURLSession` / OkHttp) neither sends an `Origin` header nor consults `Access-Control-Allow-Origin`. Native reachability is decided by the server's bind address, LAN routing and firewall, and platform transport security — see [Connecting from a device or bench](#connecting-from-a-device-or-bench).
 
-`BuiltInAgent` accepts a model **string** in `provider:model` (or `provider/model`) form for OpenAI, Anthropic, and Google:
+`BuiltInAgent` takes a TanStack AI text adapter as its `model`. Install `@tanstack/ai` and the adapter package for each provider that you use:
+
+```bash
+npm install @tanstack/ai @tanstack/ai-openai @tanstack/ai-anthropic @tanstack/ai-gemini
+```
 
 ```ts
 import { BuiltInAgent } from "@copilotkit/runtime/agent";
+import { openaiText } from "@tanstack/ai-openai";
+import { anthropicText } from "@tanstack/ai-anthropic";
+import { geminiText } from "@tanstack/ai-gemini";
 
-const openai = new BuiltInAgent({ model: "openai:gpt-5-mini", prompt: "..." }); // OPENAI_API_KEY
-const anthropic = new BuiltInAgent({ model: "anthropic:claude-sonnet-4-6", prompt: "..." }); // ANTHROPIC_API_KEY
-const google = new BuiltInAgent({ model: "google:gemini-3.8-flash", prompt: "..." }); // GOOGLE_API_KEY
+const openai = new BuiltInAgent({ model: openaiText("gpt-5-mini"), prompt: "..." }); // OPENAI_API_KEY
+const anthropic = new BuiltInAgent({ model: anthropicText("claude-sonnet-4-6"), prompt: "..." }); // ANTHROPIC_API_KEY
+const google = new BuiltInAgent({ model: geminiText("gemini-3.8-flash"), prompt: "..." }); // GOOGLE_API_KEY
 ```
 
-The string form reads the matching provider API key from the environment. You can also pass `apiKey` on the config. In place of the string, you can pass a TanStack AI text adapter, such as `openaiText("gpt-5")` from `@tanstack/ai-openai`.
+Each adapter reads its provider API key from the environment variable in the comment.
 
 ### OpenAI-compatible endpoints
 
-To point the string model form at an OpenAI-compatible endpoint (a gateway, Azure OpenAI, a self-hosted server, etc.), set the base-URL environment variable — the runtime honors it when it constructs the provider:
+To send requests to an OpenAI-compatible endpoint (a gateway or a self-hosted server), use `openaiCompatibleText`. Give it the base URL and the key:
 
-```bash
-export OPENAI_BASE_URL=https://your-gateway.example.com/v1
-export OPENAI_API_KEY=sk-...
-npx tsx server.ts
+```ts
+import { BuiltInAgent } from "@copilotkit/runtime/agent";
+import { openaiCompatibleText } from "@tanstack/ai-openai/compatible";
+
+const agent = new BuiltInAgent({
+  model: openaiCompatibleText("gpt-5-mini", {
+    baseURL: "https://your-gateway.example.com/v1",
+    apiKey: process.env.GATEWAY_API_KEY!,
+  }),
+  prompt: "...",
+});
 ```
 
-On a host other than OpenAI or Azure, `openai:` models use the Chat Completions API. To keep the Responses API through a gateway in front of OpenAI, also set `COPILOTKIT_OPENAI_API=responses`. See [Model Selection](/model-selection#openai-compatible-endpoints).
-
-The same applies to `ANTHROPIC_BASE_URL` and `GOOGLE_GENERATIVE_AI_BASE_URL`. When the variable is unset, the provider falls back to its default endpoint, so this is fully backward compatible — you do **not** need to build a custom model instance just to change the base URL.
+See [Model Selection](/model-selection) for more providers.
 
 <Callout type="info" title="Other BuiltInAgent options">
   Beyond `model` and `prompt`, `BuiltInAgent` accepts these options:
@@ -550,7 +563,7 @@ The same applies to `ANTHROPIC_BASE_URL` and `GOOGLE_GENERATIVE_AI_BASE_URL`. Wh
   - `maxSteps`: the maximum number of model calls in one run. Default: `1`.
   - `tools`: tools that run on the server. Make them with `defineTool`.
   - `modelOptions`: provider options, with the names that the provider uses.
-  - `mcpServers` and `mcpClients`: tools from MCP servers. They need `@tanstack/ai-mcp`.
+  - `mcpClients`: tools from MCP servers. Make the clients with `createMCPClient` from `@tanstack/ai-mcp`.
 
   Tools that mutate the app's UI belong on the **client** via `useFrontendTool` (below), not in the server `tools` list.
 </Callout>

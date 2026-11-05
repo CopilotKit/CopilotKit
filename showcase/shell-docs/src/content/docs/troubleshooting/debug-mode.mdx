@@ -31,9 +31,10 @@ Pass `debug: true` to the `CopilotRuntime` constructor:
 ```ts title="app/api/copilotkit/[[...slug]]/route.ts"
 import { CopilotRuntime } from "@copilotkit/runtime";
 import { BuiltInAgent } from "@copilotkit/runtime/agent";
+import { openaiText } from "@tanstack/ai-openai";
 
 const runtime = new CopilotRuntime({
-  agents: { default: new BuiltInAgent({ model: "openai/gpt-5.4" }) },
+  agents: { default: new BuiltInAgent({ model: openaiText("gpt-5.5") }) },
   debug: true, // [!code highlight]
 });
 ```
@@ -111,9 +112,10 @@ over what gets logged:
 ```ts
 import { CopilotRuntime } from "@copilotkit/runtime";
 import { BuiltInAgent } from "@copilotkit/runtime/agent";
+import { openaiText } from "@tanstack/ai-openai";
 
 const runtime = new CopilotRuntime({
-  agents: { default: new BuiltInAgent({ model: "openai/gpt-5.4" }) },
+  agents: { default: new BuiltInAgent({ model: openaiText("gpt-5.5") }) },
   debug: {
     events: true, // Log every event emitted/received
     lifecycle: true, // Log request/run lifecycle (start, finish, error)
@@ -139,9 +141,10 @@ Log only lifecycle events (no per-event logs):
 ```ts
 import { CopilotRuntime } from "@copilotkit/runtime";
 import { BuiltInAgent } from "@copilotkit/runtime/agent";
+import { openaiText } from "@tanstack/ai-openai";
 
 const runtime = new CopilotRuntime({
-  agents: { default: new BuiltInAgent({ model: "openai/gpt-5.4" }) },
+  agents: { default: new BuiltInAgent({ model: openaiText("gpt-5.5") }) },
   debug: { events: false, lifecycle: true },
 });
 ```
@@ -151,9 +154,10 @@ Log events with full payloads but skip lifecycle:
 ```ts
 import { CopilotRuntime } from "@copilotkit/runtime";
 import { BuiltInAgent } from "@copilotkit/runtime/agent";
+import { openaiText } from "@tanstack/ai-openai";
 
 const runtime = new CopilotRuntime({
-  agents: { default: new BuiltInAgent({ model: "openai/gpt-5.4" }) },
+  agents: { default: new BuiltInAgent({ model: openaiText("gpt-5.5") }) },
   debug: { events: true, lifecycle: false, verbose: true },
 });
 ```

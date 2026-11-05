@@ -63,9 +63,10 @@ OPENAI_API_KEY=your_api_key_here
           createCopilotRuntimeHandler,
         } from "@copilotkit/runtime";
         import { BuiltInAgent } from "@copilotkit/runtime/agent";
+        import { openaiText } from "@tanstack/ai-openai";
 
         const runtime = new CopilotRuntime({
-          agents: { default: new BuiltInAgent({ model: "openai/gpt-5.4" }) },
+          agents: { default: new BuiltInAgent({ model: openaiText("gpt-5.5") }) },
         });
 
         const handler = createCopilotRuntimeHandler({
@@ -87,10 +88,11 @@ OPENAI_API_KEY=your_api_key_here
         ```ts title="pages/api/copilotkit/[[...slug]].ts"
         import { CopilotRuntime } from "@copilotkit/runtime";
         import { BuiltInAgent } from "@copilotkit/runtime/agent";
+        import { openaiText } from "@tanstack/ai-openai";
         import { createCopilotNodeListener } from "@copilotkit/runtime/node";
 
         const runtime = new CopilotRuntime({
-          agents: { default: new BuiltInAgent({ model: "openai/gpt-5.4" }) },
+          agents: { default: new BuiltInAgent({ model: openaiText("gpt-5.5") }) },
         });
 
         export default createCopilotNodeListener({
@@ -110,12 +112,13 @@ OPENAI_API_KEY=your_api_key_here
         import express from "express";
         import { CopilotRuntime } from "@copilotkit/runtime";
         import { BuiltInAgent } from "@copilotkit/runtime/agent";
+        import { openaiText } from "@tanstack/ai-openai";
         import { createCopilotNodeListener } from "@copilotkit/runtime/node";
 
         const app = express();
 
         const runtime = new CopilotRuntime({
-          agents: { default: new BuiltInAgent({ model: "openai/gpt-5.4" }) },
+          agents: { default: new BuiltInAgent({ model: openaiText("gpt-5.5") }) },
         });
 
         app.use(
@@ -143,10 +146,11 @@ OPENAI_API_KEY=your_api_key_here
         import { createServer } from "node:http";
         import { CopilotRuntime } from "@copilotkit/runtime";
         import { BuiltInAgent } from "@copilotkit/runtime/agent";
+        import { openaiText } from "@tanstack/ai-openai";
         import { createCopilotNodeListener } from "@copilotkit/runtime/node";
 
         const runtime = new CopilotRuntime({
-          agents: { default: new BuiltInAgent({ model: "openai/gpt-5.4" }) },
+          agents: { default: new BuiltInAgent({ model: openaiText("gpt-5.5") }) },
         });
 
         const listener = createCopilotNodeListener({
@@ -175,10 +179,11 @@ OPENAI_API_KEY=your_api_key_here
         import { All, Controller, Req, Res } from "@nestjs/common";
         import { CopilotRuntime } from "@copilotkit/runtime";
         import { BuiltInAgent } from "@copilotkit/runtime/agent";
+        import { openaiText } from "@tanstack/ai-openai";
         import { createCopilotNodeListener } from "@copilotkit/runtime/node";
 
         const runtime = new CopilotRuntime({
-          agents: { default: new BuiltInAgent({ model: "openai/gpt-5.4" }) },
+          agents: { default: new BuiltInAgent({ model: openaiText("gpt-5.5") }) },
         });
 
         const listener = createCopilotNodeListener({

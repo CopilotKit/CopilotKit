@@ -140,6 +140,7 @@ import {
   createCopilotRuntimeHandler,
 } from "@copilotkit/runtime";
 import { BuiltInAgent, defineTool } from "@copilotkit/runtime/agent";
+import { openaiText } from "@tanstack/ai-openai";
 import { z } from "zod";
 import { getArcadeUserId, runArcadeTool } from "@/lib/arcade";
 
@@ -190,8 +191,7 @@ tool cards show the details.`;
 
 function buildAgent(userId: string) {
   return new BuiltInAgent({
-    model: process.env.OPENAI_MODEL || "openai/gpt-4o",
-    apiKey: process.env.OPENAI_API_KEY,
+    model: openaiText("gpt-4o"), // reads OPENAI_API_KEY
     prompt: SYSTEM_PROMPT,
     tools: buildTools(userId),
     maxSteps: 6, // > 1 so the agent can call a tool and then respond
