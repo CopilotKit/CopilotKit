@@ -72,6 +72,19 @@ describe("isDedicatedEntry", () => {
     );
     expect(isDedicatedEntry("./core", "@langchain/core")).toBe(true);
   });
+
+  it("treats ./agent/ai-sdk as dedicated to the ai package", () => {
+    expect(isDedicatedEntry("./agent/ai-sdk", "ai")).toBe(true);
+  });
+
+  it("does not extend the ai-sdk alias to a scoped peer with the same leaf", () => {
+    expect(isDedicatedEntry("./agent/ai-sdk", "@tanstack/ai")).toBe(false);
+  });
+
+  it("does not treat ./agent as dedicated to a TanStack AI peer", () => {
+    expect(isDedicatedEntry("./agent", "@tanstack/ai")).toBe(false);
+    expect(isDedicatedEntry("./agent", "ai")).toBe(false);
+  });
 });
 
 describe("reachableBareSpecifiers", () => {
