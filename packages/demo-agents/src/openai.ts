@@ -26,7 +26,8 @@ export class OpenAIAgent extends AbstractAgent {
 
       this.openai.chat.completions
         .create({
-          model: "gpt-4o",
+          model: "gpt-6-luna",
+          reasoning_effort: "none",
           stream: true,
           tools: input.tools.map((tool) => ({
             type: "function",

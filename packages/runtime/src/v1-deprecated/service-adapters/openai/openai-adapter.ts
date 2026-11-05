@@ -92,7 +92,7 @@ import {
 import { randomUUID } from "@copilotkit/shared";
 import { convertServiceAdapterError, getSdkClientOptions } from "../shared";
 
-const DEFAULT_MODEL = "gpt-4o";
+const DEFAULT_MODEL = "gpt-6-luna";
 
 export interface OpenAIAdapterParams {
   /**
@@ -246,6 +246,7 @@ export class OpenAIAdapter implements CopilotServiceAdapter {
       const completions = getChatCompletionsForStreaming(openai);
       const stream = completions.stream({
         model: model,
+        ...(model === "gpt-6-luna" && { reasoning_effort: "none" as const }),
         stream: true,
         messages: openaiMessages,
         ...(tools.length > 0 && { tools }),
