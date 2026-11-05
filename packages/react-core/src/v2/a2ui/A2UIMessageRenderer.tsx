@@ -1,3 +1,4 @@
+import { projectSurfaceActivities } from "./surface-activity-projection";
 import { useCopilotKit } from "../providers";
 import type { ReactActivityMessageRenderer } from "../types/react-activity-message-renderer";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -251,26 +252,38 @@ export function createA2UIMessageRenderer(
   return {
     activityType: "a2ui-surface",
     content: A2UISurfaceContentSchema,
-    render: ({ content, agent }) => {
+    render: ({ content, agent, message }) => {
       ensureInitialized();
 
-      const [operations, setOperations] = useState<any[]>([]);
       const { copilotkit } = useCopilotKit();
-
-      const lastContentRef = useRef<unknown>(null);
+      const [messagesVersion, setMessagesVersion] = useState(0);
       useEffect(() => {
-        // Skip if same content reference
-        if (content === lastContentRef.current) return;
-        lastContentRef.current = content;
-
+        if (!agent) return;
+        const subscription = agent.subscribe({
+          onMessagesChanged: () => setMessagesVersion((version) => version + 1),
+        });
+        return () => subscription.unsubscribe();
+      }, [agent]);
+      const operations = useMemo(() => {
         const incoming = content?.[A2UI_OPERATIONS_KEY];
-        if (!content || !Array.isArray(incoming)) {
-          setOperations([]);
-          return;
-        }
-
-        setOperations(incoming);
-      }, [content]);
+        if (!Array.isArray(incoming)) return [];
+        if (
+          !agent ||
+          !message ||
+          !agent.messages.some((item) => item.id === message.id)
+        )
+          return incoming;
+        // The renderer's content can be newer than the agent snapshot. Replace
+        // only this activity at its existing position before projecting it.
+        const messages = agent.messages.map((item) =>
+          item.id === message.id ? { ...message, content } : item,
+        );
+        return projectSurfaceActivities(messages).get(message.id) ?? incoming;
+      }, [agent, message, content, messagesVersion]);
+      const forwardedUpdate =
+        Array.isArray(content?.[A2UI_OPERATIONS_KEY]) &&
+        content[A2UI_OPERATIONS_KEY].length > 0 &&
+        operations.length === 0;
 
       // Group operations by surface ID
       const groupedOperations = useMemo(() => {
@@ -366,6 +379,8 @@ export function createA2UIMessageRenderer(
         }, PAINT_FALLBACK_MS);
         return () => clearTimeout(t);
       }, [hasOps]);
+
+      if (forwardedUpdate) return null;
 
       if (!hasOps) {
         // No painted surface yet → render the pre-paint lifecycle state. These
@@ -560,8 +575,9 @@ function SurfaceMessageProcessor({
   operations: any[];
   onReady?: () => void;
 }) {
-  const { processMessages, getSurface } = useA2UIActions();
+  const { processMessages, getSurface, clearSurfaces } = useA2UIActions();
   const lastHashRef = useRef<string>("");
+  const processedOperationsRef = useRef<string[]>([]);
   useEffect(() => {
     // Skip if operations haven't actually changed (deep compare via hash).
     // ACTIVITY_DELTA + ACTIVITY_SNAPSHOT can trigger multiple renders with
@@ -570,13 +586,27 @@ function SurfaceMessageProcessor({
     if (hash === lastHashRef.current) return;
     lastHashRef.current = hash;
 
-    // Filter out createSurface if the surface already exists — the
-    // MessageProcessor throws on duplicate createSurface, but content
-    // snapshots always include the full operation list.
-    const existing = getSurface(surfaceId);
-    const ops = existing
-      ? operations.filter((op) => !op?.createSurface)
+    // Projection is a cumulative log. Apply only its appended suffix so a
+    // new update does not replay initial data over local edits. If history was
+    // rewritten/truncated, rebuild this provider's single surface so removed
+    // components and paths cannot survive a replay of the shorter history.
+    const serialized = operations.map((operation) => JSON.stringify(operation));
+    const previous = processedOperationsRef.current;
+    const extendsPrevious =
+      previous.length <= serialized.length &&
+      previous.every((operation, index) => operation === serialized[index]);
+    if (
+      !extendsPrevious &&
+      operations.some((operation) => operation?.createSurface)
+    ) {
+      clearSurfaces();
+    }
+    const pending = extendsPrevious
+      ? operations.slice(previous.length)
       : operations;
+    processedOperationsRef.current = serialized;
+    const existing = getSurface(surfaceId);
+    const ops = existing ? pending.filter((op) => !op?.createSurface) : pending;
 
     // Error handling is done inside A2UIProvider.processMessages
     processMessages(ops);
@@ -624,7 +654,14 @@ function SurfaceMessageProcessor({
       warnAboutUnresolvedRoot(surfaceId, operations, getSurface(surfaceId));
     }, PAINT_FALLBACK_MS);
     return () => clearTimeout(unresolvedRootCheck);
-  }, [processMessages, getSurface, surfaceId, operations, onReady]);
+  }, [
+    processMessages,
+    getSurface,
+    clearSurfaces,
+    surfaceId,
+    operations,
+    onReady,
+  ]);
 
   return null;
 }
