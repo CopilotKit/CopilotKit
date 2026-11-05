@@ -1,493 +1,506 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, vi, afterEach } from "vitest";
 import http from "node:http";
-import type { AddressInfo } from "node:net";
-import { BuiltInAgent } from "../index";
 import { EventType } from "@ag-ui/client";
-import { streamText } from "ai";
 import { LLMock, MCPMock } from "@copilotkit/aimock";
+import { Server } from "@modelcontextprotocol/sdk/server/index.js";
+import { SSEServerTransport } from "@modelcontextprotocol/sdk/server/sse.js";
 import {
-  mockStreamTextResponse,
-  textDelta,
-  finish,
+  CallToolRequestSchema,
+  ListToolsRequestSchema,
+} from "@modelcontextprotocol/sdk/types.js";
+import type { TextOptions } from "@tanstack/ai";
+import type { FakeResponse } from "@tanstack/ai/testing";
+import type { MCPClientConfig } from "../index";
+import {
   collectEvents,
-  toolCall,
-  toolResult,
-} from "./test-helpers";
+  collectEventsIncludingErrors,
+  createClassicAgent,
+  createDefaultInput,
+  eventsOfType,
+  requestToolNames,
+  runClassicAgent,
+} from "./agent-test-helpers";
 
-// Mock the ai module — we don't want real LLM calls
-vi.mock("ai", () => ({
-  streamText: vi.fn(),
-  tool: vi.fn((config) => config),
-  stepCountIs: vi.fn((count: number) => ({ type: "stepCount", count })),
-}));
+// Real MCP servers in this process, real `@tanstack/ai-mcp` clients, and a
+// scripted fake model. Nothing in the MCP path is mocked.
 
-vi.mock("@ai-sdk/openai", () => ({
-  createOpenAI: vi.fn(() => (modelId: string) => ({
-    modelId,
-    provider: "openai",
-  })),
-}));
+interface ToolSpec {
+  name: string;
+  description: string;
+}
 
-// Do NOT mock @ai-sdk/mcp or @modelcontextprotocol/sdk transports —
-// we want real HTTP connections to the MCPMock server.
+const WEATHER: ToolSpec = {
+  name: "get_weather",
+  description: "Get the weather",
+};
 
-describe("mcpServers — real MCP server integration", () => {
-  const originalEnv = process.env;
-  let llm: LLMock;
-  let mcpMock: MCPMock;
+const QUERY_SCHEMA = {
+  type: "object",
+  properties: { query: { type: "string" } },
+} as const;
 
-  beforeEach(() => {
-    vi.clearAllMocks();
-    process.env = { ...originalEnv };
-    process.env.OPENAI_API_KEY = "test-key";
-  });
+/** What every test server's tool answers, so a test can tell who ran it. */
+function toolResultText(label: string, args: unknown) {
+  const query =
+    typeof args === "object" && args !== null && "query" in args
+      ? String(args.query)
+      : "";
+  return `result from ${label} for ${query}`;
+}
 
-  afterEach(async () => {
-    process.env = originalEnv;
-    if (llm) {
-      await llm.stop().catch(() => {});
-    }
-  });
+const cleanups: Array<() => Promise<void>> = [];
 
-  const baseInput = {
-    threadId: "thread1",
-    runId: "run1",
-    messages: [],
-    tools: [],
-    context: [],
-    state: {},
-  };
+afterEach(async () => {
+  const pending = cleanups.splice(0);
+  await Promise.all(pending.map((cleanup) => cleanup().catch(() => {})));
+});
 
-  /**
-   * Start an LLMock with an MCPMock mounted at /mcp.
-   * Returns the full MCP endpoint URL.
-   */
-  async function startMcpServer(
-    tools: Array<{ name: string; description?: string }>,
-  ): Promise<{ mcpUrl: string; llm: LLMock; mcpMock: MCPMock }> {
-    const mock = new MCPMock();
-    for (const t of tools) {
-      mock.addTool({
-        name: t.name,
-        description: t.description ?? `${t.name} tool`,
-        inputSchema: {
-          type: "object",
-          properties: { query: { type: "string" } },
+/** An MCPMock with `tools`; each tool answers with {@link toolResultText}. */
+function createMCPMock(tools: ToolSpec[], label = "server") {
+  const mock = new MCPMock();
+  for (const tool of tools) {
+    mock.addTool({ ...tool, inputSchema: QUERY_SCHEMA });
+    mock.onToolCall(tool.name, (args) => toolResultText(label, args));
+  }
+  return mock;
+}
+
+/**
+ * Serves each MCPMock over Streamable HTTP at its path. Returns the base URL.
+ */
+async function startHttpServer(mounts: Record<string, MCPMock>) {
+  const server = new LLMock({ port: 0 });
+  for (const [path, mock] of Object.entries(mounts)) server.mount(path, mock);
+  await server.start();
+  cleanups.push(() => server.stop());
+  return server.url;
+}
+
+/** One HTTP MCP server at `/mcp` with `tools`. Returns its URL. */
+async function startHttpMCPServer(tools: ToolSpec[], label = "server") {
+  const url = await startHttpServer({ "/mcp": createMCPMock(tools, label) });
+  return `${url}/mcp`;
+}
+
+interface SseServerOptions {
+  label?: string;
+  /** The SSE stream opens only after this settles. */
+  connectGate?: Promise<void>;
+  /** `tools/list` answers only after this settles. */
+  toolListGate?: Promise<void>;
+}
+
+/**
+ * An MCP server on the SSE transport. It counts the SSE streams that are
+ * open, so a test can see when a client closes its connection.
+ */
+async function startSseMCPServer(
+  tools: ToolSpec[],
+  options: SseServerOptions = {},
+) {
+  const label = options.label ?? "server";
+  const transports = new Map<string, SSEServerTransport>();
+  const streamHeaders: http.IncomingHttpHeaders[] = [];
+  let openStreams = 0;
+  let toolListRequests = 0;
+
+  function createToolServer() {
+    const server = new Server(
+      { name: "sse-test-server", version: "1.0.0" },
+      { capabilities: { tools: {} } },
+    );
+    server.setRequestHandler(ListToolsRequestSchema, async () => {
+      toolListRequests++;
+      await options.toolListGate;
+      return {
+        tools: tools.map((tool) => ({ ...tool, inputSchema: QUERY_SCHEMA })),
+      };
+    });
+    server.setRequestHandler(CallToolRequestSchema, async (request) => ({
+      content: [
+        {
+          type: "text",
+          text: toolResultText(label, request.params.arguments),
         },
-      });
-      mock.onToolCall(t.name, () => `result from ${t.name}`);
-    }
-
-    const server = new LLMock({ port: 0 });
-    server.mount("/mcp", mock);
-    await server.start();
-
-    return {
-      mcpUrl: `${server.url}/mcp`,
-      llm: server,
-      mcpMock: mock,
-    };
+      ],
+    }));
+    return server;
   }
 
-  it("HTTP transport fetches tools from MCPMock", async () => {
-    const result = await startMcpServer([
-      { name: "get_weather", description: "Get the weather" },
-    ]);
-    llm = result.llm;
-    mcpMock = result.mcpMock;
+  async function openStream(res: http.ServerResponse) {
+    await options.connectGate;
+    if (res.destroyed) return;
+    const transport = new SSEServerTransport("/messages", res);
+    transports.set(transport.sessionId, transport);
+    await createToolServer().connect(transport);
+  }
 
-    const agent = new BuiltInAgent({
-      model: "openai/gpt-4o",
-      mcpServers: [{ type: "http", url: result.mcpUrl }],
-    });
-
-    vi.mocked(streamText).mockReturnValue(
-      mockStreamTextResponse([textDelta("Hello"), finish()]) as any,
-    );
-
-    await collectEvents(agent["run"](baseInput));
-
-    const callArgs = vi.mocked(streamText).mock.calls[0][0];
-    expect(callArgs.tools).toHaveProperty("get_weather");
+  const httpServer = http.createServer((req, res) => {
+    const url = new URL(req.url ?? "/", "http://127.0.0.1");
+    if (req.method === "GET" && url.pathname === "/sse") {
+      streamHeaders.push(req.headers);
+      openStreams++;
+      res.on("close", () => {
+        openStreams--;
+      });
+      void openStream(res);
+      return;
+    }
+    const transport = transports.get(url.searchParams.get("sessionId") ?? "");
+    if (req.method === "POST" && url.pathname === "/messages" && transport) {
+      void transport.handlePostMessage(req, res);
+      return;
+    }
+    res.writeHead(404).end();
   });
 
-  it("SSE transport attaches Authorization headers from mcpServers config", async () => {
-    // MCPMock only speaks Streamable HTTP. A raw HTTP listener is enough to
-    // assert what the SSE client actually puts on the wire — the handshake
-    // will fail, and the run must still complete (same skip path as below).
-    const received: http.IncomingHttpHeaders[] = [];
-    const server = http.createServer((req, res) => {
-      received.push(req.headers);
-      res.writeHead(200, {
-        "Content-Type": "text/event-stream",
-        "Cache-Control": "no-cache",
-        Connection: "keep-alive",
+  await new Promise<void>((resolve) => {
+    httpServer.listen(0, "127.0.0.1", () => resolve());
+  });
+  cleanups.push(
+    () =>
+      new Promise<void>((resolve) => {
+        httpServer.closeAllConnections();
+        httpServer.close(() => resolve());
+      }),
+  );
+  const address = httpServer.address();
+  if (address === null || typeof address === "string") {
+    throw new Error("The SSE test server has no TCP port");
+  }
+
+  return {
+    url: `http://127.0.0.1:${address.port}/sse`,
+    openStreams: () => openStreams,
+    streamHeaders,
+    toolListRequests: () => toolListRequests,
+  };
+}
+
+/** A promise and the function that settles it. */
+function createGate() {
+  let open!: () => void;
+  const promise = new Promise<void>((resolve) => {
+    open = resolve;
+  });
+  return { promise, open };
+}
+
+function findTool(request: TextOptions, name: string) {
+  return request.tools?.find((tool) => tool.name === name);
+}
+
+/** The model calls `name` once, then answers with `text`. */
+function callToolThenAnswer(name: string, text = "done") {
+  return [
+    { toolCalls: [{ id: "tc1", name, input: { query: "NYC" } }] },
+    { text },
+  ];
+}
+
+const transports = [
+  {
+    type: "http",
+    start: (tools: ToolSpec[]) => startHttpMCPServer(tools, "http"),
+  },
+  {
+    type: "sse",
+    start: async (tools: ToolSpec[]) =>
+      (await startSseMCPServer(tools, { label: "sse" })).url,
+  },
+] as const;
+
+describe("mcpServers: real MCP servers", () => {
+  it.each(transports)(
+    "lists the tools of a $type server to the model",
+    async ({ type, start }) => {
+      const url = await start([WEATHER]);
+
+      const { requests } = await runClassicAgent({
+        mcpServers: [{ type, url }],
       });
-      res.end();
+
+      expect(findTool(requests[0], "get_weather")?.description).toBe(
+        "Get the weather",
+      );
+    },
+  );
+
+  it.each(transports)(
+    "runs a $type server's tool when the model calls it",
+    async ({ type, start }) => {
+      const url = await start([WEATHER]);
+
+      const { events } = await runClassicAgent(
+        { mcpServers: [{ type, url }], maxSteps: 2 },
+        callToolThenAnswer("get_weather", "The weather is sunny."),
+      );
+
+      const [result] = eventsOfType(events, EventType.TOOL_CALL_RESULT);
+      expect(result.toolCallId).toBe("tc1");
+      expect(result.content).toContain(`result from ${type} for NYC`);
+      const text = eventsOfType(events, EventType.TEXT_MESSAGE_CHUNK)
+        .map((event) => event.delta)
+        .join("");
+      expect(text).toBe("The weather is sunny.");
+    },
+  );
+
+  it("sends the configured headers to an SSE server", async () => {
+    const server = await startSseMCPServer([WEATHER]);
+
+    await runClassicAgent({
+      mcpServers: [
+        {
+          type: "sse",
+          url: server.url,
+          headers: { Authorization: "Bearer SENTINEL-TOKEN" },
+        },
+      ],
     });
 
-    await new Promise<void>((resolve) => {
-      server.listen(0, "127.0.0.1", () => resolve());
+    expect(server.streamHeaders[0]?.authorization).toBe(
+      "Bearer SENTINEL-TOKEN",
+    );
+  });
+
+  it("merges the tools of several servers", async () => {
+    const weatherUrl = await startHttpMCPServer([WEATHER]);
+    const docsUrl = await startHttpMCPServer([
+      { name: "search_docs", description: "Search documentation" },
+    ]);
+
+    const { requests } = await runClassicAgent({
+      mcpServers: [
+        { type: "http", url: weatherUrl },
+        { type: "http", url: docsUrl },
+      ],
     });
-    const { port } = server.address() as AddressInfo;
+
+    expect(requestToolNames(requests[0])).toEqual(
+      expect.arrayContaining(["get_weather", "search_docs"]),
+    );
+  });
+
+  it("keeps a tool that two named servers share, and each copy calls its own server", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const search = { name: "search", description: "search" };
+    const url = await startHttpServer({
+      "/staging": createMCPMock([search], "staging"),
+      "/production": createMCPMock([search], "production"),
+    });
 
     try {
-      const agent = new BuiltInAgent({
-        model: "openai/gpt-4o",
+      const { events, requests } = await runClassicAgent(
+        {
+          mcpServers: [
+            { type: "http", url: `${url}/staging`, name: "staging" },
+            { type: "http", url: `${url}/production`, name: "production" },
+          ],
+          maxSteps: 2,
+        },
+        callToolThenAnswer("production_search"),
+      );
+
+      const names = requestToolNames(requests[0]);
+      expect(names).toEqual(
+        expect.arrayContaining(["staging_search", "production_search"]),
+      );
+      expect(names).not.toContain("search");
+      const [result] = eventsOfType(events, EventType.TOOL_CALL_RESULT);
+      expect(result.content).toContain("result from production for NYC");
+    } finally {
+      warn.mockRestore();
+    }
+  });
+});
+
+describe("mcpServers: a server that fails", () => {
+  it("skips the only server when it is unreachable, and the run still finishes", async () => {
+    const { events, requests } = await runClassicAgent({
+      mcpServers: [{ type: "http", url: "http://127.0.0.1:1/mcp" }],
+    });
+
+    expect(eventsOfType(events, EventType.RUN_ERROR)).toHaveLength(0);
+    expect(eventsOfType(events, EventType.RUN_FINISHED)).toHaveLength(1);
+    expect(requests).toHaveLength(1);
+  });
+
+  it("skips a down server and still loads the tools of a healthy one", async () => {
+    const url = await startHttpMCPServer([WEATHER]);
+
+    const { events, requests } = await runClassicAgent({
+      mcpServers: [
+        { type: "http", url: "http://127.0.0.1:1/mcp" },
+        { type: "http", url },
+      ],
+    });
+
+    expect(eventsOfType(events, EventType.RUN_ERROR)).toHaveLength(0);
+    expect(requestToolNames(requests[0])).toContain("get_weather");
+  });
+
+  it("skips a server that does not speak the configured transport", async () => {
+    // MCPMock speaks Streamable HTTP only, so an SSE client cannot connect.
+    const url = await startHttpMCPServer([WEATHER]);
+
+    const { events, requests } = await runClassicAgent({
+      mcpServers: [{ type: "sse", url }],
+    });
+
+    expect(eventsOfType(events, EventType.RUN_ERROR)).toHaveLength(0);
+    expect(requestToolNames(requests[0])).not.toContain("get_weather");
+  });
+
+  it("logs a failed server without the credentials in its URL", async () => {
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      await runClassicAgent({
         mcpServers: [
           {
-            type: "sse",
-            url: `http://127.0.0.1:${port}/sse`,
-            headers: {
-              Authorization: "Bearer SENTINEL-TOKEN",
-            },
+            type: "http",
+            url: "https://user:pass@127.0.0.1:1/mcp?token=secret-123",
           },
         ],
       });
 
-      vi.mocked(streamText).mockReturnValue(
-        mockStreamTextResponse([textDelta("ok"), finish()]) as any,
-      );
-
-      const events = await collectEvents(agent["run"](baseInput));
-
-      expect(events.some((e: any) => e.type === EventType.RUN_ERROR)).toBe(
-        false,
-      );
-      expect(received.length).toBeGreaterThan(0);
-      expect(received[0].authorization).toBe("Bearer SENTINEL-TOKEN");
+      const logged = error.mock.calls.map((call) => String(call[0])).join("\n");
+      expect(logged).toContain("MCP server https://127.0.0.1:1/mcp failed");
+      expect(logged).not.toMatch(/secret-123|user:pass/);
     } finally {
-      await new Promise<void>((resolve, reject) => {
-        server.close((err) => (err ? reject(err) : resolve()));
-      });
+      error.mockRestore();
     }
   });
+});
 
-  it("an unreachable MCP server (SSE vs HTTP-only mock) is skipped, not fatal", async () => {
-    // MCPMock only supports Streamable HTTP, not SSE — so the SSE client
-    // fails to connect. The run must degrade gracefully: no RUN_ERROR, and
-    // streamText still runs (just without that server's tools).
-    const result = await startMcpServer([
-      { name: "get_weather", description: "Get the weather" },
-    ]);
-    llm = result.llm;
-    mcpMock = result.mcpMock;
+describe("mcpServers: connection lifecycle", () => {
+  function sseConfig(url: string): MCPClientConfig[] {
+    return [{ type: "sse", url }];
+  }
 
-    const agent = new BuiltInAgent({
-      model: "openai/gpt-4o",
-      mcpServers: [{ type: "sse", url: result.mcpUrl }],
-    });
+  /**
+   * A model answer that records how many SSE streams are open while the
+   * model runs, so a test can see the stream was open before it closed.
+   */
+  function answerRecordingStreams(
+    server: { openStreams: () => number },
+    seen: number[],
+    response: FakeResponse,
+  ) {
+    return () => {
+      seen.push(server.openStreams());
+      return response;
+    };
+  }
 
-    vi.mocked(streamText).mockReturnValue(
-      mockStreamTextResponse([textDelta("ok"), finish()]) as any,
-    );
-
-    const events = await collectEvents(agent["run"](baseInput));
-
-    expect(events.some((e: any) => e.type === EventType.RUN_ERROR)).toBe(false);
-    expect(vi.mocked(streamText).mock.calls.length).toBeGreaterThan(0);
-    // The failed server contributed no tools.
-    const callArgs = vi.mocked(streamText).mock.calls[0][0];
-    expect(callArgs.tools ?? {}).not.toHaveProperty("get_weather");
-  });
-
-  it("a down MCP server is skipped while a healthy one still loads its tools", async () => {
-    const result = await startMcpServer([
-      { name: "get_weather", description: "Get the weather" },
-    ]);
-    llm = result.llm;
-    mcpMock = result.mcpMock;
-
-    const agent = new BuiltInAgent({
-      model: "openai/gpt-4o",
-      mcpServers: [
-        { type: "http", url: "http://127.0.0.1:1/mcp" }, // unreachable
-        { type: "http", url: result.mcpUrl }, // healthy
+  it("closes its clients after a run, and opens fresh ones on the next run", async () => {
+    const server = await startSseMCPServer([WEATHER]);
+    const seen: number[] = [];
+    const { agent, requests } = createClassicAgent(
+      { mcpServers: sseConfig(server.url) },
+      [
+        answerRecordingStreams(server, seen, { text: "Run 1" }),
+        answerRecordingStreams(server, seen, { text: "Run 2" }),
       ],
-    });
-
-    vi.mocked(streamText).mockReturnValue(
-      mockStreamTextResponse([textDelta("ok"), finish()]) as any,
     );
 
-    const events = await collectEvents(agent["run"](baseInput));
+    await collectEvents(agent.run(createDefaultInput()));
+    await vi.waitFor(() => expect(server.openStreams()).toBe(0));
+    await collectEvents(agent.run(createDefaultInput({ runId: "run2" })));
+    await vi.waitFor(() => expect(server.openStreams()).toBe(0));
 
-    // The dead server is skipped; the run completes and the healthy server's
-    // tools are present.
-    expect(events.some((e: any) => e.type === EventType.RUN_ERROR)).toBe(false);
-    const callArgs = vi.mocked(streamText).mock.calls[0][0];
-    expect(callArgs.tools).toHaveProperty("get_weather");
+    expect(seen).toEqual([1, 1]);
+    expect(server.streamHeaders).toHaveLength(2);
+    expect(requestToolNames(requests[1])).toContain("get_weather");
   });
 
-  it("tool call round-trip emits TOOL_CALL_START, TOOL_CALL_RESULT, and TEXT_MESSAGE_CHUNK", async () => {
-    const result = await startMcpServer([
-      { name: "get_weather", description: "Get the weather" },
-    ]);
-    llm = result.llm;
-    mcpMock = result.mcpMock;
-
-    const agent = new BuiltInAgent({
-      model: "openai/gpt-4o",
-      mcpServers: [{ type: "http", url: result.mcpUrl }],
-    });
-
-    vi.mocked(streamText).mockReturnValue(
-      mockStreamTextResponse([
-        toolCall("tc1", "get_weather", { query: "NYC" }),
-        toolResult("tc1", "get_weather", "Sunny 72F"),
-        textDelta("The weather is sunny."),
-        finish(),
-      ]) as any,
+  it("closes its clients after the model fails, and the next run still works", async () => {
+    const server = await startSseMCPServer([WEATHER]);
+    const seen: number[] = [];
+    const { agent, requests } = createClassicAgent(
+      { mcpServers: sseConfig(server.url) },
+      [
+        answerRecordingStreams(server, seen, {
+          error: "LLM connection failed",
+        }),
+        { text: "Recovery" },
+      ],
     );
 
-    const events = await collectEvents(agent["run"](baseInput));
+    const failed = await collectEventsIncludingErrors(
+      agent.run(createDefaultInput()),
+    );
+    expect(eventsOfType(failed.events, EventType.RUN_ERROR)).toHaveLength(1);
+    expect(seen).toEqual([1]);
+    await vi.waitFor(() => expect(server.openStreams()).toBe(0));
 
-    const types = events.map((e: any) => e.type);
-    expect(types).toContain(EventType.TOOL_CALL_START);
-    expect(types).toContain(EventType.TOOL_CALL_RESULT);
-    expect(types).toContain(EventType.TEXT_MESSAGE_CHUNK);
-
-    // Verify the tool call result content
-    const resultEvent = events.find(
-      (e: any) => e.type === EventType.TOOL_CALL_RESULT,
-    ) as any;
-    expect(resultEvent.toolCallId).toBe("tc1");
-    expect(resultEvent.content).toContain("Sunny 72F");
+    const events = await collectEvents(
+      agent.run(createDefaultInput({ runId: "run2" })),
+    );
+    expect(eventsOfType(events, EventType.RUN_FINISHED)).toHaveLength(1);
+    expect(requestToolNames(requests[1])).toContain("get_weather");
   });
 
-  it("MCP clients are cleaned up after completion — second run creates fresh connections", async () => {
-    const result = await startMcpServer([
-      { name: "get_weather", description: "Get the weather" },
-    ]);
-    llm = result.llm;
-    mcpMock = result.mcpMock;
-
-    const agent = new BuiltInAgent({
-      model: "openai/gpt-4o",
-      mcpServers: [{ type: "http", url: result.mcpUrl }],
-    });
-
-    // First run
-    vi.mocked(streamText).mockReturnValue(
-      mockStreamTextResponse([textDelta("Run 1"), finish()]) as any,
-    );
-    const events1 = await collectEvents(agent["run"](baseInput));
-    expect(events1.some((e: any) => e.type === EventType.RUN_FINISHED)).toBe(
-      true,
-    );
-
-    // Second run — should succeed with fresh MCP client connections
-    vi.mocked(streamText).mockReturnValue(
-      mockStreamTextResponse([textDelta("Run 2"), finish()]) as any,
-    );
-    const events2 = await collectEvents(agent["run"](baseInput));
-    expect(events2.some((e: any) => e.type === EventType.RUN_FINISHED)).toBe(
-      true,
-    );
-
-    // streamText was called twice (once per run), each time with MCP tools
-    expect(vi.mocked(streamText).mock.calls).toHaveLength(2);
-    expect(vi.mocked(streamText).mock.calls[0][0].tools).toHaveProperty(
-      "get_weather",
-    );
-    expect(vi.mocked(streamText).mock.calls[1][0].tools).toHaveProperty(
-      "get_weather",
-    );
-  });
-
-  it("the only MCP server being unreachable does NOT fail the run", async () => {
-    const agent = new BuiltInAgent({
-      model: "openai/gpt-4o",
-      mcpServers: [{ type: "http", url: "http://localhost:59999" }],
-    });
-
-    vi.mocked(streamText).mockReturnValue(
-      mockStreamTextResponse([textDelta("ok"), finish()]) as any,
-    );
-
-    const events = await collectEvents(agent["run"](baseInput));
-
-    // Graceful degradation: the unreachable server is skipped, no RUN_ERROR,
-    // and the run still proceeds (just with no MCP tools).
-    expect(events.some((e: any) => e.type === EventType.RUN_ERROR)).toBe(false);
-    expect(vi.mocked(streamText).mock.calls.length).toBeGreaterThan(0);
-  });
-
-  it("MCP clients are cleaned up after streamText error — subsequent run still works", async () => {
-    const result = await startMcpServer([
-      { name: "get_weather", description: "Get the weather" },
-    ]);
-    llm = result.llm;
-    mcpMock = result.mcpMock;
-
-    const agent = new BuiltInAgent({
-      model: "openai/gpt-4o",
-      mcpServers: [{ type: "http", url: result.mcpUrl }],
-    });
-
-    // First run — streamText throws an error
-    vi.mocked(streamText).mockImplementation(() => {
-      throw new Error("LLM connection failed");
-    });
-
-    const events1: any[] = [];
-    try {
-      await new Promise((resolve, reject) => {
-        agent["run"](baseInput).subscribe({
-          next: (event: any) => events1.push(event),
-          error: (err: any) => reject(err),
-          complete: () => resolve(events1),
-        });
-      });
-    } catch {
-      // Expected — streamText threw
-    }
-
-    // Should have emitted RUN_ERROR
-    expect(events1.some((e) => e.type === EventType.RUN_ERROR)).toBe(true);
-
-    // Second run — streamText works normally, proving MCP cleanup happened
-    vi.mocked(streamText).mockReturnValue(
-      mockStreamTextResponse([textDelta("Recovery"), finish()]) as any,
-    );
-    const events2 = await collectEvents(agent["run"](baseInput));
-    expect(events2.some((e: any) => e.type === EventType.RUN_FINISHED)).toBe(
-      true,
-    );
-
-    // The second run should have MCP tools available
-    const secondCallArgs = vi.mocked(streamText).mock.calls[1][0];
-    expect(secondCallArgs.tools).toHaveProperty("get_weather");
-  });
-
-  it("MCP tool descriptions are passed to streamText tools config", async () => {
-    const result = await startMcpServer([
-      { name: "get_weather", description: "Get the weather" },
-    ]);
-    llm = result.llm;
-    mcpMock = result.mcpMock;
-
-    const agent = new BuiltInAgent({
-      model: "openai/gpt-4o",
-      mcpServers: [{ type: "http", url: result.mcpUrl }],
-    });
-
-    vi.mocked(streamText).mockReturnValue(
-      mockStreamTextResponse([textDelta("Hello"), finish()]) as any,
-    );
-
-    await collectEvents(agent["run"](baseInput));
-
-    const callArgs = vi.mocked(streamText).mock.calls[0][0];
-    expect(callArgs.tools).toHaveProperty("get_weather");
-    // The MCP tool should include the description from the MCPMock server
-    expect(callArgs.tools.get_weather.description).toBe("Get the weather");
-  });
-
-  it("multiple MCP servers merge tools from both", async () => {
-    // First server with get_weather
-    const result1 = await startMcpServer([
-      { name: "get_weather", description: "Get the weather" },
-    ]);
-    llm = result1.llm;
-
-    // Second server with search_docs
-    const mock2 = new MCPMock();
-    mock2.addTool({
-      name: "search_docs",
-      description: "Search documentation",
-      inputSchema: {
-        type: "object",
-        properties: { query: { type: "string" } },
-      },
-    });
-    mock2.onToolCall("search_docs", () => "doc results");
-
-    const llm2 = new LLMock({ port: 0 });
-    llm2.mount("/mcp", mock2);
-    await llm2.start();
-
-    try {
-      const agent = new BuiltInAgent({
-        model: "openai/gpt-4o",
-        mcpServers: [
-          { type: "http", url: result1.mcpUrl },
-          { type: "http", url: `${llm2.url}/mcp` },
-        ],
-      });
-
-      vi.mocked(streamText).mockReturnValue(
-        mockStreamTextResponse([
-          textDelta("Both tools available"),
-          finish(),
-        ]) as any,
-      );
-
-      await collectEvents(agent["run"](baseInput));
-
-      const callArgs = vi.mocked(streamText).mock.calls[0][0];
-      expect(callArgs.tools).toHaveProperty("get_weather");
-      expect(callArgs.tools).toHaveProperty("search_docs");
-    } finally {
-      await llm2.stop().catch(() => {});
-    }
-  });
-
-  it("two named servers that expose the same tool keep both, and each calls its own server", async () => {
-    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
-    const staging = new MCPMock();
-    const production = new MCPMock();
-    for (const [mock, label] of [
-      [staging, "staging"],
-      [production, "production"],
-    ] as const) {
-      mock.addTool({
-        name: "search",
-        description: `search on ${label}`,
-        inputSchema: {
-          type: "object",
-          properties: { query: { type: "string" } },
+  it("closes its clients when the run is cancelled during the model call", async () => {
+    const server = await startSseMCPServer([WEATHER]);
+    const modelGate = createGate();
+    const { agent, requests } = createClassicAgent(
+      { mcpServers: sseConfig(server.url) },
+      [
+        async () => {
+          await modelGate.promise;
+          return { text: "too late" };
         },
-      });
-      mock.onToolCall("search", () => `result from ${label}`);
-    }
-
-    llm = new LLMock({ port: 0 });
-    llm.mount("/staging", staging);
-    llm.mount("/production", production);
-    await llm.start();
-
-    const agent = new BuiltInAgent({
-      model: "openai/gpt-4o",
-      mcpServers: [
-        { type: "http", url: `${llm.url}/staging`, name: "staging" },
-        { type: "http", url: `${llm.url}/production`, name: "production" },
       ],
-    });
-
-    // Call the tool while the stream is open: the agent closes its MCP
-    // clients as soon as the run ends.
-    let prodResult: unknown;
-    vi.mocked(streamText).mockImplementation(
-      (params: any) =>
-        ({
-          fullStream: (async function* () {
-            prodResult = await params.tools.production_search.execute(
-              { query: "q" },
-              { toolCallId: "tc1", messages: [] },
-            );
-            yield finish();
-          })(),
-        }) as any,
     );
 
-    await collectEvents(agent["run"](baseInput));
+    const subscription = agent.run(createDefaultInput()).subscribe();
+    await vi.waitFor(() => expect(requests).toHaveLength(1));
+    expect(server.openStreams()).toBe(1);
+    subscription.unsubscribe();
 
-    const callArgs = vi.mocked(streamText).mock.calls[0][0];
-    expect(callArgs.tools).toHaveProperty("staging_search");
-    expect(callArgs.tools).toHaveProperty("production_search");
-    expect(callArgs.tools).not.toHaveProperty("search");
-    expect(JSON.stringify(prodResult)).toContain("result from production");
-    warn.mockRestore();
+    await vi.waitFor(() => expect(server.openStreams()).toBe(0));
+    modelGate.open();
+  });
+
+  it("closes a client that connects after the run is cancelled, without loading its tools", async () => {
+    const connectGate = createGate();
+    const server = await startSseMCPServer([WEATHER], {
+      connectGate: connectGate.promise,
+    });
+    const { agent, requests } = createClassicAgent({
+      mcpServers: sseConfig(server.url),
+    });
+
+    const run = collectEvents(agent.run(createDefaultInput()));
+    await vi.waitFor(() => expect(server.streamHeaders).toHaveLength(1));
+    agent.abortRun();
+    connectGate.open();
+    await run;
+
+    await vi.waitFor(() => expect(server.openStreams()).toBe(0));
+    expect(server.toolListRequests()).toBe(0);
+    expect(requests).toHaveLength(0);
+  });
+
+  it("stops connecting to later servers when the run is cancelled during a tool lookup", async () => {
+    const toolListGate = createGate();
+    const first = await startSseMCPServer([WEATHER], {
+      toolListGate: toolListGate.promise,
+    });
+    const second = await startSseMCPServer([WEATHER]);
+    const { agent, requests } = createClassicAgent({
+      mcpServers: [...sseConfig(first.url), ...sseConfig(second.url)],
+    });
+
+    const run = collectEvents(agent.run(createDefaultInput()));
+    await vi.waitFor(() => expect(first.toolListRequests()).toBe(1));
+    agent.abortRun();
+    toolListGate.open();
+    await run;
+
+    await vi.waitFor(() => expect(first.openStreams()).toBe(0));
+    expect(second.streamHeaders).toHaveLength(0);
+    expect(requests).toHaveLength(0);
   });
 });
