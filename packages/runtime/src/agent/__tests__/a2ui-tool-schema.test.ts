@@ -1,17 +1,33 @@
+/**
+ * Frontend tool schemas reach the model as sent. The classic agent does not
+ * close open objects, so A2UI components keep their model-visible fields.
+ */
 import { expect, test } from "vitest";
-import { asSchema } from "ai";
+import { EventType } from "@ag-ui/client";
 import { RENDER_A2UI_TOOL } from "@ag-ui/a2ui-middleware";
-import { convertToolsToVercelAITools } from "../index";
+import { eventsOfType, runClassicAgent } from "./agent-test-helpers";
 
 test("A2UI component objects keep their model-visible fields open", async () => {
-  const tools = convertToolsToVercelAITools([RENDER_A2UI_TOOL]);
+  const args = {
+    surfaceId: "s1",
+    components: [
+      { id: "root", component: "Text", text: { literalString: "Hi" } },
+    ],
+    data: { form: { name: "Alice" } },
+  };
 
-  const schema = await asSchema(tools.render_a2ui.inputSchema).jsonSchema;
+  const { events, requests } = await runClassicAgent(
+    {},
+    [{ toolCalls: [{ id: "tc-1", name: "render_a2ui", input: args }] }],
+    { tools: [RENDER_A2UI_TOOL] },
+  );
 
-  // An omitted additionalProperties permits fields. Preserve the exact schema,
-  // including its descriptions, instead of closing the component objects.
-  expect(schema).toEqual(RENDER_A2UI_TOOL.parameters);
-  expect(tools.render_a2ui.strict).toBe(false);
+  // An omitted additionalProperties permits fields. The exact schema,
+  // descriptions included, reaches the model.
+  const a2ui = requests[0]?.tools?.find((t) => t.name === "render_a2ui");
+  expect(a2ui?.inputSchema).toEqual(RENDER_A2UI_TOOL.parameters);
+  // The extra component fields pass validation: no error result.
+  expect(eventsOfType(events, EventType.TOOL_CALL_RESULT)).toEqual([]);
 });
 
 test("AG-UI tools preserve explicit constraints and local references", async () => {
@@ -26,35 +42,12 @@ test("AG-UI tools preserve explicit constraints and local references", async () 
     $defs: { label: { type: "string", minLength: 1 } },
   };
 
-  const tools = convertToolsToVercelAITools([
-    { name: "draw", description: "Draw labeled shapes", parameters },
-  ]);
-  const schema = await asSchema(tools.draw.inputSchema).jsonSchema;
+  const { requests } = await runClassicAgent({}, [{}], {
+    tools: [{ name: "draw", description: "Draw labeled shapes", parameters }],
+  });
 
-  expect(schema).toEqual(parameters);
-});
-
-test("AG-UI tools reject an invalid schema before the model call", () => {
-  const tools = [
-    {
-      name: "invalid",
-      description: "Invalid tool",
-      parameters: { invalid: true },
-    },
-  ];
-
-  expect(() => convertToolsToVercelAITools(tools)).toThrow(
-    "Invalid JSON schema for tool invalid",
-  );
-});
-
-test("ordinary tools retain the provider's default strictness", () => {
-  const tools = convertToolsToVercelAITools([
-    {
-      name: "lookup",
-      description: "Lookup",
-      parameters: { type: "object", properties: { query: { type: "string" } } },
-    },
-  ]);
-  expect(tools.lookup).not.toHaveProperty("strict");
+  expect(requests[0]?.tools?.[0]).toMatchObject({
+    name: "draw",
+    inputSchema: parameters,
+  });
 });

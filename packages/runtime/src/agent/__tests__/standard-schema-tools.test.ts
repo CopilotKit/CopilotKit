@@ -1,317 +1,139 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+/**
+ * Config tools built with any Standard Schema library (Zod, Valibot, ArkType)
+ * run in the classic agent: the model sees their JSON Schema, and `execute`
+ * gets the arguments parsed by the tool's own schema. The AI SDK helper for
+ * factories (`convertToolDefinitionsToVercelAITools`) accepts them too.
+ */
+import { describe, it, expect } from "vitest";
 import { z } from "zod";
 import * as v from "valibot";
 import { toStandardJsonSchema } from "@valibot/to-json-schema";
 import { type } from "arktype";
-import type { StandardSchemaV1 } from "@copilotkit/shared";
+import { EventType } from "@ag-ui/client";
+import { defineTool } from "../index";
+import { convertToolDefinitionsToVercelAITools } from "../ai-sdk";
 import {
-  defineTool,
-  convertToolDefinitionsToVercelAITools,
-  BuiltInAgent,
-} from "../index";
-import type { RunAgentInput } from "@ag-ui/client";
-import { streamText } from "ai";
-import { mockStreamTextResponse, finish, collectEvents } from "./test-helpers";
+  eventsOfType,
+  requestToolNames,
+  runClassicAgent,
+} from "./agent-test-helpers";
 
-const arktype = <Out>(def: Record<string, string>) =>
-  (type as unknown as (d: unknown) => StandardSchemaV1<unknown, Out>)(def);
-
-// Mock the ai module — keep jsonSchema real for non-Zod path
-vi.mock("ai", async () => {
-  const actual = await vi.importActual("ai");
-  return {
-    ...actual,
-    streamText: vi.fn(),
-    tool: vi.fn((config) => config),
-    stepCountIs: vi.fn((count: number) => ({ type: "stepCount", count })),
+/** One `search` tool per schema library, all recording into `calls`. */
+function searchTools() {
+  const calls: unknown[] = [];
+  const execute = async (args: { query: string }) => {
+    calls.push(args);
+    return { found: args.query };
   };
+  const tools = {
+    zod: defineTool({
+      name: "zodSearch",
+      description: "Search (Zod)",
+      parameters: z.object({ query: z.string() }),
+      execute,
+    }),
+    valibot: defineTool({
+      name: "valibotSearch",
+      description: "Search (Valibot)",
+      parameters: toStandardJsonSchema(v.object({ query: v.string() })),
+      execute,
+    }),
+    arktype: defineTool({
+      name: "arktypeSearch",
+      description: "Search (ArkType)",
+      // `type()` validates its definition only under `strict`, which this
+      // package's tsconfig turns off; `type.raw()` builds the same schema.
+      parameters: type.raw({ query: "string" }),
+      execute,
+    }),
+  };
+  return { tools, calls };
+}
+
+const LIBRARIES = ["zod", "valibot", "arktype"] as const;
+
+describe("BuiltInAgent with Standard Schema tools", () => {
+  it.each(LIBRARIES)(
+    "offers a %s tool as JSON Schema and runs its execute",
+    async (library) => {
+      const { tools, calls } = searchTools();
+      const tool = tools[library];
+
+      const { events, requests } = await runClassicAgent({ tools: [tool] }, [
+        { toolCalls: [{ id: "tc-1", name: tool.name, input: { query: "cats" } }] },
+      ]);
+
+      const offered = requests[0]?.tools?.find((t) => t.name === tool.name);
+      expect(offered?.inputSchema).toMatchObject({
+        type: "object",
+        properties: { query: { type: "string" } },
+        required: ["query"],
+      });
+      expect(calls).toEqual([{ query: "cats" }]);
+      expect(eventsOfType(events, EventType.TOOL_CALL_RESULT)).toEqual([
+        expect.objectContaining({ content: '{"found":"cats"}' }),
+      ]);
+    },
+  );
+
+  it("gives execute the Valibot output, with its defaults applied", async () => {
+    const calls: unknown[] = [];
+    const tool = defineTool({
+      name: "searchValibot",
+      description: "Search with a default limit",
+      parameters: toStandardJsonSchema(
+        v.object({ query: v.string(), limit: v.optional(v.number(), 5) }),
+      ),
+      execute: async (args) => {
+        calls.push(args);
+        return {};
+      },
+    });
+
+    await runClassicAgent({ tools: [tool] }, [
+      { toolCalls: [{ id: "tc-1", name: tool.name, input: { query: "x" } }] },
+    ]);
+
+    expect(calls).toEqual([{ query: "x", limit: 5 }]);
+  });
+
+  it("mixes Zod, Valibot, and ArkType tools in one agent, before the state tools", async () => {
+    const { tools } = searchTools();
+
+    const { requests } = await runClassicAgent({
+      tools: [tools.zod, tools.valibot, tools.arktype],
+    });
+
+    expect(requestToolNames(requests[0]!)).toEqual([
+      "zodSearch",
+      "valibotSearch",
+      "arktypeSearch",
+      "AGUISendStateSnapshot",
+      "AGUISendStateDelta",
+    ]);
+  });
 });
 
-// Mock the SDK clients
-vi.mock("@ai-sdk/openai", () => ({
-  createOpenAI: vi.fn(() => (modelId: string) => ({
-    modelId,
-    provider: "openai",
-  })),
-}));
+describe("convertToolDefinitionsToVercelAITools", () => {
+  it("converts Zod, Valibot, and ArkType tool definitions in order", () => {
+    const { tools } = searchTools();
 
-describe("Standard Schema support in agent tools", () => {
-  const originalEnv = process.env;
+    const aiTools = convertToolDefinitionsToVercelAITools([
+      tools.zod,
+      tools.valibot,
+      tools.arktype,
+    ]);
 
-  beforeEach(() => {
-    vi.clearAllMocks();
-    process.env = { ...originalEnv };
-    process.env.OPENAI_API_KEY = "test-key";
-  });
-
-  afterEach(() => {
-    process.env = originalEnv;
-  });
-
-  describe("defineTool with different schema libraries", () => {
-    it("accepts a Zod schema (existing behavior)", () => {
-      const tool = defineTool({
-        name: "zodTool",
-        description: "A tool with Zod schema",
-        parameters: z.object({
-          city: z.string(),
-          units: z.enum(["celsius", "fahrenheit"]).optional(),
-        }),
-        execute: async (args) => {
-          return { city: args.city };
-        },
-      });
-
-      expect(tool.name).toBe("zodTool");
-      expect(tool.parameters["~standard"].vendor).toBe("zod");
-    });
-
-    it("accepts a Valibot schema (via toStandardJsonSchema)", () => {
-      const tool = defineTool({
-        name: "valibotTool",
-        description: "A tool with Valibot schema",
-        parameters: toStandardJsonSchema(
-          v.object({
-            query: v.string(),
-            limit: v.optional(v.number()),
-          }),
-        ),
-        execute: async (args) => {
-          return { query: args.query };
-        },
-      });
-
-      expect(tool.name).toBe("valibotTool");
-      expect(tool.parameters["~standard"].vendor).toBe("valibot");
-    });
-
-    it("accepts an ArkType schema", () => {
-      const tool = defineTool({
-        name: "arktypeTool",
-        description: "A tool with ArkType schema",
-        parameters: arktype<{ query: string; limit: number }>({
-          query: "string",
-          limit: "number",
-        }),
-        execute: async (args) => {
-          return { query: args.query };
-        },
-      });
-
-      expect(tool.name).toBe("arktypeTool");
-      expect(tool.parameters["~standard"].vendor).toBe("arktype");
-    });
-  });
-
-  describe("convertToolDefinitionsToVercelAITools", () => {
-    it("converts Zod tool definitions to AI SDK tools (passes Zod directly)", () => {
-      const tools = [
-        defineTool({
-          name: "zodTool",
-          description: "Zod test",
-          parameters: z.object({ name: z.string() }),
-          execute: async () => ({}),
-        }),
-      ];
-
-      const aiTools = convertToolDefinitionsToVercelAITools(tools);
-
-      expect(aiTools).toHaveProperty("zodTool");
-      expect(aiTools.zodTool).toHaveProperty("description", "Zod test");
-      expect(aiTools.zodTool).toHaveProperty("execute");
-      expect(aiTools.zodTool.inputSchema).toBeDefined();
-    });
-
-    it("converts Valibot tool definitions to AI SDK tools", () => {
-      const tools = [
-        defineTool({
-          name: "valibotTool",
-          description: "Valibot test",
-          parameters: toStandardJsonSchema(v.object({ name: v.string() })),
-          execute: async () => ({}),
-        }),
-      ];
-
-      const aiTools = convertToolDefinitionsToVercelAITools(tools);
-
-      expect(aiTools).toHaveProperty("valibotTool");
-      expect(aiTools.valibotTool).toHaveProperty("description", "Valibot test");
-      expect(aiTools.valibotTool).toHaveProperty("execute");
-      expect(aiTools.valibotTool.inputSchema).toBeDefined();
-    });
-
-    it("converts ArkType tool definitions to AI SDK tools", () => {
-      const tools = [
-        defineTool({
-          name: "arktypeTool",
-          description: "ArkType test",
-          parameters: arktype<{ name: string }>({ name: "string" }),
-          execute: async () => ({}),
-        }),
-      ];
-
-      const aiTools = convertToolDefinitionsToVercelAITools(tools);
-
-      expect(aiTools).toHaveProperty("arktypeTool");
-      expect(aiTools.arktypeTool).toHaveProperty("description", "ArkType test");
-      expect(aiTools.arktypeTool).toHaveProperty("execute");
-      expect(aiTools.arktypeTool.inputSchema).toBeDefined();
-    });
-
-    it("converts mixed schema types in the same tool set", () => {
-      const tools = [
-        defineTool({
-          name: "zodTool",
-          description: "Zod",
-          parameters: z.object({ a: z.string() }),
-          execute: async () => ({}),
-        }),
-        defineTool({
-          name: "valibotTool",
-          description: "Valibot",
-          parameters: toStandardJsonSchema(v.object({ b: v.string() })),
-          execute: async () => ({}),
-        }),
-        defineTool({
-          name: "arktypeTool",
-          description: "ArkType",
-          parameters: arktype<{ c: string }>({ c: "string" }),
-          execute: async () => ({}),
-        }),
-      ];
-
-      const aiTools = convertToolDefinitionsToVercelAITools(tools);
-
-      expect(Object.keys(aiTools)).toEqual([
-        "zodTool",
-        "valibotTool",
-        "arktypeTool",
-      ]);
-      for (const key of Object.keys(aiTools)) {
-        expect(aiTools[key]).toHaveProperty("execute");
-        expect(aiTools[key]).toHaveProperty("inputSchema");
-      }
-    });
-  });
-
-  describe("BuiltInAgent with non-Zod schemas", () => {
-    it("includes Valibot-based config tools alongside input tools", async () => {
-      const executeFn = vi.fn().mockResolvedValue({ result: "ok" });
-
-      const valibotTool = defineTool({
-        name: "searchValibot",
-        description: "Search with Valibot schema",
-        parameters: toStandardJsonSchema(v.object({ query: v.string() })),
-        execute: executeFn,
-      });
-
-      const agent = new BuiltInAgent({
-        model: "openai/gpt-4o",
-        tools: [valibotTool],
-      });
-
-      vi.mocked(streamText).mockReturnValue(
-        mockStreamTextResponse([finish()]) as any,
-      );
-
-      const input: RunAgentInput = {
-        threadId: "thread1",
-        runId: "run1",
-        messages: [],
-        tools: [],
-        context: [],
-        state: {},
-      };
-
-      await collectEvents(agent["run"](input));
-
-      const callArgs = vi.mocked(streamText).mock.calls[0][0];
-      expect(callArgs.tools).toHaveProperty("searchValibot");
-      expect(typeof callArgs.tools?.searchValibot.execute).toBe("function");
-    });
-
-    it("includes ArkType-based config tools alongside input tools", async () => {
-      const executeFn = vi.fn().mockResolvedValue({ result: "ok" });
-
-      const arktypeTool = defineTool({
-        name: "searchArktype",
-        description: "Search with ArkType schema",
-        parameters: arktype<{ query: string }>({ query: "string" }),
-        execute: executeFn,
-      });
-
-      const agent = new BuiltInAgent({
-        model: "openai/gpt-4o",
-        tools: [arktypeTool],
-      });
-
-      vi.mocked(streamText).mockReturnValue(
-        mockStreamTextResponse([finish()]) as any,
-      );
-
-      const input: RunAgentInput = {
-        threadId: "thread1",
-        runId: "run1",
-        messages: [],
-        tools: [],
-        context: [],
-        state: {},
-      };
-
-      await collectEvents(agent["run"](input));
-
-      const callArgs = vi.mocked(streamText).mock.calls[0][0];
-      expect(callArgs.tools).toHaveProperty("searchArktype");
-      expect(typeof callArgs.tools?.searchArktype.execute).toBe("function");
-    });
-
-    it("mixes Zod, Valibot, and ArkType tools in one agent", async () => {
-      const agent = new BuiltInAgent({
-        model: "openai/gpt-4o",
-        tools: [
-          defineTool({
-            name: "zodTool",
-            description: "Zod",
-            parameters: z.object({ a: z.string() }),
-            execute: async () => ({}),
-          }),
-          defineTool({
-            name: "valibotTool",
-            description: "Valibot",
-            parameters: toStandardJsonSchema(v.object({ b: v.string() })),
-            execute: async () => ({}),
-          }),
-          defineTool({
-            name: "arktypeTool",
-            description: "ArkType",
-            parameters: arktype<{ c: string }>({ c: "string" }),
-            execute: async () => ({}),
-          }),
-        ],
-      });
-
-      vi.mocked(streamText).mockReturnValue(
-        mockStreamTextResponse([finish()]) as any,
-      );
-
-      const input: RunAgentInput = {
-        threadId: "thread1",
-        runId: "run1",
-        messages: [],
-        tools: [],
-        context: [],
-        state: {},
-      };
-
-      await collectEvents(agent["run"](input));
-
-      const callArgs = vi.mocked(streamText).mock.calls[0][0];
-      expect(callArgs.tools).toHaveProperty("zodTool");
-      expect(callArgs.tools).toHaveProperty("valibotTool");
-      expect(callArgs.tools).toHaveProperty("arktypeTool");
-      // State tools should also be present
-      expect(callArgs.tools).toHaveProperty("AGUISendStateSnapshot");
-      expect(callArgs.tools).toHaveProperty("AGUISendStateDelta");
-    });
+    expect(Object.keys(aiTools)).toEqual([
+      "zodSearch",
+      "valibotSearch",
+      "arktypeSearch",
+    ]);
+    for (const library of LIBRARIES) {
+      const tool = tools[library];
+      expect(aiTools[tool.name]?.description).toBe(tool.description);
+      expect(aiTools[tool.name]?.inputSchema).toBeDefined();
+      expect(aiTools[tool.name]?.execute).toBeTypeOf("function");
+    }
   });
 });
