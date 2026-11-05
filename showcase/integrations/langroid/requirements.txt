@@ -9,7 +9,7 @@ python-dotenv>=1.0.0
 # transitive requirements.
 httpx>=0.27.0
 # Responses summaries and encrypted reasoning replay power the reasoning demos.
-openai>=1.106.0
+openai==1.106.0
 pydantic>=2.0.0
 # pypdf — flatten PDF attachments to text for the multimodal demo
 # (gpt-6-luna accepts images natively but cannot read PDFs).
