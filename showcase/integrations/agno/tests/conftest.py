@@ -26,7 +26,7 @@ sys.path.insert(0, str(_PKG_ROOT / "src"))
 # The forwarding shim imports shared helpers through the integration's symlink.
 sys.path.insert(0, str(_PKG_ROOT))
 
-from _shared.httpx_transports import available_httpx_transports  # noqa: E402
+from _shared.httpx_transports import available_httpx_transports
 from agents import _header_forwarding as hf  # noqa: E402
 
 
