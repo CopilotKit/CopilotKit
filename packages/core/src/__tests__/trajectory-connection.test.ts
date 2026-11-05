@@ -1171,6 +1171,25 @@ describe("Core trajectory connection", () => {
     persist(next);
   });
 
+  it("does not read the clock until a Trajectory starts", async () => {
+    // CopilotKitProvider builds the Core during render, and Next.js fails a
+    // Cache Components prerender that reads the clock there.
+    const clock = vi.spyOn(Date, "now");
+    const core = makeCore();
+    expect(clock).not.toHaveBeenCalled();
+    clock.mockRestore();
+
+    vi.setSystemTime(NOW + 60_000);
+    const { channel } = await start(core);
+    core.emitTrajectoryEvent("app.first", {});
+    await vi.advanceTimersByTimeAsync(2_000);
+    const seqs = channel.pushes.flatMap(({ payload }) =>
+      payload.events.map((event) => event.value.seq),
+    );
+    expect(seqs[0]).toBe((NOW + 60_000) * 1000);
+    persist(channel);
+  });
+
   it("keeps seqs unique when a new Core reuses the trajectory id after a reload", async () => {
     const { core, channel } = await start();
     core.emitTrajectoryEvent("app.beforeReload", {});
