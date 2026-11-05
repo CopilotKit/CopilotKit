@@ -15,6 +15,7 @@ continue:
 
 ```typescript title="src/copilotkit.ts"
 import { BuiltInAgent, defineTool } from "@copilotkit/runtime/agent";
+import { openaiText } from "@tanstack/ai-openai";
 import { z } from "zod";
 
 const searchDocs = defineTool({
@@ -32,7 +33,7 @@ const createTicket = defineTool({
 });
 
 const agent = new BuiltInAgent({
-  model: "openai:gpt-5.4-mini",
+  model: openaiText("gpt-5.4-mini"),
   maxSteps: 5, // [!code highlight]
   tools: [searchDocs, createTicket],
 });
@@ -47,9 +48,10 @@ Control how the agent selects tools:
 
 ```typescript
 import { BuiltInAgent } from "@copilotkit/runtime/agent";
+import { openaiText } from "@tanstack/ai-openai";
 
 const agent = new BuiltInAgent({
-  model: "openai:gpt-5.4-mini",
+  model: openaiText("gpt-5.4-mini"),
   toolChoice: "auto",       // Let the model decide
   // toolChoice: "required", // Force the model to call a tool
   // toolChoice: "none",     // Disable tool calling
@@ -65,9 +67,10 @@ Customize the agent's system prompt:
 
 ```typescript
 import { BuiltInAgent } from "@copilotkit/runtime/agent";
+import { openaiText } from "@tanstack/ai-openai";
 
 const agent = new BuiltInAgent({
-  model: "openai:gpt-5.4-mini",
+  model: openaiText("gpt-5.4-mini"),
   prompt: "You are a customer support agent for Acme Corp. Be concise and helpful. Always check the knowledge base before answering.", // [!code highlight]
 });
 ```
@@ -82,9 +85,10 @@ For OpenAI:
 
 ```typescript
 import { BuiltInAgent } from "@copilotkit/runtime/agent";
+import { openaiText } from "@tanstack/ai-openai";
 
 const agent = new BuiltInAgent({
-  model: "openai:gpt-5.4-mini",
+  model: openaiText("gpt-5.4-mini"),
   modelOptions: { // [!code highlight:4]
     reasoning: { effort: "low" },
     max_output_tokens: 1000,
@@ -96,9 +100,10 @@ For Anthropic:
 
 ```typescript
 import { BuiltInAgent } from "@copilotkit/runtime/agent";
+import { anthropicText } from "@tanstack/ai-anthropic";
 
 const agent = new BuiltInAgent({
-  model: "anthropic:claude-sonnet-4-6",
+  model: anthropicText("claude-sonnet-4-6"),
   modelOptions: { // [!code highlight:4]
     max_tokens: 4096,
     temperature: 0.5,
@@ -119,16 +124,19 @@ in `overridableProperties`:
 
 ```typescript
 import { BuiltInAgent } from "@copilotkit/runtime/agent";
+import { openaiText } from "@tanstack/ai-openai";
 
 const agent = new BuiltInAgent({
-  model: "openai:gpt-5.4-mini",
-  overridableProperties: ["model", "prompt", "modelOptions"], // [!code highlight]
+  model: openaiText("gpt-5.4-mini"),
+  overridableProperties: ["prompt", "modelOptions"], // [!code highlight]
 });
 ```
 
 The frontend sends the values as `forwardedProps`. You can list these properties:
 
-- `model`: a model string, such as `"anthropic:claude-sonnet-4-6"`.
+- `model`: a model name, such as `"smart"`. Your `resolveModel` function turns
+  it into an adapter. See
+  [Switch models from the frontend](/model-selection#switch-models-from-the-frontend).
 - `toolChoice`: `"auto"`, `"none"`, `"required"`, or `{ type: "tool", name }`.
 - `prompt`: a string that replaces the agent's prompt.
 - `modelOptions`: an object that replaces the configured `modelOptions`.
@@ -142,9 +150,10 @@ conversation. To send them to the model, turn on forwarding:
 
 ```typescript
 import { BuiltInAgent } from "@copilotkit/runtime/agent";
+import { openaiText } from "@tanstack/ai-openai";
 
 const agent = new BuiltInAgent({
-  model: "openai:gpt-5.4-mini",
+  model: openaiText("gpt-5.4-mini"),
   forwardSystemMessages: true,    // Forward system-role messages
   forwardDeveloperMessages: true, // Forward developer-role messages
 });
@@ -166,15 +175,14 @@ download URLs safely there, pass `createSafeUrlDownload` from
 
 | Property | Type | Default | Description |
 |----------|------|---------|-------------|
-| `model` | `string \| AnyTextAdapter` | none | Model string or TanStack AI adapter |
-| `apiKey` | `string` | env var | API key for the provider |
+| `model` | `AnyTextAdapter` | none | TanStack AI text adapter, such as `openaiText("gpt-5.4-mini")` |
+| `resolveModel` | `(name: string) => AnyTextAdapter \| undefined` | none | Turns a model name from the frontend into an adapter |
 | `maxSteps` | `number` | `1` (`10` with skills) | Max model calls in one run |
 | `toolChoice` | `"auto" \| "required" \| "none" \| { type: "tool", name: string }` | provider default | How tools are selected |
 | `modelOptions` | `Record<string, unknown>` | none | Provider options, sent unchanged |
 | `prompt` | `string` | none | System prompt |
 | `tools` | `ToolDefinition[]` | `[]` | Server-side tools |
-| `mcpServers` | `MCPClientConfig[]` | `[]` | MCP servers that the agent connects to on each run |
-| `mcpClients` | `MCPClientProvider[]` | `[]` | MCP clients that you create and close |
+| `mcpClients` | `MCPClientProvider[]` | `[]` | MCP clients that you create and close. See [MCP Servers](/mcp-servers) |
 | `overridableProperties` | `OverridableProperty[]` | `[]` | Properties the frontend can override |
 | `forwardSystemMessages` | `boolean` | `false` | Forward system messages |
 | `forwardDeveloperMessages` | `boolean` | `false` | Forward developer messages |

@@ -16,17 +16,18 @@ npm install @copilotkit/runtime @tanstack/ai @tanstack/ai-openai
 
 ```typescript
 import { BuiltInAgent } from "@copilotkit/runtime/agent";
+import { openaiText } from "@tanstack/ai-openai";
 
 const agent = new BuiltInAgent({
-  model: "openai:gpt-5.4-mini",
+  model: openaiText("gpt-5.4-mini"),
   prompt: "You are a helpful assistant.",
 });
 ```
 
-`model` takes a model string for OpenAI, Anthropic, Google, Vertex AI, or MiniMax,
-or a TanStack AI adapter. See [Model Selection](/model-selection). To write
-the model call yourself, for example with the AI SDK, use a
-[factory](/backend/custom-agent).
+`model` takes a TanStack AI text adapter. There are adapters for OpenAI,
+Anthropic, Google Gemini, Vertex AI, and any OpenAI-compatible API. See
+[Model Selection](/model-selection). To write the model call yourself, for
+example with the AI SDK, use a [factory](/backend/custom-agent).
 
 For the full Built-in Agent guides (quickstart, server tools, MCP servers, model selection, and advanced configuration), start at the [docs root](/).
 

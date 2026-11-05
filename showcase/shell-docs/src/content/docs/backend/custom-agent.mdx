@@ -12,8 +12,8 @@ the stream to AG-UI events, managing lifecycle, and wiring it into the runtime.
 
 | | Simple Mode | Factory Mode |
 |---|---|---|
-| **Setup** | Minimal: pass a model string | You own the LLM call and stream |
-| **Model resolution** | Built-in (`"openai/gpt-4o"`) | You set up the model yourself |
+| **Setup** | Minimal: pass a TanStack AI adapter | You own the LLM call and stream |
+| **Model** | An adapter, such as `openaiText("gpt-4o")` | You set up the model yourself |
 | **Tools, MCP, state tools** | Automatically wired | You wire them in your factory |
 | **Backend support** | TanStack AI | Any backend: AI SDK, TanStack AI, or custom |
 | **Best for** | Quick setup, standard use cases | Full control, non-standard backends |
@@ -33,8 +33,10 @@ You have an existing LLM backend and you want a CopilotKit copilot using it. Pic
 <Tabs items={["AI SDK", "TanStack AI", "Custom"]}>
 <Tab value="AI SDK">
 ```npm
-npm install @copilotkit/runtime ai @ai-sdk/openai
+npm install @copilotkit/runtime @tanstack/ai ai @ai-sdk/openai
 ```
+
+`@copilotkit/runtime/agent` loads `@tanstack/ai`, so install it with every factory.
 
 ```typescript title="src/copilotkit.ts"
 import {
@@ -116,6 +118,10 @@ export default handler;
 ```
 </Tab>
 <Tab value="Custom">
+```npm
+npm install @copilotkit/runtime @tanstack/ai
+```
+
 ```typescript title="src/copilotkit.ts"
 import {
   CopilotRuntime,
@@ -638,7 +644,6 @@ From `@copilotkit/runtime/agent`:
 | Utility | Description |
 |---|---|
 | `convertInputToTanStackAI(input)` | Converts `RunAgentInput` to `{ messages, systemPrompts }` for TanStack AI's `chat()`. Handles system/developer messages, context, and state. |
-| `resolveModel(spec)` | Resolves a model string such as `"openai/gpt-4o"` to a TanStack AI adapter. It is async. |
 
 From `@copilotkit/runtime/agent/ai-sdk` (install `ai`):
 
