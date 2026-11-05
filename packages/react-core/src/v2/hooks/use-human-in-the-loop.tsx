@@ -197,6 +197,14 @@ export function useHumanInTheLoop<
   // the renderer that had just been added, leaving the tool unrenderable.
   useLayoutEffect(() => {
     return () => {
+      // NOTE: pending resolvers are intentionally NOT rejected here. On a
+      // keyed remount the core re-invokes the handler for the same pending
+      // call in the new instance (restore re-runs live HITL handlers — see
+      // the run-handler restore barrier), and the answer routes to that new
+      // registration. Rejecting the old promise here would record an error
+      // result against the shared tool call id and kill the live interaction.
+      // The orphaned old promise never settles and is collected with the old
+      // instance; the new instance owns the interaction from there on.
       copilotkit.removeHookRenderToolCall(tool.name, tool.agentId);
     };
   }, [copilotkit, tool.name, tool.agentId]);
