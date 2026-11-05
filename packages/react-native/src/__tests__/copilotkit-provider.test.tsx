@@ -239,6 +239,119 @@ describe("CopilotKitProvider (React Native)", () => {
       expect(mockCoreInstance.setHeaders).not.toHaveBeenCalled();
     });
 
+    // #7513: parity with the web provider (#7510). Core resolves the source
+    // when each request is sent (covered in packages/core); what is React
+    // Native-specific is that the provider hands core a stable wrapper and
+    // never calls the builder itself.
+    describe("headers builder", () => {
+      /** The headers source the provider handed to the core constructor. */
+      function constructedHeadersSource(): () => unknown {
+        const source = hoisted.MockCoreConstructor.mock.calls[0][0].headers;
+        expect(typeof source).toBe("function");
+        return source;
+      }
+
+      it("never calls the builder during render", () => {
+        const builder = vi.fn(() => ({ auth: "token" }));
+        const { rerender } = render(
+          <CopilotKitProvider runtimeUrl="https://api.test" headers={builder}>
+            <div />
+          </CopilotKitProvider>,
+        );
+        rerender(
+          <CopilotKitProvider runtimeUrl="https://api.test" headers={builder}>
+            <div />
+          </CopilotKitProvider>,
+        );
+
+        expect(builder).not.toHaveBeenCalled();
+      });
+
+      it("reads a rotated token when the source is resolved, without a re-render", () => {
+        let token = "token-a";
+        render(
+          <CopilotKitProvider
+            runtimeUrl="https://api.test"
+            headers={() => ({ auth: token })}
+          >
+            <div />
+          </CopilotKitProvider>,
+        );
+        const source = constructedHeadersSource();
+
+        expect(source()).toEqual({ auth: "token-a" });
+        token = "token-b";
+        expect(source()).toEqual({ auth: "token-b" });
+      });
+
+      it("passes an async builder through to the core", async () => {
+        render(
+          <CopilotKitProvider
+            runtimeUrl="https://api.test"
+            headers={async () => ({ auth: "async-token" })}
+          >
+            <div />
+          </CopilotKitProvider>,
+        );
+
+        await expect(constructedHeadersSource()()).resolves.toEqual({
+          auth: "async-token",
+        });
+      });
+
+      it("keeps one stable source across re-renders with a new inline builder", () => {
+        const { rerender } = render(
+          <CopilotKitProvider
+            runtimeUrl="https://api.test"
+            headers={() => ({ auth: "token-a" })}
+          >
+            <div />
+          </CopilotKitProvider>,
+        );
+        const source = constructedHeadersSource();
+        expect(mockCoreInstance.setHeaders).toHaveBeenLastCalledWith(source);
+        mockCoreInstance.setHeaders.mockClear();
+
+        rerender(
+          <CopilotKitProvider
+            runtimeUrl="https://api.test"
+            headers={() => ({ auth: "token-b" })}
+          >
+            <div />
+          </CopilotKitProvider>,
+        );
+
+        expect(mockCoreInstance.setHeaders).not.toHaveBeenCalled();
+        // The stable source now delegates to the newest builder.
+        expect(source()).toEqual({ auth: "token-b" });
+      });
+
+      it("calls setHeaders with the record when switching from a builder to a record", () => {
+        const { rerender } = render(
+          <CopilotKitProvider
+            runtimeUrl="https://api.test"
+            headers={() => ({ auth: "token-a" })}
+          >
+            <div />
+          </CopilotKitProvider>,
+        );
+        mockCoreInstance.setHeaders.mockClear();
+
+        rerender(
+          <CopilotKitProvider
+            runtimeUrl="https://api.test"
+            headers={{ auth: "static" }}
+          >
+            <div />
+          </CopilotKitProvider>,
+        );
+
+        expect(mockCoreInstance.setHeaders).toHaveBeenCalledWith({
+          auth: "static",
+        });
+      });
+    });
+
     // #1482: parity with the React, Vue and Angular providers. The filter's own
     // behaviour is covered in packages/core; what is React Native-specific is
     // that the prop reaches the core at construction and on every later change.
