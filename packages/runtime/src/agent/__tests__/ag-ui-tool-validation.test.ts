@@ -13,7 +13,10 @@ import { eventsOfType, runClassicAgent } from "./agent-test-helpers";
  * the run's events, the tool's error result (`undefined` when the arguments
  * were valid), and the model request.
  */
-async function callShowCard(parameters: Record<string, unknown>, args: unknown) {
+async function callShowCard(
+  parameters: Record<string, unknown>,
+  args: unknown,
+) {
   const { events, requests } = await runClassicAgent(
     {},
     [{ toolCalls: [{ id: "tc-1", name: "show_card", input: args }] }],

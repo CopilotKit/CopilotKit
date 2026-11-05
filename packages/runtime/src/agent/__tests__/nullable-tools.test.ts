@@ -13,7 +13,10 @@ import { eventsOfType, runClassicAgent } from "./agent-test-helpers";
  * Lets the model call the frontend tool `show_card` once with `args`. Returns
  * the tool's error result, or `undefined` when the arguments were valid.
  */
-async function callShowCard(parameters: Record<string, unknown>, args: unknown) {
+async function callShowCard(
+  parameters: Record<string, unknown>,
+  args: unknown,
+) {
   const { events } = await runClassicAgent(
     {},
     [{ toolCalls: [{ id: "tc-1", name: "show_card", input: args }] }],
@@ -68,9 +71,7 @@ test("optional nullable array items preserve null and reject invalid values", as
   };
 
   expect(await callShowCard(parameters, {})).toBeUndefined();
-  expect(
-    await callShowCard(parameters, { values: [1, null] }),
-  ).toBeUndefined();
+  expect(await callShowCard(parameters, { values: [1, null] })).toBeUndefined();
   expect(await callShowCard(parameters, { values: ["invalid"] })).toMatch(
     INVALID,
   );

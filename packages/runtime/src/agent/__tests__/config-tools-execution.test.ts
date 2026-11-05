@@ -92,9 +92,13 @@ describe("Config tools with execute", () => {
   });
 
   it("runs each of several config tools with its own arguments", async () => {
-    const weather = recordingTool("getWeather", z.object({ city: z.string() }), {
-      temp: 72,
-    });
+    const weather = recordingTool(
+      "getWeather",
+      z.object({ city: z.string() }),
+      {
+        temp: 72,
+      },
+    );
     const search = recordingTool("search", z.object({ query: z.string() }), {
       results: [],
     });

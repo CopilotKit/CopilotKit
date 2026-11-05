@@ -84,16 +84,13 @@ describe("Property overrides", () => {
         { overridableProperties: ["model" as const] },
         { model: { modelId: "custom-model", provider: "custom" } },
       ],
-    ])(
-      "keeps the configured model when %s",
-      async (_case, config, props) => {
-        const sent = stubAnthropicApi();
+    ])("keeps the configured model when %s", async (_case, config, props) => {
+      const sent = stubAnthropicApi();
 
-        await requestWith(config, props);
+      await requestWith(config, props);
 
-        expect(sent).toEqual([]);
-      },
-    );
+      expect(sent).toEqual([]);
+    });
   });
 
   describe("toolChoice", () => {
@@ -117,7 +114,10 @@ describe("Property overrides", () => {
         { toolChoice: { type: "tool", toolName: "specificTool" } },
       );
 
-      expect(request.toolChoice).toEqual({ type: "tool", name: "specificTool" });
+      expect(request.toolChoice).toEqual({
+        type: "tool",
+        name: "specificTool",
+      });
     });
 
     it("keeps the configured value for an invalid toolChoice", async () => {

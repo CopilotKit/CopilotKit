@@ -205,7 +205,9 @@ describe("AGUISendStateDelta", () => {
 
   it("clones the state when structuredClone cannot clone it", async () => {
     const state = { todos: [], callback: cloneFallbackCallback };
-    const delta = [{ op: "add", path: "/todos/-", value: { text: "Buy milk" } }];
+    const delta = [
+      { op: "add", path: "/todos/-", value: { text: "Buy milk" } },
+    ];
 
     const events = await runDelta(delta, state);
     const [snapshot] = eventsOfType(events, EventType.STATE_SNAPSHOT);
@@ -223,7 +225,9 @@ describe("AGUISendStateDelta", () => {
     );
 
     expect(eventsOfType(events, EventType.STATE_DELTA)).toEqual([]);
-    expect(eventsOfType(events, EventType.TOOL_CALL_RESULT)[0]?.content).toMatch(
+    expect(
+      eventsOfType(events, EventType.TOOL_CALL_RESULT)[0]?.content,
+    ).toMatch(
       /^Error: Input validation failed for tool AGUISendStateDelta: #\/delta\/0\/op: /,
     );
   });

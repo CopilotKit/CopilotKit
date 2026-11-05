@@ -60,7 +60,11 @@ describe("BuiltInAgent with Standard Schema tools", () => {
       const tool = tools[library];
 
       const { events, requests } = await runClassicAgent({ tools: [tool] }, [
-        { toolCalls: [{ id: "tc-1", name: tool.name, input: { query: "cats" } }] },
+        {
+          toolCalls: [
+            { id: "tc-1", name: tool.name, input: { query: "cats" } },
+          ],
+        },
       ]);
 
       const offered = requests[0]?.tools?.find((t) => t.name === tool.name);
