@@ -85,7 +85,7 @@ Manually emitted messages are great for **when you don't want to wait for the no
                 // ...
 
                 async function chat_node(state: AgentState, config: RunnableConfig) {
-                    const model = new ChatOpenAI(reasoning_effort="none", { reasoningEffort: "none", model: "gpt-6-luna" });
+                    const model = new ChatOpenAI({ modelKwargs: { reasoning_effort: "none" }, model: "gpt-6-luna" });
 
                     // [!code highlight:2]
                     const intermediateMessage = "Thinking really hard...";

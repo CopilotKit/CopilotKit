@@ -30,6 +30,8 @@ You can control whether to stream messages or tool calls by selectively wrapping
 
             # 1) Do not emit messages or tool calls, keeping the LLM call private.
             response = completion(
+                reasoning_effort="none",
+                allowed_openai_params=["reasoning_effort"],
                 model="openai/gpt-6-luna",
                 messages=[
                     {"role": "system", "content": "You are a helpful assistant"},
@@ -42,6 +44,8 @@ You can control whether to stream messages or tool calls by selectively wrapping
             #    Note that we pass `stream=True` to the inner `completion` call.
             response = await copilotkit_stream(
                 completion(
+                    reasoning_effort="none",
+                    allowed_openai_params=["reasoning_effort"],
                     model="openai/gpt-6-luna",
                     messages=[
                         {"role": "system", "content": "You are a helpful assistant"},

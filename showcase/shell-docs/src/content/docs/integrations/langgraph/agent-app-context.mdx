@@ -186,7 +186,7 @@ This context can then be shared with your LangGraph agent.
                             `,
                           });
 
-                          const response = await new ChatOpenAI(reasoning_effort="none", { reasoningEffort: "none", model: "gpt-6-luna" }).invoke(
+                          const response = await new ChatOpenAI({ modelKwargs: { reasoning_effort: "none" }, model: "gpt-6-luna" }).invoke(
                             [systemMessage, ...state.messages],
                             config
                           );
@@ -254,7 +254,7 @@ This context can then be shared with your LangGraph agent.
                 <Tabs groupId="language_langgraph_agent" items={['Python', 'TypeScript']} default="Python" persist>
                     <Tab value="Python">
                         ```python title="agent.py"
-from langchain_openai import ChatOpenAI
+                        from langchain_openai import ChatOpenAI
                         from langchain.agents import create_agent
                         from copilotkit import CopilotKitMiddleware, CopilotKitState # [!code highlight]
 
@@ -297,7 +297,7 @@ from langchain_openai import ChatOpenAI
                 ```
 
                 ```python title="main.py" doctest="server"
-from langchain_openai import ChatOpenAI
+                from langchain_openai import ChatOpenAI
                 from dotenv import load_dotenv
                 from ag_ui_langgraph import add_langgraph_fastapi_endpoint
                 from copilotkit import CopilotKitMiddleware, CopilotKitState, LangGraphAGUIAgent

@@ -283,7 +283,7 @@ persisted at the end of a node.
 
                 async function chatNode(state: AgentState, config: RunnableConfig): Promise<AgentState> {
                     // 1) Call the model with CopilotKit's modified config
-                    const model = new ChatOpenAI(reasoning_effort="none", {reasoningEffort: "none",  temperature: 0, model: "gpt-6-luna" });
+                    const model = new ChatOpenAI({modelKwargs: { reasoning_effort: "none" },  temperature: 0, model: "gpt-6-luna" });
                     const response = await model.invoke(state.messages, modifiedConfig);
 
                     // 2) Make sure to return the new messages
@@ -330,7 +330,7 @@ persisted at the end of a node.
                     });
 
                     // 2) Call the model with CopilotKit's modified config
-                    const model = new ChatOpenAI(reasoning_effort="none", {reasoningEffort: "none",  temperature: 0, model: "gpt-6-luna" });
+                    const model = new ChatOpenAI({modelKwargs: { reasoning_effort: "none" },  temperature: 0, model: "gpt-6-luna" });
                     const response = await model.invoke(state.messages, modifiedConfig);
 
                     // 3) Don't return the new response to hide it from the user

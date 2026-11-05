@@ -134,7 +134,7 @@ When a node in your LangGraph finishes executing, **its returned state becomes t
 
                         // Define your custom graph node
                         async function chatNode(state: AgentState, config: RunnableConfig) {
-                            const model = new ChatOpenAI(reasoning_effort="none", { reasoningEffort: "none", model: "gpt-6-luna" });
+                            const model = new ChatOpenAI({ modelKwargs: { reasoning_effort: "none" }, model: "gpt-6-luna" });
 
                             const steps = [
                                 "Analyzing input data...",
@@ -363,10 +363,9 @@ When a node in your LangGraph finishes executing, **its returned state becomes t
 
                         // 3. Define the chat node
                         async function chatNode(state: AgentState, config: RunnableConfig) {
-                          const model = new ChatOpenAI(reasoning_effort="none", {
-                            reasoningEffort: "none",
+                          const model = new ChatOpenAI({
                             model: "gpt-6-luna",
-                            modelKwargs: { parallel_tool_calls: false },
+                            modelKwargs: { parallel_tool_calls: false, reasoning_effort: "none" },
                           });
 
                           const modelWithTools = model.bindTools!([
@@ -527,7 +526,7 @@ When a node in your LangGraph finishes executing, **its returned state becomes t
         <Tabs groupId="agent_language" items={["Python", "TypeScript"]} persist>
           <Tab value="Python">
             ```python title="agent.py"
-from langchain_openai import ChatOpenAI
+            from langchain_openai import ChatOpenAI
             from copilotkit import CopilotKitMiddleware, StateStreamingMiddleware, StateItem  # [!code highlight]
             from deepagents import create_deep_agent
             from langchain.tools import tool

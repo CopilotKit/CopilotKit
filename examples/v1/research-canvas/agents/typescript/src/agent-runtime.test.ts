@@ -61,7 +61,7 @@ test("the Luna tool request disables reasoning and omits sampling parameters", (
 
   const request = model.invocationParams();
   expect(request.model).toBe("gpt-6-luna");
-  expect(request.reasoning_effort).toBe("none");
+  expect(request).toMatchObject({ reasoning_effort: "none" });
   expect(request.temperature).toBeUndefined();
   expect(request.top_p).toBeUndefined();
 });
