@@ -944,6 +944,19 @@ jobs:
           "$venv/bin/python" -m pip install --quiet -r showcase/shared/python/requirements-test.txt
           "$venv/bin/python" -m pytest showcase/shared/python/tests -v
 
+      - name: Verify LangGraph model requests with its real SDKs
+        if: ${{ !cancelled() && matrix.python-version == '3.12' }}
+        run: |
+          set -euo pipefail
+          venv="${RUNNER_TEMP}/showcase-venv-langgraph-requests"
+          python -m venv "$venv"
+          # Use the integration's versions for the SDKs these builders import.
+          grep -E '^(copilotkit|ag-ui-protocol|ag-ui-langgraph|langchain|langchain-openai|langgraph|deepagents|openai)(==|>=)' \
+            showcase/integrations/langgraph-python/requirements.txt > "$venv/requirements.txt"
+          "$venv/bin/python" -m pip install --quiet pytest -r "$venv/requirements.txt"
+          "$venv/bin/python" -m pytest showcase/integrations/langgraph-python/tests/test_model_overrides.py -v
+          "$venv/bin/python" -m pytest showcase/shared/python/tests/test_reasoning_chain_requests.py -k langgraph-python -v
+
   notify:
     # Slack #oss-alerts on any red. Never #engr (engr is sacred — release alerts only).
     # Mirrors the workflow-level notify pattern in showcase_promote.yml so
