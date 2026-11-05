@@ -14,24 +14,71 @@ export function useHumanInTheLoop<
   T extends Record<string, unknown> = Record<string, unknown>,
 >(tool: ReactHumanInTheLoop<T>, deps?: ReadonlyArray<unknown>) {
   const { copilotkit } = useCopilotKit();
-  const resolvePromiseRef = useRef<((result: unknown) => void) | null>(null);
-  // Cleanup that detaches the pending abort listener; cleared whenever the
-  // promise settles (via respond() or abort) so the listener can't fire twice
-  // or leak after the interaction is done.
-  const cleanupAbortRef = useRef<(() => void) | null>(null);
+  // Resolvers keyed by tool call id. A single slot would make concurrent HITL
+  // calls (two agents sharing one global hook, or overlapping `runTool`s)
+  // cross-deliver answers: registering call B would overwrite call A's
+  // resolver, and respond() would settle whichever promise landed last
+  // (#8194). The handler reads its id off the execution context the core
+  // already passes (`context.toolCallId`).
+  interface PendingInteraction {
+    resolve: (result: unknown) => void;
+    reject: (reason?: unknown) => void;
+  }
+  const resolversRef = useRef<Map<string, PendingInteraction>>(new Map());
+  // Cleanup per pending call id: detaches the pending abort listener, cleared
+  // whenever that call's promise settles (via respond() or abort) so the
+  // listener can't fire twice or leak after the interaction is done.
+  const cleanupAbortRef = useRef<Map<string, () => void>>(new Map());
+  // Locally generated keys for calls that arrive without a tool call id
+  // (programmatic runTool).
+  const nextLocalCallIdRef = useRef(0);
 
-  const respond = useCallback(async (result: unknown) => {
-    if (resolvePromiseRef.current) {
-      cleanupAbortRef.current?.();
-      cleanupAbortRef.current = null;
-      resolvePromiseRef.current(result);
-      resolvePromiseRef.current = null;
+  // Settle one pending interaction: detach its abort listener, drop it from
+  // the pending map, then run the settle action.
+  const settle = useCallback(
+    (toolCallId: string, run: (interaction: PendingInteraction) => void) => {
+      const interaction = resolversRef.current.get(toolCallId);
+      if (!interaction) return;
+      resolversRef.current.delete(toolCallId);
+      cleanupAbortRef.current.get(toolCallId)?.();
+      cleanupAbortRef.current.delete(toolCallId);
+      run(interaction);
+    },
+    [],
+  );
+
+  const respond = useCallback(async (result: unknown, toolCallId?: string) => {
+    const pending = resolversRef.current;
+    // Row-scoped routing: the caller (render props) targets the interaction
+    // the answer belongs to.
+    if (toolCallId !== undefined) {
+      settle(toolCallId, (interaction) => interaction.resolve(result));
+      return;
     }
-  }, []);
+    // Backward-compatible no-id form. A single pending interaction resolves
+    // exactly as before; with several outstanding, resolving the most recent
+    // keeps the historical behavior explicit while warning that the answer
+    // could not be routed to a specific interaction.
+    const ids = [...pending.keys()];
+    if (ids.length === 0) return;
+    if (ids.length > 1) {
+      console.warn(
+        `[CopilotKit] respond() called without a toolCallId while ${ids.length} interactions are pending — resolving the most recent. Pass a toolCallId to target a specific interaction.`,
+      );
+    }
+    settle(ids[ids.length - 1], (interaction) => interaction.resolve(result));
+  }, [settle]);
 
   const handler = useCallback(
-    async (_args: T, context?: { signal?: AbortSignal }) => {
+    async (
+      _args: T,
+      context?: { signal?: AbortSignal; toolCall?: { id?: string } },
+    ) => {
       const signal = context?.signal;
+      // The core passes the executing call as `context.toolCall`; calls without
+      // one (programmatic runTool) get a locally generated key.
+      const toolCallId =
+        context?.toolCall?.id ?? `__hitl_anonymous_${++nextLocalCallIdRef.current}`;
       return new Promise((resolve, reject) => {
         // If the run was already aborted before the handler ran, reject
         // immediately so core records an explicit error tool result instead of
@@ -41,18 +88,31 @@ export function useHumanInTheLoop<
           return;
         }
 
-        resolvePromiseRef.current = resolve;
+        // A re-registration of the same tool call id (a retried call)
+        // supersedes the previous promise: reject it as aborted rather than
+        // silently dropping its resolver, which would hang the caller.
+        const superseded = resolversRef.current.get(toolCallId);
+        if (superseded) {
+          cleanupAbortRef.current.get(toolCallId)?.();
+          cleanupAbortRef.current.delete(toolCallId);
+          resolversRef.current.delete(toolCallId);
+          superseded.reject(
+            new Error("Human-in-the-loop interaction superseded by a retry of the same tool call"),
+          );
+        }
+
+        resolversRef.current.set(toolCallId, { resolve, reject });
 
         if (signal) {
           const onAbort = () => {
-            cleanupAbortRef.current = null;
-            resolvePromiseRef.current = null;
+            resolversRef.current.delete(toolCallId);
+            cleanupAbortRef.current.delete(toolCallId);
             reject(new Error("Human-in-the-loop interaction aborted"));
           };
           signal.addEventListener("abort", onAbort, { once: true });
-          cleanupAbortRef.current = () => {
+          cleanupAbortRef.current.set(toolCallId, () => {
             signal.removeEventListener("abort", onAbort);
-          };
+          });
         }
       });
     },
@@ -90,7 +150,9 @@ export function useHumanInTheLoop<
           name,
           description: tool.description || "",
           agentId: tool.agentId,
-          respond,
+          // Route this row's answer to its own interaction, not whichever
+          // call registered last (#8194).
+          respond: (result: unknown) => respond(result, props.toolCallId),
         };
         return React.createElement(ToolComponent, enhancedProps);
       } else if (props.status === ToolCallStatus.Complete) {
