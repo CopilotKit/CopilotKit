@@ -235,13 +235,10 @@ import { CopilotChatViewHandlers } from "./copilot-chat-view-handlers";
       }
     </div>
   `,
-  styles: [
-    hostStyles,
-    `
-      /* Import KaTeX styles */
-      @import "katex/dist/katex.min.css";
-    `,
-  ],
+  styles: [hostStyles],
+  // Generated before build, test and type checking: KaTeX's CSS with only the
+  // woff2 fonts, so the package embeds 20 font files instead of 60.
+  styleUrl: "./katex/katex.css",
 })
 export class CopilotChatAssistantMessage {
   // Capture templates from content projection

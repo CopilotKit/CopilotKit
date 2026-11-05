@@ -1569,7 +1569,7 @@ describe("ProxiedCopilotRuntimeAgent messageFilter", () => {
     );
   });
 
-  it("sends the filter's output as is when both the filter repair and the move-only fallback throw", async () => {
+  it("still sends the filter's output when both the filter repair and the move-only fallback throw", async () => {
     vi.spyOn(messageFilterModule, "ɵrepairToolCallPairs").mockImplementation(
       () => {
         throw new Error("repair bug");
@@ -1602,7 +1602,9 @@ describe("ProxiedCopilotRuntimeAgent messageFilter", () => {
 
     const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
     const sent = sentMessages(init);
-    expect(sent.map((m) => m.id)).toEqual([call.id, after.id, result.id]);
+    // @ag-ui/client (1.0.4+) puts each tool result after its call in the run
+    // input, so the result still reaches the wire next to its call.
+    expect(sent.map((m) => m.id)).toEqual([call.id, result.id, after.id]);
     expect(sent.every((m) => m.content === "redacted")).toBe(true);
     expect(warn).toHaveBeenCalledTimes(1);
     expect(warn).toHaveBeenCalledWith(
@@ -2080,7 +2082,7 @@ describe("ProxiedCopilotRuntimeAgent tool-call pairing without a filter", () => 
     expect(sentMessages(init).map((m) => m.id)).toEqual(["from-spy"]);
   });
 
-  it("warns once, naming the repair, and sends the input unchanged when the repair throws", async () => {
+  it("warns once, naming the repair, and still sends the run when the repair throws", async () => {
     // Forced through the module export: no known input makes it throw.
     const keep = vi
       .spyOn(messageFilterModule, "ɵkeepToolResultsWithCalls")
@@ -2097,11 +2099,13 @@ describe("ProxiedCopilotRuntimeAgent tool-call pairing without a filter", () => 
 
     const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
     expect(keep).toHaveBeenCalledTimes(1);
+    // @ag-ui/client (1.0.4+) puts each tool result after its call in the run
+    // input, so the result still reaches the wire next to its call.
     expect(sentMessages(init).map((m) => m.id)).toEqual([
       "u1",
       call.id,
-      "a2",
       result.id,
+      "a2",
     ]);
     expect(warn).toHaveBeenCalledTimes(1);
     expect(warn).toHaveBeenCalledWith(
