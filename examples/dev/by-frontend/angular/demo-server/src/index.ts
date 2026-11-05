@@ -2,14 +2,13 @@ import { serve } from "@hono/node-server";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import {
-  BuiltInAgent,
   CopilotRuntime,
   createCopilotRuntimeHandler,
   InMemoryAgentRunner,
 } from "@copilotkit/runtime";
+import { BuiltInAgent } from "@copilotkit/runtime/agent";
 import { MCPAppsMiddleware } from "@ag-ui/mcp-apps-middleware";
-import type { BuiltInAgentClassicConfig } from "@copilotkit/runtime";
-import { createOpenAI } from "@ai-sdk/openai";
+import { openaiCompatibleText } from "@tanstack/ai-openai/compatible";
 import { SlowToolCallStreamingAgent } from "./agents/slow-tool-call-streaming.js";
 import { A2UIDashboardAgent } from "./agents/a2ui-dashboard.js";
 import { A2UIRecoveryAgent } from "./agents/a2ui-recovery.js";
@@ -20,7 +19,7 @@ const OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1";
 const DEFAULT_OPENROUTER_MODEL = "anthropic/claude-opus-4-8";
 const DEFAULT_OPENROUTER_MAX_OUTPUT_TOKENS = 16_384;
 
-function determineOpenRouterModelId(): string {
+function determineOpenRouterModelId() {
   const configuredModel = process.env.OPENROUTER_MODEL?.trim();
 
   if (!configuredModel) {
@@ -34,11 +33,7 @@ function determineOpenRouterModelId(): string {
   return `openai/${configuredModel}`;
 }
 
-function determineMaxOutputTokens(): number | undefined {
-  if (!openRouterApiKey) {
-    return undefined;
-  }
-
+function determineOpenRouterMaxTokens() {
   const configuredLimit = Number(
     process.env.OPENROUTER_MAX_OUTPUT_TOKENS?.trim(),
   );
@@ -50,14 +45,14 @@ function determineMaxOutputTokens(): number | undefined {
   return DEFAULT_OPENROUTER_MAX_OUTPUT_TOKENS;
 }
 
-function determineModel(): BuiltInAgentClassicConfig["model"] {
+function determineModel() {
   if (openRouterApiKey) {
-    const openrouter = createOpenAI({
+    return openaiCompatibleText(determineOpenRouterModelId(), {
+      name: "openrouter",
+      api: "chat-completions",
       apiKey: openRouterApiKey,
       baseURL: process.env.OPENROUTER_BASE_URL?.trim() || OPENROUTER_BASE_URL,
     });
-
-    return openrouter(determineOpenRouterModelId());
   }
   if (openAIApiKey) {
     return "openai/gpt-5.2";
@@ -71,21 +66,27 @@ function determineModel(): BuiltInAgentClassicConfig["model"] {
   return "openai/gpt-5.2";
 }
 
+// Options for the provider that determineModel picked, in that provider's
+// own request format. OpenRouter gets Chat Completions, so its output cap is
+// `max_tokens`.
+function determineModelOptions() {
+  if (openRouterApiKey) {
+    return { max_tokens: determineOpenRouterMaxTokens() };
+  }
+  if (openAIApiKey) {
+    return { reasoning: { effort: "high", summary: "detailed" } };
+  }
+  if (process.env.ANTHROPIC_API_KEY?.trim()) {
+    return { thinking: { type: "adaptive" } };
+  }
+  return undefined;
+}
+
 const builtInAgent = new BuiltInAgent({
   model: determineModel(),
-  maxOutputTokens: determineMaxOutputTokens(),
   prompt:
     "You are a helpful AI assistant. Use reasoning to answer the user's question. If you don't know the answer, say you don't know.",
-  providerOptions: {
-    ...(openAIApiKey
-      ? { openai: { reasoningEffort: "high", reasoningSummary: "detailed" } }
-      : {}),
-    ...(!openAIApiKey &&
-      !openRouterApiKey &&
-      !!process.env.ANTHROPIC_API_KEY?.trim() && {
-        anthropic: { thinking: { type: "adaptive" } },
-      }),
-  },
+  modelOptions: determineModelOptions(),
 });
 
 // --- MCP Apps ---------------------------------------------------------------
@@ -100,7 +101,6 @@ const builtInAgent = new BuiltInAgent({
 const mcpAgent = new BuiltInAgent({
   model: determineModel(),
   prompt: "You are a helpful AI assistant with access to MCP apps and tools.",
-  temperature: 0.7,
 }).use(
   new MCPAppsMiddleware({
     // Port assignments - verified by checking each server's tools

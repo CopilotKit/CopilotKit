@@ -1,9 +1,6 @@
 import { MCPAppsMiddleware } from "@ag-ui/mcp-apps-middleware";
-import {
-  BuiltInAgent,
-  CopilotRuntime,
-  InMemoryAgentRunner,
-} from "@copilotkit/runtime";
+import { CopilotRuntime, InMemoryAgentRunner } from "@copilotkit/runtime";
+import { BuiltInAgent } from "@copilotkit/runtime/agent";
 import { TranscriptionServiceOpenAI } from "@copilotkit/voice";
 import OpenAI from "openai";
 import { AbstractAgent, EventType } from "@ag-ui/client";
@@ -161,7 +158,6 @@ export const createDefaultRuntime = () =>
       default: new BuiltInAgent({
         model: determineModel(),
         prompt: "You are a helpful AI assistant.",
-        temperature: 0.7,
       }),
       "demo-button": new DemoButtonAgent(),
     },
@@ -188,7 +184,6 @@ export const createMcpRuntime = () => {
   const agent = new BuiltInAgent({
     model: determineModel(),
     prompt: "You are a helpful AI assistant with access to MCP apps and tools.",
-    temperature: 0.7,
   }).use(
     new MCPAppsMiddleware({
       mcpServers: [

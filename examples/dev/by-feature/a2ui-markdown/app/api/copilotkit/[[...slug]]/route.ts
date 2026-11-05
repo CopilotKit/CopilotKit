@@ -1,9 +1,9 @@
 import {
-  BuiltInAgent,
   CopilotRuntime,
   createCopilotRuntimeHandler,
   InMemoryAgentRunner,
 } from "@copilotkit/runtime";
+import { BuiltInAgent } from "@copilotkit/runtime/agent";
 import { LangGraphHttpAgent } from "@ag-ui/langgraph";
 
 if (!process.env.OPENAI_API_KEY) {

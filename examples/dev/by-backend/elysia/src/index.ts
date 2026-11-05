@@ -2,8 +2,8 @@ import { Elysia } from "elysia";
 import {
   CopilotRuntime,
   createCopilotRuntimeHandler,
-  BuiltInAgent,
 } from "@copilotkit/runtime";
+import { BuiltInAgent } from "@copilotkit/runtime/agent";
 
 const runtime = new CopilotRuntime({
   agents: {

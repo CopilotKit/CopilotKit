@@ -2,8 +2,8 @@ import {
   CopilotRuntime,
   createCopilotRuntimeHandler,
   InMemoryAgentRunner,
-  BuiltInAgent,
 } from "@copilotkit/runtime";
+import { BuiltInAgent } from "@copilotkit/runtime/agent";
 import { MCPAppsMiddleware } from "@ag-ui/mcp-apps-middleware";
 
 const determineModel = () => {
@@ -22,7 +22,6 @@ const determineModel = () => {
 const agent = new BuiltInAgent({
   model: determineModel(),
   prompt: "You are a helpful AI assistant with access to MCP apps and tools.",
-  temperature: 0.7,
 }).use(
   new MCPAppsMiddleware({
     // Port assignments - verified by checking each server's tools

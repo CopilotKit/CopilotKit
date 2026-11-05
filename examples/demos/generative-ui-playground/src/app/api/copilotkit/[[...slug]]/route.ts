@@ -13,7 +13,7 @@ import {
   createCopilotRuntimeHandler,
   InMemoryAgentRunner,
 } from "@copilotkit/runtime";
-import { BuiltInAgent } from "@copilotkit/runtime";
+import { BuiltInAgent } from "@copilotkit/runtime/agent";
 import { MCPAppsMiddleware } from "@ag-ui/mcp-apps-middleware";
 import { A2AAgent } from "@ag-ui/a2a";
 import { A2AClient } from "@a2a-js/sdk/client";
@@ -77,7 +77,6 @@ You also have access to 6 interactive apps that render in the chat:
 - When users need task approval, use the approve_task tool
 - When users want interactive apps (flights, hotels, etc.), use the MCP tools
 - Be helpful and guide users through the features`,
-  temperature: 0.7,
 }).use(
   new MCPAppsMiddleware({
     mcpServers: [

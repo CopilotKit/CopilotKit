@@ -2,8 +2,8 @@ import {
   CopilotRuntime,
   InMemoryAgentRunner,
   createCopilotRuntimeHandler,
-  BuiltInAgent,
 } from "@copilotkit/runtime";
+import { BuiltInAgent } from "@copilotkit/runtime/agent";
 import { TranscriptionServiceOpenAI } from "@copilotkit/voice";
 import OpenAI from "openai";
 
@@ -23,7 +23,6 @@ const determineModel = () => {
 const agent = new BuiltInAgent({
   model: determineModel(),
   prompt: "You are a helpful AI assistant.",
-  temperature: 0.7,
 });
 
 // Set up transcription service if OpenAI API key is available

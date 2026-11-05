@@ -10,6 +10,8 @@
   "dependencies": {
     "@copilotkit/runtime": "workspace:^",
     "@hono/node-server": "^1.13.6",
+    "@tanstack/ai": "^1.2.0",
+    "@tanstack/ai-openai": "^1.1.1",
     "hono": "^4.7.6"
   },
   "devDependencies": {

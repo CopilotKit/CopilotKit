@@ -100,7 +100,8 @@ The legacy `ui-protocols-demo` Railway deployment is being retired. Do not use i
   "@copilotkit/react-ui": "CopilotSidebar component",
   "@copilotkit/a2ui-renderer": "A2UI message renderer",
   "@copilotkit/runtime": "CopilotRuntime backend",
-  "@copilotkit/runtime/v2": "BuiltInAgent class",
+  "@copilotkit/runtime/agent": "BuiltInAgent class",
+  "@tanstack/ai-openai": "OpenAI adapter for the BuiltInAgent model string",
   "@ag-ui/mcp-apps-middleware": "MCP Apps → AG-UI bridge"
 }
 ```

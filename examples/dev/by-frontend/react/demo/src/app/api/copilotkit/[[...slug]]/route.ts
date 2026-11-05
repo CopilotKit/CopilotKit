@@ -2,10 +2,9 @@ import {
   CopilotRuntime,
   createCopilotRuntimeHandler,
   InMemoryAgentRunner,
-  BuiltInAgent,
 } from "@copilotkit/runtime";
-import type { BuiltInAgentClassicConfig } from "@copilotkit/runtime";
-import { createOpenAI } from "@ai-sdk/openai";
+import { BuiltInAgent } from "@copilotkit/runtime/agent";
+import { openaiCompatibleText } from "@tanstack/ai-openai/compatible";
 import { TranscriptionServiceOpenAI } from "@copilotkit/voice";
 import OpenAI from "openai";
 
@@ -18,14 +17,14 @@ const determineOpenRouterModelId = () => {
   return process.env.OPENROUTER_MODEL?.trim() || DEFAULT_OPENROUTER_MODEL;
 };
 
-const determineModel = (): BuiltInAgentClassicConfig["model"] => {
+const determineModel = () => {
   if (openRouterApiKey) {
-    const openrouter = createOpenAI({
+    return openaiCompatibleText(determineOpenRouterModelId(), {
+      name: "openrouter",
+      api: "chat-completions",
       apiKey: openRouterApiKey,
       baseURL: process.env.OPENROUTER_BASE_URL?.trim() || OPENROUTER_BASE_URL,
     });
-
-    return openrouter(determineOpenRouterModelId());
   }
   if (openAIApiKey) {
     return "openai/gpt-5.2";
@@ -40,20 +39,23 @@ const determineModel = (): BuiltInAgentClassicConfig["model"] => {
   return "openai/gpt-5.2";
 };
 
+// Options for the provider that determineModel picked, in that provider's
+// own request format.
+const determineModelOptions = () => {
+  if (openRouterApiKey) return undefined;
+  if (openAIApiKey)
+    return { reasoning: { effort: "high", summary: "detailed" } };
+  if (process.env.ANTHROPIC_API_KEY?.trim()) {
+    return { thinking: { type: "adaptive" } };
+  }
+  return undefined;
+};
+
 const builtInAgent = new BuiltInAgent({
   model: determineModel(),
   prompt:
     "You are a helpful AI assistant. Use reasoning to answer the user's question. If you don't know the answer, say you don't know.",
-  providerOptions: {
-    ...(openAIApiKey
-      ? { openai: { reasoningEffort: "high", reasoningSummary: "detailed" } }
-      : {}),
-    ...(!openAIApiKey &&
-      !openRouterApiKey &&
-      !!process.env.ANTHROPIC_API_KEY?.trim() && {
-        anthropic: { thinking: { type: "adaptive" } },
-      }),
-  },
+  modelOptions: determineModelOptions(),
 });
 
 // Set up transcription service if OpenAI API key is available

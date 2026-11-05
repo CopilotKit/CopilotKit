@@ -9,6 +9,8 @@
   },
   "dependencies": {
     "@copilotkit/runtime": "workspace:^",
+    "@tanstack/ai": "^1.2.0",
+    "@tanstack/ai-openai": "^1.1.1",
     "express": "^4.21.2"
   },
   "devDependencies": {

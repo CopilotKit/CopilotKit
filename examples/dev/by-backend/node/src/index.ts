@@ -2,8 +2,8 @@ import { createServer } from "node:http";
 import {
   CopilotRuntime,
   createCopilotRuntimeHandler,
-  BuiltInAgent,
 } from "@copilotkit/runtime";
+import { BuiltInAgent } from "@copilotkit/runtime/agent";
 import { createCopilotNodeHandler } from "@copilotkit/runtime/node";
 
 const runtime = new CopilotRuntime({

@@ -1,25 +1,26 @@
 import {
-  BuiltInAgent,
   CopilotRuntime,
   InMemoryAgentRunner,
   createCopilotRuntimeHandler,
 } from "@copilotkit/runtime";
-import type { BuiltInAgentClassicConfig } from "@copilotkit/runtime";
-import { createOpenAI } from "@ai-sdk/openai";
+import { BuiltInAgent } from "@copilotkit/runtime/agent";
+import { openaiCompatibleText } from "@tanstack/ai-openai/compatible";
 import { PRODUCTS } from "../../../generative-ui/products";
 
 const openRouterApiKey = process.env.OPENROUTER_API_KEY?.trim();
 
-const determineModel = (): BuiltInAgentClassicConfig["model"] => {
+const determineModel = () => {
   if (openRouterApiKey) {
-    const openrouter = createOpenAI({
-      apiKey: openRouterApiKey,
-      baseURL:
-        process.env.OPENROUTER_BASE_URL?.trim() ||
-        "https://openrouter.ai/api/v1",
-    });
-    return openrouter(
+    return openaiCompatibleText(
       process.env.OPENROUTER_MODEL?.trim() || "openai/gpt-5-mini",
+      {
+        name: "openrouter",
+        api: "chat-completions",
+        apiKey: openRouterApiKey,
+        baseURL:
+          process.env.OPENROUTER_BASE_URL?.trim() ||
+          "https://openrouter.ai/api/v1",
+      },
     );
   }
   if (process.env.OPENAI_API_KEY?.trim()) return "openai/gpt-5.2";

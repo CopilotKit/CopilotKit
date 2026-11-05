@@ -3,11 +3,15 @@ import {
   CopilotRuntime,
   createCopilotRuntimeHandler,
   InMemoryAgentRunner,
+} from "@copilotkit/runtime";
+import {
   BuiltInAgent,
   convertInputToTanStackAI,
+} from "@copilotkit/runtime/agent";
+import {
   convertMessagesToVercelAISDKMessages,
   convertToolsToVercelAITools,
-} from "@copilotkit/runtime";
+} from "@copilotkit/runtime/agent/ai-sdk";
 import { chat, toolDefinition } from "@tanstack/ai";
 import { openaiText } from "@tanstack/ai-openai";
 import { streamText, tool } from "ai";
