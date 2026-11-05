@@ -52,6 +52,7 @@ export interface MCPAppsEnqueueOptions {
 }
 
 interface QueueItem {
+  isolatedResourceRead: boolean;
   execute: (signal: AbortSignal) => Promise<RunAgentResult>;
   cancelRunningWait?: boolean;
   resolve: (result: RunAgentResult) => void;
@@ -103,9 +104,29 @@ export class MCPAppsRequestQueue {
     request: (signal: AbortSignal) => Promise<RunAgentResult>,
     options?: MCPAppsEnqueueOptions,
   ): Promise<RunAgentResult> {
-    // Keyed by agent AND thread: a shared thread id must not serialize (or
-    // cancel) work belonging to a different agent.
-    const key = keyFor(agent);
+    return this.enqueueRequest(agent, request, options, false);
+  }
+
+  /** Queue a resources/read performed by a dedicated isolated client.
+   * It must not mutate the conversation agent. Other MCP methods use enqueue.
+   */
+  async enqueueIsolatedResourceRead(
+    agent: AbstractAgent,
+    request: (signal: AbortSignal) => Promise<RunAgentResult>,
+    options?: MCPAppsEnqueueOptions,
+  ): Promise<RunAgentResult> {
+    return this.enqueueRequest(agent, request, options, true);
+  }
+
+  private async enqueueRequest(
+    agent: AbstractAgent,
+    request: (signal: AbortSignal) => Promise<RunAgentResult>,
+    options: MCPAppsEnqueueOptions | undefined,
+    isolatedResourceRead: boolean,
+  ): Promise<RunAgentResult> {
+    // Separate isolated reads from conversation mutations while retaining the
+    // original agent identity for thread-switch checks and owner cancellation.
+    const key = keyFor(agent) + (isolatedResourceRead ? "::resource-read" : "");
 
     return new Promise((resolve, reject) => {
       let queue = this.queues.get(key);
@@ -115,6 +136,7 @@ export class MCPAppsRequestQueue {
       }
 
       queue.push({
+        isolatedResourceRead,
         execute: request,
         cancelRunningWait: options?.cancelRunningWait,
         resolve,
@@ -188,11 +210,13 @@ export class MCPAppsRequestQueue {
 
         try {
           // Wait for any active run to complete before processing
-          await this.waitForAgentIdle(
-            agent,
-            item.timeoutMs,
-            item.controller.signal,
-          );
+          if (!item.isolatedResourceRead) {
+            await this.waitForAgentIdle(
+              agent,
+              item.timeoutMs,
+              item.controller.signal,
+            );
+          }
 
           // The owner may have torn down while we waited for the agent.
           if (item.cancelled) {

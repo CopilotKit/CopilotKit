@@ -569,7 +569,13 @@ export function bindMcpApp(opts: BindMcpAppOptions): McpAppSession {
     const readOnlyAgent = agent as AbstractAgent & {
       ɵrunMcpResourceRead?: AbstractAgent["runAgent"];
     };
-    const runResult = await mcpAppsRequestQueue.enqueue(
+    const runResourceRead = readOnlyAgent.ɵrunMcpResourceRead?.bind(agent);
+    const enqueue = runResourceRead
+      ? mcpAppsRequestQueue.enqueueIsolatedResourceRead.bind(
+          mcpAppsRequestQueue,
+        )
+      : mcpAppsRequestQueue.enqueue.bind(mcpAppsRequestQueue);
+    const runResult = await enqueue(
       agent,
       () => {
         const parameters = {
@@ -582,8 +588,8 @@ export function bindMcpApp(opts: BindMcpAppOptions): McpAppSession {
             },
           },
         };
-        return readOnlyAgent.ɵrunMcpResourceRead
-          ? readOnlyAgent.ɵrunMcpResourceRead(parameters)
+        return runResourceRead
+          ? runResourceRead(parameters)
           : agent.runAgent(parameters);
       },
       {
