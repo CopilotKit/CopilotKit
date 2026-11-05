@@ -100,7 +100,6 @@ export async function runBuiltin(
         type: "module",
         dependencies: {
           ...runtime.dependencies,
-          "@tanstack/ai": manifest.peerDependencies["@tanstack/ai"],
           ...r.dependencies,
           "@ag-ui/client": manifest.dependencies["@ag-ui/client"],
           rxjs: manifest.dependencies.rxjs,

@@ -5,7 +5,7 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { adapters, validateRequest } from "./request.mjs";
 
-test("built-in requests watch exact AI SDK and Zod versions", () => {
+test("built-in requests watch exact AI SDK, TanStack AI and Zod versions", () => {
   assert.ok(adapters["builtin-ts"], "Built-in adapter must be registered");
   const request = {
     schemaVersion: 1,
@@ -14,15 +14,89 @@ test("built-in requests watch exact AI SDK and Zod versions", () => {
     track: "source",
     sourceSha: "a".repeat(40),
     experimental: false,
-    dependencies: { ai: "6.0.104", zod: "3.25.76" },
+    dependencies: { ai: "6.0.104", "@tanstack/ai": "1.2.0", zod: "3.25.76" },
   };
   assert.equal(validateRequest(request), request);
   assert.throws(() =>
     validateRequest({
       ...request,
-      dependencies: { ai: "^6.0.104", zod: "3.25.76" },
+      dependencies: { ...request.dependencies, ai: "^6.0.104" },
     }),
   );
+  assert.throws(
+    () =>
+      validateRequest({
+        ...request,
+        dependencies: { ai: "6.0.104", zod: "3.25.76" },
+      }),
+    /Supply every watched dependency/,
+  );
+});
+
+test("the version probe reads ESM-only packages that require.resolve cannot see", async () => {
+  const { writeFileSync, mkdirSync } = await import("node:fs");
+  const { execFileSync } = await import("node:child_process");
+  const { versionProbe } = await import("./typescript.mjs");
+  const work = mkdtempSync(join(tmpdir(), "builtin-probe-test-"));
+  const install = (name, manifest, file, code) => {
+    const dir = join(work, "node_modules", name);
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(
+      join(dir, "package.json"),
+      JSON.stringify({ name, ...manifest }),
+    );
+    writeFileSync(join(dir, file), code);
+  };
+  try {
+    install(
+      "@copilotkit/runtime",
+      { version: "2.0.0", main: "index.js" },
+      "index.js",
+      "",
+    );
+    install("ai", { version: "6.0.104", main: "index.js" }, "index.js", "");
+    install("zod", { version: "4.0.0", main: "index.js" }, "index.js", "");
+    // Like @tanstack/ai: ESM-only, with no `require` condition and no exported package.json.
+    install(
+      "@tanstack/ai",
+      {
+        version: "1.2.0",
+        type: "module",
+        exports: { ".": { import: "./index.js" } },
+      },
+      "index.js",
+      "export const chat = () => {};",
+    );
+    const probe = (dependencies) => {
+      writeFileSync(
+        join(work, "versions.mjs"),
+        versionProbe({ adapterId: "builtin-ts", dependencies }),
+      );
+      return execFileSync(process.execPath, ["versions.mjs"], {
+        cwd: work,
+        encoding: "utf8",
+        stdio: "pipe",
+      });
+    };
+    assert.deepEqual(
+      JSON.parse(
+        probe({ ai: "6.0.104", "@tanstack/ai": "1.2.0", zod: "4.0.0" }),
+      ),
+      {
+        resolvedDependencies: {
+          ai: "6.0.104",
+          "@tanstack/ai": "1.2.0",
+          zod: "4.0.0",
+        },
+      },
+    );
+    assert.throws(
+      () => probe({ ai: "6.0.104", "@tanstack/ai": "1.3.0", zod: "4.0.0" }),
+      /Loaded version mismatch: @tanstack\/ai 1\.2\.0/,
+    );
+  } finally {
+    rmSync(work, { recursive: true, force: true });
+  }
 });
 
 test("built-in consumer uses public runtime and preserves every native contract", async () => {
