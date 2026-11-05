@@ -307,9 +307,10 @@ import {
   createCopilotRuntimeHandler,
 } from "@copilotkit/runtime";
 import { BuiltInAgent } from "@copilotkit/runtime/agent";
+import { openaiText } from "@tanstack/ai-openai";
 
 const runtime = new CopilotRuntime({
-  agents: { default: new BuiltInAgent({ model: "openai/gpt-5.4" }) },
+  agents: { default: new BuiltInAgent({ model: openaiText("gpt-5.5") }) },
 });
 
 const handler = createCopilotRuntimeHandler({
@@ -337,42 +338,61 @@ const status = (await runtime.getLicenseChecker())?.getStatus();
 
 `BuiltInAgent` imports from `@copilotkit/runtime/agent`, and it runs on TanStack AI. The codemod already moved the imports. The AI SDK helpers (`convertMessagesToVercelAISDKMessages`, `convertToolsToVercelAITools`, `createSafeUrlDownload`, ...) moved to `@copilotkit/runtime/agent/ai-sdk`.
 
+`model` takes a TanStack AI text adapter, not a model string. The codemod rewrote each model string it could read:
+
+| 1.x model string                                      | 2.0 `model`                          | Package                  | API key from                                                                                                    |
+| ----------------------------------------------------- | ------------------------------------ | ------------------------ | --------------------------------------------------------------------------------------------------------------- |
+| `"openai/gpt-5"`, `"openai:gpt-5"`                    | `openaiText("gpt-5")`                | `@tanstack/ai-openai`    | `OPENAI_API_KEY`                                                                                                |
+| `"anthropic/claude-sonnet-4-6"`                       | `anthropicText("claude-sonnet-4-6")` | `@tanstack/ai-anthropic` | `ANTHROPIC_API_KEY` (or `ANTHROPIC_AUTH_TOKEN`)                                                                 |
+| `"google/..."`, `"gemini/..."`, `"google-gemini/..."` | `geminiText("gemini-2.5-pro")`       | `@tanstack/ai-gemini`    | `GOOGLE_API_KEY`, then `GEMINI_API_KEY`                                                                         |
+| `"vertex/gemini-2.5-pro"`                             | `vertexText("gemini-2.5-pro")`       | `@tanstack/ai-vertex`    | `GOOGLE_CLOUD_PROJECT` and `GOOGLE_CLOUD_LOCATION` (or the `GOOGLE_VERTEX_*` names), or `GOOGLE_VERTEX_API_KEY` |
+
+Each adapter reads its key from the environment, so you do not pass it. If TypeScript rejects a model name, the adapter package does not list that model.
+
 Install the packages the app needs. The runtime does not install them:
 
-1. If a `BuiltInAgent` takes a model string, add `@tanstack/ai` and the adapter for each provider in the strings:
-
-   | Model string prefix                 | Package                  |
-   | ----------------------------------- | ------------------------ |
-   | `openai`, `minimax`                 | `@tanstack/ai-openai`    |
-   | `anthropic`                         | `@tanstack/ai-anthropic` |
-   | `google`, `gemini`, `google-gemini` | `@tanstack/ai-gemini`    |
-   | `vertex`                            | `@tanstack/ai-vertex`    |
-
-2. If a `BuiltInAgent` sets `mcpServers`, add `@tanstack/ai-mcp`.
+1. Add `@tanstack/ai` and the package from the table for each adapter the code imports.
+2. If a `BuiltInAgent` used `mcpServers`, add `@tanstack/ai-mcp`.
 3. If the code imports from `@copilotkit/runtime/agent/ai-sdk`, keep or add `ai`.
 4. Remove `@ai-sdk/*` packages that the code no longer imports.
 
 Fix the TODOs:
 
-| TODO on                                                       | 2.0                                                                                                                                                                          |
-| ------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `temperature`, `maxOutputTokens`, `topP`, `topK`, `seed`, ... | Removed. Put the provider's own option names in `modelOptions`, for example `modelOptions: { temperature: 0.2 }`. Check the names in the provider docs.                      |
-| `providerOptions`                                             | Removed. Move the options for this provider into `modelOptions`.                                                                                                             |
-| `urlDownload`                                                 | Removed. The provider gets attachment URLs as they are. Delete the key, and tell the user.                                                                                   |
-| `model: openai("...")` (an AI SDK model)                      | Use a model string (`"openai/gpt-5.4"`) or a TanStack adapter (`openaiText("gpt-5.4")` from `@tanstack/ai-openai`). To keep the AI SDK model, use a `type: "aisdk"` factory. |
-| `resolveModel(...)`                                           | It is async. Add `await`, and make the function async if it is not.                                                                                                          |
-| `MCPClient`, `MCPTransport`                                   | Import the MCP client types from `@tanstack/ai-mcp`.                                                                                                                         |
+| TODO on                                                       | 2.0                                                                                                                                                                                |
+| ------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `model` with a string or a variable                           | Pass an adapter from the table. For `minimax/...`, ask the user which OpenAI-compatible adapter to use.                                                                            |
+| `model: openai("...")` (an AI SDK model)                      | Pass a TanStack adapter (`openaiText("gpt-5.5")` from `@tanstack/ai-openai`). To keep the AI SDK model, use a `type: "aisdk"` factory.                                             |
+| `temperature`, `maxOutputTokens`, `topP`, `topK`, `seed`, ... | Removed. Put the provider's own option names in `modelOptions`, for example `modelOptions: { temperature: 0.2 }`. Check the names in the provider docs.                            |
+| `providerOptions`                                             | Removed. Move the options for this provider into `modelOptions`.                                                                                                                   |
+| `apiKey`                                                      | Removed. The adapter reads its key from the environment. To pass a key in code, use the `create*` adapter factory, such as `createOpenaiChat(model, apiKey)`.                      |
+| `urlDownload`                                                 | Removed. The provider gets attachment URLs as they are. Delete the key, and tell the user.                                                                                         |
+| `mcpServers`                                                  | Removed. Create each client with `createMCPClient` from `@tanstack/ai-mcp`, and pass the clients in `mcpClients`. The agent does not close them. Close them when the server stops. |
+| `resolveModel`, `classifyModelSpec`                           | Removed. Pass an adapter as `model`. To handle a model name that the client forwards, set the `resolveModel` option on the agent config (below).                                   |
+| `BuiltInAgentModel`, `ModelSpecifier`                         | Removed. Use `AnyTextAdapter` from `@tanstack/ai`.                                                                                                                                 |
+| `MCPClientConfig`, `MCPClient`, `MCPTransport`                | Import the MCP client types from `@tanstack/ai-mcp`.                                                                                                                               |
 
-A model string with the provider adapter installed:
+An agent with an adapter, an MCP client, and a resolver for forwarded model names:
 
 ```ts
 import { BuiltInAgent } from "@copilotkit/runtime/agent";
+import { anthropicText } from "@tanstack/ai-anthropic";
+import { createMCPClient } from "@tanstack/ai-mcp";
+import { openaiText } from "@tanstack/ai-openai";
+
+const docs = await createMCPClient({
+  transport: { type: "http", url: "https://mcp.example.com/mcp" },
+});
 
 const agent = new BuiltInAgent({
-  model: "anthropic/claude-sonnet-4-6",
+  model: anthropicText("claude-sonnet-4-6"),
   modelOptions: { temperature: 0.2 },
+  mcpClients: [docs],
+  resolveModel: (name) =>
+    name === "gpt-5.5" ? openaiText("gpt-5.5") : undefined,
 });
 ```
+
+If `resolveModel` returns `undefined`, the agent keeps its configured `model`.
 
 See [Built-in Agent in 2.0](https://docs.copilotkit.ai/migrate/runtime-2.0#built-in-agent).
 

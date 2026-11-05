@@ -12,7 +12,7 @@ allowed-tools:
 codemod-compatibility: skill-package-v1
 codemod-skill-version: 0.1.0
 
-The codemod already did the mechanical part: `/v2` import paths now point at the package roots, `<CopilotKit>` is `<CopilotKitProvider>`, `agent=` is `agentId=`, and LangGraph agents import from `@ag-ui/langgraph`. Everything it could not do safely is marked with a `TODO(copilotkit-2.0):` comment next to the code.
+The codemod already did the mechanical part: `/v2` import paths now point at the package roots, `<CopilotKit>` is `<CopilotKitProvider>`, `agent=` is `agentId=`, LangGraph agents import from `@ag-ui/langgraph`, and `BuiltInAgent` model strings are TanStack AI adapters. Everything it could not do safely is marked with a `TODO(copilotkit-2.0):` comment next to the code.
 
 ## Rules
 
@@ -30,7 +30,9 @@ The codemod already did the mechanical part: `/v2` import paths now point at the
    - set every `@copilotkit/*` dependency to the same 2.x version;
    - remove `@copilotkit/react-ui`, `@copilotkit/react-textarea`, and `@copilotkit/runtime-client-gql`;
    - add `@ag-ui/langgraph` if the code now imports from it;
-   - if the code imports from `@copilotkit/runtime/agent`, add `@tanstack/ai` and the adapter for each model string it uses (see the Built-in Agent section of `references/mappings.md`); add `ai` if it imports from `@copilotkit/runtime/agent/ai-sdk`;
+   - if the code imports from `@copilotkit/runtime/agent`, add `@tanstack/ai` and the adapter package for each provider it uses: `@tanstack/ai-openai`, `@tanstack/ai-anthropic`, `@tanstack/ai-gemini`, or `@tanstack/ai-vertex` (see the Built-in Agent section of `references/mappings.md`);
+   - add `@tanstack/ai-mcp` if the code imports `createMCPClient`;
+   - add `ai` only if the code imports from `@copilotkit/runtime/agent/ai-sdk`;
    - remove `streamdown`, `streamdown-vue`, `react-native-streamdown`, and `katex` if the code no longer imports them.
 4. Install, then run the typecheck and the build. Fix what they report.
 5. Report to the user: what changed, each v1 feature that has no 2.0 equivalent, and anything you could not verify.

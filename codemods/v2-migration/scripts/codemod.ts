@@ -104,6 +104,10 @@ const AGENT_ENTRY = "@copilotkit/runtime/agent";
 const AI_SDK_ENTRY = "@copilotkit/runtime/agent/ai-sdk";
 const BUILT_IN_AGENT_GUIDE =
   "https://docs.copilotkit.ai/migrate/runtime-2.0#built-in-agent";
+const MCP_GUIDE =
+  "https://docs.copilotkit.ai/integrations/built-in-agent/mcp-servers";
+const MCP_CLIENTS_NOTE =
+  'Create each MCP client with `createMCPClient` from "@tanstack/ai-mcp" and pass the clients in `mcpClients`.';
 const BUILT_IN_AGENT = builtInAgentOverrides();
 
 /** Decisions made for 2.0 that the v1 snapshot does not know about. */
@@ -171,12 +175,31 @@ function builtInAgentOverrides() {
     );
   const removedMcpType = {
     typeOnly: true,
-    docs: "https://docs.copilotkit.ai/integrations/built-in-agent/mcp-servers",
+    docs: MCP_GUIDE,
     notes: [
       "`@copilotkit/runtime` no longer re-exports the MCP client types. Import them from `@tanstack/ai-mcp`.",
     ],
   };
+  const removed = (names: string[], note: string, docs: string) =>
+    Object.fromEntries(
+      names.map((name) => [name, { docs, notes: [note] }] as const),
+    );
   return {
+    ...removed(
+      ["resolveModel", "classifyModelSpec"],
+      `Model strings were removed. Pass a TanStack AI text adapter such as \`openaiText("gpt-5")\` from "@tanstack/ai-openai" as \`model\`. To handle a model name forwarded from the client, set the \`resolveModel\` option of the \`BuiltInAgent\` config.`,
+      BUILT_IN_AGENT_GUIDE,
+    ),
+    ...removed(
+      ["BuiltInAgentModel", "ModelSpecifier"],
+      '`model` is a TanStack AI text adapter. Use `AnyTextAdapter` from "@tanstack/ai".',
+      BUILT_IN_AGENT_GUIDE,
+    ),
+    ...removed(
+      ["MCPClientConfig", "MCPClientConfigHTTP", "MCPClientConfigSSE"],
+      MCP_CLIENTS_NOTE,
+      MCP_GUIDE,
+    ),
     ...moveTo(AGENT_ENTRY, [
       "BuiltInAgent",
       "BuiltInAgentConfiguration",
@@ -186,19 +209,12 @@ function builtInAgentOverrides() {
       "BuiltInAgentTanStackFactoryConfig",
       "BuiltInAgentCustomFactoryConfig",
       "BuiltInAgentFactoryContext",
-      "BuiltInAgentModel",
       "BuiltInAgentLearnedSkills",
       "BuiltInAgentLearnedSkillsOptions",
       "defineTool",
       "ToolDefinition",
-      "resolveModel",
-      "classifyModelSpec",
-      "ModelSpecifier",
       "OverridableProperty",
       "InterruptSignal",
-      "MCPClientConfig",
-      "MCPClientConfigHTTP",
-      "MCPClientConfigSSE",
       "MCPClientProvider",
       "MessageConversionOptions",
       "convertAISDKStream",
@@ -431,7 +447,8 @@ function todoLines(name: string, entry: V1Export | undefined): string[] {
  * - imports of v1 APIs move to their 2.0 home when it has the same name and
  *   API, and get a TODO comment otherwise;
  * - `BuiltInAgent` imports move to `@copilotkit/runtime/agent` (also from
- *   `/v2`), and the keys and calls that changed in 2.0 are marked;
+ *   `/v2`), model strings become TanStack AI adapter calls, and the keys and
+ *   exports that changed in 2.0 are marked;
  * - `CopilotKit` becomes `CopilotKitProvider`, and the v1-only props of
  *   `<CopilotKit>` are renamed or marked;
  * - Streamdown props on the `markdownRenderer` slot are marked, calls of the
@@ -660,7 +677,6 @@ const codemod: Codemod<Lang> = async (root, options) => {
   edits.push(...angularRuntimeConfigEdits(rootNode, source));
   edits.push(...angularCopyButtonEdits(rootNode, source));
   edits.push(...builtInAgentConfigEdits(rootNode, source));
-  edits.push(...resolveModelEdits(rootNode, source));
 
   const migratedPaths =
     edits.length === 0 ? migrated : rootNode.commitEdits(edits);
@@ -1027,7 +1043,8 @@ const AGENT_SOURCES = [
   "@copilotkit/runtime/v2",
   AGENT_ENTRY,
 ];
-const AI_SDK_MODEL_NOTE = `\`model\` takes a model string or a TanStack adapter such as \`openaiText(...)\` in 2.0, not an AI SDK model. Pass one of those, or use a \`type: "aisdk"\` factory. See ${BUILT_IN_AGENT_GUIDE}`;
+const AI_SDK_MODEL_NOTE = `\`model\` takes a TanStack AI text adapter such as \`openaiText("gpt-5")\` from "@tanstack/ai-openai" in 2.0, not an AI SDK model. Pass an adapter, or use a \`type: "aisdk"\` factory. See ${BUILT_IN_AGENT_GUIDE}`;
+const MODEL_ADAPTER_NOTE = `\`model\` must be a TanStack AI text adapter in 2.0, such as \`openaiText("gpt-5")\` from "@tanstack/ai-openai". Model strings are not supported, so replace this value if it is one. See ${BUILT_IN_AGENT_GUIDE}`;
 
 /** Keys that 2.0 removed from the classic `BuiltInAgent` config. */
 const REMOVED_AGENT_CONFIG: Record<string, string> = {
@@ -1048,13 +1065,50 @@ const REMOVED_AGENT_CONFIG: Record<string, string> = {
       `\`${key}\` was removed in 2.0. Pass provider-native options in \`modelOptions\`. See ${BUILT_IN_AGENT_GUIDE}`,
     ]),
   ),
+  apiKey: `\`apiKey\` was removed in 2.0. The adapter reads its key from the environment, or pass it to the adapter (for example \`createOpenaiChat(model, apiKey)\`). See ${BUILT_IN_AGENT_GUIDE}`,
   urlDownload: `\`urlDownload\` was removed in 2.0. The server no longer downloads attachment URLs. See ${BUILT_IN_AGENT_GUIDE}`,
+  mcpServers: `\`mcpServers\` was removed in 2.0. ${MCP_CLIENTS_NOTE} See ${MCP_GUIDE}`,
 };
+
+interface ModelAdapter {
+  /** The adapter factory, called with the model name. */
+  factory: string;
+  /** The package that exports `factory`. */
+  from: string;
+}
+
+const GEMINI_ADAPTER = { factory: "geminiText", from: "@tanstack/ai-gemini" };
+
+/** The TanStack AI adapter for each provider of a 1.x model string. */
+const MODEL_ADAPTERS: Record<string, ModelAdapter> = {
+  openai: { factory: "openaiText", from: "@tanstack/ai-openai" },
+  anthropic: { factory: "anthropicText", from: "@tanstack/ai-anthropic" },
+  google: GEMINI_ADAPTER,
+  gemini: GEMINI_ADAPTER,
+  "google-gemini": GEMINI_ADAPTER,
+  vertex: { factory: "vertexText", from: "@tanstack/ai-vertex" },
+};
+
+/**
+ * The adapter for a 1.x model string such as `"openai/gpt-5"`, split at the
+ * first `/` or `:` the way 1.x did. `undefined` for a provider with no adapter.
+ */
+function adapterFor(spec: string) {
+  const trimmed = spec.trim();
+  const separator = trimmed.search(/[:/]/);
+  if (separator === -1) return undefined;
+  const provider = trimmed.slice(0, separator).toLowerCase();
+  const adapter = own(MODEL_ADAPTERS, provider);
+  const model = trimmed.slice(separator + 1).trim();
+  if (adapter === undefined || model === "") return undefined;
+  return { ...adapter, model };
+}
 
 /** The identifier an expression starts from: `openai` in `openai.chat("gpt-4o")`. */
 function rootIdentifier(node: Node): string | undefined {
   switch (node.kind()) {
     case "identifier":
+    case "shorthand_property_identifier":
       return node.text();
     case "call_expression": {
       const callee = node.field("function");
@@ -1070,15 +1124,15 @@ function rootIdentifier(node: Node): string | undefined {
 }
 
 /**
- * Names that hold an AI SDK provider or model: the imports of an `@ai-sdk/*`
- * package, and the variables built from them (`const openai = createOpenAI()`).
+ * Names bound from a package that `isSource` accepts: its imports, and the
+ * variables built from them (`const openai = createOpenAI()`).
  */
-function aiSdkNames(rootNode: Node) {
+function namesFrom(rootNode: Node, isSource: (source: string) => boolean) {
   const names = new Set<string>();
   const imports = rootNode.findAll({ rule: { kind: "import_statement" } });
   for (const statement of imports) {
     const sourceNode = statement.field("source");
-    if (!sourceNode || !unquote(sourceNode).startsWith("@ai-sdk/")) continue;
+    if (!sourceNode || !isSource(unquote(sourceNode))) continue;
     const clause = statement.find({ rule: { kind: "import_clause" } });
     const parts = clause?.children() ?? [];
     for (const part of parts) {
@@ -1119,9 +1173,15 @@ function aiSdkNames(rootNode: Node) {
 }
 
 /**
- * Marks the keys of a classic `new BuiltInAgent({ ... })` config that 2.0
- * removed, and a `model` built with an AI SDK provider. Their 2.0 values
- * depend on the provider, so the codemod does not rewrite them.
+ * Updates a classic `new BuiltInAgent({ ... })` config for 2.0:
+ *
+ * - a model string with a known provider (`"openai/gpt-5"`) becomes its
+ *   TanStack AI adapter call (`openaiText("gpt-5")`), and the adapter is
+ *   imported;
+ * - any other `model` that is not a TanStack AI adapter is marked, with an AI
+ *   SDK model getting its own note;
+ * - the keys that 2.0 removed are marked. Their 2.0 values depend on the
+ *   provider, so the codemod does not rewrite them.
  */
 function builtInAgentConfigEdits(rootNode: Node, source: string): Edit[] {
   if (!source.includes("@copilotkit/runtime")) return [];
@@ -1130,7 +1190,20 @@ function builtInAgentConfigEdits(rootNode: Node, source: string): Edit[] {
     "BasicAgent",
   ]);
   if (agents.size === 0) return [];
-  const aiSdk = aiSdkNames(rootNode);
+  const aiSdk = namesFrom(rootNode, (from) => from.startsWith("@ai-sdk/"));
+  const tanStack = namesFrom(rootNode, (from) =>
+    from.startsWith("@tanstack/ai"),
+  );
+  /** Adapter factories to import, by package. */
+  const missing = new Map<string, Set<string>>();
+  const factoryName = (adapter: ModelAdapter) => {
+    const [imported] = importedAs(rootNode, [adapter.from], [adapter.factory]);
+    if (imported !== undefined) return imported;
+    const factories = missing.get(adapter.from) ?? new Set<string>();
+    missing.set(adapter.from, factories.add(adapter.factory));
+    return adapter.factory;
+  };
+
   const constructions = rootNode.findAll({
     rule: {
       kind: "new_expression",
@@ -1150,42 +1223,95 @@ function builtInAgentConfigEdits(rootNode: Node, source: string): Edit[] {
       const key = keyName(entry);
       if (key === undefined) continue;
       const value = entry.kind() === "pair" ? entry.field("value") : entry;
-      const valueRoot = value ? rootIdentifier(value) : undefined;
-      const isAiSdkModel =
-        key === "model" && valueRoot !== undefined && aiSdk.has(valueRoot);
-      const message = isAiSdkModel
-        ? AI_SDK_MODEL_NOTE
-        : own(REMOVED_AGENT_CONFIG, key);
+      const adapter =
+        key === "model" && value?.kind() === "string"
+          ? adapterFor(unquote(value))
+          : undefined;
+      if (value && adapter) {
+        const call = `${factoryName(adapter)}(${requote(value, adapter.model)})`;
+        edits.push(value.replace(call));
+        continue;
+      }
+      const message =
+        key === "model"
+          ? modelNote(value, aiSdk, tanStack)
+          : own(REMOVED_AGENT_CONFIG, key);
       if (!message) continue;
       const edit = commentBefore(entry, message, source);
       if (edit) edits.push(edit);
     }
   }
-  return edits;
+  return [...edits, ...adapterImportEdits(rootNode, source, missing)];
 }
 
-const RESOLVE_MODEL_NOTE = `\`resolveModel\` is async in 2.0. Add \`await\` before this call. See ${BUILT_IN_AGENT_GUIDE}`;
+/** The TODO for a `model` the codemod cannot rewrite. `undefined` for an adapter. */
+function modelNote(
+  value: Node | null,
+  aiSdk: Set<string>,
+  tanStack: Set<string>,
+) {
+  const valueRoot = value ? rootIdentifier(value) : undefined;
+  if (valueRoot !== undefined && tanStack.has(valueRoot)) return undefined;
+  if (valueRoot !== undefined && aiSdk.has(valueRoot)) return AI_SDK_MODEL_NOTE;
+  return MODEL_ADAPTER_NOTE;
+}
 
-/** Marks calls of `resolveModel` that do not `await` it: 2.0 made it async. */
-function resolveModelEdits(rootNode: Node, source: string): Edit[] {
-  if (!source.includes("resolveModel")) return [];
-  const names = importedAs(rootNode, AGENT_SOURCES, ["resolveModel"]);
-  if (names.size === 0) return [];
-  const calls = rootNode.findAll({
-    rule: {
-      kind: "call_expression",
-      has: { field: "function", kind: "identifier" },
-      not: { inside: { kind: "await_expression" } },
-    },
-  });
+/**
+ * Imports the adapter factories in `missing`. A factory joins an existing
+ * named value import of its package. Otherwise a new import goes after the
+ * last import of the file.
+ */
+function adapterImportEdits(
+  rootNode: Node,
+  source: string,
+  missing: Map<string, Set<string>>,
+): Edit[] {
+  if (missing.size === 0) return [];
+  const imports = rootNode.findAll({ rule: { kind: "import_statement" } });
+  const last = imports.at(-1);
+  if (last === undefined) return [];
+  const quote = last.field("source")?.text()[0] ?? '"';
   const edits: Edit[] = [];
-  for (const call of calls) {
-    const callee = call.field("function")?.text();
-    if (callee === undefined || !names.has(callee)) continue;
-    const edit = commentBefore(call, RESOLVE_MODEL_NOTE, source);
-    if (edit) edits.push(edit);
+  const added: string[] = [];
+  for (const [from, factories] of missing) {
+    const statement = imports.find((candidate) => {
+      const sourceNode = candidate.field("source");
+      const specifiers = specifiersOf(candidate) ?? [];
+      return (
+        sourceNode !== null &&
+        unquote(sourceNode) === from &&
+        statementHead(candidate) === "import" &&
+        specifiers.length > 0
+      );
+    });
+    if (statement === undefined) {
+      added.push(renderStatement("import", [...factories], from, quote, false));
+      continue;
+    }
+    const sourceNode = statement.field("source");
+    const specifiers = specifiersOf(statement) ?? [];
+    edits.push(
+      statement.replace(
+        renderStatement(
+          "import",
+          [...specifiers.map((specifier) => specifier.text), ...factories],
+          from,
+          sourceNode?.text()[0] ?? quote,
+          statement.text().includes("\n"),
+        ),
+      ),
+    );
   }
-  return edits;
+  if (added.length === 0) return edits;
+  // After the newline that ends the last import, so this insert never touches
+  // an edit of that import.
+  const end = last.range().end.index;
+  const lines = added.join("\n");
+  const insert =
+    source[end] === "\n"
+      ? { startPos: end + 1, endPos: end + 1, insertedText: `${lines}\n` }
+      : { startPos: end, endPos: end, insertedText: `\n${lines}` };
+  return [...edits, insert];
 }
 
 export default codemod;
