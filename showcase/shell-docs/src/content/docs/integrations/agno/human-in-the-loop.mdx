@@ -70,7 +70,7 @@ Use frontend tools when you need your agent to interact with client-side primiti
         db = SqliteDb(db_file="tmp/agno.db")
 
         agent = Agent(
-            model=OpenAIChat(id="gpt-5.4"),
+            model=OpenAIChat(id="gpt-6-luna"),
             tools=[offerOptions],
             db=db,
             description="A helpful assistant that can answer questions and provide information.",

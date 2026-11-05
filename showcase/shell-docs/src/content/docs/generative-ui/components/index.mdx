@@ -80,7 +80,7 @@ Already have CopilotKit running? Do step 3 only. Your runtime needs no change: w
       factory: ({ input, abortController }) => {
         const { messages, systemPrompts, tools } = convertInputToTanStackAI(input);
         return chat({
-          adapter: openaiText("gpt-5.5"),
+          adapter: openaiText("gpt-6-luna"),
           messages,
           systemPrompts: [
             "You are a helpful assistant. When a visual answer helps, render it with generative UI.",
@@ -123,7 +123,7 @@ Already have CopilotKit running? Do step 3 only. Your runtime needs no change: w
       factory: ({ input, abortController }) => {
         const { messages, systemPrompts, tools } = convertInputToTanStackAI(input);
         return chat({
-          adapter: openaiText("gpt-5.5"),
+          adapter: openaiText("gpt-6-luna"),
           messages,
           systemPrompts: [
             "You are a helpful assistant. When a visual answer helps, render it with generative UI.",

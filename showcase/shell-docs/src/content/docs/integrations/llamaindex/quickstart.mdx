@@ -76,7 +76,7 @@ Before you begin, you'll need the following:
                 ```
 
                 <Callout type="info" title="What about other models?">
-                  The starter template is configured to use OpenAI's GPT-4o by default, but you can modify it to use any language model supported by LlamaIndex.
+                  The starter template is configured to use OpenAI's GPT-6 Luna by default, but you can modify it to use any language model supported by LlamaIndex.
                 </Callout>
             </Step>
             <Step>
@@ -177,7 +177,7 @@ Before you begin, you'll need the following:
                 ```
 
                 <Callout type="info" title="What about other models?">
-                  This example uses OpenAI's GPT-4o, but you can modify it to use any language model supported by LlamaIndex.
+                  This example uses OpenAI's GPT-6 Luna, but you can modify it to use any language model supported by LlamaIndex.
                 </Callout>
             </Step>
             <Step>
@@ -191,7 +191,7 @@ Before you begin, you'll need the following:
                 from llama_index.protocols.ag_ui.router import get_ag_ui_workflow_router
 
                 # Initialize the LLM
-                llm = OpenAI(model="gpt-5.4")
+                llm = OpenAI(model="gpt-6-luna")
 
                 # Create the AG-UI workflow router
                 agentic_chat_router = get_ag_ui_workflow_router(

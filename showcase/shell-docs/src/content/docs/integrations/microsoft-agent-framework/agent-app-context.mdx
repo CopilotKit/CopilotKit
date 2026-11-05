@@ -84,7 +84,7 @@ This context can then be shared with your AG-UI server and agent logic.
 
             // Create the base agent
             AIAgent baseAgent = new OpenAIClient(openAiApiKey)
-                .GetChatClient("gpt-5.4-mini")
+                .GetChatClient("gpt-6-luna")
                 .AsAIAgent(
                     name: "AGUIAssistant",
                     instructions: "You are a helpful assistant. Use the provided context about colleagues to answer questions.");

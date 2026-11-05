@@ -111,7 +111,7 @@ We're going to have the agent ask us to name it, so we'll need a state property 
                     return None
 
             agent = create_deep_agent(
-                model="openai:gpt-4o",
+                model="openai:gpt-6-luna",
                 middleware=[
                     AgentNameMiddleware(),
                     CopilotKitMiddleware(expose_state=["agent_name"]), # [!code highlight]
@@ -155,7 +155,7 @@ We're going to have the agent ask us to name it, so we'll need a state property 
             });
 
             export const agent = createDeepAgent({
-                model: "openai:gpt-4o",
+                model: "openai:gpt-6-luna",
                 middleware: [
                     agentNameMiddleware,
                     stateAwareCopilotKitMiddleware,

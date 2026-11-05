@@ -53,7 +53,7 @@ when your agent is calling tools. CopilotKit allows you to fully customize how t
             return f"The weather for {location} is 70 degrees."
 
         agent = create_deep_agent(
-            model="openai:gpt-4o",
+            model="openai:gpt-6-luna",
             tools=[get_weather], # [!code highlight]
             system_prompt="You are a helpful assistant.",
         )
@@ -80,7 +80,7 @@ when your agent is calling tools. CopilotKit allows you to fully customize how t
         );
 
         export const agent = createDeepAgent({
-          model: "openai:gpt-4o",
+          model: "openai:gpt-6-luna",
           tools: [getWeather], // [!code highlight]
           systemPrompt: "You are a helpful assistant.",
         });

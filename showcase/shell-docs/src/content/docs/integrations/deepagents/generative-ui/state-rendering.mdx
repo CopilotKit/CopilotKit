@@ -83,7 +83,7 @@ Use state rendering when you want to:
             )
 
         agent = create_deep_agent(
-            model="openai:gpt-5.4",
+            model="openai:gpt-6-luna",
             tools=[report_research_progress],
             middleware=[
                 SearchesStateMiddleware(),
@@ -162,7 +162,7 @@ Use state rendering when you want to:
         );
 
         export const agent = createDeepAgent({
-          model: "openai:gpt-5.4",
+          model: "openai:gpt-6-luna",
           tools: [reportResearchProgress],
           middleware: [
             searchesStateMiddleware,
