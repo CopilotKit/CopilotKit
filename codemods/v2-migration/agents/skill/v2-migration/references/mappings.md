@@ -303,10 +303,10 @@ becomes, in `app/api/copilotkit/[[...slug]]/route.ts`:
 
 ```ts
 import {
-  BuiltInAgent,
   CopilotRuntime,
   createCopilotRuntimeHandler,
 } from "@copilotkit/runtime";
+import { BuiltInAgent } from "@copilotkit/runtime/agent";
 
 const runtime = new CopilotRuntime({
   agents: { default: new BuiltInAgent({ model: "openai/gpt-5.4" }) },
@@ -332,6 +332,49 @@ const status = (await runtime.getLicenseChecker())?.getStatus();
 ```
 
 `@copilotkit/runtime` requires Node.js `^20.19.3 || >=22.13.0`. If `engines.node`, `.nvmrc`, a Dockerfile, or CI pins an earlier Node.js version, tell the user. Do not change it without asking.
+
+## Built-in Agent
+
+`BuiltInAgent` imports from `@copilotkit/runtime/agent`, and it runs on TanStack AI. The codemod already moved the imports. The AI SDK helpers (`convertMessagesToVercelAISDKMessages`, `convertToolsToVercelAITools`, `createSafeUrlDownload`, ...) moved to `@copilotkit/runtime/agent/ai-sdk`.
+
+Install the packages the app needs. The runtime does not install them:
+
+1. If a `BuiltInAgent` takes a model string, add `@tanstack/ai` and the adapter for each provider in the strings:
+
+   | Model string prefix                 | Package                  |
+   | ----------------------------------- | ------------------------ |
+   | `openai`, `minimax`                 | `@tanstack/ai-openai`    |
+   | `anthropic`                         | `@tanstack/ai-anthropic` |
+   | `google`, `gemini`, `google-gemini` | `@tanstack/ai-gemini`    |
+   | `vertex`                            | `@tanstack/ai-vertex`    |
+
+2. If a `BuiltInAgent` sets `mcpServers`, add `@tanstack/ai-mcp`.
+3. If the code imports from `@copilotkit/runtime/agent/ai-sdk`, keep or add `ai`.
+4. Remove `@ai-sdk/*` packages that the code no longer imports.
+
+Fix the TODOs:
+
+| TODO on                                                       | 2.0                                                                                                                                                                          |
+| ------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `temperature`, `maxOutputTokens`, `topP`, `topK`, `seed`, ... | Removed. Put the provider's own option names in `modelOptions`, for example `modelOptions: { temperature: 0.2 }`. Check the names in the provider docs.                      |
+| `providerOptions`                                             | Removed. Move the options for this provider into `modelOptions`.                                                                                                             |
+| `urlDownload`                                                 | Removed. The provider gets attachment URLs as they are. Delete the key, and tell the user.                                                                                   |
+| `model: openai("...")` (an AI SDK model)                      | Use a model string (`"openai/gpt-5.4"`) or a TanStack adapter (`openaiText("gpt-5.4")` from `@tanstack/ai-openai`). To keep the AI SDK model, use a `type: "aisdk"` factory. |
+| `resolveModel(...)`                                           | It is async. Add `await`, and make the function async if it is not.                                                                                                          |
+| `MCPClient`, `MCPTransport`                                   | Import the MCP client types from `@tanstack/ai-mcp`.                                                                                                                         |
+
+A model string with the provider adapter installed:
+
+```ts
+import { BuiltInAgent } from "@copilotkit/runtime/agent";
+
+const agent = new BuiltInAgent({
+  model: "anthropic/claude-sonnet-4-6",
+  modelOptions: { temperature: 0.2 },
+});
+```
+
+See [Built-in Agent in 2.0](https://docs.copilotkit.ai/migrate/runtime-2.0#built-in-agent).
 
 ## LangGraph
 

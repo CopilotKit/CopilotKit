@@ -30,6 +30,7 @@ The codemod already did the mechanical part: `/v2` import paths now point at the
    - set every `@copilotkit/*` dependency to the same 2.x version;
    - remove `@copilotkit/react-ui`, `@copilotkit/react-textarea`, and `@copilotkit/runtime-client-gql`;
    - add `@ag-ui/langgraph` if the code now imports from it;
+   - if the code imports from `@copilotkit/runtime/agent`, add `@tanstack/ai` and the adapter for each model string it uses (see the Built-in Agent section of `references/mappings.md`); add `ai` if it imports from `@copilotkit/runtime/agent/ai-sdk`;
    - remove `streamdown`, `streamdown-vue`, `react-native-streamdown`, and `katex` if the code no longer imports them.
 4. Install, then run the typecheck and the build. Fix what they report.
 5. Report to the user: what changed, each v1 feature that has no 2.0 equivalent, and anything you could not verify.
