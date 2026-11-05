@@ -47,6 +47,7 @@ import logging
 import warnings
 from typing import Any, Dict, Optional
 
+from _shared.httpx_transports import available_httpx_transports
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from starlette.responses import Response
@@ -337,7 +338,7 @@ _GLOBAL_HTTPX_PATCHED = False
 
 
 def install_global_httpx_hook() -> None:
-    """Patch ``httpx.Client`` / ``httpx.AsyncClient`` so EVERY future
+    """Patch installed httpx/httpx2 clients so EVERY future
     instance auto-attaches the forwarded-header hook on construction.
 
     Use this when the LLM client is buried behind opaque framework
@@ -356,11 +357,13 @@ def install_global_httpx_hook() -> None:
     if _GLOBAL_HTTPX_PATCHED:
         return
 
-    try:
-        import httpx
-    except ImportError:  # pragma: no cover
-        return
+    for transport in available_httpx_transports():
+        _patch_httpx_module(transport)
+    _GLOBAL_HTTPX_PATCHED = True
 
+
+def _patch_httpx_module(httpx: Any) -> None:
+    """Bind each transport's original constructors independently."""
     _orig_sync_init = httpx.Client.__init__
     _orig_async_init = httpx.AsyncClient.__init__
 
@@ -400,4 +403,3 @@ def install_global_httpx_hook() -> None:
 
     httpx.Client.__init__ = _patched_sync_init
     httpx.AsyncClient.__init__ = _patched_async_init
-    _GLOBAL_HTTPX_PATCHED = True
