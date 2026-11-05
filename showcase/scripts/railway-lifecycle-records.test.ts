@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { createHash } from "node:crypto";
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { readRailwayLifecycleEvidence } from "../harness/src/shared/railway-lifecycle-records";
@@ -128,6 +128,25 @@ it("authenticates a fresh snapshot and acknowledges its exact bytes and policy",
     }),
   );
 });
+
+it.each(["baseline", "candidate"] as const)(
+  "keeps the recovery exception tied to the staging runner %s policy",
+  async (slot) => {
+    const release = JSON.parse(
+      await readFile(
+        new URL(
+          "../../tools/railway-runner-deploy/releases/staging.json",
+          import.meta.url,
+        ),
+        "utf8",
+      ),
+    );
+    expect(
+      release[slot].runtimeIdentity.policySha256,
+      "Staging runner policy changed; review and retire the docs-preview recovery exception",
+    ).toBe(predecessorPolicySha256);
+  },
+);
 
 it.each(["image-gate", "ruby-promotion", "harness"])(
   "recovers the reviewed docs-preview policy transition for %s",
