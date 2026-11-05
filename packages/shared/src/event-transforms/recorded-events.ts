@@ -5,6 +5,7 @@ import type { A2UIMiddlewareConfig } from "@ag-ui/a2ui-middleware";
 import { firstValueFrom, from, toArray } from "rxjs";
 import type { Observable } from "rxjs";
 import { OpenGenerativeUIMiddleware } from "./open-generative-ui-middleware";
+import { restoreMCPAppsActivities } from "./mcp-apps-replay";
 
 export interface RecordedEventTransformOptions {
   /** Use the original runtime configuration, including its catalog when known. */
@@ -54,7 +55,9 @@ export async function transformRecordedEvents(
   events: readonly BaseEvent[],
   options: RecordedEventTransformOptions,
 ): Promise<BaseEvent[]> {
-  let agent: AbstractAgent = new RecordedEventAgent(input, () => from(events));
+  let agent: AbstractAgent = new RecordedEventAgent(input, () =>
+    from(restoreMCPAppsActivities(events)),
+  );
   // Runtime registers A2UI before Open GenUI; the first middleware is outermost.
   if (options.openGenerativeUI) {
     const next = agent;

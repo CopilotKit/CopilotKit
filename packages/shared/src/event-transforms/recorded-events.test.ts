@@ -151,6 +151,113 @@ describe("transformRecordedEvents", () => {
     expect(JSON.stringify(actual)).toContain("test://catalog");
   });
 
+  it("restores MCP app activities from canonical results without altering original IDs or data", async () => {
+    const activity = {
+      messageId: "original-app-activity",
+      content: {
+        result: {
+          content: [
+            {
+              type: "text",
+              text: '{"fixture":"pni707-counter-v1","initialCount":0}',
+            },
+          ],
+          structuredContent: { fixture: "pni707-counter-v1", initialCount: 0 },
+        },
+        resourceUri: "ui://pni707/counter.html",
+        serverId: "pni707-local",
+        serverHash: "public-hash",
+        toolInput: { label: "pni707-unrecorded-mcp-v2" },
+      },
+    };
+    const events = toolRun(
+      "counter",
+      JSON.stringify(activity.content.toolInput),
+    );
+    const result = events[4] as BaseEvent & { content: string };
+    result.content = JSON.stringify({
+      type: "ag-ui:mcp-app-result",
+      version: 1,
+      activity,
+    });
+    const before = structuredClone(events);
+    const output = await transformRecordedEvents(input, events, {});
+    expect(output).toEqual([
+      ...events.slice(0, 5),
+      {
+        type: EventType.ACTIVITY_SNAPSHOT,
+        activityType: "mcp-apps",
+        ...activity,
+        replace: true,
+      },
+      events[5],
+    ]);
+    expect(events).toEqual(before);
+    expect(output[4]).toBe(result);
+    expect(await transformRecordedEvents(input, output, {})).toEqual(output);
+  });
+
+  it("ignores unexpected routing authority and resource bytes in the envelope", async () => {
+    const content = {
+      result: { content: [{ type: "text", text: "done" }] },
+      resourceUri: "ui://app",
+      serverHash: "hash",
+      toolInput: {},
+    };
+    const event = {
+      type: EventType.TOOL_CALL_RESULT,
+      toolCallId: "call",
+      messageId: "result",
+      content: JSON.stringify({
+        type: "ag-ui:mcp-app-result",
+        version: 1,
+        activity: {
+          messageId: "app",
+          content: {
+            ...content,
+            url: "https://private",
+            headers: { Authorization: "secret" },
+            resource: "<html>injected</html>",
+          },
+        },
+      }),
+    };
+    const output = await transformRecordedEvents(input, [event], {});
+    expect(output).toEqual([
+      event,
+      {
+        type: EventType.ACTIVITY_SNAPSHOT,
+        messageId: "app",
+        activityType: "mcp-apps",
+        content,
+        replace: true,
+      },
+    ]);
+  });
+
+  it("leaves multipart tool results unchanged", async () => {
+    const event = {
+      type: EventType.TOOL_CALL_RESULT,
+      toolCallId: "call",
+      messageId: "result",
+      content: [{ type: "text", text: "native multipart" }],
+    };
+    expect(await transformRecordedEvents(input, [event], {})).toEqual([event]);
+  });
+
+  it("does not invent MCP context for legacy, malformed, or future results", async () => {
+    for (const content of [
+      '{"fixture":"pni707-counter-v1","initialCount":0}',
+      "not JSON",
+      '{"type":"ag-ui:mcp-app-result","version":2,"activity":{}}',
+      '{"type":"ag-ui:mcp-app-result","version":1,"activity":{"messageId":"a","content":{"resourceUri":"ui://x"}}}',
+    ]) {
+      const events = toolRun("counter", "{}");
+      (events[4] as BaseEvent & { content: string }).content = content;
+      expect(await transformRecordedEvents(input, events, {})).toEqual(events);
+    }
+  });
+
   it("passes ordinary events and terminal errors through unchanged", async () => {
     const events: BaseEvent[] = [
       { type: EventType.RUN_ERROR, message: "recorded failure" },
