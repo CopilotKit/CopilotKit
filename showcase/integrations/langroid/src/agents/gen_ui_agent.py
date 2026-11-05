@@ -214,9 +214,10 @@ async def _call_openai(
     ``OPENAI_BASE_URL`` from the environment (aimock sets the base URL
     in the showcase).
     """
-    model = os.getenv("LANGROID_MODEL", "gpt-4.1")
+    model = os.getenv("LANGROID_MODEL", "gpt-6-luna")
     client = openai.AsyncOpenAI()
     response = await client.chat.completions.create(
+        reasoning_effort="none",
         model=model,
         messages=messages,
         tools=tools if tools else openai.NOT_GIVEN,

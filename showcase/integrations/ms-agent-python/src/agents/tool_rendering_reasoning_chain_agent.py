@@ -205,11 +205,11 @@ def _build_reasoning_chain_chat_client() -> BaseChatClient:
 
     Mirrors ``reasoning_agent.py::_build_reasoning_chat_client`` — the model
     env var defaults to ``OPENAI_REASONING_MODEL`` and then the canonical
-    ``gpt-5.4`` so the fixture's ``response.reasoning_summary_text.delta``
+    ``gpt-6-luna`` so the fixture's ``response.reasoning_summary_text.delta``
     events surface as AG-UI ``REASONING_MESSAGE_*`` events.
     """
     return OpenAIChatClient(
-        model=os.environ.get("OPENAI_REASONING_MODEL", "gpt-5.4"),
+        model=os.environ.get("OPENAI_REASONING_MODEL", "gpt-6-luna"),
         api_key=os.environ.get("OPENAI_API_KEY"),
     )
 
@@ -260,6 +260,6 @@ def build_default_chat_client() -> BaseChatClient:
     if not os.getenv("OPENAI_API_KEY"):
         raise ValueError("OPENAI_API_KEY environment variable is required")
     return OpenAIChatClient(
-        model=os.getenv("OPENAI_CHAT_MODEL_ID", "gpt-4o-mini"),
+        model=os.getenv("OPENAI_CHAT_MODEL_ID", "gpt-6-luna"),
         api_key=os.getenv("OPENAI_API_KEY"),
     )

@@ -23,7 +23,7 @@ class LatestAiDevelopment:
     @agent
     def researcher(self) -> Agent:
         return Agent(
-            llm="gpt-5.4",
+            llm="gpt-6-luna",
             config=self.agents_config["researcher"],  # type: ignore[index]
             verbose=True,
             tools=[
@@ -38,7 +38,7 @@ class LatestAiDevelopment:
     @agent
     def reporting_analyst(self) -> Agent:
         return Agent(
-            llm="gpt-5.4",
+            llm="gpt-6-luna",
             config=self.agents_config["reporting_analyst"],  # type: ignore[index]
             verbose=True,
             tools=[QueryDataTool()],
@@ -66,5 +66,5 @@ class LatestAiDevelopment:
             tasks=self.tasks,
             process=Process.sequential,
             verbose=True,
-            chat_llm="gpt-5.4",
+            chat_llm="gpt-6-luna",
         )

@@ -27,7 +27,7 @@ from agents.responses_reasoning import ResponsesReasoningCapture
 from tools import get_weather_impl
 
 
-REASONING_MODEL = os.environ.get("OPENAI_REASONING_MODEL", "gpt-5.4")
+REASONING_MODEL = os.environ.get("OPENAI_REASONING_MODEL", "gpt-6-luna")
 SYSTEM_PROMPT = (
     "You are a travel and lifestyle concierge. Think through the request, "
     "then use the mock tools for weather, flights, stock comparisons, or "

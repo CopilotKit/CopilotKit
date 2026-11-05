@@ -60,7 +60,7 @@ preseed_system_prompt(
 
 def _build_crew() -> Crew:
     agent = Agent(
-        llm="gpt-5.4",
+        llm="gpt-6-luna",
         role="MCP Apps Demo Assistant",
         goal=(
             "Draw simple diagrams in Excalidraw via the MCP `create_view` "
@@ -91,7 +91,7 @@ def _build_crew() -> Crew:
         tasks=[task],
         process=Process.sequential,
         verbose=False,
-        chat_llm="gpt-5.4",
+        chat_llm="gpt-6-luna",
     )
 
 

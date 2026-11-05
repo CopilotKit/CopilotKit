@@ -5,7 +5,7 @@ reasoning-custom (a custom amber ReasoningBlock).
 
 Why a reasoning model plus the Responses API: the OpenAI Responses API streams
 `response.reasoning_summary_text.delta` items only for native reasoning models
-(gpt-5, o3, o4-mini and friends). The Strands bridge translates those into
+(gpt-6-luna and friends). The Strands bridge translates those into
 AG-UI REASONING_MESSAGE_* events with `role: "reasoning"`, which the frontend
 renders through the `reasoningMessage` slot. gpt-4o emits no reasoning items, so
 the showcase's default chat-completions model would never light the slot up.
@@ -29,7 +29,7 @@ SYSTEM_PROMPT = (
     "step-by-step about the approach, then give a concise answer."
 )
 
-DEFAULT_REASONING_MODEL = "gpt-5.4"
+DEFAULT_REASONING_MODEL = "gpt-6-luna"
 
 
 def reasoning_model_id() -> str:

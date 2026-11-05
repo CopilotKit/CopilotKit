@@ -215,7 +215,7 @@ export function createByocJsonRenderAgent() {
       const { messages, systemPrompts } = convertInputToTanStackAI(input);
 
       const stream = chat({
-        adapter: openaiText("gpt-5.4", { fetch: forwardingFetch }),
+        adapter: openaiText("gpt-6-luna", { fetch: forwardingFetch }),
         // JSON_MODE_INPUT_DIRECTIVE goes in `messages` (→ `input`), not in
         // `systemPrompts` (→ `instructions`) — that is the half `json_object`
         // validates against. See JSON_OBJECT_FORMAT.

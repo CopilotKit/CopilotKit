@@ -17,10 +17,10 @@ import { DEMO_AGENT_LOOP_STRATEGY, throwOnRunError } from "./demo-stream";
  * GPT-5.2 is a reasoning-capable model exposed through OpenAI's *Responses*
  * API, which streams a natural-language reasoning summary when asked with
  * `reasoning: { effort, summary }`. Swap via the `REASONING_MODEL` env var to
- * another Responses-API reasoning model (e.g. `o3`, `gpt-5-thinking`) if
+ * another Responses-API reasoning model (e.g. `gpt-6-luna`, `gpt-6-luna`) if
  * GPT-5.2 isn't accessible in your environment.
  */
-const REASONING_MODEL = process.env.REASONING_MODEL ?? "gpt-5.2";
+const REASONING_MODEL = process.env.REASONING_MODEL ?? "gpt-6-luna";
 
 /**
  * Reasoning effort for the summary. Must be `high`: at `low`/`medium`, real
@@ -192,7 +192,7 @@ export function createAgenticChatReasoningAgent() {
     factory: ({ input, abortController }) => {
       const { messages, systemPrompts } = convertInputToTanStackAI(input);
       const stream = chat({
-        adapter: openaiText(REASONING_MODEL as "gpt-5.2", {
+        adapter: openaiText(REASONING_MODEL as "gpt-6-luna", {
           fetch: forwardingFetch,
         }),
         messages,

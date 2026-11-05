@@ -140,7 +140,7 @@ export function createA2UIFixedSchemaAgent() {
     factory: ({ input, abortController }) => {
       const { messages, systemPrompts } = convertInputToTanStackAI(input);
       return chat({
-        adapter: openaiText("gpt-5.4", { fetch: forwardingFetch }),
+        adapter: openaiText("gpt-6-luna", { fetch: forwardingFetch }),
         messages,
         systemPrompts: [A2UI_FIXED_SCHEMA_SYSTEM_PROMPT, ...systemPrompts],
         tools: [displayFlightTool],

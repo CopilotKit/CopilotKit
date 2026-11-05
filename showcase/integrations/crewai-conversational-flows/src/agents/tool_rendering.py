@@ -273,7 +273,8 @@ class ToolRenderingFlow(Flow[ToolRenderingState]):
 
             response = await copilotkit_stream(
                 await acompletion(
-                    model="openai/gpt-5.4",
+                    reasoning_effort="none",
+                    model="openai/gpt-6-luna",
                     messages=messages,
                     tools=tools,
                     tool_choice=(

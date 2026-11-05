@@ -85,7 +85,7 @@ class MultimodalFlow(Flow[CopilotKitState]):
         if _has_pdf(self.state.messages):
             response = await copilotkit_stream(
                 await aresponses(
-                    model="openai/gpt-5.4",
+                    model="openai/gpt-6-luna",
                     input=_pdf_responses_input(
                         [
                             {"role": "system", "content": SYSTEM_PROMPT},
@@ -100,7 +100,8 @@ class MultimodalFlow(Flow[CopilotKitState]):
 
         response = await copilotkit_stream(
             await acompletion(
-                model="openai/gpt-5.4",
+                reasoning_effort="none",
+                model="openai/gpt-6-luna",
                 messages=[
                     {"role": "system", "content": SYSTEM_PROMPT},
                     *self.state.messages,

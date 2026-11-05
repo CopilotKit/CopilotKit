@@ -160,6 +160,7 @@ async def _stream_json_response(
     """Yield raw JSON text deltas from OpenAI streaming chat completion."""
     client = openai.AsyncOpenAI()
     stream = await client.chat.completions.create(
+        reasoning_effort="none",
         model=model,
         messages=[{"role": "system", "content": system_prompt}, *user_messages],
         response_format={"type": "json_object"},
@@ -295,5 +296,5 @@ async def handle_run(request: Request) -> StreamingResponse:
     return await _run_byoc(
         system_prompt=_SYSTEM_PROMPT,
         request=request,
-        default_model="gpt-5-mini",
+        default_model="gpt-6-luna",
     )

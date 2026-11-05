@@ -730,7 +730,7 @@ export function createBeautifulChatAgent() {
         );
 
       const stream = chat({
-        adapter: openaiText("gpt-5.4", { fetch: forwardingFetch }),
+        adapter: openaiText("gpt-6-luna", { fetch: forwardingFetch }),
         messages,
         systemPrompts: [SYSTEM_PROMPT, ...systemPrompts],
         tools: [...serverTools, ...declaredTools],

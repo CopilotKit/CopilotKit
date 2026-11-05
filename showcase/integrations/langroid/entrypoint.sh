@@ -52,7 +52,7 @@ cleanup() {
 trap cleanup EXIT
 
 # Provider-agnostic startup diagnostic. langroid is multi-provider — the chat
-# model is selected via ``LANGROID_MODEL`` (e.g. ``gpt-5-mini``,
+# model is selected via ``LANGROID_MODEL`` (e.g. ``gpt-6-luna``,
 # ``litellm/anthropic/claude-opus-4-8``, ``gemini/gemini-3.8-flash``). Whichever
 # provider is picked, only THAT provider's API key is required.
 #
@@ -61,16 +61,16 @@ trap cleanup EXIT
 # var is missing. Default behavior is warn-and-continue so operators can
 # bring the container up for local dev; set ``REQUIRE_LANGROID_API_KEY=1``
 # in production to fail-fast.
-# Map a langroid model string like ``gpt-5-mini`` (bare OpenAI name) or
+# Map a langroid model string like ``gpt-6-luna`` (bare OpenAI name) or
 # ``gemini/gemini-3.8-flash`` to the env var that langroid's ``OpenAIGPT``
 # client actually reads at request time. Mappings verified against
 # langroid's installed ``language_models/openai_gpt.py`` — in particular:
-#   * Bare OpenAI names (``gpt-*``, ``o1*``, ``o3*``, ``o4*``, anything with
+#   * Bare OpenAI names (``gpt-*``, ``gpt-6-luna*``, ``gpt-6-luna*``, ``gpt-6-luna*``, anything with
 #                        NO ``/`` separator)
 #                     -> ``OPENAI_API_KEY``. langroid strips no prefix from
 #                        ``openai/<model>`` — it passes the model string
 #                        LITERALLY to the OpenAI SDK, which then rejects
-#                        ``openai/gpt-5-mini`` as "model not found". Use bare
+#                        ``openai/gpt-6-luna`` as "model not found". Use bare
 #                        OpenAI names.
 #   * ``openai/*``     -> WARN (fatal under REQUIRE_LANGROID_API_KEY=1):
 #                        ``openai/`` is NOT a langroid-native prefix;
@@ -157,8 +157,8 @@ _expected_key_for_model() {
         # anthropic variants.
         litellm/*)            echo "NO_KEY_REQUIRED_LITELLM" ;;
         # Bare model names with no ``/`` separator are treated as OpenAI
-        # (gpt-*, o1*, o3*, o4*, chatgpt-*, etc.). This matches langroid's
-        # canonical convention (``OpenAIChatModel.GPT4_1.value == "gpt-4.1"``)
+        # (gpt-*, gpt-6-luna*, gpt-6-luna*, gpt-6-luna*, chatgpt-*, etc.). This matches langroid's
+        # canonical convention (``OpenAIChatModel.GPT4_1.value == "gpt-6-luna"``)
         # — and the OpenAI SDK accepts them directly.
         */*)                  echo "" ;;
         *)                    echo "OPENAI_API_KEY" ;;
@@ -168,7 +168,7 @@ _expected_key_for_model() {
 # Log when we're falling back to the default so operators understand why
 # the OpenAI-shaped env guard fires even though they "didn't pick OpenAI".
 if [ -z "${LANGROID_MODEL:-}" ]; then
-    echo "[entrypoint] INFO: LANGROID_MODEL not set — defaulting to 'gpt-5-mini' (OPENAI_API_KEY will be required)" >&2
+    echo "[entrypoint] INFO: LANGROID_MODEL not set — defaulting to 'gpt-6-luna' (OPENAI_API_KEY will be required)" >&2
 fi
 LANGROID_MODEL_EFFECTIVE="${LANGROID_MODEL:-gpt-5-mini}"
 A2UI_MODEL_EFFECTIVE="${A2UI_MODEL:-$LANGROID_MODEL_EFFECTIVE}"
@@ -192,16 +192,16 @@ _check_key() {
     # ``openai/*`` is NOT langroid-native either: langroid passes the full
     # string LITERALLY to the OpenAI SDK (verified empirically — the
     # ``openai/`` prefix is not stripped inside ``lm.OpenAIGPT``), and the
-    # SDK rejects ``openai/gpt-5-mini`` as "model not found". Emit a warning so
+    # SDK rejects ``openai/gpt-6-luna`` as "model not found". Emit a warning so
     # operators see the boot-time remediation rather than a cryptic
     # request-time failure.
     case "$model" in
         openai/*)
             if [ "${REQUIRE_LANGROID_API_KEY:-0}" = "1" ]; then
-                echo "[entrypoint] FATAL: $role model '$model' uses 'openai/' prefix which is not a langroid-native prefix — langroid passes it literally to the OpenAI SDK which will reject it. Use the bare model name (e.g. 'gpt-5-mini') instead; refusing to start under REQUIRE_LANGROID_API_KEY=1" >&2
+                echo "[entrypoint] FATAL: $role model '$model' uses 'openai/' prefix which is not a langroid-native prefix — langroid passes it literally to the OpenAI SDK which will reject it. Use the bare model name (e.g. 'gpt-6-luna') instead; refusing to start under REQUIRE_LANGROID_API_KEY=1" >&2
                 exit 1
             fi
-            echo "[entrypoint] WARN: $role model '$model' uses 'openai/' prefix — langroid passes it LITERALLY to the OpenAI SDK (the prefix is NOT stripped) and the SDK will reject it as 'model not found'. Use the bare model name (e.g. 'gpt-5-mini') instead. Falling through to OPENAI_API_KEY check so the operator sees both issues at boot." >&2
+            echo "[entrypoint] WARN: $role model '$model' uses 'openai/' prefix — langroid passes it LITERALLY to the OpenAI SDK (the prefix is NOT stripped) and the SDK will reject it as 'model not found'. Use the bare model name (e.g. 'gpt-6-luna') instead. Falling through to OPENAI_API_KEY check so the operator sees both issues at boot." >&2
             ;;
     esac
     local var
@@ -230,7 +230,7 @@ _check_key() {
     esac
     if [ -z "$var" ]; then
         if [ "${REQUIRE_LANGROID_API_KEY:-0}" = "1" ]; then
-            echo "[entrypoint] FATAL: Cannot infer required credential for $role model '$model'. Set a langroid-native prefix (bare OpenAI name e.g. 'gpt-5-mini', litellm/anthropic/, gemini/, openrouter/, groq/, cerebras/, glhf/, minimax/, portkey/, deepseek/, ollama/, local/, vllm/, llamacpp/) or set REQUIRE_LANGROID_API_KEY=0 to downgrade to warn-mode." >&2
+            echo "[entrypoint] FATAL: Cannot infer required credential for $role model '$model'. Set a langroid-native prefix (bare OpenAI name e.g. 'gpt-6-luna', litellm/anthropic/, gemini/, openrouter/, groq/, cerebras/, glhf/, minimax/, portkey/, deepseek/, ollama/, local/, vllm/, llamacpp/) or set REQUIRE_LANGROID_API_KEY=0 to downgrade to warn-mode." >&2
             exit 1
         fi
         echo "[entrypoint] INFO: $role model '$model' does not match a known provider prefix — skipping env-key check (request-time calls will surface credentials)" >&2

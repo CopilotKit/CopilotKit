@@ -91,7 +91,8 @@ class DeclarativeGenUIFlow(Flow[DeclarativeGenUIState]):
 
         response = await copilotkit_stream(
             await acompletion(
-                model="openai/gpt-5.4",
+                reasoning_effort="none",
+                model="openai/gpt-6-luna",
                 messages=[
                     {"role": "system", "content": _system_prompt(self.state)},
                     *self.state.messages,

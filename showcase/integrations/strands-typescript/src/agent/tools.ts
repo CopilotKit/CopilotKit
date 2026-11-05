@@ -251,7 +251,8 @@ async function runSubagent(name: string, task: string): Promise<string> {
   const systemPrompt = SUBAGENT_SYSTEM_PROMPTS[name];
   try {
     const response = await openaiClient().chat.completions.create({
-      model: process.env.SUBAGENT_MODEL_ID ?? "gpt-4o-mini",
+      reasoning_effort: "none",
+      model: process.env.SUBAGENT_MODEL_ID ?? "gpt-6-luna",
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: task },

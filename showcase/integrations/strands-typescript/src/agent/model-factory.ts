@@ -71,7 +71,7 @@ export async function createModel(
     const baseURL = process.env.OPENAI_BASE_URL;
     return new OpenAIModel({
       apiKey,
-      modelId: options.openaiModelId ?? process.env.MODEL_ID ?? "gpt-4o",
+      modelId: options.openaiModelId ?? process.env.MODEL_ID ?? "gpt-6-luna",
       // Default to chat completions (incremental tool-arg streaming).
       api: options.openaiApi ?? "chat",
       // `summary: "detailed"` rather than `"auto"`: with `"auto"` the model
@@ -82,7 +82,9 @@ export async function createModel(
       // than quietly do nothing.
       ...(reasoning && (options.openaiApi ?? "chat") === "responses"
         ? { params: { reasoning: { effort: "medium", summary: "detailed" } } }
-        : {}),
+        : (options.openaiApi ?? "chat") === "chat"
+          ? { params: { reasoning_effort: "none" } }
+          : {}),
       clientConfig: {
         ...(baseURL ? { baseURL } : {}),
         // Identify this integration to aimock so it matches the right fixtures.

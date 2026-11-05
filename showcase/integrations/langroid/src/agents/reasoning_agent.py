@@ -77,7 +77,7 @@ SYSTEM_PROMPT = (
     "step-by-step about the approach, then give a concise answer."
 )
 
-MODEL = "gpt-4o-mini"
+MODEL = "gpt-6-luna"
 
 _REASONING_PATTERN = re.compile(
     r"<reasoning>(.*?)</reasoning>",

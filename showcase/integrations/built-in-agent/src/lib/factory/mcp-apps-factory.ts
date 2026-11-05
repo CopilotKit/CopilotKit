@@ -56,7 +56,7 @@ export function createMcpAppsAgent() {
         }),
       );
       return chat({
-        adapter: openaiText("gpt-5.4", { fetch: forwardingFetch }),
+        adapter: openaiText("gpt-6-luna", { fetch: forwardingFetch }),
         messages,
         systemPrompts: [MCP_APPS_SYSTEM_PROMPT, ...systemPrompts],
         tools,

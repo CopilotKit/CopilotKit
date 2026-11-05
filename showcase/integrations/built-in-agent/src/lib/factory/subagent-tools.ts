@@ -84,7 +84,7 @@ export function buildSubagentTools(parentAbortController: AbortController) {
         }
       }
       const text = await chat({
-        adapter: openaiText("gpt-5.4", { fetch: forwardingFetch }),
+        adapter: openaiText("gpt-6-luna", { fetch: forwardingFetch }),
         messages: [{ role: "user", content: task }],
         systemPrompts: [role.systemPrompt],
         abortController: parentAbortController,

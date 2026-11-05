@@ -448,7 +448,7 @@ demos:
   - id: multimodal
     name: Multimodal Attachments
     description:
-      Image + PDF uploads forwarded to a vision-capable agent (gpt-4o);
+      Image + PDF uploads forwarded to a vision-capable agent (gpt-6-luna);
       PDFs are flattened to text server-side
     tags:
       - chat-ui

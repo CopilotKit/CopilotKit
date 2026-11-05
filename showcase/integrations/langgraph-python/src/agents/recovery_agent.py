@@ -74,15 +74,15 @@ SYSTEM_PROMPT = (
     "rendering — and its automatic recovery — for you."
 )
 
-_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o")
-_A2UI_MODEL = ChatOpenAI(model=_MODEL)
+_MODEL = os.getenv("OPENAI_MODEL", "gpt-6-luna")
+_A2UI_MODEL = ChatOpenAI(reasoning_effort="none", model=_MODEL)
 
 # Backend-owned A2UI with the recovery loop made explicit. `maxAttempts` is set
 # so the renderer's "Retrying… (N/M)" label matches the adapter's cap. Recovery
 # + the recovery-exhausted hard-fail are toolkit defaults; pinned here for the
 # demo. Catalog/data arrive from the frontend via context (same as declarative).
 graph = create_agent(
-    model=ChatOpenAI(model=_MODEL),
+    model=ChatOpenAI(reasoning_effort="none", model=_MODEL),
     tools=[
         get_a2ui_tools(
             {

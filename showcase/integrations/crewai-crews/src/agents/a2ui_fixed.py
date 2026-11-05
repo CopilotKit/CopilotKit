@@ -139,7 +139,7 @@ preseed_system_prompt(
 
 def _build_crew() -> Crew:
     agent = Agent(
-        llm="gpt-5.4",
+        llm="gpt-6-luna",
         role="A2UI Fixed-Schema Flight Finder",
         goal=(
             "Answer the user's flight questions by calling display_flight "
@@ -165,7 +165,7 @@ def _build_crew() -> Crew:
         tasks=[task],
         process=Process.sequential,
         verbose=False,
-        chat_llm="gpt-5.4",
+        chat_llm="gpt-6-luna",
     )
 
 
@@ -193,7 +193,8 @@ class A2UIFixedFlow(Flow[CopilotKitState]):
         for _iteration in range(3):
             response = await copilotkit_stream(
                 await acompletion(
-                    model="openai/gpt-5.4",
+                    reasoning_effort="none",
+                    model="openai/gpt-6-luna",
                     messages=[
                         {"role": "system", "content": A2UI_FIXED_BACKSTORY},
                         *self.state.messages,

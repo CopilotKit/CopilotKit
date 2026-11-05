@@ -77,7 +77,7 @@ _run_agent_config`) that reads `RunAgentInput.forwarded_props` and builds
 - `voice` — V2 runtime under `/api/copilotkit-voice` with a guarded
   `TranscriptionServiceOpenAI`. Targets the Agno main agent at `/agui` for
   the chat side; transcription is purely runtime-side.
-- `multimodal` — vision-capable Agno agent (`multimodal_agent.py`, gpt-4o)
+- `multimodal` — vision-capable Agno agent (`multimodal_agent.py`, gpt-6-luna)
   on its own `/multimodal/agui` interface, scoped via
   `/api/copilotkit-multimodal`. Image attachments forward natively; PDF
   flattening helper (`_maybe_flatten_pdf_part`) lives next to the agent for

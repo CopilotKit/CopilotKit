@@ -40,7 +40,7 @@ export function createOguiAgent() {
         }),
       );
       return chat({
-        adapter: openaiText("gpt-5.4", { fetch: forwardingFetch }),
+        adapter: openaiText("gpt-6-luna", { fetch: forwardingFetch }),
         messages,
         systemPrompts,
         tools,

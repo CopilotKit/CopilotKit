@@ -190,7 +190,7 @@ export const weatherAgent = new Agent({
     search_flights: searchFlightsTool,
     generate_a2ui: generateA2uiTool,
   },
-  model: openai("gpt-5-mini"),
+  model: openai("gpt-6-luna"),
   instructions: "You are a helpful assistant.",
   memory: new Memory({
     storage: new LibSQLStore({
@@ -231,7 +231,7 @@ export const headlessCompleteAgent = new Agent({
     get_stock_price: stockPriceTool,
     get_revenue_chart: revenueChartTool,
   },
-  model: openai("gpt-5-mini"),
+  model: openai("gpt-6-luna"),
   instructions: `You are a helpful, concise assistant wired into a headless chat surface that demonstrates CopilotKit's full rendering stack. Pick the right surface for each user question and fall back to plain text when none of the tools fit.
 
 Routing rules:
@@ -278,7 +278,7 @@ export const sharedStateReadWriteAgent = new Agent({
   id: "shared-state-read-write",
   name: "Shared State Read+Write Agent",
   tools: { setNotesTool },
-  model: openai("gpt-5-mini"),
+  model: openai("gpt-6-luna"),
   instructions: `You are a helpful, concise assistant wired to a UI that owns the user's preferences and an agent-authored notes panel.
 
 PREFERENCES (READ from working memory every turn):
@@ -333,7 +333,7 @@ export const genUiAgent = new Agent({
   id: "gen-ui-agent",
   name: "Gen UI Agent",
   tools: { setStepsTool },
-  model: openai("gpt-5-mini"),
+  model: openai("gpt-6-luna"),
   // The planner scripts 3 steps × 2 set_steps transitions (in_progress →
   // completed) + 1 initial "all pending" call + 1 closing message = ~8 model
   // turns. The AI SDK's default stop condition halts the agentic loop before
@@ -375,16 +375,16 @@ The \`set_steps\` tool persists the steps to working memory itself — you do NO
  *
  * Why a reasoning model (parity with langgraph-python's `reasoning_agent.py`):
  * the OpenAI Responses API streams `response.reasoning_summary_text.delta`
- * items only for native reasoning models (gpt-5, o3, o4-mini, ...). The
+ * items only for native reasoning models (gpt-6-luna, ...). The
  * @ag-ui/mastra bridge translates those into AG-UI REASONING_MESSAGE_* events
  * (`role: "reasoning"`), which the frontend renders via the built-in
  * `CopilotChatReasoningMessage` (reasoning-default) or a custom
- * `reasoningMessage` slot (reasoning-custom). gpt-5-mini / gpt-5-mini emit no
- * reasoning items, so mapping these demos to the default weatherAgent (gpt-5-mini)
+ * `reasoningMessage` slot (reasoning-custom). gpt-6-luna / gpt-6-luna emit no
+ * reasoning items, so mapping these demos to the default weatherAgent (gpt-6-luna)
  * meant the reasoning slot never lit up. Override via `OPENAI_REASONING_MODEL`.
  */
 export const REASONING_MODEL =
-  process.env.OPENAI_REASONING_MODEL ?? "gpt-5-mini";
+  process.env.OPENAI_REASONING_MODEL ?? "gpt-6-luna";
 
 /**
  * Provider options that force the OpenAI Responses API to emit a reasoning
@@ -506,12 +506,12 @@ export const toolRenderingAgent = new Agent({
     get_stock_price: stockPriceTool,
     roll_d20: rollD20Tool,
   },
-  // Gold parity (tool_rendering_agent.py uses gpt-5.4). On gpt-5-mini this agent
+  // Gold parity (tool_rendering_agent.py uses gpt-6-luna). On gpt-6-luna this agent
   // prefixed the flights turn with a restatement of the PREVIOUS turn's
   // weather ("The weather in San Francisco is…"), which read as a tool result
   // arriving a turn late (PNI-121); gold narrates only the current turn's
   // tools. Same system prompt, so the model was the divergence.
-  model: openai("gpt-5.4"),
+  model: openai("gpt-6-luna"),
   // The "Roll a d20" pill chains 5 sequential roll_d20 calls + a closing
   // narration (6 model turns), and "Chain tools" fans out 3 tools then
   // summarizes. The AI SDK default stop condition halts the agentic loop
@@ -560,7 +560,7 @@ export const sharedStateStreamingAgent = new Agent({
   id: "shared-state-streaming",
   name: "Shared State Streaming Agent",
   tools: {},
-  model: openai("gpt-5-mini"),
+  model: openai("gpt-6-luna"),
   instructions: `You are a collaborative writing assistant wired to a live Document panel.
 
 Whenever the user asks you to write, draft, revise, or explain anything of any length (a poem, an email, an essay, a summary, an explanation, etc.), you MUST call the \`updateWorkingMemory\` tool with the FULL content as a single string under the \`document\` field, e.g. { "document": "<the full text>" }.
@@ -606,7 +606,7 @@ export const subagentsSupervisorAgent = new Agent({
     writingAgentTool,
     critiqueAgentTool,
   },
-  model: openai("gpt-5-mini"),
+  model: openai("gpt-6-luna"),
   instructions: `You are a supervisor agent that coordinates three specialized sub-agents to produce high-quality deliverables.
 
 Available sub-agents (call them as tools):
@@ -656,7 +656,7 @@ export const mcpAppsAgent = new Agent({
   // model is told to read it and correct itself rather than relying on one-shot
   // accuracy: at most 2 corrections (3 `create_view` calls), with the step cap
   // bounding the loop if it never converges.
-  model: openai("gpt-5.4"),
+  model: openai("gpt-6-luna"),
   defaultOptions: {
     stopWhen: stepCountIs(6),
   },
@@ -708,7 +708,7 @@ If \`create_view\` returns an error, the \`elements\` string you sent was not va
 export const byocHashbrownAgent = new Agent({
   id: "byoc-hashbrown-agent",
   name: "BYOC Hashbrown Agent",
-  model: openai("gpt-5-mini"),
+  model: openai("gpt-6-luna"),
   instructions: `You are a sales analytics assistant that replies by emitting a single JSON
 object consumed by a streaming JSON parser on the frontend.
 
@@ -776,7 +776,7 @@ Example response (sales dashboard):
 /**
  * Vision-capable Mastra agent backing the Multimodal Attachments demo.
  *
- * gpt-5-mini supports image and PDF attachments in the messages array. The
+ * gpt-6-luna supports image and PDF attachments in the messages array. The
  * AG-UI Mastra adapter forwards user-message `content` parts (image_url /
  * file) verbatim to the model. Kept on a dedicated agent (and dedicated
  * route) so the vision-tier cost is scoped to exactly the cell that
@@ -805,7 +805,7 @@ export const interruptAgent = new Agent({
   id: "interrupt-agent",
   name: "Interrupt Agent",
   tools: { schedule_meeting: scheduleMeetingInterruptTool },
-  model: openai("gpt-5-mini"),
+  model: openai("gpt-6-luna"),
   instructions: `You are a scheduling assistant. Whenever the user asks you to book a call or schedule a meeting, you MUST call the \`schedule_meeting\` tool. Pass a short \`topic\` describing the purpose of the meeting and, if known, an \`attendee\` describing who the meeting is with.
 
 The \`schedule_meeting\` tool surfaces an interactive time-picker to the user and pauses until they pick a slot (or cancel), then returns their selection to you. After it returns, briefly confirm whether the meeting was scheduled and at what time, or note that the user cancelled. Do NOT ask for approval yourself — always call the tool and let the picker handle the decision.
@@ -837,7 +837,7 @@ Keep responses short and friendly. After you finish executing tools, always send
 export const a2uiRecoveryAgent = new Agent({
   id: "a2ui-recovery",
   name: "A2UI Recovery Agent",
-  model: openai("gpt-5-mini"),
+  model: openai("gpt-6-luna"),
   instructions:
     "You are the embedded sales analyst for Vantage Threads, a fictional B2B " +
     "apparel company. Answer every business question by calling `generate_a2ui` " +
@@ -846,7 +846,7 @@ export const a2uiRecoveryAgent = new Agent({
     "recovery — for you.",
   tools: {
     generate_a2ui: getA2UITools({
-      model: openai("gpt-5-mini"),
+      model: openai("gpt-6-luna"),
       defaultCatalogId: "declarative-gen-ui-catalog",
       recovery: { maxAttempts: 3 },
     }),
@@ -884,8 +884,8 @@ export const beautifulChatAgent = new Agent({
     generate_a2ui: generateA2uiTool,
     search_flights: searchFlightsA2uiTool,
   },
-  // Matches gold `beautiful_chat.py` (`ChatOpenAI(model="gpt-5.4")`).
-  model: openai("gpt-5.4"),
+  // Matches gold `beautiful_chat.py` (`ChatOpenAI(model="gpt-6-luna")`).
+  model: openai("gpt-6-luna"),
   // Mirror gold `beautiful_chat.py` (`parallel_tool_calls=False`): the model
   // commits to one tool per step instead of firing several at once. Without it,
   // a "sales dashboard … include a pie chart and a bar chart" request tempts the
@@ -931,7 +931,7 @@ export const beautifulChatAgent = new Agent({
 export const multimodalAgent = new Agent({
   id: "multimodal-demo",
   name: "Multimodal Agent",
-  model: openai("gpt-5-mini"),
+  model: openai("gpt-6-luna"),
   instructions:
     "You are a helpful assistant with vision and document capabilities. When the user shares an image or PDF, examine it carefully and answer their question about it. Be concise and specific — describe what you actually see, not what you guess might be there.",
   memory: new Memory({
@@ -971,7 +971,7 @@ export const browserUseAgent = new Agent({
   id: "browser-use-agent",
   name: "Browser Use Agent",
   tools: { browse_web: browseWebTool },
-  model: openai("gpt-5-mini"),
+  model: openai("gpt-6-luna"),
   instructions: `You are a web-browsing assistant with access to a REAL local browser via the \`browse_web\` tool.
 
 When the user asks you to look something up on the web, read a page, or check what's trending:
@@ -1012,7 +1012,7 @@ export const backgroundAgentsAgent = new Agent({
   id: "background-agents",
   name: "Background Agents Agent",
   tools: { runDeepResearchTool },
-  model: openai("gpt-5-mini"),
+  model: openai("gpt-6-luna"),
   instructions: `You are a research assistant that dispatches long-running work to the background.
 
 When the user asks you to research, investigate, look into, or dig into a topic, you MUST call the \`run_deep_research\` tool ONCE with a concise \`topic\` describing what to research. That kicks the work off in the background so the conversation can continue.
@@ -1059,7 +1059,7 @@ After you call the tool, send ONE short assistant message telling the user the d
 export const observationalMemoryAgent = new Agent({
   id: "observational-memory-agent",
   name: "Observational Memory Agent",
-  model: openai("gpt-5-mini"),
+  model: openai("gpt-6-luna"),
   instructions: `You are a helpful assistant with a long memory. The user will share large amounts of context about their work, projects, and preferences across the conversation. Read what they share carefully, answer their questions directly and concisely, and lean on everything they've told you so far. Keep replies focused — a few short paragraphs at most.`,
   memory: new Memory({
     storage: new LibSQLStore({
@@ -1074,7 +1074,7 @@ export const observationalMemoryAgent = new Agent({
       observationalMemory: {
         scope: "thread",
         observation: { messageTokens: 600, bufferTokens: 300 },
-        model: openai("gpt-5-mini"),
+        model: openai("gpt-6-luna"),
       },
     },
   }),
@@ -1175,7 +1175,7 @@ const openGenUiMemory = (id: string) =>
 export const openGenUiAgent = new Agent({
   id: "open-gen-ui-agent",
   name: "Open Generative UI Agent",
-  model: openai("gpt-5-mini"),
+  model: openai("gpt-6-luna"),
   instructions: ({ requestContext }) =>
     OPEN_GEN_UI_BASE_PROMPT + foldHostContext(requestContext),
   memory: openGenUiMemory("open-gen-ui-agent-memory"),
@@ -1184,7 +1184,7 @@ export const openGenUiAgent = new Agent({
 export const openGenUiAdvancedAgent = new Agent({
   id: "open-gen-ui-advanced-agent",
   name: "Open Generative UI Advanced Agent",
-  model: openai("gpt-5-mini"),
+  model: openai("gpt-6-luna"),
   instructions: ({ requestContext }) =>
     OPEN_GEN_UI_ADVANCED_BASE_PROMPT + foldHostContext(requestContext),
   memory: openGenUiMemory("open-gen-ui-advanced-agent-memory"),

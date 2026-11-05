@@ -1,6 +1,6 @@
 """Multimodal demo backend (Langroid).
 
-Vision-capable agent (gpt-4o) for the ``/demos/multimodal`` cell. Accepts
+Vision-capable agent (gpt-6-luna) for the ``/demos/multimodal`` cell. Accepts
 image and PDF attachments injected via CopilotChat's AttachmentsConfig
 pipeline. Mirrors the langgraph-python sibling
 (``showcase/integrations/langgraph-python/src/agents/multimodal_agent.py``)
@@ -19,8 +19,8 @@ Attachments arrive in user-message content as either:
    future runtime path forwards through that converter.
 
 Image parts are forwarded to OpenAI as ``image_url`` content parts with
-inline ``data:<mime>;base64,...`` URLs; gpt-4o reads them natively. PDF
-parts are flattened to text with ``pypdf`` (gpt-4o cannot read PDFs
+inline ``data:<mime>;base64,...`` URLs; gpt-6-luna reads them natively. PDF
+parts are flattened to text with ``pypdf`` (gpt-6-luna cannot read PDFs
 directly), with a typed placeholder when extraction fails so the model
 can at least tell the user the document was unreadable.
 
@@ -205,7 +205,7 @@ def _build_user_content(content: Any) -> Any:
     """Translate user-message content into an OpenAI-compatible payload.
 
     Returns either a raw string (when there's only one text part — a
-    common single-message case) or the list-of-parts shape that gpt-4o
+    common single-message case) or the list-of-parts shape that gpt-6-luna
     expects for multimodal turns.
     """
     if isinstance(content, str):
@@ -298,7 +298,7 @@ async def handle_run(request: Request) -> StreamingResponse:
     # Force a vision-capable model. We deliberately ignore LANGROID_MODEL
     # here — the unified text-only agents are configured with cheaper
     # models, and this demo's whole point is the vision path.
-    model = os.getenv("MULTIMODAL_MODEL", "gpt-4o")
+    model = os.getenv("MULTIMODAL_MODEL", "gpt-6-luna")
     thread_id = run_input.thread_id or str(uuid.uuid4())
 
     async def event_stream() -> AsyncGenerator[str, None]:
@@ -321,6 +321,7 @@ async def handle_run(request: Request) -> StreamingResponse:
         try:
             client = openai.AsyncOpenAI()
             stream = await client.chat.completions.create(
+                reasoning_effort="none",
                 model=model,
                 messages=oai_messages,
                 stream=True,

@@ -156,7 +156,7 @@ async def run_subagents(request: Request):
 
 @app.post("/multimodal")
 async def run_multimodal(request: Request):
-    """Multimodal demo endpoint — vision-capable (gpt-4o).
+    """Multimodal demo endpoint — vision-capable (gpt-6-luna).
 
     Forwards image attachments to the model natively; flattens PDFs to
     text via pypdf so the model can read them without needing file-part

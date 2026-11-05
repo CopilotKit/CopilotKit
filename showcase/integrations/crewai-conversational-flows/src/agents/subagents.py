@@ -88,7 +88,7 @@ class AgentState(CopilotKitState):
 # Sub-agent crews (each is a real, single-agent CrewAI Crew)
 # ---------------------------------------------------------------------------
 
-_LLM = "gpt-5.4"
+_LLM = "gpt-6-luna"
 
 
 # Each sub-agent is a real, single-agent CrewAI Crew with its own
@@ -97,7 +97,7 @@ _LLM = "gpt-5.4"
 # the crew's final raw output (returned via `Crew.kickoff(...)`).
 def _build_research_crew() -> Crew:
     researcher = Agent(
-        llm="gpt-5.4",
+        llm="gpt-6-luna",
         role="Researcher",
         goal="Produce a concise bulleted list of 3-5 key facts on the topic.",
         backstory=(
@@ -128,7 +128,7 @@ def _build_research_crew() -> Crew:
 
 def _build_writing_crew() -> Crew:
     writer = Agent(
-        llm="gpt-5.4",
+        llm="gpt-6-luna",
         role="Writer",
         goal="Turn a brief and any source facts into a polished single paragraph.",
         backstory=(
@@ -159,7 +159,7 @@ def _build_writing_crew() -> Crew:
 
 def _build_critique_crew() -> Crew:
     critic = Agent(
-        llm="gpt-5.4",
+        llm="gpt-6-luna",
         role="Editorial Critic",
         goal="Give 2-3 crisp, actionable critiques of a draft.",
         backstory=(
@@ -361,6 +361,7 @@ class SubagentsFlow(Flow[AgentState]):
 
             response = await copilotkit_stream(
                 await acompletion(
+                    reasoning_effort="none",
                     model=f"openai/{_LLM}",
                     messages=messages,
                     tools=tools,

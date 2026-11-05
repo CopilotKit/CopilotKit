@@ -456,6 +456,7 @@ async def _call_openai(
     """
     client = openai.AsyncOpenAI()
     response = await client.chat.completions.create(
+        reasoning_effort="none",
         model=model,
         messages=messages,
         tools=tools if tools else openai.NOT_GIVEN,
@@ -522,7 +523,7 @@ async def handle_run(request: Request) -> StreamingResponse:
     # finding follow-up tool results, breaking the gen-ui-headless flow
     # (frontend tool → follow-up narration never arrived).
     oai_messages = _agui_messages_to_openai(run_input.messages or [], system_prompt)
-    model = os.getenv("LANGROID_MODEL", "gpt-4.1")
+    model = os.getenv("LANGROID_MODEL", "gpt-6-luna")
     oai_tools = _get_openai_tools()
 
     # Merge in any tools injected by the AG-UI middleware (e.g. ``render_a2ui``

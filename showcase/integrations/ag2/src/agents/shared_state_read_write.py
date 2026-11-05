@@ -152,7 +152,7 @@ agent = Agent(
         - Keep messages short and respect the preferred tone.
         """
     ).strip(),
-    config=OpenAIResponsesConfig(model="gpt-5-mini", streaming=True),
+    config=OpenAIResponsesConfig(model="gpt-6-luna", streaming=True),
     tools=[get_current_preferences, set_notes],
     middleware=[loop_cap(10)],
 )

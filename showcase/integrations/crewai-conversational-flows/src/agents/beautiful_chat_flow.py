@@ -56,7 +56,8 @@ class BeautifulChatFlow(Flow[CopilotKitState]):
         for _iteration in range(8):
             response = await copilotkit_stream(
                 await acompletion(
-                    model="openai/gpt-5.4",
+                    reasoning_effort="none",
+                    model="openai/gpt-6-luna",
                     messages=[
                         {"role": "system", "content": BEAUTIFUL_CHAT_BACKSTORY},
                         *self.state.messages,

@@ -13,7 +13,7 @@ from pydantic import ConfigDict, Field
 from ag_ui_crewai import CopilotKitState, copilotkit_stream, get_a2ui_tools
 
 
-MODEL = "openai/gpt-5.4"
+MODEL = "openai/gpt-6-luna"
 CATALOG_ID = "declarative-gen-ui-catalog"
 SYSTEM_PROMPT = (
     "You are a sales analyst. For every request, call generate_a2ui once with "
@@ -73,6 +73,7 @@ class A2UIRecoveryFlow(Flow[A2UIRecoveryState]):
 
         response = await copilotkit_stream(
             await acompletion(
+                reasoning_effort="none",
                 model=MODEL,
                 messages=[
                     {"role": "system", "content": SYSTEM_PROMPT},
@@ -120,6 +121,7 @@ class A2UIRecoveryFlow(Flow[A2UIRecoveryState]):
 
         confirmation = await copilotkit_stream(
             await acompletion(
+                reasoning_effort="none",
                 model=MODEL,
                 messages=[
                     {"role": "system", "content": SYSTEM_PROMPT},

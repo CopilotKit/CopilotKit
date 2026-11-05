@@ -124,7 +124,7 @@ export function createByocHashbrownAgent() {
       const { messages, systemPrompts } = convertInputToTanStackAI(input);
 
       const stream = chat({
-        adapter: openaiText("gpt-5.4", { fetch: forwardingFetch }),
+        adapter: openaiText("gpt-6-luna", { fetch: forwardingFetch }),
         messages,
         systemPrompts: [BYOC_HASHBROWN_SYSTEM_PROMPT, ...systemPrompts],
         tools: [],

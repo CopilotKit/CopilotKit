@@ -118,7 +118,8 @@ def generate_a2ui(context: str, tool_context: ToolContext) -> str:
     try:
         client = _openai_mod.OpenAI()
         response = client.chat.completions.create(
-            model="gpt-5-mini",
+            reasoning_effort="none",
+            model="gpt-6-luna",
             messages=[
                 {
                     "role": "system",
