@@ -186,6 +186,92 @@ describe.each(["intelligence", "pending"] as const)(
       }
     });
 
+    it("applies a connect's replay in one burst when the gateway reports it complete", async () => {
+      const agent = createReplayAgent(runtimeMode);
+      const connecting = agent.connectAgent();
+      try {
+        await vi.waitFor(() =>
+          expect(sockets[0]?.channels[0]?.joinCount).toBe(1),
+        );
+        const channel = sockets[0]!.channels[0]!;
+        channel.triggerJoin("ok");
+        for (const [id, content] of [
+          ["m1", "first"],
+          ["m2", "second"],
+        ]) {
+          channel.serverPush("ag_ui_event", {
+            type: EventType.TEXT_MESSAGE_START,
+            messageId: id,
+            role: "assistant",
+          });
+          channel.serverPush("ag_ui_event", {
+            type: EventType.TEXT_MESSAGE_CONTENT,
+            messageId: id,
+            delta: content,
+          });
+          channel.serverPush("ag_ui_event", {
+            type: EventType.TEXT_MESSAGE_END,
+            messageId: id,
+          });
+        }
+        await new Promise((resolve) => setTimeout(resolve, 20));
+        expect(agent.messages).toEqual([]);
+
+        channel.serverPush("replay_complete", {});
+        await vi.waitFor(() =>
+          expect(agent.messages.map((m) => m.content)).toEqual([
+            "first",
+            "second",
+          ]),
+        );
+        channel.serverPush("stream_idle", {});
+        await connecting;
+      } finally {
+        await agent.detachActiveRun();
+        await connecting;
+      }
+    });
+
+    it("drops the replay held so far when the connect is detached and asks for it again", async () => {
+      const agent = createReplayAgent(runtimeMode);
+      agent.threadId = "saved-thread";
+      const connecting = agent.connectAgent();
+      await vi.waitFor(() =>
+        expect(sockets[0]?.channels[0]?.joinCount).toBe(1),
+      );
+      const channel = sockets[0]!.channels[0]!;
+      channel.triggerJoin("ok");
+      channel.serverPush("ag_ui_event", {
+        type: EventType.MESSAGES_SNAPSHOT,
+        messages: [{ id: "held", role: "assistant", content: "Received" }],
+        metadata: { cpki_event_id: "held-event", cpki_event_seq: 1 },
+      });
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      expect(agent.messages).toEqual([]);
+
+      // The proxy stops mirroring its delegate when it detaches, so the held
+      // events are dropped rather than applied where nothing sees them. The
+      // cursor never moved past them, so the next connect asks for them again.
+      await agent.detachActiveRun();
+      const result = await connecting;
+      expect(result.newMessages).toEqual([]);
+      expect(agent.messages).toEqual([]);
+
+      const reconnecting = agent.connectAgent();
+      try {
+        await vi.waitFor(() => expect(sockets).toHaveLength(2));
+        const connectBodies = vi
+          .mocked(fetch)
+          .mock.calls.filter(([url]) => String(url).endsWith("/connect"))
+          .map(([, init]) => JSON.parse(String(init?.body)));
+        expect(connectBodies).toHaveLength(2);
+        expect(connectBodies[1]).toMatchObject({ lastSeenEventId: null });
+      } finally {
+        await agent.detachActiveRun();
+        await reconnecting;
+      }
+    });
+
     it("stays busy after a historical run error until the remaining history is restored", async () => {
       const agent = createReplayAgent(runtimeMode);
       agent.threadId = "saved-thread";
@@ -202,12 +288,6 @@ describe.each(["intelligence", "pending"] as const)(
           type: EventType.RUN_ERROR,
           message: "Runner connection dropped",
         });
-        await vi.waitFor(() => expect(onRunErrorEvent).toHaveBeenCalledOnce());
-
-        // MCP resource loading waits on isRunning. A historical error must not
-        // release that queue while the replay still owns the agent.
-        expect(agent.isRunning).toBe(true);
-
         channel.serverPush("ag_ui_event", {
           type: EventType.MESSAGES_SNAPSHOT,
           messages: [
@@ -218,7 +298,18 @@ describe.each(["intelligence", "pending"] as const)(
             },
           ],
         });
+        // The replay is held until the gateway reports it complete.
+        await new Promise((resolve) => setTimeout(resolve, 20));
+        expect(onRunErrorEvent).not.toHaveBeenCalled();
+        expect(agent.messages).toEqual([]);
+
         channel.serverPush("replay_complete", {});
+        await vi.waitFor(() => expect(onRunErrorEvent).toHaveBeenCalledOnce());
+
+        // MCP resource loading waits on isRunning. A historical error must not
+        // release that queue while the replay still owns the agent.
+        expect(agent.isRunning).toBe(true);
+
         channel.serverPush("stream_idle", {});
         await connecting;
         expect(agent.messages).toEqual([
@@ -350,9 +441,13 @@ describe.each(["intelligence", "pending"] as const)(
             type: EventType.RUN_ERROR,
             message: "Old error after rejoin",
           });
+          // The rejoin's replay is held again until it completes, and then
+          // applied as history: it leaves the agent busy.
+          await new Promise((resolve) => setTimeout(resolve, 20));
+          expect(errors).not.toHaveBeenCalled();
+          channel.serverPush("replay_complete", {});
           await vi.waitFor(() => expect(errors).toHaveBeenCalledOnce());
           expect(agent.isRunning).toBe(true);
-          channel.serverPush("replay_complete", {});
           channel.serverPush("ag_ui_event", {
             type: EventType.RUN_ERROR,
             message: "Live error after rejoin",
@@ -428,9 +523,16 @@ describe.each(["intelligence", "pending"] as const)(
             message: "No replay boundary yet",
           });
           await vi.advanceTimersByTimeAsync(0);
-          expect(errors).toHaveBeenCalledOnce();
+          // Without replay_complete, stream_idle is the replay boundary that
+          // releases the held replay.
+          expect(errors).toHaveBeenCalledTimes(order === "after" ? 1 : 0);
           expect(agent.isRunning).toBe(true);
-          if (order === "before") channel.serverPush("stream_idle", {});
+          if (order === "before") {
+            channel.serverPush("stream_idle", {});
+            await vi.advanceTimersByTimeAsync(0);
+            expect(errors).toHaveBeenCalledOnce();
+            expect(agent.isRunning).toBe(true);
+          }
           channel.serverPush("ag_ui_event", {
             type: EventType.MESSAGES_SNAPSHOT,
             messages: [

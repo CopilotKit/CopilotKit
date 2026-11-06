@@ -1060,9 +1060,12 @@ export namespace CopilotChatView {
         className={cn("cpk:flex cpk:justify-center cpk:py-8", className)}
         {...props}
       >
+        {/* The arc spins inside the SVG rather than the SVG element itself:
+            Safari turns a spinning <svg> around a point slightly off its
+            center, so the ring wobbles by about a pixel. */}
         <Loader2
           aria-hidden="true"
-          className="cpk:size-6 cpk:animate-spin cpk:text-muted-foreground"
+          className="cpk:size-6 cpk:text-muted-foreground cpk:*:origin-center cpk:*:animate-spin"
         />
         {/* Screen readers announce a status region's text content, not its
             aria-label, so the label is visually hidden text. */}
