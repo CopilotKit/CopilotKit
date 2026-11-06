@@ -291,6 +291,7 @@ describe("extractA2UICatalogSchemas", () => {
     });
 
     expect(Object.keys(schema.components)).toEqual(["__proto__"]);
+    // react-doctor-disable-next-line react-doctor/no-json-parse-stringify-clone -- the test checks the JSON round trip, not a clone
     expect(JSON.parse(JSON.stringify(schema)).components).toHaveProperty(
       "__proto__",
     );

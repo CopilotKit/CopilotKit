@@ -240,7 +240,8 @@ Each component renders inside its own error boundary. One broken component shows
     ```
   </Tab>
   <Tab value="Angular">
-    ```ts title="src/app/app.config.ts"
+    {/* kiira: ignore, imports the reader's own Angular files and components, which kiira cannot see */}
+    ```ts ignore title="src/app/app.config.ts"
     import type { ApplicationConfig } from "@angular/core";
     import { provideCopilotKit } from "@copilotkit/angular";
     import { provideGenerativeUI } from "@copilotkit/angular/generative-ui";

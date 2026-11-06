@@ -102,7 +102,8 @@ Then give the state its value from your app:
   <Tab value="Angular">
     `connectGenerativeUIState` takes a signal or a function, keeps the key current, and removes it when the injection context is destroyed:
 
-    ```ts
+    {/* kiira: ignore, imports the reader's own Angular files and components, which kiira cannot see */}
+    ```ts ignore
     import { Component, inject } from "@angular/core";
     import { connectGenerativeUIState } from "@copilotkit/angular/generative-ui";
     import { CartStore } from "./cart.store";
@@ -199,7 +200,8 @@ The agent does not see the state either. To let it answer "what is in my cart?",
 
     `registerGenerativeUIFunction` mounts the handler for as long as the injection context lives:
 
-    ```ts
+    {/* kiira: ignore, imports the reader's own Angular files and components, which kiira cannot see */}
+    ```ts ignore
     import { Component, inject } from "@angular/core";
     import { registerGenerativeUIFunction } from "@copilotkit/angular/generative-ui";
     import { CartStore } from "./cart.store";

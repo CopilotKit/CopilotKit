@@ -309,7 +309,8 @@ These work: zod 4.2 or later, ArkType 2.1.28 or later, and Valibot with `@valibo
     ```
   </Tab>
   <Tab value="Angular">
-    ```ts
+    {/* kiira: ignore, imports the reader's own Angular files and components, which kiira cannot see */}
+    ```ts ignore
     import { z } from "zod";
     import { createGenerativeUI, standardUI } from "@copilotkit/angular/generative-ui";
     import { cartUI } from "./cart-ui";

@@ -18,7 +18,7 @@ import { textComponents } from "../text";
  */
 const FIXTURE = path.join(
   __dirname,
-  "../../../../../../react-core/src/v2/generative-ui/standard/__tests__/fixtures/standard-all.json",
+  "../../../../../../react-core/src/generative-ui/standard/__tests__/fixtures/standard-all.json",
 );
 
 /** The fixture uses every standard component at least once. */

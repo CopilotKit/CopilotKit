@@ -39,11 +39,11 @@ function Chat() {
     const clear = () => {
       agent.pendingInterrupts = [];
     };
-    const { unsubscribe } = agent.subscribe({
+    const subscription = agent.subscribe({
       onRunFailed: clear,
       onRunErrorEvent: clear,
     });
-    return unsubscribe;
+    return () => subscription.unsubscribe();
   }, [agent]);
   // Static suggestions: generated ones would each launch an Omnara agent.
   useConfigureSuggestions({

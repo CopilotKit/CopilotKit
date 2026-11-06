@@ -93,6 +93,9 @@
         "./packages/agentcore-runner/src/index.ts"
       ],
       "@copilotkit/core": ["./packages/core/src/index.ts"],
+      "@copilotkit/core/generative-ui": [
+        "./packages/core/src/generative-ui/index.ts"
+      ],
       "@copilotkit/intelligence-langgraph": [
         "./packages/intelligence-langgraph/src/index.ts"
       ],
@@ -164,6 +167,9 @@
         "./packages/sdk-js/src/langgraph-middlewares.ts"
       ],
       "@copilotkit/shared": ["./packages/shared/src/index.ts"],
+      "@copilotkit/shared/generative-ui": [
+        "./packages/shared/src/generative-ui/index.ts"
+      ],
       "@copilotkit/sqlite-runner": ["./packages/sqlite-runner/src/index.ts"],
       "@copilotkit/voice": ["./packages/voice/src/index.ts"],
       "@copilotkit/vue": ["./packages/vue/src/index.ts"],
@@ -180,6 +186,15 @@
       "@copilotkit/angular/a2ui": ["./packages/angular/src/a2ui/index.ts"],
       "@copilotkit/angular/generative-ui": [
         "./packages/angular/src/generative-ui/index.ts"
+      ],
+      "@copilotkit/angular/generative-ui/chart": [
+        "./packages/angular/src/generative-ui/chart/index.ts"
+      ],
+      "@copilotkit/angular/generative-ui/icons": [
+        "./packages/angular/src/generative-ui/icons/index.ts"
+      ],
+      "@copilotkit/angular/generative-ui/map": [
+        "./packages/angular/src/generative-ui/map/index.ts"
       ],
       "@copilotkit/angular/mcp-apps": [
         "./packages/angular/src/mcp-apps/index.ts"

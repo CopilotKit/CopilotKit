@@ -1,6 +1,6 @@
 # CopilotKit Examples
 
-This directory contains 61 examples, grouped by what you want to do with them:
+This directory contains 62 examples, grouped by what you want to do with them:
 
 - **[Starters](#starters-24)** — pick your agent framework and start building.
 - **[Demos](#demos-32)** — full applications that show CopilotKit in a real-world scenario.

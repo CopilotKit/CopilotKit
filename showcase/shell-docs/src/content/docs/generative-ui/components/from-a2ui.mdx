@@ -41,7 +41,8 @@ The provider takes a UI instead of a catalog, and the runtime needs no A2UI opti
     ```
   </Tab>
   <Tab value="Angular">
-    ```ts title="Before"
+    {/* kiira: ignore, imports the reader's own Angular files and components, which kiira cannot see */}
+    ```ts ignore title="Before"
     import type { ApplicationConfig } from "@angular/core";
     import { provideCopilotKit } from "@copilotkit/angular";
     import { myCatalog } from "./catalog";
@@ -53,7 +54,8 @@ The provider takes a UI instead of a catalog, and the runtime needs no A2UI opti
     };
     ```
 
-    ```ts title="After"
+    {/* kiira: ignore, imports the reader's own Angular files and components, which kiira cannot see */}
+    ```ts ignore title="After"
     import type { ApplicationConfig } from "@angular/core";
     import { provideCopilotKit } from "@copilotkit/angular";
     import { provideGenerativeUI } from "@copilotkit/angular/generative-ui";

@@ -886,8 +886,9 @@ function resolveComponent(
     if (context.state.has(key)) selectors[key] = (state) => state[key];
   }
   const bind = definition.bind ?? {};
+  const propKeySet = new Set(propKeys);
   for (const [key, selector] of Object.entries(bind)) {
-    if (!propKeys.includes(key)) {
+    if (!propKeySet.has(key)) {
       throw new Error(
         `[generativeUI] bind key "${key}" is not a prop of component "${name}" in ${context.where}.`,
       );

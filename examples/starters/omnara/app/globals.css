@@ -19,6 +19,7 @@
   --input: #dbdbe5;
   --ring: #bec2ff;
   --radius: 0.75rem;
+  /* impeccable-disable-next-line overused-font -- the Beautiful Chat design typeface, shared with the other starters */
   --cpk-default-font-family: "Plus Jakarta Sans Variable", sans-serif;
   font-family: var(--cpk-default-font-family);
   color: var(--foreground);
