@@ -9,15 +9,28 @@ import type { BaseEvent } from "@ag-ui/client";
 const RUN_IDENTITY_EVENTS = new Set<string>(["RUN_STARTED", "RUN_FINISHED"]);
 
 /**
- * Removes the routing fields that the Intelligence runner stamps on every
- * event it sends to the gateway (`thread_id`, `run_id`, and `threadId` /
- * `runId` on events that do not declare them).
+ * Fields no AG-UI event declares: the runner's `thread_id` / `run_id`, and
+ * the `organization_id` / `project_id` the gateway adds when it relays an
+ * event.
+ */
+const GATEWAY_ONLY_FIELDS = [
+  "thread_id",
+  "run_id",
+  "organization_id",
+  "project_id",
+] as const;
+
+/**
+ * Removes the routing fields that Intelligence adds to every event: the
+ * runner stamps `thread_id`, `run_id`, and `threadId` / `runId` on events
+ * that do not declare them before sending them to the gateway, and the
+ * gateway adds `organization_id` and `project_id` when it relays them.
  *
- * The gateway relays these payloads unchanged. AG-UI 1.0 strips unknown
- * fields before subscribers see them and warns once per field, per event,
- * so a streamed answer would log hundreds of warnings. Call this where a
- * gateway payload enters an AG-UI pipeline. The gateway still receives the
- * fields, because the runner adds them after this point.
+ * AG-UI 1.0 strips unknown fields before subscribers see them and warns once
+ * per field, per event, so a streamed answer would log hundreds of warnings.
+ * Call this where a gateway payload enters an AG-UI pipeline. The gateway
+ * still receives the runner's fields, because the runner adds them after
+ * this point.
  */
 export function stripIntelligenceRoutingFields<T extends BaseEvent>(
   event: T,
@@ -25,13 +38,13 @@ export function stripIntelligenceRoutingFields<T extends BaseEvent>(
   const record = event as T & Record<string, unknown>;
   const keepRunIdentity = RUN_IDENTITY_EVENTS.has(record.type);
   if (
-    !("thread_id" in record) &&
-    !("run_id" in record) &&
+    !GATEWAY_ONLY_FIELDS.some((field) => field in record) &&
     (keepRunIdentity || (!("threadId" in record) && !("runId" in record)))
   ) {
     return event;
   }
-  const { thread_id: _t, run_id: _r, ...rest } = record;
+  const rest: Record<string, unknown> = { ...record };
+  for (const field of GATEWAY_ONLY_FIELDS) delete rest[field];
   if (!keepRunIdentity) {
     delete rest.threadId;
     delete rest.runId;
