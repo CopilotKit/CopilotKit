@@ -408,4 +408,47 @@ describe("RunHandler WebMCP registration", () => {
       "from props, updated",
     );
   });
+
+  it("exposes the shadowed tool again when the shadowing registration is removed", () => {
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    const modelContext = stubWebMCP();
+    const runHandler = createRunHandler();
+    runHandler.addTool({
+      name: "sayHello",
+      description: "first",
+      webmcp: true,
+    });
+    const unregister = runHandler.addTool({
+      name: "sayHello",
+      description: "second",
+      webmcp: true,
+    });
+    expect(modelContext.registered.get("sayHello")!.tool.description).toBe(
+      "second",
+    );
+
+    unregister();
+
+    expect(modelContext.registered.get("sayHello")!.tool.description).toBe(
+      "first",
+    );
+  });
+
+  it("unregisters every tool on dispose and registers none afterwards", () => {
+    const modelContext = stubWebMCP();
+    const runHandler = createRunHandler();
+    runHandler.initialize([
+      { name: "providerTool", description: "from props", webmcp: true },
+    ]);
+    runHandler.addTool({ name: "hookTool", description: "h", webmcp: true });
+    const signals = [...modelContext.registered.values()].map(
+      (entry) => entry.signal,
+    );
+
+    runHandler.dispose([]);
+    runHandler.addTool({ name: "lateTool", description: "l", webmcp: true });
+
+    expect(signals.map((signal) => signal.aborted)).toEqual([true, true]);
+    expect(modelContext.registered.size).toBe(0);
+  });
 });

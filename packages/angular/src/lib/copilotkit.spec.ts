@@ -1,10 +1,16 @@
-import { Component, Injector, signal } from "@angular/core";
+import {
+  Component,
+  EnvironmentInjector,
+  Injector,
+  createEnvironmentInjector,
+  signal,
+} from "@angular/core";
 import { TestBed } from "@angular/core/testing";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
+import { z as zodV3 } from "zod-v3";
 import { CopilotKit } from "./copilotkit";
 import { provideCopilotKit } from "./config";
-import { HumanInTheLoop } from "./human-in-the-loop";
 import {
   GENERATE_SANDBOXED_UI_TOOL_NAME,
   OPEN_GENERATIVE_UI_ACTIVITY_TYPE,
@@ -35,11 +41,8 @@ const testCatalog: A2UICatalog = Object.assign(
 const mockSubscribe = vi.fn();
 const mockAddTool = vi.fn();
 const mockRemoveTool = vi.fn();
-const mockSetRuntimeUrl = vi.fn();
-const mockSetRuntimeTransport = vi.fn();
-const mockSetHeaders = vi.fn();
-const mockSetProperties = vi.fn();
-const mockSetMessageFilter = vi.fn();
+const mockDispose = vi.fn();
+const mockUpdateConfig = vi.fn();
 /** Keeps the final turn only — the shape #1482 asks for (see below). */
 const keepLastTurn = (messages: any[]) => messages.slice(-1);
 const mockSetAgents = vi.fn();
@@ -47,6 +50,7 @@ const mockGetAgent = vi.fn();
 const mockGetTool = vi.fn();
 const mockAddContext = vi.fn();
 const mockRemoveContext = vi.fn();
+const mockSetCatalogComponents = vi.fn();
 
 const licenseKey = "ck_pub_" + "a".repeat(32);
 
@@ -73,16 +77,22 @@ vi.mock("@copilotkit/core", async (importOriginal) => {
     readonly subscribe = mockSubscribe;
     readonly addTool = mockAddTool;
     readonly removeTool = mockRemoveTool;
-    readonly setRuntimeUrl = mockSetRuntimeUrl;
-    readonly setRuntimeTransport = mockSetRuntimeTransport;
-    readonly setHeaders = mockSetHeaders;
-    readonly setProperties = mockSetProperties;
-    readonly setMessageFilter = mockSetMessageFilter;
+    readonly ɵupdateConfig = mockUpdateConfig;
     readonly setAgents__unsafe_dev_only = mockSetAgents;
+    readonly connect = vi.fn();
+    readonly ɵsubscribeToRuntimeInfo = vi.fn(() => () => {});
     readonly getAgent = mockGetAgent;
     readonly getTool = mockGetTool;
     readonly addContext = mockAddContext;
     readonly removeContext = mockRemoveContext;
+    readonly dispose = mockDispose;
+    readonly ɵhumanInTheLoop = new actual.ɵHumanInTheLoopRegistry();
+    readonly setCatalogComponents = mockSetCatalogComponents;
+    disabledCatalogComponents = new Set<string>();
+    isCatalogComponentEnabled(name: string) {
+      return !this.disabledCatalogComponents.has(name);
+    }
+    a2uiAgents: string[] | undefined = undefined;
     agents: Record<string, any> = {};
     runtimeUrl = undefined;
     runtimeTransport = "auto";
@@ -92,6 +102,14 @@ vi.mock("@copilotkit/core", async (importOriginal) => {
     audioFileTranscriptionEnabled = false;
     runtimeConnectionStatus =
       CopilotKitCoreRuntimeConnectionStatus.Disconnected;
+    get ɵruntimeInfo() {
+      return {
+        status: this.runtimeConnectionStatus,
+        a2uiEnabled: this.a2uiEnabled,
+        a2uiAgents: this.a2uiAgents,
+        openGenerativeUIEnabled: this.openGenerativeUIEnabled,
+      };
+    }
     listener?: Parameters<typeof mockSubscribe>[0];
 
     constructor(config: any) {
@@ -118,8 +136,8 @@ describe("CopilotKit", () => {
   beforeEach(() => {
     TestBed.resetTestingModule();
     vi.clearAllMocks();
-    document.getElementById("copilotkit-license-watermark")?.remove();
-    (globalThis as any).__copilotkitAngularLicenseWatermarkLogged = undefined;
+    // Core returns an unregister function from every `addTool` call.
+    mockAddTool.mockImplementation(() => vi.fn());
   });
 
   it("initialises core with transformed tool and renderer config", () => {
@@ -257,16 +275,13 @@ describe("CopilotKit", () => {
     expect(copilotKit.clientToolCallRenderConfigs()).toHaveLength(1);
   });
 
-  it("registers human-in-the-loop tools and delegates responses", async () => {
-    const onResultSpy = vi
-      .spyOn(HumanInTheLoop.prototype, "onResult")
-      .mockResolvedValue("result");
-
+  it("registers human-in-the-loop tools that park calls in the core registry", async () => {
     TestBed.configureTestingModule({
       providers: [provideCopilotKit({ licenseKey })],
     });
 
     const copilotKit = TestBed.inject(CopilotKit);
+    const registry = copilotKit.core.ɵhumanInTheLoop;
 
     const toolConfig = {
       name: "approval",
@@ -286,23 +301,17 @@ describe("CopilotKit", () => {
     );
 
     const tool = mockAddTool.mock.calls.at(-1)![0];
-    const controller = new AbortController();
-    const mockAgent = { agentId: "agent-1" };
-    await tool.handler(
+    const result = tool.handler(
       {},
       {
         toolCall: { id: "call-1", function: { name: "approval" } },
-        agent: mockAgent,
-        signal: controller.signal,
+        agent: { agentId: "agent-1" },
+        signal: new AbortController().signal,
       },
     );
-    expect(onResultSpy).toHaveBeenCalledWith(
-      "call-1",
-      "approval",
-      controller.signal,
-    );
-
-    onResultSpy.mockRestore();
+    expect(registry.isPending("call-1")).toBe(true);
+    registry.respond("call-1", "result");
+    await expect(result).resolves.toBe("result");
   });
 
   it("registers Open Generative UI tool, activity renderer, and contexts", async () => {
@@ -435,6 +444,55 @@ describe("CopilotKit", () => {
     );
   });
 
+  it("scopes the A2UI context to the runtime's A2UI agents (#5369)", () => {
+    TestBed.configureTestingModule({
+      providers: [
+        provideCopilotKit({ licenseKey, a2ui: { catalog: testCatalog } }),
+      ],
+    });
+    const copilotKit = TestBed.inject(CopilotKit);
+    const core = copilotKit.core as any;
+    mockAddContext.mockClear();
+
+    core.a2uiAgents = ["chat"];
+    core.listener!.onRuntimeConnectionStatusChanged({ status: "connected" });
+
+    expect(
+      mockAddContext.mock.calls.map(([context]) => context.agentIds),
+    ).toEqual([["chat"], ["chat"], ["chat"], ["chat"]]);
+  });
+
+  it("registers catalog components for the Inspector and drops disabled ones", () => {
+    const customCatalog: A2UICatalog = Object.assign(
+      new Catalog("copilotkit://custom-catalog", [
+        { name: "FlightCard", schema: zodV3.object({}) },
+        { name: "Badge", schema: zodV3.object({}) },
+      ]),
+      { surfaceComponent: CopilotA2UIActivityRenderer },
+    );
+    TestBed.configureTestingModule({
+      providers: [
+        provideCopilotKit({ licenseKey, a2ui: { catalog: customCatalog } }),
+      ],
+    });
+    const copilotKit = TestBed.inject(CopilotKit);
+    const core = copilotKit.core as any;
+    expect(
+      mockSetCatalogComponents.mock.calls
+        .at(-1)![0]
+        .map((component: { name: string }) => component.name),
+    ).toEqual(["FlightCard", "Badge"]);
+
+    core.disabledCatalogComponents.add("Badge");
+    for (const [subscriber] of mockSubscribe.mock.calls) {
+      subscriber.onCatalogComponentsChanged?.({});
+    }
+
+    const filtered = copilotKit.ɵa2uiCatalog()!;
+    expect([...filtered.components.keys()]).toEqual(["FlightCard"]);
+    expect(filtered.surfaceComponent).toBe(CopilotA2UIActivityRenderer);
+  });
+
   it("keeps A2UI off and warns once when the runtime enables it without a catalog", () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     TestBed.configureTestingModule({
@@ -480,7 +538,10 @@ describe("CopilotKit", () => {
   it("lists custom components by name only when includeSchema is false", () => {
     const customCatalog: A2UICatalog = Object.assign(
       new Catalog("copilotkit://custom-catalog", [
-        { name: "FlightCard", schema: z.object({ airline: z.string() }) },
+        {
+          name: "FlightCard",
+          schema: zodV3.object({ airline: zodV3.string() }),
+        },
       ]),
       { surfaceComponent: CopilotA2UIActivityRenderer },
     );
@@ -511,7 +572,10 @@ describe("CopilotKit", () => {
   it("includes custom component schemas in the catalog description by default", () => {
     const customCatalog: A2UICatalog = Object.assign(
       new Catalog("copilotkit://custom-catalog", [
-        { name: "FlightCard", schema: z.object({ airline: z.string() }) },
+        {
+          name: "FlightCard",
+          schema: zodV3.object({ airline: zodV3.string() }),
+        },
       ]),
       { surfaceComponent: CopilotA2UIActivityRenderer },
     );
@@ -560,11 +624,43 @@ describe("CopilotKit", () => {
 
     copilotKit.updateRuntime({ properties: updatedProperties });
 
-    expect(mockSetProperties).toHaveBeenCalledWith({
-      locale: "en",
-      a2uiCatalogAvailable: true,
+    expect(mockUpdateConfig).toHaveBeenCalledWith({
+      properties: { locale: "en", a2uiCatalogAvailable: true },
     });
     expect(updatedProperties).toEqual({ locale: "en" });
+  });
+
+  it("removes the built-in Open Generative UI tool when the runtime turns it off", () => {
+    TestBed.configureTestingModule({
+      providers: [provideCopilotKit({ licenseKey })],
+    });
+
+    const copilotKit = TestBed.inject(CopilotKit);
+    const core = copilotKit.core as any;
+    core.openGenerativeUIEnabled = true;
+    core.listener!.onRuntimeConnectionStatusChanged({ status: "connected" });
+    const unregister = mockAddTool.mock.results.at(-1)!.value;
+
+    core.openGenerativeUIEnabled = false;
+    core.listener!.onRuntimeConnectionStatusChanged({ status: "connected" });
+
+    expect(unregister).toHaveBeenCalledTimes(1);
+    expect(mockRemoveTool).not.toHaveBeenCalled();
+    expect(copilotKit.clientToolCallRenderConfigs()).toEqual([]);
+  });
+
+  it("disposes the core it created when its injector is destroyed", () => {
+    const injector = createEnvironmentInjector(
+      [provideCopilotKit({ licenseKey }), CopilotKit],
+      TestBed.inject(EnvironmentInjector),
+    );
+    injector.get(CopilotKit);
+
+    expect(mockDispose).not.toHaveBeenCalled();
+
+    injector.destroy();
+
+    expect(mockDispose).toHaveBeenCalledTimes(1);
   });
 
   it("removes tools and renderer configs", () => {
@@ -589,6 +685,38 @@ describe("CopilotKit", () => {
     expect(copilotKit.toolCallRenderConfigs()).toEqual([]);
   });
 
+  it("lets the latest renderer for a tool name win, and restores the config one on removal", () => {
+    class ConfigRenderer {
+      toolCall = signal({} as any);
+    }
+    class LaterRenderer {
+      toolCall = signal({} as any);
+    }
+    TestBed.configureTestingModule({
+      providers: [
+        provideCopilotKit({
+          licenseKey,
+          renderToolCalls: [
+            { name: "weather", args: z.object({}), component: ConfigRenderer },
+          ],
+        }),
+      ],
+    });
+    const copilotKit = TestBed.inject(CopilotKit);
+    const components = () =>
+      copilotKit.toolCallRenderConfigs().map((config) => config.component);
+
+    const unregister = copilotKit.addRenderToolCall({
+      name: "weather",
+      args: z.object({}),
+      component: LaterRenderer,
+    });
+    expect(components()).toEqual([LaterRenderer]);
+
+    unregister();
+    expect(components()).toEqual([ConfigRenderer]);
+  });
+
   it("updates runtime configuration via core methods", () => {
     TestBed.configureTestingModule({
       providers: [provideCopilotKit({ licenseKey })],
@@ -604,17 +732,19 @@ describe("CopilotKit", () => {
       agents: { a: {} as any },
     });
 
-    expect(mockSetRuntimeUrl).toHaveBeenCalledWith("https://other");
-    expect(mockSetRuntimeTransport).toHaveBeenCalledWith("single");
     // The public-key default (from this test's `licenseKey`) is re-applied on
     // every `updateRuntime({ headers })` call, not just at construction — a
     // later headers change must not silently drop it.
-    expect(mockSetHeaders).toHaveBeenCalledWith({
-      Authorization: "different",
-      "X-CopilotCloud-Public-Api-Key": licenseKey,
+    expect(mockUpdateConfig).toHaveBeenCalledWith({
+      runtimeUrl: "https://other",
+      runtimeTransport: "single",
+      headers: {
+        Authorization: "different",
+        "X-CopilotCloud-Public-Api-Key": licenseKey,
+      },
+      properties: { locale: "en" },
+      agents__unsafe_dev_only: { a: {} },
     });
-    expect(mockSetProperties).toHaveBeenCalledWith({ locale: "en" });
-    expect(mockSetAgents).toHaveBeenCalledWith({ a: {} });
   });
 
   // #1482: the message filter is the Angular half of the `messageFilter`
@@ -652,7 +782,9 @@ describe("CopilotKit", () => {
 
     copilotKit.updateRuntime({ messageFilter: keepLastTurn });
 
-    expect(mockSetMessageFilter).toHaveBeenCalledWith(keepLastTurn);
+    expect(mockUpdateConfig).toHaveBeenCalledWith({
+      messageFilter: keepLastTurn,
+    });
   });
 
   it("clears the message filter when updateRuntime passes undefined", () => {
@@ -671,7 +803,9 @@ describe("CopilotKit", () => {
     // `options.messageFilter !== undefined` guard would silently ignore it.
     copilotKit.updateRuntime({ messageFilter: undefined });
 
-    expect(mockSetMessageFilter).toHaveBeenCalledWith(undefined);
+    const [patch] = mockUpdateConfig.mock.calls.at(-1) ?? [];
+    expect(Object.keys(patch)).toEqual(["messageFilter"]);
+    expect(patch.messageFilter).toBeUndefined();
   });
 
   it("leaves the message filter alone when updateRuntime does not mention it", () => {
@@ -688,7 +822,11 @@ describe("CopilotKit", () => {
 
     copilotKit.updateRuntime({ runtimeUrl: "https://other" });
 
-    expect(mockSetMessageFilter).not.toHaveBeenCalled();
+    expect(mockUpdateConfig).toHaveBeenCalledWith({
+      runtimeUrl: "https://other",
+    });
+    const [patch] = mockUpdateConfig.mock.calls.at(-1) ?? [];
+    expect("messageFilter" in patch).toBe(false);
   });
 
   it("reflects agent updates from core subscriptions", () => {
@@ -705,15 +843,5 @@ describe("CopilotKit", () => {
 
     core.listener!.onAgentsChanged();
     expect(copilotKit.agents()).toEqual(core.agents);
-  });
-
-  it("does not add a watermark when license key is missing (watermark disabled)", () => {
-    TestBed.configureTestingModule({
-      providers: [provideCopilotKit({ runtimeUrl: "https://runtime.local" })],
-    });
-
-    TestBed.inject(CopilotKit);
-
-    expect(document.getElementById("copilotkit-license-watermark")).toBeNull();
   });
 });

@@ -41,7 +41,7 @@ test("the visual docs path inlines one dependency-complete shared frontend examp
   );
   expect(rendered).toContain("export default function Page");
   expect(rendered).toContain(
-    '<CopilotKit runtimeUrl="/api/copilotkit" agent="tool-rendering">',
+    '<CopilotKitProvider runtimeUrl="/api/copilotkit" agentId="tool-rendering">',
   );
   expect(rendered).toContain("<ToolRenderers />");
   expect(rendered).toContain('<CopilotChat agentId="tool-rendering" />');

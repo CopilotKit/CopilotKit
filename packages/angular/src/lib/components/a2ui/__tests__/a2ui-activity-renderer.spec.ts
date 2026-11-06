@@ -5,6 +5,8 @@ import { CopilotA2UIActivityRenderer } from "../a2ui-activity-renderer";
 import { COPILOT_KIT_CONFIG } from "../../../config";
 import { CopilotKit } from "../../../copilotkit";
 import { ActivityMessage } from "@ag-ui/core";
+import { Component } from "@angular/core";
+import type { A2UIConfig } from "../../../config";
 import { basicCatalog } from "../../../../a2ui/lib/basic/catalog";
 import { CopilotA2UISurface } from "../../../../a2ui/lib/surface";
 
@@ -51,7 +53,7 @@ describe("CopilotA2UIActivityRenderer", () => {
         },
         {
           provide: CopilotKit,
-          useValue: { core },
+          useValue: { core, ɵa2uiCatalog: () => undefined },
         },
       ],
     });
@@ -233,5 +235,95 @@ describe("CopilotA2UIActivityRenderer", () => {
       ),
     );
     warn.mockRestore();
+  });
+});
+
+@Component({
+  selector: "test-a2ui-loading",
+  template: `
+    <div data-testid="custom-loading">Loading</div>
+  `,
+})
+class TestLoading {}
+
+describe("CopilotA2UIActivityRenderer with A2UI options", () => {
+  const buttonOperations = [
+    {
+      version: "v0.9",
+      updateComponents: {
+        surfaceId: "form",
+        components: [
+          {
+            id: "root",
+            component: "Button",
+            child: "label",
+            action: { event: { name: "navigate", context: {} } },
+          },
+          { id: "label", component: "Text", text: "Go" },
+        ],
+      },
+    },
+  ];
+
+  function create(a2ui: A2UIConfig, content: unknown) {
+    const core = {
+      properties: {} as Record<string, unknown>,
+      setProperties: vi.fn(),
+      runAgent: vi.fn().mockResolvedValue(undefined),
+    };
+    TestBed.resetTestingModule();
+    TestBed.configureTestingModule({
+      imports: [CopilotA2UIActivityRenderer],
+      providers: [
+        { provide: COPILOT_KIT_CONFIG, useValue: { a2ui } },
+        {
+          provide: CopilotKit,
+          useValue: { core, ɵa2uiCatalog: () => undefined },
+        },
+      ],
+    });
+    const fixture = TestBed.createComponent(CopilotA2UIActivityRenderer);
+    fixture.componentRef.setInput("activityType", "a2ui-surface");
+    fixture.componentRef.setInput("content", content);
+    fixture.componentRef.setInput("message", {
+      id: "activity-2",
+      role: "activity",
+      activityType: "a2ui-surface",
+      content,
+    });
+    fixture.componentRef.setInput("agent", { agentId: "demo" });
+    fixture.detectChanges();
+    return { fixture, core };
+  }
+
+  it("shows the configured loadingComponent while building", () => {
+    const { fixture } = create(
+      { catalog: basicCatalog, loadingComponent: TestLoading },
+      { status: "building" },
+    );
+    expect(
+      fixture.nativeElement.querySelector('[data-testid="custom-loading"]'),
+    ).not.toBeNull();
+    expect(fixture.nativeElement.textContent).not.toContain(
+      "Building interface",
+    );
+    fixture.destroy();
+  });
+
+  it("does not run the agent when onAction handles the action", async () => {
+    const onAction = vi.fn(() => null);
+    const { fixture, core } = create(
+      { catalog: basicCatalog, onAction },
+      { a2ui_operations: buttonOperations },
+    );
+    await fixture.whenStable();
+    fixture.detectChanges();
+    (
+      fixture.nativeElement.querySelector("button") as HTMLButtonElement
+    ).click();
+
+    await vi.waitFor(() => expect(onAction).toHaveBeenCalledOnce());
+    expect(core.runAgent).not.toHaveBeenCalled();
+    fixture.destroy();
   });
 });

@@ -1,0 +1,557 @@
+"use client";
+
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import {
+  defineCopilotKitThreadsDrawer,
+  COPILOTKIT_THREADS_DRAWER_TAG,
+} from "@copilotkit/web-components/threads-drawer";
+import type {
+  CopilotKitThreadsDrawer as CopilotKitThreadsDrawerElement,
+  ThreadSelectedDetail,
+  ArchiveDetail,
+  UnarchiveDetail,
+  DeleteDetail,
+  OpenChangeDetail,
+  RetryDetail,
+} from "@copilotkit/web-components/threads-drawer";
+// TODO(ENT-1051): import `CollapseChangeDetail` from
+// "@copilotkit/web-components/threads-drawer" once the parallel element PR that
+// adds the collapse feature (property `collapsible` + event `collapse-change`)
+// lands and is published; declared locally here because the built element types
+// in this worktree predate it.
+type CollapseChangeDetail = { collapsed: boolean };
+import {
+  ɵcreateThreadsDrawerActions,
+  ɵgetThreadsDrawerElementProps,
+  ɵresolveAgentId,
+  ɵresolveThreadsLicense,
+  ɵtoDrawerThread,
+} from "@copilotkit/core";
+import { useThreads } from "../../hooks/use-threads";
+import type { Thread } from "../../hooks/use-threads";
+import { useLicenseContext } from "../../providers/CopilotKitProvider";
+import { useDefaultAgentId } from "../../context";
+import { useCopilotChatConfiguration } from "../../providers/CopilotChatConfigurationProvider";
+
+/**
+ * Per-row content render function. Receives a thread and returns the React
+ * node to project into the element's `slot="row:{id}"`. Returning `null`
+ * (or omitting the prop) falls back to the element's built-in row name.
+ */
+export type CopilotThreadsDrawerRowRenderer = (
+  thread: Thread,
+) => React.ReactNode;
+
+/**
+ * Props for {@link CopilotThreadsDrawer}.
+ *
+ * The drawer is a thin controller around the framework-agnostic
+ * `<copilotkit-threads-drawer>` custom element. It feeds the element domain data
+ * (threads/loading/error from {@link useThreads}, the active thread from the
+ * chat configuration) and routes the element's outbound DOM events back into
+ * core thread operations and chat-configuration changes.
+ */
+export interface CopilotThreadsDrawerProps {
+  /**
+   * The agent whose threads to list and manage. Defaults to the agent of the
+   * surrounding chat configuration, or the platform default when none is set.
+   */
+  agentId?: string;
+  /**
+   * Optional escape-hatch called when the user picks a thread row. The wrapper
+   * additionally focuses the chat input. When omitted, the wrapper drives the
+   * surrounding chat configuration directly (`setActiveThreadId`), so a bare
+   * `<CopilotThreadsDrawer>` switches the rendered thread with no host wiring. Provide
+   * this only to take control of the active thread yourself (e.g. a v1
+   * `setThreadId`); when provided it is preferred over the provider.
+   */
+  onThreadSelect?: (threadId: string) => void;
+  /**
+   * Optional escape-hatch called when the user starts a new thread (the
+   * element's "+ New" button). The wrapper always resets the core thread store
+   * to a fresh, non-explicit client-side thread (`startNewThread`). When this
+   * is omitted, the wrapper also resets the surrounding chat configuration to a
+   * fresh non-explicit thread (`startNewThread`) so the welcome screen shows
+   * with no host wiring. Provide this only to clear your own active thread;
+   * when provided it is preferred over the provider.
+   */
+  onNewThread?: () => void;
+  /** Called when the Upgrade CTA is clicked. */
+  onLicensed?: () => void;
+  /**
+   * Destination the locked view's Upgrade CTA opens in a new tab. Defaults to
+   * the element's built-in CopilotKit Intelligence docs URL when omitted. Set
+   * to an empty string to suppress the default navigation and handle the click
+   * yourself via `onLicensed`.
+   */
+  licenseUrl?: string;
+  /**
+   * Optional per-row content. Rendered as light-DOM children with
+   * `slot="row:{id}"` so the element projects them in place of the default
+   * row name. Return `null` for a given row to keep the element's default.
+   */
+  renderRow?: CopilotThreadsDrawerRowRenderer;
+  /**
+   * Accessible + default-header label for the drawer region. Sets the custom
+   * element's `aria-label` and the default header text (shown when no
+   * `slot="header"` content is projected). Defaults to the element's built-in
+   * `"Threads"` when omitted.
+   */
+  label?: string;
+  /**
+   * Heading for the "Recent Conversations" section above the thread list. Sets
+   * the custom element's `recent-label` attribute. Defaults to the element's
+   * built-in `"Recent Conversations"` when omitted.
+   */
+  recentLabel?: string;
+  /**
+   * Whether the drawer offers a collapse toggle. Sets the custom element's
+   * `collapsible` PROPERTY. When `false`, the drawer has no collapse toggle and
+   * is always expanded. Defaults to the element's built-in `true` when omitted.
+   */
+  collapsible?: boolean;
+  /**
+   * Called when the drawer's collapsed state changes (via the element's collapse
+   * toggle), with the new collapsed state. Mirrors the element's
+   * `collapse-change` event.
+   */
+  onCollapseChange?: (collapsed: boolean) => void;
+  /**
+   * Page size for thread pagination. When set, threads are fetched in pages of
+   * this size and the drawer shows a "Load more" control while more remain.
+   * When omitted, the full list loads at once and no pagination control shows.
+   */
+  limit?: number;
+  /**
+   * `data-testid` set on the underlying custom element (handy in tests and for
+   * targeting from a host page). Defaults to `"copilot-threads-drawer"`.
+   */
+  "data-testid"?: string;
+}
+
+/**
+ * React wrapper for the shadow-DOM `<copilotkit-threads-drawer>` threads drawer.
+ *
+ * Responsibilities:
+ * - Registers the custom element on the client (SSR-safe; nothing renders
+ *   during prerender to avoid hydration mismatch).
+ * - Feeds the element domain data: `threads`, `loading`, `error`,
+ *   `activeThreadId`, `licensed`, fetch-more state.
+ * - Routes the element's outbound events to core thread operations
+ *   ({@link useThreads}) and chat-configuration changes.
+ * - Registers with the surrounding chat configuration so the header
+ *   thread-list launcher appears, and binds the element `open` state to the
+ *   configuration's `drawerOpen`.
+ *
+ * Intelligence gating is two-pronged: the locked view shows when the runtime
+ * reports no active entitlement OR the `threads` feature is unavailable. While
+ * unavailable, the thread fetch is skipped entirely so the drawer issues no
+ * network requests.
+ *
+ * Thread switching needs no host wiring: when `onThreadSelect`/`onNewThread`
+ * are omitted, the wrapper drives the surrounding chat configuration directly
+ * ({@link CopilotChatConfigurationValue.setActiveThreadId} /
+ * {@link CopilotChatConfigurationValue.startNewThread}), so a bare drawer
+ * connects to the picked thread and shows the welcome screen on "+ New". Pass
+ * the callbacks only to take control yourself.
+ *
+ * @example
+ * ```tsx
+ * // Callback-free: the drawer drives the chat configuration itself.
+ * <CopilotKitProvider runtimeUrl="/api/copilotkit">
+ *   <CopilotChat />
+ *   <CopilotThreadsDrawer />
+ * </CopilotKitProvider>
+ * ```
+ */
+export function CopilotThreadsDrawer({
+  agentId,
+  onThreadSelect,
+  onNewThread,
+  onLicensed,
+  licenseUrl,
+  renderRow,
+  label,
+  recentLabel,
+  collapsible,
+  onCollapseChange,
+  limit,
+  "data-testid": dataTestId = "copilot-threads-drawer",
+}: CopilotThreadsDrawerProps): React.ReactElement | null {
+  const configuration = useCopilotChatConfiguration();
+  // `unknown` (an entitlement lookup that did not recover) is not a settled
+  // negative, so core treats it as licensed and lets the threads endpoint
+  // decide; `null` (not reported yet) is pending, never the locked view.
+  const { licensed, licensePending } =
+    ɵresolveThreadsLicense(useLicenseContext());
+
+  const providerAgentId = useDefaultAgentId();
+  const resolvedAgentId = ɵresolveAgentId({
+    agentId,
+    chatAgentId: configuration?.agentId,
+    providerAgentId,
+  });
+  const activeThreadId = configuration?.threadId ?? null;
+
+  // While unlicensed, skip the thread fetch entirely: the element shows only
+  // its locked view and no `/threads` request is issued.
+  const {
+    threads,
+    isLoading,
+    listError,
+    fetchMoreError,
+    hasMoreThreads,
+    isFetchingMoreThreads,
+    archiveThread,
+    unarchiveThread,
+    deleteThread,
+    fetchMoreThreads,
+    refetchThreads,
+    startNewThread,
+  } = useThreads({
+    agentId: resolvedAgentId,
+    includeArchived: true,
+    enabled: licensed,
+    ...(limit !== undefined ? { limit } : {}),
+  });
+
+  const drawerThreads = useMemo(() => threads.map(ɵtoDrawerThread), [threads]);
+
+  const elementRef = useRef<CopilotKitThreadsDrawerElement | null>(null);
+
+  // Register the custom element on the client only. `customElements` is absent
+  // during SSR/prerender; gating the render below on `mounted` keeps the server
+  // output empty so there is no hydration mismatch or layout shift.
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    defineCopilotKitThreadsDrawer();
+    setMounted(true);
+  }, []);
+
+  // Announce presence to the surrounding chat configuration so the header
+  // launcher renders; de-register on unmount. Depend on the stable
+  // `registerDrawer` callback, NOT the whole `configuration` object — the
+  // object's identity changes on every drawer/modal/label update, which would
+  // otherwise churn register/de-register each render and momentarily drop
+  // `drawerRegistered` (flickering the header launcher).
+  const registerDrawer = configuration?.registerDrawer;
+  useEffect(() => {
+    if (!registerDrawer) return;
+    return registerDrawer();
+  }, [registerDrawer]);
+
+  // Drive the chat configuration's drawerOpen from the element's open-change
+  // event, and reflect drawerOpen back onto the element below.
+  //
+  // Provider-less fallback: without a surrounding chat configuration there is no
+  // shared open-state to bind to, so the wrapper keeps its own local open-state.
+  // It starts CLOSED — matching the provider's own `ownDrawerOpen` default of
+  // `false` — so a bare `<CopilotThreadsDrawer>` does not render stuck-open and the
+  // element's open-change events still toggle it.
+  const [localDrawerOpen, setLocalDrawerOpen] = useState(false);
+  const drawerOpen = configuration ? configuration.drawerOpen : localDrawerOpen;
+  const setDrawerOpen = configuration
+    ? configuration.setDrawerOpen
+    : setLocalDrawerOpen;
+
+  // --- Event handlers (stable via refs to the latest closures) -------------
+  // The element is imperatively wired with addEventListener once; we keep the
+  // latest handler implementations in a ref so listeners need not be re-bound
+  // every render (which would churn on each thread/loading change).
+
+  // Prefer the host callbacks when provided; otherwise drive the surrounding
+  // chat configuration directly so a bare `<CopilotThreadsDrawer>` works callback-free.
+  // Core owns the drawer actions. They read the latest values through refs,
+  // so they are created once.
+  const latestRef = useRef({
+    threads: {
+      startNewThread,
+      archiveThread,
+      unarchiveThread,
+      deleteThread,
+      fetchMoreThreads,
+      refetchThreads,
+    },
+    configuration,
+    callbacks: { onThreadSelect, onNewThread },
+  });
+  latestRef.current = {
+    threads: {
+      startNewThread,
+      archiveThread,
+      unarchiveThread,
+      deleteThread,
+      fetchMoreThreads,
+      refetchThreads,
+    },
+    configuration,
+    callbacks: { onThreadSelect, onNewThread },
+  };
+  const [actions] = useState(() =>
+    ɵcreateThreadsDrawerActions({
+      getThreads: () => latestRef.current.threads,
+      getConfig: () => latestRef.current.configuration,
+      getCallbacks: () => latestRef.current.callbacks,
+      getElement: () => elementRef.current,
+    }),
+  );
+  const handleThreadSelected = actions.selectThread;
+  const handleNewThread = actions.newThread;
+  const handleArchive = actions.archive;
+  const handleUnarchive = actions.unarchive;
+  const handleDelete = actions.remove;
+  const handleFilterChange = actions.refetch;
+  const handleRetry = actions.retry;
+
+  const handleOpenChange = useCallback(
+    (open: boolean) => {
+      setDrawerOpen(open);
+    },
+    [setDrawerOpen],
+  );
+
+  const handleLicensed = useCallback(() => {
+    onLicensed?.();
+  }, [onLicensed]);
+
+  const handleLoadMore = actions.loadMore;
+
+  const handleCollapseChange = useCallback(
+    (collapsed: boolean) => {
+      onCollapseChange?.(collapsed);
+    },
+    [onCollapseChange],
+  );
+
+  // Keep a ref to the live handlers so the addEventListener effect can stay
+  // stable (bind once) while still calling the freshest closures.
+  const handlersRef = useRef({
+    handleThreadSelected,
+    handleNewThread,
+    handleArchive,
+    handleUnarchive,
+    handleDelete,
+    handleFilterChange,
+    handleRetry,
+    handleOpenChange,
+    handleLicensed,
+    handleLoadMore,
+    handleCollapseChange,
+  });
+  handlersRef.current = {
+    handleThreadSelected,
+    handleNewThread,
+    handleArchive,
+    handleUnarchive,
+    handleDelete,
+    handleFilterChange,
+    handleRetry,
+    handleOpenChange,
+    handleLicensed,
+    handleLoadMore,
+    handleCollapseChange,
+  };
+
+  // Bind the outbound DOM events once the element exists. Listeners are
+  // bound a single time and cleaned up on unmount; they dispatch through the
+  // handlers ref so they always invoke the latest closures.
+  useEffect(() => {
+    const el = elementRef.current;
+    if (!el) return;
+
+    const onThreadSelected = (event: Event) => {
+      const detail = (event as CustomEvent<ThreadSelectedDetail>).detail;
+      handlersRef.current.handleThreadSelected(detail.threadId);
+    };
+    const onNewThreadEvent = () => handlersRef.current.handleNewThread();
+    const onArchive = (event: Event) => {
+      const detail = (event as CustomEvent<ArchiveDetail>).detail;
+      handlersRef.current.handleArchive(detail.threadId);
+    };
+    const onUnarchive = (event: Event) => {
+      const detail = (event as CustomEvent<UnarchiveDetail>).detail;
+      handlersRef.current.handleUnarchive(detail.threadId);
+    };
+    const onDelete = (event: Event) => {
+      const detail = (event as CustomEvent<DeleteDetail>).detail;
+      handlersRef.current.handleDelete(detail.threadId);
+    };
+    const onFilterChange = (_event: Event) => {
+      handlersRef.current.handleFilterChange();
+    };
+    const onOpenChangeEvent = (event: Event) => {
+      const detail = (event as CustomEvent<OpenChangeDetail>).detail;
+      handlersRef.current.handleOpenChange(detail.open);
+    };
+    const onRetry = (event: Event) => {
+      const detail = (event as CustomEvent<RetryDetail>).detail;
+      handlersRef.current.handleRetry(detail.scope);
+    };
+    const onLicensedEvent = () => handlersRef.current.handleLicensed();
+    const onLoadMore = () => handlersRef.current.handleLoadMore();
+    const onCollapseChangeEvent = (event: Event) => {
+      const detail = (event as CustomEvent<CollapseChangeDetail>).detail;
+      handlersRef.current.handleCollapseChange(detail.collapsed);
+    };
+
+    el.addEventListener("thread-selected", onThreadSelected);
+    el.addEventListener("new-thread", onNewThreadEvent);
+    el.addEventListener("archive", onArchive);
+    el.addEventListener("unarchive", onUnarchive);
+    el.addEventListener("delete", onDelete);
+    el.addEventListener("filter-change", onFilterChange);
+    el.addEventListener("open-change", onOpenChangeEvent);
+    el.addEventListener("retry", onRetry);
+    el.addEventListener("licensed", onLicensedEvent);
+    el.addEventListener("load-more", onLoadMore);
+    el.addEventListener("collapse-change", onCollapseChangeEvent);
+
+    return () => {
+      el.removeEventListener("thread-selected", onThreadSelected);
+      el.removeEventListener("new-thread", onNewThreadEvent);
+      el.removeEventListener("archive", onArchive);
+      el.removeEventListener("unarchive", onUnarchive);
+      el.removeEventListener("delete", onDelete);
+      el.removeEventListener("filter-change", onFilterChange);
+      el.removeEventListener("open-change", onOpenChangeEvent);
+      el.removeEventListener("retry", onRetry);
+      el.removeEventListener("licensed", onLicensedEvent);
+      el.removeEventListener("load-more", onLoadMore);
+      el.removeEventListener("collapse-change", onCollapseChangeEvent);
+    };
+    // Re-bind only after the first client mount (deps: [mounted]); the element
+    // ref is stable thereafter.
+  }, [mounted]);
+
+  // Assign object/array/boolean PROPERTIES imperatively. React would otherwise
+  // set these as string attributes, which a custom element cannot accept for
+  // arrays/objects. Setting them as instance properties is the correct interop.
+  useEffect(() => {
+    const el = elementRef.current;
+    if (!el) return;
+    el.threads = drawerThreads;
+  }, [drawerThreads, mounted]);
+
+  useEffect(() => {
+    const el = elementRef.current;
+    if (!el) return;
+    // While the license is still resolving, the element shows its loading
+    // state and stays "licensed", so the locked view never flashes.
+    const elementProps = ɵgetThreadsDrawerElementProps({
+      loading: isLoading,
+      licensed,
+      licensePending,
+    });
+    el.loading = elementProps.loading;
+    // Only genuine list-load/mutation errors reach the end user. Developer/
+    // config errors (missing runtime URL, runtime without thread endpoints) are
+    // excluded via `listError` so they never leak into the drawer's error UI.
+    el.error = listError ? listError.message : null;
+    el.activeThreadId = activeThreadId;
+    el.licensed = elementProps.licensed;
+    el.hasMore = hasMoreThreads;
+    el.fetchingMore = isFetchingMoreThreads;
+    // Dedicated fetch-more error channel: drives the element's inline
+    // "couldn't load more — retry" panel without disturbing the loaded list or
+    // the initial-list `error`. The `retry{scope:"fetch-more"}` handler
+    // becomes reachable once this panel renders.
+    el.fetchMoreError = fetchMoreError ? fetchMoreError.message : null;
+  }, [
+    isLoading,
+    listError,
+    fetchMoreError,
+    activeThreadId,
+    licensed,
+    licensePending,
+    hasMoreThreads,
+    isFetchingMoreThreads,
+    mounted,
+  ]);
+
+  // Bind the element's controlled `open` to the chat configuration's
+  // drawerOpen, so the header launcher and the element stay in sync.
+  useEffect(() => {
+    const el = elementRef.current;
+    if (!el) return;
+    el.open = drawerOpen;
+  }, [drawerOpen, mounted]);
+
+  // Mirror the optional `label` onto the element (its accessible + default
+  // header text). Leave the element's built-in default ("Threads") in place
+  // when the prop is omitted, rather than clobbering it with undefined.
+  useEffect(() => {
+    const el = elementRef.current;
+    if (!el) return;
+    if (label !== undefined) el.label = label;
+  }, [label, mounted]);
+
+  // Mirror the optional `licenseUrl` onto the element (the locked view's
+  // Upgrade CTA destination). Leave the element's built-in default in place
+  // when the prop is omitted, rather than clobbering it with undefined.
+  useEffect(() => {
+    const el = elementRef.current;
+    if (!el) return;
+    if (licenseUrl !== undefined) el.licenseUrl = licenseUrl;
+  }, [licenseUrl, mounted]);
+
+  // Mirror the optional `collapsible` onto the element as a PROPERTY (a
+  // default-true boolean, exactly like `licensed` — a string attribute cannot
+  // represent it since any non-empty value is truthy). Leave the element's
+  // built-in default (`true`) in place when the prop is omitted, rather than
+  // clobbering it with undefined.
+  useEffect(() => {
+    const el = elementRef.current;
+    if (!el) return;
+    if (collapsible !== undefined) {
+      // TODO(ENT-1051): drop the intersection cast once the published element
+      // type declares `collapsible` (see the local CollapseChangeDetail note).
+      (
+        el as CopilotKitThreadsDrawerElement & { collapsible: boolean }
+      ).collapsible = collapsible;
+    }
+  }, [collapsible, mounted]);
+
+  // Per-row light-DOM children projected via `slot="row:{id}"`.
+  const rowChildren = useMemo(() => {
+    if (!renderRow) return null;
+    return drawerThreads.map((drawerThread) => {
+      const fullThread = threads.find((t) => t.id === drawerThread.id);
+      if (!fullThread) return null;
+      const content = renderRow(fullThread);
+      if (content === null || content === undefined) return null;
+      return (
+        <div key={drawerThread.id} slot={`row:${drawerThread.id}`}>
+          {content}
+        </div>
+      );
+    });
+  }, [renderRow, drawerThreads, threads]);
+
+  // SSR / pre-mount: render nothing so the server output matches the initial
+  // client render (the element is not yet registered), avoiding hydration
+  // mismatch and layout shift.
+  if (!mounted) return null;
+
+  return React.createElement(
+    COPILOTKIT_THREADS_DRAWER_TAG,
+    {
+      ref: elementRef,
+      "data-testid": dataTestId,
+      // Pass the section heading label as an attribute; omit it entirely when
+      // unset so the element keeps its built-in default rather than receiving
+      // an `undefined` that would clobber it.
+      ...(recentLabel !== undefined ? { "recent-label": recentLabel } : {}),
+    },
+    rowChildren,
+  );
+}
+
+CopilotThreadsDrawer.displayName = "CopilotThreadsDrawer";
+
+export default CopilotThreadsDrawer;

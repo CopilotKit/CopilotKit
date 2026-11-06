@@ -10,41 +10,88 @@ The `a2ui` provider option and `@copilotkit/a2ui-renderer` render A2UI v0.9: you
 
 ## Before and after
 
-The provider takes a UI instead of a catalog, and the runtime needs no A2UI option:
+The provider takes a UI instead of a catalog, and the runtime needs no A2UI option. `myCatalog` and `appUI` are the catalogs from [Convert a custom catalog](#convert-a-custom-catalog) below:
 
 <Tabs groupId="frontend_framework" items={["React", "Angular"]} persist>
   <Tab value="React">
-    ```tsx title="Before"
-    <CopilotKit runtimeUrl="/api/copilotkit" a2ui={{ catalog: myCatalog }}>
+    ```tsx title="Before" group=a2ui-before
+    "use client";
+    import { CopilotKitProvider } from "@copilotkit/react-core";
+
+    export function Providers({ children }: { children: React.ReactNode }) {
+      return (
+        <CopilotKitProvider runtimeUrl="/api/copilotkit" a2ui={{ catalog: myCatalog }}>
+          {children}
+        </CopilotKitProvider>
+      );
+    }
     ```
 
-    ```tsx title="After"
-    <CopilotKitProvider runtimeUrl="/api/copilotkit" generativeUI={{ ui: appUI }}>
+    ```tsx title="After" group=a2ui-after
+    "use client";
+    import { CopilotKitProvider } from "@copilotkit/react-core";
+
+    export function Providers({ children }: { children: React.ReactNode }) {
+      return (
+        <CopilotKitProvider runtimeUrl="/api/copilotkit" generativeUI={{ ui: appUI }}>
+          {children}
+        </CopilotKitProvider>
+      );
+    }
     ```
   </Tab>
   <Tab value="Angular">
-    ```ts title="Before"
-    provideCopilotKit({ runtimeUrl: "/api/copilotkit", a2ui: { catalog: myCatalog } }),
+    {/* kiira: ignore, imports the reader's own Angular files and components, which kiira cannot see */}
+    ```ts ignore title="Before"
+    import type { ApplicationConfig } from "@angular/core";
+    import { provideCopilotKit } from "@copilotkit/angular";
+    import { myCatalog } from "./catalog";
+
+    export const appConfig: ApplicationConfig = {
+      providers: [
+        provideCopilotKit({ runtimeUrl: "/api/copilotkit", a2ui: { catalog: myCatalog } }),
+      ],
+    };
     ```
 
-    ```ts title="After"
-    provideCopilotKit({ runtimeUrl: "/api/copilotkit" }),
-    provideGenerativeUI({ ui: appUI }),
+    {/* kiira: ignore, imports the reader's own Angular files and components, which kiira cannot see */}
+    ```ts ignore title="After"
+    import type { ApplicationConfig } from "@angular/core";
+    import { provideCopilotKit } from "@copilotkit/angular";
+    import { provideGenerativeUI } from "@copilotkit/angular/generative-ui";
+    import { appUI } from "./app-ui";
+
+    export const appConfig: ApplicationConfig = {
+      providers: [
+        provideCopilotKit({ runtimeUrl: "/api/copilotkit" }),
+        provideGenerativeUI({ ui: appUI }),
+      ],
+    };
     ```
   </Tab>
 </Tabs>
 
 ```ts title="Runtime, before"
+import { CopilotRuntime } from "@copilotkit/runtime";
+import { BuiltInAgent } from "@copilotkit/runtime/agent";
+import { openaiText } from "@tanstack/ai-openai";
+
 const runtime = new CopilotRuntime({
-  agents,
+  agents: { shop: new BuiltInAgent({ model: openaiText("gpt-6-luna") }) },
   a2ui: { injectA2UITool: false, agents: ["shop"] },
 });
 ```
 
 ```ts title="Runtime, after"
+import { CopilotRuntime } from "@copilotkit/runtime";
+import { BuiltInAgent } from "@copilotkit/runtime/agent";
+import { openaiText } from "@tanstack/ai-openai";
+
 // Nothing: a run that carries a catalog gets the render_ui tool and the guide.
 // To force or limit it: generativeUI: true, or generativeUI: { agents: ["shop"] }.
-const runtime = new CopilotRuntime({ agents });
+const runtime = new CopilotRuntime({
+  agents: { shop: new BuiltInAgent({ model: openaiText("gpt-6-luna") }) },
+});
 ```
 
 The chat renders surfaces on its own. For an area of the page, mount [`<GenerativeUISurface id="...">`](/generative-ui/components/surfaces), or `<copilot-generative-ui-surface>` in Angular. For an agent that cannot call tools, use the [markdown transport](/generative-ui/components/markdown-mode). The agent keeps writing A2UI operations; see [Bindings and actions](#bindings-and-actions) for what changed in them.
@@ -55,7 +102,8 @@ Before, a catalog was definitions plus renderers, and a bound prop had to be dec
 
 <Tabs groupId="frontend_framework" items={["React", "Angular"]} persist>
   <Tab value="React">
-    ```ts title="Before"
+    ```tsx title="Before" group=a2ui-before
+    import { z } from "zod";
     import { createCatalog, DynamicStringSchema } from "@copilotkit/a2ui-renderer";
 
     const definitions = {
@@ -64,16 +112,27 @@ Before, a catalog was definitions plus renderers, and a bound prop had to be dec
       },
       Arrow: { props: z.object({}) },
     };
-    const renderers = { Airport, Arrow };
-    export const myCatalog = createCatalog(definitions, renderers, {
-      catalogId: "acme/flights",
-      includeBasicCatalog: true,
-    });
+
+    export const myCatalog = createCatalog(
+      definitions,
+      {
+        Airport: ({ props }) => (
+          <div>
+            <strong>{props.code}</strong>
+            <span>{props.city}</span>
+          </div>
+        ),
+        Arrow: () => <span aria-hidden="true">→</span>,
+      },
+      { catalogId: "acme/flights", includeBasicCatalog: true },
+    );
     ```
   </Tab>
   <Tab value="Angular">
     ```ts title="Before"
+    import { z } from "zod";
     import { createAngularCatalog, DynamicStringSchema } from "@copilotkit/angular/a2ui";
+    import { Airport, Arrow } from "./flight-components";
 
     const definitions = {
       Airport: {
@@ -94,11 +153,25 @@ After, each component is one entry, with the component, a description and plain 
 
 <Tabs groupId="frontend_framework" items={["React", "Angular"]} persist>
   <Tab value="React">
-    ```ts title="After"
+    ```tsx title="After" group=a2ui-after
+    import { z } from "zod";
     import {
       createGenerativeUI,
       standardUI,
-    } from "@copilotkit/react-core/v2/generative-ui";
+    } from "@copilotkit/react-core/generative-ui";
+
+    function Airport({ code, city }: { code: string; city: string }) {
+      return (
+        <div>
+          <strong>{code}</strong>
+          <span>{city}</span>
+        </div>
+      );
+    }
+
+    function Arrow() {
+      return <span aria-hidden="true">→</span>;
+    }
 
     export const appUI = createGenerativeUI({
       id: "acme/flights@1",
@@ -116,10 +189,12 @@ After, each component is one entry, with the component, a description and plain 
   </Tab>
   <Tab value="Angular">
     ```ts title="After"
+    import { z } from "zod";
     import {
       createGenerativeUI,
       standardUI,
     } from "@copilotkit/angular/generative-ui";
+    import { Airport, Arrow } from "./flight-components";
 
     export const appUI = createGenerativeUI({
       id: "acme/flights@1",

@@ -8,7 +8,7 @@ description: "React hook for interactive tools that pause agent execution and wa
 `useHumanInTheLoop` registers an interactive tool that pauses agent execution until the user responds through your custom UI. Unlike `useFrontendTool`, there is no `handler` function. Instead, the hook provides an internal status machine (`InProgress` -> `Executing` -> `Complete`) and supplies a `respond` callback to the render component while the tool is in the `Executing` state. The agent remains paused until `respond` is called with the user's input.
 
 <Callout type="info">
-  Re-exported from `@copilotkit/react-core/v2`, identical to the [React (V2) `useHumanInTheLoop`](/reference/v2/hooks/useHumanInTheLoop). The only difference is the import path.
+  Re-exported from `@copilotkit/react-core`, identical to the [React `useHumanInTheLoop`](/reference/hooks/useHumanInTheLoop). The only difference is the import path.
 </Callout>
 
 This hook is built on top of `useFrontendTool` with an internally managed handler that resolves the tool call promise when `respond` is invoked. Use it for confirmation dialogs, approval workflows, form collection, or any scenario where a human must provide input before the agent can continue. The `render` component returns React Native elements that CopilotKit surfaces in the chat, through the same shared renderer registry [`useRenderTool`](/reference/react-native/hooks/useRenderTool) and `useFrontendTool` write to.
@@ -16,12 +16,15 @@ This hook is built on top of `useFrontendTool` with an internally managed handle
 ## Signature
 
 ```tsx
-import { useHumanInTheLoop } from "@copilotkit/react-native";
+import {
+  useHumanInTheLoop,
+  type ReactHumanInTheLoop,
+} from "@copilotkit/react-native";
 
-function useHumanInTheLoop<T extends Record<string, unknown>>(
+useHumanInTheLoop satisfies <T extends Record<string, unknown>>(
   tool: ReactHumanInTheLoop<T>,
   deps?: ReadonlyArray<unknown>,
-): void;
+) => void;
 ```
 
 ## Parameters
@@ -65,8 +68,8 @@ function useHumanInTheLoop<T extends Record<string, unknown>>(
 
   </PropertyReference>
 
-  <PropertyReference name="available" type='"enabled" | "disabled" | "remote"' default='"enabled"'>
-    Controls tool availability. Set to `"disabled"` to temporarily prevent the agent from requesting human input through this tool.
+  <PropertyReference name="available" type="boolean" default="true">
+    Whether the agent can see the tool. Set to `false` to temporarily prevent the agent from requesting human input through this tool.
   </PropertyReference>
 </PropertyReference>
 
@@ -323,7 +326,7 @@ function ExpenseApproval() {
 - [`useFrontendTool`](/reference/react-native/hooks/useFrontendTool): for tools with automated handlers that do not require user interaction
 - [`useRenderTool`](/reference/react-native/hooks/useRenderTool): register renderer-only tool call UI (named or wildcard)
 - [`ToolCallStatus`](#toolcallstatus): the status enum used across tool hooks
-- [React (V2) reference](/reference/v2/hooks/useHumanInTheLoop)
+- [React reference](/reference/hooks/useHumanInTheLoop)
 
 ## ToolCallStatus
 

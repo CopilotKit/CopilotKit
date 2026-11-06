@@ -414,6 +414,10 @@ async function runComponent(
               noEmit: true,
               esModuleInterop: true,
               skipLibCheck: true,
+              // Snippets read `process.env`, so they need the Node globals
+              // from the `@types/node` in `baseDeps`. TypeScript 6 and later
+              // do not load `@types/*` packages unless `types` names them.
+              types: ["node"],
             },
             include: [entryFile],
           },

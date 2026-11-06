@@ -46,7 +46,7 @@ This context can then be shared with your AG2 backend. With AG2 1.1.2 or newer, 
 
                 ```tsx title="YourComponent.tsx" showLineNumbers {1, 7-10}
                 "use client" // only necessary if you are using Next.js with the App Router. // [!code highlight]
-                import { useAgentContext } from "@copilotkit/react-core/v2"; // [!code highlight]
+                import { useAgentContext } from "@copilotkit/react-core"; // [!code highlight]
                 import { useState } from 'react';
 
                 export function YourComponent() {

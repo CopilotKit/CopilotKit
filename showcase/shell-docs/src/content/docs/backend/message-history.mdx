@@ -55,14 +55,19 @@ the messages to send:
 
 <FrontendOnly frontend="react">
 ```tsx title="app/page.tsx"
-import { CopilotKit } from "@copilotkit/react-core/v2";
+import type { ReactNode } from "react";
+import { CopilotKitProvider } from "@copilotkit/react-core";
 
-<CopilotKit
-  runtimeUrl="/api/copilotkit"
-  messageFilter={(messages) => messages.slice(-1)}
->
-  <YourApp />
-</CopilotKit>;
+export function Providers({ children }: { children: ReactNode }) {
+  return (
+    <CopilotKitProvider
+      runtimeUrl="/api/copilotkit"
+      messageFilter={(messages) => messages.slice(-1)}
+    >
+      {children}
+    </CopilotKitProvider>
+  );
+}
 ```
 </FrontendOnly>
 
@@ -100,14 +105,19 @@ import { CopilotKitProvider } from "@copilotkit/vue/v2";
 
 <FrontendOnly frontend="react-native">
 ```tsx title="App.tsx"
+import type { ReactNode } from "react";
 import { CopilotKitProvider } from "@copilotkit/react-native";
 
-<CopilotKitProvider
-  runtimeUrl="https://your-server/api/copilotkit"
-  messageFilter={(messages) => messages.slice(-1)}
->
-  <YourApp />
-</CopilotKitProvider>;
+export function Providers({ children }: { children: ReactNode }) {
+  return (
+    <CopilotKitProvider
+      runtimeUrl="https://your-server/api/copilotkit"
+      messageFilter={(messages) => messages.slice(-1)}
+    >
+      {children}
+    </CopilotKitProvider>
+  );
+}
 ```
 </FrontendOnly>
 
@@ -310,8 +320,9 @@ const trimmedParallel = lastTurnOnly(parallel);
 trimmedParallel.forEach((message, index) => {
   for (const toolCall of message.role === "assistant" ? (message.toolCalls ?? []) : []) {
     const answers = new Set<string>();
-    for (let i = index + 1; trimmedParallel[i]?.role === "tool"; i++) {
-      answers.add(trimmedParallel[i].toolCallId);
+    for (const next of trimmedParallel.slice(index + 1)) {
+      if (next.role !== "tool") break;
+      answers.add(next.toolCallId);
     }
     assert.ok(
       answers.has(toolCall.id),
@@ -331,7 +342,7 @@ to the agent before you register the agent with the runtime:
 
 ```ts title="app/api/copilotkit/[[...slug]]/route.ts"
 import { HttpAgent } from "@ag-ui/client";
-import { CopilotRuntime } from "@copilotkit/runtime/v2";
+import { CopilotRuntime } from "@copilotkit/runtime";
 import { lastTurnOnly, TrimHistoryMiddleware } from "./trim-history";
 
 const agent = new HttpAgent({ url: process.env.AGENT_URL! });
@@ -367,15 +378,20 @@ production use needs a `publicLicenseKey`.
 <FrontendOnly frontend="react">
 ```tsx title="app/page.tsx"
 import { HttpAgent } from "@ag-ui/client";
-import { CopilotKit } from "@copilotkit/react-core/v2";
+import type { ReactNode } from "react";
+import { CopilotKitProvider } from "@copilotkit/react-core";
 import { lastTurnOnly, TrimHistoryMiddleware } from "./trim-history";
 
 const supportAgent = new HttpAgent({ url: "https://agents.example.com/support" });
 supportAgent.use(new TrimHistoryMiddleware(lastTurnOnly));
 
-<CopilotKit selfManagedAgents={{ "support-agent": supportAgent }}>
-  <YourApp />
-</CopilotKit>;
+export function Providers({ children }: { children: ReactNode }) {
+  return (
+    <CopilotKitProvider selfManagedAgents={{ "support-agent": supportAgent }}>
+      {children}
+    </CopilotKitProvider>
+  );
+}
 ```
 </FrontendOnly>
 

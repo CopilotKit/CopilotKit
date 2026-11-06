@@ -66,7 +66,7 @@ view with the most useful evidence:
 Inspector is best for locating the failing layer during development. If the
 event stream stops before it reaches the browser, enable [Runtime Debug
 Mode](/troubleshooting/debug-mode) to inspect the server-side pipeline. Use
-`onError` on `CopilotKit` or `CopilotChat` when the application UI or your
+`onError` on `CopilotKitProvider` or `CopilotChat` when the application UI or your
 production observability system should also receive the error. See [Error
 Debugging & Observability](/troubleshooting/error-debugging) for that setup.
 
@@ -147,18 +147,22 @@ rendering.
 To disable Inspector in React:
 
 ```tsx
-<CopilotKit
-  runtimeUrl="/api/copilotkit"
-  enableInspector={false}
->
-  {children}
-</CopilotKit>
+import type { ReactNode } from "react";
+import { CopilotKitProvider } from "@copilotkit/react-core";
+
+export function Providers({ children }: { children: ReactNode }) {
+  return (
+    <CopilotKitProvider runtimeUrl="/api/copilotkit" enableInspector={false}>
+      {children}
+    </CopilotKitProvider>
+  );
+}
 ```
 
 Vue uses `:enable-inspector="false"`; Angular uses
 `provideCopilotKit({ enableInspector: false })`.
 
-See the [`CopilotKit` provider reference](/reference/components/CopilotKit) for
+See the [`CopilotKitProvider` reference](/reference/components/CopilotKit) for
 the complete React provider API.
 
 Pop-out keeps the same live session in a separate browser window. A temporary

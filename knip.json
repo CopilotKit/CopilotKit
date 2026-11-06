@@ -1,0 +1,105 @@
+{
+  "$schema": "https://unpkg.com/knip@5/schema.json",
+  "include": [
+    "files",
+    "dependencies",
+    "devDependencies",
+    "unlisted",
+    "binaries",
+    "exports",
+    "types",
+    "duplicates",
+    "enumMembers"
+  ],
+  "exclude": ["optionalPeerDependencies"],
+  "ignoreExportsUsedInFile": true,
+  "ignoreWorkspaces": [
+    "codemods/**",
+    "examples/**",
+    "showcase/**",
+    "tools/**",
+    "packages/intelligence-adk-python",
+    "packages/intelligence-agent-framework-dotnet",
+    "packages/intelligence-delivery-python-core",
+    "packages/intelligence-langgraph-python",
+    "packages/runtime-dotnet",
+    "packages/runtime-go",
+    "packages/runtime-python",
+    "packages/runtime-ruby"
+  ],
+  "workspaces": {
+    ".": {
+      "entry": [],
+      "project": [],
+      "ignore": ["*", "@(!(packages))/**"]
+    },
+    "packages/*": {
+      "entry": [
+        "{index,cli,main}.{js,cjs,mjs,jsx,ts,cts,mts,tsx}!",
+        "src/{index,cli,main}.{js,cjs,mjs,jsx,ts,cts,mts,tsx}!",
+        "*.d.ts",
+        "src/**/*.css",
+        "src/**/*.test-d.{ts,tsx}",
+        "scripts/**/*.{js,cjs,mjs,ts,mts}",
+        "test/**/*.{js,mjs,ts}",
+        "browser/**/*.{ts,tsx,mjs}",
+        "browser-tests/**/*.{ts,tsx,mjs}",
+        "dev/**/*.ts",
+        "type-fixtures/**/*.ts"
+      ],
+      "ignore": ["scripts/__tests__/fixtures/**"]
+    },
+    "packages/angular": {
+      "entry": [
+        "src/index.ts!",
+        "src/a2ui/index.ts!",
+        "src/mcp-apps/index.ts!",
+        "src/generative-ui/index.ts!",
+        "src/generative-ui/{chart,icons,map}/index.ts!",
+        "scripts/**/*.{js,cjs,mjs,ts,mts}"
+      ]
+    },
+    "packages/channels": {
+      "entry": [
+        "src/{index,testing,jsx-runtime,jsx-dev-runtime,ui,takumi}.ts!",
+        "src/{slack,slack/codec,slack/render,teams,teams/render}.ts!",
+        "src/{discord,whatsapp}.ts!"
+      ]
+    },
+    "packages/channels-core": {
+      "entry": [
+        "src/{index,jsx-runtime,jsx-dev-runtime}.ts!",
+        "src/testing/state-store-conformance.ts!",
+        "src/render/takumi.ts!"
+      ]
+    },
+    "packages/a2ui-renderer": {
+      "entry": ["src/index.ts!", "src/__tests__/clsx-shim.ts"]
+    },
+    "packages/react-core": {
+      "entry": [
+        "{index,cli,main}.{js,cjs,mjs,jsx,ts,cts,mts,tsx}!",
+        "src/{index,cli,main}.{js,cjs,mjs,jsx,ts,cts,mts,tsx}!",
+        "*.d.ts",
+        "src/**/*.css",
+        "src/**/*.test-d.{ts,tsx}",
+        "scripts/**/*.{js,cjs,mjs,ts,mts}",
+        "test/**/*.{js,mjs,ts}",
+        "browser/**/*.{ts,tsx,mjs}",
+        "browser-tests/**/*.{ts,tsx,mjs}",
+        "dev/**/*.ts",
+        "type-fixtures/**/*.ts"
+      ],
+      "ignore": ["scripts/__tests__/fixtures/**"],
+      "ignoreDependencies": ["phoenix"]
+    },
+    "packages/vue": {
+      "entry": [
+        "src/index.ts!",
+        "*.d.ts",
+        "src/v2/__tests__/mocks/web-inspector.ts"
+      ],
+      "ignoreDependencies": ["phoenix"]
+    }
+  }
+}

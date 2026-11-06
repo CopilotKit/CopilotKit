@@ -89,6 +89,7 @@ Import these symbols from `@copilotkit/angular`.
 - `CopilotChatInputMode`
 - `CopilotChatInputOutputs`
 - `CopilotChatInputSlots`
+- `CopilotChatInspectorButton`
 - `CopilotChatLabels`
 - `CopilotChatMessageView`
 - `CopilotChatMessageViewCursor`
@@ -100,6 +101,9 @@ Import these symbols from `@copilotkit/angular`.
 - `CopilotChatSuggestionView`
 - `CopilotChatTextarea`
 - `CopilotChatTextareaProps`
+- `CopilotChatToolCallDisplay`
+- `CopilotChatToolCallGroup`
+- `CopilotChatToolCallGroupAppearance`
 - `CopilotChatToolCallsView`
 - `CopilotChatToolbar`
 - `CopilotChatToolbarButton`
@@ -126,10 +130,12 @@ Import these symbols from `@copilotkit/angular`.
 - `CopilotChatViewProps`
 - `CopilotChatViewScrollToBottomButton`
 - `CopilotChatViewScrollView`
+- `CopilotChatWorkSummary`
 - `CopilotDefaultToolRenderer`
 - `CopilotKit`
 - `CopilotKitAgentContext`
 - `CopilotKitConfig`
+- `CopilotKitStyles`
 - `CopilotOpenGenerativeUIActivityRenderer`
 - `CopilotOpenGenerativeUIRenderer`
 - `CopilotOpenGenerativeUIToolRenderer`
@@ -189,6 +195,7 @@ Import these symbols from `@copilotkit/angular`.
 - `RenderActivityMessageConfig`
 - `RenderSlotOptions`
 - `RenderToolCallConfig`
+- `RenderToolCall`
 - `RenderToolCalls`
 - `ResizeObserverService`
 - `ResizeState`
@@ -211,6 +218,7 @@ Import these symbols from `@copilotkit/angular`.
 - `ThreadsStore`
 - `ThumbsDownButtonContext`
 - `ThumbsUpButtonContext`
+- `ToolCallEntry`
 - `ToolCallHandler`
 - `ToolRenderer`
 - `ToolbarContext`
@@ -255,11 +263,17 @@ Import these symbols from `@copilotkit/angular`.
 - `renderSlot`
 - `safeToolValue`
 - `transcribeAudio`
+
+### Internal extension points
+
+The following exports exist only for CopilotKit-maintained code. They are
+Angular DI tokens that hook Inspector development mode and built-in
+renderers. Applications must not depend on these exports. The `ɵ` prefix and
+TSDoc mark them internal.
+
 - `ɵCOPILOTKIT_ASSISTANT_MARKDOWN_RENDERER`
 - `ɵCOPILOTKIT_BUILT_IN_ACTIVITY_RENDERERS`
 - `ɵCOPILOTKIT_INSPECTOR_DEVELOPMENT_MODE`
-- `ɵresolvePublicKeyHeaderDefaults`
-
 <!-- public-api:root:end -->
 
 ## A2UI Angular catalog entry point

@@ -64,10 +64,10 @@ describe("packageNameFor", () => {
   });
 
   it("returns null for first-party files", () => {
-    assert.equal(packageNameFor("dist/v2/headless.mjs"), null);
+    assert.equal(packageNameFor("dist/headless.mjs"), null);
     // The old guard's substring match would have flagged this file. A path is
     // not a dependency.
-    assert.equal(packageNameFor("src/v2/katex-notes.ts"), null);
+    assert.equal(packageNameFor("src/katex-notes.ts"), null);
   });
 });
 
@@ -88,7 +88,7 @@ describe("forbiddenHits", () => {
   it("flags a dep resolved into the graph", () => {
     const hits = forbiddenHits({
       inputs: [
-        "dist/v2/headless.mjs",
+        "dist/headless.mjs",
         "../../node_modules/.pnpm/streamdown@1.3.0/node_modules/streamdown/dist/index.js",
       ],
       forbidden: REAL_FORBIDDEN,
@@ -99,7 +99,7 @@ describe("forbiddenHits", () => {
   it("does not flag a first-party path that merely contains the token", () => {
     assert.deepEqual(
       forbiddenHits({
-        inputs: ["dist/v2/headless.mjs", "src/v2/lib/katex-helpers.ts"],
+        inputs: ["dist/headless.mjs", "src/lib/katex-helpers.ts"],
         forbidden: REAL_FORBIDDEN,
       }),
       [],
@@ -108,7 +108,7 @@ describe("forbiddenHits", () => {
 
   it("flags a dep left EXTERNAL, which resolves to no graph input at all", () => {
     const hits = forbiddenHits({
-      inputs: ["dist/v2/headless.mjs"],
+      inputs: ["dist/headless.mjs"],
       externalSpecifiers: ["react", "streamdown/lib/lazy"],
       forbidden: REAL_FORBIDDEN,
     });

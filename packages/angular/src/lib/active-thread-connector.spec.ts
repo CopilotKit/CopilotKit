@@ -7,6 +7,8 @@ import {
   injectChatConfiguration,
   provideCopilotChatConfiguration,
 } from "./chat-configuration";
+import { ɵChatConnection } from "@copilotkit/core";
+import type { ɵChatConnectionHandle } from "@copilotkit/core";
 import { AgentStore } from "./agent";
 import { connectActiveThread } from "./active-thread-connector";
 
@@ -17,6 +19,9 @@ function makeFakeAgent() {
       this.cursors.delete(threadId);
     }
     run() {
+      return EMPTY;
+    }
+    protected override connect() {
       return EMPTY;
     }
   }
@@ -37,16 +42,35 @@ function makeStore(agent: AbstractAgent) {
   );
 }
 
+/** Lets the queued teardowns and the connect's first steps run. */
+function settle() {
+  return new Promise<void>((resolve) => setTimeout(resolve, 0));
+}
+
 function createConnectorFixture() {
   const agent = makeFakeAgent();
-  const disposes: ReturnType<typeof vi.fn>[] = [];
   const connectedCursors: (string | null)[] = [];
-  const connect = vi.fn(() => {
-    connectedCursors.push(agent.cursors.get(agent.threadId) ?? null);
-    const dispose = vi.fn();
-    disposes.push(dispose);
-    return { dispose };
+  const connect = vi.fn(async ({ agent: target }: { agent: AbstractAgent }) => {
+    connectedCursors.push(agent.cursors.get(target.threadId) ?? null);
+    return { result: undefined, newMessages: [] };
   });
+  const connection = new ɵChatConnection({
+    core: {
+      connectAgent: connect,
+      stopAgent: vi.fn(),
+      subscribe: () => ({ unsubscribe: () => {} }),
+    },
+    afterPaint: (callback) => callback(),
+  });
+  // The handles of explicit threads, with their release spied.
+  const releases: ReturnType<typeof vi.fn>[] = [];
+  const open: ɵChatConnection["open"] = (input, hooks) => {
+    const handle = connection.open(input, hooks);
+    if (!input.explicit) return handle;
+    const release = vi.fn(() => handle.release());
+    releases.push(release);
+    return { selection: handle.selection, release } as ɵChatConnectionHandle;
+  };
 
   TestBed.configureTestingModule({
     teardown: { destroyAfterEach: true },
@@ -56,11 +80,11 @@ function createConnectorFixture() {
   const agentStore = signal(makeStore(agent));
   const config = TestBed.runInInjectionContext(() => {
     const cfg = injectChatConfiguration();
-    connectActiveThread(cfg, agentStore, connect);
+    connectActiveThread(cfg, agentStore, { open });
     return cfg;
   });
 
-  return { config, agent, agentStore, connect, disposes, connectedCursors };
+  return { config, agent, agentStore, connect, releases, connectedCursors };
 }
 
 describe("connectActiveThread", () => {
@@ -72,15 +96,16 @@ describe("connectActiveThread", () => {
   afterEach(() => TestBed.resetTestingModule());
 
   describe("thread transitions", () => {
-    test("explicit switch pins the thread and opens a connect for the agent", () => {
+    test("explicit switch pins the thread and opens a connect for the agent", async () => {
       const { config, agent, connect } = context;
 
       config.setActiveThreadId("picked-1");
       TestBed.tick();
 
       expect(agent.threadId).toBe("picked-1");
+      await settle();
       expect(connect).toHaveBeenCalledTimes(1);
-      expect(connect).toHaveBeenCalledWith(agent);
+      expect(connect).toHaveBeenCalledWith({ agent });
     });
 
     test("initial mount does not clear messages and does not connect", () => {
@@ -95,14 +120,16 @@ describe("connectActiveThread", () => {
       expect(connect).not.toHaveBeenCalled();
     });
 
-    test("a genuine new-thread transition clears messages and skips connect", () => {
+    test("a genuine new-thread transition clears messages and skips connect", async () => {
       const { config, agent, connect } = context;
 
       config.setActiveThreadId("picked");
       TestBed.tick();
+      await settle();
 
       config.startNewThread();
       TestBed.tick();
+      await settle();
 
       expect(agent.setMessages).toHaveBeenCalledWith([]);
       expect(agent.messages).toEqual([]);
@@ -122,10 +149,11 @@ describe("connectActiveThread", () => {
   });
 
   describe("connection cleanup", () => {
-    test("a state-only fresh reset invalidates only the saved thread cursor", () => {
+    test("a state-only fresh reset invalidates only the saved thread cursor", async () => {
       const { config, agent, connect } = context;
       config.setActiveThreadId("saved");
       TestBed.tick();
+      await settle();
       agent.setMessages([]);
       agent.setState({ saved: true });
       agent.pendingInterrupts = [{ id: "approval-A", reason: "confirmation" }];
@@ -133,6 +161,7 @@ describe("connectActiveThread", () => {
       agent.cursors.set("other", "keep-other");
       config.startNewThread();
       TestBed.tick();
+      await settle();
       expect(agent.state).toEqual({});
       expect(agent.pendingInterrupts).toEqual([]);
       expect(agent.cursors.get("saved")).toBeUndefined();
@@ -142,14 +171,16 @@ describe("connectActiveThread", () => {
     test.each(["saved", "other", "via-fresh"])(
       "waits for old teardown before connecting %s",
       async (target) => {
-        const { config, agent, connect, disposes, connectedCursors } = context;
+        const { config, agent, connect, connectedCursors } = context;
         config.setActiveThreadId("saved");
         TestBed.tick();
+        await settle();
         let release = () => {};
         const detached = new Promise<void>((resolve) => {
           release = resolve;
         });
-        disposes[0].mockImplementation(() => detached);
+        // The switch to a fresh thread detaches the agent; hold it open.
+        vi.spyOn(agent, "detachActiveRun").mockImplementation(() => detached);
         agent.cursors.set("saved", "old-event");
         config.startNewThread();
         TestBed.tick();
@@ -160,12 +191,12 @@ describe("connectActiveThread", () => {
         const destination = target === "via-fresh" ? "saved" : target;
         config.setActiveThreadId(destination);
         TestBed.tick();
+        await settle();
         expect(connect).toHaveBeenCalledTimes(1);
         agent.cursors.set("saved", "late-event");
         release();
-        await detached;
-        await Promise.resolve();
-        await Promise.resolve();
+        // Let the queued teardown (detach, then reset) finish.
+        await new Promise((resolve) => setTimeout(resolve, 0));
         TestBed.tick();
         expect(connect).toHaveBeenCalledTimes(2);
         expect(connectedCursors).toEqual([null, null]);
@@ -181,7 +212,7 @@ describe("connectActiveThread", () => {
       },
     );
 
-    test("supports the direct Intelligence cursor on an empty thread", () => {
+    test("supports the direct Intelligence cursor on an empty thread", async () => {
       const { config, agent } = context;
       Object.defineProperty(agent, "clearReplayCursor", { value: undefined });
       Object.defineProperty(agent, "clearReconnectCursor", {
@@ -193,30 +224,33 @@ describe("connectActiveThread", () => {
       agent.cursors.set("saved", "old-event");
       config.startNewThread();
       TestBed.tick();
+      await settle();
       expect(agent.cursors.get("saved")).toBeUndefined();
     });
-    test("a second explicit switch disposes the prior connect and opens a new one", () => {
-      const { config, connect, disposes } = context;
+    test("a second explicit switch releases the prior connect and opens a new one", async () => {
+      const { config, connect, releases } = context;
 
       config.setActiveThreadId("picked-1");
       TestBed.tick();
+      await settle();
 
-      expect(disposes[0]).not.toHaveBeenCalled();
+      expect(releases[0]).not.toHaveBeenCalled();
 
       config.setActiveThreadId("picked-2");
       TestBed.tick();
+      await settle();
 
       expect(connect).toHaveBeenCalledTimes(2);
-      expect(disposes[0]).toHaveBeenCalledTimes(1);
-      expect(disposes[1]).not.toHaveBeenCalled();
+      expect(releases[0]).toHaveBeenCalledTimes(1);
+      expect(releases[1]).not.toHaveBeenCalled();
     });
 
-    test("destroying the injector disposes the live connect", () => {
-      const { config, disposes } = context;
+    test("destroying the injector releases the live connect", () => {
+      const { config, releases } = context;
       config.setActiveThreadId("picked-1");
       TestBed.tick();
       TestBed.resetTestingModule();
-      expect(disposes[0]).toHaveBeenCalledOnce();
+      expect(releases[0]).toHaveBeenCalledOnce();
     });
   });
 });

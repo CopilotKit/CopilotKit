@@ -14,12 +14,12 @@ shows how to choose and customize the visible chat.
 
 ## Choose a chat surface
 
-| Surface | Use it when |
-| --- | --- |
-| `CopilotChat` | Chat belongs inside an existing page or panel. |
-| `CopilotPopup` | Chat should open from a floating launcher. |
-| `CopilotSidebar` | Chat should sit beside the main application or open as an overlay. |
-| `CopilotChatView` | You own the agent wiring and only need the chat layout. |
+| Surface           | Use it when                                                        |
+| ----------------- | ------------------------------------------------------------------ |
+| `CopilotChat`     | Chat belongs inside an existing page or panel.                     |
+| `CopilotPopup`    | Chat should open from a floating launcher.                         |
+| `CopilotSidebar`  | Chat should sit beside the main application or open as an overlay. |
+| `CopilotChatView` | You own the agent wiring and only need the chat layout.            |
 
 All four are standalone Angular components.
 
@@ -53,11 +53,9 @@ import { CopilotChat } from "@copilotkit/angular";
 export class SupportChatComponent {}
 ```
 
-Import the package stylesheet once in the application's global stylesheet:
-
-```css title="src/styles.css"
-@import "@copilotkit/angular/styles.css";
-```
+The chat components include their own styles. You don't import a stylesheet.
+See [Styling](/reference/angular#styling) to load the CSS as a cached file or to
+use a CSP nonce.
 
 ## Use a popup or sidebar
 

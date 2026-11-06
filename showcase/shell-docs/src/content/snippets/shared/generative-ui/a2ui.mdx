@@ -49,10 +49,14 @@ A2UI specifications can be rendered on web, mobile, or any other platform, makin
 Enable A2UI in `CopilotRuntime` by passing `a2ui: {}`:
 
 ```ts title="app/api/copilotkit/route.ts"
+import { HttpAgent } from "@ag-ui/client";
 import {
   CopilotRuntime,
   createCopilotRuntimeHandler,
-} from "@copilotkit/runtime/v2";
+} from "@copilotkit/runtime";
+
+// Your AG-UI agent server.
+const myAgent = new HttpAgent({ url: "http://localhost:8000/" });
 
 const runtime = new CopilotRuntime({
   agents: { default: myAgent },
@@ -71,7 +75,7 @@ export { handler as POST };
 
 This automatically applies `A2UIMiddleware` to all registered agents. To scope it to specific agents, you can specify agents with the `agents` property: `a2ui: { agents: ["my-agent"] }`.
 
-Both halves of this page are v2 entry points: `@copilotkit/runtime/v2` on the server, `@copilotkit/react-core/v2` in the browser. If you are on the legacy `@copilotkit/runtime` root import with `copilotRuntimeNextJSAppRouterEndpoint`, A2UI still works — that class forwards `a2ui` straight to the v2 runtime — but the v2 handler is the current API, and our own showcase integrations moved to it (#6618). See [Deploy to any runtime](/runtime-server-adapter) for the other hosts.
+This page uses `@copilotkit/runtime` on the server and `@copilotkit/react-core` in the browser. See [Deploy to any runtime](/runtime-server-adapter) for the other hosts.
 
 Once configured, any A2UI output returned from your agent will automatically be rendered in the chat interface — no additional frontend code required.
 
@@ -80,7 +84,8 @@ Once configured, any A2UI output returned from your agent will automatically be 
 The A2UI renderer activates automatically — no extra configuration needed on the frontend. Optionally, pass a custom theme:
 
 ```tsx
-import { CopilotKit, type A2UITheme } from "@copilotkit/react-core/v2";
+import type { ReactNode } from "react";
+import { CopilotKitProvider, type A2UITheme } from "@copilotkit/react-core";
 
 // Your own theme object — the renderer reads the keys it understands.
 // Leave the `a2ui` prop off entirely to keep the built-in theme.
@@ -88,12 +93,19 @@ const myCustomTheme: A2UITheme = {
   // ...your theme keys
 };
 
-<CopilotKit runtimeUrl="/api/copilotkit" a2ui={{ theme: myCustomTheme }}>
-  {children}
-</CopilotKit>;
+export function Providers({ children }: { children: ReactNode }) {
+  return (
+    <CopilotKitProvider
+      runtimeUrl="/api/copilotkit"
+      a2ui={{ theme: myCustomTheme }}
+    >
+      {children}
+    </CopilotKitProvider>
+  );
+}
 ```
 
-The `a2ui` prop on `<CopilotKit>` is only needed if you want to override the default theme provided.
+The `a2ui` prop on `<CopilotKitProvider>` is only needed if you want to override the default theme provided.
 
 ## Using A2UI with CopilotKit
 

@@ -22,7 +22,7 @@ AI agent framework with three layers: **Frontend** (React/Angular/Vanilla) → *
 ## Essentials
 
 - **Nx monorepo** — run workspace tasks through `nx` (`nx run`, `nx run-many`, `nx affected`). **Dashboard exception:** `showcase/shell-dashboard` is deliberately outside the workspace and has no Nx targets. Use its [standalone verification instructions](showcase/shell-dashboard/README.md#verification) instead of the general Nx rule. Do not add it to the workspace or change its lockfile to make an Nx command work.
-- **Flat package structure** — All packages live under `packages/` with the `@copilotkit/` scope. Dual-version packages keep deprecated implementation code under `src/v1-deprecated/`, route the package root through `src/v1-deprecated-compatibility.ts`, and keep current code under `src/v2/`. These remain one published package; the deprecated source directory is not a public subpath.
+- **Flat package structure** — All packages live under `packages/` with the `@copilotkit/` scope. There is no v1/v2 split in the source: each package exports from its root, plus documented subpaths (for example `@copilotkit/react-core/headless` or `@copilotkit/runtime/express`).
 - **Simplicity** — prefer the simplest correct solution. For non-trivial changes, consider if there's a cleaner approach before committing.
 - **No changesets** — releases are conventional-commit-driven (`scripts/release/` reads commit subjects). This repo migrated off Changesets; never create `.changeset/*` files — nothing consumes them and CI fails on them. Describe the change in the commit subject instead, and leave `package.json` versions and `CHANGELOG.md` files to the release tooling.
 - **Worktrees** — always work in a git worktree for isolation. See [Git & PRs](.claude/docs/git.md) for the full workflow.
@@ -30,6 +30,18 @@ AI agent framework with three layers: **Frontend** (React/Angular/Vanilla) → *
 - **Commit as you go** — every meaningful unit of work gets its own commit, pushed immediately. Don't let untracked files accumulate across a session. Tests belong in the commit that introduces the code being tested. Full rules in [Git & PRs](.claude/docs/git.md#commit-early-and-often-in-logical-chunks).
 - **Documentation lives in shell-docs** — author CopilotKit docs in `showcase/shell-docs/src/content/`. The top-level `docs/` path is only a symlink to `showcase/shell-docs/`; never recreate the old `docs/content/docs/` tree for live documentation. AG-UI protocol docs are authored upstream in `ag-ui-protocol/ag-ui`, not directly in this repo. See [Documentation](.claude/docs/documentation.md).
 - **Inspector UI work** — follow `skills/inspector-workbench/SKILL.md`. Start the standalone workbench and take screenshots after each visual change. Pane add/rename/remove also uses `skills/inspector-docs/SKILL.md`.
+
+## Lint gate
+
+CI fails on new lint errors in `packages/` source. Before you say that work is done, run `pnpm lint` and `pnpm lint:dead-code`. Both must end with `OK`.
+
+- Do not write `any`. Use the real type, or `unknown` and narrow it.
+- Do not write an empty `catch {}` or `.catch(() => {})`. Handle the error, rethrow it, or write a comment in the handler that says why ignoring it is safe.
+- Await each promise. For a call that must not block, write `void promise`.
+- Every `oxlint-disable` or `eslint-disable` comment needs a reason after `--`.
+- Do not edit `.lint-baseline/`. Do not run `pnpm lint:baseline` to hide an error. If the check says that the baseline is stale, run `pnpm lint:prune`.
+
+Details: [Fix a failing lint check](dev-docs/static-analysis.md).
 
 ## Private Agent Instructions
 

@@ -83,13 +83,13 @@ for both Slack and Microsoft Teams.
     Your SDK declaration must use that exact Code:
 
     ```ts title="channel.ts"
-    import { createChannel } from "@copilotkit/channels";
-    import { makeAgent } from "./agent.js";
+    import { createChannel, HttpAgent } from "@copilotkit/channels";
 
     const channel = createChannel({
       name: "support",
       identifyUser: "platform",
-      agent: makeAgent,
+      agent: (threadId) =>
+        new HttpAgent({ url: "http://localhost:8000/agent", threadId }),
     });
     ```
 

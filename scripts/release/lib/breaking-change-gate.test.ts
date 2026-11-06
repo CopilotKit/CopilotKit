@@ -18,6 +18,34 @@ function committedManifest(): PublicApiManifest {
   ) as PublicApiManifest;
 }
 
+/**
+ * The committed manifest, plus one service adapter and one deprecation.
+ * Release lines such as 2.0.0 can ship neither, and the tests that remove
+ * them need one of each.
+ */
+function manifestWithRuntimeEntries(): PublicApiManifest {
+  const manifest = committedManifest();
+  const [factory] = manifest.runtime.hostFactories;
+  manifest.runtime.serviceAdapters.push({
+    ...structuredClone(factory),
+    symbol: "ExampleAdapter",
+    configurationType: "ExampleAdapterParams",
+  });
+  manifest.deprecations.push({
+    importPath: factory.importPath,
+    symbol: "exampleDeprecated",
+    replacement: { importPath: factory.importPath, symbol: factory.symbol },
+    sourceMessage: "Use createCopilotRuntimeHandler.",
+    provenance: {
+      importPath: factory.provenance.importPath,
+      symbol: factory.provenance.symbol,
+      replacement: factory.provenance.symbol,
+      sourceMessage: factory.provenance.symbol,
+    },
+  });
+  return manifest;
+}
+
 function gate(
   overrides: Partial<Parameters<typeof evaluateBreakingChangeGate>[0]>,
 ) {
@@ -49,8 +77,8 @@ describe("findPublicApiBreaks", () => {
   });
 
   it("ignores additions, versions, and provenance", () => {
-    const base = committedManifest();
-    const head = committedManifest();
+    const base = manifestWithRuntimeEntries();
+    const head = manifestWithRuntimeEntries();
     head.packages[0].version = "9.9.9";
     head.packages[0].provenance.version.path = "elsewhere/package.json";
     head.packages.push({
@@ -135,8 +163,8 @@ describe("findPublicApiBreaks", () => {
   });
 
   it("reports removed runtime factories, options, and deprecated exports", () => {
-    const base = committedManifest();
-    const head = committedManifest();
+    const base = manifestWithRuntimeEntries();
+    const head = manifestWithRuntimeEntries();
     const [adapter] = head.runtime.serviceAdapters.splice(0, 1);
     const factory = head.runtime.hostFactories[0];
     const [option] = factory.configurationKeys.splice(0, 1);

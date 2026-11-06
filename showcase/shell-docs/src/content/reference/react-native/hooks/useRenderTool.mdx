@@ -10,8 +10,8 @@ somebody else owns — a server-side tool, or, with `name: "*"`, every tool call
 that has no renderer of its own. It does not register a tool: nothing is
 advertised to the model and nothing becomes callable.
 
-That contract is react-core's, so this page and the [React (V2)
-`useRenderTool`](/reference/v2/hooks/useRenderTool) describe the same behaviour;
+That contract is react-core's, so this page and the [React
+`useRenderTool`](/reference/hooks/useRenderTool) describe the same behaviour;
 only the import path differs.
 
 <Callout type="warn" title="Registering a tool is a different hook">
@@ -23,16 +23,14 @@ only the import path differs.
 </Callout>
 
 <Callout type="warn" title="This used to be a different hook on React Native">
-  Before 1.68, `@copilotkit/react-native` exported a **local** hook under this
-  name whose whole body forwarded to `useFrontendTool`, so it shipped one
-  capability under the other's name — and `name: "*"` registered a frontend tool
-  literally called `*`. 1.68 replaced it with react-core's hook and kept the old
-  call shapes working behind a deprecated compatibility shim; the shim has since
-  been removed ([#6976](https://github.com/CopilotKit/CopilotKit/issues/6976)),
-  so `description` and `handler` no longer compile here and no longer register a
-  tool.
+  Early CopilotKit 1.x releases of `@copilotkit/react-native` exported a
+  **local** hook under this name whose whole body forwarded to
+  `useFrontendTool`, so it shipped one capability under the other's name — and
+  `name: "*"` registered a frontend tool literally called `*`. In CopilotKit 2,
+  the name is react-core's renderer-only hook, so `description` and `handler`
+  do not compile here and do not register a tool.
 
-  If you are upgrading from a version that predates 1.68, see [Migrating from
+  If you are upgrading an app that used the old hook, see [Migrating from
   the old React Native
   `useRenderTool`](#migrating-from-the-old-react-native-userendertool) for what
   to change and what the compiler will not catch for you.
@@ -56,33 +54,39 @@ name-scoped renderer that requires one.
 ### Wildcard overload
 
 ```tsx
-import { useRenderTool } from "@copilotkit/react-native";
+import type { ReactElement } from "react";
+import type { StandardSchemaV1 } from "@copilotkit/shared";
+import { useRenderTool, type RenderToolProps } from "@copilotkit/react-native";
 
-useRenderTool(
-  {
-    name: "*",
-    render: (props: any) => React.ReactElement | null,
-    agentId?: string,
+useRenderTool satisfies (
+  config: {
+    name: "*";
+    // The wildcard takes no schema, so its render props are untyped.
+    render: (props: RenderToolProps<StandardSchemaV1>) => ReactElement | null;
+    agentId?: string;
+    group?: boolean;
   },
   deps?: ReadonlyArray<unknown>,
-);
+) => void;
 ```
 
 ### Named overload
 
 ```tsx
-import { useRenderTool } from "@copilotkit/react-native";
-import { z } from "zod";
+import type { ReactElement } from "react";
+import type { StandardSchemaV1 } from "@copilotkit/shared";
+import { useRenderTool, type RenderToolProps } from "@copilotkit/react-native";
 
-useRenderTool<S extends StandardSchemaV1>(
-  {
-    name: string,
-    parameters: S,
-    render: (props: RenderToolProps<S>) => React.ReactElement | null,
-    agentId?: string,
+useRenderTool satisfies <S extends StandardSchemaV1>(
+  config: {
+    name: string;
+    parameters: S;
+    render: (props: RenderToolProps<S>) => ReactElement | null;
+    agentId?: string;
+    group?: boolean;
   },
   deps?: ReadonlyArray<unknown>,
-);
+) => void;
 ```
 
 `S` is the **schema** type, not the parsed argument object — the shape of
@@ -300,17 +304,24 @@ A `"*"` entry draws any tool call that has no exact-name renderer. It takes no
 schema, so its render props are untyped:
 
 ```tsx
-useRenderTool(
-  {
-    name: "*",
-    render: ({ name, status }) => (
-      <Text>
-        {status === "complete" ? "✓" : "⏳"} {name}
-      </Text>
-    ),
-  },
-  [],
-);
+import { Text } from "react-native";
+import { useRenderTool } from "@copilotkit/react-native";
+
+function ToolCallFallback() {
+  useRenderTool(
+    {
+      name: "*",
+      render: ({ name, status }) => (
+        <Text>
+          {status === "complete" ? "✓" : "⏳"} {name}
+        </Text>
+      ),
+    },
+    [],
+  );
+
+  return null;
+}
 ```
 
 Returning `null` from a renderer draws nothing, so `render: () => null` is how
@@ -361,6 +372,11 @@ re-registering at all. Keep the value in a ref that `render` dereferences when
 it runs:
 
 ```tsx
+import { useRef } from "react";
+import { useRenderTool } from "@copilotkit/react-native";
+import { z } from "zod";
+import { SeatGrid } from "./SeatGrid";
+
 function SeatPicker({ onSelect }: { onSelect: (id: string) => void }) {
   // Reassigned on every render; the captured `render` reads it at call time.
   const onSelectRef = useRef(onSelect);
@@ -373,12 +389,14 @@ function SeatPicker({ onSelect }: { onSelect: (id: string) => void }) {
       render: ({ parameters }) => (
         <SeatGrid
           seats={parameters.seats ?? []}
-          onSelect={(id) => onSelectRef.current(id)}
+          onSelect={(id: string) => onSelectRef.current(id)}
         />
       ),
     },
     [],
   );
+
+  return null;
 }
 ```
 
@@ -440,17 +458,16 @@ function ToolCallStage({ agentId = "default" }: { agentId?: string }) {
 
 ## Migrating from the old React Native `useRenderTool`
 
-React Native used to export a **local** hook under this name. It was not
+Early CopilotKit 1.x releases of React Native exported a **local** hook under
+this name. It was not
 react-core's `useRenderTool`: its whole body forwarded to react-core's *other*
 hook, `useFrontendTool`, so it registered a tool **and** a renderer while
 carrying the renderer-only hook's name.
 
-1.68 deleted that hook and pointed the name at react-core's, behind a deprecated
-compatibility shim that routed an old-shaped call the way the old hook did and
-warned about it in development. **The shim is gone.** `@copilotkit/react-native`
-now re-exports react-core's `useRenderTool` itself and carries no render-tool
-implementation of its own, so this page describes the whole of what the name
-does.
+In CopilotKit 2, `@copilotkit/react-native` re-exports react-core's
+`useRenderTool` and carries no render-tool implementation of its own, so this
+page describes the whole of what the name does. There is no compatibility shim
+and no development warning for old-shaped calls.
 
 ### What to change
 
@@ -527,22 +544,33 @@ advertised to the model any more, and `handler` never runs again.
 They are also the shapes that look unchanged on screen. React-core's renderer
 bridge spreads `{ ...props, parameters: props.args }` into your renderer, so an
 old `render: ({ args }) => …` keeps painting exactly as it did. The UI is
-identical; the tool is gone. The deprecated shim that shipped between 1.68 and
-its removal warned about precisely this population in development — with the
-shim gone, nothing does. **Audit these by hand.**
+identical; the tool is gone. Nothing warns about these calls. **Audit these by
+hand.**
 
 1. **A hoisted config object.** Assign the config to a variable first and pass
    the variable, and the excess `description` is no longer excess:
 
    ```tsx
+   import { Text } from "react-native";
+   import { useRenderTool } from "@copilotkit/react-native";
+   import { z } from "zod";
+
+   function WeatherCard({ city }: { city: string }) {
+     return <Text>{city}</Text>;
+   }
+
    const cfg = {
      name: "showWeather",
      description: "Show weather info",
      parameters: z.object({ city: z.string() }),
-     handler: async ({ city }: { city: string }) => fetchWeather(city),
+     handler: async ({ city }: { city: string }) => `Sunny in ${city}`,
      render: () => <WeatherCard city="Berlin" />, // ignores its props
    };
-   useRenderTool(cfg); // compiles clean, registers a renderer and nothing else
+
+   function WeatherTool() {
+     useRenderTool(cfg); // compiles clean, registers a renderer and nothing else
+     return null;
+   }
    ```
 
    A hoisted config whose `render` *does* destructure `args` is caught either
@@ -555,12 +583,24 @@ shim gone, nothing does. **Audit these by hand.**
    a spread, so the old `description` is not flagged.
 
    ```tsx
+   import { Text } from "react-native";
+   import { useRenderTool } from "@copilotkit/react-native";
+   import { z } from "zod";
+
+   function WeatherCard({ city }: { city: string }) {
+     return <Text>{city}</Text>;
+   }
+
    const base = {
      name: "showWeather",
      description: "Show weather",
      parameters: z.object({ city: z.string() }),
    };
-   useRenderTool({ ...base, render: () => <WeatherCard city="Berlin" /> }); // compiles clean
+
+   function WeatherTool() {
+     useRenderTool({ ...base, render: () => <WeatherCard city="Berlin" /> }); // compiles clean
+     return null;
+   }
    ```
 
    Exactly as above, a `render` that *does* destructure `args` is caught on

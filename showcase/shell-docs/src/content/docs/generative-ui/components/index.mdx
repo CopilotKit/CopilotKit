@@ -68,12 +68,14 @@ Already have CopilotKit running? Do step 3 only. Your runtime needs no change: w
     import { chat } from "@tanstack/ai";
     import { openaiText } from "@tanstack/ai-openai";
     import {
-      BuiltInAgent,
-      convertInputToTanStackAI,
       CopilotRuntime,
       createCopilotRuntimeHandler,
       InMemoryAgentRunner,
-    } from "@copilotkit/runtime/v2";
+    } from "@copilotkit/runtime";
+    import {
+      BuiltInAgent,
+      convertInputToTanStackAI,
+    } from "@copilotkit/runtime/agent";
 
     const agent = new BuiltInAgent({
       type: "tanstack",
@@ -87,6 +89,7 @@ Already have CopilotKit running? Do step 3 only. Your runtime needs no change: w
             ...systemPrompts,
           ],
           tools,
+          threadId: input.threadId,
           abortController,
         });
       },
@@ -110,13 +113,12 @@ Already have CopilotKit running? Do step 3 only. Your runtime needs no change: w
     import { createServer } from "node:http";
     import { chat } from "@tanstack/ai";
     import { openaiText } from "@tanstack/ai-openai";
+    import { CopilotRuntime, InMemoryAgentRunner } from "@copilotkit/runtime";
+    import { createCopilotNodeListener } from "@copilotkit/runtime/node";
     import {
       BuiltInAgent,
       convertInputToTanStackAI,
-      CopilotRuntime,
-      InMemoryAgentRunner,
-    } from "@copilotkit/runtime/v2";
-    import { createCopilotNodeListener } from "@copilotkit/runtime/v2/node";
+    } from "@copilotkit/runtime/agent";
 
     const agent = new BuiltInAgent({
       type: "tanstack",
@@ -130,6 +132,7 @@ Already have CopilotKit running? Do step 3 only. Your runtime needs no change: w
             ...systemPrompts,
           ],
           tools,
+          threadId: input.threadId,
           abortController,
         });
       },
@@ -165,9 +168,8 @@ Already have CopilotKit running? Do step 3 only. Your runtime needs no change: w
     <Tab value="React">
     ```tsx title="app/providers.tsx"
     "use client";
-    import { CopilotKitProvider } from "@copilotkit/react-core/v2";
-    import { standardUI } from "@copilotkit/react-core/v2/generative-ui";
-    import "@copilotkit/react-core/v2/styles.css";
+    import { CopilotKitProvider } from "@copilotkit/react-core";
+    import { standardUI } from "@copilotkit/react-core/generative-ui";
 
     export function Providers({ children }: { children: React.ReactNode }) {
       return (
@@ -196,7 +198,7 @@ Already have CopilotKit running? Do step 3 only. Your runtime needs no change: w
 
     ```tsx title="app/page.tsx"
     "use client";
-    import { CopilotChat } from "@copilotkit/react-core/v2";
+    import { CopilotChat } from "@copilotkit/react-core";
 
     export default function Page() {
       return <CopilotChat />;
@@ -205,7 +207,7 @@ Already have CopilotKit running? Do step 3 only. Your runtime needs no change: w
     </Tab>
     <Tab value="Angular">
     ```ts title="src/app/app.config.ts"
-    import { ApplicationConfig } from "@angular/core";
+    import type { ApplicationConfig } from "@angular/core";
     import { provideCopilotKit } from "@copilotkit/angular";
     import { provideGenerativeUI, standardUI } from "@copilotkit/angular/generative-ui";
 
@@ -217,11 +219,7 @@ Already have CopilotKit running? Do step 3 only. Your runtime needs no change: w
     };
     ```
 
-    `provideGenerativeUI` must be in the root providers: the chat resolves its renderers from the root injector, so a provider in a lazy route is never seen. Add the chat stylesheet, and put a chat in a component:
-
-    ```css title="src/styles.css"
-    @import "@copilotkit/angular/styles.css";
-    ```
+    `provideGenerativeUI` must be in the root providers: the chat resolves its renderers from the root injector, so a provider in a lazy route is never seen. Put a chat in a component. The components add their own styles, so there is no stylesheet to import:
 
     ```ts title="src/app/app.ts"
     import { Component } from "@angular/core";
@@ -292,4 +290,4 @@ Three ideas carry the whole feature:
 
 ## See it in an app
 
-[`examples/v2/generative-ui-shop`](https://github.com/CopilotKit/CopilotKit/tree/main/examples/v2/generative-ui-shop) is a shop where the chat changes the page. Ask for "top rated" products, and the featured row on the home page swaps to what the agent picked.
+[`examples/templates/generative-ui-shop`](https://github.com/CopilotKit/CopilotKit/tree/main/examples/templates/generative-ui-shop) is a shop where the chat changes the page. Ask for "top rated" products, and the featured row on the home page swaps to what the agent picked.

@@ -308,7 +308,6 @@ describe("createGenerativeUIDispatcher", () => {
           type: "object",
           properties: { productId: { type: "string" } },
           required: ["productId"],
-          additionalProperties: false,
         },
         allowedCallers: "rendererOnly",
       },

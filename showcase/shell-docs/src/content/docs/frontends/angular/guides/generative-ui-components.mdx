@@ -23,7 +23,7 @@ resolves its renderers from the root injector, so a provider in a lazy route
 is never seen. `standardUI` is the standard catalog: 69 components for layout,
 text, inputs, feedback, data, media and composites.
 
-```ts title="src/app/app.config.ts"
+```ts title="src/app/app.config.ts" group=generative-ui-components
 import { ApplicationConfig } from "@angular/core";
 import { provideCopilotKit } from "@copilotkit/angular";
 import {
@@ -55,7 +55,7 @@ add:
 npm install chart.js maplibre-gl lucide
 ```
 
-```ts title="src/app/app.config.ts"
+```ts title="src/app/app.config.ts" group=generative-ui-components
 import { provideGenerativeUIChart } from "@copilotkit/angular/generative-ui/chart"; // chart.js
 import { provideGenerativeUIMap } from "@copilotkit/angular/generative-ui/map"; // maplibre-gl
 import { provideGenerativeUIIcons } from "@copilotkit/angular/generative-ui/icons"; // lucide
@@ -185,7 +185,8 @@ from a signal or a function, and keeps it current. `registerGenerativeUIFunction
 mounts the handler of a declared function. Both live as long as the injection
 context they are called in.
 
-```ts title="src/app/shop.component.ts"
+{/* kiira: ignore, imports the reader's own Angular files and components, which kiira cannot see */}
+```ts ignore title="src/app/shop.component.ts"
 import { Component, inject } from "@angular/core";
 import {
   connectGenerativeUIState,
@@ -242,7 +243,7 @@ server. `provideGenerativeUI` then renders each assistant message with the
 blocks replaced by their surfaces, unless the app gives
 `<copilot-chat-assistant-message>` its own markdown renderer.
 
-```ts
+```ts group=generative-ui-components
 provideGenerativeUI({ ui: standardUI, transport: "markdown" });
 ```
 
@@ -251,7 +252,8 @@ and the limits.
 
 ## Theme, chat card and errors
 
-```ts
+{/* kiira: ignore, imports the reader's own Angular files and components, which kiira cannot see */}
+```ts ignore group=generative-ui-components
 provideGenerativeUI({
   ui: standardUI,
   // The `--a2ui-*` variables. A signal makes it reactive.

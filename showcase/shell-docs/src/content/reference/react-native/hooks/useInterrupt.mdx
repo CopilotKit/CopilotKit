@@ -8,7 +8,7 @@ description: "React hook for handling agent interrupt events and resuming execut
 `useInterrupt` handles agent interrupts and resumes execution with user input. It supports the **AG-UI standard interrupt flow** — `RUN_FINISHED` with `outcome.type === "interrupt"` carrying an `interrupts` array — and the legacy custom-event flow (`on_interrupt`). For standard interrupts, your `render`/`handler` receive `interrupt` (the primary one) and `interrupts` (the full open set); call `resolve(payload)` to resume or `cancel()` to cancel.
 
 <Callout type="info">
-  Re-exported from `@copilotkit/react-core/v2`. It is identical to the [React (V2) `useInterrupt`](/reference/v2/hooks/useInterrupt); only the import path differs.
+  Re-exported from `@copilotkit/react-core`. It is identical to the [React `useInterrupt`](/reference/hooks/useInterrupt); only the import path differs.
 </Callout>
 
 By default, interrupt UI is rendered inside [`CopilotChat`](/reference/react-native/components/CopilotChat) automatically. If you set `renderInChat: false`, the hook returns the element so you can place it manually. The element returned by `render` is a React Native element.
@@ -18,18 +18,22 @@ By default, interrupt UI is rendered inside [`CopilotChat`](/reference/react-nat
 ## Signature
 
 ```tsx
-import { useInterrupt } from "@copilotkit/react-native";
+import type { ReactElement } from "react";
+import {
+  useInterrupt,
+  type UseInterruptConfig,
+} from "@copilotkit/react-native";
 
-function useInterrupt<
+useInterrupt satisfies <
   TResult = never,
   TRenderInChat extends boolean | undefined = undefined,
 >(
-  config: UseInterruptConfig<any, TResult, TRenderInChat>,
-): TRenderInChat extends false
-  ? React.ReactElement | null
+  config: UseInterruptConfig<unknown, TResult, TRenderInChat>,
+) => TRenderInChat extends false
+  ? ReactElement | null
   : TRenderInChat extends true | undefined
     ? void
-    : React.ReactElement | null | void;
+    : ReactElement | null | void;
 ```
 
 ## Parameters
@@ -180,4 +184,4 @@ function SidePanelInterrupt() {
 - [`useHumanInTheLoop`](/reference/react-native/hooks/useHumanInTheLoop): structured interactive tool workflows
 - [`useFrontendTool`](/reference/react-native/hooks/useFrontendTool): client-side tool registration
 - [`useAgent`](/reference/react-native/hooks/useAgent): access and subscribe to agent events
-- [React (V2) reference](/reference/v2/hooks/useInterrupt)
+- [React reference](/reference/hooks/useInterrupt)

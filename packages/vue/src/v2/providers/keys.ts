@@ -38,3 +38,15 @@ export type VueInspectorContextValue = {
 export const InspectorKey: InjectionKey<VueInspectorContextValue> = Symbol(
   "CopilotKitInspector",
 );
+
+export interface CopilotStyleOptions {
+  /** CSP nonce for the `<style>` tag. */
+  nonce?: string;
+  /** `false` when the app loads `@copilotkit/core/styles.css` itself. */
+  inject: boolean;
+}
+
+/** Passes the provider's style options to `<CopilotKitStyles>`. */
+export const CopilotStyleOptionsKey: InjectionKey<
+  ComputedRef<CopilotStyleOptions>
+> = Symbol("CopilotStyleOptions");

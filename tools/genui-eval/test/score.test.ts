@@ -221,7 +221,7 @@ describe("scoreCode with real rendering", () => {
     expect(scores.validity.pass).toBe(true);
     expect(scores.fidelity.pass).toBe(false);
     expect(scores.fidelity.reasons.join(" ")).toContain(
-      "Expected number, received string",
+      "Invalid input: expected number, received string",
     );
   });
 

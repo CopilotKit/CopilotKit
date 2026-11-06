@@ -25,9 +25,13 @@ Threads are sorted by most recently updated first. The hook supports cursor-base
 ## Signature
 
 ```tsx
-import { useThreads } from "@copilotkit/react-core/v2";
+import {
+  useThreads,
+  type UseThreadsInput,
+  type UseThreadsResult,
+} from "@copilotkit/react-core";
 
-function useThreads(input: UseThreadsInput): UseThreadsResult
+useThreads satisfies (input: UseThreadsInput) => UseThreadsResult;
 ```
 
 ## Parameters
@@ -35,7 +39,7 @@ function useThreads(input: UseThreadsInput): UseThreadsResult
 <PropertyReference name="input" type="UseThreadsInput">
   Configuration object for the hook.
 
-  <PropertyReference name="agentId" type="string">
+  <PropertyReference name="agentId" type="string" required>
     The ID of the agent whose threads to list. Must match an agent configured in your runtime.
   </PropertyReference>
 
@@ -45,6 +49,10 @@ function useThreads(input: UseThreadsInput): UseThreadsResult
 
   <PropertyReference name="limit" type="number" default="undefined">
     Maximum number of threads to fetch per page. When set, enables cursor-based pagination via `fetchMoreThreads()` and `hasMoreThreads`.
+  </PropertyReference>
+
+  <PropertyReference name="enabled" type="boolean" default="true">
+    When `false`, the hook makes no thread-list request and opens no realtime subscription, and mutations do nothing. Set it back to `true` to start fetching.
   </PropertyReference>
 </PropertyReference>
 
@@ -70,7 +78,15 @@ function useThreads(input: UseThreadsInput): UseThreadsResult
   </PropertyReference>
 
   <PropertyReference name="error" type="Error | null">
-    The most recent error from fetching or mutating threads, or `null` if no error has occurred.
+    The most recent error from fetching or mutating threads, or `null` if no error has occurred. This includes configuration errors, such as a runtime that does not advertise thread endpoints.
+  </PropertyReference>
+
+  <PropertyReference name="listError" type="Error | null">
+    Like `error`, but without configuration errors. Show this one to end users, so a developer-facing setup message does not reach the UI.
+  </PropertyReference>
+
+  <PropertyReference name="fetchMoreError" type="Error | null">
+    The error from the most recent failed `fetchMoreThreads()` call, or `null`. The threads already loaded stay in `threads`. Cleared when a later fetch succeeds or is retried.
   </PropertyReference>
 
   <PropertyReference name="hasMoreThreads" type="boolean">
@@ -81,10 +97,22 @@ function useThreads(input: UseThreadsInput): UseThreadsResult
     `true` while additional threads are being fetched.
   </PropertyReference>
 
+  <PropertyReference name="isMutating" type="boolean">
+    `true` while at least one rename, archive, unarchive, or delete is waiting for the server. Use it to disable controls or show an in-flight indicator.
+  </PropertyReference>
+
   ### Methods
 
   <PropertyReference name="fetchMoreThreads" type="() => void">
     Fetch the next page of threads. No-op if `hasMoreThreads` is `false` or a fetch is already in progress.
+  </PropertyReference>
+
+  <PropertyReference name="refetchThreads" type="() => void">
+    Fetch the thread list again without clearing the current list. No-op until the runtime is connected.
+  </PropertyReference>
+
+  <PropertyReference name="startNewThread" type="() => void">
+    Switch to a new client-side thread so the welcome screen shows. The new thread appears in `threads` only after its first run is saved on the server.
   </PropertyReference>
 
   <PropertyReference name="renameThread" type="(threadId: string, name: string) => Promise<void>">
@@ -92,7 +120,11 @@ function useThreads(input: UseThreadsInput): UseThreadsResult
   </PropertyReference>
 
   <PropertyReference name="archiveThread" type="(threadId: string) => Promise<void>">
-    Soft-delete a thread. The thread remains in the database with `archived: true` but is excluded from the list unless `includeArchived` is `true`. Archived threads can be restored via the `unarchived` platform event. The promise resolves on server confirmation, or rejects with an `Error` on failure. No built-in confirmation dialog — implement your own if needed.
+    Soft-delete a thread. The thread remains in the database with `archived: true` but is excluded from the list unless `includeArchived` is `true`. Restore an archived thread with `unarchiveThread`. The promise resolves on server confirmation, or rejects with an `Error` on failure. No built-in confirmation dialog — implement your own if needed.
+  </PropertyReference>
+
+  <PropertyReference name="unarchiveThread" type="(threadId: string) => Promise<void>">
+    Restore an archived thread. It appears again in the default (non-archived) list. The promise resolves on server confirmation, or rejects with an `Error` on failure.
   </PropertyReference>
 
   <PropertyReference name="deleteThread" type="(threadId: string) => Promise<void>">
@@ -103,7 +135,7 @@ function useThreads(input: UseThreadsInput): UseThreadsResult
 ## Usage
 
 ```tsx title="ThreadList.tsx"
-import { useThreads } from "@copilotkit/react-core/v2"; // [!code highlight]
+import { useThreads } from "@copilotkit/react-core"; // [!code highlight]
 
 function ThreadList() {
   const {
@@ -138,7 +170,7 @@ function ThreadList() {
 - On mount, fetches the thread list and establishes a realtime WebSocket subscription.
 - If the runtime does not advertise thread endpoints, no `/threads` request is made and `error` explains that thread endpoints are unavailable.
 - Thread creates, renames, archives, and deletes from any client are reflected immediately without polling.
-- All mutation methods use **pessimistic updates** — the UI updates only after the server confirms the operation via WebSocket, not immediately on dispatch. Promises resolve on confirmation (15-second timeout) and reject on failure.
+- All mutation methods use **optimistic updates** — the list changes as soon as you call the method. A failed rename, archive, or unarchive is not rolled back. A failed delete puts the thread back in the list. Promises resolve on server confirmation (15-second timeout) and reject on failure.
 - The `error` state updates with the most recent error from any operation.
 - The `threads` array stays sorted by `updatedAt` descending (most recent first).
 - New threads are **automatically named** by the LLM after their first run (2–5 word title). This is configurable via `generateThreadNames` on the runtime.

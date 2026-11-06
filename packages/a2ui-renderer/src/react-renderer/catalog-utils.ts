@@ -1,17 +1,13 @@
 import { basicCatalog } from "./a2ui-react";
-import type { ComponentApi, Catalog, InlineCatalog } from "@a2ui/web_core/v0_9";
+import type { ComponentApi, Catalog } from "@a2ui/web_core/v0_9";
 import {
-  A2UI_SCHEMA_CONTEXT_DESCRIPTION,
-  buildA2UICatalogContextValue,
-  extractA2UICatalogSchemas,
-} from "@copilotkit/shared";
+  buildCatalogContextValue as buildContextValue,
+  extractCatalogComponentSchemas as extractComponentSchemas,
+} from "../catalog-description";
+import type { InlineCatalogSchema } from "../catalog-description";
 
-/**
- * Context description used to identify the A2UI component schema in RunAgentInput.context.
- * Must match the constant in @ag-ui/a2ui-middleware so the middleware can overwrite
- * a frontend-provided schema with a server-side one.
- */
-export { A2UI_SCHEMA_CONTEXT_DESCRIPTION };
+export { A2UI_SCHEMA_CONTEXT_DESCRIPTION } from "../catalog-description";
+export type { InlineCatalogSchema } from "../catalog-description";
 
 const basicComponentNames: ReadonlySet<string> = new Set(
   basicCatalog.components.keys(),
@@ -54,30 +50,12 @@ export function buildCatalogContextValue(
   catalog?: Catalog<ComponentApi>,
   options?: { includeSchema?: boolean },
 ): string {
-  return buildA2UICatalogContextValue(
-    catalog ?? basicCatalog,
-    basicComponentNames,
-    options,
-  );
-}
-
-/**
- * A2UI v0.9 inline catalog format — matches the structure defined by the
- * A2UI specification (basic_catalog.json).  Each component is keyed by
- * name and uses `allOf` to compose ComponentCommon with component-specific
- * properties so the schema mirrors the flat wire format the LLM must produce.
- */
-export interface InlineCatalogSchema extends Omit<InlineCatalog, "components"> {
-  components: Record<string, Record<string, unknown>>;
-  /** One copy of each common type the components, functions and theme reference. */
-  "common_types.json"?: { $defs: Record<string, Record<string, unknown>> };
+  return buildContextValue(catalog ?? basicCatalog, options);
 }
 
 /**
  * Extract component, function and theme schemas from a catalog in the A2UI
- * v0.9 inline catalog format. See `extractA2UICatalogSchemas` in
- * `@copilotkit/shared` for how this differs from `getClientCapabilities` in
- * `@a2ui/web_core`.
+ * v0.9 inline catalog format. Defaults to the basic catalog.
  *
  * When sent via `useAgentContext` with `A2UI_SCHEMA_CONTEXT_DESCRIPTION`,
  * the middleware can optionally overwrite it with a server-side schema.
@@ -85,7 +63,5 @@ export interface InlineCatalogSchema extends Omit<InlineCatalog, "components"> {
 export function extractCatalogComponentSchemas(
   catalog?: Catalog<ComponentApi>,
 ): InlineCatalogSchema {
-  return extractA2UICatalogSchemas(
-    catalog ?? basicCatalog,
-  ) as InlineCatalogSchema;
+  return extractComponentSchemas(catalog ?? basicCatalog);
 }

@@ -48,12 +48,18 @@ export class ChatComponent extends ChatState {
 }
 ```
 
+## Layout
+
+The input has two layouts, like React's input. The compact layout puts the add button, the text area, and the action buttons in one row. The expanded layout puts the text area in its own row above the buttons. The input uses the expanded layout when the text has a line break, when the text is too wide for the compact row, or when the viewport is narrower than 768px. The pill and its grid show the layout in a `data-layout` attribute.
+
 ## Inputs
 
 ### Behavior inputs
 
 <PropertyReference name="mode" type='"input" | "transcribe" | "processing"'>
   Controlled input mode. When omitted, the component starts in `"input"` mode and manages later transitions itself.
+
+  In `"processing"` mode, a spinner replaces the text area. The input also uses this mode while [`CopilotChat`](/reference/angular/components/CopilotChat) transcribes a recording.
 </PropertyReference>
 
 <PropertyReference name="toolsMenu" type='(ToolsMenuItem | "-")[]'>

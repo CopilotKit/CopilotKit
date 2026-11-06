@@ -1,57 +1,64 @@
 import type { AbstractAgent } from "@ag-ui/client";
+import { isPlatformBrowser } from "@angular/common";
 import type {
   FrontendTool,
   CopilotRuntimeTransport,
   CopilotKitCoreGetSuggestionsResult,
   CopilotKitHeadersSource,
   CopilotKitMessageFilter,
-  IntelligenceRuntimeInfo,
-  RuntimeLicenseStatus,
   SuggestionsConfig,
-  ThreadEndpointRuntimeInfo,
+  ɵSuggestionsConfigInput,
+  ɵCopilotKitCoreConfigPatch,
+  ɵProviderConfigInput,
+  ɵRuntimeInfo,
 } from "@copilotkit/core";
+import type { DebugConfig } from "@copilotkit/shared";
 import {
   CopilotKitCore,
   CopilotKitCoreRuntimeConnectionStatus,
+  ɵbindSuggestionsConfig,
+  ɵbuildHumanInTheLoopTool,
+  ɵLearningAutoStarter,
+  ɵRendererRegistry,
+  ɵassembleActivityRenderers,
+  ɵpublicKeyHeaderDefaults,
+  ɵresolveA2UIActivation,
+  ɵreportProviderConfigDiagnostics,
+  ɵresolveProviderConfig,
   ɵwithHeaderDefaults,
 } from "@copilotkit/core";
 import type { Signal, WritableSignal } from "@angular/core";
 import {
+  DestroyRef,
   Injectable,
   Injector,
+  PLATFORM_ID,
   computed,
+  effect,
+  isDevMode,
   runInInjectionContext,
   signal,
   inject,
+  untracked,
 } from "@angular/core";
 import type {
   FrontendToolConfig,
   HumanInTheLoopConfig,
   RenderToolCallConfig,
 } from "./tools";
-import type { RuntimeEntitlementResponse } from "@copilotkit/shared";
-import {
-  A2UI_DEFAULT_DESIGN_GUIDELINES,
-  A2UI_DEFAULT_GENERATION_GUIDELINES,
-  schemaToJsonSchema,
-} from "@copilotkit/shared";
 import type { RenderActivityMessageConfig } from "./activity-renderer";
 import {
   ɵCOPILOTKIT_BUILT_IN_ACTIVITY_RENDERERS,
   anyActivityContentSchema,
 } from "./activity-renderer";
-import {
-  injectCopilotKitConfig,
-  ɵresolvePublicKeyHeaderDefaults,
-} from "./config";
-import { HumanInTheLoop } from "./human-in-the-loop";
-import { ensureLicenseWatermark } from "./license-watermark";
+import { injectCopilotKitConfig } from "./config";
+import type { CopilotKitConfig } from "./config";
 import { CopilotA2UIActivityRenderer } from "./components/a2ui/a2ui-activity-renderer";
 import {
-  A2UI_SCHEMA_CONTEXT_DESCRIPTION,
-  buildCatalogContextValue,
-  extractCatalogComponentSchemas,
-} from "./components/a2ui/a2ui-catalog-context";
+  A2UI_BASIC_CATALOG_ID,
+  A2UICatalogController,
+} from "@copilotkit/a2ui-renderer/catalog-schema";
+import type { A2UICatalog } from "./components/a2ui/a2ui-types";
 import { CopilotA2UIRenderToolCall } from "./components/a2ui/a2ui-render-tool-call";
 import { CopilotA2UIToolRenderer } from "./components/a2ui/a2ui-tool-renderer";
 import {
@@ -61,30 +68,31 @@ import {
 } from "./components/a2ui/a2ui-tool-types";
 import type { GenerateSandboxedUiArgs } from "./open-generative-ui";
 import {
-  DEFAULT_OPEN_GENERATIVE_UI_DESIGN_SKILL,
-  GENERATE_SANDBOXED_UI_DESCRIPTION,
   GENERATE_SANDBOXED_UI_TOOL_NAME,
-  GenerateSandboxedUiArgsSchema,
   OPEN_GENERATIVE_UI_ACTIVITY_TYPE,
 } from "./open-generative-ui";
+import {
+  ɵaddOpenGenerativeUIContexts,
+  ɵcreateOpenGenerativeUITool,
+  ɵisOpenGenerativeUIActive,
+} from "@copilotkit/core";
 import { CopilotOpenGenerativeUIActivityRenderer } from "./components/open-generative-ui/open-generative-ui-activity-renderer";
 import { CopilotOpenGenerativeUIToolRenderer } from "./components/open-generative-ui/open-generative-ui-tool-renderer";
-import { standardSchemaZodToJsonSchema } from "./standard-schema-zod";
 import { CopilotInspector } from "./inspector";
+import { COPILOT_CHAT_CONFIGURATION } from "./chat-configuration";
+import { ɵOpenThreadBindings } from "./open-thread-bindings";
 
-/**
- * Advertise a client-provided A2UI catalog to the runtime without mutating the
- * caller's properties object. The runtime uses this per-run capability to
- * enable A2UI middleware and inject its render tool when endpoint configuration
- * does not opt in separately; this mirrors the React provider contract.
- */
-function withA2UICatalogCapability(
-  properties: Record<string, unknown> | undefined,
-  hasCatalog: boolean,
-): Record<string, unknown> | undefined {
-  return hasCatalog
-    ? { ...properties, a2uiCatalogAvailable: true }
-    : properties;
+/** Map Angular's option names onto core's provider config input. */
+function toProviderConfigInput(config: CopilotKitConfig): ɵProviderConfigInput {
+  return {
+    runtimeUrl: config.runtimeUrl,
+    publicApiKey: config.licenseKey,
+    runtimeTransport: config.runtimeTransport,
+    agents__unsafe_dev_only: config.agents,
+    selfManagedAgents: config.selfManagedAgents,
+    properties: config.properties,
+    a2uiCatalog: config.a2ui?.catalog,
+  };
 }
 
 @Injectable({ providedIn: "root" })
@@ -93,7 +101,6 @@ export class CopilotKit {
   readonly #extensionActivityMessageRenderers = inject(
     ɵCOPILOTKIT_BUILT_IN_ACTIVITY_RENDERERS,
   );
-  readonly #hitl = inject(HumanInTheLoop);
   readonly #rootInjector = inject(Injector);
   readonly #inspector = inject(CopilotInspector);
   /** Whether unknown tools may use the built-in text-only fallback renderer. */
@@ -103,11 +110,16 @@ export class CopilotKit {
     this.#config.agents ?? {},
   );
   readonly agents = this.#agents.asReadonly();
-  readonly #runtimeConnectionStatus =
-    signal<CopilotKitCoreRuntimeConnectionStatus>(
+  /**
+   * Core's runtime info snapshot (`core.ɵruntimeInfo`). Set in the
+   * constructor, then on every change. The runtime signals below read it.
+   */
+  readonly #runtimeInfo = signal<ɵRuntimeInfo | undefined>(undefined);
+  readonly runtimeConnectionStatus = computed(
+    () =>
+      this.#runtimeInfo()?.status ??
       CopilotKitCoreRuntimeConnectionStatus.Disconnected,
-    );
-  readonly runtimeConnectionStatus = this.#runtimeConnectionStatus.asReadonly();
+  );
   readonly #runtimeUrl = signal<string | undefined>(undefined);
   readonly runtimeUrl = this.#runtimeUrl.asReadonly();
   readonly #runtimeTransport = signal<CopilotRuntimeTransport>("auto");
@@ -136,26 +148,22 @@ export class CopilotKit {
   readonly ɵheadersGeneration = this.#headersGeneration.asReadonly();
   readonly #credentials = signal<RequestCredentials | undefined>(undefined);
   readonly credentials = this.#credentials.asReadonly();
-  readonly #threadEndpoints = signal<ThreadEndpointRuntimeInfo | undefined>(
-    undefined,
-  );
   /**
    * Thread-endpoint capability advertised by the connected runtime's `/info`
    * response, or `undefined` before the runtime reports `Connected`. Exposed
    * as a signal (rather than a plain `core.threadEndpoints` read) so reactive
    * consumers re-run when `/info` lands.
    */
-  readonly threadEndpoints = this.#threadEndpoints.asReadonly();
-  readonly #audioFileTranscriptionEnabled = signal(false);
+  readonly threadEndpoints = computed(
+    () => this.#runtimeInfo()?.threadEndpoints,
+  );
   /**
    * Voice transcription capability advertised by the connected runtime's
    * `/info` response. The value remains false until the runtime explicitly
    * reports support.
    */
-  readonly audioFileTranscriptionEnabled =
-    this.#audioFileTranscriptionEnabled.asReadonly();
-  readonly #intelligence = signal<IntelligenceRuntimeInfo | undefined>(
-    undefined,
+  readonly audioFileTranscriptionEnabled = computed(
+    () => this.#runtimeInfo()?.audioFileTranscriptionEnabled ?? false,
   );
   /**
    * Intelligence runtime info advertised by the connected runtime's `/info`
@@ -164,46 +172,50 @@ export class CopilotKit {
    * when `/info` populates it — even if the connection status does not
    * transition in the same turn.
    */
-  readonly intelligence = this.#intelligence.asReadonly();
-  readonly #licenseStatus = signal<RuntimeLicenseStatus | undefined>(undefined);
+  readonly intelligence = computed(() => this.#runtimeInfo()?.intelligence);
   /**
    * Server-reported license status from the connected runtime's `/info`
    * response, or `undefined` before the runtime reports it. Exposed as a signal
    * (rather than a plain `core.licenseStatus` read) so reactive consumers — e.g.
    * the threads drawer's license gate — re-run once the status resolves.
    */
-  readonly licenseStatus = this.#licenseStatus.asReadonly();
-  readonly #runtimeEntitlements = signal<
-    RuntimeEntitlementResponse | undefined
-  >(undefined);
+  readonly licenseStatus = computed(() => this.#runtimeInfo()?.licenseStatus);
   /**
    * Structured entitlement authority from the connected runtime's `/info`
    * response. Ready managed entitlements override legacy license status.
    */
-  readonly runtimeEntitlements = this.#runtimeEntitlements.asReadonly();
-  readonly #runtimeEntitlementRetryPending = signal(false);
+  readonly runtimeEntitlements = computed(
+    () => this.#runtimeInfo()?.runtimeEntitlements,
+  );
   /**
    * Whether Core still owes the one bounded retry for a retryable entitlement
    * lookup. Gated UI stays pending until that retry settles.
    */
-  readonly runtimeEntitlementRetryPending =
-    this.#runtimeEntitlementRetryPending.asReadonly();
+  readonly runtimeEntitlementRetryPending = computed(
+    () => this.#runtimeInfo()?.runtimeEntitlementRetryPending ?? false,
+  );
   readonly #suggestionsByAgent = signal<
     Record<string, CopilotKitCoreGetSuggestionsResult>
   >({});
   readonly suggestionsByAgent = this.#suggestionsByAgent.asReadonly();
 
   /**
-   * The public-key header default, computed once from this instance's config
-   * (license key / already-present header, see `resolveLicense` in
-   * `config.ts`).
+   * The provider inputs core normalizes (key fallback, Copilot Cloud URL,
+   * transport, agent merge, catalog property). `updateRuntime` replaces the
+   * keys it is given and resolves again.
    */
-  readonly #publicKeyDefaults = ɵresolvePublicKeyHeaderDefaults(this.#config);
+  #providerInput = toProviderConfigInput(this.#config);
+  readonly #initialConfig = ɵresolveProviderConfig(this.#providerInput);
+  /** The public-key header default. The key is fixed for this instance. */
+  readonly #publicKeyDefaults = ɵpublicKeyHeaderDefaults(
+    this.#initialConfig.publicKey,
+  );
 
   // `ɵwithHeaderDefaults` returns a new function for a function source on
   // every call. Remember the last source and its wrapper, so passing the same
   // builder again hands core the same function and stays a no-op (#1937).
   #lastHeadersSource: CopilotKitHeadersSource | undefined;
+  readonly #loggedDiagnostics = new Set<string>();
   #lastWrappedHeaders: CopilotKitHeadersSource | undefined;
 
   #withPublicKeyDefaults(
@@ -220,27 +232,35 @@ export class CopilotKit {
   }
 
   readonly core = new CopilotKitCore({
-    runtimeUrl: this.#config.runtimeUrl,
+    runtimeUrl: this.#initialConfig.runtimeUrl,
+    runtimeTransport: this.#initialConfig.runtimeTransport,
+    // `/info` starts in the constructor, and only in the browser, so server
+    // rendering never fetches it.
+    deferInitialConnection: true,
     headers: this.#withPublicKeyDefaults(this.#config.headers ?? {}),
     credentials: this.#config.credentials,
     messageFilter: this.#config.messageFilter,
-    agents__unsafe_dev_only: {
-      ...this.#config.agents,
-      ...this.#config.selfManagedAgents,
-    },
+    agents__unsafe_dev_only: this.#initialConfig.agents,
     tools: this.#config.tools,
     suggestionsConfig: this.#config.suggestionsConfig,
-    properties: withA2UICatalogCapability(
-      this.#config.properties,
-      this.#config.a2ui?.catalog !== undefined,
-    ),
+    properties: this.#initialConfig.properties,
+    debug: this.#config.debug,
+    defaultThrottleMs: this.#config.defaultThrottleMs,
+    onError: this.#config.onError,
   });
 
-  readonly #toolCallRenderConfigs: WritableSignal<RenderToolCallConfig[]> =
-    signal([]);
-  readonly #builtInToolCallRenderConfigs: WritableSignal<
-    RenderToolCallConfig[]
-  > = signal([]);
+  /**
+   * App tool-call renderers and activity renderers. Config renderers are the
+   * prop list; `addRenderToolCall` adds hook entries, so the latest
+   * registration for a name and agent wins. A2UI's tool renderers are
+   * built-in entries, which app renderers with the same name replace.
+   */
+  readonly #renderers = new ɵRendererRegistry<
+    RenderToolCallConfig,
+    RenderActivityMessageConfig,
+    never
+  >();
+  readonly #toolCallRenderConfigs = signal(this.#renderers.toolCalls);
   readonly #clientToolCallRenderConfigs: WritableSignal<FrontendToolConfig[]> =
     signal([]);
   readonly #builtInClientToolCallRenderConfigs: WritableSignal<
@@ -249,18 +269,13 @@ export class CopilotKit {
   readonly #humanInTheLoopToolRenderConfigs: WritableSignal<
     HumanInTheLoopConfig[]
   > = signal([]);
-  readonly #activityMessageRenderConfigs: WritableSignal<
-    RenderActivityMessageConfig[]
-  > = signal([]);
+  readonly #activityMessageRenderConfigs = signal(this.#renderers.activity);
   readonly #builtInActivityMessageRenderConfigs: WritableSignal<
     RenderActivityMessageConfig[]
   > = signal([]);
 
   readonly toolCallRenderConfigs: Signal<RenderToolCallConfig[]> = computed(
-    () => [
-      ...this.#toolCallRenderConfigs(),
-      ...this.#builtInToolCallRenderConfigs(),
-    ],
+    () => [...this.#toolCallRenderConfigs()],
   );
   readonly clientToolCallRenderConfigs: Signal<FrontendToolConfig[]> = computed(
     () => [
@@ -276,55 +291,94 @@ export class CopilotKit {
       ...this.#extensionActivityMessageRenderers,
       ...this.#builtInActivityMessageRenderConfigs(),
     ]);
+  /** Removes the built-in A2UI tool renderers, while they are registered. */
+  #removeA2UIToolRenderers: (() => void) | undefined;
 
-  #openGenerativeUIToolRegistered = false;
-  #openGenerativeUIContextIds: string[] = [];
+  readonly #executingToolCallIds = signal(this.core.executingToolCallIds);
+  /**
+   * Ids of the tool calls whose frontend handler runs now. Mirrors
+   * `core.executingToolCallIds`: a call stays in it until its result is in
+   * the agent's messages.
+   */
+  readonly executingToolCallIds = this.#executingToolCallIds.asReadonly();
+
+  /** Removes the built-in Open Generative UI tool, while it is registered. */
+  #unregisterOpenGenerativeUITool: (() => void) | undefined;
+  #removeOpenGenerativeUIContexts: (() => void) | undefined;
   #warnedMissingA2UICatalog = false;
-  #a2UIContextIds: string[] = [];
+  /**
+   * Shared with React and Vue: registers the catalog's components with core
+   * (for the Inspector), filters out the disabled ones, and owns the A2UI agent
+   * context, scoped to `core.ɵruntimeInfo.a2uiAgents` (#5369).
+   */
+  readonly #a2uiCatalog = new A2UICatalogController<A2UICatalog>(this.core, {
+    id: A2UI_BASIC_CATALOG_ID,
+    components: new Map(),
+  });
+  readonly #filteredA2UICatalog = signal<A2UICatalog | undefined>(undefined);
+  /**
+   * @internal
+   * The configured A2UI catalog without the components disabled in the
+   * Inspector. Surfaces render with it.
+   */
+  readonly ɵa2uiCatalog = this.#filteredA2UICatalog.asReadonly();
 
   constructor() {
-    void this.#inspector.isInspectorEnabled;
-    // A builder is only evaluated at send time, so it can't be read here.
-    // The record branch below already has its own key-header fallback.
-    ensureLicenseWatermark(
-      typeof this.#config.headers === "function"
-        ? undefined
-        : this.#config.headers,
+    // Chat configurations register their shown Thread with this core.
+    const openThreads = inject(ɵOpenThreadBindings);
+    openThreads.attach(this.core);
+    // This service creates `core`, so it owns it and stops it on destroy.
+    inject(DestroyRef).onDestroy(() => {
+      openThreads.attach(undefined);
+      this.#a2uiCatalog.dispose();
+      this.core.dispose();
+    });
+    this.#a2uiCatalog.subscribe(() =>
+      this.#filteredA2UICatalog.set(this.#a2uiCatalog.getSnapshot()),
     );
+    // Throws in production for a missing runtime config; otherwise warns.
+    ɵreportProviderConfigDiagnostics(this.#initialConfig.diagnostics, {
+      isProduction: !isDevMode(),
+      logged: this.#loggedDiagnostics,
+    });
+    void this.#inspector.isInspectorEnabled;
+    this.#startLearning();
 
-    this.#runtimeConnectionStatus.set(this.core.runtimeConnectionStatus);
+    this.#runtimeInfo.set(this.core.ɵruntimeInfo);
+    this.core.ɵsubscribeToRuntimeInfo(() => {
+      this.#runtimeInfo.set(this.core.ɵruntimeInfo);
+    });
     this.#runtimeUrl.set(this.core.runtimeUrl);
     this.#runtimeTransport.set(this.core.runtimeTransport);
     this.#headers.set(this.core.headers);
     this.#headersGeneration.set(this.core.ɵheadersGeneration);
     this.#credentials.set(this.core.credentials);
-    this.#threadEndpoints.set(this.core.threadEndpoints);
-    this.#audioFileTranscriptionEnabled.set(
-      this.core.audioFileTranscriptionEnabled,
-    );
-    this.#intelligence.set(this.core.intelligence);
-    this.#licenseStatus.set(this.core.licenseStatus);
-    this.#runtimeEntitlements.set(this.core.runtimeEntitlements);
-    this.#runtimeEntitlementRetryPending.set(
-      this.core.runtimeEntitlementRetryPending,
-    );
-    this.#config.renderToolCalls?.forEach((renderConfig) => {
-      this.addRenderToolCall(renderConfig);
-    });
-    this.#config.renderActivityMessages?.forEach((renderConfig) => {
-      this.addRenderActivityMessage(renderConfig);
-    });
-
-    this.#config.tools?.forEach((tool) => {
-      if (tool.renderer && tool.parameters) {
-        this.addRenderToolCall({
-          name: tool.name,
-          args: tool.parameters,
-          component: tool.renderer,
-          agentId: tool.agentId,
-        });
+    this.#renderers.subscribe((kind) => {
+      if (kind === "toolCalls") {
+        this.#toolCallRenderConfigs.set(this.#renderers.toolCalls);
+      } else if (kind === "activity") {
+        this.#activityMessageRenderConfigs.set(this.#renderers.activity);
       }
     });
+    const configToolRenderers: RenderToolCallConfig[] = (
+      this.#config.tools ?? []
+    ).flatMap((tool) =>
+      tool.renderer && tool.parameters
+        ? [
+            {
+              name: tool.name,
+              args: tool.parameters,
+              component: tool.renderer,
+              agentId: tool.agentId,
+            },
+          ]
+        : [],
+    );
+    this.#renderers.setPropToolCalls([
+      ...(this.#config.renderToolCalls ?? []),
+      ...configToolRenderers,
+    ]);
+    this.#renderers.setActivity(this.#config.renderActivityMessages ?? []);
 
     this.#config.frontendTools?.forEach((clientTool) => {
       this.addFrontendTool({ ...clientTool, injector: this.#rootInjector });
@@ -337,10 +391,7 @@ export class CopilotKit {
     // The core constructor registers dev agents without announcing them, so
     // its run tracking (per-run state, subagents) never subscribes to them.
     // Publish them once, as the React provider does on mount.
-    const devAgents = {
-      ...this.#config.agents,
-      ...this.#config.selfManagedAgents,
-    };
+    const devAgents = this.#initialConfig.agents;
     if (Object.keys(devAgents).length > 0) {
       this.core.setAgents__unsafe_dev_only(devAgents);
     }
@@ -349,23 +400,12 @@ export class CopilotKit {
       onAgentsChanged: () => {
         this.#agents.set(this.core.agents);
       },
-      onRuntimeConnectionStatusChanged: ({ status }) => {
-        // Core assigns `threadEndpoints`/`intelligence` synchronously before it
-        // notifies this callback (see agent-registry `ensureRuntimeMode`), so
-        // mirroring them here keeps the signals in lockstep with the status
-        // signal and lets reactive consumers observe `intelligence.wsUrl` once
-        // `/info` resolves.
-        this.#runtimeConnectionStatus.set(status);
-        this.#threadEndpoints.set(this.core.threadEndpoints);
-        this.#audioFileTranscriptionEnabled.set(
-          this.core.audioFileTranscriptionEnabled,
-        );
-        this.#intelligence.set(this.core.intelligence);
-        this.#licenseStatus.set(this.core.licenseStatus);
-        this.#runtimeEntitlements.set(this.core.runtimeEntitlements);
-        this.#runtimeEntitlementRetryPending.set(
-          this.core.runtimeEntitlementRetryPending,
-        );
+      onExecutingToolCallsChanged: ({ executingToolCallIds }) => {
+        this.#executingToolCallIds.set(executingToolCallIds);
+      },
+      // The runtime signals follow `ɵsubscribeToRuntimeInfo` above, which
+      // core updates before it notifies this callback.
+      onRuntimeConnectionStatusChanged: () => {
         this.#syncBuiltInActivityMessageRenderers();
         this.#syncBuiltInOpenGenerativeUI();
       },
@@ -400,6 +440,9 @@ export class CopilotKit {
     });
     this.#syncBuiltInActivityMessageRenderers();
     this.#syncBuiltInOpenGenerativeUI();
+    if (isPlatformBrowser(inject(PLATFORM_ID))) {
+      this.core.connect();
+    }
   }
 
   #setSuggestions(
@@ -434,83 +477,129 @@ export class CopilotKit {
     };
   }
 
+  /**
+   * Register a frontend tool, and the component that draws its calls when it
+   * has one.
+   *
+   * A tool with the same name and `agentId` as an existing tool (from the
+   * `tools` config or an earlier registration) hides that tool. The latest
+   * registration runs. Among frontend tools with that name, its component
+   * draws the calls.
+   *
+   * @param clientToolWithInjector - The tool, plus the injector its handler
+   *   runs in.
+   * @returns A function that removes only this registration. The tool it hid
+   *   becomes active again. Calling it more than once does nothing.
+   *
+   * @example
+   * ```ts
+   * const unregister = copilotKit.addFrontendTool({ ...tool, injector });
+   * // later
+   * unregister();
+   * ```
+   */
   addFrontendTool(
     clientToolWithInjector: FrontendToolConfig & {
       injector: Injector;
     },
-  ): void {
+  ) {
     const tool = this.#bindClientTool(clientToolWithInjector);
+    const unregisterTool = this.core.addTool(tool);
 
-    this.core.addTool(tool);
-
+    // Newest first, so the drawn component belongs to the tool core runs.
     this.#clientToolCallRenderConfigs.update((current) => [
-      ...current,
       clientToolWithInjector,
+      ...current,
     ]);
+
+    return () => {
+      unregisterTool();
+      this.#clientToolCallRenderConfigs.update((current) =>
+        current.filter((candidate) => candidate !== clientToolWithInjector),
+      );
+    };
   }
 
-  addRenderToolCall(renderConfig: RenderToolCallConfig): void {
-    this.#toolCallRenderConfigs.update((current) => [...current, renderConfig]);
+  /**
+   * Register a component that draws calls of a tool the agent already has.
+   *
+   * It replaces a renderer with the same `name` and `agentId`, so the latest
+   * registration wins, as in React and Vue.
+   *
+   * @param renderConfig - The tool name, its argument schema, and the
+   *   component.
+   * @returns A function that removes this renderer while it is still the one
+   *   registered for its name and agent. A `renderToolCalls` config entry it
+   *   replaced shows again. Calling it more than once does nothing.
+   */
+  addRenderToolCall(renderConfig: RenderToolCallConfig) {
+    return this.#renderers.addHookToolCall(renderConfig);
   }
 
   addRenderActivityMessage(renderConfig: RenderActivityMessageConfig): void {
-    this.#activityMessageRenderConfigs.update((current) => [
-      ...current,
-      renderConfig,
-    ]);
+    this.#renderers.setActivity([...this.#renderers.activity, renderConfig]);
   }
 
   /** Remove one dynamically registered activity renderer by identity. */
   removeRenderActivityMessage(renderConfig: RenderActivityMessageConfig): void {
-    this.#activityMessageRenderConfigs.update((current) =>
-      current.filter((candidate) => candidate !== renderConfig),
+    this.#renderers.setActivity(
+      this.#renderers.activity.filter(
+        (candidate) => candidate !== renderConfig,
+      ),
     );
   }
 
   #syncBuiltInActivityMessageRenderers(): void {
-    const renderers: RenderActivityMessageConfig[] = [];
-
-    if (this.#isA2UIActive()) {
-      renderers.push({
-        activityType: "a2ui-surface",
-        content: anyActivityContentSchema,
-        component: CopilotA2UIActivityRenderer,
-      });
-    }
-
-    if (this.#isOpenGenerativeUIActive()) {
-      renderers.push({
-        activityType: OPEN_GENERATIVE_UI_ACTIVITY_TYPE,
-        content: anyActivityContentSchema,
-        component: CopilotOpenGenerativeUIActivityRenderer,
-      });
-    }
-
-    this.#builtInActivityMessageRenderConfigs.set(renderers);
-    this.#syncBuiltInA2UI();
+    const a2uiActive = this.#isA2UIActive();
+    this.#builtInActivityMessageRenderConfigs.set(
+      ɵassembleActivityRenderers<RenderActivityMessageConfig>({
+        a2ui: a2uiActive
+          ? {
+              activityType: "a2ui-surface",
+              content: anyActivityContentSchema,
+              component: CopilotA2UIActivityRenderer,
+            }
+          : undefined,
+        builtIns: [
+          this.#isOpenGenerativeUIActive() && {
+            activityType: OPEN_GENERATIVE_UI_ACTIVITY_TYPE,
+            content: anyActivityContentSchema,
+            component: CopilotOpenGenerativeUIActivityRenderer,
+          },
+        ],
+      }),
+    );
+    this.#syncBuiltInA2UI(a2uiActive);
   }
 
-  #syncBuiltInA2UI(): void {
-    if (!this.#isA2UIActive()) {
-      this.#builtInToolCallRenderConfigs.set([]);
-      this.#removeA2UIContexts();
+  #syncBuiltInA2UI(active: boolean): void {
+    this.#a2uiCatalog.update({
+      enabled: active,
+      catalog: this.#config.a2ui?.catalog,
+      includeSchema: this.#config.a2ui?.includeSchema,
+    });
+    if (!active) {
+      this.#removeA2UIToolRenderers?.();
+      this.#removeA2UIToolRenderers = undefined;
       return;
     }
-
-    this.#builtInToolCallRenderConfigs.set([
-      {
+    if (this.#removeA2UIToolRenderers) return;
+    const removers = [
+      this.#renderers.addBuiltInToolCall({
         name: RENDER_A2UI_TOOL_NAME,
         args: RenderA2UIArgsSchema,
         component: CopilotA2UIRenderToolCall,
-      },
-      {
+      }),
+      this.#renderers.addBuiltInToolCall({
         name: AGUI_SEND_STATE_SNAPSHOT_TOOL_NAME,
         args: RenderA2UIArgsSchema,
         component: CopilotA2UIToolRenderer,
         passAgent: true,
-      },
-    ]);
-    this.#syncA2UIContexts();
+      }),
+    ];
+    this.#removeA2UIToolRenderers = () => {
+      for (const remove of removers) remove();
+    };
   }
 
   /**
@@ -519,68 +608,26 @@ export class CopilotKit {
    * renderers or agent context and says how to fix it.
    */
   #isA2UIActive(): boolean {
-    const hasCatalog = this.#config.a2ui?.catalog !== undefined;
-    if (
-      this.core.a2uiEnabled &&
-      !hasCatalog &&
-      !this.#warnedMissingA2UICatalog
-    ) {
+    const { active, missingCatalog } = ɵresolveA2UIActivation({
+      runtimeEnabled: this.core.ɵruntimeInfo.a2uiEnabled,
+      hasCatalog: this.#config.a2ui?.catalog !== undefined,
+      requireCatalog: true,
+    });
+    if (missingCatalog && !this.#warnedMissingA2UICatalog) {
       this.#warnedMissingA2UICatalog = true;
       console.warn(
         "[CopilotKit] The runtime enables A2UI, but no `a2ui.catalog` is configured, so A2UI stays off. " +
           "Pass `basicCatalog` or a catalog from `createAngularCatalog`, both in `@copilotkit/angular/a2ui`.",
       );
     }
-    return hasCatalog;
-  }
-
-  #syncA2UIContexts(): void {
-    this.#removeA2UIContexts();
-
-    const catalog = this.#config.a2ui?.catalog;
-    if (!catalog) return;
-    const includeSchema = this.#config.a2ui?.includeSchema !== false;
-    this.#a2UIContextIds.push(
-      this.core.addContext({
-        description:
-          "A2UI catalog capabilities: available catalog IDs and custom component definitions the client can render.",
-        value: buildCatalogContextValue(catalog, { includeSchema }),
-      }),
-    );
-
-    if (!includeSchema) return;
-
-    this.#a2UIContextIds.push(
-      this.core.addContext({
-        description: A2UI_SCHEMA_CONTEXT_DESCRIPTION,
-        value: JSON.stringify(extractCatalogComponentSchemas(catalog)),
-      }),
-    );
-    this.#a2UIContextIds.push(
-      this.core.addContext({
-        description:
-          "A2UI generation guidelines — protocol rules, tool arguments, path rules, data model format, and form/two-way-binding instructions.",
-        value: A2UI_DEFAULT_GENERATION_GUIDELINES,
-      }),
-    );
-    this.#a2UIContextIds.push(
-      this.core.addContext({
-        description:
-          "A2UI design guidelines — visual design rules, component hierarchy tips, and action handler patterns.",
-        value: A2UI_DEFAULT_DESIGN_GUIDELINES,
-      }),
-    );
-  }
-
-  #removeA2UIContexts(): void {
-    for (const id of this.#a2UIContextIds) {
-      this.core.removeContext(id);
-    }
-    this.#a2UIContextIds = [];
+    return active;
   }
 
   #isOpenGenerativeUIActive(): boolean {
-    return !!this.#config.openGenerativeUI || this.core.openGenerativeUIEnabled;
+    return ɵisOpenGenerativeUIActive({
+      runtimeEnabled: this.core.ɵruntimeInfo.openGenerativeUIEnabled,
+      configured: !!this.#config.openGenerativeUI,
+    });
   }
 
   /** Register sandbox rendering with a side-effect-free acknowledgement safe to replay. */
@@ -588,14 +635,8 @@ export class CopilotKit {
     injector: Injector;
   } {
     return {
-      name: GENERATE_SANDBOXED_UI_TOOL_NAME,
-      description: GENERATE_SANDBOXED_UI_DESCRIPTION,
-      parameters: GenerateSandboxedUiArgsSchema,
+      ...ɵcreateOpenGenerativeUITool(),
       component: CopilotOpenGenerativeUIToolRenderer,
-      handler: async () => "UI generated",
-      // This acknowledgement has no side effects and is safe to reconstruct.
-      reconnectBehavior: "resume-pending",
-      followUp: true,
       injector: this.#rootInjector,
     };
   }
@@ -605,101 +646,128 @@ export class CopilotKit {
 
     if (!active) {
       this.#builtInClientToolCallRenderConfigs.set([]);
-      this.#removeOpenGenerativeUIContexts();
-      if (this.#openGenerativeUIToolRegistered) {
-        this.core.removeTool(GENERATE_SANDBOXED_UI_TOOL_NAME);
-        this.#openGenerativeUIToolRegistered = false;
-      }
+      this.#removeOpenGenerativeUIContexts?.();
+      this.#removeOpenGenerativeUIContexts = undefined;
+      this.#unregisterOpenGenerativeUITool?.();
+      this.#unregisterOpenGenerativeUITool = undefined;
       return;
     }
 
     const builtInTool = this.#createOpenGenerativeUITool();
     this.#builtInClientToolCallRenderConfigs.set([builtInTool]);
 
-    if (
-      !this.#openGenerativeUIToolRegistered &&
-      !this.core.getTool({ toolName: GENERATE_SANDBOXED_UI_TOOL_NAME })
-    ) {
-      this.core.addTool(this.#bindClientTool(builtInTool));
-      this.#openGenerativeUIToolRegistered = true;
+    const needsBuiltInTool =
+      this.#unregisterOpenGenerativeUITool === undefined &&
+      !this.core.getTool({ toolName: GENERATE_SANDBOXED_UI_TOOL_NAME });
+    if (needsBuiltInTool) {
+      this.#unregisterOpenGenerativeUITool = this.core.addTool(
+        this.#bindClientTool(builtInTool),
+      );
     }
 
-    this.#syncOpenGenerativeUIContexts();
-  }
-
-  #syncOpenGenerativeUIContexts(): void {
-    this.#removeOpenGenerativeUIContexts();
-
-    const designSkill =
-      this.#config.openGenerativeUI?.designSkill ??
-      DEFAULT_OPEN_GENERATIVE_UI_DESIGN_SKILL;
-    this.#openGenerativeUIContextIds.push(
-      this.core.addContext({
-        description:
-          "Design guidelines for the generateSandboxedUi tool. Follow these when building UI.",
-        value: designSkill,
-      }),
-    );
-
-    const sandboxFunctions =
-      this.#config.openGenerativeUI?.sandboxFunctions ?? [];
-    if (!sandboxFunctions.length) return;
-
-    const descriptors = JSON.stringify(
-      sandboxFunctions.map((fn) => ({
-        name: fn.name,
-        description: fn.description,
-        parameters: schemaToJsonSchema(fn.parameters, {
-          zodToJsonSchema: standardSchemaZodToJsonSchema,
-        }),
-      })),
-    );
-
-    this.#openGenerativeUIContextIds.push(
-      this.core.addContext({
-        description:
-          "Sandbox functions available in generated sandboxed UI code. Call via: await Websandbox.connection.remote.<functionName>(args)",
-        value: descriptors,
-      }),
-    );
-  }
-
-  #removeOpenGenerativeUIContexts(): void {
-    for (const id of this.#openGenerativeUIContextIds) {
-      this.core.removeContext(id);
-    }
-    this.#openGenerativeUIContextIds = [];
-  }
-
-  #bindHumanInTheLoopTool(
-    humanInTheLoopTool: HumanInTheLoopConfig,
-  ): FrontendTool {
-    return {
-      ...humanInTheLoopTool,
-      type: "human-in-the-loop",
-      handler: (args, { toolCall, signal: abortSignal }) => {
-        return this.#hitl.onResult(
-          toolCall.id,
-          humanInTheLoopTool.name,
-          abortSignal,
-        );
+    this.#removeOpenGenerativeUIContexts?.();
+    this.#removeOpenGenerativeUIContexts = ɵaddOpenGenerativeUIContexts(
+      this.core,
+      {
+        designSkill: this.#config.openGenerativeUI?.designSkill,
+        sandboxFunctions: this.#config.openGenerativeUI?.sandboxFunctions ?? [],
       },
+    );
+  }
+
+  /**
+   * Register a human-in-the-loop tool and the component that asks the user.
+   *
+   * A tool with the same name and `agentId` as an existing tool hides that
+   * tool. The latest registration runs. Among human-in-the-loop tools with
+   * that name, its component draws the calls.
+   *
+   * @param humanInTheLoopTool - The tool and its component.
+   * @returns A function that removes only this registration. The tool it hid
+   *   becomes active again. Calling it more than once does nothing.
+   */
+  addHumanInTheLoop(humanInTheLoopTool: HumanInTheLoopConfig) {
+    // Newest first, so the drawn component belongs to the tool core runs.
+    this.#humanInTheLoopToolRenderConfigs.update((current) => [
+      humanInTheLoopTool,
+      ...current,
+    ]);
+
+    const tool = ɵbuildHumanInTheLoopTool(
+      humanInTheLoopTool,
+      this.core.ɵhumanInTheLoop,
+    );
+    const unregisterTool = this.core.addTool(tool);
+
+    return () => {
+      unregisterTool();
+      this.#humanInTheLoopToolRenderConfigs.update((current) =>
+        current.filter((candidate) => candidate !== humanInTheLoopTool),
+      );
     };
   }
 
-  addHumanInTheLoop(humanInTheLoopTool: HumanInTheLoopConfig): void {
-    this.#humanInTheLoopToolRenderConfigs.update((current) => [
-      ...current,
-      humanInTheLoopTool,
-    ]);
-
-    const tool = this.#bindHumanInTheLoopTool(humanInTheLoopTool);
-
-    this.core.addTool(tool);
+  /** Applies `config.learning` in the browser; capture stops on destroy. */
+  #startLearning() {
+    const { learning } = this.#config;
+    if (learning === undefined || !isPlatformBrowser(inject(PLATFORM_ID))) {
+      return;
+    }
+    const learningStarter = new ɵLearningAutoStarter(this.core);
+    learningStarter.update(learning);
+    inject(DestroyRef).onDestroy(() => learningStarter.dispose());
   }
 
   addSuggestionsConfig(config: SuggestionsConfig): string {
     return this.core.addSuggestionsConfig(config);
+  }
+
+  /**
+   * Registers a suggestions config for as long as the calling context lives:
+   * the Angular counterpart of `useConfigureSuggestions` in React and Vue.
+   *
+   * Call it in an injection context (a constructor or field initializer), or
+   * pass `injector`. A global config (no `consumerAgentId`, or `"*"`) loads
+   * for the surrounding chat configuration's agent and every idle agent. The
+   * config is removed when that context is destroyed or `dispose()` is called.
+   * Pass a function to re-apply the config when signals it reads change;
+   * configs with equal content are no-ops.
+   *
+   * @example
+   * readonly suggestions = inject(CopilotKit).configureSuggestions(() => ({
+   *   instructions: `Suggest next steps about ${this.topic()}`,
+   *   available: "always",
+   * }));
+   */
+  configureSuggestions(
+    config:
+      | ɵSuggestionsConfigInput
+      | null
+      | undefined
+      | (() => ɵSuggestionsConfigInput | null | undefined),
+    options: { injector?: Injector } = {},
+  ) {
+    const injector = options.injector ?? inject(Injector);
+    const chatConfig = injector.get(COPILOT_CHAT_CONFIGURATION, null);
+    const readConfig = typeof config === "function" ? config : () => config;
+    const readChatAgentId = () => chatConfig?.agentId();
+    const binding = ɵbindSuggestionsConfig(this.core, untracked(readConfig), {
+      chatAgentId: untracked(readChatAgentId),
+    });
+    const watcher = effect(
+      () => {
+        const next = readConfig();
+        const chatAgentId = readChatAgentId();
+        untracked(() => binding.update(next, { chatAgentId }));
+      },
+      { injector },
+    );
+    const dispose = () => {
+      watcher.destroy();
+      binding.dispose();
+    };
+    injector.get(DestroyRef).onDestroy(dispose);
+    return { reload: () => binding.reload(), dispose };
   }
 
   removeSuggestionsConfig(id: string): void {
@@ -731,6 +799,19 @@ export class CopilotKit {
     return true;
   }
 
+  /**
+   * Remove every tool and renderer with this name.
+   *
+   * With an `agentId`, only entries for that agent go. Without one, only
+   * global entries go. This also removes a tool from the `tools` config with
+   * that name. To remove one registration and bring back the tool it hid,
+   * call the function that `addFrontendTool`, `addHumanInTheLoop`, or
+   * `addRenderToolCall` returned.
+   *
+   * @param toolName - The tool name.
+   * @param agentId - The agent the entries belong to. Omit it for global
+   *   entries.
+   */
   removeTool(toolName: string, agentId?: string): void {
     this.core.removeTool(toolName, agentId);
     const keep = (config: { name: string; agentId?: string }) =>
@@ -742,13 +823,21 @@ export class CopilotKit {
     this.#humanInTheLoopToolRenderConfigs.update((current) =>
       current.filter(keep),
     );
-    this.#toolCallRenderConfigs.update((current) => current.filter(keep));
+    this.#renderers.removeToolCall(toolName, agentId);
   }
 
   getAgent(agentId: string): AbstractAgent | undefined {
     return this.core.getAgent(agentId);
   }
 
+  /**
+   * Change the runtime config after startup.
+   *
+   * A key that is present is applied. `runtimeUrl`, `credentials`,
+   * `messageFilter`, `debug` and `defaultThrottleMs` can be cleared by
+   * passing `undefined`; the other keys are ignored when `undefined`.
+   * `agents` and `selfManagedAgents` replace the last value of that key.
+   */
   updateRuntime(options: {
     runtimeUrl?: string;
     runtimeTransport?: CopilotRuntimeTransport;
@@ -758,44 +847,49 @@ export class CopilotKit {
     properties?: Record<string, unknown>;
     agents?: Record<string, AbstractAgent>;
     selfManagedAgents?: Record<string, AbstractAgent>;
+    debug?: DebugConfig;
+    defaultThrottleMs?: number;
   }): void {
-    if (options.runtimeUrl !== undefined) {
-      this.core.setRuntimeUrl(options.runtimeUrl);
-      this.#runtimeUrl.set(options.runtimeUrl);
-    }
-    if (options.runtimeTransport !== undefined) {
-      this.core.setRuntimeTransport(options.runtimeTransport);
-      this.#runtimeTransport.set(options.runtimeTransport);
-    }
-    if (options.headers !== undefined) {
-      this.core.setHeaders(this.#withPublicKeyDefaults(options.headers));
-      this.#headers.set(this.core.headers);
-    }
-    if ("credentials" in options) {
-      this.core.setCredentials(options.credentials);
-      this.#credentials.set(options.credentials);
-    }
-    // `in`, not `!== undefined`: clearing the filter is a real instruction, and
+    const hasRuntimeUrl = "runtimeUrl" in options;
+    const hasTransport = options.runtimeTransport !== undefined;
+    const hasProperties = options.properties !== undefined;
+    const hasAgents =
+      options.agents !== undefined || options.selfManagedAgents !== undefined;
+    this.#providerInput = {
+      ...this.#providerInput,
+      ...(hasRuntimeUrl && { runtimeUrl: options.runtimeUrl }),
+      ...(hasTransport && { runtimeTransport: options.runtimeTransport }),
+      ...(hasProperties && { properties: options.properties }),
+      ...(options.agents !== undefined && {
+        agents__unsafe_dev_only: options.agents,
+      }),
+      ...(options.selfManagedAgents !== undefined && {
+        selfManagedAgents: options.selfManagedAgents,
+      }),
+    };
+    const resolved = ɵresolveProviderConfig(this.#providerInput);
+
+    const patch: ɵCopilotKitCoreConfigPatch = {};
+    // `in`, not `!== undefined`: clearing these is a real instruction, and
     // `undefined` is the value that expresses it.
-    if ("messageFilter" in options) {
-      this.core.setMessageFilter(options.messageFilter);
+    if ("messageFilter" in options) patch.messageFilter = options.messageFilter;
+    if (hasRuntimeUrl) patch.runtimeUrl = resolved.runtimeUrl;
+    if (hasTransport) patch.runtimeTransport = resolved.runtimeTransport;
+    if (options.headers !== undefined) {
+      patch.headers = this.#withPublicKeyDefaults(options.headers);
     }
-    if (options.properties !== undefined) {
-      this.core.setProperties(
-        withA2UICatalogCapability(
-          options.properties,
-          this.#config.a2ui?.catalog !== undefined,
-        ) ?? options.properties,
-      );
+    if ("credentials" in options) patch.credentials = options.credentials;
+    if (hasProperties) patch.properties = resolved.properties;
+    if (hasAgents) patch.agents__unsafe_dev_only = resolved.agents;
+    if ("debug" in options) patch.debug = options.debug;
+    if ("defaultThrottleMs" in options) {
+      patch.defaultThrottleMs = options.defaultThrottleMs;
     }
-    if (
-      options.agents !== undefined ||
-      options.selfManagedAgents !== undefined
-    ) {
-      this.core.setAgents__unsafe_dev_only({
-        ...(options.agents ?? this.#config.agents),
-        ...(options.selfManagedAgents ?? this.#config.selfManagedAgents),
-      });
-    }
+    this.core.ɵupdateConfig(patch);
+
+    if (hasRuntimeUrl) this.#runtimeUrl.set(resolved.runtimeUrl);
+    if (hasTransport) this.#runtimeTransport.set(resolved.runtimeTransport);
+    if (options.headers !== undefined) this.#headers.set(this.core.headers);
+    if ("credentials" in options) this.#credentials.set(options.credentials);
   }
 }

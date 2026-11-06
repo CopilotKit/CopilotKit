@@ -24,8 +24,6 @@ export interface A2UIRendererProps {
   fallback?: ReactNode;
   /** Loading fallback for lazy-loaded components */
   loadingFallback?: ReactNode;
-  /** @deprecated - No longer needed in v0.9, components come from catalog */
-  registry?: any;
 }
 
 /**

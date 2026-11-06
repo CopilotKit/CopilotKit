@@ -2,7 +2,7 @@
 
 Run this tool locally or dispatch it manually through GitHub Actions. The Intelligence monitor can also dispatch `intelligence-compatibility-monitor.yml` with one JSON request. This runner executes native adapter tests against independent installed artifacts. It does not contact Intelligence, Slack, or a paid model.
 
-The six adapters are TypeScript LangGraph, Mastra, the built-in agent, Python LangGraph, Python ADK, and .NET Agent Framework. The built-in agent ships in `@copilotkit/runtime/v2` and watches exact `ai` and `zod` versions. Regular learned-skill CI also runs its installed source consumer against the frozen workspace dependency versions.
+The six adapters are TypeScript LangGraph, Mastra, the built-in agent, Python LangGraph, Python ADK, and .NET Agent Framework. The built-in agent ships in `@copilotkit/runtime` and watches exact `ai` and `zod` versions. Regular learned-skill CI also runs its installed source consumer against the frozen workspace dependency versions.
 
 ## Request
 
@@ -39,4 +39,4 @@ Save a request as `request.json`, then run:
 gh workflow run intelligence-compatibility-monitor.yml --ref main --raw-field request="$(cat request.json)"
 ```
 
-The dispatch ref selects the trusted workflow branch (`main`); GitHub requires a branch or tag here. Keep the exact candidate commit only in `sourceSha`. The workflow checks out its own immutable `github.workflow_sha` into `harness` and the candidate SHA into `candidate`. Candidate builds, fixtures, and native tests still execute candidate code in the isolated consumer environment. For a built-in source request, set `adapterId` to `builtin-ts`, `track` to `source`, and `dependencies` to exact `ai` and `zod` versions. For a published request, also set `adapterVersion` to the exact `@copilotkit/runtime` version. The runtime version must contain the learned-skill public API. The workflow retains test results and installation evidence even when compatibility fails.
+The dispatch ref selects the trusted workflow branch (`main`); GitHub requires a branch or tag here. Keep the exact candidate commit only in `sourceSha`. The workflow checks out its own immutable `github.workflow_sha` into `harness` and the candidate SHA into `candidate`. Candidate builds, fixtures, and native tests still execute candidate code in the isolated consumer environment. For a built-in source request, set `adapterId` to `builtin-ts`, `track` to `source`, and `dependencies` to exact `ai`, `@tanstack/ai` and `zod` versions. For a published request, also set `adapterVersion` to the exact `@copilotkit/runtime` version. The runtime version must contain the learned-skill public API. The workflow retains test results and installation evidence even when compatibility fails.

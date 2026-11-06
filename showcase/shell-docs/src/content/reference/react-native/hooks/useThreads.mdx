@@ -16,7 +16,7 @@ description: "React hook for listing, managing, and syncing conversation threads
 </Callout>
 
 <Callout type="info">
-  Re-exported from `@copilotkit/react-core/v2`, identical to the [React (V2) `useThreads`](/reference/v2/hooks/useThreads). The only difference is the import path.
+  Re-exported from `@copilotkit/react-core`, identical to the [React `useThreads`](/reference/hooks/useThreads). The only difference is the import path.
 </Callout>
 
 Threads are sorted by most recently updated first. The hook supports cursor-based pagination when a `limit` is provided.
@@ -24,9 +24,13 @@ Threads are sorted by most recently updated first. The hook supports cursor-base
 ## Signature
 
 ```tsx
-import { useThreads } from "@copilotkit/react-native";
+import {
+  useThreads,
+  type UseThreadsInput,
+  type UseThreadsResult,
+} from "@copilotkit/react-native";
 
-function useThreads(input: UseThreadsInput): UseThreadsResult
+useThreads satisfies (input: UseThreadsInput) => UseThreadsResult;
 ```
 
 ## Parameters
@@ -158,4 +162,4 @@ function ThreadList() {
 
 - **Thread architecture:** [AG-UI Streams & Framework Threads](/intelligence/threads-explained) covers the event replay model and WebSocket sync
 - **Step-by-step guide:** [Headless Threads](/headless-threads) walks you through building a custom thread-management UI
-- **React (V2) reference:** [`useThreads`](/reference/v2/hooks/useThreads), the web `useThreads` this hook mirrors
+- **React reference:** [`useThreads`](/reference/hooks/useThreads), the web `useThreads` this hook mirrors

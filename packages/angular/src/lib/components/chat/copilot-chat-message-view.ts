@@ -6,8 +6,11 @@ import {
   ContentChild,
   ChangeDetectionStrategy,
   ViewEncapsulation,
+  DestroyRef,
   afterRenderEffect,
   computed,
+  inject,
+  signal,
 } from "@angular/core";
 import { NgTemplateOutlet } from "@angular/common";
 import { CopilotSlot } from "../../slots/copilot-slot";
@@ -17,12 +20,28 @@ import { CopilotChatUserMessage } from "./copilot-chat-user-message";
 import { CopilotChatMessageViewCursor } from "./copilot-chat-message-view-cursor";
 import { CopilotChatReasoningMessage } from "./copilot-chat-reasoning-message";
 import { CopilotActivity } from "../activity/copilot-activity";
+import { CopilotCollapsible } from "../tools/tool-call-parts";
+import { CopilotChatWorkSummary } from "./copilot-chat-work-summary";
 import { cn } from "../../utils";
+import {
+  ɵcreateMessageViewModel,
+  ɵdeduplicateMessages,
+  ɵshouldShowMessageCursor,
+} from "@copilotkit/core";
 import {
   commitRowKeyStore,
   createRowKeyStore,
   resolveRowRenderKeys,
 } from "@copilotkit/shared";
+import { hostStyles } from "../host-styles";
+import { CopilotKit } from "../../copilotkit";
+import { TOOL_CALL_DISPLAY_CONTEXT } from "./tool-call-display-context";
+import type { ToolCallDisplayContext } from "./tool-call-display-context";
+import { getToolCallRendererNames } from "./tool-call-layout";
+import type {
+  CopilotChatToolCallDisplay,
+  ToolCallEntry,
+} from "./tool-call-layout";
 
 /**
  * CopilotChatMessageView component - Angular port of the React component.
@@ -32,6 +51,13 @@ import {
 @Component({
   selector: "copilot-chat-message-view",
   host: { "data-copilotkit": "" },
+  providers: [
+    {
+      provide: TOOL_CALL_DISPLAY_CONTEXT,
+      useFactory: (): ToolCallDisplayContext =>
+        inject(CopilotChatMessageView).toolCallDisplayContext,
+    },
+  ],
   imports: [
     NgTemplateOutlet,
     CopilotSlot,
@@ -39,11 +65,55 @@ import {
     CopilotChatUserMessage,
     CopilotChatReasoningMessage,
     CopilotChatMessageViewCursor,
+    CopilotChatWorkSummary,
+    CopilotCollapsible,
     CopilotActivity,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   encapsulation: ViewEncapsulation.None,
+  styles: [hostStyles],
   template: `
+    <!-- The "turn" display's summary line for a reply, or its slot -->
+    <ng-template #workSummaryRow let-turnKey let-calls="calls">
+      <div [copilotCollapsible]="isTurnWorking(turnKey) || calls.length > 0">
+        <div class="cpk-message-view-work-summary">
+          @if (workSummaryComponent() || workSummaryTemplate()) {
+            <copilot-slot
+              [slot]="workSummaryTemplate() || workSummaryComponent()"
+              [context]="workSummaryContext(turnKey, calls)"
+            />
+          } @else {
+            <copilot-chat-work-summary
+              [isWorking]="isTurnWorking(turnKey)"
+              [isOpen]="isTurnOpen(turnKey)"
+              [calls]="calls"
+              [elapsedMs]="workTime(turnKey)?.elapsedMs"
+              [workingSince]="workTime(turnKey)?.workingSince"
+              [inputClass]="workSummaryClass()"
+              (click)="toggleTurn(turnKey)"
+            />
+          }
+        </div>
+      </div>
+    </ng-template>
+
+    <ng-template #reasoningRow let-message>
+      @if (reasoningMessageComponent() || reasoningMessageTemplate()) {
+        <copilot-slot
+          [slot]="reasoningMessageTemplate() || reasoningMessageComponent()"
+          [context]="mergeReasoningProps(asReasoningMessage(message))"
+          [defaultComponent]="defaultReasoningComponent"
+        />
+      } @else {
+        <copilot-chat-reasoning-message
+          [message]="asReasoningMessage(message)"
+          [messages]="messagesValue()"
+          [isRunning]="isRunningValue()"
+          [inputClass]="reasoningMessageClass()"
+        />
+      }
+    </ng-template>
+
     <!-- Custom layout template support (render prop pattern) -->
     @if (customLayoutTemplate) {
       <ng-container
@@ -54,7 +124,15 @@ import {
       <!-- Default layout - exact React DOM structure: div with "flex flex-col" classes -->
       <div [class]="computedClass()">
         <!-- Message iteration - simplified without tool calls -->
-        @for (message of messagesValue(); track rowRenderKey($index, message)) {
+        @for (message of renderedMessages(); track rowRenderKey($index, message)) {
+          @if (viewState().turnByFirstMessage.get(message.id); as turn) {
+            <ng-container
+              *ngTemplateOutlet="
+                workSummaryRow;
+                context: { $implicit: turn.key, calls: turn.calls }
+              "
+            />
+          }
           @if (message && message.role === "assistant") {
             <!-- Assistant message with slot support -->
             @if (assistantMessageComponent() || assistantMessageTemplate()) {
@@ -69,7 +147,7 @@ import {
                 [message]="message"
                 [messages]="messagesValue()"
                 [agentId]="agentId()"
-                [isLoading]="isLoadingValue()"
+                [isLoading]="isRunningValue()"
                 [inputClass]="assistantMessageClass()"
                 (thumbsUp)="handleAssistantThumbsUp($event)"
                 (thumbsDown)="handleAssistantThumbsDown($event)"
@@ -95,18 +173,18 @@ import {
               </copilot-chat-user-message>
             }
           } @else if (message && message.role === "reasoning") {
-            @if (reasoningMessageComponent() || reasoningMessageTemplate()) {
-              <copilot-slot
-                [slot]="reasoningMessageTemplate() || reasoningMessageComponent()"
-                [context]="mergeReasoningProps(asReasoningMessage(message))"
-                [defaultComponent]="defaultReasoningComponent"
-              />
+            <!-- Reasoning in a reply's working phase folds away with the work -->
+            @if (toolCallDisplay() === "turn") {
+              <div
+                [copilotCollapsible]="viewState().workOpen.get(message.id) ?? true"
+              >
+                <ng-container
+                  *ngTemplateOutlet="reasoningRow; context: { $implicit: message }"
+                />
+              </div>
             } @else {
-              <copilot-chat-reasoning-message
-                [message]="asReasoningMessage(message)"
-                [messages]="messagesValue()"
-                [isRunning]="isLoadingValue()"
-                [inputClass]="reasoningMessageClass()"
+              <ng-container
+                *ngTemplateOutlet="reasoningRow; context: { $implicit: message }"
               />
             }
           } @else if (message && message.role === "activity") {
@@ -121,19 +199,30 @@ import {
           />
         }
 
+        @if (viewState().pendingWorkSummary) {
+          <ng-container
+            *ngTemplateOutlet="
+              workSummaryRow;
+              context: { $implicit: viewState().latestTurnKey, calls: [] }
+            "
+          />
+        }
+
         <!-- Cursor - exactly like React's conditional rendering -->
         @if (showCursorValue()) {
-          @if (cursorComponent() || cursorTemplate()) {
-            <copilot-slot
-              [slot]="cursorTemplate() || cursorComponent()"
-              [context]="{ inputClass: cursorClass() }"
-              [defaultComponent]="defaultCursorComponent"
-            >
-            </copilot-slot>
-          } @else {
-            <copilot-chat-message-view-cursor [inputClass]="cursorClass()">
-            </copilot-chat-message-view-cursor>
-          }
+          <div class="cpk-message-view-cursor-container">
+            @if (cursorComponent() || cursorTemplate()) {
+              <copilot-slot
+                [slot]="cursorTemplate() || cursorComponent()"
+                [context]="{ inputClass: cursorClass() }"
+                [defaultComponent]="defaultCursorComponent"
+              >
+              </copilot-slot>
+            } @else {
+              <copilot-chat-message-view-cursor [inputClass]="cursorClass()">
+              </copilot-chat-message-view-cursor>
+            }
+          </div>
         }
       </div>
     }
@@ -148,6 +237,11 @@ export class CopilotChatMessageView {
   isLoading = input<boolean>(false);
   inputClass = input<string | undefined>();
   agentId = input<string | undefined>();
+  /**
+   * How assistant messages show tool calls: `"grouped"` (default), `"line"`,
+   * `"stacked"` or `"separate"`. See `CopilotChatToolCallDisplay`.
+   */
+  toolCallDisplay = input<CopilotChatToolCallDisplay>("grouped");
 
   // Handler availability handled via DI service
 
@@ -176,6 +270,13 @@ export class CopilotChatMessageView {
   cursorTemplate = input<TemplateRef<any> | undefined>();
   cursorClass = input<string | undefined>();
 
+  // `"turn"` display work summary slot inputs. A slot gets `isWorking`,
+  // `isOpen`, `calls`, `elapsedMs`, `workingSince` and `onClick`, which
+  // toggles the reply's work.
+  workSummaryComponent = input<Type<unknown> | undefined>();
+  workSummaryTemplate = input<TemplateRef<unknown> | undefined>();
+  workSummaryClass = input<string | undefined>();
+
   // Custom layout template (render prop pattern)
   @ContentChild("customLayout") customLayoutTemplate?: TemplateRef<any>;
 
@@ -195,6 +296,13 @@ export class CopilotChatMessageView {
 
   // Derived values from inputs
   protected messagesValue = computed(() => this.messages());
+  /**
+   * The rows the list draws: one per message id. A streaming agent can list
+   * the same message, or the same tool call, more than once.
+   */
+  protected readonly renderedMessages = computed(() =>
+    ɵdeduplicateMessages(this.messagesValue()),
+  );
 
   /**
    * Override table backing `rowRenderKey`. Per component instance, so its
@@ -202,27 +310,72 @@ export class CopilotChatMessageView {
    */
   private readonly rowKeyStore = createRowKeyStore();
   protected rowRenderKeys = computed(() =>
-    resolveRowRenderKeys(this.rowKeyStore, this.messagesValue()),
+    resolveRowRenderKeys(this.rowKeyStore, this.renderedMessages()),
   );
 
   // Record what actually rendered, never what the computed merely evaluated:
   // an anchor from an evaluation that never reaches the DOM would re-key a
   // rendered row and recreate it.
   private readonly rowKeyStoreCommit = afterRenderEffect(() => {
-    commitRowKeyStore(this.rowKeyStore, this.messagesValue());
+    commitRowKeyStore(this.rowKeyStore, this.renderedMessages());
   });
-  protected showCursorValue = computed(
-    () => this.showCursor() && this.lastMessage()?.role !== "reasoning",
-  );
   protected isLoadingValue = computed(() => this.isLoading());
+  protected showCursorValue = computed(() =>
+    ɵshouldShowMessageCursor({
+      isRunning: this.showCursor(),
+      lastMessage: this.lastMessage(),
+      display: this.toolCallDisplay(),
+    }),
+  );
+  /**
+   * Whether the agent runs. The prebuilt chat sets `showCursor` while it
+   * runs; a view used on its own may set `isLoading` instead.
+   */
+  readonly #isRunning = computed(() => this.showCursor() || this.isLoading());
+  protected readonly isRunningValue = this.#isRunning;
+
+  readonly #copilotKit = inject(CopilotKit);
+  // The list's tool-call layout and turn state live in core. A user's open or
+  // close of a reply's work is the only change it reports by itself.
+  readonly #viewModel = ɵcreateMessageViewModel();
+  readonly #toggledTurns = signal(this.#viewModel.getSnapshot());
+  /** Groups can span messages, so the view lays out every message's calls. */
+  protected readonly viewState = computed(() => {
+    this.#toggledTurns();
+    return this.#viewModel.update({
+      display: this.toolCallDisplay(),
+      messages: this.messagesValue(),
+      rendered: this.renderedMessages(),
+      isRunning: this.#isRunning(),
+      rendererNames: getToolCallRendererNames(this.#copilotKit),
+      now: Date.now(),
+    });
+  });
+
+  constructor() {
+    inject(DestroyRef).onDestroy(
+      this.#viewModel.subscribe(() =>
+        this.#toggledTurns.set(this.#viewModel.getSnapshot()),
+      ),
+    );
+  }
+
+  /** @internal Read by each message's tool-calls view. */
+  readonly toolCallDisplayContext: ToolCallDisplayContext = {
+    display: this.toolCallDisplay,
+    isRunning: this.#isRunning,
+    layouts: computed(() => this.viewState().layouts),
+    workOpen: computed(() => this.viewState().workOpen),
+    workTextOpen: computed(() => this.viewState().workTextOpen),
+  };
   protected lastMessage = computed(() => {
-    const messages = this.messagesValue();
+    const messages = this.renderedMessages();
     return messages[messages.length - 1];
   });
 
   // Computed class matching React: twMerge("flex flex-col", className)
   computedClass = computed(() =>
-    cn("cpk:flex cpk:flex-col", this.inputClass()),
+    cn("copilotKitMessages cpk-message-view", this.inputClass()),
   );
 
   // Layout context for custom templates (render prop pattern)
@@ -230,7 +383,7 @@ export class CopilotChatMessageView {
     isLoading: this.isLoadingValue(),
     messages: this.messagesValue(),
     showCursor: this.showCursorValue(),
-    messageElements: this.messagesValue().filter(
+    messageElements: this.renderedMessages().filter(
       (m) =>
         m &&
         (m.role === "assistant" ||
@@ -256,7 +409,7 @@ export class CopilotChatMessageView {
     return {
       message,
       messages: this.messagesValue(),
-      isLoading: this.isLoadingValue(),
+      isLoading: this.#isRunning(),
       inputClass: this.assistantMessageClass(),
     };
   }
@@ -265,7 +418,7 @@ export class CopilotChatMessageView {
     return {
       message,
       messages: this.messagesValue(),
-      isRunning: this.isLoadingValue(),
+      isRunning: this.#isRunning(),
       inputClass: this.reasoningMessageClass(),
     };
   }
@@ -275,8 +428,40 @@ export class CopilotChatMessageView {
       messages: this.messagesValue(),
       state: this.state(),
       agentId: this.agentId(),
-      isRunning: this.isLoadingValue(),
+      isRunning: this.#isRunning(),
       inputClass: this.childrenClass(),
+    };
+  }
+
+  protected isTurnWorking(turnKey: string) {
+    this.viewState();
+    return this.#viewModel.isTurnWorking(turnKey);
+  }
+
+  protected isTurnOpen(turnKey: string) {
+    this.viewState();
+    return this.#viewModel.isTurnOpen(turnKey);
+  }
+
+  protected workTime(turnKey: string) {
+    this.viewState();
+    return this.#viewModel.getWorkTime(turnKey);
+  }
+
+  protected toggleTurn(turnKey: string): void {
+    this.#viewModel.toggleTurn(turnKey);
+  }
+
+  workSummaryContext(turnKey: string, calls: ToolCallEntry[]) {
+    const times = this.workTime(turnKey);
+    return {
+      isWorking: this.isTurnWorking(turnKey),
+      isOpen: this.isTurnOpen(turnKey),
+      calls,
+      elapsedMs: times?.elapsedMs,
+      workingSince: times?.workingSince,
+      inputClass: this.workSummaryClass(),
+      onClick: () => this.toggleTurn(turnKey),
     };
   }
 

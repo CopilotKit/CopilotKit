@@ -21,8 +21,7 @@ conversation-history drawer, or use `useThreads` to build your own switcher.
 
 1. **Drop in a surface.** Render `CopilotChat`, `CopilotSidebar`, or
    `CopilotPopup` below `CopilotKitProvider`.
-2. **Re-skin with CSS.** Import the Vue stylesheet and override the
-   `[data-copilotkit]` design tokens.
+2. **Re-skin with CSS.** Override the `[data-copilotkit]` design tokens.
 3. **Recompose with slots.** Replace an empty state, message list, composer,
    header, or launcher using Vue named and scoped slots.
 4. **Go headless.** Build your layout from `useAgent`, `useCopilotKit`, and
@@ -34,13 +33,12 @@ runtime connection logic.
 
 ## Drop-in chat
 
-Import the Vue CSS once, wrap the application in `CopilotKitProvider`, and put
-the chat surface in the provider's default slot:
+Wrap the application in `CopilotKitProvider` and put the chat surface in the
+provider's default slot. The chat surface includes its own CSS:
 
 ```vue title="App.vue"
 <script setup lang="ts">
 import { CopilotChat, CopilotKitProvider } from "@copilotkit/vue/v2";
-import "@copilotkit/vue/styles.css";
 </script>
 
 <template>

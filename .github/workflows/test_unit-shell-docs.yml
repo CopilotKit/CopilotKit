@@ -12,8 +12,7 @@ on:
       - "showcase/shared/**"
       - "showcase/features/**"
       - "showcase/*.json"
-      - "examples/integrations/ms-agent-framework-dotnet/**"
-      - "examples/v1/travel/agent/uv.lock"
+      - "examples/starters/ms-agent-framework-dotnet/**"
       - "packages/runtime/package.json"
       - ".github/workflows/test_unit-shell-docs.yml"
   push:
@@ -27,8 +26,7 @@ on:
       - "showcase/shared/**"
       - "showcase/features/**"
       - "showcase/*.json"
-      - "examples/integrations/ms-agent-framework-dotnet/**"
-      - "examples/v1/travel/agent/uv.lock"
+      - "examples/starters/ms-agent-framework-dotnet/**"
       - "packages/runtime/package.json"
       - ".github/workflows/test_unit-shell-docs.yml"
 

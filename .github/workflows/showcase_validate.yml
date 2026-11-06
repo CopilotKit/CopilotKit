@@ -4,7 +4,7 @@ on:
   pull_request:
     paths:
       - "showcase/**"
-      - "examples/integrations/**"
+      - "examples/starters/**"
       - "package.json"
       - "pnpm-lock.yaml"
       - "pnpm-workspace.yaml"
@@ -27,7 +27,7 @@ on:
     branches: [main]
     paths:
       - "showcase/**"
-      - "examples/integrations/**"
+      - "examples/starters/**"
       - "package.json"
       - "pnpm-lock.yaml"
       - "pnpm-workspace.yaml"
@@ -718,7 +718,7 @@ jobs:
         run: shellcheck showcase/scripts/promote-fleet.sh showcase/scripts/verify-prod-display.sh showcase/scripts/reconcile-prod-gate.sh
 
       - name: Shellcheck starter shell scripts
-        # The starters under examples/integrations/ ship `entrypoint.sh` as the
+        # The starters under examples/starters/ ship `entrypoint.sh` as the
         # production container's CMD, plus dev helper scripts under scripts/.
         # None of them were linted by anything, so shell defects in the exact
         # file that starts the shipped image reached users unreviewed. Globbed
@@ -731,7 +731,7 @@ jobs:
         run: |
           set -euo pipefail
           shopt -s nullglob globstar
-          files=(examples/integrations/**/*.sh)
+          files=(examples/starters/**/*.sh)
           if [ ${#files[@]} -eq 0 ]; then
             echo "::error::No starter shell scripts matched — the glob is stale."
             exit 1

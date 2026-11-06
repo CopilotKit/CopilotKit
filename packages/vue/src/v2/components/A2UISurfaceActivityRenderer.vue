@@ -1,155 +1,112 @@
 <script setup lang="ts">
-import { computed, h, onBeforeUnmount, shallowRef, ref, watch } from "vue";
-import type { VNode } from "vue";
+import { computed, onBeforeUnmount, shallowRef, watch } from "vue";
 import type { ActivityMessage } from "@ag-ui/core";
 import type { A2UITheme } from "../types";
 import type { A2UIOperation } from "./a2ui";
-import { getOperationSurfaceId } from "./a2ui";
 import { useCopilotKit } from "../providers";
 import { MessageProcessor } from "@a2ui/web_core/v0_9";
 import type { SurfaceModel } from "@a2ui/web_core/v0_9";
+import { A2UIOperationApplier } from "@copilotkit/a2ui-renderer/engine";
+import { A2UISurfaceDiagnostics } from "@copilotkit/a2ui-renderer/engine-core";
+import { ɵrunA2UIAction, ɵtoA2UIClientEvent } from "@copilotkit/core";
+import type {
+  ɵA2UIActionAgent,
+  ɵA2UIActionInterceptor,
+} from "@copilotkit/core";
 import { vueBasicCatalog, A2uiSurface } from "./a2ui/index";
 import type { VueComponentImplementation } from "./a2ui/index";
 
-const DEFAULT_SURFACE_ID = "default";
-
 const props = defineProps<{
   activityType: string;
-  content: { operations: A2UIOperation[] };
+  content: { operations: readonly A2UIOperation[] };
   message: ActivityMessage;
-  agent?: object;
+  agent?: ɵA2UIActionAgent;
   theme?: A2UITheme;
   catalog?: any;
+  /** Intercepts a user action before it reaches the agent. */
+  onAction?: ɵA2UIActionInterceptor;
+}>();
+
+const emit = defineEmits<{
+  /** After each batch of operations was applied. */
+  rendered: [];
 }>();
 
 const { copilotkit } = useCopilotKit();
 
-// MessageProcessor from @a2ui/web_core — framework-agnostic
-// Use shallowRef to avoid Vue's deep UnwrapRef which strips private class members
-const processorRef =
-  shallowRef<MessageProcessor<VueComponentImplementation> | null>(null);
-// Version counter to trigger Vue reactivity on processor state changes
-const version = ref(0);
-// Error state
-const error = ref<string | null>(null);
-// Track last processed operations hash to avoid re-processing
-let lastOpsHash = "";
+type Surface = SurfaceModel<VueComponentImplementation>;
 
-function getOrCreateProcessor(): MessageProcessor<VueComponentImplementation> {
-  if (!processorRef.value) {
+// One processor for all surfaces of the activity; the core-shared applier
+// validates the operations and applies only what is new in each snapshot.
+// shallowRef avoids Vue's deep UnwrapRef, which strips private class members.
+let processor: MessageProcessor<VueComponentImplementation> | null = null;
+let applier: A2UIOperationApplier<VueComponentImplementation> | null = null;
+const surfaces = shallowRef<readonly Surface[]>([]);
+const error = shallowRef<string | null>(null);
+const diagnostics =
+  process.env.NODE_ENV !== "production"
+    ? new A2UISurfaceDiagnostics({ warn: (message) => console.warn(message) })
+    : null;
+
+function getApplier() {
+  if (!processor || !applier) {
     const catalog = props.catalog ?? vueBasicCatalog;
-    processorRef.value = new MessageProcessor<VueComponentImplementation>(
+    const created = new MessageProcessor<VueComponentImplementation>(
       [catalog],
-      (action: unknown) => {
-        handleAction(action);
-      },
-    );
-  }
-  return processorRef.value;
-}
-
-async function handleAction(message: unknown) {
-  if (!props.agent) return;
-  try {
-    copilotkit.value.setProperties({
-      ...copilotkit.value.properties,
-      a2uiAction: message,
-    });
-    await copilotkit.value.runAgent({ agent: props.agent as any });
-  } finally {
-    const { a2uiAction, ...rest } = copilotkit.value.properties ?? {};
-    copilotkit.value.setProperties(rest);
-  }
-}
-
-function processOperations(operations: A2UIOperation[]) {
-  if (!operations?.length) return;
-
-  const hash = JSON.stringify(operations);
-  if (hash === lastOpsHash) return;
-  lastOpsHash = hash;
-
-  const processor = getOrCreateProcessor();
-  try {
-    // Group operations by surface ID
-    const grouped = new Map<string, A2UIOperation[]>();
-    for (const op of operations) {
-      const surfaceId = getOperationSurfaceId(op) ?? DEFAULT_SURFACE_ID;
-      if (!grouped.has(surfaceId)) grouped.set(surfaceId, []);
-      grouped.get(surfaceId)!.push(op);
-    }
-
-    // For each surface, skip createSurface if the surface already exists
-    for (const [surfaceId, ops] of grouped) {
-      const existing = processor.model.getSurface(surfaceId);
-      const filtered = existing
-        ? ops.filter((op) => !(op as any)?.createSurface)
-        : ops;
-      // Some agent payloads include a redundant routing ID. web_core 0.15
-      // validates v0.9 envelopes strictly; keep only the nested action's ID.
-      processor.processMessages(
-        filtered.map((operation) => {
-          const message = { ...operation };
-          delete message.surfaceId;
-          return message;
+      (action) =>
+        ɵrunA2UIAction({
+          message: ɵtoA2UIClientEvent(action),
+          agent: props.agent,
+          core: copilotkit.value,
+          onAction: props.onAction,
         }),
-      );
-    }
+    );
+    processor = created;
+    applier = new A2UIOperationApplier(created, catalog.id);
+  }
+  return applier;
+}
+
+function processOperations(operations: readonly A2UIOperation[]) {
+  const current = getApplier();
+  try {
+    surfaces.value = current.apply(operations);
     error.value = null;
   } catch (err) {
     console.warn("[A2UI Vue] processMessages error:", err);
     error.value = err instanceof Error ? err.message : String(err);
+    surfaces.value = [];
+    return;
   }
-  version.value++;
+  if (processor) diagnostics?.check(operations, processor.model);
+  emit("rendered");
 }
 
-// Process operations on mount and when they change
+// A new catalog needs a new processor, rebuilt from the current operations.
 watch(
-  () => [props.content.operations, props.theme, props.catalog, props.agent],
+  () => props.catalog,
   () => {
-    processOperations(props.content.operations);
+    processor = null;
+    applier = null;
+    processOperations(props.content.operations ?? []);
   },
+);
+
+watch(
+  () => props.content.operations,
+  (operations) => processOperations(operations ?? []),
   { deep: true, immediate: true },
 );
 
 onBeforeUnmount(() => {
-  processorRef.value = null;
-  lastOpsHash = "";
+  diagnostics?.dispose();
+  processor = null;
+  applier = null;
 });
 
 const hasOperations = computed(
   () => (props.content.operations ?? []).length > 0,
 );
-
-// Compute the list of surfaces to render
-const surfaceEntries = computed(() => {
-  // Touch version to ensure reactivity
-  void version.value;
-
-  if (!processorRef.value) return [];
-
-  const entries: Array<{
-    surfaceId: string;
-    surface: SurfaceModel<VueComponentImplementation>;
-  }> = [];
-
-  // Group operations by surface to know which surfaces we expect
-  const grouped = new Map<string, A2UIOperation[]>();
-  for (const op of props.content.operations ?? []) {
-    const surfaceId = getOperationSurfaceId(op) ?? DEFAULT_SURFACE_ID;
-    if (!grouped.has(surfaceId)) grouped.set(surfaceId, []);
-    grouped.get(surfaceId)!.push(op);
-  }
-
-  for (const [surfaceId] of grouped) {
-    const surface = processorRef.value.model.getSurface(surfaceId);
-    if (surface) {
-      entries.push({ surfaceId, surface });
-    }
-  }
-
-  return entries;
-});
 </script>
 
 <template>
@@ -159,25 +116,22 @@ const surfaceEntries = computed(() => {
     :data-activity-type="activityType"
     :data-message-id="message.id"
   >
-    <div
-      v-if="error"
-      class="cpk:rounded-lg cpk:border cpk:border-red-200 cpk:bg-red-50 cpk:p-3 cpk:text-sm cpk:text-red-700"
-    >
+    <div v-if="error" class="cpk-a2ui-message-error">
       A2UI render error: {{ error }}
     </div>
     <div
       v-else
-      class="cpk:flex cpk:min-h-0 cpk:flex-1 cpk:flex-col cpk:gap-6 cpk:overflow-auto cpk:py-6"
+      class="cpk-a2ui-message-surfaces"
       data-testid="a2ui-activity-renderer"
     >
       <div
-        v-for="entry in surfaceEntries"
-        :key="entry.surfaceId"
-        class="cpk:flex cpk:w-full cpk:flex-none cpk:flex-col cpk:gap-4"
-        :data-surface-id="entry.surfaceId"
+        v-for="surface in surfaces"
+        :key="surface.id"
+        class="cpk-a2ui-message-surface-host"
+        :data-surface-id="surface.id"
       >
-        <div class="a2ui-surface cpk:flex cpk:flex-1">
-          <A2uiSurface :surface="entry.surface" />
+        <div class="a2ui-surface cpk-a2ui-message-surface">
+          <A2uiSurface :surface="surface" />
         </div>
       </div>
     </div>

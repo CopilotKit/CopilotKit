@@ -1413,7 +1413,7 @@ describe("STARTER_COLUMNS (probed / unprobed / unsupported split)", () => {
 
   it("treats only the 5 genuinely starter-less columns as not supported", () => {
     // These are the ONLY columns allowed to render the outward-facing ∅
-    // "Not supported by this framework" claim: no `examples/integrations/<slug>`
+    // "Not supported by this framework" claim: no `examples/starters/<slug>`
     // directory exists for any of them. `crewai-conversational-flows` is NOT
     // here: it WAS, pending "a human decision on whether the matrix's
     // `crewai-flows` is this column", until the tree turned out to answer it —
@@ -1432,7 +1432,7 @@ describe("STARTER_COLUMNS (probed / unprobed / unsupported split)", () => {
   });
 
   it("treats columns with a real but unprobed starter as 'unprobed', never 'unsupported'", () => {
-    // These shipped a starter under `examples/integrations/` the whole time the
+    // These shipped a starter under `examples/starters/` the whole time the
     // dashboard claimed their framework was unsupported.
     //
     // `crewai-conversational-flows`'s starter is `crewai-flows` — the name
@@ -1555,7 +1555,7 @@ describe("buildStarterBadge — 5-state cell vocabulary (§d)", () => {
   it("unprobed: a column with a real but unprobed starter → gray ?, NEVER the ∅ capability claim", () => {
     // The defect this branch exists to kill: `strands-typescript`,
     // `claude-sdk-python` and `claude-sdk-typescript` all ship a starter under
-    // `examples/integrations/` and were nonetheless rendered
+    // `examples/starters/` and were nonetheless rendered
     // ∅ "Not supported by this framework" — an outward-facing claim about a
     // partner framework's capabilities, used to describe our own plumbing.
     const b = buildStarterBadge("health", "unprobed", null, NOW, "live");

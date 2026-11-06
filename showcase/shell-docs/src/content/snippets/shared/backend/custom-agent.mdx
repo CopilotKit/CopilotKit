@@ -7,10 +7,10 @@ import { Tabs, Tab } from "fumadocs-ui/components/tabs";
 
 | | Simple Mode | Factory Mode |
 |---|---|---|
-| **Setup** | Minimal — pass a model string | You own the LLM call and stream |
-| **Model resolution** | Built-in (`"openai/gpt-6-luna"`) | You set up the model yourself |
+| **Setup** | Minimal: pass a TanStack AI adapter | You own the LLM call and stream |
+| **Model** | An adapter, such as `openaiText("gpt-6-luna")` | You set up the model yourself |
 | **Tools, MCP, state tools** | Automatically wired | You wire them in your factory |
-| **Backend support** | Vercel AI SDK only | Any backend: AI SDK, TanStack AI, or custom |
+| **Backend support** | TanStack AI | Any backend: AI SDK, TanStack AI, or custom |
 | **Best for** | Quick setup, standard use cases | Full control, non-standard backends |
 
 <Callout type="info">
@@ -23,14 +23,22 @@ You have an existing LLM backend and you want a CopilotKit copilot using it. Pic
 
 <Tabs items={["AI SDK", "TanStack AI", "Custom"]}>
 <Tab value="AI SDK">
+```npm
+npm install @copilotkit/runtime @tanstack/ai ai @ai-sdk/openai
+```
+
+The types of `@copilotkit/runtime/agent` come from `@tanstack/ai`, so install it with every factory.
+
 ```typescript title="src/copilotkit.ts"
 import {
   CopilotRuntime,
   createCopilotRuntimeHandler,
   InMemoryAgentRunner,
-  BuiltInAgent,
+} from "@copilotkit/runtime";
+import { BuiltInAgent } from "@copilotkit/runtime/agent";
+import {
   convertMessagesToVercelAISDKMessages,
-} from "@copilotkit/runtime/v2";
+} from "@copilotkit/runtime/agent/ai-sdk";
 import { streamText } from "ai";
 import { openai } from "@ai-sdk/openai";
 
@@ -49,22 +57,28 @@ const runtime = new CopilotRuntime({
   runner: new InMemoryAgentRunner(),
 });
 
-const copilotEndpoint = createCopilotEndpoint({
+const handler = createCopilotRuntimeHandler({
   runtime,
   basePath: "/api/copilotkit",
 });
-export default copilotEndpoint;
+export default handler;
 ```
 </Tab>
 <Tab value="TanStack AI">
+```npm
+npm install @copilotkit/runtime @tanstack/ai @tanstack/ai-openai
+```
+
 ```typescript title="src/copilotkit.ts"
 import {
   CopilotRuntime,
   createCopilotRuntimeHandler,
   InMemoryAgentRunner,
+} from "@copilotkit/runtime";
+import {
   BuiltInAgent,
   convertInputToTanStackAI,
-} from "@copilotkit/runtime/v2";
+} from "@copilotkit/runtime/agent";
 import { chat } from "@tanstack/ai";
 import { openaiText } from "@tanstack/ai-openai";
 
@@ -76,6 +90,7 @@ const agent = new BuiltInAgent({
       adapter: openaiText("gpt-6-luna"),
       messages,
       systemPrompts,
+      threadId: input.threadId,
       abortController,
     });
   },
@@ -86,22 +101,26 @@ const runtime = new CopilotRuntime({
   runner: new InMemoryAgentRunner(),
 });
 
-const copilotEndpoint = createCopilotEndpoint({
+const handler = createCopilotRuntimeHandler({
   runtime,
   basePath: "/api/copilotkit",
 });
-export default copilotEndpoint;
+export default handler;
 ```
 </Tab>
 <Tab value="Custom">
+```npm
+npm install @copilotkit/runtime @tanstack/ai
+```
+
 ```typescript title="src/copilotkit.ts"
 import {
   CopilotRuntime,
   createCopilotRuntimeHandler,
   InMemoryAgentRunner,
-  BuiltInAgent,
-} from "@copilotkit/runtime/v2";
-import { EventType, type BaseEvent } from "@ag-ui/client";
+} from "@copilotkit/runtime";
+import { BuiltInAgent } from "@copilotkit/runtime/agent";
+import { EventType } from "@ag-ui/client";
 
 const agent = new BuiltInAgent({
   type: "custom",
@@ -125,7 +144,7 @@ const agent = new BuiltInAgent({
         role: "assistant",
         messageId,
         delta: decoder.decode(value),
-      } as BaseEvent;
+      };
     }
   },
 });
@@ -135,16 +154,16 @@ const runtime = new CopilotRuntime({
   runner: new InMemoryAgentRunner(),
 });
 
-const copilotEndpoint = createCopilotEndpoint({
+const handler = createCopilotRuntimeHandler({
   runtime,
   basePath: "/api/copilotkit",
 });
-export default copilotEndpoint;
+export default handler;
 ```
 </Tab>
 </Tabs>
 
-The frontend setup is the same as [BuiltInAgent](/quickstart) — wrap your app with `<CopilotKit>` and add a chat component.
+The frontend setup is the same as [BuiltInAgent](/quickstart) — wrap your app with `<CopilotKitProvider>` and add a chat component.
 
 ## How It Works
 
@@ -153,15 +172,27 @@ Factory mode accepts a config with two fields:
 - **`type`** — which backend you're using: `"aisdk"`, `"tanstack"`, or `"custom"`
 - **`factory`** — a function that receives the raw request and returns a backend-native stream
 
-The factory receives an `BuiltInAgentFactoryContext` (from `@copilotkit/runtime/v2`):
+The factory receives an `BuiltInAgentFactoryContext` (from `@copilotkit/runtime/agent`):
 
 ```typescript
-interface BuiltInAgentFactoryContext {
-  learnedSkills: BuiltInAgentLearnedSkills; // catalog and read-only AI SDK tools, empty when disabled
-  input: RunAgentInput;        // messages, tools, state, context, threadId, runId, forwardedProps
-  abortController: AbortController;  // for TanStack AI (requires AbortController)
-  abortSignal: AbortSignal;          // preferred for AI SDK, fetch, and custom backends
-}
+import type { Interrupt, ResumeEntry, RunAgentInput } from "@ag-ui/client";
+import type {
+  BuiltInAgentFactoryContext,
+  BuiltInAgentLearnedSkills,
+} from "@copilotkit/runtime/agent";
+
+type FactoryContextShape = {
+  learnedSkills: BuiltInAgentLearnedSkills; // catalog and read-only TanStack AI tools, empty when disabled
+  input: RunAgentInput; // messages, tools, state, context, threadId, runId, forwardedProps
+  abortController: AbortController; // for TanStack AI (requires AbortController)
+  abortSignal: AbortSignal; // preferred for AI SDK, fetch, and custom backends
+  interrupt: (interrupts: Interrupt[]) => Promise<ResumeEntry[]>; // pause the run for human input
+};
+
+// Fails to compile if this shape drifts from the exported type.
+const shapeMatches: BuiltInAgentFactoryContext extends FactoryContextShape
+  ? true
+  : false = true;
 ```
 
 CopilotKit handles everything else: `RUN_STARTED` and `RUN_FINISHED` lifecycle events, stream-to-AG-UI conversion, error handling, and abort/cancellation. Your factory never needs to emit lifecycle events.
@@ -169,10 +200,26 @@ CopilotKit handles everything else: `RUN_STARTED` and `RUN_FINISHED` lifecycle e
 The factory can be async — return a `Promise` if you need to do setup before streaming:
 
 ```typescript
-factory: async ({ input, abortSignal }) => {
-  const apiKey = await getApiKeyFromVault();
-  return streamText({ model: openai("gpt-6-luna", { apiKey }), ... });
-}
+import { BuiltInAgent } from "@copilotkit/runtime/agent";
+import {
+  convertMessagesToVercelAISDKMessages,
+} from "@copilotkit/runtime/agent/ai-sdk";
+import { streamText } from "ai";
+import { createOpenAI } from "@ai-sdk/openai";
+import { getApiKeyFromVault } from "./vault";
+
+const agent = new BuiltInAgent({
+  type: "aisdk",
+  factory: async ({ input, abortSignal }) => {
+    const apiKey = await getApiKeyFromVault();
+    const openai = createOpenAI({ apiKey });
+    return streamText({
+      model: openai("gpt-6-luna"),
+      messages: convertMessagesToVercelAISDKMessages(input.messages),
+      abortSignal,
+    });
+  },
+});
 ```
 
 ## Examples
@@ -182,11 +229,11 @@ factory: async ({ input, abortSignal }) => {
 <Tabs items={["AI SDK", "TanStack AI", "Custom"]}>
 <Tab value="AI SDK">
 ```typescript title="src/copilotkit.ts"
+import { BuiltInAgent } from "@copilotkit/runtime/agent";
 import {
-  BuiltInAgent,
   convertMessagesToVercelAISDKMessages,
   convertToolsToVercelAITools,
-} from "@copilotkit/runtime/v2";
+} from "@copilotkit/runtime/agent/ai-sdk";
 import { streamText } from "ai";
 import { openai } from "@ai-sdk/openai";
 
@@ -204,11 +251,14 @@ const agent = new BuiltInAgent({
 });
 ```
 
-`convertToolsToVercelAITools` converts the frontend-defined tools (from `useCopilotAction`) into AI SDK's `ToolSet` format automatically.
+`convertToolsToVercelAITools` converts the frontend-defined tools (from `useFrontendTool`) into AI SDK's `ToolSet` format automatically.
 </Tab>
 <Tab value="TanStack AI">
 ```typescript title="src/copilotkit.ts"
-import { BuiltInAgent, convertInputToTanStackAI } from "@copilotkit/runtime/v2";
+import {
+  BuiltInAgent,
+  convertInputToTanStackAI,
+} from "@copilotkit/runtime/agent";
 import { chat, toolDefinition } from "@tanstack/ai";
 import { openaiText } from "@tanstack/ai-openai";
 import { z } from "zod";
@@ -228,6 +278,7 @@ const agent = new BuiltInAgent({
       messages,
       systemPrompts,
       tools: [getWeather],
+      threadId: input.threadId,
       abortController,
     });
   },
@@ -236,8 +287,8 @@ const agent = new BuiltInAgent({
 </Tab>
 <Tab value="Custom">
 ```typescript title="src/copilotkit.ts"
-import { BuiltInAgent } from "@copilotkit/runtime/v2";
-import { EventType, type BaseEvent } from "@ag-ui/client";
+import { BuiltInAgent } from "@copilotkit/runtime/agent";
+import { EventType } from "@ag-ui/client";
 
 const agent = new BuiltInAgent({
   type: "custom",
@@ -251,18 +302,18 @@ const agent = new BuiltInAgent({
       parentMessageId: messageId,
       toolCallId,
       toolCallName: "getWeather",
-    } as BaseEvent;
+    };
 
     yield {
       type: EventType.TOOL_CALL_ARGS,
       toolCallId,
       delta: JSON.stringify({ city: "San Francisco" }),
-    } as BaseEvent;
+    };
 
     yield {
       type: EventType.TOOL_CALL_END,
       toolCallId,
-    } as BaseEvent;
+    };
 
     // Execute the tool and return the result
     yield {
@@ -271,7 +322,7 @@ const agent = new BuiltInAgent({
       messageId: crypto.randomUUID(),
       toolCallId,
       content: JSON.stringify({ temp: 72, city: "San Francisco" }),
-    } as BaseEvent;
+    };
 
     // Text response after the tool call
     yield {
@@ -279,7 +330,7 @@ const agent = new BuiltInAgent({
       role: "assistant",
       messageId,
       delta: "The weather in San Francisco is 72°F.",
-    } as BaseEvent;
+    };
   },
 });
 ```
@@ -293,7 +344,10 @@ With `type: "custom"`, you yield AG-UI events directly. See the [AG-UI event ref
 <Tabs items={["AI SDK", "TanStack AI"]}>
 <Tab value="AI SDK">
 ```typescript title="src/copilotkit.ts"
-import { BuiltInAgent, convertMessagesToVercelAISDKMessages } from "@copilotkit/runtime/v2";
+import { BuiltInAgent } from "@copilotkit/runtime/agent";
+import {
+  convertMessagesToVercelAISDKMessages,
+} from "@copilotkit/runtime/agent/ai-sdk";
 import { streamText } from "ai";
 import { anthropic } from "@ai-sdk/anthropic";
 
@@ -322,15 +376,16 @@ Reasoning events (`REASONING_START`, `REASONING_MESSAGE_CONTENT`, `REASONING_END
 Pick the model with reasoning **visibility** in mind. From Claude Opus 4.7 onward (including Sonnet 5 and Opus 5), Anthropic defaults thinking `display` to `"omitted"` — the model still reasons, but no reasoning text comes back, so the events above arrive empty. `@ai-sdk/anthropic` does not expose `display` yet, so choose a model that defaults to summarized thinking (such as `claude-sonnet-4-6`) when you want the reasoning to be visible.
 </Callout>
 
-Using `BuiltInAgent` without a custom factory? The same options go through its `providerOptions` — see [Advanced Configuration](/advanced-configuration#provider-specific-options).
+Using `BuiltInAgent` without a factory? Put the provider's options in `modelOptions`. See [Advanced Configuration](/advanced-configuration#provider-options).
 </Tab>
 <Tab value="TanStack AI">
-<Callout type="warn">
-The TanStack AI converter does not surface reasoning events (`REASONING_START`, `REASONING_MESSAGE_CONTENT`, `REASONING_END`). Even if the underlying model supports thinking/reasoning, those events will not be forwarded to the frontend. Use the AI SDK backend if you need reasoning events.
-</Callout>
+Pass TanStack AI's `reasoning` option to `chat()`. `summary: true` asks the provider to stream the thinking text, and the TanStack AI converter forwards it as reasoning events (`REASONING_START`, `REASONING_MESSAGE_CONTENT`, `REASONING_END`).
 
 ```typescript title="src/copilotkit.ts"
-import { BuiltInAgent, convertInputToTanStackAI } from "@copilotkit/runtime/v2";
+import {
+  BuiltInAgent,
+  convertInputToTanStackAI,
+} from "@copilotkit/runtime/agent";
 import { chat } from "@tanstack/ai";
 import { anthropicText } from "@tanstack/ai-anthropic";
 
@@ -342,9 +397,8 @@ const agent = new BuiltInAgent({
       adapter: anthropicText("claude-sonnet-4-6"),
       messages,
       systemPrompts,
-      modelOptions: {
-        thinking: { type: "adaptive", display: "summarized" },
-      },
+      reasoning: { level: "high", summary: true },
+      threadId: input.threadId,
       abortController,
     });
   },
@@ -358,10 +412,10 @@ const agent = new BuiltInAgent({
 <Tabs items={["AI SDK", "TanStack AI"]}>
 <Tab value="AI SDK">
 ```typescript title="src/copilotkit.ts"
+import { BuiltInAgent } from "@copilotkit/runtime/agent";
 import {
-  BuiltInAgent,
   convertMessagesToVercelAISDKMessages,
-} from "@copilotkit/runtime/v2";
+} from "@copilotkit/runtime/agent/ai-sdk";
 import { streamText } from "ai";
 import { openai } from "@ai-sdk/openai";
 
@@ -370,14 +424,14 @@ const agent = new BuiltInAgent({
   factory: ({ input, abortSignal }) => {
     const systemParts: string[] = ["You are a helpful assistant."];
 
-    // Add context from the frontend (useCopilotReadable)
+    // Add context from the frontend (useAgentContext)
     if (input.context?.length) {
       for (const ctx of input.context) {
         systemParts.push(`${ctx.description}:\n${ctx.value}`);
       }
     }
 
-    // Add shared application state (useCoAgent, etc.)
+    // Add shared application state (useAgent, etc.)
     if (input.state && Object.keys(input.state).length > 0) {
       systemParts.push(
         `Application State:\n${JSON.stringify(input.state, null, 2)}`,
@@ -398,7 +452,10 @@ const agent = new BuiltInAgent({
 </Tab>
 <Tab value="TanStack AI">
 ```typescript title="src/copilotkit.ts"
-import { BuiltInAgent, convertInputToTanStackAI } from "@copilotkit/runtime/v2";
+import {
+  BuiltInAgent,
+  convertInputToTanStackAI,
+} from "@copilotkit/runtime/agent";
 import { chat } from "@tanstack/ai";
 import { openaiText } from "@tanstack/ai-openai";
 
@@ -416,6 +473,7 @@ const agent = new BuiltInAgent({
       adapter: openaiText("gpt-6-luna"),
       messages,
       systemPrompts,
+      threadId: input.threadId,
       abortController,
     });
   },
@@ -433,22 +491,19 @@ Let the frontend override model, temperature, or other settings at runtime:
 <Tabs items={["AI SDK", "TanStack AI"]}>
 <Tab value="AI SDK">
 ```typescript title="src/copilotkit.ts"
-import {
-  BuiltInAgent,
-  convertMessagesToVercelAISDKMessages,
-  resolveModel,
-} from "@copilotkit/runtime/v2";
+import { BuiltInAgent } from "@copilotkit/runtime/agent";
+import { convertMessagesToVercelAISDKMessages } from "@copilotkit/runtime/agent/ai-sdk";
 import { streamText } from "ai";
 import { openai } from "@ai-sdk/openai";
 
 const agent = new BuiltInAgent({
   type: "aisdk",
   factory: ({ input, abortSignal }) => {
-    const props = (input.forwardedProps ?? {}) as Record<string, unknown>;
+    const props: Record<string, unknown> = input.forwardedProps ?? {};
 
     const model =
-      typeof props.model === "string"
-        ? resolveModel(props.model)
+      props.model === "openai/gpt-5.4-mini"
+        ? openai("gpt-5.4-mini")
         : openai("gpt-6-luna");
 
     const temperature =
@@ -466,7 +521,10 @@ const agent = new BuiltInAgent({
 </Tab>
 <Tab value="TanStack AI">
 ```typescript title="src/copilotkit.ts"
-import { BuiltInAgent, convertInputToTanStackAI } from "@copilotkit/runtime/v2";
+import {
+  BuiltInAgent,
+  convertInputToTanStackAI,
+} from "@copilotkit/runtime/agent";
 import { chat } from "@tanstack/ai";
 import { openaiText } from "@tanstack/ai-openai";
 import { anthropicText } from "@tanstack/ai-anthropic";
@@ -474,13 +532,13 @@ import { anthropicText } from "@tanstack/ai-anthropic";
 const agent = new BuiltInAgent({
   type: "tanstack",
   factory: ({ input, abortController }) => {
-    const props = (input.forwardedProps ?? {}) as Record<string, unknown>;
+    const props: Record<string, unknown> = input.forwardedProps ?? {};
     const { messages, systemPrompts } = convertInputToTanStackAI(input);
 
     const adapter =
       props.model === "anthropic/claude-sonnet-4-6"
         ? anthropicText("claude-sonnet-4-6")
-        : openaiText((props.model as string) ?? "gpt-6-luna");
+        : openaiText("gpt-6-luna");
 
     const modelOptions: Record<string, unknown> = {};
     if (typeof props.temperature === "number")
@@ -491,6 +549,7 @@ const agent = new BuiltInAgent({
       messages,
       systemPrompts,
       modelOptions,
+      threadId: input.threadId,
       abortController,
     });
   },
@@ -499,26 +558,35 @@ const agent = new BuiltInAgent({
 </Tab>
 </Tabs>
 
-Forward props from the frontend using the `CopilotKit` provider's `properties` prop:
+Forward props from the frontend using the `CopilotKitProvider`'s `properties` prop:
 
 ```tsx title="app/page.tsx"
-<CopilotKit properties={{ model: "anthropic/claude-sonnet-4-6", temperature: 0.3 }}>
-  <CopilotChat />
-</CopilotKit>
+import { CopilotChat, CopilotKitProvider } from "@copilotkit/react-core";
+
+export default function Page() {
+  return (
+    <CopilotKitProvider
+      runtimeUrl="/api/copilotkit"
+      properties={{ model: "anthropic/claude-sonnet-4-6", temperature: 0.3 }}
+    >
+      <CopilotChat />
+    </CopilotKitProvider>
+  );
+}
 ```
 
 ### With State Tools
 
-Factory mode does not inject state management tools automatically. If your app uses shared state (`useCoAgent` with state), add the tools yourself:
+Factory mode does not inject state management tools automatically. If your app uses shared state (`useAgent` with state), add the tools yourself:
 
 <Tabs items={["AI SDK", "TanStack AI"]}>
 <Tab value="AI SDK">
 ```typescript title="src/copilotkit.ts"
+import { BuiltInAgent } from "@copilotkit/runtime/agent";
 import {
-  BuiltInAgent,
   convertMessagesToVercelAISDKMessages,
   convertToolsToVercelAITools,
-} from "@copilotkit/runtime/v2";
+} from "@copilotkit/runtime/agent/ai-sdk";
 import { streamText, tool } from "ai";
 import { openai } from "@ai-sdk/openai";
 import { z } from "zod";
@@ -530,12 +598,12 @@ const agent = new BuiltInAgent({
     const stateTools = {
       AGUISendStateSnapshot: tool({
         description: "Replace the entire application state",
-        parameters: z.object({ snapshot: z.any() }),
+        inputSchema: z.object({ snapshot: z.any() }),
         execute: async ({ snapshot }) => ({ success: true, snapshot }),
       }),
       AGUISendStateDelta: tool({
         description: "Apply incremental state updates via JSON Patch",
-        parameters: z.object({
+        inputSchema: z.object({
           delta: z.array(
             z.object({
               op: z.enum(["add", "replace", "remove"]),
@@ -560,7 +628,10 @@ const agent = new BuiltInAgent({
 </Tab>
 <Tab value="TanStack AI">
 ```typescript title="src/copilotkit.ts"
-import { BuiltInAgent, convertInputToTanStackAI } from "@copilotkit/runtime/v2";
+import {
+  BuiltInAgent,
+  convertInputToTanStackAI,
+} from "@copilotkit/runtime/agent";
 import { chat, toolDefinition } from "@tanstack/ai";
 import { openaiText } from "@tanstack/ai-openai";
 import { z } from "zod";
@@ -594,6 +665,7 @@ const agent = new BuiltInAgent({
       messages,
       systemPrompts,
       tools: [sendStateSnapshot, sendStateDelta],
+      threadId: input.threadId,
       abortController,
     });
   },
@@ -607,10 +679,10 @@ const agent = new BuiltInAgent({
 <Tabs items={["AI SDK", "TanStack AI"]}>
 <Tab value="AI SDK">
 ```typescript title="src/copilotkit.ts"
+import { BuiltInAgent } from "@copilotkit/runtime/agent";
 import {
-  BuiltInAgent,
   convertMessagesToVercelAISDKMessages,
-} from "@copilotkit/runtime/v2";
+} from "@copilotkit/runtime/agent/ai-sdk";
 import { streamText, tool } from "ai";
 import { openai } from "@ai-sdk/openai";
 import { z } from "zod";
@@ -619,12 +691,12 @@ const agent = new BuiltInAgent({
   type: "aisdk",
   factory: ({ input, abortSignal }) =>
     streamText({
-      model: openai("gpt-6-luna", { structuredOutputs: true }),
+      model: openai("gpt-6-luna"),
       messages: convertMessagesToVercelAISDKMessages(input.messages),
       tools: {
         getWeather: tool({
           description: "Get weather for a location",
-          parameters: z.object({ city: z.string() }),
+          inputSchema: z.object({ city: z.string() }),
           execute: async ({ city }) => ({ temp: 72, city }),
         }),
       },
@@ -636,7 +708,10 @@ const agent = new BuiltInAgent({
 </Tab>
 <Tab value="TanStack AI">
 ```typescript title="src/copilotkit.ts"
-import { BuiltInAgent, convertInputToTanStackAI } from "@copilotkit/runtime/v2";
+import {
+  BuiltInAgent,
+  convertInputToTanStackAI,
+} from "@copilotkit/runtime/agent";
 import { chat } from "@tanstack/ai";
 import { openaiText } from "@tanstack/ai-openai";
 import { z } from "zod";
@@ -654,6 +729,8 @@ const agent = new BuiltInAgent({
         keyPoints: z.array(z.string()),
         sentiment: z.enum(["positive", "neutral", "negative"]),
       }),
+      stream: true,
+      threadId: input.threadId,
       abortController,
     });
   },
@@ -664,12 +741,20 @@ const agent = new BuiltInAgent({
 
 ## Helper Utilities
 
-These utilities are exported from `@copilotkit/runtime/v2` to help convert between CopilotKit's input format and your backend's expected format:
+These utilities convert CopilotKit's input to the format that your backend expects.
+
+From `@copilotkit/runtime/agent`:
 
 | Utility | Description |
 |---|---|
 | `convertInputToTanStackAI(input)` | Converts `RunAgentInput` to `{ messages, systemPrompts }` for TanStack AI's `chat()`. Handles system/developer messages, context, and state. |
+
+From `@copilotkit/runtime/agent/ai-sdk` (install `ai`):
+
+| Utility | Description |
+|---|---|
 | `convertMessagesToVercelAISDKMessages(messages)` | Converts AG-UI messages to Vercel AI SDK's `ModelMessage[]` format. |
 | `convertToolsToVercelAITools(tools)` | Converts frontend-defined tools (JSON Schema) to AI SDK's `ToolSet`. |
 | `convertToolDefinitionsToVercelAITools(tools)` | Converts `defineTool()` definitions (Standard Schema) to AI SDK's `ToolSet`. |
-| `resolveModel(spec)` | Resolves `"openai/gpt-6-luna"` strings to AI SDK `LanguageModel` instances. |
+| `toAISDKTools(tools)` | Converts TanStack AI tools, such as `learnedSkills.tools`, to AI SDK's `ToolSet`. |
+| `createSafeUrlDownload({ signal })` | A download function for `streamText()`'s `experimental_download`. It downloads attachment URLs only from public addresses. |

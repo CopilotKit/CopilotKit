@@ -538,4 +538,4 @@ demos:
 # omitted and the cell renders the gray no-data state, never a capability
 # claim that this framework has no starter.
 starter_validation:
-  path: examples/integrations/claude-sdk-python
+  path: examples/starters/claude-sdk-python

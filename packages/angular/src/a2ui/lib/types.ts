@@ -1,6 +1,5 @@
 import { Type } from "@angular/core";
 import { ComponentApi, ResolveA2uiProps } from "@a2ui/web_core/v0_9";
-import { z, ZodObject, ZodRawShape } from "zod";
 import { WebComponentImplementation } from "./universal";
 
 /** A catalog entry rendered by an Angular component. */
@@ -19,8 +18,18 @@ export type A2UIWebComponent = Pick<
   "tagName" | "element"
 >;
 
-export interface A2UIComponentDefinition<T extends ZodRawShape = ZodRawShape> {
-  props: ZodObject<T>;
+/**
+ * A Zod 3 schema, typed by the Zod copy `@a2ui/web_core` uses. A2UI catalogs
+ * stay on Zod 3 because web_core's binder reads Zod 3 schema internals, while
+ * the rest of this package uses Zod 4.
+ */
+export type A2UIPropsSchema = ComponentApi["schema"];
+
+export interface A2UIComponentDefinition<
+  Props extends A2UIPropsSchema = A2UIPropsSchema,
+> {
+  /** Zod 3 object schema for the component's props. */
+  props: Props;
   /** Added to the schema advertised to the agent. */
   description?: string;
 }
@@ -38,6 +47,6 @@ export type A2UICatalogDefinitions = Record<
 export type A2UIProps<
   D extends A2UICatalogDefinitions,
   K extends keyof D,
-> = ResolveA2uiProps<z.infer<D[K]["props"]>>;
+> = ResolveA2uiProps<D[K]["props"]["_output"]>;
 
 export type A2UIChildRef = string | { id: string; basePath?: string };

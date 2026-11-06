@@ -10,9 +10,8 @@ if (configuration.telemetryDisabled)
   process.env.COPILOTKIT_TELEMETRY_DISABLED = "true";
 
 const { CopilotIntelligenceRuntime, CopilotKitIntelligence } =
-  await import("@copilotkit/runtime/v2");
-const { createCopilotNodeListener } =
-  await import("@copilotkit/runtime/v2/node");
+  await import("@copilotkit/runtime");
+const { createCopilotNodeListener } = await import("@copilotkit/runtime/node");
 const { HttpAgent } = await import("@ag-ui/client");
 
 const intelligence = new CopilotKitIntelligence({

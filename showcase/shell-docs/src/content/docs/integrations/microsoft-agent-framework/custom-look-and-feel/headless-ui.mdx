@@ -11,20 +11,20 @@ icon: "lucide/Settings"
 For human-in-the-loop interactions with custom UI, use `useHumanInTheLoop` to create approval workflows:
 
 ```tsx title="src/app/components/chat.tsx"
+"use client";
+
+import { useAgent, useHumanInTheLoop } from "@copilotkit/react-core";
+import { z } from "zod";
+
 export const Chat = () => {
-  const { messages, sendMessage } = useCopilotChatHeadless_c();
+  const { agent } = useAgent();
 
   useHumanInTheLoop({
     name: "approvalRequired",
     description: "Request user approval for an operation",
-    parameters: [
-      {
-        name: "operation",
-        type: "string",
-        description: "The operation to approve",
-        required: true,
-      },
-    ],
+    parameters: z.object({
+      operation: z.string().describe("The operation to approve"),
+    }),
     render: ({ args, respond }) => {
       if (!respond) return null;
 
@@ -39,7 +39,8 @@ export const Chat = () => {
     },
   });
 
-  return <div>{/* Your custom chat UI */}</div>;
+  // Build your custom chat UI from agent.messages
+  return <div>{agent.messages.length} messages</div>;
 };
 ```
 

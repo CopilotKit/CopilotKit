@@ -18,7 +18,7 @@ The example is a personal **travel concierge**: it remembers your preferences ac
 - Memory is the glue: a `recall_memory` tool reads durable preferences from Oracle Agent Memory, and each turn is persisted after the response streams — then a small reconcile pass supersedes outdated facts so an updated preference wins next time.
 
 ```text
-CopilotKit (Next.js, V2) ──/api/copilotkit──▶ CopilotRuntime (HttpAgent)
+CopilotKit (Next.js) ──/api/copilotkit──▶ CopilotRuntime (HttpAgent)
                                                     │  AG-UI (SSE)
                                                     ▼
                                   Agent Spec JSON → ag_ui_agentspec (LangGraph)
@@ -49,19 +49,19 @@ the current conversation.
 
 ## Prerequisites
 
-- **Python 3.12** (required — `oracleagentmemory` ships a cp312 wheel), [`uv`](https://docs.astral.sh/uv/), Node.js 20+
+- **Python 3.12** (required — `oracleagentmemory` ships a cp312 wheel), [`uv`](https://docs.astral.sh/uv/), Node.js 20.19.3+ or 22.13+
 - Docker (for the local Oracle AI Database) or your own Oracle AI Database
 - `OPENAI_API_KEY` (defaults use OpenAI via litellm)
 
-<Callout type="warning" title="Pre-release dependencies">
-This frontend uses CopilotKit **V2** pre-release builds so Agent Spec's human-in-the-loop renders, and the `ag_ui_agentspec` adapter is installed from the `ag-ui` repo (not PyPI). Both are pinned in the manifests.
+<Callout type="warning" title="Adapter installed from source">
+The `ag_ui_agentspec` adapter is installed from the `ag-ui` repo (not PyPI). It is pinned in the agent manifest.
 </Callout>
 
 ## Start the database and run the agent
 
 ```bash
 git clone https://github.com/CopilotKit/CopilotKit.git
-cd CopilotKit/examples/showcases/oracle-agent-memory
+cd CopilotKit/examples/demos/oracle-agent-memory
 
 docker compose up -d                 # wait for "DATABASE IS READY TO USE"
 ./db/setup-db.sh                     # create the cookbook DB user (idempotent)
@@ -98,7 +98,7 @@ Memory is written and indexed asynchronously, so a fact you just taught becomes 
 </Callout>
 
 <Callout type="info" title="Multi-turn works via a server-side workaround">
-Follow-ups after a server-tool call would otherwise hit an upstream Agent Spec × AG-UI adapter bug (`tool_call_id` correlation) that corrupts the replayed history and 400s on the next turn. The cookbook works around it in `agent/concierge/server.py` by replacing the adapter's incremental message merge with a full-history *replace* each turn, so multi-turn conversations — and the confirm→book human-in-the-loop — work end to end. The **"+ New thread"** step above proves cross-session recall (memory is user-scoped, so a fresh thread still remembers you) — not a workaround for broken follow-ups. Details + the upstream fix we're tracking: [`agentspec-multiturn-toolcall-correlation`](https://github.com/CopilotKit/CopilotKit/blob/main/examples/showcases/oracle-agent-memory/docs/known-issues/agentspec-multiturn-toolcall-correlation.md).
+Follow-ups after a server-tool call would otherwise hit an upstream Agent Spec × AG-UI adapter bug (`tool_call_id` correlation) that corrupts the replayed history and 400s on the next turn. The cookbook works around it in `agent/concierge/server.py` by replacing the adapter's incremental message merge with a full-history *replace* each turn, so multi-turn conversations — and the confirm→book human-in-the-loop — work end to end. The **"+ New thread"** step above proves cross-session recall (memory is user-scoped, so a fresh thread still remembers you) — not a workaround for broken follow-ups. Details + the upstream fix we're tracking: [`agentspec-multiturn-toolcall-correlation`](https://github.com/CopilotKit/CopilotKit/blob/main/examples/demos/oracle-agent-memory/docs/known-issues/agentspec-multiturn-toolcall-correlation.md).
 </Callout>
 
 ## The key pieces, in code
@@ -166,4 +166,4 @@ Walk me through it step by step, starting with the agent.
 
 ## Get the code
 
-Full source: [`examples/showcases/oracle-agent-memory`](https://github.com/CopilotKit/CopilotKit/tree/main/examples/showcases/oracle-agent-memory) — `agent/` (the Agent Spec agent) and `frontend/` (the CopilotKit V2 chat).
+Full source: [`examples/demos/oracle-agent-memory`](https://github.com/CopilotKit/CopilotKit/tree/main/examples/demos/oracle-agent-memory) — `agent/` (the Agent Spec agent) and `frontend/` (the CopilotKit chat).

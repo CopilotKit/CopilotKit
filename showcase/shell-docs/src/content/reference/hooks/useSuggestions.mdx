@@ -12,10 +12,21 @@ Suggestions are configured via [`useConfigureSuggestions`](/reference/hooks/useC
 ## Signature
 
 ```tsx
-import { useSuggestions } from "@copilotkit/react-core/v2";
+import { useSuggestions, type Suggestion } from "@copilotkit/react-core";
 
-function useSuggestions(options?: UseSuggestionsOptions): UseSuggestionsResult;
+useSuggestions satisfies (
+  // UseSuggestionsOptions
+  options?: { agentId?: string },
+) => {
+  // UseSuggestionsResult
+  suggestions: Suggestion[];
+  reloadSuggestions: () => void;
+  clearSuggestions: () => void;
+  isLoading: boolean;
+};
 ```
+
+`UseSuggestionsOptions` and `UseSuggestionsResult` are the type names in the source. The package does not export them.
 
 ## Parameters
 
@@ -23,7 +34,7 @@ function useSuggestions(options?: UseSuggestionsOptions): UseSuggestionsResult;
   Optional configuration object for the hook.
 
   <PropertyReference name="agentId" type="string" default='"default"'>
-    ID of the agent whose suggestions to retrieve. If omitted, falls back to the agent ID from the nearest `CopilotChatConfigurationProvider`, or `"default"`.
+    ID of the agent whose suggestions to retrieve. If omitted, falls back to the agent ID from the nearest `CopilotChatConfigurationProvider`, then the `agentId` of `<CopilotKitProvider>`, then `"default"`.
   </PropertyReference>
 </PropertyReference>
 
@@ -36,7 +47,8 @@ function useSuggestions(options?: UseSuggestionsOptions): UseSuggestionsResult;
   Array of current suggestions. Each `Suggestion` contains: - `title: string` --
   Short display title for the suggestion. - `message: string` -- The message
   content to send when the suggestion is selected. - `isLoading: boolean` --
-  Whether this suggestion is still being generated.
+  Whether this suggestion is still being generated. - `className?: string` --
+  Optional CSS class for the suggestion pill.
 </PropertyReference>
 
 <PropertyReference name="reloadSuggestions" type="() => void">
@@ -59,6 +71,8 @@ function useSuggestions(options?: UseSuggestionsOptions): UseSuggestionsResult;
 ### Basic Usage
 
 ```tsx
+import { useSuggestions } from "@copilotkit/react-core";
+
 function SuggestionsList() {
   const { suggestions, isLoading } = useSuggestions();
 
@@ -82,6 +96,8 @@ function SuggestionsList() {
 ### With Reload and Clear Controls
 
 ```tsx
+import { useSuggestions } from "@copilotkit/react-core";
+
 function SuggestionsPanel() {
   const { suggestions, reloadSuggestions, clearSuggestions, isLoading } =
     useSuggestions();
@@ -107,6 +123,8 @@ function SuggestionsPanel() {
 ### Targeting a Specific Agent
 
 ```tsx
+import { useSuggestions } from "@copilotkit/react-core";
+
 function AgentSuggestions() {
   const { suggestions } = useSuggestions({ agentId: "support-agent" });
 
@@ -124,7 +142,7 @@ function AgentSuggestions() {
 ## Behavior
 
 - **Automatic Subscription**: The hook subscribes to suggestion change events on the core instance and re-renders whenever suggestions are added, removed, or updated for the resolved agent.
-- **Agent Resolution**: The `agentId` is resolved in the following order of precedence: explicit `agentId` option, `agentId` from the nearest `CopilotChatConfigurationProvider`, then the default agent ID (`"default"`).
+- **Agent Resolution**: The `agentId` is resolved in the following order of precedence: explicit `agentId` option, `agentId` from the nearest `CopilotChatConfigurationProvider`, the `agentId` of `<CopilotKitProvider>`, then the default agent ID (`"default"`).
 - **Loading State**: `isLoading` becomes `true` when a dynamic suggestion reload begins and returns to `false` when generation completes.
 - **Initial State**: On mount, the hook synchronously reads the current suggestions from the core instance, so there is no unnecessary loading flash for static suggestions.
 

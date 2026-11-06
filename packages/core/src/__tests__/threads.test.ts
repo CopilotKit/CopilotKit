@@ -1039,6 +1039,70 @@ describe("thread store", () => {
     ]);
   });
 
+  it("sorts by the parsed instant, with unparseable timestamps last", async () => {
+    // As text, "10:00+02:00" sorts before "09:00Z" and "00:00Z" after
+    // "00:00.500Z", and "not-a-date" sorts first. As instants, the order is
+    // utc, offset, half-second, whole-second, then the unparseable one.
+    const base = {
+      organizationId: "org-1",
+      agentId: "agent-1",
+      createdById: "user-1",
+      archived: false,
+      createdAt: "2026-01-01T00:00:00Z",
+    };
+    const threadsToSort: ThreadRecord[] = [
+      { ...base, id: "bad", name: "Bad", updatedAt: "not-a-date" },
+      {
+        ...base,
+        id: "offset",
+        name: "Offset",
+        updatedAt: "2026-06-20T10:00:00+02:00",
+      },
+      { ...base, id: "utc", name: "UTC", updatedAt: "2026-06-20T09:00:00Z" },
+      {
+        ...base,
+        id: "whole-second",
+        name: "Whole second",
+        updatedAt: "2026-06-20T00:00:00Z",
+      },
+      {
+        ...base,
+        id: "half-second",
+        name: "Half second",
+        updatedAt: "2026-06-20T00:00:00.500Z",
+      },
+    ];
+
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ threads: threadsToSort, joinCode: "jc-1" }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ joinToken: "jt-1" }),
+      });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const store = ɵcreateThreadStore(createEnvironment(fetchMock));
+    stores.push(store);
+    store.start();
+    store.setContext({
+      runtimeUrl: "https://runtime.example.com",
+      headers: {},
+      wsUrl: "ws://localhost:4000/client",
+      agentId: "agent-1",
+      includeArchived: true,
+    });
+
+    await flushEffects();
+
+    expect(ɵselectThreads(store.getState()).map((thread) => thread.id)).toEqual(
+      ["utc", "offset", "half-second", "whole-second", "bad"],
+    );
+  });
+
   it("optimistically removes a thread on delete, before the server responds", async () => {
     let resolveDelete: (value: unknown) => void = () => {};
     const fetchMock = vi

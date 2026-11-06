@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { defineComponent, h, ref } from "vue";
+import { defineComponent, h, nextTick, ref } from "vue";
 import { mount } from "@vue/test-utils";
-import { z } from "zod";
+import { z } from "zod-v3";
 import { Catalog } from "@a2ui/web_core/v0_9";
 import type { ComponentApi } from "@a2ui/web_core/v0_9";
 import CopilotKitProvider from "../CopilotKitProvider.vue";
@@ -70,6 +70,24 @@ describe("CopilotKitProvider a2ui catalog auto-enable", () => {
     expect(a2uiRenderer).toBeDefined();
   });
 
+  it("keeps the built-in render_a2ui renderer and the app's renderers together when the app's renderers change", async () => {
+    const catalog = { id: "test", components: new Map() };
+    const weather = { name: "weather", args: z.any(), render: () => null };
+    const { wrapper, observedCore } = mountProvider({
+      a2ui: { catalog },
+      renderToolCalls: [weather],
+    });
+    const names = () =>
+      observedCore.value?.renderToolCalls.map((renderer) => renderer.name);
+    expect(names()).toEqual(["weather", "render_a2ui"]);
+
+    await wrapper.setProps({
+      renderToolCalls: [weather, { ...weather, name: "search" }],
+    });
+
+    expect(names()).toEqual(["weather", "search", "render_a2ui"]);
+  });
+
   it("does not register an a2ui-surface renderer when no catalog is provided and runtime has not signaled a2uiEnabled", () => {
     const { observedCore } = mountProvider({ a2ui: { theme: {} } });
 
@@ -124,5 +142,23 @@ describe("CopilotKitProvider a2ui catalog context", () => {
     const value = capabilitiesValue(observedCore.value);
     expect(value).toContain("  - FlightCard:\n    {");
     expect(value).toContain('"airline"');
+  });
+
+  it("registers the catalog's components with core for the Inspector", () => {
+    const { observedCore } = mountProvider({
+      a2ui: { catalog: makeCustomCatalog() },
+    });
+    expect(
+      observedCore.value?.catalogComponents.map((component) => component.name),
+    ).toEqual(["FlightCard"]);
+  });
+
+  it("stops advertising a component the Inspector disables", async () => {
+    const { observedCore } = mountProvider({
+      a2ui: { catalog: makeCustomCatalog() },
+    });
+    observedCore.value?.setCatalogComponentEnabled("FlightCard", false);
+    await nextTick();
+    expect(capabilitiesValue(observedCore.value)).not.toContain("FlightCard");
   });
 });

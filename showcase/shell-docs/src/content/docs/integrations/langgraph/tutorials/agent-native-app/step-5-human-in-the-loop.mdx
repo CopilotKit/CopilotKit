@@ -25,31 +25,33 @@ The implementation of all of this is actually quite simple, but understanding ho
 
 </Step>
 <Step>
-## Add `useLangGraphInterrupt` to the frontend
+## Add `useInterrupt` to the frontend
 
 If you recall from when we started the agent, the interrupt will stop the node when its time to review a proposed research outline.
 
-CopilotKit allows us to render a UI to get the user's decision for this interrupt and respond accordingly via the `useLangGraphInterrupt` hook.
+CopilotKit allows us to render a UI to get the user's decision for this interrupt and respond accordingly via the `useInterrupt` hook.
 
 In our `page.tsx` file, add the following code.
 
 ```tsx title="frontend/src/app/page.tsx"
-// ...
+import { useInterrupt } from "@copilotkit/react-core"; // [!code ++]
+import { useResearch } from "@/components/research-context";
+import { ProposalViewer } from "@/components/ProposalViewer";
+import type { Proposal } from "@/lib/types";
 // ...
 
 export default function HomePage() {
   // ...
   const { state: researchState, setResearchState } = useResearch();
 
-  const streamingSection = useStreamingContent(researchState);
-
-  // [!code ++:12]
-  useLangGraphInterrupt<Proposal>({
+  // [!code ++:18]
+  useInterrupt({
+    agentId: "agent",
     render: ({ resolve, event }) => {
       return (
         <ProposalViewer
           proposal={event.value}
-          onSubmit={(approved, proposal) =>
+          onSubmit={(approved: boolean, proposal: Proposal) =>
             resolve(
               JSON.stringify({
                 ...proposal,
@@ -62,6 +64,7 @@ export default function HomePage() {
     },
   });
   // ...
+  return <main>{/* ... */}</main>;
 }
 ```
 
@@ -82,7 +85,7 @@ It's just a standard React component with some styling, a form, and a submit but
 It is really as simple as that! Now, we've implemented human-in-the-loop for our agent. To recap, we did the following:
 
 - Learned about human-in-the-loop in LangGraph.
-- Added the `useLangGraphInterrupt` hook to our application.
+- Added the `useInterrupt` hook to our application.
 - Rendered a `ProposalViewer` component to the user in the chat
 
 Try asking the agent to research something, like Dogs. Eventually you'll see it ask you for feedback about the proposal.

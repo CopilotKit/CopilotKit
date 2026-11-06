@@ -2,7 +2,7 @@ import { Component, input } from "@angular/core";
 import { ComponentFixture, TestBed } from "@angular/core/testing";
 import { By } from "@angular/platform-browser";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { z } from "zod";
+import { z } from "zod-v3";
 import { A2UIProps } from "../../../../a2ui/lib/types";
 import { createAngularCatalog } from "../../../../a2ui/lib/create-catalog";
 import { injectA2UIComponentContext } from "../../../../a2ui/lib/component-context";
@@ -333,7 +333,10 @@ describe("CopilotA2UIToolRenderer with a real catalog", () => {
             },
           },
         },
-        { provide: CopilotKit, useValue: { core } },
+        {
+          provide: CopilotKit,
+          useValue: { core, ɵa2uiCatalog: () => undefined },
+        },
       ],
     });
     const fixture = TestBed.createComponent(CopilotA2UIToolRenderer);
@@ -361,11 +364,11 @@ describe("CopilotA2UIToolRenderer with a real catalog", () => {
     expect(button.textContent).toContain("Confirm");
 
     button.click();
-    await vi.waitFor(() =>
+    await vi.waitFor(() => {
       expect(core.runAgent).toHaveBeenCalledWith({
         agent: { agentId: "demo" },
-      }),
-    );
-    expect(core.setProperties).toHaveBeenLastCalledWith({ existing: true });
+      });
+      expect(core.setProperties).toHaveBeenLastCalledWith({ existing: true });
+    });
   });
 });

@@ -15,11 +15,8 @@ import fs from "fs";
 import os from "os";
 import path from "path";
 import { fileURLToPath } from "url";
-import {
-  anomalyMessage,
-  type AuditConfig,
-  type PackageAudit,
-} from "../audit.js";
+import { anomalyMessage } from "../audit.js";
+import type { AuditConfig, PackageAudit } from "../audit.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -31,12 +28,12 @@ export const AUDIT_SCRIPT = path.resolve(__dirname, "..", "audit.ts");
  *   <root>/integrations/<slug>/manifest.yaml
  *   <root>/integrations/<slug>/tests/e2e/*.spec.ts
  *   <root>/integrations/<slug>/qa/*.md
- *   <root>/examples/integrations/<name>/
+ *   <root>/examples/starters/<name>/
  */
 export function makeTmpTree(): string {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "audit-fixture-"));
   fs.mkdirSync(path.join(root, "integrations"), { recursive: true });
-  fs.mkdirSync(path.join(root, "examples", "integrations"), {
+  fs.mkdirSync(path.join(root, "examples", "starters"), {
     recursive: true,
   });
   return root;
@@ -45,7 +42,7 @@ export function makeTmpTree(): string {
 export function makeConfig(root: string): AuditConfig {
   return {
     packagesDir: path.join(root, "integrations"),
-    examplesIntegrationsDir: path.join(root, "examples", "integrations"),
+    examplesIntegrationsDir: path.join(root, "examples", "starters"),
     repoRoot: root,
   };
 }
@@ -81,7 +78,7 @@ export function writePackage(
 }
 
 export function makeExampleDir(root: string, name: string) {
-  fs.mkdirSync(path.join(root, "examples", "integrations", name), {
+  fs.mkdirSync(path.join(root, "examples", "starters", name), {
     recursive: true,
   });
 }

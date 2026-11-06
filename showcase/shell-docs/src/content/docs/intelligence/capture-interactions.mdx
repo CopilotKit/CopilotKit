@@ -39,7 +39,7 @@ Capture includes URLs, page titles, referrers, element text, attributes, form va
     ```tsx title="app/providers.tsx"
     "use client";
 
-    import { CopilotKitProvider } from "@copilotkit/react-core/v2";
+    import { CopilotKitProvider } from "@copilotkit/react-core";
 
     export function Providers({ children }: { children: React.ReactNode }) {
       return (
@@ -110,9 +110,21 @@ The sections below change when capture runs and what it records. For every optio
 Pass a boolean to tie capture to your application's consent control:
 
 ```tsx
-<CopilotKitProvider runtimeUrl="/api/copilotkit" learning={hasConsent}>
-  {children}
-</CopilotKitProvider>
+import { CopilotKitProvider } from "@copilotkit/react-core";
+
+export function Providers({
+  children,
+  hasConsent,
+}: {
+  children: React.ReactNode;
+  hasConsent: boolean;
+}) {
+  return (
+    <CopilotKitProvider runtimeUrl="/api/copilotkit" learning={hasConsent}>
+      {children}
+    </CopilotKitProvider>
+  );
+}
 ```
 
 The provider generates a Trajectory UUID. It stays the same across rerenders and reconnects while capture is on. When `hasConsent` becomes `false`, capture stops. Turning capture on again generates a new ID. Unmounting the provider also stops capture. Read the active ID from `copilotkit.trajectoryId`.
@@ -122,18 +134,24 @@ The provider generates a Trajectory UUID. It stays the same across rerenders and
 Set `autoStart: false`. The provider then waits for your app to start capture:
 
 ```tsx
-<CopilotKitProvider
-  runtimeUrl="/api/copilotkit"
-  learning={{ autoStart: false }}
->
-  {children}
-</CopilotKitProvider>
+import { CopilotKitProvider } from "@copilotkit/react-core";
+
+export function Providers({ children }: { children: React.ReactNode }) {
+  return (
+    <CopilotKitProvider
+      runtimeUrl="/api/copilotkit"
+      learning={{ autoStart: false }}
+    >
+      {children}
+    </CopilotKitProvider>
+  );
+}
 ```
 
 Call Core when your app decides a session starts:
 
 ```tsx
-import { useCopilotKit } from "@copilotkit/react-core/v2";
+import { useCopilotKit } from "@copilotkit/react-core";
 
 function StartCaptureButton() {
   const { copilotkit } = useCopilotKit();
@@ -158,7 +176,7 @@ One Trajectory runs at a time. `copilotkit.stopTrajectory()` ends it and attempt
 A click shows what a person did. It does not show whether the work succeeded. After your application operation succeeds, emit the outcome:
 
 ```tsx
-import { useCopilotKit } from "@copilotkit/react-core/v2";
+import { useCopilotKit } from "@copilotkit/react-core";
 
 function ApproveButton({
   dealId,
@@ -191,9 +209,13 @@ Click events include a short control name in `target.label`, such as `Approve`. 
 Add `data-copilotkit-action` for a stable, explicit action name:
 
 ```tsx
-<button data-copilotkit-action="deal.approve" onClick={approve}>
-  Approve
-</button>
+export function ApproveButton({ approve }: { approve: () => void }) {
+  return (
+    <button data-copilotkit-action="deal.approve" onClick={approve}>
+      Approve
+    </button>
+  );
+}
 ```
 
 ### Handle capture errors
@@ -201,14 +223,20 @@ Add `data-copilotkit-action` for a stable, explicit action name:
 By default, Core logs setup errors with a code and a configuration hint. Pass `onError` to handle them in your app:
 
 ```tsx
-<CopilotKitProvider
-  runtimeUrl="/api/copilotkit"
-  learning={{
-    onError: ({ code }) => console.warn("Trajectory capture:", code),
-  }}
->
-  {children}
-</CopilotKitProvider>
+import { CopilotKitProvider } from "@copilotkit/react-core";
+
+export function Providers({ children }: { children: React.ReactNode }) {
+  return (
+    <CopilotKitProvider
+      runtimeUrl="/api/copilotkit"
+      learning={{
+        onError: ({ code }) => console.warn("Trajectory capture:", code),
+      }}
+    >
+      {children}
+    </CopilotKitProvider>
+  );
+}
 ```
 
 Capture pauses during a connection loss and reconnects with fresh credentials. It does not buffer developer events during recovery or resend failed batches. See [Batches](/intelligence/captured-data#batches) for delivery limits and [Error codes](/intelligence/trajectories-reference#error-codes) for each code.

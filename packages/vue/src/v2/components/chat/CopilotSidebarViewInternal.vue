@@ -1,13 +1,20 @@
 <script setup lang="ts">
 import {
   computed,
-  nextTick,
   onBeforeUnmount,
   onMounted,
   ref,
   useAttrs,
   watch,
 } from "vue";
+import {
+  ɵSIDEBAR_DEFAULT_WIDTH,
+  ɵSIDEBAR_TRANSITION_MS,
+  ɵcreateDockedSidebar,
+  ɵdimensionToCss,
+  ɵwatchElementWidth,
+} from "@copilotkit/core";
+import type { ɵDockedSidebar } from "@copilotkit/core";
 import { CopilotChatDefaultLabels } from "../../providers/types";
 import { useCopilotChatConfiguration } from "../../providers/useCopilotChatConfiguration";
 import CopilotChatToggleButton from "./CopilotChatToggleButton.vue";
@@ -30,14 +37,12 @@ import type {
 
 defineOptions({ inheritAttrs: false });
 
-const DEFAULT_SIDEBAR_WIDTH = 480;
-const SIDEBAR_TRANSITION_MS = 260;
-
 const props = withDefaults(
   defineProps<Omit<CopilotSidebarViewProps, "defaultOpen">>(),
   {
     messages: () => [],
     autoScroll: true,
+    messageFeedback: true,
     isRunning: false,
     suggestions: () => [],
     suggestionLoadingIndexes: () => [],
@@ -46,6 +51,7 @@ const props = withDefaults(
     inputMode: "input",
     inputToolsMenu: () => [],
     width: undefined,
+    position: "right",
     onFinishTranscribeWithAudio: undefined,
   },
 );
@@ -94,9 +100,8 @@ const config = useCopilotChatConfiguration();
 
 const sidebarRef = ref<HTMLElement | null>(null);
 const measuredSidebarWidth = ref<number | string>(
-  props.width ?? DEFAULT_SIDEBAR_WIDTH,
+  props.width ?? ɵSIDEBAR_DEFAULT_WIDTH,
 );
-let resizeObserver: ResizeObserver | null = null;
 
 const isSidebarOpen = computed(() => config.value?.isModalOpen ?? false);
 const resolvedSidebarWidth = computed(
@@ -108,12 +113,9 @@ const headerTitle = computed(
     CopilotChatDefaultLabels.modalHeaderTitle,
 );
 const asideClass = computed(() => [
-  "cpk:fixed cpk:right-0 cpk:top-0 cpk:z-[1200] cpk:flex cpk:h-[100vh] cpk:h-[100dvh] cpk:max-h-screen cpk:w-full",
-  "cpk:border-l cpk:border-border cpk:bg-background cpk:text-foreground cpk:shadow-xl",
-  "cpk:transition-transform cpk:duration-300 cpk:ease-out",
-  isSidebarOpen.value
-    ? "cpk:translate-x-0"
-    : "cpk:translate-x-full cpk:pointer-events-none",
+  "copilotKitSidebar copilotKitWindow cpk-sidebar-view",
+  // Slides off its edge when closed.
+  !isSidebarOpen.value && "cpk-sidebar-view-closed",
   attrs.class,
 ]);
 const asideAttrs = computed(() => {
@@ -123,40 +125,23 @@ const asideAttrs = computed(() => {
 const asideStyle = computed(
   () =>
     ({
-      "--sidebar-width": widthToCss(resolvedSidebarWidth.value),
+      "--sidebar-width": widthCss.value,
       paddingTop: "env(safe-area-inset-top)",
       paddingBottom: "env(safe-area-inset-bottom)",
     }) as Record<string, string>,
 );
-const bodyMarginStyle = computed(
-  () => `
-@media (min-width: 768px) {
-  body {
-    margin-inline-end: ${widthToMargin(resolvedSidebarWidth.value)};
-    transition: margin-inline-end ${SIDEBAR_TRANSITION_MS}ms ease;
-  }
-}
-`,
+const widthCss = computed(() =>
+  ɵdimensionToCss(resolvedSidebarWidth.value, ɵSIDEBAR_DEFAULT_WIDTH),
 );
 
-function widthToCss(width: number | string): string {
-  return typeof width === "number" ? `${width}px` : width;
-}
-
-function widthToMargin(width: number | string): string {
-  return typeof width === "number" ? `${width}px` : width;
-}
-
-function updateMeasuredWidth() {
-  if (props.width !== undefined || !sidebarRef.value) {
-    return;
-  }
-
-  const nextWidth = sidebarRef.value.getBoundingClientRect().width;
-  if (nextWidth > 0) {
-    measuredSidebarWidth.value = nextWidth;
-  }
-}
+// The page makes room on the docked edge (desktop only).
+let dock: ɵDockedSidebar | undefined;
+watch(
+  [isSidebarOpen, () => props.position, widthCss],
+  ([open, position, width]) => {
+    dock?.set({ open, position, width });
+  },
+);
 
 function closeSidebar() {
   config.value?.setModalOpen?.(false);
@@ -231,46 +216,39 @@ const chatViewEventProps = computed(() => {
   return listeners;
 });
 
+// Without a `width` prop, the page margin follows the width the CSS gives
+// the sidebar.
 watch(
-  () => props.width,
-  (nextWidth) => {
-    if (nextWidth !== undefined) {
-      measuredSidebarWidth.value = nextWidth;
-      return;
-    }
-    updateMeasuredWidth();
+  [sidebarRef, () => props.width],
+  ([element, width], _old, onCleanup) => {
+    if (width !== undefined || !element) return;
+    onCleanup(
+      ɵwatchElementWidth(element, (next) => {
+        measuredSidebarWidth.value = next;
+      }),
+    );
   },
+  { flush: "post" },
 );
 
-onMounted(async () => {
-  await nextTick();
-  updateMeasuredWidth();
-
-  if (
-    props.width !== undefined ||
-    !sidebarRef.value ||
-    typeof ResizeObserver === "undefined"
-  ) {
-    return;
-  }
-
-  resizeObserver = new ResizeObserver(() => {
-    updateMeasuredWidth();
+onMounted(() => {
+  dock = ɵcreateDockedSidebar(document, {
+    transitionMs: ɵSIDEBAR_TRANSITION_MS,
   });
-  resizeObserver.observe(sidebarRef.value);
+  dock.set({
+    open: isSidebarOpen.value,
+    position: props.position,
+    width: widthCss.value,
+  });
 });
 
 onBeforeUnmount(() => {
-  resizeObserver?.disconnect();
-  resizeObserver = null;
+  dock?.dispose();
+  dock = undefined;
 });
 </script>
 
 <template>
-  <component :is="'style'" v-if="isSidebarOpen">
-    {{ bodyMarginStyle }}
-  </component>
-
   <slot
     name="toggle-button"
     :is-open="isSidebarOpen"
@@ -278,13 +256,18 @@ onBeforeUnmount(() => {
     :open="openSidebar"
     :close="closeSidebar"
   >
-    <CopilotChatToggleButton />
+    <CopilotChatToggleButton
+      :class="
+        position === 'left' ? 'cpk-sidebar-view-toggle-button-left' : undefined
+      "
+    />
   </slot>
 
   <aside
     ref="sidebarRef"
     data-copilotkit
     data-copilot-sidebar
+    :data-position="position"
     :class="asideClass"
     :style="asideStyle"
     :aria-label="
@@ -294,9 +277,7 @@ onBeforeUnmount(() => {
     role="complementary"
     v-bind="asideAttrs"
   >
-    <div
-      class="cpk:flex cpk:h-full cpk:w-full cpk:flex-col cpk:overflow-hidden"
-    >
+    <div class="cpk-sidebar-view-panel">
       <slot
         name="header"
         :title="headerTitle"
@@ -306,7 +287,7 @@ onBeforeUnmount(() => {
         <CopilotModalHeader :title="headerTitle" />
       </slot>
 
-      <div class="cpk:flex-1 cpk:overflow-hidden" data-sidebar-chat>
+      <div class="cpk-sidebar-view-chat" data-sidebar-chat>
         <CopilotChatView
           :messages="messages"
           :auto-scroll="autoScroll"
@@ -317,6 +298,8 @@ onBeforeUnmount(() => {
           :input-value="inputValue"
           :input-mode="inputMode"
           :input-tools-menu="inputToolsMenu"
+          :tool-call-display="toolCallDisplay"
+          :message-feedback="messageFeedback"
           :on-finish-transcribe-with-audio="onFinishTranscribeWithAudio"
           v-bind="chatViewEventProps"
         >

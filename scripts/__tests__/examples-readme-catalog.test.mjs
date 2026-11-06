@@ -11,48 +11,22 @@ const repoRoot = path.resolve(
 );
 const examplesRoot = path.join(repoRoot, "examples");
 const readme = fs.readFileSync(path.join(examplesRoot, "README.md"), "utf8");
-const multiAgentCanvasReadme = fs.readFileSync(
-  path.join(examplesRoot, "showcases", "multi-agent-canvas", "README.md"),
-  "utf8",
-);
 const publicExamplesWorkflow = fs.readFileSync(
   path.join(repoRoot, ".github", "workflows", "test_e2e-public-examples.yml"),
   "utf8",
 );
-const chatWithYourDataPackage = JSON.parse(
-  fs.readFileSync(
-    path.join(examplesRoot, "v1", "chat-with-your-data", "package.json"),
-    "utf8",
-  ),
-);
-const researchAgentPackage = JSON.parse(
-  fs.readFileSync(
-    path.join(
-      examplesRoot,
-      "v1",
-      "research-canvas",
-      "agents",
-      "typescript",
-      "package.json",
-    ),
-    "utf8",
-  ),
-);
-const researchCanvasPackage = JSON.parse(
-  fs.readFileSync(
-    path.join(examplesRoot, "v1", "research-canvas", "package.json"),
-    "utf8",
-  ),
-);
-const pnpmWorkspace = fs.readFileSync(
-  path.join(repoRoot, "pnpm-workspace.yaml"),
-  "utf8",
-);
 
+// Top-level sections count toward the README total. The dev subsections sit
+// under `## Dev` and are counted on their own.
 const categories = [
-  { directory: "integrations", heading: "Integrations" },
-  { directory: "canvas", heading: "Canvas" },
-  { directory: "showcases", heading: "Showcases" },
+  { directory: "starters", heading: "Starters", level: 2 },
+  { directory: "demos", heading: "Demos", level: 2 },
+  { directory: "templates", heading: "Templates", level: 2 },
+];
+const devCategories = [
+  { directory: "dev/by-frontend", heading: "By frontend", level: 3 },
+  { directory: "dev/by-backend", heading: "By backend", level: 3 },
+  { directory: "dev/by-feature", heading: "By feature", level: 3 },
 ];
 
 function currentExampleNames(category) {
@@ -63,18 +37,26 @@ function currentExampleNames(category) {
     .sort();
 }
 
-function readmeCategory(category, heading) {
+function escapeRegExp(value) {
+  return value.replace(/[.*+?^${}()|[\]\\/]/g, "\\$&");
+}
+
+function readmeCategory(category, heading, level) {
   const sectionPattern = new RegExp(
-    `^## ${heading} \\((\\d+)\\)\\n([\\s\\S]*?)(?=^## |(?![\\s\\S]))`,
+    `^${"#".repeat(level)} ${heading} \\((\\d+)\\)\\n([\\s\\S]*?)(?=^#{2,${level}} |(?![\\s\\S]))`,
     "m",
   );
   const section = readme.match(sectionPattern);
   assert.ok(section, `README is missing the ${heading} section and count`);
 
   const links = Array.from(
-    section[2].matchAll(new RegExp(`\\(\\./${category}/([^/]+)/\\)`, "g")),
+    section[2].matchAll(
+      new RegExp(`\\(\\./${escapeRegExp(category)}/([^/]+)/\\)`, "g"),
+    ),
     (match) => match[1],
-  ).sort();
+  )
+    .filter((name) => !name.startsWith("_"))
+    .sort();
 
   return { declaredCount: Number(section[1]), links };
 }
@@ -156,34 +138,10 @@ env:
   ]);
 });
 
-test("chat-with-your-data declares the runner used by its test script", () => {
-  assert.match(chatWithYourDataPackage.scripts.test, /\btsx\b/);
-  assert.equal(typeof chatWithYourDataPackage.devDependencies.tsx, "string");
-});
-
-test("Research Canvas TypeScript agent is an installable workspace package", () => {
-  assert.match(
-    pnpmWorkspace,
-    /^  - "examples\/v1\/research-canvas\/agents\/typescript"$/m,
-  );
-  assert.equal(
-    researchAgentPackage.name,
-    "@copilotkit-examples/research-canvas-agent",
-  );
-  assert.equal(researchAgentPackage.private, true);
-  assert.equal(researchAgentPackage.scripts.test, "vitest run src/*.test.ts");
-  assert.equal(typeof researchAgentPackage.devDependencies.vitest, "string");
-  assert.equal(researchAgentPackage.packageManager, undefined);
-  assert.equal(
-    researchCanvasPackage.scripts["install:agent:ts"],
-    "pnpm install --filter @copilotkit-examples/research-canvas-agent...",
-  );
-});
-
-for (const { directory, heading } of categories) {
+for (const { directory, heading, level } of [...categories, ...devCategories]) {
   test(`${heading} count and links match the current example directories`, () => {
     const expectedNames = currentExampleNames(directory);
-    const documented = readmeCategory(directory, heading);
+    const documented = readmeCategory(directory, heading, level);
 
     assert.equal(documented.declaredCount, expectedNames.length);
     assert.deepEqual(documented.links, expectedNames);
@@ -195,30 +153,10 @@ test("catalog total matches all current example directories", () => {
     (total, { directory }) => total + currentExampleNames(directory).length,
     0,
   );
-  const totalMatch = readme.match(
-    /contains (\d+) consolidated demo repositories/,
-  );
+  const totalMatch = readme.match(/contains (\d+) examples/);
 
-  assert.ok(totalMatch, "README is missing the consolidated example total");
+  assert.ok(totalMatch, "README is missing the example total");
   assert.equal(Number(totalMatch[1]), expectedTotal);
-});
-
-test("multi-agent canvas links to the canonical research canvas agents", () => {
-  const researcherLink = multiAgentCanvasReadme.match(
-    /\[CoAgents AI Researcher\]\(https:\/\/github\.com\/CopilotKit\/CopilotKit\/tree\/main\/([^)]+)\)/,
-  );
-
-  assert.ok(researcherLink, "README is missing the AI Researcher link");
-  assert.equal(researcherLink[1], "examples/v1/research-canvas/agents");
-  assert.equal(
-    fs.statSync(path.join(repoRoot, researcherLink[1])).isDirectory(),
-    true,
-  );
-});
-
-test("multi-agent canvas expands MCP as Model Context Protocol", () => {
-  assert.match(multiAgentCanvasReadme, /MCP \(Model Context Protocol\) Agent/);
-  assert.doesNotMatch(multiAgentCanvasReadme, /Multi-Channel Protocol/);
 });
 
 test("catalog and example jobs check out the requested dispatch ref", () => {
@@ -254,10 +192,8 @@ test("public example workflow watches its complete shared input set", () => {
     "packages/core/**",
     "packages/react-core/**",
     "packages/runtime/**",
-    "packages/runtime-client-gql/**",
     "packages/sdk-js/**",
     "packages/shared/**",
-    "packages/tsconfig/**",
     "packages/typescript-config/**",
     "packages/web-components/**",
     "packages/web-inspector/**",
@@ -268,72 +204,21 @@ test("public example workflow watches its complete shared input set", () => {
   assert.equal(expectedPaths.includes("packages/**"), false);
 });
 
-test("public example jobs run each app's unit tests and Travel's Python tests", () => {
-  const expectedMatrix = [
-    {
-      example: "form-filling",
-      directory: "examples/v1/form-filling",
-    },
-    { example: "travel", directory: "examples/v1/travel" },
-    {
-      example: "research-canvas",
-      directory: "examples/v1/research-canvas",
-    },
-    {
-      example: "chat-with-your-data",
-      directory: "examples/v1/chat-with-your-data",
-    },
-    {
-      example: "state-machine",
-      directory: "examples/v1/state-machine",
-    },
-    { example: "mastra-pm", directory: "examples/canvas/mastra-pm" },
-  ];
+test("example jobs run the dev apps the e2e harness covers", () => {
   const examplesJob = publicExamplesJob();
 
-  assert.deepEqual(publicExampleMatrix(), expectedMatrix);
-
+  assert.deepEqual(publicExampleMatrix(), [
+    {
+      example: "react-demo",
+      directory: "examples/dev/by-frontend/react/demo",
+    },
+  ]);
   assert.match(
     examplesJob,
     /- name: Run example unit tests\n\s+working-directory: \$\{\{ matrix\.directory \}\}\n\s+run: pnpm test/,
   );
   assert.match(
     examplesJob,
-    /- name: Set up uv for Travel tests\n\s+if: matrix\.example == 'travel'\n\s+uses: astral-sh\/setup-uv@[0-9a-f]{40}/,
-  );
-  assert.match(
-    examplesJob,
-    /- name: Run Travel agent tests\n\s+if: matrix\.example == 'travel'\n\s+working-directory: examples\/v1\/travel\/agent\n\s+run: uv run --locked --with pytest==9\.1\.1 python -m pytest tests/,
-  );
-});
-
-test("public example jobs run the Research Canvas TypeScript agent tests", () => {
-  assert.match(
-    publicExamplesWorkflow,
-    /- name: Run Research Canvas TypeScript agent tests\n\s+if: matrix\.example == 'research-canvas'\n\s+run: pnpm nx test @copilotkit-examples\/research-canvas-agent --excludeTaskDependencies/,
-  );
-});
-
-test("multi-agent canvas describes linked agents as monorepo directories", () => {
-  assert.match(
-    multiAgentCanvasReadme,
-    /they live in separate directories in this repository/,
-  );
-  assert.doesNotMatch(multiAgentCanvasReadme, /separate repositories/);
-});
-
-test("multi-agent canvas creates env files at the app roots", () => {
-  assert.doesNotMatch(multiAgentCanvasReadme, /example\.env/);
-  assert.match(multiAgentCanvasReadme, /Create `frontend\/\.env`:/);
-  assert.match(multiAgentCanvasReadme, /NEXT_PUBLIC_CPK_PUBLIC_API_KEY=\.\.\./);
-  assert.match(multiAgentCanvasReadme, /Create `agent\/\.env`:/);
-  assert.match(multiAgentCanvasReadme, /OPENAI_API_KEY=\.\.\./);
-  assert.match(multiAgentCanvasReadme, /LANGSMITH_API_KEY=\.\.\./);
-});
-
-test("Research Canvas agent types run in CI", () => {
-  assert.match(
-    publicExamplesWorkflow,
-    /pnpm nx run @copilotkit-examples\/research-canvas-agent:check-types --excludeTaskDependencies/,
+    /- name: Run e2e tests\n\s+working-directory: examples\/dev\/e2e\n/,
   );
 });

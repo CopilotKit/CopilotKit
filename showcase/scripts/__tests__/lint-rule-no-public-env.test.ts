@@ -10,8 +10,7 @@ const REPO_ROOT = resolve(import.meta.dirname, "..", "..", "..");
 const CONFIG_PATH = join(REPO_ROOT, ".oxlintrc.json");
 const RULE_MODULE_PATH = join(
   REPO_ROOT,
-  "packages",
-  "react-ui",
+  "tools",
   "oxlint-rules",
   "no-public-env-shell-read.mjs",
 );

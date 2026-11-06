@@ -5,15 +5,22 @@ import {
   onBeforeUnmount,
   onMounted,
   ref,
+  shallowRef,
   useAttrs,
   watch,
 } from "vue";
-import { useCopilotChatConfiguration } from "../../providers/useCopilotChatConfiguration";
-import { CopilotChatDefaultLabels } from "../../providers/types";
+import {
+  ɵComposerController,
+  ɵcomposerButtonState,
+  ɵcreateComposerAutosize,
+  ɵflattenToolsMenuForDisplay,
+  ɵnormalizeToolsMenu,
+  ɵshowsComposerDisclaimer,
+  ɵsyncRecorderToMode,
+} from "@copilotkit/core";
 import {
   IconArrowUp,
   IconCheck,
-  IconChevronRight,
   IconLoader2,
   IconMic,
   IconPlus,
@@ -21,22 +28,20 @@ import {
   IconX,
 } from "../icons";
 import CopilotChatAudioRecorder from "./CopilotChatAudioRecorder.vue";
+import CopilotTooltip from "../ui/CopilotTooltip.vue";
+import CopilotDropdownMenuContent from "../ui/CopilotDropdownMenuContent.vue";
+import type {
+  CopilotDropdownMenuDismissReason,
+  CopilotDropdownMenuItem,
+} from "../ui/dropdown-menu";
+import { useCopilotId } from "../ui/use-id";
 import type { CopilotChatAudioRecorderRef } from "./audioRecorder";
 import type { CopilotChatInputMode, ToolsMenuItem } from "./types";
+import { useChatLabels } from "./use-chat-labels";
 
 defineOptions({ inheritAttrs: false });
 
 type MenuEntry = ToolsMenuItem | "-";
-type MenuDisplayEntry =
-  | { type: "separator"; key: string }
-  | { type: "label"; key: string; label: string; depth: number }
-  | {
-      type: "item";
-      key: string;
-      label: string;
-      depth: number;
-      action: () => void;
-    };
 
 const props = withDefaults(
   defineProps<{
@@ -101,55 +106,66 @@ const emit = defineEmits<{
 }>();
 
 const attrs = useAttrs();
-const config = useCopilotChatConfiguration();
 const shellRef = ref<HTMLElement | null>(null);
 const textareaRef = ref<HTMLTextAreaElement | null>(null);
 const gridRef = ref<HTMLElement | null>(null);
 const addButtonContainerRef = ref<HTMLElement | null>(null);
 const actionsContainerRef = ref<HTMLElement | null>(null);
 const slashMenuRef = ref<HTMLElement | null>(null);
-const addMenuRef = ref<HTMLElement | null>(null);
 const audioRecorderRef = ref<CopilotChatAudioRecorderRef | null>(null);
-const localValue = ref(props.modelValue ?? "");
 const isComposing = ref(false);
-const layout = ref<"compact" | "expanded">("compact");
-const commandQuery = ref<string | null>(null);
-const slashHighlightIndex = ref(0);
-const previousCommandQuery = ref<string | null>(null);
-const addMenuOpen = ref(false);
-const measurements = ref({
-  singleLineHeight: 0,
-  maxHeight: 0,
-  paddingLeft: 0,
-  paddingRight: 0,
+// The text, controlled or not, and the slash-command menu: see core's
+// ɵComposerController.
+const composer = new ɵComposerController<ToolsMenuItem>({
+  initialValue: props.modelValue ?? "",
+  onChange: (value) => emit("update:modelValue", value),
 });
-const resizeEvaluationRafRef = ref<number | null>(null);
-const ignoreResizeRef = ref(false);
-const measurementCanvasRef = ref<HTMLCanvasElement | null>(null);
-const containerCacheRef = ref<{
-  compactWidth: number;
-} | null>(null);
-const didWarnMissingFontRef = ref(false);
-const didWarnMissingCanvasContextRef = ref(false);
-let resizeObserver: ResizeObserver | null = null;
-let documentPointerDownHandler: ((event: MouseEvent) => void) | null = null;
+const composerState = shallowRef(composer.getSnapshot());
+composer.subscribe(() => {
+  composerState.value = composer.getSnapshot();
+});
+// Sizes the text box and picks the compact or expanded layout.
+const autosize = ɵcreateComposerAutosize({
+  getElements: () => ({
+    textarea: textareaRef.value,
+    grid: gridRef.value,
+    start: addButtonContainerRef.value,
+    actions: actionsContainerRef.value,
+  }),
+  maxRows: props.maxRows,
+});
+const layout = shallowRef(autosize.getSnapshot());
+autosize.subscribe(() => {
+  layout.value = autosize.getSnapshot();
+});
+const addMenuOpen = ref(false);
+// Where focus goes as the add menu opens: its first or last item for the
+// keyboard, the menu itself for a pointer, as Radix's DropdownMenu does.
+const addMenuInitialFocus = ref<"first" | "last" | "content">("content");
+const addMenuAnchor = ref<HTMLElement | null>(null);
+const addMenuId = useCopilotId("cpk-add-menu");
+const addMenuTriggerId = `${addMenuId}-trigger`;
 
-const isControlled = computed(() => props.modelValue !== undefined);
-const inputValue = computed(() =>
-  isControlled.value ? (props.modelValue ?? "") : localValue.value,
+const inputValue = computed(() => composerState.value.value);
+const filteredCommands = computed(() => composerState.value.slashCommands);
+const slashHighlightIndex = computed(
+  () => composerState.value.slashHighlightIndex,
 );
-const labels = computed(() => config.value?.labels ?? CopilotChatDefaultLabels);
+const slashMenuVisible = computed(
+  () => composerState.value.slashQuery !== null,
+);
+const labels = useChatLabels();
 const resolvedPlaceholder = computed(
   () => props.placeholder ?? labels.value.chatInputPlaceholder,
 );
 const isExpanded = computed(
   () => props.mode === "input" && layout.value === "expanded",
 );
-const isProcessing = computed(
-  () => props.mode !== "transcribe" && props.isRunning,
-);
-const shouldShowDisclaimer = computed(
-  () => props.showDisclaimer ?? props.positioning === "absolute",
+const shouldShowDisclaimer = computed(() =>
+  ɵshowsComposerDisclaimer({
+    showDisclaimer: props.showDisclaimer,
+    positioning: props.positioning,
+  }),
 );
 const hasSubmitAction = computed(
   () => typeof props.onSubmitMessage === "function",
@@ -167,20 +183,24 @@ const hasFinishTranscribeAction = computed(
     typeof props.onFinishTranscribe === "function" ||
     typeof props.onFinishTranscribeWithAudio === "function",
 );
-const canSend = computed(
-  () =>
-    props.mode === "input" &&
-    !props.disabled &&
-    hasSubmitAction.value &&
-    inputValue.value.trim().length > 0,
+const composerInput = computed(() => ({
+  mode: props.mode,
+  isRunning: props.isRunning,
+  value: inputValue.value,
+  canSubmit: hasSubmitAction.value,
+  canStop: hasStopAction.value,
+  disabled: props.disabled,
+}));
+const composerButton = computed(() =>
+  ɵcomposerButtonState(composerInput.value),
 );
-const sendDisabled = computed(() =>
-  isProcessing.value ? !hasStopAction.value : !canSend.value,
-);
+const isProcessing = computed(() => composerButton.value.isProcessing);
+const sendDisabled = computed(() => composerButton.value.disabled);
+const showsStop = computed(() => composerButton.value.action === "stop");
 
 const containerClass = computed(() => [
-  props.positioning === "absolute" &&
-    "cpk:absolute cpk:bottom-0 cpk:left-0 cpk:right-0 cpk:z-20 cpk:pointer-events-none",
+  "cpk-chat-input",
+  props.positioning === "absolute" && "cpk-chat-input-absolute",
   attrs.class,
 ]);
 
@@ -190,185 +210,41 @@ const rootAttrs = computed(() => {
   return rest;
 });
 
-function isMenuGroup(
-  item: ToolsMenuItem,
-): item is ToolsMenuItem & { items: MenuEntry[] } {
-  return Array.isArray((item as ToolsMenuItem).items);
-}
-
-function createDefaultAddItem(): ToolsMenuItem | null {
-  if (!hasAddFileAction.value) {
-    return null;
-  }
-  return {
-    label: labels.value.chatInputToolbarAddButtonLabel,
-    action: () => emit("add-file"),
-  };
-}
-
-function normalizeMenuItems() {
-  const items: MenuEntry[] = [];
-  const addItem = createDefaultAddItem();
-  if (addItem) {
-    items.push(addItem);
-  }
-
-  if (props.toolsMenu.length > 0) {
-    if (items.length > 0) {
-      items.push("-");
-    }
-
-    for (const menuEntry of props.toolsMenu) {
-      if (menuEntry === "-") {
-        if (items.length === 0 || items[items.length - 1] === "-") {
-          continue;
+const menuItems = computed(() =>
+  ɵnormalizeToolsMenu<ToolsMenuItem>(
+    props.toolsMenu,
+    hasAddFileAction.value
+      ? {
+          label: labels.value.chatInputToolbarAddButtonLabel,
+          action: () => emit("add-file"),
         }
-        items.push("-");
-        continue;
-      }
-
-      items.push(menuEntry);
-    }
-  }
-
-  while (items.length > 0 && items[items.length - 1] === "-") {
-    items.pop();
-  }
-
-  return items;
-}
-
-const menuItems = computed(() => normalizeMenuItems());
+      : undefined,
+  ),
+);
 const hasMenuItems = computed(() => menuItems.value.length > 0);
+const menuDisplayItems = computed(() =>
+  ɵflattenToolsMenuForDisplay(menuItems.value),
+);
 
-function flattenMenuForCommands(items: MenuEntry[]) {
-  const seen = new Set<string>();
-  const commands: ToolsMenuItem[] = [];
-
-  const walk = (entryList: MenuEntry[]) => {
-    for (const entry of entryList) {
-      if (entry === "-") {
-        continue;
-      }
-
-      if (isMenuGroup(entry) && entry.items.length > 0) {
-        walk(entry.items);
-        continue;
-      }
-
-      if (!entry.action || seen.has(entry.label)) {
-        continue;
-      }
-
-      seen.add(entry.label);
-      commands.push(entry);
-    }
-  };
-
-  walk(items);
-  return commands;
-}
-
-const commandItems = computed(() => flattenMenuForCommands(menuItems.value));
-
-function flattenMenuDisplay(items: MenuEntry[], depth = 0, prefix = "root") {
-  const entries: MenuDisplayEntry[] = [];
-  for (const [index, item] of items.entries()) {
-    const key = `${prefix}-${index}`;
-    if (item === "-") {
-      entries.push({ type: "separator", key: `sep-${key}` });
-      continue;
-    }
-    if (isMenuGroup(item) && item.items.length > 0) {
-      entries.push({
-        type: "label",
-        key: `label-${key}`,
-        label: item.label,
-        depth,
-      });
-      entries.push(...flattenMenuDisplay(item.items, depth + 1, key));
-      continue;
-    }
-    if (item.action) {
-      entries.push({
-        type: "item",
-        key: `item-${key}`,
-        label: item.label,
-        depth,
-        action: item.action,
-      });
-    }
-  }
-  return entries;
-}
-
-const menuDisplayItems = computed(() => flattenMenuDisplay(menuItems.value));
-
-const filteredCommands = computed(() => {
-  if (commandQuery.value === null || commandItems.value.length === 0) {
-    return [] as ToolsMenuItem[];
-  }
-
-  const normalized = commandQuery.value.trim().toLowerCase();
-  if (normalized.length === 0) {
-    return commandItems.value;
-  }
-
-  const startsWith: ToolsMenuItem[] = [];
-  const contains: ToolsMenuItem[] = [];
-
-  for (const command of commandItems.value) {
-    const label = command.label.toLowerCase();
-    if (label.startsWith(normalized)) {
-      startsWith.push(command);
-      continue;
-    }
-    if (label.includes(normalized)) {
-      contains.push(command);
-    }
-  }
-
-  return [...startsWith, ...contains];
-});
-
-const slashMenuVisible = computed(
-  () => commandQuery.value !== null && commandItems.value.length > 0,
+watch(
+  [() => props.modelValue, () => props.mode, menuItems],
+  ([value, mode, menu]) => composer.setInputs({ value, mode, menu }),
+  { immediate: true },
 );
 
 function updateInputValue(nextValue: string) {
-  if (!isControlled.value) {
-    localValue.value = nextValue;
-  }
-  emit("update:modelValue", nextValue);
+  composer.setValue(nextValue);
 }
 
-function clearInputValue() {
-  updateInputValue("");
-}
-
-function updateSlashState(value: string) {
-  if (commandItems.value.length === 0) {
-    commandQuery.value = null;
-    return;
-  }
-
-  if (value.startsWith("/")) {
-    const firstLine = value.split(/\r?\n/, 1)[0] ?? "";
-    commandQuery.value = firstLine.slice(1);
-    return;
-  }
-
-  commandQuery.value = null;
-}
-
-function runCommand(command: ToolsMenuItem) {
-  clearInputValue();
-  command.action?.();
-  commandQuery.value = null;
-  slashHighlightIndex.value = 0;
+function focusTextareaSoon() {
   requestAnimationFrame(() => {
     textareaRef.value?.focus();
   });
+}
+
+function runCommand(command: ToolsMenuItem) {
+  composer.runCommand(command);
+  focusTextareaSoon();
 }
 
 function submit() {
@@ -377,121 +253,140 @@ function submit() {
   }
   // In controlled mode, parent-updated modelValue can lag one tick behind
   // the actual textarea value during intense runtime/connect churn.
-  const rawValue = textareaRef.value?.value ?? inputValue.value;
-  const trimmed = rawValue.trim();
-  if (!trimmed) {
-    return;
-  }
-
-  emit("submit-message", trimmed);
-
-  if (props.clearOnSubmit) {
-    clearInputValue();
-  }
-
-  textareaRef.value?.focus();
+  const sent = composer.submit((text) => emit("submit-message", text), {
+    value: textareaRef.value?.value ?? inputValue.value,
+    clear: props.clearOnSubmit,
+  });
+  if (sent) textareaRef.value?.focus();
 }
 
 function handleInput(event: Event) {
-  const nextValue = (event.target as HTMLTextAreaElement).value;
-  updateInputValue(nextValue);
-  updateSlashState(nextValue);
+  updateInputValue((event.target as HTMLTextAreaElement).value);
 }
 
+// The button stops a run whatever the input holds. Enter differs: see
+// handleKeydown.
 function handleSendButtonClick() {
-  if (isProcessing.value) {
-    if (hasStopAction.value) {
-      emit("stop");
-    }
+  if (showsStop.value) {
+    emit("stop");
     return;
   }
-  submit();
-}
-
-function handleKeydown(event: KeyboardEvent) {
-  if (props.disabled) {
-    return;
-  }
-
-  if (isComposing.value || event.isComposing || event.keyCode === 229) {
-    return;
-  }
-
-  if (commandQuery.value !== null && props.mode === "input") {
-    if (event.key === "ArrowDown") {
-      if (filteredCommands.value.length > 0) {
-        event.preventDefault();
-        slashHighlightIndex.value =
-          slashHighlightIndex.value < 0
-            ? 0
-            : (slashHighlightIndex.value + 1) % filteredCommands.value.length;
-      }
-      return;
-    }
-
-    if (event.key === "ArrowUp") {
-      if (filteredCommands.value.length > 0) {
-        event.preventDefault();
-        if (slashHighlightIndex.value < 0) {
-          slashHighlightIndex.value = filteredCommands.value.length - 1;
-        } else {
-          slashHighlightIndex.value =
-            slashHighlightIndex.value <= 0
-              ? filteredCommands.value.length - 1
-              : slashHighlightIndex.value - 1;
-        }
-      }
-      return;
-    }
-
-    if (event.key === "Enter") {
-      const selected =
-        slashHighlightIndex.value >= 0
-          ? filteredCommands.value[slashHighlightIndex.value]
-          : undefined;
-      if (selected) {
-        event.preventDefault();
-        runCommand(selected);
-        return;
-      }
-    }
-
-    if (event.key === "Escape") {
-      event.preventDefault();
-      commandQuery.value = null;
-      return;
-    }
-  }
-
-  if (event.key === "Enter" && !event.shiftKey && props.mode === "input") {
-    event.preventDefault();
-    if (isProcessing.value) {
-      if (hasStopAction.value) {
-        emit("stop");
-      }
-      return;
-    }
+  if (!isProcessing.value) {
     submit();
   }
 }
 
-function toggleAddMenu() {
+function handleKeydown(event: KeyboardEvent) {
+  if (props.disabled || props.mode !== "input") {
+    return;
+  }
+
+  // Enter with text sends, also while a run is going. Enter in an empty input
+  // stops the run. Read the textarea: a controlled modelValue can lag a tick.
+  const { preventDefault, action } = composer.keyDown(
+    {
+      key: event.key,
+      shiftKey: event.shiftKey,
+      isComposing: isComposing.value || event.isComposing,
+      keyCode: event.keyCode,
+    },
+    {
+      ...composerInput.value,
+      value: textareaRef.value?.value ?? inputValue.value,
+    },
+  );
+  if (preventDefault) event.preventDefault();
+  if (action === "command") {
+    focusTextareaSoon();
+  } else if (action === "send") {
+    submit();
+  } else if (action === "stop") {
+    emit("stop");
+  }
+}
+
+/** The add button, or the first button of a custom `add-menu-button` slot. */
+function getAddMenuTrigger(): HTMLElement | null {
+  const container = addButtonContainerRef.value;
+  return container?.querySelector<HTMLElement>("button") ?? container ?? null;
+}
+
+function toggleAddMenu(focus: "first" | "last" | "content" = "content") {
   if (!hasMenuItems.value || props.mode === "transcribe" || props.disabled) {
     return;
   }
-  addMenuOpen.value = !addMenuOpen.value;
+  if (addMenuOpen.value) {
+    closeAddMenu();
+    return;
+  }
+  addMenuAnchor.value = getAddMenuTrigger();
+  addMenuInitialFocus.value = focus;
+  addMenuOpen.value = true;
 }
 
-function closeAddMenu() {
+function closeAddMenu(options: { returnFocus?: boolean } = {}) {
+  if (!addMenuOpen.value) {
+    return;
+  }
   addMenuOpen.value = false;
+  if (options.returnFocus) {
+    getAddMenuTrigger()?.focus();
+  }
 }
 
 function handleMenuAction(action: () => void) {
+  // As Radix does, the menu closes and focus returns to its trigger first, so
+  // an action that moves focus (for example into the textarea) keeps it.
+  closeAddMenu({ returnFocus: true });
   action();
-  closeAddMenu();
-  nextTick(() => {
-    textareaRef.value?.focus();
-  });
+}
+
+function handleAddMenuSelect(item: CopilotDropdownMenuItem) {
+  if (item.action) {
+    handleMenuAction(item.action);
+  }
+}
+
+function handleAddMenuDismiss(reason: CopilotDropdownMenuDismissReason) {
+  // A pointer down outside leaves focus where the pointer put it.
+  closeAddMenu({ returnFocus: reason !== "outside" });
+}
+
+// A pointer down opens the menu, as Radix's trigger does; the click that
+// follows it then must not toggle it again. Keyboard and synthetic clicks
+// (detail 0) still toggle it from the click.
+let addMenuPointerToggled = false;
+
+function handleAddMenuPointerDown(event: PointerEvent) {
+  if (event.button !== 0 || event.ctrlKey) {
+    return;
+  }
+  addMenuPointerToggled = true;
+  if (!addMenuOpen.value) {
+    // Keep focus off the trigger, so the menu can take it.
+    event.preventDefault();
+  }
+  toggleAddMenu("content");
+}
+
+function handleAddMenuClick(event: MouseEvent) {
+  if (addMenuPointerToggled) {
+    addMenuPointerToggled = false;
+    return;
+  }
+  toggleAddMenu(event.detail === 0 ? "first" : "content");
+}
+
+function handleAddMenuTriggerKeydown(event: KeyboardEvent) {
+  if (event.key === "Enter" || event.key === " ") {
+    event.preventDefault();
+    toggleAddMenu("first");
+  } else if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+    event.preventDefault();
+    if (!addMenuOpen.value) {
+      toggleAddMenu(event.key === "ArrowDown" ? "first" : "last");
+    }
+  }
 }
 
 async function handleFinishTranscribe() {
@@ -518,346 +413,39 @@ function handleContainerClick(event: MouseEvent) {
   textareaRef.value?.focus();
 }
 
-function ensureMeasurements() {
-  const textarea = textareaRef.value;
-  if (!textarea || isComposing.value) {
-    return;
-  }
-
-  const previousValue = textarea.value;
-  const previousHeight = textarea.style.height;
-  textarea.style.height = "auto";
-
-  const computedStyle = window.getComputedStyle(textarea);
-  const paddingLeft = parseFloat(computedStyle.paddingLeft) || 0;
-  const paddingRight = parseFloat(computedStyle.paddingRight) || 0;
-  const paddingTop = parseFloat(computedStyle.paddingTop) || 0;
-  const paddingBottom = parseFloat(computedStyle.paddingBottom) || 0;
-
-  textarea.value = "";
-  const singleLineHeight = textarea.scrollHeight;
-  textarea.value = previousValue;
-
-  const contentHeight = singleLineHeight - paddingTop - paddingBottom;
-  const maxHeight = contentHeight * props.maxRows + paddingTop + paddingBottom;
-
-  measurements.value = {
-    singleLineHeight,
-    maxHeight,
-    paddingLeft,
-    paddingRight,
-  };
-
-  textarea.style.height = previousHeight;
-  textarea.style.maxHeight = `${maxHeight}px`;
-}
-
-function adjustTextareaHeight() {
-  const textarea = textareaRef.value;
-  if (!textarea) {
-    return 0;
-  }
-
-  if (measurements.value.singleLineHeight === 0) {
-    ensureMeasurements();
-  }
-
-  const { maxHeight } = measurements.value;
-  if (maxHeight) {
-    textarea.style.maxHeight = `${maxHeight}px`;
-  }
-
-  textarea.style.height = "auto";
-  const scrollHeight = textarea.scrollHeight;
-  textarea.style.height = `${maxHeight ? Math.min(scrollHeight, maxHeight) : scrollHeight}px`;
-  return scrollHeight;
-}
-
-function updateLayout(nextLayout: "compact" | "expanded") {
-  if (layout.value === nextLayout) {
-    return;
-  }
-  ignoreResizeRef.value = true;
-  layout.value = nextLayout;
-}
-
-function resolveTextareaFont(textarea: HTMLTextAreaElement): string | null {
-  const textareaStyles = window.getComputedStyle(textarea);
-  if (textareaStyles.font?.trim()) {
-    return textareaStyles.font;
-  }
-
-  if (textareaStyles.fontSize && textareaStyles.fontFamily) {
-    const fallbackFont =
-      `${textareaStyles.fontStyle} ${textareaStyles.fontVariant} ` +
-      `${textareaStyles.fontWeight} ${textareaStyles.fontSize}/${textareaStyles.lineHeight} ` +
-      `${textareaStyles.fontFamily}`;
-    if (fallbackFont.trim()) {
-      return fallbackFont;
-    }
-  }
-
-  if (process.env.NODE_ENV !== "production" && !didWarnMissingFontRef.value) {
-    didWarnMissingFontRef.value = true;
-    console.warn(
-      "[CopilotChatInput] Could not resolve textarea font for layout measurement. " +
-        "Text-width-based expansion will be skipped until the next container resize.",
-    );
-  }
-  return null;
-}
-
-function updateContainerCache() {
-  const grid = gridRef.value;
-  const addContainer = addButtonContainerRef.value;
-  const actionsContainer = actionsContainerRef.value;
-  if (!grid || !addContainer || !actionsContainer) {
-    containerCacheRef.value = null;
-    return null;
-  }
-
-  const gridStyles = window.getComputedStyle(grid);
-  const paddingLeft = parseFloat(gridStyles.paddingLeft) || 0;
-  const paddingRight = parseFloat(gridStyles.paddingRight) || 0;
-  const columnGap = parseFloat(gridStyles.columnGap) || 0;
-  const gridAvailableWidth = grid.clientWidth - paddingLeft - paddingRight;
-  if (gridAvailableWidth <= 0) {
-    containerCacheRef.value = null;
-    return null;
-  }
-
-  const addWidth = addContainer.getBoundingClientRect().width;
-  const actionsWidth = actionsContainer.getBoundingClientRect().width;
-  const compactWidth = Math.max(
-    gridAvailableWidth - addWidth - actionsWidth - columnGap * 2,
-    0,
-  );
-  if (compactWidth <= 0) {
-    containerCacheRef.value = null;
-    return null;
-  }
-
-  const cache = { compactWidth };
-  containerCacheRef.value = cache;
-  return cache;
-}
-
-function evaluateLayout() {
-  if (props.mode !== "input") {
-    updateLayout("compact");
-    return;
-  }
-
-  if (
-    typeof window.matchMedia === "function" &&
-    window.matchMedia("(max-width: 767px)").matches
-  ) {
-    ensureMeasurements();
-    adjustTextareaHeight();
-    updateLayout("expanded");
-    return;
-  }
-
-  const textarea = textareaRef.value;
-  if (
-    !textarea ||
-    !gridRef.value ||
-    !addButtonContainerRef.value ||
-    !actionsContainerRef.value
-  ) {
-    return;
-  }
-
-  if (measurements.value.singleLineHeight === 0) {
-    ensureMeasurements();
-  }
-
-  const scrollHeight = adjustTextareaHeight();
-  const baseline = measurements.value.singleLineHeight;
-  const hasExplicitBreak = inputValue.value.includes("\n");
-  const renderedMultiline = baseline > 0 ? scrollHeight > baseline + 1 : false;
-  let shouldExpand = hasExplicitBreak || renderedMultiline;
-
-  if (!shouldExpand) {
-    const cache = containerCacheRef.value ?? updateContainerCache();
-    if (cache && cache.compactWidth > 0) {
-      const compactInnerWidth = Math.max(
-        cache.compactWidth -
-          measurements.value.paddingLeft -
-          measurements.value.paddingRight,
-        0,
-      );
-
-      if (compactInnerWidth > 0) {
-        const canvas =
-          measurementCanvasRef.value ?? document.createElement("canvas");
-        if (!measurementCanvasRef.value) {
-          measurementCanvasRef.value = canvas;
-        }
-
-        const context = canvas.getContext("2d");
-        if (context) {
-          const resolvedFont = resolveTextareaFont(textarea);
-          if (resolvedFont) {
-            context.font = resolvedFont;
-            const lines =
-              inputValue.value.length > 0 ? inputValue.value.split("\n") : [""];
-            let longestLine = 0;
-            for (const line of lines) {
-              const width = context.measureText(line || " ").width;
-              if (width > longestLine) {
-                longestLine = width;
-              }
-            }
-            if (longestLine > compactInnerWidth) {
-              shouldExpand = true;
-            }
-          }
-        } else if (
-          process.env.NODE_ENV !== "production" &&
-          !didWarnMissingCanvasContextRef.value
-        ) {
-          didWarnMissingCanvasContextRef.value = true;
-          console.warn(
-            "[CopilotChatInput] canvas.getContext('2d') returned null. " +
-              "Text-width-based expansion will be skipped.",
-          );
-        }
-      }
-    }
-  }
-
-  updateLayout(shouldExpand ? "expanded" : "compact");
-}
-
-function scheduleLayoutEvaluation(invalidateCache: boolean) {
-  if (ignoreResizeRef.value) {
-    ignoreResizeRef.value = false;
-    return;
-  }
-
-  if (invalidateCache) {
-    containerCacheRef.value = null;
-    didWarnMissingFontRef.value = false;
-    didWarnMissingCanvasContextRef.value = false;
-  }
-
-  if (resizeEvaluationRafRef.value !== null) {
-    cancelAnimationFrame(resizeEvaluationRafRef.value);
-  }
-
-  resizeEvaluationRafRef.value = requestAnimationFrame(() => {
-    resizeEvaluationRafRef.value = null;
-    evaluateLayout();
-  });
-}
-
 watch(
-  () => props.modelValue,
-  (next) => {
-    if (isControlled.value) {
-      localValue.value = next ?? "";
-    }
+  [inputValue, () => props.mode],
+  ([value, mode]) => {
+    autosize.evaluate(value, mode);
   },
-);
-
-watch(inputValue, (value) => {
-  updateSlashState(value);
-  evaluateLayout();
-});
-
-watch(commandItems, () => {
-  if (commandItems.value.length === 0) {
-    commandQuery.value = null;
-  }
-});
-
-watch(
-  [commandQuery, () => filteredCommands.value.length],
-  ([query, filteredCount]) => {
-    if (
-      query !== null &&
-      query !== previousCommandQuery.value &&
-      filteredCount > 0
-    ) {
-      slashHighlightIndex.value = 0;
-    }
-
-    previousCommandQuery.value = query;
-  },
-  { immediate: true },
+  { flush: "post" },
 );
 
 watch(
-  [commandQuery, filteredCommands],
-  () => {
-    if (commandQuery.value === null) {
-      slashHighlightIndex.value = 0;
-      return;
-    }
-    if (filteredCommands.value.length === 0) {
-      slashHighlightIndex.value = -1;
-      return;
-    }
-    if (
-      slashHighlightIndex.value < 0 ||
-      slashHighlightIndex.value >= filteredCommands.value.length
-    ) {
-      slashHighlightIndex.value = 0;
-    }
+  () => props.maxRows,
+  (maxRows) => {
+    autosize.setMaxRows(maxRows);
   },
-  { immediate: true },
 );
 
 watch(
   () => props.mode,
-  async (mode) => {
+  (mode) => {
     if (mode !== "input") {
-      layout.value = "compact";
-      commandQuery.value = null;
       closeAddMenu();
     }
-
-    const recorder = audioRecorderRef.value;
-    if (!recorder) {
-      return;
-    }
-
-    if (mode === "transcribe") {
-      try {
-        await recorder.start();
-      } catch (error) {
-        console.error(error);
-      }
-      return;
-    }
-
-    if (recorder.state === "recording") {
-      try {
-        await recorder.stop();
-      } catch {
-        // ignore transition stop failures
-      }
-    }
   },
-  { immediate: true },
 );
 
+// Recording follows the mode: it starts in transcribe mode and stops when the
+// mode changes. The recorder renders only in transcribe mode, so also sync
+// when it appears.
 watch(
-  audioRecorderRef,
-  async (recorder) => {
-    if (!recorder || props.mode !== "transcribe") {
-      return;
-    }
-    if (recorder.state === "idle") {
-      try {
-        await recorder.start();
-      } catch (error) {
-        console.error(error);
-      }
-    }
+  [audioRecorderRef, () => props.mode],
+  ([recorder, mode]) => {
+    void ɵsyncRecorderToMode(recorder, mode);
   },
-  { immediate: true },
+  { immediate: true, flush: "post" },
 );
 
 watch(slashHighlightIndex, async (index) => {
@@ -885,62 +473,11 @@ onMounted(() => {
     textareaRef.value?.focus();
   }
 
-  evaluateLayout();
-
-  if (typeof ResizeObserver !== "undefined") {
-    const containerTargets = new Set<HTMLElement>();
-    if (gridRef.value) containerTargets.add(gridRef.value);
-    if (addButtonContainerRef.value)
-      containerTargets.add(addButtonContainerRef.value);
-    if (actionsContainerRef.value)
-      containerTargets.add(actionsContainerRef.value);
-
-    resizeObserver = new ResizeObserver((entries) => {
-      const shouldInvalidate = entries.some((entry) =>
-        containerTargets.has(entry.target as HTMLElement),
-      );
-      scheduleLayoutEvaluation(shouldInvalidate);
-    });
-
-    if (gridRef.value) resizeObserver.observe(gridRef.value);
-    if (addButtonContainerRef.value)
-      resizeObserver.observe(addButtonContainerRef.value);
-    if (actionsContainerRef.value)
-      resizeObserver.observe(actionsContainerRef.value);
-    if (textareaRef.value) resizeObserver.observe(textareaRef.value);
-  }
-
-  documentPointerDownHandler = (event: MouseEvent) => {
-    if (!addMenuOpen.value) {
-      return;
-    }
-    const target = event.target as Node | null;
-    if (!target) {
-      return;
-    }
-    if (
-      addMenuRef.value?.contains(target) ||
-      addButtonContainerRef.value?.contains(target)
-    ) {
-      return;
-    }
-    closeAddMenu();
-  };
-
-  document.addEventListener("mousedown", documentPointerDownHandler);
+  autosize.evaluate(inputValue.value, props.mode);
 });
 
 onBeforeUnmount(() => {
-  if (documentPointerDownHandler) {
-    document.removeEventListener("mousedown", documentPointerDownHandler);
-    documentPointerDownHandler = null;
-  }
-  resizeObserver?.disconnect();
-  resizeObserver = null;
-  if (resizeEvaluationRafRef.value !== null) {
-    cancelAnimationFrame(resizeEvaluationRafRef.value);
-    resizeEvaluationRafRef.value = null;
-  }
+  autosize.dispose();
 });
 </script>
 
@@ -959,9 +496,7 @@ onBeforeUnmount(() => {
     }"
     v-bind="rootAttrs"
   >
-    <div
-      class="cpk:pointer-events-auto cpk:mx-auto cpk:max-w-3xl cpk:px-4 cpk:py-0 cpk:@3xl:px-0 cpk:[div[data-sidebar-chat]_&]:px-8 cpk:[div[data-popup-chat]_&]:px-4"
-    >
+    <div class="cpk-chat-input-wrapper">
       <slot
         name="layout"
         :mode="mode"
@@ -973,7 +508,7 @@ onBeforeUnmount(() => {
         :send-disabled="sendDisabled"
         :menu-open="addMenuOpen"
         :menu-items="menuDisplayItems"
-        :on-toggle-menu="toggleAddMenu"
+        :on-toggle-menu="() => toggleAddMenu()"
         :on-menu-action="handleMenuAction"
         :on-update-value="updateInputValue"
         :on-submit="submit"
@@ -986,99 +521,81 @@ onBeforeUnmount(() => {
         <div
           ref="shellRef"
           data-testid="copilot-chat-input-shell"
-          class="cpk:flex cpk:w-full cpk:cursor-text cpk:flex-col cpk:items-center cpk:justify-center cpk:overflow-visible cpk:rounded-[28px] cpk:bg-white cpk:bg-clip-padding cpk:shadow-[0_4px_4px_0_#0000000a,0_0_1px_0_#0000009e] cpk:contain-inline-size cpk:dark:bg-[#303030]"
+          class="copilotKitInput cpk-chat-input-pill"
           :data-layout="isExpanded ? 'expanded' : 'compact'"
           @click="handleContainerClick"
         >
           <div
             ref="gridRef"
-            :class="[
-              'cpk:grid cpk:w-full cpk:gap-x-3 cpk:gap-y-3 cpk:px-3 cpk:py-2',
-              isExpanded
-                ? 'cpk:grid-cols-[auto_minmax(0,1fr)_auto] cpk:grid-rows-[auto_auto]'
-                : 'cpk:grid-cols-[auto_minmax(0,1fr)_auto] cpk:items-center',
-            ]"
+            class="cpk-chat-input-grid"
             :data-layout="isExpanded ? 'expanded' : 'compact'"
           >
-            <div
-              ref="addButtonContainerRef"
-              :class="[
-                'cpk:relative cpk:flex cpk:items-center cpk:col-start-1',
-                isExpanded ? 'cpk:row-start-2' : 'cpk:row-start-1',
-              ]"
-            >
+            <div ref="addButtonContainerRef" class="cpk-chat-input-start">
               <slot
                 name="add-menu-button"
                 :disabled="disabled || mode === 'transcribe' || !hasMenuItems"
                 :menu-open="addMenuOpen"
-                :toggle-menu="toggleAddMenu"
+                :toggle-menu="() => toggleAddMenu()"
                 :labels="labels"
               >
-                <button
-                  type="button"
-                  data-testid="copilot-chat-input-add"
-                  :aria-label="labels.chatInputToolbarAddButtonLabel"
-                  :disabled="disabled || mode === 'transcribe' || !hasMenuItems"
-                  class="cpk:ml-1 cpk:inline-flex cpk:h-9 cpk:w-9 cpk:shrink-0 cpk:items-center cpk:justify-center cpk:rounded-full cpk:bg-transparent cpk:text-[#444444] cpk:transition-colors cpk:hover:bg-[#f8f8f8] cpk:hover:text-[#333333] cpk:disabled:cursor-not-allowed cpk:disabled:opacity-50 cpk:disabled:hover:bg-transparent cpk:disabled:hover:text-[#444444] cpk:dark:text-white cpk:dark:hover:bg-[#404040] cpk:dark:hover:text-[#FFFFFF] cpk:dark:disabled:hover:bg-transparent cpk:dark:disabled:hover:text-[#CCCCCC]"
-                  @click.stop="toggleAddMenu"
-                >
-                  <IconPlus class="cpk:size-[20px]" />
-                </button>
+                <CopilotTooltip side="bottom" :suppressed="addMenuOpen">
+                  <template #default="{ triggerProps }">
+                    <button
+                      v-bind="triggerProps"
+                      :id="addMenuTriggerId"
+                      type="button"
+                      data-testid="copilot-chat-input-add"
+                      :aria-label="labels.chatInputToolbarAddButtonLabel"
+                      aria-haspopup="menu"
+                      :aria-expanded="addMenuOpen"
+                      :aria-controls="addMenuOpen ? addMenuId : undefined"
+                      :data-state="addMenuOpen ? 'open' : 'closed'"
+                      :disabled="
+                        disabled || mode === 'transcribe' || !hasMenuItems
+                      "
+                      class="cpk-button cpk-button-chat-input-toolbar-secondary cpk-button-size-chat-input-toolbar-icon cpk-chat-input-add-menu-button"
+                      @pointerdown="handleAddMenuPointerDown"
+                      @click.stop="handleAddMenuClick"
+                      @keydown="handleAddMenuTriggerKeydown"
+                    >
+                      <IconPlus class="cpk-chat-input-add-menu-icon" />
+                    </button>
+                  </template>
+                  <template #content>
+                    <p class="cpk-chat-input-add-menu-tooltip">
+                      <span>{{ labels.chatInputToolbarAddButtonLabel }}</span>
+                      <code class="cpk-chat-input-add-menu-shortcut">/</code>
+                    </p>
+                  </template>
+                </CopilotTooltip>
               </slot>
 
-              <div
-                v-if="addMenuOpen && hasMenuItems"
-                ref="addMenuRef"
-                class="cpk:absolute cpk:bottom-full cpk:left-0 cpk:z-30 cpk:mb-2 cpk:min-w-[220px] cpk:overflow-hidden cpk:rounded-lg cpk:border cpk:border-border cpk:bg-white cpk:shadow-lg cpk:dark:border-[#3a3a3a] cpk:dark:bg-[#1f1f1f]"
+              <CopilotDropdownMenuContent
+                :id="addMenuId"
+                :open="addMenuOpen && hasMenuItems"
+                :anchor="addMenuAnchor"
+                :items="menuItems"
+                :menu-id="addMenuId"
+                :labelled-by="addMenuAnchor?.id || undefined"
+                side="top"
+                align="start"
+                :side-offset="4"
+                :initial-focus="addMenuInitialFocus"
                 data-testid="copilot-chat-input-add-menu"
-              >
-                <template v-for="entry in menuDisplayItems" :key="entry.key">
-                  <div
-                    v-if="entry.type === 'separator'"
-                    class="cpk:my-1 cpk:h-px cpk:bg-border cpk:dark:bg-[#333333]"
-                  />
-                  <div
-                    v-else-if="entry.type === 'label'"
-                    class="cpk:flex cpk:items-center cpk:gap-1 cpk:px-3 cpk:py-1.5 cpk:text-xs cpk:font-semibold cpk:text-muted-foreground"
-                    :style="{ paddingLeft: `${12 + entry.depth * 12}px` }"
-                  >
-                    <span>{{ entry.label }}</span>
-                    <IconChevronRight class="cpk:size-3" />
-                  </div>
-                  <button
-                    v-else
-                    type="button"
-                    role="menuitem"
-                    class="cpk:w-full cpk:px-3 cpk:py-2 cpk:text-left cpk:text-sm cpk:transition-colors cpk:hover:bg-muted cpk:dark:hover:bg-[#2f2f2f]"
-                    :style="{ paddingLeft: `${12 + entry.depth * 12}px` }"
-                    @click="handleMenuAction(entry.action)"
-                  >
-                    {{ entry.label }}
-                  </button>
-                </template>
-              </div>
+                @select="handleAddMenuSelect"
+                @dismiss="handleAddMenuDismiss"
+              />
             </div>
 
-            <div
-              :class="[
-                'cpk:relative cpk:flex cpk:min-h-[50px] cpk:min-w-0 cpk:flex-col cpk:justify-center',
-                isExpanded
-                  ? 'cpk:col-span-3 cpk:row-start-1'
-                  : 'cpk:col-start-2 cpk:row-start-1',
-              ]"
-            >
+            <div class="cpk-chat-input-field">
               <template v-if="mode === 'transcribe'">
                 <slot name="audio-recorder">
                   <CopilotChatAudioRecorder ref="audioRecorderRef" />
                 </slot>
               </template>
               <template v-else-if="mode === 'processing'">
-                <div
-                  class="cpk:flex cpk:w-full cpk:items-center cpk:justify-center cpk:px-5 cpk:py-3"
-                >
-                  <IconLoader2
-                    class="cpk:size-[26px] cpk:animate-spin cpk:text-muted-foreground"
-                  />
+                <div class="cpk-chat-input-processing">
+                  <IconLoader2 class="cpk-chat-input-processing-spinner" />
                 </div>
               </template>
               <template v-else>
@@ -1102,8 +619,10 @@ onBeforeUnmount(() => {
                     :disabled="disabled"
                     rows="1"
                     :class="[
-                      'cpk:w-full cpk:bg-transparent cpk:py-3 cpk:text-[16px] cpk:font-normal cpk:leading-relaxed cpk:text-foreground cpk:antialiased cpk:outline-none cpk:placeholder:text-[#00000077] cpk:dark:placeholder:text-[#fffc]',
-                      isExpanded ? 'cpk:px-5' : 'cpk:pr-5',
+                      'cpk-chat-input-textarea',
+                      isExpanded
+                        ? 'cpk-chat-input-textarea-expanded'
+                        : 'cpk-chat-input-textarea-compact',
                     ]"
                     style="overflow: auto; resize: none"
                     @input="handleInput"
@@ -1119,12 +638,12 @@ onBeforeUnmount(() => {
                   data-testid="copilot-slash-menu"
                   role="listbox"
                   :aria-label="labels.chatInputSlashMenuLabel"
-                  class="cpk:absolute cpk:bottom-full cpk:left-0 cpk:right-0 cpk:z-30 cpk:mb-2 cpk:max-h-64 cpk:overflow-y-auto cpk:rounded-lg cpk:border cpk:border-border cpk:bg-white cpk:shadow-lg cpk:dark:border-[#3a3a3a] cpk:dark:bg-[#1f1f1f]"
+                  class="cpk-chat-input-slash-menu"
                   :style="{ maxHeight: `${5 * 40}px` }"
                 >
                   <div
                     v-if="filteredCommands.length === 0"
-                    class="cpk:px-3 cpk:py-2 cpk:text-sm cpk:text-muted-foreground"
+                    class="cpk-chat-input-slash-menu-empty"
                   >
                     {{ labels.chatInputSlashMenuEmptyText }}
                   </div>
@@ -1139,13 +658,8 @@ onBeforeUnmount(() => {
                     :data-active="
                       index === slashHighlightIndex ? 'true' : undefined
                     "
-                    :class="[
-                      'cpk:w-full cpk:px-3 cpk:py-2 cpk:text-left cpk:text-sm cpk:transition-colors cpk:hover:bg-muted cpk:dark:hover:bg-[#2f2f2f]',
-                      index === slashHighlightIndex
-                        ? 'cpk:bg-muted cpk:dark:bg-[#2f2f2f]'
-                        : 'cpk:bg-transparent',
-                    ]"
-                    @mouseenter="slashHighlightIndex = index"
+                    class="cpk-chat-input-slash-menu-item"
+                    @mouseenter="composer.highlight(index)"
                     @mousedown.prevent="runCommand(command)"
                   >
                     {{ command.label }}
@@ -1154,15 +668,7 @@ onBeforeUnmount(() => {
               </template>
             </div>
 
-            <div
-              ref="actionsContainerRef"
-              :class="[
-                'cpk:flex cpk:items-center cpk:justify-end cpk:gap-2',
-                isExpanded
-                  ? 'cpk:col-start-3 cpk:row-start-2'
-                  : 'cpk:col-start-3 cpk:row-start-1',
-              ]"
-            >
+            <div ref="actionsContainerRef" class="cpk-chat-input-actions">
               <template v-if="mode === 'transcribe'">
                 <slot
                   v-if="
@@ -1174,18 +680,28 @@ onBeforeUnmount(() => {
                   :on-click="() => emit('cancel-transcribe')"
                   :labels="labels"
                 >
-                  <button
-                    type="button"
-                    data-testid="copilot-chat-input-cancel-transcribe"
-                    :aria-label="
+                  <CopilotTooltip
+                    side="bottom"
+                    :content="
                       labels.chatInputToolbarCancelTranscribeButtonLabel
                     "
-                    :disabled="disabled"
-                    class="cpk:mr-2 cpk:inline-flex cpk:h-9 cpk:w-9 cpk:shrink-0 cpk:items-center cpk:justify-center cpk:rounded-full cpk:bg-transparent cpk:text-[#444444] cpk:transition-colors cpk:hover:bg-[#f8f8f8] cpk:hover:text-[#333333] cpk:disabled:cursor-not-allowed cpk:disabled:opacity-50 cpk:dark:text-white cpk:dark:hover:bg-[#404040] cpk:dark:hover:text-[#FFFFFF]"
-                    @click="emit('cancel-transcribe')"
                   >
-                    <IconX class="cpk:size-[18px]" />
-                  </button>
+                    <template #default="{ triggerProps }">
+                      <button
+                        v-bind="triggerProps"
+                        type="button"
+                        data-testid="copilot-chat-input-cancel-transcribe"
+                        :aria-label="
+                          labels.chatInputToolbarCancelTranscribeButtonLabel
+                        "
+                        :disabled="disabled"
+                        class="cpk-button cpk-button-chat-input-toolbar-secondary cpk-button-size-chat-input-toolbar-icon cpk-chat-input-cancel-transcribe-button"
+                        @click="emit('cancel-transcribe')"
+                      >
+                        <IconX class="cpk-chat-input-toolbar-icon" />
+                      </button>
+                    </template>
+                  </CopilotTooltip>
                 </slot>
                 <slot
                   v-if="
@@ -1197,18 +713,28 @@ onBeforeUnmount(() => {
                   :on-click="handleFinishTranscribe"
                   :labels="labels"
                 >
-                  <button
-                    type="button"
-                    data-testid="copilot-chat-input-finish-transcribe"
-                    :aria-label="
+                  <CopilotTooltip
+                    side="bottom"
+                    :content="
                       labels.chatInputToolbarFinishTranscribeButtonLabel
                     "
-                    :disabled="disabled"
-                    class="cpk:mr-[10px] cpk:inline-flex cpk:h-9 cpk:w-9 cpk:shrink-0 cpk:items-center cpk:justify-center cpk:rounded-full cpk:bg-transparent cpk:text-[#444444] cpk:transition-colors cpk:hover:bg-[#f8f8f8] cpk:hover:text-[#333333] cpk:disabled:cursor-not-allowed cpk:disabled:opacity-50 cpk:dark:text-white cpk:dark:hover:bg-[#404040] cpk:dark:hover:text-[#FFFFFF]"
-                    @click="handleFinishTranscribe"
                   >
-                    <IconCheck class="cpk:size-[18px]" />
-                  </button>
+                    <template #default="{ triggerProps }">
+                      <button
+                        v-bind="triggerProps"
+                        type="button"
+                        data-testid="copilot-chat-input-finish-transcribe"
+                        :aria-label="
+                          labels.chatInputToolbarFinishTranscribeButtonLabel
+                        "
+                        :disabled="disabled"
+                        class="cpk-button cpk-button-chat-input-toolbar-secondary cpk-button-size-chat-input-toolbar-icon cpk-chat-input-finish-transcribe-button"
+                        @click="handleFinishTranscribe"
+                      >
+                        <IconCheck class="cpk-chat-input-toolbar-icon" />
+                      </button>
+                    </template>
+                  </CopilotTooltip>
                 </slot>
               </template>
               <template v-else>
@@ -1222,18 +748,26 @@ onBeforeUnmount(() => {
                   :on-click="() => emit('start-transcribe')"
                   :labels="labels"
                 >
-                  <button
-                    type="button"
-                    data-testid="copilot-chat-input-start-transcribe"
-                    :aria-label="
-                      labels.chatInputToolbarStartTranscribeButtonLabel
-                    "
-                    :disabled="disabled"
-                    class="cpk:mr-2 cpk:inline-flex cpk:h-9 cpk:w-9 cpk:shrink-0 cpk:items-center cpk:justify-center cpk:rounded-full cpk:bg-transparent cpk:text-[#444444] cpk:transition-colors cpk:hover:bg-[#f8f8f8] cpk:hover:text-[#333333] cpk:disabled:cursor-not-allowed cpk:disabled:opacity-50 cpk:disabled:hover:bg-transparent cpk:disabled:hover:text-[#444444] cpk:dark:text-white cpk:dark:hover:bg-[#404040] cpk:dark:hover:text-[#FFFFFF] cpk:dark:disabled:hover:bg-transparent cpk:dark:disabled:hover:text-[#CCCCCC]"
-                    @click="emit('start-transcribe')"
+                  <CopilotTooltip
+                    side="bottom"
+                    :content="labels.chatInputToolbarStartTranscribeButtonLabel"
                   >
-                    <IconMic class="cpk:size-[18px]" />
-                  </button>
+                    <template #default="{ triggerProps }">
+                      <button
+                        v-bind="triggerProps"
+                        type="button"
+                        data-testid="copilot-chat-input-start-transcribe"
+                        :aria-label="
+                          labels.chatInputToolbarStartTranscribeButtonLabel
+                        "
+                        :disabled="disabled"
+                        class="cpk-button cpk-button-chat-input-toolbar-secondary cpk-button-size-chat-input-toolbar-icon cpk-chat-input-start-transcribe-button"
+                        @click="emit('start-transcribe')"
+                      >
+                        <IconMic class="cpk-chat-input-toolbar-icon" />
+                      </button>
+                    </template>
+                  </CopilotTooltip>
                 </slot>
                 <slot
                   name="send-button"
@@ -1241,24 +775,24 @@ onBeforeUnmount(() => {
                   :is-processing="isProcessing"
                   :on-click="handleSendButtonClick"
                 >
-                  <div class="cpk:mr-[10px]">
+                  <div class="cpk-chat-input-send">
                     <button
                       type="button"
                       data-testid="copilot-chat-input-send"
                       :aria-label="
-                        isProcessing && hasStopAction
+                        showsStop
                           ? labels.chatInputToolbarStopButtonLabel
                           : labels.chatInputToolbarSendButtonLabel
                       "
                       :disabled="sendDisabled"
-                      class="cpk:inline-flex cpk:h-9 cpk:w-9 cpk:shrink-0 cpk:items-center cpk:justify-center cpk:rounded-full cpk:bg-black cpk:text-white cpk:transition-colors cpk:hover:opacity-70 cpk:disabled:cursor-not-allowed cpk:disabled:opacity-50 cpk:disabled:bg-[#00000014] cpk:disabled:text-[rgb(13,13,13)] cpk:disabled:hover:opacity-100 cpk:dark:bg-white cpk:dark:text-black cpk:dark:disabled:bg-[#454545] cpk:dark:disabled:text-white"
+                      class="cpk-button cpk-button-chat-input-toolbar-primary cpk-button-size-chat-input-toolbar-icon cpk-chat-input-send-button"
                       @click="handleSendButtonClick"
                     >
                       <IconSquare
-                        v-if="isProcessing && hasStopAction"
-                        class="cpk:size-[18px] cpk:fill-current"
+                        v-if="showsStop"
+                        class="cpk-chat-input-stop-icon"
                       />
-                      <IconArrowUp v-else class="cpk:size-[18px]" />
+                      <IconArrowUp v-else class="cpk-chat-input-send-icon" />
                     </button>
                   </div>
                 </slot>
@@ -1272,7 +806,7 @@ onBeforeUnmount(() => {
     <slot v-if="shouldShowDisclaimer" name="disclaimer" :labels="labels">
       <p
         data-testid="copilot-chat-input-disclaimer"
-        class="cpk:mx-auto cpk:max-w-3xl cpk:px-4 cpk:py-3 cpk:text-center cpk:text-xs cpk:text-muted-foreground"
+        class="cpk-chat-input-disclaimer"
       >
         {{ labels.chatDisclaimerText }}
       </p>

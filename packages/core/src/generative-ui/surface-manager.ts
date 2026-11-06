@@ -12,8 +12,6 @@ import {
   GENERATIVE_UI_MAX_SUMMARY_REJECTIONS,
   getOperationKind,
   getOperationSurfaceId,
-  isIndexCall,
-  isPathBinding,
   validateOperation,
 } from "@copilotkit/shared";
 import type {
@@ -173,7 +171,10 @@ export class GenerativeUISurfaceManager {
     private readonly ui: GenerativeUI,
     private readonly options: GenerativeUISurfaceManagerOptions = {},
   ) {
-    this.webCoreCatalog = new Catalog(
+    // `SurfaceModel` only needs component names; it never reads a schema.
+    // `Catalog<any>` because web_core types schemas as Zod 3 and this
+    // package uses Zod 4.
+    this.webCoreCatalog = new Catalog<any>(
       ui.id,
       [...ui.components.keys()].map((name) => ({ name, schema: z.any() })),
       [],

@@ -5,7 +5,8 @@
  * mirroring the React renderer's catalog/basic/.
  */
 
-import { h, ref, type CSSProperties, type VNode } from "vue";
+import { h, ref } from "vue";
+import type { CSSProperties, VNode } from "vue";
 import { Catalog } from "@a2ui/web_core/v0_9";
 import {
   TextApi,
@@ -29,7 +30,8 @@ import {
   BASIC_FUNCTIONS,
 } from "@a2ui/web_core/v0_9/basic_catalog";
 
-import { createVueComponent, type VueComponentImplementation } from "./adapter";
+import { createVueComponent } from "./adapter";
+import type { VueComponentImplementation } from "./adapter";
 import {
   LEAF_MARGIN,
   STANDARD_BORDER,
@@ -38,6 +40,7 @@ import {
   getBaseContainerStyle,
   mapJustify,
   mapAlign,
+  getDateTimeInputType,
 } from "./utils";
 
 // -- Helper: render a child list (arrays of { id, basePath } or string IDs) --
@@ -98,6 +101,7 @@ const Text = createVueComponent(TextApi, ({ props }) => {
         text,
       );
     case "body":
+    case undefined:
     default:
       return h("span", { style }, text);
   }
@@ -809,9 +813,7 @@ const DateTimeInput = createVueComponent(
   ({ props, state }) => {
     const uniqueId = state.id;
 
-    let type = "datetime-local";
-    if (props.enableDate && !props.enableTime) type = "date";
-    if (!props.enableDate && props.enableTime) type = "time";
+    const type = getDateTimeInputType(props);
 
     const style = {
       padding: "8px",

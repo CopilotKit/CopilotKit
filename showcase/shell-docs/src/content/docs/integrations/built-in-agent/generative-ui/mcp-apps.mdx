@@ -23,8 +23,6 @@ Key benefits:
     ```bash
     npm install @ag-ui/mcp-apps-middleware
     ```
-
-    Use `@copilotkit/runtime` 1.76.0 or later. The current middleware release needs `@ag-ui/client` 1.x, which runtime 1.76.0 and later use.
   </Step>
   <Step>
     ### Add MCP Apps middleware to your agent
@@ -36,12 +34,13 @@ Key benefits:
       CopilotRuntime,
       createCopilotRuntimeHandler,
       InMemoryAgentRunner,
-    } from "@copilotkit/runtime/v2";
-    import { BuiltInAgent } from "@copilotkit/runtime/v2"; // [!code highlight]
+    } from "@copilotkit/runtime";
+    import { BuiltInAgent } from "@copilotkit/runtime/agent";
+    import { openaiText } from "@tanstack/ai-openai";
     import { MCPAppsMiddleware } from "@ag-ui/mcp-apps-middleware"; // [!code highlight]
 
     const agent = new BuiltInAgent({
-      model: "openai:gpt-6-luna",
+      model: openaiText("gpt-6-luna"),
       prompt: "You are a helpful assistant.",
     }).use( // [!code highlight:9]
       new MCPAppsMiddleware({
@@ -93,11 +92,17 @@ The middleware supports two transport types:
 For MCP servers using HTTP-based communication:
 
 ```typescript
-{
-  type: "http",
-  url: "http://localhost:3101/mcp",
-  serverId: "my-http-server"
-}
+import { MCPAppsMiddleware } from "@ag-ui/mcp-apps-middleware";
+
+const middleware = new MCPAppsMiddleware({
+  mcpServers: [
+    {
+      type: "http",
+      url: "http://localhost:3101/mcp",
+      serverId: "my-http-server",
+    },
+  ],
+});
 ```
 
 ### SSE Transport
@@ -105,14 +110,20 @@ For MCP servers using HTTP-based communication:
 For MCP servers using Server-Sent Events:
 
 ```typescript
-{
-  type: "sse",
-  url: "https://mcp.example.com/sse",
-  headers: {
-    "Authorization": "Bearer token"
-  },
-  serverId: "my-sse-server"
-}
+import { MCPAppsMiddleware } from "@ag-ui/mcp-apps-middleware";
+
+const middleware = new MCPAppsMiddleware({
+  mcpServers: [
+    {
+      type: "sse",
+      url: "https://mcp.example.com/sse",
+      headers: {
+        Authorization: "Bearer token",
+      },
+      serverId: "my-sse-server",
+    },
+  ],
+});
 ```
 
 ## Example MCP Servers

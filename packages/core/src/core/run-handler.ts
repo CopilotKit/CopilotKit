@@ -24,6 +24,7 @@ import {
   toToolResultContent,
 } from "./tool-result-content";
 import { createToolSchema } from "./tool-schema";
+import { ɵresetAgentThreadBaseline } from "./thread-baseline";
 import {
   ɵgetAgentInterruptState,
   ɵclearAgentInterruptState,
@@ -161,6 +162,12 @@ const MAX_REMEMBERED_REQUEST_IDS = 100;
  */
 const MAX_FOLLOW_UP_DEPTH = 100;
 
+/** One `addTool` call. Its identity is what the unregister function removes. */
+interface HookToolRegistration {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  tool: FrontendTool<any>;
+}
+
 /**
  * Name of the catch-all frontend tool. A tool registered under this name
  * handles any tool call that has no exact match (see `executeWildcardTool`),
@@ -188,9 +195,14 @@ export class RunHandler {
    * one array before, so the `/info` response flipping `openGenerativeUI` (or
    * any other provider-prop change) silently dropped every hook-registered
    * tool (#4952). Key = `capabilityKey(name, agentId)`.
+   *
+   * Each key holds a stack of registrations. The last one is the active tool;
+   * removing it (via the function `addTool` returns) brings back the one
+   * below, and an empty stack lets the provider tool of that key show again.
+   * A registration is its own object, so removing one never removes another
+   * registration of the same tool object.
    */
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  private _hookTools: Map<string, FrontendTool<any>> = new Map();
+  private _hookTools: Map<string, HookToolRegistration[]> = new Map();
 
   /**
    * Memoized merge of both buckets, invalidated on every registry write.
@@ -257,6 +269,15 @@ export class RunHandler {
   private _runDepths = new WeakMap<AbstractAgent, number>();
 
   /**
+   * Agents with at least one run in flight (depth above 0), so
+   * {@link dispose} can stop them. Removed when the last run ends.
+   */
+  private _runningAgents = new Set<AbstractAgent>();
+
+  /** Set by {@link dispose}. Stops WebMCP from registering tools again. */
+  private _disposed = false;
+
+  /**
    * Each agent's own `abortRun`, saved while RunHandler's intercept is
    * installed. Restored only once none of the agent's runs is in flight, so an
    * overlapping run keeps the intercept after an earlier run finishes.
@@ -306,16 +327,33 @@ export class RunHandler {
   /** Prevent reconnects from starting an interaction already executing locally. */
   private _executingToolCalls = new WeakMap<AbstractAgent, Set<string>>();
 
+  /**
+   * Ids of the tool calls whose handler runs now, across every agent. Each
+   * change makes a new set, so callers can compare snapshots by identity.
+   */
+  private _executingToolCallIds: ReadonlySet<string> = new Set();
+
   private _connectionGenerations = new WeakMap<AbstractAgent, object>();
   private _runGenerations = new WeakMap<AbstractAgent, object>();
 
-  private _interactionAbortControllers = new WeakMap<
+  // A Map, not a WeakMap, so `dispose` can reach every agent's interactions.
+  // Entries are deleted when their interactions settle or are aborted.
+  private _interactionAbortControllers = new Map<
     AbstractAgent,
     {
       threadId: string | null;
       controllers: Set<AbortController>;
     }
   >();
+
+  /**
+   * Live human-in-the-loop calls, keyed by the `capabilityKey` of the tool
+   * that runs them. Each value aborts its call the way an explicit stop does.
+   * When no tool with that key is registered any more, the call is aborted, so
+   * its wait rejects instead of holding the run open forever.
+   */
+  private _liveHITLCalls = new Map<string, Set<() => void>>();
+  private _orphanedHITLCheckScheduled = false;
 
   constructor(private core: CopilotKitCore) {}
 
@@ -334,6 +372,33 @@ export class RunHandler {
       // reconnect restore it without waiting for its execution marker to clear.
       this._executingToolCalls.delete(agent);
     }
+  }
+
+  /**
+   * Stop every run chain and tool interaction this handler tracks, and every
+   * agent in `agents` that reports a run in flight, the same way `stopAgent`
+   * does. Then unregister all WebMCP tools. Called by `CopilotKitCore.dispose`.
+   */
+  dispose(agents: Iterable<AbstractAgent>): void {
+    this._disposed = true;
+    const candidates = new Set([
+      ...agents,
+      ...this._runningAgents,
+      ...this._interactionAbortControllers.keys(),
+    ]);
+    for (const agent of candidates) {
+      const hasActiveRun = agent.isRunning || this._runningAgents.has(agent);
+      try {
+        this.abortCurrentRun(agent);
+        if (hasActiveRun) agent.abortRun();
+      } catch (error) {
+        logger.error(
+          `Failed to stop agent '${agent.agentId ?? "(unknown agent)"}' on dispose:`,
+          error,
+        );
+      }
+    }
+    this._webmcpRegistry.sync(new Map());
   }
 
   private abortAgentRuns(agent: AbstractAgent): void {
@@ -399,8 +464,9 @@ export class RunHandler {
     for (const tool of this._propTools) {
       merged.set(this.capabilityKey(tool.name, tool.agentId), tool);
     }
-    for (const [key, tool] of this._hookTools) {
-      merged.set(key, tool);
+    for (const [key, stack] of this._hookTools) {
+      const active = stack[stack.length - 1];
+      if (active) merged.set(key, active.tool);
     }
     this._cachedMergedTools = Array.from(merged.values());
     return this._cachedMergedTools;
@@ -418,31 +484,61 @@ export class RunHandler {
     this._cachedMergedTools = null;
     this.warnOnMissingToolParameters(this._propTools);
     this.syncWebMCP();
+    this.abortOrphanedHITLCalls();
   }
 
   /**
    * Add a tool to the registry. Survives provider re-syncs ({@link setTools}),
    * and shadows a provider tool of the same name + agentId.
+   *
+   * Registrations of the same name + agentId stack: the most recent one is
+   * active. Call the returned function to remove exactly this registration;
+   * the previous registration (or the provider tool) becomes active again.
+   * Calling it more than once does nothing.
    */
   addTool<T extends Record<string, unknown> = Record<string, unknown>>(
     tool: FrontendTool<T>,
-  ): void {
+  ) {
     const key = this.capabilityKey(tool.name, tool.agentId);
+    const registration: HookToolRegistration = { tool };
+    const stack = this._hookTools.get(key);
 
-    // Only a competing imperative registration is a conflict. A provider tool
-    // of the same name is shadowed rather than treated as a duplicate — hooks
-    // mount after the provider and are the more specific registration.
-    if (this._hookTools.has(key)) {
-      logger.warn(
-        `Tool already exists: '${tool.name}' for agent '${tool.agentId || "global"}', skipping.`,
-      );
-      return;
+    // A provider tool of the same name is shadowed silently: hooks mount after
+    // the provider and are the more specific registration. Two imperative
+    // registrations of one key are usually two mounted components, so say so.
+    if (stack) {
+      if (process.env.NODE_ENV !== "production") {
+        logger.warn(
+          `Tool already exists: '${tool.name}' for agent '${tool.agentId || "global"}'. ` +
+            `The new registration shadows it until the new one is removed.`,
+        );
+      }
+      stack.push(registration);
+    } else {
+      this._hookTools.set(key, [registration]);
     }
 
-    this._hookTools.set(key, tool);
     this._cachedMergedTools = null;
     this.warnOnMissingToolParameters([tool]);
     this.syncWebMCP();
+
+    return () => this.unregisterHookTool(key, registration);
+  }
+
+  /** Remove one `addTool` registration. Unknown registrations are ignored. */
+  private unregisterHookTool(
+    key: string,
+    registration: HookToolRegistration,
+  ): void {
+    const stack = this._hookTools.get(key);
+    const index = stack?.indexOf(registration) ?? -1;
+    if (!stack || index === -1) return;
+
+    stack.splice(index, 1);
+    if (stack.length === 0) this._hookTools.delete(key);
+    this._cachedMergedTools = null;
+    this.syncWebMCP();
+    this.abortOrphanedHITLCalls();
   }
 
   /**
@@ -490,7 +586,10 @@ export class RunHandler {
   }
 
   /**
-   * Remove a tool by name and optionally by agentId
+   * Remove a tool by name and optionally by agentId: every `addTool`
+   * registration of that key and the provider tool of that key. Without an
+   * agentId only global tools are removed. To remove one `addTool`
+   * registration and keep the others, call the function `addTool` returned.
    */
   removeTool(id: string, agentId?: string): void {
     this._hookTools.delete(this.capabilityKey(id, agentId));
@@ -504,6 +603,7 @@ export class RunHandler {
     });
     this._cachedMergedTools = null;
     this.syncWebMCP();
+    this.abortOrphanedHITLCalls();
   }
 
   /**
@@ -538,6 +638,43 @@ export class RunHandler {
     this._cachedMergedTools = null;
     this.warnOnMissingToolParameters(this._propTools);
     this.syncWebMCP();
+    this.abortOrphanedHITLCalls();
+  }
+
+  /**
+   * After a tool is removed, abort each live human-in-the-loop call whose
+   * tool key has no registration left. The wait rejects with the
+   * human-in-the-loop abort error and the run settles, so work queued behind
+   * it (a new message, for example) can start.
+   *
+   * The check runs in a microtask: a framework that tears a tool down and
+   * registers it again in one pass (a dependency change, a keyed remount)
+   * keeps its call alive. A call aborted here is gone for good; registering
+   * the tool again later does not bring the wait back.
+   */
+  private abortOrphanedHITLCalls(): void {
+    if (this._orphanedHITLCheckScheduled || this._liveHITLCalls.size === 0) {
+      return;
+    }
+    this._orphanedHITLCheckScheduled = true;
+    queueMicrotask(() => {
+      this._orphanedHITLCheckScheduled = false;
+      for (const [key, aborts] of this._liveHITLCalls) {
+        if (this.isToolKeyRegistered(key)) continue;
+        this._liveHITLCalls.delete(key);
+        for (const abort of aborts) abort();
+      }
+    });
+  }
+
+  /** True while any registration (hook or provider) holds this tool key. */
+  private isToolKeyRegistered(key: string): boolean {
+    return (
+      this._hookTools.has(key) ||
+      this._propTools.some(
+        (tool) => this.capabilityKey(tool.name, tool.agentId) === key,
+      )
+    );
   }
 
   /**
@@ -619,26 +756,12 @@ export class RunHandler {
       // gateway can resume from `lastSeenEventId` instead of replaying
       // the full history.
       if (isFreshRestore) {
-        agent.setMessages([]);
-        agent.setState({});
-        if (
-          previousThreadId !== undefined &&
-          previousThreadId !== incomingThreadId
-        ) {
-          agent.pendingInterrupts = [];
-        }
-        const cursorAware = agent as {
-          clearReconnectCursor?: (id: string) => void;
-          clearReplayCursor?: (id: string) => void;
-        };
-        if (incomingThreadId) {
-          if (typeof cursorAware.clearReplayCursor === "function") {
-            cursorAware.clearReplayCursor(incomingThreadId);
-          }
-          if (typeof cursorAware.clearReconnectCursor === "function") {
-            cursorAware.clearReconnectCursor(incomingThreadId);
-          }
-        }
+        ɵresetAgentThreadBaseline(agent, {
+          cursorThreadId: incomingThreadId,
+          clearPendingInterrupts:
+            previousThreadId !== undefined &&
+            previousThreadId !== incomingThreadId,
+        });
       }
 
       // Re-apply current headers (merged on top of the agent's own headers)
@@ -754,7 +877,7 @@ export class RunHandler {
     ɵclearAgentInterruptState(agent);
     // Agent ID is guaranteed to be set by validateAndAssignAgentId
     if (agent.agentId) {
-      void this._internal.suggestionEngine.clearSuggestions(agent.agentId);
+      this._internal.suggestionEngine.clearSuggestions(agent.agentId);
     }
 
     // Re-apply current headers (merged on top of the agent's own headers) so
@@ -840,6 +963,7 @@ export class RunHandler {
     }
 
     if (depth === 0) {
+      this._runningAgents.add(agent);
       // Intercept agent.abortRun() so that calling it directly (not via
       // stopAgent) also aborts in-flight tool execution and prevents
       // follow-up runs.
@@ -965,6 +1089,7 @@ export class RunHandler {
       // Restore the original abortRun only once none of the agent's runs is
       // in flight: an overlapping run on the same agent still needs it.
       if (remainingDepth === 0) {
+        this._runningAgents.delete(agent);
         const originalAbortRun = this._originalAbortRuns.get(agent);
         if (originalAbortRun) {
           agent.abortRun = originalAbortRun;
@@ -1168,27 +1293,49 @@ export class RunHandler {
               threadId: threadId ?? null,
               controllers: new Set<AbortController>(),
             };
+            // Every human-in-the-loop call gets its own controller, so removing
+            // its tool can cancel this call alone. A restored call follows the
+            // replay signal as before; only a live call is stopped like Stop.
+            const hitlController =
+              executableTool?.type === "human-in-the-loop"
+                ? (interactionController ?? new AbortController())
+                : undefined;
+            const followReplayAbort = () => hitlController?.abort();
             const abortInteraction = () => {
-              if (!interactionController) return;
+              if (!hitlController) return;
               const stopConnectionGeneration =
                 this._connectionGenerations.get(agent);
               liveHITLStops.set(
-                interactionController.signal,
+                hitlController.signal,
                 () =>
                   this._connectionGenerations.get(agent) ===
                     stopConnectionGeneration && agent.threadId === threadId,
               );
-              interactionController.abort();
+              hitlController.abort();
             };
+            const onParentAbort = interactionController
+              ? abortInteraction
+              : followReplayAbort;
             if (interactionController) {
               interactions.controllers.add(interactionController);
               this._interactionAbortControllers.set(agent, interactions);
-              signal?.addEventListener("abort", abortInteraction, {
-                once: true,
-              });
-              if (signal?.aborted) abortInteraction();
             }
-            const executionSignal = interactionController?.signal ?? signal;
+            let toolUnregistered = false;
+            const abortUnregistered = () => {
+              toolUnregistered = true;
+              abortInteraction();
+            };
+            const hitlKey = executableTool
+              ? this.capabilityKey(executableTool.name, executableTool.agentId)
+              : "";
+            if (hitlController) {
+              signal?.addEventListener("abort", onParentAbort, { once: true });
+              if (signal?.aborted) onParentAbort();
+              const liveCalls = this._liveHITLCalls.get(hitlKey) ?? new Set();
+              liveCalls.add(abortUnregistered);
+              this._liveHITLCalls.set(hitlKey, liveCalls);
+            }
+            const executionSignal = hitlController?.signal ?? signal;
             const discardOnAbort =
               toolExecutionMode === "restore" || !!interactionController;
             try {
@@ -1228,8 +1375,14 @@ export class RunHandler {
               }
             } finally {
               executing.delete(executionKey);
+              if (hitlController) {
+                signal?.removeEventListener("abort", onParentAbort);
+                const liveCalls = this._liveHITLCalls.get(hitlKey);
+                liveCalls?.delete(abortUnregistered);
+                if (liveCalls?.size === 0) this._liveHITLCalls.delete(hitlKey);
+              }
+              this.clearToolCallExecuting(toolCall.id);
               if (interactionController) {
-                signal?.removeEventListener("abort", abortInteraction);
                 interactions.controllers.delete(interactionController);
                 if (
                   interactions.controllers.size === 0 &&
@@ -1239,7 +1392,8 @@ export class RunHandler {
                 }
               }
             }
-            if (interactionController?.signal.aborted) return runAgentResult;
+            if (interactionController?.signal.aborted || toolUnregistered)
+              return runAgentResult;
           }
         }
       }
@@ -1314,7 +1468,7 @@ export class RunHandler {
       }
     }
 
-    void this._internal.suggestionEngine.reloadSuggestions(agentId);
+    this._internal.suggestionEngine.reloadSuggestions(agentId);
 
     return runAgentResult;
   }
@@ -1354,6 +1508,43 @@ export class RunHandler {
   }
 
   /** Identify transport placeholders that must not count as completed answers. */
+  /**
+   * Ids of the tool calls whose handler runs now. An id joins the set right
+   * after the handler is called (after `onToolExecutionStart`) and leaves it
+   * once the handler's result is in `agent.messages` (or the result was
+   * discarded). So a renderer that sees a call as executing always finds its
+   * handler waiting, and never sees a finished call without its result.
+   */
+  get executingToolCallIds() {
+    return this._executingToolCallIds;
+  }
+
+  private markToolCallExecuting(toolCallId: string) {
+    if (this._executingToolCallIds.has(toolCallId)) return;
+    this.replaceExecutingToolCallIds(
+      new Set([...this._executingToolCallIds, toolCallId]),
+    );
+  }
+
+  private clearToolCallExecuting(toolCallId: string) {
+    if (!this._executingToolCallIds.has(toolCallId)) return;
+    const next = new Set(this._executingToolCallIds);
+    next.delete(toolCallId);
+    this.replaceExecutingToolCallIds(next);
+  }
+
+  private replaceExecutingToolCallIds(next: ReadonlySet<string>) {
+    this._executingToolCallIds = next;
+    void this._internal.notifySubscribers(
+      (subscriber) =>
+        subscriber.onExecutingToolCallsChanged?.({
+          copilotkit: this.core,
+          executingToolCallIds: next,
+        }),
+      "Subscriber onExecutingToolCallsChanged error:",
+    );
+  }
+
   private isFrontendPlaceholderResult(message: Message): boolean {
     return (
       message.role === "tool" && isForwardedToClientPlaceholder(message.content)
@@ -1429,12 +1620,16 @@ export class RunHandler {
 
     if (!errorMessage) {
       try {
-        const result = await tool.handler!(parsedArgs as any, {
+        const pending = tool.handler!(parsedArgs as any, {
           toolCall: toolCall as any,
           agent,
           signal,
           ...(isReplay ? { isReplay } : {}),
         });
+        // Mark once the handler is called, so a renderer that sees
+        // "executing" (and offers a HITL `respond`) finds the handler waiting.
+        this.markToolCallExecuting(toolCall.id);
+        const result = await pending;
         ({ content: toolCallResult, text: toolCallText } =
           toToolResultContent(result));
       } catch (error) {
@@ -1636,7 +1831,7 @@ export class RunHandler {
 
       if (!errorMessage) {
         try {
-          const result = await wildcardTool.handler(wildcardArgs as any, {
+          const pending = wildcardTool.handler(wildcardArgs as any, {
             toolCall,
             agent,
             // Use the same execution signal as named tools, including the
@@ -1644,6 +1839,8 @@ export class RunHandler {
             signal,
             ...(isReplay ? { isReplay } : {}),
           });
+          this.markToolCallExecuting(toolCall.id);
+          const result = await pending;
           ({ content: toolCallResult, text: toolCallText } =
             toToolResultContent(result));
         } catch (error) {
@@ -1788,34 +1985,38 @@ export class RunHandler {
       isArgumentError: false,
     };
 
-    if (tool.handler) {
-      handlerResult = await this.executeToolHandler({
-        tool,
-        toolCall: assistantToolCall,
-        agent,
-        agentId: resolvedAgentId,
-        handlerArgs: parameters,
-        toolType: "runTool",
-      });
-    }
+    try {
+      if (tool.handler) {
+        handlerResult = await this.executeToolHandler({
+          tool,
+          toolCall: assistantToolCall,
+          agent,
+          agentId: resolvedAgentId,
+          handlerArgs: parameters,
+          toolType: "runTool",
+        });
+      }
 
-    // 6. Create and insert tool result message
-    const toolResultMessage: Message = {
-      id: randomUUID(),
-      role: "tool",
-      toolCallId,
-      content: handlerResult.content,
-      ...(handlerResult.error ? { error: handlerResult.error } : {}),
-    };
+      // 6. Create and insert tool result message
+      const toolResultMessage: Message = {
+        id: randomUUID(),
+        role: "tool",
+        toolCallId,
+        content: handlerResult.content,
+        ...(handlerResult.error ? { error: handlerResult.error } : {}),
+      };
 
-    const assistantIndex = agent.messages.findIndex(
-      (m) => m.id === assistantMessage.id,
-    );
-    if (assistantIndex !== -1) {
-      agent.messages.splice(assistantIndex + 1, 0, toolResultMessage);
-    } else {
-      // Fallback: push to end if assistant message was removed
-      agent.messages.push(toolResultMessage);
+      const assistantIndex = agent.messages.findIndex(
+        (m) => m.id === assistantMessage.id,
+      );
+      if (assistantIndex !== -1) {
+        agent.messages.splice(assistantIndex + 1, 0, toolResultMessage);
+      } else {
+        // Fallback: push to end if assistant message was removed
+        agent.messages.push(toolResultMessage);
+      }
+    } finally {
+      this.clearToolCallExecuting(toolCallId);
     }
 
     // 7. Handle followUp (only if no error)
@@ -1902,6 +2103,7 @@ export class RunHandler {
    * agentId — a name collision across agentIds keeps the first registration.
    */
   private syncWebMCP(): void {
+    if (this._disposed) return;
     const desired = new Map<string, FrontendTool<any>>();
     const warnedCollisions = new Set<string>();
     for (const tool of this.tools) {

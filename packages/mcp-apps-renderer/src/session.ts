@@ -5,7 +5,7 @@ import {
 } from "@modelcontextprotocol/ext-apps/app-bridge";
 import type { AbstractAgent } from "@ag-ui/client";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
-import { z } from "zod";
+import * as z from "zod";
 import { randomUUID } from "@copilotkit/shared";
 import { buildSandboxHTML, ɵmcpAppSandboxFlags } from "./sandbox";
 import {
@@ -130,7 +130,7 @@ const CopilotKitUiMessageSchema = z.object({
       followUp: z.boolean().optional(),
       _meta: z.record(z.string(), z.any()).optional(),
     })
-    .passthrough(),
+    .loose(),
 });
 
 /** A resource fetched from the MCP server via the agent proxy. */

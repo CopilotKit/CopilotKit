@@ -26,8 +26,8 @@
     "esModuleInterop": true,
     "paths": {
       "express": ["../../node_modules/@types/express"],
-      "@copilotkit/runtime/v2/express": ["../../dist/v2/express.d.mts"],
-      "@copilotkit/runtime/v2": ["../../dist/v2/index.d.mts"]
+      "@copilotkit/runtime/node": ["../../dist/node.d.mts"],
+      "@copilotkit/runtime": ["../../dist/index.d.mts"]
     }
   },
   "include": ["../consumer.ts"]

@@ -15,6 +15,7 @@ import { cn } from "../../utils";
   host: {
     "[class]": "computedClass()",
   },
+  // No whitespace around the content: the bubble keeps it (pre-wrap).
   template: `
     {{ content() }}
   `,
@@ -24,9 +25,6 @@ export class CopilotChatUserMessageRenderer {
   readonly inputClass = input<string | undefined>();
 
   readonly computedClass = computed(() => {
-    return cn(
-      "cpk:prose cpk:dark:prose-invert cpk:bg-muted cpk:relative cpk:max-w-[80%] cpk:rounded-[18px] cpk:px-4 cpk:py-1.5 cpk:data-[multiline]:py-3 cpk:inline-block cpk:whitespace-pre-wrap",
-      this.inputClass(),
-    );
+    return cn("cpk-user-message-bubble", this.inputClass());
   });
 }

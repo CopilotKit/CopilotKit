@@ -3,7 +3,7 @@ name: test / Omnara starter
 on:
   pull_request:
     paths:
-      - examples/integrations/omnara/**
+      - examples/starters/omnara/**
       - .github/workflows/test_omnara-starter.yml
   workflow_dispatch:
 
@@ -20,7 +20,7 @@ jobs:
     timeout-minutes: 20
     defaults:
       run:
-        working-directory: examples/integrations/omnara
+        working-directory: examples/starters/omnara
     env:
       COPILOTKIT_TELEMETRY_DISABLED: "true"
       NEXT_TELEMETRY_DISABLED: "1"
@@ -32,7 +32,7 @@ jobs:
         with:
           node-version: 22
           cache: npm
-          cache-dependency-path: examples/integrations/omnara/package-lock.json
+          cache-dependency-path: examples/starters/omnara/package-lock.json
       - run: npm ci
       - run: npm run typecheck
       - run: npm run typecheck:channel
@@ -45,5 +45,5 @@ jobs:
         if: always()
         with:
           name: omnara-starter-browser
-          path: examples/integrations/omnara/test-results
+          path: examples/starters/omnara/test-results
           if-no-files-found: ignore

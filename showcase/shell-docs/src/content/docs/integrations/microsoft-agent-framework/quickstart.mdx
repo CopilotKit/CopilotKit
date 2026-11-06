@@ -19,7 +19,7 @@ Before you begin, you'll need the following:
 
 - An [OpenAI API key](https://platform.openai.com/api-keys) for the .NET starter
 - .NET 9.0 SDK or later
-- Node.js 20+
+- Node.js 20.19.3+ or 22.13+
 - Your favorite package manager (npm, pnpm, yarn, or bun)
 
 ## Getting started
@@ -304,7 +304,7 @@ using Microsoft.Extensions.AI;
                 ### Install CopilotKit packages
 
                 ```npm
-                npm install @copilotkit/react-ui @copilotkit/react-core @copilotkit/runtime @ag-ui/client@1.0.2
+                npm install @copilotkit/react-core @copilotkit/runtime @ag-ui/client@1.0.4
                 ```
             </Step>
             <Step>
@@ -320,7 +320,7 @@ using Microsoft.Extensions.AI;
                   CopilotKitIntelligence,
                   CopilotRuntime,
                   createCopilotRuntimeHandler,
-                } from "@copilotkit/runtime/v2";
+                } from "@copilotkit/runtime";
                 import { HttpAgent } from "@ag-ui/client";
 
                 // 1. You can use any service adapter here for multi-agent support. We use
@@ -383,13 +383,13 @@ using Microsoft.Extensions.AI;
                 ```tsx title="app/providers.tsx"
                 "use client";
 
-                import { CopilotKit } from "@copilotkit/react-core/v2";
+                import { CopilotKitProvider } from "@copilotkit/react-core";
 
                 export function Providers({ children }: { children: React.ReactNode }) {
                   return (
-                    <CopilotKit runtimeUrl="/api/copilotkit" agent="my_agent" useSingleEndpoint={false}>
+                    <CopilotKitProvider runtimeUrl="/api/copilotkit" agentId="my_agent" useSingleEndpoint={false}>
                       {children}
-                    </CopilotKit>
+                    </CopilotKitProvider>
                   );
                 }
                 ```
@@ -399,7 +399,6 @@ using Microsoft.Extensions.AI;
 
                 ```tsx title="app/layout.tsx"
                 import { Providers } from "./providers"; // [!code highlight]
-                import "@copilotkit/react-core/v2/styles.css";
                 import './globals.css';
 
                 export default function RootLayout({ children }: {children: React.ReactNode}) {
@@ -433,7 +432,7 @@ using Microsoft.Extensions.AI;
               "use client";
 
               // [!code highlight:1]
-              import { CopilotSidebar } from "@copilotkit/react-core/v2";
+              import { CopilotSidebar } from "@copilotkit/react-core";
 
               export default function Page() {
                 return (

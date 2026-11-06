@@ -23,9 +23,6 @@ export class CopilotChatUserMessageToolbar {
   readonly inputClass = input<string | undefined>();
 
   readonly computedClass = computed(() =>
-    cn(
-      "cpk:w-full cpk:bg-transparent cpk:flex cpk:items-center cpk:justify-end cpk:mt-[4px] cpk:invisible cpk:group-hover:visible",
-      this.inputClass(),
-    ),
+    cn("cpk-user-message-toolbar", this.inputClass()),
   );
 }

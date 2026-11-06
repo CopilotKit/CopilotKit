@@ -60,6 +60,11 @@ describe("CopilotChat", () => {
       }) => void | Promise<void>,
       errorMessage: string,
     ) => Promise<void>;
+    emitError: (params: {
+      error: Error;
+      code: CopilotKitCoreErrorCode;
+      context?: Record<string, unknown>;
+    }) => Promise<void>;
   }
 
   beforeEach(() => {
@@ -405,16 +410,13 @@ describe("CopilotChat", () => {
       },
     });
 
-    await (core as unknown as CopilotKitCoreTestAccess).notifySubscribers(
-      (subscriber) =>
-        subscriber.onError?.({
-          copilotkit: core!,
-          error: new Error("matching agent"),
-          code: CopilotKitCoreErrorCode.AGENT_RUN_FAILED,
-          context: { agentId: "default" },
-        }),
-      "test chat onError",
-    );
+    // Through core's error path: the provider's onError is core's handler,
+    // the chat's is a subscriber.
+    await (core as unknown as CopilotKitCoreTestAccess).emitError({
+      error: new Error("matching agent"),
+      code: CopilotKitCoreErrorCode.AGENT_RUN_FAILED,
+      context: { agentId: "default" },
+    });
 
     await nextTick();
 

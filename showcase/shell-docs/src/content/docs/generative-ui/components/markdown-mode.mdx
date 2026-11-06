@@ -30,23 +30,31 @@ Set the markdown transport on the provider:
 <Tabs groupId="frontend_framework" items={["React", "Angular"]} persist>
   <Tab value="React">
     ```tsx title="app/providers.tsx"
-    import { CopilotKitProvider } from "@copilotkit/react-core/v2";
-    import { standardUI } from "@copilotkit/react-core/v2/generative-ui";
+    "use client";
+    import { CopilotKitProvider } from "@copilotkit/react-core";
+    import { standardUI } from "@copilotkit/react-core/generative-ui";
 
-    <CopilotKitProvider runtimeUrl="/api/copilotkit" generativeUI={{ ui: standardUI, transport: "markdown" }}>
-      {children}
-    </CopilotKitProvider>;
+    export function Providers({ children }: { children: React.ReactNode }) {
+      return (
+        <CopilotKitProvider runtimeUrl="/api/copilotkit" generativeUI={{ ui: standardUI, transport: "markdown" }}>
+          {children}
+        </CopilotKitProvider>
+      );
+    }
     ```
   </Tab>
   <Tab value="Angular">
     ```ts title="src/app/app.config.ts"
+    import type { ApplicationConfig } from "@angular/core";
     import { provideCopilotKit } from "@copilotkit/angular";
     import { provideGenerativeUI, standardUI } from "@copilotkit/angular/generative-ui";
 
-    providers: [
-      provideCopilotKit({ runtimeUrl: "/api/copilotkit" }),
-      provideGenerativeUI({ ui: standardUI, transport: "markdown" }),
-    ],
+    export const appConfig: ApplicationConfig = {
+      providers: [
+        provideCopilotKit({ runtimeUrl: "/api/copilotkit" }),
+        provideGenerativeUI({ ui: standardUI, transport: "markdown" }),
+      ],
+    };
     ```
 
     `provideGenerativeUI` then renders each assistant message with the blocks replaced by their surfaces, unless the app gives `<copilot-chat-assistant-message>` its own markdown renderer.
@@ -88,15 +96,31 @@ Some backends build the prompt themselves. Turn the context entries off, and rea
 <Tabs groupId="frontend_framework" items={["React", "Angular"]} persist>
   <Tab value="React">
     ```tsx
-    <CopilotKitProvider
-      runtimeUrl="/api/copilotkit"
-      generativeUI={{ ui: standardUI, transport: "markdown", sendContext: false }}
-    >
+    "use client";
+    import { CopilotKitProvider } from "@copilotkit/react-core";
+    import { standardUI } from "@copilotkit/react-core/generative-ui";
+
+    export function Providers({ children }: { children: React.ReactNode }) {
+      return (
+        <CopilotKitProvider runtimeUrl="/api/copilotkit" generativeUI={{ ui: standardUI, transport: "markdown", sendContext: false }}>
+          {children}
+        </CopilotKitProvider>
+      );
+    }
     ```
   </Tab>
   <Tab value="Angular">
     ```ts
-    provideGenerativeUI({ ui: standardUI, transport: "markdown", sendContext: false }),
+    import type { ApplicationConfig } from "@angular/core";
+    import { provideCopilotKit } from "@copilotkit/angular";
+    import { provideGenerativeUI, standardUI } from "@copilotkit/angular/generative-ui";
+
+    export const appConfig: ApplicationConfig = {
+      providers: [
+        provideCopilotKit({ runtimeUrl: "/api/copilotkit" }),
+        provideGenerativeUI({ ui: standardUI, transport: "markdown", sendContext: false }),
+      ],
+    };
     ```
   </Tab>
 </Tabs>
@@ -148,14 +172,10 @@ Two more options for these backends:
 - `includeCatalog: false` leaves `components` out, for a backend that already has them.
 - `agentIds: ["chat"]` sends the context and this data to those agents only.
 
-## The v1 chat
-
-The v1 chat components in `@copilotkit/react-ui` (`CopilotChat`, `CopilotSidebar`, `CopilotPopup`) render `a2ui` blocks too. Give the v1 `<CopilotKit>` provider the same `generativeUI` prop. Without it, a block renders as plain code.
-
 ## Limits
 
 - A block must start at the beginning of a line. A block that is indented inside a list item renders as code.
 - Values are literals, bindings (`{"@path": "/seats"}`) or function values (`{"@call": "calc", "args": { "expression": "seats * 29", "seats": {"@path": "/seats"} }}`); see [function values](/generative-ui/components/state-and-actions#compute-values-in-the-browser). There are no operators outside `calc`, and no function that maps over a list.
 - A `surfaceId` is never used twice, also after `deleteSurface`.
 
-To run it, start [`examples/v2/a2ui-markdown`](https://github.com/CopilotKit/CopilotKit/tree/main/examples/v2/a2ui-markdown) with the built-in agent or the LangGraph Python agent, and open `/?transport=markdown`.
+To run it, start [`examples/dev/by-feature/a2ui-markdown`](https://github.com/CopilotKit/CopilotKit/tree/main/examples/dev/by-feature/a2ui-markdown) with the built-in agent or the LangGraph Python agent, and open `/?transport=markdown`.

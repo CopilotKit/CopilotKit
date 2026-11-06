@@ -14,6 +14,9 @@
   ],
   "homepage": "https://github.com/CopilotKit/CopilotKit",
   "license": "MIT",
+  "engines": {
+    "node": ">=20"
+  },
   "repository": {
     "type": "git",
     "url": "https://github.com/CopilotKit/CopilotKit.git",
@@ -39,6 +42,36 @@
         "default": "./dist/index.cjs"
       }
     },
+    "./engine": {
+      "import": {
+        "types": "./dist/engine.d.mts",
+        "default": "./dist/engine.mjs"
+      },
+      "require": {
+        "types": "./dist/engine.d.cts",
+        "default": "./dist/engine.cjs"
+      }
+    },
+    "./engine-core": {
+      "import": {
+        "types": "./dist/engine-core.d.mts",
+        "default": "./dist/engine-core.mjs"
+      },
+      "require": {
+        "types": "./dist/engine-core.d.cts",
+        "default": "./dist/engine-core.cjs"
+      }
+    },
+    "./catalog-schema": {
+      "import": {
+        "types": "./dist/catalog-schema.d.mts",
+        "default": "./dist/catalog-schema.mjs"
+      },
+      "require": {
+        "types": "./dist/catalog-schema.d.cts",
+        "default": "./dist/catalog-schema.cjs"
+      }
+    },
     "./package.json": "./package.json"
   },
   "publishConfig": {
@@ -56,10 +89,11 @@
   },
   "dependencies": {
     "@a2ui/web_core": "0.15.0",
+    "@copilotkit/core": "workspace:*",
     "@copilotkit/shared": "workspace:*",
     "clsx": "^2.1.1",
-    "zod": "^3.25.75",
-    "zod-to-json-schema": "^3.24.1"
+    "zod": "^3.25.76",
+    "zod-to-json-schema": "^3.25.2"
   },
   "devDependencies": {
     "@tanstack/intent": "^0.0.29",

@@ -1,13 +1,12 @@
 <script setup lang="ts">
+import { computed, onBeforeUnmount, ref, useAttrs, watch } from "vue";
 import {
-  computed,
-  nextTick,
-  onBeforeUnmount,
-  onMounted,
-  ref,
-  useAttrs,
-  watch,
-} from "vue";
+  ɵPOPUP_DEFAULT_HEIGHT,
+  ɵPOPUP_DEFAULT_WIDTH,
+  ɵbindPopupDismiss,
+  ɵcreateExitPresence,
+  ɵdimensionToCss,
+} from "@copilotkit/core";
 import { CopilotChatDefaultLabels } from "../../providers/types";
 import { useCopilotChatConfiguration } from "../../providers/useCopilotChatConfiguration";
 import CopilotChatToggleButton from "./CopilotChatToggleButton.vue";
@@ -30,15 +29,12 @@ import type {
 
 defineOptions({ inheritAttrs: false });
 
-const DEFAULT_POPUP_WIDTH = 420;
-const DEFAULT_POPUP_HEIGHT = 560;
-const POPUP_ANIMATION_MS = 200;
-
 const props = withDefaults(
   defineProps<Omit<CopilotPopupViewProps, "defaultOpen">>(),
   {
     messages: () => [],
     autoScroll: true,
+    messageFeedback: true,
     isRunning: false,
     suggestions: () => [],
     suggestionLoadingIndexes: () => [],
@@ -96,52 +92,45 @@ const attrs = useAttrs();
 const config = useCopilotChatConfiguration();
 
 const containerRef = ref<HTMLElement | null>(null);
-const isRendered = ref(config.value?.isModalOpen ?? false);
-const isAnimatingOut = ref(false);
-let animationTimer: ReturnType<typeof setTimeout> | undefined;
-let focusTimer: ReturnType<typeof setTimeout> | undefined;
-
 const isPopupOpen = computed(() => config.value?.isModalOpen ?? false);
+
+// Core keeps the closed popup rendered while its exit animation plays.
+const presence = ɵcreateExitPresence(isPopupOpen.value);
+const isRendered = ref(presence.getState().isRendered);
+const isAnimatingOut = ref(presence.getState().isClosing);
+presence.subscribe((state) => {
+  isRendered.value = state.isRendered;
+  isAnimatingOut.value = state.isClosing;
+});
+watch(isPopupOpen, (open) => presence.setOpen(open));
+onBeforeUnmount(() => presence.dispose());
+
 const labels = computed(() => config.value?.labels ?? CopilotChatDefaultLabels);
 const headerTitle = computed(() => labels.value.modalHeaderTitle);
 const popupAnimationClass = computed(() =>
   isPopupOpen.value && !isAnimatingOut.value
-    ? "cpk:pointer-events-auto cpk:translate-y-0 cpk:opacity-100 cpk:md:scale-100"
-    : "cpk:pointer-events-none cpk:translate-y-4 cpk:opacity-0 cpk:md:translate-y-5 cpk:md:scale-[0.95]",
+    ? "cpk-popup-view-window-open"
+    : undefined,
 );
 const popupStyle = computed(
   () =>
     ({
-      "--copilot-popup-width": dimensionToCss(props.width, DEFAULT_POPUP_WIDTH),
-      "--copilot-popup-height": dimensionToCss(
+      "--copilot-popup-width": ɵdimensionToCss(
+        props.width,
+        ɵPOPUP_DEFAULT_WIDTH,
+      ),
+      "--copilot-popup-height": ɵdimensionToCss(
         props.height,
-        DEFAULT_POPUP_HEIGHT,
+        ɵPOPUP_DEFAULT_HEIGHT,
       ),
       "--copilot-popup-max-width": "calc(100vw - 3rem)",
       "--copilot-popup-max-height": "calc(100dvh - 7.5rem)",
-      width: "var(--copilot-popup-width)",
-      height: "var(--copilot-popup-height)",
-      maxWidth: "var(--copilot-popup-max-width)",
-      maxHeight: "var(--copilot-popup-max-height)",
       paddingTop: "env(safe-area-inset-top)",
       paddingBottom: "env(safe-area-inset-bottom)",
       paddingLeft: "env(safe-area-inset-left)",
       paddingRight: "env(safe-area-inset-right)",
     }) as Record<string, string>,
 );
-
-function dimensionToCss(
-  value: number | string | undefined,
-  fallback: number,
-): string {
-  if (typeof value === "number" && Number.isFinite(value)) {
-    return `${value}px`;
-  }
-  if (typeof value === "string" && value.trim().length > 0) {
-    return value;
-  }
-  return `${fallback}px`;
-}
 
 function closePopup() {
   config.value?.setModalOpen?.(false);
@@ -221,131 +210,23 @@ const chatViewBindings = computed(() => ({
   ...chatViewEventProps.value,
 }));
 
+// Escape, a click outside (when enabled), and focus once the popup opens.
 watch(
-  isPopupOpen,
-  (open) => {
-    if (animationTimer) {
-      clearTimeout(animationTimer);
-      animationTimer = undefined;
-    }
-
-    if (open) {
-      isRendered.value = true;
-      isAnimatingOut.value = false;
-      return;
-    }
-
-    if (!isRendered.value) {
-      return;
-    }
-
-    isAnimatingOut.value = true;
-    animationTimer = setTimeout(() => {
-      isRendered.value = false;
-      isAnimatingOut.value = false;
-      animationTimer = undefined;
-    }, POPUP_ANIMATION_MS);
-  },
-  { immediate: true },
-);
-
-watch(
-  isPopupOpen,
-  (open, _old, onCleanup) => {
-    if (!open || typeof window === "undefined") {
-      return;
-    }
-
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        event.preventDefault();
-        closePopup();
-      }
-    };
-
-    window.addEventListener("keydown", handleKeyDown);
-    onCleanup(() => {
-      window.removeEventListener("keydown", handleKeyDown);
-    });
-  },
-  { immediate: true },
-);
-
-watch(
-  isPopupOpen,
-  (open, _old, onCleanup) => {
+  [isPopupOpen, () => props.clickOutsideToClose],
+  ([open, clickOutsideToClose], _old, onCleanup) => {
     if (!open) {
       return;
     }
-
-    focusTimer = setTimeout(() => {
-      if (typeof document === "undefined") {
-        return;
-      }
-      const container = containerRef.value;
-      if (container && !container.contains(document.activeElement)) {
-        container.focus({ preventScroll: true });
-      }
-    }, POPUP_ANIMATION_MS);
-
-    onCleanup(() => {
-      if (focusTimer) {
-        clearTimeout(focusTimer);
-        focusTimer = undefined;
-      }
-    });
+    onCleanup(
+      ɵbindPopupDismiss({
+        getContainer: () => containerRef.value,
+        onDismiss: closePopup,
+        clickOutsideToClose: clickOutsideToClose === true,
+      }),
+    );
   },
   { immediate: true },
 );
-
-watch(
-  [isPopupOpen, () => props.clickOutsideToClose],
-  ([open, allowClose], _old, onCleanup) => {
-    if (!open || !allowClose || typeof document === "undefined") {
-      return;
-    }
-
-    const handlePointerDown = (event: PointerEvent) => {
-      const target = event.target as Node | null;
-      if (!target) {
-        return;
-      }
-
-      const container = containerRef.value;
-      if (container?.contains(target)) {
-        return;
-      }
-
-      const toggleButton = document.querySelector(
-        "[data-slot='chat-toggle-button']",
-      );
-      if (toggleButton?.contains(target)) {
-        return;
-      }
-
-      closePopup();
-    };
-
-    document.addEventListener("pointerdown", handlePointerDown);
-    onCleanup(() => {
-      document.removeEventListener("pointerdown", handlePointerDown);
-    });
-  },
-  { immediate: true },
-);
-
-onMounted(async () => {
-  await nextTick();
-});
-
-onBeforeUnmount(() => {
-  if (animationTimer) {
-    clearTimeout(animationTimer);
-  }
-  if (focusTimer) {
-    clearTimeout(focusTimer);
-  }
-});
 </script>
 
 <template>
@@ -359,11 +240,7 @@ onBeforeUnmount(() => {
     <CopilotChatToggleButton />
   </slot>
 
-  <div
-    v-if="isRendered"
-    data-copilotkit
-    class="cpk:fixed cpk:inset-0 cpk:z-[1200] cpk:flex cpk:max-w-full cpk:flex-col cpk:items-stretch cpk:bg-transparent cpk:md:inset-auto cpk:md:bottom-24 cpk:md:right-6 cpk:md:items-end cpk:md:gap-4"
-  >
+  <div v-if="isRendered" data-copilotkit class="cpk-popup-view">
     <div
       ref="containerRef"
       tabindex="-1"
@@ -371,13 +248,7 @@ onBeforeUnmount(() => {
       :aria-label="labels.modalHeaderTitle"
       data-copilot-popup
       :class="[
-        'cpk:relative cpk:flex cpk:h-full cpk:w-full cpk:flex-col cpk:overflow-hidden cpk:bg-background cpk:text-foreground',
-        'cpk:origin-bottom cpk:focus:outline-none cpk:transform-gpu cpk:transition-transform cpk:transition-opacity cpk:duration-200 cpk:ease-out',
-        'cpk:md:transition-transform cpk:md:transition-opacity',
-        'cpk:rounded-none cpk:border cpk:border-border/0 cpk:shadow-none cpk:ring-0',
-        'cpk:md:h-[var(--copilot-popup-height)] cpk:md:w-[var(--copilot-popup-width)]',
-        'cpk:md:max-h-[var(--copilot-popup-max-height)] cpk:md:max-w-[var(--copilot-popup-max-width)]',
-        'cpk:md:origin-bottom-right cpk:md:rounded-2xl cpk:md:border-border cpk:md:shadow-xl cpk:md:ring-1 cpk:md:ring-border/40',
+        'copilotKitPopup copilotKitWindow cpk-popup-view-window',
         popupAnimationClass,
       ]"
       :style="popupStyle"
@@ -391,8 +262,9 @@ onBeforeUnmount(() => {
         <CopilotModalHeader :title="headerTitle" />
       </slot>
 
-      <div class="cpk:flex-1 cpk:overflow-hidden" data-popup-chat>
+      <div class="cpk-popup-view-chat" data-popup-chat>
         <CopilotChatView
+          class="cpk-popup-view-chat-view"
           :messages="messages"
           :auto-scroll="autoScroll"
           :is-running="isRunning"
@@ -402,6 +274,8 @@ onBeforeUnmount(() => {
           :input-value="inputValue"
           :input-mode="inputMode"
           :input-tools-menu="inputToolsMenu"
+          :tool-call-display="toolCallDisplay"
+          :message-feedback="messageFeedback"
           :on-finish-transcribe-with-audio="onFinishTranscribeWithAudio"
           v-bind="chatViewBindings"
         >

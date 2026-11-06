@@ -12,7 +12,7 @@ CopilotKit integration.
 `useAgent` returns the AG-UI `AbstractAgent` behind your copilot:
 
 ```tsx
-import { useAgent } from "@copilotkit/react-core/v2";
+import { useAgent } from "@copilotkit/react-core";
 
 function AgentStatus() {
   const { agent } = useAgent({ agentId: "research-agent" });
@@ -60,7 +60,7 @@ Subscribe in an effect and unsubscribe when the component unmounts:
 
 ```tsx
 import { useEffect } from "react";
-import { useAgent } from "@copilotkit/react-core/v2";
+import { useAgent } from "@copilotkit/react-core";
 
 function EventLog() {
   const { agent } = useAgent({ agentId: "research-agent" });
@@ -87,23 +87,32 @@ function EventLog() {
 Subscribe to `store().agent` and release the subscription with the owning
 injector:
 
-```ts
-private readonly destroyRef = inject(DestroyRef);
-readonly store = injectAgentStore("research-agent");
+```ts title="src/app/event-log.component.ts"
+import { Component, DestroyRef, inject } from "@angular/core";
+import { injectAgentStore } from "@copilotkit/angular";
 
-constructor() {
-  const subscription = this.store().agent.subscribe({
-    onTextMessageContentEvent({ textMessageBuffer }) {
-      console.log("Streaming text:", textMessageBuffer);
-    },
-    onToolCallEndEvent({ toolCallName, toolCallArgs }) {
-      console.log("Tool called:", toolCallName, toolCallArgs);
-    },
-    onStateChanged({ agent }) {
-      console.log("State changed:", agent.state);
-    },
-  });
-  this.destroyRef.onDestroy(() => subscription.unsubscribe());
+@Component({
+  selector: "app-event-log",
+  template: "",
+})
+export class EventLogComponent {
+  private readonly destroyRef = inject(DestroyRef);
+  readonly store = injectAgentStore("research-agent");
+
+  constructor() {
+    const subscription = this.store().agent.subscribe({
+      onTextMessageContentEvent({ textMessageBuffer }) {
+        console.log("Streaming text:", textMessageBuffer);
+      },
+      onToolCallEndEvent({ toolCallName, toolCallArgs }) {
+        console.log("Tool called:", toolCallName, toolCallArgs);
+      },
+      onStateChanged({ agent }) {
+        console.log("State changed:", agent.state);
+      },
+    });
+    this.destroyRef.onDestroy(() => subscription.unsubscribe());
+  }
 }
 ```
 </FrontendOnly>
@@ -131,10 +140,15 @@ same `AbstractAgent` interface.
 
 <FrontendOnly frontend="react">
 ```tsx title="What your component sees"
-const { agent } = useAgent();
-agent.messages;
-agent.state;
-agent.subscribe({ /* … */ });
+import { useAgent } from "@copilotkit/react-core";
+
+function MyComponent() {
+  const { agent } = useAgent();
+  agent.messages;
+  agent.state;
+  agent.subscribe({ /* … */ });
+  return null;
+}
 ```
 
 ```tsx title="What happens underneath"
@@ -145,11 +159,23 @@ agent.subscribe({ /* … */ });
 
 <FrontendOnly frontend="angular">
 ```ts title="What your component sees"
-const store = injectAgentStore("default");
-const agent = store().agent;
-store().messages();
-store().state();
-agent.subscribe({ /* … */ });
+import { Component } from "@angular/core";
+import { injectAgentStore } from "@copilotkit/angular";
+
+@Component({
+  selector: "app-my-component",
+  template: "",
+})
+export class MyComponent {
+  readonly store = injectAgentStore("default");
+
+  constructor() {
+    const agent = this.store().agent;
+    this.store().messages();
+    this.store().state();
+    agent.subscribe({ /* … */ });
+  }
+}
 ```
 
 ```ts title="What happens underneath"

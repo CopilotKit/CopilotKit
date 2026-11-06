@@ -1,4 +1,4 @@
-import * as agui from "@ag-ui/core";
+import type * as agui from "@ag-ui/core";
 
 // Re-export AG-UI multimodal input types.
 // Note: AG-UI names the text variant TextInputContent; we export it as TextInputPart for consistency.
@@ -13,18 +13,6 @@ export type {
   VideoInputPart,
   DocumentInputPart,
 } from "@ag-ui/core";
-
-/**
- * @deprecated Use `InputContentSource` from `@ag-ui/core` (re-exported from `@copilotkit/shared`) instead.
- * `ImageData` only described base64 image payloads. `InputContentSource` supports
- * data and URL sources for images, audio, video, and documents.
- * See https://docs.copilotkit.ai/migration-guides/migrate-attachments
- * @since 1.56.0
- */
-export interface ImageData {
-  format: string;
-  bytes: string;
-}
 
 // Pass through types
 export type Role = agui.Role;
@@ -44,12 +32,6 @@ export type AIMessage = agui.AssistantMessage & {
   generativeUIPosition?: "before" | "after";
   agentName?: string;
   state?: any;
-  /**
-   * @deprecated Use multimodal `content` array with `InputContent` parts instead.
-   * See https://docs.copilotkit.ai/migration-guides/migrate-attachments
-   * @since 1.56.0
-   */
-  image?: ImageData;
   runId?: string;
 };
 

@@ -16,16 +16,22 @@ This page lists the `learning` prop, the Core methods, and the `CopilotKitIntell
 ## `learning` prop on `CopilotKitProvider`
 
 ```tsx
-<CopilotKitProvider
-  runtimeUrl="/api/copilotkit"
-  learning={{
-    capture: { inputs: false },
-    ignoreUrls: ["https://payments.example.com/"],
-    onError: ({ code }) => console.warn("Trajectory capture:", code),
-  }}
->
-  {children}
-</CopilotKitProvider>
+import { CopilotKitProvider } from "@copilotkit/react-core";
+
+export function Providers({ children }: { children: React.ReactNode }) {
+  return (
+    <CopilotKitProvider
+      runtimeUrl="/api/copilotkit"
+      learning={{
+        capture: { inputs: false },
+        ignoreUrls: ["https://payments.example.com/"],
+        onError: ({ code }) => console.warn("Trajectory capture:", code),
+      }}
+    >
+      {children}
+    </CopilotKitProvider>
+  );
+}
 ```
 
 <PropertyReference name="learning" type="boolean | object">
@@ -81,10 +87,18 @@ This page lists the `learning` prop, the Core methods, and the `CopilotKitIntell
 Read these from `copilotkit`, returned by `useCopilotKit()`.
 
 ```tsx
-const { copilotkit } = useCopilotKit();
+import { useCopilotKit } from "@copilotkit/react-core";
 
-const result = await copilotkit.startTrajectory();
-if (result.status === "error") console.warn(result.code);
+function StartCaptureButton() {
+  const { copilotkit } = useCopilotKit();
+
+  async function startCapture() {
+    const result = await copilotkit.startTrajectory();
+    if (result.status === "error") console.warn(result.code);
+  }
+
+  return <button onClick={startCapture}>Start capture</button>;
+}
 ```
 
 <PropertyReference name="trajectoryId" type="string | null">
@@ -165,10 +179,10 @@ See [Batches](/intelligence/captured-data#batches) for delivery limits.
 
 ## Trajectory options on `CopilotKitIntelligence`
 
-Set these on the server, in `@copilotkit/runtime/v2`. Capture also needs `identifyUser` on `CopilotRuntime`.
+Set these on the server, in `@copilotkit/runtime`. Capture also needs `identifyUser` on `CopilotRuntime`.
 
 ```ts
-import { CopilotKitIntelligence } from "@copilotkit/runtime/v2";
+import { CopilotKitIntelligence } from "@copilotkit/runtime";
 
 const intelligence = new CopilotKitIntelligence({
   apiKey: process.env.CPK_INTELLIGENCE_API_KEY!,

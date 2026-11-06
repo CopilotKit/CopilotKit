@@ -16,7 +16,14 @@ import { ProxiedCopilotRuntimeAgent } from "@copilotkit/core";
 ## Constructor
 
 ```ts
-new ProxiedCopilotRuntimeAgent(config: ProxiedCopilotRuntimeAgentConfig)
+import {
+  ProxiedCopilotRuntimeAgent,
+  type ProxiedCopilotRuntimeAgentConfig,
+} from "@copilotkit/core";
+
+ProxiedCopilotRuntimeAgent satisfies new (
+  config: ProxiedCopilotRuntimeAgentConfig,
+) => ProxiedCopilotRuntimeAgent;
 ```
 
 <PropertyReference name="config" type="ProxiedCopilotRuntimeAgentConfig" required>
@@ -52,6 +59,10 @@ new ProxiedCopilotRuntimeAgent(config: ProxiedCopilotRuntimeAgentConfig)
 
   <PropertyReference name="debug" type="ResolvedDebugConfig">
     Debug configuration applied to the agent.
+  </PropertyReference>
+
+  <PropertyReference name="messageFilter" type="CopilotKitMessageFilter">
+    Rewrites the outbound message list on every run. Not applied in Intelligence mode.
   </PropertyReference>
 </PropertyReference>
 

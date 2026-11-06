@@ -54,6 +54,10 @@ import type { ɵGenerativeUIDebugSource } from "./generative-ui-debug";
 import type { ɵMemoryStore } from "../memory";
 import { HeaderSourceResolver, isHeaderResolutionError } from "./header-source";
 import type { CopilotKitHeadersSource } from "./header-source";
+import { shallowEqualRecord } from "../utils/shallow-equal";
+import { ɵHumanInTheLoopRegistry } from "./human-in-the-loop";
+import { ɵRuntimeInfoStore } from "./runtime-info";
+import type { ɵRuntimeInfo } from "./runtime-info";
 
 /**
  * Run properties that go only to the runs of some agents.
@@ -116,6 +120,18 @@ export interface CopilotKitCoreConfig {
   /** Enable debug logging for the client-side event pipeline. */
   debug?: DebugConfig;
   /**
+   * Default throttle interval (ms) for `subscribeToAgentWithOptions()`. See
+   * {@link CopilotKitCore.setDefaultThrottleMs}.
+   */
+  defaultThrottleMs?: number;
+  /**
+   * Called for every error the core reports (runtime connection failures,
+   * agent errors, tool errors). Without a handler the core logs each error
+   * with `console.error`. Change it later with
+   * {@link CopilotKitCore.setErrorHandler}.
+   */
+  onError?: CopilotKitCoreErrorHandler;
+  /**
    * Turns on interaction capture (`@copilotkit/learning`). Capture starts only
    * when {@link CopilotKitCore.startTrajectory} authenticates and joins the
    * capture channel. The default path captures outside-chat activity. An explicit
@@ -124,6 +140,14 @@ export interface CopilotKitCoreConfig {
    * {@link CopilotKitCore.setLearningConfig}.
    */
   learning?: LearningConfig;
+  /**
+   * @internal For framework adapters. Awaited after frontend tools run and
+   * before the follow-up run starts, so state updates that the tool handlers
+   * scheduled in the framework (and the context those updates register) land
+   * before the follow-up reads it. React passes a `setTimeout(0)` yield, Vue
+   * passes `nextTick`.
+   */
+  ɵwaitForFrameworkUpdates?: () => Promise<void>;
 }
 
 export type { CopilotKitMessageFilter } from "./message-filter";
@@ -199,6 +223,36 @@ export enum CopilotKitCoreErrorCode {
   HEADER_RESOLUTION_FAILED = "header_resolution_failed",
 }
 
+/** An error the core reports, as passed to {@link CopilotKitCoreErrorHandler}. */
+export interface CopilotKitCoreErrorEvent {
+  error: Error;
+  code: CopilotKitCoreErrorCode;
+  context: Record<string, any>;
+}
+
+/** The `onError` handler of {@link CopilotKitCoreConfig}. */
+export type CopilotKitCoreErrorHandler = (
+  event: CopilotKitCoreErrorEvent,
+) => void | Promise<void>;
+
+/**
+ * @internal The config keys {@link CopilotKitCore.ɵupdateConfig} accepts. A
+ * key that is present is applied, even when its value is `undefined` (that
+ * clears it). A key that is absent is left alone.
+ */
+export type ɵCopilotKitCoreConfigPatch = Pick<
+  CopilotKitCoreConfig,
+  | "messageFilter"
+  | "runtimeUrl"
+  | "runtimeTransport"
+  | "headers"
+  | "credentials"
+  | "properties"
+  | "agents__unsafe_dev_only"
+  | "debug"
+  | "defaultThrottleMs"
+>;
+
 export interface CopilotKitCoreSubscriber {
   onTrajectoryChanged?: (event: {
     copilotkit: CopilotKitCore;
@@ -222,6 +276,14 @@ export interface CopilotKitCoreSubscriber {
     toolName: string;
     result: string;
     error?: string;
+  }) => void | Promise<void>;
+  /**
+   * Fired when a tool call starts or stops executing. `executingToolCallIds`
+   * is the new value of {@link CopilotKitCore.executingToolCallIds}.
+   */
+  onExecutingToolCallsChanged?: (event: {
+    copilotkit: CopilotKitCore;
+    executingToolCallIds: ReadonlySet<string>;
   }) => void | Promise<void>;
   onAgentsChanged?: (event: {
     copilotkit: CopilotKitCore;
@@ -480,8 +542,12 @@ export class CopilotKitCore {
   private _scopedProperties: Map<string, ScopedProperties> = new Map();
   private _defaultThrottleMs?: number;
   private _debug?: DebugConfig;
+  private errorHandler?: CopilotKitCoreErrorHandler;
+  private readonly runtimeInfoStore: ɵRuntimeInfoStore;
 
   private subscribers: Set<CopilotKitCoreSubscriber> = new Set();
+  private _disposed = false;
+  private readonly waitForFrameworkUpdates?: () => Promise<void>;
 
   // Delegate classes
   private agentRegistry: AgentRegistry;
@@ -495,6 +561,9 @@ export class CopilotKitCore {
   private readonly learningConfiguredListeners = new Set<() => void>();
   private _generativeUIDebugSource: ɵGenerativeUIDebugSource | undefined;
   private readonly generativeUIDebugListeners = new Set<() => void>();
+  private _interruptPayload: unknown = null;
+  private readonly interruptPayloadListeners = new Set<() => void>();
+  private _humanInTheLoop?: ɵHumanInTheLoopRegistry;
   /**
    * The single core-owned memory store, created lazily on first
    * `getMemoryStore()` and kept user-scoped for the lifetime of the core.
@@ -522,8 +591,13 @@ export class CopilotKitCore {
     tools = [],
     suggestionsConfig = [],
     debug,
+    defaultThrottleMs,
+    onError,
     learning,
+    ɵwaitForFrameworkUpdates,
   }: CopilotKitCoreConfig) {
+    this.waitForFrameworkUpdates = ɵwaitForFrameworkUpdates;
+    this.errorHandler = onError;
     this.headerSource = new HeaderSourceResolver((error) => {
       void this.emitError({
         error,
@@ -555,6 +629,22 @@ export class CopilotKitCore {
       this.notifyTrajectoryChanged(),
     );
 
+    this.runtimeInfoStore = new ɵRuntimeInfoStore(() => ({
+      status: this.runtimeConnectionStatus,
+      a2uiEnabled: this.a2uiEnabled,
+      a2uiAgents: this.a2uiAgents,
+      openGenerativeUIEnabled: this.openGenerativeUIEnabled,
+      licenseStatus: this.licenseStatus,
+      runtimeEntitlements: this.runtimeEntitlements,
+      runtimeEntitlementRetryPending: this.runtimeEntitlementRetryPending,
+      threadEndpoints: this.threadEndpoints,
+      intelligence: this.intelligence,
+      audioFileTranscriptionEnabled: this.audioFileTranscriptionEnabled,
+    }));
+    if (defaultThrottleMs !== undefined) {
+      this.setDefaultThrottleMs(defaultThrottleMs);
+    }
+
     this.agentRegistry.setRuntimeTransport(runtimeTransport);
     this.agentRegistry.setRuntimeUrl(runtimeUrl, {
       deferConnection: deferInitialConnection,
@@ -577,6 +667,9 @@ export class CopilotKitCore {
       // so this single hook covers both connection and intelligence changes.
       // Guarded so we never instantiate the store just to sync it.
       onRuntimeConnectionStatusChanged: () => {
+        // First, so other subscribers of this event already see the new
+        // snapshot when they read `ɵruntimeInfo`.
+        this.runtimeInfoStore.refresh();
         if (this._memoryStore) this.syncMemoryContext();
       },
       onAgentsChanged: ({ agents }) => {
@@ -647,6 +740,9 @@ export class CopilotKitCore {
     handler: (subscriber: CopilotKitCoreSubscriber) => void | Promise<void>,
     errorMessage: string,
   ): Promise<void> {
+    // Late async work (an `/info` reply, a finished run) must not reach
+    // subscribers of a disposed core.
+    if (this._disposed) return;
     await Promise.all(
       Array.from(this.subscribers).map(async (subscriber) => {
         try {
@@ -687,6 +783,55 @@ export class CopilotKitCore {
         }),
       "Subscriber onError error:",
     );
+    if (this._disposed) return;
+    const handler = this.errorHandler;
+    if (!handler) {
+      console.error(`[CopilotKit] Error (${code}):`, error, context);
+      return;
+    }
+    try {
+      await handler({ error, code, context });
+    } catch (handlerError) {
+      console.error("[CopilotKit] onError handler failed:", handlerError);
+    }
+  }
+
+  /**
+   * Replace the handler called for every error the core reports. Pass
+   * `undefined` to go back to logging errors with `console.error`.
+   *
+   * @example
+   * copilotkit.setErrorHandler(({ code, error }) => report(code, error));
+   */
+  setErrorHandler(handler: CopilotKitCoreErrorHandler | undefined): void {
+    this.errorHandler = handler;
+  }
+
+  /**
+   * @internal Apply provider config in one call. Only the keys present in
+   * `patch` are applied (a present `undefined` clears that setting), in this
+   * fixed order: message filter, runtime URL, transport, headers,
+   * credentials, properties, dev agents, debug, default throttle. The message
+   * filter goes first so an agent discovered by a new connection is built
+   * with it. Each setter is a no-op when its value did not change, so
+   * framework adapters can pass every key on every sync.
+   */
+  ɵupdateConfig(patch: ɵCopilotKitCoreConfigPatch): void {
+    if ("messageFilter" in patch) this.setMessageFilter(patch.messageFilter);
+    if ("runtimeUrl" in patch) this.setRuntimeUrl(patch.runtimeUrl);
+    if ("runtimeTransport" in patch) {
+      this.setRuntimeTransport(patch.runtimeTransport ?? "auto");
+    }
+    if ("headers" in patch) this.setHeaders(patch.headers ?? {});
+    if ("credentials" in patch) this.setCredentials(patch.credentials);
+    if ("properties" in patch) this.setProperties(patch.properties ?? {});
+    if ("agents__unsafe_dev_only" in patch) {
+      this.setAgents__unsafe_dev_only(patch.agents__unsafe_dev_only ?? {});
+    }
+    if ("debug" in patch) this.setDebug(patch.debug);
+    if ("defaultThrottleMs" in patch) {
+      this.setDefaultThrottleMs(patch.defaultThrottleMs);
+    }
   }
 
   /**
@@ -725,6 +870,28 @@ export class CopilotKitCore {
 
   get catalogComponents(): ReadonlyArray<CopilotKitCoreCatalogComponent> {
     return this.runHandler.catalogComponents;
+  }
+
+  /**
+   * Ids of the tool calls whose frontend handler runs now, across every
+   * agent. A call joins the set right after its handler is called (after
+   * `onToolExecutionStart`) and leaves it once its result is in the agent's
+   * messages. So a renderer that reads this set and the messages never sees
+   * a finished call without its result, and a human-in-the-loop `respond`
+   * shown for an executing call always reaches a waiting handler.
+   *
+   * The set is replaced on every change (never mutated), so it is safe to
+   * compare by identity. Subscribe with `onExecutingToolCallsChanged`.
+   *
+   * @example
+   * ```ts
+   * const status = core.executingToolCallIds.has(toolCall.id)
+   *   ? "executing"
+   *   : "inProgress";
+   * ```
+   */
+  get executingToolCallIds() {
+    return this.runHandler.executingToolCallIds;
   }
 
   get runtimeUrl(): string | undefined {
@@ -921,6 +1088,23 @@ export class CopilotKitCore {
   }
 
   /**
+   * @internal The runtime connection status and what `/info` reported, as one
+   * frozen object. It keeps its identity until a field changes, so it works
+   * as a `getSnapshot` for `useSyncExternalStore`. Reading it is never stale.
+   */
+  get ɵruntimeInfo(): ɵRuntimeInfo {
+    return this.runtimeInfoStore.getSnapshot();
+  }
+
+  /**
+   * @internal Calls `listener` when {@link ɵruntimeInfo} changes. Returns the
+   * unsubscribe function.
+   */
+  ɵsubscribeToRuntimeInfo(listener: () => void): () => void {
+    return this.runtimeInfoStore.subscribe(listener);
+  }
+
+  /**
    * Configuration updates
    */
   /**
@@ -977,7 +1161,12 @@ export class CopilotKitCore {
     );
   }
 
+  /**
+   * Set the credentials mode for runtime requests (for example `"include"`
+   * to send HTTP-only cookies). Passing the current value does nothing.
+   */
   setCredentials(credentials: RequestCredentials | undefined): void {
+    if (credentials === this._credentials) return;
     this._credentials = credentials;
     this.agentRegistry.applyCredentialsToAgents(
       this.agentRegistry.agents as Record<string, AbstractAgent>,
@@ -990,9 +1179,11 @@ export class CopilotKitCore {
    *
    * Applies to agents already discovered as well as ones discovered later, so
    * a filter set before `/info` lands is not lost. Pass `undefined` to go back
-   * to sending the full thread.
+   * to sending the full thread. Passing the current filter function again
+   * does nothing.
    */
   setMessageFilter(messageFilter: CopilotKitMessageFilter | undefined): void {
+    if (messageFilter === this._messageFilter) return;
     this._messageFilter = messageFilter;
     this.agentRegistry.applyMessageFilterToAgents(
       this.agentRegistry.agents as Record<string, AbstractAgent>,
@@ -1058,7 +1249,14 @@ export class CopilotKitCore {
     return merged;
   }
 
+  /**
+   * Replace the properties sent as `forwardedProps` with every run, and
+   * notify `onPropertiesChanged`. Passing an object with the same keys and
+   * values as the current one does nothing, so a fresh object literal on
+   * every render is safe.
+   */
   setProperties(properties: Record<string, unknown>): void {
+    if (shallowEqualRecord(properties, this._properties)) return;
     this._properties = properties;
     void this.notifySubscribers(
       (subscriber) =>
@@ -1071,7 +1269,10 @@ export class CopilotKitCore {
   }
 
   /**
-   * Agent management (delegated to AgentRegistry)
+   * Agent management (delegated to AgentRegistry).
+   *
+   * Replace the local (development) agents. Passing the same ids mapped to
+   * the same agent instances does nothing.
    */
   setAgents__unsafe_dev_only(agents: Record<string, AbstractAgent>): void {
     this.agentRegistry.setAgents__unsafe_dev_only(agents);
@@ -1182,6 +1383,44 @@ export class CopilotKitCore {
     return () => {
       this.generativeUIDebugListeners.delete(listener);
     };
+  }
+
+  /**
+   * @internal What the active interrupt consumer publishes for in-chat
+   * rendering (a React element, Vue render props, ...). `null` when none.
+   */
+  get ɵinterruptPayload(): unknown {
+    return this._interruptPayload;
+  }
+
+  /** @internal Publish (or with `null`, remove) the in-chat interrupt payload. */
+  ɵsetInterruptPayload<T>(payload: T | null): void {
+    if (payload === this._interruptPayload) return;
+    this._interruptPayload = payload;
+    for (const listener of [...this.interruptPayloadListeners]) {
+      try {
+        listener();
+      } catch (error) {
+        console.error("Interrupt payload listener error:", error);
+      }
+    }
+  }
+
+  /** @internal Calls `listener` when {@link ɵinterruptPayload} changes. */
+  ɵsubscribeToInterruptPayload(listener: () => void): () => void {
+    this.interruptPayloadListeners.add(listener);
+    return () => {
+      this.interruptPayloadListeners.delete(listener);
+    };
+  }
+
+  /**
+   * @internal Parks human-in-the-loop tool calls until the UI responds. One
+   * registry per core, keyed by tool call id.
+   */
+  get ɵhumanInTheLoop(): ɵHumanInTheLoopRegistry {
+    this._humanInTheLoop ??= new ɵHumanInTheLoopRegistry();
+    return this._humanInTheLoop;
   }
 
   /** The active capture's Trajectory ID, or null while capture is stopped. */
@@ -1404,14 +1643,37 @@ export class CopilotKitCore {
   }
 
   /**
-   * Tool management (delegated to RunHandler)
+   * Register a frontend tool. It shadows a provider tool (from the `tools`
+   * config or `setTools`) with the same name and agentId.
+   *
+   * A second registration with the same name and agentId shadows the first.
+   * Call the returned function to remove only this registration: the tool it
+   * shadowed becomes active again. Calling it more than once does nothing.
+   *
+   * @param tool - The tool to register.
+   * @returns A function that removes this registration.
+   *
+   * @example
+   * const unregister = copilotkit.addTool({
+   *   name: "showWeather",
+   *   handler: async ({ city }) => `Sunny in ${city}`,
+   * });
+   * // later
+   * unregister();
    */
   addTool<T extends Record<string, unknown> = Record<string, unknown>>(
     tool: FrontendTool<T>,
-  ): void {
-    this.runHandler.addTool(tool);
+  ) {
+    return this.runHandler.addTool(tool);
   }
 
+  /**
+   * Remove a tool by name, and by agentId when given. This removes every
+   * `addTool` registration with that name and agentId, and the provider tool
+   * with that name and agentId. Without an agentId, only global tools are
+   * removed. To remove one registration, call the function `addTool`
+   * returned.
+   */
   removeTool(id: string, agentId?: string): void {
     this.runHandler.removeTool(id, agentId);
   }
@@ -1783,9 +2045,58 @@ export class CopilotKitCore {
    * synchronously while the deferred updates are still pending, producing stale
    * context for the next agent turn.
    *
-   * Override in framework-specific subclasses to yield to the framework
-   * scheduler before the follow-up run. The base implementation is a no-op
-   * because non-React environments have no deferred state to flush.
+   * Awaits the `ɵwaitForFrameworkUpdates` config option when one is given.
+   * Without it there is nothing to wait for, because a plain JavaScript
+   * environment has no deferred state to flush. Framework subclasses that
+   * still override this method keep working.
    */
-  async waitForPendingFrameworkUpdates(): Promise<void> {}
+  async waitForPendingFrameworkUpdates(): Promise<void> {
+    await this.waitForFrameworkUpdates?.();
+  }
+
+  /**
+   * Stop everything this core started, so it can be dropped without leaks.
+   *
+   * Call it when you created a `CopilotKitCore` yourself and are done with it
+   * (for example when a page or test tears down). Framework providers call it
+   * for you.
+   *
+   * It does this, in order:
+   *
+   * - removes every subscriber, so no callback runs after this call;
+   * - stops agent runs in flight and aborts running frontend tools;
+   * - aborts suggestion generation;
+   * - clears runtime timers and aborts runtime requests it can cancel;
+   * - removes agent subscriptions, WebMCP tools, and the learning capture;
+   * - stops the memory store and every registered thread store.
+   *
+   * Calling it again does nothing. Do not use the core after this call.
+   *
+   * @example
+   * const copilotkit = new CopilotKitCore({ runtimeUrl: "/api/copilotkit" });
+   * // ... use it ...
+   * copilotkit.dispose();
+   */
+  dispose(): void {
+    if (this._disposed) return;
+    this._disposed = true;
+    this.subscribers.clear();
+    this.learningConfiguredListeners.clear();
+    this.generativeUIDebugListeners.clear();
+    this.interruptPayloadListeners.clear();
+    this._humanInTheLoop?.dispose();
+    this.runtimeInfoStore.dispose();
+    this.errorHandler = undefined;
+
+    this.runHandler.dispose(Object.values(this.agentRegistry.agents));
+    this.suggestionEngine.dispose();
+    this.agentRegistry.dispose();
+    this.stateManager.dispose();
+    this.stopTrajectory();
+    this._memoryStore?.stop();
+    const threadStores = Object.values(this.threadStoreRegistry.getAll());
+    for (const store of threadStores) {
+      store.stop();
+    }
+  }
 }

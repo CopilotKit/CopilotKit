@@ -80,12 +80,10 @@ describe("root entry browser safety (#4151)", () => {
     expect(offenders).toEqual([]);
   });
 
-  it("still reaches Node-only packages from the telemetry subpath entry", () => {
-    // Guards the test itself: the walker has to be able to see the edge it is
-    // asserting the absence of above.
-    const reachable = collectRuntimeDependencies(
-      join(SRC, "telemetry", "index.ts"),
-    );
-    expect(reachable).toContain("@segment/analytics-node");
+  it("sees value imports of bare packages", () => {
+    // Guards the test itself: the walker has to be able to see the kind of
+    // edge it is asserting the absence of above.
+    const reachable = collectRuntimeDependencies(join(SRC, "index.ts"));
+    expect(reachable).toContain("partial-json");
   });
 });

@@ -17,9 +17,12 @@ description: "Low-level Vue 3 composable for accessing the CopilotKit context"
 ## Signature
 
 ```ts
-import { useCopilotKit } from "@copilotkit/vue/v2";
+import {
+  useCopilotKit,
+  type CopilotKitContextValue,
+} from "@copilotkit/vue/v2";
 
-function useCopilotKit(): CopilotKitContextValue;
+useCopilotKit satisfies () => CopilotKitContextValue;
 ```
 
 ## Parameters

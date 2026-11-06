@@ -35,7 +35,9 @@ const mockLayoutMetrics = (
   container: HTMLElement,
   options?: { gridWidth?: number; addWidth?: number; actionsWidth?: number },
 ) => {
-  const grid = container.querySelector("div.cpk\\:grid") as HTMLElement | null;
+  const grid = container.querySelector(
+    ".cpk-chat-input-grid",
+  ) as HTMLElement | null;
   if (!grid) {
     throw new Error("Grid container not found in CopilotChatInput layout");
   }
@@ -126,9 +128,14 @@ beforeEach(() => {
   mockOnSubmitMessage.mockClear();
   vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockImplementation(
     () =>
+      // A partial 2D context: the input measures text, and the recorder's
+      // waveform scales, clears, and fills.
       ({
         measureText: (text: string) => ({ width: text.length * 8 }),
         font: "",
+        scale: () => {},
+        clearRect: () => {},
+        fillRect: () => {},
       }) as unknown as CanvasRenderingContext2D,
   );
 });
@@ -395,6 +402,32 @@ describe("CopilotChatInput", () => {
     });
   });
 
+  it("does not empty the textarea to re-measure it on each keystroke on a phone", async () => {
+    vi.stubGlobal("matchMedia", (query: string) => ({
+      matches: query === "(max-width: 767px)",
+    }));
+    const valueSetter = vi.spyOn(HTMLTextAreaElement.prototype, "value", "set");
+    try {
+      renderWithProvider({
+        listeners: { onSubmitMessage: mockOnSubmitMessage },
+      });
+      const textarea = screen.getByRole("textbox");
+      await fireEvent.input(textarea, { target: { value: "ABCD" } });
+      const grid = textarea.closest("[data-layout]");
+      await waitFor(() => {
+        expect(grid?.getAttribute("data-layout")).toBe("expanded");
+      });
+
+      valueSetter.mockClear();
+      await fireEvent.input(textarea, { target: { value: "AEBCD" } });
+
+      expect(valueSetter).not.toHaveBeenCalledWith("");
+    } finally {
+      valueSetter.mockRestore();
+      vi.unstubAllGlobals();
+    }
+  });
+
   it("executes slash commands via keyboard selection", async () => {
     const handleFirst = vi.fn();
     const handleSecond = vi.fn();
@@ -473,6 +506,31 @@ describe("CopilotChatInput", () => {
       expect(updated[0]?.getAttribute("aria-selected")).toBe("true");
       expect(updated[0]?.textContent?.startsWith("Open CopilotKit")).toBe(true);
     });
+  });
+
+  it("opens the slash menu for typed text once commands arrive", async () => {
+    const toolsMenu = ref<{ label: string; action: () => void }[]>([]);
+    const Host = defineComponent({
+      setup: () => () =>
+        h(
+          CopilotChatConfigurationProvider,
+          { threadId: TEST_THREAD_ID },
+          {
+            default: () => h(CopilotChatInput, { toolsMenu: toolsMenu.value }),
+          },
+        ),
+    });
+    render(Host);
+
+    await fireEvent.input(screen.getByRole("textbox"), {
+      target: { value: "/sum" },
+    });
+    expect(screen.queryByTestId("copilot-slash-menu")).toBeNull();
+
+    toolsMenu.value = [{ label: "Summarize", action: vi.fn() }];
+
+    const menu = await screen.findByTestId("copilot-slash-menu");
+    expect(within(menu).getByRole("option").textContent).toContain("Summarize");
   });
 
   it("limits slash menu height when commands exceed five items", async () => {
@@ -555,6 +613,38 @@ describe("CopilotChatInput", () => {
     });
 
     expect(screen.getByRole("button", { name: "Stop" })).toBe(getSendButton());
+  });
+
+  describe("Enter while the agent runs", () => {
+    async function pressEnterWhileRunning(modelValue: string) {
+      const onStop = vi.fn();
+      renderWithProvider({
+        props: { modelValue, isRunning: true },
+        listeners: { onSubmitMessage: mockOnSubmitMessage, onStop },
+      });
+      await fireEvent.keyDown(
+        screen.getByPlaceholderText("Type a message..."),
+        {
+          key: "Enter",
+          shiftKey: false,
+        },
+      );
+      return onStop;
+    }
+
+    it("sends the typed text and does not stop the run", async () => {
+      const onStop = await pressEnterWhileRunning("  next question  ");
+
+      expect(mockOnSubmitMessage).toHaveBeenCalledWith("next question");
+      expect(onStop).not.toHaveBeenCalled();
+    });
+
+    it("stops the run when the input is empty", async () => {
+      const onStop = await pressEnterWhileRunning("");
+
+      expect(onStop).toHaveBeenCalledOnce();
+      expect(mockOnSubmitMessage).not.toHaveBeenCalled();
+    });
   });
 
   it("names the send button with the configured labels", () => {
@@ -694,9 +784,8 @@ describe("CopilotChatInput", () => {
     const layoutCell = textarea.parentElement as HTMLElement;
     const gridContainer = layoutCell.parentElement as HTMLElement;
 
-    expect(layoutCell.className).toContain("col-start-2");
-    expect(layoutCell.className).not.toContain("col-span-3");
-    expect(gridContainer.className).toContain("items-center");
+    expect(layoutCell.className).toContain("cpk-chat-input-field");
+    expect(gridContainer.getAttribute("data-layout")).toBe("compact");
   });
 
   it("toggles textarea padding based on multiline state", async () => {
@@ -706,8 +795,10 @@ describe("CopilotChatInput", () => {
     mockLayoutMetrics(container);
 
     const textarea = screen.getByRole("textbox");
-    expect(textarea.className).toContain("pr-5");
-    expect(textarea.className).not.toContain("px-5");
+    expect(textarea.className).toContain("cpk-chat-input-textarea-compact");
+    expect(textarea.className).not.toContain(
+      "cpk-chat-input-textarea-expanded",
+    );
 
     await fireEvent.input(textarea, {
       target: {
@@ -717,8 +808,10 @@ describe("CopilotChatInput", () => {
     });
 
     await waitFor(() => {
-      expect(textarea.className).toContain("px-5");
-      expect(textarea.className).not.toContain("pr-5");
+      expect(textarea.className).toContain("cpk-chat-input-textarea-expanded");
+      expect(textarea.className).not.toContain(
+        "cpk-chat-input-textarea-compact",
+      );
     });
   });
 
@@ -738,13 +831,16 @@ describe("CopilotChatInput", () => {
       },
     });
     await waitFor(() => {
-      expect(layoutCell.className).toContain("col-span-3");
+      expect(layoutCell.parentElement?.getAttribute("data-layout")).toBe(
+        "expanded",
+      );
     });
 
     await fireEvent.input(textarea, { target: { value: "short" } });
     await waitFor(() => {
-      expect(layoutCell.className).toContain("col-start-2");
-      expect(layoutCell.className).not.toContain("col-span-3");
+      expect(layoutCell.parentElement?.getAttribute("data-layout")).toBe(
+        "compact",
+      );
     });
   });
 
@@ -760,8 +856,9 @@ describe("CopilotChatInput", () => {
 
     await waitFor(() => {
       const layoutCell = textarea.parentElement as HTMLElement;
-      expect(layoutCell.className).toContain("col-span-3");
-      expect(layoutCell.className).not.toContain("col-start-2");
+      expect(layoutCell.parentElement?.getAttribute("data-layout")).toBe(
+        "expanded",
+      );
     });
   });
 
@@ -790,7 +887,7 @@ describe("CopilotChatInput", () => {
 
     await fireEvent.click(addButton);
     const menuItem = await screen.findByRole("menuitem", {
-      name: "Add photos or files",
+      name: "Add attachments",
     });
     await fireEvent.click(menuItem);
     expect(handleAddFile).toHaveBeenCalledTimes(1);
@@ -1119,6 +1216,49 @@ describe("CopilotChatInput", () => {
       await fireEvent.input(input, { target: { value: "部分" } });
 
       expect(input.value).toBe("部分");
+    });
+  });
+
+  // `onSubmitMessage` is both a declared prop (to detect a listener) and the
+  // `submit-message` emit. A template `@submit-message` listener must enable
+  // sending and fire once per send.
+  describe("@submit-message listener", () => {
+    function renderWithTemplateListener(onSubmit?: (value: string) => void) {
+      const Host = defineComponent({
+        components: { CopilotChatConfigurationProvider, CopilotChatInput },
+        setup() {
+          return { TEST_THREAD_ID, onSubmit };
+        },
+        template: onSubmit
+          ? `
+            <CopilotChatConfigurationProvider :thread-id="TEST_THREAD_ID">
+              <CopilotChatInput model-value="hello" @submit-message="onSubmit" />
+            </CopilotChatConfigurationProvider>
+          `
+          : `
+            <CopilotChatConfigurationProvider :thread-id="TEST_THREAD_ID">
+              <CopilotChatInput model-value="hello" />
+            </CopilotChatConfigurationProvider>
+          `,
+      });
+      return render(Host);
+    }
+
+    it("enables the send button and fires the listener once per send", async () => {
+      const onSubmit = vi.fn();
+      renderWithTemplateListener(onSubmit);
+
+      expect(getSendButton().disabled).toBe(false);
+      await fireEvent.click(getSendButton());
+
+      expect(onSubmit).toHaveBeenCalledTimes(1);
+      expect(onSubmit).toHaveBeenCalledWith("hello");
+    });
+
+    it("keeps the send button disabled without a listener", () => {
+      renderWithTemplateListener();
+
+      expect(getSendButton().disabled).toBe(true);
     });
   });
 });

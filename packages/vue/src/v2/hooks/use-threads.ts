@@ -1,34 +1,14 @@
-import { computed, onScopeDispose, ref, toValue, watch } from "vue";
+import { computed, onScopeDispose, shallowRef, toValue, watch } from "vue";
 import type { MaybeRefOrGetter, Ref } from "vue";
-import {
-  CopilotKitCoreRuntimeConnectionStatus,
-  ɵcreateThreadStore,
-  ɵselectHasNextPage,
-  ɵselectIsFetchingNextPage,
-  ɵselectIsMutating,
-  ɵselectThreads,
-  ɵselectThreadsError,
-  ɵselectFetchMoreError,
-  ɵselectThreadsIsLoading,
-} from "@copilotkit/core";
-import type { ɵThreadRuntimeContext, ɵThreadStore } from "@copilotkit/core";
+import { ɵThreadsController, ɵcreateThreadStore } from "@copilotkit/core";
+import type { ɵThreadSummary } from "@copilotkit/core";
 import { useCopilotKit } from "../providers/useCopilotKit";
 
-export interface Thread {
-  id: string;
-  agentId: string;
-  name: string | null;
-  archived: boolean;
-  createdAt: string;
-  updatedAt: string;
-  /**
-   * ISO-8601 timestamp of the most recent agent run on this thread. Absent
-   * when the thread has never been run. Prefer this over `updatedAt` for
-   * user-facing "last activity" displays — it is not bumped by metadata-only
-   * actions like rename or archive.
-   */
-  lastRunAt?: string;
-}
+/**
+ * One thread as the hook returns it. This is core's thread summary, the same
+ * type React and Angular expose, so the adapters cannot drift apart.
+ */
+export type Thread = ɵThreadSummary;
 
 export interface UseThreadsInput {
   agentId: MaybeRefOrGetter<string>;
@@ -67,283 +47,64 @@ export interface UseThreadsResult {
   deleteThread: (threadId: string) => Promise<void>;
 }
 
-function bindThreadStoreSelector<T>(
-  store: ɵThreadStore,
-  selector: (state: ReturnType<ɵThreadStore["getState"]>) => T,
-  target: Ref<T>,
-): void {
-  target.value = selector(store.getState());
-  const subscription = store.select(selector).subscribe(() => {
-    target.value = selector(store.getState());
-  });
-  onScopeDispose(() => subscription.unsubscribe());
-}
-
-/**
- * Vue composable for listing and managing CopilotKit Intelligence threads.
- *
- * The hook fetches threads for the runtime-authenticated user and the given
- * `agentId`, then keeps the result in sync via the core thread store's realtime
- * channel when available. Inputs accept refs/computeds to make thread context
- * changes reactive.
- */
 export function useThreads(input: UseThreadsInput): UseThreadsResult {
   const { copilotkit } = useCopilotKit();
-  const store = ɵcreateThreadStore({
-    fetch: copilotkit.value.ɵruntimeFetch,
+  const readInput = () => ({
+    core: copilotkit.value,
+    agentId: toValue(input.agentId),
+    includeArchived: toValue(input.includeArchived),
+    limit: toValue(input.limit),
+    enabled: toValue(input.enabled) ?? true,
   });
 
-  const resolvedAgentId = computed(() => toValue(input.agentId));
-  const resolvedIncludeArchived = computed(() =>
-    toValue(input.includeArchived),
+  // Core's ɵThreadsController owns the view model: thread projection, the
+  // configuration errors, the gated and de-duplicated context dispatch, the
+  // registry claim and the mutation guard. This composable feeds it and
+  // projects its snapshot.
+  const controller = new ɵThreadsController(
+    ɵcreateThreadStore({ fetch: copilotkit.value.ɵruntimeFetch }),
+    readInput(),
   );
-  const resolvedLimit = computed(() => toValue(input.limit));
-  const resolvedEnabled = computed(() => toValue(input.enabled) ?? true);
-
-  // Thread-endpoint capability, derived from the runtime's `/info` payload.
-  // `threadEndpoints` is `undefined` on legacy runtimes that don't advertise
-  // the capability, so we treat "not explicitly false" as supported (matching
-  // React's `!== false` semantics) to preserve legacy thread behavior.
-  const threadListEndpointSupported = computed(
-    () => copilotkit.value.threadEndpoints?.list !== false,
-  );
-  const threadMutationsSupported = computed(
-    () => copilotkit.value.threadEndpoints?.mutations !== false,
-  );
-  // Connected, but the runtime explicitly does not serve the list endpoint.
-  const threadEndpointsUnavailable = computed(
-    () =>
-      !!copilotkit.value.runtimeUrl &&
-      copilotkit.value.runtimeConnectionStatus ===
-        CopilotKitCoreRuntimeConnectionStatus.Connected &&
-      !threadListEndpointSupported.value,
-  );
-  const threadEndpointsError = computed<Error | null>(() =>
-    threadEndpointsUnavailable.value
-      ? new Error(
-          "Thread endpoints are not available on this CopilotKit runtime",
-        )
-      : null,
-  );
-  const threadMutationsError = computed<Error | null>(() =>
-    threadMutationsSupported.value
-      ? null
-      : new Error(
-          "Thread mutations are not available on this CopilotKit runtime",
-        ),
-  );
-
-  // Keyed on the source's generation, not on header VALUES: a builder's
-  // returned token can change on every resolution without a new source ever
-  // being set, and this must not re-dispatch the thread context on that (see
-  // #1937).
-  const headersKey = computed(() => copilotkit.value.ɵheadersGeneration);
-
-  const threads = ref<Thread[]>([]);
-  const storeIsLoading = ref(false);
-  const storeError = ref<Error | null>(null);
-  const fetchMoreError = ref<Error | null>(null);
-  const hasMoreThreads = ref(false);
-  const isFetchingMoreThreads = ref(false);
-  const isMutating = ref(false);
-
-  bindThreadStoreSelector(store, ɵselectThreads, threads as Ref<Thread[]>);
-  bindThreadStoreSelector(store, ɵselectThreadsIsLoading, storeIsLoading);
-  bindThreadStoreSelector(store, ɵselectThreadsError, storeError);
-  bindThreadStoreSelector(store, ɵselectFetchMoreError, fetchMoreError);
-  bindThreadStoreSelector(store, ɵselectHasNextPage, hasMoreThreads);
-  bindThreadStoreSelector(
-    store,
-    ɵselectIsFetchingNextPage,
-    isFetchingMoreThreads,
-  );
-  bindThreadStoreSelector(store, ɵselectIsMutating, isMutating);
-
-  store.start();
+  const snapshot = shallowRef(controller.getSnapshot());
+  const unsubscribe = controller.subscribe(() => {
+    snapshot.value = controller.getSnapshot();
+  });
+  const stop = controller.start();
   onScopeDispose(() => {
-    store.stop();
+    stop();
+    unsubscribe();
+    controller.dispose();
   });
 
-  // Register this store in core's single-slot thread-store registry so other
-  // surfaces (e.g. the chat view) can resolve the same store for the agent.
-  //
-  // Gated on `resolvedEnabled`: a disabled (e.g. unlicensed) drawer must not
-  // claim the agentId slot. The registry is single-slot/last-writer-wins, so
-  // registering an inert store would evict — and on unmount tear down — a
-  // co-mounted live store for the same agent. Staying unregistered while
-  // disabled leaves the live store's registration intact.
-  watch(
-    [resolvedEnabled, resolvedAgentId],
-    ([enabled, agentId], _prev, onCleanup) => {
-      if (!enabled) return;
-      copilotkit.value.registerThreadStore(agentId, store);
-      onCleanup(() => {
-        copilotkit.value.unregisterThreadStore(agentId);
-      });
-    },
-    { immediate: true },
-  );
-
-  // Tracks whether we've dispatched the first real context to the store.
-  // The store itself starts with `isLoading: false`, so before we dispatch
-  // consumers would otherwise see an empty, non-loading state (empty-list
-  // flash). While runtimeUrl is set and we haven't dispatched yet, we
-  // synthesize `isLoading: true` so the UI keeps its loading indicator until
-  // the first fetch is in flight (at which point the store's own
-  // isLoading takes over).
-  const hasDispatchedContext = ref(false);
-
-  // Defer setting the context until the runtime reports Connected. Before
-  // `/info` resolves we don't know `intelligence.wsUrl`, so dispatching the
-  // context early would issue a list fetch with `wsUrl: undefined`, then a
-  // second list fetch (and a `/threads/subscribe`) once the flag lands.
-  // Waiting lets the hook issue just one `/threads?…` + one `/threads/subscribe`.
-  //
-  // When `runtimeUrl` is absent we dispatch `null` to clear the store. For
-  // transient states (Disconnected/Connecting/Error with a URL still set) we
-  // leave the previously-dispatched context in place — any in-flight
-  // realtime subscription or cached thread list stays usable while the
-  // runtime recovers, and we don't re-trigger a fetch storm on transitions.
   watch(
     [
+      readInput,
       () => copilotkit.value.runtimeUrl,
       () => copilotkit.value.runtimeConnectionStatus,
-      headersKey,
+      () => copilotkit.value.ɵheadersGeneration,
       () => copilotkit.value.intelligence?.wsUrl,
-      resolvedAgentId,
-      resolvedIncludeArchived,
-      resolvedLimit,
-      resolvedEnabled,
-      threadListEndpointSupported,
+      () => copilotkit.value.threadEndpoints?.list,
+      () => copilotkit.value.threadEndpoints?.mutations,
     ],
-    ([
-      runtimeUrl,
-      runtimeStatus,
-      ,
-      wsUrl,
-      agentId,
-      includeArchived,
-      limit,
-      enabled,
-      listEndpointSupported,
-    ]) => {
-      if (!runtimeUrl || !enabled) {
-        store.setContext(null);
-        hasDispatchedContext.value = false;
-        return;
-      }
-
-      if (runtimeStatus !== CopilotKitCoreRuntimeConnectionStatus.Connected) {
-        return;
-      }
-
-      // Connected, but the runtime explicitly does not serve the list
-      // endpoint: stay inert so no `/threads` fetch fires. The
-      // `threadEndpointsError` surfaces via `error` instead.
-      if (!listEndpointSupported) {
-        store.setContext(null);
-        hasDispatchedContext.value = false;
-        return;
-      }
-
-      // No `headers` here: the store's `fetch` is `copilotkit.value.ɵruntimeFetch`,
-      // which already resolves and overlays the current core headers at send
-      // time (#1937) — a snapshot here would go stale the moment the builder
-      // returns something new.
-      const context: ɵThreadRuntimeContext = {
-        runtimeUrl,
-        wsUrl,
-        agentId,
-        includeArchived,
-        limit,
-      };
-
-      store.setContext(context);
-      hasDispatchedContext.value = true;
-    },
+    ([next]) => controller.update(next),
     { immediate: true },
   );
 
-  const runtimeError = computed<Error | null>(() =>
-    copilotkit.value.runtimeUrl
-      ? null
-      : new Error("Runtime URL is not configured"),
-  );
-
-  const preConnectLoading = computed(
-    () =>
-      !!copilotkit.value.runtimeUrl &&
-      resolvedEnabled.value &&
-      !threadEndpointsUnavailable.value &&
-      !hasDispatchedContext.value,
-  );
-
-  const isLoading = computed(() =>
-    runtimeError.value || threadEndpointsError.value
-      ? false
-      : preConnectLoading.value || storeIsLoading.value,
-  );
-
-  // Folds developer/config errors (missing runtime URL, runtime without
-  // thread endpoints) together with genuine store errors. `listError` below
-  // deliberately excludes the config errors.
-  const error = computed<Error | null>(
-    () => runtimeError.value ?? threadEndpointsError.value ?? storeError.value,
-  );
-
-  // Genuine store errors only. Unlike `error`, this omits the dev/config
-  // `runtimeError`/`threadEndpointsError` strings so they are never shown in
-  // user-facing error UI.
-  const listError = computed<Error | null>(() => storeError.value);
-
-  // Reject mutations locally (before touching the network) when the runtime
-  // reports mutations are unsupported, matching React's `guardMutation`.
-  function guardMutation<TArgs extends unknown[]>(
-    mutation: (...args: TArgs) => Promise<void>,
-  ): (...args: TArgs) => Promise<void> {
-    return (...args: TArgs) => {
-      if (threadMutationsError.value) {
-        return Promise.reject(threadMutationsError.value);
-      }
-      return mutation(...args);
-    };
-  }
-
   return {
-    threads: computed(() =>
-      threads.value.map(
-        ({ id, agentId, name, archived, createdAt, updatedAt, lastRunAt }) => ({
-          id,
-          agentId,
-          name,
-          archived,
-          createdAt,
-          updatedAt,
-          ...(lastRunAt !== undefined ? { lastRunAt } : {}),
-        }),
-      ),
-    ),
-    isLoading,
-    error,
-    listError,
-    fetchMoreError,
-    hasMoreThreads,
-    isFetchingMoreThreads,
-    isMutating,
-    fetchMoreThreads: () => store.fetchNextPage(),
-    refetchThreads: () => store.refetchThreads(),
-    startNewThread: () => store.startNewThread(),
-    renameThread: guardMutation((threadId: string, name: string) =>
-      store.renameThread(threadId, name),
-    ),
-    archiveThread: guardMutation((threadId: string) =>
-      store.archiveThread(threadId),
-    ),
-    unarchiveThread: guardMutation((threadId: string) =>
-      store.unarchiveThread(threadId),
-    ),
-    deleteThread: guardMutation((threadId: string) =>
-      store.deleteThread(threadId),
-    ),
+    threads: computed(() => snapshot.value.threads),
+    isLoading: computed(() => snapshot.value.isLoading),
+    error: computed(() => snapshot.value.error),
+    listError: computed(() => snapshot.value.listError),
+    fetchMoreError: computed(() => snapshot.value.fetchMoreError),
+    hasMoreThreads: computed(() => snapshot.value.hasMoreThreads),
+    isFetchingMoreThreads: computed(() => snapshot.value.isFetchingMoreThreads),
+    isMutating: computed(() => snapshot.value.isMutating),
+    fetchMoreThreads: controller.fetchMoreThreads,
+    refetchThreads: controller.refetchThreads,
+    startNewThread: controller.startNewThread,
+    renameThread: controller.renameThread,
+    archiveThread: controller.archiveThread,
+    unarchiveThread: controller.unarchiveThread,
+    deleteThread: controller.deleteThread,
   };
 }

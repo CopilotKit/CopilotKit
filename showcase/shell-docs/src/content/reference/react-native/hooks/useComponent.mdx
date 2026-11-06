@@ -9,7 +9,7 @@ description: "Register a React component as a frontend tool renderer in chat"
 It registers a tool and renders a React Native component in chat using the tool call parameters.
 
 <Callout type="info">
-  Re-exported from `@copilotkit/react-core/v2`. It is identical to the [React (V2) `useComponent`](/reference/v2/hooks/useComponent); only the import path differs.
+  Re-exported from `@copilotkit/react-core`. It is identical to the [React `useComponent`](/reference/hooks/useComponent); only the import path differs.
 </Callout>
 
 Use this when you want a visual component renderer without writing a full frontend tool config manually. The component you pass to `render` returns React Native elements that CopilotKit surfaces in the chat — it registers into the same shared renderer registry that [`useRenderTool`](/reference/react-native/hooks/useRenderTool) and `useFrontendTool` write to, and that the chat reads through `useRenderToolCall`.
@@ -17,22 +17,31 @@ Use this when you want a visual component renderer without writing a full fronte
 ## Signature
 
 ```tsx
-import { z } from "zod";
 import type { ComponentType } from "react";
+import type { InferSchemaOutput, StandardSchemaV1 } from "@copilotkit/shared";
 import { useComponent } from "@copilotkit/react-native";
 
-function useComponent<TSchema extends z.ZodTypeAny | undefined = undefined>(
+useComponent satisfies <
+  TSchema extends
+    | StandardSchemaV1<unknown, Record<string, unknown>>
+    | undefined = undefined,
+>(
   config: {
     name: string;
     description?: string;
     parameters?: TSchema;
-    // When parameters is provided, props are inferred via z.infer.
+    // When parameters is provided, props are inferred from the schema output.
     // When omitted, render accepts any props.
-    render: ComponentType<InferRenderProps<TSchema>>;
+    render: ComponentType<
+      TSchema extends StandardSchemaV1
+        ? InferSchemaOutput<TSchema>
+        : Record<string, unknown>
+    >;
     agentId?: string;
+    followUp?: boolean;
   },
   deps?: ReadonlyArray<unknown>,
-): void;
+) => void;
 ```
 
 ## Parameters
@@ -96,4 +105,4 @@ function App() {
 
 - [`useFrontendTool`](/reference/react-native/hooks/useFrontendTool)
 - [`useRenderTool`](/reference/react-native/hooks/useRenderTool)
-- [React (V2) reference](/reference/v2/hooks/useComponent)
+- [React reference](/reference/hooks/useComponent)

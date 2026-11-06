@@ -9,7 +9,8 @@ import { Tabs, Tab } from "fumadocs-ui/components/tabs";
 
     ```tsx
     // [!code word:CopilotPopup]
-    import { CopilotPopup } from "@copilotkit/react-core/v2";
+    import { CopilotPopup } from "@copilotkit/react-core";
+    import { YourMainContent } from "./your-main-content";
 
     export function YourApp() {
       return (
@@ -28,25 +29,27 @@ import { Tabs, Tab } from "fumadocs-ui/components/tabs";
 
   </Tab>
   <Tab value="CopilotSidebar">
-    `CopilotSidebar` is a convenience wrapper for `CopilotChat` that wraps your main content in the view hierarchy. It provides a **collapsible and expandable sidebar** chat interface.
+    `CopilotSidebar` is a convenience wrapper for `CopilotChat` that renders next to your main content. It provides a **collapsible and expandable sidebar** chat interface.
 
     <img src="https://cdn.copilotkit.ai/docs/copilotkit/images/sidebar-example.gif" alt="Sidebar Example" className="w-full rounded-lg my-4" />
 
     ```tsx
     // [!code word:CopilotSidebar]
-    import { CopilotSidebar } from "@copilotkit/react-core/v2";
+    import { CopilotSidebar } from "@copilotkit/react-core";
+    import { YourMainContent } from "./your-main-content";
 
     export function YourApp() {
       return (
-        <CopilotSidebar
-          defaultOpen={true}
-          labels={{
-            modalHeaderTitle: "Sidebar Assistant",
-            welcomeMessageText: "How can I help you today?",
-          }}
-        >
+        <>
           <YourMainContent />
-        </CopilotSidebar>
+          <CopilotSidebar
+            defaultOpen={true}
+            labels={{
+              modalHeaderTitle: "Sidebar Assistant",
+              welcomeMessageText: "How can I help you today?",
+            }}
+          />
+        </>
       );
     }
     ```
@@ -59,7 +62,7 @@ import { Tabs, Tab } from "fumadocs-ui/components/tabs";
 
     ```tsx
     // [!code word:CopilotChat]
-    import { CopilotChat } from "@copilotkit/react-core/v2";
+    import { CopilotChat } from "@copilotkit/react-core";
 
     export function YourComponent() {
       return (
@@ -80,8 +83,8 @@ import { Tabs, Tab } from "fumadocs-ui/components/tabs";
     CopilotKit also offers **fully custom headless UI**, through the `useAgent` and `useCopilotKit` hooks. Everything built with the built-in UI (and more) can be implemented with the headless UI, providing deep customizability.
 
     ```tsx
-    import { useAgent } from "@copilotkit/react-core/v2";
-    import { useCopilotKit } from "@copilotkit/react-core/v2";
+    import { useAgent } from "@copilotkit/react-core";
+    import { useCopilotKit } from "@copilotkit/react-core";
     import { randomUUID } from "@copilotkit/shared";
 
     export function CustomChatInterface() {

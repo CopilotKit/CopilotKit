@@ -67,21 +67,17 @@ In most cases, you want to seamlessly be able to test your changes in real-time 
 
 We have an `examples` folder in the monorepo with a few different examples using CopilotKit. You can run these examples to test your changes, as they are linked to the `@copilotkit/*` packages in the monorepo.
 
-For this tutorial, we'll use the `next-openai` example, specifically the Presentation Demo (`/presentation`).
+For this tutorial, we'll use the React demo app in `examples/dev/by-frontend/react/demo`, specifically its popup page (`/popup`).
 
 In a separate terminal, run the following command to start the example:
 
 ```bash
-cd examples/v1/next-openai
+cd examples/dev/by-frontend/react/demo
 export OPENAI_API_KEY=<your-openai-api-key>
-pnpm run example-dev
+pnpm run dev
 ```
 
-<Callout type="info">
-We use the `pnpm run example-dev` command to run examples, which is different from the `pnpm run dev` command we use to work on the individual packages.
-</Callout>
-
-Now navigate to http://localhost:3000/presentation and you should see the example running. Any changes you make to the CopilotKit packages will immediately be reflected here.
+Now navigate to http://localhost:3000/popup and you should see the example running. Any changes you make to the CopilotKit packages will immediately be reflected here.
 
 ## Step 5: Formatting and Linting
 
@@ -130,7 +126,7 @@ Every time you run CopilotKit on localhost, you will be able to see the **Copilo
   />
 </Frame>
 
-If you'd like to disable the Dev Console locally, simply set `showDevConsole` to `false` in your `<CopilotKit />` provider.
+To turn off the Inspector locally, set `enableInspector` to `false` on your `<CopilotKitProvider>`.
 
 ## (Advanced) Package Linking
 

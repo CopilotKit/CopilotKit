@@ -19,13 +19,12 @@ surface and [CopilotPopup](/vue/prebuilt-components/popup) for an overlay.
 
 ## Basic setup
 
-Import the components from `@copilotkit/vue/v2`, import the package stylesheet,
-and keep the chat below `CopilotKitProvider`:
+Import the components from `@copilotkit/vue/v2` and keep the chat below
+`CopilotKitProvider`. The chat includes its own CSS:
 
 ```vue title="App.vue"
 <script setup lang="ts">
 import { CopilotChat, CopilotKitProvider } from "@copilotkit/vue/v2";
-import "@copilotkit/vue/styles.css";
 </script>
 
 <template>

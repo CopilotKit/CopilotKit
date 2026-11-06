@@ -25,7 +25,7 @@ They handle streaming, generative UI, and deep customization so you can focus on
 
 ## What it looks like in code
 
-The live `agentic-chat` cell above is built from a single, small page. Wrap your UI in `<CopilotKit>` once (it wires the runtime, session, and agent registry) and drop `<CopilotChat>` wherever the chat should go:
+The live `agentic-chat` cell above is built from a single, small page. Wrap your UI in `<CopilotKitProvider>` once (it wires the runtime, session, and agent registry) and drop `<CopilotChat>` wherever the chat should go:
 
 <Snippet region="provider-setup" title="frontend/src/app/page.tsx — CopilotKit provider" />
 

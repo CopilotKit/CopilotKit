@@ -25,6 +25,15 @@ automatically injects it when `prompt` is omitted. Build an explicit prompt when
 you need both the message text and hydrated attachments:
 
 ```ts title="channel.ts"
+import { createChannel, HttpAgent } from "@copilotkit/channels";
+
+const channel = createChannel({
+  name: "support",
+  identifyUser: "platform",
+  agent: (threadId) =>
+    new HttpAgent({ url: "http://localhost:8000/agent", threadId }),
+});
+
 channel.onMessage(async ({ thread, message }) => {
   await thread.runAgent({
     prompt: message.contentParts?.length
@@ -49,10 +58,17 @@ threads can leak or overwrite history.
 history:
 
 ```ts title="read-thread.ts"
-const messages = await thread.getMessages();
-const transcript = messages
-  .map((message) => `${message.isBot ? "Agent" : "User"}: ${message.text}`)
-  .join("\n");
+import { createChannel } from "@copilotkit/channels";
+
+const channel = createChannel({ name: "support", identifyUser: "platform" });
+
+channel.onMessage(async ({ thread }) => {
+  const messages = await thread.getMessages();
+  const transcript = messages
+    .map((message) => `${message.isBot ? "Agent" : "User"}: ${message.text}`)
+    .join("\n");
+  console.log(transcript);
+});
 ```
 
 On the managed path, history-fetch failures return `[]` instead of failing the
@@ -76,11 +92,12 @@ and writes.
 <FrontendOnly frontend="slack">
 
 ```ts title="channel.ts"
-import { createChannel } from "@copilotkit/channels";
+import { createChannel, HttpAgent } from "@copilotkit/channels";
+import { accounts } from "./accounts.js";
 import { durableStateStore } from "./state-store.js";
 
 const channel = createChannel({
-  name: required("CHANNEL_CODE"),
+  name: "support",
   identifyUser: async ({ provider, actor }) => {
     const account = await accounts.findByExternalIdentity({
       provider,
@@ -88,7 +105,8 @@ const channel = createChannel({
     });
     return account ? { id: account.id, name: account.name } : null;
   },
-  agent: makeAgent,
+  agent: (threadId) =>
+    new HttpAgent({ url: "http://localhost:8000/agent", threadId }),
   store: {
     adapter: durableStateStore,
     transcripts: {
@@ -104,11 +122,12 @@ const channel = createChannel({
 <FrontendOnly frontend="teams">
 
 ```ts title="channel.ts"
-import { createChannel } from "@copilotkit/channels";
+import { createChannel, HttpAgent } from "@copilotkit/channels";
+import { accounts } from "./accounts.js";
 import { durableStateStore } from "./state-store.js";
 
 const channel = createChannel({
-  name: required("CHANNEL_CODE"),
+  name: "support",
   identifyUser: async ({ provider, actor }) => {
     const account = await accounts.findByExternalIdentity({
       provider,
@@ -116,7 +135,8 @@ const channel = createChannel({
     });
     return account ? { id: account.id, name: account.name } : null;
   },
-  agent: makeAgent,
+  agent: (threadId) =>
+    new HttpAgent({ url: "http://localhost:8000/agent", threadId }),
   store: {
     adapter: durableStateStore,
     transcripts: {
@@ -142,6 +162,15 @@ Set `transcript: true` to inject prior SDK transcript entries, append the
 current user turn, run the agent, and capture its reply:
 
 ```ts title="channel.ts"
+import { createChannel, HttpAgent } from "@copilotkit/channels";
+
+const channel = createChannel({
+  name: "support",
+  identifyUser: "platform",
+  agent: (threadId) =>
+    new HttpAgent({ url: "http://localhost:8000/agent", threadId }),
+});
+
 channel.onMessage(async ({ thread, message }) => {
   await thread.runAgent({
     prompt: message.text,
@@ -159,14 +188,13 @@ duplicate the record.
 `channel.transcripts` is available after the runner starts the Channel:
 
 ```ts title="transcripts.ts"
-const recent = await channel.transcripts.list({
-  userId: "usr_123",
-  limit: 50,
-});
+import type { Channel } from "@copilotkit/channels";
 
-const { deleted } = await channel.transcripts.delete({
-  userId: "usr_123",
-});
+export async function exportThenErase(channel: Channel, userId: string) {
+  const recent = await channel.transcripts.list({ userId, limit: 50 });
+  const { deleted } = await channel.transcripts.delete({ userId });
+  return { recent, deleted };
+}
 ```
 
 `list()` returns entries oldest-first. You can filter by platform, thread id, or

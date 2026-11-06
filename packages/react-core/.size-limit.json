@@ -1,12 +1,12 @@
 [
   {
-    "name": "@copilotkit/react-core (v2)",
-    "path": "dist/v2/index.mjs",
+    "name": "@copilotkit/react-core",
+    "path": "dist/index.mjs",
     "gzip": true
   },
   {
-    "name": "@copilotkit/react-core (v2/headless)",
-    "path": "dist/v2/headless.mjs",
+    "name": "@copilotkit/react-core/headless",
+    "path": "dist/headless.mjs",
     "gzip": true
   }
 ]

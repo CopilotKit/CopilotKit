@@ -11,12 +11,16 @@ You have a working CopilotChat and want users to attach files — images, PDFs, 
 Add `attachments` to your `CopilotChat` component:
 
 ```tsx title="page.tsx"
-import { CopilotChat } from "@copilotkit/react-core/v2";
+import { CopilotChat } from "@copilotkit/react-core";
 
-<CopilotChat
-  agentId="my-agent"
-  attachments={{ enabled: true }} // [!code highlight]
-/>
+export default function Page() {
+  return (
+    <CopilotChat
+      agentId="my-agent"
+      attachments={{ enabled: true }} // [!code highlight]
+    />
+  );
+}
 ```
 
 That's it. Users can now click the attachment button or drag-and-drop files into the chat. The files are sent as part of the message content to your agent.
@@ -26,15 +30,21 @@ That's it. Users can now click the attachment button or drag-and-drop files into
 The `attachments` prop accepts an `AttachmentsConfig` object:
 
 ```tsx
-<CopilotChat
-  attachments={{
-    enabled: true,
-    // Omit `accept` to allow all file types (default: "*/*").
-    // Restrict with a MIME filter if needed:
-    accept: "image/*,audio/*,video/*,application/pdf",
-    maxSize: 10 * 1024 * 1024,      // 10MB limit (default: 20MB)
-  }}
-/>
+import { CopilotChat } from "@copilotkit/react-core";
+
+export function Chat() {
+  return (
+    <CopilotChat
+      attachments={{
+        enabled: true,
+        // Omit `accept` to allow all file types (default: "*/*").
+        // Restrict with a MIME filter if needed:
+        accept: "image/*,audio/*,video/*,application/pdf",
+        maxSize: 10 * 1024 * 1024,      // 10MB limit (default: 20MB)
+      }}
+    />
+  );
+}
 ```
 
 | Option | Type | Default | Description |
@@ -70,40 +80,52 @@ By default, files are read as base64 and sent inline. For large files or product
 <Tabs items={["Base64 (inline)", "URL (hosted)"]}>
   <Tab value="Base64 (inline)">
     ```tsx
-    <CopilotChat
-      attachments={{
-        enabled: true,
-        onUpload: async (file) => {
-          const buffer = await file.arrayBuffer();
-          const base64 = btoa(String.fromCharCode(...new Uint8Array(buffer)));
-          return {
-            type: "data",
-            value: base64,
-            mimeType: file.type,
-          };
-        },
-      }}
-    />
+    import { CopilotChat } from "@copilotkit/react-core";
+
+    export function Chat() {
+      return (
+        <CopilotChat
+          attachments={{
+            enabled: true,
+            onUpload: async (file) => {
+              const buffer = await file.arrayBuffer();
+              const base64 = btoa(String.fromCharCode(...new Uint8Array(buffer)));
+              return {
+                type: "data",
+                value: base64,
+                mimeType: file.type,
+              };
+            },
+          }}
+        />
+      );
+    }
     ```
   </Tab>
   <Tab value="URL (hosted)">
     ```tsx
-    <CopilotChat
-      attachments={{
-        enabled: true,
-        onUpload: async (file) => {
-          const formData = new FormData();
-          formData.append("file", file);
-          const res = await fetch("/api/upload", { method: "POST", body: formData });
-          const { url } = await res.json();
-          return {
-            type: "url",
-            value: url,
-            mimeType: file.type,
-          };
-        },
-      }}
-    />
+    import { CopilotChat } from "@copilotkit/react-core";
+
+    export function Chat() {
+      return (
+        <CopilotChat
+          attachments={{
+            enabled: true,
+            onUpload: async (file) => {
+              const formData = new FormData();
+              formData.append("file", file);
+              const res = await fetch("/api/upload", { method: "POST", body: formData });
+              const { url } = await res.json();
+              return {
+                type: "url",
+                value: url,
+                mimeType: file.type,
+              };
+            },
+          }}
+        />
+      );
+    }
     ```
   </Tab>
 </Tabs>
@@ -113,18 +135,30 @@ By default, files are read as base64 and sent inline. For large files or product
 You can attach custom metadata to any upload. It's included in the `InputContent` part sent to the agent and accessible via `metadata` on the content part.
 
 ```tsx
-onUpload: async (file) => {
-  const url = await uploadToStorage(file);
-  return {
-    type: "url",
-    value: url,
-    mimeType: file.type,
-    metadata: {
-      uploadedBy: currentUser.id,
-      category: "support-ticket",
-    },
-  };
-},
+import { CopilotChat } from "@copilotkit/react-core";
+import { uploadToStorage } from "./storage"; // Your upload code; returns the file URL.
+
+export function Chat({ userId }: { userId: string }) {
+  return (
+    <CopilotChat
+      attachments={{
+        enabled: true,
+        onUpload: async (file) => {
+          const url = await uploadToStorage(file);
+          return {
+            type: "url",
+            value: url,
+            mimeType: file.type,
+            metadata: {
+              uploadedBy: userId,
+              category: "support-ticket",
+            },
+          };
+        },
+      }}
+    />
+  );
+}
 ```
 
 The filename is always included in metadata automatically — you don't need to add it yourself.
@@ -136,13 +170,24 @@ When a user attaches several files at once, they upload one at a time by default
 Set `maxConcurrentUploads` to upload several together — worth raising when your upload endpoint handles parallel requests:
 
 ```tsx
-<CopilotChat
-  attachments={{
-    enabled: true,
-    maxConcurrentUploads: 3, // three files at a time
-    onUpload: async (file) => uploadToStorage(file),
-  }}
-/>
+import { CopilotChat } from "@copilotkit/react-core";
+import { uploadToStorage } from "./storage"; // Your upload code; returns the file URL.
+
+export function Chat() {
+  return (
+    <CopilotChat
+      attachments={{
+        enabled: true,
+        maxConcurrentUploads: 3, // three files at a time
+        onUpload: async (file) => ({
+          type: "url",
+          value: await uploadToStorage(file),
+          mimeType: file.type,
+        }),
+      }}
+    />
+  );
+}
 ```
 
 The limit covers every upload in flight, not each batch: if a paste lands while a dropped selection is still uploading, both share the same slots. `Infinity` lifts the limit entirely.
@@ -154,19 +199,26 @@ Above `1`, your `onUpload` handler may be called concurrently, so it must not re
 Use `onUploadFailed` to react when a file is rejected or an upload fails — for example, to show a toast:
 
 ```tsx
-<CopilotChat
-  attachments={{
-    enabled: true,
-    accept: "image/*",
-    maxSize: 5 * 1024 * 1024, // 5MB
-    onUploadFailed: (error) => {
-      // error.reason: "file-too-large" | "invalid-type" | "upload-failed"
-      // error.file: the original File object
-      // error.message: human-readable description
-      toast.error(error.message);
-    },
-  }}
-/>
+import { CopilotChat } from "@copilotkit/react-core";
+import { toast } from "./toast"; // Your toast library.
+
+export function Chat() {
+  return (
+    <CopilotChat
+      attachments={{
+        enabled: true,
+        accept: "image/*",
+        maxSize: 5 * 1024 * 1024, // 5MB
+        onUploadFailed: (error) => {
+          // error.reason: "file-too-large" | "invalid-type" | "upload-failed"
+          // error.file: the original File object
+          // error.message: human-readable description
+          toast.error(error.message);
+        },
+      }}
+    />
+  );
+}
 ```
 
 | Reason | When it fires |
@@ -178,12 +230,18 @@ Use `onUploadFailed` to react when a file is rejected or an upload fails — for
 For errors that happen _after_ the message is sent (e.g., the model doesn't support the file type), use the `onError` callback on `CopilotChat`:
 
 ```tsx
-<CopilotChat
-  attachments={{ enabled: true }}
-  onError={(event) => {
-    console.error(`[${event.code}]`, event.error.message);
-  }}
-/>
+import { CopilotChat } from "@copilotkit/react-core";
+
+export function Chat() {
+  return (
+    <CopilotChat
+      attachments={{ enabled: true }}
+      onError={(event) => {
+        console.error(`[${event.code}]`, event.error.message);
+      }}
+    />
+  );
+}
 ```
 
 ## How it works

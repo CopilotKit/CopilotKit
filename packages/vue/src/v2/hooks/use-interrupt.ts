@@ -1,7 +1,7 @@
 import { computed, onScopeDispose, shallowRef, watch } from "vue";
 import type { ComputedRef, Ref } from "vue";
-import { buildResumeArray, isInterruptExpired } from "@ag-ui/client";
-import type { Interrupt, RunAgentResult } from "@ag-ui/client";
+import type { Interrupt } from "@ag-ui/client";
+import { ɵInterruptController } from "@copilotkit/core";
 import { useCopilotKit } from "../providers/useCopilotKit";
 import { useAgent } from "./use-agent";
 import type {
@@ -18,21 +18,6 @@ export type {
   InterruptRenderProps,
   Interrupt,
 };
-
-const INTERRUPT_EVENT_NAME = "on_interrupt";
-
-/** Internal accumulator response shape consumed by buildResumeArray. */
-type ResumeResponse =
-  | { status: "resolved"; payload?: unknown }
-  | { status: "cancelled" };
-
-/**
- * Normalized pending interrupt. `legacy` carries the custom-event payload;
- * `standard` carries the AG-UI `outcome:"interrupt"` interrupts array.
- */
-type PendingInterrupt =
-  | { kind: "legacy"; event: InterruptEvent }
-  | { kind: "standard"; interrupts: Interrupt[] };
 
 type InterruptHandlerFn<TValue, TResult> = (
   props: InterruptHandlerProps<TValue>,
@@ -75,38 +60,6 @@ export interface UseInterruptResult<TValue = unknown, TResult = never> {
   > | null>;
 }
 
-export function isPromiseLike<TValue>(
-  value: TValue | PromiseLike<TValue>,
-): value is PromiseLike<TValue> {
-  return (
-    (typeof value === "object" || typeof value === "function") &&
-    value !== null &&
-    typeof Reflect.get(value, "then") === "function"
-  );
-}
-
-function normalizeAsyncResult<TValue>(
-  value: PromiseLike<TValue>,
-): Promise<TValue> {
-  if (value instanceof Promise) {
-    return value;
-  }
-
-  return new Promise<TValue>((resolve, reject) => {
-    try {
-      value.then(resolve, reject);
-    } catch (error) {
-      reject(error);
-    }
-  });
-}
-
-/** Derive the legacy-compatible `event` for any pending interrupt. */
-function toLegacyEvent(pending: PendingInterrupt): InterruptEvent {
-  if (pending.kind === "legacy") return pending.event;
-  return { name: INTERRUPT_EVENT_NAME, value: pending.interrupts[0] };
-}
-
 /**
  * Vue composable for handling agent interrupts with optional filtering,
  * preprocessing, and resume behavior.
@@ -131,262 +84,33 @@ export function useInterrupt<TValue = unknown, TResult = never>(
 ): UseInterruptResult<TValue, TResult> {
   const { copilotkit } = useCopilotKit();
   const { agent } = useAgent({ agentId: config.agentId });
-  const pending = shallowRef<PendingInterrupt | null>(null);
-  const result = shallowRef<InterruptResult<TValue, TResult>>(null);
 
-  // Accumulated per-interrupt responses for the current standard interrupt set.
-  const responses: Record<string, ResumeResponse> = {};
+  const controller = new ɵInterruptController<
+    TValue,
+    InterruptResult<TValue, TResult>
+  >(
+    { runAgent: (params) => copilotkit.value.runAgent(params) },
+    {
+      enabled: (event) => config.enabled?.(event) ?? true,
+      handler: (props) => (config.handler ? config.handler(props) : null),
+    },
+  );
+  const snapshot = shallowRef(controller.getSnapshot());
+  controller.subscribe(() => {
+    snapshot.value = controller.getSnapshot();
+  });
 
   watch(
     agent,
-    (resolvedAgent, _previousAgent, onCleanup) => {
-      if (!resolvedAgent) {
-        pending.value = null;
-        result.value = null;
-        return;
-      }
-
-      let localLegacy: InterruptEvent<TValue> | null = null;
-      let localStandard: Interrupt[] | null = null;
-
-      const subscription = resolvedAgent.subscribe({
-        onCustomEvent: ({ event }) => {
-          if (event.name === INTERRUPT_EVENT_NAME) {
-            localLegacy = {
-              name: event.name,
-              value: event.value as TValue,
-            };
-          }
-        },
-        onRunFinishedEvent: (params) => {
-          if (params.outcome === "interrupt") {
-            localStandard = params.interrupts;
-          }
-        },
-        onRunStartedEvent: () => {
-          localLegacy = null;
-          localStandard = null;
-          // Reset accumulated responses for the new run.
-          for (const k of Object.keys(responses)) {
-            delete responses[k];
-          }
-          pending.value = null;
-        },
-        onRunFinalized: () => {
-          // Standard wins if both somehow appear for one run.
-          if (localStandard && localStandard.length > 0) {
-            pending.value = { kind: "standard", interrupts: localStandard };
-          } else if (localLegacy) {
-            pending.value = { kind: "legacy", event: localLegacy };
-          }
-          localLegacy = null;
-          localStandard = null;
-        },
-        onRunFailed: () => {
-          localLegacy = null;
-          localStandard = null;
-          for (const k of Object.keys(responses)) {
-            delete responses[k];
-          }
-          pending.value = null;
-        },
-      });
-
-      onCleanup(() => subscription.unsubscribe());
+    (resolvedAgent) => {
+      if (resolvedAgent) controller.connect(resolvedAgent);
+      else controller.disconnect();
     },
     { immediate: true },
   );
 
-  /** Submit the accumulated standard responses once all open interrupts are addressed. */
-  const submitStandardIfComplete = async (
-    interrupts: Interrupt[],
-  ): Promise<RunAgentResult | void> => {
-    const allAddressed = interrupts.every((i) => responses[i.id]);
-    if (!allAddressed) return;
-
-    const expired = interrupts.find((i) => isInterruptExpired(i));
-    if (expired) {
-      console.error(
-        `[CopilotKit] useInterrupt: interrupt ${expired.id} expired at ${expired.expiresAt}; not resuming.`,
-      );
-      for (const k of Object.keys(responses)) {
-        delete responses[k];
-      }
-      pending.value = null;
-      return;
-    }
-
-    const resume = buildResumeArray(interrupts, responses);
-    for (const k of Object.keys(responses)) {
-      delete responses[k];
-    }
-    const resolvedAgent = agent.value;
-    if (!resolvedAgent) return;
-    try {
-      return await copilotkit.value.runAgent({ agent: resolvedAgent, resume });
-    } catch (err) {
-      console.error(
-        "[CopilotKit] useInterrupt resolve: runAgent rejected; clearing pending + rethrowing",
-        err,
-      );
-      pending.value = null;
-      throw err;
-    }
-  };
-
-  const resolve: InterruptResolveFn = async (payload?, interruptId?) => {
-    const current = pending.value;
-    if (!current) return;
-
-    const resolvedAgent = agent.value;
-    if (!resolvedAgent) return;
-
-    if (current.kind === "legacy") {
-      const interruptEventValue = current.event.value;
-      try {
-        return await copilotkit.value.runAgent({
-          agent: resolvedAgent,
-          forwardedProps: {
-            command: {
-              resume: payload,
-              interruptEvent: interruptEventValue,
-            },
-          },
-        });
-      } catch (err) {
-        console.error(
-          "[CopilotKit] useInterrupt resolve: runAgent rejected; clearing pending + rethrowing",
-          err,
-        );
-        pending.value = null;
-        throw err;
-      }
-    }
-
-    if (current.interrupts.length > 1 && interruptId === undefined) {
-      console.warn(
-        `[CopilotKit] useInterrupt: resolve()/cancel() called without an interruptId while ${current.interrupts.length} interrupts are open; defaulting to the first. Pass an interruptId to address a specific interrupt.`,
-      );
-    }
-    const id = interruptId ?? current.interrupts[0]?.id;
-    if (!id) return;
-    responses[id] = { status: "resolved", payload };
-    return submitStandardIfComplete(current.interrupts);
-  };
-
-  const cancel: InterruptCancelFn = async (interruptId?) => {
-    const current = pending.value;
-    if (!current) return;
-
-    if (current.kind === "legacy") {
-      // Legacy interrupts have no cancel semantics; dismiss without resuming.
-      console.warn(
-        "[CopilotKit] useInterrupt: cancel() is not supported for legacy on_interrupt interrupts; dismissing.",
-      );
-      pending.value = null;
-      return;
-    }
-
-    if (current.interrupts.length > 1 && interruptId === undefined) {
-      console.warn(
-        `[CopilotKit] useInterrupt: resolve()/cancel() called without an interruptId while ${current.interrupts.length} interrupts are open; defaulting to the first. Pass an interruptId to address a specific interrupt.`,
-      );
-    }
-    const id = interruptId ?? current.interrupts[0]?.id;
-    if (!id) return;
-    responses[id] = { status: "cancelled" };
-    return submitStandardIfComplete(current.interrupts);
-  };
-
-  // Keep resolveInterrupt and cancelInterrupt as aliases for back-compat.
-  const resolveInterrupt: InterruptResolveFn = resolve;
-  const cancelInterrupt: InterruptCancelFn = cancel;
-
-  watch(
-    pending,
-    (currentPending, _previous, onCleanup) => {
-      if (!currentPending) {
-        result.value = null;
-        return;
-      }
-      const legacyEvent = toLegacyEvent(
-        currentPending,
-      ) as InterruptEvent<TValue>;
-      if (config.enabled && !config.enabled(legacyEvent)) {
-        result.value = null;
-        return;
-      }
-      const handler = config.handler;
-      if (!handler) {
-        result.value = null;
-        return;
-      }
-
-      let cancelled = false;
-      const maybePromise = handler({
-        event: legacyEvent,
-        interrupt:
-          currentPending.kind === "standard"
-            ? (currentPending.interrupts[0] ?? null)
-            : null,
-        interrupts:
-          currentPending.kind === "standard" ? currentPending.interrupts : [],
-        resolve,
-        cancel,
-      });
-
-      if (isPromiseLike(maybePromise)) {
-        normalizeAsyncResult(maybePromise)
-          .then((resolved) => {
-            if (!cancelled) {
-              result.value = resolved;
-            }
-          })
-          .catch((err) => {
-            if (!cancelled) {
-              console.error("[CopilotKit] useInterrupt handler failed:", err);
-              result.value = null;
-            }
-          });
-      } else {
-        result.value = maybePromise;
-      }
-
-      onCleanup(() => {
-        cancelled = true;
-      });
-    },
-    { immediate: true },
-  );
-
-  // Compute the legacy-compat "interrupt" ref for existing consumers (InterruptEvent shape).
-  const interrupt = computed<InterruptEvent<TValue> | null>(() => {
-    if (!pending.value) return null;
-    return toLegacyEvent(pending.value) as InterruptEvent<TValue>;
-  });
-
-  const slotProps = computed<InterruptRenderProps<
-    TValue,
-    InterruptResult<TValue, TResult>
-  > | null>(() => {
-    const currentPending = pending.value;
-    if (!currentPending) return null;
-    const legacyEvent = toLegacyEvent(currentPending) as InterruptEvent<TValue>;
-    if (config.enabled && !config.enabled(legacyEvent)) return null;
-
-    return {
-      event: legacyEvent,
-      interrupt:
-        currentPending.kind === "standard"
-          ? (currentPending.interrupts[0] ?? null)
-          : null,
-      interrupts:
-        currentPending.kind === "standard" ? currentPending.interrupts : [],
-      result: result.value,
-      resolve,
-      cancel,
-    };
-  });
+  const { resolve, cancel } = controller;
+  const slotProps = computed(() => snapshot.value.renderProps);
 
   watch(
     [() => copilotkit.value, slotProps, () => config.renderInChat !== false],
@@ -395,10 +119,7 @@ export function useInterrupt<TValue = unknown, TResult = never>(
         return;
       }
 
-      core.setInterruptState(
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        nextSlotProps as InterruptRenderProps<any, any> | null,
-      );
+      core.setInterruptState(nextSlotProps);
       const publishedState = nextSlotProps;
 
       onCleanup(() => {
@@ -420,17 +141,17 @@ export function useInterrupt<TValue = unknown, TResult = never>(
     }
   });
 
+  onScopeDispose(() => controller.dispose());
+
   return {
-    interrupt: interrupt as unknown as Ref<InterruptEvent<TValue> | null>,
-    result: result as Ref<InterruptResult<TValue, TResult>>,
+    interrupt: computed(() => slotProps.value?.event ?? null),
+    result: computed(() => snapshot.value.result),
     hasInterrupt: computed(() => slotProps.value !== null),
     resolve,
-    resolveInterrupt,
+    // Aliases kept for back-compat.
+    resolveInterrupt: resolve,
     cancel,
-    cancelInterrupt,
-    slotProps: slotProps as ComputedRef<InterruptRenderProps<
-      TValue,
-      InterruptResult<TValue, TResult>
-    > | null>,
+    cancelInterrupt: cancel,
+    slotProps,
   };
 }

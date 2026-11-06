@@ -1,7 +1,7 @@
-import packageInfo from "../../package.json";
 import {
   Component,
   EnvironmentInjector,
+  computed,
   PLATFORM_ID,
   inject,
   isDevMode,
@@ -9,14 +9,16 @@ import {
 import { TestBed } from "@angular/core/testing";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
-  configureWebInspectorElement,
   WEB_INSPECTOR_TAG,
   defineWebInspector,
 } from "@copilotkit/web-inspector";
 
 import { provideCopilotKit, type CopilotKitConfig } from "./config";
 import { CopilotKit } from "./copilotkit";
-import { ɵCOPILOTKIT_INSPECTOR_DEVELOPMENT_MODE } from "./inspector";
+import {
+  CopilotInspector,
+  ɵCOPILOTKIT_INSPECTOR_DEVELOPMENT_MODE,
+} from "./inspector";
 
 @Component({
   standalone: true,
@@ -52,6 +54,9 @@ async function renderHost(
 
 describe("Angular inspector integration", () => {
   beforeEach(() => {
+    // vitest.config.mts gives jsdom a non-loopback host so that other specs do
+    // not mount the Inspector. These tests need the local development host.
+    vi.stubGlobal("location", new URL("http://localhost:4200"));
     TestBed.resetTestingModule();
     document.querySelectorAll(WEB_INSPECTOR_TAG).forEach((element) => {
       element.remove();
@@ -73,47 +78,6 @@ describe("Angular inspector integration", () => {
     };
 
     expect(provider.ɵprov.factory).toBe(isDevMode);
-  });
-
-  it("mounts by default in development and attaches the exact core before connection", async () => {
-    const appendChild = document.body.appendChild.bind(document.body);
-    let coreAtAppend: unknown;
-    let autoAttachCoreAtAppend: boolean | undefined;
-    vi.spyOn(document.body, "appendChild").mockImplementation((node) => {
-      if (node instanceof Element && node.matches(WEB_INSPECTOR_TAG)) {
-        const inspector = node as Element & {
-          autoAttachCore?: boolean;
-          core?: unknown;
-        };
-        coreAtAppend = inspector.core;
-        autoAttachCoreAtAppend = inspector.autoAttachCore;
-      }
-      return appendChild(node);
-    });
-
-    const fixture = await renderHost({});
-    const inspector = document.querySelector<
-      HTMLElement & {
-        autoAttachCore?: boolean;
-        core?: unknown;
-      }
-    >(WEB_INSPECTOR_TAG);
-
-    expect(inspector).not.toBeNull();
-    expect(inspector?.core).toBe(fixture.componentInstance.copilotKit.core);
-    expect(inspector?.autoAttachCore).toBe(false);
-    expect(coreAtAppend).toBe(fixture.componentInstance.copilotKit.core);
-    expect(autoAttachCoreAtAppend).toBe(false);
-    expect(defineWebInspector).toHaveBeenCalledTimes(1);
-    expect(configureWebInspectorElement).toHaveBeenLastCalledWith(
-      expect.any(HTMLElement),
-      fixture.componentInstance.copilotKit.core,
-      {
-        development: true,
-        framework: "angular",
-        sdkVersion: packageInfo.version,
-      },
-    );
   });
 
   it("never loads in production, even when explicitly enabled", async () => {
@@ -148,6 +112,61 @@ describe("Angular inspector integration", () => {
     TestBed.resetTestingModule();
     expect(existing.isConnected).toBe(true);
     existing.remove();
+  });
+
+  it("never loads on a remote development host, even when explicitly enabled", async () => {
+    vi.stubGlobal("location", new URL("http://192.168.1.25:4200"));
+    await renderHost({ enableInspector: true });
+    expect(TestBed.inject(CopilotInspector).shouldRenderInspector).toBe(false);
+    expect(defineWebInspector).not.toHaveBeenCalled();
+  });
+
+  it("enables Inspector message actions only while the Inspector is shown", async () => {
+    await renderHost({});
+    const service = TestBed.inject(CopilotInspector);
+    const isEnabled = TestBed.runInInjectionContext(() =>
+      computed(() => service.isInspectorEnabled),
+    );
+    const inspector = document.querySelector(WEB_INSPECTOR_TAG)!;
+    expect(isEnabled()).toBe(false);
+
+    inspector.dispatchEvent(
+      new CustomEvent("cpk-inspector-visibility-change", {
+        detail: { visible: true },
+      }),
+    );
+    expect(isEnabled()).toBe(true);
+
+    inspector.dispatchEvent(
+      new CustomEvent("cpk-inspector-visibility-change", {
+        detail: { visible: false },
+      }),
+    );
+    expect(isEnabled()).toBe(false);
+  });
+
+  it("opens a request made before the Inspector loaded", async () => {
+    TestBed.configureTestingModule({
+      imports: [InspectorHost],
+      providers: [
+        provideCopilotKit({}),
+        { provide: ɵCOPILOTKIT_INSPECTOR_DEVELOPMENT_MODE, useValue: true },
+      ],
+    });
+    const request = { messageId: "message-early", threadId: "thread-1" };
+    TestBed.inject(CopilotInspector).openInspector(request);
+    const fixture = TestBed.createComponent(InspectorHost);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    await vi.dynamicImportSettled();
+
+    const inspector = document.querySelector<
+      HTMLElement & { openInspector: ReturnType<typeof vi.fn> }
+    >(WEB_INSPECTOR_TAG);
+    expect(inspector?.openInspector).toHaveBeenCalledExactlyOnceWith(
+      "message_toolbar",
+      request,
+    );
   });
 
   it("removes an inspector it owns when the root service is destroyed", async () => {

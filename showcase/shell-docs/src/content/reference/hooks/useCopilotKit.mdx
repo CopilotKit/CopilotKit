@@ -5,21 +5,24 @@ description: "Low-level React hook for accessing the CopilotKit context"
 
 ## Overview
 
-`useCopilotKit` is a low-level React hook that returns the CopilotKit context value, providing direct access to the core instance and provider-level state. It subscribes to runtime connection status changes and triggers re-renders when the connection status updates.
+`useCopilotKit` is a low-level React hook that returns the CopilotKit context value, providing direct access to the core instance and provider-level state. It subscribes to runtime connection status and header changes and triggers re-renders when either updates.
 
 <Callout type="info">
   `useCopilotKit` is a low-level hook. Most applications should use higher-level
   hooks like `useAgent` or `useFrontendTool` instead.
 </Callout>
 
-**Throws an error** if used outside of a `CopilotKit` (or the `<CopilotKit>` wrapper component).
+**Throws an error** if used outside of a `<CopilotKitProvider>`.
 
 ## Signature
 
 ```tsx
-import { useCopilotKit } from "@copilotkit/react-core/v2";
+import {
+  useCopilotKit,
+  type CopilotKitContextValue,
+} from "@copilotkit/react-core";
 
-function useCopilotKit(): CopilotKitContextValue;
+useCopilotKit satisfies () => CopilotKitContextValue;
 ```
 
 ## Parameters
@@ -39,8 +42,12 @@ This hook takes no parameters.
     - Runtime connection management
     - Event subscription via `subscribe()`
 
-    The core instance is created once per `CopilotKit` and is stable across re-renders.
+    The core instance is created once per `<CopilotKitProvider>` and is stable across re-renders.
 
+  </PropertyReference>
+
+  <PropertyReference name="showIntelligenceIndicator" type="boolean | undefined">
+    Whether CopilotKit mounts the Intelligence indicators automatically. Mirrors the provider's `showIntelligenceIndicator` prop. `undefined` counts as `true`.
   </PropertyReference>
 
   <PropertyReference name="executingToolCallIds" type="ReadonlySet<string>">
@@ -53,6 +60,8 @@ This hook takes no parameters.
 ### Accessing the Core Instance
 
 ```tsx
+import { useCopilotKit } from "@copilotkit/react-core";
+
 function DebugPanel() {
   const { copilotkit } = useCopilotKit();
 
@@ -74,6 +83,9 @@ function DebugPanel() {
 ### Subscribing to Core Events
 
 ```tsx
+import { useEffect } from "react";
+import { useCopilotKit } from "@copilotkit/react-core";
+
 function ConnectionMonitor() {
   const { copilotkit } = useCopilotKit();
 
@@ -98,6 +110,10 @@ function ConnectionMonitor() {
 `copilotkit.runTool()` lets you execute a registered frontend tool directly from code — no LLM turn required. The tool's handler runs, render components appear in the UI, and both the tool call and result are added to the agent's message history.
 
 ```tsx
+import { z } from "zod";
+import { useCopilotKit, useFrontendTool } from "@copilotkit/react-core";
+import { downloadFile, generateCsv } from "./export";
+
 function ExportButton() {
   const { copilotkit } = useCopilotKit();
 
@@ -105,7 +121,7 @@ function ExportButton() {
   useFrontendTool({
     name: "exportData",
     description: "Export data as CSV",
-    parameters: [{ name: "format", type: "string" }],
+    parameters: z.object({ format: z.string() }),
     handler: async ({ format }) => {
       const csv = await generateCsv(format);
       downloadFile(csv);
@@ -115,7 +131,7 @@ function ExportButton() {
 
   // Trigger it from a button — no LLM needed
   const handleExport = async () => {
-    const { result, error } = await copilotkit.runTool({
+    const { error } = await copilotkit.runTool({
       name: "exportData",
       parameters: { format: "csv" },
     });
@@ -173,6 +189,8 @@ function ExportButton() {
 ### Checking Tool Execution State
 
 ```tsx
+import { useCopilotKit } from "@copilotkit/react-core";
+
 function ToolExecutionIndicator() {
   const { executingToolCallIds } = useCopilotKit();
 
@@ -186,8 +204,8 @@ function ToolExecutionIndicator() {
 
 ## Behavior
 
-- **Error on Missing Provider**: Throws an error if the hook is used outside of `CopilotKit` or the `<CopilotKit>` wrapper component.
-- **Runtime Status Subscription**: The hook subscribes to `onRuntimeConnectionStatusChanged` events, so components re-render when the runtime connection completes or fails.
+- **Error on Missing Provider**: Throws an error if the hook is used outside of `<CopilotKitProvider>`.
+- **Runtime Status Subscription**: The hook subscribes to `onRuntimeConnectionStatusChanged` and `onHeadersChanged` events, so components re-render when the runtime connection completes or fails, or when the provider's headers change.
 - **Stable Core Reference**: The `copilotkit` instance is created once per provider and remains stable across re-renders. Only the `executingToolCallIds` set changes as tool calls begin and complete.
 - **Provider-Level Tool Tracking**: `executingToolCallIds` is tracked at the provider level rather than in individual components. This ensures that tool execution start events fired before child components mount are not lost.
 
@@ -195,4 +213,4 @@ function ToolExecutionIndicator() {
 
 - [`useAgent`](/reference/hooks/useAgent) -- High-level hook for accessing agent instances
 - [`useFrontendTool`](/reference/hooks/useFrontendTool) -- Register frontend tools that `runTool()` can execute
-- [`CopilotKit`](/reference/v2) -- The provider component that creates the context
+- [`CopilotKitProvider`](/reference/components/CopilotKit) -- The provider component that creates the context

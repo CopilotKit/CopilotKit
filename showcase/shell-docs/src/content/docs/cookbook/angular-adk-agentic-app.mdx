@@ -72,6 +72,7 @@ Use [`connectAgentContext`](/reference/angular/functions/connectAgentContext) to
 ```ts title="chat.component.ts"
 import { Component, signal } from "@angular/core";
 import { connectAgentContext } from "@copilotkit/angular";
+import { currentUserId } from "./session";
 
 @Component({ /* ... */ })
 export class ChatComponent {

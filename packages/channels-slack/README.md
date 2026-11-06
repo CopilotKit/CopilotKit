@@ -24,7 +24,7 @@ This adapter is the **self-hosted** path: your process holds the Slack credentia
 npx copilotkit channels add support
 ```
 
-Your bot code is otherwise identical — the agent, tools, context, commands, and turn handlers do not change. Only the transport does. See `examples/slack/app/managed.ts` for the same bot wired both ways, and the **copilotkit-channels** skill for the runtime wiring.
+Your bot code is otherwise identical — the agent, tools, context, commands, and turn handlers do not change. Only the transport does. See `examples/templates/slack/app/managed.ts` for the same bot wired both ways, and the **copilotkit-channels** skill for the runtime wiring.
 
 This self-hosted adapter remains fully supported. Choose it when you want the provider connection inside your own infrastructure.
 
@@ -43,8 +43,8 @@ import {
   defaultSlackTools,
   defaultSlackContext,
 } from "@copilotkit/channels-slack";
-import { CopilotRuntime, CopilotKitIntelligence } from "@copilotkit/runtime/v2";
-import { createCopilotNodeListener } from "@copilotkit/runtime/v2/node";
+import { CopilotRuntime, CopilotKitIntelligence } from "@copilotkit/runtime";
+import { createCopilotNodeListener } from "@copilotkit/runtime/node";
 
 const bot = createChannel({
   name: "support-bot", // project-unique Intelligence Channel name
@@ -446,7 +446,7 @@ work against any adapter that advertises the same capabilities.
 
 This package is the **library**. A runnable end-to-end demo wiring all of the
 above against a real workspace lives in
-[`examples/slack`](../../examples/slack).
+[`examples/templates/slack`](../../examples/templates/slack).
 
 ## Slash commands
 

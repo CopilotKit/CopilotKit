@@ -5,10 +5,10 @@
 Install all required peer dependencies:
 
 ```bash
-npm install react react-native @gorhom/bottom-sheet react-native-gesture-handler react-native-reanimated react-native-streamdown
+npm install react react-native @gorhom/bottom-sheet react-native-gesture-handler react-native-reanimated
 ```
 
-`@gorhom/bottom-sheet`, `react-native-gesture-handler`, `react-native-reanimated`, and `react-native-streamdown` are required peer dependencies for the UI components.
+`@gorhom/bottom-sheet`, `react-native-gesture-handler`, and `react-native-reanimated` are required peer dependencies for the UI components. `CopilotMarkdown` now uses a built-in basic-GFM renderer — no extra markdown library install required.
 
 ## Quick Start
 

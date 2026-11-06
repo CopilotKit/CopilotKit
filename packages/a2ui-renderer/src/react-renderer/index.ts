@@ -4,8 +4,6 @@ export {
   useA2UIActions,
   useA2UIState,
   useA2UIContext,
-  useA2UIStore, // @deprecated - use useA2UIContext
-  useA2UIStoreSelector, // @deprecated - use useA2UIContext or useA2UI
   useA2UIError,
 } from "./core/A2UIProvider";
 export type { A2UIProviderProps } from "./core/A2UIProvider";
@@ -38,7 +36,7 @@ export type { InlineCatalogSchema } from "./catalog-utils";
 
 // Catalog creation — new API (definitions + renderers)
 export { createCatalog, extractSchema } from "./create-catalog";
-export { filterCatalog } from "./filter-catalog";
+export { filterCatalog } from "../filter-catalog";
 export type {
   CatalogComponentDefinition,
   CatalogDefinitions,
@@ -46,13 +44,6 @@ export type {
   RendererProps,
   ComponentRenderer,
   PropsOf,
-} from "./create-catalog";
-
-// Catalog creation — deprecated API (combined definitions + renderers)
-export { createA2UICatalog, extractA2UISchema } from "./create-catalog";
-export type {
-  A2UIComponentDefinition,
-  A2UIComponentMap,
 } from "./create-catalog";
 
 // Styles
@@ -74,9 +65,6 @@ export type {
   StringValue,
   NumberValue,
   BooleanValue,
-  A2UIComponentProps,
-  ComponentRegistration,
-  ComponentLoader,
   OnActionCallback,
   A2UIProviderConfig,
 } from "./types";

@@ -1,0 +1,86 @@
+/* CopilotSidebarView: a full-height panel docked to the right (default) or
+   left edge. base.css sets its width from --sidebar-width on desktop. */
+:where(.cpk-sidebar-view) {
+  position: fixed;
+  top: 0;
+  right: 0;
+  z-index: 1200;
+  display: flex;
+  width: 100%;
+  height: 100vh;
+  height: 100dvh;
+  max-height: 100vh;
+  border-left: 1px solid var(--border);
+  background-color: var(--background);
+  color: var(--foreground);
+  box-shadow:
+    0 20px 25px -5px #0000001a,
+    0 8px 10px -6px #0000001a;
+  translate: 0 0;
+  transition-property: translate;
+  transition-duration: 300ms;
+  transition-timing-function: cubic-bezier(0, 0, 0.2, 1);
+}
+:where(.cpk-sidebar-view[data-position="left"]) {
+  right: auto;
+  left: 0;
+  border-left-width: 0;
+  border-right: 1px solid var(--border);
+}
+/* Closed: slid off its edge. */
+:where(.cpk-sidebar-view-closed) {
+  pointer-events: none;
+  translate: 100% 0;
+}
+:where(.cpk-sidebar-view-closed[data-position="left"]) {
+  translate: -100% 0;
+}
+
+:where(.cpk-sidebar-view-panel) {
+  display: flex;
+  width: 100%;
+  height: 100%;
+  flex-direction: column;
+  overflow: hidden;
+}
+:where(.cpk-sidebar-view-chat) {
+  flex: 1;
+  overflow: hidden;
+}
+:where(div[data-sidebar-chat] .cpk-chat-view-scroll-content) {
+  padding-inline: 2rem;
+}
+
+/* Set on the toggle button when the sidebar is docked left. */
+:where(.cpk-sidebar-view-toggle-button-left) {
+  right: auto;
+  left: 1.5rem;
+}
+
+/* Sidebar welcome screen: message centered, suggestions and input at the bottom. */
+:where(.cpk-sidebar-view-welcome-screen) {
+  display: flex;
+  height: 100%;
+  flex-direction: column;
+}
+:where(.cpk-sidebar-view-welcome-screen-message) {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding-inline: 1rem;
+}
+:where(.cpk-sidebar-view-welcome-screen-footer) {
+  padding-inline: 2rem;
+  padding-bottom: 1rem;
+}
+:where(.cpk-sidebar-view-welcome-screen-content) {
+  max-width: 48rem;
+  margin-inline: auto;
+}
+:where(.cpk-sidebar-view-welcome-screen-suggestions) {
+  margin-bottom: 1rem;
+  display: flex;
+  justify-content: center;
+}

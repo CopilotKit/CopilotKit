@@ -1,6 +1,6 @@
 import type { A2UICatalogDefinitions } from "@copilotkit/angular/a2ui";
 import { ChildListSchema } from "@copilotkit/angular/a2ui";
-import { z } from "zod";
+import { z } from "zod-v3";
 
 const dynamicString = z.union([z.string(), z.object({ path: z.string() })]);
 const chartDatum = z.object({ label: z.string(), value: z.number() });

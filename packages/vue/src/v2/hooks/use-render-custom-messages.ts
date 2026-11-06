@@ -1,6 +1,8 @@
-import type { Component, VNodeChild } from "vue";
 import type { Message } from "@ag-ui/core";
-import { DEFAULT_AGENT_ID } from "@copilotkit/shared";
+import {
+  ɵgetCustomMessageRenderProps,
+  ɵresolveCustomMessageRenderContext,
+} from "@copilotkit/core";
 import { useCopilotKit } from "../providers/useCopilotKit";
 import { useCopilotChatConfiguration } from "../providers/useCopilotChatConfiguration";
 import type {
@@ -11,13 +13,6 @@ import type {
 interface UseRenderCustomMessagesParams {
   message: Message;
   position: VueCustomMessageRendererPosition;
-}
-
-interface CustomMessageRendererResult {
-  renderer:
-    | Component<VueCustomMessageRendererProps>
-    | ((props: VueCustomMessageRendererProps) => VNodeChild);
-  props: VueCustomMessageRendererProps;
 }
 
 /**
@@ -37,93 +32,34 @@ export function useRenderCustomMessages() {
   const { copilotkit } = useCopilotKit();
   const config = useCopilotChatConfiguration();
 
-  return function renderCustomMessage(
-    params: UseRenderCustomMessagesParams,
-  ): CustomMessageRendererResult | null {
+  return function renderCustomMessage(params: UseRenderCustomMessagesParams) {
     const configValue = config.value;
     if (!configValue) return null;
 
-    const agentId = configValue.agentId || DEFAULT_AGENT_ID;
-    const { threadId } = configValue;
     const core = copilotkit.value;
-
-    const customMessageRenderers = [...core.renderCustomMessages]
-      .filter(
-        (renderer) =>
-          renderer.agentId === undefined || renderer.agentId === agentId,
-      )
-      .sort((a, b) => {
-        const aHasAgent = a.agentId !== undefined;
-        const bHasAgent = b.agentId !== undefined;
-        if (aHasAgent === bHasAgent) return 0;
-        return aHasAgent ? -1 : 1;
-      });
-
-    if (!customMessageRenderers.length) {
-      return null;
-    }
-
-    const { message, position } = params;
-    const resolvedRunId =
-      core.getRunIdForMessage(agentId, threadId, message.id) ??
-      core.getRunIdsForThread(agentId, threadId).slice(-1)[0];
-    const runId = resolvedRunId ?? `missing-run-id:${message.id}`;
-    const agent = core.getAgent(agentId);
-    if (!agent) {
-      return null;
-    }
-
-    const messagesIdsInRun = resolvedRunId
-      ? agent.messages
-          .filter(
-            (msg) =>
-              core.getRunIdForMessage(agentId, threadId, msg.id) ===
-              resolvedRunId,
-          )
-          .map((msg) => msg.id)
-      : [message.id];
-
-    const rawMessageIndex = agent.messages.findIndex(
-      (msg) => msg.id === message.id,
+    const { agentId, renderers } = ɵresolveCustomMessageRenderContext(
+      core.renderCustomMessages,
+      configValue.agentId,
     );
-    if (rawMessageIndex < 0) {
-      console.warn(
-        `[CopilotKit] useRenderCustomMessages: message "${message.id}" ` +
-          `not found in agent "${agentId}" messages`,
-      );
-    }
-    const messageIndex = Math.max(0, rawMessageIndex);
-    const messageIndexInRun = resolvedRunId
-      ? Math.max(messagesIdsInRun.indexOf(message.id), 0)
-      : 0;
-    const numberOfMessagesInRun = resolvedRunId ? messagesIdsInRun.length : 1;
-    const stateSnapshot = resolvedRunId
-      ? core.getStateByRun(agentId, threadId, resolvedRunId)
-      : undefined;
+    // Agent-scoped renderers come first. Use the first one that has a
+    // render function.
+    const selected = renderers.find((candidate) => candidate.render);
+    if (!selected) return null;
 
-    const props: CustomMessageRendererResult["props"] = {
-      message,
-      position,
-      runId,
-      messageIndex,
-      messageIndexInRun,
-      numberOfMessagesInRun,
-      agentId,
-      stateSnapshot,
-    };
+    const agent = core.getAgent(agentId);
+    if (!agent) return null;
 
-    // Iterate renderers like React: try each one and use the first that
-    // returns a non-null render function.
-    for (const candidate of customMessageRenderers) {
-      if (!candidate.render) {
-        continue;
-      }
-      return {
-        renderer: candidate.render as CustomMessageRendererResult["renderer"],
-        props,
-      };
-    }
+    const props: VueCustomMessageRendererProps = ɵgetCustomMessageRenderProps(
+      core,
+      {
+        agentId,
+        threadId: configValue.threadId,
+        agent,
+        message: params.message,
+        position: params.position,
+      },
+    );
 
-    return null;
+    return { renderer: selected.render, props };
   };
 }

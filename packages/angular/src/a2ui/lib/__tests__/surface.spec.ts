@@ -1,7 +1,7 @@
 import { Component, input, signal, Type } from "@angular/core";
 import { TestBed, ComponentFixture } from "@angular/core/testing";
 import { describe, expect, it, vi } from "vitest";
-import { z } from "zod";
+import { z } from "zod-v3";
 import { A2UIClientEventMessage, A2UISurfaceError } from "@copilotkit/angular";
 import { CopilotA2UIChild } from "../child";
 import { injectA2UIComponentContext } from "../component-context";

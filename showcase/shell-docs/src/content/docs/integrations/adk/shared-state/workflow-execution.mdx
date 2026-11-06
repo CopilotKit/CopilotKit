@@ -133,7 +133,7 @@ In addition, some state properties contain a lot of information. Syncing them ba
     "use client";
 
     import { useState } from "react";
-    import { useAgent, useCopilotKit } from "@copilotkit/react-core/v2";
+    import { useAgent, useCopilotKit } from "@copilotkit/react-core";
 
     // Define the agent state type, should match the actual state of your agent
     type AgentState = {
@@ -221,7 +221,7 @@ In addition, some state properties contain a lot of information. Syncing them ba
     </FrontendOnly>
 
     <Callout type="warn" title="Important">
-      The `name` parameter must exactly match the agent name you defined in your CopilotRuntime configuration (e.g., `my_agent` from the quickstart).
+      The `agentId` must exactly match the agent name you defined in your CopilotRuntime configuration (e.g., `my_agent` from the quickstart).
     </Callout>
 
   </Step>

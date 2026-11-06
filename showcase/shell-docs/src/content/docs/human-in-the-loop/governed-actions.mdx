@@ -24,17 +24,22 @@ calling any write API.
 
 Keep the approval payload small, serializable, and vendor-neutral. The
 agent or backend can attach any policy engine result to the action as long
-as the UI receives the same basic envelope:
+as the UI receives the same basic envelope. Define it as a Zod schema, so the
+UI can validate the payload it receives and derive the type from it:
 
-```ts
-type GovernedAction = {
-  id: string;
-  summary: string;
-  tool: string;
-  reference: string;
-  verdict: "allow" | "deny" | "require_approval";
-  arguments: Record<string, unknown>;
-};
+```ts group=governed-actions
+import { z } from "zod";
+
+const governedActionSchema = z.object({
+  id: z.string(),
+  summary: z.string(),
+  tool: z.string(),
+  reference: z.string(),
+  verdict: z.enum(["allow", "deny", "require_approval"]),
+  arguments: z.record(z.string(), z.unknown()),
+});
+
+type GovernedAction = z.infer<typeof governedActionSchema>;
 ```
 
 The frontend should handle each verdict deterministically:
@@ -51,18 +56,22 @@ If your runtime can pause an agent run, model the approval as an interrupt.
 The agent proposes the action, the UI renders the checkpoint, and the run
 resumes with the user's decision:
 
-```tsx
+```tsx group=governed-actions
 import { useEffect } from "react";
-import { useInterrupt } from "@copilotkit/react-core/v2";
+import { useInterrupt } from "@copilotkit/react-core";
 
 function GovernedActionApproval() {
   useInterrupt({
     render: ({ interrupt, resolve, cancel }) => {
-      const action = interrupt?.metadata?.action as GovernedAction | undefined;
+      const parsed = governedActionSchema.safeParse(
+        interrupt?.metadata?.action,
+      );
 
-      if (!action) {
-        return null;
+      if (!parsed.success) {
+        return <></>;
       }
+
+      const action = parsed.data;
 
       return (
         <GovernedActionCard
@@ -146,7 +155,9 @@ function GovernedActionCard({
 On resume, the agent should execute only when it receives an approved
 response for the same action id and reference:
 
-```ts
+```ts group=governed-actions
+import { executeSideEffect } from "./side-effects";
+
 type ApprovalResponse = {
   approved: boolean;
   actionId: string;
@@ -176,18 +187,8 @@ human-in-the-loop tool. The model asks to call `approve_governed_action`,
 your UI renders the card, and the tool result tells the agent whether it
 may continue:
 
-```tsx
-import { ToolCallStatus, useHumanInTheLoop } from "@copilotkit/react-core/v2";
-import { z } from "zod";
-
-const governedActionSchema = z.object({
-  id: z.string(),
-  summary: z.string(),
-  tool: z.string(),
-  reference: z.string(),
-  verdict: z.enum(["allow", "deny", "require_approval"]),
-  arguments: z.record(z.unknown()),
-});
+```tsx group=governed-actions
+import { ToolCallStatus, useHumanInTheLoop } from "@copilotkit/react-core";
 
 function GovernedActionTool() {
   useHumanInTheLoop(

@@ -1,29 +1,16 @@
 /**
- * Test helpers for mocking streamText responses
+ * AI SDK `fullStream` part builders for the `type: "aisdk"` factory tests
+ * (the factory returns `{ fullStream }`, so no `ai` import is needed), and
+ * `collectEvents`. For the classic BuiltInAgent, use the fake TanStack AI
+ * model helpers in `agent-test-helpers.ts`.
  */
 
-import type { streamText } from "ai";
 import type { Observable } from "rxjs";
 import type { BaseEvent } from "@ag-ui/client";
 
 export interface MockStreamEvent {
   type: string;
   [key: string]: unknown;
-}
-
-/**
- * Creates a mock streamText response with controlled events.
- */
-export function mockStreamTextResponse(
-  events: MockStreamEvent[],
-): ReturnType<typeof streamText> {
-  return {
-    fullStream: (async function* () {
-      for (const event of events) {
-        yield event;
-      }
-    })(),
-  } as unknown as ReturnType<typeof streamText>;
 }
 
 /**
@@ -165,25 +152,6 @@ export function finish(): MockStreamEvent {
   return {
     type: "finish",
     finishReason: "stop",
-  };
-}
-
-/**
- * Helper to create an abort event
- */
-export function abort(): MockStreamEvent {
-  return {
-    type: "abort",
-  };
-}
-
-/**
- * Helper to create an error event
- */
-export function error(errorMessage: string): MockStreamEvent {
-  return {
-    type: "error",
-    error: new Error(errorMessage),
   };
 }
 

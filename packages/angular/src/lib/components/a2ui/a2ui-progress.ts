@@ -1,9 +1,11 @@
 import { ChangeDetectionStrategy, Component, input } from "@angular/core";
+import { ɵA2UI_LIFECYCLE_TEXT, ɵA2UI_SKELETON_ROWS } from "@copilotkit/core";
 
 /**
  * Presentational loading placeholder shown while an A2UI tool call is still
  * streaming. Renders an animated skeleton card whose rows reveal as the
- * estimated token count climbs through `phase`.
+ * estimated token count climbs through `phase` (see core's
+ * `ɵgetA2UIProgressPhase`).
  */
 @Component({
   selector: "copilot-a2ui-progress",
@@ -22,83 +24,35 @@ import { ChangeDetectionStrategy, Component, input } from "@angular/core";
             <span class="copilot-a2ui-dot"></span>
             <span class="copilot-a2ui-dot"></span>
           </div>
-          <span [class]="topbarBarClass()"></span>
+          <span
+            class="copilot-a2ui-bar copilot-a2ui-topbar-bar"
+            [style.opacity]="phase() >= 1 ? 1 : 0.4"
+          ></span>
         </div>
 
         <div class="copilot-a2ui-lines">
-          <div [class]="rowClass(0, 'cpk:[transition-delay:0s]')">
-            <span
-              class="copilot-a2ui-bar cpk:w-[36px] cpk:h-[7px] cpk:bg-[rgba(147,197,253,0.7)] cpk:[animation-delay:0s]"
-            ></span>
-            <span
-              class="copilot-a2ui-bar cpk:w-20 cpk:h-[7px] cpk:bg-[rgba(219,234,254,0.8)] cpk:[animation-delay:0.2s]"
-            ></span>
-          </div>
-
-          <div [class]="rowClass(0, 'cpk:[transition-delay:0.1s]')">
-            <span class="copilot-a2ui-spacer"></span>
-            <span class="copilot-a2ui-dot"></span>
-            <span
-              class="copilot-a2ui-bar cpk:w-[100px] cpk:h-[7px] cpk:bg-[rgba(24,24,27,0.2)] cpk:[animation-delay:0.3s]"
-            ></span>
-          </div>
-
-          <div [class]="rowClass(1, 'cpk:[transition-delay:0.15s]')">
-            <span class="copilot-a2ui-spacer"></span>
-            <span
-              class="copilot-a2ui-bar cpk:w-12 cpk:h-[7px] cpk:bg-[rgba(24,24,27,0.15)] cpk:[animation-delay:0.1s]"
-            ></span>
-            <span
-              class="copilot-a2ui-bar cpk:w-10 cpk:h-[7px] cpk:bg-[rgba(153,246,228,0.6)] cpk:[animation-delay:0.5s]"
-            ></span>
-            <span
-              class="copilot-a2ui-bar cpk:w-14 cpk:h-[7px] cpk:bg-[rgba(147,197,253,0.6)] cpk:[animation-delay:0.3s]"
-            ></span>
-          </div>
-
-          <div [class]="rowClass(1, 'cpk:[transition-delay:0.2s]')">
-            <span class="copilot-a2ui-spacer"></span>
-            <span class="copilot-a2ui-dot"></span>
-            <span
-              class="copilot-a2ui-bar cpk:w-[60px] cpk:h-[7px] cpk:bg-[rgba(24,24,27,0.15)] cpk:[animation-delay:0.4s]"
-            ></span>
-          </div>
-
-          <div [class]="rowClass(2, 'cpk:[transition-delay:0.25s]')">
-            <span
-              class="copilot-a2ui-bar cpk:w-10 cpk:h-[7px] cpk:bg-[rgba(153,246,228,0.5)] cpk:[animation-delay:0.2s]"
-            ></span>
-            <span class="copilot-a2ui-dot"></span>
-            <span
-              class="copilot-a2ui-bar cpk:w-12 cpk:h-[7px] cpk:bg-[rgba(24,24,27,0.15)] cpk:[animation-delay:0.6s]"
-            ></span>
-            <span
-              class="copilot-a2ui-bar cpk:w-16 cpk:h-[7px] cpk:bg-[rgba(147,197,253,0.5)] cpk:[animation-delay:0.1s]"
-            ></span>
-          </div>
-
-          <div [class]="rowClass(2, 'cpk:[transition-delay:0.3s]')">
-            <span
-              class="copilot-a2ui-bar cpk:w-[36px] cpk:h-[7px] cpk:bg-[rgba(147,197,253,0.6)] cpk:[animation-delay:0.5s]"
-            ></span>
-            <span
-              class="copilot-a2ui-bar cpk:w-[36px] cpk:h-[7px] cpk:bg-[rgba(24,24,27,0.12)] cpk:[animation-delay:0.7s]"
-            ></span>
-          </div>
-
-          <div [class]="rowClass(3, 'cpk:[transition-delay:0.35s]')">
-            <span class="copilot-a2ui-dot"></span>
-            <span
-              class="copilot-a2ui-bar cpk:w-11 cpk:h-[7px] cpk:bg-[rgba(24,24,27,0.18)] cpk:[animation-delay:0.3s]"
-            ></span>
-            <span class="copilot-a2ui-dot"></span>
-            <span
-              class="copilot-a2ui-bar cpk:w-14 cpk:h-[7px] cpk:bg-[rgba(153,246,228,0.5)] cpk:[animation-delay:0.8s]"
-            ></span>
-            <span
-              class="copilot-a2ui-bar cpk:w-12 cpk:h-[7px] cpk:bg-[rgba(147,197,253,0.5)] cpk:[animation-delay:0.4s]"
-            ></span>
-          </div>
+          @for (row of rows; track $index) {
+            <div
+              class="copilot-a2ui-row"
+              [style.transition-delay.s]="row.delay"
+              [style.opacity]="phase() >= row.phase ? 1 : 0"
+            >
+              @for (part of row.parts; track $index) {
+                @if (part === "dot") {
+                  <span class="copilot-a2ui-dot"></span>
+                } @else if (part === "spacer") {
+                  <span class="copilot-a2ui-spacer"></span>
+                } @else {
+                  <span
+                    class="copilot-a2ui-bar"
+                    [style.width.px]="part.w"
+                    [style.background-color]="part.bg"
+                    [style.animation-delay.s]="part.anim"
+                  ></span>
+                }
+              }
+            </div>
+          }
         </div>
 
         <div class="copilot-a2ui-shimmer"></div>
@@ -174,8 +128,16 @@ import { ChangeDetectionStrategy, Component, input } from "@angular/core";
 
       .copilot-a2ui-bar {
         display: inline-flex;
+        height: 7px;
         border-radius: 9999px;
         animation: copilot-a2ui-fade 2.4s ease-in-out infinite;
+      }
+
+      .copilot-a2ui-topbar-bar {
+        width: 64px;
+        height: 6px;
+        background-color: #e4e4e7;
+        transition: opacity 0.5s;
       }
 
       .copilot-a2ui-shimmer {
@@ -229,6 +191,13 @@ import { ChangeDetectionStrategy, Component, input } from "@angular/core";
 
       @media (prefers-reduced-motion: reduce) {
         .copilot-a2ui-bar,
+        .copilot-a2ui-topbar-bar {
+          width: 64px;
+          height: 6px;
+          background-color: #e4e4e7;
+          transition: opacity 0.5s;
+        }
+
         .copilot-a2ui-shimmer {
           animation: none;
         }
@@ -239,23 +208,7 @@ import { ChangeDetectionStrategy, Component, input } from "@angular/core";
 export class CopilotA2UIProgress {
   readonly phase = input.required<number>();
   readonly tokens = input(0);
-  readonly label = input("Building interface");
+  readonly label = input(ɵA2UI_LIFECYCLE_TEXT.building);
 
-  protected topbarBarClass(): string {
-    return [
-      "copilot-a2ui-bar",
-      "cpk:w-16",
-      "cpk:h-1.5",
-      "cpk:bg-[#e4e4e7]",
-      this.phase() >= 1 ? "cpk:opacity-100" : "cpk:opacity-40",
-    ].join(" ");
-  }
-
-  protected rowClass(phase: number, delayClass: string): string {
-    return [
-      "copilot-a2ui-row",
-      delayClass,
-      this.phase() >= phase ? "cpk:opacity-100" : "cpk:opacity-0",
-    ].join(" ");
-  }
+  protected readonly rows = ɵA2UI_SKELETON_ROWS;
 }

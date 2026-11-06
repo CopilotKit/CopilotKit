@@ -11,12 +11,12 @@ your tree and render it however you like.
 
 ## The pattern
 
-`useAgent` works in any component under `<CopilotKit>`. It doesn't have to be
+`useAgent` works in any component under `<CopilotKitProvider>`. It doesn't have to be
 near the chat. Call it in your main-view component, read `agent.state`, and render:
 
 ```tsx title="components/Canvas.tsx"
 import { useEffect } from "react";
-import { useAgent } from "@copilotkit/react-core/v2";
+import { useAgent } from "@copilotkit/react-core";
 
 type CanvasState = {
   title: string;
@@ -34,12 +34,13 @@ const INITIAL_CANVAS_STATE: CanvasState = {
 export function Canvas() {
   // No agentId means the "default" agent. Pass { agentId } to target another.
   const { agent, isReady } = useAgent();
-  const state = (agent.state ?? {}) as Partial<CanvasState>;
+  // agent.state is untyped, so annotate the shape this view expects.
+  const state: Partial<CanvasState> = agent.state ?? {};
 
   useEffect(() => {
     if (!isReady) return;
 
-    const current = (agent.state ?? {}) as Partial<CanvasState>;
+    const current: Partial<CanvasState> = agent.state ?? {};
     const updates: Partial<CanvasState> = {};
 
     if (current.title === undefined) {
@@ -81,24 +82,24 @@ your canvas updates the same way.
 
 ## Put it anywhere in your layout
 
-The agent lives on the `<CopilotKit>` provider, so the chat surface and your
+The agent lives on the `<CopilotKitProvider>`, so the chat surface and your
 main-view components are just two consumers of the same agent. A typical layout
 renders the canvas as the primary content and the chat as a docked sidebar:
 
 ```tsx title="app/page.tsx"
-import { CopilotKit, CopilotSidebar } from "@copilotkit/react-core/v2";
+import { CopilotKitProvider, CopilotSidebar } from "@copilotkit/react-core";
 import { Canvas } from "../components/Canvas";
 
 export default function Page() {
   return (
-    <CopilotKit runtimeUrl="/api/copilotkit">
+    <CopilotKitProvider runtimeUrl="/api/copilotkit">
       <div className="app-shell">
         {/* Your app UI, driven by agent.state */}
         <Canvas />
         {/* Chat is just another consumer of the same agent */}
         <CopilotSidebar />
       </div>
-    </CopilotKit>
+    </CopilotKitProvider>
   );
 }
 ```
@@ -116,13 +117,20 @@ read-only mirror. A click handler in the main view can push a new value that the
 agent reads on its next turn:
 
 ```tsx
-function toggleItem(id: string) {
-  agent.setState({
-    ...agent.state,
-    items: (agent.state?.items ?? []).map((it) =>
-      it.id === id ? { ...it, done: !it.done } : it,
-    ),
-  });
+import { useAgent } from "@copilotkit/react-core";
+
+type CanvasItem = { id: string; label: string; done: boolean };
+
+export function useToggleItem() {
+  const { agent } = useAgent();
+
+  return (id: string) => {
+    const items: CanvasItem[] = agent.state?.items ?? [];
+    agent.setState({
+      ...agent.state,
+      items: items.map((it) => (it.id === id ? { ...it, done: !it.done } : it)),
+    });
+  };
 }
 ```
 

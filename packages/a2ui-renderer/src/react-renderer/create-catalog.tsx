@@ -135,7 +135,9 @@ export function createCatalog<D extends CatalogDefinitions>(
       api,
       ({ props, buildChild, context }) => {
         const Render = renderer;
-        const dispatch = (action: any) => context.dispatchAction(action);
+        const dispatch = (action: any) => {
+          void context.dispatchAction(action);
+        };
         return (
           <Render props={props} children={buildChild} dispatch={dispatch} />
         );
@@ -191,51 +193,4 @@ function zodSchemaToSimpleObject(
     };
   }
   return { type: "object", properties };
-}
-
-// ─── Backward Compatibility ──────────────────────────────────────────
-
-// Old API — definitions + renderers combined in one object
-export interface A2UIComponentDefinition<T extends ZodRawShape = ZodRawShape> {
-  props: ZodObject<T>;
-  description?: string;
-  render: React.FC<RendererProps<ResolveA2uiProps<z.infer<ZodObject<T>>>>>;
-}
-
-export type A2UIComponentMap = Record<string, A2UIComponentDefinition<any>>;
-
-/**
- * @deprecated Use `createCatalog(definitions, renderers)` instead.
- */
-export function createA2UICatalog(
-  components: A2UIComponentMap,
-  options?: {
-    catalogId?: string;
-    includeBasicCatalog?: boolean;
-  },
-): Catalog<ReactComponentImplementation> {
-  const definitions: CatalogDefinitions = {};
-  const renderers: Record<string, ComponentRenderer<any>> = {};
-
-  for (const [name, def] of Object.entries(components)) {
-    definitions[name] = { props: def.props, description: def.description };
-    renderers[name] = def.render;
-  }
-
-  return createCatalog(definitions, renderers as any, options);
-}
-
-/**
- * @deprecated Use `extractSchema(definitions)` instead.
- */
-export function extractA2UISchema(components: A2UIComponentMap): Array<{
-  name: string;
-  description?: string;
-  props?: Record<string, unknown>;
-}> {
-  const definitions: CatalogDefinitions = {};
-  for (const [name, def] of Object.entries(components)) {
-    definitions[name] = { props: def.props, description: def.description };
-  }
-  return extractSchema(definitions);
 }

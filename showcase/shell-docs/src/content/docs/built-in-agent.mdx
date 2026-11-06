@@ -1,12 +1,34 @@
 ---
 title: Built-in Agent
-description: CopilotKit's no-external-process agent backend — runs the agent loop in-process via the runtime, no separate framework or service required.
+description: CopilotKit's in-process agent backend. It runs the agent loop inside the runtime, with no separate framework or service.
 icon: "lucide/Server"
 doc_type: explanation
 ---
 
-The Built-in Agent is the simplest agent backend CopilotKit ships. Instead of proxying to an external framework process (LangGraph, Mastra, etc.), it instantiates `BuiltInAgent({ model, tools, prompt })` inside your runtime and runs the agent loop in-process. No separate agent server, no external framework install — direct connection to OpenAI / Anthropic / Google or any AI-SDK model with full support for tools, generative UI, and shared state.
+You want an agent without running a separate agent server. The Built-in Agent
+runs the agent loop inside your runtime. It calls the model with
+[TanStack AI](https://tanstack.com/ai) and supports tools, MCP servers,
+generative UI, and shared state.
 
-For the full Built-in Agent guides — quickstart, server tools, MCP servers, model selection, advanced configuration — start at the [docs root](/).
+```npm
+npm install @copilotkit/runtime @tanstack/ai @tanstack/ai-openai
+```
+
+```typescript
+import { BuiltInAgent } from "@copilotkit/runtime/agent";
+import { openaiText } from "@tanstack/ai-openai";
+
+const agent = new BuiltInAgent({
+  model: openaiText("gpt-5.4-mini"),
+  prompt: "You are a helpful assistant.",
+});
+```
+
+`model` takes a TanStack AI text adapter. There are adapters for OpenAI,
+Anthropic, Google Gemini, Vertex AI, and any OpenAI-compatible API. See
+[Model Selection](/model-selection). To write the model call yourself, for
+example with the AI SDK, use a [factory](/backend/custom-agent).
+
+For the full Built-in Agent guides (quickstart, server tools, MCP servers, model selection, and advanced configuration), start at the [docs root](/).
 
 {/* TODO: Placeholder. Expand with a one-page summary suitable for the "Agents & Backends" section: when to choose BIA vs an external framework, model support matrix, what BIA does and doesn't support (no subagents, no native HITL primitive), and a link out to the full BIA docs. */}

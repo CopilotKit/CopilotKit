@@ -81,7 +81,6 @@ packageManifest.exports = {
     types: "./src/mcp-apps/index.ts",
     default: "./src/mcp-apps/index.ts",
   },
-  "./styles.css": "./styles.css",
 };
 await writeFile(
   packageManifestPath,

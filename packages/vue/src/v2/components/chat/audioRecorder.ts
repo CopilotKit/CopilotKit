@@ -1,11 +1,8 @@
-export type AudioRecorderState = "idle" | "recording" | "processing";
+import type { ɵAudioRecorderState } from "@copilotkit/core";
 
-export class AudioRecorderError extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = "AudioRecorderError";
-  }
-}
+export type AudioRecorderState = ɵAudioRecorderState;
+
+export { ɵAudioRecorderError as AudioRecorderError } from "@copilotkit/core";
 
 export interface CopilotChatAudioRecorderRef {
   state: AudioRecorderState;

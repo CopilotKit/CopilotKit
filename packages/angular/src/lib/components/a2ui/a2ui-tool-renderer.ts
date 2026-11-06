@@ -1,7 +1,8 @@
 import { Component, computed, input } from "@angular/core";
 import type { AbstractAgent } from "@ag-ui/client";
 import type { AngularToolCall, ToolRenderer } from "../../tools";
-import { getRenderedA2UIOperations } from "./a2ui-tool-operations";
+import { ɵgetRenderedA2UIToolOperations } from "@copilotkit/a2ui-renderer/engine-core";
+import { ɵgetA2UIProgressPhase } from "@copilotkit/core";
 import { CopilotA2UIProgress } from "./a2ui-progress";
 import {
   AGUI_SEND_STATE_SNAPSHOT_TOOL_NAME,
@@ -31,26 +32,38 @@ import { CopilotA2UISurfaceOutlet } from "./surface-outlet";
       <copilot-a2ui-progress [phase]="phase()" [tokens]="tokens()" />
     }
   `,
+  styles: `
+    :host {
+      display: block;
+      min-width: 0;
+      max-width: 100%;
+    }
+    .copilot-a2ui-surface-scroll {
+      width: 100%;
+      max-width: 100%;
+      min-width: 0;
+      overflow-x: auto;
+      overflow-y: visible;
+      padding-top: 0.25rem;
+      padding-bottom: 0.5rem;
+    }
+  `,
 })
 export class CopilotA2UIToolRenderer implements ToolRenderer<RenderA2UIArgs> {
   readonly toolCall = input.required<AngularToolCall<RenderA2UIArgs>>();
   readonly agent = input<AbstractAgent | undefined>();
 
   protected readonly renderedOperations = computed(() =>
-    getRenderedA2UIOperations(this.toolCall()),
+    ɵgetRenderedA2UIToolOperations(this.toolCall()),
   );
 
   protected readonly tokens = computed(() =>
     Math.round(JSON.stringify(this.toolCall().args ?? {}).length / 4),
   );
 
-  protected readonly phase = computed(() => {
-    const tokens = this.tokens();
-    if (tokens < 50) return 0;
-    if (tokens < 200) return 1;
-    if (tokens < 400) return 2;
-    return 3;
-  });
+  protected readonly phase = computed(() =>
+    ɵgetA2UIProgressPhase(this.tokens()),
+  );
 
   protected readonly isHidden = computed(() => {
     const toolCall = this.toolCall();

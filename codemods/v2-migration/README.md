@@ -1,0 +1,109 @@
+# @copilotkit/v2-migration
+
+Codemod that moves a CopilotKit app from v1 to 2.0. Published to the [Codemod registry](https://app.codemod.com/registry), not npm.
+
+## Usage
+
+Run it in the root of your app, on a clean git tree:
+
+```bash
+npx codemod @copilotkit/v2-migration
+```
+
+On a tree with uncommitted changes the CLI asks before it runs. In CI or any other non-interactive shell it waits for that answer forever, so pass `--allow-dirty` there.
+
+Then finish with the skill it installs, or by hand: search for `TODO(copilotkit-2.0)`.
+
+## What it does
+
+- **Import paths.** `@copilotkit/react-core/v2` and `@copilotkit/runtime/v2` (and their subpaths) become the package roots. `@copilotkit/shared/event-transforms` becomes `@copilotkit/runtime`. Paths in `import()`, `require()`, and `vi.mock()` move too.
+- **Stylesheets.** The 2.0 components add their own styles, so imports of `@copilotkit/react-ui/styles.css`, `@copilotkit/react-core/v2/styles.css`, and `@copilotkit/react-core/styles.css` are deleted. This codemod reads JavaScript and TypeScript only. For `@import` in CSS files, run [`remove-stylesheet-import`](../remove-stylesheet-import.ts).
+- **The provider.** The v1 `<CopilotKit>` (also re-exported from `/v2`) becomes `<CopilotKitProvider>`, and `CopilotKitProps` becomes `CopilotKitProviderProps`. On the provider, `agent` becomes `agentId`.
+- **v1 APIs with the same 2.0 API.** The import moves to the 2.0 package, for example `CopilotChat` from `@copilotkit/react-ui` to `@copilotkit/react-core`.
+- **LangGraph.** `LangGraphAgent` and `LangGraphHttpAgent` import from `@ag-ui/langgraph`.
+- **Built-in Agent.** `BuiltInAgent`, `defineTool`, and the other agent exports import from `@copilotkit/runtime/agent`. The AI SDK helpers (`convertMessagesToVercelAISDKMessages`, `createSafeUrlDownload`, ...) import from `@copilotkit/runtime/agent/ai-sdk`. This also applies to imports from `@copilotkit/runtime/v2`. In a `new BuiltInAgent({ ... })` config, a model string becomes its TanStack AI adapter, and the adapter is imported: `"openai/gpt-5"` becomes `openaiText("gpt-5")` from `@tanstack/ai-openai`. The same goes for `anthropic`, `google` (or `gemini`) and `vertex`, with `/` or `:`. `maxRetries: 3` becomes `retry: { maxRetries: 3 }`. Any other `model` that is not an adapter gets a TODO, and so does each removed key (`temperature`, `providerOptions`, `apiKey`, `urlDownload`, `mcpServers`, ...). The `mcpServers` TODO tells you to create clients with `createMCPClient` from `@tanstack/ai-mcp` and pass them as `mcp: { clients: [client] }`. Imports of the removed `resolveModel`, `classifyModelSpec`, `BuiltInAgentModel`, `ModelSpecifier`, and `MCPClientConfig` get a TODO, and so do imports of `MCPClient` and `MCPTransport`.
+- **Markdown rendering.** 2.0 renders markdown with CopilotKit's own renderer, not Streamdown. The Streamdown props on the `markdownRenderer` slot (`components`, `shikiTheme`, `remarkPlugins`, ...) get a TODO that names the 2.0 way. Calls of the removed Vue `useKatexStyles` are deleted. Imports of the `@copilotkit/markdown` AST types (`StreamingMarkdownAstNode`, `StreamingMarkdownNodeType`, `StreamingMarkdownNodeRendererKey`, `VueStreamingMarkdownNodeRendererKey`) get a TODO: the node types include `math`, and task-list items carry `checked`.
+- **Chat labels and renderer lists.** A complete `CopilotChatLabels` object (one that does not spread another object) gets a TODO, because 2.0 adds label keys. A call that changes `renderToolCalls` or `renderActivityMessages` in place (`push`, `splice`, `sort`, and the other array methods that change the array) gets a TODO, because both are read-only arrays in 2.0.
+- **Angular copy buttons.** `copied` on `CopilotChatUserMessageCopyButton` and `CopilotChatAssistantMessageCopyButton` is a read-only signal. Each `.copied.set(...)` and `.copied.update(...)` in a file that imports one of these buttons gets a TODO that names `handleCopy()` and the `copyButton` slot.
+- **License checker.** Each read of the removed `runtime.licenseChecker` gets a TODO. The 2.0 call, `await runtime.getLicenseChecker()`, is async, so the codemod does not rewrite it.
+- **Angular runtime config.** 2.0 throws in production when `provideCopilotKit` gets no `runtimeUrl`, `licenseKey`, `agents`, or `selfManagedAgents`. A call with no argument, or with an object literal that has none of these keys, gets a TODO. A config with a spread, a computed key, or a variable is not changed, because the codemod cannot see all of its keys.
+- **1.x deprecations that 2.0 removed.** `BasicAgent` becomes `BuiltInAgent`, `BasicAgentConfiguration` becomes `BuiltInAgentClassicConfig`, `createNodeFetchHandler` becomes `createCopilotNodeHandler`, and `useA2UIStore` becomes `useA2UIContext`. The no-op props `showDevConsole` (on `<CopilotKitProvider>`) and `registry` (on `<A2UIRenderer>`) are deleted. The other removed deprecations get a TODO that names the 2.0 way.
+- **Angular chat configuration.** In a subclass of `CopilotChatConfiguration`, `this._setOverride(threadId, explicit)` becomes `this.setActiveThreadId(threadId, { explicit })`. A subclass that defines its own `_setOverride` gets a TODO, because 2.0 does not call that method.
+- **Generative UI.** Explicit type arguments on `filterCatalog<…>(…)` from `@copilotkit/a2ui-renderer` are deleted: its type parameter is now the catalog type, and it is inferred. Zod uses of the Vue and Angular `OpenGenerativeUIContentSchema` and `GenerateSandboxedUiArgsSchema` (`.parse`, `.safeParse`, other zod members, use inside a zod schema) get a TODO that names the Standard Schema call, `["~standard"].validate(value)`. Reads of the removed Angular `CopilotA2UIRecovery` members and the removed `open-generative-ui-placeholder` test id get a TODO.
+- **Angular text box.** In a class that extends `CopilotChatTextarea` from `@copilotkit/angular`, calls of `super.ngAfterViewInit()` are deleted and `override` is removed from `ngAfterViewInit`. The 2.0 text box measures its height after each render, so it has no `ngAfterViewInit()`. See [Chat UI in 2.0](https://docs.copilotkit.ai/migrate/chat-2.0#angular-text-box).
+- **Everything else** gets a `// TODO(copilotkit-2.0):` comment that names the 2.0 replacement and links its docs. The codemod does not rewrite a call whose arguments changed: `useCopilotAction` to `useFrontendTool` needs a Zod schema, and only you or an agent can write it.
+- **A skill.** The last step installs an agent skill that resolves the TODOs, updates `package.json`, and runs your build.
+
+## Runtime adapters in 2.0
+
+The codemod automatically migrates named imports from the runtime root and the
+`/express`, `/hono`, `/v2/express`, and `/v2/hono` entry points when all uses can
+be resolved in the current file:
+
+- Express factories become `createCopilotNodeListener`. The generated app-owned
+  router preserves mount prefixes, request URLs seen by hooks, and `next()`
+  fallthrough. Single endpoints register POST and OPTIONS on the exact path.
+- Hono factories become `createCopilotRuntimeHandler`. Calls to `.fetch(request)`
+  become direct calls, and root Hono `.route("/", endpoint)` mounts become Fetch
+  callbacks. Inline factories are evaluated once at setup time.
+- Next.js `handle(endpoint)` wrappers from `hono/vercel` are removed. The import
+  stays if another Hono app in the file still uses it.
+- Single-route factories receive `mode: "single-route"`. Omitted CORS becomes
+  `cors: true`, preserving the old default. Supported literal Express CORS options
+  are translated to the Fetch configuration's names.
+- Aliases and existing bindings are preserved without introducing name collisions.
+  Running the codemod again leaves the migrated handlers unchanged.
+
+For example:
+
+```ts
+// Before
+import { createCopilotEndpoint } from "@copilotkit/runtime/v2";
+import { handle } from "hono/vercel";
+const endpoint = createCopilotEndpoint({
+  runtime,
+  basePath: "/api/copilotkit",
+});
+export const POST = handle(endpoint);
+
+// After
+import { createCopilotRuntimeHandler } from "@copilotkit/runtime";
+const endpoint = createCopilotRuntimeHandler({
+  cors: true,
+  runtime,
+  basePath: "/api/copilotkit",
+});
+export const POST = endpoint;
+```
+
+Router customization, exported/escaped app objects, shadowed bindings, dynamic
+options, namespace/dynamic imports, and custom CORS callbacks receive a TODO.
+Express CORS objects that implicitly reflect request headers also need manual
+migration: the Fetch handler cannot reproduce that behavior with a static
+wildcard. Framework dependencies are not removed from the app's package manifest;
+they may still serve other routes.
+
+See the [runtime migration guide](https://docs.copilotkit.ai/migrate/runtime-2.0)
+for the remaining manual cases.
+
+## Limits
+
+- Run it **before** you upgrade the packages. In v1, `@copilotkit/react-core` and `@copilotkit/runtime` mean the v1 API, so the codemod reads them that way. Running it again on its own output changes nothing.
+- Namespace imports (`import * as CK from "@copilotkit/react-core"`) only get a TODO.
+- CSS `@import` lines are not changed.
+- Vue single-file components (`.vue`) are not changed. Delete `useKatexStyles` from them by hand.
+- CSS that targets Streamdown's `[data-streamdown]` attributes stops matching. The codemod does not read CSS.
+- Import paths inside template literals (for example a script generated as a string) are not changed. Only plain string literals are.
+
+## Develop
+
+```bash
+pnpm nx run @copilotkit/v2-migration:test         # fixtures in tests/ts and tests/tsx
+pnpm nx run @copilotkit/v2-migration:test:runtime # compile and run the migrated Express/Hono fixture
+pnpm nx run @copilotkit/v2-migration:check-types
+pnpm nx run @copilotkit/v2-migration:validate     # the codemod package shape
+```
+
+Each fixture is a folder with `input` and `expected`. To refresh `expected` after a change, run `codemod jssg test` with `-u`, then read every diff before you commit it.
+
+`scripts/v1-api.ts` is a snapshot of every v1 export and its 2.0 replacement, taken before v1 was deleted. Do not edit it by hand. Corrections that came after the snapshot go in `OVERRIDES` in `scripts/codemod.ts`.

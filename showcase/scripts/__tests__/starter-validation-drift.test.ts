@@ -9,7 +9,7 @@
  * WHY EACH ONE CAN FAIL — the previous generation of this test could not.
  * Its predicate was `{columns with a block} ∪ {columns without} = the on-disk
  * set`, which is true of ANY partition. A later draft over-corrected into a
- * predicate that could not PASS: it quantified over `examples/integrations/`
+ * predicate that could not PASS: it quantified over `examples/starters/`
  * directories and demanded "the corresponding column" declare a block, but 7 of
  * those directories are not starters and have no column at all (`_parity`,
  * `a2a-a2ui`, `a2a-middleware`, `adk-angular`, `agent-spec`, `agentcore`,
@@ -35,7 +35,7 @@ const HERE = path.dirname(fileURLToPath(import.meta.url));
 const SHOWCASE = path.resolve(HERE, "..", "..");
 const REPO = path.resolve(SHOWCASE, "..");
 const INTEGRATIONS = path.join(SHOWCASE, "integrations");
-const EXAMPLES = path.join(REPO, "examples", "integrations");
+const EXAMPLES = path.join(REPO, "examples", "starters");
 const SMOKE_SPEC = path.join(SHOWCASE, "tests", "e2e", "starter-smoke.spec.ts");
 const SMOKE_WORKFLOW = path.join(
   REPO,

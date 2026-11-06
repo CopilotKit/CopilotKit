@@ -21,11 +21,14 @@ If you want to run a browser handler and render UI, use [`registerFrontendTool`]
 ## Signature
 
 ```ts
-import { registerRenderToolCall } from "@copilotkit/angular";
+import {
+  registerRenderToolCall,
+  type RenderToolCallConfig,
+} from "@copilotkit/angular";
 
-function registerRenderToolCall<Args extends Record<string, unknown>>(
+registerRenderToolCall satisfies <Args extends Record<string, unknown>>(
   renderToolCall: RenderToolCallConfig<Args>,
-): void;
+) => void;
 ```
 
 ## Parameters
@@ -61,6 +64,13 @@ function registerRenderToolCall<Args extends Record<string, unknown>>(
     with the agent instance that emitted the tool call. Leave it `false` (the
     default) if your renderer does not need the agent.
   </PropertyReference>
+
+  <PropertyReference name="group" type="boolean" default="false">
+    When `true`, the chat can put this renderer's calls in a group with other
+    calls made in a row, like the built-in card. See `toolCallDisplay` on
+    [`CopilotChatMessageView`](/reference/angular/components/CopilotChatMessageView).
+    It is off by default, because a custom renderer can draw anything.
+  </PropertyReference>
 </PropertyReference>
 
 ## Return Value
@@ -72,8 +82,9 @@ function registerRenderToolCall<Args extends Record<string, unknown>>(
 Your `component` implements the `ToolRenderer<Args>` interface. CopilotKit binds the inputs by name, so declare them with Angular's `input()`:
 
 ```ts
-import { Signal } from "@angular/core";
-import { AbstractAgent } from "@ag-ui/client";
+import type { Signal } from "@angular/core";
+import type { AbstractAgent } from "@ag-ui/client";
+import type { AngularToolCall } from "@copilotkit/angular";
 
 interface ToolRenderer<Args extends Record<string, unknown>> {
   // Required: the current state of the tool call.
@@ -195,12 +206,26 @@ export class HandoffToolViewComponent implements ToolRenderer<HandoffArgs> {
 ```
 
 ```ts title="src/app/chat.component.ts"
-registerRenderToolCall({
-  name: "handoff",
-  args: z.object({ target: z.string() }),
-  component: HandoffToolViewComponent,
-  passAgent: true,
-});
+import { Component } from "@angular/core";
+import { z } from "zod";
+import { registerRenderToolCall } from "@copilotkit/angular";
+import { HandoffToolViewComponent } from "./handoff-tool-view.component";
+
+@Component({
+  selector: "app-chat",
+  standalone: true,
+  template: ``,
+})
+export class ChatComponent {
+  constructor() {
+    registerRenderToolCall({
+      name: "handoff",
+      args: z.object({ target: z.string() }),
+      component: HandoffToolViewComponent,
+      passAgent: true,
+    });
+  }
+}
 ```
 
 ## Related

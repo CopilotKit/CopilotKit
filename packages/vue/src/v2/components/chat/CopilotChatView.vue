@@ -1,26 +1,23 @@
 <script setup lang="ts">
-import {
-  computed,
-  nextTick,
-  onBeforeUnmount,
-  onMounted,
-  ref,
-  useSlots,
-  watch,
-} from "vue";
+import { computed, ref, useSlots, watch } from "vue";
 import type { Message } from "@ag-ui/core";
-import type { Suggestion } from "@copilotkit/core";
+import {
+  ɵcreateStickToBottom,
+  ɵgetChatViewState,
+  ɵisContentScrolledToBottom,
+  ɵnormalizeAutoScroll,
+  ɵwatchElementHeight,
+} from "@copilotkit/core";
+import type { Suggestion, ɵStickToBottom } from "@copilotkit/core";
 import type { Attachment } from "@copilotkit/shared";
-import { useCopilotChatConfiguration } from "../../providers/useCopilotChatConfiguration";
-import { CopilotChatDefaultLabels } from "../../providers/types";
+import { useChatLabels } from "./use-chat-labels";
 import { useKeyboardHeight } from "../../hooks/use-keyboard-height";
 import { usePinToSend } from "../../hooks/use-pin-to-send";
-import { IconChevronDown } from "../icons";
+import { IconChevronDown, IconUpload } from "../icons";
 import CopilotChatInput from "./CopilotChatInput.vue";
 import CopilotChatAttachmentQueue from "./CopilotChatAttachmentQueue.vue";
 import CopilotChatMessageView from "./CopilotChatMessageView.vue";
 import CopilotChatSuggestionView from "./CopilotChatSuggestionView.vue";
-import { normalizeAutoScroll } from "./normalize-auto-scroll";
 import type {
   CopilotChatInputMode,
   CopilotChatInterruptSlotProps,
@@ -31,9 +28,9 @@ import type {
 // Vertical gap between the scroll-to-bottom button and the input container.
 // Mirrors React `CopilotChatView` `SCROLL_BUTTON_OFFSET`.
 const SCROLL_BUTTON_OFFSET = 16;
-const SCROLL_BOTTOM_THRESHOLD = 12;
 
 const props = withDefaults(defineProps<CopilotChatViewProps>(), {
+  messageFeedback: true,
   messages: () => [],
   autoScroll: true,
   isRunning: false,
@@ -126,8 +123,7 @@ const emit = defineEmits<{
   "finish-transcribe": [];
 }>();
 
-const config = useCopilotChatConfiguration();
-const labels = computed(() => config.value?.labels ?? CopilotChatDefaultLabels);
+const labels = useChatLabels();
 const componentSlots = useSlots();
 
 const scrollContainerRef = ref<HTMLElement | null>(null);
@@ -136,13 +132,16 @@ const spacerRef = ref<HTMLElement | null>(null);
 const inputContainerRef = ref<HTMLElement | null>(null);
 const inputContainerHeight = ref(0);
 const isAtBottom = ref(true);
+// The end of the messages is in view. Without following ("pin-to-send" and
+// "none"), this, not the scroll height, decides the scroll-to-bottom button.
+const isContentAtBottom = ref(true);
 const isControlledInput = computed(() => props.inputValue !== undefined);
 const localInputValue = ref(props.inputValue ?? "");
 
 // Normalize the `autoScroll` prop into the canonical mode triplet
 // (`pin-to-bottom` | `pin-to-send` | `none`). Boolean back-compat is
-// preserved by `normalizeAutoScroll` (parity with React).
-const autoScrollMode = computed(() => normalizeAutoScroll(props.autoScroll));
+// preserved by `ɵnormalizeAutoScroll` (parity with React).
+const autoScrollMode = computed(() => ɵnormalizeAutoScroll(props.autoScroll));
 const isPinToBottomMode = computed(
   () => autoScrollMode.value === "pin-to-bottom",
 );
@@ -168,13 +167,23 @@ const effectiveKeyboardHeight = computed(() =>
 const resolvedInputValue = computed(() =>
   isControlledInput.value ? (props.inputValue ?? "") : localInputValue.value,
 );
-const hasSuggestions = computed(
-  () =>
-    !props.isConnecting &&
-    !props.isRunning &&
-    Array.isArray(props.suggestions) &&
-    props.suggestions.length > 0,
+// Suggestions, the welcome screen and the bottom padding follow core's rules:
+// no suggestions while connecting or running, no generic welcome for a
+// connecting or caller-picked thread.
+const viewState = computed(() =>
+  ɵgetChatViewState({
+    messageCount: props.messages.length,
+    suggestionCount: Array.isArray(props.suggestions)
+      ? props.suggestions.length
+      : 0,
+    isRunning: props.isRunning,
+    isConnecting: props.isConnecting,
+    hasExplicitThreadId: props.hasExplicitThreadId,
+    welcomeScreenEnabled: props.welcomeScreen !== false,
+    inputContainerHeight: inputContainerHeight.value,
+  }),
 );
+const hasSuggestions = computed(() => viewState.value.hasSuggestions);
 const hasAttachments = computed(
   () => Array.isArray(props.attachments) && props.attachments.length > 0,
 );
@@ -192,80 +201,102 @@ const forwardedMessageViewSlotNames = computed(() =>
   ),
 );
 const shouldShowWelcomeScreen = computed(
-  () =>
-    props.messages.length === 0 &&
-    props.welcomeScreen !== false &&
-    !props.isConnecting &&
-    !props.hasExplicitThreadId,
+  () => viewState.value.showWelcomeScreen,
 );
-// Mirrors React: `paddingBottom = inputContainerHeight + (hasSuggestions ? 4 : 32)`.
-// React intentionally does NOT add bonus padding for attachments — the
-// attachment queue lives inside the input overlay, so its height is already
-// captured by the overlay's measured `inputContainerHeight`.
+// No bonus padding for attachments: the attachment queue lives inside the
+// input overlay, so its height is already in `inputContainerHeight`.
 const messagePaddingBottom = computed(
-  () => `${inputContainerHeight.value + (hasSuggestions.value ? 4 : 32)}px`,
+  () => `${viewState.value.paddingBottom}px`,
 );
 const showScrollToBottomButton = computed(
-  () => !shouldShowWelcomeScreen.value && !isAtBottom.value,
+  () =>
+    !shouldShowWelcomeScreen.value &&
+    !(isPinToBottomMode.value ? isAtBottom.value : isContentAtBottom.value),
 );
 
-let inputResizeObserver: ResizeObserver | null = null;
-let contentResizeObserver: ResizeObserver | null = null;
-
-function attachInputOverlayObserver() {
-  if (typeof ResizeObserver === "undefined") return;
-
-  inputResizeObserver?.disconnect();
-  inputResizeObserver = null;
-
-  const el = inputContainerRef.value;
-  if (!el) return;
-
-  inputResizeObserver = new ResizeObserver((entries) => {
-    const wasAtBottom = isAtBottom.value;
-    const measured = entries[0]?.contentRect?.height;
-    if (typeof measured === "number") {
-      inputContainerHeight.value = measured;
-    } else {
-      syncInputContainerHeight();
+// Core keeps the list at the bottom while content arrives in `pin-to-bottom`
+// mode, and tracks the position for the scroll-to-bottom button in every
+// mode. It attaches when the scroll container mounts, also after the welcome
+// screen gives way to the chat.
+let stickToBottom: ɵStickToBottom | null = null;
+watch(
+  [scrollContainerRef, scrollContentRef],
+  ([scrollElement, contentElement], _old, onCleanup) => {
+    if (!scrollElement) {
+      isAtBottom.value = true;
+      return;
     }
-    updateIsAtBottom();
-    if (isPinToBottomMode.value && wasAtBottom) {
-      scrollToBottom("auto");
-    }
-  });
-  inputResizeObserver.observe(el);
+    const controller = ɵcreateStickToBottom({
+      scrollElement,
+      contentElement: contentElement ?? scrollElement,
+      follow: isPinToBottomMode.value,
+      onChange: (value) => {
+        isAtBottom.value = value;
+      },
+    });
+    stickToBottom = controller;
+    isAtBottom.value = controller.isAtBottom;
+    onCleanup(() => {
+      controller.dispose();
+      if (stickToBottom === controller) stickToBottom = null;
+    });
+  },
+  { flush: "post" },
+);
+
+watch(isPinToBottomMode, (follow) => stickToBottom?.setFollow(follow));
+
+// Without following, the button shows while messages sit below the viewport.
+// That is the end of the messages, not the scroll height: in "pin-to-send"
+// mode an empty spacer under them lets a sent message reach the top, and
+// scrolling into it would only clear the screen (parity with React).
+function checkContentAtBottom() {
+  const scrollElement = scrollContainerRef.value;
+  const contentElement = scrollContentRef.value;
+  isContentAtBottom.value =
+    !scrollElement ||
+    !contentElement ||
+    ɵisContentScrolledToBottom(scrollElement, contentElement);
 }
 
-function attachScrollContentObserver() {
-  if (typeof ResizeObserver === "undefined") return;
+watch(
+  [scrollContainerRef, scrollContentRef],
+  ([scrollElement, contentElement], _old, onCleanup) => {
+    checkContentAtBottom();
+    if (!scrollElement) return;
+    scrollElement.addEventListener("scroll", checkContentAtBottom);
+    // A reply that streams past the bottom needs the button before anyone
+    // scrolls, so check again when the viewport or the messages resize.
+    const resizeObserver =
+      typeof ResizeObserver === "undefined"
+        ? null
+        : new ResizeObserver(checkContentAtBottom);
+    resizeObserver?.observe(scrollElement);
+    if (contentElement) resizeObserver?.observe(contentElement);
+    onCleanup(() => {
+      scrollElement.removeEventListener("scroll", checkContentAtBottom);
+      resizeObserver?.disconnect();
+    });
+  },
+  { flush: "post" },
+);
 
-  contentResizeObserver?.disconnect();
-  contentResizeObserver = null;
-
-  const el = scrollContentRef.value;
-  if (!el) return;
-
-  contentResizeObserver = new ResizeObserver(() => {
-    const wasAtBottom = isAtBottom.value;
-    updateIsAtBottom();
-    if (isPinToBottomMode.value && wasAtBottom) {
-      scrollToBottom("auto");
+// The input overlay's height becomes the bottom padding of the messages.
+watch(
+  inputContainerRef,
+  (element, _old, onCleanup) => {
+    if (!element) {
+      inputContainerHeight.value = 0;
+      return;
     }
-  });
-  contentResizeObserver.observe(el);
-}
-
-// When the welcome screen disappears and the main chat view (with the input
-// overlay) appears, the template-ref elements become non-null. Re-attach
-// observers that were skipped during the initial mount.
-watch(shouldShowWelcomeScreen, async (show) => {
-  if (show) return;
-  await nextTick();
-  syncInputContainerHeight();
-  attachInputOverlayObserver();
-  attachScrollContentObserver();
-});
+    onCleanup(
+      ɵwatchElementHeight(element, ({ height }) => {
+        inputContainerHeight.value = height;
+      }),
+    );
+  },
+  { flush: "post" },
+);
 
 watch(
   () => props.inputValue,
@@ -276,58 +307,13 @@ watch(
   },
 );
 
-watch(
-  [() => props.messages, () => props.suggestions, () => props.isRunning],
-  async () => {
-    const wasAtBottom = isAtBottom.value;
-    await nextTick();
-    if (!isPinToBottomMode.value || !wasAtBottom) {
-      return;
-    }
-    scrollToBottom("auto");
-    if (typeof requestAnimationFrame === "function") {
-      requestAnimationFrame(() => {
-        scrollToBottom("auto");
-      });
-    }
-  },
-  { deep: true },
-);
-
-function updateIsAtBottom() {
-  const element = scrollContainerRef.value;
-  if (!element) {
-    isAtBottom.value = true;
-    return;
-  }
-
-  const distance =
-    element.scrollHeight - element.scrollTop - element.clientHeight;
-  isAtBottom.value = distance <= SCROLL_BOTTOM_THRESHOLD;
-}
-
-function syncInputContainerHeight() {
-  const element = inputContainerRef.value;
-  inputContainerHeight.value = element?.offsetHeight ?? 0;
-}
-
 function scrollToBottom(behavior: ScrollBehavior = "smooth") {
-  const element = scrollContainerRef.value;
-  if (!element) return;
-
-  if (typeof element.scrollTo === "function") {
-    element.scrollTo({
-      top: element.scrollHeight,
-      behavior,
-    });
-  } else {
-    element.scrollTop = element.scrollHeight;
-  }
-  updateIsAtBottom();
+  stickToBottom?.scrollToBottom(behavior);
 }
 
 function handleScroll() {
-  updateIsAtBottom();
+  stickToBottom?.update();
+  checkContentAtBottom();
 }
 
 function handleInputValueChange(value: string) {
@@ -412,37 +398,14 @@ const inputEventProps = computed(() => {
 const canStop = computed(() => !!props.onStop);
 const canAddFile = computed(() => !!props.onAddFile);
 const canTranscribe = computed(() => !!props.onStartTranscribe);
-
-onMounted(async () => {
-  await nextTick();
-  syncInputContainerHeight();
-  updateIsAtBottom();
-  if (isPinToBottomMode.value) {
-    scrollToBottom("auto");
-    if (typeof requestAnimationFrame === "function") {
-      requestAnimationFrame(() => {
-        scrollToBottom("auto");
-      });
-    }
-  }
-
-  attachInputOverlayObserver();
-  attachScrollContentObserver();
-});
-
-onBeforeUnmount(() => {
-  inputResizeObserver?.disconnect();
-  contentResizeObserver?.disconnect();
-  inputResizeObserver = null;
-  contentResizeObserver = null;
-});
 </script>
 
 <template>
   <div
     data-copilotkit
-    class="copilotKitChat cpk:@container cpk:relative cpk:h-full"
+    class="copilotKitChat cpk-chat-view"
     data-testid="copilot-chat-view"
+    :data-copilot-running="isRunning ? 'true' : 'false'"
     v-bind="$attrs"
     @dragover="handleDragOver"
     @dragleave="handleDragLeave"
@@ -450,12 +413,15 @@ onBeforeUnmount(() => {
   >
     <div
       v-if="dragOver"
-      class="cpk:absolute cpk:inset-0 cpk:z-50 cpk:pointer-events-none cpk:flex cpk:items-center cpk:justify-center cpk:bg-primary/5 cpk:border-2 cpk:border-dashed cpk:border-primary/40 cpk:rounded-lg cpk:m-2"
+      class="cpk-chat-view-drop-overlay"
       data-testid="copilot-chat-drop-overlay"
     >
-      <span class="cpk:text-sm cpk:font-medium cpk:text-primary/70">
-        Drop files here
-      </span>
+      <div class="cpk-chat-view-drop-overlay-content">
+        <IconUpload class="cpk-chat-view-drop-overlay-icon" />
+        <span class="cpk-chat-view-drop-overlay-label">{{
+          labels.chatDropFilesLabel
+        }}</span>
+      </div>
     </div>
     <slot
       v-if="shouldShowWelcomeScreen"
@@ -481,27 +447,25 @@ onBeforeUnmount(() => {
       :on-select-suggestion="handleSelectSuggestion"
     >
       <div
-        class="cpk:flex cpk:h-full cpk:flex-col cpk:items-center cpk:justify-center cpk:px-4"
+        class="cpk-chat-view-welcome-screen"
         data-testid="copilot-chat-view-welcome-screen"
       >
-        <div
-          class="cpk:w-full cpk:max-w-3xl cpk:flex cpk:flex-col cpk:items-center"
-        >
-          <div class="cpk:mb-6">
+        <div class="cpk-chat-view-welcome-screen-content">
+          <div class="cpk-chat-view-welcome-screen-message">
             <slot name="welcome-message">
-              <h1
-                class="cpk:text-xl cpk:sm:text-2xl cpk:font-medium cpk:text-foreground cpk:text-center"
-              >
+              <h1 class="cpk-chat-view-welcome-message">
                 {{ labels.welcomeMessageText }}
               </h1>
             </slot>
           </div>
 
-          <div class="cpk:w-full">
+          <div
+            class="cpk-chat-view-welcome-screen-input cpk-chat-view-welcome-input-group"
+          >
             <CopilotChatAttachmentQueue
               v-if="hasAttachments"
               :attachments="attachments ?? []"
-              class-name="cpk:mb-2"
+              class-name="cpk-chat-view-welcome-attachment-queue"
               @remove-attachment="
                 (id: string) => onRemoveAttachment && onRemoveAttachment(id)
               "
@@ -540,7 +504,7 @@ onBeforeUnmount(() => {
 
           <div
             v-if="hasSuggestions"
-            class="cpk:mt-4 cpk:flex cpk:justify-center"
+            class="cpk-chat-view-welcome-screen-suggestions"
           >
             <slot
               name="suggestion-view"
@@ -549,6 +513,7 @@ onBeforeUnmount(() => {
               :on-select-suggestion="handleSelectSuggestion"
             >
               <CopilotChatSuggestionView
+                class="cpk-chat-view-suggestion-view"
                 :suggestions="suggestions"
                 :loading-indexes="suggestionLoadingIndexes"
                 @select-suggestion="handleSelectSuggestion"
@@ -575,18 +540,15 @@ onBeforeUnmount(() => {
         <div
           ref="scrollContainerRef"
           data-testid="copilot-chat-view-scroll"
-          class="cpk:h-full cpk:max-h-full cpk:min-h-0 cpk:overflow-y-scroll cpk:overflow-x-hidden cpk:relative"
-          @scroll="handleScroll"
+          class="cpk-chat-view-scroll-area cpk-chat-view-scroll-viewport"
         >
-          <div
-            class="cpk:px-4 cpk:@3xl:px-0 cpk:[div[data-sidebar-chat]_&]:px-8 cpk:[div[data-popup-chat]_&]:px-6"
-          >
+          <div class="cpk-chat-view-scroll-content">
             <div
               ref="scrollContentRef"
               data-testid="copilot-scroll-content"
               :style="{ paddingBottom: messagePaddingBottom }"
             >
-              <div class="cpk:max-w-3xl cpk:mx-auto">
+              <div class="cpk-chat-view-feed">
                 <slot
                   name="message-view"
                   :messages="messages"
@@ -595,6 +557,8 @@ onBeforeUnmount(() => {
                   <CopilotChatMessageView
                     :messages="messages"
                     :is-running="isRunning"
+                    :tool-call-display="toolCallDisplay"
+                    :message-feedback="messageFeedback"
                   >
                     <template
                       v-for="slotName in forwardedMessageViewSlotNames"
@@ -605,10 +569,7 @@ onBeforeUnmount(() => {
                     </template>
                   </CopilotChatMessageView>
                 </slot>
-                <div
-                  v-if="hasSuggestions"
-                  class="cpk:mt-4 cpk:pl-0 cpk:pr-4 cpk:@3xl:px-0"
-                >
+                <div v-if="hasSuggestions" class="cpk-chat-view-suggestions">
                   <slot
                     name="suggestion-view"
                     :suggestions="suggestions"
@@ -616,7 +577,7 @@ onBeforeUnmount(() => {
                     :on-select-suggestion="handleSelectSuggestion"
                   >
                     <CopilotChatSuggestionView
-                      class="cpk:mb-3 cpk:lg:ml-4 cpk:lg:mr-4 cpk:ml-0 cpk:mr-0"
+                      class="cpk-chat-view-suggestion-view"
                       :suggestions="suggestions"
                       :loading-indexes="suggestionLoadingIndexes"
                       @select-suggestion="handleSelectSuggestion"
@@ -653,7 +614,7 @@ onBeforeUnmount(() => {
 
       <div
         v-if="showScrollToBottomButton"
-        class="cpk:absolute cpk:inset-x-0 cpk:flex cpk:justify-center cpk:z-30 cpk:pointer-events-none"
+        class="cpk-chat-view-scroll-to-bottom"
         :style="{ bottom: `${inputContainerHeight + SCROLL_BUTTON_OFFSET}px` }"
       >
         <slot name="scroll-to-bottom-button" :on-click="() => scrollToBottom()">
@@ -661,12 +622,11 @@ onBeforeUnmount(() => {
             type="button"
             data-testid="copilot-chat-view-scroll-to-bottom"
             :aria-label="labels.chatScrollToBottomLabel"
-            class="cpk:rounded-full cpk:w-10 cpk:h-10 cpk:p-0 cpk:pointer-events-auto cpk:bg-white cpk:dark:bg-gray-900 cpk:shadow-lg cpk:border cpk:border-gray-200 cpk:dark:border-gray-700 cpk:hover:bg-gray-50 cpk:dark:hover:bg-gray-800 cpk:flex cpk:items-center cpk:justify-center cpk:cursor-pointer"
+            data-slot="button"
+            class="cpk-button cpk-button-outline cpk-button-size-sm cpk-chat-view-scroll-to-bottom-button"
             @click="scrollToBottom()"
           >
-            <IconChevronDown
-              class="cpk:w-4 cpk:h-4 cpk:text-gray-600 cpk:dark:text-white"
-            />
+            <IconChevronDown class="cpk-chat-view-scroll-to-bottom-icon" />
           </button>
         </slot>
       </div>
@@ -681,16 +641,13 @@ onBeforeUnmount(() => {
       -->
       <div
         ref="inputContainerRef"
-        class="cpk:absolute cpk:bottom-0 cpk:left-0 cpk:right-0 cpk:z-20 cpk:pointer-events-none"
+        class="cpk-chat-view-input-overlay"
         data-testid="copilot-input-overlay"
       >
-        <div
-          v-if="hasAttachments"
-          class="cpk:max-w-3xl cpk:mx-auto cpk:w-full cpk:pointer-events-auto"
-        >
+        <div v-if="hasAttachments" class="cpk-chat-view-attachments">
           <CopilotChatAttachmentQueue
             :attachments="attachments ?? []"
-            class-name="cpk:px-4"
+            class-name="cpk-chat-view-attachment-queue"
             @remove-attachment="
               (id: string) => onRemoveAttachment && onRemoveAttachment(id)
             "

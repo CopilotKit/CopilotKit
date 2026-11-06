@@ -40,9 +40,6 @@ export class CopilotChatViewDisclaimer {
 
   // Computed class matching React exactly
   get computedClass(): string {
-    return cn(
-      "cpk:text-center cpk:text-xs cpk:text-muted-foreground cpk:py-3 cpk:px-4 cpk:max-w-3xl cpk:mx-auto",
-      this.inputClass(),
-    );
+    return cn("cpk-chat-input-disclaimer", this.inputClass());
   }
 }

@@ -127,15 +127,16 @@ export default app;
 
 ## Using the Built-in Agent
 
-CopilotKit includes a built-in agent powered by the Vercel AI SDK:
+CopilotKit includes a built-in agent powered by TanStack AI. Pass it a TanStack AI adapter:
 
 ```typescript
 import { CopilotRuntime } from "@copilotkit/runtime";
-import { BuiltInAgent } from "@copilotkit/runtime/v2";
+import { BuiltInAgent } from "@copilotkit/runtime/agent";
+import { openaiText } from "@tanstack/ai-openai";
 
 const agent = new BuiltInAgent({
-  model: "openai/gpt-6-luna",
-  systemPrompt: "You are a helpful shopping assistant.",
+  model: openaiText("gpt-6-luna"),
+  prompt: "You are a helpful shopping assistant.",
 });
 
 const runtime = new CopilotRuntime({
@@ -157,7 +158,7 @@ const runtime = new CopilotRuntime({
 async function loadAgents() {
   const config = await fetchConfig();
   return {
-    default: new BuiltInAgent({ model: config.model }),
+    default: new BuiltInAgent({ model: openaiText(config.model) }),
     research: new HttpAgent({ url: config.researchAgentUrl }),
   };
 }
@@ -439,20 +440,21 @@ sequenceDiagram
 import express from "express";
 import { CopilotRuntime } from "@copilotkit/runtime";
 import { createCopilotEndpointExpress } from "@copilotkit/runtime/express";
-import { BuiltInAgent } from "@copilotkit/runtime/v2";
+import { BuiltInAgent } from "@copilotkit/runtime/agent";
+import { openaiText } from "@tanstack/ai-openai";
 import { SQLiteAgentRunner } from "@copilotkit/sqlite-runner";
 
 const app = express();
 
 // Create agents
 const generalAgent = new BuiltInAgent({
-  model: "openai/gpt-6-luna",
-  systemPrompt: "You are a helpful assistant.",
+  model: openaiText("gpt-6-luna"),
+  prompt: "You are a helpful assistant.",
 });
 
 const codeAgent = new BuiltInAgent({
-  model: "openai/gpt-6-luna",
-  systemPrompt: "You are a coding expert. Always provide code examples.",
+  model: openaiText("gpt-6-luna"),
+  prompt: "You are a coding expert. Always provide code examples.",
 });
 
 // Create runtime with all optional features

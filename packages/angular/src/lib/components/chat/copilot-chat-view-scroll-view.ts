@@ -10,11 +10,9 @@ import {
   ViewEncapsulation,
   signal,
   computed,
-  AfterViewInit,
-  OnDestroy,
   inject,
-  ChangeDetectorRef,
   afterNextRender,
+  viewChild,
 } from "@angular/core";
 import { NgTemplateOutlet } from "@angular/common";
 import { ScrollingModule } from "@angular/cdk/scrolling";
@@ -23,12 +21,13 @@ import { CopilotChatMessageView } from "./copilot-chat-message-view";
 import { CopilotChatViewScrollToBottomButton } from "./copilot-chat-view-scroll-to-bottom-button";
 import { CopilotChatSuggestionView } from "./copilot-chat-suggestion-view";
 import { StickToBottom } from "../../directives/stick-to-bottom";
-import { ScrollPosition } from "../../scroll-position";
 import { ChatState } from "../../chat-state";
+import { explicitEffect } from "../../explicit-effect";
 import { Message } from "@ag-ui/client";
 import { cn } from "../../utils";
-import { Subject } from "rxjs";
-import { takeUntil } from "rxjs/operators";
+import type { CopilotChatToolCallDisplay } from "./tool-call-layout";
+import { ɵcreateStickToBottom, ɵgetChatViewState } from "@copilotkit/core";
+import type { ɵStickToBottom } from "@copilotkit/core";
 
 /**
  * ScrollView component for CopilotChatView
@@ -36,7 +35,7 @@ import { takeUntil } from "rxjs/operators";
  */
 @Component({
   selector: "copilot-chat-view-scroll-view",
-  host: { class: "cpk:block cpk:flex-1 cpk:min-h-0" },
+  host: { class: "cpk-chat-view-scroll-view" },
   imports: [
     ScrollingModule,
     NgTemplateOutlet,
@@ -47,11 +46,9 @@ import { takeUntil } from "rxjs/operators";
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   encapsulation: ViewEncapsulation.None,
-  providers: [ScrollPosition],
   templateUrl: "./copilot-chat-view-scroll-view.html",
 })
-export class CopilotChatViewScrollView implements AfterViewInit, OnDestroy {
-  private cdr = inject(ChangeDetectorRef);
+export class CopilotChatViewScrollView {
   protected readonly chatState = inject(ChatState, { optional: true });
 
   autoScroll = input<boolean>(true);
@@ -72,10 +69,22 @@ export class CopilotChatViewScrollView implements AfterViewInit, OnDestroy {
   reasoningMessageComponent = input<Type<any> | undefined>();
   reasoningMessageTemplate = input<TemplateRef<any> | undefined>();
   reasoningMessageClass = input<string | undefined>();
+  workSummaryComponent = input<Type<unknown> | undefined>();
+  workSummaryTemplate = input<TemplateRef<unknown> | undefined>();
+  workSummaryClass = input<string | undefined>();
   messageViewChildrenComponent = input<Type<any> | undefined>();
   messageViewChildrenTemplate = input<TemplateRef<any> | undefined>();
   messageViewChildrenClass = input<string | undefined>();
   showCursor = input<boolean>(false);
+  /** `true` while the agent runs. Suggestions hide meanwhile. */
+  isRunning = input<boolean>(false);
+  /** `true` while the thread's connect is loading. Suggestions hide meanwhile. */
+  isConnecting = input<boolean>(false);
+  /**
+   * How assistant messages show tool calls: `"grouped"` (default), `"line"`,
+   * `"stacked"` or `"separate"`. Forwarded to the message view.
+   */
+  toolCallDisplay = input<CopilotChatToolCallDisplay>("grouped");
 
   // Handler availability flags removed in favor of DI service
 
@@ -97,6 +106,10 @@ export class CopilotChatViewScrollView implements AfterViewInit, OnDestroy {
   @ViewChild("contentContainer", { read: ElementRef })
   contentContainer?: ElementRef<HTMLElement>;
   @ViewChild(StickToBottom) stickToBottomDirective?: StickToBottom;
+  private readonly scrollElement =
+    viewChild<ElementRef<HTMLElement>>("scrollContainer");
+  /** Tracks the position for the button when `autoScroll` is off. */
+  private manualScroll?: ɵStickToBottom;
 
   // Default components
   protected readonly defaultMessageViewComponent = CopilotChatMessageView;
@@ -107,48 +120,55 @@ export class CopilotChatViewScrollView implements AfterViewInit, OnDestroy {
   protected hasMounted = signal(false);
   protected showScrollButton = signal(false);
   protected isAtBottom = signal(true);
-  protected hasSuggestions = computed(
-    () =>
-      !this.showCursor() && (this.chatState?.suggestions?.() ?? []).length > 0,
+  // Suggestions and the bottom padding follow core's rules: no suggestions
+  // while connecting or running.
+  private readonly viewState = computed(() =>
+    ɵgetChatViewState({
+      messageCount: this.messages().length,
+      suggestionCount: this.chatState?.suggestions?.().length ?? 0,
+      isRunning: this.isRunning(),
+      isConnecting: this.isConnecting(),
+      hasExplicitThreadId: false,
+      welcomeScreenEnabled: false,
+      inputContainerHeight: this.inputContainerHeight(),
+    }),
   );
-  protected paddingBottom = computed(
-    () => this.inputContainerHeight() + (this.hasSuggestions() ? 4 : 32),
-  );
+  protected hasSuggestions = computed(() => this.viewState().hasSuggestions);
+  protected paddingBottom = computed(() => this.viewState().paddingBottom);
 
   // Computed class
   protected computedClass = computed(() => cn(this.inputClass()));
-
-  private destroy$ = new Subject<void>();
-  private scrollPositionService = inject(ScrollPosition);
 
   constructor() {
     afterNextRender(() => {
       this.hasMounted.set(true);
     });
-  }
 
-  ngAfterViewInit(): void {
-    if (!this.autoScroll()) {
-      // Wait for the view to be fully rendered after hasMounted is set
-      setTimeout(() => {
-        if (this.scrollContainer) {
-          // Check initial scroll position
-          const initialState = this.scrollPositionService.getScrollState(
-            this.scrollContainer.nativeElement,
-            10,
-          );
-          this.showScrollButton.set(!initialState.isAtBottom);
-
-          // Monitor scroll position for manual mode
-          this.scrollPositionService
-            .monitorScrollPosition(this.scrollContainer, 10)
-            .pipe(takeUntil(this.destroy$))
-            .subscribe((state) => {
-              this.showScrollButton.set(!state.isAtBottom);
-            });
-        }
-      }, 100);
-    }
+    // Without auto-scroll, core only tracks the position (same 12px threshold
+    // as the directive) so the scroll-to-bottom button shows when the reader
+    // is above the end.
+    explicitEffect(
+      () => ({
+        element: this.scrollElement()?.nativeElement,
+        autoScroll: this.autoScroll(),
+      }),
+      ({ element, autoScroll }, onCleanup) => {
+        if (!element || autoScroll) return;
+        const content = element.firstElementChild;
+        const controller = ɵcreateStickToBottom({
+          scrollElement: element,
+          contentElement: content instanceof HTMLElement ? content : element,
+          follow: false,
+          onChange: (isAtBottom) => this.showScrollButton.set(!isAtBottom),
+        });
+        this.manualScroll = controller;
+        this.showScrollButton.set(!controller.isAtBottom);
+        onCleanup(() => {
+          controller.dispose();
+          if (this.manualScroll === controller) this.manualScroll = undefined;
+        });
+      },
+    );
   }
 
   /**
@@ -162,9 +182,7 @@ export class CopilotChatViewScrollView implements AfterViewInit, OnDestroy {
    * Scroll to bottom for manual mode
    */
   scrollToBottom(): void {
-    if (this.scrollContainer) {
-      this.scrollPositionService.scrollToBottom(this.scrollContainer, true);
-    }
+    this.manualScroll?.scrollToBottom("smooth");
   }
 
   /**
@@ -174,11 +192,6 @@ export class CopilotChatViewScrollView implements AfterViewInit, OnDestroy {
     if (this.stickToBottomDirective) {
       this.stickToBottomDirective.scrollToBottom("smooth");
     }
-  }
-
-  ngOnDestroy(): void {
-    this.destroy$.next();
-    this.destroy$.complete();
   }
 
   // Output maps for slots
@@ -195,12 +208,16 @@ export class CopilotChatViewScrollView implements AfterViewInit, OnDestroy {
       agentId: this.agentId(),
       inputClass: this.messageViewClass(),
       showCursor: this.showCursor(),
+      toolCallDisplay: this.toolCallDisplay(),
       assistantMessageComponent: this.assistantMessageComponent(),
       assistantMessageTemplate: this.assistantMessageTemplate(),
       assistantMessageClass: this.assistantMessageClass(),
       reasoningMessageComponent: this.reasoningMessageComponent(),
       reasoningMessageTemplate: this.reasoningMessageTemplate(),
       reasoningMessageClass: this.reasoningMessageClass(),
+      workSummaryComponent: this.workSummaryComponent(),
+      workSummaryTemplate: this.workSummaryTemplate(),
+      workSummaryClass: this.workSummaryClass(),
       childrenComponent: this.messageViewChildrenComponent(),
       childrenTemplate: this.messageViewChildrenTemplate(),
       childrenClass: this.messageViewChildrenClass(),

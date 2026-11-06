@@ -8,12 +8,12 @@ function createRunHandler(): RunHandler {
 }
 
 describe("RunHandler tool schema generation", () => {
-  it("strips boolean additionalProperties emitted by zod-to-json-schema", () => {
+  it("strips boolean additionalProperties emitted for strict objects", () => {
     const runHandler = createRunHandler();
     runHandler.initialize([
       {
         name: "sample",
-        parameters: z.object({
+        parameters: z.strictObject({
           foo: z.string(),
         }),
       },

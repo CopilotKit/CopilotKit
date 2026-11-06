@@ -1,61 +1,48 @@
-import { asSchema } from "ai";
+/**
+ * JSON Schema rules of frontend (AG-UI) tools, through the classic agent: the
+ * real `chat()` checks the model's arguments against the tool's schema before
+ * the call goes to the client. Nullable fields are pinned in
+ * nullable-tools.test.ts.
+ */
 import { expect, test } from "vitest";
-import { z } from "zod/v4";
-import { convertToolsToVercelAITools } from "../index";
+import { EventType } from "@ag-ui/client";
+import { eventsOfType, runClassicAgent } from "./agent-test-helpers";
 
-/** Creates the provider-facing validation boundary for an AG-UI tool. */
-function setup(parameters: Record<string, unknown>) {
-  const tools = convertToolsToVercelAITools([
-    { name: "show_card", description: "Show a card", parameters },
-  ]);
-  const schema = asSchema(tools.show_card.inputSchema);
-  const validate = async (value: unknown) =>
-    schema.validate ? schema.validate(value) : { success: true, value };
-  return { schema, validate };
+/**
+ * Lets the model call the frontend tool `show_card` once with `args`. Returns
+ * the run's events, the tool's error result (`undefined` when the arguments
+ * were valid), and the model request.
+ */
+async function callShowCard(
+  parameters: Record<string, unknown>,
+  args: unknown,
+) {
+  const { events, requests } = await runClassicAgent(
+    {},
+    [{ toolCalls: [{ id: "tc-1", name: "show_card", input: args }] }],
+    { tools: [{ name: "show_card", description: "Show a card", parameters }] },
+  );
+  const error = eventsOfType(events, EventType.TOOL_CALL_RESULT)[0]?.content;
+  return { events, error, request: requests[0]! };
 }
 
-test("AG-UI nullable fields accept null but reject wrong types and missing values", async () => {
-  const { validate } = setup({
-    type: "object",
-    properties: { subtitle: { anyOf: [{ type: "string" }, { type: "null" }] } },
-    required: ["subtitle"],
-  });
+const INVALID = /^Error: Input validation failed for tool show_card: /;
 
-  expect((await validate({ subtitle: null })).success).toBe(true);
-  expect((await validate({ subtitle: "Details" })).success).toBe(true);
-  expect((await validate({ subtitle: 42 })).success).toBe(false);
-  expect((await validate({})).success).toBe(false);
-});
-
-test("AG-UI validates JSON Schema emitted by nullable Zod v4 fields", async () => {
-  const { validate } = setup(
-    z.toJSONSchema(z.object({ subtitle: z.string().nullable() })),
+test("valid arguments go to the client: no result, and the run finishes", async () => {
+  const { events, error } = await callShowCard(
+    { type: "object", properties: { title: { type: "string" } } },
+    { title: "Hello" },
   );
 
-  expect((await validate({ subtitle: null })).success).toBe(true);
-  expect((await validate({ subtitle: "Details" })).success).toBe(true);
-  expect((await validate({ subtitle: false })).success).toBe(false);
-  expect((await validate({})).success).toBe(false);
+  expect(error).toBeUndefined();
+  expect(eventsOfType(events, EventType.TOOL_CALL_END)).toEqual([
+    expect.objectContaining({ toolCallId: "tc-1" }),
+  ]);
+  expect(events.at(-1)?.type).toBe(EventType.RUN_FINISHED);
 });
 
-test("AG-UI optional nullable array items preserve null and reject wrong types", async () => {
-  const { validate } = setup({
-    type: "object",
-    properties: {
-      values: {
-        type: "array",
-        items: { oneOf: [{ type: "number" }, { type: "null" }] },
-      },
-    },
-  });
-
-  expect((await validate({})).success).toBe(true);
-  expect((await validate({ values: [1, null] })).success).toBe(true);
-  expect((await validate({ values: ["invalid"] })).success).toBe(false);
-});
-
-test("AG-UI argument validation enforces references and numeric constraints", async () => {
-  const { validate } = setup({
+test("argument validation enforces references and numeric constraints", async () => {
+  const parameters = {
     type: "object",
     properties: {
       label: { $ref: "#/$defs/label" },
@@ -64,37 +51,42 @@ test("AG-UI argument validation enforces references and numeric constraints", as
     required: ["label", "count"],
     additionalProperties: false,
     $defs: { label: { type: "string", minLength: 1 } },
-  });
+  };
+  const errorFor = async (args: unknown) =>
+    (await callShowCard(parameters, args)).error;
 
-  expect((await validate({ label: "Shapes", count: 2 })).success).toBe(true);
-  expect((await validate({ label: "", count: 2 })).success).toBe(false);
-  expect((await validate({ label: "Shapes", count: 1.5 })).success).toBe(false);
-  expect((await validate({ label: "Shapes", count: 11 })).success).toBe(false);
-  expect(
-    (await validate({ label: "Shapes", count: 2, extra: true })).success,
-  ).toBe(false);
+  expect(await errorFor({ label: "Shapes", count: 2 })).toBeUndefined();
+  expect(await errorFor({ label: "", count: 2 })).toMatch(
+    /#\/label: String is too short/,
+  );
+  expect(await errorFor({ label: "Shapes", count: 1.5 })).toMatch(
+    /#\/count: .*Expected "integer"/,
+  );
+  expect(await errorFor({ label: "Shapes", count: 11 })).toMatch(INVALID);
+  expect(await errorFor({ label: "Shapes", count: 2, extra: true })).toMatch(
+    /Property "extra" does not match additional properties schema/,
+  );
 });
 
-test("AG-UI validation preserves open object fields without mutating arguments", async () => {
+test("open object fields stay open and reach the model unchanged", async () => {
   const parameters = {
     type: "object",
     properties: { component: { type: "object" } },
     required: ["component"],
   };
-  const { schema, validate } = setup(parameters);
-  const value = Object.freeze({
-    component: Object.freeze({ Text: Object.freeze({ text: "Hello" }) }),
+
+  const open = await callShowCard(parameters, {
+    component: { Text: { text: "Hello" } },
   });
+  const wrongType = await callShowCard(parameters, { component: "invalid" });
 
-  const result = await validate(value);
-
-  expect(result).toEqual({ success: true, value });
-  expect(await schema.jsonSchema).toEqual(parameters);
-  expect((await validate({ component: "invalid" })).success).toBe(false);
+  expect(open.error).toBeUndefined();
+  expect(open.request.tools?.[0]?.inputSchema).toEqual(parameters);
+  expect(wrongType.error).toMatch(INVALID);
 });
 
-test("AG-UI validates modern tuple constraints", async () => {
-  const { validate } = setup({
+test("argument validation enforces modern tuple constraints", async () => {
+  const parameters = {
     $schema: "https://json-schema.org/draft/2020-12/schema",
     type: "object",
     properties: {
@@ -106,9 +98,11 @@ test("AG-UI validates modern tuple constraints", async () => {
       },
     },
     required: ["point"],
-  });
+  };
+  const errorFor = async (args: unknown) =>
+    (await callShowCard(parameters, args)).error;
 
-  expect((await validate({ point: [1, 2] })).success).toBe(true);
-  expect((await validate({ point: [1, "invalid"] })).success).toBe(false);
-  expect((await validate({ point: [1, 2, 3] })).success).toBe(false);
+  expect(await errorFor({ point: [1, 2] })).toBeUndefined();
+  expect(await errorFor({ point: [1, "invalid"] })).toMatch(/#\/point\/1: /);
+  expect(await errorFor({ point: [1, 2, 3] })).toMatch(/#\/point\/2: /);
 });

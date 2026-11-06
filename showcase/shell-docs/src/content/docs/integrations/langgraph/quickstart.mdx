@@ -18,18 +18,18 @@ Use this prompt to connect your LangGraph agent to CopilotKit and verify a worki
 Before you begin, you'll need the following:
 
 - An OpenAI API key
-- Node.js 20+
+- Node.js 20.19.3+ or 22.13+
 - Your favorite package manager
 - (Optional) A LangSmith API key - only required if using an existing LangGraph agent
 
 <Callout type="info" title="Zod version for TypeScript agents">
-When adding `@copilotkit/sdk-js` to a TypeScript agent, install Zod 3 alongside it:
+When adding `@copilotkit/sdk-js` to a TypeScript agent, install Zod 4.2 or later alongside it:
 
 ```bash
-npm install @copilotkit/sdk-js zod@3
+npm install @copilotkit/sdk-js zod@^4.2.0
 ```
 
-An unversioned `zod` install selects Zod 4, which does not satisfy the SDK's `zod` peer dependency (`^3`). Use `zod@3` with pnpm or Yarn too. If your agent already requires Zod 4, check SDK compatibility before changing its dependencies; do not bypass the conflict with `--force` or `--legacy-peer-deps`.
+The SDK's `zod` peer dependency is `^4.2.0`. If your agent still uses Zod 3, upgrade it to Zod 4; do not bypass the conflict with `--force` or `--legacy-peer-deps`.
 
 The SDK also has a peer dependency on `langchain`. If your agent pins `@langchain/core` to an exact version, npm installs the newest `langchain`, which can require a newer `@langchain/core` and fail with `ERESOLVE`. Install a `langchain` release whose peer range includes your `@langchain/core`. To see each release's range, run:
 
@@ -40,7 +40,7 @@ npm view langchain@1 peerDependencies
 For example, `langchain@1.5.9` requires `@langchain/core ^1.2.8`, so it is the newest release that works with `@langchain/core@1.2.8`. Pin it exactly. A caret range such as `^1.5.9` lets a later install pick `langchain@1.5.19`, which requires `@langchain/core ^1.2.20`:
 
 ```bash
-npm install --save-exact @copilotkit/sdk-js zod@3 langchain@1.5.9
+npm install --save-exact @copilotkit/sdk-js zod@^4.2.0 langchain@1.5.9
 ```
 </Callout>
 
@@ -456,9 +456,8 @@ npm install --save-exact @copilotkit/sdk-js zod@3 langchain@1.5.9
               npm install @copilotkit/react-core @copilotkit/runtime
               ```
 
-              The components used below (`CopilotKitProvider`, `CopilotSidebar`) and the
-              stylesheet all come from `@copilotkit/react-core/v2`, so
-              `@copilotkit/react-ui` is not needed for this setup.
+              The components used below (`CopilotKitProvider`, `CopilotSidebar`) come
+              from `@copilotkit/react-core`.
           </Step>
           <Step>
               ### Setup Copilot Runtime
@@ -495,9 +494,9 @@ npm install --save-exact @copilotkit/sdk-js zod@3 langchain@1.5.9
                     CopilotKitIntelligence,
                     CopilotRuntime,
                     createCopilotRuntimeHandler,
-                  } from "@copilotkit/runtime/v2";
+                  } from "@copilotkit/runtime";
                   // [!code highlight]
-                  import { LangGraphAgent } from "@copilotkit/runtime/langgraph";
+                  import { LangGraphAgent } from "@ag-ui/langgraph";
 
                   const runtime = new CopilotRuntime({
                     agents: {
@@ -536,7 +535,7 @@ npm install --save-exact @copilotkit/sdk-js zod@3 langchain@1.5.9
                   CopilotKitIntelligence,
                   CopilotRuntime,
                   createCopilotRuntimeHandler,
-                } from "@copilotkit/runtime/v2";
+                } from "@copilotkit/runtime";
                 // [!code highlight]
                 import { HttpAgent } from "@ag-ui/client";
 
@@ -605,7 +604,7 @@ npm install --save-exact @copilotkit/sdk-js zod@3 langchain@1.5.9
               ```tsx title="app/providers.tsx"
               "use client";
 
-              import { CopilotKitProvider } from "@copilotkit/react-core/v2";
+              import { CopilotKitProvider } from "@copilotkit/react-core";
 
               export function Providers({ children }: { children: React.ReactNode }) {
                 return (
@@ -622,7 +621,6 @@ npm install --save-exact @copilotkit/sdk-js zod@3 langchain@1.5.9
               ```tsx title="app/layout.tsx"
               // [!code highlight:2]
               import { Providers } from "./providers";
-              import "@copilotkit/react-core/v2/styles.css";
               import './globals.css';
 
               // ...
@@ -657,7 +655,7 @@ npm install --save-exact @copilotkit/sdk-js zod@3 langchain@1.5.9
             ```tsx title="app/page.tsx"
             "use client"; // [!code highlight]
 
-            import { CopilotSidebar } from "@copilotkit/react-core/v2"; // [!code highlight:1]
+            import { CopilotSidebar } from "@copilotkit/react-core"; // [!code highlight:1]
 
             export default function Page() {
               return (

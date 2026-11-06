@@ -1,122 +1,50 @@
-import { computed, watch } from "vue";
+import { watch } from "vue";
 import type { ShallowRef } from "vue";
 import type { Catalog, ComponentApi } from "@a2ui/web_core/v0_9";
-import {
-  A2UI_DEFAULT_GENERATION_GUIDELINES,
-  A2UI_DEFAULT_DESIGN_GUIDELINES,
-  A2UI_SCHEMA_CONTEXT_DESCRIPTION,
-  buildA2UICatalogContextValue,
-  extractA2UICatalogSchemas,
-} from "@copilotkit/shared";
+import { A2UICatalogController } from "@copilotkit/a2ui-renderer/catalog-schema";
 import type { CopilotKitCoreVue } from "../../lib/vue-core";
 import { vueBasicCatalog } from "./catalog";
 
-const basicComponentNames: ReadonlySet<string> = new Set(
-  vueBasicCatalog.components.keys(),
-);
-
 /**
- * Build a context string describing the available A2UI catalog.
- * Vue-native equivalent of buildCatalogContextValue from a2ui-renderer.
+ * Keeps the provider's A2UI catalog in sync with core through the shared
+ * `A2UICatalogController`: registers its components (so the Inspector can
+ * toggle them), reports the catalog with disabled components removed, and
+ * registers the agent context entries scoped to `core.a2uiAgents` while A2UI
+ * is on. Call from the provider's setup function.
  *
- * When `options.includeSchema` is `false`, custom components are listed by name
- * only and their JSON schemas are omitted.
+ * @param copilotkit - The provider's core.
+ * @param options.onFilteredCatalog - Receives the filtered catalog each time
+ *   it changes; the provider renders surfaces with it.
  */
-export function buildCatalogContextValue(
-  catalog?: Catalog<ComponentApi>,
-  options?: { includeSchema?: boolean },
-): string {
-  return buildA2UICatalogContextValue(
-    catalog ?? vueBasicCatalog,
-    basicComponentNames,
-    options,
-  );
-}
-
-/**
- * Registers agent context describing the available A2UI catalog, component
- * schemas, and generation/design guidelines.
- *
- * Vue-native equivalent of React's `<A2UICatalogContext>` component.
- * Call from the provider's setup function.
- */
-export function registerA2UICatalogContext(
+export function registerA2UICatalog(
   copilotkit: ShallowRef<CopilotKitCoreVue>,
   options: {
     enabled: () => boolean;
     catalog: () => Catalog<ComponentApi> | undefined;
     includeSchema: () => boolean;
+    onFilteredCatalog: (catalog: Catalog<ComponentApi> | undefined) => void;
   },
 ): void {
-  const contextValue = computed(() =>
-    buildCatalogContextValue(options.catalog(), {
-      includeSchema: options.includeSchema(),
-    }),
-  );
-
-  // Register catalog capabilities context
   watch(
-    [() => copilotkit.value, options.enabled, contextValue],
-    ([core, isEnabled, value], _prev, onCleanup) => {
-      if (!isEnabled) return;
-      // Scope to the agents the runtime applies A2UI to (#5369), so other
-      // agents on the endpoint don't receive the catalog payload.
-      const agentIds = core.a2uiAgents;
-      const id = core.addContext({
-        description:
-          "A2UI catalog capabilities: available catalog IDs and " +
-          "custom component definitions the client can render.",
-        value,
-        ...(agentIds ? { agentIds } : {}),
-      });
-      onCleanup(() => core.removeContext(id));
-    },
-    { immediate: true },
-  );
-
-  // Register schema + generation/design guidelines
-  const schemaValue = computed(() => {
-    if (!options.includeSchema()) return null;
-    return JSON.stringify(
-      extractA2UICatalogSchemas(options.catalog() ?? vueBasicCatalog),
-    );
-  });
-
-  watch(
-    [() => copilotkit.value, options.enabled, schemaValue],
-    ([core, isEnabled, schema], _prev, onCleanup) => {
-      if (!isEnabled || !schema) return;
-      const agentIds = core.a2uiAgents;
-      const scope = agentIds ? { agentIds } : {};
-      const ids: string[] = [];
-      ids.push(
-        core.addContext({
-          description: A2UI_SCHEMA_CONTEXT_DESCRIPTION,
-          value: schema,
-          ...scope,
-        }),
+    () => copilotkit.value,
+    (core, _previous, onCleanup) => {
+      const controller = new A2UICatalogController<Catalog<ComponentApi>>(
+        core,
+        vueBasicCatalog,
       );
-      ids.push(
-        core.addContext({
-          description:
-            "A2UI generation guidelines — protocol rules, tool arguments, " +
-            "path rules, data model format, and " +
-            "form/two-way-binding instructions.",
-          value: A2UI_DEFAULT_GENERATION_GUIDELINES,
-          ...scope,
-        }),
+      const unsubscribe = controller.subscribe(() =>
+        options.onFilteredCatalog(controller.getSnapshot()),
       );
-      ids.push(
-        core.addContext({
-          description:
-            "A2UI design guidelines — visual design rules, component " +
-            "hierarchy tips, and action handler patterns.",
-          value: A2UI_DEFAULT_DESIGN_GUIDELINES,
-          ...scope,
-        }),
+      const stop = watch(
+        [options.enabled, options.catalog, options.includeSchema],
+        ([enabled, catalog, includeSchema]) =>
+          controller.update({ enabled, catalog, includeSchema }),
+        { immediate: true },
       );
       onCleanup(() => {
-        for (const id of ids) core.removeContext(id);
+        stop();
+        unsubscribe();
+        controller.dispose();
       });
     },
     { immediate: true },

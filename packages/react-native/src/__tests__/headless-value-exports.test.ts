@@ -46,7 +46,7 @@ import type { RenderToolProps } from "../headless";
  *
  * ─── Why the guard has to live here, in react-native ─────────────────────────
  *
- * `packages/react-core/src/v2/__tests__/headless-type-exports.test-d.ts` cannot
+ * `packages/react-core/src/__tests__/headless-type-exports.test-d.ts` cannot
  * cover this, structurally: it asserts against react-core's entry surface, not
  * React Native's. Proof — react-core's own `UseAgentUpdate` was ALREADY a correct
  * value export at the time RN's was wrong. Export kind is a property of the
@@ -104,7 +104,7 @@ const RUNTIME_VALUE_EXPORTS: readonly ValueExport[] = [
     name: "UseAgentUpdate",
     typeOf: "object",
     member: "OnMessagesChanged",
-    declaredAs: "export enum, @copilotkit/react-core/v2/headless",
+    declaredAs: "export enum, @copilotkit/react-core/headless",
   },
   {
     name: "AbstractAgent",

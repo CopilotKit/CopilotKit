@@ -3,6 +3,8 @@ import type {
   Interrupt,
   RunAgentInput,
   Message,
+  ResumeEntry,
+  ToolMessage,
   TextMessageChunkEvent,
   ToolCallArgsEvent,
   ToolCallEndEvent,
@@ -100,6 +102,128 @@ export interface TanStackInputResult {
 }
 
 /**
+ * Options for {@link convertInputToTanStackAI}. Leave them out to get the
+ * conversion the `type: "tanstack"` factory uses. BuiltInAgent's classic mode
+ * sets them to get the same model input it builds for its own runs.
+ */
+export interface TanStackInputOptions {
+  /**
+   * Add `system` messages from `input.messages` to `systemPrompts`. TanStack
+   * AI messages have no system role, so a forwarded system message is a
+   * system prompt. When `false`, system messages are dropped.
+   *
+   * @default true
+   */
+  forwardSystemMessages?: boolean;
+  /**
+   * Add `developer` messages from `input.messages` to `systemPrompts`, the
+   * same way as {@link TanStackInputOptions.forwardSystemMessages}. When
+   * `false`, developer messages are dropped.
+   *
+   * @default true
+   */
+  forwardDeveloperMessages?: boolean;
+  /**
+   * A system prompt that goes first in `systemPrompts`, before forwarded
+   * messages, context, and state. An empty string adds nothing.
+   */
+  prompt?: string;
+  /**
+   * Interrupt responses to answer on this run, usually `input.resume`. Each
+   * entry addresses the interrupt tool call whose id is its `interruptId`.
+   * It is added after the converted messages as that call's tool result:
+   * `{"status":"cancelled"}` for a cancelled entry, else the entry's
+   * `payload`, else `{"status":"resolved"}`, as JSON text. An entry is
+   * skipped when `input.messages` already has a tool message for that call.
+   */
+  resume?: ResumeEntry[];
+  /**
+   * Keep what a tool result holds besides text. When `true`, a URL part adds
+   * its URL on its own line, an inline-data part stays as a media part after
+   * the text, and a provider file handle is dropped with a warning. A result
+   * with nothing left is the empty string. When `false`, a tool result is
+   * only its text parts, joined.
+   *
+   * @default false
+   */
+  keepToolResultMedia?: boolean;
+  /**
+   * How the system prompts and the frontend tool schemas are built.
+   *
+   * - `"factory"`: `systemPrompts` is `prompt`, then each forwarded message,
+   *   then one entry per context item, then the state. Open objects in the
+   *   tool schemas are closed (`additionalProperties: false`).
+   * - `"classic"`: what BuiltInAgent's classic mode sends. The first system
+   *   prompt joins `prompt`, the context under `## Context from the
+   *   application`, and the state under `## Application State`, with a note
+   *   that the model can change the state with `AGUISendStateSnapshot` or
+   *   `AGUISendStateDelta`. Each forwarded message follows as its own
+   *   prompt. The tool schemas are kept as the client sent them, so A2UI
+   *   components keep their open objects.
+   *
+   * @default "factory"
+   */
+  format?: "factory" | "classic";
+}
+
+/**
+ * Warns that a part was dropped because its source is a provider file handle
+ * (AG-UI `file` source), which is neither a URL nor inline data.
+ */
+function warnDroppedFileSource(what: string) {
+  console.warn(
+    `[CopilotKit] Dropping a ${what} that references a provider file handle: it is not a URL or inline data, so it cannot be sent to the model here.`,
+  );
+}
+
+/**
+ * Converts an AG-UI tool result for a TanStack AI tool message, keeping URL
+ * references and inline media.
+ *
+ * Providers hold one response per tool call, so all of a result's text is
+ * one text entry: text parts run together, and a URL part adds the URL it
+ * carries on a line of its own (the bytes are not here, and the reference is
+ * what the tool returned). A result with no inline media is that text alone.
+ * One with inline media is a list: the text part first, when there is any
+ * text, then each media part. A provider file handle cannot be sent from
+ * here, so that part is dropped with a warning. A result whose parts were all
+ * dropped is the empty string, because the call must still be answered.
+ */
+function convertToolResultContent(content: ToolMessage["content"]) {
+  if (typeof content === "string") return content;
+  const segments: string[] = [];
+  const media: TanStackContentPart[] = [];
+  let open = false; // whether the last segment is text still being appended to
+  for (const part of content) {
+    if (part.type === "text") {
+      if (open) segments[segments.length - 1] += part.text;
+      else segments.push(part.text);
+      open = true;
+    } else if (part.source.type === "file") {
+      warnDroppedFileSource(`${part.type} part in a tool result`);
+    } else if (part.source.type === "url") {
+      segments.push(part.source.value);
+      open = false;
+    } else {
+      media.push({
+        type: part.type,
+        source: {
+          type: "data",
+          value: part.source.value,
+          mimeType: part.source.mimeType,
+        },
+      });
+      open = false;
+    }
+  }
+  const text = segments.join("\n");
+  if (media.length === 0) return text;
+  const textParts: TanStackContentPart[] =
+    text.length > 0 ? [{ type: "text", content: text }] : [];
+  return [...textParts, ...media];
+}
+
+/**
  * Converts AG-UI user message content to TanStack AI format.
  * Handles plain strings, multimodal parts (image/audio/video/document),
  * and legacy BinaryInputContent for backward compatibility.
@@ -146,9 +270,7 @@ function convertUserContent(
           });
         } else if (source.type === "file") {
           // AG-UI 1.0 provider file handle: not a URL or inline data.
-          console.warn(
-            `[CopilotKit] Dropping a ${partType} part that references a provider file handle: it is not a URL or inline data, so it cannot be sent to the model here.`,
-          );
+          warnDroppedFileSource(`${partType} part`);
         } else if (source.type === "url") {
           parts.push({
             type: partType,
@@ -198,7 +320,7 @@ function convertUserContent(
  * a function-tool schema.
  *
  * Frontend tools are often authored with permissive Zod (`z.any()`,
- * `z.record(...)`, `.passthrough()`), which serialize to open objects —
+ * `z.record(...)`, `.loose()`), which serialize to open objects —
  * `additionalProperties: {}` (an empty sub-schema) or `additionalProperties:
  * true`. OpenAI rejects both: strict mode requires `additionalProperties:
  * false`, and an empty `{}` sub-schema fails base validation ("schema must
@@ -250,16 +372,78 @@ function sanitizeClientToolSchema(schema: unknown): unknown {
 }
 
 /**
+ * The system prompt of BuiltInAgent's classic mode: `prompt`, then the
+ * context, then the state, joined into one string. Empty when there is
+ * nothing to add. Any state other than `undefined`, `null`, or an empty
+ * object is included.
+ */
+function classicSystemPrompt(input: RunAgentInput, prompt: string | undefined) {
+  const parts: string[] = [];
+  if (prompt) parts.push(prompt);
+
+  if (input.context?.length) {
+    parts.push("\n## Context from the application\n");
+    for (const ctx of input.context) {
+      parts.push(`${ctx.description}:\n${ctx.value}\n`);
+    }
+  }
+
+  const isEmptyObject =
+    typeof input.state === "object" &&
+    input.state !== null &&
+    Object.keys(input.state).length === 0;
+  const hasState =
+    input.state !== undefined && input.state !== null && !isEmptyObject;
+  if (hasState) {
+    parts.push(
+      "\n## Application State\n" +
+        "This is state from the application that you can edit by calling AGUISendStateSnapshot or AGUISendStateDelta.\n" +
+        `\`\`\`json\n${JSON.stringify(input.state, null, 2)}\n\`\`\`\n`,
+    );
+  }
+
+  return parts.join("");
+}
+
+/**
  * Converts a RunAgentInput into the format expected by TanStack AI's `chat()`.
  *
  * - Keeps only user/assistant/tool messages (activity, reasoning, and other roles are also excluded)
- * - Extracts system/developer messages into `systemPrompts`
- * - Appends context entries and application state to `systemPrompts`
+ * - Builds `systemPrompts` in this order: `options.prompt`, system/developer
+ *   messages, context entries, then application state (see
+ *   {@link TanStackInputOptions.format} for the classic layout)
  * - Preserves tool calls on assistant messages and toolCallId on tool messages
+ * - Appends `options.resume` entries as tool results for interrupt tool calls
+ *
+ * @param input - The AG-UI run input.
+ * @param options - Leave out for the `type: "tanstack"` factory conversion.
+ *   BuiltInAgent's classic mode passes its config and `input.resume` here.
+ *
+ * @example
+ * ```ts
+ * const { messages, systemPrompts, tools } = convertInputToTanStackAI(input, {
+ *   prompt: "You are a helpful assistant.",
+ *   forwardSystemMessages: false,
+ *   forwardDeveloperMessages: false,
+ *   resume: input.resume,
+ *   keepToolResultMedia: true,
+ *   format: "classic",
+ * });
+ * ```
  */
 export function convertInputToTanStackAI(
   input: RunAgentInput,
+  options: TanStackInputOptions = {},
 ): TanStackInputResult {
+  const {
+    forwardSystemMessages = true,
+    forwardDeveloperMessages = true,
+    prompt,
+    resume = [],
+    keepToolResultMedia = false,
+    format = "factory",
+  } = options;
+
   // Allowlist: only pass user/assistant/tool messages to TanStack.
   // Other roles (system, developer, activity, reasoning) are either
   // extracted into systemPrompts or not applicable.
@@ -273,9 +457,11 @@ export function convertInputToTanStackAI(
           m.role === "user"
             ? convertUserContent(m.content)
             : m.role === "tool"
-              ? // A tool result is a string or a list of parts; TanStack takes
-                // text here, so the text parts are concatenated.
-                contentToText(m.content)
+              ? keepToolResultMedia
+                ? convertToolResultContent(m.content)
+                : // A tool result is a string or a list of parts; only its
+                  // text parts are kept, concatenated.
+                  contentToText(m.content)
               : typeof m.content === "string"
                 ? m.content
                 : null,
@@ -296,30 +482,66 @@ export function convertInputToTanStackAI(
       return msg;
     });
 
-  const systemPrompts: string[] = [];
+  // Resume injection: each ResumeEntry answers the interrupt tool call it
+  // addresses (interruptId === toolCallId), so the model can continue the
+  // agentic loop. Idempotent: a client (useInterrupt) may already have added
+  // the resolution as a tool message, so those calls are not answered twice.
+  const answeredToolCallIds = new Set(
+    messages.flatMap((m) =>
+      m.role === "tool" && m.toolCallId ? [m.toolCallId] : [],
+    ),
+  );
+  for (const entry of resume) {
+    if (answeredToolCallIds.has(entry.interruptId)) continue;
+    const value =
+      entry.status === "cancelled"
+        ? { status: "cancelled" }
+        : (entry.payload ?? { status: "resolved" });
+    messages.push({
+      role: "tool",
+      toolCallId: entry.interruptId,
+      content: JSON.stringify(value),
+    });
+  }
+
+  const forwardedPrompts: string[] = [];
   for (const m of input.messages) {
-    if ((m.role === "system" || m.role === "developer") && m.content) {
-      systemPrompts.push(
+    const isForwarded =
+      (m.role === "system" && forwardSystemMessages) ||
+      (m.role === "developer" && forwardDeveloperMessages);
+    if (isForwarded && m.content) {
+      forwardedPrompts.push(
         typeof m.content === "string" ? m.content : JSON.stringify(m.content),
       );
     }
   }
 
-  if (input.context?.length) {
-    for (const ctx of input.context) {
-      systemPrompts.push(`${ctx.description}:\n${ctx.value}`);
-    }
-  }
+  const isClassic = format === "classic";
+  const systemPrompts: string[] = [];
+  if (isClassic) {
+    const classicPrompt = classicSystemPrompt(input, prompt);
+    if (classicPrompt) systemPrompts.push(classicPrompt);
+    systemPrompts.push(...forwardedPrompts);
+  } else {
+    if (prompt) systemPrompts.push(prompt);
+    systemPrompts.push(...forwardedPrompts);
 
-  if (
-    input.state !== undefined &&
-    input.state !== null &&
-    typeof input.state === "object" &&
-    Object.keys(input.state).length > 0
-  ) {
-    systemPrompts.push(
-      `Application State:\n\`\`\`json\n${JSON.stringify(input.state, null, 2)}\n\`\`\``,
-    );
+    if (input.context?.length) {
+      for (const ctx of input.context) {
+        systemPrompts.push(`${ctx.description}:\n${ctx.value}`);
+      }
+    }
+
+    if (
+      input.state !== undefined &&
+      input.state !== null &&
+      typeof input.state === "object" &&
+      Object.keys(input.state).length > 0
+    ) {
+      systemPrompts.push(
+        `Application State:\n\`\`\`json\n${JSON.stringify(input.state, null, 2)}\n\`\`\``,
+      );
+    }
   }
 
   // Frontend-provided tools become client-side TanStack tools (no executor):
@@ -329,7 +551,9 @@ export function convertInputToTanStackAI(
     __toolSide: "client",
     name: t.name,
     description: t.description,
-    inputSchema: sanitizeClientToolSchema(t.parameters),
+    inputSchema: isClassic
+      ? t.parameters
+      : sanitizeClientToolSchema(t.parameters),
   }));
 
   return { messages, systemPrompts, tools };
@@ -343,7 +567,9 @@ export function convertInputToTanStackAI(
  * is responsible for those.
  *
  * `pendingInterrupts`, when provided, is filled with one AG-UI Interrupt per
- * CUSTOM "approval-requested" chunk (a tool declared `needsApproval: true`).
+ * tool call that waits for approval (a tool declared `needsApproval: true`):
+ * from a CUSTOM "approval-requested" chunk (@tanstack/ai before 1.2) or from
+ * a RUN_FINISHED `outcome:interrupt` approval entry (1.2 and later).
  * The caller turns a non-empty array into a RUN_FINISHED `outcome:interrupt`.
  */
 export async function* convertTanStackStream(
@@ -353,7 +579,12 @@ export async function* convertTanStackStream(
   initialState?: unknown,
   runFinishedDetails?: AgentRunFinishedDetails,
 ): AsyncGenerator<BaseEvent> {
-  const messageId = randomUUID();
+  // The id of the current assistant text message. Each TEXT_MESSAGE_START
+  // (one per text segment, so one per model step) opens a new message with a
+  // fresh UUID. The adapter's id is not used: providers repeat ids such as
+  // "0" or "txt-0" on every step and run (#3410, #3623). A tool call is a
+  // child of the message that precedes it.
+  let messageId = randomUUID();
   const toolNamesById = new Map<string, string>();
   // Track the reasoning lifecycle at two granularities so closeReasoningIfOpen
   // emits exactly the events still owed. A single boolean conflates the run
@@ -408,32 +639,27 @@ export async function* convertTanStackStream(
     const raw = chunk as Record<string, unknown>;
     const type = raw.type as string;
 
-    // TanStack native human-in-the-loop: a tool declared `needsApproval: true`
-    // emits a CUSTOM "approval-requested" chunk. These are built from the
-    // finish event and can arrive around lifecycle markers, so handle them
-    // before dropping TanStack's per-turn lifecycle events.
-    // The tool-call lifecycle was already streamed in the model pass.
+    // TanStack native human-in-the-loop for a tool declared
+    // `needsApproval: true`. @tanstack/ai before 1.2 emits a CUSTOM
+    // "approval-requested" chunk. 1.2 and later end the turn with RUN_FINISHED
+    // `outcome: { type: "interrupt" }` instead (handled below). Both can arrive
+    // around lifecycle markers, so handle this before dropping TanStack's
+    // per-turn lifecycle events. The tool-call lifecycle was already streamed
+    // in the model pass.
     if (type === "CUSTOM" && raw.name === "approval-requested") {
-      const value = (raw.value ?? {}) as {
-        toolCallId?: string;
-        toolName?: string;
-      };
-      const toolCallId = value.toolCallId;
-      if (toolCallId) {
-        pendingInterrupts?.push({
-          id: toolCallId,
-          toolCallId,
-          reason: "tool_approval",
-          message: value.toolName ? `Approve "${value.toolName}"?` : undefined,
-          ...(value.toolName ? { metadata: { toolName: value.toolName } } : {}),
-        });
-      }
+      const value = isRecord(raw.value) ? raw.value : {};
+      addApprovalInterrupt(
+        pendingInterrupts,
+        getNonEmptyString(value.toolCallId),
+        getNonEmptyString(value.toolName),
+      );
       continue;
     }
 
     // Per-turn lifecycle markers are owned by the Agent wrapper, not forwarded.
     if (type === "RUN_FINISHED") {
       collectTanStackRunFinishedDetails(raw, runFinishedDetails);
+      collectTanStackApprovalInterrupts(raw, pendingInterrupts);
       continue;
     }
     if (type === "RUN_STARTED") continue;
@@ -447,7 +673,9 @@ export async function* convertTanStackStream(
       );
     }
 
-    if (type === "TEXT_MESSAGE_CONTENT" && raw.delta != null) {
+    if (type === "TEXT_MESSAGE_START") {
+      messageId = randomUUID();
+    } else if (type === "TEXT_MESSAGE_CONTENT" && raw.delta != null) {
       yield* closeReasoningIfOpen();
       const textEvent: TextMessageChunkEvent = {
         type: EventType.TEXT_MESSAGE_CHUNK,
@@ -612,24 +840,94 @@ export async function* convertTanStackStream(
   yield* closeReasoningIfOpen();
 }
 
-/** Normalizes legacy and standard TanStack usage into AG-UI token usage. */
+/**
+ * Adds one AG-UI approval interrupt for a `needsApproval` tool call, keyed by
+ * the tool call id. A call that already has an interrupt is skipped, so a
+ * stream that reports the same approval twice (CUSTOM chunk and RUN_FINISHED
+ * outcome) produces one interrupt.
+ */
+function addApprovalInterrupt(
+  pendingInterrupts: Interrupt[] | undefined,
+  toolCallId: string | undefined,
+  toolName: string | undefined,
+): void {
+  if (!pendingInterrupts || !toolCallId) return;
+  if (pendingInterrupts.some((entry) => entry.toolCallId === toolCallId)) {
+    return;
+  }
+  pendingInterrupts.push({
+    id: toolCallId,
+    toolCallId,
+    reason: "tool_approval",
+    message: toolName ? `Approve "${toolName}"?` : undefined,
+    ...(toolName ? { metadata: { toolName } } : {}),
+  });
+}
+
+/**
+ * Reads the approval interrupts of a @tanstack/ai 1.2+ RUN_FINISHED
+ * `outcome: { type: "interrupt" }`. Only `kind: "approval"` entries are mapped.
+ * Client tool interrupts (a tool without `execute`) are already handled by
+ * the frontend tool flow and by `withClassicToolRules`.
+ */
+function collectTanStackApprovalInterrupts(
+  event: Record<string, unknown>,
+  pendingInterrupts?: Interrupt[],
+): void {
+  const outcome = event.outcome;
+  if (!isRecord(outcome) || outcome.type !== "interrupt") return;
+  if (!Array.isArray(outcome.interrupts)) return;
+
+  for (const interrupt of outcome.interrupts) {
+    if (!isRecord(interrupt) || !isRecord(interrupt.metadata)) continue;
+    if (interrupt.metadata.kind !== "approval") continue;
+    addApprovalInterrupt(
+      pendingInterrupts,
+      getNonEmptyString(interrupt.toolCallId),
+      getNonEmptyString(interrupt.metadata.toolName),
+    );
+  }
+}
+
+/**
+ * Normalizes legacy and standard TanStack usage into AG-UI token usage.
+ *
+ * @tanstack/ai 1.2+ puts the model, the finish reason, and the provider under
+ * `metadata.tanstack` (internal to TanStack). Older versions put the model and
+ * the finish reason at the top level. Both are read, the top level first, and
+ * `metadata.tanstack` is not forwarded as AG-UI metadata.
+ */
 function collectTanStackRunFinishedDetails(
   event: Record<string, unknown>,
   details?: AgentRunFinishedDetails,
 ): void {
   if (!details) return;
 
+  const { metadata, tanstack } = splitTanStackMetadata(event.metadata);
+  const source = isRecord(tanstack.source) ? tanstack.source : {};
   const fallbackIdentity = {
-    provider: getNonEmptyString(event.provider),
-    model: getNonEmptyString(event.model),
+    provider:
+      getNonEmptyString(event.provider) ?? getNonEmptyString(source.provider),
+    model:
+      getNonEmptyString(event.model) ??
+      getNonEmptyString(tanstack.model) ??
+      getNonEmptyString(source.model),
   };
-  collectStandardRunFinishedDetails(event, details, fallbackIdentity);
+  collectStandardRunFinishedDetails(
+    { ...event, metadata },
+    details,
+    fallbackIdentity,
+  );
 
   // TanStack's native finish reason becomes AG-UI terminal metadata.
-  if (typeof event.finishReason === "string") {
+  const finishReason =
+    typeof event.finishReason === "string"
+      ? event.finishReason
+      : tanstack.finishReason;
+  if (typeof finishReason === "string") {
     details.metadata = {
       ...details.metadata,
-      finishReason: event.finishReason,
+      finishReason,
     };
   }
 
@@ -657,6 +955,25 @@ function collectTanStackRunFinishedDetails(
       cachedInputTokens: getTokenCount(promptDetails.cachedTokens),
     },
   ]);
+}
+
+/**
+ * Splits RUN_FINISHED metadata into the AG-UI metadata to forward and
+ * TanStack's internal `metadata.tanstack` object. When `tanstack` was the only
+ * key, nothing is left to forward.
+ */
+function splitTanStackMetadata(value: unknown): {
+  metadata: Record<string, unknown> | undefined;
+  tanstack: Record<string, unknown>;
+} {
+  if (!isRecord(value)) return { metadata: undefined, tanstack: {} };
+  if (!("tanstack" in value)) return { metadata: value, tanstack: {} };
+
+  const { tanstack, ...metadata } = value;
+  return {
+    metadata: Object.keys(metadata).length > 0 ? metadata : undefined,
+    tanstack: isRecord(tanstack) ? tanstack : {},
+  };
 }
 
 function safeParse(value: string): unknown {

@@ -4,6 +4,7 @@ import {
   effect,
   inject,
   input,
+  isDevMode,
   output,
   signal,
   untracked,
@@ -11,8 +12,9 @@ import {
   Type,
 } from "@angular/core";
 import { MessageProcessor, SurfaceModel } from "@a2ui/web_core/v0_9";
+import { A2UIOperationApplier } from "@copilotkit/a2ui-renderer/engine";
+import type { A2UISurfaceDiagnostics } from "@copilotkit/a2ui-renderer/engine-core";
 import { A2UIClientEventMessage, A2UISurfaceError } from "@copilotkit/angular";
-import { applyA2UIOperations } from "./operations";
 import { A2UI_SURFACE_REVISION, CopilotA2UINode } from "./node";
 import { CopilotA2UICatalog } from "./catalog";
 import { CopilotA2UICatalogEntry } from "./types";
@@ -178,18 +180,23 @@ export class CopilotA2UISurface implements OnDestroy {
   readonly action = output<A2UIClientEventMessage>();
   readonly error = output<A2UISurfaceError>();
   /** Emits after each applied batch of operations. */
-  readonly rendered = output<void>();
+  readonly rendered = output();
 
   protected readonly surfaces = signal<Surface[]>([]);
   protected readonly errorMessage = signal<string | null>(null);
   private readonly revision = inject(A2UI_SURFACE_REVISION);
 
   private processor: MessageProcessor<CopilotA2UICatalogEntry> | null = null;
-  private processorCatalog: CopilotA2UICatalog | null = null;
-  private lastOperationsHash = "";
-  private appliedOperationsCount = 0;
+  private applier: A2UIOperationApplier<CopilotA2UICatalogEntry> | null = null;
+  private applierKey: { catalog: CopilotA2UICatalog; theme: string } | null =
+    null;
+  private lastSurfaces: readonly Surface[] = [];
+  /** Loaded on demand in development, so core stays out of the initial bundle. */
+  private diagnostics: A2UISurfaceDiagnostics | null = null;
+  private destroyed = false;
 
   constructor() {
+    if (isDevMode()) void this.loadDiagnostics();
     effect(() => {
       const catalog = this.catalog();
       const operations = this.operations();
@@ -199,30 +206,61 @@ export class CopilotA2UISurface implements OnDestroy {
   }
 
   ngOnDestroy(): void {
+    this.destroyed = true;
     this.reset();
+  }
+
+  /**
+   * The diagnostics use `@copilotkit/core`, which an app that only renders
+   * surfaces does not otherwise load. The first check runs on the operations
+   * applied while they load.
+   */
+  private async loadDiagnostics(): Promise<void> {
+    const { A2UISurfaceDiagnostics } =
+      await import("@copilotkit/a2ui-renderer/engine-core");
+    if (this.destroyed) return;
+    this.diagnostics = new A2UISurfaceDiagnostics({
+      warn: (message) => console.warn(message),
+    });
+    const processor = this.processor;
+    if (processor && this.lastSurfaces.length > 0) {
+      this.diagnostics.check(untracked(this.operations), processor.model);
+    }
   }
 
   /** Drops the processor and everything rendered from it. */
   private reset(): void {
+    this.diagnostics?.dispose();
     this.processor?.model.dispose();
     this.processor = null;
-    this.processorCatalog = null;
-    this.lastOperationsHash = "";
-    this.appliedOperationsCount = 0;
+    this.applier = null;
+    this.applierKey = null;
+    this.lastSurfaces = [];
     this.surfaces.set([]);
   }
 
-  private getProcessor(
+  /** The applier for this catalog and theme; a change of either starts over. */
+  private getApplier(
     catalog: CopilotA2UICatalog,
-  ): MessageProcessor<CopilotA2UICatalogEntry> {
-    if (!this.processor || this.processorCatalog !== catalog) {
-      this.reset();
-      this.processorCatalog = catalog;
-      this.processor = new MessageProcessor([catalog], (userAction) => {
-        this.action.emit({ userAction });
-      });
+    theme: Record<string, unknown> | undefined,
+  ): A2UIOperationApplier<CopilotA2UICatalogEntry> {
+    const themeKey = JSON.stringify(theme ?? null);
+    const key = this.applierKey;
+    if (this.applier && key?.catalog === catalog && key.theme === themeKey) {
+      return this.applier;
     }
-    return this.processor;
+    this.reset();
+    const processor = new MessageProcessor<CopilotA2UICatalogEntry>(
+      [catalog],
+      (userAction) => {
+        this.action.emit({ userAction });
+      },
+    );
+    const applier = new A2UIOperationApplier(processor, catalog.id, theme);
+    this.processor = processor;
+    this.applier = applier;
+    this.applierKey = { catalog, theme: themeKey };
+    return applier;
   }
 
   private process(
@@ -238,30 +276,17 @@ export class CopilotA2UISurface implements OnDestroy {
     }
 
     try {
-      if (this.processorCatalog !== catalog) this.reset();
-
-      const hash = JSON.stringify({ operations, theme });
-      if (hash === this.lastOperationsHash) return;
-
-      // Only retain the model when the previously applied history is unchanged.
-      const prefixHash = JSON.stringify({
-        operations: operations.slice(0, this.appliedOperationsCount),
-        theme,
-      });
-      if (prefixHash !== this.lastOperationsHash) this.reset();
-
-      const processor = this.getProcessor(catalog);
-      applyA2UIOperations(
-        processor,
-        operations.slice(this.appliedOperationsCount),
-        catalog.id,
-        theme,
-      );
-      this.lastOperationsHash = hash;
-      this.appliedOperationsCount = operations.length;
+      const applier = this.getApplier(catalog, theme);
+      const surfaces = applier.apply(operations);
+      // The applier returns the same array when nothing changed.
+      if (surfaces === this.lastSurfaces) return;
+      this.lastSurfaces = surfaces;
       this.revision.update((value) => value + 1);
-      this.surfaces.set([...processor.model.surfacesMap.values()]);
+      this.surfaces.set([...surfaces]);
       this.errorMessage.set(null);
+      if (this.processor) {
+        this.diagnostics?.check(operations, this.processor.model);
+      }
       this.rendered.emit();
     } catch (error) {
       // A failed batch may have partially mutated the model; replay on recovery.

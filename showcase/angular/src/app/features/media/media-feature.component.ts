@@ -16,7 +16,7 @@ import {
   injectAgentStore,
   registerRenderToolCall,
 } from "@copilotkit/angular";
-import { z } from "zod";
+import * as z from "zod";
 
 import { agentIdForCurrentIntegration } from "../../feature-agent";
 import { FeatureHeaderComponent } from "../feature-header.component";
@@ -40,7 +40,7 @@ type VoiceWeatherArgs = Record<string, unknown>;
 export const voiceWeatherRendererConfigs: readonly RenderToolCallConfig<VoiceWeatherArgs>[] =
   VOICE_WEATHER_TOOL_NAMES.map((name) => ({
     name,
-    args: z.record(z.unknown()),
+    args: z.record(z.string(), z.unknown()),
     component:
       WeatherToolCard as unknown as RenderToolCallConfig<VoiceWeatherArgs>["component"],
   }));

@@ -1,3 +1,4 @@
+import { schemaToJsonSchema } from "@copilotkit/shared";
 import { describe, expect, it } from "vitest";
 
 import {
@@ -21,6 +22,29 @@ describe("openGenerativeUIConfigForFeature", () => {
       "notifyHost",
     ]);
     expect(openGenerativeUIConfigForFeature("agentic-chat")).toBeUndefined();
+  });
+
+  it("describes and validates the sandbox function arguments", async () => {
+    const [evaluate, notify] =
+      openGenerativeUIConfigForFeature("open-gen-ui-advanced")
+        ?.sandboxFunctions ?? [];
+
+    expect(schemaToJsonSchema(notify!.parameters)).toEqual({
+      type: "object",
+      properties: { message: { type: "string", maxLength: 280 } },
+      required: ["message"],
+    });
+    await expect(evaluate!.handler({ expression: "2 * 3" })).resolves.toEqual({
+      ok: true,
+      value: 6,
+    });
+    await expect(evaluate!.handler({ expression: 6 })).resolves.toEqual({
+      ok: false,
+      error: 'Expected a string "expression".',
+    });
+    await expect(notify!.handler({ message: "x".repeat(281) })).rejects.toThrow(
+      '"message" is longer than 280.',
+    );
   });
 
   it("enables the standard sandbox for the Beautiful Chat composite", () => {

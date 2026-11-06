@@ -12,7 +12,10 @@ import type { Observable } from "rxjs";
 import { useConfigureSuggestions } from "../use-configure-suggestions";
 import { useSuggestions } from "../use-suggestions";
 import { useCopilotKit } from "../../providers/useCopilotKit";
-import { mountWithProvider } from "../../__tests__/utils/mount";
+import {
+  mountWithProvider,
+  renderWithCopilotKit,
+} from "../../__tests__/utils/mount";
 import {
   StateCapturingAgent,
   SuggestionsProviderAgent,
@@ -395,5 +398,31 @@ describe("useConfigureSuggestions", () => {
     await nextTick();
 
     expect(wrapper.find("[data-testid=json]").text()).toContain("Deferred");
+  });
+
+  it("loads a global static config for the chat's agent before any agent registers", async () => {
+    const Harness = defineComponent({
+      setup() {
+        useConfigureSuggestions({
+          suggestions: [{ title: "Welcome", message: "Say hi" }],
+          available: "always",
+        });
+        const { suggestions } = useSuggestions({ agentId: "support" });
+        return () =>
+          h(
+            "span",
+            { "data-testid": "titles" },
+            suggestions.value.map((suggestion) => suggestion.title).join(","),
+          );
+      },
+    });
+
+    const { wrapper } = renderWithCopilotKit(() => h(Harness), {
+      agentId: "support",
+      agents: {},
+    });
+    await nextTick();
+
+    expect(wrapper.find("[data-testid=titles]").text()).toBe("Welcome");
   });
 });

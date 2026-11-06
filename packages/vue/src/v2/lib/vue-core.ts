@@ -5,15 +5,16 @@ import type {
   VueCustomMessageRenderer,
 } from "../types";
 import type { InterruptRenderProps } from "../types/interrupt";
-import { CopilotKitCore } from "@copilotkit/core";
+import { CopilotKitCore, ɵRendererRegistry } from "@copilotkit/core";
 import type {
   CopilotKitCoreConfig,
   CopilotKitCoreSubscriber,
   CopilotKitCoreSubscription,
+  ɵRendererKind,
 } from "@copilotkit/core";
 
 export interface CopilotKitCoreVueConfig extends CopilotKitCoreConfig {
-  renderToolCalls?: VueToolCallRenderer<unknown>[];
+  renderToolCalls?: VueToolCallRenderer[];
   renderActivityMessages?: VueActivityMessageRenderer<unknown>[];
   renderCustomMessages?: VueCustomMessageRenderer[];
 }
@@ -21,141 +22,145 @@ export interface CopilotKitCoreVueConfig extends CopilotKitCoreConfig {
 export interface CopilotKitCoreVueSubscriber extends CopilotKitCoreSubscriber {
   onRenderToolCallsChanged?: (event: {
     copilotkit: CopilotKitCoreVue;
-    renderToolCalls: VueToolCallRenderer<unknown>[];
+    renderToolCalls: VueToolCallRenderer[];
   }) => void | Promise<void>;
   onRenderCustomMessagesChanged?: (event: {
     copilotkit: CopilotKitCoreVue;
     renderCustomMessages: VueCustomMessageRenderer[];
   }) => void | Promise<void>;
+  onRenderActivityMessagesChanged?: (event: {
+    copilotkit: CopilotKitCoreVue;
+    renderActivityMessages: VueActivityMessageRenderer<unknown>[];
+  }) => void | Promise<void>;
   onInterruptStateChanged?: (event: {
     copilotkit: CopilotKitCoreVue;
-    interruptState: InterruptRenderProps<unknown, unknown> | null;
+    interruptState: InterruptRenderProps<unknown> | null;
   }) => void | Promise<void>;
 }
 
 export class CopilotKitCoreVue extends CopilotKitCore {
-  private _renderToolCalls: VueToolCallRenderer<unknown>[] = [];
-  private _hookRenderToolCalls: Map<string, VueToolCallRenderer<unknown>> =
-    new Map();
-  private _cachedMergedRenderToolCalls: VueToolCallRenderer<unknown>[] | null =
-    null;
-  private _renderCustomMessages: VueCustomMessageRenderer[] = [];
-  private _renderActivityMessages: VueActivityMessageRenderer<unknown>[] = [];
-  private _interruptState: InterruptRenderProps<unknown, unknown> | null = null;
+  private readonly _renderers: ɵRendererRegistry<
+    VueToolCallRenderer,
+    VueActivityMessageRenderer<unknown>,
+    VueCustomMessageRenderer
+  >;
 
   constructor(config: CopilotKitCoreVueConfig) {
-    super(config);
-    this._renderToolCalls = config.renderToolCalls ?? [];
-    this._renderCustomMessages = config.renderCustomMessages ?? [];
-    this._renderActivityMessages = config.renderActivityMessages ?? [];
+    // Tool handlers can change reactive state. `nextTick` lets Vue flush those
+    // updates before core starts the follow-up run.
+    super({ ...config, ɵwaitForFrameworkUpdates: () => nextTick() });
+    this._renderers = new ɵRendererRegistry({
+      toolCalls: config.renderToolCalls,
+      activity: config.renderActivityMessages,
+      custom: config.renderCustomMessages,
+    });
+    this._renderers.subscribe((kind) => this.notifyRenderersChanged(kind));
+    // The props live in core's generic interrupt slot; keep the Vue
+    // subscriber event for existing listeners.
+    this.ɵsubscribeToInterruptPayload(() => {
+      void this.notifySubscribers((subscriber) => {
+        const vueSubscriber = subscriber as CopilotKitCoreVueSubscriber;
+        return vueSubscriber.onInterruptStateChanged?.({
+          copilotkit: this,
+          interruptState: this.interruptState,
+        });
+      }, "Subscriber onInterruptStateChanged error:");
+    });
   }
 
-  get renderCustomMessages(): Readonly<VueCustomMessageRenderer[]> {
-    return this._renderCustomMessages;
+  get renderCustomMessages() {
+    return this._renderers.custom;
   }
 
-  get renderActivityMessages(): Readonly<
-    VueActivityMessageRenderer<unknown>[]
-  > {
-    return this._renderActivityMessages;
+  get renderActivityMessages() {
+    return this._renderers.activity;
   }
 
   setRenderActivityMessages(
     renderers: VueActivityMessageRenderer<unknown>[],
   ): void {
-    this._renderActivityMessages = [...renderers];
+    this._renderers.setActivity(renderers);
   }
 
   setRenderCustomMessages(renderers: VueCustomMessageRenderer[]): void {
-    this._renderCustomMessages = [...renderers];
-    void this.notifySubscribers((subscriber) => {
-      const vueSubscriber = subscriber as CopilotKitCoreVueSubscriber;
-      vueSubscriber.onRenderCustomMessagesChanged?.({
-        copilotkit: this,
-        renderCustomMessages: [...this.renderCustomMessages],
-      });
-    }, "Subscriber onRenderCustomMessagesChanged error:");
+    this._renderers.setCustom(renderers);
   }
 
-  get propRenderToolCalls(): Readonly<VueToolCallRenderer<unknown>[]> {
-    return this._renderToolCalls;
+  /**
+   * The renderers the provider was given, without hook or built-in
+   * renderers. Nothing in CopilotKit reads it now; it stays for app code.
+   */
+  get propRenderToolCalls() {
+    return this._renderers.propToolCalls;
   }
 
-  get renderToolCalls(): Readonly<VueToolCallRenderer<unknown>[]> {
-    if (this._hookRenderToolCalls.size === 0) {
-      return this._renderToolCalls;
-    }
-    if (this._cachedMergedRenderToolCalls) {
-      return this._cachedMergedRenderToolCalls;
-    }
-    const merged = new Map<string, VueToolCallRenderer<unknown>>();
-    for (const rc of this._renderToolCalls) {
-      merged.set(`${rc.agentId ?? ""}:${rc.name}`, rc);
-    }
-    for (const [key, rc] of this._hookRenderToolCalls) {
-      merged.set(key, rc);
-    }
-    this._cachedMergedRenderToolCalls = Array.from(merged.values());
-    return this._cachedMergedRenderToolCalls;
+  /**
+   * Prop, hook and built-in renderers merged. For one name and agentId, a
+   * hook renderer wins over a prop one, and both win over a built-in one.
+   */
+  get renderToolCalls() {
+    return this._renderers.toolCalls;
   }
 
-  get interruptState(): InterruptRenderProps<unknown, unknown> | null {
-    return this._interruptState;
+  get interruptState(): InterruptRenderProps<unknown> | null {
+    return this.ɵinterruptPayload as InterruptRenderProps<unknown> | null;
   }
 
-  setRenderToolCalls(renderToolCalls: VueToolCallRenderer<unknown>[]): void {
-    this._renderToolCalls = [...renderToolCalls];
-    this._cachedMergedRenderToolCalls = null;
-    this._notifyRenderToolCallsChanged();
+  setRenderToolCalls(renderToolCalls: VueToolCallRenderer[]): void {
+    this._renderers.setPropToolCalls(renderToolCalls);
   }
 
-  addHookRenderToolCall(entry: VueToolCallRenderer<unknown>): void {
-    const key = `${entry.agentId ?? ""}:${entry.name}`;
-    this._hookRenderToolCalls.set(key, entry);
-    this._cachedMergedRenderToolCalls = null;
-    this._notifyRenderToolCallsChanged();
+  addHookRenderToolCall(entry: VueToolCallRenderer): void {
+    this._renderers.addHookToolCall(entry);
   }
 
   removeHookRenderToolCall(name: string, agentId?: string): void {
-    const key = `${agentId ?? ""}:${name}`;
-    if (this._hookRenderToolCalls.delete(key)) {
-      this._cachedMergedRenderToolCalls = null;
-      this._notifyRenderToolCallsChanged();
-    }
+    this._renderers.removeHookToolCall(name, agentId);
   }
 
-  private _notifyRenderToolCallsChanged(): void {
+  /**
+   * @internal Add a renderer for a tool a built-in feature owns (A2UI,
+   * generative UI). Prop and hook renderers with the same name and agent win
+   * over it, and `setRenderToolCalls` never removes it.
+   *
+   * @returns A function that removes the renderer.
+   */
+  ɵaddBuiltInRenderToolCall(entry: VueToolCallRenderer): () => void {
+    return this._renderers.addBuiltInToolCall(entry);
+  }
+
+  private notifyRenderersChanged(kind: ɵRendererKind): void {
     void this.notifySubscribers((subscriber) => {
       const vueSubscriber = subscriber as CopilotKitCoreVueSubscriber;
-      if (vueSubscriber.onRenderToolCallsChanged) {
-        vueSubscriber.onRenderToolCallsChanged({
-          copilotkit: this,
-          renderToolCalls: [...this.renderToolCalls],
-        });
+      switch (kind) {
+        case "toolCalls":
+          return vueSubscriber.onRenderToolCallsChanged?.({
+            copilotkit: this,
+            renderToolCalls: [...this.renderToolCalls],
+          });
+        case "activity":
+          return vueSubscriber.onRenderActivityMessagesChanged?.({
+            copilotkit: this,
+            renderActivityMessages: [...this.renderActivityMessages],
+          });
+        case "custom":
+          return vueSubscriber.onRenderCustomMessagesChanged?.({
+            copilotkit: this,
+            renderCustomMessages: [...this.renderCustomMessages],
+          });
       }
-    }, "Subscriber onRenderToolCallsChanged error:");
+    }, `Subscriber renderer change (${kind}) error:`);
   }
 
   setInterruptState(
-    interruptState: InterruptRenderProps<unknown, unknown> | null,
+    interruptState: InterruptRenderProps<unknown> | null,
   ): void {
-    this._interruptState = interruptState;
-    void this.notifySubscribers((subscriber) => {
-      const vueSubscriber = subscriber as CopilotKitCoreVueSubscriber;
-      vueSubscriber.onInterruptStateChanged?.({
-        copilotkit: this,
-        interruptState: this._interruptState,
-      });
-    }, "Subscriber onInterruptStateChanged error:");
+    this.ɵsetInterruptPayload(interruptState);
   }
 
   subscribe(
     subscriber: CopilotKitCoreVueSubscriber,
   ): CopilotKitCoreSubscription {
     return super.subscribe(subscriber);
-  }
-
-  async waitForPendingFrameworkUpdates(): Promise<void> {
-    await nextTick();
   }
 }

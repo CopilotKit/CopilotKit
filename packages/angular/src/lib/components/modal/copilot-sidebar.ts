@@ -1,12 +1,10 @@
-import { CdkTrapFocus } from "@angular/cdk/a11y";
 import { DOCUMENT, NgComponentOutlet, NgTemplateOutlet } from "@angular/common";
+import type { ElementRef, Type } from "@angular/core";
 import {
   ChangeDetectionStrategy,
   Component,
   DestroyRef,
-  ElementRef,
   PLATFORM_ID,
-  Type,
   afterNextRender,
   computed,
   inject,
@@ -19,9 +17,20 @@ import { isPlatformBrowser } from "@angular/common";
 import { randomUUID } from "@copilotkit/shared";
 
 import { CopilotChat } from "../chat/copilot-chat";
+import { COPILOT_CHAT_WELCOME_LAYOUT } from "../chat/copilot-chat-welcome-layout";
+import { CopilotKitStyles } from "../copilot-kit-styles";
+import { CopilotIcon, MessageCircle, X } from "../icons/copilot-icon";
+import { injectChatLabels } from "../../chat-config";
 import { explicitEffect } from "../../explicit-effect";
-import { DockedSidebarRegistry } from "./docked-sidebar-registry";
-import { dimensionToCss } from "./modal-utils";
+import { bindModalDialog } from "./modal-dialog";
+import {
+  ɵSIDEBAR_DEFAULT_WIDTH,
+  ɵSIDEBAR_TRANSITION_MS,
+  ɵcreateDockedSidebar,
+  ɵdimensionToCss,
+  ɵwatchMobileViewport,
+} from "@copilotkit/core";
+import type { ɵDockedSidebar } from "@copilotkit/core";
 
 export type CopilotSidebarMode = "docked" | "overlay";
 export type CopilotSidebarPosition = "left" | "right";
@@ -29,186 +38,159 @@ export type CopilotSidebarPosition = "left" | "right";
 /** Responsive chat sidebar with independent overlay and single-owner docked modes. */
 @Component({
   selector: "copilot-sidebar",
-  imports: [CdkTrapFocus, NgComponentOutlet, NgTemplateOutlet],
+  imports: [NgComponentOutlet, NgTemplateOutlet, CopilotIcon, CopilotKitStyles],
   changeDetection: ChangeDetectionStrategy.OnPush,
+  viewProviders: [
+    { provide: COPILOT_CHAT_WELCOME_LAYOUT, useValue: "sidebar" },
+  ],
   host: { class: "copilot-sidebar-host", "data-copilotkit": "" },
   template: `
+    <copilot-kit-styles />
     <button
       #launcher
       type="button"
-      class="copilot-sidebar-toggle"
+      class="copilotKitButton cpk-chat-toggle-button"
+      data-slot="chat-toggle-button"
       data-copilot-sidebar-toggle
-      [class.position-left]="position() === 'left'"
+      [class.cpk-sidebar-view-toggle-button-left]="position() === 'left'"
+      [attr.data-state]="open() ? 'open' : 'closed'"
       [attr.aria-controls]="sidebarId"
       [attr.aria-expanded]="open()"
-      [attr.aria-label]="open() ? 'Close Copilot sidebar' : 'Open Copilot sidebar'"
+      [attr.aria-label]="
+        open() ? labels.chatToggleCloseLabel : labels.chatToggleOpenLabel
+      "
       [tabIndex]="open() ? -1 : 0"
       (click)="toggle()"
     >
-      <span aria-hidden="true">{{ open() ? "×" : "✦" }}</span>
+      <span
+        aria-hidden="true"
+        class="cpk-chat-toggle-button-icon-wrapper copilot-toggle-icon"
+        [class.copilot-toggle-icon-hidden]="open()"
+      >
+        <copilot-icon
+          [img]="MessageCircleIcon"
+          iconClass="cpk-chat-toggle-button-icon"
+        />
+      </span>
+      <span
+        aria-hidden="true"
+        class="cpk-chat-toggle-button-icon-wrapper copilot-toggle-icon copilot-toggle-icon-close"
+        [class.copilot-toggle-icon-hidden]="!open()"
+      >
+        <copilot-icon [img]="XIcon" iconClass="cpk-chat-toggle-button-icon" />
+      </span>
     </button>
 
     @if (open() && isModal()) {
-      <div
-        class="copilot-sidebar-backdrop"
-        data-copilot-sidebar-backdrop
-        aria-hidden="true"
-        (click)="closeFromBackdrop()"
-      ></div>
       <section
-        cdkTrapFocus
-        [cdkTrapFocusAutoCapture]="true"
-        class="copilot-sidebar-window copilotKitSidebar modal"
+        #dialog
+        tabindex="-1"
+        data-copilotkit
+        class="copilotKitSidebar copilotKitWindow cpk-sidebar-view modal"
         data-copilot-sidebar
         role="dialog"
-        aria-modal="true"
         [attr.id]="sidebarId"
         [attr.data-position]="position()"
         [attr.aria-labelledby]="headerComponent() ? null : titleId"
-        [attr.aria-label]="headerComponent() ? title() : null"
-        [style.--copilot-sidebar-width]="resolvedWidth()"
-        (keydown.escape)="close()"
+        [attr.aria-label]="headerComponent() ? resolvedTitle() : null"
+        [style.--sidebar-width]="resolvedWidth()"
       >
         <ng-container [ngTemplateOutlet]="sidebarContents" />
       </section>
     } @else if (open() && dockAccepted()) {
       <aside
-        class="copilot-sidebar-window copilotKitSidebar docked"
+        data-copilotkit
+        class="copilotKitSidebar copilotKitWindow cpk-sidebar-view docked"
         data-copilot-sidebar
         role="complementary"
         [attr.id]="sidebarId"
         [attr.data-position]="position()"
         [attr.aria-labelledby]="headerComponent() ? null : titleId"
-        [attr.aria-label]="headerComponent() ? title() : null"
-        [style.--copilot-sidebar-width]="resolvedWidth()"
+        [attr.aria-label]="headerComponent() ? resolvedTitle() : null"
+        [style.--sidebar-width]="resolvedWidth()"
       >
         <ng-container [ngTemplateOutlet]="sidebarContents" />
       </aside>
     }
 
     <ng-template #sidebarContents>
-      <header class="copilot-sidebar-header">
-        @if (headerComponent(); as header) {
-          <ng-container [ngComponentOutlet]="header" />
-        } @else {
-          <h2 [attr.id]="titleId">{{ title() }}</h2>
-        }
-        <button
-          #initialFocus
-          type="button"
-          cdkFocusInitial
-          aria-label="Close Copilot sidebar"
-          (click)="close()"
-        >
-          <span aria-hidden="true">×</span>
-        </button>
-      </header>
-      <div class="copilot-sidebar-chat">
-        <ng-container [ngComponentOutlet]="chatComponent()" />
+      <div class="cpk-sidebar-view-panel">
+        <header class="copilotKitHeader cpk-modal-header">
+          <div class="cpk-modal-header-content">
+            <div class="cpk-modal-header-start">
+              <span aria-hidden="true"></span>
+            </div>
+            <div class="cpk-modal-header-center">
+              @if (headerComponent(); as header) {
+                <ng-container [ngComponentOutlet]="header" />
+              } @else {
+                <h2 class="cpk-modal-header-title" [attr.id]="titleId">
+                  {{ resolvedTitle() }}
+                </h2>
+              }
+            </div>
+            <div class="cpk-modal-header-end">
+              <button
+                #initialFocus
+                type="button"
+                class="cpk-modal-header-close-button"
+                [attr.aria-label]="labels.modalHeaderCloseButtonLabel"
+                (click)="close()"
+              >
+                <copilot-icon
+                  [img]="XIcon"
+                  iconClass="cpk-modal-header-close-icon"
+                />
+              </button>
+            </div>
+          </div>
+        </header>
+        <div class="cpk-sidebar-view-chat" data-sidebar-chat>
+          <ng-container [ngComponentOutlet]="chatComponent()" />
+        </div>
       </div>
     </ng-template>
   `,
+  // The look comes from the shared CSS (cpk-* classes). These rules add what
+  // the Angular sidebar does beyond React's: an enter animation. As in React,
+  // the open sidebar covers the toggle.
   styles: `
     :host {
       display: contents;
     }
-    .copilot-sidebar-toggle {
-      position: fixed;
-      right: max(1.5rem, env(safe-area-inset-right));
-      bottom: max(1.5rem, env(safe-area-inset-bottom));
-      z-index: 1202;
-      display: grid;
-      width: 3.25rem;
-      height: 3.25rem;
-      place-items: center;
-      border: 0;
-      border-radius: 999px;
-      color: white;
-      background: #111827;
-      box-shadow: 0 12px 30px rgb(15 23 42 / 24%);
-      cursor: pointer;
+    .copilot-toggle-icon {
+      transition:
+        opacity 200ms cubic-bezier(0, 0, 0.2, 1),
+        transform 200ms cubic-bezier(0, 0, 0.2, 1);
     }
-    .copilot-sidebar-toggle.position-left {
-      right: auto;
-      left: max(1.5rem, env(safe-area-inset-left));
+    .copilot-toggle-icon-hidden {
+      opacity: 0;
+      transform: scale(0.75) rotate(90deg);
     }
-    .copilot-sidebar-toggle:focus-visible,
-    .copilot-sidebar-header button:focus-visible {
-      outline: 3px solid #2563eb;
-      outline-offset: 3px;
+    .copilot-toggle-icon-close.copilot-toggle-icon-hidden {
+      transform: scale(0.75) rotate(-90deg);
     }
-    .copilot-sidebar-backdrop {
-      position: fixed;
-      inset: 0;
-      z-index: 1200;
-      background: rgb(15 23 42 / 24%);
-    }
-    .copilot-sidebar-window {
-      position: fixed;
-      top: 0;
-      bottom: 0;
+    .cpk-sidebar-view {
       z-index: 1201;
-      display: grid;
-      width: min(var(--copilot-sidebar-width), 100vw);
-      grid-template-rows: auto minmax(0, 1fr);
-      overflow: hidden;
-      color: #111827;
-      background: white;
-      box-shadow: 0 0 42px rgb(15 23 42 / 20%);
       padding-top: env(safe-area-inset-top);
       padding-bottom: env(safe-area-inset-bottom);
     }
-    .copilot-sidebar-window[data-position="left"] {
-      left: 0;
-      border-right: 1px solid #dbe3eb;
-    }
-    .copilot-sidebar-window[data-position="right"] {
-      right: 0;
-      border-left: 1px solid #dbe3eb;
-    }
-    .copilot-sidebar-header {
-      display: flex;
-      min-height: 3.5rem;
-      align-items: center;
-      justify-content: space-between;
-      gap: 1rem;
-      padding: 0.75rem 1rem;
-      border-bottom: 1px solid #e2e8f0;
-    }
-    .copilot-sidebar-header h2 {
-      margin: 0;
-      font-size: 1rem;
-    }
-    .copilot-sidebar-header button {
-      border: 0;
-      color: inherit;
-      background: transparent;
-      font-size: 1.5rem;
-      cursor: pointer;
-    }
-    .copilot-sidebar-chat {
-      min-height: 0;
-      overflow: hidden;
-    }
-    @media (max-width: 47.999rem) {
-      .copilot-sidebar-window {
-        width: 100%;
-      }
-    }
     @media (prefers-reduced-motion: no-preference) {
-      .copilot-sidebar-window {
-        animation: copilot-sidebar-enter 220ms ease-out;
+      .cpk-sidebar-view {
+        animation: copilot-sidebar-enter 300ms cubic-bezier(0, 0, 0.2, 1);
+      }
+      .cpk-sidebar-view[data-position="left"] {
+        animation-name: copilot-sidebar-enter-left;
       }
       @keyframes copilot-sidebar-enter {
         from {
-          opacity: 0;
-          transform: translateX(8%);
+          translate: 100% 0;
         }
       }
-    }
-    @media (prefers-reduced-motion: reduce) {
-      .copilot-sidebar-window {
-        animation: none;
+      @keyframes copilot-sidebar-enter-left {
+        from {
+          translate: -100% 0;
+        }
       }
     }
   `,
@@ -217,16 +199,24 @@ export class CopilotSidebar {
   readonly open = model(true);
   readonly mode = input<CopilotSidebarMode>("docked");
   readonly position = input<CopilotSidebarPosition>("right");
-  readonly width = input<number | string>(480);
-  readonly title = input("Copilot");
+  readonly width = input<number | string>(ɵSIDEBAR_DEFAULT_WIDTH);
+  /** The header title. Default: `labels.modalHeaderTitle`. */
+  readonly title = input<string | undefined>();
   readonly clickOutsideToClose = input(false);
   readonly chatComponent = input<Type<unknown>>(CopilotChat);
   readonly headerComponent = input<Type<unknown> | undefined>();
 
+  protected readonly MessageCircleIcon = MessageCircle;
+  protected readonly XIcon = X;
+  protected readonly labels = injectChatLabels();
+  protected readonly resolvedTitle = computed(
+    () => this.title() ?? this.labels.modalHeaderTitle,
+  );
+
   protected readonly sidebarId = `copilot-sidebar-${randomUUID()}`;
   protected readonly titleId = `${this.sidebarId}-title`;
   protected readonly resolvedWidth = computed(() =>
-    dimensionToCss(this.width(), 480),
+    ɵdimensionToCss(this.width(), ɵSIDEBAR_DEFAULT_WIDTH),
   );
   protected readonly isCompact = signal(false);
   protected readonly isModal = computed(
@@ -234,8 +224,6 @@ export class CopilotSidebar {
   );
   protected readonly dockAccepted = signal(true);
 
-  private readonly owner = Symbol("copilot-sidebar");
-  private readonly registry = inject(DockedSidebarRegistry);
   private readonly document = inject(DOCUMENT);
   private readonly isBrowser = isPlatformBrowser(inject(PLATFORM_ID));
   private readonly destroyRef = inject(DestroyRef);
@@ -243,69 +231,54 @@ export class CopilotSidebar {
     viewChild.required<ElementRef<HTMLButtonElement>>("launcher");
   private readonly initialFocus =
     viewChild<ElementRef<HTMLButtonElement>>("initialFocus");
-  private ownsDock = false;
+  private readonly dialog = viewChild<ElementRef<HTMLElement>>("dialog");
+  /** Core's page-margin owner for the docked mode, as in React and Vue. */
+  private readonly dock: ɵDockedSidebar | undefined = this.isBrowser
+    ? ɵcreateDockedSidebar(this.document, {
+        transitionMs: ɵSIDEBAR_TRANSITION_MS,
+      })
+    : undefined;
 
   constructor() {
     afterNextRender(() => {
-      if (this.open() && this.isModal()) this.focusModal();
-      const media = this.document.defaultView?.matchMedia?.(
-        "(max-width: 47.999rem)",
+      const stop = ɵwatchMobileViewport((isMobile) =>
+        this.isCompact.set(isMobile),
       );
-      if (!media) return;
-      const update = () => this.isCompact.set(media.matches);
-      update();
-      media.addEventListener("change", update);
-      this.destroyRef.onDestroy(() =>
-        media.removeEventListener("change", update),
-      );
+      this.destroyRef.onDestroy(stop);
     });
 
     // `position` and `resolvedWidth` are dependencies even though they are only
     // consumed on the docked path: a width or side change while docked must
-    // re-push the registry entry. On the undocked path the extra re-run is
-    // inert — `releaseDock()` is a no-op without ownership and `dockAccepted`
-    // is set to the value it already holds.
+    // move the page margin.
     explicitEffect(
       () => ({
-        shouldDock: this.isBrowser && this.open() && !this.isModal(),
+        open: this.open() && !this.isModal(),
         position: this.position(),
         width: this.resolvedWidth(),
       }),
-      ({ shouldDock, position, width }) => {
-        if (!shouldDock) {
-          this.releaseDock();
-          this.dockAccepted.set(true);
-          return;
-        }
-        if (!this.ownsDock) {
-          this.ownsDock = this.registry.acquire(this.owner);
-          this.dockAccepted.set(this.ownsDock);
-          if (!this.ownsDock) {
-            console.warn(
-              "[CopilotKit] Only one docked CopilotSidebar may be open per document.",
-            );
-            return;
-          }
-        }
-        this.registry.update(this.owner, position, width);
+      (state) => {
+        if (!this.dock) return;
+        this.dock.set(state);
+        // Core warns when another docked sidebar has the margin.
+        this.dockAccepted.set(!state.open || this.dock.isDocked);
       },
     );
 
-    this.destroyRef.onDestroy(() => this.releaseDock());
+    // In overlay mode (and on mobile): core's dialog focus and dismissal.
+    bindModalDialog({
+      dialog: this.dialog,
+      initialFocus: this.initialFocus,
+      launcher: this.launcher,
+      clickOutsideToClose: this.clickOutsideToClose,
+      close: () => this.close(),
+    });
+
+    this.destroyRef.onDestroy(() => this.dock?.dispose());
   }
 
   protected toggle(): void {
     if (this.open()) this.close();
-    else {
-      this.open.set(true);
-      queueMicrotask(() => {
-        if (this.isModal()) this.focusModal();
-      });
-    }
-  }
-
-  protected closeFromBackdrop(): void {
-    if (this.clickOutsideToClose()) this.close();
+    else this.open.set(true);
   }
 
   protected close(): void {
@@ -314,15 +287,5 @@ export class CopilotSidebar {
     queueMicrotask(() =>
       this.launcher().nativeElement.focus({ preventScroll: true }),
     );
-  }
-
-  private releaseDock(): void {
-    if (!this.ownsDock) return;
-    this.registry.release(this.owner);
-    this.ownsDock = false;
-  }
-
-  private focusModal(): void {
-    this.initialFocus()?.nativeElement.focus({ preventScroll: true });
   }
 }

@@ -1,35 +1,34 @@
 <script setup lang="ts">
-defineProps<{
+import { computed } from "vue";
+import {
+  ɵINLINE_FEATURE_WARNING_STYLE,
+  ɵgetInlineFeatureWarningSpec,
+} from "@copilotkit/core";
+import { useChatLabels } from "./chat/use-chat-labels";
+
+const props = defineProps<{
   featureName: string;
 }>();
 
-const containerStyle = {
-  padding: "8px 12px",
-  backgroundColor: "#fffbeb",
-  border: "1px solid #fbbf24",
-  borderRadius: "6px",
-  fontSize: "13px",
-  color: "#92400e",
-  fontFamily:
-    "-apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif",
-} as const;
-
-const linkStyle = {
-  color: "#b45309",
-  textDecoration: "underline",
-} as const;
+const labels = useChatLabels();
+const spec = computed(() =>
+  ɵgetInlineFeatureWarningSpec(props.featureName, labels.value),
+);
 </script>
 
 <template>
-  <div :style="containerStyle" data-testid="copilot-inline-feature-warning">
-    ⚠ The "{{ featureName }}" feature requires a CopilotKit license.
+  <div
+    :style="ɵINLINE_FEATURE_WARNING_STYLE.container"
+    data-testid="copilot-inline-feature-warning"
+  >
+    {{ spec.message }}
     <a
-      href="https://copilotkit.ai/pricing"
+      :href="spec.actionUrl"
       target="_blank"
       rel="noopener noreferrer"
-      :style="linkStyle"
+      :style="ɵINLINE_FEATURE_WARNING_STYLE.link"
     >
-      Get one at copilotkit.ai/pricing
+      {{ spec.actionLabel }}
     </a>
   </div>
 </template>
