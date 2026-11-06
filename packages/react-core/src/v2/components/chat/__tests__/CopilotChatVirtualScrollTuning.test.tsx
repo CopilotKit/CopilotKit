@@ -341,6 +341,66 @@ describe("CopilotChatMessageView virtual-scroll tuning", () => {
     );
   });
 
+  describe("rangeExtractor", () => {
+    /** Rows of the given heights, laid out from the top of the list. */
+    function rowsOf(heights: number[]): VirtualItem[] {
+      let start = 0;
+      return heights.map((size, index) => {
+        const item = {
+          index,
+          key: index,
+          start,
+          end: start + size,
+          size,
+          lane: 0,
+        };
+        start += size;
+        return item;
+      });
+    }
+
+    function renderRange(heights: number[], visible: [number, number]) {
+      renderMessageView({ isPinnedToBottom: false });
+      const instance = virtualizer();
+      Object.assign(instance, {
+        measurementsCache: rowsOf(heights),
+        scrollRect: { width: 800, height: 600 },
+      });
+      const indexes = instance.options.rangeExtractor({
+        startIndex: visible[0],
+        endIndex: visible[1],
+        overscan: 5,
+        count: heights.length,
+      });
+      return { first: indexes[0], last: indexes.at(-1) };
+    }
+
+    it("keeps the five-row overscan when rows have content", () => {
+      // 600 px of 100 px rows is six rows, so six beyond the viewport.
+      const { first, last } = renderRange(Array(200).fill(100), [100, 109]);
+      expect(first).toBe(94);
+      expect(last).toBe(115);
+    });
+
+    it("reaches a viewport's height past rows that render nothing", () => {
+      // Rows 50–99 are tool calls and results that render nothing. Five rows
+      // of overscan would stop at row 95, 0 px above the viewport, and row 49
+      // would first be measured in view.
+      const heights = [
+        ...Array(50).fill(100),
+        ...Array(50).fill(0),
+        ...Array(10).fill(100),
+      ];
+      const { first } = renderRange(heights, [100, 109]);
+      expect(first).toBe(44);
+    });
+
+    it("stops after a bounded number of rows", () => {
+      const { first } = renderRange(Array(1000).fill(0), [900, 909]);
+      expect(first).toBe(500);
+    });
+  });
+
   describe("estimateSize", () => {
     it("falls back to a flat estimate before anything is measured", () => {
       renderMessageView({ isPinnedToBottom: false });

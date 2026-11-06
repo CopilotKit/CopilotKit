@@ -7,8 +7,12 @@ import React, {
   useRef,
   useState,
 } from "react";
-import { observeElementRect, useVirtualizer } from "@tanstack/react-virtual";
-import type { VirtualItem, Virtualizer } from "@tanstack/react-virtual";
+import {
+  defaultRangeExtractor,
+  observeElementRect,
+  useVirtualizer,
+} from "@tanstack/react-virtual";
+import type { Range, VirtualItem, Virtualizer } from "@tanstack/react-virtual";
 import { ScrollElementContext } from "./scroll-element-context";
 import { ScrollPinnedContext } from "./scroll-pinned-context";
 import type { WithSlots } from "../../lib/slots";
@@ -458,6 +462,9 @@ export interface MessageGroup<S = unknown> {
 
 /** One row of the message list: a single message, or a group of them. */
 export type MessageRow = { type: "message"; message: Message } | MessageGroup;
+
+/** At most this many rows are rendered beyond the viewport on either side. */
+const MAX_OVERSCAN_ROWS = 400;
 
 /** A row holding a single message, rendered as it would be ungrouped. */
 export function messageRow(message: Message): MessageRow {
@@ -1248,6 +1255,46 @@ export function CopilotChatMessageView({
     [captureResizeAnchor, measureRowElement],
   );
 
+  // Rows beyond the viewport are rendered by height, not only by count. A row
+  // is measured when it mounts, and the virtualizer corrects the scroll
+  // position for a size change only while the row is above the viewport. Rows
+  // that render nothing measure 0, and a tool-heavy turn holds dozens of them
+  // in a row, so five rows of overscan could reach no further than the
+  // viewport's edge: the next row with content was first measured in view, and
+  // its height change moved what the reader was looking at while scrolling.
+  // Overscan therefore reaches at least a viewport's height in each direction.
+  const virtualizerRef = useRef<Virtualizer<HTMLElement, Element> | null>(null);
+  const rangeExtractor = React.useCallback((range: Range) => {
+    const instance = virtualizerRef.current;
+    const items = instance?.measurementsCache;
+    const reach = instance?.scrollRect?.height ?? 0;
+    if (!items || items.length !== range.count || reach <= 0)
+      return defaultRangeExtractor(range);
+    let start = range.startIndex;
+    for (
+      let above = 0;
+      start > 0 &&
+      range.startIndex - start < MAX_OVERSCAN_ROWS &&
+      (range.startIndex - start < range.overscan || above < reach);
+    ) {
+      start -= 1;
+      above += items[start]!.size;
+    }
+    let end = range.endIndex;
+    for (
+      let below = 0;
+      end < range.count - 1 &&
+      end - range.endIndex < MAX_OVERSCAN_ROWS &&
+      (end - range.endIndex < range.overscan || below < reach);
+    ) {
+      end += 1;
+      below += items[end]!.size;
+    }
+    const indexes: number[] = [];
+    for (let index = start; index <= end; index++) indexes.push(index);
+    return indexes;
+  }, []);
+
   const virtualizer = useVirtualizer({
     // count=0 disables the virtualizer without changing hook call order.
     count: shouldVirtualize ? rows.length : 0,
@@ -1257,11 +1304,13 @@ export function CopilotChatMessageView({
     observeElementRect: observeScrollRect,
     estimateSize: estimateRowSize,
     overscan: 5,
+    rangeExtractor,
     measureElement: measureRowElement,
     // Assume a 600 px viewport before the real element is measured so that
     // the first virtual render shows ~6 items rather than 0.
     initialRect: { width: 0, height: 600 },
   });
+  virtualizerRef.current = virtualizer;
 
   // While the pin-to-bottom behaviour is following the bottom it is already
   // going to move the scroll position, and its ResizeObserver reads our
