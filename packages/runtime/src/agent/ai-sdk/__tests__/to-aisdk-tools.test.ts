@@ -171,6 +171,61 @@ describe("toAISDKTools", () => {
     ).toEqual({ id: "o-1", status: "open" });
   });
 
+  it("runs execute with the Standard Schema's parsed output inside streamText", async () => {
+    const calls: unknown[] = [];
+    const list = toolDefinition({
+      name: "list_orders",
+      description: "List orders.",
+      inputSchema: z.object({ limit: z.number().default(10) }),
+    }).server(async (input) => {
+      calls.push(input);
+      return "ok";
+    });
+    const model = scriptedModel([toolCallStep("list_orders", {}), textStep]);
+
+    const result = streamText({
+      model,
+      prompt: "hi",
+      tools: toAISDKTools([list]),
+      stopWhen: stepCountIs(2),
+    });
+    for await (const _part of result.fullStream) {
+      // Drain the stream.
+    }
+
+    expect(calls).toEqual([{ limit: 10 }]);
+  });
+
+  it("rejects input that fails the Standard Schema without running execute", async () => {
+    const calls: unknown[] = [];
+    const list = toolDefinition({
+      name: "list_orders",
+      description: "List orders.",
+      inputSchema: z.object({ limit: z.number() }),
+    }).server(async (input) => {
+      calls.push(input);
+      return "ok";
+    });
+    const model = scriptedModel([
+      toolCallStep("list_orders", { limit: "ten" }),
+      textStep,
+    ]);
+
+    const result = streamText({
+      model,
+      prompt: "hi",
+      tools: toAISDKTools([list]),
+      stopWhen: stepCountIs(2),
+    });
+    const parts = [];
+    for await (const part of result.fullStream) parts.push(part);
+
+    expect(calls).toEqual([]);
+    expect(parts.find((part) => part.type === "tool-error")).toMatchObject({
+      toolName: "list_orders",
+    });
+  });
+
   it("gives a tool without inputSchema an empty object schema", async () => {
     const ping: AnyServerTool = {
       __toolSide: "server",

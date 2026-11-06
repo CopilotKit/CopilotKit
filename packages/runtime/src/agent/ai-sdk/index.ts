@@ -502,10 +502,25 @@ function isStandardSchema(
   return "~standard" in schema;
 }
 
-/** JSON Schema for a TanStack tool's input. No schema means no arguments. */
-function toolInputJsonSchema(schema: AnyTool["inputSchema"]) {
-  if (!schema) return { type: "object", properties: {} };
-  return isStandardSchema(schema) ? schemaToJsonSchema(schema) : schema;
+/**
+ * The AI SDK input schema for a TanStack tool. No schema means no arguments.
+ * A Standard Schema also validates the input, so `execute` gets the parsed
+ * output (for example with Zod defaults applied), as in `chat()`.
+ */
+function toolInputSchema(name: string, schema: AnyTool["inputSchema"]) {
+  if (!schema) return aiJsonSchema({ type: "object", properties: {} });
+  if (!isStandardSchema(schema)) return aiJsonSchema(schema);
+  return aiJsonSchema(schemaToJsonSchema(schema), {
+    validate: async (value) => {
+      const parsed = await schema["~standard"].validate(value);
+      if ("value" in parsed) return { success: true, value: parsed.value };
+      const details = parsed.issues.map((issue) => issue.message).join("; ");
+      return {
+        success: false,
+        error: new Error(`Invalid arguments for tool ${name}: ${details}`),
+      };
+    },
+  });
 }
 
 /**
@@ -543,7 +558,7 @@ export function toAISDKTools(tools: readonly AnyTool[]) {
     const { execute } = tanstackTool;
     result[tanstackTool.name] = createVercelAISDKTool({
       description: tanstackTool.description,
-      inputSchema: aiJsonSchema(toolInputJsonSchema(tanstackTool.inputSchema)),
+      inputSchema: toolInputSchema(tanstackTool.name, tanstackTool.inputSchema),
       ...(execute ? { execute: (input: unknown) => execute(input) } : {}),
       ...(tanstackTool.needsApproval ? { needsApproval: true } : {}),
     });
