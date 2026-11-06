@@ -40,7 +40,7 @@ WhatsAppAdapter (`@copilotkit/channels-whatsapp`)
 `@copilotkit/channels` is the product-facing umbrella, not an adapter dependency.
 ```
 
-- `platform`, `capabilities` (`supportsStreaming: false`, modals/typing/
+- `platform`, `capabilities` (`supportsTyping: true`; streaming/modals/
   reactions all `false`), `ackDeadlineMs` (5000)
 - `start(sink)` / `stop()` — start / stop the `WebhookServer` and push
   normalized events into the engine's `IngressSink`
