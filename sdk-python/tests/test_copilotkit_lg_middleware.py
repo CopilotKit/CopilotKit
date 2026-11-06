@@ -663,6 +663,34 @@ def test_wrap_model_call_appends_app_context_to_existing_system_message():
     )
 
 
+def test_wrap_model_call_keeps_content_blocks_of_existing_system_message():
+    middleware = CopilotKitMiddleware(expose_state=True)
+    base_block = {
+        "type": "text",
+        "text": "You are a helpful assistant.",
+        "cache_control": {"type": "ephemeral"},
+    }
+    request = _make_request(
+        state={
+            "messages": [],
+            "liked": ["a"],
+            "copilotkit": {
+                "context": [{"description": "viewer role", "value": "admin"}]
+            },
+        },
+        system_message=SystemMessage(content=[base_block]),
+    )
+
+    seen, _ = _run_wrap(middleware, request)
+
+    body = seen.system_message.content
+    assert isinstance(body, list)
+    assert body[0] == base_block
+    texts = [block["text"] for block in body[1:]]
+    assert any("App Context:" in text and "admin" in text for text in texts)
+    assert any("Current agent state:" in text for text in texts)
+
+
 def test_before_agent_does_not_inject_app_context_into_message_state():
     middleware = CopilotKitMiddleware()
     state = {
