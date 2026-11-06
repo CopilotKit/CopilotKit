@@ -28,19 +28,37 @@ Start with the tool transport. If your agent cannot call client tools, or you wa
 
 This is the default, so the provider needs only the catalog:
 
-```tsx
-"use client";
-import { CopilotKitProvider } from "@copilotkit/react-core";
-import { standardUI } from "@copilotkit/react-core/generative-ui";
+<Tabs groupId="frontend_framework" items={["React", "Angular"]} persist>
+  <Tab value="React">
+    ```tsx
+    "use client";
+    import { CopilotKitProvider } from "@copilotkit/react-core";
+    import { standardUI } from "@copilotkit/react-core/generative-ui";
 
-export function Providers({ children }: { children: React.ReactNode }) {
-  return (
-    <CopilotKitProvider runtimeUrl="/api/copilotkit" generativeUI={{ ui: standardUI }}>
-      {children}
-    </CopilotKitProvider>
-  );
-}
-```
+    export function Providers({ children }: { children: React.ReactNode }) {
+      return (
+        <CopilotKitProvider runtimeUrl="/api/copilotkit" generativeUI={{ ui: standardUI }}>
+          {children}
+        </CopilotKitProvider>
+      );
+    }
+    ```
+  </Tab>
+  <Tab value="Angular">
+    ```ts
+    import type { ApplicationConfig } from "@angular/core";
+    import { provideCopilotKit } from "@copilotkit/angular";
+    import { provideGenerativeUI, standardUI } from "@copilotkit/angular/generative-ui";
+
+    export const appConfig: ApplicationConfig = {
+      providers: [
+        provideCopilotKit({ runtimeUrl: "/api/copilotkit" }),
+        provideGenerativeUI({ ui: standardUI }),
+      ],
+    };
+    ```
+  </Tab>
+</Tabs>
 
 When a run carries the catalog, the runtime adds the `render_ui` tool and a short guide on how to call it. The runtime checks every operation while it streams, and the browser renders the valid ones at once.
 
@@ -60,7 +78,7 @@ import { BuiltInAgent } from "@copilotkit/runtime/agent";
 import { openaiText } from "@tanstack/ai-openai";
 
 const runtime = new CopilotRuntime({
-  agents: { default: new BuiltInAgent({ model: openaiText("gpt-5.5") }) },
+  agents: { default: new BuiltInAgent({ model: openaiText("gpt-6-luna") }) },
   generativeUI: true,
 });
 
@@ -76,19 +94,37 @@ Your agent must use the tools and the context entries of the run. The built-in a
 
 Set `transport: "markdown"`:
 
-```tsx
-"use client";
-import { CopilotKitProvider } from "@copilotkit/react-core";
-import { standardUI } from "@copilotkit/react-core/generative-ui";
+<Tabs groupId="frontend_framework" items={["React", "Angular"]} persist>
+  <Tab value="React">
+    ```tsx
+    "use client";
+    import { CopilotKitProvider } from "@copilotkit/react-core";
+    import { standardUI } from "@copilotkit/react-core/generative-ui";
 
-export function Providers({ children }: { children: React.ReactNode }) {
-  return (
-    <CopilotKitProvider runtimeUrl="/api/copilotkit" generativeUI={{ ui: standardUI, transport: "markdown" }}>
-      {children}
-    </CopilotKitProvider>
-  );
-}
-```
+    export function Providers({ children }: { children: React.ReactNode }) {
+      return (
+        <CopilotKitProvider runtimeUrl="/api/copilotkit" generativeUI={{ ui: standardUI, transport: "markdown" }}>
+          {children}
+        </CopilotKitProvider>
+      );
+    }
+    ```
+  </Tab>
+  <Tab value="Angular">
+    ```ts
+    import type { ApplicationConfig } from "@angular/core";
+    import { provideCopilotKit } from "@copilotkit/angular";
+    import { provideGenerativeUI, standardUI } from "@copilotkit/angular/generative-ui";
+
+    export const appConfig: ApplicationConfig = {
+      providers: [
+        provideCopilotKit({ runtimeUrl: "/api/copilotkit" }),
+        provideGenerativeUI({ ui: standardUI, transport: "markdown" }),
+      ],
+    };
+    ```
+  </Tab>
+</Tabs>
 
 The provider sends the component schemas and a writing guide as context, and the agent writes the UI in its reply. See [Markdown mode](/generative-ui/components/markdown-mode) for what the agent writes, how it streams, and how to build your own prompt.
 
@@ -96,19 +132,37 @@ The provider sends the component schemas and a writing guide as context, and the
 
 By default every agent gets generative UI. To give it only to some of them, list their ids:
 
-```tsx
-"use client";
-import { CopilotKitProvider } from "@copilotkit/react-core";
-import { standardUI } from "@copilotkit/react-core/generative-ui";
+<Tabs groupId="frontend_framework" items={["React", "Angular"]} persist>
+  <Tab value="React">
+    ```tsx
+    "use client";
+    import { CopilotKitProvider } from "@copilotkit/react-core";
+    import { standardUI } from "@copilotkit/react-core/generative-ui";
 
-export function Providers({ children }: { children: React.ReactNode }) {
-  return (
-    <CopilotKitProvider runtimeUrl="/api/copilotkit" generativeUI={{ ui: standardUI, agentIds: ["shop"] }}>
-      {children}
-    </CopilotKitProvider>
-  );
-}
-```
+    export function Providers({ children }: { children: React.ReactNode }) {
+      return (
+        <CopilotKitProvider runtimeUrl="/api/copilotkit" generativeUI={{ ui: standardUI, agentIds: ["shop"] }}>
+          {children}
+        </CopilotKitProvider>
+      );
+    }
+    ```
+  </Tab>
+  <Tab value="Angular">
+    ```ts
+    import type { ApplicationConfig } from "@angular/core";
+    import { provideCopilotKit } from "@copilotkit/angular";
+    import { provideGenerativeUI, standardUI } from "@copilotkit/angular/generative-ui";
+
+    export const appConfig: ApplicationConfig = {
+      providers: [
+        provideCopilotKit({ runtimeUrl: "/api/copilotkit" }),
+        provideGenerativeUI({ ui: standardUI, agentIds: ["shop"] }),
+      ],
+    };
+    ```
+  </Tab>
+</Tabs>
 
 The other agents get no catalog, no guide, and no `render_ui` tool.
 

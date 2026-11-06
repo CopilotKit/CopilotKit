@@ -196,7 +196,7 @@ import { BuiltInAgent } from "@copilotkit/runtime/agent";
 import { openaiText } from "@tanstack/ai-openai";
 
 const agent = new BuiltInAgent({
-  model: openaiText("gpt-5"),
+  model: openaiText("gpt-6-luna"),
   learnedSkills: {
     containers: [
       { id: "support", revision: "revision-123" },

@@ -24,7 +24,7 @@ const roastTool = defineTool({
 const runtime = new CopilotRuntime({
   agents: {
     default: new BuiltInAgent({
-      model: openaiText("gpt-5-mini"),
+      model: openaiText("gpt-6-luna"),
       tools: [roastTool],
     }),
   },

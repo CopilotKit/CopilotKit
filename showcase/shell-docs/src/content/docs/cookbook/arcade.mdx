@@ -191,7 +191,7 @@ tool cards show the details.`;
 
 function buildAgent(userId: string) {
   return new BuiltInAgent({
-    model: openaiText("gpt-4o"), // reads OPENAI_API_KEY
+    model: openaiText("gpt-6-luna"), // reads OPENAI_API_KEY
     prompt: SYSTEM_PROMPT,
     tools: buildTools(userId),
     maxSteps: 6, // > 1 so the agent can call a tool and then respond

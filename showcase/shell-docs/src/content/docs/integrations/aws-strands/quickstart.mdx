@@ -273,7 +273,7 @@ Before you begin, you'll need the following:
                         api_key = os.getenv("OPENAI_API_KEY", "")
                         model = OpenAIModel(
                             client_args={"api_key": api_key},
-                            model_id="gpt-5.4",
+                            model_id="gpt-6-luna",
                         )
 
                         agent = Agent(
@@ -313,7 +313,7 @@ Before you begin, you'll need the following:
                         // Setup your Strands agent
                         const model = new OpenAIModel({
                           apiKey: process.env.OPENAI_API_KEY ?? "",
-                          modelId: "gpt-5.4",
+                          modelId: "gpt-6-luna",
                         });
 
                         const agent = new Agent({

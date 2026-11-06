@@ -109,7 +109,8 @@ def _generate_a2ui(context: str) -> str:
     """
     client = openai.OpenAI()
     response = client.chat.completions.create(
-        model="gpt-5-mini",
+        reasoning_effort="none",
+        model="gpt-6-luna",
         messages=[
             {
                 "role": "system",
@@ -140,7 +141,10 @@ def _generate_a2ui(context: str) -> str:
 
 async def generate_a2ui(
     context: Annotated[
-        str, Field(description="Conversation context summary the secondary LLM should design UI from")
+        str,
+        Field(
+            description="Conversation context summary the secondary LLM should design UI from"
+        ),
     ],
 ) -> str:
     """Generate dynamic A2UI components based on the conversation.
@@ -159,7 +163,12 @@ async def generate_a2ui(
 @tool
 async def manage_todos(
     ctx: Context,
-    todos: Annotated[list[dict], Field(description="The COMPLETE todo list (id, title, description, emoji, status)")],
+    todos: Annotated[
+        list[dict],
+        Field(
+            description="The COMPLETE todo list (id, title, description, emoji, status)"
+        ),
+    ],
 ) -> str:
     """Replace the shared todo board with the full updated list."""
     ctx.variables["todos"] = manage_todos_impl(todos)
@@ -176,7 +185,7 @@ async def get_todos(ctx: Context) -> str:
 agent = Agent(
     "beautiful_chat_assistant",
     prompt=SYSTEM_PROMPT,
-    config=OpenAIResponsesConfig(model="gpt-5-mini", streaming=True),
+    config=OpenAIResponsesConfig(model="gpt-6-luna", streaming=True),
     tools=[generate_a2ui, query_data, search_flights, manage_todos, get_todos],
     middleware=[loop_cap(8)],
 )

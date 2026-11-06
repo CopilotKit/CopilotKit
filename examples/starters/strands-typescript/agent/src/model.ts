@@ -43,13 +43,13 @@ export function parseAgentModel(value: string): AgentModelSpec {
  * `COPILOTKIT_AGENT_MODEL` overrides BOTH model sites (the Strands agent and
  * the A2UI generator). When it is unset, both keep this starter's previous
  * default: the OpenAI model named by the older `MODEL_ID` variable, else
- * gpt-4o. An OpenAI-compatible provider is `openai:<its model id>` plus
+ * gpt-6-luna. An OpenAI-compatible provider is `openai:<its model id>` plus
  * `OPENAI_BASE_URL`.
  */
 export function resolveAgentModel(): AgentModelSpec {
   return parseAgentModel(
     process.env.COPILOTKIT_AGENT_MODEL?.trim() ||
-      `openai:${process.env.MODEL_ID?.trim() || "gpt-4o"}`,
+      `openai:${process.env.MODEL_ID?.trim() || "gpt-6-luna"}`,
   );
 }
 
@@ -92,6 +92,9 @@ export function createStrandsModel(
         apiKey,
         modelId: model,
         api: "chat",
+        ...(model === "gpt-6-luna"
+          ? { params: { reasoning_effort: "none" } }
+          : {}),
         clientConfig: {
           ...(process.env.OPENAI_BASE_URL
             ? { baseURL: process.env.OPENAI_BASE_URL }

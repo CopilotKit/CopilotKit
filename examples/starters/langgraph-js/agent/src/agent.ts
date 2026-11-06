@@ -24,8 +24,8 @@ const AgentStateSchema = new StateSchema({
 });
 
 // COPILOTKIT_AGENT_MODEL (e.g. "anthropic:claude-sonnet-4-5") overrides this
-// and every other model site in the agent; unset, this site uses gpt-5.4.
-const model = createChatModel("openai:gpt-5.4", {
+// and every other model site in the agent; unset, this site uses gpt-6-luna.
+const model = createChatModel("openai:gpt-6-luna", {
   modelKwargs: { parallel_tool_calls: false },
 });
 

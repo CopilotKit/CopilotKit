@@ -8,6 +8,7 @@ export default defineConfig([
       // The chat configuration store alone, without the rest of core, so an
       // Angular app can provide a chat configuration in its initial bundle.
       "chat-configuration": "src/chat/chat-configuration.ts",
+      "generative-ui/index": "src/generative-ui/index.ts",
     },
     format: ["esm", "cjs"],
     dts: true,
@@ -36,6 +37,8 @@ export default defineConfig([
       "@ag-ui/core",
       "rxjs",
       "zod",
+      "@a2ui/web_core",
+      "@a2ui/web_core/v0_9",
     ],
     // Bundle websandbox so its dynamic import is inlined: a UMD script cannot
     // `import()` a bare specifier, and the ES2018 target has no `import()`.
@@ -52,6 +55,8 @@ export default defineConfig([
         rxjs: "rxjs",
         "rxjs/operators": "rxjs.operators",
         zod: "Zod",
+        "@a2ui/web_core": "A2UIWebCore",
+        "@a2ui/web_core/v0_9": "A2UIWebCoreV09",
       };
       return options;
     },

@@ -36,6 +36,8 @@ import type {
 } from "@copilotkit/shared";
 import { z } from "zod";
 import { resolveTrajectoryLearningContainerIds } from "../core/learning";
+import { normalizeAnalyticsContext } from "./analytics-context";
+import { sendStopRun } from "./stop-run";
 import type {
   GetLearningContainerId,
   GetTrajectoryLearningContainerIds,
@@ -702,6 +704,13 @@ export interface AcquireThreadLockRequest {
    * request send the same ID, so the platform counts the request once.
    */
   requestId?: string;
+  /**
+   * The app's analytics context for this run, sent as `analyticsContext`.
+   * Sent only when it is a plain JSON object of at most 4 KB serialized, and
+   * otherwise dropped without failing the lock. Intelligence validates the
+   * fields; the runtime does not read them.
+   */
+  analyticsContext?: Record<string, unknown>;
   /** Custom Redis key prefix for the lock (default: "thread"). */
   lockKeyPrefix?: string;
   /** Lock TTL in seconds. When set, the lock auto-expires after this duration. */
@@ -2441,6 +2450,9 @@ export class CopilotKitIntelligence {
   async ɵacquireThreadLock(
     params: AcquireThreadLockRequest,
   ): Promise<AcquireThreadLockResponse> {
+    // Checked here as well as in the run handler: headless callers reach the
+    // lock directly, without a run handler in between.
+    const analyticsContext = normalizeAnalyticsContext(params.analyticsContext);
     return this.#request<AcquireThreadLockResponse>(
       "POST",
       `/api/threads/${encodeURIComponent(params.threadId)}/lock`,
@@ -2457,6 +2469,7 @@ export class CopilotKitIntelligence {
         ...(params.requestId !== undefined
           ? { requestId: params.requestId }
           : {}),
+        ...(analyticsContext !== undefined ? { analyticsContext } : {}),
         ...(params.lockKeyPrefix !== undefined
           ? { lockKeyPrefix: params.lockKeyPrefix }
           : {}),
@@ -2525,6 +2538,47 @@ export class CopilotKitIntelligence {
 
     // request() returns undefined for empty/204 responses
     return result ?? null;
+  }
+
+  /**
+   * @internal Records that the runtime stopped a run, by the route a
+   * browser's Stop takes: mint a thread join token, join the thread's client
+   * channel and send `stop_run`. Intelligence stores the stop for the run, so
+   * it counts the run's terminal event as cancelled rather than finished.
+   *
+   * @throws {@link PlatformRequestError} when no join token is issued, or an
+   *   error when the channel or the stop is refused or `signal` aborts.
+   */
+  async ɵrecordRunStop(params: {
+    threadId: string;
+    runId: string;
+    /** The run's end user, as `identifyUser` returned it (not project-prefixed). */
+    userId: string;
+    agentId: string;
+    signal?: AbortSignal;
+  }): Promise<void> {
+    const connection = await this.#request<
+      ThreadConnectionResponse | undefined
+    >(
+      "POST",
+      `/api/threads/${encodeURIComponent(params.threadId)}/connect`,
+      { userId: params.userId, agentId: params.agentId },
+      undefined,
+      params.signal,
+    );
+    if (!connection?.joinToken) {
+      throw new PlatformRequestError(
+        "Intelligence issued no join token to record the stop",
+        502,
+      );
+    }
+    await sendStopRun({
+      url: this.#clientWsUrl,
+      joinToken: connection.joinToken,
+      threadId: params.threadId,
+      runId: params.runId,
+      ...(params.signal ? { signal: params.signal } : {}),
+    });
   }
 }
 

@@ -75,7 +75,7 @@ Before you begin, you'll need the following:
                 ```
 
                 <Callout type="info" title="What about other models?">
-                  The starter template is configured to use OpenAI's GPT-4o by default, but you can modify it to use any language model supported by Pydantic AI.
+                  The starter template is configured to use OpenAI's GPT-6 Luna by default, but you can modify it to use any language model supported by Pydantic AI.
                 </Callout>
             </Step>
             <Step>
@@ -141,7 +141,7 @@ Before you begin, you'll need the following:
                 ```
 
                 <Callout type="info" title="What about other models?">
-                  This example uses OpenAI's GPT-4.1-mini, but you can modify it to use any language model supported by Pydantic AI.
+                  This example uses OpenAI's GPT-6 Luna, but you can modify it to use any language model supported by Pydantic AI.
                 </Callout>
             </Step>
             <Step>
@@ -157,7 +157,7 @@ Before you begin, you'll need the following:
                 from starlette.responses import Response
                 from starlette.routing import Route
 
-                agent = Agent('openai:gpt-4.1-mini', instructions='Be fun!')
+                agent = Agent('openai:gpt-6-luna', instructions='Be fun!')
 
 
                 async def run_agent(request: Request) -> Response:

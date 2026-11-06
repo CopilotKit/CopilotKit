@@ -15,7 +15,7 @@ const openRouterApiKey = process.env.OPENROUTER_API_KEY?.trim();
 const determineModel = () => {
   if (openRouterApiKey) {
     return openaiCompatibleText(
-      process.env.OPENROUTER_MODEL?.trim() || "openai/gpt-5-mini",
+      process.env.OPENROUTER_MODEL?.trim() || "openai/gpt-6-luna",
       {
         name: "openrouter",
         api: "chat-completions",
@@ -26,12 +26,12 @@ const determineModel = () => {
       },
     );
   }
-  if (process.env.OPENAI_API_KEY?.trim()) return openaiText("gpt-5.2");
+  if (process.env.OPENAI_API_KEY?.trim()) return openaiText("gpt-6-luna");
   if (process.env.ANTHROPIC_API_KEY?.trim())
     return anthropicText("claude-opus-4-8");
   if (process.env.GOOGLE_API_KEY?.trim()) return geminiText("gemini-3.8-flash");
   // No key found: the OpenAI adapter throws an error that names OPENAI_API_KEY.
-  return openaiText("gpt-5.2");
+  return openaiText("gpt-6-luna");
 };
 
 const agent = new BuiltInAgent({

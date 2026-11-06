@@ -14,8 +14,8 @@ In markdown mode, the agent writes the UI inside its reply, in a code block tagg
 Here is an estimate you can play with:
 
 ```a2ui
-{"version":"v1.0","createSurface":{"surfaceId":"plan-estimator","dataModel":{"seats":10,"price":"$290 / month"},"components":[{"id":"root","component":"Card","children":["seats","price"]}]}}
-{"version":"v1.0","updateComponents":{"surfaceId":"plan-estimator","components":[{"id":"seats","component":"Slider","label":"Seats","min":1,"max":50,"value":{"@path":"/seats"}},{"id":"price","component":"Text","text":{"@path":"/price"}}]}}
+{"version":"1.0","createSurface":{"surfaceId":"plan-estimator","dataModel":{"seats":10,"price":"$290 / month"},"components":[{"id":"root","component":"Card","children":["seats","price"]}]}}
+{"version":"1.0","updateComponents":{"surfaceId":"plan-estimator","components":[{"id":"seats","component":"Slider","label":"Seats","min":1,"max":50,"value":{"@path":"/seats"}},{"id":"price","component":"Text","text":{"@path":"/price"}}]}}
 ```
 
 Move the slider to change the seat count.
@@ -27,19 +27,39 @@ Each line is one [A2UI v1.0](https://a2ui.org) operation. The UI is plain text, 
 
 Set the markdown transport on the provider:
 
-```tsx title="app/providers.tsx"
-"use client";
-import { CopilotKitProvider } from "@copilotkit/react-core";
-import { standardUI } from "@copilotkit/react-core/generative-ui";
+<Tabs groupId="frontend_framework" items={["React", "Angular"]} persist>
+  <Tab value="React">
+    ```tsx title="app/providers.tsx"
+    "use client";
+    import { CopilotKitProvider } from "@copilotkit/react-core";
+    import { standardUI } from "@copilotkit/react-core/generative-ui";
 
-export function Providers({ children }: { children: React.ReactNode }) {
-  return (
-    <CopilotKitProvider runtimeUrl="/api/copilotkit" generativeUI={{ ui: standardUI, transport: "markdown" }}>
-      {children}
-    </CopilotKitProvider>
-  );
-}
-```
+    export function Providers({ children }: { children: React.ReactNode }) {
+      return (
+        <CopilotKitProvider runtimeUrl="/api/copilotkit" generativeUI={{ ui: standardUI, transport: "markdown" }}>
+          {children}
+        </CopilotKitProvider>
+      );
+    }
+    ```
+  </Tab>
+  <Tab value="Angular">
+    ```ts title="src/app/app.config.ts"
+    import type { ApplicationConfig } from "@angular/core";
+    import { provideCopilotKit } from "@copilotkit/angular";
+    import { provideGenerativeUI, standardUI } from "@copilotkit/angular/generative-ui";
+
+    export const appConfig: ApplicationConfig = {
+      providers: [
+        provideCopilotKit({ runtimeUrl: "/api/copilotkit" }),
+        provideGenerativeUI({ ui: standardUI, transport: "markdown" }),
+      ],
+    };
+    ```
+
+    `provideGenerativeUI` then renders each assistant message with the blocks replaced by their surfaces, unless the app gives `<copilot-chat-assistant-message>` its own markdown renderer.
+  </Tab>
+</Tabs>
 
 On every run, the provider then sends the agent two context entries:
 
@@ -61,7 +81,7 @@ The UI paints while the reply is still streaming:
 
 - **In the reply.** A code block renders where it is in the text.
 - **In the same surface again.** A later block in the same reply with the same `surfaceId` updates that surface instead of adding a second one.
-- **On the page.** A block with a target, ```` ```a2ui target=featured ````, renders in `<GenerativeUISurface id="featured">`. A later reply can update it. See [Surfaces](/generative-ui/components/surfaces).
+- **On the page.** A block with a target, ```` ```a2ui target=featured ````, renders in `<GenerativeUISurface id="featured">`, or `<copilot-generative-ui-surface id="featured">` in Angular. A later reply can update it. See [Surfaces](/generative-ui/components/surfaces).
 
 If the agent leaves out `createSurface`, CopilotKit adds one.
 
@@ -73,25 +93,43 @@ The agent sometimes puts a title or a paragraph inside a block. That text is lif
 
 Some backends build the prompt themselves. Turn the context entries off, and read the same data from the run instead:
 
-```tsx
-"use client";
-import { CopilotKitProvider } from "@copilotkit/react-core";
-import { standardUI } from "@copilotkit/react-core/generative-ui";
+<Tabs groupId="frontend_framework" items={["React", "Angular"]} persist>
+  <Tab value="React">
+    ```tsx
+    "use client";
+    import { CopilotKitProvider } from "@copilotkit/react-core";
+    import { standardUI } from "@copilotkit/react-core/generative-ui";
 
-export function Providers({ children }: { children: React.ReactNode }) {
-  return (
-    <CopilotKitProvider runtimeUrl="/api/copilotkit" generativeUI={{ ui: standardUI, transport: "markdown", sendContext: false }}>
-      {children}
-    </CopilotKitProvider>
-  );
-}
-```
+    export function Providers({ children }: { children: React.ReactNode }) {
+      return (
+        <CopilotKitProvider runtimeUrl="/api/copilotkit" generativeUI={{ ui: standardUI, transport: "markdown", sendContext: false }}>
+          {children}
+        </CopilotKitProvider>
+      );
+    }
+    ```
+  </Tab>
+  <Tab value="Angular">
+    ```ts
+    import type { ApplicationConfig } from "@angular/core";
+    import { provideCopilotKit } from "@copilotkit/angular";
+    import { provideGenerativeUI, standardUI } from "@copilotkit/angular/generative-ui";
+
+    export const appConfig: ApplicationConfig = {
+      providers: [
+        provideCopilotKit({ runtimeUrl: "/api/copilotkit" }),
+        provideGenerativeUI({ ui: standardUI, transport: "markdown", sendContext: false }),
+      ],
+    };
+    ```
+  </Tab>
+</Tabs>
 
 Every run carries it at `forwardedProps.copilotkit.ui`, in the A2UI v1.0 renderer capabilities shape:
 
 ```json
 {
-  "v1.0": {
+  "1.0": {
     "supportedCatalogIds": ["copilotkit/standard@1"],
     "inlineCatalogs": [
       {
@@ -117,7 +155,7 @@ Every run carries it at `forwardedProps.copilotkit.ui`, in the A2UI v1.0 rendere
 
 ```python
 ui = input.forwarded_props["copilotkit"]["ui"]
-catalog = ui["v1.0"]["inlineCatalogs"][0]
+catalog = ui["1.0"]["inlineCatalogs"][0]
 system = f"{MY_PROMPT}\n\n{catalog['instructions']}\n\nComponents:\n{json.dumps(catalog['components'])}"
 ```
 

@@ -12,7 +12,7 @@ import {
   InMemoryAgentRunner,
 } from "@copilotkit/runtime/v2";
 import { chat } from "@tanstack/ai";
-import { openaiText } from "@tanstack/ai-openai";
+import { openaiText } from "@/lib/openai-text";
 // `withForwardedHeaders` snapshots inbound x-* headers (e.g.
 // x-aimock-context) into an AsyncLocalStorage scope; `forwardingFetch`
 // re-attaches them on every outbound LLM call. Required because
@@ -75,7 +75,7 @@ function createAgentConfigAgent() {
       const props = (input.forwardedProps ?? {}) as Record<string, unknown>;
       const { messages, systemPrompts } = convertInputToTanStackAI(input);
       return chat({
-        adapter: openaiText("gpt-5.4", { fetch: forwardingFetch }),
+        adapter: openaiText("gpt-6-luna", { fetch: forwardingFetch }),
         messages,
         systemPrompts: [buildConfigSystemPrompt(props), ...systemPrompts],
         tools: [],

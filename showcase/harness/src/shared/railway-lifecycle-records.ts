@@ -6,6 +6,14 @@ import type {
   RailwayLifecyclePolicy,
 } from "./railway-lifecycle.js";
 
+// Reviewed recovery for 21552a22b2: only docs-preview was added to permanent
+// protection. Keep validating with the stricter current policy; acknowledge the
+// publisher's policy. Neither hash may expand to an unreviewed future policy.
+const docsPreviewPolicyTransition = {
+  publisher: "4ded223bb02ea0cdf7ffed4fb8f78b70fbb50c9f74ae82d34addfc94f712c751",
+  validator: "d3a7fe0c6eeda2fce0dc73779d2e19fdfbf9174abeaa07468b3aca21bd097410",
+};
+
 /**
  * Read one operator-configured atomic snapshot. The configured path is the trust
  * boundary: only the lifecycle writer/operator may publish it. Never infer an
@@ -22,8 +30,12 @@ export async function readRailwayLifecycleEvidence(
   signal?.throwIfAborted();
   let contents: string;
   let endpoint: URL | undefined;
+  let publicationPolicySha256: string | undefined;
   try {
     if (filePath.startsWith("https://")) {
+      const validationPolicySha256 = createHash("sha256")
+        .update(JSON.stringify(policy))
+        .digest("hex");
       endpoint = new URL(filePath);
       if (
         endpoint.username ||
@@ -62,11 +74,27 @@ export async function readRailwayLifecycleEvidence(
       contents = Buffer.concat(chunks).toString("utf8");
       if (
         response.headers.get("x-snapshot-sha256") !==
-          createHash("sha256").update(contents).digest("hex") ||
-        response.headers.get("x-policy-sha256") !==
-          createHash("sha256").update(JSON.stringify(policy)).digest("hex")
+        createHash("sha256").update(contents).digest("hex")
       )
-        throw new Error("Registry policy or bytes differ");
+        throw new Error("Registry bytes differ");
+      publicationPolicySha256 = response.headers.get("x-policy-sha256") ?? "";
+      if (
+        publicationPolicySha256 !== validationPolicySha256 &&
+        !(
+          publicationPolicySha256 === docsPreviewPolicyTransition.publisher &&
+          validationPolicySha256 === docsPreviewPolicyTransition.validator
+        )
+      )
+        return {
+          status: "invalid",
+          issues: [
+            {
+              code: "records-policy-mismatch",
+              message:
+                "Registry policy differs from the committed policy; a reviewed policy transition is required",
+            },
+          ],
+        };
     } else {
       contents = await readFile(filePath, { encoding: "utf8", signal });
     }
@@ -121,9 +149,9 @@ export async function readRailwayLifecycleEvidence(
           reader: "railway-lifecycle-records-v1",
           recordsFile: endpoint.href,
           sha256: createHash("sha256").update(contents).digest("hex"),
-          policySha256: createHash("sha256")
-            .update(JSON.stringify(policy))
-            .digest("hex"),
+          // Activation identifies the publication we actually fetched. Parsing
+          // above always enforces the current committed validation policy.
+          policySha256: publicationPolicySha256,
         }),
         signal: signal
           ? AbortSignal.any([signal, AbortSignal.timeout(10_000)])

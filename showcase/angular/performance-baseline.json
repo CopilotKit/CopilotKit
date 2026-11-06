@@ -1,22 +1,23 @@
 {
   "schemaVersion": 1,
-  "sourceRevision": "checkpoint-3-shared-build",
+  "sourceRevision": "7b8a1c9bf7",
   "command": "pnpm --dir showcase/angular build",
   "initial": {
     "files": [
-      "chunk-ATLRY6HR.js",
-      "chunk-B3HT5VJY.js",
-      "chunk-JVNUEIQJ.js",
-      "chunk-LOMLFKHX.js",
-      "chunk-UDDQVQ63.js",
+      "chunk-26C4LS44.js",
+      "chunk-42UC5JM5.js",
+      "chunk-7N37SEIE.js",
+      "chunk-DFGJNBDK.js",
+      "chunk-GCVC2KI5.js",
+      "chunk-UFRQFHVD.js",
       "chunk-USOD3V74.js",
-      "chunk-XAPELXLE.js",
-      "main-PLNJN4V3.js",
+      "chunk-YFFXV2LB.js",
+      "main-AN5LZDPA.js",
       "styles-J4P5M2XS.css"
     ],
-    "rawBytes": 1484994,
-    "gzipBytes": 201094,
-    "brotliBytes": 160760
+    "rawBytes": 1834493,
+    "gzipBytes": 301432,
+    "brotliBytes": 243434
   },
   "maximumRelativeRegression": 0.1,
   "absoluteCapBytes": 4600000,

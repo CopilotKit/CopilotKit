@@ -19,8 +19,8 @@ import { MCPAppsMiddleware } from "@ag-ui/mcp-apps-middleware";
 import { A2AAgent } from "@ag-ui/a2a";
 import { A2AClient } from "@a2a-js/sdk/client";
 
-// Use OpenAI gpt-5.2 as specified in project requirements
-const MODEL = openaiText("gpt-5.2");
+// Use OpenAI gpt-6-luna as specified in project requirements
+const MODEL = openaiText("gpt-6-luna");
 
 /**
  * "default" Agent: BuiltInAgent with MCPAppsMiddleware

@@ -6,7 +6,7 @@ import { createCopilotNodeListener } from "@copilotkit/runtime/node";
 
 const runtime = new CopilotRuntime({
   agents: {
-    default: new BuiltInAgent({ model: openaiText("gpt-5-mini") }),
+    default: new BuiltInAgent({ model: openaiText("gpt-6-luna") }),
   },
 });
 

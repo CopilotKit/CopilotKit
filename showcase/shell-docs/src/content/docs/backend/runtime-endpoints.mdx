@@ -325,7 +325,7 @@ import { BuiltInAgent } from "@copilotkit/runtime/agent";
 import { openaiText } from "@tanstack/ai-openai";
 
 const runtime = new CopilotRuntime({
-  agents: { default: new BuiltInAgent({ model: openaiText("gpt-4o-mini") }) },
+  agents: { default: new BuiltInAgent({ model: openaiText("gpt-6-luna") }) },
 });
 
 export const handler = createCopilotRuntimeHandler({
@@ -427,7 +427,7 @@ const intelligence = new CopilotKitIntelligence({
 });
 
 const runtime = new CopilotRuntime({
-  agents: { default: new BuiltInAgent({ model: openaiText("gpt-4o-mini") }) },
+  agents: { default: new BuiltInAgent({ model: openaiText("gpt-6-luna") }) },
   intelligence,
   identifyUser: async (request) => {
     const user = await authenticateApplicationUser(request);
@@ -536,7 +536,7 @@ import { openaiText } from "@tanstack/ai-openai";
 import { createCopilotNodeListener } from "@copilotkit/runtime/node";
 
 const runtime = new CopilotRuntime({
-  agents: { default: new BuiltInAgent({ model: openaiText("gpt-4o-mini") }) },
+  agents: { default: new BuiltInAgent({ model: openaiText("gpt-6-luna") }) },
 });
 
 const app = express();
@@ -660,7 +660,7 @@ import { BuiltInAgent } from "@copilotkit/runtime/agent";
 import { openaiText } from "@tanstack/ai-openai";
 
 const runtime = new CopilotRuntime({
-  agents: { default: new BuiltInAgent({ model: openaiText("gpt-4o-mini") }) },
+  agents: { default: new BuiltInAgent({ model: openaiText("gpt-6-luna") }) },
 });
 
 const handler = createCopilotRuntimeHandler({
@@ -689,7 +689,7 @@ import { BuiltInAgent } from "@copilotkit/runtime/agent";
 import { openaiText } from "@tanstack/ai-openai";
 
 const runtime = new CopilotRuntime({
-  agents: { default: new BuiltInAgent({ model: openaiText("gpt-4o-mini") }) },
+  agents: { default: new BuiltInAgent({ model: openaiText("gpt-6-luna") }) },
 });
 
 const handler = createCopilotRuntimeHandler({
@@ -716,7 +716,7 @@ import { openaiText } from "@tanstack/ai-openai";
 import { resolveUser, userOwnsThread } from "./auth";
 
 const runtime = new CopilotRuntime({
-  agents: { default: new BuiltInAgent({ model: openaiText("gpt-4o-mini") }) },
+  agents: { default: new BuiltInAgent({ model: openaiText("gpt-6-luna") }) },
 });
 
 const handler = createCopilotRuntimeHandler({

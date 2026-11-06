@@ -72,7 +72,7 @@ def render_a2ui(
     return "rendered"
 
 
-_RENDER_MODEL = ChatOpenAI(model="gpt-5.5", temperature=0)
+_RENDER_MODEL = ChatOpenAI(reasoning_effort="none", model="gpt-6-luna", temperature=0)
 
 
 @tool()
@@ -221,7 +221,7 @@ above. Skip charts unless the user explicitly asked for data viz.
 
 def build_dynamic_agent():
     return create_agent(
-        model="openai:gpt-5.5",
+        model=ChatOpenAI(model="gpt-6-luna", reasoning_effort="none"),
         tools=[query_pdf, generate_a2ui],
         middleware=[CopilotKitMiddleware()],
         system_prompt=SYSTEM_PROMPT,

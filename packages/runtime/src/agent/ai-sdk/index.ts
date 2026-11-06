@@ -275,6 +275,13 @@ export function convertMessagesToVercelAISDKMessages(
           toolCallId: toolCall.id,
           toolName: toolCall.function.name,
           input: safeParseToolArgs(toolCall.function.arguments),
+          ...(toolCall.encryptedValue
+            ? {
+                providerOptions: {
+                  google: { thoughtSignature: toolCall.encryptedValue },
+                },
+              }
+            : {}),
         });
       }
 

@@ -46,7 +46,7 @@ import { openaiText } from "@tanstack/ai-openai";
 // Created once per container, reused across warm invocations.
 const runtime = new CopilotRuntime({
   agents: {
-    default: new BuiltInAgent({ model: openaiText("gpt-4o-mini") }),
+    default: new BuiltInAgent({ model: openaiText("gpt-6-luna") }),
   },
 });
 
@@ -394,7 +394,7 @@ import { createCopilotNodeListener } from "@copilotkit/runtime/node";
 
 const runtime = new CopilotRuntime({
   agents: {
-    default: new BuiltInAgent({ model: openaiText("gpt-4o-mini") }),
+    default: new BuiltInAgent({ model: openaiText("gpt-6-luna") }),
   },
 });
 
@@ -430,7 +430,7 @@ import { createCopilotNodeListener } from "@copilotkit/runtime/node";
 
 const runtime = new CopilotRuntime({
   agents: {
-    default: new BuiltInAgent({ model: openaiText("gpt-4o-mini") }),
+    default: new BuiltInAgent({ model: openaiText("gpt-6-luna") }),
   },
 });
 
@@ -461,7 +461,7 @@ import { verifyToken } from "./auth";
 
 const runtime = new CopilotRuntime({
   agents: {
-    default: new BuiltInAgent({ model: openaiText("gpt-4o-mini") }),
+    default: new BuiltInAgent({ model: openaiText("gpt-6-luna") }),
   },
 });
 

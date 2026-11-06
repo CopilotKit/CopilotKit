@@ -64,7 +64,7 @@ class SubagentsSnapshot(BaseModel):
 # prompt. They don't share memory or tools with the supervisor — the
 # supervisor only sees what each sub-agent's final reply produces.
 
-_SUB_LLM_CONFIG = OpenAIResponsesConfig(model="gpt-5-mini", streaming=False)
+_SUB_LLM_CONFIG = OpenAIResponsesConfig(model="gpt-6-luna", streaming=False)
 
 _research_agent = Agent(
     "research_sub_agent",
@@ -222,9 +222,7 @@ async def research_agent(
     Args:
         task: The specific research question or topic to investigate.
     """
-    return await _run_delegation(
-        ctx, "research_agent", _research_agent, task
-    )
+    return await _run_delegation(ctx, "research_agent", _research_agent, task)
 
 
 @tool
@@ -240,9 +238,7 @@ async def writing_agent(
     Args:
         task: The brief plus any relevant facts the writer should use.
     """
-    return await _run_delegation(
-        ctx, "writing_agent", _writing_agent, task
-    )
+    return await _run_delegation(ctx, "writing_agent", _writing_agent, task)
 
 
 @tool
@@ -257,9 +253,7 @@ async def critique_agent(
     Args:
         task: The draft to critique (paste it directly into ``task``).
     """
-    return await _run_delegation(
-        ctx, "critique_agent", _critique_agent, task
-    )
+    return await _run_delegation(ctx, "critique_agent", _critique_agent, task)
 
 
 # @endregion[supervisor-delegation-tools]
@@ -290,7 +284,7 @@ supervisor = Agent(
         in your final reply — just summarize.
         """
     ).strip(),
-    config=OpenAIResponsesConfig(model="gpt-5-mini", streaming=True),
+    config=OpenAIResponsesConfig(model="gpt-6-luna", streaming=True),
     tools=[research_agent, writing_agent, critique_agent],
     middleware=[loop_cap(8)],
 )

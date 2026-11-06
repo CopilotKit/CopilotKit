@@ -13,7 +13,7 @@ import {
 import { BuiltInAgent } from "@copilotkit/runtime/agent";
 import { openaiText } from "@tanstack/ai-openai";
 
-const MODEL = openaiText("gpt-5-mini");
+const MODEL = openaiText("gpt-6-luna");
 
 const agent = new BuiltInAgent({
   model: MODEL,

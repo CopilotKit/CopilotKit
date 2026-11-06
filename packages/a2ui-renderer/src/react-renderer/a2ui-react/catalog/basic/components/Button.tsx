@@ -45,7 +45,7 @@ export const Button = createReactComponent(
       <button
         type="button"
         style={style}
-        onClick={props.action}
+        onClick={() => props.action?.()}
         disabled={props.isValid === false}
       >
         {props.child ? buildChild(props.child) : null}

@@ -6,7 +6,7 @@
  *
  * Why a reasoning model plus the Responses API: the OpenAI Responses API
  * streams `response.reasoning_summary_text.delta` items only for native
- * reasoning models (gpt-5, o3, o4-mini and friends). The Strands bridge
+ * reasoning models (gpt-6-luna and friends). The Strands bridge
  * translates those into AG-UI REASONING_MESSAGE_* events with
  * `role: "reasoning"`, which the frontend renders through the
  * `reasoningMessage` slot. gpt-4o emits no reasoning items, so the showcase's
@@ -24,7 +24,8 @@ import { z } from "zod";
 import { StrandsAgent } from "@ag-ui/aws-strands";
 import { createModel } from "./model-factory";
 
-export const REASONING_MODEL = process.env.OPENAI_REASONING_MODEL ?? "gpt-5.4";
+export const REASONING_MODEL =
+  process.env.OPENAI_REASONING_MODEL ?? "gpt-6-luna";
 
 /** Responses-API model that streams reasoning summaries on every turn. */
 function reasoningModel() {

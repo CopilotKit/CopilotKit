@@ -57,6 +57,7 @@ def build_open_gen_ui_agent():
     model = OpenAIModel(
         client_args={"api_key": api_key},
         model_id=model_id(),
+        params={"reasoning_effort": "none"},
     )
     return Agent(
         model=model,

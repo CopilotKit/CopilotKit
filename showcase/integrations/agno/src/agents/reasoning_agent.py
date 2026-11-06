@@ -132,7 +132,7 @@ def roll_dice(sides: int = 6):
 #     AGUI handler which only emits STEP_STARTED/STEP_FINISHED)
 #   - Keeps the demo visually identical to native reasoning models
 agent = Agent(
-    model=OpenAIChat(id="gpt-4o-mini", timeout=120),
+    model=OpenAIChat(id="gpt-6-luna", reasoning_effort="none", timeout=120),
     tools=[get_weather, search_flights, get_stock_price, roll_dice],
     reasoning=False,
     tool_call_limit=10,

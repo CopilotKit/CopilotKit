@@ -137,9 +137,9 @@ async def get_weather(
 
 agentic_chat_router = get_ag_ui_workflow_router(
     # COPILOTKIT_AGENT_MODEL (e.g. "anthropic:claude-sonnet-4-5") overrides this;
-    # unset, the agent uses gpt-5-mini. The OpenAI provider keeps StarterOpenAI
+    # unset, the agent uses gpt-6-luna. The OpenAI provider keeps StarterOpenAI
     # and its tool-exchange repair.
-    llm=create_llm("openai:gpt-5-mini", openai_class=StarterOpenAI),
+    llm=create_llm("openai:gpt-6-luna", openai_class=StarterOpenAI),
     # Tools that are executed in the frontend client
     frontend_tools=[change_theme_color, add_proverb],
     # Tools that are executed in the backend server

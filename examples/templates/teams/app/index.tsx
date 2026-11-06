@@ -60,7 +60,7 @@ if (!process.env.OPENAI_API_KEY) {
     "Missing OPENAI_API_KEY.\n" +
       "This demo runs a CopilotKit BuiltInAgent, which needs an LLM API key.\n" +
       "  export OPENAI_API_KEY=sk-...   (or add it to examples/templates/teams/.env)\n" +
-      "Optional: OPENAI_MODEL (defaults to openai/gpt-5.5).",
+      "Optional: OPENAI_MODEL (defaults to openai/gpt-6-luna).",
   );
   process.exit(1);
 }
@@ -137,7 +137,7 @@ const runtimeAgentUrl = `http://localhost:${runtimePort}/api/copilotkit/agent/${
 // OPENAI_MODEL is a bare OpenAI id or "openai/<id>" (the prefix is stripped).
 // The cast is needed because the value is dynamic and `openaiText` types its
 // argument to the known OpenAI model literals.
-const model = (process.env.OPENAI_MODEL ?? "openai/gpt-5.5").replace(
+const model = (process.env.OPENAI_MODEL ?? "openai/gpt-6-luna").replace(
   /^openai\//,
   "",
 ) as Parameters<typeof openaiText>[0];

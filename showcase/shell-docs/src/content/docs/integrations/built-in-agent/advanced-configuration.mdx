@@ -14,8 +14,8 @@ import { BuiltInAgent } from "@copilotkit/runtime/agent";
 import { openaiText } from "@tanstack/ai-openai";
 
 const agent = new BuiltInAgent({
-  model: openaiText("gpt-5.2"),
-  reasoning: "high",                    // only the levels of gpt-5.2
+  model: openaiText("gpt-6-luna"),
+  reasoning: "high",                    // only the levels of gpt-6-luna
   modelOptions: { verbosity: "low" },   // only OpenAI provider options
   promptCache: "long",
   retry: { maxRetries: 3 },
@@ -71,7 +71,7 @@ const createTicket = defineTool({
 });
 
 const agent = new BuiltInAgent({
-  model: openaiText("gpt-5.4-mini"),
+  model: openaiText("gpt-6-luna"),
   maxSteps: 5, // [!code highlight]
   tools: [searchDocs, createTicket],
 });
@@ -89,7 +89,7 @@ import { combineStrategies, maxIterations, untilFinishReason } from "@tanstack/a
 import { openaiText } from "@tanstack/ai-openai";
 
 const agent = new BuiltInAgent({
-  model: openaiText("gpt-5.4-mini"),
+  model: openaiText("gpt-6-luna"),
   agentLoopStrategy: combineStrategies([ // [!code highlight:4]
     maxIterations(5),
     untilFinishReason(["length"]),
@@ -106,7 +106,7 @@ import { BuiltInAgent } from "@copilotkit/runtime/agent";
 import { openaiText } from "@tanstack/ai-openai";
 
 const agent = new BuiltInAgent({
-  model: openaiText("gpt-5.4-mini"),
+  model: openaiText("gpt-6-luna"),
   toolChoice: "auto",       // Let the model decide
   // toolChoice: "required", // Force the model to call a tool
   // toolChoice: "none",     // Disable tool calling
@@ -126,7 +126,7 @@ import { BuiltInAgent } from "@copilotkit/runtime/agent";
 import { openaiText } from "@tanstack/ai-openai";
 
 const agent = new BuiltInAgent({
-  model: openaiText("gpt-5.4-mini"),
+  model: openaiText("gpt-6-luna"),
   prompt: "You are a customer support agent for Acme Corp. Be concise and helpful. Always check the knowledge base before answering.", // [!code highlight]
 });
 ```
@@ -172,7 +172,7 @@ import { BuiltInAgent } from "@copilotkit/runtime/agent";
 import { openaiText } from "@tanstack/ai-openai";
 
 const agent = new BuiltInAgent({
-  model: openaiText("gpt-5.4-mini"),
+  model: openaiText("gpt-6-luna"),
   modelOptions: { // [!code highlight:4]
     max_output_tokens: 1000,
     verbosity: "low",
@@ -214,7 +214,7 @@ import { BuiltInAgent } from "@copilotkit/runtime/agent";
 import { openaiText } from "@tanstack/ai-openai";
 
 const agent = new BuiltInAgent({
-  model: openaiText("gpt-5.4-mini"),
+  model: openaiText("gpt-6-luna"),
   promptCache: "long", // [!code highlight]
 });
 ```
@@ -236,7 +236,7 @@ import { BuiltInAgent } from "@copilotkit/runtime/agent";
 import { openaiText } from "@tanstack/ai-openai";
 
 const agent = new BuiltInAgent({
-  model: openaiText("gpt-5.4-mini"),
+  model: openaiText("gpt-6-luna"),
   retry: { maxRetries: 3 }, // [!code highlight]
 });
 ```
@@ -254,7 +254,7 @@ import { BuiltInAgent } from "@copilotkit/runtime/agent";
 import { openaiText } from "@tanstack/ai-openai";
 
 const agent = new BuiltInAgent({
-  model: openaiText("gpt-5.4-mini"),
+  model: openaiText("gpt-6-luna"),
   context: { service: "support-bot" }, // [!code highlight:9]
   middleware: [
     {
@@ -304,7 +304,7 @@ import { BuiltInAgent } from "@copilotkit/runtime/agent";
 import { openaiText } from "@tanstack/ai-openai";
 
 const agent = new BuiltInAgent({
-  model: openaiText("gpt-5.4-mini"),
+  model: openaiText("gpt-6-luna"),
   overridableProperties: ["prompt", "modelOptions"], // [!code highlight]
 });
 ```
@@ -330,7 +330,7 @@ import { BuiltInAgent } from "@copilotkit/runtime/agent";
 import { openaiText } from "@tanstack/ai-openai";
 
 const agent = new BuiltInAgent({
-  model: openaiText("gpt-5.4-mini"),
+  model: openaiText("gpt-6-luna"),
   forwardSystemMessages: true,    // Forward system-role messages
   forwardDeveloperMessages: true, // Forward developer-role messages
 });
@@ -354,7 +354,7 @@ The agent options:
 
 | Property | Type | Default | Description |
 |----------|------|---------|-------------|
-| `model` | `AnyTextAdapter` | none | TanStack AI text adapter, such as `openaiText("gpt-5.4-mini")`. It types the other options. |
+| `model` | `AnyTextAdapter` | none | TanStack AI text adapter, such as `openaiText("gpt-6-luna")`. It types the other options. |
 | `resolveModel` | `(name: string) => adapter \| createChatOptions(...) \| undefined` | none | Turns a model name from the frontend into a model. See [Switch models from the frontend](/model-selection#switch-models-from-the-frontend) |
 | `prompt` | `string` | none | Main system prompt. The frontend can override it |
 | `maxSteps` | `number` | `1` (`10` with skills) | Max model calls in one run |

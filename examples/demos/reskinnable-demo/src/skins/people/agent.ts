@@ -228,10 +228,10 @@ exposed sandbox functions rather than typing numbers into the generated markup.
 
 export const peopleAgent = () =>
   new BuiltInAgent({
-    model: "openai/gpt-5.4",
+    model: "openai/gpt-6-luna",
     prompt: PEOPLE_PROMPT,
     tools: [renderPeopleBriefTool],
-    // NO `temperature`. Banking pins it to 0 for determinism, but gpt-5.4 is a
+    // NO `temperature`. Banking pins it to 0 for determinism, but gpt-6-luna is a
     // reasoning model that REJECTS the parameter — the dev server logs
     // 'The feature "temperature" is not supported' on literally every run, and
     // the value is discarded. Carrying a silently-ignored option alongside a

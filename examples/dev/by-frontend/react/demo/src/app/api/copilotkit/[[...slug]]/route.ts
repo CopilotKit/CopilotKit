@@ -14,7 +14,7 @@ import OpenAI from "openai";
 const openRouterApiKey = process.env.OPENROUTER_API_KEY?.trim();
 const openAIApiKey = process.env.OPENAI_API_KEY?.trim();
 const OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1";
-const DEFAULT_OPENROUTER_MODEL = "openai/gpt-5-mini";
+const DEFAULT_OPENROUTER_MODEL = "openai/gpt-6-luna";
 
 const determineOpenRouterModelId = () => {
   return process.env.OPENROUTER_MODEL?.trim() || DEFAULT_OPENROUTER_MODEL;
@@ -39,7 +39,7 @@ const createBuiltInAgent = () => {
   }
   if (openAIApiKey) {
     return new BuiltInAgent({
-      model: openaiText("gpt-5.2"),
+      model: openaiText("gpt-6-luna"),
       prompt,
       reasoning: { level: "high", summary: true },
     });
@@ -56,7 +56,7 @@ const createBuiltInAgent = () => {
     return new BuiltInAgent({ model: geminiText("gemini-3.8-flash"), prompt });
   }
   // No key found: the OpenAI adapter throws an error that names OPENAI_API_KEY.
-  return new BuiltInAgent({ model: openaiText("gpt-5.2"), prompt });
+  return new BuiltInAgent({ model: openaiText("gpt-6-luna"), prompt });
 };
 
 const builtInAgent = createBuiltInAgent();

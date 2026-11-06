@@ -1,6 +1,6 @@
 # CopilotKit Examples
 
-This directory contains 61 examples, grouped by what you want to do with them:
+This directory contains 62 examples, grouped by what you want to do with them:
 
 - **[Starters](#starters-24)** — pick your agent framework and start building.
 - **[Demos](#demos-32)** — full applications that show CopilotKit in a real-world scenario.
@@ -19,7 +19,7 @@ Starters, demos, and the `shadcn` and `claude-managed-agents-flutter` templates 
 
 ---
 
-## Starters (24)
+## Starters (25)
 
 Framework starters demonstrating CopilotKit with each supported agent framework. Starter parity tooling lives in [`starters/_parity/`](./starters/_parity/).
 
@@ -49,6 +49,7 @@ Framework starters demonstrating CopilotKit with each supported agent framework.
 | [claude-sdk-python](./starters/claude-sdk-python/)                 | Starter template using the Claude Agent SDK (Python) and CopilotKit                  |
 | [claude-sdk-typescript](./starters/claude-sdk-typescript/)         | Starter template using the Claude Agent SDK (TypeScript) and CopilotKit              |
 | [claude-managed-agents](./starters/claude-managed-agents/)         | Beautiful Chat starter with Claude Managed Agents and Intelligence Skills            |
+| [omnara](./starters/omnara/)                                       | Beautiful Chat starter with Omnara agents and Intelligence threads                   |
 
 ## Demos (32)
 

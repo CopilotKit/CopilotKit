@@ -11,6 +11,39 @@ import type { ToolDefinition } from "../index";
 import type { Message } from "@ag-ui/client";
 
 describe("convertMessagesToVercelAISDKMessages", () => {
+  it("restores an opaque Gemini tool thought signature from AG-UI history", () => {
+    const signature = "opaque+/signature==\n";
+    const messages: Message[] = [
+      {
+        id: "assistant-1",
+        role: "assistant",
+        toolCalls: [
+          {
+            id: "call-1",
+            type: "function",
+            function: { name: "render_a2ui", arguments: "{}" },
+            encryptedValue: signature,
+          },
+        ],
+      },
+    ];
+
+    expect(convertMessagesToVercelAISDKMessages(messages)).toEqual([
+      {
+        role: "assistant",
+        content: [
+          {
+            type: "tool-call",
+            toolCallId: "call-1",
+            toolName: "render_a2ui",
+            input: {},
+            providerOptions: { google: { thoughtSignature: signature } },
+          },
+        ],
+      },
+    ]);
+  });
+
   it("should convert user messages", () => {
     const messages: Message[] = [
       {

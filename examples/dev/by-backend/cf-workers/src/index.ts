@@ -14,7 +14,7 @@ export default {
     const runtime = new CopilotRuntime({
       agents: {
         default: new BuiltInAgent({
-          model: createOpenaiChat("gpt-5-mini", env.OPENAI_API_KEY),
+          model: createOpenaiChat("gpt-6-luna", env.OPENAI_API_KEY),
         }),
       },
     });

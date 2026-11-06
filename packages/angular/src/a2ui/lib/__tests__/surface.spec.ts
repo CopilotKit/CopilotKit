@@ -19,7 +19,11 @@ const definitions = {
     props: z.object({ gap: z.number().optional(), children: ChildListSchema }),
   },
   Text: { props: z.object({ text: DynamicStringSchema }) },
-  Metric: { props: z.object({ label: z.string(), value: z.string() }) },
+  // `value` is optional so a Metric can arrive without it and gain or lose it
+  // later: web_core validates each component against its schema.
+  Metric: {
+    props: z.object({ label: z.string(), value: z.string().optional() }),
+  },
   Button: {
     props: z.object({ label: z.string(), action: ActionSchema.optional() }),
   },
@@ -65,7 +69,7 @@ class TextComponent {
 class MetricComponent {
   static created = 0;
   readonly label = input.required<string>();
-  readonly value = input.required<string>();
+  readonly value = input.required<string | undefined>();
 
   constructor() {
     MetricComponent.created += 1;

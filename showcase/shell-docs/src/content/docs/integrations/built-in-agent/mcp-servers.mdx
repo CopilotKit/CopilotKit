@@ -36,7 +36,7 @@ open or close a connection for each run.
    });
 
    const builtInAgent = new BuiltInAgent({
-     model: openaiText("gpt-5.4-mini"),
+     model: openaiText("gpt-6-luna"),
      mcp: { clients: [client] }, // [!code highlight]
      maxSteps: 3, // [!code highlight]
    });
@@ -122,7 +122,7 @@ const analytics = await createMCPClient({
 });
 
 const builtInAgent = new BuiltInAgent({
-  model: openaiText("gpt-5.4-mini"),
+  model: openaiText("gpt-6-luna"),
   mcp: { clients: [search, db, analytics] }, // [!code highlight]
 });
 ```
@@ -187,7 +187,7 @@ const search = await createMCPClient({
 });
 
 const builtInAgent = new BuiltInAgent({
-  model: openaiText("gpt-5.4-mini"),
+  model: openaiText("gpt-6-luna"),
   tools: [getUser], // Your server tools
   mcp: { clients: [search] }, // Plus tools from MCP servers
 });
@@ -200,7 +200,7 @@ the model on every call, and that costs tokens. Set `lazyTools: true`:
 
 ```typescript ignore
 const builtInAgent = new BuiltInAgent({
-  model: openaiText("gpt-5.4-mini"),
+  model: openaiText("gpt-6-luna"),
   mcp: {
     clients: [search, db, analytics],
     lazyTools: true, // [!code highlight]
@@ -220,7 +220,7 @@ To skip the failed server and keep the tools of the other servers, pass
 
 ```typescript ignore
 const builtInAgent = new BuiltInAgent({
-  model: openaiText("gpt-5.4-mini"),
+  model: openaiText("gpt-6-luna"),
   mcp: {
     clients: [search, db, analytics],
     onDiscoveryError: (error) => { // [!code highlight:3]
@@ -258,7 +258,7 @@ const client = await createMCPClient({
 const cachedTools = client.tools(); // [!code highlight]
 
 const builtInAgent = new BuiltInAgent({
-  model: openaiText("gpt-5.4-mini"),
+  model: openaiText("gpt-6-luna"),
   mcp: {
     clients: [{ tools: () => cachedTools, close: () => client.close() }], // [!code highlight]
   },
@@ -303,7 +303,7 @@ const source = {
 };
 
 const builtInAgent = new BuiltInAgent({
-  model: openaiText("gpt-5.4-mini"),
+  model: openaiText("gpt-6-luna"),
   mcp: { clients: [source] },
 });
 ```

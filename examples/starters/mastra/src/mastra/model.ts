@@ -69,7 +69,7 @@ export function usesChatCompletions(): boolean {
  * `OPENAI_BASE_URL`, which the OpenAI provider reads itself. On such a host
  * the model uses Chat Completions (see `usesChatCompletions`).
  *
- * @param defaultSpec - This site's default, e.g. `"openai:gpt-5-mini"`.
+ * @param defaultSpec - This site's default, e.g. `"openai:gpt-6-luna"`.
  */
 export function createLanguageModel(defaultSpec: string) {
   const { provider, model } = parseAgentModel(

@@ -135,7 +135,8 @@ const headerForwardingMiddleware = createMiddleware({
 
 const a2uiTool = getA2UITools({
   model: new ChatOpenAI({
-    model: "gpt-5-mini",
+    modelKwargs: { reasoning_effort: "none" },
+    model: "gpt-6-luna",
     configuration: { fetch: forwardingFetch },
   }),
   defaultCatalogId: "declarative-gen-ui-catalog",
@@ -154,7 +155,8 @@ const a2uiTool = getA2UITools({
 
 export const graph = createAgent({
   model: new ChatOpenAI({
-    model: "gpt-5-mini",
+    modelKwargs: { reasoning_effort: "none" },
+    model: "gpt-6-luna",
     configuration: { fetch: forwardingFetch },
   }),
   // Cast: tool typed against @ag-ui/langgraph's own @langchain/core peer.

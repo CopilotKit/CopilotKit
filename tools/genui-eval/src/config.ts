@@ -21,7 +21,7 @@ const modelEntry = z.object({
       temperature: z.number().optional(),
       maxOutputTokens: z.number().int().positive().optional(),
       reasoningEffort: z
-        .enum(["low", "medium", "high", "xhigh", "max"])
+        .enum(["none", "low", "medium", "high", "xhigh", "max"])
         .optional(),
     })
     .optional(),

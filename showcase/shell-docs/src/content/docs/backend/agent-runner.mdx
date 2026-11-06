@@ -93,7 +93,7 @@ import { BuiltInAgent } from "@copilotkit/runtime/agent";
 import { openaiText } from "@tanstack/ai-openai";
 
 const runtime = new CopilotRuntime({
-  agents: { default: new BuiltInAgent({ model: openaiText("gpt-4o-mini") }) },
+  agents: { default: new BuiltInAgent({ model: openaiText("gpt-6-luna") }) },
   // Explicit, but this is also the default if omitted:
   runner: new InMemoryAgentRunner(),
 });
@@ -132,7 +132,7 @@ import { BuiltInAgent } from "@copilotkit/runtime/agent";
 import { openaiText } from "@tanstack/ai-openai";
 
 const runtime = new CopilotRuntime({
-  agents: { default: new BuiltInAgent({ model: openaiText("gpt-4o-mini") }) },
+  agents: { default: new BuiltInAgent({ model: openaiText("gpt-6-luna") }) },
   runner: new InMemoryAgentRunner({
     maxThreads: 200,
     maxRunsPerThread: 50,
@@ -214,7 +214,7 @@ import { openaiText } from "@tanstack/ai-openai";
 import { SqliteAgentRunner } from "@copilotkit/sqlite-runner";
 
 const runtime = new CopilotRuntime({
-  agents: { default: new BuiltInAgent({ model: openaiText("gpt-4o-mini") }) },
+  agents: { default: new BuiltInAgent({ model: openaiText("gpt-6-luna") }) },
   runner: new SqliteAgentRunner({ dbPath: "./data/threads.db" }),
 });
 ```

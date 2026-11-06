@@ -10,7 +10,7 @@
  * Architecture:
  * - Dedicated runtime route at `/api/copilotkit-multimodal` (see
  *   ../api/copilotkit-multimodal/route.ts). The vision-capable model
- *   (gpt-4o) is scoped to just this demo, so other cells keep their
+ *   (gpt-6-luna) is scoped to just this demo, so other cells keep their
  *   cheaper text-only models.
  * - Dedicated LangGraph agent at `src/agents/multimodal_agent.py` under
  *   the slug `multimodal-demo`. The agent is registered in langgraph.json

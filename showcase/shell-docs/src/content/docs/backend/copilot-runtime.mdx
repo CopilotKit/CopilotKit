@@ -120,7 +120,7 @@ see [Runtime HTTP endpoints](/backend/runtime-endpoints).
 
 The runtime supports multiple agent types. `BuiltInAgent` is the primary agent class:
 
-- **Simple mode:** pass a TanStack AI adapter, such as `openaiText("gpt-5.5")`, and let CopilotKit handle the rest. Best for quick setup. See [Quickstart](/quickstart).
+- **Simple mode:** pass a TanStack AI adapter, such as `openaiText("gpt-6-luna")`, and let CopilotKit handle the rest. Best for quick setup. See [Quickstart](/quickstart).
 - **Factory mode:** bring your own AI SDK, TanStack AI, or custom LLM backend. Best when you need full control. See [Factory Mode](/backend/custom-agent).
 
 To register agent logic you wrote yourself, extend AG-UI's `AbstractAgent`. See [Write your own AG-UI agent](/backend/custom-ag-ui-agent).
@@ -163,7 +163,7 @@ import { openaiText } from "@tanstack/ai-openai";
 const runtime = new CopilotRuntime({
   agents: {
     // Frontend components use this agent unless given another agentId.
-    default: new BuiltInAgent({ model: openaiText("gpt-4.1") }),
+    default: new BuiltInAgent({ model: openaiText("gpt-6-luna") }),
   },
 });
 ```
@@ -252,7 +252,7 @@ import { CopilotRuntime } from "@copilotkit/runtime";
 import { BuiltInAgent } from "@copilotkit/runtime/agent";
 import { openaiText } from "@tanstack/ai-openai";
 
-const myAgent = new BuiltInAgent({ model: openaiText("gpt-4o-mini") });
+const myAgent = new BuiltInAgent({ model: openaiText("gpt-6-luna") });
 
 const runtime = new CopilotRuntime({
   agents: { default: myAgent },
@@ -267,7 +267,7 @@ import { CopilotRuntime } from "@copilotkit/runtime";
 import { BuiltInAgent } from "@copilotkit/runtime/agent";
 import { openaiText } from "@tanstack/ai-openai";
 
-const myAgent = new BuiltInAgent({ model: openaiText("gpt-4o-mini") });
+const myAgent = new BuiltInAgent({ model: openaiText("gpt-6-luna") });
 
 const runtime = new CopilotRuntime({
   agents: { "my-agent": myAgent },
@@ -329,7 +329,7 @@ import { CopilotRuntime } from "@copilotkit/runtime";
 import { BuiltInAgent } from "@copilotkit/runtime/agent";
 import { openaiText } from "@tanstack/ai-openai";
 
-const myAgent = new BuiltInAgent({ model: openaiText("gpt-4o-mini") });
+const myAgent = new BuiltInAgent({ model: openaiText("gpt-6-luna") });
 
 const runtime = new CopilotRuntime({
   agents: { default: myAgent },
@@ -375,7 +375,7 @@ import { CopilotRuntime } from "@copilotkit/runtime";
 import { BuiltInAgent } from "@copilotkit/runtime/agent";
 import { openaiText } from "@tanstack/ai-openai";
 
-const myAgent = new BuiltInAgent({ model: openaiText("gpt-4o-mini") });
+const myAgent = new BuiltInAgent({ model: openaiText("gpt-6-luna") });
 
 const runtime = new CopilotRuntime({
   agents: { default: myAgent },
@@ -400,7 +400,7 @@ import { CopilotRuntime } from "@copilotkit/runtime";
 import { BuiltInAgent } from "@copilotkit/runtime/agent";
 import { openaiText } from "@tanstack/ai-openai";
 
-const myAgent = new BuiltInAgent({ model: openaiText("gpt-4o-mini") });
+const myAgent = new BuiltInAgent({ model: openaiText("gpt-6-luna") });
 
 const runtime = new CopilotRuntime({
   agents: { default: myAgent },

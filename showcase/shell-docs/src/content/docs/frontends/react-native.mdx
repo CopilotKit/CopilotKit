@@ -118,7 +118,7 @@ Use this prompt to set up CopilotKit in your React Native app, configure Metro a
         const runtime = new CopilotRuntime({
           agents: {
             default: new BuiltInAgent({
-              model: openaiText("gpt-5-mini"),
+              model: openaiText("gpt-6-luna"),
               prompt: "You are a helpful assistant for a React Native app.",
             }),
           },
@@ -531,7 +531,7 @@ import { openaiText } from "@tanstack/ai-openai";
 import { anthropicText } from "@tanstack/ai-anthropic";
 import { geminiText } from "@tanstack/ai-gemini";
 
-const openai = new BuiltInAgent({ model: openaiText("gpt-5-mini"), prompt: "..." }); // OPENAI_API_KEY
+const openai = new BuiltInAgent({ model: openaiText("gpt-6-luna"), prompt: "..." }); // OPENAI_API_KEY
 const anthropic = new BuiltInAgent({ model: anthropicText("claude-sonnet-4-6"), prompt: "..." }); // ANTHROPIC_API_KEY
 const google = new BuiltInAgent({ model: geminiText("gemini-3.8-flash"), prompt: "..." }); // GOOGLE_API_KEY
 ```
@@ -547,7 +547,7 @@ import { BuiltInAgent } from "@copilotkit/runtime/agent";
 import { openaiCompatibleText } from "@tanstack/ai-openai/compatible";
 
 const agent = new BuiltInAgent({
-  model: openaiCompatibleText("gpt-5-mini", {
+  model: openaiCompatibleText("gpt-6-luna", {
     baseURL: "https://your-gateway.example.com/v1",
     apiKey: process.env.GATEWAY_API_KEY!,
   }),

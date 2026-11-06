@@ -3,6 +3,8 @@ import type { ReactNode } from "react";
 import { useA2UI } from "../hooks/useA2UI";
 import { A2uiSurface } from "../a2ui-react";
 import { cn } from "../lib/utils";
+import { useA2UISurfaceError } from "./A2UIProvider";
+import { ROOT_COMPONENT_ID } from "../../a2ui-types.js";
 
 /** Default loading fallback - memoized to prevent recreation */
 const DefaultLoadingFallback = memo(function DefaultLoadingFallback() {
@@ -37,6 +39,7 @@ export const A2UIRenderer = memo(function A2UIRenderer({
   loadingFallback,
 }: A2UIRendererProps) {
   const { getSurface, version } = useA2UI();
+  const surfaceError = useA2UISurfaceError(surfaceId);
 
   // Get v0.9 SurfaceModel - this will re-render when version changes
   const surface = getSurface(surfaceId);
@@ -55,9 +58,18 @@ export const A2UIRenderer = memo(function A2UIRenderer({
       data-surface-id={surfaceId}
       data-version={version}
     >
-      <Suspense fallback={actualLoadingFallback}>
-        <A2uiSurface surface={surface} />
-      </Suspense>
+      {surfaceError && (
+        <div role="alert">
+          Unable to display this surface: {surfaceError}. Ask the assistant to
+          correct these components and try again.
+        </div>
+      )}
+      {/* A rejected first update leaves no root; skip its loading placeholder. */}
+      {(!surfaceError || surface.componentsModel.get(ROOT_COMPONENT_ID)) && (
+        <Suspense fallback={actualLoadingFallback}>
+          <A2uiSurface surface={surface} />
+        </Suspense>
+      )}
     </div>
   );
 });

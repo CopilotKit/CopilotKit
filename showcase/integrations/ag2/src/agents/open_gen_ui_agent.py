@@ -55,7 +55,7 @@ rendered visualisation.
 agent = Agent(
     "open_gen_ui_assistant",
     prompt=SYSTEM_PROMPT,
-    config=OpenAIResponsesConfig(model="gpt-5-mini", streaming=True),
+    config=OpenAIResponsesConfig(model="gpt-6-luna", streaming=True),
     middleware=[loop_cap(4)],
 )
 

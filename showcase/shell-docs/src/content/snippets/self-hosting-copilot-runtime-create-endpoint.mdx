@@ -66,7 +66,7 @@ OPENAI_API_KEY=your_api_key_here
         import { openaiText } from "@tanstack/ai-openai";
 
         const runtime = new CopilotRuntime({
-          agents: { default: new BuiltInAgent({ model: openaiText("gpt-5.5") }) },
+          agents: { default: new BuiltInAgent({ model: openaiText("gpt-6-luna") }) },
         });
 
         const handler = createCopilotRuntimeHandler({
@@ -92,7 +92,7 @@ OPENAI_API_KEY=your_api_key_here
         import { createCopilotNodeListener } from "@copilotkit/runtime/node";
 
         const runtime = new CopilotRuntime({
-          agents: { default: new BuiltInAgent({ model: openaiText("gpt-5.5") }) },
+          agents: { default: new BuiltInAgent({ model: openaiText("gpt-6-luna") }) },
         });
 
         export default createCopilotNodeListener({
@@ -118,7 +118,7 @@ OPENAI_API_KEY=your_api_key_here
         const app = express();
 
         const runtime = new CopilotRuntime({
-          agents: { default: new BuiltInAgent({ model: openaiText("gpt-5.5") }) },
+          agents: { default: new BuiltInAgent({ model: openaiText("gpt-6-luna") }) },
         });
 
         app.use(
@@ -150,7 +150,7 @@ OPENAI_API_KEY=your_api_key_here
         import { createCopilotNodeListener } from "@copilotkit/runtime/node";
 
         const runtime = new CopilotRuntime({
-          agents: { default: new BuiltInAgent({ model: openaiText("gpt-5.5") }) },
+          agents: { default: new BuiltInAgent({ model: openaiText("gpt-6-luna") }) },
         });
 
         const listener = createCopilotNodeListener({
@@ -183,7 +183,7 @@ OPENAI_API_KEY=your_api_key_here
         import { createCopilotNodeListener } from "@copilotkit/runtime/node";
 
         const runtime = new CopilotRuntime({
-          agents: { default: new BuiltInAgent({ model: openaiText("gpt-5.5") }) },
+          agents: { default: new BuiltInAgent({ model: openaiText("gpt-6-luna") }) },
         });
 
         const listener = createCopilotNodeListener({

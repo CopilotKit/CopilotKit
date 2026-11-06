@@ -49,7 +49,7 @@ load_dotenv(_HERE.parent / ".env")
 API_BASE = os.getenv("MYELIN_API_BASE", "http://localhost:3000/api/myelin/v1").rstrip(
     "/"
 )
-MODEL = os.getenv("MYELIN_MODEL", "openai/gpt-5.4")
+MODEL = os.getenv("MYELIN_MODEL", "openai/gpt-6-luna")
 CONTEXT_STATE_KEY = "_ag_ui_context"
 
 # ── REST plumbing ───────────────────────────────────────────────────────────
@@ -493,7 +493,15 @@ def build_model():
 
     # Sequential tool calls: the journey build adds items ONE AT A TIME and each
     # add_item needs the ids returned by the previous ones for depends_on.
-    return LiteLlm(model=MODEL, parallel_tool_calls=False)
+    return LiteLlm(
+        model=MODEL,
+        parallel_tool_calls=False,
+        **(
+            {"reasoning_effort": "none", "allowed_openai_params": ["reasoning_effort"]}
+            if MODEL in ("gpt-6-luna", "openai/gpt-6-luna")
+            else {}
+        ),
+    )
 
 
 def _log_tool_call(tool, args, tool_context):

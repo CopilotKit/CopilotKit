@@ -28,7 +28,8 @@ async function chat_node(state: CustomerSupportState, config: RunnableConfig) {
 
   // Initialize the model
   const model = new ChatOpenAI({
-    model: "gpt-5-mini",
+    modelKwargs: { reasoning_effort: "none" },
+    model: "gpt-6-luna",
   });
 
   // Bind ALL tools (customer support tools + frontend actions from CopilotKit)

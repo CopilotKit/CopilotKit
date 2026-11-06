@@ -24,7 +24,13 @@ SYSTEM_PROMPT = (
 )
 
 graph = create_agent(
-    model=ChatOpenAI(model=os.getenv("OPENAI_MODEL", "gpt-5.4"), streaming=True),
+    model=ChatOpenAI(
+        reasoning_effort="none"
+        if os.getenv("OPENAI_MODEL", "gpt-6-luna") == "gpt-6-luna"
+        else None,
+        model=os.getenv("OPENAI_MODEL", "gpt-6-luna"),
+        streaming=True,
+    ),
     tools=[],
     middleware=[CopilotKitMiddleware()],
     system_prompt=SYSTEM_PROMPT,

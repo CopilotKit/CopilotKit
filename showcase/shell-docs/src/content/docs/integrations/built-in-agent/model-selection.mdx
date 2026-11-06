@@ -13,7 +13,7 @@ import { BuiltInAgent } from "@copilotkit/runtime/agent";
 import { openaiText } from "@tanstack/ai-openai";
 
 const agent = new BuiltInAgent({
-  model: openaiText("gpt-5.4-mini"),
+  model: openaiText("gpt-6-luna"),
 });
 ```
 
@@ -44,27 +44,17 @@ models that these docs use.
 
 ### OpenAI
 
-| Model        | Adapter                      |
-| ------------ | ---------------------------- |
-| GPT-5.5      | `openaiText("gpt-5.5")`      |
-| GPT-5.4 Mini | `openaiText("gpt-5.4-mini")` |
-| GPT-5.2      | `openaiText("gpt-5.2")`      |
-| GPT-5        | `openaiText("gpt-5")`        |
-| GPT-5 Mini   | `openaiText("gpt-5-mini")`   |
-| GPT-4.1      | `openaiText("gpt-4.1")`      |
-| GPT-4.1 Mini | `openaiText("gpt-4.1-mini")` |
-| GPT-4.1 Nano | `openaiText("gpt-4.1-nano")` |
-| GPT-4o       | `openaiText("gpt-4o")`       |
-| GPT-4o Mini  | `openaiText("gpt-4o-mini")`  |
-| o3-mini      | `openaiText("o3-mini")`      |
-| o4-mini      | `openaiText("o4-mini")`      |
+| Model          | Adapter                        |
+| -------------- | ------------------------------ |
+| GPT-6 Luna     | `openaiText("gpt-6-luna")`     |
+| GPT-6 Luna Pro | `openaiText("gpt-6-luna-pro")` |
 
 ```typescript
 import { BuiltInAgent } from "@copilotkit/runtime/agent";
 import { openaiText } from "@tanstack/ai-openai";
 
 const agent = new BuiltInAgent({
-  model: openaiText("gpt-5.4-mini"),
+  model: openaiText("gpt-6-luna"),
 });
 ```
 
@@ -185,7 +175,7 @@ import { BuiltInAgent } from "@copilotkit/runtime/agent";
 import { createOpenaiChat } from "@tanstack/ai-openai"; // [!code highlight]
 
 const agent = new BuiltInAgent({
-  model: createOpenaiChat("gpt-5.4-mini", process.env.MY_OPENAI_KEY!, { // [!code highlight:3]
+  model: createOpenaiChat("gpt-6-luna", process.env.MY_OPENAI_KEY!, { // [!code highlight:3]
     organization: "org-my-team",
   }),
 });
@@ -217,13 +207,13 @@ import { BuiltInAgent } from "@copilotkit/runtime/agent";
 import { openaiText } from "@tanstack/ai-openai";
 
 const agent = new BuiltInAgent({
-  model: openaiText("gpt-5.2"),
+  model: openaiText("gpt-6-luna"),
   reasoning: "high", // [!code highlight]
 });
 ```
 
-Only the levels of your model type-check. For example, `gpt-5.2` has `"off"`,
-`"low"`, `"medium"`, `"high"`, and `"xhigh"`. If you do not set `reasoning`, the
+Only the levels of your model type-check. For example, `gpt-6-luna` has `"off"`,
+`"low"`, `"medium"`, `"high"`, `"xhigh"`, and `"max"`. If you do not set `reasoning`, the
 provider default applies. `"off"` turns thinking off.
 
 For more control, pass an object:
@@ -278,14 +268,14 @@ into a model.
    import { openaiText } from "@tanstack/ai-openai";
 
    const agent = new BuiltInAgent({
-     model: openaiText("gpt-5.4-mini"),
+     model: openaiText("gpt-6-luna"),
      overridableProperties: ["model"], // [!code highlight:11]
      resolveModel: (name) => {
        switch (name) {
          case "fast":
-           return openaiText("gpt-5.4-mini");
+           return openaiText("gpt-6-luna");
          case "smart":
-           return openaiText("gpt-5.5");
+           return openaiText("gpt-6-luna-pro");
          default:
            return undefined;
        }
@@ -307,7 +297,7 @@ into a model.
    }
    ```
 
-The run now uses GPT-5.5. `resolveModel` can return three things:
+The run now uses GPT-6 Luna Pro. `resolveModel` can return three things:
 
 - An adapter: the run uses it with the configured `modelOptions` and
   `reasoning`.
@@ -330,13 +320,13 @@ import { openaiText } from "@tanstack/ai-openai";
 import { anthropicText } from "@tanstack/ai-anthropic";
 
 const agent = new BuiltInAgent({
-  model: openaiText("gpt-5.4-mini"),
+  model: openaiText("gpt-6-luna"),
   modelOptions: { verbosity: "low" },
   overridableProperties: ["model"],
   resolveModel: (name) => {
     switch (name) {
       case "fast":
-        return openaiText("gpt-5.4-mini");
+        return openaiText("gpt-6-luna");
       case "smart":
         return createChatOptions({ // [!code highlight:5]
           adapter: anthropicText("claude-sonnet-4-6"),
@@ -359,7 +349,7 @@ cannot send an API key or a base URL.
 
 ## Use an AI SDK model
 
-To run a Vercel AI SDK model, such as `openai("gpt-5.4-mini")` from
+To run a Vercel AI SDK model, such as `openai("gpt-6-luna")` from
 `@ai-sdk/openai`, use an AI SDK factory. You write the `streamText()` call, and
 the Built-in Agent streams it to the frontend. See
 [Use any model router](/backend/custom-agent).

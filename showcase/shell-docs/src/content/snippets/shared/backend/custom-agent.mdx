@@ -8,7 +8,7 @@ import { Tabs, Tab } from "fumadocs-ui/components/tabs";
 | | Simple Mode | Factory Mode |
 |---|---|---|
 | **Setup** | Minimal: pass a TanStack AI adapter | You own the LLM call and stream |
-| **Model** | An adapter, such as `openaiText("gpt-4o")` | You set up the model yourself |
+| **Model** | An adapter, such as `openaiText("gpt-6-luna")` | You set up the model yourself |
 | **Tools, MCP, state tools** | Automatically wired | You wire them in your factory |
 | **Backend support** | TanStack AI | Any backend: AI SDK, TanStack AI, or custom |
 | **Best for** | Quick setup, standard use cases | Full control, non-standard backends |
@@ -46,7 +46,7 @@ const agent = new BuiltInAgent({
   type: "aisdk",
   factory: ({ input, abortSignal }) =>
     streamText({
-      model: openai("gpt-4o"),
+      model: openai("gpt-6-luna"),
       messages: convertMessagesToVercelAISDKMessages(input.messages),
       abortSignal,
     }),
@@ -87,7 +87,7 @@ const agent = new BuiltInAgent({
   factory: ({ input, abortController }) => {
     const { messages, systemPrompts } = convertInputToTanStackAI(input);
     return chat({
-      adapter: openaiText("gpt-4o"),
+      adapter: openaiText("gpt-6-luna"),
       messages,
       systemPrompts,
       threadId: input.threadId,
@@ -214,7 +214,7 @@ const agent = new BuiltInAgent({
     const apiKey = await getApiKeyFromVault();
     const openai = createOpenAI({ apiKey });
     return streamText({
-      model: openai("gpt-4o"),
+      model: openai("gpt-6-luna"),
       messages: convertMessagesToVercelAISDKMessages(input.messages),
       abortSignal,
     });
@@ -242,7 +242,7 @@ const agent = new BuiltInAgent({
   factory: ({ input, abortSignal }) => {
     const tools = convertToolsToVercelAITools(input.tools);
     return streamText({
-      model: openai("gpt-4o"),
+      model: openai("gpt-6-luna"),
       messages: convertMessagesToVercelAISDKMessages(input.messages),
       tools,
       abortSignal,
@@ -274,7 +274,7 @@ const agent = new BuiltInAgent({
   factory: ({ input, abortController }) => {
     const { messages, systemPrompts } = convertInputToTanStackAI(input);
     return chat({
-      adapter: openaiText("gpt-4o"),
+      adapter: openaiText("gpt-6-luna"),
       messages,
       systemPrompts,
       tools: [getWeather],
@@ -442,7 +442,7 @@ const agent = new BuiltInAgent({
     messages.unshift({ role: "system", content: systemParts.join("\n\n") });
 
     return streamText({
-      model: openai("gpt-4o"),
+      model: openai("gpt-6-luna"),
       messages,
       abortSignal,
     });
@@ -470,7 +470,7 @@ const agent = new BuiltInAgent({
     systemPrompts.unshift("You are a helpful assistant.");
 
     return chat({
-      adapter: openaiText("gpt-4o"),
+      adapter: openaiText("gpt-6-luna"),
       messages,
       systemPrompts,
       threadId: input.threadId,
@@ -502,9 +502,9 @@ const agent = new BuiltInAgent({
     const props: Record<string, unknown> = input.forwardedProps ?? {};
 
     const model =
-      props.model === "openai/gpt-4o-mini"
-        ? openai("gpt-4o-mini")
-        : openai("gpt-4o");
+      props.model === "openai/gpt-6-luna-pro"
+        ? openai("gpt-6-luna-pro")
+        : openai("gpt-6-luna");
 
     const temperature =
       typeof props.temperature === "number" ? props.temperature : 0.7;
@@ -538,7 +538,7 @@ const agent = new BuiltInAgent({
     const adapter =
       props.model === "anthropic/claude-sonnet-4-6"
         ? anthropicText("claude-sonnet-4-6")
-        : openaiText("gpt-4o");
+        : openaiText("gpt-6-luna");
 
     const modelOptions: Record<string, unknown> = {};
     if (typeof props.temperature === "number")
@@ -617,7 +617,7 @@ const agent = new BuiltInAgent({
     };
 
     return streamText({
-      model: openai("gpt-4o"),
+      model: openai("gpt-6-luna"),
       messages: convertMessagesToVercelAISDKMessages(input.messages),
       tools: { ...inputTools, ...stateTools },
       abortSignal,
@@ -661,7 +661,7 @@ const agent = new BuiltInAgent({
   factory: ({ input, abortController }) => {
     const { messages, systemPrompts } = convertInputToTanStackAI(input);
     return chat({
-      adapter: openaiText("gpt-4o"),
+      adapter: openaiText("gpt-6-luna"),
       messages,
       systemPrompts,
       tools: [sendStateSnapshot, sendStateDelta],
@@ -691,7 +691,7 @@ const agent = new BuiltInAgent({
   type: "aisdk",
   factory: ({ input, abortSignal }) =>
     streamText({
-      model: openai("gpt-4o"),
+      model: openai("gpt-6-luna"),
       messages: convertMessagesToVercelAISDKMessages(input.messages),
       tools: {
         getWeather: tool({
@@ -721,7 +721,7 @@ const agent = new BuiltInAgent({
   factory: ({ input, abortController }) => {
     const { messages, systemPrompts } = convertInputToTanStackAI(input);
     return chat({
-      adapter: openaiText("gpt-4o"),
+      adapter: openaiText("gpt-6-luna"),
       messages,
       systemPrompts,
       outputSchema: z.object({

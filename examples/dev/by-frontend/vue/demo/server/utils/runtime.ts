@@ -12,7 +12,7 @@ import { Observable } from "rxjs";
 
 const determineModel = () => {
   if (process.env.OPENAI_API_KEY?.trim()) {
-    return openaiText("gpt-5-mini");
+    return openaiText("gpt-6-luna");
   }
   if (process.env.ANTHROPIC_API_KEY?.trim()) {
     return anthropicText("claude-sonnet-4-6");
@@ -21,7 +21,7 @@ const determineModel = () => {
     return geminiText("gemini-3.8-flash");
   }
   // No key found: the OpenAI adapter throws an error that names OPENAI_API_KEY.
-  return openaiText("gpt-5-mini");
+  return openaiText("gpt-6-luna");
 };
 
 const createTranscriptionService = () => {

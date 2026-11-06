@@ -85,7 +85,12 @@ describe("custom catalog validation", () => {
         </A2UIProvider>,
       );
       await act(async () => {});
-      expect(screen.getByRole("alert").textContent).toMatch(/Text/);
+      expect(screen.getByRole("alert").textContent).toMatch(
+        /Unable to display Text:.*Function not found in catalog/,
+      );
+      expect(screen.getByRole("alert").textContent).not.toContain(
+        "Unable to display this surface",
+      );
       view.rerender(
         <A2UIProvider catalog={catalog}>
           <Surface
@@ -168,14 +173,23 @@ describe("custom catalog validation", () => {
     const metric = dashboard.components.find(
       (component) => component.id === "metric",
     )!;
+    const components = [{ ...metric, id: "root" }];
     const view = render(
       <A2UIProvider catalog={catalog}>
-        <Surface components={[{ ...metric, id: "root" }]} />
+        <Surface components={components} />
       </A2UIProvider>,
     );
     expect(screen.getByRole("alert").textContent).toMatch(
       /Metric.*label.*value/,
     );
+    const rejection = screen.getByRole("alert").textContent;
+    view.rerender(
+      <A2UIProvider catalog={catalog}>
+        <Surface components={components} data={{ message: "Data corrected" }} />
+      </A2UIProvider>,
+    );
+    await act(async () => {});
+    expect(screen.getByRole("alert").textContent).toBe(rejection);
     view.rerender(
       <A2UIProvider catalog={catalog}>
         <Surface

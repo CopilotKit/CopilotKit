@@ -59,6 +59,10 @@ interface ThreadState {
   completion: Promise<boolean>;
   resolveCompletion: (completed: boolean) => void;
   stopTimer: ReturnType<typeof setTimeout> | null;
+  /** Records a runtime-side stop with Intelligence; see AgentRunnerRunRequest. */
+  recordStop?: (signal: AbortSignal) => Promise<void>;
+  /** Settles once a runtime-side stop is recorded, failed or timed out. */
+  stopRecorded: Promise<void> | null;
   pendingEvents: Map<
     string,
     { payload: Record<string, unknown>; queuedAt: number }
@@ -81,6 +85,12 @@ const RUNNER_EVENT_BATCH_CAPABILITY = "runner_event_batch_v1";
 const MAX_RUNNER_EVENT_BATCH_SIZE = 32;
 const RUNNER_EVENT_BATCH_FLUSH_MS = 5;
 const EVENT_DURABILITY_DEADLINE_MS = 60_000;
+/**
+ * How long a runtime-side stop waits for Intelligence to record it before the
+ * terminal event is sent anyway. The agent is aborted at once; only the
+ * terminal event waits, so a slow or failing record never keeps a run going.
+ */
+export const STOP_RECORD_DEADLINE_MS = 2_000;
 
 export class IntelligenceAgentRunner extends AgentRunner {
   private options: IntelligenceAgentRunnerOptions;
@@ -281,6 +291,8 @@ export class IntelligenceAgentRunner extends AgentRunner {
         completion,
         resolveCompletion,
         stopTimer: null,
+        ...(request.recordStop ? { recordStop: request.recordStop } : {}),
+        stopRecorded: null,
         pendingEvents: new Map(),
         activeEventBatch: null,
         nextEventPushAttempt: 0,
@@ -361,7 +373,11 @@ export class IntelligenceAgentRunner extends AgentRunner {
           payload.type === EventType.CUSTOM &&
           (payload as BaseEvent & { name?: string }).name === "stop"
         ) {
-          this.stop({ threadId, runId: state.runId }).catch((error) => {
+          // Intelligence relayed this stop, so it has already recorded it.
+          this.stopRun(
+            { threadId, runId: state.runId },
+            { recordWithIntelligence: false },
+          ).catch((error) => {
             logger.error(
               { err: error, threadId, runId: state.runId },
               "Failed to stop Intelligence run",
@@ -516,6 +532,13 @@ export class IntelligenceAgentRunner extends AgentRunner {
 
   /** Stops this run and waits until its terminal events have been acknowledged. */
   stop(request: AgentRunnerStopRequest): Promise<boolean | undefined> {
+    return this.stopRun(request, { recordWithIntelligence: true });
+  }
+
+  private stopRun(
+    request: AgentRunnerStopRequest,
+    options: { recordWithIntelligence: boolean },
+  ): Promise<boolean | undefined> {
     const state = this.threads.get(request.threadId);
     if (!state || !state.isRunning || state.stopRequested) {
       return Promise.resolve(false);
@@ -525,6 +548,13 @@ export class IntelligenceAgentRunner extends AgentRunner {
     }
 
     state.stopRequested = true;
+
+    // A stop made here never reached Intelligence, which would otherwise count
+    // the run's terminal event as a normal finish. Record it first; the
+    // terminal event waits for this, the agent does not.
+    if (options.recordWithIntelligence && state.recordStop) {
+      state.stopRecorded = recordStopWithin(state, STOP_RECORD_DEADLINE_MS);
+    }
 
     // Fence output before abort: adapters may emit synchronously, throw, or
     // ignore cancellation. Finalization must not depend on their cooperation.
@@ -577,7 +607,7 @@ export class IntelligenceAgentRunner extends AgentRunner {
     request: AgentRunnerRunRequest,
     state: ThreadState,
     threadId: string,
-    onRunError: (event: BaseEvent) => void,
+    notifyHandler: (event: BaseEvent) => void,
   ): Promise<void> {
     const { currentEvents } = state;
     const pushCanonicalEvent = (event: BaseEvent): void => {
@@ -601,10 +631,15 @@ export class IntelligenceAgentRunner extends AgentRunner {
         this.createRunnerEventPayload(canonicalEvent, request, state),
         state,
       );
-      // Notify the request handler without publishing the persisted error twice.
-      // An agent may emit RUN_ERROR and complete normally instead of throwing.
-      if (canonicalEvent.type === EventType.RUN_ERROR) {
-        onRunError(canonicalEvent);
+      // Tell the request handler when the run starts and when it fails; every
+      // other event goes to the gateway only. RUN_STARTED lets the handler
+      // tell a run that failed from one that never started. An agent may emit
+      // RUN_ERROR and complete normally instead of throwing.
+      if (
+        canonicalEvent.type === EventType.RUN_STARTED ||
+        canonicalEvent.type === EventType.RUN_ERROR
+      ) {
+        notifyHandler(canonicalEvent);
       }
     };
 
@@ -680,6 +715,10 @@ export class IntelligenceAgentRunner extends AgentRunner {
         pushCanonicalEvent(errorEvent);
       }
     } finally {
+      // A stop the runtime made goes on record before the terminal event.
+      if (state.stopRecorded) {
+        await state.stopRecorded;
+      }
       if (!this.isCurrentThreadState(threadId, state)) {
         return;
       }
@@ -1128,4 +1167,44 @@ export class IntelligenceAgentRunner extends AgentRunner {
       // Socket may already be disconnected.
     }
   }
+}
+
+/**
+ * Runs a thread's stop record, bounded by a deadline. Never rejects: a stop
+ * that Intelligence could not record still stops the run.
+ */
+function recordStopWithin(
+  state: ThreadState,
+  deadlineMs: number,
+): Promise<void> {
+  const record = state.recordStop;
+  if (!record) return Promise.resolve();
+  const scope = { threadId: state.threadId, runId: state.runId };
+  return new Promise<void>((resolve) => {
+    const controller = new AbortController();
+    const deadline = setTimeout(() => {
+      controller.abort();
+      logger.warn(
+        scope,
+        "Timed out recording the run's stop with Intelligence",
+      );
+      resolve();
+    }, deadlineMs);
+    Promise.resolve()
+      .then(() => record(controller.signal))
+      .then(
+        () => {
+          clearTimeout(deadline);
+          resolve();
+        },
+        (error: unknown) => {
+          clearTimeout(deadline);
+          logger.warn(
+            { ...scope, err: error },
+            "Failed to record the run's stop with Intelligence",
+          );
+          resolve();
+        },
+      );
+  });
 }

@@ -250,13 +250,17 @@ export class CopilotA2UISurface implements OnDestroy {
       return this.applier;
     }
     this.reset();
-    const processor = new MessageProcessor([catalog], (userAction) => {
-      this.action.emit({ userAction });
-    });
+    const processor = new MessageProcessor<CopilotA2UICatalogEntry>(
+      [catalog],
+      (userAction) => {
+        this.action.emit({ userAction });
+      },
+    );
+    const applier = new A2UIOperationApplier(processor, catalog.id, theme);
     this.processor = processor;
-    this.applier = new A2UIOperationApplier(processor, catalog.id, theme);
+    this.applier = applier;
     this.applierKey = { catalog, theme: themeKey };
-    return this.applier;
+    return applier;
   }
 
   private process(

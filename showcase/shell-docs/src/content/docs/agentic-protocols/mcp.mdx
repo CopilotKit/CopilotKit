@@ -211,7 +211,7 @@ See [MCP Apps](/generative-ui/mcp-apps) for setup.
         const runtime = new CopilotRuntime({
           agents: {
             default: new BuiltInAgent({
-              model: openaiText("gpt-4o"),
+              model: openaiText("gpt-6-luna"),
               mcp: { clients: [mcpClient] },
               // One step calls a tool, the next answers with its result.
               maxSteps: 3,

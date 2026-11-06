@@ -50,7 +50,7 @@ SYSTEM_PROMPT = (
 interrupt_agent = Agent(
     "scheduling_agent",
     prompt=SYSTEM_PROMPT,
-    config=OpenAIResponsesConfig(model="gpt-5-mini", streaming=True),
+    config=OpenAIResponsesConfig(model="gpt-6-luna", streaming=True),
     # No backend tools. `schedule_meeting` is registered on the frontend
     # via `useFrontendTool` and dispatched through the CopilotKit runtime.
     # When the agent calls `schedule_meeting`, the request is routed to

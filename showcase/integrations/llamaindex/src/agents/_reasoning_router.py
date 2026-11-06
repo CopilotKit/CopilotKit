@@ -17,7 +17,7 @@ AG-UI ``REASONING_MESSAGE_*`` channel. Three independent reasons, all in
    reasoning type, so a reasoning event would be filtered out even if a
    custom workflow emitted one.
 
-Real OpenAI reasoning models (gpt-5, o3, o4-mini, …) stream the chain of
+Real OpenAI reasoning models (gpt-6-luna, …) stream the chain of
 thought through the **Responses API** as
 ``response.reasoning_summary_text.delta`` events; aimock renders the
 fixture's abstract ``reasoning`` field into that same Responses-API shape.

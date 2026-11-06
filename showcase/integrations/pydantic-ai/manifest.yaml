@@ -535,7 +535,7 @@ demos:
       - src/app/api/copilotkit/route.ts
   - id: tool-rendering-reasoning-chain
     name: Tool Rendering (Reasoning Chain)
-    description: Reasoning + sequential tool calls (get_weather, search_flights, get_stock_price, roll_dice) in a single cell — gpt-5 reasoning model emits REASONING events between each tool call
+    description: Reasoning + sequential tool calls (get_weather, search_flights, get_stock_price, roll_dice) in a single cell — gpt-6-luna reasoning model emits REASONING events between each tool call
     tags:
       - generative-ui
     route: /demos/tool-rendering-reasoning-chain

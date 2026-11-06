@@ -1,51 +1,15 @@
-"""Langroid reasoning agent — emits AG-UI REASONING_MESSAGE_* events.
+"""Reasoning demos use Responses summaries; ordinary chat uses the chat adapter.
 
-Backs two showcase cells (both share this one backend):
-    - reasoning-custom   (custom amber ReasoningBlock slot)
-    - reasoning-default  (CopilotKit's built-in reasoning card)
-
-Mirrors `showcase/integrations/ag2/src/agents/reasoning_agent.py` plus its
-`/reasoning` server mount in `ag2/src/agent_server.py`, adapted to Langroid.
-
-Why a custom route instead of the stock unified adapter
--------------------------------------------------------
-Langroid's stock showcase adapter (`agents/agui_adapter.py`) calls the OpenAI
-chat-completions API NON-streaming and reads only `message.content` /
-`message.tool_calls` from the response — it drops the `delta.reasoning_content`
-side-channel entirely (the channel aimock fixtures populate via their
-`reasoning` field, and that reasoning models emit in production). So the stock
-adapter can never light up CopilotKit's reasoning slot.
-
-This module mounts a small custom `/reasoning` sub-app (mirroring ag2's
-`_run_reasoning_agent`) that:
-  1. Calls the OpenAI-compatible chat-completions endpoint directly
-     (streaming) with the agent's system prompt plus the full prior
-     conversation history (so follow-up questions keep their context, parity
-     with the agno reference) — a single LLM call, so it stays
-     aimock-friendly (no multi-call CoT loop).
-  2. Buffers the FULL upstream response, accumulating BOTH
-     `delta.reasoning_content` (native reasoning channel, what aimock's
-     `reasoning` field feeds) AND `delta.content` (the answer); it does not
-     forward upstream deltas incrementally.
-  3. Falls back to parsing <reasoning>...</reasoning> tags out of the text
-     when no native reasoning channel is present (defensive parity with
-     ag2's fallback path).
-  4. Emits each channel as a single CONTENT delta:
-     REASONING_MESSAGE_START/CONTENT/END for the buffered reasoning portion,
-     then TEXT_MESSAGE_START/CONTENT/END for the buffered answer.
-
-The emitted channel is REASONING_MESSAGE_* (role "reasoning") — NOT THINKING_*,
-which @ag-ui/client silently drops.
-
-The global httpx hook installed in agent_server.py forwards the inbound
-`x-aimock-context` header onto the outbound OpenAI call so aimock matches the
-langroid-scoped fixture.
+The provider's public reasoning summaries become AG-UI REASONING_MESSAGE_*
+events. Each response is buffered before its message frames are emitted.
+The tool-chain endpoint reuses Langroid ToolMessage schemas and handlers.
 """
 
 from __future__ import annotations
 
 import asyncio
-import re
+import json
+import os
 import sys
 import traceback
 import uuid
@@ -58,6 +22,7 @@ from ag_ui.core import (
     ReasoningMessageContentEvent,
     ReasoningMessageEndEvent,
     ReasoningMessageStartEvent,
+    ReasoningEncryptedValueEvent,
     RunAgentInput,
     RunErrorEvent,
     RunFinishedEvent,
@@ -65,6 +30,10 @@ from ag_ui.core import (
     TextMessageContentEvent,
     TextMessageEndEvent,
     TextMessageStartEvent,
+    ToolCallStartEvent,
+    ToolCallArgsEvent,
+    ToolCallEndEvent,
+    ToolCallResultEvent,
 )
 from ag_ui.encoder import EventEncoder
 from fastapi import FastAPI
@@ -77,12 +46,7 @@ SYSTEM_PROMPT = (
     "step-by-step about the approach, then give a concise answer."
 )
 
-MODEL = "gpt-4o-mini"
-
-_REASONING_PATTERN = re.compile(
-    r"<reasoning>(.*?)</reasoning>",
-    re.DOTALL | re.IGNORECASE,
-)
+MODEL = "gpt-6-luna"
 
 
 def _coerce_content(content) -> str:
@@ -111,43 +75,62 @@ def _coerce_content(content) -> str:
     return str(content)
 
 
-def _to_chat_messages(messages: list) -> list:
-    """Map the AG-UI message list into chat-completions `messages`.
-
-    System prompt first, then every prior user/assistant turn (in order)
-    with its coerced text content. tool/system messages from the input are
-    skipped — only the conversation turns are threaded so follow-up
-    questions keep their context (parity with the agno reference, which
-    threads full history through Agno's Agent).
-
-    For a single user-message input this returns exactly
-    ``[{system}, {user: <text>}]`` — byte-equal to the previous single-turn
-    behaviour, which the aimock D6 fixtures replay. When the input has no
-    user/assistant turns the result is ``[{system}, {user: ""}]`` (an empty
-    user turn), preserving the prior empty-input behaviour.
-    """
-    chat: list = [{"role": "system", "content": SYSTEM_PROMPT}]
-    turns = [
-        {"role": role, "content": _coerce_content(getattr(msg, "content", ""))}
-        for msg in (messages or [])
-        for role in (getattr(msg, "role", None),)
-        if role in ("user", "assistant")
-    ]
-    if turns:
-        chat.extend(turns)
-    else:
-        chat.append({"role": "user", "content": ""})
-    return chat
+def _to_responses_input(messages: list) -> list:
+    """Keep conversation turns, tool calls and exact results across follow-ups."""
+    items: list = [{"role": "system", "content": SYSTEM_PROMPT}]
+    replayed_reasoning_ids: set[str] = set()
+    for message in messages or []:
+        msg = message.model_dump() if hasattr(message, "model_dump") else message
+        role = msg.get("role")
+        if role in ("user", "assistant"):
+            content = _coerce_content(msg.get("content"))
+            if content or role == "user":
+                items.append({"role": role, "content": content})
+            for call in msg.get("tool_calls", msg.get("toolCalls")) or []:
+                # Our encrypted-value event carries the complete provider
+                # reasoning item, including its identity, for stateless replay.
+                encrypted = call.get("encrypted_value", call.get("encryptedValue"))
+                if encrypted:
+                    try:
+                        reasoning = json.loads(encrypted).get("reasoning", [])
+                    except (ValueError, AttributeError):
+                        reasoning = []
+                    for item in reasoning:
+                        if (
+                            isinstance(item, dict)
+                            and item.get("type") == "reasoning"
+                            and item.get("id")
+                            and item["id"] not in replayed_reasoning_ids
+                        ):
+                            items.append(item)
+                            replayed_reasoning_ids.add(item["id"])
+                items.append(
+                    {
+                        "type": "function_call",
+                        "call_id": call["id"],
+                        "name": call["function"]["name"],
+                        "arguments": call["function"]["arguments"],
+                    }
+                )
+        elif role == "tool":
+            items.append(
+                {
+                    "type": "function_call_output",
+                    "call_id": msg.get("tool_call_id", msg.get("toolCallId")),
+                    "output": _coerce_content(msg.get("content")),
+                }
+            )
+    if len(items) == 1:
+        items.append({"role": "user", "content": ""})
+    return items
 
 
 async def _run_reasoning_agent(
     run_input: RunAgentInput,
+    *,
+    with_tools: bool = False,
 ) -> AsyncIterator[BaseEvent]:
-    """Stream one reasoning run, synthesizing REASONING_MESSAGE_* events.
-
-    Mirrors ag2's `_run_reasoning_agent`: buffer the full response, split
-    reasoning from answer, emit REASONING_MESSAGE_* then TEXT_MESSAGE_*.
-    """
+    """Map public summaries, answers and optional backend tools to AG-UI."""
     run_id = run_input.run_id or str(uuid.uuid4())
     thread_id = run_input.thread_id
 
@@ -159,112 +142,147 @@ async def _run_reasoning_agent(
     text_msg_id: str | None = None
 
     try:
-        chat_messages = _to_chat_messages(run_input.messages or [])
+        model = os.getenv("OPENAI_REASONING_MODEL", MODEL)
+        # The dedicated Luna tool-chain demo needs a larger reasoning budget:
+        # medium can complete the tools without returning a public summary.
+        reasoning_effort = "max" if with_tools and model == "gpt-6-luna" else "medium"
+        chat_messages = _to_responses_input(run_input.messages or [])
 
         yield RunStartedEvent(
             type=EventType.RUN_STARTED, thread_id=thread_id, run_id=run_id
         )
 
-        # Single streaming chat-completions call. The global httpx hook
-        # (installed in agent_server.py) forwards x-aimock-context so aimock
-        # matches the langroid-scoped fixture. OPENAI_BASE_URL points the
-        # client at aimock in local/D6 runs and at the real API in production.
-        client = openai.AsyncOpenAI()
-        response_stream = await client.chat.completions.create(
-            model=MODEL,
-            messages=chat_messages,
-            stream=True,
-        )
+        tools = []
+        if with_tools:
+            # Reuse the same Langroid tool schemas and execution boundary as
+            # ordinary chat. Frontend tools remain on the ordinary chat route.
+            from agents.agui_adapter import _run_backend_tool
+            from agents._reasoning_tools import CHAIN_TOOLS
 
-        # Accumulate both channels. The stock langroid adapter drops
-        # reasoning_content, so we read the chat-completions stream directly
-        # to capture it.
-        full_text = ""
-        native_reasoning = ""
-        async for chunk in response_stream:
-            if not chunk.choices:
-                continue
-            delta = chunk.choices[0].delta
-            if delta is None:
-                continue
-            # Native reasoning channel — aimock `reasoning` field / reasoning
-            # models surface this as delta.reasoning_content.
-            reasoning_piece = getattr(delta, "reasoning_content", None)
-            if reasoning_piece:
-                native_reasoning += reasoning_piece
-            if delta.content:
-                full_text += delta.content
+            tool_by_name = {tool.default_value("request"): tool for tool in CHAIN_TOOLS}
 
-        native_reasoning = native_reasoning.strip()
+            tools = [
+                {
+                    "type": "function",
+                    **tool.llm_function_schema().model_dump(),
+                    "strict": False,
+                }
+                for tool in CHAIN_TOOLS
+            ]
+            chat_messages[0]["content"] += (
+                " Use the available mock tools for weather, flights, stocks, and dice."
+                " When asked to compare stocks or dice, call each tool in succession."
+                " For flights and weather, search flights then check the destination weather."
+                " After the tools complete, give a concise answer using their results."
+            )
 
-        if native_reasoning:
-            # Native channel present — gold-standard parity path. The answer is
-            # the streamed text minus any stray <reasoning> tags.
-            reasoning_text = native_reasoning
-            answer_text = _REASONING_PATTERN.sub("", full_text).strip()
-        else:
-            # Fallback: parse <reasoning>...</reasoning> tags from the text
-            # (non-reasoning models / no-native-reasoning fixtures).
-            match = _REASONING_PATTERN.search(full_text)
-            if match:
-                reasoning_text = match.group(1).strip()
-                answer_text = (
-                    full_text[: match.start()] + full_text[match.end() :]
-                ).strip()
+        async with openai.AsyncOpenAI() as client:
+            for _ in range(8):
+                response = await client.responses.create(
+                    model=model,
+                    input=chat_messages,
+                    reasoning={"effort": reasoning_effort, "summary": "detailed"},
+                    tools=tools or openai.NOT_GIVEN,
+                    store=False,
+                    include=["reasoning.encrypted_content"],
+                )
+                if response.status != "completed":
+                    raise RuntimeError("Reasoning response did not complete")
+
+                # Summaries are a public provider output, not private model
+                # reasoning or prompt-generated <reasoning> tags.
+                for item in response.output:
+                    if item.type == "reasoning":
+                        summary = "\n".join(
+                            part.text for part in item.summary if part.text
+                        )
+                        if summary:
+                            reasoning_msg_id = str(uuid.uuid4())
+                            yield ReasoningMessageStartEvent(
+                                message_id=reasoning_msg_id, role="reasoning"
+                            )
+                            yield ReasoningMessageContentEvent(
+                                message_id=reasoning_msg_id, delta=summary
+                            )
+                            yield ReasoningMessageEndEvent(message_id=reasoning_msg_id)
+                            reasoning_msg_id = None
+                    elif item.type == "message":
+                        text = "".join(
+                            part.text
+                            for part in item.content
+                            if part.type == "output_text"
+                        )
+                        if text:
+                            text_msg_id = str(uuid.uuid4())
+                            yield TextMessageStartEvent(
+                                message_id=text_msg_id, role="assistant"
+                            )
+                            yield TextMessageContentEvent(
+                                message_id=text_msg_id, delta=text
+                            )
+                            yield TextMessageEndEvent(message_id=text_msg_id)
+                            text_msg_id = None
+
+                calls = [
+                    item for item in response.output if item.type == "function_call"
+                ]
+                if not calls:
+                    break
+                # Stateless replay must retain the provider's reasoning item
+                # (including encrypted_content) beside each tool call.
+                chat_messages.extend(
+                    item.model_dump(exclude_none=True) for item in response.output
+                )
+                reasoning_items = [
+                    item.model_dump(exclude_none=True)
+                    for item in response.output
+                    if item.type == "reasoning"
+                ]
+                for call in calls:
+                    if not with_tools or call.name not in tool_by_name:
+                        raise ValueError("Unknown reasoning-chain tool")
+                    args = json.loads(call.arguments)
+                    if not isinstance(args, dict):
+                        raise ValueError("Invalid reasoning-chain arguments")
+                    text_msg_id = str(uuid.uuid4())
+                    yield TextMessageStartEvent(
+                        message_id=text_msg_id, role="assistant"
+                    )
+                    yield ToolCallStartEvent(
+                        tool_call_id=call.call_id,
+                        tool_call_name=call.name,
+                        parent_message_id=text_msg_id,
+                    )
+                    yield ToolCallArgsEvent(
+                        tool_call_id=call.call_id, delta=call.arguments
+                    )
+                    yield ToolCallEndEvent(tool_call_id=call.call_id)
+                    if reasoning_items:
+                        yield ReasoningEncryptedValueEvent(
+                            subtype="tool-call",
+                            entity_id=call.call_id,
+                            encrypted_value=json.dumps({"reasoning": reasoning_items}),
+                        )
+                    result = await _run_backend_tool(
+                        tool_by_name[call.name], call.name, args
+                    )
+                    result = result or ""
+                    yield ToolCallResultEvent(
+                        tool_call_id=call.call_id,
+                        message_id=str(uuid.uuid4()),
+                        content=result,
+                    )
+                    yield TextMessageEndEvent(message_id=text_msg_id)
+                    text_msg_id = None
+                    chat_messages.append(
+                        {
+                            "type": "function_call_output",
+                            "call_id": call.call_id,
+                            "output": result,
+                        }
+                    )
             else:
-                reasoning_text = ""
-                answer_text = full_text.strip()
-
-        # The stream completed successfully but yielded neither reasoning nor
-        # answer text — the run would otherwise emit RUN_STARTED→RUN_FINISHED
-        # with zero message frames and no diagnostics. Log one server-side warn
-        # so a silent-empty run is visible (no synthetic message frames).
-        if not reasoning_text and not answer_text:
-            print(
-                "[reasoning] WARN: stream completed but produced no reasoning"
-                " or answer text",
-                file=sys.stderr,
-                flush=True,
-            )
-
-        # Emit reasoning message if we have reasoning content.
-        if reasoning_text:
-            reasoning_msg_id = str(uuid.uuid4())
-            yield ReasoningMessageStartEvent(
-                type=EventType.REASONING_MESSAGE_START,
-                message_id=reasoning_msg_id,
-                role="reasoning",
-            )
-            yield ReasoningMessageContentEvent(
-                type=EventType.REASONING_MESSAGE_CONTENT,
-                message_id=reasoning_msg_id,
-                delta=reasoning_text,
-            )
-            yield ReasoningMessageEndEvent(
-                type=EventType.REASONING_MESSAGE_END,
-                message_id=reasoning_msg_id,
-            )
-            reasoning_msg_id = None
-
-        # Emit a text message (only when non-empty answer text exists) so
-        # CopilotKit renders an assistant bubble.
-        if answer_text:
-            text_msg_id = str(uuid.uuid4())
-            yield TextMessageStartEvent(
-                type=EventType.TEXT_MESSAGE_START,
-                message_id=text_msg_id,
-                role="assistant",
-            )
-            yield TextMessageContentEvent(
-                type=EventType.TEXT_MESSAGE_CONTENT,
-                message_id=text_msg_id,
-                delta=answer_text,
-            )
-            yield TextMessageEndEvent(
-                type=EventType.TEXT_MESSAGE_END,
-                message_id=text_msg_id,
-            )
-            text_msg_id = None
+                raise RuntimeError("Reasoning tool-chain limit exceeded")
 
         yield RunFinishedEvent(
             type=EventType.RUN_FINISHED, thread_id=thread_id, run_id=run_id
@@ -307,12 +325,16 @@ class ReasoningEndpoint(HTTPEndpoint):
     Mount strips ``/reasoning`` and the inner Mount at ``/`` resolves here.
     """
 
+    with_tools = False
+
     async def post(self, request: Request) -> StreamingResponse:
         encoder = EventEncoder()
         run_input = RunAgentInput.model_validate_json(await request.body())
 
         async def _gen() -> AsyncIterator[str]:
-            async for event in _run_reasoning_agent(run_input):
+            async for event in _run_reasoning_agent(
+                run_input, with_tools=self.with_tools
+            ):
                 yield encoder.encode(event)
 
         return StreamingResponse(
@@ -334,4 +356,11 @@ class ReasoningEndpoint(HTTPEndpoint):
 # endpoint. NEVER use Route("", ...) — an empty-path Route crashes Starlette
 # at import time.
 reasoning_app = FastAPI(title="Langroid Reasoning Agent")
+
+
+class ReasoningChainEndpoint(ReasoningEndpoint):
+    with_tools = True
+
+
+reasoning_app.mount("/tools", ReasoningChainEndpoint)
 reasoning_app.mount("/", ReasoningEndpoint)

@@ -13,7 +13,7 @@ import { openaiText } from "@tanstack/ai-openai";
 // render_ui tool. The prompt stays neutral so both transports work.
 // openaiText reads OPENAI_API_KEY and throws a clear error when it is not set.
 const builtIn = new BuiltInAgent({
-  model: openaiText("gpt-5.5"),
+  model: openaiText("gpt-6-luna"),
   prompt:
     "You are a helpful assistant. When a visual, interactive answer helps, render it with generative UI as described in your context.",
 });

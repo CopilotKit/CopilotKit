@@ -15,6 +15,7 @@ import { openaiCompatibleText } from "@tanstack/ai-openai/compatible";
 import { SlowToolCallStreamingAgent } from "./agents/slow-tool-call-streaming.js";
 import { A2UIDashboardAgent } from "./agents/a2ui-dashboard.js";
 import { A2UIRecoveryAgent } from "./agents/a2ui-recovery.js";
+import { GenerativeUIStoreAgent } from "./agents/generative-ui-store.js";
 
 const openRouterApiKey = process.env.OPENROUTER_API_KEY?.trim();
 const openAIApiKey = process.env.OPENAI_API_KEY?.trim();
@@ -58,7 +59,7 @@ function determineModel() {
     });
   }
   if (openAIApiKey) {
-    return openaiText("gpt-5.2");
+    return openaiText("gpt-6-luna");
   }
   if (process.env.ANTHROPIC_API_KEY?.trim()) {
     return anthropicText("claude-opus-4-8");
@@ -67,7 +68,7 @@ function determineModel() {
     return geminiText("gemini-3.8-flash");
   }
   // No key found: the OpenAI adapter throws an error that names OPENAI_API_KEY.
-  return openaiText("gpt-5.2");
+  return openaiText("gpt-6-luna");
 }
 
 // Options for the provider that determineModel picked, in that provider's
@@ -133,12 +134,16 @@ const agents = {
   "a2ui-dashboard": new A2UIDashboardAgent(),
   // Scripted A2UI recovery lifecycle for the /a2ui-recovery route.
   "a2ui-recovery": new A2UIRecoveryAgent(),
+  // Native generative UI with the standard catalog, scripted (no API key).
+  "generative-ui": new GenerativeUIStoreAgent(),
 };
 
 const runtime = new CopilotRuntime({
   agents,
   runner: new InMemoryAgentRunner(),
   a2ui: {},
+  // The native generative UI tool transport for model-backed agents.
+  generativeUI: true,
   openGenerativeUI: true,
 });
 
