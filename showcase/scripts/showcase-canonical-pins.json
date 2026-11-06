@@ -15,6 +15,11 @@
       "@copilotkit/runtime": "1.76.0",
       "@copilotkit/shared": "1.76.0",
       "@copilotkit/voice": "1.76.0"
+    },
+    "omnara": {
+      "@copilotkit/react-core": "1.79.0",
+      "@copilotkit/runtime": "1.79.0",
+      "@copilotkit/shared": "1.79.0"
     }
   }
 }

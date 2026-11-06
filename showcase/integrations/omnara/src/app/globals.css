@@ -1,0 +1,4 @@
+@import "tailwindcss";
+@import "@copilotkit/react-core/v2/styles.css";
+@import "../../tools/demos/globals.css";
+@source "../../tools/demos";
