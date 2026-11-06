@@ -17,7 +17,7 @@ if (!process.env.OPENAI_API_KEY) {
 // as context. With the tool transport the runtime gives the agent the
 // render_ui tool. The prompt stays neutral so both transports work.
 const builtIn = new BuiltInAgent({
-  model: process.env.COPILOTKIT_MODEL ?? "openai/gpt-5.4",
+  model: process.env.COPILOTKIT_MODEL ?? "openai/gpt-6-luna",
   prompt:
     "You are a helpful assistant. When a visual, interactive answer helps, render it with generative UI as described in your context.",
 });

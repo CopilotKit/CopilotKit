@@ -21,5 +21,5 @@ uv run main.py
 Environment variables:
 
 - `OPENAI_API_KEY` (required)
-- `OPENAI_MODEL` (default `gpt-5.4`)
+- `OPENAI_MODEL` (default `gpt-6-luna`)
 - `PORT` (default `8011`)

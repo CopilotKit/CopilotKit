@@ -32,7 +32,7 @@ SYSTEM_PROMPT = (
     "step-by-step about the approach, then give a concise answer."
 )
 
-MODEL = "gpt-5-mini"
+MODEL = "gpt-6-luna"
 
 agent = Agent(
     "reasoning_assistant",

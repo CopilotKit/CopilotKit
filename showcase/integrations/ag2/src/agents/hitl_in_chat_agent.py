@@ -21,7 +21,7 @@ agent = Agent(
         "attendee's name. Never ask clarifying questions first; pick sensible "
         "values from the request. Keep any chat reply to one short sentence."
     ),
-    config=OpenAIResponsesConfig(model="gpt-5-mini", streaming=True),
+    config=OpenAIResponsesConfig(model="gpt-6-luna", streaming=True),
 )
 
 stream = AGUIStream(agent)

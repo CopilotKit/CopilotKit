@@ -30,7 +30,8 @@ async def main() -> None:
                 await middleware.initialize()
                 agent = create_agent(
                     ChatOpenAI(
-                        model="gpt-4o-mini",
+                        model="gpt-6-luna",
+                        reasoning_effort="none",
                         api_key="aimock",
                         base_url=model_url + "/v1",
                         max_retries=0,
@@ -74,7 +75,8 @@ async def main() -> None:
                 agent=LlmAgent(
                     name="refund_agent",
                     model=LiteLlm(
-                        model="openai/gpt-4o-mini",
+                        model="openai/gpt-6-luna",
+                        reasoning_effort="none",
                         api_key="aimock",
                         api_base=model_url + "/v1",
                         num_retries=0,

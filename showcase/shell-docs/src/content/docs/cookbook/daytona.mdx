@@ -82,7 +82,7 @@ const runCode = defineTool({ // [!code highlight:20]
 });
 
 const builtInAgent = new BuiltInAgent({
-  model: "openai:gpt-5.4-mini",
+  model: "openai:gpt-6-luna",
   tools: [runCode], // [!code highlight]
   maxSteps: 2, // required so the agent can call the tool and then respond // [!code highlight]
 });

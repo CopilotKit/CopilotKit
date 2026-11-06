@@ -48,7 +48,14 @@ def resolve_model(default_spec: str) -> str | BaseLlm:
     )
     if provider == "google":
         return model
-    return LiteLlm(model=f"{provider}/{model}")
+    return LiteLlm(
+        model=f"{provider}/{model}",
+        **(
+            {"reasoning_effort": "none", "allowed_openai_params": ["reasoning_effort"]}
+            if provider == "openai" and model == "gpt-6-luna"
+            else {}
+        ),
+    )
 
 
 # The key each provider reads. Google's SDKs also accept GEMINI_API_KEY.

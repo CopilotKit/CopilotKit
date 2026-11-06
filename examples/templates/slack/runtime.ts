@@ -47,7 +47,7 @@ import {
 } from "@copilotkit/runtime";
 import { createCopilotNodeListener } from "@copilotkit/runtime/node";
 import { chat } from "@tanstack/ai";
-import { openaiText } from "@tanstack/ai-openai";
+import { openaiText } from "./openai-text.js";
 import { webSearchTool } from "@tanstack/ai-openai/tools";
 import { createMCPClient } from "@tanstack/ai-mcp";
 
@@ -238,13 +238,11 @@ const SYSTEM_PROMPT = [
 // OpenAI-only here: web search is an OpenAI hosted (provider) tool, so this
 // agent runs on the OpenAI Responses API via TanStack AI's `openaiText`
 // adapter. Override the model with AGENT_MODEL (a bare OpenAI id, or
-// "openai/<id>" — the prefix is stripped); defaults to gpt-5.5. The cast is
-// needed because AGENT_MODEL is dynamic and `openaiText` types its argument to
-// the known OpenAI model literals.
-const model = (process.env["AGENT_MODEL"] ?? "openai/gpt-5.5").replace(
+// "openai/<id>" — the prefix is stripped); defaults to gpt-6-luna.
+const model = (process.env["AGENT_MODEL"] ?? "openai/gpt-6-luna").replace(
   /^openai\//,
   "",
-) as Parameters<typeof openaiText>[0];
+);
 
 // Factory mode: we own the LLM call (TanStack AI `chat()`); BuiltInAgent owns
 // the AG-UI run lifecycle and converts TanStack's stream into AG-UI events.

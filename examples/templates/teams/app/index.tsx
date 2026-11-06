@@ -59,7 +59,7 @@ if (!process.env.OPENAI_API_KEY) {
     "Missing OPENAI_API_KEY.\n" +
       "This demo runs a CopilotKit BuiltInAgent, which needs an LLM API key.\n" +
       "  export OPENAI_API_KEY=sk-...   (or add it to examples/templates/teams/.env)\n" +
-      "Optional: OPENAI_MODEL (defaults to openai/gpt-5.5).",
+      "Optional: OPENAI_MODEL (defaults to openai/gpt-6-luna).",
   );
   process.exit(1);
 }
@@ -136,7 +136,7 @@ const runtimeAgentUrl = `http://localhost:${runtimePort}/api/copilotkit/agent/${
 const runtime = new CopilotSseRuntime({
   agents: {
     [agentId]: new BuiltInAgent({
-      model: process.env.OPENAI_MODEL ?? "openai/gpt-5.5",
+      model: process.env.OPENAI_MODEL ?? "openai/gpt-6-luna",
       prompt: SYSTEM_PROMPT,
     }),
   },

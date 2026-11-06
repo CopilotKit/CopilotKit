@@ -135,4 +135,4 @@ On `/fixed` after attaching a PDF:
 | Frontend       | Next.js 16 · React 19 · Tailwind v4 · TypeScript · `@copilotkit/react-core/v2` · `@copilotkit/a2ui-renderer` · `pdfjs-dist` · Recharts |
 | Runtime bridge | `@copilotkit/runtime/v2` · `@ag-ui/client` (HttpAgent)                                                                                 |
 | Backend        | Python 3.12 · FastAPI · `ag-ui-langgraph` · `copilotkit` (Python SDK) · `langchain` agents + LangGraph · `langchain-openai`            |
-| Model          | `gpt-5.5` for both the main agent and the secondary LLMs                                                                               |
+| Model          | `gpt-6-luna` for both the main agent and the secondary LLMs                                                                            |

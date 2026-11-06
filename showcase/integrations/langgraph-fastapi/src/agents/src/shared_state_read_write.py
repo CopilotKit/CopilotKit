@@ -143,7 +143,7 @@ class PreferencesInjectorMiddleware(AgentMiddleware[AgentState, Any]):
 
 # @region[shared-state-setup]
 graph = create_agent(
-    model=ChatOpenAI(model="gpt-5-mini"),
+    model=ChatOpenAI(reasoning_effort="none", model="gpt-6-luna"),
     tools=[set_notes],
     middleware=[CopilotKitMiddleware(), PreferencesInjectorMiddleware()],
     state_schema=AgentState,

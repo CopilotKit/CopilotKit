@@ -95,13 +95,17 @@ test.each([false, true])(
       fixture.runnerChannel.triggerJoin("ok");
       const events = await eventsPromise;
 
-      expect(events).toHaveLength(1);
-      expect(events[0]).toMatchObject(fixture.errorEvent);
+      // The run's start, so the handler knows the error came after it began.
+      expect(events.map((event) => event.type)).toEqual([
+        EventType.RUN_STARTED,
+        EventType.RUN_ERROR,
+      ]);
+      expect(events[1]).toMatchObject(fixture.errorEvent);
       const persistedErrors = fixture.channel.pushLog.filter(
         ({ payload }) => payload.type === EventType.RUN_ERROR,
       );
       expect(persistedErrors).toHaveLength(1);
-      expect(persistedErrors[0].payload).toMatchObject(events[0]);
+      expect(persistedErrors[0].payload).toMatchObject(events[1]);
     } finally {
       fixture.teardown();
     }
@@ -122,8 +126,11 @@ test("notifies subscribers of a synthesized incomplete-stream error", async () =
     );
     fixture.runnerChannel.triggerJoin("ok");
     const events = await result;
-    expect(events).toHaveLength(1);
-    expect(events[0]).toMatchObject({
+    expect(events.map((event) => event.type)).toEqual([
+      EventType.RUN_STARTED,
+      EventType.RUN_ERROR,
+    ]);
+    expect(events[1]).toMatchObject({
       type: EventType.RUN_ERROR,
       code: "INCOMPLETE_STREAM",
     });

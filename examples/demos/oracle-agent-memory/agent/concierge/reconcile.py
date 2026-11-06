@@ -68,7 +68,7 @@ def reconcile_durable_memories(user_id: str) -> int:
     valid_ids = {f["id"] for f in facts}
     try:
         resp = _client().chat.completions.create(
-            model=os.getenv("MEMORY_LLM_MODEL", "gpt-5.4-mini"),
+            model=os.getenv("MEMORY_LLM_MODEL", "gpt-6-luna"),
             response_format={"type": "json_object"},
             messages=[
                 {"role": "system", "content": _SYSTEM_PROMPT},

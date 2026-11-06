@@ -293,7 +293,7 @@ from ag2.config import OpenAIResponsesConfig
 agent = Agent(
     name="assistant",
     prompt="You are a helpful assistant.",
-    config=OpenAIResponsesConfig(model="gpt-5.5"),
+    config=OpenAIResponsesConfig(model="gpt-6-luna"),
 )
 
 stream = AGUIStream(agent)
@@ -355,7 +355,7 @@ from backend.tools import get_account_data # [!code highlight]
 agent = Agent(
     name="assistant",
     prompt="You are a helpful assistant.",
-    config=OpenAIResponsesConfig(model="gpt-5.5"),
+    config=OpenAIResponsesConfig(model="gpt-6-luna"),
     tools=[get_account_data], # [!code highlight]
 )
 ```
@@ -400,6 +400,8 @@ Validation lives at the host process level: ASP.NET Core's JwtBearer middleware 
 <Tab value=".NET">
 
 ```csharp title="Program.cs"
+#pragma warning disable OPENAI001
+using Microsoft.Extensions.AI;
 using Microsoft.Agents.AI;
 using Microsoft.Agents.AI.Hosting.AGUI.AspNetCore;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -433,7 +435,11 @@ app.UseAuthorization();
 string openAiApiKey = builder.Configuration["OPENAI_API_KEY"]
     ?? throw new InvalidOperationException("Set OPENAI_API_KEY");
 var openAI = new OpenAIClient(openAiApiKey);
-var agent = openAI.GetChatClient("gpt-5.4-mini")
+var agent = openAI.GetChatClient("gpt-6-luna")
+    .AsIChatClient().AsBuilder()
+    .ConfigureOptions(options => options.RawRepresentationFactory = _ =>
+        new OpenAI.Chat.ChatCompletionOptions { ReasoningEffortLevel = new("none") })
+    .Build()
     .AsAIAgent(name: "AGUIAssistant", instructions: "You are a helpful assistant.");
 
 app.MapAGUIServer("/", agent).RequireAuthorization();

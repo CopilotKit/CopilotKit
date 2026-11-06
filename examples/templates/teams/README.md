@@ -181,7 +181,7 @@ Set the environment for wherever you deploy:
 
 - `OPENAI_API_KEY` _(required)_: the bot runs a `BuiltInAgent` and exits at
   startup without it.
-- `OPENAI_MODEL` _(optional)_: defaults to `openai/gpt-5.5`.
+- `OPENAI_MODEL` _(optional)_: defaults to `openai/gpt-6-luna`.
 - `CPK_INTELLIGENCE_API_KEY` _(required)_: the Intelligence runtime that owns the
   Channel lifecycle. A Channel runs only through Intelligence, so the bot exits
   at startup without it (free tier is enough). No URLs to configure — the SDK

@@ -12,7 +12,7 @@ if (!process.env.OPENAI_API_KEY) {
 }
 
 const agent = new BuiltInAgent({
-  model: process.env.COPILOTKIT_MODEL ?? "openai/gpt-5.4",
+  model: process.env.COPILOTKIT_MODEL ?? "openai/gpt-6-luna",
   prompt: `
 You are a concise assistant for a CopilotKit + ShadCN demo.
 Answer briefly. Use renderLineChart only when the user asks for a chart, and

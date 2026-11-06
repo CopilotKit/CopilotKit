@@ -157,7 +157,7 @@ def _preprocess_part(part: Any) -> Any:
     """Flatten PDF attachments to text; pass everything else through.
 
     Images stay as-is so GPT-4o consumes them natively via its vision
-    adapter. PDFs (which gpt-4o cannot read directly) become a text part
+    adapter. PDFs (which gpt-6-luna cannot read directly) become a text part
     prefixed with ``[Attached document]`` and the extracted body. If
     extraction fails we emit a structured placeholder so the model can
     tell the user the document was unreadable instead of pretending no
@@ -232,8 +232,8 @@ class _PdfFlattenMiddleware(AgentMiddleware):
         return await handler(request.override(messages=rewritten))
 
 
-# Vision-capable model. gpt-4o consumes `image_url` content parts natively.
-_MODEL = ChatOpenAI(model="gpt-5.4", temperature=0.2)
+# Vision-capable model. gpt-6-luna consumes `image_url` content parts natively.
+_MODEL = ChatOpenAI(reasoning_effort="none", model="gpt-6-luna", temperature=0.2)
 
 
 graph = create_agent(

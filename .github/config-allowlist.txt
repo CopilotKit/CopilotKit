@@ -19,6 +19,7 @@ examples/starters/llamaindex/next.config.ts
 examples/starters/mastra/next.config.ts
 examples/starters/mcp-apps/next.config.ts
 examples/starters/mcp-apps/threejs-server/vite.config.ts
+examples/starters/omnara/next.config.mjs
 examples/starters/ms-agent-framework-dotnet/next.config.ts
 examples/starters/ms-agent-framework-python/next.config.ts
 examples/starters/pydantic-ai/next.config.ts

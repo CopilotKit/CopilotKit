@@ -29,7 +29,7 @@ const createTicket = defineTool({
 });
 
 const agent = new BuiltInAgent({
-  model: "openai:gpt-5.4-mini",
+  model: "openai:gpt-6-luna",
   maxSteps: 5, // [!code highlight]
   tools: [searchDocs, createTicket],
 });
@@ -45,7 +45,7 @@ Control how the agent selects tools:
 import { BuiltInAgent } from "@copilotkit/runtime";
 
 const agent = new BuiltInAgent({
-  model: "openai:gpt-5.4-mini",
+  model: "openai:gpt-6-luna",
   toolChoice: "auto",       // Let the model decide (default)
   // toolChoice: "required", // Force the model to call a tool
   // toolChoice: "none",     // Disable tool calling
@@ -61,7 +61,7 @@ Customize the agent's system prompt:
 import { BuiltInAgent } from "@copilotkit/runtime";
 
 const agent = new BuiltInAgent({
-  model: "openai:gpt-5.4-mini",
+  model: "openai:gpt-6-luna",
   prompt: "You are a customer support agent for Acme Corp. Be concise and helpful. Always check the knowledge base before answering.", // [!code highlight]
 });
 ```
@@ -74,7 +74,7 @@ Fine-tune the model's output:
 import { BuiltInAgent } from "@copilotkit/runtime";
 
 const agent = new BuiltInAgent({
-  model: "openai:gpt-5.4-mini",
+  model: "openai:gpt-6-luna",
   temperature: 0.7,        // Creativity (0 = deterministic, 1+ = creative)
   topP: 0.9,               // Nucleus sampling
   topK: 40,                // Top-K sampling (provider-dependent)
@@ -98,9 +98,9 @@ Pass options specific to a model provider using `providerOptions`:
 ```typescript
 import { BuiltInAgent } from "@copilotkit/runtime";
 
-// OpenAI reasoning models (o3, o4-mini) with reasoning effort
+// OpenAI reasoning models (`gpt-6-luna`) with reasoning effort
 const agent = new BuiltInAgent({
-  model: "openai:o3",
+  model: "openai:gpt-6-luna",
   providerOptions: { // [!code highlight:3]
     openai: { reasoningEffort: "high" },
   },
@@ -127,7 +127,7 @@ Allow the frontend to override specific configuration at runtime. This is useful
 import { BuiltInAgent } from "@copilotkit/runtime";
 
 const agent = new BuiltInAgent({
-  model: "openai:gpt-5.4-mini",
+  model: "openai:gpt-6-luna",
   temperature: 0.5,
   overridableProperties: ["model", "temperature", "prompt"], // [!code highlight]
 });
@@ -144,7 +144,7 @@ Control whether system and developer messages from the conversation are forwarde
 import { BuiltInAgent } from "@copilotkit/runtime";
 
 const agent = new BuiltInAgent({
-  model: "openai:gpt-5.4-mini",
+  model: "openai:gpt-6-luna",
   forwardSystemMessages: true,    // Forward system-role messages
   forwardDeveloperMessages: true, // Forward developer-role messages (as system messages)
 });
@@ -158,7 +158,7 @@ When a message has an image or file given by URL, and the model cannot take that
 import { BuiltInAgent } from "@copilotkit/runtime";
 
 const agent = new BuiltInAgent({
-  model: "openai:gpt-5.4-mini",
+  model: "openai:gpt-6-luna",
   urlDownload: { // [!code highlight:4]
     allowedHosts: ["cdn.example.com", "*.example-uploads.com"],
     maxBytes: 10 * 1024 * 1024,
@@ -192,7 +192,7 @@ const agent = new BuiltInAgent({
   type: "aisdk",
   factory: (ctx) =>
     streamText({
-      model: openai("gpt-5.4-mini"),
+      model: openai("gpt-6-luna"),
       messages: convertMessagesToVercelAISDKMessages(ctx.input.messages),
       abortSignal: ctx.abortSignal,
       experimental_download: createSafeUrlDownload({ signal: ctx.abortSignal }), // [!code highlight]

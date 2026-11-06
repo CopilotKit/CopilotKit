@@ -1,6 +1,6 @@
 {
   "name": "@copilotkit/core",
-  "version": "1.84.0",
+  "version": "1.84.1",
   "description": "Core web utilities for CopilotKit2",
   "license": "MIT",
   "repository": {
@@ -21,6 +21,10 @@
     "./chat-configuration": {
       "import": "./dist/chat-configuration.mjs",
       "require": "./dist/chat-configuration.cjs"
+    },
+    "./generative-ui": {
+      "import": "./dist/generative-ui/index.mjs",
+      "require": "./dist/generative-ui/index.cjs"
     },
     "./styles": {
       "import": "./dist/styles.mjs",
@@ -46,6 +50,7 @@
     "attw": "attw --pack . --profile node16 --exclude-entrypoints ./styles.css"
   },
   "dependencies": {
+    "@a2ui/web_core": "0.15.0",
     "@ag-ui/client": "1.0.4",
     "@ag-ui/core": "1.0.4",
     "@copilotkit/learning": "workspace:*",
@@ -54,12 +59,14 @@
     "@tanstack/pacer": "^0.20.1",
     "jsonrepair": "^3.15.0",
     "phoenix": "^1.8.4",
-    "rxjs": "7.8.1"
+    "rxjs": "7.8.1",
+    "zod": "^4.2.0"
   },
   "devDependencies": {
     "@copilotkit/typescript-config": "workspace:*",
     "@types/node": "^22.15.3",
     "@types/phoenix": "^1.6.6",
+    "@types/ws": "^8.18.1",
     "@valibot/to-json-schema": "^1.5.0",
     "@vitest/coverage-v8": "^3.2.4",
     "arktype": "^2.1.29",
@@ -70,7 +77,7 @@
     "typescript": "5.8.2",
     "valibot": "^1.2.0",
     "vitest": "^3.2.4",
-    "zod": "^4.2.0"
+    "ws": "^8.19.0"
   },
   "engines": {
     "node": ">=20"

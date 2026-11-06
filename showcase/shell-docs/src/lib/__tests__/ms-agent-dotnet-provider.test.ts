@@ -96,7 +96,7 @@ test("uses the current Agent Framework server and OpenAI APIs", () => {
   expect(starter).toContain('_ => "OPENAI_API_KEY"');
   expect(starter).toContain("_configuration[apiKeyName]");
   expect(starter).toContain('_configuration["COPILOTKIT_AGENT_MODEL"]');
-  expect(starter).toContain('"openai:gpt-5-mini"');
+  expect(starter).toContain('"openai:gpt-6-luna"');
   expect(starter).toContain(
     "is not <provider>:<model> with provider openai, anthropic or google",
   );

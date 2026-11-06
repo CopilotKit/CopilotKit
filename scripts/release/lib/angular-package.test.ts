@@ -221,6 +221,16 @@ test("creates a zoneless SSR and hydration browser smoke fixture", () => {
   );
   expect(sources.get("src/app.config.ts")).toContain("provideMCPApps()");
   expect(sources.get("src/app.config.ts")).toContain(
+    'from "@copilotkit/angular/generative-ui"',
+  );
+  expect(sources.get("src/app.config.ts")).toContain(
+    "provideGenerativeUI({ ui: standardUI })",
+  );
+  expect(sources.get("src/app.ts")).toContain("CopilotGenerativeUISurface");
+  expect(sources.get("src/app.ts")).toContain(
+    'data-testid="generative-ui-surface"',
+  );
+  expect(sources.get("src/app.config.ts")).toContain(
     "provideClientHydration(withEventReplay())",
   );
   expect(sources.get("src/app.config.server.ts")).toContain(
@@ -243,13 +253,14 @@ test("creates a zoneless SSR and hydration browser smoke fixture", () => {
 test("rejects responses that did not server-render the packed smoke UI", () => {
   expect(
     validateAngularSsrHtml(
-      '<main data-testid="ssr-smoke"><output data-testid="tool-renderer">packed:complete</output></main>',
+      '<main data-testid="ssr-smoke"><span data-testid="generative-ui-surface">empty</span><output data-testid="tool-renderer">packed:complete</output></main>',
     ),
   ).toEqual([]);
   expect(validateAngularSsrHtml("<copilot-smoke></copilot-smoke>")).toEqual([
     'SSR response is missing data-testid="ssr-smoke"',
     'SSR response is missing data-testid="tool-renderer"',
     "SSR response is missing the completed packed tool result",
+    'SSR response is missing data-testid="generative-ui-surface"',
   ]);
 });
 

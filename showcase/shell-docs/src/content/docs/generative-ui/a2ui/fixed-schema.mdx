@@ -206,7 +206,7 @@ from langgraph.graph import START, MessagesState, StateGraph
 from langgraph.prebuilt import ToolNode, tools_condition
 
 # `display_flight` is the tool defined above — unchanged.
-model = ChatOpenAI(model="gpt-4.1-mini").bind_tools([display_flight])
+model = ChatOpenAI(model="gpt-6-luna", reasoning_effort="none").bind_tools([display_flight])
 
 
 def call_model(state: MessagesState):

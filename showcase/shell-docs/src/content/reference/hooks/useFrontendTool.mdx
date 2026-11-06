@@ -275,7 +275,7 @@ For simple UI-control tools (e.g. toggling a theme), the `description` field is 
 
 ```python title="agent.py — make mandatory tools explicit in system_prompt"
 graph = create_agent( # create_agent supersedes the deprecated create_react_agent, which accepts neither middleware= nor system_prompt=
-    model="openai:gpt-4o",
+    model="openai:gpt-6-luna",
     tools=[],
     middleware=[CopilotKitMiddleware()],
     state_schema=CopilotKitState,

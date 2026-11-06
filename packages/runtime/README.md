@@ -189,7 +189,7 @@ events and supports both single-event and batched gateway acknowledgments.
 import { BuiltInAgent } from "@copilotkit/runtime";
 
 const agent = new BuiltInAgent({
-  model: "openai/gpt-4o",
+  model: "openai/gpt-6-luna",
   learnedSkills: {
     containers: [
       { id: "support", revision: "revision-123" },

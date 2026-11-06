@@ -17,7 +17,7 @@
 
     public AIAgent CreateChartAgent()
     {
-        var chatClient = _openAiClient.GetChatClient("gpt-4o-mini").AsIChatClient();
+        var chatClient = _openAiClient.GetChatClient("gpt-6-luna").AsIChatClient();
 
         return chatClient.AsHarnessAgent(
             HarnessMaxContextWindowTokens,

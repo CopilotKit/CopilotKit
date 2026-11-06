@@ -26,7 +26,7 @@ import * as path from "path";
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 const llmAdapter = new OpenAIAdapter({
   openai,
-  model: "gpt-5-mini",
+  model: "gpt-6-luna",
 });
 
 export interface Article {
@@ -151,7 +151,11 @@ export async function performRagByDocuments(
   // Step 3: Create a retriever
   const retriever = vectorStore.asRetriever();
   // Step 4: Set up the language model
-  const llm = new ChatOpenAI({ model: "gpt-5-mini", temperature: 0 });
+  const llm = new ChatOpenAI({
+    modelKwargs: { reasoning_effort: "none" },
+    model: "gpt-6-luna",
+    temperature: 0,
+  });
 
   // Step 5: Create a prompt template
   const promptTemplate = ChatPromptTemplate.fromMessages([

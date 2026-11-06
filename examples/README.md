@@ -19,7 +19,7 @@ Starters, demos, and the `shadcn` and `claude-managed-agents-flutter` templates 
 
 ---
 
-## Starters (24)
+## Starters (25)
 
 Framework starters demonstrating CopilotKit with each supported agent framework. Starter parity tooling lives in [`starters/_parity/`](./starters/_parity/).
 
@@ -49,6 +49,7 @@ Framework starters demonstrating CopilotKit with each supported agent framework.
 | [claude-sdk-python](./starters/claude-sdk-python/)                 | Starter template using the Claude Agent SDK (Python) and CopilotKit                  |
 | [claude-sdk-typescript](./starters/claude-sdk-typescript/)         | Starter template using the Claude Agent SDK (TypeScript) and CopilotKit              |
 | [claude-managed-agents](./starters/claude-managed-agents/)         | Beautiful Chat starter with Claude Managed Agents and Intelligence Skills            |
+| [omnara](./starters/omnara/)                                       | Beautiful Chat starter with Omnara agents and Intelligence threads                   |
 
 ## Demos (32)
 

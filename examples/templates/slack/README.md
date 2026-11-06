@@ -260,7 +260,7 @@ bearer token) and Notion (the official MCP server run as a local
 Streamable-HTTP sidecar), discovering the available list/search/create tools
 from each server at runtime. A server is only wired up when its credentials
 are present, so the bot runs Linear-only, Notion-only, or both. The default
-model is `openai/gpt-5.5` (override with `AGENT_MODEL`).
+model is `openai/gpt-6-luna` (override with `AGENT_MODEL`).
 
 ## Local run
 
@@ -390,7 +390,7 @@ multimodal content; the **app** (the `render_*` tools above) decides what to
 do.
 
 > **PDFs and images need a vision/document-capable model.** The default
-> `openai/gpt-5.5` reads both natively through this path, as do recent Claude
+> `openai/gpt-6-luna` reads both natively through this path, as do recent Claude
 > (`anthropic/claude-sonnet-4-6`) and Gemini (`google/gemini-3.8-flash`) models.
 > An older text-only model will ignore the attached document.
 

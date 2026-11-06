@@ -76,7 +76,7 @@ public class ProverbsAgentFactory
         _jsonSerializerOptions = jsonSerializerOptions;
 
         // COPILOTKIT_AGENT_MODEL (e.g. "anthropic:claude-sonnet-4-5") picks the
-        // provider and model; unset, the agent uses gpt-5-mini on OpenAI. Like
+        // provider and model; unset, the agent uses gpt-6-luna on OpenAI. Like
         // OPENAI_API_KEY it is read from configuration (user-secrets or an
         // environment variable). Anthropic and Google are reached through their
         // OpenAI-compatible Chat Completions endpoints, so the OpenAI client
@@ -84,7 +84,7 @@ public class ProverbsAgentFactory
         // openai:<its model id> plus OPENAI_BASE_URL.
         var agentModel = _configuration["COPILOTKIT_AGENT_MODEL"];
         var (provider, model) = ParseAgentModel(
-            string.IsNullOrWhiteSpace(agentModel) ? "openai:gpt-5-mini" : agentModel);
+            string.IsNullOrWhiteSpace(agentModel) ? "openai:gpt-6-luna" : agentModel);
         _model = model;
 
         var apiKeyName = provider switch
@@ -144,6 +144,7 @@ public class ProverbsAgentFactory
             Description = "A helpful assistant that helps manage and discuss proverbs.",
             ChatOptions = new ChatOptions
             {
+                Reasoning = _model == "gpt-6-luna" ? new ReasoningOptions { Effort = ReasoningEffort.None } : null,
                 Instructions = @"You have tools available to add, set, or retrieve proverbs from the list.
                     When discussing proverbs, ALWAYS use the get_proverbs tool to see the current list before mentioning, updating, or discussing proverbs with the user.",
                 Tools = [

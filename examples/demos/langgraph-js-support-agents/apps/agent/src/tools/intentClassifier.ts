@@ -10,7 +10,8 @@ export const intentClassifierTool = tool(
   async ({ message }) => {
     // Initialize AI model
     const model = new ChatOpenAI({
-      model: "gpt-5-nano",
+      modelKwargs: { reasoning_effort: "none" },
+      model: "gpt-6-luna",
     });
 
     // System prompt for intent classification

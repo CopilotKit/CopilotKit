@@ -9,12 +9,16 @@ import type { InlineCatalogSchema } from "../catalog-description";
 export { A2UI_SCHEMA_CONTEXT_DESCRIPTION } from "../catalog-description";
 export type { InlineCatalogSchema } from "../catalog-description";
 
+const basicComponentNames: ReadonlySet<string> = new Set(
+  basicCatalog.components.keys(),
+);
+
 /**
  * Check whether a catalog is a superset of the basic catalog
  * (i.e., it contains all basic components by name).
  */
 export function extendsBasicCatalog(catalog: Catalog<ComponentApi>): boolean {
-  for (const name of basicCatalog.components.keys()) {
+  for (const name of basicComponentNames) {
     if (!catalog.components.has(name)) {
       return false;
     }
@@ -28,19 +32,16 @@ export function extendsBasicCatalog(catalog: Catalog<ComponentApi>): boolean {
 export function getCustomComponentNames(
   catalog: Catalog<ComponentApi>,
 ): string[] {
-  const custom: string[] = [];
-  for (const name of catalog.components.keys()) {
-    if (!basicCatalog.components.has(name)) {
-      custom.push(name);
-    }
-  }
-  return custom;
+  return [...catalog.components.keys()].filter(
+    (name) => !basicComponentNames.has(name),
+  );
 }
 
 /**
  * Build a context string describing the available A2UI catalog and custom components.
  * Custom components (those not in the basic catalog) are described using their
- * JSON Schema representation, matching the canonical A2UI catalog format.
+ * JSON Schema representation, serialized the same way as
+ * {@link extractCatalogComponentSchemas}.
  *
  * When `options.includeSchema` is `false`, custom components are listed by name
  * only and their JSON schemas are omitted.
@@ -53,8 +54,11 @@ export function buildCatalogContextValue(
 }
 
 /**
- * Extract component schemas from a catalog in the A2UI v0.9 inline catalog
- * format. Defaults to the basic catalog.
+ * Extract component, function and theme schemas from a catalog in the A2UI
+ * v0.9 inline catalog format. Defaults to the basic catalog.
+ *
+ * When sent via `useAgentContext` with `A2UI_SCHEMA_CONTEXT_DESCRIPTION`,
+ * the middleware can optionally overwrite it with a server-side schema.
  */
 export function extractCatalogComponentSchemas(
   catalog?: Catalog<ComponentApi>,

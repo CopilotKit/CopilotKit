@@ -87,7 +87,7 @@ def display_flight(origin: str, destination: str, airline: str, price: str) -> s
 
 
 graph = create_agent(
-    model=ChatOpenAI(model="gpt-5.4"),
+    model=ChatOpenAI(reasoning_effort="none", model="gpt-6-luna"),
     tools=[display_flight],
     middleware=[CopilotKitMiddleware()],
     system_prompt=(

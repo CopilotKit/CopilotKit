@@ -8,8 +8,8 @@ import {
   defaultGenerativeUIPromptSpec,
   renderGenerativeUISchema,
 } from "@copilotkit/shared";
+import { buildGenerativeUIManifest } from "@copilotkit/core/generative-ui";
 import type { CopilotKitCoreReact } from "../../lib/react-core";
-import { buildGenerativeUIManifest } from "../manifest";
 import type { GenerativeUIRuntime } from "../runtime-context";
 
 /** The compact schema lives in shared, so tools outside React build the same text. */

@@ -64,7 +64,7 @@ included in the function's final returned state. Otherwise, they will be overwri
             observed_steps: list[str] = []
 
 
-        agent = Agent('openai:gpt-5.4-mini', deps_type=StateDeps[AgentState])
+        agent = Agent('openai:gpt-6-luna', deps_type=StateDeps[AgentState])
 
 
         async def run_agent(request: Request) -> Response:

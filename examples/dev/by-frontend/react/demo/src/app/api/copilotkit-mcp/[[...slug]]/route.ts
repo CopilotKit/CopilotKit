@@ -8,7 +8,7 @@ import { MCPAppsMiddleware } from "@ag-ui/mcp-apps-middleware";
 
 const determineModel = () => {
   if (process.env.OPENAI_API_KEY?.trim()) {
-    return "openai/gpt-5-mini";
+    return "openai/gpt-6-luna";
   }
   if (process.env.ANTHROPIC_API_KEY?.trim()) {
     return "anthropic/claude-sonnet-4-6";
@@ -16,7 +16,7 @@ const determineModel = () => {
   if (process.env.GOOGLE_API_KEY?.trim()) {
     return "google/gemini-3.8-flash";
   }
-  return "openai/gpt-5-mini";
+  return "openai/gpt-6-luna";
 };
 
 const agent = new BuiltInAgent({

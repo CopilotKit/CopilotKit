@@ -11,8 +11,8 @@ import type { GenerativeUIRuntime } from "../runtime-context";
 import { SurfaceView } from "../SurfaceView";
 import type { DefaultMarkdownRendererProps } from "../../providers/MarkdownRendererContext";
 import { ProviderMarkdown } from "./ProviderMarkdown";
-import { getMarkdownSurfaceSource } from "./source";
-import type { MarkdownFenceBlock } from "./source";
+import { getMarkdownSurfaceSource } from "@copilotkit/core/generative-ui";
+import type { MarkdownFenceBlock } from "@copilotkit/core/generative-ui";
 
 /** Config for the built-in markdown renderer, plus `className`. */
 type MarkdownProps = DefaultMarkdownRendererProps;

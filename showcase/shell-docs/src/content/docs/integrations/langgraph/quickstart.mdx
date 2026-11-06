@@ -235,7 +235,7 @@ npm install --save-exact @copilotkit/sdk-js zod@^4.2.0 langchain@1.5.9
                 } from "@langchain/langgraph";
 
                 async function mockLlm(state: typeof MessagesAnnotation.State) {
-                  const model = new ChatOpenAI({ model: "gpt-4.1-mini" });
+                  const model = new ChatOpenAI({ modelKwargs: { reasoning_effort: "none" }, model: "gpt-6-luna" });
                   const response = await model.invoke([
                     new SystemMessage("You are a helpful assistant."),
                     ...state.messages,
@@ -285,7 +285,7 @@ npm install --save-exact @copilotkit/sdk-js zod@^4.2.0 langchain@1.5.9
                   load_dotenv()
 
                   async def mock_llm(state: MessagesState):
-                    model = ChatOpenAI(model="gpt-4.1-mini")
+                    model = ChatOpenAI(model="gpt-6-luna", reasoning_effort="none")
                     system_message = SystemMessage(content="You are a helpful assistant.")
                     response = await model.ainvoke(
                       [
@@ -357,7 +357,7 @@ npm install --save-exact @copilotkit/sdk-js zod@^4.2.0 langchain@1.5.9
                   load_dotenv()
 
                   async def mock_llm(state: MessagesState):
-                    model = ChatOpenAI(model="gpt-4.1-mini")
+                    model = ChatOpenAI(model="gpt-6-luna", reasoning_effort="none")
                     system_message = SystemMessage(content="You are a helpful assistant.")
                     response = await model.ainvoke(
                       [
@@ -436,7 +436,7 @@ npm install --save-exact @copilotkit/sdk-js zod@^4.2.0 langchain@1.5.9
               <ApiKeyHint provider="openai" />
 
               <Callout type="info" title="What about other models?">
-                The agent code above uses OpenAI's `gpt-4.1-mini`. To use another provider, replace `ChatOpenAI` with that provider's LangChain chat model and set its API key in `.env`.
+                The agent code above uses OpenAI's `gpt-6-luna`. To use another provider, replace `ChatOpenAI` with that provider's LangChain chat model and set its API key in `.env`.
               </Callout>
           </Step>
           <Step>

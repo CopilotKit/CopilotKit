@@ -9,7 +9,7 @@ import {
   convertToolsToVercelAITools,
 } from "@copilotkit/runtime";
 import { chat, toolDefinition } from "@tanstack/ai";
-import { openaiText } from "@tanstack/ai-openai";
+import { openaiText } from "../lib/openai-text";
 import { streamText, tool } from "ai";
 import { openai } from "@ai-sdk/openai";
 import { z } from "zod";
@@ -76,7 +76,7 @@ const aisdkAgent = new BuiltInAgent({
       throw new Error("Inspector lab: the agent run failed.");
     }
     return streamText({
-      model: openai("gpt-5.5"),
+      model: openai("gpt-6-luna"),
       system: BOOKING_SYSTEM_PROMPT,
       messages: convertMessagesToVercelAISDKMessages(input.messages),
       tools: {
@@ -120,7 +120,7 @@ const tanstackAgent = new BuiltInAgent({
     const { messages, systemPrompts, tools } = convertInputToTanStackAI(input);
 
     return chat({
-      adapter: openaiText("gpt-5.5"),
+      adapter: openaiText("gpt-6-luna"),
       messages,
       systemPrompts: [BOOKING_SYSTEM_PROMPT, ...systemPrompts],
       tools: [...tools, tanstackBookFlight],

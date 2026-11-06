@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, waitFor } from "@testing-library/react";
-import { STANDARD_CSS } from "../styles";
+import { STANDARD_CSS } from "@copilotkit/shared/generative-ui";
 import { gridItemColumn } from "../layout";
 import { standardUI } from "../index";
 import { renderSurface } from "./render";
