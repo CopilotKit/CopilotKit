@@ -55,16 +55,31 @@ asyncio.run(main())
 
 
 @pytest.mark.parametrize(
-    "slug,dependency",
+    "slug,dependency,model_id,expected_effort",
     [
-        ("crewai-crews", "crewai"),
-        ("crewai-conversational-flows", "crewai"),
-        ("langgraph-python", "deepagents"),
+        pytest.param("crewai-crews", "crewai", "gpt-6-luna", "high", id="crewai-crews"),
+        pytest.param(
+            "crewai-conversational-flows",
+            "crewai",
+            "gpt-6-luna",
+            "high",
+            id="crewai-conversational-flows",
+        ),
+        pytest.param(
+            "langgraph-python", "deepagents", "gpt-6-luna", "max", id="langgraph-python"
+        ),
+        pytest.param(
+            "langgraph-python",
+            "deepagents",
+            "gpt-5.4",
+            "high",
+            id="langgraph-python-override",
+        ),
     ],
 )
 @pytest.mark.parametrize("with_summary", [False, True])
-def test_reasoning_chain_requests_high_effort_through_real_sdk(
-    slug, dependency, with_summary
+def test_reasoning_chain_requests_provider_summaries_through_real_sdk(
+    slug, dependency, model_id, expected_effort, with_summary
 ):
     if importlib.util.find_spec(dependency) is None:
         pytest.skip(f"Requires {slug}'s Python dependencies")
@@ -83,7 +98,7 @@ def test_reasoning_chain_requests_high_effort_through_real_sdk(
                 "id": f"resp_{step}",
                 "object": "response",
                 "created_at": 1,
-                "model": "gpt-6-luna",
+                "model": model_id,
                 "status": "completed",
                 "output": [],
                 "usage": {"input_tokens": 1, "output_tokens": 1, "total_tokens": 2},
@@ -237,7 +252,7 @@ def test_reasoning_chain_requests_high_effort_through_real_sdk(
                 ),
                 "OPENAI_API_KEY": "test-only",
                 "OPENAI_BASE_URL": f"http://127.0.0.1:{server.server_port}/v1",
-                "OPENAI_REASONING_MODEL": "gpt-6-luna",
+                "OPENAI_REASONING_MODEL": model_id,
                 "LITELLM_LOCAL_MODEL_COST_MAP": "True",
                 "OTEL_SDK_DISABLED": "true",
                 "CREWAI_TRACING_ENABLED": "false",
@@ -253,8 +268,11 @@ def test_reasoning_chain_requests_high_effort_through_real_sdk(
         thread.join()
     assert len(captured) == 3
     for request in captured:
-        assert request["model"] == "gpt-6-luna"
-        assert request["reasoning"] == {"effort": "high", "summary": "detailed"}
+        assert request["model"] == model_id
+        assert request["reasoning"] == {
+            "effort": expected_effort,
+            "summary": "detailed",
+        }
         assert request["stream"] is True
         assert "reasoning_effort" not in request
     assert any(

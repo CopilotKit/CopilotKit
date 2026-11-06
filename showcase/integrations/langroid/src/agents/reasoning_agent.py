@@ -142,6 +142,10 @@ async def _run_reasoning_agent(
     text_msg_id: str | None = None
 
     try:
+        model = os.getenv("OPENAI_REASONING_MODEL", MODEL)
+        # The dedicated Luna tool-chain demo needs a larger reasoning budget:
+        # medium can complete the tools without returning a public summary.
+        reasoning_effort = "max" if with_tools and model == "gpt-6-luna" else "medium"
         chat_messages = _to_responses_input(run_input.messages or [])
 
         yield RunStartedEvent(
@@ -175,9 +179,9 @@ async def _run_reasoning_agent(
         async with openai.AsyncOpenAI() as client:
             for _ in range(8):
                 response = await client.responses.create(
-                    model=os.getenv("OPENAI_REASONING_MODEL", MODEL),
+                    model=model,
                     input=chat_messages,
-                    reasoning={"effort": "medium", "summary": "detailed"},
+                    reasoning={"effort": reasoning_effort, "summary": "detailed"},
                     tools=tools or openai.NOT_GIVEN,
                     store=False,
                     include=["reasoning.encrypted_content"],

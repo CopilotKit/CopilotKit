@@ -134,10 +134,13 @@ graph = create_deep_agent(
     model=init_chat_model(
         f"openai:{REASONING_MODEL}",
         use_responses_api=True,
-        # This dedicated demo needs provider reasoning alongside its tool chain.
-        # Request more reasoning work and opt in to detailed summaries; summary
-        # emission is provider-controlled and still needs live probe validation.
-        reasoning={"effort": "high", "summary": "detailed"},
+        # A live Luna stock chain still lacked visible summaries at high effort.
+        # Request Luna's max budget here; keep model overrides at high.
+        # Public summary emission remains provider-controlled.
+        reasoning={
+            "effort": "max" if REASONING_MODEL == "gpt-6-luna" else "high",
+            "summary": "detailed",
+        },
     ),
     tools=[get_weather, search_flights, get_stock_price, roll_dice],
     system_prompt=SYSTEM_PROMPT,

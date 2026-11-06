@@ -45,6 +45,132 @@ def answer_item():
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "with_tools,override,effort",
+    [
+        (True, None, "max"),
+        (False, None, "medium"),
+        (True, "o3", "medium"),
+    ],
+)
+async def test_luna_chain_effort_preserves_display_and_model_overrides(
+    monkeypatch, with_tools, override, effort
+):
+    requests = []
+    if override is None:
+        monkeypatch.delenv("OPENAI_REASONING_MODEL", raising=False)
+    else:
+        monkeypatch.setenv("OPENAI_REASONING_MODEL", override)
+
+    def transport(request):
+        requests.append(json.loads(request.content))
+        return httpx.Response(200, json=provider_response([answer_item()]))
+
+    client = openai.AsyncOpenAI(
+        api_key="test",
+        http_client=httpx.AsyncClient(transport=httpx.MockTransport(transport)),
+    )
+    monkeypatch.setattr(openai, "AsyncOpenAI", lambda: client)
+    events = [
+        event
+        async for event in _run_reasoning_agent(
+            RunAgentInput(
+                thread_id="thread",
+                run_id="run",
+                state={},
+                messages=[
+                    {
+                        "id": "user",
+                        "role": "user",
+                        "content": "Compare AAPL and MSFT stocks for me.",
+                    }
+                ],
+                tools=[],
+                context=[],
+                forwarded_props={},
+            ),
+            with_tools=with_tools,
+        )
+    ]
+    assert len(requests) == 1
+    assert requests[0]["model"] == (override or "gpt-6-luna")
+    assert requests[0]["reasoning"] == {"effort": effort, "summary": "detailed"}
+    assert events[-1].type == "RUN_FINISHED"
+
+
+@pytest.mark.asyncio
+async def test_summaryless_chain_preserves_tools_and_answer_without_fabricating_reasoning(
+    monkeypatch,
+):
+    requests = []
+    monkeypatch.delenv("OPENAI_REASONING_MODEL", raising=False)
+
+    def transport(request):
+        requests.append(json.loads(request.content))
+        leg = len(requests) - 1
+        if leg == 0:
+            # A run keeps its resolved model and reasoning budget on every leg.
+            monkeypatch.setenv("OPENAI_REASONING_MODEL", "o3")
+        if leg < 2:
+            reasoning = {**summary_item(f"rs_{leg}"), "summary": []}
+            output = [
+                reasoning,
+                {
+                    "type": "function_call",
+                    "id": f"fc_{leg}",
+                    "call_id": f"call_{leg}",
+                    "name": "get_stock_price",
+                    "arguments": json.dumps({"ticker": "AAPL" if leg == 0 else "MSFT"}),
+                    "status": "completed",
+                },
+            ]
+        else:
+            output = [answer_item()]
+        return httpx.Response(200, json=provider_response(output))
+
+    client = openai.AsyncOpenAI(
+        api_key="test",
+        http_client=httpx.AsyncClient(transport=httpx.MockTransport(transport)),
+    )
+    monkeypatch.setattr(openai, "AsyncOpenAI", lambda: client)
+    events = [
+        event
+        async for event in _run_reasoning_agent(
+            RunAgentInput(
+                thread_id="thread",
+                run_id="run",
+                state={},
+                messages=[
+                    {
+                        "id": "user",
+                        "role": "user",
+                        "content": "Compare AAPL and MSFT stocks for me.",
+                    }
+                ],
+                tools=[],
+                context=[],
+                forwarded_props={},
+            ),
+            with_tools=True,
+        )
+    ]
+    assert len(requests) == 3
+    assert all(request["model"] == "gpt-6-luna" for request in requests)
+    assert all(
+        request["reasoning"] == {"effort": "max", "summary": "detailed"}
+        for request in requests
+    )
+    assert sum(event.type == "TOOL_CALL_RESULT" for event in events) == 2
+    assert sum(event.type == "REASONING_ENCRYPTED_VALUE" for event in events) == 2
+    assert not any(event.type.startswith("REASONING_MESSAGE_") for event in events)
+    assert any(
+        event.type == "TEXT_MESSAGE_CONTENT" and event.delta == "The answer is 42."
+        for event in events
+    )
+    assert events[-1].type == "RUN_FINISHED"
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize("with_summary", [True, False])
 async def test_reasoning_requests_visible_summary_and_maps_both_channels(
     monkeypatch, with_summary
