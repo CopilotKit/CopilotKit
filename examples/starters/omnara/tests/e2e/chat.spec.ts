@@ -105,7 +105,12 @@ test("an Omnara approval renders in the chat and resumes the agent", async ({
   });
   await expect(approval).toBeVisible();
   await expect(approval.getByText("npm test", { exact: true })).toBeVisible();
-  const result = await new AxeBuilder({ page }).analyze();
+  // The dev inspector is CopilotKit's overlay, not this starter's UI. Its
+  // launcher shows the live news feed, so a scan of it fails or passes with
+  // whatever news is current.
+  const result = await new AxeBuilder({ page })
+    .exclude("cpk-web-inspector")
+    .analyze();
   expect(
     result.violations.filter((v) =>
       ["serious", "critical"].includes(v.impact ?? ""),
@@ -252,7 +257,9 @@ for (const width of [390, 1280]) {
     await expect(
       page.getByText("How can I help you today?", { exact: true }),
     ).toBeVisible();
-    const result = await new AxeBuilder({ page }).analyze();
+    const result = await new AxeBuilder({ page })
+      .exclude("cpk-web-inspector")
+      .analyze();
     expect(
       result.violations.filter((v) =>
         ["serious", "critical"].includes(v.impact ?? ""),
