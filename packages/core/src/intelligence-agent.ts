@@ -816,17 +816,32 @@ export class IntelligenceAgent extends AbstractAgent {
       // A connect holds its replayed history and passes it on in one burst
       // when the replay ends (see ReplayHold). It is released on
       // replay_complete or stream_idle, and when the stream ends; a rejoin
-      // starts holding again for the replay that follows.
+      // starts holding again for the replay that follows. On replay_failed
+      // the gateway may already have streamed part of the history; the part
+      // held now is dropped, and since the reconnect cursor never moved past
+      // it, the next join asks for all of it again.
       const replayHold = new ReplayHold<BaseEvent>(
         options.streamMode === "connect",
       );
       this.activeReplayHold = replayHold;
+      // After replay_failed this join's history has a gap. The cursor goes
+      // back to where the join started, and events that follow are dropped
+      // until a new replay starts: they are the live events the gateway held
+      // back during the replay, and applying them after the gap would either
+      // skip the gap or apply them twice. The next join asks for all of it
+      // from that cursor; the gateway only repeats a cursor it has, and a
+      // first open has none.
+      let failedReplay = false;
       const replayFailed$ = channel$.pipe(
         switchMapOperator(({ channel }) =>
           this.observeChannelEvent$<unknown>(channel, REPLAY_FAILED_EVENT),
         ),
         tap(() => {
           controlCursor.replayFailed = true;
+          replayHold.discard();
+          if (options.streamMode !== "connect") return;
+          failedReplay = true;
+          this.resetLastSeenEventId(input.threadId, reconnectCursor);
         }),
       );
       // Controls are scoped to each replay epoch, not cached across rejoin.
@@ -870,6 +885,7 @@ export class IntelligenceAgent extends AbstractAgent {
           replayFinished = false;
           warnedAboutIdle = false;
           clearIdleWarning();
+          failedReplay = false;
           if (options.streamMode === "connect") replayHold.hold();
           options.lifecycle?.onReplayStarted?.();
         }),
@@ -933,6 +949,7 @@ export class IntelligenceAgent extends AbstractAgent {
         replayHold
           .through(threadEvents$.pipe(takeUntil(streamIdleCompletion$)))
           .pipe(
+            filter(() => !failedReplay),
             tap((event) => this.updateLastSeenEventId(input.threadId, event)),
           ),
         streamIdleCompletion$.pipe(
@@ -1141,6 +1158,12 @@ export class IntelligenceAgent extends AbstractAgent {
 
   private advanceLastSeenEventId(threadId: string, eventId: string): void {
     this.sharedState.lastSeenEventIds.set(threadId, eventId);
+  }
+
+  /** Put the reconnect cursor back to `eventId`, or to none. */
+  private resetLastSeenEventId(threadId: string, eventId: string | null): void {
+    if (eventId === null) this.sharedState.lastSeenEventIds.delete(threadId);
+    else this.sharedState.lastSeenEventIds.set(threadId, eventId);
   }
 
   private readEventId(payload: BaseEvent): string | null {

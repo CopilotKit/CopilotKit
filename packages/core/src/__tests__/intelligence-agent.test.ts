@@ -1882,6 +1882,93 @@ describe("IntelligenceAgent", () => {
       await expectConnectAgentToResolve(secondConnectPromise);
     });
 
+    it("drops history the gateway streamed before replay_failed", async () => {
+      mockFetch.mockResolvedValueOnce(await jsonResponse(runtimeCredentials()));
+
+      const agent = createAgent();
+      setThreadIdForTest(agent, "thread-1");
+
+      const connectPromise = agent.connectAgent({ runId: "run-1" });
+      await waitForConnection(agent);
+
+      // The gateway streams the replay run by run and fails partway. It
+      // repeats the prior cursor, so the next join sends all of it again.
+      const channel = getChannel(agent)!;
+      channel.triggerJoin("ok");
+      channel.serverPush("ag_ui_event", {
+        type: EventType.RUN_STARTED,
+        threadId: "thread-1",
+        run_id: "backend-run-old",
+        input: {
+          messages: [{ id: "history-1", role: "user", content: "streamed" }],
+        },
+        metadata: { cpki_event_id: "history-event", cpki_event_seq: 1 },
+      } as BaseEvent);
+      channel.serverPush("replay_failed", { reason: "crash" });
+      channel.serverPush("replay_complete", { latestEventId: "prior-cursor" });
+      channel.serverPush("stream_idle", { latestEventId: "prior-cursor" });
+      await expectConnectAgentToResolve(connectPromise);
+
+      expect(agent.messages.map((message) => message.id)).not.toContain(
+        "history-1",
+      );
+    });
+
+    it("asks for the whole history again after replay_failed on a first open", async () => {
+      mockFetch
+        .mockResolvedValueOnce(await jsonResponse(runtimeCredentials()))
+        .mockResolvedValueOnce(await jsonResponse(runtimeCredentials()));
+
+      const agent = createAgent();
+      setThreadIdForTest(agent, "thread-1");
+
+      const firstConnectPromise = agent.connectAgent({ runId: "run-1" });
+      await waitForConnection(agent);
+
+      // No cursor yet, so the gateway has none to repeat after the failure.
+      const firstChannel = getChannel(agent)!;
+      firstChannel.triggerJoin("ok");
+      firstChannel.serverPush("ag_ui_event", {
+        type: EventType.RUN_STARTED,
+        threadId: "thread-1",
+        run_id: "backend-run-old",
+        input: { messages: [] },
+        metadata: { cpki_event_id: "partial-history", cpki_event_seq: 1 },
+      } as BaseEvent);
+      firstChannel.serverPush("replay_failed", { reason: "crash" });
+      firstChannel.serverPush("replay_complete", { latestEventId: null });
+      // Live events the gateway held back during the failed replay are dropped
+      // too: applied after the gap, the next join would either skip the gap
+      // or apply them twice.
+      for (const [type, extra, seq] of [
+        [EventType.TEXT_MESSAGE_START, { role: "assistant" }, 9],
+        [EventType.TEXT_MESSAGE_CONTENT, { delta: "new text" }, 10],
+        [EventType.TEXT_MESSAGE_END, {}, 11],
+      ] as const) {
+        firstChannel.serverPush("ag_ui_event", {
+          type,
+          messageId: "live-message",
+          ...extra,
+          metadata: { cpki_event_id: `live-${seq}`, cpki_event_seq: seq },
+        } as BaseEvent);
+      }
+      firstChannel.serverPush("stream_idle", { latestEventId: null });
+      await expectConnectAgentToResolve(firstConnectPromise);
+      expect(agent.messages.map((message) => message.id)).toEqual([]);
+
+      const secondConnectPromise = agent.connectAgent({ runId: "run-2" });
+      await waitForConnection(agent);
+
+      expect(JSON.parse(mockFetch.mock.calls[1]![1].body)).toMatchObject({
+        lastSeenEventId: null,
+      });
+
+      getChannel(agent)!.triggerJoin("ok");
+      getChannel(agent)!.serverPush("replay_complete", {});
+      getChannel(agent)!.serverPush("stream_idle", {});
+      await expectConnectAgentToResolve(secondConnectPromise);
+    });
+
     it("keeps the replay_complete cursor when the released history ends earlier", async () => {
       mockFetch
         .mockResolvedValueOnce(await jsonResponse(runtimeCredentials()))
