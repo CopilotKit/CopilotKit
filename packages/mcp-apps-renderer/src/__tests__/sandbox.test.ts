@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { LATEST_PROTOCOL_VERSION } from "@modelcontextprotocol/ext-apps";
-import { buildSandboxHTML } from "../sandbox";
+import { buildSandboxHTML, buildSandboxProxyHTML } from "../sandbox";
 import {
   MCP_OPEN_LINK_BLOCKED_SCHEMES,
   MCPAppsActivityType,
@@ -65,16 +65,25 @@ describe("buildSandboxHTML", () => {
   describe("relay", () => {
     /**
      * Run the proxy's own script against stub window/document objects, so the
-     * relay rules are tested as shipped rather than by string matching.
+     * relay rules are tested as shipped rather than by string matching. The
+     * host's `sandbox-resource-ready` creates the widget frame, so it is sent
+     * first unless `params` is `null`.
      */
-    function bootProxy() {
-      const script = /<script>([\s\S]*)<\/script>/.exec(buildSandboxHTML())![1];
+    function bootProxy(
+      params: Record<string, unknown> | null = { html: "<p>w</p>" },
+      html = buildSandboxHTML(),
+    ) {
+      const script = /<script>([\s\S]*)<\/script>/.exec(html)![1];
       const parent = { postMessage: vi.fn() };
       const inner = {
         style: {},
+        srcdoc: "",
         setAttribute: vi.fn(),
+        remove: vi.fn(),
         contentWindow: { postMessage: vi.fn() },
       };
+      const meta = { setAttribute: vi.fn() };
+      const order: string[] = [];
       let onMessage!: (event: { source: unknown; data: unknown }) => void;
       const win = {
         parent,
@@ -84,14 +93,22 @@ describe("buildSandboxHTML", () => {
         },
       };
       const doc = {
-        createElement: () => inner,
-        body: { appendChild: () => {} },
+        createElement: (tag: string) => (tag === "meta" ? meta : inner),
+        head: { appendChild: () => order.push("csp") },
+        body: { appendChild: () => order.push("widget") },
       };
       new Function("window", "document", script)({ ...win, self: win }, doc);
       parent.postMessage.mockClear(); // drop the proxy's own ready notice
+      const fromHost = (data: unknown) => onMessage({ source: parent, data });
+      if (params) {
+        fromHost({
+          method: "ui/notifications/sandbox-resource-ready",
+          params,
+        });
+      }
       const fromWidget = (data: unknown) =>
         onMessage({ source: inner.contentWindow, data });
-      return { parent, inner, onMessage, fromWidget };
+      return { parent, inner, meta, order, fromHost, fromWidget };
     }
 
     it("relays widget messages to the host", () => {
@@ -117,19 +134,74 @@ describe("buildSandboxHTML", () => {
     });
 
     it("applies the sandbox flags the host sends with the widget HTML", () => {
-      const { inner, onMessage, parent } = bootProxy();
-      onMessage({
-        source: parent,
-        data: {
-          method: "ui/notifications/sandbox-resource-ready",
-          params: { html: "<p>w</p>", sandbox: "allow-scripts" },
-        },
+      const { inner } = bootProxy({
+        html: "<p>w</p>",
+        sandbox: "allow-scripts",
       });
       expect(inner.setAttribute).toHaveBeenLastCalledWith(
         "sandbox",
         "allow-scripts",
       );
+      expect(inner.srcdoc).toBe("<p>w</p>");
     });
+
+    it("defaults the widget frame to an opaque origin", () => {
+      const { inner } = bootProxy({ html: "<p>w</p>" });
+      expect(inner.setAttribute).toHaveBeenLastCalledWith(
+        "sandbox",
+        "allow-scripts allow-forms",
+      );
+    });
+
+    it("does not relay host messages before the widget exists", () => {
+      const { inner, fromHost } = bootProxy(null);
+      fromHost({ jsonrpc: "2.0", method: "ui/notifications/tool-input" });
+      expect(inner.contentWindow.postMessage).not.toHaveBeenCalled();
+    });
+
+    it("applies the CSP the host sends before creating the widget frame", () => {
+      const { meta, order } = bootProxy({
+        html: "<p>w</p>",
+        csp: {
+          resourceDomains: [
+            "https://cdn.example.com",
+            "https://a.example.com; script-src *",
+          ],
+        },
+      });
+      // WebKit takes a frame's policy when the frame is created.
+      expect(order).toEqual(["csp", "widget"]);
+      expect(meta.setAttribute).toHaveBeenCalledWith(
+        "http-equiv",
+        "Content-Security-Policy",
+      );
+      const policy = meta.setAttribute.mock.calls.find(
+        ([name]) => name === "content",
+      )?.[1] as string;
+      // Same policy as the inline proxy bakes in for the same domains.
+      expect(buildSandboxHTML(["https://cdn.example.com"])).toContain(
+        `content="${policy}"`,
+      );
+      expect(policy).not.toContain("script-src *");
+    });
+
+    it("adds no CSP when the host sends none", () => {
+      const { order } = bootProxy({ html: "<p>w</p>" });
+      expect(order).toEqual(["widget"]);
+    });
+  });
+});
+
+describe("buildSandboxProxyHTML", () => {
+  it("is the same proxy without a baked-in CSP", () => {
+    const html = buildSandboxProxyHTML();
+    expect(html).toContain("ui/notifications/sandbox-proxy-ready");
+    // A baked-in policy would bind every widget the proxy loads.
+    expect(html).not.toContain('<meta http-equiv="Content-Security-Policy"');
+    expect(html).not.toContain("allow-same-origin");
+    expect(buildSandboxHTML().replace(/<meta http-equiv=[^\n]*\n/, "")).toBe(
+      html,
+    );
   });
 });
 

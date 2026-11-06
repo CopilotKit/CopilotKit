@@ -10,20 +10,20 @@
 const SANDBOX_FLAGS = "allow-scripts allow-forms";
 
 /**
- * The flags used before the safe default, kept only for
- * `allowSameOriginFallback`. Unsafe with a `srcdoc` proxy: the widget runs
- * with the host origin.
+ * The flags with `allow-same-origin`. Safe only when the proxy is served from
+ * a separate origin (`sandboxOrigin`); with a `srcdoc` proxy
+ * (`allowSameOriginFallback`) the widget runs with the host origin.
  */
 const SAME_ORIGIN_SANDBOX_FLAGS = "allow-scripts allow-same-origin allow-forms";
 
 /**
  * The `sandbox` attribute for the proxy and widget frames.
  *
- * @param allowSameOriginFallback Restore `allow-same-origin`. Unsafe: the
- *   widget then runs with the host's origin. See `McpAppSessionOptions`.
+ * @param allowSameOrigin Grant `allow-same-origin`. Safe only when the proxy
+ *   is served from a separate origin. See `McpAppSessionOptions`.
  */
-export function ɵmcpAppSandboxFlags(allowSameOriginFallback = false): string {
-  return allowSameOriginFallback ? SAME_ORIGIN_SANDBOX_FLAGS : SANDBOX_FLAGS;
+export function ɵmcpAppSandboxFlags(allowSameOrigin = false): string {
+  return allowSameOrigin ? SAME_ORIGIN_SANDBOX_FLAGS : SANDBOX_FLAGS;
 }
 
 /**
@@ -36,55 +36,64 @@ const CSP_HOST_SOURCE =
   /^(?:[a-z][a-z0-9+.-]*:\/\/)?(?:\*\.)?[a-z0-9-]+(?:\.[a-z0-9-]+)*(?::(?:\d+|\*))?(?:\/[\w.~%/!$()*+=:@-]*)?$/i;
 
 /**
- * Build the sandbox-proxy HTML document loaded into the outer iframe.
+ * The widget CSP. `{extra}` is replaced with the resource's approved
+ * `resourceDomains`: in TypeScript for the inline proxy, and in the proxy
+ * script for a served one, so both modes enforce the same policy.
+ */
+const CSP_TEMPLATE =
+  "default-src 'self'; img-src * data: blob: 'unsafe-inline'; media-src * blob: data:; font-src * blob: data:; script-src 'self' 'wasm-unsafe-eval' 'unsafe-inline' 'unsafe-eval' blob: data: http://localhost:* https://localhost:*{extra}; style-src * blob: data: 'unsafe-inline'; connect-src *; frame-src * blob: data: http://localhost:* https://localhost:*{extra}; base-uri 'self';";
+
+/** The served proxy's file name, in the package and on the sandbox origin. */
+export const MCP_APPS_SANDBOX_PROXY_FILE = "mcp-apps-sandbox-proxy.html";
+
+/**
+ * The proxy document, with an optional baked-in CSP `<meta>` tag.
  *
  * The proxy relays postMessage between the host and the inner sandboxed widget
- * and announces `ui/notifications/sandbox-proxy-ready` once ready. The host
- * sets the widget frame's sandbox flags in `sandbox-resource-ready`; the
- * template default is the safe one. Messages from the widget whose method
- * starts with `ui/notifications/sandbox-` are reserved for the proxy (spec
- * item 6) and are not relayed, so a widget cannot forge the handshake. `extraCspDomains`
- * (from the resource's `_meta.ui.csp`) are appended to the `script-src`/`frame-src`
- * CSP directives so a widget can load its own approved origins.
- *
- * @param extraCspDomains Optional additional origins allowed by the sandbox CSP.
- * @returns The complete sandbox-proxy HTML document as a string.
+ * and announces `ui/notifications/sandbox-proxy-ready` once ready. On
+ * `sandbox-resource-ready` it applies the host's sandbox flags (the template
+ * default is the safe one). When the host also sends the resource's `csp`, the
+ * proxy adds the widget CSP to its own document before loading the widget, and
+ * the widget's `srcdoc` document inherits it. The widget frame is created only
+ * then: WebKit takes the policy from when a frame was created, not from when
+ * it was loaded, so a frame made at boot would miss it. Messages from the widget whose
+ * method starts with `ui/notifications/sandbox-` are reserved for the proxy
+ * (spec item 6) and are not relayed, so a widget cannot forge the handshake.
  */
-export function buildSandboxHTML(extraCspDomains?: string[]): string {
-  const baseScriptSrc =
-    "'self' 'wasm-unsafe-eval' 'unsafe-inline' 'unsafe-eval' blob: data: http://localhost:* https://localhost:*";
-  const baseFrameSrc = "* blob: data: http://localhost:* https://localhost:*";
-  const domains = (extraCspDomains ?? []).filter(
-    (domain) => typeof domain === "string" && CSP_HOST_SOURCE.test(domain),
-  );
-  const extra = domains.length ? " " + domains.join(" ") : "";
-  const scriptSrc = baseScriptSrc + extra;
-  const frameSrc = baseFrameSrc + extra;
-
+function proxyDocument(cspMeta: string): string {
   return `<!doctype html>
 <html>
 <head>
 <meta charset="utf-8" />
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src * data: blob: 'unsafe-inline'; media-src * blob: data:; font-src * blob: data:; script-src ${scriptSrc}; style-src * blob: data: 'unsafe-inline'; connect-src *; frame-src ${frameSrc}; base-uri 'self';" />
-<style>html,body{margin:0;padding:0;height:100%;width:100%;overflow:hidden}*{box-sizing:border-box}iframe{background-color:transparent;border:none;padding:0;overflow:hidden;width:100%;height:100%}</style>
+${cspMeta}<style>html,body{margin:0;padding:0;height:100%;width:100%;overflow:hidden}*{box-sizing:border-box}iframe{background-color:transparent;border:none;padding:0;overflow:hidden;width:100%;height:100%}</style>
 </head>
 <body>
 <script>
 if(window.self===window.top){throw new Error("This file must be used in an iframe.")}
-const inner=document.createElement("iframe");
-inner.style="width:100%;height:100%;border:none;";
-inner.setAttribute("sandbox","${SANDBOX_FLAGS}");
-document.body.appendChild(inner);
+const CSP_HOST_SOURCE=${CSP_HOST_SOURCE};
+const CSP_TEMPLATE=${JSON.stringify(CSP_TEMPLATE)};
+let inner=null;
 window.addEventListener("message",async(event)=>{
 if(event.source===window.parent){
 if(event.data&&event.data.method==="ui/notifications/sandbox-resource-ready"){
-const{html,sandbox}=event.data.params;
-if(typeof sandbox==="string")inner.setAttribute("sandbox",sandbox);
+const{html,sandbox,csp}=event.data.params;
+if(csp&&typeof csp==="object"){
+const domains=(Array.isArray(csp.resourceDomains)?csp.resourceDomains:[]).filter((d)=>typeof d==="string"&&CSP_HOST_SOURCE.test(d));
+const meta=document.createElement("meta");
+meta.setAttribute("http-equiv","Content-Security-Policy");
+meta.setAttribute("content",CSP_TEMPLATE.split("{extra}").join(domains.length?" "+domains.join(" "):""));
+document.head.appendChild(meta);
+}
+if(inner)inner.remove();
+inner=document.createElement("iframe");
+inner.style="width:100%;height:100%;border:none;";
+inner.setAttribute("sandbox",typeof sandbox==="string"?sandbox:"${SANDBOX_FLAGS}");
 if(typeof html==="string")inner.srcdoc=html;
+document.body.appendChild(inner);
 }else if(inner&&inner.contentWindow){
 inner.contentWindow.postMessage(event.data,"*");
 }
-}else if(event.source===inner.contentWindow){
+}else if(inner&&event.source===inner.contentWindow){
 if(event.data&&typeof event.data.method==="string"&&event.data.method.startsWith("ui/notifications/sandbox-"))return;
 window.parent.postMessage(event.data,"*");
 }
@@ -93,4 +102,36 @@ window.parent.postMessage({jsonrpc:"2.0",method:"ui/notifications/sandbox-proxy-
 </script>
 </body>
 </html>`;
+}
+
+/**
+ * Build the sandbox-proxy HTML document loaded into the outer iframe via
+ * `srcdoc`. `extraCspDomains` (from the resource's `_meta.ui.csp`) are
+ * appended to the `script-src`/`frame-src` CSP directives so a widget can load
+ * its own approved origins.
+ *
+ * @param extraCspDomains Optional additional origins allowed by the sandbox CSP.
+ * @returns The complete sandbox-proxy HTML document as a string.
+ */
+export function buildSandboxHTML(extraCspDomains?: string[]): string {
+  const domains = (extraCspDomains ?? []).filter(
+    (domain) => typeof domain === "string" && CSP_HOST_SOURCE.test(domain),
+  );
+  const policy = CSP_TEMPLATE.split("{extra}").join(
+    domains.length ? " " + domains.join(" ") : "",
+  );
+  return proxyDocument(
+    `<meta http-equiv="Content-Security-Policy" content="${policy}" />\n`,
+  );
+}
+
+/**
+ * The static sandbox-proxy document for `sandboxOrigin`, shipped in the package
+ * as `mcp-apps-sandbox-proxy.html`. It has no CSP of its own: a `srcdoc`
+ * widget inherits its parent's policy, so a baked-in one would bind every
+ * widget. The host sends each resource's `csp` instead, and the proxy applies
+ * it before loading the widget.
+ */
+export function buildSandboxProxyHTML(): string {
+  return proxyDocument("");
 }

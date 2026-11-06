@@ -204,7 +204,7 @@ function renderChatWithAgent(
     mcpApps,
   }: {
     withCustomRenderer?: boolean;
-    mcpApps?: { allowSameOriginFallback?: boolean };
+    mcpApps?: { allowSameOriginFallback?: boolean; sandboxOrigin?: string };
   } = {},
 ) {
   const agentId = "mcp-test-agent";
@@ -273,6 +273,7 @@ describe("MCP Apps Activity Renderer E2E", () => {
      */
     async function mountSandbox(mcpApps?: {
       allowSameOriginFallback?: boolean;
+      sandboxOrigin?: string;
     }) {
       const agent = new MockMCPProxyAgent();
       agent.setRunAgentResponse("resources/read", {
@@ -324,6 +325,19 @@ describe("MCP Apps Activity Renderer E2E", () => {
       expect(iframe.getAttribute("sandbox")).toBe(
         "allow-scripts allow-same-origin allow-forms",
       );
+    });
+
+    it("loads the proxy from mcpApps.sandboxOrigin", async () => {
+      const iframe = await mountSandbox({
+        sandboxOrigin: "https://sandbox.example.com",
+      });
+      expect(iframe.getAttribute("sandbox")).toBe(
+        "allow-scripts allow-same-origin allow-forms",
+      );
+      expect(iframe.getAttribute("src")).toBe(
+        "https://sandbox.example.com/mcp-apps-sandbox-proxy.html",
+      );
+      expect(iframe.hasAttribute("srcdoc")).toBe(false);
     });
   });
 
