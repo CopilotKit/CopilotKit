@@ -1,7 +1,8 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { EventType } from "@ag-ui/client";
 import type { BaseEvent, RunAgentResult } from "@ag-ui/client";
 import { RUNTIME_MODE_INTELLIGENCE } from "@copilotkit/shared";
+import { WebSocket as NodeWebSocket } from "ws";
 import { CopilotKitCore } from "../core";
 import { ProxiedCopilotRuntimeAgent } from "../agent";
 import { startFakeThreadGateway } from "./helpers/fake-thread-gateway";
@@ -51,8 +52,18 @@ function track(promise: Promise<RunAgentResult>) {
 
 let gateway: Awaited<ReturnType<typeof startFakeThreadGateway>> | undefined;
 
+beforeEach(() => {
+  // Node 20 has no global WebSocket (Node 22 does). Without one, Phoenix falls
+  // back to long-polling, which Intelligence's gateway does not serve, and no
+  // channel ever joins. Give it the WebSocket a browser has.
+  if (typeof globalThis.WebSocket === "undefined") {
+    vi.stubGlobal("WebSocket", NodeWebSocket);
+  }
+});
+
 afterEach(async () => {
   vi.useRealTimers();
+  vi.unstubAllGlobals();
   await gateway?.close();
   gateway = undefined;
 });
