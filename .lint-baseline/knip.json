@@ -52,7 +52,6 @@
       "packages/react-core/src/components/chat/CopilotSidebarView.tsx": 1,
       "packages/react-core/src/components/chat/CopilotThreadsDrawer.tsx": 1,
       "packages/react-core/src/components/ui/dropdown-menu.tsx": 6,
-      "packages/react-core/src/generative-ui/standard/tokens.ts": 1,
       "packages/runtime/src/agent/__tests__/agent-test-helpers.ts": 1,
       "packages/runtime/src/runtime/handlers/shared/intelligence-utils.ts": 1,
       "packages/vue/src/v2/__tests__/utils/agents.ts": 1,
