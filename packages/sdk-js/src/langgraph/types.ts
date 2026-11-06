@@ -76,7 +76,8 @@ export interface IntermediateStateConfig {
 }
 
 export interface OptionsConfig {
-  emitToolCalls?: boolean;
+  /** Legacy v1 tool-name filters remain supported; use a boolean for AG-UI. */
+  emitToolCalls?: boolean | string | string[];
   emitMessages?: boolean;
   emitAll?: boolean;
   emitIntermediateState?: IntermediateStateConfig[];
