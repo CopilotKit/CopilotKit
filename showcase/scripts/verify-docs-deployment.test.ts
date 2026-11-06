@@ -64,41 +64,45 @@ describe("readExpectedDocsImage", () => {
     });
   }
 
-  it("binds verification to the commit image and its amd64 manifest, excluding attestations", () => {
+  it("binds verification to the commit image and its amd64 manifest, excluding attestations", async () => {
     const inspect = inspector();
-    expect(readExpectedDocsImage(IMAGE, inspect)).toEqual(expected);
+    await expect(readExpectedDocsImage(IMAGE, inspect)).resolves.toEqual(
+      expected,
+    );
     expect(inspect).toHaveBeenCalledWith(
       `${DOCS_GHCR_IMAGE}@${INDEX}`,
       "manifest",
     );
   });
 
-  it("refuses a superseded build before creating a deployment", () => {
-    expect(() => readExpectedDocsImage(IMAGE, inspector(OLD))).toThrow(
+  it("refuses a superseded build before creating a deployment", async () => {
+    await expect(readExpectedDocsImage(IMAGE, inspector(OLD))).rejects.toThrow(
       /latest.*this build/,
     );
   });
 
-  it("rejects mutable or unrelated expected image references", () => {
+  it("rejects mutable or unrelated expected image references", async () => {
     const inspect = inspector();
     for (const ref of [
       `${DOCS_GHCR_IMAGE}:latest`,
       "ghcr.io/other/image:main",
       "",
     ]) {
-      expect(() => readExpectedDocsImage(ref, inspect)).toThrow(/commit image/);
+      await expect(readExpectedDocsImage(ref, inspect)).rejects.toThrow(
+        /commit image/,
+      );
     }
     expect(inspect).not.toHaveBeenCalled();
   });
 
-  it("rejects an image index without a usable amd64 manifest", () => {
-    expect(() =>
+  it("rejects an image index without a usable amd64 manifest", async () => {
+    await expect(
       readExpectedDocsImage(IMAGE, (_ref, format) =>
         format === "digest"
           ? INDEX
           : JSON.stringify({ schemaVersion: 2, manifests: [] }),
       ),
-    ).toThrow(/amd64/);
+    ).rejects.toThrow(/amd64/);
   });
 });
 
