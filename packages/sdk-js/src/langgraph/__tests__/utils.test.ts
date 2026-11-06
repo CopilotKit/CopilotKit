@@ -68,7 +68,7 @@ describe("copilotkitCustomizeConfig", () => {
     }
   });
 
-  it("warns and leaves existing metadata unchanged for invalid values", () => {
+  it("warns and treats invalid values as true in AG-UI metadata", () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
 
     try {
@@ -77,9 +77,9 @@ describe("copilotkitCustomizeConfig", () => {
         { emitToolCalls: 123 } as any,
       );
 
-      expect(result.metadata!["copilotkit:emit-tool-calls"]).toBe(false);
+      expect(result.metadata!["copilotkit:emit-tool-calls"]).toBe(true);
       expect(warn).toHaveBeenCalledWith(
-        expect.stringContaining("Ignoring invalid non-boolean value"),
+        expect.stringContaining("Treating invalid non-boolean value as true"),
       );
     } finally {
       warn.mockRestore();
