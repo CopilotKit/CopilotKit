@@ -61,10 +61,10 @@ particular layout), follow their lead — but still in ONE call.
 agent = Agent(
     "mcp_apps_assistant",
     prompt=SYSTEM_PROMPT,
-    # gpt-5-mini for speed, mirroring the langgraph reference. No bespoke
+    # gpt-6-luna for speed, mirroring the langgraph reference. No bespoke
     # tools — MCP server tools are injected by the runtime middleware at
     # request time.
-    config=OpenAIResponsesConfig(model="gpt-5-mini", streaming=True),
+    config=OpenAIResponsesConfig(model="gpt-6-luna", streaming=True),
     middleware=[loop_cap(6)],
 )
 

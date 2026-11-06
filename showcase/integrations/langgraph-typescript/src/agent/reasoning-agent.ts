@@ -14,7 +14,7 @@
  * distinct content block that the CopilotKit runtime translates to a
  * `role: "reasoning"` AG-UI event — which both reasoning demos render.
  *
- * Falls back to gpt-5-mini (a reasoning-tier model) if `OPENAI_REASONING_MODEL`
+ * Falls back to gpt-6-luna (a reasoning-tier model) if `OPENAI_REASONING_MODEL`
  * is unset, so the reasoning slot still lights up in local dev without extra
  * configuration.
  *
@@ -23,15 +23,15 @@
  * `ChatOpenAI` construction — required for `x-aimock-context` propagation.
  */
 
-import { RunnableConfig } from "@langchain/core/runnables";
+import type { RunnableConfig } from "@langchain/core/runnables";
 import { SystemMessage, AIMessage } from "@langchain/core/messages";
+import type { BaseMessage } from "@langchain/langgraph";
 import {
   Annotation,
   MemorySaver,
   START,
   StateGraph,
   messagesStateReducer,
-  BaseMessage,
 } from "@langchain/langgraph";
 import { ChatOpenAI } from "@langchain/openai";
 import { makeChatOpenAI } from "./openai-headers";
@@ -40,7 +40,7 @@ const SYSTEM_PROMPT =
   "You are a helpful assistant. For each user question, first think " +
   "step-by-step about the approach, then give a concise answer.";
 
-const REASONING_MODEL = process.env.OPENAI_REASONING_MODEL ?? "gpt-5-mini";
+const REASONING_MODEL = process.env.OPENAI_REASONING_MODEL ?? "gpt-6-luna";
 
 const AgentStateAnnotation = Annotation.Root({
   messages: Annotation<BaseMessage[]>({

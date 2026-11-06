@@ -1,6 +1,6 @@
 """AG2 agent backing the Multimodal Attachments demo.
 
-Vision-capable AG2 ``Agent`` (gpt-5-mini) that accepts image + PDF
+Vision-capable AG2 ``Agent`` (gpt-6-luna) that accepts image + PDF
 attachments. The frontend (src/app/demos/multimodal/page.tsx) sends
 attachments as AG-UI message content parts, and AG2 1.x's ``AGUIStream`` maps
 image and document parts to typed model inputs natively.
@@ -34,7 +34,7 @@ SYSTEM_PROMPT = (
 multimodal_agent = Agent(
     "multimodal_assistant",
     prompt=SYSTEM_PROMPT,
-    config=OpenAIResponsesConfig(model="gpt-5-mini", streaming=True),
+    config=OpenAIResponsesConfig(model="gpt-6-luna", streaming=True),
     middleware=[loop_cap(5)],
 )
 

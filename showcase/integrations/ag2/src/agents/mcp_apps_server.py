@@ -131,7 +131,11 @@ async def create_view(elements: list[dict[str, Any]]) -> CallToolResult:
     `cameraUpdate` (x, y, width, height) that frames the whole diagram.
     """
     return CallToolResult(
-        content=[TextContent(type="text", text=f"Rendered a diagram with {len(elements)} elements.")],
+        content=[
+            TextContent(
+                type="text", text=f"Rendered a diagram with {len(elements)} elements."
+            )
+        ],
         structuredContent={"elements": elements},
     )
 
@@ -144,7 +148,7 @@ async def create_view(elements: list[dict[str, Any]]) -> CallToolResult:
 _helper_agent = Agent(
     "mcp_apps_server",
     prompt="You draw simple diagrams.",
-    config=OpenAIResponsesConfig(model="gpt-5-mini"),
+    config=OpenAIResponsesConfig(model="gpt-6-luna"),
 )
 
 mcp_apps_server = MCPServer(_helper_agent, apps=[diagram_app], path="/mcp")

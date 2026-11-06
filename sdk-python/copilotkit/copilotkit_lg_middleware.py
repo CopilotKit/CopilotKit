@@ -6,9 +6,10 @@ Works with any agent (prebuilt or custom).
 Example:
     from langgraph.prebuilt import create_agent
     from copilotkit import CopilotKitMiddleware
+    from langchain_openai import ChatOpenAI
 
     agent = create_agent(
-        model="openai:gpt-4o",
+        model=ChatOpenAI(model="gpt-6-luna", reasoning_effort="none"),
         tools=[backend_tool],
         middleware=[CopilotKitMiddleware()],
     )

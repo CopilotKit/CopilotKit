@@ -65,9 +65,10 @@ def build_agent():
     if not tavily_key:
         raise RuntimeError("Missing TAVILY_API_KEY environment variable")
 
-    # Initialize LLM - use model from env or default to gpt-5.2
-    model_name = os.environ.get("OPENAI_MODEL", "gpt-5.2")
+    # Initialize LLM - use model from env or default to gpt-6-luna
+    model_name = os.environ.get("OPENAI_MODEL", "gpt-6-luna")
     llm = ChatOpenAI(
+        reasoning_effort="none" if model_name == "gpt-6-luna" else None,
         model=model_name,
         temperature=0.7,
         api_key=api_key,

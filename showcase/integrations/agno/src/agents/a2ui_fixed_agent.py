@@ -99,7 +99,7 @@ SYSTEM_PROMPT = (
 
 
 agent = Agent(
-    model=OpenAIChat(id="gpt-4o-mini", timeout=120),
+    model=OpenAIChat(reasoning_effort="none", id="gpt-6-luna", timeout=120),
     tools=[display_flight],
     tool_call_limit=4,
     description=SYSTEM_PROMPT,

@@ -11,7 +11,7 @@ execution, or browser readiness event is mocked. It listens on localhost only.
   Registering `DOMContentLoaded` after sandbox readiness leaves it inert.
   The supported variant changes only that readiness wrapper into a directly
   invoked initializer; its counter detects duplicate execution.
-- `fixtures/normal-suggestion.json` is an unmodified gpt-5-mini-2025-08-07 tool
+- `fixtures/normal-suggestion.json` is an unmodified gpt-6-luna tool
   response generated with the shared tool description on 2026-10-06. The user
   message was the normal Calculator App suggestion:
 

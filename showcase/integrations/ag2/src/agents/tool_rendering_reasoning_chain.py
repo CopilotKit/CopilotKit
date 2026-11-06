@@ -26,7 +26,9 @@ from ._reasoning_summary import reasoning_config
 
 
 async def get_weather(
-    location: Annotated[str, Field(description="City or place to look up the weather for")],
+    location: Annotated[
+        str, Field(description="City or place to look up the weather for")
+    ],
 ) -> dict:
     """Get the current weather for a given location."""
     return {
@@ -40,7 +42,9 @@ async def get_weather(
 
 async def search_flights(
     origin: Annotated[str, Field(description="Origin airport code, e.g. 'SFO'")],
-    destination: Annotated[str, Field(description="Destination airport code, e.g. 'JFK'")],
+    destination: Annotated[
+        str, Field(description="Destination airport code, e.g. 'JFK'")
+    ],
 ) -> str:
     """Search mock flights from an origin airport to a destination."""
     payload = {
@@ -74,7 +78,9 @@ async def search_flights(
 
 
 async def get_stock_price(
-    ticker: Annotated[str, Field(description="Stock ticker symbol (e.g. AAPL, TSLA, MSFT)")],
+    ticker: Annotated[
+        str, Field(description="Stock ticker symbol (e.g. AAPL, TSLA, MSFT)")
+    ],
 ) -> dict:
     """Get a mock current price for a stock ticker."""
     return {
@@ -85,7 +91,9 @@ async def get_stock_price(
 
 
 async def roll_dice(
-    sides: Annotated[int, Field(description="Number of sides on the die (default 6)")] = 6,
+    sides: Annotated[
+        int, Field(description="Number of sides on the die (default 6)")
+    ] = 6,
 ) -> dict:
     """Roll a single die with the given number of sides."""
     return {"sides": sides, "result": randint(1, max(2, sides))}
@@ -102,7 +110,7 @@ SYSTEM_PROMPT = (
 agent = Agent(
     "tool_rendering_reasoning_chain_assistant",
     prompt=SYSTEM_PROMPT,
-    config=reasoning_config("gpt-5-mini"),
+    config=reasoning_config("gpt-6-luna"),
     tools=[get_weather, search_flights, get_stock_price, roll_dice],
     middleware=[loop_cap(10)],
 )

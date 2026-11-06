@@ -131,7 +131,7 @@ from src.model import create_chat_model
 from src.todos import todo_tools, AgentState
 
 agent = create_agent(
-    model=create_chat_model("openai:gpt-5.4-mini"),  # COPILOTKIT_AGENT_MODEL overrides it
+    model=create_chat_model("openai:gpt-6-luna"),  # COPILOTKIT_AGENT_MODEL overrides it
     tools=[*todo_tools, ...],  # manage_todos, get_todos
     middleware=[CopilotKitMiddleware()],
     state_schema=AgentState,  # Defines state shape
@@ -226,7 +226,7 @@ export function TodoList({ todos, onUpdate, isAgentRunning }: TodoListProps) {
 ## Tech Stack
 
 - **Frontend**: Next.js 16, React 19, TailwindCSS 4
-- **Agent**: LangGraph (Python), the model in `COPILOTKIT_AGENT_MODEL` (default OpenAI gpt-5.4-mini)
+- **Agent**: LangGraph (Python), the model in `COPILOTKIT_AGENT_MODEL` (default OpenAI gpt-6-luna)
 - **CopilotKit**: React hooks for agent integration (v2)
 - **Build**: npm with concurrently for parallel dev processes
 - **Other**: Recharts for generative UI examples

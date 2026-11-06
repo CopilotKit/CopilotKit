@@ -1,7 +1,7 @@
 """Vision-capable Agno agent for the Multimodal Attachments demo.
 
 Wave 2b design: a dedicated vision-capable agent scoped to `/demos/multimodal`
-so other demos keep their cheaper text-only model. Backed by ``gpt-4o`` so
+so other demos keep their cheaper text-only model. Backed by ``gpt-6-luna`` so
 attached images are read natively. PDFs are flattened to text on the
 Python side via ``pypdf`` before the message is forwarded to the model.
 
@@ -107,15 +107,15 @@ def _maybe_flatten_pdf_part(part: Any) -> Any:
         return {"type": "text", "text": f"[Attached document]\n{text}"}
 
     if part_type == "image_url":
-        # Pass-through — gpt-4o reads image_url parts natively.
+        # Pass-through — gpt-6-luna reads image_url parts natively.
         return part
 
     return part
 
 
-# Vision-capable model. gpt-4o consumes image content parts natively.
+# Vision-capable model. gpt-6-luna consumes image content parts natively.
 agent = Agent(
-    model=OpenAIChat(id="gpt-4o", timeout=120),
+    model=OpenAIChat(reasoning_effort="none", id="gpt-6-luna", timeout=120),
     tools=[],
     description=SYSTEM_PROMPT,
 )
