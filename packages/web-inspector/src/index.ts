@@ -10667,7 +10667,7 @@ export class WebInspectorElement extends LitElement {
         align-items: center;
         padding: 3px 8px;
         border-radius: 6px;
-        background: #7563c7;
+        background: #5c4ab8;
         color: #fff;
         box-shadow: 0 3px 8px rgb(46 37 91 / 0.18);
         font-size: 9px;
@@ -12601,7 +12601,7 @@ export class WebInspectorElement extends LitElement {
                         type="button"
                         class="cpk-launcher-hud__news"
                         data-cpk-hud-news
-                        aria-label=${`Open new notification: ${announcementTitle}`}
+                        aria-label=${`New ${announcementTitle}`}
                         @click=${this.handleHudNewsClick}
                         @pointerdown=${(event: Event) => event.stopPropagation()}
                       >

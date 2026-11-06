@@ -1044,9 +1044,7 @@ test("the HUD names an unread announcement and marks it as new", async () => {
   await openHud(context.inspector);
 
   const news = requireElement(hudNewsButton(context.inspector));
-  expect(news.getAttribute("aria-label")).toBe(
-    "Open new notification: Channels are here",
-  );
+  expect(news.getAttribute("aria-label")).toBe("New Channels are here");
   expect(news.textContent?.replace(/\s+/g, " ").trim()).toBe(
     "New Channels are here",
   );
@@ -1055,6 +1053,15 @@ test("the HUD names an unread announcement and marks it as new", async () => {
       .querySelector("[data-cpk-hud-news-label]")
       ?.textContent?.trim(),
   ).toBe("New");
+  // Accessible name must contain the visible "New" + title text (WCAG 2.5.3).
+  expect(news.getAttribute("aria-label")).toContain("New");
+  expect(news.getAttribute("aria-label")).toContain("Channels are here");
+  const labelRule =
+    /\.cpk-launcher-hud__news-label\s*\{([\s\S]*?)\}/.exec(
+      stylesheetText(context.inspector),
+    )?.[1] ?? "";
+  expect(labelRule).toMatch(/color:\s*#fff\b/i);
+  expect(labelRule).toMatch(/background:\s*#5c4ab8\b/i);
   const titleRule =
     /\.cpk-launcher-hud__news-title\s*\{([\s\S]*?)\}/.exec(
       stylesheetText(context.inspector),
