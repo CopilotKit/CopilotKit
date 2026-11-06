@@ -1,4 +1,4 @@
-import { prerelease, satisfies, valid, validRange } from "semver";
+import { prerelease, satisfies, valid, validRange } from "./semver.js";
 import type { NotificationContext } from "./notifications.js";
 
 /** Versioned CDN HUD contract. Keep the Intelligence copy and fixtures aligned. */
