@@ -1,4 +1,5 @@
 import type { PlatformAdapter, ReplyTarget } from "./platform-adapter.js";
+import { ActionInitiatorMismatchError } from "./action-registry.js";
 import type { ActionRegistry } from "./action-registry.js";
 import type {
   ActionContinuationContext,
@@ -252,16 +253,16 @@ export const DEFAULT_AWAIT_CHOICE_ANSWERABLE_BY: ChoiceAnswerableBy =
   "initiator";
 
 /**
- * An `answerableBy: "initiator"` choice was requested in a turn whose actor
- * has no usable id, so no click could ever be matched to it. Use
- * `answerableBy: "conversation"` for such turns.
+ * An `answerableBy: "initiator"` choice or resume was requested for a run
+ * whose actor has no usable id, so no click could ever be matched to it. Use
+ * `answerableBy: "conversation"` for such runs.
  */
 export class ChannelChoiceInitiatorUnknownError extends Error {
   readonly code = "channel_choice_initiator_unknown";
 
   constructor() {
     super(
-      'awaitChoice cannot be limited to the initiator: the turn\'s actor has no id. Pass answerableBy: "conversation" to let anyone in the conversation answer.',
+      'This cannot be limited to the initiator: the run\'s actor has no id. Pass answerableBy: "conversation" to let anyone in the conversation answer.',
     );
     this.name = "ChannelChoiceInitiatorUnknownError";
   }
@@ -852,8 +853,14 @@ export class Thread implements ThreadInterface {
         ),
       );
     }
+    // Inside a run chain the owner is the chain's initiator, the same account
+    // `resume` defaults to, even when someone else resumed this leg of it.
     const actorId =
-      answerableBy === "initiator" ? initiatorId(this.deps.actor) : undefined;
+      answerableBy === "initiator"
+        ? initiatorId(
+            this.activeContinuation?.initiator.actor ?? this.deps.actor,
+          )
+        : undefined;
     if (answerableBy === "initiator" && actorId === undefined) {
       return Promise.reject(new ChannelChoiceInitiatorUnknownError());
     }
@@ -875,6 +882,9 @@ export class Thread implements ThreadInterface {
       const controls = collectChoiceControls(ir, unboundActionIds);
       // The controls' ids can reach the platform as soon as the post starts:
       // claim them for this choice first, and revoke them if the post fails.
+      if (actorId !== undefined) {
+        await this.deps.registry.setActionOwner(controls.keys(), actorId);
+      }
       const abandon = this.deps.reserveChoiceControls(controls.keys(), actorId);
       let ref: MessageRef;
       try {
@@ -1013,38 +1023,27 @@ export class Thread implements ThreadInterface {
     );
   }
 
+  /**
+   * Re-enter the interrupted run this click's action continues, consuming the
+   * action.
+   *
+   * `options.answerableBy` decides who may resume (default `"initiator"`):
+   * `"initiator"` accepts only the provider account that started the run
+   * chain, matched by its id. Any other account gets
+   * {@link ActionInitiatorMismatchError}, which the Channel reports as a
+   * refused click; the action is not consumed, so the initiator can still use
+   * it. It rejects with {@link ChannelChoiceInitiatorUnknownError} when the
+   * chain's actor has no id. `"conversation"` accepts anyone in the
+   * conversation. Only one action of an interrupt can resume it: once one has,
+   * the others are refused with {@link ActionAlreadyClaimedError}. Call
+   * {@link assertCanResume} first to do work a refused click must not do.
+   */
   resume(
     value: unknown,
-    options?: {
-      memory?: MemoryGrant;
-      subject?: "initiator" | "actor";
-    },
+    options?: ResumeOptions,
   ): Promise<MessageRef | undefined> {
-    const memoryRequest =
-      options?.memory === undefined
-        ? undefined
-        : { user: options.memory.user, project: options.memory.project };
-    const subject = options?.subject;
-    const actionId = this.deps.interactionActionId;
-    if (!actionId) {
-      return Promise.reject(new ChannelContinuationRequiredError());
-    }
     return this.trackOperation(async () => {
-      const binding = {
-        channelName: this.deps.channelName,
-        conversationKey: this.deps.conversationKey,
-        threadId: this.deps.threadId,
-      };
-      const available = await this.deps.registry.getContinuation(
-        actionId,
-        binding,
-      );
-      const memory = this.resolveResumeMemory(
-        memoryRequest === undefined && subject === undefined
-          ? undefined
-          : { memory: memoryRequest, subject },
-        available,
-      );
+      const { actionId, binding, memory } = await this.checkResume(options);
       const claimed = await this.deps.registry.claimContinuation(
         actionId,
         binding,
@@ -1090,6 +1089,59 @@ export class Thread implements ThreadInterface {
         }
       }
     });
+  }
+
+  /**
+   * Refuse exactly as {@link resume} would, with the same options, and consume
+   * nothing. Call it before updating a card, so a refused click changes
+   * nothing. Two clicks racing can both pass; `resume` still lets only one
+   * through.
+   */
+  assertCanResume(options?: ResumeOptions): Promise<void> {
+    return this.trackOperation(async () => {
+      await this.checkResume(options);
+    });
+  }
+
+  private async checkResume(options: ResumeOptions | undefined) {
+    const memoryRequest =
+      options?.memory === undefined
+        ? undefined
+        : { user: options.memory.user, project: options.memory.project };
+    const subject = options?.subject;
+    const answerableBy = options?.answerableBy ?? "initiator";
+    if (answerableBy !== "initiator" && answerableBy !== "conversation") {
+      throw new RangeError(
+        'resume answerableBy must be "initiator" or "conversation"',
+      );
+    }
+    const actionId = this.deps.interactionActionId;
+    if (!actionId) throw new ChannelContinuationRequiredError();
+    const binding = {
+      channelName: this.deps.channelName,
+      conversationKey: this.deps.conversationKey,
+      threadId: this.deps.threadId,
+    };
+    const available = await this.deps.registry.getContinuation(
+      actionId,
+      binding,
+    );
+    if (answerableBy === "initiator") {
+      const initiator = initiatorId(available.initiator.actor);
+      if (initiator === undefined) {
+        throw new ChannelChoiceInitiatorUnknownError();
+      }
+      if (initiator !== this.deps.actor.id) {
+        throw new ActionInitiatorMismatchError();
+      }
+    }
+    const memory = this.resolveResumeMemory(
+      memoryRequest === undefined && subject === undefined
+        ? undefined
+        : { memory: memoryRequest, subject },
+      available,
+    );
+    return { actionId, binding, memory };
   }
 
   private resolveResumeMemory(
@@ -1372,6 +1424,13 @@ function promptMatchesInbound(
     message.contentParts !== undefined &&
     JSON.stringify(prompt) === JSON.stringify(message.contentParts)
   );
+}
+
+/** Options for {@link Thread.resume} and {@link Thread.assertCanResume}. */
+export interface ResumeOptions {
+  memory?: MemoryGrant;
+  subject?: "initiator" | "actor";
+  answerableBy?: ChoiceAnswerableBy;
 }
 
 /** A pending `awaitChoice`: who may answer it, and with which controls. */

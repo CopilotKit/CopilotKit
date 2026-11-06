@@ -204,6 +204,11 @@ declares the matching Channel can receive the invitation, check local capacity,
 and attempt the claim. Different replicas can serve different conversations at
 the same time; there is no Channel-wide leader.
 
+A pending `awaitChoice` lives in the process that posted it. If a click reaches
+another replica, the owner's click runs the control's handler but doesn't settle
+the choice, which stays pending until its `timeoutMs`. Use sticky routing or
+post-and-resume, which works across replicas.
+
 Keep each replica's Channel declarations and agent code aligned. The managed
 listener bounds active and pending delivery work internally. A Runtime that has
 reached its internal capacity declines new invitations before claiming them;

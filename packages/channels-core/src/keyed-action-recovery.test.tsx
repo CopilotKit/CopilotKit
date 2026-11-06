@@ -33,6 +33,7 @@ function interactionContext(id: string): InteractionContext {
     awaitChoice: unusedChoice,
     runAgent: async () => undefined,
     resume: async () => undefined,
+    assertCanResume: async () => undefined,
     stream: async () => ({ id: "message-1" }),
     postFile: async () => ({ ok: true, fileId: "file-1" }),
     getMessages: async () => [],

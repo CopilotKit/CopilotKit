@@ -388,3 +388,54 @@ describe("TeamsAdapter typing heartbeat", () => {
     }
   });
 });
+
+describe("TeamsAdapter.postEphemeral", () => {
+  it("replies in a personal chat, where only the clicker can see it", async () => {
+    const adapter = new TeamsAdapter({});
+    const ref = { id: "m1", conversationKey: "k" };
+    vi.spyOn(adapter, "post").mockResolvedValue(ref as never);
+    const target = {
+      conversationKey: "k",
+      reference: {
+        conversation: { conversationType: "personal" },
+        user: { id: "u" },
+      },
+    };
+    await expect(
+      adapter.postEphemeral(target as never, "u", []),
+    ).resolves.toEqual({ ok: true, usedFallback: false, ref });
+  });
+
+  it.each([
+    ["someone else", "other", { id: "u" }],
+    ["someone else's actor", { id: "other", kind: "human" }, { id: "u" }],
+    ["an unknown participant", "u", undefined],
+  ])("declines to reach %s in a personal chat", async (_label, user, who) => {
+    const adapter = new TeamsAdapter({});
+    const post = vi.spyOn(adapter, "post");
+    const target = {
+      conversationKey: "k",
+      reference: {
+        conversation: { conversationType: "personal" },
+        user: who,
+      },
+    };
+    await expect(
+      adapter.postEphemeral(target as never, user as never, []),
+    ).resolves.toBeNull();
+    expect(post).not.toHaveBeenCalled();
+  });
+
+  it.each(["groupChat", "channel"])("declines in a %s", async (type) => {
+    const adapter = new TeamsAdapter({});
+    const post = vi.spyOn(adapter, "post");
+    const target = {
+      conversationKey: "k",
+      reference: { conversation: { conversationType: type } },
+    };
+    await expect(
+      adapter.postEphemeral(target as never, "u", []),
+    ).resolves.toBeNull();
+    expect(post).not.toHaveBeenCalled();
+  });
+});
