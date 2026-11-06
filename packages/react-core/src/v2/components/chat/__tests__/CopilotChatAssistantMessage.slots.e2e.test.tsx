@@ -209,6 +209,50 @@ describe("CopilotChatAssistantMessage Slot System E2E Tests", () => {
         const markdown = screen.queryByTestId("custom-markdown");
         expect(markdown).toBeDefined();
       });
+
+      it.each([
+        {
+          label: "a settled message",
+          isRunning: false,
+          isLatest: true,
+          mode: "static",
+        },
+        {
+          label: "an earlier message during a run",
+          isRunning: true,
+          isLatest: false,
+          mode: "static",
+        },
+        {
+          label: "the message being written",
+          isRunning: true,
+          isLatest: true,
+          mode: "streaming",
+        },
+      ])(
+        "renders $label in Streamdown's $mode mode",
+        ({ isRunning, isLatest, mode }) => {
+          // Streaming mode renders nothing on mount and fills the message a
+          // frame later, which made long threads re-lay out in Safari.
+          const modes: unknown[] = [];
+          const Capture = (props: { mode?: string }) => {
+            modes.push(props.mode);
+            return null;
+          };
+          render(
+            <TestWrapper>
+              <CopilotChatAssistantMessage
+                message={createAssistantMessage("Hello world")}
+                isRunning={isRunning}
+                isLatest={isLatest}
+                markdownRenderer={Capture}
+              />
+            </TestWrapper>,
+          );
+
+          expect(modes.at(-1)).toBe(mode);
+        },
+      );
     });
 
     describe("toolbar slot", () => {
