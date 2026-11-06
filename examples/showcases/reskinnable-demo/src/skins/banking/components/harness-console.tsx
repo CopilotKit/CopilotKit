@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useSubagentActivity } from "@/shell/subagents/subagent-activity";
+import { selectDelegationActivity } from "@/shell/subagents/subagent-anchor";
 
 /**
  * The live console for the offsite-expenses run — a CLI window in the
@@ -54,17 +55,40 @@ const isNearBottom = (el: HTMLDivElement | null): boolean =>
   el === null ||
   el.scrollHeight - el.scrollTop - el.clientHeight <= NEAR_BOTTOM_PX;
 
-export const HarnessConsole = () => {
-  const { lines: allLines, subagents, isRunning } = useSubagentActivity();
+export const HarnessConsole = ({
+  delegationToolCallId,
+}: {
+  /**
+   * The parent `task` call this console belongs to. Only the subagent tree that
+   * call started is shown, so each run's console holds that run's lines.
+   */
+  delegationToolCallId?: string;
+} = {}) => {
+  const {
+    lines: threadLines,
+    subagents: threadSubagents,
+    isRunning: agentRunning,
+  } = useSubagentActivity();
 
   const [open, setOpen] = useState(false);
+
+  const run = useMemo(
+    () =>
+      selectDelegationActivity(
+        threadLines,
+        threadSubagents,
+        delegationToolCallId,
+      ),
+    [threadLines, threadSubagents, delegationToolCallId],
+  );
+  const subagents = run.subagents;
 
   // The report tool renders as the REPORT CARD in the transcript, so drawing it
   // here as well would show the same result twice — once as a terminal line,
   // once as the component it produced.
   const lines = useMemo(
-    () => allLines.filter((l) => l.toolName !== "submit_expense_report"),
-    [allLines],
+    () => run.lines.filter((l) => l.toolName !== "submit_expense_report"),
+    [run.lines],
   );
 
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -96,9 +120,11 @@ export const HarnessConsole = () => {
     }
   }, [lines.length, tailText, open]);
 
-  const running = Array.from(subagents.values()).filter(
-    (s) => s.status === "running",
-  ).length;
+  const running = subagents.filter((s) => s.status === "running").length;
+  // An earlier run's console reads "done" once its own tree has finished, even
+  // while a later run on the same thread keeps the agent busy.
+  const isRunning =
+    agentRunning && (!run.scoped || subagents.length === 0 || running > 0);
 
   return (
     <div className="overflow-hidden rounded-[--radius] border border-hairline bg-surface-muted shadow-soft">
