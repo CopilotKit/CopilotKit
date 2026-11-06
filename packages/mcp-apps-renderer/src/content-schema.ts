@@ -1,4 +1,4 @@
-import { z } from "zod";
+import { z } from "zod/v3";
 
 // Keep /activity bridge-free: the MCP SDK is only used as a test oracle.
 // This is the Angular host's content contract, expressed using our zod API.
