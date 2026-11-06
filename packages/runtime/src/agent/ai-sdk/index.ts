@@ -397,11 +397,9 @@ export function convertJsonSchemaToZodSchema(
       return !required ? z.object(spec).optional() : z.object(spec);
     }
 
+    const requiredKeys = new Set(jsonSchema.required ?? []);
     for (const [key, value] of Object.entries(jsonSchema.properties)) {
-      spec[key] = convertJsonSchemaToZodSchema(
-        value,
-        jsonSchema.required ? jsonSchema.required.includes(key) : false,
-      );
+      spec[key] = convertJsonSchemaToZodSchema(value, requiredKeys.has(key));
     }
     const schema = describe(z.object(spec));
     return required ? schema : schema.optional();

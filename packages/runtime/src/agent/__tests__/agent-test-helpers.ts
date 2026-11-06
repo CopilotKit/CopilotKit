@@ -63,8 +63,6 @@ export {
   reasoningDelta,
   reasoningEnd,
   finish,
-  abort,
-  error,
   collectEvents,
 } from "./test-helpers";
 
