@@ -64,6 +64,11 @@ services:
     image: ghcr.io/copilotkit/aimock:latest
     container_name: showcase-aimock
     env_file: .env
+    environment:
+      # Without this aimock relaxes turnIndex and re-serves the turnIndex:0
+      # tool-call fixture on the follow-up turn, looping agents whose
+      # follow-up fixture is keyed on toolCallId (AG2 1.x Responses API).
+      - AIMOCK_STRICT_TURN_INDEX=1
     ports:
       - "4010:4010"
     profiles: ["infra", "all"]

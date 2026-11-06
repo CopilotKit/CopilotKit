@@ -53,10 +53,10 @@ particular layout), follow their lead — but still in ONE call.
 
 
 graph = create_agent(
-    # gpt-5-mini for speed — Excalidraw element emission is simple
+    # gpt-6-luna for speed — Excalidraw element emission is simple
     # JSON and we're biasing hard toward sub-30s generation. A faster
     # model produces shorter, quicker outputs with acceptable layouts.
-    model=ChatOpenAI(model="gpt-5-mini"),
+    model=ChatOpenAI(reasoning_effort="none", model="gpt-6-luna"),
     tools=[],
     middleware=[CopilotKitMiddleware()],
     system_prompt=SYSTEM_PROMPT,

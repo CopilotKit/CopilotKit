@@ -198,7 +198,7 @@ describe("standard catalog: checks", () => {
     // An error from the same data blocks again.
     act(() =>
       v.update({
-        version: "v1.0",
+        version: "1.0",
         updateDataModel: {
           surfaceId: "surface",
           path: "/couponCheck",

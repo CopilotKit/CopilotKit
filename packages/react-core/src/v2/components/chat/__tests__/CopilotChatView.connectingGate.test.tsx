@@ -54,3 +54,110 @@ describe("CopilotChatView connect-gating", () => {
     expect(screen.getByTestId("copilot-welcome-screen")).toBeDefined();
   });
 });
+
+const CustomIndicator = () => <div data-testid="custom-indicator" />;
+
+describe("CopilotChatView connecting indicator", () => {
+  it("shows the indicator while connecting with no messages yet", () => {
+    render(
+      <TestWrapper>
+        <CopilotChatView messages={[]} isConnecting hasExplicitThreadId />
+      </TestWrapper>,
+    );
+
+    // Restoring a thread's history should not render as an empty panel.
+    const indicator = screen.getByTestId("copilot-connecting-indicator");
+    expect(indicator.getAttribute("role")).toBe("status");
+    // The label is text content so screen readers announce the status region.
+    expect(indicator.textContent).toBe("Loading conversation");
+    expect(
+      screen
+        .getByTestId("copilot-chat")
+        .getAttribute("data-copilot-connecting"),
+    ).toBe("true");
+  });
+
+  it("hides the indicator once the connect has finished", () => {
+    render(
+      <TestWrapper>
+        <CopilotChatView messages={[]} hasExplicitThreadId />
+      </TestWrapper>,
+    );
+
+    expect(screen.queryByTestId("copilot-connecting-indicator")).toBeNull();
+    expect(
+      screen
+        .getByTestId("copilot-chat")
+        .getAttribute("data-copilot-connecting"),
+    ).toBe("false");
+  });
+
+  it("hides the indicator once restored messages start arriving", () => {
+    render(
+      <TestWrapper>
+        <CopilotChatView
+          messages={[{ id: "m1", role: "user", content: "hello" }]}
+          isConnecting
+          hasExplicitThreadId
+        />
+      </TestWrapper>,
+    );
+
+    expect(screen.queryByTestId("copilot-connecting-indicator")).toBeNull();
+  });
+
+  it("does not render the indicator when connectingIndicator={false}", () => {
+    render(
+      <TestWrapper>
+        <CopilotChatView
+          messages={[]}
+          isConnecting
+          hasExplicitThreadId
+          connectingIndicator={false}
+        />
+      </TestWrapper>,
+    );
+
+    expect(screen.queryByTestId("copilot-connecting-indicator")).toBeNull();
+    // The attribute stays available for apps that render their own state.
+    expect(
+      screen
+        .getByTestId("copilot-chat")
+        .getAttribute("data-copilot-connecting"),
+    ).toBe("true");
+  });
+
+  it("renders a custom connectingIndicator component", () => {
+    render(
+      <TestWrapper>
+        <CopilotChatView
+          messages={[]}
+          isConnecting
+          hasExplicitThreadId
+          connectingIndicator={CustomIndicator}
+        />
+      </TestWrapper>,
+    );
+
+    expect(screen.getByTestId("custom-indicator")).toBeDefined();
+    expect(screen.queryByTestId("copilot-connecting-indicator")).toBeNull();
+  });
+
+  it("exposes data-copilot-connecting on the children render-prop root", () => {
+    const { container } = render(
+      <TestWrapper>
+        <CopilotChatView messages={[]} isConnecting hasExplicitThreadId>
+          {({ input }) => <div data-testid="custom-layout">{input}</div>}
+        </CopilotChatView>
+      </TestWrapper>,
+    );
+
+    // Custom layouts should get the same CSS hook as the default root.
+    expect(screen.getByTestId("custom-layout")).toBeDefined();
+    expect(
+      container
+        .querySelector("[data-copilot-connecting]")
+        ?.getAttribute("data-copilot-connecting"),
+    ).toBe("true");
+  });
+});

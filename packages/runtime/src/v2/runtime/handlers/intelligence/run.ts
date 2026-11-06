@@ -21,6 +21,7 @@ import {
 } from "../../core/learning";
 import { getPlatformErrorStatus } from "../shared/intelligence-utils";
 import { startThreadLockHeartbeat } from "../../intelligence-platform/thread-lock-heartbeat";
+import { normalizeAnalyticsContext } from "../../intelligence-platform/analytics-context";
 import type { ThreadSummary } from "../../intelligence-platform";
 
 /**
@@ -64,6 +65,11 @@ interface HandleIntelligenceRunParams {
   agentId: string;
   agent: AbstractAgent;
   input: RunAgentInput;
+  /**
+   * The app's analytics context, already taken off `input.forwardedProps` by
+   * `takeAnalyticsContext`. Sent on the lock request only.
+   */
+  analyticsContext?: unknown;
   startTime?: number;
 }
 
@@ -73,6 +79,7 @@ export async function handleIntelligenceRun({
   agentId,
   agent,
   input,
+  analyticsContext: forwardedAnalyticsContext,
   startTime,
 }: HandleIntelligenceRunParams): Promise<Response> {
   const runtimeTelemetry = runtime.telemetry ?? telemetry;
@@ -109,6 +116,10 @@ export async function handleIntelligenceRun({
     typeof forwardedRequestId === "string" && forwardedRequestId.length > 0
       ? forwardedRequestId
       : undefined;
+
+  // An app's analytics context labels the run in Intelligence. A missing or
+  // malformed one is left off the lock request and never fails the run.
+  const analyticsContext = normalizeAnalyticsContext(forwardedAnalyticsContext);
 
   let learningContainerId: string | undefined;
   try {
@@ -229,6 +240,7 @@ export async function handleIntelligenceRun({
       agentId,
       ...(learningContainerId !== undefined ? { learningContainerId } : {}),
       ...(requestId !== undefined ? { requestId } : {}),
+      ...(analyticsContext !== undefined ? { analyticsContext } : {}),
       ...(runtime.lockKeyPrefix !== undefined
         ? { lockKeyPrefix: runtime.lockKeyPrefix }
         : {}),
@@ -351,7 +363,21 @@ export async function handleIntelligenceRun({
 
   const runStarted = { current: false };
   let immediateStartupErrorMessage: string | undefined;
-  let immediateStartupCleanup: Promise<void> | undefined;
+
+  // The runner sends the run's events to Intelligence, whose gateway checks
+  // this lock each time it stores a batch and releases it when it stores the
+  // run's terminal event. Release it here only once the runner's stream has
+  // ended, after the runner delivered the run's last events or failed to for
+  // good. A RUN_ERROR reaches this handler before the runner has sent it, so
+  // releasing then got the runner's next batch refused. The release is a
+  // compare-and-delete by run ID: a second one, or one after the gateway's,
+  // changes nothing and never frees a lock a newer run holds.
+  let lockRelease: Promise<void> | undefined;
+  const releaseLock = (reason: string): Promise<void> => {
+    clearHeartbeat();
+    lockRelease ??= cleanupLock(reason);
+    return lockRelease;
+  };
 
   const runRequest: AgentRunnerRunRequest = {
     threadId: canonicalThreadId,
@@ -359,6 +385,16 @@ export async function handleIntelligenceRun({
     agent,
     input: canonicalInput,
     ...(persistedInputMessages !== undefined ? { persistedInputMessages } : {}),
+    // A stop made by this runtime (its stop route, a server-side caller) never
+    // passes through Intelligence, which would count the run as finished.
+    recordStop: (signal) =>
+      runtime.intelligence.ɵrecordRunStop({
+        threadId: canonicalThreadId,
+        runId: canonicalRunId,
+        userId,
+        agentId,
+        signal,
+      }),
   };
 
   const runtimeErrorReporter = getRuntimeErrorReporter(runtime);
@@ -407,10 +443,10 @@ export async function handleIntelligenceRun({
               ? "intelligence.subscription"
               : "intelligence.startup",
           );
+          // The runner may still be sending this error and the events before
+          // it, so the lock stays held until its stream ends.
           if (!runStarted.current) {
-            clearHeartbeat();
             immediateStartupErrorMessage = message;
-            immediateStartupCleanup = cleanupLock("runner-start-failed");
           }
         }
       },
@@ -421,18 +457,19 @@ export async function handleIntelligenceRun({
             ? "intelligence.subscription"
             : "intelligence.startup",
         );
-        clearHeartbeat();
         if (!runStarted.current) {
           immediateStartupErrorMessage =
             error instanceof Error ? error.message : String(error);
-          immediateStartupCleanup = cleanupLock("runner-start-error");
-        } else {
-          cleanupLock("runner-error");
         }
+        // The runner gave up delivering the run's events.
+        void releaseLock(
+          runStarted.current ? "runner-error" : "runner-start-error",
+        );
         logger.error("Error running agent:", error);
       },
       complete: () => {
-        clearHeartbeat();
+        // The runner has delivered the run's last events.
+        void releaseLock("run-ended");
         // Preserve the existing completion count even when the stream contains
         // RUN_ERROR. Failure reporting is separate and carries only a safe code.
         runtimeTelemetry.capture(
@@ -445,8 +482,7 @@ export async function handleIntelligenceRun({
     await runStart.startup;
   } catch (error) {
     reportAgentError(error, "intelligence.startup");
-    clearHeartbeat();
-    await (immediateStartupCleanup ?? cleanupLock("runner-start-threw"));
+    await releaseLock("runner-start-threw");
     logger.error("Error starting agent runner:", error);
     return Response.json(
       {
@@ -458,7 +494,9 @@ export async function handleIntelligenceRun({
   }
 
   if (immediateStartupErrorMessage) {
-    await immediateStartupCleanup;
+    // A run that failed before it started has nothing left to send, and this
+    // request gives it up.
+    await releaseLock("runner-start-failed");
     return Response.json(
       {
         error: "Failed to start runner",

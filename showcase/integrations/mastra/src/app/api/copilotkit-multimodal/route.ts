@@ -1,7 +1,7 @@
 // Dedicated runtime for the Multimodal Attachments demo (Mastra).
 //
 // Why its own route? The backing Mastra agent runs a vision-capable model
-// (gpt-4o). Other cells in the showcase use cheaper text-only models.
+// (gpt-6-luna). Other cells in the showcase use cheaper text-only models.
 // Registering the multimodal agent under the shared `/api/copilotkit`
 // runtime would silently upgrade all cells sharing that runtime to a vision
 // model — wasting tokens and blurring the per-demo cost boundary. A

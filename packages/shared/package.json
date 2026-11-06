@@ -1,6 +1,6 @@
 {
   "name": "@copilotkit/shared",
-  "version": "1.83.0",
+  "version": "1.84.1",
   "private": false,
   "keywords": [
     "ai",
@@ -35,6 +35,10 @@
     "./event-transforms": {
       "import": "./dist/event-transforms/index.mjs",
       "require": "./dist/event-transforms/index.cjs"
+    },
+    "./generative-ui": {
+      "import": "./dist/generative-ui/index.mjs",
+      "require": "./dist/generative-ui/index.cjs"
     },
     "./telemetry": {
       "import": "./dist/telemetry/index.mjs",

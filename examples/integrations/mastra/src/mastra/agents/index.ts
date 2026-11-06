@@ -37,8 +37,8 @@ export const weatherAgent = new Agent({
   name: "Weather Agent",
   tools: { weatherTool },
   // COPILOTKIT_AGENT_MODEL (e.g. "anthropic:claude-sonnet-4-5") overrides this;
-  // unset, the agent uses gpt-5-mini.
-  model: createLanguageModel("openai:gpt-5-mini"),
+  // unset, the agent uses gpt-6-luna.
+  model: createLanguageModel("openai:gpt-6-luna"),
   instructions: ({ requestContext }) =>
     withPageContext("You are a helpful assistant.", requestContext),
   memory: new Memory({

@@ -74,11 +74,11 @@ const T = "thread-1";
 const TARGET_DESCRIPTION = "Next to the product list.";
 
 const create = (surfaceId: string) => ({
-  version: "v1.0",
+  version: "1.0",
   createSurface: { surfaceId, catalogId: "shop" },
 });
 const buttonRoot = (surfaceId: string, label: string) => ({
-  version: "v1.0",
+  version: "1.0",
   updateComponents: {
     surfaceId,
     components: [{ id: "root", component: "Button", label }],
@@ -227,7 +227,7 @@ describe("markdown transport", () => {
   it("renders an inline createSurface while it streams, with its prose as chat markdown", async () => {
     const { agent } = setup();
     const line = JSON.stringify({
-      version: "v1.0",
+      version: "1.0",
       createSurface: {
         surfaceId: "s1",
         components: [
@@ -329,7 +329,7 @@ describe("markdown transport", () => {
   it("sends the dropped operations of a surface in the schema of the next run", async () => {
     const { copilotkit, agent } = setup();
     const missing = {
-      version: "v1.0",
+      version: "1.0",
       updateComponents: {
         surfaceId: "s1",
         components: [{ id: "extra", component: "Missing" }],

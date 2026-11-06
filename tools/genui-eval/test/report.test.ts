@@ -52,7 +52,8 @@ const run = (id: string, sizes = { markdown: 9000 }): RunRecord => ({
   promptHashes: { markdown: "000000000000" },
   promptSizes: sizes,
   preset: "test",
-  models: [{ id: "m", model: "vendor/m" }],
+  models: [{ id: "m", model: "vendor/m", params: {} }],
+  validityMode: "raw",
   transports: ["markdown"],
   split: "both",
   samplesPerCase: 3,
@@ -108,6 +109,68 @@ describe("empty tiers", () => {
 });
 
 describe("buildReport", () => {
+  it.each(["model", "provider", "params"] as const)(
+    "does not attribute a different %s to the prompt",
+    (field) => {
+      const before = run("before");
+      const after = run("after");
+      after.models = [
+        {
+          ...after.models[0],
+          ...{
+            model: { model: "vendor/other" },
+            provider: { provider: "other-host" },
+            params: { params: { temperature: 1 } },
+          }[field],
+        },
+      ];
+      const report = buildReport(
+        { run: after, samples: [sample({ modelName: after.models[0].model })] },
+        { run: before, samples: [sample({ pass: false })] },
+      );
+      expect(report.base!.delta).toEqual([]);
+      expect(report.base!.warnings.join(" ")).toContain(field);
+    },
+  );
+
+  it("warns when legacy runs did not record generation parameters", () => {
+    const before = run("before");
+    delete before.models[0].params;
+    const report = buildReport(
+      { run: run("after"), samples: [sample({})] },
+      { run: before, samples: [sample({})] },
+    );
+    expect(report.base!.warnings.join(" ")).toContain(
+      "parameters were not recorded",
+    );
+  });
+
+  it("does not compare raw validity with legacy post-repair validity", () => {
+    const before = run("before");
+    delete before.validityMode;
+    const report = buildReport(
+      { run: run("after"), samples: [sample({})] },
+      { run: before, samples: [sample({})] },
+    );
+    expect(report.base!.delta.some((d) => d.tier === "validity")).toBe(false);
+    expect(report.base!.warnings.join(" ")).toContain(
+      "validity definitions differ",
+    );
+  });
+
+  it("reports recovered validity and repaired lines separately", () => {
+    const repaired = sample({
+      repairedLines: 1,
+      recoveredValidity: { pass: true, reasons: [] },
+    });
+    repaired.tiers.validity = { pass: false, reasons: ["repaired fence line"] };
+    const report = buildReport({ run: run("r"), samples: [repaired] });
+    expect(report.models[0].train.validity.rate).toBe(0);
+    expect(report.models[0].recoveredValidity.train.rate).toBe(1);
+    expect(formatReport(report)).toContain("1 repaired lines");
+    expect(formatReport(report)).toContain("validity after recovery");
+  });
+
   const samples = [
     sample({}),
     sample({ pass: false, sample: 1 }),

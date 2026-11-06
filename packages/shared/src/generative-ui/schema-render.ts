@@ -132,7 +132,7 @@ function oneLine(text: string) {
 
 /** Values that would read as a type or a number once their quotes are gone. */
 const AMBIGUOUS_VALUE =
-  /^(?:string|number|integer|boolean|null|object|array|unknown|any|-?\d[\d.]*)$/;
+  /^(?:string|number|integer|boolean|true|false|null|object|array|unknown|any|-?\d[\d.]*)$/;
 
 /**
  * A compact type with bare enum values and tight unions:

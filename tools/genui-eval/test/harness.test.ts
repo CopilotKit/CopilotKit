@@ -76,7 +76,7 @@ describe("runSample", () => {
 
   it("counts a fence line the client repairs apart from one it cannot use", () => {
     const ok =
-      '{"version":"v1.0","updateComponents":{"surfaceId":"s","components":[{"id":"t","component":"Text","text":"Hi"}]}}';
+      '{"version":"1.0","updateComponents":{"surfaceId":"s","components":[{"id":"t","component":"Text","text":"Hi"}]}}';
     const oneShort = ok.slice(0, -1);
     const twoShort = ok.slice(0, -2);
     const { errors, repaired } = fenceParseErrors(
@@ -218,7 +218,7 @@ describe("applyPatch", () => {
 });
 
 describe("the markdown transport", () => {
-  it("sends the model the system prompt and the conversation, and no tools", async () => {
+  it("preserves the production agent's state tools without injecting render_ui", async () => {
     const { MockLanguageModelV3 } = await import("ai/test");
     const seen: Array<{ tools?: unknown; roles: string[] }> = [];
     const spy = new MockLanguageModelV3({
@@ -238,7 +238,15 @@ describe("the markdown transport", () => {
       entry: { model: "x/y" },
       model: spy,
     });
-    expect(seen[0].tools).toBeUndefined();
+    expect(seen[0].tools).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ name: "AGUISendStateSnapshot" }),
+        expect.objectContaining({ name: "AGUISendStateDelta" }),
+      ]),
+    );
+    expect(seen[0].tools).not.toEqual(
+      expect.arrayContaining([expect.objectContaining({ name: "render_ui" })]),
+    );
     expect(seen[0].roles).toEqual(["system", "user"]);
   });
 });

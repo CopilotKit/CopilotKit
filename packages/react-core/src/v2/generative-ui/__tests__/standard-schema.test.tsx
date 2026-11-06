@@ -11,10 +11,10 @@ import type {
 } from "@copilotkit/shared";
 import { createGenerativeUI } from "../catalog";
 import type { GenerativeUIComponentProps } from "../catalog";
-import { createGenerativeUIDispatcher } from "../dispatcher";
+import { createGenerativeUIDispatcher } from "@copilotkit/core/generative-ui";
 import { GenerativeUIRuntimeContext } from "../runtime-context";
 import type { GenerativeUIRuntime } from "../runtime-context";
-import { GenerativeUISurfaceManager } from "../surface-manager";
+import { GenerativeUISurfaceManager } from "@copilotkit/core/generative-ui";
 import { SurfaceView } from "../SurfaceView";
 
 type Kind = "string" | "number";
@@ -109,11 +109,11 @@ function setup() {
       catalogId: "plain",
       operations: [
         {
-          version: "v1.0",
+          version: "1.0",
           createSurface: { surfaceId: "s1", catalogId: "plain" },
         },
         {
-          version: "v1.0",
+          version: "1.0",
           updateComponents: { surfaceId: "s1", components: [root] },
         },
       ],

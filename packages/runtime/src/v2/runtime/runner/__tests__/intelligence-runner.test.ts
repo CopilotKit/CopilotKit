@@ -412,9 +412,11 @@ describe("IntelligenceAgentRunner", () => {
 
       const events = await eventsPromise;
 
-      // Agent events are NOT emitted to the Observable — only to the channel.
-      // The Observable only receives finalization events (none needed here).
-      expect(events).toHaveLength(0);
+      // Agent events go to the channel only. The Observable tells the request
+      // handler that the run started, and would carry a RUN_ERROR.
+      expect(events.map((event) => event.type)).toEqual([
+        EventType.RUN_STARTED,
+      ]);
     });
 
     it("pushes agent events to the Phoenix channel", async () => {
@@ -1839,7 +1841,9 @@ describe("IntelligenceAgentRunner", () => {
       expect(await runner.isRunning({ threadId })).toBe(true);
       expect(ch.left).toBe(false);
       ch.triggerJoin("ok");
-      expect(await eventsPromise).toEqual([]);
+      expect((await eventsPromise).map((event) => event.type)).toEqual([
+        EventType.RUN_STARTED,
+      ]);
     });
 
     it("throws when the thread is already running", () => {

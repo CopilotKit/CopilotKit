@@ -41,7 +41,7 @@ function renderInputs(
 /** An agent write to the data model of the test surface. */
 function agentWrite(path: string, value: unknown) {
   return {
-    version: "v1.0" as const,
+    version: "1.0" as const,
     updateDataModel: { surfaceId: SURFACE_ID, path, value },
   };
 }

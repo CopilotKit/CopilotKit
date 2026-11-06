@@ -3,11 +3,11 @@ import { act, render } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createGenerativeUI } from "../catalog";
 import type { GenerativeUI } from "../catalog";
-import { createGenerativeUIDispatcher } from "../dispatcher";
+import { createGenerativeUIDispatcher } from "@copilotkit/core/generative-ui";
 import { GenerativeUISurface } from "../GenerativeUISurface";
 import { GenerativeUIRuntimeContext } from "../runtime-context";
 import type { GenerativeUIRuntime } from "../runtime-context";
-import { GenerativeUISurfaceManager } from "../surface-manager";
+import { GenerativeUISurfaceManager } from "@copilotkit/core/generative-ui";
 
 const Noop = () => null;
 const ui = createGenerativeUI({
@@ -105,7 +105,7 @@ describe("GenerativeUISurface autoScroll", () => {
     catalogId: "shop",
     operations: [
       {
-        version: "v1.0" as const,
+        version: "1.0" as const,
         createSurface: { surfaceId: "s1", catalogId: "shop" },
       },
     ],

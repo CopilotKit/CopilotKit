@@ -28,6 +28,44 @@ const config = defineEvalConfig({
 });
 
 describe("runEval", () => {
+  it("persists effective generation parameters and raw and recovered validity", async () => {
+    const plan = resolvePlan(config, "offline", { transports: ["markdown"] });
+    plan.models = [
+      {
+        id: "fake",
+        model: "fake:offline",
+        params: { temperature: 0, maxOutputTokens: 1234 },
+      },
+    ];
+    const run = await runEval({
+      config,
+      plan,
+      split: "train",
+      budgetUsd: 1,
+      root,
+      cases: [
+        {
+          split: "train",
+          case: {
+            id: "repaired",
+            message: "Show a link",
+            catalog: "standard",
+            tags: ["probe"],
+            expect: { ui: true, components: ["Button"] },
+          },
+        },
+      ],
+    });
+    const stored = readRun(run.id, root);
+    expect(stored.run.models[0].params).toEqual({
+      temperature: 0,
+      maxOutputTokens: 1234,
+    });
+    expect(stored.run.validityMode).toBe("raw");
+    expect(stored.samples[0].tiers.validity.pass).toBe(false);
+    expect(stored.samples[0].recoveredValidity?.pass).toBe(true);
+  });
+
   it("runs every case on both transports and writes the run and one line per sample", async () => {
     const run = await runEval({
       config,

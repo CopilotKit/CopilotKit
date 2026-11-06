@@ -46,8 +46,10 @@ _HERE = pathlib.Path(__file__).parent
 load_dotenv(_HERE / ".env")
 load_dotenv(_HERE.parent / ".env")
 
-API_BASE = os.getenv("MYELIN_API_BASE", "http://localhost:3000/api/myelin/v1").rstrip("/")
-MODEL = os.getenv("MYELIN_MODEL", "openai/gpt-5.4")
+API_BASE = os.getenv("MYELIN_API_BASE", "http://localhost:3000/api/myelin/v1").rstrip(
+    "/"
+)
+MODEL = os.getenv("MYELIN_MODEL", "openai/gpt-6-luna")
 CONTEXT_STATE_KEY = "_ag_ui_context"
 
 # ── REST plumbing ───────────────────────────────────────────────────────────
@@ -87,7 +89,11 @@ async def _call(method: str, path: str, body: Optional[dict] = None) -> dict[str
             "message": payload.get("message", "The request was refused."),
             **{k: v for k, v in payload.items() if k not in ("error", "message")},
         }
-    return {"ok": False, "error": f"HTTP_{res.status_code}", "message": "The request was refused."}
+    return {
+        "ok": False,
+        "error": f"HTTP_{res.status_code}",
+        "message": "The request was refused.",
+    }
 
 
 def _item(it: dict) -> dict:
@@ -107,7 +113,8 @@ def _journey(j: dict, groups_by_id: Optional[dict[str, dict]] = None) -> dict:
     audience_ids = j.get("audienceGroupIds", [])
     if groups_by_id is not None:
         audience = [
-            {"id": gid, "name": groups_by_id.get(gid, {}).get("name", gid)} for gid in audience_ids
+            {"id": gid, "name": groups_by_id.get(gid, {}).get("name", gid)}
+            for gid in audience_ids
         ]
     else:
         audience = audience_ids
@@ -182,8 +189,15 @@ async def create_journey(
         The created journey, including its new `id`. Open it with openJourney
         straight away, then add items with add_item.
     """
-    body = {"name": name, "description": description, "audienceGroupIds": audience_group_ids or []}
-    return _fail_or(await _call("POST", "/journeys", body), lambda d: {"ok": True, "journey": _journey(d)})
+    body = {
+        "name": name,
+        "description": description,
+        "audienceGroupIds": audience_group_ids or [],
+    }
+    return _fail_or(
+        await _call("POST", "/journeys", body),
+        lambda d: {"ok": True, "journey": _journey(d)},
+    )
 
 
 async def add_item(
@@ -295,7 +309,9 @@ async def set_audience(journey_id: str, group_ids: list[str]) -> dict:
         group_ids: Every group id that should be assigned (replaces the list).
     """
     return _fail_or(
-        await _call("PATCH", f"/journeys/{journey_id}", {"audienceGroupIds": group_ids}),
+        await _call(
+            "PATCH", f"/journeys/{journey_id}", {"audienceGroupIds": group_ids}
+        ),
         lambda d: {"ok": True, "journey": _journey(d)},
     )
 
@@ -387,7 +403,11 @@ async def notify_store_managers(journey_id: str, message: str) -> dict:
     """
     return _fail_or(
         await _call("POST", f"/journeys/{journey_id}/notify", {"message": message}),
-        lambda d: {"ok": True, "sentTo": d.get("audience"), "message": d.get("message")},
+        lambda d: {
+            "ok": True,
+            "sentTo": d.get("audience"),
+            "message": d.get("message"),
+        },
     )
 
 
@@ -405,7 +425,11 @@ async def schedule_reminder(journey_id: str, after_days: int, message: str) -> d
             f"/journeys/{journey_id}/reminders",
             {"afterDays": after_days, "message": message},
         ),
-        lambda d: {"ok": True, "afterDays": d.get("afterDays"), "message": d.get("message")},
+        lambda d: {
+            "ok": True,
+            "afterDays": d.get("afterDays"),
+            "message": d.get("message"),
+        },
     )
 
 
@@ -469,14 +493,25 @@ def build_model():
 
     # Sequential tool calls: the journey build adds items ONE AT A TIME and each
     # add_item needs the ids returned by the previous ones for depends_on.
-    return LiteLlm(model=MODEL, parallel_tool_calls=False)
+    return LiteLlm(
+        model=MODEL,
+        parallel_tool_calls=False,
+        **(
+            {"reasoning_effort": "none", "allowed_openai_params": ["reasoning_effort"]}
+            if MODEL in ("gpt-6-luna", "openai/gpt-6-luna")
+            else {}
+        ),
+    )
 
 
 def _log_tool_call(tool, args, tool_context):
     """One line per tool call in the agent log, so a presenter (or a debugger)
     can see what the model actually did — server tools, browser tools and the
     Intelligence memory tools alike."""
-    print(f"[myelin-agent] tool {tool.name} {json.dumps(args, default=str)[:400]}", flush=True)
+    print(
+        f"[myelin-agent] tool {tool.name} {json.dumps(args, default=str)[:400]}",
+        flush=True,
+    )
     return None
 
 
@@ -490,7 +525,9 @@ def _log_model_reply(llm_response):
 
 def _log_model_tools(callback_context, llm_request):
     names = sorted(getattr(llm_request, "tools_dict", {}) or {})
-    print(f"[myelin-agent] model sees {len(names)} tools: {', '.join(names)}", flush=True)
+    print(
+        f"[myelin-agent] model sees {len(names)} tools: {', '.join(names)}", flush=True
+    )
     return None
 
 
@@ -501,8 +538,11 @@ myelin_agent = LlmAgent(
     tools=[*SERVER_TOOLS, AGUIToolset()],
     before_tool_callback=_log_tool_call,
     before_model_callback=_log_model_tools,
-    after_model_callback=lambda callback_context, llm_response: _log_model_reply(llm_response),
+    after_model_callback=lambda callback_context, llm_response: _log_model_reply(
+        llm_response
+    ),
 )
+
 
 class MyelinADKAgent(ADKAgent):
     """ADKAgent that tolerates non-object tool results from the browser.
@@ -572,8 +612,14 @@ def main():
     host = os.getenv("MYELIN_AGENT_HOST", "0.0.0.0")
     port = int(os.getenv("MYELIN_AGENT_PORT", "8125"))
     if MODEL.startswith("gemini") and not os.getenv("GOOGLE_API_KEY"):
-        print("[myelin-agent] WARNING: MYELIN_MODEL is Gemini but GOOGLE_API_KEY is not set")
-    elif not MODEL.startswith("gemini") and MODEL.startswith("openai/") and not os.getenv("OPENAI_API_KEY"):
+        print(
+            "[myelin-agent] WARNING: MYELIN_MODEL is Gemini but GOOGLE_API_KEY is not set"
+        )
+    elif (
+        not MODEL.startswith("gemini")
+        and MODEL.startswith("openai/")
+        and not os.getenv("OPENAI_API_KEY")
+    ):
         print("[myelin-agent] WARNING: OPENAI_API_KEY is not set")
     print(f"[myelin-agent] model={MODEL} api={API_BASE} listening on {host}:{port}")
     uvicorn.run(app, host=host, port=port, log_level="info")

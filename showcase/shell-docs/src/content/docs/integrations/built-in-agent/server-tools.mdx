@@ -54,7 +54,7 @@ const getWeather = defineTool({
 });
 
 const builtInAgent = new BuiltInAgent({
-  model: "openai:gpt-5.4-mini",
+  model: "openai:gpt-6-luna",
   tools: [getWeather],
   maxSteps: 2                   //Important for tool calls
 });
@@ -113,7 +113,7 @@ const createTicket = defineTool({
 });
 
 const builtInAgent = new BuiltInAgent({
-  model: "openai:gpt-5.4-mini",
+  model: "openai:gpt-6-luna",
   tools: [searchDocs, createTicket], // [!code highlight]
   maxSteps: 2                        
 });
@@ -181,7 +181,7 @@ By default, the agent performs a single step. If your agent needs to chain tool 
 
 ```typescript
 const builtInAgent = new BuiltInAgent({
-  model: "openai:gpt-5.4-mini",
+  model: "openai:gpt-6-luna",
   maxSteps: 5, // [!code highlight]
   tools: [searchDocs, createTicket, getUser],
 });

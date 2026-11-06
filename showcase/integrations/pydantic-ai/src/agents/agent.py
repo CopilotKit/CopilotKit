@@ -46,7 +46,7 @@ class SalesTodosState(BaseModel):
 # Agent
 # =====
 agent = Agent(
-    model=OpenAIResponsesModel("gpt-5-mini"),
+    model=OpenAIResponsesModel("gpt-6-luna"),
     deps_type=StateDeps[SalesTodosState],
     system_prompt=dedent("""
         You are a helpful sales assistant that helps manage a sales pipeline.
@@ -203,7 +203,8 @@ def generate_a2ui(ctx: RunContext[StateDeps[SalesTodosState]]) -> str:
     llm_messages.extend(conversation_messages)
 
     response = client.chat.completions.create(
-        model="gpt-5-mini",
+        reasoning_effort="none",
+        model="gpt-6-luna",
         messages=llm_messages,
         tools=[tool_schema],
         tool_choice={"type": "function", "function": {"name": "render_a2ui"}},

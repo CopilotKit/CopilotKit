@@ -47,7 +47,7 @@ You can use this when you want to provide user input or control to your agent's 
 
             model = OpenAIModel(
                 client_args={"api_key": os.getenv("OPENAI_API_KEY", "")},
-                model_id="gpt-4o",
+                model_id="gpt-6-luna",
             )
 
             # Create the Strands agent
@@ -85,7 +85,7 @@ You can use this when you want to provide user input or control to your agent's 
 
             const model = new OpenAIModel({
               apiKey: process.env.OPENAI_API_KEY ?? "",
-              modelId: "gpt-4o",
+              modelId: "gpt-6-luna",
             });
 
             // Create the Strands agent

@@ -28,12 +28,13 @@ A run passes through these hooks in order:
 Before writing anything custom, check whether `PIIMiddleware` already covers you. It ships with LangChain and handles the common DLP cases in both directions:
 
 ```python title="agent.py"
+from langchain_openai import ChatOpenAI
 from langchain.agents import create_agent
 from langchain.agents.middleware import PIIMiddleware
 from copilotkit import CopilotKitMiddleware
 
 agent = create_agent(
-    model="openai:gpt-4o",
+    model=ChatOpenAI(model="gpt-6-luna", reasoning_effort="none"),
     tools=[...],
     middleware=[
         # Redact emails the user sends in.
