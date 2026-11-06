@@ -39,23 +39,51 @@ describe("copilotkitCustomizeConfig", () => {
     expect(result.metadata!["copilotkit:emit-tool-calls"]).toBe(false);
   });
 
-  it("sets emit-tool-calls to a specific tool name string", () => {
-    const result = copilotkitCustomizeConfig(
-      {},
-      { emitToolCalls: "SearchTool" },
-    );
-    expect(result.metadata!["copilotkit:emit-tool-calls"]).toBe("SearchTool");
+  it("warns but preserves legacy string and list filters in metadata", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+
+    try {
+      const stringResult = copilotkitCustomizeConfig(
+        {},
+        { emitToolCalls: "SearchTool" } as any,
+      );
+      const listResult = copilotkitCustomizeConfig(
+        {},
+        { emitToolCalls: ["SearchTool", "FetchTool"] } as any,
+      );
+
+      expect(stringResult.metadata!["copilotkit:emit-tool-calls"]).toBe(
+        "SearchTool",
+      );
+      expect(listResult.metadata!["copilotkit:emit-tool-calls"]).toEqual([
+        "SearchTool",
+        "FetchTool",
+      ]);
+      expect(warn).toHaveBeenCalledTimes(2);
+      expect(warn).toHaveBeenCalledWith(
+        expect.stringContaining("FilterToolCallsMiddleware"),
+      );
+    } finally {
+      warn.mockRestore();
+    }
   });
 
-  it("sets emit-tool-calls to an array of tool names", () => {
-    const result = copilotkitCustomizeConfig(
-      {},
-      { emitToolCalls: ["SearchTool", "FetchTool"] },
-    );
-    expect(result.metadata!["copilotkit:emit-tool-calls"]).toEqual([
-      "SearchTool",
-      "FetchTool",
-    ]);
+  it("warns and treats invalid values as true in AG-UI metadata", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+
+    try {
+      const result = copilotkitCustomizeConfig(
+        { metadata: { "copilotkit:emit-tool-calls": false } },
+        { emitToolCalls: 123 } as any,
+      );
+
+      expect(result.metadata!["copilotkit:emit-tool-calls"]).toBe(true);
+      expect(warn).toHaveBeenCalledWith(
+        expect.stringContaining("Treating invalid non-boolean value as true"),
+      );
+    } finally {
+      warn.mockRestore();
+    }
   });
 
   it("sets both emit flags together", () => {
