@@ -32,7 +32,25 @@ jobs:
       DO_NOT_TRACK: "1"
       IMPECCABLE_NO_TELEMETRY: "1"
     steps:
+      - name: Check scope
+        id: scope
+        env:
+          HEAD_REF: ${{ github.head_ref }}
+        # A PR from a version branch (such as 2.0.0 into main) carries every
+        # change of that branch. Each of those changes was already checked
+        # when it landed on the version branch, so a scan of the whole branch
+        # against main only repeats old findings. The job still runs, so a
+        # required check reports.
+        run: |
+          if [[ "$HEAD_REF" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "⏭️ Skipping: $HEAD_REF is a version branch, checked per change when each change landed"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Checkout
+        if: steps.scope.outputs.skip != 'true'
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           # A pull_request checkout is GitHub's merge commit, so HEAD^1 is the
@@ -42,11 +60,13 @@ jobs:
           persist-credentials: false
 
       - name: Setup pnpm
+        if: steps.scope.outputs.skip != 'true'
         # Omit `version:` so pnpm/action-setup inherits from the repo's
         # `packageManager` field in package.json (via corepack).
         uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
 
       - name: Use Node.js 22
+        if: steps.scope.outputs.skip != 'true'
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 22
@@ -55,12 +75,14 @@ jobs:
           cache-dependency-path: "**/pnpm-lock.yaml"
 
       - name: Install dependencies
+        if: steps.scope.outputs.skip != 'true'
         run: pnpm install --frozen-lockfile --ignore-scripts
 
       - name: React Doctor
+        if: steps.scope.outputs.skip != 'true'
         run: pnpm lint:react-doctor HEAD^1
 
       - name: impeccable detect
         # Run even when React Doctor failed, so one push shows both results.
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && steps.scope.outputs.skip != 'true' }}
         run: pnpm lint:impeccable HEAD^1
