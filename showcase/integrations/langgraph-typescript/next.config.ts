@@ -1,6 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  experimental: { cpus: 2 },
   async rewrites() {
     return [
       {
@@ -22,6 +23,8 @@ const nextConfig: NextConfig = {
   // extension alias; otherwise `next build` fails with
   // "Module not found: Can't resolve './schema.js'".
   webpack(config) {
+    // Resolve shared source dependencies from this standalone app.
+    config.resolve.symlinks = false;
     config.resolve.extensionAlias = {
       ...config.resolve.extensionAlias,
       ".js": [".ts", ".tsx", ".js"],

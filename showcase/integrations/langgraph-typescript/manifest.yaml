@@ -96,6 +96,8 @@ demos:
     highlight:
       - src/agent/graph.ts
       - src/app/demos/agentic-chat/page.tsx
+      - tools/demos/agentic-chat/page.tsx
+      - tools/demos/agentic-chat/suggestions.ts
       - src/app/api/copilotkit/route.ts
   - id: chat-customization-css
     name: "Chat Customization: CSS"
@@ -118,6 +120,8 @@ demos:
     animated_preview_url:
     highlight:
       - src/app/demos/tool-rendering-default-catchall/page.tsx
+      - tools/demos/tool-rendering-default-catchall/page.tsx
+      - tools/demos/tool-rendering-default-catchall/suggestions.ts
       - src/agent/tool-rendering.ts
       - src/app/api/copilotkit/route.ts
   - id: tool-rendering-custom-catchall
@@ -142,6 +146,9 @@ demos:
     highlight:
       - src/agent/frontend-tools.ts
       - src/app/demos/frontend-tools/page.tsx
+      - tools/demos/frontend-tools/background.tsx
+      - tools/demos/frontend-tools/page.tsx
+      - tools/demos/frontend-tools/suggestions.ts
       - src/app/api/copilotkit/route.ts
   - id: frontend-tools-async
     name: "Frontend Tools: Async"

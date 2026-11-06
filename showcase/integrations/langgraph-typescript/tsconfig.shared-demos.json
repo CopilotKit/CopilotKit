@@ -1,0 +1,16 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "target": "ES2022",
+    "incremental": false
+  },
+  "include": [
+    "src/app/demos/agentic-chat/**/*.tsx",
+    "src/app/demos/frontend-tools/**/*.tsx",
+    "src/app/demos/tool-rendering-default-catchall/**/*.tsx",
+    "src/agent/tool-rendering.ts"
+  ],
+  "exclude": [
+    "node_modules"
+  ]
+}

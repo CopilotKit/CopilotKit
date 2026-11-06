@@ -1,0 +1,63 @@
+{
+  "name": "showcase-langgraph-typescript",
+  "projectType": "application",
+  "implicitDependencies": [
+    "!@copilotkit/*"
+  ],
+  "targets": {
+    "typecheck": {
+      "executor": "nx:run-commands",
+      "options": {
+        "cwd": "showcase/integrations/langgraph-typescript",
+        "command": "npx tsc --noEmit"
+      },
+      "dependsOn": [],
+      "cache": false,
+      "inputs": [
+        "{projectRoot}/**/*",
+        "!{projectRoot}/node_modules/**/*",
+        "!{projectRoot}/.next/**/*",
+        "{workspaceRoot}/showcase/shared/typescript/**/*"
+      ]
+    },
+    "build": {
+      "executor": "nx:run-commands",
+      "options": {
+        "cwd": "showcase/integrations/langgraph-typescript",
+        "command": "npm run build"
+      },
+      "dependsOn": [],
+      "cache": false,
+      "inputs": [
+        "{projectRoot}/**/*",
+        "!{projectRoot}/node_modules/**/*",
+        "!{projectRoot}/.next/**/*",
+        "{workspaceRoot}/showcase/shared/typescript/**/*"
+      ]
+    },
+    "check-shared-demos": {
+      "executor": "nx:run-commands",
+      "options": {
+        "cwd": "showcase/integrations/langgraph-typescript",
+        "command": "npx tsc --project tsconfig.shared-demos.json"
+      },
+      "dependsOn": [],
+      "cache": false,
+      "inputs": [
+        "{projectRoot}/**/*",
+        "!{projectRoot}/node_modules/**/*",
+        "!{projectRoot}/.next/**/*",
+        "{workspaceRoot}/showcase/shared/typescript/**/*"
+      ]
+    },
+    "dev-frontend": {
+      "executor": "nx:run-commands",
+      "options": {
+        "cwd": "showcase/integrations/langgraph-typescript",
+        "command": "npx next dev --hostname 127.0.0.1 --port 3123"
+      },
+      "dependsOn": [],
+      "cache": false
+    }
+  }
+}
