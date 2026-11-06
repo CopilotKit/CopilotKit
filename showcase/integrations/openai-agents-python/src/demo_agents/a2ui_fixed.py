@@ -16,7 +16,7 @@ from typing import Any
 
 from agents import Agent, function_tool
 
-from demo_agents._common import MODEL
+from demo_agents._common import MODEL, chat_settings
 
 CATALOG_ID = "copilotkit://flight-fixed-catalog"
 SURFACE_ID = "flight-fixed-schema"
@@ -87,5 +87,6 @@ a2ui_fixed_agent = Agent(
     name="flight_assistant",
     instructions=SYSTEM_PROMPT,
     model=MODEL,
+    model_settings=chat_settings(),
     tools=[display_flight],
 )

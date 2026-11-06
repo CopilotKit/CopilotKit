@@ -14,7 +14,7 @@ once and then paints; exhaust fails on every attempt.
 
 from agents import Agent
 
-from demo_agents._common import MODEL
+from demo_agents._common import MODEL, chat_settings
 from demo_agents.a2ui_dynamic import generate_a2ui
 
 # Aligned with langgraph-python's recovery_agent.py SYSTEM_PROMPT.
@@ -34,5 +34,6 @@ a2ui_recovery_agent = Agent(
     name="recovery_analyst",
     instructions=SYSTEM_PROMPT,
     model=MODEL,
+    model_settings=chat_settings(),
     tools=[generate_a2ui],
 )

@@ -3,7 +3,7 @@
 # @region[frontend-tools-agent]
 from agents import Agent
 
-from demo_agents._common import MODEL
+from demo_agents._common import MODEL, chat_settings
 
 SYSTEM_PROMPT = """You are a data visualization assistant.
 
@@ -27,6 +27,7 @@ gen_ui_tool_based_agent = Agent(
     name="chart_assistant",
     instructions=SYSTEM_PROMPT,
     model=MODEL,
+    model_settings=chat_settings(),
 )
 
 

@@ -17,9 +17,9 @@ delegation, so the tools are spelled out.
 import uuid
 
 from ag_ui_openai_agents import shared_state
-from agents import Agent, ModelSettings, Runner, function_tool
+from agents import Agent, Runner, function_tool
 
-from demo_agents._common import MODEL
+from demo_agents._common import MODEL, chat_settings
 
 SUPERVISOR_PROMPT = (
     "You are a supervisor. For research tasks call `research_agent`, for "
@@ -32,6 +32,7 @@ SUB_AGENTS = {
     "research_agent": Agent(
         name="research_agent",
         model=MODEL,
+        model_settings=chat_settings(),
         instructions=(
             "You are a research sub-agent. Given a topic, produce a concise "
             "bulleted list of 3-5 key facts. No preamble, no closing."
@@ -40,6 +41,7 @@ SUB_AGENTS = {
     "writing_agent": Agent(
         name="writing_agent",
         model=MODEL,
+        model_settings=chat_settings(),
         instructions=(
             "You are a writing sub-agent. Given a brief and optional source "
             "facts, produce a polished 1-paragraph draft. Be clear and "
@@ -49,6 +51,7 @@ SUB_AGENTS = {
     "critique_agent": Agent(
         name="critique_agent",
         model=MODEL,
+        model_settings=chat_settings(),
         instructions=(
             "You are an editorial critique sub-agent. Given a draft, give 2-3 "
             "crisp, actionable critiques. No preamble."
@@ -106,7 +109,7 @@ subagents_agent = Agent(
     instructions=SUPERVISOR_PROMPT,
     model=MODEL,
     # Research, then write, then critique: one delegation per model call.
-    model_settings=ModelSettings(parallel_tool_calls=False),
+    model_settings=chat_settings(parallel_tool_calls=False),
     tools=[research_agent, writing_agent, critique_agent],
 )
 

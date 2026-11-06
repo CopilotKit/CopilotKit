@@ -8,7 +8,7 @@ only differs from the neutral one in its prompt.
 
 from agents import Agent
 
-from demo_agents._common import MODEL
+from demo_agents._common import MODEL, chat_settings
 
 SYSTEM_PROMPT = (
     "You are a helpful assistant. The user may attach images or documents "
@@ -23,6 +23,7 @@ multimodal_agent = Agent(
     name="multimodal_assistant",
     instructions=SYSTEM_PROMPT,
     model=MODEL,
+    model_settings=chat_settings(),
 )
 
 

@@ -9,7 +9,7 @@ langgraph-python's ``agent_config_agent.py``.
 
 from agents import Agent
 
-from demo_agents._common import MODEL
+from demo_agents._common import MODEL, chat_settings
 
 # @region[agent-config-setup]
 SYSTEM_PROMPT = (
@@ -42,6 +42,7 @@ agent_config_agent = Agent(
     name="configurable_assistant",
     instructions=SYSTEM_PROMPT,
     model=MODEL,
+    model_settings=chat_settings(),
 )
 
 

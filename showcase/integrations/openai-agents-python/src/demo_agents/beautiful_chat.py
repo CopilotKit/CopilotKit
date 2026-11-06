@@ -19,7 +19,7 @@ from typing import Any
 from ag_ui_openai_agents import shared_state
 from agents import Agent, function_tool
 
-from demo_agents._common import MODEL
+from demo_agents._common import MODEL, chat_settings
 from tools.query_data import query_data_impl
 from tools.search_flights import search_flights_impl
 
@@ -85,5 +85,6 @@ beautiful_chat_agent = Agent(
     name="beautiful_chat",
     instructions=SYSTEM_PROMPT,
     model=MODEL,
+    model_settings=chat_settings(),
     tools=[query_data, search_flights, manage_todos, get_todos],
 )

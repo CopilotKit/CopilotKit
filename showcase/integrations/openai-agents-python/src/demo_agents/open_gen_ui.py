@@ -14,7 +14,7 @@ appends to the instructions.
 
 from agents import Agent
 
-from demo_agents._common import MODEL
+from demo_agents._common import MODEL, chat_settings
 
 # langgraph-python's open_gen_ui_agent.py prompt.
 SYSTEM_PROMPT = """You are a UI-generating assistant for an Open Generative UI demo
@@ -52,4 +52,5 @@ open_gen_ui_agent = Agent(
     name="open_gen_ui_assistant",
     instructions=SYSTEM_PROMPT,
     model=MODEL,
+    model_settings=chat_settings(),
 )

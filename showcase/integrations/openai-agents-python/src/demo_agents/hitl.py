@@ -9,7 +9,7 @@ the user's answer comes back as the tool result on the next run.
 # @region[hitl-frontend-tool-agent]
 from agents import Agent
 
-from demo_agents._common import MODEL
+from demo_agents._common import MODEL, chat_settings
 
 HITL_IN_CHAT_PROMPT = (
     "You help users book an onboarding call with the sales team. "
@@ -23,6 +23,7 @@ hitl_in_chat_agent = Agent(
     name="booking_assistant",
     instructions=HITL_IN_CHAT_PROMPT,
     model=MODEL,
+    model_settings=chat_settings(),
 )
 
 
@@ -68,4 +69,5 @@ hitl_in_app_agent = Agent(
     name="support_copilot",
     instructions=HITL_IN_APP_PROMPT,
     model=MODEL,
+    model_settings=chat_settings(),
 )

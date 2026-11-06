@@ -3,7 +3,7 @@
 ## Prerequisites
 
 - Demo is deployed and accessible at `/demos/multimodal` on the dashboard host
-- Agent backend is healthy (`/api/health`); `OPENAI_API_KEY` is set (every model call goes through one OpenAI client; `OPENAI_BASE_URL` points it at aimock in tests). The default model (`OPENAI_MODEL`, `gpt-5.4`) is vision-capable.
+- Agent backend is healthy (`/api/health`); `OPENAI_API_KEY` is set (every model call goes through one OpenAI client; `OPENAI_BASE_URL` points it at aimock in tests). The default model (`OPENAI_MODEL`, `gpt-6-luna`) is vision-capable.
 - The page uses its own runtime route, `/api/copilotkit-multimodal`, which proxies agent `multimodal-demo` (aliased as `default`) to the agent server's `/multimodal-demo` mount, bound in `src/demo_agents/registry.py` to `multimodal_agent()` from `src/demo_agents/multimodal.py`
 - How attachments reach the model: user messages carry AG-UI `image` / `document` content parts with inline base64 data. The adapter turns `image` parts into `input_image` items and `document` parts into `input_file` items, so a PDF reaches the model as a file (no text flattening). Unlike langgraph-python there is no `legacy-converter-shim.tsx`: its legacy `binary` parts would fail AG-UI 1.0 `RunAgentInput` validation.
 - Sample files are bundled under `public/demo-files/`:

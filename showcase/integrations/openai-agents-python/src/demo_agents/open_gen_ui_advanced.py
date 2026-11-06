@@ -16,7 +16,7 @@ the exact return shapes. Keep them in sync with
 
 from agents import Agent
 
-from demo_agents._common import MODEL
+from demo_agents._common import MODEL, chat_settings
 
 # langgraph-python's open_gen_ui_advanced_agent.py prompt, with the sandbox
 # functions spelled out.
@@ -75,4 +75,5 @@ open_gen_ui_advanced_agent = Agent(
     name="open_gen_ui_advanced_assistant",
     instructions=SYSTEM_PROMPT,
     model=MODEL,
+    model_settings=chat_settings(),
 )

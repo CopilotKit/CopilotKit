@@ -10,7 +10,7 @@ from random import choice, randint
 
 from agents import Agent, function_tool
 
-from demo_agents._common import MODEL
+from demo_agents._common import MODEL, chat_settings
 
 SYSTEM_PROMPT = (
     "You are a travel & lifestyle concierge. Use the mock tools for "
@@ -101,6 +101,7 @@ tool_rendering_agent = Agent(
     name="concierge",
     instructions=SYSTEM_PROMPT,
     model=MODEL,
+    model_settings=chat_settings(),
     tools=TOOLS,
 )
 

@@ -108,7 +108,11 @@ run them too but cannot record the delegation.
 reasoning summaries (`ModelSettings(reasoning=Reasoning(effort="low",
 summary="auto"))`). The adapter streams them as `REASONING_*` events and
 keeps them, with their encrypted values, in the closing `MESSAGES_SNAPSHOT`.
-`OPENAI_REASONING_MODEL` picks the model (default `OPENAI_MODEL`, `gpt-5.4`).
+`OPENAI_REASONING_MODEL` picks the model (default `OPENAI_MODEL`, `gpt-6-luna`).
+Every other agent runs `gpt-6-luna` with reasoning off
+(`Reasoning(effort="none")`, `chat_settings()` in `_common.py`), as the
+other OpenAI-backed integrations do. A different `OPENAI_MODEL` keeps the
+API's default effort.
 
 ## Multimodal
 

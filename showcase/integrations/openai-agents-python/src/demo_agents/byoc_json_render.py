@@ -11,7 +11,7 @@ prompt alone is enough.
 
 from agents import Agent
 
-from demo_agents._common import MODEL
+from demo_agents._common import MODEL, chat_settings
 
 SYSTEM_PROMPT = """
 You are a sales-dashboard UI generator for a BYOC json-render demo.
@@ -145,4 +145,5 @@ byoc_json_render_agent = Agent(
     name="json_render_dashboard",
     instructions=SYSTEM_PROMPT.strip(),
     model=MODEL,
+    model_settings=chat_settings(),
 )

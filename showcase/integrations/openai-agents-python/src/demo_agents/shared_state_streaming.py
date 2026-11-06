@@ -17,7 +17,7 @@ from ag_ui_openai_agents import OpenAIAgentsAgent, shared_state
 from agents import Agent, function_tool
 from pydantic_core import from_json
 
-from demo_agents._common import MODEL
+from demo_agents._common import MODEL, chat_settings
 
 SYSTEM_PROMPT = (
     "You are a collaborative writing assistant. Whenever the user asks you "
@@ -45,7 +45,11 @@ def write_document(document: str) -> str:
 
 
 shared_state_streaming_agent = Agent(
-    name="writer", instructions=SYSTEM_PROMPT, model=MODEL, tools=[write_document]
+    name="writer",
+    instructions=SYSTEM_PROMPT,
+    model=MODEL,
+    model_settings=chat_settings(),
+    tools=[write_document],
 )
 
 

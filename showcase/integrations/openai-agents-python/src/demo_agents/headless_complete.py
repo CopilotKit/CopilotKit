@@ -8,7 +8,7 @@ route's MCP Apps middleware; both reach the agent as client tools.
 
 from agents import Agent, function_tool
 
-from demo_agents._common import MODEL
+from demo_agents._common import MODEL, chat_settings
 
 SYSTEM_PROMPT = (
     "You are a helpful, concise assistant wired into a headless chat "
@@ -92,5 +92,6 @@ headless_complete_agent = Agent(
     name="headless_assistant",
     instructions=SYSTEM_PROMPT,
     model=MODEL,
+    model_settings=chat_settings(),
     tools=[get_weather, get_stock_price, get_revenue_chart],
 )

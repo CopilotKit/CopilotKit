@@ -9,10 +9,10 @@ transition, as the reference's ``Command(update={"steps": ...})`` does.
 from typing import Literal
 
 from ag_ui_openai_agents import shared_state
-from agents import Agent, ModelSettings, function_tool
+from agents import Agent, function_tool
 from pydantic import BaseModel
 
-from demo_agents._common import MODEL
+from demo_agents._common import MODEL, chat_settings
 
 # Same prompt as langgraph-python's gen_ui_agent.py.
 SYSTEM_PROMPT = (
@@ -60,6 +60,6 @@ gen_ui_agent = Agent(
     instructions=SYSTEM_PROMPT,
     model=MODEL,
     # One transition per model call, as the prompt asks.
-    model_settings=ModelSettings(parallel_tool_calls=False),
+    model_settings=chat_settings(parallel_tool_calls=False),
     tools=[set_steps],
 )

@@ -17,7 +17,7 @@ from typing import Any
 from ag_ui_openai_agents import shared_state
 from agents import Agent, RunContextWrapper, function_tool
 
-from demo_agents._common import MODEL
+from demo_agents._common import MODEL, chat_settings
 
 
 def with_state(prompt: str) -> Callable[[RunContextWrapper[Any], Agent[Any]], str]:
@@ -47,7 +47,10 @@ READ_PROMPT = (
 
 
 shared_state_read_agent = Agent(
-    name="recipe_assistant", instructions=with_state(READ_PROMPT), model=MODEL
+    name="recipe_assistant",
+    instructions=with_state(READ_PROMPT),
+    model=MODEL,
+    model_settings=chat_settings(),
 )
 
 
@@ -88,6 +91,7 @@ shared_state_read_write_agent = Agent(
     name="preferences_assistant",
     instructions=with_state(READ_WRITE_PROMPT),
     model=MODEL,
+    model_settings=chat_settings(),
     tools=[set_notes],
 )
 

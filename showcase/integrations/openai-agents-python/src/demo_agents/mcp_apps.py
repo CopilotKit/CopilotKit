@@ -6,7 +6,7 @@ as client tools, so they reach this agent like any page tool.
 
 from agents import Agent
 
-from demo_agents._common import MODEL
+from demo_agents._common import MODEL, chat_settings
 
 SYSTEM_PROMPT = """\
 You draw simple diagrams in Excalidraw via the MCP tool.
@@ -47,4 +47,5 @@ mcp_apps_agent = Agent(
     name="excalidraw_assistant",
     instructions=SYSTEM_PROMPT,
     model=MODEL,
+    model_settings=chat_settings(),
 )

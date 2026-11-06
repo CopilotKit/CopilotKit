@@ -10,6 +10,7 @@ sub-agents and the A2UI renderer all go through it.
 from __future__ import annotations
 
 import os
+from typing import Any
 
 import httpx
 from agents import ModelSettings, set_default_openai_client, set_tracing_disabled
@@ -20,10 +21,15 @@ from demo_agents._header_forwarding import get_forwarded_headers
 
 SLUG = "openai-agents-python"
 
-# Same default model as langgraph-python. Override with OPENAI_MODEL.
-MODEL = os.environ.get("OPENAI_MODEL", "gpt-5.4")
+# Same default model as the other OpenAI-backed showcase integrations.
+# Override with OPENAI_MODEL.
+MODEL = os.environ.get("OPENAI_MODEL", "gpt-6-luna")
 # Reasoning demos need a model that returns reasoning summaries.
 REASONING_MODEL = os.environ.get("OPENAI_REASONING_MODEL", MODEL)
+# The chat agents run Luna with reasoning off, as the other integrations do;
+# only the reasoning demos let it think (see reasoning_settings). Another
+# model keeps the API's default, since not every model takes an effort.
+CHAT_REASONING = Reasoning(effort="none") if MODEL == "gpt-6-luna" else None
 
 # Inbound headers worth carrying onto the model call, when the request has
 # them: X-AIMock-Strict turns a fixture miss into a failure instead of a proxy
@@ -82,6 +88,11 @@ async def close_client() -> None:
 
 
 # @endregion[agent-setup]
+
+
+def chat_settings(**settings: Any) -> ModelSettings:
+    """Model settings for a chat agent: ``settings`` with ``CHAT_REASONING``."""
+    return ModelSettings(reasoning=CHAT_REASONING, **settings)
 
 
 def reasoning_settings() -> ModelSettings:

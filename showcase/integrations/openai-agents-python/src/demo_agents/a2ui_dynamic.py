@@ -49,7 +49,7 @@ from ag_ui_a2ui_toolkit import (
 from agents import Agent, RunContextWrapper, function_tool
 from openai import OpenAIError
 
-from demo_agents._common import MODEL, openai_client
+from demo_agents._common import CHAT_REASONING, MODEL, chat_settings, openai_client
 
 logger = logging.getLogger(__name__)
 
@@ -110,6 +110,7 @@ async def render_once(system_prompt: str, request: str) -> dict | None:
     try:
         response = await openai_client().responses.create(
             model=MODEL,
+            **({"reasoning": CHAT_REASONING} if CHAT_REASONING else {}),
             instructions=system_prompt,
             input=request,
             tools=[RENDER_A2UI_TOOL],
@@ -233,5 +234,6 @@ declarative_gen_ui_agent = Agent(
     name="sales_analyst",
     instructions=SYSTEM_PROMPT,
     model=MODEL,
+    model_settings=chat_settings(),
     tools=[generate_a2ui],
 )

@@ -9,7 +9,7 @@ could write them back: the context stays read-only.
 
 from agents import Agent
 
-from demo_agents._common import MODEL
+from demo_agents._common import MODEL, chat_settings
 
 # @region[agent-context-setup]
 SYSTEM_PROMPT = (
@@ -26,6 +26,7 @@ app_context_agent = Agent(
     name="context_assistant",
     instructions=SYSTEM_PROMPT,
     model=MODEL,
+    model_settings=chat_settings(),
 )
 
 

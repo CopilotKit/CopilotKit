@@ -3,7 +3,7 @@
 ## Prerequisites
 
 - Demo is deployed and accessible at `/demos/headless-simple` on the dashboard host
-- Agent backend is healthy (`/api/health`); `OPENAI_API_KEY` is set on Railway (every model call goes through one OpenAI client; `OPENAI_BASE_URL` points it at aimock in tests; default model: `gpt-5.4`, override with `OPENAI_MODEL`); the agent server (`src/agent_server.py`) mounts the shared `neutral_agent()` from `src/demo_agents/chat.py` at `/headless-simple`
+- Agent backend is healthy (`/api/health`); `OPENAI_API_KEY` is set on Railway (every model call goes through one OpenAI client; `OPENAI_BASE_URL` points it at aimock in tests; default model: `gpt-6-luna`, override with `OPENAI_MODEL`); the agent server (`src/agent_server.py`) mounts the shared `neutral_agent()` from `src/demo_agents/chat.py` at `/headless-simple`
 - The demo wires `agent="headless-simple"` at `/api/copilotkit` (neutral assistant cell)
 - Note: the demo source contains no `data-testid` attributes. Checks below rely on verbatim visible text, role/button selectors, and Tailwind utility-class structure
 

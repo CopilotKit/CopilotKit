@@ -20,10 +20,10 @@ from typing import Any
 
 from ag_ui.core import BaseEvent, RunAgentInput
 from ag_ui_openai_agents import OpenAIAgentsAgent
-from agents import Agent, ModelSettings, function_tool
+from agents import Agent, function_tool
 from agents.tool_context import ToolContext
 
-from demo_agents._common import MODEL
+from demo_agents._common import MODEL, chat_settings
 
 SYSTEM_PROMPT = """You are a scheduling assistant.
 
@@ -66,7 +66,7 @@ interrupt_agent = Agent(
     name="scheduler",
     instructions=SYSTEM_PROMPT,
     model=MODEL,
-    model_settings=ModelSettings(parallel_tool_calls=False),
+    model_settings=chat_settings(parallel_tool_calls=False),
     tools=[schedule_meeting],
 )
 
