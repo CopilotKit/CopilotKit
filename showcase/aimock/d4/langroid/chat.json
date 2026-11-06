@@ -6,6 +6,57 @@
   },
   "fixtures": [
     {
+      "_comment": "Exact flight + destination-weather chip: d4 loads before d6, so this narrow chain must precede the generic weather fixture. The chain-only stock tool gates this away from ordinary chat; follow-up toolCallId entries stay before the first leg.",
+      "match": {
+        "userMessage": "Find flights from SFO to JFK and show me the weather there.",
+        "toolName": "get_stock_price",
+        "toolCallId": "call_rc_weather_jfk_001",
+        "context": "langroid"
+      },
+      "response": {
+        "content": "Three flights from SFO to JFK — United UA231 at 08:15 ($348), Delta DL412 at 11:20 ($312), and JetBlue B6722 at 17:05 ($289). JFK is currently 68°F and sunny — easy travel weather on the receiving end."
+      }
+    },
+    {
+      "_comment": "Exact flight + destination-weather chip: d4 loads before d6, so this narrow chain must precede the generic weather fixture. The chain-only stock tool gates this away from ordinary chat; follow-up toolCallId entries stay before the first leg.",
+      "match": {
+        "userMessage": "Find flights from SFO to JFK and show me the weather there.",
+        "toolName": "get_stock_price",
+        "toolCallId": "call_rc_flights_jfk_001",
+        "context": "langroid"
+      },
+      "response": {
+        "reasoning": "Flights are in hand. The user explicitly asked for the destination weather as part of the request, so pulling JFK weather next to round out the trip plan.",
+        "content": "Pulling JFK weather to round out the trip plan.",
+        "toolCalls": [
+          {
+            "id": "call_rc_weather_jfk_001",
+            "name": "get_weather",
+            "arguments": "{\"location\":\"JFK\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "Exact flight + destination-weather chip: d4 loads before d6, so this narrow chain must precede the generic weather fixture. The chain-only stock tool gates this away from ordinary chat; follow-up toolCallId entries stay before the first leg.",
+      "match": {
+        "userMessage": "Find flights from SFO to JFK and show me the weather there.",
+        "toolName": "get_stock_price",
+        "context": "langroid"
+      },
+      "response": {
+        "reasoning": "The user wants flights from SFO to JFK AND the destination weather. I'll call search_flights first, then chain get_weather on JFK so they have flight options and arrival conditions in one reply.",
+        "content": "Searching SFO→JFK flights.",
+        "toolCalls": [
+          {
+            "id": "call_rc_flights_jfk_001",
+            "name": "search_flights",
+            "arguments": "{\"origin\":\"SFO\",\"destination\":\"JFK\"}"
+          }
+        ]
+      }
+    },
+    {
       "match": {
         "toolCallId": "call_fp_generate_a2ui_sales_dashboard_001",
         "context": "langroid"
