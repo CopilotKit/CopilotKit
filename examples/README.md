@@ -1,6 +1,6 @@
 # CopilotKit Examples
 
-This directory contains 65 consolidated demo repositories showcasing CopilotKit integrations, canvas apps, and showcases.
+This directory contains 66 consolidated demo repositories showcasing CopilotKit integrations, canvas apps, and showcases.
 
 Each example is a self-contained project. To get started:
 
@@ -63,11 +63,11 @@ AI-powered canvas applications with visual card interfaces, real-time state sync
 | [gemini](./canvas/gemini/)                           | Open Gemini Canvas — post generator and stack analyzer agents (Gemini + LangGraph)      |
 | [mastra-pm](./canvas/mastra-pm/)                     | CopilotKit v2 + Mastra project manager — shared project state and tool UI               |
 
-## Showcases (34)
+## Showcases (35)
 
 Full-featured demo applications highlighting CopilotKit capabilities in real-world scenarios.
 
-### Current showcases (26)
+### Current showcases (27)
 
 | Example                                                                 | Description                                                                                                         |
 | ----------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
@@ -86,6 +86,7 @@ Full-featured demo applications highlighting CopilotKit capabilities in real-wor
 | [multi-page](./showcases/multi-page/)                                   | Multi-page Remix app with CopilotKit                                                                                |
 | [open-mcp-client](./showcases/open-mcp-client/)                         | MCP App builder that uses Mastra to provision E2B sandboxes                                                         |
 | [oracle-agent-memory](./showcases/oracle-agent-memory/)                 | Travel concierge with Agent Spec, Oracle Agent Memory, generative UI, and HITL                                      |
+| [parallel-research](./showcases/parallel-research/)                     | Built-in Agent with Parallel web search and fetch, visible progress, and cited sources                              |
 | [orca](./showcases/orca/)                                               | Cisco CopilotKit demo — PR and repository analytics dashboard                                                       |
 | [pydantic-ai-todos](./showcases/pydantic-ai-todos/)                     | AI-powered todo board with PydanticAI (Todo, In-Progress, Done columns)                                             |
 | [adk-dashboard](./showcases/adk-dashboard/)                             | Generative canvas with Google ADK — metrics, charts, and real-time data                                             |
