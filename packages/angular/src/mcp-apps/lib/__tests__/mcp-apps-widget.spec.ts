@@ -14,6 +14,7 @@ import {
 import { CopilotMCPAppsWidget } from "../mcp-apps-widget";
 import { provideMCPApps } from "../provide-mcp-apps";
 import { expect, test, vi } from "vitest";
+import { CopilotKitCore } from "@copilotkit/core";
 
 type AgentHarness = AbstractAgent & {
   addMessage: ReturnType<typeof vi.fn>;
@@ -94,14 +95,16 @@ function createAgent(resourceText = "<h1>MCP App</h1>"): AgentHarness {
 }
 
 /**
- * Reset TestBed with `provideMCPApps` (timeouts and `allowSameOriginFallback`)
- * and a `CopilotKit` stub whose core runs follow-ups through `runAgent`.
+ * Reset TestBed with `provideMCPApps` (timeouts, `allowSameOriginFallback` and
+ * `modelContext`) and a `CopilotKit` stub whose core runs follow-ups through
+ * `runAgent`.
  */
 function configureTestingModule(
   runAgent = vi.fn(async () => ({ result: undefined, newMessages: [] })),
   idleTimeoutMs = 30_000,
   initializationTimeoutMs = 30_000,
   allowSameOriginFallback?: boolean,
+  modelContext?: boolean,
 ): void {
   TestBed.resetTestingModule();
   TestBed.configureTestingModule({
@@ -110,6 +113,7 @@ function configureTestingModule(
         idleTimeoutMs,
         initializationTimeoutMs,
         allowSameOriginFallback,
+        modelContext,
       }),
       {
         provide: CopilotKit,
@@ -1006,4 +1010,167 @@ test("allows a custom-scheme deep link (only script/HTML schemes are blocked)", 
     "noopener,noreferrer",
   );
   openSpy.mockRestore();
+});
+
+// ---------------------------------------------------------------------------
+// ui/update-model-context: once the app opted in with `modelContext`, the
+// Angular widget hands its core to the shared session, which stores the
+// widget's state for the next runs of its thread.
+// ---------------------------------------------------------------------------
+
+function configureWithRealCore(
+  core: CopilotKitCore,
+  { modelContext = true }: { modelContext?: boolean } = {},
+): void {
+  TestBed.resetTestingModule();
+  TestBed.configureTestingModule({
+    providers: [
+      provideMCPApps({ modelContext }),
+      { provide: CopilotKit, useValue: { core } },
+    ],
+  });
+}
+
+async function frameRequest(
+  fixture: { whenStable: () => Promise<unknown>; detectChanges: () => void },
+  frame: HTMLIFrameElement,
+  postMessage: ReturnType<typeof vi.spyOn>,
+  id: string,
+  method: string,
+  params: Record<string, unknown>,
+): Promise<Record<string, any> | undefined> {
+  dispatchFrameMessage(frame, { jsonrpc: "2.0", id, method, params });
+  await settle(fixture);
+  await waitFor(
+    () =>
+      postMessage.mock.calls.some(
+        ([message]) => (message as { id?: string })?.id === id,
+      ),
+    `${method} was never answered`,
+  );
+  return postMessage.mock.calls
+    .map(([message]) => message as Record<string, any>)
+    .find((message) => message?.id === id);
+}
+
+test("announces updateModelContext when the core stores model context", async () => {
+  const core = new CopilotKitCore({});
+  configureWithRealCore(core);
+  const agent = createAgent();
+  (agent as { agentId?: string }).agentId = "agent-1";
+  const { fixture, frame, postMessage } = await bootWidget(agent);
+
+  const response = await frameRequest(
+    fixture,
+    frame,
+    postMessage,
+    "init-umc",
+    "ui/initialize",
+    {
+      appInfo: { name: "test", version: "1" },
+      appCapabilities: {},
+      protocolVersion: "2026-01-26",
+    },
+  );
+
+  expect(response?.result?.hostCapabilities?.updateModelContext).toEqual({
+    text: {},
+    structuredContent: {},
+  });
+});
+
+test("stores the widget's state for the next runs of its thread, without a message or a run", async () => {
+  const core = new CopilotKitCore({});
+  configureWithRealCore(core);
+  const agent = createAgent();
+  (agent as { agentId?: string }).agentId = "agent-1";
+  const { fixture, frame, postMessage } = await bootWidget(agent);
+  const runsBefore = agent.runAgent.mock.calls.length;
+
+  const response = await frameRequest(
+    fixture,
+    frame,
+    postMessage,
+    "umc-1",
+    "ui/update-model-context",
+    {
+      content: [{ type: "text", text: "The user looks at Lyon." }],
+      structuredContent: { stationId: "lyon" },
+    },
+  );
+
+  expect(response?.result).toEqual({});
+  expect(agent.addMessage).not.toHaveBeenCalled();
+  expect(agent.runAgent.mock.calls.length).toBe(runsBefore);
+  const [entry] = core.getContextForAgent("agent-1", "thread-1");
+  expect(JSON.parse(entry!.value as string)).toEqual({
+    text: ["The user looks at Lyon."],
+    structuredContent: { stationId: "lyon" },
+  });
+  expect(core.getContextForAgent("agent-1", "thread-2")).toEqual([]);
+});
+
+test("does not announce or acknowledge model context when the core cannot store it", async () => {
+  configureTestingModule(undefined, undefined, undefined, undefined, true);
+  const agent = createAgent();
+  (agent as { agentId?: string }).agentId = "agent-1";
+  const { fixture, frame, postMessage } = await bootWidget(agent);
+
+  const init = await frameRequest(
+    fixture,
+    frame,
+    postMessage,
+    "init-no-store",
+    "ui/initialize",
+    {
+      appInfo: { name: "test", version: "1" },
+      appCapabilities: {},
+      protocolVersion: "2026-01-26",
+    },
+  );
+  const update = await frameRequest(
+    fixture,
+    frame,
+    postMessage,
+    "umc-no-store",
+    "ui/update-model-context",
+    { structuredContent: { stationId: "lyon" } },
+  );
+
+  expect(init?.result?.hostCapabilities?.updateModelContext).toBeUndefined();
+  expect(update?.result).toBeUndefined();
+  expect(update?.error?.code).toBe(-32601);
+});
+
+test("does not announce or acknowledge model context without the modelContext opt-in", async () => {
+  const core = new CopilotKitCore({});
+  configureWithRealCore(core, { modelContext: false });
+  const agent = createAgent();
+  (agent as { agentId?: string }).agentId = "agent-1";
+  const { fixture, frame, postMessage } = await bootWidget(agent);
+
+  const init = await frameRequest(
+    fixture,
+    frame,
+    postMessage,
+    "init-opt-out",
+    "ui/initialize",
+    {
+      appInfo: { name: "test", version: "1" },
+      appCapabilities: {},
+      protocolVersion: "2026-01-26",
+    },
+  );
+  const update = await frameRequest(
+    fixture,
+    frame,
+    postMessage,
+    "umc-opt-out",
+    "ui/update-model-context",
+    { structuredContent: { stationId: "lyon" } },
+  );
+
+  expect(init?.result?.hostCapabilities?.updateModelContext).toBeUndefined();
+  expect(update?.error?.code).toBe(-32601);
+  expect(core.getContextForAgent("agent-1", "thread-1")).toEqual([]);
 });

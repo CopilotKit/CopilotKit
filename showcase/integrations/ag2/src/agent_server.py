@@ -83,7 +83,6 @@ from agents.tool_rendering_reasoning_chain import (
 )
 
 
-
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     # Starlette does not run a mounted ASGI app's lifespan, and the MCP server's

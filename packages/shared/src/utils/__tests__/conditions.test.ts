@@ -1,11 +1,11 @@
 import { describe, it, expect } from "vitest";
-import {
-  executeConditions,
+import type {
   Condition,
   ComparisonCondition,
   LogicalCondition,
   ExistenceCondition,
 } from "../conditions";
+import { executeConditions } from "../conditions";
 
 describe("executeConditions", () => {
   it("returns true when conditions is empty or undefined", () => {

@@ -31,7 +31,9 @@ def test_global_hook_forwards_headers_on_httpx2_clients():
 
     async def go():
         set_forwarded_headers({"x-aimock-context": "ag2"})
-        async with httpx2.AsyncClient(transport=httpx2.MockTransport(handler)) as client:
+        async with httpx2.AsyncClient(
+            transport=httpx2.MockTransport(handler)
+        ) as client:
             await client.get("http://aimock.test/v1/responses")
 
     asyncio.run(go())
@@ -55,4 +57,6 @@ def test_usage_mapper_tolerates_missing_token_details():
 
 def test_usage_compat_rebinds_the_mapper_the_client_calls():
     install_usage_compat()
-    assert openai_responses_client.normalize_responses_usage is _normalize_responses_usage
+    assert (
+        openai_responses_client.normalize_responses_usage is _normalize_responses_usage
+    )

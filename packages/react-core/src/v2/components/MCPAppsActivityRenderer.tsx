@@ -48,6 +48,11 @@ interface MCPAppsActivityRendererProps {
    * `CopilotKitProvider`.
    */
   allowSameOriginFallback?: boolean;
+  /**
+   * Accept `ui/update-model-context`. Set via `mcpApps.modelContext` on
+   * `CopilotKitProvider`.
+   */
+  modelContext?: boolean;
 }
 
 /**
@@ -63,6 +68,7 @@ export const MCPAppsActivityRenderer: React.FC<MCPAppsActivityRendererProps> =
     message,
     agent,
     allowSameOriginFallback,
+    modelContext,
   }) {
     const { copilotkit } = useCopilotKit();
     // The activity message id. Passed to the session so it self-subscribes to the
@@ -157,7 +163,7 @@ export const MCPAppsActivityRenderer: React.FC<MCPAppsActivityRendererProps> =
             // activities. It still calls syncContent for activities rendered
             // from an external messages list (see the seed below).
             messageId,
-            options: { allowSameOriginFallback },
+            options: { allowSameOriginFallback, modelContext },
             hooks: {
               onResource: (resource) => {
                 if (!mounted) return;
@@ -209,6 +215,7 @@ export const MCPAppsActivityRenderer: React.FC<MCPAppsActivityRendererProps> =
       copilotkit,
       messageId,
       allowSameOriginFallback,
+      modelContext,
       content.resourceUri,
       content.serverHash,
       content.serverId,
