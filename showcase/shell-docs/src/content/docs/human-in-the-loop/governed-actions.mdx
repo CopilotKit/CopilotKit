@@ -20,6 +20,19 @@ Use this pattern when the agent proposes an action such as sending an
 email, updating a record, creating a ticket, applying a discount, or
 calling any write API.
 
+## Choose the backend contract
+
+The action envelope below is an **application-defined contract**, not a
+built-in payload shared by every adapter. Your backend must emit
+`metadata.action` and consume the matching `{ approved, actionId, reference }`
+response for that recipe to work. A frontend hook alone does not create a
+server-side approval checkpoint.
+
+For Claude Agent SDK native tool approvals, use the
+[Claude adapter contract](#claude-agent-sdk-native-tool-approval) below instead.
+It uses `metadata.input` and a `{ behavior: "allow" | "deny" }` response;
+substituting the generic envelope will not approve the deferred tool.
+
 ## Action envelope
 
 Keep the approval payload small, serializable, and vendor-neutral. The
@@ -168,6 +181,189 @@ async function handleApproval(action: GovernedAction, response: ApprovalResponse
   };
 }
 ```
+
+## Claude Agent SDK native tool approval
+
+This is a separate recipe for **native deferred tools**, not frontend tools
+registered with `useHumanInTheLoop`. The contract below is present in the
+published `ag-ui-claude-sdk==0.2.3` Python adapter and
+`@ag-ui/claude-agent-sdk@0.0.8` TypeScript adapter. Older examples pinned to
+Python `0.1.5` or TypeScript `0.0.3` do not provide this native approval flow.
+Do not assume that adding `useInterrupt` upgrades the backend.
+
+### Configure deferral on the backend
+
+Start with your framework's [Quickstart](../quickstart) for HTTP streaming
+and runtime registration, then configure the adapter to defer the exact
+native tool names that need approval. Keep one adapter instance at module
+scope. The following are configuration helpers, not complete servers;
+`Write` is an example tool to gate, not a policy for your whole application.
+
+<Tabs items={["Python", "TypeScript"]}>
+  <Tab value="Python">
+
+Install the version used by this recipe. It requires AG-UI 1.0 and a
+compatible Claude SDK; these replace older quickstart pins:
+
+```bash
+uv add ag-ui-claude-sdk==0.2.3 claude-agent-sdk==0.2.170 'ag-ui-protocol>=1.0.0'
+```
+
+```python
+from ag_ui_claude_sdk import ClaudeAgentAdapter
+
+
+def create_approval_adapter(options, binding_store, resolve_profile):
+    return ClaudeAgentAdapter(
+        name="claude_agent",
+        options={**options, "tools": ["Write"], "permission_mode": "default"},
+        session_binding_store=binding_store,
+        resolve_profile=resolve_profile,
+        execution_profile="default",
+        defer_tools=("Write",),
+    )
+```
+
+`binding_store` implements async `load(thread_id)` returning a
+`SessionBinding` (or `None` for a new thread) and async
+`save(thread_id, binding)`. The type is available from
+`ag_ui_claude_sdk.recovery`. `resolve_profile(profile)` is an async,
+server-owned function that returns the trusted Claude SDK options for
+that profile, including the original working directory and tool configuration.
+
+  </Tab>
+  <Tab value="TypeScript">
+
+Install the adapter with its declared Claude SDK peer version and AG-UI 1.0:
+
+```bash
+npm install @ag-ui/claude-agent-sdk@0.0.8 @anthropic-ai/claude-agent-sdk@0.3.296 @ag-ui/core@^1.0.0 @ag-ui/client@^1.0.0
+```
+
+```ts
+import {
+  ClaudeAgentAdapter,
+  type SessionRecoveryConfig,
+} from "@ag-ui/claude-agent-sdk";
+import type { Options } from "@anthropic-ai/claude-agent-sdk";
+
+export function createApprovalAdapter(
+  options: Options,
+  store: SessionRecoveryConfig["store"],
+  resolveProfile: SessionRecoveryConfig["resolveProfile"],
+) {
+  return new ClaudeAgentAdapter({
+    ...options,
+    tools: ["Write"],
+    permissionMode: "default",
+    agentId: "claude_agent",
+    sessionRecovery: {
+      store,
+      resolveProfile,
+      profile: "default",
+      deferTools: ["Write"],
+    },
+  });
+}
+```
+
+`store.load(threadId)` returns the original session binding, or `undefined`
+for a new thread; `store.save(threadId, binding)` persists it.
+`resolveProfile(profile)` returns the trusted Claude SDK options for that
+profile, including the original working directory and tool configuration.
+
+  </Tab>
+</Tabs>
+
+The helpers enable the built-in `Write` tool as well as deferring it. Keep
+`Write` enabled in the trusted profile returned by your resolver too;
+retaining the quickstart's `tools: []` would leave the agent with nothing
+to approve. For a different tool, update both its registration and the
+deferral list.
+
+These helpers intentionally leave storage and authorization to the host.
+Save bindings durably before returning, preserve every binding field, and
+keep the corresponding native SDK session storage available. A binding is
+not a replacement for the SDK transcript. Authorize access to each thread
+and serialize runs across workers/replicas. Do not accept execution profiles,
+credentials, or tool policy from browser-controlled `forwardedProps`.
+
+Use the SDK's bundled Claude CLI and retain the same execution environment
+when resuming. For a custom side-effect tool, configure an external MCP server
+(for example, stdio) in `options.mcp_servers` (Python) or `options.mcpServers` (TypeScript),
+and defer its exact qualified name, such as `mcp__mail__send_email`. These
+versions cannot resume a deferred tool from an in-process
+`create_sdk_mcp_server` / `createSdkMcpServer`; that path fails closed.
+Do not add a second unconditional deferral hook for the same tool, or claim
+restart recovery from an in-memory map. The versions above reject unsupported multiple pending or child-tool deferrals; handle that
+error rather than replaying those calls independently.
+
+### Render and answer the native approval
+
+When a configured native tool is deferred, the adapter emits
+`RUN_FINISHED` with `outcome.type: "interrupt"`. Each approval has:
+
+- `id` and `toolCallId`: the original native tool-call ID.
+- `reason: "tool_approval"`.
+- `metadata.source: "claude-sdk-deferred"`.
+- `metadata.toolName` and `metadata.input`: the exact tool name and arguments.
+
+It does **not** emit the `GovernedAction` envelope above. Render these
+fields directly and send the adapter's decision format:
+
+```tsx
+import { useInterrupt } from "@copilotkit/react-core/v2";
+
+export function ClaudeToolApproval({ agentId }: { agentId: string }) {
+  useInterrupt({
+    agentId, // Match the agent key registered in your CopilotKit runtime.
+    render: ({ interrupt, resolve }) => {
+      const metadata = interrupt?.metadata;
+      if (
+        !interrupt ||
+        interrupt.reason !== "tool_approval" ||
+        metadata?.source !== "claude-sdk-deferred"
+      ) {
+        return null;
+      }
+
+      return (
+        <section className="rounded-lg border p-4">
+          <h3>Approve {String(metadata.toolName)}?</h3>
+          <pre>{JSON.stringify(metadata.input, null, 2)}</pre>
+          <button
+            type="button"
+            onClick={() => resolve({ behavior: "allow" }, interrupt.id)}
+          >
+            Approve and run
+          </button>
+          <button
+            type="button"
+            onClick={() =>
+              resolve(
+                { behavior: "deny", message: "The user rejected this action." },
+                interrupt.id,
+              )
+            }
+          >
+            Reject
+          </button>
+        </section>
+      );
+    },
+  });
+
+  return null;
+}
+```
+
+`useInterrupt` wraps that decision in a matching AG-UI `resume` entry:
+`{ interruptId, status: "resolved", payload: { behavior: "allow" | "deny" } }`.
+The adapter resumes the original deferred call; **do not execute the tool
+again in the browser or in a separate approval handler**. A cancelled
+standard interrupt is treated as a denial by these adapter versions.
+Your backend must still enforce policy and authorization: a human approval
+is not permission to bypass a server-side deny.
 
 ## Tool-call approval with `useHumanInTheLoop`
 
