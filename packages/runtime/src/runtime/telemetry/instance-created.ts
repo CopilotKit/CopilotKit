@@ -47,8 +47,8 @@ export function fireInstanceCreatedTelemetry({
 
   const runtimeTelemetry = runtime.telemetry ?? telemetry;
 
-  if (info) {
-    runtimeTelemetry.capture("oss.runtime.instance_created", info);
+  if (info !== undefined) {
+    void runtimeTelemetry.capture("oss.runtime.instance_created", info);
     return;
   }
 
