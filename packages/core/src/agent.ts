@@ -730,7 +730,7 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
         this.fetch(this.singleEndpointUrl!, requestInit),
       );
     } else {
-      const connectUrl = `${this.runtimeUrl}/agent/${routedId}/connect`;
+      const connectUrl = `${this.runtimeUrl}/agent/${encodeURIComponent(routedId)}/connect`;
       const connectRequestInit = this.requestInit(input);
       httpEvents = runHttpRequest(() =>
         this.fetch(connectUrl, connectRequestInit),

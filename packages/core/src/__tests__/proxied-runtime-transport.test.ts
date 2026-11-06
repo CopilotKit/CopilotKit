@@ -134,6 +134,29 @@ describe("ProxiedCopilotRuntimeAgent transport integration", () => {
         expect(headers.get("accept")).toBe("text/event-stream");
       });
 
+      it.runIf(transport === "rest")(
+        "encodes an agent id containing a slash in the connect URL",
+        async () => {
+          const agentId = "team/research";
+          const agent = new ProxiedCopilotRuntimeAgent({
+            runtimeUrl,
+            agentId,
+            transport,
+          });
+
+          fetchMock.mockResolvedValueOnce(createSseResponse());
+
+          await expect(agent.connectAgent({})).resolves.toMatchObject({
+            newMessages: expect.any(Array),
+          });
+
+          const [url] = fetchMock.mock.calls[0] as [string, RequestInit];
+          expect(url).toBe(
+            `${runtimeUrl}/agent/${encodeURIComponent(agentId)}/connect`,
+          );
+        },
+      );
+
       it("sends stop requests with the expected payload", () => {
         const agentId = "stop-agent";
         const threadId = "thread-123";
