@@ -87,6 +87,12 @@ beforeEach(() => {
   savedXHR = globalThis.XMLHttpRequest;
   savedResponse = globalThis.Response;
 
+  // Model RN's buffering fetch. Detection inspects its actual response rather
+  // than the independently installed global Response constructor.
+  globalThis.fetch = vi.fn(async () => ({
+    body: null,
+  })) as unknown as typeof fetch;
+
   mockXhr = new MockXHR();
   // Must use a regular function (not arrow) so it can be called with `new`
   (globalThis as any).XMLHttpRequest = vi.fn(function () {
@@ -113,7 +119,7 @@ async function install() {
   // Ensure __DEV__ survives module reset (React Native global)
   (globalThis as any).__DEV__ = true;
   const mod = await import("../streaming-fetch");
-  mod.installStreamingFetch();
+  await mod.installStreamingFetch();
 }
 
 // Helper: make a fetch call and capture the mockXhr for lifecycle simulation
@@ -133,6 +139,9 @@ describe("installStreamingFetch", () => {
 
   describe("feature detection", () => {
     it("skips installation when native fetch already supports ReadableStream body", async () => {
+      globalThis.fetch = vi.fn(async () => ({
+        body: new ReadableStream({ start: (controller) => controller.close() }),
+      })) as unknown as typeof fetch;
       const originalFetch = globalThis.fetch;
       (globalThis as any).Response = class {
         body = {
