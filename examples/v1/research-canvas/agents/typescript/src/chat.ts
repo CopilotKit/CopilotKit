@@ -51,8 +51,14 @@ export async function chat_node(state: AgentState, config: RunnableConfig) {
         toolArgument: "research_question",
       },
     ],
-    emitToolCalls: "DeleteResources",
   });
+
+  // The deprecated v1 event source still supports selective tool filtering.
+  // Keep the v1-only metadata without broadening the new AG-UI option type.
+  customConfig.metadata = {
+    ...(customConfig.metadata ?? {}),
+    "copilotkit:emit-tool-calls": "DeleteResources",
+  };
 
   state["resources"] = state.resources || [];
   const researchQuestion = state.research_question || "";

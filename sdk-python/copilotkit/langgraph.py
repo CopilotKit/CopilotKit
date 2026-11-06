@@ -6,7 +6,7 @@ import uuid
 import json
 import warnings
 import asyncio
-from typing import List, Optional, Any, Dict, Union
+from typing import List, Optional, Any, Dict
 from typing_extensions import TypedDict
 from langgraph.graph import MessagesState
 
@@ -169,7 +169,7 @@ def copilotkit_customize_config(
     base_config: Optional[RunnableConfig] = None,
     *,
     emit_messages: Optional[bool] = None,
-    emit_tool_calls: Optional[Union[bool, str, List[str]]] = None,
+    emit_tool_calls: Optional[bool] = None,
     emit_intermediate_state: Optional[List[IntermediateStateConfig]] = None,
     emit_all: Optional[bool] = None,  # deprecated
 ) -> RunnableConfig:
