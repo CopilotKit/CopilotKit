@@ -2,7 +2,7 @@
 
 This directory contains 62 examples, grouped by what you want to do with them:
 
-- **[Starters](#starters-24)** — pick your agent framework and start building.
+- **[Starters](#starters-25)** — pick your agent framework and start building.
 - **[Demos](#demos-32)** — full applications that show CopilotKit in a real-world scenario.
 - **[Templates](#templates-5)** — pick a surface or use case (Slack, Teams, Flutter, a shop, a custom chat UI) and start from there.
 - **[Dev](#dev)** — small apps the CopilotKit team uses to develop and test the packages in this repo.

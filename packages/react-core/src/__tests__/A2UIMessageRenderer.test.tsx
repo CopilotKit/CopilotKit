@@ -37,6 +37,79 @@ vi.mock("../providers", () => ({
 }));
 
 describe("A2UIMessageRenderer rendering integration", () => {
+  it("recovers a bind-time function failure when only data is added to the activity snapshot", async () => {
+    const renderer = createA2UIMessageRenderer({ theme: {} as Theme });
+    const RenderComponent = renderer.render as React.FC<any>;
+    const operations = [
+      {
+        version: "v0.9",
+        createSurface: {
+          surfaceId: "recovery",
+          catalogId: "https://a2ui.org/specification/v0_9/basic_catalog.json",
+        },
+      },
+      {
+        version: "v0.9",
+        updateComponents: {
+          surfaceId: "recovery",
+          components: [
+            {
+              id: "root",
+              component: "Text",
+              text: {
+                call: "formatNumber",
+                args: { value: { path: "/revenue" }, decimals: 0 },
+              },
+            },
+          ],
+        },
+      },
+    ];
+    const view = render(
+      <RenderComponent
+        content={{ a2ui_operations: operations }}
+        agent={null}
+      />,
+    );
+    await waitFor(() =>
+      expect(view.getByRole("alert", { hidden: true }).textContent).toMatch(
+        /formatNumber/,
+      ),
+    );
+    const surface = view.container.querySelector(
+      "[data-surface-id='recovery']",
+    );
+    const withRevenue = (revenue: number) => ({
+      a2ui_operations: [
+        ...operations,
+        {
+          version: "v0.9",
+          updateDataModel: {
+            surfaceId: "recovery",
+            path: "/",
+            value: { revenue },
+          },
+        },
+      ],
+    });
+    view.rerender(<RenderComponent content={withRevenue(1234)} agent={null} />);
+    await waitFor(() => expect(view.getByText("1,234")).toBeTruthy());
+    await waitFor(() =>
+      expect(
+        view.container
+          .querySelector("[aria-hidden]")
+          ?.getAttribute("aria-hidden"),
+      ).toBe("false"),
+    );
+    expect(view.queryByRole("alert", { hidden: true })).toBeNull();
+    expect(view.container.querySelector("[data-surface-id='recovery']")).toBe(
+      surface,
+    );
+    view.rerender(<RenderComponent content={withRevenue(5678)} agent={null} />);
+    await waitFor(() => expect(view.getByText("5,678")).toBeTruthy());
+    expect(view.queryByRole("alert", { hidden: true })).toBeNull();
+  });
+
   it("should render A2UI surface content via React renderer", async () => {
     const renderer = createA2UIMessageRenderer({
       theme: {} as Theme,
