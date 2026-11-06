@@ -238,6 +238,73 @@ function stylesheetText(inspector: WebInspectorElement): string {
     .join("\n");
 }
 
+/** Declared hex for one property inside a single CSS rule body. */
+function declaredHex(rule: string, property: string): string {
+  const match = new RegExp(
+    `(?:^|;)\\s*${property}\\s*:\\s*(#[0-9a-fA-F]{3,8})\\b`,
+  ).exec(`;${rule}`);
+  if (!match?.[1]) throw new Error(`Missing ${property} in news label rule`);
+  return match[1];
+}
+
+function expandHex(hex: string): [number, number, number] {
+  const digits = hex.slice(1);
+  const normalized =
+    digits.length === 3
+      ? digits
+          .split("")
+          .map((digit) => digit + digit)
+          .join("")
+      : digits;
+  return [
+    Number.parseInt(normalized.slice(0, 2), 16),
+    Number.parseInt(normalized.slice(2, 4), 16),
+    Number.parseInt(normalized.slice(4, 6), 16),
+  ];
+}
+
+/** WCAG 2.x contrast ratio, matching axe-core's relative luminance. */
+function contrastRatio(foreground: string, background: string): number {
+  const luminance = (hex: string) => {
+    const [red, green, blue] = expandHex(hex).map((channel) => {
+      const value = channel / 255;
+      return value <= 0.04045
+        ? value / 12.92
+        : ((value + 0.055) / 1.055) ** 2.4;
+    });
+    return 0.2126 * red! + 0.7152 * green! + 0.0722 * blue!;
+  };
+  const lighter = Math.max(luminance(foreground), luminance(background));
+  const darker = Math.min(luminance(foreground), luminance(background));
+  return (lighter + 0.05) / (darker + 0.05);
+}
+
+function labelWords(value: string): string[] {
+  return value
+    .normalize("NFKD")
+    .replace(/[^\p{L}\p{N}]+/gu, " ")
+    .trim()
+    .toLowerCase()
+    .split(/\s+/)
+    .filter(Boolean);
+}
+
+/**
+ * Axe 4.14 `label-content-name-mismatch`: the visible words must appear, in
+ * order and without extra words between them, inside the accessible name.
+ */
+function visibleLabelContainedInName(visible: string, name: string): boolean {
+  const needle = labelWords(visible);
+  const haystack = labelWords(name);
+  if (needle.length === 0) return true;
+  for (let start = 0; start + needle.length <= haystack.length; start += 1) {
+    if (needle.every((word, offset) => haystack[start + offset] === word)) {
+      return true;
+    }
+  }
+  return false;
+}
+
 // Registered before the first mount so a mount that fails still tears its
 // core, its element and its global stubs down.
 let cleanup: (() => void) | null = null;
@@ -1053,15 +1120,26 @@ test("the HUD names an unread announcement and marks it as new", async () => {
       .querySelector("[data-cpk-hud-news-label]")
       ?.textContent?.trim(),
   ).toBe("New");
-  // Accessible name must contain the visible "New" + title text (WCAG 2.5.3).
-  expect(news.getAttribute("aria-label")).toContain("New");
-  expect(news.getAttribute("aria-label")).toContain("Channels are here");
+  // "Open new notification: …" contains both words, but not as the visible
+  // phrase. Axe requires that phrase as one contiguous run (WCAG 2.5.3).
+  const visibleLabel = news.textContent?.replace(/\s+/g, " ").trim() ?? "";
+  expect(
+    visibleLabelContainedInName(
+      visibleLabel,
+      news.getAttribute("aria-label") ?? "",
+    ),
+  ).toBe(true);
   const labelRule =
     /\.cpk-launcher-hud__news-label\s*\{([\s\S]*?)\}/.exec(
       stylesheetText(context.inspector),
     )?.[1] ?? "";
-  expect(labelRule).toMatch(/color:\s*#fff\b/i);
-  expect(labelRule).toMatch(/background:\s*#5c4ab8\b/i);
+  const foreground = declaredHex(labelRule, "color");
+  const background = declaredHex(labelRule, "background");
+  // #fff on #7563c7 is 4.81:1. That clears the 4.5:1 floor for this 9px bold
+  // label, so the badge color stays put.
+  expect(foreground.toLowerCase()).toBe("#fff");
+  expect(background.toLowerCase()).toBe("#7563c7");
+  expect(contrastRatio(foreground, background)).toBeGreaterThanOrEqual(4.5);
   const titleRule =
     /\.cpk-launcher-hud__news-title\s*\{([\s\S]*?)\}/.exec(
       stylesheetText(context.inspector),

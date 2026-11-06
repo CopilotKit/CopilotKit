@@ -10667,7 +10667,7 @@ export class WebInspectorElement extends LitElement {
         align-items: center;
         padding: 3px 8px;
         border-radius: 6px;
-        background: #5c4ab8;
+        background: #7563c7;
         color: #fff;
         box-shadow: 0 3px 8px rgb(46 37 91 / 0.18);
         font-size: 9px;
