@@ -968,11 +968,13 @@ describe("probeDocs production canonical-host guard", () => {
   );
 
   it.each([
-    ["https://openbot.co", true],
-    ["https://openbot.co/builders", true],
+    ["https://open.bot", true],
+    ["https://open.bot/builders", true],
     ["https://github.com/CopilotKit/OpenBot", true],
-    ["https://openbot.co/pricing", false],
-    ["https://www.openbot.co", false],
+    ["https://open.bot/pricing", false],
+    ["https://www.open.bot", false],
+    // openbot.co redirects to open.bot, so the index should name open.bot instead.
+    ["https://openbot.co", false],
     ["https://github.com/CopilotKit/CopilotKit", false],
   ])(
     "allows only the exact OpenBot links the index names: %s",

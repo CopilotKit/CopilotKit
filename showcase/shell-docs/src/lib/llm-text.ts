@@ -85,7 +85,7 @@ import { LEARNING_SETUP_PROMPT } from "./learning-setup-prompt";
 // workspace of AI coworkers rather than an assistant inside their own product.
 // The production docs probe allows exactly these off-docs links in llms.txt
 // (showcase/scripts/verify-deploy.drivers.docs.ts), so change both together.
-const OPENBOT_SITE_URL = "https://openbot.co";
+const OPENBOT_SITE_URL = "https://open.bot";
 const OPENBOT_SOURCE_URL = "https://github.com/CopilotKit/OpenBot";
 
 interface Region {

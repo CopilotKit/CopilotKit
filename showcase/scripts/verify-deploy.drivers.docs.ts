@@ -99,8 +99,8 @@ export function isSupportedOnboardingUrl(url: string): boolean {
 // OPENBOT_SITE_URL and OPENBOT_SOURCE_URL in shell-docs' llm-text.ts: it
 // admits these three links, not their hosts.
 const SUPPORTED_OPENBOT_URLS = new Set([
-  "https://openbot.co",
-  "https://openbot.co/builders",
+  "https://open.bot",
+  "https://open.bot/builders",
   "https://github.com/CopilotKit/OpenBot",
 ]);
 
