@@ -105,7 +105,7 @@ import {
               <copilot-chat-reasoning-message
                 [message]="asReasoningMessage(message)"
                 [messages]="messagesValue()"
-                [isRunning]="isLoadingValue()"
+                [isRunning]="reasoningRunning()"
                 [inputClass]="reasoningMessageClass()"
               />
             }
@@ -146,6 +146,11 @@ export class CopilotChatMessageView {
   state = input<unknown>({});
   showCursor = input<boolean>(false);
   isLoading = input<boolean>(false);
+  /**
+   * Whether the agent is running. Only reasoning messages read it (they stream
+   * while it or `isLoading` is true); tool-call status still follows `isLoading`.
+   */
+  isRunning = input<boolean>(false);
   inputClass = input<string | undefined>();
   agentId = input<string | undefined>();
 
@@ -215,6 +220,9 @@ export class CopilotChatMessageView {
     () => this.showCursor() && this.lastMessage()?.role !== "reasoning",
   );
   protected isLoadingValue = computed(() => this.isLoading());
+  protected reasoningRunning = computed(
+    () => this.isLoading() || this.isRunning(),
+  );
   protected lastMessage = computed(() => {
     const messages = this.messagesValue();
     return messages[messages.length - 1];
@@ -265,7 +273,7 @@ export class CopilotChatMessageView {
     return {
       message,
       messages: this.messagesValue(),
-      isRunning: this.isLoadingValue(),
+      isRunning: this.reasoningRunning(),
       inputClass: this.reasoningMessageClass(),
     };
   }

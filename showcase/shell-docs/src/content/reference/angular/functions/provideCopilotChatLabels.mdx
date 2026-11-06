@@ -9,7 +9,7 @@ description: "Angular provider that overrides the default text labels used by th
 
 Add it to an application or component `providers` array. Components read the merged labels through [`injectChatLabels`](/reference/angular/functions/injectChatLabels).
 
-The full set of defaults lives in `COPILOT_CHAT_DEFAULT_LABELS`. Any field you omit falls back to its default value.
+The full set of defaults lives in `COPILOT_CHAT_DEFAULT_LABELS`. Any field you omit falls back to its default value, except the popup and sidebar keys (`chatToggleOpenLabel`, `chatToggleCloseLabel`, `modalHeaderCloseButtonLabel`), which have no default there: when omitted, each surface keeps its own name.
 
 ## Signature
 
@@ -97,7 +97,18 @@ function provideCopilotChatLabels(
   <PropertyReference name="attachmentRemoveButtonLabel" type="string" default="Remove attachment">
     Accessible name of the button that removes a queued attachment.
   </PropertyReference>
+  <PropertyReference name="chatToggleOpenLabel" type="string">
+    Accessible name of the [`CopilotPopup`](/reference/angular/components/CopilotPopup) and [`CopilotSidebar`](/reference/angular/components/CopilotSidebar) launcher while the chat is closed. Unset, each keeps its own name: "Open Copilot chat" (popup), "Open Copilot sidebar" (sidebar).
+  </PropertyReference>
+  <PropertyReference name="chatToggleCloseLabel" type="string">
+    Accessible name of the popup and sidebar launcher while the chat is open. Unset: "Close Copilot chat" (popup), "Close Copilot sidebar" (sidebar).
+  </PropertyReference>
+  <PropertyReference name="modalHeaderCloseButtonLabel" type="string">
+    Accessible name of the close button in the popup and sidebar header. Unset: "Close Copilot chat" (popup), "Close Copilot sidebar" (sidebar).
+  </PropertyReference>
 </PropertyReference>
+
+The "Thought for …" duration in the reasoning header carries a number and plural rules, so it is not a label. To translate it, project a `#label` template into the reasoning message; see [`CopilotChat`](/reference/angular/components/CopilotChat#localize-the-reasoning-duration).
 
 ## Return Value
 

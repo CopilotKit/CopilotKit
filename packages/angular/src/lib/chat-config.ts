@@ -25,6 +25,21 @@ export interface CopilotChatLabels {
   welcomeMessageText: string;
   reasoningMessageThinkingLabel: string;
   attachmentRemoveButtonLabel: string;
+  /**
+   * Popup and sidebar launcher while the chat is closed. Unset, each keeps its
+   * own name: "Open Copilot chat" (popup), "Open Copilot sidebar" (sidebar).
+   */
+  chatToggleOpenLabel?: string;
+  /**
+   * Popup and sidebar launcher while the chat is open. Unset: "Close Copilot
+   * chat" (popup), "Close Copilot sidebar" (sidebar).
+   */
+  chatToggleCloseLabel?: string;
+  /**
+   * Close button in the popup and sidebar header. Unset: "Close Copilot chat"
+   * (popup), "Close Copilot sidebar" (sidebar).
+   */
+  modalHeaderCloseButtonLabel?: string;
 }
 
 // Default labels constant

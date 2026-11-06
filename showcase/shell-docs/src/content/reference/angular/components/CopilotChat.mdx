@@ -98,6 +98,54 @@ Remember to import the stylesheet once in your global styles:
 
 To customize the text strings (input placeholder, welcome message, toolbar labels, disclaimer), provide labels through [`provideCopilotChatLabels`](/reference/angular/functions/provideCopilotChatLabels). The chat reads them through `injectChatLabels` internally.
 
+### Localize the reasoning duration
+
+After the model reasons, the reasoning header reads "Thought for …" in English. To translate it with correct plurals, render the reasoning message through `reasoningMessageTemplate` and project a `#label` template into it. The template replaces only the header's text and receives `elapsedSeconds` (counting up while the model reasons), `isStreaming` and the default `label`.
+
+```ts title="src/app/chat.component.ts"
+import { Component } from "@angular/core";
+import { CopilotChat, CopilotChatReasoningMessage } from "@copilotkit/angular";
+
+@Component({
+  selector: "app-chat",
+  imports: [CopilotChat, CopilotChatReasoningMessage],
+  template: `
+    <copilot-chat [reasoningMessageTemplate]="reasoning" />
+
+    <ng-template
+      #reasoning
+      let-message="message"
+      let-messages="messages"
+      let-isRunning="isRunning"
+    >
+      <copilot-chat-reasoning-message
+        [message]="message"
+        [messages]="messages"
+        [isRunning]="isRunning"
+      >
+        <ng-template
+          #label
+          let-isStreaming="isStreaming"
+          let-elapsedSeconds="elapsedSeconds"
+        >
+          {{ isStreaming ? "Denkt nach…" : thoughtFor(elapsedSeconds) }}
+        </ng-template>
+      </copilot-chat-reasoning-message>
+    </ng-template>
+  `,
+})
+export class ChatComponent {
+  private readonly plural = new Intl.PluralRules("de");
+
+  thoughtFor(seconds: number): string {
+    const n = Math.round(seconds);
+    return this.plural.select(n) === "one"
+      ? `${n} Sekunde nachgedacht`
+      : `${n} Sekunden nachgedacht`;
+  }
+}
+```
+
 ## Related
 
 <Cards>
