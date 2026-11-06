@@ -29,6 +29,11 @@ export interface BeforeRequestMiddlewareParameters {
 }
 export interface AfterRequestMiddlewareParameters {
   runtime: CopilotRuntimeLike;
+  /**
+   * A response whose body remains readable by the callback.
+   * SSE bodies are buffered as raw bytes while messages are parsed incrementally;
+   * the callback runs when the stream ends, with the original status and headers.
+   */
   response: Response;
   path: string;
   /** Reconstructed messages from the SSE stream (empty for non-SSE responses). */
@@ -86,6 +91,7 @@ export async function callBeforeRequestMiddleware({
   return;
 }
 
+/** Invoke after-request middleware with parsed SSE messages and a readable response. */
 export async function callAfterRequestMiddleware({
   runtime,
   response,
@@ -98,12 +104,17 @@ export async function callAfterRequestMiddleware({
   const mw = runtime.afterRequestMiddleware;
   if (!mw) return;
 
-  const { messages, threadId, runId } = await parseSSEResponse(response);
+  const {
+    response: middlewareResponse,
+    messages,
+    threadId,
+    runId,
+  } = await parseSSEResponse(response);
 
   if (typeof mw === "function") {
     return (mw as AfterRequestMiddlewareFn)({
       runtime,
-      response,
+      response: middlewareResponse,
       path,
       messages,
       threadId,
