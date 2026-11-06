@@ -55,6 +55,20 @@ describe("D5 subagents script — buildTurns", () => {
 });
 
 describe("D5 subagents validateSubagentsSnapshot", () => {
+  it("fails when tool cards render but shared-state delegations are absent", async () => {
+    const mod = await import("./d5-subagents.js");
+    const result = mod.validateSubagentsSnapshot({
+      counts: {
+        "subagent-card-researcher": 1,
+        "subagent-card-writer": 1,
+        "subagent-card-critic": 1,
+      },
+      delegationEntryCount: 0,
+      text: "the agent returned useful text",
+    });
+    expect(result).toMatch(/delegation-entry/);
+  });
+
   it("passes when all 3 cards present once and no boilerplate", async () => {
     const mod = await import("./d5-subagents.js");
     const result = mod.validateSubagentsSnapshot({
@@ -63,6 +77,7 @@ describe("D5 subagents validateSubagentsSnapshot", () => {
         "subagent-card-writer": 1,
         "subagent-card-critic": 1,
       },
+      delegationEntryCount: 3,
       text: "remote work returns roughly ten hours a week to employees",
     });
     expect(result).toBeNull();
@@ -76,6 +91,7 @@ describe("D5 subagents validateSubagentsSnapshot", () => {
         "subagent-card-writer": 1,
         "subagent-card-critic": 1,
       },
+      delegationEntryCount: 3,
       text: "some real reply",
     });
     expect(result).toMatch(/subagent-card-researcher/);
@@ -89,6 +105,7 @@ describe("D5 subagents validateSubagentsSnapshot", () => {
         "subagent-card-writer": 0,
         "subagent-card-critic": 1,
       },
+      delegationEntryCount: 3,
       text: "some real reply",
     });
     expect(result).toMatch(/subagent-card-writer/);
@@ -102,6 +119,7 @@ describe("D5 subagents validateSubagentsSnapshot", () => {
         "subagent-card-writer": 1,
         "subagent-card-critic": 0,
       },
+      delegationEntryCount: 3,
       text: "some real reply",
     });
     expect(result).toMatch(/subagent-card-critic/);
@@ -115,6 +133,7 @@ describe("D5 subagents validateSubagentsSnapshot", () => {
         "subagent-card-writer": 1,
         "subagent-card-critic": 2,
       },
+      delegationEntryCount: 3,
       text: "some real reply",
     });
     expect(result).toMatch(/critic ran more than once/);
@@ -128,6 +147,7 @@ describe("D5 subagents validateSubagentsSnapshot", () => {
         "subagent-card-writer": 1,
         "subagent-card-critic": 1,
       },
+      delegationEntryCount: 3,
       text: "no messages yet — start a conversation",
     });
     expect(result).toMatch(/boilerplate marker/);
@@ -166,6 +186,7 @@ describe("D5 subagents assertSubagentsChain", () => {
         "subagent-card-writer": 1,
         "subagent-card-critic": 1,
       },
+      delegationEntryCount: 3,
       text: "real reply with substance",
     });
     // dwellMs=0 keeps the post-pass re-snapshot fast — we still hit
@@ -184,6 +205,7 @@ describe("D5 subagents assertSubagentsChain", () => {
         "subagent-card-writer": 0,
         "subagent-card-critic": 0,
       },
+      delegationEntryCount: 3,
       text: "",
     });
     await expect(mod.assertSubagentsChain(page, 30, 0)).rejects.toThrow(
@@ -202,6 +224,7 @@ describe("D5 subagents assertSubagentsChain", () => {
           "subagent-card-writer": 1,
           "subagent-card-critic": 1,
         },
+        delegationEntryCount: 3,
         text: "real reply with substance",
       },
       {
@@ -210,6 +233,7 @@ describe("D5 subagents assertSubagentsChain", () => {
           "subagent-card-writer": 1,
           "subagent-card-critic": 2,
         },
+        delegationEntryCount: 3,
         text: "real reply with substance",
       },
     ]);
@@ -227,6 +251,7 @@ describe("D5 subagents assertSubagentsChain", () => {
         "subagent-card-critic": 1,
       },
       // Lower-cased to match the probe's `text.toLowerCase()` snapshot.
+      delegationEntryCount: 3,
       text: "researcher: <sub-agent produced no output>",
     });
     expect(result).toMatch(/boilerplate marker/);
