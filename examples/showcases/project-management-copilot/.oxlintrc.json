@@ -1,0 +1,5 @@
+{
+  "rules": {
+    "nextjs/no-img-element": "off"
+  }
+}
