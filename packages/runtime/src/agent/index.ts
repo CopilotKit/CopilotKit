@@ -568,6 +568,54 @@ function toToolChoice(value: unknown) {
 }
 
 /**
+ * Splits `input.resume` for a classic run.
+ *
+ * - `approvals`: the entries that answer a call of a `needsApproval` config
+ *   tool, under the interrupt id `chat()` gave that call
+ *   (`approval_<toolCallId>`). `chat()` then runs the tool on approve, and
+ *   skips it on reject or cancel.
+ * - `toolResults`: the other entries. They go back to the model as tool
+ *   results.
+ * - `messages`: the history without a tool message the client added for an
+ *   approval in this resume. `chat()` would read that message as the tool's
+ *   result and not run the tool.
+ */
+function splitApprovalResume(input: RunAgentInput, tools: readonly AnyTool[]) {
+  const approvalTools = new Set(
+    tools.filter((tool) => tool.needsApproval).map((tool) => tool.name),
+  );
+  const approvalCallIds = new Set(
+    input.messages.flatMap((message) =>
+      message.role === "assistant"
+        ? (message.toolCalls ?? [])
+            .filter((call) => approvalTools.has(call.function.name))
+            .map((call) => call.id)
+        : [],
+    ),
+  );
+  const approvals: ResumeEntry[] = [];
+  const toolResults: ResumeEntry[] = [];
+  for (const entry of input.resume ?? []) {
+    if (approvalCallIds.has(entry.interruptId)) {
+      approvals.push({
+        ...entry,
+        interruptId: `approval_${entry.interruptId}`,
+      });
+    } else {
+      toolResults.push(entry);
+    }
+  }
+  const resumedCallIds = new Set(
+    approvals.map((entry) => entry.interruptId.slice("approval_".length)),
+  );
+  const messages = input.messages.filter(
+    (message) =>
+      !(message.role === "tool" && resumedCallIds.has(message.toolCallId)),
+  );
+  return { approvals, toolResults, messages };
+}
+
+/**
  * The `chat()` options of a classic config that the agent passes to `chat()`
  * as they are. It leaves out the CopilotKit settings, and the options that
  * the agent merges or replaces on each run (`systemPrompts`, `tools`,
@@ -800,14 +848,19 @@ export class BuiltInAgent<
           const promptJoinsContext = configSystemPrompts.length === 0;
 
           assertFrontendToolSchemas(input.tools ?? []);
-          const converted = convertInputToTanStackAI(input, {
-            forwardSystemMessages: config.forwardSystemMessages ?? false,
-            forwardDeveloperMessages: config.forwardDeveloperMessages ?? false,
-            prompt: promptJoinsContext ? prompt : undefined,
-            resume: input.resume,
-            keepToolResultMedia: true,
-            format: "classic",
-          });
+          const resume = splitApprovalResume(input, config.tools ?? []);
+          const converted = convertInputToTanStackAI(
+            { ...input, messages: resume.messages },
+            {
+              forwardSystemMessages: config.forwardSystemMessages ?? false,
+              forwardDeveloperMessages:
+                config.forwardDeveloperMessages ?? false,
+              prompt: promptJoinsContext ? prompt : undefined,
+              resume: resume.toolResults,
+              keepToolResultMedia: true,
+              format: "classic",
+            },
+          );
 
           const learnedSkills = await prepareLearnedSkills(
             this.skillRegistry,
@@ -869,6 +922,14 @@ export class BuiltInAgent<
             repairToolInput: config.repairToolInput ?? false,
             abortController,
             threadId: input.threadId,
+            // chat() runs or skips an approved tool itself. It needs the id of
+            // the run that paused, and the interrupt ids it issued for it.
+            ...(resume.approvals.length > 0
+              ? {
+                  resume: resume.approvals,
+                  parentRunId: input.parentRunId ?? input.runId,
+                }
+              : {}),
             stream: true,
           });
 
