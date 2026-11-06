@@ -128,6 +128,7 @@ const tanstackAgent = new BuiltInAgent({
       messages,
       systemPrompts: [BOOKING_SYSTEM_PROMPT, ...systemPrompts],
       tools: [...tools, tanstackBookFlight],
+      threadId: input.threadId,
       abortController,
     });
   },
