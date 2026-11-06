@@ -46,10 +46,14 @@ function contextDescriptions(): string[] {
   return Object.values(capturedCore!.context).map((entry) => entry.description);
 }
 
-function capabilitiesValue(): string | undefined {
+function contextValue(description: string): string | undefined {
   return Object.values(capturedCore!.context).find(
-    (entry) => entry.description === CAPABILITIES_DESCRIPTION,
+    (entry) => entry.description === description,
   )?.value;
+}
+
+function capabilitiesValue(): string | undefined {
+  return contextValue(CAPABILITIES_DESCRIPTION);
 }
 
 describe("CopilotKitProvider a2ui catalog context", () => {
@@ -87,7 +91,7 @@ describe("CopilotKitProvider a2ui catalog context", () => {
     expect(contextDescriptions()).toEqual([CAPABILITIES_DESCRIPTION]);
   });
 
-  it("includes custom component schemas by default, unchanged from before includeSchema", () => {
+  it("sends each custom component schema once by default, in the Component Schema entry only", () => {
     const catalog = makeCustomCatalog();
     render(
       <CopilotKitProvider a2ui={{ catalog }}>
@@ -95,13 +99,17 @@ describe("CopilotKitProvider a2ui catalog context", () => {
       </CopilotKitProvider>,
     );
 
-    const value = capabilitiesValue();
-    // The single-argument call is what the provider sent before includeSchema
-    // was threaded through, so the default output stays byte-identical.
-    expect(value).toBe(buildCatalogContextValue(catalog));
-    expect(value).toContain("  - FlightCard:\n    {");
-    expect(value).toContain('"airline"');
-    expect(value).toContain('"innerRadius"');
+    // The Component Schema entry already carries every component, so the
+    // capabilities entry only names the custom components.
+    expect(capabilitiesValue()).toBe(
+      buildCatalogContextValue(catalog, { includeSchema: false }),
+    );
+    const schema = JSON.parse(contextValue(A2UI_SCHEMA_CONTEXT_DESCRIPTION)!);
+    expect(Object.keys(schema.components)).toEqual(["FlightCard", "PieChart"]);
+    expect(JSON.stringify(schema.components.FlightCard)).toContain('"airline"');
+    expect(JSON.stringify(schema.components.PieChart)).toContain(
+      '"innerRadius"',
+    );
     expect(contextDescriptions().sort()).toEqual(
       [
         CAPABILITIES_DESCRIPTION,
