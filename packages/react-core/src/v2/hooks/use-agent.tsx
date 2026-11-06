@@ -139,6 +139,11 @@ interface UseAgentUnscopedProps {
 export type UseAgentProps = UseAgentPropsBase &
   (UseAgentThreadScopedProps | UseAgentUnscopedProps);
 
+/**
+ * Returns the selected agent and its readiness, subscribing to agent updates.
+ * Uses a shared agent by default, or a private proxy when `agentId`,
+ * `runtimeAgentId`, and `threadId` are supplied together.
+ */
 export function useAgent({
   agentId,
   threadId,
