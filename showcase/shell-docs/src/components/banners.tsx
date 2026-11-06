@@ -33,17 +33,16 @@ function setBannerHeight(height: "0px" | "40px") {
 export function Banners() {
   const content = bannerContent[0];
   const [dismissed, setDismissed] = useState(false);
-  const [hydrated, setHydrated] = useState(false);
 
   useEffect(() => {
-    setHydrated(true);
-
     const checkBannerExpiry = () => {
       const isDismissed =
         localStorage.getItem(BANNER_DISMISSED_KEY) === "true" ||
         localStorage.getItem(LEGACY_DISMISSED_STORAGE_KEY) === "true";
 
       if (!isDismissed) {
+        document.documentElement.classList.remove("banner-dismissed");
+        setBannerHeight("40px");
         setDismissed(false);
         return;
       }
@@ -51,6 +50,8 @@ export function Banners() {
       const dismissedAt = localStorage.getItem(BANNER_DISMISSED_TIME_KEY);
       if (!dismissedAt) {
         localStorage.setItem(BANNER_DISMISSED_TIME_KEY, Date.now().toString());
+        document.documentElement.classList.add("banner-dismissed");
+        setBannerHeight("0px");
         setDismissed(true);
         return;
       }
@@ -60,8 +61,12 @@ export function Banners() {
         localStorage.removeItem(BANNER_DISMISSED_KEY);
         localStorage.removeItem(BANNER_DISMISSED_TIME_KEY);
         localStorage.removeItem(LEGACY_DISMISSED_STORAGE_KEY);
+        document.documentElement.classList.remove("banner-dismissed");
+        setBannerHeight("40px");
         setDismissed(false);
       } else {
+        document.documentElement.classList.add("banner-dismissed");
+        setBannerHeight("0px");
         setDismissed(true);
       }
     };
@@ -78,18 +83,16 @@ export function Banners() {
     };
   }, []);
 
-  useEffect(() => {
-    setBannerHeight(!hydrated || dismissed ? "0px" : "40px");
-  }, [hydrated, dismissed]);
-
   const dismissBanner = useCallback(() => {
     localStorage.setItem(BANNER_DISMISSED_KEY, "true");
     localStorage.setItem(BANNER_DISMISSED_TIME_KEY, Date.now().toString());
     localStorage.setItem(LEGACY_DISMISSED_STORAGE_KEY, "true");
+    document.documentElement.classList.add("banner-dismissed");
+    setBannerHeight("0px");
     setDismissed(true);
   }, []);
 
-  if (!hydrated || dismissed) {
+  if (dismissed) {
     return null;
   }
 
