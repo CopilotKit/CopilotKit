@@ -10,7 +10,5 @@
     "src/app/demos/tool-rendering-default-catchall/**/*.tsx",
     "src/agent/tool-rendering.ts"
   ],
-  "exclude": [
-    "node_modules"
-  ]
+  "exclude": ["node_modules"]
 }

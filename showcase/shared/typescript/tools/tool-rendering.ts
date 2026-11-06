@@ -1,12 +1,8 @@
-/** Shared handlers for the tool-rendering demos; framework adapters own schemas. */
+import { weatherTool } from "./weather-tool";
+
+/** Shared handlers for the tool-rendering demos. */
 export const toolRenderingHandlers = {
-  get_weather: async ({ location }: { location: string }) => ({
-    city: location,
-    temperature: 68,
-    humidity: 55,
-    wind_speed: 10,
-    conditions: "Sunny",
-  }),
+  get_weather: weatherTool.handler,
   search_flights: async ({
     origin,
     destination,

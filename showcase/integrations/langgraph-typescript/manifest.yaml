@@ -123,6 +123,8 @@ demos:
       - tools/demos/tool-rendering-default-catchall/page.tsx
       - tools/demos/tool-rendering-default-catchall/suggestions.ts
       - src/agent/tool-rendering.ts
+      - tools/tools/weather-tool.ts
+      - tools/tools/tool-rendering.ts
       - src/app/api/copilotkit/route.ts
   - id: tool-rendering-custom-catchall
     name: "Generative UI: Tool Rendering (Catch-all)"
@@ -135,6 +137,8 @@ demos:
       - src/app/demos/tool-rendering-custom-catchall/page.tsx
       - src/app/demos/tool-rendering-custom-catchall/custom-catchall-renderer.tsx
       - src/agent/tool-rendering.ts
+      - tools/tools/weather-tool.ts
+      - tools/tools/tool-rendering.ts
       - src/app/api/copilotkit/route.ts
   - id: frontend-tools
     name: "Frontend Tools: In-app Actions"
@@ -195,6 +199,8 @@ demos:
     animated_preview_url:
     highlight:
       - src/agent/tool-rendering.ts
+      - tools/tools/weather-tool.ts
+      - tools/tools/tool-rendering.ts
       - src/app/demos/tool-rendering/page.tsx
       - src/app/demos/tool-rendering/weather-card.tsx
       - src/app/demos/tool-rendering/flight-list-card.tsx

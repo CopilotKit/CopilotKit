@@ -1,9 +1,7 @@
 {
   "name": "showcase-langgraph-typescript",
   "projectType": "application",
-  "implicitDependencies": [
-    "!@copilotkit/*"
-  ],
+  "implicitDependencies": ["!@copilotkit/*"],
   "targets": {
     "typecheck": {
       "executor": "nx:run-commands",

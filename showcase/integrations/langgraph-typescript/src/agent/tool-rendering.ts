@@ -11,10 +11,10 @@
  */
 
 import { toolRenderingHandlers } from "../../tools/tools/tool-rendering";
+import { weatherTool } from "../../tools/tools/weather-tool";
 
 import { makeChatOpenAI } from "./openai-headers";
 
-// @region[weather-tool-backend]
 import { z } from "zod";
 import type { RunnableConfig } from "@langchain/core/runnables";
 import { tool } from "@langchain/core/tools";
@@ -57,14 +57,11 @@ const SYSTEM_PROMPT =
 // 3. Tools -- aligned with LGP tool definitions
 // ---------------------------------------------------------------------------
 
-const getWeather = tool(toolRenderingHandlers.get_weather, {
-  name: "get_weather",
-  description: "Get the current weather for a given location.",
-  schema: z.object({
-    location: z.string().describe("City name"),
-  }),
+const getWeather = tool(weatherTool.handler, {
+  name: weatherTool.name,
+  description: weatherTool.description,
+  schema: weatherTool.parameters,
 });
-// @endregion[weather-tool-backend]
 
 const searchFlights = tool(toolRenderingHandlers.search_flights, {
   name: "search_flights",

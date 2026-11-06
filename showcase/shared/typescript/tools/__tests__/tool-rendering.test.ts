@@ -1,6 +1,30 @@
 import { describe, expect, it } from "vitest";
 
 describe("shared tool-rendering handlers", () => {
+  it("exposes a portable weather descriptor with validated input", async () => {
+    const { weatherTool } = await import("../weather-tool");
+    const { toolRenderingHandlers } = await import("../tool-rendering");
+    expect(weatherTool.name).toBe("get_weather");
+    expect(weatherTool.parameters).toMatchObject({
+      type: "object",
+      properties: { location: { type: "string" } },
+      required: ["location"],
+    });
+    expect(toolRenderingHandlers.get_weather).toBe(weatherTool.handler);
+    expect(await weatherTool.handler({ location: "Paris" })).toEqual({
+      city: "Paris",
+      temperature: 68,
+      humidity: 55,
+      wind_speed: 10,
+      conditions: "Sunny",
+    });
+    for (const input of [undefined, null, [], "Paris", {}, { location: 42 }]) {
+      await expect(weatherTool.handler(input)).rejects.toThrow(
+        "location must be a string",
+      );
+    }
+  });
+
   it("preserves fixture-controlled quotes and dice results", async () => {
     const { toolRenderingHandlers } = await import("../tool-rendering");
     expect(
