@@ -79,7 +79,7 @@ npx copilotkit@latest skills install
 <br />
 
 ```bash
-npm install @copilotkit/react-core @copilotkit/runtime
+npm install @copilotkit/react-core @copilotkit/runtime @tanstack/ai-openai
 ```
 
 ```bash
@@ -92,11 +92,12 @@ OPENAI_API_KEY=your_openai_api_key
 import {
   CopilotRuntime,
   createCopilotRuntimeHandler,
-  BuiltInAgent,
-} from "@copilotkit/runtime/v2";
+} from "@copilotkit/runtime";
+import { BuiltInAgent } from "@copilotkit/runtime/agent";
+import { openaiText } from "@tanstack/ai-openai";
 
 const runtime = new CopilotRuntime({
-  agents: { default: new BuiltInAgent({ model: "openai:gpt-6-luna" }) },
+  agents: { default: new BuiltInAgent({ model: openaiText("gpt-6-luna") }) },
 });
 
 const handler = createCopilotRuntimeHandler({

@@ -44,10 +44,21 @@ models that these docs use.
 
 ### OpenAI
 
-| Model          | Adapter                        |
-| -------------- | ------------------------------ |
-| GPT-6 Luna     | `openaiText("gpt-6-luna")`     |
-| GPT-6 Luna Pro | `openaiText("gpt-6-luna-pro")` |
+| Model        | Adapter                      |
+| ------------ | ---------------------------- |
+| GPT-6 Luna   | `openaiText("gpt-6-luna")`   |
+| GPT-5.5      | `openaiText("gpt-5.5")`      |
+| GPT-5.4 Mini | `openaiText("gpt-5.4-mini")` |
+| GPT-5.2      | `openaiText("gpt-5.2")`      |
+| GPT-5        | `openaiText("gpt-5")`        |
+| GPT-5 Mini   | `openaiText("gpt-5-mini")`   |
+| GPT-4.1      | `openaiText("gpt-4.1")`      |
+| GPT-4.1 Mini | `openaiText("gpt-4.1-mini")` |
+| GPT-4.1 Nano | `openaiText("gpt-4.1-nano")` |
+| GPT-4o       | `openaiText("gpt-4o")`       |
+| GPT-4o Mini  | `openaiText("gpt-4o-mini")`  |
+| o3-mini      | `openaiText("o3-mini")`      |
+| o4-mini      | `openaiText("o4-mini")`      |
 
 ```typescript
 import { BuiltInAgent } from "@copilotkit/runtime/agent";
@@ -268,14 +279,14 @@ into a model.
    import { openaiText } from "@tanstack/ai-openai";
 
    const agent = new BuiltInAgent({
-     model: openaiText("gpt-6-luna"),
+     model: openaiText("gpt-5.4-mini"),
      overridableProperties: ["model"], // [!code highlight:11]
      resolveModel: (name) => {
        switch (name) {
          case "fast":
-           return openaiText("gpt-6-luna");
+           return openaiText("gpt-5.4-mini");
          case "smart":
-           return openaiText("gpt-6-luna-pro");
+           return openaiText("gpt-6-luna");
          default:
            return undefined;
        }
@@ -297,7 +308,7 @@ into a model.
    }
    ```
 
-The run now uses GPT-6 Luna Pro. `resolveModel` can return three things:
+The run now uses GPT-6 Luna. `resolveModel` can return three things:
 
 - An adapter: the run uses it with the configured `modelOptions` and
   `reasoning`.
@@ -326,7 +337,7 @@ const agent = new BuiltInAgent({
   resolveModel: (name) => {
     switch (name) {
       case "fast":
-        return openaiText("gpt-6-luna");
+        return openaiText("gpt-5.4-mini");
       case "smart":
         return createChatOptions({ // [!code highlight:5]
           adapter: anthropicText("claude-sonnet-4-6"),
