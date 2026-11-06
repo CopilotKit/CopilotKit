@@ -3,6 +3,8 @@ import {
   CopilotRuntime,
   createCopilotRuntimeHandler,
   type MCPClientConfig,
+  type MCPClientProvider,
+  type MessageConversionOptions,
 } from "@copilotkit/runtime";
 import { resolveModel, classifyModelSpec } from "@copilotkit/runtime/v2";
 import { createAnthropicChat } from "@tanstack/ai-anthropic";
@@ -10,6 +12,8 @@ import { geminiText } from "@tanstack/ai-gemini";
 
 const modelName = process.env.MODEL ?? "openai/gpt-5";
 const servers: MCPClientConfig[] = [];
+const clients: MCPClientProvider[] = [];
+const conversion: MessageConversionOptions = {};
 const maxRetries = 2;
 
 export const runtime = new CopilotRuntime({
@@ -34,6 +38,7 @@ export const runtime = new CopilotRuntime({
     mcp: new BuiltInAgent({
       model: "openai/gpt-5",
       mcpServers: servers,
+      mcpClients: clients,
     }),
     retryLiteral: new BuiltInAgent({
       model: "openai/gpt-5",

@@ -1,5 +1,7 @@
 // TODO(copilotkit-2.0): `MCPClientConfig` was removed in 2.0 and has no direct replacement. See https://docs.copilotkit.ai/integrations/built-in-agent/mcp-servers
 // TODO(copilotkit-2.0): `MCPClientConfig`: Create each MCP client with `await createMCPClient({ transport: { type: "http", url } })` from "@tanstack/ai-mcp". Then pass the clients as `mcp: { clients: [client] }`.
+// TODO(copilotkit-2.0): `MCPClientProvider` was removed in 2.0 and has no direct replacement. See https://docs.copilotkit.ai/integrations/built-in-agent/mcp-servers
+// TODO(copilotkit-2.0): `MCPClientProvider`: Create each MCP client with `await createMCPClient({ transport: { type: "http", url } })` from "@tanstack/ai-mcp". Then pass the clients as `mcp: { clients: [client] }`.
 import {
   BuiltInAgent,
 } from "@copilotkit/runtime/agent";
@@ -7,7 +9,11 @@ import {
   CopilotRuntime,
   createCopilotRuntimeHandler,
   type MCPClientConfig,
+  type MCPClientProvider,
 } from "@copilotkit/runtime";
+import {
+  type MessageConversionOptions,
+} from "@copilotkit/runtime/agent/ai-sdk";
 // TODO(copilotkit-2.0): `resolveModel` was removed in 2.0 and has no direct replacement. See https://docs.copilotkit.ai/migrate/runtime-2.0#built-in-agent
 // TODO(copilotkit-2.0): `resolveModel`: Model strings were removed. Pass a TanStack AI text adapter such as `openaiText("gpt-5")` from "@tanstack/ai-openai" as `model`. To handle a model name forwarded from the client, set the `resolveModel` option of the `BuiltInAgent` config.
 // TODO(copilotkit-2.0): `classifyModelSpec` was removed in 2.0 and has no direct replacement. See https://docs.copilotkit.ai/migrate/runtime-2.0#built-in-agent
@@ -20,6 +26,8 @@ import { vertexText } from "@tanstack/ai-vertex";
 
 const modelName = process.env.MODEL ?? "openai/gpt-5";
 const servers: MCPClientConfig[] = [];
+const clients: MCPClientProvider[] = [];
+const conversion: MessageConversionOptions = {};
 const maxRetries = 2;
 
 export const runtime = new CopilotRuntime({
@@ -44,6 +52,7 @@ export const runtime = new CopilotRuntime({
     mcp: new BuiltInAgent({
       model: openaiText("gpt-5"),
       /* TODO(copilotkit-2.0): `mcpServers` was removed in 2.0. Create each MCP client with `await createMCPClient({ transport: { type: "http", url } })` from "@tanstack/ai-mcp". Then pass the clients as `mcp: { clients: [client] }`. See https://docs.copilotkit.ai/integrations/built-in-agent/mcp-servers */ mcpServers: servers,
+      /* TODO(copilotkit-2.0): `mcpClients` was removed in 2.0. Create each MCP client with `await createMCPClient({ transport: { type: "http", url } })` from "@tanstack/ai-mcp". Then pass the clients as `mcp: { clients: [client] }`. See https://docs.copilotkit.ai/integrations/built-in-agent/mcp-servers */ mcpClients: clients,
     }),
     retryLiteral: new BuiltInAgent({
       model: openaiText("gpt-5"),

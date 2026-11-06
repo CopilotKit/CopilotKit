@@ -196,7 +196,12 @@ function builtInAgentOverrides() {
       BUILT_IN_AGENT_GUIDE,
     ),
     ...removed(
-      ["MCPClientConfig", "MCPClientConfigHTTP", "MCPClientConfigSSE"],
+      [
+        "MCPClientConfig",
+        "MCPClientConfigHTTP",
+        "MCPClientConfigSSE",
+        "MCPClientProvider",
+      ],
       MCP_NOTE,
       MCP_GUIDE,
     ),
@@ -215,8 +220,6 @@ function builtInAgentOverrides() {
       "ToolDefinition",
       "OverridableProperty",
       "InterruptSignal",
-      "MCPClientProvider",
-      "MessageConversionOptions",
       "convertAISDKStream",
       "convertTanStackStream",
       "convertInputToTanStackAI",
@@ -225,6 +228,7 @@ function builtInAgentOverrides() {
     ]),
     ...moveTo(AI_SDK_ENTRY, [
       "convertMessagesToVercelAISDKMessages",
+      "MessageConversionOptions",
       "convertToolsToVercelAITools",
       "convertToolDefinitionsToVercelAITools",
       "convertJsonSchemaToZodSchema",
@@ -1067,6 +1071,7 @@ const REMOVED_AGENT_CONFIG: Record<string, string> = {
   apiKey: `\`apiKey\` was removed in 2.0. The adapter reads its key from the environment, or pass it to the adapter (for example \`createOpenaiChat(model, apiKey)\`). See ${BUILT_IN_AGENT_GUIDE}`,
   urlDownload: `\`urlDownload\` was removed in 2.0. The server no longer downloads attachment URLs. See ${BUILT_IN_AGENT_GUIDE}`,
   mcpServers: `\`mcpServers\` was removed in 2.0. ${MCP_NOTE} See ${MCP_GUIDE}`,
+  mcpClients: `\`mcpClients\` was removed in 2.0. ${MCP_NOTE} See ${MCP_GUIDE}`,
 };
 
 interface ModelAdapter {
