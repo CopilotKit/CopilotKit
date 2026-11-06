@@ -5,9 +5,6 @@ import type { FrameworkOverviewData } from "./types";
 const data: FrameworkOverviewData = {
   slug: "openai-agents-python",
   frameworkName: "OpenAI Agents SDK",
-  // No OpenAI mark exists in the icon registry yet, so the header renders
-  // without one (an unknown key resolves to no icon). Add it to
-  // `components/icons` and this key starts rendering it.
   iconKey: "openai",
   header: "Bring your OpenAI Agents SDK agents to your users",
   subheader:
