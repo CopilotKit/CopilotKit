@@ -608,7 +608,7 @@ export class IntelligenceAgentRunner extends AgentRunner {
     request: AgentRunnerRunRequest,
     state: ThreadState,
     threadId: string,
-    onRunError: (event: BaseEvent) => void,
+    notifyHandler: (event: BaseEvent) => void,
   ): Promise<void> {
     const { currentEvents } = state;
     const pushCanonicalEvent = (event: BaseEvent): void => {
@@ -632,10 +632,15 @@ export class IntelligenceAgentRunner extends AgentRunner {
         this.createRunnerEventPayload(canonicalEvent, request, state),
         state,
       );
-      // Notify the request handler without publishing the persisted error twice.
-      // An agent may emit RUN_ERROR and complete normally instead of throwing.
-      if (canonicalEvent.type === EventType.RUN_ERROR) {
-        onRunError(canonicalEvent);
+      // Tell the request handler when the run starts and when it fails; every
+      // other event goes to the gateway only. RUN_STARTED lets the handler
+      // tell a run that failed from one that never started. An agent may emit
+      // RUN_ERROR and complete normally instead of throwing.
+      if (
+        canonicalEvent.type === EventType.RUN_STARTED ||
+        canonicalEvent.type === EventType.RUN_ERROR
+      ) {
+        notifyHandler(canonicalEvent);
       }
     };
 
