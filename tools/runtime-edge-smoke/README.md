@@ -23,13 +23,50 @@ it to check the rest of the runtime now. The list is in `wrangler.jsonc`
 (`alias`) and in `run.mjs` (`STUBS`). Keep the two lists the same. When a fix
 lands, remove its stub. The test then proves the fix.
 
-| Stub                    | Why it is needed                                                                       | Fix                                               |
-| ----------------------- | -------------------------------------------------------------------------------------- | ------------------------------------------------- |
-| `pino`                  | Logger transports need `fs`, `worker_threads`                                          | PE-1105 (zero-dependency logger)                  |
-| `@ai-sdk/google-vertex` | `google-auth-library` needs `child_process`, `fs`                                      | PE-1102 (factory-only BuiltInAgent)               |
-| `crypto`                | `@ag-ui/a2ui-middleware`, `@ag-ui/mcp-apps-middleware`, `@copilotkit/license-verifier` | Upstream ag-ui PRs; license-verifier `/web` entry |
+| Stub     | Why it is needed                                                                       | Fix                                               |
+| -------- | -------------------------------------------------------------------------------------- | ------------------------------------------------- |
+| `pino`   | Logger transports need `fs`, `worker_threads`                                          | PE-1105 (zero-dependency logger)                  |
+| `crypto` | `@ag-ui/a2ui-middleware`, `@ag-ui/mcp-apps-middleware`, `@copilotkit/license-verifier` | Upstream ag-ui PRs; license-verifier `/web` entry |
 
 `src/worker.ts` also builds its agent per request. `@ag-ui/client` 1.0.3 and
 earlier create a UUID in the agent constructor, and Workers do not allow that
 in global scope. ag-ui `main` already fixes this. When a release with the fix
 is out and the runtime uses it, build the agent at module scope.
+
+## BuiltInAgent on Workers
+
+The test does not run `BuiltInAgent`, but `BuiltInAgent` runs on Workers. Its
+`model` is a TanStack AI adapter instance, so the bundler sees every package
+that the agent loads.
+
+Workers have no `process.env` without `nodejs_compat`. Give the API key to the
+adapter from the Worker `env`:
+
+```ts
+import {
+  CopilotRuntime,
+  createCopilotRuntimeHandler,
+} from "@copilotkit/runtime";
+import { BuiltInAgent } from "@copilotkit/runtime/agent";
+import { createOpenaiChat } from "@tanstack/ai-openai";
+
+export default {
+  fetch(request: Request, env: { OPENAI_API_KEY: string }) {
+    const runtime = new CopilotRuntime({
+      agents: () => ({
+        default: new BuiltInAgent({
+          model: createOpenaiChat("gpt-5", env.OPENAI_API_KEY),
+        }),
+      }),
+    });
+    const handler = createCopilotRuntimeHandler({
+      runtime,
+      basePath: "/api/copilotkit",
+    });
+    return handler(request);
+  },
+};
+```
+
+Install `@tanstack/ai` and the adapter package (here `@tanstack/ai-openai`) in
+the Worker project.

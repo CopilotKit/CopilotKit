@@ -9,7 +9,9 @@
     "check-types": "tsc --noEmit"
   },
   "dependencies": {
-    "@copilotkit/runtime": "workspace:^"
+    "@copilotkit/runtime": "workspace:^",
+    "@tanstack/ai": "^1.2.0",
+    "@tanstack/ai-openai": "^1.1.1"
   },
   "devDependencies": {
     "@copilotkit/typescript-config": "workspace:^",

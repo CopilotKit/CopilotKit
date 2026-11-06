@@ -1,12 +1,14 @@
 import { chat } from "@tanstack/ai";
 import { openaiText } from "../lib/openai-text";
 import {
-  BuiltInAgent,
   CopilotRuntime,
   InMemoryAgentRunner,
-  convertInputToTanStackAI,
   createCopilotRuntimeHandler,
 } from "@copilotkit/runtime";
+import {
+  BuiltInAgent,
+  convertInputToTanStackAI,
+} from "@copilotkit/runtime/agent";
 import { SHOP_ASSISTANT_PROMPT } from "#app/prompts/system.ts";
 import { getCareInstructions } from "#app/tools/care-instructions.ts";
 import {

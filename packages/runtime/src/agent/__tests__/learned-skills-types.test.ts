@@ -1,6 +1,7 @@
 import { it, expectTypeOf } from "vitest";
-import type { ToolSet } from "ai";
-import type { AgentFactoryContext, BuiltInAgentFactoryContext } from "../..";
+import type { AnyTool } from "@tanstack/ai";
+import type { AgentFactoryContext } from "../..";
+import type { BuiltInAgentFactoryContext } from "../index";
 import type { BuiltInAgentLearnedSkills } from "../learned-skills";
 
 it("exports distinct runtime and BuiltInAgent contexts", () => {
@@ -11,11 +12,12 @@ it("exports distinct runtime and BuiltInAgent contexts", () => {
 });
 
 // Compiled by the package type check, never executed with a fabricated context.
-function immutableTools(context: BuiltInAgentLearnedSkills) {
-  // @ts-expect-error The invocation's frozen tool map cannot be mutated.
-  context.tools.extra = context.tools.copilotkit_load_skill;
-  const combined: ToolSet = { ...context.tools };
-  combined.extra = context.tools.copilotkit_load_skill;
+function immutableTools(context: BuiltInAgentLearnedSkills, extra: AnyTool) {
+  // @ts-expect-error The invocation's frozen tool list cannot be mutated.
+  context.tools.push(extra);
+  // A copy is a plain TanStack tool list that a factory can extend.
+  const combined: AnyTool[] = [...context.tools];
+  combined.push(extra);
   return combined;
 }
 void immutableTools;

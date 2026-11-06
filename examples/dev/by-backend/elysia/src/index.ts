@@ -2,12 +2,13 @@ import { Elysia } from "elysia";
 import {
   CopilotRuntime,
   createCopilotRuntimeHandler,
-  BuiltInAgent,
 } from "@copilotkit/runtime";
+import { BuiltInAgent } from "@copilotkit/runtime/agent";
+import { openaiText } from "@tanstack/ai-openai";
 
 const runtime = new CopilotRuntime({
   agents: {
-    default: new BuiltInAgent({ model: "openai/gpt-6-luna" }),
+    default: new BuiltInAgent({ model: openaiText("gpt-6-luna") }),
   },
 });
 

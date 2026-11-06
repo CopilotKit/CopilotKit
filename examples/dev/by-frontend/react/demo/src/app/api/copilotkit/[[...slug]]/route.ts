@@ -2,10 +2,12 @@ import {
   CopilotRuntime,
   createCopilotRuntimeHandler,
   InMemoryAgentRunner,
-  BuiltInAgent,
 } from "@copilotkit/runtime";
-import type { BuiltInAgentClassicConfig } from "@copilotkit/runtime";
-import { createOpenAI } from "@ai-sdk/openai";
+import { BuiltInAgent } from "@copilotkit/runtime/agent";
+import { anthropicText } from "@tanstack/ai-anthropic";
+import { geminiText } from "@tanstack/ai-gemini";
+import { openaiText } from "@tanstack/ai-openai";
+import { openaiCompatibleText } from "@tanstack/ai-openai/compatible";
 import { TranscriptionServiceOpenAI } from "@copilotkit/voice";
 import OpenAI from "openai";
 
@@ -18,43 +20,46 @@ const determineOpenRouterModelId = () => {
   return process.env.OPENROUTER_MODEL?.trim() || DEFAULT_OPENROUTER_MODEL;
 };
 
-const determineModel = (): BuiltInAgentClassicConfig["model"] => {
-  if (openRouterApiKey) {
-    const openrouter = createOpenAI({
-      apiKey: openRouterApiKey,
-      baseURL: process.env.OPENROUTER_BASE_URL?.trim() || OPENROUTER_BASE_URL,
-    });
+const prompt =
+  "You are a helpful AI assistant. Use reasoning to answer the user's question. If you don't know the answer, say you don't know.";
 
-    return openrouter(determineOpenRouterModelId());
+// The agent runs on the first provider that has an API key. The models that
+// reason think at the "high" level and stream a summary of their reasoning.
+const createBuiltInAgent = () => {
+  if (openRouterApiKey) {
+    return new BuiltInAgent({
+      model: openaiCompatibleText(determineOpenRouterModelId(), {
+        name: "openrouter",
+        api: "chat-completions",
+        apiKey: openRouterApiKey,
+        baseURL: process.env.OPENROUTER_BASE_URL?.trim() || OPENROUTER_BASE_URL,
+      }),
+      prompt,
+    });
   }
   if (openAIApiKey) {
-    return "openai/gpt-6-luna";
+    return new BuiltInAgent({
+      model: openaiText("gpt-6-luna"),
+      prompt,
+      reasoning: { level: "high", summary: true },
+    });
   }
   if (process.env.ANTHROPIC_API_KEY?.trim()) {
-    // Claude Opus 4.8 supports adaptive thinking
-    return "anthropic/claude-opus-4-8";
+    // Claude Opus 4.8 reasons with adaptive thinking.
+    return new BuiltInAgent({
+      model: anthropicText("claude-opus-4-8"),
+      prompt,
+      reasoning: { level: "high", summary: true },
+    });
   }
   if (process.env.GOOGLE_API_KEY?.trim()) {
-    return "google/gemini-3.8-flash";
+    return new BuiltInAgent({ model: geminiText("gemini-3.8-flash"), prompt });
   }
-  return "openai/gpt-6-luna";
+  // No key found: the OpenAI adapter throws an error that names OPENAI_API_KEY.
+  return new BuiltInAgent({ model: openaiText("gpt-6-luna"), prompt });
 };
 
-const builtInAgent = new BuiltInAgent({
-  model: determineModel(),
-  prompt:
-    "You are a helpful AI assistant. Use reasoning to answer the user's question. If you don't know the answer, say you don't know.",
-  providerOptions: {
-    ...(openAIApiKey
-      ? { openai: { reasoningEffort: "high", reasoningSummary: "detailed" } }
-      : {}),
-    ...(!openAIApiKey &&
-      !openRouterApiKey &&
-      !!process.env.ANTHROPIC_API_KEY?.trim() && {
-        anthropic: { thinking: { type: "adaptive" } },
-      }),
-  },
-});
+const builtInAgent = createBuiltInAgent();
 
 // Set up transcription service if OpenAI API key is available
 const transcriptionService = openAIApiKey

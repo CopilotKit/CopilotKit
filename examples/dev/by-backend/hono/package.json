@@ -2,6 +2,7 @@
   "name": "@copilotkit/example-runtime-hono",
   "version": "0.0.1",
   "private": true,
+  "type": "module",
   "scripts": {
     "example-dev": "tsx watch src/index.ts",
     "example-build": "tsc",
@@ -10,6 +11,8 @@
   "dependencies": {
     "@copilotkit/runtime": "workspace:^",
     "@hono/node-server": "^1.13.6",
+    "@tanstack/ai": "^1.2.0",
+    "@tanstack/ai-openai": "^1.1.1",
     "hono": "^4.7.6"
   },
   "devDependencies": {

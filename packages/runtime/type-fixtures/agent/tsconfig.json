@@ -1,0 +1,24 @@
+{
+  // Stands in for an app that uses the Built-in Agent entries, compiled with
+  // a strict consumer's settings against the BUILT declarations in `dist`.
+  //
+  // Run by `pnpm --filter @copilotkit/runtime check-dts`, which depends on
+  // `build`.
+  "compilerOptions": {
+    "strict": true,
+    "noEmit": true,
+    "target": "es2022",
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "lib": ["es2023"],
+    "types": ["node"],
+    "skipLibCheck": true,
+    "esModuleInterop": true,
+    "paths": {
+      "@copilotkit/runtime/agent/ai-sdk": ["../../dist/agent/ai-sdk.d.mts"],
+      "@copilotkit/runtime/agent": ["../../dist/agent.d.mts"],
+      "@copilotkit/runtime": ["../../dist/index.d.mts"]
+    }
+  },
+  "include": ["consumer.ts"]
+}

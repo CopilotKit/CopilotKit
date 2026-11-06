@@ -3,11 +3,15 @@ import {
   CopilotRuntime,
   createCopilotRuntimeHandler,
   InMemoryAgentRunner,
+} from "@copilotkit/runtime";
+import {
   BuiltInAgent,
   convertInputToTanStackAI,
+} from "@copilotkit/runtime/agent";
+import {
   convertMessagesToVercelAISDKMessages,
   convertToolsToVercelAITools,
-} from "@copilotkit/runtime";
+} from "@copilotkit/runtime/agent/ai-sdk";
 import { chat, toolDefinition } from "@tanstack/ai";
 import { openaiText } from "../lib/openai-text";
 import { streamText, tool } from "ai";
@@ -124,6 +128,7 @@ const tanstackAgent = new BuiltInAgent({
       messages,
       systemPrompts: [BOOKING_SYSTEM_PROMPT, ...systemPrompts],
       tools: [...tools, tanstackBookFlight],
+      threadId: input.threadId,
       abortController,
     });
   },

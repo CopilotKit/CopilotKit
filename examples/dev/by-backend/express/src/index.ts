@@ -1,10 +1,12 @@
 import express from "express";
-import { CopilotRuntime, BuiltInAgent } from "@copilotkit/runtime";
+import { CopilotRuntime } from "@copilotkit/runtime";
+import { BuiltInAgent } from "@copilotkit/runtime/agent";
+import { openaiText } from "@tanstack/ai-openai";
 import { createCopilotNodeListener } from "@copilotkit/runtime/node";
 
 const runtime = new CopilotRuntime({
   agents: {
-    default: new BuiltInAgent({ model: "openai/gpt-6-luna" }),
+    default: new BuiltInAgent({ model: openaiText("gpt-6-luna") }),
   },
 });
 

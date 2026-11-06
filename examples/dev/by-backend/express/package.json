@@ -2,6 +2,7 @@
   "name": "@copilotkit/example-runtime-express",
   "version": "0.0.1",
   "private": true,
+  "type": "module",
   "scripts": {
     "example-dev": "tsx watch src/index.ts",
     "example-build": "tsc",
@@ -9,6 +10,8 @@
   },
   "dependencies": {
     "@copilotkit/runtime": "workspace:^",
+    "@tanstack/ai": "^1.2.0",
+    "@tanstack/ai-openai": "^1.1.1",
     "express": "^4.21.2"
   },
   "devDependencies": {

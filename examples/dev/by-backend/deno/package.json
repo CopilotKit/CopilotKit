@@ -7,7 +7,9 @@
     "example-start": "deno run --allow-net --allow-env --allow-read src/index.ts"
   },
   "dependencies": {
-    "@copilotkit/runtime": "workspace:^"
+    "@copilotkit/runtime": "workspace:^",
+    "@tanstack/ai": "^1.2.0",
+    "@tanstack/ai-openai": "^1.1.1"
   },
   "devDependencies": {
     "typescript": "^5.8.2"

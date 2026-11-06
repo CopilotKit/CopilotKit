@@ -10,6 +10,8 @@ export default defineConfig({
   entry: {
     index: "src/index.ts",
     node: "src/node.ts",
+    agent: "src/agent/index.ts",
+    "agent/ai-sdk": "src/agent/ai-sdk/index.ts",
     "internal/learned-skills": "src/internal/learned-skills.ts",
   },
   format: ["esm", "cjs"],

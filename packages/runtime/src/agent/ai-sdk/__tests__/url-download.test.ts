@@ -23,12 +23,11 @@ import type { LookupAddress } from "node:dns";
 import { lookup as realLookup } from "node:dns/promises";
 import type { AddressInfo, LookupFunction } from "node:net";
 import { COPILOTKIT_VERSION } from "@copilotkit/shared";
+import { DownloadError } from "ai";
 import {
   createGuardedUrlDownload,
   createSafeUrlDownload,
-  disabledUrlDownload,
   isPublicAddress,
-  resolveUrlDownloadSetting,
 } from "../url-download";
 import type {
   SafeUrlDownloadOptions,
@@ -234,6 +233,20 @@ async function fetchOne(
     { url: new URL(url), isUrlSupportedByModel: false },
   ]);
   return result;
+}
+
+/** The DownloadError that a refused or failed download of `url` throws. */
+async function downloadErrorOf(
+  download: ReturnType<typeof createSafeUrlDownload>,
+  url: string,
+) {
+  try {
+    await fetchOne(download, url);
+  } catch (error) {
+    if (DownloadError.isInstance(error)) return error;
+    throw error;
+  }
+  throw new Error(`${url} was downloaded`);
 }
 
 describe("isPublicAddress", () => {
@@ -486,11 +499,8 @@ describe("createSafeUrlDownload", () => {
     expect(Buffer.from(ok!.data).toString()).toBe("PUBLIC-BYTES");
   });
 
-  it.each([
-    ["the default downloader", () => createSafeUrlDownload()],
-    ["the disabled downloader", () => disabledUrlDownload],
-  ])("leaves data: URLs to the AI SDK with %s", async (_label, make) => {
-    const results = await make()([
+  it("leaves data: URLs to the AI SDK", async () => {
+    const results = await createSafeUrlDownload()([
       {
         url: new URL("data:image/png;base64,iVBORw0KGgo="),
         isUrlSupportedByModel: false,
@@ -499,21 +509,16 @@ describe("createSafeUrlDownload", () => {
     expect(results).toEqual([null]);
   });
 
-  it.each([
-    ["the default downloader", () => createSafeUrlDownload()],
-    ["the disabled downloader", () => disabledUrlDownload],
-  ])(
-    "leaves URLs that the model supports to the provider with %s",
-    async (_label, make) => {
-      const download = make();
-      const results = await download([
-        { url: new URL("http://127.0.0.1/"), isUrlSupportedByModel: true },
-      ]);
-      expect(results).toEqual([null]);
-    },
-  );
+  it("leaves URLs that the model supports to the provider", async () => {
+    const results = await createSafeUrlDownload()([
+      { url: new URL("http://127.0.0.1/"), isUrlSupportedByModel: true },
+    ]);
+    expect(results).toEqual([null]);
+  });
 });
 
+// The option checks exist for JavaScript callers, which TypeScript does not
+// stop. The `as unknown as` casts below stand in for such a caller.
 describe("createSafeUrlDownload options", () => {
   it.each([
     ["timeoutMs", 0],
@@ -528,7 +533,7 @@ describe("createSafeUrlDownload options", () => {
     ["maxRedirects", 0.5],
   ])("rejects %s: %s", (name, value) => {
     expect(() => createSafeUrlDownload({ [name]: value })).toThrow(
-      new RegExp(`urlDownload\\.${name} must be`),
+      new RegExp(`createSafeUrlDownload\\.${name} must be`),
     );
   });
 
@@ -541,7 +546,7 @@ describe("createSafeUrlDownload options", () => {
         } as unknown as SafeUrlDownloadOptions),
       ).toThrow(
         new RegExp(
-          `urlDownload has an unknown option "${name}".*allowedHosts, maxBytes, timeoutMs, maxRedirects, maxDownloads, maxTotalBytes`,
+          `createSafeUrlDownload has an unknown option "${name}".*allowedHosts, maxBytes, timeoutMs, maxRedirects, maxDownloads, maxTotalBytes`,
         ),
       );
     },
@@ -549,23 +554,17 @@ describe("createSafeUrlDownload options", () => {
 
   it("names a BigInt or Symbol value instead of failing to print it", () => {
     expect(() =>
-      resolveUrlDownloadSetting(
-        10n as unknown as Parameters<typeof resolveUrlDownloadSetting>[0],
-      ),
-    ).toThrow(/urlDownload must be .*got 10n/);
+      createSafeUrlDownload(10n as unknown as SafeUrlDownloadOptions),
+    ).toThrow(/createSafeUrlDownload options must be an object, got 10n/);
     expect(() =>
-      resolveUrlDownloadSetting(
-        Symbol("x") as unknown as Parameters<
-          typeof resolveUrlDownloadSetting
-        >[0],
-      ),
-    ).toThrow(/urlDownload must be .*got Symbol\(x\)/);
+      createSafeUrlDownload({ signal: Symbol("x") as unknown as AbortSignal }),
+    ).toThrow(/createSafeUrlDownload signal must be .*got Symbol\(x\)/);
     expect(() =>
       createSafeUrlDownload({ allowedHosts: [10n as unknown as string] }),
-    ).toThrow(/urlDownload\.allowedHosts entry 10n is invalid/);
+    ).toThrow(/createSafeUrlDownload\.allowedHosts entry 10n is invalid/);
     expect(() =>
       createSafeUrlDownload({ maxBytes: 10n as unknown as number }),
-    ).toThrow(/urlDownload\.maxBytes must be .*got 10n/);
+    ).toThrow(/createSafeUrlDownload\.maxBytes must be .*got 10n/);
   });
 
   it("accepts the boundary values", () => {
@@ -714,6 +713,8 @@ type LookupAnswer = {
 
 /** Calls the socket lookup function that the downloader pinned. */
 function ask(lookup: LookupFunction, options: unknown): Promise<LookupAnswer> {
+  // `options` can be a bare family number, as older net callers pass it; the
+  // LookupFunction type does not allow that.
   return new Promise((resolve) =>
     (lookup as (...args: unknown[]) => void)(
       "ignored.test",
@@ -868,7 +869,7 @@ describe("createSafeUrlDownload with a signal", () => {
       createSafeUrlDownload({
         signal: "abort" as unknown as AbortSignal,
       }),
-    ).toThrow(/urlDownload signal must be an AbortSignal/);
+    ).toThrow(/createSafeUrlDownload signal must be an AbortSignal/);
   });
 });
 
@@ -1051,7 +1052,7 @@ describe("createSafeUrlDownload per-call limits", () => {
     ["maxTotalBytes", -5],
   ])("rejects %s: %s", (name, value) => {
     expect(() => createSafeUrlDownload({ [name]: value })).toThrow(
-      new RegExp(`urlDownload\\.${name} must be`),
+      new RegExp(`createSafeUrlDownload\\.${name} must be`),
     );
   });
 });
@@ -1139,7 +1140,7 @@ describe("allowedHosts entries", () => {
     " cdn.example.com",
   ])("reject the entry %j when the downloader is created", (entry) => {
     expect(() => createSafeUrlDownload({ allowedHosts: [entry] })).toThrow(
-      /urlDownload\.allowedHosts/,
+      /createSafeUrlDownload\.allowedHosts/,
     );
   });
 
@@ -1150,7 +1151,7 @@ describe("allowedHosts entries", () => {
     "[::1]:443",
   ])("reject the entry %j as naming a port", (entry) => {
     expect(() => createSafeUrlDownload({ allowedHosts: [entry] })).toThrow(
-      /urlDownload\.allowedHosts .*without a port/,
+      /createSafeUrlDownload\.allowedHosts .*without a port/,
     );
   });
 
@@ -1158,7 +1159,7 @@ describe("allowedHosts entries", () => {
     "reject the wildcard entry %j over an IP address",
     (entry) => {
       expect(() => createSafeUrlDownload({ allowedHosts: [entry] })).toThrow(
-        /urlDownload\.allowedHosts .*wildcard needs a hostname suffix/,
+        /createSafeUrlDownload\.allowedHosts .*wildcard needs a hostname suffix/,
       );
     },
   );
@@ -1177,7 +1178,7 @@ describe("allowedHosts entries", () => {
       createSafeUrlDownload({
         allowedHosts: "cdn.example.com" as unknown as string[],
       }),
-    ).toThrow(/urlDownload\.allowedHosts/);
+    ).toThrow(/createSafeUrlDownload\.allowedHosts/);
   });
 });
 
@@ -1186,25 +1187,17 @@ describe("createSafeUrlDownload diagnostics", () => {
     vi.restoreAllMocks();
   });
 
-  const refusal = (
-    download: ReturnType<typeof createSafeUrlDownload>,
-    url: string,
-  ) =>
-    fetchOne(download, url).then(
-      () => {
-        throw new Error(`${url} was downloaded`);
-      },
-      (error: unknown) => error as Error,
-    );
-
   it("gives one message without a cause for unresolvable and non-public hosts, and logs the reason", async () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     const download = createGuardedUrlDownload(
       {},
       stubs({ "private.test": ["10.0.0.5"] }),
     );
-    const unresolvable = await refusal(download, "http://missing.test/x");
-    const nonPublic = await refusal(download, "http://private.test/x");
+    const unresolvable = await downloadErrorOf(
+      download,
+      "http://missing.test/x",
+    );
+    const nonPublic = await downloadErrorOf(download, "http://private.test/x");
     expect(unresolvable.message).toBe(nonPublic.message);
     expect(unresolvable.message).toMatch(/not a public address/);
     expect(unresolvable.cause).toBeUndefined();
@@ -1216,9 +1209,7 @@ describe("createSafeUrlDownload diagnostics", () => {
     expect(logged.some((line) => /private\.test.*10\.0\.0\.5/.test(line))).toBe(
       true,
     );
-    expect(logged.every((line) => line.startsWith("[BuiltInAgent]"))).toBe(
-      true,
-    );
+    expect(logged.every((line) => line.startsWith("[CopilotKit]"))).toBe(true);
   });
 
   it("logs an invalid redirect Location", async () => {
@@ -1227,7 +1218,7 @@ describe("createSafeUrlDownload diagnostics", () => {
       {},
       stubs({ "public.test": ["127.0.0.1"] }),
     );
-    const error = await refusal(
+    const error = await downloadErrorOf(
       download,
       `http://public.test:${port}/bad-location`,
     );
@@ -1244,13 +1235,18 @@ describe("createSafeUrlDownload diagnostics", () => {
     const restoreDns = stubBuiltinModule("node:dns/promises", () => {
       throw new Error("simulated module load failure");
     });
+    // The module caches its Node modules at module scope, so this case needs
+    // a fresh copy loaded after the stub. A top-level import cannot do that.
     const fresh = await import("../url-download");
     try {
       const download = fresh.createGuardedUrlDownload(
         {},
         stubs({ "public.test": ["127.0.0.1"] }),
       );
-      const error = await refusal(download, `http://public.test:${port}/`);
+      const error = await downloadErrorOf(
+        download,
+        `http://public.test:${port}/`,
+      );
       expect(error.message).toMatch(/networking modules/);
       const logged = warn.mock.calls.map((call) => call.join(" "));
       expect(
@@ -1260,7 +1256,7 @@ describe("createSafeUrlDownload diagnostics", () => {
       expect(
         logged.some((line) =>
           line.includes(
-            `set urlDownload to "disabled" or to your own download function`,
+            "pass your own download function as experimental_download",
           ),
         ),
       ).toBe(true);
@@ -1329,15 +1325,12 @@ describe("createSafeUrlDownload request handling", () => {
       }),
     );
     const hop = `http://cdn.public.test:${port}/slow-hop`;
-    const error = await fetchOne(
+    const error = await downloadErrorOf(
       download,
       `http://public.test:${port}/redirect?to=${encodeURIComponent(hop)}`,
-    ).then(
-      () => undefined,
-      (e: unknown) => e as { url?: string; message: string },
     );
-    expect(error?.message).toMatch(/timed out/);
-    expect(error?.url).toBe(hop);
+    expect(error.message).toMatch(/timed out/);
+    expect(error.url).toBe(hop);
   });
 
   it("sends the TLS server name without a trailing dot", async () => {
@@ -1434,15 +1427,12 @@ describe("createSafeUrlDownload responses", () => {
     await new Promise<void>((resolve) => closed.close(() => resolve()));
     // The redirect target is chosen by the remote server, with a query.
     const target = `http://public.test:${closedPort}/x?sig=SECRET-SIG`;
-    const error = await fetchOne(
+    const error = await downloadErrorOf(
       download(),
       `http://public.test:${port}/redirect?to=${encodeURIComponent(target)}`,
-    ).then(
-      () => undefined,
-      (e: unknown) => e as { url?: string; message: string },
     );
-    expect(error?.message).toBe("The download failed.");
-    expect(error?.url).toBe(`http://public.test:${closedPort}/x`);
+    expect(error.message).toBe("The download failed.");
+    expect(error.url).toBe(`http://public.test:${closedPort}/x`);
     const logged = warn.mock.calls.map((call) => call.join(" ")).join("\n");
     expect(logged).toContain("ECONNREFUSED");
     expect(logged).not.toContain("SECRET-SIG");
@@ -1450,14 +1440,11 @@ describe("createSafeUrlDownload responses", () => {
 
   it("keeps the query out of a non-2xx status error", async () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
-    const error = await fetchOne(
+    const error = await downloadErrorOf(
       download(),
       `http://public.test:${port}/not-found?sig=SECRET-SIG`,
-    ).then(
-      () => undefined,
-      (e: unknown) => e as { url?: string; message: string },
     );
-    expect(error?.message).toBe("The server answered with HTTP status 404.");
+    expect(error.message).toBe("The server answered with HTTP status 404.");
     expect(JSON.stringify(error)).not.toContain("SECRET-SIG");
     const logged = warn.mock.calls.map((call) => call.join(" ")).join("\n");
     expect(logged).toContain("404");

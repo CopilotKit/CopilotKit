@@ -1,6 +1,24 @@
 import { describe, it, expect } from "vitest";
+import type { Message } from "@ag-ui/client";
 import { convertInputToTanStackAI } from "../converters/tanstack";
 import { createDefaultInput } from "./agent-test-helpers";
+
+/** A thread where the assistant called the `approve` interrupt tool. */
+const interruptedThread: Message[] = [
+  { id: "u1", role: "user", content: "Send the money" },
+  {
+    id: "a1",
+    role: "assistant",
+    content: null,
+    toolCalls: [
+      {
+        id: "call-1",
+        type: "function",
+        function: { name: "approve", arguments: "{}" },
+      },
+    ],
+  },
+];
 
 describe("convertInputToTanStackAI", () => {
   // -------------------------------------------------------------------------
@@ -79,7 +97,7 @@ describe("convertInputToTanStackAI", () => {
   });
 
   // -------------------------------------------------------------------------
-  // Tool call mapping
+  // Tool result content
   // -------------------------------------------------------------------------
   describe("tool result content", () => {
     it("keeps a string tool result as its string", () => {
@@ -116,6 +134,9 @@ describe("convertInputToTanStackAI", () => {
     });
   });
 
+  // -------------------------------------------------------------------------
+  // Tool call mapping
+  // -------------------------------------------------------------------------
   describe("tool call mapping", () => {
     it("maps assistant message toolCalls to TanStack format", () => {
       const input = createDefaultInput({
@@ -233,7 +254,7 @@ describe("convertInputToTanStackAI", () => {
       });
 
       const { tools } = convertInputToTanStackAI(input);
-      const schema = tools[0].inputSchema as Record<string, any>;
+      const schema = tools[0].inputSchema;
 
       expect(schema.properties.options.additionalProperties).toBe(false);
       expect(schema.properties.data.items.additionalProperties).toBe(false);
@@ -307,6 +328,138 @@ describe("convertInputToTanStackAI", () => {
       expect(
         systemPrompts.find((p) => p.startsWith("Application State:")),
       ).toBeUndefined();
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // Options: system prompt assembly
+  // -------------------------------------------------------------------------
+  describe("system prompt options", () => {
+    const systemAndDeveloper = createDefaultInput({
+      messages: [
+        { id: "s1", role: "system", content: "System prompt" },
+        { id: "d1", role: "developer", content: "Dev instruction" },
+        { id: "u1", role: "user", content: "Hello" },
+      ],
+    });
+
+    it("drops system messages when forwardSystemMessages is false", () => {
+      const { systemPrompts, messages } = convertInputToTanStackAI(
+        systemAndDeveloper,
+        { forwardSystemMessages: false },
+      );
+
+      expect(systemPrompts).toEqual(["Dev instruction"]);
+      expect(messages).toEqual([{ role: "user", content: "Hello" }]);
+    });
+
+    it("drops developer messages when forwardDeveloperMessages is false", () => {
+      const { systemPrompts } = convertInputToTanStackAI(systemAndDeveloper, {
+        forwardDeveloperMessages: false,
+      });
+
+      expect(systemPrompts).toEqual(["System prompt"]);
+    });
+
+    it("puts prompt first, then forwarded messages, context, and state", () => {
+      const input = createDefaultInput({
+        messages: [{ id: "s1", role: "system", content: "System prompt" }],
+        context: [{ description: "Current page", value: "/dashboard" }],
+        state: { count: 1 },
+      });
+
+      const { systemPrompts } = convertInputToTanStackAI(input, {
+        prompt: "Be brief.",
+      });
+
+      expect(systemPrompts).toEqual([
+        "Be brief.",
+        "System prompt",
+        "Current page:\n/dashboard",
+        'Application State:\n```json\n{\n  "count": 1\n}\n```',
+      ]);
+    });
+
+    it("adds nothing for an empty prompt", () => {
+      const { systemPrompts } = convertInputToTanStackAI(createDefaultInput(), {
+        prompt: "",
+      });
+
+      expect(systemPrompts).toEqual([]);
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // Options: resume injection
+  // -------------------------------------------------------------------------
+  describe("resume option", () => {
+    it("answers each interrupt tool call with its resume entry", () => {
+      const input = createDefaultInput({ messages: interruptedThread });
+
+      const { messages } = convertInputToTanStackAI(input, {
+        resume: [
+          {
+            interruptId: "call-1",
+            status: "resolved",
+            payload: { approved: true },
+          },
+          { interruptId: "call-2", status: "cancelled" },
+          { interruptId: "call-3", status: "resolved" },
+        ],
+      });
+
+      expect(messages.slice(2)).toEqual([
+        { role: "tool", toolCallId: "call-1", content: '{"approved":true}' },
+        {
+          role: "tool",
+          toolCallId: "call-2",
+          content: '{"status":"cancelled"}',
+        },
+        {
+          role: "tool",
+          toolCallId: "call-3",
+          content: '{"status":"resolved"}',
+        },
+      ]);
+    });
+
+    it("skips a resume entry whose tool call already has a tool message", () => {
+      const input = createDefaultInput({
+        messages: [
+          ...interruptedThread,
+          {
+            id: "t1",
+            role: "tool",
+            toolCallId: "call-1",
+            content: '{"approved":false}',
+          },
+        ],
+      });
+
+      const { messages } = convertInputToTanStackAI(input, {
+        resume: [
+          {
+            interruptId: "call-1",
+            status: "resolved",
+            payload: { approved: true },
+          },
+        ],
+      });
+
+      expect(messages.slice(2)).toEqual([
+        { role: "tool", toolCallId: "call-1", content: '{"approved":false}' },
+      ]);
+    });
+
+    it("ignores input.resume when the resume option is not given", () => {
+      const input = createDefaultInput({
+        messages: interruptedThread,
+        resume: [{ interruptId: "call-1", status: "cancelled" }],
+      });
+
+      const { messages } = convertInputToTanStackAI(input);
+
+      expect(messages).toHaveLength(2);
     });
   });
 

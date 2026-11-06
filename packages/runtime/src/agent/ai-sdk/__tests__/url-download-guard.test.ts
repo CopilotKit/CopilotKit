@@ -1,9 +1,11 @@
 /**
- * BuiltInAgent must not let a caller aim the server's URL download at an
- * internal address. These run the real agent → AI SDK → download path against
- * a local HTTP server. They include a spelling (`localhost.`) that the AI
- * SDK's own check misses, plus literal forms that it already refuses, as
- * regression guards.
+ * `createSafeUrlDownload`, used as `experimental_download` in a real
+ * `streamText` call, must not let a caller aim the server's URL download at
+ * an internal address. These run AG-UI messages through
+ * `convertMessagesToVercelAISDKMessages` and the AI SDK's download path
+ * against a local HTTP server. They include a spelling (`localhost.`) that
+ * the AI SDK's own check misses, plus literal forms that it already refuses,
+ * as regression guards.
  *
  * The downloader's DNS lookups go through a stub that answers the names in
  * `dnsAnswers` (so these cases never depend on the host's resolver) and sends
@@ -25,18 +27,12 @@ import { format } from "node:util";
 import type { LookupAddress } from "node:dns";
 import type * as DnsPromises from "node:dns/promises";
 import type { AddressInfo } from "node:net";
-import type { RunAgentInput } from "@ag-ui/client";
-import { APICallError } from "ai";
+import type { Message } from "@ag-ui/client";
+import { streamText } from "ai";
+import type { Experimental_DownloadFunction } from "ai";
 import { MockLanguageModelV3, simulateReadableStream } from "ai/test";
-import { BuiltInAgent } from "../index";
-import type {
-  BuiltInAgentClassicConfig,
-  BuiltInAgentConfiguration,
-} from "../index";
-import {
-  collectEventsIncludingErrors,
-  createDefaultInput,
-} from "./agent-test-helpers";
+import { convertMessagesToVercelAISDKMessages } from "../index";
+import { createSafeUrlDownload } from "../url-download";
 import {
   blockConnects,
   interceptConnects,
@@ -103,22 +99,20 @@ function mockModel(supportedUrls: Record<string, RegExp[]> = {}) {
   });
 }
 
-function imageInput(url: string): RunAgentInput {
-  return createDefaultInput({
-    messages: [
-      {
-        id: "u1",
-        role: "user",
-        content: [
-          { type: "text", text: "describe" },
-          {
-            type: "image",
-            source: { type: "url", value: url, mimeType: "image/png" },
-          },
-        ],
-      },
-    ] as RunAgentInput["messages"],
-  });
+function imageMessages(url: string): Message[] {
+  return [
+    {
+      id: "u1",
+      role: "user",
+      content: [
+        { type: "text", text: "describe" },
+        {
+          type: "image",
+          source: { type: "url", value: url, mimeType: "image/png" },
+        },
+      ],
+    },
+  ];
 }
 
 let server: http.Server;
@@ -187,23 +181,37 @@ afterAll(async () => {
   }
 });
 
+/**
+ * Streams one `streamText` call whose user message has an image at `url`,
+ * and returns what reached the local server, the model and the stream.
+ */
 async function runWith(
   url: string,
-  config: Partial<BuiltInAgentClassicConfig> = {},
-  model = mockModel(),
+  {
+    download = createSafeUrlDownload(),
+    model = mockModel(),
+    abortSignal,
+  }: {
+    download?: Experimental_DownloadFunction;
+    model?: MockLanguageModelV3;
+    abortSignal?: AbortSignal;
+  } = {},
 ) {
   const before = hits.length;
-  const agent = new BuiltInAgent({ model, ...config });
-  const { events, errored } = await collectEventsIncludingErrors(
-    agent.run(imageInput(url)),
-  );
-  // Every failure must reach the client as a RUN_ERROR event.
-  const failure = (events as Array<{ type: string; message?: string }>).find(
-    (event) => event.type === "RUN_ERROR",
-  );
-  if (errored && !failure) {
-    throw new Error("The run failed without a RUN_ERROR event.");
+  const result = streamText({
+    model,
+    messages: convertMessagesToVercelAISDKMessages(imageMessages(url)),
+    experimental_download: download,
+    abortSignal,
+    // The stream carries the error; the AI SDK's default handler would also
+    // print it, which is not what these tests pin.
+    onError: () => {},
+  });
+  const errors: unknown[] = [];
+  for await (const part of result.fullStream) {
+    if (part.type === "error") errors.push(part.error);
   }
+  const [error] = errors;
   return {
     fetched: hits.length > before,
     // The AI SDK puts downloaded bytes into the prompt as a Uint8Array.
@@ -211,14 +219,14 @@ async function runWith(
       model.doStreamCalls[0]?.prompt,
       Buffer.from(SECRET),
     ),
-    failure,
+    failure: error instanceof Error ? error : undefined,
     model,
   };
 }
 
-describe("BuiltInAgent URL download guard", () => {
+describe("createSafeUrlDownload in streamText", () => {
   // `localhost.` slips past the AI SDK's own hostname check yet resolves to
-  // loopback, so it reached the server before the fix.
+  // loopback.
   it("refuses to fetch a trailing-dot localhost URL", async () => {
     const before = dns.lookups.length;
     const result = await runWith(`http://localhost.:${port}/latest/meta-data/`);
@@ -256,12 +264,12 @@ describe("BuiltInAgent URL download guard", () => {
   });
 
   it("blockConnects sees a connection that the download makes (control)", async () => {
-    // Control for the `attempts` assertion above: a custom download function
-    // that really connects to the cloud metadata address must be recorded
-    // and stopped by the helper.
+    // Control for the `attempts` assertion above: a download function that
+    // really connects to the cloud metadata address must be recorded and
+    // stopped by the helper.
     const attempts = blockConnects(/^169\.254\./);
     const result = await runWith("http://downloads.example/x", {
-      urlDownload: async (requests) =>
+      download: async (requests) =>
         Promise.all(
           requests.map(
             () =>
@@ -279,10 +287,10 @@ describe("BuiltInAgent URL download guard", () => {
     expect(result.failure?.message).toMatch(/test blocked a connection/);
   });
 
-  it("detects the secret in the prompt when a download returns it", async () => {
+  it("detects the secret in the prompt when a download returns it (control)", async () => {
     // Control for modelSawSecret: it must be able to fail.
     const result = await runWith("http://downloads.example/secret", {
-      urlDownload: async (requests) =>
+      download: async (requests) =>
         requests.map(() => ({
           data: new Uint8Array(Buffer.from(SECRET)),
           mediaType: "image/png",
@@ -292,28 +300,14 @@ describe("BuiltInAgent URL download guard", () => {
     expect(result.modelSawSecret).toBe(true);
   });
 
-  it("does not fetch at all when urlDownload is disabled", async () => {
-    const result = await runWith(`http://localhost.:${port}/x`, {
-      urlDownload: "disabled",
-    });
-    expect(result.fetched).toBe(false);
-    expect(result.failure?.message).toMatch(/disabled/);
-  });
-
-  it.each([
-    ["the default downloader", {}],
-    ['urlDownload: "disabled"', { urlDownload: "disabled" as const }],
-  ])("decodes a data: URL locally with %s", async (_label, config) => {
+  it("decodes a data: URL locally", async () => {
     const bytes = Buffer.from("INLINE-DATA-URL-BYTES");
-    const model = mockModel();
     const result = await runWith(
       `data:image/png;base64,${bytes.toString("base64")}`,
-      config,
-      model,
     );
     expect(result.failure).toBeUndefined();
     expect(result.fetched).toBe(false);
-    expect(JSON.stringify(model.doStreamCalls[0]?.prompt)).toContain(
+    expect(JSON.stringify(result.model.doStreamCalls[0]?.prompt)).toContain(
       bytes.toString("base64"),
     );
   });
@@ -321,23 +315,10 @@ describe("BuiltInAgent URL download guard", () => {
   it("passes a URL the model accepts natively through without fetching it", async () => {
     const model = mockModel({ "image/*": [/^https?:\/\/.*$/] });
     const url = `http://localhost.:${port}/native`;
-    const result = await runWith(url, {}, model);
+    const result = await runWith(url, { model });
     expect(result.fetched).toBe(false);
     expect(result.failure).toBeUndefined();
     expect(JSON.stringify(model.doStreamCalls[0]?.prompt)).toContain(url);
-  });
-
-  it("uses a custom download function when one is configured", async () => {
-    const seen: string[] = [];
-    const result = await runWith(`http://internal.example/x`, {
-      urlDownload: async (requests) =>
-        requests.map(({ url }) => {
-          seen.push(url.href);
-          return { data: new Uint8Array([1, 2, 3]), mediaType: "image/png" };
-        }),
-    });
-    expect(seen).toEqual(["http://internal.example/x"]);
-    expect(result.failure).toBeUndefined();
   });
 });
 
@@ -356,32 +337,31 @@ function closedWithin(
   });
 }
 
-describe("BuiltInAgent URL download and the run", () => {
-  it("stops a running download when the run is aborted", async () => {
-    // The default downloader (30 s timeout) connects to slow.test's public
-    // address; the connect is held until something destroys the socket.
+describe("createSafeUrlDownload in streamText and the abort signal", () => {
+  it("stops a running download when the signal aborts", async () => {
+    // The downloader (30 s timeout) connects to slow.test's public address;
+    // the connect is held until something destroys the socket.
     const attempts: ConnectAttempt[] = [];
     interceptConnects(/^slow\.test$/, (attempt) => attempts.push(attempt), {
       hang: true,
     });
+    const controller = new AbortController();
     const model = mockModel();
-    const agent = new BuiltInAgent({ model });
-    const run = collectEventsIncludingErrors(
-      agent.run(imageInput("http://slow.test:9/x")),
-    );
+    const run = runWith("http://slow.test:9/x", {
+      download: createSafeUrlDownload({ signal: controller.signal }),
+      model,
+      abortSignal: controller.signal,
+    });
     await vi.waitFor(() => expect(attempts).toHaveLength(1));
     const closed = closedWithin(attempts[0]!.socket, 2_000);
-    agent.abortRun();
+    controller.abort();
     expect(await closed).toBe("closed");
-    const { events } = await run;
+    await run;
     expect(model.doStreamCalls).toHaveLength(0);
-    expect(
-      (events as Array<{ type: string }>).some((e) => e.type === "RUN_ERROR"),
-    ).toBe(false);
   });
 });
 
-describe("BuiltInAgent URL download errors", () => {
+describe("createSafeUrlDownload in streamText errors", () => {
   /**
    * Every console.warn and console.error line written while `body` runs,
    * formatted as the console prints it (an error with its properties).
@@ -397,11 +377,11 @@ describe("BuiltInAgent URL download errors", () => {
     return lines;
   }
 
-  it("gives the client a uniform message and logs the failure once, without the query", async () => {
+  it("gives the stream a uniform message and logs the failure once, without the query", async () => {
     // 1.1.1.1 is public, so the download connects; the test stops that
     // connect with an error that names the address.
     const attempts = blockConnects(/^1\.1\.1\.1$/);
-    let failure: { message?: string } | undefined;
+    let failure: Error | undefined;
     const logs = await logsDuring(async () => {
       ({ failure } = await runWith("http://1.1.1.1:9/x?sig=SECRET-SIG"));
     });
@@ -410,69 +390,11 @@ describe("BuiltInAgent URL download errors", () => {
     expect(logs.join("\n")).not.toContain("SECRET-SIG");
     const mentions = logs.filter((line) => line.includes("1.1.1.1:9/x"));
     expect(mentions).toHaveLength(1);
-    expect(
-      logs.filter((line) => line.includes("The download failed.")),
-    ).toHaveLength(1);
-    expect(mentions[0]).toMatch(
-      /^\[BuiltInAgent\] .*test blocked a connection/,
-    );
-  });
-
-  it("logs a provider API error with its status code and response body, without the query", async () => {
-    const model = new MockLanguageModelV3({
-      doStream: async () => {
-        throw new APICallError({
-          message: "Bad Request",
-          url: "https://api.provider.example/v1/chat?key=SECRET-KEY",
-          requestBodyValues: { model: "test-model" },
-          statusCode: 400,
-          responseBody: '{"error":{"message":"model test-model not found"}}',
-          isRetryable: false,
-        });
-      },
-    });
-    let failure: { message?: string } | undefined;
-    const logs = await logsDuring(async () => {
-      ({ failure } = await runWith("data:image/png;base64,AAAA", {}, model));
-    });
-    expect(failure?.message).toMatch(/Bad Request/);
-    const logged = logs.join("\n");
-    expect(logged).toContain("[BuiltInAgent] The model call failed");
-    expect(logged).toMatch(/statusCode: 400/);
-    expect(logged).toContain("model test-model not found");
-    expect(logged).toContain("https://api.provider.example/v1/chat");
-    expect(logged).not.toContain("SECRET-KEY");
-  });
-
-  it("logs a plain-object provider error with its fields", async () => {
-    const model = new MockLanguageModelV3({
-      doStream: async () => ({
-        stream: simulateReadableStream({
-          chunks: [
-            {
-              type: "error",
-              error: {
-                message: "Rate limit reached",
-                type: "rate_limit_error",
-                code: "rate_limit_exceeded",
-              },
-            },
-          ],
-        }),
-      }),
-    });
-    const logs = await logsDuring(async () => {
-      await runWith("data:image/png;base64,AAAA", {}, model);
-    });
-    const logged = logs.join("\n");
-    expect(logged).toContain("[BuiltInAgent] The model call failed");
-    expect(logged).not.toContain("[object Object]");
-    expect(logged).toContain("rate_limit_error");
-    expect(logged).toContain("Rate limit reached");
+    expect(mentions[0]).toMatch(/^\[CopilotKit\] .*test blocked a connection/);
   });
 
   it("logs a refusal once, without the query", async () => {
-    let failure: { message?: string } | undefined;
+    let failure: Error | undefined;
     const logs = await logsDuring(async () => {
       ({ failure } = await runWith(
         `http://169.254.169.254:${port}/latest/meta-data/?sig=SECRET-SIG`,
@@ -481,11 +403,6 @@ describe("BuiltInAgent URL download errors", () => {
     expect(failure?.message).toMatch(/not a public address/);
     expect(failure?.message).not.toContain("SECRET-SIG");
     expect(logs.join("\n")).not.toContain("SECRET-SIG");
-    // One line for this failure, from the downloader; not a second one from
-    // the model call error handler.
-    expect(
-      logs.filter((line) => /not a public address/.test(line)),
-    ).toHaveLength(1);
     expect(
       logs.filter((line) => line.includes("169.254.169.254")),
     ).toHaveLength(1);
@@ -507,71 +424,5 @@ describe("URL download guard test server", () => {
       socket.once("error", () => resolve(false));
     });
     expect(reached).toBe(false);
-  });
-});
-
-describe("BuiltInAgent urlDownload configuration", () => {
-  it("rejects invalid options when the agent is constructed", () => {
-    expect(
-      () =>
-        new BuiltInAgent({ model: mockModel(), urlDownload: { maxBytes: -1 } }),
-    ).toThrow(/urlDownload\.maxBytes/);
-    expect(
-      () =>
-        new BuiltInAgent({
-          model: mockModel(),
-          urlDownload:
-            "off" as unknown as BuiltInAgentClassicConfig["urlDownload"],
-        }),
-    ).toThrow(/urlDownload/);
-  });
-
-  it("rejects a mistyped option name when the agent is constructed", () => {
-    // A mistyped allowedHosts must not silently allow every public host.
-    expect(
-      () =>
-        new BuiltInAgent({
-          model: mockModel(),
-          urlDownload: {
-            allowedhosts: ["cdn.example.com"],
-          } as unknown as BuiltInAgentClassicConfig["urlDownload"],
-        }),
-    ).toThrow(/urlDownload has an unknown option "allowedhosts"/);
-  });
-
-  it.each([
-    ["disabled", "disabled"],
-    ["an options object", { allowedHosts: ["cdn.example.com"] }],
-  ])(
-    "throws when urlDownload (%s) is set in factory mode, where it cannot take effect",
-    (_label, urlDownload) => {
-      expect(
-        () =>
-          new BuiltInAgent({
-            type: "aisdk",
-            factory: () => ({ fullStream: (async function* () {})() }),
-            urlDownload,
-          } as unknown as BuiltInAgentConfiguration),
-      ).toThrow(
-        /urlDownload has no effect in factory mode.*createSafeUrlDownload/,
-      );
-    },
-  );
-
-  it("treats urlDownload: null like the default", async () => {
-    const result = await runWith(`http://localhost.:${port}/null-config`, {
-      urlDownload: null as unknown as BuiltInAgentClassicConfig["urlDownload"],
-    });
-    expect(result.fetched).toBe(false);
-    expect(result.failure?.message).toMatch(/not a public address/);
-  });
-
-  it("reports a failed download as RUN_ERROR", async () => {
-    const result = await runWith("http://downloads.example/x", {
-      urlDownload: async () => {
-        throw new Error("custom download failed");
-      },
-    });
-    expect(result.failure?.message).toMatch(/custom download failed/);
   });
 });

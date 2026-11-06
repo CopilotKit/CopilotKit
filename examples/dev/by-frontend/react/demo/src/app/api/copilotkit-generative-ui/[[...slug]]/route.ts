@@ -1,31 +1,37 @@
 import {
-  BuiltInAgent,
   CopilotRuntime,
   InMemoryAgentRunner,
   createCopilotRuntimeHandler,
 } from "@copilotkit/runtime";
-import type { BuiltInAgentClassicConfig } from "@copilotkit/runtime";
-import { createOpenAI } from "@ai-sdk/openai";
+import { BuiltInAgent } from "@copilotkit/runtime/agent";
+import { anthropicText } from "@tanstack/ai-anthropic";
+import { geminiText } from "@tanstack/ai-gemini";
+import { openaiText } from "@tanstack/ai-openai";
+import { openaiCompatibleText } from "@tanstack/ai-openai/compatible";
 import { PRODUCTS } from "../../../generative-ui/products";
 
 const openRouterApiKey = process.env.OPENROUTER_API_KEY?.trim();
 
-const determineModel = (): BuiltInAgentClassicConfig["model"] => {
+const determineModel = () => {
   if (openRouterApiKey) {
-    const openrouter = createOpenAI({
-      apiKey: openRouterApiKey,
-      baseURL:
-        process.env.OPENROUTER_BASE_URL?.trim() ||
-        "https://openrouter.ai/api/v1",
-    });
-    return openrouter(
+    return openaiCompatibleText(
       process.env.OPENROUTER_MODEL?.trim() || "openai/gpt-6-luna",
+      {
+        name: "openrouter",
+        api: "chat-completions",
+        apiKey: openRouterApiKey,
+        baseURL:
+          process.env.OPENROUTER_BASE_URL?.trim() ||
+          "https://openrouter.ai/api/v1",
+      },
     );
   }
-  if (process.env.OPENAI_API_KEY?.trim()) return "openai/gpt-6-luna";
-  if (process.env.ANTHROPIC_API_KEY?.trim()) return "anthropic/claude-opus-4-8";
-  if (process.env.GOOGLE_API_KEY?.trim()) return "google/gemini-3.8-flash";
-  return "openai/gpt-6-luna";
+  if (process.env.OPENAI_API_KEY?.trim()) return openaiText("gpt-6-luna");
+  if (process.env.ANTHROPIC_API_KEY?.trim())
+    return anthropicText("claude-opus-4-8");
+  if (process.env.GOOGLE_API_KEY?.trim()) return geminiText("gemini-3.8-flash");
+  // No key found: the OpenAI adapter throws an error that names OPENAI_API_KEY.
+  return openaiText("gpt-6-luna");
 };
 
 const agent = new BuiltInAgent({

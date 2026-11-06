@@ -40,11 +40,11 @@
  */
 import "dotenv/config";
 import { createServer } from "node:http";
+import { CopilotSseRuntime } from "@copilotkit/runtime";
 import {
   BuiltInAgent,
-  CopilotSseRuntime,
   convertInputToTanStackAI,
-} from "@copilotkit/runtime";
+} from "@copilotkit/runtime/agent";
 import { createCopilotNodeListener } from "@copilotkit/runtime/node";
 import { chat } from "@tanstack/ai";
 import { openaiText } from "./openai-text.js";
@@ -313,6 +313,7 @@ const agent = new BuiltInAgent({
       ...(clients.length > 0 ? { mcp: { clients } } : {}),
       // TanStack AI needs the full AbortController (not just the signal).
       abortController: ctx.abortController,
+      threadId: ctx.input.threadId,
     });
   },
 });

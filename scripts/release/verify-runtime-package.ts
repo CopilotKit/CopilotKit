@@ -11,8 +11,11 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createConsumerWorkspaceYaml } from "./lib/channels-umbrella.js";
 import {
+  BUILT_IN_AGENT_ADAPTERS,
+  BUILT_IN_AGENT_PEERS,
   CHANNELS_INTELLIGENCE,
   createRuntimeConsumerManifest,
+  declaredRanges,
   packPackage,
   packWorkspaceClosure,
   RUNTIME,
@@ -50,6 +53,116 @@ function assertVersion(expected: string): string {
 }`;
 }
 
+/** Runs `script` as CommonJS in `cwd`. */
+function runCjs(script: string, cwd: string): void {
+  run("pnpm", ["exec", "node", "--eval", script], cwd);
+}
+
+/** Runs `script` as an ES module in `cwd`, with two-argument `import.meta.resolve`. */
+function runEsm(script: string, cwd: string): void {
+  run(
+    "pnpm",
+    [
+      "exec",
+      "node",
+      "--experimental-import-meta-resolve",
+      "--input-type=module",
+      "--eval",
+      script,
+    ],
+    cwd,
+  );
+}
+
+/**
+ * Script text that fails unless `load` (an expression that loads the packed
+ * `/agent` entry) succeeds. `/agent` loads `@tanstack/ai` only when a classic
+ * agent runs, so factory-only apps can load it without TanStack AI.
+ */
+function assertAgentLoads(load: string): string {
+  return `await Promise.resolve().then(() => ${load});`;
+}
+
+/**
+ * Script text that builds a classic `BuiltInAgent` on the OpenAI adapter, and
+ * fails unless a model string is refused with the adapter hint and a run on
+ * `fakeText()` streams text through TanStack AI `chat()`. Expects
+ * `BuiltInAgent` and `openaiText` in scope.
+ */
+const CONSTRUCT_AGENT = `process.env.OPENAI_API_KEY = "verify-key";
+const agent = new BuiltInAgent({ model: openaiText("gpt-5") });
+if (!(agent instanceof BuiltInAgent)) throw new Error("new BuiltInAgent({ model: openaiText(...) }) must build an agent");
+let refused;
+try {
+  new BuiltInAgent({ model: "openai/gpt-5" });
+} catch (error) {
+  refused = error;
+}
+if (!String(refused?.message).includes("Pass a TanStack AI text adapter")) {
+  throw new Error("BuiltInAgent must refuse a model string with the adapter hint, got: " + refused);
+}
+const { fakeText } = await import("@tanstack/ai/testing");
+const fake = fakeText();
+fake.setResponses([{ text: "verify ok" }]);
+const events = [];
+await new Promise((resolve, reject) => {
+  new BuiltInAgent({ model: fake })
+    .run({ threadId: "t", runId: "r", messages: [{ id: "m", role: "user", content: "hi" }], tools: [], context: [], state: {}, forwardedProps: {} })
+    .subscribe({ next: (event) => events.push(event.type), error: reject, complete: resolve });
+});
+if (!events.includes("TEXT_MESSAGE_CHUNK") || !events.includes("RUN_FINISHED")) {
+  throw new Error("A classic BuiltInAgent run must stream text and finish, got: " + events.join(", "));
+}`;
+
+/**
+ * Script text (ES module) that fails unless no package in `names` resolves
+ * from the installed runtime's own location, where pnpm links its peers.
+ * Uses the `import` condition because the TanStack AI packages are ESM-only.
+ */
+function assertNotInstalled(names: readonly string[]): string {
+  return `const runtimeEntry = import.meta.resolve("@copilotkit/runtime");
+for (const name of ${JSON.stringify(names)}) {
+  let found = false;
+  try {
+    import.meta.resolve(name, runtimeEntry);
+    found = true;
+  } catch {}
+  if (found) throw new Error(name + " is installed, but this consumer must load the runtime without it");
+}`;
+}
+
+interface ConsumerOptions {
+  name: string;
+  temp: string;
+  runtimeTarball: string;
+  packageManager: string;
+  overrides: ReadonlyMap<string, string>;
+  llmPackages?: Readonly<Record<string, string>>;
+}
+
+/** Writes a consumer of the packed runtime under `temp/name` and installs it. */
+function installConsumer({ name, temp, ...manifest }: ConsumerOptions) {
+  const consumerDir = join(temp, name);
+  mkdirSync(consumerDir);
+  // `pnpm run` passes the repo's `minimum-release-age` to this install, and the
+  // TanStack AI release the runtime needs (with its internal packages, such as
+  // `@tanstack/openai-base`) can be under a day old. Exempt the scope in this
+  // throwaway consumer only; the repo policy stays as it is.
+  const installsPeers = Object.keys(manifest.llmPackages ?? {}).length > 0;
+  writeFileSync(
+    join(consumerDir, "pnpm-workspace.yaml"),
+    // Appends to the `minimumReleaseAgeExclude` list that ends the file.
+    createConsumerWorkspaceYaml() +
+      (installsPeers ? `  - "@tanstack/*"\n` : ""),
+  );
+  writeFileSync(
+    join(consumerDir, "package.json"),
+    `${JSON.stringify(createRuntimeConsumerManifest(manifest), null, 2)}\n`,
+  );
+  run("pnpm", ["install", "--ignore-scripts"], consumerDir);
+  return consumerDir;
+}
+
 function main(): void {
   const { packageManager } = readJson<RootManifest>(join(ROOT, "package.json"));
   if (!packageManager) {
@@ -58,9 +171,7 @@ function main(): void {
 
   const temp = mkdtempSync(join(tmpdir(), "runtime-package-"));
   const tarballDir = join(temp, "tarballs");
-  const consumerDir = join(temp, "consumer");
   mkdirSync(tarballDir);
-  mkdirSync(consumerDir);
 
   try {
     const { manifest: packedManifest, tarball } = packPackage(
@@ -86,59 +197,83 @@ function main(): void {
       );
     }
 
-    writeFileSync(
-      join(consumerDir, "pnpm-workspace.yaml"),
-      createConsumerWorkspaceYaml(),
-    );
-    writeFileSync(
-      join(consumerDir, "package.json"),
-      `${JSON.stringify(
-        createRuntimeConsumerManifest({
-          runtimeTarball: tarball,
-          packageManager,
-          overrides,
-        }),
-        null,
-        2,
-      )}\n`,
-    );
+    const consumer = {
+      temp,
+      runtimeTarball: tarball,
+      packageManager,
+      overrides,
+    };
+    // Every optional peer of the runtime (`@tanstack/ai` and `ai`), and the
+    // adapter the Built-in Agent consumer installs.
+    const llmPackages = [
+      ...Object.keys(packedManifest.peerDependencies ?? {}),
+      ...BUILT_IN_AGENT_ADAPTERS,
+    ];
 
-    run("pnpm", ["install", "--ignore-scripts"], consumerDir);
-
-    run(
-      "pnpm",
-      [
-        "exec",
-        "node",
-        "--eval",
-        `require("@copilotkit/runtime");
+    // A consumer with no LLM package installed: the root entry and `/agent`
+    // must load, and `/agent/ai-sdk` must resolve.
+    const bareDir = installConsumer({ ...consumer, name: "bare" });
+    runCjs(
+      `(async () => {
 const { VERSION } = require("@copilotkit/runtime");
-${assertVersion(runtimeVersion)}`,
-      ],
-      consumerDir,
+${assertVersion(runtimeVersion)}
+require.resolve("@copilotkit/runtime/agent/ai-sdk");
+${assertAgentLoads('require("@copilotkit/runtime/agent")')}
+})().catch((error) => { console.error(error); process.exit(1); });`,
+      bareDir,
     );
-    run(
-      "pnpm",
-      [
-        "exec",
-        "node",
-        "--experimental-import-meta-resolve",
-        "--input-type=module",
-        "--eval",
-        `const runtimePackageUrl = import.meta.resolve("@copilotkit/runtime/package.json");
+    runEsm(
+      `import { existsSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+${assertNotInstalled(llmPackages)}
 const channelsIntelligenceUrl = import.meta.resolve(
   "${CHANNELS_INTELLIGENCE}",
-  runtimePackageUrl,
+  import.meta.resolve("@copilotkit/runtime/package.json"),
 );
 await import(channelsIntelligenceUrl);
 const { VERSION } = await import("@copilotkit/runtime");
-${assertVersion(runtimeVersion)}`,
-      ],
-      consumerDir,
+${assertVersion(runtimeVersion)}
+const aiSdkEntry = fileURLToPath(import.meta.resolve("@copilotkit/runtime/agent/ai-sdk"));
+if (!existsSync(aiSdkEntry)) throw new Error("@copilotkit/runtime/agent/ai-sdk resolves to a missing file: " + aiSdkEntry);
+${assertAgentLoads('import("@copilotkit/runtime/agent")')}`,
+      bareDir,
+    );
+
+    // A consumer that installs `@tanstack/ai` and the OpenAI adapter: the
+    // packed `/agent` must load and build an agent on an adapter instance.
+    const agentDir = installConsumer({
+      ...consumer,
+      name: "built-in-agent",
+      llmPackages: {
+        ...declaredRanges(
+          packedManifest,
+          "peerDependencies",
+          BUILT_IN_AGENT_PEERS,
+        ),
+        ...declaredRanges(
+          packedManifest,
+          "devDependencies",
+          BUILT_IN_AGENT_ADAPTERS,
+        ),
+      },
+    });
+    runEsm(
+      `const { BuiltInAgent } = await import("@copilotkit/runtime/agent");
+const { openaiText } = await import("@tanstack/ai-openai");
+${CONSTRUCT_AGENT}`,
+      agentDir,
+    );
+    runCjs(
+      `(async () => {
+const { BuiltInAgent } = require("@copilotkit/runtime/agent");
+const { openaiText } = await import("@tanstack/ai-openai");
+${CONSTRUCT_AGENT}
+})().catch((error) => { console.error(error); process.exit(1); });`,
+      agentDir,
     );
 
     console.log(
-      `OK: packed runtime installs ${CHANNELS_INTELLIGENCE}, loads through ESM and CJS, and reports VERSION ${runtimeVersion}.`,
+      `OK: packed runtime ${runtimeVersion} installs ${CHANNELS_INTELLIGENCE}; the root entry loads through ESM and CJS with no LLM package installed; /agent/ai-sdk resolves; /agent loads; with ${[...BUILT_IN_AGENT_PEERS, ...BUILT_IN_AGENT_ADAPTERS].join(" and ")} it builds a BuiltInAgent on openaiText("gpt-5") and runs one on fakeText() through ESM and CJS.`,
     );
   } finally {
     rmSync(temp, { recursive: true, force: true });

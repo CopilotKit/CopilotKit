@@ -1,49 +1,62 @@
 /**
- * Regression tests proving that the agent package's defineTool and
- * convertToolDefinitionsToVercelAITools still work identically with
- * Zod schemas after the Standard Schema migration.
+ * Regression tests for Zod tools after the Standard Schema migration.
  *
  * Covers:
- * 1. defineTool with complex Zod schemas
- * 2. convertToolDefinitionsToVercelAITools passes Zod schemas directly
- *    (not through JSON Schema conversion — critical behavioral regression)
- * 3. BuiltInAgent with Zod tools still works end-to-end
- * 4. execute callback receives correctly shaped args
+ * 1. The classic agent offers a Zod tool as JSON Schema and runs `execute`
+ *    with the Zod-parsed arguments (defaults applied).
+ * 2. Arguments that fail a Zod check (here a URL) come back as an Error
+ *    result, and `execute` does not run.
+ * 3. `convertToolDefinitionsToVercelAITools` (AI SDK factories) checks the
+ *    arguments with the Zod schema before `execute`, so a failed check
+ *    rejects and `execute` does not run.
  */
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { describe, it, expect } from "vitest";
 import { z } from "zod";
+import { EventType } from "@ag-ui/client";
+import { defineTool } from "../index";
+import { convertToolDefinitionsToVercelAITools } from "../ai-sdk";
 import {
-  defineTool,
-  convertToolDefinitionsToVercelAITools,
-  BuiltInAgent,
-} from "../index";
-import type { RunAgentInput } from "@ag-ui/client";
-import { streamText } from "ai";
-import { mockStreamTextResponse, finish, collectEvents } from "./test-helpers";
+  eventsOfType,
+  requestToolNames,
+  runClassicAgent,
+} from "./agent-test-helpers";
 
-vi.mock("ai", async () => {
-  const actual = await vi.importActual("ai");
-  return {
-    ...actual,
-    streamText: vi.fn(),
-    tool: vi.fn((config) => config),
-    stepCountIs: vi.fn((count: number) => ({ type: "stepCount", count })),
-  };
-});
+/** A tool that records the parsed arguments of each call. */
+function recordingTool<TParameters extends z.ZodObject>(
+  name: string,
+  parameters: TParameters,
+) {
+  const calls: unknown[] = [];
+  const tool = defineTool({
+    name,
+    description: `The ${name} tool`,
+    parameters,
+    execute: async (args) => {
+      calls.push(args);
+      return { ok: true };
+    },
+  });
+  return { tool, calls };
+}
 
-vi.mock("@ai-sdk/openai", () => ({
-  createOpenAI: vi.fn(() => (modelId: string) => ({
-    modelId,
-    provider: "openai",
-  })),
-}));
+/** Runs one model call to `tool` with `input` and returns the run's results. */
+async function callTool(
+  tool: ReturnType<typeof recordingTool>["tool"],
+  input: unknown,
+) {
+  const { events, requests } = await runClassicAgent({ tools: [tool] }, [
+    { toolCalls: [{ id: "tc-1", name: tool.name, input }] },
+  ]);
+  const offered = requests[0]?.tools?.find((t) => t.name === tool.name);
+  const result = eventsOfType(events, EventType.TOOL_CALL_RESULT)[0]?.content;
+  return { offered, result };
+}
 
-describe("defineTool Zod regression", () => {
-  it("complex Zod schema with nested objects, arrays, unions", () => {
-    const tool = defineTool({
-      name: "complexTool",
-      description: "A complex tool",
-      parameters: z.object({
+describe("BuiltInAgent with Zod tools", () => {
+  it("offers a nested Zod schema as JSON Schema and applies its defaults before execute", async () => {
+    const { tool, calls } = recordingTool(
+      "complexTool",
+      z.object({
         query: z.string().describe("Search query"),
         filters: z
           .object({
@@ -59,21 +72,43 @@ describe("defineTool Zod regression", () => {
           })
           .optional(),
       }),
-      execute: async (args) => {
-        return { query: args.query };
-      },
+    );
+
+    const { offered, result } = await callTool(tool, {
+      query: "dune",
+      filters: { category: "books", tags: ["sci-fi"] },
+      pagination: {},
     });
 
-    expect(tool.name).toBe("complexTool");
-    expect(tool.parameters["~standard"].vendor).toBe("zod");
-    expect(tool.parameters["~standard"].version).toBe(1);
+    expect(offered?.inputSchema).toMatchObject({
+      type: "object",
+      properties: {
+        query: { type: "string", description: "Search query" },
+        filters: {
+          type: "object",
+          properties: {
+            category: { enum: ["books", "movies", "music"] },
+            minRating: { type: "number", minimum: 0, maximum: 5 },
+            tags: { type: "array", items: { type: "string" } },
+          },
+        },
+      },
+      required: ["query"],
+    });
+    expect(calls).toEqual([
+      {
+        query: "dune",
+        filters: { category: "books", tags: ["sci-fi"] },
+        pagination: { page: 1, perPage: 20 },
+      },
+    ]);
+    expect(result).toBe('{"ok":true}');
   });
 
-  it("Zod schema with discriminated union", () => {
-    const tool = defineTool({
-      name: "actionTool",
-      description: "An action tool",
-      parameters: z.object({
+  it("runs a discriminated union tool with the chosen variant", async () => {
+    const { tool, calls } = recordingTool(
+      "actionTool",
+      z.object({
         action: z.discriminatedUnion("type", [
           z.object({ type: z.literal("search"), query: z.string() }),
           z.object({ type: z.literal("navigate"), url: z.url() }),
@@ -84,273 +119,87 @@ describe("defineTool Zod regression", () => {
           }),
         ]),
       }),
-      execute: async (args) => {
-        return { action: args.action.type };
-      },
-    });
+    );
+    const action = { type: "navigate", url: "https://copilotkit.ai" };
 
-    expect(tool.name).toBe("actionTool");
-    expect(tool.parameters["~standard"].vendor).toBe("zod");
+    await callTool(tool, { action });
+
+    expect(calls).toEqual([{ action }]);
   });
 
-  it("Zod schema with nullable and record fields", () => {
-    const tool = defineTool({
-      name: "flexTool",
-      description: "Flexible tool",
-      parameters: z.object({
+  it("answers arguments that fail a Zod check with an Error result instead of running execute", async () => {
+    const { tool, calls } = recordingTool(
+      "navigate",
+      z.object({ url: z.url() }),
+    );
+
+    const { result } = await callTool(tool, { url: "not a url" });
+
+    expect(calls).toEqual([]);
+    expect(result).toBe(
+      'Error: Input validation failed for tool navigate: Validation failed: Invalid URL\nReceived arguments: {"url":"not a url"}',
+    );
+  });
+
+  it("passes nullable and record fields through to execute", async () => {
+    const { tool, calls } = recordingTool(
+      "flexTool",
+      z.object({
         title: z.string(),
         description: z.string().nullable(),
         metadata: z.record(z.string(), z.unknown()).optional(),
       }),
-      execute: async (args) => {
-        return { title: args.title };
-      },
-    });
+    );
+    const args = {
+      title: "Report",
+      description: null,
+      metadata: { owner: "ops", priority: 2 },
+    };
 
-    expect(tool.name).toBe("flexTool");
-    expect(tool.parameters["~standard"].vendor).toBe("zod");
+    await callTool(tool, args);
+
+    expect(calls).toEqual([args]);
   });
 
-  it("execute callback receives correctly typed args", async () => {
-    const receivedArgs: unknown[] = [];
-
-    const tool = defineTool({
-      name: "argCapture",
-      description: "Captures args",
-      parameters: z.object({
-        city: z.string(),
-        units: z.enum(["celsius", "fahrenheit"]),
+  it("offers Zod tools alongside the built-in state tools", async () => {
+    const search = recordingTool("search", z.object({ query: z.string() }));
+    const calculate = recordingTool(
+      "calculate",
+      z.object({
+        expression: z.string(),
+        precision: z.number().int().optional(),
       }),
-      execute: async (args) => {
-        receivedArgs.push(args);
-        return { temp: 22 };
-      },
+    );
+
+    const { requests } = await runClassicAgent({
+      tools: [search.tool, calculate.tool],
     });
 
-    await tool.execute({ city: "Berlin", units: "celsius" });
-
-    expect(receivedArgs).toHaveLength(1);
-    expect(receivedArgs[0]).toEqual({ city: "Berlin", units: "celsius" });
+    expect(requestToolNames(requests[0]!)).toEqual([
+      "search",
+      "calculate",
+      "AGUISendStateSnapshot",
+      "AGUISendStateDelta",
+    ]);
   });
 });
 
 describe("convertToolDefinitionsToVercelAITools Zod regression", () => {
-  it("Zod schemas are passed directly to AI SDK (not converted via JSON Schema)", () => {
-    const zodSchema = z.object({
-      city: z.string(),
-      units: z.enum(["celsius", "fahrenheit"]).optional(),
-    });
-
-    const tools = [
-      defineTool({
-        name: "weather",
-        description: "Get weather",
-        parameters: zodSchema,
-        execute: async () => ({ temp: 22 }),
-      }),
-    ];
-
-    const aiTools = convertToolDefinitionsToVercelAITools(tools);
-
-    expect(aiTools).toHaveProperty("weather");
-    // The inputSchema should be the original Zod schema (passed directly),
-    // NOT a jsonSchema() wrapper. We verify by checking the Zod-specific
-    // ~standard.vendor property is preserved on the schema.
-    const inputSchema = aiTools.weather.inputSchema;
-    expect(inputSchema).toBeDefined();
-    // For Zod schemas, the AI SDK receives the raw Zod object (which has ~standard.vendor === "zod")
-    // If it went through jsonSchema(), it would lose the ~standard property
-    expect(inputSchema["~standard"]?.vendor).toBe("zod");
-  });
-
-  it("multiple Zod tools all get direct pass-through", () => {
-    const tools = [
-      defineTool({
-        name: "tool1",
-        description: "Tool 1",
-        parameters: z.object({ a: z.string() }),
-        execute: async () => ({}),
-      }),
-      defineTool({
-        name: "tool2",
-        description: "Tool 2",
-        parameters: z.object({ b: z.number(), c: z.boolean().optional() }),
-        execute: async () => ({}),
-      }),
-      defineTool({
-        name: "tool3",
-        description: "Tool 3",
-        parameters: z.object({
-          nested: z.object({ x: z.number(), y: z.number() }),
-        }),
-        execute: async () => ({}),
-      }),
-    ];
-
-    const aiTools = convertToolDefinitionsToVercelAITools(tools);
-
-    for (const name of ["tool1", "tool2", "tool3"]) {
-      expect(aiTools).toHaveProperty(name);
-      expect(aiTools[name].inputSchema["~standard"]?.vendor).toBe("zod");
-      expect(typeof aiTools[name].execute).toBe("function");
-    }
-  });
-
-  it("preserves tool description and execute function", () => {
-    const executeFn = vi.fn().mockResolvedValue({ result: "ok" });
-
-    const tools = [
-      defineTool({
-        name: "myTool",
-        description: "My custom tool description",
-        parameters: z.object({ input: z.string() }),
-        execute: executeFn,
-      }),
-    ];
-
-    const aiTools = convertToolDefinitionsToVercelAITools(tools);
-
-    expect(aiTools.myTool.description).toBe("My custom tool description");
-    expect(aiTools.myTool.execute).toBeDefined();
-  });
-});
-
-describe("BuiltInAgent Zod regression", () => {
-  const originalEnv = process.env;
-
-  beforeEach(() => {
-    vi.clearAllMocks();
-    process.env = { ...originalEnv };
-    process.env.OPENAI_API_KEY = "test-key";
-  });
-
-  afterEach(() => {
-    process.env = originalEnv;
-  });
-
-  it("Zod tools are included in streamText call", async () => {
-    const agent = new BuiltInAgent({
-      model: "openai/gpt-4o",
-      tools: [
-        defineTool({
-          name: "weather",
-          description: "Get weather",
-          parameters: z.object({
-            city: z.string(),
-            units: z.enum(["celsius", "fahrenheit"]).optional(),
-          }),
-          execute: async () => ({ temp: 22 }),
-        }),
-      ],
-    });
-
-    vi.mocked(streamText).mockReturnValue(
-      mockStreamTextResponse([finish()]) as any,
+  it("rejects arguments that fail a Zod check instead of running execute", async () => {
+    const { tool, calls } = recordingTool(
+      "navigate",
+      z.object({ url: z.url() }),
     );
 
-    const input: RunAgentInput = {
-      threadId: "thread1",
-      runId: "run1",
-      messages: [],
-      tools: [],
-      context: [],
-      state: {},
-    };
-
-    await collectEvents(agent["run"](input));
-
-    const callArgs = vi.mocked(streamText).mock.calls[0][0];
-    expect(callArgs.tools).toHaveProperty("weather");
-    expect(typeof callArgs.tools?.weather.execute).toBe("function");
-  });
-
-  it("multiple Zod tools coexist with built-in state tools", async () => {
-    const agent = new BuiltInAgent({
-      model: "openai/gpt-4o",
-      tools: [
-        defineTool({
-          name: "search",
-          description: "Search",
-          parameters: z.object({ query: z.string() }),
-          execute: async () => ({}),
-        }),
-        defineTool({
-          name: "calculate",
-          description: "Calculate",
-          parameters: z.object({
-            expression: z.string(),
-            precision: z.number().int().optional(),
-          }),
-          execute: async () => ({}),
-        }),
-      ],
-    });
-
-    vi.mocked(streamText).mockReturnValue(
-      mockStreamTextResponse([finish()]) as any,
+    const aiTool = convertToolDefinitionsToVercelAITools([tool]).navigate;
+    const run = aiTool?.execute?.(
+      { url: "not a url" },
+      { toolCallId: "tc-1", messages: [] },
     );
 
-    const input: RunAgentInput = {
-      threadId: "thread1",
-      runId: "run1",
-      messages: [],
-      tools: [],
-      context: [],
-      state: {},
-    };
-
-    await collectEvents(agent["run"](input));
-
-    const callArgs = vi.mocked(streamText).mock.calls[0][0];
-    // User-defined Zod tools
-    expect(callArgs.tools).toHaveProperty("search");
-    expect(callArgs.tools).toHaveProperty("calculate");
-    // Built-in state tools
-    expect(callArgs.tools).toHaveProperty("AGUISendStateSnapshot");
-    expect(callArgs.tools).toHaveProperty("AGUISendStateDelta");
-  });
-
-  it("Zod tool execute is invocable after conversion", async () => {
-    const executeFn = vi.fn().mockResolvedValue({ temp: 22 });
-
-    const agent = new BuiltInAgent({
-      model: "openai/gpt-4o",
-      tools: [
-        defineTool({
-          name: "weather",
-          description: "Get weather",
-          parameters: z.object({ city: z.string() }),
-          execute: executeFn,
-        }),
-      ],
-    });
-
-    vi.mocked(streamText).mockReturnValue(
-      mockStreamTextResponse([finish()]) as any,
+    await expect(run).rejects.toThrow(
+      "Invalid arguments for tool navigate: Invalid URL",
     );
-
-    const input: RunAgentInput = {
-      threadId: "thread1",
-      runId: "run1",
-      messages: [],
-      tools: [],
-      context: [],
-      state: {},
-    };
-
-    await collectEvents(agent["run"](input));
-
-    const callArgs = vi.mocked(streamText).mock.calls[0][0];
-    const weatherTool = callArgs.tools?.weather;
-
-    // Invoke the execute function to verify it's wired correctly
-    await weatherTool.execute(
-      { city: "Berlin" },
-      { toolCallId: "tool-call-1", messages: [] },
-    );
-    expect(executeFn).toHaveBeenCalledWith(
-      { city: "Berlin" },
-      { toolCallId: "tool-call-1", messages: [] },
-    );
+    expect(calls).toEqual([]);
   });
 });

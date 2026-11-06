@@ -1,11 +1,13 @@
 import { Hono } from "hono";
 import { serve } from "@hono/node-server";
-import { CopilotRuntime, BuiltInAgent } from "@copilotkit/runtime";
+import { CopilotRuntime } from "@copilotkit/runtime";
+import { BuiltInAgent } from "@copilotkit/runtime/agent";
+import { openaiText } from "@tanstack/ai-openai";
 import { createCopilotRuntimeHandler } from "@copilotkit/runtime";
 
 const runtime = new CopilotRuntime({
   agents: {
-    default: new BuiltInAgent({ model: "openai/gpt-6-luna" }),
+    default: new BuiltInAgent({ model: openaiText("gpt-6-luna") }),
   },
 });
 

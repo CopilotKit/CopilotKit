@@ -1,5 +1,6 @@
 /**
- * Server-side download of URL attachments (image/file parts) for BuiltInAgent.
+ * Server-side download of URL attachments (image/file parts) for AI SDK
+ * `streamText` calls, used as their `experimental_download`.
  *
  * The AI SDK downloads any URL attachment that the model cannot take as a URL
  * and puts the bytes into the prompt. The URL comes from the request, so the
@@ -17,8 +18,8 @@
  * - checks every redirect target the same way, and refuses https to http;
  * - limits the size and time of each download, and the number and total
  *   size of the downloads for one model call;
- * - stops when the run is aborted (BuiltInAgent, or the `signal` given to
- *   `createSafeUrlDownload`), or when another download of the same call fails.
+ * - stops when the `signal` given to `createSafeUrlDownload` aborts, or when
+ *   another download of the same call fails.
  *
  * The client gets the same message whether a host did not resolve or resolved
  * to a non-public address, and the reason is only logged on the server. Two
@@ -239,10 +240,6 @@ function redactUrls(text: string): string {
   );
 }
 
-// Errors that this module has already logged, so that BuiltInAgent's model
-// call error handler does not log them a second time.
-const loggedErrors = new WeakSet<object>();
-
 /**
  * Returns the error for a failed or refused download and logs it on the
  * server. `detail` goes only to the log: the client sees `message`, which
@@ -259,73 +256,19 @@ function refuse(
 ): DownloadError {
   console.warn(
     redactUrls(
-      `[BuiltInAgent] URL download failed for ${urlForLog(url)}: ${message}${detail ? ` (${detail})` : ""}`,
+      `[CopilotKit] URL download failed for ${urlForLog(url)}: ${message}${detail ? ` (${detail})` : ""}`,
     ),
   );
-  const error = new DownloadError({ url: urlForLog(url), message, statusCode });
-  loggedErrors.add(error);
-  return error;
+  return new DownloadError({ url: urlForLog(url), message, statusCode });
 }
 
-/**
- * @internal BuiltInAgent's `onError` for its `streamText` call. The AI SDK's
- * default handler prints the whole error, which for a download error holds
- * the URL with its query. This logs an error once, with the same detail
- * (for a provider API error, its status code and response body) but with the
- * query and fragment removed from every URL, and skips the download errors
- * that were already logged here.
- */
-export function logModelCallError(error: unknown): void {
-  if (typeof error === "object" && error !== null && loggedErrors.has(error)) {
-    return;
-  }
-  const frames =
-    error instanceof Error && error.stack
-      ? error.stack
-          .split("\n")
-          .filter((line) => /^\s+at /.test(line))
-          .join("\n")
-      : "";
-  console.error(
-    redactUrls(
-      `[BuiltInAgent] The model call failed: ${describeModelError(error)}${frames ? `\n${frames}` : ""}`,
-    ),
-  );
-}
-
-// Longest text logged for one field of a model call error. A field such as
-// `requestBodyValues` can hold the whole prompt.
+// Longest text logged for one value in an error description.
 const MAX_LOGGED_FIELD_LENGTH = 2000;
 
 function truncateForLog(text: string): string {
   return text.length > MAX_LOGGED_FIELD_LENGTH
     ? `${text.slice(0, MAX_LOGGED_FIELD_LENGTH)}… (${text.length} characters)`
     : text;
-}
-
-/**
- * {@link describeError}, followed by the other fields of the error, such as
- * the `statusCode`, `responseBody` and `url` of the AI SDK's APICallError. A
- * value that is not an Error, such as the plain object that a provider
- * stream sends as its error, is logged as JSON.
- */
-function describeModelError(error: unknown): string {
-  if (!(error instanceof Error)) return truncateForLog(describeValue(error));
-  const fields = Object.entries(error)
-    .filter(
-      ([key]) => !["name", "message", "stack", "cause", "code"].includes(key),
-    )
-    .map(([key, value]) => {
-      const text =
-        value instanceof Error
-          ? describeError(value)
-          : typeof value === "string"
-            ? value
-            : describeValue(value);
-      return `${key}: ${truncateForLog(text)}`;
-    });
-  const name = error.name && error.name !== "Error" ? `${error.name}: ` : "";
-  return `${name}${describeError(error)}${fields.length > 0 ? ` {${fields.join("; ")}}` : ""}`;
 }
 
 /** Message, error code and causes of an error, for the server log. */
@@ -379,7 +322,7 @@ function comparableHost(hostname: string): string {
 function normalizeAllowedHost(entry: unknown): string {
   const invalid = (reason: string) =>
     new Error(
-      `urlDownload.allowedHosts entry ${describeValue(entry)} is invalid: ${reason}`,
+      `createSafeUrlDownload.allowedHosts entry ${describeValue(entry)} is invalid: ${reason}`,
     );
   if (typeof entry !== "string" || entry === "") {
     throw invalid("it must be a non-empty hostname");
@@ -422,7 +365,9 @@ function normalizeAllowedHost(entry: unknown): string {
 function normalizeAllowedHosts(entries: unknown): string[] | undefined {
   if (entries === undefined) return undefined;
   if (!Array.isArray(entries)) {
-    throw new Error("urlDownload.allowedHosts must be an array of hostnames");
+    throw new Error(
+      "createSafeUrlDownload.allowedHosts must be an array of hostnames",
+    );
   }
   return entries.map(normalizeAllowedHost);
 }
@@ -604,7 +549,7 @@ async function downloadOne(
     throw refuse(
       original,
       "URL download needs Node.js networking modules, which are not available here.",
-      `loading them failed: ${describeError(error)}. On a runtime without them, set urlDownload to "disabled" or to your own download function`,
+      `loading them failed: ${describeError(error)}. On a runtime without them, pass your own download function as experimental_download`,
     );
   });
   defaultPolicy ??= buildAddressPolicy(modules.net);
@@ -759,7 +704,7 @@ function integerOption(
         ? `an integer of at least ${min}`
         : `an integer from ${min} to ${max}`;
     throw new Error(
-      `urlDownload.${name} must be ${range}, got ${describeValue(value)}`,
+      `createSafeUrlDownload.${name} must be ${range}, got ${describeValue(value)}`,
     );
   }
   return result;
@@ -783,7 +728,7 @@ function checkOptionsObject(options: unknown): asserts options is object {
     Array.isArray(options)
   ) {
     throw new Error(
-      `urlDownload options must be an object, got ${describeValue(options)}`,
+      `createSafeUrlDownload options must be an object, got ${describeValue(options)}`,
     );
   }
 }
@@ -793,7 +738,7 @@ function checkOptionNames(options: unknown): void {
   for (const name of Object.keys(options)) {
     if (!Object.prototype.hasOwnProperty.call(OPTION_NAMES, name)) {
       throw new Error(
-        `urlDownload has an unknown option ${describeValue(name)}; the valid options are ${Object.keys(OPTION_NAMES).join(", ")}`,
+        `createSafeUrlDownload has an unknown option ${describeValue(name)}; the valid options are ${Object.keys(OPTION_NAMES).join(", ")}`,
       );
     }
   }
@@ -898,38 +843,11 @@ export function createGuardedUrlDownload(
   );
 }
 
-/**
- * @internal Resolves BuiltInAgent's `urlDownload` setting once, so that an
- * invalid setting fails when the agent is constructed. The result gives the
- * download function for one run; the default downloader stops when the run
- * is aborted.
- */
-export function resolveUrlDownloadSetting(
-  setting:
-    | "disabled"
-    | SafeUrlDownloadOptions
-    | DownloadFunction
-    | null
-    | undefined,
-): (runSignal: AbortSignal) => DownloadFunction {
-  if (setting === "disabled") return () => disabledUrlDownload;
-  if (typeof setting === "function") return () => setting;
-  if (setting === undefined || setting === null) {
-    return createGuardedUrlDownload().forRun;
-  }
-  if (typeof setting === "object" && !Array.isArray(setting)) {
-    return createGuardedUrlDownload(setting).forRun;
-  }
-  throw new Error(
-    `urlDownload must be "disabled", an options object or a download function, got ${describeValue(setting)}`,
-  );
-}
-
 /** Options for {@link createSafeUrlDownload}. */
 export interface CreateSafeUrlDownloadOptions extends SafeUrlDownloadOptions {
   /**
    * Stops every download of this function when it aborts, for example the
-   * run's `ctx.abortSignal` in BuiltInAgent's factory mode. Without it, a
+   * run's `ctx.abortSignal` in a `type: "aisdk"` factory. Without it, a
    * download that is running when the run is aborted goes on until it ends
    * or reaches `timeoutMs`.
    */
@@ -938,13 +856,13 @@ export interface CreateSafeUrlDownloadOptions extends SafeUrlDownloadOptions {
 
 /**
  * Creates an AI SDK download function (`experimental_download`) that only
- * fetches public internet addresses, with the same checks and limits as
- * BuiltInAgent's default downloader. Pass it to `streamText` yourself when
- * you use BuiltInAgent's AI SDK factory mode. Create it in the factory with
- * the run's abort signal, so that an aborted run stops its downloads:
+ * fetches public internet addresses. For `streamText` calls in a
+ * `type: "aisdk"` factory. Create it in the factory with the run's abort
+ * signal, so that an aborted run stops its downloads:
  *
  * ```ts
- * import { createSafeUrlDownload } from "@copilotkit/runtime";
+ * import { streamText } from "ai";
+ * import { createSafeUrlDownload } from "@copilotkit/runtime/agent/ai-sdk";
  *
  * factory: (ctx) =>
  *   streamText({
@@ -955,32 +873,25 @@ export interface CreateSafeUrlDownloadOptions extends SafeUrlDownloadOptions {
  *   }),
  * ```
  *
- * Invalid options throw here, when the function is created.
+ * @param options - Host allow list, size, time and count limits, and the
+ * abort `signal`. All are optional.
+ * @throws Error when an option is invalid. It throws here, when the function
+ * is created, not on the first download.
  */
 export function createSafeUrlDownload(
   options: CreateSafeUrlDownloadOptions = {},
-): DownloadFunction {
+) {
   checkOptionsObject(options);
   const { signal, ...downloadOptions } = options;
   if (signal !== undefined && !(signal instanceof AbortSignal)) {
     throw new Error(
-      `urlDownload signal must be an AbortSignal, got ${describeValue(signal)}`,
+      `createSafeUrlDownload signal must be an AbortSignal, got ${describeValue(signal)}`,
     );
   }
   const download = createGuardedUrlDownload(downloadOptions);
-  return signal ? download.forRun(signal) : download;
+  // The public type is the plain AI SDK download function, without `forRun`.
+  const runDownload: DownloadFunction = signal
+    ? download.forRun(signal)
+    : download;
+  return runDownload;
 }
-
-/**
- * A download function that never fetches from the network. URLs that the
- * model takes as-is and `data:` URLs are left to the AI SDK; any other URL,
- * whatever its scheme, fails the run.
- */
-export const disabledUrlDownload: DownloadFunction = async (requests) =>
-  requests.map((request) => {
-    if (leftToAiSdk(request)) return null;
-    throw refuse(
-      request.url,
-      'Server-side URL download is disabled (urlDownload: "disabled").',
-    );
-  });

@@ -435,11 +435,7 @@ function agentFactoryModes(
   root: string,
 ): PublicApiManifest["runtime"]["agentFactoryModes"] {
   const path = "packages/runtime/src/agent/index.ts";
-  requireExport(
-    root,
-    "packages/runtime/src/index.ts",
-    "BuiltInAgentFactoryConfig",
-  );
+  requireExport(root, path, "BuiltInAgentFactoryConfig");
   const union = findNamedDeclaration(root, path, "BuiltInAgentFactoryConfig");
   if (!ts.isTypeAliasDeclaration(union) || !ts.isUnionTypeNode(union.type)) {
     throw new Error(`BuiltInAgentFactoryConfig in ${path} must be a union`);

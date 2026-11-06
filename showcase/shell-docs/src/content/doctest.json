@@ -10,6 +10,8 @@
       "@ag-ui/llamaindex",
       "@ag-ui/langgraph",
       "@daytonaio/sdk@0.182.0",
+      "@tanstack/ai@1.2.0",
+      "@tanstack/ai-openai@1.1.1",
       "next",
       "openai",
       "zod"

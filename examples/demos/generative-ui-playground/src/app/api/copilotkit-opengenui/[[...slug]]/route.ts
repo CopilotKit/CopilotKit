@@ -9,10 +9,11 @@ import {
   CopilotRuntime,
   createCopilotRuntimeHandler,
   InMemoryAgentRunner,
-  BuiltInAgent,
 } from "@copilotkit/runtime";
+import { BuiltInAgent } from "@copilotkit/runtime/agent";
+import { openaiText } from "@tanstack/ai-openai";
 
-const MODEL = "openai/gpt-6-luna";
+const MODEL = openaiText("gpt-6-luna");
 
 const agent = new BuiltInAgent({
   model: MODEL,
@@ -22,7 +23,6 @@ When the user asks for any visual or interactive element, use the generateSandbo
 You can use CDN libraries like Chart.js, D3.js, Three.js, or x-data-spreadsheet to build rich UIs.
 
 Be creative and build polished, well-styled interfaces. Always include proper CSS styling.`,
-  temperature: 0.7,
 });
 
 const runtime = new CopilotRuntime({

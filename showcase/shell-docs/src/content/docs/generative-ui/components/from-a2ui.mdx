@@ -72,21 +72,25 @@ The provider takes a UI instead of a catalog, and the runtime needs no A2UI opti
 </Tabs>
 
 ```ts title="Runtime, before"
-import { BuiltInAgent, CopilotRuntime } from "@copilotkit/runtime";
+import { CopilotRuntime } from "@copilotkit/runtime";
+import { BuiltInAgent } from "@copilotkit/runtime/agent";
+import { openaiText } from "@tanstack/ai-openai";
 
 const runtime = new CopilotRuntime({
-  agents: { shop: new BuiltInAgent({ model: "openai/gpt-6-luna" }) },
+  agents: { shop: new BuiltInAgent({ model: openaiText("gpt-6-luna") }) },
   a2ui: { injectA2UITool: false, agents: ["shop"] },
 });
 ```
 
 ```ts title="Runtime, after"
-import { BuiltInAgent, CopilotRuntime } from "@copilotkit/runtime";
+import { CopilotRuntime } from "@copilotkit/runtime";
+import { BuiltInAgent } from "@copilotkit/runtime/agent";
+import { openaiText } from "@tanstack/ai-openai";
 
 // Nothing: a run that carries a catalog gets the render_ui tool and the guide.
 // To force or limit it: generativeUI: true, or generativeUI: { agents: ["shop"] }.
 const runtime = new CopilotRuntime({
-  agents: { shop: new BuiltInAgent({ model: "openai/gpt-6-luna" }) },
+  agents: { shop: new BuiltInAgent({ model: openaiText("gpt-6-luna") }) },
 });
 ```
 

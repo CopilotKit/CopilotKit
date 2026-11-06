@@ -59,14 +59,15 @@ Wire authentication into the runtime via the `onRequest` hook. The hook runs bef
 ```ts title="app/api/copilotkit/[[...slug]]/route.ts"
 import type { NextRequest } from "next/server";
 import {
-  BuiltInAgent,
   CopilotRuntime,
   createCopilotRuntimeHandler,
 } from "@copilotkit/runtime";
+import { BuiltInAgent } from "@copilotkit/runtime/agent";
+import { openaiText } from "@tanstack/ai-openai";
 import { verifyJwt } from "./auth"; // Your token verifier.
 
 const runtime = new CopilotRuntime({
-  agents: { default: new BuiltInAgent({ model: "openai/gpt-5.4" }) },
+  agents: { default: new BuiltInAgent({ model: openaiText("gpt-5.5") }) },
 });
 
 const handler = createCopilotRuntimeHandler({
@@ -543,11 +544,12 @@ The Intelligence runtime requires an `identifyUser` callback — construction th
 
 ```ts title="app/api/copilotkit/[[...slug]]/route.ts" group=auth-intelligence
 import {
-  BuiltInAgent,
   CopilotKitIntelligence,
   CopilotRuntime,
   createCopilotRuntimeHandler,
 } from "@copilotkit/runtime";
+import { BuiltInAgent } from "@copilotkit/runtime/agent";
+import { openaiText } from "@tanstack/ai-openai";
 import { verifyAppSession } from "./auth"; // Your server-side auth.
 
 const intelligence = new CopilotKitIntelligence({
@@ -555,7 +557,7 @@ const intelligence = new CopilotKitIntelligence({
 });
 
 const runtime = new CopilotRuntime({
-  agents: { default: new BuiltInAgent({ model: "openai/gpt-5.4" }) },
+  agents: { default: new BuiltInAgent({ model: openaiText("gpt-5.5") }) },
   intelligence,
   identifyUser: async (request) => {
     const session = await verifyAppSession(request); // Your server-side auth.
@@ -680,14 +682,15 @@ Write a row when a conversation is first created — see [minting a thread with 
 
 ```ts title="app/api/copilotkit/[[...slug]]/route.ts"
 import {
-  BuiltInAgent,
   CopilotRuntime,
   createCopilotRuntimeHandler,
 } from "@copilotkit/runtime";
+import { BuiltInAgent } from "@copilotkit/runtime/agent";
+import { openaiText } from "@tanstack/ai-openai";
 import { userOwnsThread, verifyRequest } from "./auth"; // Your auth and ownership checks.
 
 const runtime = new CopilotRuntime({
-  agents: { default: new BuiltInAgent({ model: "openai/gpt-5.4" }) },
+  agents: { default: new BuiltInAgent({ model: openaiText("gpt-5.5") }) },
 });
 
 const handler = createCopilotRuntimeHandler({

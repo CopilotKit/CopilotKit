@@ -38,6 +38,14 @@
       "import": "./dist/index.mjs",
       "require": "./dist/index.cjs"
     },
+    "./agent": {
+      "import": "./dist/agent.mjs",
+      "require": "./dist/agent.cjs"
+    },
+    "./agent/ai-sdk": {
+      "import": "./dist/agent/ai-sdk.mjs",
+      "require": "./dist/agent/ai-sdk.cjs"
+    },
     "./internal/learned-skills": {
       "import": "./dist/internal/learned-skills.mjs",
       "require": "./dist/internal/learned-skills.cjs"
@@ -59,7 +67,7 @@
     "check-types": "tsc --noEmit",
     "link:global": "pnpm link --global",
     "unlink:global": "pnpm unlink --global",
-    "check-dts": "tsx ../../scripts/validate-dts-ambient.ts dist && tsx ../../scripts/validate-dts-imports.ts dist && tsx ../../scripts/validate-optional-peer-entries.ts . && tsx ../../scripts/validate-module-scope-create-require.ts . && tsc --noEmit -p type-fixtures/express4/tsconfig.json && tsc --noEmit -p type-fixtures/express5/tsconfig.json && tsc --noEmit -p type-fixtures/learning-management/tsconfig.json",
+    "check-dts": "tsx ../../scripts/validate-dts-ambient.ts dist && tsx ../../scripts/validate-dts-imports.ts dist && tsx ../../scripts/validate-optional-peer-entries.ts . && tsx ../../scripts/validate-module-scope-create-require.ts . && tsc --noEmit -p type-fixtures/express4/tsconfig.json && tsc --noEmit -p type-fixtures/express5/tsconfig.json && tsc --noEmit -p type-fixtures/learning-management/tsconfig.json && tsc --noEmit -p type-fixtures/agent/tsconfig.json",
     "publint": "publint .",
     "attw": "attw --pack . --profile node16"
   },
@@ -70,11 +78,6 @@
     "@ag-ui/encoder": "1.0.4",
     "@ag-ui/mcp-apps-middleware": "^0.1.1",
     "@ag-ui/mcp-middleware": "0.0.2",
-    "@ai-sdk/anthropic": "^3.0.49",
-    "@ai-sdk/google": "^3.0.33",
-    "@ai-sdk/google-vertex": "^3.0.97",
-    "@ai-sdk/mcp": "^1.0.21",
-    "@ai-sdk/openai": "^3.0.36",
     "@cfworker/json-schema": "^4.1.1",
     "@copilotkit/channels-core": "workspace:^",
     "@copilotkit/channels-intelligence": "workspace:^",
@@ -82,7 +85,6 @@
     "@copilotkit/shared": "workspace:*",
     "@modelcontextprotocol/sdk": "^1.29.0",
     "@remix-run/node-fetch-server": "^0.13.0",
-    "ai": "^6.0.104",
     "fflate": "0.8.2",
     "phoenix": "^1.8.4",
     "rxjs": "7.8.1",
@@ -92,7 +94,11 @@
     "@copilotkit/aimock": "latest",
     "@copilotkit/channels": "workspace:*",
     "@copilotkit/typescript-config": "workspace:*",
+    "@hono/node-server": "^1.13.5",
     "@swc/core": "1.5.28",
+    "@tanstack/ai": "^1.2.0",
+    "@tanstack/ai-mcp": "^1.1.0",
+    "@tanstack/ai-openai": "^1.1.1",
     "@tanstack/intent": "^0.0.29",
     "@types/express": "^4.17.21",
     "@types/express-v5": "npm:@types/express@^5.0.0",
@@ -101,10 +107,12 @@
     "@valibot/to-json-schema": "^1.5.0",
     "@vitest/coverage-v8": "^3.2.4",
     "@whatwg-node/server": "^0.9.34",
+    "ai": "^6.0.104",
     "arktype": "^2.1.29",
     "elysia": "^1.2.25",
     "eslint": "^8.56.0",
     "express": "^4.18.0 || ^5.0.0",
+    "hono": "^4.11.4",
     "nodemon": "^3.1.3",
     "supertest": "^7.1.1",
     "ts-node": "^10.9.2",
@@ -112,8 +120,6 @@
     "typescript": "^5.2.3",
     "valibot": "^1.2.0",
     "vitest": "^3.2.4",
-    "hono": "^4.11.4",
-    "@hono/node-server": "^1.13.5",
     "ws": "^8.18.0"
   },
   "nx": {
@@ -127,5 +133,17 @@
   },
   "engines": {
     "node": "^20.19.3 || >=22.13.0"
+  },
+  "peerDependencies": {
+    "@tanstack/ai": "^1.2.0",
+    "ai": ">=6.0.104"
+  },
+  "peerDependenciesMeta": {
+    "@tanstack/ai": {
+      "optional": true
+    },
+    "ai": {
+      "optional": true
+    }
   }
 }

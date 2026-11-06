@@ -96,18 +96,7 @@ export function installMonitorConsumer(plan, cwd, env, output) {
     join(cwd, "package-lock.json"),
     join(output, `consumer-zod-${zod}-package-lock.json`),
   );
-  // Resolve from both consumer and installed adapter contexts to detect nested
-  // duplicate framework installs. Import each entry before recording its version.
-  const entrypoints = {
-    "@langchain/core": "@langchain/core/messages",
-    "@langchain/langgraph": "@langchain/langgraph",
-    langchain: "langchain",
-    "@mastra/core": "@mastra/core/agent",
-    zod: "zod",
-    ai: "ai",
-  };
-  const code = `import {createRequire} from 'node:module';import {readFileSync,existsSync} from 'node:fs';import {dirname,join} from 'node:path';const root=createRequire(import.meta.url);const contexts=[root,createRequire(root.resolve(${JSON.stringify(adapters[plan.adapterId].entrypoint ?? adapters[plan.adapterId].name)}))];const expected=${JSON.stringify(plan.dependencies)};const entries=${JSON.stringify(entrypoints)};let result={};for(const [name,version] of Object.entries(expected)){for(const require of contexts){const entry=require.resolve(entries[name]);await import(entry);let dir=dirname(entry);while(!existsSync(join(dir,'package.json'))||JSON.parse(readFileSync(join(dir,'package.json'))).name!==name){const parent=dirname(dir);if(parent===dir)throw Error('Package metadata absent');dir=parent;}const actual=JSON.parse(readFileSync(join(dir,'package.json'))).version;if(actual!==version)throw Error('Loaded version mismatch: '+name+' '+actual);result[name]=actual;}}console.log(JSON.stringify({resolvedDependencies:result}));`;
-  writeFileSync(join(cwd, "versions.mjs"), code);
+  writeFileSync(join(cwd, "versions.mjs"), versionProbe(plan));
   const evidence = execFileSync(process.execPath, ["versions.mjs"], {
     cwd,
     env,
@@ -130,6 +119,64 @@ export function installMonitorConsumer(plan, cwd, env, output) {
       resolvedGraph: { ...previous.resolvedGraph, ...graph },
     }),
   );
+}
+
+/** Entry each watched package is imported through. ESM-only packages are absent: they are found on disk instead, because `require.resolve` cannot see them. */
+const ENTRYPOINTS = {
+  "@langchain/core": "@langchain/core/messages",
+  "@langchain/langgraph": "@langchain/langgraph",
+  langchain: "langchain",
+  "@mastra/core": "@mastra/core/agent",
+  zod: "zod",
+  ai: "ai",
+};
+
+/**
+ * Script text (ES module) that imports each dependency of `plan` from the
+ * consumer and from the installed adapter, and prints the versions it loaded.
+ * Resolving from both contexts detects nested duplicate framework installs.
+ * Fails when a loaded version differs from the requested one.
+ */
+export function versionProbe(plan) {
+  const adapter = adapters[plan.adapterId];
+  return `import {createRequire} from 'node:module';
+import {readFileSync,existsSync} from 'node:fs';
+import {dirname,join} from 'node:path';
+const root=createRequire(import.meta.url);
+const contexts=[root,createRequire(root.resolve(${JSON.stringify(adapter.entrypoint ?? adapter.name)}))];
+const expected=${JSON.stringify(plan.dependencies)};
+const entries=${JSON.stringify(ENTRYPOINTS)};
+const readPackage=(dir)=>JSON.parse(readFileSync(join(dir,'package.json'),'utf8'));
+function locate(require,name){
+  if(entries[name]){
+    const entry=require.resolve(entries[name]);
+    let dir=dirname(entry);
+    while(!existsSync(join(dir,'package.json'))||readPackage(dir).name!==name){const parent=dirname(dir);if(parent===dir)throw Error('Package metadata absent');dir=parent;}
+    return {entry,dir};
+  }
+  // ESM-only: walk the same node_modules chain require would, and import the package's "." import target.
+  for(const base of require.resolve.paths(name)??[]){
+    const dir=join(base,name);
+    if(!existsSync(join(dir,'package.json')))continue;
+    const pkg=readPackage(dir);const main=pkg.exports?.['.'];
+    const target=typeof main==='string'?main:main?.import??main?.default??pkg.module??pkg.main;
+    if(!target)throw Error('No import entry for '+name);
+    return {entry:join(dir,target),dir};
+  }
+  throw Error('Cannot locate '+name);
+}
+const result={};
+for(const [name,version] of Object.entries(expected)){
+  for(const require of contexts){
+    const {entry,dir}=locate(require,name);
+    await import(entry);
+    const actual=readPackage(dir).version;
+    if(actual!==version)throw Error('Loaded version mismatch: '+name+' '+actual);
+    result[name]=actual;
+  }
+}
+console.log(JSON.stringify({resolvedDependencies:result}));
+`;
 }
 
 export function verifyNativeReport(report) {

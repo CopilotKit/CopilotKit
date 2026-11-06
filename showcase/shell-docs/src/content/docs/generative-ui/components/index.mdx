@@ -68,12 +68,14 @@ Already have CopilotKit running? Do step 3 only. Your runtime needs no change: w
     import { chat } from "@tanstack/ai";
     import { openaiText } from "@tanstack/ai-openai";
     import {
-      BuiltInAgent,
-      convertInputToTanStackAI,
       CopilotRuntime,
       createCopilotRuntimeHandler,
       InMemoryAgentRunner,
     } from "@copilotkit/runtime";
+    import {
+      BuiltInAgent,
+      convertInputToTanStackAI,
+    } from "@copilotkit/runtime/agent";
 
     const agent = new BuiltInAgent({
       type: "tanstack",
@@ -111,13 +113,12 @@ Already have CopilotKit running? Do step 3 only. Your runtime needs no change: w
     import { createServer } from "node:http";
     import { chat } from "@tanstack/ai";
     import { openaiText } from "@tanstack/ai-openai";
+    import { CopilotRuntime, InMemoryAgentRunner } from "@copilotkit/runtime";
+    import { createCopilotNodeListener } from "@copilotkit/runtime/node";
     import {
       BuiltInAgent,
       convertInputToTanStackAI,
-      CopilotRuntime,
-      InMemoryAgentRunner,
-    } from "@copilotkit/runtime";
-    import { createCopilotNodeListener } from "@copilotkit/runtime/node";
+    } from "@copilotkit/runtime/agent";
 
     const agent = new BuiltInAgent({
       type: "tanstack",

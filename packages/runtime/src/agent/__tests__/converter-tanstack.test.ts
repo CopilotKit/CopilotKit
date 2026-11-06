@@ -9,6 +9,7 @@ import {
   expectLifecycleWrapped,
   expectEventSequence,
   eventField,
+  eventsOfType,
   tanstackTextChunk,
   tanstackToolCallStart,
   tanstackToolCallArgs,
@@ -20,6 +21,13 @@ import {
   tanstackReasoningMessageEnd,
   tanstackReasoningEnd,
 } from "./agent-test-helpers";
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+
+/** TanStack chunk that opens a text message, with the adapter's message id. */
+function tanstackTextStart(messageId: string) {
+  return { type: "TEXT_MESSAGE_START", messageId, role: "assistant" } as const;
+}
 
 describe("TanStack AI converter (via Agent)", () => {
   // -------------------------------------------------------------------------
@@ -67,6 +75,35 @@ describe("TanStack AI converter (via Agent)", () => {
         textEvents.map((e) => eventField<string>(e, "messageId")),
       );
       expect(messageIds.size).toBe(1);
+    });
+
+    it("TEXT_MESSAGE_START opens a new message with a fresh id, even when the adapter repeats its id", async () => {
+      const agent = createAgent("tanstack", [
+        tanstackTextStart("0"),
+        tanstackTextChunk("Before tool"),
+        tanstackToolCallStart("tc-1", "myTool"),
+        tanstackToolCallEnd("tc-1"),
+        { type: "RUN_FINISHED" },
+        tanstackToolCallResult("tc-1", { ok: true }),
+        { type: "RUN_STARTED" },
+        tanstackTextStart("0"),
+        tanstackTextChunk("After tool"),
+        { type: "RUN_FINISHED" },
+      ]);
+      const events = await collectEvents(agent.run(createDefaultInput()));
+
+      const [before, after] = eventsOfType(
+        events,
+        EventType.TEXT_MESSAGE_CHUNK,
+      );
+      expect(before).toMatchObject({ delta: "Before tool" });
+      expect(after).toMatchObject({ delta: "After tool" });
+      expect(before?.messageId).toMatch(UUID);
+      expect(after?.messageId).toMatch(UUID);
+      expect(after?.messageId).not.toBe(before?.messageId);
+      expect(eventsOfType(events, EventType.TOOL_CALL_START)).toEqual([
+        expect.objectContaining({ parentMessageId: before?.messageId }),
+      ]);
     });
 
     it("empty stream produces only RUN_STARTED + RUN_FINISHED", async () => {
@@ -776,5 +813,169 @@ describe("TanStack AI converter — reasoning", () => {
     expect(types.indexOf(EventType.REASONING_END)).toBeLessThan(
       types.indexOf(EventType.TEXT_MESSAGE_CHUNK),
     );
+  });
+});
+
+describe("TanStack AI converter — @tanstack/ai 1.2 RUN_FINISHED", () => {
+  // @tanstack/ai 1.2 chat() puts the model, the finish reason, and the
+  // provider under RUN_FINISHED `metadata.tanstack`, and reports a
+  // `needsApproval` tool call as RUN_FINISHED `outcome: interrupt` instead of a
+  // CUSTOM "approval-requested" chunk. These chunks copy that shape.
+  const tanstackMetadata = {
+    source: { provider: "openai", api: "text", model: "gpt-5-mini" },
+    model: "gpt-5-mini",
+    finishReason: "stop",
+  };
+  const usage = { promptTokens: 10, completionTokens: 4, totalTokens: 14 };
+
+  function approvalInterrupt(toolCallId: string, toolName: string) {
+    return {
+      id: `approval_${toolCallId}`,
+      reason: "tool_call",
+      message: `Approval required to run ${toolName}`,
+      toolCallId,
+      metadata: { kind: "approval", toolName, input: {} },
+    };
+  }
+
+  async function runFinishedOf(chunks: Record<string, unknown>[]) {
+    const events = await collectEvents(
+      createAgent("tanstack", chunks).run(createDefaultInput()),
+    );
+    const finished = events.filter((e) => e.type === EventType.RUN_FINISHED);
+    expect(finished).toHaveLength(1);
+    return finished[0];
+  }
+
+  it("reads the finish reason, model, and provider from metadata.tanstack", async () => {
+    const finished = await runFinishedOf([
+      tanstackTextChunk("Hi"),
+      {
+        type: "RUN_FINISHED",
+        usage,
+        metadata: { tanstack: tanstackMetadata },
+      },
+    ]);
+
+    expect(finished.metadata).toEqual({ finishReason: "stop" });
+    expect(eventField(finished, "usage")).toEqual([
+      {
+        provider: "openai",
+        model: "gpt-5-mini",
+        inputTokens: 10,
+        outputTokens: 4,
+        totalTokens: 14,
+      },
+    ]);
+  });
+
+  it("forwards the other metadata keys but not metadata.tanstack", async () => {
+    const finished = await runFinishedOf([
+      {
+        type: "RUN_FINISHED",
+        metadata: { traceId: "trace-1", tanstack: tanstackMetadata },
+      },
+    ]);
+
+    expect(finished.metadata).toEqual({
+      traceId: "trace-1",
+      finishReason: "stop",
+    });
+  });
+
+  it("prefers the top-level model and finish reason of older @tanstack/ai", async () => {
+    const finished = await runFinishedOf([
+      {
+        type: "RUN_FINISHED",
+        model: "gpt-4o",
+        finishReason: "length",
+        usage,
+        metadata: { tanstack: tanstackMetadata },
+      },
+    ]);
+
+    expect(finished.metadata).toEqual({ finishReason: "length" });
+    expect(eventField(finished, "usage")).toMatchObject([
+      { provider: "openai", model: "gpt-4o" },
+    ]);
+  });
+
+  it("maps an approval interrupt outcome to an AG-UI interrupt outcome", async () => {
+    const finished = await runFinishedOf([
+      tanstackToolCallStart("tc-1", "bookFlight"),
+      tanstackToolCallEnd("tc-1"),
+      {
+        type: "RUN_FINISHED",
+        metadata: {
+          tanstack: { ...tanstackMetadata, finishReason: "tool_calls" },
+        },
+        outcome: {
+          type: "interrupt",
+          interrupts: [approvalInterrupt("tc-1", "bookFlight")],
+        },
+      },
+    ]);
+
+    expect(eventField(finished, "outcome")).toEqual({
+      type: "interrupt",
+      interrupts: [
+        {
+          id: "tc-1",
+          toolCallId: "tc-1",
+          reason: "tool_approval",
+          message: 'Approve "bookFlight"?',
+          metadata: { toolName: "bookFlight" },
+        },
+      ],
+    });
+  });
+
+  it("reports one interrupt when the CUSTOM chunk and the outcome name the same call", async () => {
+    const finished = await runFinishedOf([
+      tanstackToolCallStart("tc-1", "bookFlight"),
+      tanstackToolCallEnd("tc-1"),
+      {
+        type: "CUSTOM",
+        name: "approval-requested",
+        value: { toolCallId: "tc-1", toolName: "bookFlight" },
+      },
+      {
+        type: "RUN_FINISHED",
+        outcome: {
+          type: "interrupt",
+          interrupts: [approvalInterrupt("tc-1", "bookFlight")],
+        },
+      },
+    ]);
+
+    const outcome = eventField<{ interrupts: unknown[] }>(finished, "outcome");
+    expect(outcome.interrupts).toHaveLength(1);
+    expect(outcome.interrupts[0]).toMatchObject({
+      id: "tc-1",
+      toolCallId: "tc-1",
+    });
+  });
+
+  it("does not map a client tool interrupt outcome", async () => {
+    const finished = await runFinishedOf([
+      tanstackToolCallStart("tc-1", "showCard"),
+      tanstackToolCallEnd("tc-1"),
+      {
+        type: "RUN_FINISHED",
+        outcome: {
+          type: "interrupt",
+          interrupts: [
+            {
+              id: "client_tool_tc-1",
+              reason: "tanstack:client_tool_execution",
+              toolCallId: "tc-1",
+              metadata: { kind: "client_tool", toolName: "showCard" },
+            },
+          ],
+        },
+      },
+    ]);
+
+    expect(eventField(finished, "outcome")).toBeUndefined();
   });
 });

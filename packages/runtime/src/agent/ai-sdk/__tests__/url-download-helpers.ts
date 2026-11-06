@@ -9,7 +9,7 @@ import net from "node:net";
  * True if `localhost.` resolves only to loopback addresses on this host, and
  * false if the name does not exist here. Any other resolver error is thrown,
  * so that a broken resolver fails the test instead of skipping it. (The
- * agent-level guard test does not depend on this: it stubs the answer.)
+ * streamText guard test does not depend on this: it stubs the answer.)
  */
 export async function localhostDotIsLoopback(): Promise<boolean> {
   let answers: Array<{ address: string }>;

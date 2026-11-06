@@ -1,198 +1,154 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+/**
+ * Config tools (`tools` with `execute`) run on the server: the fake model
+ * calls them, the real `chat()` runs their `execute`, and the result goes
+ * back as a TOOL_CALL_RESULT. Frontend tools have no executor and stay with
+ * the client. A throwing `execute` is pinned in tool-error.test.ts. A
+ * `defineTool()` tool also runs in a plain TanStack AI `chat()` call.
+ */
+import { describe, it, expect } from "vitest";
 import { z } from "zod";
-import { BuiltInAgent, defineTool } from "../index";
 import { EventType } from "@ag-ui/client";
-import type { RunAgentInput } from "@ag-ui/client";
-import { streamText } from "ai";
-import type * as AISDK from "ai";
+import { chat, maxIterations } from "@tanstack/ai";
+import { defineTool } from "../index";
 import {
-  mockStreamTextResponse,
-  toolCallStreamingStart,
-  toolCall,
-  toolResult,
-  finish,
-  collectEvents,
-} from "./test-helpers";
+  createFakeModel,
+  eventsOfType,
+  requestToolNames,
+  runClassicAgent,
+} from "./agent-test-helpers";
 
-// Mock the ai module
-vi.mock("ai", async (importOriginal) => ({
-  ...(await importOriginal<typeof AISDK>()),
-  streamText: vi.fn(),
-  tool: vi.fn((config) => config),
-  stepCountIs: vi.fn((count: number) => ({ type: "stepCount", count })),
-}));
-
-// Mock the SDK clients
-vi.mock("@ai-sdk/openai", () => ({
-  createOpenAI: vi.fn(() => (modelId: string) => ({
-    modelId,
-    provider: "openai",
-  })),
-}));
-
-describe("Config Tools Server-Side Execution", () => {
-  const originalEnv = process.env;
-
-  beforeEach(() => {
-    vi.clearAllMocks();
-    process.env = { ...originalEnv };
-    process.env.OPENAI_API_KEY = "test-key";
+/** A tool that records the arguments of each call and returns `result`. */
+function recordingTool<TParameters extends z.ZodObject>(
+  name: string,
+  parameters: TParameters,
+  result: unknown,
+) {
+  const calls: unknown[] = [];
+  const tool = defineTool({
+    name,
+    description: `The ${name} tool`,
+    parameters,
+    execute: async (args) => {
+      calls.push(args);
+      return result;
+    },
   });
+  return { tool, calls };
+}
 
-  afterEach(() => {
-    process.env = originalEnv;
-  });
-
-  describe("Tool Definition with Execute", () => {
-    it("should pass execute function to streamText tools", async () => {
-      const executeFn = vi.fn().mockResolvedValue({ result: "executed" });
-
-      const weatherTool = defineTool({
-        name: "getWeather",
-        description: "Get weather for a city",
-        parameters: z.object({
-          city: z.string().describe("The city name"),
-        }),
-        execute: executeFn,
-      });
-
-      const agent = new BuiltInAgent({
-        model: "openai/gpt-4o",
-        tools: [weatherTool],
-      });
-
-      vi.mocked(streamText).mockReturnValue(
-        mockStreamTextResponse([finish()]) as any,
-      );
-
-      const input: RunAgentInput = {
-        threadId: "thread1",
-        runId: "run1",
-        messages: [],
-        tools: [],
-        context: [],
-        state: {},
-      };
-
-      await collectEvents(agent["run"](input));
-
-      // Verify streamText was called with tools that have execute functions
-      const callArgs = vi.mocked(streamText).mock.calls[0][0];
-      expect(callArgs.tools).toHaveProperty("getWeather");
-      expect(callArgs.tools.getWeather).toHaveProperty("execute");
-      expect(typeof callArgs.tools.getWeather.execute).toBe("function");
+describe("Config tools with execute", () => {
+  it("offers the tool to the model with its description and JSON Schema", async () => {
+    const weatherTool = defineTool({
+      name: "getWeather",
+      description: "Get weather for a city",
+      parameters: z.object({
+        city: z.string().describe("The city name"),
+        units: z.enum(["celsius", "fahrenheit"]).optional(),
+      }),
+      execute: async () => ({ temperature: 72 }),
     });
 
-    it("should include all tool properties in the Vercel AI SDK tool", async () => {
-      const executeFn = vi.fn().mockResolvedValue({ temperature: 72 });
+    const { requests } = await runClassicAgent({ tools: [weatherTool] });
 
-      const weatherTool = defineTool({
-        name: "getWeather",
-        description: "Get weather for a city",
-        parameters: z.object({
-          city: z.string(),
-          units: z.enum(["celsius", "fahrenheit"]).optional(),
-        }),
-        execute: executeFn,
-      });
-
-      const agent = new BuiltInAgent({
-        model: "openai/gpt-4o",
-        tools: [weatherTool],
-      });
-
-      vi.mocked(streamText).mockReturnValue(
-        mockStreamTextResponse([finish()]) as any,
-      );
-
-      const input: RunAgentInput = {
-        threadId: "thread1",
-        runId: "run1",
-        messages: [],
-        tools: [],
-        context: [],
-        state: {},
-      };
-
-      await collectEvents(agent["run"](input));
-
-      const callArgs = vi.mocked(streamText).mock.calls[0][0];
-      const tool = callArgs.tools.getWeather;
-
-      expect(tool.description).toBe("Get weather for a city");
-      expect(tool.inputSchema).toBeDefined();
-      expect(tool.execute).toBe(executeFn);
+    const offered = requests[0]?.tools?.find((t) => t.name === "getWeather");
+    expect(offered?.description).toBe("Get weather for a city");
+    expect(offered?.inputSchema).toMatchObject({
+      type: "object",
+      properties: {
+        city: { type: "string", description: "The city name" },
+        units: { type: "string", enum: ["celsius", "fahrenheit"] },
+      },
+      required: ["city"],
     });
-
-    it("should handle multiple config tools with execute functions", async () => {
-      const weatherExecute = vi.fn().mockResolvedValue({ temp: 72 });
-      const searchExecute = vi.fn().mockResolvedValue({ results: [] });
-
-      const weatherTool = defineTool({
-        name: "getWeather",
-        description: "Get weather",
-        parameters: z.object({ city: z.string() }),
-        execute: weatherExecute,
-      });
-
-      const searchTool = defineTool({
-        name: "search",
-        description: "Search the web",
-        parameters: z.object({ query: z.string() }),
-        execute: searchExecute,
-      });
-
-      const agent = new BuiltInAgent({
-        model: "openai/gpt-4o",
-        tools: [weatherTool, searchTool],
-      });
-
-      vi.mocked(streamText).mockReturnValue(
-        mockStreamTextResponse([finish()]) as any,
-      );
-
-      const input: RunAgentInput = {
-        threadId: "thread1",
-        runId: "run1",
-        messages: [],
-        tools: [],
-        context: [],
-        state: {},
-      };
-
-      await collectEvents(agent["run"](input));
-
-      const callArgs = vi.mocked(streamText).mock.calls[0][0];
-
-      expect(callArgs.tools.getWeather.execute).toBe(weatherExecute);
-      expect(callArgs.tools.search.execute).toBe(searchExecute);
-    });
+    expect(offered?.execute).toBeTypeOf("function");
   });
 
-  describe("Config Tools vs Input Tools", () => {
-    it("config tools should have execute, input tools should not", async () => {
-      const configExecute = vi.fn().mockResolvedValue({ result: "server" });
+  it("runs execute with the model's arguments and returns its result as JSON", async () => {
+    const weather = recordingTool(
+      "getWeather",
+      z.object({
+        city: z.string(),
+        units: z.enum(["celsius", "fahrenheit"]),
+      }),
+      { weather: "sunny", temp: 72 },
+    );
 
-      const configTool = defineTool({
-        name: "serverTool",
-        description: "Runs on server",
-        parameters: z.object({ data: z.string() }),
-        execute: configExecute,
-      });
+    const { events } = await runClassicAgent({ tools: [weather.tool] }, [
+      {
+        toolCalls: [
+          {
+            id: "tool-call-1",
+            name: "getWeather",
+            input: { city: "New York", units: "fahrenheit" },
+          },
+        ],
+      },
+    ]);
 
-      const agent = new BuiltInAgent({
-        model: "openai/gpt-4o",
-        tools: [configTool],
-      });
+    expect(weather.calls).toEqual([{ city: "New York", units: "fahrenheit" }]);
+    expect(eventsOfType(events, EventType.TOOL_CALL_RESULT)).toEqual([
+      expect.objectContaining({
+        toolCallId: "tool-call-1",
+        content: '{"weather":"sunny","temp":72}',
+      }),
+    ]);
+  });
 
-      vi.mocked(streamText).mockReturnValue(
-        mockStreamTextResponse([finish()]) as any,
-      );
+  it("runs each of several config tools with its own arguments", async () => {
+    const weather = recordingTool(
+      "getWeather",
+      z.object({ city: z.string() }),
+      {
+        temp: 72,
+      },
+    );
+    const search = recordingTool("search", z.object({ query: z.string() }), {
+      results: [],
+    });
 
-      const input: RunAgentInput = {
-        threadId: "thread1",
-        runId: "run1",
-        messages: [],
+    const { events } = await runClassicAgent(
+      { tools: [weather.tool, search.tool] },
+      [
+        {
+          toolCalls: [
+            { id: "c1", name: "getWeather", input: { city: "Oslo" } },
+            { id: "c2", name: "search", input: { query: "fjords" } },
+          ],
+        },
+      ],
+    );
+
+    expect(weather.calls).toEqual([{ city: "Oslo" }]);
+    expect(search.calls).toEqual([{ query: "fjords" }]);
+    expect(
+      eventsOfType(events, EventType.TOOL_CALL_RESULT).map((e) => [
+        e.toolCallId,
+        e.content,
+      ]),
+    ).toEqual([
+      ["c1", '{"temp":72}'],
+      ["c2", '{"results":[]}'],
+    ]);
+  });
+});
+
+describe("Config tools vs input tools", () => {
+  it("runs the config tool on the server and leaves the input tool to the client", async () => {
+    const server = recordingTool("serverTool", z.object({ data: z.string() }), {
+      result: "server",
+    });
+
+    const { events, requests } = await runClassicAgent(
+      { tools: [server.tool] },
+      [
+        {
+          toolCalls: [
+            { id: "c1", name: "serverTool", input: { data: "x" } },
+            { id: "c2", name: "clientTool", input: { input: "y" } },
+          ],
+        },
+      ],
+      {
         tools: [
           {
             name: "clientTool",
@@ -203,319 +159,90 @@ describe("Config Tools Server-Side Execution", () => {
             },
           },
         ],
-        context: [],
-        state: {},
-      };
+      },
+    );
 
-      await collectEvents(agent["run"](input));
-
-      const callArgs = vi.mocked(streamText).mock.calls[0][0];
-
-      // Config tool has execute
-      expect(callArgs.tools.serverTool.execute).toBe(configExecute);
-
-      // Input tool does NOT have execute (client-side execution)
-      expect(callArgs.tools.clientTool.execute).toBeUndefined();
-    });
+    const offered = requests[0]?.tools ?? [];
+    expect(offered.find((t) => t.name === "serverTool")?.execute).toBeTypeOf(
+      "function",
+    );
+    expect(offered.find((t) => t.name === "clientTool")?.execute).toBe(
+      undefined,
+    );
+    expect(server.calls).toEqual([{ data: "x" }]);
+    expect(
+      eventsOfType(events, EventType.TOOL_CALL_RESULT).map((e) => e.toolCallId),
+    ).toEqual(["c1"]);
   });
+});
 
-  describe("Execute Function Invocation", () => {
-    it("execute function can be called with correct arguments", async () => {
-      const executeFn = vi
-        .fn()
-        .mockResolvedValue({ weather: "sunny", temp: 72 });
+describe("defineTool in a plain TanStack AI chat() call", () => {
+  it("runs execute with the parsed arguments and returns its result", async () => {
+    const weather = recordingTool(
+      "getWeather",
+      z.object({ city: z.string(), units: z.string().default("celsius") }),
+      { temp: 21 },
+    );
+    const { model } = createFakeModel([
+      {
+        toolCalls: [
+          { id: "tc-1", name: "getWeather", input: { city: "Oslo" } },
+        ],
+      },
+      {},
+    ]);
 
-      const weatherTool = defineTool({
-        name: "getWeather",
-        description: "Get weather",
-        parameters: z.object({
-          city: z.string(),
-          units: z.enum(["celsius", "fahrenheit"]),
-        }),
-        execute: executeFn,
-      });
-
-      const agent = new BuiltInAgent({
-        model: "openai/gpt-4o",
-        tools: [weatherTool],
-      });
-
-      vi.mocked(streamText).mockReturnValue(
-        mockStreamTextResponse([finish()]) as any,
-      );
-
-      const input: RunAgentInput = {
-        threadId: "thread1",
-        runId: "run1",
-        messages: [],
-        tools: [],
-        context: [],
-        state: {},
-      };
-
-      await collectEvents(agent["run"](input));
-
-      // Get the execute function that was passed to streamText
-      const callArgs = vi.mocked(streamText).mock.calls[0][0];
-      const passedExecute = callArgs.tools.getWeather.execute;
-
-      // Manually invoke it to verify it works correctly
-      const result = await passedExecute(
-        { city: "New York", units: "fahrenheit" },
-        { toolCallId: "tool-call-1", messages: [] },
-      );
-
-      expect(executeFn).toHaveBeenCalledWith(
-        { city: "New York", units: "fahrenheit" },
-        { toolCallId: "tool-call-1", messages: [] },
-      );
-      expect(result).toEqual({ weather: "sunny", temp: 72 });
+    const chunks = [];
+    const stream = chat({
+      adapter: model,
+      messages: [{ role: "user", content: "weather?" }],
+      tools: [weather.tool],
+      agentLoopStrategy: maxIterations(2),
+      threadId: "thread-1",
+      stream: true,
     });
+    for await (const chunk of stream) chunks.push(chunk);
 
-    it("execute function errors are propagated", async () => {
-      const executeFn = vi.fn().mockRejectedValue(new Error("API unavailable"));
-
-      const failingTool = defineTool({
-        name: "failingTool",
-        description: "A tool that fails",
-        parameters: z.object({}),
-        execute: executeFn,
-      });
-
-      const agent = new BuiltInAgent({
-        model: "openai/gpt-4o",
-        tools: [failingTool],
-      });
-
-      vi.mocked(streamText).mockReturnValue(
-        mockStreamTextResponse([finish()]) as any,
-      );
-
-      const input: RunAgentInput = {
-        threadId: "thread1",
-        runId: "run1",
-        messages: [],
-        tools: [],
-        context: [],
-        state: {},
-      };
-
-      await collectEvents(agent["run"](input));
-
-      const callArgs = vi.mocked(streamText).mock.calls[0][0];
-      const passedExecute = callArgs.tools.failingTool.execute;
-
-      await expect(
-        passedExecute({}, { toolCallId: "tool-call-1", messages: [] }),
-      ).rejects.toThrow("API unavailable");
-    });
+    expect(weather.calls).toEqual([{ city: "Oslo", units: "celsius" }]);
+    expect(
+      chunks.find((chunk) => chunk.type === "TOOL_CALL_RESULT"),
+    ).toMatchObject({ toolCallId: "tc-1", content: '{"temp":21}' });
   });
+});
 
-  describe("Built-in State Tools Still Work", () => {
-    it("AGUISendStateSnapshot should have execute alongside config tools", async () => {
-      const configExecute = vi.fn().mockResolvedValue({});
+describe("Built-in state tools still work", () => {
+  it("offers the state tools, with executors, after the config tools", async () => {
+    const my = recordingTool("myTool", z.object({}), {});
 
-      const configTool = defineTool({
-        name: "myTool",
-        description: "My tool",
-        parameters: z.object({}),
-        execute: configExecute,
-      });
-
-      const agent = new BuiltInAgent({
-        model: "openai/gpt-4o",
-        tools: [configTool],
-      });
-
-      vi.mocked(streamText).mockReturnValue(
-        mockStreamTextResponse([finish()]) as any,
-      );
-
-      const input: RunAgentInput = {
-        threadId: "thread1",
-        runId: "run1",
-        messages: [],
-        tools: [],
-        context: [],
-        state: { value: 1 },
-      };
-
-      await collectEvents(agent["run"](input));
-
-      const callArgs = vi.mocked(streamText).mock.calls[0][0];
-
-      // Both config tool and state tools should have execute
-      expect(callArgs.tools.myTool.execute).toBe(configExecute);
-      expect(callArgs.tools.AGUISendStateSnapshot.execute).toBeDefined();
-      expect(callArgs.tools.AGUISendStateDelta.execute).toBeDefined();
+    const { requests } = await runClassicAgent({ tools: [my.tool] }, [{}], {
+      state: { value: 1 },
     });
+
+    const request = requests[0]!;
+    expect(requestToolNames(request)).toEqual([
+      "myTool",
+      "AGUISendStateSnapshot",
+      "AGUISendStateDelta",
+    ]);
+    expect(request.tools?.every((t) => typeof t.execute === "function")).toBe(
+      true,
+    );
   });
+});
 
-  describe("Message ID Generation", () => {
-    it("should use messageId from text-start event", async () => {
-      const executeFn = vi.fn().mockResolvedValue({ result: "ok" });
-
-      const tool = defineTool({
-        name: "myTool",
-        description: "My tool",
-        parameters: z.object({}),
-        execute: executeFn,
-      });
-
-      const agent = new BuiltInAgent({
-        model: "openai/gpt-4o",
-        tools: [tool],
-      });
-
-      vi.mocked(streamText).mockReturnValue(
-        mockStreamTextResponse([
-          { type: "text-start", id: "msg-1" },
-          { type: "text-delta", text: "Before " },
-          { type: "text-delta", text: "tool" },
-          toolCallStreamingStart("call1", "myTool"),
-          toolCall("call1", "myTool"),
-          toolResult("call1", "myTool", { result: "ok" }),
-          { type: "text-start", id: "msg-2" },
-          { type: "text-delta", text: "After " },
-          { type: "text-delta", text: "tool" },
-          finish(),
-        ]) as any,
-      );
-
-      const input: RunAgentInput = {
-        threadId: "thread1",
-        runId: "run1",
-        messages: [],
-        tools: [],
-        context: [],
-        state: {},
-      };
-
-      const events = await collectEvents(agent["run"](input));
-
-      const textEvents = events.filter(
-        (e: any) => e.type === EventType.TEXT_MESSAGE_CHUNK,
-      );
-
-      // First two text chunks should have messageId from first text-start
-      expect(textEvents[0].messageId).toBe("msg-1");
-      expect(textEvents[1].messageId).toBe("msg-1");
-
-      // After tool result, text chunks should have messageId from second text-start
-      expect(textEvents[2].messageId).toBe("msg-2");
-      expect(textEvents[3].messageId).toBe("msg-2");
-    });
-  });
-
-  describe("Multi-Step Execution (maxSteps)", () => {
-    it("should pass stopWhen with stepCountIs when maxSteps is configured", async () => {
-      const executeFn = vi.fn().mockResolvedValue({ result: "ok" });
-
-      const tool = defineTool({
-        name: "myTool",
-        description: "My tool",
-        parameters: z.object({}),
-        execute: executeFn,
-      });
-
-      const agent = new BuiltInAgent({
-        model: "openai/gpt-4o",
-        maxSteps: 5,
-        tools: [tool],
-      });
-
-      vi.mocked(streamText).mockReturnValue(
-        mockStreamTextResponse([finish()]) as any,
-      );
-
-      const input: RunAgentInput = {
-        threadId: "thread1",
-        runId: "run1",
-        messages: [],
-        tools: [],
-        context: [],
-        state: {},
-      };
-
-      await collectEvents(agent["run"](input));
-
-      const callArgs = vi.mocked(streamText).mock.calls[0][0];
-
-      // stopWhen should be set with stepCountIs(5)
-      expect(callArgs.stopWhen).toEqual({ type: "stepCount", count: 5 });
+describe("Multi-step execution (maxSteps)", () => {
+  it("stops after maxSteps model calls even when the model keeps calling tools", async () => {
+    const chain = recordingTool("chainTool", z.object({}), {});
+    const callChain = (id: string) => ({
+      toolCalls: [{ id, name: "chainTool", input: {} }],
     });
 
-    it("should not set stopWhen when maxSteps is not configured", async () => {
-      const executeFn = vi.fn().mockResolvedValue({ result: "ok" });
+    const { requests } = await runClassicAgent(
+      { tools: [chain.tool], maxSteps: 3 },
+      [callChain("c1"), callChain("c2"), callChain("c3"), { text: "never" }],
+    );
 
-      const tool = defineTool({
-        name: "myTool",
-        description: "My tool",
-        parameters: z.object({}),
-        execute: executeFn,
-      });
-
-      const agent = new BuiltInAgent({
-        model: "openai/gpt-4o",
-        // maxSteps not set
-        tools: [tool],
-      });
-
-      vi.mocked(streamText).mockReturnValue(
-        mockStreamTextResponse([finish()]) as any,
-      );
-
-      const input: RunAgentInput = {
-        threadId: "thread1",
-        runId: "run1",
-        messages: [],
-        tools: [],
-        context: [],
-        state: {},
-      };
-
-      await collectEvents(agent["run"](input));
-
-      const callArgs = vi.mocked(streamText).mock.calls[0][0];
-
-      // stopWhen should be undefined (defaults to stepCountIs(1) in SDK)
-      expect(callArgs.stopWhen).toBeUndefined();
-    });
-
-    it("should allow high maxSteps for complex tool chains", async () => {
-      const executeFn = vi.fn().mockResolvedValue({});
-
-      const tool = defineTool({
-        name: "chainTool",
-        description: "Tool for chaining",
-        parameters: z.object({}),
-        execute: executeFn,
-      });
-
-      const agent = new BuiltInAgent({
-        model: "openai/gpt-4o",
-        maxSteps: 10,
-        tools: [tool],
-      });
-
-      vi.mocked(streamText).mockReturnValue(
-        mockStreamTextResponse([finish()]) as any,
-      );
-
-      const input: RunAgentInput = {
-        threadId: "thread1",
-        runId: "run1",
-        messages: [],
-        tools: [],
-        context: [],
-        state: {},
-      };
-
-      await collectEvents(agent["run"](input));
-
-      const callArgs = vi.mocked(streamText).mock.calls[0][0];
-
-      expect(callArgs.stopWhen).toEqual({ type: "stepCount", count: 10 });
-    });
+    expect(requests).toHaveLength(3);
+    expect(chain.calls).toHaveLength(3);
   });
 });

@@ -1,5 +1,6 @@
-import { BuiltInAgent, CopilotRuntime } from "@copilotkit/runtime";
-import type { BuiltInAgentClassicConfig as AgentConfig } from "@copilotkit/runtime";
+import { BuiltInAgent } from "@copilotkit/runtime/agent";
+import { CopilotRuntime } from "@copilotkit/runtime";
+import type { BuiltInAgentClassicConfig as AgentConfig } from "@copilotkit/runtime/agent";
 // TODO(copilotkit-2.0): `CopilotKitRequestHandler` was removed in 2.0. Use `CopilotRuntimeFetchHandler`. It takes the `Request` directly, not `{ request }`.
 import type { CopilotKitRequestHandler } from "@copilotkit/runtime";
 import { createCopilotNodeHandler } from "@copilotkit/runtime/node";
