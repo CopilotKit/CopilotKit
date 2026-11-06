@@ -327,16 +327,13 @@ generative_ui approach`. It is a regression-test page (`kind: testing` in
 feature cell, and every other integration that ships the page treats it the
 same way.
 
-## Logo and icon placeholders
+## Logo, icon and docs links
 
-`shell/public/logos/google-antigravity.svg` is a copy of `google-adk.svg`,
-used as a placeholder until a real Antigravity mark is available under a
-permissive licence. `showcase/shell-docs/src/data/frameworks/google-antigravity.ts`
-carries the matching placeholder for the shell-docs landing page: its
-`iconKey` is `"adk"` (there is no `google-antigravity` entry in
-`showcase/shell-docs/src/components/icons/index.ts`'s icon registry yet),
-called out with an inline comment at the `iconKey` line so a future pass
-replacing the logo knows to replace the icon key too.
+`shell/public/logos/google-antigravity.svg` and
+`shell-docs/public/logos/google-antigravity.svg` carry the Antigravity mark
+(the same file as `shell-docs/public/logos/antigravity.svg`). The shell-docs
+landing page uses it through the `antigravity` key in
+`showcase/shell-docs/src/components/icons/index.ts`.
 
 `docs-links.json` is now populated with per-feature entries — see
 "Documentation" below — rather than the placeholder `missing` block this
