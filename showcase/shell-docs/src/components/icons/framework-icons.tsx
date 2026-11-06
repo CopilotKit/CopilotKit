@@ -325,25 +325,13 @@ export const SpringIcon = wrap(
   />,
 );
 
-// The Antigravity mark is built from blurred, masked gradients, so it is served
-// as a static file instead of being inlined like the single-color marks above.
-export function AntigravityIcon({
-  className,
-  width = 20,
-  height = 20,
-}: IconProps) {
-  return (
-    // eslint-disable-next-line @next/next/no-img-element
-    <img
-      src="/logos/antigravity.svg"
-      alt=""
-      aria-hidden="true"
-      width={width}
-      height={height}
-      className={className}
-    />
-  );
-}
+export const AntigravityIcon = wrap(
+  "22 28 135 124",
+  <path
+    d="M144.248 149.062C151.748 154.688 162.998 150.938 152.685 140.625C121.748 110.625 128.31 28.125 89.8727 28.125C51.4352 28.125 57.9977 110.625 27.0602 140.625C15.8102 151.875 27.9977 154.688 35.4977 149.062C64.5602 129.375 62.6852 94.6875 89.8727 94.6875C117.06 94.6875 115.185 129.375 144.248 149.062Z"
+    fill="currentColor"
+  />,
+);
 
 const FRAMEWORK_ICONS: Record<string, React.ComponentType<IconProps>> = {
   "built-in-agent": CopilotKitKiteIcon,

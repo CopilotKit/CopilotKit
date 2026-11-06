@@ -330,10 +330,12 @@ same way.
 ## Logo, icon and docs links
 
 `shell/public/logos/google-antigravity.svg` and
-`shell-docs/public/logos/google-antigravity.svg` carry the Antigravity mark
-(the same file as `shell-docs/public/logos/antigravity.svg`). The shell-docs
-landing page uses it through the `antigravity` key in
-`showcase/shell-docs/src/components/icons/index.ts`.
+`shell-docs/public/logos/google-antigravity.svg` draw the Antigravity mark in
+grey on the same tile as the other integrations' logo files. Shell-docs draws
+a flat, accent-coloured version with `AntigravityIcon` in
+`showcase/shell-docs/src/components/icons/framework-icons.tsx`, used by the
+framework pickers and, through the `antigravity` key in
+`showcase/shell-docs/src/components/icons/index.ts`, by the landing page.
 
 `docs-links.json` is now populated with per-feature entries — see
 "Documentation" below — rather than the placeholder `missing` block this

@@ -2249,8 +2249,7 @@ samp {
 .partner-logo {
   display: flex;
 }
-.partner-logo svg,
-.partner-logo img {
+.partner-logo svg {
   width: 1.6rem;
   height: 1.6rem;
 }
