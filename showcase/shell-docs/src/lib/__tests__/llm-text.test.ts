@@ -76,7 +76,7 @@ test("Hashbrown guide exports each bundled framework's complete source", () => {
   const entries = Object.entries(bundle.demos).filter(([key]) =>
     key.endsWith("::declarative-hashbrown"),
   );
-  expect(entries).toHaveLength(15);
+  expect(entries).toHaveLength(16);
 
   for (const [key, demo] of entries) {
     const framework = key.split("::")[0];
