@@ -19,6 +19,7 @@ import {
   LlamaIndexIcon,
   MastraIcon,
   MicrosoftIcon,
+  OpenAIIcon,
   PydanticAiIcon,
   SpringIcon,
   StrandsIcon,
@@ -40,6 +41,7 @@ export const customIcons = {
   llamaindex: LlamaIndexIcon,
   mastra: MastraIcon,
   microsoft: MicrosoftIcon,
+  openai: OpenAIIcon,
   pydantic: PydanticAiIcon,
   spring: SpringIcon,
 } as const;

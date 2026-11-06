@@ -73,4 +73,47 @@ describe("setup content bundle", () => {
     // The mount, not just the agent construction.
     expect(source("agent-setup")).toContain("create_antigravity_app");
   });
+
+  // The OpenAI Agents SDK snippets embed every concept's code from the
+  // package's own agent sources, including two subclasses of the adapter's
+  // agent (the resume payload and the document streaming).
+  it("bundles the OpenAI Agents SDK backend wiring its docs pages embed", () => {
+    const setupContent = setupContentData as SetupContentBundle;
+    const source = (concept: string) => {
+      const bundled = resolveBundledSetupConcept(
+        "openai-agents-python",
+        concept,
+        setupContent,
+      );
+      expect(bundled, concept).toBeTypeOf("string");
+      expect(bundled, `${concept}: unresolved DemoCode`).not.toContain(
+        "<DemoCode",
+      );
+      expect(bundled, `${concept}: leaked region marker`).not.toContain(
+        "@region[",
+      );
+      return bundled ?? "";
+    };
+
+    // The mount, not just the agent construction.
+    expect(source("agent-setup")).toContain(
+      "add_openai_agents_fastapi_endpoint",
+    );
+    // The approval-gated tool and the subclass that hands it the picked time.
+    expect(source("human-in-the-loop-setup")).toContain(
+      "@function_tool(needs_approval=True)",
+    );
+    expect(source("human-in-the-loop-setup")).toContain(
+      "class SchedulerAgent(OpenAIAgentsAgent)",
+    );
+    // The state helper the read agents' dynamic instructions are built with.
+    expect(source("shared-state-setup")).toContain("def with_state");
+    // The subclass that turns argument chunks into state deltas.
+    expect(source("state-streaming-setup")).toContain(
+      "class DocumentStreamingAgent(OpenAIAgentsAgent)",
+    );
+    // The supervisor's delegation tools, from the region nested inside
+    // `subagent-setup`.
+    expect(source("subagents-setup")).toContain("async def research_agent");
+  });
 });
