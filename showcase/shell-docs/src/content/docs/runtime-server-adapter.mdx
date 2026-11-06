@@ -278,12 +278,16 @@ Deno.serve({ port: 4000 }, (request) => {
   ```
 </Callout>
 
+`openaiText()` reads `OPENAI_API_KEY` from `process.env`, which a Worker fills
+only with the `nodejs_compat` flag. The examples below pass the key from the
+Worker's `env` to `createOpenaiChat()` instead.
+
 <Tabs groupId="runtime-mode" items={["Multi-route", "Single-route", "Existing worker"]}>
 <Tab value="Multi-route">
 ```ts title="src/index.ts"
 import { CopilotRuntime, createCopilotRuntimeHandler } from "@copilotkit/runtime";
 import { BuiltInAgent } from "@copilotkit/runtime/agent";
-import { openaiText } from "@tanstack/ai-openai";
+import { createOpenaiChat } from "@tanstack/ai-openai";
 
 export interface Env {
   OPENAI_API_KEY: string;
@@ -293,7 +297,9 @@ export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const runtime = new CopilotRuntime({
       agents: {
-        default: new BuiltInAgent({ model: openaiText("gpt-4o-mini") }),
+        default: new BuiltInAgent({
+          model: createOpenaiChat("gpt-4o-mini", env.OPENAI_API_KEY),
+        }),
       },
     });
 
@@ -313,7 +319,7 @@ export default {
 ```ts title="src/index.ts"
 import { CopilotRuntime, createCopilotRuntimeHandler } from "@copilotkit/runtime";
 import { BuiltInAgent } from "@copilotkit/runtime/agent";
-import { openaiText } from "@tanstack/ai-openai";
+import { createOpenaiChat } from "@tanstack/ai-openai";
 
 export interface Env {
   OPENAI_API_KEY: string;
@@ -323,7 +329,9 @@ export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const runtime = new CopilotRuntime({
       agents: {
-        default: new BuiltInAgent({ model: openaiText("gpt-4o-mini") }),
+        default: new BuiltInAgent({
+          model: createOpenaiChat("gpt-4o-mini", env.OPENAI_API_KEY),
+        }),
       },
     });
 
@@ -344,7 +352,7 @@ export default {
 ```ts title="src/index.ts"
 import { CopilotRuntime, createCopilotRuntimeHandler } from "@copilotkit/runtime";
 import { BuiltInAgent } from "@copilotkit/runtime/agent";
-import { openaiText } from "@tanstack/ai-openai";
+import { createOpenaiChat } from "@tanstack/ai-openai";
 
 export interface Env {
   OPENAI_API_KEY: string;
@@ -358,7 +366,9 @@ export default {
     if (url.pathname.startsWith("/api/copilotkit")) {
       const runtime = new CopilotRuntime({
         agents: {
-          default: new BuiltInAgent({ model: openaiText("gpt-4o-mini") }),
+          default: new BuiltInAgent({
+            model: createOpenaiChat("gpt-4o-mini", env.OPENAI_API_KEY),
+          }),
         },
       });
 

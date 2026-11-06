@@ -108,6 +108,12 @@ async function* chunksOf(body: ReadableStream<Uint8Array>) {
 }
 ```
 
+Install the runtime and the TanStack AI adapter that the handler imports:
+
+```
+npm install @copilotkit/runtime @tanstack/ai @tanstack/ai-openai
+```
+
 `awslambda` is a global injected by the managed Node.js runtime. `@types/aws-lambda` declares it, together with the event types, so install that package as a dev dependency:
 
 ```

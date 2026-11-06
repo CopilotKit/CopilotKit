@@ -285,14 +285,14 @@ The agent also passes these options to `chat()`. TanStack AI types them:
 
 ## Options that the agent sets
 
-The agent sets some `chat()` options itself on each run. They are not in the
-config type, and a value that you pass does not replace them:
+The agent sets `messages`, `threadId`, `abortController`, and `stream` itself on
+each run. They are not in the config type, and a value that you pass does not
+replace them.
 
-- Conversation: `messages`, `state`, `resume`.
-- Ids: `threadId`, `runId`, `parentRunId`, `subagentRunId`, `subagentName`, `parentSubagentRunId`.
-- Streaming: `abortController`, `stream`, `outputSchema`.
-
-The agent does not take `interrupts` or `subagents`.
+The agent does not pass these `chat()` options, and the config does not take
+them: `state`, `resume`, `runId`, `parentRunId`, `subagentRunId`,
+`subagentName`, `parentSubagentRunId`, `outputSchema`, `interrupts`, and
+`subagents`.
 
 ## Overridable properties
 
