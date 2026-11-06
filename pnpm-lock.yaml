@@ -2442,9 +2442,6 @@ importers:
       '@copilotkit/core':
         specifier: workspace:^
         version: link:../core
-      '@copilotkit/mcp-apps-renderer':
-        specifier: workspace:^
-        version: link:../mcp-apps-renderer
       '@copilotkit/shared':
         specifier: workspace:^
         version: link:../shared
@@ -2488,6 +2485,9 @@ importers:
         specifier: ^3.24.5
         version: 3.25.1(zod@3.25.76)
     devDependencies:
+      '@copilotkit/mcp-apps-renderer':
+        specifier: workspace:^
+        version: link:../mcp-apps-renderer
       '@analogjs/vite-plugin-angular':
         specifier: 2.7.0
         version: 2.7.0(fb3f311ca669c6cea36b4bdc48e6246c)
@@ -3179,9 +3179,6 @@ importers:
       '@copilotkit/core':
         specifier: workspace:*
         version: link:../core
-      '@copilotkit/mcp-apps-renderer':
-        specifier: workspace:*
-        version: link:../mcp-apps-renderer
       '@copilotkit/runtime-client-gql':
         specifier: workspace:*
         version: link:../runtime-client-gql
@@ -3258,6 +3255,9 @@ importers:
         specifier: ^3.24.5
         version: 3.25.1(zod@3.25.76)
     devDependencies:
+      '@copilotkit/mcp-apps-renderer':
+        specifier: workspace:*
+        version: link:../mcp-apps-renderer
       '@playwright/test':
         specifier: ^1.59.1
         version: 1.59.1
@@ -4137,9 +4137,6 @@ importers:
       '@copilotkit/core':
         specifier: workspace:*
         version: link:../core
-      '@copilotkit/mcp-apps-renderer':
-        specifier: workspace:*
-        version: link:../mcp-apps-renderer
       '@copilotkit/shared':
         specifier: workspace:*
         version: link:../shared
@@ -4168,6 +4165,9 @@ importers:
         specifier: ^3.24.5
         version: 3.25.1(zod@3.25.76)
     devDependencies:
+      '@copilotkit/mcp-apps-renderer':
+        specifier: workspace:*
+        version: link:../mcp-apps-renderer
       '@copilotkit/typescript-config':
         specifier: workspace:*
         version: link:../typescript-config
