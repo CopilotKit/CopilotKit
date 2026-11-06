@@ -74,7 +74,9 @@ describe("Showcase compatibility mapping", () => {
 
   it("maps the OpenAI Agents SDK to its framework SDK and excludes its AG-UI adapter", () => {
     expect(
-      COMPATIBILITY_MAPPING.find((item) => item.slug === "openai-agents-python"),
+      COMPATIBILITY_MAPPING.find(
+        (item) => item.slug === "openai-agents-python",
+      ),
     ).toMatchObject({
       language: "python",
       libraries: [
