@@ -205,18 +205,48 @@ import {
 } from "@copilotkit/react-core/v2";
 ```
 
-Use the headless entry when you build a fully custom chat surface and only need platform-agnostic hooks. This avoids the built-in chat rendering stack and its CSS:
+Use the headless entry when you build a fully custom chat surface. It has its own provider, `CopilotKitHeadlessProvider`, so the built-in chat rendering stack and its CSS stay out of your bundle:
 
 ```tsx
 import {
+  CopilotKitHeadlessProvider,
   useAgent,
   useCopilotKit,
   useFrontendTool,
   useRenderToolCall,
 } from "@copilotkit/react-core/v2/headless";
+
+export function App() {
+  return (
+    <CopilotKitHeadlessProvider runtimeUrl="/api/copilotkit">
+      <MyChat />
+    </CopilotKitHeadlessProvider>
+  );
+}
 ```
 
-The headless entry exports the provider context, chat configuration provider, `useAgent`, tool hooks, suggestions, threads, capabilities, and shared types. It does not export `CopilotKitProvider`, `CopilotKit`, `CopilotChat`, `CopilotPopup`, `CopilotSidebar`, `useDefaultRenderTool`, or A2UI render helpers.
+`CopilotKitHeadlessProvider` takes the same props as `CopilotKitProvider`, except the ones for built-in UI: `a2ui`, `openGenerativeUI`, `generativeUI`, `mcpApps`, `enableInspector` and `showDevConsole`. It sets up the runtime connection, tools, human-in-the-loop, context and license handling. It does not register the built-in A2UI, MCP Apps, Open Generative UI or native generative UI renderers, and it renders no Inspector and no license banner.
+
+The headless entry also exports the provider context, chat configuration provider, `useAgent`, tool hooks, suggestions, threads, capabilities, `useLicenseContext` and shared types. It does not export `CopilotKitProvider`, `CopilotKit`, `CopilotChat`, `CopilotPopup`, `CopilotSidebar`, `useDefaultRenderTool`, or A2UI render helpers.
+
+### License notice in a headless app
+
+`CopilotKitProvider` shows a license banner when the runtime reports a missing, expiring, expired or invalid license. `CopilotKitHeadlessProvider` does not. Read the status with `useLicenseContext()` to show your own notice:
+
+```tsx
+import { useLicenseContext } from "@copilotkit/react-core/v2/headless";
+
+function LicenseNotice() {
+  const { status } = useLicenseContext();
+  // `status` is null until the runtime has answered.
+  if (status === "expired") return <p>Your CopilotKit license has expired.</p>;
+  if (status === "expiring") return <p>Your CopilotKit license expires soon.</p>;
+  if (status === "invalid") return <p>Your CopilotKit license is invalid.</p>;
+  return null;
+}
+```
+
+`status` is one of `"valid"`, `"none"`, `"expiring"`, `"expired"`, `"invalid"` or `"unknown"`. `checkFeature(feature)` and `getLimit(feature)` on the same object tell you whether a feature is licensed and its limit.
 
 ## Styling
 
