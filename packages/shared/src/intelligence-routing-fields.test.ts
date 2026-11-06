@@ -39,31 +39,25 @@ describe("stripIntelligenceRoutingFields", () => {
     });
   });
 
-  it("removes the organization and project ids the gateway adds to relayed events", () => {
-    const scope = { organization_id: "o1", project_id: "p1" };
-    const content = {
-      type: EventType.TEXT_MESSAGE_CONTENT,
-      messageId: "m1",
-      delta: "hi",
-      ...scope,
-    } as BaseEvent;
-    const finished = {
-      type: EventType.RUN_FINISHED,
-      threadId: "t1",
-      runId: "r1",
-      ...scope,
-    } as BaseEvent;
+  it.each([
+    ["organization_id", { organization_id: "o1" }],
+    ["project_id", { project_id: "p1" }],
+    [
+      "organization_id and project_id",
+      { organization_id: "o1", project_id: "p1" },
+    ],
+  ])("removes %s the gateway adds to relayed events", (_, scope) => {
+    const events = [
+      { type: EventType.TEXT_MESSAGE_CONTENT, messageId: "m1", delta: "hi" },
+      { type: EventType.RUN_STARTED, threadId: "t1", runId: "r1" },
+      { type: EventType.RUN_FINISHED, threadId: "t1", runId: "r1" },
+    ];
 
-    expect(stripIntelligenceRoutingFields(content)).toEqual({
-      type: EventType.TEXT_MESSAGE_CONTENT,
-      messageId: "m1",
-      delta: "hi",
-    });
-    expect(stripIntelligenceRoutingFields(finished)).toEqual({
-      type: EventType.RUN_FINISHED,
-      threadId: "t1",
-      runId: "r1",
-    });
+    for (const event of events) {
+      expect(
+        stripIntelligenceRoutingFields({ ...event, ...scope } as BaseEvent),
+      ).toEqual(event);
+    }
   });
 
   it("returns an event without routing fields unchanged", () => {
