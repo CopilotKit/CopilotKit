@@ -59,14 +59,16 @@ export function InlineAgentStateCard({
       data-testid="agent-state-card"
       data-complete={allDone ? "true" : "false"}
       data-stalled={stalled ? "true" : "false"}
-      className="my-3 mx-4 rounded-2xl border border-[#DBDBE5] bg-white p-4 shadow-sm"
+      className="my-3 mx-4 rounded-2xl border border-[#DBDBE5] dark:border-border bg-white dark:bg-card p-4 shadow-sm"
     >
       <div className="flex items-center gap-2">
         {/* A check mark asserts completion, so it is gated on the data too. A
             stalled run gets neither icon: it is not running, and it is not
             done. */}
         {allDone ? <CheckIcon /> : stalled ? null : <SpinnerIcon />}
-        <span className="text-sm font-semibold text-[#010507]">{headline}</span>
+        <span className="text-sm font-semibold text-[#010507] dark:text-foreground">
+          {headline}
+        </span>
       </div>
 
       {steps.length > 0 && (
@@ -83,10 +85,10 @@ export function InlineAgentStateCard({
                 className={
                   "text-xs leading-5 " +
                   (step.status === "completed"
-                    ? "text-[#838389] line-through"
+                    ? "text-[#838389] dark:text-muted-foreground line-through"
                     : step.status === "in_progress"
-                      ? "text-[#010507] font-medium"
-                      : "text-[#57575B]")
+                      ? "text-[#010507] dark:text-foreground font-medium"
+                      : "text-[#57575B] dark:text-muted-foreground")
                 }
               >
                 {step.title}
@@ -152,7 +154,7 @@ function StepMarker({
     );
   }
   return (
-    <span className="mt-0.5 inline-flex h-5 w-5 flex-none items-center justify-center rounded-full border border-[#DBDBE5] bg-white text-[10px] font-semibold text-[#838389]">
+    <span className="mt-0.5 inline-flex h-5 w-5 flex-none items-center justify-center rounded-full border border-[#DBDBE5] dark:border-border bg-white dark:bg-card text-[10px] font-semibold text-[#838389] dark:text-muted-foreground">
       {index + 1}
     </span>
   );
@@ -161,7 +163,7 @@ function StepMarker({
 function SpinnerIcon() {
   return (
     <svg
-      className="w-4 h-4 animate-spin text-[#010507]"
+      className="w-4 h-4 animate-spin text-[#010507] dark:text-foreground"
       xmlns="http://www.w3.org/2000/svg"
       fill="none"
       viewBox="0 0 24 24"
@@ -186,7 +188,7 @@ function SpinnerIcon() {
 function CheckIcon() {
   return (
     <svg
-      className="w-4 h-4 text-[#189370]"
+      className="w-4 h-4 text-[#189370] dark:text-[#85ECCE]"
       fill="none"
       stroke="currentColor"
       viewBox="0 0 24 24"

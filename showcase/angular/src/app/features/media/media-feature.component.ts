@@ -135,7 +135,7 @@ const MULTIMODAL_ATTACHMENTS: AttachmentsConfig = {
       grid-template-rows: auto minmax(0, 1fr);
       gap: 0.75rem;
       padding: 0.75rem;
-      background: #eef3f7;
+      background: light-dark(#eef3f7, #0a0a0a);
     }
     .sample-panel {
       display: flex;
@@ -143,18 +143,18 @@ const MULTIMODAL_ATTACHMENTS: AttachmentsConfig = {
       align-items: center;
       gap: 0.75rem 1rem;
       padding: 0.75rem 1rem;
-      border: 1px solid #d8e0ea;
+      border: 1px solid light-dark(#d8e0ea, #303136);
       border-radius: 0.9rem;
-      background: #fff;
+      background: light-dark(#fff, #191a1e);
     }
     .sample-copy {
       display: grid;
       flex: 1 1 16rem;
       gap: 0.15rem;
-      color: #14213d;
+      color: light-dark(#14213d, #fafafa);
     }
     .sample-copy span {
-      color: #52637a;
+      color: light-dark(#52637a, #adadb2);
       font-size: 0.82rem;
     }
     .sample-actions {
@@ -167,10 +167,10 @@ const MULTIMODAL_ATTACHMENTS: AttachmentsConfig = {
       align-items: center;
       gap: 0.4rem;
       padding: 0.55rem 0.8rem;
-      border: 1px solid #c7d2e0;
+      border: 1px solid light-dark(#c7d2e0, #303136);
       border-radius: 0.65rem;
-      color: #20324d;
-      background: #fff;
+      color: light-dark(#20324d, #fafafa);
+      background: light-dark(#fff, #191a1e);
       font: inherit;
       font-size: 0.84rem;
       font-weight: 650;
@@ -178,7 +178,7 @@ const MULTIMODAL_ATTACHMENTS: AttachmentsConfig = {
     }
     button:hover:not(:disabled) {
       border-color: #4263eb;
-      background: #f5f7ff;
+      background: light-dark(#f5f7ff, rgb(30 27 75 / 40%));
     }
     button:focus-visible {
       outline: 3px solid #91a7ff;
@@ -191,15 +191,15 @@ const MULTIMODAL_ATTACHMENTS: AttachmentsConfig = {
     .sample-error {
       flex-basis: 100%;
       margin: 0;
-      color: #991b1b;
+      color: light-dark(#991b1b, #fca5a5);
       font-size: 0.84rem;
     }
     .chat-surface {
       min-height: 0;
       overflow: hidden;
-      border: 1px solid #d8e0ea;
+      border: 1px solid light-dark(#d8e0ea, #303136);
       border-radius: 1rem;
-      background: #fff;
+      background: light-dark(#fff, #191a1e);
     }
   `,
 })
