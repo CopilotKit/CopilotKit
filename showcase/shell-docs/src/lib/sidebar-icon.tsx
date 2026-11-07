@@ -212,6 +212,17 @@ const ICONS: Record<string, React.ReactNode> = {
       className="h-4 w-4 shrink-0 object-contain"
     />
   ),
+  "custom/parallel": (
+    <Image
+      src="/logos/parallel.svg"
+      alt=""
+      aria-hidden="true"
+      width={16}
+      height={16}
+      unoptimized
+      className="h-4 w-4 shrink-0 object-contain dark:invert"
+    />
+  ),
   "custom/typesafe": (
     <Image
       src="/logos/typesafe.svg"
