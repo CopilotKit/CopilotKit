@@ -66,7 +66,7 @@ describe("copilotkitCustomizeConfig", () => {
     }
   });
 
-  it("warns and treats invalid values as true", () => {
+  it("warns and preserves existing metadata for invalid values", () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
 
     try {
@@ -75,16 +75,16 @@ describe("copilotkitCustomizeConfig", () => {
         { emitToolCalls: 123 } as any,
       );
 
-      expect(result.metadata!["copilotkit:emit-tool-calls"]).toBe(true);
+      expect(result.metadata!["copilotkit:emit-tool-calls"]).toBe(false);
       expect(warn).toHaveBeenCalledWith(
-        expect.stringContaining("Treating invalid non-boolean value as true"),
+        expect.stringContaining("Ignoring invalid non-boolean value"),
       );
 
       const withoutPreviousValue = copilotkitCustomizeConfig({}, {
         emitToolCalls: 123,
       } as any);
-      expect(withoutPreviousValue.metadata!["copilotkit:emit-tool-calls"]).toBe(
-        true,
+      expect(withoutPreviousValue.metadata!).not.toHaveProperty(
+        "copilotkit:emit-tool-calls",
       );
     } finally {
       warn.mockRestore();
