@@ -116,9 +116,7 @@ describe("ProxiedCopilotRuntimeAgent transport integration", () => {
         const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
         if (transport === "rest") {
           expect(url).toBe(
-            `${runtimeUrl}/agent/${encodeURIComponent(
-              encodeURIComponent(agentId),
-            )}/connect`,
+            `${runtimeUrl}/agent/${encodeURIComponent(agentId)}/connect`,
           );
         } else {
           expect(url).toBe(runtimeUrl);
@@ -154,20 +152,20 @@ describe("ProxiedCopilotRuntimeAgent transport integration", () => {
 
           const [url] = fetchMock.mock.calls[0] as [string, RequestInit];
           expect(url).toBe(
-            `${runtimeUrl}/agent/${encodeURIComponent(
-              encodeURIComponent(agentId),
-            )}/connect`,
+            `${runtimeUrl}/agent/${encodeURIComponent(agentId)}/connect`,
           );
         },
       );
 
       it.runIf(transport === "rest")(
-        "keeps percent-containing agent ids distinct from dot-only ids",
+        "keeps dot-only agent ids as distinct connect URL segments",
         async () => {
-          // "%2E" would decode to "." in one pass; the second encoding pass
-          // keeps it a distinct id from the literal "." agent.
+          // "." and ".." are dot segments: URL parsers resolve them away, so
+          // the client escapes them as "%252E" forms and the runtime router
+          // decodes exactly those wire forms (fetch-router.ts
+          // safeDecodeAgentIdSegment). Every other id keeps the ordinary
+          // single-encoded wire, staying compatible with legacy runtimes.
           const cases = [
-            ["%2E", "%25252E"],
             [".", "%252E"],
             ["..", "%252E%252E"],
           ] as const;
