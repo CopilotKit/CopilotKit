@@ -35,6 +35,7 @@
           "{workspaceRoot}/showcase/integrations/*/Dockerfile",
           "!{workspaceRoot}/showcase/pocketbase/Dockerfile",
           "{workspaceRoot}/examples/integrations/*/Dockerfile",
+          "{workspaceRoot}/tools/railway-runner-deploy/releases/staging.json",
           "{workspaceRoot}/.github/workflows/showcase_build.yml",
           "{workspaceRoot}/.github/workflows/showcase_build_check.yml",
           "{workspaceRoot}/.github/workflows/showcase_eval-webhook_build.yml"

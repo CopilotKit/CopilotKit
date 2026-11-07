@@ -4,6 +4,8 @@ on:
   pull_request:
     paths:
       - "showcase/**"
+      # Retire the docs-preview policy exception when the runner pin changes.
+      - "tools/railway-runner-deploy/releases/staging.json"
       - "examples/integrations/**"
       - "package.json"
       - "pnpm-lock.yaml"
@@ -27,6 +29,8 @@ on:
     branches: [main]
     paths:
       - "showcase/**"
+      # Retire the docs-preview policy exception when the runner pin changes.
+      - "tools/railway-runner-deploy/releases/staging.json"
       - "examples/integrations/**"
       - "package.json"
       - "pnpm-lock.yaml"
