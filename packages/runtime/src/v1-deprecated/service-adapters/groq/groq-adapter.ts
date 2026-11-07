@@ -25,6 +25,10 @@
  */
 
 /**
+ * <Callout type="info">
+ *   `GroqAdapter` has no direct v2 replacement. For v2, see [Runtime server adapter](/runtime-server-adapter).
+ * </Callout>
+ *
  * Copilot Runtime adapter for Groq.
  *
  * ## Example
@@ -37,7 +41,7 @@
  *
  * const copilotKit = new CopilotRuntime();
  *
- * return new GroqAdapter({ groq, model: "<model-name>" });
+ * const serviceAdapter = new GroqAdapter({ groq, model: "<model-name>" });
  * ```
  */
 import type { LanguageModel } from "ai";

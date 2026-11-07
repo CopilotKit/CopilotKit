@@ -18,6 +18,10 @@
  */
 
 /**
+ * <Callout type="info">
+ *   In v2, use [`useAgentContext`](/reference/v2/hooks/useAgentContext) from `@copilotkit/react-core/v2`.
+ * </Callout>
+ *
  * `useCopilotAdditionalInstructions` is a React hook that provides additional instructions
  * to the Copilot.
  *
@@ -25,8 +29,7 @@
  *
  * ### Simple Usage
  *
- * In its most basic usage, useCopilotAdditionalInstructions accepts a single string argument
- * representing the instructions to be added to the Copilot.
+ * Pass the instructions in the `instructions` field of the options object.
  *
  * ```tsx
  * import { useCopilotAdditionalInstructions } from "@copilotkit/react-core";
@@ -76,6 +79,7 @@ export interface UseCopilotAdditionalInstructionsOptions {
 
   /**
    * Whether the instructions are available to the Copilot.
+   * @default 'enabled'
    */
   available?: "enabled" | "disabled";
 }
@@ -88,6 +92,7 @@ export function useCopilotAdditionalInstructions(
     instructions,
     available = "enabled",
   }: UseCopilotAdditionalInstructionsOptions,
+  /** Values that add the instructions again when they change. */
   dependencies?: any[],
 ) {
   const { setAdditionalInstructions } = useCopilotContext();

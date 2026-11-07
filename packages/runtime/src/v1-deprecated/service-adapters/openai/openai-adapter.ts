@@ -25,6 +25,10 @@
  */
 
 /**
+ * <Callout type="info">
+ *   `OpenAIAdapter` has no direct v2 replacement. For v2, see [Runtime server adapter](/runtime-server-adapter).
+ * </Callout>
+ *
  * Copilot Runtime adapter for OpenAI.
  *
  * ## Example
@@ -40,7 +44,7 @@
  *   apiKey: "<your-api-key>",
  * });
  *
- * return new OpenAIAdapter({ openai });
+ * const serviceAdapter = new OpenAIAdapter({ openai });
  * ```
  *
  * ## Example with Azure OpenAI
@@ -71,7 +75,7 @@
  *   defaultHeaders: { "api-key": apiKey },
  * });
  *
- * return new OpenAIAdapter({ openai });
+ * const serviceAdapter = new OpenAIAdapter({ openai });
  * ```
  */
 import type { LanguageModel } from "ai";

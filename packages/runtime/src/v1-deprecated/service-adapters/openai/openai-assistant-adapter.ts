@@ -25,7 +25,14 @@
  */
 
 /**
+ * <Callout type="info">
+ *   `OpenAIAssistantAdapter` has no direct v2 replacement. For v2, see [Runtime server adapter](/runtime-server-adapter).
+ * </Callout>
+ *
  * Copilot Runtime adapter for the OpenAI Assistant API.
+ *
+ * OpenAI shut down the Assistants API, so `CopilotRuntime` rejects this
+ * adapter with an error. Use `OpenAIAdapter` instead.
  *
  * ## Example
  *
@@ -40,7 +47,7 @@
  *   apiKey: "<your-api-key>",
  * });
  *
- * return new OpenAIAssistantAdapter({
+ * const serviceAdapter = new OpenAIAssistantAdapter({
  *   openai,
  *   assistantId: "<your-assistant-id>",
  *   codeInterpreterEnabled: true,

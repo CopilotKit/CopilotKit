@@ -167,9 +167,16 @@ export class SourceFile {
               }
             }
 
-            const extendedInterfaceFilePath = this.findTypeDeclaration(
-              extendedInterfaceName,
+            // `Base<T>` is declared as `Base`, so drop the type arguments.
+            extendedInterfaceName = extendedInterfaceName.replace(
+              /<[\s\S]*>$/,
+              "",
             );
+
+            // A base interface that is not imported is declared in this file.
+            const extendedInterfaceFilePath =
+              this.findTypeDeclaration(extendedInterfaceName) ??
+              (extendedInterfaceName === interfaceName ? null : this.filePath);
             if (extendedInterfaceFilePath) {
               // Parse the extended interface file and extract its definition
               const extendedInterfaceSource = new SourceFile(
@@ -386,7 +393,11 @@ export class SourceFile {
       ) {
         functionArguments = node.parameters.map((param) => {
           const name = param.name.getText();
-          const type = param.type?.getText() || "unknown";
+          // An inline object type can carry its own JSDoc. Keep only the type.
+          const type = (param.type?.getText() || "unknown")
+            .replace(/\/\*[\s\S]*?\*\//g, "")
+            .replace(/\s+/g, " ")
+            .trim();
           const required = !param.questionToken;
           const defaultValue = param.initializer
             ? param.initializer.getText()

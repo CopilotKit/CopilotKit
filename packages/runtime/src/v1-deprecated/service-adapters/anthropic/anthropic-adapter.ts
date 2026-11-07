@@ -38,6 +38,10 @@
  */
 
 /**
+ * <Callout type="info">
+ *   `AnthropicAdapter` has no direct v2 replacement. For v2, see [Runtime server adapter](/runtime-server-adapter).
+ * </Callout>
+ *
  * Copilot Runtime adapter for Anthropic.
  *
  * ## Example
@@ -52,7 +56,7 @@
  *   apiKey: "<your-api-key>",
  * });
  *
- * return new AnthropicAdapter({
+ * const serviceAdapter = new AnthropicAdapter({
  *   anthropic,
  *   promptCaching: {
  *     enabled: true,

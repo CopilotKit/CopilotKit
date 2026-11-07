@@ -419,7 +419,7 @@ test("LangGraphHttpAgent names HttpAgent without restating a version-specific cl
     assert.ok(!jsDoc.includes("No 1:1 v2 replacement is available"));
     assert.deepEqual(item.relatedDocs, {
       label: "LangGraph agents",
-      url: "https://docs.copilotkit.ai/agent-spec/langgraph",
+      url: "https://docs.copilotkit.ai/langgraph-python",
     });
     // The subclass's exact shape is version-specific (it was empty at
     // @ag-ui/langgraph 0.0.42 and gained an onInitialize override at 0.0.43),
@@ -455,15 +455,15 @@ test("v1 endpoint factories map to their renamed v2 handlers", () => {
     exports.find((candidate) => candidate.name === name)?.replacement?.name ??
     null;
 
-  // Mapping is stated as a table in docs/backend/copilot-runtime.mdx, and both
-  // handlers are real exports of `@copilotkit/runtime/v2`.
+  // Mapping is stated in docs/backend/copilot-runtime.mdx, and each handler is
+  // a real export of `@copilotkit/runtime/v2` or of one of its subpaths.
   assert.equal(
     replacementFor("copilotRuntimeNextJSAppRouterEndpoint"),
     "createCopilotRuntimeHandler",
   );
   assert.equal(
     replacementFor("copilotRuntimeNodeHttpEndpoint"),
-    "createCopilotRuntimeHandler",
+    "createCopilotNodeListener",
   );
   assert.equal(
     replacementFor("copilotRuntimeNodeExpressEndpoint"),
@@ -491,7 +491,7 @@ test("v1 endpoint factories map to their renamed v2 handlers", () => {
   );
   assert.equal(
     importPathFor("copilotRuntimeNodeHttpEndpoint"),
-    "@copilotkit/runtime/v2",
+    "@copilotkit/runtime/v2/node",
   );
 });
 
@@ -563,7 +563,7 @@ test("related v2 concepts cover other clear migration families", () => {
       "sdk-js-langchain:CopilotKitStateAnnotation",
       {
         label: "LangGraph agents",
-        url: "https://docs.copilotkit.ai/agent-spec/langgraph",
+        url: "https://docs.copilotkit.ai/langgraph-python",
       },
     ],
   ]);
@@ -691,11 +691,14 @@ test("no v1 export's only v2 replacement lives on a non-root subpath", () => {
   // replacement when the shape changed (PE-114 left `RenderFunctionStatus` to
   // `ToolCallStatus` alone for exactly that reason — string union to enum).
   // Curate an override if the mapping is real, rather than widening this list.
+  // A curated override renames the replacement, so this check looks only at
+  // same-name matches.
   const subpathOnly = inventory.inventories.flatMap(({ entrypoint, exports }) =>
     exports
       .filter(
         (item) =>
           item.replacement &&
+          item.replacement.name === item.name &&
           item.replacement.resolvedFrom !== entrypoint.v2ImportPath,
       )
       .map(

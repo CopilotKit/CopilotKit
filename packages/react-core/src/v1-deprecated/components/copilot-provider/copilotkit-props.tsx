@@ -174,7 +174,7 @@ export interface CopilotKitProps extends Omit<
    * @deprecated Use `enableInspector` to control the AG-UI inspector,
    * which is what most users want. `showDevConsole` only controls
    * error toasts/banners, not the inspector button.
-   * Defaults to `false` for production safety.
+   * Defaults to `true` on localhost and `false` on every other host.
    */
   showDevConsole?: boolean;
 
@@ -201,11 +201,8 @@ export interface CopilotKitProps extends Omit<
   threadId?: string;
 
   /**
-   * Optional error handler for comprehensive debugging and observability.
+   * Receives a structured error event for debugging and observability.
    *
-   * @param errorEvent - Structured error event with rich debugging context
-   *
-   * @example
    * ```typescript
    * <CopilotKit
    *   onError={(errorEvent) => {
