@@ -1535,9 +1535,43 @@ export function CopilotChatMessageView({
       if (!oldHeadKey || !rowKeysRef.current.includes(oldHeadKey)) {
         measuredRef.current = { total: 0, sizes: new Map() };
         virtualizer.measure();
-        if (!isPinnedToBottomRef.current) {
-          virtualizer.scrollToIndex(rows.length - 1, { align: "end" });
-        }
+        // Align to the newest row the way a thread change would. Estimates
+        // for the unmeasured replacement rows are off by enough to leave the
+        // view hundreds of pixels short of the bottom, and the bottom pin
+        // only follows growth, not a shrink - so settle onto the real bottom
+        // over a few frames instead of trusting one scrollToIndex. The
+        // reader still takes over on any navigation gesture.
+        cancelAnimationFrame(prependRefineFrameRef.current);
+        const stopSettle = () => {
+          cancelAnimationFrame(prependRefineFrameRef.current);
+          element.removeEventListener("wheel", stopSettle);
+          element.removeEventListener("touchstart", stopSettle);
+          element.removeEventListener("keydown", stopSettle);
+        };
+        element.addEventListener("wheel", stopSettle, { passive: true });
+        element.addEventListener("touchstart", stopSettle, { passive: true });
+        element.addEventListener("keydown", stopSettle);
+        let attempts = 0;
+        let stableFrames = 0;
+        const settleToBottom = () => {
+          const max = element.scrollHeight - element.clientHeight;
+          if (Math.abs(element.scrollTop - max) > 0.5) {
+            element.scrollTop = max;
+            stableFrames = 0;
+          } else {
+            stableFrames += 1;
+          }
+          // Keep correcting for a minimum dwell: right after the swap the
+          // view can sit at the old bottom for a frame or two before the
+          // replacement rows re-measure and move it.
+          if (++attempts < 60 && (attempts < 15 || stableFrames < 3)) {
+            prependRefineFrameRef.current =
+              requestAnimationFrame(settleToBottom);
+          } else {
+            stopSettle();
+          }
+        };
+        prependRefineFrameRef.current = requestAnimationFrame(settleToBottom);
       }
       return;
     }
@@ -1599,7 +1633,12 @@ export function CopilotChatMessageView({
           stableFrames += 1;
         }
       }
-      if (++attempts < 60 && stableFrames < 3) {
+      // The cap bounds work, not convergence: on a busy or slow tab a React
+      // commit can take several frames, and a trim/prepend far from the
+      // anchor needs measurement passes in between. 180 frames (~3s at
+      // 60fps) covers that without risking an unbounded loop - navigation
+      // gestures still cancel immediately via stopRefinement.
+      if (++attempts < 180 && stableFrames < 3) {
         prependRefineFrameRef.current = requestAnimationFrame(refine);
       } else {
         stopRefinement();

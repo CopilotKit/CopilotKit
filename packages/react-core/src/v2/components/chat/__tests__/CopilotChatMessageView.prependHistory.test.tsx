@@ -137,9 +137,13 @@ describe("CopilotChatMessageView history prepend", () => {
     const measure = vi.spyOn(capture.current!, "measure");
 
     act(() => replace!());
-    expect(scrollToIndex).toHaveBeenCalledWith(79, { align: "end" });
     // Measurements belong to the replaced rows and must not leak across.
     expect(measure).toHaveBeenCalled();
+    // Alignment to the newest row settles onto the real bottom over
+    // animation frames (estimates for the replacement rows are unreliable),
+    // so there is no one-shot scrollToIndex to assert in jsdom; the
+    // real-browser fixture covers the landing position.
+    expect(scrollToIndex).not.toHaveBeenCalled();
     await drainAnimationFrames();
   });
 });
