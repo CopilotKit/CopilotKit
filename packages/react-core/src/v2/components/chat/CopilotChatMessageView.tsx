@@ -1478,6 +1478,127 @@ export function CopilotChatMessageView({
   const virtualModeRef = useRef(shouldVirtualize);
   virtualModeRef.current = shouldVirtualize;
 
+  // ---------------------------------------------------------------------------
+  // History prepend anchoring
+  //
+  // Prepending older history inserts rows above the reader while the browser
+  // keeps scrollTop numerically unchanged, so without correction the viewport
+  // drifts up by the height of the new rows and the reading position is lost.
+  // Track the first visible row and its offset within the viewport; when the
+  // head of the list changes within the same thread (messageListKey unchanged,
+  // first message ID changed) and that row still exists, put it back at the
+  // same screen position. getOffsetForIndex is only a coarse first step here:
+  // prepended rows are unmeasured, so their estimated heights drift from the
+  // real ones. Like the visibility-restore loop below, the correction refines
+  // from the anchor row's live DOM position over a few frames until it
+  // settles. A thread switch changes messageListKey and is owned by the
+  // end-alignment effect above; while pinned to the bottom, stick-to-bottom
+  // owns the position.
+  // ---------------------------------------------------------------------------
+  const prependAnchorRef = React.useRef<{
+    key: string;
+    offset: number;
+  } | null>(null);
+  const prependRefineFrameRef = React.useRef(0);
+  const prevListHeadRef = React.useRef<{
+    key: string | undefined;
+    first: string | undefined;
+  }>({ key: messageListKey, first: firstMessageId });
+
+  useLayoutEffect(() => {
+    const prev = prevListHeadRef.current;
+    prevListHeadRef.current = { key: messageListKey, first: firstMessageId };
+    if (prev.key !== messageListKey) {
+      prependAnchorRef.current = null;
+      return;
+    }
+    const element = scrollElementFromCtx;
+    if (!element || !shouldVirtualize) return;
+    if (prev.first === firstMessageId) return;
+    const anchor = prependAnchorRef.current;
+    prependAnchorRef.current = null;
+    if (!anchor || isPinnedToBottomRef.current) return;
+    if (!rowKeysRef.current.includes(anchor.key)) return;
+
+    // Coarse step: bring the anchor row back into the mounted range. Offsets
+    // past unmeasured rows are estimates, so this can overshoot.
+    const index = rowKeysRef.current.indexOf(anchor.key);
+    const start = virtualizer.getOffsetForIndex(index, "start")?.[0];
+    if (start !== undefined) {
+      virtualizer.scrollToOffset(start - anchor.offset);
+    }
+
+    // Refine over a few frames, like the visibility-restore loop below: while
+    // the anchor row is unmounted, re-scroll from the latest measurements
+    // (each pass measures the rows in between, shrinking the estimate error);
+    // once it is mounted, correct from its real position until it settles.
+    // Not tied to this effect's cleanup: the measurements each correction
+    // triggers re-render, and an effect-bound cleanup would cancel the loop
+    // on its first refinement.
+    cancelAnimationFrame(prependRefineFrameRef.current);
+    let attempts = 0;
+    let stableFrames = 0;
+    const refine = () => {
+      const row = element.querySelector<HTMLElement>(
+        `[data-scroll-anchor="${anchor.key}"]`,
+      );
+      if (!row) {
+        const offset = virtualizer.getOffsetForIndex(index, "start")?.[0];
+        if (offset !== undefined)
+          virtualizer.scrollToOffset(offset - anchor.offset);
+        stableFrames = 0;
+      } else {
+        const delta =
+          row.getBoundingClientRect().top -
+          element.getBoundingClientRect().top -
+          anchor.offset;
+        if (Math.abs(delta) > 0.5) {
+          element.scrollTop += delta;
+          stableFrames = 0;
+        } else {
+          stableFrames += 1;
+        }
+      }
+      if (++attempts < 60 && stableFrames < 3) {
+        prependRefineFrameRef.current = requestAnimationFrame(refine);
+      }
+    };
+    prependRefineFrameRef.current = requestAnimationFrame(refine);
+  });
+
+  // Capture continuously: scrolling does not commit, so a commit-only capture
+  // would re-anchor to wherever the reader was at the last render, not where
+  // they are reading now.
+  useLayoutEffect(() => {
+    const element = scrollElementFromCtx;
+    if (!element || !shouldVirtualize) {
+      prependAnchorRef.current = null;
+      return;
+    }
+    const capture = () => {
+      if (isPinnedToBottomRef.current) {
+        prependAnchorRef.current = null;
+        return;
+      }
+      const viewport = element.getBoundingClientRect();
+      const row = Array.from(
+        element.querySelectorAll<HTMLElement>("[data-scroll-anchor]"),
+      ).find((row) => {
+        const bounds = row.getBoundingClientRect();
+        return bounds.bottom > viewport.top && bounds.top < viewport.bottom;
+      });
+      prependAnchorRef.current = row
+        ? {
+            key: row.dataset.scrollAnchor!,
+            offset: row.getBoundingClientRect().top - viewport.top,
+          }
+        : null;
+    };
+    capture();
+    element.addEventListener("scroll", capture, { passive: true });
+    return () => element.removeEventListener("scroll", capture);
+  });
+
   // Re-entering virtual mode can re-estimate rows above the viewport. A pixel
   // scrollTop then identifies different content, so retain the first visible
   // row and its offset within the viewport instead.
