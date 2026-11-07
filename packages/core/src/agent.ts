@@ -38,6 +38,27 @@ import type {
 import { IntelligenceAgent } from "./intelligence-agent";
 import type { CopilotRuntimeTransport } from "./types";
 import { runtimeInfoError } from "./utils/runtime-info-error";
+
+/**
+ * Encode an agent id for a `/agent/:agentId/...` URL path segment.
+ *
+ * `encodeURIComponent` leaves "." and ".." unchanged, and URL parsers treat
+ * both as dot segments and resolve them away, which would collapse
+ * `/agent/./connect` into `/agent/connect`. Double-escaping the dots keeps
+ * them single path segments; the runtime router decodes the second escape
+ * (`safeDecodeAgentIdSegment` in `fetch-router.ts`).
+ */
+function encodeAgentPathSegment(agentId: string): string {
+  const encoded = encodeURIComponent(agentId);
+  if (encoded === ".") {
+    return "%252E";
+  }
+  if (encoded === "..") {
+    return "%252E%252E";
+  }
+  return encoded;
+}
+
 import type { RuntimeRequestInit } from "./utils/runtime-request";
 import type { ConnectionReplayLifecycle } from "./utils/connect-replay";
 import { ɵconnectWithoutEventVerification } from "./utils/connect-replay";
@@ -730,7 +751,7 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
         this.fetch(this.singleEndpointUrl!, requestInit),
       );
     } else {
-      const connectUrl = `${this.runtimeUrl}/agent/${encodeURIComponent(routedId)}/connect`;
+      const connectUrl = `${this.runtimeUrl}/agent/${encodeAgentPathSegment(routedId)}/connect`;
       const connectRequestInit = this.requestInit(input);
       httpEvents = runHttpRequest(() =>
         this.fetch(connectUrl, connectRequestInit),
