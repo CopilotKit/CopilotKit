@@ -1,0 +1,118 @@
+---
+title: "CopilotChat"
+icon: "lucide/MessageSquare"
+description: "Add an inline chat to your Deep Agents app."
+---
+
+CopilotChat works with Deep Agents through the runtime connection described in
+the [Deep Agents quickstart](/deepagents/quickstart). Place it in a dedicated chat
+page or alongside the rest of your app.
+
+<Callout type="info" title="Demo availability">
+  This page does not yet include an embedded Deep Agents demo. The chat component
+  is supported; use the examples below with your own connected Deep Agent.
+</Callout>
+
+## Basic setup
+
+Complete the [quickstart](/deepagents/quickstart) first so `/api/copilotkit`
+connects to your Deep Agent. The examples below use its runtime agent ID,
+`sample_agent`. If you registered a different ID, use that ID throughout.
+
+Wrap the chat in `CopilotKitProvider`. This example uses the quickstart's
+multi-route runtime endpoint, so `useSingleEndpoint` is `false`.
+
+```tsx title="app/page.tsx"
+"use client";
+
+import { CopilotChat, CopilotKitProvider } from "@copilotkit/react-core/v2";
+import "@copilotkit/react-core/v2/styles.css";
+
+export default function ChatPage() {
+  return (
+    <CopilotKitProvider
+      runtimeUrl="/api/copilotkit"
+      agentId="sample_agent"
+      useSingleEndpoint={false}
+    >
+      <main style={{ height: "100dvh" }}>
+        <CopilotChat agentId="sample_agent" />
+      </main>
+    </CopilotKitProvider>
+  );
+}
+```
+
+If your app already has this provider, render the chat inside it rather than
+adding a second provider. Give the chat's container a height so the message list
+has room to scroll.
+
+<Callout type="warn">
+  Import this chat from `@copilotkit/react-core/v2`. The component with the same
+  name in `@copilotkit/react-ui` is the [deprecated v1 chat](/migrate/v2).
+</Callout>
+
+## Code example
+
+To add starter suggestions, replace the basic example with this complete page.
+The suggestions hook runs inside the provider and targets the same agent as the
+chat. Selecting a suggestion sends its `message` to that agent.
+
+```tsx title="app/page.tsx"
+"use client";
+
+import {
+  CopilotChat,
+  CopilotKitProvider,
+  useConfigureSuggestions,
+} from "@copilotkit/react-core/v2";
+import "@copilotkit/react-core/v2/styles.css";
+
+function ChatWithSuggestions() {
+  useConfigureSuggestions({
+    consumerAgentId: "sample_agent",
+    available: "always",
+    suggestions: [
+      { title: "Plan a task", message: "Help me plan a research task." },
+      { title: "Get started", message: "What can you help me with?" },
+    ],
+  });
+
+  return <CopilotChat agentId="sample_agent" />;
+}
+
+export default function ChatPage() {
+  return (
+    <CopilotKitProvider
+      runtimeUrl="/api/copilotkit"
+      agentId="sample_agent"
+      useSingleEndpoint={false}
+    >
+      <main style={{ height: "100dvh" }}>
+        <ChatWithSuggestions />
+      </main>
+    </CopilotKitProvider>
+  );
+}
+```
+
+## Common props
+
+`CopilotChat` accepts the same chat slots and labels as `CopilotSidebar` and
+`CopilotPopup`:
+
+| Prop | Description |
+|------|-------------|
+| `agentId` | The agent ID configured on your runtime. |
+| `labels` | User-facing text, such as the input placeholder and welcome message. |
+| `messageView` | A custom message-list component. |
+| `input` | A custom composer component or its props. |
+| `scrollView` | A custom scroll container or its props. |
+| `suggestionView` | A custom suggestion-list component or its props. |
+| `welcomeScreen` | A custom empty-state component, or `false` to hide it. |
+
+## Styling
+
+See the [CopilotChat reference](/reference/components/CopilotChat) for props and
+slot examples, [CSS customization](/custom-look-and-feel/css) for styling, and
+[headless UI](/custom-look-and-feel/headless-ui) to build your own chat surface.
