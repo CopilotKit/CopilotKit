@@ -13,33 +13,65 @@ protocol logic lives in `bindMcpApp`.
 | Import                                   | Contents                                                                 | Bundle                                                                                                           |
 | ---------------------------------------- | ------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------- |
 | `@copilotkit/mcp-apps-renderer`          | `bindMcpApp` + the full session API                                      | **ESM only** — it wraps the ESM-only ext-apps bridge, and is meant to be loaded lazily via a dynamic `import()`. |
-| `@copilotkit/mcp-apps-renderer/activity` | `MCPAppsActivityType`, `MCPAppsActivityContentSchema`, `ɵrunMcpFollowUp` | ESM + CJS. Bridge-free: importing it to register the activity does **not** pull the ext-apps bundle.             |
+| `@copilotkit/mcp-apps-renderer/activity` | `MCPAppsActivityType`, `MCPAppsActivityContentSchema`, `ɵrunMcpFollowUp` | ESM + CJS. Re-exports `@copilotkit/shared`; bridge-free, so it does **not** pull the ext-apps bundle.            |
 
 The root is ESM-only on purpose: `@modelcontextprotocol/ext-apps` ships ESM only,
 so a CommonJS root would emit a `require()` of an ES module and fail with
 `ERR_REQUIRE_ESM`. Consume `bindMcpApp` via a dynamic `import()` (which resolves
-ESM from any module system), and import the bridge-free `/activity` surface for
-synchronous activity registration.
+ESM from any module system).
+
+The bridge-free part of the `/activity` surface (the activity type, the content
+schema, and the follow-up runner) is authored in `@copilotkit/shared` and
+re-exported here. `@copilotkit/react-core`, `@copilotkit/vue`, and
+`@copilotkit/angular` register the built-in MCP Apps activity from
+`@copilotkit/shared` directly, and declare this package as an **optional peer
+dependency** — so an app that never renders an MCP App does not install it.
+
+## Installing
+
+If you render MCP Apps, install the renderer alongside your frontend package:
+
+```bash
+npm install @copilotkit/mcp-apps-renderer
+```
+
+If the package is missing, the adapter fails when the first MCP App renders;
+apps without MCP Apps never load it. Whether that failure names the package
+depends on the bundler: Rollup and esbuild warn on the unresolved dynamic import
+and let the runtime `.catch()` report it, and Vite's dev server throws the same
+way. Vite production builds differ — Vite resolves the absent optional peer
+dependency to an empty module, so the `.catch()` never runs and setup fails with
+a `TypeError` (`bindMcpApp is not a function`) that does not name the package,
+and no unresolved-import warning is emitted.
+
+Two build-time exceptions, both webpack-only:
+
+- An Angular webpack build that includes `provideMCPApps` must install this
+  package whatever the webpack version, even when the app never renders a
+  widget. The Angular widget loads the bridge through a promise chain rather
+  than a `try` block, so webpack does not treat that `import()` as optional at
+  any version.
+- The React and Vue adapters load the bridge inside `try/catch`, which webpack
+  has treated as optional since 5.90.2. A build on an older webpack must
+  therefore install the package, or upgrade webpack.
 
 ## Script-tag / UMD usage
 
-This package also ships a UMD build of the bridge-free `/activity` entry:
+This package also ships a UMD build of the `/activity` entry:
 `dist/activity.umd.js`, which defines the global
-`CopilotKitMcpAppsRendererActivity`.
-
-`@copilotkit/react-core`'s UMD build references that global (it externalizes
-`@copilotkit/mcp-apps-renderer/activity` to register the built-in MCP Apps
-activity). **Script-tag consumers of react-core's UMD must therefore load
-`activity.umd.js` before `@copilotkit/react-core`'s UMD bundle**, alongside the
-other UMD globals it depends on (React, `CopilotKitCore`,
-`CopilotKitA2UIRenderer`, …):
+`CopilotKitMcpAppsRendererActivity`. The surface lives in `@copilotkit/shared`,
+so load its global (`CopilotKitShared`) first:
 
 ```html
-<!-- ...React, @copilotkit/core, @copilotkit/a2ui-renderer, etc. first... -->
+<!-- ...React, Zod, @copilotkit/shared, @copilotkit/core, etc. first... -->
+<script src="https://unpkg.com/@copilotkit/shared/dist/index.umd.js"></script>
 <script src="https://unpkg.com/@copilotkit/mcp-apps-renderer/dist/activity.umd.js"></script>
-<script src="https://unpkg.com/@copilotkit/react-core/dist/index.umd.js"></script>
 ```
 
-Only the bridge-free `/activity` surface has a UMD build; the ext-apps bridge
-itself (`bindMcpApp`) is loaded lazily via `import()` and is not part of the UMD
-graph, so it only loads when an MCP App is actually rendered.
+`@copilotkit/react-core`'s UMD build no longer references this global: it
+registers the MCP Apps activity from its `CopilotKitShared` global instead, so
+you only need `activity.umd.js` if you register the activity yourself.
+
+Only the bridge-free surface has a UMD build; the ext-apps bridge itself
+(`bindMcpApp`) is loaded lazily via `import()` and is not part of the UMD graph,
+so it only loads when an MCP App is actually rendered.

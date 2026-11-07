@@ -1,7 +1,7 @@
-/**
- * Activity type for MCP Apps events - must match the middleware's MCPAppsActivityType.
- */
-export const MCPAppsActivityType = "mcp-apps";
+// The activity type lives in `@copilotkit/shared` (see ./activity.ts).
+// Re-exported so this package's own modules and existing deep importers keep
+// resolving `../constants`.
+export { MCPAppsActivityType } from "@copilotkit/shared";
 
 /**
  * URL schemes a widget may NOT open via ui/open-link. The ext-apps schema
