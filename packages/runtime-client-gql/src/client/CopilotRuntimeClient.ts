@@ -53,7 +53,7 @@ const createFetchFn =
             runtimeClientGqlVersion: packageJson.version,
           });
       if (result.status !== 200) {
-        if (result.status >= 400 && result.status <= 500) {
+        if (result.status >= 400 && result.status < 600) {
           if (mismatch) {
             throw new CopilotKitVersionMismatchError(mismatch);
           }
