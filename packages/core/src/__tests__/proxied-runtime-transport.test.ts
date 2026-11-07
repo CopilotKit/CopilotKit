@@ -116,7 +116,9 @@ describe("ProxiedCopilotRuntimeAgent transport integration", () => {
         const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
         if (transport === "rest") {
           expect(url).toBe(
-            `${runtimeUrl}/agent/${encodeURIComponent(agentId)}/connect`,
+            `${runtimeUrl}/agent/${encodeURIComponent(
+              encodeURIComponent(agentId),
+            )}/connect`,
           );
         } else {
           expect(url).toBe(runtimeUrl);
@@ -152,8 +154,40 @@ describe("ProxiedCopilotRuntimeAgent transport integration", () => {
 
           const [url] = fetchMock.mock.calls[0] as [string, RequestInit];
           expect(url).toBe(
-            `${runtimeUrl}/agent/${encodeURIComponent(agentId)}/connect`,
+            `${runtimeUrl}/agent/${encodeURIComponent(
+              encodeURIComponent(agentId),
+            )}/connect`,
           );
+        },
+      );
+
+      it.runIf(transport === "rest")(
+        "keeps percent-containing agent ids distinct from dot-only ids",
+        async () => {
+          // "%2E" would decode to "." in one pass; the second encoding pass
+          // keeps it a distinct id from the literal "." agent.
+          const cases = [
+            ["%2E", "%25252E"],
+            [".", "%252E"],
+            ["..", "%252E%252E"],
+          ] as const;
+          for (const [agentId, encoded] of cases) {
+            const agent = new ProxiedCopilotRuntimeAgent({
+              runtimeUrl,
+              agentId,
+              transport,
+            });
+
+            fetchMock.mockResolvedValueOnce(createSseResponse());
+
+            await expect(agent.connectAgent({})).resolves.toMatchObject({
+              newMessages: expect.any(Array),
+            });
+
+            const [url] = fetchMock.mock.calls[0] as [string, RequestInit];
+            expect(url).toBe(`${runtimeUrl}/agent/${encoded}/connect`);
+            fetchMock.mockClear();
+          }
         },
       );
 
