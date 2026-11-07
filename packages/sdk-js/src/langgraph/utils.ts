@@ -96,10 +96,10 @@ export function copilotkitCustomizeConfig(
         "Use FilterToolCallsMiddleware for selective filtering. " +
         (isLegacyFilter
           ? "Preserving the legacy filter for v1 compatibility."
-          : "Treating invalid non-boolean value as true."),
+          : "Ignoring invalid non-boolean value."),
     );
     if (!isLegacyFilter) {
-      emitToolCalls = true;
+      emitToolCalls = undefined;
     }
   }
 
