@@ -16,6 +16,210 @@ releases have no changelog: the per-package files from the changesets era stoppe
 at `1.55.2` while the lane shipped `1.69.3`, and they are recoverable from git
 history (for example `git show v1.69.3:packages/core/CHANGELOG.md`).
 
+## 1.85.0 - 2026-11-06
+
+This release introduces native Generative UI for Angular, adds analytics context forwarding for Intelligence runs, and fixes several reliability issues around Intelligence run stops and A2UI rendering.
+
+## Features
+
+### Native Generative UI for Angular (#8105)
+
+Angular apps can now render the same agent-driven surfaces as React, from the same A2UI v1.0 operations. The new `@copilotkit/angular/generative-ui` entry ports React's native generative UI, including all 69 components of the `copilotkit/standard@1` catalog.
+
+- `provideGenerativeUI({ ui })` as the root provider, with a signal-based node renderer that binds inputs, models, and outputs.
+- Named surfaces with fallback content, inline chat activity rendering, app state connection, and app function registration.
+- chart.js, MapLibre, and Lucide load on first use as optional peers; highlight.js and KaTeX load lazily in chat.
+
+As part of this work, the generative UI catalog, standard catalog declarations, and engine moved into shared entry points (`@copilotkit/shared/generative-ui` and `@copilotkit/core/generative-ui`) so React and Angular run the same code. The public API of `@copilotkit/react-core/v2/generative-ui` is unchanged.
+
+### Analytics context forwarding for Intelligence (#8215)
+
+Apps can now attribute their Intelligence runs by passing `forwardedProps.__copilotkitAnalyticsContext` on a run. The runtime forwards this object as `analyticsContext` on the thread lock request so Intelligence can label the accepted run and its summary with the app's own attribution.
+
+- The runtime never reads the fields — it only validates that the value is a plain JSON-serializable object under 4 KB. Missing, malformed, or oversized context is ignored with a warning (that never logs the content) and never fails a run.
+- The context is stripped from the run input as soon as the request is parsed, so it never reaches the agent, the stored `RUN_STARTED` input, SSE agents, or suggestion agents.
+
+Runtime-triggered stops (the stop route or a server-side `runner.stop`) are now recorded with Intelligence the same way a browser Stop is, so a stopped run correctly reads as `cancelled` instead of a normal finish. Stops relayed by Intelligence and runs that finish normally are not recorded as runtime-side stops.
+
+## Fixes
+
+### Runtime
+
+- **Intelligence lock held until the run's final events (#8236).** The runner previously released the thread lock as soon as a run errored, before its last events reached the gateway — which rejected them as an `active_lock_mismatch`, hiding the real error and preventing clean thread resumption. The lock is now held until the final events are delivered.
+- **`oss.runtime.instance_created` fires once per runtime (#8243).** This telemetry event was being emitted multiple times per request for v1 users on runtime ≥1.74. The v2 handler is now the sole emitter, a `WeakSet` guard ensures at most one event per runtime object, and `runtime.framework` now correctly reflects the entry point you called instead of being overwritten with `"node-http"`. Dashboards will show lower (corrected) counts for v1 users after upgrade.
+
+### Core
+
+- **Intelligence stop cleanup scoped to the run it stopped (#8237).** A follow-up sent within ~10 seconds of pressing Stop could stay stuck on "Thinking": the stop's cleanup tore down whatever run was current rather than the one it actually stopped. `abortRun` now records the channel, socket, and run ID it stops and only cleans those up, and only when a newer run has started.
+
+### A2UI
+
+- **Recover React bind-time failures on data updates (#8226).** A React A2UI component that called a binding (e.g. `formatNumber`) before its data arrived would keep its failure card after a data-only update. The binding error is now retained in the adapter's snapshot and the failed component is re-evaluated when its bound props change, clearing the error once it evaluates cleanly. Sibling components remain isolated.
+- **Upgraded `@a2ui/web_core` to 0.15.0 (#8211)** across `core`, `a2ui-renderer`, `react-core`, and `vue`. This release adapts to several upstream behavior changes:
+  - Component updates are now validated against the catalog before rendering; rejected updates surface a per-surface alert that clears on the next successful component update.
+  - Expression failures now arrive on the surface error channel and show as a component failure card.
+  - Button actions are invoked without passing the click event (`props.action?.()`).
+  - Noncanonical v0.9 envelopes carrying extra top-level routing metadata are normalized before strict validation, preserving nested action IDs.
+
+  Note: because validation is now always on, a component that arrives before its required props will show an error until a valid update arrives, rather than rendering with props missing.
+
+## 1.84.1 - 2026-11-03
+
+This patch release improves A2UI catalog serialization so that composed custom component trees are correctly recognized by agent SDKs.
+
+## Fixes
+
+- **Preserve catalog references and capabilities** in `@copilotkit/a2ui-renderer` (#8120). The serialized A2UI catalog previously dropped component-reference descriptions and callable capabilities, preventing agent SDKs from recognizing composed custom component trees. Reused Zod schemas could also generate local references to paths that no longer existed after schema wrapping. This release:
+  - Exports inline schemas before applying the REF descriptor contract, preserving property order.
+  - Includes function and theme capabilities in the serialized output.
+  - Retains support for legacy and minimal catalog objects that lack function metadata.
+  - Emits catalog schema output with available component, function, and theme schemas — including references, descriptions, defaults, and reusable types.
+  - Presents custom components and their schemas consistently across React, Angular, and Vue providers, with an option to omit schema details.
+
+These changes keep the frontend catalog as the source of truth for catalog generation, while making serialized payloads smaller and more reliable for prompt-only agents and SDKs.
+
+## 1.84.0 - 2026-11-03
+
+### Features
+
+- feat(genui-eval): measure the generative UI prompt across models, and ship the improved prompt (#8102) (d168487)
+
+### Fixes
+
+- fix(react-core): show scroll-to-bottom only when messages are below (#8159) (3a956ad)
+- fix(react-core,vue): deprecate the inputMode prop CopilotChat ignores (#8152) (a7c4dde)
+- fix(react-native): pass CopilotChat's agent and thread to its hooks (#8136) (035c0db)
+- fix(vue): forward every chat-view slot through CopilotSidebar and CopilotPopup (#8135) (117de16)
+- fix(react-native): draw the interrupt element in the prebuilt chat (#8133) (bfb8236)
+- fix(runtime): make OpenAIAssistantAdapter honor disabled tools (#8131) (c5d73ce)
+- fix(genui)!: require canonical A2UI 1.0 messages (#8155) (57a2fbf)
+- fix: correct generative UI schemas and eval evidence (#8121) (8e843ae)
+- fix(react-core): preserve virtual chat position on width changes (#7370) (f1bab1d)
+- fix: reuse frontend results when resuming interrupts (#7998) (6cfc310)
+- fix(core): ignore malformed tool-call entries in the filter repair (#7984) (9cc2d2c)
+- fix(core): pair reused tool-call ids by transcript order (#7996) (c6124c7)
+- fix(runtime): carry the tool name onto LangChain ToolMessage (#7327) (e1281c7)
+- fix(react-core): widen input and header slot types to accept plain components (#7170) (fa171c7)
+
+### Other Changes
+
+- Fix/2653: show loading indicator while chat thread is connecting (#7988) (590a6ca)
+
+### Breaking Changes
+
+- fix(genui)!: require canonical A2UI 1.0 messages (#8155) (57a2fbf)
+  Gen UI requires version "1.0" and capability key "1.0".
+  Pre-release v1.0 operations and capability envelopes are no longer accepted.
+  Demos must update their payloads and align agent SDK/CopilotKit versions.
+
+## 1.83.0 - 2026-10-28
+
+### Other Changes
+
+- Merge commit from fork (4693af4)
+
+## 1.82.0 - 2026-10-27
+
+### Features
+
+- feat(runtime): send one request id per user request on the Intelligence lock call (#7936) (d028e14)
+- feat(react-core,vue,angular): translate the chat's remaining hard-coded strings through labels (#7867) (4ca3a23)
+- feat(showcase): add runnable Vue documentation (#6222) (136f515)
+
+### Fixes
+
+- fix(a2ui-renderer,react-core,vue): theme the A2UI basic catalog in dark mode (#7866) (6bc87e7)
+- fix(react-core): treat runs started via runAgent as local in CopilotChat (#7889) (ed78b19)
+- fix(runtime): pass BuiltInAgent's system prompt via streamText `system`, not `messages` (#7881) (8863a2a)
+- fix(react-core): keep a tool call group's look from its first call (#8028) (ef8f126)
+- fix(a2ui): omit component schemas from catalog context when includeSchema is false (React, Vue, Angular) (#7810) (a57920b)
+- fix(react-textarea): join blocks, not text nodes, in editorToText (#7628) (7d1f273)
+- fix(core): reopen MCP Apps while native approvals are pending (#7900) (b1d7e02)
+- fix(runtime): only clone the response when afterRequestMiddleware is set (#8012) (2c74500)
+- fix(runtime): keep error messages out of telemetry and honour a late opt-out (#8016) (063a7a9)
+- fix: keep MCP URL credentials out of logs and validate MCP Apps CSP domains (#8017) (2d3f4ca)
+- fix(react-textarea): fill the cleared block in replaceEditorText (#7626) (b0570a0)
+
+## 1.81.0 - 2026-10-27
+
+### Features
+
+- feat: native generative UI (createGenerativeUI, tool and markdown transports, standard catalog, inspector pane) (#7819) (2aff26d)
+- feat(runtime): add server-side Learning management methods (#7977) (6960c50)
+
+### Fixes
+
+- fix(inspector): accept local dashboards and retry Learning status (#7966) (44247a4)
+- fix(runtime): run v1 service adapters through their own process() again (#7756) (2d7362b)
+- fix(vue): keep CopilotChat full width in a flex row (closes PE-1053) (#8008) (0c7efff)
+- fix(react-native): time out stalled streams, not long ones (#7954) (3b5617b)
+- fix(shared): withhold unterminated numbers in partialJSONParse (#7950) (d01d9c7)
+- fix(react-core): let a custom chat input layout grow its textarea (#7964) (3cc0e69)
+- fix(runtime): handle pre-parsed request bodies in createCopilotNodeHandler (#7970) (37ed094)
+
+### Breaking Changes
+
+None
+
+## 1.80.0 - 2026-10-24
+
+### Features
+
+- feat(react-core): collect reply ratings with comments for Automatic Learning (#7828) (4930320)
+- feat(react-core): collapse tool calls made in a row (#7938) (f0a2490)
+
+### Fixes
+
+- fix(mcp-apps)!: give MCP App widgets an opaque origin by default (#7896) (b0c1736)
+- fix(core): scope stopAgent and run aborts to one agent (#7920) (dd9f04b)
+- fix(release): release @copilotkit/learning with the monorepo packages (#7949) (56c1056)
+- fix(a2ui-renderer): return the onAction promise so dispatchAction waits for it (#7911) (6429c79)
+- fix(mcp-apps-renderer): refuse open-links that resolve off-origin (#7635) (4177870)
+- fix(a2ui-renderer)!: type createCatalog renderer props as the binder resolves them (#7815) (0ea6f28)
+- fix(runtime): send RUN_ERROR when an SSE run fails instead of an empty stream (#7917) (3f73c87)
+- fix(runtime): expose nested LangGraph tool metadata on copilotkit.actions (#7870) (08f41c8)
+- fix(core): keep the error on tool calls that throw without a message (b4cb0ef)
+- fix(core): set error on the tool message when a tool handler throws (59ba1aa)
+- fix(core): don't move a tool result in front of reasoning stored before it (#7901) (7e8e10b)
+- fix(core): always re-pair tool results with their calls before sending a run (#7877) (4225da2)
+- fix(core): restore missing frontend tool results on reopen (#7847) (99f29ee)
+- fix(react-core): preserve chat scroll after hidden host (#7425) (49c7f17)
+- fix(react-core): accept a render-only useCopilotAction, and name the action in its config error (closes PE-921) (#7875) (d65c046)
+- fix(react-core,vue,angular): name the chat's icon-only buttons from labels (#7865) (8c6620b)
+- fix(runtime): keep tool-only assistant turns in afterRequestMiddleware messages (#7861) (a1f9a2f)
+- fix(runtime-client-gql): declare the packages its published types import (#7818) (f46dcbb)
+- fix(web-inspector): show Trajectory evidence on Learning Insights (#7812) (7b446f8)
+- fix(react-core): don't stringify tool-hook deps (closes PE-848) (#7830) (d8a2ccb)
+
+### Other Changes
+
+- perf(core): avoid repeated tool-call repair (#7748) (2c19c57)
+- docs(runtime): mark BuiltInAgentModel ids as suggestions, list current GPT-5 ids (#7957) (25bdfe6)
+- refactor: remove unreachable modules from react-core, runtime and shared (#7918) (03198b0)
+- perf(runtime): request only message ids for the run-start history lookup (#7796) (e29aa9f)
+
+### Breaking Changes
+
+- fix(mcp-apps)!: give MCP App widgets an opaque origin by default (#7896) (b0c1736)
+  MCP App widgets now run in a sandbox without
+  allow-same-origin, so they get an opaque origin and cannot use
+  localStorage, sessionStorage, IndexedDB or cookies.
+  Requests from a widget that need CORS, such as module scripts and fetch,
+  are now sent with Origin: null. Serve public widget assets with
+- fix(a2ui-renderer)!: type createCatalog renderer props as the binder resolves them (#7815) (0ea6f28)
+  `createCatalog` renderers (and the deprecated
+  `createA2UICatalog` `render`) now get props typed as the A2UI binder
+  resolves them, so code written against the raw schema types can stop
+  compiling.
+  Call Action props as functions, for example `props.onPress()`, instead
+  of reading them as action objects.
+  Use bound props as plain values (`props.level` is a `number`) and drop
+  handling of the `{ path }` and `{ call }` shapes, which renderers never
+  receive at runtime.
+  A plain `z.array(z.string())` prop now resolves to `any` like a child
+  list, so annotate callback parameters, for example
+  `props.children.map((id: string) => …)`.
+
 ## 1.79.1 - 2026-10-15
 
 ### Features

@@ -10,6 +10,7 @@ import {
   MemoryStore,
 } from "@copilotkit/channels-core";
 import type { ThreadDeps } from "@copilotkit/channels-core";
+import { takumiRenderer } from "@copilotkit/channels-core/takumi";
 import {
   Message,
   Header,
@@ -460,13 +461,19 @@ describe("managed JSX delivery", () => {
       tools: new Map(),
       toolDescriptors: [],
       context: [],
-      registerWaiter: () => {},
+      registerWaiter: () => () => {},
+      reserveChoiceControls: () => () => {},
       interruptHandlers: new Map(),
       state: new MemoryStore(),
       user: null,
       actor: { id: "actor", kind: "unknown" },
       renderImage,
-      render: { width: 160, height: 80, allowImageUrl: () => false },
+      render: {
+        renderer: takumiRenderer,
+        width: 160,
+        height: 80,
+        allowImageUrl: () => false,
+      },
     });
     return { thread, session, packets };
   }

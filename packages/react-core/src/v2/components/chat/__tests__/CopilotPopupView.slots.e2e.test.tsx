@@ -429,6 +429,36 @@ describe("CopilotPopupView Slot System E2E Tests", () => {
       expect(popup).toBeDefined();
     });
 
+    it("stays open when the user clicks into a chat popover", () => {
+      render(
+        <TestWrapper>
+          <CopilotPopupView
+            messages={sampleMessages}
+            defaultOpen={true}
+            clickOutsideToClose={true}
+          />
+          <div data-copilotkit-popover>
+            <input aria-label="Comment" />
+          </div>
+          <div data-slot="popover-content">
+            <button type="button">App popover</button>
+          </div>
+        </TestWrapper>,
+      );
+      const popup = screen.getByTestId("copilot-popup");
+      const isOpen = () => popup.className.includes("cpk:pointer-events-auto");
+      expect(isOpen()).toBe(true);
+
+      fireEvent.pointerDown(screen.getByRole("textbox", { name: "Comment" }));
+      expect(isOpen()).toBe(true);
+
+      // The app's own popovers are outside the chat.
+      fireEvent.pointerDown(
+        screen.getByRole("button", { name: "App popover" }),
+      );
+      expect(isOpen()).toBe(false);
+    });
+
     it("should support clickOutsideToClose prop", () => {
       const { container } = render(
         <TestWrapper>

@@ -127,9 +127,9 @@ describe("railway-envs SSOT", () => {
     expect(ENV_IDS.staging).toBe(STAGING_ENV_ID);
   });
 
-  it("contains 43 managed services plus seven staging-only Intelligence services", () => {
+  it("contains 43 managed services plus eight staging-only services (seven Intelligence, docs-preview)", () => {
     const names = listServiceNames();
-    expect(names.length).toBe(50);
+    expect(names.length).toBe(51);
   });
 
   it("models CrewAI conversational flows as a dual-environment showcase deployment", () => {
@@ -1497,7 +1497,7 @@ describe("static gate and disposable approval policy", () => {
   });
 
   it("approves only the reviewed bounded milestone images and preserves permanent identities", () => {
-    expect(Object.keys(SERVICES)).toHaveLength(50);
+    expect(Object.keys(SERVICES)).toHaveLength(51);
     expect(DISPOSABLE_LIFECYCLE_POLICY).toEqual({
       projectId: PROJECT_ID,
       forbiddenEnvironmentIds: [PRODUCTION_ENV_ID],
@@ -1512,6 +1512,7 @@ describe("static gate and disposable approval policy", () => {
         "ghcr.io/copilotkit/rich-thread-application@sha256:6b6d757e8c5c605c384673a4e8418cd7cd275de2b8b068ebb21856a1032fc71d",
         "ghcr.io/copilotkit/rich-thread-strands@sha256:a24c58ee44b65fe723434027bf9f40e6b77e679db67ba6229f329676ead430b9",
         "ghcr.io/copilotkit/rich-thread-inspector@sha256:e9404c9c986b73d0d980495f4bf0a63b174591770abeff80b9a4cb30c680d981",
+        "ghcr.io/copilotkit/rich-thread-inspector@sha256:1c5249083985cde25d8422ebc6a7ca7007d8eb92477daa5b854fe10c7ed2dd71",
       ],
     });
     const independent = Object.entries(SERVICES).filter(([name]) =>

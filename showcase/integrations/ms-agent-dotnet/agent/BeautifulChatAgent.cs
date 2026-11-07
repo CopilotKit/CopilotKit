@@ -133,7 +133,7 @@ internal sealed class BeautifulChatAgentFactory
 
     public AIAgent Create()
     {
-        var chatClient = _openAiClient.GetChatClient("gpt-5-mini").AsIChatClient();
+        var chatClient = _openAiClient.GetChatClient("gpt-6-luna").AsLunaChatClient();
 
         var chatClientAgent = new ChatClientAgent(
             chatClient,

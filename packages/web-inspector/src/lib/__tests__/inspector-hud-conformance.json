@@ -21,7 +21,8 @@
     "ag-ui-events",
     "frontend-tools",
     "capabilities",
-    "agent-context"
+    "agent-context",
+    "generative-ui"
   ],
   "scenarios": [
     {

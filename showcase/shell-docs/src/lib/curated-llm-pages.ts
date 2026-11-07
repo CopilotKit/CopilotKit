@@ -70,7 +70,7 @@ export const CURATED_LLM_PAGES = [
       "Choose how an agent pauses for user input, review, or approval before continuing.",
   },
   {
-    url: "threads",
+    url: "AG-UI-Streams",
     title: "AG-UI Streams",
     description:
       "Keep framework threads and add Intelligence’s AG-UI streams for reconnection, catch-up, and delivery across devices.",
@@ -262,7 +262,7 @@ export const CURATED_LLM_PAGES = [
       "Connect a React single-page application to a separately hosted Copilot Runtime.",
   },
   {
-    url: "frontends/vue",
+    url: "vue",
     title: "Vue Frontend",
     description:
       "Connect a Vue application to Copilot Runtime with CopilotKit's Vue integration.",

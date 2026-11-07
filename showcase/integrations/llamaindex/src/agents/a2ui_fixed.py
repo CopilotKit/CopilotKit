@@ -68,7 +68,7 @@ from fastapi.responses import StreamingResponse
 from llama_index.core.llms import ChatMessage
 from llama_index.core.workflow import Context, Workflow, step
 from llama_index.core.workflow.events import StopEvent
-from llama_index.llms.openai import OpenAI
+from agents._openai_models import OpenAI
 from llama_index.protocols.ag_ui.agent import (
     AGUIChatWorkflow,
     LoopEvent,
@@ -314,7 +314,7 @@ if os.environ.get("OPENAI_BASE_URL"):
 def _a2ui_fixed_workflow_factory() -> Callable[[], Awaitable[Workflow]]:
     async def factory() -> Workflow:
         return _A2UIRenderToolCallWorkflow(
-            llm=OpenAI(model="gpt-5-mini", **_openai_kwargs),
+            llm=OpenAI(model="gpt-6-luna", **_openai_kwargs),
             frontend_tools=[],
             backend_tools=[display_flight],
             system_prompt=SYSTEM_PROMPT,

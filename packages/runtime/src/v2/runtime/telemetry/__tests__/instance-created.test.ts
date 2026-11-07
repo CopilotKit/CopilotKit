@@ -93,4 +93,33 @@ describe("fireInstanceCreatedTelemetry", () => {
     await new Promise((resolve) => setTimeout(resolve, 10));
     expect(captureSpy).not.toHaveBeenCalled();
   });
+
+  it("sends the given info in place of the v2 defaults", async () => {
+    const info = {
+      actionsAmount: 2,
+      endpointTypes: ["langgraph-platform"],
+      endpointsAmount: 1,
+      agentsAmount: 3,
+      "cloud.api_key_provided": true,
+    };
+
+    fireInstanceCreatedTelemetry({ runtime: makeRuntime({}), info });
+
+    expect(captureSpy).toHaveBeenCalledTimes(1);
+    expect(captureSpy).toHaveBeenCalledWith(
+      "oss.runtime.instance_created",
+      info,
+    );
+  });
+
+  it("fires at most once per runtime object", async () => {
+    const runtime = makeRuntime({ a1: {} });
+    fireInstanceCreatedTelemetry({ runtime });
+    fireInstanceCreatedTelemetry({ runtime });
+    fireInstanceCreatedTelemetry({ runtime, info: undefined });
+    fireInstanceCreatedTelemetry({ runtime: makeRuntime({ a1: {} }) });
+
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(captureSpy).toHaveBeenCalledTimes(2);
+  });
 });

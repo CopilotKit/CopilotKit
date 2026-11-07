@@ -15,7 +15,7 @@
     {
       "title": "AG-UI Streams",
       "defaultOpen": true,
-      "pages": ["threads", "headless-threads", "threads-import"]
+      "pages": ["AG-UI-Streams", "headless-threads", "threads-import"]
     }
   ]
 }

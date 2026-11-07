@@ -27,10 +27,10 @@ export const appConfig: ApplicationConfig = {
 interface MCPAppsConfig {
   idleTimeoutMs?: number;
   initializationTimeoutMs?: number;
-  sandboxProxyUrl?: string;
   hostInfo?: { name: string; version: string };
   hostCapabilities?: Record<string, unknown>;
   hostContext?: Record<string, unknown>;
+  allowSameOriginFallback?: boolean;
 }
 ```
 
@@ -39,10 +39,11 @@ interface MCPAppsConfig {
 wins. It deliberately accepts no MCP server URL. Resource loads, tool calls,
 and follow-up messages travel through the selected AG-UI agent.
 
-`sandboxProxyUrl` selects a dedicated sandbox proxy document for hosts with a
-strict response-level content security policy. The document must implement the
-CopilotKit MCP sandbox proxy protocol and use an opaque response sandbox without
-`allow-same-origin`.
+Widgets run in a sandbox with an opaque origin, so they can't reach your
+page's cookies, storage or DOM. `allowSameOriginFallback: true` restores
+`allow-same-origin` for trusted widgets that need `localStorage`, `IndexedDB`
+or cookies. It is unsafe: every widget then runs with your page's origin. See
+[Sandbox and widget storage](/generative-ui/mcp-apps#sandbox-and-widget-storage).
 
 Each widget owns an abortable FIFO queue and iframe listener. Destroying one
 widget cancels only its work; changing threads drops queued stale work. Busy

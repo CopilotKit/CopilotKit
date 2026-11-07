@@ -1,6 +1,6 @@
 {
   "name": "@copilotkit/core",
-  "version": "1.79.1",
+  "version": "1.85.0",
   "description": "Core web utilities for CopilotKit2",
   "license": "MIT",
   "repository": {
@@ -17,6 +17,10 @@
     ".": {
       "import": "./dist/index.mjs",
       "require": "./dist/index.cjs"
+    },
+    "./generative-ui": {
+      "import": "./dist/generative-ui/index.mjs",
+      "require": "./dist/generative-ui/index.cjs"
     },
     "./package.json": "./package.json"
   },
@@ -36,12 +40,15 @@
     "attw": "attw --pack . --profile node16"
   },
   "dependencies": {
+    "@a2ui/web_core": "0.15.0",
     "@ag-ui/client": "1.0.2",
-    "@copilotkit/learning": "workspace:^",
+    "@copilotkit/learning": "workspace:*",
     "@copilotkit/shared": "workspace:*",
     "@tanstack/pacer": "^0.20.1",
+    "jsonrepair": "^3.15.0",
     "phoenix": "^1.8.4",
     "rxjs": "7.8.1",
+    "zod": "^3.25.75",
     "zod-to-json-schema": "^3.24.6"
   },
   "devDependencies": {
@@ -49,15 +56,17 @@
     "@copilotkit/typescript-config": "workspace:*",
     "@types/node": "^22.15.3",
     "@types/phoenix": "^1.6.6",
+    "@types/ws": "^8.18.1",
     "@valibot/to-json-schema": "^1.5.0",
     "@vitest/coverage-v8": "^3.2.4",
     "arktype": "^2.1.29",
     "cross-env": "^10.1.0",
+    "jsdom": "^29.1.0",
     "tsdown": "^0.20.3",
     "typescript": "5.8.2",
     "valibot": "^1.2.0",
     "vitest": "^3.2.4",
-    "zod": "^3.25.75"
+    "ws": "^8.19.0"
   },
   "engines": {
     "node": ">=20"

@@ -26,6 +26,11 @@ rules:
   # must come with a comment explaining why the workflow is safe.
   dangerous-triggers:
     ignore:
+      # security_fork-pr-alert.yml: API-only pull_request_target monitor needs
+      # write access to post alerts on forks. Runs trusted base-branch code;
+      # never checks out or executes PR code, installs dependencies, or reads
+      # PR artifacts. PR metadata is consumed as data through the GitHub API.
+      - security_fork-pr-alert.yml
       # update-branch.yml: pull_request_target gated on `types: [labeled]`
       # with a maintainer-applied "update-branch" label. The workflow uses
       # the base-repo checkout (not the PR head), so no fork-controlled

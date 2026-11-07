@@ -29,6 +29,7 @@ import "dotenv/config";
 import { loadBrandRender } from "./render/brand.js";
 import { createServer } from "node:http";
 import { createChannel, HttpAgent } from "@copilotkit/channels";
+import { takumiRenderer } from "@copilotkit/channels/takumi";
 import {
   defaultSlackTools,
   defaultSlackContext,
@@ -110,6 +111,7 @@ async function main() {
   // adapter).
   const support = createChannel({
     render: {
+      renderer: takumiRenderer,
       width: 760,
       fonts: brand.fonts,
       stylesheets: brand.stylesheets,

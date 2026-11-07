@@ -410,7 +410,7 @@ const applyAppContextNote = (request: any): any => {
  * import { copilotkitMiddleware } from "@copilotkit/sdk-js/langgraph";
  *
  * const agent = createAgent({
- *   model: "gpt-4o",
+ *   model: "gpt-6-luna",
  *   tools: [backendTool],
  *   middleware: [copilotkitMiddleware],
  * });

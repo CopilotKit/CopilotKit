@@ -435,6 +435,34 @@ describe("mcpClients — user-managed MCP clients", () => {
     },
   );
 
+  it("logs a failed MCP server without the credentials in its URL", async () => {
+    const { createMCPClient } = await import("@ai-sdk/mcp");
+    vi.mocked(createMCPClient).mockRejectedValue(new Error("refused"));
+    vi.mocked(streamText).mockReturnValue(
+      mockStreamTextResponse([finish()]) as any,
+    );
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      const agent = new BasicAgent({
+        model: "openai/gpt-4o",
+        mcpServers: [
+          {
+            type: "http",
+            url: "https://user:pass@mcp.example.com/mcp?token=secret-123",
+          },
+        ],
+      });
+
+      await collectEvents(agent.run(baseInput));
+
+      const logged = error.mock.calls.map((call) => String(call[0])).join("\n");
+      expect(logged).toContain("MCP server https://mcp.example.com/mcp failed");
+      expect(logged).not.toMatch(/secret-123|user:pass/);
+    } finally {
+      error.mockRestore();
+    }
+  });
+
   it("clone() shares the same mcpClients references", () => {
     const provider = makeMockProvider({});
 

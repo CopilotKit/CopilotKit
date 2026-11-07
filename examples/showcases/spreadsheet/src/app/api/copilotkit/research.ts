@@ -23,7 +23,8 @@ const StateAnnotation = Annotation.Root({
 function model() {
   return new ChatOpenAI({
     temperature: 0,
-    modelName: "gpt-3.5-turbo-0125",
+    modelName: "gpt-6-luna",
+    modelKwargs: { reasoning_effort: "none" },
   });
 }
 

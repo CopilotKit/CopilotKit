@@ -1,6 +1,6 @@
 {
   "name": "@copilotkit/shared",
-  "version": "1.79.1",
+  "version": "1.85.0",
   "private": false,
   "keywords": [
     "ai",
@@ -35,6 +35,10 @@
     "./event-transforms": {
       "import": "./dist/event-transforms/index.mjs",
       "require": "./dist/event-transforms/index.cjs"
+    },
+    "./generative-ui": {
+      "import": "./dist/generative-ui/index.mjs",
+      "require": "./dist/generative-ui/index.cjs"
     },
     "./telemetry": {
       "import": "./dist/telemetry/index.mjs",
@@ -73,7 +77,6 @@
     "@copilotkit/license-verifier": "~0.5.0",
     "@segment/analytics-node": "^2.1.2",
     "@standard-schema/spec": "^1.0.0",
-    "chalk": "4.1.2",
     "clarinet": "^0.12.4",
     "graphql": "^16.8.1",
     "partial-json": "^0.1.7",

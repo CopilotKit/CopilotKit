@@ -35,8 +35,11 @@ test("registered component reactions recover with their source platform", async 
 
   const restarted = new ActionRegistry({ store });
   register(restarted);
-  expect(await restarted.resolveMessageReaction("message-1")).toBe(
-    reactionHandler,
-  );
+  expect(
+    await restarted.resolveMessageReaction("message-1", {
+      conversationKey: "conversation-1",
+      platform: "teams",
+    }),
+  ).toBe(reactionHandler);
   expect(renderPlatforms).toEqual(["teams", "teams"]);
 });

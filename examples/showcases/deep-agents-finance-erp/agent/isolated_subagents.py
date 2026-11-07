@@ -26,7 +26,10 @@ def _run_subagent(query: str, system_prompt: str, agent_tools: list) -> str:
     from langchain_openai import ChatOpenAI
 
     llm = ChatOpenAI(
-        model=os.environ.get("OPENAI_MODEL", "gpt-5.4-2026-03-05"),
+        reasoning_effort="none"
+        if os.environ.get("OPENAI_MODEL", "gpt-6-luna") == "gpt-6-luna"
+        else None,
+        model=os.environ.get("OPENAI_MODEL", "gpt-6-luna"),
         temperature=0,
         streaming=True,
         api_key=os.environ.get("OPENAI_API_KEY"),

@@ -18,13 +18,7 @@ export function errorClass(err: unknown): string {
 // third-party adapter could put a tenant/project name there. Bound it to the
 // known platforms and bucket everything else as "custom" — prevents leaking
 // caller-chosen labels and caps telemetry cardinality.
-const KNOWN_PLATFORMS = new Set([
-  "slack",
-  "discord",
-  "telegram",
-  "whatsapp",
-  "teams",
-]);
+const KNOWN_PLATFORMS = new Set(["slack", "discord", "whatsapp", "teams"]);
 export function normalizePlatform(platform: string): string {
   return KNOWN_PLATFORMS.has(platform) ? platform : "custom";
 }

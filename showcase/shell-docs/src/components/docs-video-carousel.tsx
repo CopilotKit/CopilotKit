@@ -38,8 +38,8 @@ const RECORDINGS: readonly Recording[] = [
     icon: MessagesSquare,
     title: "AG-UI Streams",
     description:
-      "Persist and resume rich conversations with generative UI, messages, tool activity, and app state. Import existing thread history so users can pick up where they left off.",
-    href: "/threads",
+      "Complement any existing thread system with AG-UI Streams. Add the full spectrum of generative UI, multimodal inputs and file uploads, plus reconnection and catch-up after network interruptions and across tabs and devices.",
+    href: "/AG-UI-Streams",
     previewSrc: "/videos/product-tour/rich-threads.mp4",
     loomId: "79817778d29e490c97225127d2f17b3a",
     thumbnail: "/images/product-tour/rich-threads.jpg",

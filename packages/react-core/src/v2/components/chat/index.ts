@@ -100,3 +100,19 @@ export type {
 } from "@copilotkit/shared";
 
 export type { AutoScrollMode } from "./normalize-auto-scroll";
+
+export {
+  default as CopilotChatToolCallGroup,
+  type CopilotChatToolCallGroupProps,
+  type CopilotChatToolCallGroupAppearance,
+} from "./CopilotChatToolCallGroup";
+
+export {
+  default as CopilotChatWorkSummary,
+  type CopilotChatWorkSummaryProps,
+} from "./CopilotChatWorkSummary";
+
+export type {
+  CopilotChatToolCallDisplay,
+  ToolCallEntry,
+} from "./tool-call-layout";

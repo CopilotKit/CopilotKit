@@ -12,13 +12,14 @@ using Microsoft.Extensions.Logging;
 
 internal static class InspectorRuntimeTests
 {
+    /// <summary>Exercise metadata sanitization, HTTP boundaries, and provider failures through real routes.</summary>
     internal static async Task RunAsync()
     {
         using var handler = new PlatformHandler();
         using var http = new HttpClient(handler);
         using var sdk = new IntelligenceClient(new IntelligenceOptions
         {
-            ApiKey = "server-key", ApiUrl = new Uri("https://platform.test"), RequestTimeout = TimeSpan.FromMilliseconds(100)
+            ApiKey = "server-key", ApiUrl = new Uri("https://platform.test")
         }, http);
         var identified = 0;
         var errors = new ConcurrentQueue<RuntimeError>();
@@ -30,10 +31,23 @@ internal static class InspectorRuntimeTests
             IdentifyUser = (_, _) => { Interlocked.Increment(ref identified); return ValueTask.FromResult<RuntimeUser?>(null); },
             OnError = error => { errors.Enqueue(error); throw new InvalidOperationException("reporter failure"); }
         });
+        // Isolate the short deadline from successful requests and cold startup.
+        using var timeoutSdk = new IntelligenceClient(new IntelligenceOptions
+        {
+            ApiKey = "server-key", ApiUrl = new Uri("https://platform.test"), RequestTimeout = TimeSpan.FromSeconds(1)
+        }, http);
+        await using var timeoutRuntime = new IntelligenceRuntime(new RuntimeOptions
+        {
+            Intelligence = timeoutSdk, TelemetryDisabled = true,
+            Agents = new Dictionary<string, IRuntimeAgent> { ["default"] = new CaptureAgent() },
+            IdentifyUser = (_, _) => ValueTask.FromResult<RuntimeUser?>(null),
+            OnError = error => errors.Enqueue(error)
+        });
         var builder = WebApplication.CreateBuilder();
         builder.Logging.ClearProviders(); builder.WebHost.UseUrls("http://127.0.0.1:0");
         await using var app = builder.Build();
         runtime.Map(app);
+        timeoutRuntime.Map(app, "/timeout");
         await app.StartAsync();
         using var browser = new HttpClient
         {
@@ -59,7 +73,8 @@ internal static class InspectorRuntimeTests
             using var response = await browser.SendAsync(request);
             var metadata = await response.Content.ReadFromJsonAsync<JsonObject>();
 
-            Check(response.StatusCode == HttpStatusCode.OK && response.Headers.CacheControl is { NoStore: true, Private: true }, "metadata route returns private no-store JSON");
+            Check(response.StatusCode == HttpStatusCode.OK, $"metadata route returns JSON (status: {response.StatusCode})");
+            Check(response.Headers.CacheControl is { NoStore: true, Private: true }, "metadata route returns private no-store JSON");
             Check(JsonNode.DeepEquals(metadata, JsonNode.Parse("""{"schemaVersion":1,"identity":{"organizationName":"Org","projectName":"Project"},"usage":{"used":0,"limit":{"kind":"unknown"}}}""")), "Runtime returns only sanitized metadata modules");
             Check(handler.Authorization == "Bearer server-key" && handler.Cookie is null && identified == 0, "public metadata uses SDK credentials without browser credentials or app-user authentication");
             Check(response.Headers.GetValues("Access-Control-Allow-Origin").Single() == "https://app.test", "metadata retains allowed-origin CORS headers");
@@ -75,11 +90,12 @@ internal static class InspectorRuntimeTests
             {
                 handler.Responses.Enqueue((status, body));
                 var previousErrors = errors.Count;
-                using var absent = await browser.GetAsync("/copilotkit/inspector-metadata");
+                using var absent = await browser.GetAsync(status == 0 ? "/timeout/inspector-metadata" : "/copilotkit/inspector-metadata");
                 Check(absent.StatusCode == HttpStatusCode.NoContent && (await absent.Content.ReadAsByteArrayAsync()).Length == 0
                     && absent.Content.Headers.ContentType is null && absent.Headers.CacheControl is { NoStore: true, Private: true }, "metadata absence and provider failures return private empty 204: " + status + "/" + body);
                 Check(errors.Count == previousErrors + (reportsError ? 1 : 0), "metadata reports provider errors without failing when the reporter throws");
             }
+            Check(handler.PendingRequestCancelled, "metadata deadline cancels the pending provider request");
             Check(errors.All(error => error.Operation == "inspector.metadata" && error.Code == "INSPECTOR_METADATA_FAILED"), "metadata errors carry a stable operation and code");
 
             var calls = handler.MetadataCalls;
@@ -95,19 +111,23 @@ internal static class InspectorRuntimeTests
         finally { await app.StopAsync(); }
     }
 
+    /// <summary>Fail the executable test suite with the violated contract name.</summary>
     private static void Check(bool condition, string name)
     {
         if (!condition) throw new Exception(name);
         Console.WriteLine("PASS " + name);
     }
 
+    /// <summary>Serve queued metadata fixtures and await the real cancellation token for timeouts.</summary>
     private sealed class PlatformHandler : HttpMessageHandler
     {
         internal ConcurrentQueue<(int Status, string Body)> Responses { get; } = new();
         internal int MetadataCalls { get; private set; }
         internal string? Authorization { get; private set; }
         internal string? Cookie { get; private set; }
+        internal bool PendingRequestCancelled { get; private set; }
 
+        /// <summary>Capture forwarded credentials and simulate provider responses without network I/O.</summary>
         protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {
             if (request.RequestUri!.AbsolutePath == "/api/entitlements/runtime")
@@ -117,7 +137,15 @@ internal static class InspectorRuntimeTests
             Authorization = request.Headers.Authorization?.ToString();
             Cookie = request.Headers.TryGetValues("Cookie", out var cookies) ? string.Join(",", cookies) : null;
             if (!Responses.TryDequeue(out var response)) throw new Exception("unexpected metadata request");
-            if (response.Status == 0) await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken);
+            if (response.Status == 0)
+            {
+                try { await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken); }
+                catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+                {
+                    PendingRequestCancelled = true;
+                    throw;
+                }
+            }
             if (response.Status == -1) throw new HttpRequestException("provider-secret-payload");
             return new((HttpStatusCode)response.Status) { Content = new StringContent(response.Body) };
         }

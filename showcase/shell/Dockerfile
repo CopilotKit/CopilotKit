@@ -1,4 +1,4 @@
-FROM node:20-slim AS builder
+FROM node:22.23.4-bookworm-slim@sha256:de170b39439eb0e5a3444ad7d60b015614a381e10fecae2e30ec9e735122f38d AS builder
 ARG COMMIT_SHA=unknown
 ARG BRANCH=unknown
 WORKDIR /app
@@ -21,6 +21,7 @@ COPY showcase/integrations/ ./integrations/
 COPY showcase/scripts/ ./scripts/
 COPY showcase/shell/ ./shell/
 COPY showcase/angular/src/ ./angular/src/
+COPY showcase/vue/src/ ./vue/src/
 COPY showcase/shell-docs/src/content/ ./shell-docs/src/content/
 
 # generate-search-index.ts only indexes docs pages a reader can reach from a
@@ -63,11 +64,12 @@ RUN ln -s ../scripts/node_modules harness/node_modules
 RUN cd scripts && node node_modules/tsx/dist/cli.mjs generate-registry.ts \
     && node node_modules/tsx/dist/cli.mjs bundle-demo-content.ts \
     && node node_modules/tsx/dist/cli.mjs bundle-angular-source-content.ts \
+    && node node_modules/tsx/dist/cli.mjs bundle-vue-source-content.ts \
     && node node_modules/tsx/dist/cli.mjs bundle-starter-content.ts \
     && node node_modules/tsx/dist/cli.mjs generate-search-index.ts \
     && cd ../shell && npx next build
 
-FROM node:20-slim AS runner
+FROM node:22.23.4-bookworm-slim@sha256:de170b39439eb0e5a3444ad7d60b015614a381e10fecae2e30ec9e735122f38d AS runner
 WORKDIR /app
 ARG COMMIT_SHA=unknown
 ARG BRANCH=unknown
@@ -84,3 +86,6 @@ COPY --from=builder /app/shell/public ./public
 EXPOSE 10000
 CMD ["npx", "next", "start", "-p", "10000"]
 # Cache bust: 1775013460
+
+# Fail the build if any base or install path regresses the accepted Node runtime.
+RUN test "$(node --version)" = "v22.23.4"

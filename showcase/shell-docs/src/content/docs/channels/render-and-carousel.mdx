@@ -44,7 +44,7 @@ Use `thread.post()` or `thread.update()` for messages containing `<Render>`. The
   A Channels `<Button>` inside `<Render>` throws. A host HTML button is fine. The snapshot is a PNG, so that HTML button does not receive clicks.
 </Callout>
 
-Set fonts and styles once on `createChannel({ render })`. See [Posting JSX as images](/channels/posting-jsx-as-images).
+Set the renderer, fonts, and styles once on `createChannel({ render })`. `<Render>` needs `render.renderer`, the same as an image post. See [Posting JSX as images](/channels/posting-jsx-as-images).
 
 The Slack example posts this mix with `/carousel` or by asking the bot to show a carousel (`render_carousel` in `examples/slack`).
 
@@ -53,7 +53,7 @@ This feature targets managed Slack and Teams:
 - **Slack:** the SDK stores each PNG and puts its file handle in `slack_file.id`. Intelligence stages the image in Slack before posting the native message or carousel. Native buttons keep their action callbacks.
 - **Teams:** the SDK embeds snapshots as data URIs in an Adaptive Card. The complete delivery packet, including all images, text, and actions, must fit the existing **64 KiB** limit. Oversized cards fail with an error explaining the limit. Reduce the snapshot dimensions, use public `<Image url>` images, or post a larger snapshot separately with `thread.post(jsx)`, which uses the managed upload path.
 
-Run `pnpm channel` in `examples/slack` for the managed example. Existing direct adapters and Discord, Telegram, and WhatsApp behavior are unchanged.
+Run `pnpm channel` in `examples/slack` for the managed example. Existing direct adapters and Discord and WhatsApp behavior are unchanged.
 
 | Managed platform | Carousel output |
 | --- | --- |

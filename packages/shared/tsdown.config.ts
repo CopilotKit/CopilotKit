@@ -8,6 +8,7 @@ export default defineConfig([
       "src/index.ts",
       "src/telemetry/index.ts",
       "src/event-transforms/index.ts",
+      "src/generative-ui/index.ts",
     ],
     format: ["esm", "cjs"],
     dts: true,
@@ -41,7 +42,6 @@ export default defineConfig([
         "@ag-ui/core": "AgUICore",
         "@ag-ui/client": "AgUIClient",
         "@segment/analytics-node": "SegmentAnalyticsNode",
-        chalk: "chalk",
         "partial-json": "PartialJSON",
       };
       return options;

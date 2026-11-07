@@ -1664,6 +1664,24 @@ export const SERVICES: Record<
       },
     },
   },
+  // Staging-only base for docs PR previews. Railway builds it from the repo
+  // (showcase/shell-docs/Dockerfile, watch path showcase/shell-docs/**), and
+  // the project's focused PR environments copy it for each PR that changes
+  // the docs. Not CI-built, probed, or promoted; `docs` stays the real site.
+  "docs-preview": {
+    serviceId: "a5ff33b4-8b8d-4fbc-94b1-177374464bb8",
+    autoUpdates: { staging: "unmanaged" },
+    ciBuilt: false,
+    gateValidated: false,
+    gateIgnore: true,
+    probeDriver: "shell", // inert: staging probe is disabled
+    environments: {
+      staging: {
+        instanceId: "99cd81df-b32e-413a-9c04-91811ec59806",
+        probe: false,
+      },
+    },
+  },
   // ───────────────────────── starter-* container fleet ─────────────────────
   // The 12 starter-template containers (ghcr.io/copilotkit/starter-<slug>),
   // live in BOTH staging and prod. Folded into the cluster-promote SSOT (S1)
@@ -2900,5 +2918,7 @@ export const DISPOSABLE_LIFECYCLE_POLICY: RailwayLifecyclePolicy = {
     "ghcr.io/copilotkit/rich-thread-application@sha256:6b6d757e8c5c605c384673a4e8418cd7cd275de2b8b068ebb21856a1032fc71d",
     "ghcr.io/copilotkit/rich-thread-strands@sha256:a24c58ee44b65fe723434027bf9f40e6b77e679db67ba6229f329676ead430b9",
     "ghcr.io/copilotkit/rich-thread-inspector@sha256:e9404c9c986b73d0d980495f4bf0a63b174591770abeff80b9a4cb30c680d981",
+    // Reviewed against build39546386235 (9bd0e47): canonical schedule observations.
+    "ghcr.io/copilotkit/rich-thread-inspector@sha256:1c5249083985cde25d8422ebc6a7ca7007d8eb92477daa5b854fe10c7ed2dd71",
   ],
 };
