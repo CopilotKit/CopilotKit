@@ -157,6 +157,35 @@ describe("ProxiedCopilotRuntimeAgent transport integration", () => {
         },
       );
 
+      it.runIf(transport === "rest")(
+        "keeps dot-only agent ids as distinct connect URL segments",
+        async () => {
+          // "." and ".." are dot segments: URL parsers resolve them away, so
+          // the client double-escapes them and the runtime router decodes the
+          // second escape (fetch-router.ts safeDecodeAgentIdSegment).
+          for (const [agentId, encoded] of [
+            [".", "%252E"],
+            ["..", "%252E%252E"],
+          ] as const) {
+            const agent = new ProxiedCopilotRuntimeAgent({
+              runtimeUrl,
+              agentId,
+              transport,
+            });
+
+            fetchMock.mockResolvedValueOnce(createSseResponse());
+
+            await expect(agent.connectAgent({})).resolves.toMatchObject({
+              newMessages: expect.any(Array),
+            });
+
+            const [url] = fetchMock.mock.calls[0] as [string, RequestInit];
+            expect(url).toBe(`${runtimeUrl}/agent/${encoded}/connect`);
+            fetchMock.mockClear();
+          }
+        },
+      );
+
       it("sends stop requests with the expected payload", () => {
         const agentId = "stop-agent";
         const threadId = "thread-123";
