@@ -62,22 +62,17 @@ function safeDecodeURIComponent(value: string): string | null {
  * Decode an `:agentId` path segment for `agent/:agentId/connect`.
  *
  * The client (`encodeAgentPathSegment` in `packages/core/src/agent.ts`)
- * double-escapes dot-only ids so URL parsers cannot resolve them away:
- * "." arrives as "%252E" and ".." as "%252E%252E". Undo that second escape
- * for exactly those wire forms; every other id keeps its existing decoding.
+ * percent-encodes the id twice, so decoding runs twice as well. Two passes
+ * keep every id a distinct round trip: dot-only ids survive URL parsing
+ * ("." arrives as "%252E") and ids containing percent escapes stay distinct
+ * from them ("%2E" arrives as "%25252E", "." never collides with it).
  */
 function safeDecodeAgentIdSegment(value: string): string | null {
-  const decoded = safeDecodeURIComponent(value);
-  if (decoded === null) {
+  const firstPass = safeDecodeURIComponent(value);
+  if (firstPass === null) {
     return null;
   }
-  if (decoded === "%2E") {
-    return ".";
-  }
-  if (decoded === "%2E%2E") {
-    return "..";
-  }
-  return decoded;
+  return safeDecodeURIComponent(firstPass);
 }
 
 function matchSegments(path: string): RouteInfo | null {
