@@ -38,6 +38,29 @@ import type {
 import { IntelligenceAgent } from "./intelligence-agent";
 import type { CopilotRuntimeTransport } from "./types";
 import { runtimeInfoError } from "./utils/runtime-info-error";
+
+/**
+ * Encode an agent id for a `/agent/:agentId/...` URL path segment.
+ *
+ * The wire format must stay compatible with runtimes that decode the segment
+ * once, so ordinary ids keep the plain `encodeURIComponent` output. Only
+ * dot-only ids ("." / "..") are escaped differently — "%252E" forms — because
+ * URL parsers would otherwise resolve them away entirely. Known limitation:
+ * an id that *is* a percent escape (e.g. "%2E") decodes to the same agent as
+ * "." through a legacy single-decode runtime; distinguishing the two would
+ * require a wire change that breaks that compatibility.
+ */
+function encodeAgentPathSegment(agentId: string): string {
+  const encoded = encodeURIComponent(agentId);
+  if (encoded === ".") {
+    return "%252E";
+  }
+  if (encoded === "..") {
+    return "%252E%252E";
+  }
+  return encoded;
+}
+
 import type { RuntimeRequestInit } from "./utils/runtime-request";
 import type { ConnectionReplayLifecycle } from "./utils/connect-replay";
 import { ɵconnectWithoutEventVerification } from "./utils/connect-replay";
@@ -730,7 +753,7 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
         this.fetch(this.singleEndpointUrl!, requestInit),
       );
     } else {
-      const connectUrl = `${this.runtimeUrl}/agent/${routedId}/connect`;
+      const connectUrl = `${this.runtimeUrl}/agent/${encodeAgentPathSegment(routedId)}/connect`;
       const connectRequestInit = this.requestInit(input);
       httpEvents = runHttpRequest(() =>
         this.fetch(connectUrl, connectRequestInit),
