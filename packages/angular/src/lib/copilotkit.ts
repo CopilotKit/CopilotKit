@@ -247,7 +247,7 @@ export class CopilotKit {
     FrontendToolConfig[]
   > = signal([]);
   readonly #humanInTheLoopToolRenderConfigs: WritableSignal<
-    HumanInTheLoopConfig[]
+    HumanInTheLoopConfig<any, any>[]
   > = signal([]);
   readonly #activityMessageRenderConfigs: WritableSignal<
     RenderActivityMessageConfig[]
@@ -268,8 +268,9 @@ export class CopilotKit {
       ...this.#builtInClientToolCallRenderConfigs(),
     ],
   );
-  readonly humanInTheLoopToolRenderConfigs: Signal<HumanInTheLoopConfig[]> =
-    this.#humanInTheLoopToolRenderConfigs.asReadonly();
+  readonly humanInTheLoopToolRenderConfigs: Signal<
+    HumanInTheLoopConfig<any, any>[]
+  > = this.#humanInTheLoopToolRenderConfigs.asReadonly();
   readonly activityMessageRenderConfigs: Signal<RenderActivityMessageConfig[]> =
     computed(() => [
       ...this.#activityMessageRenderConfigs(),
@@ -672,22 +673,27 @@ export class CopilotKit {
   }
 
   #bindHumanInTheLoopTool(
-    humanInTheLoopTool: HumanInTheLoopConfig,
+    humanInTheLoopTool: HumanInTheLoopConfig<any, any>,
   ): FrontendTool {
+    const { onResponse, ...tool } = humanInTheLoopTool;
     return {
-      ...humanInTheLoopTool,
+      ...tool,
       type: "human-in-the-loop",
-      handler: (args, { toolCall, signal: abortSignal }) => {
-        return this.#hitl.onResult(
-          toolCall.id,
-          humanInTheLoopTool.name,
-          abortSignal,
+      handler: async (args, context) => {
+        const response = await this.#hitl.onResult(
+          context.toolCall.id,
+          tool.name,
+          context.signal,
         );
+        context.signal?.throwIfAborted();
+        return onResponse ? onResponse(args, response, context) : response;
       },
     };
   }
 
-  addHumanInTheLoop(humanInTheLoopTool: HumanInTheLoopConfig): void {
+  addHumanInTheLoop<Args extends Record<string, unknown>, Response = unknown>(
+    humanInTheLoopTool: HumanInTheLoopConfig<Args, Response>,
+  ): void {
     this.#humanInTheLoopToolRenderConfigs.update((current) => [
       ...current,
       humanInTheLoopTool,
