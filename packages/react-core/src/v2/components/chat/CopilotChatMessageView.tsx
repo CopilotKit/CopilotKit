@@ -1507,7 +1507,11 @@ export function CopilotChatMessageView({
     const prev = prevListHeadRef.current;
     prevListHeadRef.current = { key: messageListKey, first: firstMessageId };
     if (prev.key !== messageListKey) {
+      // A pending refinement still targets the old thread's anchor; left
+      // running, its next frame would scroll the new thread away from its
+      // newest message.
       prependAnchorRef.current = null;
+      cancelAnimationFrame(prependRefineFrameRef.current);
       return;
     }
     const element = scrollElementFromCtx;
@@ -1515,26 +1519,33 @@ export function CopilotChatMessageView({
     if (prev.first === firstMessageId) return;
     const anchor = prependAnchorRef.current;
     prependAnchorRef.current = null;
-    if (isPinnedToBottomRef.current) return;
 
-    // A prepend keeps the previous head in the list. If it is gone, the
-    // whole list was swapped under the same thread (e.g. a refetch replacing
-    // every message): no row anchors across that, so align to the newest row
-    // the way a thread change would.
-    const oldHeadKey = prev.first
-      ? (rowRenderKeys.get(prev.first) ?? prev.first)
-      : undefined;
-    if (!oldHeadKey || !rowKeysRef.current.includes(oldHeadKey)) {
-      virtualizer.scrollToIndex(rows.length - 1, { align: "end" });
+    // A retained anchor row survives a top-trimmed list just as it survives
+    // a prepend, and restoring it beats any fallback.
+    const anchorIndex = anchor ? rowKeysRef.current.indexOf(anchor.key) : -1;
+    if (!anchor || anchorIndex === -1) {
+      // No row anchors across this change. If the previous head is gone too,
+      // the whole list was swapped under the same thread (e.g. a refetch
+      // replacing every message): the cached measurements describe unrelated
+      // rows, so drop them (the pinned path keeps scrolling from the bottom),
+      // and align to the newest row the way a thread change would.
+      const oldHeadKey = prev.first
+        ? (rowRenderKeys.get(prev.first) ?? prev.first)
+        : undefined;
+      if (!oldHeadKey || !rowKeysRef.current.includes(oldHeadKey)) {
+        measuredRef.current = { total: 0, sizes: new Map() };
+        virtualizer.measure();
+        if (!isPinnedToBottomRef.current) {
+          virtualizer.scrollToIndex(rows.length - 1, { align: "end" });
+        }
+      }
       return;
     }
-    if (!anchor) return;
-    if (!rowKeysRef.current.includes(anchor.key)) return;
+    if (isPinnedToBottomRef.current) return;
 
     // Coarse step: bring the anchor row back into the mounted range. Offsets
     // past unmeasured rows are estimates, so this can overshoot.
-    const index = rowKeysRef.current.indexOf(anchor.key);
-    const start = virtualizer.getOffsetForIndex(index, "start")?.[0];
+    const start = virtualizer.getOffsetForIndex(anchorIndex, "start")?.[0];
     if (start !== undefined) {
       virtualizer.scrollToOffset(start - anchor.offset);
     }
@@ -1549,12 +1560,30 @@ export function CopilotChatMessageView({
     cancelAnimationFrame(prependRefineFrameRef.current);
     let attempts = 0;
     let stableFrames = 0;
+    // The reader owns the position again the moment they navigate: a gesture
+    // mid-refinement must not be undone by the next correction.
+    const stopRefinement = () => {
+      cancelAnimationFrame(prependRefineFrameRef.current);
+      element.removeEventListener("wheel", stopRefinement);
+      element.removeEventListener("touchstart", stopRefinement);
+      element.removeEventListener("keydown", stopRefinement);
+    };
+    element.addEventListener("wheel", stopRefinement, { passive: true });
+    element.addEventListener("touchstart", stopRefinement, { passive: true });
+    element.addEventListener("keydown", stopRefinement);
     const refine = () => {
-      const row = element.querySelector<HTMLElement>(
-        `[data-scroll-anchor="${anchor.key}"]`,
-      );
+      // The bottom pin owns the position once it (re)engages.
+      if (isPinnedToBottomRef.current) {
+        stopRefinement();
+        return;
+      }
+      // Row keys can contain quotes; interpolating one into a selector would
+      // throw and strand the view at the estimated position.
+      const row = Array.from(
+        element.querySelectorAll<HTMLElement>("[data-scroll-anchor]"),
+      ).find((candidate) => candidate.dataset.scrollAnchor === anchor.key);
       if (!row) {
-        const offset = virtualizer.getOffsetForIndex(index, "start")?.[0];
+        const offset = virtualizer.getOffsetForIndex(anchorIndex, "start")?.[0];
         if (offset !== undefined)
           virtualizer.scrollToOffset(offset - anchor.offset);
         stableFrames = 0;
@@ -1572,6 +1601,8 @@ export function CopilotChatMessageView({
       }
       if (++attempts < 60 && stableFrames < 3) {
         prependRefineFrameRef.current = requestAnimationFrame(refine);
+      } else {
+        stopRefinement();
       }
     };
     prependRefineFrameRef.current = requestAnimationFrame(refine);
@@ -1584,6 +1615,7 @@ export function CopilotChatMessageView({
     const element = scrollElementFromCtx;
     if (!element || !shouldVirtualize) {
       prependAnchorRef.current = null;
+      cancelAnimationFrame(prependRefineFrameRef.current);
       return;
     }
     const capture = () => {

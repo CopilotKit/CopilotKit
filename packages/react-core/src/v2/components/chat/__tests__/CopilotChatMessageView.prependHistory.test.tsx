@@ -134,9 +134,12 @@ describe("CopilotChatMessageView history prepend", () => {
     expect(virtualizedRowCount()).toBe(80);
 
     const scrollToIndex = vi.spyOn(capture.current!, "scrollToIndex");
+    const measure = vi.spyOn(capture.current!, "measure");
 
     act(() => replace!());
     expect(scrollToIndex).toHaveBeenCalledWith(79, { align: "end" });
+    // Measurements belong to the replaced rows and must not leak across.
+    expect(measure).toHaveBeenCalled();
     await drainAnimationFrames();
   });
 });
