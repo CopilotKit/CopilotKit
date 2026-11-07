@@ -4,6 +4,7 @@ import type { Message } from "@ag-ui/core";
 import type { VirtualItem, Virtualizer } from "@tanstack/react-virtual";
 import type * as ReactVirtual from "@tanstack/react-virtual";
 import { renderWithCopilotKit } from "../../../__tests__/utils/test-helpers";
+import { CopilotChatConfigurationProvider } from "../../../providers/CopilotChatConfigurationProvider";
 import { CopilotChatMessageView } from "../CopilotChatMessageView";
 import { ScrollPinnedContext } from "../scroll-pinned-context";
 import { ScrollElementContext } from "../scroll-element-context";
@@ -78,6 +79,7 @@ function message(id: string): Message {
 }
 
 let setMessages: ((messages: Message[]) => void) | null = null;
+let setThreadId: ((threadId: string) => void) | null = null;
 
 function Harness({
   isPinnedToBottom,
@@ -87,11 +89,15 @@ function Harness({
   initialMessages?: Message[];
 }) {
   const [messages, updateMessages] = React.useState(initialMessages);
+  const [threadId, updateThreadId] = React.useState("thread-a");
   setMessages = updateMessages;
+  setThreadId = updateThreadId;
   return (
-    <ScrollPinnedContext.Provider value={isPinnedToBottom}>
-      <CopilotChatMessageView messages={messages} />
-    </ScrollPinnedContext.Provider>
+    <CopilotChatConfigurationProvider agentId="default" threadId={threadId}>
+      <ScrollPinnedContext.Provider value={isPinnedToBottom}>
+        <CopilotChatMessageView messages={messages} />
+      </ScrollPinnedContext.Provider>
+    </CopilotChatConfigurationProvider>
   );
 }
 
@@ -106,6 +112,7 @@ afterEach(() => {
   cleanup();
   capture.current = null;
   setMessages = null;
+  setThreadId = null;
 });
 
 describe("CopilotChatMessageView virtual-scroll tuning", () => {
@@ -369,6 +376,8 @@ describe("CopilotChatMessageView virtual-scroll tuning", () => {
       expect(virtualizer().options.estimateSize(1)).toBe(300);
 
       act(() => {
+        // The thread id moves with the thread; a history prepend keeps it.
+        setThreadId!("thread-b");
         setMessages!([message("thread-b-first"), message("b-2")]);
       });
 

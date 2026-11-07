@@ -1059,16 +1059,20 @@ export function CopilotChatMessageView({
   const restoringVisibilityRef = React.useRef(false);
 
   // The measurements describe one thread, so drop them when the thread
-  // changes (detected by the first message ID changing, same as the
+  // changes (detected by the configured thread ID, same as the
   // scroll-to-bottom effect below). Done during render rather than in that
   // effect because rows are measured from ref callbacks, which run before
   // layout effects — resetting there would discard the new thread's first
   // measurements instead of the old thread's. Read from the untransformed
   // list: a transform that hides or reorders the head is not a thread change.
+  // Prepending older history changes the first message ID without changing
+  // the thread, so the first message ID is only the fallback for threadless
+  // usage — keying on it would discard a still-valid cache on every prepend.
   const firstMessageId = deduplicatedMessages[0]?.id;
-  const measuredThreadRef = React.useRef(firstMessageId);
-  if (measuredThreadRef.current !== firstMessageId) {
-    measuredThreadRef.current = firstMessageId;
+  const messageListKey = threadId ?? firstMessageId;
+  const measuredThreadRef = React.useRef(messageListKey);
+  if (measuredThreadRef.current !== messageListKey) {
+    measuredThreadRef.current = messageListKey;
     resizeAnchorRef.current = null;
     measuredRef.current = { total: 0, sizes: new Map() };
   }
@@ -1294,25 +1298,27 @@ export function CopilotChatMessageView({
   });
 
   // Scroll to the bottom when virtual mode first activates or the thread changes
-  // (detected by the first message ID changing). For streaming new messages,
+  // (detected by the configured thread ID). For streaming new messages,
   // use-stick-to-bottom handles auto-scroll via content height growth detection
   // on the virtualizer's total-size div — same as the flat path. Adding
   // renderedMessages.length here would forcibly yank the user to the bottom
   // on every streaming chunk even if they've scrolled up to read history.
-  const lastEndAlignedFirstMessageRef = React.useRef<string | undefined>(
+  // Keying on the first message ID would also yank on every history prepend,
+  // which changes the head of the list while the thread stays the same.
+  const lastEndAlignedThreadRef = React.useRef<string | undefined>(
     undefined,
   );
   useLayoutEffect(() => {
     if (!shouldVirtualize || !rows.length) return;
     // Resizing a hidden host can temporarily disable virtualization. Do not
     // align again when the same message list becomes measurable once more.
-    if (lastEndAlignedFirstMessageRef.current === firstMessageId) return;
-    lastEndAlignedFirstMessageRef.current = firstMessageId;
+    if (lastEndAlignedThreadRef.current === messageListKey) return;
+    lastEndAlignedThreadRef.current = messageListKey;
     virtualizer.scrollToIndex(rows.length - 1, {
       align: "end",
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [shouldVirtualize, firstMessageId]);
+  }, [shouldVirtualize, messageListKey]);
 
   // Map each Intelligence-using turn's anchor message → stable turn id. One
   // indicator is emitted per turn (keyed by the turn id) at its anchor, so it
@@ -1587,7 +1593,7 @@ export function CopilotChatMessageView({
       element.removeEventListener("touchstart", interrupt);
       element.removeEventListener("keydown", interrupt);
     };
-  }, [scrollElementFromCtx, virtualizer, firstMessageId]);
+  }, [scrollElementFromCtx, virtualizer, messageListKey]);
 
   // Build the flat element list only when we're not virtualizing (avoids
   // creating 500 React elements that we'd immediately discard).
