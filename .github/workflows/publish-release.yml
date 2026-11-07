@@ -456,6 +456,15 @@ jobs:
             echo "DRY RUN — skipping publish step. Scope: ${{ steps.meta.outputs.scope }}, mode: ${{ steps.meta.outputs.mode }}."
           } >> "$GITHUB_STEP_SUMMARY"
 
+      # A prerelease dry run makes every check the real publish makes before
+      # its first `npm publish` (every package on npm, every version free,
+      # every tarball packed and license-checked) and stops there.
+      - name: Preflight (dry run)
+        if: ${{ inputs.dry-run == true && steps.meta.outputs.mode == 'prerelease' }}
+        env:
+          SCOPE: ${{ steps.meta.outputs.scope }}
+        run: pnpm tsx scripts/release/prerelease.ts --scope "$SCOPE" --dry-run
+
       # The last line of defence for OSS-1107: a stable release of one scope
       # must not ship a version another scope's PUBLISHED manifest has stopped
       # admitting. `@copilotkit/angular@0.4.0` pinned `@copilotkit/core@1.69.3`
