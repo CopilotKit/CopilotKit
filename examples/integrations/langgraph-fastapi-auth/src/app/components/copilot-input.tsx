@@ -16,6 +16,10 @@ export type FileUpload = {
     fileType: 'pdf' | 'excel' | 'csv';
 };
 
+// Same-origin route that forwards file requests to the agent server (see
+// src/app/api/agent-files), so they follow AGENT_URL like the chat does.
+export const AGENT_FILES_URL = '/api/agent-files';
+
 type FileUploadContextValue = {
     uploadedFiles: FileUpload[];
     fetchUploadedFiles: () => Promise<void>;
@@ -65,7 +69,7 @@ const CopilotInputBase = (props: CopilotChatInputProps) => {
                 const base64Content = await fileToBase64(file);
                 const endpoint = '/process-file';
 
-                const response = await fetch(`http://localhost:8000${endpoint}`, {
+                const response = await fetch(`${AGENT_FILES_URL}${endpoint}`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -139,7 +143,7 @@ const CopilotInputBase = (props: CopilotChatInputProps) => {
     const handleRemoveFile = async (fileId: string) => {
         if (!threadId) return;
         try {
-            const response = await fetch(`http://localhost:8000/file/${threadId}/${fileId}`, {
+            const response = await fetch(`${AGENT_FILES_URL}/file/${threadId}/${fileId}`, {
                 method: 'DELETE',
                 headers: authHeaders,
             });

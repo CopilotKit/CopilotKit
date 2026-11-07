@@ -13,7 +13,7 @@ import { useState, useContext, useMemo, useCallback, useEffect, useRef } from "r
 import { Sun, X } from 'lucide-react';
 import { z } from "zod";
 import { AuthContext } from "./components/fake-auth-provider";
-import { CopilotInput, FileUploadContext, type FileUpload } from "./components/copilot-input";
+import { AGENT_FILES_URL, CopilotInput, FileUploadContext, type FileUpload } from "./components/copilot-input";
 
 const AGENT_ID = "agent_with_auth";
 
@@ -33,7 +33,23 @@ function CopilotKitPageContent() {
   const authContext = useContext(AuthContext);
   const isAuthenticated = !!authContext?.user;
   const token = authContext?.token ?? null;
-  const threadId = useCopilotChatConfiguration()?.threadId;
+  const chatConfiguration = useCopilotChatConfiguration();
+  const threadId = chatConfiguration?.threadId;
+  const startNewThread = chatConfiguration?.startNewThread;
+  const userId = authContext?.user?.id ?? null;
+
+  // A conversation belongs to the user who had it (the agent refuses to continue
+  // another user's thread). Start a fresh one when a signed-in user signs out or
+  // another user signs in; signing in from anonymous keeps the conversation.
+  const previousUserId = useRef(userId);
+  useEffect(() => {
+    const previous = previousUserId.current;
+    previousUserId.current = userId;
+    if (previous && previous !== userId) {
+      startNewThread?.();
+    }
+  }, [userId, startNewThread]);
+
   // Bumped for every file-list request (and on cleanup) so a slow response for a
   // previous user or thread can't overwrite the current list.
   const fileRequestGeneration = useRef(0);
@@ -52,7 +68,7 @@ function CopilotKitPageContent() {
       return;
     }
     try {
-      const response = await fetch(`http://localhost:8000/files/${threadId}`, { headers: authHeaders });
+      const response = await fetch(`${AGENT_FILES_URL}/files/${threadId}`, { headers: authHeaders });
       if (response.ok) {
         const files = await response.json();
         if (generation === fileRequestGeneration.current) {

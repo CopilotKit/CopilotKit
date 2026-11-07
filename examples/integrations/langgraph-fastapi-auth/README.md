@@ -90,6 +90,7 @@ To run in production, build the UI with `build`, then run `start` and `start:age
 │   │   ├── page.tsx                      # Main page: shared state, frontend tools, tool rendering
 │   │   ├── layout.tsx                    # Root layout with the auth provider
 │   │   ├── api/copilotkit/[[...slug]]/   # CopilotKit runtime route (LangGraphHttpAgent → :8000)
+│   │   ├── api/agent-files/[...path]/    # Forwards file uploads and lookups to the agent
 │   │   └── components/
 │   │       ├── fake-auth-provider.tsx    # Demo auth + <CopilotKit> provider
 │   │       ├── user-menu.tsx             # Sign-in / switch-user menu
@@ -111,7 +112,8 @@ To run in production, build the UI with `build`, then run `start` and `start:age
 
 - **Authentication:** the frontend passes the signed-in user's token to CopilotKit through the `properties` prop. CopilotKit forwards it to the agent as AG-UI `forwardedProps`, and `CustomLangGraphAGUIAgent` in `agent/agent.py` merges it into `config.configurable`. The graph's `auth_node` decodes the token and stores the user in state.
 - **Identity-gated tools:** `chat_node` binds the backend tools (`get_weather`, `list_uploaded_files`, `get_file_content`) only for authenticated users. Anonymous users get the frontend tools only.
-- **File uploads:** signed-in users can click **+** in the chat input to upload PDF, Excel (`.xlsx`), or CSV files. The file routes in `agent/file_routes.py` require the user's bearer token, store each file per conversation thread and owner, and only return the caller's own files. The agent's file tools read the thread and user from the run config, never from model-generated arguments.
+- **Per-user conversations:** a thread belongs to the first user who signs in on it, and the agent refuses to continue another user's thread. The UI starts a new conversation when a signed-in user signs out or switches users.
+- **File uploads:** signed-in users can click **+** in the chat input to upload PDF, Excel (`.xlsx`), or CSV files. The file routes in `agent/file_routes.py` require the user's bearer token, store each file per conversation thread and owner, and only return the caller's own files. The agent's file tools read the thread and user from the run config, never from model-generated arguments. Excel and CSV files keep all rows (up to about 50,000 characters per file). The browser sends file requests to `/api/agent-files`, which forwards them to `AGENT_URL`.
 - **Frontend:** `src/app/page.tsx` uses the CopilotKit v2 hooks `useAgent` (shared proverbs state), `useFrontendTool` (`setThemeColor`, `addProverb`), and `useRenderTool` (renders `get_weather` as a weather card).
 
 The demo token is not signed. To use real auth, replace `fake-auth-provider.tsx` with your auth system (NextAuth.js, Auth0, Clerk, Supabase, etc.) and verify the token signature in `agent/auth.py`.

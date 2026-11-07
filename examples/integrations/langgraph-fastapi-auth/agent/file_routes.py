@@ -19,6 +19,23 @@ class FileUploadRequest(BaseModel):
     thread_id: str
 
 
+# Upper bound on the table text stored per file, so one file always fits
+# comfortably in the model's context window when the agent reads it.
+MAX_TABLE_CHARS = 50_000
+
+
+def table_as_text(df, max_chars: int) -> str:
+    """Returns all rows of a table as CSV text, truncated to max_chars on a row boundary."""
+    csv_text = df.to_csv(index=False)
+    if len(csv_text) <= max_chars:
+        return csv_text
+    cut = csv_text.rfind("\n", 0, max_chars)
+    if cut <= 0:
+        cut = max(max_chars, 0)
+    shown_rows = max(csv_text[:cut].count("\n"), 0)  # newlines after the header line
+    return csv_text[:cut] + f"\n... truncated: showing the first {shown_rows} of {len(df)} rows."
+
+
 def require_user_id(authorization: Optional[str] = Header(default=None)) -> str:
     """Rejects requests without a valid user token and returns the caller's user_id."""
     user = get_user_info_from_authorization(authorization)
@@ -132,16 +149,19 @@ async def process_excel(request: FileUploadRequest, owner_id: str):
         
         text_content = []
         total_rows = 0
-        
+        remaining_chars = MAX_TABLE_CHARS
+
         for sheet_name in sheet_names:
             df = pd.read_excel(excel_file, sheet_name=sheet_name)
             total_rows += len(df)
-            
+            table_text = table_as_text(df, remaining_chars)
+            remaining_chars -= len(table_text)
+
             text_content.append(f"=== Sheet: {sheet_name} ===")
             text_content.append(f"Rows: {len(df)}, Columns: {len(df.columns)}")
             text_content.append(f"Column Names: {', '.join(map(str, df.columns))}")
-            text_content.append("\nData Preview (first 10 rows):")
-            text_content.append(df.head(10).to_string(index=False))
+            text_content.append("\nData (CSV):")
+            text_content.append(table_text)
             text_content.append("\n")
         
         full_text = "\n\n".join(text_content)
@@ -190,9 +210,9 @@ async def process_csv(request: FileUploadRequest, owner_id: str):
         text_content.append(f"=== CSV File: {request.filename} ===")
         text_content.append(f"Rows: {total_rows}, Columns: {len(df.columns)}")
         text_content.append(f"Column Names: {', '.join(map(str, df.columns))}")
-        text_content.append("\nData Preview (first 10 rows):")
-        text_content.append(df.head(10).to_string(index=False))
-        
+        text_content.append("\nData (CSV):")
+        text_content.append(table_as_text(df, MAX_TABLE_CHARS))
+
         full_text = "\n\n".join(text_content)
         
         if not full_text.strip():

@@ -7,7 +7,7 @@ import os
 from typing import Any, List, Dict, Optional
 from typing_extensions import Literal
 from langchain_openai import ChatOpenAI
-from langchain_core.messages import SystemMessage, BaseMessage
+from langchain_core.messages import AIMessage, SystemMessage, BaseMessage
 from langchain_core.runnables import RunnableConfig
 from langchain.tools import tool
 from langgraph.graph import StateGraph, END
@@ -160,6 +160,28 @@ def get_user_info_from_config(config: RunnableConfig) -> Optional[Dict[str, Any]
     return user_info
 
 
+# Which signed-in user each conversation thread belongs to. Kept on the server
+# (in memory, like the checkpointer) rather than in agent state, because the
+# client sends agent state back on every run and could overwrite it.
+thread_owners: Dict[str, str] = {}
+
+
+def is_conversation_owner(thread_id: Optional[str], user_id: str) -> bool:
+    """
+    The first signed-in user to use a thread owns it; afterwards only that user may
+    continue it. Otherwise another user (or a signed-out session) on the same thread
+    would see the owner's checkpointed history, including file contents.
+    """
+    if not thread_id:
+        return True
+    owner = thread_owners.get(thread_id)
+    if owner is None:
+        if user_id != "anonymous":
+            thread_owners[thread_id] = user_id
+        return True
+    return owner == user_id
+
+
 def auth_node(state: AgentState, config: RunnableConfig) -> AgentState:
     """
     Authenticates the user and updates the state with user information.
@@ -200,6 +222,16 @@ async def chat_node(state: AgentState, config: RunnableConfig) -> Command[Litera
     # Get user information from the state, which was set in the auth_node
     user_data = state.get("authorization")
     is_authenticated = user_data and user_data.get("user_id") != "anonymous"
+
+    # Never continue another user's conversation: its history may hold their files.
+    thread_id = config.get("configurable", {}).get("thread_id")
+    if not is_conversation_owner(thread_id, (user_data or {}).get("user_id", "anonymous")):
+        return Command(
+            goto=END,
+            update={
+                "messages": [AIMessage(content="This conversation belongs to another user. Start a new conversation to continue.")],
+            }
+        )
 
     # 2. Bind the tools to the model
     # Conditionally include backend_tools if the user is authenticated
