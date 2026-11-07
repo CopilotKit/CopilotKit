@@ -42,14 +42,18 @@ import { runtimeInfoError } from "./utils/runtime-info-error";
 /**
  * Encode an agent id for a `/agent/:agentId/...` URL path segment.
  *
- * Percent-encoding twice keeps every id a single, unambiguous path segment:
- * URL parsers would otherwise resolve dot-only ids ("." / "..") away, and a
- * single escape cannot distinguish an id that *is* a dot from one that merely
- * contains a percent escape (e.g. "." vs "%2E"). The runtime router decodes
- * the two passes (`safeDecodeAgentIdSegment` in `fetch-router.ts`).
+ * Percent-encoding twice keeps every id a single, unambiguous path segment,
+ * and replacing the surviving literal dots with "%252E" stops URL parsers
+ * from resolving dot-only ids ("." / "..") away. The combination is
+ * injective — "." maps to "%252E" while "%2E" maps to "%25252E" — and the
+ * runtime router decodes the two passes (`safeDecodeAgentIdSegment` in
+ * `fetch-router.ts`).
  */
 function encodeAgentPathSegment(agentId: string): string {
-  return encodeURIComponent(encodeURIComponent(agentId));
+  return encodeURIComponent(encodeURIComponent(agentId)).replace(
+    /\./g,
+    "%252E",
+  );
 }
 
 import type { RuntimeRequestInit } from "./utils/runtime-request";
