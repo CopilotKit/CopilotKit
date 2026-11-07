@@ -253,11 +253,11 @@ def copilotkit_customize_config(
             (
                 "Preserving the legacy filter for v1 compatibility."
                 if is_legacy_filter
-                else "Ignoring invalid non-boolean value."
+                else "Treating invalid non-boolean value as true."
             ),
         )
         if not is_legacy_filter:
-            emit_tool_calls = None
+            emit_tool_calls = True
 
     metadata = dict(base_config.get("metadata", {}) or {}) if base_config else {}
 
