@@ -31,7 +31,7 @@ import { isMintedActionId } from "./mint-id.js";
 import { ChannelChoiceSupersededError, choiceAnswer } from "./thread.js";
 import type { ChoiceWaiter, ThreadDeps } from "./thread.js";
 import type { RenderConfig } from "./render/config.js";
-import type { AbstractAgent } from "@ag-ui/client";
+import { AbstractAgent } from "@ag-ui/client";
 import { sanitizeAgentEventStream } from "./sanitize-agent-events.js";
 import type {
   ChannelMessage,
@@ -199,6 +199,48 @@ export function isolateAgentInstance(
 }
 
 /**
+ * Fields the AG-UI base class does not carry across its own `clone()`.
+ *
+ * `AbstractAgent.prototype.clone()` builds the clone with `Object.create(...)`
+ * and then assigns a fixed field list, so a field the class grows without
+ * updating that list is missing from EVERY clone — `HttpAgent.clone()` calls
+ * `super.clone()` and only adds its transport, so it inherits the loss.
+ * `@ag-ui/client` 1.0.x's `resolvingPeerCeiling` (a re-entrancy guard that is
+ * falsy either way) is the current one.
+ *
+ * Those fields belong to the AG-UI client, not to the agent the caller
+ * configured: from here they look exactly like dropped subclass config, and
+ * reporting them asks the caller to override `clone()` on a class they did not
+ * write. So they are left out of the report. Subclass state still reports even
+ * when it sits next to one of them — a base field the base `clone()` does carry
+ * (`messages`, `state`) keeps reporting, because dropping it is a real defect.
+ *
+ * Derived from a bare base instance rather than a name list, so the next field
+ * of this kind needs no change here. If the base cannot be built, nothing is
+ * excluded and the check behaves as it did before.
+ */
+let agUiBaseDroppedFields: ReadonlySet<string> | undefined;
+function agUiBaseUncarriedFields(): ReadonlySet<string> {
+  if (!agUiBaseDroppedFields) {
+    try {
+      const Base = AbstractAgent as unknown as new (config: {
+        agentId?: string;
+      }) => Record<string, unknown> & { clone(): Record<string, unknown> };
+      const base = new Base({ agentId: "channels-core-clone-probe" });
+      const clone = base.clone();
+      agUiBaseDroppedFields = new Set(
+        Object.keys(base).filter(
+          (key) => !Object.prototype.hasOwnProperty.call(clone, key),
+        ),
+      );
+    } catch {
+      agUiBaseDroppedFields = new Set();
+    }
+  }
+  return agUiBaseDroppedFields;
+}
+
+/**
  * Report — but do not refuse — a `clone()` that drops subclass state.
  *
  * `AbstractAgent.prototype.clone()` copies a fixed field list, so a subclass
@@ -228,8 +270,11 @@ export function isolateAgentInstance(
  * share one mutable object across concurrent turns, which is the exact hazard
  * this isolation exists to prevent.
  *
- * Comparing own enumerable keys stays quiet for the agents that override
- * `clone()` fully (`HttpAgent`, `BuiltInAgent`, `IntelligenceAgent`).
+ * Comparing own enumerable keys stays quiet for an agent whose `clone()` copies
+ * every field it owns. Fields the AG-UI base class does not carry across its
+ * own `clone()` are excluded even when they show up missing — see
+ * {@link agUiBaseUncarriedFields} — because they belong to the client, not to
+ * the agent that was configured.
  * Symbol-keyed and non-enumerable fields are not covered.
  *
  * Own *functions* are deliberately exempt. Assigning a method on the instance is
@@ -242,11 +287,15 @@ function warnOnCloneDroppedOwnFields(
   cloned: ChannelAgentInput,
 ): void {
   const source = prototype as unknown as Record<string, unknown>;
-  const dropped = Object.keys(prototype).filter(
+  const missing = Object.keys(prototype).filter(
     (key) =>
       typeof source[key] !== "function" &&
       !Object.prototype.hasOwnProperty.call(cloned, key),
   );
+  const dropped =
+    missing.length === 0
+      ? missing
+      : missing.filter((key) => !agUiBaseUncarriedFields().has(key));
   if (dropped.length === 0) return;
   const name = prototype.constructor?.name ?? "the configured agent";
   console.warn(
