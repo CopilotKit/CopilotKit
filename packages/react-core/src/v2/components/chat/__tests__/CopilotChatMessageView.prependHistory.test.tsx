@@ -110,4 +110,33 @@ describe("CopilotChatMessageView history prepend", () => {
     expect(scrollToIndex).toHaveBeenCalledWith(79, { align: "end" });
     await drainAnimationFrames();
   });
+
+  it("aligns to the newest row when the same thread's list is replaced wholesale", async () => {
+    // Not a prepend: the previous head is gone, so no row can anchor the
+    // reading position (e.g. a refetch replacing every message). Fall back
+    // to the thread-change behaviour instead of leaving a stale offset.
+    const scrollElement = createScrollElement();
+    const opened = userMessages(80, "m");
+    const refetched = userMessages(80, "r");
+
+    let replace: (() => void) | null = null;
+    function Harness() {
+      const [messages, setMessages] = React.useState<Message[]>(opened);
+      replace = () => setMessages(refetched);
+      return (
+        <ScrollElementContext.Provider value={scrollElement}>
+          <CopilotChatMessageView messages={messages} />
+        </ScrollElementContext.Provider>
+      );
+    }
+
+    renderWithCopilotKit({ children: <Harness /> });
+    expect(virtualizedRowCount()).toBe(80);
+
+    const scrollToIndex = vi.spyOn(capture.current!, "scrollToIndex");
+
+    act(() => replace!());
+    expect(scrollToIndex).toHaveBeenCalledWith(79, { align: "end" });
+    await drainAnimationFrames();
+  });
 });

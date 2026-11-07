@@ -1305,9 +1305,7 @@ export function CopilotChatMessageView({
   // on every streaming chunk even if they've scrolled up to read history.
   // Keying on the first message ID would also yank on every history prepend,
   // which changes the head of the list while the thread stays the same.
-  const lastEndAlignedThreadRef = React.useRef<string | undefined>(
-    undefined,
-  );
+  const lastEndAlignedThreadRef = React.useRef<string | undefined>(undefined);
   useLayoutEffect(() => {
     if (!shouldVirtualize || !rows.length) return;
     // Resizing a hidden host can temporarily disable virtualization. Do not
@@ -1517,7 +1515,20 @@ export function CopilotChatMessageView({
     if (prev.first === firstMessageId) return;
     const anchor = prependAnchorRef.current;
     prependAnchorRef.current = null;
-    if (!anchor || isPinnedToBottomRef.current) return;
+    if (isPinnedToBottomRef.current) return;
+
+    // A prepend keeps the previous head in the list. If it is gone, the
+    // whole list was swapped under the same thread (e.g. a refetch replacing
+    // every message): no row anchors across that, so align to the newest row
+    // the way a thread change would.
+    const oldHeadKey = prev.first
+      ? (rowRenderKeys.get(prev.first) ?? prev.first)
+      : undefined;
+    if (!oldHeadKey || !rowKeysRef.current.includes(oldHeadKey)) {
+      virtualizer.scrollToIndex(rows.length - 1, { align: "end" });
+      return;
+    }
+    if (!anchor) return;
     if (!rowKeysRef.current.includes(anchor.key)) return;
 
     // Coarse step: bring the anchor row back into the mounted range. Offsets
