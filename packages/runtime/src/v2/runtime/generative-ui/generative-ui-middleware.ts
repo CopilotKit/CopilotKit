@@ -8,7 +8,7 @@ import type {
   ToolCallEndEvent,
   ToolCallStartEvent,
 } from "@ag-ui/client";
-import { Observable } from "rxjs";
+import { EMPTY, Observable, concat, defer, of } from "rxjs";
 import {
   GENERATIVE_UI_ACTIVITY_TYPE,
   GENERATIVE_UI_CONTEXT_DESCRIPTION,
@@ -33,7 +33,11 @@ import type {
   GenerativeUISurfaceContent,
 } from "@copilotkit/shared";
 
-type EventWithState = { event: BaseEvent; messages: Message[] };
+type EventWithState = {
+  event: BaseEvent;
+  messages: Message[];
+  state?: unknown;
+};
 type JsonPatchOperation = {
   op: "add" | "replace";
   path: string;
@@ -119,21 +123,134 @@ function prepareInput(input: RunAgentInput, manifest: GenerativeUIManifest) {
  * validated against the catalog in the envelope and committed immediately:
  * - `ACTIVITY_SNAPSHOT` for a new surface, `ACTIVITY_DELTA` for every further
  *   operation on it.
+ * - On runs the runtime sets up, when every operation of the turn's render_ui
+ *   calls is rejected, the agent runs again (at most
+ *   `MAX_REJECTED_RENDER_RETRIES` times) with the rejection reasons in the
+ *   tool results, inside the same run. Each extra turn gets its own `runId`,
+ *   with `parentRunId` set to the turn it retries; the client still sees one
+ *   run.
  * - One `ACTIVITY_SNAPSHOT` of type `generative-ui-function-call` for each
  *   `callRendererFunction`. The client runs the function.
  */
 export class GenerativeUIMiddleware extends Middleware {
+  private readonly maxRejectedRetries: number;
+  private retriesCancelled = false;
+
+  constructor(options: GenerativeUIMiddlewareOptions = {}) {
+    super();
+    const retries = options.maxRejectedRetries ?? 0;
+    if (!Number.isInteger(retries) || retries < 0) {
+      throw new RangeError(
+        `maxRejectedRetries must be a non-negative integer, got ${retries}`,
+      );
+    }
+    this.maxRejectedRetries = retries;
+  }
+
+  /**
+   * @internal Called when the run is stopped. Between a rejected turn and its
+   * retry no agent turn is live, so `abortRun()` alone would not stop the
+   * retry from starting.
+   */
+  cancelRetries(): void {
+    this.retriesCancelled = true;
+  }
+
   run(input: RunAgentInput, next: AbstractAgent): Observable<BaseEvent> {
     const manifest = readManifest(input.forwardedProps);
     if (!manifest) return this.runNext(input, next);
-    return processStream(
-      this.runNextWithState(
-        prepareInput(input, manifest),
-        next,
-      ) as Observable<EventWithState>,
-      manifest,
-    );
+    const maxRetries = this.maxRejectedRetries;
+    const outerRunId = input.runId;
+    const attempt = (
+      attemptInput: RunAgentInput,
+      retriesLeft: number,
+    ): Observable<BaseEvent> =>
+      defer(() => {
+        const outcome: StreamOutcome = {};
+        return concat(
+          processStream(
+            this.runNextWithState(
+              prepareInput(attemptInput, manifest),
+              next,
+            ) as Observable<EventWithState>,
+            manifest,
+            {
+              outcome,
+              canRetry: retriesLeft > 0,
+              // Retry turns report their RUN_FINISHED as the outer run.
+              outerRunId: retriesLeft < maxRetries ? outerRunId : undefined,
+              inputMessages: attemptInput.messages,
+            },
+          ),
+          defer(() => {
+            const { retry } = outcome;
+            if (!retry) return EMPTY;
+            // Stopped before the retry started: end the run as it would have
+            // ended without the retry, with the rejected turn's RUN_FINISHED.
+            if (this.retriesCancelled) return of(retry.finish);
+            // A retry continues the turn: resume answers were consumed by it.
+            const { resume: _consumed, ...rest } = attemptInput;
+            return attempt(
+              {
+                ...rest,
+                runId: randomUUID(),
+                parentRunId: attemptInput.runId,
+                messages: retry.messages,
+                state: retry.state ?? attemptInput.state,
+              },
+              retriesLeft - 1,
+            );
+          }),
+        );
+      });
+    return attempt(input, maxRetries);
   }
+}
+
+interface GenerativeUIMiddlewareOptions {
+  /**
+   * @internal Extra agent turns after a fully rejected render_ui call.
+   * Defaults to 0 (off): a retry is only safe where a stop reaches
+   * `cancelRetries()`, which `configureAgentForRequest` wires up. Not a
+   * supported setting.
+   */
+  maxRejectedRetries?: number;
+}
+
+/**
+ * How many extra agent turns the runtime allows one run when every operation
+ * of its render_ui calls was rejected. Repeated rejections still end the run.
+ */
+export const MAX_REJECTED_RENDER_RETRIES = 2;
+
+interface StreamOutcome {
+  /** Set when the agent must take another turn, with the rejections visible. */
+  retry?: {
+    messages: Message[];
+    /** The agent state at the end of the rejected turn. */
+    state: unknown;
+    /** The rejected turn's RUN_FINISHED, emitted if the retry is cancelled. */
+    finish: BaseEvent;
+  };
+}
+
+/** Messages in order, each id once: a later message with the same id replaces the earlier one in place. */
+function mergeMessages(...lists: Message[][]): Message[] {
+  const merged = new Map<string, Message>();
+  for (const list of lists) for (const m of list) merged.set(m.id, m);
+  return [...merged.values()];
+}
+
+/** Every tool call the messages hold, in order. */
+function toolCallsOf(messages: Message[]) {
+  return messages.flatMap(
+    (m) => (m as { toolCalls?: Array<{ id: string }> }).toolCalls ?? [],
+  );
+}
+
+/** No operation applied and no function called: the call drew nothing. */
+function fullyRejected(state: RenderCallState) {
+  return state.applied === 0 && state.calls === 0;
 }
 
 /**
@@ -158,6 +275,13 @@ function beginSurfaceUpdate(
 function processStream(
   source: Observable<EventWithState>,
   manifest: GenerativeUIManifest,
+  options: {
+    outcome: StreamOutcome;
+    canRetry: boolean;
+    /** Set on a retry turn: the run id the client knows the run by. */
+    outerRunId?: string;
+    inputMessages: Message[];
+  },
 ) {
   return new Observable<BaseEvent>((subscriber) => {
     const entries = Object.entries(manifest.surfaces);
@@ -436,10 +560,23 @@ function processStream(
       }
     };
 
-    const handleEvent = ({ event, messages }: EventWithState) => {
+    const handleEvent = ({
+      event: received,
+      messages,
+      state: agentState,
+    }: EventWithState) => {
       flushFinish();
+      const { outerRunId } = options;
+      // A retry turn continues the same run: the client saw RUN_STARTED once,
+      // and the turn's RUN_FINISHED must name the run the client knows.
+      if (outerRunId !== undefined && received.type === EventType.RUN_STARTED)
+        return;
+      const event =
+        outerRunId !== undefined && received.type === EventType.RUN_FINISHED
+          ? ({ ...received, runId: outerRunId } as BaseEvent)
+          : received;
       if (event.type === EventType.RUN_FINISHED) {
-        heldFinish = { event, messages };
+        heldFinish = { event, messages, state: agentState };
         return;
       }
       emit(event);
@@ -483,35 +620,77 @@ function processStream(
             .filter((m) => m.role === "tool")
             .map((m) => (m as { toolCallId: string }).toolCallId),
         );
-        for (const [toolCallId, state] of calls) {
-          if (answered.has(toolCallId)) continue;
+        const resultMessages: Message[] = [];
+        const pending = [...calls].filter(([id]) => !answered.has(id));
+        for (const [toolCallId, state] of pending) {
           const nothingParsed =
-            state.applied === 0 &&
-            state.calls === 0 &&
-            state.rejected.length === 0;
+            fullyRejected(state) && state.rejected.length === 0;
           // `applied` counts the surface operations, `calls` the function calls.
+          const messageId = randomUUID();
+          const content = JSON.stringify(
+            nothingParsed
+              ? {
+                  status: "error",
+                  applied: 0,
+                  calls: 0,
+                  rejected: [],
+                  reason:
+                    "operations must be a JSON array of A2UI operation objects; nothing was rendered",
+                }
+              : {
+                  status: "rendered",
+                  applied: state.applied,
+                  calls: state.calls,
+                  rejected: state.rejected,
+                },
+          );
           emit({
             type: EventType.TOOL_CALL_RESULT,
-            messageId: randomUUID(),
+            messageId,
             toolCallId,
-            content: JSON.stringify(
-              nothingParsed
-                ? {
-                    status: "error",
-                    applied: 0,
-                    calls: 0,
-                    rejected: [],
-                    reason:
-                      "operations must be a JSON array of A2UI operation objects; nothing was rendered",
-                  }
-                : {
-                    status: "rendered",
-                    applied: state.applied,
-                    calls: state.calls,
-                    rejected: state.rejected,
-                  },
-            ),
+            content,
           });
+          resultMessages.push({
+            id: messageId,
+            role: "tool",
+            toolCallId,
+            content,
+          } as Message);
+        }
+        // Every render_ui call of the turn was fully rejected, and nothing
+        // else in the turn waits for an answer: give the agent another turn
+        // so it can act on the reasons, instead of ending with an empty reply.
+        const inputCallIds = new Set(
+          toolCallsOf(options.inputMessages).map((c) => c.id),
+        );
+        const turnCalls = toolCallsOf(heldFinish.messages).filter(
+          (c) => !inputCallIds.has(c.id),
+        );
+        const onlyRenderCalls =
+          turnCalls.length > 0 &&
+          turnCalls.every((c) => calls.has(c.id) || answered.has(c.id));
+        // An interrupt or a cancelled finish is not ours to override.
+        const finishOutcome = (
+          heldFinish.event as { outcome?: { type?: string } }
+        ).outcome;
+        const plainFinish = !finishOutcome || finishOutcome.type === "success";
+        if (
+          options.canRetry &&
+          plainFinish &&
+          pending.length > 0 &&
+          onlyRenderCalls &&
+          pending.every(([, state]) => fullyRejected(state))
+        ) {
+          options.outcome.retry = {
+            messages: mergeMessages(
+              options.inputMessages,
+              heldFinish.messages,
+              resultMessages,
+            ),
+            state: heldFinish.state,
+            finish: heldFinish.event,
+          };
+          heldFinish = null;
         }
         flushFinish();
       }

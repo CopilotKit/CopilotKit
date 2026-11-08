@@ -7,7 +7,10 @@ import {
 } from "@copilotkit/shared/event-transforms";
 import { MCPAppsMiddleware } from "@ag-ui/mcp-apps-middleware";
 import { MCPMiddleware } from "@ag-ui/mcp-middleware";
-import { GenerativeUIMiddleware } from "../../generative-ui";
+import {
+  GenerativeUIMiddleware,
+  MAX_REJECTED_RENDER_RETRIES,
+} from "../../generative-ui/generative-ui-middleware";
 import type { CopilotRuntimeLike } from "../../core/runtime";
 import {
   isA2UIEnabled,
@@ -184,7 +187,19 @@ export function configureAgentForRequest(params: {
     const targetAgents =
       typeof generativeUI === "object" ? generativeUI.agents : undefined;
     if (!targetAgents || targetAgents.includes(agentId)) {
-      agent.use(new GenerativeUIMiddleware());
+      const middleware = new GenerativeUIMiddleware({
+        maxRejectedRetries: MAX_REJECTED_RENDER_RETRIES,
+      });
+      agent.use(middleware);
+      // Retries are turned on only here, together with the stop hook: a Stop
+      // that lands between a rejected render_ui turn and its retry finds no
+      // live turn to abort, so the middleware must hear it too. `agent` is
+      // this request's own clone, so the wrapper never reaches another run.
+      const abortRun = agent.abortRun.bind(agent);
+      agent.abortRun = () => {
+        middleware.cancelRetries();
+        abortRun();
+      };
     }
   }
 
