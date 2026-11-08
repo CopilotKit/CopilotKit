@@ -5,19 +5,10 @@
  * @a2ui/web_core's framework-agnostic primitives directly.
  */
 
-import {
-  defineComponent,
-  h,
-  ref,
-  onUnmounted,
-  type PropType,
-  type VNode,
-} from "vue";
-import {
-  ComponentContext,
-  type SurfaceModel,
-  type ComponentModel,
-} from "@a2ui/web_core/v0_9";
+import { defineComponent, h, ref, onUnmounted } from "vue";
+import type { PropType, VNode } from "vue";
+import { ComponentContext } from "@a2ui/web_core/v0_9";
+import type { SurfaceModel, ComponentModel } from "@a2ui/web_core/v0_9";
 import type { VueComponentImplementation } from "./adapter";
 
 /**
@@ -96,11 +87,15 @@ const DeferredChild = defineComponent({
       );
 
       if (!compImpl) {
-        return h(
-          "div",
-          { style: { color: "red" } },
-          `Unknown component: ${componentModel.type}`,
-        );
+        // Only developers can act on this; end users must see nothing.
+        if (process.env.NODE_ENV !== "production") {
+          return h(
+            "div",
+            { style: { color: "red" } },
+            `Unknown component: ${componentModel.type}`,
+          );
+        }
+        return null;
       }
 
       // Create context for this component

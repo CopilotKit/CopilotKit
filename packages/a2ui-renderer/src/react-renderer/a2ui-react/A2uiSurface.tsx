@@ -125,11 +125,15 @@ export const DeferredChild: React.FC<{
   const compImpl = surface.catalog.components.get(componentModel.type);
 
   if (!compImpl) {
-    return (
-      <div style={{ color: "red" }}>
-        Unknown component: {componentModel.type}
-      </div>
-    );
+    // Only developers can act on this; end users must see nothing.
+    if (process.env.NODE_ENV !== "production") {
+      return (
+        <div style={{ color: "red" }}>
+          Unknown component: {componentModel.type}
+        </div>
+      );
+    }
+    return null;
   }
 
   return (
