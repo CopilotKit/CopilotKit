@@ -42,6 +42,22 @@ describe("CopilotChatView connect-gating", () => {
     expect(screen.queryByTestId("copilot-welcome-screen")).toBeNull();
   });
 
+  it("leaves the welcome screen once a message is queued", () => {
+    render(
+      <TestWrapper>
+        <CopilotChatView
+          messages={[]}
+          queuedMessages={[{ id: "q1", role: "user", content: "Queued" }]}
+        />
+      </TestWrapper>,
+    );
+
+    // A queued message is part of the conversation, so it must be visible
+    // rather than hidden behind the greeting.
+    expect(screen.queryByTestId("copilot-welcome-screen")).toBeNull();
+    expect(screen.getByText("Queued")).toBeDefined();
+  });
+
   it("shows the welcome screen by default for a fresh empty chat", () => {
     render(
       <TestWrapper>

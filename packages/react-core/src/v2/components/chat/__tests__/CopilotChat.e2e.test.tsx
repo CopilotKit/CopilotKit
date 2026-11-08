@@ -1,6 +1,14 @@
 import React, { useEffect } from "react";
-import { screen, fireEvent, waitFor, act } from "@testing-library/react";
+import {
+  render,
+  screen,
+  fireEvent,
+  waitFor,
+  act,
+} from "@testing-library/react";
 import { z } from "zod";
+import { onTestFinished } from "vitest";
+import { randomUUID } from "@copilotkit/shared";
 import type { ReactToolCallRenderer } from "../../../types";
 import { defineToolCallRenderer } from "../../../types";
 import {
@@ -22,7 +30,11 @@ import {
   reasoningEndEvent,
 } from "../../../__tests__/utils/test-helpers";
 import { useConfigureSuggestions } from "../../../hooks/use-configure-suggestions";
+import { useHumanInTheLoop } from "../../../hooks/use-human-in-the-loop";
+import { CopilotKitProvider } from "../../../providers/CopilotKitProvider";
+import { CopilotChatConfigurationProvider } from "../../../providers/CopilotChatConfigurationProvider";
 import { CopilotChat } from "../CopilotChat";
+import { CopilotChatUserMessage } from "../CopilotChatUserMessage";
 
 describe("CopilotChat E2E - Chat Basics and Streaming Patterns", () => {
   describe("Chat Basics: text input + run", () => {
@@ -1349,6 +1361,17 @@ describe("CopilotChat E2E - Chat Basics and Streaming Patterns", () => {
   });
 
   describe("Enter routing while a background run is in flight", () => {
+    // The shared test setup mocks randomUUID to one constant. Queued messages
+    // are told apart by id, so tests that rely on that hand out distinct ids
+    // and restore the constant when they finish.
+    const useDistinctIds = () => {
+      let next = 0;
+      vi.mocked(randomUUID).mockImplementation(() => `uuid-${++next}`);
+      onTestFinished(() => {
+        vi.mocked(randomUUID).mockImplementation(() => "mock-thread-id");
+      });
+    };
+
     // Repro for the consecutive-interrupt bug: in gen-ui-interrupt, the
     // user picks turn-1's time slot, which flips the card to "Booked"
     // immediately, then resolves the interrupt ~500ms later — kicking off
@@ -1358,6 +1381,7 @@ describe("CopilotChat E2E - Chat Basics and Streaming Patterns", () => {
     // new message, not be hijacked into stopping the in-flight run — the
     // composer has sendable text, so the user's clear intent is "send".
     it("routes Enter to send (not stop) while a run is in flight, queuing the new message until the run settles", async () => {
+      useDistinctIds();
       const agent = new MockStepwiseAgent();
       const stopSpy = vi.spyOn(agent, "abortRun");
       const addMessageSpy = vi.spyOn(agent, "addMessage");
@@ -1416,15 +1440,16 @@ describe("CopilotChat E2E - Chat Basics and Streaming Patterns", () => {
       });
 
       // The queued message is PARKED on the in-flight promise: it has NOT been
-      // dispatched (addMessage not called) and is NOT in the transcript while
-      // the promise is unresolved. This is the actual await-path assertion —
-      // it goes RED if onSubmitInput's await-block is removed (the message
-      // would dispatch immediately).
+      // dispatched (addMessage not called) and is shown optimistically in the
+      // transcript (so it never looks lost) while the promise is unresolved.
+      // This is the actual await-path assertion — it goes RED if
+      // onSubmitInput's await-block is removed (the message would dispatch
+      // immediately).
       await act(async () => {
         await Promise.resolve();
       });
       expect(addMessageSpy).not.toHaveBeenCalled();
-      expect(screen.queryByText("Schedule a 1:1 with Alice")).toBeNull();
+      expect(screen.getAllByText("Schedule a 1:1 with Alice")).toHaveLength(1);
 
       // Release the in-flight run — only now does the queued message dispatch.
       await act(async () => {
@@ -1435,8 +1460,295 @@ describe("CopilotChat E2E - Chat Basics and Streaming Patterns", () => {
       agent.complete();
       await waitFor(() => {
         expect(addMessageSpy).toHaveBeenCalled();
-        expect(screen.getByText("Schedule a 1:1 with Alice")).toBeDefined();
+        // Queued placeholder is replaced by the real message — never doubled.
+        expect(screen.getAllByText("Schedule a 1:1 with Alice")).toHaveLength(
+          1,
+        );
       });
+    });
+
+    it("shows messages queued behind an in-flight run once each, in submission order", async () => {
+      useDistinctIds();
+      const agent = new MockStepwiseAgent();
+      const addMessageSpy = vi.spyOn(agent, "addMessage");
+      renderWithCopilotKit({ agent });
+
+      const input = await screen.findByRole("textbox");
+
+      fireEvent.change(input, { target: { value: "Book a sales call" } });
+      fireEvent.keyDown(input, { key: "Enter", code: "Enter" });
+      await waitFor(() => {
+        expect(screen.getByText("Book a sales call")).toBeDefined();
+      });
+
+      agent.emit(runStartedEvent());
+      await waitFor(() => {
+        expect(agent.isRunning).toBe(true);
+      });
+
+      let resolveInFlight!: () => void;
+      const inFlight = new Promise<void>((resolve) => {
+        resolveInFlight = resolve;
+      });
+      agent.setActiveRunCompletionPromise(inFlight);
+
+      addMessageSpy.mockClear();
+
+      fireEvent.change(input, { target: { value: "First queued" } });
+      fireEvent.keyDown(input, { key: "Enter", code: "Enter" });
+      fireEvent.change(input, { target: { value: "Second queued" } });
+      fireEvent.keyDown(input, { key: "Enter", code: "Enter" });
+
+      await act(async () => {
+        await Promise.resolve();
+      });
+      expect(addMessageSpy).not.toHaveBeenCalled();
+      const firstShown = screen.getAllByText("First queued");
+      const secondShown = screen.getAllByText("Second queued");
+      expect(firstShown).toHaveLength(1);
+      expect(secondShown).toHaveLength(1);
+      expect(
+        firstShown[0]!.compareDocumentPosition(secondShown[0]!) &
+          Node.DOCUMENT_POSITION_FOLLOWING,
+      ).toBeTruthy();
+
+      await act(async () => {
+        resolveInFlight();
+        await Promise.resolve();
+      });
+      agent.emit(runFinishedEvent());
+      agent.complete();
+      await waitFor(() => {
+        expect(addMessageSpy).toHaveBeenCalled();
+      });
+      expect(addMessageSpy.mock.calls[0]![0]).toMatchObject({
+        content: "First queued",
+      });
+      expect(screen.getAllByText("First queued")).toHaveLength(1);
+      // Dispatching the first never hides the second, still waiting its turn.
+      expect(screen.getAllByText("Second queued")).toHaveLength(1);
+    });
+
+    it("keeps the queued message's id when it is dispatched", async () => {
+      useDistinctIds();
+      const agent = new MockStepwiseAgent();
+      const addMessageSpy = vi.spyOn(agent, "addMessage");
+      renderWithCopilotKit({ agent });
+
+      const input = await screen.findByRole("textbox");
+
+      fireEvent.change(input, { target: { value: "Book a sales call" } });
+      fireEvent.keyDown(input, { key: "Enter", code: "Enter" });
+      await waitFor(() => {
+        expect(screen.getByText("Book a sales call")).toBeDefined();
+      });
+
+      agent.emit(runStartedEvent());
+      await waitFor(() => {
+        expect(agent.isRunning).toBe(true);
+      });
+
+      let resolveInFlight!: () => void;
+      const inFlight = new Promise<void>((resolve) => {
+        resolveInFlight = resolve;
+      });
+      agent.setActiveRunCompletionPromise(inFlight);
+
+      addMessageSpy.mockClear();
+
+      fireEvent.change(input, { target: { value: "Keep my id" } });
+      fireEvent.keyDown(input, { key: "Enter", code: "Enter" });
+
+      await act(async () => {
+        await Promise.resolve();
+      });
+      const queuedId = screen
+        .getByText("Keep my id")
+        .closest("[data-message-id]")
+        ?.getAttribute("data-message-id");
+      expect(typeof queuedId).toBe("string");
+      expect(queuedId).not.toBe("");
+
+      await act(async () => {
+        resolveInFlight();
+        await Promise.resolve();
+      });
+      agent.emit(runFinishedEvent());
+      agent.complete();
+      await waitFor(() => {
+        expect(addMessageSpy).toHaveBeenCalled();
+      });
+      expect(addMessageSpy.mock.calls[0]![0].id).toBe(queuedId);
+    });
+
+    it("drops a queued message's placeholder when the thread switches", async () => {
+      const agent = new MockStepwiseAgent();
+
+      const { rerender } = render(
+        <CopilotKitProvider agents__unsafe_dev_only={{ default: agent }}>
+          <CopilotChatConfigurationProvider
+            threadId="thread-A"
+            hasExplicitThreadId={false}
+          >
+            <CopilotChat welcomeScreen={false} />
+          </CopilotChatConfigurationProvider>
+        </CopilotKitProvider>,
+      );
+
+      const input = await screen.findByRole("textbox");
+
+      agent.emit(runStartedEvent());
+      await waitFor(() => {
+        expect(agent.isRunning).toBe(true);
+      });
+
+      // Never resolved: the queued send stays parked on thread A.
+      agent.setActiveRunCompletionPromise(new Promise<void>(() => {}));
+
+      fireEvent.change(input, { target: { value: "Left behind on A" } });
+      fireEvent.keyDown(input, { key: "Enter", code: "Enter" });
+
+      await act(async () => {
+        await Promise.resolve();
+      });
+      expect(screen.getAllByText("Left behind on A")).toHaveLength(1);
+
+      rerender(
+        <CopilotKitProvider agents__unsafe_dev_only={{ default: agent }}>
+          <CopilotChatConfigurationProvider
+            threadId="thread-B"
+            hasExplicitThreadId={false}
+          >
+            <CopilotChat welcomeScreen={false} />
+          </CopilotChatConfigurationProvider>
+        </CopilotKitProvider>,
+      );
+
+      await waitFor(() =>
+        expect(screen.queryByText("Left behind on A")).toBeNull(),
+      );
+    });
+
+    it("mounts an idle send's message once, never as a queued copy first", async () => {
+      const mounts: string[] = [];
+      const CountingUserMessage = (
+        props: React.ComponentProps<typeof CopilotChatUserMessage>,
+      ) => {
+        useEffect(() => {
+          mounts.push("mount");
+          return () => {
+            mounts.push("unmount");
+          };
+        }, []);
+        return <CopilotChatUserMessage {...props} />;
+      };
+      const agent = new MockStepwiseAgent();
+      renderWithCopilotKit({
+        agent,
+        children: (
+          <div style={{ height: 400 }}>
+            <CopilotChat
+              welcomeScreen={false}
+              messageView={{
+                userMessage:
+                  CountingUserMessage as typeof CopilotChatUserMessage,
+              }}
+            />
+          </div>
+        ),
+      });
+
+      const input = await screen.findByRole("textbox");
+      fireEvent.change(input, { target: { value: "Hello AI!" } });
+      fireEvent.keyDown(input, { key: "Enter", code: "Enter" });
+      await waitFor(() => {
+        expect(screen.getByText("Hello AI!")).toBeDefined();
+      });
+      await act(async () => {
+        await Promise.resolve();
+      });
+
+      // Nothing was in flight, so the message went straight to the agent.
+      expect(mounts).toEqual(["mount"]);
+    });
+
+    it("shows a message sent while a confirmation card is pending, and sends it once the card is answered", async () => {
+      useDistinctIds();
+      const agent = new MockStepwiseAgent();
+      const addMessageSpy = vi.spyOn(agent, "addMessage");
+
+      const ConfirmationTool = () => {
+        useHumanInTheLoop({
+          name: "confirmCall",
+          description: "Asks the user to confirm",
+          parameters: z.object({ when: z.string() }),
+          render: ({ respond }) =>
+            respond ? (
+              <button
+                data-testid="confirm-call"
+                onClick={() => respond(JSON.stringify({ confirmed: true }))}
+              >
+                Confirm
+              </button>
+            ) : null,
+        });
+        return null;
+      };
+
+      renderWithCopilotKit({
+        agent,
+        children: (
+          <>
+            <ConfirmationTool />
+            <div style={{ height: 400 }}>
+              <CopilotChat welcomeScreen={false} />
+            </div>
+          </>
+        ),
+      });
+
+      const input = await screen.findByRole("textbox");
+      fireEvent.change(input, { target: { value: "Book a sales call" } });
+      fireEvent.keyDown(input, { key: "Enter", code: "Enter" });
+      await waitFor(() => {
+        expect(screen.getByText("Book a sales call")).toBeDefined();
+      });
+
+      agent.emit(runStartedEvent());
+      agent.emit(
+        toolCallChunkEvent({
+          toolCallId: testId("tc"),
+          toolCallName: "confirmCall",
+          parentMessageId: testId("msg"),
+          delta: JSON.stringify({ when: "tomorrow" }),
+        }),
+      );
+      agent.emit(runFinishedEvent());
+      agent.complete();
+
+      const confirm = await screen.findByTestId("confirm-call");
+      // The run itself has ended; only the card holds the chat.
+      expect(agent.isRunning).toBe(false);
+      addMessageSpy.mockClear();
+
+      fireEvent.change(input, { target: { value: "Make it 3pm" } });
+      fireEvent.keyDown(input, { key: "Enter", code: "Enter" });
+      await act(async () => {
+        await Promise.resolve();
+      });
+
+      expect(screen.getAllByText("Make it 3pm")).toHaveLength(1);
+      expect(addMessageSpy).not.toHaveBeenCalledWith(
+        expect.objectContaining({ content: "Make it 3pm" }),
+      );
+
+      fireEvent.click(confirm);
+      await waitFor(() => {
+        expect(addMessageSpy).toHaveBeenCalledWith(
+          expect.objectContaining({ content: "Make it 3pm" }),
+        );
+      });
+      expect(screen.getAllByText("Make it 3pm")).toHaveLength(1);
     });
 
     it("still routes Enter to stop when the composer is empty during a run", async () => {

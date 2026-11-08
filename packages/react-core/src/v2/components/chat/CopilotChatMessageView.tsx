@@ -531,6 +531,14 @@ export type CopilotChatMessageViewProps = Omit<
       isRunning?: boolean;
       messages?: Message[];
       /**
+       * User messages accepted from the input but not yet sent to the agent,
+       * because the current run (say, one waiting on a confirmation card) has
+       * to finish first. They render after everything else, in order, so the
+       * user can see their message was kept. They are not part of `messages`
+       * and take no part in turns, grouping or virtualization.
+       */
+      queuedMessages?: UserMessage[];
+      /**
        * Reshapes the message list before it renders: drop, replace or reorder
        * messages with the whole list in view. Receives the list after duplicate
        * ids are merged. Row keys, virtualization and rendering all work off
@@ -574,11 +582,17 @@ export type CopilotChatMessageViewProps = Omit<
   >,
   "children"
 > & {
+  /**
+   * Replaces the default layout. The default places `queuedMessageElements`
+   * after `interruptElement` and the cursor; a custom layout should too.
+   */
   children?: (props: {
     isRunning: boolean;
     messages: Message[];
     messageElements: React.ReactElement[];
     interruptElement: React.ReactElement | null;
+    /** `queuedMessages` rendered with the `userMessage` slot. */
+    queuedMessageElements: React.ReactElement[];
   }) => React.ReactElement;
 };
 
@@ -596,6 +610,7 @@ export function CopilotChatMessageView({
   intelligenceIndicator,
   workSummary,
   isRunning = false,
+  queuedMessages = [],
   transformMessages,
   groupMessages,
   messageFeedback = true,
@@ -1701,6 +1716,16 @@ export function CopilotChatMessageView({
     };
   }, [scrollElementFromCtx, virtualizer, firstMessageId]);
 
+  // Queued messages wait on the current run, so they sit below it.
+  const queuedMessageElements = queuedMessages.map((message) => (
+    <MemoizedUserMessage
+      key={message.id}
+      message={message}
+      UserMessageComponent={UserComponent}
+      slotProps={userSlotProps}
+    />
+  ));
+
   // Build the flat element list only when we're not virtualizing (avoids
   // creating 500 React elements that we'd immediately discard).
   const messageElements: React.ReactElement[] = shouldVirtualize
@@ -1720,6 +1745,7 @@ export function CopilotChatMessageView({
               messages,
               isRunning,
               interruptElement,
+              queuedMessageElements,
             })}
           </div>
         </ToolCallDisplayContext.Provider>
@@ -1797,6 +1823,7 @@ export function CopilotChatMessageView({
               {renderSlot(cursor, CopilotChatMessageView.Cursor, {})}
             </div>
           )}
+          {queuedMessageElements}
         </div>
       </ToolCallDisplayContext.Provider>
     </MessageFeedbackScopeContext.Provider>
