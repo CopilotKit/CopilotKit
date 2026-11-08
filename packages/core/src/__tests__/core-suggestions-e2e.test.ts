@@ -920,6 +920,179 @@ describe("CopilotKitCore - Suggestions E2E", () => {
     });
   });
 
+  describe("Suggestions stay in their conversation", () => {
+    function suggestCall(title: string) {
+      return createAssistantMessage({
+        toolCalls: [
+          {
+            id: `call-${title}`,
+            type: "function",
+            function: {
+              name: "copilotkitSuggest",
+              arguments: JSON.stringify({
+                suggestions: [{ title, message: `${title} message` }],
+              }),
+            },
+          },
+        ],
+      });
+    }
+
+    function setupConversation() {
+      const providerAgent = new MockAgent({ agentId: "default" });
+      const consumerAgent = new MockAgent({
+        agentId: "consumer",
+        threadId: "thread-a",
+        messages: [createMessage({ content: "Hello from A" })],
+      });
+      copilotKitCore.addAgent__unsafe_dev_only({
+        id: "default",
+        agent: providerAgent as any,
+      });
+      copilotKitCore.addAgent__unsafe_dev_only({
+        id: "consumer",
+        agent: consumerAgent as any,
+      });
+      copilotKitCore.addSuggestionsConfig(createSuggestionsConfig());
+      return { providerAgent, consumerAgent };
+    }
+
+    /** A suggestion run held until `release`, then streaming `title`. */
+    function gatedClone(providerAgent: MockAgent, title: string) {
+      let release: () => void = () => {};
+      const gate = new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      const clone = providerAgent.clone();
+      const runAgent = vi.fn(async (_input: unknown, subscriber: any) => {
+        await gate;
+        const response = suggestCall(title);
+        subscriber?.onMessagesChanged?.({
+          messages: [...clone.messages, response],
+        });
+        return { newMessages: [response] };
+      });
+      clone.runAgent = runAgent as any;
+      return { clone, runAgent, release: () => release() };
+    }
+
+    const titles = () =>
+      copilotKitCore.getSuggestions("consumer").suggestions.map((s) => s.title);
+
+    it("drops a generation's results when the consumer switches conversations before they arrive", async () => {
+      const { providerAgent, consumerAgent } = setupConversation();
+      const gated = gatedClone(providerAgent, "From A");
+      providerAgent.clone.mockReturnValueOnce(gated.clone);
+      const published: string[][] = [];
+      copilotKitCore.subscribe({
+        onSuggestionsChanged: ({ suggestions }) => {
+          published.push(suggestions.map((s) => s.title));
+        },
+      });
+
+      copilotKitCore.reloadSuggestions("consumer");
+      await vi.waitFor(() => expect(gated.runAgent).toHaveBeenCalled());
+      consumerAgent.threadId = "thread-b";
+      gated.release();
+      await new Promise((resolve) => setTimeout(resolve, 20));
+
+      expect(copilotKitCore.getSuggestions("consumer")).toEqual({
+        suggestions: [],
+        isLoading: false,
+      });
+      expect(gated.clone.abortRun).toHaveBeenCalled();
+      expect(published.flat()).not.toContain("From A");
+    });
+
+    it("drops published suggestions once the consumer switches conversations, and keeps static ones", async () => {
+      const { providerAgent, consumerAgent } = setupConversation();
+      copilotKitCore.addSuggestionsConfig({
+        suggestions: [{ title: "Static", message: "Always there" }],
+        available: "always",
+      });
+      providerAgent.setNewMessages([suggestCall("From A")]);
+      copilotKitCore.reloadSuggestions("consumer");
+      await vi.waitFor(() => expect(titles()).toContain("From A"));
+      const published: string[][] = [];
+      copilotKitCore.subscribe({
+        onSuggestionsChanged: ({ agentId, suggestions }) => {
+          if (agentId === "consumer") {
+            published.push(suggestions.map((s) => s.title));
+          }
+        },
+      });
+
+      consumerAgent.threadId = "thread-b";
+
+      expect(titles()).toEqual(["Static"]);
+      await vi.waitFor(() => expect(published.at(-1)).toEqual(["Static"]));
+    });
+
+    it("withdraws the previous conversation's suggestions as soon as the consumer starts connecting to another thread", async () => {
+      const { providerAgent, consumerAgent } = setupConversation();
+      providerAgent.setNewMessages([suggestCall("From A")]);
+      copilotKitCore.reloadSuggestions("consumer");
+      await vi.waitFor(() => expect(titles()).toContain("From A"));
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      const published: string[][] = [];
+      copilotKitCore.subscribe({
+        onSuggestionsChanged: ({ agentId, suggestions }) => {
+          if (agentId === "consumer") {
+            published.push(suggestions.map((s) => s.title));
+          }
+        },
+      });
+      let finishConnect: () => void = () => {};
+      const connected = new Promise<void>((resolve) => {
+        finishConnect = resolve;
+      });
+      Object.assign(consumerAgent, {
+        detachActiveRun: async () => {},
+        connectAgent: async () => {
+          await connected;
+          return { newMessages: [] };
+        },
+      });
+
+      // Nothing reads the suggestions and the thread's history is still
+      // loading: starting the connection is what withdraws them.
+      consumerAgent.threadId = "thread-b";
+      const connecting = copilotKitCore.connectAgent({
+        agent: consumerAgent as any,
+      });
+
+      await vi.waitFor(() => expect(published).toEqual([[]]));
+      finishConnect();
+      await connecting;
+    });
+
+    it("keeps a previous generation's late result out of a newer generation", async () => {
+      const { providerAgent } = setupConversation();
+      const first = gatedClone(providerAgent, "First");
+      const second = gatedClone(providerAgent, "Second");
+      providerAgent.clone
+        .mockReturnValueOnce(first.clone)
+        .mockReturnValueOnce(second.clone);
+
+      copilotKitCore.reloadSuggestions("consumer");
+      await vi.waitFor(() => expect(first.runAgent).toHaveBeenCalled());
+      copilotKitCore.reloadSuggestions("consumer");
+      await vi.waitFor(() => expect(second.runAgent).toHaveBeenCalled());
+
+      // The new generation is still loading when the old one returns late.
+      first.release();
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      expect(titles()).toEqual([]);
+      expect(copilotKitCore.getSuggestions("consumer").isLoading).toBe(true);
+
+      second.release();
+      await vi.waitFor(() =>
+        expect(copilotKitCore.getSuggestions("consumer").isLoading).toBe(false),
+      );
+      expect(titles()).toEqual(["Second"]);
+    });
+  });
+
   describe("Agent cloning", () => {
     it("should clone provider agent for suggestion generation", async () => {
       const providerAgent = new MockAgent({

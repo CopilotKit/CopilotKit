@@ -454,6 +454,7 @@ export interface CopilotKitCoreFriendsAccess {
   readonly suggestionEngine: {
     clearSuggestions(agentId: string): void;
     reloadSuggestions(agentId: string): void;
+    syncThread(agentId: string): void;
   };
 
   /**

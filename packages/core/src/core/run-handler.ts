@@ -582,6 +582,11 @@ export class RunHandler {
     const connection = {};
     this._connectionGenerations.set(agent, connection);
     const incomingThreadId = agent.threadId ?? null;
+    // Suggestions generated for the thread the agent leaves must not show in
+    // the one it connects to.
+    if (agent.agentId) {
+      this._internal.suggestionEngine.syncThread(agent.agentId);
+    }
     const previousReplay = this._interactionAbortControllers.get(agent);
     if (previousReplay && previousReplay.threadId !== incomingThreadId) {
       for (const controller of previousReplay.controllers) controller.abort();
