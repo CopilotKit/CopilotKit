@@ -46,6 +46,18 @@ function Surface({ messages = operations }: { messages?: unknown[] }) {
   return <A2UIRenderer surfaceId="surface" />;
 }
 
+/**
+ * True when `after` follows `before` as the very next element among the
+ * column's children, so nothing (even an empty element) sits between them.
+ */
+function isNextSibling(before: Element, after: Element): boolean {
+  let node: Element = before;
+  while (node.parentElement && !node.parentElement.contains(after)) {
+    node = node.parentElement;
+  }
+  return node.nextElementSibling?.contains(after) ?? false;
+}
+
 afterEach(() => {
   cleanup();
   vi.unstubAllEnvs();
@@ -61,7 +73,9 @@ describe("unknown component types", () => {
     );
 
     await screen.findByText("Before");
-    expect(screen.getByText("After")).toBeTruthy();
+    expect(
+      isNextSibling(screen.getByText("Before"), screen.getByText("After")),
+    ).toBe(true);
     expect(container.textContent).not.toContain("NotInCatalog");
     expect(container.textContent).not.toContain("Unknown component");
   });
@@ -76,5 +90,10 @@ describe("unknown component types", () => {
 
     await screen.findByText("Before");
     expect(container.textContent).toContain("Unknown component: NotInCatalog");
+    // The diagnostic is an element between the siblings, which is what the
+    // production test's adjacency check would catch.
+    expect(
+      isNextSibling(screen.getByText("Before"), screen.getByText("After")),
+    ).toBe(false);
   });
 });
