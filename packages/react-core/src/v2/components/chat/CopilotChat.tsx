@@ -4,7 +4,10 @@ import { useSuggestions } from "../../hooks/use-suggestions";
 import type { CopilotChatViewProps } from "./CopilotChatView";
 import { CopilotChatView } from "./CopilotChatView";
 import type { CopilotChatInputMode } from "./CopilotChatInput";
-import type { CopilotChatLabels } from "../../providers/CopilotChatConfigurationProvider";
+import type {
+  CopilotChatLabels,
+  CopilotChatTimestampFormatter,
+} from "../../providers/CopilotChatConfigurationProvider";
 import {
   CopilotChatConfigurationProvider,
   useCopilotChatConfiguration,
@@ -17,6 +20,11 @@ import {
 } from "@copilotkit/shared";
 import type { AttachmentsConfig, InputContent } from "@copilotkit/shared";
 import type { Suggestion } from "@copilotkit/core";
+import {
+  readMessageTimestamp,
+  recordMessageTimestamps,
+  withMessageTimestamp,
+} from "../../lib/message-timestamp";
 import {
   CopilotKitCoreErrorCode,
   CopilotKitCoreRuntimeConnectionStatus,
@@ -116,6 +124,23 @@ export type CopilotChatProps = Omit<
    */
   throttleMs?: number;
   /**
+   * Show each user and assistant message's time in the default layout.
+   * Off by default. A message with no timestamp renders nothing.
+   *
+   * The chat records `metadata.timestamp` (Unix epoch milliseconds) when the
+   * user sends a message and when an assistant text message starts, including
+   * when this is off, so turning it on later can still show those times.
+   * Restored messages keep a time only when their saved data already has one.
+   *
+   * @default false
+   */
+  showTimestamps?: boolean;
+  /**
+   * Formats the visible timestamp. The `<time dateTime>` value stays ISO-8601.
+   * Defaults to the locale hour and minute.
+   */
+  formatTimestamp?: CopilotChatTimestampFormatter;
+  /**
    * Experimental. Wrapper for generative UI surfaces rendered in this chat.
    * Receives `{ surfaceId, isStreaming, error, children }`.
    */
@@ -132,6 +157,8 @@ export function CopilotChat({
   onError,
   throttleMs,
   generativeUISurface,
+  showTimestamps,
+  formatTimestamp,
   ...props
 }: CopilotChatProps) {
   // Check for existing configuration provider
@@ -848,6 +875,31 @@ export function CopilotChat({
     rememberRecentlyWakeRunId,
   ]);
 
+  // Assistant text messages are created from TEXT_MESSAGE_START, which does
+  // not copy the event time onto the message. Record it on metadata, and put
+  // it back if a later snapshot replaces the message. This stays outside the
+  // run-activity effect, which only subscribes when Intelligence realtime
+  // metadata is on.
+  useEffect(() => {
+    const pending = new Map<string, number>();
+    const remembered = new Map<string, number>();
+    recordMessageTimestamps(agent.messages, pending, remembered);
+    const subscription = agent.subscribe({
+      onTextMessageStartEvent: ({ event }) => {
+        const eventTimestamp = event.timestamp;
+        const timestamp =
+          typeof eventTimestamp === "number" && Number.isFinite(eventTimestamp)
+            ? eventTimestamp
+            : Date.now();
+        pending.set(event.messageId, timestamp);
+      },
+      onMessagesChanged: ({ messages: nextMessages }) => {
+        recordMessageTimestamps(nextMessages, pending, remembered);
+      },
+    });
+    return () => subscription.unsubscribe();
+  }, [agent, resolvedThreadId]);
+
   // Serializes consecutive sends: if a run is already in flight, let it finish
   // before dispatching the next message instead of pre-empting it.
   // `copilotkit.runAgent` would otherwise call `agent.detachActiveRun()` and
@@ -981,17 +1033,21 @@ export function CopilotChat({
           for (const att of readyAttachments) {
             contentParts.push(createAttachmentContent(att));
           }
-          agent.addMessage({
-            id: randomUUID(),
-            role: "user",
-            content: contentParts,
-          });
+          agent.addMessage(
+            withMessageTimestamp({
+              id: randomUUID(),
+              role: "user",
+              content: contentParts,
+            }),
+          );
         } else {
-          agent.addMessage({
-            id: randomUUID(),
-            role: "user",
-            content: value,
-          });
+          agent.addMessage(
+            withMessageTimestamp({
+              id: randomUUID(),
+              role: "user",
+              content: value,
+            }),
+          );
         }
 
         const localRunId = hasNativeIntelligenceRunActivity
@@ -1048,11 +1104,13 @@ export function CopilotChat({
         // typed-Enter path got — here for the suggestion path).
         if ((await waitForActiveRunToSettle()) !== true) return;
 
-        agent.addMessage({
-          id: randomUUID(),
-          role: "user",
-          content: suggestion.message,
-        });
+        agent.addMessage(
+          withMessageTimestamp({
+            id: randomUUID(),
+            role: "user",
+            content: suggestion.message,
+          }),
+        );
 
         const localRunId = hasNativeIntelligenceRunActivity
           ? randomUUID()
@@ -1300,7 +1358,10 @@ export function CopilotChat({
               )
               .join(";")
           : "";
-      return `${m.id}:${m.role}:${contentKey}:${toolCallsKey}`;
+      // Include the timestamp so a time recorded after the message appears
+      // refreshes the list without serializing the message body.
+      const timestampKey = readMessageTimestamp(m) ?? "";
+      return `${m.id}:${m.role}:${contentKey}:${toolCallsKey}:${timestampKey}`;
     })
     .join(",");
   const messages = useMemo(
@@ -1386,6 +1447,8 @@ export function CopilotChat({
       hasExplicitThreadId={hasExplicitThreadId}
       labels={labels}
       isModalDefaultOpen={isModalDefaultOpen}
+      showTimestamps={showTimestamps}
+      formatTimestamp={formatTimestamp}
     >
       <div ref={chatContainerRef} style={{ display: "contents" }}>
         {attachmentsEnabled && (

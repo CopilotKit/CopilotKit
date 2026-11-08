@@ -22,6 +22,7 @@ import type {
   DocumentInputPart,
 } from "@copilotkit/shared";
 import { CopilotChatAttachmentRenderer } from "./CopilotChatAttachmentRenderer";
+import { MessageTimestamp } from "./MessageTimestamp";
 
 function flattenUserMessageContent(content?: UserMessage["content"]): string {
   if (!content) {
@@ -231,6 +232,7 @@ export function CopilotChatUserMessage({
         </div>
       )}
       {BoundMessageRenderer}
+      <MessageTimestamp message={message} />
       {BoundToolbar}
     </div>
   );

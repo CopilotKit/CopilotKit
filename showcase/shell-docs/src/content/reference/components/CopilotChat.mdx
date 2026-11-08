@@ -37,6 +37,42 @@ import "@copilotkit/react-core/v2/styles.css";
   back to the built-in default.
 </PropertyReference>
 
+<PropertyReference name="showTimestamps" type="boolean" default="false">
+  Shows the time of each user and assistant message in the default message
+  layout. Off unless you set it. A message with no timestamp renders nothing.
+
+  The chat stores the time on `message.metadata.timestamp` as Unix epoch
+  milliseconds when the user sends a message and when an assistant text message
+  starts, whether or not the times are visible. History shows a time only when
+  that saved value is already present.
+  `CopilotPopup` and `CopilotSidebar` accept this prop as well.
+
+```tsx
+<CopilotChat showTimestamps />
+```
+
+</PropertyReference>
+
+<PropertyReference name="formatTimestamp" type="(date: Date) => string">
+  Formats the visible timestamp. The `<time dateTime>` value stays ISO-8601.
+  When omitted, the label is the viewer's locale hour and minute.
+
+```tsx
+<CopilotChat
+  showTimestamps
+  formatTimestamp={(date) =>
+    date.toLocaleString([], {
+      month: "short",
+      day: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+    })
+  }
+/>
+```
+
+</PropertyReference>
+
 <PropertyReference name="chatView" type="SlotValue<typeof CopilotChatView>">
   Slot override for the inner `CopilotChatView` component. Accepts a replacement
   component, a `className` string merged into the default, or a partial props
