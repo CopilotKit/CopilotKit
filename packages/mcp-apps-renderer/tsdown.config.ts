@@ -1,4 +1,9 @@
+import { writeFileSync } from "node:fs";
 import { defineConfig } from "tsdown";
+import {
+  buildSandboxProxyHTML,
+  MCP_APPS_SANDBOX_PROXY_FILE,
+} from "./src/sandbox.ts";
 
 const externalPkgs = [
   "@modelcontextprotocol/ext-apps",
@@ -27,6 +32,14 @@ export default defineConfig([
     unbundle: true,
     external: isExternal,
     exports: false,
+    // The static sandbox proxy for `sandboxOrigin`, generated from the same
+    // template as the inline one so the two cannot drift.
+    onSuccess() {
+      writeFileSync(
+        `dist/${MCP_APPS_SANDBOX_PROXY_FILE}`,
+        buildSandboxProxyHTML(),
+      );
+    },
   },
   // Activity entry: the bridge-free registration surface (activity type, content
   // schema, follow-up runner). It has no ext-apps edge, so it is safe as dual

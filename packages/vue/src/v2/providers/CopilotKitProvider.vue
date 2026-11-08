@@ -92,13 +92,6 @@ const DEFAULT_DESIGN_SKILL = `When generating UI with generateSandboxedUi, follo
 - Minimal transitions (150ms) for hover/focus states only. No decorative animations.
 - Keep the UI focused and dense — avoid excessive padding. Use compact spacing (8–12px gaps, 10–14px padding in controls).`;
 
-/** The MCP Apps renderer with `mcpApps.allowSameOriginFallback` applied. */
-const SameOriginMCPAppsActivityRenderer: FunctionalComponent = (_, { attrs }) =>
-  h(MCPAppsActivityRenderer as Component, {
-    ...attrs,
-    allowSameOriginFallback: true,
-  });
-
 const props = withDefaults(defineProps<CopilotKitProviderProps>(), {
   headers: () => ({}),
   properties: () => ({}),
@@ -442,6 +435,24 @@ const builtInFrontendTools = computed<VueFrontendTool[]>(() => {
   ];
 });
 
+// The MCP Apps renderer with the `mcpApps` options applied. Its own computed,
+// so the renderer identity changes only when one of those options does.
+const mcpAppsRenderer = computed(() => {
+  const allowSameOriginFallback =
+    props.mcpApps?.allowSameOriginFallback === true;
+  const sandboxOrigin = props.mcpApps?.sandboxOrigin;
+  if (!allowSameOriginFallback && !sandboxOrigin) {
+    return MCPAppsActivityRenderer;
+  }
+  const renderer: FunctionalComponent = (_, { attrs }) =>
+    h(MCPAppsActivityRenderer as Component, {
+      ...attrs,
+      allowSameOriginFallback,
+      sandboxOrigin,
+    });
+  return renderer;
+});
+
 const builtInActivityRenderers = computed<
   VueActivityMessageRenderer<unknown>[]
 >(() => {
@@ -449,9 +460,8 @@ const builtInActivityRenderers = computed<
     {
       activityType: MCPAppsActivityType,
       content: MCPAppsActivityContentSchema as unknown as z.ZodSchema<unknown>,
-      render: (props.mcpApps?.allowSameOriginFallback
-        ? SameOriginMCPAppsActivityRenderer
-        : MCPAppsActivityRenderer) as unknown as VueActivityMessageRenderer<unknown>["render"],
+      render:
+        mcpAppsRenderer.value as unknown as VueActivityMessageRenderer<unknown>["render"],
     },
   ];
 

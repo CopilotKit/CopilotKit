@@ -7,7 +7,12 @@ import type { AbstractAgent } from "@ag-ui/client";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod";
 import { randomUUID } from "@copilotkit/shared";
-import { buildSandboxHTML, ɵmcpAppSandboxFlags } from "./sandbox";
+import {
+  buildSandboxHTML,
+  MCP_APPS_SANDBOX_PROXY_FILE,
+  ɵmcpAppSandboxFlags,
+} from "./sandbox";
+import { ɵSandboxOriginTransport } from "./origin-transport";
 import {
   mcpAppsRequestQueue,
   MCP_APPS_QUEUE_IDLE_TIMEOUT_MS,
@@ -270,13 +275,34 @@ export interface McpAppSessionOptions {
    * storage and DOM, and call the host's APIs as the signed-in user. Only set
    * it for widgets you wrote and trust that genuinely need `localStorage`,
    * `IndexedDB` or cookies. By default widgets get an opaque origin.
+   *
+   * Ignored when `sandboxOrigin` is set, which grants `allow-same-origin` safely.
    */
   allowSameOriginFallback?: boolean;
+  /**
+   * Serve the sandbox proxy from a separate origin, as SEP-1865 requires.
+   * Default unset: the proxy is inline (`srcdoc`) and widgets get an opaque
+   * origin.
+   *
+   * Pass the origin, such as `https://example-sandbox.com`, that serves
+   * `mcp-apps-sandbox-proxy.html` (shipped in this package) at its root, or
+   * the full URL of that page to serve it from another path. Widgets then run
+   * with that origin and keep `allow-same-origin`, so `localStorage`,
+   * `IndexedDB` and cookies work while the host page stays out of reach. The
+   * host only accepts messages from that origin.
+   *
+   * It must differ from the page's origin, or the session fails to start. Use
+   * a separate domain, not a subdomain of the app's: a subdomain is same-site
+   * with the page, so it gets the page's `SameSite` cookies and can set cookies
+   * the page reads. All widgets share the sandbox origin, and with it their
+   * storage.
+   */
+  sandboxOrigin?: string;
 }
 
 /** Defaults every frontend inherits unless it overrides them. */
 export const MCP_APPS_SESSION_DEFAULTS: Readonly<
-  Required<McpAppSessionOptions>
+  Required<Omit<McpAppSessionOptions, "sandboxOrigin">>
 > = {
   idleTimeoutMs: MCP_APPS_QUEUE_IDLE_TIMEOUT_MS,
   initializationTimeoutMs: 30_000,
@@ -370,6 +396,38 @@ export interface McpAppSession {
   syncContent(content: MCPAppsActivityContent): void;
   /** Disconnect the bridge and release listeners. Does NOT remove the iframe. */
   teardown(): void;
+}
+
+/**
+ * The URL of the served sandbox proxy for `sandboxOrigin`: the shipped proxy
+ * file at the origin's root, or the given page when the value has a path.
+ *
+ * @throws When the value is not an http(s) URL, or is the page's own origin,
+ *   which would hand widgets the host's cookies, storage and DOM.
+ */
+export function ɵresolveSandboxProxyUrl(sandboxOrigin: string): URL {
+  let url: URL;
+  try {
+    url = new URL(sandboxOrigin);
+  } catch {
+    throw new Error(
+      `[MCPAppsRenderer] sandboxOrigin "${sandboxOrigin}" is not a valid URL.`,
+    );
+  }
+  if (url.protocol !== "https:" && url.protocol !== "http:") {
+    throw new Error(
+      `[MCPAppsRenderer] sandboxOrigin must be an http(s) URL, got "${sandboxOrigin}".`,
+    );
+  }
+  if (url.origin === window.location.origin) {
+    throw new Error(
+      `[MCPAppsRenderer] sandboxOrigin "${url.origin}" is this page's own origin. Serve the sandbox proxy from a different origin, or widgets get your page's cookies, storage and DOM.`,
+    );
+  }
+  if (url.pathname === "/") {
+    url.pathname = "/" + MCP_APPS_SANDBOX_PROXY_FILE;
+  }
+  return url;
 }
 
 /**
@@ -648,9 +706,17 @@ export function bindMcpApp(opts: BindMcpAppOptions): McpAppSession {
       if (disposed) return;
       hooks?.onResource?.(resource);
 
+      // Resolve before touching the iframe, so a bad sandboxOrigin never
+      // falls back to loading the widget inline.
+      const proxyUrl = settings.sandboxOrigin
+        ? ɵresolveSandboxProxyUrl(settings.sandboxOrigin)
+        : undefined;
+
       // Configure the sandbox iframe (contract shared across frontends). The
       // same flags go to the widget frame in sandbox-resource-ready below.
-      const sandbox = ɵmcpAppSandboxFlags(settings.allowSameOriginFallback);
+      const sandbox = ɵmcpAppSandboxFlags(
+        proxyUrl !== undefined || settings.allowSameOriginFallback,
+      );
       iframe.setAttribute("sandbox", sandbox);
       // Cross-frontend MCP-apps surface contract: every frontend must expose the
       // sandbox iframe under the SAME testid so one shared probe (harness
@@ -659,8 +725,12 @@ export function bindMcpApp(opts: BindMcpAppOptions): McpAppSession {
       iframe.setAttribute("data-testid", "mcp-app-iframe");
       iframe.setAttribute("title", "Interactive MCP application");
 
-      const cspDomains = resource._meta?.ui?.csp?.resourceDomains;
-      iframe.srcdoc = buildSandboxHTML(cspDomains);
+      const csp = resource._meta?.ui?.csp;
+      if (proxyUrl) {
+        iframe.src = proxyUrl.href;
+      } else {
+        iframe.srcdoc = buildSandboxHTML(csp?.resourceDomains);
+      }
 
       const win = iframe.contentWindow;
       if (!win) {
@@ -727,9 +797,17 @@ export function bindMcpApp(opts: BindMcpAppOptions): McpAppSession {
           clearTimeout(sandboxTimer);
           sandboxTimer = undefined;
         }
-        void bridge?.sendSandboxResourceReady({ html, sandbox }).then(() => {
-          if (!disposed) hooks?.onSandboxReady?.();
-        });
+        // The served proxy has no CSP of its own and applies this one to the
+        // widget. The inline proxy already has it baked in.
+        void bridge
+          ?.sendSandboxResourceReady({
+            html,
+            sandbox,
+            ...(proxyUrl && { csp: { resourceDomains: csp?.resourceDomains } }),
+          })
+          .then(() => {
+            if (!disposed) hooks?.onSandboxReady?.();
+          });
       };
 
       // --- App -> host requests ---
@@ -906,7 +984,9 @@ export function bindMcpApp(opts: BindMcpAppOptions): McpAppSession {
         console.log("[MCPAppsRenderer] App log:", p);
       };
 
-      const transport = new PostMessageTransport(win, win);
+      const transport = proxyUrl
+        ? new ɵSandboxOriginTransport(iframe, proxyUrl.origin)
+        : new PostMessageTransport(win, win);
       await bridge.connect(transport);
       if (disposed) {
         await bridge.close();
