@@ -38,7 +38,7 @@ import {
   useLicenseContext,
 } from "../../context";
 import { InlineFeatureWarning } from "../../components/license-warning-banner";
-import type { AbstractAgent } from "@ag-ui/client";
+import type { AbstractAgent, UserMessage } from "@ag-ui/client";
 import type { SlotValue } from "../../lib/slots";
 import { renderSlot, useShallowStableRef } from "../../lib/slots";
 import {
@@ -59,6 +59,7 @@ export type CopilotChatProps = Omit<
   CopilotChatViewProps,
   | "messages"
   | "isRunning"
+  | "queuedMessages"
   | "suggestions"
   | "suggestionLoadingIndexes"
   | "onSelectSuggestion"
@@ -121,6 +122,22 @@ export type CopilotChatProps = Omit<
    */
   generativeUISurface?: React.ComponentType<GenerativeUIChatSurfaceProps>;
 };
+/**
+ * The in-flight run a new send must wait for, if the agent is running and
+ * exposes its completion (see `waitForActiveRunToSettle`).
+ */
+function getActiveRunCompletion(
+  agent: AbstractAgent,
+): Promise<void> | undefined {
+  if (!agent.isRunning) return undefined;
+  // Widen to `unknown` before the guard: narrowing `AbstractAgent` directly
+  // would intersect with its PRIVATE `activeRunCompletionPromise` declaration
+  // and collapse the narrowed type to `never`.
+  const maybeAware: unknown = agent;
+  return isRunCompletionAware(maybeAware)
+    ? maybeAware.activeRunCompletionPromise
+    : undefined;
+}
 export function CopilotChat({
   agentId,
   threadId,
@@ -249,6 +266,12 @@ export function CopilotChat({
   const [transcribeMode, setTranscribeMode] =
     useState<CopilotChatInputMode>("input");
   const [inputValue, setInputValue] = useState("");
+  // Messages accepted from the composer but not yet dispatched because the
+  // send has to wait (behind an earlier submission, e.g. one paused on a
+  // confirmation card, or on an in-flight run). Shown so the cleared
+  // composer never looks like data loss; a send that dispatches at once is
+  // never queued.
+  const [queuedMessages, setQueuedMessages] = useState<UserMessage[]>([]);
   const [transcriptionError, setTranscriptionError] = useState<string | null>(
     null,
   );
@@ -306,6 +329,10 @@ export function CopilotChat({
   const pendingConnectionsRef = useRef(new Map<AbstractAgent, Promise<void>>());
   const failedConnectionsRef = useRef(new WeakSet<AbstractAgent>());
   const submissionQueueRef = useRef(Promise.resolve());
+  // True while a submission on the current queue has not settled. A new send
+  // waits behind it (say, one whose run is paused on a confirmation card,
+  // where the agent itself is no longer running).
+  const submissionQueueBusyRef = useRef(false);
   const trackConnection = useCallback(
     (connectingAgent: AbstractAgent, connect: () => Promise<void>) => {
       const selection = previousThreadRef.current;
@@ -477,6 +504,10 @@ export function CopilotChat({
     };
     previousThreadRef.current = selection;
     submissionQueueRef.current = Promise.resolve();
+    submissionQueueBusyRef.current = false;
+    // Submissions queued on the previous selection are never dispatched here
+    // (enqueueSubmission checks the selection), so drop their placeholders too.
+    setQueuedMessages((q) => (q.length > 0 ? [] : q));
     failedConnectionsRef.current.delete(agent);
     const discardedThreadId =
       previousThread?.agent === agent
@@ -885,14 +916,8 @@ export function CopilotChat({
       );
       return "failed";
     }
-    // Widen to `unknown` before the guard: narrowing `AbstractAgent` directly
-    // would intersect with its PRIVATE `activeRunCompletionPromise` declaration
-    // and collapse the narrowed type to `never`.
-    const maybeAware: unknown = agent;
-    const activeRunCompletionPromise = isRunCompletionAware(maybeAware)
-      ? maybeAware.activeRunCompletionPromise
-      : undefined;
-    if (agent.isRunning && activeRunCompletionPromise) {
+    const activeRunCompletionPromise = getActiveRunCompletion(agent);
+    if (activeRunCompletionPromise) {
       try {
         await activeRunCompletionPromise;
       } catch (error) {
@@ -907,9 +932,21 @@ export function CopilotChat({
     return isCurrentSelection();
   }, [agent]);
 
+  // Whether a send made now has to wait before it is dispatched: behind an
+  // earlier submission, or on what `waitForActiveRunToSettle` awaits (this
+  // agent's pending connection or its in-flight run).
+  const submissionWillWait = useCallback(
+    () =>
+      submissionQueueBusyRef.current ||
+      pendingConnectionsRef.current.has(agent) ||
+      getActiveRunCompletion(agent) !== undefined,
+    [agent],
+  );
+
   const enqueueSubmission = useCallback((submit: () => Promise<void>) => {
     const selection = previousThreadRef.current;
-    const pending = submissionQueueRef.current
+    submissionQueueBusyRef.current = true;
+    const pending: Promise<void> = submissionQueueRef.current
       .then(async () => {
         if (selection?.active && previousThreadRef.current === selection) {
           await submit();
@@ -917,6 +954,14 @@ export function CopilotChat({
       })
       .catch((error) => {
         console.error("CopilotChat: queued submission failed", error);
+      })
+      .finally(() => {
+        // Only the newest submission marks the queue idle; after a thread
+        // switch the queue is a new one, which an old submission says
+        // nothing about.
+        if (submissionQueueRef.current === pending) {
+          submissionQueueBusyRef.current = false;
+        }
       });
     submissionQueueRef.current = pending;
     return pending;
@@ -944,11 +989,26 @@ export function CopilotChat({
       // below so it is never silently lost.
       setInputValue("");
 
+      const queuedId = randomUUID();
+      const dropQueued = () =>
+        setQueuedMessages((q) =>
+          q.some((m) => m.id === queuedId)
+            ? q.filter((m) => m.id !== queuedId)
+            : q,
+        );
+      if (value.trim() && submissionWillWait()) {
+        setQueuedMessages((q) => [
+          ...q,
+          { id: queuedId, role: "user", content: value },
+        ]);
+      }
+
       await enqueueSubmission(async () => {
         // If a run is already in flight, let it finish before sending the new
         // message instead of pre-empting it (see waitForActiveRunToSettle).
         const ready = await waitForActiveRunToSettle();
         if (ready !== true) {
+          dropQueued();
           if (ready === "failed") setInputValue(value);
           return;
         }
@@ -967,6 +1027,7 @@ export function CopilotChat({
             "[CopilotKit] Cannot send while attachments are uploading (post-await re-check)",
           );
           setTranscriptionError("Cannot send while attachments are uploading.");
+          dropQueued();
           setInputValue(value);
           return;
         }
@@ -982,17 +1043,20 @@ export function CopilotChat({
             contentParts.push(createAttachmentContent(att));
           }
           agent.addMessage({
-            id: randomUUID(),
+            id: queuedId,
             role: "user",
             content: contentParts,
           });
         } else {
           agent.addMessage({
-            id: randomUUID(),
+            id: queuedId,
             role: "user",
             content: value,
           });
         }
+        // Dropped in the same tick the agent gains the message, so the queued
+        // copy and the sent message never render together.
+        dropQueued();
 
         const localRunId = hasNativeIntelligenceRunActivity
           ? randomUUID()
@@ -1025,7 +1089,7 @@ export function CopilotChat({
             }
           }
         }
-      });
+      }).finally(dropQueued);
     },
     // copilotkit is intentionally excluded — it is a stable ref that never changes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1033,6 +1097,7 @@ export function CopilotChat({
       agent,
       consumeAttachments,
       waitForActiveRunToSettle,
+      submissionWillWait,
       enqueueSubmission,
       hasNativeIntelligenceRunActivity,
       rememberRecentlyLocalRunId,
@@ -1343,6 +1408,7 @@ export function CopilotChat({
   const finalProps: CopilotChatViewProps = {
     ...mergedProps,
     messages,
+    queuedMessages,
     // Input behavior props
     // Gate submission on runtime readiness. While `isReady` is false the
     // `agent` returned by useAgent is a provisional stand-in that `/info` will

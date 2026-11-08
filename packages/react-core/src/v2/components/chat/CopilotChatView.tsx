@@ -19,7 +19,7 @@ import CopilotChatSuggestionView, {
   CopilotChatSuggestionViewProps,
 } from "./CopilotChatSuggestionView";
 import type { Suggestion } from "@copilotkit/core";
-import type { Message } from "@ag-ui/core";
+import type { Message, UserMessage } from "@ag-ui/core";
 import type { Attachment } from "@copilotkit/shared";
 import { CopilotChatAttachmentQueue } from "./CopilotChatAttachmentQueue";
 import { twMerge } from "tailwind-merge";
@@ -67,6 +67,12 @@ export type CopilotChatViewProps = WithSlots<
   },
   {
     messages?: Message[];
+    /**
+     * User messages accepted but not yet sent because the current run has to
+     * finish first. Shown after the conversation; see
+     * `CopilotChatMessageView`'s `queuedMessages`.
+     */
+    queuedMessages?: UserMessage[];
     autoScroll?: AutoScrollMode | boolean;
     isRunning?: boolean;
     suggestions?: Suggestion[];
@@ -156,6 +162,7 @@ export function CopilotChatView({
   suggestionView,
   welcomeScreen,
   messages = [],
+  queuedMessages,
   autoScroll = true,
   isRunning = false,
   suggestions,
@@ -276,6 +283,7 @@ export function CopilotChatView({
 
   const BoundMessageView = renderSlot(messageView, CopilotChatMessageView, {
     messages,
+    queuedMessages,
     isRunning,
     intelligenceIndicator,
   });
@@ -360,7 +368,7 @@ export function CopilotChatView({
   });
 
   // Welcome screen logic
-  const isEmpty = messages.length === 0;
+  const isEmpty = messages.length === 0 && !queuedMessages?.length;
   // Type assertion needed because TypeScript doesn't fully propagate `| boolean` through WithSlots
   const welcomeScreenDisabled = (welcomeScreen as unknown) === false;
   // Suppress the welcome screen (1) while the initial connect is in flight

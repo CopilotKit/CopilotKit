@@ -272,6 +272,13 @@ describe("CopilotChat attachments", () => {
           const composer = screen.getByRole("textbox") as HTMLTextAreaElement;
           expect(composer.value).toBe("Send with no files yet");
         });
+        // The queued placeholder is removed when the text goes back to the
+        // composer, so the message is never shown in two places.
+        expect(
+          screen
+            .queryAllByText("Send with no files yet")
+            .filter((el) => el.tagName !== "TEXTAREA"),
+        ).toHaveLength(0);
 
         // Cleanup: let the pending upload resolve.
         await act(async () => {
