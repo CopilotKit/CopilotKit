@@ -1090,9 +1090,9 @@ or two sentences of guidance.`;
  */
 export const execAgent = () =>
   new BuiltInAgent({
-    // `openai/gpt-5.4` is the alias used across the repo; the full (non-mini)
+    // `openai/gpt-6-luna` is the alias used across the repo; the full (non-mini)
     // model routes the multi-step arc more reliably.
-    model: "openai/gpt-5.4",
+    model: "openai/gpt-6-luna",
     prompt: EXEC_PROMPT,
     // `publishBoardPackTool` is DELIBERATELY absent — see its doc comment.
     tools: [
@@ -1104,7 +1104,7 @@ export const execAgent = () =>
     // NO `temperature`. Keel pins it to 0 and this skin used to as well, under
     // a comment claiming "every other skin pins it for the same reason" —
     // which was false in both directions: bookstore, commerce and people all
-    // deliberately omit it, and they say why. `gpt-5.4` is a reasoning model
+    // deliberately omit it, and they say why. `gpt-6-luna` is a reasoning model
     // that REJECTS the parameter: the dev server logs 'The feature
     // "temperature" is not supported' on every run and the value is discarded,
     // so pinning it changed nothing except what the next reader believed.

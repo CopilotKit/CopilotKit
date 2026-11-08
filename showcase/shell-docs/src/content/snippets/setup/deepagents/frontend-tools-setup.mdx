@@ -12,7 +12,7 @@
     from copilotkit import CopilotKitMiddleware
 
     agent = create_deep_agent(
-        model="openai:gpt-5.4",
+        model="openai:gpt-6-luna",
         tools=[],  # Backend tools go here
         middleware=[CopilotKitMiddleware()],
         system_prompt=SYSTEM_PROMPT,

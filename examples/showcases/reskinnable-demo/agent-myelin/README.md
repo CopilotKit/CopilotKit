@@ -32,7 +32,7 @@ Loaded from `agent-myelin/.env` first, then the app's `../.env`.
 | Var                 | Default                               |                              |
 | ------------------- | ------------------------------------- | ---------------------------- |
 | `OPENAI_API_KEY`    |                                       | needed for the default model |
-| `MYELIN_MODEL`      | `openai/gpt-5.4`                      | any LiteLLM model id         |
+| `MYELIN_MODEL`      | `openai/gpt-6-luna`                   | any LiteLLM model id         |
 | `MYELIN_API_BASE`   | `http://localhost:3000/api/myelin/v1` | the app's REST API           |
 | `MYELIN_AGENT_PORT` | `8125`                                |                              |
 

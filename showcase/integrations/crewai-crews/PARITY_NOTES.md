@@ -17,7 +17,7 @@ slug for existing links and deployment wiring.
   fails loudly instead of silently landing on someone else's backend.
 - The integration is pinned to the official `ag-ui-crewai==0.3.0` release,
   `ag-ui-protocol==0.1.19`, and `crewai==1.15.11`.
-- All model-backed showcase paths use `gpt-5.4`.
+- All model-backed showcase paths use `gpt-6-luna`.
 - The integration bridge owns AG-UI event translation for text, reasoning, tools,
   state, interrupts, multimodal input, and generative UI.
 

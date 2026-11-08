@@ -127,9 +127,9 @@ describe("railway-envs SSOT", () => {
     expect(ENV_IDS.staging).toBe(STAGING_ENV_ID);
   });
 
-  it("contains 43 managed services plus seven staging-only Intelligence services", () => {
+  it("contains 43 managed services plus eight staging-only services (seven Intelligence, docs-preview)", () => {
     const names = listServiceNames();
-    expect(names.length).toBe(50);
+    expect(names.length).toBe(51);
   });
 
   it("models CrewAI conversational flows as a dual-environment showcase deployment", () => {
@@ -1497,7 +1497,7 @@ describe("static gate and disposable approval policy", () => {
   });
 
   it("approves only the reviewed bounded milestone images and preserves permanent identities", () => {
-    expect(Object.keys(SERVICES)).toHaveLength(50);
+    expect(Object.keys(SERVICES)).toHaveLength(51);
     expect(DISPOSABLE_LIFECYCLE_POLICY).toEqual({
       projectId: PROJECT_ID,
       forbiddenEnvironmentIds: [PRODUCTION_ENV_ID],

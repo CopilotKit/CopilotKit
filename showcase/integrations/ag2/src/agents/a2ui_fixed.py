@@ -107,7 +107,7 @@ SYSTEM_PROMPT = (
 agent = Agent(
     "a2ui_fixed_assistant",
     prompt=SYSTEM_PROMPT,
-    config=OpenAIResponsesConfig(model="gpt-5-mini", streaming=True),
+    config=OpenAIResponsesConfig(model="gpt-6-luna", streaming=True),
     tools=[display_flight],
     middleware=[loop_cap(4)],
 )

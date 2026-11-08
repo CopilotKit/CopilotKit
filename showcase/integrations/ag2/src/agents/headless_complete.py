@@ -85,7 +85,7 @@ async def get_stock_price(
 agent = Agent(
     "headless_complete_assistant",
     prompt=SYSTEM_PROMPT,
-    config=OpenAIResponsesConfig(model="gpt-5-mini", streaming=True),
+    config=OpenAIResponsesConfig(model="gpt-6-luna", streaming=True),
     tools=[get_weather, get_stock_price],
     middleware=[loop_cap(8)],
 )

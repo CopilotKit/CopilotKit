@@ -64,7 +64,7 @@ class SubagentsSnapshot(BaseModel):
 # prompt. They don't share memory or tools with the supervisor — the
 # supervisor only sees what each sub-agent's final reply produces.
 
-_SUB_LLM_CONFIG = OpenAIResponsesConfig(model="gpt-5-mini", streaming=False)
+_SUB_LLM_CONFIG = OpenAIResponsesConfig(model="gpt-6-luna", streaming=False)
 
 _research_agent = Agent(
     "research_sub_agent",
@@ -284,7 +284,7 @@ supervisor = Agent(
         in your final reply — just summarize.
         """
     ).strip(),
-    config=OpenAIResponsesConfig(model="gpt-5-mini", streaming=True),
+    config=OpenAIResponsesConfig(model="gpt-6-luna", streaming=True),
     tools=[research_agent, writing_agent, critique_agent],
     middleware=[loop_cap(8)],
 )

@@ -57,7 +57,10 @@ CopilotKitMiddleware.before_agent = _patched_before_agent
 def build_agent():
     """Build the Finance ERP orchestrator with thread-isolated subagent tools."""
     llm = ChatOpenAI(
-        model=os.environ.get("OPENAI_MODEL", "gpt-5.4-2026-03-05"),
+        reasoning_effort="none"
+        if os.environ.get("OPENAI_MODEL", "gpt-6-luna") == "gpt-6-luna"
+        else None,
+        model=os.environ.get("OPENAI_MODEL", "gpt-6-luna"),
         temperature=0,
         streaming=True,
     )

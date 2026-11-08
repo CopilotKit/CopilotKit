@@ -122,6 +122,7 @@ import {
 import type { MethodCall } from "../endpoints/single-route-helpers";
 import { logger } from "@copilotkit/shared";
 import { fireInstanceCreatedTelemetry } from "../telemetry/instance-created";
+import type { RuntimeInstanceCreatedInfo } from "../telemetry/events";
 
 /**
  * Emitted when a single-route client's JSON envelope reaches a runtime mounted
@@ -197,6 +198,14 @@ export interface CopilotRuntimeHandlerOptions {
    * API and may change or be removed without notice.
    */
   __channelEngine?: ActivateChannelEngine;
+
+  /**
+   * @internal Payload for the `oss.runtime.instance_created` event, used in
+   * place of the v2 defaults. The v1 integration wrappers pass the v1 payload
+   * here so that the event fires once, from this factory, with the v1 data.
+   * Not part of the public API and may change or be removed without notice.
+   */
+  __instanceCreatedInfo?: RuntimeInstanceCreatedInfo;
 }
 
 /**
@@ -329,7 +338,10 @@ export function createCopilotRuntimeHandler(
 ): CopilotRuntimeFetchHandler {
   const { runtime, basePath, mode = "multi-route", cors, hooks } = options;
 
-  fireInstanceCreatedTelemetry({ runtime });
+  fireInstanceCreatedTelemetry({
+    runtime,
+    info: options.__instanceCreatedInfo,
+  });
 
   const corsConfig = resolveCorsConfig(cors);
 

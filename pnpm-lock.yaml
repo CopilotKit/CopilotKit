@@ -1242,8 +1242,8 @@ importers:
   examples/v2/angular/demo:
     dependencies:
       '@a2ui/web_core':
-        specifier: 0.10.4
-        version: 0.10.4
+        specifier: 0.15.0
+        version: 0.15.0
       '@ag-ui/client':
         specifier: 1.0.2
         version: 1.0.2
@@ -1310,6 +1310,9 @@ importers:
       '@tanstack/pacer':
         specifier: ^0.20.1
         version: 0.20.1
+      chart.js:
+        specifier: ^4.4.0
+        version: 4.6.1
       clsx:
         specifier: ^2.1.1
         version: 2.1.1
@@ -1325,12 +1328,18 @@ importers:
       highlight.js:
         specifier: ^11.11.1
         version: 11.11.1
+      jsonrepair:
+        specifier: ^3.15.0
+        version: 3.15.0
       katex:
         specifier: ^0.16.22
         version: 0.16.27
       lucide:
         specifier: ^0.525.0
         version: 0.525.0
+      maplibre-gl:
+        specifier: ^5.0.0
+        version: 5.24.0
       marked:
         specifier: ^12.0.2
         version: 12.0.2
@@ -1883,11 +1892,11 @@ importers:
         specifier: ^7.11.0
         version: 7.13.2(react-router@7.13.2(react-dom@19.2.3(react@19.2.3))(react@19.2.3))(typescript@5.7.3)
       '@tanstack/ai':
-        specifier: latest
-        version: 0.14.0
+        specifier: 0.42.0
+        version: 0.42.0(@opentelemetry/api@1.9.0)
       '@tanstack/ai-openai':
-        specifier: latest
-        version: 0.8.2(@tanstack/ai-client@0.22.1(@opentelemetry/api@1.9.0))(@tanstack/ai@0.14.0)(ws@8.21.3)(zod@3.25.76)
+        specifier: 0.17.1
+        version: 0.17.1(@tanstack/ai@0.42.0(@opentelemetry/api@1.9.0))(ws@8.21.3)(zod@3.25.76)
       ai:
         specifier: '>=5.0.52'
         version: 6.0.156(zod@3.25.76)
@@ -2342,8 +2351,8 @@ importers:
   packages/a2ui-renderer:
     dependencies:
       '@a2ui/web_core':
-        specifier: 0.10.4
-        version: 0.10.4
+        specifier: 0.15.0
+        version: 0.15.0
       '@copilotkit/shared':
         specifier: workspace:*
         version: link:../shared
@@ -2422,8 +2431,8 @@ importers:
   packages/angular:
     dependencies:
       '@a2ui/web_core':
-        specifier: 0.10.4
-        version: 0.10.4
+        specifier: 0.15.0
+        version: 0.15.0
       '@ag-ui/client':
         specifier: 1.0.2
         version: 1.0.2
@@ -2536,6 +2545,9 @@ importers:
       axe-core:
         specifier: 4.11.1
         version: 4.11.1
+      chart.js:
+        specifier: ^4.4.0
+        version: 4.6.1
       chokidar:
         specifier: 4.0.3
         version: 4.0.3
@@ -2545,6 +2557,12 @@ importers:
       jsdom:
         specifier: ^24.0.0
         version: 24.1.3
+      lucide:
+        specifier: ^0.525.0
+        version: 0.525.0
+      maplibre-gl:
+        specifier: ^5.0.0
+        version: 5.24.0
       ng-packagr:
         specifier: 22.0.0
         version: 22.0.0(@angular/compiler-cli@22.0.0(@angular/compiler@22.0.0)(typescript@6.0.3))(tailwindcss@4.1.18)(tslib@2.8.1)(typescript@6.0.3)
@@ -2892,6 +2910,9 @@ importers:
 
   packages/core:
     dependencies:
+      '@a2ui/web_core':
+        specifier: 0.15.0
+        version: 0.15.0
       '@ag-ui/client':
         specifier: 1.0.2
         version: 1.0.2
@@ -2913,6 +2934,9 @@ importers:
       rxjs:
         specifier: 7.8.1
         version: 7.8.1
+      zod:
+        specifier: '>=3.22.3'
+        version: 3.25.76
       zod-to-json-schema:
         specifier: ^3.24.6
         version: 3.25.1(zod@3.25.76)
@@ -2929,6 +2953,9 @@ importers:
       '@types/phoenix':
         specifier: ^1.6.6
         version: 1.6.7
+      '@types/ws':
+        specifier: ^8.18.1
+        version: 8.18.1
       '@valibot/to-json-schema':
         specifier: ^1.5.0
         version: 1.5.0(valibot@1.2.0(typescript@5.8.2))
@@ -2941,6 +2968,9 @@ importers:
       cross-env:
         specifier: ^10.1.0
         version: 10.1.0
+      jsdom:
+        specifier: ^29.1.0
+        version: 29.1.0(@noble/hashes@1.8.0)
       tsdown:
         specifier: ^0.20.3
         version: 0.20.3(@arethetypeswrong/core@0.18.2)(@emnapi/core@1.11.2)(@emnapi/runtime@1.11.3)(oxc-resolver@11.24.2)(publint@0.3.17)(synckit@0.11.12)(typescript@5.8.2)
@@ -2953,9 +2983,9 @@ importers:
       vitest:
         specifier: ^3.2.4
         version: 3.2.4(@types/debug@4.1.12)(@types/node@22.19.11)(@vitest/ui@3.2.4)(jiti@2.7.0)(jsdom@29.1.0(@noble/hashes@1.8.0))(less@4.6.7)(lightningcss@1.32.0)(sass@1.101.0)(terser@5.49.0)(tsx@4.21.0)(yaml@2.9.0)
-      zod:
-        specifier: '>=3.22.3'
-        version: 3.25.76
+      ws:
+        specifier: ^8.19.0
+        version: 8.21.3
 
   packages/demo-agents:
     dependencies:
@@ -3135,8 +3165,8 @@ importers:
   packages/react-core:
     dependencies:
       '@a2ui/web_core':
-        specifier: 0.10.4
-        version: 0.10.4
+        specifier: 0.15.0
+        version: 0.15.0
       '@ag-ui/client':
         specifier: 1.0.2
         version: 1.0.2
@@ -4096,8 +4126,8 @@ importers:
   packages/vue:
     dependencies:
       '@a2ui/web_core':
-        specifier: 0.10.4
-        version: 0.10.4
+        specifier: 0.15.0
+        version: 0.15.0
       '@ag-ui/client':
         specifier: 1.0.2
         version: 1.0.2
@@ -4317,8 +4347,8 @@ importers:
   showcase/angular:
     dependencies:
       '@a2ui/web_core':
-        specifier: 0.10.4
-        version: 0.10.4
+        specifier: 0.15.0
+        version: 0.15.0
       '@angular/cdk':
         specifier: 21.2.14
         version: 21.2.14(@angular/common@21.2.18(@angular/core@21.2.18(@angular/compiler@21.2.18)(rxjs@7.8.1)(zone.js@0.15.1))(rxjs@7.8.1))(@angular/core@21.2.18(@angular/compiler@21.2.18)(rxjs@7.8.1)(zone.js@0.15.1))(@angular/platform-browser@21.2.18(@angular/common@21.2.18(@angular/core@21.2.18(@angular/compiler@21.2.18)(rxjs@7.8.1)(zone.js@0.15.1))(rxjs@7.8.1))(@angular/core@21.2.18(@angular/compiler@21.2.18)(rxjs@7.8.1)(zone.js@0.15.1)))(rxjs@7.8.1)
@@ -4701,8 +4731,8 @@ packages:
   '@a2ui/lit@0.8.3':
     resolution: {integrity: sha512-YXJksuier3nZLFtdrXfMNd7WdEOldQEfXGDMqoBTMVIM8xU22F/SvfNeDJoKQ4Wn7hXzRMi0vnwq0HI7Lzpyow==}
 
-  '@a2ui/web_core@0.10.4':
-    resolution: {integrity: sha512-sahOUSKZIGv9ZtnHjfzWR8o/F1XfSTp4sQAX5/auSenQYBYDRaY0+vrZIkddc/IEzpXJob6cFJT2r5/mLzAvqg==}
+  '@a2ui/web_core@0.15.0':
+    resolution: {integrity: sha512-S3k9rAJ9O55z5TlDeWy22ly3yQnDLO+XBWihlL5JQSuyxaCUmd7jgFnxO4eq/Bn6dSgdBF0WG8cve/euMoz8SA==}
 
   '@a2ui/web_core@0.8.0':
     resolution: {integrity: sha512-UG8IDsiLYuZjnEmqH7129EbN1Ds3DfC8FXPSI/E+0kcZ4VGxo//Kij6ZF2jBXBKyrHYPehoDtffFFIIFvgBp6g==}
@@ -7453,6 +7483,7 @@ packages:
 
   '@browserbasehq/stagehand@1.14.0':
     resolution: {integrity: sha512-Hi/EzgMFWz+FKyepxHTrqfTPjpsuBS4zRy3e9sbMpBgLPv+9c0R+YZEvS7Bw4mTS66QtvvURRT6zgDGFotthVQ==}
+    deprecated: This version is no longer maintained. Please upgrade to the latest version of @browserbasehq/stagehand.
     peerDependencies:
       '@playwright/test': ^1.42.1
       deepmerge: ^4.3.1
@@ -9748,6 +9779,9 @@ packages:
 
   '@juggle/resize-observer@3.4.0':
     resolution: {integrity: sha512-dfLbk+PwWvFzSxwk3n5ySL0hfBog779o8h68wK/7/APo/7cgyWp5jcXockbxdk5kFRkbeXWm4Fbi9FrdN381sA==}
+
+  '@kurkle/color@0.3.4':
+    resolution: {integrity: sha512-M5UknZPHRu3DEDWoipU6sE8PdkZ6Z/S+v4dD+Ke8IaNlpdSQah50lz1KtcFBa2vsdOnwbbnxJwVM4wty6udA5w==}
 
   '@kwsites/file-exists@1.1.1':
     resolution: {integrity: sha512-m9/5YGR18lIwxSFDwfE3oA7bWuq9kdau6ugN4H2rJeyhFQZcG9AgSHkQtSD15a8WvTgfz9aikZMrKPHvbpqFiw==}
@@ -17555,6 +17589,10 @@ packages:
   chardet@2.1.1:
     resolution: {integrity: sha512-PsezH1rqdV9VvyNhxxOW32/d75r01NY7TQCmOqomRo15ZSOKbpTFVsfjghxo6JloQUCGnH4k1LGu0R4yCLlWQQ==}
 
+  chart.js@4.6.1:
+    resolution: {integrity: sha512-hJyniucsFmq//EvXYvJ6c6mahPoI3kaxdjVH8awTaJ/fDNWeSqqqArixMJWkWNN6fcYvPU3HneSANFNYtRi61g==}
+    engines: {pnpm: '>=8'}
+
   chat@4.40.0:
     resolution: {integrity: sha512-slu3VDxItlelEZ8A5vqzlmtT2WErqj2YCGuhhcNx+Ev0+wHeBUqUDUA7hXkca+BfFtW1ZX7ECcySCTG2q2gefg==}
     engines: {node: '>=20'}
@@ -18449,9 +18487,6 @@ packages:
 
   date-fns@4.1.0:
     resolution: {integrity: sha512-Ukq0owbQXxa/U3EGtsdVBkR1w7KOQ5gIBqdH2hkvknzZPYvBxb/aa6E8L7tmjFtkwZBu3UXBbjIgPo/Ez4xaNg==}
-
-  date-fns@4.4.0:
-    resolution: {integrity: sha512-+1UMbeh68lH1SegH83CGWwpb6OHHbpSgr3+s5Eww5M4CAgswBpoWS0AjTOfEJ33HiYKz1hdj/KTFprzXHmq/6w==}
 
   dateformat@4.6.3:
     resolution: {integrity: sha512-2P0p0pFGzHS5EMnhdxQi7aJN+iMheud0UhG4dlE1DLAlvL8JHjJJTX/CSm4JXwV0Ka5nGk3zC5mcb5bUQUxxMA==}
@@ -22014,6 +22049,9 @@ packages:
   lit@3.3.2:
     resolution: {integrity: sha512-NF9zbsP79l4ao2SNrH3NkfmFgN/hBYSQo90saIVI1o5GpjAdCPVstVzO1MrLOakHoEhYkrtRjPK6Ob521aoYWQ==}
 
+  lit@3.3.3:
+    resolution: {integrity: sha512-fycuvZg/hkpozL00lm1pEJH5nN/lr9ZXd6mJI2HSN4+Bzc+LDNdEApJ6HFbPkdFNHLvOplIIuJvxkS4XUxqirw==}
+
   lmdb@3.5.1:
     resolution: {integrity: sha512-NYHA0MRPjvNX+vSw8Xxg6FLKxzAG+e7Pt8RqAQA/EehzHVXq9SxDqJIN3JL1hK0dweb884y8kIh6rkWvPyg9Wg==}
     hasBin: true
@@ -25209,6 +25247,11 @@ packages:
     resolution: {integrity: sha512-DJnGAeenTdpMEH6uAJRK/uiyEIH9WVsUmoLwzudwGJUwZPp80PDBWPHXSAGNPwNvIXAbe7MSUB1zQFugFml66A==}
     engines: {node: '>=4'}
 
+  redos-detector@6.1.4:
+    resolution: {integrity: sha512-lPlka1rEH6kK42gtgokvvxMmpAvyc28DcRjQbGxeP5RJsJWgAduBOdGedVCDPdSyCr4ay/JDxq3nGYsJZyt8tA==}
+    engines: {node: '>=16.0.0'}
+    hasBin: true
+
   redux-thunk@3.1.0:
     resolution: {integrity: sha512-NW2r5T6ksUKXCabzhL9z+h206HQw/NJkcLm1GPImRQ8IzfXwRGqjVhKJGauHirT0DAuyy6hjdnMZaRoAcy0Klw==}
     peerDependencies:
@@ -27633,6 +27676,9 @@ packages:
       typescript:
         optional: true
 
+  validate-color@2.2.4:
+    resolution: {integrity: sha512-Znolz+b6CwW6eBXYld7MFM3O7funcdyRfjKC/X9hqYV/0VcC5LB/L45mff7m3dIn9wdGdNOAQ/fybNuD5P/HDw==}
+
   validate-npm-package-name@5.0.1:
     resolution: {integrity: sha512-OljLrQ9SQdOUqTaQxqL5dEfZWrXExyyWsozYlAWFawPVNuD83igl7uJD2RTkNMbniIYgt8l81eCJGIdQF7avLQ==}
     engines: {node: ^14.17.0 || ^16.13.0 || >=18.0.0}
@@ -28664,10 +28710,13 @@ snapshots:
     transitivePeerDependencies:
       - signal-polyfill
 
-  '@a2ui/web_core@0.10.4':
+  '@a2ui/web_core@0.15.0':
     dependencies:
+      '@lit/context': 1.1.6
       '@preact/signals-core': 1.14.4
-      date-fns: 4.4.0
+      lit: 3.3.3
+      redos-detector: 6.1.4
+      validate-color: 2.2.4
       zod: 3.25.76
       zod-to-json-schema: 3.25.2(zod@3.25.76)
 
@@ -30240,7 +30289,6 @@ snapshots:
       '@csstools/css-color-parser': 4.1.0(@csstools/css-parser-algorithms@4.0.0(@csstools/css-tokenizer@4.0.0))(@csstools/css-tokenizer@4.0.0)
       '@csstools/css-parser-algorithms': 4.0.0(@csstools/css-tokenizer@4.0.0)
       '@csstools/css-tokenizer': 4.0.0
-    optional: true
 
   '@asamuzakjp/dom-selector@7.1.1':
     dependencies:
@@ -30249,13 +30297,10 @@ snapshots:
       bidi-js: 1.0.3
       css-tree: 3.2.1
       is-potential-custom-element-name: 1.0.1
-    optional: true
 
-  '@asamuzakjp/generational-cache@1.0.1':
-    optional: true
+  '@asamuzakjp/generational-cache@1.0.1': {}
 
-  '@asamuzakjp/nwsapi@2.3.9':
-    optional: true
+  '@asamuzakjp/nwsapi@2.3.9': {}
 
   '@asyncapi/parser@3.4.0(encoding@0.1.13)':
     dependencies:
@@ -33853,7 +33898,6 @@ snapshots:
   '@bramus/specificity@2.4.2':
     dependencies:
       css-tree: 3.2.1
-    optional: true
 
   '@browserbasehq/sdk@2.6.0(encoding@0.1.13)':
     dependencies:
@@ -34095,8 +34139,7 @@ snapshots:
 
   '@csstools/color-helpers@5.1.0': {}
 
-  '@csstools/color-helpers@6.0.2':
-    optional: true
+  '@csstools/color-helpers@6.0.2': {}
 
   '@csstools/css-calc@2.1.4(@csstools/css-parser-algorithms@3.0.5(@csstools/css-tokenizer@3.0.4))(@csstools/css-tokenizer@3.0.4)':
     dependencies:
@@ -34107,7 +34150,6 @@ snapshots:
     dependencies:
       '@csstools/css-parser-algorithms': 4.0.0(@csstools/css-tokenizer@4.0.0)
       '@csstools/css-tokenizer': 4.0.0
-    optional: true
 
   '@csstools/css-color-parser@3.1.0(@csstools/css-parser-algorithms@3.0.5(@csstools/css-tokenizer@3.0.4))(@csstools/css-tokenizer@3.0.4)':
     dependencies:
@@ -34122,7 +34164,6 @@ snapshots:
       '@csstools/css-calc': 3.2.0(@csstools/css-parser-algorithms@4.0.0(@csstools/css-tokenizer@4.0.0))(@csstools/css-tokenizer@4.0.0)
       '@csstools/css-parser-algorithms': 4.0.0(@csstools/css-tokenizer@4.0.0)
       '@csstools/css-tokenizer': 4.0.0
-    optional: true
 
   '@csstools/css-parser-algorithms@3.0.5(@csstools/css-tokenizer@3.0.4)':
     dependencies:
@@ -34131,17 +34172,14 @@ snapshots:
   '@csstools/css-parser-algorithms@4.0.0(@csstools/css-tokenizer@4.0.0)':
     dependencies:
       '@csstools/css-tokenizer': 4.0.0
-    optional: true
 
   '@csstools/css-syntax-patches-for-csstree@1.1.3(css-tree@3.2.1)':
     optionalDependencies:
       css-tree: 3.2.1
-    optional: true
 
   '@csstools/css-tokenizer@3.0.4': {}
 
-  '@csstools/css-tokenizer@4.0.0':
-    optional: true
+  '@csstools/css-tokenizer@4.0.0': {}
 
   '@dabh/diagnostics@2.0.8':
     dependencies:
@@ -34543,7 +34581,6 @@ snapshots:
   '@exodus/bytes@1.15.0(@noble/hashes@1.8.0)':
     optionalDependencies:
       '@noble/hashes': 1.8.0
-    optional: true
 
   '@expo/cli@56.1.10(@expo/dom-webview@56.0.5)(expo-constants@56.0.14(expo@56.0.3)(react-native@0.85.2(@babel/core@8.0.1)(@react-native-community/cli@20.1.0(typescript@5.9.3))(@react-native/jest-preset@0.85.2(@babel/core@8.0.1)(react@19.2.3))(@react-native/metro-config@0.85.2(@babel/core@8.0.1))(@types/react@19.1.8)(react@19.2.3)))(expo-font@56.0.5(expo@56.0.3)(react-native@0.85.2(@babel/core@8.0.1)(@react-native-community/cli@20.1.0(typescript@5.9.3))(@react-native/jest-preset@0.85.2(@babel/core@8.0.1)(react@19.2.3))(@react-native/metro-config@0.85.2(@babel/core@8.0.1))(@types/react@19.1.8)(react@19.2.3))(react@19.2.3))(expo@56.0.3)(react-dom@19.2.3(react@19.2.3))(react-native@0.85.2(@babel/core@8.0.1)(@react-native-community/cli@20.1.0(typescript@5.9.3))(@react-native/jest-preset@0.85.2(@babel/core@8.0.1)(react@19.2.3))(@react-native/metro-config@0.85.2(@babel/core@8.0.1))(@types/react@19.1.8)(react@19.2.3))(react@19.2.3)(typescript@5.9.3)':
     dependencies:
@@ -36916,6 +36953,8 @@ snapshots:
       tslib: 2.8.1
 
   '@juggle/resize-observer@3.4.0': {}
+
+  '@kurkle/color@0.3.4': {}
 
   '@kwsites/file-exists@1.1.1':
     dependencies:
@@ -46043,7 +46082,6 @@ snapshots:
   bidi-js@1.0.3:
     dependencies:
       require-from-string: 2.0.2
-    optional: true
 
   big-integer@1.6.52: {}
 
@@ -46385,6 +46423,10 @@ snapshots:
   character-reference-invalid@2.0.1: {}
 
   chardet@2.1.1: {}
+
+  chart.js@4.6.1:
+    dependencies:
+      '@kurkle/color': 0.3.4
 
   chat@4.40.0(ai@6.0.156(zod@3.25.76))(zod@3.25.76):
     dependencies:
@@ -47482,7 +47524,6 @@ snapshots:
       whatwg-url: 16.0.1(@noble/hashes@1.8.0)
     transitivePeerDependencies:
       - '@noble/hashes'
-    optional: true
 
   data-view-buffer@1.0.2:
     dependencies:
@@ -47511,8 +47552,6 @@ snapshots:
   date-fns@3.6.0: {}
 
   date-fns@4.1.0: {}
-
-  date-fns@4.4.0: {}
 
   dateformat@4.6.3: {}
 
@@ -48244,7 +48283,7 @@ snapshots:
       eslint: 9.39.2(jiti@2.7.0)
       eslint-import-resolver-node: 0.3.9
       eslint-import-resolver-typescript: 3.10.1(eslint-plugin-import@2.32.0(eslint@9.39.2(jiti@2.7.0)))(eslint@9.39.2(jiti@2.7.0))
-      eslint-plugin-import: 2.32.0(eslint-import-resolver-typescript@3.10.1(eslint-plugin-import@2.32.0(eslint@9.39.2(jiti@2.7.0)))(eslint@9.39.2(jiti@2.7.0)))(eslint@9.39.2(jiti@2.7.0))
+      eslint-plugin-import: 2.32.0(eslint-import-resolver-typescript@3.10.1)(eslint@9.39.2(jiti@2.7.0))
       eslint-plugin-jsx-a11y: 6.10.2(eslint@9.39.2(jiti@2.7.0))
       eslint-plugin-react: 7.37.5(eslint@9.39.2(jiti@2.7.0))
       eslint-plugin-react-hooks: 7.1.1(eslint@9.39.2(jiti@2.7.0))
@@ -48277,7 +48316,7 @@ snapshots:
       tinyglobby: 0.2.17
       unrs-resolver: 1.11.1
     optionalDependencies:
-      eslint-plugin-import: 2.32.0(eslint-import-resolver-typescript@3.10.1(eslint-plugin-import@2.32.0(eslint@9.39.2(jiti@2.7.0)))(eslint@9.39.2(jiti@2.7.0)))(eslint@9.39.2(jiti@2.7.0))
+      eslint-plugin-import: 2.32.0(eslint-import-resolver-typescript@3.10.1)(eslint@9.39.2(jiti@2.7.0))
     transitivePeerDependencies:
       - supports-color
 
@@ -48346,7 +48385,7 @@ snapshots:
       - eslint-import-resolver-webpack
       - supports-color
 
-  eslint-plugin-import@2.32.0(eslint-import-resolver-typescript@3.10.1(eslint-plugin-import@2.32.0(eslint@9.39.2(jiti@2.7.0)))(eslint@9.39.2(jiti@2.7.0)))(eslint@9.39.2(jiti@2.7.0)):
+  eslint-plugin-import@2.32.0(eslint-import-resolver-typescript@3.10.1)(eslint@9.39.2(jiti@2.7.0)):
     dependencies:
       '@rtsao/scc': 1.1.0
       array-includes: 3.1.9
@@ -50135,7 +50174,6 @@ snapshots:
       '@exodus/bytes': 1.15.0(@noble/hashes@1.8.0)
     transitivePeerDependencies:
       - '@noble/hashes'
-    optional: true
 
   html-entities@2.6.0: {}
 
@@ -50359,7 +50397,7 @@ snapshots:
       isstream: 0.1.2
       jsonwebtoken: 9.0.3
       mime-types: 2.1.35
-      retry-axios: 2.6.0(axios@1.15.2(debug@4.4.3))
+      retry-axios: 2.6.0(axios@1.15.2)
       tough-cookie: 4.1.4
     transitivePeerDependencies:
       - supports-color
@@ -51584,7 +51622,6 @@ snapshots:
       xml-name-validator: 5.0.0
     transitivePeerDependencies:
       - '@noble/hashes'
-    optional: true
 
   jsep@1.4.0: {}
 
@@ -52194,6 +52231,12 @@ snapshots:
       '@types/trusted-types': 2.0.7
 
   lit@3.3.2:
+    dependencies:
+      '@lit/reactive-element': 2.1.2
+      lit-element: 4.2.2
+      lit-html: 3.3.2
+
+  lit@3.3.3:
     dependencies:
       '@lit/reactive-element': 2.1.2
       lit-element: 4.2.2
@@ -56991,6 +57034,10 @@ snapshots:
     dependencies:
       redis-errors: 1.2.0
 
+  redos-detector@6.1.4:
+    dependencies:
+      regjsparser: 0.13.0
+
   redux-thunk@3.1.0(redux@5.0.1):
     dependencies:
       redux: 5.0.1
@@ -57398,7 +57445,7 @@ snapshots:
       retext-stringify: 4.0.0
       unified: 11.0.5
 
-  retry-axios@2.6.0(axios@1.15.2(debug@4.4.3)):
+  retry-axios@2.6.0(axios@1.15.2):
     dependencies:
       axios: 1.15.2(debug@4.4.3)
 
@@ -59227,8 +59274,7 @@ snapshots:
 
   tldts-core@6.1.86: {}
 
-  tldts-core@7.0.29:
-    optional: true
+  tldts-core@7.0.29: {}
 
   tldts@6.1.86:
     dependencies:
@@ -59237,7 +59283,6 @@ snapshots:
   tldts@7.0.29:
     dependencies:
       tldts-core: 7.0.29
-    optional: true
 
   tmp@0.2.5: {}
 
@@ -59285,7 +59330,6 @@ snapshots:
   tough-cookie@6.0.1:
     dependencies:
       tldts: 7.0.29
-    optional: true
 
   tr46@0.0.3: {}
 
@@ -59296,7 +59340,6 @@ snapshots:
   tr46@6.0.0:
     dependencies:
       punycode: 2.3.1
-    optional: true
 
   tree-dump@1.1.0(tslib@2.8.1):
     dependencies:
@@ -59817,8 +59860,7 @@ snapshots:
 
   undici@7.24.4: {}
 
-  undici@7.30.0:
-    optional: true
+  undici@7.30.0: {}
 
   unenv@2.0.0-rc.24:
     dependencies:
@@ -60262,6 +60304,8 @@ snapshots:
     optionalDependencies:
       typescript: 5.9.3
     optional: true
+
+  validate-color@2.2.4: {}
 
   validate-npm-package-name@5.0.1: {}
 
@@ -61479,8 +61523,7 @@ snapshots:
 
   webidl-conversions@7.0.0: {}
 
-  webidl-conversions@8.0.1:
-    optional: true
+  webidl-conversions@8.0.1: {}
 
   webpack-dev-middleware@6.1.3(webpack@5.105.0(@swc/core@1.15.8(@swc/helpers@0.5.23))(esbuild@0.27.3)):
     dependencies:
@@ -61923,8 +61966,7 @@ snapshots:
 
   whatwg-mimetype@4.0.0: {}
 
-  whatwg-mimetype@5.0.0:
-    optional: true
+  whatwg-mimetype@5.0.0: {}
 
   whatwg-url-minimum@0.1.2: {}
 
@@ -61940,7 +61982,6 @@ snapshots:
       webidl-conversions: 8.0.1
     transitivePeerDependencies:
       - '@noble/hashes'
-    optional: true
 
   whatwg-url@5.0.0:
     dependencies:

@@ -93,6 +93,32 @@ describe("extractA2UICatalogSchemas", () => {
     expect(schema).not.toHaveProperty(["common_types.json"]);
   });
 
+  it("writes a local #/$defs REF marker as a common_types.json ref", () => {
+    // web_core 0.15's v0.9 common types mark themselves REF:#/$defs/<Name>.
+    const id = z.string().describe("REF:#/$defs/ComponentId|Child id");
+    const schema = extractA2UICatalogSchemas(
+      catalog({
+        Card: z.object({
+          child: id,
+          other: z
+            .string()
+            .describe("REF:common_types.json#/$defs/ComponentId"),
+        }),
+      }),
+    );
+
+    expect(props(schema, "Card")).toEqual({
+      component: { const: "Card" },
+      child: {
+        $ref: "common_types.json#/$defs/ComponentId",
+        description: "Child id",
+      },
+      other: { $ref: "common_types.json#/$defs/ComponentId" },
+    });
+    expect(commonTypes(schema)).toEqual({ ComponentId: { type: "string" } });
+    expect(JSON.stringify(schema)).not.toContain('"$ref":"#/');
+  });
+
   it("keeps a use whose shape differs from the stored type inline", () => {
     const schema = extractA2UICatalogSchemas(
       catalog({

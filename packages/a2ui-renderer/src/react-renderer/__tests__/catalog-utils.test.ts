@@ -72,15 +72,33 @@ describe("buildCatalogContextValue", () => {
 });
 
 /**
- * Upstream's inline catalog, minus the differences we make on purpose: no
- * `$schema` or duplicated description in function parameters, and absent
- * rather than undefined `functions`/`theme`. Compared with toMatchObject,
- * since we also add the `common_types.json` block.
+ * Rewrite upstream's local common-type refs (`#/$defs/<Name>`, which web_core
+ * 0.15 writes for `REF:common_types.json#/$defs/<Name>` markers) as the
+ * `common_types.json#/$defs/<Name>` refs we export, which resolve against the
+ * `common_types.json` block instead of dangling.
+ */
+function toCommonTypeRefs<T>(value: T): T {
+  return JSON.parse(
+    JSON.stringify(value).replace(
+      /"\$ref":"#\/\$defs\//g,
+      '"$ref":"common_types.json#/$defs/',
+    ),
+  ) as T;
+}
+
+/**
+ * Upstream's inline catalog, minus the differences we make on purpose:
+ * common-type refs into `common_types.json`, no `$schema` or duplicated
+ * description in function parameters, and absent rather than undefined
+ * `functions`/`theme`. Compared with toMatchObject, since we also add the
+ * `common_types.json` block.
  */
 function upstreamInlineCatalog(catalog: Catalog<ComponentApi>) {
-  const canonical = new MessageProcessor([catalog]).getClientCapabilities({
-    includeInlineCatalogs: true,
-  })["v0.9"].inlineCatalogs![0];
+  const canonical = toCommonTypeRefs(
+    new MessageProcessor([catalog]).getClientCapabilities({
+      includeInlineCatalogs: true,
+    })["v0.9"].inlineCatalogs![0],
+  );
   const { functions, theme, ...rest } = canonical;
   return {
     ...rest,
@@ -230,6 +248,13 @@ describe("extractCatalogComponentSchemas", () => {
     // Text/Image/TextField reuse DynamicString internals from accessibility.label.
     // Those references would point into a subtree replaced by AccessibilityAttributes.
     expect(JSON.stringify(schema)).not.toContain('"$ref":"#/');
+    expect(schema["common_types.json"]?.$defs.DynamicString).toMatchObject({
+      anyOf: [
+        { type: "string" },
+        { $ref: "common_types.json#/$defs/DataBinding" },
+        { $ref: "common_types.json#/$defs/FunctionCall" },
+      ],
+    });
     expect(schema.components.Text).toMatchObject({
       allOf: [
         {},
@@ -238,13 +263,8 @@ describe("extractCatalogComponentSchemas", () => {
             accessibility: {
               $ref: "common_types.json#/$defs/AccessibilityAttributes",
             },
-            text: {
-              anyOf: [
-                { type: "string" },
-                { $ref: "common_types.json#/$defs/DataBinding" },
-                { $ref: "common_types.json#/$defs/FunctionCall" },
-              ],
-            },
+            // web_core 0.15 marks Text.text as a DynamicString reference.
+            text: { $ref: "common_types.json#/$defs/DynamicString" },
           },
         },
       ],
@@ -254,18 +274,18 @@ describe("extractCatalogComponentSchemas", () => {
         {},
         {
           properties: {
-            children: {
-              anyOf: [
-                {},
-                {
-                  properties: {
-                    componentId: {
-                      $ref: "common_types.json#/$defs/ComponentId",
-                    },
-                  },
-                },
-              ],
-            },
+            // web_core 0.15 marks Column.children as a ChildList reference.
+            children: { $ref: "common_types.json#/$defs/ChildList" },
+          },
+        },
+      ],
+    });
+    expect(schema["common_types.json"]?.$defs.ChildList).toMatchObject({
+      anyOf: [
+        {},
+        {
+          properties: {
+            componentId: { $ref: "common_types.json#/$defs/ComponentId" },
           },
         },
       ],

@@ -12,7 +12,8 @@ const skills = createSkillRegistryMiddleware({ registry });
 const agent = skills.wrapAgent(
   createAgent({
     model: new ChatOpenAI({
-      model: "gpt-4o-mini",
+      model: "gpt-6-luna",
+      reasoningEffort: "none",
       apiKey: "aimock",
       configuration: { baseURL: `${process.env.LEARNED_SKILL_AIMOCK_URL}/v1` },
       maxRetries: 0,

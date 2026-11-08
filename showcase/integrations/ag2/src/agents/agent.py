@@ -172,7 +172,8 @@ async def generate_a2ui(
     forwarded = get_forwarded_headers()
     try:
         response = await _async_openai_client.chat.completions.create(
-            model="gpt-5-mini",
+            reasoning_effort="none",
+            model="gpt-6-luna",
             messages=[
                 {
                     "role": "system",
@@ -241,7 +242,7 @@ agent = Agent(
         "When asked about the weather, always use the tool rather than guessing. "
         "Be concise and friendly in your responses."
     ),
-    config=OpenAIResponsesConfig(model="gpt-5-mini", streaming=True),
+    config=OpenAIResponsesConfig(model="gpt-6-luna", streaming=True),
     tools=[
         get_weather,
         query_data,

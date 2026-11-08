@@ -125,8 +125,9 @@ def research(query: str) -> dict:
             search_results.extend(results)
             return results
 
-        model_name = os.environ.get("OPENAI_MODEL", "gpt-5.2")
+        model_name = os.environ.get("OPENAI_MODEL", "gpt-6-luna")
         llm = ChatOpenAI(
+            reasoning_effort="none" if model_name == "gpt-6-luna" else None,
             model=model_name,
             temperature=0.7,
             api_key=os.environ.get("OPENAI_API_KEY"),

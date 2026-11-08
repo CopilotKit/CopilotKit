@@ -387,9 +387,9 @@ the components are how structured data is shown.`;
  */
 export const keelAgent = () =>
   new BuiltInAgent({
-    // `openai/gpt-5.4` is the alias used across the repo; the full (non-mini)
+    // `openai/gpt-6-luna` is the alias used across the repo; the full (non-mini)
     // model routes the multi-step arc more reliably.
-    model: "openai/gpt-5.4",
+    model: "openai/gpt-6-luna",
     prompt: KEEL_PROMPT,
     tools: [searchKnowledgeTool, renderOpsReportTool, renderImpactBriefTool],
     // Temperature 0 for deterministic tool routing — banking pins it for the

@@ -13,7 +13,7 @@ import {
 } from "@copilotkit/runtime/v2";
 import { handle } from "hono/vercel";
 
-const MODEL = "openai/gpt-5-mini";
+const MODEL = "openai/gpt-6-luna";
 
 const agent = new BuiltInAgent({
   model: MODEL,

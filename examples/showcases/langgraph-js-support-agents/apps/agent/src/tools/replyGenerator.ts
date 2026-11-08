@@ -14,7 +14,8 @@ export const replyGeneratorTool = tool(
 
     // Initialize LLM
     const model = new ChatOpenAI({
-      model: "gpt-5-nano",
+      modelKwargs: { reasoning_effort: "none" },
+      model: "gpt-6-luna",
     });
 
     // Build context-rich system prompt

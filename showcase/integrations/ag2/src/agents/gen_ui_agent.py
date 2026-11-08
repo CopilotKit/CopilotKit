@@ -114,7 +114,7 @@ SYSTEM_PROMPT = dedent(
 agent = Agent(
     "gen_ui_agent",
     prompt=SYSTEM_PROMPT,
-    config=OpenAIResponsesConfig(model="gpt-5-mini", streaming=True),
+    config=OpenAIResponsesConfig(model="gpt-6-luna", streaming=True),
     tools=[set_steps],
     middleware=[loop_cap(15)],
 )

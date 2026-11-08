@@ -109,7 +109,8 @@ def _generate_a2ui(context: str) -> str:
     """
     client = openai.OpenAI()
     response = client.chat.completions.create(
-        model="gpt-5-mini",
+        reasoning_effort="none",
+        model="gpt-6-luna",
         messages=[
             {
                 "role": "system",
@@ -184,7 +185,7 @@ async def get_todos(ctx: Context) -> str:
 agent = Agent(
     "beautiful_chat_assistant",
     prompt=SYSTEM_PROMPT,
-    config=OpenAIResponsesConfig(model="gpt-5-mini", streaming=True),
+    config=OpenAIResponsesConfig(model="gpt-6-luna", streaming=True),
     tools=[generate_a2ui, query_data, search_flights, manage_todos, get_todos],
     middleware=[loop_cap(8)],
 )

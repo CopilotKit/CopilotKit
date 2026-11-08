@@ -8,7 +8,7 @@ import { systemPrompt } from "./systemPrompt";
 export const projectAgent = new Agent({
   id: "project-manager",
   name: "Project Manager",
-  model: openai("gpt-5-mini"),
+  model: openai("gpt-6-luna"),
   instructions: systemPrompt,
   memory: new Memory({
     storage: new LibSQLStore({ id: "project-memory", url: ":memory:" }),

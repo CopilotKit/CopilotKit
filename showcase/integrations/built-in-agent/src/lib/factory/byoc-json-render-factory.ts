@@ -3,7 +3,7 @@ import type { TanStackChatMessage } from "@copilotkit/runtime/v2";
 import { EventType } from "@ag-ui/client";
 import type { BaseEvent } from "@ag-ui/client";
 import { chat } from "@tanstack/ai";
-import { openaiText } from "@tanstack/ai-openai";
+import { openaiText } from "../openai-text";
 // Custom fetch that injects ALS-bound inbound x-* headers (e.g.
 // x-aimock-context) onto every outbound OpenAI call. Required so aimock
 // can match fixtures by integration context. See ../header-forwarding.ts
@@ -215,7 +215,7 @@ export function createByocJsonRenderAgent() {
       const { messages, systemPrompts } = convertInputToTanStackAI(input);
 
       const stream = chat({
-        adapter: openaiText("gpt-5.4", { fetch: forwardingFetch }),
+        adapter: openaiText("gpt-6-luna", { fetch: forwardingFetch }),
         // JSON_MODE_INPUT_DIRECTIVE goes in `messages` (→ `input`), not in
         // `systemPrompts` (→ `instructions`) — that is the half `json_object`
         // validates against. See JSON_OBJECT_FORMAT.

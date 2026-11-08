@@ -10,19 +10,37 @@ The standard components look neutral by default. You want them to use your accen
 
 Every color, radius, shadow, and font of the standard components is a CSS variable. Set the variables with the `theme` option:
 
-```tsx
-<CopilotKitProvider
-  runtimeUrl="/api/copilotkit"
-  generativeUI={{
-    ui: standardUI,
-    theme: {
-      "--a2ui-color-accent": "#d97706",
-      "--a2ui-font-family": "Inter, sans-serif",
-      "--a2ui-radius-md": "10px",
-    },
-  }}
->
-```
+<Tabs groupId="frontend_framework" items={["React", "Angular"]} persist>
+  <Tab value="React">
+    ```tsx
+    <CopilotKitProvider
+      runtimeUrl="/api/copilotkit"
+      generativeUI={{
+        ui: standardUI,
+        theme: {
+          "--a2ui-color-accent": "#d97706",
+          "--a2ui-font-family": "Inter, sans-serif",
+          "--a2ui-radius-md": "10px",
+        },
+      }}
+    >
+    ```
+  </Tab>
+  <Tab value="Angular">
+    ```ts title="src/app/app.config.ts"
+    provideGenerativeUI({
+      ui: standardUI,
+      theme: {
+        "--a2ui-color-accent": "#d97706",
+        "--a2ui-font-family": "Inter, sans-serif",
+        "--a2ui-radius-md": "10px",
+      },
+    }),
+    ```
+
+    `theme` also takes a signal, which makes the theme reactive.
+  </Tab>
+</Tabs>
 
 The keys are typed. A name that the components do not read, such as `"--a2ui-color-acent"`, is a type error.
 
@@ -39,11 +57,22 @@ The keys are typed. A name that the components do not read, such as `"--a2ui-col
 
 Your editor lists all of them when you type a key in `theme`. To type a theme in its own file, use `GenerativeUITheme`:
 
-```ts
-import type { GenerativeUITheme } from "@copilotkit/react-core/v2/generative-ui";
+<Tabs groupId="frontend_framework" items={["React", "Angular"]} persist>
+  <Tab value="React">
+    ```ts
+    import type { GenerativeUITheme } from "@copilotkit/react-core/v2/generative-ui";
 
-export const theme: GenerativeUITheme = { "--a2ui-color-accent": "#d97706" };
-```
+    export const theme: GenerativeUITheme = { "--a2ui-color-accent": "#d97706" };
+    ```
+  </Tab>
+  <Tab value="Angular">
+    ```ts
+    import type { GenerativeUITheme } from "@copilotkit/angular/generative-ui";
+
+    export const theme: GenerativeUITheme = { "--a2ui-color-accent": "#d97706" };
+    ```
+  </Tab>
+</Tabs>
 
 ## Dark mode
 
@@ -55,18 +84,36 @@ Dark mode is built in. The standard components switch to dark colors when an anc
 
 If your app already switches dark mode with a `dark` class, there is nothing to do. To follow the system setting, set the class with a small script in the `<head>`, so the page does not flash:
 
-```tsx
-const colorSchemeScript = `(() => {
-  const media = matchMedia("(prefers-color-scheme: dark)");
-  const apply = () => document.documentElement.classList.toggle("dark", media.matches);
-  apply();
-  media.addEventListener("change", apply);
-})();`;
+<Tabs groupId="frontend_framework" items={["React", "Angular"]} persist>
+  <Tab value="React">
+    ```tsx
+    const colorSchemeScript = `(() => {
+      const media = matchMedia("(prefers-color-scheme: dark)");
+      const apply = () => document.documentElement.classList.toggle("dark", media.matches);
+      apply();
+      media.addEventListener("change", apply);
+    })();`;
 
-<head>
-  <script dangerouslySetInnerHTML={{ __html: colorSchemeScript }} />
-</head>;
-```
+    <head>
+      <script dangerouslySetInnerHTML={{ __html: colorSchemeScript }} />
+    </head>;
+    ```
+  </Tab>
+  <Tab value="Angular">
+    ```html title="src/index.html"
+    <head>
+      <script>
+        (() => {
+          const media = matchMedia("(prefers-color-scheme: dark)");
+          const apply = () => document.documentElement.classList.toggle("dark", media.matches);
+          apply();
+          media.addEventListener("change", apply);
+        })();
+      </script>
+    </head>
+    ```
+  </Tab>
+</Tabs>
 
 ## Colors for each mode
 

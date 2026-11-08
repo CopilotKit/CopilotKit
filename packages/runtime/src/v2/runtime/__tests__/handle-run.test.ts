@@ -646,6 +646,8 @@ describe("handleRunAgent", () => {
         lockTtlSeconds: options?.lockTtlSeconds ?? 20,
         intelligence: {
           ɵgetClientWsUrl: vi.fn(() => "wss://runtime.example/client"),
+          // The handler releases the lock when the runner's stream ends.
+          ɵcleanupThreadLock: vi.fn().mockResolvedValue(undefined),
           ...platform,
         },
         identifyUser:

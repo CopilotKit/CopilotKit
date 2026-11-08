@@ -110,7 +110,7 @@ SYSTEM_PROMPT = (
 agent = Agent(
     "tool_rendering_reasoning_chain_assistant",
     prompt=SYSTEM_PROMPT,
-    config=reasoning_config("gpt-5-mini"),
+    config=reasoning_config("gpt-6-luna"),
     tools=[get_weather, search_flights, get_stock_price, roll_dice],
     middleware=[loop_cap(10)],
 )
