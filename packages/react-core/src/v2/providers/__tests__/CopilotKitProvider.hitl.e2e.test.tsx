@@ -296,4 +296,108 @@ describe("CopilotKitProvider humanInTheLoop prop E2E", () => {
       expect(last.error).toContain("aborted");
     });
   });
+
+  it("renders an aborted request as Complete with aborted: true and no result", async () => {
+    const agent = new MockStepwiseAgent();
+    const renderedProps: any[] = [];
+
+    renderWithCopilotKit({
+      agent,
+      humanInTheLoop: [
+        {
+          ...bookCall(),
+          render: (props: any) => {
+            renderedProps.push(props);
+            return (
+              <div data-testid="hitl">
+                <div data-testid="hitl-status">{props.status}</div>
+                {props.respond ? (
+                  <button data-testid="hitl-respond">Pick</button>
+                ) : null}
+              </div>
+            );
+          },
+        },
+      ],
+      children: (
+        <div style={{ height: 400 }}>
+          <CopilotChat welcomeScreen={false} />
+        </div>
+      ),
+    });
+
+    await driveToolCall(agent, "book_call");
+
+    agent.emit(runFinishedEvent());
+    agent.complete();
+
+    await screen.findByTestId("hitl-respond");
+
+    act(() => {
+      agent.abortRun();
+    });
+
+    await waitFor(() => {
+      const complete = renderedProps.filter(
+        (p) => p.status === ToolCallStatus.Complete,
+      );
+      expect(complete.length).toBeGreaterThan(0);
+      const last = complete[complete.length - 1];
+      expect(last.aborted).toBe(true);
+      expect(last.result).toBeUndefined();
+      expect(last.error).toBe("Human-in-the-loop interaction aborted");
+    });
+  });
+
+  it("renders a real respond() as Complete with the answer and no aborted flag", async () => {
+    const agent = new MockStepwiseAgent();
+    const renderedProps: any[] = [];
+
+    renderWithCopilotKit({
+      agent,
+      humanInTheLoop: [
+        {
+          ...bookCall(),
+          render: (props: any) => {
+            renderedProps.push(props);
+            return (
+              <div data-testid="hitl">
+                <div data-testid="hitl-status">{props.status}</div>
+                {props.respond ? (
+                  <button
+                    data-testid="hitl-respond"
+                    onClick={() => props.respond("approved")}
+                  >
+                    Pick
+                  </button>
+                ) : null}
+              </div>
+            );
+          },
+        },
+      ],
+      children: (
+        <div style={{ height: 400 }}>
+          <CopilotChat welcomeScreen={false} />
+        </div>
+      ),
+    });
+
+    await driveToolCall(agent, "book_call");
+
+    agent.emit(runFinishedEvent());
+    agent.complete();
+
+    fireEvent.click(await screen.findByTestId("hitl-respond"));
+
+    await waitFor(() => {
+      const complete = renderedProps.filter(
+        (p) => p.status === ToolCallStatus.Complete,
+      );
+      expect(complete.length).toBeGreaterThan(0);
+      const last = complete[complete.length - 1];
+      expect(String(last.result)).toContain("approved");
+      expect(last.aborted).toBeUndefined();
+    });
+  });
 });

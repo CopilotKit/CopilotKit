@@ -3,8 +3,10 @@ import { act, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 import type { ToolCall, ToolMessage } from "@ag-ui/core";
+import { ToolCallStatus } from "@copilotkit/core";
 
 import type { ReactToolCallRenderer } from "../../types/react-tool-call-renderer";
+import { defineToolCallRenderer } from "../../types/defineToolCallRenderer";
 import type { DefaultRenderProps } from "../use-default-render-tool";
 import { useRenderToolCall } from "../use-render-tool-call";
 import { useRenderTool } from "../use-render-tool";
@@ -175,6 +177,42 @@ describe("useRenderToolCall — opt-in default tool-call rendering", () => {
     expect((await screen.findByTestId("custom-card")).textContent).toBe(
       "3 results found.",
     );
+  });
+
+  it("hands a failed tool message's error to the renderer, and re-renders when only the error changes", async () => {
+    const core = createNotifyingCore();
+    mockUseCopilotKit.mockReturnValue({
+      copilotkit: core,
+      executingToolCallIds: new Set<string>(),
+    });
+    core.addHookRenderToolCall(
+      defineToolCallRenderer({
+        name: "*",
+        render: (props) => (
+          <div data-testid="error-card">
+            {props.status}:
+            {props.status === ToolCallStatus.Complete
+              ? (props.error ?? "none")
+              : "pending"}
+          </div>
+        ),
+      }),
+    );
+    const failed: ToolMessage = {
+      id: "tm-1",
+      role: "tool",
+      toolCallId: toolCall.id,
+      content: "Error: Disk full",
+      error: "Disk full",
+    };
+
+    const { rerender } = render(<ResolverProbe toolMessage={failed} />);
+    expect((await screen.findByTestId("error-card")).textContent).toBe(
+      "complete:Disk full",
+    );
+
+    rerender(<ResolverProbe toolMessage={{ ...failed, error: "error" }} />);
+    expect(screen.getByTestId("error-card").textContent).toBe("complete:error");
   });
 
   // Scenario 3: no hook -> nothing renders (no leaked card in production).

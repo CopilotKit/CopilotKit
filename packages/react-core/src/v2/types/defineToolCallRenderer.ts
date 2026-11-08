@@ -32,6 +32,12 @@ type RenderProps<T> =
       args: T;
       status: ToolCallStatus.Complete;
       result: string;
+      /**
+       * Set when the tool call failed instead of returning a result: the
+       * failure message recorded on the tool message. `result` then holds
+       * the `Error: <message>` text sent to the agent.
+       */
+      error?: string;
     };
 
 // Overload for wildcard tools without args

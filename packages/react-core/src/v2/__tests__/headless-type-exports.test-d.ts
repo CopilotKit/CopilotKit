@@ -72,6 +72,7 @@ type CanonicalRendererProps =
       args: Args;
       status: ToolCallStatus.Complete;
       result: string;
+      error?: string;
     };
 
 expectTypeOf<RendererProps>().toEqualTypeOf<CanonicalRendererProps>();

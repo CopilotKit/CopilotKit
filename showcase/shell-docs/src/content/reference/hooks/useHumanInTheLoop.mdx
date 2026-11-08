@@ -58,7 +58,9 @@ function useHumanInTheLoop<T extends Record<string, unknown>>(
     **When `status` is `ToolCallStatus.Complete`:**
     - `args: T` -- the original arguments
     - `respond: undefined` -- no longer available
-    - `result: string` -- the serialized result
+    - `result: string | undefined` -- the serialized response provided via `respond()`, or `undefined` when the request was abandoned (see `aborted`)
+    - `aborted?: true` -- set when the run was stopped while the request was still waiting on the user. There is no answer, so render the request as abandoned rather than reading `result`.
+    - `error?: string` -- the failure message when the call ended without an answer. When `error` is set and `aborted` is not, `result` holds the failure text sent to the agent, not the user's response.
 
   </PropertyReference>
 
@@ -86,7 +88,7 @@ The `ToolCallStatus` enum is exported from `@copilotkit/react-core/v2` and defin
 | --------------------------- | ------------------------------------------------------------------------------------------- |
 | `ToolCallStatus.InProgress` | Arguments are being streamed from the agent. The tool has not started executing yet.        |
 | `ToolCallStatus.Executing`  | Arguments are fully resolved. For `useHumanInTheLoop`, the `respond` callback is available. |
-| `ToolCallStatus.Complete`   | Execution is finished. The `result` string is available.                                    |
+| `ToolCallStatus.Complete`   | Execution is finished. The `result` string is available unless the call was aborted.        |
 
 ## Usage
 
@@ -174,7 +176,7 @@ function ShippingAddressForm() {
           .string()
           .describe("A summary of the order being placed"),
       }),
-      render: ({ args, status, respond }) => {
+      render: ({ args, status, respond, aborted }) => {
         const [address, setAddress] = useState({
           street: "",
           city: "",
@@ -217,6 +219,12 @@ function ShippingAddressForm() {
                 Submit Address
               </button>
             </div>
+          );
+        }
+
+        if (status === ToolCallStatus.Complete && aborted) {
+          return (
+            <div className="p-2 text-gray-500">Address request cancelled.</div>
           );
         }
 
@@ -309,9 +317,9 @@ function ExpenseApproval() {
 ## Behavior
 
 - **Blocks agent execution**: The agent pauses when this tool is called and waits until your UI calls `respond`.
-- **Internal status machine**: The hook manages three states -- `InProgress` (arguments streaming in), `Executing` (waiting for user response), and `Complete` (user has responded). Your render component receives the appropriate props for each state.
+- **Internal status machine**: The hook manages three states -- `InProgress` (arguments streaming in), `Executing` (waiting for user response), and `Complete` (the call has finished). Your render component receives the appropriate props for each state.
 - **Single response**: Call the `respond` callback only once per tool call. Calling it resolves the tool call promise with the provided value.
-- **Stopped runs**: If the run stops before the user answers, the tool call fails with `Human-in-the-loop interaction aborted`, and `respond` has no effect.
+- **Stopped runs**: If the run stops before the user answers, the tool call completes without an answer: `aborted` is `true`, `error` holds the abort message (`Human-in-the-loop interaction aborted`), `result` is `undefined`, and `respond` has no effect. Check `aborted` before treating a `Complete` render as the user's decision.
 - **Built on `useFrontendTool`**: Internally, this hook wraps `useFrontendTool` with an internally generated handler, so all the same lifecycle behavior (mount/unmount registration, duplicate warnings) applies.
 - **Mount/Unmount lifecycle**: The tool and its render component are registered on mount and removed on unmount.
 - **Calls after unmount**: If the agent calls the tool after it was removed (for example, the component unmounted while the run was in flight), CopilotKit answers the call with a `Tool not found` error result and reports a `TOOL_NOT_FOUND` error, so the conversation can continue. This applies only to tools that were sent to the agent for that run, and only when the run finishes normally; an interrupted, stopped or failed run leaves the call open. A call to a name that was not sent to the agent for that run stays unanswered; register a wildcard tool (`name: "*"`) to handle those.
