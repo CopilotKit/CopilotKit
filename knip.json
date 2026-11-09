@@ -7,7 +7,9 @@
     "unlisted",
     "binaries",
     "exports",
-    "types"
+    "types",
+    "duplicates",
+    "enumMembers"
   ],
   "exclude": ["optionalPeerDependencies"],
   "ignoreExportsUsedInFile": true,
@@ -53,6 +55,8 @@
         "src/index.ts!",
         "src/a2ui/index.ts!",
         "src/mcp-apps/index.ts!",
+        "src/generative-ui/index.ts!",
+        "src/generative-ui/{chart,icons,map}/index.ts!",
         "scripts/**/*.{js,cjs,mjs,ts,mts}"
       ]
     },

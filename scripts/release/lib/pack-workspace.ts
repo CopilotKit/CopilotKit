@@ -13,6 +13,7 @@ import type { PackedManifest } from "./channels-umbrella.js";
 
 export interface SourceManifest {
   dependencies?: Record<string, string>;
+  devDependencies?: Record<string, string>;
   peerDependencies?: Record<string, string>;
 }
 
@@ -40,10 +41,7 @@ function readSourceManifest(name: string): SourceManifest {
   ) as SourceManifest;
 }
 
-export function packPackage(
-  name: string,
-  tarballDir: string,
-): { manifest: PackedManifest; tarball: string } {
+export function packPackage(name: string, tarballDir: string) {
   const cwd = packageDirectory(name);
   const source = JSON.parse(
     readFileSync(join(cwd, "package.json"), "utf8"),
@@ -53,7 +51,7 @@ export function packPackage(
   const tarball = join(tarballDir, tarballName(source));
   const manifest = JSON.parse(
     capture("tar", ["-xOf", tarball, "package/package.json"]),
-  ) as PackedManifest;
+  ) as PackedManifest & SourceManifest;
 
   return { manifest, tarball };
 }
@@ -122,16 +120,57 @@ export function toFileOverrides(
 export const RUNTIME = "@copilotkit/runtime";
 export const CHANNELS_INTELLIGENCE = "@copilotkit/channels-intelligence";
 
+/**
+ * The optional peer that the `/agent` entry imports at module scope. A
+ * consumer that imports `/agent` installs it.
+ */
+export const BUILT_IN_AGENT_PEERS = ["@tanstack/ai"] as const;
+
+/**
+ * The TanStack AI adapter that the Built-in Agent consumer passes as `model`.
+ * It is not a peer of the runtime: the app installs the adapter it picks. The
+ * consumer takes the range the runtime tests against, from `devDependencies`.
+ */
+export const BUILT_IN_AGENT_ADAPTERS = ["@tanstack/ai-openai"] as const;
+
+/**
+ * The ranges that `runtime` declares for `names` in `field`, so a consumer
+ * installs exactly what the packed runtime asks for or was tested against.
+ * Throws when a package is not declared there.
+ */
+export function declaredRanges(
+  runtime: PackedManifest & SourceManifest,
+  field: "peerDependencies" | "devDependencies",
+  names: readonly string[],
+) {
+  return Object.fromEntries(
+    names.map((name) => {
+      const range = runtime[field]?.[name];
+      if (!range) {
+        throw new Error(`${runtime.name} must declare ${name} in ${field}`);
+      }
+      return [name, range];
+    }),
+  );
+}
+
 interface RuntimeConsumerOptions {
   runtimeTarball: string;
   packageManager: string;
   overrides: ReadonlyMap<string, string>;
+  /**
+   * LLM packages to install next to the runtime: optional peers and the
+   * adapters an app picks. Leave empty for a consumer that must load the
+   * runtime with no LLM package installed.
+   */
+  llmPackages?: Readonly<Record<string, string>>;
 }
 
 export function createRuntimeConsumerManifest({
   runtimeTarball,
   packageManager,
   overrides,
+  llmPackages = {},
 }: RuntimeConsumerOptions): Record<string, unknown> {
   const manifest: Record<string, unknown> = {
     name: "runtime-package-consumer",
@@ -141,6 +180,7 @@ export function createRuntimeConsumerManifest({
     packageManager,
     dependencies: {
       [RUNTIME]: `file:${runtimeTarball}`,
+      ...llmPackages,
     },
   };
 

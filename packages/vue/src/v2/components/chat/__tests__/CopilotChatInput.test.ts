@@ -1218,4 +1218,47 @@ describe("CopilotChatInput", () => {
       expect(input.value).toBe("部分");
     });
   });
+
+  // `onSubmitMessage` is both a declared prop (to detect a listener) and the
+  // `submit-message` emit. A template `@submit-message` listener must enable
+  // sending and fire once per send.
+  describe("@submit-message listener", () => {
+    function renderWithTemplateListener(onSubmit?: (value: string) => void) {
+      const Host = defineComponent({
+        components: { CopilotChatConfigurationProvider, CopilotChatInput },
+        setup() {
+          return { TEST_THREAD_ID, onSubmit };
+        },
+        template: onSubmit
+          ? `
+            <CopilotChatConfigurationProvider :thread-id="TEST_THREAD_ID">
+              <CopilotChatInput model-value="hello" @submit-message="onSubmit" />
+            </CopilotChatConfigurationProvider>
+          `
+          : `
+            <CopilotChatConfigurationProvider :thread-id="TEST_THREAD_ID">
+              <CopilotChatInput model-value="hello" />
+            </CopilotChatConfigurationProvider>
+          `,
+      });
+      return render(Host);
+    }
+
+    it("enables the send button and fires the listener once per send", async () => {
+      const onSubmit = vi.fn();
+      renderWithTemplateListener(onSubmit);
+
+      expect(getSendButton().disabled).toBe(false);
+      await fireEvent.click(getSendButton());
+
+      expect(onSubmit).toHaveBeenCalledTimes(1);
+      expect(onSubmit).toHaveBeenCalledWith("hello");
+    });
+
+    it("keeps the send button disabled without a listener", () => {
+      renderWithTemplateListener();
+
+      expect(getSendButton().disabled).toBe(true);
+    });
+  });
 });

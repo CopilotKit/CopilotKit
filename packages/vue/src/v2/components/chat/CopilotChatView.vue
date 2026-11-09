@@ -1,20 +1,14 @@
 <script setup lang="ts">
-import {
-  computed,
-  nextTick,
-  onBeforeUnmount,
-  onMounted,
-  ref,
-  useSlots,
-  watch,
-} from "vue";
+import { computed, ref, useSlots, watch } from "vue";
 import type { Message } from "@ag-ui/core";
 import {
+  ɵcreateStickToBottom,
   ɵgetChatViewState,
-  ɵisScrolledToBottom,
+  ɵisContentScrolledToBottom,
   ɵnormalizeAutoScroll,
+  ɵwatchElementHeight,
 } from "@copilotkit/core";
-import type { Suggestion } from "@copilotkit/core";
+import type { Suggestion, ɵStickToBottom } from "@copilotkit/core";
 import type { Attachment } from "@copilotkit/shared";
 import { useChatLabels } from "./use-chat-labels";
 import { useKeyboardHeight } from "../../hooks/use-keyboard-height";
@@ -138,6 +132,9 @@ const spacerRef = ref<HTMLElement | null>(null);
 const inputContainerRef = ref<HTMLElement | null>(null);
 const inputContainerHeight = ref(0);
 const isAtBottom = ref(true);
+// The end of the messages is in view. Without following ("pin-to-send" and
+// "none"), this, not the scroll height, decides the scroll-to-bottom button.
+const isContentAtBottom = ref(true);
 const isControlledInput = computed(() => props.inputValue !== undefined);
 const localInputValue = ref(props.inputValue ?? "");
 
@@ -212,66 +209,94 @@ const messagePaddingBottom = computed(
   () => `${viewState.value.paddingBottom}px`,
 );
 const showScrollToBottomButton = computed(
-  () => !shouldShowWelcomeScreen.value && !isAtBottom.value,
+  () =>
+    !shouldShowWelcomeScreen.value &&
+    !(isPinToBottomMode.value ? isAtBottom.value : isContentAtBottom.value),
 );
 
-let inputResizeObserver: ResizeObserver | null = null;
-let contentResizeObserver: ResizeObserver | null = null;
-
-function attachInputOverlayObserver() {
-  if (typeof ResizeObserver === "undefined") return;
-
-  inputResizeObserver?.disconnect();
-  inputResizeObserver = null;
-
-  const el = inputContainerRef.value;
-  if (!el) return;
-
-  inputResizeObserver = new ResizeObserver((entries) => {
-    const wasAtBottom = isAtBottom.value;
-    const measured = entries[0]?.contentRect?.height;
-    if (typeof measured === "number") {
-      inputContainerHeight.value = measured;
-    } else {
-      syncInputContainerHeight();
+// Core keeps the list at the bottom while content arrives in `pin-to-bottom`
+// mode, and tracks the position for the scroll-to-bottom button in every
+// mode. It attaches when the scroll container mounts, also after the welcome
+// screen gives way to the chat.
+let stickToBottom: ɵStickToBottom | null = null;
+watch(
+  [scrollContainerRef, scrollContentRef],
+  ([scrollElement, contentElement], _old, onCleanup) => {
+    if (!scrollElement) {
+      isAtBottom.value = true;
+      return;
     }
-    updateIsAtBottom();
-    if (isPinToBottomMode.value && wasAtBottom) {
-      scrollToBottom("auto");
-    }
-  });
-  inputResizeObserver.observe(el);
+    const controller = ɵcreateStickToBottom({
+      scrollElement,
+      contentElement: contentElement ?? scrollElement,
+      follow: isPinToBottomMode.value,
+      onChange: (value) => {
+        isAtBottom.value = value;
+      },
+    });
+    stickToBottom = controller;
+    isAtBottom.value = controller.isAtBottom;
+    onCleanup(() => {
+      controller.dispose();
+      if (stickToBottom === controller) stickToBottom = null;
+    });
+  },
+  { flush: "post" },
+);
+
+watch(isPinToBottomMode, (follow) => stickToBottom?.setFollow(follow));
+
+// Without following, the button shows while messages sit below the viewport.
+// That is the end of the messages, not the scroll height: in "pin-to-send"
+// mode an empty spacer under them lets a sent message reach the top, and
+// scrolling into it would only clear the screen (parity with React).
+function checkContentAtBottom() {
+  const scrollElement = scrollContainerRef.value;
+  const contentElement = scrollContentRef.value;
+  isContentAtBottom.value =
+    !scrollElement ||
+    !contentElement ||
+    ɵisContentScrolledToBottom(scrollElement, contentElement);
 }
 
-function attachScrollContentObserver() {
-  if (typeof ResizeObserver === "undefined") return;
+watch(
+  [scrollContainerRef, scrollContentRef],
+  ([scrollElement, contentElement], _old, onCleanup) => {
+    checkContentAtBottom();
+    if (!scrollElement) return;
+    scrollElement.addEventListener("scroll", checkContentAtBottom);
+    // A reply that streams past the bottom needs the button before anyone
+    // scrolls, so check again when the viewport or the messages resize.
+    const resizeObserver =
+      typeof ResizeObserver === "undefined"
+        ? null
+        : new ResizeObserver(checkContentAtBottom);
+    resizeObserver?.observe(scrollElement);
+    if (contentElement) resizeObserver?.observe(contentElement);
+    onCleanup(() => {
+      scrollElement.removeEventListener("scroll", checkContentAtBottom);
+      resizeObserver?.disconnect();
+    });
+  },
+  { flush: "post" },
+);
 
-  contentResizeObserver?.disconnect();
-  contentResizeObserver = null;
-
-  const el = scrollContentRef.value;
-  if (!el) return;
-
-  contentResizeObserver = new ResizeObserver(() => {
-    const wasAtBottom = isAtBottom.value;
-    updateIsAtBottom();
-    if (isPinToBottomMode.value && wasAtBottom) {
-      scrollToBottom("auto");
+// The input overlay's height becomes the bottom padding of the messages.
+watch(
+  inputContainerRef,
+  (element, _old, onCleanup) => {
+    if (!element) {
+      inputContainerHeight.value = 0;
+      return;
     }
-  });
-  contentResizeObserver.observe(el);
-}
-
-// When the welcome screen disappears and the main chat view (with the input
-// overlay) appears, the template-ref elements become non-null. Re-attach
-// observers that were skipped during the initial mount.
-watch(shouldShowWelcomeScreen, async (show) => {
-  if (show) return;
-  await nextTick();
-  syncInputContainerHeight();
-  attachInputOverlayObserver();
-  attachScrollContentObserver();
-});
+    onCleanup(
+      ɵwatchElementHeight(element, ({ height }) => {
+        inputContainerHeight.value = height;
+      }),
+    );
+  },
+  { flush: "post" },
+);
 
 watch(
   () => props.inputValue,
@@ -282,56 +307,13 @@ watch(
   },
 );
 
-watch(
-  [() => props.messages, () => props.suggestions, () => props.isRunning],
-  async () => {
-    const wasAtBottom = isAtBottom.value;
-    await nextTick();
-    if (!isPinToBottomMode.value || !wasAtBottom) {
-      return;
-    }
-    scrollToBottom("auto");
-    if (typeof requestAnimationFrame === "function") {
-      requestAnimationFrame(() => {
-        scrollToBottom("auto");
-      });
-    }
-  },
-  { deep: true },
-);
-
-function updateIsAtBottom() {
-  const element = scrollContainerRef.value;
-  if (!element) {
-    isAtBottom.value = true;
-    return;
-  }
-
-  isAtBottom.value = ɵisScrolledToBottom(element);
-}
-
-function syncInputContainerHeight() {
-  const element = inputContainerRef.value;
-  inputContainerHeight.value = element?.offsetHeight ?? 0;
-}
-
 function scrollToBottom(behavior: ScrollBehavior = "smooth") {
-  const element = scrollContainerRef.value;
-  if (!element) return;
-
-  if (typeof element.scrollTo === "function") {
-    element.scrollTo({
-      top: element.scrollHeight,
-      behavior,
-    });
-  } else {
-    element.scrollTop = element.scrollHeight;
-  }
-  updateIsAtBottom();
+  stickToBottom?.scrollToBottom(behavior);
 }
 
 function handleScroll() {
-  updateIsAtBottom();
+  stickToBottom?.update();
+  checkContentAtBottom();
 }
 
 function handleInputValueChange(value: string) {
@@ -416,30 +398,6 @@ const inputEventProps = computed(() => {
 const canStop = computed(() => !!props.onStop);
 const canAddFile = computed(() => !!props.onAddFile);
 const canTranscribe = computed(() => !!props.onStartTranscribe);
-
-onMounted(async () => {
-  await nextTick();
-  syncInputContainerHeight();
-  updateIsAtBottom();
-  if (isPinToBottomMode.value) {
-    scrollToBottom("auto");
-    if (typeof requestAnimationFrame === "function") {
-      requestAnimationFrame(() => {
-        scrollToBottom("auto");
-      });
-    }
-  }
-
-  attachInputOverlayObserver();
-  attachScrollContentObserver();
-});
-
-onBeforeUnmount(() => {
-  inputResizeObserver?.disconnect();
-  contentResizeObserver?.disconnect();
-  inputResizeObserver = null;
-  contentResizeObserver = null;
-});
 </script>
 
 <template>
@@ -583,7 +541,6 @@ onBeforeUnmount(() => {
           ref="scrollContainerRef"
           data-testid="copilot-chat-view-scroll"
           class="cpk-chat-view-scroll-area cpk-chat-view-scroll-viewport"
-          @scroll="handleScroll"
         >
           <div class="cpk-chat-view-scroll-content">
             <div

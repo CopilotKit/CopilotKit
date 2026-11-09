@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { ɵcomposerButtonState, ɵresolveComposerKey } from "../composer";
-import type { ɵComposerInput, ɵComposerKeyEvent } from "../composer";
+import type {
+  ɵComposerInput,
+  ɵComposerKeyAction,
+  ɵComposerKeyEvent,
+} from "../composer";
 
 function createInput(overrides?: Partial<ɵComposerInput>): ɵComposerInput {
   return {
@@ -20,25 +24,37 @@ function createKey(overrides?: Partial<ɵComposerKeyEvent>): ɵComposerKeyEvent 
 const enter = createKey();
 
 describe("ɵresolveComposerKey", () => {
-  it("returns none while an IME composes, by isComposing or keyCode 229", () => {
+  const none = { action: "none", preventDefault: false };
+
+  it("does nothing while an IME composes, by isComposing or keyCode 229", () => {
     const input = createInput();
-    expect(ɵresolveComposerKey(createKey({ isComposing: true }), input)).toBe(
-      "none",
-    );
-    expect(ɵresolveComposerKey(createKey({ keyCode: 229 }), input)).toBe(
-      "none",
+    expect(
+      ɵresolveComposerKey(createKey({ isComposing: true }), input),
+    ).toEqual(none);
+    expect(ɵresolveComposerKey(createKey({ keyCode: 229 }), input)).toEqual(
+      none,
     );
   });
 
-  it("returns newline for Shift+Enter", () => {
+  it("lets Shift+Enter add a line break", () => {
     expect(
       ɵresolveComposerKey(createKey({ shiftKey: true }), createInput()),
-    ).toBe("newline");
+    ).toEqual({ action: "newline", preventDefault: false });
   });
 
-  it("returns none for keys other than Enter", () => {
-    expect(ɵresolveComposerKey(createKey({ key: "a" }), createInput())).toBe(
-      "none",
+  it("does nothing for keys other than Enter", () => {
+    expect(ɵresolveComposerKey(createKey({ key: "a" }), createInput())).toEqual(
+      none,
+    );
+  });
+
+  it("stops a plain Enter from adding a line break when it does nothing", () => {
+    expect(ɵresolveComposerKey(enter, createInput({ value: "  " }))).toEqual({
+      action: "none",
+      preventDefault: true,
+    });
+    expect(ɵresolveComposerKey(enter, createInput({ disabled: true }))).toEqual(
+      { action: "none", preventDefault: true },
     );
   });
 
@@ -99,9 +115,11 @@ describe("ɵresolveComposerKey", () => {
   ] satisfies Array<{
     name: string;
     input: Partial<ɵComposerInput>;
-    expected: ReturnType<typeof ɵresolveComposerKey>;
+    expected: ɵComposerKeyAction;
   }>)("Enter with $name -> $expected", ({ input, expected }) => {
-    expect(ɵresolveComposerKey(enter, createInput(input))).toBe(expected);
+    expect(ɵresolveComposerKey(enter, createInput(input)).action).toBe(
+      expected,
+    );
   });
 });
 

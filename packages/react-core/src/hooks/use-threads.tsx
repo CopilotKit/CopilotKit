@@ -1,28 +1,18 @@
 import { useCopilotKit } from "../context";
 import { ɵThreadsController, ɵcreateThreadStore } from "@copilotkit/core";
+import type { ɵThreadSummary } from "@copilotkit/core";
 import { useEffect, useState, useSyncExternalStore } from "react";
 
 /**
  * A conversation thread managed by CopilotKit Intelligence.
  *
  * Each thread has a unique `id`, an optional human-readable `name`, and
- * timestamp fields tracking creation and update times.
+ * ISO-8601 `createdAt` and `updatedAt` timestamps. `lastRunAt` is the time of
+ * the most recent agent run, absent when the thread has never run; prefer it
+ * over `updatedAt` for "last activity", since rename and archive do not bump
+ * it. The shape is core's thread summary, which Angular also exposes.
  */
-export interface Thread {
-  id: string;
-  agentId: string;
-  name: string | null;
-  archived: boolean;
-  createdAt: string;
-  updatedAt: string;
-  /**
-   * ISO-8601 timestamp of the most recent agent run on this thread. Absent
-   * when the thread has never been run. Prefer this over `updatedAt` for
-   * user-facing "last activity" displays — it is not bumped by metadata-only
-   * actions like rename or archive.
-   */
-  lastRunAt?: string;
-}
+export type Thread = ɵThreadSummary;
 
 /**
  * Configuration for the {@link useThreads} hook.

@@ -74,7 +74,9 @@ async def get_weather(
 
 
 async def query_data(
-    query: Annotated[str, Field(description="Natural language query for financial data")],
+    query: Annotated[
+        str, Field(description="Natural language query for financial data")
+    ],
 ) -> str:
     """Query financial database for chart data."""
     # Return a JSON string (not a list): non-string tool returns are serialized
@@ -141,7 +143,9 @@ async def search_flights(
 
 
 async def generate_a2ui(
-    context: Annotated[str, Field(description="Conversation context to generate UI for")],
+    context: Annotated[
+        str, Field(description="Conversation context to generate UI for")
+    ],
 ) -> str:
     """Generate dynamic A2UI components based on the conversation.
 
@@ -168,7 +172,8 @@ async def generate_a2ui(
     forwarded = get_forwarded_headers()
     try:
         response = await _async_openai_client.chat.completions.create(
-            model="gpt-5-mini",
+            reasoning_effort="none",
+            model="gpt-6-luna",
             messages=[
                 {
                     "role": "system",
@@ -237,7 +242,7 @@ agent = Agent(
         "When asked about the weather, always use the tool rather than guessing. "
         "Be concise and friendly in your responses."
     ),
-    config=OpenAIResponsesConfig(model="gpt-5-mini", streaming=True),
+    config=OpenAIResponsesConfig(model="gpt-6-luna", streaming=True),
     tools=[
         get_weather,
         query_data,

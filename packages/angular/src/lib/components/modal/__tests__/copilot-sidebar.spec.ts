@@ -78,16 +78,47 @@ describe("CopilotSidebar", () => {
     expect(document.body.style.marginInlineEnd).toBe("");
   });
 
-  it("uses modal semantics and no body docking in overlay mode", async () => {
+  it("uses dialog semantics and no body docking in overlay mode", async () => {
     const fixture = await render({ mode: "overlay", position: "right" });
     const sidebar = fixture.nativeElement.querySelector(
       "[data-copilot-sidebar]",
     );
 
     expect(sidebar.getAttribute("role")).toBe("dialog");
-    expect(sidebar.getAttribute("aria-modal")).toBe("true");
+    // No backdrop blocks the page, so the dialog does not claim to be modal.
+    expect(sidebar.hasAttribute("aria-modal")).toBe(false);
     expect(sidebar.contains(document.activeElement)).toBe(true);
     expect(document.body.style.marginInlineEnd).toBe("");
+  });
+
+  it("closes the overlay on Escape and gives focus back to its toggle", async () => {
+    const fixture = await render({ mode: "overlay" });
+    const launcher: HTMLButtonElement = fixture.nativeElement.querySelector(
+      "[data-copilot-sidebar-toggle]",
+    );
+
+    document.body.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
+    );
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    expect(fixture.nativeElement.querySelector("[role=dialog]")).toBeNull();
+    expect(document.activeElement).toBe(launcher);
+  });
+
+  it("animates the page margin after the first change, as in React and Vue", async () => {
+    const fixture = await render({ width: 400 });
+    expect(document.body.style.transition).toBe("");
+
+    fixture.componentRef.setInput("width", 420);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    expect(document.body.style.marginInlineEnd).toBe("420px");
+    expect(document.body.style.transition).toContain("260ms");
+    fixture.destroy();
+    document.body.style.transition = "";
   });
 
   it("names a docked sidebar when a custom header replaces its heading", async () => {

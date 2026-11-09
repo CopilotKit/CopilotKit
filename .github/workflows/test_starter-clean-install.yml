@@ -4,7 +4,7 @@ name: test / starter clean install
 #
 # WHAT HOLE THIS FILLS
 # --------------------
-# Twenty-two starters live under examples/integrations/. test_smoke-starter.yml
+# Twenty-two starters live under examples/starters/. test_smoke-starter.yml
 # builds fourteen of them in docker. Nothing installed the other eight, and
 # BOTH starters that reached a developer broken were in that eight:
 #
@@ -50,7 +50,7 @@ on:
   pull_request:
     branches: [main, "[0-9]+.[0-9]+.[0-9]+"]
     paths:
-      - "examples/integrations/**"
+      - "examples/starters/**"
       - ".github/scripts/starter-clean-install.sh"
       - ".github/scripts/starter-clean-install-matrix.mjs"
       - ".github/scripts/print-pyproject-deps.mjs"
@@ -95,7 +95,7 @@ jobs:
             # Narrow to starters whose own directory changed. A starter broken
             # by an upstream publish has no diff to detect, which is what the
             # daily schedule above is for.
-            CHANGED=$(git diff --name-only "origin/${BASE_REF}...HEAD" -- examples/integrations \
+            CHANGED=$(git diff --name-only "origin/${BASE_REF}...HEAD" -- examples/starters \
               | cut -d/ -f3 | sort -u | jq -R . | jq -sc .)
             MATRIX=$(jq -cn --argjson all "$UNCOVERED" --argjson changed "$CHANGED" \
               '[$all[] | . as $slug | select($changed | index($slug) != null)]')
@@ -154,4 +154,4 @@ jobs:
           webhook: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}
           webhook-type: incoming-webhook
           payload: |
-            { "text": ${{ toJSON(format(':x: `[ci:{2}]` *Starter will not install from a clean state: {0}* — a developer cloning it today gets the same failure{4}<{1}/{2}/actions/runs/{3}|View run>', matrix.starter, github.server_url, github.repository, github.run_id, fromJSON('"\n"'))) }} }
+            { "text": ${{ toJSON(format(':x: `[ci:{2}]` *Starter CI failed: {0}*{4}<{1}/{2}/actions/runs/{3}|View run>', matrix.starter, github.server_url, github.repository, github.run_id, fromJSON('"\n"'))) }} }

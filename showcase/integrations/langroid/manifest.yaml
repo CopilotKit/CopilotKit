@@ -22,7 +22,6 @@ not_supported_features:
   - shared-state-read-write
   - shared-state-streaming
   - mcp-apps
-  - tool-rendering-reasoning-chain
   # QUARANTINED pending a @copilotkit/react-core release. gen-ui-interrupt /
   # interrupt-headless fail turn-2 on a useInterrupt/useHeadlessInterrupt
   # RESUME-PATH hook bug in @copilotkit/react-core/v2: backend resumes + streams
@@ -32,8 +31,6 @@ not_supported_features:
   # green, not red) rather than a regression. Demos remain wired below.
   - gen-ui-interrupt
   - interrupt-headless
-  - reasoning-default-render
-  - agentic-chat-reasoning
 features:
   - cli-start
   - agentic-chat
@@ -42,6 +39,9 @@ features:
   - hitl-in-chat
   - hitl-in-chat-booking
   - tool-rendering
+  - tool-rendering-reasoning-chain
+  - reasoning-default
+  - reasoning-custom
   - gen-ui-agent
   - gen-ui-tool-based
   - subagents
@@ -389,12 +389,32 @@ demos:
       - src/app/demos/tool-rendering-custom-catchall/custom-catchall-renderer.tsx
       - src/agents/agent.py
       - src/app/api/copilotkit/route.ts
+  - id: reasoning-default
+    name: Reasoning (Default)
+    description: Reasoning summaries in the built-in reasoning card
+    tags:
+      - chat-ui
+    route: /demos/reasoning-default
+    animated_preview_url:
+    highlight:
+      - src/app/demos/reasoning-default/page.tsx
+      - src/agents/reasoning_agent.py
+      - src/app/api/copilotkit/route.ts
+  - id: reasoning-custom
+    name: Reasoning (Custom)
+    description: Reasoning summaries in a custom reasoning card
+    tags:
+      - chat-ui
+    route: /demos/reasoning-custom
+    animated_preview_url:
+    highlight:
+      - src/app/demos/reasoning-custom/page.tsx
+      - src/app/demos/reasoning-custom/reasoning-block.tsx
+      - src/agents/reasoning_agent.py
+      - src/app/api/copilotkit/route.ts
   - id: tool-rendering-reasoning-chain
-    name: Tool Rendering + Reasoning Chain (testing)
-    description:
-      Sequential tool calls with reasoning tokens rendered side-by-side.
-      NOTE — Langroid does not yet emit native reasoning AG-UI events; the slot
-      wires up only when reasoning content arrives over the wire
+    name: Tool Rendering + Reasoning Chain
+    description: Sequential tool calls with reasoning summaries
     tags:
       - generative-ui
     route: /demos/tool-rendering-reasoning-chain
@@ -403,7 +423,8 @@ demos:
       - src/app/demos/tool-rendering-reasoning-chain/page.tsx
       - src/app/demos/tool-rendering-reasoning-chain/weather-card.tsx
       - src/app/demos/tool-rendering-reasoning-chain/flight-list-card.tsx
-      - src/agents/agent.py
+      - src/agents/reasoning_agent.py
+      - src/agents/_reasoning_tools.py
       - src/app/api/copilotkit/route.ts
   - id: open-gen-ui
     name: Fully Open-Ended Generative UI
@@ -448,7 +469,7 @@ demos:
   - id: multimodal
     name: Multimodal Attachments
     description:
-      Image + PDF uploads forwarded to a vision-capable agent (gpt-4o);
+      Image + PDF uploads forwarded to a vision-capable agent (gpt-6-luna);
       PDFs are flattened to text server-side
     tags:
       - chat-ui
@@ -542,4 +563,4 @@ demos:
 starter_validation:
   supported: false
   reason: >-
-    Langroid has no starter template in examples/integrations and is not in the starter-smoke matrix.
+    Langroid has no starter template in examples/starters and is not in the starter-smoke matrix.

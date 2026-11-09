@@ -7,13 +7,15 @@ import type {
   RunAgentResult,
 } from "@ag-ui/client";
 import { ɵInterruptController } from "@copilotkit/core";
-import type { ɵInterruptSnapshot } from "@copilotkit/core";
+import type {
+  InterruptEvent,
+  InterruptHandlerProps,
+  InterruptRenderProps,
+  ɵInterruptSnapshot,
+} from "@copilotkit/core";
 
-/** Legacy custom-event interrupt payload. */
-export interface InterruptEvent<TValue = unknown> {
-  name: string;
-  value: TValue;
-}
+// The interrupt event and handler props are core's, shared with React and Vue.
+export type { InterruptEvent, InterruptHandlerProps } from "@copilotkit/core";
 
 /** Options forwarded when resuming an interrupted agent. */
 export interface InterruptRunOptions {
@@ -34,22 +36,14 @@ export interface InjectInterruptOptions<TValue = unknown, TResult = never> {
   ) => TResult | PromiseLike<TResult>;
 }
 
-/** Actions and normalized protocol data passed to interrupt handlers. */
-export interface InterruptHandlerProps<TValue = unknown> {
-  event: InterruptEvent<TValue>;
-  interrupt: Interrupt | null;
-  interrupts: readonly Interrupt[];
-  resolve: InterruptController<TValue>["resolve"];
-  cancel: InterruptController<TValue>["cancel"];
-}
-
-/** Reactive data suitable for binding to an application interrupt component. */
-export interface InterruptView<
+/**
+ * Reactive data suitable for binding to an application interrupt component:
+ * the handler props plus the handler's `result` (`null` until it settles).
+ */
+export type InterruptView<
   TValue = unknown,
   TResult = unknown,
-> extends InterruptHandlerProps<TValue> {
-  result: TResult | null;
-}
+> = InterruptRenderProps<TValue, TResult | null>;
 
 export type InterruptRunner = (
   agent: AbstractAgent,

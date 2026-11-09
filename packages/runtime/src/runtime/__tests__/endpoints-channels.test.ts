@@ -13,7 +13,7 @@ import { createCopilotRuntimeHandler } from "../core/fetch-handler";
  *
  * - Node (`createCopilotNodeListener`) — auto-starts.
  * - Fetch (`createCopilotRuntimeHandler`) — stays LAZY: it is our Next.js App
- *   Router / edge surface (every `examples/showcases/*` route handler builds one
+ *   Router / edge surface (every `examples/demos/*` route handler builds one
  *   at module scope), where per-isolate auto-start would mint competing
  *   listeners for the same Channel.
  *

@@ -185,11 +185,18 @@ events and supports both single-event and batched gateway acknowledgments.
 
 ## BuiltInAgent skill delivery from multiple containers
 
+`BuiltInAgent` takes a TanStack AI adapter as `model`. Install TanStack AI and the adapter for your provider:
+
+```bash
+npm install @tanstack/ai @tanstack/ai-openai
+```
+
 ```typescript
-import { BuiltInAgent } from "@copilotkit/runtime";
+import { BuiltInAgent } from "@copilotkit/runtime/agent";
+import { openaiText } from "@tanstack/ai-openai";
 
 const agent = new BuiltInAgent({
-  model: "openai/gpt-4o",
+  model: openaiText("gpt-6-luna"),
   learnedSkills: {
     containers: [
       { id: "support", revision: "revision-123" },

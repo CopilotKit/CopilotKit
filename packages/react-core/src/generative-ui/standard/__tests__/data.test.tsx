@@ -1,12 +1,20 @@
 import React from "react";
 import { act, fireEvent, renderHook, waitFor } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { beforeAll, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 import { createGenerativeUI } from "../../catalog";
 import { useStableValue } from "../Chart";
 import { dataComponents } from "../data";
 import { guardNumericFilter, guardStyleFilters } from "../Map";
 import { renderSurface } from "./render";
+
+// `Chart` loads recharts with `React.lazy`. A cold dynamic import of recharts
+// can take longer than `waitFor`'s 1s default when the suite runs under load,
+// which failed the first chart test of the file. Load it once up front so the
+// lazy import resolves from the module cache.
+beforeAll(async () => {
+  await import("recharts");
+}, 30_000);
 
 // maplibre-gl is an optional peer dependency. This models an app that does
 // not install it: the import rejects.
@@ -312,6 +320,11 @@ describe("List", () => {
 });
 
 describe("Chart", () => {
+  // Chart loads recharts with React.lazy. Its first, uncached import can take
+  // longer than waitFor's 1 s default on a loaded CI runner, so load it once
+  // here, under the 10 s hook timeout, before any test waits for a chart.
+  beforeAll(() => import("recharts"));
+
   it("draws the chart with recharts and gives the series data as a table", async () => {
     const view = renderSurface(ui, [
       {

@@ -546,4 +546,4 @@ demos:
       - src/app/api/copilotkit-ogui/route.ts
 
 starter_validation:
-  path: examples/integrations/antigravity
+  path: examples/starters/antigravity

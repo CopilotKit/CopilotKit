@@ -376,6 +376,25 @@ describe("CopilotChatMessageView virtual-scroll tuning", () => {
       expect(virtualizer().options.estimateSize(1)).toBe(100);
     });
 
+    it("keeps the measurements when older history is prepended (#8149)", () => {
+      renderMessageView({
+        isPinnedToBottom: false,
+        initialMessages: [message("a-1"), message("a-2")],
+      });
+      virtualizer().options.measureElement(
+        measuredRow(0, 300),
+        undefined,
+        virtualizer(),
+      );
+
+      act(() => {
+        setMessages!([message("a-0"), message("a-1"), message("a-2")]);
+      });
+
+      // Same thread: a-1 is still in the history, so its height still counts.
+      expect(virtualizer().options.estimateSize(0)).toBe(300);
+    });
+
     it("keeps the measurements while the same thread grows", () => {
       renderMessageView({
         isPinnedToBottom: false,

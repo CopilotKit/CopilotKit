@@ -1,6 +1,6 @@
 // Dedicated runtime for the Beautiful Chat flagship showcase cell.
 //
-// The canonical reference (examples/integrations/langgraph-python) enables
+// The canonical reference (examples/starters/langgraph-python) enables
 // A2UI, Open Generative UI and MCP Apps on a single runtime for this page;
 // this route mirrors that combined-runtime config so non-flagship cells keep
 // their per-demo `useFrontendTool` / `useComponent` registrations isolated on

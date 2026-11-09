@@ -34,6 +34,7 @@ export {
   ɵmatchActivityRenderer,
   ɵdescribeActivityRendererFailure,
   ɵgetCustomMessageRenderProps,
+  ɵgetMessageRunStateSnapshot,
   ɵresolveCustomMessageRenderContext,
 } from "./renderers";
 export type {
@@ -141,6 +142,19 @@ export type {
   ɵConnectionWaitResult,
   ɵThreadSelectionInput,
 } from "./thread-switch";
+export {
+  ɵChatConnection,
+  ɵFreshThreadId,
+  ɵimplementsConnect,
+  ɵsubscribeToAgentErrors,
+} from "./chat-connection";
+export type {
+  ɵChatConnectHooks,
+  ɵChatConnectionHandle,
+  ɵChatConnectionOptions,
+  ɵChatConnectionSnapshot,
+  ɵChatErrorEvent,
+} from "./chat-connection";
 
 // Message list (internal)
 export {
@@ -335,6 +349,23 @@ export type {
   ɵPinMessageToTopOptions,
 } from "./viewport";
 
+// Stick to bottom, element sizes, popup and sidebar (internal)
+export { ɵStickToBottom, ɵcreateStickToBottom } from "./viewport";
+export type { ɵStickToBottomOptions } from "./viewport";
+export {
+  ɵisContentScrolledToBottom,
+  ɵPOPUP_DEFAULT_WIDTH,
+  ɵPOPUP_DEFAULT_HEIGHT,
+  ɵSIDEBAR_DEFAULT_WIDTH,
+  ɵSIDEBAR_TRANSITION_MS,
+  ɵExitPresence,
+  ɵcreateExitPresence,
+  ɵRESIZE_SETTLE_MS,
+  ɵwatchElementHeight,
+  ɵwatchElementWidth,
+} from "./dom";
+export type { ɵExitPresenceState, ɵElementHeightState } from "./dom";
+
 // Message display (internal)
 export {
   ɵformatReasoningDurationLabel,
@@ -370,3 +401,45 @@ export type {
   ɵInspectorKiteGradient,
   ɵHoverMenuState,
 } from "./inspector-button";
+
+// Chat component logic shared by the framework packages (internal)
+export {
+  ɵReasoningDisclosure,
+  ɵgetReasoningHeaderLabel,
+} from "./message-display";
+export type {
+  ɵReasoningDisclosureState,
+  ɵReasoningDisclosureOptions,
+} from "./message-display";
+export {
+  ɵComposerController,
+  ɵnormalizeToolsMenu,
+  ɵflattenToolsMenuForDisplay,
+  ɵsyncRecorderToMode,
+  ɵshowsComposerDisclaimer,
+} from "./composer";
+export type {
+  ɵComposerKeyAction,
+  ɵComposerSnapshot,
+  ɵComposerControllerInputs,
+  ɵComposerControllerOptions,
+  ɵComposerKeyDownResult,
+  ɵToolsMenuDisplayEntry,
+  ɵModeRecorder,
+} from "./composer";
+export { ɵisOwnFeedbackThumb } from "./message-feedback";
+export type {
+  ɵFeedbackThumb,
+  ɵFeedbackThumbAttributes,
+  ɵFeedbackThumbHandlers,
+  ɵFeedbackKeyEvent,
+} from "./message-feedback";
+export { ɵTAB_STOP_SELECTOR, ɵnextTabStop, ɵisFocusVisible } from "./dom";
+export {
+  ɵtoDefaultToolCallStatus,
+  ɵadaptDefaultToolCallRenderProps,
+} from "./tool-call-render";
+export type {
+  ɵDefaultToolCallRenderProps,
+  ɵRawToolCallRenderProps,
+} from "./tool-call-render";

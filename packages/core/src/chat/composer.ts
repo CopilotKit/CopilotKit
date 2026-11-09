@@ -79,7 +79,7 @@ export interface ɵComposerKeyEvent {
  * This handles Enter only. Keys for the slash-command menu stay in each
  * framework, and the framework handles them before it calls this function.
  *
- * Results:
+ * `action`:
  * - `"send"`: send the trimmed text.
  * - `"stop"`: stop the run. This happens for Enter in an empty input while
  *   the agent runs. Text in the input always means send, not stop.
@@ -88,9 +88,9 @@ export interface ɵComposerKeyEvent {
  *   is disabled, for keys other than Enter, and for an Enter that has
  *   nothing to send or stop.
  *
- * Call `preventDefault()` for every Enter without Shift that is not part of
- * IME composition, including when the result is `"none"`. This stops Enter
- * from adding a line break that the user cannot send.
+ * `preventDefault` is `true` for every Enter without Shift that is not part
+ * of IME composition, also when `action` is `"none"`: Enter never adds a line
+ * break that the user cannot send.
  *
  * @param event - The keyboard event, or an object with the same fields.
  * @param input - The current state of the chat input.
@@ -98,28 +98,38 @@ export interface ɵComposerKeyEvent {
  * @example
  * ```ts
  * function onKeyDown(event: KeyboardEvent) {
- *   if (event.isComposing || event.keyCode === 229) return;
  *   // ...slash-command menu keys...
- *   const result = ɵresolveComposerKey(event, composerInput);
- *   if (event.key === "Enter" && !event.shiftKey) event.preventDefault();
- *   if (result === "send") sendMessage(composerInput.value.trim());
- *   if (result === "stop") stopRun();
+ *   const { action, preventDefault } = ɵresolveComposerKey(event, composerInput);
+ *   if (preventDefault) event.preventDefault();
+ *   if (action === "send") sendMessage(composerInput.value.trim());
+ *   if (action === "stop") stopRun();
  * }
  * ```
  */
 export function ɵresolveComposerKey(
   event: ɵComposerKeyEvent,
   input: ɵComposerInput,
-) {
-  const isImeComposition = event.isComposing || event.keyCode === 229;
-  const isBlocked = isImeComposition || input.disabled === true;
-  if (isBlocked || event.key !== "Enter") {
-    return "none";
+): { action: ɵComposerKeyAction; preventDefault: boolean } {
+  if (isImeComposition(event) || event.key !== "Enter") {
+    return { action: "none", preventDefault: false };
   }
   if (event.shiftKey) {
-    return "newline";
+    return { action: "newline", preventDefault: false };
   }
+  return { action: resolveEnter(input), preventDefault: true };
+}
 
+/** What a key press in the chat input does. See {@link ɵresolveComposerKey}. */
+export type ɵComposerKeyAction = "send" | "stop" | "newline" | "none";
+
+/** `true` while the key is part of IME composition (for example CJK input). */
+function isImeComposition(event: ɵComposerKeyEvent) {
+  return event.isComposing || event.keyCode === 229;
+}
+
+/** What Enter without Shift does. */
+function resolveEnter(input: ɵComposerInput) {
+  if (input.disabled === true) return "none";
   const button = ɵcomposerButtonState(input);
   const isEmpty = input.value.trim().length === 0;
   if (button.isProcessing && isEmpty) {
@@ -343,5 +353,380 @@ export function ɵresolveSlashKey<T>(
       return { type: "close" } as const;
     default:
       return none;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Tools menu
+// ---------------------------------------------------------------------------
+
+/**
+ * The tools menu the "+" button opens: the default "Add file" item first,
+ * then the app's items. A separator goes between the two parts. Separators
+ * next to each other become one, and separators at the start or end are
+ * dropped. Nested groups stay as they are.
+ *
+ * @param toolsMenu - The app's items. `"-"` is a separator.
+ * @param addFileItem - The default "Add file" item, or `undefined` when the
+ *   chat takes no files.
+ *
+ * @example
+ * ```ts
+ * ɵnormalizeToolsMenu(["-", search, "-", "-", summarize, "-"], addFile);
+ * // → [addFile, "-", search, "-", summarize]
+ * ```
+ */
+export function ɵnormalizeToolsMenu<T>(
+  toolsMenu: readonly (T | "-")[] | undefined,
+  addFileItem?: T,
+) {
+  const items: (T | "-")[] = [];
+  if (addFileItem !== undefined) items.push(addFileItem, "-");
+  for (const item of toolsMenu ?? []) {
+    const isRepeatedSeparator =
+      item === "-" && (items.length === 0 || items[items.length - 1] === "-");
+    if (!isRepeatedSeparator) items.push(item);
+  }
+  while (items[items.length - 1] === "-") items.pop();
+  return items;
+}
+
+/** One row of a tools menu drawn as a flat list. */
+export type ɵToolsMenuDisplayEntry =
+  | { type: "separator"; key: string }
+  | { type: "label"; key: string; label: string; depth: number }
+  | {
+      type: "item";
+      key: string;
+      label: string;
+      depth: number;
+      action: () => void;
+    };
+
+/**
+ * The tools menu as a flat list of rows, for a menu that draws groups inline
+ * instead of as submenus. A group becomes a label row followed by its items
+ * one level deeper. Leaf items without an `action` are dropped. Each row has
+ * a `key` that stays the same while the menu does.
+ *
+ * @param menu - The menu from {@link ɵnormalizeToolsMenu}.
+ */
+export function ɵflattenToolsMenuForDisplay<T extends ɵCommandMenuItem<T>>(
+  menu: readonly (T | "-")[],
+) {
+  const walk = (
+    items: readonly (T | "-")[],
+    depth: number,
+    prefix: string,
+  ): ɵToolsMenuDisplayEntry[] =>
+    items.flatMap((item, index): ɵToolsMenuDisplayEntry[] => {
+      const key = `${prefix}-${index}`;
+      if (item === "-") return [{ type: "separator", key: `sep-${key}` }];
+      if (item.items && item.items.length > 0) {
+        return [
+          { type: "label", key: `label-${key}`, label: item.label, depth },
+          ...walk(item.items, depth + 1, key),
+        ];
+      }
+      if (!item.action) return [];
+      return [
+        {
+          type: "item",
+          key: `item-${key}`,
+          label: item.label,
+          depth,
+          action: item.action,
+        },
+      ];
+    });
+  return walk(menu, 0, "root");
+}
+
+// ---------------------------------------------------------------------------
+// Recorder and disclaimer
+// ---------------------------------------------------------------------------
+
+/** The parts of an audio recorder that {@link ɵsyncRecorderToMode} uses. */
+export interface ɵModeRecorder {
+  /** `"idle"`, `"recording"`, or another state of the recorder. */
+  readonly state: string;
+  start(): Promise<unknown>;
+  stop(): Promise<unknown>;
+}
+
+/**
+ * Make the recorder follow the chat input's mode: it starts recording when
+ * the mode is `"transcribe"` and it is idle, and it stops when the mode
+ * changes while it records. Call it when the mode or the recorder changes.
+ * Errors are logged, not thrown.
+ *
+ * @param recorder - The recorder, or `null` before it renders.
+ * @param mode - The chat input's mode.
+ */
+export async function ɵsyncRecorderToMode(
+  recorder: ɵModeRecorder | null | undefined,
+  mode: ɵComposerMode,
+) {
+  if (!recorder) return;
+  try {
+    if (mode === "transcribe") {
+      if (recorder.state === "idle") await recorder.start();
+    } else if (recorder.state === "recording") {
+      await recorder.stop();
+    }
+  } catch (error) {
+    console.error(error);
+  }
+}
+
+/**
+ * Whether the chat input shows its disclaimer: as `showDisclaimer` says, or,
+ * when it is not set, only when the input is pinned with absolute
+ * positioning.
+ */
+export function ɵshowsComposerDisclaimer(options: {
+  showDisclaimer?: boolean;
+  positioning?: "static" | "absolute";
+}) {
+  return options.showDisclaimer ?? options.positioning === "absolute";
+}
+
+// ---------------------------------------------------------------------------
+// Composer state
+// ---------------------------------------------------------------------------
+
+/** What the chat input shows. See {@link ɵComposerController}. */
+export interface ɵComposerSnapshot<T> {
+  /** The text in the input. */
+  readonly value: string;
+  /** The slash-menu query, or `null` while the slash menu is closed. */
+  readonly slashQuery: string | null;
+  /** The commands the slash menu lists for the query. */
+  readonly slashCommands: readonly ɵRunnableCommand<T>[];
+  /** The highlighted row of the slash menu, or `-1` when no row matches. */
+  readonly slashHighlightIndex: number;
+}
+
+/** What the framework passes to {@link ɵComposerController.setInputs}. */
+export interface ɵComposerControllerInputs<T> {
+  /** The text when the app controls it, or `undefined` to keep it inside. */
+  value: string | undefined;
+  mode: ɵComposerMode;
+  /** The tools menu, from {@link ɵnormalizeToolsMenu}. */
+  menu: readonly (T | "-")[];
+}
+
+export interface ɵComposerControllerOptions {
+  /** The starting text when the app does not control it. */
+  initialValue?: string;
+  /** Called with each new text: typing, and clearing after a send or command. */
+  onChange?: (value: string) => void;
+}
+
+/** The result of {@link ɵComposerController.keyDown}. */
+export interface ɵComposerKeyDownResult {
+  /** Call `preventDefault()` on the event. */
+  preventDefault: boolean;
+  /**
+   * `"send"` or `"stop"`: do that now. `"command"`: a slash command ran and
+   * the input cleared; give the text box focus again.
+   */
+  action: ɵComposerKeyAction | "command";
+}
+
+/**
+ * The text and slash-command menu of one chat input.
+ *
+ * - The text is the app's `value` when it sets one (controlled), else the
+ *   controller keeps it. Every change calls `onChange`, in both cases.
+ * - The slash menu opens while the text starts with `/` in input mode and
+ *   the menu has commands. Escape, running a command, and leaving input mode
+ *   close it until the text changes.
+ * - The highlight goes to the first row when the query changes and stays on
+ *   a row that exists when the list changes.
+ *
+ * Frameworks render from `getSnapshot()` and re-render when `subscribe()`
+ * notifies. Call `setInputs()` whenever the app's value, the mode, or the
+ * tools menu changes.
+ *
+ * @example
+ * ```ts
+ * const composer = new ɵComposerController({ onChange: emitChange });
+ * composer.setInputs({ value: undefined, mode: "input", menu });
+ * textarea.oninput = () => composer.setValue(textarea.value);
+ * textarea.onkeydown = (event) => {
+ *   const { preventDefault, action } = composer.keyDown(event, composerInput);
+ *   if (preventDefault) event.preventDefault();
+ *   if (action === "send") composer.submit(sendMessage);
+ * };
+ * ```
+ */
+export class ɵComposerController<T extends ɵCommandMenuItem<T>> {
+  readonly #listeners = new Set<() => void>();
+  readonly #onChange: ((value: string) => void) | undefined;
+  #internalValue: string;
+  #controlledValue: string | undefined;
+  #mode: ɵComposerMode = "input";
+  #menu: readonly (T | "-")[] = [];
+  #commands: ɵRunnableCommand<T>[] = [];
+  // The text the slash menu was closed for; it stays closed until the text
+  // changes.
+  #closedFor: string | null = null;
+  #state: ɵComposerSnapshot<T>;
+
+  constructor({
+    initialValue = "",
+    onChange,
+  }: ɵComposerControllerOptions = {}) {
+    this.#internalValue = initialValue;
+    this.#onChange = onChange;
+    this.#state = {
+      value: initialValue,
+      slashQuery: null,
+      slashCommands: [],
+      slashHighlightIndex: 0,
+    };
+  }
+
+  /** The current state. The same object until something changes. */
+  getSnapshot = () => this.#state;
+
+  /** Calls `listener` when the state changes. Returns the unsubscribe function. */
+  subscribe = (listener: () => void) => {
+    this.#listeners.add(listener);
+    return () => {
+      this.#listeners.delete(listener);
+    };
+  };
+
+  /** Takes the app's value, the mode, and the tools menu. */
+  setInputs = ({ value, mode, menu }: ɵComposerControllerInputs<T>) => {
+    this.#controlledValue = value;
+    if (menu !== this.#menu) {
+      this.#menu = menu;
+      this.#commands = ɵflattenCommandItems(menu);
+    }
+    if (mode !== this.#mode) {
+      this.#mode = mode;
+      if (mode !== "input") this.#closedFor = this.#value();
+    }
+    this.#refresh();
+  };
+
+  /** The user changed the text. */
+  setValue = (value: string) => {
+    if (this.#controlledValue === undefined) this.#internalValue = value;
+    this.#onChange?.(value);
+    this.#refresh();
+  };
+
+  /** Highlights row `index` of the slash menu, for example on hover. */
+  highlight = (index: number) => {
+    this.#refresh(index);
+  };
+
+  /** Closes the slash menu and keeps the text. */
+  closeSlashMenu = () => {
+    this.#closedFor = this.#value();
+    this.#refresh();
+  };
+
+  /** Clears the text, closes the slash menu, and runs `command`. */
+  runCommand = (command: T) => {
+    this.#closedFor = this.#value();
+    this.setValue("");
+    command.action?.();
+  };
+
+  /**
+   * Sends the trimmed text with `send` and then clears the input. Does
+   * nothing for text that is only whitespace.
+   *
+   * @param send - Receives the trimmed text.
+   * @param options.value - The text to send, when the framework has a newer
+   *   one than the snapshot (a controlled value can lag a tick).
+   * @param options.clear - Clear the input after sending. Default: `true`.
+   * @returns Whether `send` was called.
+   */
+  submit = (
+    send: (text: string) => void,
+    {
+      value = this.#value(),
+      clear = true,
+    }: { value?: string; clear?: boolean } = {},
+  ) => {
+    const trimmed = value.trim();
+    if (!trimmed) return false;
+    send(trimmed);
+    if (clear) this.setValue("");
+    return true;
+  };
+
+  /**
+   * Handles a key press in the text box: the slash-menu keys first, then
+   * Enter as {@link ɵresolveComposerKey} decides.
+   *
+   * @param event - The keyboard event, or an object with the same fields.
+   * @param input - The chat input's state for the send or stop decision.
+   */
+  keyDown = (
+    event: ɵComposerKeyEvent,
+    input: ɵComposerInput,
+  ): ɵComposerKeyDownResult => {
+    if (isImeComposition(event)) {
+      return { preventDefault: false, action: "none" };
+    }
+    const slash = ɵresolveSlashKey(event, {
+      query: this.#state.slashQuery,
+      commands: this.#state.slashCommands,
+      highlightIndex: this.#state.slashHighlightIndex,
+    });
+    switch (slash.type) {
+      case "highlight":
+        this.highlight(slash.index);
+        return { preventDefault: true, action: "none" };
+      case "run":
+        this.runCommand(slash.command);
+        return { preventDefault: true, action: "command" };
+      case "close":
+        this.closeSlashMenu();
+        return { preventDefault: true, action: "none" };
+      case "none":
+        return ɵresolveComposerKey(event, input);
+    }
+  };
+
+  #value() {
+    return this.#controlledValue ?? this.#internalValue;
+  }
+
+  #refresh(highlight = this.#state.slashHighlightIndex) {
+    const value = this.#value();
+    if (this.#closedFor !== null && this.#closedFor !== value) {
+      this.#closedFor = null;
+    }
+    const isOpen = this.#mode === "input" && this.#closedFor === null;
+    const slashQuery = isOpen
+      ? ɵparseSlashQuery(value, this.#commands.length > 0)
+      : null;
+    const slashCommands = ɵfilterCommands(this.#commands, slashQuery);
+    const queryChanged = slashQuery !== this.#state.slashQuery;
+    const slashHighlightIndex =
+      slashQuery === null || (queryChanged && slashCommands.length > 0)
+        ? 0
+        : ɵclampSlashIndex(highlight, slashCommands.length);
+
+    const previous = this.#state;
+    const unchanged =
+      value === previous.value &&
+      slashQuery === previous.slashQuery &&
+      slashHighlightIndex === previous.slashHighlightIndex &&
+      slashCommands.length === previous.slashCommands.length &&
+      slashCommands.every(
+        (command, i) => command === previous.slashCommands[i],
+      );
+    if (unchanged) return;
+    this.#state = { value, slashQuery, slashCommands, slashHighlightIndex };
+    for (const listener of this.#listeners) listener();
   }
 }

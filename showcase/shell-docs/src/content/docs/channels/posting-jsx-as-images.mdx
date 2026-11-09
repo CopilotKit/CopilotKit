@@ -234,7 +234,7 @@ The new image feature targets managed Slack and Teams. Direct adapters and the o
 
 ## See it end to end
 
-The [`examples/slack`](https://github.com/CopilotKit/CopilotKit/tree/main/examples/slack) app (`app/showcase/`) uses this for three "run it in your own Slack" features. Each one is a CopilotKit-branded card, and each is triggerable both by a slash command and by prompt (the agent calls the matching `render_*` tool; both share one `render*` fn):
+The [`examples/templates/slack`](https://github.com/CopilotKit/CopilotKit/tree/main/examples/templates/slack) app (`app/showcase/`) uses this for three "run it in your own Slack" features. Each one is a CopilotKit-branded card, and each is triggerable both by a slash command and by prompt (the agent calls the matching `render_*` tool; both share one `render*` fn):
 
 - **PR review radar** (`/prs`): a card of the oldest open PRs with age-colored badges, from GitHub's public API (no token).
 - **Weekly OSS pulse** (`/pulse`): a KPI card (stars, npm downloads, open issues) from GitHub and npm.

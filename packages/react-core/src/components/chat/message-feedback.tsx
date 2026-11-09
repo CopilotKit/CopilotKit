@@ -83,6 +83,8 @@ export interface FeedbackComment {
   readonly setDraft: (draft: string) => void;
   /** Grows each time the field should take focus: after a keyboard rating. */
   readonly focusRequest: number;
+  /** The chosen thumb the popover points at. */
+  readonly anchor: HTMLElement | null;
   /** Whether a focus request waits; reading it answers the request. */
   readonly takeFocusRequest: () => boolean;
   /** The comment field, for moving focus into it. */
@@ -102,6 +104,24 @@ export interface FeedbackComment {
   readonly close: ɵFeedbackCommentController["close"];
   /** Moves focus back to the thumb without opening the comment again. */
   readonly returnFocus: (target: HTMLElement | null) => void;
+  /** A thumb click; returns whether the app's handler should run. */
+  readonly rate: ɵFeedbackCommentController["rate"];
+  /** The attributes and handlers of one thumb. */
+  readonly thumb: ɵFeedbackCommentController["thumb"];
+  /** Points at the chosen thumb when the click gave no element. */
+  readonly findAnchor: ɵFeedbackCommentController["findAnchor"];
+  /** Closes a comment whose rating changed or whose toolbar hid. */
+  readonly sync: ɵFeedbackCommentController["sync"];
+  /** Moves focus into the field when a keyboard rating asked for it. */
+  readonly focusField: ɵFeedbackCommentController["focusField"];
+  /** Saves, closes, and returns focus to the thumb. */
+  readonly submit: ɵFeedbackCommentController["submit"];
+  /** Escape in the popover; returns whether to stop the event. */
+  readonly popoverEscape: ɵFeedbackCommentController["popoverEscape"];
+  /** Tab out of the popover, back into the page's order. */
+  readonly popoverKeyDown: ɵFeedbackCommentController["popoverKeyDown"];
+  /** Focus left the comment form. */
+  readonly popoverFocusLeave: ɵFeedbackCommentController["popoverFocusLeave"];
 }
 
 /**
@@ -113,13 +133,14 @@ export function useFeedbackComment(
 ): FeedbackComment {
   const latestControls = useRef(controls);
   latestControls.current = controls;
+  const inputRef = useRef<HTMLInputElement | null>(null);
   const [controller] = useState(
     () =>
       new ɵFeedbackCommentController({
         getControls: () => latestControls.current,
+        getInput: () => inputRef.current,
       }),
   );
-  const inputRef = useRef<HTMLInputElement | null>(null);
   const state = useSyncExternalStore(
     controller.subscribe,
     controller.getSnapshot,
@@ -139,5 +160,14 @@ export function useFeedbackComment(
     setEditing: controller.setEditing,
     close: controller.close,
     returnFocus: controller.returnFocus,
+    rate: controller.rate,
+    thumb: controller.thumb,
+    findAnchor: controller.findAnchor,
+    sync: controller.sync,
+    focusField: controller.focusField,
+    submit: controller.submit,
+    popoverEscape: controller.popoverEscape,
+    popoverKeyDown: controller.popoverKeyDown,
+    popoverFocusLeave: controller.popoverFocusLeave,
   };
 }

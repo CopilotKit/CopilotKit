@@ -1,0 +1,56 @@
+{
+  "name": "demo",
+  "version": "0.1.4-next.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev --turbopack",
+    "build": "next build",
+    "start": "next start",
+    "test": "vitest",
+    "test:watch": "vitest --watch",
+    "test:coverage": "vitest --coverage",
+    "learning:export": "node scripts/export-learning-events.mjs"
+  },
+  "dependencies": {
+    "@ag-ui/client": "1.0.4",
+    "@ag-ui/mcp-apps-middleware": "0.0.2",
+    "@copilotkit/core": "workspace:*",
+    "@copilotkit/learning": "workspace:*",
+    "@copilotkit/react-core": "workspace:*",
+    "@copilotkit/runtime": "workspace:*",
+    "@copilotkit/shared": "workspace:*",
+    "@copilotkit/voice": "workspace:*",
+    "@modelcontextprotocol/sdk": "^1.18.2",
+    "@tanstack/ai": "^1.2.0",
+    "@tanstack/ai-anthropic": "^1.1.1",
+    "@tanstack/ai-gemini": "^1.1.1",
+    "@tanstack/ai-openai": "^1.1.1",
+    "cors": "^2.8.5",
+    "express": "^4.21.0",
+    "next": "15.5.15",
+    "openai": "^5.9.0",
+    "react": "19.1.0",
+    "react-dom": "19.1.0",
+    "rxjs": "^7.8.1",
+    "zod": "^4.2.0"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4",
+    "@types/better-sqlite3": "^7.6.13",
+    "@types/cors": "^2.8.17",
+    "@types/express": "^4.17.21",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "tailwindcss": "^4",
+    "typescript": "^5",
+    "vitest": "^3.2.3"
+  },
+  "nx": {
+    "targets": {
+      "build": {
+        "cache": false
+      }
+    }
+  }
+}

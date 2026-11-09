@@ -44,7 +44,9 @@ FLIGHT_SCHEMA = _load_schema("flight_schema.json")
 
 async def display_flight(
     origin: Annotated[str, Field(description="Origin airport code, e.g. 'SFO'")],
-    destination: Annotated[str, Field(description="Destination airport code, e.g. 'JFK'")],
+    destination: Annotated[
+        str, Field(description="Destination airport code, e.g. 'JFK'")
+    ],
     airline: Annotated[str, Field(description="Airline name, e.g. 'United'")],
     price: Annotated[str, Field(description="Price string, e.g. '$289'")],
 ) -> str:
@@ -105,7 +107,7 @@ SYSTEM_PROMPT = (
 agent = Agent(
     "a2ui_fixed_assistant",
     prompt=SYSTEM_PROMPT,
-    config=OpenAIResponsesConfig(model="gpt-5-mini", streaming=True),
+    config=OpenAIResponsesConfig(model="gpt-6-luna", streaming=True),
     tools=[display_flight],
     middleware=[loop_cap(4)],
 )

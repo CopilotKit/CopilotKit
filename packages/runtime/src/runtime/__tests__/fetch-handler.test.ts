@@ -767,7 +767,9 @@ describe("createCopilotRuntimeHandler — CORS", () => {
 describe("createCopilotRuntimeHandler — error handling", () => {
   it("returns 500 JSON error for unhandled errors", async () => {
     const agent: unknown = {
-      execute: vi.fn().mockRejectedValue(new Error("boom")),
+      setMessages: () => {
+        throw new Error("boom");
+      },
       clone: () => agent,
     };
     const runtime = createRuntime({
@@ -782,10 +784,18 @@ describe("createCopilotRuntimeHandler — error handling", () => {
       post("http://localhost/api/agent/default/run", {
         threadId: "t1",
         runId: "r1",
+        state: {},
+        messages: [],
+        tools: [],
+        context: [],
       }),
     );
-    // The handler catches errors and produces some response
-    expect(response).toBeInstanceOf(Response);
+
+    expect(response.status).toBe(500);
+    expect(await response.json()).toEqual({
+      error: "Failed to run agent",
+      message: "boom",
+    });
   });
 
   it("returns thrown Response directly", async () => {

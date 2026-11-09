@@ -29,10 +29,12 @@ Enable it to see:
 Pass `debug: true` to the `CopilotRuntime` constructor:
 
 ```ts title="app/api/copilotkit/[[...slug]]/route.ts"
-import { BuiltInAgent, CopilotRuntime } from "@copilotkit/runtime";
+import { CopilotRuntime } from "@copilotkit/runtime";
+import { BuiltInAgent } from "@copilotkit/runtime/agent";
+import { openaiText } from "@tanstack/ai-openai";
 
 const runtime = new CopilotRuntime({
-  agents: { default: new BuiltInAgent({ model: "openai/gpt-5.4" }) },
+  agents: { default: new BuiltInAgent({ model: openaiText("gpt-5.5") }) },
   debug: true, // [!code highlight]
 });
 ```
@@ -108,10 +110,12 @@ On `CopilotRuntime`, pass an object instead of `true` for fine-grained control
 over what gets logged:
 
 ```ts
-import { BuiltInAgent, CopilotRuntime } from "@copilotkit/runtime";
+import { CopilotRuntime } from "@copilotkit/runtime";
+import { BuiltInAgent } from "@copilotkit/runtime/agent";
+import { openaiText } from "@tanstack/ai-openai";
 
 const runtime = new CopilotRuntime({
-  agents: { default: new BuiltInAgent({ model: "openai/gpt-5.4" }) },
+  agents: { default: new BuiltInAgent({ model: openaiText("gpt-5.5") }) },
   debug: {
     events: true, // Log every event emitted/received
     lifecycle: true, // Log request/run lifecycle (start, finish, error)
@@ -135,10 +139,12 @@ When `debug` is a boolean (`true`), events and lifecycle logging are enabled but
 Log only lifecycle events (no per-event logs):
 
 ```ts
-import { BuiltInAgent, CopilotRuntime } from "@copilotkit/runtime";
+import { CopilotRuntime } from "@copilotkit/runtime";
+import { BuiltInAgent } from "@copilotkit/runtime/agent";
+import { openaiText } from "@tanstack/ai-openai";
 
 const runtime = new CopilotRuntime({
-  agents: { default: new BuiltInAgent({ model: "openai/gpt-5.4" }) },
+  agents: { default: new BuiltInAgent({ model: openaiText("gpt-5.5") }) },
   debug: { events: false, lifecycle: true },
 });
 ```
@@ -146,10 +152,12 @@ const runtime = new CopilotRuntime({
 Log events with full payloads but skip lifecycle:
 
 ```ts
-import { BuiltInAgent, CopilotRuntime } from "@copilotkit/runtime";
+import { CopilotRuntime } from "@copilotkit/runtime";
+import { BuiltInAgent } from "@copilotkit/runtime/agent";
+import { openaiText } from "@tanstack/ai-openai";
 
 const runtime = new CopilotRuntime({
-  agents: { default: new BuiltInAgent({ model: "openai/gpt-5.4" }) },
+  agents: { default: new BuiltInAgent({ model: openaiText("gpt-5.5") }) },
   debug: { events: true, lifecycle: false, verbose: true },
 });
 ```

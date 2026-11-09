@@ -77,6 +77,7 @@ Use predictive state updates when you want to:
     <Tabs groupId="language" items={[".NET", "Python"]}>
       <Tab value=".NET">
         ```csharp title="agent/Program.cs (excerpt)"
+#pragma warning disable OPENAI001
         using System.ComponentModel;
         using System.Text.Json;
         using AGUI.Abstractions;
@@ -101,7 +102,11 @@ Use predictive state updates when you want to:
 
         AITool stepProgress = AIFunctionFactory.Create(StepProgress, name: "step_progress");
         var agent = new OpenAIClient(openAiApiKey)
-            .GetChatClient("gpt-5.4-mini")
+            .GetChatClient("gpt-6-luna")
+    .AsIChatClient().AsBuilder()
+    .ConfigureOptions(options => options.RawRepresentationFactory = _ =>
+        new OpenAI.Chat.ChatCompletionOptions { ReasoningEffortLevel = new("none") })
+    .Build()
             .AsAIAgent(
                 name: "AGUIAssistant",
                 instructions: "You are a helpful assistant that may call the 'step_progress' tool to report intermediate steps.",

@@ -1,8 +1,24 @@
 import React from "react";
 import { render, waitFor } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  afterEach,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from "vitest";
 import { Chart } from "../Chart";
 import type { ChartProps } from "../Chart";
+
+// `Chart` loads recharts with `React.lazy`. A cold dynamic import of recharts
+// can take longer than `waitFor`'s 1s default when the suite runs under load,
+// which failed the first chart test of the file. Load it once up front so the
+// lazy import resolves from the module cache.
+beforeAll(async () => {
+  await import("recharts");
+}, 30_000);
 
 // Only supply the browser measurement missing from jsdom. Recharts computes
 // the axes and SVG marks itself; no chart component or scale is mocked.

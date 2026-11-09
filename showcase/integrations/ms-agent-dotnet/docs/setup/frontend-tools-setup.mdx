@@ -14,7 +14,7 @@
     public AIAgent CreateChartAgent()
     {
         return new ChatClientAgent(
-            _openAiClient.GetChatClient("gpt-4o-mini").AsIChatClient(),
+            _openAiClient.GetChatClient("gpt-6-luna").AsIChatClient(),
             name: "ChartAgent",
             instructions: SystemPrompt,
             tools: []);

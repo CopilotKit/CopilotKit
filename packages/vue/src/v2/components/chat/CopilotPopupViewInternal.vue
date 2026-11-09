@@ -1,16 +1,10 @@
 <script setup lang="ts">
+import { computed, onBeforeUnmount, ref, useAttrs, watch } from "vue";
 import {
-  computed,
-  nextTick,
-  onBeforeUnmount,
-  onMounted,
-  ref,
-  useAttrs,
-  watch,
-} from "vue";
-import {
-  ɵPOPUP_ANIMATION_MS,
+  ɵPOPUP_DEFAULT_HEIGHT,
+  ɵPOPUP_DEFAULT_WIDTH,
   ɵbindPopupDismiss,
+  ɵcreateExitPresence,
   ɵdimensionToCss,
 } from "@copilotkit/core";
 import { CopilotChatDefaultLabels } from "../../providers/types";
@@ -34,10 +28,6 @@ import type {
 } from "./types";
 
 defineOptions({ inheritAttrs: false });
-
-const DEFAULT_POPUP_WIDTH = 420;
-const DEFAULT_POPUP_HEIGHT = 560;
-const POPUP_ANIMATION_MS = ɵPOPUP_ANIMATION_MS;
 
 const props = withDefaults(
   defineProps<Omit<CopilotPopupViewProps, "defaultOpen">>(),
@@ -102,11 +92,19 @@ const attrs = useAttrs();
 const config = useCopilotChatConfiguration();
 
 const containerRef = ref<HTMLElement | null>(null);
-const isRendered = ref(config.value?.isModalOpen ?? false);
-const isAnimatingOut = ref(false);
-let animationTimer: ReturnType<typeof setTimeout> | undefined;
-
 const isPopupOpen = computed(() => config.value?.isModalOpen ?? false);
+
+// Core keeps the closed popup rendered while its exit animation plays.
+const presence = ɵcreateExitPresence(isPopupOpen.value);
+const isRendered = ref(presence.getState().isRendered);
+const isAnimatingOut = ref(presence.getState().isClosing);
+presence.subscribe((state) => {
+  isRendered.value = state.isRendered;
+  isAnimatingOut.value = state.isClosing;
+});
+watch(isPopupOpen, (open) => presence.setOpen(open));
+onBeforeUnmount(() => presence.dispose());
+
 const labels = computed(() => config.value?.labels ?? CopilotChatDefaultLabels);
 const headerTitle = computed(() => labels.value.modalHeaderTitle);
 const popupAnimationClass = computed(() =>
@@ -119,11 +117,11 @@ const popupStyle = computed(
     ({
       "--copilot-popup-width": ɵdimensionToCss(
         props.width,
-        DEFAULT_POPUP_WIDTH,
+        ɵPOPUP_DEFAULT_WIDTH,
       ),
       "--copilot-popup-height": ɵdimensionToCss(
         props.height,
-        DEFAULT_POPUP_HEIGHT,
+        ɵPOPUP_DEFAULT_HEIGHT,
       ),
       "--copilot-popup-max-width": "calc(100vw - 3rem)",
       "--copilot-popup-max-height": "calc(100dvh - 7.5rem)",
@@ -212,34 +210,6 @@ const chatViewBindings = computed(() => ({
   ...chatViewEventProps.value,
 }));
 
-watch(
-  isPopupOpen,
-  (open) => {
-    if (animationTimer) {
-      clearTimeout(animationTimer);
-      animationTimer = undefined;
-    }
-
-    if (open) {
-      isRendered.value = true;
-      isAnimatingOut.value = false;
-      return;
-    }
-
-    if (!isRendered.value) {
-      return;
-    }
-
-    isAnimatingOut.value = true;
-    animationTimer = setTimeout(() => {
-      isRendered.value = false;
-      isAnimatingOut.value = false;
-      animationTimer = undefined;
-    }, POPUP_ANIMATION_MS);
-  },
-  { immediate: true },
-);
-
 // Escape, a click outside (when enabled), and focus once the popup opens.
 watch(
   [isPopupOpen, () => props.clickOutsideToClose],
@@ -257,16 +227,6 @@ watch(
   },
   { immediate: true },
 );
-
-onMounted(async () => {
-  await nextTick();
-});
-
-onBeforeUnmount(() => {
-  if (animationTimer) {
-    clearTimeout(animationTimer);
-  }
-});
 </script>
 
 <template>

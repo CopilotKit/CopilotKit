@@ -1,4 +1,3 @@
-import { createRequire } from "node:module";
 import { readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
@@ -8,31 +7,44 @@ import { scenario } from "./model.mjs";
 /** Exercise the built SDK in a separate process so its long-lived sockets are scoped. */
 async function exercise() {
   const input = JSON.parse(await readFile(process.argv[2], "utf8"));
-  const require = createRequire(join(input.consumer, "package.json"));
-  const entry = join(
-    input.consumer,
-    "node_modules/@copilotkit/runtime/dist/index.mjs",
-  );
+  // Load each entry through the `import` condition of its package's `exports`
+  // map, as the consumer's own import would, from the consumer's install.
+  const entryFor = async (name, subpath = ".") => {
+    const directory = join(input.consumer, "node_modules", name);
+    const { exports } = JSON.parse(
+      await readFile(join(directory, "package.json"), "utf8"),
+    );
+    return join(directory, exports[subpath].import);
+  };
+  const entry = await entryFor("@copilotkit/runtime");
   const {
-    BuiltInAgent,
     CopilotRuntime,
     CopilotKitIntelligence,
     createCopilotRuntimeHandler,
   } = await import(pathToFileURL(entry));
-  const runtimeRequire = createRequire(
-    require.resolve("@copilotkit/runtime/package.json"),
+  const { BuiltInAgent } = await import(
+    pathToFileURL(await entryFor("@copilotkit/runtime", "./agent"))
   );
-  const { createOpenAI } = runtimeRequire("@ai-sdk/openai");
+  // An optional peer of the runtime, installed by the consumer.
+  const { createOpenaiChatCompletions } = await import(
+    pathToFileURL(await entryFor("@tanstack/ai-openai"))
+  );
   const modelOrigin = new URL(input.modelUrl).origin;
-  const provider = createOpenAI({
-    baseURL: `${input.modelUrl}/v1`,
-    apiKey: "smoke-placeholder",
-    fetch: (resource, init) => {
-      if (new URL(String(resource)).origin !== modelOrigin)
-        throw new Error("External model requests are forbidden");
-      return fetch(resource, { ...init, signal: AbortSignal.timeout(30_000) });
+  const model = createOpenaiChatCompletions(
+    "smoke-agent",
+    "smoke-placeholder",
+    {
+      baseURL: `${input.modelUrl}/v1`,
+      fetch: (resource, init) => {
+        if (new URL(String(resource)).origin !== modelOrigin)
+          throw new Error("External model requests are forbidden");
+        return fetch(resource, {
+          ...init,
+          signal: AbortSignal.timeout(30_000),
+        });
+      },
     },
-  });
+  );
   const intelligence = new CopilotKitIntelligence({
     apiUrl: input.apiUrl,
     wsUrl: input.gatewayUrl,
@@ -43,7 +55,7 @@ async function exercise() {
     intelligence,
     agents: {
       smoke: new BuiltInAgent({
-        model: provider.chat("smoke-agent"),
+        model,
         maxSteps: 1,
       }),
     },

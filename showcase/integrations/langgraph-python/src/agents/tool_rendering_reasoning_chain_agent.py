@@ -120,7 +120,7 @@ SYSTEM_PROMPT = (
     "fabricate data that a tool could provide."
 )
 
-REASONING_MODEL = os.environ.get("OPENAI_REASONING_MODEL", "gpt-5.4")
+REASONING_MODEL = os.environ.get("OPENAI_REASONING_MODEL", "gpt-6-luna")
 
 # No full CopilotKitMiddleware — this demo combines reasoning-token streaming
 # with backend tool rendering, but doesn't consume any frontend tools or app
@@ -134,14 +134,13 @@ graph = create_deep_agent(
     model=init_chat_model(
         f"openai:{REASONING_MODEL}",
         use_responses_api=True,
-        # `summary: "detailed"` forces reasoning-summary emission on every
-        # response. The previous `"auto"` lets the model decide, and with
-        # tools present the model often skips reasoning summaries entirely
-        # (the chain-of-thought goes straight to a tool call without the
-        # summary step). That breaks the `<ReasoningBlock>` mount because
-        # no reasoning-role message lands. Match the working
-        # `reasoning_agent.py` config: medium effort + detailed summary.
-        reasoning={"effort": "medium", "summary": "detailed"},
+        # A live Luna stock chain still lacked visible summaries at high effort.
+        # Request Luna's max budget here; keep model overrides at high.
+        # Public summary emission remains provider-controlled.
+        reasoning={
+            "effort": "max" if REASONING_MODEL == "gpt-6-luna" else "high",
+            "summary": "detailed",
+        },
     ),
     tools=[get_weather, search_flights, get_stock_price, roll_dice],
     system_prompt=SYSTEM_PROMPT,

@@ -288,7 +288,7 @@ const [engine, { GenerativeUIRuntimeContext }, { SurfaceView }, resolveModule] =
     import("./engine"),
     import("../../../packages/react-core/src/generative-ui/runtime-context"),
     import("../../../packages/react-core/src/generative-ui/SurfaceView"),
-    import("../../../packages/react-core/src/generative-ui/resolve"),
+    import("../../../packages/core/src/generative-ui/resolve"),
   ]).catch((error: unknown) => {
     parentPort?.postMessage({
       fatal: String((error as Error)?.stack ?? error),

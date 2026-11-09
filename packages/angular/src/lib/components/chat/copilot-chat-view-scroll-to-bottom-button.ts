@@ -42,7 +42,7 @@ export class CopilotChatViewScrollToBottomButton {
   onClick = input<(() => void) | undefined>();
 
   // Simple, idiomatic Angular output
-  clicked = output<void>();
+  clicked = output();
 
   readonly labels = injectChatLabels();
 

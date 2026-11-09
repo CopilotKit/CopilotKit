@@ -99,7 +99,7 @@ Use this prompt to connect your Agent Spec agent to CopilotKit and verify a work
 
           ```bash
           export OPENAI_API_KEY=...
-          export OPENAI_MODEL=gpt-5.4
+          export OPENAI_MODEL=gpt-6-luna
           ```
 
           Note that these environment variables can point to any OpenAI-compatible LLM provider (e.g., local vLLM server, Together AI), but the variable names need to be `OPENAI_API_KEY` and `OPENAI_MODEL`.
@@ -241,7 +241,7 @@ Use this prompt to connect your Agent Spec agent to CopilotKit and verify a work
 
           ```bash
           export OPENAI_API_KEY=...
-          export OPENAI_MODEL=gpt-5.4
+          export OPENAI_MODEL=gpt-6-luna
           ```
 
           Note that these environment variables can point to any OpenAI-compatible LLM provider (e.g., local vLLM server, Together AI), but the variable names need to be `OPENAI_API_KEY` and `OPENAI_MODEL`.
@@ -276,7 +276,7 @@ Use this prompt to connect your Agent Spec agent to CopilotKit and verify a work
               system_prompt="You are a helpful assistant, named Specky, that speaks a lot.",
               llm_config=OpenAiCompatibleConfig(
                   name="my-llm",
-                  model_id="gpt-5.4",
+                  model_id="gpt-6-luna",
                   url="https://api.openai.com/v1",
               ),
           )
@@ -312,7 +312,7 @@ Use this prompt to connect your Agent Spec agent to CopilotKit and verify a work
           ### Install CopilotKit packages
 
           ```npm
-          npm install @copilotkit/react-core @copilotkit/runtime @ag-ui/client@1.0.2
+          npm install @copilotkit/react-core @copilotkit/runtime @ag-ui/client@1.0.4
           ```
       </Step>
       <Step>

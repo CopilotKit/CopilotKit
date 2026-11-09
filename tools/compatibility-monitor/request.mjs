@@ -4,7 +4,7 @@ export const adapters = {
     directory: "runtime",
     name: "@copilotkit/runtime",
     entrypoint: "@copilotkit/runtime",
-    packages: ["ai", "zod"],
+    packages: ["ai", "@tanstack/ai", "zod"],
   },
   "langgraph-ts": {
     directory: "intelligence-langgraph",

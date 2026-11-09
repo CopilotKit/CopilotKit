@@ -2,15 +2,19 @@ import {
   ChangeDetectionStrategy,
   Component,
   computed,
+  DestroyRef,
+  effect,
+  inject,
   input,
-  linkedSignal,
   signal,
-  untracked,
   ViewEncapsulation,
 } from "@angular/core";
 import { hostStyles } from "../host-styles";
 import type { Message, ReasoningMessage } from "@ag-ui/core";
-import { ɵformatLabel, ɵformatReasoningDurationLabel } from "@copilotkit/core";
+import {
+  ɵgetReasoningHeaderLabel,
+  ɵReasoningDisclosure,
+} from "@copilotkit/core";
 import { cn } from "../../utils";
 import { CopilotChatAssistantMessageRenderer } from "./copilot-chat-assistant-message-renderer";
 import { injectChatLabels } from "../../chat-config";
@@ -82,8 +86,6 @@ export class CopilotChatReasoningMessage {
   private readonly labels = injectChatLabels();
   protected readonly ChevronRightIcon = ChevronRight;
 
-  private readonly userToggled = signal(false);
-
   protected readonly isLatest = computed(() => {
     const messages = this.messages();
     return messages[messages.length - 1]?.id === this.message().id;
@@ -93,48 +95,47 @@ export class CopilotChatReasoningMessage {
     () => this.isRunning() && this.isLatest(),
   );
 
-  // Captures the wall-clock start the moment streaming begins and holds it
-  // afterwards. `label` reads this in both branches, keeping the linkedSignal
-  // warm so it recomputes across the streaming transition (no effect needed).
-  private readonly startTime = linkedSignal<boolean, number | undefined>({
-    source: this.isStreaming,
-    computation: (streaming, prev) =>
-      streaming ? (prev?.value ?? Date.now()) : prev?.value,
-  });
+  // Open while streaming, auto-collapse when it ends unless the user
+  // toggled, and the elapsed time: see core's ɵReasoningDisclosure.
+  // Inputs are not set yet here; the effect below passes the first state.
+  readonly #disclosure = new ɵReasoningDisclosure();
+  readonly #disclosureState = signal(this.#disclosure.getSnapshot());
 
-  // Opens automatically while streaming. Once the user toggles, their choice is
-  // respected; otherwise the panel auto-collapses when streaming ends. Reads
-  // userToggled untracked so a mid-stream toggle doesn't re-force it open.
-  protected readonly open = linkedSignal<boolean, boolean>({
-    source: this.isStreaming,
-    computation: (streaming, prev) =>
-      streaming
-        ? true
-        : untracked(() => this.userToggled())
-          ? (prev?.value ?? false)
-          : false,
-  });
+  protected readonly open = computed(() => this.#disclosureState().isOpen);
 
   protected readonly hasContent = computed(
-    () => (this.message().content?.length ?? 0) > 0,
+    // Untyped data can leave `content` out.
+    () => (this.message().content || "").length > 0,
   );
 
   protected readonly reasoningContent = computed(
-    () => this.message().content ?? "",
+    () => this.message().content || "",
   );
 
   /**
    * `labels.reasoningMessageThinkingLabel` while streaming, then
    * `labels.reasoningMessageThoughtForLabel` ("Thought for 4 seconds").
    */
-  protected readonly label = computed(() => {
-    const start = this.startTime();
-    if (this.isStreaming()) return this.labels.reasoningMessageThinkingLabel;
-    const seconds = start === undefined ? 0 : (Date.now() - start) / 1000;
-    return ɵformatLabel(this.labels.reasoningMessageThoughtForLabel, {
-      duration: ɵformatReasoningDurationLabel(seconds, this.labels),
+  protected readonly label = computed(() =>
+    ɵgetReasoningHeaderLabel(
+      {
+        isStreaming: this.isStreaming(),
+        elapsedSeconds: this.#disclosureState().elapsedSeconds,
+      },
+      this.labels,
+    ),
+  );
+
+  constructor() {
+    const unsubscribe = this.#disclosure.subscribe(() =>
+      this.#disclosureState.set(this.#disclosure.getSnapshot()),
+    );
+    effect(() => this.#disclosure.setStreaming(this.isStreaming()));
+    inject(DestroyRef).onDestroy(() => {
+      unsubscribe();
+      this.#disclosure.dispose();
     });
-  });
+  }
 
   protected readonly computedClass = computed(() =>
     cn("cpk-reasoning-message", this.inputClass()),
@@ -156,7 +157,6 @@ export class CopilotChatReasoningMessage {
 
   protected toggle(): void {
     if (!this.hasContent()) return;
-    this.userToggled.set(true);
-    this.open.update((value) => !value);
+    this.#disclosure.toggle();
   }
 }

@@ -27,16 +27,42 @@
       // node_modules come before kiira's cache in the "*" fallback. Pin the
       // copies from externalPackages so docs check against the current release.
       "@tanstack/ai": ["./node_modules/.kiira/node_modules/@tanstack/ai"],
+      // The runtime's agent types import `TextActivityOptions` from this
+      // subpath. Pin it to the same copy, or its tool types do not match.
+      "@tanstack/ai/adapters": [
+        "./node_modules/.kiira/node_modules/@tanstack/ai/dist/esm/activities/index.d.ts"
+      ],
       "@tanstack/ai-openai": [
         "./node_modules/.kiira/node_modules/@tanstack/ai-openai"
+      ],
+      "@tanstack/ai-openai/compatible": [
+        "./node_modules/.kiira/node_modules/@tanstack/ai-openai/dist/esm/compatible/index.d.ts"
+      ],
+      "@tanstack/ai-openai/tools": [
+        "./node_modules/.kiira/node_modules/@tanstack/ai-openai/dist/esm/tools/index.d.ts"
       ],
       "@tanstack/ai-anthropic": [
         "./node_modules/.kiira/node_modules/@tanstack/ai-anthropic"
       ],
+      "@tanstack/ai-gemini": [
+        "./node_modules/.kiira/node_modules/@tanstack/ai-gemini"
+      ],
+      "@tanstack/ai-vertex": [
+        "./node_modules/.kiira/node_modules/@tanstack/ai-vertex"
+      ],
+      "@tanstack/ai-mcp": [
+        "./node_modules/.kiira/node_modules/@tanstack/ai-mcp"
+      ],
+      // The runtime no longer installs AI SDK providers, and the example apps
+      // pin older majors. Pin the `type: "aisdk"` factory providers the same way.
+      "@ai-sdk/openai": ["./node_modules/.kiira/node_modules/@ai-sdk/openai"],
+      "@ai-sdk/anthropic": [
+        "./node_modules/.kiira/node_modules/@ai-sdk/anthropic"
+      ],
       // ai@6 and @ai-sdk/mcp each pin an exact @ai-sdk/provider-utils, and the
       // workspace lockfile resolves them to two different releases, so their
-      // `schemaSymbol`s differ and an MCP client is not assignable to the
-      // runtime's mcpClients. A reader's fresh install gets one matching
+      // `schemaSymbol`s differ and their schema and tool types are not
+      // assignable to each other. A reader's fresh install gets one matching
       // release; resolve every import of it to the single copy kiira installs.
       "@ai-sdk/provider-utils": [
         "./node_modules/.kiira/node_modules/@ai-sdk/provider-utils"
@@ -93,6 +119,9 @@
         "./packages/agentcore-runner/src/index.ts"
       ],
       "@copilotkit/core": ["./packages/core/src/index.ts"],
+      "@copilotkit/core/generative-ui": [
+        "./packages/core/src/generative-ui/index.ts"
+      ],
       "@copilotkit/intelligence-langgraph": [
         "./packages/intelligence-langgraph/src/index.ts"
       ],
@@ -151,6 +180,10 @@
         "./packages/react-native/src/polyfills/streams.ts"
       ],
       "@copilotkit/runtime": ["./packages/runtime/src/index.ts"],
+      "@copilotkit/runtime/agent": ["./packages/runtime/src/agent/index.ts"],
+      "@copilotkit/runtime/agent/ai-sdk": [
+        "./packages/runtime/src/agent/ai-sdk/index.ts"
+      ],
       "@copilotkit/runtime/internal/learned-skills": [
         "./packages/runtime/src/internal/learned-skills.ts"
       ],
@@ -164,6 +197,9 @@
         "./packages/sdk-js/src/langgraph-middlewares.ts"
       ],
       "@copilotkit/shared": ["./packages/shared/src/index.ts"],
+      "@copilotkit/shared/generative-ui": [
+        "./packages/shared/src/generative-ui/index.ts"
+      ],
       "@copilotkit/sqlite-runner": ["./packages/sqlite-runner/src/index.ts"],
       "@copilotkit/voice": ["./packages/voice/src/index.ts"],
       "@copilotkit/vue": ["./packages/vue/src/index.ts"],
@@ -178,6 +214,18 @@
       // ng-package.json files, so map them directly.
       "@copilotkit/angular": ["./packages/angular/src/index.ts"],
       "@copilotkit/angular/a2ui": ["./packages/angular/src/a2ui/index.ts"],
+      "@copilotkit/angular/generative-ui": [
+        "./packages/angular/src/generative-ui/index.ts"
+      ],
+      "@copilotkit/angular/generative-ui/chart": [
+        "./packages/angular/src/generative-ui/chart/index.ts"
+      ],
+      "@copilotkit/angular/generative-ui/icons": [
+        "./packages/angular/src/generative-ui/icons/index.ts"
+      ],
+      "@copilotkit/angular/generative-ui/map": [
+        "./packages/angular/src/generative-ui/map/index.ts"
+      ],
       "@copilotkit/angular/mcp-apps": [
         "./packages/angular/src/mcp-apps/index.ts"
       ]

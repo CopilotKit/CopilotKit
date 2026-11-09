@@ -10,7 +10,7 @@ The Copilot Runtime is the backend layer that connects your frontend application
 The runtime is a lightweight server endpoint that you add to your backend:
 
 ```npm
-npm install @copilotkit/runtime
+npm install @copilotkit/runtime @tanstack/ai @tanstack/ai-openai
 ```
 
 Here's a minimal example using Next.js. `createCopilotRuntimeHandler` returns a
@@ -134,10 +134,12 @@ The runtime supports two first-class middleware options you can enable directly 
 Pass `a2ui: {}` to automatically apply `A2UIMiddleware` to all registered agents:
 
 ```ts title="app/api/copilotkit/[[...slug]]/route.ts"
-import { BuiltInAgent, CopilotRuntime } from "@copilotkit/runtime";
+import { CopilotRuntime } from "@copilotkit/runtime";
+import { BuiltInAgent } from "@copilotkit/runtime/agent";
+import { openaiText } from "@tanstack/ai-openai";
 
 const runtime = new CopilotRuntime({
-  agents: { default: new BuiltInAgent({ model: "openai/gpt-5.4" }) },
+  agents: { default: new BuiltInAgent({ model: openaiText("gpt-5.5") }) },
   a2ui: {}, // enables A2UI rendering for all agents
 });
 ```
@@ -145,10 +147,12 @@ const runtime = new CopilotRuntime({
 To scope it to specific agents only, pass an `agents` list:
 
 ```ts title="app/api/copilotkit/[[...slug]]/route.ts"
-import { BuiltInAgent, CopilotRuntime } from "@copilotkit/runtime";
+import { CopilotRuntime } from "@copilotkit/runtime";
+import { BuiltInAgent } from "@copilotkit/runtime/agent";
+import { openaiText } from "@tanstack/ai-openai";
 
 const runtime = new CopilotRuntime({
-  agents: { "my-agent": new BuiltInAgent({ model: "openai/gpt-5.4" }) },
+  agents: { "my-agent": new BuiltInAgent({ model: openaiText("gpt-5.5") }) },
   a2ui: { agents: ["my-agent"] },
 });
 ```
@@ -198,10 +202,12 @@ provideCopilotKit({
 Pass `mcpApps` to configure MCP servers for all agents from a single place:
 
 ```ts title="app/api/copilotkit/[[...slug]]/route.ts"
-import { BuiltInAgent, CopilotRuntime } from "@copilotkit/runtime";
+import { CopilotRuntime } from "@copilotkit/runtime";
+import { BuiltInAgent } from "@copilotkit/runtime/agent";
+import { openaiText } from "@tanstack/ai-openai";
 
 const runtime = new CopilotRuntime({
-  agents: { default: new BuiltInAgent({ model: "openai/gpt-5.4" }) },
+  agents: { default: new BuiltInAgent({ model: openaiText("gpt-5.5") }) },
   mcpApps: {
     servers: [
       { type: "http", url: "http://localhost:3108/mcp", serverId: "my-server" },

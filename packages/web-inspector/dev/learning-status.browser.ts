@@ -34,9 +34,7 @@ for (const origin of [
     await page
       .getByRole("button", { name: "Close Web Inspector", exact: true })
       .click();
-    await page
-      .getByRole("button", { name: "Web Inspector", exact: true })
-      .click();
+    await page.getByRole("button", { name: /^Web Inspector/ }).click();
     // The workbench boots on the Learning view and reopening keeps it, so
     // go to Home, where the Learning status card lives. The workbench stage
     // toolbar overlaps the top of the sidebar, so use the keyboard.

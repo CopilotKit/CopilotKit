@@ -181,7 +181,7 @@ Before you begin, you'll need the following:
                   id: "my-agent",
                   name: "My Agent",
                   instructions: "You are a helpful assistant!",
-                  model: openai("gpt-5.4"),
+                  model: openai("gpt-6-luna"),
                 });
                 ```
 
@@ -210,7 +210,7 @@ Before you begin, you'll need the following:
                 </Callout>
 
                 <Callout type="info" title="Running this agent on Anthropic instead">
-                  This example uses OpenAI's `gpt-5.4`. For Claude, install
+                  This example uses OpenAI's `gpt-6-luna`. For Claude, install
                   `@ai-sdk/anthropic`, then swap the import and the `model` setting:
 
                   ```ts title="src/mastra/agents/index.ts"
@@ -287,7 +287,7 @@ Before you begin, you'll need the following:
                 ### Install CopilotKit packages
 
                 ```npm
-                npm install @copilotkit/react-core @copilotkit/runtime @ag-ui/mastra @ag-ui/core@1.0.2 @ag-ui/client@1.0.2 @mastra/client-js
+                npm install @copilotkit/react-core @copilotkit/runtime @ag-ui/mastra @ag-ui/core@1.0.4 @ag-ui/client@1.0.4 @mastra/client-js
                 ```
             </Step>
             <Step>

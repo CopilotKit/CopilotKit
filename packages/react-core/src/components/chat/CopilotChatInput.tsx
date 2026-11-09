@@ -1,4 +1,5 @@
 import type { KeyboardEvent, ChangeEvent } from "react";
+import { useLatestRef } from "../../lib/use-latest-ref";
 import React, {
   useState,
   useRef,
@@ -14,14 +15,12 @@ import { CopilotIcon } from "../icons/CopilotIcon";
 
 import {
   CopilotChatDefaultLabels,
-  ɵclampSlashIndex,
+  ɵComposerController,
   ɵcomposerButtonState,
   ɵcreateComposerAutosize,
-  ɵfilterCommands,
-  ɵflattenCommandItems,
-  ɵparseSlashQuery,
-  ɵresolveComposerKey,
-  ɵresolveSlashKey,
+  ɵnormalizeToolsMenu,
+  ɵshowsComposerDisclaimer,
+  ɵsyncRecorderToMode,
 } from "@copilotkit/core";
 import type { CopilotChatLabels } from "@copilotkit/core";
 import { useCopilotChatConfiguration } from "../../providers/CopilotChatConfigurationProvider";
@@ -169,20 +168,6 @@ export function CopilotChatInput({
   className,
   ...props
 }: CopilotChatInputProps) {
-  const isControlled = value !== undefined;
-  const [internalValue, setInternalValue] = useState<string>(() => value ?? "");
-
-  useEffect(() => {
-    if (!isControlled && value !== undefined) {
-      setInternalValue(value);
-    }
-  }, [isControlled, value]);
-
-  const resolvedValue = isControlled ? (value ?? "") : internalValue;
-
-  const [commandQuery, setCommandQuery] = useState<string | null>(null);
-  const [slashHighlightIndex, setSlashHighlightIndex] = useState(0);
-
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const gridRef = useRef<HTMLDivElement>(null);
   const addButtonContainerRef = useRef<HTMLDivElement>(null);
@@ -213,22 +198,42 @@ export function CopilotChatInput({
 
   const previousModalStateRef = useRef<boolean | undefined>(undefined);
 
-  const commandItems = useMemo(() => {
-    const menu: (ToolsMenuItem | "-")[] = toolsMenu ?? [];
-    return ɵflattenCommandItems(
-      onAddFile
-        ? [
-            { label: labels.chatInputToolbarAddButtonLabel, action: onAddFile },
-            ...menu,
-          ]
-        : menu,
-    );
-  }, [labels.chatInputToolbarAddButtonLabel, onAddFile, toolsMenu]);
-
-  const filteredCommands = useMemo(
-    () => ɵfilterCommands(commandItems, commandQuery),
-    [commandItems, commandQuery],
+  // The text, controlled or not, and the slash-command menu: see core's
+  // ɵComposerController.
+  const onChangeRef = useLatestRef(onChange);
+  const [composer] = useState(
+    () =>
+      new ɵComposerController<ToolsMenuItem>({
+        initialValue: value ?? "",
+        onChange: (next) => onChangeRef.current?.(next),
+      }),
   );
+  const {
+    value: composerValue,
+    slashQuery: commandQuery,
+    slashCommands: filteredCommands,
+    slashHighlightIndex,
+  } = useSyncExternalStore(
+    composer.subscribe,
+    composer.getSnapshot,
+    composer.getSnapshot,
+  );
+  // A controlled value renders at once; the controller catches up below.
+  const resolvedValue = value ?? composerValue;
+
+  const menu = useMemo(
+    () =>
+      ɵnormalizeToolsMenu<ToolsMenuItem>(
+        toolsMenu,
+        onAddFile
+          ? { label: labels.chatInputToolbarAddButtonLabel, action: onAddFile }
+          : undefined,
+      ),
+    [labels.chatInputToolbarAddButtonLabel, onAddFile, toolsMenu],
+  );
+  useLayoutEffect(() => {
+    composer.setInputs({ value, mode, menu });
+  }, [composer, value, mode, menu]);
 
   useEffect(() => {
     if (!autoFocus) {
@@ -243,97 +248,25 @@ export function CopilotChatInput({
     previousModalStateRef.current = config?.isModalOpen;
   }, [config?.isModalOpen, autoFocus]);
 
-  const previousCommandQueryRef = useRef<string | null>(null);
-
+  // Recording follows the mode: it starts in transcribe mode and stops
+  // when the mode changes.
   useEffect(() => {
-    if (
-      commandQuery !== null &&
-      commandQuery !== previousCommandQueryRef.current &&
-      filteredCommands.length > 0
-    ) {
-      setSlashHighlightIndex(0);
-    }
-
-    previousCommandQueryRef.current = commandQuery;
-  }, [commandQuery, filteredCommands.length]);
-
-  useEffect(() => {
-    setSlashHighlightIndex((index) =>
-      commandQuery === null
-        ? 0
-        : ɵclampSlashIndex(index, filteredCommands.length),
-    );
-  }, [commandQuery, filteredCommands]);
-
-  // Handle recording based on mode changes
-  useEffect(() => {
-    const recorder = audioRecorderRef.current;
-    if (!recorder) {
-      return;
-    }
-
-    if (mode === "transcribe") {
-      // Start recording when entering transcribe mode
-      recorder.start().catch(console.error);
-    } else {
-      // Stop recording when leaving transcribe mode
-      if (recorder.state === "recording") {
-        recorder.stop().catch(console.error);
-      }
-    }
+    void ɵsyncRecorderToMode(audioRecorderRef.current, mode);
   }, [mode]);
-
-  useEffect(() => {
-    if (mode !== "input") {
-      setCommandQuery(null);
-    }
-  }, [mode]);
-
-  const updateSlashState = useCallback(
-    (value: string) => {
-      setCommandQuery(ɵparseSlashQuery(value, commandItems.length > 0));
-    },
-    [commandItems.length],
-  );
-
-  useEffect(() => {
-    updateSlashState(resolvedValue);
-  }, [resolvedValue, updateSlashState]);
 
   // Handlers
   const handleChange = (e: ChangeEvent<HTMLTextAreaElement>) => {
-    const nextValue = e.target.value;
-    if (!isControlled) {
-      setInternalValue(nextValue);
-    }
-    onChange?.(nextValue);
-    updateSlashState(nextValue);
+    composer.setValue(e.target.value);
   };
-
-  const clearInputValue = useCallback(() => {
-    if (!isControlled) {
-      setInternalValue("");
-    }
-
-    if (onChange) {
-      onChange("");
-    }
-  }, [isControlled, onChange]);
 
   const runCommand = useCallback(
     (item: ToolsMenuItem) => {
-      clearInputValue();
-
-      item.action?.();
-
-      setCommandQuery(null);
-      setSlashHighlightIndex(0);
-
+      composer.runCommand(item);
       requestAnimationFrame(() => {
         inputRef.current?.focus();
       });
     },
-    [clearInputValue],
+    [composer],
   );
 
   const composerInput = {
@@ -350,41 +283,11 @@ export function CopilotChatInput({
   } = ɵcomposerButtonState(composerInput);
 
   const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
-    // Skip key handling during IME composition (e.g. CJK input).
-    // The compositionend event will fire separately when composition ends.
-    if (e.nativeEvent.isComposing || e.keyCode === 229) {
-      return;
-    }
-
-    const slash = ɵresolveSlashKey(e, {
-      query: mode === "input" ? commandQuery : null,
-      commands: filteredCommands,
-      highlightIndex: slashHighlightIndex,
-    });
-    if (slash.type !== "none") e.preventDefault();
-    switch (slash.type) {
-      case "highlight":
-        setSlashHighlightIndex(slash.index);
-        return;
-      case "run":
-        runCommand(slash.command);
-        return;
-      case "close":
-        setCommandQuery(null);
-        return;
-      case "none":
-        break;
-    }
-
-    // Enter without Shift never adds a line break, even when it does nothing.
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
-    }
     // Text in the composer means send, even while a run is in flight: after
     // picking one interrupt's option the resume run still streams when the
     // user types the next prompt, and stopping it would lose the next
     // interrupt. Enter stops the run only when the composer is empty.
-    const action = ɵresolveComposerKey(
+    const { preventDefault, action } = composer.keyDown(
       {
         key: e.key,
         shiftKey: e.shiftKey,
@@ -393,7 +296,12 @@ export function CopilotChatInput({
       },
       composerInput,
     );
-    if (action === "stop") {
+    if (preventDefault) e.preventDefault();
+    if (action === "command") {
+      requestAnimationFrame(() => {
+        inputRef.current?.focus();
+      });
+    } else if (action === "stop") {
       onStop?.();
     } else if (action === "send") {
       send();
@@ -404,23 +312,10 @@ export function CopilotChatInput({
     if (!onSubmitMessage) {
       return;
     }
-    const trimmed = resolvedValue.trim();
-    if (!trimmed) {
-      return;
-    }
-
-    onSubmitMessage(trimmed);
-
-    // Always clear the input after sending, including controlled mode.
-    // In controlled mode, onChange("") notifies the parent to reset its state.
-    if (!isControlled) {
-      setInternalValue("");
-    }
-    onChange?.("");
-
-    if (inputRef.current) {
-      inputRef.current.focus();
-    }
+    // Always clears the input after sending, also when controlled:
+    // onChange("") tells the parent to reset its state.
+    const sent = composer.submit(onSubmitMessage, { value: resolvedValue });
+    if (sent) inputRef.current?.focus();
   };
 
   const BoundTextArea = renderSlot(textArea, CopilotChatInput.TextArea, {
@@ -523,8 +418,10 @@ export function CopilotChatInput({
     {},
   );
 
-  // Determine whether to show disclaimer based on prop or positioning default
-  const shouldShowDisclaimer = showDisclaimer ?? positioning === "absolute";
+  const shouldShowDisclaimer = ɵshowsComposerDisclaimer({
+    showDisclaimer,
+    positioning,
+  });
 
   const handleContainerClick = (e: React.MouseEvent<HTMLDivElement>) => {
     // Don't focus if clicking on buttons or other interactive elements
@@ -545,7 +442,7 @@ export function CopilotChatInput({
 
   useEffect(() => () => autosize.dispose(), [autosize]);
 
-  const slashMenuVisible = commandQuery !== null && commandItems.length > 0;
+  const slashMenuVisible = commandQuery !== null;
 
   useEffect(() => {
     if (!slashMenuVisible || slashHighlightIndex < 0) {
@@ -585,7 +482,7 @@ export function CopilotChatInput({
               data-active={isActive ? "true" : undefined}
               data-slash-index={index}
               className="cpk-chat-input-slash-menu-item"
-              onMouseEnter={() => setSlashHighlightIndex(index)}
+              onMouseEnter={() => composer.highlight(index)}
               onMouseDown={(event) => {
                 event.preventDefault();
                 runCommand(item);
@@ -836,39 +733,19 @@ export namespace CopilotChatInput {
     const [mounted, setMounted] = useState(false);
     useEffect(() => setMounted(true), []);
 
-    const menuItems = useMemo<(ToolsMenuItem | "-")[]>(() => {
-      const items: (ToolsMenuItem | "-")[] = [];
-
-      if (onAddFile) {
-        items.push({
-          label: labels.chatInputToolbarAddButtonLabel,
-          action: onAddFile,
-        });
-      }
-
-      if (toolsMenu && toolsMenu.length > 0) {
-        if (items.length > 0) {
-          items.push("-");
-        }
-
-        for (const item of toolsMenu) {
-          if (item === "-") {
-            if (items.length === 0 || items[items.length - 1] === "-") {
-              continue;
-            }
-            items.push(item);
-          } else {
-            items.push(item);
-          }
-        }
-
-        while (items.length > 0 && items[items.length - 1] === "-") {
-          items.pop();
-        }
-      }
-
-      return items;
-    }, [onAddFile, toolsMenu, labels.chatInputToolbarAddButtonLabel]);
+    const menuItems = useMemo(
+      () =>
+        ɵnormalizeToolsMenu<ToolsMenuItem>(
+          toolsMenu,
+          onAddFile
+            ? {
+                label: labels.chatInputToolbarAddButtonLabel,
+                action: onAddFile,
+              }
+            : undefined,
+        ),
+      [onAddFile, toolsMenu, labels.chatInputToolbarAddButtonLabel],
+    );
 
     const renderMenuItems = useCallback(
       (items: (ToolsMenuItem | "-")[]): React.ReactNode =>

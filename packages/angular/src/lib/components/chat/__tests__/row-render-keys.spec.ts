@@ -70,6 +70,9 @@ describe("CopilotChatMessageView row keys", () => {
           useValue: {
             activityMessageRenderConfigs: () => [],
             toolCallRenderConfigs: () => [],
+            clientToolCallRenderConfigs: () => [],
+            humanInTheLoopToolRenderConfigs: () => [],
+            defaultToolRenderingEnabled: true,
             getAgent: () => undefined,
           },
         },

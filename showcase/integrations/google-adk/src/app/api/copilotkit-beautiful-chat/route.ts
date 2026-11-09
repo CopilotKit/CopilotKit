@@ -2,7 +2,7 @@
 //
 // Beautiful Chat simultaneously exercises A2UI (dynamic + fixed schema),
 // Open Generative UI, and MCP Apps. The canonical reference
-// (examples/integrations/langgraph-python) ships all three flags on a single
+// (examples/starters/langgraph-python) ships all three flags on a single
 // runtime; this route mirrors that combined-runtime shape for the ADK
 // integration so non-flagship cells keep their per-demo `useFrontendTool` /
 // `useComponent` registrations isolated on the main `/api/copilotkit`

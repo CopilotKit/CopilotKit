@@ -6,11 +6,17 @@ import {
   input,
 } from "@angular/core";
 
+import type { Signal } from "@angular/core";
 import type { AssistantMessage, Message } from "@ag-ui/core";
 import { CopilotKit } from "../../copilotkit";
 import { RenderToolCall } from "../../render-tool-calls";
-import { ɵtoolCallAppearance } from "@copilotkit/core";
+import { ɵgetToolCallGroupState, ɵtoolCallAppearance } from "@copilotkit/core";
 import { CopilotChatToolCallGroup } from "./copilot-chat-tool-call-group";
+import { CopilotCollapsible } from "../tools/tool-call-parts";
+import type {
+  ToolCallRenderContext,
+  ToolCallRowStatus,
+} from "../tools/tool-call-render-context";
 import { TOOL_CALL_DISPLAY_CONTEXT } from "./tool-call-display-context";
 import {
   getToolCallLayouts,
@@ -25,7 +31,7 @@ import type { CopilotChatToolCallDisplay } from "./tool-call-layout";
  */
 @Component({
   selector: "copilot-chat-tool-calls-view",
-  imports: [RenderToolCall, CopilotChatToolCallGroup],
+  imports: [RenderToolCall, CopilotChatToolCallGroup, CopilotCollapsible],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     @if (layout(); as layout) {
@@ -38,6 +44,26 @@ import type { CopilotChatToolCallDisplay } from "./tool-call-layout";
             [agentId]="agentId()"
             [isLoading]="isLoading()"
           />
+        } @else if (resolvedDisplay() === "turn") {
+          <!-- A row per call, in the open while the agent works; the message
+               view folds them away with the rest of the work once it's done. -->
+          <div
+            [copilotCollapsible]="workOpen() ?? true"
+            class="cpk-tool-calls-view-turn"
+          >
+            <div class="cpk-tool-calls-view-turn-rows">
+              @for (call of segment.calls; track call.toolCall.id) {
+                <copilot-render-tool-call
+                  [toolCall]="call.toolCall"
+                  [message]="message()"
+                  [messages]="messages()"
+                  [agentId]="agentId()"
+                  [isLoading]="isLoading()"
+                  [row]="turnRowFor(call.toolCall.id)"
+                />
+              }
+            </div>
+          </div>
         } @else {
           <copilot-chat-tool-call-group
             [calls]="segment.calls"
@@ -81,8 +107,6 @@ export class CopilotChatToolCallsView {
   protected readonly resolvedDisplay = computed(
     () => this.display() ?? this.#context?.display() ?? "grouped",
   );
-  // Angular has no `"turn"` view yet, so a `"turn"` chat groups calls the
-  // same way as `"grouped"`.
   protected readonly appearance = computed(
     () => ɵtoolCallAppearance(this.resolvedDisplay()) ?? "card",
   );
@@ -109,4 +133,42 @@ export class CopilotChatToolCallsView {
       ).get(message.id)
     );
   });
+
+  /** `"turn"` display: whether this message's work is showing. */
+  protected readonly workOpen = computed(() =>
+    this.#context?.workOpen().get(this.message().id),
+  );
+
+  // `"turn"` display: each call's row status, by call id.
+  readonly #turnStatuses = computed(() => {
+    const statuses = new Map<string, ToolCallRowStatus>();
+    for (const segment of this.layout()?.segments ?? []) {
+      if (segment.kind !== "group") continue;
+      const active = segment.trailing && this.isRunning();
+      const { statusById } = ɵgetToolCallGroupState(
+        segment.calls,
+        active,
+        false,
+      );
+      for (const [id, status] of statusById) statuses.set(id, status);
+    }
+    return statuses;
+  });
+  // One row context per call, so its renderer isn't recreated on updates.
+  readonly #turnRows = new Map<
+    string,
+    NonNullable<ToolCallRenderContext["row"]>
+  >();
+
+  protected turnRowFor(toolCallId: string): ToolCallRenderContext["row"] {
+    let row = this.#turnRows.get(toolCallId);
+    if (!row) {
+      const status: Signal<ToolCallRowStatus> = computed(
+        () => this.#turnStatuses().get(toolCallId) ?? "done",
+      );
+      row = { appearance: "line", status };
+      this.#turnRows.set(toolCallId, row);
+    }
+    return row;
+  }
 }

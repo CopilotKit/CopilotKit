@@ -58,11 +58,14 @@ Before you begin, you'll need the following:
         ### Install CopilotKit packages
 
         ```npm
-        npm install @copilotkit/react-core @copilotkit/runtime
+        npm install @copilotkit/react-core @copilotkit/runtime @tanstack/ai @tanstack/ai-openai
         ```
 
         The components used below (`CopilotKitProvider`, `CopilotSidebar`) come
-        from `@copilotkit/react-core`.
+        from `@copilotkit/react-core`. The Built-in Agent runs the model with
+        `@tanstack/ai`, and `@tanstack/ai-openai` connects it to OpenAI. For
+        another provider, install its adapter instead. See
+        [Model Selection](/model-selection#install-the-packages).
 
         <Callout type="info" title="TypeScript: use bundler module resolution">
           CopilotKit's package entry points (such as `@copilotkit/react-core/styles.css`) are published through the package `exports` map, which TypeScript's legacy `"moduleResolution": "node"` (`node10`) ignores. Under that setting, type checking fails with `Cannot find module '@copilotkit/react-core'` even though the app runs. Set `"moduleResolution": "bundler"` in `tsconfig.json`; if `module` is `commonjs` or unset, also set `"module": "esnext"`. `create-next-app` already uses `bundler`.
@@ -105,10 +108,11 @@ Before you begin, you'll need the following:
           CopilotRuntime,
           createCopilotRuntimeHandler,
         } from "@copilotkit/runtime";
-        import { BuiltInAgent } from "@copilotkit/runtime"; // [!code highlight]
+        import { BuiltInAgent } from "@copilotkit/runtime/agent"; // [!code highlight]
+        import { openaiText } from "@tanstack/ai-openai"; // [!code highlight]
 
         const builtInAgent = new BuiltInAgent({ // [!code highlight:3]
-          model: "openai:gpt-5.4-mini",
+          model: openaiText("gpt-6-luna"),
         });
 
         const runtime = new CopilotRuntime({
@@ -125,6 +129,8 @@ Before you begin, you'll need the following:
         export const PATCH = handler;
         export const DELETE = handler;
         ```
+
+        `openaiText` reads `OPENAI_API_KEY` from your `.env` file.
     </Step>
     <Step>
         ### Configure CopilotKit Provider

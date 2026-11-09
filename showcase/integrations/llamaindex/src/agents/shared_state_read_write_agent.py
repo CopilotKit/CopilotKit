@@ -28,7 +28,7 @@ import os
 from typing import Annotated, Any
 
 from llama_index.core.workflow import Context
-from llama_index.llms.openai import OpenAI
+from agents._openai_models import OpenAI
 from llama_index.protocols.ag_ui.router import get_ag_ui_workflow_router
 
 
@@ -82,7 +82,7 @@ if os.environ.get("OPENAI_BASE_URL"):
     _openai_kwargs["api_base"] = os.environ["OPENAI_BASE_URL"]
 
 shared_state_read_write_router = get_ag_ui_workflow_router(
-    llm=OpenAI(model="gpt-5-mini", **_openai_kwargs),
+    llm=OpenAI(model="gpt-6-luna", **_openai_kwargs),
     frontend_tools=[],
     backend_tools=[set_notes],
     system_prompt=SYSTEM_PROMPT,

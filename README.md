@@ -79,7 +79,7 @@ npx copilotkit@latest skills install
 <br />
 
 ```bash
-npm install @copilotkit/react-core @copilotkit/runtime
+npm install @copilotkit/react-core @copilotkit/runtime @tanstack/ai-openai
 ```
 
 ```bash
@@ -92,11 +92,12 @@ OPENAI_API_KEY=your_openai_api_key
 import {
   CopilotRuntime,
   createCopilotRuntimeHandler,
-  BuiltInAgent,
-} from "@copilotkit/runtime/v2";
+} from "@copilotkit/runtime";
+import { BuiltInAgent } from "@copilotkit/runtime/agent";
+import { openaiText } from "@tanstack/ai-openai";
 
 const runtime = new CopilotRuntime({
-  agents: { default: new BuiltInAgent({ model: "openai:gpt-5.4-mini" }) },
+  agents: { default: new BuiltInAgent({ model: openaiText("gpt-6-luna") }) },
 });
 
 const handler = createCopilotRuntimeHandler({
@@ -183,7 +184,7 @@ https://github.com/user-attachments/assets/3cfacac0-4ffd-457a-96f9-d7951e4ab7b6
 | **[Declarative](https://docs.copilotkit.ai/generative-ui/a2ui?ref=github_readme)**             | describes UI as a structured spec your app renders | A2UI                       |
 | **[Open-ended](https://docs.copilotkit.ai/generative-ui/mcp-apps?ref=github_readme)**          | ships a full interface that runs in a sandbox      | MCP Apps                   |
 
-Want to go deeper? The [Generative UI educational repo](https://github.com/CopilotKit/CopilotKit/tree/main/examples/showcases/generative-ui) walks through all three.
+Want to go deeper? The [Generative UI educational repo](https://github.com/CopilotKit/CopilotKit/tree/main/examples/demos/generative-ui) walks through all three.
 
 ## Works with your stack
 

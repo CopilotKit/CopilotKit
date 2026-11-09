@@ -1,8 +1,9 @@
 /**
  * DOM helpers that the chat views of React, Vue, and Angular share: the
- * docked sidebar's page margins, popup dismissal, the lightbox's
- * view-transition morph and focus handling, document previews, and the
- * scroll-to-bottom check.
+ * docked sidebar's page margins, popup dismissal and exit animation, the
+ * default popup and sidebar sizes, the lightbox's view-transition morph and
+ * focus handling, document previews, the scroll-to-bottom check, and
+ * element size watchers.
  *
  * Nothing here touches the DOM at import time, so it is safe to import
  * during server rendering.
@@ -198,6 +199,14 @@ export class ɵDockedSidebar {
     this.media?.addEventListener("change", this.apply);
   }
 
+  /**
+   * `true` while this sidebar has the page margin. `false` when it is closed,
+   * on a mobile viewport, or when another docked sidebar has the margin.
+   */
+  get isDocked() {
+    return this.owns;
+  }
+
   /** Apply the sidebar's open state, side, and width. */
   set(state: ɵDockedSidebarState) {
     this.state = state;
@@ -256,6 +265,121 @@ export function ɵcreateDockedSidebar(
 
 /** How long the popup's open animation runs, in ms. */
 export const ɵPOPUP_ANIMATION_MS = 200;
+
+/** The popup's width when the `width` prop is missing, in px. */
+export const ɵPOPUP_DEFAULT_WIDTH = 420;
+
+/** The popup's height when the `height` prop is missing, in px. */
+export const ɵPOPUP_DEFAULT_HEIGHT = 560;
+
+/** The sidebar's width when the `width` prop is missing, in px. */
+export const ɵSIDEBAR_DEFAULT_WIDTH = 480;
+
+/** How long the docked sidebar's page margin animates, in ms. */
+export const ɵSIDEBAR_TRANSITION_MS = 260;
+
+/** Whether a closing panel is still in the DOM. */
+export interface ɵExitPresenceState {
+  /** Render the panel. */
+  isRendered: boolean;
+  /** The panel is closed but still plays its exit animation. */
+  isClosing: boolean;
+}
+
+/**
+ * Keeps a closed panel in the DOM for its exit animation, then removes it.
+ * Opening again during the animation cancels the removal.
+ *
+ * Create it with {@link ɵcreateExitPresence}. Each change makes a new state
+ * object, so `getState` works with React's `useSyncExternalStore`.
+ */
+export class ɵExitPresence {
+  private state: ɵExitPresenceState;
+  private timer: ReturnType<typeof setTimeout> | undefined;
+  private readonly listeners = new Set<(state: ɵExitPresenceState) => void>();
+
+  constructor(
+    open: boolean,
+    private readonly durationMs: number,
+  ) {
+    this.state = { isRendered: open, isClosing: false };
+  }
+
+  /** The current state. */
+  readonly getState = () => this.state;
+
+  /**
+   * Call `listener` on each change.
+   *
+   * @returns The unsubscribe function.
+   */
+  readonly subscribe = (listener: (state: ɵExitPresenceState) => void) => {
+    this.listeners.add(listener);
+    return () => {
+      this.listeners.delete(listener);
+    };
+  };
+
+  /** Apply the panel's open state. */
+  setOpen(open: boolean) {
+    if (open) {
+      this.clearTimer();
+      this.set({ isRendered: true, isClosing: false });
+      return;
+    }
+    if (!this.state.isRendered || this.timer !== undefined) return;
+    this.set({ isRendered: true, isClosing: true });
+    this.timer = setTimeout(() => {
+      this.timer = undefined;
+      this.set({ isRendered: false, isClosing: false });
+    }, this.durationMs);
+  }
+
+  /** Cancel a pending removal. */
+  dispose() {
+    this.clearTimer();
+  }
+
+  private set(next: ɵExitPresenceState) {
+    const current = this.state;
+    if (
+      current.isRendered === next.isRendered &&
+      current.isClosing === next.isClosing
+    ) {
+      return;
+    }
+    this.state = next;
+    for (const listener of this.listeners) listener(next);
+  }
+
+  private clearTimer() {
+    if (this.timer === undefined) return;
+    clearTimeout(this.timer);
+    this.timer = undefined;
+  }
+}
+
+/**
+ * Create the exit-animation state of a popup or another panel.
+ *
+ * @param open - Whether the panel starts open.
+ * @param options - `durationMs`: how long the exit animation runs. Default:
+ *   {@link ɵPOPUP_ANIMATION_MS}.
+ *
+ * @example
+ * ```ts
+ * const presence = ɵcreateExitPresence(isOpen);
+ * presence.subscribe(({ isRendered, isClosing }) => render(isRendered, isClosing));
+ * presence.setOpen(false); // renders until the animation ends
+ * presence.dispose(); // on unmount
+ * ```
+ */
+export function ɵcreateExitPresence(
+  open: boolean,
+  options: { durationMs?: number } = {},
+) {
+  return new ɵExitPresence(open, options.durationMs ?? ɵPOPUP_ANIMATION_MS);
+}
 
 export interface ɵPopupDismissOptions {
   /** The popup's panel. Reads it at event time. */
@@ -375,8 +499,63 @@ export function ɵmorphViewTransition(
   transition.finished.then(clear, clear);
 }
 
-const FOCUSABLE =
-  'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), audio[controls], video[controls], iframe, [tabindex]:not([tabindex="-1"])';
+// Elements that can take focus.
+const FOCUSABLE_ELEMENTS = [
+  "a[href]",
+  "button:not([disabled])",
+  "input:not([disabled])",
+  "select:not([disabled])",
+  "textarea:not([disabled])",
+  "audio[controls]",
+  "video[controls]",
+  "iframe",
+  "[tabindex]",
+];
+
+const FOCUSABLE = FOCUSABLE_ELEMENTS.map((selector) =>
+  selector === "[tabindex]" ? '[tabindex]:not([tabindex="-1"])' : selector,
+).join(", ");
+
+/**
+ * Elements Tab stops at: the focusable ones without `tabindex="-1"`. Radix
+ * focus guards, which only pass focus on, are left out.
+ */
+export const ɵTAB_STOP_SELECTOR = FOCUSABLE_ELEMENTS.map(
+  (selector) =>
+    `${selector}:not([tabindex="-1"]):not([data-radix-focus-guard])`,
+).join(", ");
+
+/**
+ * Approximately the element Tab reaches after `element`, in document order.
+ * Elements inside `skip` (for example a popover in a portal) and inside
+ * `[hidden]` or `[inert]` are passed over.
+ *
+ * @returns The next tab stop, or `null` when there is none.
+ */
+export function ɵnextTabStop(element: Element, skip: Element | null) {
+  const all = Array.from(
+    element.ownerDocument.querySelectorAll<HTMLElement>(ɵTAB_STOP_SELECTOR),
+  ).filter(
+    (candidate) =>
+      candidate === element ||
+      (!skip?.contains(candidate) && !candidate.closest("[hidden], [inert]")),
+  );
+  const index = all.findIndex((candidate) => candidate === element);
+  return index === -1 ? null : (all[index + 1] ?? null);
+}
+
+/**
+ * Whether focus on `element` came from the keyboard. A pointer click also
+ * focuses buttons, and this tells the two apart.
+ */
+export function ɵisFocusVisible(element: Element) {
+  try {
+    return element.matches(":focus-visible");
+  } catch {
+    // Browsers without `:focus-visible` throw on the selector.
+    return false;
+  }
+}
 
 export interface ɵDialogFocusOptions {
   /** Where focus goes on open. Default: the first focusable element. */
@@ -523,4 +702,117 @@ export function ɵisScrolledToBottom(
   const distance =
     element.scrollHeight - element.scrollTop - element.clientHeight;
   return distance <= threshold;
+}
+
+/**
+ * Whether a scroll container shows the end of `content`, an element inside
+ * it. Use it when empty space follows the messages, such as the
+ * `pin-to-send` spacer: scrolling into that space shows no more messages.
+ *
+ * @param element - The scroll container.
+ * @param content - The element that holds the messages.
+ * @param threshold - The pixels of `content` below the viewport that still
+ *   count. Default: {@link ɵSCROLL_BOTTOM_THRESHOLD_PX}.
+ */
+export function ɵisContentScrolledToBottom(
+  element: Element,
+  content: Element,
+  threshold = ɵSCROLL_BOTTOM_THRESHOLD_PX,
+) {
+  const hiddenBelow =
+    content.getBoundingClientRect().bottom -
+    element.getBoundingClientRect().bottom;
+  return hiddenBelow <= threshold;
+}
+
+// ---------------------------------------------------------------------------
+// Element size
+// ---------------------------------------------------------------------------
+
+/** How long an element counts as resizing after its last size change, in ms. */
+export const ɵRESIZE_SETTLE_MS = 250;
+
+/** What {@link ɵwatchElementHeight} reports. */
+export interface ɵElementHeightState {
+  /** The content-box height, in px. */
+  height: number;
+  /** The height changed less than `settleMs` ago. */
+  isResizing: boolean;
+}
+
+/**
+ * Report an element's height now and on each change. `isResizing` is `true`
+ * from a change until the height stays the same for `settleMs`, so callers
+ * can hide UI, such as the scroll-to-bottom button, while a layout moves.
+ *
+ * The first call reads `offsetHeight`. Later calls read the
+ * `ResizeObserver` content box. Without `ResizeObserver`, only the first
+ * call happens.
+ *
+ * @param element - The element to measure.
+ * @param listener - Gets the height and the resizing state.
+ * @param options - `settleMs`: default {@link ɵRESIZE_SETTLE_MS}.
+ * @returns A function that stops the watch.
+ */
+export function ɵwatchElementHeight(
+  element: HTMLElement,
+  listener: (state: ɵElementHeightState) => void,
+  options: { settleMs?: number } = {},
+) {
+  const settleMs = options.settleMs ?? ɵRESIZE_SETTLE_MS;
+  let height = element.offsetHeight;
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  listener({ height, isResizing: false });
+  if (typeof ResizeObserver === "undefined") return () => {};
+
+  const observer = new ResizeObserver((entries) => {
+    const next = entries[entries.length - 1]?.contentRect.height;
+    if (next === undefined || next === height) return;
+    height = next;
+    if (timer !== undefined) clearTimeout(timer);
+    if (settleMs <= 0) {
+      listener({ height, isResizing: false });
+      return;
+    }
+    listener({ height, isResizing: true });
+    timer = setTimeout(() => {
+      timer = undefined;
+      listener({ height, isResizing: false });
+    }, settleMs);
+  });
+  observer.observe(element);
+
+  return () => {
+    observer.disconnect();
+    if (timer !== undefined) clearTimeout(timer);
+  };
+}
+
+/**
+ * Report an element's border-box width now and on each change, skipping
+ * zero widths (a hidden element). Uses `ResizeObserver`, or the window's
+ * `resize` event without it.
+ *
+ * @param element - The element to measure, for example a sidebar.
+ * @param listener - Gets the width in px.
+ * @returns A function that stops the watch.
+ */
+export function ɵwatchElementWidth(
+  element: HTMLElement,
+  listener: (width: number) => void,
+) {
+  const update = () => {
+    const width = element.getBoundingClientRect().width;
+    if (width > 0) listener(width);
+  };
+  update();
+  if (typeof ResizeObserver !== "undefined") {
+    const observer = new ResizeObserver(update);
+    observer.observe(element);
+    return () => observer.disconnect();
+  }
+  const view = element.ownerDocument.defaultView;
+  if (!view) return () => {};
+  view.addEventListener("resize", update);
+  return () => view.removeEventListener("resize", update);
 }

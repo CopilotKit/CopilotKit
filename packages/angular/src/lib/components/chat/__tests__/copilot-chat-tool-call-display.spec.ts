@@ -1,6 +1,6 @@
 import { Component, input, signal } from "@angular/core";
 import { TestBed } from "@angular/core/testing";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { AssistantMessage, Message, ToolMessage } from "@ag-ui/core";
 import { z } from "zod";
 
@@ -56,6 +56,24 @@ class WeatherCard {
 })
 class CustomCall {
   readonly toolCall = input.required<AngularToolCall>();
+}
+
+@Component({
+  template: `
+    <button
+      type="button"
+      data-testid="custom-summary"
+      [attr.aria-expanded]="isOpen()"
+      (click)="onClick()()"
+    >
+      {{ calls().length }} steps
+    </button>
+  `,
+})
+class CustomSummary {
+  readonly isOpen = input(false);
+  readonly calls = input<unknown[]>([]);
+  readonly onClick = input.required<() => void>();
 }
 
 const weather: RenderToolCallConfig = {
@@ -205,7 +223,6 @@ describe("CopilotChatMessageView toolCallDisplay", () => {
   it.each([
     ["line", "line"],
     ["stacked", "stack"],
-    ["turn", "card"],
   ] as const)("draws %s groups", (display, appearance) => {
     provideKit();
     const { group } = renderView(burst, { display });
@@ -276,6 +293,186 @@ describe("CopilotChatMessageView toolCallDisplay", () => {
     expect(
       root.querySelector('[data-testid="copilot-tool-call-group"]'),
     ).not.toBeNull();
+  });
+});
+
+describe("CopilotChatMessageView toolCallDisplay turn", () => {
+  afterEach(() => TestBed.resetTestingModule());
+
+  const burst = [
+    question,
+    say("t1", "Looking."),
+    callMessage("a"),
+    result("a"),
+    callMessage("b"),
+    result("b", "boom"),
+    say("t", "Done."),
+  ];
+  const summary = (root: HTMLElement) =>
+    root.querySelector<HTMLElement>('[data-testid="copilot-work-summary"]')!;
+
+  it("folds a finished reply's work into the summary", () => {
+    provideKit();
+    const { root, click } = renderView(burst, { display: "turn" });
+    expect(summary(root).getAttribute("aria-expanded")).toBe("false");
+    // No timing for a reply this client didn't watch: it counts the tools.
+    expect(summary(root).textContent).toContain("Used 2 tools");
+    expect(summary(root).textContent).toContain("1 failed");
+    expect(
+      root
+        .querySelector('[data-message-id="t1"] [data-work-text]')!
+        .getAttribute("data-work-text"),
+    ).toBe("narration");
+    expect(
+      root
+        .querySelector('[data-message-id="t"] [data-work-text]')!
+        .getAttribute("data-work-text"),
+    ).toBe("reply");
+    // The calls are rows of the work, not a group, and fold away with it.
+    expect(
+      root.querySelector('[data-testid="copilot-tool-call-group"]'),
+    ).toBeNull();
+    const work = root.querySelector(".cpk-tool-calls-view-turn")!;
+    expect(work.hasAttribute("inert")).toBe(true);
+    const rows = work.querySelectorAll('[data-testid="copilot-tool-render"]');
+    expect(rows).toHaveLength(2);
+    expect(rows[0]!.classList).toContain("cpk-tool-call-row-line");
+
+    click(summary(root));
+    expect(summary(root).getAttribute("aria-expanded")).toBe("true");
+    expect(work.hasAttribute("inert")).toBe(false);
+  });
+
+  it("shows Working instead of the cursor while the latest reply runs", () => {
+    provideKit();
+    const fixture = TestBed.createComponent(CopilotChatMessageView);
+    fixture.componentRef.setInput("messages", [question]);
+    fixture.componentRef.setInput("showCursor", true);
+    fixture.componentRef.setInput("toolCallDisplay", "turn");
+    fixture.detectChanges();
+    const root = fixture.nativeElement as HTMLElement;
+    expect(summary(root).getAttribute("data-state")).toBe("working");
+    expect(
+      root.querySelector('[data-testid="copilot-loading-cursor"]'),
+    ).toBeNull();
+  });
+
+  it("shows the work in the open while the agent works, then folds it", () => {
+    provideKit();
+    const { fixture, root } = renderView([question, say("t1", "Looking.")], {
+      display: "turn",
+      isRunning: true,
+    });
+    const update = (messages: Message[], isRunning: boolean) => {
+      fixture.componentRef.setInput("messages", messages);
+      fixture.componentRef.setInput("isLoading", isRunning);
+      fixture.detectChanges();
+    };
+    update([question, say("t1", "Looking."), callMessage("a")], true);
+    expect(summary(root).getAttribute("aria-expanded")).toBe("true");
+    expect(
+      root.querySelector(".cpk-tool-calls-view-turn")!.hasAttribute("inert"),
+    ).toBe(false);
+    expect(
+      root.querySelector('[data-testid="copilot-tool-render"]')!.textContent,
+    ).toContain("Running");
+
+    update(
+      [
+        question,
+        say("t1", "Looking."),
+        callMessage("a"),
+        result("a"),
+        say("t2", "Done."),
+      ],
+      false,
+    );
+    expect(summary(root).getAttribute("aria-expanded")).toBe("false");
+    expect(summary(root).getAttribute("data-state")).toBe("done");
+  });
+
+  it("lets the work summary slot replace the summary line", () => {
+    provideKit();
+    const fixture = TestBed.createComponent(CopilotChatMessageView);
+    fixture.componentRef.setInput("messages", burst);
+    fixture.componentRef.setInput("toolCallDisplay", "turn");
+    fixture.componentRef.setInput("workSummaryComponent", CustomSummary);
+    fixture.detectChanges();
+    const root = fixture.nativeElement as HTMLElement;
+    expect(summary(root)).toBeNull();
+    const custom = root.querySelector<HTMLElement>(
+      '[data-testid="custom-summary"]',
+    )!;
+    expect(custom.textContent?.trim()).toBe("2 steps");
+
+    custom.click();
+    fixture.detectChanges();
+    expect(
+      root
+        .querySelector('[data-testid="custom-summary"]')!
+        .getAttribute("aria-expanded"),
+    ).toBe("true");
+  });
+
+  it("keeps a reasoning message mounted when a later call makes it work", () => {
+    provideKit();
+    const reasoning: Message = {
+      id: "r1",
+      role: "reasoning",
+      content: "Thinking about it.",
+    };
+    const { fixture, root } = renderView([question, reasoning], {
+      display: "turn",
+      isRunning: true,
+    });
+    const node = root.querySelector("copilot-chat-reasoning-message")!;
+    expect(node).not.toBeNull();
+
+    fixture.componentRef.setInput("messages", [
+      question,
+      reasoning,
+      callMessage("a"),
+    ]);
+    fixture.detectChanges();
+    expect(root.querySelector("copilot-chat-reasoning-message")).toBe(node);
+    // It folds away with the work, which is open while the agent works.
+    expect(node.closest(".cpk-collapsible")!.hasAttribute("inert")).toBe(false);
+  });
+});
+
+describe("CopilotChatWorkSummary timing", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(0);
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+    TestBed.resetTestingModule();
+  });
+
+  it("ticks while working and reports the total once done", () => {
+    provideKit();
+    const { fixture, root } = renderView([question], {
+      display: "turn",
+      isRunning: true,
+    });
+    const text = () =>
+      root.querySelector('[data-testid="copilot-work-summary"]')!.textContent;
+    vi.advanceTimersByTime(125_000);
+    fixture.detectChanges();
+    expect(text()).toContain("Working");
+    expect(text()).toContain("2m 5s");
+
+    fixture.componentRef.setInput("messages", [
+      question,
+      callMessage("a"),
+      result("a"),
+      say("t", "Done."),
+    ]);
+    fixture.componentRef.setInput("isLoading", false);
+    fixture.detectChanges();
+    expect(text()).toContain("Worked for 2m 5s");
+    expect(text()).toContain("1 tool");
   });
 });
 

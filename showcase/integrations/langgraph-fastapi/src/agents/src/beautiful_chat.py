@@ -1,6 +1,6 @@
 """LangGraph agent backing the Beautiful Chat demo.
 
-Verbatim port of the canonical starter at /examples/integrations/langgraph-python.
+Verbatim port of the canonical starter at /examples/starters/langgraph-python.
 Reference structure (agent/main.py + agent/src/{todos,query,a2ui_fixed_schema,
 a2ui_dynamic_schema}.py) is inlined here into a single module to match the
 showcase cell's flat backend layout.
@@ -217,7 +217,7 @@ def generate_a2ui(runtime: ToolRuntime[Any]) -> str:
 
     prompt = context_text
 
-    model = ChatOpenAI(model="gpt-5-mini")
+    model = ChatOpenAI(reasoning_effort="none", model="gpt-6-luna")
     model_with_tool = model.bind_tools(
         [render_a2ui],
         tool_choice="render_a2ui",
@@ -261,7 +261,11 @@ def generate_a2ui(runtime: ToolRuntime[Any]) -> str:
 
 # ─── Graph ──────────────────────────────────────────────────────────
 
-model = ChatOpenAI(model="gpt-5.4", model_kwargs={"parallel_tool_calls": False})
+model = ChatOpenAI(
+    reasoning_effort="none",
+    model="gpt-6-luna",
+    model_kwargs={"parallel_tool_calls": False},
+)
 
 agent = create_agent(
     model=model,

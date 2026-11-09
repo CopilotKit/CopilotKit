@@ -421,7 +421,7 @@ demos:
       - src/app/api/copilotkit-beautiful-chat/route.ts
   - id: multimodal
     name: Multimodal Attachments
-    description: Image + PDF uploads forwarded to a vision-capable Mastra agent (gpt-4o)
+    description: Image + PDF uploads forwarded to a vision-capable Mastra agent (gpt-6-luna)
     tags:
       - chat-ui
     route: /demos/multimodal
@@ -633,5 +633,5 @@ demos:
 # Starter VALIDATION ladder (dashboard). NOT the `starter:` key — that one
 # drives the public "Full Starter" section on the integration profile page.
 starter_validation:
-  path: examples/integrations/mastra
+  path: examples/starters/mastra
   service: starter-mastra

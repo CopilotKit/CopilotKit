@@ -76,7 +76,7 @@ Run the demo yourself by following the steps below (`agent/` on port 8123 and `f
 ## Prerequisites
 
 - **Node.js ≥ 20** and npm
-- An **OpenAI-compatible API key** (`OPENAI_API_KEY`) and a chat model in `OPENAI_MODEL` — the demo uses `gpt-5.4-mini-2026-03-17`, and `OPENAI_MODEL` is required (the agent has no built-in default and throws if it is unset). The governed business results are LLM-generated, so a working model key is required — not optional.
+- An **OpenAI-compatible API key** (`OPENAI_API_KEY`) and a chat model in `OPENAI_MODEL` — the demo uses `gpt-6-luna`, and `OPENAI_MODEL` is required (the agent has no built-in default and throws if it is unset). The governed business results are LLM-generated, so a working model key is required — not optional.
 - An **OpenBox account with a test API key** — sign up at [openbox.ai](https://openbox.ai) to get the agent runtime key `OPENBOX_API_KEY` (starts with `obx_test_`), `OPENBOX_CORE_URL`, `OPENBOX_AGENT_ID`, `OPENBOX_AGENT_DID`, and `OPENBOX_AGENT_PRIVATE_KEY`
 - The **OpenBox Admin API**, required by the provisioning and verification scripts: `OPENBOX_API_URL` (the Admin API base URL, e.g. `https://api.openbox.ai`) and `OPENBOX_BACKEND_API_KEY` — the org/backend key that starts with `obx_key_`. This is a different key from the `obx_test_` runtime key above; keep it server-only and never prefix it with `NEXT_PUBLIC_`.
 
@@ -88,7 +88,7 @@ There is no offline mock — every prompt sends a real tool call to your OpenBox
 
 ```bash
 git clone https://github.com/CopilotKit/CopilotKit.git
-cd CopilotKit/examples/showcases/openbox-governed-copilotkit
+cd CopilotKit/examples/demos/openbox-governed-copilotkit
 
 cd agent
 npm install
@@ -346,6 +346,6 @@ export async function POST(request: Request) {
 
 ## Get the code
 
-Full source to follow — the runnable showcase (the `agent/` LangGraph service with OpenBox middleware and the `frontend/` CopilotKit chat with the wrapped runtime and approval route) will be published under `examples/showcases/openbox-governed-copilotkit`.
+Full source to follow — the runnable showcase (the `agent/` LangGraph service with OpenBox middleware and the `frontend/` CopilotKit chat with the wrapped runtime and approval route) will be published under `examples/demos/openbox-governed-copilotkit`.
 
 For the upstream OpenBox × CopilotKit integration this recipe is based on, see the reference repo: [OpenBox-AI/openbox-x-copilotkit](https://github.com/OpenBox-AI/openbox-x-copilotkit).

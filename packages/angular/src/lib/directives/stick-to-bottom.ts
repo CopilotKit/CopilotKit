@@ -4,28 +4,28 @@ import {
   OnDestroy,
   AfterViewInit,
   PLATFORM_ID,
-  afterNextRender,
   inject,
   input,
   output,
 } from "@angular/core";
 import { isPlatformBrowser } from "@angular/common";
-import { ɵSCROLL_BOTTOM_THRESHOLD_PX } from "@copilotkit/core";
-import { ScrollPosition } from "../scroll-position";
-import { ResizeObserverService } from "../resize-observer";
-import { Subject } from "rxjs";
 import {
-  takeUntil,
-  debounceTime,
-  filter,
-  distinctUntilChanged,
-} from "rxjs/operators";
+  ɵSCROLL_BOTTOM_THRESHOLD_PX,
+  ɵcreateStickToBottom,
+  ɵisScrolledToBottom,
+} from "@copilotkit/core";
+import type { ɵStickToBottom } from "@copilotkit/core";
+import { explicitEffect } from "../explicit-effect";
 
 export type ScrollBehavior = "smooth" | "instant" | "auto";
 
 /**
- * Directive for implementing stick-to-bottom scroll behavior
- * Similar to the React use-stick-to-bottom library
+ * Keeps a scroll container at its bottom while content arrives, and stops
+ * when the reader scrolls up. Scrolling back to the bottom, or a call to
+ * `scrollToBottom()`, starts it again. Core's `ɵStickToBottom` does the work.
+ *
+ * The content is the descendant with `data-stick-to-bottom-content`, or the
+ * first child element.
  *
  * @example
  * ```html
@@ -42,143 +42,59 @@ export type ScrollBehavior = "smooth" | "instant" | "auto";
 @Directive({
   standalone: true,
   selector: "[copilotStickToBottom]",
-  providers: [ScrollPosition, ResizeObserverService],
 })
 export class StickToBottom implements AfterViewInit, OnDestroy {
+  /** `false` only tracks the position and does not follow new content. */
   enabled = input<boolean>(true);
   /** Pixels from the end that still count as the bottom. Default: 12. */
   threshold = input<number>(ɵSCROLL_BOTTOM_THRESHOLD_PX);
   initialBehavior = input<ScrollBehavior>("smooth");
   resizeBehavior = input<ScrollBehavior>("smooth");
+  /** Wait this many ms before `isAtBottomChange` reports a change. */
   debounceMs = input<number>(100);
 
   isAtBottomChange = output<boolean>();
-  scrollToBottomRequested = output<void>();
+  scrollToBottomRequested = output();
 
-  private elementRef = inject(ElementRef);
-  private scrollService = inject(ScrollPosition);
-  private resizeService = inject(ResizeObserverService);
+  private elementRef = inject<ElementRef<HTMLElement>>(ElementRef);
   private platformId = inject(PLATFORM_ID);
-
-  private destroy$ = new Subject<void>();
-  private contentElement?: HTMLElement;
-  private wasAtBottom = true;
-  private hasInitialized = false;
-  private userHasScrolled = false;
-  private destroyed = false;
+  private controller?: ɵStickToBottom;
+  private emitTimer?: ReturnType<typeof setTimeout>;
 
   constructor() {
-    afterNextRender(() => {
-      if (this.destroyed) return;
-      this.hasInitialized = true;
-      if (this.enabled()) {
-        this.scrollToBottom(this.initialBehavior());
-      }
-    });
+    explicitEffect(this.enabled, (enabled) =>
+      this.controller?.setFollow(enabled),
+    );
   }
 
   ngAfterViewInit(): void {
     if (!isPlatformBrowser(this.platformId)) return;
 
-    const element = this.elementRef.nativeElement as HTMLElement;
-
-    // Find or create content wrapper
-    this.contentElement = element.querySelector(
-      "[data-stick-to-bottom-content]",
-    ) as HTMLElement;
-    if (!this.contentElement) {
-      this.contentElement = element;
-    }
-
-    this.setupScrollMonitoring();
-    this.setupResizeMonitoring();
-    this.setupContentMutationObserver();
-  }
-
-  private setupScrollMonitoring(): void {
-    if (!this.enabled()) return;
-
     const element = this.elementRef.nativeElement;
+    const content =
+      element.querySelector<HTMLElement>("[data-stick-to-bottom-content]") ??
+      (element.firstElementChild instanceof HTMLElement
+        ? element.firstElementChild
+        : element);
 
-    // Monitor scroll position
-    this.scrollService
-      .monitorScrollPosition(element, this.threshold())
-      .pipe(
-        takeUntil(this.destroy$),
-        debounceTime(this.debounceMs()),
-        distinctUntilChanged((a, b) => a.isAtBottom === b.isAtBottom),
-      )
-      .subscribe((state) => {
-        const wasAtBottom = this.wasAtBottom;
-        this.wasAtBottom = state.isAtBottom;
-
-        // Detect user scroll
-        if (!state.isAtBottom && wasAtBottom && this.hasInitialized) {
-          this.userHasScrolled = true;
-        } else if (state.isAtBottom) {
-          this.userHasScrolled = false;
-        }
-
-        // Emit change
-        this.isAtBottomChange.emit(state.isAtBottom);
-      });
-  }
-
-  private setupResizeMonitoring(): void {
-    if (!this.enabled() || !this.contentElement) return;
-
-    // Monitor content resize
-    this.resizeService
-      .observeElement(this.contentElement, 0, 250)
-      .pipe(
-        takeUntil(this.destroy$),
-        filter(() => this.enabled() && !this.userHasScrolled),
-      )
-      .subscribe((state) => {
-        // Auto-scroll on resize if we were at bottom
-        if (this.wasAtBottom && !state.isResizing) {
-          this.scrollToBottom(this.resizeBehavior());
-        }
-      });
-
-    // Monitor container resize
-    const element = this.elementRef.nativeElement;
-    this.resizeService
-      .observeElement(element, 0, 250)
-      .pipe(
-        takeUntil(this.destroy$),
-        filter(
-          () => this.enabled() && !this.userHasScrolled && this.wasAtBottom,
-        ),
-      )
-      .subscribe(() => {
-        // Adjust scroll on container resize
-        this.scrollToBottom(this.resizeBehavior());
-      });
-  }
-
-  private setupContentMutationObserver(): void {
-    if (!this.enabled() || !this.contentElement) return;
-
-    const mutationObserver = new MutationObserver(() => {
-      if (this.enabled() && this.wasAtBottom && !this.userHasScrolled) {
-        // Content changed, scroll to bottom if we were there
-        requestAnimationFrame(() => {
-          this.scrollToBottom(this.resizeBehavior());
-        });
-      }
+    // The first value goes out once below, so the controller's own first
+    // report during creation is skipped.
+    let created = false;
+    this.controller = ɵcreateStickToBottom({
+      scrollElement: element,
+      contentElement: content,
+      threshold: this.threshold(),
+      follow: this.enabled(),
+      initialBehavior: this.initialBehavior(),
+      followBehavior: this.resizeBehavior(),
+      onChange: (isAtBottom) => {
+        if (created) this.emitIsAtBottom(isAtBottom);
+      },
     });
-
-    mutationObserver.observe(this.contentElement, {
-      childList: true,
-      subtree: true,
-      characterData: true,
-    });
-
-    // Cleanup on destroy
-    this.destroy$.subscribe(() => {
-      mutationObserver.disconnect();
-    });
+    created = true;
+    // A recreated directive (autoScroll off and on) starts from the real
+    // position, not the parent's last value.
+    this.emitIsAtBottom(this.controller.isAtBottom);
   }
 
   /**
@@ -186,11 +102,12 @@ export class StickToBottom implements AfterViewInit, OnDestroy {
    * Can be called from parent component
    */
   public scrollToBottom(behavior: ScrollBehavior = "smooth"): void {
-    const element = this.elementRef.nativeElement;
-    const smooth = behavior === "smooth";
-
-    this.scrollService.scrollToBottom(element, smooth);
-    this.userHasScrolled = false;
+    if (this.controller) {
+      this.controller.scrollToBottom(behavior);
+    } else {
+      const element = this.elementRef.nativeElement;
+      element.scrollTop = element.scrollHeight;
+    }
     this.scrollToBottomRequested.emit();
   }
 
@@ -198,10 +115,7 @@ export class StickToBottom implements AfterViewInit, OnDestroy {
    * Check if currently at bottom
    */
   public isAtBottom(): boolean {
-    return this.scrollService.isAtBottom(
-      this.elementRef.nativeElement,
-      this.threshold(),
-    );
+    return ɵisScrolledToBottom(this.elementRef.nativeElement, this.threshold());
   }
 
   /**
@@ -218,8 +132,21 @@ export class StickToBottom implements AfterViewInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
-    this.destroyed = true;
-    this.destroy$.next();
-    this.destroy$.complete();
+    this.controller?.dispose();
+    this.controller = undefined;
+    clearTimeout(this.emitTimer);
+  }
+
+  private emitIsAtBottom(isAtBottom: boolean): void {
+    clearTimeout(this.emitTimer);
+    const delay = this.debounceMs();
+    if (delay <= 0) {
+      this.isAtBottomChange.emit(isAtBottom);
+      return;
+    }
+    this.emitTimer = setTimeout(
+      () => this.isAtBottomChange.emit(isAtBottom),
+      delay,
+    );
   }
 }

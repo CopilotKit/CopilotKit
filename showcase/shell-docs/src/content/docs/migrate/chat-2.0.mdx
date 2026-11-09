@@ -1,6 +1,6 @@
 ---
 title: Chat UI in 2.0
-description: Replace removed chat exports, update full label objects, renderer lists, repeated tool registrations, and writes to the Angular copy buttons, and check the default text and behavior that changed in tool-call rendering, chat configuration, agents, thread lists, sends, attachments, the Angular welcome screen, the chat input, the audio recorder, the sidebar, attachment previews, the Inspector, suggestions, interrupts, and human-in-the-loop tools.
+description: Replace removed chat exports, update full label objects, renderer lists, repeated tool registrations, and writes to the Angular copy buttons, and check the default text and behavior that changed in tool-call rendering, chat configuration, agents, thread lists, sends, attachments, the Angular welcome screen, the chat input, the audio recorder, the sidebar, scrolling, the Angular popup, attachment previews, the Inspector, suggestions, interrupts, and human-in-the-loop tools.
 ---
 
 In 2.0, an import from `@copilotkit/react-core`, `@copilotkit/vue`, or `@copilotkit/core` can fail, or a type check can fail. The Vue and Angular chat can also show different text or act differently. The cause is one of these changes:
@@ -13,7 +13,9 @@ In 2.0, an import from `@copilotkit/react-core`, `@copilotkit/vue`, or `@copilot
 - The Angular copy buttons and the license warnings changed.
 - React, Vue, and Angular use the same rules for chat configuration, agents, and thread lists.
 - React, Vue, and Angular use one set of rules to send messages and upload attachments.
+- The React Native chat uses the same rules for threads, sends, and attachments as the web chat.
 - React, Vue, and Angular share one chat input, audio recorder, docked sidebar, and attachment preview.
+- React, Vue, and Angular use one set of rules to scroll the message list and to close the popup.
 - The Inspector in Vue and Angular follows the same rules as in React.
 - `useConfigureSuggestions` loads suggestions for the agent of the chat, in React and in Vue.
 - Interrupts and human-in-the-loop tools work the same in React, Vue, and Angular.
@@ -97,6 +99,12 @@ copilotkit.setRenderToolCalls([...copilotkit.renderToolCalls, searchRenderer]);
 
 To add one tool-call renderer from a component, use `useRenderTool`.
 
+### Built-in tool-call renderers
+
+A2UI and generative UI hide their own tool calls (`render_a2ui`, `render_ui`) with a renderer that draws nothing. In 1.x, in React, this renderer replaced the provider's `renderToolCalls` list, and the renderers of `frontendTools` and `humanInTheLoop`. Those tool calls then showed nothing. Now the built-in renderer is added next to your renderers. It goes away when its feature turns off.
+
+If you give a renderer for `render_a2ui` or `render_ui` in `renderToolCalls`, your renderer is used instead of the built-in one.
+
 ## Tool registration
 
 `CopilotKitCore.addTool` now returns a function that removes this registration. If a tool with the same name and `agentId` is already registered, the newer tool is active. In 1.x, the second call did nothing. When you call the returned function, the earlier tool is active again.
@@ -121,6 +129,12 @@ removeSearch();
 ```
 
 `useFrontendTool` in React and Vue uses this function. When a component that replaces a provider tool unmounts, the provider tool is active again.
+
+In Vue, `useFrontendTool` now logs a console warning when it replaces a tool with the same name and `agentId`, as React does.
+
+### Renderers of provider frontend tools
+
+In React and Vue, a `frontendTools` entry with a `render` and an `agentId` now gives a renderer for that agent only. In 1.x, the provider dropped the `agentId` from the renderer, so it drew calls for every agent. `useFrontendTool`, `humanInTheLoop` and Angular already kept the `agentId`. The chat still uses this renderer for another agent when no renderer matches that agent better.
 
 ## Angular copy buttons
 
@@ -241,11 +255,23 @@ The status of a tool call without a result is `"executing"` only while its front
 
 A tool that has a renderer but no handler now stays `"in-progress"` until its result arrives. If your renderer shows a control only for `"executing"`, use a frontend tool or a human-in-the-loop tool with a handler.
 
+### The `"turn"` display in Angular
+
+Angular now draws `toolCallDisplay: "turn"` the same as React and Vue. Each reply starts with a summary line, such as "Working 4s" or "Worked for 9s". The tool calls, the reasoning, and the narration text of the reply fold into that line when the reply is done. Click the line to show the work again. In 1.x, Angular drew `"turn"` the same as `"grouped"`.
+
+To replace the summary line, set `workSummaryComponent` or `workSummaryTemplate` on `copilot-chat`, `copilot-chat-view`, or `copilot-chat-message-view`. `workSummaryClass` sets the class of the line. The slot gets `isWorking`, `isOpen`, `calls`, `elapsedMs`, `workingSince`, and `onClick`.
+
+In the Angular chat, the last tool-call group of a reply now shows "Running" while the agent runs. In 1.x, the group showed "Stopped" until the run ended.
+
 ### Tool-call arguments in React and Vue
 
 A tool-call renderer gets `args` as an object. While the agent streams the arguments, the object has the parts that arrived. After that, if the arguments are not valid JSON, `args` is `{ _raw: "<the text>" }`. If they are JSON but not an object, `args` is `{ _value: <the value> }`. In 1.x, the renderer got `{}` in both cases. Angular already used these keys.
 
 If your renderer reads `args`, make sure that it accepts these two shapes.
+
+### Tool results that are not text in React, Vue, and Angular
+
+A tool-call renderer gets `result` as a string. The result of a tool message can come from restored thread history or from code that adds messages. If that result is not a string or a list of content parts, the renderer now gets the result as JSON text, and the console shows a warning one time for each message. A `null` result gives `""`. In 1.x, an object or `null` result threw an error while the chat drew the tool call, and a list that was not content parts gave `""`. React Native already did this.
 
 ### Built-in tool-call card
 
@@ -439,6 +465,34 @@ const { processFiles } = useAttachments({
 });
 ```
 
+## React Native chat
+
+`CopilotChat` in `@copilotkit/react-native` now uses the same thread, send, and attachment rules as the web `CopilotChat`.
+
+**Threads** in the headless `CopilotChat`:
+
+- **Restore:** With a `threadId`, the chat loads the messages of that thread from the runtime and reconnects to a run in progress. Before, the chat only set `agent.threadId`.
+- **Switch:** When `threadId` changes, the chat loads the new thread. When you remove `threadId`, the chat starts a new, empty thread.
+- **No `threadId`:** The chat uses the thread of the chat around it. If there is no chat around it, the chat makes a new thread ID. Before, the agent kept its own thread ID.
+
+**Sends:**
+
+- `submitMessage` from `useCopilotChatContext` waits until the thread loads and until the current run ends.
+- `submitMessage` does not send text that is empty or only spaces. This is also true when attachments are ready. Before, it sent an empty message, or a message with only the attachments.
+- In the full-screen `CopilotChat` from `@copilotkit/react-native/components`, a message that you send during a run waits until the run ends. Before, the chat dropped that message. Message IDs are now UUIDs, not `user-1`, `user-2`.
+
+**Attachments:** The rules in [Attachment uploads](#attachment-uploads) apply. `processFiles` does nothing when `enabled` is not `true`. All picked files show as uploading at once, and they upload one at a time.
+
+If a user can send only attachments, send a short text with them:
+
+```tsx ignore title="Before"
+await submitMessage("");
+```
+
+```tsx ignore title="After"
+await submitMessage("See the attached files.");
+```
+
 ## Welcome screen and suggestions in Angular
 
 `<copilot-chat>` now has these inputs:
@@ -529,6 +583,7 @@ The docked sidebar adds an inline margin to `document.body` on its side. In 2.0,
 - **One owner:** Only one open docked sidebar on a page adds the margin. A second one logs a warning and adds no margin.
 - **Margins come back:** When the sidebar closes or unmounts, the body gets back the margins that it had before. React set them to `""`.
 - **Viewport changes:** The margin goes away when the viewport becomes 767px or narrower, and comes back when it becomes wider. If the browser has no `matchMedia`, the sidebar docks. React did not dock without `matchMedia`, for example in jsdom tests.
+- **Width changes:** In React, a new `width` prop after mount now changes the width of the sidebar and the margin. Before, React kept the first `width`. Vue and Angular already did this.
 - **Vue server rendering:** Vue sets the margin when the sidebar mounts. The server-rendered HTML has no margin and no `<style>` element for it.
 
 In Angular, the sidebar becomes a modal at `(max-width: 767px)`. Before, the breakpoint was `47.999rem`, which moved with the root font size.
@@ -538,6 +593,15 @@ If a test expects no body margin in jsdom, or reads the margin from a `<style>` 
 ## Slash commands in React
 
 The slash menu lists only menu items that have an `action`. A group with no items, such as `{ label: "Tools", items: [] }`, is not listed. Vue already worked this way.
+
+## Tools menu and reasoning in Angular
+
+Angular now uses the same rules as React and Vue for these parts of the chat:
+
+- **Tools menu:** When the chat takes files, a separator shows between the "Add file" item and the items of `toolsMenu`. In 1.x, Angular showed no separator there.
+- **Reasoning messages:** Each new stream of a reasoning message opens it again. When that stream ends, the message closes, unless the user opened or closed it during that stream. In 1.x, Angular kept the user's earlier choice for all later streams.
+
+If a test or a screenshot depends on the earlier behavior, update it.
 
 ## Attachment previews
 
@@ -552,17 +616,42 @@ In React and Vue, a text attachment shows its base64 data decoded as UTF-8. Befo
 
 If a test reads `document.activeElement` after it opens a preview, update it to expect the close button.
 
-## Scroll to bottom in Angular
+## Scroll to bottom
 
-`StickToBottom` and `ScrollPosition` now count 12px or less from the end as the bottom. Before, the default was 10px. Vue uses 12px. The message list of `<copilot-chat-view>` also uses 12px now.
+React, Vue, and Angular count 12px or less from the end as the bottom. Before, the default was 10px in Angular, and in React with `autoScroll="none"` or `"pin-to-send"`.
 
-To keep 10px, set the threshold:
+In Angular, `StickToBottom` and `ScrollPosition` use 12px. The message list of `<copilot-chat-view>` also uses 12px, also with `[autoScroll]="false"`. To keep 10px, set the threshold:
 
 ```html title="chat.component.html"
 <div copilotStickToBottom [threshold]="10">
   <!-- messages -->
 </div>
 ```
+
+Vue and Angular keep the message list at the bottom with the same rules:
+
+- **Following:** While the reader is at the bottom, new content keeps the list at the bottom. This includes text that streams into a message. When the reader scrolls up, the list stays where it is. When the reader scrolls back to the bottom, the list follows again.
+- **Scroll-to-bottom button:** The button stays hidden while the list moves to the bottom.
+
+In Vue with `autoScroll="pin-to-send"` or `"none"`, the scroll-to-bottom button shows only while messages are below the view, as in React. Before, the empty space under the last message in `"pin-to-send"` mode also showed the button.
+
+In Angular, `StickToBottom` changed:
+
+- With `[enabled]="false"`, `isAtBottomChange` still reports the position. The directive does not follow new content.
+- Without a `data-stick-to-bottom-content` element, the directive watches its first child element.
+- The directive does not provide `ScrollPosition` and `ResizeObserverService`. Both are still available from the root injector.
+
+## Popup and sidebar in Angular
+
+`<copilot-popup>` and `<copilot-sidebar>` now close and move focus with the same rules as React and Vue:
+
+- **Escape:** Escape closes the popup, or the sidebar in overlay mode, also when focus is outside it. If more than one is open, Escape closes all of them.
+- **Clicks outside:** There is no invisible backdrop. A click outside the popup reaches the page. With `clickOutsideToClose`, the popup closes on the pointer down outside it. A pointer down on the toggle button or in a chat popover does not close it.
+- **`aria-modal`:** The popup and the overlay sidebar do not set `aria-modal="true"`, because the page behind them stays usable. They keep `role="dialog"`. If a test reads `aria-modal`, read `role="dialog"` instead.
+- **Focus:** Focus moves to the close button when the dialog opens. Tab and Shift+Tab stay inside the dialog. Focus goes back to the toggle button when the dialog closes, also when the `open` model closes it.
+- **Docked margin:** After the first change, the page margin of a docked sidebar animates for 260ms.
+
+If a test clicks `[data-copilot-popup-backdrop]` or `[data-copilot-sidebar-backdrop]`, dispatch a `pointerdown` event on an element outside the popup instead.
 
 ## Inspector in Vue and Angular
 
@@ -627,6 +716,26 @@ export function StarterPrompts() {
 ```
 
 If a test counts suggestion reloads, update the count to the behavior above.
+
+The Angular chat now loads the suggestions of its agent only when nothing else loads them:
+
+- **`configureSuggestions` (Angular):** A config loads one time. Before 2.0, the chat loaded it a second time.
+- **Agent list changes (Angular):** The chat reloads its suggestions only when its own agent registers. Before 2.0, every change to the agent list reloaded them.
+- **`addSuggestionsConfig` (Angular):** A new config does not reload the chat. Call `reloadSuggestions(agentId)`, or use `configureSuggestions`.
+
+## Thread connections
+
+React, Vue, Angular, and the React Native headless `CopilotChat` now load a thread with the same rules.
+
+| Rule | Changed in |
+| --- | --- |
+| An agent that does not implement `connect` is not connected. Its thread shows as loaded at once. On the first thread the chat opens, its messages stay. When the chat changes to another thread, the chat stops the old thread's run and clears its messages. | React, Angular |
+| When the chat closes or changes thread, it stops the run of a thread that still loads. A run that started after the thread loaded continues. | React, Vue, React Native |
+| An explicit thread shows as loading until it loads and the next frame paints. | Angular |
+| A move into or out of an Inspector thread stops the run. | Angular |
+| When the `threadId` input goes away, the chat starts a new thread. It does not go back to an earlier new thread. | Angular |
+
+If a test spies on `connectAgent` with an agent that does not implement `connect`, give the agent a `connect` method.
 
 ## Interrupts and human-in-the-loop
 

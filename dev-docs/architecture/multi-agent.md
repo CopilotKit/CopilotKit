@@ -343,21 +343,22 @@ Each thread maintains its own:
 ```typescript
 import { CopilotRuntime } from "@copilotkit/runtime";
 import { createCopilotEndpointExpress } from "@copilotkit/runtime/express";
-import { BuiltInAgent } from "@copilotkit/runtime/v2";
+import { BuiltInAgent } from "@copilotkit/runtime/agent";
+import { openaiText } from "@tanstack/ai-openai";
 
 const agents = {
   default: new BuiltInAgent({
-    model: "openai/gpt-4o",
-    systemPrompt: "You are a general assistant.",
+    model: openaiText("gpt-6-luna"),
+    prompt: "You are a general assistant.",
   }),
   research: new BuiltInAgent({
-    model: "openai/gpt-4o",
-    systemPrompt:
+    model: openaiText("gpt-6-luna"),
+    prompt:
       "You are a research specialist. Search for papers and summarize findings.",
   }),
   coding: new BuiltInAgent({
-    model: "openai/gpt-4o",
-    systemPrompt: "You are a coding expert. Write clean, tested code.",
+    model: openaiText("gpt-6-luna"),
+    prompt: "You are a coding expert. Write clean, tested code.",
   }),
 };
 

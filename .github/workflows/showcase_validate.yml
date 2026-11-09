@@ -4,7 +4,7 @@ on:
   pull_request:
     paths:
       - "showcase/**"
-      - "examples/integrations/**"
+      - "examples/starters/**"
       - "package.json"
       - "pnpm-lock.yaml"
       - "pnpm-workspace.yaml"
@@ -27,7 +27,7 @@ on:
     branches: [main]
     paths:
       - "showcase/**"
-      - "examples/integrations/**"
+      - "examples/starters/**"
       - "package.json"
       - "pnpm-lock.yaml"
       - "pnpm-workspace.yaml"
@@ -718,7 +718,7 @@ jobs:
         run: shellcheck showcase/scripts/promote-fleet.sh showcase/scripts/verify-prod-display.sh showcase/scripts/reconcile-prod-gate.sh
 
       - name: Shellcheck starter shell scripts
-        # The starters under examples/integrations/ ship `entrypoint.sh` as the
+        # The starters under examples/starters/ ship `entrypoint.sh` as the
         # production container's CMD, plus dev helper scripts under scripts/.
         # None of them were linted by anything, so shell defects in the exact
         # file that starts the shipped image reached users unreviewed. Globbed
@@ -731,7 +731,7 @@ jobs:
         run: |
           set -euo pipefail
           shopt -s nullglob globstar
-          files=(examples/integrations/**/*.sh)
+          files=(examples/starters/**/*.sh)
           if [ ${#files[@]} -eq 0 ]; then
             echo "::error::No starter shell scripts matched — the glob is stale."
             exit 1
@@ -914,6 +914,12 @@ jobs:
             # a conftest.py omits the sys.path setup. Mirrors the local dev
             # convention (`PYTHONPATH=. python ...` in package.json scripts).
             (cd "$pkg_dir" && env $pkg_extra_env PYTHONPATH=".:src:${PYTHONPATH:-}" "$pkg_python" -m pytest tests/python/ -v) || failed=1
+            if [ "$pkg" = "crewai-crews" ] || [ "$pkg" = "crewai-conversational-flows" ]; then
+              # Run the shared wire contract in the real SDK environment. The
+              # shared-tools venv below has no CrewAI and would skip this test.
+              "$pkg_python" -m pytest showcase/shared/python/tests/test_reasoning_chain_requests.py \
+                -k "$pkg" -v || failed=1
+            fi
             if [ "$pkg" = "strands" ]; then
               # A fresh process keeps tests/python/conftest.py's SDK substitutes
               # out of the real SDK tool execution and session persistence gate.
@@ -937,6 +943,19 @@ jobs:
           python -m venv "$venv"
           "$venv/bin/python" -m pip install --quiet -r showcase/shared/python/requirements-test.txt
           "$venv/bin/python" -m pytest showcase/shared/python/tests -v
+
+      - name: Verify LangGraph model requests with its real SDKs
+        if: ${{ !cancelled() && matrix.python-version == '3.12' }}
+        run: |
+          set -euo pipefail
+          venv="${RUNNER_TEMP}/showcase-venv-langgraph-requests"
+          python -m venv "$venv"
+          # Use the integration's versions for the SDKs these builders import.
+          grep -E '^(copilotkit|ag-ui-protocol|ag-ui-langgraph|langchain|langchain-openai|langgraph|deepagents|openai)(==|>=)' \
+            showcase/integrations/langgraph-python/requirements.txt > "$venv/requirements.txt"
+          "$venv/bin/python" -m pip install --quiet pytest -r "$venv/requirements.txt"
+          "$venv/bin/python" -m pytest showcase/integrations/langgraph-python/tests/test_model_overrides.py -v
+          "$venv/bin/python" -m pytest showcase/shared/python/tests/test_reasoning_chain_requests.py -k langgraph-python -v
 
   notify:
     # Slack #oss-alerts on any red. Never #engr (engr is sacred — release alerts only).

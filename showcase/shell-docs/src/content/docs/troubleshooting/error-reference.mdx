@@ -91,10 +91,12 @@ agents at all. The prebuilt components default to the agent named `"default"`.
 - Register the agent under the id you're requesting (or under `"default"` if you
   pass no `agentId`):
   ```ts
-  import { BuiltInAgent, CopilotRuntime } from "@copilotkit/runtime";
+  import { CopilotRuntime } from "@copilotkit/runtime";
+  import { BuiltInAgent } from "@copilotkit/runtime/agent";
+  import { openaiText } from "@tanstack/ai-openai";
 
   const runtime = new CopilotRuntime({
-    agents: { default: new BuiltInAgent({ model: "openai/gpt-5.4" }) },
+    agents: { default: new BuiltInAgent({ model: openaiText("gpt-5.5") }) },
   });
   ```
 - Confirm the id matches the "Available agents" list in the message.
@@ -139,12 +141,12 @@ Failed to run agent
 **Where:** a `500` JSON body from the runtime's run/connect routes, with a
 `message` field carrying the underlying error.
 
-**Cause:** the agent threw while executing. Common causes include a bad model string, a missing API key
+**Cause:** the agent threw while executing. Common causes include a bad model id, a missing API key
 on the server, a provider error, or an exception inside the agent itself.
 
 **Fix:** read the `message` field and check your server logs (the runtime logs the
 error name, message, and stack). Common culprits: an unset `OPENAI_API_KEY` (or
-equivalent) on the server, or a model string the provider doesn't recognize.
+equivalent) on the server, or a model id the provider doesn't recognize.
 
 ## Capability discovery failed
 

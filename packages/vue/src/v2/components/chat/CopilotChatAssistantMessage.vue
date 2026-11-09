@@ -1,13 +1,5 @@
 <script setup lang="ts">
-import {
-  computed,
-  inject,
-  onUpdated,
-  ref,
-  shallowRef,
-  toRef,
-  watch,
-} from "vue";
+import { computed, inject, onUpdated, ref, toRef, watch } from "vue";
 import type { Component } from "vue";
 import type { AssistantMessage, Message } from "@ag-ui/core";
 import { useCopilotChatConfiguration } from "../../providers/useCopilotChatConfiguration";
@@ -34,6 +26,7 @@ import { useInspectorShortcutsHidden } from "./inspector-shortcuts";
 import { InspectorKey } from "../../providers/keys";
 import { useFeedbackComment, useMessageFeedback } from "./message-feedback";
 import {
+  ɵflattenUserMessageContent,
   ɵhasAssistantMessageText,
   ɵshouldShowAssistantToolbar,
 } from "@copilotkit/core";
@@ -115,39 +108,9 @@ const config = useCopilotChatConfiguration();
 const labels = computed(() => config.value?.labels ?? CopilotChatDefaultLabels);
 const { copied, copy } = useCopyFeedback();
 
-function normalizeContent(content: unknown): string {
-  if (!content) {
-    return "";
-  }
-
-  if (typeof content === "string") {
-    return content;
-  }
-
-  if (Array.isArray(content)) {
-    const parts = content as Array<{ type?: unknown; text?: unknown }>;
-    return parts
-      .map((part) => {
-        if (
-          part &&
-          typeof part === "object" &&
-          "type" in part &&
-          part.type === "text" &&
-          typeof part.text === "string"
-        ) {
-          return part.text;
-        }
-        return "";
-      })
-      .filter((text) => text.length > 0)
-      .join("\n");
-  }
-
-  return "";
-}
-
+// Assistant text, also from untyped data that sends content parts.
 const normalizedContent = computed(() =>
-  normalizeContent(props.message.content),
+  ɵflattenUserMessageContent(props.message.content),
 );
 const hasContent = computed(() =>
   ɵhasAssistantMessageText(normalizedContent.value),
@@ -179,10 +142,6 @@ const feedback = useMessageFeedback(toRef(props, "message"));
 const comment = useFeedbackComment(feedback);
 const rating = computed(() => feedback.value?.feedback?.rating);
 const root = ref<HTMLElement | null>(null);
-// The chosen thumb the comment popover points at, and the rating the open
-// comment answers.
-const commentAnchor = shallowRef<HTMLElement | null>(null);
-let commentRating = rating.value;
 
 const hasThumbsUp = computed(
   () => typeof props.onThumbsUp === "function" || !!feedback.value,
@@ -207,106 +166,40 @@ const shouldShowToolbar = computed(() =>
 
 // A custom thumb that calls its handler without an event gives no element:
 // point at the chosen thumb once it renders, before the popover reads it.
-function findCommentAnchor() {
-  if (
-    comment.open.value &&
-    !commentAnchor.value?.isConnected &&
-    rating.value &&
-    root.value
-  ) {
-    commentAnchor.value =
-      root.value.querySelector<HTMLElement>(
-        `[data-copilotkit-rating="${rating.value}"]`,
-      ) ??
-      // A custom thumb that binds only `aria-pressed`.
-      root.value.querySelector<HTMLElement>('button[aria-pressed="true"]') ??
-      null;
-  }
-}
+const findCommentAnchor = () => comment.findAnchor(root.value);
 onUpdated(findCommentAnchor);
 watch(() => comment.open.value, findCommentAnchor, { flush: "post" });
 
-/** Whether focus came from the keyboard; a pointer click also focuses buttons. */
-function isFocusVisible(element: Element): boolean {
-  try {
-    return element.matches(":focus-visible");
-  } catch {
-    return false;
-  }
-}
-
-// Checks `visibility: hidden` too, which a detached popover uses.
-const HIDDEN_TOO = { checkVisibilityCSS: true, visibilityProperty: true };
-
 /**
- * Thumbs are toggles: a new rating is saved and opens its comment, and
- * clicking the chosen thumb again removes the rating. A keyboard click
- * (`detail` 0) moves focus into the comment, as there is no pointer. Custom
- * thumb slots may call the handler without an event.
- *
- * @returns Whether the app's handler should run: true for a new rating and
- * whenever this chat does not record ratings, false when one is removed.
+ * A thumb click. A keyboard click (`detail` 0) moves focus into the comment;
+ * custom thumb slots may call the handler without an event.
  */
 function rate(value: MessageFeedbackRating, event?: MouseEvent): boolean {
-  const controls = feedback.value;
-  if (!controls) return true;
-  if (rating.value === value) {
-    comment.close({ save: false });
-    controls.clear();
-    return false;
-  }
-  controls.rate(value);
-  commentRating = value;
-  commentAnchor.value =
-    event?.currentTarget instanceof HTMLElement ? event.currentTarget : null;
-  comment.show({ comment: "", focus: event?.detail === 0 });
-  return true;
+  return comment.rate(value, {
+    target:
+      event?.currentTarget instanceof HTMLElement ? event.currentTarget : null,
+    keyboard: event?.detail === 0,
+  });
 }
 
 /** Attributes that let the chosen thumb open and point at its comment. */
 function thumbFeedbackProps(
   value: MessageFeedbackRating,
 ): Record<string, unknown> {
-  if (!feedback.value) return {};
-  const thumb = { "data-copilotkit-rating": value };
-  if (rating.value !== value) return { ...thumb, "aria-pressed": false };
-  const enter = (target: HTMLElement, via: "pointer" | "focus") => {
-    if (!comment.open.value) commentRating = value;
-    commentAnchor.value = target;
-    comment.enter(via);
-  };
+  // Read so the thumbs update when the rating or the popover changes.
+  void feedback.value;
+  void comment.open.value;
+  const thumb = comment.thumb(value);
+  if (!thumb) return {};
+  const { handlers } = thumb;
+  if (!handlers) return thumb.attributes;
   return {
-    ...thumb,
-    "aria-pressed": true,
-    "aria-haspopup": "dialog",
-    "aria-expanded": comment.open.value,
-    onPointerenter: (event: PointerEvent) => {
-      if (event.pointerType !== "touch")
-        enter(event.currentTarget as HTMLElement, "pointer");
-    },
-    onPointerleave: (event: PointerEvent) => {
-      if (event.pointerType !== "touch") comment.leave("pointer");
-    },
-    // Keyboard focus opens the comment; Tab moves on into its field.
-    onFocus: (event: FocusEvent) => {
-      const target = event.currentTarget as HTMLElement;
-      if (isFocusVisible(target)) enter(target, "focus");
-    },
-    onBlur: () => comment.leave(),
-    onKeydown: (event: KeyboardEvent) => {
-      const input = comment.input.value;
-      // Not while the popover hides because its thumb scrolled away.
-      if (
-        event.key === "Tab" &&
-        !event.shiftKey &&
-        comment.open.value &&
-        input &&
-        input.checkVisibility?.(HIDDEN_TOO) !== false
-      ) {
-        event.preventDefault();
-        input.focus();
-      }
-    },
+    ...thumb.attributes,
+    onPointerenter: handlers.pointerEnter,
+    onPointerleave: handlers.pointerLeave,
+    onFocus: handlers.focus,
+    onBlur: handlers.blur,
+    onKeydown: handlers.keyDown,
   };
 }
 
@@ -315,14 +208,8 @@ const thumbsDownProps = computed(() => thumbFeedbackProps("down"));
 
 // The popover shows only with the toolbar and a rating. Hiding the toolbar
 // keeps the edit; a rating removed elsewhere or Learning turned off ends it.
-watch(
-  [() => comment.open.value, shouldShowToolbar, rating],
-  ([open, showToolbar, currentRating]) => {
-    if (!open) return;
-    // Changed or removed elsewhere: the draft answered the old rating.
-    if (currentRating !== commentRating) comment.close({ save: false });
-    else if (!showToolbar) comment.close();
-  },
+watch([() => comment.open.value, shouldShowToolbar, rating], () =>
+  comment.sync({ showsToolbar: shouldShowToolbar.value }),
 );
 
 function handleInspect() {
@@ -539,7 +426,7 @@ function handleRegenerate() {
     :comment="comment"
     :saved-comment="feedback.feedback.comment ?? ''"
     :rating="feedback.feedback.rating"
-    :anchor="commentAnchor"
+    :anchor="comment.anchor.value"
     :message-id="message.id"
   >
     <template v-if="$slots['feedback-comment']" #feedback-comment="slotProps">

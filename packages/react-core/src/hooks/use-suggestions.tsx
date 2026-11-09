@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ɵsubscribeToAgentSuggestions } from "@copilotkit/core";
+import {
+  ɵresolveAgentId,
+  ɵsubscribeToAgentSuggestions,
+} from "@copilotkit/core";
 import type { Suggestion } from "@copilotkit/core";
 import { useCopilotKit, useDefaultAgentId } from "../context";
 import { useCopilotChatConfiguration } from "../providers/CopilotChatConfigurationProvider";
-import { DEFAULT_AGENT_ID } from "@copilotkit/shared";
 
 export interface UseSuggestionsOptions {
   agentId?: string;
@@ -23,7 +25,12 @@ export function useSuggestions({
   const config = useCopilotChatConfiguration();
   const providerAgentId = useDefaultAgentId();
   const resolvedAgentId = useMemo(
-    () => agentId ?? config?.agentId ?? providerAgentId ?? DEFAULT_AGENT_ID,
+    () =>
+      ɵresolveAgentId({
+        agentId,
+        chatAgentId: config?.agentId,
+        providerAgentId,
+      }),
     [agentId, config?.agentId, providerAgentId],
   );
 

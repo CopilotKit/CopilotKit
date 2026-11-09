@@ -729,7 +729,7 @@ export function pluralize(
  * throws.
  */
 function safeJSONStringify(value: unknown, space?: number) {
-  const seen = new WeakSet<object>();
+  const seen = new WeakSet();
   try {
     const serialized = JSON.stringify(
       value,

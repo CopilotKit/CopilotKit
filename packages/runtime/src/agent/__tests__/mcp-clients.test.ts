@@ -1,198 +1,276 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { BuiltInAgent } from "../index";
-import type { MCPClientProvider } from "../index";
+import { describe, it, expect, vi, afterEach } from "vitest";
 import { EventType } from "@ag-ui/client";
-import type { RunAgentInput } from "@ag-ui/client";
-import { streamText } from "ai";
-import type { ToolSet } from "ai";
+import { LLMock, MCPMock } from "@copilotkit/aimock";
+import { createMCPClient } from "@tanstack/ai-mcp";
+import type { AnyServerTool, TextOptions } from "@tanstack/ai";
 import {
-  mockStreamTextResponse,
-  textDelta,
-  finish,
   collectEvents,
-} from "./test-helpers";
+  collectEventsIncludingErrors,
+  createClassicAgent,
+  createDefaultInput,
+  eventsOfType,
+  requestToolNames,
+  runClassicAgent,
+} from "./agent-test-helpers";
+import type { ClassicTestConfig } from "./agent-test-helpers";
 
-// Mock the ai module
-vi.mock("ai", () => ({
-  streamText: vi.fn(),
-  tool: vi.fn((config) => config),
-  jsonSchema: vi.fn((schema) => schema),
-  stepCountIs: vi.fn((count: number) => ({ type: "stepCount", count })),
-}));
+// The agent passes its config `mcp` to TanStack AI chat(), which reads the
+// tools of each client. The MCP sources below are the boundary: a real
+// `@tanstack/ai-mcp` client on an in-process MCP server, or a fake source
+// object. The model is a fake; chat() is real.
 
-// Mock the SDK clients
-vi.mock("@ai-sdk/openai", () => ({
-  createOpenAI: vi.fn(() => (modelId: string) => ({
-    modelId,
-    provider: "openai",
-  })),
-}));
+const cleanups: Array<() => Promise<void>> = [];
 
-// Mock MCP imports so mcpServers code path doesn't fail when tested alongside mcpClients
-vi.mock("@ai-sdk/mcp", () => ({
-  createMCPClient: vi.fn(),
-}));
+afterEach(async () => {
+  const pending = cleanups.splice(0);
+  await Promise.all(pending.map((cleanup) => cleanup().catch(() => {})));
+});
 
-describe("mcpClients — user-managed MCP clients", () => {
-  const originalEnv = process.env;
-
-  beforeEach(() => {
-    vi.clearAllMocks();
-    process.env = { ...originalEnv };
-    process.env.OPENAI_API_KEY = "test-key";
-  });
-
-  afterEach(() => {
-    process.env = originalEnv;
-  });
-
-  const baseInput: RunAgentInput = {
-    threadId: "thread1",
-    runId: "run1",
-    messages: [],
-    tools: [],
-    context: [],
-    state: {},
+/** A TanStack AI server tool that answers with its description. */
+function fakeTool(name: string, description: string): AnyServerTool {
+  return {
+    __toolSide: "server",
+    name,
+    description,
+    execute: async () => description,
   };
+}
 
-  function makeMockProvider(
-    tools: Record<string, any>,
-  ): MCPClientProvider & { close: ReturnType<typeof vi.fn> } {
-    return {
-      tools: vi.fn().mockResolvedValue(tools),
-      close: vi.fn(),
-    };
+/**
+ * A fake MCP source, the shape chat() reads: `tools()` and `close()`. Like a
+ * real MCP client, it marks its tools lazy when chat() asks for lazy tools.
+ */
+function fakeSource(tools: AnyServerTool[]) {
+  return {
+    tools: vi.fn(
+      async (options?: { lazy?: boolean }): Promise<AnyServerTool[]> =>
+        tools.map((tool) => ({ ...tool, lazy: options?.lazy ?? false })),
+    ),
+    close: vi.fn(async () => {}),
+  };
+}
+
+/** A fake MCP source whose tool listing fails with `message`. */
+function failingSource(message: string) {
+  const source = fakeSource([]);
+  source.tools.mockRejectedValue(new Error(message));
+  return source;
+}
+
+/**
+ * An MCPMock served over Streamable HTTP. Each tool answers with
+ * `<label> result for <args>`. Returns the MCP endpoint URL.
+ */
+async function startHttpMCPServer(
+  tools: Array<{ name: string; description: string }>,
+  label = "server",
+) {
+  const mock = new MCPMock();
+  for (const tool of tools) {
+    mock.addTool({
+      ...tool,
+      inputSchema: {
+        type: "object",
+        properties: { query: { type: "string" } },
+      },
+    });
+    mock.onToolCall(
+      tool.name,
+      (args) => `${label} result for ${JSON.stringify(args)}`,
+    );
   }
+  const server = new LLMock({ port: 0 });
+  server.mount("/mcp", mock);
+  await server.start();
+  cleanups.push(() => server.stop());
+  return `${server.url}/mcp`;
+}
 
-  it("tools from mcpClients are passed to streamText", async () => {
-    const mockTools = {
-      listEnvelopes: { description: "List envelopes", execute: vi.fn() },
-    };
-    const provider = makeMockProvider(mockTools);
+/** A real `@tanstack/ai-mcp` client for an HTTP MCPMock with `tools`. */
+async function connectMCPClient(
+  tools: Array<{ name: string; description: string }>,
+) {
+  const url = await startHttpMCPServer(tools);
+  const client = await createMCPClient({ transport: { type: "http", url } });
+  cleanups.push(() => client.close());
+  return client;
+}
 
-    const agent = new BuiltInAgent({
-      model: "openai/gpt-4o",
-      mcpClients: [provider],
-    });
+function findTool(request: TextOptions, name: string) {
+  return request.tools?.find((tool) => tool.name === name);
+}
 
-    vi.mocked(streamText).mockReturnValue(
-      mockStreamTextResponse([textDelta("Hello"), finish()]) as any,
-    );
+/** Runs a classic agent once and returns its events, RUN_ERROR included. */
+async function runExpectingError(
+  config: ClassicTestConfig,
+  input?: Parameters<typeof createDefaultInput>[0],
+) {
+  const { agent, requests } = createClassicAgent(config);
+  const { events } = await collectEventsIncludingErrors(
+    agent.run(createDefaultInput(input)),
+  );
+  const [runError] = eventsOfType(events, EventType.RUN_ERROR);
+  return { runError, requests };
+}
 
-    await collectEvents(agent["run"](baseInput));
+describe("mcp: MCP tools", () => {
+  it("runs the tools of a real @tanstack/ai-mcp client and leaves the client open", async () => {
+    const client = await connectMCPClient([
+      { name: "get_weather", description: "Get the weather" },
+    ]);
 
-    const callArgs = vi.mocked(streamText).mock.calls[0][0];
-    expect(callArgs.tools).toHaveProperty("listEnvelopes");
-    expect(callArgs.tools.listEnvelopes.description).toBe("List envelopes");
-    expect(provider.tools).toHaveBeenCalledOnce();
-  });
-
-  it("mcpClients are NOT closed after run completes", async () => {
-    const provider = makeMockProvider({
-      myTool: { description: "A tool", execute: vi.fn() },
-    });
-
-    const agent = new BuiltInAgent({
-      model: "openai/gpt-4o",
-      mcpClients: [provider],
-    });
-
-    vi.mocked(streamText).mockReturnValue(
-      mockStreamTextResponse([finish()]) as any,
-    );
-
-    await collectEvents(agent["run"](baseInput));
-
-    expect(provider.close).not.toHaveBeenCalled();
-  });
-
-  it("a name shared by an mcpClient and an mcpServer keeps both tools, prefixed", async () => {
-    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
-    const provider = makeMockProvider({
-      sharedTool: { description: "from client", execute: vi.fn() },
-    });
-
-    const { createMCPClient } = await import("@ai-sdk/mcp");
-    vi.mocked(createMCPClient).mockResolvedValue({
-      tools: vi.fn().mockResolvedValue({
-        sharedTool: { description: "from server", execute: vi.fn() },
-      }),
-      close: vi.fn(),
-    } as any);
-
-    const agent = new BuiltInAgent({
-      model: "openai/gpt-4o",
-      mcpClients: [provider],
-      mcpServers: [
-        { type: "http", url: "http://localhost:9999", name: "docs" },
+    const { events, requests } = await runClassicAgent(
+      { mcp: { clients: [client] }, maxSteps: 2 },
+      [
+        {
+          toolCalls: [
+            { id: "tc1", name: "get_weather", input: { query: "NYC" } },
+          ],
+        },
+        { text: "Sunny." },
       ],
-    });
-
-    vi.mocked(streamText).mockReturnValue(
-      mockStreamTextResponse([finish()]) as any,
     );
 
-    await collectEvents(agent["run"](baseInput));
-
-    const callArgs = vi.mocked(streamText).mock.calls[0][0];
-    // A user-managed client has no name, so it falls back to its position.
-    expect(callArgs.tools.mcp1_sharedTool.description).toBe("from client");
-    expect(callArgs.tools.docs_sharedTool.description).toBe("from server");
-    expect(callArgs.tools).not.toHaveProperty("sharedTool");
-    expect(warn).toHaveBeenCalledWith(expect.stringContaining('"sharedTool"'));
-    warn.mockRestore();
+    expect(findTool(requests[0], "get_weather")?.description).toBe(
+      "Get the weather",
+    );
+    const [result] = eventsOfType(events, EventType.TOOL_CALL_RESULT);
+    expect(result.toolCallId).toBe("tc1");
+    expect(result.content).toContain("NYC");
+    // The run kept the connection open, so the client still reaches the server.
+    const after = await client.callTool("get_weather", { query: "Paris" });
+    expect(JSON.stringify(after.content)).toContain("Paris");
   });
 
-  it("multiple mcpClients keep unique names and prefix only the shared one", async () => {
-    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
-    const provider1 = makeMockProvider({
-      toolA: { description: "from provider 1", execute: vi.fn() },
-      shared: { description: "from provider 1", execute: vi.fn() },
-    });
-    const provider2 = makeMockProvider({
-      toolB: { description: "from provider 2", execute: vi.fn() },
-      shared: { description: "from provider 2", execute: vi.fn() },
-    });
+  it("offers MCP tools after the frontend tools", async () => {
+    const source = fakeSource([fakeTool("listEnvelopes", "List envelopes")]);
 
-    const agent = new BuiltInAgent({
-      model: "openai/gpt-4o",
-      mcpClients: [provider1, provider2],
-    });
-
-    vi.mocked(streamText).mockReturnValue(
-      mockStreamTextResponse([finish()]) as any,
+    const { requests } = await runClassicAgent(
+      { mcp: { clients: [source] } },
+      [{}],
+      {
+        tools: [
+          {
+            name: "showCard",
+            description: "Show a card",
+            parameters: { type: "object", properties: {} },
+          },
+        ],
+      },
     );
 
-    await collectEvents(agent["run"](baseInput));
-
-    const callArgs = vi.mocked(streamText).mock.calls[0][0];
-    expect(Object.keys(callArgs.tools).sort()).toEqual(
-      expect.arrayContaining(["toolA", "toolB", "mcp1_shared", "mcp2_shared"]),
+    const names = requestToolNames(requests[0]);
+    expect(names.indexOf("showCard")).toBeLessThan(
+      names.indexOf("listEnvelopes"),
     );
-    expect(callArgs.tools).not.toHaveProperty("shared");
-    expect(callArgs.tools.mcp1_shared.description).toBe("from provider 1");
-    expect(callArgs.tools.mcp2_shared.description).toBe("from provider 2");
-    warn.mockRestore();
+    expect(findTool(requests[0], "listEnvelopes")?.description).toBe(
+      "List envelopes",
+    );
   });
 
-  it("an MCP tool never replaces an app tool of the same name", async () => {
-    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
-    const provider = makeMockProvider({
-      search: { description: "from mcp", execute: vi.fn() },
-    });
-
-    const agent = new BuiltInAgent({
-      model: "openai/gpt-4o",
-      mcpClients: [provider],
-    });
-
-    vi.mocked(streamText).mockReturnValue(
-      mockStreamTextResponse([finish()]) as any,
+  it("reads the tools again on each run, also from a clone", async () => {
+    const source = fakeSource([fakeTool("cloned", "from source")]);
+    const { agent, requests } = createClassicAgent(
+      { mcp: { clients: [source] } },
+      [{}, {}],
     );
 
-    await collectEvents(
-      agent["run"]({
-        ...baseInput,
+    await collectEvents(agent.run(createDefaultInput()));
+    await collectEvents(agent.clone().run(createDefaultInput({ runId: "r2" })));
+
+    expect(requestToolNames(requests[1])).toContain("cloned");
+    expect(source.tools).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe("mcp: connection", () => {
+  it("keeps the clients open by default", async () => {
+    const source = fakeSource([fakeTool("search", "Search")]);
+
+    await runClassicAgent({ mcp: { clients: [source] } });
+
+    expect(source.close).not.toHaveBeenCalled();
+  });
+
+  it('closes the clients when the run ends with connection: "close"', async () => {
+    const source = fakeSource([fakeTool("search", "Search")]);
+
+    await runClassicAgent({
+      mcp: { clients: [source], connection: "close" },
+    });
+
+    expect(source.close).toHaveBeenCalledOnce();
+  });
+
+  it("stops after a tool listing that the run cancelled, and keeps the client open", async () => {
+    let resolveTools!: (tools: AnyServerTool[]) => void;
+    const source = fakeSource([]);
+    source.tools.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolveTools = resolve;
+        }),
+    );
+    const { agent, requests } = createClassicAgent({
+      mcp: { clients: [source] },
+    });
+
+    const run = collectEvents(agent.run(createDefaultInput()));
+    await vi.waitFor(() => expect(source.tools).toHaveBeenCalledOnce());
+    agent.abortRun();
+    resolveTools([]);
+    await run;
+
+    expect(requests).toHaveLength(0);
+    expect(source.close).not.toHaveBeenCalled();
+  });
+});
+
+describe("mcp: discovery options", () => {
+  it("offers lazy MCP tools through the discovery tool with lazyTools", async () => {
+    const source = fakeSource([fakeTool("get_weather", "Get the weather")]);
+
+    const { requests } = await runClassicAgent({
+      mcp: { clients: [source], lazyTools: true },
+    });
+
+    const names = requestToolNames(requests[0]);
+    expect(names).toContain("__lazy__tool__discovery__");
+    expect(names).not.toContain("get_weather");
+  });
+
+  it("fails the run with RUN_ERROR when a client cannot list its tools", async () => {
+    const { runError, requests } = await runExpectingError({
+      mcp: { clients: [failingSource("MCP connection lost")] },
+    });
+
+    expect(runError.message).toBe("MCP connection lost");
+    expect(requests).toHaveLength(0);
+  });
+
+  it("skips a failing client when onDiscoveryError returns", async () => {
+    const failing = failingSource("MCP connection lost");
+    const working = fakeSource([fakeTool("search", "Search")]);
+    const onDiscoveryError = vi.fn();
+
+    const { requests } = await runClassicAgent({
+      mcp: { clients: [failing, working], onDiscoveryError },
+    });
+
+    expect(requestToolNames(requests[0])).toContain("search");
+    expect(onDiscoveryError).toHaveBeenCalledOnce();
+    expect(onDiscoveryError.mock.calls[0][0]).toEqual(
+      new Error("MCP connection lost"),
+    );
+    expect(onDiscoveryError.mock.calls[0][1]).toBe(failing);
+  });
+});
+
+describe("mcp: tool names", () => {
+  it("fails the run when an MCP tool has the name of a frontend tool", async () => {
+    const { runError, requests } = await runExpectingError(
+      { mcp: { clients: [fakeSource([fakeTool("search", "from mcp")])] } },
+      {
         tools: [
           {
             name: "search",
@@ -200,297 +278,24 @@ describe("mcpClients — user-managed MCP clients", () => {
             parameters: { type: "object", properties: {} },
           },
         ],
-      }),
+      },
     );
 
-    const callArgs = vi.mocked(streamText).mock.calls[0][0];
-    expect(callArgs.tools.search.description).toBe("from app");
-    expect(callArgs.tools.mcp1_search.description).toBe("from mcp");
-    expect(warn).toHaveBeenCalledWith(expect.stringContaining('"search"'));
-    warn.mockRestore();
+    expect(runError.message).toContain('Cannot pass two tools named "search"');
+    expect(requests).toHaveLength(0);
   });
 
-  it("a server name is reduced to characters that model providers accept", async () => {
-    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
-    const provider = makeMockProvider({
-      lookup: { description: "from client", execute: vi.fn() },
-    });
-
-    const { createMCPClient } = await import("@ai-sdk/mcp");
-    vi.mocked(createMCPClient).mockResolvedValue({
-      tools: vi.fn().mockResolvedValue({
-        lookup: { description: "from server", execute: vi.fn() },
-      }),
-      close: vi.fn(),
-    } as any);
-
-    const agent = new BuiltInAgent({
-      model: "openai/gpt-4o",
-      mcpClients: [provider],
-      mcpServers: [
-        { type: "http", url: "http://localhost:9999", name: "Prod API (eu)" },
-      ],
-    });
-
-    vi.mocked(streamText).mockReturnValue(
-      mockStreamTextResponse([finish()]) as any,
-    );
-
-    await collectEvents(agent["run"](baseInput));
-
-    const callArgs = vi.mocked(streamText).mock.calls[0][0];
-    expect(callArgs.tools).toHaveProperty("Prod_API__eu__lookup");
-    warn.mockRestore();
-  });
-
-  it("warns about a collision once, not on every run", async () => {
-    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
-    const agent = new BuiltInAgent({
-      model: "openai/gpt-4o",
-      mcpClients: [
-        makeMockProvider({ repeated: { description: "a", execute: vi.fn() } }),
-        makeMockProvider({ repeated: { description: "b", execute: vi.fn() } }),
-      ],
-    });
-
-    vi.mocked(streamText).mockImplementation(
-      () => mockStreamTextResponse([finish()]) as any,
-    );
-
-    await collectEvents(agent["run"](baseInput));
-    await collectEvents(agent["run"]({ ...baseInput, runId: "run2" }));
-
-    const collisionWarnings = warn.mock.calls.filter(([message]) =>
-      String(message).includes('"repeated"'),
-    );
-    expect(collisionWarnings).toHaveLength(1);
-    warn.mockRestore();
-  });
-
-  it("tools with unique names keep their names and log no warning", async () => {
-    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
-    const agent = new BuiltInAgent({
-      model: "openai/gpt-4o",
-      mcpClients: [
-        makeMockProvider({ toolA: { description: "a", execute: vi.fn() } }),
-        makeMockProvider({ toolB: { description: "b", execute: vi.fn() } }),
-      ],
-    });
-
-    vi.mocked(streamText).mockReturnValue(
-      mockStreamTextResponse([finish()]) as any,
-    );
-
-    await collectEvents(agent["run"](baseInput));
-
-    const callArgs = vi.mocked(streamText).mock.calls[0][0];
-    expect(callArgs.tools).toHaveProperty("toolA");
-    expect(callArgs.tools).toHaveProperty("toolB");
-    expect(warn).not.toHaveBeenCalledWith(
-      expect.stringContaining("MCP tool name"),
-    );
-    warn.mockRestore();
-  });
-
-  it("empty mcpClients array is a no-op", async () => {
-    const agent = new BuiltInAgent({
-      model: "openai/gpt-4o",
-      mcpClients: [],
-    });
-
-    vi.mocked(streamText).mockReturnValue(
-      mockStreamTextResponse([textDelta("Hi"), finish()]) as any,
-    );
-
-    const events = await collectEvents(agent["run"](baseInput));
-
-    // Should still work normally
-    const textEvents = events.filter(
-      (e: any) => e.type === EventType.TEXT_MESSAGE_CHUNK,
-    );
-    expect(textEvents.length).toBeGreaterThan(0);
-  });
-
-  it("mcpClients .tools() rejection emits RUN_ERROR", async () => {
-    const failingProvider: MCPClientProvider = {
-      tools: vi.fn().mockRejectedValue(new Error("MCP connection lost")),
-    };
-
-    const agent = new BuiltInAgent({
-      model: "openai/gpt-4o",
-      mcpClients: [failingProvider],
-    });
-
-    vi.mocked(streamText).mockReturnValue(
-      mockStreamTextResponse([finish()]) as any,
-    );
-
-    // Collect events manually so we can capture RUN_ERROR before the rejection
-    const events: any[] = [];
-    try {
-      await new Promise((resolve, reject) => {
-        agent["run"](baseInput).subscribe({
-          next: (event: any) => events.push(event),
-          error: (err: any) => reject(err),
-          complete: () => resolve(events),
-        });
-      });
-    } catch {
-      // Expected — Observable errors after emitting RUN_ERROR
-    }
-
-    // streamText should NOT have been called (error before reaching it)
-    expect(streamText).not.toHaveBeenCalled();
-    // A RUN_ERROR event should have been emitted
-    expect(events.some((e) => e.type === EventType.RUN_ERROR)).toBe(true);
-  });
-
-  it("stops after a user-managed tool lookup is cancelled", async () => {
-    let resolve!: (tools: ToolSet) => void;
-    const first = makeMockProvider({});
-    first.tools = vi.fn(
-      () =>
-        new Promise<ToolSet>((done) => {
-          resolve = done;
-        }),
-    );
-    const second = makeMockProvider({});
-    const agent = new BuiltInAgent({
-      model: "openai/gpt-4o",
-      mcpClients: [first, second],
-    });
-    const subscription = agent.run(baseInput).subscribe();
-    await vi.waitFor(() => expect(first.tools).toHaveBeenCalledOnce());
-    subscription.unsubscribe();
-    resolve({});
-    await new Promise((done) => setImmediate(done));
-    expect(second.tools).not.toHaveBeenCalled();
-    expect(first.close).not.toHaveBeenCalled();
-    expect(streamText).not.toHaveBeenCalled();
-  });
-
-  it("closes a managed client created after cancellation without loading tools", async () => {
-    const { createMCPClient } = await import("@ai-sdk/mcp");
-    type Client = Awaited<ReturnType<typeof createMCPClient>>;
-    let resolve!: (client: Client) => void;
-    vi.mocked(createMCPClient).mockImplementation(
-      () =>
-        new Promise((done) => {
-          resolve = done;
-        }),
-    );
-    const client = {
-      tools: vi.fn(() => new Promise(() => {})),
-      close: vi.fn().mockResolvedValue(undefined),
-    };
-    const agent = new BuiltInAgent({
-      model: "openai/gpt-4o",
-      mcpServers: [{ type: "http", url: "http://localhost:8000/mcp" }],
-    });
-    const subscription = agent.run(baseInput).subscribe();
-    await vi.waitFor(() => expect(createMCPClient).toHaveBeenCalledOnce());
-    subscription.unsubscribe();
-    resolve(client as unknown as Client);
-    await new Promise((done) => setImmediate(done));
-    expect(client.close).toHaveBeenCalledOnce();
-    expect(client.tools).not.toHaveBeenCalled();
-    expect(streamText).not.toHaveBeenCalled();
-  });
-
-  it.each([false, true])(
-    "stops managed setup after a cancelled tool lookup (rejected=%s)",
-    async (rejected) => {
-      const { createMCPClient } = await import("@ai-sdk/mcp");
-      let resolve!: (tools: ToolSet) => void;
-      let reject!: (error: Error) => void;
-      const client = {
-        tools: vi.fn(
-          () =>
-            new Promise<ToolSet>((done, fail) => {
-              resolve = done;
-              reject = fail;
-            }),
-        ),
-        close: vi.fn().mockResolvedValue(undefined),
-      };
-      vi.mocked(createMCPClient).mockResolvedValue(
-        client as unknown as Awaited<ReturnType<typeof createMCPClient>>,
-      );
-      const agent = new BuiltInAgent({
-        model: "openai/gpt-4o",
-        mcpServers: [
-          { type: "http", url: "http://localhost:8000/first" },
-          { type: "http", url: "http://localhost:8000/second" },
+  it("fails the run when two MCP clients have a tool of the same name", async () => {
+    const { runError, requests } = await runExpectingError({
+      mcp: {
+        clients: [
+          fakeSource([fakeTool("shared", "from client 1")]),
+          fakeSource([fakeTool("shared", "from client 2")]),
         ],
-      });
-      const subscription = agent.run(baseInput).subscribe();
-      await vi.waitFor(() => expect(client.tools).toHaveBeenCalledOnce());
-      subscription.unsubscribe();
-      expect(client.close).toHaveBeenCalledOnce();
-      if (rejected) reject(new Error("Disconnected"));
-      else resolve({});
-      await new Promise((done) => setImmediate(done));
-      expect(createMCPClient).toHaveBeenCalledOnce();
-      expect(streamText).not.toHaveBeenCalled();
-    },
-  );
-
-  it("logs a failed MCP server without the credentials in its URL", async () => {
-    const { createMCPClient } = await import("@ai-sdk/mcp");
-    vi.mocked(createMCPClient).mockRejectedValue(new Error("refused"));
-    vi.mocked(streamText).mockReturnValue(
-      mockStreamTextResponse([finish()]) as any,
-    );
-    const error = vi.spyOn(console, "error").mockImplementation(() => {});
-    try {
-      const agent = new BuiltInAgent({
-        model: "openai/gpt-4o",
-        mcpServers: [
-          {
-            type: "http",
-            url: "https://user:pass@mcp.example.com/mcp?token=secret-123",
-          },
-        ],
-      });
-
-      await collectEvents(agent.run(baseInput));
-
-      const logged = error.mock.calls.map((call) => String(call[0])).join("\n");
-      expect(logged).toContain("MCP server https://mcp.example.com/mcp failed");
-      expect(logged).not.toMatch(/secret-123|user:pass/);
-    } finally {
-      error.mockRestore();
-    }
-  });
-
-  it("clone() shares the same mcpClients references", () => {
-    const provider = makeMockProvider({});
-
-    const agent = new BuiltInAgent({
-      model: "openai/gpt-4o",
-      mcpClients: [provider],
+      },
     });
 
-    const cloned = agent.clone();
-
-    // Access the config to verify same reference
-    // Both agents share the same config object (by reference)
-    expect((cloned as any).config.mcpClients[0]).toBe(provider);
-  });
-
-  it("type compatibility: @ai-sdk/mcp MCPClient satisfies MCPClientProvider", async () => {
-    // Compile-time check that `MCPClientProvider` is structurally compatible
-    // with `@ai-sdk/mcp`'s `MCPClient`. After the refactor `MCPClientProvider`
-    // is an alias for `Pick<MCPClient, "tools">`, so this is trivially true —
-    // but keeping the test guards against future divergence.
-    type MCPClient = Awaited<
-      ReturnType<typeof import("@ai-sdk/mcp").createMCPClient>
-    >;
-    const client = {} as MCPClient;
-    const _assignable: MCPClientProvider = {
-      tools: () => client.tools() as unknown as Promise<ToolSet>,
-    };
-    void _assignable;
-    expect(true).toBe(true);
+    expect(runError.message).toContain('Duplicate MCP tool name "shared"');
+    expect(requests).toHaveLength(0);
   });
 });

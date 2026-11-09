@@ -324,7 +324,7 @@ describe("CopilotChat", () => {
     expect(getByText("Network timeout")).toBeTruthy();
   });
 
-  it("uses incrementing message IDs instead of Date.now()", async () => {
+  it("gives every sent message its own id", async () => {
     const { getByTestId } = render(<CopilotChat />);
     const input = getByTestId("text-input");
     const sendBtn = getByTestId("send-button");
@@ -344,7 +344,11 @@ describe("CopilotChat", () => {
     });
 
     const calls = hoisted.mockAgent.addMessage.mock.calls;
-    expect(calls[0][0].id).toBe("user-1");
-    expect(calls[1][0].id).toBe("user-2");
+    expect(calls.map(([message]) => message.content)).toEqual([
+      "first",
+      "second",
+    ]);
+    expect(calls[0][0].id).toEqual(expect.any(String));
+    expect(calls[0][0].id).not.toBe(calls[1][0].id);
   });
 });

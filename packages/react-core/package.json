@@ -1,6 +1,6 @@
 {
   "name": "@copilotkit/react-core",
-  "version": "1.84.0",
+  "version": "1.85.0",
   "private": false,
   "keywords": [
     "ai",
@@ -77,9 +77,9 @@
     "test:browser": "playwright test --config browser/playwright.config.ts"
   },
   "dependencies": {
-    "@a2ui/web_core": "0.10.4",
-    "@ag-ui/client": "1.0.2",
-    "@ag-ui/core": "1.0.2",
+    "@a2ui/web_core": "0.15.0",
+    "@ag-ui/client": "1.0.4",
+    "@ag-ui/core": "1.0.4",
     "@copilotkit/a2ui-renderer": "workspace:*",
     "@copilotkit/core": "workspace:*",
     "@copilotkit/markdown": "workspace:*",

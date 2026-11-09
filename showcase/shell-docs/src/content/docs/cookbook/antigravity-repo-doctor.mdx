@@ -7,7 +7,7 @@ doc_type: how-to
 agentPrompt: |
   Add the Repo Doctor pattern described in the walkthrough linked below to my existing CopilotKit app: a Python agent on Google Antigravity, served with the Antigravity AG-UI SDK (`ag-ui-antigravity`), that asks before risky tools run and shows its work in the chat. Build only what the walkthrough builds, and copy the helper files it links from the example. Don't add another agent framework, and don't make the agent push to GitHub.
 
-  1. Create the web app. Add `@copilotkit/react-core@2`, `@copilotkit/runtime@2`, `@copilotkit/a2ui-renderer@2`, `@ag-ui/client@1.0.2` and `zod@3.25.76` to my Next.js app with pnpm. Wrap the app in `<CopilotKitProvider runtimeUrl="/api/copilotkit" a2ui={{ catalog }} enableInspector={process.env.NODE_ENV === "development"}>` and render `<CopilotChat agentId=... />`.
+  1. Create the web app. Add `@copilotkit/react-core@2`, `@copilotkit/runtime@2`, `@copilotkit/a2ui-renderer@2`, `@ag-ui/client@1.0.4` and `zod@3.25.76` to my Next.js app with pnpm. Wrap the app in `<CopilotKitProvider runtimeUrl="/api/copilotkit" a2ui={{ catalog }} enableInspector={process.env.NODE_ENV === "development"}>` and render `<CopilotChat agentId=... />`.
   2. Create the agent. Run `uv init --package` in `agent/` and `uv add ag-ui-antigravity==0.2.1 google-antigravity==0.1.22 ag-ui-protocol==1.0.0 fastapi uvicorn[standard] pydantic pydantic-settings`. Create it with `AntigravityAgent` from `ag_ui_antigravity`: a Gemini `model`, `system_instructions`, `capabilities=CapabilitiesConfig(enabled_tools=[...])` with only the built-ins you need (always keep `BuiltinTools.FINISH`), `workspaces=[<a short absolute path>]`, `tool_approval=True`, and `auto_approve_tools` for the read-only tools. Serve it with `create_antigravity_app(agent, path="/")` on 127.0.0.1:8000. Put `GEMINI_API_KEY`, `GITHUB_TOKEN` and `AGENT_URL` in `.env` and ask me for the Gemini key.
   3. Connect the runtime. In my CopilotKit runtime route, add an `HttpAgent` from `@ag-ui/client` pointed at `AGENT_URL`, and add `a2ui: { injectA2UITool: false }` to `new CopilotRuntime(...)`. Start both servers and check that the agent answers "hello".
   4. Give the agent its CI tools: plain async functions with docstrings, returned from `build_tools(workspace, settings)` and bound to one folder: `clone_repo`, `ci_status`, `install_dependencies`, `run_tests`, `run_check`, `show_diff` and `git_push` (pushes only to a local bare repository, never to GitHub). Tools record their results with `experimental_set_state` from `ag_ui_antigravity`.
@@ -20,7 +20,7 @@ agentPrompt: |
   11. Open the CopilotKit Inspector and check the AG-UI events.
   12. Connect CopilotKit Intelligence: run `npx copilotkit@latest login` and `npx copilotkit@latest project select --create repo-doctor --env-name .env`, then add `intelligence: new CopilotKitIntelligence(...)` and `identifyUser` to the runtime.
 
-  If I don't have a CopilotKit app yet, start from https://github.com/CopilotKit/CopilotKit/tree/main/examples/showcases/antigravity-repo-doctor.
+  If I don't have a CopilotKit app yet, start from https://github.com/CopilotKit/CopilotKit/tree/main/examples/demos/antigravity-repo-doctor.
 ---
 
 [Google Antigravity](https://github.com/google-antigravity/antigravity-sdk-python) is Google's agent SDK. Its
@@ -94,7 +94,7 @@ The finished example lives in the CopilotKit repo:
 
 ```bash
 git clone --depth 1 https://github.com/CopilotKit/CopilotKit.git
-cd CopilotKit/examples/showcases/antigravity-repo-doctor
+cd CopilotKit/examples/demos/antigravity-repo-doctor
 pnpm install && pnpm dev
 ```
 
@@ -118,7 +118,7 @@ in `agent/`. Start with the Next.js app and the CopilotKit 2 packages:
 ```bash
 pnpm create next-app@16.4.1 repo-doctor --yes
 cd repo-doctor
-pnpm add @copilotkit/react-core@2 @copilotkit/runtime@2 @copilotkit/a2ui-renderer@2 @ag-ui/client@1.0.2 zod@3.25.76
+pnpm add @copilotkit/react-core@2 @copilotkit/runtime@2 @copilotkit/a2ui-renderer@2 @ag-ui/client@1.0.4 zod@3.25.76
 ```
 
 `@copilotkit/a2ui-renderer` draws the test results card, and `@ag-ui/client` connects the runtime to the Python agent.
@@ -184,9 +184,9 @@ export function ChatPanel() {
 ```
 
 `welcomeScreen` replaces the empty chat with the start screen and its repository cards. The full layout is in
-[`app-shell.tsx`](https://github.com/CopilotKit/CopilotKit/tree/main/examples/showcases/antigravity-repo-doctor/src/components/shell/app-shell.tsx)
+[`app-shell.tsx`](https://github.com/CopilotKit/CopilotKit/tree/main/examples/demos/antigravity-repo-doctor/src/components/shell/app-shell.tsx)
 and
-[`chat-panel.tsx`](https://github.com/CopilotKit/CopilotKit/tree/main/examples/showcases/antigravity-repo-doctor/src/components/chat/chat-panel.tsx).
+[`chat-panel.tsx`](https://github.com/CopilotKit/CopilotKit/tree/main/examples/demos/antigravity-repo-doctor/src/components/chat/chat-panel.tsx).
 
 </Step>
 <Step>
@@ -205,9 +205,9 @@ uv add ag-ui-antigravity==0.2.1 google-antigravity==0.1.22 ag-ui-protocol==1.0.0
 [`ag-ui-antigravity`](https://github.com/ag-ui-protocol/ag-ui/tree/main/integrations/antigravity/python) serves it
 over AG-UI.
 
-Copy these helpers from the [example's agent folder](https://github.com/CopilotKit/CopilotKit/tree/main/examples/showcases/antigravity-repo-doctor/agent/src/repo_doctor):
+Copy these helpers from the [example's agent folder](https://github.com/CopilotKit/CopilotKit/tree/main/examples/demos/antigravity-repo-doctor/agent/src/repo_doctor):
 
-- [`config.py`](https://github.com/CopilotKit/CopilotKit/tree/main/examples/showcases/antigravity-repo-doctor/agent/src/repo_doctor/config.py) reads `.env` and sets the folders the agent works in.
+- [`config.py`](https://github.com/CopilotKit/CopilotKit/tree/main/examples/demos/antigravity-repo-doctor/agent/src/repo_doctor/config.py) reads `.env` and sets the folders the agent works in.
 - `shell.py` runs commands, `workspace.py` manages the conversation's folder, and `project.py` works out the install
   and test commands.
 
@@ -245,7 +245,7 @@ def create_agent(settings: Settings) -> ThreadScopedAntigravityAgent:
 `ENABLED_BUILTINS` turns on the file and shell tools plus `finish`, which the harness needs to end a turn.
 
 The prompt in
-[`prompts.py`](https://github.com/CopilotKit/CopilotKit/tree/main/examples/showcases/antigravity-repo-doctor/agent/src/repo_doctor/prompts.py)
+[`prompts.py`](https://github.com/CopilotKit/CopilotKit/tree/main/examples/demos/antigravity-repo-doctor/agent/src/repo_doctor/prompts.py)
 tells the model which tool to use when, and that a fix only counts as verified when a check goes from failed to
 passed.
 
@@ -335,7 +335,7 @@ hello. The agent answers in the chat.
 
 ### Give the agent its CI tools
 
-The agent's own tools live in [`tools.py`](https://github.com/CopilotKit/CopilotKit/tree/main/examples/showcases/antigravity-repo-doctor/agent/src/repo_doctor/tools.py):
+The agent's own tools live in [`tools.py`](https://github.com/CopilotKit/CopilotKit/tree/main/examples/demos/antigravity-repo-doctor/agent/src/repo_doctor/tools.py):
 
 - `clone_repo` makes a shallow clone.
 - `ci_status` reads the latest GitHub Actions results and names the failed jobs and steps.
@@ -418,10 +418,10 @@ A few things to notice:
   hooks off, and refuses when the repository's config rewrites URLs. A push can never reach GitHub, even if a shell
   command changes `origin`.
 - `ci_status` runs next. It lists the failed steps of each workflow, which is usually enough for the model to find
-  the matching command in the workflow file ([`ci.py`](https://github.com/CopilotKit/CopilotKit/tree/main/examples/showcases/antigravity-repo-doctor/agent/src/repo_doctor/ci.py)).
+  the matching command in the workflow file ([`ci.py`](https://github.com/CopilotKit/CopilotKit/tree/main/examples/demos/antigravity-repo-doctor/agent/src/repo_doctor/ci.py)).
 
 `build_tools(workspace, settings)` returns the seven tools bound to one folder. `ThreadScopedAntigravityAgent` calls
-it for each conversation in `_build_agent` ([`agent.py`](https://github.com/CopilotKit/CopilotKit/tree/main/examples/showcases/antigravity-repo-doctor/agent/src/repo_doctor/agent.py)), so two conversations
+it for each conversation in `_build_agent` ([`agent.py`](https://github.com/CopilotKit/CopilotKit/tree/main/examples/demos/antigravity-repo-doctor/agent/src/repo_doctor/agent.py)), so two conversations
 never share a checkout.
 
 </Step>
@@ -583,7 +583,7 @@ export function ToolRenderers() {
   added and removed lines.
 
 The other tools get a row or a card the same way in
-[`tool-renderers.tsx`](https://github.com/CopilotKit/CopilotKit/tree/main/examples/showcases/antigravity-repo-doctor/src/components/chat/tool-renderers.tsx).
+[`tool-renderers.tsx`](https://github.com/CopilotKit/CopilotKit/tree/main/examples/demos/antigravity-repo-doctor/src/components/chat/tool-renderers.tsx).
 
 <Image
   src="/images/cookbook/antigravity-diff-card.webp"
@@ -802,7 +802,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
 ```
 
 The state comes over the network, so `parseAgentState` checks it with zod first. The panel in
-[`workspace-panel.tsx`](https://github.com/CopilotKit/CopilotKit/tree/main/examples/showcases/antigravity-repo-doctor/src/components/shell/workspace-panel.tsx) then reads plain fields like `state.checks`
+[`workspace-panel.tsx`](https://github.com/CopilotKit/CopilotKit/tree/main/examples/demos/antigravity-repo-doctor/src/components/shell/workspace-panel.tsx) then reads plain fields like `state.checks`
 and `state.approvals`.
 
 Because the approvals live in shared state, they come back when you reopen a conversation. **Download report** at the
@@ -884,20 +884,20 @@ If a card never shows up, start here. You'll see whether the agent called the to
 The steps above cover the core of the app. The example also has these, each in its own file:
 
 - **A folder per conversation.** `ThreadScopedAntigravityAgent` gives each conversation its own workspace and tools,
-  and cleans everything up when you delete the conversation ([`agent.py`](https://github.com/CopilotKit/CopilotKit/tree/main/examples/showcases/antigravity-repo-doctor/agent/src/repo_doctor/agent.py)).
+  and cleans everything up when you delete the conversation ([`agent.py`](https://github.com/CopilotKit/CopilotKit/tree/main/examples/demos/antigravity-repo-doctor/agent/src/repo_doctor/agent.py)).
 - **Saved conversations.** After a clone, a push and every run, the repository, the pushed branches and the
-  harness's conversation are saved to Cloud Storage, and restored after a restart ([`snapshot.py`](https://github.com/CopilotKit/CopilotKit/tree/main/examples/showcases/antigravity-repo-doctor/agent/src/repo_doctor/snapshot.py)).
+  harness's conversation are saved to Cloud Storage, and restored after a restart ([`snapshot.py`](https://github.com/CopilotKit/CopilotKit/tree/main/examples/demos/antigravity-repo-doctor/agent/src/repo_doctor/snapshot.py)).
 - **An install guard.** Package installs through `run_command` are rejected before they run, so every install goes
-  through `install_dependencies`, and PyTorch always installs as CPU wheels ([`guards.py`](https://github.com/CopilotKit/CopilotKit/tree/main/examples/showcases/antigravity-repo-doctor/agent/src/repo_doctor/guards.py)).
-- **Disk limits.** A conversation's Python venv is deleted when its session closes ([`venvs.py`](https://github.com/CopilotKit/CopilotKit/tree/main/examples/showcases/antigravity-repo-doctor/agent/src/repo_doctor/venvs.py)).
-  The agent's own uv cache is pruned at startup and cleared when it grows past a limit ([`uvcache.py`](https://github.com/CopilotKit/CopilotKit/tree/main/examples/showcases/antigravity-repo-doctor/agent/src/repo_doctor/uvcache.py)).
+  through `install_dependencies`, and PyTorch always installs as CPU wheels ([`guards.py`](https://github.com/CopilotKit/CopilotKit/tree/main/examples/demos/antigravity-repo-doctor/agent/src/repo_doctor/guards.py)).
+- **Disk limits.** A conversation's Python venv is deleted when its session closes ([`venvs.py`](https://github.com/CopilotKit/CopilotKit/tree/main/examples/demos/antigravity-repo-doctor/agent/src/repo_doctor/venvs.py)).
+  The agent's own uv cache is pruned at startup and cleared when it grows past a limit ([`uvcache.py`](https://github.com/CopilotKit/CopilotKit/tree/main/examples/demos/antigravity-repo-doctor/agent/src/repo_doctor/uvcache.py)).
 - **More than Python.** The install and test commands are worked out from the repository's own files for Python,
   Node, Go and Rust projects. A project whose toolchain is not installed is reported as unsupported instead of
-  failing halfway; the Cloud Run image includes Python and Node (npm, pnpm and Yarn) ([`project.py`](https://github.com/CopilotKit/CopilotKit/tree/main/examples/showcases/antigravity-repo-doctor/agent/src/repo_doctor/project.py)).
+  failing halfway; the Cloud Run image includes Python and Node (npm, pnpm and Yarn) ([`project.py`](https://github.com/CopilotKit/CopilotKit/tree/main/examples/demos/antigravity-repo-doctor/agent/src/repo_doctor/project.py)).
 - **Local-only pushes and a clean environment.** API keys and GitHub tokens are removed from the environment that
-  shell commands and the cloned code inherit, and any push to a GitHub URL is sent to a host that does not exist ([`safety.py`](https://github.com/CopilotKit/CopilotKit/tree/main/examples/showcases/antigravity-repo-doctor/agent/src/repo_doctor/safety.py)).
+  shell commands and the cloned code inherit, and any push to a GitHub URL is sent to a host that does not exist ([`safety.py`](https://github.com/CopilotKit/CopilotKit/tree/main/examples/demos/antigravity-repo-doctor/agent/src/repo_doctor/safety.py)).
 - **The downloadable report.** A Markdown summary of the conversation, built in the browser from the messages and
-  shared state, with no model call ([`report.ts`](https://github.com/CopilotKit/CopilotKit/tree/main/examples/showcases/antigravity-repo-doctor/src/lib/report.ts)).
+  shared state, with no model call ([`report.ts`](https://github.com/CopilotKit/CopilotKit/tree/main/examples/demos/antigravity-repo-doctor/src/lib/report.ts)).
 
 ## CopilotKit Intelligence: save conversations and see Product Analytics
 
@@ -1026,7 +1026,7 @@ Active users are counted by the user id your app passes, so give each person a s
 
 The whole app runs as one Cloud Run service: the UI, the CopilotKit runtime and the agent, built from one image.
 Secrets live in Secret Manager, and each conversation is saved to a Cloud Storage bucket. Run these from
-`examples/showcases/antigravity-repo-doctor` with the [gcloud CLI](https://cloud.google.com/sdk/docs/install), after
+`examples/demos/antigravity-repo-doctor` with the [gcloud CLI](https://cloud.google.com/sdk/docs/install), after
 `gcloud auth login`.
 
 Build the image:
@@ -1109,7 +1109,7 @@ them.
   [IAP](https://cloud.google.com/run/docs/securing/identity-aware-proxy-cloud-run). A production deployment needs
   real authentication and a sandbox per conversation. Limiting outbound traffic to GitHub, Gemini and the package
   registries is not set up here;
-  [the architecture notes](https://github.com/CopilotKit/CopilotKit/blob/main/examples/showcases/antigravity-repo-doctor/docs/architecture.md#locking-down-network-access)
+  [the architecture notes](https://github.com/CopilotKit/CopilotKit/blob/main/examples/demos/antigravity-repo-doctor/docs/architecture.md#locking-down-network-access)
   describe how.
 </Callout>
 
@@ -1122,7 +1122,7 @@ them.
 />
 
 For logs, updates after a code change, and the public link option, see the
-[README](https://github.com/CopilotKit/CopilotKit/tree/main/examples/showcases/antigravity-repo-doctor#deploy-to-google-cloud).
+[README](https://github.com/CopilotKit/CopilotKit/tree/main/examples/demos/antigravity-repo-doctor#deploy-to-google-cloud).
 
 ## Where to go next
 
@@ -1137,6 +1137,6 @@ For logs, updates after a code change, and the public link option, see the
 ## Get the code
 
 The finished example is in the CopilotKit repo at
-[`examples/showcases/antigravity-repo-doctor`](https://github.com/CopilotKit/CopilotKit/tree/main/examples/showcases/antigravity-repo-doctor).
+[`examples/demos/antigravity-repo-doctor`](https://github.com/CopilotKit/CopilotKit/tree/main/examples/demos/antigravity-repo-doctor).
 It includes the Python agent, the Next.js app, a Dockerfile for Cloud Run, and an end-to-end test with a scripted
 model.

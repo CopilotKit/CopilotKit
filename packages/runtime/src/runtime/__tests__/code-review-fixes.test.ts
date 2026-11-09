@@ -22,6 +22,20 @@ const createMockAgent = () => {
   return agent as AbstractAgent;
 };
 
+/** An agent the run handler can prepare and run: it finishes at once. */
+const createRunnableAgent = (): AbstractAgent => {
+  const agent: unknown = {
+    agentId: "default",
+    threadId: "",
+    setMessages: () => {},
+    setState: () => {},
+    abortRun: () => {},
+    runAgent: async () => ({ newMessages: [] }),
+    clone: () => createRunnableAgent(),
+  };
+  return agent as AbstractAgent;
+};
+
 const createRuntime = () =>
   new CopilotRuntime({ agents: { default: createMockAgent() } });
 
@@ -69,17 +83,20 @@ describe("Item 1: methodCall preserved when hooks replace request", () => {
 
   it("single-route agent/run works after onBeforeHandler replaces request", async () => {
     const handler = createCopilotRuntimeHandler({
-      runtime: createRuntime(),
+      runtime: new CopilotRuntime({
+        agents: { default: createRunnableAgent() },
+      }),
       basePath: "/api",
       mode: "single-route",
       hooks: {
-        onBeforeHandler: ({ request }) => {
-          return new Request(request.url, {
+        // A brand-new Request with a fresh body: nothing stashed on the
+        // original request object survives.
+        onBeforeHandler: async ({ request }) =>
+          new Request(request.url, {
             method: request.method,
             headers: request.headers,
-            body: request.clone().body,
-          });
-        },
+            body: await request.clone().text(),
+          }),
       },
     });
 
@@ -87,11 +104,19 @@ describe("Item 1: methodCall preserved when hooks replace request", () => {
       post("http://localhost/api", {
         method: "agent/run",
         params: { agentId: "default" },
-        body: { threadId: "t1", runId: "r1" },
+        body: {
+          threadId: "t1",
+          runId: "r1",
+          state: {},
+          messages: [],
+          tools: [],
+          context: [],
+        },
       }),
     );
-    // Should not crash — the method call data is passed explicitly, not via request property
-    expect(response).toBeInstanceOf(Response);
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("content-type")).toContain("text/event-stream");
   });
 });
 

@@ -243,6 +243,7 @@ let output = `// GENERATED FILE — DO NOT EDIT BY HAND.
 // be enumerable for the React server/client boundary to build. A star
 // re-export of an external package is not, so the names are listed here
 // instead. See scripts/generate-external-reexports.mjs.
+// oxlint-disable max-lines -- a generated list with one line per name, and it grows with the packages it lists
 `;
 
 for (const { specifier, values, types } of sections) {

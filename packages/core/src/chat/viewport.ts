@@ -1,3 +1,5 @@
+import { ɵSCROLL_BOTTOM_THRESHOLD_PX, ɵisScrolledToBottom } from "./dom";
+
 /** How the chat scrolls as messages arrive. */
 export type ɵAutoScrollMode = "pin-to-bottom" | "pin-to-send" | "none";
 
@@ -235,4 +237,259 @@ export function ɵpinMessageToTop({
     observer?.disconnect();
     return frame === null || scrolled;
   };
+}
+
+/** Input for {@link ɵcreateStickToBottom}. */
+export interface ɵStickToBottomOptions {
+  /** The scroll container of the message list. */
+  scrollElement: HTMLElement;
+  /**
+   * The element that holds the messages. Its size changes and DOM changes
+   * keep the list at the bottom. Default: `scrollElement`.
+   */
+  contentElement?: HTMLElement;
+  /**
+   * The pixels from the end that still count as the bottom. Default:
+   * {@link ɵSCROLL_BOTTOM_THRESHOLD_PX}.
+   */
+  threshold?: number;
+  /**
+   * `true` to follow new content while the reader is at the bottom. `false`
+   * only tracks the position, for the scroll-to-bottom button. Default:
+   * `true`.
+   */
+  follow?: boolean;
+  /** How the first scroll to the bottom moves. Default: `"instant"`. */
+  initialBehavior?: ScrollBehavior;
+  /** How the scrolls that follow new content move. Default: `"instant"`. */
+  followBehavior?: ScrollBehavior;
+  /**
+   * Runs when {@link ɵStickToBottom.isAtBottom} changes. The value starts as
+   * `true`, so the first call is the first `false`.
+   */
+  onChange?: (isAtBottom: boolean) => void;
+}
+
+/**
+ * Keeps a message list at its bottom while content arrives, and stops when
+ * the reader scrolls up. Scrolling back to the bottom, or a call to
+ * {@link ɵStickToBottom.scrollToBottom}, starts it again.
+ *
+ * Content changes come from a `ResizeObserver` on both elements and a
+ * `MutationObserver` on the content. Without them, only scroll events and
+ * explicit calls update it.
+ *
+ * Create it with {@link ɵcreateStickToBottom}.
+ */
+export class ɵStickToBottom {
+  private readonly scrollElement: HTMLElement;
+  private readonly contentElement: HTMLElement;
+  private readonly threshold: number;
+  private readonly followBehavior: ScrollBehavior;
+  private readonly onChange: ((isAtBottom: boolean) => void) | undefined;
+  private follow: boolean;
+  /** The reader has not scrolled away from the bottom. */
+  private stuck = true;
+  /** A smooth scroll to the bottom is on its way. */
+  private smoothPending = false;
+  /** `scrollTop` right after the last instant scroll to the bottom. */
+  private programmaticTop: number | null = null;
+  private lastTop: number;
+  /** The largest `scrollTop` at the last read, to tell when content shrank. */
+  private lastMaxTop: number;
+  private reported = true;
+  private frame: number | null = null;
+  private readonly observers: { disconnect(): void }[] = [];
+
+  constructor(options: ɵStickToBottomOptions) {
+    this.scrollElement = options.scrollElement;
+    this.contentElement = options.contentElement ?? options.scrollElement;
+    this.threshold = options.threshold ?? ɵSCROLL_BOTTOM_THRESHOLD_PX;
+    this.followBehavior = options.followBehavior ?? "instant";
+    this.onChange = options.onChange;
+    this.follow = options.follow ?? true;
+    this.lastTop = this.scrollElement.scrollTop;
+    this.lastMaxTop = this.maxTop();
+
+    this.scrollElement.addEventListener("scroll", this.update);
+    this.scrollElement.addEventListener("scrollend", this.handleScrollEnd);
+    this.observeContent();
+
+    if (this.follow) {
+      this.scrollToEnd(options.initialBehavior ?? "instant");
+      // The first layout can still move after mount (fonts, images, slots).
+      if (typeof requestAnimationFrame === "function") {
+        this.frame = requestAnimationFrame(() => {
+          this.frame = null;
+          this.followContent();
+        });
+      }
+    } else {
+      this.report();
+    }
+  }
+
+  /**
+   * `true` when the list shows its end, or when it follows new content and
+   * is on its way there.
+   */
+  get isAtBottom() {
+    return this.atBottom() || (this.follow && this.stuck);
+  }
+
+  /** Turn following new content on or off. */
+  setFollow(follow: boolean) {
+    if (this.follow === follow) return;
+    this.follow = follow;
+    this.followContent();
+    this.report();
+  }
+
+  /**
+   * Scroll to the end and follow new content again.
+   *
+   * @param behavior - Default: `"smooth"`.
+   */
+  scrollToBottom(behavior: ScrollBehavior = "smooth") {
+    this.stuck = true;
+    this.scrollToEnd(behavior);
+  }
+
+  /**
+   * Read the scroll position again, as a scroll event does. Call it when the
+   * framework handles scroll events itself.
+   */
+  readonly update = () => {
+    const top = this.scrollElement.scrollTop;
+    if (this.movedUp(top)) {
+      // Any step up leaves the bottom, also one inside the threshold.
+      this.leave();
+    } else if (this.atBottom()) {
+      this.stuck = true;
+      this.smoothPending = false;
+    } else if (top === this.programmaticTop) {
+      // The scroll event of our own instant scroll. Content grew after it,
+      // so the reader did not move away.
+    } else if (this.smoothPending && top >= this.lastTop) {
+      // A smooth scroll to the bottom is still moving down.
+    } else {
+      this.leave();
+    }
+    this.remember(top);
+    this.report();
+  };
+
+  /** Stop listening and observing. */
+  dispose() {
+    this.scrollElement.removeEventListener("scroll", this.update);
+    this.scrollElement.removeEventListener("scrollend", this.handleScrollEnd);
+    for (const observer of this.observers) observer.disconnect();
+    this.observers.length = 0;
+    if (this.frame !== null && typeof cancelAnimationFrame === "function") {
+      cancelAnimationFrame(this.frame);
+    }
+    this.frame = null;
+  }
+
+  private readonly handleScrollEnd = () => {
+    this.smoothPending = false;
+  };
+
+  private readonly followContent = () => {
+    // The reader can move before the scroll event of that move arrives.
+    const top = this.scrollElement.scrollTop;
+    if (this.movedUp(top)) this.leave();
+    this.remember(top);
+    if (this.follow && this.stuck) this.scrollToEnd(this.followBehavior);
+    else this.report();
+  };
+
+  private observeContent() {
+    if (typeof ResizeObserver !== "undefined") {
+      const resize = new ResizeObserver(this.followContent);
+      resize.observe(this.scrollElement);
+      if (this.contentElement !== this.scrollElement) {
+        resize.observe(this.contentElement);
+      }
+      this.observers.push(resize);
+    }
+    if (typeof MutationObserver !== "undefined") {
+      const mutation = new MutationObserver(this.followContent);
+      mutation.observe(this.contentElement, {
+        childList: true,
+        subtree: true,
+        characterData: true,
+      });
+      this.observers.push(mutation);
+    }
+  }
+
+  private scrollToEnd(behavior: ScrollBehavior) {
+    const element = this.scrollElement;
+    const smooth = behavior === "smooth";
+    if (typeof element.scrollTo === "function") {
+      element.scrollTo({ top: element.scrollHeight, behavior });
+    } else {
+      element.scrollTop = element.scrollHeight;
+    }
+    this.smoothPending = smooth && !this.atBottom();
+    this.programmaticTop = smooth ? null : element.scrollTop;
+    this.remember(element.scrollTop);
+    this.report();
+  }
+
+  /**
+   * `scrollTop` went down since the last read because the reader scrolled
+   * up. Not when the content (or the viewport) changed so that the browser
+   * clamped `scrollTop`, and not for the controller's own scroll.
+   */
+  private movedUp(top: number) {
+    const shrank = this.maxTop() < this.lastMaxTop;
+    return top < this.lastTop && !shrank && top !== this.programmaticTop;
+  }
+
+  private leave() {
+    this.stuck = false;
+    this.smoothPending = false;
+    this.programmaticTop = null;
+  }
+
+  private remember(top: number) {
+    this.lastTop = top;
+    this.lastMaxTop = this.maxTop();
+  }
+
+  private maxTop() {
+    const element = this.scrollElement;
+    return element.scrollHeight - element.clientHeight;
+  }
+
+  private atBottom() {
+    return ɵisScrolledToBottom(this.scrollElement, this.threshold);
+  }
+
+  private report() {
+    const next = this.isAtBottom;
+    if (next === this.reported) return;
+    this.reported = next;
+    this.onChange?.(next);
+  }
+}
+
+/**
+ * Create the controller that keeps a message list at its bottom.
+ *
+ * @example
+ * ```ts
+ * const stick = ɵcreateStickToBottom({
+ *   scrollElement,
+ *   contentElement,
+ *   onChange: (isAtBottom) => (showButton = !isAtBottom),
+ * });
+ * button.onclick = () => stick.scrollToBottom();
+ * stick.dispose(); // on unmount
+ * ```
+ */
+export function ɵcreateStickToBottom(options: ɵStickToBottomOptions) {
+  return new ɵStickToBottom(options);
 }

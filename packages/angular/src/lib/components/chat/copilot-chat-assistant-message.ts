@@ -12,10 +12,13 @@ import {
   inject,
   input,
   output,
+  InjectionToken,
 } from "@angular/core";
 import { CommonModule } from "@angular/common";
 import { CopilotSlot } from "../../slots/copilot-slot";
 import { CopilotChatToolCallsView } from "./copilot-chat-tool-calls-view";
+import { CopilotCollapsible } from "../tools/tool-call-parts";
+import { TOOL_CALL_DISPLAY_CONTEXT } from "./tool-call-display-context";
 import type { Message } from "@ag-ui/core";
 import {
   type AssistantMessage,
@@ -52,6 +55,20 @@ import { cn } from "../../utils";
 import { hostStyles } from "../host-styles";
 import { CopilotChatViewHandlers } from "./copilot-chat-view-handlers";
 
+/**
+ * @internal
+ * The markdown renderer of an assistant message when the app gives none:
+ * a secondary entry point (`@copilotkit/angular/generative-ui` with the
+ * markdown transport) provides a component that renders the fences of the
+ * message as surfaces. The component gets the
+ * {@link AssistantMessageMarkdownRendererContext} as inputs.
+ */
+export const ɵCOPILOTKIT_ASSISTANT_MARKDOWN_RENDERER =
+  new InjectionToken<Type<unknown> | null>(
+    "COPILOTKIT_ASSISTANT_MARKDOWN_RENDERER",
+    { factory: () => null },
+  );
+
 @Component({
   selector: "copilot-chat-assistant-message",
   host: { "data-copilotkit": "" },
@@ -63,6 +80,7 @@ import { CopilotChatViewHandlers } from "./copilot-chat-view-handlers";
     CopilotChatAssistantMessageToolbar,
     CopilotChatInspectorButton,
     CopilotChatToolCallsView,
+    CopilotCollapsible,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   encapsulation: ViewEncapsulation.None,
@@ -74,24 +92,54 @@ import { CopilotChatViewHandlers } from "./copilot-chat-view-handlers";
       data-message-role="assistant"
       role="article"
     >
-      <!-- Markdown Renderer -->
-      <div class="cpk-markdown cpk-assistant-message-markdown">
-        @if (markdownRendererTemplate || markdownRendererComponent()) {
-          <copilot-slot
-            [slot]="markdownRendererTemplate || markdownRendererComponent()"
-            [context]="markdownRendererContext()"
-            [defaultComponent]="CopilotChatAssistantMessageRenderer"
+      <!-- In the "turn" display, text in a reply's working phase is narration:
+           it fades once a call follows it and folds away with the work. -->
+      @if (workTextDisplay()) {
+        <div
+          [copilotCollapsible]="workTextOpen() ?? true"
+          class="cpk-assistant-message-work-text"
+        >
+          <div
+            class="cpk-assistant-message-work-text-content"
+            [attr.data-work-text]="
+              workTextOpen() === undefined ? 'reply' : 'narration'
+            "
           >
-          </copilot-slot>
-        } @else {
-          <copilot-chat-assistant-message-renderer
-            [content]="message().content || ''"
-            [isStreaming]="isStreaming()"
-            [inputClass]="markdownRendererClass()"
-          >
-          </copilot-chat-assistant-message-renderer>
-        }
-      </div>
+            <ng-container *ngTemplateOutlet="markdown" />
+          </div>
+        </div>
+      } @else {
+        <ng-container *ngTemplateOutlet="markdown" />
+      }
+
+      <ng-template #markdown>
+        <!-- Markdown Renderer -->
+        <div class="cpk-markdown cpk-assistant-message-markdown">
+          @if (
+            markdownRendererTemplate ||
+            markdownRendererComponent() ||
+            defaultMarkdownRenderer
+          ) {
+            <copilot-slot
+              [slot]="
+                markdownRendererTemplate ||
+                markdownRendererComponent() ||
+                defaultMarkdownRenderer
+              "
+              [context]="markdownRendererContext()"
+              [defaultComponent]="CopilotChatAssistantMessageRenderer"
+            >
+            </copilot-slot>
+          } @else {
+            <copilot-chat-assistant-message-renderer
+              [content]="message().content || ''"
+              [isStreaming]="isStreaming()"
+              [inputClass]="markdownRendererClass()"
+            >
+            </copilot-chat-assistant-message-renderer>
+          }
+        </div>
+      </ng-template>
 
       <!-- Tool Calls View -->
       @if (toolCallsViewTemplate || toolCallsViewComponent()) {
@@ -210,13 +258,10 @@ import { CopilotChatViewHandlers } from "./copilot-chat-view-handlers";
       }
     </div>
   `,
-  styles: [
-    hostStyles,
-    `
-      /* Import KaTeX styles */
-      @import "katex/dist/katex.min.css";
-    `,
-  ],
+  styles: [hostStyles],
+  // Generated before build, test and type checking: KaTeX's CSS with only the
+  // woff2 fonts, so the package embeds 20 font files instead of 60.
+  styleUrl: "./katex/katex.css",
 })
 export class CopilotChatAssistantMessage {
   // Capture templates from content projection
@@ -327,8 +372,14 @@ export class CopilotChatAssistantMessage {
   markdownRendererContext = computed<AssistantMessageMarkdownRendererContext>(
     () => ({
       content: this.message()?.content || "",
+      messageId: this.message()?.id,
+      isStreaming: this.isStreaming(),
     }),
   );
+  /** The renderer a secondary entry point provides, or null. */
+  protected readonly defaultMarkdownRenderer: Type<unknown> | undefined =
+    inject(ɵCOPILOTKIT_ASSISTANT_MARKDOWN_RENDERER, { optional: true }) ??
+    undefined;
 
   // Output maps for slots
   copyButtonOutputs = { clicked: () => this.handleCopy() };
@@ -347,6 +398,17 @@ export class CopilotChatAssistantMessage {
   }
 
   readonly #inspector = inject(CopilotInspector);
+  readonly #toolCallDisplay = inject(TOOL_CALL_DISPLAY_CONTEXT, {
+    optional: true,
+  });
+  /** Inside a message view with the `"turn"` tool-call display. */
+  protected readonly workTextDisplay = computed(
+    () => this.#toolCallDisplay?.display() === "turn",
+  );
+  /** `"turn"` display: whether this message's narration shows, or `undefined` for the reply. */
+  protected readonly workTextOpen = computed(() =>
+    this.#toolCallDisplay?.workTextOpen().get(this.message().id),
+  );
 
   /** Core's toolbar rule: also hides it while the latest message streams. */
   readonly shouldShowToolbar = computed(() =>

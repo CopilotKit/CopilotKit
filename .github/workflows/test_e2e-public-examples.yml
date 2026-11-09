@@ -114,18 +114,8 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - example: form-filling
-            directory: examples/v1/form-filling
-          - example: travel
-            directory: examples/v1/travel
-          - example: research-canvas
-            directory: examples/v1/research-canvas
-          - example: chat-with-your-data
-            directory: examples/v1/chat-with-your-data
-          - example: state-machine
-            directory: examples/v1/state-machine
-          - example: mastra-pm
-            directory: examples/canvas/mastra-pm
+          - example: react-demo
+            directory: examples/dev/by-frontend/react/demo
 
     steps:
       - name: Checkout
@@ -187,35 +177,14 @@ jobs:
 
       - name: Check example types
         working-directory: ${{ matrix.directory }}
-        run: pnpm run check-types
+        run: pnpm run --if-present check-types
 
       - name: Run example unit tests
         working-directory: ${{ matrix.directory }}
         run: pnpm test
 
-      - name: Run Research Canvas TypeScript agent tests
-        if: matrix.example == 'research-canvas'
-        run: pnpm nx test @copilotkit-examples/research-canvas-agent --excludeTaskDependencies
-
-      - name: Check Research Canvas TypeScript agent types
-        if: matrix.example == 'research-canvas'
-        run: pnpm nx run @copilotkit-examples/research-canvas-agent:check-types --excludeTaskDependencies
-
-      - name: Set up uv for Travel tests
-        if: matrix.example == 'travel'
-        uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
-        with:
-          python-version: "3.12"
-          enable-cache: true
-          cache-dependency-glob: examples/v1/travel/agent/uv.lock
-
-      - name: Run Travel agent tests
-        if: matrix.example == 'travel'
-        working-directory: examples/v1/travel/agent
-        run: uv run --locked --with pytest==9.1.1 python -m pytest tests
-
       - name: Install e2e dependencies
-        working-directory: examples/e2e
+        working-directory: examples/dev/e2e
         run: pnpm install --frozen-lockfile
 
       # No --with-deps: it shells out to apt, which on the runners cannot always
@@ -224,11 +193,11 @@ jobs:
       # are already present on the Ubuntu runner image, so downloading the browser is
       # all this step needs.
       - name: Install Playwright browsers
-        working-directory: examples/e2e
+        working-directory: examples/dev/e2e
         run: pnpm exec playwright install chromium
 
       - name: Run e2e tests
-        working-directory: examples/e2e
+        working-directory: examples/dev/e2e
         env:
           EXAMPLE: ${{ matrix.example }}
           CI: "true"
@@ -244,6 +213,6 @@ jobs:
         with:
           name: examples-e2e-${{ matrix.example }}
           path: |
-            examples/e2e/test-results/**/*
-            examples/e2e/playwright-report/**/*
+            examples/dev/e2e/test-results/**/*
+            examples/dev/e2e/playwright-report/**/*
           retention-days: 7

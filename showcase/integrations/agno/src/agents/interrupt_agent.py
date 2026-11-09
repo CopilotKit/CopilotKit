@@ -39,7 +39,7 @@ SYSTEM_PROMPT = (
 )
 
 agent = Agent(
-    model=OpenAIChat(id="gpt-4o-mini", timeout=120),
+    model=OpenAIChat(reasoning_effort="none", id="gpt-6-luna", timeout=120),
     # No backend tools. `schedule_meeting` is registered on the frontend
     # via `useFrontendTool` and dispatched through the CopilotKit runtime.
     # When the agent calls `schedule_meeting`, the request is routed to

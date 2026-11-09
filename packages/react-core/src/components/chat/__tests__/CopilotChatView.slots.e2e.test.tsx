@@ -1,7 +1,9 @@
 import React from "react";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, within } from "@testing-library/react";
+import "@testing-library/jest-dom";
 import { describe, it, expect, vi } from "vitest";
 import { CopilotChatView } from "../CopilotChatView";
+import type { CopilotChatViewProps } from "../CopilotChatView";
 import type { CopilotChatMessageView } from "../CopilotChatMessageView";
 import type { CopilotChatInput } from "../CopilotChatInput";
 import type { CopilotChatSuggestionView } from "../CopilotChatSuggestionView";
@@ -25,287 +27,163 @@ const sampleMessages = [
   { id: "2", role: "assistant" as const, content: "Hi there!" },
 ];
 
+const sampleSuggestions = [
+  { title: "Test", message: "Test message", isLoading: false },
+];
+
+function renderView(props: Partial<CopilotChatViewProps> = {}) {
+  return render(
+    <TestWrapper>
+      <CopilotChatView messages={sampleMessages} {...props} />
+    </TestWrapper>,
+  );
+}
+
+/** Where an element's box ends, in viewport coordinates. */
+function setBottom(el: Element, bottom: number) {
+  el.getBoundingClientRect = () => DOMRect.fromRect({ height: bottom });
+}
+
+/**
+ * Renders the view with `autoScroll="none"` and moves the messages 400px
+ * below the viewport, so the scroll-to-bottom button shows.
+ */
+async function renderScrolledUp(
+  scrollView: CopilotChatViewProps["scrollView"],
+) {
+  const utils = renderView({ autoScroll: "none", scrollView });
+  await screen.findByTestId("copilot-message-list");
+  const content = utils.container.querySelector(
+    ".cpk-chat-view-scroll-content",
+  );
+  const viewport = content?.parentElement;
+  if (!content || !viewport) throw new Error("scroll view did not mount");
+  setBottom(viewport, 300);
+  setBottom(content, 700);
+  fireEvent.scroll(viewport);
+  return utils;
+}
+
 describe("CopilotChatView Slot System E2E Tests", () => {
-  // ============================================================================
-  // 1. TAILWIND CLASS TESTS
-  // ============================================================================
   describe("1. Tailwind Class Slot Override", () => {
-    describe("messageView slot", () => {
-      it("should apply tailwind class string to messageView", () => {
-        render(
-          <TestWrapper>
-            <CopilotChatView
-              messages={sampleMessages}
-              messageView="bg-red-500 text-white p-4"
-            />
-          </TestWrapper>,
-        );
+    it("should apply tailwind class string to messageView", () => {
+      renderView({ messageView: "bg-red-500 text-white p-4" });
 
-        // The messageView should have the custom tailwind classes
-        const messageContainer = document.querySelector(
-          '[class*="bg-red-500"]',
-        );
-        expect(messageContainer).toBeDefined();
-        expect(messageContainer?.classList.contains("text-white")).toBe(true);
-        expect(messageContainer?.classList.contains("p-4")).toBe(true);
-      });
-
-      it("should override default className with tailwind string", () => {
-        const { container } = render(
-          <TestWrapper>
-            <CopilotChatView
-              messages={sampleMessages}
-              messageView="custom-override-class"
-            />
-          </TestWrapper>,
-        );
-
-        const messageContainer = container.querySelector(
-          ".custom-override-class",
-        );
-        expect(messageContainer).toBeDefined();
-      });
+      const messageContainer = document.querySelector('[class*="bg-red-500"]');
+      expect(messageContainer).toHaveClass("text-white", "p-4");
     });
 
-    describe("scrollView slot", () => {
-      it("should apply tailwind class string to scrollView", () => {
-        const { container } = render(
-          <TestWrapper>
-            <CopilotChatView
-              messages={sampleMessages}
-              scrollView="overflow-y-auto bg-gray-100"
-            />
-          </TestWrapper>,
-        );
-
-        const scrollContainer = container.querySelector(".overflow-y-auto");
-        expect(scrollContainer).toBeDefined();
-        expect(scrollContainer?.classList.contains("bg-gray-100")).toBe(true);
+    it("should apply tailwind class string to scrollView", () => {
+      const { container } = renderView({
+        scrollView: "overflow-y-auto bg-gray-100",
       });
+
+      expect(container.querySelector(".overflow-y-auto")).toHaveClass(
+        "bg-gray-100",
+      );
     });
 
-    describe("scrollToBottomButton slot (nested under scrollView)", () => {
-      it("should apply tailwind class string to scrollToBottomButton via scrollView", () => {
-        const { container } = render(
-          <TestWrapper>
-            <CopilotChatView
-              messages={sampleMessages}
-              scrollView={{ scrollToBottomButton: "bg-blue-500 rounded-full" }}
-            />
-          </TestWrapper>,
-        );
-
-        // Note: button may only appear when scrolled
-        const button = container.querySelector(".bg-blue-500");
-        if (button) {
-          expect(button.classList.contains("rounded-full")).toBe(true);
-        }
+    it("should apply tailwind class string to scrollToBottomButton via scrollView", async () => {
+      await renderScrolledUp({
+        scrollToBottomButton: "bg-blue-500 rounded-full",
       });
+
+      expect(screen.getByTestId("copilot-scroll-to-bottom")).toHaveClass(
+        "cpk-chat-view-scroll-to-bottom-button",
+        "bg-blue-500",
+        "rounded-full",
+      );
     });
 
-    describe("input slot", () => {
-      it("should apply tailwind class string to input", () => {
-        const { container } = render(
-          <TestWrapper>
-            <CopilotChatView
-              messages={sampleMessages}
-              input="border-2 border-purple-500"
-            />
-          </TestWrapper>,
-        );
+    it("merges a tailwind class string into the input's default classes", () => {
+      const { container } = renderView({ input: "border-2 border-purple-500" });
 
-        const inputContainer = container.querySelector(".border-purple-500");
-        expect(inputContainer).toBeDefined();
-      });
+      expect(container.querySelector(".cpk-chat-input")).toHaveClass(
+        "border-2",
+        "border-purple-500",
+      );
     });
 
-    describe("feather slot (via scrollView)", () => {
-      it("should apply tailwind class string to feather via scrollView", () => {
-        const { container } = render(
-          <TestWrapper>
-            <CopilotChatView
-              messages={sampleMessages}
-              scrollView={{ feather: "text-green-500 font-bold" }}
-            />
-          </TestWrapper>,
-        );
-
-        const feather = container.querySelector(".text-green-500");
-        if (feather) {
-          expect(feather.classList.contains("font-bold")).toBe(true);
-        }
+    it("should apply tailwind class string to feather via scrollView", () => {
+      const { container } = renderView({
+        scrollView: { feather: "text-green-500 font-bold" },
       });
+
+      expect(container.querySelector(".text-green-500")).toHaveClass(
+        "font-bold",
+      );
     });
 
-    describe("suggestionView slot", () => {
-      it("should apply tailwind class string to suggestionView", () => {
-        const suggestions = [
-          { title: "Test", message: "Test message", isLoading: false },
-        ];
-
-        const { container } = render(
-          <TestWrapper>
-            <CopilotChatView
-              messages={sampleMessages}
-              suggestions={suggestions}
-              suggestionView="flex gap-2 bg-indigo-50"
-            />
-          </TestWrapper>,
-        );
-
-        const suggestionContainer = container.querySelector(".bg-indigo-50");
-        expect(suggestionContainer).toBeDefined();
+    it("should apply tailwind class string to suggestionView", () => {
+      const { container } = renderView({
+        suggestions: sampleSuggestions,
+        suggestionView: "flex gap-2 bg-indigo-50",
       });
-    });
 
-    describe("className vs tailwind string precedence", () => {
-      it("tailwind string should completely replace className (not merge)", () => {
-        const { container } = render(
-          <TestWrapper>
-            <CopilotChatView
-              messages={sampleMessages}
-              input="only-this-class"
-            />
-          </TestWrapper>,
-        );
-
-        const inputEl = container.querySelector(".only-this-class");
-        expect(inputEl).toBeDefined();
-        // The string replaces className, so default classes should not be present
-      });
-    });
-
-    describe("non-tailwind inline styles should still work", () => {
-      it("should accept style prop alongside className override", () => {
-        const CustomInput = React.forwardRef<HTMLDivElement, any>(
-          (props, ref) => (
-            <div
-              ref={ref}
-              className={props.className}
-              style={{ backgroundColor: "rgb(255, 0, 0)" }}
-              data-testid="custom-input"
-            >
-              {props.children}
-            </div>
-          ),
-        );
-        CustomInput.displayName = "CustomInput";
-
-        render(
-          <TestWrapper>
-            <CopilotChatView
-              messages={sampleMessages}
-              input={CustomInput as unknown as typeof CopilotChatInput}
-            />
-          </TestWrapper>,
-        );
-
-        const customInput = screen.queryByTestId("custom-input");
-        if (customInput) {
-          expect(customInput.style.backgroundColor).toBe("rgb(255, 0, 0)");
-        }
-      });
+      expect(
+        container.querySelector(".cpk-chat-view-suggestion-view"),
+      ).toHaveClass("bg-indigo-50");
     });
   });
 
-  // ============================================================================
-  // 2. PROPERTIES (onClick, disabled, etc.) TESTS
-  // ============================================================================
   describe("2. Properties Slot Override", () => {
     describe("scrollToBottomButton props (nested under scrollView)", () => {
-      it("should pass onClick handler to scrollToBottomButton via scrollView", () => {
+      it("should pass onClick handler to scrollToBottomButton via scrollView", async () => {
         const handleClick = vi.fn();
-
-        render(
-          <TestWrapper>
-            <CopilotChatView
-              messages={sampleMessages}
-              scrollView={{ scrollToBottomButton: { onClick: handleClick } }}
-            />
-          </TestWrapper>,
-        );
-
-        // Find and click the scroll button if visible
-        const buttons = document.querySelectorAll("button");
-        buttons.forEach((btn) => {
-          if (btn.getAttribute("aria-label")?.includes("scroll")) {
-            fireEvent.click(btn);
-          }
+        await renderScrolledUp({
+          scrollToBottomButton: { onClick: handleClick },
         });
-        // Note: onClick may only fire if button is visible
+
+        fireEvent.click(screen.getByTestId("copilot-scroll-to-bottom"));
+
+        expect(handleClick).toHaveBeenCalledTimes(1);
       });
 
-      it("should pass disabled prop to scrollToBottomButton via scrollView", () => {
-        const { container } = render(
-          <TestWrapper>
-            <CopilotChatView
-              messages={sampleMessages}
-              scrollView={{ scrollToBottomButton: { disabled: true } }}
-            />
-          </TestWrapper>,
-        );
+      it("should pass disabled prop to scrollToBottomButton via scrollView", async () => {
+        await renderScrolledUp({ scrollToBottomButton: { disabled: true } });
 
-        const buttons = container.querySelectorAll("button[disabled]");
-        // Check if any button is disabled
-        expect(buttons).toBeDefined();
+        expect(screen.getByTestId("copilot-scroll-to-bottom")).toBeDisabled();
       });
     });
 
     describe("input props", () => {
-      it("should pass onFocus handler to input", async () => {
+      it("should pass onFocus handler to input", () => {
         const handleFocus = vi.fn();
+        renderView({ input: { onFocus: handleFocus } });
 
-        render(
-          <TestWrapper>
-            <CopilotChatView
-              messages={sampleMessages}
-              input={{ onFocus: handleFocus }}
-            />
-          </TestWrapper>,
-        );
+        fireEvent.focus(screen.getByRole("textbox"));
 
-        const textarea = await screen.findByRole("textbox");
-        fireEvent.focus(textarea);
-        // Note: depends on how input passes props through
+        expect(handleFocus).toHaveBeenCalled();
       });
 
       it("should pass autoFocus prop to input", () => {
-        render(
-          <TestWrapper>
-            <CopilotChatView
-              messages={sampleMessages}
-              input={{ autoFocus: true }}
-            />
-          </TestWrapper>,
-        );
+        renderView({ input: { autoFocus: true } });
 
-        // Check if textbox is focused
-        const textarea = document.querySelector("textarea");
-        // autoFocus behavior may vary
+        expect(screen.getByRole("textbox")).toHaveFocus();
+      });
+
+      it("should allow className prop in input object slot", () => {
+        const { container } = renderView({
+          input: { className: "custom-input-class" },
+        });
+
+        expect(container.querySelector(".cpk-chat-input")).toHaveClass(
+          "custom-input-class",
+        );
       });
     });
 
     describe("messageView props", () => {
-      it("should pass isRunning prop to messageView", () => {
-        render(
-          <TestWrapper>
-            <CopilotChatView
-              messages={sampleMessages}
-              isRunning={true}
-              messageView={{ "data-testid": "message-view-running" } as any}
-            />
-          </TestWrapper>,
-        );
+      it("should allow className prop in messageView object slot", () => {
+        const { container } = renderView({
+          messageView: { className: "my-custom-class" },
+        });
 
-        const messageView = screen.queryByTestId("message-view-running");
-        expect(messageView).toBeDefined();
+        expect(container.querySelector(".my-custom-class")).not.toBeNull();
       });
     });
   });
 
-  // ============================================================================
-  // 3. CUSTOM COMPONENT TESTS
-  // ============================================================================
   describe("3. Custom Component Slot Override", () => {
     describe("messageView custom component", () => {
       it("should render custom messageView component", () => {
@@ -315,17 +193,13 @@ describe("CopilotChatView Slot System E2E Tests", () => {
           </div>
         );
 
-        render(
-          <TestWrapper>
-            <CopilotChatView
-              messages={sampleMessages}
-              messageView={CustomMessageView as typeof CopilotChatMessageView}
-            />
-          </TestWrapper>,
-        );
+        renderView({
+          messageView: CustomMessageView as typeof CopilotChatMessageView,
+        });
 
-        expect(screen.getByTestId("custom-message-view")).toBeDefined();
-        expect(screen.getByText(/Custom: 2 messages/)).toBeDefined();
+        expect(screen.getByTestId("custom-message-view")).toHaveTextContent(
+          "Custom: 2 messages",
+        );
       });
 
       it("custom messageView should receive all props including messages", () => {
@@ -336,18 +210,12 @@ describe("CopilotChatView Slot System E2E Tests", () => {
           return <div data-testid="props-receiver">Received</div>;
         };
 
-        render(
-          <TestWrapper>
-            <CopilotChatView
-              messages={sampleMessages}
-              isRunning={true}
-              messageView={CustomMessageView as typeof CopilotChatMessageView}
-            />
-          </TestWrapper>,
-        );
+        renderView({
+          isRunning: true,
+          messageView: CustomMessageView as typeof CopilotChatMessageView,
+        });
 
-        expect(receivedProps.messages).toBeDefined();
-        expect(receivedProps.messages.length).toBe(2);
+        expect(receivedProps.messages).toHaveLength(2);
         expect(receivedProps.isRunning).toBe(true);
       });
     });
@@ -361,23 +229,13 @@ describe("CopilotChatView Slot System E2E Tests", () => {
               placeholder="Custom input"
               onChange={(e) => props.onChange?.(e.target.value)}
             />
-            <button onClick={() => props.onSubmitMessage?.("test")}>
-              Send
-            </button>
           </div>
         );
 
-        render(
-          <TestWrapper>
-            <CopilotChatView
-              messages={sampleMessages}
-              input={CustomInput as typeof CopilotChatInput}
-            />
-          </TestWrapper>,
-        );
+        renderView({ input: CustomInput as typeof CopilotChatInput });
 
-        expect(screen.getByTestId("custom-input")).toBeDefined();
-        expect(screen.getByPlaceholderText("Custom input")).toBeDefined();
+        expect(screen.getByTestId("custom-input")).toBeInTheDocument();
+        expect(screen.getByPlaceholderText("Custom input")).toBeInTheDocument();
       });
 
       it("custom input should receive onSubmitMessage callback", () => {
@@ -392,15 +250,10 @@ describe("CopilotChatView Slot System E2E Tests", () => {
           </button>
         );
 
-        render(
-          <TestWrapper>
-            <CopilotChatView
-              messages={sampleMessages}
-              input={CustomInput as typeof CopilotChatInput}
-              onSubmitMessage={submitHandler}
-            />
-          </TestWrapper>,
-        );
+        renderView({
+          input: CustomInput as typeof CopilotChatInput,
+          onSubmitMessage: submitHandler,
+        });
 
         fireEvent.click(screen.getByTestId("custom-submit"));
         expect(submitHandler).toHaveBeenCalledWith("test message");
@@ -410,24 +263,12 @@ describe("CopilotChatView Slot System E2E Tests", () => {
     describe("scrollView custom component", () => {
       it("should render custom scrollView component", () => {
         const CustomScrollView: React.FC<any> = ({ children }) => (
-          <div
-            data-testid="custom-scroll"
-            style={{ maxHeight: 300, overflow: "auto" }}
-          >
-            {children}
-          </div>
+          <div data-testid="custom-scroll">{children}</div>
         );
 
-        render(
-          <TestWrapper>
-            <CopilotChatView
-              messages={sampleMessages}
-              scrollView={CustomScrollView}
-            />
-          </TestWrapper>,
-        );
+        renderView({ scrollView: CustomScrollView });
 
-        expect(screen.getByTestId("custom-scroll")).toBeDefined();
+        expect(screen.getByTestId("custom-scroll")).toBeInTheDocument();
       });
     });
 
@@ -451,75 +292,51 @@ describe("CopilotChatView Slot System E2E Tests", () => {
           </div>
         );
 
-        render(
-          <TestWrapper>
-            <CopilotChatView
-              messages={sampleMessages}
-              suggestions={suggestions}
-              suggestionView={
-                CustomSuggestionView as typeof CopilotChatSuggestionView
-              }
-            />
-          </TestWrapper>,
-        );
+        renderView({
+          suggestions,
+          suggestionView:
+            CustomSuggestionView as typeof CopilotChatSuggestionView,
+        });
 
-        expect(screen.getByTestId("custom-suggestions")).toBeDefined();
-        expect(screen.getByText("Option A")).toBeDefined();
-        expect(screen.getByText("Option B")).toBeDefined();
+        const custom = screen.getByTestId("custom-suggestions");
+        expect(custom).toHaveTextContent("Option A");
+        expect(custom).toHaveTextContent("Option B");
       });
     });
 
     describe("feather custom component (via scrollView)", () => {
       it("should render custom feather component via scrollView", () => {
-        const CustomFeather: React.FC<any> = () => (
+        const CustomFeather: React.FC = () => (
           <div data-testid="custom-feather">Custom Feather</div>
         );
 
-        render(
-          <TestWrapper>
-            <CopilotChatView
-              messages={sampleMessages}
-              scrollView={{ feather: CustomFeather }}
-            />
-          </TestWrapper>,
-        );
+        renderView({ scrollView: { feather: CustomFeather } });
 
-        const feather = screen.queryByTestId("custom-feather");
-        if (feather) {
-          expect(feather.textContent).toContain("Custom Feather");
-        }
+        expect(screen.getByTestId("custom-feather")).toHaveTextContent(
+          "Custom Feather",
+        );
       });
     });
 
     describe("scrollToBottomButton custom component (nested under scrollView)", () => {
-      it("should render custom scrollToBottomButton component via scrollView", () => {
-        const CustomScrollButton: React.FC<any> = ({ onClick }) => (
+      it("should render custom scrollToBottomButton component via scrollView", async () => {
+        const CustomScrollButton: React.FC<
+          React.ButtonHTMLAttributes<HTMLButtonElement>
+        > = ({ onClick }) => (
           <button data-testid="custom-scroll-btn" onClick={onClick}>
             ⬇️ Go Down
           </button>
         );
 
-        render(
-          <TestWrapper>
-            <CopilotChatView
-              messages={sampleMessages}
-              scrollView={{ scrollToBottomButton: CustomScrollButton }}
-            />
-          </TestWrapper>,
-        );
+        await renderScrolledUp({ scrollToBottomButton: CustomScrollButton });
 
-        // Button may only appear when scrolled
-        const btn = screen.queryByTestId("custom-scroll-btn");
-        if (btn) {
-          expect(btn.textContent).toContain("Go Down");
-        }
+        expect(screen.getByTestId("custom-scroll-btn")).toHaveTextContent(
+          "Go Down",
+        );
       });
     });
   });
 
-  // ============================================================================
-  // 4. RECURSIVE DRILL-DOWN TESTS
-  // ============================================================================
   describe("4. Recursive Subcomponent Drill-Down", () => {
     describe("messageView -> assistantMessage drill-down", () => {
       it("should allow customizing assistantMessage within messageView", () => {
@@ -529,20 +346,16 @@ describe("CopilotChatView Slot System E2E Tests", () => {
           </div>
         );
 
-        render(
-          <TestWrapper>
-            <CopilotChatView
-              messages={sampleMessages}
-              messageView={{
-                assistantMessage:
-                  CustomAssistantMessage as typeof CopilotChatAssistantMessage,
-              }}
-            />
-          </TestWrapper>,
-        );
+        renderView({
+          messageView: {
+            assistantMessage:
+              CustomAssistantMessage as typeof CopilotChatAssistantMessage,
+          },
+        });
 
-        expect(screen.getByTestId("custom-assistant-msg")).toBeDefined();
-        expect(screen.getByText(/Custom Assistant: Hi there!/)).toBeDefined();
+        expect(screen.getByTestId("custom-assistant-msg")).toHaveTextContent(
+          "Custom Assistant: Hi there!",
+        );
       });
     });
 
@@ -552,19 +365,15 @@ describe("CopilotChatView Slot System E2E Tests", () => {
           <div data-testid="custom-user-msg">User said: {message?.content}</div>
         );
 
-        render(
-          <TestWrapper>
-            <CopilotChatView
-              messages={sampleMessages}
-              messageView={{
-                userMessage: CustomUserMessage as typeof CopilotChatUserMessage,
-              }}
-            />
-          </TestWrapper>,
-        );
+        renderView({
+          messageView: {
+            userMessage: CustomUserMessage as typeof CopilotChatUserMessage,
+          },
+        });
 
-        expect(screen.getByTestId("custom-user-msg")).toBeDefined();
-        expect(screen.getByText(/User said: Hello/)).toBeDefined();
+        expect(screen.getByTestId("custom-user-msg")).toHaveTextContent(
+          "User said: Hello",
+        );
       });
     });
 
@@ -572,62 +381,38 @@ describe("CopilotChatView Slot System E2E Tests", () => {
       it("should allow customizing cursor within messageView", () => {
         const CustomCursor = () => <span data-testid="custom-cursor">|</span>;
 
-        render(
-          <TestWrapper>
-            <CopilotChatView
-              messages={sampleMessages}
-              isRunning={true}
-              messageView={{
-                cursor: CustomCursor,
-              }}
-            />
-          </TestWrapper>,
-        );
+        // The cursor shows while a run waits for the reply to the last user
+        // message.
+        renderView({
+          messages: [{ id: "1", role: "user", content: "Hello" }],
+          isRunning: true,
+          messageView: { cursor: CustomCursor },
+        });
 
-        // Cursor appears when running
-        const cursor = screen.queryByTestId("custom-cursor");
-        if (cursor) {
-          expect(cursor.textContent).toBe("|");
-        }
+        expect(screen.getByTestId("custom-cursor")).toHaveTextContent("|");
       });
     });
 
     describe("input -> textArea drill-down", () => {
       it("should allow customizing textArea within input", () => {
-        const CustomTextArea = React.forwardRef<HTMLTextAreaElement, any>(
-          ({ value, onChange, ...props }, ref) => (
-            <textarea
-              ref={ref}
-              data-testid="custom-textarea"
-              value={value}
-              onChange={(e) => onChange?.(e.target.value)}
-              placeholder="Type here..."
-              {...props}
-            />
-          ),
-        );
+        const CustomTextArea = React.forwardRef<
+          HTMLTextAreaElement,
+          React.TextareaHTMLAttributes<HTMLTextAreaElement>
+        >((props, ref) => (
+          <textarea ref={ref} data-testid="custom-textarea" {...props} />
+        ));
 
-        render(
-          <TestWrapper>
-            <CopilotChatView
-              messages={sampleMessages}
-              input={{
-                textArea: CustomTextArea,
-              }}
-            />
-          </TestWrapper>,
-        );
+        renderView({ input: { textArea: CustomTextArea } });
 
-        const textarea = screen.queryByTestId("custom-textarea");
-        if (textarea) {
-          expect(textarea.getAttribute("placeholder")).toBe("Type here...");
-        }
+        expect(screen.getByTestId("custom-textarea")).toBeInTheDocument();
       });
     });
 
     describe("input -> sendButton drill-down", () => {
       it("should allow customizing sendButton within input", () => {
-        const CustomSendButton: React.FC<any> = ({ onClick, disabled }) => (
+        const CustomSendButton: React.FC<
+          React.ButtonHTMLAttributes<HTMLButtonElement>
+        > = ({ onClick, disabled }) => (
           <button
             data-testid="custom-send-btn"
             onClick={onClick}
@@ -637,93 +422,54 @@ describe("CopilotChatView Slot System E2E Tests", () => {
           </button>
         );
 
-        render(
-          <TestWrapper>
-            <CopilotChatView
-              messages={sampleMessages}
-              input={{
-                sendButton: CustomSendButton,
-              }}
-            />
-          </TestWrapper>,
-        );
+        renderView({ input: { sendButton: CustomSendButton } });
 
-        const sendBtn = screen.queryByTestId("custom-send-btn");
-        if (sendBtn) {
-          expect(sendBtn.textContent).toContain("Send");
-        }
+        expect(screen.getByTestId("custom-send-btn")).toHaveTextContent("Send");
       });
     });
 
     describe("input -> addMenuButton drill-down", () => {
       it("should allow customizing addMenuButton within input", () => {
-        const CustomAddMenu: React.FC<any> = () => (
+        const CustomAddMenu: React.FC = () => (
           <button data-testid="custom-add-menu">+ Add</button>
         );
 
-        render(
-          <TestWrapper>
-            <CopilotChatView
-              messages={sampleMessages}
-              input={{
-                addMenuButton: CustomAddMenu,
-              }}
-            />
-          </TestWrapper>,
-        );
+        renderView({ input: { addMenuButton: CustomAddMenu } });
 
-        const addBtn = screen.queryByTestId("custom-add-menu");
-        if (addBtn) {
-          expect(addBtn.textContent).toContain("Add");
-        }
+        expect(screen.getByTestId("custom-add-menu")).toHaveTextContent("Add");
       });
     });
 
     describe("suggestionView -> suggestion drill-down", () => {
       it("should allow customizing suggestion pill within suggestionView", () => {
-        const suggestions = [
-          { title: "Suggestion 1", message: "Do 1", isLoading: false },
-        ];
-
-        // Custom suggestion component that handles the props passed by the slot system
         const CustomSuggestionPill = React.forwardRef<
           HTMLButtonElement,
           CopilotChatSuggestionPillProps
-        >(({ onClick, title, children }, ref) => (
+        >(({ onClick, children }, ref) => (
           <button
             ref={ref}
             data-testid="custom-suggestion-pill"
             onClick={onClick}
           >
-            💡 {children ?? title ?? "Suggestion"}
+            💡 {children}
           </button>
         ));
 
-        render(
-          <TestWrapper>
-            <CopilotChatView
-              messages={sampleMessages}
-              suggestions={suggestions}
-              suggestionView={{
-                suggestion: CustomSuggestionPill,
-              }}
-            />
-          </TestWrapper>,
-        );
+        renderView({
+          suggestions: [
+            { title: "Suggestion 1", message: "Do 1", isLoading: false },
+          ],
+          suggestionView: { suggestion: CustomSuggestionPill },
+        });
 
-        const pill = screen.queryByTestId("custom-suggestion-pill");
-        if (pill) {
-          expect(pill.textContent).toContain("Suggestion");
-        }
+        expect(screen.getByTestId("custom-suggestion-pill")).toHaveTextContent(
+          "💡 Suggestion 1",
+        );
       });
     });
 
     describe("suggestionView -> container drill-down", () => {
       it("should allow customizing container within suggestionView", () => {
-        const suggestions = [
-          { title: "Test", message: "Test msg", isLoading: false },
-        ];
-
         const CustomContainer = React.forwardRef<
           HTMLDivElement,
           React.HTMLAttributes<HTMLDivElement>
@@ -734,22 +480,14 @@ describe("CopilotChatView Slot System E2E Tests", () => {
           </div>
         ));
 
-        render(
-          <TestWrapper>
-            <CopilotChatView
-              messages={sampleMessages}
-              suggestions={suggestions}
-              suggestionView={{
-                container: CustomContainer,
-              }}
-            />
-          </TestWrapper>,
-        );
+        renderView({
+          suggestions: sampleSuggestions,
+          suggestionView: { container: CustomContainer },
+        });
 
-        const container = screen.queryByTestId("custom-suggestion-container");
-        if (container) {
-          expect(container.textContent).toContain("Suggestions:");
-        }
+        expect(
+          screen.getByTestId("custom-suggestion-container"),
+        ).toHaveTextContent("Suggestions:Test");
       });
     });
 
@@ -763,298 +501,130 @@ describe("CopilotChatView Slot System E2E Tests", () => {
           <div data-testid="nested-user">U: {message?.content}</div>
         );
 
-        const CustomTextArea = React.forwardRef<HTMLTextAreaElement, any>(
-          (props, ref) => (
-            <textarea ref={ref} data-testid="nested-textarea" {...props} />
-          ),
-        );
+        const CustomTextArea = React.forwardRef<
+          HTMLTextAreaElement,
+          React.TextareaHTMLAttributes<HTMLTextAreaElement>
+        >((props, ref) => (
+          <textarea ref={ref} data-testid="nested-textarea" {...props} />
+        ));
 
-        render(
-          <TestWrapper>
-            <CopilotChatView
-              messages={sampleMessages}
-              messageView={{
-                assistantMessage:
-                  CustomAssistant as typeof CopilotChatAssistantMessage,
-                userMessage: CustomUser as typeof CopilotChatUserMessage,
-              }}
-              input={{
-                textArea: CustomTextArea,
-              }}
-            />
-          </TestWrapper>,
-        );
+        renderView({
+          messageView: {
+            assistantMessage:
+              CustomAssistant as typeof CopilotChatAssistantMessage,
+            userMessage: CustomUser as typeof CopilotChatUserMessage,
+          },
+          input: { textArea: CustomTextArea },
+        });
 
-        expect(screen.getByTestId("nested-assistant")).toBeDefined();
-        expect(screen.getByTestId("nested-user")).toBeDefined();
-        const textarea = screen.queryByTestId("nested-textarea");
-        expect(textarea).toBeDefined();
+        expect(screen.getByTestId("nested-assistant")).toBeInTheDocument();
+        expect(screen.getByTestId("nested-user")).toBeInTheDocument();
+        expect(screen.getByTestId("nested-textarea")).toBeInTheDocument();
       });
     });
 
     describe("three-level deep nesting", () => {
       it("should support messageView -> assistantMessage -> toolbar drill-down", () => {
-        const CustomToolbar: React.FC<any> = ({ children }) => (
-          <div data-testid="custom-toolbar" className="custom-toolbar">
-            Custom Toolbar: {children}
-          </div>
+        const CustomToolbar: React.FC<React.HTMLAttributes<HTMLDivElement>> = ({
+          children,
+        }) => (
+          <div data-testid="custom-toolbar">Custom Toolbar: {children}</div>
         );
 
-        render(
-          <TestWrapper>
-            <CopilotChatView
-              messages={sampleMessages}
-              messageView={{
-                assistantMessage: {
-                  toolbar: CustomToolbar,
-                },
-              }}
-            />
-          </TestWrapper>,
-        );
+        renderView({
+          messageView: { assistantMessage: { toolbar: CustomToolbar } },
+        });
 
-        const toolbar = screen.queryByTestId("custom-toolbar");
-        if (toolbar) {
-          expect(toolbar.textContent).toContain("Custom Toolbar");
-        }
+        expect(screen.getByTestId("custom-toolbar")).toHaveTextContent(
+          "Custom Toolbar",
+        );
       });
 
       it("should support messageView -> assistantMessage -> copyButton drill-down", () => {
-        const CustomCopyButton: React.FC<any> = ({ onClick }) => (
+        const CustomCopyButton: React.FC<
+          React.ButtonHTMLAttributes<HTMLButtonElement>
+        > = ({ onClick }) => (
           <button data-testid="custom-copy-btn" onClick={onClick}>
             📋 Copy
           </button>
         );
 
-        render(
-          <TestWrapper>
-            <CopilotChatView
-              messages={sampleMessages}
-              messageView={{
-                assistantMessage: {
-                  copyButton: CustomCopyButton,
-                },
-              }}
-            />
-          </TestWrapper>,
-        );
+        renderView({
+          messageView: { assistantMessage: { copyButton: CustomCopyButton } },
+        });
 
-        const copyBtn = screen.queryByTestId("custom-copy-btn");
-        if (copyBtn) {
-          expect(copyBtn.textContent).toContain("Copy");
-        }
+        expect(screen.getByTestId("custom-copy-btn")).toHaveTextContent("Copy");
       });
 
       it("should support messageView -> userMessage -> editButton drill-down", () => {
-        const CustomEditButton: React.FC<any> = ({ onClick }) => (
+        const CustomEditButton: React.FC<
+          React.ButtonHTMLAttributes<HTMLButtonElement>
+        > = ({ onClick }) => (
           <button data-testid="custom-edit-btn" onClick={onClick}>
             ✏️ Edit
           </button>
         );
 
-        render(
-          <TestWrapper>
-            <CopilotChatView
-              messages={sampleMessages}
-              messageView={{
-                userMessage: {
-                  editButton: CustomEditButton,
-                },
-              }}
-            />
-          </TestWrapper>,
-        );
+        // The edit button only renders when the host can edit messages.
+        renderView({
+          messageView: {
+            userMessage: {
+              editButton: CustomEditButton,
+              onEditMessage: () => {},
+            },
+          },
+        });
 
-        const editBtn = screen.queryByTestId("custom-edit-btn");
-        if (editBtn) {
-          expect(editBtn.textContent).toContain("Edit");
-        }
+        expect(screen.getByTestId("custom-edit-btn")).toHaveTextContent("Edit");
       });
     });
   });
 
-  // ============================================================================
-  // 5. CLASSNAME OVERRIDE TESTS
-  // ============================================================================
-  describe("5. className Override with Tailwind", () => {
-    describe("className prop override", () => {
-      it("should allow className prop in object slot to override defaults", () => {
-        const { container } = render(
-          <TestWrapper>
-            <CopilotChatView
-              messages={sampleMessages}
-              messageView={{ className: "my-custom-class" }}
-            />
-          </TestWrapper>,
-        );
-
-        const customElement = container.querySelector(".my-custom-class");
-        expect(customElement).toBeDefined();
-      });
-
-      it("should merge className with other props in object slot", () => {
-        render(
-          <TestWrapper>
-            <CopilotChatView
-              messages={sampleMessages}
-              input={
-                {
-                  className: "custom-input-class",
-                  "data-testid": "input-with-class",
-                } as any
-              }
-            />
-          </TestWrapper>,
-        );
-
-        const input = screen.queryByTestId("input-with-class");
-        if (input) {
-          expect(input.classList.contains("custom-input-class")).toBe(true);
-        }
-      });
-    });
-
-    describe("string slot vs className prop equivalence", () => {
-      it("string slot should behave same as className prop", () => {
-        // String slot version
-        const { container: container1 } = render(
-          <TestWrapper>
-            <CopilotChatView
-              messages={sampleMessages}
-              input="test-class-string"
-            />
-          </TestWrapper>,
-        );
-
-        // className prop version
-        const { container: container2 } = render(
-          <TestWrapper>
-            <CopilotChatView
-              messages={sampleMessages}
-              input={{ className: "test-class-object" }}
-            />
-          </TestWrapper>,
-        );
-
-        expect(container1.querySelector(".test-class-string")).toBeDefined();
-        expect(container2.querySelector(".test-class-object")).toBeDefined();
-      });
-    });
-
-    describe("tailwind utility class merging", () => {
-      it("should properly apply tailwind utilities like flex, grid, etc.", () => {
-        const { container } = render(
-          <TestWrapper>
-            <CopilotChatView
-              messages={sampleMessages}
-              input="flex items-center justify-between gap-4"
-            />
-          </TestWrapper>,
-        );
-
-        // Find the input specifically (it has justify-between which is unique to our slot)
-        const flexContainer = container.querySelector(".justify-between");
-        if (flexContainer) {
-          expect(flexContainer.classList.contains("flex")).toBe(true);
-          expect(flexContainer.classList.contains("items-center")).toBe(true);
-          expect(flexContainer.classList.contains("gap-4")).toBe(true);
-        }
-      });
-
-      it("should apply responsive tailwind classes", () => {
-        const { container } = render(
-          <TestWrapper>
-            <CopilotChatView
-              messages={sampleMessages}
-              messageView="p-2 md:p-4 lg:p-6"
-            />
-          </TestWrapper>,
-        );
-
-        const element = container.querySelector(".p-2");
-        if (element) {
-          expect(element.classList.contains("md:p-4")).toBe(true);
-          expect(element.classList.contains("lg:p-6")).toBe(true);
-        }
-      });
-
-      it("should apply dark mode tailwind classes", () => {
-        const { container } = render(
-          <TestWrapper>
-            <CopilotChatView
-              messages={sampleMessages}
-              scrollView="bg-white dark:bg-gray-900"
-            />
-          </TestWrapper>,
-        );
-
-        const element = container.querySelector(".bg-white");
-        if (element) {
-          expect(element.classList.contains("dark:bg-gray-900")).toBe(true);
-        }
-      });
-    });
-
-    describe("user className should override pre-set className", () => {
-      it("object slot className should take precedence over defaults", () => {
-        // This tests that when user provides className in object slot,
-        // it should override/replace the default className
-        const { container } = render(
-          <TestWrapper>
-            <CopilotChatView
-              messages={sampleMessages}
-              input={{ className: "user-override-class" }}
-            />
-          </TestWrapper>,
-        );
-
-        const element = container.querySelector(".user-override-class");
-        expect(element).toBeDefined();
-      });
-    });
-  });
-
-  // ============================================================================
-  // 6. CHILDREN RENDER FUNCTION TESTS
-  // ============================================================================
   describe("6. Children Render Function (Composition Pattern)", () => {
     it("should support children render function for full control", () => {
       render(
         <TestWrapper>
           <CopilotChatView messages={sampleMessages}>
             {({ messageView, input }) => (
-              <div data-testid="custom-layout">
-                <div className="messages-area">{messageView}</div>
-                <div className="input-area">{input}</div>
+              <div>
+                <div data-testid="messages-area">{messageView}</div>
+                <div data-testid="input-area">{input}</div>
               </div>
             )}
           </CopilotChatView>
         </TestWrapper>,
       );
 
-      expect(screen.getByTestId("custom-layout")).toBeDefined();
-      expect(document.querySelector(".messages-area")).toBeDefined();
-      expect(document.querySelector(".input-area")).toBeDefined();
+      expect(
+        within(screen.getByTestId("messages-area")).getByTestId(
+          "copilot-message-list",
+        ),
+      ).toBeInTheDocument();
+      expect(
+        within(screen.getByTestId("input-area")).getByRole("textbox"),
+      ).toBeInTheDocument();
     });
 
     it("children render function should receive all slot elements", () => {
-      const receivedSlots: string[] = [];
+      let receivedSlots: string[] = [];
 
       render(
         <TestWrapper>
           <CopilotChatView messages={sampleMessages}>
             {(slots) => {
-              receivedSlots.push(...Object.keys(slots));
+              receivedSlots = Object.keys(slots);
               return <div data-testid="render-check">Rendered</div>;
             }}
           </CopilotChatView>
         </TestWrapper>,
       );
 
-      // Should receive at least messageView, input, scrollView, etc.
-      expect(
-        receivedSlots.includes("messageView") || receivedSlots.length > 0,
-      ).toBe(true);
+      expect(receivedSlots.sort()).toEqual([
+        "input",
+        "messageView",
+        "scrollView",
+        "suggestionView",
+      ]);
     });
   });
 });

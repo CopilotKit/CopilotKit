@@ -88,7 +88,7 @@ export class CopilotChatAssistantMessageCopyButton {
   readonly disabled = input<boolean>(false);
   readonly inputClass = input<string | undefined>();
   readonly content = input<string | undefined>();
-  readonly clicked = output<void>();
+  readonly clicked = output();
   readonly CopyIcon = Copy;
   readonly CheckIcon = Check;
   readonly #copyFeedback = injectCopyFeedback();
@@ -128,7 +128,7 @@ export class CopilotChatAssistantMessageThumbsUpButton {
   readonly title = input<string | undefined>();
   readonly disabled = input<boolean>(false);
   readonly inputClass = input<string | undefined>();
-  readonly clicked = output<void>();
+  readonly clicked = output();
   readonly ThumbsUpIcon = ThumbsUp;
   readonly labels = injectChatLabels();
 
@@ -165,7 +165,7 @@ export class CopilotChatAssistantMessageThumbsDownButton {
   readonly title = input<string | undefined>();
   readonly disabled = input<boolean>(false);
   readonly inputClass = input<string | undefined>();
-  readonly clicked = output<void>();
+  readonly clicked = output();
   readonly ThumbsDownIcon = ThumbsDown;
   readonly labels = injectChatLabels();
 
@@ -202,7 +202,7 @@ export class CopilotChatAssistantMessageReadAloudButton {
   readonly title = input<string | undefined>();
   readonly disabled = input<boolean>(false);
   readonly inputClass = input<string | undefined>();
-  readonly clicked = output<void>();
+  readonly clicked = output();
   readonly Volume2Icon = Volume2;
   readonly labels = injectChatLabels();
 
@@ -239,7 +239,7 @@ export class CopilotChatAssistantMessageRegenerateButton {
   readonly title = input<string | undefined>();
   readonly disabled = input<boolean>(false);
   readonly inputClass = input<string | undefined>();
-  readonly clicked = output<void>();
+  readonly clicked = output();
   readonly RefreshCwIcon = RefreshCw;
   readonly labels = injectChatLabels();
 

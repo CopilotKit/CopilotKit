@@ -52,7 +52,7 @@ type RenderToolConfig<S extends StandardSchemaV1> = {
 export function useRenderTool(
   config: {
     name: "*";
-    render: ((props: any) => VNodeChild) | Component<any>;
+    render: ((props: any) => VNodeChild) | Component;
     agentId?: string;
     /** Let the chat group the calls this renderer draws (see `toolCallDisplay`). */
     group?: boolean;
@@ -126,9 +126,7 @@ export function useRenderTool<S extends StandardSchemaV1>(
               ...(config.group ? { group: true } : {}),
             });
 
-      copilotkit.value.addHookRenderToolCall(
-        renderer as VueToolCallRenderer<unknown>,
-      );
+      copilotkit.value.addHookRenderToolCall(renderer as VueToolCallRenderer);
       // Intentionally no cleanup removal to preserve renderers for chat history.
     },
     { immediate: true },

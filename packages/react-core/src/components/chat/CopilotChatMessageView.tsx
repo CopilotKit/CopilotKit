@@ -37,6 +37,8 @@ import {
   ɵcreateMessageViewModel,
   ɵdeduplicateMessages,
   ɵduplicateMessagesWarning,
+  ɵgetMessageRunStateSnapshot,
+  ɵresolveAgentId,
 } from "@copilotkit/core";
 import type {
   CopilotChatToolCallDisplay,
@@ -60,8 +62,8 @@ import {
   getIntelligenceTurnAnchors,
 } from "../intelligence-indicator";
 import type { IntelligenceIndicatorView } from "../intelligence-indicator";
+import { useDefaultAgentId } from "../../context";
 import {
-  DEFAULT_AGENT_ID,
   commitRowKeyStore,
   createRowKeyStore,
   resolveRowRenderKeysById,
@@ -387,6 +389,11 @@ export interface MessageGroup<S = unknown> {
 /** One row of the message list: a single message, or a group of them. */
 export type MessageRow = { type: "message"; message: Message } | MessageGroup;
 
+/** The key the virtualizer gives a row; measured sizes are stored under it. */
+type RowSizeKey = ReturnType<
+  Virtualizer<HTMLElement, Element>["options"]["getItemKey"]
+>;
+
 /** A row holding a single message, rendered as it would be ungrouped. */
 export function messageRow(message: Message): MessageRow {
   return { type: "message", message };
@@ -500,6 +507,7 @@ export function CopilotChatMessageView({
   const { renderActivityMessage } = useRenderActivityMessage();
   const { copilotkit, showIntelligenceIndicator = true } = useCopilotKit();
   const config = useCopilotChatConfiguration();
+  const providerAgentId = useDefaultAgentId();
   const [, forceUpdate] = useReducer((x) => x + 1, 0);
 
   // Subscribe to state changes so custom message renderers re-render when state updates.
@@ -527,25 +535,15 @@ export function CopilotChatMessageView({
     return () => subscription.unsubscribe();
   }, [copilotkit]);
 
-  // Helper to get state snapshot for a message (used for memoization)
-  const getStateSnapshotForMessage = (messageId: string): unknown => {
-    if (!config) return undefined;
-    const resolvedRunId =
-      copilotkit.getRunIdForMessage(
-        config.agentId,
-        config.threadId,
-        messageId,
-      ) ??
-      copilotkit
-        .getRunIdsForThread(config.agentId, config.threadId)
-        .slice(-1)[0];
-    if (!resolvedRunId) return undefined;
-    return copilotkit.getStateByRun(
-      config.agentId,
-      config.threadId,
-      resolvedRunId,
-    );
-  };
+  // The run state a custom message renderer sees, used for memoization.
+  const getStateSnapshotForMessage = (messageId: string): unknown =>
+    config
+      ? ɵgetMessageRunStateSnapshot(copilotkit, {
+          agentId: config.agentId,
+          threadId: config.threadId,
+          messageId,
+        })
+      : undefined;
 
   const deduplicatedMessages = useMemo(
     () => ɵdeduplicateMessages(messages),
@@ -730,6 +728,23 @@ export function CopilotChatMessageView({
   // `rowRenderKeys`, so a backend renaming that message mid-stream neither
   // remounts the group nor loses its state.
   const stableGroupKey = (key: string): string => rowRenderKeys.get(key) ?? key;
+  const rowKey = (row: MessageRow): string =>
+    row.type === "group"
+      ? `${GROUP_ROW_KEY_PREFIX}${stableGroupKey(row.key)}`
+      : (rowRenderKeys.get(row.message.id) ?? row.message.id);
+
+  // The key of each row, in order. The array is replaced only when a key
+  // changes, so the virtualizer's `getItemKey` below keeps its identity while
+  // a message streams.
+  const rowKeysRef = useRef<string[]>([]);
+  const nextRowKeys = rows.map(rowKey);
+  if (
+    nextRowKeys.length !== rowKeysRef.current.length ||
+    nextRowKeys.some((key, index) => key !== rowKeysRef.current[index])
+  ) {
+    rowKeysRef.current = nextRowKeys;
+  }
+  const rowKeys = rowKeysRef.current;
 
   // State each group's wrapper keeps here rather than in itself, so it
   // survives the row being windowed out and the wrapper remounting. Cleared
@@ -919,7 +934,7 @@ export function CopilotChatMessageView({
   // re-render on every measure.
   const measuredRef = React.useRef({
     total: 0,
-    sizes: new Map<number, number>(),
+    sizes: new Map<RowSizeKey, number>(),
   });
 
   const resizeAnchorRef = React.useRef<{
@@ -928,20 +943,73 @@ export function CopilotChatMessageView({
     ready: boolean;
   } | null>(null);
   const restoringVisibilityRef = React.useRef(false);
+  const isPinnedToBottomRef = React.useRef(isPinnedToBottom);
 
-  // The measurements describe one thread, so drop them when the thread
-  // changes (detected by the first message ID changing, same as the
-  // scroll-to-bottom effect below). Done during render rather than in that
-  // effect because rows are measured from ref callbacks, which run before
-  // layout effects — resetting there would discard the new thread's first
-  // measurements instead of the old thread's. Read from the untransformed
-  // list: a transform that hides or reorders the head is not a thread change.
-  const firstMessageId = deduplicatedMessages[0]?.id;
-  const measuredThreadRef = React.useRef(firstMessageId);
-  if (measuredThreadRef.current !== firstMessageId) {
-    measuredThreadRef.current = firstMessageId;
-    resizeAnchorRef.current = null;
-    measuredRef.current = { total: 0, sizes: new Map() };
+  // The instance from the previous render. A prepend reads the old layout
+  // from it before this render gives the virtualizer the new rows.
+  const virtualizerRef = React.useRef<Virtualizer<HTMLElement, Element> | null>(
+    null,
+  );
+
+  // The thread changes when the first message changes and the new history
+  // either belongs to another configured thread or shares no message with the
+  // old one. Loading older history or trimming the oldest messages keeps the
+  // thread (#8149), the same rule CopilotChatView uses for its bottom pin.
+  // Read from the untransformed list: a transform that hides or reorders the
+  // head is not a thread change.
+  //
+  // Done during render rather than in an effect because rows are measured
+  // from ref callbacks, which run before layout effects — resetting there
+  // would discard the new thread's first measurements instead of the old
+  // thread's.
+  const historyRef = React.useRef({
+    messages: deduplicatedMessages,
+    threadId,
+    generation: 0,
+  });
+  const history = historyRef.current;
+  if (history.messages !== deduplicatedMessages) {
+    const previousFirstId = history.messages[0]?.id;
+    if (previousFirstId !== deduplicatedMessages[0]?.id) {
+      const previousIds = new Set(history.messages.map((m) => m.id));
+      const sameThread =
+        history.threadId === threadId &&
+        deduplicatedMessages.some((m) => previousIds.has(m.id));
+      if (sameThread) {
+        keepReadingRowThroughHistoryChange();
+      } else {
+        history.generation += 1;
+        resizeAnchorRef.current = null;
+        measuredRef.current = { total: 0, sizes: new Map() };
+      }
+    }
+    history.messages = deduplicatedMessages;
+    history.threadId = threadId;
+  }
+  const historyGeneration = history.generation;
+
+  // Rows were added or removed above the reader. Remember the row at the top
+  // of the viewport, by key, at its index in the new rows, and let the
+  // resize-anchor restore below hold it there while the new rows settle.
+  function keepReadingRowThroughHistoryChange() {
+    const instance = virtualizerRef.current;
+    const element = instance?.scrollElement;
+    if (
+      !instance ||
+      !element ||
+      instance.options.count === 0 ||
+      element.clientHeight === 0 ||
+      isPinnedToBottomRef.current ||
+      restoringVisibilityRef.current
+    )
+      return;
+    const offset = element.scrollTop;
+    const item = instance.getVirtualItemForOffset(offset);
+    const index = item ? rowKeys.indexOf(String(item.key)) : -1;
+    resizeAnchorRef.current =
+      item && index >= 0
+        ? { index, offset: offset - item.start, ready: true }
+        : null;
   }
 
   const estimateRowSize = React.useCallback(() => {
@@ -949,7 +1017,6 @@ export function CopilotChatMessageView({
     return sizes.size > 0 ? Math.max(1, Math.round(total / sizes.size)) : 100;
   }, []);
 
-  const isPinnedToBottomRef = React.useRef(isPinnedToBottom);
   const measuredWidthRef = React.useRef<number | null>(null);
   const captureResizeAnchor = React.useCallback(
     (instance: Virtualizer<HTMLElement, Element>) => {
@@ -998,15 +1065,20 @@ export function CopilotChatMessageView({
       captureResizeAnchor(instance);
       const height = el?.getBoundingClientRect().height ?? 0;
       const index = Number((el as HTMLElement | null)?.dataset?.index);
-      if (height > 0 && Number.isInteger(index)) {
+      // Keyed by row, not index, so a row keeps its size when history is
+      // added above it.
+      const key = Number.isInteger(index)
+        ? instance.options.getItemKey(index)
+        : undefined;
+      if (height > 0 && key !== undefined) {
         const { total, sizes } = measuredRef.current;
-        measuredRef.current.total = total - (sizes.get(index) ?? 0) + height;
-        sizes.set(index, height);
+        measuredRef.current.total = total - (sizes.get(key) ?? 0) + height;
+        sizes.set(key, height);
       }
       // A hidden row keeps its last visible measurement.
       return height > 0
         ? height
-        : (measuredRef.current.sizes.get(index) ?? 100);
+        : (key !== undefined && measuredRef.current.sizes.get(key)) || 100;
     },
     [captureResizeAnchor],
   );
@@ -1072,8 +1144,7 @@ export function CopilotChatMessageView({
                 const nextRect = pendingRect!;
                 pendingRect = undefined;
                 if (!instance.scrollElement?.clientHeight) return;
-                measuredWidthRef.current =
-                  instance.scrollElement?.clientWidth ?? nextRect.width;
+                measuredWidthRef.current = instance.scrollElement.clientWidth;
                 if (resizeAnchorRef.current)
                   resizeAnchorRef.current.ready = true;
                 // Flush pending row updates before invalidating the cached prefix.
@@ -1113,9 +1184,16 @@ export function CopilotChatMessageView({
     [captureResizeAnchor, measureRowElement],
   );
 
+  const getItemKey = React.useCallback(
+    (index: number) => rowKeys[index] ?? index,
+    [rowKeys],
+  );
   const virtualizer = useVirtualizer({
     // count=0 disables the virtualizer without changing hook call order.
     count: shouldVirtualize ? rows.length : 0,
+    // Cache sizes by row so that a row keeps its size when rows are added
+    // above it.
+    getItemKey,
     // A disabled virtualizer must not reconnect and reset a flat list's
     // scroll offset when a hidden host becomes visible again.
     getScrollElement: () => (shouldVirtualize ? scrollElement : null),
@@ -1127,6 +1205,7 @@ export function CopilotChatMessageView({
     // the first virtual render shows ~6 items rather than 0.
     initialRect: { width: 0, height: 600 },
   });
+  virtualizerRef.current = virtualizer;
 
   // While the pin-to-bottom behaviour is following the bottom it is already
   // going to move the scroll position, and its ResizeObserver reads our
@@ -1164,26 +1243,26 @@ export function CopilotChatMessageView({
     return () => cancelAnimationFrame(frame);
   });
 
-  // Scroll to the bottom when virtual mode first activates or the thread changes
-  // (detected by the first message ID changing). For streaming new messages,
+  // Scroll to the bottom when virtual mode first activates or the thread
+  // changes (see `historyGeneration` above). For streaming new messages,
   // use-stick-to-bottom handles auto-scroll via content height growth detection
   // on the virtualizer's total-size div — same as the flat path. Adding
   // renderedMessages.length here would forcibly yank the user to the bottom
   // on every streaming chunk even if they've scrolled up to read history.
-  const lastEndAlignedFirstMessageRef = React.useRef<string | undefined>(
+  const lastEndAlignedGenerationRef = React.useRef<number | undefined>(
     undefined,
   );
   useLayoutEffect(() => {
     if (!shouldVirtualize || !rows.length) return;
     // Resizing a hidden host can temporarily disable virtualization. Do not
     // align again when the same message list becomes measurable once more.
-    if (lastEndAlignedFirstMessageRef.current === firstMessageId) return;
-    lastEndAlignedFirstMessageRef.current = firstMessageId;
+    if (lastEndAlignedGenerationRef.current === historyGeneration) return;
+    lastEndAlignedGenerationRef.current = historyGeneration;
     virtualizer.scrollToIndex(rows.length - 1, {
       align: "end",
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [shouldVirtualize, firstMessageId]);
+  }, [shouldVirtualize, historyGeneration]);
 
   // Map each Intelligence-using turn's anchor message → stable turn id. One
   // indicator is emitted per turn (keyed by the turn id) at its anchor, so it
@@ -1210,7 +1289,7 @@ export function CopilotChatMessageView({
       : undefined;
     // Row key only — everything keyed to message identity (state snapshots,
     // tool lookups) must keep using message.id.
-    const rowKey = rowRenderKeys.get(message.id) ?? message.id;
+    const messageKey = rowRenderKeys.get(message.id) ?? message.id;
 
     const turn = turnByFirstMessage.get(message.id);
     if (turn) elements.push(renderWorkSummary(turn.key, turn.calls));
@@ -1218,7 +1297,7 @@ export function CopilotChatMessageView({
     if (renderCustomMessage) {
       elements.push(
         <MemoizedCustomMessage
-          key={`${rowKey}-custom-before`}
+          key={`${messageKey}-custom-before`}
           message={message}
           position="before"
           renderCustomMessage={renderCustomMessage}
@@ -1230,7 +1309,7 @@ export function CopilotChatMessageView({
     if (message.role === "assistant") {
       elements.push(
         <MemoizedAssistantMessage
-          key={rowKey}
+          key={messageKey}
           message={message as AssistantMessage}
           messages={messages}
           isRunning={isRunning}
@@ -1242,7 +1321,7 @@ export function CopilotChatMessageView({
     } else if (message.role === "user") {
       elements.push(
         <MemoizedUserMessage
-          key={rowKey}
+          key={messageKey}
           message={message as UserMessage}
           UserMessageComponent={UserComponent}
           slotProps={userSlotProps}
@@ -1251,7 +1330,7 @@ export function CopilotChatMessageView({
     } else if (message.role === "activity") {
       elements.push(
         <MemoizedActivityMessage
-          key={rowKey}
+          key={messageKey}
           message={message as ActivityMessage}
           renderActivityMessage={renderActivityMessage}
         />,
@@ -1259,7 +1338,7 @@ export function CopilotChatMessageView({
     } else if (message.role === "reasoning") {
       const reasoning = (
         <MemoizedReasoningMessage
-          key={rowKey}
+          key={messageKey}
           message={message as ReasoningMessage}
           messages={messages}
           isRunning={isRunning}
@@ -1273,7 +1352,7 @@ export function CopilotChatMessageView({
       // keeps its node (and its "Thought for" timer) instead of remounting.
       elements.push(
         toolCallDisplay === "turn" ? (
-          <Collapsible key={rowKey} open={workOpen.get(message.id) ?? true}>
+          <Collapsible key={messageKey} open={workOpen.get(message.id) ?? true}>
             {reasoning}
           </Collapsible>
         ) : (
@@ -1285,7 +1364,7 @@ export function CopilotChatMessageView({
     if (renderCustomMessage) {
       elements.push(
         <MemoizedCustomMessage
-          key={`${rowKey}-custom-after`}
+          key={`${messageKey}-custom-after`}
           message={message}
           position="after"
           renderCustomMessage={renderCustomMessage}
@@ -1307,7 +1386,10 @@ export function CopilotChatMessageView({
         <IntelligenceIndicator
           key={`intelligence-${intelligenceTurnId}`}
           message={message}
-          agentId={config?.agentId ?? DEFAULT_AGENT_ID}
+          agentId={ɵresolveAgentId({
+            chatAgentId: config?.agentId,
+            providerAgentId,
+          })}
           intelligenceIndicator={intelligenceIndicator}
         />,
       );
@@ -1315,11 +1397,6 @@ export function CopilotChatMessageView({
 
     return elements.filter(Boolean) as React.ReactElement[];
   };
-
-  const rowKey = (row: MessageRow): string =>
-    row.type === "group"
-      ? `${GROUP_ROW_KEY_PREFIX}${stableGroupKey(row.key)}`
-      : (rowRenderKeys.get(row.message.id) ?? row.message.id);
 
   const renderRow = (row: MessageRow): React.ReactElement[] => {
     if (row.type === "message") return renderMessageBlock(row.message);
@@ -1338,8 +1415,6 @@ export function CopilotChatMessageView({
     ];
   };
 
-  const rowKeysRef = useRef<string[]>([]);
-  rowKeysRef.current = rows.map(rowKey);
   const virtualModeRef = useRef(shouldVirtualize);
   virtualModeRef.current = shouldVirtualize;
 
@@ -1458,7 +1533,7 @@ export function CopilotChatMessageView({
       element.removeEventListener("touchstart", interrupt);
       element.removeEventListener("keydown", interrupt);
     };
-  }, [scrollElementFromCtx, virtualizer, firstMessageId]);
+  }, [scrollElementFromCtx, virtualizer, historyGeneration]);
 
   // Build the flat element list only when we're not virtualizing (avoids
   // creating 500 React elements that we'd immediately discard).

@@ -80,3 +80,26 @@ export type {
 } from "./provider-config";
 export { ɵRuntimeInfoStore } from "./runtime-info";
 export type { ɵRuntimeInfo } from "./runtime-info";
+export {
+  ɵassembleActivityRenderers,
+  ɵassembleHumanInTheLoop,
+  ɵassembleProviderRegistry,
+  ɵassembleProviderToolRenderers,
+  ɵassembleProviderTools,
+  ɵresolveA2UIActivation,
+  ɵstableArrayPropWarning,
+} from "./provider-config";
+export type {
+  ɵA2UIActivationInput,
+  ɵActivityRenderersInput,
+  ɵAssembledHumanInTheLoop,
+  ɵProviderFrontendTool,
+  ɵProviderHumanInTheLoop,
+  ɵProviderRegistryInput,
+  ɵProviderToolRenderer,
+  ɵStableArrayProp,
+} from "./provider-config";
+export { ɵregisterFrontendTools } from "./frontend-tool-registration";
+export type { ɵFrontendToolRenderer } from "./frontend-tool-registration";
+// Tool result content (internal)
+export { isContentPart as ɵisContentPart } from "./tool-result-content";

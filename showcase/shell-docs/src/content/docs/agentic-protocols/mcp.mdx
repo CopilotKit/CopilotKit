@@ -178,29 +178,43 @@ See [MCP Apps](/generative-ui/mcp-apps) for setup.
       <Step>
         #### Connect to MCP Servers
 
-        Attach the MCP servers to the agent in your runtime route. The agent opens a
-        client for each server at the start of a run and closes it when the run
-        ends, so nothing is cached between requests:
+        Create an MCP client for the server in your runtime route, and give it
+        to the agent in `mcp.clients`. The client stays open between runs. The
+        agent reads its tools at the start of each run.
+
+        Install the agent packages and the MCP client:
+
+        ```bash
+        npm install @tanstack/ai @tanstack/ai-openai @tanstack/ai-mcp
+        ```
+
+        Then add the client to the agent:
 
         ```ts title="app/api/copilotkit/[[...slug]]/route.ts"
         import {
-          BuiltInAgent,
           CopilotRuntime,
           createCopilotRuntimeHandler,
         } from "@copilotkit/runtime";
+        import { BuiltInAgent } from "@copilotkit/runtime/agent";
+        import { openaiText } from "@tanstack/ai-openai";
+        import { createMCPClient } from "@tanstack/ai-mcp";
+
+        // Try a sample MCP server at https://mcp.composio.dev/
+        const mcpClient = await createMCPClient({
+          transport: {
+            type: "sse",
+            url: "https://my-mcp-server.example.com/sse",
+            headers: { Authorization: `Bearer ${process.env.MCP_API_KEY}` },
+          },
+        });
 
         const runtime = new CopilotRuntime({
           agents: {
             default: new BuiltInAgent({
-              model: "openai/gpt-4o",
-              mcpServers: [
-                {
-                  // Try a sample MCP server at https://mcp.composio.dev/
-                  type: "sse",
-                  url: "https://my-mcp-server.example.com/sse",
-                  headers: { Authorization: `Bearer ${process.env.MCP_API_KEY}` },
-                },
-              ],
+              model: openaiText("gpt-6-luna"),
+              mcp: { clients: [mcpClient] },
+              // One step calls a tool, the next answers with its result.
+              maxSteps: 3,
             }),
           },
         });
@@ -214,9 +228,8 @@ See [MCP Apps](/generative-ui/mcp-apps) for setup.
         export const POST = handler;
         ```
 
-        See [MCP servers](/docs/integrations/built-in-agent/mcp-servers) for the HTTP
-        transport, multiple servers, and `mcpClients` — which lets you own the client
-        lifecycle when you need persistent connections or per-request credentials.
+        See [MCP servers](/docs/integrations/built-in-agent/mcp-servers) for the
+        HTTP transport, multiple servers, lazy tools, and error handling.
       </Step>
       <Step>
         #### Add the Chat Interface

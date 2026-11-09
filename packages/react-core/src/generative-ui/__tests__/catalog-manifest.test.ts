@@ -6,10 +6,13 @@ import {
 } from "@copilotkit/shared";
 import { z } from "zod";
 import { createGenerativeUI } from "../catalog";
-import { createGenerativeUIDispatcher } from "../dispatcher";
-import { buildCatalogManifest, buildGenerativeUIManifest } from "../manifest";
+import {
+  GenerativeUISurfaceManager,
+  buildCatalogManifest,
+  buildGenerativeUIManifest,
+  createGenerativeUIDispatcher,
+} from "@copilotkit/core/generative-ui";
 import { standardUI } from "../standard";
-import { GenerativeUISurfaceManager } from "../surface-manager";
 
 describe("buildCatalogManifest", () => {
   it("equals the per-run manifest when nothing is mounted", () => {

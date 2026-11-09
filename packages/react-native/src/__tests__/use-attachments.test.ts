@@ -17,8 +17,10 @@ vi.mock("expo-file-system", () => ({
   EncodingType: { Base64: "base64" },
 }));
 
-// Mock @copilotkit/shared -- only the utils we use
-vi.mock("@copilotkit/shared", () => ({
+// Mock @copilotkit/shared over the real module: core's attachment queue
+// needs its other exports.
+vi.mock("@copilotkit/shared", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@copilotkit/shared")>()),
   getModalityFromMimeType: (mimeType: string) => {
     if (mimeType.startsWith("image/")) return "image";
     if (mimeType.startsWith("audio/")) return "audio";
@@ -157,6 +159,7 @@ describe("useAttachments (React Native)", () => {
       expect(onUploadFailed).toHaveBeenCalledWith(
         expect.objectContaining({
           reason: "file-too-large",
+          file,
         }),
       );
     });
@@ -189,6 +192,7 @@ describe("useAttachments (React Native)", () => {
       expect(onUploadFailed).toHaveBeenCalledWith(
         expect.objectContaining({
           reason: "invalid-type",
+          file,
         }),
       );
     });
@@ -219,8 +223,29 @@ describe("useAttachments (React Native)", () => {
       expect(onUploadFailed).toHaveBeenCalledWith(
         expect.objectContaining({
           reason: "upload-failed",
+          file,
         }),
       );
+    });
+
+    it("ignores files while attachments are disabled", async () => {
+      const { result } = renderHook(() =>
+        useAttachments({ config: { enabled: false } }),
+      );
+
+      await act(async () => {
+        await result.current.processFiles([
+          {
+            uri: "file:///tmp/photo.jpg",
+            name: "photo.jpg",
+            size: 1024,
+            mimeType: "image/jpeg",
+          },
+        ]);
+      });
+
+      expect(result.current.attachments).toEqual([]);
+      expect(mockReadAsStringAsync).not.toHaveBeenCalled();
     });
 
     it("calls custom onUpload instead of reading file directly", async () => {

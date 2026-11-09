@@ -13,7 +13,7 @@ agentPrompt: |
   4. Add `MAP_MCP_URL=http://localhost:3001/mcp` to my web app's .env. In my CopilotKit runtime route, add `mcpApps: { servers: [{ type: "http", url: process.env.MAP_MCP_URL ?? "http://localhost:3001/mcp", serverId: "fizzy-maps" }] }` to `new CopilotRuntime(...)`.
   5. Share the sample orders and the complete `show-map` arguments with `useAgentContext({ description, value })` from "@copilotkit/react-core". Don't add a frontend renderer. CopilotKit renders MCP Apps on its own.
 
-  If I don't have a CopilotKit app yet, start from https://github.com/CopilotKit/CopilotKit/tree/main/examples/showcases/manufact-mcp-apps. Keep my existing model, provider, and runtime setup unchanged.
+  If I don't have a CopilotKit app yet, start from https://github.com/CopilotKit/CopilotKit/tree/main/examples/demos/manufact-mcp-apps. Keep my existing model, provider, and runtime setup unchanged.
 ---
 
 [Manufact](https://manufact.com) builds [mcp-use](https://github.com/mcp-use/mcp-use), the
@@ -53,7 +53,7 @@ newer and an OpenAI API key.
 
 ```bash
 git clone --depth 1 https://github.com/CopilotKit/CopilotKit.git
-cd CopilotKit/examples/showcases/manufact-mcp-apps
+cd CopilotKit/examples/demos/manufact-mcp-apps
 npm install
 cp web/.env.example web/.env  # then paste your OPENAI_API_KEY into it
 npm run dev
@@ -74,7 +74,7 @@ Start with a fresh Next.js app and add CopilotKit. Already have a CopilotKit app
 ```bash
 npx create-next-app@latest web --yes
 cd web
-npm install @copilotkit/react-core @copilotkit/runtime
+npm install @copilotkit/react-core @copilotkit/runtime @tanstack/ai @tanstack/ai-openai
 ```
 
 CopilotKit's provider is a client component, so give it its own file:
@@ -404,13 +404,14 @@ runs.
 
 ```ts title="app/api/copilotkit/[[...slug]]/route.ts" doctest="component"
 import {
-  BuiltInAgent,
   CopilotRuntime,
   createCopilotRuntimeHandler,
 } from "@copilotkit/runtime";
+import { BuiltInAgent } from "@copilotkit/runtime/agent";
+import { openaiText } from "@tanstack/ai-openai";
 
 const agent = new BuiltInAgent({
-  model: "openai/gpt-5.5",
+  model: openaiText("gpt-6-luna"),
   // When to reach for the map, and a reminder to stick to real data.
   prompt:
     "You are an operations copilot. To map orders, call show-map with the map arguments from context. " +
@@ -650,7 +651,7 @@ spends model credits. See [authentication](/auth).
 ## Get the code
 
 The finished example is in the CopilotKit repo at
-[`examples/showcases/manufact-mcp-apps`](https://github.com/CopilotKit/CopilotKit/tree/main/examples/showcases/manufact-mcp-apps).
+[`examples/demos/manufact-mcp-apps`](https://github.com/CopilotKit/CopilotKit/tree/main/examples/demos/manufact-mcp-apps).
 For the fuller Fizzy Business demo, with an order desk, a copilot, and a Playwright test suite, see
 [CopilotKit/mcp-apps-demo-night-talk](https://github.com/CopilotKit/mcp-apps-demo-night-talk).
 
