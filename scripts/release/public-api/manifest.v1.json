@@ -2517,6 +2517,66 @@
             "path": "packages/vue/package.json",
             "selector": "exports[\"./v2\"]"
           }
+        },
+        {
+          "importPath": "@copilotkit/vue/v2/generative-ui",
+          "exportKey": "./v2/generative-ui",
+          "kind": "code",
+          "conditions": {
+            "import": {
+              "types": "./dist/v2/generative-ui/index.d.mts",
+              "default": "./dist/v2/generative-ui/index.mjs"
+            },
+            "require": {
+              "types": "./dist/v2/generative-ui/index.d.cts",
+              "default": "./dist/v2/generative-ui/index.cjs"
+            }
+          },
+          "provenance": {
+            "kind": "package-json",
+            "path": "packages/vue/package.json",
+            "selector": "exports[\"./v2/generative-ui\"]"
+          }
+        },
+        {
+          "importPath": "@copilotkit/vue/v2/generative-ui/chart",
+          "exportKey": "./v2/generative-ui/chart",
+          "kind": "code",
+          "conditions": {
+            "import": {
+              "types": "./dist/v2/generative-ui-chart/index.d.mts",
+              "default": "./dist/v2/generative-ui/chart.mjs"
+            },
+            "require": {
+              "types": "./dist/v2/generative-ui-chart/index.d.cts",
+              "default": "./dist/v2/generative-ui/chart.cjs"
+            }
+          },
+          "provenance": {
+            "kind": "package-json",
+            "path": "packages/vue/package.json",
+            "selector": "exports[\"./v2/generative-ui/chart\"]"
+          }
+        },
+        {
+          "importPath": "@copilotkit/vue/v2/generative-ui/map",
+          "exportKey": "./v2/generative-ui/map",
+          "kind": "code",
+          "conditions": {
+            "import": {
+              "types": "./dist/v2/generative-ui-map/index.d.mts",
+              "default": "./dist/v2/generative-ui/map.mjs"
+            },
+            "require": {
+              "types": "./dist/v2/generative-ui-map/index.d.cts",
+              "default": "./dist/v2/generative-ui/map.cjs"
+            }
+          },
+          "provenance": {
+            "kind": "package-json",
+            "path": "packages/vue/package.json",
+            "selector": "exports[\"./v2/generative-ui/map\"]"
+          }
         }
       ],
       "compatibility": {
@@ -2524,8 +2584,14 @@
           "node": ">=20"
         },
         "peerDependencies": {
+          "chart.js": "^4.4.0",
+          "maplibre-gl": "^5.0.0",
           "vue": ">=3.3.0"
         },
+        "optionalPeerDependencies": [
+          "chart.js",
+          "maplibre-gl"
+        ],
         "provenance": [
           {
             "kind": "package-json",
@@ -2536,6 +2602,11 @@
             "kind": "package-json",
             "path": "packages/vue/package.json",
             "selector": "peerDependencies"
+          },
+          {
+            "kind": "package-json",
+            "path": "packages/vue/package.json",
+            "selector": "peerDependenciesMeta.*.optional"
           }
         ]
       },
