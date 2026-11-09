@@ -2,6 +2,12 @@
  * Component barrel — importable via `@copilotkit/react-native/components`.
  */
 
+// Auto-install polyfills before anything else loads: an app can import this
+// entry before the root one, and @copilotkit/core and @ag-ui/client fail at
+// load time on Hermes without them (scripts/verify-polyfill-barrel.mjs checks
+// that this stays the built entry's first statement).
+import "../polyfills";
+
 export { CopilotChat } from "./CopilotChat";
 export type { CopilotChatProps } from "./CopilotChat";
 

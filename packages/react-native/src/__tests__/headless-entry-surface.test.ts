@@ -1,16 +1,29 @@
-import { describe, it, expect, beforeAll } from "vitest";
+import { describe, it, expect, beforeAll, vi } from "vitest";
 import fs from "node:fs";
 import path from "node:path";
+import { createRequire } from "node:module";
 // Type-only, so it is erased and does NOT statically pull the entry this file
 // deliberately loads at runtime (and is not part of the walked graph either —
-// the walk starts at src/headless.ts / src/index.ts, not at this test).
+// the walks start at the package's published entries, ENTRIES and
+// generativeUIEntry below, never at this test).
 import type * as HeadlessEntry from "../headless";
 // Same reason, and additionally: the identity assertion below needs the module
 // this entry re-exports FROM, to compare bindings rather than merely count them.
 import type * as CoreHeadlessEntry from "@copilotkit/react-core/v2/headless";
 
 /**
- * Guards the `@copilotkit/react-native/headless` entry (src/headless.ts).
+ * Guards the import graphs of the published entries of
+ * `@copilotkit/react-native`, with `/headless` (src/headless.ts) as the strict
+ * case. ENTRIES is derived from package.json `exports`, so the default barrel,
+ * `/components` and the polyfill subpaths are walked as well.
+ *
+ * The second `describe` covers the opt-in `/generative-ui` entry
+ * (src/generative-ui/index.ts): it may reach react-core only through `/v2/context`
+ * and the DOM-free `/v2/generative-ui/native`, it may reach the `zod` optional
+ * peer, it owns no registry, and no OTHER entry may reach it or any
+ * generative-UI subpath of a workspace package (that deny-list is derived from
+ * the packages' `exports` maps). The third `describe` checks react-core's built
+ * dist for a second copy of a generative UI context module.
  *
  * The whole point of the headless entry is that a consumer using only the
  * provider + agent/tool hooks does NOT have to install (or Metro-stub) the
@@ -26,7 +39,7 @@ import type * as CoreHeadlessEntry from "@copilotkit/react-core/v2/headless";
  *
  * ─── Why the walker looks the way it does ──────────────────────────────────
  * A guard that under-reports is worse than no guard, because it is trusted. The
- * first version of this file had four blind spots, each of which let a REAL
+ * first version of this file had five blind spots, each of which let a REAL
  * violation through (or flagged a non-violation), so the walker below is written
  * to close them and each is covered by a test:
  *
@@ -155,6 +168,91 @@ const FORBIDDEN_HEAVY = [
   "@copilotkit/runtime-client-gql",
 ];
 
+/**
+ * Deliberate exceptions to FORBIDDEN_REGISTRY_APIS. Each one removes exactly
+ * the declaration it names from that one file before the scan, so a second
+ * context (or any other registry API) in the same file still trips the ban.
+ *
+ * `file` is POSIX-style relative to src/, and is compared after normalising
+ * `path.relative`'s separators (which are `\` on Windows).
+ *
+ * Every declaration must match exactly once in the file it names. One that no
+ * longer matches (the declaration was reformatted, renamed or removed, or the
+ * file moved) is reported as a STALE exemption, naming the exemption and its
+ * reason, rather than doing nothing and leaving the identifier ban to blame
+ * `createContext` for what is really an out-of-date exemption.
+ */
+interface RegistryApiExemption {
+  file: string;
+  /** Each is replaced by its group 1 (what to keep), once. */
+  declarations: RegExp[];
+  reason: string;
+}
+
+const REGISTRY_API_EXEMPTIONS: readonly RegistryApiExemption[] = [
+  {
+    file: "generative-ui/GenerativeUIProvider.tsx",
+    declarations: [
+      /(import React, \{ )createContext, /,
+      /()export const GenerativeUIProviderPresentContext = createContext\(false\);/,
+    ],
+    reason:
+      "a boolean that tells the components below 'no provider' from 'a provider without ui'; it holds no tools or renderers",
+  },
+];
+
+/** A path relative to src/, with `/` separators on every platform. */
+const srcRelative = (file: string) =>
+  path.relative(srcDir, file).replace(/\\/g, "/");
+
+/** How many times `re` matches `code`, ignoring its own `g` flag. */
+const countMatches = (code: string, re: RegExp) =>
+  [...code.matchAll(new RegExp(re.source, re.flags.replace("g", "") + "g"))]
+    .length;
+
+/**
+ * Every use of a FORBIDDEN_REGISTRY_APIS identifier in the given modules, as
+ * `file: identifier — why`, plus every stale exemption among the files given.
+ * Comments are stripped first: the modules name these APIs in prose to explain
+ * why they do NOT call them, and a raw text match would fail on the
+ * documentation.
+ */
+function registryOffenders(
+  files: Iterable<string>,
+  exemptions: readonly RegistryApiExemption[] = REGISTRY_API_EXEMPTIONS,
+): string[] {
+  const offenders: string[] = [];
+  for (const file of files) {
+    const here = srcRelative(file);
+    let code = stripComments(fs.readFileSync(file, "utf8"));
+    const applied = exemptions.filter((e) => e.file === here);
+    for (const exemption of applied) {
+      for (const declaration of exemption.declarations) {
+        const matches = countMatches(code, declaration);
+        if (matches !== 1) {
+          offenders.push(
+            `${here}: stale exemption — ${declaration} matched ${matches} ` +
+              `time(s), not once. Update or remove the exemption for ` +
+              `"${exemption.reason}"`,
+          );
+        }
+        code = code.replace(declaration, "$1");
+      }
+    }
+    for (const [identifier, why] of FORBIDDEN_REGISTRY_APIS) {
+      if (new RegExp(`\\b${identifier}\\b`).test(code)) {
+        const exempted = applied.length
+          ? ` (this file's exemption, "${applied
+              .map((e) => e.reason)
+              .join("; ")}", does not cover this use)`
+          : "";
+        offenders.push(`${here}: ${identifier} — ${why}${exempted}`);
+      }
+    }
+  }
+  return offenders;
+}
+
 const indexEntry = path.join(srcDir, "index.ts");
 const pkgJsonPath = path.resolve(srcDir, "..", "package.json");
 
@@ -187,9 +285,22 @@ interface PkgManifest {
  * allow-list, and it is READ from package.json rather than hand-copied so it
  * cannot drift from the manifest it is meant to describe. Anything else in the
  * graph is a package the consumer may not have: every optional peer
- * (`@gorhom/bottom-sheet`, `expo-*`, `react-native-streamdown`, `zod`), any
- * brand-new third-party edge, and any Node builtin (which RN has no business
- * reaching). This package's OWN name is deliberately absent, which is what keeps
+ * (`@gorhom/bottom-sheet`, `expo-document-picker`, `expo-file-system`,
+ * `react-native-gesture-handler`, `react-native-reanimated`,
+ * `react-native-streamdown`, `zod`), any brand-new third-party edge, and any
+ * Node builtin (which RN has no business reaching).
+ *
+ * The walk covers this package's OWN sources only, so this set bounds what
+ * THEY import, not what the consumer must install in total. `zod` is the case
+ * in point: it is an optional peer here, and no module of this package imports
+ * it, yet every entry needs it at runtime — react-core's `/v2/headless`, which
+ * both entries import, loads `zod` on import, and react-core declares it as a
+ * REQUIRED peer (`>=3.25`). It stays an optional peer at `>=3.0.0` here only
+ * because making a peer required, or narrowing its range, is a breaking change
+ * under scripts/release/lib/breaking-change-gate.ts; react-core's own peer is
+ * what makes the consumer install it, at `>=3.25`.
+ *
+ * This package's OWN name is deliberately absent, which is what keeps
  * this test doubling as the comment-stripping regression: the eight phantom
  * `@copilotkit/react-native…` specifiers that JSDoc examples used to harvest are
  * all self-references, so if `stripComments` regresses they fail here.
@@ -224,6 +335,14 @@ function packageNameOf(spec: string): string {
   const parts = spec.split("/");
   return spec.startsWith("@") ? parts.slice(0, 2).join("/") : parts[0]!;
 }
+
+/**
+ * `@copilotkit/react-core` or one of its subpaths — by package name, not by
+ * prefix, so a sibling package such as `@copilotkit/react-core-foo` is not
+ * mistaken for an entry of react-core.
+ */
+const isReactCoreSpec = (spec: string) =>
+  packageNameOf(spec) === "@copilotkit/react-core";
 
 /**
  * Comment / string / template alternation, scanned left-to-right in ONE pass.
@@ -397,12 +516,137 @@ function graphFor(entry: string): Graph {
 const rel = (files: Iterable<string>) =>
   [...files].map((f) => path.relative(srcDir, f)).sort();
 
-const ENTRIES: [label: string, entry: string][] = [
-  ["headless", headlessEntry],
-  ["default barrel", indexEntry],
+interface ExportingManifest extends PkgManifest {
+  name?: string;
+  exports?: unknown;
+}
+
+const readManifest = (file: string) =>
+  JSON.parse(fs.readFileSync(file, "utf8")) as ExportingManifest;
+
+/**
+ * The file an export resolves to for `import` (else `require`, else
+ * `default`), following nested condition objects; null for anything else.
+ */
+function exportTarget(value: unknown): string | null {
+  if (typeof value === "string") return value;
+  if (value && typeof value === "object") {
+    for (const condition of ["import", "require", "default"]) {
+      const target = exportTarget(
+        (value as Record<string, unknown>)[condition],
+      );
+      if (target) return target;
+    }
+  }
+  return null;
+}
+
+/** `./dist/a/b.mjs` -> the `src/a/b.ts(x)` tsdown built it from, if any. */
+function sourceOfDistTarget(target: string): string | null {
+  const m = /^\.\/dist\/(.+)\.(?:mjs|cjs|js)$/.exec(target);
+  if (!m) return null;
+  const base = path.join(srcDir, ...m[1]!.split("/"));
+  return [`${base}.ts`, `${base}.tsx`].find((c) => fs.existsSync(c)) ?? null;
+}
+
+/** An export subpath, or bare specifier, with a `generative-ui` segment. */
+const hasGenerativeUISegment = (subpath: string) =>
+  subpath.split("/").includes("generative-ui");
+
+/** Export keys of this package that carry no module to walk, and why. */
+const NON_CODE_EXPORTS: Record<string, string> = {
+  "./package.json": "the manifest itself",
+};
+
+/**
+ * The entries to walk, DERIVED from this package's `exports` map rather than
+ * typed in: a hand-written list missed the published `/components` entry, so
+ * none of the per-entry bans below applied to it. Every code export lands in
+ * exactly one place — `entries` (all the bans below), or `generativeUI` (the
+ * opt-in entry, walked by its own `describe`) — and anything that cannot be
+ * mapped back to a source module is a `problem`, which a test fails on.
+ *
+ * Runs at collection time, so it must not throw (blind spot #4 above):
+ * failures are collected, not raised.
+ */
+function deriveEntries(): {
+  entries: [label: string, entry: string][];
+  generativeUI: string[];
+  problems: string[];
+} {
+  const entries: [string, string][] = [];
+  const generativeUI: string[] = [];
+  const problems: string[] = [];
+  try {
+    const exportsMap = readManifest(pkgJsonPath).exports;
+    if (!exportsMap || typeof exportsMap !== "object") {
+      return { entries, generativeUI, problems: ["no `exports` map"] };
+    }
+    for (const [key, value] of Object.entries(exportsMap)) {
+      if (key in NON_CODE_EXPORTS) continue;
+      const target = exportTarget(value);
+      const source = target ? sourceOfDistTarget(target) : null;
+      if (!source) {
+        problems.push(
+          `${key} -> ${target ?? JSON.stringify(value)}: no src/ module found ` +
+            `for it. Teach sourceOfDistTarget the new layout, or add the key ` +
+            `to NON_CODE_EXPORTS with a reason.`,
+        );
+      } else if (hasGenerativeUISegment(key)) {
+        generativeUI.push(source);
+      } else {
+        entries.push([`@copilotkit/react-native${key.slice(1)}`, source]);
+      }
+    }
+  } catch (err) {
+    problems.push(`could not read the exports of ${pkgJsonPath}: ${err}`);
+  }
+  return { entries, generativeUI, problems };
+}
+
+const DERIVED_ENTRIES = deriveEntries();
+
+// Never empty at collection, so the it.each tables below always register: if
+// the derivation broke, they fall back to the two entries this guard was first
+// written for, and the derivation test reports why.
+const ENTRIES: [label: string, entry: string][] = DERIVED_ENTRIES.entries.length
+  ? DERIVED_ENTRIES.entries
+  : [
+      ["@copilotkit/react-native/headless", headlessEntry],
+      ["@copilotkit/react-native", indexEntry],
+    ];
+
+/** Entries the derivation must find. A floor, not the list. */
+const REQUIRED_ENTRIES = [
+  headlessEntry,
+  indexEntry,
+  path.join(srcDir, "components", "index.ts"),
 ];
 
 describe("@copilotkit/react-native/headless entry", () => {
+  it("walks every code export of package.json", () => {
+    expect(
+      DERIVED_ENTRIES.problems,
+      `package.json exports that this guard cannot map to an entry module:\n  ` +
+        DERIVED_ENTRIES.problems.join("\n  "),
+    ).toEqual([]);
+    const walked = ENTRIES.map(([, entry]) => entry);
+    const missing = REQUIRED_ENTRIES.filter((e) => !walked.includes(e));
+    expect(
+      missing,
+      `the entries derived from package.json exports do not include ` +
+        `${rel(missing).join(", ")} — the derivation is broken. Derived: ` +
+        `${rel(walked).join(", ")}`,
+    ).toEqual([]);
+    // The opt-in entry is walked by its own describe below, against the path
+    // it hard-codes; make sure that path is the one package.json publishes.
+    expect(
+      DERIVED_ENTRIES.generativeUI,
+      "package.json's generative-ui export(s) do not resolve to the entry the " +
+        "generative UI describe walks",
+    ).toEqual([path.join(srcDir, "generative-ui", "index.ts")]);
+  });
+
   // Runs for real now: nothing walks the graph before collection finishes, so a
   // missing entry file reports HERE instead of erroring the whole suite out.
   it.each(ENTRIES)("has a %s entry file", (_label, entry) => {
@@ -515,20 +759,7 @@ describe("@copilotkit/react-native/headless entry", () => {
     const { seen } = graphFor(headlessEntry);
     // Non-vacuity comes from REQUIRED_HEADLESS_MODULES above (a truncated walk
     // fails there first), so this only has to be a deny-list.
-    const offenders: string[] = [];
-    for (const file of seen) {
-      // Comments stripped: this file's own graph is heavily documented and the
-      // modules in it name these APIs in prose to explain why they do NOT call
-      // them. A raw text match would fail on the documentation.
-      const code = stripComments(fs.readFileSync(file, "utf8"));
-      for (const [identifier, why] of FORBIDDEN_REGISTRY_APIS) {
-        if (new RegExp(`\\b${identifier}\\b`).test(code)) {
-          offenders.push(
-            `${path.relative(srcDir, file)}: ${identifier} — ${why}`,
-          );
-        }
-      }
-    }
+    const offenders = registryOffenders(seen);
     expect(
       offenders,
       `module(s) in the headless graph touch registry internals directly:\n  ` +
@@ -539,11 +770,11 @@ describe("@copilotkit/react-native/headless entry", () => {
   });
 
   /**
-   * The four checks below need the entry EVALUATED, not just read: they assert
+   * The six checks below need the entry EVALUATED, not just read: they assert
    * that the named exports exist as runtime values (a re-export of a name that
    * no longer exists is a runtime hole a static read cannot see). So the import
    * stays — but it is paid exactly once, in a hook, rather than being raced by
-   * four tests against the default per-test budget.
+   * six tests against the default per-test budget.
    *
    * Why the budget below is what it is. Nothing here is hung or polling — the
    * cost is a ONE-TIME module-graph load (resolve + transform + evaluate), paid
@@ -554,10 +785,11 @@ describe("@copilotkit/react-native/headless entry", () => {
    *     workspace dists this entry pulls are transformed rather than loaded
    *     natively: ~283 KB (core ~218 KB, react-core v2/headless ~55 KB, plus
    *     v2/context and shared), on top of the 11 RN source modules.
-   *   - Measured on one dev machine: ~0.9–1.8s inside the full 22-file suite
-   *     (n=8), ~0.7–1.1s for this file alone (n=8) — but 4568ms on the run
-   *     straight after a cold `nx build`, i.e. 91% of the 5s budget, and the
-   *     4 independent agents who hit this hit it as an outright timeout. Bare
+   *   - Measured on one dev machine: ~0.9–1.8s inside the full suite as it
+   *     was then (22 test files; there are more now) (n=8), ~0.7–1.1s for
+   *     this file alone (n=8) — but 4568ms on the run straight after a cold
+   *     `nx build`, i.e. 91% of the 5s budget, and the 4 independent
+   *     agents who hit this hit it as an outright timeout. Bare
    *     Node `import()` of the equivalent prebuilt dist is 461ms, so the spread
    *     is resolve/transform and page-cache-cold I/O, both load-sensitive.
    *
@@ -566,7 +798,7 @@ describe("@copilotkit/react-native/headless entry", () => {
    * ~0ms. A genuinely hung import still fails, just not spuriously. Lowering it
    * re-introduces the flake; lowering the COST would mean not inlining
    * `@copilotkit/core` for this suite, which is a shared-config change affecting
-   * all 22 test files rather than something this file can do.
+   * every test file in this package rather than something this file can do.
    */
   const IMPORT_BUDGET_MS = 60_000;
 
@@ -720,9 +952,7 @@ describe("@copilotkit/react-native/headless entry", () => {
     (_label, entry) => {
       const { bareSpecs } = graphFor(entry);
       const offenders = [...bareSpecs].filter(
-        (s) =>
-          s.startsWith("@copilotkit/react-core") &&
-          !ALLOWED_REACT_CORE_ENTRIES.includes(s),
+        (s) => isReactCoreSpec(s) && !ALLOWED_REACT_CORE_ENTRIES.includes(s),
       );
       expect(
         offenders,
@@ -740,6 +970,706 @@ describe("@copilotkit/react-native/headless entry", () => {
         [...bareSpecs].some((s) => s === dep || s.startsWith(`${dep}/`)),
       );
       expect(leaked, `must not import: ${leaked.join(", ")}`).toEqual([]);
+    },
+  );
+});
+
+// ─── @copilotkit/react-native/generative-ui ─────────────────────────────────
+// The generative UI entry is opt-in. It may use react-core's DOM-free generative
+// UI entry, and nothing else of react-core but the shared context; and no other
+// entry may reach it, so a consumer that does not use generative UI never
+// bundles the surface engine or the catalog schemas of @copilotkit/shared.
+// (zod is in the bundle of every entry regardless, but for different reasons:
+// the headless and default entries load it through react-core's /v2/headless,
+// and this entry through react-core's /v2/generative-ui/native, whose chat
+// chunk imports it.)
+const generativeUIEntry = path.join(srcDir, "generative-ui", "index.ts");
+const GENERATIVE_UI_REACT_CORE_ENTRIES = [
+  "@copilotkit/react-core/v2/context",
+  "@copilotkit/react-core/v2/generative-ui/native",
+];
+const REQUIRED_GENERATIVE_UI_MODULES = [
+  path.join("generative-ui", "index.ts"),
+  path.join("generative-ui", "GenerativeUIProvider.tsx"),
+  path.join("generative-ui", "GenerativeUIActivity.tsx"),
+  path.join("generative-ui", "GenerativeUISurface.tsx"),
+  path.join("generative-ui", "host.tsx"),
+];
+
+/**
+ * Bare specifiers the generative UI graph MUST harvest. The same non-vacuity
+ * floor as REQUIRED_HEADLESS_BARE: the react-core allow-list and the heavy/DOM
+ * deny-lists below are all filters over `bareSpecs`, and every one of them
+ * passes on an empty set. These two are the edges the entry exists for — the
+ * catalog engine, and the host elements it renders into — so a walk that stops
+ * harvesting them is a walk that is no longer checking anything.
+ */
+const REQUIRED_GENERATIVE_UI_BARE = [
+  "@copilotkit/react-core/v2/generative-ui/native",
+  "react-native",
+];
+
+/**
+ * Optional peers the generative UI entry is DELIBERATELY allowed to reach, on
+ * top of guaranteedPackages().
+ *
+ * `zod` only. It is optional in package.json, but every consumer has it
+ * already, because react-core declares it as a REQUIRED peer (`>=3.25`; see
+ * guaranteedPackages). That peer is what this entry relies on: react-core's
+ * `/v2/generative-ui/native`, which this entry imports, loads zod (its chat
+ * chunk does `import { z } from "zod"`). `@copilotkit/core` and
+ * `@copilotkit/shared` list zod in their own `dependencies`, so the copy they
+ * load is theirs and says nothing about the consumer's install. So an edge to
+ * zod from this graph asks the consumer for nothing they do not have. No RN
+ * source module imports zod directly today (the walk stops at this package's
+ * boundary), so this is a standing allowance, not a description of the
+ * current graph.
+ *
+ * Every OTHER optional peer stays unsanctioned: the chat/attachment natives
+ * (`@gorhom/bottom-sheet`, `expo-document-picker`, `expo-file-system`,
+ * `react-native-streamdown`) and the gesture/animation peers
+ * (`react-native-gesture-handler`, `react-native-reanimated`) are things a
+ * generative-UI-only consumer has not been told to install. Extend this list
+ * only with a reason, like zod's.
+ */
+const GENERATIVE_UI_ALLOWED_OPTIONAL_PEERS = ["zod"];
+
+/**
+ * Bare specifiers that ARE generative UI, matched exactly or as a subpath
+ * prefix (never by substring, so an unrelated package whose name merely
+ * contains "generative-ui" neither trips nor hides behind the check).
+ *
+ * DERIVED from the `exports` maps of every workspace package (and of every
+ * `@copilotkit/*` dependency of this package, wherever it resolves): each
+ * export subpath with a `generative-ui` segment. The hand-written list it
+ * replaces missed `@copilotkit/shared/generative-ui` — the catalog schemas —
+ * so the headless and default entries could have imported them unnoticed.
+ *
+ * GENERATIVE_UI_BARE_FLOOR is not the list. It is what the derivation must at
+ * least find, so a derivation that silently finds nothing fails a test instead
+ * of turning the ban off; and it is unioned in, so the ban holds meanwhile.
+ */
+const matchesBare = (spec: string, dep: string) =>
+  spec === dep || spec.startsWith(`${dep}/`);
+
+const GENERATIVE_UI_BARE_FLOOR = [
+  "@copilotkit/react-native/generative-ui",
+  "@copilotkit/react-core/v2/generative-ui",
+  "@copilotkit/core/generative-ui",
+  "@copilotkit/shared/generative-ui",
+];
+
+const workspacePackagesDir = path.resolve(srcDir, "..", "..");
+
+/**
+ * name -> `exports` of every package the derivation reads. Collection-time
+ * and must not throw (blind spot #4): failures are collected as problems.
+ */
+function scanExportsMaps(): {
+  manifests: Map<string, unknown>;
+  problems: string[];
+} {
+  const manifests = new Map<string, unknown>();
+  const problems: string[] = [];
+  const add = (file: string) => {
+    try {
+      const pkg = readManifest(file);
+      if (pkg.name && !manifests.has(pkg.name))
+        manifests.set(pkg.name, pkg.exports);
+    } catch (err) {
+      problems.push(`could not read ${file}: ${err}`);
+    }
+  };
+  try {
+    for (const dir of fs.readdirSync(workspacePackagesDir)) {
+      const file = path.join(workspacePackagesDir, dir, "package.json");
+      if (fs.existsSync(file)) add(file);
+    }
+    // Belt and braces for a dependency that is not (or no longer) a
+    // workspace package: read the manifest the consumer would resolve.
+    const own = readManifest(pkgJsonPath);
+    const requireHere = createRequire(pkgJsonPath);
+    for (const name of Object.keys({
+      ...own.dependencies,
+      ...own.peerDependencies,
+    })) {
+      if (!name.startsWith("@copilotkit/") || manifests.has(name)) continue;
+      try {
+        add(requireHere.resolve(`${name}/package.json`));
+      } catch (err) {
+        problems.push(`could not resolve ${name}/package.json: ${err}`);
+      }
+    }
+  } catch (err) {
+    problems.push(`could not scan ${workspacePackagesDir}: ${err}`);
+  }
+  return { manifests, problems };
+}
+
+/** The derivation: every export subpath with a `generative-ui` segment. */
+function deriveGenerativeUIBare(manifests: Map<string, unknown>): string[] {
+  const specs: string[] = [];
+  for (const [name, exportsMap] of manifests) {
+    if (!exportsMap || typeof exportsMap !== "object") continue;
+    for (const key of Object.keys(exportsMap)) {
+      if (hasGenerativeUISegment(key)) specs.push(`${name}${key.slice(1)}`);
+    }
+  }
+  return specs.sort();
+}
+
+/**
+ * The cross-check, deliberately looser than the derivation: every export
+ * whose subpath OR target mentions "generative-ui" at all (an export renamed
+ * to `./genui` but still pointing at `dist/generative-ui/…`, or a
+ * `./generative-ui-extras` subpath), that the derivation does not cover.
+ */
+function uncoveredGenerativeUIExports(
+  manifests: Map<string, unknown>,
+): string[] {
+  const derived = deriveGenerativeUIBare(manifests);
+  const uncovered: string[] = [];
+  for (const [name, exportsMap] of manifests) {
+    if (!exportsMap || typeof exportsMap !== "object") continue;
+    for (const [key, value] of Object.entries(exportsMap)) {
+      const spec = `${name}${key.slice(1)}`;
+      if (
+        `${key} ${JSON.stringify(value)}`.includes("generative-ui") &&
+        !derived.some((dep) => matchesBare(spec, dep))
+      ) {
+        uncovered.push(spec);
+      }
+    }
+  }
+  return uncovered.sort();
+}
+
+const EXPORTS_SCAN = scanExportsMaps();
+
+const GENERATIVE_UI_BARE = [
+  ...new Set([
+    ...deriveGenerativeUIBare(EXPORTS_SCAN.manifests),
+    ...GENERATIVE_UI_BARE_FLOOR,
+  ]),
+].sort();
+
+describe("@copilotkit/react-native/generative-ui entry", () => {
+  it("has an entry file", () => {
+    expect(
+      fs.existsSync(generativeUIEntry),
+      `missing entry file: ${generativeUIEntry}`,
+    ).toBe(true);
+  });
+
+  it("resolves every relative import and has no unanalyzable loader", () => {
+    const { unresolved, opaque } = graphFor(generativeUIEntry);
+    expect(
+      unresolved,
+      `unresolvable relative imports in the generative UI graph — the walker ` +
+        `cannot see past these, so a forbidden import hidden behind one would ` +
+        `read as clean: ${unresolved.join(", ")}`,
+    ).toEqual([]);
+    expect(
+      opaque,
+      `import()/require() with a non-literal specifier in the generative UI ` +
+        `graph cannot be checked. Make it a literal: ${opaque.join(", ")}`,
+    ).toEqual([]);
+  });
+
+  // The non-vacuity floor for every deny-list in this block.
+  it("reaches the modules and bare imports it must reach", () => {
+    const { seen, bareSpecs } = graphFor(generativeUIEntry);
+    const reached = rel(seen);
+    const missing = REQUIRED_GENERATIVE_UI_MODULES.filter(
+      (m) => !reached.includes(m),
+    );
+    expect(
+      missing,
+      `the walk did not reach ${missing.join(", ")} — the checks below are ` +
+        `then reasoning about a truncated graph. Reached: ${reached.join(", ")}`,
+    ).toEqual([]);
+    const missingBare = REQUIRED_GENERATIVE_UI_BARE.filter(
+      (s) => !bareSpecs.has(s),
+    );
+    expect(
+      missingBare,
+      `no edge to ${missingBare.join(", ")} was harvested from the generative ` +
+        `UI graph — the allow- and deny-lists below would pass on an empty set. ` +
+        `Harvested: ${[...bareSpecs].sort().join(", ")}`,
+    ).toEqual([]);
+  });
+
+  it("draws only on guaranteed packages, plus the optional peers it is allowed", () => {
+    const { seen, bareSpecs } = graphFor(generativeUIEntry);
+    const pkg = JSON.parse(fs.readFileSync(pkgJsonPath, "utf8")) as PkgManifest;
+    // An allowance for a package that is not even a declared optional peer is a
+    // typo or a stale entry, and would quietly sanction nothing (or the wrong
+    // thing); refuse it rather than trust it.
+    const undeclared = GENERATIVE_UI_ALLOWED_OPTIONAL_PEERS.filter(
+      (name) =>
+        !pkg.peerDependencies?.[name] ||
+        !pkg.peerDependenciesMeta?.[name]?.optional,
+    );
+    expect(
+      undeclared,
+      `GENERATIVE_UI_ALLOWED_OPTIONAL_PEERS names package(s) that are not ` +
+        `optional peers in package.json: ${undeclared.join(", ")}`,
+    ).toEqual([]);
+    const allowed = new Set([
+      ...guaranteedPackages(),
+      ...GENERATIVE_UI_ALLOWED_OPTIONAL_PEERS,
+    ]);
+    const unsanctioned = [...bareSpecs]
+      .filter((spec) => !allowed.has(packageNameOf(spec)))
+      .sort();
+    expect(
+      unsanctioned,
+      `the generative UI graph reaches package(s) a consumer of this entry is ` +
+        `not guaranteed or told to have installed: ${unsanctioned.join(", ")}. ` +
+        `Make it a dependency or non-optional peer in package.json, add it to ` +
+        `GENERATIVE_UI_ALLOWED_OPTIONAL_PEERS with a reason, or drop the import. ` +
+        `Graph: ${rel(seen).join(", ")}`,
+    ).toEqual([]);
+  });
+
+  it("imports only react-core's /v2/context and DOM-free /v2/generative-ui/native", () => {
+    const { bareSpecs } = graphFor(generativeUIEntry);
+    const offenders = [...bareSpecs].filter(
+      (s) =>
+        isReactCoreSpec(s) && !GENERATIVE_UI_REACT_CORE_ENTRIES.includes(s),
+    );
+    expect(
+      offenders,
+      `must import only ${GENERATIVE_UI_REACT_CORE_ENTRIES.join(" or ")} — ` +
+        `found: ${offenders.join(", ")}. /v2/generative-ui carries the DOM ` +
+        `standard catalog (react-dom portals, KaTeX, streamdown), and /v2 the ` +
+        `chat render stack (#4893).`,
+    ).toEqual([]);
+  });
+
+  it("pulls in neither the heavy render stack, the DOM, nor the chat/attachment peers", () => {
+    const { bareSpecs, seen } = graphFor(generativeUIEntry);
+    const banned = [...FORBIDDEN_HEAVY, ...FORBIDDEN_BARE, "react-dom"];
+    const leaked = banned.filter((dep) =>
+      [...bareSpecs].some((s) => matchesBare(s, dep)),
+    );
+    expect(
+      leaked,
+      `generative UI graph must not import: ${leaked.join(", ")}`,
+    ).toEqual([]);
+    // Base-name SUBSTRING matching, as in the headless block: a directory that
+    // merely contains a forbidden name does not trip this, and a chat module
+    // moved to another directory does not escape it — but any file whose base
+    // name contains one (a `useCopilotChatState.ts`, say) does trip it.
+    const chatModules = [...seen].filter((f) =>
+      FORBIDDEN_LOCAL.some((name) =>
+        path
+          .basename(f)
+          .replace(/\.tsx?$/, "")
+          .includes(name),
+      ),
+    );
+    expect(
+      chatModules,
+      `generative UI graph must not reach the chat UI / useAttachments ` +
+        `modules: ${rel(chatModules).join(", ")}`,
+    ).toEqual([]);
+  });
+
+  // The same ban as the headless block's. The generative UI provider registers
+  // no tool (CopilotRuntime adds `render_ui` on the server), and the
+  // `render_ui` renderer is written into CopilotKitCoreReact by react-core's
+  // `GenerativeUIToolCallRenderer` (chat.tsx, via `setRenderToolCalls`), which
+  // the provider mounts — in react-core, outside this walk. What this pins is
+  // narrower: no RN module grows a registry (or a context to hold one) next to
+  // CopilotKitCoreReact. Non-vacuity comes from REQUIRED_GENERATIVE_UI_MODULES.
+  it("owns no tool/renderer registry of its own anywhere in the generative UI graph", () => {
+    const { seen } = graphFor(generativeUIEntry);
+    const offenders = registryOffenders(seen);
+    expect(
+      offenders,
+      `module(s) in the generative UI graph touch registry internals ` +
+        `directly:\n  ${offenders.join("\n  ")}\n` +
+        `CopilotKitCoreReact is the single registry and this package must reach ` +
+        `it only through react-core's hooks.`,
+    ).toEqual([]);
+  });
+
+  it("applies the registry exemption when path.relative uses Windows separators", () => {
+    // `path.relative` returns `\\`-separated paths on Windows, which the
+    // POSIX-style exemption path never equalled, so the exemption silently did
+    // not apply there and this graph's legitimate context failed the ban.
+    const { seen } = graphFor(generativeUIEntry);
+    const posixRelative = path.relative;
+    const spy = vi
+      .spyOn(path, "relative")
+      .mockImplementation((from, to) =>
+        posixRelative(from, to).split("/").join("\\"),
+      );
+    try {
+      expect(registryOffenders(seen)).toEqual([]);
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  it("has no stale registry exemption", () => {
+    // Inside registryOffenders, a declaration that no longer matches is
+    // already reported — but only for a file the walk reaches. A file that
+    // moved or left the graph would make its exemption dead without a word,
+    // so check reachability here, against every graph this file walks.
+    const walked = new Set([
+      ...graphFor(generativeUIEntry).seen,
+      ...ENTRIES.flatMap(([, entry]) => [...graphFor(entry).seen]),
+    ]);
+    const stale = REGISTRY_API_EXEMPTIONS.filter(
+      (e) => ![...walked].some((f) => srcRelative(f) === e.file),
+    ).map((e) => `${e.file} ("${e.reason}")`);
+    expect(
+      stale,
+      `stale registry exemption(s): the file is not in any walked graph ` +
+        `(moved, renamed or no longer imported). Update or remove: ` +
+        stale.join(", "),
+    ).toEqual([]);
+    const exemptedFiles = [...walked].filter((f) =>
+      REGISTRY_API_EXEMPTIONS.some((e) => e.file === srcRelative(f)),
+    );
+    // Every exempted file is scanned on its own, so a declaration that no
+    // longer matches exactly once is named here as stale, whichever graph it
+    // is in.
+    expect(
+      registryOffenders(exemptedFiles).filter((o) =>
+        o.includes("stale exemption"),
+      ),
+    ).toEqual([]);
+  });
+
+  it("reports an exemption that no longer matches as stale, naming its reason", () => {
+    // Self-test of the mechanism above, against a deliberately stale copy of
+    // the real exemption: the old code applied it as a silent no-op and then
+    // blamed `createContext` for it.
+    const file = path.join(srcDir, "generative-ui", "GenerativeUIProvider.tsx");
+    const stale: RegistryApiExemption[] = REGISTRY_API_EXEMPTIONS.map((e) => ({
+      ...e,
+      declarations: [...e.declarations, /()createContext<boolean>\(false\);/],
+    }));
+    const offenders = registryOffenders([file], stale);
+    expect(offenders).toHaveLength(1);
+    expect(offenders[0]).toContain("stale exemption");
+    expect(offenders[0]).toContain(REGISTRY_API_EXEMPTIONS[0]!.reason);
+  });
+
+  it("derives the generative UI deny-list from every generative UI export", () => {
+    expect(
+      EXPORTS_SCAN.problems,
+      `could not read every exports map the deny-list is derived from:\n  ` +
+        EXPORTS_SCAN.problems.join("\n  "),
+    ).toEqual([]);
+    const derived = deriveGenerativeUIBare(EXPORTS_SCAN.manifests);
+    const missingFloor = GENERATIVE_UI_BARE_FLOOR.filter(
+      (s) => !derived.includes(s),
+    );
+    expect(
+      missingFloor,
+      `the exports-map derivation no longer finds ${missingFloor.join(", ")} — ` +
+        `either the export was renamed or removed (update ` +
+        `GENERATIVE_UI_BARE_FLOOR) or the derivation is broken. Derived: ` +
+        derived.join(", "),
+    ).toEqual([]);
+    const uncovered = uncoveredGenerativeUIExports(EXPORTS_SCAN.manifests);
+    expect(
+      uncovered,
+      `export(s) that mention generative-ui but are not covered by the ` +
+        `derived deny-list: ${uncovered.join(", ")}. Give the export a ` +
+        `\`generative-ui\` path segment, or teach deriveGenerativeUIBare about ` +
+        `it, so the other entries are kept from reaching it.`,
+    ).toEqual([]);
+  });
+
+  it("the cross-check catches a generative UI export the derivation misses", () => {
+    const manifests = new Map<string, unknown>([
+      [
+        "@copilotkit/example",
+        {
+          "./generative-ui": "./dist/generative-ui.mjs",
+          "./genui": { import: "./dist/generative-ui/extra.mjs" },
+          "./generative-ui-extras": "./dist/extras.mjs",
+          "./other": "./dist/other.mjs",
+        },
+      ],
+    ]);
+    expect(deriveGenerativeUIBare(manifests)).toEqual([
+      "@copilotkit/example/generative-ui",
+    ]);
+    expect(uncoveredGenerativeUIExports(manifests)).toEqual([
+      "@copilotkit/example/generative-ui-extras",
+      "@copilotkit/example/genui",
+    ]);
+  });
+
+  it.each(ENTRIES)(
+    "the %s entry does not reach generative UI",
+    (_label, entry) => {
+      const { seen, bareSpecs } = graphFor(entry);
+      const modules = rel(seen).filter((f) =>
+        f.startsWith(`generative-ui${path.sep}`),
+      );
+      expect(
+        modules,
+        `this entry reaches the opt-in generative UI modules: ` +
+          `${modules.join(", ")}. A consumer who never imports ` +
+          `@copilotkit/react-native/generative-ui must not bundle them.`,
+      ).toEqual([]);
+      const specs = [...bareSpecs]
+        .filter((s) => GENERATIVE_UI_BARE.some((dep) => matchesBare(s, dep)))
+        .sort();
+      expect(
+        specs,
+        `this entry imports generative UI: ${specs.join(", ")}. The surface ` +
+          `engine and its catalog schemas belong only behind the opt-in ` +
+          `@copilotkit/react-native/generative-ui entry.`,
+      ).toEqual([]);
+    },
+  );
+});
+
+// ─── react-core dist: one copy of each generative UI context ────────────────
+// The RN generative UI entry works only if the context its provider SETS and
+// the context its surfaces READ are the same object. GenerativeUIProvider puts
+// the runtime into react-core's `GenerativeUIRuntimeContext` and the host into
+// `GenerativeUIHostContext`, both imported from `/v2/generative-ui/native`;
+// react-core's own hooks and SurfaceView read them from whatever chunk they
+// were bundled into. react-core's tsdown config keeps `/v2/generative-ui/native`
+// in the main build precisely so that every entry shares ONE chunk carrying
+// these modules. If a config change inlined a second copy (native moved to its
+// own build, a chunking option), every typecheck and source-level test would
+// stay green — vitest and tsc see one source module — and a surface would
+// silently never see its runtime. react-core's context-singleton-preflight only
+// covers src/v2/context.ts, so this checks the generative UI context modules in
+// the BUILT dist, by the `//#region <src path>` banner tsdown writes for every
+// inlined module (the same marker that preflight relies on).
+const reactCoreDir = (() => {
+  try {
+    return path.dirname(
+      createRequire(pkgJsonPath).resolve("@copilotkit/react-core/package.json"),
+    );
+  } catch {
+    return path.join(workspacePackagesDir, "react-core");
+  }
+})();
+
+/** Context modules that MUST be bundled exactly once per format. A floor. */
+const REQUIRED_SINGLE_CONTEXT_MODULES = [
+  "src/v2/generative-ui/runtime-context.ts",
+  "src/v2/generative-ui/host.tsx",
+];
+
+/** Every file under `dir` (recursively) whose name matches `re`. */
+function filesUnder(dir: string, re: RegExp): string[] {
+  const out: string[] = [];
+  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    const full = path.join(dir, entry.name);
+    if (entry.isDirectory()) {
+      if (entry.name !== "__tests__") out.push(...filesUnder(full, re));
+    } else if (re.test(entry.name)) {
+      out.push(full);
+    }
+  }
+  return out;
+}
+
+describe("@copilotkit/react-core dist: one copy of each generative UI context", () => {
+  it("bundles every generative UI context module at most once per format", () => {
+    const distDir = path.join(reactCoreDir, "dist");
+    expect(
+      fs.existsSync(distDir),
+      `${distDir} does not exist — build @copilotkit/react-core first`,
+    ).toBe(true);
+    // Derived from source: every generative UI module that calls
+    // createContext, so a new context module is covered without listing it.
+    const contextModules = filesUnder(
+      path.join(reactCoreDir, "src", "v2", "generative-ui"),
+      /\.tsx?$/,
+    )
+      .filter((f) =>
+        /\bcreateContext\s*[<(]/.test(
+          stripComments(fs.readFileSync(f, "utf8")),
+        ),
+      )
+      .map((f) => path.relative(reactCoreDir, f).split(path.sep).join("/"))
+      .sort();
+    const missingFloor = REQUIRED_SINGLE_CONTEXT_MODULES.filter(
+      (m) => !contextModules.includes(m),
+    );
+    expect(
+      missingFloor,
+      `no createContext found in ${missingFloor.join(", ")} — the source scan ` +
+        `is broken or the module moved; update REQUIRED_SINGLE_CONTEXT_MODULES`,
+    ).toEqual([]);
+
+    // UMD bundles are self-contained by design (as in react-core's own
+    // preflight), so only the ESM and CJS module graphs are checked.
+    const bundles = filesUnder(distDir, /\.(?:mjs|cjs)$/).map((f) => ({
+      file: path.relative(distDir, f).split(path.sep).join("/"),
+      code: fs.readFileSync(f, "utf8"),
+    }));
+    const problems: string[] = [];
+    for (const contextModule of contextModules) {
+      const marker = `//#region ${contextModule}\n`;
+      for (const format of ["mjs", "cjs"]) {
+        const carriers = bundles
+          .filter(
+            (b) => b.file.endsWith(`.${format}`) && b.code.includes(marker),
+          )
+          .map((b) => b.file);
+        const required =
+          REQUIRED_SINGLE_CONTEXT_MODULES.includes(contextModule);
+        if (carriers.length > 1 || (required && carriers.length !== 1)) {
+          problems.push(
+            `${contextModule} is in ${carriers.length} .${format} file(s)` +
+              (carriers.length ? `: ${carriers.join(", ")}` : "") +
+              (required && !carriers.length
+                ? " (expected exactly 1 — or tsdown's region banner changed, " +
+                  "and this check can no longer see duplicates)"
+                : ""),
+          );
+        }
+      }
+    }
+    expect(
+      problems,
+      `a generative UI context module is bundled more than once in ` +
+        `@copilotkit/react-core's dist, so a provider and the components ` +
+        `below it can hold different context objects:\n  ` +
+        problems.join("\n  "),
+    ).toEqual([]);
+  });
+});
+
+/**
+ * The first module a source file loads at runtime, in source order: type-only
+ * imports and re-exports are erased, so they are skipped. Null if it loads none.
+ */
+function firstRuntimeSpecifier(code: string): string | null {
+  const stripped = stripComments(code);
+  const patterns = [
+    /\b(import)\s+(type\s+)?[^;"'`]*?\bfrom\s*["'`]([^"'`]+)["'`]/g,
+    /\b(import)\s*()["'`]([^"'`]+)["'`]/g,
+    /\b(export)\s+(type\s+)?[^;"'`]*?\bfrom\s*["'`]([^"'`]+)["'`]/g,
+  ];
+  let first: { index: number; spec: string } | null = null;
+  for (const re of patterns) {
+    for (const m of stripped.matchAll(re)) {
+      if (m[2]) continue;
+      if (!first || m.index! < first.index) {
+        first = { index: m.index!, spec: m[3]! };
+      }
+    }
+  }
+  return first?.spec ?? null;
+}
+
+/** `src/polyfills.ts` and the five modules under `src/polyfills/`. */
+const polyfillsBarrel = path.join(srcDir, "polyfills.ts");
+const isPolyfillModule = (file: string) =>
+  file === polyfillsBarrel ||
+  path.dirname(file) === path.join(srcDir, "polyfills");
+
+/**
+ * Every published entry that loads CopilotKit code. The polyfill subpaths are
+ * the polyfills themselves; everything else reaches @copilotkit/core or
+ * @ag-ui/client, which need ReadableStream / TextEncoder / crypto at load time
+ * on Hermes.
+ */
+const CODE_ENTRIES: [label: string, entry: string][] = [
+  ...ENTRIES.filter(([, entry]) => !isPolyfillModule(entry)),
+  ...DERIVED_ENTRIES.generativeUI.map(
+    (entry) =>
+      ["@copilotkit/react-native/generative-ui", entry] as [string, string],
+  ),
+];
+
+/**
+ * A glob from package.json `sideEffects` -> a RegExp over `./`-relative paths.
+ * Only the two wildcards this package uses: `**` (any depth) and `*`.
+ */
+const regexLiteral = (part: string) =>
+  part.replace(/[.+?^${}()|[\]\\]/g, "\\$&");
+
+function sideEffectsGlob(glob: string): RegExp {
+  const body = glob
+    .split("**/")
+    .map((seg) =>
+      seg
+        .split("**")
+        .map((part) => part.split("*").map(regexLiteral).join("[^/]*"))
+        .join(".*"),
+    )
+    .join("(?:.*/)?");
+  return new RegExp(`^${body}$`);
+}
+
+describe("every published entry installs the polyfills before CopilotKit loads", () => {
+  it("covers the root, /headless and /generative-ui entries at least", () => {
+    const walked = CODE_ENTRIES.map(([, entry]) => entry);
+    const floor = [
+      indexEntry,
+      headlessEntry,
+      path.join(srcDir, "generative-ui", "index.ts"),
+    ];
+    expect(
+      floor.filter((e) => !walked.includes(e)),
+      `entries missing from the polyfill-order check; derived: ${rel(walked).join(", ")}`,
+    ).toEqual([]);
+  });
+
+  // An app that imports this entry BEFORE any other @copilotkit/react-native
+  // entry must still get the polyfills first: on Hermes, @copilotkit/core and
+  // @ag-ui/client fail at load time without them, with a ReferenceError that
+  // says nothing about import order. Being imported first in the file is what
+  // makes the bundler emit it as the built entry's first statement, which
+  // scripts/verify-polyfill-barrel.mjs then checks in dist/.
+  it.each(CODE_ENTRIES)(
+    "%s imports ./polyfills as its first runtime import",
+    (_label, entry) => {
+      const first = firstRuntimeSpecifier(fs.readFileSync(entry, "utf8"));
+      expect(
+        first ? resolveLocal(entry, first) : null,
+        `${srcRelative(entry)} must start with \`import "${path
+          .relative(path.dirname(entry), polyfillsBarrel)
+          .replace(/\\/g, "/")
+          .replace(/\.ts$/, "")
+          .replace(/^(?!\.)/, "./")}";\` — its first runtime import is ` +
+          `${JSON.stringify(first)}`,
+      ).toBe(polyfillsBarrel);
+    },
+  );
+
+  // A `sideEffects` list that misses an entry tells the consumer's bundler the
+  // bare `import "./polyfills"` in it can be dropped.
+  it.each(CODE_ENTRIES)(
+    "%s is declared in package.json sideEffects, as source and as build output",
+    (label, entry) => {
+      const manifest = JSON.parse(fs.readFileSync(pkgJsonPath, "utf8")) as {
+        sideEffects?: unknown;
+        exports?: Record<string, unknown>;
+      };
+      const globs = Array.isArray(manifest.sideEffects)
+        ? manifest.sideEffects.map((g) => sideEffectsGlob(String(g)))
+        : [];
+      const key = `.${label.slice("@copilotkit/react-native".length)}`;
+      const exported = manifest.exports?.[key] as
+        | Record<string, string>
+        | undefined;
+      const files = [
+        `./${path.relative(path.dirname(pkgJsonPath), entry).replace(/\\/g, "/")}`,
+        ...Object.values(exported ?? {}),
+      ];
+      expect(files.length, `no exports entry for ${key}`).toBeGreaterThan(1);
+      expect(
+        files.filter((file) => !globs.some((re) => re.test(file))),
+        `not matched by any package.json sideEffects glob`,
+      ).toEqual([]);
     },
   );
 });
