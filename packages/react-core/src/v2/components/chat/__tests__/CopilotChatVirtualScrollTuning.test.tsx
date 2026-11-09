@@ -90,6 +90,12 @@ function listOfHeight(height: number): CapturedVirtualizer {
   } as unknown as CapturedVirtualizer;
 }
 
+/** The y offset of an element's `translateY(...)` transform, or 0. */
+const translateY = (element: HTMLElement | null | undefined) =>
+  Number(
+    /translateY\((-?[\d.]+)px\)/.exec(element?.style.transform ?? "")?.[1] ?? 0,
+  );
+
 function message(id: string): Message {
   return { id, role: "user", content: id } as Message;
 }
@@ -513,11 +519,15 @@ describe("CopilotChatMessageView virtual-scroll tuning", () => {
       run: (list: {
         container: HTMLDivElement;
         scrollTo: ReturnType<typeof vi.fn>;
-        /** Where row 200 is drawn, relative to the top of the viewport. */
-        readingRowOnScreen: () => number;
+        /** Where a row is drawn, relative to the top of the viewport. */
+        onScreen: (index: number) => number;
         /** Report rows to the virtualizer as its ResizeObserver does. */
         measure: (rows: ReadonlyArray<readonly [number, number]>) => void;
+        /** The reader scrolls by `by` px (negative: up). */
+        userScroll: (by: number) => void;
         idle: () => Promise<void>;
+        /** Run one animation frame. */
+        frame: () => void;
       }) => Promise<void> | void,
     ) {
       const container = document.createElement("div");
@@ -530,7 +540,7 @@ describe("CopilotChatMessageView virtual-scroll tuning", () => {
         scrollHeight: { get: () => virtualizer().getTotalSize() },
       });
       container.getBoundingClientRect = () =>
-        ({ width: 600, height: 600 }) as DOMRect;
+        ({ top: 0, width: 600, height: 600 }) as DOMRect;
       const scrollTo = vi.fn(({ top }: ScrollToOptions) => {
         container.scrollTop = top ?? 0;
         container.dispatchEvent(new Event("scroll"));
@@ -544,15 +554,34 @@ describe("CopilotChatMessageView virtual-scroll tuning", () => {
             height: this.hasAttribute("data-index") ? 100 : 0,
           } as DOMRect;
         });
+      // Frames run only when a test asks: the scroll to the newest message on
+      // mount would otherwise keep reconciling and take the list back down.
+      const frames = new Map<number, FrameRequestCallback>();
+      let nextFrame = 0;
+      const requestFrame = vi
+        .spyOn(window, "requestAnimationFrame")
+        .mockImplementation((callback) => {
+          frames.set(++nextFrame, callback);
+          return nextFrame;
+        });
+      const cancelFrame = vi
+        .spyOn(window, "cancelAnimationFrame")
+        .mockImplementation((id) => {
+          frames.delete(id);
+        });
       const idle = () =>
         act(async () => {
           await new Promise((resolve) => setTimeout(resolve, 400));
         });
-      // Frames never run: the scroll to the newest message on mount would
-      // otherwise keep reconciling and take the list back to the bottom.
-      const frame = vi
-        .spyOn(window, "requestAnimationFrame")
-        .mockImplementation(() => 0);
+      const onScreen = (index: number) => {
+        const row = document.querySelector<HTMLElement>(
+          `[data-index="${index}"]`,
+        );
+        if (!row) throw new Error(`row ${index} is not drawn`);
+        return (
+          translateY(row) + translateY(row.parentElement) - container.scrollTop
+        );
+      };
       try {
         renderWithCopilotKit({
           children: (
@@ -566,6 +595,7 @@ describe("CopilotChatMessageView virtual-scroll tuning", () => {
             </ScrollElementContext.Provider>
           ),
         });
+        frames.clear();
         // The reader scrolls up to row 200. Rows mounted during a scroll are
         // not measured on mount; they keep the height they were laid out
         // with until the ResizeObserver reports them.
@@ -577,36 +607,48 @@ describe("CopilotChatMessageView virtual-scroll tuning", () => {
         await run({
           container,
           scrollTo,
-          readingRowOnScreen: () => {
-            const row =
-              document.querySelector<HTMLElement>('[data-index="200"]')!;
-            const drawnAt = Number(
-              /translateY\((-?[\d.]+)px\)/.exec(row.style.transform)![1],
-            );
-            return drawnAt - container.scrollTop;
-          },
+          onScreen,
           measure: (rows) =>
             act(() => {
               for (const [index, height] of rows) {
                 const instance = virtualizer();
+                const drawn = document.querySelector(`[data-index="${index}"]`)
+                  ? onScreen(index)
+                  : undefined;
+                const element = {
+                  isConnected: true,
+                  dataset: { index: String(index) },
+                  getBoundingClientRect: () =>
+                    ({ height, top: drawn }) as DOMRect,
+                } as unknown as Element;
                 instance.resizeItem(
                   index,
-                  instance.options.measureElement(
-                    attachedRow(index, height),
-                    undefined,
-                    instance,
-                  ),
+                  instance.options.measureElement(element, undefined, instance),
                 );
               }
             }),
+          userScroll: (by) =>
+            act(() => {
+              container.scrollTop += by;
+              container.dispatchEvent(new Event("scroll"));
+            }),
           idle,
+          frame: () =>
+            act(() => {
+              const pending = [...frames.values()];
+              frames.clear();
+              pending.forEach((callback) => callback(performance.now()));
+              // A write fires its scroll event before the next frame.
+              container.dispatchEvent(new Event("scroll"));
+            }),
         });
       } finally {
         // TanStack's scroll-end debounce can notify after its listener is removed.
         await idle();
         cleanup();
         rect.mockRestore();
-        frame.mockRestore();
+        requestFrame.mockRestore();
+        cancelFrame.mockRestore();
       }
     }
 
@@ -621,53 +663,98 @@ describe("CopilotChatMessageView virtual-scroll tuning", () => {
     ] as const;
 
     it("keeps the reading row still while the reader scrolls", async () => {
-      await withListReadAtRow200(
-        ({ scrollTo, readingRowOnScreen, measure }) => {
-          expect(readingRowOnScreen()).toBe(-25);
-          expect(virtualizer().itemSizeCache.has(191)).toBe(false);
-          scrollTo.mockClear();
+      await withListReadAtRow200(({ scrollTo, onScreen, measure }) => {
+        expect(onScreen(200)).toBe(-25);
+        expect(virtualizer().itemSizeCache.has(191)).toBe(false);
+        scrollTo.mockClear();
 
-          measure(rowsAboveTheReader);
+        measure(rowsAboveTheReader);
 
-          expect(readingRowOnScreen()).toBe(-25);
-          // Safari drops a scrollTop written during a trackpad scroll, or
-          // applies it a frame late: nothing is written until it stops.
-          expect(scrollTo).not.toHaveBeenCalled();
-        },
-      );
+        expect(onScreen(200)).toBe(-25);
+        // Safari drops a scrollTop written during a trackpad scroll, or
+        // applies it a frame late: nothing is written until it stops.
+        expect(scrollTo).not.toHaveBeenCalled();
+      });
     });
 
-    it("writes the held correction once scrolling stops, in the same frame as the rows", async () => {
+    it("holds a row drawn above the viewport that the virtualizer still places lower", async () => {
+      await withListReadAtRow200(({ onScreen, measure }) => {
+        // Within one batch the virtualizer's offset for row 199 lags behind
+        // the list offset, which already moved by the 500 px held for rows
+        // 194–198: row 199 would look inside the viewport. It is drawn above.
+        expect(onScreen(199)).toBeLessThan(0);
+
+        measure([
+          [194, 0],
+          [195, 0],
+          [196, 0],
+          [197, 0],
+          [198, 0],
+          [199, 0],
+        ]);
+
+        expect(onScreen(200)).toBe(-25);
+      });
+    });
+
+    it("settles the held correction a few pixels per frame once scrolling stops", async () => {
       await withListReadAtRow200(
-        async ({ container, readingRowOnScreen, measure, idle }) => {
+        async ({ container, onScreen, measure, idle, frame }) => {
           const before = container.scrollTop;
           measure(rowsAboveTheReader);
 
           await idle();
+          // Settling waits for a frame, after that frame's input.
+          expect(container.scrollTop).toBe(before);
 
-          // 100 + 100 + 64 px less above the reader.
+          let previous = container.scrollTop;
+          for (let k = 0; k < 80; k++) {
+            frame();
+            expect(
+              Math.abs(container.scrollTop - previous),
+            ).toBeLessThanOrEqual(4);
+            expect(onScreen(200)).toBe(-25);
+            previous = container.scrollTop;
+          }
+
+          // 100 + 100 + 64 px less above the reader, now in scrollTop.
           expect(container.scrollTop).toBe(before - 264);
-          expect(readingRowOnScreen()).toBe(-25);
-          // Drawn where the virtualizer places it again, nothing held.
           const row =
             document.querySelector<HTMLElement>('[data-index="200"]')!;
-          virtualizer().getTotalSize();
-          expect(row.style.transform).toBe(
-            `translateY(${virtualizer().measurementsCache[200]!.start}px)`,
-          );
+          expect(translateY(row.parentElement)).toBe(0);
+        },
+      );
+    });
+
+    it("stops settling when the reader scrolls again", async () => {
+      await withListReadAtRow200(
+        async ({ container, onScreen, measure, userScroll, idle, frame }) => {
+          measure(rowsAboveTheReader);
+          await idle();
+          frame();
+          frame();
+          const settled = container.scrollTop;
+
+          userScroll(-10);
+          frame();
+          frame();
+
+          // Only the reader moved it; the rest of the correction stays held.
+          expect(container.scrollTop).toBe(settled - 10);
+          expect(onScreen(200)).toBe(-15);
         },
       );
     });
 
     it("corrects the scroll position at once when the reader is not scrolling", async () => {
       await withListReadAtRow200(
-        async ({ scrollTo, readingRowOnScreen, measure, idle }) => {
+        async ({ scrollTo, onScreen, measure, idle }) => {
           await idle();
           scrollTo.mockClear();
 
           measure(rowsAboveTheReader);
 
-          expect(readingRowOnScreen()).toBe(-25);
+          expect(onScreen(200)).toBe(-25);
           expect(scrollTo).toHaveBeenCalled();
         },
       );
