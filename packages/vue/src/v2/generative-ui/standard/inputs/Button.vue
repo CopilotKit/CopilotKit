@@ -17,7 +17,8 @@ import type { z } from "zod";
 import { useGenerativeUIAccessibility } from "../../accessibility";
 import { useStandardStyles } from "../../standard-styles";
 import type { GenerativeUIEventProp } from "../context";
-import { FONT_SIZE, HEIGHT, PAD_X, asText } from "./control";
+import CopilotGenerativeUILucideIcon from "../media/LucideIcon.vue";
+import { FONT_SIZE, HEIGHT, ICON_PX, PAD_X, asText } from "./control";
 
 defineOptions({ name: "CopilotGenerativeUIButton" });
 
@@ -162,10 +163,6 @@ const style = computed<StyleMap>(() => {
   };
 });
 
-/**
- * The icon wrappers below stay empty here: the lucide icon itself, at
- * `ICON_PX` of the button size, is the Icon of the media group.
- */
 function onButtonClick(event: MouseEvent) {
   // A disabled button sends nothing, also where the DOM still dispatches
   // the click.
@@ -213,13 +210,17 @@ function onButtonClick(event: MouseEvent) {
       aria-hidden="true"
       data-icon="check"
       style="display: flex"
-    />
+    >
+      <CopilotGenerativeUILucideIcon name="check" :size="ICON_PX[buttonSize]" />
+    </span>
     <span
       v-else-if="icon"
       aria-hidden="true"
       :data-icon="icon"
       style="display: flex"
-    />
+    >
+      <CopilotGenerativeUILucideIcon :name="icon" :size="ICON_PX[buttonSize]" />
+    </span>
     <slot name="child"
       ><slot name="children">{{ asText(label ?? text) }}</slot></slot
     >

@@ -6,6 +6,7 @@ import type { StyleMap, selectSchema } from "@copilotkit/shared/generative-ui";
 import type { z } from "zod";
 import { controlAria, useGenerativeUIAccessibility } from "../../accessibility";
 import { useStandardStyles } from "../../standard-styles";
+import CopilotGenerativeUILucideIcon from "../media/LucideIcon.vue";
 import Field from "./Field.vue";
 import { useChecks } from "./checks";
 import {
@@ -96,11 +97,7 @@ const ICON_ROW_STYLE: StyleMap = {
   display: "flex",
   width: "100%",
 };
-/**
- * Renders its content with no element: the select without an icon row. The
- * icon wrapper stays empty here: the 16px lucide icon itself is the Icon of
- * the media group.
- */
+/** Renders its content with no element: the select without an icon row. */
 const Bare: FunctionalComponent = (_, { slots }) => slots.default?.();
 
 function onChange(event: Event) {
@@ -115,7 +112,9 @@ function onChange(event: Event) {
       :is="icon ? 'span' : Bare"
       v-bind="icon ? { style: ICON_ROW_STYLE } : {}"
     >
-      <span v-if="icon" aria-hidden="true" :style="iconStyle" />
+      <span v-if="icon" aria-hidden="true" :style="iconStyle">
+        <CopilotGenerativeUILucideIcon :name="icon" :size="16" />
+      </span>
       <select
         :id="id"
         data-a2ui-input=""

@@ -10,6 +10,7 @@ import {
   textColor,
   textFont,
 } from "@copilotkit/shared/generative-ui";
+import CopilotGenerativeUILucideIcon from "../../media/LucideIcon.vue";
 import { isNativeMarker } from "./list-context";
 
 defineOptions({ name: "CopilotGenerativeUIListItemBody" });
@@ -122,7 +123,12 @@ PickButton.props = ["pick"];
   <PickButton :pick="props.onPick">
     <span :style="rowStyle">
       <span v-if="hasLeading" aria-hidden="true" :style="leadingStyle">
-        <template v-if="props.icon === undefined">{{ props.marker }}</template>
+        <CopilotGenerativeUILucideIcon
+          v-if="props.icon"
+          :name="props.icon"
+          size="sm"
+        />
+        <template v-else>{{ props.marker }}</template>
       </span>
       <span :style="COLUMN_STYLE">
         <span
