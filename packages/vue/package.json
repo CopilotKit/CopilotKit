@@ -104,11 +104,13 @@
     "@vue/compiler-sfc": "^3.5.14",
     "@vue/test-utils": "^2.4.6",
     "arktype": "^2.1.29",
+    "chart.js": "^4.4.0",
     "concurrently": "^9.1.0",
     "eslint": "^9.30.0",
     "eslint-plugin-vue": "^10.8.0",
     "globals": "^16.5.0",
     "jsdom": "^26.1.0",
+    "maplibre-gl": "^5.0.0",
     "phoenix": "^1.8.4",
     "postcss": "^8.5.6",
     "rxjs": "7.8.1",
@@ -124,7 +126,17 @@
     "vue-tsc": "^2.1.10"
   },
   "peerDependencies": {
+    "chart.js": "^4.4.0",
+    "maplibre-gl": "^5.0.0",
     "vue": ">=3.3.0"
+  },
+  "peerDependenciesMeta": {
+    "chart.js": {
+      "optional": true
+    },
+    "maplibre-gl": {
+      "optional": true
+    }
   },
   "engines": {
     "node": ">=20"
