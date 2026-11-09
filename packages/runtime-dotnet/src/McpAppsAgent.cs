@@ -16,20 +16,44 @@ public sealed class McpAppServer
     public string? ServerId { get; init; }
     public string? AgentId { get; init; }
     public IReadOnlyDictionary<string, string> Headers { get; init; } = new Dictionary<string, string>();
+    /// <summary>Allowlist of MCP tool names. Null exposes every UI tool; an empty list exposes none.</summary>
+    public IReadOnlyList<string>? IncludeTools { get; init; }
+    /// <summary>Tool names removed after <see cref="IncludeTools"/>. A name in both lists is excluded.</summary>
+    public IReadOnlyList<string>? ExcludeTools { get; init; }
+
+    internal bool AllowsTool(string name)
+    {
+        if (IncludeTools is not null && !IncludeTools.Contains(name, StringComparer.Ordinal)) return false;
+        if (ExcludeTools is not null && ExcludeTools.Contains(name, StringComparer.Ordinal)) return false;
+        return true;
+    }
+
+    private static IReadOnlyList<string>? ToolNames(JsonObject value, string key)
+    {
+        if (!value.ContainsKey(key)) return null;
+        if (value[key] is not JsonArray names) throw new ArgumentException($"{key} must be an array of non-empty tool names.");
+        var parsed = new string[names.Count];
+        for (var index = 0; index < names.Count; index++)
+        {
+            if (A2UIValidation.Text(names[index]) is not { Length: > 0 } name) throw new ArgumentException($"{key} must be an array of non-empty tool names.");
+            parsed[index] = name;
+        }
+        return parsed;
+    }
 
     /// <summary>Stable frontend identifier matching MCP Apps middleware 0.0.3 HTTP config hashing.</summary>
     public string Hash => Convert.ToHexString(MD5.HashData(Encoding.UTF8.GetBytes(new JsonObject { ["type"] = "http", ["url"] = Url.OriginalString }.ToJsonString(new JsonSerializerOptions { Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping })))).ToLowerInvariant();
 
     public static McpAppServer FromJson(JsonObject value)
     {
-        if (value.ContainsKey("includeTools") || value.ContainsKey("excludeTools")) throw new ArgumentException("MCP Apps tool filtering is not supported by the reference middleware.");
         if (A2UIValidation.Text(value["type"]) is { } type && type != "http") throw new ArgumentException("Only MCP Streamable HTTP transport is supported.");
         var uri = new Uri(RuntimeValidation.RequiredString(value, "url"));
         if (uri.Scheme is not ("http" or "https") || !string.IsNullOrEmpty(uri.UserInfo)) throw new ArgumentException("MCP URL must be HTTP(S), without embedded credentials.");
         var server = new McpAppServer
         {
             Url = uri, ServerId = A2UIValidation.Text(value["serverId"]), AgentId = A2UIValidation.Text(value["agentId"]),
-            Headers = value["headers"] is JsonObject headers ? headers.ToDictionary(pair => pair.Key, pair => pair.Value!.GetValue<string>(), StringComparer.OrdinalIgnoreCase) : new Dictionary<string, string>()
+            Headers = value["headers"] is JsonObject headers ? headers.ToDictionary(pair => pair.Key, pair => pair.Value!.GetValue<string>(), StringComparer.OrdinalIgnoreCase) : new Dictionary<string, string>(),
+            IncludeTools = ToolNames(value, "includeTools"), ExcludeTools = ToolNames(value, "excludeTools")
         };
         server.Validate();
         return server;
@@ -64,6 +88,7 @@ public sealed class McpAppsAgent(IRuntimeAgent next, IReadOnlyList<McpAppServer>
                 var id = A2UIValidation.Text(proxy["serverId"]); var hash = A2UIValidation.Text(proxy["serverHash"]);
                 var matches = servers.Where(server => id is null ? server.Hash == hash : server.ServerId == id).Take(2).ToArray();
                 var server = matches.Length == 1 ? matches[0] : throw new RuntimeRequestException(404, "Unknown or ambiguous MCP server");
+                if (method == "tools/call" && (A2UIValidation.Text((proxy["params"] as JsonObject)?["name"]) is not { } toolName || !server.AllowsTool(toolName))) throw new RuntimeRequestException(403, "MCP tool is not allowed");
                 await using var session = new McpHttpSession(server, httpClient);
                 await session.InitializeAsync(cancellationToken);
                 result = await session.RequestAsync(method, proxy["params"] as JsonObject, cancellationToken, notification: method == "notifications/message");
@@ -93,7 +118,7 @@ public sealed class McpAppsAgent(IRuntimeAgent next, IReadOnlyList<McpAppServer>
                         if (ui?.ContainsKey("visibility") == true &&
                             (ui["visibility"] is not JsonArray visibility || !visibility.Any(value => A2UIValidation.Text(value) == "model"))) continue;
                         var resource = A2UIValidation.Text(ui?["resourceUri"]) ?? A2UIValidation.Text(meta?["ui/resourceUri"]);
-                        if (resource is null || A2UIValidation.Text(tool["name"]) is not { } name) continue;
+                        if (resource is null || A2UIValidation.Text(tool["name"]) is not { } name || !server.AllowsTool(name)) continue;
                         tools.Add(new UiTool(new JsonObject { ["name"] = name, ["description"] = (A2UIValidation.Text(tool["description"]) ?? "") + "\n[UI Resource: " + resource + "]", ["parameters"] = tool["inputSchema"]?.DeepClone() ?? new JsonObject { ["type"] = "object", ["properties"] = new JsonObject() } }, server, resource));
                         if (tools.Count > 1000) throw new RuntimeRequestException(502, "MCP tool limit exceeded");
                     }

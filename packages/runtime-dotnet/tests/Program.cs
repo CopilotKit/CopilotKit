@@ -95,6 +95,29 @@ Check(mcpSource.Invocations == invocations && proxyEvents.Last()["result"]?["con
 var previousCalls = mcpWire.Calls.Count; proxyInput["forwardedProps"]!["__proxiedMCPRequest"]!["method"] = "tools/delete";
 await foreach (var _ in mcp.RunAsync(proxyInput, CancellationToken.None)) { }
 Check(mcpWire.Calls.Count == previousCalls, "MCP forbidden proxy method causes no network call");
+var filteredWire = new FilteredMcpHandler(); using var filteredHttp = new HttpClient(filteredWire);
+var filteredSource = new SequenceAgent([
+    JsonNode.Parse("{\"type\":\"RUN_STARTED\"}")!.AsObject(),
+    JsonNode.Parse("{\"type\":\"TOOL_CALL_START\",\"toolCallId\":\"qr\",\"toolCallName\":\"generate_qr\"}")!.AsObject(),
+    JsonNode.Parse("{\"type\":\"TOOL_CALL_ARGS\",\"toolCallId\":\"qr\",\"delta\":\"{}\"}")!.AsObject(),
+    JsonNode.Parse("{\"type\":\"TOOL_CALL_START\",\"toolCallId\":\"admin\",\"toolCallName\":\"admin_dashboard\"}")!.AsObject(),
+    JsonNode.Parse("{\"type\":\"TOOL_CALL_ARGS\",\"toolCallId\":\"admin\",\"delta\":\"{}\"}")!.AsObject(),
+    JsonNode.Parse("{\"type\":\"RUN_FINISHED\"}")!.AsObject()
+]);
+var filteredServer = McpAppServer.FromJson(new JsonObject { ["url"] = "https://mcp.test/mcp", ["serverId"] = "crm", ["includeTools"] = new JsonArray("generate_qr", "admin_dashboard"), ["excludeTools"] = new JsonArray("admin_dashboard") });
+var filteredAgent = new McpAppsAgent(filteredSource, [filteredServer], filteredHttp);
+var filteredEvents = new List<JsonObject>(); await foreach (var item in filteredAgent.RunAsync(input, CancellationToken.None)) filteredEvents.Add(item);
+Check(filteredSource.Input!["tools"]!.AsArray().Select(tool => tool?["name"]?.GetValue<string>()).SequenceEqual(new string?[] { "generate_qr" }), "MCP Apps includeTools/excludeTools exposes only the selected tool");
+Check(filteredEvents.Any(item => item["activityType"]?.GetValue<string>() == "mcp-apps"), "selected MCP App tool still executes");
+Check(filteredWire.Methods.Count(method => method == "tools/call") == 1, "excluded MCP App tool is not executed");
+var deniedBefore = filteredWire.Methods.Count;
+var deniedInput = (JsonObject)input.DeepClone(); deniedInput["forwardedProps"] = JsonNode.Parse("{\"__proxiedMCPRequest\":{\"serverId\":\"crm\",\"method\":\"tools/call\",\"params\":{\"name\":\"admin_dashboard\",\"arguments\":{}}}}");
+var deniedEvents = new List<JsonObject>(); await foreach (var item in filteredAgent.RunAsync(deniedInput, CancellationToken.None)) deniedEvents.Add(item);
+Check(filteredWire.Methods.Count == deniedBefore && deniedEvents.Last()["result"]?["error"] is not null, "proxied tools/call for an excluded MCP App tool makes no request");
+var allowedBefore = filteredWire.Methods.Count;
+var allowedInput = (JsonObject)input.DeepClone(); allowedInput["forwardedProps"] = JsonNode.Parse("{\"__proxiedMCPRequest\":{\"serverId\":\"crm\",\"method\":\"tools/call\",\"params\":{\"name\":\"generate_qr\",\"arguments\":{}}}}");
+await foreach (var _ in filteredAgent.RunAsync(allowedInput, CancellationToken.None)) { }
+Check(filteredWire.Methods.Count > allowedBefore && filteredWire.Methods.Count(method => method == "tools/call") == 2, "proxied tools/call for an included MCP App tool is executed");
 await TelemetryTests.RunAsync();
 await ReviewTests.RunAsync();
 await RunnerTests.RunAsync();
@@ -143,6 +166,27 @@ sealed class SequenceAgent(IReadOnlyList<JsonObject> events) : IRuntimeAgent
     {
         Input = input; Invocations++; await Task.Yield();
         foreach (var item in events) { cancellationToken.ThrowIfCancellationRequested(); yield return (JsonObject)item.DeepClone(); }
+    }
+}
+sealed class FilteredMcpHandler : HttpMessageHandler
+{
+    public List<string> Methods { get; } = [];
+    protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+    {
+        if (request.Method == HttpMethod.Delete) return new HttpResponseMessage(System.Net.HttpStatusCode.NoContent);
+        var body = JsonNode.Parse(await request.Content!.ReadAsStringAsync(cancellationToken))!;
+        var method = body["method"]!.GetValue<string>();
+        Methods.Add(method);
+        if (body["id"] is null) return new HttpResponseMessage(System.Net.HttpStatusCode.Accepted);
+        var result = method switch
+        {
+            "initialize" => JsonNode.Parse("{\"protocolVersion\":\"2025-03-26\",\"capabilities\":{},\"serverInfo\":{\"name\":\"fixture\",\"version\":\"1\"}}"),
+            "tools/list" => JsonNode.Parse("{\"tools\":[{\"name\":\"generate_qr\",\"description\":\"QR\",\"inputSchema\":{\"type\":\"object\"},\"_meta\":{\"ui\":{\"resourceUri\":\"ui://qr\"}}},{\"name\":\"admin_dashboard\",\"description\":\"Admin\",\"inputSchema\":{\"type\":\"object\"},\"_meta\":{\"ui\":{\"resourceUri\":\"ui://admin\"}}}]}"),
+            _ => JsonNode.Parse("{\"content\":[{\"type\":\"text\",\"text\":\"ok\"}]}")
+        };
+        var response = new HttpResponseMessage(System.Net.HttpStatusCode.OK) { Content = JsonContent.Create(new JsonObject { ["jsonrpc"] = "2.0", ["id"] = body["id"]!.DeepClone(), ["result"] = result }) };
+        if (method == "initialize") response.Headers.Add("Mcp-Session-Id", "session-filter");
+        return response;
     }
 }
 sealed class McpHandler : HttpMessageHandler

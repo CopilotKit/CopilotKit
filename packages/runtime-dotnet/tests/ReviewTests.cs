@@ -39,6 +39,17 @@ internal static class ReviewTests
         foreach (var url in new[] { "https://mcp.example.test", "http://127.0.0.1:8123", "http://[::1]:8123" })
             McpAppServer.FromJson(new JsonObject { ["url"] = url, ["headers"] = new JsonObject { ["Authorization"] = "test-only" } });
         McpAppServer.FromJson(new JsonObject { ["url"] = "http://mcp.example.test" });
+        var filtered = McpAppServer.FromJson(new JsonObject { ["url"] = "https://mcp.example.test", ["includeTools"] = new JsonArray("generate_qr", "admin_dashboard"), ["excludeTools"] = new JsonArray("admin_dashboard") });
+        if (!filtered.AllowsTool("generate_qr") || filtered.AllowsTool("admin_dashboard") || filtered.AllowsTool("other")) throw new Exception("includeTools then excludeTools did not select the MCP App tool");
+        var excluded = McpAppServer.FromJson(new JsonObject { ["url"] = "https://mcp.example.test", ["excludeTools"] = new JsonArray("admin_dashboard") });
+        if (!excluded.AllowsTool("generate_qr") || excluded.AllowsTool("admin_dashboard")) throw new Exception("excludeTools alone did not hide the named MCP App tool");
+        var none = McpAppServer.FromJson(new JsonObject { ["url"] = "https://mcp.example.test", ["includeTools"] = new JsonArray() });
+        if (none.AllowsTool("generate_qr")) throw new Exception("empty includeTools must expose no MCP App tools");
+        foreach (var malformed in new JsonNode?[] { JsonValue.Create("generate_qr"), JsonNode.Parse("null"), new JsonArray(""), new JsonArray(JsonValue.Create(1)) })
+        {
+            try { McpAppServer.FromJson(new JsonObject { ["url"] = "https://mcp.example.test", ["includeTools"] = malformed }); throw new Exception("malformed includeTools was accepted"); }
+            catch (ArgumentException error) when (error.Message.Contains("includeTools")) { }
+        }
         var builder = WebApplication.CreateBuilder(); builder.Logging.ClearProviders(); builder.WebHost.UseUrls("http://127.0.0.1:0");
         await using var app = builder.Build();
         var leaked = 0;

@@ -14,6 +14,9 @@ type ExternalMiddlewareHasNoPolicyFields = [ExternalPolicyKeys] extends [never]
 type ExternalMiddlewarePolicyTripwire =
   Assert<ExternalMiddlewareHasNoPolicyFields>;
 
+// The installed middleware still has no policy fields. The runtime applies
+// includeTools / excludeTools itself. When this assignment fails, pass the
+// lists through instead of filtering them again here.
 void (undefined as unknown as ExternalMiddlewarePolicyTripwire);
 
 const baseServer = {
@@ -30,13 +33,15 @@ function asServer(config: Record<string, unknown>): McpAppsServerConfig {
 
 describe("resolveMcpAppsServers", () => {
   it.each([
-    ["includeTools", []],
     ["includeTools", null],
     ["includeTools", "get_weather"],
-    ["excludeTools", []],
+    ["includeTools", [1]],
+    ["includeTools", [""]],
+    ["includeTools", ["generate_qr", null]],
     ["excludeTools", null],
     ["excludeTools", "delete_account"],
-  ])("rejects a defined %s value of any shape", (key, value) => {
+    ["excludeTools", { name: "delete_account" }],
+  ])("rejects a malformed %s value", (key, value) => {
     expect(() =>
       resolveMcpAppsServers(
         [asServer({ ...baseServer, [key]: value })],
@@ -44,7 +49,7 @@ describe("resolveMcpAppsServers", () => {
       ),
     ).toThrow(
       new RegExp(
-        `${key}.*server\\[0\\].*weather.*@ag-ui/mcp-apps-middleware owns.*https://github\\.com/CopilotKit/CopilotKit/issues/5930`,
+        `${key} at server\\[0\\] \\(weather\\) must be an array of non-empty tool names`,
       ),
     );
   });
@@ -59,7 +64,7 @@ describe("resolveMcpAppsServers", () => {
           asServer({
             ...withoutId,
             url: "https://user:pass@mcp.example.com/sse?token=secret-123",
-            includeTools: [],
+            includeTools: "get_weather",
           }),
         ],
         "default",
@@ -71,7 +76,7 @@ describe("resolveMcpAppsServers", () => {
     expect(message).not.toMatch(/secret-123|user:pass/);
   });
 
-  it("reports every unsupported key before filtering by agent", () => {
+  it("reports every invalid policy before filtering by agent", () => {
     expect(() =>
       resolveMcpAppsServers(
         [
@@ -79,13 +84,13 @@ describe("resolveMcpAppsServers", () => {
             ...baseServer,
             serverId: "other",
             agentId: "other",
-            includeTools: [],
+            includeTools: null,
           }),
           asServer({
             ...baseServer,
             serverId: "current",
             agentId: "current",
-            excludeTools: null,
+            excludeTools: "delete_account",
           }),
         ],
         "current",
@@ -93,6 +98,32 @@ describe("resolveMcpAppsServers", () => {
     ).toThrow(
       /includeTools at server\[0\] \(other\).*excludeTools at server\[1\] \(current\)/,
     );
+  });
+
+  it("keeps include and exclude lists and still strips only agentId", () => {
+    const resolved = resolveMcpAppsServers(
+      [
+        asServer({
+          ...baseServer,
+          agentId: "default",
+          includeTools: ["generate_qr"],
+          excludeTools: [],
+        }),
+      ],
+      "default",
+    );
+
+    expect(resolved).toEqual([
+      {
+        type: "sse",
+        url: baseServer.url,
+        headers: baseServer.headers,
+        serverId: "weather",
+        futureField: baseServer.futureField,
+        includeTools: ["generate_qr"],
+        excludeTools: [],
+      },
+    ]);
   });
 
   it("accepts an explicitly undefined policy value and forwards it unchanged", () => {

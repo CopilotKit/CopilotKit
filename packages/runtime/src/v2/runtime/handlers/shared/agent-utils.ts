@@ -5,7 +5,6 @@ import {
   A2UIMiddleware,
   OpenGenerativeUIMiddleware,
 } from "@copilotkit/shared/event-transforms";
-import { MCPAppsMiddleware } from "@ag-ui/mcp-apps-middleware";
 import { MCPMiddleware } from "@ag-ui/mcp-middleware";
 import { GenerativeUIMiddleware } from "../../generative-ui";
 import type { CopilotRuntimeLike } from "../../core/runtime";
@@ -22,6 +21,7 @@ import {
   mergeForwardableHeaders,
   resolveForwardHeadersPolicy,
 } from "../header-utils";
+import { createMcpAppsMiddleware } from "./mcp-apps-tool-policy";
 import { resolveMcpAppsServers } from "./mcp-apps-servers";
 import { resolveIntelligenceUser } from "./resolve-intelligence-user";
 import { grantAllowsMemory, resolveWebMemory } from "./memory-policy";
@@ -150,14 +150,14 @@ export function configureAgentForRequest(params: {
     );
     if (mcpServers.length > 0 || isMcpProxyRequest) {
       agent.use(
-        new MCPAppsMiddleware({ mcpServers, discoveryFailureMode: "throw" }),
+        createMcpAppsMiddleware({ mcpServers, discoveryFailureMode: "throw" }),
       );
     }
   } else if (runtime.mcpApps?.servers?.length) {
     const mcpServers = resolveMcpAppsServers(runtime.mcpApps.servers, agentId);
 
     if (mcpServers.length > 0 && typeof agent.use === "function") {
-      agent.use(new MCPAppsMiddleware({ mcpServers }));
+      agent.use(createMcpAppsMiddleware({ mcpServers }));
     }
   }
 
