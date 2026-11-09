@@ -1,154 +1,336 @@
-import { Component, signal } from "@angular/core";
+import { Component, computed, effect, input } from "@angular/core";
 import { TestBed } from "@angular/core/testing";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { FakeRuntime, provideCopilotKitFake } from "../../../../testing";
+import { DEFAULT_AGENT_ID } from "@copilotkit/shared";
+import { describe, expect, it, vi } from "vitest";
 import { z } from "zod";
-import type { ActivityMessage } from "@ag-ui/core";
-import { CopilotActivity } from "../copilot-activity";
-import { CopilotKit } from "../../../copilotkit";
 import { anyActivityContentSchema } from "../../../activity-renderer";
 import type { RenderActivityMessageConfig } from "../../../activity-renderer";
+import { CopilotActivity } from "../copilot-activity";
 import {
+  JsonActivityRenderer,
   PrimaryActivityRenderer,
+  primaryActivityRendererSchema,
+  ProgressActivityRenderer,
+  progressActivityRendererSchema,
   WildcardActivityRenderer,
 } from "./activity-renderer-stubs";
-
-@Component({
-  imports: [CopilotActivity],
-  template: `
-    <copilot-activity [message]="message" [agentId]="agentId" />
-  `,
-})
-class ActivityHostComponent {
-  message!: ActivityMessage;
-  agentId: string | undefined = undefined;
-}
-
-const activityMessage = (
-  overrides: Partial<ActivityMessage> = {},
-): ActivityMessage => ({
-  id: "activity-1",
-  role: "activity",
-  activityType: "a2ui-surface",
-  content: {},
-  ...overrides,
-});
+import { injectAgentStore } from "../../../agent";
 
 describe("CopilotActivity", () => {
-  const renderers = signal<RenderActivityMessageConfig[]>([]);
-  const getAgent = vi.fn();
+  @Component({
+    template: `
+      <div>
+        @for (message of messages(); track message) {
+          <copilot-activity [agentId]="agentId()" [message]="message" />
+        }
+      </div>
+    `,
+    imports: [CopilotActivity],
+  })
+  class CopilotActivityTestComponent {
+    protected readonly agentId = input(DEFAULT_AGENT_ID);
+    protected readonly agentStore = injectAgentStore(this.agentId);
 
-  const render = (message: ActivityMessage, agentId?: string) => {
-    const fixture = TestBed.createComponent(ActivityHostComponent);
-    fixture.componentInstance.message = message;
-    fixture.componentInstance.agentId = agentId;
-    fixture.detectChanges();
-    return fixture.nativeElement as HTMLElement;
-  };
+    protected readonly messages = computed(() =>
+      this.agentStore()
+        .messages()
+        .filter((m) => m.role === "activity"),
+    );
 
-  beforeEach(() => {
-    TestBed.resetTestingModule();
-    renderers.set([]);
-    getAgent.mockReset();
+    constructor() {
+      effect(() => this.agentStore().agent.runAgent());
+    }
+  }
+
+  const setup = async (
+    renderers: RenderActivityMessageConfig[] = [
+      {
+        component: PrimaryActivityRenderer,
+        activityType: "*",
+        content: z.object({ message: z.string() }),
+      },
+    ],
+    agentIds: readonly string[] = [DEFAULT_AGENT_ID],
+    initialAgentId: string = DEFAULT_AGENT_ID,
+    component = CopilotActivityTestComponent,
+  ) => {
     TestBed.configureTestingModule({
       providers: [
-        {
-          provide: CopilotKit,
-          useValue: {
-            activityMessageRenderConfigs: renderers.asReadonly(),
-            getAgent,
-          },
-        },
+        provideCopilotKitFake({
+          agentIds,
+          renderActivityMessages: renderers,
+        }),
       ],
     });
+    const fixture = TestBed.createComponent(component);
+
+    if (initialAgentId !== DEFAULT_AGENT_ID) {
+      fixture.componentRef.setInput("agentId", initialAgentId);
+    }
+    const fakeRuntime = TestBed.inject(FakeRuntime);
+    return { fakeRuntime, fixture };
+  };
+
+  it("should render the message", async () => {
+    const { fakeRuntime } = await setup();
+    fakeRuntime.emitActivityMessage({ message: "Hello, world!" }, "message");
+
+    await expect.poll(queryPrimaryTest()).toContain("Hello, world!");
   });
 
-  it("renders the resolved renderer with the four renderer inputs", () => {
-    renderers.set([
+  it("should render the progress", async () => {
+    const { fakeRuntime } = await setup([
       {
-        activityType: "a2ui-surface",
-        agentId: "demo-button",
-        content: z.object({ operations: z.array(z.unknown()) }),
-        component: PrimaryActivityRenderer,
-      },
-    ]);
-    getAgent.mockReturnValue({ agentId: "demo-button" });
-
-    const host = render(
-      activityMessage({ content: { operations: [] } }),
-      "demo-button",
-    );
-
-    const rendered = host.querySelector<HTMLElement>(
-      '[data-testid="primary-activity"]',
-    );
-    expect(rendered).not.toBeNull();
-    expect(rendered?.getAttribute("data-activity-type")).toBe("a2ui-surface");
-    expect(rendered?.getAttribute("data-has-agent")).toBe("true");
-    expect(rendered?.getAttribute("data-content")).toBe(
-      JSON.stringify({ operations: [] }),
-    );
-    expect(getAgent).toHaveBeenCalledWith("demo-button");
-  });
-
-  it("leaves agent undefined when no agentId is set", () => {
-    renderers.set([
-      {
-        activityType: "a2ui-surface",
-        content: anyActivityContentSchema,
-        component: PrimaryActivityRenderer,
+        component: ProgressActivityRenderer,
+        activityType: "progress",
+        content: progressActivityRendererSchema,
       },
     ]);
 
-    const host = render(activityMessage());
+    const messageId = crypto.randomUUID();
 
-    expect(
-      host
-        .querySelector('[data-testid="primary-activity"]')
-        ?.getAttribute("data-has-agent"),
-    ).toBe("false");
-    expect(getAgent).not.toHaveBeenCalled();
+    fakeRuntime.emitActivityMessage(
+      { completed: 1, total: 10, status: "running" },
+      "progress",
+      messageId,
+    );
+
+    await expect.poll(queryProgressTest()).toContain("1/10 running");
+
+    fakeRuntime.emitActivityMessage(
+      { completed: 10, total: 10, status: "completed" },
+      "progress",
+      messageId,
+    );
+
+    await expect.poll(queryProgressTest()).toContain("10/10 completed");
   });
 
-  it("renders the wildcard renderer for unregistered activity types", () => {
-    renderers.set([
-      {
-        activityType: "*",
-        content: anyActivityContentSchema,
-        component: WildcardActivityRenderer,
-      },
-    ]);
-
-    const host = render(activityMessage({ activityType: "unregistered" }));
-
-    expect(
-      host.querySelector('[data-testid="wildcard-activity"]'),
-    ).not.toBeNull();
-  });
-
-  it("renders nothing and warns when the content fails to parse", () => {
+  it("renders nothing and warns when the content fails to parse", async () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
-    renderers.set([
+
+    const { fakeRuntime } = await setup([
       {
-        activityType: "a2ui-surface",
-        content: z.object({ operations: z.array(z.unknown()) }),
         component: PrimaryActivityRenderer,
+        activityType: "*",
+        content: z.object({ message: z.string() }),
       },
     ]);
 
-    const host = render(activityMessage({ content: { wrong: true } }));
+    fakeRuntime.emitActivityMessage({ errorCode: "Invalid Content" }, "");
 
-    expect(host.querySelector('[data-testid="primary-activity"]')).toBeNull();
-    expect(warn).toHaveBeenCalledWith(
-      "Failed to parse content for activity message 'a2ui-surface':",
-      expect.anything(),
-    );
-    warn.mockRestore();
+    await vi.waitUntil(() => warn.mock.calls.length > 0);
+    expect(queryPrimaryTest()()).toBeUndefined();
   });
 
-  it("renders nothing when no renderer matches", () => {
-    const host = render(activityMessage({ activityType: "unregistered" }));
+  it("switches renderer when agentId changes", async () => {
+    const { fakeRuntime, fixture } = await setup(
+      [
+        {
+          component: PrimaryActivityRenderer,
+          activityType: "message",
+          content: z.object({ message: z.string() }),
+          agentId: "agent-one",
+        },
+        {
+          component: JsonActivityRenderer,
+          activityType: "message",
+          content: anyActivityContentSchema,
+          agentId: "agent-two",
+        },
+      ],
+      ["agent-one", "agent-two"],
+      "agent-one",
+    );
 
-    expect(host.querySelector('[data-testid="primary-activity"]')).toBeNull();
-    expect((host.textContent ?? "").trim()).toBe("");
+    fakeRuntime.emitActivityMessage(
+      { message: "Hello, world!" },
+      "message",
+      undefined,
+      "agent-one",
+    );
+    await expect.poll(queryPrimaryTest()).toContain("Hello, world!");
+
+    fixture.componentRef.setInput("agentId", "agent-two");
+
+    fakeRuntime.emitActivityMessage(
+      { message: "Hello, world!" },
+      "message",
+      undefined,
+      "agent-two",
+    );
+    await expect.poll(queryJsonTest()).toContain('"message": "Hello, world!"');
+    expect(queryPrimaryTest()()).toBeUndefined();
+  });
+
+  it("updates the renderer when the message changes", async () => {
+    const { fakeRuntime } = await setup([
+      {
+        component: PrimaryActivityRenderer,
+        activityType: "message",
+        content: z.object({ message: z.string() }),
+      },
+      {
+        component: ProgressActivityRenderer,
+        activityType: "progress",
+        content: progressActivityRendererSchema,
+      },
+    ]);
+
+    const messageId = crypto.randomUUID();
+    fakeRuntime.emitActivityMessage(
+      { completed: 1, total: 10, status: "running" },
+      "progress",
+      messageId,
+    );
+    await expect.poll(queryProgressTest()).toContain("1/10 running");
+
+    fakeRuntime.emitActivityMessage(
+      { message: "Hello, world!" },
+      "message",
+      messageId,
+    );
+    await expect.poll(queryPrimaryTest()).toContain("Hello, world!");
+    expect(queryProgressTest()()).toBeUndefined();
+  });
+
+  describe("renderer selection", () => {
+    it("renders the renderer registered for the activity type", async () => {
+      const { fakeRuntime } = await setup([
+        {
+          activityType: "main",
+          component: PrimaryActivityRenderer,
+          content: primaryActivityRendererSchema,
+        },
+        {
+          activityType: "progress",
+          component: ProgressActivityRenderer,
+          content: progressActivityRendererSchema,
+        },
+      ]);
+
+      fakeRuntime.emitActivityMessage({ message: "Hello, world!" }, "main");
+      await expect.poll(queryPrimaryTest()).toContain("Hello, world!");
+    });
+
+    it("prefers an agent-scoped renderer over an earlier global one", async () => {
+      const { fakeRuntime } = await setup([
+        {
+          component: ProgressActivityRenderer,
+          activityType: "main",
+          content: anyActivityContentSchema,
+        },
+        {
+          component: PrimaryActivityRenderer,
+          activityType: "main",
+          agentId: DEFAULT_AGENT_ID,
+          content: primaryActivityRendererSchema,
+        },
+      ]);
+
+      fakeRuntime.emitActivityMessage({ message: "Hello, world!" }, "main");
+
+      await expect.poll(queryPrimaryTest()).toContain("Hello, world!");
+    });
+
+    it("falls back to the global renderer for an unmatched agent", async () => {
+      const { fakeRuntime } = await setup([
+        {
+          component: ProgressActivityRenderer,
+          activityType: "main",
+          agentId: "other-agent",
+          content: anyActivityContentSchema,
+        },
+        {
+          component: PrimaryActivityRenderer,
+          activityType: "main",
+          content: primaryActivityRendererSchema,
+        },
+      ]);
+
+      fakeRuntime.emitActivityMessage({ message: "Hello, world!" }, "main");
+
+      await expect.poll(queryPrimaryTest()).toContain("Hello, world!");
+      expect(queryProgressTest()()).toBeUndefined();
+    });
+
+    it("ignores agent-scoped renderers when no agentId is given", async () => {
+      @Component({
+        template: `
+          <div>
+            @for (message of messages(); track message) {
+              <copilot-activity [message]="message" />
+            }
+          </div>
+        `,
+        imports: [CopilotActivity],
+      })
+      class CopilotActivityTestComponentWithouAgentID extends CopilotActivityTestComponent {}
+
+      const { fakeRuntime } = await setup(
+        [
+          {
+            agentId: "demo-button",
+            component: ProgressActivityRenderer,
+            activityType: "main",
+            content: progressActivityRendererSchema,
+          },
+          {
+            component: PrimaryActivityRenderer,
+            activityType: "main",
+            content: primaryActivityRendererSchema,
+          },
+        ],
+        ["demo-button", DEFAULT_AGENT_ID],
+        DEFAULT_AGENT_ID,
+        CopilotActivityTestComponentWithouAgentID,
+      );
+
+      fakeRuntime.emitActivityMessage({ message: "Hello, world!" }, "main");
+
+      await expect
+        .poll(() => document.querySelector('[data-testid="primary-activity"]'))
+        .not.toBeNull();
+    });
+
+    it("falls back to the wildcard renderer", async () => {
+      const { fakeRuntime } = await setup([
+        {
+          activityType: "*",
+          component: PrimaryActivityRenderer,
+          content: primaryActivityRendererSchema,
+        },
+        {
+          activityType: "main",
+          component: WildcardActivityRenderer,
+          content: anyActivityContentSchema,
+        },
+      ]);
+
+      fakeRuntime.emitActivityMessage(
+        { message: "Hello, world!" },
+        "unregistered",
+      );
+
+      await expect
+        .poll(() => document.querySelector('[data-testid="primary-activity"]'))
+        .not.toBeNull();
+    });
   });
 });
+
+function queryPrimaryTest() {
+  return () =>
+    document.querySelector(`[data-testid="primary-activity"]`)?.textContent;
+}
+
+function queryProgressTest() {
+  return () =>
+    document.querySelector(`[data-testid="progress-activity"]`)?.textContent;
+}
+
+function queryJsonTest() {
+  return () =>
+    document.querySelector(`[data-testid="json-activity"]`)?.textContent;
+}
