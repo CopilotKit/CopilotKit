@@ -1,9 +1,12 @@
 import { describe, expect, it } from "vitest";
 import {
+  MAX_PENDING_MESSAGE_TIMESTAMPS,
   isDisplayableMessageTimestamp,
   messagesWithTimestamps,
   readMessageTimestamp,
   recordMessageTimestamps,
+  rememberPendingMessageTimestamp,
+  retainRememberedMessageTimestamps,
   withMessageTimestamp,
 } from "../message-timestamp";
 
@@ -86,6 +89,46 @@ describe("withMessageTimestamp", () => {
       metadata: { filename: "a.png", timestamp: 5 },
     };
     expect(withMessageTimestamp(message, EPOCH)).toBe(message);
+  });
+});
+
+describe("rememberPendingMessageTimestamp", () => {
+  it("drops the oldest id once the cap is exceeded", () => {
+    const pending = new Map<string, number>();
+    for (let index = 0; index < MAX_PENDING_MESSAGE_TIMESTAMPS; index += 1) {
+      rememberPendingMessageTimestamp(pending, `id-${index}`, index);
+    }
+    expect(pending.size).toBe(MAX_PENDING_MESSAGE_TIMESTAMPS);
+    expect(pending.has("id-0")).toBe(true);
+
+    rememberPendingMessageTimestamp(pending, "overflow", 999);
+
+    expect(pending.size).toBe(MAX_PENDING_MESSAGE_TIMESTAMPS);
+    expect(pending.has("id-0")).toBe(false);
+    expect(pending.get("overflow")).toBe(999);
+  });
+
+  it("refreshes an existing id without growing", () => {
+    const pending = new Map<string, number>();
+    rememberPendingMessageTimestamp(pending, "a", 1);
+    rememberPendingMessageTimestamp(pending, "b", 2);
+    rememberPendingMessageTimestamp(pending, "a", 3);
+    expect([...pending.keys()]).toEqual(["b", "a"]);
+    expect(pending.get("a")).toBe(3);
+  });
+});
+
+describe("retainRememberedMessageTimestamps", () => {
+  it("keeps times for messages that remain and drops the rest", () => {
+    const remembered = new Map([
+      ["keep", 1],
+      ["drop", 2],
+    ]);
+    expect(
+      retainRememberedMessageTimestamps(remembered, [{ id: "keep" }]),
+    ).toBe(true);
+    expect(remembered.get("keep")).toBe(1);
+    expect(remembered.has("drop")).toBe(false);
   });
 });
 

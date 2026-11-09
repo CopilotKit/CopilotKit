@@ -24,6 +24,8 @@ import {
   messagesWithTimestamps,
   readMessageTimestamp,
   recordMessageTimestamps,
+  rememberPendingMessageTimestamp,
+  retainRememberedMessageTimestamps,
   withMessageTimestamp,
 } from "../../lib/message-timestamp";
 import {
@@ -880,17 +882,38 @@ export function CopilotChat({
   // not copy the event time onto the message. Remember that time beside the
   // messages. Subscriber payloads can be frozen, so this does not write to them.
   const messageTimestampsRef = useRef(new Map<string, number>());
+  const messageTimestampThreadRef = useRef<string | null>(null);
   const [messageTimestampRevision, setMessageTimestampRevision] = useState(0);
   useEffect(() => {
     let active = true;
     const pending = new Map<string, number>();
     const remembered = messageTimestampsRef.current;
-    remembered.clear();
+    const publish = () => {
+      if (active) setMessageTimestampRevision((revision) => revision + 1);
+    };
+    // A new thread must not inherit the previous thread's times, even when a
+    // message id happens to match. Replacing the agent on the same thread
+    // keeps times for messages that agent still has.
+    if (messageTimestampThreadRef.current !== resolvedThreadId) {
+      messageTimestampThreadRef.current = resolvedThreadId;
+      if (remembered.size > 0) {
+        remembered.clear();
+        publish();
+      }
+    }
     const note = (
       nextMessages: Parameters<typeof recordMessageTimestamps>[0],
     ) => {
-      if (!recordMessageTimestamps(nextMessages, pending, remembered)) return;
-      if (active) setMessageTimestampRevision((revision) => revision + 1);
+      const recorded = recordMessageTimestamps(
+        nextMessages,
+        pending,
+        remembered,
+      );
+      const pruned = retainRememberedMessageTimestamps(
+        remembered,
+        nextMessages,
+      );
+      if (recorded || pruned) publish();
     };
     note(agent.messages);
     const subscription = agent.subscribe({
@@ -900,7 +923,7 @@ export function CopilotChat({
           typeof eventTimestamp === "number" && Number.isFinite(eventTimestamp)
             ? eventTimestamp
             : Date.now();
-        pending.set(event.messageId, timestamp);
+        rememberPendingMessageTimestamp(pending, event.messageId, timestamp);
       },
       onMessagesChanged: ({ messages: nextMessages }) => {
         note(nextMessages);

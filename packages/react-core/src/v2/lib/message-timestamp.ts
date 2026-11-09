@@ -79,6 +79,54 @@ export function isDisplayableMessageTimestamp(timestamp: number): boolean {
   }
 }
 
+/**
+ * Cap for text-start times that never meet a message. A later subscriber can
+ * drop the snapshot, so this map would otherwise grow for the life of the chat.
+ */
+export const MAX_PENDING_MESSAGE_TIMESTAMPS = 200;
+
+/**
+ * Records a text-start time. Setting an id again refreshes it to the newest
+ * position. Past the cap, the oldest id is dropped.
+ */
+export function rememberPendingMessageTimestamp(
+  pending: Map<string, number>,
+  messageId: string,
+  timestamp: number,
+): void {
+  if (!messageId || !Number.isFinite(timestamp)) return;
+  if (pending.has(messageId)) pending.delete(messageId);
+  pending.set(messageId, timestamp);
+  while (pending.size > MAX_PENDING_MESSAGE_TIMESTAMPS) {
+    const oldest = pending.keys().next().value;
+    if (oldest === undefined) break;
+    pending.delete(oldest);
+  }
+}
+
+/**
+ * Drops remembered times whose messages are gone.
+ * Ids still in `messages` are left as they are.
+ *
+ * @returns Whether an entry was removed.
+ */
+export function retainRememberedMessageTimestamps(
+  remembered: Map<string, number>,
+  messages: readonly { id?: string }[],
+): boolean {
+  const ids = new Set<string>();
+  for (const message of messages) {
+    if (message.id) ids.add(message.id);
+  }
+  let changed = false;
+  for (const id of remembered.keys()) {
+    if (ids.has(id)) continue;
+    remembered.delete(id);
+    changed = true;
+  }
+  return changed;
+}
+
 /** Returns a copy with `metadata.timestamp` set when the message has none. */
 export function withMessageTimestamp<T extends TimestampCarrier>(
   message: T,
