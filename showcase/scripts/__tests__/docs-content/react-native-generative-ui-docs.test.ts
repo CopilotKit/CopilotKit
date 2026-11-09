@@ -15,7 +15,7 @@ import path from "node:path";
 
 import { describe, expect, test } from "vitest";
 
-const REPO_ROOT = path.resolve(import.meta.dirname, "../../../../..");
+const REPO_ROOT = path.resolve(import.meta.dirname, "../../../..");
 const CONTENT = "showcase/shell-docs/src/content";
 const GUIDE = `${CONTENT}/docs/frontends/react-native.mdx`;
 const COMPONENTS_INDEX = `${CONTENT}/docs/generative-ui/components/index.mdx`;
