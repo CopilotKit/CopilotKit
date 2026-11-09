@@ -212,6 +212,40 @@ export interface VerifyImageOptions {
   timeoutMs?: number;
 }
 
+function isTransientFetchError(error: unknown): boolean {
+  if (!(error instanceof Error)) return false;
+  if (error.name === "TimeoutError" || error.name === "AbortError") return true;
+  const codes = new Set([
+    "ECONNRESET",
+    "ECONNREFUSED",
+    "ETIMEDOUT",
+    "EAI_AGAIN",
+    "ENETUNREACH",
+    "UND_ERR_CONNECT_TIMEOUT",
+    "UND_ERR_SOCKET",
+    "UND_ERR_HEADERS_TIMEOUT",
+    "UND_ERR_BODY_TIMEOUT",
+  ]);
+  const code = "code" in error ? error.code : undefined;
+  const cause = error.cause;
+  const causeCode =
+    cause && typeof cause === "object" && "code" in cause
+      ? cause.code
+      : undefined;
+  if (
+    (typeof code === "string" && codes.has(code)) ||
+    (typeof causeCode === "string" && codes.has(causeCode))
+  )
+    return true;
+  // Native fetch can omit a cause. An explicit, unrecognized cause must fail closed.
+  return (
+    error instanceof TypeError &&
+    error.message === "fetch failed" &&
+    code === undefined &&
+    cause == null
+  );
+}
+
 /** Bind SUCCESS to the exact deployment, service, environment and selected image. */
 export async function verifyImageDeployment(
   token: string,
@@ -229,20 +263,27 @@ export async function verifyImageDeployment(
   const deadline = now() + (options.timeoutMs ?? 150_000);
   let imageDigest: string;
   for (;;) {
-    const response = await fetchImpl(RAILWAY_GRAPHQL_ENDPOINT, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-      },
-      signal: AbortSignal.timeout(30_000),
-      body: JSON.stringify({
-        query: `query imageDeployment($id: String!) {
+    let response: Response;
+    try {
+      response = await fetchImpl(RAILWAY_GRAPHQL_ENDPOINT, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        signal: AbortSignal.timeout(30_000),
+        body: JSON.stringify({
+          query: `query imageDeployment($id: String!) {
           deployment(id: $id) { id serviceId environmentId status meta }
         }`,
-        variables: { id: deploymentId },
-      }),
-    });
+          variables: { id: deploymentId },
+        }),
+      });
+    } catch (error) {
+      if (!isTransientFetchError(error) || now() >= deadline) throw error;
+      await sleep(Math.min(5_000, Math.max(0, deadline - now())));
+      continue;
+    }
     if (!response.ok) {
       await response.body?.cancel();
       if (

@@ -251,6 +251,149 @@ describe("verifyImageDeployment", () => {
       "fetch 200",
     ]);
   });
+  it.each([
+    "ECONNRESET",
+    "ECONNREFUSED",
+    "ETIMEDOUT",
+    "EAI_AGAIN",
+    "ENETUNREACH",
+    "UND_ERR_CONNECT_TIMEOUT",
+    "UND_ERR_SOCKET",
+    "UND_ERR_HEADERS_TIMEOUT",
+    "UND_ERR_BODY_TIMEOUT",
+  ])("retries native fetch transport failures with cause %s", async (code) => {
+    const failure = new TypeError("fetch failed", {
+      cause: Object.assign(new Error("network failure"), { code }),
+    });
+    const fetchImpl = vi
+      .fn<typeof fetch>()
+      .mockRejectedValueOnce(failure)
+      .mockResolvedValue(response());
+    const sleep = vi.fn(async () => {});
+    await expect(
+      verifyImageDeployment("token", "fresh", expected, target, {
+        fetchImpl,
+        sleep,
+      }),
+    ).resolves.toEqual({ imageDigest: PLATFORM });
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
+    expect(sleep).toHaveBeenCalledExactlyOnceWith(5_000);
+  });
+  it.each([
+    new TypeError("fetch failed"),
+    Object.assign(new Error("socket closed"), { code: "ECONNRESET" }),
+    new DOMException("request timed out", "TimeoutError"),
+    new DOMException("request aborted", "AbortError"),
+  ])("retries a transient fetch rejection: %s", async (failure) => {
+    const fetchImpl = vi
+      .fn<typeof fetch>()
+      .mockRejectedValueOnce(failure)
+      .mockResolvedValue(response());
+    const sleep = vi.fn(async () => {});
+    await expect(
+      verifyImageDeployment("token", "fresh", expected, target, {
+        fetchImpl,
+        sleep,
+      }),
+    ).resolves.toEqual({ imageDigest: PLATFORM });
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
+    expect(sleep).toHaveBeenCalledExactlyOnceWith(5_000);
+  });
+  it("bounds persistent transport rejections to the original deadline and preserves the final failure", async () => {
+    const failure = new TypeError("fetch failed", {
+      cause: Object.assign(new Error("connection reset"), {
+        code: "ECONNRESET",
+      }),
+    });
+    const fetchImpl = vi.fn<typeof fetch>().mockRejectedValue(failure);
+    let clock = 0;
+    const sleep = vi.fn(async (ms: number) => {
+      clock += ms;
+    });
+    await expect(
+      verifyImageDeployment("token", "fresh", expected, target, {
+        fetchImpl,
+        now: () => clock,
+        timeoutMs: 12_000,
+        sleep,
+      }),
+    ).rejects.toBe(failure);
+    expect(fetchImpl).toHaveBeenCalledTimes(4);
+    expect(sleep.mock.calls).toEqual([[5_000], [5_000], [2_000]]);
+    expect(clock).toBe(12_000);
+  });
+  it("shares one deadline across transport failures, HTTP errors and pending states", async () => {
+    const failure = new DOMException("request timed out", "TimeoutError");
+    const cancel = vi.fn();
+    const fetchImpl = vi
+      .fn<typeof fetch>()
+      .mockRejectedValueOnce(failure)
+      .mockResolvedValueOnce(
+        new Response(new ReadableStream({ cancel }), { status: 429 }),
+      )
+      .mockResolvedValueOnce(response(node("DEPLOYING")))
+      .mockResolvedValueOnce(
+        new Response(new ReadableStream({ cancel }), { status: 503 }),
+      )
+      .mockRejectedValue(failure);
+    let clock = 0;
+    const sleep = vi.fn(async (ms: number) => {
+      clock += ms;
+    });
+    await expect(
+      verifyImageDeployment("token", "fresh", expected, target, {
+        fetchImpl,
+        now: () => clock,
+        timeoutMs: 17_000,
+        sleep,
+      }),
+    ).rejects.toBe(failure);
+    expect(fetchImpl).toHaveBeenCalledTimes(5);
+    expect(cancel).toHaveBeenCalledTimes(2);
+    expect(sleep.mock.calls).toEqual([[5_000], [5_000], [5_000], [2_000]]);
+    expect(clock).toBe(17_000);
+  });
+  it.each([
+    new TypeError("Failed to parse URL from invalid"),
+    new TypeError("Request with GET/HEAD method cannot have body."),
+    new TypeError("fetch failed", {
+      cause: Object.assign(new TypeError("Invalid URL"), {
+        code: "ERR_INVALID_URL",
+      }),
+    }),
+    new TypeError("fetch failed", { cause: new Error("invalid request") }),
+    new Error("programming failure"),
+    new Error("fetch failed"),
+    { code: "ECONNRESET" },
+    "fetch failed",
+    null,
+  ])("does not retry a non-transient fetch rejection: %s", async (failure) => {
+    const fetchImpl = vi.fn<typeof fetch>().mockRejectedValue(failure);
+    const sleep = vi.fn();
+    await expect(
+      verifyImageDeployment("token", "fresh", expected, target, {
+        fetchImpl,
+        sleep,
+      }),
+    ).rejects.toBe(failure);
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+    expect(sleep).not.toHaveBeenCalled();
+  });
+  it("does not retry response parsing failures even with a transport error signature", async () => {
+    const failure = new DOMException("response parse failed", "TimeoutError");
+    const reply = response();
+    vi.spyOn(reply, "json").mockRejectedValue(failure);
+    const fetchImpl = vi.fn<typeof fetch>().mockResolvedValue(reply);
+    const sleep = vi.fn();
+    await expect(
+      verifyImageDeployment("token", "fresh", expected, target, {
+        fetchImpl,
+        sleep,
+      }),
+    ).rejects.toBe(failure);
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+    expect(sleep).not.toHaveBeenCalled();
+  });
   it.each([429, 503])(
     "bounds persistent HTTP %s retries to the original deadline and releases the final body",
     async (status) => {
