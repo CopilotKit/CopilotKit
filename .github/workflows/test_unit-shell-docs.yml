@@ -15,6 +15,16 @@ on:
       - "examples/integrations/ms-agent-framework-dotnet/**"
       - "examples/v1/travel/agent/uv.lock"
       - "packages/runtime/package.json"
+      # react-native-generative-ui-docs.test.ts pins the docs to these.
+      - "packages/react-native/README.md"
+      - "packages/react-native/USAGE.md"
+      - "packages/react-native/src/CopilotKitProvider.tsx"
+      - "packages/react-native/src/generative-ui/**"
+      - "packages/core/src/core/core.ts"
+      - "packages/core/src/core/run-handler.ts"
+      - "packages/react-core/package.json"
+      - "packages/react-core/src/v2/generative-ui/runtime-context.ts"
+      - "packages/shared/package.json"
       - ".github/workflows/test_unit-shell-docs.yml"
   push:
     branches: [main]
@@ -30,6 +40,16 @@ on:
       - "examples/integrations/ms-agent-framework-dotnet/**"
       - "examples/v1/travel/agent/uv.lock"
       - "packages/runtime/package.json"
+      # react-native-generative-ui-docs.test.ts pins the docs to these.
+      - "packages/react-native/README.md"
+      - "packages/react-native/USAGE.md"
+      - "packages/react-native/src/CopilotKitProvider.tsx"
+      - "packages/react-native/src/generative-ui/**"
+      - "packages/core/src/core/core.ts"
+      - "packages/core/src/core/run-handler.ts"
+      - "packages/react-core/package.json"
+      - "packages/react-core/src/v2/generative-ui/runtime-context.ts"
+      - "packages/shared/package.json"
       - ".github/workflows/test_unit-shell-docs.yml"
 
 permissions:

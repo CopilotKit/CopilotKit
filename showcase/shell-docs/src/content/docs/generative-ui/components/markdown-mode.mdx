@@ -23,6 +23,10 @@ Move the slider to change the seat count.
 
 Each line is one [A2UI v1.0](https://a2ui.org) operation. The UI is plain text, so this works with any AG-UI agent that streams text.
 
+<Callout type="info" title="React Native">
+  Markdown mode is not available on React Native yet. `GenerativeUIProvider` from `@copilotkit/react-native/generative-ui` uses the [tool transport](/generative-ui/components/transports#tool-transport) only: `transport: "markdown"` is a type error, and passed from JavaScript it is dropped, with a warning in development.
+</Callout>
+
 ## Turn it on
 
 Set the markdown transport on the provider:

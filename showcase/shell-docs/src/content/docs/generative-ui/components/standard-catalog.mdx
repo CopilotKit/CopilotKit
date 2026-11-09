@@ -10,6 +10,10 @@ import { StandardCatalog } from "@/components/standard-catalog/standard-catalog"
 
 You want the agent to answer with tables, charts, and forms today, not after you build a component library. `standardUI` is a catalog of 69 ready-made components that the agent already knows how to use. The 18 components of the A2UI 1.0 basic catalog are in it under their A2UI names and props (`Image.url`, `CheckBox.value`, `Row.justify: "spaceBetween"`, `weight` for flex-grow); the rest extend the catalog.
 
+<Callout type="info" title="React Native">
+  The standard components render DOM, so React Native has no `standardUI` yet. Build a catalog of your own native components with `createGenerativeUI`; see [Catalogs](/generative-ui/components/catalogs) and [Generative UI with your own components](/react-native#generative-ui-with-your-own-components).
+</Callout>
+
 Use it as it is:
 
 <Tabs groupId="frontend_framework" items={["React", "Angular"]} persist>
