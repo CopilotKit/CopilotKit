@@ -35,6 +35,8 @@ import { CopilotKitProvider } from "../../../providers/CopilotKitProvider";
 import { CopilotChatConfigurationProvider } from "../../../providers/CopilotChatConfigurationProvider";
 import { CopilotChat } from "../CopilotChat";
 import { CopilotChatUserMessage } from "../CopilotChatUserMessage";
+import { LastUserMessageContext } from "../last-user-message-context";
+import type { LastUserMessageState } from "../last-user-message-context";
 
 describe("CopilotChat E2E - Chat Basics and Streaming Patterns", () => {
   describe("Chat Basics: text input + run", () => {
@@ -1581,6 +1583,66 @@ describe("CopilotChat E2E - Chat Basics and Streaming Patterns", () => {
       expect(addMessageSpy.mock.calls[0]![0].id).toBe(queuedId);
     });
 
+    it("pins a queued message when it is accepted", async () => {
+      useDistinctIds();
+      const pins: LastUserMessageState[] = [];
+      const PinRecordingUserMessage = (
+        props: React.ComponentProps<typeof CopilotChatUserMessage>,
+      ) => {
+        const pin = React.useContext(LastUserMessageContext);
+        useEffect(() => {
+          pins.push(pin);
+        }, [pin]);
+        return <CopilotChatUserMessage {...props} />;
+      };
+      const agent = new MockStepwiseAgent();
+      renderWithCopilotKit({
+        agent,
+        children: (
+          <div style={{ height: 400 }}>
+            <CopilotChat
+              welcomeScreen={false}
+              messageView={{
+                userMessage:
+                  PinRecordingUserMessage as typeof CopilotChatUserMessage,
+              }}
+            />
+          </div>
+        ),
+      });
+
+      const input = await screen.findByRole("textbox");
+      fireEvent.change(input, { target: { value: "Book a sales call" } });
+      fireEvent.keyDown(input, { key: "Enter", code: "Enter" });
+      await waitFor(() => {
+        expect(screen.getByText("Book a sales call")).toBeDefined();
+      });
+
+      agent.emit(runStartedEvent());
+      await waitFor(() => {
+        expect(agent.isRunning).toBe(true);
+      });
+      agent.setActiveRunCompletionPromise(new Promise<void>(() => {}));
+      const nonceBeforeQueue = pins[pins.length - 1]!.sendNonce;
+
+      fireEvent.change(input, { target: { value: "Pin me" } });
+      fireEvent.keyDown(input, { key: "Enter", code: "Enter" });
+      await waitFor(() => {
+        expect(screen.getByText("Pin me")).toBeDefined();
+      });
+      const queuedId = screen
+        .getByText("Pin me")
+        .closest("[data-message-id]")
+        ?.getAttribute("data-message-id");
+
+      // The run never settles, so the message is still only queued.
+      await waitFor(() => {
+        const latest = pins[pins.length - 1]!;
+        expect(latest.id).toBe(queuedId);
+        expect(latest.sendNonce).toBeGreaterThan(nonceBeforeQueue);
+      });
+    });
+
     it("drops a queued message's placeholder when the thread switches", async () => {
       const agent = new MockStepwiseAgent();
 
@@ -1627,6 +1689,124 @@ describe("CopilotChat E2E - Chat Basics and Streaming Patterns", () => {
       await waitFor(() =>
         expect(screen.queryByText("Left behind on A")).toBeNull(),
       );
+    });
+
+    it("pins the earlier queued message when it is dispatched, not the last one queued", async () => {
+      useDistinctIds();
+      const pins: LastUserMessageState[] = [];
+      const PinRecorder = () => {
+        const pin = React.useContext(LastUserMessageContext);
+        useEffect(() => {
+          pins.push(pin);
+        }, [pin]);
+        return null;
+      };
+      const agent = new MockStepwiseAgent();
+      renderWithCopilotKit({
+        agent,
+        children: (
+          <div style={{ height: 400 }}>
+            <CopilotChat
+              welcomeScreen={false}
+              input={{ disclaimer: PinRecorder }}
+            />
+          </div>
+        ),
+      });
+
+      const input = await screen.findByRole("textbox");
+      agent.emit(runStartedEvent());
+      await waitFor(() => {
+        expect(agent.isRunning).toBe(true);
+      });
+      let resolveInFlight!: () => void;
+      agent.setActiveRunCompletionPromise(
+        new Promise<void>((resolve) => {
+          resolveInFlight = resolve;
+        }),
+      );
+
+      fireEvent.change(input, { target: { value: "First queued" } });
+      fireEvent.keyDown(input, { key: "Enter", code: "Enter" });
+      fireEvent.change(input, { target: { value: "Second queued" } });
+      fireEvent.keyDown(input, { key: "Enter", code: "Enter" });
+      const idOf = (text: string) =>
+        screen
+          .getByText(text)
+          .closest("[data-message-id]")
+          ?.getAttribute("data-message-id");
+      await waitFor(() => {
+        expect(pins[pins.length - 1]!.id).toBe(idOf("Second queued"));
+      });
+      const firstId = idOf("First queued");
+      const nonceWhenBothQueued = pins[pins.length - 1]!.sendNonce;
+
+      await act(async () => {
+        resolveInFlight();
+        await Promise.resolve();
+      });
+
+      // The first message's send pins the first message, whose reply comes
+      // next; the second is still waiting below it.
+      await waitFor(() => {
+        expect(pins[pins.length - 1]).toEqual({
+          id: firstId,
+          sendNonce: nonceWhenBothQueued + 1,
+        });
+      });
+    });
+
+    it("does not pin when a queued message is dropped unsent", async () => {
+      const pins: LastUserMessageState[] = [];
+      // The input's disclaimer renders whether or not any message does.
+      const PinRecorder = () => {
+        const pin = React.useContext(LastUserMessageContext);
+        useEffect(() => {
+          pins.push(pin);
+        }, [pin]);
+        return null;
+      };
+      const agent = new MockStepwiseAgent();
+      const chatOn = (threadId: string) => (
+        <CopilotKitProvider agents__unsafe_dev_only={{ default: agent }}>
+          <CopilotChatConfigurationProvider
+            threadId={threadId}
+            hasExplicitThreadId={false}
+          >
+            <CopilotChat
+              welcomeScreen={false}
+              input={{ disclaimer: PinRecorder }}
+            />
+          </CopilotChatConfigurationProvider>
+        </CopilotKitProvider>
+      );
+
+      const { rerender } = render(chatOn("thread-A"));
+      const input = await screen.findByRole("textbox");
+
+      agent.emit(runStartedEvent());
+      await waitFor(() => {
+        expect(agent.isRunning).toBe(true);
+      });
+      // Never resolved: the queued send stays parked on thread A.
+      agent.setActiveRunCompletionPromise(new Promise<void>(() => {}));
+
+      fireEvent.change(input, { target: { value: "Left behind on A" } });
+      fireEvent.keyDown(input, { key: "Enter", code: "Enter" });
+      await waitFor(() => {
+        expect(pins[pins.length - 1]!.id).not.toBeNull();
+      });
+      const pinWhenQueued = pins[pins.length - 1]!;
+
+      rerender(chatOn("thread-B"));
+      await waitFor(() =>
+        expect(screen.queryByText("Left behind on A")).toBeNull(),
+      );
+      await act(async () => {
+        await Promise.resolve();
+      });
+
+      expect(pins[pins.length - 1]).toEqual(pinWhenQueued);
     });
 
     it("mounts an idle send's message once, never as a queued copy first", async () => {
