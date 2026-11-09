@@ -1,31 +1,31 @@
 {
   "schemaVersion": 1,
-  "sourceRevision": "70f54b309c3c926367801374c581a375c4d599d2",
+  "sourceRevision": "a918ae011663c426a426243bcbc6c183f52f8d97",
   "build": {
-    "runId": 39550117034,
+    "runId": 40732403270,
     "runAttempt": 1,
     "workflowPath": ".github/workflows/intelligence-rich-threads-build.yml",
     "workflowSha256": "4337e0e43f7598ff19171ad3a73a250e404e7a8e138ae149cb30e75bda6224bf",
-    "artifactId": 12323735464,
-    "artifactSha256": "d9b88a4311851726df4baa953b34add87c8ae1c9ebdcbfd2218c2144b4a22ea7"
+    "artifactId": 12835822185,
+    "artifactSha256": "6ae7f6973c34ab6e2f8b1d1f3f438fff328a972f8cd6195466dcd764d5e350d7"
   },
   "baseline": {
-    "image": "ghcr.io/copilotkit/rich-thread-runner@sha256:0e2a6ac69b529b4f01c443de4fed340d5c826fecaf79f97e85bfb43bc0c50966",
+    "image": "ghcr.io/copilotkit/rich-thread-runner@sha256:0130216d2378373b0c98f55669ca1c9e0299f0f26e468c39261511e30793b4df",
     "runtimeIdentity": {
       "protocolVersion": 1,
-      "sourceRevision": "70f54b309c3c926367801374c581a375c4d599d2",
-      "sourceManifestSha256": "7d898f9b3106ef1d38993cb9210c3695c06ca5bd49e615f4b7bbaa10d6dcadba",
-      "compatibilitySha256": "9d80fc2c8426381642c9f7734b1d4c6658104b43a7a83b476d1d1c67b4c143a0",
+      "sourceRevision": "a918ae011663c426a426243bcbc6c183f52f8d97",
+      "sourceManifestSha256": "d7f2246d36d19b4fc2c90b1dd2f34abc7c2254519bdf64b0ef7fcb351325e1b0",
+      "compatibilitySha256": "8406f50ec74eae7cf6fe9186bc84b6a2fee77f0ee77106be5999245fa13f3df5",
       "policySha256": "4ded223bb02ea0cdf7ffed4fb8f78b70fbb50c9f74ae82d34addfc94f712c751"
     }
   },
   "candidate": {
-    "image": "ghcr.io/copilotkit/rich-thread-runner@sha256:0e2a6ac69b529b4f01c443de4fed340d5c826fecaf79f97e85bfb43bc0c50966",
+    "image": "ghcr.io/copilotkit/rich-thread-runner@sha256:0130216d2378373b0c98f55669ca1c9e0299f0f26e468c39261511e30793b4df",
     "runtimeIdentity": {
       "protocolVersion": 1,
-      "sourceRevision": "70f54b309c3c926367801374c581a375c4d599d2",
-      "sourceManifestSha256": "7d898f9b3106ef1d38993cb9210c3695c06ca5bd49e615f4b7bbaa10d6dcadba",
-      "compatibilitySha256": "9d80fc2c8426381642c9f7734b1d4c6658104b43a7a83b476d1d1c67b4c143a0",
+      "sourceRevision": "a918ae011663c426a426243bcbc6c183f52f8d97",
+      "sourceManifestSha256": "d7f2246d36d19b4fc2c90b1dd2f34abc7c2254519bdf64b0ef7fcb351325e1b0",
+      "compatibilitySha256": "8406f50ec74eae7cf6fe9186bc84b6a2fee77f0ee77106be5999245fa13f3df5",
       "policySha256": "4ded223bb02ea0cdf7ffed4fb8f78b70fbb50c9f74ae82d34addfc94f712c751"
     }
   }

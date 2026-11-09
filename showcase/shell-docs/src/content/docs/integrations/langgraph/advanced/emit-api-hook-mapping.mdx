@@ -146,7 +146,7 @@ class AgentState(CopilotKitState):
     pass
 
 async def chat_node(state: AgentState, config: RunnableConfig):
-    model = ChatOpenAI(model="gpt-4o").bind_tools(
+    model = ChatOpenAI(model="gpt-6-luna", reasoning_effort="none").bind_tools(
         state["copilotkit"]["actions"]  # includes all registered frontend tools/components # [!code highlight]
     )
     response = await model.ainvoke(state["messages"], config)
@@ -173,7 +173,7 @@ async def chat_node(state: AgentState, config: RunnableConfig):
         emit_tool_calls=["showWeather"],             # [!code highlight]
     )                                                # [!code highlight]
 
-    model = ChatOpenAI(model="gpt-4o").bind_tools(
+    model = ChatOpenAI(model="gpt-6-luna", reasoning_effort="none").bind_tools(
         state["copilotkit"]["actions"]
     )
     response = await model.ainvoke(state["messages"], streaming_config) # [!code highlight]

@@ -1,13 +1,13 @@
 ---
 title: Reasoning Messages
 icon: "lucide/Brain"
-description: "Customize how reasoning (thinking) tokens from models like o1, o3, and o4-mini are displayed."
+description: "Customize how reasoning (thinking) tokens from models like `gpt-6-luna` are displayed."
 snippet_cell: reasoning-custom
 ---
 
 <InlineDemo demo="reasoning-default" />
 
-Some models (like OpenAI's o1, o3, and o4-mini) emit **reasoning tokens**: internal
+Some models (like `gpt-6-luna`) emit **reasoning tokens**: internal
 "thinking" traces that show the model's chain-of-thought before it produces a final
 answer. CopilotKit surfaces these tokens automatically with a collapsible
 **Reasoning Message** card.
@@ -70,9 +70,10 @@ receives these props:
 | Prop | Type | Description |
 | --- | --- | --- |
 | `isOpen` | `boolean` | Whether the content panel is currently expanded |
-| `label` | `string` | `"Thinking…"` while streaming, `"Thought for X seconds"` after |
+| `label` | `string` | `labels.reasoningMessageThinkingLabel` (`"Thinking…"`) while streaming, `"Thought for X seconds"` after |
 | `hasContent` | `boolean` | Whether any reasoning text has been received |
 | `isStreaming` | `boolean` | Whether reasoning is actively streaming |
+| `elapsedSeconds` | `number` | Seconds spent reasoning, for building a localized label |
 | `onClick` | `() => void` | Toggle handler (only present when `hasContent` is `true`) |
 
 ```tsx

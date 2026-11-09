@@ -194,6 +194,12 @@ export class IntelligenceAgent extends AbstractAgent {
   private socket: Socket | null = null;
   private activeChannel: Channel | null = null;
   private canonicalRunId: string | null = null;
+  /**
+   * Counts the runs and connects this agent has started. A stop settles later
+   * than it is sent, so it compares this to tell whether a newer run has taken
+   * over the agent in the meantime.
+   */
+  private runGeneration = 0;
   private sharedState: IntelligenceAgentSharedState;
 
   constructor(
@@ -284,30 +290,51 @@ export class IntelligenceAgent extends AbstractAgent {
   }
 
   abortRun(): void {
-    if (this.activeChannel && this.canonicalRunId) {
-      // Defer cleanup until the push is acknowledged so socket.disconnect()
-      // doesn't clear the push buffer before the stop signal is sent.
-      // The 5-second fallback handles the case where the socket is down and
-      // Phoenix never flushes the buffered push (its .receive("timeout") only
-      // fires for pushes that were actually sent but not replied to).
-      // detachActiveRun() gracefully tears down the connectAgent() pipeline;
-      // cleanup() follows as a safety net for the run() path.
-      const fallback = setTimeout(() => clear(), 5_000);
-      const clear = () => {
-        clearTimeout(fallback);
-        void this.detachActiveRun();
-        this.cleanup();
-      };
-
-      this.activeChannel
-        .push(STOP_RUN_EVENT, { run_id: this.canonicalRunId })
-        .receive("ok", clear)
-        .receive("error", clear)
-        .receive("timeout", clear);
-    } else {
+    const channel = this.activeChannel;
+    const runId = this.canonicalRunId;
+    if (!channel || !runId) {
       void this.detachActiveRun();
       this.cleanup();
+      return;
     }
+
+    // Defer cleanup until the push is acknowledged so socket.disconnect()
+    // doesn't clear the push buffer before the stop signal is sent.
+    // The 5-second fallback handles the case where the socket is down and
+    // Phoenix never flushes the buffered push (its .receive("timeout") only
+    // fires for pushes that were actually sent but not replied to).
+    // detachActiveRun() gracefully tears down the connectAgent() pipeline;
+    // cleanup() follows as a safety net for the run() path.
+    //
+    // The stop can settle up to 10 s from now, when a follow-up run may own
+    // the agent, so what it tears down is captured here and clear() runs once.
+    // Under ProxiedCopilotRuntimeAgent the gateway's reply never reaches this
+    // push: the proxy detaches the run right after it, and Phoenix drops a
+    // left channel from its socket at once. The fallback settles the stop,
+    // and the push's own timeout fires again later.
+    const socket = this.socket;
+    const generation = this.runGeneration;
+    let settled = false;
+    const clear = () => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(fallback);
+      if (this.runGeneration === generation) {
+        // No run has started since the stop, so everything current is the
+        // stopped run's.
+        void this.detachActiveRun();
+        this.cleanup();
+      } else {
+        this.cleanupOwned(channel, socket, runId);
+      }
+    };
+    const fallback = setTimeout(clear, 5_000);
+
+    channel
+      .push(STOP_RUN_EVENT, { run_id: runId })
+      .receive("ok", clear)
+      .receive("error", clear)
+      .receive("timeout", clear);
   }
 
   /**
@@ -316,6 +343,7 @@ export class IntelligenceAgent extends AbstractAgent {
    */
   run(input: RunAgentInput): Observable<BaseEvent> {
     if (!isMcpResourceRead(input)) {
+      this.runGeneration += 1;
       this.threadId = input.threadId;
       this.canonicalRunId = input.runId;
     }
@@ -379,6 +407,7 @@ export class IntelligenceAgent extends AbstractAgent {
     input: RunAgentInput,
     lifecycle?: ConnectionReplayLifecycle,
   ): Observable<BaseEvent> {
+    this.runGeneration += 1;
     this.threadId = input.threadId;
     this.canonicalRunId = null;
     const replayCursor = this.getReconnectCursor(input);
@@ -412,11 +441,13 @@ export class IntelligenceAgent extends AbstractAgent {
   /**
    * Tear down a specific channel + socket pair that belongs to one pipeline.
    * Only nulls instance references when they still point to the owned resource,
-   * so a concurrent pipeline's resources are never clobbered.
+   * and the run ID only while it is still the owner's, so a concurrent
+   * pipeline's resources are never clobbered.
    */
   private cleanupOwned(
     ownChannel: Channel | null,
     ownSocket: Socket | null,
+    ownRunId: string | null,
   ): void {
     if (ownChannel) {
       ownChannel.leave();
@@ -430,11 +461,13 @@ export class IntelligenceAgent extends AbstractAgent {
         this.socket = null;
       }
     }
-    this.canonicalRunId = null;
+    if (this.canonicalRunId === ownRunId) {
+      this.canonicalRunId = null;
+    }
   }
 
   private cleanup(): void {
-    this.cleanupOwned(this.activeChannel, this.socket);
+    this.cleanupOwned(this.activeChannel, this.socket, this.canonicalRunId);
   }
 
   private requestJoinCredentials$(
@@ -687,6 +720,8 @@ export class IntelligenceAgent extends AbstractAgent {
       // the stop signal from ever reaching the backend.
       let ownSocket: Socket | null = null;
       let ownChannel: Channel | null = null;
+      // The canonical run ID this pipeline joined under, set just before it.
+      const ownRunId = this.canonicalRunId;
 
       // Silence after replay may mean a long-running agent or an unavailable
       // thread-lock lookup. Diagnose it without declaring an active run idle.
@@ -876,7 +911,7 @@ export class IntelligenceAgent extends AbstractAgent {
       ).pipe(
         finalize(() => {
           clearIdleWarning();
-          this.cleanupOwned(ownChannel, ownSocket);
+          this.cleanupOwned(ownChannel, ownSocket, ownRunId);
         }),
       );
     });

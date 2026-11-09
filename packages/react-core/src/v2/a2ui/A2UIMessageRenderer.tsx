@@ -579,7 +579,7 @@ function SurfaceMessageProcessor({
       : operations;
 
     // Error handling is done inside A2UIProvider.processMessages
-    processMessages(ops);
+    processMessages(ops.map(stripRoutingSurfaceId));
 
     // Signal the cross-over to swap ONLY once the surface can actually paint a
     // card. A data-bound list renders nothing until its data model arrives, so
@@ -650,6 +650,41 @@ function surfaceHasRenderableContent(operations: any[]): boolean {
         : x !== null && x !== undefined && x !== "",
     );
   });
+}
+
+const V0_9_ACTION_KEYS = [
+  "createSurface",
+  "updateComponents",
+  "updateDataModel",
+  "deleteSurface",
+] as const;
+
+/**
+ * Drops a top-level `surfaceId` from a v0.9 message before it reaches
+ * `MessageProcessor`.
+ *
+ * Compatibility with noncanonical agent payloads (see OSS-1048), not a key
+ * added by react-core. `getOperationSurfaceId` reads it only as a routing
+ * fallback. It is not part of the v0.9 envelope, and `@a2ui/web_core` 0.15
+ * validates envelopes strictly, so leaving it in rejects the whole message
+ * ("Unrecognized key(s) in object: 'surfaceId'"). The nested action keeps its
+ * own `surfaceId`, which is the one the processor uses.
+ *
+ * @param operation - One A2UI operation, of any shape.
+ * @returns The operation without a top-level `surfaceId` when it is a v0.9
+ *   message, otherwise the operation unchanged.
+ */
+function stripRoutingSurfaceId(operation: any): any {
+  if (
+    !operation ||
+    typeof operation !== "object" ||
+    !("surfaceId" in operation) ||
+    !V0_9_ACTION_KEYS.some((key) => key in operation)
+  ) {
+    return operation;
+  }
+  const { surfaceId: _routingId, ...message } = operation;
+  return message;
 }
 
 /**

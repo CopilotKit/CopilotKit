@@ -20,6 +20,7 @@ function App() {
   const [tick, setTick] = useState(0);
   const [prepended, setPrepended] = useState(false);
   const [trimmed, setTrimmed] = useState(false);
+  const [width, setWidth] = useState(700);
   // A fresh array makes CopilotChatMessageView re-render through its memoized
   // slot wrapper while hidden and after the host becomes measurable again.
   const messages = [
@@ -58,6 +59,12 @@ function App() {
       <button id="rerender" onClick={() => setTick((n) => n + 1)}>
         Rerender
       </button>
+      <button id="narrow" onClick={() => setWidth(350)}>
+        Narrow
+      </button>
+      <button id="wide" onClick={() => setWidth(700)}>
+        Wide
+      </button>
       <button
         id="switch-thread"
         onClick={() => setThread((t) => (t === "one" ? "two" : "one"))}
@@ -73,7 +80,7 @@ function App() {
       <span id="tick">{tick}</span>
       <div
         id="host"
-        style={{ display: hidden ? "none" : "block", height: 500, width: 700 }}
+        style={{ display: hidden ? "none" : "block", height: 500, width }}
       >
         <CopilotKitProvider>
           {standalone ? (

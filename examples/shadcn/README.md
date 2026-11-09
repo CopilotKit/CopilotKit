@@ -31,11 +31,11 @@ Then set:
 
 ```bash
 OPENAI_API_KEY=sk-...
-COPILOTKIT_MODEL=openai/gpt-5.4
+COPILOTKIT_MODEL=openai/gpt-6-luna
 ```
 
 `OPENAI_API_KEY` is required for the Built-in Agent. `COPILOTKIT_MODEL` is
-optional and defaults to `openai/gpt-5.4` in `app/api/copilotkit/route.ts`.
+optional and defaults to `openai/gpt-6-luna` in `app/api/copilotkit/route.ts`.
 
 ## Setup
 

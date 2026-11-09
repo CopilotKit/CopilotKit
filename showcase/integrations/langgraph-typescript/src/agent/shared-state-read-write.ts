@@ -167,7 +167,7 @@ function buildPreferencesMessage(
 async function chatNode(state: AgentState, config: RunnableConfig) {
   const model = makeChatOpenAI(config, {
     temperature: 0,
-    model: "gpt-5-mini",
+    model: "gpt-6-luna",
     modelKwargs: { parallel_tool_calls: false },
   });
 

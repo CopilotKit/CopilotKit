@@ -10,7 +10,7 @@ import { BuiltInAgent } from "@copilotkit/runtime/v2";
 
 export function makeAgent(threadId: string) {
   const agent = new BuiltInAgent({
-    model: "openai:gpt-5.4-mini",
+    model: "openai:gpt-6-luna",
   });
   agent.threadId = threadId;
   return agent;

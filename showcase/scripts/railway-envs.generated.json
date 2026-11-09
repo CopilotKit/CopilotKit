@@ -152,6 +152,10 @@
         "serviceId": "4922b45b-6981-4559-be2f-fbbca9123323"
       },
       {
+        "name": "docs-preview",
+        "serviceId": "a5ff33b4-8b8d-4fbc-94b1-177374464bb8"
+      },
+      {
         "name": "starter-adk",
         "serviceId": "37691009-c0b2-4af7-8960-9f0b3f0a6be3"
       },
@@ -324,6 +328,33 @@
       "autoUpdates": {
         "staging": "disabled",
         "prod": "disabled"
+      }
+    },
+    {
+      "name": "docs-preview",
+      "serviceId": "a5ff33b4-8b8d-4fbc-94b1-177374464bb8",
+      "prodInstanceId": "a5ff33b4-8b8d-4fbc-94b1-177374464bb8",
+      "stagingInstanceId": "99cd81df-b32e-413a-9c04-91811ec59806",
+      "ciBuilt": false,
+      "gateValidated": false,
+      "gateIgnore": true,
+      "gatePolicy": {
+        "presence": "optional",
+        "image": "ignored"
+      },
+      "onlyEnvironment": "staging",
+      "domains": {
+        "staging": "",
+        "prod": ""
+      },
+      "probe": {
+        "staging": false,
+        "prod": false,
+        "driver": "shell"
+      },
+      "promoteTier": 2,
+      "autoUpdates": {
+        "staging": "unmanaged"
       }
     },
     {
@@ -2272,6 +2303,10 @@
       },
       {
         "name": "showcase-intelligence-test-runner",
+        "reason": "no \"prod\" environment in the SSOT — cannot be promoted (it exists in: staging)."
+      },
+      {
+        "name": "docs-preview",
         "reason": "no \"prod\" environment in the SSOT — cannot be promoted (it exists in: staging)."
       }
     ]

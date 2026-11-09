@@ -12,6 +12,20 @@ const telemetryClient = new TelemetryClient({
   packageVersion: packageJson.version,
 });
 
+/**
+ * The configured agents, counted without touching `runtime.instance`. Every
+ * v1 endpoint captures telemetry before it calls `handleServiceAdapter`, and
+ * reading the instance there builds the v2 runtime with these agents, so the
+ * per-request factory `handleServiceAdapter` installs afterwards was never
+ * used and no v1 `actions` or `mcpServers` tool reached an agent.
+ */
+function countConfiguredAgents(agents: unknown): number {
+  if (!agents || typeof agents !== "object" || "then" in agents) {
+    return 0;
+  }
+  return Object.keys(agents).length;
+}
+
 export function getRuntimeInstanceTelemetryInfo(
   options: CreateCopilotRuntimeServerOptions,
 ): RuntimeInstanceCreatedInfo {
@@ -54,7 +68,7 @@ export function getRuntimeInstanceTelemetryInfo(
     actionsAmount: runtime.params?.actions?.length ?? 0,
     endpointsAmount: remoteEndpoints.length,
     endpointTypes: endpointsInfo.endpointTypes,
-    agentsAmount: Object.keys(runtime.instance.agents).length,
+    agentsAmount: countConfiguredAgents(runtime.params?.agents),
     hashedLgcKey: endpointsInfo.hashedKey,
     "cloud.api_key_provided": apiKeyProvided,
     ...(apiKeyProvided ? { "cloud.public_api_key": publicApiKey } : {}),

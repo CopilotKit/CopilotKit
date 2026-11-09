@@ -66,7 +66,9 @@ Manually emitted messages are great for **when you don't want to wait for the fu
 
                     response = copilotkit_stream(
                         completion(
-                            model="openai/gpt-5.4",
+                            reasoning_effort="none",
+                            allowed_openai_params=["reasoning_effort"],
+                            model="openai/gpt-6-luna",
                             messages=[
                                 {"role": "system", "content": "You are a helpful assistant."},
                                 *self.state["messages"]

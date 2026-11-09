@@ -10,6 +10,7 @@ import {
   triggerRef,
   watch,
 } from "vue";
+import type { Component, FunctionalComponent } from "vue";
 import { z } from "zod";
 import type { AbstractAgent } from "@ag-ui/client";
 import { ToolCallStatus } from "@copilotkit/core";
@@ -91,6 +92,13 @@ const DEFAULT_DESIGN_SKILL = `When generating UI with generateSandboxedUi, follo
 - Minimal transitions (150ms) for hover/focus states only. No decorative animations.
 - Keep the UI focused and dense — avoid excessive padding. Use compact spacing (8–12px gaps, 10–14px padding in controls).`;
 
+/** The MCP Apps renderer with `mcpApps.allowSameOriginFallback` applied. */
+const SameOriginMCPAppsActivityRenderer: FunctionalComponent = (_, { attrs }) =>
+  h(MCPAppsActivityRenderer as Component, {
+    ...attrs,
+    allowSameOriginFallback: true,
+  });
+
 const props = withDefaults(defineProps<CopilotKitProviderProps>(), {
   headers: () => ({}),
   properties: () => ({}),
@@ -103,6 +111,7 @@ const props = withDefaults(defineProps<CopilotKitProviderProps>(), {
   openGenerativeUI: undefined,
   useSingleEndpoint: undefined,
   a2ui: undefined,
+  mcpApps: undefined,
   enableInspector: undefined,
 });
 
@@ -440,8 +449,9 @@ const builtInActivityRenderers = computed<
     {
       activityType: MCPAppsActivityType,
       content: MCPAppsActivityContentSchema as unknown as z.ZodSchema<unknown>,
-      render:
-        MCPAppsActivityRenderer as unknown as VueActivityMessageRenderer<unknown>["render"],
+      render: (props.mcpApps?.allowSameOriginFallback
+        ? SameOriginMCPAppsActivityRenderer
+        : MCPAppsActivityRenderer) as unknown as VueActivityMessageRenderer<unknown>["render"],
     },
   ];
 

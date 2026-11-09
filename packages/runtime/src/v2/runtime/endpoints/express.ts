@@ -11,7 +11,7 @@ import type {
   ActivateChannelEngine,
   ChannelsControl,
 } from "../core/channel-manager";
-import { createExpressNodeHandler } from "./express-fetch-bridge";
+import { createCopilotNodeHandler } from "./node-fetch-handler";
 import { loadExpress } from "./load-express";
 import { autoStartChannels } from "./auto-start-channels";
 import type { CopilotRuntimeHooks } from "../core/hooks";
@@ -130,7 +130,7 @@ export interface CopilotExpressEndpointParams {
  * import { createCopilotExpressHandler } from "@copilotkit/runtime/v2/express";
  *
  * const runtime = new CopilotRuntime({
- *   agents: { default: new BuiltInAgent({ model: "openai/gpt-4o-mini" }) },
+ *   agents: { default: new BuiltInAgent({ model: "openai/gpt-6-luna" }) },
  * });
  *
  * const app = express();
@@ -182,7 +182,7 @@ export function createCopilotExpressHandler({
     __channelEngine,
   });
 
-  const nodeHandler = createExpressNodeHandler(handler);
+  const nodeHandler = createCopilotNodeHandler(handler);
 
   const expressHandler = async (
     req: ExpressRequest,

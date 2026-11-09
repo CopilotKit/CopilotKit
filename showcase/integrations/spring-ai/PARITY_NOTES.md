@@ -142,7 +142,7 @@ refusal, audioOutput, annotations` — there is **no `reasoning_content`
 - **multimodal** — the frontend sends image + PDF attachments through
   CopilotChat's `AttachmentsConfig`. Whether the adapter forwards them
   into Spring AI's `UserMessage.media()` surface is
-  integration-dependent; the Spring-AI model (`gpt-4.1`) is vision-capable
+  integration-dependent; the Spring-AI model (`gpt-6-luna`) is vision-capable
   on the provider side.
 
 - **mcp-apps** — the runtime wires the MCP Apps middleware with the public

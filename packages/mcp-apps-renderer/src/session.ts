@@ -7,7 +7,7 @@ import type { AbstractAgent } from "@ag-ui/client";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod";
 import { randomUUID } from "@copilotkit/shared";
-import { buildSandboxHTML } from "./sandbox";
+import { buildSandboxHTML, ɵmcpAppSandboxFlags } from "./sandbox";
 import {
   mcpAppsRequestQueue,
   MCP_APPS_QUEUE_IDLE_TIMEOUT_MS,
@@ -262,6 +262,16 @@ export interface McpAppSessionOptions {
   hostCapabilities?: Record<string, unknown>;
   /** Non-secret UI context announced to embedded MCP Apps. */
   hostContext?: Record<string, unknown>;
+  /**
+   * Restore `allow-same-origin` on the sandbox frames. Default `false`.
+   *
+   * **Unsafe.** The sandbox proxy is loaded via `srcdoc`, so with this flag the
+   * widget runs with the host page's origin: it can read the host's cookies,
+   * storage and DOM, and call the host's APIs as the signed-in user. Only set
+   * it for widgets you wrote and trust that genuinely need `localStorage`,
+   * `IndexedDB` or cookies. By default widgets get an opaque origin.
+   */
+  allowSameOriginFallback?: boolean;
 }
 
 /** Defaults every frontend inherits unless it overrides them. */
@@ -273,6 +283,7 @@ export const MCP_APPS_SESSION_DEFAULTS: Readonly<
   hostInfo: { name: "CopilotKit MCP Apps Host", version: "1.0.0" },
   hostCapabilities: { openLinks: {}, logging: {}, message: { text: {} } },
   hostContext: { platform: "web" },
+  allowSameOriginFallback: false,
 };
 
 /**
@@ -637,11 +648,10 @@ export function bindMcpApp(opts: BindMcpAppOptions): McpAppSession {
       if (disposed) return;
       hooks?.onResource?.(resource);
 
-      // Configure the sandbox iframe (contract shared across frontends).
-      iframe.setAttribute(
-        "sandbox",
-        "allow-scripts allow-same-origin allow-forms",
-      );
+      // Configure the sandbox iframe (contract shared across frontends). The
+      // same flags go to the widget frame in sandbox-resource-ready below.
+      const sandbox = ɵmcpAppSandboxFlags(settings.allowSameOriginFallback);
+      iframe.setAttribute("sandbox", sandbox);
       // Cross-frontend MCP-apps surface contract: every frontend must expose the
       // sandbox iframe under the SAME testid so one shared probe (harness
       // `d5-mcp-apps`) and one shared e2e spec can assert the surface mounted
@@ -717,7 +727,7 @@ export function bindMcpApp(opts: BindMcpAppOptions): McpAppSession {
           clearTimeout(sandboxTimer);
           sandboxTimer = undefined;
         }
-        void bridge?.sendSandboxResourceReady({ html }).then(() => {
+        void bridge?.sendSandboxResourceReady({ html, sandbox }).then(() => {
           if (!disposed) hooks?.onSandboxReady?.();
         });
       };

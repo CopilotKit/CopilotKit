@@ -24,7 +24,6 @@ from strands import tool
 from strands.types.tools import ToolContext
 from tools.a2ui_catalog import read_client_catalog, validate_client_surface
 
-# Shared implementation emits the A2UI v0.9 envelope detected by middleware.
 from tools import build_a2ui_operations_from_tool_call
 
 logger = logging.getLogger(__name__)
@@ -118,7 +117,8 @@ def generate_a2ui(context: str, tool_context: ToolContext) -> str:
     try:
         client = _openai_mod.OpenAI()
         response = client.chat.completions.create(
-            model="gpt-5-mini",
+            reasoning_effort="none",
+            model="gpt-6-luna",
             messages=[
                 {
                     "role": "system",

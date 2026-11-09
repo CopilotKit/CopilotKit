@@ -143,7 +143,7 @@ describe("CopilotKitCore error handling", () => {
         async runAgent(_params: any, subscriber?: any) {
           // Simulate the user pressing Stop mid-run. RunHandler intercepts
           // agent.abortRun to abort its AbortController, so this flips
-          // _runAbortController.signal.aborted before the terminal arrives.
+          // the agent's run abort signal before the terminal arrives.
           this.abortRun();
           await subscriber?.onRunErrorEvent?.({
             event: {

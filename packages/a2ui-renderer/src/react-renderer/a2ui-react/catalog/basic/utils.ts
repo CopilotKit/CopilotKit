@@ -23,7 +23,7 @@ export const LEAF_MARGIN = "8px";
 export const CONTAINER_PADDING = "16px";
 
 /** Standard border for cards and inputs. */
-export const STANDARD_BORDER = "1px solid #ccc";
+export const STANDARD_BORDER = "1px solid var(--a2ui-color-border, #ccc)";
 
 /** Standard border radius. */
 export const STANDARD_RADIUS = "8px";

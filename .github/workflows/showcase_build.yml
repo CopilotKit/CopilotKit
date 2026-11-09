@@ -40,7 +40,9 @@ on:
       - "packages/angular/**"
       - "packages/core/**"
       - "packages/shared/**"
+      - "packages/vue/**"
       - "packages/web-components/**"
+      - "packages/web-inspector/**"
       - ".github/workflows/showcase_build.yml"
       - ".github/workflows/showcase_build_check.yml"
   workflow_dispatch:
@@ -120,10 +122,17 @@ jobs:
       matrix: ${{ steps.build-matrix.outputs.matrix }}
       has_changes: ${{ steps.build-matrix.outputs.has_changes }}
       needs_angular: ${{ steps.build-matrix.outputs.needs_angular }}
+      needs_vue: ${{ steps.build-matrix.outputs.needs_vue }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
+
+      - name: Classify build and deploy workflow changes
+        id: workflow-impact
+        env:
+          BEFORE_SHA: ${{ github.event.before }}
+        run: node scripts/showcase-build-impact.mjs
 
       - name: Detect changed paths
         uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
@@ -135,7 +144,6 @@ jobs:
           # in the same filters block is easy to misread during review.
           filters: |
             workflow_config:
-              - '.github/workflows/showcase_build.yml'
               - '.github/workflows/showcase_build_check.yml'
             angular:
               - 'showcase/angular/**'
@@ -144,10 +152,19 @@ jobs:
               - 'packages/core/**'
               - 'packages/shared/**'
               - 'packages/web-components/**'
+            vue:
+              - 'showcase/vue/**'
+              - 'packages/core/**'
+              - 'packages/shared/**'
+              - 'packages/vue/**'
+              - 'packages/web-components/**'
+              - 'packages/web-inspector/**'
             shell:
               - 'showcase/shell/**'
               - 'showcase/shared/**'
-              - 'showcase/scripts/**'
+              # The release verifier runs in the promotion workflow, not these services.
+              - 'showcase/scripts/!(verify-prod-resweep.ts|verify-prod-resweep.test.ts|verify-prod-resweep-cli.test.ts)'
+              - 'showcase/scripts/*/**'
               - 'showcase/integrations/*/manifest.yaml'
             langgraph_python:
               - 'showcase/integrations/langgraph-python/**'
@@ -196,12 +213,16 @@ jobs:
             shell_dojo:
               - 'showcase/shell-dojo/**'
               - 'showcase/shared/**'
-              - 'showcase/scripts/**'
+              # The release verifier runs in the promotion workflow, not these services.
+              - 'showcase/scripts/!(verify-prod-resweep.ts|verify-prod-resweep.test.ts|verify-prod-resweep-cli.test.ts)'
+              - 'showcase/scripts/*/**'
               - 'showcase/integrations/*/manifest.yaml'
             shell_dashboard:
               - 'showcase/shell-dashboard/**'
               - 'showcase/shared/**'
-              - 'showcase/scripts/**'
+              # The release verifier runs in the promotion workflow, not these services.
+              - 'showcase/scripts/!(verify-prod-resweep.ts|verify-prod-resweep.test.ts|verify-prod-resweep-cli.test.ts)'
+              - 'showcase/scripts/*/**'
               - 'showcase/integrations/*/manifest.yaml'
               # The dashboard re-exports the harness's shared cell-model fold
               # (src/lib/{cell-model,live-status,staleness,format-ts}.ts →
@@ -215,7 +236,9 @@ jobs:
             shell_docs:
               - 'showcase/shell-docs/**'
               - 'showcase/shared/**'
-              - 'showcase/scripts/**'
+              # The release verifier runs in the promotion workflow, not these services.
+              - 'showcase/scripts/!(verify-prod-resweep.ts|verify-prod-resweep.test.ts|verify-prod-resweep-cli.test.ts)'
+              - 'showcase/scripts/*/**'
               - 'showcase/integrations/*/manifest.yaml'
               - 'showcase/integrations/*/docs-links.json'
               - 'showcase/integrations/*/docs/setup/**'
@@ -223,7 +246,9 @@ jobs:
             showcase_harness:
               - 'showcase/harness/**'
               - 'showcase/shared/**'
-              - 'showcase/scripts/**'
+              # The release verifier runs in the promotion workflow, not these services.
+              - 'showcase/scripts/!(verify-prod-resweep.ts|verify-prod-resweep.test.ts|verify-prod-resweep-cli.test.ts)'
+              - 'showcase/scripts/*/**'
               - 'showcase/integrations/*/manifest.yaml'
             showcase_aimock:
               - 'showcase/aimock/**'
@@ -250,6 +275,7 @@ jobs:
           GITHUB_SHA_ENV: ${{ github.sha }}
           GITHUB_REF_NAME_ENV: ${{ github.ref_name }}
           FILTER_CHANGES: ${{ steps.filter.outputs.changes }}
+          WORKFLOW_RUNTIME_CHANGED: ${{ steps.workflow-impact.outputs.changed }}
         run: |
           # Full service config as JSON
           # Fields: dispatch_name, filter_key, context, image, railway_id, timeout, lfs, build_args, build_args_sha, build_args_branch, dockerfile, health_path, skip_build
@@ -333,7 +359,7 @@ jobs:
           #   dispatch == <specific service>: narrow to that service only (skips paths-filter so
           #     drift-rebuild and manual single-service dispatches work regardless of $changes).
           #   dispatch == "": push event — include services whose filter_key appears in paths-filter CHANGES.
-          MATRIX=$(echo "$ALL_SERVICES" | jq -c --arg dispatch "$DISPATCH" --argjson changes "$CHANGES" --arg sha "$GITHUB_SHA_ENV" --arg ref "$GITHUB_REF_NAME_ENV" '
+          MATRIX=$(echo "$ALL_SERVICES" | jq -c --arg dispatch "$DISPATCH" --argjson changes "$CHANGES" --argjson workflow_changed "${WORKFLOW_RUNTIME_CHANGED:-false}" --arg sha "$GITHUB_SHA_ENV" --arg ref "$GITHUB_REF_NAME_ENV" '
             [.[] |
               if .build_args_sha == "__GH_SHA__" then .build_args_sha = $sha else . end |
               if .build_args_branch == "__GH_REF_NAME__" then .build_args_branch = $ref else . end |
@@ -341,9 +367,13 @@ jobs:
               $dispatch == "all" or
               ($dispatch != "" and $dispatch != "all" and $dispatch == .dispatch_name) or
               ($dispatch == "" and (
-                ($changes | index("workflow_config") != null) or
+                ($workflow_changed or ($changes | index("workflow_config") != null)) or
                 ($changes | index($fk) != null) or
                 (($changes | index("angular") != null) and (
+                  (.context | startswith("showcase/integrations/")) or
+                  .dispatch_name == "shell"
+                )) or
+                (($changes | index("vue") != null) and (
                   (.context | startswith("showcase/integrations/")) or
                   .dispatch_name == "shell"
                 ))
@@ -377,6 +407,7 @@ jobs:
 
           echo "matrix=$MATRIX" >> $GITHUB_OUTPUT
           echo "needs_angular=$(echo "$MATRIX" | jq -r 'any(.[]; (.context | startswith("showcase/integrations/")))')" >> $GITHUB_OUTPUT
+          echo "needs_vue=$(echo "$MATRIX" | jq -r 'any(.[]; (.context | startswith("showcase/integrations/")))')" >> $GITHUB_OUTPUT
           if [ "$MATRIX" = "[]" ]; then
             echo "has_changes=false" >> $GITHUB_OUTPUT
           else
@@ -404,9 +435,13 @@ jobs:
           node-version: 22.x
       - run: pnpm install --frozen-lockfile --ignore-scripts
 
+  # Live deployment eligibility must not block immutable image publication.
+  # Check both lanes, including pushes that change only starters.
   verify-image-refs:
-    needs: [detect-changes]
-    if: needs.detect-changes.outputs.has_changes == 'true'
+    needs: [detect-changes, detect-starter-changes]
+    if: >-
+      needs.detect-changes.outputs.has_changes == 'true'
+      || needs.detect-starter-changes.outputs.has_changes == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 3
     permissions:
@@ -480,8 +515,50 @@ jobs:
           if-no-files-found: error
           retention-days: 1
 
+  build-vue:
+    name: Build canonical Vue browser artifact
+    needs: [detect-changes]
+    if: needs.detect-changes.outputs.has_changes == 'true'
+    runs-on: ubuntu-26.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        if: needs.detect-changes.outputs.needs_vue == 'true'
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Setup pnpm
+        if: needs.detect-changes.outputs.needs_vue == 'true'
+        uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+
+      - name: Setup Node
+        if: needs.detect-changes.outputs.needs_vue == 'true'
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22.x
+
+      - name: Install
+        if: needs.detect-changes.outputs.needs_vue == 'true'
+        run: pnpm install --frozen-lockfile --ignore-scripts
+
+      - name: Build
+        if: needs.detect-changes.outputs.needs_vue == 'true'
+        run: pnpm nx build @copilotkit/showcase-vue-host
+
+      - name: Upload canonical Vue browser artifact
+        if: needs.detect-changes.outputs.needs_vue == 'true'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: showcase-vue-browser-${{ github.sha }}
+          path: showcase/vue/dist
+          if-no-files-found: error
+          retention-days: 1
+
   build:
-    needs: [detect-changes, check-lockfile, verify-image-refs, build-angular]
+    needs: [detect-changes, check-lockfile, build-angular, build-vue]
     if: needs.detect-changes.outputs.has_changes == 'true'
     runs-on: depot-ubuntu-24.04-4
     timeout-minutes: ${{ fromJSON(matrix.service.timeout) }}
@@ -520,6 +597,13 @@ jobs:
         with:
           name: showcase-angular-browser-${{ github.sha }}
           path: ${{ runner.temp }}/showcase-angular-browser
+
+      - name: Download canonical Vue browser artifact
+        if: startsWith(matrix.service.context, 'showcase/integrations/')
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: showcase-vue-browser-${{ github.sha }}
+          path: ${{ runner.temp }}/showcase-vue-browser
 
       - name: Setup Depot
         uses: depot/setup-action@91bc8495a33ebfc504ffc89e5674379ccf23c29c # v1
@@ -571,6 +655,7 @@ jobs:
       - name: Copy shared modules into build context
         env:
           ANGULAR_BROWSER: ${{ runner.temp }}/showcase-angular-browser
+          VUE_BROWSER: ${{ runner.temp }}/showcase-vue-browser
         run: |
           set -euo pipefail
           CONTEXT="${{ matrix.service.context }}"
@@ -611,6 +696,10 @@ jobs:
           if [ -L "$CONTEXT/public/angular" ]; then
             source showcase/scripts/cli/_common.sh
             stage_angular "$CONTEXT" "$ANGULAR_BROWSER"
+          fi
+          if [ -L "$CONTEXT/public/vue" ]; then
+            source showcase/scripts/cli/_common.sh
+            stage_vue "$CONTEXT" "$VUE_BROWSER"
           fi
 
       - name: Build and push
@@ -723,13 +812,17 @@ jobs:
         with:
           persist-credentials: false
 
+      - name: Classify build and deploy workflow changes
+        id: workflow-impact
+        env:
+          BEFORE_SHA: ${{ github.event.before }}
+        run: node scripts/showcase-build-impact.mjs
+
       - name: Detect changed starter paths
         uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
         id: filter
         with:
           filters: |
-            workflow_config:
-              - '.github/workflows/showcase_build.yml'
             langgraph_python:
               - 'examples/integrations/langgraph-python/**'
             mastra:
@@ -760,6 +853,7 @@ jobs:
         env:
           DISPATCH_SERVICE: ${{ github.event.inputs.service }}
           FILTER_CHANGES: ${{ steps.filter.outputs.changes }}
+          WORKFLOW_RUNTIME_CHANGED: ${{ steps.workflow-impact.outputs.changed }}
         run: |
           set -euo pipefail
           # One slot per starter. `slug` is the examples/integrations/<slug>
@@ -785,19 +879,19 @@ jobs:
           #   "starter-<slug>"          → that one starter (strip "starter-" prefix to match .image).
           #   "<showcase service slug>" → no starters (this is a showcase-only dispatch).
           #   "" (push event)           → starters whose filter_key appears in CHANGES
-          #                               (or workflow_config touched → rebuild all).
+          #                               (or build/deploy workflow changed → rebuild all).
           DISPATCH="${DISPATCH_SERVICE:-}"
           CHANGES="${FILTER_CHANGES:-[]}"
 
           # `.image` is exactly "starter-<slug>", which is also the
           # workflow_dispatch choice value, so a specific-starter dispatch
           # matches `$dispatch == .image` directly.
-          MATRIX=$(echo "$ALL_STARTERS" | jq -c --arg dispatch "$DISPATCH" --argjson changes "$CHANGES" '
+          MATRIX=$(echo "$ALL_STARTERS" | jq -c --arg dispatch "$DISPATCH" --argjson changes "$CHANGES" --argjson workflow_changed "${WORKFLOW_RUNTIME_CHANGED:-false}" '
             [.[] |
               (.filter_key as $fk | select(
               $dispatch == "all" or
               ($dispatch != "" and $dispatch != "all" and $dispatch == .image) or
-              ($dispatch == "" and (($changes | index("workflow_config") != null) or ($changes | index($fk) != null)))
+              ($dispatch == "" and (($workflow_changed or ($changes | index("workflow_config") != null)) or ($changes | index($fk) != null)))
             ))]
           ')
 
@@ -980,7 +1074,7 @@ jobs:
 
   redeploy-staging:
     name: Trigger Railway staging redeploy
-    needs: [detect-changes, build, aggregate-build-results]
+    needs: [detect-changes, build, aggregate-build-results, verify-image-refs]
     # Run if the WORKFLOW RUN was not cancelled, at least one service was
     # scheduled, AND at least one slot actually built
     # (aggregate-build-results.outputs.any_success). any_success is the
@@ -1004,6 +1098,10 @@ jobs:
     # succeed", so this job runs even when the build rollup is cancelled/
     # failure — as long as the RUN itself was not cancelled.
     #
+    # The live image-policy check must succeed before this job can advance
+    # :latest or redeploy. !cancelled() overrides implicit dependency-success
+    # gating, so the explicit result check below is required to fail closed.
+    #
     # Operator kill switch: the repo variable SHOWCASE_AUTO_REDEPLOY='false'
     # skips this job (no :latest advance, no Railway redeploy) and the
     # starters job below, for a controlled rollout. Unset = redeploy as usual.
@@ -1011,6 +1109,7 @@ jobs:
       ${{ !cancelled()
           && needs.detect-changes.outputs.has_changes == 'true'
           && needs.aggregate-build-results.outputs.any_success == 'true'
+          && needs.verify-image-refs.result == 'success'
           && vars.SHOWCASE_AUTO_REDEPLOY != 'false' }}
     runs-on: ubuntu-latest
     # 20, not the historical 5. This job no longer just POSTs to Railway: the
@@ -1160,6 +1259,9 @@ jobs:
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
           SERVICES_CSV: ${{ steps.changed.outputs.services }}
+          # Fresh docs deployment must select this build's image, then prove
+          # its exact deployment reaches SUCCESS and serves the new routes.
+          DOCS_EXPECTED_IMAGE: ghcr.io/copilotkit/showcase-shell-docs:${{ github.sha }}
           # Bridge the per-service redeploy summary to showcase_deploy.yml's
           # `enforce-redeploy-gate` (consumed via the `redeploy-summary`
           # artifact, extracted to `.redeploy/summary.json`). redeploy-env.ts
@@ -1167,52 +1269,16 @@ jobs:
           # parent dirs, so the step below mkdir's `.redeploy` first.
           REDEPLOY_SUMMARY_JSON: .redeploy/summary.json
         run: |
-          # Staging is non-blocking by design: the script always exits 0
-          # and writes per-service failures into $GITHUB_STEP_SUMMARY. The
-          # verify-deploy workflow is the real release gate.
+          # Docs verifies its exact deployment/image/routes and fails loud.
+          # Ordinary staging services still use verify-deploy as their gate.
           mkdir -p .redeploy
           npx tsx showcase/scripts/redeploy-env.ts staging --services "$SERVICES_CSV"
 
       - name: Upload redeploy summary
-        # Upload is MANDATORY whenever a redeploy was attempted (services
-        # != ''). Both failure modes red the build — no false-green path:
-        #
-        #   (A) HARD crash inside redeploy-env.ts BEFORE summary.json is
-        #       written. redeploy-env.ts writes the summary atomically
-        #       (.tmp → rename) AFTER the per-service loop completes, so
-        #       a crash leaves no file. The redeploy step itself exits
-        #       non-zero on that crash and fails the redeploy-staging
-        #       job; this upload step is then skipped entirely by
-        #       step-failure propagation. Build → red.
-        #
-        #   (B) redeploy step exits 0 but summary.json is absent (e.g. a
-        #       logic bug skipped the write). `if-no-files-found: error`
-        #       reds this step → reds the redeploy-staging job → reds the
-        #       build. The deploy workflow's resolve-matrix.if
-        #       (workflow_run.conclusion == 'success') then blocks the
-        #       deploy run from starting at all.
-        #
-        # Do NOT add hashFiles() guards here: that would silently skip
-        # the upload on (B), the deploy workflow would see "artifact
-        # absent" via check-redeploy-summary, treat it as "nothing
-        # redeployed", skip the gate, and ship a false-green.
-        # The legitimate "services == '' → nothing redeployed → no upload"
-        # path is preserved by the services != '' guard.
-        #
-        # If a future change ever switches this step to `if: always()`,
-        # `if-no-files-found: error` STILL reds path (A): the redeploy
-        # step's non-zero exit on a HARD crash is independent of upload
-        # gating, and `if-no-files-found: error` on `always()` then trips
-        # because summary.json was never written. So neither relaxation
-        # alone opens a false-green window.
-        #
-        # However, swapping the guard to `if: always()` would ALSO red the
-        # legitimate `services == ''` (nothing-to-redeploy) path — no
-        # summary.json is written there either, so `if-no-files-found:
-        # error` would trip on every push that didn't redeploy anything.
-        # Net effect: trades the (already-closed) false-green risk for a
-        # false-red on every non-buildable push. Don't do it.
-        if: steps.changed.outputs.services != ''
+        # Retain per-service receipts even when docs verification fails.
+        # An attempted deploy without a summary still fails the upload;
+        # an empty service set legitimately produces no artifact.
+        if: ${{ !cancelled() && steps.changed.outputs.services != '' }}
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           # Artifact name MUST stay `redeploy-summary`: showcase_deploy.yml's
@@ -1225,7 +1291,7 @@ jobs:
 
   redeploy-staging-starters:
     name: Trigger Railway staging redeploy (starters)
-    needs: [detect-starter-changes, build-starters]
+    needs: [detect-starter-changes, build-starters, verify-image-refs]
     # Starter analogue of `redeploy-staging`. The starter lane
     # (detect-starter-changes → build-starters) previously ENDED at the GHCR
     # push: a starter-only change (examples/integrations/<slug>/**) built a
@@ -1238,7 +1304,8 @@ jobs:
     # gap by redeploying — in STAGING only — exactly the starters that built
     # successfully.
     #
-    # Gate mirrors redeploy-staging:
+    # Gate mirrors redeploy-staging: successful live image policy and the
+    # operator kill switch are required before any :latest advance or deploy.
     #   - !cancelled()                               → don't fire when the
     #                                                   whole RUN was cancelled.
     #   - detect-starter-changes.has_changes=='true' → at least one starter in
@@ -1267,6 +1334,7 @@ jobs:
     if: >-
       ${{ !cancelled()
           && needs.detect-starter-changes.outputs.has_changes == 'true'
+          && needs.verify-image-refs.result == 'success'
           && vars.SHOWCASE_AUTO_REDEPLOY != 'false' }}
     runs-on: ubuntu-latest
     # 20, not the historical 5 — same reasoning as the sibling
@@ -1449,7 +1517,7 @@ jobs:
     # NO alert fired. `any_success == 'false'` (the artifact-derived signal the
     # redeploy fix uses) is the authoritative "nothing built" check, so we fire
     # on it directly. The `!= 'skipped'` clause still guards the case where the
-    # build job was SKIPPED (e.g. verify-image-refs failed upstream, so the
+    # build job was SKIPPED (e.g. check-lockfile failed upstream, so the
     # matrix never executed) — the aggregator is also skipped in that case,
     # and the sibling `notify` job already covers that
     # upstream red, so firing here too would be a misleading "all builds
@@ -1572,7 +1640,7 @@ jobs:
     # Cover the whole detect→build→aggregate→redeploy pipeline. `needs: [build]`
     # alone meant a failure in aggregate-build-results or redeploy-staging
     # produced ZERO Slack signal (verify just never ran). Likewise, a red
-    # in detect-changes, check-lockfile, or verify-image-refs would skip
+    # in detect-changes or check-lockfile would skip
     # `build` (skipped != failure) so the original `needs: [build]` form
     # also missed those pre-build red paths. Adding the early-stage jobs
     # to `needs` extends the alert surface to the full workflow, matching

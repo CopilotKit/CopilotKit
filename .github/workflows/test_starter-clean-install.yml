@@ -48,7 +48,7 @@ on:
     # ours to hang a trigger on.
     - cron: "0 5 * * *"
   pull_request:
-    branches: [main]
+    branches: [main, "[0-9]+.[0-9]+.[0-9]+"]
     paths:
       - "examples/integrations/**"
       - ".github/scripts/starter-clean-install.sh"
@@ -154,4 +154,4 @@ jobs:
           webhook: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}
           webhook-type: incoming-webhook
           payload: |
-            { "text": ${{ toJSON(format(':x: `[ci:{2}]` *Starter will not install from a clean state: {0}* — a developer cloning it today gets the same failure{4}<{1}/{2}/actions/runs/{3}|View run>', matrix.starter, github.server_url, github.repository, github.run_id, fromJSON('"\n"'))) }} }
+            { "text": ${{ toJSON(format(':x: `[ci:{2}]` *Starter CI failed: {0}*{4}<{1}/{2}/actions/runs/{3}|View run>', matrix.starter, github.server_url, github.repository, github.run_id, fromJSON('"\n"'))) }} }

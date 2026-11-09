@@ -1,37 +1,75 @@
-"""Real SDK schema and FileSessionManager round trips (no model/network calls)."""
+"""Real SDK tool calls and automatic session round trips without a provider."""
 
 import asyncio
+import json
 import sys
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
-import json
-
+from ag_ui.core import RunAgentInput, UserMessage
 from strands import Agent
-from strands.models.openai import OpenAIModel
+from strands.models.model import Model
 from strands.session.file_session_manager import FileSessionManager
-from strands.types.tools import ToolContext
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path[:0] = [str(ROOT / "src"), str(ROOT)]
 from agents.agent import (
+    build_showcase_agent,
     get_sales_todos,
     manage_sales_todos,
-    sales_state_from_args,
     sales_state_from_result,
 )
-from types import SimpleNamespace
 
 
-def context(agent, call="create"):
-    return ToolContext(
-        agent=agent,
-        tool_use={"toolUseId": call, "name": "manage_sales_todos", "input": {}},
-        invocation_state={},
-    )
+class TodoModel(Model):
+    """Read, replace the board, then finish through the real SDK tool executor."""
+
+    def __init__(self, todos, run_id):
+        self.calls = iter(
+            [
+                (f"{run_id}-read", "get_sales_todos", {}),
+                (f"{run_id}-write", "manage_sales_todos", {"todos": todos}),
+                None,
+            ]
+        )
+        self.model_calls = 0
+
+    def get_config(self):
+        return {}
+
+    def update_config(self, **kwargs):
+        pass
+
+    async def structured_output(self, *args, **kwargs):
+        raise NotImplementedError
+        yield
+
+    async def stream(self, *args, **kwargs):
+        call = next(self.calls)
+        self.model_calls += 1
+        yield {"messageStart": {"role": "assistant"}}
+        if call is None:
+            yield {"contentBlockDelta": {"delta": {"text": "Done."}}}
+            yield {"contentBlockStop": {}}
+            yield {"messageStop": {"stopReason": "end_turn"}}
+            return
+        call_id, name, arguments = call
+        yield {
+            "contentBlockStart": {
+                "start": {"toolUse": {"toolUseId": call_id, "name": name}}
+            }
+        }
+        yield {
+            "contentBlockDelta": {
+                "delta": {"toolUse": {"input": json.dumps(arguments)}}
+            }
+        }
+        yield {"contentBlockStop": {}}
+        yield {"messageStop": {"stopReason": "tool_use"}}
 
 
-def test_schema_and_durable_board(tmp_path):
+def test_board_schema():
     schema = manage_sales_todos.tool_spec["inputSchema"]["json"]
     item = schema["$defs"]["BoardTodoInput"]
     assert {"id", "title", "description", "emoji", "status"} <= item[
@@ -39,47 +77,125 @@ def test_schema_and_durable_board(tmp_path):
     ].keys()
     assert item["properties"]["status"]["enum"] == ["pending", "completed"]
     assert "title" in item["required"]
-    model = OpenAIModel(client_args={"api_key": "unused"}, model_id="gpt-4o")
 
+
+def test_tools_automatically_persist_board_and_history(tmp_path):
+    unrelated = {"customer": "Acme", "preferences": ["concise"]}
+    expected_calls = []
+
+    # Construct a new manager and Agent, without invoking either or syncing by hand.
     def restore(session):
-        manager = FileSessionManager(session_id=session, storage_dir=str(tmp_path))
         return Agent(
-            model=model,
-            session_manager=manager,
+            model=TodoModel([], "unused"),
+            session_manager=FileSessionManager(
+                session_id=session, storage_dir=str(tmp_path)
+            ),
             tools=[manage_sales_todos, get_sales_todos],
             callback_handler=None,
-        ), manager
-
-    agent, manager = restore("original")
-    todos = [
-        {"title": "Cedar", "description": "Follow up Cedar", "status": "pending"},
-        {"title": "Maple", "description": "Prepare Maple demo", "status": "pending"},
-    ]
-    manage_sales_todos(todos=todos, tool_context=context(agent))
-    saved = get_sales_todos(tool_context=context(agent))
-    assert (
-        saved
-        == asyncio.run(
-            sales_state_from_args(
-                SimpleNamespace(tool_input={"todos": todos}, tool_use_id="create")
-            )
-        )["todos"]
-    )
-    manager.sync_agent(agent)
-    restored, manager = restore("original")
-    assert get_sales_todos(tool_context=context(restored)) == saved
-    assert asyncio.run(
-        sales_state_from_result(
-            SimpleNamespace(result_data=get_sales_todos(tool_context=context(restored)))
         )
-    ) == {"todos": saved}
-    saved[0]["status"] = "completed"
-    manage_sales_todos(todos=saved, tool_context=context(restored, "update"))
-    manager.sync_agent(restored)
-    restarted, _ = restore("original")
-    assert get_sales_todos(tool_context=context(restarted)) == saved
-    fresh, _ = restore("other")
-    assert get_sales_todos(tool_context=context(fresh)) == []
+
+    def run(todos, run_id, previous):
+        model = TodoModel(todos, run_id)
+        # Rebuild the production factory each turn so its thread cache cannot
+        # stand in for restoring the last automatically saved session.
+        agent = build_showcase_agent(model=model)
+        agent.config.session_manager_provider = lambda inp: FileSessionManager(
+            session_id=inp.thread_id, storage_dir=str(tmp_path)
+        )
+        if run_id == "create":
+            agent.config.thread_agent_kwargs = lambda _: {
+                "state": {"unrelated": unrelated}
+            }
+        request = RunAgentInput(
+            thread_id="original",
+            run_id=run_id,
+            # Supplying expected todos here would mask a missing native write.
+            state={},
+            context=[],
+            messages=[
+                UserMessage(id=run_id, role="user", content="Update the board")
+            ],
+            tools=[],
+        )
+
+        async def collect():
+            return [event async for event in agent.run(request)]
+
+        events = asyncio.run(collect())
+        assert not [event for event in events if event.type == "RUN_ERROR"]
+        assert events[-1].type == "RUN_FINISHED"
+        assert model.model_calls == 3
+        native = agent._agents_by_thread["original"]
+        saved = native.state.get("todos")
+        assert isinstance(saved, list)
+        snapshots = [
+            event.snapshot["todos"]
+            for event in events
+            if event.type == "STATE_SNAPSHOT" and "todos" in event.snapshot
+        ]
+        assert snapshots[0] == previous
+        assert snapshots[-1] == saved
+
+        restored = restore("original")
+        assert restored is not native
+        assert restored.state.get("todos") == saved
+        assert restored.state.get("unrelated") == unrelated
+        assert restored.messages == native.messages
+        calls = [
+            block["toolUse"]
+            for message in restored.messages
+            for block in message["content"]
+            if "toolUse" in block
+        ]
+        expected_calls.extend(
+            [
+                (f"{run_id}-read", "get_sales_todos"),
+                (f"{run_id}-write", "manage_sales_todos"),
+            ]
+        )
+        assert [(call["toolUseId"], call["name"]) for call in calls] == expected_calls
+        results = [
+            block["toolResult"]
+            for message in restored.messages
+            for block in message["content"]
+            if "toolResult" in block
+        ]
+        assert [result["toolUseId"] for result in results] == [
+            call[0] for call in expected_calls
+        ]
+        assert all(result["status"] == "success" for result in results)
+        assert json.loads(results[-2]["content"][0]["text"]) == previous
+        return saved
+
+    todos = [
+        {
+            "id": "cedar",
+            "title": "Cedar",
+            "description": "Follow up",
+            "emoji": "🌲",
+            "status": "pending",
+            "assignee": "Ada",
+        },
+        {
+            "title": "Maple",
+            "description": "Prepare demo",
+            "emoji": "🍁",
+            "status": "pending",
+        },
+    ]
+    saved = run(todos, "create", [])
+    assert saved[0] == todos[0]
+    generated_id = saved[1]["id"]
+    assert generated_id and generated_id != "cedar"
+    assert saved[1] == {**todos[1], "id": generated_id}
+    isolated = restore("other")
+    assert isolated.state.get() == {}
+    assert isolated.messages == []
+
+    replacement = [{**saved[1], "status": "completed", "assignee": "Grace"}]
+    updated = run(replacement, "replace", saved)
+    assert updated == replacement
+    assert run([], "clear", updated) == []
 
 
 @pytest.mark.parametrize("shape", ["native", "json", "blocks", "block"])

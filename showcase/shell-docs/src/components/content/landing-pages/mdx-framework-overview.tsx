@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import type { FrontendId } from "@/lib/frontend-options";
-import { buildAngularBackendOverview } from "@/lib/angular-backend-overview";
+import { buildAngularBackendOverview } from "@/lib/secondary-frontend-backend-overview";
 import { partnerShowcaseDemos } from "@/lib/partner-showcase-demos";
 import { DocsSetupWizard } from "@/components/docs-setup-wizard";
 

@@ -22,6 +22,7 @@ on:
       # PR that could break it — a change re-adding `:latest` to the push
       # would sail through untested.
       - ".github/workflows/showcase_build.yml"
+      - ".github/workflows/showcase_build_check.yml"
   push:
     branches: [main]
     paths:
@@ -37,6 +38,7 @@ on:
       - ".github/workflows/docs_promote.yml"
       - ".github/workflows/showcase_promote.yml"
       - ".github/workflows/showcase_build.yml"
+      - ".github/workflows/showcase_build_check.yml"
 
 # Least-privilege by default. Individual jobs/steps can widen when needed.
 permissions:
@@ -812,11 +814,11 @@ jobs:
         with:
           node-version: 22
 
-      - name: Run showcase package Python unit tests
-        # Keep scope narrow: only showcase/integrations/*/tests/python/ directories
-        # (not e2e, not langgraph which has its own runtime). Each package has
-        # its own conftest.py that wires up import paths; we cd into the pkg
-        # dir so those apply.
+      - name: Run showcase package Python tests
+        # Keep scope narrow: showcase/integrations/*/tests/python/ directories
+        # and Strands tests/native/ (not e2e or langgraph's own runtime). Each
+        # package has its own conftest.py that wires up import paths; we cd into
+        # the pkg dir so those apply.
         #
         # Each package runs in its own virtual environment, which holds the
         # test deps plus that package's own `requirements.txt` (if present), so
@@ -912,6 +914,18 @@ jobs:
             # a conftest.py omits the sys.path setup. Mirrors the local dev
             # convention (`PYTHONPATH=. python ...` in package.json scripts).
             (cd "$pkg_dir" && env $pkg_extra_env PYTHONPATH=".:src:${PYTHONPATH:-}" "$pkg_python" -m pytest tests/python/ -v) || failed=1
+            if [ "$pkg" = "crewai-crews" ] || [ "$pkg" = "crewai-conversational-flows" ]; then
+              # Run the shared wire contract in the real SDK environment. The
+              # shared-tools venv below has no CrewAI and would skip this test.
+              "$pkg_python" -m pytest showcase/shared/python/tests/test_reasoning_chain_requests.py \
+                -k "$pkg" -v || failed=1
+            fi
+            if [ "$pkg" = "strands" ]; then
+              # A fresh process keeps tests/python/conftest.py's SDK substitutes
+              # out of the real SDK tool execution and session persistence gate.
+              echo "--- pytest native: $pkg ---"
+              (cd "$pkg_dir" && env PYTHONPATH=".:src:${PYTHONPATH:-}" "$pkg_python" -m pytest tests/native/ -v) || failed=1
+            fi
           done
           if [ "$found" -eq 0 ]; then
             echo "::warning::No showcase/integrations/*/tests/python/ directories found"
@@ -929,6 +943,19 @@ jobs:
           python -m venv "$venv"
           "$venv/bin/python" -m pip install --quiet -r showcase/shared/python/requirements-test.txt
           "$venv/bin/python" -m pytest showcase/shared/python/tests -v
+
+      - name: Verify LangGraph model requests with its real SDKs
+        if: ${{ !cancelled() && matrix.python-version == '3.12' }}
+        run: |
+          set -euo pipefail
+          venv="${RUNNER_TEMP}/showcase-venv-langgraph-requests"
+          python -m venv "$venv"
+          # Use the integration's versions for the SDKs these builders import.
+          grep -E '^(copilotkit|ag-ui-protocol|ag-ui-langgraph|langchain|langchain-openai|langgraph|deepagents|openai)(==|>=)' \
+            showcase/integrations/langgraph-python/requirements.txt > "$venv/requirements.txt"
+          "$venv/bin/python" -m pip install --quiet pytest -r "$venv/requirements.txt"
+          "$venv/bin/python" -m pytest showcase/integrations/langgraph-python/tests/test_model_overrides.py -v
+          "$venv/bin/python" -m pytest showcase/shared/python/tests/test_reasoning_chain_requests.py -k langgraph-python -v
 
   notify:
     # Slack #oss-alerts on any red. Never #engr (engr is sacred — release alerts only).

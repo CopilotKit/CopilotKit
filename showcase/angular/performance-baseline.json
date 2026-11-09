@@ -1,21 +1,24 @@
 {
   "schemaVersion": 1,
-  "sourceRevision": "checkpoint-3-shared-build",
-  "command": "pnpm --dir showcase/angular build",
+  "sourceRevision": "37b8283e4105f712f5406875d78433e914617701",
+  "command": "pnpm nx run @copilotkit/showcase-angular-host:build --skip-nx-cache",
   "initial": {
     "files": [
-      "chunk-GS43XRUT.js",
-      "chunk-NC6MS2JP.js",
-      "chunk-NMZXQPLZ.js",
-      "chunk-PG5SRZL2.js",
-      "chunk-PRARYYF3.js",
-      "chunk-XP3W3O3Q.js",
-      "main-MONXHJZQ.js",
-      "styles-EC4YU4UO.css"
+      "chunk-ATLRY6HR.js",
+      "chunk-ETQU2SHK.js",
+      "chunk-GCVC2KI5.js",
+      "chunk-ITNJNRDP.js",
+      "chunk-JZTJ4MUG.js",
+      "chunk-SOHJ7QGG.js",
+      "chunk-TJS4I6JO.js",
+      "chunk-USOD3V74.js",
+      "chunk-VSN3FBHC.js",
+      "main-MCBY6RPZ.js",
+      "styles-K76BGNVN.css"
     ],
-    "rawBytes": 1410261,
-    "gzipBytes": 199367,
-    "brotliBytes": 160459
+    "rawBytes": 1913989,
+    "gzipBytes": 316283,
+    "brotliBytes": 257383
   },
   "maximumRelativeRegression": 0.1,
   "absoluteCapBytes": 4600000,
@@ -51,5 +54,10 @@
         "passed": true
       }
     }
+  },
+  "bundleComparison": {
+    "baseInitialRawBytes": 1586633,
+    "reason": "@a2ui/web_core 0.10.4 to 0.15.0: shared multi-version processor/catalog/schema validation, regex safety, and upstream basic-catalog web components.",
+    "baseCommit": "e43fc79354f4734ce096643a44d8c4df4f60a81e"
   }
 }
