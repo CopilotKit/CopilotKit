@@ -55,7 +55,7 @@ Before writing anything, find where docs live.
 
 1. Look for a docs folder. Check `docs/` first, then `documentation/`, `content/docs/`, `site/`, `website/docs/`.
 2. Found nothing? Ask the user where docs should go. Do not guess and do not create a folder on a hunch.
-3. Open 2 or 3 existing pages near where the new content belongs. Read them for copy, structure, frontmatter fields, and components. Note the apparent tone as a *candidate* for the tone gate. Do not adopt it yet.
+3. Open 2 or 3 existing pages near where the new content belongs. Read them for copy, structure, frontmatter fields, and components. Note the apparent tone as a _candidate_ for the tone gate. Do not adopt it yet.
 4. Note which components the site already uses (steps, tabs, callouts, cards, accordions, code groups, and so on). Different sites have different ones.
 5. Reuse those components to tell the story. If the site has a steps component, use it for walkthroughs. If it has tabs, use them for framework variations. If the site has none, use plain markdown. Never invent a component the site does not have.
 
@@ -178,7 +178,7 @@ These are not skips:
 - "The site already has a voice."
 - "Tone does not matter for a reference page."
 - "I'll match neighbors and mention it later."
-</HARD-GATE>
+  </HARD-GATE>
 
 ## Phase 2: write like a human
 
@@ -366,30 +366,30 @@ Then run the `simple-english` self-check on the same added text.
 
 ## Red flags
 
-| You catch yourself | Do instead |
-|---|---|
-| Opening with an API signature or config before the problem | Name the problem the reader has first, then the one-line fix, then the code. |
-| Writing three paragraphs before any code | Cut to one sentence plus a snippet. Show it. |
-| Writing a sentence that names two or more things and explains each | Make it a bulleted list, one item per bullet. |
-| A paragraph with commas or semicolons separating a set of options/stores/flags | Same fix: that is a list, format it as one. |
-| Cramming every angle into one page | Split into short linked pages, one job each. |
-| "In this guide we will explore..." | Delete it. Start with the reader's state and goal. |
-| "Let me describe what this component does" | Describe what the reader does with it. |
-| Reaching for an em dash | Rewrite with a comma, period, or parentheses. |
-| "The surrounding pages do X, so I will too" where X breaks a rule here | Match neighbors on structure only. Follow this skill on everything it covers, and raise the existing violations as their own cleanup. |
-| Using a big word (utilize, leverage, facilitate) | Swap in the plain word. `simple-english` owns this. |
-| One page for everyone | Name the readers. Give each a path or a page. Show the list. Stop. |
-| Posting a snippet "they can adapt" | Make it complete and runnable. |
-| Guessing where docs go | Find the docs folder, or ask. Read neighbors first. |
-| Calling a feature done with no doc change | If behavior changed, docs change too. Write them before you finish. |
-| Planning a feature without a doc-impact list | Add the list of new and changed docs to the plan. Name the reader for each page. |
-| "Unlike the old X, this now..." / "we renamed X to Y" | The reader never saw X. Describe only what ships now. |
-| "we chose Y over zod because..." / "X is no longer needed" | Cut the rejected alternative. Document only what shipped, no comparison. |
-| Warning readers not to do a thing they never knew was possible (e.g. "don't pass locks as a store") | Delete it. If they never saw the old arrangement, the warning only confuses. Describe the thing in its own terms. |
-| Inventing a component the site lacks | Use only components the site already has. |
-| Skipping the persona message because readers are obvious | Show the list in the chat. Stop. Obvious is not a skip. |
-| Putting the reader list or the tone line only inside a question tool | The user is asked to confirm text they cannot see | Write the full list, or the tone line, in the chat message. The tool may ask only the short choice, and only after that text is visible. |
-| Skipping the tone question because neighbors have a voice | Neighbors are the proposed default. Write the tone in the chat. Ask. Then stop. |
-| Writing pages without loading simple-english and i-have-adhd | Load both. If either is missing, stop. |
-| Treating "write the docs" as permission to skip the gates | Writing docs is why the gates exist. |
-| Listing personas inside a larger plan and continuing | That is not the gate. The gate is a dedicated message that ends the turn. |
+| You catch yourself                                                                                  | Do instead                                                                                                                            |
+| --------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| Opening with an API signature or config before the problem                                          | Name the problem the reader has first, then the one-line fix, then the code.                                                          |
+| Writing three paragraphs before any code                                                            | Cut to one sentence plus a snippet. Show it.                                                                                          |
+| Writing a sentence that names two or more things and explains each                                  | Make it a bulleted list, one item per bullet.                                                                                         |
+| A paragraph with commas or semicolons separating a set of options/stores/flags                      | Same fix: that is a list, format it as one.                                                                                           |
+| Cramming every angle into one page                                                                  | Split into short linked pages, one job each.                                                                                          |
+| "In this guide we will explore..."                                                                  | Delete it. Start with the reader's state and goal.                                                                                    |
+| "Let me describe what this component does"                                                          | Describe what the reader does with it.                                                                                                |
+| Reaching for an em dash                                                                             | Rewrite with a comma, period, or parentheses.                                                                                         |
+| "The surrounding pages do X, so I will too" where X breaks a rule here                              | Match neighbors on structure only. Follow this skill on everything it covers, and raise the existing violations as their own cleanup. |
+| Using a big word (utilize, leverage, facilitate)                                                    | Swap in the plain word. `simple-english` owns this.                                                                                   |
+| One page for everyone                                                                               | Name the readers. Give each a path or a page. Show the list. Stop.                                                                    |
+| Posting a snippet "they can adapt"                                                                  | Make it complete and runnable.                                                                                                        |
+| Guessing where docs go                                                                              | Find the docs folder, or ask. Read neighbors first.                                                                                   |
+| Calling a feature done with no doc change                                                           | If behavior changed, docs change too. Write them before you finish.                                                                   |
+| Planning a feature without a doc-impact list                                                        | Add the list of new and changed docs to the plan. Name the reader for each page.                                                      |
+| "Unlike the old X, this now..." / "we renamed X to Y"                                               | The reader never saw X. Describe only what ships now.                                                                                 |
+| "we chose Y over zod because..." / "X is no longer needed"                                          | Cut the rejected alternative. Document only what shipped, no comparison.                                                              |
+| Warning readers not to do a thing they never knew was possible (e.g. "don't pass locks as a store") | Delete it. If they never saw the old arrangement, the warning only confuses. Describe the thing in its own terms.                     |
+| Inventing a component the site lacks                                                                | Use only components the site already has.                                                                                             |
+| Skipping the persona message because readers are obvious                                            | Show the list in the chat. Stop. Obvious is not a skip.                                                                               |
+| Putting the reader list or the tone line only inside a question tool                                | The user is asked to confirm text they cannot see                                                                                     | Write the full list, or the tone line, in the chat message. The tool may ask only the short choice, and only after that text is visible. |
+| Skipping the tone question because neighbors have a voice                                           | Neighbors are the proposed default. Write the tone in the chat. Ask. Then stop.                                                       |
+| Writing pages without loading simple-english and i-have-adhd                                        | Load both. If either is missing, stop.                                                                                                |
+| Treating "write the docs" as permission to skip the gates                                           | Writing docs is why the gates exist.                                                                                                  |
+| Listing personas inside a larger plan and continuing                                                | That is not the gate. The gate is a dedicated message that ends the turn.                                                             |
