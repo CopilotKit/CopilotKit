@@ -12,6 +12,24 @@ import type { SurfaceModel, ComponentModel } from "@a2ui/web_core/v0_9";
 import type { VueComponentImplementation } from "./adapter";
 
 /**
+ * Whether this is a production build. Bundlers replace
+ * `process.env.NODE_ENV`; a page that loads this package without a bundler
+ * (an import map or an ESM CDN) usually has no `process` global, and that
+ * counts as production, so an end user never sees a developer diagnostic and
+ * reading it never throws. Same check as the React renderer's
+ * `isProductionBuild`: try/catch rather than `typeof process`, because Vite
+ * and webpack 5 define NODE_ENV without a `process` global and a
+ * `typeof process` test would hide the diagnostic in their development builds.
+ */
+function isProductionBuild(): boolean {
+  try {
+    return process.env.NODE_ENV === "production";
+  } catch {
+    return true;
+  }
+}
+
+/**
  * DeferredChild — Vue equivalent of the React DeferredChild.
  * Subscribes to component create/delete events and renders the
  * appropriate catalog component via the GenericBinder adapter.
@@ -88,7 +106,7 @@ const DeferredChild = defineComponent({
 
       if (!compImpl) {
         // Only developers can act on this; end users must see nothing.
-        if (process.env.NODE_ENV !== "production") {
+        if (!isProductionBuild()) {
           return h(
             "div",
             { style: { color: "red" } },

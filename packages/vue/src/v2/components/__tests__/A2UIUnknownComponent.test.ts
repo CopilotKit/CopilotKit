@@ -77,6 +77,7 @@ function renderSurface() {
 describe("unknown component types", () => {
   afterEach(() => {
     vi.unstubAllEnvs();
+    vi.unstubAllGlobals();
   });
 
   it("renders nothing for an unknown type in production, keeping its siblings", async () => {
@@ -86,6 +87,16 @@ describe("unknown component types", () => {
     await waitFor(() => expect(getByText("Before")).toBeDefined());
     expect(isNextSibling(getByText("Before"), getByText("After"))).toBe(true);
     expect(container.textContent).not.toContain("NotInCatalog");
+    expect(container.textContent).not.toContain("Unknown component");
+  });
+
+  it("treats a page without a process global as production", async () => {
+    vi.stubGlobal("process", undefined);
+    const { container, getByText } = renderSurface();
+
+    await waitFor(() => expect(getByText("Before")).toBeDefined());
+    vi.unstubAllGlobals();
+    expect(isNextSibling(getByText("Before"), getByText("After"))).toBe(true);
     expect(container.textContent).not.toContain("Unknown component");
   });
 
