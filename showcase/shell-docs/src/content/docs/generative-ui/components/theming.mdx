@@ -44,6 +44,10 @@ Every color, radius, shadow, and font of the standard components is a CSS variab
 
 The keys are typed. A name that the components do not read, such as `"--a2ui-color-acent"`, is a type error.
 
+<Callout type="info" title="React Native">
+  React Native has no standard catalog and no CSS variables, so its `GenerativeUIProvider` has no `theme` prop: passing one is a type error, and a `theme` passed from JavaScript, or through a cast, is dropped, with a warning in development. Style the components of your own catalog with `StyleSheet`, as you style the rest of your app. See [Generative UI with your own components](/react-native#generative-ui-with-your-own-components).
+</Callout>
+
 ## The variables
 
 | Group | Variables |
