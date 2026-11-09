@@ -299,10 +299,10 @@ export function CopilotChat({
   const pinMessage = useCallback((id: string) => {
     setLastUserMessageState((pin) => ({ id, sendNonce: pin.sendNonce + 1 }));
   }, []);
-  // The last user message id already pinned as a message: the effect below
-  // pins a new last user message unless this already names it. Seeded with
-  // the current value so restoring a thread with existing messages does not
-  // count as a new send.
+  // The last user message in the list that a pin already accounts for: the
+  // effect below pins a new last user message unless this already names it.
+  // Seeded with the current value so restoring a thread with existing
+  // messages does not count as a new send.
   const pinnedUserMessageIdRef = useRef(lastUserMessageState.id);
   // A send the chat makes is pinned here, not by the effect that watches the
   // messages, so pins keep the order of events: a message queued in the same
@@ -1044,6 +1044,9 @@ export function CopilotChat({
           ...q,
           { id: queuedId, role: "user", content: value },
         ]);
+        // A user message already in the list arrived before this one, even
+        // if it has not rendered yet: the effect below must not pin it after.
+        pinnedUserMessageIdRef.current = lastUserMessageIdOf(agent.messages);
         pinMessage(queuedId);
       }
 

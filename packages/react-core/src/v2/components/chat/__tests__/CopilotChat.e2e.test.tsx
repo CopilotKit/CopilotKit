@@ -1895,6 +1895,25 @@ describe("CopilotChat E2E - Chat Basics and Streaming Patterns", () => {
       });
     });
 
+    it("pins a message queued after an app message that has not rendered yet", async () => {
+      const { agent, input, pins, idOf } = await renderWithRunInFlight();
+
+      fireEvent.change(input, { target: { value: "Typed after" } });
+      await act(async () => {
+        // A user message the app adds itself, outside the chat's own sends.
+        agent.addMessage({ id: "from-app", role: "user", content: "From app" });
+        // A raw keydown, so the app's message has not rendered yet.
+        input.dispatchEvent(
+          new KeyboardEvent("keydown", { key: "Enter", bubbles: true }),
+        );
+      });
+
+      await waitFor(() => {
+        expect(screen.getByText("From app")).toBeDefined();
+        expect(pins[pins.length - 1]!.id).toBe(idOf("Typed after"));
+      });
+    });
+
     it("does not pin when a queued message is dropped unsent", async () => {
       // The input's disclaimer renders whether or not any message does.
       const { pins, PinRecorder } = recordPins();
