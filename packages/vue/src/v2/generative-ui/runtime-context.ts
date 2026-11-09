@@ -93,8 +93,8 @@ export interface GenerativeUIMarkdownConfig extends GenerativeUIBaseConfig {
  *
  * @example
  * ```vue
- * <CopilotKitProvider :generative-ui="{ ui }" />
- * <CopilotKitProvider :generative-ui="{ ui, transport: 'markdown', sendContext: false }" />
+ * <CopilotKitProvider :generativeUI="{ ui }" />
+ * <CopilotKitProvider :generativeUI="{ ui, transport: 'markdown', sendContext: false }" />
  * ```
  */
 export type GenerativeUIConfig =
@@ -104,7 +104,7 @@ export type GenerativeUIConfig =
 export interface GenerativeUIRuntime {
   manager: GenerativeUISurfaceManager;
   dispatcher: GenerativeUIDispatcher;
-  /** The generative UI given to the provider as `:generative-ui="{ ui }"`. */
+  /** The generative UI given to the provider as `:generativeUI="{ ui }"`. */
   ui: GenerativeUI;
   /** How the model sends operations. "tool" when the config leaves it out. */
   transport: "tool" | "markdown";
@@ -150,7 +150,7 @@ export function useGenerativeUIRuntime() {
 }
 
 const MISSING_RUNTIME_MESSAGE =
-  'Generative UI components must be rendered inside <CopilotKitProvider :generative-ui="{ ui }">.';
+  'Generative UI components must be rendered inside <CopilotKitProvider :generativeUI="{ ui }">.';
 
 /**
  * The generative UI runtime of the nearest provider, as a read-only ref

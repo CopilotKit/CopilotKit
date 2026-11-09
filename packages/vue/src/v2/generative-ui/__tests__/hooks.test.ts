@@ -181,7 +181,7 @@ describe("useGenerativeUIFunction (Vue-specific semantics)", () => {
     });
 
     expect(() => render(Coupon)).toThrow(
-      'Generative UI components must be rendered inside <CopilotKitProvider :generative-ui="{ ui }">.',
+      'Generative UI components must be rendered inside <CopilotKitProvider :generativeUI="{ ui }">.',
     );
   });
 

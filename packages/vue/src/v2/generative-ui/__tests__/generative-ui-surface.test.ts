@@ -207,7 +207,7 @@ describe("GenerativeUISurface autoScroll", () => {
 
 // Ported from React's ssr.test.tsx. The Vue provider gets its
 // `generativeUI` prop in a later change, so the root composable that the
-// provider runs stands in for `<CopilotKitProvider :generative-ui>` here.
+// provider runs stands in for `<CopilotKitProvider :generativeUI>` here.
 describe("generative UI server rendering", () => {
   it("renders the fallback of a GenerativeUISurface inside the provider", async () => {
     const copilotkit = new CopilotKitCoreVue({});

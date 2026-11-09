@@ -24,7 +24,7 @@ import { CapturingAgent, runOnce } from "./helpers/capturing-agent";
 // The context cases of React's markdown-transport.test.tsx. The Vue
 // provider gets its `generativeUI` prop in a later change, so the root
 // composable that the provider runs stands in for `<CopilotKitProvider
-// :generative-ui>`, as Angular's "markdown transport context" cases do.
+// :generativeUI>`, as Angular's "markdown transport context" cases do.
 // The rendering cases need `CopilotChat` and move here with the provider
 // wiring; `markdown-surfaces.test.ts` covers them at the component boundary.
 

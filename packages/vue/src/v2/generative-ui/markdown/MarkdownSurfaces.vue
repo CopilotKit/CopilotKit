@@ -23,7 +23,7 @@ export interface MarkdownSurfacesProps {
  *   an earlier fence, or a fence for a named target, which
  *   `<GenerativeUISurface id>` renders.
  *
- * Use it inside `<CopilotKitProvider :generative-ui="{ ui, transport: 'markdown' }">`.
+ * Use it inside `<CopilotKitProvider :generativeUI="{ ui, transport: 'markdown' }">`.
  * `CopilotChatAssistantMessage` uses it there on its own.
  *
  * @example

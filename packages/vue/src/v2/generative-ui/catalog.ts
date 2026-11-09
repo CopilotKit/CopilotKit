@@ -54,7 +54,7 @@ export type ResolvedGenerativeUIComponent =
 /**
  * Experimental. The result of `createGenerativeUI`: the components the model
  * can render, the app state they read, and the functions they call. Give it
- * to the provider (`:generative-ui="{ ui }"`) and to the typed composables.
+ * to the provider (`:generativeUI="{ ui }"`) and to the typed composables.
  */
 export type GenerativeUI<
   Definitions extends GenerativeUIDefinitions = GenerativeUIDefinitions,
