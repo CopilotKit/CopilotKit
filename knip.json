@@ -45,7 +45,8 @@
         "browser/**/*.{ts,tsx,mjs}",
         "browser-tests/**/*.{ts,tsx,mjs}",
         "dev/**/*.ts",
-        "type-fixtures/**/*.ts"
+        "type-fixtures/**/*.ts",
+        "vitest.mutation.config.mjs"
       ],
       "ignore": ["scripts/__tests__/fixtures/**"]
     },
@@ -88,7 +89,8 @@
         "browser/**/*.{ts,tsx,mjs}",
         "browser-tests/**/*.{ts,tsx,mjs}",
         "dev/**/*.ts",
-        "type-fixtures/**/*.ts"
+        "type-fixtures/**/*.ts",
+        "vitest.mutation.config.mjs"
       ],
       "ignore": ["scripts/__tests__/fixtures/**"],
       "ignoreDependencies": ["phoenix"]

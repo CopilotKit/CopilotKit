@@ -42,6 +42,11 @@
     "test:watch": {
       "cache": false
     },
+    "test:mutation": {
+      "dependsOn": ["^build"],
+      "cache": false,
+      "parallelism": false
+    },
     "test:coverage": {
       "inputs": ["test"],
       "outputs": ["{projectRoot}/coverage/**"],

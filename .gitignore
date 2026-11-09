@@ -94,3 +94,8 @@ tasks/
 .claude/scheduled_tasks.lock
 examples/starters/ms-agent-framework-dotnet/agent-tests/obj
 showcase/integrations/_shared/dotnet/tests/obj
+
+# Stryker mutation testing (scripts/mutation)
+.stryker-tmp
+**/reports/mutation
+**/stryker-setup-*.js

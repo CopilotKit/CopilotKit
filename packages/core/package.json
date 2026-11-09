@@ -45,6 +45,7 @@
     "check-types": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:mutation": "stryker run",
     "test:coverage": "vitest run --coverage",
     "publint": "publint .",
     "attw": "attw --pack . --profile node16 --exclude-entrypoints ./styles.css"
@@ -64,6 +65,8 @@
   },
   "devDependencies": {
     "@copilotkit/typescript-config": "workspace:*",
+    "@stryker-mutator/core": "10.1.1",
+    "@stryker-mutator/vitest-runner": "10.1.1",
     "@types/node": "^22.15.3",
     "@types/phoenix": "^1.6.6",
     "@types/ws": "^8.18.1",
