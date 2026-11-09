@@ -270,6 +270,42 @@ for (var index = 0; index < aliasEvents.Count; index++)
     if (aliasEvents[index]["type"]?.GetValue<string>() == "RUN_FINISHED") aliasFinished = index;
 }
 Check(aliasNames.SequenceEqual(new string?[] { "search" }) && aliasResult >= 0 && aliasFinished > aliasResult && aliasEvents[aliasResult]["content"]?.GetValue<string>() == "MCP tool discovery failed: beta__search", "a renamed tool discarded by discovery failure is not left pending");
+var rejectedPageWire = new RejectedPageFailHandler(); using var rejectedPageHttp = new HttpClient(rejectedPageWire);
+var rejectedPageSource = new SequenceAgent([
+    JsonNode.Parse("{\"type\":\"RUN_STARTED\"}")!.AsObject(),
+    JsonNode.Parse("{\"type\":\"TOOL_CALL_START\",\"toolCallId\":\"blocked\",\"toolCallName\":\"blocked_tool\"}")!.AsObject(),
+    JsonNode.Parse("{\"type\":\"RUN_FINISHED\"}")!.AsObject()
+]);
+var rejectedPageFiltered = new McpAppServer { Url = new Uri("https://mcp.test/mcp"), ServerId = "filtered", IncludeTools = new[] { "keep_me" }, Headers = new Dictionary<string, string> { ["x-token"] = "filtered" } };
+var rejectedPageOpen = new McpAppServer { Url = new Uri("https://mcp.test/mcp"), ServerId = "open", Headers = new Dictionary<string, string> { ["x-token"] = "open" } };
+var rejectedPageEvents = new List<JsonObject>(); await foreach (var item in new McpAppsAgent(rejectedPageSource, [rejectedPageFiltered, rejectedPageOpen], rejectedPageHttp).RunAsync(input, CancellationToken.None)) rejectedPageEvents.Add(item);
+var rejectedPageNames = rejectedPageSource.Input!["tools"]!.AsArray().Select(tool => tool?["name"]?.GetValue<string>()).ToArray();
+var blockedResult = -1; var blockedFinished = -1;
+for (var index = 0; index < rejectedPageEvents.Count; index++)
+{
+    if (rejectedPageEvents[index]["toolCallId"]?.GetValue<string>() == "blocked" && rejectedPageEvents[index]["type"]?.GetValue<string>() == "TOOL_CALL_RESULT") blockedResult = index;
+    if (rejectedPageEvents[index]["type"]?.GetValue<string>() == "RUN_FINISHED") blockedFinished = index;
+}
+Check(rejectedPageWire.FilteredLists == 2 && rejectedPageNames.SequenceEqual(new string?[] { "other_tool" }) && blockedResult >= 0 && blockedFinished > blockedResult && rejectedPageEvents[blockedResult]["content"]?.GetValue<string>() == "MCP tool is not allowed: blocked_tool", "a rejected name survives a later page failure when the other server has no route");
+var cutoffWire = new CutoffAllowlistHandler(); using var cutoffHttp = new HttpClient(cutoffWire);
+var cutoffSource = new SequenceAgent([
+    JsonNode.Parse("{\"type\":\"RUN_STARTED\"}")!.AsObject(),
+    JsonNode.Parse("{\"type\":\"TOOL_CALL_START\",\"toolCallId\":\"omitted\",\"toolCallName\":\"omitted_tool\"}")!.AsObject(),
+    JsonNode.Parse("{\"type\":\"TOOL_CALL_START\",\"toolCallId\":\"open\",\"toolCallName\":\"open_tool\"}")!.AsObject(),
+    JsonNode.Parse("{\"type\":\"TOOL_CALL_ARGS\",\"toolCallId\":\"open\",\"delta\":\"{}\"}")!.AsObject(),
+    JsonNode.Parse("{\"type\":\"RUN_FINISHED\"}")!.AsObject()
+]);
+var cutoffFiltered = new McpAppServer { Url = new Uri("https://mcp.test/mcp"), ServerId = "filtered", IncludeTools = new[] { "wanted" }, Headers = new Dictionary<string, string> { ["x-token"] = "filtered" } };
+var cutoffOpen = new McpAppServer { Url = new Uri("https://mcp.test/mcp"), ServerId = "open", Headers = new Dictionary<string, string> { ["x-token"] = "open" } };
+var cutoffEvents = new List<JsonObject>(); await foreach (var item in new McpAppsAgent(cutoffSource, [cutoffFiltered, cutoffOpen], cutoffHttp).RunAsync(input, CancellationToken.None)) cutoffEvents.Add(item);
+var cutoffNames = cutoffSource.Input!["tools"]!.AsArray().Select(tool => tool?["name"]?.GetValue<string>()).ToArray();
+var omittedResult = -1; var omittedFinished = -1;
+for (var index = 0; index < cutoffEvents.Count; index++)
+{
+    if (cutoffEvents[index]["toolCallId"]?.GetValue<string>() == "omitted" && cutoffEvents[index]["type"]?.GetValue<string>() == "TOOL_CALL_RESULT") omittedResult = index;
+    if (cutoffEvents[index]["type"]?.GetValue<string>() == "RUN_FINISHED") omittedFinished = index;
+}
+Check(cutoffNames.SequenceEqual(new string?[] { "wanted", "open_tool" }) && cutoffWire.ToolCalls.SequenceEqual(new[] { "open_tool" }) && omittedResult >= 0 && omittedFinished > omittedResult && cutoffEvents[omittedResult]["content"]?.GetValue<string>() == "MCP tool is not allowed: omitted_tool", "an allowlist omission past the scan cutoff is rejected when no server exposes it");
 await TelemetryTests.RunAsync();
 await ReviewTests.RunAsync();
 await RunnerTests.RunAsync();
@@ -456,6 +492,66 @@ sealed class SplitPageFailHandler : HttpMessageHandler
         var result = method == "tools/list"
             ? JsonNode.Parse("{\"tools\":[{\"name\":\"search\",\"description\":\"Search\",\"inputSchema\":{\"type\":\"object\"},\"_meta\":{\"ui\":{\"resourceUri\":\"ui://search\"}}}]}")
             : JsonNode.Parse("{\"protocolVersion\":\"2025-03-26\",\"capabilities\":{},\"serverInfo\":{\"name\":\"fixture\",\"version\":\"1\"}}");
+        var response = new HttpResponseMessage(System.Net.HttpStatusCode.OK) { Content = JsonContent.Create(new JsonObject { ["jsonrpc"] = "2.0", ["id"] = body["id"]!.DeepClone(), ["result"] = result }) };
+        if (method == "initialize") response.Headers.Add("Mcp-Session-Id", "session-" + token);
+        return response;
+    }
+}
+sealed class RejectedPageFailHandler : HttpMessageHandler
+{
+    public int FilteredLists { get; private set; }
+    protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+    {
+        if (request.Method == HttpMethod.Delete) return new HttpResponseMessage(System.Net.HttpStatusCode.NoContent);
+        var token = request.Headers.TryGetValues("x-token", out var tokens) ? tokens.Single() : "";
+        var body = JsonNode.Parse(await request.Content!.ReadAsStringAsync(cancellationToken))!;
+        var method = body["method"]!.GetValue<string>();
+        if (body["id"] is null) return new HttpResponseMessage(System.Net.HttpStatusCode.Accepted);
+        if (method == "tools/list" && token == "filtered")
+        {
+            FilteredLists++;
+            if (FilteredLists > 1) return new HttpResponseMessage(System.Net.HttpStatusCode.ServiceUnavailable);
+            var page = JsonNode.Parse("{\"tools\":[{\"name\":\"blocked_tool\",\"description\":\"Blocked\",\"inputSchema\":{\"type\":\"object\"},\"_meta\":{\"ui\":{\"resourceUri\":\"ui://blocked\"}}},{\"name\":\"keep_me\",\"description\":\"Keep\",\"inputSchema\":{\"type\":\"object\"},\"_meta\":{\"ui\":{\"resourceUri\":\"ui://keep\"}}}],\"nextCursor\":\"page-2\"}");
+            var partial = new HttpResponseMessage(System.Net.HttpStatusCode.OK) { Content = JsonContent.Create(new JsonObject { ["jsonrpc"] = "2.0", ["id"] = body["id"]!.DeepClone(), ["result"] = page }) };
+            partial.Headers.Add("Mcp-Session-Id", "session-filtered");
+            return partial;
+        }
+        var result = method == "tools/list"
+            ? JsonNode.Parse("{\"tools\":[{\"name\":\"other_tool\",\"description\":\"Other\",\"inputSchema\":{\"type\":\"object\"},\"_meta\":{\"ui\":{\"resourceUri\":\"ui://other\"}}}]}")
+            : JsonNode.Parse("{\"protocolVersion\":\"2025-03-26\",\"capabilities\":{},\"serverInfo\":{\"name\":\"fixture\",\"version\":\"1\"}}");
+        var response = new HttpResponseMessage(System.Net.HttpStatusCode.OK) { Content = JsonContent.Create(new JsonObject { ["jsonrpc"] = "2.0", ["id"] = body["id"]!.DeepClone(), ["result"] = result }) };
+        if (method == "initialize") response.Headers.Add("Mcp-Session-Id", "session-" + token);
+        return response;
+    }
+}
+sealed class CutoffAllowlistHandler : HttpMessageHandler
+{
+    public List<string> ToolCalls { get; } = [];
+    protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+    {
+        if (request.Method == HttpMethod.Delete) return new HttpResponseMessage(System.Net.HttpStatusCode.NoContent);
+        var token = request.Headers.TryGetValues("x-token", out var tokens) ? tokens.Single() : "";
+        var body = JsonNode.Parse(await request.Content!.ReadAsStringAsync(cancellationToken))!;
+        var method = body["method"]!.GetValue<string>();
+        if (body["id"] is null) return new HttpResponseMessage(System.Net.HttpStatusCode.Accepted);
+        JsonNode? result;
+        if (method == "tools/list" && token == "filtered")
+        {
+            var tools = new JsonArray();
+            for (var index = 0; index < 1001; index++)
+            {
+                var name = index == 999 ? "wanted" : index == 1000 ? "omitted_tool" : "tool-" + index;
+                tools.Add(new JsonObject { ["name"] = name, ["inputSchema"] = new JsonObject { ["type"] = "object" }, ["_meta"] = new JsonObject { ["ui"] = new JsonObject { ["resourceUri"] = "ui://t/" + index } } });
+            }
+            result = new JsonObject { ["tools"] = tools };
+        }
+        else if (method == "tools/list") result = JsonNode.Parse("{\"tools\":[{\"name\":\"open_tool\",\"description\":\"Open\",\"inputSchema\":{\"type\":\"object\"},\"_meta\":{\"ui\":{\"resourceUri\":\"ui://open\"}}}]}");
+        else if (method == "tools/call")
+        {
+            ToolCalls.Add(A2UIValidation.Text(body["params"]?["name"]) ?? "");
+            result = JsonNode.Parse("{\"content\":[{\"type\":\"text\",\"text\":\"ok\"}]}");
+        }
+        else result = JsonNode.Parse("{\"protocolVersion\":\"2025-03-26\",\"capabilities\":{},\"serverInfo\":{\"name\":\"fixture\",\"version\":\"1\"}}");
         var response = new HttpResponseMessage(System.Net.HttpStatusCode.OK) { Content = JsonContent.Create(new JsonObject { ["jsonrpc"] = "2.0", ["id"] = body["id"]!.DeepClone(), ["result"] = result }) };
         if (method == "initialize") response.Headers.Add("Mcp-Session-Id", "session-" + token);
         return response;

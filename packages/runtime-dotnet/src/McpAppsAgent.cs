@@ -273,6 +273,7 @@ public sealed class McpAppsAgent(IRuntimeAgent next, IReadOnlyList<McpAppServer>
             scan.Failed = true;
             scan.Incomplete = false;
             scan.OriginalNames.Clear();
+            foreach (var name in stagedRejected) catalog.RejectedNames.Add(name);
             foreach (var tool in stagedTools)
             {
                 scan.LostNames.Add(tool.OriginalName);
@@ -338,11 +339,10 @@ public sealed class McpAppsAgent(IRuntimeAgent next, IReadOnlyList<McpAppServer>
     private static bool LostDuringDiscovery(string name, RunCatalog catalog) =>
         catalog.Servers.Values.Any(scan => scan.Failed && scan.LostNames.Contains(name));
 
-    /// <summary>An allowlist that omits the name filters it out, including non-UI tools that were never injected.</summary>
+    /// <summary>An allowlist that omits the name filters it out, including non-UI tools and names the scan never reached. An unfiltered server with no route does not leave that call open.</summary>
     private bool OmittedByAllowlist(string name)
     {
         if (!servers.Any(server => server.IncludeTools is not null)) return false;
-        if (servers.Any(server => server.IncludeTools is null && server.AllowsTool(name))) return false;
         if (servers.Any(server => server.IncludeTools is not null && server.AllowsTool(name))) return false;
         return true;
     }
