@@ -60,7 +60,7 @@ function useHumanInTheLoop<T extends Record<string, unknown>>(
     - `respond: undefined` -- no longer available
     - `result: string | undefined` -- the serialized response provided via `respond()`, or `undefined` when the request was abandoned (see `aborted`)
     - `aborted?: true` -- set when the run was stopped while the request was still waiting on the user. There is no answer, so render the request as abandoned rather than reading `result`.
-    - `error?: string` -- the failure message when the call ended without an answer. When `error` is set and `aborted` is not, `result` holds the failure text sent to the agent, not the user's response.
+    - `error?: string` -- set when the call ended without an answer. When `aborted` is set, it is always the abort message. Otherwise it is the tool message's raw `error` field: usually the failure message, but some history adapters restore it as a bare marker such as `"error"`. When `error` is set and `aborted` is not, `result` holds the failure text sent to the agent, not the user's response.
 
   </PropertyReference>
 
@@ -109,7 +109,7 @@ function DeleteConfirmation() {
         itemName: z.string().describe("Name of the item to delete"),
         itemCount: z.number().describe("Number of items to delete"),
       }),
-      render: ({ args, status, respond, result }) => {
+      render: ({ args, status, respond, result, error }) => {
         if (status === ToolCallStatus.InProgress) {
           return (
             <div className="p-4 text-gray-500">Preparing confirmation...</div>
@@ -141,7 +141,7 @@ function DeleteConfirmation() {
           );
         }
 
-        if (status === ToolCallStatus.Complete && result) {
+        if (status === ToolCallStatus.Complete && result && !error) {
           const parsed = JSON.parse(result);
           return (
             <div className="p-2 text-sm text-gray-600">
@@ -176,7 +176,7 @@ function ShippingAddressForm() {
           .string()
           .describe("A summary of the order being placed"),
       }),
-      render: ({ args, status, respond, aborted }) => {
+      render: ({ args, status, respond, aborted, error }) => {
         const [address, setAddress] = useState({
           street: "",
           city: "",
@@ -228,6 +228,12 @@ function ShippingAddressForm() {
           );
         }
 
+        if (status === ToolCallStatus.Complete && error) {
+          return (
+            <div className="p-2 text-red-600">Address request failed.</div>
+          );
+        }
+
         if (status === ToolCallStatus.Complete) {
           return (
             <div className="p-2 text-green-600">
@@ -260,7 +266,7 @@ function ExpenseApproval() {
         category: z.string().describe("Expense category"),
         description: z.string().describe("Description of the expense"),
       }),
-      render: ({ args, status, respond, result }) => {
+      render: ({ args, status, respond, result, error }) => {
         if (status === ToolCallStatus.Executing && respond) {
           return (
             <div className="p-4 border rounded">
@@ -291,7 +297,7 @@ function ExpenseApproval() {
           );
         }
 
-        if (status === ToolCallStatus.Complete && result) {
+        if (status === ToolCallStatus.Complete && result && !error) {
           const parsed = JSON.parse(result);
           return (
             <div
