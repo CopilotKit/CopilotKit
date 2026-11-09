@@ -146,7 +146,10 @@ export function enforceMcpAppsToolPolicy(
 
   const originalExecute = target.executeMCPRequest.bind(middleware);
   target.executeMCPRequest = async (serverConfig, method, params) => {
-    if (method === "tools/call") {
+    if (
+      method === "tools/call" &&
+      policies.has(mcpAppsServerPolicyKey(serverConfig))
+    ) {
       const tools = await loadTools(serverConfig);
       const name = params?.name;
       const allowed =
@@ -163,6 +166,7 @@ export function enforceMcpAppsToolPolicy(
     hiddenToolNames,
     exposedNames,
     emptyAllowlist,
+    usedNames,
   });
 
   if (typeof target.executeToolCall === "function") {
@@ -175,21 +179,52 @@ export function enforceMcpAppsToolPolicy(
   }
 }
 
-/** A second server that exposes the same name gets a distinct model-facing name. */
+const TOOL_NAME_LIMIT = 64;
+const SAFE_TOOL_NAME = /^[A-Za-z0-9_-]+$/;
+
+/** OpenAI-compatible tool name: ASCII letters, digits, underscore, hyphen, at most 64 characters. */
+export function isProviderSafeToolName(name: string): boolean {
+  return (
+    name.length > 0 &&
+    name.length <= TOOL_NAME_LIMIT &&
+    SAFE_TOOL_NAME.test(name)
+  );
+}
+
+function sanitizeToolToken(value: string): string {
+  const cleaned = value
+    .replace(/[^A-Za-z0-9_-]+/g, "_")
+    .replace(/^_+|_+$/g, "");
+  return cleaned.length > 0 ? cleaned : "mcp";
+}
+
+function fitToolName(suffix: string, tool: string, tail: string): string {
+  const room = Math.max(2, TOOL_NAME_LIMIT - 2 - tail.length);
+  let suffixLength = Math.min(suffix.length, Math.max(1, Math.floor(room / 2)));
+  let toolLength = Math.min(tool.length, room - suffixLength);
+  if (toolLength < 1) {
+    toolLength = 1;
+    suffixLength = room - 1;
+  }
+  return `${suffix.slice(0, suffixLength)}__${tool.slice(0, toolLength)}${tail}`;
+}
+
+/** A colliding or unsafe name is rewritten so the provider accepts it and the original call name is preserved. */
 function exposeToolName(
   original: string,
   server: MCPClientConfig,
   used: Set<string>,
 ): string {
-  if (!used.has(original)) {
+  if (isProviderSafeToolName(original) && !used.has(original)) {
     used.add(original);
     return original;
   }
-  const suffix = server.serverId || "mcp";
-  let candidate = `${suffix}__${original}`;
+  const suffix = sanitizeToolToken(server.serverId || "mcp");
+  const tool = sanitizeToolToken(original);
   let discriminator = 2;
-  while (used.has(candidate)) {
-    candidate = `${suffix}__${original}_${discriminator++}`;
+  let candidate = fitToolName(suffix, tool, "");
+  while (used.has(candidate) || !isProviderSafeToolName(candidate)) {
+    candidate = fitToolName(suffix, tool, `_${discriminator++}`);
   }
   used.add(candidate);
   return candidate;
@@ -216,12 +251,14 @@ function rejectHiddenToolCalls(
     hiddenToolNames: Set<string>;
     exposedNames: Set<string>;
     emptyAllowlist: boolean;
+    usedNames: Set<string>;
   },
 ): void {
   if (typeof target.run !== "function") return;
   const originalRun = target.run.bind(target);
-  target.run = (input, next) =>
-    new Observable((subscriber) => {
+  target.run = (input, next) => {
+    for (const tool of input.tools) names.usedNames.add(tool.name);
+    return new Observable((subscriber) => {
       const frontendTools = new Set(input.tools.map((tool) => tool.name));
       const pending = new Map<string, string>();
       const subscription = originalRun(input, next).subscribe({
@@ -262,6 +299,7 @@ function rejectHiddenToolCalls(
       });
       return () => subscription.unsubscribe();
     });
+  };
 }
 
 function assertMcpAppToolAllowed(

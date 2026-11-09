@@ -331,6 +331,116 @@ describe("enforceMcpAppsToolPolicy", () => {
     expect(executeToolCall).toHaveBeenCalledWith(other, "show_weather", {});
   });
 
+  it("does not require discovery for a proxied call to an unfiltered server", async () => {
+    const plain: MCPClientConfig = {
+      type: "http",
+      url: "https://mcp.example.com/plain",
+      serverId: "plain",
+    };
+    const fetchToolsFromServer = vi.fn(async (_server: MCPClientConfig) =>
+      discovered(["generate_qr"]),
+    );
+    const executeMCPRequest = vi.fn(
+      async (
+        _server: MCPClientConfig,
+        _method: string,
+        _params?: Record<string, unknown>,
+      ) => ({ ok: true }),
+    );
+    const middleware = { fetchToolsFromServer, executeMCPRequest };
+    enforceMcpAppsToolPolicy(
+      middleware,
+      new Map([
+        [mcpAppsServerPolicyKey(server), { includeTools: ["generate_qr"] }],
+      ]),
+    );
+
+    await middleware.executeMCPRequest(plain, "tools/call", {
+      name: "hidden_tool",
+    });
+    expect(fetchToolsFromServer).not.toHaveBeenCalled();
+    expect(executeMCPRequest).toHaveBeenCalledOnce();
+  });
+
+  it("reserves frontend tool names before exposing an MCP tool", async () => {
+    let exposed: string[] = [];
+    const middleware = {
+      fetchToolsFromServer: vi.fn(async (_server: MCPClientConfig) =>
+        discovered(["search"]),
+      ),
+      executeMCPRequest: vi.fn(),
+      executeToolCall: vi.fn(),
+      run(input: RunAgentInput) {
+        return new Observable((subscriber) => {
+          void middleware.fetchToolsFromServer(server).then((tools) => {
+            exposed = tools.map((tool) => tool.tool?.name ?? "");
+            subscriber.next({
+              type: EventType.RUN_FINISHED,
+              threadId: input.threadId,
+              runId: input.runId,
+            });
+            subscriber.complete();
+          });
+        });
+      },
+    };
+    enforceMcpAppsToolPolicy(
+      middleware,
+      new Map([[mcpAppsServerPolicyKey(server), { excludeTools: [] }]]),
+    );
+    await new Promise<void>((resolve, reject) => {
+      middleware
+        .run({
+          threadId: "t",
+          runId: "r",
+          messages: [],
+          tools: [
+            {
+              name: "search",
+              description: "frontend",
+              parameters: { type: "object", properties: {} },
+            },
+          ],
+          state: {},
+          context: [],
+          forwardedProps: {},
+        })
+        .subscribe({ error: reject, complete: resolve });
+    });
+    expect(exposed).toEqual(["crm__search"]);
+  });
+
+  it("keeps collision names inside provider tool-name rules", async () => {
+    const slash: MCPClientConfig = {
+      type: "http",
+      url: "https://mcp.example.com/eu",
+      serverId: "billing/eu",
+    };
+    const fetchToolsFromServer = vi.fn(async (target: MCPClientConfig) => [
+      {
+        tool: { name: "show_weather", description: "Weather" },
+        serverConfig: target,
+      },
+    ]);
+    const middleware = {
+      fetchToolsFromServer,
+      executeMCPRequest: vi.fn(),
+    };
+    enforceMcpAppsToolPolicy(
+      middleware,
+      new Map([
+        [mcpAppsServerPolicyKey(server), { excludeTools: [] }],
+        [mcpAppsServerPolicyKey(slash), { excludeTools: [] }],
+      ]),
+    );
+    await middleware.fetchToolsFromServer(server);
+    const second = await middleware.fetchToolsFromServer(slash);
+    const name = second[0]?.tool?.name ?? "";
+    expect(name).toMatch(/^[A-Za-z0-9_-]{1,64}$/);
+    expect(name).not.toContain("/");
+    expect(name).not.toBe("show_weather");
+  });
+
   it("does not deny a frontend tool that shares an excluded MCP name", async () => {
     const middleware = {
       fetchToolsFromServer: vi.fn(async (_server: MCPClientConfig) =>

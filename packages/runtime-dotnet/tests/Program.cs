@@ -98,7 +98,7 @@ Check(mcpWire.Calls.Count == previousCalls, "MCP forbidden proxy method causes n
 var uiToolCalls = mcpWire.Calls.Count(call => call.Method == "tools/call");
 var hiddenProxy = (JsonObject)input.DeepClone(); hiddenProxy["forwardedProps"] = JsonNode.Parse("{\"__proxiedMCPRequest\":{\"serverId\":\"weather\",\"method\":\"tools/call\",\"params\":{\"name\":\"hidden_tool\",\"arguments\":{}}}}");
 var hiddenEvents = new List<JsonObject>(); await foreach (var item in mcp.RunAsync(hiddenProxy, CancellationToken.None)) hiddenEvents.Add(item);
-Check(mcpWire.Calls.Count(call => call.Method == "tools/call") == uiToolCalls && hiddenEvents.Last()["result"]?["isError"]?.GetValue<bool>() == true, "proxy tools/call requires a discovered UI tool");
+Check(mcpWire.Calls.Count(call => call.Method == "tools/call") == uiToolCalls + 1 && hiddenEvents.Last()["result"]?["isError"] is null, "unfiltered proxy forwards a non-UI tool without discovery");
 var filteredWire = new FilteredMcpHandler(); using var filteredHttp = new HttpClient(filteredWire);
 var filteredSource = new SequenceAgent([
     JsonNode.Parse("{\"type\":\"RUN_STARTED\"}")!.AsObject(),
@@ -182,9 +182,47 @@ await foreach (var _ in flakyAgent.RunAsync(input, CancellationToken.None)) { }
 Check(flakySource.Input!["tools"]!.AsArray().Count == 0, "failed discovery exposes no tools");
 var failedProxy = (JsonObject)input.DeepClone(); failedProxy["forwardedProps"] = JsonNode.Parse("{\"__proxiedMCPRequest\":{\"serverId\":\"flaky\",\"method\":\"tools/call\",\"params\":{\"name\":\"generate_qr\",\"arguments\":{}}}}");
 var failedEvents = new List<JsonObject>(); await foreach (var item in flakyAgent.RunAsync(failedProxy, CancellationToken.None)) failedEvents.Add(item);
-Check(failedEvents.Last()["result"]?["error"] is not null && failedEvents.Last()["result"]?["isError"] is null, "failed discovery is a proxy failure, not a denial");
+Check(failedEvents.Last()["result"]?["error"] is null && flakyWire.Lists == 1, "unfiltered proxy does not replace a call with a discovery error");
 await foreach (var _ in flakyAgent.RunAsync(input, CancellationToken.None)) { }
 Check(flakySource.Input!["tools"]!.AsArray().Any(tool => tool?["name"]?.GetValue<string>() == "generate_qr"), "a later run retries discovery after the server recovers");
+var filteredFlakyWire = new FlakyListHandler(); using var filteredFlakyHttp = new HttpClient(filteredFlakyWire);
+var filteredFlakyServer = McpAppServer.FromJson(new JsonObject { ["url"] = "https://mcp.test/mcp", ["serverId"] = "filtered-flaky", ["includeTools"] = new JsonArray("generate_qr") });
+var filteredFlakyAgent = new McpAppsAgent(new SequenceAgent([JsonNode.Parse("{\"type\":\"RUN_STARTED\"}")!.AsObject(), JsonNode.Parse("{\"type\":\"RUN_FINISHED\"}")!.AsObject()]), [filteredFlakyServer], filteredFlakyHttp);
+var filteredFailedProxy = (JsonObject)input.DeepClone(); filteredFailedProxy["forwardedProps"] = JsonNode.Parse("{\"__proxiedMCPRequest\":{\"serverId\":\"filtered-flaky\",\"method\":\"tools/call\",\"params\":{\"name\":\"generate_qr\",\"arguments\":{}}}}");
+var filteredFailedEvents = new List<JsonObject>(); await foreach (var item in filteredFlakyAgent.RunAsync(filteredFailedProxy, CancellationToken.None)) filteredFailedEvents.Add(item);
+Check(filteredFailedEvents.Last()["result"]?["error"] is not null && filteredFailedEvents.Last()["result"]?["isError"] is null, "filtered discovery failure is a proxy failure, not a denial");
+var cappedCallSource = new SequenceAgent([
+    JsonNode.Parse("{\"type\":\"RUN_STARTED\"}")!.AsObject(),
+    JsonNode.Parse("{\"type\":\"TOOL_CALL_START\",\"toolCallId\":\"wanted\",\"toolCallName\":\"wanted\"}")!.AsObject(),
+    JsonNode.Parse("{\"type\":\"RUN_FINISHED\"}")!.AsObject()
+]);
+var cappedCallEvents = new List<JsonObject>(); await foreach (var item in new McpAppsAgent(cappedCallSource, [cappedServer], cappedHttp, cappedReports.Add).RunAsync(input, CancellationToken.None)) cappedCallEvents.Add(item);
+var wantedResult = -1; var wantedFinished = -1;
+for (var index = 0; index < cappedCallEvents.Count; index++)
+{
+    if (cappedCallEvents[index]["toolCallId"]?.GetValue<string>() == "wanted" && cappedCallEvents[index]["type"]?.GetValue<string>() == "TOOL_CALL_RESULT") wantedResult = index;
+    if (cappedCallEvents[index]["type"]?.GetValue<string>() == "RUN_FINISHED") wantedFinished = index;
+}
+Check(wantedResult >= 0 && wantedFinished > wantedResult && cappedCallEvents[wantedResult]["content"]?.GetValue<string>() == "MCP tool discovery failed: wanted", "unseen configured tool gets a discovery error before RUN_FINISHED");
+var pagedWire = new PagedFailHandler(); using var pagedHttp = new HttpClient(pagedWire);
+var pagedSource = new SequenceAgent([JsonNode.Parse("{\"type\":\"RUN_STARTED\"}")!.AsObject(), JsonNode.Parse("{\"type\":\"RUN_FINISHED\"}")!.AsObject()]);
+await foreach (var _ in new McpAppsAgent(pagedSource, [new McpAppServer { Url = new Uri("https://mcp.test/mcp"), ServerId = "paged" }], pagedHttp).RunAsync(input, CancellationToken.None)) { }
+Check(pagedWire.Lists == 2 && pagedSource.Input!["tools"]!.AsArray().Count == 0, "a failed later page discards tools from earlier pages");
+var reservedWire = new SharedNameHandler(); using var reservedHttp = new HttpClient(reservedWire);
+var reservedSource = new SequenceAgent([
+    JsonNode.Parse("{\"type\":\"RUN_STARTED\"}")!.AsObject(),
+    JsonNode.Parse("{\"type\":\"TOOL_CALL_START\",\"toolCallId\":\"front\",\"toolCallName\":\"show_weather\"}")!.AsObject(),
+    JsonNode.Parse("{\"type\":\"RUN_FINISHED\"}")!.AsObject()
+]);
+var reservedInput = (JsonObject)input.DeepClone(); reservedInput["tools"] = new JsonArray(new JsonObject { ["name"] = "show_weather", ["description"] = "frontend", ["parameters"] = new JsonObject { ["type"] = "object" } });
+await foreach (var _ in new McpAppsAgent(reservedSource, [new McpAppServer { Url = new Uri("https://mcp.test/mcp"), ServerId = "alpha", Headers = new Dictionary<string, string> { ["x-token"] = "alpha" } }], reservedHttp).RunAsync(reservedInput, CancellationToken.None)) { }
+var reservedNames = reservedSource.Input!["tools"]!.AsArray().Select(tool => tool?["name"]?.GetValue<string>()).ToArray();
+Check(reservedNames.Contains("show_weather") && reservedNames.Contains("alpha__show_weather") && reservedWire.ToolCalls.Count == 0, "frontend names are reserved before MCP tools are exposed");
+var slashWire = new SharedNameHandler(); using var slashHttp = new HttpClient(slashWire);
+var slashSource = new SequenceAgent([JsonNode.Parse("{\"type\":\"RUN_STARTED\"}")!.AsObject(), JsonNode.Parse("{\"type\":\"RUN_FINISHED\"}")!.AsObject()]);
+await foreach (var _ in new McpAppsAgent(slashSource, [alpha, new McpAppServer { Url = new Uri("https://mcp.test/mcp"), ServerId = "billing/eu", Headers = new Dictionary<string, string> { ["x-token"] = "eu" } }], slashHttp).RunAsync(input, CancellationToken.None)) { }
+var slashName = slashSource.Input!["tools"]!.AsArray().Select(tool => tool?["name"]?.GetValue<string>()).Last();
+Check(slashName is not null && System.Text.RegularExpressions.Regex.IsMatch(slashName, "^[A-Za-z0-9_-]{1,64}$") && !slashName.Contains('/'), "collision names stay within provider tool-name rules");
 await TelemetryTests.RunAsync();
 await ReviewTests.RunAsync();
 await RunnerTests.RunAsync();
@@ -323,13 +361,37 @@ sealed class FlakyListHandler : HttpMessageHandler
         if (method == "tools/list")
         {
             Lists++;
-            if (Lists < 3) return new HttpResponseMessage(System.Net.HttpStatusCode.ServiceUnavailable);
+            if (Lists < 2) return new HttpResponseMessage(System.Net.HttpStatusCode.ServiceUnavailable);
         }
         var result = method == "tools/list"
             ? JsonNode.Parse("{\"tools\":[{\"name\":\"generate_qr\",\"description\":\"QR\",\"inputSchema\":{\"type\":\"object\"},\"_meta\":{\"ui\":{\"resourceUri\":\"ui://qr\"}}}]}")
             : JsonNode.Parse("{\"protocolVersion\":\"2025-03-26\",\"capabilities\":{},\"serverInfo\":{\"name\":\"fixture\",\"version\":\"1\"}}");
         var response = new HttpResponseMessage(System.Net.HttpStatusCode.OK) { Content = JsonContent.Create(new JsonObject { ["jsonrpc"] = "2.0", ["id"] = body["id"]!.DeepClone(), ["result"] = result }) };
         if (method == "initialize") response.Headers.Add("Mcp-Session-Id", "session-flaky");
+        return response;
+    }
+}
+sealed class PagedFailHandler : HttpMessageHandler
+{
+    public int Lists { get; private set; }
+    protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+    {
+        if (request.Method == HttpMethod.Delete) return new HttpResponseMessage(System.Net.HttpStatusCode.NoContent);
+        var body = JsonNode.Parse(await request.Content!.ReadAsStringAsync(cancellationToken))!;
+        var method = body["method"]!.GetValue<string>();
+        if (body["id"] is null) return new HttpResponseMessage(System.Net.HttpStatusCode.Accepted);
+        if (method == "tools/list")
+        {
+            Lists++;
+            if (Lists > 1) return new HttpResponseMessage(System.Net.HttpStatusCode.ServiceUnavailable);
+            var page = JsonNode.Parse("{\"tools\":[{\"name\":\"show_weather\",\"description\":\"Weather\",\"inputSchema\":{\"type\":\"object\"},\"_meta\":{\"ui\":{\"resourceUri\":\"ui://weather\"}}}],\"nextCursor\":\"page-2\"}");
+            var ok = new HttpResponseMessage(System.Net.HttpStatusCode.OK) { Content = JsonContent.Create(new JsonObject { ["jsonrpc"] = "2.0", ["id"] = body["id"]!.DeepClone(), ["result"] = page }) };
+            ok.Headers.Add("Mcp-Session-Id", "session-paged");
+            return ok;
+        }
+        var result = JsonNode.Parse("{\"protocolVersion\":\"2025-03-26\",\"capabilities\":{},\"serverInfo\":{\"name\":\"fixture\",\"version\":\"1\"}}");
+        var response = new HttpResponseMessage(System.Net.HttpStatusCode.OK) { Content = JsonContent.Create(new JsonObject { ["jsonrpc"] = "2.0", ["id"] = body["id"]!.DeepClone(), ["result"] = result }) };
+        if (method == "initialize") response.Headers.Add("Mcp-Session-Id", "session-paged");
         return response;
     }
 }
