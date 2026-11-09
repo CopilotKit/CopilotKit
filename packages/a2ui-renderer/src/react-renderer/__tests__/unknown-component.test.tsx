@@ -61,6 +61,7 @@ function isNextSibling(before: Element, after: Element): boolean {
 afterEach(() => {
   cleanup();
   vi.unstubAllEnvs();
+  vi.unstubAllGlobals();
 });
 
 describe("unknown component types", () => {
@@ -77,6 +78,22 @@ describe("unknown component types", () => {
       isNextSibling(screen.getByText("Before"), screen.getByText("After")),
     ).toBe(true);
     expect(container.textContent).not.toContain("NotInCatalog");
+    expect(container.textContent).not.toContain("Unknown component");
+  });
+
+  it("treats a page without a process global as production", async () => {
+    vi.stubGlobal("process", undefined);
+    const { container } = render(
+      <A2UIProvider>
+        <Surface />
+      </A2UIProvider>,
+    );
+
+    await screen.findByText("Before");
+    vi.unstubAllGlobals();
+    expect(
+      isNextSibling(screen.getByText("Before"), screen.getByText("After")),
+    ).toBe(true);
     expect(container.textContent).not.toContain("Unknown component");
   });
 
