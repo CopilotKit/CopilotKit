@@ -66,6 +66,13 @@ export function usePinToSend({
     // constant and the bubble stays pinned.
     const ro = new ResizeObserver(() => {
       if (!contentEl || !spacerEl || !scrollEl) return;
+      // The pinned message left the list without a new one replacing it (a
+      // queued message dropped unsent): nothing is pinned, so the space kept
+      // below it goes too.
+      if (!targetEl.isConnected) {
+        spacerEl.style.height = "0px";
+        return;
+      }
       const contentHeight = contentEl.getBoundingClientRect().height;
       const targetOffsetWithinContent = computeOffsetTop(targetEl, contentEl);
       const consumedBelow =

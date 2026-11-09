@@ -1382,10 +1382,22 @@ export function CopilotChat({
     return null;
   }, [messages]);
 
-  // Track a nonce that increments each time a new user message ID appears.
+  // The message to pin and a nonce that increments each time a new one
+  // appears: a sent user message, or a queued one when it is accepted (it
+  // renders below the run it waits on, which can leave it offscreen). The id
+  // only changes with the nonce, so it always names the message whose arrival
+  // bumped it. A queued message keeps its id when dispatched, so the send
+  // pins it again; one dropped without being sent pins nothing.
   // Using useState ensures the context value propagates correctly on the
   // render that follows the state update (approach b from the design doc).
-  const [sendNonce, setSendNonce] = useState(0);
+  const [lastUserMessageState, setLastUserMessageState] =
+    useState<LastUserMessageState>(() => ({
+      id: lastUserMessageId,
+      sendNonce: 0,
+    }));
+  const pinMessage = useCallback((id: string) => {
+    setLastUserMessageState((pin) => ({ id, sendNonce: pin.sendNonce + 1 }));
+  }, []);
   // Seed with the current value so restoring a thread with existing messages
   // does not count as a new send. Only later-render id transitions bump.
   const prevLastUserMessageIdRef = useRef<string | null>(lastUserMessageId);
@@ -1395,15 +1407,23 @@ export function CopilotChat({
       lastUserMessageId &&
       lastUserMessageId !== prevLastUserMessageIdRef.current
     ) {
-      setSendNonce((n) => n + 1);
+      pinMessage(lastUserMessageId);
       prevLastUserMessageIdRef.current = lastUserMessageId;
     }
-  }, [lastUserMessageId]);
+  }, [lastUserMessageId, pinMessage]);
 
-  const lastUserMessageState = useMemo<LastUserMessageState>(
-    () => ({ id: lastUserMessageId, sendNonce }),
-    [lastUserMessageId, sendNonce],
-  );
+  const lastQueuedMessageId =
+    queuedMessages[queuedMessages.length - 1]?.id ?? null;
+  const prevLastQueuedMessageIdRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (
+      lastQueuedMessageId &&
+      lastQueuedMessageId !== prevLastQueuedMessageIdRef.current
+    ) {
+      pinMessage(lastQueuedMessageId);
+    }
+    prevLastQueuedMessageIdRef.current = lastQueuedMessageId;
+  }, [lastQueuedMessageId, pinMessage]);
 
   const finalProps: CopilotChatViewProps = {
     ...mergedProps,
