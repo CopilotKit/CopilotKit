@@ -342,7 +342,9 @@ function snapshotOf(message: Message): Message {
   };
   return {
     ...message,
-    ...(Array.isArray(content) && { content: [...content] }),
+    ...(Array.isArray(content) && {
+      content: content.map((part: object) => ({ ...part })),
+    }),
     ...(toolCalls && {
       toolCalls: toolCalls.map((c) => ({
         ...c,

@@ -1725,6 +1725,30 @@ describe("GenerativeUIMiddleware: fully rejected render_ui", () => {
     });
   });
 
+  it("keeps a content part's text as it was sent", async () => {
+    const { inputs } = await runTurns([badCall(), []], {
+      input: {
+        messages: [
+          {
+            id: "u1",
+            role: "user",
+            content: [{ type: "text", text: "show me the shop" }],
+          },
+        ] as Message[],
+      },
+      onTurnStart: (turn, _middleware, turnInput) => {
+        if (turn !== 0) return;
+        const message = turnInput.messages.find((m) => m.id === "u1")!;
+        (message as { content: Array<{ text: string }> }).content[0]!.text =
+          "edited";
+      },
+    });
+    expect(inputs).toHaveLength(2);
+    expect(inputs[1].messages.find((m) => m.id === "u1")).toMatchObject({
+      content: [{ type: "text", text: "show me the shop" }],
+    });
+  });
+
   it("can turn the retry off", async () => {
     const { inputs } = await runTurns([badCall()], {
       options: { maxRejectedRetries: 0 },
