@@ -485,24 +485,26 @@ function processStream(
         );
         for (const [toolCallId, state] of calls) {
           if (answered.has(toolCallId)) continue;
-          const nothingParsed =
-            state.applied === 0 &&
-            state.calls === 0 &&
-            state.rejected.length === 0;
           // `applied` counts the surface operations, `calls` the function calls.
+          // A call none of whose operations was accepted rendered nothing, so it
+          // must not report `rendered`: the model would tell the user a UI
+          // appeared. The rejections still go back, so it can correct them.
+          const nothingRendered = state.applied === 0 && state.calls === 0;
           emit({
             type: EventType.TOOL_CALL_RESULT,
             messageId: randomUUID(),
             toolCallId,
             content: JSON.stringify(
-              nothingParsed
+              nothingRendered
                 ? {
                     status: "error",
                     applied: 0,
                     calls: 0,
-                    rejected: [],
+                    rejected: state.rejected,
                     reason:
-                      "operations must be a JSON array of A2UI operation objects; nothing was rendered",
+                      state.rejected.length === 0
+                        ? "operations must be a JSON array of A2UI operation objects; nothing was rendered"
+                        : "every operation was rejected; nothing was rendered",
                   }
                 : {
                     status: "rendered",
