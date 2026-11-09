@@ -894,7 +894,9 @@ export function CopilotChat({
     // A new thread must not inherit the previous thread's times, even when a
     // message id happens to match. Replacing the agent on the same thread
     // keeps times for messages that agent still has.
-    if (messageTimestampThreadRef.current !== resolvedThreadId) {
+    const previousThreadId = messageTimestampThreadRef.current;
+    const threadChanged = previousThreadId !== resolvedThreadId;
+    if (threadChanged) {
       messageTimestampThreadRef.current = resolvedThreadId;
       if (remembered.size > 0) {
         remembered.clear();
@@ -904,18 +906,27 @@ export function CopilotChat({
     const note = (
       nextMessages: Parameters<typeof recordMessageTimestamps>[0],
     ) => {
+      // Snapshots can omit a message and restore it later without a time.
+      // Recording must not drop a time just because one snapshot skipped it.
+      if (recordMessageTimestamps(nextMessages, pending, remembered)) publish();
+    };
+    if (previousThreadId === null) {
+      note(agent.messages);
+    } else if (!threadChanged) {
+      const pruned = retainRememberedMessageTimestamps(
+        remembered,
+        agent.messages,
+      );
       const recorded = recordMessageTimestamps(
-        nextMessages,
+        agent.messages,
         pending,
         remembered,
       );
-      const pruned = retainRememberedMessageTimestamps(
-        remembered,
-        nextMessages,
-      );
-      if (recorded || pruned) publish();
-    };
-    note(agent.messages);
+      if (pruned || recorded) publish();
+    }
+    // A thread switch waits for onMessagesChanged. The reused agent can still
+    // hold the previous thread until that reset, and recording it here would
+    // put those times back under ids the next thread may reuse.
     const subscription = agent.subscribe({
       onTextMessageStartEvent: ({ event }) => {
         const eventTimestamp = event.timestamp;
@@ -1399,16 +1410,18 @@ export function CopilotChat({
       return `${m.id}:${m.role}:${contentKey}:${toolCallsKey}:${timestampKey}`;
     })
     .join(",");
+  const timestampsEnabled =
+    showTimestamps ?? existingConfig?.showTimestamps ?? false;
   const messages = useMemo(() => {
     const source = agent.messages;
-    if (!showTimestamps) return [...source];
+    if (!timestampsEnabled) return [...source];
     // Copies only the messages whose time lives in the side map. Agent
     // messages stay untouched, including frozen subscriber payloads.
     return messagesWithTimestamps(source, messageTimestampsRef.current);
     // messageTimestampRevision republishes remembered times that are not on
     // the agent messages themselves.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [messagesMemoKey, showTimestamps, messageTimestampRevision]);
+  }, [messagesMemoKey, timestampsEnabled, messageTimestampRevision]);
 
   // Compute the ID of the last user message for scroll-pinning logic.
   const lastUserMessageId = useMemo(() => {
