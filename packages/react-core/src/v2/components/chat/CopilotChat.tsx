@@ -122,6 +122,16 @@ export type CopilotChatProps = Omit<
    */
   generativeUISurface?: React.ComponentType<GenerativeUIChatSurfaceProps>;
 };
+/** The id of the last user message, for scroll pinning. */
+function lastUserMessageIdOf(
+  messages: ReadonlyArray<{ id: string; role: string }>,
+): string | null {
+  for (let i = messages.length - 1; i >= 0; i--) {
+    if (messages[i].role === "user") return messages[i].id;
+  }
+  return null;
+}
+
 /**
  * The in-flight run a new send must wait for, if the agent is running and
  * exposes its completion (see `waitForActiveRunToSettle`).
@@ -272,6 +282,39 @@ export function CopilotChat({
   // composer never looks like data loss; a send that dispatches at once is
   // never queued.
   const [queuedMessages, setQueuedMessages] = useState<UserMessage[]>([]);
+
+  // The message to pin and a nonce that increments each time a new one
+  // appears: a sent user message, or a queued one when it is accepted (it
+  // renders below the run it waits on, which can leave it offscreen). The id
+  // only changes with the nonce, so it always names the message whose arrival
+  // bumped it. A queued message keeps its id when dispatched, so the send
+  // pins it again; one dropped without being sent pins nothing.
+  // Using useState ensures the context value propagates correctly on the
+  // render that follows the state update (approach b from the design doc).
+  const [lastUserMessageState, setLastUserMessageState] =
+    useState<LastUserMessageState>(() => ({
+      id: lastUserMessageIdOf(agent.messages),
+      sendNonce: 0,
+    }));
+  const pinMessage = useCallback((id: string) => {
+    setLastUserMessageState((pin) => ({ id, sendNonce: pin.sendNonce + 1 }));
+  }, []);
+  // The last user message id already pinned as a message: the effect below
+  // pins a new last user message unless this already names it. Seeded with
+  // the current value so restoring a thread with existing messages does not
+  // count as a new send.
+  const pinnedUserMessageIdRef = useRef(lastUserMessageState.id);
+  // A send the chat makes is pinned here, not by the effect that watches the
+  // messages, so pins keep the order of events: a message queued in the same
+  // render batch as this send must not take the pin after it.
+  const sendUserMessage = useCallback(
+    (message: UserMessage) => {
+      pinnedUserMessageIdRef.current = message.id;
+      pinMessage(message.id);
+      agent.addMessage(message);
+    },
+    [agent, pinMessage],
+  );
   const [transcriptionError, setTranscriptionError] = useState<string | null>(
     null,
   );
@@ -1001,6 +1044,7 @@ export function CopilotChat({
           ...q,
           { id: queuedId, role: "user", content: value },
         ]);
+        pinMessage(queuedId);
       }
 
       await enqueueSubmission(async () => {
@@ -1042,13 +1086,13 @@ export function CopilotChat({
           for (const att of readyAttachments) {
             contentParts.push(createAttachmentContent(att));
           }
-          agent.addMessage({
+          sendUserMessage({
             id: queuedId,
             role: "user",
             content: contentParts,
           });
         } else {
-          agent.addMessage({
+          sendUserMessage({
             id: queuedId,
             role: "user",
             content: value,
@@ -1101,6 +1145,8 @@ export function CopilotChat({
       enqueueSubmission,
       hasNativeIntelligenceRunActivity,
       rememberRecentlyLocalRunId,
+      pinMessage,
+      sendUserMessage,
     ],
   );
 
@@ -1113,7 +1159,7 @@ export function CopilotChat({
         // typed-Enter path got — here for the suggestion path).
         if ((await waitForActiveRunToSettle()) !== true) return;
 
-        agent.addMessage({
+        sendUserMessage({
           id: randomUUID(),
           role: "user",
           content: suggestion.message,
@@ -1162,6 +1208,7 @@ export function CopilotChat({
       enqueueSubmission,
       hasNativeIntelligenceRunActivity,
       rememberRecentlyLocalRunId,
+      sendUserMessage,
     ],
   );
 
@@ -1374,56 +1421,21 @@ export function CopilotChat({
     [messagesMemoKey],
   );
 
-  // Compute the ID of the last user message for scroll-pinning logic.
-  const lastUserMessageId = useMemo(() => {
-    for (let i = messages.length - 1; i >= 0; i--) {
-      if (messages[i].role === "user") return messages[i].id;
-    }
-    return null;
-  }, [messages]);
-
-  // The message to pin and a nonce that increments each time a new one
-  // appears: a sent user message, or a queued one when it is accepted (it
-  // renders below the run it waits on, which can leave it offscreen). The id
-  // only changes with the nonce, so it always names the message whose arrival
-  // bumped it. A queued message keeps its id when dispatched, so the send
-  // pins it again; one dropped without being sent pins nothing.
-  // Using useState ensures the context value propagates correctly on the
-  // render that follows the state update (approach b from the design doc).
-  const [lastUserMessageState, setLastUserMessageState] =
-    useState<LastUserMessageState>(() => ({
-      id: lastUserMessageId,
-      sendNonce: 0,
-    }));
-  const pinMessage = useCallback((id: string) => {
-    setLastUserMessageState((pin) => ({ id, sendNonce: pin.sendNonce + 1 }));
-  }, []);
-  // Seed with the current value so restoring a thread with existing messages
-  // does not count as a new send. Only later-render id transitions bump.
-  const prevLastUserMessageIdRef = useRef<string | null>(lastUserMessageId);
-
+  // A user message that arrives without passing through onSubmitInput (a
+  // thread switch, a programmatic send) is pinned when it appears.
+  const lastUserMessageId = useMemo(
+    () => lastUserMessageIdOf(messages),
+    [messages],
+  );
   useEffect(() => {
     if (
       lastUserMessageId &&
-      lastUserMessageId !== prevLastUserMessageIdRef.current
+      lastUserMessageId !== pinnedUserMessageIdRef.current
     ) {
       pinMessage(lastUserMessageId);
-      prevLastUserMessageIdRef.current = lastUserMessageId;
+      pinnedUserMessageIdRef.current = lastUserMessageId;
     }
   }, [lastUserMessageId, pinMessage]);
-
-  const lastQueuedMessageId =
-    queuedMessages[queuedMessages.length - 1]?.id ?? null;
-  const prevLastQueuedMessageIdRef = useRef<string | null>(null);
-  useEffect(() => {
-    if (
-      lastQueuedMessageId &&
-      lastQueuedMessageId !== prevLastQueuedMessageIdRef.current
-    ) {
-      pinMessage(lastQueuedMessageId);
-    }
-    prevLastQueuedMessageIdRef.current = lastQueuedMessageId;
-  }, [lastQueuedMessageId, pinMessage]);
 
   const finalProps: CopilotChatViewProps = {
     ...mergedProps,

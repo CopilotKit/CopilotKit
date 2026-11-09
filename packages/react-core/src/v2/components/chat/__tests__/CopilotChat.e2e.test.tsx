@@ -34,6 +34,8 @@ import { useHumanInTheLoop } from "../../../hooks/use-human-in-the-loop";
 import { CopilotKitProvider } from "../../../providers/CopilotKitProvider";
 import { CopilotChatConfigurationProvider } from "../../../providers/CopilotChatConfigurationProvider";
 import { CopilotChat } from "../CopilotChat";
+import { CopilotChatView } from "../CopilotChatView";
+import type { CopilotChatViewProps } from "../CopilotChatView";
 import { CopilotChatUserMessage } from "../CopilotChatUserMessage";
 import { LastUserMessageContext } from "../last-user-message-context";
 import type { LastUserMessageState } from "../last-user-message-context";
@@ -1363,6 +1365,19 @@ describe("CopilotChat E2E - Chat Basics and Streaming Patterns", () => {
   });
 
   describe("Enter routing while a background run is in flight", () => {
+    /** Every value the pin context takes, from a component rendered inside it. */
+    function recordPins() {
+      const pins: LastUserMessageState[] = [];
+      const PinRecorder = () => {
+        const pin = React.useContext(LastUserMessageContext);
+        useEffect(() => {
+          pins.push(pin);
+        }, [pin]);
+        return null;
+      };
+      return { pins, PinRecorder };
+    }
+
     // The shared test setup mocks randomUUID to one constant. Queued messages
     // are told apart by id, so tests that rely on that hand out distinct ids
     // and restore the constant when they finish.
@@ -1693,14 +1708,7 @@ describe("CopilotChat E2E - Chat Basics and Streaming Patterns", () => {
 
     it("pins the earlier queued message when it is dispatched, not the last one queued", async () => {
       useDistinctIds();
-      const pins: LastUserMessageState[] = [];
-      const PinRecorder = () => {
-        const pin = React.useContext(LastUserMessageContext);
-        useEffect(() => {
-          pins.push(pin);
-        }, [pin]);
-        return null;
-      };
+      const { pins, PinRecorder } = recordPins();
       const agent = new MockStepwiseAgent();
       renderWithCopilotKit({
         agent,
@@ -1756,16 +1764,140 @@ describe("CopilotChat E2E - Chat Basics and Streaming Patterns", () => {
       });
     });
 
-    it("does not pin when a queued message is dropped unsent", async () => {
-      const pins: LastUserMessageState[] = [];
-      // The input's disclaimer renders whether or not any message does.
-      const PinRecorder = () => {
-        const pin = React.useContext(LastUserMessageContext);
-        useEffect(() => {
-          pins.push(pin);
-        }, [pin]);
-        return null;
+    /**
+     * Renders a chat with a run in flight that settles on `resolveInFlight`.
+     * `view` holds the chat's send handlers, to call outside a DOM event.
+     */
+    async function renderWithRunInFlight() {
+      useDistinctIds();
+      const { pins, PinRecorder } = recordPins();
+      const view: Partial<
+        Pick<CopilotChatViewProps, "onSubmitMessage" | "onSelectSuggestion">
+      > = {};
+      const CapturingView = (props: CopilotChatViewProps) => {
+        view.onSubmitMessage = props.onSubmitMessage;
+        view.onSelectSuggestion = props.onSelectSuggestion;
+        return (
+          <>
+            <PinRecorder />
+            <CopilotChatView {...props} />
+          </>
+        );
       };
+      const agent = new MockStepwiseAgent();
+      renderWithCopilotKit({
+        agent,
+        children: (
+          <div style={{ height: 400 }}>
+            <CopilotChat welcomeScreen={false} chatView={CapturingView} />
+          </div>
+        ),
+      });
+
+      const input = await screen.findByRole("textbox");
+      agent.emit(runStartedEvent());
+      await waitFor(() => {
+        expect(agent.isRunning).toBe(true);
+      });
+      let resolveInFlight!: () => void;
+      agent.setActiveRunCompletionPromise(
+        new Promise<void>((resolve) => {
+          resolveInFlight = resolve;
+        }),
+      );
+      const idOf = (text: string) =>
+        screen
+          .getByText(text)
+          .closest("[data-message-id]")
+          ?.getAttribute("data-message-id");
+      return { agent, input, pins, view, idOf, resolveInFlight };
+    }
+
+    /** Sends "First queued" with Enter; it waits behind the run in flight. */
+    async function queueFirst({
+      input,
+      pins,
+      idOf,
+    }: Awaited<ReturnType<typeof renderWithRunInFlight>>) {
+      fireEvent.change(input, { target: { value: "First queued" } });
+      fireEvent.keyDown(input, { key: "Enter", code: "Enter" });
+      await waitFor(() => {
+        expect(pins[pins.length - 1]!.id).toBe(idOf("First queued"));
+      });
+      return idOf("First queued");
+    }
+
+    it("pins the dispatched message when another was queued just before it in the same render", async () => {
+      const chat = await renderWithRunInFlight();
+      const { agent, pins, view, resolveInFlight } = chat;
+      const firstId = await queueFirst(chat);
+
+      // A submit outside a DOM event renders with the send, in one batch.
+      await act(async () => {
+        view.onSubmitMessage!("Second queued");
+        resolveInFlight();
+        await new Promise((resolve) => setTimeout(resolve, 0));
+      });
+
+      await waitFor(() => {
+        expect(agent.messages.map((m) => m.id)).toContain(firstId);
+      });
+      expect(screen.getByText("Second queued")).toBeDefined();
+      expect(pins[pins.length - 1]!.id).toBe(firstId);
+    });
+
+    it("pins a message queued after a send that has not rendered yet", async () => {
+      const chat = await renderWithRunInFlight();
+      const { agent, input, pins, idOf, resolveInFlight } = chat;
+      const firstId = await queueFirst(chat);
+
+      fireEvent.change(input, { target: { value: "Second queued" } });
+      await act(async () => {
+        resolveInFlight();
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        expect(agent.messages.map((m) => m.id)).toContain(firstId);
+        // The send has not rendered yet. A raw keydown keeps it that way:
+        // fireEvent's own act would render the send first.
+        input.dispatchEvent(
+          new KeyboardEvent("keydown", { key: "Enter", bubbles: true }),
+        );
+      });
+
+      await waitFor(() => {
+        expect(pins[pins.length - 1]!.id).toBe(idOf("Second queued"));
+      });
+    });
+
+    it("pins a message queued after a suggestion send that has not rendered yet", async () => {
+      const { agent, input, pins, view, idOf, resolveInFlight } =
+        await renderWithRunInFlight();
+
+      // The suggestion waits for the run in flight.
+      await act(async () => {
+        void view.onSelectSuggestion!(
+          { title: "Option A", message: "Take action A", isLoading: false },
+          0,
+        );
+      });
+      fireEvent.change(input, { target: { value: "Typed after" } });
+      await act(async () => {
+        resolveInFlight();
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        expect(agent.messages.map((m) => m.content)).toContain("Take action A");
+        // A raw keydown, so the suggestion's send has not rendered yet.
+        input.dispatchEvent(
+          new KeyboardEvent("keydown", { key: "Enter", bubbles: true }),
+        );
+      });
+
+      await waitFor(() => {
+        expect(pins[pins.length - 1]!.id).toBe(idOf("Typed after"));
+      });
+    });
+
+    it("does not pin when a queued message is dropped unsent", async () => {
+      // The input's disclaimer renders whether or not any message does.
+      const { pins, PinRecorder } = recordPins();
       const agent = new MockStepwiseAgent();
       const chatOn = (threadId: string) => (
         <CopilotKitProvider agents__unsafe_dev_only={{ default: agent }}>
