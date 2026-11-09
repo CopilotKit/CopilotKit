@@ -8,7 +8,11 @@ import { defineEvalConfig } from "./src/config";
  */
 export default defineEvalConfig({
   models: [
-    { id: "gpt", model: "openai/gpt-6.1-terra" },
+    {
+      id: "gpt",
+      model: "openai/gpt-6-luna",
+      params: { reasoningEffort: "none" },
+    },
     { id: "claude", model: "anthropic/claude-sonnet-5.5" },
     { id: "gemini", model: "google/gemini-3.8-flash" },
     { id: "deepseek", model: "deepseek/deepseek-v4-pro-0813" },
@@ -19,7 +23,7 @@ export default defineEvalConfig({
     smoke: { models: ["gpt", "claude"], cases: "tag:smoke", samples: 1 },
     // The first baseline: one model, so we read its failures before paying for all five.
     gpt: { models: ["gpt"], cases: "all", samples: 3 },
-    // One model per vendor: GPT-6.1 Terra, Sonnet 5.5, Gemini 3.8 Flash, DeepSeek V4 Pro (open weights).
+    // One model per vendor: GPT-6 Luna, Sonnet 5.5, Gemini 3.8 Flash, DeepSeek V4 Pro (open weights).
     full: {
       models: ["gpt", "claude", "gemini", "deepseek"],
       cases: "all",
@@ -38,9 +42,9 @@ export default defineEvalConfig({
   transports: ["markdown"],
   budgetUsd: 30,
   judge: { model: "anthropic/claude-opus-5.5" },
-  reflection: { model: "openai/gpt-6.1-terra" },
+  reflection: { model: "openai/gpt-6-luna" },
   prices: {
-    "openai/gpt-6.1-terra": { input: 1, output: 5 },
+    "openai/gpt-6-luna": { input: 0.1, output: 0.5 },
     "anthropic/claude-sonnet-5.5": { input: 2, output: 10 },
     "google/gemini-3.8-flash": { input: 0.825, output: 4.125 },
     "deepseek/deepseek-v4-pro-0813": { input: 1.32, output: 3.96 },

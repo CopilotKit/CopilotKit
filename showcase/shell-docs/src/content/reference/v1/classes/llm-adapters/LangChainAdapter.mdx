@@ -21,7 +21,8 @@ import { ChatOpenAI } from "@langchain/openai";
 const copilotKit = new CopilotRuntime();
  
 const model = new ChatOpenAI({
-  model: "gpt-4o",
+  modelKwargs: { reasoning_effort: "none" },
+  model: "gpt-6-luna",
   apiKey: "<your-api-key>",
 });
  

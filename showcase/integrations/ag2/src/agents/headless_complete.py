@@ -47,7 +47,9 @@ SYSTEM_PROMPT = (
 
 
 async def get_weather(
-    location: Annotated[str, Field(description="City or place to look up the weather for")],
+    location: Annotated[
+        str, Field(description="City or place to look up the weather for")
+    ],
 ) -> dict:
     """Get the current weather for a given location.
 
@@ -64,7 +66,9 @@ async def get_weather(
 
 
 async def get_stock_price(
-    ticker: Annotated[str, Field(description="Stock ticker symbol (e.g. AAPL, TSLA, MSFT)")],
+    ticker: Annotated[
+        str, Field(description="Stock ticker symbol (e.g. AAPL, TSLA, MSFT)")
+    ],
 ) -> dict:
     """Get a mock current price for a stock ticker.
 
@@ -81,7 +85,7 @@ async def get_stock_price(
 agent = Agent(
     "headless_complete_assistant",
     prompt=SYSTEM_PROMPT,
-    config=OpenAIResponsesConfig(model="gpt-5-mini", streaming=True),
+    config=OpenAIResponsesConfig(model="gpt-6-luna", streaming=True),
     tools=[get_weather, get_stock_price],
     middleware=[loop_cap(8)],
 )

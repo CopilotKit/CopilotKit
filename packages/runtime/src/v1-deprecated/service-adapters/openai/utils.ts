@@ -170,6 +170,7 @@ export function maxTokensForOpenAIModel(model: string): number {
 const DEFAULT_MAX_TOKENS = 128000;
 
 const maxTokensByModel: { [key: string]: number } = {
+  "gpt-6-luna": 1050000,
   // o1
   o1: 200000,
   "o1-2024-12-17": 200000,

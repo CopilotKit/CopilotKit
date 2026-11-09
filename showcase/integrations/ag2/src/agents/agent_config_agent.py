@@ -99,7 +99,7 @@ def get_current_config(ctx: Context) -> str:
 agent_config_agent = Agent(
     "agent_config_assistant",
     prompt=SYSTEM_PROMPT,
-    config=OpenAIResponsesConfig(model="gpt-5-mini", streaming=True),
+    config=OpenAIResponsesConfig(model="gpt-6-luna", streaming=True),
     tools=[get_current_config],
     middleware=[loop_cap(5)],
 )

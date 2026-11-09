@@ -61,7 +61,7 @@ If you are not sure yet, simply ignore this note.
 
     <If conditions={[{ key: 'id', value: 'openai' }, { key: 'id', value: 'openai-assistants' }]}>
         <Callout type="warn">
-            Please note that the code below uses GPT-4o, which requires a paid OpenAI API key. **If you are using a free OpenAI API key**, change the model to a different option such as `gpt-3.5-turbo`.
+            Configure an OpenAI API key with access to the model used by your agent.
         </Callout>
     </If>
 
@@ -115,15 +115,15 @@ If you are not sure yet, simply ignore this note.
             {{adapterSetup}}
             const runtime = new CopilotRuntime();
 
-            export const POST = async (req: NextRequest) => {
-              const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
-                runtime,
-                serviceAdapter,
-                endpoint: '/api/copilotkit',
-              });
+            // Build the endpoint once, at module scope. Do not build it inside
+            // the request handler: that rebuilds the endpoint on every request.
+            const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
+              runtime,
+              serviceAdapter,
+              endpoint: '/api/copilotkit',
+            });
 
-              return handleRequest(req);
-            };
+            export const POST = (req: NextRequest) => handleRequest(req);
             ```
 
             Your Copilot Runtime endpoint should be available at `http://localhost:3000/api/copilotkit`.
@@ -144,18 +144,17 @@ If you are not sure yet, simply ignore this note.
 
             {{clientSetup}}
             {{adapterSetup}}
+            const runtime = new CopilotRuntime();
 
-            const handler = async (req: NextApiRequest, res: NextApiResponse) => {
-              const runtime = new CopilotRuntime();
+            // Build the endpoint once, at module scope, not per request.
+            const handleRequest = copilotRuntimeNextJSPagesRouterEndpoint({
+              endpoint: '/api/copilotkit',
+              runtime,
+              serviceAdapter,
+            });
 
-              const handleRequest = copilotRuntimeNextJSPagesRouterEndpoint({
-                endpoint: '/api/copilotkit',
-                runtime,
-                serviceAdapter,
-              });
-
-              return await handleRequest(req, res);
-            };
+            const handler = (req: NextApiRequest, res: NextApiResponse) =>
+              handleRequest(req, res);
 
             export default handler;
             ```
@@ -179,18 +178,17 @@ If you are not sure yet, simply ignore this note.
             const app = express();
             {{clientSetup}}
             {{adapterSetup}}
+            const runtime = new CopilotRuntime();
+
+            // Build the handler once, at startup, not per request.
+            const handler = copilotRuntimeNodeHttpEndpoint({
+              endpoint: '/copilotkit',
+              runtime,
+              serviceAdapter,
+            });
 
             app.use('/copilotkit', (req, res, next) => {
-              (async () => {
-                const runtime = new CopilotRuntime();
-                const handler = copilotRuntimeNodeHttpEndpoint({
-                  endpoint: '/copilotkit',
-                  runtime,
-                  serviceAdapter,
-                });
-
-                return handler(req, res);
-              })().catch(next);
+              (async () => handler(req, res))().catch(next);
             });
 
             app.listen(4000, () => {
@@ -220,17 +218,16 @@ If you are not sure yet, simply ignore this note.
 
             {{clientSetup}}
             {{adapterSetup}}
+            const runtime = new CopilotRuntime();
 
-            const server = createServer((req, res) => {
-              const runtime = new CopilotRuntime();
-              const handler = copilotRuntimeNodeHttpEndpoint({
-                endpoint: '/copilotkit',
-                runtime,
-                serviceAdapter,
-              });
-
-              return handler(req, res);
+            // Build the handler once, at startup, not per request.
+            const handler = copilotRuntimeNodeHttpEndpoint({
+              endpoint: '/copilotkit',
+              runtime,
+              serviceAdapter,
             });
+
+            const server = createServer((req, res) => handler(req, res));
 
             server.listen(4000, () => {
               console.log('Listening at http://localhost:4000/copilotkit');
@@ -252,19 +249,23 @@ If you are not sure yet, simply ignore this note.
             import { All, Controller, Req, Res } from '@nestjs/common';
             import { CopilotRuntime, copilotRuntimeNestEndpoint, {{adapterImport}} } from '@copilotkit/runtime';
             import { Request, Response } from 'express';
+            {{extraImports}}
+
+            {{clientSetup}}
+            {{adapterSetup}}
+            const runtime = new CopilotRuntime();
+
+            // Build the handler once, at module scope, not per request.
+            const handler = copilotRuntimeNestEndpoint({
+              runtime,
+              serviceAdapter,
+              endpoint: '/copilotkit',
+            });
 
             @Controller()
             export class CopilotKitController {
               @All('/copilotkit')
               copilotkit(@Req() req: Request, @Res() res: Response) {
-                {{adapterSetup}}
-                const runtime = new CopilotRuntime();
-
-                const handler = copilotRuntimeNestEndpoint({
-                  runtime,
-                  serviceAdapter,
-                  endpoint: '/copilotkit',
-                });
                 return handler(req, res);
               }
             }

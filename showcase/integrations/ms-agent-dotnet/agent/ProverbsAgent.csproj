@@ -24,6 +24,7 @@
        Docker (the agent-build stage COPYs _shared/dotnet to /_shared/dotnet, and
        the csproj at /agent resolves ..\_shared\dotnet there). -->
   <ItemGroup>
+    <Compile Include="..\_shared\dotnet\LunaChatClientExtensions.cs" />
     <Compile Include="..\_shared\dotnet\CvdiagSchema.cs" />
     <Compile Include="..\_shared\dotnet\CvdiagEmitter.cs" />
   </ItemGroup>

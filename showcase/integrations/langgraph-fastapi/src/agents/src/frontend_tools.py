@@ -10,7 +10,7 @@ from langchain_openai import ChatOpenAI
 from copilotkit import CopilotKitMiddleware
 
 graph = create_agent(
-    model=ChatOpenAI(model="gpt-5-mini"),
+    model=ChatOpenAI(reasoning_effort="none", model="gpt-6-luna"),
     tools=[],
     middleware=[CopilotKitMiddleware()],
     system_prompt="You are a helpful, concise assistant.",

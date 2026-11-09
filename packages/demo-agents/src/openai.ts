@@ -24,9 +24,9 @@ export class OpenAIAgent extends AbstractAgent {
         runId: input.runId,
       } as BaseEvent);
 
-      this.openai.chat.completions
-        .create({
-          model: "gpt-4o",
+      const request: OpenAI.Chat.Completions.ChatCompletionCreateParamsStreaming =
+        {
+          model: "gpt-6-luna",
           stream: true,
           tools: input.tools.map((tool) => ({
             type: "function",
@@ -60,7 +60,9 @@ export class OpenAIAgent extends AbstractAgent {
               }
             },
           ),
-        })
+        };
+      this.openai.chat.completions
+        .create(request, { body: { ...request, reasoning_effort: "none" } })
         .then(async (response) => {
           const messageId = Date.now().toString();
           for await (const chunk of response) {

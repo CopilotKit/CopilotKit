@@ -63,7 +63,7 @@ def generate_a2ui() -> str:
 agent = Agent(
     "declarative_gen_ui_assistant",
     prompt=SYSTEM_PROMPT,
-    config=OpenAIResponsesConfig(model="gpt-5-mini", streaming=True),
+    config=OpenAIResponsesConfig(model="gpt-6-luna", streaming=True),
     tools=[generate_a2ui],
     middleware=[loop_cap(8)],
 )

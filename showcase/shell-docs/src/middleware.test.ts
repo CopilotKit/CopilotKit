@@ -241,3 +241,99 @@ describe("a retired page's raw Markdown URL", () => {
     );
   });
 });
+
+describe("an ordinary docs pageview", () => {
+  // `docs_pageview` must stay personless. Bots and agents never return the
+  // cookie, so with person processing on, each of their hits mints a person
+  // and bills at the identified rate.
+  function expectPersonlessCallerProperties(
+    properties: Record<string, unknown>,
+  ): void {
+    expect(properties.$process_person_profile).toBe(false);
+    // The visitor's address, so that GeoIP locates the visitor, not our server.
+    expect(properties.$ip).toBe("203.0.113.7");
+    // PostHog's bot filter reads this. Without it, every event is Automation.
+    expect(properties.$raw_user_agent).toBe(CHROME);
+    expect(properties.$geoip_disable).toBeUndefined();
+  }
+
+  it("mints a fresh id under the new cookie name for a first-time visitor", async () => {
+    const { response, events } = await runMiddleware("/learning", {
+      userAgent: CHROME,
+      ip: "203.0.113.7",
+      headers: { referer: "https://www.google.com/" },
+    });
+
+    expect(events).toHaveLength(1);
+    const [event] = events;
+    expect(event!.event).toBe("docs_pageview");
+    expect(event!.properties.path).toBe("/learning");
+    expect(event!.properties.referrer).toBe("https://www.google.com/");
+    expect(event!.properties.environment).toEqual(expect.any(String));
+    expectPersonlessCallerProperties(event!.properties);
+
+    const setCookie = response.headers.get("set-cookie") ?? "";
+    expect(setCookie).toContain(`ph_docs_id=${event!.distinct_id}`);
+    expect(setCookie).not.toContain("ph_distinct_id");
+  });
+
+  it("reuses the id from the cookie and does not set it again", async () => {
+    const { response, events } = await runMiddleware("/learning", {
+      userAgent: CHROME,
+      ip: "203.0.113.7",
+      headers: { cookie: "ph_docs_id=returning-visitor" },
+    });
+
+    expect(events).toHaveLength(1);
+    expect(events[0]!.distinct_id).toBe("returning-visitor");
+    expectPersonlessCallerProperties(events[0]!.properties);
+    expect(response.headers.get("set-cookie")).toBeNull();
+  });
+
+  it("ignores the retired cookie, whose ids already have person profiles", async () => {
+    // PostHog upgrades an id that already has a person back to identified
+    // processing even when the flag is false. Reusing the old id would undo
+    // the change.
+    const { response, events } = await runMiddleware("/learning", {
+      userAgent: CHROME,
+      ip: "203.0.113.7",
+      headers: { cookie: "ph_distinct_id=legacy-visitor" },
+    });
+
+    expect(events[0]!.distinct_id).not.toBe("legacy-visitor");
+    expect(response.headers.get("set-cookie") ?? "").toContain(
+      `ph_docs_id=${events[0]!.distinct_id}`,
+    );
+  });
+
+  it("caps the forwarded user agent", async () => {
+    const { events } = await runMiddleware("/learning", {
+      userAgent: "x".repeat(4000),
+    });
+
+    expect(String(events[0]!.properties.$raw_user_agent)).toHaveLength(512);
+  });
+});
+
+describe("a seo_redirect event", () => {
+  it("is personless and carries the caller's address and user agent", async () => {
+    const { response, events } = await runMiddleware("/(other)/learning", {
+      userAgent: CHROME,
+      ip: "203.0.113.7",
+    });
+
+    expect(response.status).toBe(301);
+    expect(events).toHaveLength(1);
+    const [event] = events;
+    expect(event!.event).toBe("seo_redirect");
+    expect(event!.distinct_id).not.toBe("seo-redirect-tracker");
+    expect(event!.properties).toMatchObject({
+      redirect_id: "route-group-strip",
+      from_path: "/(other)/learning",
+      to_path: "/learning",
+      $process_person_profile: false,
+      $ip: "203.0.113.7",
+      $raw_user_agent: CHROME,
+    });
+  });
+});

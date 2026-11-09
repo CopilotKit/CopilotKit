@@ -32,7 +32,7 @@ from __future__ import annotations
 import json
 from typing import Any, List, Type
 
-from crewai import Agent, Crew, Process, Task
+from crewai import LLM, Agent, Crew, Process, Task
 from crewai.tools import BaseTool
 from pydantic import BaseModel, Field
 
@@ -133,7 +133,11 @@ preseed_system_prompt(
 
 def _build_crew() -> Crew:
     agent = Agent(
-        llm="gpt-5.4",
+        llm=LLM(
+            model="openai/gpt-6-luna",
+            is_litellm=True,
+            additional_params={"extra_body": {"reasoning_effort": "none"}},
+        ),
         role="Beautiful Chat Demo Assistant",
         goal=(
             "Answer users crisply and rely on tools to render rich UI: "
@@ -167,7 +171,11 @@ def _build_crew() -> Crew:
         tasks=[task],
         process=Process.sequential,
         verbose=False,
-        chat_llm="gpt-5.4",
+        chat_llm=LLM(
+            model="openai/gpt-6-luna",
+            is_litellm=True,
+            additional_params={"extra_body": {"reasoning_effort": "none"}},
+        ),
     )
 
 

@@ -19,7 +19,7 @@
   "packages": [
     {
       "name": "@copilotkit/a2ui-renderer",
-      "version": "1.84.1",
+      "version": "1.85.0",
       "sourceDirectory": "packages/a2ui-renderer",
       "entrypoints": [
         {
@@ -96,7 +96,7 @@
     },
     {
       "name": "@copilotkit/agentcore-runner",
-      "version": "1.84.1",
+      "version": "1.85.0",
       "sourceDirectory": "packages/agentcore-runner",
       "entrypoints": [
         {
@@ -1005,7 +1005,7 @@
     },
     {
       "name": "@copilotkit/core",
-      "version": "1.84.1",
+      "version": "1.85.0",
       "sourceDirectory": "packages/core",
       "entrypoints": [
         {
@@ -1222,7 +1222,7 @@
     },
     {
       "name": "@copilotkit/learning",
-      "version": "1.84.1",
+      "version": "1.85.0",
       "sourceDirectory": "packages/learning",
       "entrypoints": [
         {
@@ -1283,7 +1283,7 @@
     },
     {
       "name": "@copilotkit/mcp-apps-renderer",
-      "version": "1.84.1",
+      "version": "1.85.0",
       "sourceDirectory": "packages/mcp-apps-renderer",
       "entrypoints": [
         {
@@ -1367,7 +1367,7 @@
     },
     {
       "name": "@copilotkit/react-core",
-      "version": "1.84.1",
+      "version": "1.85.0",
       "sourceDirectory": "packages/react-core",
       "entrypoints": [
         {
@@ -1435,6 +1435,20 @@
             "kind": "package-json",
             "path": "packages/react-core/package.json",
             "selector": "exports[\"./v2/generative-ui\"]"
+          }
+        },
+        {
+          "importPath": "@copilotkit/react-core/v2/generative-ui/native",
+          "exportKey": "./v2/generative-ui/native",
+          "kind": "code",
+          "conditions": {
+            "import": "./dist/v2/generative-ui/native.mjs",
+            "require": "./dist/v2/generative-ui/native.cjs"
+          },
+          "provenance": {
+            "kind": "package-json",
+            "path": "packages/react-core/package.json",
+            "selector": "exports[\"./v2/generative-ui/native\"]"
           }
         },
         {
@@ -1506,7 +1520,7 @@
     },
     {
       "name": "@copilotkit/react-native",
-      "version": "1.84.1",
+      "version": "1.85.0",
       "sourceDirectory": "packages/react-native",
       "entrypoints": [
         {
@@ -1535,6 +1549,20 @@
             "kind": "package-json",
             "path": "packages/react-native/package.json",
             "selector": "exports[\"./components\"]"
+          }
+        },
+        {
+          "importPath": "@copilotkit/react-native/generative-ui",
+          "exportKey": "./generative-ui",
+          "kind": "code",
+          "conditions": {
+            "import": "./dist/generative-ui/index.mjs",
+            "require": "./dist/generative-ui/index.cjs"
+          },
+          "provenance": {
+            "kind": "package-json",
+            "path": "packages/react-native/package.json",
+            "selector": "exports[\"./generative-ui\"]"
           }
         },
         {
@@ -1701,7 +1729,7 @@
     },
     {
       "name": "@copilotkit/react-textarea",
-      "version": "1.84.1",
+      "version": "1.85.0",
       "sourceDirectory": "packages/react-textarea",
       "entrypoints": [
         {
@@ -1774,7 +1802,7 @@
     },
     {
       "name": "@copilotkit/react-ui",
-      "version": "1.84.1",
+      "version": "1.85.0",
       "sourceDirectory": "packages/react-ui",
       "entrypoints": [
         {
@@ -1857,7 +1885,7 @@
     },
     {
       "name": "@copilotkit/runtime",
-      "version": "1.84.1",
+      "version": "1.85.0",
       "sourceDirectory": "packages/runtime",
       "entrypoints": [
         {
@@ -2036,7 +2064,7 @@
     },
     {
       "name": "@copilotkit/runtime-client-gql",
-      "version": "1.84.1",
+      "version": "1.85.0",
       "sourceDirectory": "packages/runtime-client-gql",
       "entrypoints": [
         {
@@ -2097,7 +2125,7 @@
     },
     {
       "name": "@copilotkit/sdk-js",
-      "version": "1.84.1",
+      "version": "1.85.0",
       "sourceDirectory": "packages/sdk-js",
       "entrypoints": [
         {
@@ -2204,7 +2232,7 @@
     },
     {
       "name": "@copilotkit/shared",
-      "version": "1.84.1",
+      "version": "1.85.0",
       "sourceDirectory": "packages/shared",
       "entrypoints": [
         {
@@ -2307,7 +2335,7 @@
     },
     {
       "name": "@copilotkit/sqlite-runner",
-      "version": "1.84.1",
+      "version": "1.85.0",
       "sourceDirectory": "packages/sqlite-runner",
       "entrypoints": [
         {
@@ -2384,7 +2412,7 @@
     },
     {
       "name": "@copilotkit/voice",
-      "version": "1.84.1",
+      "version": "1.85.0",
       "sourceDirectory": "packages/voice",
       "entrypoints": [
         {
@@ -2453,7 +2481,7 @@
     },
     {
       "name": "@copilotkit/vue",
-      "version": "1.84.1",
+      "version": "1.85.0",
       "sourceDirectory": "packages/vue",
       "entrypoints": [
         {
@@ -2517,6 +2545,66 @@
             "path": "packages/vue/package.json",
             "selector": "exports[\"./v2\"]"
           }
+        },
+        {
+          "importPath": "@copilotkit/vue/v2/generative-ui",
+          "exportKey": "./v2/generative-ui",
+          "kind": "code",
+          "conditions": {
+            "import": {
+              "types": "./dist/v2/generative-ui/index.d.mts",
+              "default": "./dist/v2/generative-ui/index.mjs"
+            },
+            "require": {
+              "types": "./dist/v2/generative-ui/index.d.cts",
+              "default": "./dist/v2/generative-ui/index.cjs"
+            }
+          },
+          "provenance": {
+            "kind": "package-json",
+            "path": "packages/vue/package.json",
+            "selector": "exports[\"./v2/generative-ui\"]"
+          }
+        },
+        {
+          "importPath": "@copilotkit/vue/v2/generative-ui/chart",
+          "exportKey": "./v2/generative-ui/chart",
+          "kind": "code",
+          "conditions": {
+            "import": {
+              "types": "./dist/v2/generative-ui-chart/index.d.mts",
+              "default": "./dist/v2/generative-ui/chart.mjs"
+            },
+            "require": {
+              "types": "./dist/v2/generative-ui-chart/index.d.cts",
+              "default": "./dist/v2/generative-ui/chart.cjs"
+            }
+          },
+          "provenance": {
+            "kind": "package-json",
+            "path": "packages/vue/package.json",
+            "selector": "exports[\"./v2/generative-ui/chart\"]"
+          }
+        },
+        {
+          "importPath": "@copilotkit/vue/v2/generative-ui/map",
+          "exportKey": "./v2/generative-ui/map",
+          "kind": "code",
+          "conditions": {
+            "import": {
+              "types": "./dist/v2/generative-ui-map/index.d.mts",
+              "default": "./dist/v2/generative-ui/map.mjs"
+            },
+            "require": {
+              "types": "./dist/v2/generative-ui-map/index.d.cts",
+              "default": "./dist/v2/generative-ui/map.cjs"
+            }
+          },
+          "provenance": {
+            "kind": "package-json",
+            "path": "packages/vue/package.json",
+            "selector": "exports[\"./v2/generative-ui/map\"]"
+          }
         }
       ],
       "compatibility": {
@@ -2524,8 +2612,14 @@
           "node": ">=20"
         },
         "peerDependencies": {
+          "chart.js": "^4.4.0",
+          "maplibre-gl": "^5.0.0",
           "vue": ">=3.3.0"
         },
+        "optionalPeerDependencies": [
+          "chart.js",
+          "maplibre-gl"
+        ],
         "provenance": [
           {
             "kind": "package-json",
@@ -2536,6 +2630,11 @@
             "kind": "package-json",
             "path": "packages/vue/package.json",
             "selector": "peerDependencies"
+          },
+          {
+            "kind": "package-json",
+            "path": "packages/vue/package.json",
+            "selector": "peerDependenciesMeta.*.optional"
           }
         ]
       },
@@ -2559,7 +2658,7 @@
     },
     {
       "name": "@copilotkit/web-components",
-      "version": "1.84.1",
+      "version": "1.85.0",
       "sourceDirectory": "packages/web-components",
       "entrypoints": [
         {
@@ -2654,7 +2753,7 @@
     },
     {
       "name": "@copilotkit/web-inspector",
-      "version": "1.84.1",
+      "version": "1.85.0",
       "sourceDirectory": "packages/web-inspector",
       "entrypoints": [
         {

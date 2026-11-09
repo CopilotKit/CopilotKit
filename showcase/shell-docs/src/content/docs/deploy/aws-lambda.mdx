@@ -45,7 +45,7 @@ import {
 // Created once per container, reused across warm invocations.
 const runtime = new CopilotRuntime({
   agents: {
-    default: new BuiltInAgent({ model: "openai/gpt-4o-mini" }),
+    default: new BuiltInAgent({ model: "openai/gpt-6-luna" }),
   },
 });
 
@@ -372,7 +372,7 @@ import { createCopilotExpressHandler } from "@copilotkit/runtime/v2/express";
 
 const runtime = new CopilotRuntime({
   agents: {
-    default: new BuiltInAgent({ model: "openai/gpt-4o-mini" }),
+    default: new BuiltInAgent({ model: "openai/gpt-6-luna" }),
   },
 });
 

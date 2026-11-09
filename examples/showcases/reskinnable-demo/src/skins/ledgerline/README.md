@@ -101,7 +101,7 @@ Everything is held in memory, pinned on `globalThis`.
 
 ## Learning
 
-`POST /api/learning/v1/learn` reads the latest trajectory the agent failed and a person completed. The skill is always derived deterministically from the events, because an API recipe must be exact: the steps come from the recorded calls, and the matching rules from the pairs the person validated (descriptor examples, posting lag, the gratuity and fx_conversion adjustment shapes with the worked numbers, split receipts, and the stale receipt that failed). OpenAI (`LEARN_MODEL`, default `gpt-4.1`) writes the insight and two eval candidates; invented eventIds are dropped, and the negative eval case is always the deterministic one. If the call fails or cites nothing real, everything falls back to the deterministic derivation. The response says which path produced it (`derivedBy`).
+`POST /api/learning/v1/learn` reads the latest trajectory the agent failed and a person completed. The skill is always derived deterministically from the events, because an API recipe must be exact: the steps come from the recorded calls, and the matching rules from the pairs the person validated (descriptor examples, posting lag, the gratuity and fx_conversion adjustment shapes with the worked numbers, split receipts, and the stale receipt that failed). OpenAI (`LEARN_MODEL`, default `gpt-6-luna`) writes the insight and two eval candidates; invented eventIds are dropped, and the negative eval case is always the deterministic one. If the call fails or cites nothing real, everything falls back to the deterministic derivation. The response says which path produced it (`derivedBy`).
 
 ## What is demo-only
 

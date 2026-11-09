@@ -28,9 +28,10 @@ const runtime = new CopilotRuntime({
 
 const serviceAdapter = new LangChainAdapter({
   chainFn: async ({ messages, tools }) => {
-    const model = new ChatOpenAI({ modelName: "gpt-4-1106-preview" }).bind(
-      tools as any,
-    );
+    const model = new ChatOpenAI({
+      modelKwargs: { reasoning_effort: "none" },
+      modelName: "gpt-6-luna",
+    }).bind(tools as any);
     return model.stream(messages);
   },
 });

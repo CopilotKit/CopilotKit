@@ -122,6 +122,10 @@ All slots are forwarded down to the internal `CopilotPopupView`. Each slot recei
   Overrides only the welcome message content inside the default welcome screen.
 </PropertyReference>
 
+<PropertyReference name="generative-ui-surface" type="(props: GenerativeUIChatSurfaceSlotProps) => unknown">
+  Experimental. Replaces the default card around each generative UI surface in the chat. Slot props: `surfaceId`, `isStreaming`, `error`, `rejected`, `children`. Render the surface with `<component :is="children" />`. See [`CopilotChat`](/reference/vue/components/CopilotChat) for the details of each slot prop.
+</PropertyReference>
+
 ## Events
 
 `CopilotPopup` emits the following events (use kebab-case in templates):

@@ -62,7 +62,7 @@ function determineModel(): BuiltInAgentClassicConfig["model"] {
     return openrouter(determineOpenRouterModelId());
   }
   if (openAIApiKey) {
-    return "openai/gpt-5.2";
+    return "openai/gpt-6-luna";
   }
   if (process.env.ANTHROPIC_API_KEY?.trim()) {
     return "anthropic/claude-opus-4-8";
@@ -70,7 +70,7 @@ function determineModel(): BuiltInAgentClassicConfig["model"] {
   if (process.env.GOOGLE_API_KEY?.trim()) {
     return "google/gemini-3.8-flash";
   }
-  return "openai/gpt-5.2";
+  return "openai/gpt-6-luna";
 }
 
 const builtInAgent = new BuiltInAgent({

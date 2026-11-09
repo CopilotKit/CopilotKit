@@ -87,7 +87,7 @@ def set_steps(run_context: RunContext, steps: list[dict]) -> str:
 
 
 agent = Agent(
-    model=OpenAIChat(id="gpt-4o-mini", timeout=120),
+    model=OpenAIChat(reasoning_effort="none", id="gpt-6-luna", timeout=120),
     tools=[set_steps],
     instructions=SYSTEM_PROMPT,
     description=(
