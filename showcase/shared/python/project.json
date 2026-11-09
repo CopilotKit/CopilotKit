@@ -1,6 +1,14 @@
 {
   "name": "showcase-shared-python",
   "targets": {
+    "test:provider-headers": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "python3 -m pytest showcase/shared/python/tests/test_provider_header_forwarding.py"
+      },
+      "cache": false,
+      "dependsOn": []
+    },
     "test": {
       "executor": "nx:run-commands",
       "options": {

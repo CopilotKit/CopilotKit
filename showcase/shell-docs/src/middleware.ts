@@ -78,7 +78,12 @@ for (const entry of seoRedirects) {
 function getPosthogHost(): string {
   return getRuntimeConfigForMiddleware().posthogHost;
 }
-const DISTINCT_ID_COOKIE = "ph_distinct_id";
+// Renamed from `ph_distinct_id` when `docs_pageview` became personless.
+// PostHog upgrades a distinct_id that already has a person profile back to
+// identified processing even when `$process_person_profile` is false, so
+// every visitor must get a fresh id for the flag to take effect. Do not
+// rename it back.
+const DISTINCT_ID_COOKIE = "ph_docs_id";
 // ~2 years — long enough to meaningfully track returning visitors.
 const DISTINCT_ID_COOKIE_MAX_AGE = 60 * 60 * 24 * 365 * 2;
 
@@ -90,7 +95,33 @@ if (!POSTHOG_KEY) {
   console.warn("[middleware] POSTHOG_KEY is not set — analytics disabled");
 }
 
-function trackRedirect(id: string, fromPath: string, toPath: string): void {
+// The server-side capture paths below report on behalf of a caller, so
+// PostHog cannot see that caller itself. These properties stand in:
+// - `$ip` gives PostHog the visitor's address for GeoIP. Without it,
+//   PostHog geolocates the server that POSTs the event.
+// - `$raw_user_agent` is what PostHog's bot-filter transformation reads.
+//   Without it, every event classifies as `no_user_agent`.
+// - `$process_person_profile: false` keeps these events personless. Bots
+//   and agents never return a cookie, so each of their hits would mint a
+//   new person.
+function serverCaptureCallerProperties(
+  request: NextRequest,
+): Record<string, unknown> {
+  return {
+    $ip: clientIp(request),
+    $raw_user_agent:
+      request.headers.get("user-agent")?.slice(0, MAX_USER_AGENT_LENGTH) ??
+      null,
+    $process_person_profile: false,
+  };
+}
+
+function trackRedirect(
+  request: NextRequest,
+  id: string,
+  fromPath: string,
+  toPath: string,
+): void {
   if (!POSTHOG_KEY) {
     return;
   }
@@ -102,11 +133,14 @@ function trackRedirect(id: string, fromPath: string, toPath: string): void {
     body: JSON.stringify({
       api_key: POSTHOG_KEY,
       event: "seo_redirect",
-      distinct_id: "seo-redirect-tracker",
+      // Renamed from `seo-redirect-tracker`, which already has a person
+      // profile: PostHog would upgrade it back to identified processing.
+      distinct_id: "seo-redirect",
       properties: {
         redirect_id: id,
         from_path: fromPath,
         to_path: toPath,
+        ...serverCaptureCallerProperties(request),
       },
     }),
   }).catch(() => {
@@ -283,6 +317,7 @@ async function captureLlmTextFetch(
 }
 
 async function capturePageView(
+  request: NextRequest,
   pathname: string,
   distinctId: string,
 ): Promise<void> {
@@ -300,6 +335,9 @@ async function capturePageView(
         distinct_id: distinctId,
         properties: {
           path: pathname,
+          environment: deploymentEnvironment(),
+          referrer: request.headers.get("referer"),
+          ...serverCaptureCallerProperties(request),
         },
       }),
     });
@@ -361,7 +399,7 @@ export function middleware(
 
   const routeGroupFreePath = stripRouteGroupSegmentsFromPathname(pathname);
   if (routeGroupFreePath !== pathname) {
-    trackRedirect("route-group-strip", pathname, routeGroupFreePath);
+    trackRedirect(request, "route-group-strip", pathname, routeGroupFreePath);
     const url = request.nextUrl.clone();
     url.pathname = routeGroupFreePath;
     return NextResponse.redirect(url, 301);
@@ -375,7 +413,7 @@ export function middleware(
   //       by the framework short-circuit below.
   const exact = exactMap.get(pathname);
   if (exact && exact.destination !== pathname) {
-    trackRedirect(exact.id, pathname, exact.destination);
+    trackRedirect(request, exact.id, pathname, exact.destination);
     return NextResponse.redirect(new URL(exact.destination, request.url), 301);
   }
 
@@ -416,7 +454,7 @@ export function middleware(
     if (destination === pathname) {
       continue;
     }
-    trackRedirect(wc.id, pathname, destination);
+    trackRedirect(request, wc.id, pathname, destination);
     return NextResponse.redirect(new URL(destination, request.url), 301);
   }
 
@@ -483,7 +521,7 @@ export function middleware(
 
   // waitUntil keeps the Edge execution context alive until the POST
   // resolves, so we don't drop events when NextResponse.next() returns.
-  event.waitUntil(capturePageView(pathname, distinctId));
+  event.waitUntil(capturePageView(request, pathname, distinctId));
 
   return response;
 }

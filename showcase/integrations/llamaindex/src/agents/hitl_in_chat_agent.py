@@ -44,7 +44,7 @@ from llama_index.core.llms import ChatMessage, ChatResponse, MessageRole, TextBl
 from llama_index.core.tools import FunctionTool
 from llama_index.core.workflow import Context, step
 from llama_index.core.workflow.events import StopEvent
-from llama_index.llms.openai import OpenAI
+from agents._openai_models import OpenAI
 from llama_index.protocols.ag_ui.agent import (
     AGUIChatWorkflow,
     DEFAULT_STATE_PROMPT,
@@ -408,7 +408,7 @@ class FixedAGUIChatWorkflow(AGUIChatWorkflow):
 
 async def _workflow_factory():
     return FixedAGUIChatWorkflow(
-        llm=OpenAI(model="gpt-5-mini", **_openai_kwargs),
+        llm=OpenAI(model="gpt-6-luna", **_openai_kwargs),
         frontend_tools=[_book_call_tool],
         backend_tools=[],
         system_prompt=(

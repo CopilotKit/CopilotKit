@@ -120,7 +120,7 @@ SYSTEM_PROMPT = (
     "fabricate data that a tool could provide."
 )
 
-REASONING_MODEL = os.environ.get("OPENAI_REASONING_MODEL", "gpt-5.4")
+REASONING_MODEL = os.environ.get("OPENAI_REASONING_MODEL", "gpt-6-luna")
 
 # No full CopilotKitMiddleware — this demo combines reasoning-token streaming
 # with backend tool rendering, but doesn't consume any frontend tools or app

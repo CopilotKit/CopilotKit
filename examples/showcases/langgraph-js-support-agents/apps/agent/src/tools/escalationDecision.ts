@@ -13,7 +13,8 @@ export const escalationDecisionTool = tool(
 
     // Initialize AI model
     const model = new ChatOpenAI({
-      model: "gpt-5-nano",
+      modelKwargs: { reasoning_effort: "none" },
+      model: "gpt-6-luna",
     });
 
     // Build context for AI

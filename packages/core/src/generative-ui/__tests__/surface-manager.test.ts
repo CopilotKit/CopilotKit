@@ -913,3 +913,94 @@ describe("GenerativeUISurfaceManager", () => {
     });
   });
 });
+
+/** A value that structuredClone refuses. */
+const uncloneable = () => {};
+
+describe("GenerativeUISurfaceManager review regressions", () => {
+  it("skips content whose operations JSON refuses, without throwing", () => {
+    const { manager, surface } = managerWith([create, grid([])]);
+    const listener = listen(manager);
+    const cyclic: Record<string, unknown> = {};
+    cyclic.self = cyclic;
+    for (const bad of [10n, cyclic]) {
+      expect(() =>
+        manager.ingest(
+          "t1",
+          "default",
+          content([create, grid([]), data("/x", bad)]),
+        ),
+      ).not.toThrow();
+    }
+    expect(listener).not.toHaveBeenCalled();
+    expect(manager.getSurface("t1", "recs")).toBe(surface);
+    expect(surface.operations).toHaveLength(2);
+    // The next good content still applies.
+    manager.ingest("t1", "default", content([create, grid([]), data("/x", 1)]));
+    expect(surface.model.dataModel.get("/x")).toBe(1);
+  });
+
+  it("skips content whose earlier operation JSON refuses, applying none of it", () => {
+    const { manager, surface } = managerWith([create, grid([])]);
+    const listener = listen(manager);
+    const cyclic: Record<string, unknown> = {};
+    cyclic.self = cyclic;
+    for (const operations of [
+      // A new operation before the last one.
+      [create, grid([]), data("/a", cyclic), data("/x", 1)],
+      // Content that does not extend the applied operations is rebuilt
+      // from the start: it is checked from the start too.
+      [create, data("/a", 10n), grid([]), data("/x", 1)],
+    ]) {
+      expect(() =>
+        manager.ingest("t1", "default", content(operations)),
+      ).not.toThrow();
+    }
+    expect(listener).not.toHaveBeenCalled();
+    expect(manager.getSurface("t1", "recs")).toBe(surface);
+    expect(surface.operations).toHaveLength(2);
+    expect(surface.model.dataModel.get("/x")).toBeUndefined();
+  });
+
+  it("does nothing, and does not clone, for an unknown or deleted surface", () => {
+    const manager = new GenerativeUISurfaceManager(ui);
+    expect(() =>
+      manager.setOwnedValue(surfaceKey("t1", "nope"), "/x", uncloneable),
+    ).not.toThrow();
+    // A live surface still refuses the value.
+    const live = managerWith([create, grid([])]);
+    expect(() =>
+      live.manager.setOwnedValue(live.surface.key, "/x", uncloneable),
+    ).toThrow(expect.objectContaining({ name: "DataCloneError" }));
+  });
+
+  it("refreshes the server rejections when their entries change", () => {
+    const { manager, surface } = managerWith([create, grid([])]);
+    manager.ingest(
+      "t1",
+      "default",
+      content([create, grid([])], {
+        rejected: [{ index: 1, reason: "old" }],
+      }),
+    );
+    const listener = listen(manager);
+    manager.ingest(
+      "t1",
+      "default",
+      content([create, grid([])], {
+        rejected: [{ index: 1, reason: "new" }],
+      }),
+    );
+    expect(surface.serverRejected).toEqual([{ index: 1, reason: "new" }]);
+    expect(listener).toHaveBeenCalledTimes(1);
+    // The same entries again: nothing new.
+    manager.ingest(
+      "t1",
+      "default",
+      content([create, grid([])], {
+        rejected: [{ index: 1, reason: "new" }],
+      }),
+    );
+    expect(listener).toHaveBeenCalledTimes(1);
+  });
+});

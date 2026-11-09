@@ -110,7 +110,7 @@ public class StreamingToolAgent extends PropagatingLocalAgent {
         // CVDIAG backend.agent.enter (no-op when emission OFF / run unbound).
         CvdiagBackend.CvdiagRun cvdiag = CvdiagRunContext.get();
         if (cvdiag != null) {
-            cvdiag.agentEnter(this.agentId, "gpt-4.1");
+            cvdiag.agentEnter(this.agentId, "gpt-6-luna");
         }
 
         // RUN_STARTED must precede every terminal RUN_ERROR — AG-UI clients
@@ -289,7 +289,7 @@ public class StreamingToolAgent extends PropagatingLocalAgent {
                 new java.util.concurrent.atomic.AtomicBoolean(false);
         java.util.concurrent.ScheduledExecutorService heartbeat = null;
         if (cvdiag != null) {
-            cvdiag.llmCallStart("openai", "gpt-4.1", estimatePromptTokens(userContent));
+            cvdiag.llmCallStart("openai", "gpt-6-luna", estimatePromptTokens(userContent));
             heartbeat = java.util.concurrent.Executors.newSingleThreadScheduledExecutor(r -> {
                 Thread t = new Thread(r, "cvdiag-llm-heartbeat");
                 t.setDaemon(true);
@@ -357,7 +357,7 @@ public class StreamingToolAgent extends PropagatingLocalAgent {
         long latencyMs = System.currentTimeMillis() - llmStart;
         if (!completed) {
             if (cvdiag != null) {
-                cvdiag.llmCallResponse("openai", "gpt-4.1", null, latencyMs, "TimeoutException");
+                cvdiag.llmCallResponse("openai", "gpt-6-luna", null, latencyMs, "TimeoutException");
             }
             throw new RuntimeException("Streaming timed out after 120 seconds");
         }
@@ -365,7 +365,7 @@ public class StreamingToolAgent extends PropagatingLocalAgent {
         Throwable err = streamError.get();
         if (err != null) {
             if (cvdiag != null) {
-                cvdiag.llmCallResponse("openai", "gpt-4.1", null, latencyMs,
+                cvdiag.llmCallResponse("openai", "gpt-6-luna", null, latencyMs,
                         err.getClass().getSimpleName());
             }
             throw new RuntimeException("Streaming failed", err);
@@ -375,7 +375,7 @@ public class StreamingToolAgent extends PropagatingLocalAgent {
         // response_token_count is not exposed on the reactive stream chunks, so
         // it rides null (the closed-world keeps the optional field absent).
         if (cvdiag != null) {
-            cvdiag.llmCallResponse("openai", "gpt-4.1", null, latencyMs, null);
+            cvdiag.llmCallResponse("openai", "gpt-6-luna", null, latencyMs, null);
         }
 
         assistantMessage.setContent(textAccumulator.toString());

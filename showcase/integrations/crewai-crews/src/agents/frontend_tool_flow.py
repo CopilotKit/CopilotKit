@@ -23,7 +23,9 @@ class FrontendToolFlow(Flow[CopilotKitState]):
     async def chat(self) -> None:
         response = await copilotkit_stream(
             await acompletion(
-                model="openai/gpt-5.4",
+                allowed_openai_params=["reasoning_effort"],
+                reasoning_effort="none",
+                model="openai/gpt-6-luna",
                 messages=[
                     {"role": "system", "content": SYSTEM_PROMPT},
                     *self.state.messages,

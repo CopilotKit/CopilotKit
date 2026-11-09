@@ -104,7 +104,7 @@ Respond with the JSON object only.
 byoc_json_render_agent = Agent(
     "byoc_json_render_assistant",
     prompt=SYSTEM_PROMPT.strip(),
-    config=OpenAIResponsesConfig(model="gpt-5-mini", streaming=True),
+    config=OpenAIResponsesConfig(model="gpt-6-luna", streaming=True),
     middleware=[loop_cap(3)],
 )
 

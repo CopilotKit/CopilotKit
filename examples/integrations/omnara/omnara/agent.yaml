@@ -1,0 +1,23 @@
+# The Omnara agent config behind the app. `npm run agent:apply` uploads this
+# file and points the copilotkit-assistant profile at it. Each chat thread
+# launches its own Omnara agent from that profile, so after you edit this file
+# and apply it again, new threads use the new config and existing threads keep
+# theirs. Reference: https://docs.omnara.com/agents/configuration
+version: v1
+instruction: |
+  You are a helpful assistant in a CopilotKit chat app. Answer clearly and concisely.
+  Use your web tools when current sources are needed.
+model:
+  # Hosted Omnara grants this model provider to your organization's first
+  # project. Choose any model your project can use.
+  provider_config: omnara-openrouter
+  name: anthropic/claude-fable-5.1
+# For a hosted sandbox with run_command and file tools, add this top-level key:
+#   machine_sources: [{ machine_pool_name: default-pool }]
+tools:
+  # Web tools need no machine. Add ask_question, or give a tool
+  # permission: { mode: always_ask }, for question and approval cards in the
+  # web chat. Channels can't answer those yet, so leave them out of a profile
+  # you serve to a Channel.
+  web_search: {}
+  web_fetch: {}

@@ -136,7 +136,7 @@ class TracedLedgerlineAgent extends BuiltInAgent {
 
 export const ledgerlineAgent = () =>
   new TracedLedgerlineAgent({
-    model: "openai/gpt-5.4",
+    model: "openai/gpt-6-luna",
     prompt: PROMPT,
     // A full card close is ~12 tool calls; the runtime's default with a
     // learned skill loaded is 10.
