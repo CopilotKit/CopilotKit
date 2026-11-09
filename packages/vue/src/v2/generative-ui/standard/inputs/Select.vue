@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { computed, useId } from "vue";
+import { computed } from "vue";
+import { useStandardId } from "../ids";
 import type { FunctionalComponent } from "vue";
 import { defined, px, textColor } from "@copilotkit/shared/generative-ui";
 import type { StyleMap, selectSchema } from "@copilotkit/shared/generative-ui";
@@ -59,7 +60,7 @@ const value = defineModel<SelectProps["value"]>("value");
 
 useStandardStyles();
 const aria = useGenerativeUIAccessibility();
-const id = useId();
+const id = useStandardId();
 const {
   error: checkError,
   invalid: checkInvalid,

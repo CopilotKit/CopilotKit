@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { computed, useId } from "vue";
+import { computed } from "vue";
+import { useStandardId } from "../ids";
 import type { textFieldSchema } from "@copilotkit/shared/generative-ui";
 import type { z } from "zod";
 import { controlAria, useGenerativeUIAccessibility } from "../../accessibility";
@@ -55,7 +56,7 @@ const value = defineModel<TextFieldProps["value"]>("value");
 
 useStandardStyles();
 const aria = useGenerativeUIAccessibility();
-const id = useId();
+const id = useStandardId();
 const {
   error: checkError,
   invalid: checkInvalid,

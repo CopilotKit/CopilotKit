@@ -1,10 +1,10 @@
 <script lang="ts">
 /** The next id of a Tabs, so the ids of two Tabs never collide. */
-let nextTabsId = 0;
 </script>
 
 <script setup lang="ts">
 import { computed } from "vue";
+import { useStandardId } from "../ids";
 import type { VNode } from "vue";
 import {
   borderColor,
@@ -34,7 +34,7 @@ const props = defineProps<{
 const selectedIndex = defineModel<TabsProps["selectedIndex"]>("selectedIndex");
 
 useStandardStyles();
-const id = `a2ui-tabs-${nextTabsId++}`;
+const id = `a2ui-tabs-${useStandardId()}`;
 const tabs = computed(() => props.tabs ?? []);
 const count = computed(() => tabs.value.length);
 const selected = computed(() =>

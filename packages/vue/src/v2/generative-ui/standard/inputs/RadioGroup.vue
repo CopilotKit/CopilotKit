@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { computed, useId } from "vue";
+import { computed } from "vue";
+import { useStandardId } from "../ids";
 import { spacing } from "@copilotkit/shared/generative-ui";
 import type {
   StyleMap,
@@ -49,7 +50,7 @@ const value = defineModel<RadioGroupProps["value"]>("value");
 
 useStandardStyles();
 const aria = useGenerativeUIAccessibility();
-const fallbackName = useId();
+const fallbackName = useStandardId();
 const {
   error: checkError,
   invalid: checkInvalid,

@@ -1,10 +1,10 @@
 <script lang="ts">
 /** Makes the id of each tooltip unique in the page. */
-let tooltipCount = 0;
 </script>
 
 <script setup lang="ts">
 import { ref } from "vue";
+import { useStandardId } from "../ids";
 import type { CSSProperties, VNode } from "vue";
 import {
   ON_ACCENT,
@@ -33,7 +33,7 @@ defineSlots<{
 
 useTextStyles();
 
-const id = `a2ui-tooltip-${++tooltipCount}`;
+const id = `a2ui-tooltip-${useStandardId()}`;
 const isOpen = ref(false);
 
 // The wrapper hugs the trigger, so the tip centers on the trigger and not

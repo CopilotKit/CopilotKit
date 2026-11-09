@@ -21,12 +21,10 @@ import type { GenerativeUIMarkdownConfig } from "../runtime-context";
 import { useGenerativeUIRoot } from "../use-generative-ui-root";
 import { CapturingAgent, runOnce } from "./helpers/capturing-agent";
 
-// The context cases of React's markdown-transport.test.tsx. The Vue
-// provider gets its `generativeUI` prop in a later change, so the root
-// composable that the provider runs stands in for `<CopilotKitProvider
-// :generativeUI>`, as Angular's "markdown transport context" cases do.
-// The rendering cases need `CopilotChat` and move here with the provider
-// wiring; `markdown-surfaces.test.ts` covers them at the component boundary.
+// The context cases of React's markdown-transport.test.tsx. They run the
+// root composable that `<CopilotKitProvider :generativeUI>` runs, as
+// Angular's "markdown transport context" cases do. The rendering cases are
+// in `markdown-transport.chat.e2e.test.ts`, at the `CopilotChat` boundary.
 
 const Noop = defineComponent({ render: () => null });
 

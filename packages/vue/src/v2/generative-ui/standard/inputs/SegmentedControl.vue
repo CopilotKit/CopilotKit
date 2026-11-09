@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { computed, useId } from "vue";
+import { computed } from "vue";
+import { useStandardId } from "../ids";
 import type { ComponentPublicInstance } from "vue";
 import {
   ACCENT,
@@ -56,7 +57,7 @@ const props = withDefaults(
 const value = defineModel<SegmentedControlProps["value"]>("value");
 
 useStandardStyles();
-const labelId = useId();
+const labelId = useStandardId();
 const segments: (HTMLButtonElement | null)[] = [];
 const { error: checkError, onBlur: touch } = useChecks(
   () => props.checks,

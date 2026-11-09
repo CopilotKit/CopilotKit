@@ -4,10 +4,10 @@ import {
   onBeforeUnmount,
   onMounted,
   ref,
-  useId,
   useTemplateRef,
   watch,
 } from "vue";
+import { useStandardId } from "../ids";
 import type { CSSProperties, VNode } from "vue";
 import type { z } from "zod";
 import {
@@ -109,7 +109,7 @@ useFeedbackStyles();
 // the component, so it takes the envelope itself.
 const aria = useGenerativeUIAccessibility();
 const wrapper = computed(() => wrapperAria(aria.value));
-const titleId = `${useId()}-title`;
+const titleId = `${useStandardId()}-title`;
 const labelledBy = computed(() =>
   props.title && aria.value["aria-label"] === undefined ? titleId : undefined,
 );

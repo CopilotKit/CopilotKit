@@ -3,10 +3,10 @@ import {
   computed,
   onBeforeUnmount,
   shallowRef,
-  useId,
   useTemplateRef,
   watch,
 } from "vue";
+import { useStandardId } from "../ids";
 import type { CSSProperties, VNode } from "vue";
 import type { z } from "zod";
 import type { popoverSchema } from "@copilotkit/shared/generative-ui";
@@ -38,7 +38,7 @@ defineSlots<{ children?: () => VNode[] }>();
 
 useFeedbackStyles();
 
-const id = useId();
+const id = useStandardId();
 const isOpen = computed(() => open.value ?? false);
 const setOpen = (value: boolean) => {
   open.value = value;

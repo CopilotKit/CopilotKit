@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { computed, useId } from "vue";
+import { computed } from "vue";
+import { useStandardId } from "../ids";
 import {
   FONT_WEIGHT,
   spacing,
@@ -53,8 +54,8 @@ const value = defineModel<SliderProps["value"]>("value");
 
 useStandardStyles();
 const aria = useGenerativeUIAccessibility();
-const id = useId();
-const listId = useId();
+const id = useStandardId();
+const listId = useStandardId();
 const { error: checkError, onBlur: touch } = useChecks(
   () => props.checks,
   () => value.value,

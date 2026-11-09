@@ -66,8 +66,8 @@ function surfaceWith(root: A2UIComponentNode) {
 }
 
 describe("generative UI server rendering", () => {
-  // Not ported: "renders the fallback of a GenerativeUISurface inside the
-  // provider" needs the Vue GenerativeUISurface, which is not built yet.
+  // "renders the fallback of a GenerativeUISurface inside the provider" is
+  // in generative-ui-surface.test.ts, next to the other surface cases.
 
   it("renders an existing surface (component model, properties and writable props) without throwing", async () => {
     const renderSurface = surfaceWith({

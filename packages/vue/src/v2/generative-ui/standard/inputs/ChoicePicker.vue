@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { computed, ref, useId } from "vue";
+import { computed, ref } from "vue";
+import { useStandardId } from "../ids";
 import {
   backgroundColor,
   spacing,
@@ -51,8 +52,8 @@ const props = defineProps<{
 const value = defineModel<ChoicePickerProps["value"]>("value");
 
 useStandardStyles();
-const labelId = useId();
-const fallbackName = useId();
+const labelId = useStandardId();
+const fallbackName = useStandardId();
 const filter = ref("");
 const isMultiple = computed(() => props.variant === "multipleSelection");
 const isChips = computed(() => props.displayStyle === "chips");

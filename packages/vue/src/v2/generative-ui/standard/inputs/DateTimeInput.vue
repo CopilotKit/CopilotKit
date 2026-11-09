@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { computed, ref, useId, useTemplateRef, watch, watchEffect } from "vue";
+import { computed, ref, useTemplateRef, watch, watchEffect } from "vue";
+import { useStandardId } from "../ids";
 import { px, spacing, textColor } from "@copilotkit/shared/generative-ui";
 import type {
   FailedCheck,
@@ -82,9 +83,9 @@ const emit = defineEmits<{
 
 useStandardStyles();
 const aria = useGenerativeUIAccessibility();
-const id = useId();
-const labelId = useId();
-const summaryId = useId();
+const id = useStandardId();
+const labelId = useStandardId();
+const summaryId = useStandardId();
 const dateField = useTemplateRef<HTMLInputElement>("dateField");
 const timeInput = useTemplateRef<HTMLInputElement>("timeInput");
 const slotList = useTemplateRef<HTMLSelectElement>("slotList");

@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { computed, useId, useTemplateRef, watchEffect } from "vue";
+import { computed, useTemplateRef, watchEffect } from "vue";
+import { useStandardId } from "../ids";
 import { defined } from "@copilotkit/shared/generative-ui";
 import type {
   StyleMap,
@@ -43,7 +44,7 @@ const value = defineModel<TextAreaProps["value"]>("value");
 
 useStandardStyles();
 const aria = useGenerativeUIAccessibility();
-const id = useId();
+const id = useStandardId();
 const area = useTemplateRef<HTMLTextAreaElement>("area");
 const {
   error: checkError,
