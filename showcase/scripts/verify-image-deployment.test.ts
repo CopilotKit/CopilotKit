@@ -210,8 +210,63 @@ describe("verifyImageDeployment", () => {
         },
       }),
     ).rejects.toThrow(/timed out/);
-    expect(fetchImpl).toHaveBeenCalledTimes(2);
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
   });
+  it("does not start a lookup when the original deadline has expired", async () => {
+    const fetchImpl = vi.fn<typeof fetch>().mockResolvedValue(response());
+    await expect(
+      verifyImageDeployment("token", "fresh", expected, target, {
+        fetchImpl,
+        now: () => 0,
+        timeoutMs: 0,
+      }),
+    ).rejects.toThrow(/timed out/);
+    expect(fetchImpl).not.toHaveBeenCalled();
+  });
+  it.each([1_000, 40_000])(
+    "caps each request timeout to the remaining budget or 30 seconds: %s",
+    async (timeoutMs) => {
+      const timeout = vi.spyOn(AbortSignal, "timeout");
+      try {
+        await verifyImageDeployment("token", "fresh", expected, target, {
+          fetchImpl: vi.fn<typeof fetch>().mockResolvedValue(response()),
+          now: () => 0,
+          timeoutMs,
+        });
+        expect(timeout).toHaveBeenCalledExactlyOnceWith(
+          Math.min(timeoutMs, 30_000),
+        );
+      } finally {
+        timeout.mockRestore();
+      }
+    },
+  );
+  it.each(["request", "body"])(
+    "rejects SUCCESS when the %s finishes at the original deadline",
+    async (stage) => {
+      let clock = 0;
+      const reply = response();
+      if (stage === "body") {
+        const readJson = reply.json.bind(reply);
+        vi.spyOn(reply, "json").mockImplementation(async () => {
+          clock = 1_000;
+          return readJson();
+        });
+      }
+      const fetchImpl = vi.fn<typeof fetch>().mockImplementation(async () => {
+        if (stage === "request") clock = 1_000;
+        return reply;
+      });
+      await expect(
+        verifyImageDeployment("token", "fresh", expected, target, {
+          fetchImpl,
+          now: () => clock,
+          timeoutMs: 1_000,
+        }),
+      ).rejects.toThrow(/timed out/);
+      expect(fetchImpl).toHaveBeenCalledTimes(1);
+    },
+  );
   it("retries transient HTTP errors after releasing each body, then verifies the selected digest", async () => {
     const statuses = [429, 500, 503, 599];
     const events: string[] = [];
@@ -318,7 +373,7 @@ describe("verifyImageDeployment", () => {
         sleep,
       }),
     ).rejects.toBe(failure);
-    expect(fetchImpl).toHaveBeenCalledTimes(4);
+    expect(fetchImpl).toHaveBeenCalledTimes(3);
     expect(sleep.mock.calls).toEqual([[5_000], [5_000], [2_000]]);
     expect(clock).toBe(12_000);
   });
@@ -347,8 +402,8 @@ describe("verifyImageDeployment", () => {
         timeoutMs: 17_000,
         sleep,
       }),
-    ).rejects.toBe(failure);
-    expect(fetchImpl).toHaveBeenCalledTimes(5);
+    ).rejects.toThrow("lookup returned HTTP 503");
+    expect(fetchImpl).toHaveBeenCalledTimes(4);
     expect(cancel).toHaveBeenCalledTimes(2);
     expect(sleep.mock.calls).toEqual([[5_000], [5_000], [5_000], [2_000]]);
     expect(clock).toBe(17_000);
@@ -379,18 +434,65 @@ describe("verifyImageDeployment", () => {
     expect(fetchImpl).toHaveBeenCalledTimes(1);
     expect(sleep).not.toHaveBeenCalled();
   });
-  it("does not retry response parsing failures even with a transport error signature", async () => {
-    const failure = new DOMException("response parse failed", "TimeoutError");
+  it.each([
+    new TypeError("terminated", {
+      cause: Object.assign(new Error("socket closed"), {
+        code: "UND_ERR_SOCKET",
+      }),
+    }),
+    new DOMException("body timed out", "TimeoutError"),
+    new DOMException("body aborted", "AbortError"),
+  ])("retries transient response body failures: %s", async (failure) => {
     const reply = response();
     vi.spyOn(reply, "json").mockRejectedValue(failure);
-    const fetchImpl = vi.fn<typeof fetch>().mockResolvedValue(reply);
+    const fetchImpl = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(reply)
+      .mockResolvedValue(response());
+    const sleep = vi.fn(async () => {});
+    await expect(
+      verifyImageDeployment("token", "fresh", expected, target, {
+        fetchImpl,
+        sleep,
+      }),
+    ).resolves.toEqual({ imageDigest: PLATFORM });
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
+    expect(sleep).toHaveBeenCalledExactlyOnceWith(5_000);
+  });
+  it("bounds response body retries to the original deadline", async () => {
+    const failure = new DOMException("body aborted", "AbortError");
+    const fetchImpl = vi.fn<typeof fetch>().mockImplementation(async () => {
+      const reply = response();
+      vi.spyOn(reply, "json").mockRejectedValue(failure);
+      return reply;
+    });
+    let clock = 0;
+    const sleep = vi.fn(async (ms: number) => {
+      clock += ms;
+    });
+    await expect(
+      verifyImageDeployment("token", "fresh", expected, target, {
+        fetchImpl,
+        now: () => clock,
+        timeoutMs: 12_000,
+        sleep,
+      }),
+    ).rejects.toBe(failure);
+    expect(fetchImpl).toHaveBeenCalledTimes(3);
+    expect(sleep.mock.calls).toEqual([[5_000], [5_000], [2_000]]);
+    expect(clock).toBe(12_000);
+  });
+  it("does not retry malformed response JSON", async () => {
+    const fetchImpl = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(new Response("invalid JSON"));
     const sleep = vi.fn();
     await expect(
       verifyImageDeployment("token", "fresh", expected, target, {
         fetchImpl,
         sleep,
       }),
-    ).rejects.toBe(failure);
+    ).rejects.toBeInstanceOf(SyntaxError);
     expect(fetchImpl).toHaveBeenCalledTimes(1);
     expect(sleep).not.toHaveBeenCalled();
   });
@@ -415,8 +517,8 @@ describe("verifyImageDeployment", () => {
           sleep,
         }),
       ).rejects.toThrow(`lookup returned HTTP ${status}`);
-      expect(fetchImpl).toHaveBeenCalledTimes(4);
-      expect(cancel).toHaveBeenCalledTimes(4);
+      expect(fetchImpl).toHaveBeenCalledTimes(3);
+      expect(cancel).toHaveBeenCalledTimes(3);
       expect(sleep.mock.calls).toEqual([[5_000], [5_000], [2_000]]);
       expect(clock).toBe(12_000);
     },
@@ -537,6 +639,7 @@ describe("strict superseded ownership", () => {
   });
 
   it("pins revision and runnable identity to the newer digest before declaring preflight supersession", async () => {
+    vi.stubEnv("GITHUB_REPOSITORY", "CopilotKit/CopilotKit");
     const inspect = newerInspector();
     const compare = vi.fn(async () => "behind");
     const error = await readExpectedImage(
@@ -587,6 +690,8 @@ describe("strict superseded ownership", () => {
         { requireCommit: true, checkLatest: true, compare },
         newerInspector(config),
       ).catch((e) => e);
+      expect(error).toBeInstanceOf(Error);
+      expect(error.message).toMatch(/:latest no longer matches this build/);
       expect(error).not.toBeInstanceOf(SupersededImageError);
       expect(compare).not.toHaveBeenCalled();
     },
@@ -648,6 +753,8 @@ describe("strict superseded ownership", () => {
       { requireCommit: true, checkLatest: true, compare: async () => "behind" },
       inspect,
     ).catch((e) => e);
+    expect(error).toBeInstanceOf(Error);
+    expect(error.message).toMatch(/:latest no longer matches this build/);
     expect(error).not.toBeInstanceOf(SupersededImageError);
   });
   it("does not run ownership probes on a matching CI image", async () => {
@@ -692,6 +799,29 @@ describe("strict superseded ownership", () => {
       ).rejects.toBeInstanceOf(SupersededImageError);
     },
   );
+  it("does not accept supersession proof completed at the polling deadline", async () => {
+    let clock = 0;
+    await expect(
+      verifyImageDeployment(
+        "token",
+        "fresh",
+        { ...expected, build: { repository: REPO, sha: BUILD_SHA } },
+        target,
+        {
+          fetchImpl: vi
+            .fn<typeof fetch>()
+            .mockResolvedValue(response(node("SUCCESS", NEW_INDEX))),
+          inspect: newerInspector(),
+          compare: async () => {
+            clock = 1_000;
+            return "behind";
+          },
+          now: () => clock,
+          timeoutMs: 1_000,
+        },
+      ),
+    ).rejects.toThrow(/timed out/);
+  });
   it.each([OLD, INDEX, null, undefined, "malformed"])(
     "does not skip an unproven observed digest %s",
     async (digest) => {

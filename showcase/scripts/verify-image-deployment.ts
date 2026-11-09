@@ -261,8 +261,22 @@ export async function verifyImageDeployment(
     ((ms) => new Promise((resolve) => setTimeout(resolve, ms)));
   const now = options.now ?? Date.now;
   const deadline = now() + (options.timeoutMs ?? 150_000);
+  const remainingBudget = () => {
+    const remaining = deadline - now();
+    if (remaining <= 0)
+      throw new Error(
+        `${label} deployment ${deploymentId} timed out waiting for SUCCESS`,
+      );
+    return remaining;
+  };
+  const retryTransientError = async (error: unknown) => {
+    if (!isTransientFetchError(error) || now() >= deadline) throw error;
+    await sleep(Math.min(5_000, Math.max(0, deadline - now())));
+    if (now() >= deadline) throw error;
+  };
   let imageDigest: string;
   for (;;) {
+    const remaining = remainingBudget();
     let response: Response;
     try {
       response = await fetchImpl(RAILWAY_GRAPHQL_ENDPOINT, {
@@ -271,7 +285,7 @@ export async function verifyImageDeployment(
           Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",
         },
-        signal: AbortSignal.timeout(30_000),
+        signal: AbortSignal.timeout(Math.min(30_000, remaining)),
         body: JSON.stringify({
           query: `query imageDeployment($id: String!) {
           deployment(id: $id) { id serviceId environmentId status meta }
@@ -280,8 +294,7 @@ export async function verifyImageDeployment(
         }),
       });
     } catch (error) {
-      if (!isTransientFetchError(error) || now() >= deadline) throw error;
-      await sleep(Math.min(5_000, Math.max(0, deadline - now())));
+      await retryTransientError(error);
       continue;
     }
     if (!response.ok) {
@@ -292,13 +305,13 @@ export async function verifyImageDeployment(
         now() < deadline
       ) {
         await sleep(Math.min(5_000, Math.max(0, deadline - now())));
-        continue;
+        if (now() < deadline) continue;
       }
       throw new Error(
         `${label} deployment lookup returned HTTP ${response.status}`,
       );
     }
-    const result = (await response.json()) as {
+    let result: {
       errors?: unknown[];
       data?: {
         deployment?: {
@@ -310,6 +323,13 @@ export async function verifyImageDeployment(
         };
       };
     };
+    try {
+      result = await response.json();
+    } catch (error) {
+      await retryTransientError(error);
+      continue;
+    }
+    remainingBudget();
     if (result.errors?.length)
       throw new Error(`${label} deployment lookup returned GraphQL errors`);
     const deployment = result.data?.deployment;
@@ -340,6 +360,7 @@ export async function verifyImageDeployment(
             options.compare ?? compareRevisions,
             digest,
           );
+          remainingBudget();
           if (superseded) throw superseded;
         }
         throw new Error(
@@ -357,12 +378,9 @@ export async function verifyImageDeployment(
         `${label} deployment ${deploymentId} reached ${deployment.status ?? "UNKNOWN"}`,
       );
     }
-    if (now() >= deadline)
-      throw new Error(
-        `${label} deployment ${deploymentId} timed out waiting for SUCCESS`,
-      );
     await sleep(Math.min(5_000, Math.max(0, deadline - now())));
   }
 
+  remainingBudget();
   return { imageDigest };
 }
