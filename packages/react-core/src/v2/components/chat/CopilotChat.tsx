@@ -1431,6 +1431,10 @@ export function CopilotChat({
     [messages],
   );
   useEffect(() => {
+    // The history changed again since this render (a view replaced it in a
+    // layout effect, say), and a pin made since may already account for the
+    // newer one: the render that shows it decides.
+    if (lastUserMessageId !== lastUserMessageIdOf(agent.messages)) return;
     if (
       lastUserMessageId &&
       lastUserMessageId !== pinnedUserMessageIdRef.current
@@ -1438,7 +1442,7 @@ export function CopilotChat({
       pinMessage(lastUserMessageId);
       pinnedUserMessageIdRef.current = lastUserMessageId;
     }
-  }, [lastUserMessageId, pinMessage]);
+  }, [agent, lastUserMessageId, pinMessage]);
 
   const finalProps: CopilotChatViewProps = {
     ...mergedProps,
