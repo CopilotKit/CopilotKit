@@ -28,11 +28,23 @@ Start with the tool transport. If your agent cannot call client tools, or you wa
 
 This is the default, so the provider needs only the catalog:
 
-```tsx
-import { standardUI } from "@copilotkit/react-core/v2/generative-ui";
+<Tabs groupId="frontend_framework" items={["React", "Angular", "React Native", "Vue"]} persist>
+  <Tab value="React">
+    ```tsx
+    import { standardUI } from "@copilotkit/react-core/v2/generative-ui";
 
-<CopilotKitProvider runtimeUrl="/api/copilotkit" generativeUI={{ ui: standardUI }}>
-```
+    <CopilotKitProvider runtimeUrl="/api/copilotkit" generativeUI={{ ui: standardUI }}>
+    ```
+  </Tab>
+  <Tab value="Angular">
+    ```ts
+    provideGenerativeUI({ ui: standardUI }),
+    ```
+  </Tab>
+  <Tab value="React Native">
+    ```tsx
+    <GenerativeUIProvider ui={shopUI}>
+    ```
 
     React Native always uses the tool transport. It has no `standardUI`, so `shopUI` stands for a catalog of your own native components.
   </Tab>

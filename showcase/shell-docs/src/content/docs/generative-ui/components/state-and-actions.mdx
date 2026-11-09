@@ -481,7 +481,9 @@ A prop can be a function value as well as a literal or a binding, at any depth: 
 | Format | `formatString` (with `${/path}` and `${fn(arg: value)}` interpolation), `formatNumber`, `formatCurrency`, `formatDate`, `pluralize` |
 | Logic | `and`, `or`, `not` |
 | Validate | `required`, `regex`, `length`, `numeric`, `email` |
-| Other | `@index` in a template, and `openUrl`, which runs only as the `functionCall` of an event |
+| Other | `@index` in a template, and `openUrl`, which runs only as the `functionCall` of an event and opens only `http` and `https` URLs, in a new tab |
+
+On React Native, these run in the app, the same way, with two differences. `openUrl` fails with "openUrl is not available on this platform", reported like any failed function, because there is no `window.open`; to open a link there, declare a catalog function of your own whose handler calls `Linking.openURL`. And Hermes has no `Intl.PluralRules`, so `pluralize` picks its form with the English rule: `one` for 1 and -1, `other` for any other number (`zero` still applies to 0).
 
 A2UI 1.0 has no arithmetic, so CopilotKit adds two catalog functions. `calc` evaluates an expression over named args:
 
@@ -498,7 +500,7 @@ A2UI 1.0 has no arithmetic, so CopilotKit adds two catalog functions. `calc` eva
 
 `calc` supports `+ - * / %`, `x ^ y` (power), comparisons, `&& || !`, `?:`, `min`, `max`, `round`, `floor`, `ceil`, `abs`, `pow`, `sqrt`, `exp`, `ln`, `log10`, the constants `pi` and `e`, and text concatenation.
 
-`series` builds a list of `count` items from an item template with `${...}` expressions over a loop variable, for chart data. Both appear to the model as regular catalog functions. Another A2UI client that does not have them rejects the call. The built-ins run only in the browser: the agent cannot call them with `callRendererFunction`.
+`series` builds a list of `count` items from an item template with `${...}` expressions over a loop variable, for chart data. Both appear to the model as regular catalog functions. Another A2UI client that does not have them rejects the call. The built-ins run only in the browser (on React Native, in the app): the agent cannot call them with `callRendererFunction`.
 
 ## Keep what the user types
 

@@ -1,13 +1,13 @@
 ---
 title: React Native
-description: "Build with CopilotKit in React Native: quickstart, Metro and polyfill setup, frontend tools, and device deployment."
+description: "Build with CopilotKit in React Native: quickstart, Metro and polyfill setup, frontend tools, generative UI, and device deployment."
 icon: "lucide/Smartphone"
 hideTOC: true
 ---
 
 `@copilotkit/react-native` gives you CopilotKit's provider and hooks for React Native, plus optional pre-built chat components. This guide builds a fully custom chat UI with the hooks, backed by a [Copilot Runtime](/backend/copilot-runtime) endpoint on your server.
 
-The package has three import surfaces: `/headless` (provider + hooks, no native peer dependencies, **1.64.0+**), the root barrel, and `/components` (the rendered chat UI). See [Import surfaces](#import-surfaces) for what each one pulls in; this guide uses `/headless` throughout.
+The package has three main import surfaces: `/headless` (provider + hooks, no native peer dependencies, **1.64.0+**), the root barrel, and `/components` (the rendered chat UI). It also has the opt-in, experimental `/generative-ui`. See [Import surfaces](#import-surfaces) for what each one pulls in; this guide uses `/headless` throughout.
 
 ## Start with your coding agent
 
@@ -316,7 +316,7 @@ Use this prompt to set up CopilotKit in your React Native app, configure Metro a
 
 The quickstart above is enough for a development build. Read this section and the ones after it when you prepare a release build, connect from a physical device, or add tools and voice.
 
-`@copilotkit/react-native` has three JavaScript entry points. They differ in what UI they give you and in which native peer dependencies Metro has to resolve. The second difference matters most for release bundles.
+`@copilotkit/react-native` has three main JavaScript entry points. The opt-in `/generative-ui` and `/polyfills` entries are under "Supporting entry points" below. The three differ in what UI they give you and in which native peer dependencies Metro has to resolve. The second difference matters most for release bundles.
 
 | Import | Available since | What you get | Native peers Metro must resolve |
 |--------|-----------------|--------------|---------------------------------|
@@ -418,7 +418,7 @@ On Expo, swap in `getDefaultConfig` from `expo/metro-config`; the `resolver` blo
 </Callout>
 
 <Callout type="info" title="Do you need `unstable_enablePackageExports`?">
-  Package `exports` resolution is **enabled by default from Metro 0.82 / React Native 0.79**, so no flag is needed there. It arrived opt-in in React Native 0.72 (Metro 0.76.1). On React Native 0.72 to 0.78, set `resolver.unstable_enablePackageExports = true`, which is also what lets Metro resolve this package's `/headless`, `/components`, and `/polyfills` subpaths. React Native below 0.72 has no package-exports support.
+  Package `exports` resolution is **enabled by default from Metro 0.82 / React Native 0.79**, so no flag is needed there. It arrived opt-in in React Native 0.72 (Metro 0.76.1). On React Native 0.72 to 0.78, set `resolver.unstable_enablePackageExports = true`, which is also what lets Metro resolve this package's `/headless`, `/components`, `/generative-ui`, and `/polyfills` subpaths. React Native below 0.72 has no package-exports support.
 </Callout>
 
 <Callout type="success" title="Headless removes the need to stub">
@@ -604,7 +604,7 @@ npx expo install expo-build-properties
 
 ## Frontend tools and generative UI
 
-Frontend tools let the agent call functions in your app (and render UI) while the model runs. Register them with `useFrontendTool`. `parameters` is a [Standard Schema](https://standardschema.dev), so a `zod` schema (zod ≥ 3.24 implements Standard Schema) is the expected shape. `zod` is an optional peer dependency of `@copilotkit/react-native`, so add it to your app:
+Frontend tools let the agent call functions in your app (and render UI) while the model runs. Register them with `useFrontendTool`. To let the agent compose UI from a catalog of your own components instead, see [Generative UI with your own components](#generative-ui-with-your-own-components). `parameters` is a [Standard Schema](https://standardschema.dev), so a `zod` schema is the expected shape. Use the `zod` 3.25 or later that you installed in the quickstart: `@copilotkit/react-core` requires that version as a peer dependency, although `@copilotkit/react-native` declares `zod` an optional peer at `>=3.0.0`.
 
 ```tsx title="src/useComposeStage.ts"
 import { useFrontendTool } from "@copilotkit/react-native/headless";
@@ -1390,6 +1390,7 @@ So read the records your app actually holds, and confirm the answer names those 
 - **Inspector**: the [Inspector](/inspector#where-inspector-runs) is a browser overlay that mounts a custom element into the DOM, so it has no React Native surface and `@copilotkit/react-native` does not ship it. The three checks under [Proving it works](#proving-it-works) cover what it would have shown you.
 - **Voice**: `@copilotkit/voice` has not been adapted for React Native; wire your own STT as above.
 - **Cloud provider props**: `publicApiKey` / `licenseToken` are not supported on the React Native provider; connect via `runtimeUrl`.
+- **Generative UI**: experimental, tool transport only, with no standard catalog and no `theme`. The prebuilt `CopilotChat` does not draw surfaces yet. See [Generative UI with your own components](#generative-ui-with-your-own-components).
 - **Web-only rendering hooks**: `useDefaultRenderTool`, `useRenderCustomMessages`, and `useRenderActivityMessage` are not exported, because they render host DOM or link the web chat-message stack. `useRenderToolCall` **is** exported; use it to draw a registered tool call outside the chat.
 
 ## Next steps

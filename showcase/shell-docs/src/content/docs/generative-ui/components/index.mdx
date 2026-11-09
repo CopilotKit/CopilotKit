@@ -295,7 +295,7 @@ Already have CopilotKit running? Do step 3 only. Your runtime needs no change: w
     }
     ```
 
-    The catalog holds React components, so the provider must be created in a client component. Wrap your layout in it, so every page shares one provider, and put a chat on a page:
+    The catalog holds React components, so the provider must be created in a client component. Wrap your layout in it, so every page shares one provider. Then put a chat on a page:
 
     ```tsx title="app/layout.tsx"
     import { Providers } from "./providers";
@@ -714,7 +714,7 @@ Already have CopilotKit running? Do step 3 only. Your runtime needs no change: w
     </template>
     ```
 
-  The catalog holds React components, so the provider must be created in a client component. Wrap your layout in it, so every page shares one provider. Then put a chat on a page:
+    Write the binding in camelCase: `:generativeUI`. Vue reads `:generative-ui` as a different prop, so the provider does not get the catalog.
 
     Charts and maps draw with optional libraries. Icons need nothing more. When you want charts or maps, install the library of each one you use:
 

@@ -180,7 +180,7 @@ What to change if you use them:
 
 - **Children** are `slots` (`{ children: "multiple" }`, `{ child: "single" }`) or `child()` / `childList()` inside the props schema, for example `tabs: z.array(z.object({ title: z.string(), child: child() }))`. See [Catalogs](/generative-ui/components/catalogs).
 - **The basic catalog** is `extends: [standardUI]`. Drop components with `standardUI.omit([...])` and replace one with `overrides`; see [the standard catalog](/generative-ui/components/standard-catalog#replace-a-component).
-- **Actions and app state** become `functions` with `useGenerativeUIFunction`, and `state` with `useGenerativeUIState`; see [Connect app state and actions](/generative-ui/components/state-and-actions).
+- **Actions and app state** become `functions` with `useGenerativeUIFunction`, and `state` with `useGenerativeUIState`; in Angular, `registerGenerativeUIFunction` and `connectGenerativeUIState`. See [Connect app state and actions](/generative-ui/components/state-and-actions).
 
 Your renderers stay as they are, apart from the props they read: a bound prop arrives resolved, and a slot or a child reference arrives as a React node, or as a `GenerativeUIChildren` handle in Angular. In Vue, a slot arrives as a named slot, and a child reference as a `VNode`.
 

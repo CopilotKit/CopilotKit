@@ -67,8 +67,8 @@ A few things to know:
 
 - **Inputs keep what users type.** When the agent binds an input to a value, what the user types stays. A later agent update cannot write over it.
 - **`Button` and `Pressable` can act in the browser.** `href` opens a URL, and `Button` with `copy` copies text, with no message to the agent.
-- **`Map` needs one package.** Run `npm install maplibre-gl` if your agent draws maps. Without it, the map shows a list of the places.
-- **`Chart` needs no extra install.** It uses `recharts`, which comes with CopilotKit.
+- **`Map` needs one package.** Run `npm install maplibre-gl` if your agent draws maps. Without it, the map shows a list of the places. In Angular, also add `provideGenerativeUIMap()` from `@copilotkit/angular/generative-ui/map` to the root providers. In Vue, also add `app.use(GenerativeUIMap)` from `@copilotkit/vue/v2/generative-ui/map`.
+- **`Chart` needs no extra install in React.** It uses `recharts`, which comes with CopilotKit. In Angular, `Chart` draws with `chart.js` and `Icon` with `lucide`: install them and add `provideGenerativeUIChart()` and `provideGenerativeUIIcons()` from the `/chart` and `/icons` entries of `@copilotkit/angular/generative-ui`. Without them, a chart shows its data as a table and an icon shows nothing. In Vue, `Chart` draws with `chart.js`: install it and add `app.use(GenerativeUIChart)` from `@copilotkit/vue/v2/generative-ui/chart`. Without it, a chart shows its data as a table. Icons work with no setup.
 
 Component details:
 
