@@ -23,6 +23,7 @@ import type { Suggestion } from "@copilotkit/core";
 import {
   messagesWithTimestamps,
   readMessageTimestamp,
+  pruneRememberedMessageTimestamps,
   recordMessageTimestamps,
   rememberPendingMessageTimestamp,
   withMessageTimestamp,
@@ -890,6 +891,9 @@ export function CopilotChat({
     let active = true;
     const pending = pendingMessageTimestampsRef.current;
     const remembered = messageTimestampsRef.current;
+    // Ids this subscription has actually seen. A single list can omit
+    // messages, so removal waits until an id is outside this set and pending.
+    const seenIds = new Set<string>();
     const publish = () => {
       if (active) setMessageTimestampRevision((revision) => revision + 1);
     };
@@ -906,12 +910,31 @@ export function CopilotChat({
         publish();
       }
     }
+    const rememberSeen = (
+      nextMessages: Parameters<typeof recordMessageTimestamps>[0],
+    ) => {
+      for (const message of nextMessages) {
+        if (message.id) seenIds.add(message.id);
+      }
+    };
     const note = (
       nextMessages: Parameters<typeof recordMessageTimestamps>[0],
     ) => {
       // Snapshots can omit a message and restore it later without a time.
-      // Recording must not drop a time just because one snapshot skipped it.
-      if (recordMessageTimestamps(nextMessages, pending, remembered)) publish();
+      // Drop a remembered id only once this subscription has never seen it
+      // and it is not waiting on a text-start replay.
+      const recorded = recordMessageTimestamps(
+        nextMessages,
+        pending,
+        remembered,
+      );
+      rememberSeen(nextMessages);
+      const pruned = pruneRememberedMessageTimestamps(
+        remembered,
+        seenIds,
+        pending,
+      );
+      if (recorded || pruned) publish();
     };
     if (previousThreadId === null) {
       note(agent.messages);
@@ -920,6 +943,7 @@ export function CopilotChat({
       // replay restores. Record times for whoever is here, including a
       // text-start that arrived before this effect was recreated, and do not
       // prune the rest against this incomplete list.
+      rememberSeen(agent.messages);
       if (recordMessageTimestamps(agent.messages, pending, remembered)) {
         publish();
       }

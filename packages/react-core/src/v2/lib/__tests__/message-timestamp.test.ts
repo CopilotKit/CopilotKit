@@ -4,6 +4,7 @@ import {
   isDisplayableMessageTimestamp,
   messagesWithTimestamps,
   readMessageTimestamp,
+  pruneRememberedMessageTimestamps,
   recordMessageTimestamps,
   rememberPendingMessageTimestamp,
   retainRememberedMessageTimestamps,
@@ -115,6 +116,23 @@ describe("rememberPendingMessageTimestamp", () => {
     rememberPendingMessageTimestamp(pending, "a", 3);
     expect([...pending.keys()]).toEqual(["b", "a"]);
     expect(pending.get("a")).toBe(3);
+  });
+});
+
+describe("pruneRememberedMessageTimestamps", () => {
+  it("drops ids that are neither retained nor pending", () => {
+    const remembered = new Map([
+      ["keep", 1],
+      ["waiting", 2],
+      ["old", 3],
+    ]);
+    const removed = pruneRememberedMessageTimestamps(
+      remembered,
+      new Set(["keep"]),
+      new Map([["waiting", 9]]),
+    );
+    expect(removed).toBe(true);
+    expect([...remembered.keys()].sort()).toEqual(["keep", "waiting"]);
   });
 });
 

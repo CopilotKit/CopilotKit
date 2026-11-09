@@ -105,6 +105,28 @@ export function rememberPendingMessageTimestamp(
 }
 
 /**
+ * Drops remembered times that are neither part of the ids this agent has
+ * actually shown nor waiting on a text-start replay.
+ * An id missing from one message list is not enough: `retainedIds` is the
+ * set seen so far, and pending ids stay.
+ *
+ * @returns Whether an entry was removed.
+ */
+export function pruneRememberedMessageTimestamps(
+  remembered: Map<string, number>,
+  retainedIds: ReadonlySet<string>,
+  pending: ReadonlyMap<string, number>,
+): boolean {
+  let changed = false;
+  for (const id of remembered.keys()) {
+    if (retainedIds.has(id) || pending.has(id)) continue;
+    remembered.delete(id);
+    changed = true;
+  }
+  return changed;
+}
+
+/**
  * Drops remembered times whose messages are gone.
  * Ids still in `messages` are left as they are.
  *
