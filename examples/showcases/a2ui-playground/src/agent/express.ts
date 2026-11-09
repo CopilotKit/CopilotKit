@@ -30,7 +30,7 @@ import type { Node } from "./surface";
 
 type Doc = typeof inference & { components: Record<string, unknown> };
 const doc = inference as Doc;
-// The SDK and published CopilotKit 1.84 both use canonical "1.0".
+// The SDK and published CopilotKit 1.85 both use canonical "1.0".
 const CAPS = { "1.0": { supportedCatalogIds: [doc.catalogId] } };
 
 let generators:
