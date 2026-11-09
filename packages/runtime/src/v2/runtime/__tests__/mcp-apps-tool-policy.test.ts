@@ -441,6 +441,41 @@ describe("enforceMcpAppsToolPolicy", () => {
     expect(name).not.toBe("show_weather");
   });
 
+  it("keeps long colliding names unique and provider-safe", async () => {
+    const longTool = `weather_${"x".repeat(80)}`;
+    const servers: MCPClientConfig[] = [0, 1, 2].map((index) => ({
+      type: "http" as const,
+      url: `https://mcp.example.com/long-${index}`,
+      serverId: `billing/eu/${"region".repeat(12)}-${index}`,
+    }));
+    const fetchToolsFromServer = vi.fn(async (target: MCPClientConfig) => [
+      {
+        tool: { name: longTool, description: "Weather" },
+        serverConfig: target,
+      },
+    ]);
+    const middleware = { fetchToolsFromServer, executeMCPRequest: vi.fn() };
+    enforceMcpAppsToolPolicy(
+      middleware,
+      new Map(
+        servers.map((entry) => [
+          mcpAppsServerPolicyKey(entry),
+          { excludeTools: [] as string[] },
+        ]),
+      ),
+    );
+    const exposed: string[] = [];
+    for (const entry of servers) {
+      const tools = await middleware.fetchToolsFromServer(entry);
+      exposed.push(tools[0]?.tool?.name ?? "");
+    }
+    expect(new Set(exposed).size).toBe(exposed.length);
+    for (const exposedName of exposed) {
+      expect(exposedName).toMatch(/^[A-Za-z0-9_-]{1,64}$/);
+      expect(exposedName.length).toBeLessThanOrEqual(64);
+    }
+  });
+
   it("does not deny a frontend tool that shares an excluded MCP name", async () => {
     const middleware = {
       fetchToolsFromServer: vi.fn(async (_server: MCPClientConfig) =>

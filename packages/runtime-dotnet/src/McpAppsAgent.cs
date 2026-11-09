@@ -98,6 +98,8 @@ public sealed class McpAppsAgent(IRuntimeAgent next, IReadOnlyList<McpAppServer>
         public bool Failed { get; set; }
         public bool Incomplete { get; set; }
         public HashSet<string> OriginalNames { get; } = new(StringComparer.Ordinal);
+        /// <summary>Original and exposed names from pages discarded because a later page failed.</summary>
+        public HashSet<string> LostNames { get; } = new(StringComparer.Ordinal);
     }
     public async IAsyncEnumerable<JsonObject> RunAsync(JsonObject input, [EnumeratorCancellation] CancellationToken cancellationToken)
     {
@@ -188,9 +190,9 @@ public sealed class McpAppsAgent(IRuntimeAgent next, IReadOnlyList<McpAppServer>
             }
             foreach (var call in calls.Pending.Where(call => !routes.ContainsKey(call.Name) && !frontendTools.Contains(call.Name)))
             {
-                if (UnseenConfiguredTool(call.Name, catalog))
+                if (UnseenConfiguredTool(call.Name, catalog) || LostDuringDiscovery(call.Name, catalog))
                     yield return AgentToolCalls.Result(call.Id, "MCP tool discovery failed: " + call.Name);
-                else if (catalog.RejectedNames.Contains(call.Name) || ExcludedByConfig(call.Name) || emptyAllowlist)
+                else if (catalog.RejectedNames.Contains(call.Name) || ExcludedByConfig(call.Name) || OmittedByAllowlist(call.Name) || emptyAllowlist)
                     yield return AgentToolCalls.Result(call.Id, "MCP tool is not allowed: " + call.Name);
             }
             yield return held;
@@ -227,7 +229,12 @@ public sealed class McpAppsAgent(IRuntimeAgent next, IReadOnlyList<McpAppServer>
                     if (ui?.ContainsKey("visibility") == true &&
                         (ui["visibility"] is not JsonArray visibility || !visibility.Any(value => A2UIValidation.Text(value) == "model"))) continue;
                     var resource = A2UIValidation.Text(ui?["resourceUri"]) ?? A2UIValidation.Text(meta?["ui/resourceUri"]);
-                    if (resource is null || A2UIValidation.Text(tool["name"]) is not { } name) continue;
+                    if (A2UIValidation.Text(tool["name"]) is not { } name) continue;
+                    if (resource is null)
+                    {
+                        if (server.IncludeTools is not null && !server.AllowsTool(name)) stagedRejected.Add(name);
+                        continue;
+                    }
                     scannedUiTools++;
                     var targeted = scannedUiTools > UiToolScanLimit;
                     if (!server.AllowsTool(name)) stagedRejected.Add(name);
@@ -261,7 +268,18 @@ public sealed class McpAppsAgent(IRuntimeAgent next, IReadOnlyList<McpAppServer>
             if (scan.Incomplete) report?.Invoke("mcp.discovery_incomplete");
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { throw; }
-        catch (Exception) { scan.Failed = true; scan.Incomplete = false; report?.Invoke("mcp.discovery_failed"); }
+        catch (Exception)
+        {
+            scan.Failed = true;
+            scan.Incomplete = false;
+            scan.OriginalNames.Clear();
+            foreach (var tool in stagedTools)
+            {
+                scan.LostNames.Add(tool.OriginalName);
+                scan.LostNames.Add(tool.ExposedName);
+            }
+            report?.Invoke("mcp.discovery_failed");
+        }
         return scan;
     }
 
@@ -314,6 +332,19 @@ public sealed class McpAppsAgent(IRuntimeAgent next, IReadOnlyList<McpAppServer>
             if ((scan.Failed || scan.Incomplete) && !scan.OriginalNames.Contains(name)) return true;
         }
         return false;
+    }
+
+    /// <summary>A name allocated on a page that was discarded after a later page failed, including a collision alias.</summary>
+    private static bool LostDuringDiscovery(string name, RunCatalog catalog) =>
+        catalog.Servers.Values.Any(scan => scan.Failed && scan.LostNames.Contains(name));
+
+    /// <summary>An allowlist that omits the name filters it out, including non-UI tools that were never injected.</summary>
+    private bool OmittedByAllowlist(string name)
+    {
+        if (!servers.Any(server => server.IncludeTools is not null)) return false;
+        if (servers.Any(server => server.IncludeTools is null && server.AllowsTool(name))) return false;
+        if (servers.Any(server => server.IncludeTools is not null && server.AllowsTool(name))) return false;
+        return true;
     }
 
     private bool ExcludedByConfig(string name) => servers.Any(server => server.ExcludeTools?.Contains(name) == true);
