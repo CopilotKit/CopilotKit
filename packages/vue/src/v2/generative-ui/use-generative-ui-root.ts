@@ -8,10 +8,7 @@ import {
   randomUUID,
   toA2UIActionMessage,
 } from "@copilotkit/shared";
-import type {
-  A2UIActionMessage,
-  GenerativeUISurfaceContent,
-} from "@copilotkit/shared";
+import type { A2UIActionMessage } from "@copilotkit/shared";
 import {
   activityFunctionCalls,
   buildActionMessageText,
@@ -24,6 +21,7 @@ import {
   getMarkdownSurfaceSource,
   GenerativeUISurfaceManager,
   markdownFunctionCalls,
+  parseGenerativeUISurfaceContent,
   surfaceLabelResolver,
 } from "@copilotkit/core/generative-ui";
 import type { ReadonlyMessages } from "@copilotkit/core/generative-ui";
@@ -44,23 +42,47 @@ import type {
 
 const isDevelopment = () => process.env.NODE_ENV !== "production";
 
+/**
+ * The malformed-content warnings already printed, by manager, so each
+ * distinct issue warns once while the manager lives.
+ */
+const warnedMalformed = new WeakMap<GenerativeUISurfaceManager, Set<string>>();
+
+/**
+ * Ingests the surface activity messages of `messages`. A message whose
+ * content is malformed (for example `null`) is skipped, in development with a
+ * warning once for each distinct issue, so it cannot throw inside the
+ * agent's run; the messages after it are still ingested.
+ */
 function ingestMessages(
   manager: GenerativeUISurfaceManager,
   agent: AbstractAgent,
   messages: ReadonlyMessages,
 ) {
-  if (!agent.threadId) return;
+  const { threadId } = agent;
+  if (!threadId) return;
   for (const message of messages) {
     if (
-      message.role === "activity" &&
-      message.activityType === GENERATIVE_UI_ACTIVITY_TYPE
+      message.role !== "activity" ||
+      message.activityType !== GENERATIVE_UI_ACTIVITY_TYPE
     ) {
-      manager.ingest(
-        agent.threadId,
-        agent.agentId,
-        message.content as unknown as GenerativeUISurfaceContent,
-      );
+      continue;
     }
+    const parsed = parseGenerativeUISurfaceContent(message.content);
+    if (parsed.content) {
+      manager.ingest(threadId, agent.agentId, parsed.content);
+      continue;
+    }
+    if (!isDevelopment()) continue;
+    const warning = `[generativeUI] skipped an activity message of thread ${JSON.stringify(threadId)}: its content is malformed: ${parsed.issues.join("; ")}.`;
+    let warned = warnedMalformed.get(manager);
+    if (!warned) {
+      warned = new Set();
+      warnedMalformed.set(manager, warned);
+    }
+    if (warned.has(warning)) continue;
+    warned.add(warning);
+    console.warn(warning);
   }
 }
 

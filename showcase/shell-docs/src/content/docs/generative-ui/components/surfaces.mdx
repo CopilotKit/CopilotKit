@@ -409,6 +409,8 @@ Each component renders inside its own error boundary. One broken component shows
       </CopilotKitProvider>
     </template>
     ```
+
+    When your `fallback` throws, the default fallback with Retry shows in its place. The failure stays in its node, and `onError` gets it. A render failure that stays the same while the agent sends new content is reported once.
   </Tab>
 </Tabs>
 

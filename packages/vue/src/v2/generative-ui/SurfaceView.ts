@@ -960,7 +960,25 @@ export const SurfaceView = defineComponent({
   },
   setup(props) {
     const runtime = useRequiredGenerativeUIRuntime();
-    provide(SurfaceVersionKey, useManagerVersion(runtime));
+    const version = useManagerVersion(runtime);
+    provide(SurfaceVersionKey, version);
+    // A failed surface tries again with new content, as a failed node does
+    // with new props. New content is a new operation applied, or a rebuilt
+    // surface (a new object). The manager also notifies for ingests that
+    // bring nothing new and for other surfaces; those keep the revision.
+    const revision = shallowRef(0);
+    watch(
+      [
+        () => props.surface,
+        () => {
+          void version.value;
+          return props.surface.operations.length;
+        },
+      ],
+      () => {
+        revision.value += 1;
+      },
+    );
     // The theme is a stylesheet, not an inline style, so that its `dark`
     // values can apply in dark mode only. The values are checked in
     // `themeStyleSheet`, and the CSS is set as is, so the server render
@@ -981,7 +999,7 @@ export const SurfaceView = defineComponent({
           theme ? h("style", { innerHTML: theme.css }) : null,
           h(
             SurfaceBoundary,
-            { surfaceId },
+            { surfaceId, revision: revision.value },
             {
               default: () =>
                 h(NodeView, {

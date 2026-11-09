@@ -1,6 +1,6 @@
 import { fireEvent, render, screen } from "@testing-library/vue";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { defineComponent, h, nextTick } from "vue";
+import { defineComponent, h, nextTick, ref } from "vue";
 import type { Component, PropType } from "vue";
 import { z } from "zod";
 import type {
@@ -8,7 +8,9 @@ import type {
   GenerativeUISurfaceContent,
 } from "@copilotkit/shared";
 import { createGenerativeUI } from "../catalog";
+import { SurfaceBoundary } from "../boundaries";
 import { SurfaceView } from "../SurfaceView";
+import type { GenerativeUIRuntime } from "../runtime-context";
 import {
   createRuntimeProvider,
   createTestRuntime,
@@ -53,21 +55,46 @@ const ui = createGenerativeUI({
   },
 });
 
-/** Renders one surface with `components`, and an app error handler spy. */
-function renderNodes(components: A2UIComponentNode[], fallback?: Component) {
-  const { runtime, reportError } = createTestRuntime(ui, fallback);
-  const content: GenerativeUISurfaceContent = {
-    surfaceId: "s1",
+/** The content of surface `surfaceId` with `components`. */
+function surfaceContent(
+  surfaceId: string,
+  components: A2UIComponentNode[],
+): GenerativeUISurfaceContent {
+  return {
+    surfaceId,
     target: "inline",
     catalogId: ui.id,
     operations: [
-      { version: "1.0", createSurface: { surfaceId: "s1", catalogId: ui.id } },
-      { version: "1.0", updateComponents: { surfaceId: "s1", components } },
+      { version: "1.0", createSurface: { surfaceId, catalogId: ui.id } },
+      { version: "1.0", updateComponents: { surfaceId, components } },
     ],
     status: "ready",
     rejected: [],
   };
-  runtime.manager.ingest("t1", "default", content);
+}
+
+/** Renders surface `surfaceId` of thread "t1", and follows the manager. */
+function renderSurface(runtime: GenerativeUIRuntime, surfaceId: string) {
+  const Provider = createRuntimeProvider(runtime);
+  const surface = ref(runtime.manager.getSurface("t1", surfaceId));
+  runtime.manager.subscribe(() => {
+    surface.value = runtime.manager.getSurface("t1", surfaceId);
+  });
+  render(
+    defineComponent({
+      setup: () => () =>
+        h(Provider, null, {
+          default: () =>
+            surface.value ? h(SurfaceView, { surface: surface.value }) : null,
+        }),
+    }),
+  );
+}
+
+/** Renders one surface with `components`, and an app error handler spy. */
+function renderNodes(components: A2UIComponentNode[], fallback?: Component) {
+  const { runtime, reportError } = createTestRuntime(ui, fallback);
+  runtime.manager.ingest("t1", "default", surfaceContent("s1", components));
   const surface = runtime.manager.getSurface("t1", "s1");
   const Provider = createRuntimeProvider(runtime);
   const errorHandler = vi.fn();
@@ -169,7 +196,7 @@ describe("generated UI error boundaries (Vue-specific semantics)", () => {
     );
   });
 
-  it("passes an error of the host fallback up to the surface boundary, and never to the app", async () => {
+  it("keeps an error of the app fallback inside its node: the default fallback stands in, with Retry", async () => {
     silenceMissingRender();
     const Fallback = defineComponent({
       setup() {
@@ -184,15 +211,155 @@ describe("generated UI error boundaries (Vue-specific semantics)", () => {
     await nextTick();
     await nextTick();
     const alert = screen.getByRole("alert");
-    expect(alert.getAttribute("data-generative-ui-error")).toBe("surface");
-    expect(alert.textContent).toBe(
-      "Couldn’t display this part: this generated UI failed to render",
-    );
-    expect(reportError).toHaveBeenCalledWith({
+    expect(alert.getAttribute("data-generative-ui-error")).toBe("bomb");
+    expect(alert.textContent).toBe("Couldn’t display this part: explodedRetry");
+    expect(screen.getByText("Fine")).toBeTruthy();
+    expect(reportError).toHaveBeenCalledTimes(2);
+    expect(reportError).toHaveBeenNthCalledWith(1, {
       kind: "render",
       surfaceId: "s1",
-      error: expect.objectContaining({ message: "fallback exploded" }),
+      componentId: "bomb",
+      error: thrown,
     });
+    const [info] = reportError.mock.calls[1]!;
+    expect(info).toMatchObject({
+      kind: "render",
+      surfaceId: "s1",
+      componentId: "bomb",
+    });
+    expect(info.error.message).toBe(
+      "The error fallback of bomb threw: fallback exploded",
+    );
+    expect((info.error.cause as Error).message).toBe("fallback exploded");
     expect(errorHandler).not.toHaveBeenCalled();
+
+    thrown = undefined;
+    await fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+    expect(screen.getByText("survived b1")).toBeTruthy();
+  });
+
+  it("keeps a thrown value that is not an Error as the cause, also a falsy one", async () => {
+    const ThrowsUndefined = defineComponent({
+      setup() {
+        return () => {
+          throw undefined;
+        };
+      },
+    });
+    const throwingUI = createGenerativeUI({
+      id: "boundaries",
+      components: { Bomb: { component: ThrowsUndefined } },
+    });
+    const { runtime, reportError } = createTestRuntime(throwingUI);
+    runtime.manager.ingest(
+      "t1",
+      "default",
+      surfaceContent("s1", [{ id: "root", component: "Bomb" }]),
+    );
+    renderSurface(runtime, "s1");
+    await nextTick();
+    expect(screen.getByRole("alert")).toBeTruthy();
+    const [info] = reportError.mock.calls[0]!;
+    expect(info.error).toBeInstanceOf(Error);
+    expect(info.error.message).toBe(
+      "A value that is not an Error was thrown: undefined",
+    );
+    expect("cause" in info.error).toBe(true);
+    expect(info.error.cause).toBeUndefined();
+  });
+
+  it("reports a failure that stays the same across new revisions once, and a different one again", async () => {
+    thrown = new Error("exploded");
+    const { runtime, reportError } = createTestRuntime(ui);
+    const send = (label: string) =>
+      runtime.manager.ingest(
+        "t1",
+        "default",
+        surfaceContent(
+          "s1",
+          grid({ id: "bomb", component: "Bomb", label }, ok),
+        ),
+      );
+    send("b1");
+    renderSurface(runtime, "s1");
+    await nextTick();
+    expect(reportError).toHaveBeenCalledTimes(1);
+
+    send("b2");
+    await nextTick();
+    await nextTick();
+    expect(screen.getByRole("alert").textContent).toContain("exploded");
+    expect(reportError).toHaveBeenCalledTimes(1);
+
+    thrown = new Error("another failure");
+    send("b3");
+    await nextTick();
+    await nextTick();
+    expect(reportError).toHaveBeenCalledTimes(2);
+    expect(reportError.mock.calls[1]![0].error.message).toBe("another failure");
+
+    // A render without the failure clears what the node reported.
+    thrown = undefined;
+    send("b4");
+    await nextTick();
+    await nextTick();
+    expect(screen.getByText("survived b4")).toBeTruthy();
+    thrown = new Error("another failure");
+    send("b5");
+    await nextTick();
+    await nextTick();
+    expect(reportError).toHaveBeenCalledTimes(3);
+  });
+});
+
+describe("SurfaceBoundary", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("resets on a new revision, and reports a failure that stays the same once", async () => {
+    let fail = true;
+    const Child = defineComponent({
+      setup() {
+        return () => {
+          if (fail) throw new Error("root failed");
+          return h("span", "surface content");
+        };
+      },
+    });
+    const { runtime, reportError } = createTestRuntime(ui);
+    const Provider = createRuntimeProvider(runtime);
+    const revision = ref(0);
+    render(
+      defineComponent({
+        setup: () => () =>
+          h(Provider, null, {
+            default: () =>
+              h(
+                SurfaceBoundary,
+                { surfaceId: "s1", revision: revision.value },
+                { default: () => h(Child) },
+              ),
+          }),
+      }),
+    );
+    await nextTick();
+    const alert = screen.getByRole("alert");
+    expect(alert.getAttribute("data-generative-ui-error")).toBe("surface");
+    expect(screen.queryByRole("button", { name: "Retry" })).toBeNull();
+    expect(reportError).toHaveBeenCalledTimes(1);
+
+    revision.value += 1;
+    await nextTick();
+    await nextTick();
+    expect(screen.getByRole("alert")).toBeTruthy();
+    expect(reportError).toHaveBeenCalledTimes(1);
+
+    fail = false;
+    revision.value += 1;
+    await nextTick();
+    await nextTick();
+    expect(screen.queryByRole("alert")).toBeNull();
+    expect(screen.getByText("surface content")).toBeTruthy();
   });
 });

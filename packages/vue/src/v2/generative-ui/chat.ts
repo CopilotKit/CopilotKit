@@ -21,6 +21,7 @@ import type {
   GenerativeUIRejectedOperation,
   GenerativeUISurfaceContent,
 } from "@copilotkit/shared";
+import { GenerativeUISurfaceContentSchema } from "@copilotkit/core/generative-ui";
 import type { ManagedSurface } from "@copilotkit/core/generative-ui";
 import type { CopilotKitCoreVue } from "../lib/vue-core";
 import { useCopilotChatConfiguration } from "../providers/useCopilotChatConfiguration";
@@ -142,19 +143,6 @@ export const GenerativeUIChatSurfaceOutlet = defineComponent({
   },
 });
 
-const ContentSchema = z
-  .object({
-    surfaceId: z.string(),
-    target: z.string(),
-    catalogId: z.string(),
-    operations: z.array(z.any()),
-    status: z.enum(["streaming", "ready", "error"]),
-    rejected: z
-      .array(z.object({ index: z.number(), reason: z.string() }))
-      .default([]),
-  })
-  .passthrough();
-
 /**
  * Renders a surface activity of the tool transport in the chat: it ingests
  * the operations into the manager before it renders, and shows a surface of
@@ -222,7 +210,7 @@ const GenerativeUIChatActivity = defineComponent({
 export function createGenerativeUIActivityRenderer() {
   return {
     activityType: GENERATIVE_UI_ACTIVITY_TYPE,
-    content: ContentSchema,
+    content: GenerativeUISurfaceContentSchema,
     render: GenerativeUIChatActivity,
   };
 }

@@ -1,5 +1,5 @@
 import { render, waitFor } from "@testing-library/vue";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, onTestFinished, vi } from "vitest";
 import {
   defineComponent,
   nextTick,
@@ -16,6 +16,7 @@ import {
   buildGenerativeUIMarkdownGuidelines,
   buildGenerativeUIPrompt,
   envelopeToManifest,
+  GENERATIVE_UI_ACTIVITY_TYPE,
   GENERATIVE_UI_AGENT_FUNCTION_CALLS,
   readCopilotKitUIEnvelope,
 } from "@copilotkit/shared";
@@ -191,6 +192,13 @@ function missingRootSurface(surfaceId: string): GenerativeUISurfaceContent {
       },
     ],
   };
+}
+
+/** The development warnings about a skipped, malformed activity message. */
+function malformedWarnings(warn: ReturnType<typeof vi.spyOn>) {
+  return warn.mock.calls
+    .map((call) => String(call[0]))
+    .filter((message) => message.includes("malformed"));
 }
 
 const origin = { surfaceId: "s1", componentId: "root" };
@@ -836,5 +844,63 @@ describe("useGenerativeUIRoot (Vue-specific semantics)", () => {
     expect(copilotkit.ɵgenerativeUIDebugSource?.getSnapshot().catalogId).toBe(
       "next",
     );
+  });
+  describe("ingesting the activity messages of an agent", () => {
+    const activity = (id: string, content: unknown) => ({
+      id,
+      role: "activity" as const,
+      activityType: GENERATIVE_UI_ACTIVITY_TYPE,
+      content,
+    });
+    it.each([
+      ["null", null],
+      ["a string", "text"],
+      ["no operations", { ...buttonSurface("bad"), operations: undefined }],
+      [
+        "a rejected entry with a NaN index",
+        {
+          ...buttonSurface("bad"),
+          rejected: [{ index: Number.NaN, reason: "x" }],
+        },
+      ],
+    ])(
+      "skips content that is %s with a development warning, and still ingests the valid content after it",
+      async (_label, content) => {
+        const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+        const error = vi.spyOn(console, "error").mockImplementation(() => {});
+        const { runtime, agent, copilotkit } = setup();
+        const messages = [
+          activity("bad", content),
+          activity("good", buttonSurface("s1")),
+        ] as unknown as typeof agent.messages;
+        // Ingested at the run start, then on each change of the messages.
+        agent.setMessages(messages);
+        await runOnce(copilotkit, agent);
+        // Core and the agent log a throwing subscriber with console.error.
+        expect(error).not.toHaveBeenCalled();
+        expect(runtime.manager.getSurface(agent.threadId, "s1")).toBeDefined();
+        expect(malformedWarnings(warn)).toHaveLength(1);
+        // The same messages again: no new warning for the same issue.
+        expect(() => agent.setMessages([...messages])).not.toThrow();
+        expect(error).not.toHaveBeenCalled();
+        expect(malformedWarnings(warn)).toHaveLength(1);
+      },
+    );
+
+    it("does not warn in production", async () => {
+      vi.stubEnv("NODE_ENV", "production");
+      onTestFinished(() => {
+        vi.unstubAllEnvs();
+      });
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+      const { runtime, agent, copilotkit } = setup();
+      agent.setMessages([
+        activity("bad", null),
+        activity("good", buttonSurface("s1")),
+      ] as unknown as typeof agent.messages);
+      await runOnce(copilotkit, agent);
+      expect(runtime.manager.getSurface(agent.threadId, "s1")).toBeDefined();
+      expect(malformedWarnings(warn)).toHaveLength(0);
+    });
   });
 });
