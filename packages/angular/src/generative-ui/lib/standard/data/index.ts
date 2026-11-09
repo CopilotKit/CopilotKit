@@ -13,14 +13,15 @@ import {
   CopilotGenerativeUITableSection,
 } from "./table";
 
-export { CopilotGenerativeUIChart, chartConfig } from "./chart";
+export { CopilotGenerativeUIChart } from "./chart";
 export { CopilotGenerativeUIList } from "./list";
 export { CopilotGenerativeUIListItem } from "./list-item";
+export { CopilotGenerativeUIMap } from "./map";
 export {
-  CopilotGenerativeUIMap,
+  chartConfig,
   guardNumericFilter,
   guardStyleFilters,
-} from "./map";
+} from "@copilotkit/shared/generative-ui";
 export {
   CopilotGenerativeUITable,
   CopilotGenerativeUITableCell,
