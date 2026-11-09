@@ -25,7 +25,6 @@ import {
   readMessageTimestamp,
   recordMessageTimestamps,
   rememberPendingMessageTimestamp,
-  retainRememberedMessageTimestamps,
   withMessageTimestamp,
 } from "../../lib/message-timestamp";
 import {
@@ -882,11 +881,14 @@ export function CopilotChat({
   // not copy the event time onto the message. Remember that time beside the
   // messages. Subscriber payloads can be frozen, so this does not write to them.
   const messageTimestampsRef = useRef(new Map<string, number>());
+  // Text-start times that have not met a snapshot yet. Kept across a
+  // same-thread agent replacement; cleared when the thread changes.
+  const pendingMessageTimestampsRef = useRef(new Map<string, number>());
   const messageTimestampThreadRef = useRef<string | null>(null);
   const [messageTimestampRevision, setMessageTimestampRevision] = useState(0);
   useEffect(() => {
     let active = true;
-    const pending = new Map<string, number>();
+    const pending = pendingMessageTimestampsRef.current;
     const remembered = messageTimestampsRef.current;
     const publish = () => {
       if (active) setMessageTimestampRevision((revision) => revision + 1);
@@ -898,6 +900,7 @@ export function CopilotChat({
     const threadChanged = previousThreadId !== resolvedThreadId;
     if (threadChanged) {
       messageTimestampThreadRef.current = resolvedThreadId;
+      pending.clear();
       if (remembered.size > 0) {
         remembered.clear();
         publish();
@@ -913,16 +916,13 @@ export function CopilotChat({
     if (previousThreadId === null) {
       note(agent.messages);
     } else if (!threadChanged) {
-      const pruned = retainRememberedMessageTimestamps(
-        remembered,
-        agent.messages,
-      );
-      const recorded = recordMessageTimestamps(
-        agent.messages,
-        pending,
-        remembered,
-      );
-      if (pruned || recorded) publish();
+      // The replacement agent's first list can omit messages that a later
+      // replay restores. Record times for whoever is here, including a
+      // text-start that arrived before this effect was recreated, and do not
+      // prune the rest against this incomplete list.
+      if (recordMessageTimestamps(agent.messages, pending, remembered)) {
+        publish();
+      }
     }
     // A thread switch waits for onMessagesChanged. The reused agent can still
     // hold the previous thread until that reset, and recording it here would
