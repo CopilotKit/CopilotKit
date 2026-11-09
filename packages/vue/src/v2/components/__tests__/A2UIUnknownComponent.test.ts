@@ -74,7 +74,7 @@ function renderSurface() {
 // An unregistered component type is a mistake only the agent's developer can
 // act on, so a production build renders nothing for it while the rest of the
 // surface renders; development keeps the diagnostic.
-describe("A2UI unknown component types", () => {
+describe("unknown component types", () => {
   afterEach(() => {
     vi.unstubAllEnvs();
   });

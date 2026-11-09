@@ -162,6 +162,13 @@ export const A2uiSurface: React.FC<{
  * `process.env.NODE_ENV`; a page that imports this package without a bundler
  * usually has no `process` global, and that counts as production, so an end
  * user never sees a developer diagnostic and reading it never throws.
+ *
+ * Reading the variable inside try/catch, rather than testing
+ * `typeof process`, is deliberate. Bundlers cannot fold this helper away, so
+ * the diagnostic stays in production bundles as a few bytes of code that never
+ * runs. `typeof process` would fold, but Vite and webpack 5 define NODE_ENV
+ * without a `process` global, so it would also hide the diagnostic in their
+ * development builds.
  */
 function isProductionBuild(): boolean {
   try {
