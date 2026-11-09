@@ -76,7 +76,7 @@
       "options": {
         "commands": [
           "node --test scripts/__tests__/mutation-summarize.test.mjs",
-          "node scripts/mutation/summarize.mjs packages/core packages/runtime packages/react-core"
+          "mkdir -p reports/mutation && node scripts/mutation/summarize.mjs --idle-out reports/mutation/idle-tests.md packages/core packages/runtime packages/react-core"
         ],
         "parallel": false
       }

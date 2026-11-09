@@ -67,11 +67,35 @@ The results are in `packages/<name>/reports/mutation/`:
 - `mutation.html` shows every mutant in the source. Open it in a browser.
 - `mutation.json` is the raw report.
 
-To print the summary tables in `baseline.md` from the JSON reports:
+To print the summary tables in `baseline.md` from the JSON reports, and write
+every test that kills no mutant to `reports/mutation/idle-tests.md`:
 
 ```sh
 pnpm nx run repo-scripts:mutation-report
 ```
+
+## Tests that kill no mutant
+
+Deleting a test that kills no mutant lets no mutant survive. That does not
+always make the test useless. The idle list gives each test one reason:
+
+| Reason      | Meaning                                                                                                     | What to do                                                                                  |
+| ----------- | ----------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| `runs-code` | The test runs mutated code, and no mutant made it fail.                                                     | Most likely rot. Make its assertions specific, or delete it.                                |
+| `timeout`   | The test runs a mutant that ended in a timeout. Stryker does not record which test caused a timeout.        | Inconclusive. The test may have caught the mutant.                                          |
+| `no-code`   | The test runs no mutated code in this package: another package, types, module-level code or a skipped file. | Not proof of rot. Check what it tests, or measure it with the package whose code it covers. |
+
+After you delete or rewrite tests, run Stryker on the source files they cover
+(`--mutate`) and check that the score did not drop.
+
+To merge the reports of a package that ran as shards, name them after `=`:
+
+```sh
+node scripts/mutation/summarize.mjs --idle-out idle-tests.md \
+  packages/react-core=a/mutation.json,b/mutation.json,c/mutation.json
+```
+
+`--idle-reasons runs-code` keeps only some reasons in the list.
 
 ## CI
 
@@ -79,8 +103,21 @@ pnpm nx run repo-scripts:mutation-report
 packages every Monday and on `workflow_dispatch`. It does not run on PRs
 because it is too slow. react-core runs as three jobs (`components/`,
 `generative-ui/` and the rest) so each job stays under the timeout. Each job
-caches its incremental file, writes its summary to the job page and uploads
-the HTML and JSON reports as an artifact.
+caches its incremental file and uploads the HTML and JSON reports as an
+artifact (`mutation-report-<shard>`).
+
+A `report` job then merges the three react-core shards (a test in one shard
+can kill mutants in another) and:
+
+- writes the summary tables to the run page,
+- uploads `summary.md`, `idle-tests.md` (every idle test) and `likely-rot.md`
+  (only `runs-code`) as the `mutation-summary` artifact,
+- on the default branch, keeps one open issue titled **Mutation testing:
+  weekly report** up to date. Each run replaces the issue body with the latest
+  summary and the `runs-code` list, and adds a comment with the scores. Watch
+  that issue to get notified. If you close it, the next run opens a new one.
+
+If a shard fails or times out, the summary says which shard has no report.
 
 GitHub starts scheduled runs only from the default branch, and lists a
 `workflow_dispatch` workflow only after the file is on the default branch. So
