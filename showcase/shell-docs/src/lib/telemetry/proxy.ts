@@ -1,6 +1,6 @@
 // Server-side PostHog events sent from `src/proxy.ts`, ported from shell-docs'
 // middleware: `docs_pageview` (every page request, with a first-party
-// `ph_distinct_id` cookie), `docs.llm_text_fetched` (llms.txt, llms-full.txt,
+// `ph_docs_id` cookie), `docs.llm_text_fetched` (llms.txt, llms-full.txt,
 // and raw markdown, which never run the client snippet), and `seo_redirect`.
 // Same event names, properties, distinct ids, and env vars (`POSTHOG_KEY`,
 // `NEXT_PUBLIC_POSTHOG_HOST`) as shell-docs.
@@ -27,7 +27,12 @@ export function resolveLlmTextSurface(pathname: string): LlmTextSurface | null {
   return null;
 }
 
-const DISTINCT_ID_COOKIE = "ph_distinct_id";
+// Renamed from `ph_distinct_id` when `docs_pageview` became personless.
+// PostHog upgrades a distinct_id that already has a person profile back to
+// identified processing even when `$process_person_profile` is false, so
+// every visitor must get a fresh id for the flag to take effect. Do not
+// rename it back.
+const DISTINCT_ID_COOKIE = "ph_docs_id";
 // ~2 years, long enough to count returning visitors.
 const DISTINCT_ID_COOKIE_MAX_AGE = 60 * 60 * 24 * 365 * 2;
 // The user agent is caller-controlled; cap what goes into the event stream.
@@ -101,18 +106,51 @@ export function trackRequest(
       httpOnly: false,
     });
   }
-  event.waitUntil(capturePageView(pathname, distinctId));
+  event.waitUntil(capturePageView(request, pathname, distinctId));
   return response;
 }
 
+// The server-side captures report on behalf of a caller, so PostHog cannot
+// see that caller itself. These properties stand in:
+// - `$ip` gives PostHog the visitor's address for GeoIP. Without it,
+//   PostHog geolocates the server that POSTs the event.
+// - `$raw_user_agent` is what PostHog's bot-filter transformation reads.
+//   Without it, every event classifies as `no_user_agent`.
+// - `$process_person_profile: false` keeps these events personless. Bots
+//   and agents never return a cookie, so each of their hits would mint a
+//   new person.
+function serverCaptureCallerProperties(
+  request: NextRequest,
+): Record<string, unknown> {
+  return {
+    $ip: clientIp(request),
+    $raw_user_agent:
+      request.headers.get("user-agent")?.slice(0, MAX_USER_AGENT_LENGTH) ??
+      null,
+    $process_person_profile: false,
+  };
+}
+
 /** `seo_redirect`, for a redirect the proxy issues. Fire-and-forget. */
-export function trackRedirect(id: string, fromPath: string, toPath: string) {
+export function trackRedirect(
+  request: NextRequest,
+  id: string,
+  fromPath: string,
+  toPath: string,
+) {
   if (!posthogKey()) return;
   posthog
     .capture(
       "seo_redirect",
-      { redirect_id: id, from_path: fromPath, to_path: toPath },
-      "seo-redirect-tracker",
+      {
+        redirect_id: id,
+        from_path: fromPath,
+        to_path: toPath,
+        ...serverCaptureCallerProperties(request),
+      },
+      // Renamed from `seo-redirect-tracker`, which already has a person
+      // profile: PostHog would upgrade it back to identified processing.
+      "seo-redirect",
     )
     .catch(() => {
       // Never block a redirect on analytics.
@@ -145,11 +183,21 @@ const posthog = {
 };
 
 async function capturePageView(
+  request: NextRequest,
   pathname: string,
   distinctId: string,
 ): Promise<void> {
   try {
-    await posthog.capture("docs_pageview", { path: pathname }, distinctId);
+    await posthog.capture(
+      "docs_pageview",
+      {
+        path: pathname,
+        environment: deploymentEnvironment(),
+        referrer: request.headers.get("referer"),
+        ...serverCaptureCallerProperties(request),
+      },
+      distinctId,
+    );
   } catch (err) {
     console.warn("[proxy] posthog capture failed", err);
   }

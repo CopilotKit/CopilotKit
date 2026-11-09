@@ -1,4 +1,5 @@
-import { NextResponse, type NextRequest } from "next/server";
+import { NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
 import { trackRedirect } from "@/lib/telemetry/proxy";
 import { findSeoRedirect } from "./seo-redirects";
 
@@ -31,7 +32,7 @@ export function legacyRedirect(request: NextRequest): NextResponse | null {
   // Content route-group folders (`(root)`, `(other)`) leaked into URLs.
   const routeGroupFree = stripRouteGroupSegments(pathname);
   if (routeGroupFree !== pathname) {
-    trackRedirect("route-group-strip", pathname, routeGroupFree);
+    trackRedirect(request, "route-group-strip", pathname, routeGroupFree);
     const url = request.nextUrl.clone();
     url.pathname = routeGroupFree;
     return NextResponse.redirect(url, 301);
@@ -39,7 +40,7 @@ export function legacyRedirect(request: NextRequest): NextResponse | null {
 
   const seo = findSeoRedirect(pathname);
   if (seo) {
-    trackRedirect(seo.id, pathname, seo.destination);
+    trackRedirect(request, seo.id, pathname, seo.destination);
     // Like shell-docs, the destination doesn't carry the query string.
     return NextResponse.redirect(new URL(seo.destination, request.url), 301);
   }
