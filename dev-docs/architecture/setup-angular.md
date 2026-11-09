@@ -262,12 +262,15 @@ graph LR
     IP --> EX --> CO
 ```
 
-| Field    | Type                                         | Description                              |
-| -------- | -------------------------------------------- | ---------------------------------------- |
-| `status` | `"in-progress" \| "executing" \| "complete"` | Current lifecycle stage                  |
-| `name`   | `string`                                     | Tool name                                |
-| `args`   | `Partial<T>` or `T`                          | Tool arguments (partial while streaming) |
-| `result` | `string \| undefined`                        | Result (only when complete)              |
+| Field    | Type                                         | Description                                           |
+| -------- | -------------------------------------------- | ----------------------------------------------------- |
+| `status` | `"in-progress" \| "executing" \| "complete"` | Current lifecycle stage                               |
+| `name`   | `string`                                     | Tool name                                             |
+| `args`   | `Partial<T>` or `T`                          | Tool arguments (partial while streaming)              |
+| `result` | `string \| undefined`                        | Result (only when complete)                           |
+| `error`  | `string \| undefined`                        | Tool message error (only when a complete call failed) |
+
+Human-in-the-loop calls also carry `aborted: true` on a complete call whose run was stopped while it was waiting on the user; `result` is then `undefined`.
 
 ---
 

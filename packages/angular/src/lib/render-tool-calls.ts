@@ -23,6 +23,7 @@ import type {
 } from "./tools";
 import { partialJSONParse } from "@copilotkit/shared";
 import { HumanInTheLoop } from "./human-in-the-loop";
+import { withAbortedState } from "./human-in-the-loop-abort";
 import { CopilotDefaultToolRenderer } from "./components/tools/default-tool-renderer";
 
 type RendererToolCallHandler = {
@@ -217,6 +218,7 @@ export class RenderToolCalls {
         args,
         status: "complete",
         result: contentToText(message.content),
+        error: message.error,
       };
     } else if (this.isLoading()) {
       return {
@@ -285,13 +287,14 @@ export class RenderToolCalls {
     };
 
     if (message) {
-      return {
+      return withAbortedState({
         name: toolCall.function.name,
         args,
-        status: "complete",
+        status: "complete" as const,
         result: contentToText(message.content),
+        error: message.error,
         respond,
-      };
+      });
     } else if (this.isLoading()) {
       return {
         name: toolCall.function.name,

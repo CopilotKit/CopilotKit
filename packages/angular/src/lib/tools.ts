@@ -28,8 +28,22 @@ export type AngularToolCall<
       args: Args;
       status: "complete";
       result: string;
+      /**
+       * Set when the tool call failed instead of returning a result. This is
+       * the tool message's raw `error` field: usually the failure message,
+       * but some history adapters restore it as a bare marker such as
+       * `"error"`. The reason is then only in `result`, which holds the
+       * `Error: <message>` text sent to the agent.
+       */
+      error?: string;
     };
 
+/**
+ * The `toolCall` a human-in-the-loop renderer receives, keyed on `status`. A
+ * request abandoned because the run was stopped is `complete` with
+ * `aborted: true`, `result: undefined` and the abort message in `error`, so it
+ * cannot be mistaken for the user's answer.
+ */
 export type HumanInTheLoopToolCall<
   Args extends Record<string, unknown> = Record<string, unknown>,
 > =
@@ -39,6 +53,8 @@ export type HumanInTheLoopToolCall<
       status: "in-progress";
       result: undefined;
       respond: (result: unknown) => void;
+      aborted?: undefined;
+      error?: undefined;
     }
   | {
       name?: string;
@@ -46,6 +62,8 @@ export type HumanInTheLoopToolCall<
       status: "executing";
       result: undefined;
       respond: (result: unknown) => void;
+      aborted?: undefined;
+      error?: undefined;
     }
   | {
       name?: string;
@@ -53,6 +71,27 @@ export type HumanInTheLoopToolCall<
       status: "complete";
       result: string;
       respond: (result: unknown) => void;
+      aborted?: undefined;
+      /**
+       * Set when the call failed for a reason other than a stop. `result`
+       * then holds the failure text sent to the agent, not the user's answer.
+       */
+      error?: string;
+    }
+  | {
+      /**
+       * The run was stopped while this request was still waiting on the
+       * user. There is no answer: `result` is `undefined`, `aborted` is
+       * `true` and `error` holds the abort message, so the UI can show the
+       * request as abandoned.
+       */
+      name?: string;
+      args: Args;
+      status: "complete";
+      result: undefined;
+      respond: (result: unknown) => void;
+      aborted: true;
+      error: string;
     };
 
 export interface ToolRenderer<
