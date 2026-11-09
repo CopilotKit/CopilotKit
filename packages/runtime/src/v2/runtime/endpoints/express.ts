@@ -130,7 +130,7 @@ export interface CopilotExpressEndpointParams {
  * import { createCopilotExpressHandler } from "@copilotkit/runtime/v2/express";
  *
  * const runtime = new CopilotRuntime({
- *   agents: { default: new BuiltInAgent({ model: "openai/gpt-4o-mini" }) },
+ *   agents: { default: new BuiltInAgent({ model: "openai/gpt-6-luna" }) },
  * });
  *
  * const app = express();

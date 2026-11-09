@@ -270,7 +270,7 @@ async def handle_run(request: Request) -> StreamingResponse:
 
     oai_messages = _agui_messages_to_openai(run_input.messages, _SYSTEM_PROMPT)
     oai_tools = _runtime_tools_to_openai(getattr(run_input, "tools", None))
-    model = os.getenv("LANGROID_MODEL", "gpt-4o-mini")
+    model = os.getenv("LANGROID_MODEL", "gpt-6-luna")
     thread_id = run_input.thread_id or str(uuid.uuid4())
 
     async def event_stream() -> AsyncGenerator[str, None]:
@@ -286,6 +286,7 @@ async def handle_run(request: Request) -> StreamingResponse:
         try:
             client = openai.AsyncOpenAI()
             response = await client.chat.completions.create(
+                reasoning_effort="none" if model == "gpt-6-luna" else openai.NOT_GIVEN,
                 model=model,
                 messages=oai_messages,
                 tools=oai_tools if oai_tools else openai.NOT_GIVEN,

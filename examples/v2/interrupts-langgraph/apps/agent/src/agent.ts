@@ -227,12 +227,15 @@ const deleteProverb = tool(
 
 const tools = [getWeather, deleteProverb];
 
-// gpt-4o-mini: reliable tool-calling, low cost. Swap model here if you
+// gpt-6-luna: reliable tool-calling, low cost. Swap model here if you
 // need different tradeoffs.
-const MODEL = "gpt-4o-mini";
+const MODEL = "gpt-6-luna";
 
 async function chat_node(state: AgentState, config: RunnableConfig) {
-  const model = new ChatOpenAI({ model: MODEL });
+  const model = new ChatOpenAI({
+    model: MODEL,
+    modelKwargs: { reasoning_effort: "none" },
+  });
 
   // Bind tools to the model, including CopilotKit frontend actions.
   //

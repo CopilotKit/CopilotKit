@@ -47,6 +47,15 @@
       "repoName": "showcase-shell-docs"
     }
   },
+  "docs-preview": {
+    "staging": {
+      "instanceId": "99cd81df-b32e-413a-9c04-91811ec59806",
+      "domain": null,
+      "probe": false,
+      "driver": "shell",
+      "repoName": "docs-preview"
+    }
+  },
   "dojo": {
     "prod": {
       "instanceId": "2ee4f2aa-11ec-4426-9a4a-41a1ad04f16d",

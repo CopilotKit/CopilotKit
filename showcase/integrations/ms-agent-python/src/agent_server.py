@@ -41,7 +41,7 @@ install_executor_contextvar_propagation()
 
 import uvicorn
 from agent_framework import BaseChatClient
-from agent_framework_openai import OpenAIChatCompletionClient
+from agents._openai_client import OpenAIChatCompletionClient
 from agent_framework_ag_ui import add_agent_framework_fastapi_endpoint
 from dotenv import load_dotenv
 from fastapi import FastAPI
@@ -97,7 +97,7 @@ def _build_chat_client(model_override: str | None = None) -> BaseChatClient:
     try:
         if bool(os.getenv("OPENAI_API_KEY")):
             return OpenAIChatCompletionClient(
-                model=model_override or os.getenv("OPENAI_CHAT_MODEL_ID", "gpt-5-mini"),
+                model=model_override or os.getenv("OPENAI_CHAT_MODEL_ID", "gpt-6-luna"),
                 api_key=os.getenv("OPENAI_API_KEY"),
             )
 
@@ -137,9 +137,9 @@ interrupt_agent = create_interrupt_agent(chat_client)
 shared_state_read_write_agent = create_shared_state_read_write_agent(chat_client)
 subagents_agent = create_subagents_agent(chat_client)
 
-# Multimodal: vision-capable; gpt-5-mini natively handles `image` parts.
+# Multimodal: vision-capable; gpt-6-luna natively handles `image` parts.
 # Scoped to its own endpoint so other demos don't silently upgrade to vision.
-multimodal_chat_client = _build_chat_client("gpt-5-mini")
+multimodal_chat_client = _build_chat_client("gpt-6-luna")
 multimodal_agent = create_multimodal_agent(multimodal_chat_client)
 
 # Beautiful Chat: flagship polished sales dashboard demo. Combines A2UI

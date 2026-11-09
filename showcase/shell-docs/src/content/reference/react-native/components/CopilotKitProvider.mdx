@@ -7,7 +7,7 @@ description: "The React Native provider that configures the CopilotKit runtime c
 
 `CopilotKitProvider` is the React Native provider for CopilotKit. Wrap your app (or the sub-tree that needs a copilot) with it to configure the runtime connection. Every hook and component below it reads the configured client from context.
 
-Importing the package auto-installs the [polyfills](/reference/react-native#polyfills) CopilotKit needs on Hermes, so you do not have to import them manually before using the provider.
+Importing the package auto-installs the [polyfills](/reference/react-native#polyfills) CopilotKit needs on Hermes, so you do not have to import them manually before using the provider. One thing it cannot do for you: its `crypto.getRandomValues` falls back to `Math.random`, which is not cryptographically secure. For a secure one, import `react-native-get-random-values` on the first line of your entry point, before any CopilotKit import; once a CopilotKit module has loaded, the fallback stays and the secure import does nothing. See [Polyfills](/react-native#polyfills) in the guide.
 
 <Callout type="info">
   Cloud features (`publicLicenseKey` / license-gated functionality) are not yet
@@ -144,7 +144,7 @@ export default function App() {
 
 ## Behavior
 
-- **Auto-polyfills**: importing the package installs the Web API polyfills CopilotKit relies on (`ReadableStream`, `TextEncoder`, `crypto.getRandomValues`, `DOMException`, `location`) before any CopilotKit code runs.
+- **Auto-polyfills**: importing the package installs the Web API polyfills CopilotKit relies on (`ReadableStream`, `TextEncoder`, `crypto.getRandomValues`, `DOMException`, `location`) before any CopilotKit code runs. Each polyfill installs only when its global is missing, so a secure `crypto.getRandomValues` from `react-native-get-random-values` must be imported first, on the first line of the entry point.
 - **Shared render-tool registry**: the provider instantiates the CopilotKit client whose renderer registry is shared with the rest of CopilotKit. Render functions registered by [`useRenderTool`](/reference/react-native/hooks/useRenderTool), [`useFrontendTool`](/reference/react-native/hooks/useFrontendTool) or [`useComponent`](/reference/react-native/hooks/useComponent) write into that one registry, so they and [`useRenderToolCall`](/reference/react-native/hooks/useRenderTool#rendering-a-tool-call-outside-the-chat) work anywhere below the provider. There is no second registry and no extra provider to mount for rendering.
 - **Stable references**: header functions and `properties` are memoized internally to avoid effect churn on re-render.
 
@@ -153,3 +153,4 @@ export default function App() {
 - [`useCopilotKit`](/reference/react-native/hooks/useCopilotKit): access the configured client from any descendant
 - [`useAgent`](/reference/react-native/hooks/useAgent): connect to an agent and read its state
 - [Polyfills](/reference/react-native#polyfills): what gets installed and how to bring your own
+- [`GenerativeUIProvider`](/reference/react-native/components/GenerativeUIProvider): goes inside this provider to let the agent render your native components

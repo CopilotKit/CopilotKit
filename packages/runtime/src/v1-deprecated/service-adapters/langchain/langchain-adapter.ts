@@ -29,7 +29,8 @@
  * const copilotKit = new CopilotRuntime();
  *
  * const model = new ChatOpenAI({
- *   model: "gpt-4o",
+ *   model: "gpt-6-luna",
+ *   reasoning: { effort: "none" },
  *   apiKey: "<your-api-key>",
  * });
  *

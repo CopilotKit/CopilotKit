@@ -81,7 +81,9 @@ class InterruptFlow(Flow[InterruptState]):
     async def request_schedule(self) -> dict[str, Any]:
         response = await copilotkit_stream(
             await acompletion(
-                model="openai/gpt-5.4",
+                allowed_openai_params=["reasoning_effort"],
+                reasoning_effort="none",
+                model="openai/gpt-6-luna",
                 messages=[
                     {"role": "system", "content": SYSTEM_PROMPT},
                     *self.state.messages,
@@ -163,7 +165,9 @@ class InterruptFlow(Flow[InterruptState]):
             )
         response = await copilotkit_stream(
             await acompletion(
-                model="openai/gpt-5.4",
+                allowed_openai_params=["reasoning_effort"],
+                reasoning_effort="none",
+                model="openai/gpt-6-luna",
                 messages=[
                     {
                         "role": "system",

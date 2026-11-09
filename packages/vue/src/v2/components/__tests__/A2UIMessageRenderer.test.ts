@@ -269,3 +269,65 @@ describe("createA2UIMessageRenderer", () => {
     });
   });
 });
+
+// Mirrors the React routing regression: nested v0.9 IDs are authoritative.
+describe("A2UIMessageRenderer — resolving which surface an operation addresses", () => {
+  it("groups by the nested surface id, not a top-level one", async () => {
+    const renderer = createA2UIMessageRenderer({ theme: {} });
+    const { container, getByText, queryByRole } = render(renderer.render, {
+      props: {
+        activityType: "a2ui-surface",
+        content: {
+          a2ui_operations: [
+            {
+              version: "v0.9",
+              surfaceId: "top-level",
+              createSurface: {
+                surfaceId: "nested",
+                catalogId:
+                  "https://a2ui.org/specification/v0_9/basic_catalog.json",
+              },
+            },
+            {
+              version: "v0.9",
+              surfaceId: "top-level",
+              updateDataModel: {
+                surfaceId: "nested",
+                path: "/",
+                value: { message: "Nested wins" },
+              },
+            },
+            {
+              version: "v0.9",
+              surfaceId: "top-level",
+              updateComponents: {
+                surfaceId: "nested",
+                components: [
+                  {
+                    id: "root",
+                    component: "Text",
+                    text: { path: "/message" },
+                    variant: "body",
+                  },
+                ],
+              },
+            },
+          ],
+        },
+        message: {},
+        agent: {},
+      },
+      global: { provide: copilotKitProvide() },
+    });
+
+    await waitFor(() => {
+      expect(
+        container.querySelector("[data-surface-id='nested']"),
+      ).not.toBeNull();
+      expect(getByText("Nested wins")).toBeTruthy();
+    });
+    expect(container.querySelector("[data-surface-id='top-level']")).toBeNull();
+    expect(container.textContent).not.toContain("A2UI render error");
+    expect(queryByRole("alert")).toBeNull();
+  });
+});

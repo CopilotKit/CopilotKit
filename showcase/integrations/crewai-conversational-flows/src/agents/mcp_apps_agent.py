@@ -18,7 +18,7 @@ Reference: showcase/integrations/langgraph-python/src/agents/mcp_apps_agent.py
 
 from __future__ import annotations
 
-from crewai import Agent, Crew, Process, Task
+from crewai import LLM, Agent, Crew, Process, Task
 
 from agents._chat_flow_helpers import preseed_system_prompt
 
@@ -60,7 +60,11 @@ preseed_system_prompt(
 
 def _build_crew() -> Crew:
     agent = Agent(
-        llm="gpt-5.4",
+        llm=LLM(
+            model="openai/gpt-6-luna",
+            is_litellm=True,
+            additional_params={"extra_body": {"reasoning_effort": "none"}},
+        ),
         role="MCP Apps Demo Assistant",
         goal=(
             "Draw simple diagrams in Excalidraw via the MCP `create_view` "
@@ -91,7 +95,11 @@ def _build_crew() -> Crew:
         tasks=[task],
         process=Process.sequential,
         verbose=False,
-        chat_llm="gpt-5.4",
+        chat_llm=LLM(
+            model="openai/gpt-6-luna",
+            is_litellm=True,
+            additional_params={"extra_body": {"reasoning_effort": "none"}},
+        ),
     )
 
 

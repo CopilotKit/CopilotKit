@@ -3,22 +3,38 @@ import type { ReactNode } from "react";
 import type { GenerativeUIUserEvent } from "@copilotkit/shared";
 import type { GenerativeUIAccessibility } from "./accessibility";
 import type { GenerativeUI } from "./catalog";
-import type { GenerativeUIDispatcher } from "./dispatcher";
-import type { GenerativeUIErrorInfo, GenerativeUIInvokeResult } from "./errors";
-import type { GenerativeUISurfaceManager } from "./surface-manager";
-import type { GenerativeUITheme } from "./theme";
+import type { GenerativeUIDispatcher } from "@copilotkit/core/generative-ui";
+import type {
+  GenerativeUIErrorInfo,
+  GenerativeUIInvokeResult,
+} from "@copilotkit/shared/generative-ui";
+import type { GenerativeUISurfaceManager } from "@copilotkit/core/generative-ui";
+import type { GenerativeUITheme } from "@copilotkit/shared/generative-ui";
 
 export type { GenerativeUITheme };
 
 export interface GenerativeUIErrorBoundaryConfig {
-  /** Replaces the default per-component fallback. */
+  /**
+   * Replaces the host's fallback for a component that failed to render. It
+   * is not used for invalid props, unknown types, cyclic references or a
+   * failed surface: the host's `NodeFallback` shows those. If it throws,
+   * the host's fallback stands in and the error is reported. `error` is
+   * always an Error: a component that throws something else (a string,
+   * `undefined`) gets an Error that describes it, with the value as its
+   * `cause`.
+   */
   fallback?: (props: {
     error: Error;
     retry: () => void;
     surfaceId: string;
     componentId: string;
   }) => ReactNode;
-  /** Called for render, props, operation, function and event failures. */
+  /**
+   * Called for render, props, operation, function and event failures. A
+   * render or props failure that stays the same across new revisions of the
+   * node or the surface is reported once, until the node or surface renders
+   * again. A failed function or event is reported on every call.
+   */
   onError?: (info: GenerativeUIErrorInfo) => void;
 }
 
@@ -34,9 +50,10 @@ interface GenerativeUIBaseConfig {
    */
   agentIds?: string[];
   /**
-   * Values for the `--a2ui-*` CSS variables and the map style. Top-level
-   * values apply in both modes. `dark` changes them in dark mode, which is
-   * on under a `.dark` class, like the CopilotKit chat.
+   * Web only. Values for the `--a2ui-*` CSS variables and the map style.
+   * Top-level values apply in both modes. `dark` changes them in dark mode,
+   * which is on under a `.dark` class, like the CopilotKit chat. React
+   * Native ignores it.
    */
   theme?: GenerativeUITheme;
   /** Fallback UI and error reporting for generated UI. */
@@ -98,7 +115,10 @@ export interface GenerativeUIRuntime {
   transport: "tool" | "markdown";
   /** The latest `generativeUI` config of the provider. */
   readonly config: GenerativeUIConfig;
-  /** The latest `theme`. Each surface root sets its CSS variables. */
+  /**
+   * The latest `theme`. The host's surface root gets it: on the web it sets
+   * the CSS variables; the React Native root ignores it.
+   */
   theme?: GenerativeUITheme;
   forwardEvent: (
     event: GenerativeUIUserEvent,
@@ -119,27 +139,13 @@ export function useRequiredGenerativeUIRuntime(): GenerativeUIRuntime {
   const runtime = useContext(GenerativeUIRuntimeContext);
   if (!runtime) {
     throw new Error(
-      "Generative UI components must be rendered inside <CopilotKitProvider generativeUI={{ ui }}>.",
+      "Generative UI components must be rendered inside a generative UI provider: <CopilotKitProvider generativeUI={{ ui }}> on the web, or <GenerativeUIProvider> from @copilotkit/react-native/generative-ui on React Native.",
     );
   }
   return runtime;
 }
 
-/**
- * Reports an error without ever throwing: `reportError` reaches host code
- * (`onError`), and a throwing host callback must not break rendering or an
- * event handler.
- */
-export function reportErrorSafely(
-  runtime: GenerativeUIRuntime,
-  info: GenerativeUIErrorInfo,
-): void {
-  try {
-    runtime.reportError(info);
-  } catch {
-    // Intentionally swallowed: there is nowhere safe left to report to.
-  }
-}
+export { reportErrorSafely } from "@copilotkit/core/generative-ui";
 
 export interface GenerativeUINodeContextValue {
   surfaceKey: string;

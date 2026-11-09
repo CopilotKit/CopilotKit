@@ -62,6 +62,7 @@ import {
   formatToolError,
   getAISDKRunFinishedDetails,
   resolveStreamPartMessageId,
+  toolCallThoughtSignatureEvent,
 } from "./converters/aisdk";
 import { convertTanStackStream } from "./converters/tanstack";
 import {
@@ -118,20 +119,7 @@ export type OverridableProperty =
  */
 export type BuiltInAgentModel =
   // OpenAI models
-  | "openai/gpt-5.5"
-  | "openai/gpt-5.4"
-  | "openai/gpt-5.4-mini"
-  | "openai/gpt-5"
-  | "openai/gpt-5-mini"
-  | "openai/gpt-4.1"
-  | "openai/gpt-4.1-mini"
-  | "openai/gpt-4.1-nano"
-  | "openai/gpt-4o"
-  | "openai/gpt-4o-mini"
-  // OpenAI reasoning series
-  | "openai/o3"
-  | "openai/o3-mini"
-  | "openai/o4-mini"
+  | "openai/gpt-6-luna"
   // Anthropic (Claude) models
   | "anthropic/claude-sonnet-4-6"
   | "anthropic/claude-sonnet-4-5"
@@ -148,7 +136,7 @@ export type BuiltInAgentModel =
   | (string & {});
 
 /**
- * Model specifier - can be a string like "openai/gpt-4o" or a LanguageModel instance
+ * Model specifier - can be a string like "openai/gpt-6-luna" or a LanguageModel instance
  */
 export type ModelSpecifier = string | LanguageModel;
 
@@ -219,7 +207,7 @@ export interface MCPClientProvider {
 
 /**
  * Resolves a model specifier to a LanguageModel instance
- * @param spec - Model string (e.g., "openai/gpt-4o") or LanguageModel instance
+ * @param spec - Model string (e.g., "openai/gpt-6-luna") or LanguageModel instance
  * @param apiKey - Optional API key to use instead of environment variables
  * @returns LanguageModel instance
  */
@@ -376,13 +364,13 @@ export function resolveModel(
 
   if (!provider) {
     throw new Error(
-      `Invalid model string "${spec}". Use "openai/gpt-5", "anthropic/claude-sonnet-4.5", or "google/gemini-3.8-flash".`,
+      `Invalid model string "${spec}". Use "openai/gpt-6-luna", "anthropic/claude-sonnet-4.5", or "google/gemini-3.8-flash".`,
     );
   }
 
   if (!model) {
     throw new Error(
-      `Invalid model string "${spec}". Use "openai/gpt-5", "anthropic/claude-sonnet-4.5", or "google/gemini-3.8-flash".`,
+      `Invalid model string "${spec}". Use "openai/gpt-6-luna", "anthropic/claude-sonnet-4.5", or "google/gemini-3.8-flash".`,
     );
   }
 
@@ -398,7 +386,7 @@ export function resolveModel(
         // (api.openai.com) — fully backward compatible.
         baseURL: process.env.OPENAI_BASE_URL,
       });
-      // Accepts any OpenAI model id, e.g. "gpt-4o", "gpt-4.1-mini", "o3-mini".
+      // Accepts any OpenAI model id; Luna is the suggested default.
       // `openai(model)` targets the Responses API (`{base}/responses`), which
       // most OpenAI-compatible hosts do not serve. Off OpenAI and Azure hosts,
       // use Chat Completions (`{base}/chat/completions`) instead, unless
@@ -764,6 +752,13 @@ export function convertMessagesToVercelAISDKMessages(
           toolCallId: toolCall.id,
           toolName: toolCall.function.name,
           input: safeParseToolArgs(toolCall.function.arguments),
+          ...(toolCall.encryptedValue
+            ? {
+                providerOptions: {
+                  google: { thoughtSignature: toolCall.encryptedValue },
+                },
+              }
+            : {}),
         };
         parts.push(toolCallPart);
       }
@@ -1843,6 +1838,24 @@ export class BuiltInAgent extends AbstractAgent {
           }
           abortController.signal.throwIfAborted();
 
+          // Luna supports tools in Chat Completions only with reasoning disabled.
+          // Inspect the final model after forwarded overrides; Responses keeps
+          // its configured reasoning effort.
+          const requestModel = streamTextParams.model;
+          if (
+            typeof requestModel === "object" &&
+            requestModel.modelId === "gpt-6-luna" &&
+            requestModel.provider === "openai.chat"
+          ) {
+            streamTextParams.providerOptions = {
+              ...streamTextParams.providerOptions,
+              openai: {
+                ...streamTextParams.providerOptions?.openai,
+                reasoningEffort: "none",
+              },
+            };
+          }
+
           // Call streamText and process the stream. The AI SDK rejects an
           // empty `messages` even when `system` is set, so a run with no
           // conversation yet (e.g. started without a user message) sends the
@@ -2062,6 +2075,11 @@ export class BuiltInAgent extends AbstractAgent {
                 }
 
                 if (!state.ended) {
+                  const signatureEvent = toolCallThoughtSignatureEvent(
+                    toolCallId,
+                    part.providerMetadata,
+                  );
+                  if (signatureEvent) subscriber.next(signatureEvent);
                   state.ended = true;
                   const endEvent: ToolCallEndEvent = {
                     type: EventType.TOOL_CALL_END,

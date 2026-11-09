@@ -137,7 +137,7 @@ class StableApiTests(unittest.TestCase):
         ):
             client = self.build_chat_client()
         self.assertIsInstance(client, OpenAIChatClient)
-        self.assertEqual(client.model, "gpt-4o-mini")
+        self.assertEqual(client.model, "gpt-6-luna")
 
     def test_agent_model_requires_the_provider_key(self) -> None:
         with (

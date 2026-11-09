@@ -5,6 +5,7 @@ import type {
   ResumeEntry,
   Message,
 } from "@ag-ui/client";
+import { cloneValue } from "@copilotkit/shared";
 
 import { isForwardedToClientPlaceholder } from "./core/tool-result-content";
 
@@ -383,7 +384,8 @@ export function ɵgetAgentInterruptState(
   state.setStandard(interrupts);
   agentInterruptStates.set(agent, {
     threadId: agent.threadId,
-    interrupts: structuredClone(interrupts),
+    // cloneValue, not the global: Hermes (React Native) has no structuredClone.
+    interrupts: cloneValue(interrupts),
     state,
   });
   return state;
