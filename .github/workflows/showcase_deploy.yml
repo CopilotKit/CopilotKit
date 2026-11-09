@@ -233,9 +233,11 @@ jobs:
           FAILED=$(jq -r '[.[] | select(.status == "error") | .service] | join(",")' "$SUMMARY")
           SKIPPED=$(jq -r '[.[] | select(.status == "skipped") | .service] | join(",")' "$SUMMARY")
           echo "Skipped superseded services: $SKIPPED"
-          echo "skipped_services=$SKIPPED" >> "$GITHUB_OUTPUT"
-          echo "ok_services=$OK" >> "$GITHUB_OUTPUT"
-          echo "failed_services=$FAILED" >> "$GITHUB_OUTPUT"
+          {
+            echo "skipped_services=$SKIPPED"
+            echo "ok_services=$OK"
+            echo "failed_services=$FAILED"
+          } >> "$GITHUB_OUTPUT"
           if [ "$ERROR_COUNT" -gt 0 ]; then
             echo "::error::Staging redeploy reported $ERROR_COUNT per-service error(s):"
             echo "$ERRORS" | jq -r '.[] | "  - \(.service): \(.error)"'
