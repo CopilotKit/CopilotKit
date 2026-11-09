@@ -56,7 +56,7 @@ describe("redeploy-env per-service JSON summary", () => {
       failed: 0,
       skipped: 2,
     });
-    const { ok, skipped, ...metadata } = proof;
+    const { ok: _ok, skipped: _skipped, ...metadata } = proof;
     expect(JSON.parse(readFileSync(summaryPath, "utf8"))).toEqual(
       ["harness", "harness-workers"].map((service) => ({
         service,
