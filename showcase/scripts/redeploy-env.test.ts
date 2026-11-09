@@ -51,6 +51,44 @@ describe("runRedeploy", () => {
     summary += s + "\n";
   };
 
+  it("counts superseded skips separately and keeps mixed errors blocking", async () => {
+    const result = await runRedeploy({
+      env: "staging",
+      services: ["docs", "showcase-mastra", "showcase-ag2"],
+      appendSummary,
+      redeploy: async (serviceId) =>
+        serviceId === SERVICES.docs.serviceId
+          ? {
+              ok: false,
+              skipped: true,
+              reason: "superseded",
+              supersededBy: "e".repeat(40),
+              supersedingImageDigest: `sha256:${"e".repeat(64)}`,
+              deploymentId: "fresh-docs",
+            }
+          : serviceId === SERVICES["showcase-ag2"].serviceId
+            ? { ok: false, error: "broken" }
+            : { ok: true },
+    });
+    expect(result).toMatchObject({
+      attempted: 3,
+      succeeded: 1,
+      skipped: 1,
+      failed: 1,
+      exitCode: 1,
+    });
+    expect(result.records.map((r) => [r.service, r.status])).toEqual([
+      ["docs", "skipped"],
+      ["showcase-ag2", "error"],
+      ["showcase-mastra", "ok"],
+    ]);
+    expect(result.records[0]).not.toHaveProperty("verified");
+    expect(result.records[0]).not.toHaveProperty("error");
+    expect(summary).toContain("- skipped: **1**");
+    expect(summary).toContain("SKIP");
+    expect(stdoutWriteSpy.mock.calls.flat().join("")).toContain("SKIP");
+  });
+
   it("retains the verified docs deployment receipt in the artifact records", async () => {
     const result = await runRedeploy({
       env: "staging",
@@ -746,6 +784,60 @@ describe("makeLiveRedeploy", () => {
     return fetchMock;
   }
 
+  it.each(["showcase-mastra", "harness-workers", "docs"])(
+    "returns a typed preflight skip without mutations for %s",
+    async (name) => {
+      const error = new imageVerification.SupersededImageError(
+        "e".repeat(40),
+        digest,
+      );
+      vi.mocked(imageVerification.readExpectedImage).mockRejectedValue(error);
+      vi.spyOn(docsVerification, "readExpectedDocsImage").mockRejectedValue(
+        error,
+      );
+      const fetchMock = stubFetch(async () => {
+        throw new Error("must not mutate");
+      });
+      await expect(
+        makeLiveRedeploy("token", {
+          expectedImageTag: "d".repeat(40),
+          ...(name === "docs" ? { docsExpectedImage: "built" } : {}),
+        })(SERVICES[name].serviceId, STAGING_ENV_ID),
+      ).resolves.toEqual({
+        ok: false,
+        skipped: true,
+        reason: "superseded",
+        supersededBy: "e".repeat(40),
+        supersedingImageDigest: digest,
+      });
+      expect(fetchMock).not.toHaveBeenCalled();
+    },
+  );
+  it("retains the exact deployment id on a superseded race without marking it verified", async () => {
+    vi.spyOn(imageVerification, "verifyImageDeployment").mockRejectedValue(
+      new imageVerification.SupersededImageError("e".repeat(40), digest),
+    );
+    stubFetch(
+      async () =>
+        new Response(
+          JSON.stringify({ data: { serviceInstanceDeployV2: "fresh-race" } }),
+        ),
+    );
+    await expect(
+      makeLiveRedeploy("token")(
+        SERVICES["showcase-mastra"].serviceId,
+        STAGING_ENV_ID,
+      ),
+    ).resolves.toEqual({
+      ok: false,
+      skipped: true,
+      reason: "superseded",
+      supersededBy: "e".repeat(40),
+      supersedingImageDigest: digest,
+      deploymentId: "fresh-race",
+    });
+  });
+
   it.each(
     Object.entries(SERVICES).filter(
       ([, entry]) => entry.autoUpdates.staging === "unmanaged",
@@ -1091,7 +1183,8 @@ describe("makeLiveRedeploy", () => {
     const redeploy = makeLiveRedeploy("test-token");
     const outcome = await redeploy("svc-id", "env-id");
     expect(outcome.ok).toBe(false);
-    if (!outcome.ok) {
+    expect(outcome).toHaveProperty("error");
+    if ("error" in outcome) {
       expect(outcome.error).toBe(`boom scriptline2; ${"x".repeat(200)}…`);
     }
   });
@@ -1108,7 +1201,8 @@ describe("makeLiveRedeploy", () => {
     const redeploy = makeLiveRedeploy("test-token");
     const outcome = await redeploy("svc-id", "env-id");
     expect(outcome.ok).toBe(false);
-    if (!outcome.ok) {
+    expect(outcome).toHaveProperty("error");
+    if ("error" in outcome) {
       expect(outcome.error).toMatch(/^HTTP 503: /);
       expect(outcome.error).not.toMatch(/[<>\n]/);
       expect(outcome.error).toMatch(/…$/);

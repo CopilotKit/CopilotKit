@@ -1261,6 +1261,7 @@ jobs:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
           SERVICES_CSV: ${{ steps.changed.outputs.services }}
           STAGING_EXPECTED_IMAGE_TAG: ${{ github.sha }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           # Fresh docs deployment must select this build's image, then prove
           # its exact deployment reaches SUCCESS and serves the new routes.
           DOCS_EXPECTED_IMAGE: ghcr.io/copilotkit/showcase-shell-docs:${{ github.sha }}
@@ -1487,6 +1488,7 @@ jobs:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
           SERVICES_CSV: ${{ steps.changed.outputs.services }}
           STAGING_EXPECTED_IMAGE_TAG: ${{ github.sha }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           # Each starter must deploy this build's image and reach SUCCESS.
           # Do not reuse the showcase redeploy-summary artifact name here.

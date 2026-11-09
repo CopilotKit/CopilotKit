@@ -3,17 +3,106 @@ import { promisify } from "node:util";
 import { RAILWAY_GRAPHQL_ENDPOINT } from "./lib/railway-graphql";
 import { IN_PROGRESS_DEPLOY_STATUSES } from "./lib/railway-deployment";
 
+import { extractRevisionLabel, parseCompareStatus } from "./advance-latest-tag";
+
 const DIGEST = /^sha256:[0-9a-f]{64}$/;
 
 export interface ExpectedImage {
   digests: string[];
+  build?: { repository: string; sha: string };
 }
 
+export class SupersededImageError extends Error {
+  constructor(
+    readonly supersededBy: string,
+    readonly supersedingImageDigest: string,
+  ) {
+    super(
+      `Image superseded by newer build ${supersededBy} (${supersedingImageDigest})`,
+    );
+    this.name = "SupersededImageError";
+  }
+}
+
+type ImageInspector = (
+  ref: string,
+  format: "digest" | "manifest" | "config",
+) => string | Promise<string>;
+type CompareRevisions = (
+  repository: string,
+  base: string,
+  head: string,
+) => Promise<string>;
 const execFileAsync = promisify(execFile);
+const PROCESS_OPTIONS = {
+  encoding: "utf8" as const,
+  timeout: 30_000,
+  maxBuffer: 4 * 1024 * 1024,
+};
+
+async function compareRevisions(
+  repository: string,
+  base: string,
+  head: string,
+): Promise<string> {
+  const { stdout } = await execFileAsync(
+    "gh",
+    ["api", `repos/${repository}/compare/${base}...${head}`, "--jq", ".status"],
+    PROCESS_OPTIONS,
+  );
+  return stdout;
+}
+
+/** Missing ownership evidence must preserve the original verification failure. */
+async function proveSuperseded(
+  build: ExpectedImage["build"],
+  inspect: ImageInspector,
+  compare: CompareRevisions,
+  observedDigest?: string,
+  candidateDigest?: string,
+): Promise<SupersededImageError | undefined> {
+  if (!build || !/^[0-9a-f]{40}$/.test(build.sha)) return;
+  try {
+    const digest =
+      candidateDigest ??
+      (await inspect(`${build.repository}:latest`, "digest")).trim();
+    if (!DIGEST.test(digest)) return;
+    const candidate = await readExpectedImage(
+      `${build.repository}@${digest}`,
+      {},
+      inspect,
+    );
+    if (
+      candidate.digests[0] !== digest ||
+      (observedDigest !== undefined &&
+        !candidate.digests.includes(observedDigest))
+    )
+      return;
+    const revision = extractRevisionLabel(
+      await inspect(`${build.repository}@${digest}`, "config"),
+    );
+    if (!revision || !/^[0-9a-f]{40}$/.test(revision) || revision === build.sha)
+      return;
+    const repository = process.env.GITHUB_REPOSITORY ?? "CopilotKit/CopilotKit";
+    if (
+      !/^[A-Za-z0-9][A-Za-z0-9-]*\/[A-Za-z0-9][A-Za-z0-9_.-]*$/.test(repository)
+    )
+      return;
+    // Reversed compare: only `behind` proves candidate is a strict descendant.
+    if (
+      parseCompareStatus(await compare(repository, revision, build.sha)) !==
+      "behind"
+    )
+      return;
+    return new SupersededImageError(revision, digest);
+  } catch {
+    return;
+  }
+}
 
 async function inspectImage(
   ref: string,
-  format: "digest" | "manifest",
+  format: "digest" | "manifest" | "config",
 ): Promise<string> {
   const { stdout } = await execFileAsync(
     "docker",
@@ -24,9 +113,11 @@ async function inspectImage(
       ref,
       ...(format === "digest"
         ? ["--format", "{{.Manifest.Digest}}"]
-        : ["--raw"]),
+        : format === "config"
+          ? ["--format", "{{json .Image}}"]
+          : ["--raw"]),
     ],
-    { encoding: "utf8", timeout: 30_000, maxBuffer: 4 * 1024 * 1024 },
+    PROCESS_OPTIONS,
   );
   return stdout.trim();
 }
@@ -38,11 +129,9 @@ export async function readExpectedImage(
     requireCommit?: boolean;
     checkLatest?: boolean;
     label?: string;
+    compare?: CompareRevisions;
   } = {},
-  inspect: (
-    ref: string,
-    format: "digest" | "manifest",
-  ) => string | Promise<string> = inspectImage,
+  inspect: ImageInspector = inspectImage,
 ): Promise<ExpectedImage> {
   const label = options.label ?? "image";
   const match =
@@ -61,14 +150,6 @@ export async function readExpectedImage(
   const digest = (await inspect(image, "digest")).trim();
   if (!DIGEST.test(digest))
     throw new Error(`${label} image has no valid digest`);
-  if (
-    options.checkLatest &&
-    (await inspect(`${repository}:latest`, "digest")).trim() !== digest
-  ) {
-    throw new Error(
-      `${label} :latest no longer matches this build; refusing a superseded deployment`,
-    );
-  }
   // Railway may report the index digest or its selected platform manifest.
   // Attestation manifests (unknown/unknown) are not runnable image identities.
   const manifest = JSON.parse(
@@ -101,9 +182,30 @@ export async function readExpectedImage(
   } else if (!manifest.config || !Array.isArray(manifest.layers)) {
     throw new Error(`${label} image manifest is invalid`);
   }
-  return { digests };
+  const build = options.requireCommit
+    ? { repository, sha: match[2]! }
+    : undefined;
+  if (options.checkLatest) {
+    const latest = (await inspect(`${repository}:latest`, "digest")).trim();
+    if (latest !== digest) {
+      const superseded = await proveSuperseded(
+        build,
+        inspect,
+        options.compare ?? compareRevisions,
+        undefined,
+        latest,
+      );
+      if (superseded) throw superseded;
+      throw new Error(
+        `${label} :latest no longer matches this build; refusing a superseded deployment`,
+      );
+    }
+  }
+  return { digests, ...(build ? { build } : {}) };
 }
 export interface VerifyImageOptions {
+  inspect?: ImageInspector;
+  compare?: CompareRevisions;
   fetchImpl?: typeof fetch;
   sleep?: (ms: number) => Promise<void>;
   now?: () => number;
@@ -189,6 +291,16 @@ export async function verifyImageDeployment(
       } | null;
       const digest = meta?.imageDigest;
       if (typeof digest !== "string" || !expected.digests.includes(digest)) {
+        // Ownership can excuse only a valid SUCCESS image from this exact deployment.
+        if (typeof digest === "string" && DIGEST.test(digest)) {
+          const superseded = await proveSuperseded(
+            expected.build,
+            options.inspect ?? inspectImage,
+            options.compare ?? compareRevisions,
+            digest,
+          );
+          if (superseded) throw superseded;
+        }
         throw new Error(
           `${label} deployment ${deploymentId} image digest does not match the published image`,
         );

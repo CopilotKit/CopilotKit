@@ -35,6 +35,38 @@ describe("redeploy-env per-service JSON summary", () => {
     rmSync(dir, { recursive: true, force: true });
   });
 
+  it("atomically persists all skipped proof records without successes or failures, including image consumers", async () => {
+    const proof = {
+      ok: false as const,
+      skipped: true as const,
+      reason: "superseded" as const,
+      supersededBy: "e".repeat(40),
+      supersedingImageDigest: `sha256:${"e".repeat(64)}`,
+    };
+    const summary = await runRedeploy({
+      env: "staging",
+      services: ["harness"],
+      appendSummary: () => {},
+      redeploy: async () => proof,
+    });
+    expect(summary).toMatchObject({
+      exitCode: 0,
+      attempted: 2,
+      succeeded: 0,
+      failed: 0,
+      skipped: 2,
+    });
+    const { ok, skipped, ...metadata } = proof;
+    expect(JSON.parse(readFileSync(summaryPath, "utf8"))).toEqual(
+      ["harness", "harness-workers"].map((service) => ({
+        service,
+        status: "skipped",
+        ...metadata,
+      })),
+    );
+    expect(readdirSync(dir)).not.toContain("summary.json.tmp");
+  });
+
   it("writes one JSON record per attempted service with status", async () => {
     const ag2ServiceId = SERVICES["showcase-ag2"].serviceId;
     const summary = await runRedeploy({

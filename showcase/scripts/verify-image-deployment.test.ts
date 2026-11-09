@@ -1,10 +1,11 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { mkdtempSync, writeFileSync, rmSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { parse as parseYaml } from "yaml";
 import { stepsOf } from "./__tests__/showcase-build-workflow";
 import {
+  SupersededImageError,
   readExpectedImage,
   verifyImageDeployment,
 } from "./verify-image-deployment";
@@ -65,7 +66,7 @@ const timer = setInterval(() => {
   });
 
   function inspector(latest = INDEX) {
-    return vi.fn((ref: string, format: "digest" | "manifest") =>
+    return vi.fn((ref: string, format: "digest" | "manifest" | "config") =>
       format === "digest"
         ? ref.endsWith(":latest")
           ? latest
@@ -101,7 +102,7 @@ const timer = setInterval(() => {
         inspect,
       ),
     ).rejects.toThrow(/superseded/);
-    expect(inspect).toHaveBeenCalledTimes(2);
+    expect(inspect).toHaveBeenCalled();
   });
   it("accepts a single-platform selected digest", async () => {
     await expect(
@@ -318,6 +319,7 @@ it.each([
 ])("wires this build SHA into the %s deployment lane", (job, stepName) => {
   const step = stepsOf(job).find((candidate) => candidate.name === stepName);
   expect(step?.env?.STAGING_EXPECTED_IMAGE_TAG).toBe("${{ github.sha }}");
+  expect(step?.env?.GH_TOKEN).toBe("${{ secrets.GITHUB_TOKEN }}");
 });
 
 it("authenticates scheduled remediation image reads and budgets verified fleet deployment", () => {
@@ -345,4 +347,263 @@ it("authenticates scheduled remediation image reads and budgets verified fleet d
     password: "${{ secrets.GHCR_TOKEN || secrets.GITHUB_TOKEN }}",
   });
   expect(job["timeout-minutes"]).toBe(45);
+});
+
+const BUILD_SHA = "d".repeat(40);
+const NEW_SHA = "e".repeat(40);
+const NEW_INDEX = `sha256:${"e".repeat(64)}`;
+const NEW_PLATFORM = `sha256:${"f".repeat(64)}`;
+function newerInspector(
+  config = JSON.stringify({
+    config: { Labels: { "org.opencontainers.image.revision": NEW_SHA } },
+  }),
+) {
+  return vi.fn(
+    async (ref: string, format: "digest" | "manifest" | "config") => {
+      if (format === "config") return config;
+      if (format === "digest")
+        return ref.endsWith(":latest") || ref.includes(NEW_INDEX)
+          ? NEW_INDEX
+          : INDEX;
+      return JSON.stringify({
+        schemaVersion: 2,
+        manifests: [
+          {
+            digest: ref.includes(NEW_INDEX) ? NEW_PLATFORM : PLATFORM,
+            platform: { os: "linux", architecture: "amd64" },
+          },
+          { digest: OLD, platform: { os: "unknown", architecture: "unknown" } },
+        ],
+      });
+    },
+  );
+}
+describe("strict superseded ownership", () => {
+  afterEach(() => vi.unstubAllEnvs());
+  it("refuses invalid GitHub repository paths before comparison", async () => {
+    vi.stubEnv("GITHUB_REPOSITORY", "../repository");
+    const compare = vi.fn(async () => "behind");
+    const error = await readExpectedImage(
+      `${REPO}:${BUILD_SHA}`,
+      { requireCommit: true, checkLatest: true, compare },
+      newerInspector(),
+    ).catch((e) => e);
+    expect(error).toBeInstanceOf(Error);
+    expect(error).not.toBeInstanceOf(SupersededImageError);
+    expect(compare).not.toHaveBeenCalled();
+  });
+
+  it("pins revision and runnable identity to the newer digest before declaring preflight supersession", async () => {
+    const inspect = newerInspector();
+    const compare = vi.fn(async () => "behind");
+    const error = await readExpectedImage(
+      `${REPO}:${BUILD_SHA}`,
+      { requireCommit: true, checkLatest: true, compare },
+      inspect,
+    ).catch((e) => e);
+    expect(error).toBeInstanceOf(SupersededImageError);
+    expect(error).toMatchObject({
+      supersededBy: NEW_SHA,
+      supersedingImageDigest: NEW_INDEX,
+    });
+    expect(compare).toHaveBeenCalledWith(
+      "CopilotKit/CopilotKit",
+      NEW_SHA,
+      BUILD_SHA,
+    );
+    expect(inspect).toHaveBeenCalledWith(`${REPO}@${NEW_INDEX}`, "config");
+    expect(inspect).not.toHaveBeenCalledWith(`${REPO}:latest`, "config");
+  });
+  it.each(["ahead", "identical", "diverged", "unknown", "", "broken"])(
+    "fails closed for compare %s",
+    async (status) => {
+      const error = await readExpectedImage(
+        `${REPO}:${BUILD_SHA}`,
+        { requireCommit: true, checkLatest: true, compare: async () => status },
+        newerInspector(),
+      ).catch((e) => e);
+      expect(error).toBeInstanceOf(Error);
+      expect(error).not.toBeInstanceOf(SupersededImageError);
+    },
+  );
+  it.each([
+    "{}",
+    "bad json",
+    JSON.stringify({ "org.opencontainers.image.revision": "short" }),
+    JSON.stringify({ "org.opencontainers.image.revision": BUILD_SHA }),
+    JSON.stringify([
+      { "org.opencontainers.image.revision": NEW_SHA },
+      { "org.opencontainers.image.revision": BUILD_SHA },
+    ]),
+  ])(
+    "refuses absent, malformed, same-commit or ambiguous revisions: %s",
+    async (config) => {
+      const compare = vi.fn(async () => "behind");
+      const error = await readExpectedImage(
+        `${REPO}:${BUILD_SHA}`,
+        { requireCommit: true, checkLatest: true, compare },
+        newerInspector(config),
+      ).catch((e) => e);
+      expect(error).not.toBeInstanceOf(SupersededImageError);
+      expect(compare).not.toHaveBeenCalled();
+    },
+  );
+  it("preserves mismatch when ownership lookup rejects", async () => {
+    const error = await readExpectedImage(
+      `${REPO}:${BUILD_SHA}`,
+      {
+        requireCommit: true,
+        checkLatest: true,
+        compare: async () => {
+          throw new Error("denied");
+        },
+      },
+      newerInspector(),
+    ).catch((e) => e);
+    expect(error).toBeInstanceOf(Error);
+    expect(error).not.toBeInstanceOf(SupersededImageError);
+  });
+  it.each(["not-a-digest", OLD])(
+    "refuses a malformed or unproven latest candidate %s",
+    async (latest) => {
+      const inspectBase = newerInspector();
+      const inspect = vi.fn(
+        async (ref: string, format: "digest" | "manifest" | "config") =>
+          ref.endsWith(":latest") ? latest : inspectBase(ref, format),
+      );
+      const error = await readExpectedImage(
+        `${REPO}:${BUILD_SHA}`,
+        {
+          requireCommit: true,
+          checkLatest: true,
+          compare: async () => "behind",
+        },
+        inspect,
+      ).catch((e) => e);
+      expect(error).toBeInstanceOf(Error);
+      expect(error).not.toBeInstanceOf(SupersededImageError);
+    },
+  );
+  it("refuses attestation-only newer image identities", async () => {
+    const base = newerInspector();
+    const inspect = vi.fn(
+      async (ref: string, format: "digest" | "manifest" | "config") =>
+        ref.includes(NEW_INDEX) && format === "manifest"
+          ? JSON.stringify({
+              schemaVersion: 2,
+              manifests: [
+                {
+                  digest: OLD,
+                  platform: { os: "unknown", architecture: "unknown" },
+                },
+              ],
+            })
+          : base(ref, format),
+    );
+    const error = await readExpectedImage(
+      `${REPO}:${BUILD_SHA}`,
+      { requireCommit: true, checkLatest: true, compare: async () => "behind" },
+      inspect,
+    ).catch((e) => e);
+    expect(error).not.toBeInstanceOf(SupersededImageError);
+  });
+  it("does not run ownership probes on a matching CI image", async () => {
+    const base = newerInspector();
+    const inspect = vi.fn(
+      async (ref: string, format: "digest" | "manifest" | "config") =>
+        ref.endsWith(":latest") ? INDEX : base(ref, format),
+    );
+    const compare = vi.fn(async () => "behind");
+    await expect(
+      readExpectedImage(
+        `${REPO}:${BUILD_SHA}`,
+        { requireCommit: true, checkLatest: true, compare },
+        inspect,
+      ),
+    ).resolves.toEqual({
+      ...expected,
+      build: { repository: REPO, sha: BUILD_SHA },
+    });
+    expect(compare).not.toHaveBeenCalled();
+    expect(inspect.mock.calls.some(([, format]) => format === "config")).toBe(
+      false,
+    );
+  });
+  it.each([NEW_INDEX, NEW_PLATFORM])(
+    "recognizes an exact SUCCESS race using candidate identity %s",
+    async (digest) => {
+      await expect(
+        verifyImageDeployment(
+          "token",
+          "fresh",
+          { ...expected, build: { repository: REPO, sha: BUILD_SHA } },
+          target,
+          {
+            fetchImpl: vi
+              .fn<typeof fetch>()
+              .mockResolvedValue(response(node("SUCCESS", digest))),
+            inspect: newerInspector(),
+            compare: async () => "behind",
+          },
+        ),
+      ).rejects.toBeInstanceOf(SupersededImageError);
+    },
+  );
+  it.each([OLD, INDEX, null, undefined, "malformed"])(
+    "does not skip an unproven observed digest %s",
+    async (digest) => {
+      // INDEX is the expected index and remains a normal successful receipt.
+      const inspect = newerInspector();
+      const result = verifyImageDeployment(
+        "token",
+        "fresh",
+        { ...expected, build: { repository: REPO, sha: BUILD_SHA } },
+        target,
+        {
+          fetchImpl: vi
+            .fn<typeof fetch>()
+            .mockResolvedValue(
+              response({ ...node(), meta: { imageDigest: digest } }),
+            ),
+          inspect,
+          compare: async () => "behind",
+        },
+      );
+      if (digest === INDEX) {
+        await expect(result).resolves.toEqual({ imageDigest: INDEX });
+        expect(inspect).not.toHaveBeenCalled();
+      } else {
+        const error = await result.catch((e) => e);
+        expect(error).toBeInstanceOf(Error);
+        expect(error).not.toBeInstanceOf(SupersededImageError);
+      }
+    },
+  );
+  it.each([
+    { ...node("SUCCESS", NEW_INDEX), serviceId: "wrong" },
+    { ...node("SUCCESS", NEW_INDEX), environmentId: "wrong" },
+    { ...node("SUCCESS", NEW_INDEX), id: "wrong" },
+    node("FAILED", NEW_INDEX),
+  ])(
+    "preserves identity/status failures without ownership probes",
+    async (deployment) => {
+      const inspect = newerInspector();
+      await expect(
+        verifyImageDeployment(
+          "token",
+          "fresh",
+          { ...expected, build: { repository: REPO, sha: BUILD_SHA } },
+          target,
+          {
+            fetchImpl: vi
+              .fn<typeof fetch>()
+              .mockResolvedValue(response(deployment)),
+            inspect,
+            compare: async () => "behind",
+          },
+        ),
+      ).rejects.toThrow();
+      expect(inspect).not.toHaveBeenCalled();
+    },
+  );
 });

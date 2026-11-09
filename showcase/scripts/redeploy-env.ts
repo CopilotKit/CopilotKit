@@ -77,9 +77,11 @@ import {
 } from "./verify-docs-deployment";
 
 import {
+  SupersededImageError,
   readExpectedImage,
   verifyImageDeployment,
 } from "./verify-image-deployment";
+import type { ExpectedImage } from "./verify-image-deployment";
 
 const RAILWAY_API = RAILWAY_GRAPHQL_ENDPOINT;
 
@@ -113,7 +115,32 @@ export interface RedeployFailure {
   error: string;
   deploymentId?: string;
 }
-export type RedeployOutcome = RedeployResult | RedeployFailure;
+export interface RedeploySkipped {
+  ok: false;
+  skipped: true;
+  reason: "superseded";
+  supersededBy: string;
+  supersedingImageDigest: string;
+  deploymentId?: string;
+}
+export type RedeployOutcome =
+  | RedeployResult
+  | RedeployFailure
+  | RedeploySkipped;
+
+function skippedOutcome(
+  error: SupersededImageError,
+  deploymentId?: string,
+): RedeploySkipped {
+  return {
+    ok: false,
+    skipped: true,
+    reason: "superseded",
+    supersededBy: error.supersededBy,
+    supersedingImageDigest: error.supersedingImageDigest,
+    ...(deploymentId ? { deploymentId } : {}),
+  };
+}
 
 export type RedeployFn = (
   serviceId: string,
@@ -185,37 +212,43 @@ export function makeLiveRedeploy(
       environmentId === STAGING_ENV_ID;
     const isStagingDocs =
       serviceId === SERVICES.docs.serviceId && environmentId === STAGING_ENV_ID;
-    // Resolve before issuing a mutation, including refusal of superseded builds.
-    const expectedDocsImage =
-      isStagingDocs && options.docsExpectedImage !== undefined
-        ? await readExpectedDocsImage(options.docsExpectedImage)
+    let expectedImage: ExpectedImage | undefined;
+    try {
+      // Resolve before issuing a mutation, including refusal of superseded builds.
+      const expectedDocsImage =
+        isStagingDocs && options.docsExpectedImage !== undefined
+          ? await readExpectedDocsImage(options.docsExpectedImage)
+          : undefined;
+      // CI names its immutable build tag. Out-of-band images (webhooks) have no
+      // tag from this run; resolve their configured staging :latest instead.
+      // Reading before the mutation refuses superseded builds without rolling
+      // staging back, while post-deploy verification catches a tag moving later.
+      const imageOwner = service && SERVICES[service[1].imageOf ?? service[0]];
+      const commitTag =
+        isManagedStaging && imageOwner?.ciBuilt
+          ? options.expectedImageTag
+          : undefined;
+      if (commitTag !== undefined && !/^[0-9a-f]{40}$/.test(commitTag)) {
+        return {
+          ok: false,
+          error: "staging expected image tag must be a full commit SHA",
+        };
+      }
+      expectedImage = isManagedStaging
+        ? (expectedDocsImage ??
+          (await readExpectedImage(
+            `ghcr.io/copilotkit/${repoNameFor(service![0], "staging")}:${commitTag ?? "latest"}`,
+            {
+              requireCommit: commitTag !== undefined,
+              checkLatest: commitTag !== undefined,
+              label: service![0],
+            },
+          )))
         : undefined;
-    // CI names its immutable build tag. Out-of-band images (webhooks) have no
-    // tag from this run; resolve their configured staging :latest instead.
-    // Reading before the mutation refuses superseded builds without rolling
-    // staging back, while post-deploy verification catches a tag moving later.
-    const imageOwner = service && SERVICES[service[1].imageOf ?? service[0]];
-    const commitTag =
-      isManagedStaging && imageOwner?.ciBuilt
-        ? options.expectedImageTag
-        : undefined;
-    if (commitTag !== undefined && !/^[0-9a-f]{40}$/.test(commitTag)) {
-      return {
-        ok: false,
-        error: "staging expected image tag must be a full commit SHA",
-      };
+    } catch (error) {
+      if (error instanceof SupersededImageError) return skippedOutcome(error);
+      throw error;
     }
-    const expectedImage = isManagedStaging
-      ? (expectedDocsImage ??
-        (await readExpectedImage(
-          `ghcr.io/copilotkit/${repoNameFor(service![0], "staging")}:${commitTag ?? "latest"}`,
-          {
-            requireCommit: commitTag !== undefined,
-            checkLatest: commitTag !== undefined,
-            label: service![0],
-          },
-        )))
-      : undefined;
 
     if (isStagingWorker) {
       const provisioning = workerProvisioningFor("harness-workers", "staging");
@@ -296,6 +329,8 @@ export function makeLiveRedeploy(
           verified: true,
         };
       } catch (error) {
+        if (error instanceof SupersededImageError)
+          return skippedOutcome(error, deploy.value);
         return {
           ok: false,
           deploymentId: deploy.value,
@@ -349,7 +384,8 @@ export interface RunRedeployOpts {
  * A single per-service redeploy outcome. Managed staging `status:"ok"` includes
  * the verified deployment/image receipt; other environments and unmanaged
  * services acknowledge the deployment request. `status:"error"` carries the
- * sanitized failure. Callers that must confirm a SPECIFIC service was actually
+ * sanitized failure; `status:"skipped"` records proven newer image ownership.
+ * Callers that must confirm a SPECIFIC service was actually
  * redeployed (e.g. reconcile-staging's per-service remediation check) match on
  * these records rather than the post-expansion `attempted` COUNT — imageOf
  * expansion inflates `attempted` above the requested set, so a count alone can
@@ -357,7 +393,10 @@ export interface RunRedeployOpts {
  */
 export interface RedeployServiceRecord {
   service: string;
-  status: "ok" | "error";
+  status: "ok" | "error" | "skipped";
+  reason?: "superseded";
+  supersededBy?: string;
+  supersedingImageDigest?: string;
   error?: string;
   deploymentId?: string;
   imageDigest?: string;
@@ -368,6 +407,7 @@ export interface RunRedeploySummary {
   exitCode: number;
   attempted: number;
   succeeded: number;
+  skipped?: number;
   failed: number;
   /**
    * Per-service outcomes for EVERY service the run attempted (post-expansion),
@@ -602,7 +642,7 @@ export async function runRedeploy(
   // Per-service structured records — cross-workstream contract consumed
   // by showcase_deploy.yml's `enforce-redeploy-gate` (A.7) via the
   // REDEPLOY_SUMMARY_JSON artifact. Shape:
-  //   Array<{ service: string; status: "ok" | "error"; error?: string }>
+  //   Array<RedeployServiceRecord>
   // Built in parallel with the existing `failures`/`succeeded` tallies.
   const records: RedeployServiceRecord[] = [];
   let succeeded = 0;
@@ -631,7 +671,13 @@ export async function runRedeploy(
     }
     try {
       const outcome = await redeploy(entry.serviceId, envId);
-      if (outcome.ok) {
+      if ("skipped" in outcome) {
+        const { ok: _ok, skipped: _skipped, ...proof } = outcome;
+        records.push({ service: name, status: "skipped", ...proof });
+        process.stdout.write(
+          `  ${name.padEnd(36)} SKIP: superseded by ${outcome.supersededBy}\n`,
+        );
+      } else if (outcome.ok) {
         succeeded++;
         const { ok: _ok, ...receipt } = outcome;
         records.push({ service: name, status: "ok", ...receipt });
@@ -671,11 +717,26 @@ export async function runRedeploy(
 
   const attempted = names.length;
   const failed = failures.length;
+  const skips = records.filter((record) => record.status === "skipped");
+  const skipped = skips.length;
 
   appendSummary(`- attempted: **${attempted}**`);
   appendSummary(`- succeeded: **${succeeded}**`);
+  appendSummary(`- skipped: **${skipped}**`);
   appendSummary(`- failed: **${failed}**`);
   appendSummary("");
+
+  if (skipped > 0) {
+    appendSummary("### Skipped superseded builds");
+    appendSummary("");
+    appendSummary("| service | status | newer build | image digest |");
+    appendSummary("| --- | --- | --- | --- |");
+    for (const record of skips)
+      appendSummary(
+        `| \`${record.service}\` | SKIP | \`${record.supersededBy}\` | \`${record.supersedingImageDigest}\` |`,
+      );
+    appendSummary("");
+  }
 
   if (failures.length > 0) {
     appendSummary("### Failures");
@@ -729,7 +790,7 @@ export async function runRedeploy(
 
   // A healthy old snapshot is a release failure, including in staging.
   const exitCode = failed > 0 ? 1 : 0;
-  return { exitCode, attempted, succeeded, failed, records };
+  return { exitCode, attempted, succeeded, skipped, failed, records };
 }
 
 async function main(): Promise<void> {
@@ -780,7 +841,7 @@ async function main(): Promise<void> {
     services,
   });
   console.log(
-    `\n${result.succeeded}/${result.attempted} deployments verified/triggered (${result.failed} failed)`,
+    `\n${result.succeeded}/${result.attempted} deployments verified/triggered (${result.skipped ?? 0} skipped, ${result.failed} failed)`,
   );
   process.exit(result.exitCode);
 }
