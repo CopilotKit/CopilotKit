@@ -32,6 +32,8 @@ export interface RenderToolCompleteProps<S extends StandardSchemaV1> {
   parameters: InferSchemaOutput<S>;
   status: "complete";
   result: string;
+  /** The tool message's error when the call failed; `result` then holds the failure text sent to the agent. */
+  error?: string;
 }
 
 export type RenderToolProps<S extends StandardSchemaV1> =

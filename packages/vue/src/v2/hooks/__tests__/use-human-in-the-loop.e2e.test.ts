@@ -1,4 +1,4 @@
-import { defineComponent, ref, watch } from "vue";
+import { defineComponent, h, ref, watch } from "vue";
 import type { PropType } from "vue";
 import { screen, fireEvent, waitFor, cleanup } from "@testing-library/vue";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -9,6 +9,7 @@ import CopilotChat from "../../components/chat/CopilotChat.vue";
 import CopilotChatToolCallsView from "../../components/chat/CopilotChatToolCallsView.vue";
 import { useHumanInTheLoop } from "../use-human-in-the-loop";
 import { useCopilotKit } from "../../providers/useCopilotKit";
+import type { VueHumanInTheLoopRenderProps } from "../../types";
 import {
   MockStepwiseAgent,
   MockReconnectableAgent,
@@ -1095,7 +1096,189 @@ describe("HITL Run Abort", () => {
       expect(last.error).not.toBe("");
     });
   });
+
+  it("renders an aborted request as Complete with aborted: true and no result", async () => {
+    const agent = new MockStepwiseAgent();
+    const { rendered, stopRun } = mountRecordingHitl(agent, "abortPropsTool");
+    const toolCallId = await startHitlCall(agent, "abortPropsTool");
+
+    stopRun();
+
+    await waitFor(() => {
+      const last = lastComplete(rendered);
+      expect(last.aborted).toBe(true);
+      expect(last.result).toBeUndefined();
+      expect(last.error).toBe("Human-in-the-loop interaction aborted");
+    });
+    expect(screen.getByTestId("recorded-hitl-aborted").textContent).toBe(
+      "true",
+    );
+
+    // The record core writes for the stop. The restored-history test below
+    // feeds this same content back with `error` reduced to a status.
+    expect(agent.messages).toContainEqual(
+      expect.objectContaining({
+        role: "tool",
+        toolCallId,
+        content: "Error: Human-in-the-loop interaction aborted",
+        error: "Human-in-the-loop interaction aborted",
+      }),
+    );
+  });
+
+  it("renders a real respond() as Complete with the answer and no aborted flag", async () => {
+    const agent = new MockStepwiseAgent();
+    const { rendered } = mountRecordingHitl(agent, "respondPropsTool");
+    await startHitlCall(agent, "respondPropsTool");
+
+    await fireEvent.click(screen.getByTestId("recorded-hitl-approve"));
+
+    await waitFor(() => {
+      const last = lastComplete(rendered);
+      expect(String(last.result)).toContain("approved");
+      expect(last.aborted).toBeUndefined();
+      expect(last.error).toBeUndefined();
+    });
+  });
+
+  // @ag-ui/langgraph 0.0.44 restores a checkpointed tool error as
+  // `error: "error"`, dropping the message. A stopped request reloaded from
+  // history must still not show the stop text as the user's answer.
+  it("renders a stopped request restored from history as aborted", async () => {
+    const agent = new MockStepwiseAgent();
+    const toolCallId = testId("tc");
+    agent.setMessages([
+      {
+        id: testId("msg"),
+        role: "assistant",
+        content: "",
+        toolCalls: [
+          {
+            id: toolCallId,
+            type: "function",
+            function: {
+              name: "restoredAbortTool",
+              arguments: JSON.stringify({ action: "delete" }),
+            },
+          },
+        ],
+      },
+      {
+        id: testId("tool"),
+        role: "tool",
+        toolCallId,
+        content: "Error: Human-in-the-loop interaction aborted",
+        error: "error",
+      },
+    ]);
+    const { rendered } = mountRecordingHitl(agent, "restoredAbortTool");
+
+    await waitFor(() => {
+      expect(screen.getByTestId("recorded-hitl-status").textContent).toBe(
+        ToolCallStatus.Complete,
+      );
+    });
+    const last = lastComplete(rendered);
+    expect(last.aborted).toBe(true);
+    expect(last.result).toBeUndefined();
+    expect(last.error).toBe("Human-in-the-loop interaction aborted");
+  });
 });
+
+type RecordedHitlProps = VueHumanInTheLoopRenderProps<{ action: string }>;
+
+/**
+ * Registers a HITL tool whose render function records every props object it
+ * is called with, so a test can assert on props the template never shows.
+ */
+function mountRecordingHitl(agent: MockStepwiseAgent, name: string) {
+  const rendered: RecordedHitlProps[] = [];
+  let stop: (() => void) | undefined;
+
+  const Registrar = defineComponent({
+    setup() {
+      const { copilotkit } = useCopilotKit();
+      stop = () =>
+        copilotkit.value.stopAgent({
+          agent: copilotkit.value.getAgent("default")!,
+        });
+      useHumanInTheLoop<{ action: string }>({
+        name,
+        description: "Requires human approval",
+        parameters: z.object({ action: z.string() }),
+        render: (props) => {
+          rendered.push(props);
+          return h("div", [
+            h("div", { "data-testid": "recorded-hitl-status" }, props.status),
+            h(
+              "div",
+              { "data-testid": "recorded-hitl-aborted" },
+              String(props.aborted ?? false),
+            ),
+            props.respond
+              ? h(
+                  "button",
+                  {
+                    "data-testid": "recorded-hitl-approve",
+                    onClick: () => props.respond?.("approved"),
+                  },
+                  "Approve",
+                )
+              : null,
+          ]);
+        },
+      });
+      return {};
+    },
+    template: `<div />`,
+  });
+
+  renderWithCopilotKit({ agent, children: createChatHost(Registrar) });
+
+  return {
+    rendered,
+    stopRun: () => {
+      if (!stop) throw new Error("HITL registrar did not mount");
+      stop();
+    },
+  };
+}
+
+/**
+ * Sends a message and drives the agent until the HITL call is executing.
+ * Returns the tool call id.
+ */
+async function startHitlCall(
+  agent: MockStepwiseAgent,
+  name: string,
+): Promise<string> {
+  await submitMessage("Request approval");
+  const toolCallId = testId("tc");
+  await agent.emit(runStartedEvent());
+  await agent.emit(
+    toolCallChunkEvent({
+      toolCallId,
+      toolCallName: name,
+      parentMessageId: testId("msg"),
+      delta: JSON.stringify({ action: "delete" }),
+    }),
+  );
+  await agent.emit(runFinishedEvent());
+  await agent.complete();
+  await waitFor(() => {
+    expect(screen.getByTestId("recorded-hitl-status").textContent).toBe(
+      ToolCallStatus.Executing,
+    );
+  });
+  return toolCallId;
+}
+
+/** The props of the most recent Complete render. */
+function lastComplete(rendered: RecordedHitlProps[]): RecordedHitlProps {
+  const complete = rendered.filter((p) => p.status === ToolCallStatus.Complete);
+  expect(complete.length).toBeGreaterThan(0);
+  return complete[complete.length - 1];
+}
 
 describe("HITL Thread Reconnection Bug", () => {
   it("should show executing status when reconnecting to thread with pending HITL", async () => {

@@ -82,6 +82,7 @@ function useFrontendTool<T extends Record<string, unknown>>(
     - `args`: the arguments. Partial while streaming during `InProgress`, complete during `Executing` and `Complete`.
     - `status`: one of `ToolCallStatus.InProgress`, `ToolCallStatus.Executing`, or `ToolCallStatus.Complete`.
     - `result`: the string result. Available only when status is `Complete`.
+    - `error`: set when the call failed. `result` then holds the failure text sent to the agent, not a tool result.
 
     To render a tool call without a handler, use [`useRenderTool`](/reference/vue/hooks/useRenderTool). To render a component from tool arguments, use [`useComponent`](/reference/vue/hooks/useComponent).
   </PropertyReference>

@@ -4,6 +4,10 @@ import { h } from "vue";
 import { ToolCallStatus } from "@copilotkit/core";
 import { useCopilotKit } from "../providers/useCopilotKit";
 import { useFrontendTool } from "./use-frontend-tool";
+import {
+  HUMAN_IN_THE_LOOP_ABORTED_MESSAGE,
+  withAbortedState,
+} from "../lib/human-in-the-loop-abort";
 import type {
   VueFrontendTool,
   VueHumanInTheLoop,
@@ -49,7 +53,7 @@ export function useHumanInTheLoop<T extends Record<string, unknown>>(
     const signal = context?.signal;
     return new Promise((resolve, reject) => {
       if (signal?.aborted) {
-        reject(new Error("Human-in-the-loop interaction aborted"));
+        reject(new Error(HUMAN_IN_THE_LOOP_ABORTED_MESSAGE));
         return;
       }
 
@@ -62,7 +66,7 @@ export function useHumanInTheLoop<T extends Record<string, unknown>>(
           resolvePromiseRef.value = null;
           const rejectPending = rejectPromiseRef.value;
           rejectPromiseRef.value = null;
-          rejectPending?.(new Error("Human-in-the-loop interaction aborted"));
+          rejectPending?.(new Error(HUMAN_IN_THE_LOOP_ABORTED_MESSAGE));
         };
 
         signal.addEventListener("abort", onAbort, { once: true });
@@ -96,13 +100,16 @@ export function useHumanInTheLoop<T extends Record<string, unknown>>(
       });
     }
     if (props.status === ToolCallStatus.Complete) {
-      return h(ToolComponent as Parameters<typeof h>[0], {
-        ...props,
-        name: tool.name,
-        description: tool.description || "",
-        agentId: tool.agentId,
-        respond: undefined,
-      });
+      return h(
+        ToolComponent as Parameters<typeof h>[0],
+        withAbortedState({
+          ...props,
+          name: tool.name,
+          description: tool.description || "",
+          agentId: tool.agentId,
+          respond: undefined,
+        }),
+      );
     }
 
     const exhaustiveCheck: never = props;

@@ -86,6 +86,7 @@ export function getCoreRenderProps(
       args: parsedArgs,
       status: ToolCallStatus.Complete,
       result: contentToText(toolMessage.content),
+      error: toolMessage.error,
     };
   }
 
@@ -116,11 +117,15 @@ export function getToolCallMemoDeps(
   renderToolCalls: readonly VueToolCallRenderer<unknown>[],
   agentId: string = DEFAULT_AGENT_ID,
 ): unknown[] {
+  const toolMessage = findToolMessage(messages, toolCall.id);
   return [
     toolCall.id,
     toolCall.function.name,
     toolCall.function.arguments,
-    findToolMessage(messages, toolCall.id)?.content,
+    toolMessage?.content,
+    // A message can change its `error` without its content (a history
+    // adapter restoring the failure), and renderers read it.
+    toolMessage?.error,
     executingToolCallIds.has(toolCall.id),
     getCoreRenderConfig(toolCall, renderToolCalls, agentId)?.render,
   ];

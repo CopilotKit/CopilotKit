@@ -28,6 +28,10 @@ import type {
 } from "@copilotkit/shared";
 import { zodToJsonSchema } from "zod-to-json-schema";
 import { CopilotKitCoreVue } from "../lib/vue-core";
+import {
+  HUMAN_IN_THE_LOOP_ABORTED_MESSAGE,
+  withAbortedState,
+} from "../lib/human-in-the-loop-abort";
 import { createA2UIMessageRenderer } from "../components/A2UIMessageRenderer";
 import { registerA2UIBuiltInToolCallRenderer } from "../components/a2ui/A2UIBuiltInToolCallRenderer";
 import { registerA2UICatalogContext } from "../components/a2ui/A2UICatalogContext";
@@ -84,10 +88,6 @@ const RENDER_ACTIVITY_MESSAGES_STABLE_WARNING =
   "renderActivityMessages must be a stable array.";
 const SANDBOX_FUNCTIONS_STABLE_WARNING =
   "openGenerativeUI.sandboxFunctions must be a stable array.";
-// Matches the message React's `useHumanInTheLoop` rejects with, so an aborted
-// interrupt reads the same across frameworks (see #5554).
-const HUMAN_IN_THE_LOOP_ABORTED_MESSAGE =
-  "Human-in-the-loop interaction aborted";
 const DEFAULT_DESIGN_SKILL = `When generating UI with generateSandboxedUi, follow these design principles inspired by shadcn/ui:
 
 - Use a minimal, flat aesthetic. Avoid drop shadows and gradients — rely on subtle borders (1px solid, light gray like #e5e7eb) to define surfaces.
@@ -331,23 +331,26 @@ const processedHumanInTheLoop = computed(() => {
         renderProps: VueToolCallRendererRenderProps<unknown>,
       ) => {
         const key = renderProps.toolCallId ?? tool.name;
-        return h(ToolComponent as Parameters<typeof h>[0], {
-          ...renderProps,
-          // `renderProps.name` is the tool that was actually invoked. It equals
-          // `tool.name` for a named registration; for a wildcard (`"*"`) it is
-          // the only place the real name exists.
-          name: tool.name === "*" ? renderProps.name : tool.name,
-          description: tool.description || "",
-          agentId: tool.agentId,
-          // `respond` is live only while the tool is executing — the one phase
-          // with a promise waiting on the user.
-          respond:
-            renderProps.status === ToolCallStatus.Executing
-              ? async (result: unknown) => {
-                  takePendingHumanInTheLoop(key)?.resolve(result);
-                }
-              : undefined,
-        });
+        return h(
+          ToolComponent as Parameters<typeof h>[0],
+          withAbortedState({
+            ...renderProps,
+            // `renderProps.name` is the tool that was actually invoked. It equals
+            // `tool.name` for a named registration; for a wildcard (`"*"`) it is
+            // the only place the real name exists.
+            name: tool.name === "*" ? renderProps.name : tool.name,
+            description: tool.description || "",
+            agentId: tool.agentId,
+            // `respond` is live only while the tool is executing — the one phase
+            // with a promise waiting on the user.
+            respond:
+              renderProps.status === ToolCallStatus.Executing
+                ? async (result: unknown) => {
+                    takePendingHumanInTheLoop(key)?.resolve(result);
+                  }
+                : undefined,
+          }),
+        );
       };
 
       renderToolCalls.push({
