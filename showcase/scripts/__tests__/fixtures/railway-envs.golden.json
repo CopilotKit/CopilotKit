@@ -280,6 +280,15 @@
       "repoName": "showcase-google-antigravity"
     }
   },
+  "showcase-openai-agents-python": {
+    "staging": {
+      "instanceId": "aa2c2665-331f-4a2a-821a-79859ae87994",
+      "domain": "showcase-openai-agents-python-staging.up.railway.app",
+      "probe": true,
+      "driver": "agent",
+      "repoName": "showcase-openai-agents-python"
+    }
+  },
   "showcase-intelligence-api": {
     "staging": {
       "instanceId": "fa59ca5f-7319-4fde-867e-cf8de453e442",

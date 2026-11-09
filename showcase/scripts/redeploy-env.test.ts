@@ -90,7 +90,7 @@ describe("runRedeploy", () => {
     expect(result.succeeded).toBe(1);
   });
 
-  it("default staging scope = 41 CI-built services + their imageOf consumers (harness-workers)", async () => {
+  it("default staging scope = 42 CI-built services + their imageOf consumers (harness-workers)", async () => {
     const seenNames: string[] = [];
     const redeploy = vi.fn(async (serviceId: string) => {
       // Reverse-lookup the SSOT name from serviceId so the test can
@@ -110,13 +110,14 @@ describe("runRedeploy", () => {
     });
 
     expect(result.exitCode).toBe(0);
-    // 41 CI-built (29 showcase/infra incl. conversational flows and
-    // google-antigravity, + 12 starters) + harness-workers
-    // (imageOf consumer of showcase-harness) = 42. All 41 declare staging, so
-    // the env-aware default scope keeps every one of them.
-    expect(result.attempted).toBe(42);
-    expect(result.succeeded).toBe(42);
-    expect(redeploy).toHaveBeenCalledTimes(42);
+    // 42 CI-built (30 showcase/infra incl. conversational flows,
+    // google-antigravity and the staging-only openai-agents-python, + 12
+    // starters) + harness-workers (imageOf consumer of showcase-harness) = 43.
+    // All 42 declare staging, so the env-aware default scope keeps every one
+    // of them.
+    expect(result.attempted).toBe(43);
+    expect(result.succeeded).toBe(43);
+    expect(redeploy).toHaveBeenCalledTimes(43);
     // pocketbase is now CI-built, so it IS in the default redeploy scope.
     expect(seenNames).toContain("pocketbase");
     // The TypeScript Strands integration declares staging, so it IS in the
@@ -674,11 +675,12 @@ describe("resolveTargetServices", () => {
 
   it("returns the CI_BUILT_SERVICES set sorted when given undefined", () => {
     const resolved = resolveTargetServices(undefined);
-    // 29 showcase/infra CI-built (incl. conversational flows and
-    // google-antigravity) + 12 starters = 41.
+    // 30 showcase/infra CI-built (incl. conversational flows,
+    // google-antigravity and the staging-only openai-agents-python) + 12
+    // starters = 42.
     // resolveTargetServices returns the FULL CI_BUILT set;
     // the env-aware narrowing happens later in runRedeploy, not here.
-    expect(resolved.length).toBe(41);
+    expect(resolved.length).toBe(42);
     // pocketbase is now CI-built and part of the default scope.
     expect(resolved).toContain("pocketbase");
     expect(resolved).toContain("showcase-crewai-conversational-flows");
