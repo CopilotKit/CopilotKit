@@ -2233,6 +2233,9 @@ importers:
       '@copilotkit/vue':
         specifier: workspace:*
         version: link:../../../../packages/vue
+      chart.js:
+        specifier: ^4.4.0
+        version: 4.6.1
       h3:
         specifier: ^1.15.4
         version: 1.15.11
@@ -4201,6 +4204,9 @@ importers:
       arktype:
         specifier: ^2.1.29
         version: 2.1.29
+      chart.js:
+        specifier: ^4.4.0
+        version: 4.6.1
       concurrently:
         specifier: ^9.1.0
         version: 9.2.1
@@ -4216,6 +4222,9 @@ importers:
       jsdom:
         specifier: ^26.1.0
         version: 26.1.0
+      maplibre-gl:
+        specifier: ^5.0.0
+        version: 5.24.0
       phoenix:
         specifier: ^1.8.4
         version: 1.8.4

@@ -17,7 +17,7 @@ A **surface** is one piece of generated UI. Each surface renders in a **target**
 
 Wrap an area of your page in a target. Give it an id, and tell the agent what the area is for:
 
-<Tabs groupId="frontend_framework" items={["React", "Angular", "React Native"]} persist>
+<Tabs groupId="frontend_framework" items={["React", "Angular", "React Native", "Vue"]} persist>
   <Tab value="React">
     ```tsx title="app/page.tsx"
     import { GenerativeUISurface } from "@copilotkit/react-core/v2/generative-ui";
@@ -87,13 +87,38 @@ Wrap an area of your page in a target. Give it an id, and tell the agent what th
 
     `style` applies to the `View` around the surface, which also holds the fallback, so the spacing stays the same when the agent's row replaces yours. `GenerativeUISurface` throws when no `GenerativeUIProvider` is above it, and shows its fallback under a provider that has no `ui`. A target follows the thread that is active in the provider, the thread of the last run that started on the core (of any agent), so it suits a screen that shares its agent with the chat. To show the output of one particular agent, such as a background run that composes a home screen, render that agent's activity message with `GenerativeUIActivity`; see [Chat surfaces on React Native](#chat-surfaces-on-react-native).
   </Tab>
+  <Tab value="Vue">
+    ```vue title="src/components/FeaturedProducts.vue"
+    <script setup lang="ts">
+    import { GenerativeUISurface } from "@copilotkit/vue/v2/generative-ui";
+    import type { Product } from "../product";
+    import { shopUI } from "../shop-ui";
+    import ProductRow from "./ProductRow.vue";
+
+    defineProps<{ products: Product[] }>();
+    </script>
+
+    <template>
+      <GenerativeUISurface
+        id="featured"
+        :ui="shopUI"
+        description="The Featured Products row of the home page. When the customer asks to see products here, show them as a ProductGrid with one ProductCard for each product. When they ask for the featured products again, delete this surface."
+        :components="['ProductGrid', 'ProductCard']"
+      >
+        <ProductRow :products="products" />
+      </GenerativeUISurface>
+    </template>
+    ```
+
+    The default slot is the fallback.
+  </Tab>
 </Tabs>
 
 What each prop does:
 
 - `id`: the target id. The agent names it when it renders here.
 - `description`: what the area is and what belongs in it. The agent reads it in each run that starts while the target is mounted, so write it like an instruction.
-- `fallback`: shows until the agent renders here, and again after the agent deletes its surface, unless an older surface of the same target and thread is still live: then that one shows. In Angular, the projected content is the fallback.
+- `fallback`: shows until the agent renders here, and again after the agent deletes its surface, unless an older surface of the same target and thread is still live: then that one shows. In Angular, the projected content is the fallback. In Vue, the default slot is the fallback.
 - `ui` and `components`: the only components the agent can use here. See [Limit the components](#limit-the-components).
 
 Now "show me cheap running shoes" swaps the row, and "show the featured products again" brings your own row back.
@@ -133,7 +158,7 @@ export function HomeSurfaces() {
 
 A product row must hold product cards, not a slider or a chart. `components` names the only components that the agent can use in this target, the root included:
 
-<Tabs groupId="frontend_framework" items={["React", "Angular", "React Native"]} persist>
+<Tabs groupId="frontend_framework" items={["React", "Angular", "React Native", "Vue"]} persist>
   <Tab value="React">
     ```tsx
     <GenerativeUISurface id="featured" ui={shopUI} components={["ProductGrid", "ProductCard"]} />
@@ -149,6 +174,11 @@ A product row must hold product cards, not a slider or a chart. `components` nam
     <GenerativeUISurface id="featured" ui={shopUI} components={["ProductGrid", "ProductCard"]} />
     ```
   </Tab>
+  <Tab value="Vue">
+    ```vue
+    <GenerativeUISurface id="featured" :ui="shopUI" :components="['ProductGrid', 'ProductCard']" />
+    ```
+  </Tab>
 </Tabs>
 
 - The agent gets the list, so it knows what fits.
@@ -161,7 +191,7 @@ Leave out `components` (and `ui`) to allow every component of the catalog. Names
 
 When the agent starts to render into a target, the page scrolls to it, unless it is already on screen. Turn this off for one target:
 
-<Tabs groupId="frontend_framework" items={["React", "Angular", "React Native"]} persist>
+<Tabs groupId="frontend_framework" items={["React", "Angular", "React Native", "Vue"]} persist>
   <Tab value="React">
     ```tsx
     <GenerativeUISurface id="sidebar-notes" autoScroll={false} />
@@ -207,6 +237,11 @@ When the agent starts to render into a target, the page scrolls to it, unless it
     </ScrollView>;
     ```
   </Tab>
+  <Tab value="Vue">
+    ```vue
+    <GenerativeUISurface id="sidebar-notes" :auto-scroll="false" />
+    ```
+  </Tab>
 </Tabs>
 
 On the web, with a sticky header, give surfaces some room at the top in your CSS:
@@ -221,7 +256,7 @@ On the web, with a sticky header, give surfaces some room at the top in your CSS
 
 A target can be specific. A product page can give each product its own target, so its recommendations stay with it when the user moves between products:
 
-<Tabs groupId="frontend_framework" items={["React", "Angular", "React Native"]} persist>
+<Tabs groupId="frontend_framework" items={["React", "Angular", "React Native", "Vue"]} persist>
   <Tab value="React">
     ```tsx
     <GenerativeUISurface
@@ -263,13 +298,34 @@ A target can be specific. A product page can give each product its own target, s
     />
     ```
   </Tab>
+  <Tab value="Vue">
+    ```vue
+    <script setup lang="ts">
+    import { computed } from "vue";
+    import { GenerativeUISurface } from "@copilotkit/vue/v2/generative-ui";
+    import type { Product } from "../product";
+
+    const props = defineProps<{ product: Product }>();
+    const description = computed(
+      () =>
+        `The "You might also like" row under ${props.product.name}. Show related products here. Never include ${props.product.name} itself.`,
+    );
+    </script>
+
+    <template>
+      <GenerativeUISurface :id="`recommendations-${product.id}`" :description="description" />
+    </template>
+    ```
+
+    When the `id` prop changes, the target is registered again under the new id, so no `key` is needed.
+  </Tab>
 </Tabs>
 
 ## When a component fails
 
 Each component renders inside its own error boundary. One broken component shows a small fallback, and the rest of the surface keeps working. To report errors, or to draw your own fallback:
 
-<Tabs groupId="frontend_framework" items={["React", "Angular", "React Native"]} persist>
+<Tabs groupId="frontend_framework" items={["React", "Angular", "React Native", "Vue"]} persist>
   <Tab value="React">
     ```tsx
     <CopilotKitProvider
@@ -316,6 +372,45 @@ Each component renders inside its own error boundary. One broken component shows
     The default fallback is the `NodeFallback` of the provider's `host`, `NativeNodeFallback` unless you pass your own `host`: the error, in native views, and a Retry button after a render error. A component whose props fail its schema shows it too, with the reason and no Retry button; your own `fallback` is not used for it. When your `fallback` throws, the host fallback with Retry shows in its place; when the host fallback throws, the node renders nothing. Either way the failure stays in its node, and it is reported to `onError`.
 
     There is no Inspector on React Native. `onError` gets render failures, invalid props, failed events, failed functions that a component called and the operations that the app rejected; a render failure or invalid props that stay the same while the agent sends new content are reported once, and a failed event or function on every call. Operations that the runtime rejected never reach `onError`. They reach the `rejected` and `error` props of the `Wrapper`: the `Wrapper` of `GenerativeUIActivity` for a chat surface, and the `Wrapper` of `GenerativeUISurface` for a surface in a named target. Both default wrappers show a short error line. The exception is a rejected `createSurface`. A named target then keeps its fallback and renders no `Wrapper`; when the app rejected it, `onError` gets it and `<GenerativeUIActivity target="<id>">` shows it. When the runtime rejected it, no activity message is sent for it, so only the model learns of it, in the result of its `render_ui` call, and nothing on the device shows it. The one exception is a `createSurface` with the id of a live surface: the runtime adds that rejection to the live surface, whose `Wrapper` shows it. See [Errors on the device](/react-native#errors-on-the-device).
+  </Tab>
+  <Tab value="Vue">
+    The fallback is a Vue component. It gets `error`, `retry`, `surfaceId`, and `componentId` as props:
+
+    ```vue title="src/components/RetryFallback.vue"
+    <script setup lang="ts">
+    import type { GenerativeUIErrorFallbackProps } from "@copilotkit/vue/v2/generative-ui";
+
+    defineProps<GenerativeUIErrorFallbackProps>();
+    </script>
+
+    <template>
+      <button @click="retry">Try again</button>
+    </template>
+    ```
+
+    ```vue
+    <script setup lang="ts">
+    import { CopilotKitProvider } from "@copilotkit/vue/v2";
+    import type { GenerativeUIErrorInfo } from "@copilotkit/vue/v2/generative-ui";
+    import RetryFallback from "./components/RetryFallback.vue";
+    import { shopUI } from "./shop-ui";
+
+    function onError(info: GenerativeUIErrorInfo) {
+      console.warn(info.kind, info.surfaceId, info.error.message);
+    }
+    </script>
+
+    <template>
+      <CopilotKitProvider
+        runtime-url="/api/copilotkit"
+        :generativeUI="{ ui: shopUI, errorBoundary: { onError, fallback: RetryFallback } }"
+      >
+        <slot />
+      </CopilotKitProvider>
+    </template>
+    ```
+
+    When your `fallback` throws, the default fallback with Retry shows in its place. The failure stays in its node, and `onError` gets it. A render failure that stays the same while the agent sends new content is reported once.
   </Tab>
 </Tabs>
 

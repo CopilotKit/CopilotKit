@@ -21,6 +21,7 @@ import type {
   CopilotSidebarWelcomeScreenSuggestionViewSlotProps,
 } from "./types";
 import type { Suggestion } from "@copilotkit/core";
+import type { GenerativeUIChatSurfaceSlotProps } from "../../generative-ui/chat";
 
 function popupViewEventBindings(slotProps: CopilotChatViewOverrideSlotProps) {
   return {
@@ -69,6 +70,10 @@ defineSlots<{
   ) => unknown;
   "welcome-screen"?: (props: CopilotChatWelcomeScreenSlotProps) => unknown;
   "welcome-message"?: () => unknown;
+  /** Wraps each generative UI surface in the chat, as on CopilotChat. */
+  "generative-ui-surface"?: (
+    props: GenerativeUIChatSurfaceSlotProps,
+  ) => unknown;
   // Any other slot goes to the chat view, as on CopilotChat.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   [key: string]: ((props: any) => unknown) | undefined;
@@ -77,7 +82,14 @@ defineSlots<{
 // Slots this component renders itself and does not pass to the view. It passes
 // every other slot to the view. It also renders `input` and `suggestion-view`
 // in its welcome screen, so those two go to both places.
-const OWN_SLOTS = ["chat-view", "welcome-screen", "welcome-message"] as const;
+// `generative-ui-surface` goes to CopilotChat, which gives it to the chat
+// surfaces.
+const OWN_SLOTS = [
+  "chat-view",
+  "welcome-screen",
+  "welcome-message",
+  "generative-ui-surface",
+] as const;
 
 defineEmits<{
   "submit-message": [value: string];
@@ -121,6 +133,13 @@ watch(
     @cancel-transcribe="$emit('cancel-transcribe')"
     @finish-transcribe="$emit('finish-transcribe')"
   >
+    <template
+      v-if="$slots['generative-ui-surface']"
+      #generative-ui-surface="surfaceProps"
+    >
+      <slot name="generative-ui-surface" v-bind="surfaceProps" />
+    </template>
+
     <template #chat-view="slotProps">
       <slot v-if="$slots['chat-view']" name="chat-view" v-bind="slotProps" />
       <CopilotPopupView
