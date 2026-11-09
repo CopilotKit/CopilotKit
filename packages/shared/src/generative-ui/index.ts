@@ -17,3 +17,4 @@ export * from "./standard";
 export { isRecord } from "./is-record";
 export { hasOwnKey } from "./is-record";
 export { cloneValue } from "./clone-value";
+export { toError, withCause } from "./thrown";
