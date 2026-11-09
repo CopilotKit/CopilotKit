@@ -1501,6 +1501,134 @@ describe("GenerativeUIMiddleware: fully rejected render_ui", () => {
     expect(edited.toolCalls?.map((call) => call.id)).toEqual(["call-1-t1"]);
   });
 
+  it("keeps the text a turn streams into a message a snapshot edited", async () => {
+    // withTurnIds turns the text's messageId "a1" into "a1-t1" in turn 1.
+    const { inputs } = await runTurns(
+      [
+        [
+          {
+            type: EventType.MESSAGES_SNAPSHOT,
+            messages: [
+              { id: "u1", role: "user", content: "show me the shop" },
+              { id: "a1-t1", role: "assistant", content: "[redacted]" },
+            ],
+          },
+          ...badCall(),
+        ] as BaseEvent[],
+        [
+          {
+            type: EventType.TEXT_MESSAGE_CONTENT,
+            messageId: "a1",
+            delta: " more",
+          },
+          ...badCall(),
+        ] as BaseEvent[],
+        [],
+      ],
+      {
+        input: {
+          messages: [
+            { id: "u1", role: "user", content: "show me the shop" },
+            { id: "a1-t1", role: "assistant", content: "my card is 4111" },
+          ] as Message[],
+        },
+      },
+    );
+    expect(inputs).toHaveLength(3);
+    expect(inputs[2].messages.find((m) => m.id === "a1-t1")).toMatchObject({
+      content: "[redacted] more",
+    });
+  });
+
+  it("keeps a turn's call on a message a snapshot removed, without its old content", async () => {
+    // Turn 1's render_ui call has parentMessageId "msg-1-t1" (see withTurnIds).
+    const { inputs } = await runTurns(
+      [
+        [
+          {
+            type: EventType.MESSAGES_SNAPSHOT,
+            messages: [{ id: "u1", role: "user", content: "show me the shop" }],
+          },
+          ...badCall(),
+        ] as BaseEvent[],
+        badCall(),
+        badCall(),
+        [],
+      ],
+      {
+        options: { maxRejectedRetries: 3 },
+        input: {
+          messages: [
+            { id: "u1", role: "user", content: "show me the shop" },
+            { id: "msg-1-t1", role: "assistant", content: "my card is 4111" },
+          ] as Message[],
+        },
+      },
+    );
+    expect(inputs).toHaveLength(4);
+    for (const turn of [2, 3]) {
+      const messages = inputs[turn].messages;
+      const recreated = messages.find((m) => m.id === "msg-1-t1") as {
+        content?: string;
+        toolCalls?: Array<{ id: string }>;
+      };
+      expect(recreated.content).toBeUndefined();
+      expect(recreated.toolCalls?.map((call) => call.id)).toEqual([
+        "call-1-t1",
+      ]);
+      // Every rejection result follows its call.
+      const callIds = new Set(
+        messages
+          .flatMap(
+            (m) => (m as { toolCalls?: Array<{ id: string }> }).toolCalls ?? [],
+          )
+          .map((call) => call.id),
+      );
+      for (const result of messages.filter((m) => m.role === "tool"))
+        expect(callIds).toContain(
+          (result as { toolCallId: string }).toolCallId,
+        );
+    }
+  });
+
+  it("keeps the text a turn streams into a message a snapshot removed, without its old content", async () => {
+    // withTurnIds turns the text's messageId "a1" into "a1-t1" in turn 1.
+    const { inputs } = await runTurns(
+      [
+        [
+          {
+            type: EventType.MESSAGES_SNAPSHOT,
+            messages: [{ id: "u1", role: "user", content: "show me the shop" }],
+          },
+          ...badCall(),
+        ] as BaseEvent[],
+        [
+          {
+            type: EventType.TEXT_MESSAGE_CONTENT,
+            messageId: "a1",
+            delta: " more",
+          },
+          ...badCall(),
+        ] as BaseEvent[],
+        [],
+      ],
+      {
+        input: {
+          messages: [
+            { id: "u1", role: "user", content: "show me the shop" },
+            { id: "a1-t1", role: "assistant", content: "my card is 4111" },
+          ] as Message[],
+        },
+      },
+    );
+    expect(inputs).toHaveLength(3);
+    expect(inputs[2].messages.find((m) => m.id === "a1-t1")).toEqual({
+      id: "a1-t1",
+      role: "assistant",
+      content: " more",
+    });
+  });
+
   it("can turn the retry off", async () => {
     const { inputs } = await runTurns([badCall()], {
       options: { maxRejectedRetries: 0 },

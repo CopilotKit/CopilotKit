@@ -4,6 +4,7 @@ import type {
   BaseEvent,
   Message,
   RunAgentInput,
+  TextMessageContentEvent,
   ToolCallArgsEvent,
   ToolCallEndEvent,
   ToolCallStartEvent,
@@ -246,54 +247,80 @@ function mergeMessages(...lists: Message[][]): Message[] {
   return [...merged.values()];
 }
 
+/** What a turn streamed: the tool calls it started, and its text by message id. */
+interface TurnWrites {
+  toolCallIds: ReadonlySet<string>;
+  text: ReadonlyMap<string, string>;
+}
+
 /**
  * The history of a retry turn. The tracked messages start from the agent's
  * own list, which lacks earlier retry turns and still holds a message as it
- * was before an earlier turn's MESSAGES_SNAPSHOT edited it. So unless this
- * turn sent a snapshot, which replaces the whole list, the history is the
- * turn's input, then the turn's new messages. A call the turn attached to a
- * message already in the input is added to the input's version of it, so its
- * rejection result still follows a call. Ids a snapshot dropped stay out: a
- * later turn's tracked list starts from the agent's own list again and may
- * still hold them.
+ * was before an earlier turn's MESSAGES_SNAPSHOT edited or removed it. So
+ * unless this turn sent a snapshot, which replaces the whole list, the
+ * history is the turn's input, then the turn's new messages, and what the
+ * turn wrote to a message already in the input is added to the input's
+ * version of it: a call's rejection result still follows its call, and an
+ * edit stays. A message a snapshot removed stays out, unless this turn wrote
+ * to it again: then it holds only what this turn wrote.
  */
 function retryMessages(
   inputMessages: Message[],
   agentMessages: Message[],
   resultMessages: Message[],
   sawMessagesSnapshot: boolean,
-  startedToolCallIds: ReadonlySet<string>,
+  writes: TurnWrites,
   droppedMessageIds: ReadonlySet<string>,
 ): Message[] {
+  if (sawMessagesSnapshot) return mergeMessages(agentMessages, resultMessages);
   const tracked = new Map(agentMessages.map((m) => [m.id, m]));
   const inputIds = new Set(inputMessages.map((m) => m.id));
-  const history = sawMessagesSnapshot
-    ? agentMessages
-    : [
-        ...inputMessages.map((m) =>
-          withStartedCalls(m, tracked.get(m.id), startedToolCallIds),
-        ),
-        ...agentMessages.filter((m) => !inputIds.has(m.id)),
-      ];
-  return mergeMessages(history, resultMessages).filter(
-    (m) => !droppedMessageIds.has(m.id),
+  const added = agentMessages
+    .filter((m) => !inputIds.has(m.id))
+    .flatMap((m) => {
+      if (!droppedMessageIds.has(m.id)) return [m];
+      // Only what this turn wrote: the snapshot removed the rest.
+      const bare = { id: m.id, role: m.role } as Message;
+      const written = turnWritesTo(bare, m, writes);
+      return written ? [{ ...bare, ...written } as Message] : [];
+    });
+  return mergeMessages(
+    inputMessages.map((m) => {
+      const written = turnWritesTo(m, tracked.get(m.id), writes);
+      return written ? ({ ...m, ...written } as Message) : m;
+    }),
+    added,
+    resultMessages,
   );
 }
 
 type WithToolCalls = Message & { toolCalls?: Array<{ id: string }> };
 
-/** `message` with the calls the turn started on its tracked copy appended. */
-function withStartedCalls(
+/**
+ * The fields the turn wrote to `message`, or undefined when it wrote none:
+ * its text appended as the client appends it, and the calls the turn started
+ * on the message's tracked copy.
+ */
+function turnWritesTo(
   message: Message,
   trackedCopy: Message | undefined,
-  startedToolCallIds: ReadonlySet<string>,
-): Message {
+  writes: TurnWrites,
+): { content?: string; toolCalls?: Array<{ id: string }> } | undefined {
   const own = (message as WithToolCalls).toolCalls ?? [];
   const started = ((trackedCopy as WithToolCalls | undefined)?.toolCalls ?? [])
-    .filter((call) => startedToolCallIds.has(call.id))
+    .filter((call) => writes.toolCallIds.has(call.id))
     .filter((call) => !own.some((ownCall) => ownCall.id === call.id));
-  if (started.length === 0) return message;
-  return { ...message, toolCalls: [...own, ...started] } as Message;
+  // The client streams no text into an activity message.
+  const text =
+    message.role === "activity" ? undefined : writes.text.get(message.id);
+  if (started.length === 0 && text === undefined) return undefined;
+  const content = (message as { content?: unknown }).content;
+  return {
+    ...(text !== undefined && {
+      content: `${typeof content === "string" ? content : ""}${text}`,
+    }),
+    ...(started.length > 0 && { toolCalls: [...own, ...started] }),
+  };
 }
 
 /**
@@ -379,8 +406,11 @@ function processStream(
     const calls = new Map<string, RenderCallState>();
     let heldFinish: EventWithState | null = null;
     let sawMessagesSnapshot = false;
-    // Tool calls this turn started, by id.
-    const startedToolCallIds = new Set<string>();
+    // What this turn streamed, for the retry turn's history.
+    const writes = {
+      toolCallIds: new Set<string>(),
+      text: new Map<string, string>(),
+    };
 
     const emit = (event: BaseEvent) => subscriber.next(event);
     const patch = (surfaceId: string, ops: JsonPatchOperation[]) =>
@@ -658,7 +688,12 @@ function processStream(
       if (event.type === EventType.MESSAGES_SNAPSHOT)
         sawMessagesSnapshot = true;
       if (event.type === EventType.TOOL_CALL_START)
-        startedToolCallIds.add((event as ToolCallStartEvent).toolCallId);
+        writes.toolCallIds.add((event as ToolCallStartEvent).toolCallId);
+      // runNext expands chunks, so text arrives as TEXT_MESSAGE_CONTENT.
+      if (event.type === EventType.TEXT_MESSAGE_CONTENT) {
+        const { messageId, delta } = event as TextMessageContentEvent;
+        writes.text.set(messageId, (writes.text.get(messageId) ?? "") + delta);
+      }
       emit(event);
       if (event.type === EventType.TOOL_CALL_START) {
         const start = event as ToolCallStartEvent;
@@ -775,7 +810,7 @@ function processStream(
               heldFinish.messages,
               resultMessages,
               sawMessagesSnapshot,
-              startedToolCallIds,
+              writes,
               options.droppedMessageIds,
             ),
             state: heldFinish.state,
