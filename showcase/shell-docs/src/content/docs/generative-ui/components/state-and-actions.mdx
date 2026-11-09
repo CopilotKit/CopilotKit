@@ -18,7 +18,7 @@ Three tools connect generated UI to your app:
 
 The agent does not know how many items are in the cart, and it must not guess. Declare the state in the catalog, and the library fills the prop:
 
-<Tabs groupId="frontend_framework" items={["React", "Angular"]} persist>
+<Tabs groupId="frontend_framework" items={["React", "Angular", "Vue"]} persist>
   <Tab value="React">
     ```tsx title="app/catalog.tsx"
     const cartSchema = z.object({
@@ -65,11 +65,35 @@ The agent does not know how many items are in the cart, and it must not guess. D
 
     The component reads the bound prop as a normal input: `readonly inCart = input.required<number>()`.
   </Tab>
+  <Tab value="Vue">
+    ```ts title="src/shop-ui.ts"
+    const cartSchema = z.object({
+      items: z.array(z.object({ productId: z.string(), quantity: z.number() })),
+    });
+
+    export const shopUI = createGenerativeUI({
+      id: "acme/shop@1",
+      state: { cart: cartSchema },
+      components: {
+        ProductCard: {
+          component: ProductCard,
+          props: z.object({ productId: z.string(), name: z.string(), inCart: z.number() }),
+          bind: {
+            inCart: (state, { productId }) =>
+              state.cart.items.find((item) => item.productId === productId)?.quantity ?? 0,
+          },
+        },
+      },
+    });
+    ```
+
+    The SFC reads the bound prop as a normal prop: `defineProps<{ productId: string; name: string; inCart: number }>()`.
+  </Tab>
 </Tabs>
 
 Then give the state its value from your app:
 
-<Tabs groupId="frontend_framework" items={["React", "Angular"]} persist>
+<Tabs groupId="frontend_framework" items={["React", "Angular", "Vue"]} persist>
   <Tab value="React">
     ```tsx
     import { useGenerativeUIState } from "@copilotkit/react-core/v2/generative-ui";
@@ -99,6 +123,20 @@ Then give the state its value from your app:
     }
     ```
   </Tab>
+  <Tab value="Vue">
+    `useGenerativeUIState` takes a value, a ref, or a getter. It keeps the key current, and removes it when the component unmounts. Call it in a component inside `CopilotKitProvider`:
+
+    ```vue
+    <script setup lang="ts">
+    import { useGenerativeUIState } from "@copilotkit/vue/v2/generative-ui";
+    import { useCartStore } from "./cart-store";
+    import { shopUI } from "./shop-ui";
+
+    const cart = useCartStore();
+    useGenerativeUIState(shopUI, "cart", () => ({ items: cart.items }));
+    </script>
+    ```
+  </Tab>
 </Tabs>
 
 How props get their values:
@@ -113,7 +151,7 @@ The agent does not see the state either. To let it answer "what is in my cart?",
 
 "Add to cart" must add to the cart, with no message to the agent. Declare a function, give the component an event with a matching name, and mount a handler:
 
-<Tabs groupId="frontend_framework" items={["React", "Angular"]} persist>
+<Tabs groupId="frontend_framework" items={["React", "Angular", "Vue"]} persist>
   <Tab value="React">
     ```tsx title="app/catalog.tsx"
     export const shopUI = createGenerativeUI({
@@ -187,11 +225,47 @@ The agent does not see the state either. To let it answer "what is in my cart?",
     }
     ```
   </Tab>
+  <Tab value="Vue">
+    ```ts title="src/shop-ui.ts"
+    export const shopUI = createGenerativeUI({
+      id: "acme/shop@1",
+      functions: {
+        addToCart: {
+          description: "Add a product to the cart",
+          parameters: z.object({ productId: z.string(), quantity: z.number().default(1) }),
+        },
+      },
+      components: {
+        ProductCard: {
+          component: ProductCard,
+          props: z.object({ productId: z.string(), name: z.string() }),
+          events: { onAddToCart: {} },
+        },
+      },
+    });
+    ```
+
+    `useGenerativeUIFunction` mounts the handler until the component unmounts. Call it in a component inside `CopilotKitProvider`:
+
+    ```vue
+    <script setup lang="ts">
+    import { useGenerativeUIFunction } from "@copilotkit/vue/v2/generative-ui";
+    import { useCartStore } from "./cart-store";
+    import { shopUI } from "./shop-ui";
+
+    const cart = useCartStore();
+    useGenerativeUIFunction(shopUI, "addToCart", ({ productId, quantity }) => {
+      cart.addItem(productId, quantity);
+      return { added: productId };
+    });
+    </script>
+    ```
+  </Tab>
 </Tabs>
 
 In the component, the event is a typed prop, or a typed function input in Angular. It gives back a result, so you can show progress and errors:
 
-<Tabs groupId="frontend_framework" items={["React", "Angular"]} persist>
+<Tabs groupId="frontend_framework" items={["React", "Angular", "Vue"]} persist>
   <Tab value="React">
     ```tsx
     import { useState } from "react";
@@ -251,6 +325,36 @@ In the component, the event is a typed prop, or a typed function input in Angula
     }
     ```
   </Tab>
+  <Tab value="Vue">
+    Declare the event as an optional function prop. The prop holds a function only while the event is bound, so `v-if` on it shows the button only then:
+
+    ```vue title="src/components/ProductCard.vue"
+    <script setup lang="ts">
+    import { ref } from "vue";
+    import type { GenerativeUIInvokeResult } from "@copilotkit/vue/v2/generative-ui";
+
+    const props = defineProps<{
+      productId: string;
+      name: string;
+      onAddToCart?: (args: { productId: string }) => Promise<GenerativeUIInvokeResult>;
+    }>();
+    const error = ref<string>();
+
+    async function add() {
+      const result = await props.onAddToCart?.({ productId: props.productId });
+      if (result && !result.ok) error.value = result.error.message;
+    }
+    </script>
+
+    <template>
+      <article>
+        <h4>{{ name }}</h4>
+        <button v-if="onAddToCart" @click="add">Add to cart</button>
+        <p v-if="error" role="alert">{{ error }}</p>
+      </article>
+    </template>
+    ```
+  </Tab>
 </Tabs>
 
 An event matches the function with its name, or the name without `on`: `onAddToCart` calls `addToCart`.
@@ -296,7 +400,7 @@ A2UI 1.0 has no arithmetic, so CopilotKit adds two catalog functions. `calc` eva
 
 ## Keep what the user types
 
-A checkout form that the agent filled in must keep the user's edits. List the props that the component can change in `writable`. Each one gets a setter, or a two-way `model()` input in Angular:
+A checkout form that the agent filled in must keep the user's edits. List the props that the component can change in `writable`. Each one gets a setter, a two-way `model()` input in Angular, or a `v-model` in Vue:
 
 ```tsx
 CheckoutForm: {
@@ -306,7 +410,7 @@ CheckoutForm: {
 },
 ```
 
-<Tabs groupId="frontend_framework" items={["React", "Angular"]} persist>
+<Tabs groupId="frontend_framework" items={["React", "Angular", "Vue"]} persist>
   <Tab value="React">
     ```tsx
     function CheckoutForm({ email, setEmail }: GenerativeUIComponentProps<typeof shopUI, "CheckoutForm">) {
@@ -325,6 +429,19 @@ CheckoutForm: {
     export class CheckoutForm {
       readonly email = model<string>();
     }
+    ```
+  </Tab>
+  <Tab value="Vue">
+    `defineModel` reads the prop and emits `update:email` when the user types:
+
+    ```vue title="src/components/CheckoutForm.vue"
+    <script setup lang="ts">
+    const email = defineModel<string>("email");
+    </script>
+
+    <template>
+      <input v-model="email" />
+    </template>
     ```
   </Tab>
 </Tabs>
