@@ -105,7 +105,7 @@ export function isSupportedOnboardingUrl(url: string): boolean {
 
 // The index names OpenBot by its own site and source repository for users who
 // want a workspace of AI coworkers. Keep this list exact and in step with
-// OPENBOT_SITE_URL and OPENBOT_SOURCE_URL in shell-docs' llm-text.ts: it
+// OPENBOT_SITE_URL and OPENBOT_SOURCE_URL in shell-docs' llms-index.ts: it
 // admits these three links, not their hosts.
 const SUPPORTED_OPENBOT_URLS = new Set([
   "https://open.bot",
