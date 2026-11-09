@@ -1340,6 +1340,98 @@ describe("GenerativeUIMiddleware: fully rejected render_ui", () => {
     expect(inputs[1].state).toEqual({ step: 1 });
   });
 
+  it("carries a null agent state into the retry turn", async () => {
+    const { inputs } = await runTurns(
+      [
+        [
+          { type: EventType.STATE_SNAPSHOT, snapshot: null },
+          ...badCall(),
+        ] as BaseEvent[],
+        [],
+      ],
+      { input: { state: { step: 1 } } },
+    );
+    expect(inputs).toHaveLength(2);
+    expect(inputs[1].state).toBeNull();
+  });
+
+  it("keeps a message the agent's snapshot removed out of the retry turn", async () => {
+    const { inputs } = await runTurns(
+      [
+        [
+          {
+            type: EventType.MESSAGES_SNAPSHOT,
+            messages: [{ id: "u1", role: "user", content: "show me the shop" }],
+          },
+          ...badCall(),
+        ] as BaseEvent[],
+        [],
+      ],
+      {
+        input: {
+          messages: [
+            { id: "old", role: "user", content: "compacted away" },
+            { id: "u1", role: "user", content: "show me the shop" },
+          ] as Message[],
+        },
+      },
+    );
+    expect(inputs).toHaveLength(2);
+    expect(inputs[1].messages.map((m) => m.id)).not.toContain("old");
+    expect(inputs[1].messages[0]).toMatchObject({ id: "u1" });
+  });
+
+  it("brings back a message a later snapshot restores", async () => {
+    const original = [
+      { id: "old", role: "user", content: "compacted away" },
+      { id: "u1", role: "user", content: "show me the shop" },
+    ];
+    const { inputs } = await runTurns(
+      [
+        [
+          { type: EventType.MESSAGES_SNAPSHOT, messages: [original[1]] },
+          ...badCall(),
+        ] as BaseEvent[],
+        [
+          { type: EventType.MESSAGES_SNAPSHOT, messages: original },
+          ...badCall(),
+        ] as BaseEvent[],
+        [],
+      ],
+      { input: { messages: original as Message[] } },
+    );
+    expect(inputs).toHaveLength(3);
+    expect(inputs[1].messages.map((m) => m.id)).not.toContain("old");
+    expect(inputs[2].messages.map((m) => m.id)).toContain("old");
+  });
+
+  it("keeps a message a snapshot removed out of every later retry turn", async () => {
+    const { inputs } = await runTurns(
+      [
+        [
+          {
+            type: EventType.MESSAGES_SNAPSHOT,
+            messages: [{ id: "u1", role: "user", content: "show me the shop" }],
+          },
+          ...badCall(),
+        ] as BaseEvent[],
+        badCall(),
+        [],
+      ],
+      {
+        input: {
+          messages: [
+            { id: "old", role: "user", content: "compacted away" },
+            { id: "u1", role: "user", content: "show me the shop" },
+          ] as Message[],
+        },
+      },
+    );
+    expect(inputs).toHaveLength(3);
+    expect(inputs[2].messages.map((m) => m.id)).not.toContain("old");
+    expect(inputs[2].messages.filter((m) => m.role === "tool")).toHaveLength(2);
+  });
+
   it("can turn the retry off", async () => {
     const { inputs } = await runTurns([badCall()], {
       options: { maxRejectedRetries: 0 },
@@ -1388,6 +1480,30 @@ describe("GenerativeUIMiddleware: fully rejected render_ui", () => {
     const { inputs } = await runTurns([
       [
         ...renderCall({ target: "chat", operations: [create("s1")] }, "good"),
+        ...renderCall(
+          {
+            target: "chat",
+            operations: [
+              { createSurface: { surfaceId: "s2", catalogId: "shop" } },
+            ],
+          },
+          "bad",
+        ),
+      ] as BaseEvent[],
+    ]);
+    expect(inputs).toHaveLength(1);
+  });
+
+  it("does not retry when a rendered render_ui call of the turn already has a result", async () => {
+    const { inputs } = await runTurns([
+      [
+        ...renderCall({ target: "chat", operations: [create("s1")] }, "good"),
+        {
+          type: EventType.TOOL_CALL_RESULT,
+          messageId: "result-good",
+          toolCallId: "good",
+          content: "done",
+        },
         ...renderCall(
           {
             target: "chat",

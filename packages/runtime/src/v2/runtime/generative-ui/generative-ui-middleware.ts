@@ -164,6 +164,7 @@ export class GenerativeUIMiddleware extends Middleware {
     const attempt = (
       attemptInput: RunAgentInput,
       retriesLeft: number,
+      droppedMessageIds: Set<string>,
     ): Observable<BaseEvent> =>
       defer(() => {
         const outcome: StreamOutcome = {};
@@ -180,6 +181,7 @@ export class GenerativeUIMiddleware extends Middleware {
               // Retry turns report their RUN_FINISHED as the outer run.
               outerRunId: retriesLeft < maxRetries ? outerRunId : undefined,
               inputMessages: attemptInput.messages,
+              droppedMessageIds,
             },
           ),
           defer(() => {
@@ -196,14 +198,17 @@ export class GenerativeUIMiddleware extends Middleware {
                 runId: randomUUID(),
                 parentRunId: attemptInput.runId,
                 messages: retry.messages,
-                state: retry.state ?? attemptInput.state,
+                state:
+                  retry.state === undefined ? attemptInput.state : retry.state,
               },
               retriesLeft - 1,
+              droppedMessageIds,
             );
           }),
         );
       });
-    return attempt(input, maxRetries);
+    // Ids a MESSAGES_SNAPSHOT removed in a turn of this run, per subscription.
+    return defer(() => attempt(input, maxRetries, new Set<string>()));
   }
 }
 
@@ -239,6 +244,43 @@ function mergeMessages(...lists: Message[][]): Message[] {
   const merged = new Map<string, Message>();
   for (const list of lists) for (const m of list) merged.set(m.id, m);
   return [...merged.values()];
+}
+
+/**
+ * The history of a retry turn. The tracked messages start from the agent's
+ * own list, which lacks earlier retry turns, so the turn's input is merged in
+ * unless the turn sent a MESSAGES_SNAPSHOT, which replaces the whole list.
+ * Ids a snapshot dropped stay out: a later turn's tracked list starts from the
+ * agent's own list again and may still hold them.
+ */
+function retryMessages(
+  inputMessages: Message[],
+  agentMessages: Message[],
+  resultMessages: Message[],
+  sawMessagesSnapshot: boolean,
+  droppedMessageIds: ReadonlySet<string>,
+): Message[] {
+  return mergeMessages(
+    sawMessagesSnapshot ? [] : inputMessages,
+    agentMessages,
+    resultMessages,
+  ).filter((m) => !droppedMessageIds.has(m.id));
+}
+
+/**
+ * Records what a turn's MESSAGES_SNAPSHOT removed from the turn's input, and
+ * forgets an earlier drop the snapshot brings back: the latest snapshot is
+ * the authoritative list.
+ */
+function recordSnapshotDrops(
+  inputMessages: Message[],
+  agentMessages: Message[],
+  droppedMessageIds: Set<string>,
+) {
+  const kept = new Set(agentMessages.map((m) => m.id));
+  for (const id of kept) droppedMessageIds.delete(id);
+  for (const m of inputMessages)
+    if (!kept.has(m.id)) droppedMessageIds.add(m.id);
 }
 
 /** Every tool call the messages hold, in order. */
@@ -281,6 +323,8 @@ function processStream(
     /** Set on a retry turn: the run id the client knows the run by. */
     outerRunId?: string;
     inputMessages: Message[];
+    /** Ids a snapshot removed; shared by every turn of the run. */
+    droppedMessageIds: Set<string>;
   },
 ) {
   return new Observable<BaseEvent>((subscriber) => {
@@ -305,6 +349,7 @@ function processStream(
     const functionCallIds = new Set<string>();
     const calls = new Map<string, RenderCallState>();
     let heldFinish: EventWithState | null = null;
+    let sawMessagesSnapshot = false;
 
     const emit = (event: BaseEvent) => subscriber.next(event);
     const patch = (surfaceId: string, ops: JsonPatchOperation[]) =>
@@ -579,6 +624,8 @@ function processStream(
         heldFinish = { event, messages, state: agentState };
         return;
       }
+      if (event.type === EventType.MESSAGES_SNAPSHOT)
+        sawMessagesSnapshot = true;
       emit(event);
       if (event.type === EventType.TOOL_CALL_START) {
         const start = event as ToolCallStartEvent;
@@ -679,13 +726,23 @@ function processStream(
           plainFinish &&
           pending.length > 0 &&
           onlyRenderCalls &&
-          pending.every(([, state]) => fullyRejected(state))
+          // Every render_ui call of the turn, answered or not: a retry starts
+          // from the run's manifest, so it must not follow a call that drew.
+          [...calls.values()].every(fullyRejected)
         ) {
+          if (sawMessagesSnapshot)
+            recordSnapshotDrops(
+              options.inputMessages,
+              heldFinish.messages,
+              options.droppedMessageIds,
+            );
           options.outcome.retry = {
-            messages: mergeMessages(
+            messages: retryMessages(
               options.inputMessages,
               heldFinish.messages,
               resultMessages,
+              sawMessagesSnapshot,
+              options.droppedMessageIds,
             ),
             state: heldFinish.state,
             finish: heldFinish.event,
