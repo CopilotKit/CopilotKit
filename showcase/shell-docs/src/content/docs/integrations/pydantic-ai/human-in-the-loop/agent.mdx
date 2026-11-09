@@ -97,7 +97,7 @@ Now we'll setup the Pydantic AI agent. The flow is hard to understand without a 
         from starlette.routing import Route
 
         agent = Agent(
-            'openai:gpt-5.4-mini',
+            'openai:gpt-6-luna',
             instructions=(
                 "When the user asks for an essay, call the write_essay tool with the full draft. "
                 "Wait for the user's answer before you continue."

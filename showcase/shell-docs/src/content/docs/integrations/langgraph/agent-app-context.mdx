@@ -247,7 +247,7 @@ Your agent can answer only about data it can see. The signed-in user and the row
                         from copilotkit import CopilotKitMiddleware, CopilotKitState # [!code highlight]
 
                         graph = create_agent(
-                            model="openai:gpt-5.4",
+                            model="openai:gpt-6-luna",
                             tools=[],  # Backend tools go here
                             middleware=[CopilotKitMiddleware()], # [!code highlight]
                             system_prompt="You are a helpful assistant.",
@@ -261,7 +261,7 @@ Your agent can answer only about data it can see. The signed-in user and the row
                         import { copilotkitMiddleware } from "@copilotkit/sdk-js/langgraph"; // [!code highlight]
 
                         export const agenticChatGraph = createAgent({
-                          model: "openai:gpt-5.4",
+                          model: "openai:gpt-6-luna",
                           tools: [],  // Backend tools go here
                           middleware: [copilotkitMiddleware], // [!code highlight]
                           systemPrompt: "You are a helpful assistant.",
