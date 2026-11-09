@@ -5,6 +5,7 @@ import {
 import {
   createCatalogOnlyRuntime,
   createDefaultRuntime,
+  createGenerativeUIRuntime,
   createMcpRuntime,
 } from "./runtime";
 
@@ -12,6 +13,7 @@ const defaultRuntime = createDefaultRuntime();
 const singleRuntime = createDefaultRuntime();
 const mcpRuntime = createMcpRuntime();
 const catalogOnlyRuntime = createCatalogOnlyRuntime();
+const generativeUIRuntime = createGenerativeUIRuntime();
 
 export const copilotEndpoint = createCopilotEndpoint({
   runtime: defaultRuntime,
@@ -31,4 +33,9 @@ export const copilotMcpEndpoint = createCopilotEndpoint({
 export const copilotCatalogEndpoint = createCopilotEndpoint({
   runtime: catalogOnlyRuntime,
   basePath: "/api/copilotkit-catalog",
+});
+
+export const copilotGenerativeUIEndpoint = createCopilotEndpoint({
+  runtime: generativeUIRuntime,
+  basePath: "/api/copilotkit-generative-ui",
 });
