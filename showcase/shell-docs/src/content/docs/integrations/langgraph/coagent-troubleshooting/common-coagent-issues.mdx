@@ -230,7 +230,7 @@ Most likely, a node changes the `messages` property in the middle of the node, b
 
                 async def chat_node(state: AgentState, config: RunnableConfig):
                     # 1) Call the model
-                    model = ChatOpenAI(model="gpt-5.4")
+                    model = ChatOpenAI(model="gpt-6-luna", reasoning_effort="none")
                     response = await model.ainvoke(state["messages"], config)
 
                     # 2) Make sure to return the new messages
@@ -244,7 +244,7 @@ Most likely, a node changes the `messages` property in the middle of the node, b
 
                 async function chatNode(state: AgentState, config: RunnableConfig): Promise<AgentState> {
                     // 1) Call the model
-                    const model = new ChatOpenAI({ temperature: 0, model: "gpt-5.4" });
+                    const model = new ChatOpenAI({ modelKwargs: { reasoning_effort: "none" }, temperature: 0, model: "gpt-6-luna" });
                     const response = await model.invoke(state.messages, config);
 
                     // 2) Make sure to return the new messages

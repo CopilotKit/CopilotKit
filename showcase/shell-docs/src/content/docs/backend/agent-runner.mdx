@@ -81,7 +81,7 @@ A runner serves the thread routes from its local store only when it opts in.
 import { CopilotRuntime, BuiltInAgent, InMemoryAgentRunner } from "@copilotkit/runtime/v2";
 
 const runtime = new CopilotRuntime({
-  agents: { default: new BuiltInAgent({ model: "openai/gpt-5.4-mini" }) },
+  agents: { default: new BuiltInAgent({ model: "openai/gpt-6-luna" }) },
   // Explicit, but this is also the default if omitted:
   runner: new InMemoryAgentRunner(),
 });
@@ -122,7 +122,7 @@ the constructor when the defaults do not match your workload:
 import { CopilotRuntime, BuiltInAgent, InMemoryAgentRunner } from "@copilotkit/runtime/v2";
 
 const runtime = new CopilotRuntime({
-  agents: { default: new BuiltInAgent({ model: "openai/gpt-5.4-mini" }) },
+  agents: { default: new BuiltInAgent({ model: "openai/gpt-6-luna" }) },
   runner: new InMemoryAgentRunner({
     maxThreads: 200,
     maxRunsPerThread: 50,
@@ -206,7 +206,7 @@ so history survives restarts:
    import { SqliteAgentRunner } from "@copilotkit/sqlite-runner";
 
    const runtime = new CopilotRuntime({
-     agents: { default: new BuiltInAgent({ model: "openai/gpt-5.4-mini" }) },
+     agents: { default: new BuiltInAgent({ model: "openai/gpt-6-luna" }) },
      runner: new SqliteAgentRunner({ dbPath: "./data/threads.db" }),
    });
    ```

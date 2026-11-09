@@ -168,7 +168,9 @@ Use this when the agent must not send or publish anything until a person approve
 
                 response = await copilotkit_stream(
                     await acompletion(
-                        model="openai/gpt-5.4",
+                        reasoning_effort="none",
+                        allowed_openai_params=["reasoning_effort"],
+                        model="openai/gpt-6-luna",
                         messages=[system_message, *messages],
                         tools=self.state.copilotkit.actions,
                         stream=True

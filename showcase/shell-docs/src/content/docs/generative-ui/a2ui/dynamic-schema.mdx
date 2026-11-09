@@ -137,7 +137,7 @@ from ag_ui_langgraph import get_a2ui_tools
 from langchain_openai import ChatOpenAI
 
 generate_a2ui = get_a2ui_tools({
-    "model": ChatOpenAI(model="gpt-4o"),
+    "model": ChatOpenAI(model="gpt-6-luna", reasoning_effort="none"),
     "default_catalog_id": "declarative-gen-ui-catalog",  # the catalogId you pass to createCatalog
 })
 

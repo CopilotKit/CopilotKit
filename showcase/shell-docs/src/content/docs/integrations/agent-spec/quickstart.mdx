@@ -211,7 +211,7 @@ Use this prompt to connect your Agent Spec agent to CopilotKit and verify a work
               system_prompt="You are a helpful assistant, named Specky, that speaks a lot.",
               llm_config=OpenAiCompatibleConfig(
                   name="my-llm",
-                  model_id=os.getenv("OPENAI_MODEL", "gpt-5.4"),
+                  model_id=os.getenv("OPENAI_MODEL", "gpt-6-luna"),
                   url=os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1"),
               ),
           )
