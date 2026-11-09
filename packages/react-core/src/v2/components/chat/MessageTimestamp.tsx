@@ -1,5 +1,6 @@
 import {
   defaultFormatMessageTimestamp,
+  isDisplayableMessageTimestamp,
   readMessageTimestamp,
 } from "../../lib/message-timestamp";
 import { useCopilotChatConfiguration } from "../../providers/CopilotChatConfigurationProvider";
@@ -19,16 +20,30 @@ export function MessageTimestamp({ message }: { message: TimestampMessage }) {
   if (!config?.showTimestamps) return null;
 
   const timestamp = readMessageTimestamp(message);
-  if (timestamp === undefined) return null;
+  if (timestamp === undefined || !isDisplayableMessageTimestamp(timestamp)) {
+    return null;
+  }
 
   const date = new Date(timestamp);
   const format = config.formatTimestamp ?? defaultFormatMessageTimestamp;
-  const label = format(date);
+  let label: string;
+  try {
+    label = format(date);
+  } catch {
+    return null;
+  }
   if (!label) return null;
+
+  let dateTime: string;
+  try {
+    dateTime = date.toISOString();
+  } catch {
+    return null;
+  }
 
   return (
     <time
-      dateTime={date.toISOString()}
+      dateTime={dateTime}
       data-testid="copilot-message-timestamp"
       suppressHydrationWarning
       className="cpk:mt-1 cpk:px-1 cpk:text-xs cpk:leading-4 cpk:text-muted-foreground"

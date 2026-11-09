@@ -551,16 +551,10 @@ export const CopilotChatConfigurationProvider: React.FC<
 
   const resolvedShowTimestamps =
     showTimestamps ?? parentConfig?.showTimestamps ?? false;
-  // Keep the formatter identity stable when the caller passes a new function
-  // each render. The wrapper always calls the latest function.
-  const formatTimestampRef = useRef(formatTimestamp);
-  formatTimestampRef.current = formatTimestamp;
-  const hasFormatTimestamp = formatTimestamp !== undefined;
-  const parentFormatTimestamp = parentConfig?.formatTimestamp;
-  const resolvedFormatTimestamp = useMemo(() => {
-    if (!hasFormatTimestamp) return parentFormatTimestamp;
-    return (date: Date) => formatTimestampRef.current!(date);
-  }, [hasFormatTimestamp, parentFormatTimestamp]);
+  // The formatter is the value from this render. A ref updated during render
+  // can keep a formatter from a render React discarded.
+  const resolvedFormatTimestamp =
+    formatTimestamp ?? parentConfig?.formatTimestamp;
 
   const configurationValue: CopilotChatConfigurationValue = useMemo(
     () => ({

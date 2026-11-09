@@ -1,8 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
+  isDisplayableMessageTimestamp,
+  messagesWithTimestamps,
   readMessageTimestamp,
   recordMessageTimestamps,
-  stampMessageTimestamp,
   withMessageTimestamp,
 } from "../message-timestamp";
 
@@ -44,6 +45,23 @@ describe("readMessageTimestamp", () => {
     ).toBeUndefined();
     expect(readMessageTimestamp({ metadata: null })).toBeUndefined();
   });
+
+  it("uses a valid top-level timestamp when metadata timestamp is invalid", () => {
+    expect(
+      readMessageTimestamp({
+        metadata: { timestamp: "nope" },
+        timestamp: EPOCH,
+      }),
+    ).toBe(EPOCH);
+  });
+});
+
+describe("isDisplayableMessageTimestamp", () => {
+  it("rejects times that Date cannot format as ISO", () => {
+    expect(isDisplayableMessageTimestamp(EPOCH)).toBe(true);
+    expect(isDisplayableMessageTimestamp(1e16)).toBe(false);
+    expect(isDisplayableMessageTimestamp(Number.POSITIVE_INFINITY)).toBe(false);
+  });
 });
 
 describe("withMessageTimestamp", () => {
@@ -72,52 +90,62 @@ describe("withMessageTimestamp", () => {
 });
 
 describe("recordMessageTimestamps", () => {
-  it("stamps a message that just started and remembers the time", () => {
-    const message: {
-      id: string;
-      role: "assistant";
-      content: string;
-      metadata?: Record<string, number>;
-    } = { id: "a1", role: "assistant", content: "" };
+  it("remembers a started message without writing to it", () => {
+    const message = Object.freeze({
+      id: "a1",
+      role: "assistant" as const,
+      content: "",
+    });
     const pending = new Map([["a1", EPOCH]]);
     const remembered = new Map<string, number>();
 
-    recordMessageTimestamps([message], pending, remembered);
+    expect(() =>
+      recordMessageTimestamps([message], pending, remembered),
+    ).not.toThrow();
 
-    expect(message.metadata).toEqual({ timestamp: EPOCH });
+    expect(message).not.toHaveProperty("metadata");
     expect(pending.size).toBe(0);
     expect(remembered.get("a1")).toBe(EPOCH);
+    const [copy] = messagesWithTimestamps([message], remembered);
+    expect(copy).not.toBe(message);
+    expect(readMessageTimestamp(copy)).toBe(EPOCH);
   });
 
   it("does not invent a time for a message that never started", () => {
     const message = { id: "old", role: "assistant" as const, content: "Hi" };
-    recordMessageTimestamps([message], new Map(), new Map());
+    const remembered = new Map<string, number>();
+    recordMessageTimestamps([message], new Map(), remembered);
     expect(message).not.toHaveProperty("metadata");
+    expect(remembered.size).toBe(0);
+    expect(messagesWithTimestamps([message], remembered)).toEqual([message]);
   });
 
-  it("does not overwrite a timestamp already on the message", () => {
-    const message = {
+  it("keeps a timestamp already on the message", () => {
+    const message = Object.freeze({
       id: "a1",
       role: "assistant" as const,
       content: "Hi",
       metadata: { timestamp: 5, source: "saved" },
-    };
-    recordMessageTimestamps([message], new Map([["a1", EPOCH]]), new Map());
+    });
+    const remembered = new Map<string, number>();
+    recordMessageTimestamps([message], new Map([["a1", EPOCH]]), remembered);
     expect(message.metadata).toEqual({ timestamp: 5, source: "saved" });
+    expect(remembered.get("a1")).toBe(5);
   });
 
-  it("restores a remembered time after a snapshot drops it", () => {
+  it("keeps a remembered time after a snapshot drops it", () => {
     const remembered = new Map([["a1", EPOCH]]);
-    const restored = { id: "a1", role: "assistant" as const, content: "Hi" };
+    const restored = Object.freeze({
+      id: "a1",
+      role: "assistant" as const,
+      content: "Hi",
+    });
 
     recordMessageTimestamps([restored], new Map(), remembered);
 
-    expect(readMessageTimestamp(restored)).toBe(EPOCH);
-  });
-
-  it("stampMessageTimestamp ignores a non-finite time", () => {
-    const message: { metadata?: Record<string, unknown> } = {};
-    stampMessageTimestamp(message, Number.POSITIVE_INFINITY);
-    expect(message.metadata).toBeUndefined();
+    expect(restored).not.toHaveProperty("metadata");
+    expect(remembered.get("a1")).toBe(EPOCH);
+    const [copy] = messagesWithTimestamps([restored], remembered);
+    expect(readMessageTimestamp(copy)).toBe(EPOCH);
   });
 });

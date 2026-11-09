@@ -102,6 +102,21 @@ describe("message timestamps", () => {
     expect(time?.getAttribute("datetime")).toBe(ISO);
   });
 
+  it("renders nothing when the timestamp cannot be an ISO date", () => {
+    renderWithTimestamps(
+      <CopilotChatUserMessage
+        message={{
+          id: "user-invalid",
+          role: "user",
+          content: "Hello",
+          metadata: { timestamp: 1e16 },
+        }}
+      />,
+    );
+    expect(timestampElement()).toBeNull();
+    expect(screen.getByText("Hello")).toBeDefined();
+  });
+
   it("reads a top-level timestamp", () => {
     renderWithTimestamps(
       <CopilotChatUserMessage

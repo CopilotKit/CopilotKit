@@ -34,18 +34,26 @@ function metadataRecord(
 
 /**
  * Reads a message time as epoch milliseconds.
- * `metadata.timestamp` wins. A top-level `timestamp` (number or ISO string)
- * is accepted for messages that already carry one there.
+ * A usable `metadata.timestamp` wins. A top-level `timestamp` (number or ISO
+ * string) is used when metadata has no usable time.
  */
 export function readMessageTimestamp(
   message: TimestampCarrier,
 ): number | undefined {
   const metadata = metadataRecord(message.metadata);
-  const fromMetadata = metadata?.[MESSAGE_TIMESTAMP_METADATA_KEY];
-  const fromMessage = "timestamp" in message ? message.timestamp : undefined;
-  return normalizeMessageTimestamp(fromMetadata ?? fromMessage);
+  const fromMetadata = normalizeMessageTimestamp(
+    metadata?.[MESSAGE_TIMESTAMP_METADATA_KEY],
+  );
+  const fromMessage = normalizeMessageTimestamp(
+    "timestamp" in message ? message.timestamp : undefined,
+  );
+  return fromMetadata ?? fromMessage;
 }
 
+/**
+ * Accepts epoch milliseconds or an ISO-8601 string.
+ * Anything else, including `NaN` and non-numeric strings, is ignored.
+ */
 export function normalizeMessageTimestamp(value: unknown): number | undefined {
   if (typeof value === "number" && Number.isFinite(value)) return value;
   if (typeof value === "string") {
@@ -56,21 +64,19 @@ export function normalizeMessageTimestamp(value: unknown): number | undefined {
 }
 
 /**
- * Writes `metadata.timestamp` onto a live message. An existing time is kept.
- * The agent subscriber types messages as readonly; the store objects are not.
+ * Whether `Date#toISOString` can represent this epoch time.
+ * Finite values such as `1e16` still produce an invalid `Date`.
  */
-export function stampMessageTimestamp(
-  message: TimestampCarrier,
-  timestamp: number,
-): void {
-  if (!Number.isFinite(timestamp)) return;
-  if (readMessageTimestamp(message) !== undefined) return;
-  const mutable = message as { metadata?: Record<string, any> | null };
-  const metadata = metadataRecord(mutable.metadata) ?? {};
-  mutable.metadata = {
-    ...metadata,
-    [MESSAGE_TIMESTAMP_METADATA_KEY]: timestamp,
-  };
+export function isDisplayableMessageTimestamp(timestamp: number): boolean {
+  if (!Number.isFinite(timestamp)) return false;
+  const date = new Date(timestamp);
+  if (Number.isNaN(date.getTime())) return false;
+  try {
+    date.toISOString();
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 /** Returns a copy with `metadata.timestamp` set when the message has none. */
@@ -91,29 +97,52 @@ export function withMessageTimestamp<T extends TimestampCarrier>(
 }
 
 /**
- * Applies start-event times, then fills back a time that a later snapshot
- * dropped. Messages that never had a time stay without one.
+ * Records start-event times and times already present on messages.
+ * Does not write to the messages. Subscriber payloads can be frozen, and
+ * mutating them throws even when timestamps are hidden.
+ *
+ * @returns Whether the remembered map changed.
  */
 export function recordMessageTimestamps(
   messages: readonly TimestampCarrier[],
   pending: Map<string, number>,
   remembered: Map<string, number>,
-): void {
+): boolean {
+  let changed = false;
   for (const message of messages) {
     if (!message.id) continue;
     const startedAt = pending.get(message.id);
-    if (startedAt !== undefined) {
-      pending.delete(message.id);
-      stampMessageTimestamp(message, startedAt);
-    }
-    const current = readMessageTimestamp(message);
-    if (current !== undefined) {
-      remembered.set(message.id, current);
-      continue;
-    }
-    const previous = remembered.get(message.id);
-    if (previous !== undefined) {
-      stampMessageTimestamp(message, previous);
-    }
+    if (startedAt !== undefined) pending.delete(message.id);
+
+    const next =
+      readMessageTimestamp(message) ?? startedAt ?? remembered.get(message.id);
+    if (next === undefined || remembered.get(message.id) === next) continue;
+    remembered.set(message.id, next);
+    changed = true;
   }
+  return changed;
+}
+
+/**
+ * Returns display copies for messages whose time is only in `remembered`.
+ * Messages that already have a time, and messages with no remembered time,
+ * keep their original reference. The input array is not mutated.
+ */
+export function messagesWithTimestamps<T extends TimestampCarrier>(
+  messages: readonly T[],
+  remembered: ReadonlyMap<string, number>,
+): T[] {
+  let changed = false;
+  const next = messages.map((message) => {
+    if (!message.id || readMessageTimestamp(message) !== undefined) {
+      return message;
+    }
+    const timestamp = remembered.get(message.id);
+    if (timestamp === undefined || !isDisplayableMessageTimestamp(timestamp)) {
+      return message;
+    }
+    changed = true;
+    return withMessageTimestamp(message, timestamp);
+  });
+  return changed ? next : messages.slice();
 }

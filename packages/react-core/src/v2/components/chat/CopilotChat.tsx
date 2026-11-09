@@ -21,6 +21,7 @@ import {
 import type { AttachmentsConfig, InputContent } from "@copilotkit/shared";
 import type { Suggestion } from "@copilotkit/core";
 import {
+  messagesWithTimestamps,
   readMessageTimestamp,
   recordMessageTimestamps,
   withMessageTimestamp,
@@ -876,14 +877,22 @@ export function CopilotChat({
   ]);
 
   // Assistant text messages are created from TEXT_MESSAGE_START, which does
-  // not copy the event time onto the message. Record it on metadata, and put
-  // it back if a later snapshot replaces the message. This stays outside the
-  // run-activity effect, which only subscribes when Intelligence realtime
-  // metadata is on.
+  // not copy the event time onto the message. Remember that time beside the
+  // messages. Subscriber payloads can be frozen, so this does not write to them.
+  const messageTimestampsRef = useRef(new Map<string, number>());
+  const [messageTimestampRevision, setMessageTimestampRevision] = useState(0);
   useEffect(() => {
+    let active = true;
     const pending = new Map<string, number>();
-    const remembered = new Map<string, number>();
-    recordMessageTimestamps(agent.messages, pending, remembered);
+    const remembered = messageTimestampsRef.current;
+    remembered.clear();
+    const note = (
+      nextMessages: Parameters<typeof recordMessageTimestamps>[0],
+    ) => {
+      if (!recordMessageTimestamps(nextMessages, pending, remembered)) return;
+      if (active) setMessageTimestampRevision((revision) => revision + 1);
+    };
+    note(agent.messages);
     const subscription = agent.subscribe({
       onTextMessageStartEvent: ({ event }) => {
         const eventTimestamp = event.timestamp;
@@ -894,10 +903,13 @@ export function CopilotChat({
         pending.set(event.messageId, timestamp);
       },
       onMessagesChanged: ({ messages: nextMessages }) => {
-        recordMessageTimestamps(nextMessages, pending, remembered);
+        note(nextMessages);
       },
     });
-    return () => subscription.unsubscribe();
+    return () => {
+      active = false;
+      subscription.unsubscribe();
+    };
   }, [agent, resolvedThreadId]);
 
   // Serializes consecutive sends: if a run is already in flight, let it finish
@@ -1364,11 +1376,16 @@ export function CopilotChat({
       return `${m.id}:${m.role}:${contentKey}:${toolCallsKey}:${timestampKey}`;
     })
     .join(",");
-  const messages = useMemo(
-    () => [...agent.messages],
+  const messages = useMemo(() => {
+    const source = agent.messages;
+    if (!showTimestamps) return [...source];
+    // Copies only the messages whose time lives in the side map. Agent
+    // messages stay untouched, including frozen subscriber payloads.
+    return messagesWithTimestamps(source, messageTimestampsRef.current);
+    // messageTimestampRevision republishes remembered times that are not on
+    // the agent messages themselves.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [messagesMemoKey],
-  );
+  }, [messagesMemoKey, showTimestamps, messageTimestampRevision]);
 
   // Compute the ID of the last user message for scroll-pinning logic.
   const lastUserMessageId = useMemo(() => {

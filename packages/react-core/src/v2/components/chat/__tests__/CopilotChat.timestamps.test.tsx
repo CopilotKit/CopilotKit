@@ -1,5 +1,11 @@
 import React from "react";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { AgentSubscriber, RunAgentInput } from "@ag-ui/client";
 import { EventType } from "@ag-ui/client";
@@ -52,8 +58,17 @@ vi.mock("../../../hooks/use-attachments", () => ({
 const mockUseAgent = useAgent as ReturnType<typeof vi.fn>;
 const mockUseCopilotKit = useCopilotKit as ReturnType<typeof vi.fn>;
 
-function SubmitProbe(props: { onSubmitMessage?: (value: string) => void }) {
+function SubmitProbe(props: {
+  onSubmitMessage?: (value: string) => void;
+  messages?: ReadonlyArray<{
+    id?: string;
+    metadata?: { timestamp?: number };
+  }>;
+}) {
   const config = useCopilotChatConfiguration();
+  const assistant = props.messages?.find(
+    (message) => message.id === "assistant-1",
+  );
   return (
     <div>
       <div data-testid="show-timestamps">
@@ -62,6 +77,9 @@ function SubmitProbe(props: { onSubmitMessage?: (value: string) => void }) {
       <div data-testid="formatted-time">
         {config?.formatTimestamp?.(new Date(Date.UTC(2026, 0, 2, 3, 4, 5))) ??
           ""}
+      </div>
+      <div data-testid="assistant-time">
+        {assistant?.metadata?.timestamp ?? ""}
       </div>
       <button type="button" onClick={() => props.onSubmitMessage?.("Hello")}>
         send
@@ -147,34 +165,79 @@ describe("CopilotChat timestamps", () => {
     });
   });
 
-  it("stamps an assistant message from TEXT_MESSAGE_START", () => {
+  it("shows an assistant time without mutating a frozen message", async () => {
     render(<CopilotChat showTimestamps chatView={SubmitProbe} />);
     const subscriber = timestampSubscriber();
     expect(subscriber).toBeDefined();
 
-    const message = {
+    const message = Object.freeze({
       id: "assistant-1",
       role: "assistant" as const,
-      content: "",
-    };
-    subscriber?.onTextMessageStartEvent?.({
-      event: {
-        type: EventType.TEXT_MESSAGE_START,
-        messageId: "assistant-1",
-        timestamp: Date.UTC(2026, 0, 2, 3, 4, 5),
-      },
-      messages: [],
-      state: {},
-      agent: mockAgent,
-      input: {} as RunAgentInput,
+      content: "Hi",
     });
-    subscriber?.onMessagesChanged?.({
-      messages: [message],
-      state: {},
-      agent: mockAgent,
+    mockAgent.messages = [message];
+    const epoch = Date.UTC(2026, 0, 2, 3, 4, 5);
+
+    act(() => {
+      subscriber?.onTextMessageStartEvent?.({
+        event: {
+          type: EventType.TEXT_MESSAGE_START,
+          messageId: "assistant-1",
+          timestamp: epoch,
+        },
+        messages: [],
+        state: {},
+        agent: mockAgent,
+        input: {} as RunAgentInput,
+      });
+      subscriber?.onMessagesChanged?.({
+        messages: mockAgent.messages,
+        state: {},
+        agent: mockAgent,
+      });
     });
 
-    expect(readMessageTimestamp(message)).toBe(Date.UTC(2026, 0, 2, 3, 4, 5));
+    await waitFor(() => {
+      expect(screen.getByTestId("assistant-time").textContent).toBe(
+        String(epoch),
+      );
+    });
+    expect(message).not.toHaveProperty("metadata");
+  });
+
+  it("does not throw when timestamps are off and messages are frozen", () => {
+    render(<CopilotChat chatView={SubmitProbe} />);
+    const subscriber = timestampSubscriber();
+    const frozen = Object.freeze({
+      id: "assistant-1",
+      role: "assistant" as const,
+      content: "Hi",
+    });
+    mockAgent.messages = [frozen];
+
+    expect(() => {
+      act(() => {
+        subscriber?.onTextMessageStartEvent?.({
+          event: {
+            type: EventType.TEXT_MESSAGE_START,
+            messageId: "assistant-1",
+            timestamp: Date.UTC(2026, 0, 2, 3, 4, 5),
+          },
+          messages: [],
+          state: {},
+          agent: mockAgent,
+          input: {} as RunAgentInput,
+        });
+        subscriber?.onMessagesChanged?.({
+          messages: [frozen],
+          state: {},
+          agent: mockAgent,
+        });
+      });
+    }).not.toThrow();
+
+    expect(frozen).not.toHaveProperty("metadata");
+    expect(screen.getByTestId("assistant-time").textContent).toBe("");
   });
 
   it("does not stamp restored assistant messages", () => {
