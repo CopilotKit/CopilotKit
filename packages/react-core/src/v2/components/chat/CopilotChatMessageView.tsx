@@ -7,8 +7,11 @@ import React, {
   useRef,
   useState,
 } from "react";
+import { flushSync } from "react-dom";
 import {
   defaultRangeExtractor,
+  elementScroll,
+  observeElementOffset,
   observeElementRect,
   useVirtualizer,
 } from "@tanstack/react-virtual";
@@ -554,6 +557,12 @@ export type CopilotChatMessageViewProps = Omit<
 // worth it and the simpler flat render is faster.
 const VIRTUALIZE_THRESHOLD = 50;
 
+/**
+ * How long the scroll position must stay still, with no wheel or touch input,
+ * before a correction held back during scrolling is written to `scrollTop`.
+ */
+const SCROLL_SETTLE_MS = 250;
+
 export function CopilotChatMessageView({
   messages = [],
   assistantMessage,
@@ -1077,6 +1086,22 @@ export function CopilotChatMessageView({
   } | null>(null);
   const restoringVisibilityRef = React.useRef(false);
 
+  // A correction is not written to `scrollTop` while the reader is scrolling:
+  // the browser owns the scroll position then. Safari, on a trackpad, drops a
+  // write made during the gesture or applies it a frame after the rows have
+  // moved, and either way what the reader is looking at jumps. Instead the
+  // correction is held here and the rows are drawn shifted by it, so nothing
+  // on screen moves; once scrolling has stopped, the rows are drawn unshifted
+  // and `scrollTop` moves by the same amount in the same frame.
+  //
+  // The virtualizer works in list coordinates: list offset = `scrollTop` +
+  // held offset. A row is drawn at its start minus the held offset.
+  const heldOffsetRef = React.useRef(0);
+  const userScrollingRef = React.useRef(false);
+  // The element offset the virtualizer last wrote, so its read-back is not
+  // taken for the reader scrolling.
+  const ownScrollWriteRef = React.useRef<number | null>(null);
+
   // The measurements describe one thread, so drop them when the thread
   // changes (detected by the first message ID changing, same as the
   // scroll-to-bottom effect below). Done during render rather than in that
@@ -1089,6 +1114,7 @@ export function CopilotChatMessageView({
   if (measuredThreadRef.current !== firstMessageId) {
     measuredThreadRef.current = firstMessageId;
     resizeAnchorRef.current = null;
+    heldOffsetRef.current = 0;
     measuredRef.current = { total: 0, sizes: new Map(), estimates: new Map() };
   }
 
@@ -1129,7 +1155,8 @@ export function CopilotChatMessageView({
         }
         return;
       }
-      const offset = instance.scrollElement?.scrollTop ?? 0;
+      const offset =
+        (instance.scrollElement?.scrollTop ?? 0) + heldOffsetRef.current;
       const anchor = instance.getVirtualItemForOffset(offset);
       if (anchor) {
         resizeAnchorRef.current = {
@@ -1174,7 +1201,7 @@ export function CopilotChatMessageView({
   const shouldAdjustScrollOnResize = React.useCallback(
     (
       item: VirtualItem,
-      _delta: number,
+      delta: number,
       instance: Virtualizer<HTMLElement, Element>,
     ) => {
       // While the pin is following the bottom it owns the scroll position;
@@ -1196,7 +1223,40 @@ export function CopilotChatMessageView({
       const scrollAdjustments =
         (instance as unknown as { scrollAdjustments?: number })
           .scrollAdjustments ?? 0;
-      return item.start < (instance.scrollOffset ?? 0) + scrollAdjustments;
+      if (item.start >= (instance.scrollOffset ?? 0) + scrollAdjustments)
+        return false;
+      if (userScrollingRef.current) {
+        // Hold the correction instead of writing it (see heldOffsetRef). The
+        // list offset moves with it, as it would after a write.
+        heldOffsetRef.current += delta;
+        instance.scrollOffset = (instance.scrollOffset ?? 0) + delta;
+        return false;
+      }
+      return true;
+    },
+    [],
+  );
+
+  const observeListOffset = React.useCallback(
+    (
+      instance: Virtualizer<HTMLElement, Element>,
+      notify: (offset: number, isScrolling: boolean) => void,
+    ) =>
+      observeElementOffset(instance, (offset, isScrolling) =>
+        notify(offset + heldOffsetRef.current, isScrolling),
+      ),
+    [],
+  );
+
+  const scrollToListOffset = React.useCallback(
+    (
+      offset: number,
+      options: { adjustments?: number; behavior?: ScrollBehavior },
+      instance: Virtualizer<HTMLElement, Element>,
+    ) => {
+      const elementOffset = offset - heldOffsetRef.current;
+      ownScrollWriteRef.current = elementOffset + (options.adjustments ?? 0);
+      elementScroll(elementOffset, options, instance);
     },
     [],
   );
@@ -1324,6 +1384,8 @@ export function CopilotChatMessageView({
     // scroll offset when a hidden host becomes visible again.
     getScrollElement: () => (shouldVirtualize ? scrollElement : null),
     observeElementRect: observeScrollRect,
+    observeElementOffset: observeListOffset,
+    scrollToFn: scrollToListOffset,
     estimateSize: estimateRowSize,
     overscan: 5,
     rangeExtractor,
@@ -1333,6 +1395,65 @@ export function CopilotChatMessageView({
     initialRect: { width: 0, height: 600 },
   });
   virtualizerRef.current = virtualizer;
+
+  // Track whether the reader is scrolling (wheel, trackpad, touch, keyboard
+  // or scrollbar: anything that moves the list other than our own writes) and,
+  // once it has stopped, write the held correction (see heldOffsetRef).
+  useEffect(() => {
+    const element = shouldVirtualize ? scrollElement : null;
+    if (!element) return;
+    let settleTimer: ReturnType<typeof setTimeout> | undefined;
+    let touching = false;
+    const settle = () => {
+      settleTimer = undefined;
+      if (touching) return;
+      userScrollingRef.current = false;
+      const held = heldOffsetRef.current;
+      if (held === 0) return;
+      heldOffsetRef.current = 0;
+      const target = element.scrollTop + held;
+      // Draw the rows unshifted first: the spacer may have to grow before the
+      // new scroll position fits. Both land before the next paint.
+      flushSync(forceUpdate);
+      ownScrollWriteRef.current = target;
+      element.scrollTop = target;
+    };
+    const scrolling = () => {
+      userScrollingRef.current = true;
+      if (settleTimer !== undefined) clearTimeout(settleTimer);
+      settleTimer = setTimeout(settle, SCROLL_SETTLE_MS);
+    };
+    const onScroll = () => {
+      const own = ownScrollWriteRef.current;
+      if (own !== null && Math.abs(element.scrollTop - own) < 1) {
+        ownScrollWriteRef.current = null;
+        return;
+      }
+      scrolling();
+    };
+    const onTouchStart = () => {
+      touching = true;
+      scrolling();
+    };
+    const onTouchEnd = () => {
+      touching = false;
+      scrolling();
+    };
+    element.addEventListener("scroll", onScroll, { passive: true });
+    element.addEventListener("wheel", scrolling, { passive: true });
+    element.addEventListener("touchstart", onTouchStart, { passive: true });
+    element.addEventListener("touchend", onTouchEnd, { passive: true });
+    element.addEventListener("touchcancel", onTouchEnd, { passive: true });
+    return () => {
+      if (settleTimer !== undefined) clearTimeout(settleTimer);
+      userScrollingRef.current = false;
+      element.removeEventListener("scroll", onScroll);
+      element.removeEventListener("wheel", scrolling);
+      element.removeEventListener("touchstart", onTouchStart);
+      element.removeEventListener("touchend", onTouchEnd);
+      element.removeEventListener("touchcancel", onTouchEnd);
+    };
+  }, [shouldVirtualize, scrollElement]);
 
   // While the pin-to-bottom behaviour is following the bottom it is already
   // going to move the scroll position, and its ResizeObserver reads our
@@ -1358,7 +1479,9 @@ export function CopilotChatMessageView({
     const position = virtualizer.getOffsetForIndex(anchor.index, "start");
     if (position && !isPinnedToBottomRef.current) {
       const target = position[0] + anchor.offset;
-      if (Math.abs((scrollElement?.scrollTop ?? 0) - target) > 0.5) {
+      const listOffset =
+        (scrollElement?.scrollTop ?? 0) + heldOffsetRef.current;
+      if (Math.abs(listOffset - target) > 0.5) {
         virtualizer.scrollToOffset(target);
       }
     }
@@ -1726,7 +1849,7 @@ export function CopilotChatMessageView({
             // total scroll height so the scrollbar reflects the full list size.
             <div
               style={{
-                height: virtualizer.getTotalSize(),
+                height: virtualizer.getTotalSize() - heldOffsetRef.current,
                 position: "relative",
                 overflowAnchor: "none",
               }}
@@ -1744,7 +1867,7 @@ export function CopilotChatMessageView({
                       top: 0,
                       left: 0,
                       width: "100%",
-                      transform: `translateY(${virtualItem.start}px)`,
+                      transform: `translateY(${virtualItem.start - heldOffsetRef.current}px)`,
                     }}
                   >
                     {renderRow(row)}
