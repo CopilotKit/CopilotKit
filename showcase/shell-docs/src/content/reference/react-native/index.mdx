@@ -19,9 +19,11 @@ New to CopilotKit on React Native? Start with the [React Native quickstart](/rea
 npm install @copilotkit/react-native "zod@^3.25"
 ```
 
-Install the peer dependencies:
+Every entry of the package needs `zod` 3.25 or later, because `@copilotkit/react-core` requires it as a peer dependency. `@copilotkit/react-native` declares `zod` an optional peer at `>=3.0.0`, so the package manager does not enforce 3.25 for you. The command installs zod 3: the `child()` and `childList()` helpers of generative UI return zod 3 schemas, which a zod 4 schema cannot hold.
 
-- Importing from `@copilotkit/react-native` needs `expo-document-picker` and `expo-file-system`.
+Install the optional peer dependencies:
+
+- Importing from `@copilotkit/react-native` needs `expo-document-picker` and `expo-file-system`. The root re-exports `useAttachments`, which imports both, and Metro resolves them at bundle time.
 - The prebuilt UI in `@copilotkit/react-native/components` also needs `@gorhom/bottom-sheet`, `react-native-gesture-handler`, `react-native-reanimated`, and `react-native-streamdown`.
 
 ```sh
@@ -34,7 +36,7 @@ npm install \
   react-native-streamdown
 ```
 
-If you build your own UI, import from `@copilotkit/react-native/headless` instead. That entry has the provider and the hooks, and it needs none of these packages.
+If you build your own UI, import from `@copilotkit/react-native/headless` instead. That entry has the provider and the hooks, and it needs none of these packages. Neither does `@copilotkit/react-native/generative-ui`.
 
 ## Polyfills
 

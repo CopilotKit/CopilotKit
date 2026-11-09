@@ -10,8 +10,8 @@ The chat is a good place for an answer. It is a bad place for the product grid o
 
 A **surface** is one piece of generated UI. Each surface renders in a **target**, a place where generated UI can go:
 
-- **The chat.** Always there. The agent can use every component of the catalog.
-- **A page target.** An area of your page that you mark with `GenerativeUISurface`. The agent sees it only while it is mounted.
+- **The chat.** Always there. The agent can use every component of the catalog. On React Native, you draw chat surfaces yourself, with `GenerativeUIActivity`; see [Chat surfaces on React Native](#chat-surfaces-on-react-native). The agent is offered the chat target even when the app shows no chat, so a React Native app that renders only `GenerativeUISurface` targets, or only the prebuilt `CopilotChat` (which does not draw surfaces yet), never shows a surface aimed at the chat.
+- **A page target.** An area of your page that you mark with `GenerativeUISurface`, or `<copilot-generative-ui-surface>` in Angular. The agent sees it only while it is mounted.
 
 ## Add a page target
 
@@ -418,7 +418,7 @@ Each component renders inside its own error boundary. One broken component shows
 
 On every run, the agent gets:
 
-- The targets that are mounted, with their descriptions and component limits.
+- The targets that are mounted, with their descriptions and component limits, and the chat target.
 - The surfaces that already exist, so it can update one in place instead of building a new one.
 - The values the user typed into a surface. The agent cannot write over those values.
 - The operations that the runtime or the app (the browser, or the React Native app) rejected, with the reason, so the agent can fix them.

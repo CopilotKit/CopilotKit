@@ -312,9 +312,11 @@ Next to `id` and `component`, each component that the agent writes can carry the
 - `metadata`: `{ "extensions": { ... } }`, kept for your own tools.
 - `accessibility`: `label`, `description`, `live`, and `hidden`. `label`, `description`, and `hidden` can be bindings or function values.
 
-The engine resolves `accessibility` and keeps all three fields out of your props. `hidden` and `live` apply to every component: the engine wraps the component in an element with `aria-hidden` and `aria-live`. A `label` or a `description` needs an element with a role, so the standard components set them on their root or on their control.
+The engine resolves `accessibility` and keeps all three fields out of your props. `hidden` and `live` apply to every component: when the agent sends an `accessibility` envelope for a component, the engine wraps it in an element with `aria-hidden` and `aria-live`. A component sent without an envelope gets no wrapper. A `label` or a `description` needs an element with a role, so the standard components set them on their root or on their control.
 
-In your own component, call `useGenerativeUIAccessibility()` and spread the result on the root element. A component that must not be wrapped (a table row or cell) declares `accessibility: "self"` and applies the attributes itself.
+In your own component, call `useGenerativeUIAccessibility()` and spread the result on the root element, or bind the result of `injectGenerativeUIAccessibility()` to the host in Angular. In Vue, put `v-bind` with the result on the root element. A component that must not be wrapped (a table row or cell) declares `accessibility: "self"` and applies the attributes itself.
+
+On React Native, the wrapper is a real `View` that applies `hidden` and `live` (a live region is announced on Android only; on iOS, announce a change with `AccessibilityInfo.announceForAccessibility`). It never applies `label` or `description`: on iOS a label on a view that is not an accessibility element names nothing, and making the wrapper one would merge every control inside it. It cannot be made layout-transparent, and it becomes the flex item of the parent: a component sized or aligned against its parent (`flex` or `flexGrow` along the parent's main axis, `alignSelf` across it, or a percentage size) resolves against the wrapper instead, so it no longer fills the parent or lines up in it. That is why the `ProductCard` above has a fixed width. A component that needs that sizing declares `accessibility: "self"`, which removes the wrapper, and must then apply `hidden` and `live` itself: set `aria-hidden` and `aria-live` from `useGenerativeUIAccessibility()` on its root view (React Native 0.71+ reads them), or map them to `accessibilityElementsHidden`, `importantForAccessibility` and `accessibilityLiveRegion`. Spreading the whole result works on 0.71+, but it also passes `aria-description`, which React Native has no prop for and ignores. With or without the wrapper, a component that needs a name or a hint reads `aria-label` and `aria-description` from `useGenerativeUIAccessibility()` and sets them on a view of its own that is an accessibility element (`accessible`), for example as `accessibilityLabel` and `accessibilityHint`.
 
 ## Type your components
 
@@ -393,7 +395,7 @@ In your own component, call `useGenerativeUIAccessibility()` and spread the resu
   </Tab>
 </Tabs>
 
-These work: zod 3.25 or later, zod 4.2 or later, ArkType, and Valibot with `@valibot/to-json-schema`. The schema must validate synchronously, because props are checked while a surface renders.
+These work: zod 3.25 or later, zod 4.2 or later, ArkType, and Valibot with `@valibot/to-json-schema`. A schema that holds `child()` or `childList()` must be zod 3, as [above](#what-a-component-can-declare). The schema must validate synchronously, because props are checked while a surface renders.
 
 ## Combine catalogs
 
@@ -544,7 +546,7 @@ The rules for `parameterOrder`:
 - An ordered component cannot declare integer names (`"0"` through `"4294967294"`). JavaScript sorts those keys numerically before other keys, whatever the requested order.
 - Unlisted names follow in declaration order: props, then slots, then events.
 - Bound props and matched events are left out of the signature that the model sees.
-- `extends`, `omit`, and React-component `overrides` keep the declared order.
+- `extends`, `omit`, and `overrides` keep the declared order.
 
 A catalog without `parameterOrder` keeps its export order.
 
