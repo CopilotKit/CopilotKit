@@ -1192,7 +1192,11 @@ describe("GenerativeUIMiddleware: fully rejected render_ui", () => {
       input?: Partial<RunAgentInput>;
       stopAfter?: EventType;
       /** Runs when the agent starts the turn, before its events stream. */
-      onTurnStart?: (turn: number, middleware: GenerativeUIMiddleware) => void;
+      onTurnStart?: (
+        turn: number,
+        middleware: GenerativeUIMiddleware,
+        turnInput: RunAgentInput,
+      ) => void;
       /** Runs once the turn's stream has completed, before the next turn. */
       onTurnEnd?: (turn: number, middleware: GenerativeUIMiddleware) => void;
     } = {},
@@ -1206,7 +1210,7 @@ describe("GenerativeUIMiddleware: fully rejected render_ui", () => {
       run(turnInput: RunAgentInput): Observable<BaseEvent> {
         inputs.push(turnInput);
         const i = turn++;
-        onTurnStart?.(i, middleware);
+        onTurnStart?.(i, middleware, turnInput);
         const script = turns[Math.min(i, turns.length - 1)];
         const { runId } = turnInput;
         const failed = script.some((e) => e.type === EventType.RUN_ERROR);
@@ -1626,6 +1630,98 @@ describe("GenerativeUIMiddleware: fully rejected render_ui", () => {
       id: "a1-t1",
       role: "assistant",
       content: " more",
+    });
+  });
+
+  it("adds a turn's text once when the agent also writes it into its input", async () => {
+    // withTurnIds turns the text's messageId "a1" into "a1-t1" in turn 1.
+    const { inputs } = await runTurns(
+      [
+        badCall(),
+        [
+          {
+            type: EventType.TEXT_MESSAGE_CONTENT,
+            messageId: "a1",
+            delta: " more",
+          },
+          ...badCall(),
+        ] as BaseEvent[],
+        [],
+      ],
+      {
+        input: {
+          messages: [
+            { id: "u1", role: "user", content: "show me the shop" },
+            { id: "a1-t1", role: "assistant", content: "answer" },
+          ] as Message[],
+        },
+        onTurnStart: (turn, _middleware, turnInput) => {
+          if (turn !== 1) return;
+          const message = turnInput.messages.find((m) => m.id === "a1-t1")!;
+          (message as { content: string }).content += " more";
+        },
+      },
+    );
+    expect(inputs).toHaveLength(3);
+    expect(inputs[2].messages.find((m) => m.id === "a1-t1")).toMatchObject({
+      content: "answer more",
+    });
+  });
+
+  it("retries when the agent also adds the turn's call to its input", async () => {
+    const { inputs } = await runTurns([badCall(), []], {
+      input: {
+        messages: [
+          { id: "u1", role: "user", content: "show me the shop" },
+          { id: "a0", role: "assistant", toolCalls: [] },
+        ] as unknown as Message[],
+      },
+      onTurnStart: (turn, _middleware, turnInput) => {
+        if (turn !== 0) return;
+        const message = turnInput.messages.find((m) => m.id === "a0")!;
+        (message as { toolCalls: unknown[] }).toolCalls.push({
+          id: "call-1-t0",
+          type: "function",
+          function: { name: "render_ui", arguments: "{}" },
+        });
+      },
+    });
+    expect(inputs).toHaveLength(2);
+    const history = inputs[1].messages;
+    const calls = history.flatMap(
+      (m) => (m as { toolCalls?: Array<{ id: string }> }).toolCalls ?? [],
+    );
+    expect(calls.filter((c) => c.id === "call-1-t0")).toHaveLength(1);
+    expect(
+      history.filter(
+        (m) => (m as { toolCallId?: string }).toolCallId === "call-1-t0",
+      ),
+    ).toHaveLength(1);
+  });
+
+  it("keeps a message's content parts as they were sent", async () => {
+    const { inputs } = await runTurns([badCall(), []], {
+      input: {
+        messages: [
+          {
+            id: "u1",
+            role: "user",
+            content: [{ type: "text", text: "show me the shop" }],
+          },
+        ] as Message[],
+      },
+      onTurnStart: (turn, _middleware, turnInput) => {
+        if (turn !== 0) return;
+        const message = turnInput.messages.find((m) => m.id === "u1")!;
+        (message as { content: unknown[] }).content.push({
+          type: "text",
+          text: "added",
+        });
+      },
+    });
+    expect(inputs).toHaveLength(2);
+    expect(inputs[1].messages.find((m) => m.id === "u1")).toMatchObject({
+      content: [{ type: "text", text: "show me the shop" }],
     });
   });
 

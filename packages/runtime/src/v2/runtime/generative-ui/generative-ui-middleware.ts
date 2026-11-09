@@ -169,6 +169,13 @@ export class GenerativeUIMiddleware extends Middleware {
     ): Observable<BaseEvent> =>
       defer(() => {
         const outcome: StreamOutcome = {};
+        // The turn's history as it was sent: an agent may change the input's
+        // messages in place, and the retry adds the turn's writes to these.
+        // Only a turn that may retry reads it.
+        const inputMessages =
+          retriesLeft > 0
+            ? attemptInput.messages.map(snapshotOf)
+            : attemptInput.messages;
         return concat(
           processStream(
             this.runNextWithState(
@@ -181,7 +188,7 @@ export class GenerativeUIMiddleware extends Middleware {
               canRetry: retriesLeft > 0,
               // Retry turns report their RUN_FINISHED as the outer run.
               outerRunId: retriesLeft < maxRetries ? outerRunId : undefined,
-              inputMessages: attemptInput.messages,
+              inputMessages,
               droppedMessageIds,
             },
           ),
@@ -310,7 +317,8 @@ function turnWritesTo(
   const started = ((trackedCopy as WithToolCalls | undefined)?.toolCalls ?? [])
     .filter((call) => writes.toolCallIds.has(call.id))
     .filter((call) => !own.some((ownCall) => ownCall.id === call.id));
-  // The client streams no text into an activity message.
+  // As @ag-ui/client's reducer does (src/apply/default.ts): text replaces
+  // non-string content, and is never streamed into an activity message.
   const text =
     message.role === "activity" ? undefined : writes.text.get(message.id);
   if (started.length === 0 && text === undefined) return undefined;
@@ -321,6 +329,27 @@ function turnWritesTo(
     }),
     ...(started.length > 0 && { toolCalls: [...own, ...started] }),
   };
+}
+
+/**
+ * A copy of a message that edits made in place cannot reach, for the fields a
+ * retry reads (content and tool calls); everything else is shared.
+ */
+function snapshotOf(message: Message): Message {
+  const { content, toolCalls } = message as {
+    content?: unknown;
+    toolCalls?: Array<{ function?: object }>;
+  };
+  return {
+    ...message,
+    ...(Array.isArray(content) && { content: [...content] }),
+    ...(toolCalls && {
+      toolCalls: toolCalls.map((c) => ({
+        ...c,
+        ...(c.function && { function: { ...c.function } }),
+      })),
+    }),
+  } as Message;
 }
 
 /**
