@@ -1053,9 +1053,21 @@ export function CopilotChatMessageView({
   // fresh sample would drag the mean toward whatever that one row happened to
   // be mid-stream. Held in a ref because feeding it back through state would
   // re-render on every measure.
+  //
+  // A row keeps the estimate it was first laid out with until it is measured.
+  // Each measurement rebuilds the offsets of every later row, and an
+  // unmeasured row takes whatever the estimate is then; but when a row above
+  // the viewport is measured, the virtualizer corrects the scroll position
+  // only by that row's measured size minus its current estimate. A changed
+  // estimate for rows already on the page would move everything below them,
+  // the rows on screen included, by an amount nothing corrects. While the
+  // reader scrolls up, the rows overscanned above the viewport are exactly
+  // such rows: each one measured re-estimated the rest, and the content
+  // jumped.
   const measuredRef = React.useRef({
     total: 0,
     sizes: new Map<number, number>(),
+    estimates: new Map<number, number>(),
   });
 
   const resizeAnchorRef = React.useRef<{
@@ -1077,12 +1089,18 @@ export function CopilotChatMessageView({
   if (measuredThreadRef.current !== firstMessageId) {
     measuredThreadRef.current = firstMessageId;
     resizeAnchorRef.current = null;
-    measuredRef.current = { total: 0, sizes: new Map() };
+    measuredRef.current = { total: 0, sizes: new Map(), estimates: new Map() };
   }
 
-  const estimateRowSize = React.useCallback(() => {
-    const { total, sizes } = measuredRef.current;
-    return sizes.size > 0 ? Math.max(1, Math.round(total / sizes.size)) : 100;
+  const estimateRowSize = React.useCallback((index: number) => {
+    const { total, sizes, estimates } = measuredRef.current;
+    let estimate = estimates.get(index);
+    if (estimate === undefined) {
+      estimate =
+        sizes.size > 0 ? Math.max(1, Math.round(total / sizes.size)) : 100;
+      estimates.set(index, estimate);
+    }
+    return estimate;
   }, []);
 
   const isPinnedToBottomRef = React.useRef(isPinnedToBottom);
@@ -1220,7 +1238,11 @@ export function CopilotChatMessageView({
                   resizeAnchorRef.current.ready = true;
                 // Flush pending row updates before invalidating the cached prefix.
                 instance.getTotalSize();
-                measuredRef.current = { total: 0, sizes: new Map() };
+                measuredRef.current = {
+                  total: 0,
+                  sizes: new Map(),
+                  estimates: new Map(),
+                };
                 // Seed the new estimate before rebuilding offscreen offsets.
                 instance.elementsCache.forEach((element) => {
                   measureRowElement(element, undefined, instance);

@@ -503,4 +503,92 @@ describe("CopilotChatMessageView virtual-scroll tuning", () => {
       expect(virtualizer().options.estimateSize(1)).toBe(300);
     });
   });
+
+  describe("scrolling up into rows not measured yet", () => {
+    it("keeps the reading row still while the rows above it are measured", async () => {
+      const container = document.createElement("div");
+      Object.defineProperties(container, {
+        clientWidth: { value: 600 },
+        clientHeight: { value: 600 },
+        scrollHeight: { get: () => virtualizer().getTotalSize() },
+      });
+      container.getBoundingClientRect = () =>
+        ({ width: 600, height: 600 }) as DOMRect;
+      container.scrollTo = vi.fn(({ top }: ScrollToOptions) => {
+        container.scrollTop = top ?? 0;
+        container.dispatchEvent(new Event("scroll"));
+      }) as typeof container.scrollTo;
+      // Rows mounted before the reader scrolls measure exactly their estimate.
+      const rect = vi
+        .spyOn(HTMLElement.prototype, "getBoundingClientRect")
+        .mockImplementation(function (this: HTMLElement) {
+          return {
+            width: 600,
+            height: this.hasAttribute("data-index") ? 100 : 0,
+          } as DOMRect;
+        });
+      try {
+        renderWithCopilotKit({
+          children: (
+            <ScrollElementContext.Provider value={container}>
+              <Harness
+                isPinnedToBottom={false}
+                initialMessages={Array.from({ length: 300 }, (_, index) =>
+                  message(`m-${index}`),
+                )}
+              />
+            </ScrollElementContext.Provider>
+          ),
+        });
+        // The reader scrolls up to row 200. Rows mounted during a scroll are
+        // not measured on mount; they keep the height they were laid out
+        // with until the ResizeObserver reports them.
+        act(() => {
+          container.scrollTop =
+            virtualizer().measurementsCache[200]!.start + 25;
+          container.dispatchEvent(new Event("scroll"));
+        });
+        const readingRowOnScreen = () => {
+          const instance = virtualizer();
+          // Brings `measurementsCache` up to date with the latest sizes.
+          instance.getTotalSize();
+          return instance.measurementsCache[200]!.start - container.scrollTop;
+        };
+        expect(readingRowOnScreen()).toBe(-25);
+        expect(virtualizer().itemSizeCache.has(191)).toBe(false);
+
+        // The ResizeObserver reports the rows above the reader, top first:
+        // two that render nothing and a short one. Each measurement changes
+        // the estimate for rows not measured yet; rows 191–199 were already
+        // laid out, and a new estimate for them would move everything below,
+        // which the scroll correction (measured size − estimate) never covers.
+        act(() => {
+          for (const [index, height] of [
+            [190, 0],
+            [191, 0],
+            [192, 36],
+          ] as const) {
+            const instance = virtualizer();
+            instance.resizeItem(
+              index,
+              instance.options.measureElement(
+                attachedRow(index, height),
+                undefined,
+                instance,
+              ),
+            );
+          }
+        });
+
+        expect(readingRowOnScreen()).toBe(-25);
+      } finally {
+        // TanStack's scroll-end debounce can notify after its listener is removed.
+        await act(async () => {
+          await new Promise((resolve) => setTimeout(resolve, 180));
+        });
+        cleanup();
+        rect.mockRestore();
+      }
+    });
+  });
 });
