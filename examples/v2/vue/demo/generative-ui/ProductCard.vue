@@ -58,7 +58,11 @@ async function add() {
     <div v-if="inCart > 0" class="mt-1 text-xs text-gray-600">
       In cart: {{ inCart }}
     </div>
-    <div v-if="status === 'error'" role="alert" class="mt-1 text-xs text-red-600">
+    <div
+      v-if="status === 'error'"
+      role="alert"
+      class="mt-1 text-xs text-red-600"
+    >
       {{ error }}
     </div>
   </article>

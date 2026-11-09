@@ -130,11 +130,7 @@ export class CopilotGenerativeUIChartTable {
         }
       }
     </div>
-    <table
-      copilotGenerativeUIChartTable
-      [chart]="props()"
-      [hidden]="true"
-    ></table>
+    <table copilotGenerativeUIChartTable [chart]="props()" [hidden]="true"></table>
   `,
   host: {
     "data-a2ui-std": "",

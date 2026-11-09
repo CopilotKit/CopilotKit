@@ -7,9 +7,7 @@ import { COUPON_CODE } from "./cart";
 // user types wins over later agent updates. `onApplyCoupon` calls the page's
 // `applyCoupon` function, and `onSubmit` goes to the agent as an event.
 const props = defineProps<{
-  onApplyCoupon?: (args: {
-    code: string;
-  }) => Promise<GenerativeUIInvokeResult>;
+  onApplyCoupon?: (args: { code: string }) => Promise<GenerativeUIInvokeResult>;
   onSubmit?: (args: {
     email: string;
     note: string;
