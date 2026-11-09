@@ -14,7 +14,7 @@ import InspectorPaneGenerativeUI from "@/snippets/shared/inspector/open-inspecto
 
 A text answer is often the wrong answer. "Compare these three plans" wants a table. "Show me cheap running shoes" wants product cards, and maybe in the product row of your page, not in the chat.
 
-With components and surfaces, the agent renders real React or Angular components while it answers:
+With components and surfaces, the agent renders real React, Angular, React Native or Vue components while it answers:
 
 - **In the chat**, inside its reply.
 - **In areas of your page**, outside the chat. Asking the chat changes the page.
@@ -23,15 +23,15 @@ You decide what the agent can render. The agent decides what to show and fills i
 
 ## Try it
 
-These steps add generative UI to a Next.js or Angular app, with an OpenAI model through TanStack AI.
+These steps add generative UI to a Next.js, Angular, React Native or Vue app, with an OpenAI model through TanStack AI.
 
-Already have CopilotKit running? Do step 3 only. Your runtime needs no change: when the provider sends a catalog, the runtime gives that run a `render_ui` tool and a short guide. Your agent must pass the run's tools and context to its model, as in step 2. For a LangGraph Python agent, add `CopilotKitMiddleware`.
+Already have CopilotKit running? Do step 3 only. Your runtime needs no change: when the provider sends a catalog with at least one component, the runtime gives that run a `render_ui` tool and a short guide. Your agent must pass the run's tools and context to its model, as in step 2. For a LangGraph Python agent, add `CopilotKitMiddleware`.
 
 <Steps>
   <Step>
   ### Install the packages
 
-  <Tabs groupId="frontend_framework" items={["React", "Angular"]} persist>
+  <Tabs groupId="frontend_framework" items={["React", "Angular", "React Native", "Vue"]} persist>
     <Tab value="React">
     ```bash
     npm install @copilotkit/react-core @copilotkit/runtime @tanstack/ai @tanstack/ai-openai
@@ -55,6 +55,34 @@ Already have CopilotKit running? Do step 3 only. Your runtime needs no change: w
     export OPENAI_API_KEY=sk-...
     ```
     </Tab>
+    <Tab value="React Native">
+    Start from a React Native app with the entry point and Metro set up as in the [React Native quickstart](/react-native#getting-started): the polyfill imports at the top of `index.js` are required. Then add the packages:
+
+    ```bash
+    npm install @copilotkit/react-native @copilotkit/runtime @tanstack/ai @tanstack/ai-openai "zod@^3.25"
+    npm install -D tsx
+    ```
+
+    `@copilotkit/react-native` needs `zod` 3.25 or later. Install zod 3, as above: `child()` and `childList()` return zod 3 schemas, and a zod 4 schema cannot hold one (see [Catalogs](/generative-ui/components/catalogs#what-a-component-can-declare)).
+
+    The runtime runs as its own Node process, so set your OpenAI key in the terminal that starts it:
+
+    ```bash
+    export OPENAI_API_KEY=sk-...
+    ```
+    </Tab>
+    <Tab value="Vue">
+    ```bash
+    npm install @copilotkit/vue @copilotkit/runtime @tanstack/ai @tanstack/ai-openai
+    npm install -D tsx
+    ```
+
+    The runtime runs as its own Node process, so set your OpenAI key in the terminal that starts it:
+
+    ```bash
+    export OPENAI_API_KEY=sk-...
+    ```
+    </Tab>
   </Tabs>
   </Step>
   <Step>
@@ -62,7 +90,7 @@ Already have CopilotKit running? Do step 3 only. Your runtime needs no change: w
 
   The agent is a built-in agent in factory mode: you call the model yourself with [TanStack AI](https://tanstack.com/ai).
 
-  <Tabs groupId="frontend_framework" items={["React", "Angular"]} persist>
+  <Tabs groupId="frontend_framework" items={["React", "Angular", "React Native", "Vue"]} persist>
     <Tab value="React">
     ```ts title="app/api/copilotkit/[[...slug]]/route.ts"
     import { chat } from "@tanstack/ai";
@@ -147,6 +175,94 @@ Already have CopilotKit running? Do step 3 only. Your runtime needs no change: w
     });
     ```
     </Tab>
+    <Tab value="React Native">
+    A React Native app has no route handler either, so the runtime is the same small Node server as for Angular. Start it with `npx tsx server.ts`.
+
+    ```ts title="server.ts"
+    import { createServer } from "node:http";
+    import { chat } from "@tanstack/ai";
+    import { openaiText } from "@tanstack/ai-openai";
+    import {
+      BuiltInAgent,
+      convertInputToTanStackAI,
+      CopilotRuntime,
+      InMemoryAgentRunner,
+    } from "@copilotkit/runtime/v2";
+    import { createCopilotNodeListener } from "@copilotkit/runtime/v2/node";
+
+    const agent = new BuiltInAgent({
+      type: "tanstack",
+      factory: ({ input, abortController }) => {
+        const { messages, systemPrompts, tools } = convertInputToTanStackAI(input);
+        return chat({
+          adapter: openaiText("gpt-6-luna"),
+          messages,
+          systemPrompts: [
+            "You are a helpful assistant. When a visual answer helps, render it with generative UI.",
+            ...systemPrompts,
+          ],
+          tools,
+          abortController,
+        });
+      },
+    });
+
+    const runtime = new CopilotRuntime({
+      agents: { default: agent },
+      runner: new InMemoryAgentRunner(),
+    });
+
+    createServer(
+      createCopilotNodeListener({ runtime, basePath: "/api/copilotkit", cors: true }),
+    ).listen(8200, () => {
+      console.log("Copilot Runtime listening at http://localhost:8200/api/copilotkit");
+    });
+    ```
+    </Tab>
+    <Tab value="Vue">
+    A Vite app has no route handler, so the runtime is a small Node server next to the app. Start it with `npx tsx server.ts`.
+
+    ```ts title="server.ts"
+    import { createServer } from "node:http";
+    import { chat } from "@tanstack/ai";
+    import { openaiText } from "@tanstack/ai-openai";
+    import {
+      BuiltInAgent,
+      convertInputToTanStackAI,
+      CopilotRuntime,
+      InMemoryAgentRunner,
+    } from "@copilotkit/runtime/v2";
+    import { createCopilotNodeListener } from "@copilotkit/runtime/v2/node";
+
+    const agent = new BuiltInAgent({
+      type: "tanstack",
+      factory: ({ input, abortController }) => {
+        const { messages, systemPrompts, tools } = convertInputToTanStackAI(input);
+        return chat({
+          adapter: openaiText("gpt-6-luna"),
+          messages,
+          systemPrompts: [
+            "You are a helpful assistant. When a visual answer helps, render it with generative UI.",
+            ...systemPrompts,
+          ],
+          tools,
+          abortController,
+        });
+      },
+    });
+
+    const runtime = new CopilotRuntime({
+      agents: { default: agent },
+      runner: new InMemoryAgentRunner(),
+    });
+
+    createServer(
+      createCopilotNodeListener({ runtime, basePath: "/api/copilotkit", cors: true }),
+    ).listen(8200, () => {
+      console.log("Copilot Runtime listening at http://localhost:8200/api/copilotkit");
+    });
+    ```
+    </Tab>
   </Tabs>
 
   Pass on both values from `convertInputToTanStackAI`:
@@ -159,9 +275,9 @@ Already have CopilotKit running? Do step 3 only. Your runtime needs no change: w
   <Step>
   ### Turn on generative UI
 
-  Give the provider the standard catalog. It has 69 ready-made components: layout, text, inputs, tables, charts, maps, and more.
+  Give the provider the standard catalog. It has 69 ready-made components: layout, text, inputs, tables, charts, maps, and more. On React Native, you give it a catalog of your own native components.
 
-  <Tabs groupId="frontend_framework" items={["React", "Angular"]} persist>
+  <Tabs groupId="frontend_framework" items={["React", "Angular", "React Native", "Vue"]} persist>
     <Tab value="React">
     ```tsx title="app/providers.tsx"
     "use client";
@@ -243,22 +359,398 @@ Already have CopilotKit running? Do step 3 only. Your runtime needs no change: w
 
     Then add `provideGenerativeUIChart()`, `provideGenerativeUIMap()` and `provideGenerativeUIIcons()` from the `/chart`, `/map` and `/icons` entries of `@copilotkit/angular/generative-ui`. Without them, a chart shows its data as a table, a map shows a list of places, and an icon shows nothing.
     </Tab>
+    <Tab value="React Native">
+    React Native has no standard catalog: its components render DOM. Give the provider a catalog of your own native components instead:
+
+    ```tsx title="src/plansUI.tsx"
+    import { StyleSheet, Text, View } from "react-native";
+    import { z } from "zod";
+    import {
+      createGenerativeUI,
+      type GenerativeUIComponentProps,
+    } from "@copilotkit/react-native/generative-ui";
+
+    function PlanList({ title, children }: GenerativeUIComponentProps<typeof plansUI, "PlanList">) {
+      return (
+        <View style={styles.list}>
+          {title ? <Text style={styles.title}>{title}</Text> : null}
+          {children}
+        </View>
+      );
+    }
+
+    function PlanCard({ name, price, features }: GenerativeUIComponentProps<typeof plansUI, "PlanCard">) {
+      return (
+        <View style={styles.card}>
+          <Text style={styles.name}>{name}</Text>
+          <Text>${price} / month</Text>
+          {features.map((feature, index) => (
+            <Text key={`${index}-${feature}`} style={styles.feature}>
+              • {feature}
+            </Text>
+          ))}
+        </View>
+      );
+    }
+
+    export const plansUI = createGenerativeUI({
+      id: "acme/plans@1",
+      components: {
+        PlanList: {
+          component: PlanList,
+          description: "A vertical list of plans. Put the ids of PlanCard components in children.",
+          props: z.object({ title: z.string().optional() }),
+          slots: { children: "multiple" },
+        },
+        PlanCard: {
+          component: PlanCard,
+          description: "One pricing plan: its name, its monthly price in dollars, and its main features.",
+          props: z.object({ name: z.string(), price: z.number(), features: z.array(z.string()) }),
+        },
+      },
+    });
+
+    const styles = StyleSheet.create({
+      // Margins rather than `gap`, which needs React Native 0.71.
+      list: { marginVertical: 8 },
+      title: { fontSize: 17, fontWeight: "600" },
+      card: { marginTop: 8, padding: 12, borderRadius: 12, backgroundColor: "#f4f4f5" },
+      name: { fontWeight: "700" },
+      feature: { color: "#52525b" },
+    });
+    ```
+
+    `GenerativeUIProvider` goes inside `CopilotKitProvider`:
+
+    ```tsx title="App.tsx"
+    import { Platform } from "react-native";
+    import { CopilotKitProvider } from "@copilotkit/react-native/headless";
+    import { GenerativeUIProvider } from "@copilotkit/react-native/generative-ui";
+    import { plansUI } from "./src/plansUI";
+    import { ChatScreen } from "./src/ChatScreen";
+
+    const runtimeUrl =
+      Platform.OS === "android"
+        ? "http://10.0.2.2:8200/api/copilotkit"
+        : "http://localhost:8200/api/copilotkit";
+
+    export default function App() {
+      return (
+        <CopilotKitProvider runtimeUrl={runtimeUrl}>
+          <GenerativeUIProvider ui={plansUI}>
+            <ChatScreen />
+          </GenerativeUIProvider>
+        </CopilotKitProvider>
+      );
+    }
+    ```
+
+    The prebuilt React Native `CopilotChat` does not draw surfaces yet, so the chat is your own list. Each surface arrives as an activity message in `agent.messages`; `GenerativeUIActivity` draws it.
+
+    A failed run does not reject: `copilotkit.runAgent` resolves, and the error goes to the `onError` subscribers of the core. This helper listens, while the run lasts, for an error of its agent that ends the run; a failed tool call does not end it, so the helper ignores those. On failure it takes back the messages that the turn added, such as the user message and any partial reply. It keeps the surfaces of the run, in the chat and in a [named area](/generative-ui/components/surfaces) alike: the provider never forgets a surface, the model still sees it on its next run, and the runtime rejects a new `createSurface` with its id, so removing its activity message would only hide it. The take-back is local: a runtime that stores the thread may still have the user message, and connecting to that thread again brings it back. The helper counts every run failure of its agent while it waits, so start one run of an agent at a time.
+
+    ```tsx title="src/agentTurns.ts"
+    import {
+      CopilotKitCoreErrorCode,
+      type useAgent,
+      type useCopilotKit,
+    } from "@copilotkit/react-native/headless";
+    import {
+      isGenerativeUIActivity,
+      type GenerativeUIActivityMessage,
+    } from "@copilotkit/react-native/generative-ui";
+
+    type CopilotKit = ReturnType<typeof useCopilotKit>["copilotkit"];
+    type Agent = ReturnType<typeof useAgent>["agent"];
+
+    /**
+     * The errors that end a run. A failed tool call is not one of them
+     * (TOOL_HANDLER_FAILED, TOOL_ARGUMENT_PARSE_FAILED): its error goes back to
+     * the model as the result of the call, and the run goes on.
+     */
+    const RUN_FAILURES: ReadonlySet<CopilotKitCoreErrorCode> = new Set([
+      CopilotKitCoreErrorCode.AGENT_RUN_FAILED,
+      CopilotKitCoreErrorCode.AGENT_RUN_FAILED_EVENT,
+      CopilotKitCoreErrorCode.AGENT_RUN_ERROR_EVENT,
+      CopilotKitCoreErrorCode.AGENT_THREAD_LOCKED,
+    ]);
+
+    // Date.now() alone repeats within a millisecond; with a counter, ids do not.
+    let sent = 0;
+
+    /**
+     * Sends one user message and runs the agent. Resolves with the run's error,
+     * or undefined; it never rejects. It counts every run failure of this agent
+     * while it waits, so start one run of an agent at a time.
+     */
+    export async function runTurn(
+      copilotkit: CopilotKit,
+      agent: Agent,
+      content: string,
+    ) {
+      const before = agent.messages.map((message) => message.id);
+      const { threadId } = agent;
+      let failure: Error | undefined;
+      const subscription = copilotkit.subscribe({
+        onError: ({ error, code, context }) => {
+          if (context.agentId === agent.agentId && RUN_FAILURES.has(code)) {
+            failure ??= error;
+          }
+        },
+      });
+      try {
+        sent += 1;
+        agent.addMessage({
+          id: `user-${Date.now()}-${sent}`,
+          role: "user",
+          content,
+        });
+        await copilotkit.runAgent({ agent });
+      } catch (error) {
+        failure ??= error instanceof Error ? error : new Error(String(error));
+      } finally {
+        subscription.unsubscribe();
+      }
+      try {
+        if (failure) takeBack(agent, before, threadId);
+      } catch (error) {
+        console.error("Could not take the failed turn back:", error);
+      }
+      return failure;
+    }
+
+    /**
+     * Removes the messages added since `before` (their ids), such as the user
+     * message and a partial reply. It keeps the surfaces: the provider keeps
+     * every surface that a run rendered, and the model still sees it, so the
+     * screen shows it too.
+     */
+    export function takeBack(
+      agent: Agent,
+      before: readonly string[],
+      threadId: string | undefined,
+    ) {
+      // The agent moved to another thread: those messages are not this turn's.
+      if (agent.threadId !== threadId) return;
+      const kept = new Set(before);
+      agent.setMessages(
+        agent.messages.filter(
+          (message) => kept.has(message.id) || isGenerativeUIActivity(message),
+        ),
+      );
+    }
+
+    /**
+     * An activity message that GenerativeUIActivity draws: its surface is aimed at
+     * the chat (the target it shows) and the agent has not deleted it.
+     */
+    export function isChatSurface(message: GenerativeUIActivityMessage) {
+      if (!isGenerativeUIActivity(message)) return false;
+      const content = message.content as {
+        target?: unknown;
+        operations?: unknown;
+      } | null;
+      const operations = Array.isArray(content?.operations)
+        ? content.operations
+        : [];
+      return (
+        content?.target === "chat" &&
+        !operations.some(
+          (op) => typeof op === "object" && op !== null && "deleteSurface" in op,
+        )
+      );
+    }
+    ```
+
+    ```tsx title="src/ChatScreen.tsx"
+    import { useRef, useState } from "react";
+    import {
+      FlatList,
+      Text,
+      TextInput,
+      TouchableOpacity,
+      View,
+    } from "react-native";
+    import { useAgent, useCopilotKit } from "@copilotkit/react-native/headless";
+    import {
+      GenerativeUIActivity,
+      isGenerativeUIActivity,
+    } from "@copilotkit/react-native/generative-ui";
+    import { isChatSurface, runTurn } from "./agentTurns";
+
+    // A separator rather than `gap`, which needs React Native 0.71.
+    const Separator = () => <View style={{ height: 8 }} />;
+
+    export function ChatScreen() {
+      const [text, setText] = useState("");
+      const [error, setError] = useState<string>();
+      const { copilotkit } = useCopilotKit();
+      // Until the runtime connects, `agent` is a stand-in (`isReady` is false). The
+      // registered agent replaces it, so a message sent to the stand-in is lost.
+      const { agent, isReady } = useAgent({ agentId: "default" });
+      // Set at once, so a second tap before the next render does not send twice.
+      const sending = useRef(false);
+      const [isSending, setIsSending] = useState(false);
+      // One run of this agent at a time, including a run that a click on a surface
+      // started.
+      const busy = isSending || agent.isRunning;
+      const canSend = isReady && !busy;
+
+      // A row only for what renders: a surface aimed at a named area renders in its
+      // GenerativeUISurface, and a deleted surface renders nothing.
+      const messages = agent.messages.filter(
+        (message) =>
+          isChatSurface(message) ||
+          ((message.role === "user" || message.role === "assistant") &&
+            typeof message.content === "string" &&
+            message.content.length > 0),
+      );
+
+      const send = async () => {
+        const content = text.trim();
+        if (!content || !canSend || sending.current) return;
+        sending.current = true;
+        setIsSending(true);
+        setText("");
+        setError(undefined);
+        try {
+          const failure = await runTurn(copilotkit, agent, content);
+          if (failure) {
+            // runTurn took the message back. Put its text back, unless the user typed again.
+            setText((current) => (current === "" ? content : current));
+            setError(failure.message);
+          }
+        } finally {
+          sending.current = false;
+          setIsSending(false);
+        }
+      };
+
+      return (
+        <View style={{ flex: 1, paddingTop: 48 }}>
+          <FlatList
+            data={messages}
+            keyExtractor={(message) => message.id}
+            contentContainerStyle={{ padding: 12 }}
+            ItemSeparatorComponent={Separator}
+            renderItem={({ item }) =>
+              isGenerativeUIActivity(item) ? (
+                <GenerativeUIActivity message={item} agent={agent} />
+              ) : (
+                <Text
+                  style={{
+                    alignSelf: item.role === "user" ? "flex-end" : "flex-start",
+                  }}
+                >
+                  {String(item.content)}
+                </Text>
+              )
+            }
+          />
+          {error ? (
+            <Text
+              accessibilityRole="alert"
+              style={{ color: "#dc2626", paddingHorizontal: 12 }}
+            >
+              Could not send: {error}
+            </Text>
+          ) : null}
+          <View style={{ flexDirection: "row", padding: 8 }}>
+            <TextInput
+              style={{ flex: 1, borderWidth: 1, borderRadius: 8, padding: 8 }}
+              value={text}
+              onChangeText={setText}
+              placeholder={isReady ? "Type a message..." : "Connecting..."}
+            />
+            <TouchableOpacity
+              onPress={send}
+              disabled={!canSend}
+              accessibilityState={{ disabled: !canSend, busy }}
+              style={{ padding: 8, opacity: canSend ? 1 : 0.4 }}
+            >
+              <Text>{busy ? "Replying..." : "Send"}</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      );
+    }
+    ```
+
+    The error line shows the error of a run that `send` started. The same error reaches the `onError` of `CopilotKitProvider`; without that prop it is only logged with `console.error`, which nobody sees in a release build, so pass `onError` and send it to your crash reporter. A run that a click on a surface starts ([Send a click to the agent](/generative-ui/components/state-and-actions#send-a-click-to-the-agent)) does not go through `runTurn`: its user message stays when it fails, and its error reaches only that `onError`. While a run of this agent is going, one that `send` started or one that a click on a surface started, Send is disabled; a run of another agent does not disable it. A ref, set at once, keeps a second tap that lands before the next render from sending twice.
+
+    Like the web chat, `GenerativeUIActivity` shows only surfaces aimed at the chat, so a surface that the agent aims at a [named area](/generative-ui/components/surfaces) renders there and not in the list. The chat target is always offered to the agent, so an app that shows surfaces only through `GenerativeUISurface`, or only in the prebuilt `CopilotChat`, never shows a surface aimed at the chat. `GenerativeUIActivity` renders nothing without a `GenerativeUIProvider` above it, or under a provider without `ui`, and warns in development, once for each distinct cause; it also renders nothing for a deleted surface, which `isChatSurface` leaves out of the list.
+
+    The [React Native guide](/react-native#generative-ui-with-your-own-components) adds a screen with no chat, named areas, and error handling.
+    </Tab>
+    <Tab value="Vue">
+    Import the stylesheet once, in your app entry:
+
+    ```ts title="src/main.ts"
+    import { createApp } from "vue";
+    import App from "./App.vue";
+    import "@copilotkit/vue/styles.css";
+
+    createApp(App).mount("#app");
+    ```
+
+    Give the provider the catalog, and put a chat inside it:
+
+    ```vue title="src/App.vue"
+    <script setup lang="ts">
+    import { CopilotChat, CopilotKitProvider } from "@copilotkit/vue/v2";
+    import { standardUI } from "@copilotkit/vue/v2/generative-ui";
+    </script>
+
+    <template>
+      <CopilotKitProvider
+        runtime-url="http://localhost:8200/api/copilotkit"
+        :generativeUI="{ ui: standardUI }"
+      >
+        <div style="height: 100vh">
+          <CopilotChat />
+        </div>
+      </CopilotKitProvider>
+    </template>
+    ```
+
+    Write the binding in camelCase: `:generativeUI`. Vue reads `:generative-ui` as a different prop, so the provider does not get the catalog.
+
+    Charts and maps draw with optional libraries. Icons need nothing more. When you want charts or maps, install the library of each one you use:
+
+    ```bash
+    npm install chart.js maplibre-gl
+    ```
+
+    Then add the plugins in your app entry:
+
+    ```ts title="src/main.ts"
+    import { createApp } from "vue";
+    import { GenerativeUIChart } from "@copilotkit/vue/v2/generative-ui/chart";
+    import { GenerativeUIMap } from "@copilotkit/vue/v2/generative-ui/map";
+    import App from "./App.vue";
+    import "@copilotkit/vue/styles.css";
+
+    createApp(App).use(GenerativeUIChart).use(GenerativeUIMap).mount("#app");
+    ```
+
+    Without them, a chart shows its data as a table, and a map shows a list of places.
+    </Tab>
   </Tabs>
   </Step>
   <Step>
   ### Ask for something visual
 
-  Run `npm run dev` (for Angular, `ng serve` and `npx tsx server.ts`), open the page, and send:
+  Run `npm run dev` (for Angular, `ng serve` and `npx tsx server.ts`; for Vue, also `npx tsx server.ts`; for React Native, `npx tsx server.ts` and `npx react-native run-ios` or `run-android`), open the page (on React Native, the app), and send:
 
   ```text
   Compare the Starter, Team, and Enterprise plans in a table
   ```
 
-  The table fills in while the agent writes it. It is a real component, so a follow-up such as "add a column for support" changes it in place.
+  The table fills in while the agent writes it. It is a real component, so a follow-up such as "add a column for support" changes it in place. On React Native, the plans arrive as a `PlanList` of `PlanCard`s, the components of your catalog.
   </Step>
 </Steps>
 
-That is a working setup. The agent now renders standard components in the chat.
+That is a working setup. The agent now renders standard components in the chat, or, on React Native, your own components in your message list.
 
 <InspectorPaneGenerativeUI components={props.components} />
 
@@ -268,11 +760,13 @@ The agent answered, but the UI did not show, or it shows the wrong thing. Open I
 
 | What you see | Open | What to look for |
 | --- | --- | --- |
-| The pane says "No generative UI" | Nothing to open | The provider has no `generativeUI` config. Pass `generativeUI={{ ui }}` to `CopilotKitProvider`, or add `provideGenerativeUI({ ui })` to the root providers in Angular. |
+| The pane says "No generative UI" | Nothing to open | The provider has no `generativeUI` config. Pass `generativeUI={{ ui }}` to `CopilotKitProvider`, or add `provideGenerativeUI({ ui })` to the root providers in Angular. In Vue, bind `:generativeUI="{ ui }"` in camelCase. |
 | The surface stays empty, or shows its fallback | **Surfaces** | Find the surface and open its card. **Rejected operations** gives the reason for each dropped operation, for example an unknown component. |
 | A component shows wrong or missing values | **Surfaces** | The component tree shows each rendered component with the props that the agent sent. |
 | The agent never uses a component or a function | **Catalog** | Search for its name. A component that is not in the list is not sent to the model. A function with no mounted handler gets a warning. |
 | You want to see what the model got | **Prompt** | The envelope and the `render_ui` guide of the last run, and of the next run. |
+
+Inspector runs in the browser, so it has no React Native version. On React Native, pass `errorBoundary={{ onError }}` to `GenerativeUIProvider`: it reports render failures, invalid props, failed events, failed functions that a component called and operations that the app rejected, with the surface. Operations that the runtime rejected never reach `onError`. They reach the `rejected` and `error` props of the `Wrapper` (with the ones that the app rejected): the `Wrapper` of `GenerativeUIActivity` for a chat surface, and the `Wrapper` of `GenerativeUISurface` for a surface in a named area. Both default wrappers show a short error line. The exception is a rejected `createSurface`. A named area then keeps its fallback and renders no `Wrapper`; when the app rejected it, `onError` gets it and `<GenerativeUIActivity target="<id>">` shows it. When the runtime rejected it, no activity message is sent for it, so only the model learns of it, in the result of its `render_ui` call, and nothing on the device shows it. The one exception is a `createSurface` with the id of a live surface: the runtime adds that rejection to the live surface, whose `Wrapper` shows it. See [Errors on the device](/react-native#errors-on-the-device).
 
 ## Learn the ideas
 
@@ -280,7 +774,7 @@ Three ideas carry the whole feature:
 
 - **[Surfaces](/generative-ui/components/surfaces)**: a place where generated UI renders. The chat is one. Any area of your page can be one.
 - **[Catalogs](/generative-ui/components/catalogs)**: the components that the agent can use, with their props. Use the standard one, or add your own.
-- **[Transports](/generative-ui/components/transports)**: how the UI reaches the browser. The agent calls a tool, or it writes the UI in its markdown reply.
+- **[Transports](/generative-ui/components/transports)**: how the UI reaches the app. The agent calls a tool, or it writes the UI in its markdown reply.
 
 ## Build with it
 

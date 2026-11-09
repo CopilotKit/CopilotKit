@@ -4,9 +4,11 @@ import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
 
-// Resolved path to src/v2/context.ts — used to redirect the headless build's
-// relative ../context imports to the external @copilotkit/react-core/v2/context
-// package path, ensuring a shared React context instance at runtime.
+// Resolved path to src/v2/context.ts — used to redirect relative ../context
+// imports (in the headless build and in the main build, which includes the
+// `/v2/generative-ui/native` entry) to the external
+// @copilotkit/react-core/v2/context package path, ensuring a shared React
+// context instance at runtime.
 const configDir = path.dirname(fileURLToPath(import.meta.url));
 const contextModulePath = path.resolve(configDir, "src/v2/context");
 
@@ -17,9 +19,10 @@ const contextModulePath = path.resolve(configDir, "src/v2/context");
 //      resolve a `.css` file as a typed module (InternalResolutionError). The CSS
 //      import is intentionally kept in the JS so styles auto-load for bundler
 //      consumers; only the declarations are cleaned.
-//   2. The headless re-export of the externalized context module is emitted as a
-//      relative `./context` import, which is invalid in ESM declarations
-//      (extensionless). Rewrite it to the package subpath so it resolves under
+//   2. A reference to the externalized context module (the headless re-export,
+//      and the `/v2/generative-ui/native` declarations) can be emitted as a
+//      relative `./context` or `../context` import, which is invalid in ESM
+//      declarations (extensionless). Rewrite it to the package subpath so it resolves under
 //      node16/nodenext/bundler — matching how the JS bundle externalizes it.
 // Run from `build:done` so it processes every format's declarations on disk,
 // independent of per-output plugin order (the esm `.d.mts` and cjs `.d.cts` are
@@ -78,6 +81,44 @@ const externalizeContext = {
   },
 };
 
+// tsdown emits the CommonJS declarations (`.d.cts`) in a build pass of their
+// own, and it leaves the config's `plugins` out of that pass. Without
+// `externalizeContext` there, the declarations bundle src/v2/context.ts into a
+// chunk, so the `.d.cts` files declare a second `CopilotKitCoreReact`. The class
+// has private members, so a CommonJS consumer could not pass the instance from
+// `@copilotkit/react-core/v2/context` to an entry typed with the other copy.
+// This `inputOptions` hook adds the plugin to that pass. It edits the options
+// in place and returns nothing: tsdown merges a returned object with `defu`,
+// which would concatenate the plugin list with itself.
+//
+// `onlyFrom` limits it to the declarations of some modules. The main build
+// needs that: its CommonJS declarations also serve the root `.` entry, which
+// `moduleResolution: node10` reads through `types`, and node10 cannot resolve
+// the `@copilotkit/react-core/v2/context` subpath (attw reports it as an
+// InternalResolutionError). So that build keeps the bundled copy and only the
+// `/v2/generative-ui/native` declarations, which node10 cannot reach anyway,
+// import the class from `/v2/context`.
+// `scripts/assert-dist-context-types.mjs` checks the result after each build.
+const externalizeContextInCjsDts =
+  (onlyFrom?: RegExp) =>
+  (
+    options: { plugins?: unknown },
+    _format: unknown,
+    { cjsDts }: { cjsDts: boolean },
+  ) => {
+    if (!cjsDts) return;
+    const plugin = onlyFrom
+      ? {
+          name: "externalize-context-cjs-dts",
+          resolveId(source: string, importer?: string) {
+            if (!importer || !onlyFrom.test(importer)) return null;
+            return externalizeContext.resolveId(source, importer);
+          },
+        }
+      : externalizeContext;
+    options.plugins = [plugin, options.plugins];
+  };
+
 export default defineConfig([
   {
     // `v2/generative-ui` is built here, next to `v2/index`, and not as its
@@ -90,6 +131,9 @@ export default defineConfig([
       index: "src/v1-deprecated-compatibility.ts",
       "v2/index": "src/v2/index.ts",
       "v2/generative-ui": "src/v2/generative-ui/index.ts",
+      // The DOM-free generative UI entry for React Native. It is in this
+      // build for the same reason: one copy of each context.
+      "v2/generative-ui/native": "src/v2/generative-ui/native.ts",
     },
     format: ["esm", "cjs"],
     dts: true,
@@ -100,6 +144,9 @@ export default defineConfig([
       "build:done": () => postProcessDeclarations(path.resolve("dist")),
     },
     plugins: [externalizeContext],
+    inputOptions: externalizeContextInCjsDts(
+      /[\\/]src[\\/]v2[\\/]generative-ui[\\/]native\.d\.ts$/,
+    ),
     external: [
       "react",
       "react-dom",
@@ -161,6 +208,7 @@ export default defineConfig([
     target: "es2022",
     outDir: "dist/v2",
     plugins: [externalizeContext],
+    inputOptions: externalizeContextInCjsDts(),
     external: [
       "react",
       "@ag-ui/client",
