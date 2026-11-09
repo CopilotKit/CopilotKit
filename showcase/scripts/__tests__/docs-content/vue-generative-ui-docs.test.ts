@@ -7,7 +7,7 @@ import path from "node:path";
 
 import { describe, expect, test } from "vitest";
 
-const REPO_ROOT = path.resolve(import.meta.dirname, "../../../../..");
+const REPO_ROOT = path.resolve(import.meta.dirname, "../../../..");
 const CONTENT = "showcase/shell-docs/src/content";
 const REFERENCE = `${CONTENT}/reference/vue`;
 const VUE_GENUI = "packages/vue/src/v2/generative-ui";
