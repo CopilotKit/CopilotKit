@@ -121,10 +121,9 @@ for (var index = 0; index < filteredEvents.Count; index++)
     if (filteredEvents[index]["type"]?.GetValue<string>() == "RUN_FINISHED") finished = index;
 }
 Check(adminResult >= 0 && finished > adminResult && filteredEvents[adminResult]["content"]?.GetValue<string>() == "MCP tool is not allowed: admin_dashboard", "excluded MCP tool call is rejected before RUN_FINISHED");
-var deniedBefore = filteredWire.Methods.Count;
 var deniedInput = (JsonObject)input.DeepClone(); deniedInput["forwardedProps"] = JsonNode.Parse("{\"__proxiedMCPRequest\":{\"serverId\":\"crm\",\"method\":\"tools/call\",\"params\":{\"name\":\"admin_dashboard\",\"arguments\":{}}}}");
 var deniedEvents = new List<JsonObject>(); await foreach (var item in filteredAgent.RunAsync(deniedInput, CancellationToken.None)) deniedEvents.Add(item);
-Check(filteredWire.Methods.Count == deniedBefore && deniedEvents.Last()["result"]?["isError"]?.GetValue<bool>() == true && deniedEvents.Last()["result"]?["content"]?[0]?["text"]?.GetValue<string>()?.Contains("admin_dashboard") == true, "proxied tools/call for an excluded MCP App tool makes no request");
+Check(!filteredWire.ToolCalls.Contains("admin_dashboard") && deniedEvents.Last()["result"]?["isError"]?.GetValue<bool>() == true && deniedEvents.Last()["result"]?["content"]?[0]?["text"]?.GetValue<string>()?.Contains("admin_dashboard") == true, "proxied tools/call for an excluded MCP App tool is not forwarded");
 var allowedBefore = filteredWire.Methods.Count;
 var allowedInput = (JsonObject)input.DeepClone(); allowedInput["forwardedProps"] = JsonNode.Parse("{\"__proxiedMCPRequest\":{\"serverId\":\"crm\",\"method\":\"tools/call\",\"params\":{\"name\":\"generate_qr\",\"arguments\":{}}}}");
 await foreach (var _ in filteredAgent.RunAsync(allowedInput, CancellationToken.None)) { }
@@ -134,11 +133,58 @@ var emptySource = new SequenceAgent([JsonNode.Parse("{\"type\":\"RUN_STARTED\"}"
 var emptyServer = McpAppServer.FromJson(new JsonObject { ["url"] = "https://mcp.test/mcp", ["serverId"] = "crm", ["includeTools"] = new JsonArray() });
 await foreach (var _ in new McpAppsAgent(emptySource, [emptyServer], emptyHttp).RunAsync(input, CancellationToken.None)) { }
 Check(emptyWire.Methods.Count == 0 && emptySource.Input!["tools"]!.AsArray().Count == 0, "empty includeTools skips MCP discovery");
-var wideWire = new WideMcpHandler(); using var wideHttp = new HttpClient(wideWire);
+var wideWire = new WideMcpHandler(1001, true, false); using var wideHttp = new HttpClient(wideWire);
 var wideSource = new SequenceAgent([JsonNode.Parse("{\"type\":\"RUN_STARTED\"}")!.AsObject(), JsonNode.Parse("{\"type\":\"RUN_FINISHED\"}")!.AsObject()]);
-var wideServer = McpAppServer.FromJson(new JsonObject { ["url"] = "https://mcp.test/mcp", ["serverId"] = "wide", ["includeTools"] = new JsonArray("not-listed") });
+var wideServer = McpAppServer.FromJson(new JsonObject { ["url"] = "https://mcp.test/mcp", ["serverId"] = "wide", ["includeTools"] = new JsonArray("wanted") });
 await foreach (var _ in new McpAppsAgent(wideSource, [wideServer], wideHttp).RunAsync(input, CancellationToken.None)) { }
-Check(wideWire.Lists == 1 && wideSource.Input!["tools"]!.AsArray().Count == 0, "UI tool scan limit stops before the next page");
+Check(wideWire.Lists == 1 && wideSource.Input!["tools"]!.AsArray().Any(tool => tool?["name"]?.GetValue<string>() == "wanted"), "configured tool past the scan cutoff is still discovered");
+var cappedReports = new List<string>(); var cappedWire = new WideMcpHandler(2000, false, true); using var cappedHttp = new HttpClient(cappedWire);
+var cappedSource = new SequenceAgent([JsonNode.Parse("{\"type\":\"RUN_STARTED\"}")!.AsObject(), JsonNode.Parse("{\"type\":\"RUN_FINISHED\"}")!.AsObject()]);
+var cappedServer = McpAppServer.FromJson(new JsonObject { ["url"] = "https://mcp.test/mcp", ["serverId"] = "capped", ["includeTools"] = new JsonArray("wanted") });
+await foreach (var _ in new McpAppsAgent(cappedSource, [cappedServer], cappedHttp, cappedReports.Add).RunAsync(input, CancellationToken.None)) { }
+Check(cappedWire.Lists == 1 && cappedSource.Input!["tools"]!.AsArray().Count == 0 && cappedReports.Contains("mcp.discovery_incomplete"), "scan cap reports incomplete discovery");
+var emptyCallSource = new SequenceAgent([
+    JsonNode.Parse("{\"type\":\"RUN_STARTED\"}")!.AsObject(),
+    JsonNode.Parse("{\"type\":\"TOOL_CALL_START\",\"toolCallId\":\"admin\",\"toolCallName\":\"admin_dashboard\"}")!.AsObject(),
+    JsonNode.Parse("{\"type\":\"RUN_FINISHED\"}")!.AsObject()
+]);
+var emptyCallEvents = new List<JsonObject>(); await foreach (var item in new McpAppsAgent(emptyCallSource, [emptyServer], emptyHttp).RunAsync(input, CancellationToken.None)) emptyCallEvents.Add(item);
+var emptyRejected = -1; var emptyFinished = -1;
+for (var index = 0; index < emptyCallEvents.Count; index++)
+{
+    if (emptyCallEvents[index]["toolCallId"]?.GetValue<string>() == "admin" && emptyCallEvents[index]["type"]?.GetValue<string>() == "TOOL_CALL_RESULT") emptyRejected = index;
+    if (emptyCallEvents[index]["type"]?.GetValue<string>() == "RUN_FINISHED") emptyFinished = index;
+}
+Check(emptyRejected >= 0 && emptyFinished > emptyRejected, "empty includeTools still rejects the model call before RUN_FINISHED");
+var ownedInput = (JsonObject)input.DeepClone(); ownedInput["tools"] = new JsonArray(new JsonObject { ["name"] = "admin_dashboard", ["description"] = "frontend", ["parameters"] = new JsonObject { ["type"] = "object" } });
+var ownedEvents = new List<JsonObject>(); await foreach (var item in new McpAppsAgent(emptyCallSource, [emptyServer], emptyHttp).RunAsync(ownedInput, CancellationToken.None)) ownedEvents.Add(item);
+Check(!ownedEvents.Any(item => item["type"]?.GetValue<string>() == "TOOL_CALL_RESULT" && item["content"]?.GetValue<string>()?.Contains("not allowed") == true), "frontend tool is not denied when an MCP allowlist is empty");
+var sharedWire = new SharedNameHandler(); using var sharedHttp = new HttpClient(sharedWire);
+var sharedSource = new SequenceAgent([
+    JsonNode.Parse("{\"type\":\"RUN_STARTED\"}")!.AsObject(),
+    JsonNode.Parse("{\"type\":\"TOOL_CALL_START\",\"toolCallId\":\"a\",\"toolCallName\":\"show_weather\"}")!.AsObject(),
+    JsonNode.Parse("{\"type\":\"TOOL_CALL_ARGS\",\"toolCallId\":\"a\",\"delta\":\"{}\"}")!.AsObject(),
+    JsonNode.Parse("{\"type\":\"TOOL_CALL_START\",\"toolCallId\":\"b\",\"toolCallName\":\"beta__show_weather\"}")!.AsObject(),
+    JsonNode.Parse("{\"type\":\"TOOL_CALL_ARGS\",\"toolCallId\":\"b\",\"delta\":\"{}\"}")!.AsObject(),
+    JsonNode.Parse("{\"type\":\"RUN_FINISHED\"}")!.AsObject()
+]);
+var alpha = new McpAppServer { Url = new Uri("https://mcp.test/mcp"), ServerId = "alpha", Headers = new Dictionary<string, string> { ["x-token"] = "alpha" } };
+var beta = new McpAppServer { Url = new Uri("https://mcp.test/mcp"), ServerId = "beta", Headers = new Dictionary<string, string> { ["x-token"] = "beta" } };
+await foreach (var _ in new McpAppsAgent(sharedSource, [alpha, beta], sharedHttp).RunAsync(input, CancellationToken.None)) { }
+var sharedNames = sharedSource.Input!["tools"]!.AsArray().Select(tool => tool?["name"]?.GetValue<string>()).ToArray();
+Check(sharedNames.SequenceEqual(new string?[] { "show_weather", "beta__show_weather" }), "colliding MCP tools get distinct exposed names");
+Check(sharedWire.ToolCalls.SequenceEqual(new[] { ("alpha", "show_weather"), ("beta", "show_weather") }), "each exposed name calls its own server");
+var flakyWire = new FlakyListHandler(); using var flakyHttp = new HttpClient(flakyWire);
+var flakySource = new SequenceAgent([JsonNode.Parse("{\"type\":\"RUN_STARTED\"}")!.AsObject(), JsonNode.Parse("{\"type\":\"RUN_FINISHED\"}")!.AsObject()]);
+var flakyServer = new McpAppServer { Url = new Uri("https://mcp.test/mcp"), ServerId = "flaky" };
+var flakyAgent = new McpAppsAgent(flakySource, [flakyServer], flakyHttp);
+await foreach (var _ in flakyAgent.RunAsync(input, CancellationToken.None)) { }
+Check(flakySource.Input!["tools"]!.AsArray().Count == 0, "failed discovery exposes no tools");
+var failedProxy = (JsonObject)input.DeepClone(); failedProxy["forwardedProps"] = JsonNode.Parse("{\"__proxiedMCPRequest\":{\"serverId\":\"flaky\",\"method\":\"tools/call\",\"params\":{\"name\":\"generate_qr\",\"arguments\":{}}}}");
+var failedEvents = new List<JsonObject>(); await foreach (var item in flakyAgent.RunAsync(failedProxy, CancellationToken.None)) failedEvents.Add(item);
+Check(failedEvents.Last()["result"]?["error"] is not null && failedEvents.Last()["result"]?["isError"] is null, "failed discovery is a proxy failure, not a denial");
+await foreach (var _ in flakyAgent.RunAsync(input, CancellationToken.None)) { }
+Check(flakySource.Input!["tools"]!.AsArray().Any(tool => tool?["name"]?.GetValue<string>() == "generate_qr"), "a later run retries discovery after the server recovers");
 await TelemetryTests.RunAsync();
 await ReviewTests.RunAsync();
 await RunnerTests.RunAsync();
@@ -212,7 +258,7 @@ sealed class FilteredMcpHandler : HttpMessageHandler
         return response;
     }
 }
-sealed class WideMcpHandler : HttpMessageHandler
+sealed class WideMcpHandler(int count, bool includeWanted, bool more) : HttpMessageHandler
 {
     public int Lists { get; private set; }
     protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
@@ -226,12 +272,64 @@ sealed class WideMcpHandler : HttpMessageHandler
         {
             Lists++;
             var tools = new JsonArray();
-            for (var index = 0; index < 1001; index++) tools.Add(new JsonObject { ["name"] = "tool-" + index, ["inputSchema"] = new JsonObject { ["type"] = "object" }, ["_meta"] = new JsonObject { ["ui"] = new JsonObject { ["resourceUri"] = "ui://t/" + index } } });
-            result = new JsonObject { ["tools"] = tools, ["nextCursor"] = "page-2" };
+            for (var index = 0; index < count; index++)
+            {
+                var name = includeWanted && index == count - 1 ? "wanted" : "tool-" + index;
+                tools.Add(new JsonObject { ["name"] = name, ["inputSchema"] = new JsonObject { ["type"] = "object" }, ["_meta"] = new JsonObject { ["ui"] = new JsonObject { ["resourceUri"] = "ui://t/" + index } } });
+            }
+            var page = new JsonObject { ["tools"] = tools };
+            if (more) page["nextCursor"] = "page-2";
+            result = page;
         }
         else result = JsonNode.Parse("{\"protocolVersion\":\"2025-03-26\",\"capabilities\":{},\"serverInfo\":{\"name\":\"fixture\",\"version\":\"1\"}}");
         var response = new HttpResponseMessage(System.Net.HttpStatusCode.OK) { Content = JsonContent.Create(new JsonObject { ["jsonrpc"] = "2.0", ["id"] = body["id"]!.DeepClone(), ["result"] = result }) };
         if (method == "initialize") response.Headers.Add("Mcp-Session-Id", "session-wide");
+        return response;
+    }
+}
+sealed class SharedNameHandler : HttpMessageHandler
+{
+    public List<(string Token, string Tool)> ToolCalls { get; } = [];
+    protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+    {
+        if (request.Method == HttpMethod.Delete) return new HttpResponseMessage(System.Net.HttpStatusCode.NoContent);
+        var token = request.Headers.TryGetValues("x-token", out var tokens) ? tokens.Single() : "";
+        var body = JsonNode.Parse(await request.Content!.ReadAsStringAsync(cancellationToken))!;
+        var method = body["method"]!.GetValue<string>();
+        if (body["id"] is null) return new HttpResponseMessage(System.Net.HttpStatusCode.Accepted);
+        JsonNode? result;
+        if (method == "tools/list") result = JsonNode.Parse("{\"tools\":[{\"name\":\"show_weather\",\"description\":\"Weather\",\"inputSchema\":{\"type\":\"object\"},\"_meta\":{\"ui\":{\"resourceUri\":\"ui://weather\"}}}]}");
+        else if (method == "tools/call")
+        {
+            var name = A2UIValidation.Text(body["params"]?["name"]) ?? "";
+            ToolCalls.Add((token, name));
+            result = JsonNode.Parse("{\"content\":[{\"type\":\"text\",\"text\":\"ok\"}]}");
+        }
+        else result = JsonNode.Parse("{\"protocolVersion\":\"2025-03-26\",\"capabilities\":{},\"serverInfo\":{\"name\":\"fixture\",\"version\":\"1\"}}");
+        var response = new HttpResponseMessage(System.Net.HttpStatusCode.OK) { Content = JsonContent.Create(new JsonObject { ["jsonrpc"] = "2.0", ["id"] = body["id"]!.DeepClone(), ["result"] = result }) };
+        if (method == "initialize") response.Headers.Add("Mcp-Session-Id", "session-" + token);
+        return response;
+    }
+}
+sealed class FlakyListHandler : HttpMessageHandler
+{
+    public int Lists { get; private set; }
+    protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+    {
+        if (request.Method == HttpMethod.Delete) return new HttpResponseMessage(System.Net.HttpStatusCode.NoContent);
+        var body = JsonNode.Parse(await request.Content!.ReadAsStringAsync(cancellationToken))!;
+        var method = body["method"]!.GetValue<string>();
+        if (body["id"] is null) return new HttpResponseMessage(System.Net.HttpStatusCode.Accepted);
+        if (method == "tools/list")
+        {
+            Lists++;
+            if (Lists < 3) return new HttpResponseMessage(System.Net.HttpStatusCode.ServiceUnavailable);
+        }
+        var result = method == "tools/list"
+            ? JsonNode.Parse("{\"tools\":[{\"name\":\"generate_qr\",\"description\":\"QR\",\"inputSchema\":{\"type\":\"object\"},\"_meta\":{\"ui\":{\"resourceUri\":\"ui://qr\"}}}]}")
+            : JsonNode.Parse("{\"protocolVersion\":\"2025-03-26\",\"capabilities\":{},\"serverInfo\":{\"name\":\"fixture\",\"version\":\"1\"}}");
+        var response = new HttpResponseMessage(System.Net.HttpStatusCode.OK) { Content = JsonContent.Create(new JsonObject { ["jsonrpc"] = "2.0", ["id"] = body["id"]!.DeepClone(), ["result"] = result }) };
+        if (method == "initialize") response.Headers.Add("Mcp-Session-Id", "session-flaky");
         return response;
     }
 }

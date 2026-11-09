@@ -84,10 +84,21 @@ public sealed class McpAppsAgent(IRuntimeAgent next, IReadOnlyList<McpAppServer>
 {
     public string Description => next.Description;
     private const int UiToolScanLimit = 1000;
-    private sealed record UiTool(JsonObject Tool, McpAppServer Server, string ResourceUri);
-    private readonly List<UiTool> discoveredTools = [];
-    private readonly Dictionary<McpAppServer, HashSet<string>> exposedToolNames = [];
-    private readonly HashSet<string> rejectedToolNames = new(StringComparer.Ordinal);
+    private sealed record UiTool(string ExposedName, string OriginalName, JsonObject Tool, McpAppServer Server, string ResourceUri);
+    /// <summary>Tool lists for one run. A later run builds a new catalog so a failed discovery can be retried.</summary>
+    private sealed class RunCatalog
+    {
+        public List<UiTool> Tools { get; } = [];
+        public Dictionary<McpAppServer, ServerScan> Servers { get; } = [];
+        public HashSet<string> RejectedNames { get; } = new(StringComparer.Ordinal);
+        public HashSet<string> UsedNames { get; } = new(StringComparer.Ordinal);
+    }
+    private sealed class ServerScan
+    {
+        public bool Failed { get; set; }
+        public bool Incomplete { get; set; }
+        public HashSet<string> OriginalNames { get; } = new(StringComparer.Ordinal);
+    }
     public async IAsyncEnumerable<JsonObject> RunAsync(JsonObject input, [EnumeratorCancellation] CancellationToken cancellationToken)
     {
         if (input["forwardedProps"]?["__proxiedMCPRequest"] is JsonObject proxy)
@@ -104,14 +115,18 @@ public sealed class McpAppsAgent(IRuntimeAgent next, IReadOnlyList<McpAppServer>
                 if (method == "tools/call")
                 {
                     var toolName = A2UIValidation.Text((proxy["params"] as JsonObject)?["name"]);
-                    var exposed = await ExposeServerAsync(server, cancellationToken);
-                    if (toolName is null || !exposed.Contains(toolName)) result = DeniedToolResult(toolName);
-                    else
+                    var proxyCatalog = new RunCatalog();
+                    var scan = await DiscoverServerAsync(server, proxyCatalog, cancellationToken);
+                    if (scan.Failed) throw new RuntimeRequestException(502, "MCP tool discovery failed");
+                    if (toolName is not null && scan.OriginalNames.Contains(toolName))
                     {
                         await using var session = new McpHttpSession(server, httpClient);
                         await session.InitializeAsync(cancellationToken);
                         result = await session.RequestAsync(method, proxy["params"] as JsonObject, cancellationToken);
                     }
+                    else if (scan.Incomplete && (toolName is null || !proxyCatalog.RejectedNames.Contains(toolName)))
+                        throw new RuntimeRequestException(502, "MCP tool discovery incomplete");
+                    else result = DeniedToolResult(toolName);
                 }
                 else
                 {
@@ -126,10 +141,15 @@ public sealed class McpAppsAgent(IRuntimeAgent next, IReadOnlyList<McpAppServer>
             yield return new JsonObject { ["type"] = "RUN_FINISHED", ["threadId"] = input["threadId"]?.DeepClone(), ["runId"] = input["runId"]?.DeepClone(), ["result"] = result };
             yield break;
         }
-        foreach (var server in servers) await ExposeServerAsync(server, cancellationToken);
+        var catalog = new RunCatalog();
+        foreach (var server in servers) await DiscoverServerAsync(server, catalog, cancellationToken);
+        var frontendTools = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var tool in input["tools"] as JsonArray ?? []) if (A2UIValidation.Text(tool?["name"]) is { } frontendName) frontendTools.Add(frontendName);
+        var routes = new Dictionary<string, UiTool>(StringComparer.Ordinal);
+        foreach (var tool in catalog.Tools) routes[tool.ExposedName] = tool;
         var enhanced = (JsonObject)input.DeepClone();
-        enhanced["tools"] = new JsonArray((input["tools"] as JsonArray ?? []).Select(tool => tool?.DeepClone()).Concat(discoveredTools.Select(tool => (JsonNode?)tool.Tool.DeepClone())).ToArray());
-        var byName = new Dictionary<string, UiTool>(StringComparer.Ordinal); foreach (var tool in discoveredTools) byName[tool.Tool["name"]!.GetValue<string>()] = tool;
+        enhanced["tools"] = new JsonArray((input["tools"] as JsonArray ?? []).Select(tool => tool?.DeepClone()).Concat(catalog.Tools.Select(tool => (JsonNode?)tool.Tool.DeepClone())).ToArray());
+        var emptyAllowlist = servers.Any(server => server.IncludeTools is { Count: 0 });
         var calls = new AgentToolCalls(enhanced); JsonObject? held = null; Exception? failure = null;
         await using var source = next.RunAsync(enhanced, cancellationToken).GetAsyncEnumerator(cancellationToken);
         while (true)
@@ -146,15 +166,15 @@ public sealed class McpAppsAgent(IRuntimeAgent next, IReadOnlyList<McpAppServer>
         {
             if (failure is null)
             {
-                foreach (var call in calls.Pending.Where(call => byName.ContainsKey(call.Name)))
+                foreach (var call in calls.Pending.Where(call => routes.ContainsKey(call.Name)))
                 {
-                    var tool = byName[call.Name]; JsonObject result; JsonObject? activity = null;
+                    var tool = routes[call.Name]; JsonObject result; JsonObject? activity = null;
                     try
                     {
                         var args = JsonNode.Parse(string.IsNullOrWhiteSpace(call.Arguments) ? "{}" : call.Arguments) as JsonObject ?? throw new RuntimeRequestException(400, "MCP tool arguments must be an object");
                         await using var session = new McpHttpSession(tool.Server, httpClient);
                         await session.InitializeAsync(cancellationToken);
-                        var content = await session.RequestAsync("tools/call", new JsonObject { ["name"] = call.Name, ["arguments"] = args.DeepClone() }, cancellationToken) ?? new JsonObject();
+                        var content = await session.RequestAsync("tools/call", new JsonObject { ["name"] = tool.OriginalName, ["arguments"] = args.DeepClone() }, cancellationToken) ?? new JsonObject();
                         var text = string.Join('\n', (content["content"] as JsonArray ?? []).OfType<JsonObject>().Where(item => A2UIValidation.Text(item["type"]) == "text").Select(item => A2UIValidation.Text(item["text"])).Where(item => item is not null));
                         result = AgentToolCalls.Result(call.Id, text.Length > 0 ? text : content["content"]?.ToJsonString() ?? "null");
                         var activityContent = new JsonObject { ["result"] = content, ["resourceUri"] = tool.ResourceUri, ["serverHash"] = tool.Server.Hash, ["toolInput"] = args };
@@ -166,28 +186,29 @@ public sealed class McpAppsAgent(IRuntimeAgent next, IReadOnlyList<McpAppServer>
                     yield return result; if (activity is not null) yield return activity;
                 }
             }
-            foreach (var call in calls.Pending.Where(call => !byName.ContainsKey(call.Name) && rejectedToolNames.Contains(call.Name)))
-                yield return AgentToolCalls.Result(call.Id, "MCP tool is not allowed: " + call.Name);
+            foreach (var call in calls.Pending.Where(call => !routes.ContainsKey(call.Name) && !frontendTools.Contains(call.Name)))
+            {
+                if (UnseenConfiguredTool(call.Name, catalog)) continue;
+                if (catalog.RejectedNames.Contains(call.Name) || emptyAllowlist)
+                    yield return AgentToolCalls.Result(call.Id, "MCP tool is not allowed: " + call.Name);
+            }
             yield return held;
         }
         if (failure is not null) ExceptionDispatchInfo.Capture(failure).Throw();
     }
 
-    /// <summary>Discover one server once. An empty allowlist records no tools and does not connect.</summary>
-    private async Task<HashSet<string>> ExposeServerAsync(McpAppServer server, CancellationToken cancellationToken)
+    /// <summary>Discover one server for this run. An empty allowlist records no tools and does not connect. A failure stays on this run only.</summary>
+    private async Task<ServerScan> DiscoverServerAsync(McpAppServer server, RunCatalog catalog, CancellationToken cancellationToken)
     {
-        if (exposedToolNames.TryGetValue(server, out var cached)) return cached;
-        var exposed = new HashSet<string>(StringComparer.Ordinal);
-        if (server.IncludeTools is { Count: 0 })
-        {
-            exposedToolNames[server] = exposed;
-            return exposed;
-        }
+        if (catalog.Servers.TryGetValue(server, out var cached)) return cached;
+        var scan = new ServerScan();
+        catalog.Servers[server] = scan;
+        if (server.IncludeTools is { Count: 0 }) return scan;
         try
         {
             await using var session = new McpHttpSession(server, httpClient);
             await session.InitializeAsync(cancellationToken);
-            string? cursor = null; var seen = new HashSet<string>(StringComparer.Ordinal); var scannedUiTools = 0;
+            string? cursor = null; var seen = new HashSet<string>(StringComparer.Ordinal); var scannedUiTools = 0; var stop = false;
             do
             {
                 var response = await session.RequestAsync("tools/list", cursor is null ? new JsonObject() : new JsonObject { ["cursor"] = cursor }, cancellationToken);
@@ -200,26 +221,57 @@ public sealed class McpAppsAgent(IRuntimeAgent next, IReadOnlyList<McpAppServer>
                         (ui["visibility"] is not JsonArray visibility || !visibility.Any(value => A2UIValidation.Text(value) == "model"))) continue;
                     var resource = A2UIValidation.Text(ui?["resourceUri"]) ?? A2UIValidation.Text(meta?["ui/resourceUri"]);
                     if (resource is null || A2UIValidation.Text(tool["name"]) is not { } name) continue;
-                    // Count UI tools before the include/exclude filter so an excluded page cannot keep discovery paging.
                     scannedUiTools++;
-                    if (!server.AllowsTool(name)) rejectedToolNames.Add(name);
-                    else
+                    var targeted = scannedUiTools > UiToolScanLimit;
+                    if (!server.AllowsTool(name)) catalog.RejectedNames.Add(name);
+                    else if (!targeted || server.IncludeTools?.Contains(name) == true)
                     {
-                        discoveredTools.Add(new UiTool(new JsonObject { ["name"] = name, ["description"] = (A2UIValidation.Text(tool["description"]) ?? "") + "\n[UI Resource: " + resource + "]", ["parameters"] = tool["inputSchema"]?.DeepClone() ?? new JsonObject { ["type"] = "object", ["properties"] = new JsonObject() } }, server, resource));
-                        exposed.Add(name);
-                        if (discoveredTools.Count > UiToolScanLimit) throw new RuntimeRequestException(502, "MCP tool limit exceeded");
+                        var exposedName = AllocateExposedName(name, server, catalog.UsedNames);
+                        catalog.Tools.Add(new UiTool(exposedName, name, new JsonObject { ["name"] = exposedName, ["description"] = (A2UIValidation.Text(tool["description"]) ?? "") + "\n[UI Resource: " + resource + "]", ["parameters"] = tool["inputSchema"]?.DeepClone() ?? new JsonObject { ["type"] = "object", ["properties"] = new JsonObject() } }, server, resource));
+                        scan.OriginalNames.Add(name);
                     }
-                    if (scannedUiTools >= UiToolScanLimit) { cursor = null; break; }
+                    if (scannedUiTools >= UiToolScanLimit * 2 || (scannedUiTools >= UiToolScanLimit && !MissingConfiguredTool(server, scan))) { stop = true; break; }
                 }
-                if (scannedUiTools >= UiToolScanLimit) break;
-                cursor = A2UIValidation.Text(response["nextCursor"]);
+                var nextCursor = A2UIValidation.Text(response["nextCursor"]);
+                if (stop)
+                {
+                    if (nextCursor is not null) scan.Incomplete = true;
+                    break;
+                }
+                cursor = nextCursor;
                 if (cursor is not null && (!seen.Add(cursor) || seen.Count > 100)) throw new RuntimeRequestException(502, "MCP pagination limit exceeded");
             } while (cursor is not null);
+            if (scan.Incomplete) report?.Invoke("mcp.discovery_incomplete");
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { throw; }
-        catch (Exception) { report?.Invoke("mcp.discovery_failed"); }
-        exposedToolNames[server] = exposed;
-        return exposed;
+        catch (Exception) { scan.Failed = true; report?.Invoke("mcp.discovery_failed"); }
+        return scan;
+    }
+
+    /// <summary>Keep a free tool name. A second server that exposes the same name gets serverId__name and keeps its own credentials.</summary>
+    private static string AllocateExposedName(string original, McpAppServer server, HashSet<string> used)
+    {
+        if (used.Add(original)) return original;
+        string suffix = string.IsNullOrEmpty(server.ServerId) ? server.Hash[..8] : server.ServerId!;
+        var candidate = suffix + "__" + original;
+        var discriminator = 2;
+        while (!used.Add(candidate)) candidate = suffix + "__" + original + "_" + discriminator++;
+        return candidate;
+    }
+
+    private static bool MissingConfiguredTool(McpAppServer server, ServerScan scan) =>
+        server.IncludeTools is { Count: > 0 } && server.IncludeTools.Any(name => !scan.OriginalNames.Contains(name));
+
+    /// <summary>A configured name that this run did not reach is not a denial. Discovery failed or stopped early.</summary>
+    private bool UnseenConfiguredTool(string name, RunCatalog catalog)
+    {
+        foreach (var server in servers)
+        {
+            if (server.IncludeTools?.Contains(name) != true) continue;
+            if (!catalog.Servers.TryGetValue(server, out var scan)) return true;
+            if ((scan.Failed || scan.Incomplete) && !scan.OriginalNames.Contains(name)) return true;
+        }
+        return false;
     }
 
     private static JsonObject DeniedToolResult(string? name) => new()

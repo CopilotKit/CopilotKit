@@ -182,7 +182,7 @@ const runtime = new CopilotRuntime({
 });
 ```
 
-Each server entry optionally accepts an `agentId` field to scope that server to a single agent. Without it, the server is available to all agents. `includeTools` limits the server to those MCP tool names. An empty list exposes nothing and skips discovery. `excludeTools` removes names after that allowlist. A name in both lists stays hidden. A proxied `tools/call` is accepted only for a discovered UI tool that passed the filter, and a rejection is returned with `isError: true`.
+Each server entry optionally accepts an `agentId` field to scope that server to a single agent. Without it, the server is available to all agents. `includeTools` limits the server to those MCP tool names. An empty list skips tool discovery and exposes nothing. A proxied `resources/read` can still contact that server. `excludeTools` removes names after that allowlist. A name in both lists stays hidden. When a server sets either list, a proxied `tools/call` is accepted for a discovered UI tool that passed the filter, and a rejection is returned with `isError: true`. When no server sets `includeTools` or `excludeTools`, the proxy is unchanged and may also forward a non-UI tool.
 
 ## What If I Want to Connect to My AG-UI Agent Directly?
 

@@ -1,5 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
+import { EventType } from "@ag-ui/client";
+import type { RunAgentInput } from "@ag-ui/client";
 import type { MCPClientConfig } from "@ag-ui/mcp-apps-middleware";
+import { Observable } from "rxjs";
 import { MCPAppsMiddleware } from "@ag-ui/mcp-apps-middleware";
 import type { McpAppToolPolicy } from "../handlers/shared/mcp-apps-tool-policy";
 import {
@@ -181,7 +184,7 @@ describe("enforceMcpAppsToolPolicy", () => {
     );
 
     await expect(middleware.fetchToolsFromServer(server)).resolves.toEqual([
-      { tool: { name: "generate_qr" } },
+      { tool: { name: "generate_qr" }, originalName: "generate_qr" },
     ]);
     expect(fetchToolsFromServer).toHaveBeenCalledOnce();
   });
@@ -284,6 +287,107 @@ describe("enforceMcpAppsToolPolicy", () => {
 
   it("does nothing when no server has a policy", () => {
     expect(() => enforceMcpAppsToolPolicy({}, new Map())).not.toThrow();
+  });
+
+  it("renames a colliding tool and calls the original name on that server", async () => {
+    const other: MCPClientConfig = {
+      type: "http",
+      url: "https://mcp.example.com/other",
+      serverId: "billing",
+    };
+    const fetchToolsFromServer = vi.fn(async (target: MCPClientConfig) => [
+      {
+        tool: { name: "show_weather", description: "Weather" },
+        serverConfig: target,
+      },
+    ]);
+    const executeToolCall = vi.fn(
+      async (
+        _server: MCPClientConfig,
+        _name: string,
+        _args: Record<string, unknown>,
+      ) => ({ ok: true }),
+    );
+    const middleware = {
+      fetchToolsFromServer,
+      executeMCPRequest: vi.fn(),
+      executeToolCall,
+    };
+    enforceMcpAppsToolPolicy(
+      middleware,
+      new Map([
+        [mcpAppsServerPolicyKey(server), { excludeTools: [] }],
+        [mcpAppsServerPolicyKey(other), { excludeTools: [] }],
+      ]),
+    );
+
+    const first = await middleware.fetchToolsFromServer(server);
+    const second = await middleware.fetchToolsFromServer(other);
+    expect(first.map((tool) => tool.tool?.name)).toEqual(["show_weather"]);
+    expect(second.map((tool) => tool.tool?.name)).toEqual([
+      "billing__show_weather",
+    ]);
+    await middleware.executeToolCall(other, "billing__show_weather", {});
+    expect(executeToolCall).toHaveBeenCalledWith(other, "show_weather", {});
+  });
+
+  it("does not deny a frontend tool that shares an excluded MCP name", async () => {
+    const middleware = {
+      fetchToolsFromServer: vi.fn(async (_server: MCPClientConfig) =>
+        discovered(["admin_dashboard"]),
+      ),
+      executeMCPRequest: vi.fn(),
+      run(input: RunAgentInput) {
+        return new Observable((subscriber) => {
+          subscriber.next({
+            type: EventType.TOOL_CALL_START,
+            toolCallId: "front",
+            toolCallName: "admin_dashboard",
+          });
+          subscriber.next({
+            type: EventType.RUN_FINISHED,
+            threadId: input.threadId,
+            runId: input.runId,
+          });
+          subscriber.complete();
+        });
+      },
+    };
+    enforceMcpAppsToolPolicy(
+      middleware,
+      new Map([
+        [mcpAppsServerPolicyKey(server), { excludeTools: ["admin_dashboard"] }],
+      ]),
+    );
+    await middleware.fetchToolsFromServer(server);
+    const events: Array<{ type?: string; content?: string }> = [];
+    await new Promise<void>((resolve, reject) => {
+      middleware
+        .run({
+          threadId: "t",
+          runId: "r",
+          messages: [],
+          tools: [
+            {
+              name: "admin_dashboard",
+              description: "frontend",
+              parameters: { type: "object", properties: {} },
+            },
+          ],
+          state: {},
+          context: [],
+          forwardedProps: {},
+        })
+        .subscribe({
+          next: (event) =>
+            events.push(event as { type?: string; content?: string }),
+          error: reject,
+          complete: resolve,
+        });
+    });
+    expect(events.some((event) => event.content?.includes("not allowed"))).toBe(
+      false,
+    );
   });
 });
 

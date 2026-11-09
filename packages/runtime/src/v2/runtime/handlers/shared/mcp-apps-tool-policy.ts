@@ -21,7 +21,7 @@ export interface McpAppToolPolicy {
   excludeTools?: readonly string[];
 }
 
-type ListedTool = { tool?: { name?: string } };
+type ListedTool = { tool?: { name?: string }; originalName?: string };
 
 interface McpAppsPolicyTarget {
   fetchToolsFromServer?: (
@@ -95,7 +95,13 @@ export function enforceMcpAppsToolPolicy(
 
   const originalFetch = target.fetchToolsFromServer.bind(middleware);
   const hiddenToolNames = new Set<string>();
+  const exposedNames = new Set<string>();
+  const exposedToOriginal = new Map<string, string>();
+  const usedNames = new Set<string>();
   const discovered = new Map<string, Promise<ListedTool[]>>();
+  const emptyAllowlist = [...policies.values()].some(
+    (policy) => policy.includeTools?.length === 0,
+  );
 
   const loadTools = (serverConfig: MCPClientConfig): Promise<ListedTool[]> => {
     const key = mcpAppsServerPolicyKey(serverConfig);
@@ -103,20 +109,35 @@ export function enforceMcpAppsToolPolicy(
     if (cached) return cached;
     const task = (async () => {
       const policy = policies.get(key);
-      // An empty allowlist exposes nothing, so do not open the server.
+      // An empty allowlist exposes nothing, so do not list tools.
       if (policy?.includeTools?.length === 0) return [];
       const tools = await originalFetch(serverConfig);
-      if (!policy) return tools;
-      return tools.filter((entry) => {
+      const visible: ListedTool[] = [];
+      for (const entry of tools) {
         const name = entry?.tool?.name;
-        if (typeof name !== "string") return false;
-        if (!isMcpAppToolAllowed(name, policy)) {
+        if (typeof name !== "string") continue;
+        if (policy && !isMcpAppToolAllowed(name, policy)) {
           hiddenToolNames.add(name);
-          return false;
+          continue;
         }
-        return true;
-      });
-    })();
+        const exposed = exposeToolName(name, serverConfig, usedNames);
+        exposedNames.add(exposed);
+        if (exposed !== name) exposedToOriginal.set(exposed, name);
+        visible.push(
+          exposed === name
+            ? { ...entry, originalName: name }
+            : {
+                ...entry,
+                originalName: name,
+                tool: { ...entry.tool, name: exposed },
+              },
+        );
+      }
+      return visible;
+    })().catch((error: unknown) => {
+      if (discovered.get(key) === task) discovered.delete(key);
+      throw error;
+    });
     discovered.set(key, task);
     return task;
   };
@@ -130,21 +151,48 @@ export function enforceMcpAppsToolPolicy(
       const name = params?.name;
       const allowed =
         typeof name === "string" &&
-        tools.some((entry) => entry?.tool?.name === name);
+        tools.some(
+          (entry) => (entry.originalName ?? entry.tool?.name) === name,
+        );
       if (!allowed) return deniedToolResult(name);
     }
     return originalExecute(serverConfig, method, params);
   };
 
-  rejectHiddenToolCalls(target, hiddenToolNames);
+  rejectHiddenToolCalls(target, {
+    hiddenToolNames,
+    exposedNames,
+    emptyAllowlist,
+  });
 
   if (typeof target.executeToolCall === "function") {
     const originalCall = target.executeToolCall.bind(middleware);
     target.executeToolCall = async (serverConfig, toolName, args) => {
-      assertMcpAppToolAllowed(serverConfig, toolName, policies);
-      return originalCall(serverConfig, toolName, args);
+      const originalName = exposedToOriginal.get(toolName) ?? toolName;
+      assertMcpAppToolAllowed(serverConfig, originalName, policies);
+      return originalCall(serverConfig, originalName, args);
     };
   }
+}
+
+/** A second server that exposes the same name gets a distinct model-facing name. */
+function exposeToolName(
+  original: string,
+  server: MCPClientConfig,
+  used: Set<string>,
+): string {
+  if (!used.has(original)) {
+    used.add(original);
+    return original;
+  }
+  const suffix = server.serverId || "mcp";
+  let candidate = `${suffix}__${original}`;
+  let discriminator = 2;
+  while (used.has(candidate)) {
+    candidate = `${suffix}__${original}_${discriminator++}`;
+  }
+  used.add(candidate);
+  return candidate;
 }
 
 function deniedToolResult(toolName: unknown): {
@@ -164,12 +212,17 @@ function deniedToolResult(toolName: unknown): {
  */
 function rejectHiddenToolCalls(
   target: McpAppsPolicyTarget,
-  hiddenToolNames: Set<string>,
+  names: {
+    hiddenToolNames: Set<string>;
+    exposedNames: Set<string>;
+    emptyAllowlist: boolean;
+  },
 ): void {
   if (typeof target.run !== "function") return;
   const originalRun = target.run.bind(target);
   target.run = (input, next) =>
     new Observable((subscriber) => {
+      const frontendTools = new Set(input.tools.map((tool) => tool.name));
       const pending = new Map<string, string>();
       const subscription = originalRun(input, next).subscribe({
         next: (event) => {
@@ -181,7 +234,10 @@ function rejectHiddenToolCalls(
             record.type === EventType.TOOL_CALL_START &&
             record.toolCallId &&
             record.toolCallName &&
-            hiddenToolNames.has(record.toolCallName)
+            !frontendTools.has(record.toolCallName) &&
+            (names.hiddenToolNames.has(record.toolCallName) ||
+              (names.emptyAllowlist &&
+                !names.exposedNames.has(record.toolCallName)))
           ) {
             pending.set(record.toolCallId, record.toolCallName);
           }

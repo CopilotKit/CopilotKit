@@ -290,10 +290,7 @@ describe("MCPAppsMiddleware integration", () => {
       );
       expect(listing.toolNames).toEqual(expected);
       expect(calls).toEqual(expected);
-      if (
-        !expected.includes("admin_dashboard") &&
-        policy.includeTools?.length !== 0
-      ) {
+      if (!expected.includes("admin_dashboard")) {
         const rejectedAt = events.findIndex(
           (event) =>
             event.type === EventType.TOOL_CALL_RESULT &&
