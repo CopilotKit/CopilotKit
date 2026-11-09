@@ -67,6 +67,15 @@ public sealed class McpAppServer
         var numericLoopback = System.Net.IPAddress.TryParse(Url.Host.Trim('[', ']'), out var address) && System.Net.IPAddress.IsLoopback(address);
         if (Headers.Count > 0 && Url.Scheme != "https" && !numericLoopback)
             throw new ArgumentException("MCP servers with headers require HTTPS, except numeric loopback development endpoints.");
+        RejectEmptyNames(IncludeTools, "includeTools");
+        RejectEmptyNames(ExcludeTools, "excludeTools");
+    }
+
+    private static void RejectEmptyNames(IReadOnlyList<string>? names, string key)
+    {
+        if (names is null) return;
+        foreach (var name in names)
+            if (string.IsNullOrEmpty(name)) throw new ArgumentException($"{key} must be an array of non-empty tool names.");
     }
 }
 
@@ -74,7 +83,11 @@ public sealed class McpAppServer
 public sealed class McpAppsAgent(IRuntimeAgent next, IReadOnlyList<McpAppServer> servers, HttpClient httpClient, Action<string>? report = null) : IRuntimeAgent
 {
     public string Description => next.Description;
+    private const int UiToolScanLimit = 1000;
     private sealed record UiTool(JsonObject Tool, McpAppServer Server, string ResourceUri);
+    private readonly List<UiTool> discoveredTools = [];
+    private readonly Dictionary<McpAppServer, HashSet<string>> exposedToolNames = [];
+    private readonly HashSet<string> rejectedToolNames = new(StringComparer.Ordinal);
     public async IAsyncEnumerable<JsonObject> RunAsync(JsonObject input, [EnumeratorCancellation] CancellationToken cancellationToken)
     {
         if (input["forwardedProps"]?["__proxiedMCPRequest"] is JsonObject proxy)
@@ -88,50 +101,35 @@ public sealed class McpAppsAgent(IRuntimeAgent next, IReadOnlyList<McpAppServer>
                 var id = A2UIValidation.Text(proxy["serverId"]); var hash = A2UIValidation.Text(proxy["serverHash"]);
                 var matches = servers.Where(server => id is null ? server.Hash == hash : server.ServerId == id).Take(2).ToArray();
                 var server = matches.Length == 1 ? matches[0] : throw new RuntimeRequestException(404, "Unknown or ambiguous MCP server");
-                if (method == "tools/call" && (A2UIValidation.Text((proxy["params"] as JsonObject)?["name"]) is not { } toolName || !server.AllowsTool(toolName))) throw new RuntimeRequestException(403, "MCP tool is not allowed");
-                await using var session = new McpHttpSession(server, httpClient);
-                await session.InitializeAsync(cancellationToken);
-                result = await session.RequestAsync(method, proxy["params"] as JsonObject, cancellationToken, notification: method == "notifications/message");
-                if (method == "notifications/message") result = new JsonObject { ["success"] = true };
+                if (method == "tools/call")
+                {
+                    var toolName = A2UIValidation.Text((proxy["params"] as JsonObject)?["name"]);
+                    var exposed = await ExposeServerAsync(server, cancellationToken);
+                    if (toolName is null || !exposed.Contains(toolName)) result = DeniedToolResult(toolName);
+                    else
+                    {
+                        await using var session = new McpHttpSession(server, httpClient);
+                        await session.InitializeAsync(cancellationToken);
+                        result = await session.RequestAsync(method, proxy["params"] as JsonObject, cancellationToken);
+                    }
+                }
+                else
+                {
+                    await using var session = new McpHttpSession(server, httpClient);
+                    await session.InitializeAsync(cancellationToken);
+                    result = await session.RequestAsync(method, proxy["params"] as JsonObject, cancellationToken, notification: method == "notifications/message");
+                    if (method == "notifications/message") result = new JsonObject { ["success"] = true };
+                }
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { throw; }
             catch (Exception) { report?.Invoke("mcp.proxy_failed"); result = new JsonObject { ["error"] = "MCP proxy request failed" }; }
             yield return new JsonObject { ["type"] = "RUN_FINISHED", ["threadId"] = input["threadId"]?.DeepClone(), ["runId"] = input["runId"]?.DeepClone(), ["result"] = result };
             yield break;
         }
-        var tools = new List<UiTool>();
-        foreach (var server in servers)
-        {
-            try
-            {
-                await using var session = new McpHttpSession(server, httpClient);
-                await session.InitializeAsync(cancellationToken);
-                string? cursor = null; var seen = new HashSet<string>(StringComparer.Ordinal);
-                do
-                {
-                    var response = await session.RequestAsync("tools/list", cursor is null ? new JsonObject() : new JsonObject { ["cursor"] = cursor }, cancellationToken);
-                    if (response?["tools"] is not JsonArray listed) throw new RuntimeRequestException(502, "MCP server returned an invalid tool list");
-                    foreach (var tool in listed.OfType<JsonObject>())
-                    {
-                        var meta = tool["_meta"] as JsonObject;
-                        var ui = meta?["ui"] as JsonObject;
-                        if (ui?.ContainsKey("visibility") == true &&
-                            (ui["visibility"] is not JsonArray visibility || !visibility.Any(value => A2UIValidation.Text(value) == "model"))) continue;
-                        var resource = A2UIValidation.Text(ui?["resourceUri"]) ?? A2UIValidation.Text(meta?["ui/resourceUri"]);
-                        if (resource is null || A2UIValidation.Text(tool["name"]) is not { } name || !server.AllowsTool(name)) continue;
-                        tools.Add(new UiTool(new JsonObject { ["name"] = name, ["description"] = (A2UIValidation.Text(tool["description"]) ?? "") + "\n[UI Resource: " + resource + "]", ["parameters"] = tool["inputSchema"]?.DeepClone() ?? new JsonObject { ["type"] = "object", ["properties"] = new JsonObject() } }, server, resource));
-                        if (tools.Count > 1000) throw new RuntimeRequestException(502, "MCP tool limit exceeded");
-                    }
-                    cursor = A2UIValidation.Text(response["nextCursor"]);
-                    if (cursor is not null && (!seen.Add(cursor) || seen.Count > 100)) throw new RuntimeRequestException(502, "MCP pagination limit exceeded");
-                } while (cursor is not null);
-            }
-            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { throw; }
-            catch (Exception) { report?.Invoke("mcp.discovery_failed"); }
-        }
+        foreach (var server in servers) await ExposeServerAsync(server, cancellationToken);
         var enhanced = (JsonObject)input.DeepClone();
-        enhanced["tools"] = new JsonArray((input["tools"] as JsonArray ?? []).Select(tool => tool?.DeepClone()).Concat(tools.Select(tool => (JsonNode?)tool.Tool.DeepClone())).ToArray());
-        var byName = new Dictionary<string, UiTool>(StringComparer.Ordinal); foreach (var tool in tools) byName[tool.Tool["name"]!.GetValue<string>()] = tool;
+        enhanced["tools"] = new JsonArray((input["tools"] as JsonArray ?? []).Select(tool => tool?.DeepClone()).Concat(discoveredTools.Select(tool => (JsonNode?)tool.Tool.DeepClone())).ToArray());
+        var byName = new Dictionary<string, UiTool>(StringComparer.Ordinal); foreach (var tool in discoveredTools) byName[tool.Tool["name"]!.GetValue<string>()] = tool;
         var calls = new AgentToolCalls(enhanced); JsonObject? held = null; Exception? failure = null;
         await using var source = next.RunAsync(enhanced, cancellationToken).GetAsyncEnumerator(cancellationToken);
         while (true)
@@ -168,10 +166,67 @@ public sealed class McpAppsAgent(IRuntimeAgent next, IReadOnlyList<McpAppServer>
                     yield return result; if (activity is not null) yield return activity;
                 }
             }
+            foreach (var call in calls.Pending.Where(call => !byName.ContainsKey(call.Name) && rejectedToolNames.Contains(call.Name)))
+                yield return AgentToolCalls.Result(call.Id, "MCP tool is not allowed: " + call.Name);
             yield return held;
         }
         if (failure is not null) ExceptionDispatchInfo.Capture(failure).Throw();
     }
+
+    /// <summary>Discover one server once. An empty allowlist records no tools and does not connect.</summary>
+    private async Task<HashSet<string>> ExposeServerAsync(McpAppServer server, CancellationToken cancellationToken)
+    {
+        if (exposedToolNames.TryGetValue(server, out var cached)) return cached;
+        var exposed = new HashSet<string>(StringComparer.Ordinal);
+        if (server.IncludeTools is { Count: 0 })
+        {
+            exposedToolNames[server] = exposed;
+            return exposed;
+        }
+        try
+        {
+            await using var session = new McpHttpSession(server, httpClient);
+            await session.InitializeAsync(cancellationToken);
+            string? cursor = null; var seen = new HashSet<string>(StringComparer.Ordinal); var scannedUiTools = 0;
+            do
+            {
+                var response = await session.RequestAsync("tools/list", cursor is null ? new JsonObject() : new JsonObject { ["cursor"] = cursor }, cancellationToken);
+                if (response?["tools"] is not JsonArray listed) throw new RuntimeRequestException(502, "MCP server returned an invalid tool list");
+                foreach (var tool in listed.OfType<JsonObject>())
+                {
+                    var meta = tool["_meta"] as JsonObject;
+                    var ui = meta?["ui"] as JsonObject;
+                    if (ui?.ContainsKey("visibility") == true &&
+                        (ui["visibility"] is not JsonArray visibility || !visibility.Any(value => A2UIValidation.Text(value) == "model"))) continue;
+                    var resource = A2UIValidation.Text(ui?["resourceUri"]) ?? A2UIValidation.Text(meta?["ui/resourceUri"]);
+                    if (resource is null || A2UIValidation.Text(tool["name"]) is not { } name) continue;
+                    // Count UI tools before the include/exclude filter so an excluded page cannot keep discovery paging.
+                    scannedUiTools++;
+                    if (!server.AllowsTool(name)) rejectedToolNames.Add(name);
+                    else
+                    {
+                        discoveredTools.Add(new UiTool(new JsonObject { ["name"] = name, ["description"] = (A2UIValidation.Text(tool["description"]) ?? "") + "\n[UI Resource: " + resource + "]", ["parameters"] = tool["inputSchema"]?.DeepClone() ?? new JsonObject { ["type"] = "object", ["properties"] = new JsonObject() } }, server, resource));
+                        exposed.Add(name);
+                        if (discoveredTools.Count > UiToolScanLimit) throw new RuntimeRequestException(502, "MCP tool limit exceeded");
+                    }
+                    if (scannedUiTools >= UiToolScanLimit) { cursor = null; break; }
+                }
+                if (scannedUiTools >= UiToolScanLimit) break;
+                cursor = A2UIValidation.Text(response["nextCursor"]);
+                if (cursor is not null && (!seen.Add(cursor) || seen.Count > 100)) throw new RuntimeRequestException(502, "MCP pagination limit exceeded");
+            } while (cursor is not null);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { throw; }
+        catch (Exception) { report?.Invoke("mcp.discovery_failed"); }
+        exposedToolNames[server] = exposed;
+        return exposed;
+    }
+
+    private static JsonObject DeniedToolResult(string? name) => new()
+    {
+        ["isError"] = true,
+        ["content"] = new JsonArray(new JsonObject { ["type"] = "text", ["text"] = "MCP tool is not allowed" + (name is null ? "" : ": " + name) })
+    };
 }
 
 /// <summary>Minimal MCP Streamable HTTP client with sessions, protocol negotiation, pagination support and bounded replies.</summary>

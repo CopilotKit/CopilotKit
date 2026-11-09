@@ -285,9 +285,30 @@ describe("MCPAppsMiddleware integration", () => {
 
       const middleware = use.mock.calls[0][0] as MCPAppsMiddleware;
       const listing = new ToolListingAgent();
-      await collectEvents(middleware.run(createRunInput(), listing));
+      const events = await collectEvents(
+        middleware.run(createRunInput(), listing),
+      );
       expect(listing.toolNames).toEqual(expected);
       expect(calls).toEqual(expected);
+      if (
+        !expected.includes("admin_dashboard") &&
+        policy.includeTools?.length !== 0
+      ) {
+        const rejectedAt = events.findIndex(
+          (event) =>
+            event.type === EventType.TOOL_CALL_RESULT &&
+            "toolCallId" in event &&
+            event.toolCallId === "call-admin_dashboard",
+        );
+        const finishedAt = events.findIndex(
+          (event) => event.type === EventType.RUN_FINISHED,
+        );
+        expect(rejectedAt).toBeGreaterThanOrEqual(0);
+        expect(rejectedAt).toBeLessThan(finishedAt);
+        expect(events[rejectedAt]).toMatchObject({
+          content: "MCP tool is not allowed: admin_dashboard",
+        });
+      }
     }
 
     calls.length = 0;
@@ -329,9 +350,13 @@ describe("MCPAppsMiddleware integration", () => {
     );
     const deniedResult = denied.find(
       (event) => event.type === EventType.RUN_FINISHED,
-    ) as BaseEvent & { result?: { error?: string } };
-    expect(deniedResult.result?.error).toMatch(/not allowed/);
-    expect(deniedResult.result?.error).toContain("admin_dashboard");
+    ) as BaseEvent & {
+      result?: { isError?: boolean; content?: Array<{ text?: string }> };
+    };
+    expect(deniedResult.result?.isError).toBe(true);
+    expect(deniedResult.result?.content?.[0]?.text).toContain(
+      "admin_dashboard",
+    );
     expect(calls).not.toContain("admin_dashboard");
 
     const allowed = await collectEvents(

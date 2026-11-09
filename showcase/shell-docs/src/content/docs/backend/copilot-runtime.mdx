@@ -297,7 +297,7 @@ const runtime = new CopilotRuntime({
 
 Each server entry optionally accepts an `agentId` field to scope that server to a single agent. Without it, the server is available to all agents.
 
-`includeTools` and `excludeTools` choose which of that server's MCP tools are exposed. Names are the tool names from `tools/list`, before any host prefix. When `includeTools` is set, only those tools are injected, and an empty list exposes no tools from that server. `excludeTools` is applied after the allowlist, so a name in both lists is excluded. Omitted lists leave the server's tools unchanged. A filtered-out tool is not added to the run, and a proxied `tools/call` for that name is rejected.
+`includeTools` and `excludeTools` choose which of that server's MCP tools are exposed. Names are the tool names from `tools/list`, before any host prefix. When `includeTools` is set, only those tools are injected. An empty list exposes no tools and does not contact that server. `excludeTools` is applied after the allowlist, so a name in both lists is excluded. Omitted lists leave the server's tools unchanged. A filtered-out tool is not added to the run. If the model calls it anyway, the runtime answers that call with a rejection before the run finishes. A proxied `tools/call` is accepted only for a discovered UI tool that passed the filter, and a rejection is returned with `isError: true`.
 
 ```ts
 mcpApps: {

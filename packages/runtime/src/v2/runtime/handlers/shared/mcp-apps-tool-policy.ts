@@ -1,8 +1,12 @@
+import { randomUUID } from "node:crypto";
+import { EventType } from "@ag-ui/client";
+import type { AbstractAgent, BaseEvent, RunAgentInput } from "@ag-ui/client";
 import { MCPAppsMiddleware } from "@ag-ui/mcp-apps-middleware";
 import type {
   MCPAppsMiddlewareConfig,
   MCPClientConfig,
 } from "@ag-ui/mcp-apps-middleware";
+import { Observable } from "rxjs";
 import type { ResolvedMcpAppsServer } from "./mcp-apps-servers";
 
 /**
@@ -17,10 +21,12 @@ export interface McpAppToolPolicy {
   excludeTools?: readonly string[];
 }
 
+type ListedTool = { tool?: { name?: string } };
+
 interface McpAppsPolicyTarget {
   fetchToolsFromServer?: (
     serverConfig: MCPClientConfig,
-  ) => Promise<Array<{ tool?: { name?: string } }>>;
+  ) => Promise<ListedTool[]>;
   executeMCPRequest?: (
     serverConfig: MCPClientConfig,
     method: string,
@@ -31,6 +37,7 @@ interface McpAppsPolicyTarget {
     toolName: string,
     args: Record<string, unknown>,
   ) => Promise<unknown>;
+  run?: (input: RunAgentInput, next: AbstractAgent) => Observable<BaseEvent>;
 }
 
 const POLICY_ENFORCEMENT_ERROR =
@@ -87,23 +94,49 @@ export function enforceMcpAppsToolPolicy(
   }
 
   const originalFetch = target.fetchToolsFromServer.bind(middleware);
-  target.fetchToolsFromServer = async (serverConfig) => {
-    const tools = await originalFetch(serverConfig);
-    const policy = policies.get(mcpAppsServerPolicyKey(serverConfig));
-    if (!policy) return tools;
-    return tools.filter((entry) => {
-      const name = entry?.tool?.name;
-      return typeof name === "string" && isMcpAppToolAllowed(name, policy);
-    });
+  const hiddenToolNames = new Set<string>();
+  const discovered = new Map<string, Promise<ListedTool[]>>();
+
+  const loadTools = (serverConfig: MCPClientConfig): Promise<ListedTool[]> => {
+    const key = mcpAppsServerPolicyKey(serverConfig);
+    const cached = discovered.get(key);
+    if (cached) return cached;
+    const task = (async () => {
+      const policy = policies.get(key);
+      // An empty allowlist exposes nothing, so do not open the server.
+      if (policy?.includeTools?.length === 0) return [];
+      const tools = await originalFetch(serverConfig);
+      if (!policy) return tools;
+      return tools.filter((entry) => {
+        const name = entry?.tool?.name;
+        if (typeof name !== "string") return false;
+        if (!isMcpAppToolAllowed(name, policy)) {
+          hiddenToolNames.add(name);
+          return false;
+        }
+        return true;
+      });
+    })();
+    discovered.set(key, task);
+    return task;
   };
+
+  target.fetchToolsFromServer = loadTools;
 
   const originalExecute = target.executeMCPRequest.bind(middleware);
   target.executeMCPRequest = async (serverConfig, method, params) => {
     if (method === "tools/call") {
-      assertMcpAppToolAllowed(serverConfig, params?.name, policies);
+      const tools = await loadTools(serverConfig);
+      const name = params?.name;
+      const allowed =
+        typeof name === "string" &&
+        tools.some((entry) => entry?.tool?.name === name);
+      if (!allowed) return deniedToolResult(name);
     }
     return originalExecute(serverConfig, method, params);
   };
+
+  rejectHiddenToolCalls(target, hiddenToolNames);
 
   if (typeof target.executeToolCall === "function") {
     const originalCall = target.executeToolCall.bind(middleware);
@@ -112,6 +145,67 @@ export function enforceMcpAppsToolPolicy(
       return originalCall(serverConfig, toolName, args);
     };
   }
+}
+
+function deniedToolResult(toolName: unknown): {
+  content: Array<{ type: "text"; text: string }>;
+  isError: true;
+} {
+  const suffix = typeof toolName === "string" ? `: ${toolName}` : "";
+  return {
+    content: [{ type: "text", text: `MCP tool is not allowed${suffix}` }],
+    isError: true,
+  };
+}
+
+/**
+ * A filtered-out MCP tool call must still be answered. The middleware drops it
+ * from the execution map, so the client would otherwise keep an open call.
+ */
+function rejectHiddenToolCalls(
+  target: McpAppsPolicyTarget,
+  hiddenToolNames: Set<string>,
+): void {
+  if (typeof target.run !== "function") return;
+  const originalRun = target.run.bind(target);
+  target.run = (input, next) =>
+    new Observable((subscriber) => {
+      const pending = new Map<string, string>();
+      const subscription = originalRun(input, next).subscribe({
+        next: (event) => {
+          const record = event as BaseEvent & {
+            toolCallId?: string;
+            toolCallName?: string;
+          };
+          if (
+            record.type === EventType.TOOL_CALL_START &&
+            record.toolCallId &&
+            record.toolCallName &&
+            hiddenToolNames.has(record.toolCallName)
+          ) {
+            pending.set(record.toolCallId, record.toolCallName);
+          }
+          if (record.type === EventType.TOOL_CALL_RESULT && record.toolCallId) {
+            pending.delete(record.toolCallId);
+          }
+          if (record.type === EventType.RUN_FINISHED) {
+            for (const [toolCallId, name] of pending) {
+              subscriber.next({
+                type: EventType.TOOL_CALL_RESULT,
+                messageId: randomUUID(),
+                toolCallId,
+                content: `MCP tool is not allowed: ${name}`,
+              } as BaseEvent);
+            }
+            pending.clear();
+          }
+          subscriber.next(event);
+        },
+        error: (error) => subscriber.error(error),
+        complete: () => subscriber.complete(),
+      });
+      return () => subscription.unsubscribe();
+    });
 }
 
 function assertMcpAppToolAllowed(

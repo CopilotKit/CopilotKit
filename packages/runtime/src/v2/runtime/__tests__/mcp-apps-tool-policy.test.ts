@@ -107,7 +107,12 @@ describe("enforceMcpAppsToolPolicy", () => {
       middleware.executeMCPRequest(server, "tools/call", {
         name: "admin_dashboard",
       }),
-    ).rejects.toThrow(/MCP tool is not allowed: admin_dashboard/);
+    ).resolves.toEqual({
+      content: [
+        { type: "text", text: "MCP tool is not allowed: admin_dashboard" },
+      ],
+      isError: true,
+    });
     expect(executeMCPRequest).not.toHaveBeenCalled();
 
     await middleware.executeMCPRequest(server, "resources/read", {
@@ -172,10 +177,74 @@ describe("enforceMcpAppsToolPolicy", () => {
     const middleware = { fetchToolsFromServer, executeMCPRequest };
     enforceMcpAppsToolPolicy(
       middleware,
+      new Map([[mcpAppsServerPolicyKey(server), { excludeTools: [] }]]),
+    );
+
+    await expect(middleware.fetchToolsFromServer(server)).resolves.toEqual([
+      { tool: { name: "generate_qr" } },
+    ]);
+    expect(fetchToolsFromServer).toHaveBeenCalledOnce();
+  });
+
+  it("skips discovery when includeTools is empty", async () => {
+    const fetchToolsFromServer = vi.fn(async (_server: MCPClientConfig) =>
+      discovered(["generate_qr"]),
+    );
+    const executeMCPRequest = vi.fn(
+      async (
+        _server: MCPClientConfig,
+        _method: string,
+        _params?: Record<string, unknown>,
+      ) => ({ ok: true }),
+    );
+    const middleware = { fetchToolsFromServer, executeMCPRequest };
+    enforceMcpAppsToolPolicy(
+      middleware,
       new Map([[mcpAppsServerPolicyKey(server), { includeTools: [] }]]),
     );
 
     await expect(middleware.fetchToolsFromServer(server)).resolves.toEqual([]);
+    await expect(
+      middleware.executeMCPRequest(server, "tools/call", {
+        name: "generate_qr",
+      }),
+    ).resolves.toMatchObject({ isError: true });
+    expect(fetchToolsFromServer).not.toHaveBeenCalled();
+    expect(executeMCPRequest).not.toHaveBeenCalled();
+  });
+
+  it("rejects a proxied call for a tool the server did not expose", async () => {
+    const fetchToolsFromServer = vi.fn(async (_server: MCPClientConfig) =>
+      discovered(["generate_qr"]),
+    );
+    const executeMCPRequest = vi.fn(
+      async (
+        _server: MCPClientConfig,
+        _method: string,
+        _params?: Record<string, unknown>,
+      ) => ({ ok: true }),
+    );
+    const middleware = { fetchToolsFromServer, executeMCPRequest };
+    enforceMcpAppsToolPolicy(
+      middleware,
+      new Map([[mcpAppsServerPolicyKey(server), { excludeTools: [] }]]),
+    );
+
+    await expect(
+      middleware.executeMCPRequest(server, "tools/call", {
+        name: "admin_dashboard",
+      }),
+    ).resolves.toMatchObject({
+      isError: true,
+      content: [
+        { type: "text", text: "MCP tool is not allowed: admin_dashboard" },
+      ],
+    });
+    expect(executeMCPRequest).not.toHaveBeenCalled();
+    await middleware.executeMCPRequest(server, "tools/call", {
+      name: "generate_qr",
+    });
+    expect(executeMCPRequest).toHaveBeenCalledOnce();
   });
 
   it("rejects a tools/call that omits the tool name", async () => {
@@ -197,7 +266,10 @@ describe("enforceMcpAppsToolPolicy", () => {
 
     await expect(
       middleware.executeMCPRequest(server, "tools/call", {}),
-    ).rejects.toThrow(/MCP tool is not allowed$/);
+    ).resolves.toEqual({
+      content: [{ type: "text", text: "MCP tool is not allowed" }],
+      isError: true,
+    });
     expect(executeMCPRequest).not.toHaveBeenCalled();
   });
 
