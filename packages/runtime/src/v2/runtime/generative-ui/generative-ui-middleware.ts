@@ -248,23 +248,52 @@ function mergeMessages(...lists: Message[][]): Message[] {
 
 /**
  * The history of a retry turn. The tracked messages start from the agent's
- * own list, which lacks earlier retry turns, so the turn's input is merged in
- * unless the turn sent a MESSAGES_SNAPSHOT, which replaces the whole list.
- * Ids a snapshot dropped stay out: a later turn's tracked list starts from the
- * agent's own list again and may still hold them.
+ * own list, which lacks earlier retry turns and still holds a message as it
+ * was before an earlier turn's MESSAGES_SNAPSHOT edited it. So unless this
+ * turn sent a snapshot, which replaces the whole list, the history is the
+ * turn's input, then the turn's new messages. A call the turn attached to a
+ * message already in the input is added to the input's version of it, so its
+ * rejection result still follows a call. Ids a snapshot dropped stay out: a
+ * later turn's tracked list starts from the agent's own list again and may
+ * still hold them.
  */
 function retryMessages(
   inputMessages: Message[],
   agentMessages: Message[],
   resultMessages: Message[],
   sawMessagesSnapshot: boolean,
+  startedToolCallIds: ReadonlySet<string>,
   droppedMessageIds: ReadonlySet<string>,
 ): Message[] {
-  return mergeMessages(
-    sawMessagesSnapshot ? [] : inputMessages,
-    agentMessages,
-    resultMessages,
-  ).filter((m) => !droppedMessageIds.has(m.id));
+  const tracked = new Map(agentMessages.map((m) => [m.id, m]));
+  const inputIds = new Set(inputMessages.map((m) => m.id));
+  const history = sawMessagesSnapshot
+    ? agentMessages
+    : [
+        ...inputMessages.map((m) =>
+          withStartedCalls(m, tracked.get(m.id), startedToolCallIds),
+        ),
+        ...agentMessages.filter((m) => !inputIds.has(m.id)),
+      ];
+  return mergeMessages(history, resultMessages).filter(
+    (m) => !droppedMessageIds.has(m.id),
+  );
+}
+
+type WithToolCalls = Message & { toolCalls?: Array<{ id: string }> };
+
+/** `message` with the calls the turn started on its tracked copy appended. */
+function withStartedCalls(
+  message: Message,
+  trackedCopy: Message | undefined,
+  startedToolCallIds: ReadonlySet<string>,
+): Message {
+  const own = (message as WithToolCalls).toolCalls ?? [];
+  const started = ((trackedCopy as WithToolCalls | undefined)?.toolCalls ?? [])
+    .filter((call) => startedToolCallIds.has(call.id))
+    .filter((call) => !own.some((ownCall) => ownCall.id === call.id));
+  if (started.length === 0) return message;
+  return { ...message, toolCalls: [...own, ...started] } as Message;
 }
 
 /**
@@ -350,6 +379,8 @@ function processStream(
     const calls = new Map<string, RenderCallState>();
     let heldFinish: EventWithState | null = null;
     let sawMessagesSnapshot = false;
+    // Tool calls this turn started, by id.
+    const startedToolCallIds = new Set<string>();
 
     const emit = (event: BaseEvent) => subscriber.next(event);
     const patch = (surfaceId: string, ops: JsonPatchOperation[]) =>
@@ -626,6 +657,8 @@ function processStream(
       }
       if (event.type === EventType.MESSAGES_SNAPSHOT)
         sawMessagesSnapshot = true;
+      if (event.type === EventType.TOOL_CALL_START)
+        startedToolCallIds.add((event as ToolCallStartEvent).toolCallId);
       emit(event);
       if (event.type === EventType.TOOL_CALL_START) {
         const start = event as ToolCallStartEvent;
@@ -742,6 +775,7 @@ function processStream(
               heldFinish.messages,
               resultMessages,
               sawMessagesSnapshot,
+              startedToolCallIds,
               options.droppedMessageIds,
             ),
             state: heldFinish.state,

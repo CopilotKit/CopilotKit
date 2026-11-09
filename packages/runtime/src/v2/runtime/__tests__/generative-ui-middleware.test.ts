@@ -1432,6 +1432,75 @@ describe("GenerativeUIMiddleware: fully rejected render_ui", () => {
     expect(inputs[2].messages.filter((m) => m.role === "tool")).toHaveLength(2);
   });
 
+  it("keeps a snapshot's edit to a message in every later retry turn", async () => {
+    const { inputs } = await runTurns(
+      [
+        [
+          {
+            type: EventType.MESSAGES_SNAPSHOT,
+            messages: [{ id: "u1", role: "user", content: "[redacted]" }],
+          },
+          ...badCall(),
+        ] as BaseEvent[],
+        badCall(),
+        [],
+      ],
+      {
+        input: {
+          messages: [
+            { id: "u1", role: "user", content: "my card is 4111" },
+          ] as Message[],
+        },
+      },
+    );
+    expect(inputs).toHaveLength(3);
+    expect(inputs[1].messages[0]).toMatchObject({ content: "[redacted]" });
+    expect(inputs[2].messages[0]).toMatchObject({ content: "[redacted]" });
+    // Each turn's call, then its rejection, in turn order.
+    expect(inputs[2].messages.map((m) => m.role)).toEqual([
+      "user",
+      "assistant",
+      "tool",
+      "assistant",
+      "tool",
+    ]);
+  });
+
+  it("keeps a snapshot's edit to a message a later turn adds its call to", async () => {
+    // Turn 1's render_ui call has parentMessageId "msg-1-t1" (see withTurnIds).
+    const { inputs } = await runTurns(
+      [
+        [
+          {
+            type: EventType.MESSAGES_SNAPSHOT,
+            messages: [
+              { id: "u1", role: "user", content: "show me the shop" },
+              { id: "msg-1-t1", role: "assistant", content: "[redacted]" },
+            ],
+          },
+          ...badCall(),
+        ] as BaseEvent[],
+        badCall(),
+        [],
+      ],
+      {
+        input: {
+          messages: [
+            { id: "u1", role: "user", content: "show me the shop" },
+            { id: "msg-1-t1", role: "assistant", content: "my card is 4111" },
+          ] as Message[],
+        },
+      },
+    );
+    expect(inputs).toHaveLength(3);
+    const edited = inputs[2].messages.find((m) => m.id === "msg-1-t1") as {
+      content?: string;
+      toolCalls?: Array<{ id: string }>;
+    };
+    expect(edited.content).toBe("[redacted]");
+    expect(edited.toolCalls?.map((call) => call.id)).toEqual(["call-1-t1"]);
+  });
+
   it("can turn the retry off", async () => {
     const { inputs } = await runTurns([badCall()], {
       options: { maxRejectedRetries: 0 },
@@ -1551,6 +1620,12 @@ describe("GenerativeUIMiddleware: fully rejected render_ui", () => {
       },
     });
     expect(inputs).toHaveLength(2);
+    // The retry history keeps the call the turn added to that message, so its
+    // rejection result still follows a call.
+    const reused = inputs[1].messages.find((m) => m.id === "msg-1-t0") as {
+      toolCalls?: Array<{ id: string }>;
+    };
+    expect(reused.toolCalls?.map((call) => call.id)).toEqual(["call-1-t0"]);
   });
 
   it("does not resend resume input on the retry turn", async () => {
