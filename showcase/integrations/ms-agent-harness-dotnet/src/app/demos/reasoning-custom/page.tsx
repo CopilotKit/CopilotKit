@@ -21,6 +21,7 @@ import { CopilotKit, CopilotChat } from "@copilotkit/react-core/v2";
 import { ReasoningBlock } from "./reasoning-block";
 import { useReasoningCustomSuggestions } from "./suggestions";
 
+// @region[reasoning-block-render]
 const AGENT_ID = "reasoning-custom";
 
 export default function ReasoningCustomDemo() {
@@ -51,3 +52,4 @@ function Chat() {
     />
   );
 }
+// @endregion[reasoning-block-render]
