@@ -130,7 +130,12 @@ describe("resolveDynamicValue: function values", () => {
       "@call": "formatCurrency",
       args: { value: { "@path": "/price" }, currency: "USD" },
     });
-    expect(value).toBe("$1,599.00");
+    expect(value).toBe(
+      new Intl.NumberFormat(
+        typeof navigator === "undefined" ? undefined : navigator.language,
+        { style: "currency", currency: "USD" },
+      ).format(1599),
+    );
     expect([...paths]).toEqual(["/price"]);
   });
 
