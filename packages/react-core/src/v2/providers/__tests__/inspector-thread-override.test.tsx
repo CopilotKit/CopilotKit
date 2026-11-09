@@ -14,9 +14,17 @@ import {
   onInspectorViewThreadResult,
 } from "@copilotkit/core";
 import { DEFAULT_AGENT_ID, randomUUID } from "@copilotkit/shared";
+vi.mock("@copilotkit/shared", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@copilotkit/shared")>();
+
+  return {
+    ...actual,
+    randomUUID: vi.fn(() => "mock-thread-id"),
+  };
+});
 import { MockStepwiseAgent } from "../../__tests__/utils/test-helpers";
 import { CopilotChat } from "../../components/chat/CopilotChat";
-import { CopilotKitProvider } from "../CopilotKitProvider";
+import { CopilotKitProvider, useCopilotKit } from "../CopilotKitProvider";
 import {
   CopilotChatConfigurationProvider,
   useCopilotChatConfiguration,
@@ -76,14 +84,37 @@ function ThreadControls() {
   );
 }
 
+function CoreCapture({
+  onCapture,
+}: {
+  onCapture: (core: ReturnType<typeof useCopilotKit>["copilotkit"]) => void;
+}) {
+  const { copilotkit } = useCopilotKit();
+
+  React.useEffect(() => {
+    onCapture(copilotkit);
+  }, [copilotkit, onCapture]);
+
+  return null;
+}
+
 function renderChat(
   agent: TrackingAgent,
-  options: { threadId?: string; withControls?: boolean } = {},
+  options: {
+    threadId?: string;
+    withControls?: boolean;
+    headers?: () => Record<string, string>;
+    onCore?: (core: ReturnType<typeof useCopilotKit>["copilotkit"]) => void;
+  } = {},
 ) {
   agent.agentId = DEFAULT_AGENT_ID;
   const chat = <CopilotChat threadId={options.threadId} />;
   return render(
-    <CopilotKitProvider agents__unsafe_dev_only={{ [DEFAULT_AGENT_ID]: agent }}>
+    <CopilotKitProvider
+      agents__unsafe_dev_only={{ [DEFAULT_AGENT_ID]: agent }}
+      headers={options.headers}
+    >
+      {options.onCore && <CoreCapture onCapture={options.onCore} />}
       {options.withControls ? (
         <CopilotChatConfigurationProvider agentId={DEFAULT_AGENT_ID}>
           {chat}
@@ -103,6 +134,14 @@ function viewRequest(requestId: string, threadId = "saved-thread") {
     agentId: DEFAULT_AGENT_ID,
   });
 }
+
+class MockResizeObserver {
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+}
+
+vi.stubGlobal("ResizeObserver", MockResizeObserver);
 
 describe("inspector thread override", () => {
   const cleanups: Array<() => void> = [];
@@ -217,6 +256,50 @@ describe("inspector thread override", () => {
     );
 
     act(() => void viewRequest("request-7"));
+
+    await waitFor(() => expect(results).toContain(false));
+    await waitFor(() => expect(agent.threadId).toBe("pinned-thread"));
+  });
+
+  it("rolls back an inspector override on header resolution failure", async () => {
+    const agent = new TrackingAgent();
+    let core: ReturnType<typeof useCopilotKit>["copilotkit"] | undefined;
+    const results: boolean[] = [];
+
+    cleanups.push(
+      onInspectorViewThreadResult((payload) => {
+        if (payload.requestId === "request-headers") {
+          results.push(payload.ok);
+        }
+      }),
+    );
+
+    renderChat(agent, {
+      threadId: "pinned-thread",
+      headers: () => {
+        throw new Error("Failed to resolve headers");
+      },
+      onCore: (value) => {
+        core = value;
+      },
+    });
+
+    await waitFor(() => expect(agent.threadId).toBe("pinned-thread"));
+    expect(core).toBeDefined();
+
+    act(() => {
+      expect(viewRequest("request-headers")).toBe(true);
+    });
+
+    await waitFor(() => expect(agent.threadId).toBe("saved-thread"));
+
+    await act(async () => {
+      try {
+        await core!.resolveHeaders();
+      } catch {
+        // Expected: the header builder throws.
+      }
+    });
 
     await waitFor(() => expect(results).toContain(false));
     await waitFor(() => expect(agent.threadId).toBe("pinned-thread"));

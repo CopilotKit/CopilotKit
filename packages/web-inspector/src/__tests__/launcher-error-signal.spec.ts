@@ -582,6 +582,16 @@ afterEach(() => {
 });
 
 async function setup(options: Options = {}): Promise<Harness> {
+  Object.defineProperty(HTMLElement.prototype, "hasPointerCapture", {
+    configurable: true,
+    value: () => false,
+  });
+
+  Object.defineProperty(HTMLElement.prototype, "releasePointerCapture", {
+    configurable: true,
+    value: () => {},
+  });
+
   document.body.replaceChildren();
   window.localStorage.clear();
   document.cookie = "cpk_inspector_notifications_v1=; Max-Age=0; Path=/";
@@ -2192,6 +2202,29 @@ test("a failed agent run names itself on the pill and lands on AG-UI Events", as
     root(context.inspector).querySelector('[data-cpk-event-error="run"]')
       ?.textContent,
   ).toContain("model refused the run");
+});
+
+test("a header resolution failure appears as a run error without agent context", async () => {
+  const context = await setup();
+
+  await context.fireAppError(
+    CopilotKitCoreErrorCode.HEADER_RESOLUTION_FAILED,
+    "Failed to resolve headers",
+    { source: "headers" },
+  );
+
+  expect(dotSubject(context.inspector)).toBe("run");
+  expect(launcherName(context.inspector)).toContain("agent run failed");
+
+  await context.press(launcher(context.inspector));
+
+  expect(currentMenu(context.inspector)).toBe("ag-ui-events");
+
+  const banner = root(context.inspector).querySelector(
+    '[data-cpk-event-error="run"]',
+  )?.textContent;
+
+  expect(banner).toContain("Failed to resolve headers");
 });
 
 test("a run error with no run to point at claims no highlight", async () => {
