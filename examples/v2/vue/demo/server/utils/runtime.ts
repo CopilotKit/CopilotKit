@@ -210,6 +210,23 @@ Keep text replies short; let the UI carry the details.`,
     generativeUI: true,
   });
 
+/**
+ * Runtime of the `/generative-ui-standard` page. The page sends the standard
+ * catalog, and `generativeUI: true` gives the agent the `render_ui` tool for
+ * it. The agent renders into the chat.
+ */
+export const createStandardCatalogRuntime = () =>
+  new CopilotRuntime({
+    agents: {
+      default: new BuiltInAgent({
+        model: determineModel(),
+        prompt: `You are a helpful assistant in a chat. Answer with UI from the standard catalog by calling the render_ui tool, for example a Card with a Title, Text, Badge, Table, Chart, List, Tabs or a Form with inputs and a Button. Render into the chat. Keep text replies to one short sentence and let the UI carry the details.`,
+      }),
+    },
+    runner: new InMemoryAgentRunner(),
+    generativeUI: true,
+  });
+
 export const createMcpRuntime = () => {
   const agent = new BuiltInAgent({
     model: determineModel(),

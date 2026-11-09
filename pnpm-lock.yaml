@@ -2233,6 +2233,9 @@ importers:
       '@copilotkit/vue':
         specifier: workspace:*
         version: link:../../../../packages/vue
+      chart.js:
+        specifier: ^4.4.0
+        version: 4.6.1
       h3:
         specifier: ^1.15.4
         version: 1.15.11
