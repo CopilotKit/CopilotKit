@@ -38,12 +38,14 @@ export function faviconSrc(host: string) {
 
 /**
  * Opens a URL in a new tab. An unsafe scheme (javascript:, data:) is
- * ignored. Does nothing on the server, where there is no `window`.
+ * ignored. Does nothing where there is no `window.open`, for example on
+ * the server or on React Native.
  *
  * @param href - The URL to open. `undefined` does nothing.
  */
 export function openUrl(href: string | undefined) {
   if (!href || typeof window === "undefined") return;
+  if (typeof window.open !== "function") return; // hermes-ok: feature check
   const safe = safeHref(href);
-  if (safe) window.open(safe, "_blank", "noopener,noreferrer");
+  if (safe) window.open(safe, "_blank", "noopener,noreferrer"); // hermes-ok: checked above
 }

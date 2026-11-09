@@ -1438,6 +1438,20 @@
           }
         },
         {
+          "importPath": "@copilotkit/react-core/v2/generative-ui/native",
+          "exportKey": "./v2/generative-ui/native",
+          "kind": "code",
+          "conditions": {
+            "import": "./dist/v2/generative-ui/native.mjs",
+            "require": "./dist/v2/generative-ui/native.cjs"
+          },
+          "provenance": {
+            "kind": "package-json",
+            "path": "packages/react-core/package.json",
+            "selector": "exports[\"./v2/generative-ui/native\"]"
+          }
+        },
+        {
           "importPath": "@copilotkit/react-core/v2/headless",
           "exportKey": "./v2/headless",
           "kind": "code",
@@ -1535,6 +1549,20 @@
             "kind": "package-json",
             "path": "packages/react-native/package.json",
             "selector": "exports[\"./components\"]"
+          }
+        },
+        {
+          "importPath": "@copilotkit/react-native/generative-ui",
+          "exportKey": "./generative-ui",
+          "kind": "code",
+          "conditions": {
+            "import": "./dist/generative-ui/index.mjs",
+            "require": "./dist/generative-ui/index.cjs"
+          },
+          "provenance": {
+            "kind": "package-json",
+            "path": "packages/react-native/package.json",
+            "selector": "exports[\"./generative-ui\"]"
           }
         },
         {
