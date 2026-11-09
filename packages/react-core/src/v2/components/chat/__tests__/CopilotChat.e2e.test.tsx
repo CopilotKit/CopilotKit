@@ -1914,6 +1914,77 @@ describe("CopilotChat E2E - Chat Basics and Streaming Patterns", () => {
       });
     });
 
+    /**
+     * On the commit that first shows "From app", the view replaces the history
+     * (and, when told to, queues a message) before the chat's passive effects
+     * run. Returns the pins the chat made.
+     */
+    async function replaceHistoryInLayoutEffect({ queue }: { queue: boolean }) {
+      useDistinctIds();
+      const { pins, PinRecorder } = recordPins();
+      const agent = new MockStepwiseAgent();
+      const ReplacingView = (props: CopilotChatViewProps) => {
+        const shown = props.messages?.some((m) => m.id === "from-app");
+        const done = React.useRef(false);
+        React.useLayoutEffect(() => {
+          if (!shown || done.current) return;
+          done.current = true;
+          agent.setMessages([
+            { id: "replaced", role: "user", content: "Replaced" },
+          ]);
+          if (queue) props.onSubmitMessage?.("Queued by view");
+        });
+        return (
+          <>
+            <PinRecorder />
+            <CopilotChatView {...props} />
+          </>
+        );
+      };
+      renderWithCopilotKit({
+        agent,
+        children: (
+          <div style={{ height: 400 }}>
+            <CopilotChat welcomeScreen={false} chatView={ReplacingView} />
+          </div>
+        ),
+      });
+      await screen.findByRole("textbox");
+      agent.emit(runStartedEvent());
+      await waitFor(() => {
+        expect(agent.isRunning).toBe(true);
+      });
+      agent.setActiveRunCompletionPromise(new Promise<void>(() => {}));
+
+      await act(async () => {
+        agent.addMessage({ id: "from-app", role: "user", content: "From app" });
+      });
+      await waitFor(() => {
+        expect(screen.getByText("Replaced")).toBeDefined();
+      });
+      return pins;
+    }
+
+    it("pins a message a view queues while replacing a history it has not rendered", async () => {
+      const pins = await replaceHistoryInLayoutEffect({ queue: true });
+
+      const queuedId = (await screen.findByText("Queued by view"))
+        .closest("[data-message-id]")
+        ?.getAttribute("data-message-id");
+      expect(pins[pins.length - 1]!.id).toBe(queuedId);
+      // The render the view replaced is never pinned.
+      expect(pins.map((p) => p.id)).not.toContain("from-app");
+    });
+
+    it("pins the history a view put in place of one it has not rendered", async () => {
+      const pins = await replaceHistoryInLayoutEffect({ queue: false });
+
+      await waitFor(() => {
+        expect(pins[pins.length - 1]!.id).toBe("replaced");
+      });
+      expect(pins.map((p) => p.id)).not.toContain("from-app");
+    });
+
     it("does not pin when a queued message is dropped unsent", async () => {
       // The input's disclaimer renders whether or not any message does.
       const { pins, PinRecorder } = recordPins();
