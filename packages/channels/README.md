@@ -3,12 +3,11 @@
 `@copilotkit/channels` is the batteries-included CopilotKit Channels package. One install
 provides the engine, JSX vocabulary, UI primitives, testing API, and every supported adapter.
 
-**Channels run through a channel runner.** CopilotKit Intelligence provides the
-managed runner, available on a free plan: the `CopilotRuntime` starts and owns
-each Channel's lifecycle once Intelligence is configured. You can also build and
-operate your own channel runner on the lower-level SDK primitives, with no
-Intelligence dependency — a supported path where your team owns state,
-persistence, concurrency, locking, retries, and race-condition handling.
+A Channel with direct adapters runs in any Node process: call
+`channel.start()`. No Intelligence key is needed. CopilotKit Intelligence is an
+option that adds managed Slack and Teams, durable threads, the Channels
+dashboard, and Memory. With Intelligence, the `CopilotRuntime` starts and stops
+the Channel for you.
 
 ## Install
 
@@ -30,11 +29,8 @@ Configure TypeScript to use the Channels JSX runtime:
 ```tsx
 import { createChannel, Message, Section } from "@copilotkit/channels";
 import { slack } from "@copilotkit/channels/slack";
-import { CopilotRuntime, CopilotKitIntelligence } from "@copilotkit/runtime/v2";
-import { createCopilotNodeListener } from "@copilotkit/runtime/v2/node";
 
 const channel = createChannel({
-  name: "support-bot", // project-unique Intelligence Channel name
   identifyUser: "platform",
   adapters: [
     slack({
@@ -52,19 +48,25 @@ channel.onMessage(({ thread, message }) =>
   ),
 );
 
-// The runtime owns the Channel's lifecycle — there is no `channel.start()`.
+await channel.start(); // channel.stop() tears it down
+```
+
+To run the same Channel through CopilotKit Intelligence instead, give it a
+project-unique `name` and declare it on the runtime. The runtime starts it, so
+do not also call `channel.start()`:
+
+```ts
+import { CopilotRuntime, CopilotKitIntelligence } from "@copilotkit/runtime/v2";
+import { createCopilotNodeListener } from "@copilotkit/runtime/v2/node";
+
 const runtime = new CopilotRuntime({
   intelligence: new CopilotKitIntelligence({
-    // apiUrl and wsUrl default to cloud-hosted CopilotKit Intelligence — override
-    // both together only for a self-hosted deployment.
     apiKey: process.env.CPK_INTELLIGENCE_API_KEY!, // free tier available
   }),
-  channels: [channel],
+  channels: [channel], // createChannel({ name: "support-bot", ... })
 });
 
-// Creating the listener starts the Channel's connection.
 const listener = createCopilotNodeListener({ runtime });
-// Optional: await that activation so a broken config fails startup loudly.
 await listener.channels.ready(); // listener.channels.stop() tears it down
 ```
 

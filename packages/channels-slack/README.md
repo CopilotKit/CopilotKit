@@ -8,11 +8,9 @@ streaming, opaque-id interactions, and HITL.
 You write your UI as JSX once (`@copilotkit/channels-ui`) and drive the bot with
 `@copilotkit/channels`; this package is the only one that talks to Slack.
 
-The adapter keeps its own Slack credentials (`botToken` / `appToken`) — in the
-managed path the Channel runs inside a CopilotKit Intelligence-configured
-`CopilotRuntime` (free plan available), which starts and owns the channel's
-lifecycle. Building and operating your own channel runner on the SDK primitives
-is also a supported path.
+The adapter keeps its own Slack credentials (`botToken` / `appToken`). The
+Channel runs in your own Node process: call `bot.start()`. No Intelligence key
+is needed.
 
 ## Managed Channels: the alternative to holding your own credentials
 
@@ -43,11 +41,8 @@ import {
   defaultSlackTools,
   defaultSlackContext,
 } from "@copilotkit/channels-slack";
-import { CopilotRuntime, CopilotKitIntelligence } from "@copilotkit/runtime/v2";
-import { createCopilotNodeListener } from "@copilotkit/runtime/v2/node";
 
 const bot = createChannel({
-  name: "support-bot", // project-unique Intelligence Channel name
   identifyUser: "platform", // provider + workspace + human Slack user
   adapters: [
     slack({
@@ -62,21 +57,12 @@ const bot = createChannel({
 
 bot.onMention(({ thread }) => thread.runAgent());
 
-// The runtime owns the channel's lifecycle — there is no `bot.start()`.
-const runtime = new CopilotRuntime({
-  intelligence: new CopilotKitIntelligence({
-    // apiUrl and wsUrl default to cloud-hosted CopilotKit Intelligence — override
-    // both together only for a self-hosted deployment.
-    apiKey: process.env.CPK_INTELLIGENCE_API_KEY!, // free tier available
-  }),
-  channels: [bot],
-});
-
-// Creating the listener starts the Channel's connection.
-const listener = createCopilotNodeListener({ runtime });
-// Optional: await that activation so a broken config fails startup loudly.
-await listener.channels.ready(); // listener.channels.stop() tears it down
+await bot.start(); // bot.stop() tears it down
 ```
+
+To run this Channel through a CopilotKit Intelligence-configured
+`CopilotRuntime` instead, see the **copilotkit-channels** skill. The runtime then
+starts the Channel, so do not also call `bot.start()`.
 
 `slack(opts)` returns a `SlackAdapter`. By default it runs in **Socket Mode**
 (`socketMode: true`) — outbound WebSocket only, no public URL needed. HTTP
@@ -403,6 +389,8 @@ a file back out via `thread.postFile(...)`.
 
 ### Intelligence Memory
 
+Memory needs the Channel to run on a CopilotKit Intelligence-configured
+`CopilotRuntime`. A standalone Channel rejects a run that asks for Memory.
 Memory is off unless the specific run grants it:
 
 ```ts

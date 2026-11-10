@@ -8,11 +8,9 @@ streaming, opaque-id interactions, and HITL.
 You write your UI as JSX once (`@copilotkit/channels-ui`) and drive the bot with
 `@copilotkit/channels`; this package is the only one that talks to Discord.
 
-The adapter keeps its own Discord credentials (`botToken` / `appId` / …) — in
-the managed path the Channel runs inside a CopilotKit Intelligence-configured
-`CopilotRuntime` (free plan available), which starts and owns the channel's
-lifecycle. Building and operating your own channel runner on the SDK primitives
-is also a supported path.
+The adapter keeps its own Discord credentials (`botToken` / `appId` / …).
+The Channel runs in your own Node process: call `bot.start()`. No
+Intelligence key is needed.
 
 ## Install
 
@@ -29,12 +27,9 @@ import {
   defaultDiscordTools,
   defaultDiscordContext,
 } from "@copilotkit/channels-discord";
-import { CopilotRuntime, CopilotKitIntelligence } from "@copilotkit/runtime/v2";
-import { createCopilotNodeListener } from "@copilotkit/runtime/v2/node";
 
 const bot = createChannel({
   identifyUser: "platform",
-  name: "support-bot", // project-unique Intelligence Channel name
   adapters: [
     discord({
       botToken: process.env.DISCORD_BOT_TOKEN!, // Bot token — Gateway + REST
@@ -58,21 +53,12 @@ const bot = createChannel({
 
 bot.onMention(({ thread }) => thread.runAgent());
 
-// The runtime owns the channel's lifecycle — there is no `bot.start()`.
-const runtime = new CopilotRuntime({
-  intelligence: new CopilotKitIntelligence({
-    // apiUrl and wsUrl default to cloud-hosted CopilotKit Intelligence — override
-    // both together only for a self-hosted deployment.
-    apiKey: process.env.CPK_INTELLIGENCE_API_KEY!, // free tier available
-  }),
-  channels: [bot],
-});
-
-// Creating the listener starts the Channel's connection.
-const listener = createCopilotNodeListener({ runtime });
-// Optional: await that activation so a broken config fails startup loudly.
-await listener.channels.ready(); // listener.channels.stop() tears it down
+await bot.start(); // bot.stop() tears it down
 ```
+
+To run this Channel through a CopilotKit Intelligence-configured
+`CopilotRuntime` instead, see the **copilotkit-channels** skill. The runtime then
+starts the Channel, so do not also call `bot.start()`.
 
 `discord(opts)` returns a `DiscordAdapter`. The adapter connects via the
 Discord Gateway (WebSocket) — no public URL required. The listener pre-filters
@@ -273,8 +259,8 @@ work against any adapter that advertises the same capabilities.
 
 ## Slash commands
 
-Slash commands are registered up front — when the runtime activates the
-channel (`await listener.channels.ready()`) — via `registerCommands`. When
+Slash commands are registered up front — when the channel starts
+(`await bot.start()`) — via `registerCommands`. When
 `guildId` is set they register to that guild instantly; without it they
 register globally and take ~1 hour to propagate. Register handlers with
 `bot.onCommand`:

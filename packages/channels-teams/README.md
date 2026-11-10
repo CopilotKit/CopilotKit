@@ -10,11 +10,9 @@ It is built on the **Microsoft 365 Agents SDK** (`@microsoft/agents-hosting`),
 the successor to the Bot Framework SDK.
 
 The adapter keeps its own Teams/Microsoft 365 credentials (`clientId` /
-`clientSecret` / `tenantId`, or none for anonymous local dev) — in the managed
-path the Channel runs inside a CopilotKit Intelligence-configured
-`CopilotRuntime` (free plan available), which starts and owns the channel's
-lifecycle. Building and operating your own channel runner on the SDK primitives
-is also a supported path.
+`clientSecret` / `tenantId`, or none for anonymous local dev).
+The Channel runs in your own Node process: call `bot.start()`. No
+Intelligence key is needed.
 
 ## Managed Channels: the alternative to holding your own credentials
 
@@ -69,33 +67,21 @@ Error [ERR_MODULE_NOT_FOUND]: Cannot find package '@microsoft/agents-hosting'
 ```ts
 import { createChannel } from "@copilotkit/channels";
 import { teams } from "@copilotkit/channels-teams";
-import { CopilotRuntime, CopilotKitIntelligence } from "@copilotkit/runtime/v2";
-import { createCopilotNodeListener } from "@copilotkit/runtime/v2/node";
 
 const bot = createChannel({
-  name: "support-bot", // project-unique Intelligence Channel name
   identifyUser: "platform",
   adapters: [teams({ port: 3978 })],
 });
 
 bot.onMessage(({ thread, message }) => thread.post(`Echo: ${message.text}`));
 
-// The runtime owns the channel's lifecycle — there is no `bot.start()`.
-const runtime = new CopilotRuntime({
-  intelligence: new CopilotKitIntelligence({
-    // apiUrl and wsUrl default to cloud-hosted CopilotKit Intelligence — override
-    // both together only for a self-hosted deployment.
-    apiKey: process.env.CPK_INTELLIGENCE_API_KEY!, // free tier available
-  }),
-  channels: [bot],
-});
-
-// Creating the listener starts the Channel's connection.
-const listener = createCopilotNodeListener({ runtime });
-// Optional: await that activation; once settled, POST /api/messages is listening
-// on :3978.
-await listener.channels.ready();
+// Once settled, POST /api/messages is listening on :3978.
+await bot.start(); // bot.stop() tears it down
 ```
+
+To run this Channel through a CopilotKit Intelligence-configured
+`CopilotRuntime` instead, see the **copilotkit-channels** skill. The runtime then
+starts the Channel, so do not also call `bot.start()`.
 
 Then point the **Microsoft 365 Agents Playground** at it. No Microsoft
 credentials are required for local development:

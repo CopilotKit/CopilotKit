@@ -4,12 +4,10 @@ The supported platform-neutral foundation behind `@copilotkit/channels`.
 Most applications should use the batteries-included `@copilotkit/channels` package;
 install core directly when building an adapter or intentionally selecting one platform.
 
-**Channels run through a channel runner.** CopilotKit Intelligence provides the
-managed runner, available on a free plan: the `CopilotRuntime` starts and owns
-each Channel once Intelligence is configured — see "Running a Channel" below.
-Building and operating your own channel runner on the SDK primitives is also a
-supported path; teams choosing it own their state, persistence, concurrency,
-locking, retries, and race-condition handling.
+A Channel with direct adapters runs in any Node process: call
+`channel.start()`. CopilotKit Intelligence is optional. It adds managed Slack
+and Teams, durable threads, the Channels dashboard, and Memory — see "Running
+a Channel" below.
 
 ## Selective install
 
@@ -57,18 +55,46 @@ import { slack } from "@copilotkit/channels-slack";
   and ignored elsewhere — also pass them up front via `commands` in
   `CreateChannelOptions`.
 - `tool(t)` — register a `ChannelTool` (alternative to `opts.tools`); must be
-  added before the runtime activates the channel.
+  added before `start()`.
+- `addAdapter(adapter)` — attach an adapter before `start()`.
+- `start()` / `stop()` — bring adapters up / down. `start()` rejects when
+  every adapter fails to start.
 
 `agent` is optional. If omitted, calling `thread.runAgent()` throws; supply
 an `AbstractAgent` or a `(threadId) => AbstractAgent` factory.
 
-A `Channel` has no public `start()` / `stop()` — lifecycle is runtime-owned
-(see below).
-
 ## Running a Channel
 
-In the managed path, a Channel runs when it's declared on an
-Intelligence-configured `CopilotRuntime`. Pass the `Channel` in `channels`,
+### Standalone
+
+A Channel with direct adapters needs no runtime and no Intelligence key. Start
+it yourself:
+
+```ts
+import { createChannel } from "@copilotkit/channels-core";
+import { slack } from "@copilotkit/channels-slack";
+
+const channel = createChannel({
+  identifyUser: "platform",
+  agent,
+  adapters: [slack({ botToken, appToken })],
+});
+
+channel.onMention(async ({ thread }) => {
+  await thread.runAgent();
+});
+
+await channel.start();
+// await channel.stop(); // on shutdown
+```
+
+You own the process, state store, and scaling. Use a shared `store` (for
+example Redis) when you run more than one replica.
+
+### With CopilotKit Intelligence
+
+A Channel can also be declared on an Intelligence-configured `CopilotRuntime`.
+The runtime then starts and stops it for you. Pass the `Channel` in `channels`,
 then drive activation through the returned handler:
 
 ```ts
