@@ -12,7 +12,7 @@ allowed-tools:
 codemod-compatibility: skill-package-v1
 codemod-skill-version: 0.1.0
 
-The codemod already did the mechanical part: `/v2` import paths now point at the package roots, `<CopilotKit>` is `<CopilotKitProvider>`, `agent=` is `agentId=`, LangGraph agents import from `@ag-ui/langgraph`, and `BuiltInAgent` model strings are TanStack AI adapters. Each `useCopilotReadable` call is now `useAgentContext`, and each `useCopilotAction` call with a literal `Parameter[]` is now `useFrontendTool`, `useHumanInTheLoop` or `useRenderTool` with a Zod schema, and the `labels` of the v1 chat components use the 2.0 keys. Everything it could not do safely is marked with a `TODO(copilotkit-2.0):` comment next to the code.
+The codemod already did the mechanical part: `/v2` import paths now point at the package roots, `<CopilotKit>` is `<CopilotKitProvider>`, `agent=` is `agentId=`, LangGraph agents import from `@ag-ui/langgraph`, and `BuiltInAgent` model strings are TanStack AI adapters. Each `useCopilotReadable` call is now `useAgentContext`, each destructured `useCoAgent` call is `useAgent` with the same values, and each `useCopilotAction` call with a literal `Parameter[]` is now `useFrontendTool`, `useHumanInTheLoop` or `useRenderTool` with a Zod schema, and the `labels` of the v1 chat components use the 2.0 keys. Everything it could not do safely is marked with a `TODO(copilotkit-2.0):` comment next to the code.
 
 ## Rules
 

@@ -8,6 +8,7 @@ import { migrateRuntimeAdapters } from "./runtime-adapters.ts";
 import { migrateCopilotActions } from "./copilot-action.ts";
 import { migrateChatComponents } from "./chat-components.ts";
 import { migrateReadables } from "./readable.ts";
+import { migrateCoAgents } from "./coagent.ts";
 import type { Codemod, Edit, SgNode } from "codemod:ast-grep";
 import type TS from "codemod:ast-grep/langs/typescript";
 import type TSX from "codemod:ast-grep/langs/tsx";
@@ -479,6 +480,7 @@ const codemod: Codemod<Lang> = async (root, options) => {
     migrateRuntimeAdapters,
     migrateCopilotActions,
     migrateReadables,
+    migrateCoAgents,
     (node) => migrateChatComponents(node, jsxFile),
   ];
   let rootNode = root.root();
