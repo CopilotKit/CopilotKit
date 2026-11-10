@@ -159,6 +159,54 @@ describe("LinearConversationStore", () => {
     ]);
   });
 
+  it("appends a primed prompt once when the session has no prompt yet", async () => {
+    const store = storeFor({
+      issue: issueWithoutDescription,
+      activities: [activity({ type: "thought", body: "Looking into this" })],
+    });
+    store.primeSession("sess-1", "Please fix the Safari login.");
+
+    const first = await store.getOrCreate("linear:sess-1", target, makeAgent);
+    const second = await store.getOrCreate("linear:sess-1", target, makeAgent);
+
+    expect(first.agent.messages).toEqual([
+      {
+        id: "linear-issue-issue-1",
+        role: "user",
+        content:
+          "Linear issue ENG-42: Login fails on Safari\n" +
+          "URL: https://linear.app/acme/issue/ENG-42",
+      },
+      {
+        id: "linear-prompt-sess-1",
+        role: "user",
+        content: "Please fix the Safari login.",
+      },
+    ]);
+    expect(second.agent.messages).toEqual([
+      {
+        id: "linear-issue-issue-1",
+        role: "user",
+        content:
+          "Linear issue ENG-42: Login fails on Safari\n" +
+          "URL: https://linear.app/acme/issue/ENG-42",
+      },
+    ]);
+  });
+
+  it("drops a primed prompt when the session already has a prompt activity", async () => {
+    const store = storeFor({
+      activities: [activity({ type: "prompt", body: "Fix login" })],
+    });
+    store.primeSession("sess-1", "Please fix the Safari login.");
+
+    const session = await store.getOrCreate("linear:sess-1", target, makeAgent);
+
+    expect(session.agent.messages).toEqual([
+      { id: "act-1", role: "user", content: "Fix login" },
+    ]);
+  });
+
   it("abortSession aborts the live agent, and release() forgets it", async () => {
     const store = storeFor({ activities: [] });
     const { session, agent } = await openSession(store);

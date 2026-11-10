@@ -35,6 +35,11 @@ export interface LinearConversationStoreOptions {
  * issue, one user message with the issue context comes first. The inbound
  * prompt is already a session activity, so `seedsInboundTurn` is true.
  *
+ * A new session can have no `prompt` activity yet: the `created` webhook
+ * carries the request only in its payload. Call
+ * {@link LinearConversationStore.primeSession} with that text, and the next
+ * turn of the session gets it as the last user message.
+ *
  * The store keeps the running agent per session, so a `stop` signal can
  * abort it with {@link LinearConversationStore.abortSession}.
  *
@@ -47,6 +52,7 @@ export class LinearConversationStore implements ConversationStore {
   private readonly client: Pick<LinearApiClient, "getSession">;
   private readonly maxMessages: number;
   private readonly liveAgents = new Map<string, AbstractAgent>();
+  private readonly primedPrompts = new Map<string, string>();
 
   constructor(options: LinearConversationStoreOptions) {
     this.client = options.client;
@@ -59,9 +65,13 @@ export class LinearConversationStore implements ConversationStore {
     makeAgent: (threadId: string) => AbstractAgent,
   ) {
     const sessionId = replyTarget.agentSessionId;
+    // One-shot: take the primed prompt before the read, so two turns that
+    // start together cannot both get it.
+    const primed = this.primedPrompts.get(sessionId);
+    this.primedPrompts.delete(sessionId);
     const session = await this.client.getSession(sessionId);
     const agent = makeAgent(`linear-${sessionId}-${randomUUID()}`);
-    agent.setMessages(this.agentMessages(session));
+    agent.setMessages(this.agentMessages(session, primed));
     this.liveAgents.set(sessionId, agent);
     const agentSession: AgentSession = {
       agent,
@@ -75,14 +85,33 @@ export class LinearConversationStore implements ConversationStore {
   }
 
   /**
+   * Give the next turn of a session its request when the session has no
+   * `prompt` activity yet (a `created` session). The text is used once: the
+   * next {@link LinearConversationStore.getOrCreate} for the session appends it as a user message
+   * when the session's activities contain no prompt, and drops it when they
+   * do.
+   *
+   * @param agentSessionId - The Linear agent session.
+   * @param text - The request, for example the `created` webhook's `promptContext`.
+   * @example
+   * store.primeSession(event.agentSession.id, event.promptContext);
+   */
+  primeSession(agentSessionId: string, text: string) {
+    this.primedPrompts.set(agentSessionId, text);
+  }
+
+  /**
    * Abort the running agent of a session (the user sent the `stop` signal).
    * Aborts the agent's `abortController` when it has one, then calls
    * `abortRun()`.
    *
    * @param agentSessionId - The Linear agent session to stop.
+   * Also drops a primed prompt the session did not use.
+   *
    * @returns `true` when the session had a live agent, `false` otherwise.
    */
   abortSession(agentSessionId: string) {
+    this.primedPrompts.delete(agentSessionId);
     const agent = this.liveAgents.get(agentSessionId);
     if (!agent) return false;
     abortControllerOf(agent)?.abort();
@@ -107,16 +136,24 @@ export class LinearConversationStore implements ConversationStore {
     return messages;
   }
 
-  private agentMessages(session: LinearSession) {
-    const turns = conversationTurns(session.activities).slice(
-      -this.maxMessages,
-    );
+  private agentMessages(session: LinearSession, primed: string | undefined) {
+    const allTurns = conversationTurns(session.activities);
+    const turns = allTurns.slice(-this.maxMessages);
     const messages: Message[] = turns.map((turn) => ({
       id: turn.activity.id,
       role: turn.role,
       content: turn.body,
     }));
     if (session.issue) messages.unshift(issueContextMessage(session.issue));
+    const hasPrompt = allTurns.some((turn) => turn.role === "user");
+    const usesPrimed = primed !== undefined && !hasPrompt;
+    if (usesPrimed) {
+      messages.push({
+        id: `linear-prompt-${session.id}`,
+        role: "user",
+        content: primed,
+      });
+    }
     return messages;
   }
 }

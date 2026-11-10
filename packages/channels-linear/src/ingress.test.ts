@@ -56,8 +56,15 @@ function promptedEvent(
   };
 }
 
+/** A teammate who replies in the session but did not create it. */
+const prompter = {
+  id: "user_2",
+  name: "Grace Hopper",
+  email: "grace@acme.dev",
+};
+
 function prompt(id: string, body: string): LinearWebhookAgentActivity {
-  return { id, content: { type: "prompt", body } };
+  return { id, user: prompter, content: { type: "prompt", body } };
 }
 
 const pendingSet: PendingChoiceSet = {
@@ -108,11 +115,17 @@ const replyTarget = {
   agentSessionId: "ses_1",
   issueId: "iss_1",
 };
-const actor = {
+const creatorActor = {
   id: "user_1",
   kind: "human",
   name: "Ada Lovelace",
   email: "ada@acme.dev",
+};
+const prompterActor = {
+  id: "user_2",
+  kind: "human",
+  name: "Grace Hopper",
+  email: "grace@acme.dev",
 };
 
 function identity(trigger: string, eventId: string, occurredAt: string) {
@@ -135,7 +148,7 @@ describe("handleAgentSessionEvent", () => {
         platform: "linear",
         conversationKey: "linear:ses_1",
         replyTarget,
-        actor,
+        actor: creatorActor,
         eventId: "ses_1:created",
         userText:
           '<issue identifier="ENG-42"><title>Checkout fails on Safari</title></issue>',
@@ -164,7 +177,7 @@ describe("handleAgentSessionEvent", () => {
     ]);
   });
 
-  it("turns a prompted message into a turn with the message body", async () => {
+  it("turns a prompted message into a turn from the user who sent it", async () => {
     const payload = promptedEvent(prompt("act_2", "Try Safari 17 too."));
 
     const { turns } = await run(payload);
@@ -174,7 +187,7 @@ describe("handleAgentSessionEvent", () => {
         platform: "linear",
         conversationKey: "linear:ses_1",
         replyTarget,
-        actor,
+        actor: prompterActor,
         eventId: "act_2",
         userText: "Try Safari 17 too.",
         operation: {
@@ -190,6 +203,14 @@ describe("handleAgentSessionEvent", () => {
         },
       },
     ]);
+  });
+
+  it("falls back to the session creator when the activity names no user", async () => {
+    const { user: _omitted, ...withoutUser } = prompt("act_7", "Any update?");
+
+    const { turns } = await run(promptedEvent(withoutUser));
+
+    expect(turns.map((turn) => turn.actor)).toEqual([creatorActor]);
   });
 
   it("calls onStop and starts no turn for the stop signal", async () => {
@@ -221,7 +242,7 @@ describe("handleAgentSessionEvent", () => {
         platform: "linear",
         conversationKey: "linear:ses_1",
         replyTarget,
-        actor,
+        actor: prompterActor,
         eventId: "act_4",
         id: "ck:ship",
         value: "ship",

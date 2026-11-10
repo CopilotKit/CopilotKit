@@ -174,6 +174,12 @@ export interface LinearWebhookAgentSession {
 export interface LinearWebhookAgentActivity {
   id: string;
   /**
+   * The user who created the activity: on `prompted`, the user who sent the
+   * message. Linear's schema marks it non-null; ingress falls back to the
+   * session creator when it is missing.
+   */
+  user?: LinearWebhookUser;
+  /**
    * Linear types this as a free JSON object. On `prompted` it is a `prompt`.
    * The adapter only reads `type` and `body`.
    */

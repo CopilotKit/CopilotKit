@@ -62,6 +62,9 @@ function createdUserText(payload: AgentSessionEventWebhook) {
 /**
  * Route one Linear `AgentSessionEvent` webhook into the channel engine.
  *
+ * The actor is the user who sent the `prompted` activity, or the session
+ * creator for `created`.
+ *
  * - `created` (the agent was mentioned or delegated an issue) becomes a turn.
  *   The text is `promptContext`, or the issue plus the triggering comment.
  * - `prompted` with the `stop` signal calls `onStop` and starts no turn.
@@ -101,7 +104,9 @@ export async function handleAgentSessionEvent(
       platform: PLATFORM,
       conversationKey,
       replyTarget,
-      actor: actorOf(session.creator),
+      // The activity's author sent a `prompted` message; a `created` session
+      // has no activity, so its creator is the actor.
+      actor: actorOf(activity?.user ?? session.creator),
       eventId,
       identityContext: {
         tenant: { id: payload.organizationId },
