@@ -1,5 +1,8 @@
 # Railway disposable ownership contract
 
+> **Registry disconnected (PNI-786).** No Showcase reader is currently connected
+> to the disposable runner's registry; see [Registry disconnected](#registry-disconnected).
+
 Set `SHOWCASE_DISPOSABLE_RUN_RECORDS_FILE` to a durable JSON snapshot published
 by the lifecycle writer. This contract covers read-only registry classification;
 the PNI-605/PNI-606 runbook remains the source for execution plans and status.
@@ -304,6 +307,36 @@ provider, reviewed real image pins, readiness and cleanup evidence, and the
 atomic writer before hosted use. PNI-606 must supply the four-hour schedule.
 Offline classifier tests and Docker receipts do not prove Railway deployment or
 live probe acceptance.
+
+## Registry disconnected
+
+The staging rich-thread runner is parked and the Showcase pipeline no longer
+reads its registry, so a new Showcase service no longer needs a reader policy
+transition or a runner deploy. Every reader runs in static-fleet mode: it grants
+no disposable exemptions, so any unregistered service in a runner environment
+shows up as unknown and fails. Static mode is therefore stricter, never looser.
+
+- **Workflows.** The image gate (`showcase_build.yml`,
+  `showcase_eval-webhook_build.yml`) and the ordinary promotion steps
+  (`showcase_promote.yml`, `docs_promote.yml`) no longer pass
+  `SHOWCASE_DISPOSABLE_RUN_RECORDS_FILE`, `SHOWCASE_DISPOSABLE_RUN_RECORDS_TOKEN`
+  or `SHOWCASE_REGISTRY_CONSUMER`. `registry-validation-workflows.test.ts`
+  enforces this. The opt-in `validate_registry_only` dispatch step stays bound,
+  so the registry can still be checked before reconnecting. The repository
+  variable and secret stay configured for that step.
+- **Staging harness.** Remove the same three variables from the staging
+  `harness` Railway service together, then redeploy it. Never remove only some
+  of them.
+
+Precondition: every `rich-*` environment has zero service instances. If any
+has instances, stop and reassess. Never delete runner journals, leases,
+recovery holds, volumes or `rich-*` resources to make a reader pass.
+
+To reconnect, first make the readers' committed policy hash match what the
+runner publishes, or add a reviewed transition. Then restore the workflow
+bindings by reverting the PNI-786 change and updating its test, and set all
+three harness variables (`SHOWCASE_REGISTRY_CONSUMER=harness`). The sections
+below describe the connected design.
 
 ## Hosted permanent-runner transport
 
