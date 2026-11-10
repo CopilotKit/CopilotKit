@@ -73,6 +73,20 @@ describe("ReplayHold", () => {
     expect(second.seen).toEqual([1, "error"]);
   });
 
+  it("stops handing on held values when the subscriber unsubscribes during release", () => {
+    const source = new Subject<number>();
+    const hold = new ReplayHold<number>(true);
+    const seen: number[] = [];
+    const subscription = hold.through(source).subscribe((value) => {
+      seen.push(value);
+      subscription.unsubscribe();
+    });
+    source.next(1);
+    source.next(2);
+    expect(() => hold.release()).not.toThrow();
+    expect(seen).toEqual([1]);
+  });
+
   it("drops nothing into a closed subscriber", () => {
     const source = new Subject<number>();
     const hold = new ReplayHold<number>(true);

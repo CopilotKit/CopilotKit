@@ -34,8 +34,12 @@ export class ReplayHold<T> {
   release(): void {
     const held = this.held;
     this.held = undefined;
-    if (!held || !this.deliver) return;
-    for (const value of held) this.deliver(value);
+    // Captured: a subscriber that unsubscribes while handling a value clears
+    // `this.deliver`, and the rest then goes to its closed subscriber, which
+    // ignores it.
+    const deliver = this.deliver;
+    if (!held || !deliver) return;
+    for (const value of held) deliver(value);
   }
 
   /**

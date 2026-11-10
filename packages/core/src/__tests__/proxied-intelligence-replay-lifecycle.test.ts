@@ -232,6 +232,50 @@ describe.each(["intelligence", "pending"] as const)(
       }
     });
 
+    it("applies a replay once when the channel rejoins before the replay completes", async () => {
+      const agent = createReplayAgent(runtimeMode);
+      const connecting = agent.connectAgent();
+      try {
+        await vi.waitFor(() =>
+          expect(sockets[0]?.channels[0]?.joinCount).toBe(1),
+        );
+        const channel = sockets[0]!.channels[0]!;
+        channel.triggerJoin("ok");
+        const pushHistory = () => {
+          channel.serverPush("ag_ui_event", {
+            type: EventType.TEXT_MESSAGE_START,
+            messageId: "m1",
+            role: "assistant",
+          });
+          channel.serverPush("ag_ui_event", {
+            type: EventType.TEXT_MESSAGE_CONTENT,
+            messageId: "m1",
+            delta: "first",
+          });
+          channel.serverPush("ag_ui_event", {
+            type: EventType.TEXT_MESSAGE_END,
+            messageId: "m1",
+          });
+        };
+        pushHistory();
+        // The channel errors before replay_complete. Phoenix rejoins with the
+        // same cursor, so the gateway sends the held history again.
+        channel.serverPush("phx_error", {});
+        pushHistory();
+        channel.serverPush("replay_complete", {});
+        await vi.waitFor(() => expect(agent.messages).toHaveLength(1));
+        await new Promise((resolve) => setTimeout(resolve, 20));
+        expect(
+          agent.messages.map((m) => ({ id: m.id, content: m.content })),
+        ).toEqual([{ id: "m1", content: "first" }]);
+        channel.serverPush("stream_idle", {});
+        await connecting;
+      } finally {
+        await agent.detachActiveRun();
+        await connecting;
+      }
+    });
+
     it("drops the replay held so far when the connect is detached and asks for it again", async () => {
       const agent = createReplayAgent(runtimeMode);
       agent.threadId = "saved-thread";

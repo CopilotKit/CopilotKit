@@ -816,7 +816,7 @@ export class IntelligenceAgent extends AbstractAgent {
       // A connect holds its replayed history and passes it on in one burst
       // when the replay ends (see ReplayHold). It is released on
       // replay_complete or stream_idle, and when the stream ends; a rejoin
-      // starts holding again for the replay that follows. On replay_failed
+      // drops what is held and holds the replay that follows. On replay_failed
       // the gateway may already have streamed part of the history; the part
       // held now is dropped, and since the reconnect cursor never moved past
       // it, the next join asks for all of it again.
@@ -886,7 +886,12 @@ export class IntelligenceAgent extends AbstractAgent {
           warnedAboutIdle = false;
           clearIdleWarning();
           failedReplay = false;
-          if (options.streamMode === "connect") replayHold.hold();
+          // Phoenix rejoins with the cursor this join started from, so the
+          // gateway sends the history held so far again. Drop the held copy.
+          if (options.streamMode === "connect") {
+            replayHold.discard();
+            replayHold.hold();
+          }
           options.lifecycle?.onReplayStarted?.();
         }),
         share(),
