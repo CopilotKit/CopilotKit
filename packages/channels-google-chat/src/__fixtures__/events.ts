@@ -201,3 +201,25 @@ export const addOnAdded = {
   commonEventObject: { hostApp: "CHAT" },
   chat: { user: HUMAN, addedToSpacePayload: { space: DM } },
 };
+
+/** Legacy envelope: a quick command, which carries only its command ID. */
+export const legacyQuickCommand = {
+  type: "APP_COMMAND",
+  space: ROOM,
+  user: HUMAN,
+  thread: THREAD,
+  appCommandMetadata: { appCommandId: 2, appCommandType: "QUICK_COMMAND" },
+};
+
+/** Add-on envelope: a quick command with no message. */
+export const addOnQuickCommand = {
+  commonEventObject: { hostApp: "CHAT" },
+  chat: {
+    user: HUMAN,
+    appCommandPayload: {
+      appCommandMetadata: { appCommandId: 2, appCommandType: "QUICK_COMMAND" },
+      space: ROOM,
+      thread: THREAD,
+    },
+  },
+};

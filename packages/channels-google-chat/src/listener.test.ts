@@ -8,8 +8,10 @@ import {
   addOnAdded,
   addOnClick,
   addOnMention,
+  addOnQuickCommand,
   addOnSlash,
   legacyDm,
+  legacyQuickCommand,
   legacyMention,
   legacySlash,
 } from "./__fixtures__/events.js";
@@ -121,6 +123,22 @@ describe("routeEvent", () => {
     }
     const { sink } = await route(legacySlash);
     expect(sink.onCommand.mock.calls[0]![0].text).toBe("last week");
+  });
+
+  it("routes a quick command with no message by its command ID", async () => {
+    for (const body of [legacyQuickCommand, addOnQuickCommand]) {
+      const { sink } = await route(body);
+      expect(sink.onCommand.mock.calls[0]![0]).toMatchObject({
+        command: "2",
+        text: "",
+        conversationKey: "gchat:spaces/ROOM1/threads/T1",
+        replyTarget: {
+          space: "spaces/ROOM1",
+          thread: "spaces/ROOM1/threads/T1",
+        },
+        actor: { id: "users/111" },
+      });
+    }
   });
 
   it("welcomes the space when the app is added", async () => {

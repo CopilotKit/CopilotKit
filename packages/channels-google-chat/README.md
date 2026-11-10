@@ -9,7 +9,7 @@ by editing one message in place. Cards are rendered from the
 ## Install
 
 ```sh
-pnpm add @copilotkit/channels @copilotkit/channels-google-chat
+pnpm add @copilotkit/channels @copilotkit/channels-google-chat @copilotkit/runtime @ag-ui/client
 ```
 
 The adapter is also available from the umbrella package as
@@ -18,6 +18,7 @@ The adapter is also available from the umbrella package as
 ## Quickstart
 
 ```ts
+import { HttpAgent } from "@ag-ui/client";
 import { createChannel } from "@copilotkit/channels";
 import {
   googleChat,
@@ -39,7 +40,8 @@ const bot = createChannel({
       path: "/google-chat",
     }),
   ],
-  agent: makeAgent(process.env.AGENT_URL!),
+  // Any AG-UI agent. Here: an agent served over HTTP at AGENT_URL.
+  agent: new HttpAgent({ url: process.env.AGENT_URL! }),
   context: [...defaultGoogleChatContext],
 });
 
@@ -73,7 +75,8 @@ await listener.channels.ready();
    (`service-<projectNumber>@gcp-sa-gsuiteaddons.iam.gserviceaccount.com`).
    Add-on apps send card clicks to a URL, so card buttons need `endpointUrl`.
 6. Optional: add slash commands. A command named `/summarize` reaches
-   `bot.onCommand("summarize", …)`.
+   `bot.onCommand("summarize", …)`. A quick command carries only its command
+   ID, so register it by that ID: command ID 2 reaches `bot.onCommand("2", …)`.
 
 For local development, expose the port with a tunnel such as `ngrok`.
 `disableSignatureVerification: true` turns off webhook verification. Use it

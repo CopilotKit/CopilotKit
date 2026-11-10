@@ -86,8 +86,14 @@ export interface NormalizedEvent {
   parameters: Record<string, string>;
   /** Card click: current values of the card's inputs. */
   formInputs?: FormInputs;
-  /** Slash command: the command name without the slash, when known. */
+  /**
+   * Slash or quick command: the command name without the slash. When the
+   * event names no command (a quick command carries only its ID), this is
+   * the command ID from the Chat app configuration, for example "1".
+   */
   command?: string;
+  /** Command: the thread it was run in, when the event has no message. */
+  thread?: string;
 }
 
 /** True for a one-to-one or group direct message, in either envelope. */
@@ -128,6 +134,8 @@ function commandOf(message: ChatMessage | undefined): string | undefined {
 
 interface LegacyEvent {
   type?: string;
+  appCommandMetadata?: { appCommandId?: number; appCommandType?: string };
+  thread?: { name?: string };
   eventTime?: string;
   space?: ChatSpace;
   message?: ChatMessage;
@@ -202,6 +210,7 @@ export function normalizeEvent(body: unknown): NormalizedEvent {
         kind: "command",
         space: p.space ?? message?.space,
         message,
+        ...(p.thread?.name ? { thread: p.thread.name } : {}),
         command:
           commandOf(message) ??
           (p.appCommandMetadata?.appCommandId !== undefined
@@ -249,7 +258,14 @@ export function normalizeEvent(body: unknown): NormalizedEvent {
       return { ...base, kind: command ? "command" : "message", command };
     }
     case "APP_COMMAND": {
-      return { ...base, kind: "command", command: commandOf(raw.message) };
+      const id = raw.appCommandMetadata?.appCommandId;
+      return {
+        ...base,
+        kind: "command",
+        command:
+          commandOf(raw.message) ?? (id !== undefined ? String(id) : undefined),
+        ...(raw.thread?.name ? { thread: raw.thread.name } : {}),
+      };
     }
     case "ADDED_TO_SPACE":
       return { ...base, kind: "added" };

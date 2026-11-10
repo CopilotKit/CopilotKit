@@ -217,8 +217,10 @@ gives it to the agent on every turn. The default store is in memory. For a
 durable store, pass a `historyStore`.
 
 The adapter does not support modals, reactions, file uploads, or user lookup.
-Configure slash commands in the Google Cloud console. The adapter sends each
-command to the `onCommand` handler with the same name.
+Configure slash commands and quick commands in the Google Cloud console. The
+adapter sends a slash command to the `onCommand` handler with the same name. A
+quick command carries only its command ID, so register its handler by that ID,
+for example `onCommand("2", handler)`.
 
 ## Capability boundaries
 

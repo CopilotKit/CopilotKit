@@ -81,16 +81,20 @@ export async function routeEvent(
 
   if (evt.kind === "message") return routeMessage(evt, ctx);
 
-  if (evt.kind === "command" && evt.message && evt.command) {
+  if (evt.kind === "command" && evt.command) {
+    // A quick command can arrive without a message.
     const message = evt.message;
-    const replyTarget = replyTargetOf(space, message.thread?.name);
+    const replyTarget = replyTargetOf(
+      space,
+      message?.thread?.name ?? evt.thread,
+    );
     const conversationKey = conversationKeyOf(
       replyTarget.space,
       replyTarget.thread,
     );
-    const sender = message.sender ?? evt.user;
+    const sender = message?.sender ?? evt.user;
     // Chat's argumentText for a slash command is the text after the command.
-    const text = (message.argumentText ?? "").trim();
+    const text = (message?.argumentText ?? "").trim();
     await sink.onCommand({
       command: evt.command,
       text,
@@ -101,9 +105,9 @@ export async function routeEvent(
         evt,
         conversationKey,
         "command",
-        message.name,
+        message?.name,
       ),
-      ...(message.name ? { eventId: message.name } : {}),
+      ...(message?.name ? { eventId: message.name } : {}),
       platform: PLATFORM,
     });
   }
