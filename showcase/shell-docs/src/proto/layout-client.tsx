@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, type ComponentProps, type ReactNode } from "react";
+import { useEffect } from "react";
+import type { ComponentProps, ReactNode } from "react";
 import { usePathname } from "next/navigation";
 import Link from "fumadocs-core/link";
 import { buttonVariants } from "fumadocs-ui/components/ui/button";
@@ -39,9 +40,11 @@ import { FRAMEWORKS, FRAMEWORK_FAMILIES } from "./data";
 import { FamilyMenuCard, IntegrationCardBody } from "./link-card";
 import { rememberFramework, useLastFramework } from "./last-framework";
 import { useMenuSwitchClick } from "./use-menu-switch-click";
-import { frameworkHref, locationFromPathname, type VariantId } from "./routes";
+import { frameworkHref, locationFromPathname } from "./routes";
+import type { VariantId } from "./routes";
 import { SidebarTop, buildTree, layoutTabs } from "./variants";
 import { liveTree } from "./live-tree";
+import { LivePagesProvider } from "./live-pages-context";
 import { trackEvent } from "@/lib/telemetry/analytics";
 import { cn } from "@/lib/cn";
 import type { LiveNav } from "@/lib/live-nav";
@@ -525,42 +528,44 @@ export function ProtoLayout({
     <SidebarTop variant={variant} loc={loc} lastFramework={lastFramework} />
   );
   return (
-    <SpaciousLayout
-      tree={tree}
-      nav={{
-        title: <CopilotKitLogo className="h-[22px] w-auto" />,
-        url: meta.entry,
-      }}
-      tabs={layoutTabs(variant) ?? false}
-      githubUrl={GITHUB}
-      links={[DISCORD, X]}
-      slots={{
-        actions: variant === "d" && liveNav ? SectionActions : PanelActions,
-        themeSwitch: AdaptiveThemeSwitch,
-      }}
-      agent={
-        <ProtoStackAgent
-          variant={variant}
-          framework={framework}
-          slug={loc?.kind === "framework" ? loc.slug : undefined}
-        />
-      }
-      searchToggle={{
-        components: {
-          lg: (
-            <div className="flex flex-col gap-2">
-              {top}
-              <FullSearchTrigger
-                hideIfDisabled
-                className="h-10 gap-3 rounded-xl bg-card ps-[calc(--spacing(2.5)-1px)] pe-2 shadow-lift hover:bg-accent [&_svg]:shrink-0"
-              />
-            </div>
-          ),
-        },
-      }}
-    >
-      {children}
-    </SpaciousLayout>
+    <LivePagesProvider index={liveNav?.index ?? null}>
+      <SpaciousLayout
+        tree={tree}
+        nav={{
+          title: <CopilotKitLogo className="h-[22px] w-auto" />,
+          url: meta.entry,
+        }}
+        tabs={layoutTabs(variant) ?? false}
+        githubUrl={GITHUB}
+        links={[DISCORD, X]}
+        slots={{
+          actions: variant === "d" && liveNav ? SectionActions : PanelActions,
+          themeSwitch: AdaptiveThemeSwitch,
+        }}
+        agent={
+          <ProtoStackAgent
+            variant={variant}
+            framework={framework}
+            slug={loc?.kind === "framework" ? loc.slug : undefined}
+          />
+        }
+        searchToggle={{
+          components: {
+            lg: (
+              <div className="flex flex-col gap-2">
+                {top}
+                <FullSearchTrigger
+                  hideIfDisabled
+                  className="h-10 gap-3 rounded-xl bg-card ps-[calc(--spacing(2.5)-1px)] pe-2 shadow-lift hover:bg-accent [&_svg]:shrink-0"
+                />
+              </div>
+            ),
+          },
+        }}
+      >
+        {children}
+      </SpaciousLayout>
+    </LivePagesProvider>
   );
 }
 

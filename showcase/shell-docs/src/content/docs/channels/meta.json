@@ -1,19 +1,24 @@
 {
   "title": "Channels",
-  "icon": "lucide/MessagesSquare",
   "pages": [
+    "---Getting Started---",
+    "[Overview](/channels)",
     "intelligence",
-    "threads-and-state",
-    "identity-and-memory",
-    "history-and-transcripts",
+    "[Connect and run your agent](/connect)",
+    "---Build---",
     "tools",
-    "commands-and-reactions",
+    "identity-and-memory",
     "rich-messages",
     "posting-jsx-as-images",
     "render-and-carousel",
-    "files-and-multimodality",
     "interactive",
+    "commands-and-reactions",
+    "files-and-multimodality",
+    "threads-and-state",
+    "---Production---",
     "persistence-and-scaling",
-    "deploy-and-operate"
+    "history-and-transcripts",
+    "deploy-and-operate",
+    "[API reference](/reference/channels)"
   ]
 }

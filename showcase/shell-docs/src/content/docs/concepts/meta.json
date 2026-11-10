@@ -1,12 +1,6 @@
 {
   "title": "Concepts",
-  "frontend": {
-    "kind": "universal"
-  },
   "pages": [
-    "architecture",
-    "generative-ui-overview",
-    "which-hook",
-    "oss-vs-enterprise"
+    "which-hook"
   ]
 }

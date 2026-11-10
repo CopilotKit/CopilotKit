@@ -1,5 +1,7 @@
 import type * as PageTree from "fumadocs-core/page-tree";
-import type { FrontendId } from "@/proto/data";
+import { getPageIndex } from "./live-docs";
+import { LINK_ROW } from "./live-pages";
+import type { PageIndex } from "./live-pages";
 import {
   LIVE_FRAMEWORKS,
   REFERENCE_FOLDERS,
@@ -10,110 +12,78 @@ import {
   GROUP_OPEN,
   GROUP_OPEN_EXPANDED,
   folderSource,
-  frontendPolicy,
   liveSource,
   referenceSource,
 } from "./live-source";
 
 /**
- * The live docs' sidebars, from shell-docs' own meta.json files: the root one
- * (unscoped pages, which are the built-in agent's), one per folder under
- * `docs/integrations` for frameworks that author their own, and the reference's
- * and the cookbook's. The layout picks
- * and scopes one per URL on the client (`src/proto/live-tree.tsx`).
+ * The live docs' sidebars, read from their meta.json files and drawn per URL
+ * on the client (`src/proto/live-tree.tsx`):
+ *
+ *   app         `docs/meta.json`: React, Vue, Angular, and React Native
+ *   channels    `docs/channels/meta.json`: Slack and Teams
+ *   shared      `docs/(shared)/meta.json`: the sections every frontend ends with
+ *   frameworks  `docs/integrations/<folder>/meta.json`: a framework's own pages
+ *
+ * A row shows only when its page exists for the reader's frontend and
+ * framework (`whereIs` over `index`).
  */
 export interface LiveNav {
-  root: PageTree.Node[];
-  /** Keyed by integrations folder; URLs still read `/integrations/<folder>/...`. */
-  folders: Record<string, PageTree.Node[]>;
+  app: PageTree.Node[];
+  channels: PageTree.Node[];
+  shared: PageTree.Node[];
   /**
-   * What a generated framework adds to the root sidebar: its folder's pages
-   * that have no root page of the same slug (`buildFrameworkOverridesNav`).
+   * A framework's own pages and its folder's sidebar title, keyed by
+   * integrations folder; URLs read `/integrations/<folder>/...`.
    */
-  overrides: Record<string, PageTree.Node[]>;
+  frameworks: Record<string, { title?: string; nodes: PageTree.Node[] }>;
   /** The reference's sidebar per SDK (`v2`, `vue`, ...), at final URLs. */
   reference: Record<string, PageTree.Node[]>;
   /** The cookbook's recipes, from `docs/cookbook/meta.json`. */
   cookbook: PageTree.Node[];
-  /**
-   * The unscoped pages Vue and Angular serve, by slug. Their sidebars list
-   * only these, plus, on Angular, the backend's own pages
-   * (`src/lib/live-frontend-sidebar.ts`).
-   */
-  frontendPages: Partial<Record<FrontendId, string[]>>;
+  /** Where every page lives, for `whereIs`. */
+  index: PageIndex;
+  /** A frontend folder's own page titles, by folder then slug. */
+  titles: Record<string, Record<string, string>>;
 }
 
 let cached: LiveNav | undefined;
 
 export function getLiveNav(): LiveNav {
   if (cached) return cached;
-  const folders: Record<string, PageTree.Node[]> = {};
-  const overrides: Record<string, PageTree.Node[]> = {};
-  for (const fw of Object.values(LIVE_FRAMEWORKS)) {
-    const tree = () =>
-      strip(folderSource(`integrations/${fw.folder}`).getPageTree().children);
-    if (fw.mode === "authored") folders[fw.folder] ??= tree();
-    else overrides[fw.folder] ??= withoutRootPages(tree(), fw.folder);
+  const index = getPageIndex();
+  const frameworks: LiveNav["frameworks"] = {};
+  for (const { folder } of Object.values(LIVE_FRAMEWORKS)) {
+    if (frameworks[folder]) continue;
+    const tree = folderSource(`integrations/${folder}`).getPageTree();
+    frameworks[folder] = {
+      title: typeof tree.name === "string" ? tree.name : undefined,
+      nodes: strip(tree.children),
+    };
+  }
+  const titles: Record<string, Record<string, string>> = {};
+  for (const folder of Object.keys(index.folders)) {
+    if (folder.startsWith("integrations/")) continue;
+    titles[folder] = Object.fromEntries(
+      index.folders[folder].flatMap((slug) => {
+        const page = liveSource.getPage(
+          `${folder}/${slug}`.split("/").filter(Boolean),
+        );
+        return page ? [[slug, page.data.title]] : [];
+      }),
+    );
   }
   cached = {
-    root: strip(liveSource.getPageTree().children),
-    folders,
-    overrides,
+    app: strip(liveSource.getPageTree().children),
+    channels: strip(folderSource("channels").getPageTree().children),
+    shared: strip(folderSource("(shared)").getPageTree().children),
+    frameworks,
     reference: referenceNav(),
     cookbook: strip(folderSource("cookbook").getPageTree().children, true),
-    frontendPages: {
-      vue: frontendPages("vue"),
-      angular: frontendPages("angular"),
-    },
+    index,
+    titles,
   };
   return cached;
-}
-
-/**
- * Pages Vue reuses although they predate the frontend policy
- * (shell-docs' `VUE_SHARED_ROOT_DOC_SLUGS`).
- */
-const VUE_SHARED_PAGES = ["AG-UI-Streams", "threads-import", "inspector"];
-
-/**
- * What a frontend serves beyond its quickstart, as shell-docs'
- * `frontend-doc-policy.ts` decides it: its own pages
- * (`frontends/vue/frontend-tools.mdx` is `frontend-tools`) and every page
- * whose policy is `universal`. A React page with neither is left out.
- */
-function frontendPages(frontend: FrontendId): string[] {
-  const out = new Set(frontend === "vue" ? VUE_SHARED_PAGES : []);
-  for (const page of liveSource.getPages()) {
-    const [head, ...rest] = page.slugs;
-    if (head === "frontends") {
-      if (rest[0] === frontend) out.add(rest.slice(1).join("/"));
-    } else if (
-      head !== "integrations" &&
-      frontendPolicy(page) === "universal"
-    ) {
-      out.add(page.slugs.join("/"));
-    }
-  }
-  return [...out];
-}
-
-function withoutRootPages(
-  nodes: PageTree.Node[],
-  folder: string,
-): PageTree.Node[] {
-  const base = `/integrations/${folder}`;
-  return nodes.flatMap((n): PageTree.Node[] => {
-    if (n.type === "separator") return [];
-    if (n.type === "page") {
-      const slugs = n.url.slice(base.length).split("/").filter(Boolean);
-      return slugs.length && liveSource.getPage(slugs) ? [] : [n];
-    }
-    const children = withoutRootPages(
-      n.index ? [n.index, ...n.children] : n.children,
-      folder,
-    );
-    return children.length ? [{ ...n, index: undefined, children }] : [];
-  });
 }
 
 /**
@@ -180,15 +150,15 @@ function strip(nodes: PageTree.Node[], icons = false): PageTree.Node[] {
   return foldGroups(nodes).flatMap((n): PageTree.Node[] => {
     if (n.type === "page") {
       const icon = icons && typeof n.icon === "string" ? n.icon : undefined;
-      return [{ type: "page", name: n.name, url: n.url, icon }];
+      // A meta.json link (`[Overview](/channels)`) names its row itself.
+      const named = n.$ref ? {} : { description: LINK_ROW };
+      return [{ type: "page", name: n.name, url: n.url, icon, ...named }];
     }
     if (n.type === "separator") return [{ type: "separator", name: n.name }];
     const index = n.index
       ? ({ type: "page", name: n.index.name, url: n.index.url } as const)
       : undefined;
     const children = strip(n.children, icons);
-    // A folder whose pages all sit elsewhere in the sidebar would render as an
-    // empty, expandable row: show its own page as a plain link, or drop it.
     if (!children.length) return index ? [index] : [];
     return [
       {
@@ -202,29 +172,29 @@ function strip(nodes: PageTree.Node[], icons = false): PageTree.Node[] {
   });
 }
 
-/** Turns `live-source.ts`' group markers back into folders. */
+/** Turns `live-source.ts`' group markers back into folders, nested ones too. */
 function foldGroups(nodes: PageTree.Node[]): PageTree.Node[] {
-  const out: PageTree.Node[] = [];
-  let group: PageTree.Folder | null = null;
+  const root: PageTree.Node[] = [];
+  const open: PageTree.Folder[] = [];
+  const into = () => open.at(-1)?.children ?? root;
   for (const n of nodes) {
     const name =
       n.type === "separator" && typeof n.name === "string" ? n.name : null;
     if (name?.startsWith(GROUP_OPEN_EXPANDED) || name?.startsWith(GROUP_OPEN)) {
-      const open = name.startsWith(GROUP_OPEN_EXPANDED);
-      group = {
+      const expanded = name.startsWith(GROUP_OPEN_EXPANDED);
+      const group: PageTree.Folder = {
         type: "folder",
-        name: name.slice((open ? GROUP_OPEN_EXPANDED : GROUP_OPEN).length),
-        defaultOpen: open,
+        name: name.slice((expanded ? GROUP_OPEN_EXPANDED : GROUP_OPEN).length),
+        defaultOpen: expanded,
         children: [],
       };
-      out.push(group);
+      into().push(group);
+      open.push(group);
     } else if (name === GROUP_CLOSE) {
-      group = null;
-    } else if (group) {
-      group.children.push(n);
+      open.pop();
     } else {
-      out.push(n);
+      into().push(n);
     }
   }
-  return out;
+  return root;
 }

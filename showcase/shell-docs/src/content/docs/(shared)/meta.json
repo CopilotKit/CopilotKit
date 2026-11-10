@@ -1,0 +1,116 @@
+{
+  "title": "Shared",
+  "pages": [
+    "---Intelligence---",
+    "[Overview](/intelligence/overview)",
+    {
+      "title": "Get started",
+      "pages": [
+        "intelligence/quickstart",
+        "intelligence/intelligence-platform",
+        "intelligence/plans"
+      ]
+    },
+    {
+      "title": "Features",
+      "pages": [
+        {
+          "title": "AG-UI Streams",
+          "pages": [
+            "[Overview](/AG-UI-Streams)",
+            "intelligence/bring-your-own-thread-system",
+            "threads-import",
+            "[Thread & History Lifecycle](/threads-lifecycle)",
+            "intelligence/threads-explained"
+          ]
+        },
+        "learning",
+        "intelligence/memories",
+        "intelligence/trajectories",
+        "intelligence/standalone-collector",
+        "intelligence/analytics",
+        "intelligence/channels"
+      ]
+    },
+    {
+      "title": "Hosting",
+      "pages": [
+        "intelligence/managed-intelligence-platform",
+        "intelligence/self-hosting",
+        "intelligence/self-hosting-ecs",
+        "intelligence/self-hosting-local"
+      ]
+    },
+    "---Backend---",
+    {
+      "title": "Runtime",
+      "pages": [
+        "backend/copilot-runtime",
+        "backend/runtime-endpoints",
+        "backend/custom-agent",
+        "backend/custom-ag-ui-agent",
+        "backend/agent-runner",
+        "backend/message-history",
+        "backend/self-managed-agents",
+        "backend/ag-ui",
+        "runtime-server-adapter",
+        "[Authentication](/auth)"
+      ]
+    },
+    {
+      "title": "Deployment",
+      "pages": [
+        "deploy/agentcore",
+        "deploy/aws-lambda",
+        "deploy/langsmith"
+      ]
+    },
+    {
+      "title": "Debugging",
+      "pages": [
+        "inspector",
+        "vs-code-extension"
+      ]
+    },
+    "---Learn---",
+    {
+      "title": "Concepts",
+      "pages": [
+        "concepts/architecture",
+        "concepts/generative-ui-overview",
+        "[Which Hook for Which Job](/concepts/which-hook)",
+        "concepts/oss-vs-enterprise",
+        "[Overview](/agentic-protocols)",
+        "agentic-protocols/ag-ui",
+        "agentic-protocols/ag-ui-middleware",
+        "agentic-protocols/mcp",
+        "agentic-protocols/a2a",
+        "[Common Questions](/faq)"
+      ]
+    },
+    "[Cookbook](/cookbook)",
+    "[Reference](/reference)",
+    "---Other---",
+    {
+      "title": "Contributing",
+      "pages": [
+        "(other)/contributing/code-contributions",
+        "(other)/contributing/docs-contributions"
+      ]
+    },
+    {
+      "title": "Troubleshooting",
+      "pages": [
+        "troubleshooting/common-issues",
+        "[Error message reference](/troubleshooting/error-reference)",
+        "[Error Debugging & Observability](/troubleshooting/error-debugging)",
+        "[Inspector and dev console](/troubleshooting/inspector-dev-console)",
+        "troubleshooting/debug-mode",
+        "troubleshooting/event-inspector",
+        "[Hook Explorer](/troubleshooting/hook-explorer)"
+      ]
+    },
+    "(other)/telemetry",
+    "community-frameworks"
+  ]
+}

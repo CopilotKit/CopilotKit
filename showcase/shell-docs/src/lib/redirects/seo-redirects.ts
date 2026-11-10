@@ -756,6 +756,18 @@ const FRONTEND_PLATFORM_REDIRECTS: RedirectEntry[] = [
     source: "/frontends/:path*",
     destination: "/:path*",
   },
+  // React SPA is React, not a frontend of its own: its guide stays at
+  // /react-spa, and every other page is the React page at the same path.
+  {
+    id: "FE-react-spa-docs-status",
+    source: "/react-spa/using-these-docs",
+    destination: "/react-spa",
+  },
+  {
+    id: "FE-react-spa-wild",
+    source: "/react-spa/:path*",
+    destination: "/:path*",
+  },
   {
     id: "FE-teams",
     source: "/microsoft-teams",
