@@ -106,8 +106,10 @@ export function migrateCoAgents(rootNode: Node): string | null {
         : `${camel}Agent`;
     const agent = unique(/^[A-Za-z_$][\w$]*$/.test(base) ? base : "agent");
     const indent = indentOf(declaration, source);
+    const keyword = declaration.text().startsWith("let") ? "let" : "const";
+    const binding = agent === "agent" ? "{ agent }" : `{ agent: ${agent} }`;
     const lines: string[] = [
-      `${declaration.text().startsWith("let") ? "let" : "const"} { agent: ${agent} } = useAgent({ agentId: ${name.text()} });`,
+      `${keyword} ${binding} = useAgent({ agentId: ${name.text()} });`,
     ];
     const imports: Record<string, string[]> = {};
     const hooks = ["useAgent"];
