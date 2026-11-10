@@ -1,6 +1,6 @@
 ---
 title: Direct provider adapters
-description: Public Slack, Teams, Discord, and WhatsApp adapter entry points in @copilotkit/channels.
+description: Public Slack, Teams, Discord, WhatsApp, and Linear adapter entry points in @copilotkit/channels.
 ---
 
 import ChannelsInstall from "@/snippets/shared/channels/install.mdx";
@@ -10,10 +10,11 @@ import ChannelsInstall from "@/snippets/shared/channels/install.mdx";
 | Model                | Channel declaration                                      | Provider connection                                                                       | Available providers                                     |
 | -------------------- | -------------------------------------------------------- | ----------------------------------------------------------------------------------------- | ------------------------------------------------------- |
 | Cloud-hosted Intelligence | `createChannel({ name, identifyUser, agent })`           | CopilotKit Intelligence stores provider credentials and owns ingress and egress           | Slack and Microsoft Teams                               |
-| Direct adapter       | `createChannel({ name, adapters, identifyUser, agent })` | Your Channels process stores provider credentials and owns the provider socket or webhook | Slack, Microsoft Teams, Discord, and WhatsApp           |
+| Direct adapter       | `createChannel({ name, adapters, identifyUser, agent })` | Your Channels process stores provider credentials and owns the provider socket or webhook | Slack, Microsoft Teams, Discord, WhatsApp, and Linear   |
 
 Cloud-hosted Intelligence support for Discord and WhatsApp is coming soon. Their
-direct adapters already ship in `@copilotkit/channels`.
+direct adapters already ship in `@copilotkit/channels`. Linear is available as a
+direct adapter only.
 
 <Callout type="info" title="Direct does not mean standalone">
   A direct adapter moves the provider connection into your process. The
@@ -176,6 +177,38 @@ and `verifyToken`. The webhook server uses port `3000` and path `/webhook` by
 default. The entry point also exports its client, renderer, conversation and
 history stores, built-in context and tools, file helpers, and `WA_LIMITS`.
 
+### Linear
+
+```ts
+import {
+  linear,
+  LinearAdapter,
+  type LinearAdapterOptions,
+} from "@copilotkit/channels/linear";
+```
+
+`LinearAdapterOptions` requires `accessToken` and `webhookSecret`:
+
+- `accessToken` is the OAuth token of a Linear app installed with `actor=app`
+  and the `app:mentionable` and `app:assignable` scopes. Pass a string, or a
+  function that returns the current token, because Linear tokens expire.
+- `webhookSecret` checks the `Linear-Signature` header of each webhook.
+
+Enable the **Agent session events** webhook category on the Linear app. The
+adapter handles the `created` and `prompted` actions. It answers `401` for a bad
+signature or a timestamp more than 60 s off.
+
+Mount `adapter.handleWebhook(request)` on your own route. It takes a fetch
+`Request` and returns a `Response`. Or set `port` to start a built-in
+`node:http` server on `path` (default `/webhook`), which also answers `GET /`.
+Set `stateStore` to a shared store when more than one process receives the
+webhook. The default is `MemoryStore`.
+
+The entry point also exports its webhook handler and server, GraphQL client,
+renderer, run renderer, conversation store, built-in context, and
+`LINEAR_LIMITS`. For a setup walkthrough, see the
+[Linear agent guide](/channels/linear).
+
 ## Capability boundaries
 
 Direct and managed adapters do not have identical capabilities. For example,
@@ -187,6 +220,11 @@ the direct adapter instance's read-only `capabilities` property when you own
 the adapter. Capability-result Thread methods can also return `{ ok: false }`;
 handle that result instead of assuming a provider name guarantees one
 behavior.
+
+The direct Linear adapter does not support streaming, modals, reactions, or
+ephemeral messages. Linear activities cannot be edited, so `thread.update`
+posts a new activity and `delete` does nothing. Blocking choices work through
+Linear select options.
 
 The provider guides document the managed contract and each provider's release
 status. Use this page when your deployment intentionally owns provider
