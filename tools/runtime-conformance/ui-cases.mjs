@@ -521,41 +521,76 @@ export const uiCases = [
       context.platform.faults.agentEvents = toolStream("render_a2ui", [
         '{"surfaceId":"card","components":[{"id":"root","component":"Text","text":"Hello"}]}',
       ]);
-      const events = await runAndWait(
-        context,
-        input({
-          context: [
-            {
-              description: SCHEMA_DESCRIPTION,
-              value: JSON.stringify({
-                catalogId: "https://example.test/catalog",
-                components: {},
-              }),
-            },
-          ],
-          forwardedProps: {
-            a2uiCatalogAvailable: true,
-            a2uiAction: { userAction: action },
+      const request = input({
+        context: [
+          {
+            description: SCHEMA_DESCRIPTION,
+            value: JSON.stringify({
+              catalogId: "https://example.test/catalog",
+              components: {},
+            }),
           },
-        }),
-      );
+        ],
+        forwardedProps: {
+          a2uiCatalogAvailable: true,
+          a2uiAction: { userAction: action },
+        },
+      });
+      const events = await runAndWait(context, request);
       const messages = context.platform.agentInputs[0].messages;
-      const assistant = messages.find(
-        (message) => message.toolCalls?.[0]?.function.name === "log_a2ui_event",
+      // Middleware 0.0.15 sends actions as private user context instead of
+      // synthetic tool history. Native runtimes retain the tool-pair format.
+      const actionMessage = messages.find((message) =>
+        message.name?.startsWith("a2ui_action_context_"),
       );
-      assert.deepEqual(
-        JSON.parse(assistant.toolCalls[0].function.arguments),
-        action,
-      );
-      assert.ok(
-        messages.some(
+      if (actionMessage) {
+        const digest = createHash("sha256").update(request.runId).digest();
+        assert.deepEqual(actionMessage, {
+          id: `a2ui-action-user-${digest.toString("hex")}`,
+          role: "user",
+          name: `a2ui_action_context_${digest.toString("base64url")}`,
+          content: `A2UI user action:\n${JSON.stringify(action)}`,
+        });
+        assert.equal(
+          messages.filter((message) => message.id === actionMessage.id).length,
+          1,
+          "Action context must reach the agent exactly once",
+        );
+        for (const event of events) {
+          const visibleMessages =
+            event.type === "MESSAGES_SNAPSHOT"
+              ? event.messages
+              : event.type === "RUN_STARTED"
+                ? event.input?.messages
+                : [];
+          assert.ok(
+            !(visibleMessages ?? []).some(
+              (message) =>
+                message.id === actionMessage.id ||
+                message.name === actionMessage.name,
+            ),
+            "Private action context must not enter visible message history",
+          );
+        }
+      } else {
+        const assistant = messages.find(
           (message) =>
-            message.role === "tool" &&
-            message.toolCallId === assistant.toolCalls[0].id &&
-            message.content ===
-              'User performed action "confirm" on surface "card" (component: button). Context: {"selected":2}',
-        ),
-      );
+            message.toolCalls?.[0]?.function.name === "log_a2ui_event",
+        );
+        assert.deepEqual(
+          JSON.parse(assistant.toolCalls[0].function.arguments),
+          action,
+        );
+        assert.ok(
+          messages.some(
+            (message) =>
+              message.role === "tool" &&
+              message.toolCallId === assistant.toolCalls[0].id &&
+              message.content ===
+                'User performed action "confirm" on surface "card" (component: button). Context: {"selected":2}',
+          ),
+        );
+      }
       const painted = events.find((event) => event.content?.a2ui_operations);
       assert.equal(
         painted.content.a2ui_operations[0].createSurface.catalogId,
