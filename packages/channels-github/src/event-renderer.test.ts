@@ -3,12 +3,21 @@ import type { AgentSubscriber, RunAgentInput } from "@ag-ui/client";
 import { FakeAgent } from "@copilotkit/channels-core";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { StaticTokenProvider } from "./app-auth.js";
+import { BOT_MARKER_LENGTH, hasBotMarker } from "./bot-marker.js";
 import { GitHubApiClient } from "./client.js";
 import type { GitHubCommentRef } from "./client.js";
 import { createRunRenderer } from "./event-renderer.js";
 import type { GitHubRunRendererOptions } from "./event-renderer.js";
 import { GITHUB_LIMITS } from "./render/budget.js";
 import type { GitHubComment, ReplyTarget } from "./types.js";
+
+/** A request body with the hidden bot marker removed from its `body` text. */
+function withoutMarker<T extends { body?: string }>(payload: T): T {
+  if (payload.body === undefined || !hasBotMarker(payload.body)) {
+    return payload;
+  }
+  return { ...payload, body: payload.body.slice(0, -BOT_MARKER_LENGTH) };
+}
 
 const API = "https://api.github.test";
 const ISSUE_TARGET: ReplyTarget = {
@@ -51,7 +60,11 @@ function createFakeGitHub() {
     const request: RecordedRequest = {
       method: init?.method ?? "GET",
       path: new URL(String(input)).pathname,
-      body: typeof init?.body === "string" ? JSON.parse(init.body) : undefined,
+      // Record the text the code under test wrote, without the client's marker.
+      body:
+        typeof init?.body === "string"
+          ? withoutMarker(JSON.parse(init.body))
+          : undefined,
     };
     requests.push(request);
     const failure = fail(request);

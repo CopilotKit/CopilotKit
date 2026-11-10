@@ -1,3 +1,4 @@
+import { withBotMarker } from "./bot-marker.js";
 import { MemoryStore } from "@copilotkit/channels-core";
 import type { IncomingTurn, InteractionEvent } from "@copilotkit/channels-core";
 import { describe, expect, it } from "vitest";
@@ -273,6 +274,13 @@ describe("handleGitHubEvent: ignored deliveries", () => {
     {
       name: "the bot's own comment",
       event: issueComment({ body: "@acme-helper done", user: BOT_USER }),
+    },
+    {
+      name: "a comment with the adapter's hidden marker, by a user account",
+      event: issueComment({
+        body: withBotMarker("@acme-helper done"),
+        user: { login: "acme-helper", id: 9002, type: "User" },
+      }),
     },
     {
       name: "another bot's comment",

@@ -76,7 +76,7 @@ createWebhookHandler (webhook.ts)
   ▼
 handleGitHubEvent (ingress.ts)
   • reads issue_comment / pull_request_review_comment, action "created"
-  • skips comments by bots and by the bot itself
+  • skips comments by bot accounts and comments with the hidden marker
   • open choice list + numbered reply ──► sink.onInteraction
   • mentions the bot                   ──► sink.onTurn
   • anything else                      ──► ignored
@@ -130,10 +130,27 @@ comment without the mention.
 `GitHubConversationStore`. The store reads the issue comments, or the review
 thread comments, and maps them to AG-UI messages:
 
-- Comments by the bot's posting login become assistant messages. In App mode the
+- One context message comes first. It holds the issue or PR title, URL, and
+  description from `GET /issues/{number}`. In a review thread, it also holds
+  the file, the line, and the last 60 lines of the root comment's diff hunk.
+- Comments the adapter wrote become assistant messages. In App mode the
   posting login is `<slug>[bot]`, read once from `GET /app`.
 - Other comments become user messages, with the bot mention removed.
 - Only the newest 50 messages are kept.
+
+### Own comments
+
+The client adds a hidden HTML marker, `<!-- copilotkit-channels -->`, to every
+comment it creates or edits (`bot-marker.ts`). Two checks use it:
+
+- Ingress skips a comment by a bot account or with the marker. A person who
+  copies the marker only hides their own comment.
+- History treats a comment as the bot's when the posting login wrote it and it
+  is a bot account or carries the marker. A person cannot fake this, because
+  they would have to post as the bot.
+
+So a personal access token of the same person who comments works: that
+person's comments have no marker and stay user messages.
 
 Each turn gets a fresh AG-UI `threadId`. GitHub does not hold internal tool
 messages, so the agent never sees half of an earlier turn. The trigger comment is

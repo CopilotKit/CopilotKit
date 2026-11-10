@@ -149,19 +149,19 @@ to them (`thumbs_up`, `thumbs_down`, `laugh`, `smile`, `heart`, `tada`,
 
 Pass `appId` and `privateKey`, or pass `token`. Not both.
 
-| Option                | Type                  | Default                    | Description                                                                 |
-| --------------------- | --------------------- | -------------------------- | --------------------------------------------------------------------------- |
-| `appId`               | `string \| number`    | required in App mode       | GitHub App id.                                                              |
-| `privateKey`          | `string`              | required in App mode       | GitHub App private key, PEM encoded.                                        |
-| `token`               | `string`              | required in token mode     | Personal access token (classic or fine-grained), for local development.     |
-| `webhookSecret`       | `string`              | required                   | Secret that signs the webhooks (`X-Hub-Signature-256`).                     |
-| `botUsername`         | `string`              | required                   | The App slug, or the token owner's login, without `@`.                      |
-| `port`                | `number`              | no server                  | Port for the built-in `node:http` webhook server.                           |
-| `path`                | `string`              | `"/webhook"`               | Webhook path for the built-in server.                                       |
-| `apiBaseUrl`          | `string`              | `"https://api.github.com"` | GitHub REST API base URL. Set it for GitHub Enterprise Server.              |
-| `fetch`               | `typeof fetch`        | `globalThis.fetch`         | `fetch` for GitHub API calls.                                               |
-| `stateStore`          | `StateStore`          | `new MemoryStore()`        | Adapter state (open numbered choices). Use a shared store for 2+ instances. |
-| `interruptEventNames` | `ReadonlySet<string>` | `{"on_interrupt"}`         | Custom AG-UI event names that the run renderer treats as interrupts.        |
+| Option                | Type                  | Default                    | Description                                                                  |
+| --------------------- | --------------------- | -------------------------- | ---------------------------------------------------------------------------- |
+| `appId`               | `string \| number`    | required in App mode       | GitHub App id.                                                               |
+| `privateKey`          | `string`              | required in App mode       | GitHub App private key, PEM encoded.                                         |
+| `token`               | `string`              | required in token mode     | Personal access token (classic or fine-grained), for local development.      |
+| `webhookSecret`       | `string`              | required                   | Secret that signs the webhooks (`X-Hub-Signature-256`).                      |
+| `botUsername`         | `string`              | required                   | The name users mention, without `@`: the App slug, or a login in token mode. |
+| `port`                | `number`              | no server                  | Port for the built-in `node:http` webhook server.                            |
+| `path`                | `string`              | `"/webhook"`               | Webhook path for the built-in server.                                        |
+| `apiBaseUrl`          | `string`              | `"https://api.github.com"` | GitHub REST API base URL. Set it for GitHub Enterprise Server.               |
+| `fetch`               | `typeof fetch`        | `globalThis.fetch`         | `fetch` for GitHub API calls.                                                |
+| `stateStore`          | `StateStore`          | `new MemoryStore()`        | Adapter state (open numbered choices). Use a shared store for 2+ instances.  |
+| `interruptEventNames` | `ReadonlySet<string>` | `{"on_interrupt"}`         | Custom AG-UI event names that the run renderer treats as interrupts.         |
 
 ## JSX to GitHub rendering
 
@@ -203,9 +203,16 @@ turn:
 
 - An issue or PR conversation reads the issue comments.
 - A review thread reads the comments of that thread.
-- Comments by the bot become assistant messages. Other comments become user
-  messages, with the bot mention removed.
+- The first message gives the issue or PR title, URL, and description. In a
+  review thread, it also gives the file, the line, and the diff hunk.
+- Comments the adapter wrote become assistant messages. Other comments become
+  user messages, with the bot mention removed.
 - Only the newest 50 messages are kept.
+
+Every comment the adapter writes ends with a hidden HTML marker,
+`<!-- copilotkit-channels -->`. A comment is the bot's own when the posting
+account wrote it and it is a bot account or carries the marker. So a personal
+access token of your own works: your comments stay user messages.
 
 ### State store
 

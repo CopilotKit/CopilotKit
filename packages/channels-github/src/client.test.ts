@@ -1,6 +1,7 @@
 import { generateKeyPairSync } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import { GitHubAppTokenProvider, StaticTokenProvider } from "./app-auth.js";
+import { withBotMarker } from "./bot-marker.js";
 import { GitHubApiClient, GitHubApiError } from "./client.js";
 import type { GitHubTokenProvider } from "./app-auth.js";
 import type { GitHubComment, ReplyTarget } from "./types.js";
@@ -74,7 +75,7 @@ describe("GitHubApiClient requests", () => {
     expect(only(requests)).toEqual({
       method: "POST",
       url: `${REPO}/issues/7/comments`,
-      body: { body: "hi there" },
+      body: { body: withBotMarker("hi there") },
     });
     const headers = requests[0]!.headers;
     const sentHeaders = [
@@ -100,7 +101,16 @@ describe("GitHubApiClient requests", () => {
       expected: {
         method: "PATCH",
         url: `${REPO}/issues/comments/5`,
-        body: { body: "edited" },
+        body: { body: withBotMarker("edited") },
+      },
+    },
+    {
+      name: "getIssue",
+      call: (c: GitHubApiClient) => c.getIssue(TARGET),
+      expected: {
+        method: "GET",
+        url: `${REPO}/issues/7`,
+        body: undefined,
       },
     },
     {
@@ -118,7 +128,7 @@ describe("GitHubApiClient requests", () => {
       expected: {
         method: "POST",
         url: `${REPO}/pulls/7/comments/3/replies`,
-        body: { body: "reply" },
+        body: { body: withBotMarker("reply") },
       },
     },
     {
@@ -127,7 +137,7 @@ describe("GitHubApiClient requests", () => {
       expected: {
         method: "PATCH",
         url: `${REPO}/pulls/comments/4`,
-        body: { body: "edited" },
+        body: { body: withBotMarker("edited") },
       },
     },
     {

@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { GITHUB_LIMITS, truncateText } from "./budget.js";
+import { withBotMarker } from "../bot-marker.js";
+import {
+  GITHUB_API_COMMENT_BODY_MAX,
+  GITHUB_LIMITS,
+  truncateText,
+} from "./budget.js";
 
 describe("truncateText", () => {
   it("returns text within the budget unchanged", () => {
@@ -16,10 +21,8 @@ describe("truncateText", () => {
     expect(truncateText("abcdefghij", 4)).toBe("abcd");
   });
 
-  it("fits a GitHub comment body", () => {
-    expect(GITHUB_LIMITS.commentBody).toBe(65536);
-    expect(
-      truncateText("z".repeat(70000), GITHUB_LIMITS.commentBody),
-    ).toHaveLength(65536);
+  it("fits a GitHub comment body, with the bot marker added", () => {
+    const body = truncateText("z".repeat(70000), GITHUB_LIMITS.commentBody);
+    expect(withBotMarker(body)).toHaveLength(GITHUB_API_COMMENT_BODY_MAX);
   });
 });

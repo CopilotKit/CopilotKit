@@ -212,6 +212,7 @@ export class GitHubAdapter implements PlatformAdapter {
     this.conversationStore = new GitHubConversationStore({
       client: this.client,
       botLogin: () => this.botPostingLogin(),
+      botUsername: opts.botUsername,
     });
     this.handleWebhook = createWebhookHandler({
       secret: opts.webhookSecret,

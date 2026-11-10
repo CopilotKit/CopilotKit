@@ -115,6 +115,25 @@ export interface GitHubComment {
   /** Parent review comment id. Present on replies inside a PR review thread. */
   in_reply_to_id?: number;
   created_at: string;
+  /** Review comments only: the file the comment is on. */
+  path?: string;
+  /** Review comments only: the diff lines up to the commented line. */
+  diff_hunk?: string;
+  /** Review comments only: the commented line in the new file, or `null` when it is outdated. */
+  line?: number | null;
+  /** Review comments only: the commented line when the comment was made. */
+  original_line?: number | null;
+}
+
+/** An issue or pull request, as `GET /repos/{owner}/{repo}/issues/{number}` returns it. */
+export interface GitHubIssue {
+  number: number;
+  title: string;
+  /** Markdown description. `null` when empty. */
+  body: string | null;
+  html_url: string;
+  /** Present when the issue is a pull request. */
+  pull_request?: { url?: string };
 }
 
 /** Fields shared by the comment webhook events the adapter reads. */

@@ -1,11 +1,15 @@
-/**
- * GitHub REST API limits the renderer clamps against. Source: the issue
- * comment and pull request review comment endpoints reject a `body` longer
- * than 65,536 characters.
- */
+import { BOT_MARKER_LENGTH } from "../bot-marker.js";
+
+/** GitHub rejects an issue comment or PR review comment `body` longer than this. */
+export const GITHUB_API_COMMENT_BODY_MAX = 65536;
+
+/** GitHub REST API limits the renderer clamps against. */
 export const GITHUB_LIMITS = {
-  /** Max characters in an issue comment or PR review comment body. */
-  commentBody: 65536,
+  /**
+   * Max characters of rendered comment text. The client adds the hidden bot
+   * marker, so the text leaves room for it.
+   */
+  commentBody: GITHUB_API_COMMENT_BODY_MAX - BOT_MARKER_LENGTH,
 };
 
 /** Appended to text that `truncateText` cut, so readers see the reply is incomplete. */

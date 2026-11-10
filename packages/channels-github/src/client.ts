@@ -1,5 +1,6 @@
 import type { GitHubTokenProvider } from "./app-auth.js";
-import type { GitHubComment, ReplyTarget } from "./types.js";
+import { withBotMarker } from "./bot-marker.js";
+import type { GitHubComment, GitHubIssue, ReplyTarget } from "./types.js";
 
 /** Default GitHub REST API base URL (github.com). */
 export const DEFAULT_GITHUB_API_BASE_URL = "https://api.github.com";
@@ -161,10 +162,22 @@ export class GitHubApiClient {
     this.now = options.now ?? Date.now;
   }
 
-  /** Post a comment on an issue or PR conversation. */
+  /** The issue or pull request itself: number, title, body, and URL. */
+  async getIssue(target: ReplyTarget) {
+    const url = `${this.repoUrl(target)}/issues/${target.issueNumber}`;
+    return this.json<GitHubIssue>(target, "GET", url);
+  }
+
+  /**
+   * Post a comment on an issue or PR conversation. Every write (create, edit,
+   * review reply) ends with the hidden bot marker, so history can tell the
+   * adapter's comments from a person's comments by the same account.
+   */
   async createIssueComment(target: ReplyTarget, body: string) {
     const url = `${this.repoUrl(target)}/issues/${target.issueNumber}/comments`;
-    return this.json<GitHubComment>(target, "POST", url, { body });
+    return this.json<GitHubComment>(target, "POST", url, {
+      body: withBotMarker(body),
+    });
   }
 
   /** Edit an issue or PR conversation comment. */
@@ -174,7 +187,9 @@ export class GitHubApiClient {
     body: string,
   ) {
     const url = `${this.repoUrl(target)}/issues/comments/${commentId}`;
-    return this.json<GitHubComment>(target, "PATCH", url, { body });
+    return this.json<GitHubComment>(target, "PATCH", url, {
+      body: withBotMarker(body),
+    });
   }
 
   /** Delete an issue or PR conversation comment. */
@@ -190,7 +205,9 @@ export class GitHubApiClient {
     body: string,
   ) {
     const url = `${this.repoUrl(target)}/pulls/${target.issueNumber}/comments/${rootCommentId}/replies`;
-    return this.json<GitHubComment>(target, "POST", url, { body });
+    return this.json<GitHubComment>(target, "POST", url, {
+      body: withBotMarker(body),
+    });
   }
 
   /** Edit a PR review comment. */
@@ -200,7 +217,9 @@ export class GitHubApiClient {
     body: string,
   ) {
     const url = `${this.repoUrl(target)}/pulls/comments/${commentId}`;
-    return this.json<GitHubComment>(target, "PATCH", url, { body });
+    return this.json<GitHubComment>(target, "PATCH", url, {
+      body: withBotMarker(body),
+    });
   }
 
   /** Delete a PR review comment. */

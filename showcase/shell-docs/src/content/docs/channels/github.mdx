@@ -176,30 +176,32 @@ Set the App's **Webhook URL** to `https://<your-host>/webhook`.
 
 ## Develop locally with a personal access token
 
-You can test before you create an App. Use a personal access token and a
-repository webhook:
+You can test before you create an App. Use your own personal access token and
+a repository webhook:
 
-1. Create a second GitHub account for the bot, and add it to the repository.
-2. As the bot account, create a fine-grained token for that repository. Set
-   Issues and Pull requests to read and write.
-3. In the repository, open **Settings > Webhooks > Add webhook**.
-4. Set the payload URL and the secret. Set **Content type** to
+1. Create a fine-grained token for the repository. Set Issues and Pull requests
+   to read and write.
+2. In the repository, open **Settings > Webhooks > Add webhook**.
+3. Set the payload URL and the secret. Set **Content type** to
    `application/json`, and select the **Issue comments** and **Pull request
    review comments** events.
-5. Pass `token` instead of `appId` and `privateKey`:
+4. Pass `token` instead of `appId` and `privateKey`. Set `botUsername` to your
+   own login:
 
 ```ts title="channel.ts"
 const githubAdapter = github({
   token: required("GITHUB_TOKEN"),
   webhookSecret: required("GITHUB_WEBHOOK_SECRET"),
-  botUsername: "acme-helper-bot", // the login of the token owner
+  botUsername: "octocat", // your login, so a mention notifies nobody else
 });
 ```
 
-<Callout type="warn" title="Do not use your own token">
-  The bot ignores comments by the account that owns the token. If you use your
-  own token, the bot ignores your mentions. Use a separate account for the bot.
-</Callout>
+5. Comment `@octocat summarize this issue`. The reply is posted from your
+   account.
+
+Every comment the bot writes ends with a hidden HTML marker. The bot uses it to
+tell its own replies apart from your comments, so one account can play both
+roles.
 
 ## What your team sees
 
@@ -212,6 +214,9 @@ const githubAdapter = github({
   that review thread.
 - **History.** On each turn, the agent reads the last 50 messages of the issue,
   the pull request, or the review thread.
+- **Context.** The agent also gets the issue or pull request title and
+  description. In a review thread, it gets the file, the line, and the diff
+  hunk that the thread is on.
 
 When the agent offers choices, the comment ends with a numbered list. A person
 replies with a number (`2`) or the exact option text. The reply does not need a

@@ -5,6 +5,11 @@ import { createChannel, FakeAgent } from "@copilotkit/channels-core";
 import type { Channel, ChannelHandler } from "@copilotkit/channels-core";
 import { Actions, Button } from "@copilotkit/channels-ui";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  BOT_MARKER_LENGTH,
+  hasBotMarker,
+  withBotMarker,
+} from "./bot-marker.js";
 import { github } from "./adapter.js";
 import type {
   GitHubComment,
@@ -12,6 +17,14 @@ import type {
   IssueCommentEvent,
   PullRequestReviewCommentEvent,
 } from "./types.js";
+
+/** A request body with the hidden bot marker removed from its `body` text. */
+function withoutMarker<T extends { body?: string }>(payload: T): T {
+  if (payload.body === undefined || !hasBotMarker(payload.body)) {
+    return payload;
+  }
+  return { ...payload, body: payload.body.slice(0, -BOT_MARKER_LENGTH) };
+}
 
 /**
  * End to end: signed webhook deliveries go through `adapter.handleWebhook`
@@ -54,12 +67,27 @@ function createFakeGitHub() {
     const request: RecordedRequest = {
       method: init?.method ?? "GET",
       path: new URL(String(input)).pathname,
-      body: typeof init?.body === "string" ? JSON.parse(init.body) : undefined,
+      // Record the text the code under test wrote, without the client's marker.
+      body:
+        typeof init?.body === "string"
+          ? withoutMarker(JSON.parse(init.body))
+          : undefined,
     };
     requests.push(request);
 
     if (request.method === "GET" && request.path === "/user") {
       return Response.json({ login: BOT });
+    }
+    if (
+      request.method === "GET" &&
+      /^\/repos\/acme\/widgets\/issues\/\d+$/.test(request.path)
+    ) {
+      return Response.json({
+        number: 42,
+        title: "Deploys are flaky",
+        body: null,
+        html_url: "https://github.test/acme/widgets/issues/42",
+      });
     }
     if (request.method === "GET") return Response.json([]);
     if (request.method === "POST" && request.path.endsWith("/reactions")) {
@@ -351,7 +379,7 @@ describe("github() adapter end to end", () => {
     await adapter.handleWebhook(
       issueComment({
         id: 5001,
-        body: "@acme-helper see above",
+        body: withBotMarker("@acme-helper see above"),
         user: { login: BOT, id: 9001, type: "User" },
       }),
     );
@@ -360,5 +388,22 @@ describe("github() adapter end to end", () => {
     );
 
     await vi.waitFor(() => expect(texts).toEqual(["real question"]));
+  });
+
+  it("answers the token owner's own comments when the token is a person's own", async () => {
+    const texts: string[] = [];
+    const { adapter } = await setup(({ message }) => {
+      texts.push(message.text);
+    });
+
+    await adapter.handleWebhook(
+      issueComment({
+        id: 5003,
+        body: "@acme-helper summarize this issue",
+        user: { login: BOT, id: 9001, type: "User" },
+      }),
+    );
+
+    await vi.waitFor(() => expect(texts).toEqual(["summarize this issue"]));
   });
 });

@@ -1,4 +1,5 @@
 import type { IngressSink, StateStore } from "@copilotkit/channels-core";
+import { hasBotMarker } from "./bot-marker.js";
 import {
   conversationKeyOf,
   decodeChoiceReply,
@@ -190,8 +191,8 @@ function eventBase(
  * Route one verified GitHub webhook delivery to the engine.
  *
  * Only `issue_comment` and `pull_request_review_comment` deliveries with
- * action `created` are read. Comments by bots, and by the bot itself, are
- * ignored. Then, in order:
+ * action `created` are read. Comments by bot accounts, and comments that
+ * carry the adapter's hidden marker, are ignored. Then, in order:
  *
  * 1. When the conversation has a pending choice list and the comment (with
  *    any bot mention removed) is a listed number or an option label, the list
@@ -221,8 +222,9 @@ export async function handleGitHubEvent(
 
   const { comment, kind, target } = delivery;
   const slug = botSlugOf(await deps.botLogin());
-  const isFromBot =
-    comment.user.type === "Bot" || botSlugOf(comment.user.login) === slug;
+  // The adapter's own comments carry the hidden marker. A person's comments
+  // stay turns even when the token is their own.
+  const isFromBot = comment.user.type === "Bot" || hasBotMarker(comment.body);
   if (isFromBot) return;
 
   const { text, mentioned } = stripBotMention(comment.body, slug);
