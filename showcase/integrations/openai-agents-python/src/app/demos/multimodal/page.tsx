@@ -17,7 +17,7 @@
  *   items, so PDFs reach the model as files with no text flattening.
  * - Unlike langgraph-python, there is no legacy-converter shim: the modern
  *   `image|document` parts already validate as AG-UI 1.0 input, and the
- *   legacy `binary` mirror the shim appends would not.
+ *   legacy `binary` mirror the shim used to append would not.
  * - Sample files live at `/demo-files/sample.png` and `/demo-files/sample.pdf`
  *   (see `public/demo-files/`).
  */
