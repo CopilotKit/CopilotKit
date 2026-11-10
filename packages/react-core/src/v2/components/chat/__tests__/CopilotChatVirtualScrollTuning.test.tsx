@@ -512,10 +512,12 @@ describe("CopilotChatMessageView virtual-scroll tuning", () => {
 
   describe("scrolling up into rows not measured yet", () => {
     /**
-     * A 300-message list in a 600 px viewport, read at row 200. Rows mounted
-     * before the reader scrolls measure exactly their 100 px estimate.
+     * A 300-message list in a 600 px viewport, scrolled up to `readingRow` and read
+     * 25 px into it. Rows mounted before the reader scrolls (the newest ones)
+     * measure exactly their 100 px estimate.
      */
-    async function withListReadAtRow200(
+    async function withListReadAt(
+      readingRow: number,
       run: (list: {
         container: HTMLDivElement;
         scrollTo: ReturnType<typeof vi.fn>;
@@ -525,20 +527,50 @@ describe("CopilotChatMessageView virtual-scroll tuning", () => {
         measure: (rows: ReadonlyArray<readonly [number, number]>) => void;
         /** The reader scrolls by `by` px (negative: up). */
         userScroll: (by: number) => void;
+        /** The viewport changes width, as its ResizeObserver reports it. */
+        resize: (width: number) => void;
         idle: () => Promise<void>;
         /** Run one animation frame. */
         frame: () => void;
       }) => Promise<void> | void,
     ) {
+      let width = 600;
       const container = document.createElement("div");
       Object.defineProperties(container, {
-        clientWidth: { value: 600 },
+        clientWidth: { get: () => width },
         clientHeight: { value: 600 },
         // The virtualizer reads the viewport size from these.
-        offsetWidth: { value: 600 },
+        offsetWidth: { get: () => width },
         offsetHeight: { value: 600 },
-        scrollHeight: { get: () => virtualizer().getTotalSize() },
+        // What the browser scrolls through: the spacer the rows are drawn in.
+        scrollHeight: {
+          get: () => {
+            const spacer =
+              document.querySelector("[data-index]")?.parentElement
+                ?.parentElement;
+            return spacer?.style.height
+              ? parseFloat(spacer.style.height)
+              : virtualizer().getTotalSize();
+          },
+        },
       });
+      const viewportObservers = new Set<ResizeObserverCallback>();
+      const originalObserver = globalThis.ResizeObserver;
+      globalThis.ResizeObserver = class {
+        callback: ResizeObserverCallback;
+        constructor(callback: ResizeObserverCallback) {
+          this.callback = callback;
+        }
+        observe(target: Element) {
+          if (target === container) viewportObservers.add(this.callback);
+        }
+        unobserve(target: Element) {
+          if (target === container) viewportObservers.delete(this.callback);
+        }
+        disconnect() {
+          viewportObservers.delete(this.callback);
+        }
+      } as typeof ResizeObserver;
       container.getBoundingClientRect = () =>
         ({ top: 0, width: 600, height: 600 }) as DOMRect;
       const scrollTo = vi.fn(({ top }: ScrollToOptions) => {
@@ -596,12 +628,12 @@ describe("CopilotChatMessageView virtual-scroll tuning", () => {
           ),
         });
         frames.clear();
-        // The reader scrolls up to row 200. Rows mounted during a scroll are
+        // The reader scrolls up to `readingRow`. Rows mounted during a scroll are
         // not measured on mount; they keep the height they were laid out
         // with until the ResizeObserver reports them.
         act(() => {
           container.scrollTop =
-            virtualizer().measurementsCache[200]!.start + 25;
+            virtualizer().measurementsCache[readingRow]!.start + 25;
           container.dispatchEvent(new Event("scroll"));
         });
         await run({
@@ -632,6 +664,21 @@ describe("CopilotChatMessageView virtual-scroll tuning", () => {
               container.scrollTop += by;
               container.dispatchEvent(new Event("scroll"));
             }),
+          resize: (nextWidth) =>
+            act(() => {
+              width = nextWidth;
+              for (const callback of viewportObservers) {
+                callback(
+                  [
+                    {
+                      target: container,
+                      borderBoxSize: [{ inlineSize: width, blockSize: 600 }],
+                    },
+                  ] as unknown as ResizeObserverEntry[],
+                  {} as ResizeObserver,
+                );
+              }
+            }),
           idle,
           frame: () =>
             act(() => {
@@ -649,6 +696,7 @@ describe("CopilotChatMessageView virtual-scroll tuning", () => {
         rect.mockRestore();
         requestFrame.mockRestore();
         cancelFrame.mockRestore();
+        globalThis.ResizeObserver = originalObserver;
       }
     }
 
@@ -663,7 +711,7 @@ describe("CopilotChatMessageView virtual-scroll tuning", () => {
     ] as const;
 
     it("keeps the reading row still while the reader scrolls", async () => {
-      await withListReadAtRow200(({ scrollTo, onScreen, measure }) => {
+      await withListReadAt(200, ({ scrollTo, onScreen, measure }) => {
         expect(onScreen(200)).toBe(-25);
         expect(virtualizer().itemSizeCache.has(191)).toBe(false);
         scrollTo.mockClear();
@@ -678,7 +726,7 @@ describe("CopilotChatMessageView virtual-scroll tuning", () => {
     });
 
     it("holds a row drawn above the viewport that the virtualizer still places lower", async () => {
-      await withListReadAtRow200(({ onScreen, measure }) => {
+      await withListReadAt(200, ({ onScreen, measure }) => {
         // Within one batch the virtualizer's offset for row 199 lags behind
         // the list offset, which already moved by the 500 px held for rows
         // 194–198: row 199 would look inside the viewport. It is drawn above.
@@ -698,7 +746,8 @@ describe("CopilotChatMessageView virtual-scroll tuning", () => {
     });
 
     it("settles the held correction a few pixels per frame once scrolling stops", async () => {
-      await withListReadAtRow200(
+      await withListReadAt(
+        200,
         async ({ container, onScreen, measure, idle, frame }) => {
           const before = container.scrollTop;
           measure(rowsAboveTheReader);
@@ -727,7 +776,8 @@ describe("CopilotChatMessageView virtual-scroll tuning", () => {
     });
 
     it("stops settling when the reader scrolls again", async () => {
-      await withListReadAtRow200(
+      await withListReadAt(
+        200,
         async ({ container, onScreen, measure, userScroll, idle, frame }) => {
           measure(rowsAboveTheReader);
           await idle();
@@ -747,7 +797,8 @@ describe("CopilotChatMessageView virtual-scroll tuning", () => {
     });
 
     it("corrects the scroll position at once when the reader is not scrolling", async () => {
-      await withListReadAtRow200(
+      await withListReadAt(
+        200,
         async ({ scrollTo, onScreen, measure, idle }) => {
           await idle();
           scrollTo.mockClear();
@@ -758,6 +809,80 @@ describe("CopilotChatMessageView virtual-scroll tuning", () => {
           expect(scrollTo).toHaveBeenCalled();
         },
       );
+    });
+
+    it("stops the first row at the top of the viewport when the reader reaches it", async () => {
+      await withListReadAt(
+        200,
+        ({ container, onScreen, measure, userScroll }) => {
+          // 264 px less above the reader than estimated, held while scrolling.
+          measure(rowsAboveTheReader);
+
+          // Scrolled up to where 100 px of the list are left above the
+          // viewport, but the held offset says 264 px less content: the first
+          // row would be drawn 164 px down, below a blank band.
+          userScroll(100 - container.scrollTop);
+          expect(onScreen(0)).toBe(0);
+
+          // Scrolling on toward the top keeps it there, as at a scroll boundary.
+          userScroll(-60);
+          expect(onScreen(0)).toBe(0);
+          userScroll(-40);
+          expect(container.scrollTop).toBe(0);
+          expect(onScreen(0)).toBe(0);
+        },
+      );
+    });
+
+    it("does not leave the viewport blank after scrolling to the top in one go", async () => {
+      await withListReadAt(
+        200,
+        ({ container, onScreen, measure, userScroll }) => {
+          // Ten rows above the reader render nothing: 1,000 px held.
+          measure(Array.from({ length: 10 }, (_, k) => [190 + k, 0] as const));
+
+          userScroll(-container.scrollTop);
+
+          expect(onScreen(0)).toBe(0);
+        },
+      );
+    });
+
+    it("never holds a correction past the top of the list", async () => {
+      await withListReadAt(2, ({ onScreen, measure }) => {
+        expect(onScreen(3)).toBe(75);
+
+        // The rows above the reader render nothing, row 2 included, which
+        // reaches 75 px into the viewport: there is not enough content left
+        // above row 3 to keep it where it was.
+        measure([
+          [0, 0],
+          [1, 0],
+          [2, 0],
+        ]);
+
+        expect(onScreen(0)).toBe(0);
+        expect(onScreen(3)).toBe(0);
+      });
+    });
+
+    it("keeps the reading row when the width changes while a correction is held near the bottom", async () => {
+      await withListReadAt(290, ({ onScreen, measure, resize, frame }) => {
+        // Rows above the reader turn out 600 px taller, held while scrolling.
+        // The list can now scroll 600 px further than the element it is drawn
+        // in until the correction settles.
+        measure([
+          [287, 300],
+          [288, 300],
+          [289, 300],
+        ]);
+        expect(onScreen(290)).toBe(-25);
+
+        resize(500);
+        frame();
+
+        expect(onScreen(290)).toBe(-25);
+      });
     });
   });
 });
