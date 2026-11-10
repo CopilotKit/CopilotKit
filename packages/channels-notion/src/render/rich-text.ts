@@ -90,7 +90,9 @@ const WORD_CHAR = /\w/;
  * markers stay as text, and a fenced code block becomes code-annotated text.
  *
  * Text longer than 2000 characters is split over several items. The result
- * has at most 100 items; when the input needs more, the last item is "…".
+ * has at most 100 items. When the formatting needs more, the text is sent
+ * without formatting, so no text is lost. Only text past 100 items of 2000
+ * characters is cut, and then the last item is "…".
  *
  * @param md - Markdown source text.
  * @example
@@ -229,7 +231,11 @@ function segmentsToRichText(segments: Segment[]) {
       toTextItem(content, segment.style),
     ),
   );
-  return clampRichText(items, NOTION_LIMITS.richTextItems);
+  if (items.length <= NOTION_LIMITS.richTextItems) return items;
+  // Too much formatting for one comment: keep every character, drop the styling.
+  const text = merged.map((segment) => segment.content).join("");
+  const plain = splitContent(text).map((content) => toTextItem(content, {}));
+  return clampRichText(plain, NOTION_LIMITS.richTextItems);
 }
 
 function mergeSegments(segments: Segment[]) {

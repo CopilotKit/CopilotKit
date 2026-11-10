@@ -31,6 +31,16 @@ function contentLengths(items: RichTextItem[]) {
 }
 
 describe("markdownToRichText", () => {
+  it("drops the formatting instead of the text when the styling needs more than 100 items", () => {
+    const md = "**a** b ".repeat(80);
+
+    const items = markdownToRichText(md);
+
+    expect(items.length).toBeLessThanOrEqual(100);
+    expect(richTextToPlainText(items)).toBe("a b ".repeat(80));
+    expect(items.some((item) => item.annotations?.bold)).toBe(false);
+  });
+
   it("returns one plain item for text without Markdown", () => {
     expect(markdownToRichText("hello there")).toEqual([text("hello there")]);
   });
@@ -100,10 +110,10 @@ describe("markdownToRichText", () => {
     ]);
   });
 
-  it("caps the array at 100 items and marks the cut", () => {
-    const items = markdownToRichText("**a** b ".repeat(80));
+  it("caps text longer than 100 items of 2000 characters and marks the cut", () => {
+    const items = markdownToRichText("x".repeat(2000 * 100 + 10));
     expect(items).toHaveLength(100);
-    expect(items[98]).toEqual(text("a", { bold: true }));
+    expect(items[98]).toEqual(text("x".repeat(2000)));
     expect(items[99]).toEqual(text("…"));
   });
 });
