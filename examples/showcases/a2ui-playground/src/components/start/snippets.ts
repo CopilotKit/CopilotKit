@@ -58,7 +58,7 @@ export const ROUTE = `import {
 } from "@copilotkit/runtime/v2";
 
 const copilotRuntime = new CopilotRuntime({
-  agents: { default: new BuiltInAgent({ model: "google/gemini-flash-latest" }) },
+  agents: { default: new BuiltInAgent({ model: "google/gemini-3.8-flash" }) },
 });
 
 const handler = createCopilotRuntimeHandler({

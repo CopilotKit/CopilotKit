@@ -13,7 +13,7 @@ So this build sets `generativeUI: false` and implements `generate_a2ui` itself i
 
 ```ts
 const stream = await client.chat.completions.create({
-  model: "gpt-5.4-mini",
+  model: "gpt-6-luna",
   stream: true,
   reasoning_effort: "none",
   tool_choice: { type: "function", function: { name: "render_a2ui" } },
