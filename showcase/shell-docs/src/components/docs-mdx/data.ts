@@ -166,8 +166,10 @@ const DOCS_ONLY_INTEGRATIONS: Integration[] = [
     copilotkit_version: "",
     backend_url: "",
     deployed: true,
-    docs_mode: "authored",
+    docs_mode: "generated",
     sort_order: 13,
+    // Deep Agents run on LangGraph, so `interrupt()` pauses them natively.
+    interrupt_pattern: "native",
     features: [],
     demos: [],
   },

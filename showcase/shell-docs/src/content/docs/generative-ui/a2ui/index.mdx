@@ -135,6 +135,8 @@ default catalog id, and more. An explicit
 This is also how the [Fixed Schema](./a2ui/fixed-schema) approach
 works: your agent owns a data-only tool and no subagent is injected.
 
+<FrameworkSetup concept="a2ui-setup" />
+
 ## Colors and dark mode
 
 The built-in basic catalog takes its colors from CSS variables. In dark mode
@@ -154,7 +156,8 @@ set the variables on the surface: `.a2ui-surface` in React and Vue,
 ```
 
 Values you set on the surface apply in both light and dark mode. Scope them
-with `.dark .a2ui-surface` to set dark colors only.
+with `.dark .a2ui-surface` to set dark colors only. For fonts, image sizes,
+and a full theme file, see [Styling](/generative-ui/a2ui/styling).
 
 ## Choose your approach
 

@@ -19,6 +19,8 @@
  * Spec & Inventory: https://www.notion.so/33c3aa38185281d7b243c5cf0a7c14cb
  */
 
+import { FOLDED_PAGES } from "./folded-pages";
+
 export interface RedirectEntry {
   /** Spec ID (e.g., "L3", "S4×agno", "P1×langgraph") for cross-referencing Notion inventory */
   id: string;
@@ -1263,6 +1265,7 @@ export const seoRedirects: RedirectEntry[] = [
   ...RETIRED_INTELLIGENCE_REDIRECTS,
   ...INTELLIGENCE_FOLDER_RENAMES.filter((e) => !e.source.includes(":path*")),
   ...FOLDER_INDEX,
+  ...FOLDED_PAGES,
   // 2. Generated per-framework subpath renames (exact paths)
   ...generateFrameworkRenames(),
   // 3. Wildcard catch-alls last — order matters: most-specific wildcard first
@@ -1317,8 +1320,28 @@ for (const entry of seoRedirects) {
   }
 }
 
-/** The SEO redirect for `pathname`, or null when none applies. */
+/**
+ * The SEO redirect for `pathname`, or null when none applies. A destination
+ * that is itself an exact source is followed (a renamed page whose new home
+ * was later folded), so a legacy URL takes one hop, not two.
+ */
 export function findSeoRedirect(pathname: string): SeoRedirectMatch | null {
+  const match = firstSeoRedirect(pathname);
+  if (!match) return null;
+  let { destination } = match;
+  for (let hops = 0; hops < 5; hops++) {
+    const [path, hash] = destination.split("#");
+    const next = exactRedirects.get(path);
+    if (!next || next.destination === path) break;
+    destination =
+      hash && !next.destination.includes("#")
+        ? `${next.destination}#${hash}`
+        : next.destination;
+  }
+  return { id: match.id, destination };
+}
+
+function firstSeoRedirect(pathname: string): SeoRedirectMatch | null {
   const exact = exactRedirects.get(pathname);
   if (exact && exact.destination !== pathname) return exact;
 

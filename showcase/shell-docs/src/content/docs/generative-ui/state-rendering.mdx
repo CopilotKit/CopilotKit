@@ -22,6 +22,8 @@ Use state rendering when you want to:
 
 ## How it works in code
 
+<FrameworkSetup concept="shared-state-setup" />
+
 1. On the backend, write the value to a key in the
    [agent state](/shared-state). To stream a tool argument into a state key
    token by token, see [State Streaming](/shared-state/streaming).
@@ -44,6 +46,29 @@ Use state rendering when you want to:
 
 To check it, ask the agent to write a short poem. Your component renders the
 poem each time the agent updates `document` in its state.
+
+To render the state inside the chat instead, pass a `children` function to
+the chat's `messageView` slot and add your UI next to the messages. For
+example, to list the searches an agent keeps in a `searches` key:
+
+```tsx
+<CopilotChat
+  agentId="sample_agent"
+  messageView={{
+    children: ({ messageElements, interruptElement }) => (
+      <div>
+        {messageElements}
+        {state.searches?.map((search, index) => (
+          <div key={index}>{search.done ? "✅" : "❌"} {search.query}</div>
+        ))}
+        {interruptElement}
+      </div>
+    ),
+  }}
+/>
+```
+
+Here `state` is `agent.state` from `useAgent`.
 
 <Callout type="info">
   **Free course:** See this pattern built end-to-end in [Build Interactive Agents with Generative UI](https://www.deeplearning.ai/short-courses/build-interactive-agents-with-generative-ui/). This free DeepLearning.AI short course is taught by CopilotKit's CEO. It covers the full Generative UI spectrum (Controlled, Declarative, and Open-Ended).

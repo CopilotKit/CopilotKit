@@ -35,8 +35,8 @@ component in their place.
 
 <Snippet region="frontend-useinterrupt-render" title="frontend/src/app/page.tsx — useInterrupt" />
 
-On the backend, the agent calls into the interrupt primitive and waits for
-the resumed response before continuing the graph.
+On the backend, the agent pauses the run with its framework's interrupt
+primitive and waits for the user's answer before it continues.
 
 <Snippet region="backend-interrupt-tool" title="backend — interrupt tool" />
 

@@ -245,7 +245,7 @@ import { CopilotKit } from "@copilotkit/react-core/v2";
 
 The backend has two responsibilities: validate the token before the agent dispatches, and thread the resolved user identity into the run as a **dependency** so tools can read it later. Dependencies stay server-side. Unlike conversation variables, they are never streamed to the client as state.
 
-The samples below need ag2 1.0 or later. Earlier versions use the module name `autogen`.
+The samples below need AG2 1.1.2 or later, the version the [quickstart](/quickstart) installs. `ag2.ag_ui` ships in 1.1.2. Versions before 1.0 use the module name `autogen`.
 
 Start by validating the token on AG2's `/chat` endpoint. The `Authorization` header arrives as a normal FastAPI `Header(...)` parameter:
 
@@ -326,6 +326,14 @@ agent = Agent(
     tools=[get_account_data], # [!code highlight]
 )
 ```
+
+If you expose the capabilities `GET` route (`stream.capabilities()`, see [AG-UI](/backend/ag-ui)), apply the same token check to it, so it does not describe your agent to anonymous callers.
+
+### Troubleshooting
+
+- **Token not reaching the backend**: pass `Authorization` in the `headers` prop, and confirm the runtime forwards it to AG2's `/chat` endpoint. See [Forwarding request headers](/backend/copilot-runtime#forwarding-request-headers-to-your-agent).
+- **Invalid token format**: handle raw tokens and `Bearer <token>` the same way.
+- **Unexpected anonymous access**: check `authorization` before you call `stream.dispatch(...)`.
 
 </WhenFrameworkHas>
 

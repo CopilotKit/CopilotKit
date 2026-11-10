@@ -82,4 +82,33 @@ Ask the agent for a chart, for example `Show me a bar chart of quarterly
 sales for Q1, Q2, Q3, Q4`. The chart renders in the chat with the data
 that the agent filled in.
 
+## Without parameters
+
+For simple components that don't need typed parameters, leave out
+`parameters`. The component then accepts any props:
+
+```tsx
+useComponent({
+  name: "showGreeting",
+  render: ({ message }: { message: string }) => (
+    <div className="rounded border p-3 bg-blue-50">
+      <p>{message}</p>
+    </div>
+  ),
+});
+```
+
+## Scoping to an agent
+
+In multi-agent setups, pass `agentId` to scope a component to one agent:
+
+```tsx
+useComponent({
+  name: "renderProfile",
+  parameters: z.object({ userId: z.string() }),
+  render: ProfileCard,
+  agentId: "support-agent",
+});
+```
+
 <IntegrationGrid path="render-only" />
