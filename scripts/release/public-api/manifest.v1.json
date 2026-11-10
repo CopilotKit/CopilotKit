@@ -818,6 +818,88 @@
       }
     },
     {
+      "name": "@copilotkit/channels-store-postgres",
+      "version": "0.12.0",
+      "sourceDirectory": "packages/channels-store-postgres",
+      "entrypoints": [
+        {
+          "importPath": "@copilotkit/channels-store-postgres",
+          "exportKey": ".",
+          "kind": "code",
+          "conditions": {
+            "types": "./dist/index.d.ts",
+            "import": "./dist/index.js"
+          },
+          "provenance": {
+            "kind": "package-json",
+            "path": "packages/channels-store-postgres/package.json",
+            "selector": "exports[\".\"]"
+          }
+        }
+      ],
+      "compatibility": {
+        "provenance": []
+      },
+      "provenance": {
+        "name": {
+          "kind": "package-json",
+          "path": "packages/channels-store-postgres/package.json",
+          "selector": "name"
+        },
+        "version": {
+          "kind": "package-json",
+          "path": "packages/channels-store-postgres/package.json",
+          "selector": "version"
+        },
+        "releaseScope": {
+          "kind": "release-config",
+          "path": "release.config.json",
+          "selector": "scopes.channels.packages"
+        }
+      }
+    },
+    {
+      "name": "@copilotkit/channels-store-redis",
+      "version": "0.12.0",
+      "sourceDirectory": "packages/channels-store-redis",
+      "entrypoints": [
+        {
+          "importPath": "@copilotkit/channels-store-redis",
+          "exportKey": ".",
+          "kind": "code",
+          "conditions": {
+            "types": "./dist/index.d.ts",
+            "import": "./dist/index.js"
+          },
+          "provenance": {
+            "kind": "package-json",
+            "path": "packages/channels-store-redis/package.json",
+            "selector": "exports[\".\"]"
+          }
+        }
+      ],
+      "compatibility": {
+        "provenance": []
+      },
+      "provenance": {
+        "name": {
+          "kind": "package-json",
+          "path": "packages/channels-store-redis/package.json",
+          "selector": "name"
+        },
+        "version": {
+          "kind": "package-json",
+          "path": "packages/channels-store-redis/package.json",
+          "selector": "version"
+        },
+        "releaseScope": {
+          "kind": "release-config",
+          "path": "release.config.json",
+          "selector": "scopes.channels.packages"
+        }
+      }
+    },
+    {
       "name": "@copilotkit/channels-teams",
       "version": "0.12.0",
       "sourceDirectory": "packages/channels-teams",

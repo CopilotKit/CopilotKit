@@ -20,6 +20,8 @@ const CHANNELS_PACKAGES = [
   "@copilotkit/channels-intelligence",
   "@copilotkit/channels-discord",
   "@copilotkit/channels-whatsapp",
+  "@copilotkit/channels-store-redis",
+  "@copilotkit/channels-store-postgres",
   "@copilotkit/channels",
 ];
 
