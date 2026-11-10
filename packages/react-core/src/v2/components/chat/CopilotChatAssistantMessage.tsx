@@ -471,7 +471,13 @@ export function CopilotChatAssistantMessage({
   // being written renders at once in static mode, so a row of the virtual
   // list does not change height right after the list measured it; in Safari
   // that loop kept a long thread re-laying out for seconds after loading.
-  const isStreaming = !!isRunning && isLatestAssistantMessage;
+  // Rendered on its own, without `isLatest` or `messages`, a message cannot
+  // tell whether it is the one being written, so it streams while running.
+  const isStreaming =
+    !!isRunning &&
+    (isLatest === undefined && messages === undefined
+      ? true
+      : isLatestAssistantMessage);
 
   const boundMarkdownRenderer = renderSlot(
     markdownRenderer,

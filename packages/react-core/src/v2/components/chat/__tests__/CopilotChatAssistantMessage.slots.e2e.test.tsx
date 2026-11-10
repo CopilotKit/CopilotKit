@@ -229,6 +229,12 @@ describe("CopilotChatAssistantMessage Slot System E2E Tests", () => {
           isLatest: true,
           mode: "streaming",
         },
+        {
+          label: "a running message rendered without isLatest or messages",
+          isRunning: true,
+          isLatest: undefined,
+          mode: "streaming",
+        },
       ])(
         "renders $label in Streamdown's $mode mode",
         ({ isRunning, isLatest, mode }) => {
