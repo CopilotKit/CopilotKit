@@ -36,6 +36,12 @@
     "notice": "LICENSE"
   },
   {
+    "directory": "packages/channels-gmail",
+    "names": ["@copilotkit/channels-gmail"],
+    "license": "MIT",
+    "notice": "LICENSE"
+  },
+  {
     "directory": "packages/channels-intelligence",
     "names": ["@copilotkit/channels-intelligence"],
     "license": "MIT",
