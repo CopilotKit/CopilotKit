@@ -747,7 +747,9 @@ jobs:
     # Separate job so pre-existing `validate-parity` failures don't mask new
     # Python unit-test regressions. pytest runs independently of JS/TS checks.
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    # Each integration gets its own venv + pip install, serially; slow runners
+    # reached ~9.5 min, so 10 timed out (reported as `cancelled`).
+    timeout-minutes: 15
     permissions:
       contents: read
     strategy:
