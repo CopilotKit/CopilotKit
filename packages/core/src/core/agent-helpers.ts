@@ -29,7 +29,10 @@ export interface ɵAgentContextInput {
  */
 export function ɵserializeContextValue(value: unknown): string {
   if (typeof value === "string") return value;
-  return JSON.stringify(value) ?? String(value);
+  // `JSON.stringify` returns `undefined` for `undefined` and functions,
+  // though its type says string.
+  const json = JSON.stringify(value) as string | undefined;
+  return json === undefined ? String(value) : json;
 }
 
 /**

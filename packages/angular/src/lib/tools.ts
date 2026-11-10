@@ -112,10 +112,8 @@ export interface FrontendToolConfig<
    * `registerComponent` for that case -- it is this shape with the model-facing
    * description built for you.
    */
-  handler?: (
-    args: Args,
-    context: FrontendToolHandlerContext,
-  ) => unknown | Promise<unknown>;
+  // The result, or a promise of it.
+  handler?: (args: Args, context: FrontendToolHandlerContext) => unknown;
   followUp?: boolean;
   /**
    * Whether to run the handler again for a call that is still unanswered when
