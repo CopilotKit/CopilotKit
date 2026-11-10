@@ -77,10 +77,19 @@ export class MessageStream implements TextStream {
     this.queue = this.queue.then(() => this.flushNow());
   }
 
+  /** Wait until `minIntervalMs` has passed since the last write. */
+  private async waitForSlot(): Promise<void> {
+    const wait = this.lastFlushedAt + this.minIntervalMs - Date.now();
+    if (wait > 0) await new Promise((r) => setTimeout(r, wait));
+  }
+
   private async flushNow(): Promise<void> {
     if (this.buffer === this.posted) return;
-    const text = this.buffer;
     try {
+      // Every write, including the final flush and its retry, respects the
+      // throttle: Chat rate-limits edits to one message.
+      await this.waitForSlot();
+      const text = this.buffer;
       // `posted` is advanced ONLY after a write succeeds. If the write throws,
       // `posted` stays unchanged so a later flush re-attempts the same (or
       // newer) text — critical for the FINAL flush, which has no subsequent
@@ -92,6 +101,8 @@ export class MessageStream implements TextStream {
       try {
         await this.update(text);
       } catch {
+        this.lastFlushedAt = Date.now();
+        await this.waitForSlot();
         await this.update(text);
       }
       this.posted = text;

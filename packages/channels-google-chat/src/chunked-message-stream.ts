@@ -100,6 +100,8 @@ export class ChunkedMessageStream {
   private streams: MessageStream[] = [];
   /** Serialises new-chunk creation so async postPlaceholder calls don't race. */
   private setupPromise: Promise<void> = Promise.resolve();
+  /** The failure of the latest setup step, if it failed. Cleared on success. */
+  private setupError: unknown;
   private finished = false;
 
   private readonly limit: number;
@@ -122,19 +124,35 @@ export class ChunkedMessageStream {
     this.buffer = fullText;
     this.refreezeBoundaries();
     // Make sure we have one Google Chat message per chunk, then dispatch.
-    this.setupPromise = this.setupPromise.then(() =>
-      this.ensureStreamsAndDispatch(),
-    );
+    this.enqueueSetup();
   }
 
   async finish(): Promise<void> {
     this.finished = true;
     // Drain any pending setup, then a final dispatch, then finish each stream.
-    this.setupPromise = this.setupPromise.then(() =>
-      this.ensureStreamsAndDispatch(),
-    );
+    this.enqueueSetup();
     await this.setupPromise;
+    if (this.setupError !== undefined) throw this.setupError;
     for (const s of this.streams) await s.finish();
+  }
+
+  /**
+   * Queue one setup-and-dispatch step. The chain itself never rejects: a
+   * failed step (for example, a placeholder post that failed) is recorded,
+   * the next step tries again, and `finish()` reports a failure that the
+   * last step still has.
+   */
+  private enqueueSetup(): void {
+    this.setupPromise = this.setupPromise
+      .then(() => this.ensureStreamsAndDispatch())
+      .then(
+        () => {
+          this.setupError = undefined;
+        },
+        (err: unknown) => {
+          this.setupError = err;
+        },
+      );
   }
 
   /** Returns the number of Google Chat messages this stream has posted so far. */

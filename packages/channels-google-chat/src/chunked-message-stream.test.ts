@@ -189,3 +189,45 @@ describe("ChunkedMessageStream", () => {
     expect(full.startsWith(firstFinal)).toBe(true);
   });
 });
+
+describe("ChunkedMessageStream placeholder failures", () => {
+  it("retries a failed placeholder post on the next append without an unhandled rejection", async () => {
+    const unhandled = vi.fn();
+    process.on("unhandledRejection", unhandled);
+    try {
+      const updates: string[] = [];
+      const postPlaceholder = vi
+        .fn<(text: string) => Promise<string>>()
+        .mockRejectedValueOnce(new Error("503"))
+        .mockResolvedValue("spaces/A/messages/M1");
+      const s = new ChunkedMessageStream({
+        postPlaceholder,
+        updateAt: async (_name, text) => {
+          updates.push(text);
+        },
+        minIntervalMs: 0,
+      });
+      s.append("hel");
+      await new Promise((r) => setTimeout(r, 10));
+      s.append("hello");
+      await s.finish();
+      expect(postPlaceholder).toHaveBeenCalledTimes(2);
+      expect(updates.at(-1)).toBe("hello");
+      expect(unhandled).not.toHaveBeenCalled();
+    } finally {
+      process.off("unhandledRejection", unhandled);
+    }
+  });
+
+  it("rejects finish() when the placeholder never posts", async () => {
+    const s = new ChunkedMessageStream({
+      postPlaceholder: async () => {
+        throw new Error("503");
+      },
+      updateAt: async () => {},
+      minIntervalMs: 0,
+    });
+    s.append("hello");
+    await expect(s.finish()).rejects.toThrow("503");
+  });
+});

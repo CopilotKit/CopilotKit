@@ -50,3 +50,29 @@ describe("MessageStream", () => {
     errSpy.mockRestore();
   });
 });
+
+describe("MessageStream throttle", () => {
+  it("waits out the throttle before the final flush and before its retry", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(10_000);
+    try {
+      const at: number[] = [];
+      const update = vi.fn(async () => {
+        at.push(Date.now());
+        // The final write is rate-limited once, then succeeds.
+        if (at.length === 2) throw new Error("429");
+      });
+      const s = new MessageStream({ update, minIntervalMs: 1000 });
+      s.append("partial");
+      await vi.advanceTimersByTimeAsync(0); // first flush, at once
+      s.append("partial and the rest");
+      const done = s.finish();
+      await vi.advanceTimersByTimeAsync(5000);
+      await done;
+      expect(at).toEqual([10_000, 11_000, 12_000]);
+      expect(update).toHaveBeenLastCalledWith("partial and the rest");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});
