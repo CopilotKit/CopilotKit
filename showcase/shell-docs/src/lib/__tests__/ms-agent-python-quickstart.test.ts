@@ -14,7 +14,10 @@ const server = source.match(/```python title="main.py"\n([\s\S]*?)```/)?.[1];
 
 test("installs the Azure identity package imported by the Python server", () => {
   expect(server).toBeDefined();
-  const packages = source.match(/uv add ([^\n]+)/)?.[1].trim().split(/\s+/);
+  const packages = source
+    .match(/uv add ([^\n]+)/)?.[1]
+    .trim()
+    .split(/\s+/);
   expect(packages).toBeDefined();
   if (/from azure\.identity import/.test(server!)) {
     expect(packages).toContain("azure-identity");
