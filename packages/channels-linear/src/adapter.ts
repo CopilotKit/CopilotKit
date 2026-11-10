@@ -98,6 +98,11 @@ export class LinearAdapter implements PlatformAdapter {
   private readonly interruptEventNames: ReadonlySet<string> | undefined;
   /** The run renderer of each session's running agent, so `stop` can silence it. */
   private readonly activeRenderers = new Map<string, LinearRunRenderer>();
+  /**
+   * Sessions whose first thought is being posted. A stop in that window sets
+   * `stopped`, and the created turn then does not start.
+   */
+  private readonly acknowledging = new Map<string, { stopped: boolean }>();
   private sink: IngressSink | undefined;
 
   constructor(opts: LinearAdapterOptions) {
@@ -241,7 +246,17 @@ export class LinearAdapter implements PlatformAdapter {
     }
     const sessionId = event.agentSession.id;
     const isCreated = event.action === "created";
-    if (isCreated) await this.acknowledgeSession(sessionId);
+    if (isCreated) {
+      const ack = { stopped: false };
+      this.acknowledging.set(sessionId, ack);
+      try {
+        await this.acknowledgeSession(sessionId);
+      } finally {
+        this.acknowledging.delete(sessionId);
+      }
+      // The stop already posted `Stopped.`; do not start the run after it.
+      if (ack.stopped) return;
+    }
     await handleAgentSessionEvent(event, {
       sink: {
         onTurn: (turn) => {
@@ -284,6 +299,8 @@ export class LinearAdapter implements PlatformAdapter {
    * activity, so without it the session stays at "stopping".
    */
   private async stopSession(agentSessionId: string) {
+    const ack = this.acknowledging.get(agentSessionId);
+    if (ack !== undefined) ack.stopped = true;
     this.conversationStore.abortSession(agentSessionId);
     await this.activeRenderers.get(agentSessionId)?.markInterrupted();
     try {

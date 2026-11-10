@@ -462,6 +462,32 @@ describe("LinearAdapter end to end", () => {
     });
   });
 
+  it("does not start the created turn when the stop arrives while the first thought is posted", async () => {
+    let started = false;
+    const { adapter, api, runs, prompt } = await startLinear({
+      steps: [say("Should not run.")],
+      handler: async ({ thread }) => {
+        started = true;
+        await thread.runAgent();
+      },
+    });
+    const releaseThought = api.holdNextPost();
+
+    const created = deliver(adapter, createdEvent());
+    await prompt("Stop", "stop");
+    await until(() => contentTypes(api.posted).includes("response"));
+    releaseThought();
+    await created;
+    await until(() => api.posted.length === 2);
+    await new Promise((r) => setTimeout(r, 20));
+
+    expect({ started, runs: runs.length }).toEqual({ started: false, runs: 0 });
+    expect(api.posted.map((activity) => activity.content)).toEqual([
+      { type: "response", body: "Stopped." },
+      { type: "thought", body: "Looking into this…" },
+    ]);
+  });
+
   it("posts Stopped. after an activity that was still in flight when the run finished", async () => {
     const { adapter, api, prompt } = await startLinear({
       handler: async () => {},
