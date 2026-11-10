@@ -344,8 +344,9 @@ For the Staging harness, bind the same URL and token on the Staging service and
 set `SHOWCASE_REGISTRY_CONSUMER=harness` only after deploying a reader image with
 the matching generated policy. Do not configure HTTPS on a file-only reader.
 The permanent runner, harness, and workflow readers must agree on the policy
-hash or use the exact reviewed transition below. Keep scheduled provisioning off until real consumer reads establish all
-three activations. Never run a Production promotion just to obtain a receipt.
+hash or use the exact reviewed transition below. Keep scheduled provisioning off
+until real consumer reads establish all three activations. Never run a Production
+promotion just to obtain a receipt.
 
 ### Bounded docs-preview policy recovery
 
@@ -361,10 +362,13 @@ project, forbidden environments, previous permanent services and approved image
 pins are unchanged. Every record and inventory classification still uses the
 current policy, including rejection of disposable ownership of `docs-preview`.
 The acknowledgement names the publisher policy and exact fetched bytes; it does
-not claim the runner has adopted the newer policy. Authentication, fresh reads,
-snapshot checksums and acknowledgement acceptance remain mandatory. Unknown
-policy pairs fail with `records-policy-mismatch`. The regression test uses the
-real committed policy so further changes require compatibility review before merge.
+not claim the runner has adopted the newer policy. The promotion receipt from
+`validate-registry.rb` records the current validator policy hash in `policySha256`,
+so it intentionally differs from the acknowledgement during this transition.
+Authentication, fresh reads, snapshot checksums and acknowledgement acceptance
+remain mandatory. Unknown policy pairs fail with `records-policy-mismatch`. The
+regression test uses the real committed policy so further changes require
+compatibility review before merge.
 
 This recovery changes readers only. It neither replaces the runner nor clears
 its ownership journals, recovery blocks, leases or deployment fence. Scheduling

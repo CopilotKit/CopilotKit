@@ -10,7 +10,8 @@ require "open3"
 load File.expand_path("../bin/railway", __dir__) unless defined?(Railway::PromoteCommand)
 
 module RegistryValidation
-    # Hash the same parsed policy used by the TypeScript reader and its real ack.
+    # Hash the current validation policy for the receipt. The acknowledgement
+    # identifies the publisher policy.
     def self.policy_sha256
         root = File.expand_path("../..", __dir__)
         source = <<~JS
