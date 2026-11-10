@@ -66,6 +66,9 @@ const RAILWAY_API = RAILWAY_GRAPHQL_ENDPOINT;
  */
 const STARTER_FLEET_PREFIX = "starter-";
 
+/** The disposable rich-thread runner names its environments `rich-<id>[-source]`. */
+const RUNNER_ENVIRONMENT_PREFIX = "rich-";
+
 /**
  * True iff `name` is a starter-container-fleet Railway service
  * (`starter-<slug>`).
@@ -419,6 +422,10 @@ export interface ProjectServicesWithInstances {
   // PROJECT_ID is wrong OR the token lacks access — type accordingly so
   // the null-check in main() is enforced by the compiler.
   project: {
+    /** Queried by main; fixtures may omit it when no runner environment exists. */
+    environments?: {
+      edges: Array<{ node: { id: string; name: string } }>;
+    };
     services: {
       edges: Array<{
         node: {
@@ -523,6 +530,14 @@ export async function runRailwayImageGate(input: {
   const permanentServiceIds = new Set(
     Object.values(SERVICES).map((entry) => entry.serviceId),
   );
+  // Disposable-runner environments, by the runner's `rich-` naming. Without
+  // registry evidence the gate cannot see recorded runs, so it must not grant
+  // exceptions there by name alone.
+  const runnerEnvironmentIds = new Set(
+    (data.project.environments?.edges ?? [])
+      .filter(({ node }) => node.name.startsWith(RUNNER_ENVIRONMENT_PREFIX))
+      .map(({ node }) => node.id),
+  );
   // A service created on Railway before SERVICES lists it is warned, not
   // failed, when it has an instance in staging or prod: that is the normal
   // order for adding a Showcase service, and failing it blocked every
@@ -530,8 +545,8 @@ export async function runRailwayImageGate(input: {
   // are tolerated too. The disposable runner only creates services that have
   // no instance in any other environment, so this cannot hide its leftovers.
   // The older starter-* carveout also covers services with no staging/prod
-  // instance. Permanent IDs, registered names with another ID, recorded
-  // environments, disposable claims, and invalid evidence never qualify.
+  // instance. Permanent IDs, registered names with another ID, runner or
+  // recorded environments, disposable claims, and invalid evidence never qualify.
   const stagingOrProdIds = new Set(Object.values(ENV_ID_BY_NAME));
   const inStagingOrProd = new Set(
     observed
@@ -547,6 +562,7 @@ export async function runRailwayImageGate(input: {
     !permanentServiceIds.has(serviceId) &&
     (isStarterFleetService(name) || inStagingOrProd.has(serviceId)) &&
     evidence.status !== "invalid" &&
+    !(environmentId !== undefined && runnerEnvironmentIds.has(environmentId)) &&
     !runs.some(
       (run) =>
         run.environmentId === environmentId ||
@@ -655,6 +671,7 @@ async function main(): Promise<void> {
   const data = await railwayGql<ProjectServicesWithInstances>(
     `query project($id: String!) {
       project(id: $id) {
+        environments { edges { node { id name } } }
         services {
           edges { node {
             id
