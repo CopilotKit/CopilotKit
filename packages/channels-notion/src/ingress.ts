@@ -73,6 +73,9 @@ export async function handleNotionEvent(
     workspaceId: event.workspace_id,
     pageId,
     discussionId,
+    ...(comment.parent.type === "block_id" && {
+      blockId: comment.parent.block_id,
+    }),
   };
   const actor: ProviderActor = { id: comment.created_by.id, kind: "human" };
   const identityContext = (trigger: string) => ({

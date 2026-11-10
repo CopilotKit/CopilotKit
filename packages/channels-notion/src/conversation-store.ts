@@ -103,7 +103,11 @@ export class NotionConversationStore implements ConversationStore {
   private async readDiscussion(target: ReplyTarget) {
     const [bot, comments] = await Promise.all([
       this.bot(),
-      this.client.listDiscussionComments(target.pageId, target.discussionId),
+      // Notion lists comments per block: inline discussions live on their block.
+      this.client.listDiscussionComments(
+        target.blockId ?? target.pageId,
+        target.discussionId,
+      ),
     ]);
     const trigger = resolveTrigger(bot, this.trigger);
     const entries: DiscussionEntry[] = [];

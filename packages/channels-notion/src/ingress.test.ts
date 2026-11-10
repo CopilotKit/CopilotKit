@@ -260,6 +260,23 @@ describe("handleNotionEvent", () => {
     ]);
   });
 
+  it("keeps the block id of an inline comment on a block", async () => {
+    const { turns } = await ingest({
+      comment: createComment([mention("bot-1", "@Acme Bot"), text(" hi")], {
+        parent: { type: "block_id", block_id: "block-7" },
+      }),
+    });
+
+    expect(turns.map((turn) => turn.replyTarget)).toEqual([
+      {
+        workspaceId: "ws-1",
+        pageId: "page-1",
+        blockId: "block-7",
+        discussionId: "disc-1",
+      },
+    ]);
+  });
+
   it("decodes a numbered reply into an interaction and clears the pending choices", async () => {
     const comment = createComment([text("2")]);
     const { turns, interactions, pendingAfter, event } = await ingest({

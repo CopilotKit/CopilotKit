@@ -134,6 +134,28 @@ describe("NotionConversationStore.getOrCreate", () => {
   });
 });
 
+describe("NotionConversationStore inline discussions", () => {
+  it("reads the history of an inline comment from its block, not the page", async () => {
+    const question = comment("user-1", [text("what is a webhook?")]);
+    const client = {
+      // Notion lists comments per block: the page itself has none here.
+      async listDiscussionComments(blockOrPageId: string) {
+        return blockOrPageId === "block-7" ? [question] : [];
+      },
+    };
+    const store = new NotionConversationStore({
+      client,
+      bot: async () => ({ id: BOT_ID, name: "Acme Bot" }),
+    });
+
+    const messages = await store.getMessages({ ...TARGET, blockId: "block-7" });
+
+    expect(messages).toEqual([
+      { text: "what is a webhook?", isBot: false, ts: question.created_time },
+    ]);
+  });
+});
+
 describe("NotionConversationStore.getMessages", () => {
   it("returns every comment as text, isBot and ts", async () => {
     const question = comment("user-1", [

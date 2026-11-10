@@ -61,6 +61,11 @@ export interface ReplyTarget {
   workspaceId?: string;
   /** Page that holds the discussion (`data.page_id` of the event). */
   pageId: string;
+  /**
+   * Block that holds the discussion, when the comment is an inline comment
+   * on a block inside the page. History is read from this block.
+   */
+  blockId?: string;
   /** Discussion thread that replies are posted to (`discussion_id`). */
   discussionId: string;
 }
