@@ -55,20 +55,22 @@ export function DemoLayout({
   };
 
   return (
-    <main className="min-h-screen w-full bg-neutral-50 px-6 py-10 md:px-10 md:py-14">
+    <main className="min-h-screen w-full bg-neutral-50 px-6 py-10 md:px-10 md:py-14 dark:bg-background">
       <div className="mx-auto max-w-6xl">
         <header className="mb-10">
           <div className="flex items-center gap-3 mb-3">
             <Badge variant="info">Read-only Agent Context</Badge>
             <Badge variant="muted">useAgentContext</Badge>
           </div>
-          <h1 className="text-4xl font-semibold tracking-tight text-neutral-900">
+          <h1 className="text-4xl font-semibold tracking-tight text-neutral-900 dark:text-foreground">
             Agent Context Inspector
           </h1>
-          <p className="mt-3 max-w-2xl text-base text-neutral-600">
+          <p className="mt-3 max-w-2xl text-base text-neutral-600 dark:text-muted-foreground">
             Edit fields below and watch the data flow into the agent. The agent
             can read this context, but{" "}
-            <span className="font-medium text-neutral-800">cannot modify</span>{" "}
+            <span className="font-medium text-neutral-800 dark:text-foreground">
+              cannot modify
+            </span>{" "}
             it. Open the popup chat in the corner and ask the agent what it
             knows about you.
           </p>
@@ -118,9 +120,9 @@ export function DemoLayout({
                 </Select>
               </div>
 
-              <div className="rounded-lg border border-neutral-200 bg-neutral-50 p-4">
+              <div className="rounded-lg border border-neutral-200 bg-neutral-50 p-4 dark:border-border dark:bg-muted">
                 <div className="flex items-center justify-between mb-2">
-                  <span className="text-xs font-semibold uppercase tracking-wide text-neutral-500">
+                  <span className="text-xs font-semibold uppercase tracking-wide text-neutral-500 dark:text-muted-foreground">
                     Avatar
                   </span>
                   <Badge variant="secondary">
@@ -130,20 +132,20 @@ export function DemoLayout({
                 <div className="flex items-center gap-3">
                   <div
                     data-testid="identity-avatar"
-                    className="flex h-14 w-14 items-center justify-center rounded-full bg-indigo-100 text-2xl font-semibold text-indigo-700"
+                    className="flex h-14 w-14 items-center justify-center rounded-full bg-indigo-100 text-2xl font-semibold text-indigo-700 dark:bg-indigo-950/40 dark:text-indigo-300"
                   >
                     {userName.charAt(0).toUpperCase() || "?"}
                   </div>
                   <div>
                     <div
                       data-testid="identity-name"
-                      className="text-base font-semibold text-neutral-900"
+                      className="text-base font-semibold text-neutral-900 dark:text-foreground"
                     >
                       {userName || "Anonymous"}
                     </div>
                     <div
                       data-testid="identity-timezone"
-                      className="text-xs text-neutral-500"
+                      className="text-xs text-neutral-500 dark:text-muted-foreground"
                     >
                       {userTimezone}
                     </div>
@@ -179,8 +181,8 @@ export function DemoLayout({
                       data-testid={`activity-${slug}`}
                       className={`flex items-start gap-3 rounded-lg border p-4 cursor-pointer transition-colors ${
                         selected
-                          ? "border-indigo-300 bg-indigo-50"
-                          : "border-neutral-200 bg-white hover:bg-neutral-50"
+                          ? "border-indigo-300 bg-indigo-50 dark:border-indigo-800 dark:bg-indigo-950/40"
+                          : "border-neutral-200 bg-white hover:bg-neutral-50 dark:border-border dark:bg-card dark:hover:bg-muted"
                       }`}
                     >
                       <Checkbox
@@ -189,10 +191,10 @@ export function DemoLayout({
                         className="mt-0.5"
                       />
                       <div className="flex-1">
-                        <div className="text-sm font-medium text-neutral-900">
+                        <div className="text-sm font-medium text-neutral-900 dark:text-foreground">
                           {activity}
                         </div>
-                        <div className="mt-1 text-xs text-neutral-500">
+                        <div className="mt-1 text-xs text-neutral-500 dark:text-muted-foreground">
                           {selected
                             ? "Visible to the agent"
                             : "Hidden from the agent"}
@@ -231,7 +233,7 @@ export function DemoLayout({
               </div>
               <pre
                 data-testid="ctx-state-json"
-                className="bg-neutral-900 text-neutral-100 rounded-lg p-5 text-sm font-mono overflow-x-auto leading-relaxed"
+                className="bg-neutral-900 text-neutral-100 rounded-lg p-5 text-sm font-mono overflow-x-auto leading-relaxed dark:bg-background"
               >
                 {JSON.stringify(publishedContext, null, 2)}
               </pre>
@@ -245,11 +247,11 @@ export function DemoLayout({
 
 function ContextStat({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-lg border border-neutral-200 bg-white p-4">
-      <div className="text-xs font-semibold uppercase tracking-wide text-neutral-500">
+    <div className="rounded-lg border border-neutral-200 bg-white p-4 dark:border-border dark:bg-card">
+      <div className="text-xs font-semibold uppercase tracking-wide text-neutral-500 dark:text-muted-foreground">
         {label}
       </div>
-      <div className="mt-1 text-lg font-semibold text-neutral-900 truncate">
+      <div className="mt-1 text-lg font-semibold text-neutral-900 truncate dark:text-foreground">
         {value}
       </div>
     </div>

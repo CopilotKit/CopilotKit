@@ -2,11 +2,7 @@
 
 import Link from "next/link";
 import { useMemo } from "react";
-import {
-  type Feature,
-  type FeatureCategory,
-  type Integration,
-} from "@/lib/registry";
+import type { Feature, FeatureCategory, Integration } from "@/lib/registry";
 
 interface FeatureCatalogProps {
   features: Feature[];
@@ -127,7 +123,7 @@ function FeatureCard({
             <Link
               key={i.slug}
               href={`/integrations/${i.slug}`}
-              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-[var(--accent-light)] text-[var(--accent)] hover:bg-[var(--accent)] hover:text-white transition-colors"
+              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-[var(--accent-light)] text-[var(--accent)] hover:bg-[var(--accent-fill)] hover:text-white transition-colors"
             >
               {i.logo && (
                 <img

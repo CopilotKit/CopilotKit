@@ -136,7 +136,7 @@ export default function AuthDemoPage() {
         {authError && (
           <div
             data-testid="auth-demo-error"
-            className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900"
+            className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-300"
           >
             <strong className="font-semibold">
               Runtime rejected the request:
@@ -144,12 +144,12 @@ export default function AuthDemoPage() {
             <span data-testid="auth-demo-error-message">
               {authError.message}
             </span>{" "}
-            <code className="ml-1 rounded bg-amber-100 px-1 py-0.5 font-mono text-xs">
+            <code className="ml-1 rounded bg-amber-100 px-1 py-0.5 font-mono text-xs dark:bg-amber-900/40">
               {authError.code}
             </code>
           </div>
         )}
-        <div className="flex-1 overflow-hidden rounded-md border border-neutral-200">
+        <div className="flex-1 overflow-hidden rounded-md border border-neutral-200 dark:border-border">
           <CopilotChat
             agentId="auth-demo"
             className="h-full"

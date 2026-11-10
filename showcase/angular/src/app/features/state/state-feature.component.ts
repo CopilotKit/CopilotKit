@@ -109,7 +109,7 @@ import type { Preferences, Recipe } from "./state-model";
       display: grid;
       min-height: 0;
       grid-template-columns: minmax(0, 1fr) minmax(20rem, 26rem);
-      background: #eef3f7;
+      background: light-dark(#eef3f7, #0a0a0a);
     }
     .state-workspace {
       min-width: 0;
@@ -118,21 +118,21 @@ import type { Preferences, Recipe } from "./state-model";
     }
     .state-chat {
       min-width: 0;
-      border-left: 1px solid #dbe3eb;
-      background: #fff;
+      border-left: 1px solid light-dark(#dbe3eb, #303136);
+      background: light-dark(#fff, #191a1e);
     }
     .intro {
       margin-bottom: 1.25rem;
     }
     .intro h1 {
       margin: 0;
-      color: #14213d;
+      color: light-dark(#14213d, #fafafa);
       font-size: clamp(1.6rem, 3vw, 2.25rem);
     }
     .intro p {
       max-width: 42rem;
       margin: 0.5rem 0 0;
-      color: #52637a;
+      color: light-dark(#52637a, #adadb2);
     }
     .two-card-grid {
       display: grid;
@@ -142,9 +142,9 @@ import type { Preferences, Recipe } from "./state-model";
     }
     .state-error {
       padding: 0.75rem;
-      border: 1px solid #dc9b9b;
-      color: #7f1d1d;
-      background: #fff5f5;
+      border: 1px solid light-dark(#dc9b9b, #7f1d1d);
+      color: light-dark(#7f1d1d, #fca5a5);
+      background: light-dark(#fff5f5, rgb(69 10 10 / 40%));
     }
     @media (max-width: 64rem) {
       .state-page {
@@ -154,7 +154,7 @@ import type { Preferences, Recipe } from "./state-model";
       }
       .state-chat {
         min-height: 28rem;
-        border-top: 1px solid #dbe3eb;
+        border-top: 1px solid light-dark(#dbe3eb, #303136);
         border-left: 0;
       }
     }
