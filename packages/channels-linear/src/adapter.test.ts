@@ -69,6 +69,7 @@ function fakeLinearApi() {
   const posted: PostedActivity[] = [];
   const nodes: ActivityNode[] = [];
   let seq = 0;
+  let heldPost: Promise<void> | undefined;
   const nextNode = () => {
     seq += 1;
     return {
@@ -80,6 +81,9 @@ function fakeLinearApi() {
     const request: GraphQLRequest = JSON.parse(String(init?.body));
     const input = request.variables.input;
     if (input !== undefined) {
+      const hold = heldPost;
+      heldPost = undefined;
+      await hold;
       posted.push(input);
       const node = nextNode();
       if (!input.ephemeral) {
@@ -118,7 +122,18 @@ function fakeLinearApi() {
     nodes.push({ ...node, content: { type: "prompt", body } });
     return node.id;
   };
-  return { fetch, posted, addPrompt };
+  /**
+   * Hold the next posted activity in flight until the returned function runs.
+   * Linear records it only then, the way a slow request lands late.
+   */
+  const holdNextPost = () => {
+    let release = () => {};
+    heldPost = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    return release;
+  };
+  return { fetch, posted, addPrompt, holdNextPost };
 }
 
 /**
@@ -445,6 +460,34 @@ describe("LinearAdapter end to end", () => {
       type: "response",
       body: "Stopped.",
     });
+  });
+
+  it("posts Stopped. after an activity that was still in flight when the run finished", async () => {
+    const { adapter, api, prompt } = await startLinear({
+      handler: async () => {},
+    });
+    const renderer = adapter.createRunRenderer({
+      organizationId: "org_1",
+      agentSessionId: SESSION_ID,
+    });
+    const releasePost = api.holdNextPost();
+    void callTool("search_issues", { query: "safari" })(renderer.subscriber);
+    const finishing = renderer.finish();
+
+    await prompt("Stop", "stop");
+    await new Promise((r) => setTimeout(r, 20));
+    releasePost();
+    await finishing;
+    await until(() => contentTypes(api.posted).includes("response"));
+
+    expect(api.posted.map((activity) => activity.content)).toEqual([
+      {
+        type: "action",
+        action: "search_issues",
+        parameter: '{"query":"safari"}',
+      },
+      { type: "response", body: "Stopped." },
+    ]);
   });
 
   it("rejects a webhook with a bad signature and starts no run", async () => {

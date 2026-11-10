@@ -162,7 +162,13 @@ A `prompted` activity with the `stop` signal calls `stopSession`:
 
 Linear sets the session status from the last activity, so the adapter then
 posts one final `Stopped.` response. Without it the session stays at
-"stopping".
+"stopping". The renderer stays registered until its posts settle, so
+`Stopped.` always comes after the last activity of the run.
+
+The running agent lives in the process that received the turn. A stop that
+reaches a different process aborts nothing there, but it still posts
+`Stopped.`. Run one instance, or send each workspace's webhooks to the same
+instance.
 
 ### History
 
@@ -218,5 +224,6 @@ src/
   GraphQL API with only the operations it needs.
 - **No retries in the client.** `LinearApiClient` never sleeps or retries.
   `LinearApiError` exposes `rateLimited` and `retryAfterMs` for callers.
-- **No token refresh.** The adapter sends `accessToken` as given.
+- **No built-in token refresh.** `accessToken` can be a function. The client
+  calls it before every request, so the host gets and refreshes the token.
 - **No plain-comment bot mode.** The agent works only through agent sessions.

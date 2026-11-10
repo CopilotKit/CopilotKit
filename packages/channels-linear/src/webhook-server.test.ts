@@ -1,5 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createHmac } from "node:crypto";
+import { request } from "node:http";
+import type { OutgoingHttpHeaders } from "node:http";
 import { createWebhookHandler } from "./webhook.js";
 import { LinearWebhookServer } from "./webhook-server.js";
 import type { AgentSessionEventWebhook } from "./types.js";
@@ -23,6 +25,34 @@ async function startServer(path?: string) {
 }
 
 const flush = () => new Promise((resolve) => setImmediate(resolve));
+
+const MIB = 1024 * 1024;
+
+/**
+ * POSTs `chunks` with node:http, so the test controls `Content-Length` and
+ * chunked transfer. Resolves with the status. The server may close the
+ * socket before every chunk is written, so a write error after the response
+ * is ignored.
+ */
+function postChunks(
+  url: string,
+  chunks: Buffer[],
+  headers: OutgoingHttpHeaders = {},
+) {
+  return new Promise<number | undefined>((resolve, reject) => {
+    let answered = false;
+    const req = request(url, { method: "POST", headers }, (res) => {
+      answered = true;
+      res.resume();
+      resolve(res.statusCode);
+    });
+    req.on("error", (error) => {
+      if (!answered) reject(error);
+    });
+    for (const chunk of chunks) req.write(chunk);
+    req.end();
+  });
+}
 
 describe("LinearWebhookServer", () => {
   it("passes a signed POST on the webhook path through to the handler", async () => {
@@ -89,5 +119,33 @@ describe("LinearWebhookServer", () => {
     const response = await fetch(`${baseUrl}/nope`, { method: "POST" });
 
     expect(response.status).toBe(404);
+  });
+
+  it("answers 413 without reading when Content-Length is over 1 MiB", async () => {
+    const { onEvent, baseUrl } = await startServer();
+    const body = Buffer.alloc(MIB + 1, "a");
+
+    const status = await postChunks(`${baseUrl}/webhook`, [body], {
+      "content-length": body.length,
+    });
+
+    expect(status).toBe(413);
+    await flush();
+    expect(onEvent).not.toHaveBeenCalled();
+  });
+
+  it("answers 413 when a chunked body passes 1 MiB", async () => {
+    const { onEvent, baseUrl } = await startServer();
+    const chunk = Buffer.alloc(256 * 1024, "a");
+
+    const status = await postChunks(
+      `${baseUrl}/webhook`,
+      [chunk, chunk, chunk, chunk, chunk],
+      { "transfer-encoding": "chunked" },
+    );
+
+    expect(status).toBe(413);
+    await flush();
+    expect(onEvent).not.toHaveBeenCalled();
   });
 });

@@ -9,13 +9,53 @@ export interface LinearWebhookServerOptions {
   path?: string;
 }
 
-async function readBody(req: IncomingMessage) {
-  const chunks: Buffer[] = [];
-  for await (const chunk of req) chunks.push(Buffer.from(chunk));
-  return Buffer.concat(chunks);
+/** Largest webhook body the server reads. Linear payloads are far smaller. */
+const MAX_BODY_BYTES = 1024 * 1024;
+
+/**
+ * Reads the request body, counting the bytes actually received. Returns
+ * `null` as soon as the body is over {@link MAX_BODY_BYTES}, without reading
+ * the rest. A `Content-Length` over the limit returns `null` before reading.
+ */
+function readBody(req: IncomingMessage) {
+  const declaredLength = Number(req.headers["content-length"]);
+  if (declaredLength > MAX_BODY_BYTES) return Promise.resolve(null);
+  return new Promise<Buffer | null>((resolve, reject) => {
+    const chunks: Buffer[] = [];
+    let size = 0;
+    const cleanup = () => {
+      req.off("data", onData);
+      req.off("end", onEnd);
+      req.off("error", onError);
+    };
+    const onData = (chunk: Buffer) => {
+      size += chunk.length;
+      if (size > MAX_BODY_BYTES) {
+        cleanup();
+        req.pause();
+        resolve(null);
+        return;
+      }
+      chunks.push(chunk);
+    };
+    const onEnd = () => {
+      cleanup();
+      resolve(Buffer.concat(chunks));
+    };
+    const onError = (error: Error) => {
+      cleanup();
+      reject(error);
+    };
+    req.on("data", onData);
+    req.on("end", onEnd);
+    req.on("error", onError);
+  });
 }
 
-/** Bridges a node:http request to a fetch `Request`, keeping the raw body bytes. */
+/**
+ * Bridges a node:http request to a fetch `Request`, keeping the raw body
+ * bytes. Returns `null` when the body is over {@link MAX_BODY_BYTES}.
+ */
 async function toRequest(req: IncomingMessage, url: URL) {
   const method = req.method ?? "GET";
   const headers = new Headers();
@@ -24,8 +64,10 @@ async function toRequest(req: IncomingMessage, url: URL) {
     for (const value of values ?? []) headers.append(name, value);
   }
   const hasBody = method !== "GET" && method !== "HEAD";
-  const body = hasBody ? new Uint8Array(await readBody(req)) : undefined;
-  return new Request(url, { method, headers, body });
+  if (!hasBody) return new Request(url, { method, headers });
+  const body = await readBody(req);
+  if (body === null) return null;
+  return new Request(url, { method, headers, body: new Uint8Array(body) });
 }
 
 /** Writes a fetch `Response` to a node:http response. */
@@ -39,7 +81,7 @@ async function writeResponse(response: Response, res: ServerResponse) {
  * Optional built-in `node:http` server around a Linear webhook handler.
  *
  * Routes:
- * - `path` (default "/webhook"): the handler.
+ * - `path` (default "/webhook"): the handler. A body over 1 MiB gets 413.
  * - `GET /`: health check, 200 "ok". Only when `path` is not "/".
  * - anything else: 404.
  *
@@ -102,7 +144,15 @@ export class LinearWebhookServer {
   private async handle(req: IncomingMessage, res: ServerResponse) {
     const url = new URL(req.url ?? "/", "http://localhost");
     if (url.pathname === this.path) {
-      const response = await this.handler(await toRequest(req, url));
+      const request = await toRequest(req, url);
+      if (request === null) {
+        // The rest of the body is not read, so the connection cannot be reused.
+        res.statusCode = 413;
+        res.setHeader("connection", "close");
+        res.end();
+        return;
+      }
+      const response = await this.handler(request);
       await writeResponse(response, res);
       return;
     }

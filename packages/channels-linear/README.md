@@ -264,7 +264,8 @@ read the Linear user directory.
 - No user directory (`lookupUser` always returns `undefined`).
 - No built-in token refresh. Pass `accessToken` as a function that returns a
   valid token.
-- A pending choice waits in the process that posted it. Run one instance, or
+- A pending choice and a running agent live in one process. A pick or a stop
+  that reaches a different process does not reach them. Run one instance, or
   send each workspace's webhooks to the same instance.
 
 ## Exports

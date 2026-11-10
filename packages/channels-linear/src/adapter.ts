@@ -179,16 +179,24 @@ export class LinearAdapter implements PlatformAdapter {
       }
     };
     // A failed post is logged by the renderer and does not fail the run,
-    // the same as the other direct adapters.
+    // the same as the other direct adapters. The renderer stays registered
+    // until its posts settle, so a stop in that window waits for them before
+    // it posts "Stopped.".
     const tracked: LinearRunRenderer = {
       ...renderer,
       async markInterrupted() {
-        unregister();
-        await renderer.markInterrupted();
+        try {
+          await renderer.markInterrupted();
+        } finally {
+          unregister();
+        }
       },
       async finish() {
-        unregister();
-        await renderer.finish();
+        try {
+          await renderer.finish();
+        } finally {
+          unregister();
+        }
       },
     };
     this.activeRenderers.set(sessionId, tracked);
