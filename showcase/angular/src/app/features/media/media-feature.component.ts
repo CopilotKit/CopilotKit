@@ -25,7 +25,6 @@ import { WeatherToolCard } from "../tools/tool-cards";
 import {
   createMultimodalMessage,
   dedupeUserMessageMedia,
-  rewriteMessagesForLegacyConverter,
   validateSampleBytes,
   VOICE_WEATHER_TOOL_NAMES,
 } from "./media-model";
@@ -225,7 +224,7 @@ export class MediaFeatureComponent {
     }
     if (this.feature === "multimodal") {
       effect((onCleanup) => {
-        const handle = installLegacyConverterShim(this.agentStore().agent);
+        const handle = installMediaDedupe(this.agentStore().agent);
         onCleanup(() => handle.unsubscribe());
       });
     }
@@ -280,18 +279,16 @@ interface SubscribableAgent {
   subscribe: (subscriber: unknown) => { unsubscribe: () => void };
 }
 
-/** Install the converter compatibility subscribers on one active agent. */
-function installLegacyConverterShim(agent: object): {
+/**
+ * Install the inbound media dedupe subscribers on one active agent.
+ *
+ * Outgoing messages are left as modern AG-UI media parts. Do not append a
+ * legacy `binary` mirror: AG-UI protocol 1.0 removed that part, and Python
+ * bridges on 1.0 reject the whole run with HTTP 422.
+ */
+function installMediaDedupe(agent: object): {
   unsubscribe: () => void;
 } {
-  const rewrite = ({
-    messages,
-  }: {
-    messages: ReadonlyArray<Readonly<MediaAgentMessage>>;
-  }) => {
-    const rewritten = rewriteMessagesForLegacyConverter(messages);
-    return rewritten ? { messages: rewritten } : undefined;
-  };
   const dedupe = ({
     messages,
   }: {
@@ -301,7 +298,6 @@ function installLegacyConverterShim(agent: object): {
     return deduped ? { messages: deduped } : undefined;
   };
   return (agent as SubscribableAgent).subscribe({
-    onRunInitialized: rewrite,
     onMessagesSnapshotEvent: dedupe,
     onRunFinalized: dedupe,
   });
