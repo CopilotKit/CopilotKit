@@ -31,11 +31,14 @@ The codemod already did the mechanical part: `/v2` import paths now point at the
    - remove `@copilotkit/react-ui`, `@copilotkit/react-textarea`, and `@copilotkit/runtime-client-gql`;
    - add `zod` (`^4.2.0`) if the code imports it and `package.json` does not list it: the codemod writes the tool schemas with Zod;
    - add `@ag-ui/langgraph` if the code now imports from it;
+   - set `@ag-ui/client`, `@ag-ui/core` and `@ag-ui/encoder` to the version the `@copilotkit/*` packages depend on (`npm ls @ag-ui/client` shows it). If an agent integration brings its own `@ag-ui/client`, force one version with `pnpm.overrides`, npm `overrides` or yarn `resolutions`: two copies of `AbstractAgent` make every agent fail to type-check ("missing the following properties: \_threadId, ...");
    - if the code imports from `@copilotkit/runtime/agent`, add `@tanstack/ai` and the adapter package for each provider it uses: `@tanstack/ai-openai`, `@tanstack/ai-anthropic`, `@tanstack/ai-gemini`, or `@tanstack/ai-vertex` (see the Built-in Agent section of `references/mappings.md`);
    - add `@tanstack/ai-mcp` if the code imports `createMCPClient`;
    - add `ai` only if the code imports from `@copilotkit/runtime/agent/ai-sdk`;
    - remove `streamdown`, `streamdown-vue`, `react-native-streamdown`, and `katex` if the code no longer imports them.
 4. Install, then run the typecheck and the build. Fix what they report.
+   - The TanStack AI packages (`@tanstack/ai*`) are ESM only. A CommonJS server (no `"type": "module"`, or `"module": "commonjs"` in `tsconfig.json`) cannot `import` them statically: move the server to ESM, or load the adapter with `await import("@tanstack/ai-openai")`.
+   - With `"moduleResolution": "node"` (or `"node10"`) TypeScript cannot read the subpaths of the 2.0 packages, such as `@copilotkit/runtime/agent`. Set it to `"bundler"`, `"node16"` or `"nodenext"`.
 5. Report to the user: what changed, each v1 feature that has no 2.0 equivalent, and anything you could not verify.
 
 See `references/index.md` for the reference files.

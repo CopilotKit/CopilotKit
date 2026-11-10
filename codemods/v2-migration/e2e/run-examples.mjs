@@ -714,7 +714,14 @@ async function runExample(example, args, tarballs, index) {
   report.addedDependencies = Object.fromEntries(
     [...missing].map(([dir, pkgs]) => [dir, [...pkgs]]),
   );
-  if (missing.size > 0 && !args.skipInstall) {
+  // The skill also aligns @ag-ui/* with the version 2.0 uses, and forces one
+  // copy of it, so agent integrations share one AbstractAgent.
+  const AG_UI = ["@ag-ui/client", "@ag-ui/core", "@ag-ui/encoder"];
+  const usesAgUi = tsProjects.some((project) => {
+    const pkg = readJson(path.join(appDir, project.dir, "package.json"));
+    return DEP_FIELDS.some((field) => AG_UI.some((name) => pkg[field]?.[name]));
+  });
+  if ((missing.size > 0 || usesAgUi) && !args.skipInstall) {
     const roots = new Set();
     for (const [dir, pkgs] of missing) {
       const file = path.join(appDir, dir, "package.json");
@@ -724,6 +731,33 @@ async function runExample(example, args, tarballs, index) {
         pkg.dependencies[name] = COMPANION_VERSIONS[name];
       writeJson(file, pkg);
       roots.add(installRootFor(appDir, dir));
+    }
+    for (const project of tsProjects) {
+      const file = path.join(appDir, project.dir, "package.json");
+      const pkg = readJson(file);
+      for (const field of DEP_FIELDS) {
+        if (field === "peerDependencies") continue;
+        for (const name of AG_UI) {
+          if (pkg[field]?.[name]) pkg[field][name] = COMPANION_VERSIONS[name];
+        }
+      }
+      writeJson(file, pkg);
+      roots.add(installRootFor(appDir, project.dir));
+    }
+    for (const root of roots) {
+      const file = path.join(appDir, root, "package.json");
+      if (!fs.existsSync(file)) continue;
+      const pkg = readJson(file);
+      pkg.pnpm = {
+        ...pkg.pnpm,
+        overrides: {
+          ...pkg.pnpm?.overrides,
+          ...Object.fromEntries(
+            AG_UI.map((name) => [name, COMPANION_VERSIONS[name]]),
+          ),
+        },
+      };
+      writeJson(file, pkg);
     }
     for (const root of roots) {
       await run(
