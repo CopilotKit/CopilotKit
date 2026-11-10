@@ -98,6 +98,12 @@ export const CHANNEL_GUIDE_ROUTES = [
     section: "build",
   },
   {
+    slug: "github",
+    sourceSlug: "channels/github",
+    navTitle: "GitHub issues and pull requests",
+    section: "build",
+  },
+  {
     slug: "persistence-and-scaling",
     sourceSlug: "channels/persistence-and-scaling",
     navTitle: "Persistence and scaling",
