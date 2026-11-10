@@ -11,6 +11,13 @@ A managed Channel is a long-running worker with an outbound realtime
 connection. It is not a serverless request handler. Deploy it like a queue
 consumer or WebSocket worker.
 
+This page covers a Channel connected through CopilotKit Intelligence. A
+Channel with only [direct adapters](/reference/channels/sdk/direct-adapters)
+needs no Intelligence key. Start it with `await channel.start()` and stop it
+with `await channel.stop()` in your shutdown handler. `start()` rejects when no
+adapter connects, so a failed start fails your process startup. Pass a shared
+`store.adapter` when you run more than one replica.
+
 ## Use the tested runtime pair
 
 <ChannelsInstall />

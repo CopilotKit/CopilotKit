@@ -44,14 +44,14 @@ As explained in the [CopilotKit Intelligence overview](/intelligence/overview),
 the dividing line between CopilotKit open source and CopilotKit Intelligence
 is durable data: functionality that runs without it is open source, while
 functionality built on connections to durable data — databases and the state
-kept in them — is part of CopilotKit Intelligence. A channel runner needs
-durable data to run correctly in production: simultaneous participants, race
-conditions, retries, and delivery guarantees all depend on it. CopilotKit
-Intelligence provides the managed channel runner, and channels running on it
-also get the rest of CopilotKit Intelligence, including Product Analytics,
-Automatic Learning, and governance. You can absolutely build and operate your
-own channel runner on the open-source Channels SDK — you implement the
-durable-data layer yourself.
+kept in them — is part of CopilotKit Intelligence. The open-source Channels
+SDK runs on its own: attach a [direct adapter](/reference/channels/sdk/direct-adapters)
+for Slack, Teams, Discord, or WhatsApp and call `channel.start()`. No
+Intelligence key is required. Your process then owns the provider credentials
+and the durable-data layer: simultaneous participants, race conditions,
+retries, and delivery guarantees. Connect the Channel to Intelligence when you
+want cloud-hosted provider connections and durable delivery. Channels on
+Intelligence also get Product Analytics, Automatic Learning, and governance.
 
 <OpsPlatformCTA
   variant="inline"

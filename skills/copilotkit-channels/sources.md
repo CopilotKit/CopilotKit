@@ -13,8 +13,9 @@ Generated: 2026-08-01
   variants, read to state the managed-versus-OSS boundary accurately.
 - `packages/runtime/dist/v2/runtime/core/runtime.d.mts` — `CopilotIntelligenceRuntimeOptions`
   (`intelligence`, `identifyUser`, `channels?: Channel[]`) and `CopilotSseRuntimeOptions`
-  (`channels?: undefined`), which is what makes "Channels require the Intelligence runtime"
-  a type-level fact rather than a convention.
+  (`channels?: undefined`), which is what makes "declaring `channels` on `CopilotRuntime`
+  requires the Intelligence runtime" a type-level fact rather than a convention. A
+  direct-adapter Channel can instead run standalone with `channel.start()`.
 - `packages/runtime/dist/v2/runtime/intelligence-platform/client.d.mts` —
   `CopilotKitIntelligenceConfig`: `apiKey` required, `apiUrl`/`wsUrl` optional and defaulting
   to the managed platform, and the warning that the two planes are separate hosts.
