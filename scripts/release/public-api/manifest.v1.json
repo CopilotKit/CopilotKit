@@ -980,6 +980,20 @@
             "path": "packages/channels-web/package.json",
             "selector": "exports[\".\"]"
           }
+        },
+        {
+          "importPath": "@copilotkit/channels-web/react",
+          "exportKey": "./react",
+          "kind": "code",
+          "conditions": {
+            "types": "./dist/react/index.d.ts",
+            "import": "./dist/react/index.js"
+          },
+          "provenance": {
+            "kind": "package-json",
+            "path": "packages/channels-web/package.json",
+            "selector": "exports[\"./react\"]"
+          }
         }
       ],
       "compatibility": {
