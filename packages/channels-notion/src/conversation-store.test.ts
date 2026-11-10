@@ -34,7 +34,10 @@ function comment(authorId: string, richText: RichTextItem[]) {
 }
 
 /** Store over a fake Notion discussion that returns `comments` for TARGET only. */
-function createStore(comments: NotionComment[], maxMessages?: number) {
+function createStore(
+  comments: NotionComment[],
+  options: { maxMessages?: number; trigger?: string } = {},
+) {
   const client = {
     async listDiscussionComments(pageId: string, discussionId: string) {
       const isTarget =
@@ -44,8 +47,8 @@ function createStore(comments: NotionComment[], maxMessages?: number) {
   };
   return new NotionConversationStore({
     client,
-    bot: async () => ({ id: BOT_ID }),
-    maxMessages,
+    bot: async () => ({ id: BOT_ID, name: "Acme Bot" }),
+    ...options,
   });
 }
 
@@ -80,6 +83,19 @@ describe("NotionConversationStore.getOrCreate", () => {
     ]);
   });
 
+  it("removes the plain-text trigger from user comments, like the turn text", async () => {
+    const triggered = comment("user-1", [text("@Acme Bot summarize")]);
+    const quoted = comment(BOT_ID, [text("@Acme Bot is me.")]);
+    const store = createStore([triggered, quoted]);
+
+    const { messages } = await historyOf(store);
+
+    expect(messages).toEqual([
+      { id: triggered.id, role: "user", content: "summarize" },
+      { id: quoted.id, role: "assistant", content: "@Acme Bot is me." },
+    ]);
+  });
+
   it("skips comments with no text left", async () => {
     const onlyMention = comment("user-1", [mention(BOT_ID, "Helper")]);
     const question = comment("user-1", [text("What changed?")]);
@@ -96,7 +112,7 @@ describe("NotionConversationStore.getOrCreate", () => {
     const comments = ["one", "two", "three", "four"].map((t) =>
       comment("user-1", [text(t)]),
     );
-    const store = createStore(comments, 2);
+    const store = createStore(comments, { maxMessages: 2 });
 
     const { messages } = await historyOf(store);
 
@@ -125,7 +141,7 @@ describe("NotionConversationStore.getMessages", () => {
       text(" hi"),
     ]);
     const answer = comment(BOT_ID, [text("Hello!")]);
-    const store = createStore([question, answer], 1);
+    const store = createStore([question, answer], { maxMessages: 1 });
 
     const messages = await store.getMessages(TARGET);
 

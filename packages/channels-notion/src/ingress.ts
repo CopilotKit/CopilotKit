@@ -87,7 +87,7 @@ export async function handleNotionEvent(
 
   const text = richTextToPlainText(comment.rich_text);
   const mentioned = mentionsUser(comment.rich_text, bot.id);
-  const trigger = deps.trigger ?? (bot.name ? `@${bot.name}` : undefined);
+  const trigger = resolveTrigger(bot, deps.trigger);
   const triggered = startsWithTrigger(text, trigger);
   const userText = addressedText(comment.rich_text, bot.id, trigger).trim();
 
@@ -145,8 +145,30 @@ function startsWithTrigger(text: string, trigger: string | undefined) {
   return text.trimStart().toLowerCase().startsWith(trigger.toLowerCase());
 }
 
-/** Comment text with a leading bot mention, or else a leading trigger, removed. */
-function addressedText(
+/**
+ * The text trigger in effect: the configured one, or else `@<bot name>`.
+ * Returns `undefined` when neither is set (the bot has no name).
+ *
+ * @param bot - The integration's bot user.
+ * @param trigger - The configured trigger, when set.
+ */
+export function resolveTrigger(
+  bot: NotionBotIdentity,
+  trigger: string | undefined,
+) {
+  return trigger ?? (bot.name ? `@${bot.name}` : undefined);
+}
+
+/**
+ * Comment text with a leading bot mention, or else a leading trigger,
+ * removed. Ingress uses it for the turn text and the conversation store for
+ * history, so both show the same words.
+ *
+ * @param items - The comment's `rich_text`.
+ * @param botId - The integration's bot user id.
+ * @param trigger - The resolved trigger (see {@link resolveTrigger}).
+ */
+export function addressedText(
   items: readonly RichTextItem[],
   botId: string,
   trigger: string | undefined,

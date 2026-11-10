@@ -6,8 +6,13 @@ import type {
 } from "@copilotkit/channels-core";
 import type { ThreadMessage } from "@copilotkit/channels-ui";
 import type { NotionApiClient } from "./client.js";
+import {
+  addressedText,
+  resolveTrigger,
+  type NotionBotIdentity,
+} from "./ingress.js";
 import { richTextToPlainText } from "./render/rich-text.js";
-import type { NotionComment, ReplyTarget, RichTextItem } from "./types.js";
+import type { NotionComment, ReplyTarget } from "./types.js";
 
 const DEFAULT_MAX_MESSAGES = 50;
 
@@ -16,7 +21,12 @@ export interface NotionConversationStoreOptions {
   /** Notion client that reads the discussion. */
   client: Pick<NotionApiClient, "listDiscussionComments">;
   /** Resolves the integration's bot user. Its comments become assistant messages. */
-  bot: () => Promise<{ id: string }>;
+  bot: () => Promise<NotionBotIdentity>;
+  /**
+   * Text prefix that makes a comment a turn (default `@<bot name>`). It is
+   * removed from user comments, the same way ingress removes it from the turn.
+   */
+  trigger?: string;
   /** Most recent messages kept in the agent history (default 50). */
   maxMessages?: number;
 }
@@ -35,7 +45,8 @@ interface DiscussionEntry {
  * Every turn gets a fresh agent `threadId` (`notion-<discussionId>-<uuid>`),
  * and `agent.messages` is rebuilt from the discussion's comments: the bot's
  * comments become assistant messages, everyone else's become user messages.
- * The inbound comment is already in the discussion, so the store seeds it
+ * A leading bot mention or trigger is removed from user comments, so history
+ * shows the same text as the turn. The inbound comment is already in the discussion, so the store seeds it
  * (`seedsInboundTurn`).
  *
  * Notion lists only un-resolved comments, so a resolved discussion has no
@@ -49,11 +60,13 @@ export class NotionConversationStore implements ConversationStore {
   readonly seedsInboundTurn = true;
   private readonly client: NotionConversationStoreOptions["client"];
   private readonly bot: NotionConversationStoreOptions["bot"];
+  private readonly trigger: string | undefined;
   private readonly maxMessages: number;
 
   constructor(options: NotionConversationStoreOptions) {
     this.client = options.client;
     this.bot = options.bot;
+    this.trigger = options.trigger;
     this.maxMessages = options.maxMessages ?? DEFAULT_MAX_MESSAGES;
   }
 
@@ -95,37 +108,32 @@ export class NotionConversationStore implements ConversationStore {
       this.bot(),
       this.client.listDiscussionComments(target.pageId, target.discussionId),
     ]);
+    const trigger = resolveTrigger(bot, this.trigger);
     const entries: DiscussionEntry[] = [];
     for (const comment of comments) {
-      const entry = toEntry(comment, bot.id);
+      const entry = toEntry(comment, bot.id, trigger);
       if (entry.text) entries.push(entry);
     }
     return entries;
   }
 }
 
-function toEntry(comment: NotionComment, botId: string) {
+function toEntry(
+  comment: NotionComment,
+  botId: string,
+  trigger: string | undefined,
+) {
   const isBot = comment.created_by.id === botId;
-  const richText = isBot
-    ? comment.rich_text
-    : dropLeadingBotMention(comment.rich_text, botId);
+  const text = isBot
+    ? richTextToPlainText(comment.rich_text)
+    : addressedText(comment.rich_text, botId, trigger);
   const entry: DiscussionEntry = {
     id: comment.id,
-    text: richTextToPlainText(richText).trim(),
+    text: text.trim(),
     isBot,
     ts: comment.created_time,
   };
   return entry;
-}
-
-/** Remove a mention of the bot when it is the first item of the comment. */
-function dropLeadingBotMention(items: RichTextItem[], botId: string) {
-  const [first, ...rest] = items;
-  const isBotMention =
-    first?.type === "mention" &&
-    first.mention.type === "user" &&
-    first.mention.user.id === botId;
-  return isBotMention ? rest : items;
 }
 
 function toAgentMessage(entry: DiscussionEntry) {
