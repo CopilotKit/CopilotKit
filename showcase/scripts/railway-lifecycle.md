@@ -389,29 +389,38 @@ The permanent runner, harness, and workflow readers must agree on the policy
 hash or use the exact reviewed transition below. Keep scheduled provisioning off until real consumer reads establish all
 three activations. Never run a Production promotion just to obtain a receipt.
 
-### Bounded docs-preview policy recovery
+### Bounded permanent-services policy recovery
 
-Commit `21552a22b2` added `docs-preview` to permanent-service protection. The
-independently pinned staging runner still publishes the preceding policy. The
-shared reader permits exactly this publisher/validator pair:
+Commit `21552a22b2` added `docs-preview` to permanent-service protection, and
+the OpenAI Agents Python integration added `showcase-openai-agents-python`
+(`be6a4cb2-6258-4994-bd20-4c6e0eb37e96`). The independently pinned staging
+runner still publishes the policy that predates both. The shared reader permits
+exactly this publisher/validator pair:
 
 - Publisher: `4ded223bb02ea0cdf7ffed4fb8f78b70fbb50c9f74ae82d34addfc94f712c751`
-- Current validator: `d3a7fe0c6eeda2fce0dc73779d2e19fdfbf9174abeaa07468b3aca21bd097410`
+- Current validator: `5c3ba2cd4f895fb8051a7e33eb55e2cda04bd3ac0b56acc2c205a442815e1b0b`
 
-The current validator adds only the permanent name and ID for `docs-preview`;
-project, forbidden environments, previous permanent services and approved image
-pins are unchanged. Every record and inventory classification still uses the
-current policy, including rejection of disposable ownership of `docs-preview`.
-The acknowledgement names the publisher policy and exact fetched bytes; it does
-not claim the runner has adopted the newer policy. Authentication, fresh reads,
-snapshot checksums and acknowledgement acceptance remain mandatory. Unknown
-policy pairs fail with `records-policy-mismatch`. The regression test uses the
-real committed policy so further changes require compatibility review before merge.
+The current validator adds only the permanent names and IDs for those two
+services; project, forbidden environments, previous permanent services and
+approved image pins are unchanged. This pair replaces the earlier
+docs-preview-only pair (`4ded…` → `d3a7fe0c…`), whose validator no committed
+policy produces any more; a publisher serving `d3a7fe0c…` is refused. Every
+record and inventory classification still uses the current policy, including
+rejection of disposable ownership of either service. The acknowledgement names
+the publisher policy and exact fetched bytes; it does not claim the runner has
+adopted the newer policy. Authentication, fresh reads, snapshot checksums and
+acknowledgement acceptance remain mandatory. Unknown policy pairs and the
+reverse direction fail with `records-policy-mismatch`. The regression test uses
+the real committed policy so further changes require compatibility review
+before merge.
 
 This recovery changes readers only. It neither replaces the runner nor clears
-its ownership journals, recovery blocks, leases or deployment fence. Scheduling
+its ownership journals, recovery blocks, leases or deployment fence, and the
+runner's own cleanup policy still lacks protection for both services. Scheduling
 stays off. Existing deployed consumers need the updated reader before they can
 use this transition; a local invocation does not prove workflow or harness rollout.
-Retire the exception after a coordinated runner policy release and verification
-that deployed readers accept matching policy hashes. A future policy must not
-inherit this exception without a new review.
+The runner is parked and disconnected (see
+[Registry disconnected](#registry-disconnected)), so only the opt-in
+`validate_registry_only` dispatch step can still use this exception. Remove it
+with the registry reader code. A future policy must not inherit this exception
+without a new review.
