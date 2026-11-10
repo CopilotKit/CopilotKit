@@ -8,5 +8,5 @@ import { useCopilotChatSuggestions, Markdown } from "@copilotkit/react-ui";
 
 export function Chat() {
   useCopilotChatSuggestions({ instructions: "Suggest next steps" });
-  return <CopilotChat labels={{ title: "Assistant" }} />;
+  return <CopilotChat labels={{ modalHeaderTitle: "Assistant" }} />;
 }

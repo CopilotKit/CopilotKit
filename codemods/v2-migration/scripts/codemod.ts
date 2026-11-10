@@ -5,6 +5,8 @@ import { migrateAngularChatConfiguration } from "./angular-chat-configuration.ts
 import { migrateDeprecatedApis } from "./deprecated-apis.ts";
 import { migrateGenerativeUI } from "./generative-ui.ts";
 import { migrateRuntimeAdapters } from "./runtime-adapters.ts";
+import { migrateCopilotActions } from "./copilot-action.ts";
+import { migrateChatComponents } from "./chat-components.ts";
 import type { Codemod, Edit, SgNode } from "codemod:ast-grep";
 import type TS from "codemod:ast-grep/langs/typescript";
 import type TSX from "codemod:ast-grep/langs/tsx";
@@ -469,11 +471,23 @@ function todoLines(name: string, entry: V1Export | undefined): string[] {
  *   `generative-ui.ts`).
  */
 const codemod: Codemod<Lang> = async (root, options) => {
-  const migrated = migrateRuntimeAdapters(root.root());
-  const rootNode =
-    migrated === null
+  const adapters = migrateRuntimeAdapters(root.root());
+  const afterAdapters =
+    adapters === null
       ? root.root()
-      : parse<Lang>(options.language, migrated).root();
+      : parse<Lang>(options.language, adapters).root();
+  const actions = migrateCopilotActions(afterAdapters);
+  const afterActions =
+    actions === null
+      ? afterAdapters
+      : parse<Lang>(options.language, actions).root();
+  const chats = migrateChatComponents(
+    afterActions,
+    !/\.[mc]?ts$/.test(root.filename()),
+  );
+  const migrated = chats ?? actions ?? adapters;
+  const rootNode =
+    chats === null ? afterActions : parse<Lang>(options.language, chats).root();
   const source = rootNode.text();
   const edits: Edit[] = [];
   /** Local names of the v1 `<CopilotKit>` provider. */

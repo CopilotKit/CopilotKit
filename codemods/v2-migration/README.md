@@ -19,6 +19,9 @@ Then finish with the skill it installs, or by hand: search for `TODO(copilotkit-
 - **Import paths.** `@copilotkit/react-core/v2` and `@copilotkit/runtime/v2` (and their subpaths) become the package roots. `@copilotkit/shared/event-transforms` becomes `@copilotkit/runtime`. Paths in `import()`, `require()`, and `vi.mock()` move too.
 - **Stylesheets.** The 2.0 components add their own styles, so imports of `@copilotkit/react-ui/styles.css`, `@copilotkit/react-core/v2/styles.css`, and `@copilotkit/react-core/styles.css` are deleted. This codemod reads JavaScript and TypeScript only. For `@import` in CSS files, run [`remove-stylesheet-import`](../remove-stylesheet-import.ts).
 - **The provider.** The v1 `<CopilotKit>` (also re-exported from `/v2`) becomes `<CopilotKitProvider>`, and `CopilotKitProps` becomes `CopilotKitProviderProps`. On the provider, `agent` becomes `agentId`.
+- **`useCopilotAction`.** A call becomes the 2.0 hook that does the same job, as v1 dispatched it: `useHumanInTheLoop` for `renderAndWaitForResponse` (and `renderAndWait`, renamed to `render`), `useFrontendTool` for a `handler`, and `useRenderTool` for a call that only renders. A literal `Parameter[]` becomes the same Zod schema (`z.object({...})`, with `.describe()`, `.optional()` and `z.enum()`), and `import { z } from "zod"` is added when the file has none. A sync handler becomes `async`, `disabled` becomes `available`, and the v1 render props `handler` (in HITL) and `args` (in a render-only call) get their 2.0 names. A render that reads `result` gets a TODO: 2.0 passes the result as a string. A catch-all (`"*"`), a spread, or `parameters` that are not a literal array keeps the TODO.
+- **v1 chat components.** On `CopilotChat`, `CopilotPopup` and `CopilotSidebar` from `@copilotkit/react-ui`, the `labels` keys get their 2.0 names (`title` → `modalHeaderTitle`, `placeholder` → `chatInputPlaceholder`, `initial` → `welcomeMessageText`, ...), `onSetOpen` becomes `onOpenChange`, and each prop 2.0 removed (`instructions`, `makeSystemMessage`, `Input`, `Messages`, `icons`, ...) gets a TODO that names the 2.0 way.
+- **Same name, different API.** `useFrontendTool`, `useHumanInTheLoop`, `useRenderToolCall` and `CopilotRuntime` exist in v1 and 2.0 with different arguments. They get a TODO only where the file uses the v1 shape (a `parameters` array, a `useRenderToolCall` config, a runtime without `agents`), so a second run changes nothing.
 - **v1 APIs with the same 2.0 API.** The import moves to the 2.0 package, for example `CopilotChat` from `@copilotkit/react-ui` to `@copilotkit/react-core`.
 - **LangGraph.** `LangGraphAgent` and `LangGraphHttpAgent` import from `@ag-ui/langgraph`.
 - **Built-in Agent.** `BuiltInAgent`, `defineTool`, and the other agent exports import from `@copilotkit/runtime/agent`. The AI SDK helpers (`convertMessagesToVercelAISDKMessages`, `createSafeUrlDownload`, ...) import from `@copilotkit/runtime/agent/ai-sdk`. This also applies to imports from `@copilotkit/runtime/v2`. In a `new BuiltInAgent({ ... })` config, a model string becomes its TanStack AI adapter, and the adapter is imported: `"openai/gpt-5"` becomes `openaiText("gpt-5")` from `@tanstack/ai-openai`. The same goes for `anthropic`, `google` (or `gemini`) and `vertex`, with `/` or `:`. `maxRetries: 3` becomes `retry: { maxRetries: 3 }`. Any other `model` that is not an adapter gets a TODO, and so does each removed key (`temperature`, `providerOptions`, `apiKey`, `urlDownload`, `mcpServers`, ...). The `mcpServers` TODO tells you to create clients with `createMCPClient` from `@tanstack/ai-mcp` and pass them as `mcp: { clients: [client] }`. Imports of the removed `resolveModel`, `classifyModelSpec`, `BuiltInAgentModel`, `ModelSpecifier`, and `MCPClientConfig` get a TODO, and so do imports of `MCPClient` and `MCPTransport`.
@@ -94,6 +97,18 @@ for the remaining manual cases.
 - Vue single-file components (`.vue`) are not changed. Delete `useKatexStyles` from them by hand.
 - CSS that targets Streamdown's `[data-streamdown]` attributes stops matching. The codemod does not read CSS.
 - Import paths inside template literals (for example a script generated as a string) are not changed. Only plain string literals are.
+
+## Check it on real apps
+
+`e2e/run-examples.mjs` runs the codemod on every example of a git ref (by default `origin/main`, the v1 line) and type-checks each app against the 2.0 packages. Pack the public packages first, then run it:
+
+```bash
+mkdir -p /tmp/ck-tarballs
+for d in packages/*/; do (cd "$d" && node -e "process.exit(require('./package.json').private ? 1 : 0)" && pnpm pack --pack-destination /tmp/ck-tarballs); done
+node codemods/v2-migration/e2e/run-examples.mjs --tarballs /tmp/ck-tarballs --out /tmp/ck-e2e
+```
+
+Each app is type-checked on its own 1.x packages, on 2.0 before the codemod, on 2.0 after it, and after the dependency step of the skill. `summary.md` sorts each remaining error by kind: `app` (the app had it on 1.x), `todo` (next to a TODO), `missing-dep`, `copilotkit-import`, `unchanged` (a v1 use the codemod left), and `unexplained` (most likely a codemod gap). It also reports whether a second run changes anything, and the v1 imports left without a TODO. `--only <text>` limits the run to the matching examples.
 
 ## Develop
 
