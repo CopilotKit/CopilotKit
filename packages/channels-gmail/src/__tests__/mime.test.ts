@@ -127,6 +127,26 @@ describe("buildReplyMime", () => {
     );
   });
 
+  it("folds long headers so no line passes 998 characters", () => {
+    const references = Array.from(
+      { length: 200 },
+      (_, i) => `<message-${i}@mail.example.org>`,
+    );
+    const raw = buildReplyMime({
+      ...base,
+      subject: "Ü".repeat(400),
+      inReplyTo: "<last@mail.example.org>",
+      references,
+    }).toString("latin1");
+    const head = raw.slice(0, raw.indexOf("\r\n\r\n"));
+    expect(Math.max(...head.split("\r\n").map((l) => l.length))).toBeLessThan(
+      200,
+    );
+    expect(parseMime(raw).headers.get("references")?.split(" ")).toHaveLength(
+      201,
+    );
+  });
+
   it("rejects an invalid recipient address", () => {
     expect(() =>
       buildReplyMime({ ...base, to: "jane@example.org\r\nBcc: x@y.z" }),
@@ -142,7 +162,7 @@ describe("header helpers", () => {
     const encoded = encodeHeaderText("Grüße aus Köln");
     expect(encoded).toMatch(/^=\?UTF-8\?B\?/);
     const decoded = encoded
-      .split(" ")
+      .split(/\s+/)
       .map((w) => Buffer.from(w.slice(10, -2), "base64").toString())
       .join("");
     expect(decoded).toBe("Grüße aus Köln");

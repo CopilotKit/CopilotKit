@@ -51,9 +51,12 @@ export function encodeHeaderText(value: string): string {
     chunk += char;
   }
   if (chunk) words.push(chunk);
-  return words
-    .map((w) => `=?UTF-8?B?${Buffer.from(w).toString("base64")}?=`)
-    .join(" ");
+  return (
+    words
+      .map((w) => `=?UTF-8?B?${Buffer.from(w).toString("base64")}?=`)
+      // Fold between encoded words so a long subject keeps lines short.
+      .join("\r\n ")
+  );
 }
 
 /** `"Name" <address>` with the name encoded and the address checked. */
@@ -145,7 +148,8 @@ export function buildReplyMime(input: ReplyMimeInput): Buffer {
     const refs = cleanMessageIds(input.references ?? []);
     if (!refs.includes(inReplyTo)) refs.push(inReplyTo);
     headers.push(`In-Reply-To: ${inReplyTo}`);
-    headers.push(`References: ${refs.join(" ")}`);
+    // Fold between ids: a long thread would pass the 998-character line limit.
+    headers.push(`References: ${refs.join("\r\n ")}`);
   }
 
   const altBoundary = boundary();

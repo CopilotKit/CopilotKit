@@ -98,6 +98,8 @@ export class GmailAdapter implements PlatformAdapter {
   private readonly maxAttachmentBytes: number;
   private readonly gmailStore: GmailConversationStore;
   private sink: IngressSink | undefined;
+  /** True between `start()` and `stop()`. Gates watch renewal. */
+  private running = false;
   private mailbox = "";
   private renewTimer: ReturnType<typeof setTimeout> | undefined;
   private readonly threadChains = new Map<string, Promise<void>>();
@@ -196,6 +198,7 @@ export class GmailAdapter implements PlatformAdapter {
   }
 
   async start(sink: IngressSink): Promise<void> {
+    this.running = true;
     const profile = await this.client.getProfile();
     this.mailbox = profile.emailAddress.toLowerCase();
     if (this.opts.watch !== false) {
@@ -208,6 +211,7 @@ export class GmailAdapter implements PlatformAdapter {
   }
 
   async stop(): Promise<void> {
+    this.running = false;
     if (this.renewTimer) clearTimeout(this.renewTimer);
     this.renewTimer = undefined;
     this.sink = undefined;
@@ -408,11 +412,12 @@ export class GmailAdapter implements PlatformAdapter {
 
   private scheduleRenewal(delayMs: number): void {
     if (this.renewTimer) clearTimeout(this.renewTimer);
+    if (!this.running) return;
     this.renewTimer = setTimeout(() => {
       this.renewTimer = undefined;
       this.watch().catch((err: unknown) => {
         console.error("[channels-gmail] watch renewal failed:", err);
-        if (this.sink) this.scheduleRenewal(WATCH_RETRY_MS);
+        this.scheduleRenewal(WATCH_RETRY_MS);
       });
     }, delayMs);
     this.renewTimer.unref?.();

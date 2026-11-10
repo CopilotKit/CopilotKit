@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import type { GmailOAuthCredentials } from "./types.js";
 
 export const GMAIL_API = "https://gmail.googleapis.com/gmail/v1/users/me";
@@ -191,7 +192,7 @@ export class GmailClient {
     raw: Buffer,
     threadId: string,
   ): Promise<{ id: string; threadId: string }> {
-    const boundary = `gmail_send_${crypto.randomUUID()}`;
+    const boundary = `gmail_send_${randomUUID()}`;
     const head = Buffer.from(
       `--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n` +
         `${JSON.stringify({ threadId })}\r\n` +
