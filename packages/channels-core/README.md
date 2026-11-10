@@ -345,7 +345,15 @@ error still rejects the promise. A comment-based adapter can remove its pending
 numbered-choice list before the call. Restore the list unless the status is
 `"handled"`, so that the initiator can still answer the `awaitChoice`. Restore
 on `"ignored"` too: a redelivery of a refused reply is a duplicate, so it comes
-back as `"ignored"`, and the choice is still open.
+back as `"ignored"`. Guard the restore:
+
+- Restore only when no newer list was saved for the conversation meanwhile.
+  Never overwrite a newer list.
+- Keep the list's original expiry. Do not start a new one.
+
+A restored list whose choice already closed (timed out, or answered another
+way) does no harm: a reply to it is not handled, and the list still expires at
+its original time.
 
 ## Exports
 
