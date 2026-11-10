@@ -119,9 +119,7 @@ const runs: Message[][] = [];
 class EchoAgent extends AbstractAgent {
   run(input: RunAgentInput): Observable<BaseEvent> {
     runs.push(structuredClone(input.messages));
-    const last = [...input.messages]
-      .toReversed()
-      .find((m) => m.role === "user");
+    const last = input.messages.filter((m) => m.role === "user").at(-1);
     const said = typeof last?.content === "string" ? last.content : "";
     const messageId = `msg-${runs.length}`;
     return new Observable<BaseEvent>((sub) => {
