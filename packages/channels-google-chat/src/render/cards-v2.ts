@@ -35,6 +35,15 @@ function isSafeUrl(url: string): boolean {
   return true;
 }
 
+/** Cards v2 loads images only from absolute HTTPS URLs. */
+function isAbsoluteHttpsUrl(url: string): boolean {
+  try {
+    return new URL(url).protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
 /**
  * Convert the agent's standard Markdown into the limited HTML subset that
  * Google Chat card `textParagraph`/`decoratedText` widgets render.
@@ -478,7 +487,7 @@ function renderNodeWidgets(node: ChannelNode, state: RenderState): Widget[] {
       const alt = String(props.alt ?? "");
       // Chat rejects an image widget without a valid URL, which would fail
       // the whole message. The renderer is total: skip it.
-      if (!url || !isSafeUrl(url)) break;
+      if (!url || !isAbsoluteHttpsUrl(url)) break;
       widgets.push({ image: { imageUrl: url, altText: alt } });
       break;
     }

@@ -699,3 +699,24 @@ describe("renderGoogleChatMessage: current component vocabulary", () => {
     expect(body.text).toBe("Deploy finished");
   });
 });
+
+describe("renderGoogleChatMessage: images", () => {
+  it("keeps only absolute HTTPS image URLs", () => {
+    const image = (url: string): ChannelNode => ({
+      type: "image",
+      props: { url, alt: "chart" },
+    });
+    const body = renderGoogleChatMessage([
+      image("https://example.com/a.png"),
+      image("http://example.com/b.png"),
+      image("/relative.png"),
+      image("//example.com/c.png"),
+    ]);
+    const widgets = (
+      body.cardsV2![0] as { card: { sections: { widgets: unknown[] }[] } }
+    ).card.sections[0]!.widgets;
+    expect(widgets).toEqual([
+      { image: { imageUrl: "https://example.com/a.png", altText: "chart" } },
+    ]);
+  });
+});
