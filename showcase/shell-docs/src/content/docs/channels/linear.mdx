@@ -226,8 +226,8 @@ message in the session, and the engine resolves it as a click. By default,
 only the person who started an `awaitChoice` can answer it. To let anyone in
 the session answer, pass `answerableBy: "conversation"`.
 
-When someone stops the agent in Linear, the run ends. The agent posts nothing
-more in that session.
+When someone stops the agent in Linear, the run ends. The agent posts one
+final `Stopped.` response, and Linear marks the session as stopped.
 
 ## Limits
 

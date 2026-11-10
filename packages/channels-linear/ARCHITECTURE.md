@@ -158,8 +158,9 @@ A `prompted` activity with the `stop` signal calls `stopSession`:
 2. The tracked run renderer's `markInterrupted()` drops queued activities.
    Later events post nothing.
 
-Linear already shows the stop in the session, so the adapter posts nothing
-more.
+Linear sets the session status from the last activity, so the adapter then
+posts one final `Stopped.` response. Without it the session stays at
+"stopping".
 
 ### History
 

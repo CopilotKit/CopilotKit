@@ -217,7 +217,8 @@ becomes single choice and resolves with a one-item array.
 - **Other text.** A `prompted` message that matches no option starts a normal
   turn.
 - **Stop.** A `prompted` activity with the `stop` signal aborts the running
-  agent. Queued activities are dropped, and the adapter posts nothing more.
+  agent. Queued activities are dropped. The adapter then posts one final
+  `Stopped.` response, which Linear needs to mark the session as stopped.
 
 With more than one process behind the webhook URL, pass a shared
 `stateStore`. Otherwise a pick that reaches another process is a normal turn.

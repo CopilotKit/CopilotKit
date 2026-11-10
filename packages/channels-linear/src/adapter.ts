@@ -29,6 +29,8 @@ import { LinearWebhookServer } from "./webhook-server.js";
  * an agent unresponsive when it posts no activity within 10 s.
  */
 const ACKNOWLEDGE_THOUGHT = "Looking into this…";
+/** Final activity posted after a stop signal, so Linear marks the session stopped. */
+const STOPPED_RESPONSE = "Stopped.";
 
 /**
  * Create a Linear adapter for `createChannel`.
@@ -268,8 +270,24 @@ export class LinearAdapter implements PlatformAdapter {
     }
   }
 
+  /**
+   * Handle Linear's `stop` signal: abort the run, silence its renderer, then
+   * post one final `response`. Linear sets the session status from the last
+   * activity, so without it the session stays at "stopping".
+   */
   private async stopSession(agentSessionId: string) {
     this.conversationStore.abortSession(agentSessionId);
     await this.activeRenderers.get(agentSessionId)?.markInterrupted();
+    try {
+      await this.client.createActivity(agentSessionId, {
+        type: "response",
+        body: STOPPED_RESPONSE,
+      });
+    } catch (error) {
+      console.error(
+        `[channels-linear] failed to confirm the stop of session ${agentSessionId}`,
+        error,
+      );
+    }
   }
 }

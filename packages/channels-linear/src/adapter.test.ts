@@ -413,7 +413,7 @@ describe("LinearAdapter end to end", () => {
     expect(outcome.chosen).toBe("hold");
   });
 
-  it("aborts a slow run on the stop signal and posts nothing more", async () => {
+  it("aborts a slow run on the stop signal and confirms with one final response", async () => {
     let releaseAgent = () => {};
     const agentGate = new Promise<void>((resolve) => {
       releaseAgent = resolve;
@@ -439,7 +439,12 @@ describe("LinearAdapter end to end", () => {
     releaseAgent();
     await until(() => done);
 
-    expect(contentTypes(api.posted)).toEqual(["thought"]);
+    // The aborted run posts nothing; the stop is confirmed by one response.
+    expect(contentTypes(api.posted)).toEqual(["thought", "response"]);
+    expect(api.posted[1]?.content).toEqual({
+      type: "response",
+      body: "Stopped.",
+    });
   });
 
   it("rejects a webhook with a bad signature and starts no run", async () => {
