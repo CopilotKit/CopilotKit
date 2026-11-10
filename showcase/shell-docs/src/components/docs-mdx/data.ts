@@ -68,6 +68,8 @@ export interface Integration {
     clone_command?: string;
   };
   features: string[];
+  /** Features the showcase doesn't run for this framework, quarantined ones included. */
+  not_supported_features?: string[];
   demos: Demo[];
 }
 

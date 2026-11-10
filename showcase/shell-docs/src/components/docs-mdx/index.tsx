@@ -105,6 +105,9 @@ function build(scope: DocsScope) {
     WhenFrameworkHas: withPageDefaults(showcase.WhenFrameworkHas, {
       defaultFramework: "snippet_framework",
     }),
+    WhenFrameworkSupports: withPageDefaults(showcase.WhenFrameworkSupports, {
+      defaultFramework: "snippet_framework",
+    }),
     ...promptComponents(scope, ctx),
     ...snippetComponents(ctx),
   };
