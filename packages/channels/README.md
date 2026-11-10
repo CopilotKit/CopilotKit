@@ -74,6 +74,7 @@ await listener.channels.ready(); // listener.channels.stop() tears it down
 - `@copilotkit/channels/teams` (plus `/teams/render`)
 - `@copilotkit/channels/discord`
 - `@copilotkit/channels/whatsapp`
+- `@copilotkit/channels/notion`
 
 One package version gives you a tested snapshot of the core engine, JSX/UI vocabulary,
 testing helpers, and every adapter listed above.

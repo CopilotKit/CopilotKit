@@ -42,6 +42,12 @@
     "notice": "LICENSE"
   },
   {
+    "directory": "packages/channels-notion",
+    "names": ["@copilotkit/channels-notion"],
+    "license": "MIT",
+    "notice": "LICENSE"
+  },
+  {
     "directory": "packages/channels-slack",
     "names": ["@copilotkit/channels-slack"],
     "license": "MIT",
