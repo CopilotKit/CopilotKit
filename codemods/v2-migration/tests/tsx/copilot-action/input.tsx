@@ -61,6 +61,13 @@ export function Tools({ items }: { items: string[] }) {
     render: (props) => <span>{props.status}</span>,
   });
 
+  // Render only, with an empty parameter list.
+  useCopilotAction({
+    name: "budget",
+    parameters: [],
+    render: ({ args }) => <span>{String(args.total)}</span>,
+  });
+
   // Uses the parsed result.
   useCopilotAction({
     name: "lookup",

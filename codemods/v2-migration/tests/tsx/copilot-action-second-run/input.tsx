@@ -61,6 +61,13 @@ export function Tools({ items }: { items: string[] }) {
     render: (props) => <span>{props.status}</span>,
   });
 
+  // Render only, with an empty parameter list.
+  useRenderTool({
+    name: "budget",
+    parameters: z.record(z.string(), z.any()),
+    render: ({ parameters: args }) => <span>{String(args.total)}</span>,
+  });
+
   // Uses the parsed result.
   // TODO(copilotkit-2.0): `result` is the tool's result as a string in 2.0; v1 parsed it as JSON first. Parse it with `JSON.parse` where you need the object. https://docs.copilotkit.ai/reference/v2/hooks/useFrontendTool
   useFrontendTool({

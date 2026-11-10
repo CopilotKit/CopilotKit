@@ -184,20 +184,28 @@ function convertCall(call: Node, z: string, source: string): Converted | null {
   const parametersEntry = entries.get("parameters");
   const parameters = valueOf(parametersEntry);
   const indent = indentOf(parametersEntry ?? config, source);
+  // A render reads the arguments of a tool the agent defines. Without
+  // declared parameters they stay untyped, as in v1.
+  const looseRecord = `${z}.record(${z}.string(), ${z}.any())`;
   if (parameters) {
     if (parameters.kind() !== "array") return null;
-    const schema = zodObject(parameters, z, indent);
+    const declared = parameters
+      .children()
+      .some((child) => child.kind() === "object");
+    const schema =
+      hook === "useRenderTool" && !declared
+        ? looseRecord
+        : zodObject(parameters, z, indent);
     if (schema === null) return null;
     edits.push(parameters.replace(schema));
     usesZod = true;
   } else if (hook === "useRenderTool") {
-    // A named renderer takes a schema. With no parameters the render reads
-    // the arguments of a tool the agent defines, untyped as in v1.
+    // A named renderer takes a schema.
     const nameEntry = entries.get("name")!;
     edits.push({
       startPos: nameEntry.range().end.index,
       endPos: nameEntry.range().end.index,
-      insertedText: `,\n${indentOf(nameEntry, source)}parameters: ${z}.record(${z}.string(), ${z}.any())`,
+      insertedText: `,\n${indentOf(nameEntry, source)}parameters: ${looseRecord}`,
     });
     usesZod = true;
   }
