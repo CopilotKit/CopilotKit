@@ -58,6 +58,43 @@ export function frameworkHas(
 }
 
 /**
+ * `<WhenFrameworkSupports feature="shared-state-streaming">` renders its
+ * children unless the reader's framework lists the feature in its showcase
+ * manifest's `not_supported_features`; `not` flips it, for the note a
+ * framework without the feature reads instead. The showcase decides, the same
+ * way a page's `snippet_cell` decides whether the page exists for a framework.
+ */
+export function WhenFrameworkSupports({
+  scope,
+  feature,
+  not = false,
+  framework,
+  defaultFramework,
+  children,
+}: {
+  scope: DocsScope;
+  feature: string;
+  not?: boolean;
+  framework?: string;
+  defaultFramework?: string;
+  children?: ReactNode;
+}) {
+  const slug = framework ?? scope.framework ?? defaultFramework;
+  const supported = !slug || frameworkSupports(slug, feature);
+  return supported !== not ? <>{children}</> : null;
+}
+
+/**
+ * Whether a framework's showcase supports a feature: false only when its
+ * manifest lists the feature in `not_supported_features` (which covers
+ * quarantined features too). Frameworks without a showcase package support
+ * everything their docs describe.
+ */
+export function frameworkSupports(slug: string, feature: string): boolean {
+  return !getIntegration(slug)?.not_supported_features?.includes(feature);
+}
+
+/**
  * The Angular quickstart's two paths: `selected` (the default) renders when
  * the URL names an agent backend, `selected={false}` on the standalone
  * built-in agent path.

@@ -22,7 +22,11 @@ import { AngularFeatureCatalog, AngularSnippet } from "./angular";
 import { ApiKeyHint } from "./api-key-hint";
 import { DemoSource } from "./demo-source";
 import { FeatureIntegrations, FeatureMatrix } from "./feature-support";
-import { WhenAngularBackend, WhenFrameworkHas } from "./framework-gates";
+import {
+  WhenAngularBackend,
+  WhenFrameworkHas,
+  WhenFrameworkSupports,
+} from "./framework-gates";
 import { FrameworkOverview } from "./framework-overview";
 import { FrameworkSetup } from "./framework-setup";
 import { InlineDemo } from "./inline-demo";
@@ -62,6 +66,9 @@ export function showcaseComponents(
     WhenFrameworkHas: (props: Authored<typeof WhenFrameworkHas, "scope">) => (
       <WhenFrameworkHas {...props} scope={scope} />
     ),
+    WhenFrameworkSupports: (
+      props: Authored<typeof WhenFrameworkSupports, "scope">,
+    ) => <WhenFrameworkSupports {...props} scope={scope} />,
     WhenAngularBackend: (
       props: Authored<typeof WhenAngularBackend, "scope">,
     ) => <WhenAngularBackend {...props} scope={scope} />,
