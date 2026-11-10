@@ -23,6 +23,7 @@ export const ADAPTERS = [
   "@copilotkit/channels-slack",
   "@copilotkit/channels-teams",
   "@copilotkit/channels-discord",
+  "@copilotkit/channels-telegram",
   "@copilotkit/channels-whatsapp",
 ] as const;
 

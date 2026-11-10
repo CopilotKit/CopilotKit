@@ -19,6 +19,7 @@ const CHANNELS_PACKAGES = [
   "@copilotkit/channels-teams",
   "@copilotkit/channels-intelligence",
   "@copilotkit/channels-discord",
+  "@copilotkit/channels-telegram",
   "@copilotkit/channels-whatsapp",
   "@copilotkit/channels",
 ];

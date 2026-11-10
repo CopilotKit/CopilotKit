@@ -173,8 +173,8 @@ describe("example slash commands", () => {
       text: "",
       options: {},
       user: { id: "U1" },
-      platform: "custom",
-      openModal: undefined, // Custom adapter without a modal trigger
+      platform: "telegram",
+      openModal: undefined, // Telegram: no modal trigger
     } as never);
     expect(post).toHaveBeenCalledWith(
       expect.stringMatching(/aren.t supported|chat/i),

@@ -196,7 +196,7 @@ One agent backend. Every frontend.
 | 💚 Vue                                 | ✅ Supported                       | [Quickstart](https://docs.copilotkit.ai/vue?ref=github_readme)                                                            |
 | 📱 React Native                        | ✅ Supported                       | [Quickstart](https://docs.copilotkit.ai/react-native?ref=github_readme)                                                   |
 | 💬 Slack / Microsoft Teams             | ✅ GA on cloud-hosted Intelligence | [Slack](https://docs.copilotkit.ai/slack?ref=github_readme) · [Teams](https://docs.copilotkit.ai/teams?ref=github_readme) |
-| 💬 Discord / WhatsApp                  | ✅ Channels SDK adapters           | [Channels](https://www.copilotkit.ai/channels?ref=github_readme)                                                          |
+| 💬 Discord / WhatsApp / Telegram       | ✅ Channels SDK adapters           | [Channels](https://www.copilotkit.ai/channels?ref=github_readme)                                                          |
 | 🔜 Google Chat / iMessage / SMS        | 🟡 On the roadmap                  | [Channels](https://www.copilotkit.ai/channels?ref=github_readme)                                                          |
 | 🪁 CopilotKit Soar, powered by OpenBot | ✨ Early access                    | [Get early access](https://intelligence.copilotkit.ai/?early_access=soar&ref=github_readme)                               |
 

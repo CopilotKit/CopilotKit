@@ -214,10 +214,11 @@ function writeConsumer(
 import { slack } from "@copilotkit/channels/slack";
 import { teams } from "@copilotkit/channels/teams";
 import { discord } from "@copilotkit/channels/discord";
+import { telegram } from "@copilotkit/channels/telegram";
 import { whatsapp } from "@copilotkit/channels/whatsapp";
 
 const view = <Message><Button>OK</Button></Message>;
-void [createChannel, slack, teams, discord, whatsapp, view];
+void [createChannel, slack, teams, discord, telegram, whatsapp, view];
 `,
   );
 }
