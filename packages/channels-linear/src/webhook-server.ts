@@ -31,7 +31,10 @@ function readBody(req: IncomingMessage) {
     const onData = (chunk: Buffer) => {
       size += chunk.length;
       if (size > MAX_BODY_BYTES) {
-        cleanup();
+        // Stop reading, but keep `onError`: a later stream error with no
+        // listener would crash the process.
+        req.off("data", onData);
+        req.off("end", onEnd);
         req.pause();
         resolve(null);
         return;
