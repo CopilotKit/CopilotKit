@@ -18,6 +18,7 @@ import type { A2UIOp } from "@/lib/run-store";
 import { useDesignSystem } from "@/design-systems/context";
 import { HOST_CLASS } from "@/design-systems/registry";
 import { ResizeBox } from "./build-sequence";
+import { useDesignSystemRedraw } from "./use-design-system-redraw";
 import { useLandingReveal } from "./use-landing-reveal";
 import { useUIGeneration } from "./use-ui-generation";
 
@@ -104,8 +105,13 @@ function Mirrored(props: Props) {
         run.path === "fixed",
     );
   }, [hasFrame, animate]);
+  // A design system switch redraws a finished surface on screen; one still streaming takes the new look.
+  const runKey = useDesignSystemRedraw(host, {
+    base: hasFrame && animate ? key : null,
+    enabled: halted && !collapse,
+  });
   const generating = useUIGeneration(host, {
-    runKey: hasFrame && animate ? key : null,
+    runKey,
     enabled: !collapse,
     mode: "skeleton",
     maxParts: 40,
