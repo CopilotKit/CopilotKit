@@ -82,7 +82,9 @@ When you omit `port`, no server starts. Mount `adapter.handleWebhook` in any
 framework that speaks `Request` and `Response`:
 
 ```ts
-const adapter = github({ /* ... no port ... */ });
+const adapter = github({
+  /* ... no port ... */
+});
 
 app.post("/github/webhook", (c) => adapter.handleWebhook(c.req.raw));
 ```
@@ -104,11 +106,11 @@ background work ends.
 
 The package reads no environment variables. The examples use these names:
 
-| Var                     | Purpose                                                     |
-| ----------------------- | ----------------------------------------------------------- |
-| `GITHUB_APP_ID`         | The GitHub App id, from the App settings page.              |
-| `GITHUB_PRIVATE_KEY`    | The App private key (PEM), generated on the settings page.  |
-| `GITHUB_WEBHOOK_SECRET` | The webhook secret set on the App, for signature checks.    |
+| Var                     | Purpose                                                    |
+| ----------------------- | ---------------------------------------------------------- |
+| `GITHUB_APP_ID`         | The GitHub App id, from the App settings page.             |
+| `GITHUB_PRIVATE_KEY`    | The App private key (PEM), generated on the settings page. |
+| `GITHUB_WEBHOOK_SECRET` | The webhook secret set on the App, for signature checks.   |
 
 For local development, you can pass `token` (a personal access token) instead
 of `appId` and `privateKey`.
@@ -124,15 +126,15 @@ of `appId` and `privateKey`.
 
 ## Capabilities
 
-| Capability               | Supported | Notes                                                                  |
-| ------------------------ | --------- | ---------------------------------------------------------------------- |
-| `supportsMessageEvents`  | true      | Comments that mention the bot become turns.                            |
-| `supportsStreaming`      | true      | Throttled comment edits, at most one edit each second.                 |
-| `supportsTyping`         | true      | An `eyes` reaction on the trigger comment while the agent writes.      |
-| `supportsReactions`      | true      | Egress only. GitHub sends no reaction webhooks.                        |
-| `supportsBlockingChoice` | true      | A numbered list. A numbered reply answers it.                          |
-| `supportsModals`         | false     | GitHub has no modal surface.                                           |
-| `supportsEphemeral`      | false     | Every GitHub comment is visible to all readers of the issue or PR.     |
+| Capability               | Supported | Notes                                                              |
+| ------------------------ | --------- | ------------------------------------------------------------------ |
+| `supportsMessageEvents`  | true      | Comments that mention the bot become turns.                        |
+| `supportsStreaming`      | true      | Throttled comment edits, at most one edit each second.             |
+| `supportsTyping`         | true      | An `eyes` reaction on the trigger comment while the agent writes.  |
+| `supportsReactions`      | true      | Egress only. GitHub sends no reaction webhooks.                    |
+| `supportsBlockingChoice` | true      | A numbered list. A numbered reply answers it.                      |
+| `supportsModals`         | false     | GitHub has no modal surface.                                       |
+| `supportsEphemeral`      | false     | Every GitHub comment is visible to all readers of the issue or PR. |
 
 A reply longer than 65,536 characters continues in a new comment. When the
 split falls inside a code block, the adapter closes the block and opens it again

@@ -188,16 +188,16 @@ handler uses `VALUE_ONLY_CHOICE_ID`, so the value still reaches the waiter.
 
 ## What differs from Slack
 
-| Concern        | Slack                                               | GitHub                                                         |
-| -------------- | --------------------------------------------------- | -------------------------------------------------------------- |
-| Ingress        | Socket Mode (outbound WebSocket via Bolt)           | Signed HTTP webhook. Needs a public URL.                       |
-| Trigger        | Mentions, DMs, and thread messages                  | Mentions only, plus a numbered reply to an open choice list    |
-| Egress         | `chat.update` streaming                             | Comment edits, at most one each second                         |
-| History        | Reconstructed from `conversations.replies` per turn | Reconstructed from issue or review-thread comments per turn    |
-| Interactions   | Block Kit buttons and selects                       | A numbered list. A number or label reply answers it.           |
-| Reactions      | Inbound and outbound                                | Outbound only. GitHub sends no reaction webhooks.              |
-| Modals         | Supported                                           | Not supported                                                  |
-| User directory | `lookupUser` resolves names and emails              | `lookupUser` always returns `undefined`                        |
+| Concern        | Slack                                               | GitHub                                                      |
+| -------------- | --------------------------------------------------- | ----------------------------------------------------------- |
+| Ingress        | Socket Mode (outbound WebSocket via Bolt)           | Signed HTTP webhook. Needs a public URL.                    |
+| Trigger        | Mentions, DMs, and thread messages                  | Mentions only, plus a numbered reply to an open choice list |
+| Egress         | `chat.update` streaming                             | Comment edits, at most one each second                      |
+| History        | Reconstructed from `conversations.replies` per turn | Reconstructed from issue or review-thread comments per turn |
+| Interactions   | Block Kit buttons and selects                       | A numbered list. A number or label reply answers it.        |
+| Reactions      | Inbound and outbound                                | Outbound only. GitHub sends no reaction webhooks.           |
+| Modals         | Supported                                           | Not supported                                               |
+| User directory | `lookupUser` resolves names and emails              | `lookupUser` always returns `undefined`                     |
 
 ## SDK files at a glance
 
