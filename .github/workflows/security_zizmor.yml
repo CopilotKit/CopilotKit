@@ -58,3 +58,7 @@ jobs:
           min-severity: low
           advanced-security: false
           config: .github/zizmor.yml
+          # Pinned: with `latest`, each zizmor release can add audits that
+          # fail every PR touching a workflow. Bump it on purpose, and update
+          # .github/zizmor.yml in the same PR.
+          version: 1.32.0
