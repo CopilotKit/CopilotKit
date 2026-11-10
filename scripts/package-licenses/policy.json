@@ -36,6 +36,12 @@
     "notice": "LICENSE"
   },
   {
+    "directory": "packages/channels-github",
+    "names": ["@copilotkit/channels-github"],
+    "license": "MIT",
+    "notice": "LICENSE"
+  },
+  {
     "directory": "packages/channels-intelligence",
     "names": ["@copilotkit/channels-intelligence"],
     "license": "MIT",

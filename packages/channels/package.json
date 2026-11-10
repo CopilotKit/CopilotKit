@@ -21,6 +21,7 @@
     "intelligence",
     "discord",
     "whatsapp",
+    "github",
     "copilotkit",
     "ag-ui"
   ],
@@ -82,6 +83,10 @@
     "./whatsapp": {
       "types": "./dist/whatsapp.d.ts",
       "import": "./dist/whatsapp.js"
+    },
+    "./github": {
+      "types": "./dist/github.d.ts",
+      "import": "./dist/github.js"
     }
   },
   "files": [
@@ -101,7 +106,8 @@
     "@copilotkit/channels-slack": "workspace:*",
     "@copilotkit/channels-teams": "workspace:*",
     "@copilotkit/channels-discord": "workspace:*",
-    "@copilotkit/channels-whatsapp": "workspace:*"
+    "@copilotkit/channels-whatsapp": "workspace:*",
+    "@copilotkit/channels-github": "workspace:*"
   },
   "devDependencies": {
     "@copilotkit/typescript-config": "workspace:^",
