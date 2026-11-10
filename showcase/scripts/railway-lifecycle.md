@@ -341,9 +341,12 @@ has instances, stop and reassess. Never delete runner journals, leases,
 recovery holds, volumes or `rich-*` resources to make a reader pass.
 
 To reconnect, first make the readers' committed policy hash match what the
-runner publishes, or add a reviewed transition. Then restore the workflow
-bindings by reverting the PNI-786 change and updating its test, and set all
-three harness variables (`SHOWCASE_REGISTRY_CONSUMER=harness`). The sections
+runner publishes, or add a reviewed transition. Then restore the three
+`env` entries (and the both-or-neither guard) on the image-gate and ordinary
+promote steps of the four workflows above, update the "registry disconnected"
+test in `registry-validation-workflows.test.ts`, and set all three harness
+variables (`SHOWCASE_REGISTRY_CONSUMER=harness`). The opt-in validation steps
+show the exact `env` entries. The sections
 below describe the connected design.
 
 ## Hosted permanent-runner transport
