@@ -1103,7 +1103,8 @@ jobs:
           && needs.verify-image-refs.result == 'success'
           && vars.SHOWCASE_AUTO_REDEPLOY != 'false' }}
     runs-on: ubuntu-latest
-    # 20, not the historical 5. This job no longer just POSTs to Railway: the
+    # Allow exact image/SUCCESS verification of a full fleet in six bounded
+    # slots, in addition to registry retagging. This job no longer just POSTs to Railway: the
     # "Advance :latest" guard below walks EVERY successfully-built slot
     # serially, and each slot costs up to three network round-trips (an
     # `imagetools inspect` of `:latest`, a `gh api .../compare`, and an
@@ -1115,7 +1116,7 @@ jobs:
     # both `if: failure()` and `if: cancelled()` in dependent jobs (proven on
     # run 30166429073 — see the "Write per-slot build result" step). The
     # redeploy would silently not happen and nothing would alert.
-    timeout-minutes: 20
+    timeout-minutes: 45
     permissions:
       contents: read
       # The "Advance :latest" step performs an authenticated GHCR WRITE
@@ -1250,6 +1251,8 @@ jobs:
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
           SERVICES_CSV: ${{ steps.changed.outputs.services }}
+          STAGING_EXPECTED_IMAGE_TAG: ${{ github.sha }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           # Fresh docs deployment must select this build's image, then prove
           # its exact deployment reaches SUCCESS and serves the new routes.
           DOCS_EXPECTED_IMAGE: ghcr.io/copilotkit/showcase-shell-docs:${{ github.sha }}
@@ -1260,8 +1263,8 @@ jobs:
           # parent dirs, so the step below mkdir's `.redeploy` first.
           REDEPLOY_SUMMARY_JSON: .redeploy/summary.json
         run: |
-          # Docs verifies its exact deployment/image/routes and fails loud.
-          # Ordinary staging services still use verify-deploy as their gate.
+          # Every service verifies its exact deployment and image; docs
+          # additionally verify serving routes. Any failure blocks the run.
           mkdir -p .redeploy
           npx tsx showcase/scripts/redeploy-env.ts staging --services "$SERVICES_CSV"
 
@@ -1328,13 +1331,13 @@ jobs:
           && needs.verify-image-refs.result == 'success'
           && vars.SHOWCASE_AUTO_REDEPLOY != 'false' }}
     runs-on: ubuntu-latest
-    # 20, not the historical 5 — same reasoning as the sibling
+    # Bound the full-fleet image/SUCCESS checks like the sibling
     # `redeploy-staging` job: the "Advance starter :latest" guard adds up to
     # three serial registry/API round-trips per successfully-built starter,
     # and an overrun concludes `cancelled`, which dependent jobs cannot see.
-    # Sized identically to the sibling because the two lanes run the same
-    # guard + redeploy shape.
-    timeout-minutes: 20
+    # Sized identically to the sibling because both lanes verify exact
+    # deployment image identity and SUCCESS in six bounded slots.
+    timeout-minutes: 45
     permissions:
       contents: read
       # Same rationale as `redeploy-staging` above.
@@ -1475,17 +1478,11 @@ jobs:
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
           SERVICES_CSV: ${{ steps.changed.outputs.services }}
+          STAGING_EXPECTED_IMAGE_TAG: ${{ github.sha }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          # Staging is non-blocking by design: redeploy-env.ts always exits 0
-          # on staging and writes per-service failures to $GITHUB_STEP_SUMMARY.
-          # We deliberately do NOT set REDEPLOY_SUMMARY_JSON or upload a
-          # `redeploy-summary` artifact here: that artifact name is OWNED by
-          # the showcase `redeploy-staging` job and is downloaded by
-          # showcase_deploy.yml by EXACT name, so a second upload of the same
-          # name would collide on a combined (starter + showcase) push.
-          # Starter STAGING verification is intentionally out of scope for
-          # this deploy-gap fix — starters are already smoke-covered by
-          # test_smoke-starter.yml and the harness `starter_smoke` axis.
+          # Each starter must deploy this build's image and reach SUCCESS.
+          # Do not reuse the showcase redeploy-summary artifact name here.
           npx tsx showcase/scripts/redeploy-env.ts staging --services "$SERVICES_CSV"
 
   notify-all-builds-failed:

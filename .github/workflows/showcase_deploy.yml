@@ -98,6 +98,7 @@ jobs:
       redeploy_red: ${{ steps.redeploy-gate.outputs.redeploy_red }}
       ok_services: ${{ steps.redeploy-gate.outputs.ok_services }}
       failed_services: ${{ steps.redeploy-gate.outputs.failed_services }}
+      skipped_services: ${{ steps.redeploy-gate.outputs.skipped_services }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
@@ -209,26 +210,19 @@ jobs:
               echo "redeploy_red=false"
               echo "ok_services="
               echo "failed_services="
+              echo "skipped_services="
             } >> "$GITHUB_OUTPUT"
             exit 0
           fi
-          # Shape guard: redeploy-env.ts writes per-entry `status` of
-          # exactly "ok" or "error". If the schema ever drifts (e.g.
-          # `status`→`state`, `ok`→`success`) every `select(.status==...)`
-          # silently yields empty → redeploy_red=false AND ok_services=""
-          # → resolve-verify-matrix skips verify on a real unverified
-          # redeploy = green CI on a broken release. Refuse the ambiguity:
-          # if the file has entries but ANY entry is missing a valid
-          # ok|error status (partial drift — some rows on the legacy schema,
-          # some on the new one), fail loud here so enforce-redeploy-gate
-          # reds the workflow (resolve-matrix.result == 'failure' fans into
-          # the gate). The previous TOTAL>0 && WITH_STATUS==0 check was
-          # all-or-nothing and silently dropped the drifted rows on a mixed
-          # summary.
-          TOTAL=$(jq 'length' "$SUMMARY")
-          WITH_STATUS=$(jq '[.[] | select(.status == "ok" or .status == "error")] | length' "$SUMMARY")
-          if [ "$TOTAL" -gt 0 ] && [ "$WITH_STATUS" -lt "$TOTAL" ]; then
-            echo "::error::summary.json shape drift: $WITH_STATUS of $TOTAL entries have status ok|error"
+          # Skips require positive ownership proof; unknown or malformed rows
+          # must fail loud rather than silently disappear from the verify set.
+          if ! jq -e 'type == "array" and all(.[];
+            type == "object" and (.service | type == "string" and length > 0) and
+            (.status == "ok" or .status == "error" or
+             (.status == "skipped" and .reason == "superseded" and
+              (.supersededBy | type == "string" and test("^[0-9a-f]{40}$")) and
+              (.supersedingImageDigest | type == "string" and test("^sha256:[0-9a-f]{64}$")))))' "$SUMMARY" > /dev/null; then
+            echo "::error::summary.json shape drift: expected ok|error|skipped rows with complete supersession proof"
             exit 1
           fi
           # Per spec §3: the workflow MUST turn red on any staging
@@ -237,8 +231,13 @@ jobs:
           ERROR_COUNT=$(echo "$ERRORS" | jq 'length')
           OK=$(jq -r '[.[] | select(.status == "ok") | .service] | join(",")' "$SUMMARY")
           FAILED=$(jq -r '[.[] | select(.status == "error") | .service] | join(",")' "$SUMMARY")
-          echo "ok_services=$OK" >> "$GITHUB_OUTPUT"
-          echo "failed_services=$FAILED" >> "$GITHUB_OUTPUT"
+          SKIPPED=$(jq -r '[.[] | select(.status == "skipped") | .service] | join(",")' "$SUMMARY")
+          echo "Skipped superseded services: $SKIPPED"
+          {
+            echo "skipped_services=$SKIPPED"
+            echo "ok_services=$OK"
+            echo "failed_services=$FAILED"
+          } >> "$GITHUB_OUTPUT"
           if [ "$ERROR_COUNT" -gt 0 ]; then
             echo "::error::Staging redeploy reported $ERROR_COUNT per-service error(s):"
             echo "$ERRORS" | jq -r '.[] | "  - \(.service): \(.error)"'
@@ -264,11 +263,8 @@ jobs:
         #                                            (build redeployed nothing).
         #   - workflow_run + summary_present=true + ok empty
         #       → has_services=false (success-set empty; verify is skipped).
-        #         In practice redeploy-env.ts only emits status ok|error,
-        #         so this branch implies redeploy_red=true and
-        #         enforce-redeploy-gate reds the workflow independently —
-        #         skipping verify here is correct (no ok services left to
-        #         probe; the gate has already turned the workflow red).
+        #         Superseded skips need no probes; any actual errors turn
+        #         the workflow red through enforce-redeploy-gate independently.
         #   - workflow_run + summary_present=true + ok non-empty
         #       → intersect ok_services (SSOT key OR dispatchName aliases)
         #         with probe.staging-eligible SSOT services. has_services
