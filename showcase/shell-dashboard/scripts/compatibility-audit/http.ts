@@ -25,7 +25,8 @@ export interface LiveHttpOptions {
   maxBodyBytes?: number;
 }
 
-class CaptureError extends Error {}
+// Only messages constructed inside the registry boundary may reach audit logs.
+export class CaptureError extends Error {}
 
 function allowedUrl(value: string, redirect = false): URL {
   const message = redirect

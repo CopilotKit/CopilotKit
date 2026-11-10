@@ -1,4 +1,5 @@
 import { hasAsciiControl } from "../ascii";
+import { CaptureError } from "../http";
 import type { HttpClient, Inventory, Release } from "../types";
 
 const SERVICE_INDEX = "https://api.nuget.org/v3/index.json";
@@ -58,12 +59,19 @@ function officialUrl(value: unknown, allowFragment = false): URL {
 async function document(
   url: string,
   client: HttpClient,
+  stage: "service index" | "registration index" | "registration page",
 ): Promise<Record<string, unknown>> {
+  // Only the constant service endpoint is logged; metadata URLs remain private.
+  const context =
+    stage === "service index" ? `${stage} (${SERVICE_INDEX})` : stage;
   let response;
   try {
     response = await client.get(url, "application/json");
-  } catch {
-    throw new Error("NuGet request failed; the inventory is incomplete.");
+  } catch (error) {
+    const detail = error instanceof CaptureError ? ` ${error.message}` : "";
+    throw new CaptureError(
+      `NuGet request failed; the inventory is incomplete. [${context}]${detail}`,
+    );
   }
   if (response.url !== url)
     throw new Error("NuGet response URL does not match its request.");
@@ -72,13 +80,18 @@ async function document(
     response.status < 200 ||
     response.status >= 300
   ) {
-    throw new Error(`NuGet request returned HTTP ${response.status}.`);
+    const status = Number.isInteger(response.status)
+      ? response.status
+      : "invalid";
+    throw new CaptureError(
+      `NuGet request returned HTTP ${status}. [${context}]`,
+    );
   }
   let value: unknown;
   try {
     value = JSON.parse(response.body);
   } catch {
-    throw new Error("NuGet response is not valid JSON.");
+    throw new CaptureError(`NuGet response is not valid JSON. [${context}]`);
   }
   return object(value, "response");
 }
@@ -198,7 +211,7 @@ export async function collectNuget(
   ) {
     throw new Error("NuGet package ID is invalid.");
   }
-  const service = await document(SERVICE_INDEX, client);
+  const service = await document(SERVICE_INDEX, client, "service index");
   const resources = list(service.resources, "service resources");
   if (resources.length > MAX_PAGES)
     throw new Error("NuGet service resource count exceeds its limit.");
@@ -221,7 +234,7 @@ export async function collectNuget(
     );
   const base = [...bases][0];
   const indexUrl = new URL(`${name.toLowerCase()}/index.json`, base).href;
-  const index = await document(indexUrl, client);
+  const index = await document(indexUrl, client, "registration index");
   if (
     index["@id"] !== undefined &&
     officialUrl(index["@id"]).href !== indexUrl
@@ -248,7 +261,7 @@ export async function collectNuget(
   for (const page of pages) {
     let items = page.items;
     if (items === undefined) {
-      const external = await document(page.url, client);
+      const external = await document(page.url, client, "registration page");
       // Some valid NuGet page documents omit @id; the request still binds them.
       const loaded = pageDescriptor(
         { ...external, "@id": external["@id"] ?? page.url },
