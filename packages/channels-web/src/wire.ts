@@ -31,6 +31,11 @@ export interface ChannelsUiEventValue {
   messageId: string;
   /** The full UI for this message. Replaces any earlier UI for the id. */
   ir: WebUiNode[];
+  /**
+   * The plain fallback text of `ir`. A client puts it in the text message
+   * with the same id, so the history it sends back matches the latest UI.
+   */
+  text: string;
 }
 
 /** `value` of a {@link CHANNELS_UI_DELETE_EVENT} event. */

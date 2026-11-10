@@ -95,13 +95,17 @@ function Card({ agent, messageId }) {
 
 ## Wire format
 
-| Server call              | Events in the response                                                                     |
-| ------------------------ | ------------------------------------------------------------------------------------------ |
-| `thread.runAgent()`      | The agent's AG-UI events (text, tool calls, state, custom)                                 |
-| `thread.post(ui)`        | `TEXT_MESSAGE_*` with plain fallback text, then `CUSTOM` `channels.ui` `{ messageId, ir }` |
-| `thread.update(ref, ui)` | `CUSTOM` `channels.ui` with the same `messageId` (replace)                                 |
-| `thread.delete(ref)`     | `CUSTOM` `channels.ui.delete` `{ messageId }`                                              |
-| `thread.stream(chunks)`  | `TEXT_MESSAGE_*` deltas                                                                    |
+| Server call              | Events in the response                                                                           |
+| ------------------------ | ------------------------------------------------------------------------------------------------ |
+| `thread.runAgent()`      | The agent's AG-UI events (text, tool calls, state, custom)                                       |
+| `thread.post(ui)`        | `TEXT_MESSAGE_*` with plain fallback text, then `CUSTOM` `channels.ui` `{ messageId, ir, text }` |
+| `thread.update(ref, ui)` | `CUSTOM` `channels.ui` with the same `messageId` (replaces the UI and its `text`)                |
+| `thread.delete(ref)`     | `CUSTOM` `channels.ui.delete` `{ messageId }`                                                    |
+| `thread.stream(chunks)`  | `TEXT_MESSAGE_*` deltas                                                                          |
+
+`useChannelUi` keeps `agent.messages` in line with these events: an update
+writes the new `text` into the message with the same id, and a delete removes
+that message. The history in the next request then matches what the user sees.
 
 A click is a new run request with
 `forwardedProps.channelInteraction = { id, value?, values?, messageId? }`.

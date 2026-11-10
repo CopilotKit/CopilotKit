@@ -255,6 +255,50 @@ describe("useChannelUi", () => {
     expect(result.current.has("m2")).toBe(false);
   });
 
+  it("keeps the agent's text messages in sync with updated and deleted UI", async () => {
+    const say = (messageId: string, text: string): BaseEvent[] =>
+      [
+        { type: EventType.TEXT_MESSAGE_START, messageId, role: "assistant" },
+        { type: EventType.TEXT_MESSAGE_CONTENT, messageId, delta: text },
+        { type: EventType.TEXT_MESSAGE_END, messageId },
+      ] as BaseEvent[];
+    const uiWithText = (messageId: string, text: string): BaseEvent =>
+      ({
+        type: EventType.CUSTOM,
+        name: "channels.ui",
+        value: { messageId, ir: [t(text)], text },
+      }) as BaseEvent;
+    const agent = new ScriptedAgent([
+      () => [
+        ...say("m1", "Deploy?"),
+        uiWithText("m1", "Deploy?"),
+        ...say("m2", "Pick a region"),
+        uiWithText("m2", "Pick a region"),
+      ],
+      () => [
+        uiWithText("m1", "Deployed."),
+        {
+          type: EventType.CUSTOM,
+          name: "channels.ui.delete",
+          value: { messageId: "m2" },
+        } as BaseEvent,
+      ],
+    ]);
+    renderHook(() => useChannelUi(agent));
+
+    await act(() => agent.runAgent());
+    expect(agent.messages.map((m) => [m.id, m.content])).toEqual([
+      ["m1", "Deploy?"],
+      ["m2", "Pick a region"],
+    ]);
+
+    await act(() => agent.runAgent());
+    // The history the client sends next matches what the user sees.
+    expect(agent.messages.map((m) => [m.id, m.content])).toEqual([
+      ["m1", "Deployed."],
+    ]);
+  });
+
   it("sends a click as forwardedProps.channelInteraction", async () => {
     const agent = new ScriptedAgent([() => []]);
     await sendChannelInteraction(agent, {

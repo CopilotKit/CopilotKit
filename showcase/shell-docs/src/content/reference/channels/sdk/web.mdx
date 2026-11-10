@@ -122,7 +122,10 @@ export function ChannelCard({
 }
 ```
 
-- `useChannelUi(agent)` keeps the latest UI for each message id.
+- `useChannelUi(agent)` keeps the latest UI for each message id. It also
+  keeps `agent.messages` in line with the UI. An update writes the new
+  fallback text into the message with the same id. A delete removes that
+  message. The history in the next request then matches what the user sees.
 - `<ChannelUi>` renders the UI as plain HTML. It ships no styles. Each element
   has a `channels-ui-<type>` class and a `data-channels-ui` attribute.
 - A click calls `onAction`. `sendChannelInteraction` sends it to the Channel
@@ -156,8 +159,8 @@ Return `null` for an anonymous visitor. Throw to reject the request with
 | Handler call | Events in the response |
 | --- | --- |
 | `thread.runAgent()` | The agent's AG-UI events: text, tool calls, state, and custom events |
-| `thread.post(ui)` | A text message with fallback text, then `CUSTOM` `channels.ui` with `{ messageId, ir }` |
-| `thread.update(ref, ui)` | `CUSTOM` `channels.ui` with the same `messageId`. The new UI replaces the old UI. |
+| `thread.post(ui)` | A text message with fallback text, then `CUSTOM` `channels.ui` with `{ messageId, ir, text }` |
+| `thread.update(ref, ui)` | `CUSTOM` `channels.ui` with the same `messageId`. The new UI and its fallback `text` replace the old ones. |
 | `thread.delete(ref)` | `CUSTOM` `channels.ui.delete` with `{ messageId }` |
 | `thread.stream(chunks)` | Text message deltas |
 

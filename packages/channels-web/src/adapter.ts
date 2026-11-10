@@ -234,7 +234,7 @@ export class WebAdapter implements PlatformAdapter {
         } as BaseEvent);
       }
       run.emit({ type: EventType.TEXT_MESSAGE_END, messageId } as BaseEvent);
-      this.emitUi(run, messageId, ir);
+      this.emitUi(run, messageId, ir, text);
     }
     return this.ref(messageId, t.threadId);
   }
@@ -325,8 +325,17 @@ export class WebAdapter implements PlatformAdapter {
     return this.store.getMessages(target as WebReplyTarget);
   }
 
-  private emitUi(run: LiveRun, messageId: string, ir: ChannelNode[]): void {
-    const value: ChannelsUiEventValue = { messageId, ir: serializeIr(ir) };
+  private emitUi(
+    run: LiveRun,
+    messageId: string,
+    ir: ChannelNode[],
+    text: string = irToText(ir),
+  ): void {
+    const value: ChannelsUiEventValue = {
+      messageId,
+      ir: serializeIr(ir),
+      text,
+    };
     run.emit({
       type: EventType.CUSTOM,
       name: CHANNELS_UI_EVENT,

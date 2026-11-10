@@ -242,6 +242,7 @@ describe("WebAdapter output", () => {
       value: {
         messageId: ref.id,
         ir: [{ type: "message", props: { children: [{ type: "section" }] } }],
+        text: "Hi there",
       },
     });
   });
@@ -261,6 +262,7 @@ describe("WebAdapter output", () => {
         value: {
           messageId: "m1",
           ir: [{ type: "text", props: { value: "Edited" } }],
+          text: "Edited",
         },
       },
       {
