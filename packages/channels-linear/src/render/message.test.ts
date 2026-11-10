@@ -31,7 +31,9 @@ describe("renderLinearMessage", () => {
       node("message", {
         children: [
           node("header", { children: [text("ENG-123 triage")] }),
-          node("section", { children: [text("Found "), text(2), text(" bugs.")] }),
+          node("section", {
+            children: [text("Found "), text(2), text(" bugs.")],
+          }),
           node("fields", {
             children: [
               node("field", { label: "Status", children: [text("Open")] }),
