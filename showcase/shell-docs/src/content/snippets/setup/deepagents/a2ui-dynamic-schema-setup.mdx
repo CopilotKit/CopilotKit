@@ -1,0 +1,32 @@
+<Steps>
+  <Step>
+    ### Add `CopilotKitMiddleware` to your Deep Agent
+
+    On a Deep Agent, the backend needs only `CopilotKitMiddleware`. When the
+    runtime injects the A2UI tool (a catalog on the provider, or
+    `injectA2UITool: true`), the middleware adds `generate_a2ui` to the agent,
+    builds it from the agent's own model, and runs it:
+
+    ```python title="agent/a2ui_dynamic.py"
+    from copilotkit import CopilotKitMiddleware
+    from deepagents import create_deep_agent
+    from langchain_openai import ChatOpenAI
+
+    graph = create_deep_agent(
+        model=ChatOpenAI(model="gpt-5.4"),
+        tools=[],
+        middleware=[CopilotKitMiddleware()],
+        system_prompt=(
+            "Whenever a response would benefit from a rich visual — a dashboard, "
+            "KPI summary, card layout, or chart — call `generate_a2ui` to draw it. "
+            "Keep chat replies to one short sentence and let the UI do the talking."
+        ),
+    )
+    ```
+
+    Use the system prompt to tell the model *when* to draw. The middleware
+    supplies and runs the tool, but a model with no instruction about it
+    answers in prose and never calls it.
+
+  </Step>
+</Steps>

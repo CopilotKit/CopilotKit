@@ -1,0 +1,94 @@
+<Callout type="warn" title="CrewAI needs a `context` field on your state class">
+  A CrewAI Flow does **not** receive `useAgentContext` entries automatically,
+  and nothing tells you so. The AG-UI bridge writes the entries to a `context`
+  key in the run state, but `CopilotKitState` does not declare `context`. Flow
+  state is a Pydantic model, so Pydantic drops the key before any `@start()`
+  method runs. Reading it raises nothing, and the Flow still answers fluently,
+  in the right shape, from nothing.
+</Callout>
+
+<Steps>
+  <Step>
+    ### Declare `context` on your state class
+
+    Subclass `CopilotKitState` as usual and add the field yourself.
+
+    ```python title="flow.py"
+    from typing import Any
+
+    from ag_ui_crewai import CopilotKitState
+    from pydantic import Field
+
+
+    class ChatState(CopilotKitState):
+        # Without this field Pydantic drops the entries the bridge just wrote.
+        context: list[Any] = Field(default_factory=list)
+    ```
+
+    Each entry is a dict with the `description` and `value` you registered on
+    the frontend. `value` arrives JSON-encoded as a string for anything that is
+    not already a string.
+
+  </Step>
+  <Step>
+    ### Put the entries in front of the model
+
+    Declaring the field makes the entries reachable. It does not put them in
+    the prompt. Fold them into the text your model reads:
+
+    ```python title="flow.py"
+    import json
+
+    from crewai.flow.flow import Flow, start
+    from litellm import acompletion
+
+    from ag_ui_crewai import copilotkit_stream
+
+
+    class ChatFlow(Flow[ChatState]):
+        @start()
+        async def chat(self) -> None:
+            state = self.state.model_dump(exclude={"messages", "copilotkit"})
+            state_context = json.dumps(state, default=str, sort_keys=True)
+            response = await copilotkit_stream(
+                await acompletion(
+                    model="openai/gpt-5.4",
+                    messages=[
+                        {
+                            "role": "system",
+                            "content": (
+                                f"{SYSTEM_PROMPT}\n\n"
+                                f"Application context: {state_context}"
+                            ),
+                        },
+                        *self.state.messages,
+                    ],
+                    tools=self.state.copilotkit.actions or None,
+                    stream=True,
+                )
+            )
+            # A Flow's return value is not sent to the UI. Append the answer to
+            # `messages`, or the turn finishes with nothing rendered.
+            self.state.messages.append(response.choices[0].message)
+    ```
+
+    <Callout>
+      If a Crew does the work, pass the rendered context through
+      `crew.kickoff_async(inputs={...})` and reference it as a
+      `{placeholder}` in the task description. Do not format it into the
+      description string yourself: CrewAI interpolates `{placeholder}` from
+      `inputs`, so context full of JSON braces would be read as more
+      placeholders.
+    </Callout>
+
+  </Step>
+  <Step>
+    ### Check it against an empty context
+
+    This integration fails quietly, so check the answer against your own
+    records. The reliable check is a control: send the same request once with
+    the context and once with an empty context. Two answers that describe the
+    same record mean the context changed nothing.
+
+  </Step>
+</Steps>

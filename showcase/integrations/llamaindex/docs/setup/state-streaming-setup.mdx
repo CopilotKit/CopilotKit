@@ -1,0 +1,78 @@
+<Callout type="info" title="LlamaIndex streams state per step, not per token">
+  The LlamaIndex AG-UI router has no mapping from a streaming tool argument to
+  a state key. Instead, a backend tool sends a `StateSnapshotWorkflowEvent`
+  after each sub-step, so the UI updates once per step while the tool runs.
+</Callout>
+
+<Steps>
+  <Step>
+    ### Emit a snapshot after each step
+
+    Write the new value into the state, then send it with
+    `ctx.write_event_to_stream(StateSnapshotWorkflowEvent(snapshot=state))`:
+
+    ```python title="agent.py"
+    import asyncio
+    from typing import Any, List
+
+    from llama_index.core.workflow import Context
+    from llama_index.llms.openai import OpenAI
+    from llama_index.protocols.ag_ui.events import StateSnapshotWorkflowEvent
+    from llama_index.protocols.ag_ui.router import get_ag_ui_workflow_router
+    from pydantic import BaseModel
+
+
+    class Step(BaseModel):
+        """A single step in a task."""
+        description: str
+
+
+    class Task(BaseModel):
+        """A task with a list of steps to execute."""
+        steps: List[Step]
+
+
+    async def execute_task(ctx: Context, task: Task) -> str:
+        """Execute a list of steps for any task the user wants to accomplish."""
+        task = Task.model_validate(task)
+        state: dict[str, Any] = await ctx.store.get("state", default={})
+
+        state["observed_steps"] = [
+            {"description": step.description, "status": "pending"}
+            for step in task.steps
+        ]
+        ctx.write_event_to_stream(StateSnapshotWorkflowEvent(snapshot=state))
+
+        for observed_step in state["observed_steps"]:
+            await asyncio.sleep(0.5)
+            observed_step["status"] = "completed"
+            ctx.write_event_to_stream(StateSnapshotWorkflowEvent(snapshot=state))
+
+        # Store the final value. The router snapshots the stored state after
+        # every tool call, so an unstored change is overwritten.
+        await ctx.store.set("state", state)
+        return "Task completed successfully!"
+
+
+    agentic_chat_router = get_ag_ui_workflow_router(
+        llm=OpenAI(model="gpt-5.4"),
+        system_prompt=(
+            "When the user asks you to do any task, use the execute_task tool "
+            "with a list of steps."
+        ),
+        backend_tools=[execute_task],
+        initial_state={"observed_steps": []},
+    )
+    ```
+
+  </Step>
+  <Step>
+    ### Store the final state
+
+    The snapshots are only live feedback. **The state stored in `ctx.store` is
+    the single source of truth**: the router sends it after every tool call and
+    when the run finishes. Store every change you want to keep, or it is
+    overwritten as soon as the tool returns.
+
+  </Step>
+</Steps>

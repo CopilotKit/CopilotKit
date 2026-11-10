@@ -204,6 +204,7 @@ demos:
     animated_preview_url:
     highlight:
       - agent/Program.cs
+      - agent/D5ParityAgents.cs
       - src/app/demos/tool-rendering/page.tsx
   - id: gen-ui-agent
     name: Agentic Generative UI

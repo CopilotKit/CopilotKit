@@ -3,8 +3,9 @@
     ### Nothing to wire on the agent
 
     The AG-UI hosting layer merges the request's tool definitions into the tool
-    list the model sees, so the agent declares none of its own. A component
-    registered with `useComponent` reaches the model by name. The harness takes
+    list the model sees, so the agent declares none of its own. A tool
+    registered with `useFrontendTool`, or a component registered with
+    `useComponent`, reaches the model by name. The harness takes
     its tool list through `ChatOptions`, and leaving `Tools` empty is correct
     when the only tools in play are frontend ones.
 

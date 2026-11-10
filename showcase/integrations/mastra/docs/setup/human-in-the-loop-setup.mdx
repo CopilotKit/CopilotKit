@@ -1,0 +1,87 @@
+<Steps>
+  <Step>
+    ### `useHumanInTheLoop`: nothing to wire on the agent
+
+    The AG-UI Mastra adapter forwards each tool you register with
+    `useHumanInTheLoop` to the agent as a client tool. When the model calls
+    it, the run hands control to the browser, and the user's answer comes
+    back as the tool result. Do not declare the tool on the Mastra agent.
+
+  </Step>
+  <Step>
+    ### `useInterrupt`: return `suspend()` from a tool
+
+    A Mastra tool pauses with `suspend()`, not `interrupt()`. Declare a
+    `suspendSchema` for the payload your UI reads and a `resumeSchema` for
+    the answer it sends back. The `@ag-ui/mastra` bridge sends the pause to
+    the frontend as an AG-UI interrupt. When the user answers, Mastra runs
+    `execute` again with the answer in `resumeData`.
+
+    <DemoCode file="src/mastra/tools/interrupt.ts" region="backend-suspend-tool" title="src/mastra/tools/interrupt.ts — schedule_meeting suspend tool" />
+
+    Two details fail without an error:
+
+    - `suspend` and `resumeData` are on `executionContext.agent`, the second
+      argument of `execute`. Read from the top level of the context, they are
+      `undefined`, and the model retries the tool until the run reaches its
+      step limit.
+    - `return suspend(...)` directly. With `await suspend()` followed by
+      another `return`, the tool completes and the agent keeps going past the
+      pause.
+
+  </Step>
+  <Step>
+    ### Give the `Mastra` instance storage
+
+    Resume reloads the paused run from storage, so the `Mastra` instance that
+    registers the agent needs `storage`:
+
+    ```ts title="src/mastra/index.ts"
+    import { Mastra } from "@mastra/core/mastra";
+    import { LibSQLStore } from "@mastra/libsql";
+
+    export const mastra = new Mastra({
+      agents: { interruptAgent },
+      storage: new LibSQLStore({
+        id: "mastra-storage",
+        url: ":memory:",
+      }),
+    });
+    ```
+
+  </Step>
+  <Step>
+    ### Read the payload under `suspendPayload`
+
+    The bridge wraps your `suspend()` value, so `useInterrupt` does not
+    receive it as is:
+
+    - In the custom-event flow, `event.value` is a JSON string. Parse it and
+      read `suspendPayload`.
+    - In the standard AG-UI flow, the payload is in
+      `interrupt.metadata.mastra.suspendPayload`.
+
+    ```tsx title="app/page.tsx"
+    useInterrupt({
+      render: ({ interrupt, event, resolve }) => {
+        const payload = interrupt
+          ? interrupt.metadata?.mastra?.suspendPayload
+          : JSON.parse(event.value).suspendPayload;
+        return (
+          <div>
+            <p>Pick a time for {payload?.topic}</p>
+            <button onClick={() => resolve({ chosen_time: "Tomorrow 10:00 AM" })}>
+              Tomorrow 10:00 AM
+            </button>
+            <button onClick={() => resolve({ cancelled: true })}>Cancel</button>
+          </div>
+        );
+      },
+    });
+    ```
+
+    Whatever you pass to `resolve(...)` arrives in the tool as `resumeData`,
+    so shape it to match the tool's `resumeSchema`.
+
+  </Step>
+</Steps>

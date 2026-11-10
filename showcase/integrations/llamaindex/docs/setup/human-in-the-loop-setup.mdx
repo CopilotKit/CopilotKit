@@ -1,0 +1,37 @@
+<Steps>
+  <Step>
+    ### Add a stub for each `useHumanInTheLoop` tool
+
+    The LlamaIndex AG-UI router gives the model only the tools in
+    `frontend_tools`. It does not pick up the tools your page registers, so
+    each tool you register with `useHumanInTheLoop` also needs a stub with the
+    same name and arguments in `frontend_tools`:
+
+    ```python title="agent.py"
+    from llama_index.llms.openai import OpenAI
+    from llama_index.protocols.ag_ui.router import get_ag_ui_workflow_router
+
+
+    def offerOptions(option_1: str, option_2: str) -> str:
+        """Give the user a choice between two options and have them select one."""
+        return f"Presenting options: {option_1} or {option_2}"
+
+
+    agentic_chat_router = get_ag_ui_workflow_router(
+        llm=OpenAI(model="gpt-5.4"),
+        frontend_tools=[offerOptions],
+        system_prompt=(
+            "You are a helpful AI assistant. When the user asks you to choose "
+            "between two options or when you need to present them with a choice, "
+            "you MUST use the offerOptions tool to let them select between the options."
+        ),
+    )
+    ```
+
+    The stub gives the model the tool's name and arguments. It is never
+    called: the browser runs the tool, and the user's answer returns to the
+    agent as the tool result. Without the stub, nothing fails. The model never
+    sees the tool, and the picker never appears.
+
+  </Step>
+</Steps>

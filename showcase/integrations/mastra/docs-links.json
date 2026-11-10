@@ -6,16 +6,16 @@
       "shell_docs_path": "/prebuilt-components"
     },
     "hitl-in-chat": {
-      "og_docs_url": "https://docs.copilotkit.ai/mastra/human-in-the-loop/tool-based",
-      "shell_docs_path": "/generative-ui/your-components/interactive"
+      "og_docs_url": "https://docs.copilotkit.ai/mastra/human-in-the-loop",
+      "shell_docs_path": "/human-in-the-loop"
     },
     "tool-rendering": {
       "og_docs_url": "https://docs.copilotkit.ai/mastra/generative-ui/tool-rendering",
       "shell_docs_path": "/generative-ui/tool-rendering"
     },
     "gen-ui-tool-based": {
-      "og_docs_url": "https://docs.copilotkit.ai/mastra/generative-ui/your-components/display-only",
-      "shell_docs_path": "/generative-ui/your-components/display-only"
+      "og_docs_url": "https://docs.copilotkit.ai/mastra/generative-ui/display",
+      "shell_docs_path": "/generative-ui/display"
     },
     "gen-ui-agent": {
       "og_docs_url": "https://docs.copilotkit.ai/mastra/generative-ui/state-rendering",
@@ -26,8 +26,8 @@
       "shell_docs_path": "/shared-state"
     },
     "shared-state-streaming": {
-      "og_docs_url": "https://docs.copilotkit.ai/mastra/shared-state/in-app-agent-write",
-      "shell_docs_path": "/shared-state"
+      "og_docs_url": "https://docs.copilotkit.ai/mastra/shared-state/streaming",
+      "shell_docs_path": "/shared-state/streaming"
     },
     "subagents": {
       "og_docs_url": "https://docs.copilotkit.ai/mastra",

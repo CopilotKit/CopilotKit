@@ -16,4 +16,34 @@
     <DemoCode file="src/agents/frontend_tools.py" region="middleware" />
 
   </Step>
+  <Step>
+    ### Using a custom graph instead of `create_agent`
+
+    `CopilotKitMiddleware` only works with `create_agent`. In a graph where you
+    define the nodes and edges yourself, the forwarded tools sit in
+    `state["copilotkit"]["actions"]`, and the model can call them only after
+    you bind them. Inherit your state from `CopilotKitState`:
+
+    ```python title="agent.py"
+    from copilotkit import CopilotKitState
+
+    class AgentState(CopilotKitState):
+        pass
+    ```
+
+    Then bind the actions to the model in your agent node:
+
+    ```python title="agent.py"
+    from langchain_core.runnables import RunnableConfig
+    from langchain_openai import ChatOpenAI
+
+    async def agent_node(state: AgentState, config: RunnableConfig):
+        # Access the tools from the copilotkit property
+        tools = state.get("copilotkit", {}).get("actions", [])
+        model = ChatOpenAI(model="gpt-5.4").bind_tools(tools)
+
+        # ...
+    ```
+
+  </Step>
 </Steps>

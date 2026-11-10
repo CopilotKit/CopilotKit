@@ -1,0 +1,117 @@
+<Steps>
+  <Step>
+    ### Declare the shared state on your Deep Agent
+
+    A Deep Agent declares its state through middleware. Add your field to a
+    state schema, and pass that middleware to the agent together with the
+    CopilotKit middleware. This example shares a `language` value.
+
+    <Tabs groupId="agent_language" items={['Python', 'TypeScript']} persist>
+      <Tab value="Python">
+        ```python title="agent.py"
+        from typing import Any, Literal, NotRequired
+
+        from copilotkit import CopilotKitMiddleware, CopilotKitState
+        from deepagents import create_deep_agent
+        from langchain.agents.middleware import AgentMiddleware
+
+        class AgentState(CopilotKitState):
+            language: NotRequired[Literal["english", "spanish"]]
+
+        class LanguageStateMiddleware(AgentMiddleware[AgentState, Any]):
+            state_schema = AgentState
+
+        agent = create_deep_agent(
+            model="openai:gpt-5.4",
+            middleware=[
+                LanguageStateMiddleware(),
+                CopilotKitMiddleware(expose_state=["language"]),
+            ],
+            system_prompt=(
+                "You are a helpful assistant. Current agent state contains "
+                "language. Always answer in that language."
+            ),
+        )
+        ```
+      </Tab>
+      <Tab value="TypeScript">
+        ```ts title="agent.ts"
+        import { createMiddleware } from "langchain";
+        import {
+          createCopilotkitMiddleware,
+          zodState,
+        } from "@copilotkit/sdk-js/langgraph";
+        import { createDeepAgent } from "deepagents";
+        import { z } from "zod";
+
+        // Define the state as a middleware. The default flows through automatically.
+        export const languageStateMiddleware = createMiddleware({
+          name: "AgentState",
+          stateSchema: z.object({
+            language: zodState(z.enum(["english", "spanish"]).default("english")),
+          }),
+        });
+
+        export const agent = createDeepAgent({
+          model: "openai:gpt-5.4",
+          middleware: [
+            languageStateMiddleware,
+            createCopilotkitMiddleware({ exposeState: ["language"] }),
+          ],
+          systemPrompt:
+            "You are a helpful assistant. Current agent state contains " +
+            "language. Always answer in that language.",
+        });
+        ```
+      </Tab>
+    </Tabs>
+
+    In TypeScript, `zodState` keeps the field in the AG-UI state snapshots
+    that reach the frontend.
+
+  </Step>
+  <Step>
+    ### Expose the field to the model
+
+    A value the UI writes with `agent.setState` reaches the agent's state, but
+    the CopilotKit middleware does not show state to the model by default.
+    List the fields the model should see in `expose_state` (`exposeState`),
+    and say in the system prompt what they mean. Without the allowlist, the
+    run succeeds and the model answers as if the UI had written nothing. Keep
+    the allowlist narrow.
+
+  </Step>
+  <Step>
+    ### Read and write the state in your UI
+
+    Deep Agents has no live demo on this page yet, so the demo code below does
+    not show for it. `useAgent` returns the agent, its reactive `state`, and
+    `setState`:
+
+    ```tsx title="ui/app/page.tsx"
+    import { useAgent } from "@copilotkit/react-core/v2";
+
+    function YourMainContent() {
+      const { agent } = useAgent({
+        agentId: "sample_agent",
+      });
+
+      const language = (agent.state.language as string) ?? "english";
+
+      const toggleLanguage = () => {
+        agent.setState({ language: language === "english" ? "spanish" : "english" });
+      };
+
+      return (
+        // style excluded for brevity
+        <div>
+          <h1>Your main content</h1>
+          <p>Language: {language}</p>
+          <button onClick={toggleLanguage}>Toggle Language</button>
+        </div>
+      );
+    }
+    ```
+
+  </Step>
+</Steps>

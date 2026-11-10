@@ -1,0 +1,48 @@
+<Steps>
+  <Step>
+    ### Seed the state on the router
+
+    Pass `initial_state` to `get_ag_ui_workflow_router`. The router keeps the
+    run's state under the `state` key of the workflow store and syncs that key
+    with the UI. It also adds the current state to the latest user message in
+    a `<state>...</state>` block, so the model reads what the UI wrote with
+    `agent.setState` on its next turn.
+
+    ```python title="src/agents/shared_state_read_write_agent.py"
+    from llama_index.llms.openai import OpenAI
+    from llama_index.protocols.ag_ui.router import get_ag_ui_workflow_router
+
+    shared_state_read_write_router = get_ag_ui_workflow_router(
+        llm=OpenAI(model="gpt-5-mini"),
+        frontend_tools=[],
+        backend_tools=[set_notes],
+        system_prompt=SYSTEM_PROMPT,
+        initial_state={
+            "preferences": {
+                "name": "",
+                "tone": "casual",
+                "language": "English",
+                "interests": [],
+            },
+            "notes": [],
+        },
+    )
+    ```
+
+  </Step>
+  <Step>
+    ### Write state from a backend tool
+
+    A backend tool reads the `state` key from `ctx.store`, changes it, and
+    stores it again. The router sends a state snapshot to the UI after every
+    tool call, so the UI updates without any custom event.
+
+    <DemoCode file="src/agents/shared_state_read_write_agent.py" region="set-notes-tool" />
+
+    Register the tool in `backend_tools`, as in the previous step.
+
+  </Step>
+</Steps>
+
+Only the `state` key reaches the UI. Keep private data in other `ctx.store`
+keys; see [Workflow Execution](/llamaindex/shared-state/workflow-execution).

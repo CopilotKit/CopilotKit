@@ -1,0 +1,102 @@
+<Steps>
+  <Step>
+    ### Declare the shared keys on your Flow state
+
+    A Flow keeps its state in `self.state`. Type the Flow on a subclass of
+    `CopilotKitState` and declare every key the UI reads or writes, with a
+    default. `CopilotKitState` brings the CopilotKit messages and actions.
+
+    ```python title="src/agents/shared_state_read_write.py"
+    from typing import List, Optional
+
+    from ag_ui_crewai import CopilotKitState
+    from pydantic import BaseModel, Field
+
+
+    class Preferences(BaseModel):
+        name: str = ""
+        tone: str = "casual"
+        language: str = "English"
+        interests: List[str] = Field(default_factory=list)
+
+
+    class AgentState(CopilotKitState):
+        # Written by the UI with agent.setState
+        preferences: Optional[Preferences] = None
+        # Written by the agent, read by the UI with useAgent
+        notes: List[str] = Field(default_factory=list)
+    ```
+
+    Import `CopilotKitState` from `ag_ui_crewai`. If you promoted the Flow to a
+    [Conversational Flow](/crewai-crews/conversational-flows), keep inheriting
+    from `ag_ui_crewai.CopilotKitState`: it also carries the conversation
+    fields CrewAI needs.
+
+  </Step>
+  <Step>
+    ### Read what the UI wrote
+
+    Values the UI writes with `agent.setState` are on `self.state` when the
+    next run starts. A nested model can arrive as a plain dict, so convert it
+    before you use it:
+
+    ```python title="src/agents/shared_state_read_write.py"
+    from crewai.flow.flow import Flow, start
+
+
+    class SharedStateReadWriteFlow(Flow[AgentState]):
+        @start()
+        async def chat(self) -> None:
+            prefs = self.state.preferences
+            if isinstance(prefs, dict):
+                prefs = Preferences(**prefs)
+                self.state.preferences = prefs
+    ```
+
+  </Step>
+  <Step>
+    ### Write state and emit it
+
+    By default the UI receives the Flow's state only when a method finishes.
+    To update the UI mid-run, assign the value and call
+    `copilotkit_emit_state`:
+
+    ```python title="agent.py"
+    import asyncio
+    from typing import TypedDict
+
+    from crewai.flow.flow import Flow, start
+    from ag_ui_crewai import CopilotKitState, copilotkit_emit_state
+
+
+    class Searches(TypedDict):
+        query: str
+        done: bool
+
+
+    class AgentState(CopilotKitState):
+        searches: list[Searches] = []
+
+
+    class SearchFlow(Flow[AgentState]):
+        @start()
+        async def chat(self):
+            self.state.searches = [
+                {"query": "Initial research", "done": False},
+                {"query": "Retrieving sources", "done": False},
+                {"query": "Forming an answer", "done": False},
+            ]
+            await copilotkit_emit_state(self.state)
+
+            for search in self.state.searches:
+                await asyncio.sleep(1)
+                search["done"] = True
+                await copilotkit_emit_state(self.state)
+    ```
+
+    The showcase's `src/agents/shared_state_read_write.py` does the same after
+    the model calls its `set_notes` tool: it assigns `self.state.notes` and
+    emits the state, so the notes card updates before the turn ends.
+
+  </Step>
+</Steps>

@@ -1,0 +1,104 @@
+<Steps>
+  <Step>
+    ### Keep the state in conversation variables
+
+    On AG2, shared state is the agent's **conversation variables**
+    (`context.variables`). `AGUIStream` syncs them in both directions, so you
+    do not build state events yourself:
+
+    - State that the UI writes with `agent.setState` arrives on
+      `RunAgentInput.state` and merges into the variables for the run.
+    - At the start of the run, `AGUIStream` sends a `STATE_SNAPSHOT` if the
+      merged variables differ from the state the client sent.
+    - At the end of the run, it sends another `STATE_SNAPSHOT` if a tool
+      changed `context.variables`.
+
+    A snapshot replaces the client's state as a whole, so each one carries the
+    client's keys and the server's variables together.
+
+    ```python title="agent.py"
+    from typing import Annotated
+
+    from fastapi import FastAPI, Header
+    from fastapi.responses import StreamingResponse
+    from pydantic import Field
+
+    from ag2 import Agent, Context, tool
+    from ag2.ag_ui import AGUIStream, RunAgentInput
+    from ag2.config import OpenAIResponsesConfig
+
+    @tool
+    def set_language(
+        language: Annotated[str, Field(description="language such as english or spanish")],
+        context: Context,
+    ) -> str:
+        """Update the language in shared state."""
+        context.variables["language"] = language.lower()
+        return f"Language set to {language}"
+
+    agent = Agent(
+        name="assistant",
+        prompt=(
+            "You are a helpful assistant for tracking language. "
+            "Always respond in the current language."
+        ),
+        config=OpenAIResponsesConfig(model="gpt-5.5"),
+        tools=[set_language],
+    )
+
+    stream = AGUIStream(agent)
+    app = FastAPI()
+
+    @app.post("/chat")
+    async def run_agent(
+        message: RunAgentInput,
+        accept: str | None = Header(None),
+    ) -> StreamingResponse:
+        return StreamingResponse(
+            stream.dispatch(message, accept=accept),
+            media_type=accept or "text/event-stream",
+        )
+    ```
+
+    Everything in the variables is sent to the browser. Do not put secrets
+    there. Pass them with `dispatch(dependencies=...)`, which never leaves the
+    server.
+
+  </Step>
+  <Step>
+    ### Do not seed state with `Agent(variables=...)`
+
+    Agent variables take precedence over the incoming `RunAgentInput.state` on
+    every run. A default set with `Agent(variables={"language": "english"})`
+    overwrites whatever the UI wrote with `agent.setState`, and resets a value
+    the agent changed on the previous turn. Nothing reports an error. Provide
+    defaults in the UI instead, or with `context.variables.setdefault` inside a
+    tool.
+
+  </Step>
+  <Step>
+    ### Send intermediate snapshots from long tools
+
+    The automatic snapshots only arrive at the start and the end of a run. To
+    update the UI while a long tool runs, send a snapshot from an async tool
+    with `context.send`:
+
+    ```python title="agent.py"
+    from ag_ui.core import StateSnapshotEvent
+
+    from ag2 import Context, tool
+    from ag2.ag_ui import AGUIEvent
+
+    @tool
+    async def long_running_task(context: Context) -> str:
+        """A long task that streams state updates as it progresses."""
+        for step in range(3):
+            context.variables["progress"] = step
+            await context.send(
+                AGUIEvent(StateSnapshotEvent(snapshot=dict(context.variables)))
+            )
+        return "Done"
+    ```
+
+  </Step>
+</Steps>

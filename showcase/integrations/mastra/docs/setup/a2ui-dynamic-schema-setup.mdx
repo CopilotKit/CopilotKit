@@ -1,0 +1,102 @@
+### Mastra in the same process
+
+When the Mastra instance is imported into the same process as the runtime
+route, add an `a2ui` block to the runtime and pin `defaultCatalogId` to the
+catalog that your page registers. Without it, a model that leaves out
+`catalogId` fails with "Catalog not found".
+
+```ts title="app/api/copilotkit/route.ts"
+const runtime = new CopilotRuntime({
+  agents: { "declarative-gen-ui": agent },
+  a2ui: {
+    defaultCatalogId: "declarative-gen-ui-catalog",
+  },
+});
+```
+
+If your agent defines its own `generate_a2ui` tool, also set
+`injectA2UITool: false`, so the tool is not registered twice. The demo agent
+does this. To give a Mastra agent its own tool, use `getA2UITools` from
+`@ag-ui/mastra/a2ui`:
+
+```ts title="src/mastra/agents/index.ts"
+import { getA2UITools } from "@ag-ui/mastra/a2ui";
+
+// in the Agent options
+tools: {
+  generate_a2ui: getA2UITools({
+    model: openai("gpt-5-mini"),
+    defaultCatalogId: "declarative-gen-ui-catalog",
+    recovery: { maxAttempts: 3 },
+  }),
+},
+```
+
+See the [Copilot Runtime guide](/mastra/backend/copilot-runtime#local-vs-remote-agents)
+for the local agent bridge.
+
+### Mastra in a separate process
+
+When Mastra runs as its own service, register a CopilotKit endpoint **on that
+service**. The Mastra agent then stays local to the endpoint that injects and
+runs `generate_a2ui`, and the browser reaches it over HTTP. The generic
+`MastraAgent.getRemoteAgents()` bridge serves ordinary remote runs, but not this
+A2UI setup.
+
+Use `@ag-ui/mastra` 1.1.4 or later, with matching `@ag-ui/core` and
+`@ag-ui/client` versions. For example, `@ag-ui/mastra` 1.1.4 works with
+`@ag-ui/core` and `@ag-ui/client` 0.0.58.
+
+```ts title="src/mastra/index.ts"
+import { Mastra } from "@mastra/core/mastra";
+import { Agent } from "@mastra/core/agent";
+import { getLocalAgent } from "@ag-ui/mastra";
+import { registerCopilotKit } from "@ag-ui/mastra/copilotkit";
+
+const dashboardAgent = new Agent({
+  id: "declarative-gen-ui",
+  name: "Dashboard",
+  model: yourModel,
+  instructions: "Call generate_a2ui for dashboard requests.",
+});
+
+export const mastra = new Mastra({
+  agents: { dashboardAgent },
+  server: {
+    apiRoutes: [
+      registerCopilotKit({
+        path: "/copilotkit",
+        resourceId: "demo-user",
+        agents: () => {
+          const agent = getLocalAgent({
+            mastra,
+            agentId: "dashboardAgent",
+            resourceId: "demo-user",
+          });
+          if (!agent) throw new Error("dashboardAgent is not registered");
+          return { "declarative-gen-ui": agent, default: agent };
+        },
+        a2ui: {
+          injectA2UITool: true,
+          defaultCatalogId: "declarative-gen-ui-catalog",
+        },
+        cors: { origin: "http://localhost:3000" },
+      }),
+    ],
+  },
+});
+```
+
+Then connect the frontend:
+
+1. Set the provider's `runtimeUrl` to the `/copilotkit` URL of your Mastra
+   service, or proxy that path through your frontend.
+2. Use the agent name `declarative-gen-ui` and the catalog ID
+   `declarative-gen-ui-catalog` on both sides.
+3. If the browser calls the service directly, set `cors.origin` to your
+   frontend origin.
+4. In production, set `resourceId` from the signed-in user, not from the fixed
+   example value.
+
+If the surface stays at "Building Interface", check that the response has
+nonempty `a2ui_operations` for the components and the data.

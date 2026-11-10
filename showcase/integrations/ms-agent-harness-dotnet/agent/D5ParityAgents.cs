@@ -283,6 +283,7 @@ public sealed class D5ParityAgentFactory
             });
     }
 
+    // @region[weather-tool-backend]
     [Description("Get the current weather for a given location.")]
     private static object GetWeather([Description("The city or region to describe.")] string location)
     {
@@ -295,6 +296,7 @@ public sealed class D5ParityAgentFactory
             conditions = "Sunny",
         };
     }
+    // @endregion[weather-tool-backend]
 
     [Description("Search mock flights from an origin airport to a destination airport.")]
     private static object SearchFlights(
