@@ -755,6 +755,9 @@ async function runExample(example, args, tarballs, index) {
           ...Object.fromEntries(
             AG_UI.map((name) => [name, COMPANION_VERSIONS[name]]),
           ),
+          // @ag-ui/client has zod as a peer: one copy per zod major. One
+          // zod makes one AbstractAgent.
+          zod: COMPANION_VERSIONS.zod,
         },
       };
       writeJson(file, pkg);
