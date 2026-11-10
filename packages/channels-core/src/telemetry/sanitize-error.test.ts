@@ -7,6 +7,7 @@ describe("normalizePlatform", () => {
     expect(normalizePlatform("discord")).toBe("discord");
     expect(normalizePlatform("whatsapp")).toBe("whatsapp");
     expect(normalizePlatform("teams")).toBe("teams");
+    expect(normalizePlatform("web")).toBe("web");
     // The retired Telegram adapter's label buckets with custom adapters.
     expect(normalizePlatform("telegram")).toBe("custom");
     // Free-form / custom adapter labels must not leak through.

@@ -490,6 +490,34 @@
           }
         },
         {
+          "importPath": "@copilotkit/channels/web",
+          "exportKey": "./web",
+          "kind": "code",
+          "conditions": {
+            "types": "./dist/web.d.ts",
+            "import": "./dist/web.js"
+          },
+          "provenance": {
+            "kind": "package-json",
+            "path": "packages/channels/package.json",
+            "selector": "exports[\"./web\"]"
+          }
+        },
+        {
+          "importPath": "@copilotkit/channels/web/react",
+          "exportKey": "./web/react",
+          "kind": "code",
+          "conditions": {
+            "types": "./dist/web/react.d.ts",
+            "import": "./dist/web/react.js"
+          },
+          "provenance": {
+            "kind": "package-json",
+            "path": "packages/channels/package.json",
+            "selector": "exports[\"./web/react\"]"
+          }
+        },
+        {
           "importPath": "@copilotkit/channels/whatsapp",
           "exportKey": "./whatsapp",
           "kind": "code",
@@ -953,6 +981,78 @@
         "version": {
           "kind": "package-json",
           "path": "packages/channels-ui/package.json",
+          "selector": "version"
+        },
+        "releaseScope": {
+          "kind": "release-config",
+          "path": "release.config.json",
+          "selector": "scopes.channels.packages"
+        }
+      }
+    },
+    {
+      "name": "@copilotkit/channels-web",
+      "version": "0.12.0",
+      "sourceDirectory": "packages/channels-web",
+      "entrypoints": [
+        {
+          "importPath": "@copilotkit/channels-web",
+          "exportKey": ".",
+          "kind": "code",
+          "conditions": {
+            "types": "./dist/index.d.ts",
+            "import": "./dist/index.js"
+          },
+          "provenance": {
+            "kind": "package-json",
+            "path": "packages/channels-web/package.json",
+            "selector": "exports[\".\"]"
+          }
+        },
+        {
+          "importPath": "@copilotkit/channels-web/react",
+          "exportKey": "./react",
+          "kind": "code",
+          "conditions": {
+            "types": "./dist/react/index.d.ts",
+            "import": "./dist/react/index.js"
+          },
+          "provenance": {
+            "kind": "package-json",
+            "path": "packages/channels-web/package.json",
+            "selector": "exports[\"./react\"]"
+          }
+        }
+      ],
+      "compatibility": {
+        "peerDependencies": {
+          "react": ">=18"
+        },
+        "optionalPeerDependencies": [
+          "react"
+        ],
+        "provenance": [
+          {
+            "kind": "package-json",
+            "path": "packages/channels-web/package.json",
+            "selector": "peerDependencies"
+          },
+          {
+            "kind": "package-json",
+            "path": "packages/channels-web/package.json",
+            "selector": "peerDependenciesMeta.*.optional"
+          }
+        ]
+      },
+      "provenance": {
+        "name": {
+          "kind": "package-json",
+          "path": "packages/channels-web/package.json",
+          "selector": "name"
+        },
+        "version": {
+          "kind": "package-json",
+          "path": "packages/channels-web/package.json",
           "selector": "version"
         },
         "releaseScope": {

@@ -7,6 +7,8 @@ import { slack } from "@copilotkit/channels/slack";
 import { teams } from "@copilotkit/channels/teams";
 import { discord } from "@copilotkit/channels/discord";
 import { whatsapp } from "@copilotkit/channels/whatsapp";
+import { web } from "@copilotkit/channels/web";
+import { ChannelUi, useChannelUi } from "@copilotkit/channels/web/react";
 import { slackCodec } from "@copilotkit/channels/slack/codec";
 import { renderSlackMessage } from "@copilotkit/channels/slack/render";
 import { renderAdaptiveCard } from "@copilotkit/channels/teams/render";
@@ -29,6 +31,9 @@ describe("@copilotkit/channels umbrella", () => {
       teams,
       discord,
       whatsapp,
+      web,
+      ChannelUi,
+      useChannelUi,
       renderSlackMessage,
       renderAdaptiveCard,
     ]) {

@@ -39,11 +39,11 @@ describe("normalizePlatform allow-list coverage (monorepo invariant)", () => {
         "platforms" in properties ? properties.platforms : properties.platform,
     );
     expect(platformProperties).toEqual([
-      "string[] (each normalized: slack|discord|whatsapp|teams|custom)",
-      "string[] (each normalized: slack|discord|whatsapp|teams|custom)",
-      "string (normalized: slack|discord|whatsapp|teams|custom)",
-      "string (normalized: slack|discord|whatsapp|teams|custom)",
-      "string (normalized: slack|discord|whatsapp|teams|custom)",
+      "string[] (each normalized: slack|discord|whatsapp|teams|web|custom)",
+      "string[] (each normalized: slack|discord|whatsapp|teams|web|custom)",
+      "string (normalized: slack|discord|whatsapp|teams|web|custom)",
+      "string (normalized: slack|discord|whatsapp|teams|web|custom)",
+      "string (normalized: slack|discord|whatsapp|teams|web|custom)",
     ]);
   });
 
@@ -57,6 +57,7 @@ describe("normalizePlatform allow-list coverage (monorepo invariant)", () => {
       { pkg: "channels-discord", platform: "discord" },
       { pkg: "channels-slack", platform: "slack" },
       { pkg: "channels-teams", platform: "teams" },
+      { pkg: "channels-web", platform: "web" },
       { pkg: "channels-whatsapp", platform: "whatsapp" },
     ]);
 
