@@ -1304,7 +1304,10 @@ export function CopilotChatMessageView({
           ? measured.above
           : item.start < (instance.scrollOffset ?? 0) + scrollAdjustments;
       if (!above) return false;
-      if (userScrollingRef.current) {
+      // Also hold while an earlier correction is still settling: a write then
+      // goes to list offset minus the held offset, which can lie past the
+      // element's scroll range until the rows render, and is cut short.
+      if (userScrollingRef.current || heldOffsetRef.current !== 0) {
         // Hold the correction instead of writing it (see heldOffsetRef). The
         // list offset moves with it, as it would after a write.
         const held = heldOffsetRef.current;

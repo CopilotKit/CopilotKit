@@ -573,8 +573,12 @@ describe("CopilotChatMessageView virtual-scroll tuning", () => {
       } as typeof ResizeObserver;
       container.getBoundingClientRect = () =>
         ({ top: 0, width: 600, height: 600 }) as DOMRect;
+      // A write lands within the scroll range, as the browser keeps it.
       const scrollTo = vi.fn(({ top }: ScrollToOptions) => {
-        container.scrollTop = top ?? 0;
+        container.scrollTop = Math.min(
+          Math.max(0, top ?? 0),
+          container.scrollHeight - container.clientHeight,
+        );
         container.dispatchEvent(new Event("scroll"));
       });
       container.scrollTo = scrollTo as unknown as typeof container.scrollTo;
@@ -807,6 +811,31 @@ describe("CopilotChatMessageView virtual-scroll tuning", () => {
 
           expect(onScreen(200)).toBe(-25);
           expect(scrollTo).toHaveBeenCalled();
+        },
+      );
+    });
+
+    it("holds a correction that arrives while an earlier one is still settling", async () => {
+      await withListReadAt(
+        293,
+        async ({ scrollTo, onScreen, measure, idle }) => {
+          // 264 px less above the reader, held while scrolling.
+          measure([
+            [289, 0],
+            [290, 0],
+            [291, 36],
+          ]);
+          // Scrolling has stopped; the held correction has not settled yet.
+          await idle();
+          scrollTo.mockClear();
+
+          // A row above grows by 200 px. Written now, as list offset minus the
+          // held offset, the target lies past the end of the element's
+          // current scroll range and the browser cuts the write short.
+          measure([[292, 300]]);
+
+          expect(onScreen(293)).toBe(-25);
+          expect(scrollTo).not.toHaveBeenCalled();
         },
       );
     });
