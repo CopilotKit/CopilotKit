@@ -1,6 +1,7 @@
 import type { TokenProvider } from "./auth.js";
 
 const DEFAULT_API_URL = "https://chat.googleapis.com/v1";
+const REQUEST_TIMEOUT_MS = 15_000;
 
 export class ChatClient {
   private readonly tokenProvider: TokenProvider;
@@ -31,6 +32,8 @@ export class ChatClient {
       url.searchParams.set(k, v);
     const res = await this.fetchImpl(url, {
       ...fetchInit,
+      // A hung request would block every later edit of a streamed reply.
+      signal: fetchInit.signal ?? AbortSignal.timeout(REQUEST_TIMEOUT_MS),
       headers: {
         Authorization: `Bearer ${token}`,
         "Content-Type": "application/json",

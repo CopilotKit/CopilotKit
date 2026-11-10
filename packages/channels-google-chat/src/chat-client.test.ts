@@ -106,3 +106,17 @@ describe("ChatClient error handling", () => {
     );
   });
 });
+
+describe("ChatClient request timeout", () => {
+  it("bounds every request with an abort signal", async () => {
+    const fetchImpl = vi.fn(
+      async () =>
+        new Response(JSON.stringify({ name: "spaces/A/messages/M1" }), {
+          status: 200,
+        }),
+    );
+    await makeClient(fetchImpl).createMessage("spaces/A", { text: "hi" });
+    const [, init] = fetchImpl.mock.calls[0] as unknown as [URL, RequestInit];
+    expect(init.signal).toBeInstanceOf(AbortSignal);
+  });
+});

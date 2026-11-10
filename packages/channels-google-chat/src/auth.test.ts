@@ -169,13 +169,8 @@ describe("createInboundVerifier", () => {
         ok: true,
         json: async () => CERTS,
       } as unknown as Response)
-      // self-heal refetch for the first verify → outage (clears the cache)
+      // self-heal refetch for the first verify → outage (the old certs stay cached)
       .mockResolvedValueOnce({ ok: false, status: 503 } as unknown as Response)
-      // getCerts for the second verify (cache was cleared by the failed refetch)
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => CERTS,
-      } as unknown as Response)
       // self-heal refetch for the second verify → recovered
       .mockResolvedValueOnce({
         ok: true,
@@ -209,12 +204,11 @@ describe("createInboundVerifier", () => {
         }),
       });
     await expect(v.verify("Bearer rotated.jwt.2")).resolves.toBeUndefined();
-    // The 4th fetch is the recovered self-heal refetch — proof the window was
-    // NOT burned by the earlier failed refetch. (The failed refetch cleared the
-    // cache, so the second verify also re-runs the cold-cache getCerts: fetch #3
-    // is that getCerts, fetch #4 is the self-heal refetch that was allowed
-    // because the prior refetch failed without advancing lastRefetchAt.)
-    expect(fetchMock).toHaveBeenCalledTimes(4);
+    // The 3rd fetch is the recovered self-heal refetch — proof the window was
+    // NOT burned by the earlier failed refetch. The failed refetch kept the
+    // last-known-good certs, so the second verify read them from the cache
+    // instead of making a cold-cache fetch.
+    expect(fetchMock).toHaveBeenCalledTimes(3);
   });
 
   it("surfaces a cert-fetch failure as a non-UnauthorizedError (→ 500, not 401)", async () => {

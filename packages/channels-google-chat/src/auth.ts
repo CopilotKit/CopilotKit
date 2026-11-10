@@ -290,7 +290,8 @@ function createProjectNumberVerifier(
    */
   function refetchCerts(): Promise<Certificates> {
     if (inFlightRefetch) return inFlightRefetch;
-    cachedCerts = undefined;
+    // Keep the old certs: fetchCerts() replaces them only on success, so a
+    // failed refetch during an outage does not empty the cache.
     const p = fetchCerts()
       .then((certs) => {
         // Advance the debounce window only on a SUCCESSFUL refetch. A failed
