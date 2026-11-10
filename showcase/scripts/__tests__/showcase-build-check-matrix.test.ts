@@ -81,6 +81,35 @@ function runMatrix(
 }
 
 describe("showcase PR build matrix", () => {
+  it("checks the undeployed Omnara source in its standalone context", () => {
+    expect(filters.omnara).toEqual(["showcase/integrations/omnara/**"]);
+    const { outputs, matrix } = runMatrix(["omnara"]);
+    expect(matrix).toEqual([
+      {
+        dispatch_name: "omnara",
+        filter_key: "omnara",
+        context: "showcase/integrations/omnara",
+        image: "showcase-omnara",
+        timeout: 30,
+        build_args: "",
+        dockerfile: "",
+      },
+    ]);
+    expect(outputs.needs_angular).toBe("true");
+    expect(outputs.needs_vue).toBe("true");
+    const production = readFileSync(
+      join(WORKFLOWS_DIR, "showcase_build.yml"),
+      "utf8",
+    );
+    const deployed = parseJsonLiteralFromRun<Array<{ dispatch_name: string }>>(
+      production,
+      "ALL_SERVICES",
+    );
+    expect(deployed.some((service) => service.dispatch_name === "omnara")).toBe(
+      false,
+    );
+  });
+
   it.each([
     { name: "empty", changes: [], images: [], angular: false, vue: false },
     {
