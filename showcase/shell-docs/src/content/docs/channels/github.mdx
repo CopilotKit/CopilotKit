@@ -180,11 +180,11 @@ You can test before you create an App. Use your own personal access token and
 a repository webhook:
 
 1. Create a fine-grained token for the repository. Set Issues and Pull requests
-   to read and write.
+   to read and write. Put the token in `.env` as `GITHUB_TOKEN`.
 2. In the repository, open **Settings > Webhooks > Add webhook**.
-3. Set the payload URL and the secret. Set **Content type** to
-   `application/json`, and select the **Issue comments** and **Pull request
-   review comments** events.
+3. Set the payload URL and the secret. Put the same secret in `.env` as
+   `GITHUB_WEBHOOK_SECRET`. Set **Content type** to `application/json`, and
+   select the **Issue comments** and **Pull request review comments** events.
 4. Pass `token` instead of `appId` and `privateKey`. Set `botUsername` to your
    own login:
 
