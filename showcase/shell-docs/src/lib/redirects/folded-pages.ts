@@ -987,4 +987,561 @@ export const FOLDED_PAGES: RedirectEntry[] = [
     source: "/strands/troubleshooting/migrate-to-v2",
     destination: "/strands/migrate/v2",
   },
+  // Root-level copies of the Agent Spec and Deep Agents docs answered under
+  // every framework's prefix (`/ag2/agent-spec/quickstart`); they're gone, so
+  // those URLs open the framework's own page.
+  { id: "FOLD-stale", source: "/ag2/agent-spec", destination: "/agent-spec" },
+  {
+    id: "FOLD-stale",
+    source: "/ag2/agent-spec/human-in-the-loop",
+    destination: "/agent-spec/human-in-the-loop",
+  },
+  {
+    id: "FOLD-stale",
+    source: "/ag2/agent-spec/langgraph",
+    destination: "/agent-spec/langgraph",
+  },
+  {
+    id: "FOLD-stale",
+    source: "/ag2/agent-spec/quickstart",
+    destination: "/agent-spec/quickstart",
+  },
+  {
+    id: "FOLD-stale",
+    source: "/ag2/agent-spec/wayflow",
+    destination: "/agent-spec/wayflow",
+  },
+  { id: "FOLD-stale", source: "/ag2/deepagents", destination: "/deepagents" },
+  { id: "FOLD-stale", source: "/agno/agent-spec", destination: "/agent-spec" },
+  {
+    id: "FOLD-stale",
+    source: "/agno/agent-spec/human-in-the-loop",
+    destination: "/agent-spec/human-in-the-loop",
+  },
+  {
+    id: "FOLD-stale",
+    source: "/agno/agent-spec/langgraph",
+    destination: "/agent-spec/langgraph",
+  },
+  {
+    id: "FOLD-stale",
+    source: "/agno/agent-spec/quickstart",
+    destination: "/agent-spec/quickstart",
+  },
+  {
+    id: "FOLD-stale",
+    source: "/agno/agent-spec/wayflow",
+    destination: "/agent-spec/wayflow",
+  },
+  { id: "FOLD-stale", source: "/agno/deepagents", destination: "/deepagents" },
+  {
+    id: "FOLD-stale",
+    source: "/claude-sdk-python/agent-spec",
+    destination: "/agent-spec",
+  },
+  {
+    id: "FOLD-stale",
+    source: "/claude-sdk-python/agent-spec/human-in-the-loop",
+    destination: "/agent-spec/human-in-the-loop",
+  },
+  {
+    id: "FOLD-stale",
+    source: "/claude-sdk-python/agent-spec/langgraph",
+    destination: "/agent-spec/langgraph",
+  },
+  {
+    id: "FOLD-stale",
+    source: "/claude-sdk-python/agent-spec/quickstart",
+    destination: "/agent-spec/quickstart",
+  },
+  {
+    id: "FOLD-stale",
+    source: "/claude-sdk-python/agent-spec/wayflow",
+    destination: "/agent-spec/wayflow",
+  },
+  {
+    id: "FOLD-stale",
+    source: "/claude-sdk-python/deepagents",
+    destination: "/deepagents",
+  },
+  {
+    id: "FOLD-stale",
+    source: "/claude-sdk-typescript/agent-spec",
+    destination: "/agent-spec",
+  },
+  {
+    id: "FOLD-stale",
+    source: "/claude-sdk-typescript/agent-spec/human-in-the-loop",
+    destination: "/agent-spec/human-in-the-loop",
+  },
+  {
+    id: "FOLD-stale",
+    source: "/claude-sdk-typescript/agent-spec/langgraph",
+    destination: "/agent-spec/langgraph",
+  },
+  {
+    id: "FOLD-stale",
+    source: "/claude-sdk-typescript/agent-spec/quickstart",
+    destination: "/agent-spec/quickstart",
+  },
+  {
+    id: "FOLD-stale",
+    source: "/claude-sdk-typescript/agent-spec/wayflow",
+    destination: "/agent-spec/wayflow",
+  },
+  {
+    id: "FOLD-stale",
+    source: "/claude-sdk-typescript/deepagents",
+    destination: "/deepagents",
+  },
+  {
+    id: "FOLD-stale",
+    source: "/crewai-crews/agent-spec",
+    destination: "/agent-spec",
+  },
+  {
+    id: "FOLD-stale",
+    source: "/crewai-crews/agent-spec/human-in-the-loop",
+    destination: "/agent-spec/human-in-the-loop",
+  },
+  {
+    id: "FOLD-stale",
+    source: "/crewai-crews/agent-spec/langgraph",
+    destination: "/agent-spec/langgraph",
+  },
+  {
+    id: "FOLD-stale",
+    source: "/crewai-crews/agent-spec/quickstart",
+    destination: "/agent-spec/quickstart",
+  },
+  {
+    id: "FOLD-stale",
+    source: "/crewai-crews/agent-spec/wayflow",
+    destination: "/agent-spec/wayflow",
+  },
+  {
+    id: "FOLD-stale",
+    source: "/crewai-crews/deepagents",
+    destination: "/deepagents",
+  },
+  {
+    id: "FOLD-stale",
+    source: "/deepagents/agent-spec",
+    destination: "/agent-spec",
+  },
+  {
+    id: "FOLD-stale",
+    source: "/deepagents/agent-spec/human-in-the-loop",
+    destination: "/agent-spec/human-in-the-loop",
+  },
+  {
+    id: "FOLD-stale",
+    source: "/deepagents/agent-spec/langgraph",
+    destination: "/agent-spec/langgraph",
+  },
+  {
+    id: "FOLD-stale",
+    source: "/deepagents/agent-spec/quickstart",
+    destination: "/agent-spec/quickstart",
+  },
+  {
+    id: "FOLD-stale",
+    source: "/deepagents/agent-spec/wayflow",
+    destination: "/agent-spec/wayflow",
+  },
+  {
+    id: "FOLD-stale",
+    source: "/deepagents/deepagents",
+    destination: "/deepagents",
+  },
+  {
+    id: "FOLD-stale",
+    source: "/google-adk/agent-spec",
+    destination: "/agent-spec",
+  },
+  {
+    id: "FOLD-stale",
+    source: "/google-adk/agent-spec/human-in-the-loop",
+    destination: "/agent-spec/human-in-the-loop",
+  },
+  {
+    id: "FOLD-stale",
+    source: "/google-adk/agent-spec/langgraph",
+    destination: "/agent-spec/langgraph",
+  },
+  {
+    id: "FOLD-stale",
+    source: "/google-adk/agent-spec/quickstart",
+    destination: "/agent-spec/quickstart",
+  },
+  {
+    id: "FOLD-stale",
+    source: "/google-adk/agent-spec/wayflow",
+    destination: "/agent-spec/wayflow",
+  },
+  {
+    id: "FOLD-stale",
+    source: "/google-adk/deepagents",
+    destination: "/deepagents",
+  },
+  {
+    id: "FOLD-stale",
+    source: "/google-antigravity/agent-spec",
+    destination: "/agent-spec",
+  },
+  {
+    id: "FOLD-stale",
+    source: "/google-antigravity/agent-spec/human-in-the-loop",
+    destination: "/agent-spec/human-in-the-loop",
+  },
+  {
+    id: "FOLD-stale",
+    source: "/google-antigravity/agent-spec/langgraph",
+    destination: "/agent-spec/langgraph",
+  },
+  {
+    id: "FOLD-stale",
+    source: "/google-antigravity/agent-spec/quickstart",
+    destination: "/agent-spec/quickstart",
+  },
+  {
+    id: "FOLD-stale",
+    source: "/google-antigravity/agent-spec/wayflow",
+    destination: "/agent-spec/wayflow",
+  },
+  {
+    id: "FOLD-stale",
+    source: "/google-antigravity/deepagents",
+    destination: "/deepagents",
+  },
+  {
+    id: "FOLD-stale",
+    source: "/langgraph-fastapi/agent-spec",
+    destination: "/agent-spec",
+  },
+  {
+    id: "FOLD-stale",
+    source: "/langgraph-fastapi/agent-spec/human-in-the-loop",
+    destination: "/agent-spec/human-in-the-loop",
+  },
+  {
+    id: "FOLD-stale",
+    source: "/langgraph-fastapi/agent-spec/langgraph",
+    destination: "/agent-spec/langgraph",
+  },
+  {
+    id: "FOLD-stale",
+    source: "/langgraph-fastapi/agent-spec/quickstart",
+    destination: "/agent-spec/quickstart",
+  },
+  {
+    id: "FOLD-stale",
+    source: "/langgraph-fastapi/agent-spec/wayflow",
+    destination: "/agent-spec/wayflow",
+  },
+  {
+    id: "FOLD-stale",
+    source: "/langgraph-fastapi/deepagents",
+    destination: "/deepagents",
+  },
+  {
+    id: "FOLD-stale",
+    source: "/langgraph-python/agent-spec",
+    destination: "/agent-spec",
+  },
+  {
+    id: "FOLD-stale",
+    source: "/langgraph-python/agent-spec/human-in-the-loop",
+    destination: "/agent-spec/human-in-the-loop",
+  },
+  {
+    id: "FOLD-stale",
+    source: "/langgraph-python/agent-spec/langgraph",
+    destination: "/agent-spec/langgraph",
+  },
+  {
+    id: "FOLD-stale",
+    source: "/langgraph-python/agent-spec/quickstart",
+    destination: "/agent-spec/quickstart",
+  },
+  {
+    id: "FOLD-stale",
+    source: "/langgraph-python/agent-spec/wayflow",
+    destination: "/agent-spec/wayflow",
+  },
+  {
+    id: "FOLD-stale",
+    source: "/langgraph-python/deepagents",
+    destination: "/deepagents",
+  },
+  {
+    id: "FOLD-stale",
+    source: "/langgraph-typescript/agent-spec",
+    destination: "/agent-spec",
+  },
+  {
+    id: "FOLD-stale",
+    source: "/langgraph-typescript/agent-spec/human-in-the-loop",
+    destination: "/agent-spec/human-in-the-loop",
+  },
+  {
+    id: "FOLD-stale",
+    source: "/langgraph-typescript/agent-spec/langgraph",
+    destination: "/agent-spec/langgraph",
+  },
+  {
+    id: "FOLD-stale",
+    source: "/langgraph-typescript/agent-spec/quickstart",
+    destination: "/agent-spec/quickstart",
+  },
+  {
+    id: "FOLD-stale",
+    source: "/langgraph-typescript/agent-spec/wayflow",
+    destination: "/agent-spec/wayflow",
+  },
+  {
+    id: "FOLD-stale",
+    source: "/langgraph-typescript/deepagents",
+    destination: "/deepagents",
+  },
+  {
+    id: "FOLD-stale",
+    source: "/llamaindex/agent-spec",
+    destination: "/agent-spec",
+  },
+  {
+    id: "FOLD-stale",
+    source: "/llamaindex/agent-spec/human-in-the-loop",
+    destination: "/agent-spec/human-in-the-loop",
+  },
+  {
+    id: "FOLD-stale",
+    source: "/llamaindex/agent-spec/langgraph",
+    destination: "/agent-spec/langgraph",
+  },
+  {
+    id: "FOLD-stale",
+    source: "/llamaindex/agent-spec/quickstart",
+    destination: "/agent-spec/quickstart",
+  },
+  {
+    id: "FOLD-stale",
+    source: "/llamaindex/agent-spec/wayflow",
+    destination: "/agent-spec/wayflow",
+  },
+  {
+    id: "FOLD-stale",
+    source: "/llamaindex/deepagents",
+    destination: "/deepagents",
+  },
+  {
+    id: "FOLD-stale",
+    source: "/mastra/agent-spec",
+    destination: "/agent-spec",
+  },
+  {
+    id: "FOLD-stale",
+    source: "/mastra/agent-spec/human-in-the-loop",
+    destination: "/agent-spec/human-in-the-loop",
+  },
+  {
+    id: "FOLD-stale",
+    source: "/mastra/agent-spec/langgraph",
+    destination: "/agent-spec/langgraph",
+  },
+  {
+    id: "FOLD-stale",
+    source: "/mastra/agent-spec/quickstart",
+    destination: "/agent-spec/quickstart",
+  },
+  {
+    id: "FOLD-stale",
+    source: "/mastra/agent-spec/wayflow",
+    destination: "/agent-spec/wayflow",
+  },
+  {
+    id: "FOLD-stale",
+    source: "/mastra/deepagents",
+    destination: "/deepagents",
+  },
+  {
+    id: "FOLD-stale",
+    source: "/ms-agent-dotnet/agent-spec",
+    destination: "/agent-spec",
+  },
+  {
+    id: "FOLD-stale",
+    source: "/ms-agent-dotnet/agent-spec/human-in-the-loop",
+    destination: "/agent-spec/human-in-the-loop",
+  },
+  {
+    id: "FOLD-stale",
+    source: "/ms-agent-dotnet/agent-spec/langgraph",
+    destination: "/agent-spec/langgraph",
+  },
+  {
+    id: "FOLD-stale",
+    source: "/ms-agent-dotnet/agent-spec/quickstart",
+    destination: "/agent-spec/quickstart",
+  },
+  {
+    id: "FOLD-stale",
+    source: "/ms-agent-dotnet/agent-spec/wayflow",
+    destination: "/agent-spec/wayflow",
+  },
+  {
+    id: "FOLD-stale",
+    source: "/ms-agent-dotnet/deepagents",
+    destination: "/deepagents",
+  },
+  {
+    id: "FOLD-stale",
+    source: "/ms-agent-harness-dotnet/agent-spec",
+    destination: "/agent-spec",
+  },
+  {
+    id: "FOLD-stale",
+    source: "/ms-agent-harness-dotnet/agent-spec/human-in-the-loop",
+    destination: "/agent-spec/human-in-the-loop",
+  },
+  {
+    id: "FOLD-stale",
+    source: "/ms-agent-harness-dotnet/agent-spec/langgraph",
+    destination: "/agent-spec/langgraph",
+  },
+  {
+    id: "FOLD-stale",
+    source: "/ms-agent-harness-dotnet/agent-spec/quickstart",
+    destination: "/agent-spec/quickstart",
+  },
+  {
+    id: "FOLD-stale",
+    source: "/ms-agent-harness-dotnet/agent-spec/wayflow",
+    destination: "/agent-spec/wayflow",
+  },
+  {
+    id: "FOLD-stale",
+    source: "/ms-agent-harness-dotnet/deepagents",
+    destination: "/deepagents",
+  },
+  {
+    id: "FOLD-stale",
+    source: "/ms-agent-python/agent-spec",
+    destination: "/agent-spec",
+  },
+  {
+    id: "FOLD-stale",
+    source: "/ms-agent-python/agent-spec/human-in-the-loop",
+    destination: "/agent-spec/human-in-the-loop",
+  },
+  {
+    id: "FOLD-stale",
+    source: "/ms-agent-python/agent-spec/langgraph",
+    destination: "/agent-spec/langgraph",
+  },
+  {
+    id: "FOLD-stale",
+    source: "/ms-agent-python/agent-spec/quickstart",
+    destination: "/agent-spec/quickstart",
+  },
+  {
+    id: "FOLD-stale",
+    source: "/ms-agent-python/agent-spec/wayflow",
+    destination: "/agent-spec/wayflow",
+  },
+  {
+    id: "FOLD-stale",
+    source: "/ms-agent-python/deepagents",
+    destination: "/deepagents",
+  },
+  {
+    id: "FOLD-stale",
+    source: "/pydantic-ai/agent-spec",
+    destination: "/agent-spec",
+  },
+  {
+    id: "FOLD-stale",
+    source: "/pydantic-ai/agent-spec/human-in-the-loop",
+    destination: "/agent-spec/human-in-the-loop",
+  },
+  {
+    id: "FOLD-stale",
+    source: "/pydantic-ai/agent-spec/langgraph",
+    destination: "/agent-spec/langgraph",
+  },
+  {
+    id: "FOLD-stale",
+    source: "/pydantic-ai/agent-spec/quickstart",
+    destination: "/agent-spec/quickstart",
+  },
+  {
+    id: "FOLD-stale",
+    source: "/pydantic-ai/agent-spec/wayflow",
+    destination: "/agent-spec/wayflow",
+  },
+  {
+    id: "FOLD-stale",
+    source: "/pydantic-ai/deepagents",
+    destination: "/deepagents",
+  },
+  {
+    id: "FOLD-stale",
+    source: "/strands-typescript/agent-spec",
+    destination: "/agent-spec",
+  },
+  {
+    id: "FOLD-stale",
+    source: "/strands-typescript/agent-spec/human-in-the-loop",
+    destination: "/agent-spec/human-in-the-loop",
+  },
+  {
+    id: "FOLD-stale",
+    source: "/strands-typescript/agent-spec/langgraph",
+    destination: "/agent-spec/langgraph",
+  },
+  {
+    id: "FOLD-stale",
+    source: "/strands-typescript/agent-spec/quickstart",
+    destination: "/agent-spec/quickstart",
+  },
+  {
+    id: "FOLD-stale",
+    source: "/strands-typescript/agent-spec/wayflow",
+    destination: "/agent-spec/wayflow",
+  },
+  {
+    id: "FOLD-stale",
+    source: "/strands-typescript/deepagents",
+    destination: "/deepagents",
+  },
+  {
+    id: "FOLD-stale",
+    source: "/strands/agent-spec",
+    destination: "/agent-spec",
+  },
+  {
+    id: "FOLD-stale",
+    source: "/strands/agent-spec/human-in-the-loop",
+    destination: "/agent-spec/human-in-the-loop",
+  },
+  {
+    id: "FOLD-stale",
+    source: "/strands/agent-spec/langgraph",
+    destination: "/agent-spec/langgraph",
+  },
+  {
+    id: "FOLD-stale",
+    source: "/strands/agent-spec/quickstart",
+    destination: "/agent-spec/quickstart",
+  },
+  {
+    id: "FOLD-stale",
+    source: "/strands/agent-spec/wayflow",
+    destination: "/agent-spec/wayflow",
+  },
+  {
+    id: "FOLD-stale",
+    source: "/strands/deepagents",
+    destination: "/deepagents",
+  },
 ];
