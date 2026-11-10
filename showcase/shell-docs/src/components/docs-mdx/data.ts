@@ -8,10 +8,7 @@
 
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import {
-  DOCS_FOLDER_OVERRIDES,
-  DOCS_ONLY_FRAMEWORK_MODES,
-} from "@/lib/live-scope";
+import { DOCS_FOLDER_OVERRIDES, LIVE_FRAMEWORKS } from "@/lib/live-scope";
 
 export interface Feature {
   id: string;
@@ -41,6 +38,7 @@ export interface Integration {
   copilotkit_version: string;
   backend_url: string;
   deployed: boolean;
+  /** `hidden` takes the framework out of the docs. */
   docs_mode?: "generated" | "authored" | "hidden";
   generative_ui?: string[];
   interaction_modalities?: string[];
@@ -192,10 +190,9 @@ export function getFeature(id: string): Feature | undefined {
   return getRegistry().feature_registry.features.find((f) => f.id === id);
 }
 
-export function getDocsMode(slug: string): "generated" | "authored" | "hidden" {
-  const integration = getIntegration(slug);
-  if (integration?.docs_mode) return integration.docs_mode;
-  return DOCS_ONLY_FRAMEWORK_MODES[slug] ?? "generated";
+/** Whether a framework has docs (its showcase manifest doesn't hide it). */
+export function hasDocs(slug: string): boolean {
+  return Object.hasOwn(LIVE_FRAMEWORKS, slug);
 }
 
 /** The `integrations/<folder>/` that holds a framework's own docs. */

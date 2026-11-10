@@ -1,0 +1,10 @@
+{
+  "title": "Agentic Protocols",
+  "icon": "lucide/Zap",
+  "pages": [
+    "ag-ui",
+    "ag-ui-middleware",
+    "mcp",
+    "a2a"
+  ]
+}

@@ -1,5 +1,5 @@
 import {
-  getDocsMode,
+  hasDocs,
   getIntegrations,
   ROOT_FRAMEWORK,
 } from "@/components/docs-mdx/data";
@@ -29,9 +29,7 @@ const OPENBOT_SOURCE_URL = "https://github.com/CopilotKit/OpenBot";
 /** Every visible external framework's overview and quickstart, in registry order. */
 function curatedFrameworkPages(): CuratedPage[] {
   return getIntegrations()
-    .filter(
-      ({ slug }) => slug !== ROOT_FRAMEWORK && getDocsMode(slug) !== "hidden",
-    )
+    .filter(({ slug }) => slug !== ROOT_FRAMEWORK && hasDocs(slug))
     .flatMap(({ slug, name }) => [
       {
         url: slug,

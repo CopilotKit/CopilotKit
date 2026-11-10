@@ -1,125 +1,95 @@
 {
-  "title": "Overview",
+  "title": "Docs",
   "pages": [
-    "---Get Started---",
     "quickstart",
-    "cli",
-    "build-with-agents",
-    "---Concepts---",
-    "...concepts",
-    "...agentic-protocols",
-    "faq",
-    "---Build Chat UIs---",
-    "prebuilt-components",
+    "[Using these docs](/using-these-docs)",
+    "(shared)/build-with-agents",
+    "[Intelligence](/intelligence/overview)",
+    "---Basics---",
+    {
+      "title": "Chat",
+      "pages": [
+        "[Prebuilt Components](/prebuilt-components)",
+        {
+          "title": "Custom Look and Feel",
+          "pages": [
+            "custom-look-and-feel/css",
+            "custom-look-and-feel/slots",
+            "custom-look-and-feel/markdown",
+            "custom-look-and-feel/headless-ui",
+            "custom-look-and-feel/reasoning-messages"
+          ]
+        },
+        "multimodal-attachments",
+        "voice",
+        "generative-ui/reasoning",
+        "programmatic-control"
+      ]
+    },
     {
       "title": "Threads",
-      "defaultOpen": true,
       "pages": [
         "prebuilt-components/copilot-threads-drawer",
         "headless-threads"
       ]
     },
-    "custom-look-and-feel",
-    "multimodal-attachments",
-    "voice",
-    "generative-ui/reasoning",
-    "---Build Generative UI---",
-    "...generative-ui",
-    "---Add Agent Powers---",
     "frontend-tools",
-    "webmcp",
+    "---Generative UI---",
+    "[Overview](/generative-ui)",
     {
-      "title": "Shared State",
+      "title": "Controlled",
       "pages": [
-        "shared-state",
+        "generative-ui/tool-based",
+        "generative-ui/tool-rendering",
+        "generative-ui/state-rendering"
+      ]
+    },
+    {
+      "title": "Frontend-driven",
+      "pages": [
+        "generative-ui/frontend-cards"
+      ]
+    },
+    {
+      "title": "Declarative",
+      "pages": [
+        "[Components and surfaces](/generative-ui/components)",
+        "generative-ui/components/standard-catalog",
+        "[A2UI](/generative-ui/a2ui)",
+        "generative-ui/a2ui/dynamic-schema",
+        "generative-ui/a2ui/fixed-schema",
+        "generative-ui/json-render",
+        "generative-ui/hashbrown"
+      ]
+    },
+    {
+      "title": "Open-ended",
+      "pages": [
+        "generative-ui/mcp-apps",
+        "generative-ui/open-generative-ui"
+      ]
+    },
+    "---Interactivity---",
+    {
+      "title": "Shared state",
+      "pages": [
+        "[Shared State](/shared-state)",
         "shared-state/rendering-in-app",
         "shared-state/streaming",
         "shared-state/agent-readonly"
       ]
     },
-    "human-in-the-loop",
-    "multi-agent/subagents",
-    "agent-config",
-    "programmatic-control",
-    "---Runtime---",
-    "...backend",
-    "runtime-server-adapter",
-    "auth",
-    "---Observe & Operate---",
-    "inspector",
-    "vs-code-extension",
-    "---Intelligence---",
-    "intelligence/overview",
-    "intelligence/quickstart",
-    "intelligence/intelligence-platform",
     {
-      "title": "AG-UI Streams",
-      "defaultOpen": true,
+      "title": "Human-in-the-loop",
       "pages": [
-        "AG-UI-Streams",
-        "intelligence/bring-your-own-thread-system",
-        "threads-import",
-        "threads-lifecycle",
-        "intelligence/threads-explained"
+        "[HITL Overview](/human-in-the-loop)",
+        "human-in-the-loop/useInterrupt",
+        "human-in-the-loop/headless",
+        "human-in-the-loop/governed-actions"
       ]
     },
-    "intelligence/memories",
-    "learning",
-    "intelligence/learned-skills",
-    {
-      "title": "Trajectories",
-      "pages": [
-        "intelligence/trajectories",
-        "intelligence/trajectories-quickstart",
-        "intelligence/capture-interactions",
-        "intelligence/captured-data",
-        "intelligence/trajectories-reference"
-      ]
-    },
-    "intelligence/standalone-collector",
-    "intelligence/analytics",
-    "intelligence/channels",
-    "intelligence/managed-intelligence-platform",
-    "intelligence/plans",
-    "intelligence/self-hosting",
-    "intelligence/self-hosting-local",
-    "intelligence/self-hosting-ecs",
-    "intelligence/self-hosting-observability",
-    "---Deploy---",
-    "...deploy",
-    "---Other---",
-    "...(other)",
-    "community-frameworks",
-    {
-      "title": "Troubleshooting",
-      "pages": [
-        "troubleshooting/common-issues",
-        "troubleshooting/error-reference",
-        "troubleshooting/error-debugging",
-        "troubleshooting/inspector-dev-console",
-        "troubleshooting/debug-mode",
-        "troubleshooting/event-inspector",
-        "troubleshooting/hook-explorer"
-      ]
-    },
-    {
-      "title": "What's New",
-      "pages": [
-        "whats-new/mcp-apps-support",
-        "whats-new/langgraph-deep-agents",
-        "whats-new/a2ui-launch",
-        "whats-new/v1-50",
-        "whats-new/generative-ui-spec-support",
-        "whats-new/a2a-mcp-handshake"
-      ]
-    },
-    {
-      "title": "Migrate",
-      "pages": [
-        "migrate/v2",
-        "migrate/1.10.X",
-        "migrate/1.8.2"
-      ]
-    }
+    "(shared)/webmcp",
+    "---Agent capabilities---",
+    "(shared)/multi-agent/subagents"
   ]
 }
