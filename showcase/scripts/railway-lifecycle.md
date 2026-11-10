@@ -1,10 +1,9 @@
 # Railway disposable ownership contract
 
-> **Registry disconnected (PNI-786), except the staging harness.** The image
-> gate and the ordinary promote steps no longer read the disposable runner's
-> registry. The staging harness still does until its manual step in
-> [Registry disconnected](#registry-disconnected) is done; treat it as connected
-> until then.
+> **Registry disconnected (PNI-786).** No Showcase reader reads the disposable
+> runner's registry: the staging harness since 2026-11-10, and the image gate and
+> ordinary promote steps from this change. See
+> [Registry disconnected](#registry-disconnected).
 
 Set `SHOWCASE_DISPOSABLE_RUN_RECORDS_FILE` to a durable JSON snapshot published
 by the lifecycle writer. This contract covers read-only registry classification;
@@ -327,11 +326,10 @@ shows up as unknown and fails. Static mode is therefore stricter, never looser.
   enforces this. The opt-in `validate_registry_only` dispatch step stays bound,
   so the registry can still be checked before reconnecting. The repository
   variable and secret stay configured for that step.
-- **Staging harness (manual, still connected until done).** Remove the same
-  three variables from the staging `harness` Railway service together, then
-  redeploy it. Never remove only some of them. Until this is done, a policy hash
-  the runner doesn't publish stops staging discovery, so keep a reviewed reader
-  transition for any policy change.
+- **Staging harness.** Disconnected on 2026-11-10 at 07:32Z by removing the same
+  three variables from the staging `harness` Railway service together and
+  redeploying it. Discovery has logged no lifecycle lines since. The pre-change
+  values and restore source are recorded in PNI-786.
 - **Runner environments.** Without registry evidence the image gate cannot see
   recorded runs, so it grants no unregistered-service exception in any
   environment named `rich-…` (the runner's naming).
