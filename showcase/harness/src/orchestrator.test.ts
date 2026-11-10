@@ -1,4 +1,6 @@
 import { describe, it, expect, afterEach, beforeEach, vi } from "vitest";
+import { readFileSync, readdirSync } from "node:fs";
+import yaml from "js-yaml";
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import os from "node:os";
@@ -15,6 +17,7 @@ import {
   envForCfg,
   createRailwayAdapter,
   registerAllProbeDrivers,
+  registerAllDiscoverySources,
   buildPooledBrowserDrivers,
   buildCvdiagPersistenceWriter,
   buildProducerSchedules,
@@ -82,6 +85,7 @@ import type { DiscoverySource } from "./probes/types.js";
 import type { RailwayServiceInfo } from "./probes/discovery/railway-services.js";
 import { BrowserPool } from "./probes/helpers/browser-pool.js";
 import { createProbeRegistry } from "./probes/drivers/index.js";
+import { createDiscoveryRegistry } from "./probes/discovery/index.js";
 import type { createScheduler } from "./scheduler/scheduler.js";
 import { createEventBus } from "./events/event-bus.js";
 import { logger } from "./logger.js";
@@ -2580,6 +2584,48 @@ describe("orchestrator.registerAllProbeDrivers (post-#4292 hotfix guard)", () =>
     const kinds = registry.list();
     expect(kinds).not.toContain("e2e_deep");
     expect(kinds).toContain("e2e_d6");
+  });
+});
+
+/**
+ * Regression guard: both probe loaders (`boot()` and the control-plane's
+ * in-process HTTP loader) register discovery sources via
+ * `registerAllDiscoverySources`. Before that helper existed the control-plane
+ * registry lacked `cross-env-pin-drift`, so every fleet control-plane boot
+ * logged `probe-loader.file-failed ... discovery.source 'cross-env-pin-drift'
+ * is not registered` and the weekly `pin_drift_cross_env` probe never ran.
+ */
+describe("orchestrator.registerAllDiscoverySources", () => {
+  it("registers every discovery.source referenced by config/probes/*.yml", () => {
+    const registry = createDiscoveryRegistry();
+    registerAllDiscoverySources(registry, {
+      logger,
+      authTracker: {
+        recordSuccess: async () => {},
+        recordFailure: async () => {},
+      },
+    });
+    const registered = registry.list();
+
+    const probesDir = path.resolve(
+      path.dirname(new URL(import.meta.url).pathname),
+      "../config/probes",
+    );
+    const referenced = new Set<string>();
+    for (const file of readdirSync(probesDir)) {
+      if (!/\.ya?ml$/.test(file)) continue;
+      const doc = yaml.load(
+        readFileSync(path.join(probesDir, file), "utf8"),
+      ) as { discovery?: { source?: string } } | null;
+      const source = doc?.discovery?.source;
+      if (source) referenced.add(source);
+    }
+
+    expect(referenced.size).toBeGreaterThan(0);
+    expect(referenced).toContain("cross-env-pin-drift");
+    for (const source of referenced) {
+      expect(registered).toContain(source);
+    }
   });
 });
 
