@@ -101,35 +101,52 @@ describe("createWebhookHandler", () => {
   });
 
   describe("signed event", () => {
-    it("responds 200 before onEvent runs, then dispatches the event", async () => {
-      const { handler, onEvent } = makeHandler();
-      const rawBody = JSON.stringify(EVENT);
+    const rawBody = JSON.stringify(EVENT);
+
+    it("awaits onEvent, responds 200, then runs the dispatch it returned", async () => {
+      const dispatch = vi.fn(async () => {});
+      const onEvent = vi.fn(async () => dispatch);
+      const { handler } = makeHandler({ onEvent });
 
       const response = await handler(postRequest(rawBody, sign(rawBody)));
 
       expect(response.status).toBe(200);
-      expect(onEvent).not.toHaveBeenCalled();
-      await vi.waitFor(() => expect(onEvent).toHaveBeenCalledWith(EVENT));
+      expect(onEvent).toHaveBeenCalledWith(EVENT);
+      expect(dispatch).not.toHaveBeenCalled();
+      await vi.waitFor(() => expect(dispatch).toHaveBeenCalledTimes(1));
     });
 
     it("checks the signature over the raw bytes, not re-serialized JSON", async () => {
       const { handler, onEvent } = makeHandler();
-      const rawBody = JSON.stringify(EVENT, null, 2);
+      const prettyBody = JSON.stringify(EVENT, null, 2);
 
-      const response = await handler(postRequest(rawBody, sign(rawBody)));
+      const response = await handler(postRequest(prettyBody, sign(prettyBody)));
 
       expect(response.status).toBe(200);
-      await vi.waitFor(() => expect(onEvent).toHaveBeenCalledWith(EVENT));
+      expect(onEvent).toHaveBeenCalledWith(EVENT);
     });
 
-    it("sends a rejected onEvent to onError", async () => {
-      const failure = new Error("agent down");
+    it("responds 500 when onEvent rejects, so Notion retries, and sends the error to onError", async () => {
+      const failure = new Error("Notion returned 503");
       const onError = vi.fn();
       const { handler } = makeHandler({
         onEvent: () => Promise.reject(failure),
         onError,
       });
-      const rawBody = JSON.stringify(EVENT);
+
+      const response = await handler(postRequest(rawBody, sign(rawBody)));
+
+      expect(response.status).toBe(500);
+      expect(onError).toHaveBeenCalledWith(failure);
+    });
+
+    it("responds 200 and sends a rejected dispatch to onError", async () => {
+      const failure = new Error("agent down");
+      const onError = vi.fn();
+      const { handler } = makeHandler({
+        onEvent: async () => () => Promise.reject(failure),
+        onError,
+      });
 
       const response = await handler(postRequest(rawBody, sign(rawBody)));
 

@@ -11,13 +11,19 @@ export interface WebhookHandlerOptions extends Pick<
   "verificationToken" | "onVerificationToken"
 > {
   /**
-   * Called with every signed event, after the 200 response is returned.
-   * Every event type is passed through; filter on `event.type` yourself.
+   * Called with every signed event, before the response. Every event type is
+   * passed through; filter on `event.type` yourself.
+   *
+   * Do the reads that can fail here, and keep them fast: Notion waits for the
+   * response. When `onEvent` rejects, the response is 500 and Notion retries
+   * the delivery. Return a function for the slow work: it runs after the 200
+   * response.
    */
-  onEvent: (event: NotionWebhookEvent) => void | Promise<void>;
+  onEvent: (event: NotionWebhookEvent) => Promise<void | (() => Promise<void>)>;
   /**
-   * Called when `onEvent` or `onVerificationToken` throws or rejects
-   * (default: `console.error` with a `[channels-notion]` prefix).
+   * Called when `onEvent`, the function it returns, or `onVerificationToken`
+   * throws or rejects (default: `console.error` with a `[channels-notion]`
+   * prefix).
    */
   onError?: (error: unknown) => void;
 }
@@ -67,7 +73,10 @@ function defaultOnError(error: unknown) {
  * - Every other POST must carry a valid `X-Notion-Signature` header, signed
  *   with `verificationToken`. Without a configured token, or with a bad
  *   signature, the response is 401.
- * - A signed event gets a 200 at once. `onEvent` runs after the response.
+ * - A signed event goes to `onEvent`, and the handler waits for it. When it
+ *   rejects, the response is 500, so Notion retries the delivery. When it
+ *   resolves, the response is 200, and the function it returned (if any) runs
+ *   after the response.
  *
  * Mount it on any framework that speaks `Request`/`Response`:
  *
@@ -75,7 +84,9 @@ function defaultOnError(error: unknown) {
  * const handleWebhook = createWebhookHandler({
  *   verificationToken: process.env.NOTION_VERIFICATION_TOKEN,
  *   onEvent: async (event) => {
- *     if (event.type === "comment.created") await handleComment(event);
+ *     if (event.type !== "comment.created") return;
+ *     const comment = await fetchComment(event.entity.id); // a failure answers 500
+ *     return () => replyTo(comment); // runs after the 200
  *   },
  * });
  * app.post("/webhook", (c) => handleWebhook(c.req.raw));
@@ -83,7 +94,7 @@ function defaultOnError(error: unknown) {
  *
  * @param options.verificationToken - Key for the signature check.
  * @param options.onVerificationToken - Receives the token from the verification POST.
- * @param options.onEvent - Receives each signed event.
+ * @param options.onEvent - Prepares each signed event, and may return the work to run after the response.
  * @param options.onError - Receives errors thrown by the callbacks.
  * @returns `(request: Request) => Promise<Response>`.
  */
@@ -147,7 +158,15 @@ export function createWebhookHandler(options: WebhookHandlerOptions) {
 
     // A signed body comes from Notion, so it has the documented event shape.
     const event: NotionWebhookEvent = body as NotionWebhookEvent;
-    runLater(() => onEvent(event));
+    let dispatch: void | (() => Promise<void>);
+    try {
+      dispatch = await onEvent(event);
+    } catch (error) {
+      // A 500 makes Notion retry the delivery.
+      onError(error);
+      return new Response(null, { status: 500 });
+    }
+    if (dispatch) runLater(dispatch);
     return new Response(null, { status: 200 });
   };
 }

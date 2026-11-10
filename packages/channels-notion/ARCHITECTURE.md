@@ -57,18 +57,24 @@ Application authors use this package with the product-facing
 ## Request lifecycle
 
 1. Notion POSTs to the webhook URL. `createWebhookHandler` (`webhook.ts`)
-   checks `X-Notion-Signature` against `verificationToken`, answers `200`, and
-   runs `onEvent` after the response.
-2. `handleNotionEvent` (`ingress.ts`) keeps only `comment.created` events that
-   another user wrote. Events carry only the comment id, so it fetches the
-   comment for its text and `discussion_id`.
-3. If the discussion has pending choices and the reply picks one, ingress
-   calls `sink.onInteraction` and clears the choices.
-4. Otherwise, if the comment is addressed to the bot, ingress calls
-   `sink.onTurn` with the conversation key `notion:<discussionId>`.
-5. `thread.runAgent()` builds the agent with history from
+   checks `X-Notion-Signature` against `verificationToken`. Then it waits for
+   `onEvent`, which prepares the event.
+2. `prepareNotionEvent` (`ingress.ts`) keeps only `comment.created` events
+   that another user wrote. Events carry only the comment id, so it fetches
+   the comment for its text and `discussion_id`. It also reads the bot user,
+   the pending choices, and the joined flag.
+3. If a read fails, the handler answers `500` and Notion retries the
+   delivery. Nothing reaches the sink, so the retry is not a duplicate.
+4. If the discussion has pending choices and the reply picks one, ingress
+   clears the choices. This is the last step of the prepare phase, so an
+   earlier failure keeps the choices for the retry.
+5. The handler answers `200`. After the response, the dispatch function that
+   ingress returned calls `sink.onInteraction` for a choice, or `sink.onTurn`
+   (conversation key `notion:<discussionId>`) for a comment addressed to the
+   bot.
+6. `thread.runAgent()` builds the agent with history from
    `NotionConversationStore`, then runs it with `createRunRenderer(target)`.
-6. The renderer streams each AG-UI text message into a comment in the same
+7. The renderer streams each AG-UI text message into a comment in the same
    discussion. The first reply marks the discussion as joined.
 
 ### Webhook verification
@@ -107,7 +113,9 @@ store removes it from history too, so both show the same words.
 - `RUN_ERROR` posts an error comment.
 
 All Notion calls run one at a time, in order. Errors are logged with a
-`[channels-notion]` prefix.
+`[channels-notion]` prefix. `finish()` sends the text that is not sent yet.
+If this final delivery fails, `finish()` logs the error and then rejects with
+it, so `thread.runAgent()` rejects too.
 
 ### Tools
 
@@ -166,7 +174,7 @@ src/
 ├── types.ts                  # NotionAdapterOptions, ReplyTarget, NotionMessageRef, Notion API types
 ├── webhook.ts                # createWebhookHandler: verification POST + signature check
 ├── webhook-server.ts         # NotionWebhookServer: optional node:http server for the handler
-├── ingress.ts                # handleNotionEvent: comment.created -> onTurn / onInteraction
+├── ingress.ts                # prepareNotionEvent: comment.created -> onTurn / onInteraction
 ├── interaction.ts            # conversationKeyOf + numbered-reply decoding
 ├── conversation-state.ts     # joined discussions + pending choices in the StateStore
 ├── conversation-store.ts     # NotionConversationStore: discussion comments -> agent.messages

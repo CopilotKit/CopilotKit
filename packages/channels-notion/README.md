@@ -144,8 +144,9 @@ ignores the bot's own comments.
 | `supportsReactions`      | false     | The adapter does not add reactions.                                |
 | `supportsEphemeral`      | false     | Every comment is visible to all page readers.                      |
 
-`ackDeadlineMs` is 10000. The webhook handler answers `200` at once and routes
-the event after the response.
+`ackDeadlineMs` is 10000. The webhook handler reads the comment before it
+answers. If it cannot read the event, it answers `500` and Notion retries the
+delivery. Otherwise it answers `200` and routes the event after the response.
 
 ## `NotionAdapterOptions` reference
 

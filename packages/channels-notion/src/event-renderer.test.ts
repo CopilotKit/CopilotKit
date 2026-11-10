@@ -280,7 +280,7 @@ describe("createRunRenderer text streaming", () => {
       expect.stringContaining("[channels-notion] rate limited"),
     );
 
-    await renderer.finish?.();
+    await expect(renderer.finish?.()).resolves.toBeUndefined();
     expect(notion.texts()).toEqual(["Hello world"]);
   });
 
@@ -288,6 +288,30 @@ describe("createRunRenderer text streaming", () => {
     const { notion, run } = setup();
     await run.runError("boom");
     expect(notion.texts()).toEqual(["⚠️ Agent error: boom"]);
+  });
+});
+
+describe("createRunRenderer finish", () => {
+  it("logs and rejects with the error when the final text cannot be sent", async () => {
+    const { notion, renderer, run } = setup();
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    const outage = new NotionApiError({
+      status: 503,
+      code: "service_unavailable",
+      message: "Notion is down",
+    });
+    run.delta("m1", "Hello");
+    await vi.advanceTimersByTimeAsync(0);
+    run.delta("m1", " world");
+    notion.failNextUpdate(outage);
+
+    await expect(renderer.finish?.()).rejects.toBe(outage);
+    expect(notion.texts()).toEqual(["Hello"]);
+    expect(error).toHaveBeenCalledTimes(1);
+    expect(error).toHaveBeenCalledWith(
+      "[channels-notion] Notion comment request failed:",
+      outage,
+    );
   });
 });
 

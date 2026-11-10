@@ -3,6 +3,7 @@ import { request } from "node:http";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { NotionWebhookEvent } from "./types.js";
 import { createWebhookHandler } from "./webhook.js";
+import type { WebhookHandlerOptions } from "./webhook.js";
 import { NotionWebhookServer } from "./webhook-server.js";
 
 const TOKEN = "secret_verification_token";
@@ -22,7 +23,7 @@ const EVENT: NotionWebhookEvent = {
 const servers: NotionWebhookServer[] = [];
 
 async function startServer(path?: string) {
-  const onEvent = vi.fn<(event: NotionWebhookEvent) => void>();
+  const onEvent = vi.fn<WebhookHandlerOptions["onEvent"]>();
   const server = new NotionWebhookServer({
     handler: createWebhookHandler({ verificationToken: TOKEN, onEvent }),
     path,

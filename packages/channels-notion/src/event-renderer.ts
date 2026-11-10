@@ -68,7 +68,10 @@ interface MessageState {
  *
  * Tool calls and interrupt custom events are captured for the run loop.
  * A RUN_ERROR posts "⚠️ Agent error: <message>". Notion errors are logged
- * with a "[channels-notion]" prefix and never thrown from subscriber hooks.
+ * with a "[channels-notion]" prefix and never thrown from subscriber hooks or
+ * `markInterrupted()`. `finish()` makes the final delivery of the reply text:
+ * when that fails, it logs the error and then rejects with it, so
+ * `thread.runAgent()` rejects too.
  *
  * @param options.client Notion client (`createComment`, `updateComment`).
  * @param options.target Discussion that receives the replies.
@@ -94,6 +97,8 @@ export function createRunRenderer(options: NotionRunRendererOptions) {
   let queue = Promise.resolve();
   let flushTimer: ReturnType<typeof setTimeout> | undefined;
   let flushQueued = false;
+  /** The latest failed sync. `finish()` rejects with it when text is left unsent. */
+  let syncError: unknown;
 
   /** Run `task` after every earlier Notion call. Errors are logged, never rethrown. */
   const enqueue = (task: () => Promise<void>) => {
@@ -158,6 +163,7 @@ export function createRunRenderer(options: NotionRunRendererOptions) {
         } catch (err) {
           // Keep the text: the next flush (or finish) tries again.
           dirty.add(msg);
+          syncError = err;
           logError(err);
         }
       }
@@ -280,6 +286,9 @@ export function createRunRenderer(options: NotionRunRendererOptions) {
       clearFlushTimer();
       await flushDirty();
       await queue;
+      // A message still dirty after the final flush never reached Notion.
+      const isReplyUnsent = dirty.size > 0;
+      if (isReplyUnsent) throw syncError;
     },
   } satisfies RunRenderer;
 }

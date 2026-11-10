@@ -106,8 +106,9 @@ serve({ fetch: app.fetch, port: Number(process.env.PORT ?? 3000) });
 how choices work.
 
 `handleWebhook` takes a fetch `Request` and returns a `Response`, so any
-framework that uses `Request` can mount it. It answers `200` at once and routes
-the event after the response.
+framework that uses `Request` can mount it. It reads the comment before it
+answers. If it cannot read the event, it answers `500` and Notion retries the
+delivery. Otherwise it answers `200` and routes the event after the response.
 
 ## 3. Create the webhook subscription
 

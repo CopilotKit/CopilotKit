@@ -1,4 +1,8 @@
-import type { IngressSink, StateStore } from "@copilotkit/channels-core";
+import type {
+  IncomingTurn,
+  IngressSink,
+  StateStore,
+} from "@copilotkit/channels-core";
 import type { ProviderActor } from "@copilotkit/channels-ui";
 import type { NotionApiClient } from "./client.js";
 import {
@@ -21,7 +25,7 @@ export type NotionBotIdentity = Awaited<
   ReturnType<NotionApiClient["getBotUser"]>
 >;
 
-/** What {@link handleNotionEvent} needs to turn an event into ingress. */
+/** What {@link prepareNotionEvent} needs to turn an event into ingress. */
 export interface NotionIngressDeps {
   sink: Pick<IngressSink, "onTurn" | "onInteraction">;
   /** Holds pending numbered choices and joined discussions. */
@@ -35,23 +39,34 @@ export interface NotionIngressDeps {
 }
 
 /**
- * Route one signed Notion webhook event to the ingress sink.
+ * Prepare one signed Notion webhook event for the ingress sink.
+ *
+ * This is the part of ingress that can fail and needs no agent run, so the
+ * webhook awaits it before it answers. When it throws, the webhook answers
+ * 500 and Notion retries the delivery.
  *
  * Only `comment.created` is handled. The bot's own comments are ignored. The
  * comment is fetched, and then:
  *
  * - When the discussion has pending numbered choices and the reply is a choice
- *   number or label, it goes to `sink.onInteraction` and the choices are cleared.
- * - Otherwise it goes to `sink.onTurn` when it mentions the bot user, starts
- *   with the trigger text, or is in a discussion the bot already replied in.
- *   The leading mention or trigger is removed from `userText`.
- * - Any other comment is ignored.
+ *   number or label, the choices are cleared (the last step, so an earlier
+ *   failure keeps them for the retry) and the result dispatches to
+ *   `sink.onInteraction`.
+ * - Otherwise the result dispatches to `sink.onTurn` when the comment mentions
+ *   the bot user, starts with the trigger text, or is in a discussion the bot
+ *   already replied in. The leading mention or trigger is removed from
+ *   `userText`.
+ * - Any other comment resolves to `undefined`: nothing to dispatch.
  *
  * @param event - A verified webhook event.
  * @param deps - Sink, state store, API client, bot user, and trigger.
- * @throws `NotionApiError` when the comment cannot be fetched.
+ * @returns A function that hands the event to the sink, or `undefined`.
+ * @throws `NotionApiError` when the bot user or the comment cannot be fetched.
+ * @example
+ * const dispatch = await prepareNotionEvent(event, deps);
+ * await dispatch?.();
  */
-export async function handleNotionEvent(
+export async function prepareNotionEvent(
   event: NotionWebhookEvent,
   deps: NotionIngressDeps,
 ) {
@@ -103,8 +118,9 @@ export async function handleNotionEvent(
     : undefined;
   if (interaction !== undefined) {
     await clearPendingChoices(deps.stateStore, discussionId);
-    await deps.sink.onInteraction(interaction);
-    return;
+    return async () => {
+      await deps.sink.onInteraction(interaction);
+    };
   }
 
   const isAddressed =
@@ -112,7 +128,7 @@ export async function handleNotionEvent(
   if (!isAddressed || userText === "") return;
 
   const messageRef: NotionMessageRef = { id: comment.id, discussionId };
-  await deps.sink.onTurn({
+  const turn: IncomingTurn = {
     ...base,
     userText,
     operation: {
@@ -124,7 +140,10 @@ export async function handleNotionEvent(
     messageRef,
     identityContext: identityContext("message"),
     platform: "notion",
-  });
+  };
+  return async () => {
+    await deps.sink.onTurn(turn);
+  };
 }
 
 function pageIdOf(comment: NotionComment) {

@@ -16,7 +16,7 @@ import {
 } from "./conversation-state.js";
 import { NotionConversationStore } from "./conversation-store.js";
 import { createRunRenderer } from "./event-renderer.js";
-import { handleNotionEvent } from "./ingress.js";
+import { prepareNotionEvent } from "./ingress.js";
 import type { NotionBotIdentity } from "./ingress.js";
 import { NOTION_LIMITS, truncateText } from "./render/budget.js";
 import { renderNotionMessage } from "./render/message.js";
@@ -84,9 +84,10 @@ export class NotionAdapter implements PlatformAdapter {
   readonly client: NotionApiClient;
   /**
    * Fetch-style handler for Notion webhook POSTs. It checks the
-   * `X-Notion-Signature` header, answers 200 at once, and routes
-   * `comment.created` events to the channel. Events that arrive before
-   * `start()` are dropped.
+   * `X-Notion-Signature` header, reads the comment of a `comment.created`
+   * event, answers, and then routes the event to the channel. When the
+   * comment or the adapter state cannot be read, it answers 500 and Notion
+   * retries the delivery. Events that arrive before `start()` are dropped.
    *
    * @example
    * app.post("/webhook", (c) => adapter.handleWebhook(c.req.raw));
@@ -246,10 +247,11 @@ export class NotionAdapter implements PlatformAdapter {
     return this.botUser;
   };
 
+  /** Prepare an event; the webhook runs the returned dispatch after its 200. */
   private async onEvent(event: NotionWebhookEvent) {
     const sink = this.sink;
     if (!sink) return;
-    await handleNotionEvent(event, {
+    return prepareNotionEvent(event, {
       sink,
       stateStore: this.state,
       client: this.client,

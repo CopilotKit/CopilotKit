@@ -7,7 +7,7 @@ import {
   savePendingChoices,
 } from "./conversation-state.js";
 import type { PendingChoices } from "./conversation-state.js";
-import { handleNotionEvent } from "./ingress.js";
+import { prepareNotionEvent } from "./ingress.js";
 import type { NotionIngressDeps } from "./ingress.js";
 import type {
   NotionComment,
@@ -98,15 +98,14 @@ interface Setup {
   pending?: PendingChoices;
 }
 
-/** Run one event through ingress with a fake API client and a recording sink. */
-async function ingest(setup: Setup) {
+/** Ingress deps with a fake API client and a recording sink. */
+async function createDeps(setup: Setup) {
   const stateStore = new MemoryStore();
   if (setup.joined) await markJoined(stateStore, "disc-1");
   if (setup.pending)
     await savePendingChoices(stateStore, "disc-1", setup.pending);
   const turns: IncomingTurn[] = [];
   const interactions: InteractionEvent[] = [];
-  const event = setup.event ?? createEvent();
   const deps: NotionIngressDeps = {
     sink: {
       onTurn: (turn) => {
@@ -126,12 +125,32 @@ async function ingest(setup: Setup) {
     bot: async () => BOT,
     ...(setup.trigger === undefined ? {} : { trigger: setup.trigger }),
   };
-  await handleNotionEvent(event, deps);
+  return { deps, stateStore, turns, interactions };
+}
+
+/** Prepare one event and run the dispatch it returns. */
+async function ingest(setup: Setup) {
+  const { deps, stateStore, turns, interactions } = await createDeps(setup);
+  const event = setup.event ?? createEvent();
+  const dispatch = await prepareNotionEvent(event, deps);
+  await dispatch?.();
   const pendingAfter = await readPendingChoices(stateStore, "disc-1");
   return { turns, interactions, event, pendingAfter };
 }
 
-describe("handleNotionEvent", () => {
+describe("prepareNotionEvent", () => {
+  it("calls no sink while preparing; the returned function dispatches the turn", async () => {
+    const { deps, turns } = await createDeps({
+      comment: createComment([mention("bot-1", "@Acme Bot"), text(" hi")]),
+    });
+
+    const dispatch = await prepareNotionEvent(createEvent(), deps);
+    expect(turns).toEqual([]);
+
+    await dispatch?.();
+    expect(turns.map((turn) => turn.userText)).toEqual(["hi"]);
+  });
+
   it("turns a comment that mentions the bot into a turn without the mention", async () => {
     const comment = createComment([
       mention("bot-1", "@Acme Bot"),

@@ -56,6 +56,7 @@ function createFakeNotion() {
   /** Every request, as "<METHOD> <path>". */
   const requests: string[] = [];
   let commentSeq = 0;
+  let commentReadsDown = 0;
 
   const json = (body: object, status = 200) =>
     new Response(JSON.stringify(body), {
@@ -119,6 +120,13 @@ function createFakeNotion() {
     if (!existing) return notFound();
     switch (method) {
       case "GET":
+        if (commentReadsDown > 0) {
+          commentReadsDown -= 1;
+          return json(
+            { object: "error", code: "service_unavailable", message: "busy" },
+            503,
+          );
+        }
         return json(existing);
       case "PATCH":
         existing.rich_text = body.rich_text ?? [];
@@ -142,6 +150,10 @@ function createFakeNotion() {
     /** A comment written by a person (it does not go through the API). */
     userComment: (discussionId: string, richText: RichTextItem[]) =>
       addComment(discussionId, richText, USER_ID),
+    /** Answer the next comment read (`GET /v1/comments/{id}`) with a 503. */
+    failNextCommentRead: () => {
+      commentReadsDown += 1;
+    },
     /** A comment written by the bot outside the adapter, e.g. by another process. */
     botComment: (discussionId: string, richText: RichTextItem[]) =>
       addComment(discussionId, richText, BOT_ID),
@@ -184,13 +196,18 @@ function commentCreatedEvent(comment: NotionComment) {
   return event;
 }
 
-/** POST the signed `comment.created` event for `comment` to the adapter. */
-async function deliver(adapter: NotionAdapter, comment: NotionComment) {
-  const rawBody = JSON.stringify(commentCreatedEvent(comment));
+/** POST one signed event to the adapter and return the response status. */
+async function post(adapter: NotionAdapter, event: NotionWebhookEvent) {
+  const rawBody = JSON.stringify(event);
   const response = await adapter.handleWebhook(
     webhookRequest(rawBody, sign(rawBody)),
   );
-  expect(response.status).toBe(200);
+  return response.status;
+}
+
+/** POST the signed `comment.created` event for `comment` to the adapter. */
+async function deliver(adapter: NotionAdapter, comment: NotionComment) {
+  expect(await post(adapter, commentCreatedEvent(comment))).toBe(200);
 }
 
 const RUN_INPUT: RunAgentInput = {
@@ -362,6 +379,39 @@ describe("notion() adapter, end to end", () => {
 
     expect(counters.agentRuns).toBe(0);
     expect(api.writes).toEqual([]);
+  });
+
+  it("reads the comment before it answers 200, and runs the agent after", async () => {
+    const { adapter, api, counters } = await startNotion(runAgent);
+    const question = api.userComment("disc-1", [botMention(), text(" hi")]);
+
+    await deliver(adapter, question);
+
+    expect(api.requests).toContain(`GET /v1/comments/${question.id}`);
+    expect(counters.agentRuns).toBe(0);
+    await vi.waitFor(() => expect(counters.agentRuns).toBe(1));
+  });
+
+  it("answers 500 when the comment read fails, and handles Notion's retry", async () => {
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    const { adapter, api, counters } = await startNotion(runAgent);
+    const question = api.userComment("disc-1", [botMention(), text(" hi")]);
+    const event = commentCreatedEvent(question);
+    api.failNextCommentRead();
+
+    expect(await post(adapter, event)).toBe(500);
+    await tick();
+    expect(counters.agentRuns).toBe(0);
+    expect(api.writes).toEqual([]);
+    expect(error).toHaveBeenCalledTimes(1);
+
+    expect(await post(adapter, { ...event, attempt_number: 2 })).toBe(200);
+    await vi.waitFor(() =>
+      expect(api.writes).toEqual([
+        "create c2 Here is",
+        "update c2 Here is the summary.",
+      ]),
+    );
   });
 
   it("resolves thread.awaitChoice with the value of a numbered reply", async () => {
