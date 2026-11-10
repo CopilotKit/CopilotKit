@@ -15,7 +15,7 @@ type DocsMode = "generated" | "authored";
 export const DOCS_ONLY_FRAMEWORK_MODES: Record<string, DocsMode> = {
   a2a: "generated",
   "agent-spec": "generated",
-  deepagents: "authored",
+  deepagents: "generated",
 };
 
 /** The `docs/integrations/<folder>` a framework's own docs live in, when it isn't its slug. */
