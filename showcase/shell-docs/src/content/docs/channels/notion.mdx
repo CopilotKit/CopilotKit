@@ -188,8 +188,9 @@ await listener.channels.ready({ timeoutMs: 30_000 });
 ```
 
 The webhook URL is then `http://<host>:3000/webhook`. Set the `path` option to
-use a different path. `GET /` answers `200 ok` as a health check. A request body
-over 1 MiB gets `413`.
+use a different path. `GET /` answers `200 ok` as a health check, unless you
+set `path` to `/`. Then `GET /` reaches the webhook handler, so keep the default
+path if you need the health check. A request body over 1 MiB gets `413`.
 
 ## Ask the person to choose
 
