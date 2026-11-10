@@ -18,6 +18,7 @@ import {
   of,
   switchMap,
   throwError,
+  timer,
 } from "rxjs";
 import type { ObservableNotification, Observable } from "rxjs";
 import {
@@ -81,6 +82,23 @@ const CONNECT_IDLE_WARNING_MS = 30_000;
 // Credential refreshes allowed in a row for sockets that never opened. Past this,
 // the run fails instead of waiting on a realtime endpoint that is not answering.
 const MAX_UNOPENED_CREDENTIAL_REFRESHES = 2;
+// A connect whose history fails to load (`replay_failed`) is tried again from
+// the same cursor this many times, waiting 1 s, 2 s and 4 s, then fails.
+const MAX_REPLAY_RETRIES = 3;
+const replayRetryDelayMs = phoenixExponentialBackoff(1_000, 4_000);
+
+function replayFailureReason(payload: unknown): string {
+  const reason = (payload as { reason?: unknown } | null)?.reason;
+  return typeof reason === "string" && reason !== "" ? reason : "unknown";
+}
+
+/** The gateway reported that a connect's history failed to load. */
+class ReplayFailedError extends Error {
+  constructor(reason: string) {
+    super(`Thread history failed to load (${reason}).`);
+    this.name = "ReplayFailedError";
+  }
+}
 
 interface IntelligenceAgentSharedState {
   lastSeenEventIds: Map<string, string>;
@@ -641,10 +659,40 @@ export class IntelligenceAgent extends AbstractAgent {
       channelMode?: "run" | "connect";
       replayCursor?: string | null;
       unopenedRefreshes?: number;
+      failedReplays?: number;
     },
   ): Observable<BaseEvent> {
-    const { unopenedRefreshes: previousUnopened = 0, ...sessionOptions } =
-      options;
+    const {
+      unopenedRefreshes: previousUnopened = 0,
+      failedReplays: previousFailedReplays = 0,
+      ...sessionOptions
+    } = options;
+    // A new session with fresh credentials, joined in connect mode from the
+    // saved cursor.
+    const rejoin$ = (counts: {
+      unopenedRefreshes: number;
+      failedReplays: number;
+    }): Observable<BaseEvent> => {
+      const replayCursor = this.getReconnectCursor(input);
+      return this.requestJoinCredentials$("connect", input, replayCursor).pipe(
+        switchMap((refreshedCredentials) =>
+          refreshedCredentials === null
+            ? EMPTY
+            : this.observeThread$(
+                this.applyCanonicalRunIdentity(input, refreshedCredentials, {
+                  fallbackToInputRunId: options.streamMode === "run",
+                }),
+                refreshedCredentials,
+                {
+                  ...sessionOptions,
+                  channelMode: "connect",
+                  replayCursor,
+                  ...counts,
+                },
+              ),
+        ),
+      );
+    };
     return defer(() => {
       let socketOpened = false;
       return this.observeThreadSession$(input, credentials, {
@@ -654,6 +702,25 @@ export class IntelligenceAgent extends AbstractAgent {
         },
       }).pipe(
         catchError((error) => {
+          // The session left the channel and dropped the history it held; the
+          // cursor is back where the join started. Load the history again,
+          // and fail the connect if it keeps failing.
+          if (error instanceof ReplayFailedError) {
+            const failedReplays = previousFailedReplays + 1;
+            if (failedReplays > MAX_REPLAY_RETRIES) {
+              return throwError(
+                () =>
+                  new Error(
+                    `${error.message} Gave up after ${failedReplays} attempts.`,
+                  ),
+              );
+            }
+            return timer(replayRetryDelayMs(failedReplays)).pipe(
+              switchMap(() =>
+                rejoin$({ unopenedRefreshes: previousUnopened, failedReplays }),
+              ),
+            );
+          }
           if (!this.isSocketReconnectExhaustedError(error)) {
             return throwError(() => error);
           }
@@ -679,33 +746,10 @@ export class IntelligenceAgent extends AbstractAgent {
             );
           }
 
-          const replayCursor = this.getReconnectCursor(input);
-          return this.requestJoinCredentials$(
-            "connect",
-            input,
-            replayCursor,
-          ).pipe(
-            switchMap((refreshedCredentials) =>
-              refreshedCredentials === null
-                ? EMPTY
-                : this.observeThread$(
-                    this.applyCanonicalRunIdentity(
-                      input,
-                      refreshedCredentials,
-                      {
-                        fallbackToInputRunId: options.streamMode === "run",
-                      },
-                    ),
-                    refreshedCredentials,
-                    {
-                      ...sessionOptions,
-                      channelMode: "connect",
-                      replayCursor,
-                      unopenedRefreshes,
-                    },
-                  ),
-            ),
-          );
+          return rejoin$({
+            unopenedRefreshes,
+            failedReplays: previousFailedReplays,
+          });
         }),
       );
     });
@@ -816,22 +860,18 @@ export class IntelligenceAgent extends AbstractAgent {
       // A connect holds its replayed history and passes it on in one burst
       // when the replay ends (see ReplayHold). It is released on
       // replay_complete or stream_idle, and when the stream ends; a rejoin
-      // drops what is held and holds the replay that follows. On replay_failed
-      // the gateway may already have streamed part of the history; the part
-      // held now is dropped, and since the reconnect cursor never moved past
-      // it, the next join asks for all of it again.
+      // drops what is held and holds the replay that follows.
       const replayHold = new ReplayHold<BaseEvent>(
         options.streamMode === "connect",
       );
       this.activeReplayHold = replayHold;
-      // After replay_failed this join's history has a gap. The cursor goes
-      // back to where the join started, and events that follow are dropped
-      // until a new replay starts: they are the live events the gateway held
-      // back during the replay, and applying them after the gap would either
-      // skip the gap or apply them twice. The next join asks for all of it
-      // from that cursor; the gateway only repeats a cursor it has, and a
-      // first open has none.
-      let failedReplay = false;
+      // On replay_failed the gateway may already have streamed part of the
+      // history, and the live events it sends next would follow a gap. A
+      // connect drops what it holds, puts the cursor back where the join
+      // started, and ends this session with ReplayFailedError, which leaves
+      // the channel before anything else arrives; `observeThread$` then loads
+      // the history again from that cursor. The gateway only repeats a cursor
+      // it has, and a first open has none.
       const replayFailed$ = channel$.pipe(
         switchMapOperator(({ channel }) =>
           this.observeChannelEvent$<unknown>(channel, REPLAY_FAILED_EVENT),
@@ -840,9 +880,15 @@ export class IntelligenceAgent extends AbstractAgent {
           controlCursor.replayFailed = true;
           replayHold.discard();
           if (options.streamMode !== "connect") return;
-          failedReplay = true;
           this.resetLastSeenEventId(input.threadId, reconnectCursor);
         }),
+        mergeMap((payload) =>
+          options.streamMode === "connect"
+            ? throwError(
+                () => new ReplayFailedError(replayFailureReason(payload)),
+              )
+            : EMPTY,
+        ),
       );
       // Controls are scoped to each replay epoch, not cached across rejoin.
       // Hand on the held history before the phase changes (these events are
@@ -885,7 +931,6 @@ export class IntelligenceAgent extends AbstractAgent {
           replayFinished = false;
           warnedAboutIdle = false;
           clearIdleWarning();
-          failedReplay = false;
           // Phoenix rejoins with the cursor this join started from, so the
           // gateway sends the history held so far again. Drop the held copy.
           if (options.streamMode === "connect") {
@@ -954,7 +999,6 @@ export class IntelligenceAgent extends AbstractAgent {
         replayHold
           .through(threadEvents$.pipe(takeUntil(streamIdleCompletion$)))
           .pipe(
-            filter(() => !failedReplay),
             tap((event) => this.updateLastSeenEventId(input.threadId, event)),
           ),
         streamIdleCompletion$.pipe(
