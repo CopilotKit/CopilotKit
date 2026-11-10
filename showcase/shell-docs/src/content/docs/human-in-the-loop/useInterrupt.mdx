@@ -18,12 +18,14 @@ works depends on your agent framework.
 <WhenFrameworkHas flag="interrupt_pattern" equals="native">
 
 This framework ships a first-class interrupt primitive that lets running
-work suspend itself and hand control to the client
-([LangGraph](https://docs.langchain.com/oss/python/langgraph/interrupts),
-[AWS Strands](https://strandsagents.com/docs/user-guide/concepts/interrupts/)).
+work suspend itself and hand control to the client: `interrupt()` in
+[LangGraph](https://docs.langchain.com/oss/python/langgraph/interrupts),
+[interrupts in AWS Strands](https://strandsagents.com/docs/user-guide/concepts/interrupts/),
+a tool that returns `suspend()` in Mastra, or a `@human_feedback` step in a
+CrewAI Flow.
 The run is frozen server-side until the client resolves the interrupt with a
-payload, at which point execution resumes as if the interrupt call had
-returned that payload.
+payload. Then the run resumes, and the agent receives that payload as the
+answer.
 
 CopilotKit's `useInterrupt` is the frontend half of that contract: it
 subscribes to the paused run, renders whatever component you give it,
@@ -57,32 +59,36 @@ agent continues. Only the mechanism is different.
 
 ## When should I use this?
 
-Reach for `useInterrupt` when the pause is a **graph-enforced
-checkpoint** where the code path _must_ stop and wait for a human,
+Reach for `useInterrupt` when the pause is a **checkpoint in your
+agent code** where the code path _must_ stop and wait for a human,
 not an LLM-initiated tool call. Typical cases:
 
 - A sensitive action (payments, irreversible writes) must be approved
 - A required piece of state isn't known and can only be collected from the user
 - The agent explicitly reaches an approval node in a longer workflow
-- You want the server-side contract to be `interrupt(...)` and resume with a payload
+- You want the server-side contract to be an interrupt that resumes with a payload
 
 For LLM-initiated pauses where the model decides on the fly to ask
 the user, prefer [`useHumanInTheLoop`](../human-in-the-loop).
 
 <WhenFrameworkHas flag="interrupt_pattern" equals="native">
 
-## The backend: `interrupt()` inside a tool
+## The backend: pause the run in your agent
 
 <FrameworkSetup concept="human-in-the-loop-setup" />
 
-In the tool that needs the user's answer, call `interrupt()` with the data
-your UI needs. The example agent does this in its `schedule_meeting` tool:
+In the tool or step that needs the user's answer, call your framework's
+interrupt primitive with the data your UI needs: `interrupt()` in LangGraph,
+`suspend()` in Mastra, or a `@human_feedback` step in a CrewAI Flow. The
+example agent does this in its `schedule_meeting` tool:
 
 <Snippet region="backend-interrupt-tool" title="backend: schedule_meeting interrupt tool" />
 
 The run stops here until the client resolves the interrupt. The resolve
-payload becomes the return value of `interrupt()`. The tool turns that value
-into a string for the model.
+payload comes back to the agent as the answer: the return value of
+`interrupt()` in LangGraph, `resumeData` in Mastra, or the
+`HumanFeedbackResult` that the next step of a CrewAI Flow receives. The
+example turns that value into a string for the model.
 
 Two things to note:
 
@@ -106,8 +112,9 @@ framework decides where the payload sits:
 
 <Snippet region="frontend-useinterrupt-render" title="frontend/src/app/page.tsx — useInterrupt" />
 
-Whatever you pass to `resolve` is round-tripped back to the agent as
-the return value of the matching `interrupt(...)` call.
+Whatever you pass to `resolve` is sent back to the agent as the answer to
+the matching interrupt, for example the return value of `interrupt(...)` in
+LangGraph.
 
 Ask the agent to book a call. The time picker appears in the chat. Pick a
 slot, and the agent confirms the booked time.
@@ -157,7 +164,7 @@ slot, and the agent confirms the booked time.
 
 ## Multiple interrupts? Add a type and gate with `enabled`
 
-If your graph issues more than one kind of interrupt (e.g. `"ask"` vs
+If your agent issues more than one kind of interrupt (e.g. `"ask"` vs
 `"approval"`), tag each with a `type` field on the payload and install
 one `useInterrupt` per shape, each gated by an `enabled` predicate:
 
@@ -245,6 +252,9 @@ render props **after** `onRunFinalized` fires. Your `render` function receives:
   once every open interrupt has a response.
 - **`cancel(interruptId?)`**: records `{ status: "cancelled" }` for the
   targeted interrupt. Same accumulate-then-submit logic applies.
+
+Each resume entry carries the interrupt `id`, the status, and your payload.
+`resolve` and `cancel` send no `metadata`.
 
 ### Custom-event flow (`on_interrupt`)
 
