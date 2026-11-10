@@ -210,9 +210,13 @@ The adapter remembers two things in an in-process `MemoryStore`:
 - The discussions where the agent replied.
 - The numbered choices that wait for a reply.
 
-If you run more than one instance, pass a shared store as `stateStore`. Use
-the same kind of durable store as in
-[Persistence and scaling](/channels/persistence-and-scaling).
+If you run more than one instance, pass a shared store as `stateStore`, so
+every instance knows the joined discussions. Use the same kind of durable store
+as in [Persistence and scaling](/channels/persistence-and-scaling).
+
+A numbered choice is different: `thread.awaitChoice` waits inside the process
+that posted the list, so the reply must reach that same process. If you use
+`awaitChoice`, run one instance.
 
 ## Limits
 

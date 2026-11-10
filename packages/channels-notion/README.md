@@ -207,6 +207,10 @@ The default is an in-process `MemoryStore`. If you run more than one instance,
 pass a shared `StateStore`. Otherwise, a reply can reach an instance that does
 not know the discussion.
 
+A shared store does not cover `thread.awaitChoice`. It waits inside the process
+that posted the list, so the reply must reach that same process. If you use
+`awaitChoice`, run one instance.
+
 ### Conversation history
 
 `NotionConversationStore` reads history from the discussion itself on every
