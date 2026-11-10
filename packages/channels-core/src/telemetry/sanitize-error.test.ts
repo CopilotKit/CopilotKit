@@ -6,6 +6,7 @@ describe("normalizePlatform", () => {
     expect(normalizePlatform("slack")).toBe("slack");
     expect(normalizePlatform("discord")).toBe("discord");
     expect(normalizePlatform("whatsapp")).toBe("whatsapp");
+    expect(normalizePlatform("gmail")).toBe("gmail");
     expect(normalizePlatform("teams")).toBe("teams");
     // The retired Telegram adapter's label buckets with custom adapters.
     expect(normalizePlatform("telegram")).toBe("custom");

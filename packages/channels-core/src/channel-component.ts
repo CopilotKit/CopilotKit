@@ -5,7 +5,8 @@ export type ChannelComponentPlatform =
   | "slack"
   | "teams"
   | "discord"
-  | "whatsapp";
+  | "whatsapp"
+  | "gmail";
 
 export interface ChannelComponentRenderContext {
   platform: ChannelComponentPlatform;
