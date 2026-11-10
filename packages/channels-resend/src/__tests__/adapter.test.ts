@@ -330,11 +330,14 @@ describe("outbound email", () => {
     expect(ctx.api.sent).toHaveLength(1);
   });
 
-  it("does not call the API for update or delete", async () => {
+  it("throws on update or delete and does not call the API", async () => {
     const ctx = await setup();
-    vi.spyOn(console, "debug").mockImplementation(() => {});
-    await ctx.adapter.update({ id: "sent-1" }, ir);
-    await ctx.adapter.delete({ id: "sent-1" });
+    await expect(ctx.adapter.update({ id: "sent-1" }, ir)).rejects.toThrow(
+      /cannot edit/,
+    );
+    await expect(ctx.adapter.delete({ id: "sent-1" })).rejects.toThrow(
+      /cannot delete/,
+    );
     expect(ctx.api.sent).toEqual([]);
   });
 

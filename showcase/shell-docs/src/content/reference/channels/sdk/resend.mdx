@@ -152,7 +152,8 @@ Each `thread.post()`, `thread.stream()`, and agent run sends one email.
 - `thread.postFile()` sends the file as an attachment. Resend allows 40 MB per
   email after encoding, so files over about 29 MB are refused.
 
-`thread.update()` and `thread.delete()` do nothing: sent email cannot change.
+`thread.update()` and `thread.delete()` throw an error, because sent email cannot
+change. Post a new reply instead.
 
 Sends that hit a Resend rate limit (`429`) are retried after the
 `retry-after` time. Server errors are retried with backoff. Each send has an

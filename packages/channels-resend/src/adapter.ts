@@ -330,17 +330,17 @@ export class ResendAdapter implements PlatformAdapter {
     return this.send(t, body);
   }
 
-  /** Email cannot be edited after it is sent. This is a no-op. */
-  async update(ref: MessageRef, _ir: ChannelNode[]): Promise<void> {
-    console.debug(
-      `[channels-resend] update ignored for email ${ref.id}: sent email cannot be edited`,
+  /** Sent email cannot be edited. */
+  async update(_ref: MessageRef, _ir: ChannelNode[]): Promise<void> {
+    throw new Error(
+      "Resend cannot edit an email after it is sent. Post a new reply instead.",
     );
   }
 
-  /** Email cannot be deleted after it is sent. This is a no-op. */
-  async delete(ref: MessageRef): Promise<void> {
-    console.debug(
-      `[channels-resend] delete ignored for email ${ref.id}: sent email cannot be deleted`,
+  /** Sent email cannot be taken back. */
+  async delete(_ref: MessageRef): Promise<void> {
+    throw new Error(
+      "Resend cannot delete an email from the recipient's mailbox.",
     );
   }
 
