@@ -1,0 +1,47 @@
+{
+  "name": "@copilotkit/showcase-omnara",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "next dev --webpack --hostname 127.0.0.1 --port 3123",
+    "build": "next build --webpack",
+    "start": "next start --hostname 0.0.0.0",
+    "typecheck": "tsc --noEmit",
+    "lint": "oxlint src tests",
+    "test": "tsx --test tests/*.test.ts"
+  },
+  "dependencies": {
+    "@ag-ui/client": "1.0.2",
+    "@ag-ui/core": "1.0.2",
+    "@ag-ui/omnara": "0.0.1",
+    "@omnara/sdk": "0.1.34",
+    "@copilotkit/react-core": "1.79.0",
+    "@copilotkit/runtime": "1.79.0",
+    "@copilotkit/shared": "1.79.0",
+    "next": "16.3.8",
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4",
+    "zod": "^3.25.76",
+    "zod-to-json-schema": "3.25.2"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "@types/react": "^19.2.0",
+    "@types/react-dom": "^19.2.0",
+    "oxlint": "^1.58.0",
+    "tsx": "^4.21.0",
+    "typescript": "^5.9.3",
+    "@tailwindcss/postcss": "^4.0.0",
+    "tailwindcss": "^4.0.0"
+  },
+  "engines": {
+    "node": ">=22.15.0"
+  },
+  "overrides": {
+    "@ag-ui/client": "1.0.2",
+    "@ag-ui/core": "1.0.2",
+    "@ag-ui/encoder": "1.0.2",
+    "@ag-ui/proto": "1.0.2"
+  }
+}

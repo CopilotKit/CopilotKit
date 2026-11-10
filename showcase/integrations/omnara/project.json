@@ -1,0 +1,90 @@
+{
+  "name": "showcase-omnara",
+  "$schema": "../../../node_modules/nx/schemas/project-schema.json",
+  "projectType": "application",
+  "tags": ["scope:showcase"],
+  "implicitDependencies": ["!@copilotkit/*"],
+  "targets": {
+    "build": {
+      "executor": "nx:run-commands",
+      "options": {
+        "cwd": "showcase/integrations/omnara",
+        "command": "npm run build"
+      },
+      "dependsOn": [],
+      "inputs": [
+        "{projectRoot}/**/*",
+        "!{projectRoot}/node_modules/**/*",
+        "!{projectRoot}/.next/**/*",
+        "!{projectRoot}/**/*.tsbuildinfo",
+        "!{projectRoot}/.env*"
+      ],
+      "cache": true,
+      "outputs": ["{projectRoot}/.next"]
+    },
+    "typecheck": {
+      "executor": "nx:run-commands",
+      "options": {
+        "cwd": "showcase/integrations/omnara",
+        "command": "npm run typecheck"
+      },
+      "dependsOn": [],
+      "inputs": [
+        "{projectRoot}/**/*",
+        "!{projectRoot}/node_modules/**/*",
+        "!{projectRoot}/.next/**/*",
+        "!{projectRoot}/**/*.tsbuildinfo",
+        "!{projectRoot}/.env*"
+      ],
+      "cache": true
+    },
+    "lint": {
+      "executor": "nx:run-commands",
+      "options": {
+        "cwd": "showcase/integrations/omnara",
+        "command": "npm run lint"
+      },
+      "dependsOn": [],
+      "inputs": [
+        "{projectRoot}/**/*",
+        "!{projectRoot}/node_modules/**/*",
+        "!{projectRoot}/.next/**/*",
+        "!{projectRoot}/**/*.tsbuildinfo",
+        "!{projectRoot}/.env*"
+      ],
+      "cache": true
+    },
+    "test": {
+      "executor": "nx:run-commands",
+      "options": {
+        "cwd": "showcase/integrations/omnara",
+        "command": "npm run test"
+      },
+      "dependsOn": [],
+      "inputs": [
+        "{projectRoot}/**/*",
+        "!{projectRoot}/node_modules/**/*",
+        "!{projectRoot}/.next/**/*",
+        "!{projectRoot}/**/*.tsbuildinfo",
+        "!{projectRoot}/.env*"
+      ],
+      "cache": true
+    },
+    "dev": {
+      "executor": "nx:run-commands",
+      "options": {
+        "cwd": "showcase/integrations/omnara",
+        "command": "npm run dev"
+      },
+      "dependsOn": [],
+      "inputs": [
+        "{projectRoot}/**/*",
+        "!{projectRoot}/node_modules/**/*",
+        "!{projectRoot}/.next/**/*",
+        "!{projectRoot}/**/*.tsbuildinfo",
+        "!{projectRoot}/.env*"
+      ],
+      "cache": false
+    }
+  }
+}
