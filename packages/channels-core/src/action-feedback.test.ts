@@ -10,7 +10,7 @@ import type { ChannelNode, ProviderActor } from "@copilotkit/channels-ui";
  * A refused or expired interaction is logged at warn with the action id, a
  * reference to the conversation that does not reveal its key, and the reason.
  * Where the platform has native ephemeral messages, the person who clicked is
- * told why nothing happened.
+ * told why nothing happened. The sink also returns the outcome to the adapter.
  */
 
 const tick = async () => {
@@ -80,14 +80,14 @@ async function start(opts: { nativeEphemeral: boolean; picker: boolean }) {
   return { fake, warned, id: buttonIds(fake.posted[0]!)[0]! };
 }
 
-describe("feedback on refused and expired interactions", () => {
-  afterEach(async () => {
-    vi.restoreAllMocks();
-    while (activeChannels.length > 0) {
-      await activeChannels.pop()!.ɵruntime.stop();
-    }
-  });
+afterEach(async () => {
+  vi.restoreAllMocks();
+  while (activeChannels.length > 0) {
+    await activeChannels.pop()!.ɵruntime.stop();
+  }
+});
 
+describe("feedback on refused and expired interactions", () => {
   it("warns and tells the clicker when only the initiator may answer", async () => {
     const { fake, warned, id } = await start({
       nativeEphemeral: true,
@@ -159,5 +159,46 @@ describe("feedback on refused and expired interactions", () => {
     await tick();
     expect(warned().some((l) => l.includes("expired"))).toBe(true);
     expect(fake.ephemeralPosts).toEqual([]);
+  });
+});
+
+/** Deliver a click on `id` in KEY straight to the sink and return its outcome. */
+function interact(
+  fake: FakeAdapter,
+  click: { id: string; actor: ProviderActor; eventId?: string },
+) {
+  return fake
+    .getSink()
+    .onInteraction({ ...click, conversationKey: KEY, replyTarget: {} });
+}
+
+describe("the outcome the sink returns for an interaction", () => {
+  it("refuses a non-initiator's answer to an initiator-only awaitChoice", async () => {
+    const { fake, id } = await start({ nativeEphemeral: true, picker: true });
+
+    const outcome = await interact(fake, { id, actor: mallory });
+
+    expect(outcome).toEqual({ status: "refused", reason: "not-initiator" });
+  });
+
+  it("reports the initiator's pick as handled", async () => {
+    const { fake, id } = await start({ nativeEphemeral: true, picker: true });
+
+    const outcome = await interact(fake, { id, actor: alice });
+
+    expect(outcome).toEqual({ status: "handled" });
+  });
+
+  it("ignores a second delivery of the same event", async () => {
+    const { fake, id } = await start({ nativeEphemeral: true, picker: true });
+    const pick = { id, actor: alice, eventId: "evt-1" };
+
+    const first = await interact(fake, pick);
+    const second = await interact(fake, pick);
+
+    expect([first, second]).toEqual([
+      { status: "handled" },
+      { status: "ignored" },
+    ]);
   });
 });

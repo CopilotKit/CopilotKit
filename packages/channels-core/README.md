@@ -338,6 +338,13 @@ top-level message by that message's own ts), implement
 message's actions to the key your `decodeInteraction` will report.
 See `@copilotkit/channels-slack` for a complete implementation.
 
+`sink.onInteraction(evt)` resolves to an `InteractionOutcome`. The status is
+`"handled"`, `"refused"` (with a `reason` such as `"not-initiator"`), or
+`"ignored"` (a duplicate delivery, or a control with no action). A handler
+error still rejects the promise. A comment-based adapter can remove its pending
+numbered-choice list before the call. If the status is `"refused"`, restore the
+list, so that the initiator can still answer the `awaitChoice`.
+
 ## Exports
 
 `createChannel`, `Channel`, `CreateChannelOptions`, `ChannelHandler`,
