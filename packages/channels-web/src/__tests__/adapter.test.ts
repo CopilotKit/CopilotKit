@@ -93,6 +93,15 @@ describe("WebAdapter.handler", () => {
     });
   });
 
+  it("works as a detached function, for `export const POST = adapter.handler`", async () => {
+    adapter = web();
+    await adapter.start(sink());
+    const { handler } = adapter;
+    const res = await handler(post(body()));
+    expect(res.status).toBe(200);
+    await res.text();
+  });
+
   it("answers 401 when getUser throws", async () => {
     adapter = web({
       getUser: () => {
