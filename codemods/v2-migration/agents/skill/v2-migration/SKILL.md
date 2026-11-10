@@ -38,7 +38,6 @@ The codemod already did the mechanical part: `/v2` import paths now point at the
    - remove `streamdown`, `streamdown-vue`, `react-native-streamdown`, and `katex` if the code no longer imports them.
 4. Install, then run the typecheck and the build. Fix what they report.
    - The TanStack AI packages (`@tanstack/ai*`) are ESM only. A CommonJS server (no `"type": "module"`, or `"module": "commonjs"` in `tsconfig.json`) cannot `import` them statically: move the server to ESM, or load the adapter with `await import("@tanstack/ai-openai")`.
-   - With `"moduleResolution": "node"` (or `"node10"`) TypeScript cannot read the subpaths of the 2.0 packages, such as `@copilotkit/runtime/agent`. Set it to `"bundler"`, `"node16"` or `"nodenext"`.
 5. Report to the user: what changed, each v1 feature that has no 2.0 equivalent, and anything you could not verify.
 
 See `references/index.md` for the reference files.

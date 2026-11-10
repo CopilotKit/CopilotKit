@@ -11,6 +11,22 @@
   "main": "./dist/index.cjs",
   "module": "./dist/index.mjs",
   "types": "./dist/index.d.cts",
+  "typesVersions": {
+    "*": {
+      "react": [
+        "./dist/react/index.d.cts"
+      ],
+      "react-native": [
+        "./dist/react-native/index.d.cts"
+      ],
+      "vue": [
+        "./dist/vue/index.d.cts"
+      ],
+      "dom": [
+        "./dist/dom/index.d.cts"
+      ]
+    }
+  },
   "exports": {
     ".": {
       "import": "./dist/index.mjs",

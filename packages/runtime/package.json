@@ -33,6 +33,22 @@
   "main": "./dist/index.cjs",
   "module": "./dist/index.mjs",
   "types": "./dist/index.d.cts",
+  "typesVersions": {
+    "*": {
+      "agent": [
+        "./dist/agent.d.cts"
+      ],
+      "agent/ai-sdk": [
+        "./dist/agent/ai-sdk.d.cts"
+      ],
+      "internal/learned-skills": [
+        "./dist/internal/learned-skills.d.cts"
+      ],
+      "node": [
+        "./dist/node.d.cts"
+      ]
+    }
+  },
   "exports": {
     ".": {
       "import": "./dist/index.mjs",

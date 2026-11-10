@@ -28,6 +28,13 @@
   "type": "module",
   "module": "./dist/index.mjs",
   "types": "./dist/index.d.mts",
+  "typesVersions": {
+    "*": {
+      "activity": [
+        "./dist/activity.d.cts"
+      ]
+    }
+  },
   "exports": {
     ".": {
       "import": {

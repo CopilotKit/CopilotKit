@@ -30,6 +30,13 @@
   "types": "./dist/index.d.cts",
   "unpkg": "./dist/index.umd.js",
   "jsdelivr": "./dist/index.umd.js",
+  "typesVersions": {
+    "*": {
+      "generative-ui": [
+        "./dist/generative-ui/index.d.cts"
+      ]
+    }
+  },
   "exports": {
     ".": {
       "import": "./dist/index.mjs",

@@ -31,6 +31,19 @@
   "types": "./dist/index.d.cts",
   "unpkg": "./dist/index.umd.js",
   "jsdelivr": "./dist/index.umd.js",
+  "typesVersions": {
+    "*": {
+      "engine": [
+        "./dist/engine.d.cts"
+      ],
+      "engine-core": [
+        "./dist/engine-core.d.cts"
+      ],
+      "catalog-schema": [
+        "./dist/catalog-schema.d.cts"
+      ]
+    }
+  },
   "exports": {
     ".": {
       "import": {

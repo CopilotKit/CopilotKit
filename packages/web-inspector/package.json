@@ -16,6 +16,13 @@
   "types": "./dist/index.d.cts",
   "unpkg": "./dist/index.umd.js",
   "jsdelivr": "./dist/index.umd.js",
+  "typesVersions": {
+    "*": {
+      "mount": [
+        "./dist/mount.d.cts"
+      ]
+    }
+  },
   "exports": {
     ".": {
       "import": "./dist/index.mjs",

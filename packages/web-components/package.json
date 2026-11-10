@@ -29,6 +29,13 @@
   "types": "./dist/index.d.cts",
   "unpkg": "./dist/index.umd.js",
   "jsdelivr": "./dist/index.umd.js",
+  "typesVersions": {
+    "*": {
+      "threads-drawer": [
+        "./dist/threads-drawer/index.d.cts"
+      ]
+    }
+  },
   "exports": {
     ".": {
       "import": {
