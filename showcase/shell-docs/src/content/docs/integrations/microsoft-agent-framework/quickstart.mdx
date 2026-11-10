@@ -219,7 +219,7 @@ using Microsoft.Extensions.AI;
                         ```bash
                         uv init my-agent
                         cd my-agent
-                        uv add agent-framework-ag-ui python-dotenv uvicorn agent-framework-openai
+                        uv add agent-framework-ag-ui python-dotenv uvicorn agent-framework-openai azure-identity
                         ```
                         Create a minimal FastAPI server that exposes a Microsoft Agent Framework agent over AG-UI:
                         Replace main.py file with the following
@@ -264,11 +264,54 @@ using Microsoft.Extensions.AI;
                         )
 
                         app = FastAPI(title="Microsoft Agent Framework - Quickstart")
-                        add_agent_framework_fastapi_endpoint(app=app, agent=agent, path="/")
+                        # Local development only: all requests share one authorization scope.
+                        add_agent_framework_fastapi_endpoint(
+                            app=app, agent=agent, path="/", single_user=True
+                        )
 
                         if __name__ == "__main__":
-                            uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
+                            uvicorn.run("main:app", host="127.0.0.1", port=8000, reload=True)
                         ```
+
+                        <Callout type="warn" title="Choose an authorization mode before sharing this server">
+                          AG-UI requires an explicit authorization mode. `single_user=True` is
+                          for a local, single-user example, not a shared or multi-user service.
+                          It does not authenticate requests.
+                        </Callout>
+
+                        For multiple users, replace the endpoint registration above with an
+                        `authorization_scope_resolver` that returns a stable user ID from
+                        authenticated request context. For example, after configuring
+                        [Starlette authentication middleware](https://www.starlette.io/authentication/)
+                        to validate credentials and populate `request.user`:
+
+                        ```python title="Authenticated endpoint registration"
+                        from fastapi import HTTPException, Request
+
+                        def resolve_authorization_scope(request: Request) -> str:
+                            user = request.scope.get("user")
+                            if user is None or not user.is_authenticated:
+                                raise HTTPException(status_code=401, detail="Authentication required")
+                            user_id = user.identity
+                            if not isinstance(user_id, str) or not user_id:
+                                raise HTTPException(status_code=401, detail="Missing user identity")
+                            return user_id
+
+                        add_agent_framework_fastapi_endpoint(
+                            app=app,
+                            agent=agent,
+                            path="/",
+                            authorization_scope_resolver=resolve_authorization_scope,
+                        )
+                        ```
+
+                        Configure your CopilotKit runtime to pass the authenticated user's
+                        credentials to the Python backend, where the middleware validates them.
+                        A browser-supplied `x-user-id`, thread ID, or client state is not proof
+                        of identity. Do not use those values directly as an authorization scope.
+                        The runtime's `identifyUser` option below does not authenticate the
+                        Python endpoint either. For a shared application, derive both identities
+                        from verified authentication, not the demonstration headers.
 
                         Then set your environment and run:
 
