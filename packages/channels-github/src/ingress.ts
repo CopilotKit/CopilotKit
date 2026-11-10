@@ -250,7 +250,9 @@ export async function handleGitHubEvent(
     if (taken === undefined) return;
     // A new list can replace the one read above before the consume. Decode
     // against the list actually taken, and put it back when the reply does
-    // not fit it.
+    // not fit it, unless an even newer list was saved meanwhile. StateStore
+    // has no compare-and-set, so a list saved between this read and the
+    // write below can still be overwritten.
     const decoded = decodeChoiceReply(
       text,
       taken,
@@ -260,7 +262,10 @@ export async function handleGitHubEvent(
       await deps.sink.onInteraction(decoded);
       return;
     }
-    await savePendingChoices(deps.stateStore, conversationKey, taken);
+    const newer = await readPendingChoices(deps.stateStore, conversationKey);
+    if (newer === undefined) {
+      await savePendingChoices(deps.stateStore, conversationKey, taken);
+    }
   }
 
   if (!mentioned) return;

@@ -322,6 +322,42 @@ describe("handleGitHubEvent: ignored deliveries", () => {
 });
 
 describe("handleGitHubEvent: numbered replies", () => {
+  it("does not put a taken list back over a newer list saved after the consume", async () => {
+    const taken: PendingChoices = {
+      ...PENDING,
+      messageRef: { ...PENDING.messageRef, id: 2468000002 },
+      choices: [
+        { index: 1, label: "Retry", actionId: "github:choice", value: "retry" },
+      ],
+    };
+    const newest: PendingChoices = {
+      ...PENDING,
+      messageRef: { ...PENDING.messageRef, id: 2468000003 },
+    };
+    const stateStore = new MemoryStore();
+    await savePendingChoices(stateStore, ISSUE_KEY, PENDING);
+    const get = stateStore.kv.get.bind(stateStore.kv);
+    const consume = stateStore.kv.consume.bind(stateStore.kv);
+    // The list is replaced before the consume, and again right after it.
+    vi.spyOn(stateStore.kv, "get").mockImplementationOnce(async (key) => {
+      const value = await get(key);
+      await savePendingChoices(stateStore, ISSUE_KEY, taken);
+      return value;
+    });
+    vi.spyOn(stateStore.kv, "consume").mockImplementationOnce(async (key) => {
+      const value = await consume(key);
+      await savePendingChoices(stateStore, ISSUE_KEY, newest);
+      return value;
+    });
+
+    const { interactions } = await deliver(issueComment({ body: "2" }), {
+      stateStore,
+    });
+
+    expect(interactions).toEqual([]);
+    expect(await readPendingChoices(stateStore, ISSUE_KEY)).toEqual(newest);
+  });
+
   it("keeps a list that replaced the decoded one before the consume, when the reply does not fit it", async () => {
     const replacement: PendingChoices = {
       ...PENDING,
