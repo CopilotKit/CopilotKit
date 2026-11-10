@@ -3,6 +3,7 @@ import type { AbstractAgent, Message } from "@ag-ui/client";
 import type { ConversationStore } from "@copilotkit/channels-core";
 import type { ThreadMessage } from "@copilotkit/channels-ui";
 import type { GitHubApiClient } from "./client.js";
+import { botSlugOf, stripBotMention } from "./ingress.js";
 import type { GitHubComment, ReplyTarget } from "./types.js";
 
 const DEFAULT_MAX_MESSAGES = 50;
@@ -21,31 +22,6 @@ interface TranscriptEntry {
   comment: GitHubComment;
   text: string;
   isBot: boolean;
-}
-
-/** Lowercase a login and drop a leading `@` and a trailing `[bot]`. */
-function botSlugOf(login: string) {
-  return login
-    .trim()
-    .replace(/^@/, "")
-    .replace(/\[bot\]$/i, "")
-    .toLowerCase();
-}
-
-function escapeRegExp(text: string) {
-  return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
-
-/**
- * Remove every `@slug` / `@slug[bot]` mention of the bot from `body`, the
- * same way ingress does, so history text matches the turn text the agent got.
- */
-function stripBotMention(body: string, slug: string) {
-  const mention = new RegExp(
-    `(^|[^\\w-])@${escapeRegExp(slug)}(?:\\[bot\\])?(?![\\w-])[:,]?[ \\t]*`,
-    "gi",
-  );
-  return body.replace(mention, "$1").trim();
 }
 
 /**
@@ -139,7 +115,7 @@ export class GitHubConversationStore implements ConversationStore {
       const isBot = comment.user.login.toLowerCase() === botLogin;
       const text = isBot
         ? comment.body.trim()
-        : stripBotMention(comment.body, slug);
+        : stripBotMention(comment.body, slug).text;
       if (text.length === 0) continue;
       entries.push({ comment, text, isBot });
     }

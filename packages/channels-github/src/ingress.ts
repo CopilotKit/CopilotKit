@@ -123,7 +123,7 @@ function readCommentDelivery(event: GitHubWebhookEvent) {
 }
 
 /** Lowercase a login and drop a leading `@` and a trailing `[bot]`. */
-function botSlugOf(login: string) {
+export function botSlugOf(login: string) {
   return login
     .trim()
     .replace(/^@/, "")
@@ -139,8 +139,12 @@ function escapeRegExp(text: string) {
  * Remove every `@slug` / `@slug[bot]` mention of the bot from `body`. A
  * mention must stand alone: `a@slug` and `@slug-two` do not match. A `:` or
  * `,` right after the mention, and the spaces after it, go with it.
+ * `mentioned` tells whether anything was removed.
+ *
+ * @param body - The comment body.
+ * @param slug - The bot slug from {@link botSlugOf}.
  */
-function stripBotMention(body: string, slug: string) {
+export function stripBotMention(body: string, slug: string) {
   const mention = new RegExp(
     `(^|[^\\w-])@${escapeRegExp(slug)}(?:\\[bot\\])?(?![\\w-])[:,]?[ \\t]*`,
     "gi",
@@ -251,8 +255,13 @@ export async function handleGitHubEvent(
     repo: target.repo,
     issueNumber: target.issueNumber,
   });
+  // The turn's reply target names its trigger comment, for the eyes reaction.
+  const turnDelivery: CommentDelivery = {
+    ...delivery,
+    target: { ...target, triggerCommentId: comment.id },
+  };
   await deps.sink.onTurn({
-    ...eventBase(event, delivery, "message"),
+    ...eventBase(event, turnDelivery, "message"),
     platform: PLATFORM,
     userText: text,
     operation: {

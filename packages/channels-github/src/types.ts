@@ -17,6 +17,12 @@ export interface ReplyTarget {
   issueNumber: number;
   /** Root comment id of a PR review thread. Set only when replying inline in that thread. */
   reviewCommentId?: number;
+  /**
+   * The comment that started the turn (an issue comment, or a review comment
+   * when `reviewCommentId` is set). The run renderer puts an `eyes` reaction
+   * on it while the agent writes. Set by ingress on turns only.
+   */
+  triggerCommentId?: number;
 }
 
 /** A GitHub comment ref: an issue comment or a PR review comment. */

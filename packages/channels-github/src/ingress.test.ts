@@ -173,7 +173,7 @@ describe("handleGitHubEvent: turns", () => {
       expect(turns).toEqual([
         {
           conversationKey: ISSUE_KEY,
-          replyTarget: ISSUE_TARGET,
+          replyTarget: { ...ISSUE_TARGET, triggerCommentId: 2468013579 },
           actor: { id: "583231", name: "octocat", kind: "human" },
           identityContext: {
             tenant: { id: "51234567" },
@@ -215,6 +215,7 @@ describe("handleGitHubEvent: turns", () => {
       owner: "acme",
       repo: "widgets",
       issueNumber: 7,
+      triggerCommentId: 1357924680,
     });
     expect(turn.identityContext.tenant).toEqual({ id: "acme" });
     expect(turn.userText).toBe("review please");
@@ -252,6 +253,7 @@ describe("handleGitHubEvent: turns", () => {
         repo: "widgets",
         issueNumber: 7,
         reviewCommentId: root,
+        triggerCommentId: 2222,
       });
       expect(turn.userText).toBe("why this change?");
       expect(turn.operation.logicalMessageId).toBe("review-comment:2222");
