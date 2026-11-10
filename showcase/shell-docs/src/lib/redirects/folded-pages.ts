@@ -572,7 +572,7 @@ export const FOLDED_PAGES: RedirectEntry[] = [
   {
     id: "FOLD",
     source: "/llamaindex/generative-ui/your-components/interactive",
-    destination: "/llamaindex/generative-ui/interactive",
+    destination: "/llamaindex/human-in-the-loop",
   },
   {
     id: "FOLD",
@@ -592,7 +592,7 @@ export const FOLDED_PAGES: RedirectEntry[] = [
   {
     id: "FOLD",
     source: "/llamaindex/shared-state/predictive-state-updates",
-    destination: "/llamaindex/shared-state/streaming",
+    destination: "/llamaindex/shared-state",
   },
   {
     id: "FOLD",
@@ -765,7 +765,7 @@ export const FOLDED_PAGES: RedirectEntry[] = [
   {
     id: "FOLD",
     source: "/ms-agent-harness-dotnet/shared-state/predictive-state-updates",
-    destination: "/ms-agent-harness-dotnet/shared-state/streaming",
+    destination: "/ms-agent-harness-dotnet/shared-state",
   },
   {
     id: "FOLD",
@@ -845,7 +845,7 @@ export const FOLDED_PAGES: RedirectEntry[] = [
   {
     id: "FOLD",
     source: "/pydantic-ai/generative-ui/your-components/interactive",
-    destination: "/pydantic-ai/generative-ui/interactive",
+    destination: "/pydantic-ai/human-in-the-loop",
   },
   {
     id: "FOLD",
@@ -870,7 +870,7 @@ export const FOLDED_PAGES: RedirectEntry[] = [
   {
     id: "FOLD",
     source: "/pydantic-ai/shared-state/predictive-state-updates",
-    destination: "/pydantic-ai/shared-state/streaming",
+    destination: "/pydantic-ai/shared-state",
   },
   {
     id: "FOLD",
