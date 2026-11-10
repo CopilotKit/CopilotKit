@@ -1,0 +1,193 @@
+---
+title: Web adapter
+description: Connect a browser or any AG-UI client to a Channel over HTTP with @copilotkit/channels/web.
+---
+
+import ChannelsInstall from "@/snippets/shared/channels/install.mdx";
+
+The Web adapter connects any [AG-UI](https://docs.ag-ui.com) client to a
+Channel over HTTP. The client can be `HttpAgent` from `@ag-ui/client`,
+CopilotKit, or your own code.
+
+- Each request is one AG-UI run. The body is a standard `RunAgentInput`.
+- The response is an AG-UI event stream (SSE).
+- JSX that a handler posts arrives as a `channels.ui` custom event. A React
+  renderer draws it and sends clicks back.
+
+The Web adapter is a direct adapter. Your process runs it with
+`channel.start()`. It needs no Intelligence key.
+
+## Install
+
+<ChannelsInstall />
+
+The adapter is at `@copilotkit/channels/web`. The React renderer is at
+`@copilotkit/channels/web/react` and needs `react` installed. You can also
+install `@copilotkit/channels-web` on its own.
+
+## Declare the Channel
+
+```ts title="channel.ts"
+import { createChannel } from "@copilotkit/channels";
+import { web } from "@copilotkit/channels/web";
+import { makeAgent } from "./agent.js";
+
+export const webAdapter = web();
+
+export const channel = createChannel({
+  identifyUser: "platform",
+  adapters: [webAdapter],
+  agent: makeAgent,
+});
+
+channel.onMessage(async ({ thread }) => {
+  await thread.runAgent();
+});
+
+await channel.start();
+```
+
+Every web message is addressed to the bot. The adapter marks each turn as
+`mentioned`, so it goes to `onMention` handlers. When there are none, it goes
+to `onMessage` handlers.
+
+## Serve the handler
+
+`webAdapter.handler` is a fetch-style function: it takes a `Request` and
+returns a `Response`. Mount it on any route that accepts `POST`.
+
+```ts title="app/api/channel/route.ts"
+import { webAdapter } from "@/channel";
+
+export const POST = webAdapter.handler;
+```
+
+The same handler works in Hono, Bun, Deno, and Cloudflare Workers. Start the
+Channel before the first request. Before `channel.start()` the handler answers
+`503`.
+
+To run a server without a framework, set `port`. The adapter then starts a
+`node:http` server in `channel.start()`:
+
+```ts
+web({
+  port: 3001,
+  path: "/api/channel",
+  allowedOrigins: ["http://localhost:3000"],
+});
+```
+
+## Connect a client
+
+```ts title="client.ts"
+import { HttpAgent } from "@ag-ui/client";
+
+const agent = new HttpAgent({ url: "/api/channel", threadId: "chat-1" });
+
+agent.addMessage({ id: crypto.randomUUID(), role: "user", content: "Hi" });
+await agent.runAgent();
+```
+
+The `threadId` is the Channel conversation key. The client sends the whole
+conversation with each request. The agent uses that history, so the adapter
+keeps no transcript on the server.
+
+## Render posted UI in React
+
+```tsx title="ChannelCard.tsx"
+import type { AbstractAgent } from "@ag-ui/client";
+import {
+  ChannelUi,
+  sendChannelInteraction,
+  useChannelUi,
+} from "@copilotkit/channels/web/react";
+
+export function ChannelCard({
+  agent,
+  messageId,
+}: {
+  agent: AbstractAgent;
+  messageId: string;
+}) {
+  const ui = useChannelUi(agent);
+  const ir = ui.get(messageId);
+  if (!ir) return null;
+  return (
+    <ChannelUi
+      ir={ir}
+      messageId={messageId}
+      onAction={(interaction) => sendChannelInteraction(agent, interaction)}
+    />
+  );
+}
+```
+
+- `useChannelUi(agent)` keeps the latest UI for each message id.
+- `<ChannelUi>` renders the UI as plain HTML. It ships no styles. Each element
+  has a `channels-ui-<type>` class and a `data-channels-ui` attribute.
+- A click calls `onAction`. `sendChannelInteraction` sends it to the Channel
+  as a new run, and the click handler's output streams back.
+
+The UI message id is also the id of an assistant text message. That message
+holds plain fallback text, so a client that does not render `channels.ui`
+still shows the reply.
+
+## Identify the user
+
+Without options, every visitor is anonymous. An anonymous visitor gets one
+actor per conversation, with the id `anonymous:<threadId>`.
+
+Use `getUser` to read your own session:
+
+```ts
+web({
+  getUser: async (request) => {
+    const session = await readSession(request);
+    return session ? { id: session.userId, name: session.name } : null;
+  },
+});
+```
+
+Return `null` for an anonymous visitor. Throw to reject the request with
+`401`.
+
+## Events
+
+| Handler call | Events in the response |
+| --- | --- |
+| `thread.runAgent()` | The agent's AG-UI events: text, tool calls, state, and custom events |
+| `thread.post(ui)` | A text message with fallback text, then `CUSTOM` `channels.ui` with `{ messageId, ir }` |
+| `thread.update(ref, ui)` | `CUSTOM` `channels.ui` with the same `messageId`. The new UI replaces the old UI. |
+| `thread.delete(ref)` | `CUSTOM` `channels.ui.delete` with `{ messageId }` |
+| `thread.stream(chunks)` | Text message deltas |
+
+Each response starts with `RUN_STARTED`. It ends with `RUN_FINISHED` when the
+handler returns, or with `RUN_ERROR` when the handler throws.
+
+A click is a new run request with
+`forwardedProps.channelInteraction = { id, value?, values?, messageId? }`.
+The `id` is the control's action id: the `onClick`, `onSelect`, or `onSubmit`
+value in the `channels.ui` IR.
+
+## Options
+
+| Option | Type | Description |
+| --- | --- | --- |
+| `getUser` | `(request) => WebUser \| null \| undefined` | Resolve the person behind a request. Throw to answer `401`. |
+| `port` | `number` | Start a `node:http` server on this port in `channel.start()`. |
+| `host` | `string` | Host for the `port` server. |
+| `path` | `string` | Path for the `port` server. Defaults to `"/"`. |
+| `allowedOrigins` | `string[]` | Browser origins that may call the handler. Use `"*"` for any origin. |
+| `interruptEventNames` | `Set<string>` | Custom events that count as agent interrupts. Defaults to `on_interrupt`. |
+
+## Limits
+
+- Output goes to the open request for its conversation. When no request is
+  open, the adapter drops the output. There is no delivery after the response
+  ends.
+- The adapter does not support reactions, modals, ephemeral messages, typing
+  indicators, suggested prompts, or thread titles.
+- `awaitChoice` cannot wait across requests. Use `onInterrupt` and
+  `thread.resume()` for approvals.
+- The React UI map lives in memory. After a page reload, posted cards show
+  their fallback text only.
