@@ -9,6 +9,7 @@ import type { Codemod, Edit, SgNode } from "codemod:ast-grep";
 import type TS from "codemod:ast-grep/langs/typescript";
 import type TSX from "codemod:ast-grep/langs/tsx";
 import { V1_API } from "./v1-api.ts";
+import { V1_SHAPES } from "./v1-shapes.ts";
 import type { V1Export } from "./v1-api.ts";
 import { byteIndex, charIndex } from "./offsets.ts";
 
@@ -595,11 +596,14 @@ const codemod: Codemod<Lang> = async (root, options) => {
       if (renamed) renamedAny = true;
       const name = renamed?.name ?? specifier.name;
       const entry = entryOf(name);
+      const v1Shape = own(own(V1_SHAPES, from), name);
       const skipsTodo =
         renamed !== undefined ||
         (isRuntimeRoot &&
           (RUNTIME_ADAPTERS.has(name) ||
-            (hasRuntimeHandler && name === "CopilotRuntime")));
+            (hasRuntimeHandler && name === "CopilotRuntime"))) ||
+        // Same name in v1 and 2.0: only a use in the v1 shape needs work.
+        (v1Shape !== undefined && !v1Shape(rootNode, localName(specifier)));
       if (!skipsTodo) todos.push(...todoLines(name, entry));
       const replacement = entry?.replacement;
       const target = replacement?.name === name ? replacement.importPath : home;
