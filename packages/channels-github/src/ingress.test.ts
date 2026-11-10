@@ -1,7 +1,7 @@
 import { withBotMarker } from "./bot-marker.js";
 import { MemoryStore } from "@copilotkit/channels-core";
 import type { IncomingTurn, InteractionEvent } from "@copilotkit/channels-core";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { handleGitHubEvent } from "./ingress.js";
 import { readPendingChoices, savePendingChoices } from "./pending-choices.js";
 import type { PendingChoices } from "./pending-choices.js";
@@ -133,9 +133,13 @@ const PENDING: PendingChoices = {
 
 async function deliver(
   event: GitHubWebhookEvent,
-  options: { pending?: PendingChoices; botLogin?: string } = {},
+  options: {
+    pending?: PendingChoices;
+    botLogin?: string;
+    stateStore?: MemoryStore;
+  } = {},
 ) {
-  const stateStore = new MemoryStore();
+  const stateStore = options.stateStore ?? new MemoryStore();
   if (options.pending) {
     await savePendingChoices(stateStore, ISSUE_KEY, options.pending);
   }
@@ -318,6 +322,34 @@ describe("handleGitHubEvent: ignored deliveries", () => {
 });
 
 describe("handleGitHubEvent: numbered replies", () => {
+  it("keeps a list that replaced the decoded one before the consume, when the reply does not fit it", async () => {
+    const replacement: PendingChoices = {
+      ...PENDING,
+      messageRef: { ...PENDING.messageRef, id: 2468000002 },
+      choices: [
+        { index: 1, label: "Retry", actionId: "github:choice", value: "retry" },
+      ],
+    };
+    const stateStore = new MemoryStore();
+    await savePendingChoices(stateStore, ISSUE_KEY, PENDING);
+    const get = stateStore.kv.get.bind(stateStore.kv);
+    // A new list is posted between the read and the consume.
+    vi.spyOn(stateStore.kv, "get").mockImplementationOnce(async (key) => {
+      const value = await get(key);
+      await savePendingChoices(stateStore, ISSUE_KEY, replacement);
+      return value;
+    });
+
+    const { turns, interactions } = await deliver(issueComment({ body: "2" }), {
+      stateStore,
+    });
+
+    expect({ turns, interactions }).toEqual({ turns: [], interactions: [] });
+    expect(await readPendingChoices(stateStore, ISSUE_KEY)).toEqual(
+      replacement,
+    );
+  });
+
   it("decodes a numbered reply to the pending list and clears the list", async () => {
     const event = issueComment({ body: "2" });
     const { turns, interactions, stateStore } = await deliver(event, {

@@ -5,8 +5,12 @@ import type { GitHubComment, GitHubIssue, ReplyTarget } from "./types.js";
 /** Default GitHub REST API base URL (github.com). */
 export const DEFAULT_GITHUB_API_BASE_URL = "https://api.github.com";
 
-/** Upper bound on pages fetched by one list call (100 items per page). */
-const MAX_PAGES = 10;
+/**
+ * Upper bound on pages fetched by one list call (100 items per page). GitHub
+ * lists comments oldest first, so a listing cut at this cap would miss the
+ * newest comments, the inbound turn among them. The client throws instead.
+ */
+const MAX_PAGES = 100;
 const PER_PAGE = 100;
 
 type HttpMethod = "GET" | "POST" | "PATCH" | "DELETE";
@@ -228,7 +232,7 @@ export class GitHubApiClient {
     await this.send(target, "DELETE", url);
   }
 
-  /** All conversation comments on an issue or PR, oldest first (up to 1000). */
+  /** All conversation comments on an issue or PR, oldest first. Throws past 10000. */
   async listIssueComments(target: ReplyTarget) {
     const url = `${this.repoUrl(target)}/issues/${target.issueNumber}/comments?per_page=${PER_PAGE}`;
     return this.pages<GitHubComment>(target, url);
@@ -236,7 +240,7 @@ export class GitHubApiClient {
 
   /**
    * One PR review thread: the root comment plus its replies, sorted by
-   * `created_at`. Built from the PR's review comments (up to 1000).
+   * `created_at`. Built from the PR's review comments. Throws past 10000.
    */
   async listReviewThread(target: ReplyTarget, rootCommentId: number) {
     const url = `${this.repoUrl(target)}/pulls/${target.issueNumber}/comments?per_page=${PER_PAGE}`;
@@ -347,12 +351,15 @@ export class GitHubApiClient {
   private async pages<T>(target: ReplyTarget, firstUrl: string) {
     const items: T[] = [];
     let url: string | null = firstUrl;
-    for (let page = 0; page < MAX_PAGES && url !== null; page++) {
+    for (let page = 0; page < MAX_PAGES; page++) {
       const res: Response = await this.send(target, "GET", url);
       const batch = (await res.json()) as T[];
       items.push(...batch);
       url = nextPageUrl(res);
+      if (url === null) return items;
     }
-    return items;
+    throw new Error(
+      `${firstUrl} has more than ${MAX_PAGES * PER_PAGE} items; the conversation history cannot be read.`,
+    );
   }
 }

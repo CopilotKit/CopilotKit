@@ -239,17 +239,32 @@ describe("GitHubApiClient lists", () => {
     expect(requests).toHaveLength(3);
   });
 
-  it("stops paginating after 10 pages", async () => {
+  it("reads past 10 pages, so the newest comments are kept", async () => {
+    const { client, requests } = createClient(({ url }) => {
+      const page = (url.match(/&more/g) ?? []).length;
+      const isLast = page === 11;
+      return Response.json([createComment({ id: page })], {
+        headers: isLast ? {} : { link: `<${url}&more>; rel="next"` },
+      });
+    });
+
+    const comments = await client.listIssueComments(TARGET);
+
+    expect(requests).toHaveLength(12);
+    expect(comments.at(-1)?.id).toBe(11);
+  });
+
+  it("throws instead of returning a list without the newest comments past 100 pages", async () => {
     const { client, requests } = createClient(({ url }) =>
       Response.json([createComment()], {
         headers: { link: `<${url}&more>; rel="next"` },
       }),
     );
 
-    const comments = await client.listIssueComments(TARGET);
-
-    expect(requests).toHaveLength(10);
-    expect(comments).toHaveLength(10);
+    await expect(client.listIssueComments(TARGET)).rejects.toThrow(
+      "has more than 10000 items",
+    );
+    expect(requests).toHaveLength(100);
   });
 
   it("listReviewThread returns the root and its replies sorted by created_at", async () => {

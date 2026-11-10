@@ -6,7 +6,11 @@ import {
   messageRefOf,
 } from "./interaction.js";
 import type { ChoiceReplyBase } from "./interaction.js";
-import { clearPendingChoices, readPendingChoices } from "./pending-choices.js";
+import {
+  clearPendingChoices,
+  readPendingChoices,
+  savePendingChoices,
+} from "./pending-choices.js";
 import type { GitHubMessageRef, GitHubUser, ReplyTarget } from "./types.js";
 import type { GitHubWebhookEvent } from "./webhook.js";
 
@@ -244,8 +248,19 @@ export async function handleGitHubEvent(
     // `undefined` means a concurrent reply already answered this list.
     const taken = await clearPendingChoices(deps.stateStore, conversationKey);
     if (taken === undefined) return;
-    await deps.sink.onInteraction(interaction);
-    return;
+    // A new list can replace the one read above before the consume. Decode
+    // against the list actually taken, and put it back when the reply does
+    // not fit it.
+    const decoded = decodeChoiceReply(
+      text,
+      taken,
+      eventBase(event, delivery, "interaction"),
+    );
+    if (decoded !== undefined) {
+      await deps.sink.onInteraction(decoded);
+      return;
+    }
+    await savePendingChoices(deps.stateStore, conversationKey, taken);
   }
 
   if (!mentioned) return;
