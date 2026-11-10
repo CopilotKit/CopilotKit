@@ -1,0 +1,230 @@
+---
+title: Resend (email) adapter
+description: Let people email your agent, with replies in the same thread, through Resend and @copilotkit/channels/resend.
+---
+
+import ChannelsInstall from "@/snippets/shared/channels/install.mdx";
+
+The Resend adapter connects a Channel to email through
+[Resend](https://resend.com). People send an email to your agent's address.
+The agent replies in the same email thread.
+
+- Each email thread is one conversation.
+- Each received email is one turn. It goes to your `onMention` handlers, or
+  to `onMessage` when you have no `onMention` handler.
+- Each reply is one email. Email cannot stream or change after it is sent.
+
+The Resend adapter is a direct adapter. Your process runs it with
+`channel.start()`. It needs no Intelligence key.
+
+## Install
+
+<ChannelsInstall />
+
+The adapter is at `@copilotkit/channels/resend`. You can also install
+`@copilotkit/channels-resend` on its own.
+
+## Set up Resend
+
+1. **Verify a sending domain.** In the Resend dashboard, add your domain and
+   its DNS records. The agent sends from this domain.
+2. **Turn on receiving.** Use the `<id>.resend.app` address that Resend gives
+   your account, or turn on receiving for your own domain and add the MX
+   record from the dashboard. If your domain already receives email, use a
+   subdomain such as `agent.example.com`.
+3. **Add a webhook.** Create a webhook for the `email.received` event. Point
+   it at the public URL where you mount the adapter's handler. Copy its
+   signing secret (`whsec_...`).
+4. **Create an API key.** The adapter sends email and reads received email, so
+   use a key with full access. A sending-only key cannot read received email.
+
+Put the values in environment variables:
+
+```sh title=".env"
+RESEND_API_KEY=re_...
+RESEND_WEBHOOK_SECRET=whsec_...
+# Only when you use action links (see below):
+RESEND_ACTION_SECRET=<a long random string>
+```
+
+## Declare the Channel
+
+```ts title="channel.ts"
+import { createChannel } from "@copilotkit/channels";
+import { resend } from "@copilotkit/channels/resend";
+import { makeAgent } from "./agent.js";
+
+export const email = resend({
+  apiKey: process.env.RESEND_API_KEY!,
+  from: "Support <support@agent.example.com>",
+  webhookSecret: process.env.RESEND_WEBHOOK_SECRET!,
+});
+
+export const channel = createChannel({
+  identifyUser: "platform",
+  adapters: [email],
+  agent: makeAgent,
+});
+
+channel.onMention(async ({ thread }) => {
+  await thread.runAgent();
+});
+
+await channel.start();
+```
+
+`from` must be an address on your verified domain. It can include a name.
+
+## Serve the handler
+
+`email.handler` is a fetch-style handler: it takes a `Request` and returns a
+`Response`. Mount it on the URL you gave Resend as the webhook.
+
+```ts title="app/api/resend/route.ts"
+import { email } from "../../../channel.js";
+
+export const POST = email.handler;
+// Also export GET when you use action links.
+export const GET = email.handler;
+```
+
+To run a small `node:http` server instead, set `port` (and optionally `path`
+and `host`). `channel.start()` starts it.
+
+The handler answers Resend quickly and runs the turn after the response. On a
+serverless host, pass your platform's `waitUntil` so the work can finish:
+
+```ts
+resend({ ...options, waitUntil: (work) => ctx.waitUntil(work) });
+```
+
+## Threads and history
+
+The adapter reads the `Message-ID`, `In-Reply-To`, and `References` headers
+of each email. A reply joins the thread of the first message it references.
+The conversation key is `resend:<root Message-ID>`.
+
+Email has no history API. The adapter keeps the text of each received email
+and each reply, and gives the agent that history on every turn (up to 50
+messages per thread, for 30 days).
+
+By default the adapter keeps this in memory. It is lost on restart and not
+shared between instances. To keep it, pass a durable `StateStore` (see
+[Persistence and scaling](/channels/persistence-and-scaling)). You can use
+the same store as the Channel:
+
+```ts
+import { durableStateStore } from "./state-store.js";
+
+const email = resend({ ...options, store: durableStateStore });
+const channel = createChannel({
+  identifyUser: "platform",
+  adapters: [email],
+  agent: makeAgent,
+  store: { adapter: durableStateStore },
+});
+```
+
+If the adapter does not know a thread, it uses the first `References` id as
+the thread root. Most mail clients keep that id, so most replies still join
+the right conversation after a restart.
+
+## What the agent receives
+
+- **Text.** The plain-text part of the email, or the HTML part converted to
+  text. The quoted earlier messages and the signature are removed.
+- **Subject.** The first email of a thread starts with `Subject: ...`.
+- **Attachments.** Up to 5 files per email, up to 8 MiB each. Text files
+  become text. Other files become content parts. Images inside the HTML
+  (such as signature logos) are skipped. Change these limits with `files`.
+- **Sender.** `actor.id` is the sender's address in lower case.
+  `actor.email` and `actor.name` come from the `From` header.
+
+## Replies
+
+Each `thread.post()`, `thread.stream()`, and agent run sends one email.
+
+- It goes to the sender of the latest email in the thread. Cc recipients and
+  the sender's `Reply-To` are not used.
+- It has a `Re:` subject, and `In-Reply-To` and `References` headers, so mail
+  clients show it in the same thread.
+- It has HTML with inline styles, and a plain-text part.
+- `thread.postFile()` sends the file as an attachment. Resend allows 40 MB per
+  email after encoding, so files over about 29 MB are refused.
+
+`thread.update()` and `thread.delete()` do nothing: sent email cannot change.
+
+Sends that hit a Resend rate limit (`429`) are retried after the
+`retry-after` time. Server errors are retried with backoff. Each send has an
+idempotency key, so a retry never sends twice.
+
+## Buttons and action links
+
+Email has no buttons. By default, a `<Button onClick>` or `<Select onSelect>`
+renders as its label only. A `<Button url>` always renders as a link.
+
+To make handler controls work, set `actions`:
+
+```ts
+const email = resend({
+  ...options,
+  actions: {
+    baseUrl: "https://agent.example.com/api/resend",
+    secret: process.env.RESEND_ACTION_SECRET!,
+  },
+});
+```
+
+Each control then becomes a signed link to `baseUrl`. Use the same URL as the
+webhook. A select becomes one link per option.
+
+- **Signed.** The signature covers the action, its value, the conversation,
+  the recipient, and the expiry. A changed link is refused.
+- **Single use.** A link works once.
+- **Expiry.** A link works for 7 days. Set `ttlMs` to change it.
+- **Confirmation.** Mail security scanners open links in emails. So a link
+  first shows a page with a **Confirm** button, and the action runs only
+  when a person presses it. Set `confirm: false` to run the action when the
+  link opens.
+
+The click reaches your `onClick` handler, or answers a pending
+`thread.awaitChoice()`, as the person the email was sent to. `awaitChoice`
+holds the turn open while it waits, so it needs a long-running process.
+
+## Security
+
+- The handler checks the Svix signature on each webhook and refuses
+  timestamps more than 5 minutes off.
+- Each email is handled once, even when Resend sends the webhook again.
+- Email that failed DMARC is skipped. Set `requireDmarcPass: true` to also
+  skip email without a DMARC pass.
+- Email from the adapter's own `from` address is skipped.
+- Set `allowedRecipients` to handle only email sent to those addresses.
+
+A sender's address is only as trustworthy as their domain's email
+authentication. Do not give the sender access to private data based on the
+address alone.
+
+## Options
+
+| Option              | Required | Description                                                                      |
+| ------------------- | -------- | -------------------------------------------------------------------------------- |
+| `apiKey`            | Yes      | Resend API key with full access.                                                 |
+| `from`              | Yes      | Sender, such as `"Support <support@agent.example.com>"`.                         |
+| `webhookSecret`     | Yes      | Webhook signing secret (`whsec_...`).                                            |
+| `replyTo`           | No       | `Reply-To` for outbound email.                                                   |
+| `allowedRecipients` | No       | Handle only email sent to these addresses.                                       |
+| `actions`           | No       | `{ baseUrl, secret, ttlMs?, confirm? }`. Turns handler controls into links.      |
+| `store`             | No       | `StateStore` for threads, history, and used links. Defaults to memory.           |
+| `files`             | No       | `{ maxBytesPerFile?, maxFiles?, maxTextBytes?, includeInline? }`.                |
+| `requireDmarcPass`  | No       | Skip email without a DMARC pass.                                                 |
+| `waitUntil`         | No       | Called with the work that runs after the response.                               |
+| `port`              | No       | Start a `node:http` server on this port. Also `host` and `path` (default `"/"`). |
+
+## Limits
+
+- No streaming, editing, deleting, reactions, typing, modals, or ephemeral
+  messages.
+- No text inputs. A `<Input>` is not rendered.
+- `thread.lookupUser()` returns `undefined`.
+- Only the `email.received` event is handled. Resend Inboxes events are not.
