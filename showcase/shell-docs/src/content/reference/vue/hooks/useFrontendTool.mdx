@@ -171,7 +171,7 @@ useFrontendTool({
 
 ### Tool with a custom Vue renderer
 
-Provide a `render` component to visualize the tool call in chat. The component receives `args`, `status`, and `result` as props.
+Provide a `render` component to visualize the tool call in chat. The component receives `args`, `status`, `result` and, when the call failed, `error` as props.
 
 ```vue
 <!-- WeatherToolView.vue -->
@@ -184,12 +184,16 @@ defineProps<{
   args: { city?: string; units?: "celsius" | "fahrenheit" };
   status: ToolCallStatus;
   result?: string;
+  error?: string;
 }>();
 </script>
 
 <template>
   <div v-if="status === ToolCallStatus.InProgress" class="animate-pulse">
     Fetching weather for {{ args.city }}...
+  </div>
+  <div v-else-if="status === ToolCallStatus.Complete && error" class="text-red-600">
+    Could not fetch the weather: {{ error }}
   </div>
   <div v-else-if="status === ToolCallStatus.Complete && result" class="rounded border p-4">
     <h3>{{ JSON.parse(result).city }}</h3>
