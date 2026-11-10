@@ -60,6 +60,12 @@
     "notice": "LICENSE"
   },
   {
+    "directory": "packages/channels-web",
+    "names": ["@copilotkit/channels-web"],
+    "license": "MIT",
+    "notice": "LICENSE"
+  },
+  {
     "directory": "packages/channels-whatsapp",
     "names": ["@copilotkit/channels-whatsapp"],
     "license": "MIT",

@@ -963,6 +963,64 @@
       }
     },
     {
+      "name": "@copilotkit/channels-web",
+      "version": "0.12.0",
+      "sourceDirectory": "packages/channels-web",
+      "entrypoints": [
+        {
+          "importPath": "@copilotkit/channels-web",
+          "exportKey": ".",
+          "kind": "code",
+          "conditions": {
+            "types": "./dist/index.d.ts",
+            "import": "./dist/index.js"
+          },
+          "provenance": {
+            "kind": "package-json",
+            "path": "packages/channels-web/package.json",
+            "selector": "exports[\".\"]"
+          }
+        }
+      ],
+      "compatibility": {
+        "peerDependencies": {
+          "react": ">=18"
+        },
+        "optionalPeerDependencies": [
+          "react"
+        ],
+        "provenance": [
+          {
+            "kind": "package-json",
+            "path": "packages/channels-web/package.json",
+            "selector": "peerDependencies"
+          },
+          {
+            "kind": "package-json",
+            "path": "packages/channels-web/package.json",
+            "selector": "peerDependenciesMeta.*.optional"
+          }
+        ]
+      },
+      "provenance": {
+        "name": {
+          "kind": "package-json",
+          "path": "packages/channels-web/package.json",
+          "selector": "name"
+        },
+        "version": {
+          "kind": "package-json",
+          "path": "packages/channels-web/package.json",
+          "selector": "version"
+        },
+        "releaseScope": {
+          "kind": "release-config",
+          "path": "release.config.json",
+          "selector": "scopes.channels.packages"
+        }
+      }
+    },
+    {
       "name": "@copilotkit/channels-whatsapp",
       "version": "0.12.0",
       "sourceDirectory": "packages/channels-whatsapp",
