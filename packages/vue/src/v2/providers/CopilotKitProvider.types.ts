@@ -16,6 +16,7 @@ import type {
 } from "../types";
 import type { Component } from "vue";
 import type { MarkdownRendererValue } from "./markdown-renderer";
+import type { GenerativeUIConfig } from "../generative-ui/runtime-context";
 
 export interface CopilotKitProviderProps extends ɵCopilotKitProviderBaseOptions {
   /**
@@ -62,6 +63,24 @@ export interface CopilotKitProviderProps extends ɵCopilotKitProviderBaseOptions
      */
     onAction?: ɵA2UIActionInterceptor;
   };
+  /**
+   * Experimental. Native generative UI. Pass `ui` from `createGenerativeUI`,
+   * and the agent renders your Vue components in the chat or in a
+   * `<GenerativeUISurface id>` on the page. The library binds the props that
+   * match the declared state and the events that match the declared
+   * functions. The model does not see them.
+   *
+   * Bind it in camelCase, as `:generativeUI`. Vue reads the kebab-case
+   * `:generative-ui` as a different prop (`generativeUi`).
+   *
+   * @example
+   * ```vue
+   * <CopilotKitProvider runtime-url="/api/copilotkit" :generativeUI="{ ui }">
+   *   <CopilotChat />
+   * </CopilotKitProvider>
+   * ```
+   */
+  generativeUI?: GenerativeUIConfig;
   /**
    * Global markdown renderer for assistant/reasoning messages. Either a Vue
    * component (escape hatch — receives `{ content: string; isStreaming?: boolean }`)

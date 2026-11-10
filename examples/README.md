@@ -1,9 +1,9 @@
 # CopilotKit Examples
 
-This directory contains 62 examples, grouped by what you want to do with them:
+This directory contains 63 examples, grouped by what you want to do with them:
 
 - **[Starters](#starters-25)** — pick your agent framework and start building.
-- **[Demos](#demos-32)** — full applications that show CopilotKit in a real-world scenario.
+- **[Demos](#demos-33)** — full applications that show CopilotKit in a real-world scenario.
 - **[Templates](#templates-5)** — pick a surface or use case (Slack, Teams, Flutter, a shop, a custom chat UI) and start from there.
 - **[Dev](#dev)** — small apps the CopilotKit team uses to develop and test the packages in this repo.
 
@@ -51,15 +51,16 @@ Framework starters demonstrating CopilotKit with each supported agent framework.
 | [claude-managed-agents](./starters/claude-managed-agents/)         | Beautiful Chat starter with Claude Managed Agents and Intelligence Skills            |
 | [omnara](./starters/omnara/)                                       | Beautiful Chat starter with Omnara agents and Intelligence threads                   |
 
-## Demos (32)
+## Demos (33)
 
 Full-featured demo applications highlighting CopilotKit capabilities in real-world scenarios.
 
-### Current demos (24)
+### Current demos (25)
 
 | Example                                                             | Description                                                                                                         |
 | ------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
 | [a2ui-pdf-analyst](./demos/a2ui-pdf-analyst/)                       | PDF analyst that builds fixed or dynamic A2UI surfaces from document data                                           |
+| [a2ui-playground](./demos/a2ui-playground/)                         | Chat-first A2UI 1.0 playground: watch Gemini write Express line by line, with macros, skills and evals              |
 | [arcade-tools](./demos/arcade-tools/)                               | Built-in Agent with authenticated Arcade Gmail and news tools plus inline OAuth UI                                  |
 | [claude-managed-agents](./demos/claude-managed-agents/)             | Hosted Claude Managed Agent over AG-UI with an interactive growth chart                                             |
 | [daytona-runcode](./demos/daytona-runcode/)                         | Built-in Agent that runs Python, TypeScript, and JavaScript in isolated Daytona sandboxes                           |

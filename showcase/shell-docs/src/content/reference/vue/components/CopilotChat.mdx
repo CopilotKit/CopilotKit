@@ -153,6 +153,17 @@ Vue uses named slots in place of React's render props and sub-component props. P
   Renders human-in-the-loop interrupt UI. Receives the `event`, current `result`, and a `resolve` callback.
 </PropertyReference>
 
+<PropertyReference name="generative-ui-surface" type="GenerativeUIChatSurfaceSlotProps">
+  Experimental. Replaces the default card around each [generative UI](/reference/vue/components/GenerativeUISurface) surface that the agent renders in this chat. It applies only when the provider has a [`generativeUI`](/reference/vue/components/CopilotKitProvider) config. Slot props:
+
+- `surfaceId` (`string`): the id of the surface.
+- `isStreaming` (`boolean`): `true` while the agent streams operations into the surface.
+- `error` (`Error | undefined`): set when operations from the latest `render_ui` call were rejected. The message is safe to show to the user.
+- `rejected` (`GenerativeUIRejectedOperation[]`): the rejected operations, with the reason for each.
+- `children` (`VNode | null`): the rendered surface. Render it with `<component :is="children" />`. It is `null` when the creation of the surface failed. Then the card shows only the error.
+
+</PropertyReference>
+
 <Callout type="info">
   Slots forwarded to the message view (for example custom assistant- or user-message slots) are passed straight through and rendered by `CopilotChatMessageView`. See [`CopilotChatView`](/reference/vue/components/CopilotChatView) for the full set of layout-level slots such as `scroll-view`, `feather`, and `scroll-to-bottom-button`.
 </Callout>
@@ -194,6 +205,25 @@ import { CopilotChat } from "@copilotkit/vue/v2";
           {{ suggestion.title }}
         </button>
       </div>
+    </template>
+  </CopilotChat>
+</template>
+```
+
+### Custom generative UI card
+
+```vue
+<script setup lang="ts">
+import { CopilotChat } from "@copilotkit/vue/v2";
+</script>
+
+<template>
+  <CopilotChat agent-id="my-agent">
+    <template #generative-ui-surface="{ isStreaming, error, children }">
+      <section class="my-card" :aria-busy="isStreaming">
+        <p v-if="error" role="alert">{{ error.message }}</p>
+        <component :is="children" v-if="children" />
+      </section>
     </template>
   </CopilotChat>
 </template>

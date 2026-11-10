@@ -14,9 +14,14 @@
  * ```
  */
 
-// Headless surface: provider + platform-agnostic hooks + core/AG-UI types.
-// This also side-effect-imports "./polyfills" (as its first statement), so the
-// polyfills install before any chat-UI module below is evaluated. The prebuilt
+// Auto-install polyfills before anything else loads. "./headless" imports them
+// too, but the bundler hoists the provider chunk it shares with "./headless"
+// above that re-export, so the built entry would load @copilotkit/react-core
+// first. Importing them here, first, is what keeps them first in dist/
+// (scripts/verify-polyfill-barrel.mjs checks it).
+import "./polyfills";
+
+// Headless surface: provider + platform-agnostic hooks + core/AG-UI types. The prebuilt
 // chat components + useAttachments are layered on top here; consumers who don't
 // need them (and want to skip the @gorhom/bottom-sheet + expo-* native deps)
 // can import from "@copilotkit/react-native/headless" instead.

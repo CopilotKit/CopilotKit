@@ -16,6 +16,7 @@ import {
   getOperationKind,
   validateOperation,
   childIdsAtRefs,
+  cloneValue,
   collectChildRefs,
   hasBoundChildRef,
 } from "@copilotkit/shared";
@@ -30,7 +31,7 @@ import { catalogIdsOf } from "@copilotkit/shared/generative-ui";
 import type { GenerativeUI } from "@copilotkit/shared/generative-ui";
 import { toJsonSchema } from "@copilotkit/shared/generative-ui";
 import type { GenerativeUISurfaceManager } from "./surface-manager";
-import { isRecord } from "@copilotkit/shared/generative-ui";
+import { hasOwnKey, isRecord } from "@copilotkit/shared/generative-ui";
 
 /** What renders in place of one ```a2ui fence, in order. */
 export type MarkdownFenceBlock =
@@ -247,7 +248,7 @@ function createSurfaceFirst(operations: A2UIMarkdownOperation[]) {
 /** True when the component of `name` has the prop `prop`. */
 function hasProp(ui: MarkdownSourceUI, name: string, prop: string) {
   const properties = ui.manifestComponents[name]?.props.properties;
-  return isRecord(properties) && Object.hasOwn(properties, prop);
+  return isRecord(properties) && hasOwnKey(properties, prop);
 }
 
 const childRefCache = new WeakMap<object, readonly ChildRef[]>();
@@ -274,7 +275,7 @@ function childIdsReader(ui: MarkdownSourceUI): ChildIdsOf {
     const name = component.component;
     // An own property only: "constructor" is not a component.
     const entry =
-      typeof name === "string" && Object.hasOwn(ui.manifestComponents, name)
+      typeof name === "string" && hasOwnKey(ui.manifestComponents, name)
         ? ui.manifestComponents[name]
         : undefined;
     if (!entry) return [];
@@ -317,7 +318,7 @@ function collectComponents(operations: A2UIMarkdownOperation[]) {
  * data of the other one.
  */
 function cloneData(value: unknown) {
-  return value === undefined ? undefined : structuredClone(value);
+  return cloneValue(value);
 }
 
 /** The operation sent to `surfaceId`, with a copy of its data model value. */

@@ -45,6 +45,7 @@
       "packages/a2ui-renderer/src/react-renderer/a2ui-react/adapter.tsx": 1,
       "packages/a2ui-renderer/src/react-renderer/core/A2UIRenderer.tsx": 1,
       "packages/core/src/__tests__/test-utils.ts": 1,
+      "packages/core/src/generative-ui/__tests__/hermes-globals.ts": 1,
       "packages/react-core/src/components/chat/CopilotChatAttachmentRenderer.tsx": 1,
       "packages/react-core/src/components/chat/CopilotModalHeader.tsx": 1,
       "packages/react-core/src/components/chat/CopilotPopup.tsx": 1,
@@ -72,6 +73,7 @@
       "packages/react-core/src/hooks/use-interrupt.tsx": 3,
       "packages/runtime/src/runtime/__tests__/integration/servers/types.ts": 2,
       "packages/runtime/src/runtime/core/middleware.ts": 2,
+      "packages/vue/src/v2/generative-ui/standard/media/video-source.ts": 1,
       "packages/web-inspector/src/shell/launcher/hud-config.ts": 1
     },
     "knip(unlisted)": {

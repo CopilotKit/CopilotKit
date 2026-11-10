@@ -58,6 +58,13 @@ import {
   MCPAppsActivityType,
 } from "../components/MCPAppsActivityRenderer";
 import {
+  createGenerativeUIActivityRenderer,
+  createGenerativeUIFunctionCallActivityRenderer,
+  registerGenerativeUIToolCallRenderer,
+} from "../generative-ui/chat";
+import { GenerativeUIRuntimeKey } from "../generative-ui/runtime-context";
+import { useGenerativeUIRoot } from "../generative-ui/use-generative-ui-root";
+import {
   CopilotKitKey,
   CopilotStyleOptionsKey,
   InspectorKey,
@@ -96,6 +103,7 @@ const props = withDefaults(defineProps<CopilotKitProviderProps>(), {
   openGenerativeUI: undefined,
   useSingleEndpoint: undefined,
   a2ui: undefined,
+  generativeUI: undefined,
   mcpApps: undefined,
   enableInspector: undefined,
   nonce: undefined,
@@ -312,6 +320,7 @@ const a2uiActive = computed(
 const a2uiFilteredCatalog = shallowRef<Catalog<ComponentApi> | undefined>(
   undefined,
 );
+const generativeUIActive = computed(() => !!props.generativeUI?.ui);
 // Forward a per-run signal when the provider has an A2UI catalog so the
 // runtime can turn A2UI on (and inject the render tool) without a separate
 // `a2ui.injectA2UITool` flag on the runtime.
@@ -357,6 +366,9 @@ const allRenderActivityMessages = computed(() =>
         render:
           OpenGenerativeUIActivityRenderer as unknown as VueActivityMessageRenderer<unknown>["render"],
       },
+      generativeUIActive.value && createGenerativeUIActivityRenderer(),
+      generativeUIActive.value &&
+        createGenerativeUIFunctionCallActivityRenderer(),
     ],
   }),
 );
@@ -561,6 +573,20 @@ registerA2UICatalog(copilotkit, {
     a2uiFilteredCatalog.value = catalog;
   },
 });
+
+// Native generative UI: the surface manager, the envelope of each run, and
+// the `render_ui` renderer that keeps a wildcard tool renderer from showing
+// the raw arguments. The envelope goes in as scoped properties, so
+// `setProperties` in `syncRuntimeConfig` does not replace it.
+const generativeUIRuntime = useGenerativeUIRoot(
+  copilotkit,
+  () => props.generativeUI,
+);
+provide(GenerativeUIRuntimeKey, generativeUIRuntime);
+registerGenerativeUIToolCallRenderer(
+  copilotkit,
+  () => generativeUIActive.value,
+);
 
 watch(
   [

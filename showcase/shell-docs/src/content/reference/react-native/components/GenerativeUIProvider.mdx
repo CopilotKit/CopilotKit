@@ -1,0 +1,172 @@
+---
+title: "GenerativeUIProvider"
+description: "Turn on generative UI for the agent runs of a CopilotKitProvider: the agent renders the components of your native catalog with the render_ui tool."
+---
+
+## Overview
+
+`GenerativeUIProvider` turns on [generative UI](/generative-ui/components) on React Native. It sends your catalog with every agent run on the core of the enclosing `CopilotKitProvider`, wherever in the component tree the run starts, so the runtime gives those runs a `render_ui` tool; a catalog with no components gets no `render_ui` tool. Only `agentIds` narrows it to some agents. It also keeps the surfaces that the agent renders. Show them with [`GenerativeUIActivity`](/reference/react-native/components/GenerativeUIActivity) (one activity message, in a chat list or on a screen with no chat) or [`GenerativeUISurface`](/reference/react-native/components/GenerativeUISurface) (a named place in your app).
+
+Place it inside [`CopilotKitProvider`](/reference/react-native/components/CopilotKitProvider), and mount exactly one `GenerativeUIProvider` with a `ui` for each `CopilotKitProvider`, above every screen that shows generative UI, rather than one per screen. Each one sets the catalog and the named targets of every run on the core, so two of them override each other, and each shows only the surfaces built for its own catalog; in development, the second one mounted warns. It ingests every generative UI activity message of the agents it watches, and skips a message whose content is malformed (in development it warns once for each distinct issue), so such a message cannot break the agent's run. The runtime needs no setup by default; a server turns generative UI off with the `CopilotRuntime` option `generativeUI: false`, or limits it to some agents with `generativeUI: { agents: [...] }`.
+
+Write the catalog with `zod` 4.2 or later: `child()` and `childList()` return zod 4 schemas.
+
+For a complete walkthrough, see [Generative UI with your own components](/react-native#generative-ui-with-your-own-components).
+
+<Callout type="warn" title="Experimental">
+  Generative UI on React Native uses the tool transport only, has no standard
+  catalog (the catalog holds your own native components), and has no `theme`
+  prop. The prebuilt `CopilotChat` does not draw surfaces yet.
+</Callout>
+
+## Import
+
+```tsx
+import { GenerativeUIProvider } from "@copilotkit/react-native/generative-ui";
+```
+
+## Props
+
+<PropertyReference name="ui" type="GenerativeUI" required>
+  The catalog, from `createGenerativeUI`: the components the agent can render,
+  the app state they read and the functions they call. See
+  [Catalogs](/generative-ui/components/catalogs). The type requires it, so in
+  TypeScript mount the provider once the catalog exists rather than leaving
+  `ui` out while it loads. A `ui` that is `undefined` or `null` at runtime
+  (from JavaScript, or through a cast) turns generative UI off, and the
+  provider warns in development: `GenerativeUIActivity` renders nothing and
+  `GenerativeUISurface` shows its fallback.
+</PropertyReference>
+
+<PropertyReference name="children" type="ReactNode" required>
+  The components rendered within the provider.
+</PropertyReference>
+
+<PropertyReference name="agentIds" type="string[]">
+  The agents that get generative UI. Left out, every agent gets it. Other
+  agents get no catalog and no `render_ui` tool.
+</PropertyReference>
+
+<PropertyReference name="errorBoundary" type="GenerativeUIErrorBoundaryConfig">
+  Fallback UI and error reporting for generated UI.
+
+  <PropertyReference name="onError" type="(info: GenerativeUIErrorInfo) => void">
+    Called for render failures, invalid props, failed events, failed functions
+    that a component called, operations that the app rejected, and a value
+    written through a setter that cannot be copied, such as a function. A
+    failure that stays the same while the agent sends new content is
+    reported once, until the node or the surface renders again. In
+    development each is also logged with `console.warn`; a release build
+    logs nothing unless you pass `onError`.
+
+    It does not get operations that the runtime rejected. They reach the
+    `rejected` and `error` props of the `Wrapper`: on
+    [`GenerativeUIActivity`](/reference/react-native/components/GenerativeUIActivity)
+    for a chat surface, and on
+    [`GenerativeUISurface`](/reference/react-native/components/GenerativeUISurface)
+    for a surface aimed at a named area. A `createSurface` that the runtime
+    rejected reaches neither: no activity message is sent for it, so only the
+    model learns of it, in the result of its `render_ui` call. The one
+    exception is a `createSurface` with the id of a live surface: the runtime
+    adds that rejection to the live surface, whose `Wrapper` gets it.
+    Nor does it get the error of a function that the model called: that error
+    goes back to the model as the result of the call.
+
+    Some failures only warn in development and reach neither `onError` nor a
+    `Wrapper`, so a release build shows nothing for them: malformed activity
+    content (the provider skips it), a `GenerativeUIActivity` that renders
+    nothing for a missing provider, `ui`, `agent` or `threadId`, and a
+    `GenerativeUISurface` under a provider without `ui`. An error that
+    `onGenerationStart` throws is only logged with `console.error`.
+  </PropertyReference>
+
+  <PropertyReference name="fallback" type="(props: { error: Error; retry: () => void; surfaceId: string; componentId: string }) => ReactNode">
+    Replaces the default fallback of a component that throws. `error` is
+    always an `Error`: a component that throws something else (a string,
+    `undefined`) gets an `Error` that describes it, with the value as its
+    `cause`. Left out, the
+    `NodeFallback` of `host` (`NativeNodeFallback` by default) shows the error
+    and a Retry button. If this fallback throws, that host fallback, with
+    Retry, shows in its place, and the error is reported to `onError`. A
+    component whose props fail its schema always shows the host's
+    `NodeFallback`, with no Retry button.
+  </PropertyReference>
+</PropertyReference>
+
+<PropertyReference name="host" type="GenerativeUIHost" default="nativeGenerativeUIHost">
+  The host elements around the catalog's components: `SurfaceRoot`,
+  `AccessibilityWrapper` and `NodeFallback`. The default is React Native views.
+  Replace it only to change how every surface is wrapped, for example with a
+  `NodeFallback` of your own design system. A `NodeFallback` that throws
+  leaves its node empty until it is tried again (when the node fails with
+  another error, or the agent sends new content for it), and a `SurfaceRoot` that throws makes the whole
+  surface show the fallback with a Retry button; both errors are reported to
+  `onError`, and both reset when the agent sends new content. The default
+  `AccessibilityWrapper` is a real `View`, so a component that must fill its
+  parent with `flex` declares `accessibility: "self"` and applies the hidden
+  state and live region itself (see
+  [Catalogs](/generative-ui/components/catalogs#what-a-component-can-declare)).
+</PropertyReference>
+
+<PropertyReference name="transport" type='"tool"'>
+  Always the tool transport on React Native. `transport: "markdown"` is a type
+  error; another transport that gets past the types (from JavaScript or
+  through a cast) is dropped, with a warning in development.
+</PropertyReference>
+
+There is no `theme` prop: the web theme is a set of CSS variables, which
+React Native does not use, so passing `theme` is a type error, and a `theme`
+that gets past the types is dropped, with a warning in development. Style the
+components of your catalog instead. The `GenerativeUIToolConfig` type exported
+from `/generative-ui` is the web config without `theme`.
+
+## Usage
+
+```tsx
+import { CopilotKitProvider } from "@copilotkit/react-native/headless";
+import { GenerativeUIProvider } from "@copilotkit/react-native/generative-ui";
+import { bankUI } from "./src/bankUI";
+import { ChatScreen } from "./src/ChatScreen";
+
+export default function App() {
+  return (
+    <CopilotKitProvider runtimeUrl="https://your-server/api/copilotkit">
+      <GenerativeUIProvider
+        ui={bankUI}
+        agentIds={["default", "home"]}
+        errorBoundary={{
+          onError: (info) => console.warn(info.kind, info.surfaceId, info.error.message),
+        }}
+      >
+        <ChatScreen />
+      </GenerativeUIProvider>
+    </CopilotKitProvider>
+  );
+}
+```
+
+## Also exported from `/generative-ui`
+
+The entry re-exports the catalog API from `@copilotkit/react-core/generative-ui/native`, the build of `@copilotkit/react-core/generative-ui` without DOM. It works the same on React Native:
+
+| Export | What it does |
+| --- | --- |
+| `createGenerativeUI` | Declares a catalog. See [Catalogs](/generative-ui/components/catalogs). |
+| `child`, `childList` | Mark a prop of the schema as a child component reference. |
+| `useGenerativeUIState` | Gives a state key of the catalog its value from your app. See [State and actions](/generative-ui/components/state-and-actions). |
+| `useGenerativeUIFunction` | Mounts the handler of a catalog function. |
+| `useGenerativeUIAccessibility` | The accessibility attributes that the agent gave the component being rendered. |
+| `useGenerativeUIRuntime` | The runtime of the nearest provider, or `null`. |
+| `GenerativeUIError` | The error class of generative UI failures. |
+| `exportA2UICatalog` | Writes the catalog as an A2UI 1.0 catalog definition. |
+| `nativeGenerativeUIHost`, `NativeNodeFallback` | The default React Native host elements, to reuse in a custom `host`. |
+
+The types of these APIs come from the same entry, for example `GenerativeUIComponentProps`, `GenerativeUIErrorInfo`, `GenerativeUIHost`, `GenerativeUIRuntime`, `GenerativeUIRejectedOperation` and the props of each component (`GenerativeUIProviderProps`, `GenerativeUIActivityProps`, `GenerativeUIActivityWrapperProps`, `GenerativeUISurfaceProps`).
+
+`standardUI` and the markdown surfaces are not exported: they render DOM.
+
+## Related
+
+- [`GenerativeUIActivity`](/reference/react-native/components/GenerativeUIActivity): render the surface of an activity message
+- [`GenerativeUISurface`](/reference/react-native/components/GenerativeUISurface): a named place where the agent can render
+- [Components and surfaces](/generative-ui/components): the feature, with React, Angular and React Native examples

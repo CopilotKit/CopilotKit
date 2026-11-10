@@ -21,6 +21,7 @@
     "@tanstack/ai-anthropic": "^1.1.1",
     "@tanstack/ai-gemini": "^1.1.1",
     "@tanstack/ai-openai": "^1.1.1",
+    "chart.js": "^4.4.0",
     "h3": "^1.15.4",
     "nuxt": "3.17.5",
     "openai": "^5.9.0",

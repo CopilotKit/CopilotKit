@@ -11,11 +11,13 @@ description: "API reference for @copilotkit/react-native: the headless provider,
 npm install @copilotkit/react-native
 ```
 
-The prebuilt UI components and native attachments rely on a few peer dependencies. Install the ones you use:
+The prebuilt UI components and native attachments rely on a few optional peer dependencies:
 
 ```sh
-npm install @gorhom/bottom-sheet react-native-gesture-handler react-native-reanimated react-native-streamdown
+npm install expo-document-picker expo-file-system @gorhom/bottom-sheet react-native-gesture-handler react-native-reanimated react-native-streamdown
 ```
+
+Importing from the package root (`@copilotkit/react-native`), as the examples on this page do, needs `expo-document-picker` and `expo-file-system`: the root re-exports `useAttachments`, which imports both, and Metro resolves them at bundle time. The other four are used by the prebuilt components in `@copilotkit/react-native/components`. An app that imports only `@copilotkit/react-native/headless` or `/generative-ui` needs none of them.
 
 ## Polyfills
 
@@ -65,12 +67,16 @@ The root also exports two prebuilt chrome components: [`CopilotSidebar`](/refere
   UI. Each component page documents both, disambiguated by import path.
 </Callout>
 
+## Generative UI
+
+`@copilotkit/react-native/generative-ui` (experimental) lets the agent render a catalog of your own native components: [`GenerativeUIProvider`](/reference/react-native/components/GenerativeUIProvider) turns it on, [`GenerativeUIActivity`](/reference/react-native/components/GenerativeUIActivity) renders a surface from an activity message, and [`GenerativeUISurface`](/reference/react-native/components/GenerativeUISurface) marks a named place in your app. It is opt-in: the other entries never import it. It has no `theme` and no markdown transport, and the built-in `openUrl` function is not available on React Native. See [Generative UI with your own components](/react-native#generative-ui-with-your-own-components).
+
 ## API Reference
 
 <Cards>
   <Card
     title="Components"
-    description="Provider, headless primitives, and prebuilt UI: CopilotKitProvider, CopilotChat, CopilotModal, CopilotSidebar, CopilotPopup, and message components."
+    description="Provider, headless primitives, prebuilt UI, and generative UI: CopilotKitProvider, CopilotChat, CopilotModal, CopilotSidebar, CopilotPopup, message components, GenerativeUIProvider, GenerativeUIActivity, and GenerativeUISurface."
     href="/reference/react-native/components/CopilotKitProvider"
     icon={<LinkIcon />}
   />

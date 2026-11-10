@@ -10,7 +10,7 @@
 **[Docs](https://docs.copilotkit.ai/?ref=github_readme)** ·
 **[Examples](https://www.copilotkit.ai/examples?ref=github_readme)** ·
 **[Intelligence](https://www.copilotkit.ai/copilotkit-intelligence?ref=github_readme)** ·
-**[OpenBot](https://github.com/CopilotKit/OpenBot)** ·
+**[OpenBot](https://open.bot/?ref=github_readme)** ·
 **[Discord](https://discord.gg/6dffbvGU3D?ref=github_readme)**
 
 <br />
@@ -44,7 +44,7 @@ We're also the team behind **[AG-UI](https://github.com/ag-ui-protocol/ag-ui)**,
 | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | 🪁 **[CopilotKit Soar](https://www.copilotkit.ai/soar?ref=github_readme)**                                                                                                 | AI coworkers your company owns, running on your own servers. Powered by OpenBot. **[Now in early access →](https://intelligence.copilotkit.ai/?early_access=soar&ref=github_readme)** |
 | 🔁 **[Continual Learning](https://www.copilotkit.ai/clif?ref=github_readme)**                                                                                              | Agents learn from full-stack trajectories (what the agent did _and_ what your users did), captured over AG-UI.                                                                        |
-| 🤖 **[OpenBot](https://github.com/CopilotKit/OpenBot)**                                                                                                                    | Open-source AI coworkers that each get a computer of their own. MIT licensed.                                                                                                         |
+| 🤖 **[OpenBot](https://open.bot/?ref=github_readme)**                                                                                                                      | Open-source AI coworkers that each get a computer of their own. MIT licensed. [Source on GitHub](https://github.com/CopilotKit/OpenBot).                                              |
 | 🧩 **[AG-UI 1.0](https://docs.copilotkit.ai/agentic-protocols/ag-ui?ref=github_readme)** + **[A2UI 1.0](https://docs.copilotkit.ai/generative-ui/a2ui?ref=github_readme)** | CopilotKit now speaks AG-UI 1.0 and the A2UI 1.0 spec for declarative generative UI.                                                                                                  |
 | 💬 **[Channels](https://docs.copilotkit.ai/slack?ref=github_readme)**                                                                                                      | Write Channels JSX once. Render native Block Kit in Slack and Adaptive Cards in Microsoft Teams.                                                                                      |
 
@@ -226,7 +226,7 @@ The Developer plan is free. 👉 **[Connect Intelligence in 5 minutes →](https
 
 We build real products on this stack, and open-source them.
 
-**[OpenBot](https://github.com/CopilotKit/OpenBot)** is an open-source agent workspace for your employees. Every AI coworker gets a computer of its own, with a browser, files, and tools, and every action is decided before it happens and recorded after. Bring any AG-UI agent and any model.
+**[OpenBot](https://open.bot/?ref=github_readme)** is an open-source agent workspace for your employees. Every AI coworker gets a computer of its own, with a browser, files, and tools, and every action is decided before it happens and recorded after. Bring any AG-UI agent and any model. The source is at [CopilotKit/OpenBot](https://github.com/CopilotKit/OpenBot).
 
 **[CopilotKit Soar](https://www.copilotkit.ai/soar?ref=github_readme)** turns that core into one business-ready product. It gives each employee an AI coworker that works in your company's tools, learns new tasks from the people it works with, and runs on your own servers. Our engineers set it up with you, then hand you the keys.
 
@@ -234,7 +234,7 @@ Soar is in early access today. 👉 **[Get early access →](https://intelligenc
 
 <table>
   <tr>
-    <td width="25%" valign="top"><b><a href="https://github.com/CopilotKit/OpenBot">OpenBot</a></b><br /><sub>AI coworkers, each with a computer of its own.</sub><br /><br /><img src="https://img.shields.io/github/stars/CopilotKit/OpenBot?style=flat&color=6666fc&label=%E2%98%85" alt="OpenBot stars"></td>
+    <td width="25%" valign="top"><b><a href="https://open.bot/?ref=github_readme">OpenBot</a></b><br /><sub>AI coworkers, each with a computer of its own.</sub><br /><br /><a href="https://github.com/CopilotKit/OpenBot"><img src="https://img.shields.io/github/stars/CopilotKit/OpenBot?style=flat&color=6666fc&label=%E2%98%85" alt="OpenBot stars"></a></td>
     <td width="25%" valign="top"><b><a href="https://github.com/CopilotKit/OpenDots">OpenDots</a></b><br /><sub>Always-on coworkers for text, calls, and Slack.</sub><br /><br /><img src="https://img.shields.io/github/stars/CopilotKit/OpenDots?style=flat&color=6666fc&label=%E2%98%85" alt="OpenDots stars"></td>
     <td width="25%" valign="top"><b><a href="https://github.com/CopilotKit/OpenMuse">OpenMuse</a></b><br /><sub>A personal agent for iOS, Android, and web.</sub><br /><br /><img src="https://img.shields.io/github/stars/CopilotKit/OpenMuse?style=flat&color=6666fc&label=%E2%98%85" alt="OpenMuse stars"></td>
     <td width="25%" valign="top"><b><a href="https://github.com/CopilotKit/OpenTag">OpenTag</a></b><br /><sub>An on-call triage bot for Slack and Teams.</sub><br /><br /><img src="https://img.shields.io/github/stars/CopilotKit/OpenTag?style=flat&color=6666fc&label=%E2%98%85" alt="OpenTag stars"></td>

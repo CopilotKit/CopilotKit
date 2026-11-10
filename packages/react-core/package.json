@@ -43,6 +43,10 @@
       "import": "./dist/generative-ui.mjs",
       "require": "./dist/generative-ui.cjs"
     },
+    "./generative-ui/native": {
+      "import": "./dist/generative-ui/native.mjs",
+      "require": "./dist/generative-ui/native.cjs"
+    },
     "./package.json": "./package.json",
     "./context": {
       "import": "./dist/context.mjs",
@@ -57,14 +61,14 @@
     "access": "public"
   },
   "scripts": {
-    "build": "node scripts/generate-external-reexports.mjs --check && tsdown && node scripts/context-singleton-preflight.mjs",
+    "build": "node scripts/generate-external-reexports.mjs --check && tsdown && node scripts/context-singleton-preflight.mjs && node scripts/assert-dist-context-types.mjs",
     "size": "size-limit",
     "size:headline": "node scripts/measure-copilotchat.mjs",
     "size:assert-headless": "node scripts/assert-headless-purity.mjs",
     "compat-check": "es-check es2022 --module 'dist/**/!(*.umd).{mjs,cjs,js}' && es-check es2020 'dist/**/*.umd.js'",
     "dev": "tsdown --watch",
     "test": "vitest run && pnpm run test:scripts",
-    "test:scripts": "node --test scripts/__tests__/measure-copilotchat.test.mjs scripts/__tests__/assert-headless-purity.test.mjs scripts/__tests__/generate-external-reexports.test.mjs",
+    "test:scripts": "node --test scripts/__tests__/measure-copilotchat.test.mjs scripts/__tests__/assert-headless-purity.test.mjs scripts/__tests__/generate-external-reexports.test.mjs scripts/__tests__/assert-dist-context-types.test.mjs",
     "test:watch": "vitest",
     "test:mutation": "stryker run",
     "check-types": "tsc --noEmit",

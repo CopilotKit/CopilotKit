@@ -144,6 +144,10 @@ Vue uses named slots in place of React's render props and sub-component props. P
   Replaces only the heading text inside the default welcome screen, leaving the surrounding layout intact.
 </PropertyReference>
 
+<PropertyReference name="generative-ui-surface" type="GenerativeUIChatSurfaceSlotProps">
+  Experimental. Replaces the default card around each generative UI surface in the chat. Slot props: `surfaceId`, `isStreaming`, `error`, `rejected`, `children`. Render the surface with `<component :is="children" />`. See [`CopilotChat`](/reference/vue/components/CopilotChat) for the details of each slot prop.
+</PropertyReference>
+
 <Callout type="info">
   The sidebar welcome screen lays out suggestions at the top, the welcome
   message in the middle, and the input fixed at the bottom. Override the

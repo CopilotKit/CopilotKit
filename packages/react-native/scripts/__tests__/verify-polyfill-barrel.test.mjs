@@ -20,6 +20,9 @@ import path from "node:path";
 import {
   assertBuilt,
   BUILD_COMMAND,
+  checkEntryOrder,
+  firstCjsSpecifier,
+  firstEsmSpecifier,
   GROUPS,
   isEntrypoint,
   missingEsmImports,
@@ -31,6 +34,61 @@ const fixtureDir = path.join(here, "fixtures");
 const emptyBarrel = path.join(fixtureDir, "dist-empty-barrel");
 const completeBarrel = path.join(fixtureDir, "dist-complete-barrel");
 const scriptPath = path.join(here, "..", "verify-polyfill-barrel.mjs");
+
+// The CLI reads package.json next to dist/. Only the polyfill subpath, so the
+// barrel fixtures are checked on their own.
+const BARREL_ONLY_MANIFEST = JSON.stringify({
+  exports: {
+    "./polyfills": {
+      import: "./dist/polyfills.mjs",
+      require: "./dist/polyfills.cjs",
+    },
+  },
+});
+
+/**
+ * A package root with one `./generative-ui` code entry built as `esm` / `cjs`,
+ * beside the complete barrel.
+ */
+function packageWithEntry({ esm, cjs }) {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "rn-entry-order-"));
+  fs.cpSync(completeBarrel, path.join(root, "dist"), { recursive: true });
+  fs.mkdirSync(path.join(root, "dist", "generative-ui"));
+  fs.writeFileSync(path.join(root, "dist", "generative-ui", "index.mjs"), esm);
+  fs.writeFileSync(path.join(root, "dist", "generative-ui", "index.cjs"), cjs);
+  fs.writeFileSync(
+    path.join(root, "package.json"),
+    JSON.stringify({
+      exports: {
+        "./generative-ui": {
+          import: "./dist/generative-ui/index.mjs",
+          require: "./dist/generative-ui/index.cjs",
+        },
+        "./polyfills": {
+          import: "./dist/polyfills.mjs",
+          require: "./dist/polyfills.cjs",
+        },
+        "./package.json": "./package.json",
+      },
+    }),
+  );
+  return root;
+}
+
+// What tsdown emitted for the generative UI entry before it imported the
+// polyfills: core-loading modules first, no polyfill barrel at all.
+const UNPOLYFILLED_ESM =
+  'import React from "react";\n' +
+  'import { useCopilotKit } from "@copilotkit/react-core/context";\n';
+const UNPOLYFILLED_CJS =
+  "Object.defineProperty(exports, Symbol.toStringTag, { value: 'Module' });\n" +
+  "const require_chunk = require('../chunk-C0xms8kb.cjs');\n" +
+  'let react = require("react");\n';
+const POLYFILLED_ESM = 'import "../polyfills.mjs";\n' + UNPOLYFILLED_ESM;
+const POLYFILLED_CJS = UNPOLYFILLED_CJS.replace(
+  'let react = require("react");',
+  "require('../polyfills.cjs');\nlet react = require(\"react\");",
+);
 
 describe("verifyBarrel", () => {
   it("rejects the tree-shaken barrel that shipped in 1.69.2", () => {
@@ -96,6 +154,73 @@ describe("verifyBarrel", () => {
   });
 });
 
+describe("checkEntryOrder", () => {
+  it("rejects a published entry that loads CopilotKit before the polyfills", () => {
+    const root = packageWithEntry({
+      esm: UNPOLYFILLED_ESM,
+      cjs: UNPOLYFILLED_CJS,
+    });
+    const results = checkEntryOrder(root);
+    // Both formats, and nothing for the polyfill subpath or the manifest.
+    assert.deepEqual(
+      results.map(({ file, first, ok }) => ({ file, first, ok })),
+      [
+        { file: "./dist/generative-ui/index.mjs", first: "react", ok: false },
+        { file: "./dist/generative-ui/index.cjs", first: "react", ok: false },
+      ],
+    );
+    fs.rmSync(root, { recursive: true, force: true });
+  });
+
+  it("accepts an entry whose first load is the polyfill barrel", () => {
+    const root = packageWithEntry({
+      esm: POLYFILLED_ESM,
+      cjs: POLYFILLED_CJS,
+    });
+    const results = checkEntryOrder(root);
+    assert.equal(results.length, 2);
+    for (const result of results) assert.equal(result.ok, true, result.file);
+    fs.rmSync(root, { recursive: true, force: true });
+  });
+
+  it("rejects an entry whose polyfill import is present but not first", () => {
+    // The root entry's real regression: the bundler hoisted a shared chunk
+    // that loads @copilotkit/react-core above the import of the polyfills.
+    const root = packageWithEntry({
+      esm: UNPOLYFILLED_ESM + 'import "../polyfills.mjs";\n',
+      cjs: UNPOLYFILLED_CJS + "require('../polyfills.cjs');\n",
+    });
+    for (const result of checkEntryOrder(root)) {
+      assert.equal(result.ok, false, result.file);
+    }
+    fs.rmSync(root, { recursive: true, force: true });
+  });
+
+  it("reports an entry that was not built instead of skipping it", () => {
+    const root = packageWithEntry({ esm: POLYFILLED_ESM, cjs: POLYFILLED_CJS });
+    fs.rmSync(path.join(root, "dist", "generative-ui", "index.cjs"));
+    const missing = checkEntryOrder(root).find((r) => r.file.endsWith(".cjs"));
+    assert.equal(missing.ok, false);
+    assert.equal(missing.error, "not built");
+    fs.rmSync(root, { recursive: true, force: true });
+  });
+});
+
+describe("firstEsmSpecifier / firstCjsSpecifier", () => {
+  it("reads the first module, past comments and rolldown's runtime chunk", () => {
+    assert.equal(
+      firstEsmSpecifier(
+        '//#region x\nimport "./polyfills.mjs";\nimport a from "a";',
+      ),
+      "./polyfills.mjs",
+    );
+    assert.equal(firstEsmSpecifier('export * from "./x.mjs";'), "./x.mjs");
+    assert.equal(firstEsmSpecifier("const a = 1;"), null);
+    assert.equal(firstCjsSpecifier(POLYFILLED_CJS), "../polyfills.cjs");
+    assert.equal(firstCjsSpecifier(UNPOLYFILLED_CJS), "react");
+  });
+});
+
 describe("missingEsmImports", () => {
   it("names every group the ESM barrel no longer imports", () => {
     assert.deepEqual(
@@ -157,6 +282,7 @@ describe("cli", () => {
     fs.mkdirSync(path.join(fakeRoot, "scripts"));
     fs.cpSync(scriptPath, path.join(fakeRoot, "scripts", "verify.mjs"));
     fs.cpSync(emptyBarrel, path.join(fakeRoot, "dist"), { recursive: true });
+    fs.writeFileSync(path.join(fakeRoot, "package.json"), BARREL_ONLY_MANIFEST);
 
     const result = spawnSync(
       process.execPath,
@@ -174,6 +300,7 @@ describe("cli", () => {
     fs.mkdirSync(path.join(fakeRoot, "scripts"));
     fs.cpSync(scriptPath, path.join(fakeRoot, "scripts", "verify.mjs"));
     fs.cpSync(completeBarrel, path.join(fakeRoot, "dist"), { recursive: true });
+    fs.writeFileSync(path.join(fakeRoot, "package.json"), BARREL_ONLY_MANIFEST);
 
     const result = spawnSync(
       process.execPath,
@@ -182,6 +309,29 @@ describe("cli", () => {
     );
     assert.equal(result.status, 0);
     assert.equal(JSON.parse(result.stdout).ok, true);
+    fs.rmSync(fakeRoot, { recursive: true, force: true });
+  });
+
+  it("fails the build when a published entry loads CopilotKit before the polyfills", () => {
+    const fakeRoot = packageWithEntry({
+      esm: UNPOLYFILLED_ESM,
+      cjs: UNPOLYFILLED_CJS,
+    });
+    fs.mkdirSync(path.join(fakeRoot, "scripts"));
+    fs.cpSync(scriptPath, path.join(fakeRoot, "scripts", "verify.mjs"));
+
+    const result = spawnSync(
+      process.execPath,
+      [path.join(fakeRoot, "scripts", "verify.mjs")],
+      { encoding: "utf8" },
+    );
+    assert.equal(result.status, 1);
+    assert.match(
+      result.stdout,
+      /FAIL {2}\.\/dist\/generative-ui\/index\.mjs +first loads react/,
+    );
+    assert.match(result.stderr, /expected \.\.\/polyfills\.cjs/);
+    assert.match(result.stderr, /sideEffects/);
     fs.rmSync(fakeRoot, { recursive: true, force: true });
   });
 });

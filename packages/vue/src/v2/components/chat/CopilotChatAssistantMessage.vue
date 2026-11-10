@@ -45,6 +45,8 @@ import type {
   CopilotChatAssistantMessageToolCallsViewSlotProps,
   CopilotChatAssistantMessageToolbarSlotProps,
 } from "./types";
+import MarkdownSurfaces from "../../generative-ui/markdown/MarkdownSurfaces.vue";
+import { useGenerativeUIRuntime } from "../../generative-ui/runtime-context";
 const props = withDefaults(
   defineProps<{
     message: AssistantMessage;
@@ -107,6 +109,13 @@ const emit = defineEmits<{
 const config = useCopilotChatConfiguration();
 const labels = computed(() => config.value?.labels ?? CopilotChatDefaultLabels);
 const { copied, copy } = useCopyFeedback();
+
+// With the markdown transport, ```a2ui fences render as surfaces. The fences
+// are found by the message id.
+const generativeUI = useGenerativeUIRuntime();
+const isMarkdownTransport = computed(
+  () => generativeUI.value?.transport === "markdown",
+);
 
 // Assistant text, also from untyped data that sends content parts.
 const normalizedContent = computed(() =>
@@ -279,13 +288,21 @@ function handleRegenerate() {
             :message="message"
             :content="normalizedContent"
           >
-            <component
-              :is="ActiveMarkdownRenderer"
-              v-if="hasContent"
-              v-bind="activeMarkdownConfig"
-              :content="normalizedContent"
-              :is-streaming="isRunning && isLatestAssistantMessage"
-            />
+            <template v-if="hasContent">
+              <MarkdownSurfaces
+                v-if="isMarkdownTransport"
+                :content="normalizedContent"
+                :message-id="message.id"
+                :is-streaming="isRunning && isLatestAssistantMessage"
+              />
+              <component
+                :is="ActiveMarkdownRenderer"
+                v-else
+                v-bind="activeMarkdownConfig"
+                :content="normalizedContent"
+                :is-streaming="isRunning && isLatestAssistantMessage"
+              />
+            </template>
           </slot>
         </div>
       </CopilotChatWorkText>

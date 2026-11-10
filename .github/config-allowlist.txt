@@ -27,6 +27,7 @@ examples/starters/strands-python/next.config.ts
 examples/starters/strands-typescript/next.config.ts
 examples/demos/a2a-travel/next.config.ts
 examples/demos/a2ui-pdf-analyst/next.config.ts
+examples/demos/a2ui-playground/next.config.ts
 examples/demos/adk-dashboard/next.config.ts
 examples/demos/antigravity-repo-doctor/next.config.ts
 examples/demos/arcade-tools/next.config.ts

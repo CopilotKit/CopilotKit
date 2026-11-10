@@ -1,9 +1,4 @@
-import React, {
-  createContext,
-  useContext,
-  useEffect,
-  useLayoutEffect,
-} from "react";
+import React, { createContext, useContext, useEffect } from "react";
 import type { ComponentType, ReactNode } from "react";
 import * as z from "zod";
 import {
@@ -21,7 +16,10 @@ import { useCopilotKit } from "../context";
 import { useCopilotChatConfiguration } from "../providers/CopilotChatConfigurationProvider";
 import { defineToolCallRenderer } from "../types/defineToolCallRenderer";
 import type { ReactActivityMessageRenderer } from "../types/react-activity-message-renderer";
-import { useManagerVersion } from "./hooks";
+import {
+  GenerativeUISurfaceContentSchema,
+  useGenerativeUIActivitySurface,
+} from "./activity";
 import { useGenerativeUIRuntime } from "./runtime-context";
 import { SurfaceView } from "./SurfaceView";
 
@@ -62,19 +60,6 @@ export function DefaultGenerativeUIChatCard({
   );
 }
 
-const ContentSchema = z
-  .object({
-    surfaceId: z.string(),
-    target: z.string(),
-    catalogId: z.string(),
-    operations: z.array(z.any()),
-    status: z.enum(["streaming", "ready", "error"]),
-    rejected: z
-      .array(z.object({ index: z.number(), reason: z.string() }))
-      .default([]),
-  })
-  .loose();
-
 function GenerativeUIChatActivity({
   content,
   agent,
@@ -86,29 +71,17 @@ function GenerativeUIChatActivity({
   const threadId = useCopilotChatConfiguration()?.threadId ?? agent?.threadId;
   const Wrapper =
     useContext(GenerativeUIChatSlotContext) ?? DefaultGenerativeUIChatCard;
-  useManagerVersion(runtime);
-  useLayoutEffect(() => {
-    if (runtime && threadId)
-      runtime.manager.ingest(threadId, agent?.agentId, content);
-  }, [runtime, threadId, agent?.agentId, content]);
-
-  if (!runtime || !threadId || content.target !== GENERATIVE_UI_CHAT_TARGET)
-    return null;
-  // A surface whose createSurface was rejected shows only the error.
-  const surface =
-    runtime.manager.getSurface(threadId, content.surfaceId) ??
-    runtime.manager.getFailedSurface(threadId, content.surfaceId);
-  if (!surface) return null;
-  // Both lists cover only the latest render_ui call (see the manager's ingest).
   // Custom wrappers get the detailed reasons (`rejected`, `error.cause`), and
   // client-side ones also reach `errorBoundary.onError`; the default card
   // shows a generic message.
-  const rejected = [...(content.rejected ?? []), ...surface.clientRejected];
-  const error = rejected.length
-    ? new Error(`${rejected.length} UI update(s) could not be shown`, {
-        cause: rejected,
-      })
-    : undefined;
+  const { surface, rejected, error } = useGenerativeUIActivitySurface({
+    runtime,
+    threadId,
+    agentId: agent?.agentId,
+    content,
+    target: GENERATIVE_UI_CHAT_TARGET,
+  });
+  if (!surface) return null;
   return (
     <Wrapper
       surfaceId={content.surfaceId}
@@ -125,7 +98,7 @@ export function createGenerativeUIActivityRenderer(): ReactActivityMessageRender
   return {
     activityType: GENERATIVE_UI_ACTIVITY_TYPE,
     content:
-      ContentSchema as unknown as ReactActivityMessageRenderer<GenerativeUISurfaceContent>["content"],
+      GenerativeUISurfaceContentSchema as unknown as ReactActivityMessageRenderer<GenerativeUISurfaceContent>["content"],
     render:
       GenerativeUIChatActivity as ReactActivityMessageRenderer<GenerativeUISurfaceContent>["render"],
   };

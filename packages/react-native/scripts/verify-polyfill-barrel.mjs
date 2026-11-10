@@ -21,6 +21,14 @@
 //     polyfill installs its globals. Asserting the five imports survive the
 //     bundler is the part this file exists to protect.
 //
+// Then a third check, over every published code entry in package.json
+// `exports` (all but the polyfill subpaths): the built import and require
+// files must load the polyfill barrel before anything else. An app can import
+// any entry first, and @copilotkit/core and @ag-ui/client fail at load time on
+// Hermes without the polyfills. It reads dist/ because the bundler decides the
+// emitted order: it hoisted a shared provider chunk above the root entry's
+// `export * from "./headless"`, so the source order alone proved nothing.
+//
 // Invoked from package.json `build`, so a barrel that installs nothing fails
 // the build rather than reaching npm.
 //
@@ -136,7 +144,111 @@ export function verifyBarrel(distDir) {
   return { ok, cjs, esmMissing };
 }
 
-export function formatReport({ cjs, esmMissing }) {
+/**
+ * Export subpaths that are the polyfills themselves, or carry no code. Every
+ * other published entry loads @copilotkit/core or @ag-ui/client, which fail at
+ * load time on Hermes without the polyfills, so each must install them first:
+ * an app can import any entry before the root one.
+ */
+const isPolyfillOrManifestExport = (key) =>
+  key === "./package.json" ||
+  key === "./polyfills" ||
+  key.startsWith("./polyfills/");
+
+/** The first module an ESM file imports or re-exports, in order. */
+export function firstEsmSpecifier(source) {
+  const m =
+    /^\s*(?:import\s*(?:[^;"'`]*?\bfrom\s*)?|export\s[^;"'`]*?\bfrom\s*)["'`]([^"'`]+)["'`]/m.exec(
+      source.replace(/\/\*[\s\S]*?\*\/|^\s*\/\/[^\n]*$/gm, ""),
+    );
+  return m ? m[1] : null;
+}
+
+/**
+ * The first module a CJS file requires, in order, skipping the bundler's own
+ * runtime helper chunk (rolldown's `chunk-*.cjs`: `__toESM` and friends, which
+ * requires nothing and touches no global).
+ */
+export function firstCjsSpecifier(source) {
+  for (const m of source.matchAll(/\brequire\s*\(\s*(["'])([^"']+)\1\s*\)/g)) {
+    if (/(?:^|\/)chunk-[\w-]+\.cjs$/.test(m[2])) continue;
+    return m[2];
+  }
+  return null;
+}
+
+/**
+ * For every published code entry (from package.json `exports`), whether its
+ * BUILT import and require targets load the polyfill barrel before anything
+ * else. Checked in dist/, because the bundler decides the emitted order: a
+ * shared chunk can be hoisted above a re-export that installs the polyfills.
+ */
+export function checkEntryOrder(packageDir) {
+  const manifestPath = path.join(packageDir, "package.json");
+  if (!existsSync(manifestPath)) {
+    throw new Error(`No package.json at ${manifestPath}.`);
+  }
+  const { exports: exportsMap } = JSON.parse(
+    readFileSync(manifestPath, "utf8"),
+  );
+  const results = [];
+  for (const [key, value] of Object.entries(exportsMap ?? {})) {
+    if (isPolyfillOrManifestExport(key)) continue;
+    const targets =
+      typeof value === "string" ? { import: value } : (value ?? {});
+    for (const [condition, target] of Object.entries(targets)) {
+      if (condition !== "import" && condition !== "require") continue;
+      const file = path.join(packageDir, target);
+      const cjs = file.endsWith(".cjs");
+      let expected = path
+        .relative(
+          path.dirname(file),
+          path.join(
+            packageDir,
+            "dist",
+            cjs ? "polyfills.cjs" : "polyfills.mjs",
+          ),
+        )
+        .split(path.sep)
+        .join("/");
+      if (!expected.startsWith(".")) expected = `./${expected}`;
+      if (!existsSync(file)) {
+        results.push({
+          entry: key,
+          file: target,
+          expected,
+          first: null,
+          ok: false,
+          error: "not built",
+        });
+        continue;
+      }
+      const source = readFileSync(file, "utf8");
+      const first = cjs ? firstCjsSpecifier(source) : firstEsmSpecifier(source);
+      results.push({
+        entry: key,
+        file: target,
+        expected,
+        first,
+        ok: first === expected,
+      });
+    }
+  }
+  return results;
+}
+
+/** The barrel check plus the entry-order check, for a built package. */
+export function verifyPackage(packageDir) {
+  const barrel = verifyBarrel(path.join(packageDir, "dist"));
+  const entries = checkEntryOrder(packageDir);
+  return {
+    ...barrel,
+    entries,
+    ok: barrel.ok && entries.every((entry) => entry.ok),
+  };
+}
+
+export function formatReport({ cjs, esmMissing, entries = [] }) {
   const lines = cjs.map(
     (entry) =>
       `${entry.missing.length === 0 ? "PASS" : "FAIL"}  cjs  ${entry.group.padEnd(9)} ` +
@@ -148,10 +260,41 @@ export function formatReport({ cjs, esmMissing }) {
         `import "./polyfills/${group.name}.mjs"`,
     );
   }
+  for (const entry of entries) {
+    lines.push(
+      `${entry.ok ? "PASS" : "FAIL"}  ${entry.file.padEnd(32)} ` +
+        `first loads ${entry.first ?? `(${entry.error ?? "nothing"})`}`,
+    );
+  }
   return lines.join("\n");
 }
 
-export function failureMessage({ cjs, esmMissing }) {
+export function failureMessage({ cjs, esmMissing, entries = [] }) {
+  const misordered = entries.filter((entry) => !entry.ok);
+  if (
+    misordered.length &&
+    cjs.every((entry) => entry.missing.length === 0) &&
+    esmMissing.length === 0
+  ) {
+    return (
+      `A published entry does not install the polyfills before anything else.\n` +
+      misordered
+        .map(
+          (entry) =>
+            `  ${entry.file} (${entry.entry}) first loads ` +
+            `${entry.first ?? `(${entry.error ?? "nothing"})`}, expected ${entry.expected}`,
+        )
+        .join("\n") +
+      `\n\nAn app can import any entry before the root one, and on Hermes\n` +
+      `@copilotkit/core and @ag-ui/client fail at load time without the polyfills.\n` +
+      `Make \`import "./polyfills"\` (relative) the entry's first import, and list\n` +
+      `the entry's src and dist paths in package.json "sideEffects".`
+    );
+  }
+  return failureMessageForBarrel({ cjs, esmMissing }, misordered);
+}
+
+function failureMessageForBarrel({ cjs, esmMissing }, misordered) {
   const dropped = [
     ...cjs.flatMap((entry) => entry.missing),
     ...esmMissing.map((name) => `import "./polyfills/${name}.mjs"`),
@@ -161,7 +304,10 @@ export function failureMessage({ cjs, esmMissing }) {
     `Missing: ${dropped.join(", ")}\n\n` +
     `The side-effect imports in src/polyfills.ts were tree-shaken away. Check that\n` +
     `the "sideEffects" globs in package.json match this package's SOURCE paths —\n` +
-    `globs that only match ./dist/** tell the bundler the src files are pure.`
+    `globs that only match ./dist/** tell the bundler the src files are pure.` +
+    (misordered.length
+      ? `\n\nAlso misordered: ${misordered.map((entry) => entry.file).join(", ")}`
+      : "")
   );
 }
 
@@ -194,7 +340,7 @@ if (isEntrypoint(import.meta.url, process.argv[1])) {
   const jsonMode = process.argv.includes("--json");
   let report;
   try {
-    report = verifyBarrel(path.join(packageRoot, "dist"));
+    report = verifyPackage(packageRoot);
   } catch (error) {
     if (jsonMode) {
       process.stdout.write(
@@ -212,7 +358,10 @@ if (isEntrypoint(import.meta.url, process.argv[1])) {
     process.stdout.write(formatReport(report) + "\n");
     if (!report.ok) process.stderr.write(`\n${failureMessage(report)}\n`);
     else
-      process.stdout.write(`\nAll ${GROUPS.length} polyfill groups install.\n`);
+      process.stdout.write(
+        `\nAll ${GROUPS.length} polyfill groups install, and all ` +
+          `${report.entries.length} published entry files load them first.\n`,
+      );
   }
   process.exit(report.ok ? 0 : 1);
 }

@@ -13,6 +13,9 @@
     "showcase/aimock/d6/**",
     "**/package.json",
     "showcase/scripts/__tests__/fixtures/imagetools/**",
-    "codemods/*/tests/**"
+    "codemods/*/tests/**",
+    "examples/demos/a2ui-playground/src/a2ui/export/**",
+    "examples/demos/a2ui-playground/skills/generated/**",
+    "examples/demos/a2ui-playground/src/data/**"
   ]
 }

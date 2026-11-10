@@ -23,11 +23,15 @@ Move the slider to change the seat count.
 
 Each line is one [A2UI v1.0](https://a2ui.org) operation. The UI is plain text, so this works with any AG-UI agent that streams text.
 
+<Callout type="info" title="React Native">
+  Markdown mode is not available on React Native yet. `GenerativeUIProvider` from `@copilotkit/react-native/generative-ui` uses the [tool transport](/generative-ui/components/transports#tool-transport) only: `transport: "markdown"` is a type error, and passed from JavaScript it is dropped, with a warning in development.
+</Callout>
+
 ## Turn it on
 
 Set the markdown transport on the provider:
 
-<Tabs groupId="frontend_framework" items={["React", "Angular"]} persist>
+<Tabs groupId="frontend_framework" items={["React", "Angular", "Vue"]} persist>
   <Tab value="React">
     ```tsx title="app/providers.tsx"
     "use client";
@@ -58,6 +62,22 @@ Set the markdown transport on the provider:
     ```
 
     `provideGenerativeUI` then renders each assistant message with the blocks replaced by their surfaces, unless the app gives `<copilot-chat-assistant-message>` its own markdown renderer.
+  </Tab>
+  <Tab value="Vue">
+    ```vue title="src/App.vue"
+    <script setup lang="ts">
+    import { CopilotKitProvider } from "@copilotkit/vue/v2";
+    import { standardUI } from "@copilotkit/vue/v2/generative-ui";
+    </script>
+
+    <template>
+      <CopilotKitProvider runtime-url="/api/copilotkit" :generativeUI="{ ui: standardUI, transport: 'markdown' }">
+        <slot />
+      </CopilotKitProvider>
+    </template>
+    ```
+
+    The chat then renders each assistant message with the blocks replaced by their surfaces. If you fill the `message-renderer` slot of the assistant message, render the content with `<MarkdownSurfaces :content="content" :message-id="message.id" />` to keep the surfaces.
   </Tab>
 </Tabs>
 
@@ -93,7 +113,7 @@ The agent sometimes puts a title or a paragraph inside a block. That text is lif
 
 Some backends build the prompt themselves. Turn the context entries off, and read the same data from the run instead:
 
-<Tabs groupId="frontend_framework" items={["React", "Angular"]} persist>
+<Tabs groupId="frontend_framework" items={["React", "Angular", "Vue"]} persist>
   <Tab value="React">
     ```tsx
     "use client";
@@ -121,6 +141,14 @@ Some backends build the prompt themselves. Turn the context entries off, and rea
         provideGenerativeUI({ ui: standardUI, transport: "markdown", sendContext: false }),
       ],
     };
+    ```
+  </Tab>
+  <Tab value="Vue">
+    ```vue
+    <CopilotKitProvider
+      runtime-url="/api/copilotkit"
+      :generativeUI="{ ui: standardUI, transport: 'markdown', sendContext: false }"
+    >
     ```
   </Tab>
 </Tabs>

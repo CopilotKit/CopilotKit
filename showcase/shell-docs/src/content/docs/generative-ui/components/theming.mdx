@@ -10,7 +10,7 @@ The standard components look neutral by default. You want them to use your accen
 
 Every color, radius, shadow, and font of the standard components is a CSS variable. Set the variables with the `theme` option:
 
-<Tabs groupId="frontend_framework" items={["React", "Angular"]} persist>
+<Tabs groupId="frontend_framework" items={["React", "Angular", "Vue"]} persist>
   <Tab value="React">
     ```tsx
     "use client";
@@ -59,9 +59,35 @@ Every color, radius, shadow, and font of the standard components is a CSS variab
 
     `theme` also takes a signal, which makes the theme reactive.
   </Tab>
+  <Tab value="Vue">
+    ```vue
+    <script setup lang="ts">
+    import { CopilotKitProvider } from "@copilotkit/vue/v2";
+    import { standardUI, type GenerativeUITheme } from "@copilotkit/vue/v2/generative-ui";
+
+    const theme: GenerativeUITheme = {
+      "--a2ui-color-accent": "#d97706",
+      "--a2ui-font-family": "Inter, sans-serif",
+      "--a2ui-radius-md": "10px",
+    };
+    </script>
+
+    <template>
+      <CopilotKitProvider runtime-url="/api/copilotkit" :generativeUI="{ ui: standardUI, theme }">
+        <slot />
+      </CopilotKitProvider>
+    </template>
+    ```
+
+    The binding is reactive. Keep `theme` in a `ref`, and the surfaces update when you change it.
+  </Tab>
 </Tabs>
 
 The keys are typed. A name that the components do not read, such as `"--a2ui-color-acent"`, is a type error.
+
+<Callout type="info" title="React Native">
+  React Native has no standard catalog and no CSS variables, so its `GenerativeUIProvider` has no `theme` prop: passing one is a type error, and a `theme` passed from JavaScript, or through a cast, is dropped, with a warning in development. Style the components of your own catalog with `StyleSheet`, as you style the rest of your app. See [Generative UI with your own components](/react-native#generative-ui-with-your-own-components).
+</Callout>
 
 ## The variables
 
@@ -76,7 +102,7 @@ The keys are typed. A name that the components do not read, such as `"--a2ui-col
 
 Your editor lists all of them when you type a key in `theme`. To type a theme in its own file, use `GenerativeUITheme`:
 
-<Tabs groupId="frontend_framework" items={["React", "Angular"]} persist>
+<Tabs groupId="frontend_framework" items={["React", "Angular", "Vue"]} persist>
   <Tab value="React">
     ```ts
     import type { GenerativeUITheme } from "@copilotkit/react-core/generative-ui";
@@ -87,6 +113,13 @@ Your editor lists all of them when you type a key in `theme`. To type a theme in
   <Tab value="Angular">
     ```ts
     import type { GenerativeUITheme } from "@copilotkit/angular/generative-ui";
+
+    export const theme: GenerativeUITheme = { "--a2ui-color-accent": "#d97706" };
+    ```
+  </Tab>
+  <Tab value="Vue">
+    ```ts
+    import type { GenerativeUITheme } from "@copilotkit/vue/v2/generative-ui";
 
     export const theme: GenerativeUITheme = { "--a2ui-color-accent": "#d97706" };
     ```
@@ -103,7 +136,7 @@ Dark mode is built in. The standard components switch to dark colors when an anc
 
 If your app already switches dark mode with a `dark` class, there is nothing to do. To follow the system setting, set the class with a small script in the `<head>`, so the page does not flash:
 
-<Tabs groupId="frontend_framework" items={["React", "Angular"]} persist>
+<Tabs groupId="frontend_framework" items={["React", "Angular", "Vue"]} persist>
   <Tab value="React">
     ```tsx title="app/layout.tsx"
     const colorSchemeScript = `(() => {
@@ -127,6 +160,20 @@ If your app already switches dark mode with a `dark` class, there is nothing to 
   </Tab>
   <Tab value="Angular">
     ```html title="src/index.html"
+    <head>
+      <script>
+        (() => {
+          const media = matchMedia("(prefers-color-scheme: dark)");
+          const apply = () => document.documentElement.classList.toggle("dark", media.matches);
+          apply();
+          media.addEventListener("change", apply);
+        })();
+      </script>
+    </head>
+    ```
+  </Tab>
+  <Tab value="Vue">
+    ```html title="index.html"
     <head>
       <script>
         (() => {

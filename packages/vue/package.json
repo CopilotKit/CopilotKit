@@ -28,6 +28,15 @@
     "*": {
       "v2": [
         "./dist/v2/index.d.cts"
+      ],
+      "v2/generative-ui": [
+        "./dist/v2/generative-ui/index.d.cts"
+      ],
+      "v2/generative-ui/chart": [
+        "./dist/v2/generative-ui-chart/index.d.cts"
+      ],
+      "v2/generative-ui/map": [
+        "./dist/v2/generative-ui-map/index.d.cts"
       ]
     }
   },
@@ -52,6 +61,36 @@
         "default": "./dist/v2/index.cjs"
       }
     },
+    "./v2/generative-ui": {
+      "import": {
+        "types": "./dist/v2/generative-ui/index.d.mts",
+        "default": "./dist/v2/generative-ui/index.mjs"
+      },
+      "require": {
+        "types": "./dist/v2/generative-ui/index.d.cts",
+        "default": "./dist/v2/generative-ui/index.cjs"
+      }
+    },
+    "./v2/generative-ui/chart": {
+      "import": {
+        "types": "./dist/v2/generative-ui-chart/index.d.mts",
+        "default": "./dist/v2/generative-ui/chart.mjs"
+      },
+      "require": {
+        "types": "./dist/v2/generative-ui-chart/index.d.cts",
+        "default": "./dist/v2/generative-ui/chart.cjs"
+      }
+    },
+    "./v2/generative-ui/map": {
+      "import": {
+        "types": "./dist/v2/generative-ui-map/index.d.mts",
+        "default": "./dist/v2/generative-ui/map.mjs"
+      },
+      "require": {
+        "types": "./dist/v2/generative-ui-map/index.d.cts",
+        "default": "./dist/v2/generative-ui/map.cjs"
+      }
+    },
     "./package.json": "./package.json"
   },
   "publishConfig": {
@@ -59,14 +98,14 @@
   },
   "scripts": {
     "build": "vite build && pnpm build:types",
-    "build:types": "vue-tsc -p tsconfig.json --declaration --emitDeclarationOnly --outDir dist --skipLibCheck && node -e \"const fs=require('fs');fs.cpSync('./dist/index.d.ts','./dist/index.d.mts');fs.cpSync('./dist/index.d.ts','./dist/index.d.cts');fs.cpSync('./dist/v2/index.d.ts','./dist/v2/index.d.mts');fs.cpSync('./dist/v2/index.d.ts','./dist/v2/index.d.cts')\"",
+    "build:types": "vue-tsc -p tsconfig.json --declaration --emitDeclarationOnly --outDir dist --skipLibCheck && node -e \"const fs=require('fs');for(const d of ['index','v2/index','v2/generative-ui/index','v2/generative-ui-chart/index','v2/generative-ui-map/index']){const f='./dist/'+d;fs.cpSync(f+'.d.ts',f+'.d.mts');fs.cpSync(f+'.d.ts',f+'.d.cts')}\"",
     "dev": "vite build --watch",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "test:ui": "vitest --ui",
     "lint": "eslint .",
-    "check-types": "vue-tsc --noEmit",
+    "check-types": "vue-tsc --noEmit && vue-tsc --noEmit -p tsconfig.typetests.json",
     "publint": "publint .",
     "attw": "attw --pack . --profile node16 --ignore-rules internal-resolution-error",
     "clean": "node -e \"const fs=require('fs');fs.rmSync('dist',{recursive:true,force:true})\""
@@ -93,10 +132,13 @@
     "@vue/compiler-sfc": "^3.5.14",
     "@vue/test-utils": "^2.4.6",
     "arktype": "^2.1.29",
+    "chart.js": "^4.4.0",
     "eslint": "^9.30.0",
     "eslint-plugin-vue": "^10.8.0",
     "globals": "^16.5.0",
     "jsdom": "^26.1.0",
+    "lucide": "^0.525.0",
+    "maplibre-gl": "^5.0.0",
     "phoenix": "^1.8.4",
     "rxjs": "7.8.1",
     "typescript": "5.8.2",
@@ -110,7 +152,21 @@
     "zod-v3": "npm:zod@^3.25.76"
   },
   "peerDependencies": {
+    "chart.js": "^4.4.0",
+    "lucide": "^0.525.0",
+    "maplibre-gl": "^5.0.0",
     "vue": ">=3.3.0"
+  },
+  "peerDependenciesMeta": {
+    "chart.js": {
+      "optional": true
+    },
+    "lucide": {
+      "optional": true
+    },
+    "maplibre-gl": {
+      "optional": true
+    }
   },
   "engines": {
     "node": ">=20"

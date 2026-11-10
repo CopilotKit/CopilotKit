@@ -84,7 +84,7 @@
         "*.d.ts",
         "src/**/*.css",
         "src/**/*.test-d.{ts,tsx}",
-        "scripts/**/*.{js,cjs,mjs,ts,mts}",
+        "scripts/**/*.{js,cjs,mjs,ts,cts,mts}",
         "test/**/*.{js,mjs,ts}",
         "browser/**/*.{ts,tsx,mjs}",
         "browser-tests/**/*.{ts,tsx,mjs}",
@@ -99,6 +99,7 @@
       "entry": [
         "src/index.ts!",
         "*.d.ts",
+        "src/**/*.test-d.{ts,tsx}",
         "src/v2/__tests__/mocks/web-inspector.ts"
       ],
       "ignoreDependencies": ["phoenix"]
