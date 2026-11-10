@@ -69,7 +69,7 @@ function fakeLinearApi() {
   const posted: PostedActivity[] = [];
   const nodes: ActivityNode[] = [];
   let seq = 0;
-  let heldPost: Promise<void> | undefined;
+  let heldPost: { released: Promise<void>; onArrived: () => void } | undefined;
   const nextNode = () => {
     seq += 1;
     return {
@@ -83,7 +83,8 @@ function fakeLinearApi() {
     if (input !== undefined) {
       const hold = heldPost;
       heldPost = undefined;
-      await hold;
+      hold?.onArrived();
+      await hold?.released;
       posted.push(input);
       const node = nextNode();
       if (!input.ephemeral) {
@@ -123,15 +124,21 @@ function fakeLinearApi() {
     return node.id;
   };
   /**
-   * Hold the next posted activity in flight until the returned function runs.
-   * Linear records it only then, the way a slow request lands late.
+   * Hold the next posted activity in flight until `release` runs. Linear
+   * records it only then, the way a slow request lands late. `arrived`
+   * resolves once that post reaches the API.
    */
   const holdNextPost = () => {
     let release = () => {};
-    heldPost = new Promise<void>((resolve) => {
+    let onArrived = () => {};
+    const released = new Promise<void>((resolve) => {
       release = resolve;
     });
-    return release;
+    const arrived = new Promise<void>((resolve) => {
+      onArrived = resolve;
+    });
+    heldPost = { released, onArrived };
+    return { release, arrived };
   };
   return { fetch, posted, addPrompt, holdNextPost };
 }
@@ -471,12 +478,14 @@ describe("LinearAdapter end to end", () => {
         await thread.runAgent();
       },
     });
-    const releaseThought = api.holdNextPost();
+    const thought = api.holdNextPost();
 
     const created = deliver(adapter, createdEvent());
+    // The first thought, not the stop's response, must take the hold.
+    await thought.arrived;
     await prompt("Stop", "stop");
     await until(() => contentTypes(api.posted).includes("response"));
-    releaseThought();
+    thought.release();
     await created;
     await until(() => api.posted.length === 2);
     await new Promise((r) => setTimeout(r, 20));
@@ -496,7 +505,7 @@ describe("LinearAdapter end to end", () => {
       organizationId: "org_1",
       agentSessionId: SESSION_ID,
     });
-    const releasePost = api.holdNextPost();
+    const { release: releasePost } = api.holdNextPost();
     void callTool("search_issues", { query: "safari" })(renderer.subscriber);
     const finishing = renderer.finish();
 
