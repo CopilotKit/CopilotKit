@@ -1412,13 +1412,14 @@ export function createChannel<
         ) {
           retireWaiter(evt.conversationKey, picker);
           picker.resolve(answer.value);
+          return { status: "handled" };
         } else if (waiter && !picker) {
           console.debug(
             `[channel] ${platform} interaction ${evt.id} in conversation ${conversationLogRef(evt.conversationKey)} is not a control of the pending awaitChoice picker; the picker stays pending`,
           );
         }
-        // The picker closed while dispatch waited, and no handler finished:
-        // the reply answered nothing.
+        // The picker closed (before this reply resolved it) while dispatch
+        // waited, and no handler finished: the reply answered nothing.
         if (
           picker &&
           waiters.get(evt.conversationKey) !== picker &&

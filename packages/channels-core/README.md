@@ -352,8 +352,9 @@ back as `"ignored"`. Guard the restore:
 - Keep the list's original expiry. Do not start a new one.
 - Do not restore when the promise rejects. A failing handler closes the
   choice, so a restored list would point at a closed choice. The cost: when
-  `identifyUser` throws, the choice stays open without its list, and it can
-  only time out.
+  `identifyUser` throws, the choice stays open without its list until it
+  times out, is aborted, or a newer choice replaces it. With
+  `timeoutMs: Infinity` it never times out.
 
 A restored list whose choice already closed (timed out, or answered another
 way) does no harm: a reply to it is not handled, and the list still expires at

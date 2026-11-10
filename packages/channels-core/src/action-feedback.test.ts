@@ -78,7 +78,7 @@ async function start(opts: { nativeEphemeral: boolean; picker: boolean }) {
   fake.emitTurn({ userText: "go", conversationKey: KEY, actor: alice });
   await tick();
   const warned = () => warn.mock.calls.map((c) => c.map(String).join(" "));
-  return { fake, warned, id: buttonIds(fake.posted[0]!)[0]! };
+  return { fake, channel, warned, id: buttonIds(fake.posted[0]!)[0]! };
 }
 
 afterEach(async () => {
@@ -226,6 +226,46 @@ describe("the outcome the sink returns for an interaction", () => {
     const outcome = await interact(fake, { id, actor: alice });
 
     expect(outcome).toEqual({ status: "ignored" });
+  });
+
+  it("reports a pick as handled when the picker answers without its expired handler", async () => {
+    const { fake, channel, id } = await start({
+      nativeEphemeral: true,
+      picker: true,
+    });
+    channel.onInteraction(id, async () => {
+      throw new ActionExpiredError(id);
+    });
+
+    const outcome = await interact(fake, { id, actor: alice });
+
+    expect(outcome).toEqual({ status: "handled" });
+  });
+
+  it("reports a pick on a picker control with no handler as handled", async () => {
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    vi.spyOn(console, "debug").mockImplementation(() => {});
+    const fake = new FakeAdapter({ nativeEphemeral: true });
+    const channel = createChannel({
+      identifyUser: "platform",
+      adapters: [fake],
+      agent: () => new FakeAgent(),
+    });
+    const card = Actions({
+      children: [Button({ value: "ship", children: "Ship" })],
+    });
+    channel.onMention(async ({ thread }) => {
+      await thread.awaitChoice(card);
+    });
+    await channel.ɵruntime.start();
+    activeChannels.push(channel);
+    fake.emitTurn({ userText: "go", conversationKey: KEY, actor: alice });
+    await tick();
+    const id = buttonIds(fake.posted[0]!)[0]!;
+
+    const outcome = await interact(fake, { id, actor: alice });
+
+    expect(outcome).toEqual({ status: "handled" });
   });
 
   it("ignores a second delivery of the same event", async () => {
