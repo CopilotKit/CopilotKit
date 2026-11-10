@@ -262,9 +262,10 @@ read the Linear user directory.
 - No files: no `postFile` and no inbound attachments.
 - No `auth` elicitation (account linking).
 - No user directory (`lookupUser` always returns `undefined`).
-- No token refresh. The adapter uses `accessToken` as given.
-- Pending choices are in memory by default. Pass a shared `stateStore` for
-  more than one process.
+- No built-in token refresh. Pass `accessToken` as a function that returns a
+  valid token.
+- A pending choice waits in the process that posted it. Run one instance, or
+  send each workspace's webhooks to the same instance.
 
 ## Exports
 

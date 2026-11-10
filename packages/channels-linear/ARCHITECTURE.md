@@ -147,8 +147,10 @@ posts a picker whose `onClick` calls `thread.resume(value)`, and the loop
 continues with `forwardedProps.command`.
 
 The adapter state is separate from the engine `stateStore`. Its default is
-`MemoryStore`. With more than one process, pass a shared `stateStore` in the
-adapter options.
+`MemoryStore`. `thread.awaitChoice` waits inside the process that posted the
+elicitation, so the user's pick must reach that same process. Run one instance,
+or send each workspace's webhooks to the same instance. A shared `stateStore`
+does not change this.
 
 ### Stop
 
