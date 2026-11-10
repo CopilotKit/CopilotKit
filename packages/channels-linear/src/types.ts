@@ -30,8 +30,12 @@ export interface LinearAdapterOptions {
    * OAuth access token for the app actor (the app installed with
    * `actor=app` and the `app:mentionable` + `app:assignable` scopes).
    * Sent as `Authorization: Bearer <token>` on every GraphQL call.
+   *
+   * Linear access tokens expire. Pass a function to supply a fresh token:
+   * the client calls it before every request, so it can return a cached
+   * token and mint or refresh a new one when the old one is about to expire.
    */
-  accessToken: string;
+  accessToken: string | (() => string | Promise<string>);
   /**
    * Webhook signing secret. Used to verify the `Linear-Signature` header
    * (hex HMAC-SHA256 of the raw body) on inbound POSTs.

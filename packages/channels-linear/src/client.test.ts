@@ -416,6 +416,25 @@ describe("LinearApiClient.getViewer", () => {
   });
 });
 
+describe("LinearApiClient access token", () => {
+  it("calls a token function before every request", async () => {
+    const tokens = ["lin_first", "lin_second"];
+    const authorizations: Array<string | null> = [];
+    const client = new LinearApiClient({
+      accessToken: async () => tokens.shift() ?? "lin_exhausted",
+      fetch: async (_input, init) => {
+        authorizations.push(new Headers(init?.headers).get("authorization"));
+        return json({ data: { viewer: { id: "app-user", name: "Bot" } } })();
+      },
+    });
+
+    await client.getViewer();
+    await client.getViewer();
+
+    expect(authorizations).toEqual(["Bearer lin_first", "Bearer lin_second"]);
+  });
+});
+
 describe("LinearApiError mapping", () => {
   it("maps an HTTP error with a non-JSON body", async () => {
     const { client } = fakeLinear([

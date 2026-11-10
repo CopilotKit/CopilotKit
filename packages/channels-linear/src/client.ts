@@ -261,7 +261,7 @@ interface ViewerData {
  * await client.createActivity(sessionId, { type: "thought", body: "Reading the issue" });
  */
 export class LinearApiClient {
-  private readonly accessToken: string;
+  private readonly accessToken: LinearAdapterOptions["accessToken"];
   private readonly apiUrl: string;
   private readonly fetchImpl: typeof fetch;
 
@@ -348,10 +348,14 @@ export class LinearApiClient {
   }
 
   private async request<T>(query: string, variables: Record<string, unknown>) {
+    const token =
+      typeof this.accessToken === "function"
+        ? await this.accessToken()
+        : this.accessToken;
     const res = await this.fetchImpl(this.apiUrl, {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${this.accessToken}`,
+        Authorization: `Bearer ${token}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({ query, variables }),
