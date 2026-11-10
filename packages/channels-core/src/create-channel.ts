@@ -454,8 +454,7 @@ export interface CreateChannelOptions<
   name?: string;
   /**
    * Adapters supplied at construction. Optional — adapters can also be attached
-   * before the runner starts the channel, via `channel.ɵruntime.addAdapter`
-   * (the Channel runtime uses this).
+   * before `start()` via {@link Channel.addAdapter}.
    */
   adapters?: PlatformAdapter[];
   /**
@@ -570,12 +569,22 @@ export interface Channel<TState = unknown> {
   /** Handle a modal dismissal for `callbackId` (Slack `view_closed`). */
   onModalClose(callbackId: string, handler: ModalCloseHandler): void;
   tool(t: ChannelTool): void;
+  /** Attach an adapter before `start()`. Throws if called after the channel has started. */
+  addAdapter(adapter: PlatformAdapter): void;
+  /**
+   * Start every adapter and begin handling events. Idempotent while running.
+   * Rejects if the adapters exist but none of them started.
+   */
+  start(): Promise<void>;
+  /** Stop every adapter. A later `start()` is a full restart. */
+  stop(): Promise<void>;
   /** Cross-platform transcript store. Append, list, and delete entries per user. */
   transcripts: Transcripts;
   /**
    * Internal lifecycle seam. Holds the `start`/`stop`/`addAdapter`
-   * implementations that the runtime uses to drive the lifecycle directly —
-   * there is no public equivalent; channels are runtime-driven only.
+   * implementations that the public methods of the same name delegate to, so
+   * a Channel runner (the Intelligence runtime) can drive the lifecycle
+   * directly.
    * @internal
    */
   ɵruntime: {
@@ -774,18 +783,16 @@ export function createChannel<
   }
   const cfg = opts.store ?? {};
 
-  // Adapters can be supplied up front or added later via
-  // `channel.ɵruntime.addAdapter` (before `channel.ɵruntime.start()`). The
-  // runtime uses the latter to attach Channel delivery.
+  // Adapters can be supplied up front or added later via `channel.addAdapter`
+  // (before `start()`). The runtime uses the latter to attach Channel delivery.
   const adapters: PlatformAdapter[] = [...(opts.adapters ?? [])];
   let started = false;
 
   // Backend, transcripts, telemetry, the action registry, and component
-  // registration are resolved in `ɵruntime.start()` — not at construction —
-  // so an adapter added via `ɵruntime.addAdapter` after `createChannel` can
-  // still supply the persistence backend (see `resolveBackend`). Nothing
-  // reads these before the first event, which can only arrive after
-  // `ɵruntime.start()`.
+  // registration are resolved in `start()` — not at construction — so an
+  // adapter added via `addAdapter` after `createChannel` can still supply the
+  // persistence backend (see `resolveBackend`). Nothing reads these before
+  // the first event, which can only arrive after `start()`.
   let backend: StateStore | undefined;
   let transcripts: Transcripts | undefined;
   let registry: ActionRegistry | undefined;
@@ -1057,7 +1064,7 @@ export function createChannel<
   ): Thread {
     if (!backend || !registry || !telemetry) {
       throw new Error(
-        "channel not started: the runner must start the channel (channel.ɵruntime.start()) before handling events",
+        "channel not started: call channel.start() before handling events",
       );
     }
     const deps: ThreadDeps = {
@@ -1689,7 +1696,7 @@ export function createChannel<
     get transcripts() {
       if (!transcripts) {
         throw new Error(
-          "channel.transcripts is available after the runner starts the channel (channel.ɵruntime.start())",
+          "channel.transcripts is available after channel.start()",
         );
       }
       return transcripts;
@@ -1701,7 +1708,7 @@ export function createChannel<
       addAdapter(adapter) {
         if (started) {
           throw new Error(
-            "channel.ɵruntime.addAdapter must be called before channel.ɵruntime.start()",
+            "channel.addAdapter must be called before channel.start()",
           );
         }
         adapters.push(adapter);
@@ -2028,6 +2035,15 @@ export function createChannel<
     },
     tool(t) {
       toolMap.set(t.name, t);
+    },
+    addAdapter(adapter) {
+      channel.ɵruntime.addAdapter(adapter);
+    },
+    start() {
+      return channel.ɵruntime.start();
+    },
+    stop() {
+      return channel.ɵruntime.stop();
     },
   };
   return channel;
