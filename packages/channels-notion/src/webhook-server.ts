@@ -16,7 +16,8 @@ const MAX_BODY_BYTES = 1024 * 1024;
 
 /**
  * Buffers the request body. Resolves `null` as soon as the body grows past
- * {@link MAX_BODY_BYTES}, and keeps no more of it.
+ * {@link MAX_BODY_BYTES}, keeps no more of it, and pauses the request so it
+ * stops reading while the 413 waits to be sent.
  */
 function readBody(req: IncomingMessage) {
   return new Promise<Buffer | null>((resolve, reject) => {
@@ -26,6 +27,7 @@ function readBody(req: IncomingMessage) {
       size += chunk.length;
       if (size > MAX_BODY_BYTES) {
         chunks.length = 0;
+        req.pause();
         resolve(null);
         return;
       }

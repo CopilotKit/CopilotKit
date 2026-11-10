@@ -92,6 +92,7 @@ The adapter reads no environment variables. The examples use these names:
 | --------------------------- | ------------------------------------------------------------ |
 | `NOTION_TOKEN`              | Integration secret. Sent as `Authorization: Bearer <token>`. |
 | `NOTION_VERIFICATION_TOKEN` | The `verification_token` that Notion sends to a new webhook. |
+| `AGENT_URL`                 | URL of a running AG-UI agent endpoint, for the `HttpAgent`.  |
 
 ## Set up the Notion integration
 
