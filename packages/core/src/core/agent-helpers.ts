@@ -10,20 +10,26 @@ export type ɵJsonSerializable =
   | ɵJsonSerializable[]
   | { [key: string]: ɵJsonSerializable };
 
-/** Agent context as app code gives it: any JSON value, not only a string. */
+/** Agent context as app code gives it: any value, not only a string. */
 export interface ɵAgentContextInput {
   /** A human-readable description of what this context represents. */
   description: string;
-  /** The context value. A non-string value is sent as its JSON text. */
-  value: ɵJsonSerializable;
+  /**
+   * The context value. A string is sent as-is; any other value is sent as its
+   * JSON text, so it should be JSON-serializable (an interface type or an
+   * optional field is fine).
+   */
+  value: unknown;
 }
 
 /**
  * The string the agent receives for a context value: a string as-is,
- * anything else as JSON.
+ * anything else as JSON. A value JSON has no text for (`undefined`, a
+ * function) becomes its `String()` form.
  */
-export function ɵserializeContextValue(value: ɵJsonSerializable) {
-  return typeof value === "string" ? value : JSON.stringify(value);
+export function ɵserializeContextValue(value: unknown): string {
+  if (typeof value === "string") return value;
+  return JSON.stringify(value) ?? String(value);
 }
 
 /**

@@ -10,13 +10,17 @@ export type JsonSerializable = ɵJsonSerializable;
 
 /**
  * Context configuration for useAgentContext.
- * Accepts any JSON-serializable value which will be converted to a string.
+ * Accepts any value; a value that is not a string is sent as its JSON text.
  */
 export interface AgentContextInput {
   /** A human-readable description of what this context represents */
   description: string;
-  /** The context value - will be converted to a JSON string if not already a string */
-  value: JsonSerializable;
+  /**
+   * The context value. A string is sent as-is; any other value is sent as its
+   * JSON text, so it should be JSON-serializable. Interface types and optional
+   * fields are accepted.
+   */
+  value: unknown;
 }
 
 export function useAgentContext(context: AgentContextInput) {

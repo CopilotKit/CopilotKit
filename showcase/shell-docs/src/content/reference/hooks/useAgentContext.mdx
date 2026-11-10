@@ -30,7 +30,7 @@ useAgentContext satisfies (context: AgentContextInput) => void;
   what the value represents and when to reference it.
 </PropertyReference>
 
-  <PropertyReference name="value" type="JsonSerializable" required>
+  <PropertyReference name="value" type="unknown" required>
     The context value to provide. Must be JSON-serializable: `string`, `number`, `boolean`, `null`, arrays, or plain objects with string keys and serializable values. Anything that is not already a string is stringified with `JSON.stringify` before it is sent, so the agent receives a JSON string rather than the value you passed -- see [What the agent receives](#what-the-agent-receives).
   </PropertyReference>
 </PropertyReference>
@@ -220,7 +220,7 @@ for a complete agent example.
 
 - **Mount/Unmount lifecycle**: The context is registered when the component mounts and automatically removed when it unmounts. There is no manual cleanup required.
 - **Reactive updates**: When the `context` object changes between renders, the agent immediately sees the updated value.
-- **Serialization**: The `value` must conform to `JsonSerializable` (`string | number | boolean | null | JsonSerializable[] | { [key: string]: JsonSerializable }`). Non-serializable values such as functions, class instances, or symbols will cause errors. Strings are sent through unchanged; every other value is stringified, so the agent always reads a string -- see [What the agent receives](#what-the-agent-receives).
+- **Serialization**: `value` takes any value. A string is sent through unchanged; any other value is sent as its `JSON.stringify` text, so the agent always reads a string. Give it data JSON can represent: interface types, arrays and optional fields work, while functions, class instances and symbols lose their meaning -- see [What the agent receives](#what-the-agent-receives).
 - **Multiple contexts**: Multiple `useAgentContext` calls across your component tree are all visible to the agent concurrently. Each is identified by its description and value.
 - **No return value**: The hook returns `void`. Unlike the v1 `useCopilotReadable`, it does not return an ID for parent-child hierarchies.
 

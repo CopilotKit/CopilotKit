@@ -25,6 +25,19 @@ describe("ɵserializeContextValue", () => {
     expect(ɵserializeContextValue(42)).toBe("42");
     expect(ɵserializeContextValue(null)).toBe("null");
   });
+
+  it("takes interface-typed values and optional fields, like v1 readables", () => {
+    interface Task {
+      title: string;
+      note?: string;
+    }
+    const tasks: Task[] = [{ title: "Ship", note: undefined }];
+    expect(ɵserializeContextValue(tasks)).toBe('[{"title":"Ship"}]');
+  });
+
+  it("always returns a string, even for a value JSON has no text for", () => {
+    expect(ɵserializeContextValue(undefined)).toBe("undefined");
+  });
 });
 
 describe("ɵgetAgentCapabilities", () => {
