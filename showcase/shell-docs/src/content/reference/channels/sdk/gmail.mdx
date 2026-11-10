@@ -1,0 +1,233 @@
+---
+title: Gmail adapter
+description: Answer email in a Gmail mailbox with @copilotkit/channels/gmail.
+---
+
+import ChannelsInstall from "@/snippets/shared/channels/install.mdx";
+
+The Gmail adapter lets an agent answer email in one Gmail mailbox.
+
+- Gmail sends a notification to Google Cloud Pub/Sub when new mail arrives.
+- A Pub/Sub push subscription posts the notification to the adapter.
+- The adapter reads the new mail and gives each email to your Channel.
+- The answer goes back as one reply email in the same thread.
+
+Each email thread is one conversation. Every email in the intake label is
+addressed to the bot, so it goes to `onMention` handlers. When there are
+none, it goes to `onMessage` handlers.
+
+The Gmail adapter is a direct adapter. Your process runs it with
+`channel.start()`. It needs no Intelligence key.
+
+## Install
+
+<ChannelsInstall />
+
+The adapter is at `@copilotkit/channels/gmail`. You can also install
+`@copilotkit/channels-gmail` on its own. It has no Google SDK dependency.
+
+## Set up Google Cloud
+
+You need a Google Cloud project and the Gmail account the bot reads.
+
+1. In the Google Cloud console, create a project or pick one.
+2. Enable the **Gmail API** and the **Cloud Pub/Sub API**.
+3. Create a Pub/Sub topic, for example `gmail-bot`. Its full name is
+   `projects/<project-id>/topics/gmail-bot`.
+4. On the topic, give the role **Pub/Sub Publisher** to
+   `gmail-api-push@system.gserviceaccount.com`. Gmail publishes with this
+   account.
+5. Create a service account for push authentication, for example
+   `gmail-push@<project-id>.iam.gserviceaccount.com`.
+6. Create a **push** subscription on the topic:
+   - Endpoint URL: the public URL of your handler, for example
+     `https://bot.example.com/gmail`.
+   - Turn on **Enable authentication**. Select the service account from
+     step 5. Set the audience to the endpoint URL.
+7. Configure the OAuth consent screen. Add the scopes
+   `https://www.googleapis.com/auth/gmail.modify` and
+   `https://www.googleapis.com/auth/gmail.send`.
+8. Create an OAuth client ID. Use it to get a refresh token for the bot's
+   Gmail account with the scopes from step 7. The
+   [OAuth 2.0 Playground](https://developers.google.com/oauthplayground)
+   can do this with your own client ID.
+
+<Callout type="warn" title="Refresh tokens in testing mode">
+  When the OAuth consent screen is in **Testing**, Google revokes refresh
+  tokens after 7 days. Publish the app, or use a Google Workspace internal
+  app, for a bot that runs longer.
+</Callout>
+
+Put the values in environment variables:
+
+```bash title=".env"
+GOOGLE_CLIENT_ID=...
+GOOGLE_CLIENT_SECRET=...
+GMAIL_REFRESH_TOKEN=...
+GMAIL_PUBSUB_TOPIC=projects/<project-id>/topics/gmail-bot
+GMAIL_PUSH_AUDIENCE=https://bot.example.com/gmail
+GMAIL_PUSH_SERVICE_ACCOUNT=gmail-push@<project-id>.iam.gserviceaccount.com
+GMAIL_ACTION_SECRET=<at least 32 random characters>
+```
+
+## Declare the Channel
+
+```ts title="channel.ts"
+import { createChannel } from "@copilotkit/channels";
+import { gmail } from "@copilotkit/channels/gmail";
+import { makeAgent } from "./agent.js";
+
+export const gmailAdapter = gmail({
+  oauth: {
+    clientId: process.env.GOOGLE_CLIENT_ID!,
+    clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+    refreshToken: process.env.GMAIL_REFRESH_TOKEN!,
+  },
+  topicName: process.env.GMAIL_PUBSUB_TOPIC!,
+  pubsubAuth: {
+    audience: process.env.GMAIL_PUSH_AUDIENCE!,
+    serviceAccountEmail: process.env.GMAIL_PUSH_SERVICE_ACCOUNT,
+  },
+  actions: {
+    baseUrl: process.env.GMAIL_PUSH_AUDIENCE!,
+    secret: process.env.GMAIL_ACTION_SECRET!,
+  },
+});
+
+export const channel = createChannel({
+  identifyUser: "platform",
+  adapters: [gmailAdapter],
+  agent: makeAgent,
+});
+
+channel.onMention(async ({ thread }) => {
+  await thread.runAgent();
+});
+
+await channel.start();
+```
+
+`channel.start()` calls Gmail `users.watch` for the intake label. The watch
+ends after 7 days, so the adapter renews it every day. `channel.stop()`
+stops the renewal.
+
+If your app already has Google access tokens, pass `getAccessToken` instead
+of `oauth`. The adapter calls it before each request.
+
+## Serve the handler
+
+`gmailAdapter.handler` is a fetch-style function: it takes a `Request` and
+returns a `Response`. Mount it on the route your push subscription posts to.
+
+```ts title="app/gmail/route.ts"
+import { gmailAdapter } from "@/channel";
+
+export const GET = gmailAdapter.handler;
+export const POST = gmailAdapter.handler;
+```
+
+`GET` is for action links. The handler answers a push with `204` after it
+reads the new mail. Your handlers then run in the background. On a
+serverless host, pass the platform's `waitUntil` as the `waitUntil` option,
+so that work is not cut off.
+
+To run a server without a framework, set `port`. The adapter then starts a
+`node:http` server in `channel.start()`. The default path is `/gmail`.
+
+```ts
+gmail({ /* ... */, port: 3000, path: "/gmail" });
+```
+
+## Verify push requests
+
+The adapter refuses a push it cannot verify. Give one of these options, or
+both:
+
+| Option              | How it works                                                                                       | Trade-off                                                                    |
+| ------------------- | -------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
+| `pubsubAuth`        | Checks the OIDC token Pub/Sub signs: Google's signature, the issuer, the audience, and the expiry. | Stronger. Needs authentication on the push subscription.                     |
+| `verificationToken` | Checks a `token` query value. Add `?token=<value>` to the push endpoint URL.                      | Simpler, but the token is in the URL, so it can appear in proxy and access logs. |
+
+With `pubsubAuth.serviceAccountEmail`, the adapter also checks that the token
+comes from that service account.
+
+## What the adapter reads
+
+- Only mail with the intake label. The default is `INBOX`. Set `labelId` to
+  use a Gmail label id instead, for example `Label_123`.
+- Every new email in a sync, in mailbox order. Emails in one thread go to
+  your handlers one at a time.
+- Not mail from the bot's own address, sent mail, drafts, spam, or trash.
+- Not automatic mail: vacation replies and bulk mail (`Auto-Submitted`,
+  `Precedence: bulk`).
+
+The turn text is the plain-text body without quoted reply history and
+without the signature. The adapter uses the HTML body when there is no plain
+part. The actor is the sender's address and name.
+
+Attachments become AG-UI content parts. By default the adapter reads up to 5
+files of up to 8 MiB each, and cuts text files at 200 KiB. Set `files` to
+change these limits. The agent gets a note for each file it skipped.
+
+The agent history comes from the Gmail thread. Mail from the bot's address
+becomes assistant messages. Other mail becomes user messages.
+
+<Callout type="info" title="The sender address is not proof of identity">
+  Anyone can write any address in the `From` header. Do not grant access
+  based on the sender address alone, unless your domain policy (DMARC)
+  rejects spoofed mail.
+</Callout>
+
+## Keep state across restarts
+
+The adapter keeps three things in a `StateStore`: the Gmail history cursor,
+the ids of emails it already handled, and the action links already used.
+The default store is in memory, so a restart forgets them. The Channel's own
+store is not visible to the adapter. Pass a durable store to both:
+
+```ts
+import type { StateStore } from "@copilotkit/channels";
+
+const store: StateStore = createDurableStore(); // your Redis or Postgres store
+
+const gmailAdapter = gmail({ /* ... */, store });
+const channel = createChannel({
+  /* ... */
+  adapters: [gmailAdapter],
+  store: { adapter: store },
+});
+```
+
+If the stored cursor is too old for Gmail, the adapter continues from the
+newest change. Mail in that gap is not answered.
+
+## Replies
+
+- One reply email per `thread.post()`. Agent text for a whole turn goes out
+  as one email, because email cannot stream.
+- The reply is in the same thread: `In-Reply-To`, `References`, and a
+  `Re:` subject. It goes to the `Reply-To` address, else the sender.
+- The body has HTML and plain text. The adapter renders Markdown and Channel
+  UI to simple, inline-styled HTML.
+- `thread.postFile()` sends the file as an attachment. The limit is 25 MB,
+  Gmail's limit. Set `maxAttachmentBytes` for a smaller limit.
+- `thread.update()` and `thread.delete()` throw. Sent email cannot change.
+- There are no reactions, modals, typing indicators, or ephemeral messages.
+
+## Buttons as links
+
+Email has no buttons that call back. With the `actions` option, the adapter
+turns each handler button and each select option into a signed link to your
+handler:
+
+- The link carries the action id, the value, the thread, the recipient, and
+  an expiry. An HMAC with `actions.secret` signs it.
+- Opening the link shows a confirm page. The action runs only when the
+  person confirms. Mail scanners open links to check them, so a link that
+  acted on open would act for the scanner.
+- A link works once. A changed, expired, or used link is refused.
+- Links last 7 days. Set `actions.ttlMs` to change this.
+
+`thread.awaitChoice()` works the same way. Without `actions`, handler buttons
+and select options show only their label, and `awaitChoice()` throws. Link
+buttons (`<Button url>`) always render as links. Text inputs are not shown.
