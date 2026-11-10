@@ -384,6 +384,14 @@ export function subscribeDeployResults(
   });
 }
 
+/**
+ * In-process (non-fleet) harness boot: wires PocketBase, the scheduler, every
+ * probe driver (`registerAllProbeDrivers`) and discovery source
+ * (`registerAllDiscoverySources`), the probe/rule loaders, and the HTTP
+ * server. The fleet entrypoint (`bootFleet`) uses `runControlPlane` /
+ * `runWorker` instead; both paths share the registration helpers so their
+ * loaders resolve the same `config/probes/*.yml` set.
+ */
 export async function boot(opts: BootOptions = {}): Promise<{
   stop: () => Promise<void>;
   port: number;

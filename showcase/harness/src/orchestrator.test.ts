@@ -3,6 +3,7 @@ import { readFileSync, readdirSync } from "node:fs";
 import yaml from "js-yaml";
 import { promises as fs } from "node:fs";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import os from "node:os";
 import net from "node:net";
 import {
@@ -2608,7 +2609,7 @@ describe("orchestrator.registerAllDiscoverySources", () => {
     const registered = registry.list();
 
     const probesDir = path.resolve(
-      path.dirname(new URL(import.meta.url).pathname),
+      path.dirname(fileURLToPath(import.meta.url)),
       "../config/probes",
     );
     const referenced = new Set<string>();
