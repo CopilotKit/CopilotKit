@@ -74,6 +74,7 @@ on:
           - langgraph-python
           - google-antigravity
           - ag2
+          - openai-agents-python
 
 # Default to read-only at the job level. The only step that needs write access
 # is "Post result to PR" at the end — we grant it write perms inline there.
@@ -423,6 +424,13 @@ jobs:
               # OPENAI_BASE_URL straight from the environment.
               export OPENAI_BASE_URL=http://localhost:4010/v1
               export OPENAI_API_KEY=sk-aimock-dev-ci-only
+            fi
+            if [ "$SLUG" = "openai-agents-python" ]; then
+              # The Agents SDK's OpenAI client reads OPENAI_BASE_URL itself;
+              # there is no aimock_toggle.py in this package.
+              export OPENAI_BASE_URL=http://localhost:4010/v1
+              export OPENAI_API_KEY=sk-aimock-dev-ci-only
+              export OPENAI_AGENTS_DISABLE_TRACING=1
             fi
             AIMOCK_URL=http://localhost:4010/v1 \
             python -m uvicorn "agent_server:app" --host 127.0.0.1 --port "$AGENT_PORT" &

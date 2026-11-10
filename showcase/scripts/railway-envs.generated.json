@@ -72,6 +72,10 @@
         "serviceId": "6441783f-3e93-40cf-b75d-872c6713d7f2"
       },
       {
+        "name": "showcase-openai-agents-python",
+        "serviceId": "be6a4cb2-6258-4994-bd20-4c6e0eb37e96"
+      },
+      {
         "name": "showcase-langgraph-fastapi",
         "serviceId": "06cccb5c-59f4-46b5-8adc-7113e77011a4"
       },
@@ -1444,6 +1448,45 @@
       }
     },
     {
+      "name": "showcase-openai-agents-python",
+      "serviceId": "be6a4cb2-6258-4994-bd20-4c6e0eb37e96",
+      "prodInstanceId": "be6a4cb2-6258-4994-bd20-4c6e0eb37e96",
+      "stagingInstanceId": "aa2c2665-331f-4a2a-821a-79859ae87994",
+      "ciBuilt": true,
+      "gateValidated": true,
+      "gateIgnore": false,
+      "gatePolicy": {
+        "presence": "required",
+        "image": "showcase-convention"
+      },
+      "onlyEnvironment": "staging",
+      "dispatchName": "openai-agents-python",
+      "domains": {
+        "staging": "showcase-openai-agents-python-staging.up.railway.app",
+        "prod": ""
+      },
+      "probe": {
+        "staging": true,
+        "prod": false,
+        "driver": "agent"
+      },
+      "promoteTier": 2,
+      "runtimeDeps": ["aimock"],
+      "serviceRefs": [
+        {
+          "key": "OPENAI_BASE_URL",
+          "target": "aimock"
+        }
+      ],
+      "healthcheckPath": {
+        "staging": "/api/health"
+      },
+      "autoUpdates": {
+        "staging": "disabled",
+        "prod": "disabled"
+      }
+    },
+    {
       "name": "showcase-pydantic-ai",
       "serviceId": "0a106173-2282-4887-a994-0ca276a99d69",
       "prodInstanceId": "192cd647-6824-4f01-937a-1da675d83805",
@@ -2277,6 +2320,10 @@
       }
     ],
     "skipped": [
+      {
+        "name": "showcase-openai-agents-python",
+        "reason": "no \"prod\" environment in the SSOT — cannot be promoted (it exists in: staging)."
+      },
       {
         "name": "showcase-intelligence-api",
         "reason": "no \"prod\" environment in the SSOT — cannot be promoted (it exists in: staging)."

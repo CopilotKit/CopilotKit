@@ -62,6 +62,7 @@ on:
           - pydantic-ai
           - google-adk
           - google-antigravity
+          - openai-agents-python
           - ag2
           - agno
           - llamaindex
@@ -180,6 +181,8 @@ jobs:
               - 'showcase/integrations/google-adk/**'
             google_antigravity:
               - 'showcase/integrations/google-antigravity/**'
+            openai_agents_python:
+              - 'showcase/integrations/openai-agents-python/**'
             ag2:
               - 'showcase/integrations/ag2/**'
             agno:
@@ -321,6 +324,7 @@ jobs:
             {"dispatch_name":"pydantic-ai","filter_key":"pydantic_ai","context":"showcase/integrations/pydantic-ai","image":"showcase-pydantic-ai","railway_id":"0a106173-2282-4887-a994-0ca276a99d69","timeout":25,"build_args":"","dockerfile":"","health_path":"/api/health"},
             {"dispatch_name":"google-adk","filter_key":"google_adk","context":"showcase/integrations/google-adk","image":"showcase-google-adk","railway_id":"87f60507-5a3d-4b8a-9e23-2b1de85d939c","timeout":25,"build_args":"","dockerfile":"","health_path":"/api/health"},
             {"dispatch_name":"google-antigravity","filter_key":"google_antigravity","context":"showcase/integrations/google-antigravity","image":"showcase-google-antigravity","railway_id":"6441783f-3e93-40cf-b75d-872c6713d7f2","timeout":30,"build_args":"","dockerfile":"","health_path":"/api/health"},
+            {"dispatch_name":"openai-agents-python","filter_key":"openai_agents_python","context":"showcase/integrations/openai-agents-python","image":"showcase-openai-agents-python","railway_id":"be6a4cb2-6258-4994-bd20-4c6e0eb37e96","timeout":25,"build_args":"","dockerfile":"","health_path":"/api/health"},
             {"dispatch_name":"ag2","filter_key":"ag2","context":"showcase/integrations/ag2","image":"showcase-ag2","railway_id":"4a37481b-f264-4eb7-a9cd-0a9ebb9ac05c","timeout":25,"build_args":"","dockerfile":"","health_path":"/api/health"},
             {"dispatch_name":"agno","filter_key":"agno","context":"showcase/integrations/agno","image":"showcase-agno","railway_id":"32cab80b-e329-45bd-9c73-c4e1ddc94305","timeout":25,"build_args":"","dockerfile":"","health_path":"/api/health"},
             {"dispatch_name":"llamaindex","filter_key":"llamaindex","context":"showcase/integrations/llamaindex","image":"showcase-llamaindex","railway_id":"285386e8-492d-4cb8-b632-0a7d4607378f","timeout":25,"build_args":"","dockerfile":"","health_path":"/api/health"},

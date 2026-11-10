@@ -1,0 +1,10 @@
+{
+  "framework": "openai-agents-python",
+  "features": {},
+  "missing": [
+    {
+      "feature": "all",
+      "reason": "No openai-agents-python docs tree exists on docs.copilotkit.ai yet (manifest docs_mode: hidden). The demos fall through to the framework-agnostic feature-level og_docs_url + shell_docs_path in showcase/shared/feature-registry.json. This file is kept as a placeholder so contributors know the choice to defer to the registry was deliberate, not an oversight."
+    }
+  ]
+}
