@@ -388,9 +388,11 @@ describe("CopilotKitProvider", () => {
       expect(handler).toBeDefined();
 
       const settled = vi.fn();
-      void handler!({ data: "test" }, {
-        toolCall: { id: "tc-1", function: { name: "interactiveTool" } },
-      } as any).then(settled, settled);
+      void Promise.resolve(
+        handler!({ data: "test" }, {
+          toolCall: { id: "tc-1", function: { name: "interactiveTool" } },
+        } as any),
+      ).then(settled, settled);
 
       // The handler parks until the render calls `respond`. It must not settle
       // on its own, and it must not warn: waiting is the contract, not a gap.

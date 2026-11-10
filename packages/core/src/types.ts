@@ -113,7 +113,13 @@ export type FrontendTool<
   name: string;
   description?: string;
   parameters?: StandardSchemaV1<any, T>;
-  handler?: (args: T, context: FrontendToolHandlerContext) => Promise<unknown>;
+  /**
+   * Runs the tool in the app. It can return the result, or a promise of it.
+   */
+  handler?: (
+    args: T,
+    context: FrontendToolHandlerContext,
+  ) => unknown | Promise<unknown>;
   followUp?: boolean;
   /**
    * Whether to run the handler again for a call that is still unanswered when

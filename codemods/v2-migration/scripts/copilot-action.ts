@@ -210,16 +210,6 @@ function convertCall(call: Node, z: string, source: string): Converted | null {
     usesZod = true;
   }
 
-  // 2.0 types a handler as returning a promise; v1 also took sync ones.
-  if (hook === "useFrontendTool") {
-    const handler = entries.get("handler");
-    if (handler) {
-      const edit = asyncHandler(handler);
-      if (edit === null) return null;
-      if (edit) edits.push(edit);
-    }
-  }
-
   // `webmcp` is a `useFrontendTool` option only.
   if (entries.has("webmcp") && hook !== "useFrontendTool") return null;
 
@@ -302,39 +292,6 @@ function convertCall(call: Node, z: string, source: string): Converted | null {
   edits.push(callee.replace(calleeText));
 
   return { hook, edits, usesZod };
-}
-
-/**
- * Makes a sync handler async: `async` before an inline function, or an async
- * wrapper around a reference. `undefined` when it is async already, `null`
- * when it is an expression this does not rewrite (such as a hook call).
- */
-function asyncHandler(entry: Node): Edit | null | undefined {
-  const isAsync = (node: Node) => /^async\b/.test(node.text());
-  if (entry.kind() === "method_definition") {
-    if (isAsync(entry) || entry.text().startsWith("*")) return undefined;
-    const start = entry.range().start.index;
-    return { startPos: start, endPos: start, insertedText: "async " };
-  }
-  if (entry.kind() === "shorthand_property_identifier") {
-    return entry.replace(`handler: async (args) => ${entry.text()}(args)`);
-  }
-  const value = entry.field("value");
-  if (!value) return null;
-  switch (value.kind()) {
-    case "arrow_function":
-    case "function_expression":
-    case "function": {
-      if (isAsync(value)) return undefined;
-      const start = value.range().start.index;
-      return { startPos: start, endPos: start, insertedText: "async " };
-    }
-    case "identifier":
-    case "member_expression":
-      return value.replace(`async (args) => ${value.text()}(args)`);
-    default:
-      return null;
-  }
 }
 
 /**

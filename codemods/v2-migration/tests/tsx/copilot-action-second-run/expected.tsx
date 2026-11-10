@@ -75,7 +75,7 @@ export function Tools({ items }: { items: string[] }) {
     parameters: z.object({
       q: z.string(),
     }),
-    handler: async ({ q }) => ({ q }),
+    handler: ({ q }) => ({ q }),
     render: ({ result }) => <pre>{result?.q}</pre>,
   });
 
@@ -86,7 +86,7 @@ export function Tools({ items }: { items: string[] }) {
     parameters: z.object({
       id: z.string(),
     }),
-    async handler({ id }) {
+    handler({ id }) {
       console.log(id);
     },
   });
@@ -95,7 +95,7 @@ export function Tools({ items }: { items: string[] }) {
     parameters: z.object({
       id: z.string(),
     }),
-    handler: async (args) => save(args),
+    handler: save,
   });
 
   // `disabled` (deprecated in v1) and the v1 `handler` render prop of HITL.

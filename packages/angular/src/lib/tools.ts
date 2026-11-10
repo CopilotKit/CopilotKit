@@ -115,7 +115,7 @@ export interface FrontendToolConfig<
   handler?: (
     args: Args,
     context: FrontendToolHandlerContext,
-  ) => Promise<unknown>;
+  ) => unknown | Promise<unknown>;
   followUp?: boolean;
   /**
    * Whether to run the handler again for a call that is still unanswered when
