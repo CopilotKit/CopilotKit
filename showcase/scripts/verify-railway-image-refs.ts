@@ -75,9 +75,9 @@ const STARTER_FLEET_PREFIX = "starter-";
  * both drift directions exactly like a showcase-* agent, with NO carve-out.
  * This predicate is retained for a single NARROW purpose: tolerating a
  * stray/in-flight `starter-<slug>` live service that is provisioned ahead of
- * (or absent from) its SSOT entry. The current runner's `toleratedStarter`
+ * (or absent from) its SSOT entry. The current runner's `toleratedUnregistered`
  * wrapper checks name, ID, and lifecycle evidence before allowing that
- * exception. The legacy name-only `findUntrackedServices` helper also uses
+ * exception; it also covers any service with a staging or prod instance. The legacy name-only `findUntrackedServices` helper also uses
  * this predicate after its name lookup. The predicate alone grants no
  * exemption from the current gate.
  *
@@ -260,7 +260,7 @@ export function findMissingServices(
  * The current runner (`runRailwayImageGate`, called by `main`) does not use
  * this helper for inventory authorization. It requires an own-name SERVICES
  * entry with the exact `serviceId` before applying ignored image policy;
- * lifecycle ownership and `toleratedStarter` handle its allowed exceptions.
+ * lifecycle ownership and `toleratedUnregistered` handle its allowed exceptions.
  */
 export function findUntrackedServices(
   railwayServiceNames: ReadonlySet<string>,
@@ -272,7 +272,7 @@ export function findUntrackedServices(
     // gate flags. It does not check own properties or service IDs.
     if (entry) continue;
     // The legacy helper also skips starter-* names after the lookup above.
-    // The current runner applies the stricter toleratedStarter checks.
+    // The current runner applies the stricter toleratedUnregistered checks.
     if (isStarterFleetService(name)) continue;
     untracked.push(name);
   }
@@ -438,9 +438,33 @@ export interface ProjectServicesWithInstances {
   } | null;
 }
 
+/** A live service that exists in staging or prod but is not yet in SERVICES. */
+export interface UnregisteredService {
+  name: string;
+  serviceId: string;
+  environmentIds: string[];
+}
+
 export interface ImageGateResult extends FailureSummaryInput {
   summary: FailureSummaryOutput;
   lifecycle: RailwayInventoryClassification;
+  /** Warned, not failed: created on Railway ahead of its SERVICES entry. */
+  unregistered: UnregisteredService[];
+}
+
+/**
+ * Warning lines for services created on Railway before SERVICES lists them.
+ * Pure so tests can check the wording without GraphQL.
+ */
+export function formatUnregisteredWarnings(
+  services: readonly UnregisteredService[],
+): string[] {
+  const envName = (id: string) =>
+    Object.entries(ENV_ID_BY_NAME).find(([, envId]) => envId === id)?.[0] ?? id;
+  return services.flatMap(({ name, serviceId, environmentIds }) => [
+    `⚠ WARN unregistered Railway service "${name}" (${serviceId}) in ${environmentIds.map(envName).join(", ")}`,
+    `    It exists on Railway but not in SERVICES in showcase/scripts/railway-envs.ts, so its image is not checked and it is not deployed or promoted by CI. Add it to SERVICES with this exact name and service ID.`,
+  ]);
 }
 
 /**
@@ -499,16 +523,29 @@ export async function runRailwayImageGate(input: {
   const permanentServiceIds = new Set(
     Object.values(SERVICES).map((entry) => entry.serviceId),
   );
-  // Preserve only the established unregistered permanent starter carveout.
-  // Permanent IDs, recorded environments, disposable claims, and invalid evidence cannot use it.
-  const toleratedStarter = (
+  // A service created on Railway before SERVICES lists it is warned, not
+  // failed, when it has an instance in staging or prod: that is the normal
+  // order for adding a Showcase service, and failing it blocked every
+  // pipeline. Its other instances (docs-preview environments copy staging)
+  // are tolerated too. The disposable runner only creates services that have
+  // no instance in any other environment, so this cannot hide its leftovers.
+  // The older starter-* carveout also covers services with no staging/prod
+  // instance. Permanent IDs, registered names with another ID, recorded
+  // environments, disposable claims, and invalid evidence never qualify.
+  const stagingOrProdIds = new Set(Object.values(ENV_ID_BY_NAME));
+  const inStagingOrProd = new Set(
+    observed
+      .filter((service) => stagingOrProdIds.has(service.environmentId))
+      .map((service) => service.serviceId),
+  );
+  const toleratedUnregistered = (
     name: string,
     serviceId: string,
     environmentId?: string,
   ): boolean =>
     !Object.hasOwn(SERVICES, name) &&
     !permanentServiceIds.has(serviceId) &&
-    isStarterFleetService(name) &&
+    (isStarterFleetService(name) || inStagingOrProd.has(serviceId)) &&
     evidence.status !== "invalid" &&
     !runs.some(
       (run) =>
@@ -524,7 +561,7 @@ export async function runRailwayImageGate(input: {
         (service) =>
           service.serviceId === issue.serviceId &&
           service.environmentId === issue.environmentId &&
-          toleratedStarter(
+          toleratedUnregistered(
             service.name,
             service.serviceId,
             service.environmentId,
@@ -538,6 +575,7 @@ export async function runRailwayImageGate(input: {
     Object.keys(ENV_ID_BY_NAME).map((env) => [env, new Set<string>()]),
   );
   const untrackedNames = new Set<string>();
+  const unregistered: UnregisteredService[] = [];
   for (const { node: service } of data.project.services.edges) {
     const entry = Object.hasOwn(SERVICES, service.name)
       ? SERVICES[service.name]
@@ -550,11 +588,11 @@ export async function runRailwayImageGate(input: {
     if (!exactPermanent) {
       if (
         instances.length === 0
-          ? !toleratedStarter(service.name, service.id)
+          ? !toleratedUnregistered(service.name, service.id)
           : instances.some(
               (instance) =>
                 instance.classification !== "owned-disposable" &&
-                !toleratedStarter(
+                !toleratedUnregistered(
                   instance.name,
                   instance.serviceId,
                   instance.environmentId,
@@ -562,6 +600,12 @@ export async function runRailwayImageGate(input: {
             )
       )
         untrackedNames.add(service.name);
+      else if (instances.length > 0 && inStagingOrProd.has(service.id))
+        unregistered.push({
+          name: service.name,
+          serviceId: service.id,
+          environmentIds: instances.map((instance) => instance.environmentId),
+        });
       continue;
     }
     if (staticPolicies.get(service.name)!.image === "ignored") {
@@ -602,6 +646,7 @@ export async function runRailwayImageGate(input: {
   return {
     ...result,
     lifecycle: { ...lifecycle, failures: lifecycleFailures },
+    unregistered,
     summary: summarizeFailures(result),
   };
 }
@@ -624,10 +669,19 @@ async function main(): Promise<void> {
     { id: PROJECT_ID },
   );
 
-  const { summary, checked, skipped, lifecycle } = await runRailwayImageGate({
-    data,
-    recordsFile: process.env.SHOWCASE_DISPOSABLE_RUN_RECORDS_FILE,
-  });
+  const { summary, checked, skipped, lifecycle, unregistered } =
+    await runRailwayImageGate({
+      data,
+      recordsFile: process.env.SHOWCASE_DISPOSABLE_RUN_RECORDS_FILE,
+    });
+
+  for (const line of formatUnregisteredWarnings(unregistered))
+    console.warn(line);
+  if (process.env.GITHUB_ACTIONS === "true")
+    for (const { name, serviceId } of unregistered)
+      console.log(
+        `::warning title=Unregistered Railway service::"${name}" (${serviceId}) is on Railway but not in SERVICES (showcase/scripts/railway-envs.ts)`,
+      );
 
   for (const issue of lifecycle.diagnostics) {
     console.log(
