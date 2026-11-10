@@ -100,7 +100,7 @@ state updates, you can reflect these updates natively in your application.
     function YourMainContent() {
       // [!code highlight:3]
       const { agent } = useAgent({
-        agentId: "sample_agent",
+        agentId: "default",
       });
 
       const language = (agent.state.language as string) ?? "english";
@@ -147,7 +147,7 @@ import { useAgent } from "@copilotkit/react-core/v2"; // [!code highlight]
 function YourMainContent() {
   // [!code highlight:3]
   const { agent } = useAgent({
-    agentId: "sample_agent",
+    agentId: "default",
   });
 
   const language = (agent.state.language as string) ?? "english";
