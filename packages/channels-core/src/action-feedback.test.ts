@@ -204,12 +204,14 @@ describe("the outcome the sink returns for an interaction", () => {
         Button({ value: { ok: true }, onClick: () => {}, children: "OK" }),
       ],
     });
+    // The picker closes only when the test aborts it, never on a timer.
+    const abort = new AbortController();
     let pickerClosed!: () => void;
     const closed = new Promise<void>((resolve) => {
       pickerClosed = resolve;
     });
     channel.onMention(async ({ thread }) => {
-      await thread.awaitChoice(card, { timeoutMs: 30 }).catch(() => {});
+      await thread.awaitChoice(card, { signal: abort.signal }).catch(() => {});
       pickerClosed();
     });
     await channel.ɵruntime.start();
@@ -217,8 +219,10 @@ describe("the outcome the sink returns for an interaction", () => {
     fake.emitTurn({ userText: "go", conversationKey: KEY, actor: alice });
     await tick();
     const id = buttonIds(fake.posted[0]!)[0]!;
-    // The handler outlives the picker, then turns out to be gone.
+    // Once dispatch has started, close the picker; then the handler turns
+    // out to be gone.
     channel.onInteraction(id, async () => {
+      abort.abort();
       await closed;
       throw new ActionExpiredError(id);
     });
