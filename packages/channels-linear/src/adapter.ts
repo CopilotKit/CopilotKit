@@ -11,7 +11,7 @@ import { LinearApiClient } from "./client.js";
 import { LinearConversationStore } from "./conversation-store.js";
 import { createRunRenderer } from "./event-renderer.js";
 import type { LinearRunRenderer } from "./event-renderer.js";
-import { handleAgentSessionEvent } from "./ingress.js";
+import { prepareAgentSessionEvent } from "./ingress.js";
 import { savePendingChoices } from "./pending-choices.js";
 import { LINEAR_LIMITS, truncateText } from "./render/budget.js";
 import { renderLinearMessage } from "./render/message.js";
@@ -82,8 +82,10 @@ export class LinearAdapter implements PlatformAdapter {
   readonly conversationStore: LinearConversationStore;
   /**
    * Fetch-style handler for Linear webhooks. Mount it on the route you set as
-   * the webhook URL in the Linear app settings. It verifies the signature,
-   * answers at once, and dispatches the event after the response.
+   * the webhook URL in the Linear app settings. It verifies the signature and
+   * reads the state the event needs. When that read fails it answers 500, so
+   * Linear retries the delivery. Otherwise it answers 200 and dispatches the
+   * event after the response.
    *
    * @example
    * app.post("/linear/webhook", (c) => adapter.handleWebhook(c.req.raw));
@@ -183,10 +185,10 @@ export class LinearAdapter implements PlatformAdapter {
         this.activeRenderers.delete(sessionId);
       }
     };
-    // A failed post is logged by the renderer and does not fail the run,
-    // the same as the other direct adapters. The renderer stays registered
-    // until its posts settle, so a stop in that window waits for them before
-    // it posts "Stopped.".
+    // A failed post is logged by the renderer. Only a failed final post
+    // fails the run, through `finish`. The renderer stays registered until
+    // its posts settle, so a stop in that window waits for them before it
+    // posts "Stopped.".
     const tracked: LinearRunRenderer = {
       ...renderer,
       async markInterrupted() {
@@ -236,28 +238,22 @@ export class LinearAdapter implements PlatformAdapter {
     return ref;
   }
 
+  /**
+   * Prepare a webhook event before the answer, and return its dispatch. For
+   * a `created` session, dispatch first posts the acknowledge thought and does
+   * not start the turn when a stop arrived while that thought was posted.
+   */
   private async onEvent(event: AgentSessionEventWebhook) {
     const sink = this.sink;
     if (sink === undefined) {
       console.warn(
         "[channels-linear] dropped a webhook received before start()",
       );
-      return;
+      return undefined;
     }
     const sessionId = event.agentSession.id;
     const isCreated = event.action === "created";
-    if (isCreated) {
-      const ack = { stopped: false };
-      this.acknowledging.set(sessionId, ack);
-      try {
-        await this.acknowledgeSession(sessionId);
-      } finally {
-        this.acknowledging.delete(sessionId);
-      }
-      // The stop already posted `Stopped.`; do not start the run after it.
-      if (ack.stopped) return;
-    }
-    await handleAgentSessionEvent(event, {
+    const dispatch = await prepareAgentSessionEvent(event, {
       sink: {
         onTurn: (turn) => {
           // A new session may have no `prompt` activity yet; give its first
@@ -272,6 +268,19 @@ export class LinearAdapter implements PlatformAdapter {
       stateStore: this.adapterState,
       onStop: (agentSessionId) => this.stopSession(agentSessionId),
     });
+    if (!isCreated || dispatch === undefined) return dispatch;
+    return async () => {
+      const ack = { stopped: false };
+      this.acknowledging.set(sessionId, ack);
+      try {
+        await this.acknowledgeSession(sessionId);
+      } finally {
+        this.acknowledging.delete(sessionId);
+      }
+      // The stop already posted `Stopped.`; do not start the run after it.
+      if (ack.stopped) return;
+      await dispatch();
+    };
   }
 
   /**

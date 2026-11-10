@@ -19,8 +19,9 @@ egress, activity rendering, and the decoding of `select` picks.
    acknowledgement thought, activity rendering, pick decoding, and the `stop`
    signal all live behind the `PlatformAdapter` interface.
 3. **One file, one job.** Each source file has a single responsibility.
-4. **Failures are contained.** A failed activity post is logged and does not
-   fail the run.
+4. **Failures are contained.** A failed activity post is logged. Only a failed
+   final reply fails the run. A webhook event that the adapter cannot read
+   gets `500`, so Linear retries the delivery.
 5. **History comes from Linear.** The agent session is the source of truth.
    The adapter rebuilds `agent.messages` from the session activities on each
    turn, so no history store is necessary.
@@ -61,13 +62,16 @@ members above.
 
 1. Linear sends a signed `AgentSessionEvent` POST to the webhook URL.
 2. `createWebhookHandler` (`webhook.ts`) checks `Linear-Signature` and the
-   60 s timestamp window. It answers `200` at once and calls `onEvent` after
-   the response.
-3. On `created`, the adapter posts an ephemeral `thought` ("Looking into
-   this…"). Linear marks an agent unresponsive when it posts nothing within
-   10 s.
-4. `handleAgentSessionEvent` (`ingress.ts`) turns the event into a turn or an
-   interaction for the sink.
+   60 s timestamp window. Then it awaits `onEvent`, which prepares the event.
+   If prepare fails, the handler answers `500`, and Linear retries the
+   delivery. Otherwise it answers `200` and runs the dispatch after the
+   response.
+3. `prepareAgentSessionEvent` (`ingress.ts`) prepares the event and returns
+   its dispatch. The dispatch turns the event into a turn or an interaction
+   for the sink.
+4. On `created`, the dispatch first posts an ephemeral `thought` ("Looking
+   into this…"). Linear marks an agent unresponsive when it posts nothing
+   within 10 s.
 5. `thread.runAgent()` gets an agent from `LinearConversationStore`, which
    rebuilds its messages from the session.
 6. The run renderer (`event-renderer.ts`) posts activities as AG-UI messages
@@ -77,7 +81,7 @@ members above.
 
 ### Ingress
 
-`handleAgentSessionEvent` is the translation layer between the Linear webhook
+`prepareAgentSessionEvent` is the translation layer between the Linear webhook
 schema and the engine. The conversation key is
 `conversationKeyOf(agentSessionId)`. The actor is the user who sent the
 `prompted` activity, or the session creator on `created`.
@@ -90,6 +94,14 @@ schema and the engine. The conversation key is
   an interaction. The pending set is then cleared.
 - Any other `prompted` message becomes a turn.
 - Other actions are ignored.
+
+Ingress has two phases. Prepare runs before the webhook is answered. It reads
+the pending `select` set and, when the reply picks an option, clears the set
+as its last step. A failure in prepare answers `500`, and Linear retries the
+delivery. Dispatch runs after the `200`. It calls the sink or `onStop`, and on
+`created` it posts the first thought. The engine drops duplicate turns and
+interactions inside the sink, so a retry after a failed prepare is not a
+duplicate.
 
 A new session can have no `prompt` activity yet, because the `created`
 webhook carries the request only in its payload. The adapter calls
@@ -111,7 +123,8 @@ edited, so it buffers each message and posts it once when the message ends:
 
 All posts run on one promise chain, so activities appear in event order. A
 failed post is logged and kept for `getDeliveryError()`. It is never thrown
-out of a subscriber hook. Tool-call and interrupt capture match the other
+out of a subscriber hook. When the last post of the run failed, `finish()`
+rejects with its error, so `thread.runAgent()` rejects too. Tool-call and interrupt capture match the other
 channel renderers, so the run loop reads them the same way.
 
 ### Tools
@@ -204,9 +217,9 @@ src/
 ├── index.ts                  # public exports
 ├── adapter.ts                # linear() factory + LinearAdapter (PlatformAdapter impl)
 ├── types.ts                  # options, ReplyTarget, activity and webhook types
-├── webhook.ts                # createWebhookHandler: signature + timestamp check, async dispatch
+├── webhook.ts                # createWebhookHandler: checks, awaited prepare (500 on failure), dispatch after the 200
 ├── webhook-server.ts         # LinearWebhookServer: optional node:http wrapper
-├── ingress.ts                # AgentSessionEvent -> onTurn / onInteraction / onStop
+├── ingress.ts                # AgentSessionEvent: prepare, then dispatch to onTurn / onInteraction / onStop
 ├── interaction.ts            # conversationKeyOf + decodeSelectReply
 ├── pending-choices.ts        # pending select options in the adapter stateStore
 ├── event-renderer.ts         # createRunRenderer: AG-UI events -> activities

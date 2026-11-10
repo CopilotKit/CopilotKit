@@ -345,17 +345,30 @@ describe("createRunRenderer", () => {
     ]);
   });
 
-  it("keeps posting after a failed post and exposes the first failure", async () => {
+  it("keeps posting after a failed post, exposes the first failure, and resolves finish when the final post succeeds", async () => {
     const { client, posted } = fakeClient({ failures: [0, 1] });
     const r = createRunRenderer({ client, target });
 
     await textMessage(r.subscriber, "m1", "lost");
     await textMessage(r.subscriber, "m2", "lost too");
     await textMessage(r.subscriber, "m3", "kept");
-    await r.finish();
+
+    await expect(r.finish()).resolves.toBeUndefined();
 
     expect(contents(posted)).toEqual([{ type: "response", body: "kept" }]);
     expect(r.getDeliveryError()).toEqual(new Error("post 0 failed"));
+  });
+
+  it("rejects finish with the error when the final post fails, logging it once", async () => {
+    const { client, posted } = fakeClient({ failures: [1] });
+    const r = createRunRenderer({ client, target });
+
+    await toolCall(r.subscriber, "t1", "lookup", {});
+    await textMessage(r.subscriber, "m1", "The answer");
+
+    await expect(r.finish()).rejects.toThrow("post 1 failed");
+    expect(contents(posted).map((c) => c.type)).toEqual(["action"]);
+    expect(console.error).toHaveBeenCalledTimes(1);
   });
 
   it("captures an interrupt from a matching custom event and parses a JSON string value", () => {

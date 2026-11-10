@@ -12,7 +12,7 @@ import type {
 
 const PLATFORM = "linear";
 
-/** What {@link handleAgentSessionEvent} needs from the adapter. */
+/** What {@link prepareAgentSessionEvent} needs from the adapter. */
 export interface AgentSessionEventDeps {
   /** Engine sink that receives turns and interactions. */
   sink: Pick<IngressSink, "onTurn" | "onInteraction">;
@@ -57,7 +57,14 @@ function createdUserText(payload: AgentSessionEventWebhook) {
 }
 
 /**
- * Route one Linear `AgentSessionEvent` webhook into the channel engine.
+ * Prepare one Linear `AgentSessionEvent` webhook for the channel engine, and
+ * return the function that dispatches it, or `undefined` when there is
+ * nothing to dispatch.
+ *
+ * Prepare runs before the webhook is answered and does the reads that can
+ * fail: the pending choice set, then its removal when the reply picks an
+ * option. A rejection lets the webhook answer 500, so Linear retries. Dispatch
+ * runs after the answer and calls the sink or `onStop`.
  *
  * The actor is the user who sent the `prompted` activity, or the session
  * creator for `created`.
@@ -76,10 +83,10 @@ function createdUserText(payload: AgentSessionEventWebhook) {
  * createWebhookHandler({
  *   secret,
  *   onEvent: (event) =>
- *     handleAgentSessionEvent(event, { sink, stateStore, onStop }),
+ *     prepareAgentSessionEvent(event, { sink, stateStore, onStop }),
  * });
  */
-export async function handleAgentSessionEvent(
+export async function prepareAgentSessionEvent(
   payload: AgentSessionEventWebhook,
   deps: AgentSessionEventDeps,
 ) {
@@ -132,30 +139,35 @@ export async function handleAgentSessionEvent(
 
   switch (payload.action) {
     case "created":
-      await turnFor("mention", createdUserText(payload));
-      return;
+      return async () => {
+        await turnFor("mention", createdUserText(payload));
+      };
     case "prompted": {
-      if (activity === undefined) return;
+      if (activity === undefined) return undefined;
       if (activity.signal === "stop") {
-        await deps.onStop(session.id);
-        return;
+        return async () => {
+          await deps.onStop(session.id);
+        };
       }
-      if (activity.content.type !== "prompt") return;
+      if (activity.content.type !== "prompt") return undefined;
       const body = activity.content.body;
       const pending = await readPendingChoices(deps.stateStore, session.id);
       const interaction = pending
         ? decodeSelectReply(body, pending, baseFor("interaction"))
         : undefined;
-      if (interaction) {
-        await clearPendingChoices(deps.stateStore, session.id);
-        await deps.sink.onInteraction(interaction);
-        return;
+      if (interaction === undefined) {
+        return async () => {
+          await turnFor("message", body);
+        };
       }
-      await turnFor("message", body);
-      return;
+      // Consume the set last: an earlier failure leaves it for the retry.
+      await clearPendingChoices(deps.stateStore, session.id);
+      return async () => {
+        await deps.sink.onInteraction(interaction);
+      };
     }
     default:
       // Linear can add actions; the adapter handles only the two above.
-      return;
+      return undefined;
   }
 }

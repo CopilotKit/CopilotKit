@@ -172,7 +172,9 @@ it on any server that uses fetch requests, for example a Next.js route handler.
 <Callout type="info" title="Webhook checks">
   The handler answers `401` when the `Linear-Signature` header does not match
   the body, or when the webhook timestamp is more than 60 s off. A valid request
-  gets `200` at once, and the agent runs after the response.
+  gets `200`, and the agent runs after the response. If the adapter cannot read
+  the event, for example because the state store fails, the handler answers
+  `500`. Linear then retries the delivery.
 </Callout>
 
 ## 5. Start your first session

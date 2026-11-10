@@ -8,17 +8,26 @@ export interface WebhookHandlerOptions {
   /** Webhook signing secret. Verifies the `Linear-Signature` header. */
   secret: string;
   /**
-   * Called with every verified `AgentSessionEvent` payload. Runs after the
-   * handler has returned its 200, so Linear gets its ack inside 5 s.
+   * Called with every verified `AgentSessionEvent` payload, before the
+   * response. It prepares the event: the reads that can fail. It may return a
+   * dispatch function, which runs after the 200, so the agent run does not
+   * hold up the response. When `onEvent` rejects, the handler answers 500 and
+   * Linear retries the delivery. Keep it fast: Linear expects the answer
+   * inside 5 s.
    */
-  onEvent: (event: AgentSessionEventWebhook) => Promise<void>;
-  /** Receives errors from `onEvent`. Default logs with `console.error`. */
+  onEvent: (
+    event: AgentSessionEventWebhook,
+  ) => Promise<void | (() => Promise<void>)>;
+  /**
+   * Receives errors from `onEvent` and from the dispatch function it returned.
+   * Default logs with `console.error`.
+   */
   onError?: (error: unknown) => void;
   /** Clock in Unix milliseconds, for the freshness check. Default `Date.now`. */
   now?: () => number;
 }
 
-function logDispatchError(error: unknown) {
+function logEventError(error: unknown) {
   console.error("[channels-linear] webhook onEvent failed:", error);
 }
 
@@ -46,34 +55,34 @@ function isValidSignature(
  * Creates a fetch-style handler for Linear webhooks.
  *
  * The handler accepts POST only. It verifies `Linear-Signature` against the raw
- * body, rejects payloads whose `webhookTimestamp` is more than 60 s from now,
- * and answers 200 at once. `AgentSessionEvent` payloads go to `onEvent` after
- * the response; other event types are acknowledged and dropped.
+ * body and rejects payloads whose `webhookTimestamp` is more than 60 s from
+ * now. `AgentSessionEvent` payloads go to `onEvent`, which the handler awaits:
+ * if it rejects, the answer is 500 and Linear retries the delivery. Otherwise
+ * the answer is 200, and the dispatch function `onEvent` returned runs after
+ * the response. Other event types are acknowledged and dropped.
  *
  * Responses: 405 wrong method, 401 bad signature or stale timestamp,
- * 400 body is not a JSON object, 200 otherwise.
+ * 400 body is not a JSON object, 500 `onEvent` rejected, 200 otherwise.
  *
  * @param options.secret - The webhook signing secret from the Linear app settings.
- * @param options.onEvent - Async callback for each `AgentSessionEvent`.
- * @param options.onError - Optional sink for `onEvent` failures.
+ * @param options.onEvent - Prepares each `AgentSessionEvent` and returns its dispatch.
+ * @param options.onError - Optional sink for `onEvent` and dispatch failures.
  * @param options.now - Optional clock, for tests.
  *
  * @example
  * ```ts
  * const handleWebhook = createWebhookHandler({
  *   secret: process.env.LINEAR_WEBHOOK_SECRET!,
- *   onEvent: async (event) => { ... },
+ *   onEvent: async (event) => {
+ *     const pending = await readState(event); // a failure answers 500
+ *     return () => runAgent(event, pending); // runs after the 200
+ *   },
  * });
  * app.post("/webhook", (c) => handleWebhook(c.req.raw));
  * ```
  */
 export function createWebhookHandler(options: WebhookHandlerOptions) {
-  const {
-    secret,
-    onEvent,
-    onError = logDispatchError,
-    now = Date.now,
-  } = options;
+  const { secret, onEvent, onError = logEventError, now = Date.now } = options;
 
   return async (request: Request) => {
     if (request.method !== "POST") return status(405, { allow: "POST" });
@@ -99,13 +108,21 @@ export function createWebhookHandler(options: WebhookHandlerOptions) {
 
     const isAgentSessionEvent =
       "type" in payload && payload.type === "AgentSessionEvent";
-    if (isAgentSessionEvent) {
-      // Signed by Linear and tagged `AgentSessionEvent`: trust the documented shape.
-      const event = payload as AgentSessionEventWebhook;
-      // Dispatch without awaiting so the 200 is not held up by the agent run.
-      void Promise.resolve()
-        .then(() => onEvent(event))
-        .catch(onError);
+    if (!isAgentSessionEvent) return status(200);
+
+    // Signed by Linear and tagged `AgentSessionEvent`: trust the documented shape.
+    const event = payload as AgentSessionEventWebhook;
+    let dispatch: void | (() => Promise<void>);
+    try {
+      dispatch = await onEvent(event);
+    } catch (error) {
+      // Linear retries a delivery that is not answered with 2xx.
+      onError(error);
+      return status(500);
+    }
+    if (dispatch) {
+      // Run without awaiting so the 200 is not held up by the agent run.
+      void Promise.resolve().then(dispatch).catch(onError);
     }
     return status(200);
   };

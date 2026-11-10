@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createHmac } from "node:crypto";
 import { createWebhookHandler } from "./webhook.js";
+import type { WebhookHandlerOptions } from "./webhook.js";
 import type { AgentSessionEventWebhook } from "./types.js";
 
 const SECRET = "lin_wh_secret";
@@ -35,9 +36,8 @@ function signedRequest(body: string, signature: string | null = sign(body)) {
   });
 }
 
-function setup(
-  onEvent = vi.fn(async (_event: AgentSessionEventWebhook) => {}),
-) {
+function setup(prepare: WebhookHandlerOptions["onEvent"] = async () => {}) {
+  const onEvent = vi.fn(prepare);
   const onError = vi.fn((_error: unknown) => {});
   const handler = createWebhookHandler({
     secret: SECRET,
@@ -55,18 +55,25 @@ afterEach(() => {
 });
 
 describe("createWebhookHandler", () => {
-  it("acks 200 without waiting for onEvent, then dispatches the payload", async () => {
-    // onEvent never settles: a handler that awaited it would never return.
-    const { handler, onEvent } = setup(
-      vi.fn((_event: AgentSessionEventWebhook) => new Promise<void>(() => {})),
-    );
-    const event = createEvent();
+  it("waits for onEvent before it answers 200", async () => {
+    let finishPrepare = () => {};
+    const prepared = new Promise<void>((resolve) => {
+      finishPrepare = resolve;
+    });
+    const { handler, onEvent } = setup(() => prepared);
+    let answered = false;
 
-    const response = await handler(signedRequest(JSON.stringify(event)));
-
-    expect(response.status).toBe(200);
+    const responding = handler(signedRequest(JSON.stringify(createEvent())));
+    void responding.then(() => {
+      answered = true;
+    });
     await flush();
-    expect(onEvent).toHaveBeenCalledTimes(1);
+    const answeredBeforePrepare = answered;
+    finishPrepare();
+    const response = await responding;
+
+    expect(answeredBeforePrepare).toBe(false);
+    expect(response.status).toBe(200);
     expect(onEvent.mock.calls[0]?.[0]).toEqual({
       type: "AgentSessionEvent",
       action: "created",
@@ -76,6 +83,20 @@ describe("createWebhookHandler", () => {
       agentSession: { id: "session-1" },
       promptContext: "<issue>ENG-1</issue>",
     });
+  });
+
+  it("answers 200 without waiting for the dispatch onEvent returned, then runs it", async () => {
+    // The dispatch never settles: a handler that awaited it would never return.
+    const dispatch = vi.fn(() => new Promise<void>(() => {}));
+    const { handler } = setup(async () => dispatch);
+
+    const response = await handler(
+      signedRequest(JSON.stringify(createEvent())),
+    );
+    await flush();
+
+    expect(response.status).toBe(200);
+    expect(dispatch).toHaveBeenCalledTimes(1);
   });
 
   it.each([
@@ -169,20 +190,32 @@ describe("createWebhookHandler", () => {
     expect(response.status).toBe(400);
   });
 
-  it("sends an onEvent rejection to onError", async () => {
-    const failure = new Error("agent run failed");
-    const { handler, onError } = setup(
-      vi.fn(async (_event: AgentSessionEventWebhook) => {
-        throw failure;
-      }),
-    );
+  it("answers 500 when onEvent rejects, so Linear retries, and sends the error to onError", async () => {
+    const failure = new Error("state store unavailable");
+    const { handler, onError } = setup(async () => {
+      throw failure;
+    });
 
     const response = await handler(
       signedRequest(JSON.stringify(createEvent())),
     );
 
-    expect(response.status).toBe(200);
+    expect(response.status).toBe(500);
+    expect(onError).toHaveBeenCalledWith(failure);
+  });
+
+  it("sends a dispatch rejection to onError after answering 200", async () => {
+    const failure = new Error("agent run failed");
+    const { handler, onError } = setup(async () => async () => {
+      throw failure;
+    });
+
+    const response = await handler(
+      signedRequest(JSON.stringify(createEvent())),
+    );
     await flush();
+
+    expect(response.status).toBe(200);
     expect(onError).toHaveBeenCalledWith(failure);
   });
 

@@ -106,13 +106,16 @@ The full walkthrough is in the docs page `channels/linear`.
 1. Checks the `Linear-Signature` header: the hex HMAC-SHA256 of the raw body
    with `webhookSecret`.
 2. Checks that `webhookTimestamp` is at most 60 s from the current time.
-3. Answers `200` at once and handles the event after the response.
+3. Reads the state that the event needs, for example a pending choice. If
+   this read fails, it answers `500`, and Linear retries the delivery.
+4. Answers `200` and handles the event after the response.
 
 | Response | Cause                                                              |
 | -------- | ------------------------------------------------------------------ |
 | `405`    | The method is not POST.                                            |
 | `401`    | Bad `Linear-Signature`, or the timestamp is more than 60 s off.    |
 | `400`    | The body is not a JSON object.                                     |
+| `500`    | The adapter cannot read the event. Linear retries the delivery.    |
 | `200`    | All other requests. Only `AgentSessionEvent` payloads are handled. |
 
 The adapter handles two `AgentSessionEvent` actions:
@@ -170,7 +173,9 @@ go through one queue, so activities appear in event order.
 | Tool call result  | The same `action` again, with `result`.                      |
 | Run error         | `error`.                                                     |
 
-A failed post is logged. It does not fail the run.
+A failed post is logged. If the last post of the run (the final reply)
+fails, `thread.runAgent()` also rejects with that error. A failed earlier post
+does not fail the run.
 
 ## JSX to Linear rendering
 

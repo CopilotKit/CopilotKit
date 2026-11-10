@@ -22,7 +22,10 @@ export interface LinearRunRendererArgs {
 
 /** The renderer `createRunRenderer` returns. */
 export interface LinearRunRenderer extends RunRenderer {
-  /** Wait until every queued activity is posted (or has failed). */
+  /**
+   * Wait until every queued activity is posted (or has failed). Rejects with
+   * the error of the last post when that post failed.
+   */
   finish(): Promise<void>;
   /** The first `createActivity` failure of this run, or `undefined`. */
   getDeliveryError(): unknown;
@@ -39,7 +42,9 @@ export interface LinearRunRenderer extends RunRenderer {
  *
  * All posts run on one promise chain, so activities appear in event order.
  * A failed post is logged and never thrown out of a subscriber hook. The
- * first failure is kept for {@link LinearRunRenderer.getDeliveryError}.
+ * first failure is kept for {@link LinearRunRenderer.getDeliveryError}. When
+ * the last post of the run (the final reply) failed, `finish` rejects with its
+ * error, so `thread.runAgent()` rejects too.
  *
  * Tool-call and interrupt capture match the other channel renderers, so the
  * run-loop reads them the same way.
@@ -62,6 +67,8 @@ export function createRunRenderer(args: LinearRunRendererArgs) {
   const capturedToolCalls: CapturedToolCall[] = [];
   let pendingInterrupt: CapturedInterrupt | undefined;
   let deliveryError: unknown;
+  /** The outcome of the last post that ran: its error, or `undefined`. */
+  let lastPostError: unknown;
   let aborted = false;
   let chain = Promise.resolve();
 
@@ -73,8 +80,10 @@ export function createRunRenderer(args: LinearRunRendererArgs) {
       if (aborted) return;
       try {
         await client.createActivity(target.agentSessionId, content, options);
+        lastPostError = undefined;
       } catch (error) {
         deliveryError ??= error;
+        lastPostError = error;
         console.error(
           `[channels-linear] failed to post a "${content.type}" activity to session ${target.agentSessionId}`,
           error,
@@ -208,9 +217,13 @@ export function createRunRenderer(args: LinearRunRendererArgs) {
       reasoningBuffers.clear();
       await chain;
     },
-    /** Wait until every queued activity is posted (or has failed). */
+    /**
+     * Wait until every queued activity is posted (or has failed). The error
+     * is already logged; rejecting tells the run its final reply was lost.
+     */
     async finish() {
       await chain;
+      if (lastPostError !== undefined) throw lastPostError;
     },
     /** The first `createActivity` failure of this run, or `undefined`. */
     getDeliveryError: () => deliveryError,

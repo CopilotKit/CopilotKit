@@ -2,7 +2,11 @@ import { createHmac } from "node:crypto";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { EventType, HttpAgent } from "@ag-ui/client";
 import type { AgentSubscriber, RunAgentParameters } from "@ag-ui/client";
-import { createChannel, FakeAgent } from "@copilotkit/channels-core";
+import {
+  createChannel,
+  FakeAgent,
+  MemoryStore,
+} from "@copilotkit/channels-core";
 import type { Channel } from "@copilotkit/channels-core";
 import { Actions, Button } from "@copilotkit/channels-ui";
 import { linear } from "./adapter.js";
@@ -70,6 +74,7 @@ function fakeLinearApi() {
   const nodes: ActivityNode[] = [];
   let seq = 0;
   let heldPost: { released: Promise<void>; onArrived: () => void } | undefined;
+  let failingType: AgentActivityContent["type"] | undefined;
   const nextNode = () => {
     seq += 1;
     return {
@@ -85,6 +90,9 @@ function fakeLinearApi() {
       heldPost = undefined;
       hold?.onArrived();
       await hold?.released;
+      if (input.content.type === failingType) {
+        return new Response("upstream unavailable", { status: 503 });
+      }
       posted.push(input);
       const node = nextNode();
       if (!input.ephemeral) {
@@ -140,7 +148,11 @@ function fakeLinearApi() {
     heldPost = { released, onArrived };
     return { release, arrived };
   };
-  return { fetch, posted, addPrompt, holdNextPost };
+  /** Answer every later post of this activity type with a 503. */
+  const failPostsOfType = (type: AgentActivityContent["type"]) => {
+    failingType = type;
+  };
+  return { fetch, posted, addPrompt, holdNextPost, failPostsOfType };
 }
 
 /**
@@ -289,6 +301,7 @@ const activeChannels: Channel[] = [];
 async function startLinear(setup: {
   steps?: FakeAgentScriptStep[];
   handler: Parameters<Channel["onMention"]>[0];
+  stateStore?: MemoryStore;
 }) {
   const api = fakeLinearApi();
   const adapter = linear({
@@ -296,6 +309,7 @@ async function startLinear(setup: {
     webhookSecret: SECRET,
     apiUrl: "https://linear.test/graphql",
     fetch: api.fetch,
+    stateStore: setup.stateStore,
   });
   const runs: RecordingAgent[] = [];
   const channel = createChannel({
@@ -523,6 +537,68 @@ describe("LinearAdapter end to end", () => {
       },
       { type: "response", body: "Stopped." },
     ]);
+  });
+
+  it("answers 500 when the state store read fails, and runs the turn when Linear retries", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const stateStore = new MemoryStore();
+    vi.spyOn(stateStore.kv, "get").mockRejectedValueOnce(
+      new Error("store unavailable"),
+    );
+    let done = false;
+    const { adapter, api, runs } = await startLinear({
+      stateStore,
+      steps: [say("Safari 17 has the same bug.")],
+      handler: async ({ thread }) => {
+        await thread.runAgent();
+        done = true;
+      },
+    });
+    const body = "Try Safari 17 too.";
+    const event = promptedEvent({
+      id: api.addPrompt(body, null),
+      user: ada,
+      content: { type: "prompt", body },
+    });
+
+    const failed = await deliver(adapter, event);
+    await new Promise((r) => setTimeout(r, 20));
+    const runsAfterFailure = runs.length;
+    const retried = await deliver(adapter, event);
+    await until(() => done);
+
+    expect({
+      failed: failed.status,
+      runsAfterFailure,
+      retried: retried.status,
+    }).toEqual({ failed: 500, runsAfterFailure: 0, retried: 200 });
+    expect(api.posted.map((activity) => activity.content)).toEqual([
+      { type: "response", body: "Safari 17 has the same bug." },
+    ]);
+  });
+
+  it("rejects thread.runAgent() when the final reply cannot be posted", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const outcome: { error?: unknown } = {};
+    const { adapter, api } = await startLinear({
+      steps: [say("It is a CSP header.")],
+      handler: async ({ thread }) => {
+        try {
+          await thread.runAgent();
+          outcome.error = null;
+        } catch (error) {
+          outcome.error = error;
+        }
+      },
+    });
+    api.failPostsOfType("response");
+
+    await deliver(adapter, createdEvent());
+    await until(() => outcome.error !== undefined);
+
+    // The Linear API error of the lost response reaches the caller.
+    expect(outcome.error).toMatchObject({ status: 503 });
+    expect(contentTypes(api.posted)).toEqual(["thought"]);
   });
 
   it("rejects a webhook with a bad signature and starts no run", async () => {

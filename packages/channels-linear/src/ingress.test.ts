@@ -1,7 +1,8 @@
 import { MemoryStore } from "@copilotkit/channels-core";
 import type { IncomingTurn, InteractionEvent } from "@copilotkit/channels-core";
-import { describe, expect, it } from "vitest";
-import { handleAgentSessionEvent } from "./ingress.js";
+import { describe, expect, it, vi } from "vitest";
+import { prepareAgentSessionEvent } from "./ingress.js";
+import type { AgentSessionEventDeps } from "./ingress.js";
 import { readPendingChoices, savePendingChoices } from "./pending-choices.js";
 import type { PendingChoiceSet } from "./pending-choices.js";
 import type {
@@ -74,14 +75,12 @@ const pendingSet: PendingChoiceSet = {
   ],
 };
 
-async function run(
-  payload: AgentSessionEventWebhook,
-  store = new MemoryStore(),
-) {
+/** Deps whose sink and stop callback record what reaches them. */
+function recordingDeps(store: MemoryStore) {
   const turns: IncomingTurn[] = [];
   const interactions: InteractionEvent[] = [];
   const stops: string[] = [];
-  await handleAgentSessionEvent(payload, {
+  const deps: AgentSessionEventDeps = {
     sink: {
       onTurn: (turn) => {
         turns.push(turn);
@@ -94,7 +93,18 @@ async function run(
     onStop: (agentSessionId) => {
       stops.push(agentSessionId);
     },
-  });
+  };
+  return { deps, turns, interactions, stops };
+}
+
+/** Prepare the event, then run its dispatch, the way the webhook does. */
+async function run(
+  payload: AgentSessionEventWebhook,
+  store = new MemoryStore(),
+) {
+  const { deps, turns, interactions, stops } = recordingDeps(store);
+  const dispatch = await prepareAgentSessionEvent(payload, deps);
+  await dispatch?.();
   return { turns, interactions, stops, store };
 }
 
@@ -132,7 +142,7 @@ function identity(trigger: string, eventId: string, occurredAt: string) {
   };
 }
 
-describe("handleAgentSessionEvent", () => {
+describe("prepareAgentSessionEvent", () => {
   it("turns a created session into a turn carrying Linear's prompt context", async () => {
     const { turns, interactions } = await run(createdEvent);
 
@@ -249,6 +259,57 @@ describe("handleAgentSessionEvent", () => {
       },
     ]);
     expect(await readPendingChoices(store, "ses_1")).toBe(undefined);
+  });
+
+  it("clears the pending set in prepare and sends the interaction only on dispatch", async () => {
+    const store = await storeWithPending();
+    const { deps, interactions } = recordingDeps(store);
+
+    const dispatch = await prepareAgentSessionEvent(
+      promptedEvent(prompt("act_4", "Ship it")),
+      deps,
+    );
+    const afterPrepare = {
+      interactions: interactions.length,
+      pending: await readPendingChoices(store, "ses_1"),
+    };
+    await dispatch?.();
+
+    expect(afterPrepare).toEqual({ interactions: 0, pending: undefined });
+    expect(interactions.map((event) => event.id)).toEqual(["ck:ship"]);
+  });
+
+  it("rejects in prepare when the state store read fails, and reaches no sink", async () => {
+    const store = await storeWithPending();
+    vi.spyOn(store.kv, "get").mockRejectedValueOnce(
+      new Error("store unavailable"),
+    );
+    const { deps, turns, interactions } = recordingDeps(store);
+
+    const preparing = prepareAgentSessionEvent(
+      promptedEvent(prompt("act_4", "Ship it")),
+      deps,
+    );
+
+    await expect(preparing).rejects.toThrow("store unavailable");
+    expect({ turns, interactions }).toEqual({ turns: [], interactions: [] });
+    expect(await readPendingChoices(store, "ses_1")).toEqual(pendingSet);
+  });
+
+  it("calls onStop only on dispatch", async () => {
+    const { deps, stops } = recordingDeps(new MemoryStore());
+
+    const dispatch = await prepareAgentSessionEvent(
+      promptedEvent({ ...prompt("act_3", "Stop"), signal: "stop" }),
+      deps,
+    );
+    const stopsAfterPrepare = [...stops];
+    await dispatch?.();
+
+    expect({ stopsAfterPrepare, stops }).toEqual({
+      stopsAfterPrepare: [],
+      stops: ["ses_1"],
+    });
   });
 
   it("matches a pending option by its label ignoring case", async () => {
