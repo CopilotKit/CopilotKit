@@ -78,5 +78,9 @@ runStateStoreConformance("postgres", () => createPostgresStateStore());
 KV consumption, locks, deduplication, and queues must be atomic across processes. Use
 project/Channel namespacing to prevent key collisions.
 
+CopilotKit ships two durable implementations:
+`createRedisStore` from `@copilotkit/channels-store-redis` and
+`createPostgresStore` from `@copilotkit/channels-store-postgres`.
+
 Pass the adapter through `createChannel({ store: { adapter } })`. See
 [Persistence and scaling](/slack/persistence-and-scaling).

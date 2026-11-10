@@ -1,0 +1,57 @@
+{
+  "name": "@copilotkit/channels-store-postgres",
+  "version": "0.12.0",
+  "description": "Postgres StateStore backend for CopilotKit JSX channels (@copilotkit/channels).",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/CopilotKit/CopilotKit.git",
+    "directory": "packages/channels-store-postgres"
+  },
+  "homepage": "https://github.com/CopilotKit/CopilotKit",
+  "keywords": [
+    "ai",
+    "agent",
+    "bot",
+    "channels",
+    "postgres",
+    "statestore",
+    "copilotkit",
+    "ag-ui"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "files": [
+    "dist"
+  ],
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "check-types": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.check.json",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "publint": "publint .",
+    "attw": "attw --pack . --profile esm-only"
+  },
+  "dependencies": {
+    "@copilotkit/channels-core": "workspace:^",
+    "pg": "^8"
+  },
+  "devDependencies": {
+    "@copilotkit/typescript-config": "workspace:^",
+    "@electric-sql/pglite": "^0.5",
+    "@types/node": "^22.10.0",
+    "@types/pg": "^8",
+    "typescript": "^5.6.3",
+    "vitest": "^4.1.3"
+  }
+}
