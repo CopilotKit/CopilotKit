@@ -105,18 +105,27 @@ describe("renderWhatsAppMessage", () => {
     });
   });
 
-  it("falls back to a numbered text menu beyond 10 options", () => {
-    const buttons = Array.from({ length: 12 }, (_, i) =>
+  it("splits more than 10 options into several tappable lists", () => {
+    const buttons = Array.from({ length: 23 }, (_, i) =>
       node("button", { children: `opt${i}`, onClick: { id: `ck:${i}` } }),
     );
     const out = renderWhatsAppMessage([
       node("section", { children: "Many" }),
       ...buttons,
+    ]) as Array<Record<string, any>>;
+    expect(out.map((m) => m.interactive?.type)).toEqual([
+      "list",
+      "list",
+      "list",
     ]);
-    const m = out[0] as Record<string, any>;
-    expect(m.type).toBe("text");
-    expect(m.text.body).toContain("1. opt0");
-    expect(m.text.body).toContain("12. opt11");
+    expect(out[0]!.interactive.body.text).toBe("Many");
+    expect(out[1]!.interactive.body.text).toBe("More options (2/3)");
+    const rows = out.flatMap(
+      (m) => m.interactive.action.sections[0].rows as Array<{ id: string }>,
+    );
+    expect(rows.map((r) => r.id)).toEqual(
+      Array.from({ length: 23 }, (_, i) => `ck:${i}`),
+    );
   });
 
   it("throws when an encoded button value exceeds the WhatsApp id limit", () => {
