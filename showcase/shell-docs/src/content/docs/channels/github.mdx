@@ -131,11 +131,12 @@ serve({ fetch: app.fetch, port });
 console.log(`GitHub webhook listening on :${port}/github/webhook`);
 ```
 
-Install the server packages, then start the file:
+Install the server packages, then start the file. `--env-file` loads `.env`
+(Node.js 20.6 or later):
 
 ```sh
 npm install @hono/node-server hono
-npx tsx channel.ts
+npx tsx --env-file=.env channel.ts
 ```
 
 The adapter does not add `defaultGitHubContext` by itself. Keep it in
@@ -196,7 +197,8 @@ const githubAdapter = github({
 });
 ```
 
-5. Comment `@octocat summarize this issue`. The reply is posted from your
+5. Start the file with `npx tsx --env-file=.env channel.ts`.
+6. Comment `@octocat summarize this issue`. The reply is posted from your
    account.
 
 Every comment the bot writes ends with a hidden HTML marker. The bot uses it to
