@@ -15,7 +15,8 @@
  */
 import OpenAI from "openai";
 import { liveRunsOff } from "@/lib/limits";
-import { MODEL_OPTIONS, modelLabel, type ModelId } from "@/lib/model-options";
+import { MODEL_OPTIONS, modelLabel } from "@/lib/model-options";
+import type { ModelId } from "@/lib/model-options";
 
 export type { ModelId };
 
@@ -118,8 +119,8 @@ export const MODELS: Record<ModelId, ModelSpec> = {
   gpt: {
     id: "gpt",
     label: modelLabel("gpt"),
-    router: env("A2UI_ROUTER_MODEL") ?? "gpt-5.5",
-    composer: env("A2UI_COMPOSER_MODEL") ?? "gpt-5.4-mini",
+    router: env("A2UI_ROUTER_MODEL") ?? "gpt-6-luna",
+    composer: env("A2UI_COMPOSER_MODEL") ?? "gpt-6-luna",
     extra: { reasoning_effort: "none" },
     parallelToolCalls: true,
     maxTokens: (tokens) => ({ max_completion_tokens: tokens }),
