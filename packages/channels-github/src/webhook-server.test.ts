@@ -1,4 +1,6 @@
 import { createHmac } from "node:crypto";
+import { request } from "node:http";
+import type { ClientRequest, OutgoingHttpHeaders } from "node:http";
 import { afterEach, describe, expect, it } from "vitest";
 import { createWebhookHandler } from "./webhook.js";
 import type { GitHubWebhookEvent } from "./webhook.js";
@@ -37,6 +39,38 @@ function signedPost(body: string) {
     },
     body,
   };
+}
+
+/** One byte over GitHub's 25 MiB webhook payload cap. */
+const OVER_LIMIT_BYTES = 25 * 1024 * 1024 + 1;
+
+/**
+ * POST to the webhook path with raw `node:http`, so the test controls the
+ * `Content-Length` header and how much body it sends. Resolves the status.
+ */
+function rawPost(
+  baseUrl: string,
+  headers: OutgoingHttpHeaders,
+  sendBody: (req: ClientRequest) => void,
+) {
+  return new Promise<number>((resolve, reject) => {
+    let answered = false;
+    const req = request(
+      `${baseUrl}/webhook`,
+      { method: "POST", headers },
+      (res) => {
+        answered = true;
+        resolve(res.statusCode ?? 0);
+        // Drop the rest of the request so the server can stop.
+        req.destroy();
+      },
+    );
+    // The server closes the connection after a 413; a write after that fails.
+    req.on("error", (error) => {
+      if (!answered) reject(error);
+    });
+    sendBody(req);
+  });
 }
 
 afterEach(async () => {
@@ -101,6 +135,33 @@ describe("GitHubWebhookServer", () => {
     const response = await fetch(`${baseUrl}/`);
 
     expect(response.status).toBe(405);
+  });
+
+  it("answers 413 before reading when Content-Length is over 25 MiB", async () => {
+    const { baseUrl, events } = await startServer();
+
+    // No body is sent: the server must answer from the header alone.
+    const status = await rawPost(
+      baseUrl,
+      { "content-length": String(OVER_LIMIT_BYTES) },
+      (req) => req.flushHeaders(),
+    );
+
+    expect(status).toBe(413);
+    expect(events).toEqual([]);
+  });
+
+  it("answers 413 when a body without Content-Length passes 25 MiB", async () => {
+    const { baseUrl, events } = await startServer();
+
+    const status = await rawPost(
+      baseUrl,
+      { "transfer-encoding": "chunked" },
+      (req) => req.end(Buffer.alloc(OVER_LIMIT_BYTES)),
+    );
+
+    expect(status).toBe(413);
+    expect(events).toEqual([]);
   });
 
   it("reports no address after stop", async () => {

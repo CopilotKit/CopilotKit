@@ -11,12 +11,44 @@ export interface GitHubWebhookServerOptions {
 
 const BODYLESS_METHODS = new Set(["GET", "HEAD"]);
 
-async function readBody(req: IncomingMessage) {
-  const chunks: Buffer[] = [];
-  for await (const chunk of req) {
-    chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
-  }
-  return Buffer.concat(chunks);
+/** GitHub caps webhook payloads at 25 MB. A larger body is refused with `413`. */
+const MAX_BODY_BYTES = 25 * 1024 * 1024;
+
+/**
+ * Buffer the request body, or resolve `null` as soon as it passes
+ * {@link MAX_BODY_BYTES}. The rest of an oversized body is read and dropped,
+ * never kept.
+ */
+function readBody(req: IncomingMessage) {
+  return new Promise<Buffer<ArrayBuffer> | null>((resolve, reject) => {
+    const chunks: Buffer[] = [];
+    let size = 0;
+    const cleanup = () => {
+      req.off("data", onData);
+      req.off("end", onEnd);
+      req.off("error", onError);
+    };
+    const onData = (chunk: Buffer) => {
+      size += chunk.length;
+      if (size > MAX_BODY_BYTES) {
+        cleanup();
+        resolve(null);
+        return;
+      }
+      chunks.push(chunk);
+    };
+    const onEnd = () => {
+      cleanup();
+      resolve(Buffer.concat(chunks));
+    };
+    const onError = (error: Error) => {
+      cleanup();
+      reject(error);
+    };
+    req.on("data", onData);
+    req.on("end", onEnd);
+    req.on("error", onError);
+  });
 }
 
 async function toRequest(req: IncomingMessage, url: URL) {
@@ -28,7 +60,12 @@ async function toRequest(req: IncomingMessage, url: URL) {
     const values = Array.isArray(value) ? value : [value];
     for (const item of values) headers.append(key, item);
   }
-  const body = BODYLESS_METHODS.has(method) ? undefined : await readBody(req);
+  if (BODYLESS_METHODS.has(method))
+    return new Request(url, { method, headers });
+  const declaredLength = Number(req.headers["content-length"]);
+  if (declaredLength > MAX_BODY_BYTES) return null;
+  const body = await readBody(req);
+  if (body === null) return null;
   return new Request(url, { method, headers, body });
 }
 
@@ -43,7 +80,8 @@ async function writeResponse(response: Response, res: ServerResponse) {
  *
  * Routes `POST <path>` to the handler, answers `GET /` with `200 ok` as a
  * health check (only when `path` is not `"/"`), and answers `404` for
- * everything else.
+ * everything else. A body larger than 25 MiB (GitHub's payload cap) gets
+ * `413` and is never buffered in full.
  *
  * @example
  * ```ts
@@ -106,7 +144,12 @@ export class GitHubWebhookServer {
         res.writeHead(404).end();
         return;
       }
-      const response = await this.handler(await toRequest(req, url));
+      const request = await toRequest(req, url);
+      if (request === null) {
+        res.writeHead(413, { connection: "close" }).end();
+        return;
+      }
+      const response = await this.handler(request);
       await writeResponse(response, res);
     } catch (error) {
       console.error("[channels-github] webhook server error:", error);

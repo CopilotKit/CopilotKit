@@ -39,6 +39,7 @@ import { createChannel } from "@copilotkit/channels";
 import { github, defaultGitHubContext } from "@copilotkit/channels-github";
 import { CopilotRuntime, CopilotKitIntelligence } from "@copilotkit/runtime/v2";
 import { createCopilotNodeListener } from "@copilotkit/runtime/v2/node";
+import { makeAgent } from "./agent.js"; // your agent factory
 
 const bot = createChannel({
   identifyUser: "platform",
@@ -53,7 +54,7 @@ const bot = createChannel({
     }),
   ],
   agent: makeAgent,
-  context: [...defaultGitHubContext, ...appContext],
+  context: [...defaultGitHubContext],
 });
 
 // Every turn on GitHub is a mention of the bot.
@@ -62,6 +63,7 @@ bot.onMention(async ({ thread }) => {
 });
 
 const runtime = new CopilotRuntime({
+  agents: {},
   intelligence: new CopilotKitIntelligence({
     apiKey: process.env.CPK_INTELLIGENCE_API_KEY!,
   }),
