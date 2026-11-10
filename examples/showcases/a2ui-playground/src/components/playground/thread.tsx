@@ -20,6 +20,7 @@ import type { Mode } from "@/components/app/providers";
 import { StaticSurface } from "@/components/app/static-surface";
 import { useLandingReveal } from "@/components/app/use-landing-reveal";
 import { useSend } from "@/components/app/use-send";
+import { useDesignSystemRedraw } from "@/components/app/use-design-system-redraw";
 import { useUIGeneration } from "@/components/app/use-ui-generation";
 import { modelLabel } from "@/lib/model-options";
 import { nodeElements, nodeRect } from "@/lib/node-rects";
@@ -967,8 +968,10 @@ const ReplaySurface = memo(function ReplaySurface({
   live: boolean;
 }) {
   const host = useRef<HTMLDivElement>(null);
+  // Once the recording has played, a design system switch redraws it (the host keeps its `key`: no remount).
+  const drawKey = useDesignSystemRedraw(host, { base: runKey, enabled: !live });
   const generating = useUIGeneration(host, {
-    runKey,
+    runKey: drawKey,
     mode: "skeleton",
     maxParts: 40,
   });
