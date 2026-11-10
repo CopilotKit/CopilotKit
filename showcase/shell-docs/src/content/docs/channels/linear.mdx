@@ -243,23 +243,15 @@ final `Stopped.` response, and Linear marks the session as stopped.
 
 ## Run more than one process
 
-The adapter keeps pending choices in its `stateStore` option. The default is
-an in-memory store. If more than one process receives the webhook, give all of
-them one shared store:
+A session's webhooks must reach the process that runs its agent:
 
-```ts title="server.ts"
-import { durableStateStore } from "./state-store.js";
+- `thread.awaitChoice` waits inside the process that posted the choices. A pick
+  that reaches another process cannot resume it.
+- A stop signal aborts the run only in the process that runs it. Another
+  process posts `Stopped.`, but the run there keeps going.
 
-const linearAdapter = linear({
-  accessToken: required("LINEAR_ACCESS_TOKEN"),
-  webhookSecret: required("LINEAR_WEBHOOK_SECRET"),
-  stateStore: durableStateStore,
-});
-```
-
-Without a shared store, a pick that reaches a different process starts a
-normal turn. To build a durable store, see
-[persistence and scaling](/channels/persistence-and-scaling).
+Run one process, or send each workspace's webhooks to the same process. A
+shared `stateStore` does not change this.
 
 For the adapter options and exports, see
 [direct provider adapters](/reference/channels/sdk/direct-adapters#linear).
