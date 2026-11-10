@@ -46,7 +46,7 @@ is durable data: functionality that runs without it is open source, while
 functionality built on connections to durable data — databases and the state
 kept in them — is part of CopilotKit Intelligence. The open-source Channels
 SDK runs on its own: attach a [direct adapter](/reference/channels/sdk/direct-adapters)
-for Slack, Teams, Discord, or WhatsApp and call `channel.start()`. No
+for Slack, Teams, Discord, WhatsApp, or email (Resend) and call `channel.start()`. No
 Intelligence key is required. Your process then owns the provider credentials
 and the durable-data layer: simultaneous participants, race conditions,
 retries, and delivery guarantees. Connect the Channel to Intelligence when you
@@ -56,7 +56,7 @@ Intelligence also get Product Analytics, Automatic Learning, and governance.
 <OpsPlatformCTA
   variant="inline"
   title="More channels are on the way"
-  body="Slack and Microsoft Teams are generally available on cloud-hosted Intelligence. Direct SDK adapters also support Teams, Discord, and WhatsApp."
+  body="Slack and Microsoft Teams are generally available on cloud-hosted Intelligence. Direct SDK adapters also support Teams, Discord, WhatsApp, and email through Resend."
   ctaLabel="Book time with an engineer"
   surface="docs_channels_more_channels_contact"
   href="https://copilotkit.ai/talk-to-an-engineer"

@@ -19,7 +19,7 @@ Managed Channels let an agent answer in Slack or Microsoft Teams. Intelligence o
 
 This skill covers **managed Intelligence Channels**: `CopilotIntelligenceRuntime`, app-api Channel resources, and the realtime gateway.
 
-It does **not** cover the self-hosted `@copilotkit/channels` provider adapters (`@copilotkit/channels-slack`, `-teams`, `-discord`, `-whatsapp`). Those hold provider credentials in your process, talk to the provider directly, and run standalone with `channel.start()` — no Intelligence key. Both products use the words "channels" and "Slack", so confirm which one the user means before wiring anything. If they want to hold their own Slack tokens and run their own ingress, they want the adapter packages, not this skill.
+It does **not** cover the self-hosted `@copilotkit/channels` provider adapters (`@copilotkit/channels-slack`, `-teams`, `-discord`, `-whatsapp`, `-resend`). Those hold provider credentials in your process, talk to the provider directly, and run standalone with `channel.start()` — no Intelligence key. Both products use the words "channels" and "Slack", so confirm which one the user means before wiring anything. If they want to hold their own Slack tokens and run their own ingress, they want the adapter packages, not this skill.
 
 ## Decide which path you are on first
 

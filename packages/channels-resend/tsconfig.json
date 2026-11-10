@@ -1,0 +1,13 @@
+{
+  "extends": "@copilotkit/typescript-config/base.json",
+  "compilerOptions": {
+    "outDir": "dist",
+    "rootDir": "src",
+    "lib": ["es2023", "dom", "dom.iterable"],
+    "types": ["node"],
+    "jsx": "react-jsx",
+    "jsxImportSource": "@copilotkit/channels-ui"
+  },
+  "include": ["src/**/*.ts", "src/**/*.tsx"],
+  "exclude": ["dist", "node_modules", "src/**/__tests__/**"]
+}

@@ -9,7 +9,8 @@ The Channels SDK connects an agent to chat providers through a long-running
 `@copilotkit/channels` process. In the managed Slack and Microsoft Teams path,
 CopilotKit Intelligence owns the provider connection while your process owns
 the agent, tools, approvals, state, and deployment. The package also exports
-developer-operated direct adapters for Slack, Teams, Discord, and WhatsApp.
+developer-operated direct adapters for Slack, Teams, Discord, WhatsApp, and
+email (Resend).
 
 <ChannelsInstall />
 
@@ -97,6 +98,8 @@ developer-operated direct adapters for Slack, Teams, Discord, and WhatsApp.
 - [`Direct provider adapters`](/reference/channels/sdk/direct-adapters) —
   public entry points, required options, and the boundary between managed and
   developer-operated delivery
+- [`Resend (email) adapter`](/reference/channels/sdk/resend) — let people
+  email your agent, with replies in the same thread
 
 ## Provider guides
 

@@ -39,6 +39,7 @@
         "@copilotkit/channels-intelligence",
         "@copilotkit/channels-discord",
         "@copilotkit/channels-whatsapp",
+        "@copilotkit/channels-resend",
         "@copilotkit/channels"
       ],
       "versionSource": "@copilotkit/channels",
