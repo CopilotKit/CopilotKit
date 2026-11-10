@@ -380,3 +380,25 @@ The following command failed before the fix and passed after, in a local run of 
 ```sh
 cd packages/runtime && npx vitest run src/v2/runtime/__tests__/intelligence-lock-release.test.ts
 ```
+
+## A2UI 0.0.15 private action context
+
+Baseline: `f38772b90465e6393085d46845ac66781c0a746e`.
+Case: `a2ui.action-history-and-catalog`.
+
+The TypeScript CI driver failed with `Cannot read properties of undefined (reading 'toolCalls')`.
+The case assumed every runtime synthesizes a `log_a2ui_event` assistant/tool pair.
+Upstream `@ag-ui/a2ui-middleware@0.0.15` intentionally replaces that pair with a private user message in `A2UIMiddleware.processUserAction`.
+Its `run` method filters that context from visible message snapshots and run-start input messages.
+
+The case now validates the complete action payload, deterministic run-scoped identity, and single injection for the new representation.
+It also rejects private action context in visible history events and retains the existing tool-pair assertions for native runtimes.
+Catalog propagation is still required for both representations.
+The updated case passed locally against the built TypeScript runtime using loopback fixtures:
+
+```sh
+NX_ISOLATE_PLUGINS=false NX_DAEMON=false NX_NO_CLOUD=true NX_TUI=false pnpm nx run runtime-conformance:conformance --args='--filter a2ui.action-history-and-catalog -- node tools/runtime-conformance/typescript-driver.mjs'
+```
+
+The complete cross-language suite is verified by the `test / intelligence runtimes` CI workflow.
+This is socket-level fixture evidence, not deployed-service validation.
