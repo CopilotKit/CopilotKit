@@ -1190,6 +1190,29 @@ export const SERVICES: Record<
       },
     },
   },
+  "showcase-openai-agents-python": {
+    serviceId: "be6a4cb2-6258-4994-bd20-4c6e0eb37e96",
+    autoUpdates: { staging: "disabled", prod: "disabled" },
+    ciBuilt: true,
+    gateValidated: true,
+    dispatchName: "openai-agents-python",
+    probeDriver: "agent",
+    // Staging-only until its prod instance is provisioned (see RAILWAY.md,
+    // "Promoting a Staging-Only Integration to Production"): there is no
+    // prod key, so fleet-wide promotes leave it out. Runtime dep as ag2's:
+    // the Agents SDK's OpenAI client sends its traffic to the env-local
+    // aimock through OPENAI_BASE_URL.
+    runtimeDeps: ["aimock"],
+    serviceRefs: [{ key: "OPENAI_BASE_URL", target: "aimock" }],
+    environments: {
+      staging: {
+        instanceId: "aa2c2665-331f-4a2a-821a-79859ae87994",
+        healthcheckPath: "/api/health",
+        domain: "showcase-openai-agents-python-staging.up.railway.app",
+        probe: true,
+      },
+    },
+  },
   "showcase-langgraph-fastapi": {
     serviceId: "06cccb5c-59f4-46b5-8adc-7113e77011a4",
     autoUpdates: { staging: "disabled", prod: "disabled" },

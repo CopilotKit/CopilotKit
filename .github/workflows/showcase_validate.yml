@@ -98,7 +98,7 @@ jobs:
         # Pinned to a specific minor rather than floating @v4 so that a
         # silent upstream major/minor change can't alter install semantics
         # on a random CI run. Bump deliberately when refreshing the toolchain.
-        uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+        uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
 
       - name: Verify lockfile is up to date
         run: pnpm install --frozen-lockfile --ignore-scripts
@@ -747,7 +747,9 @@ jobs:
     # Separate job so pre-existing `validate-parity` failures don't mask new
     # Python unit-test regressions. pytest runs independently of JS/TS checks.
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    # Each integration gets its own venv + pip install, serially; slow runners
+    # reached ~9.5 min, so 10 timed out (reported as `cancelled`).
+    timeout-minutes: 15
     permissions:
       contents: read
     strategy:
@@ -796,7 +798,7 @@ jobs:
           fi
 
       - name: Setup Python
-        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: ${{ matrix.python-version }}
           cache: "pip"

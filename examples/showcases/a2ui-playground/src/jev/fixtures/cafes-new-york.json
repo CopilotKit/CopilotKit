@@ -1,0 +1,252 @@
+{
+  "model": "jev-1.13.0",
+  "ms": 498,
+  "recordedAt": "2026-10-21T13:38:10.383Z",
+  "mock": false,
+  "answers": {
+    "layout": {
+      "type": "choice",
+      "choice": "map_list",
+      "confidence": 0.91,
+      "probabilities": {
+        "map_list": 0.9400000000000001,
+        "compare": 0,
+        "single": 0.06
+      }
+    },
+    "fit_14252540002": {
+      "type": "score",
+      "score": 1.13,
+      "confidence": 0.74,
+      "legend": {
+        "0": "Poor fit",
+        "1": "Weak fit",
+        "2": "Good fit",
+        "3": "Strong fit"
+      },
+      "probabilities": {
+        "0": 0.06,
+        "1": 0.75,
+        "2": 0.18,
+        "3": 0.01
+      }
+    },
+    "fit_5756089925": {
+      "type": "score",
+      "score": 0.97,
+      "confidence": 0.83,
+      "legend": {
+        "0": "Poor fit",
+        "1": "Weak fit",
+        "2": "Good fit",
+        "3": "Strong fit"
+      },
+      "probabilities": {
+        "0": 0.1,
+        "1": 0.83,
+        "2": 0.07,
+        "3": 0
+      }
+    },
+    "fit_11223060596": {
+      "type": "score",
+      "score": 1.09,
+      "confidence": 0.78,
+      "legend": {
+        "0": "Poor fit",
+        "1": "Weak fit",
+        "2": "Good fit",
+        "3": "Strong fit"
+      },
+      "probabilities": {
+        "0": 0.07,
+        "1": 0.78,
+        "2": 0.15,
+        "3": 0
+      }
+    },
+    "fit_5265713182": {
+      "type": "score",
+      "score": 1.12,
+      "confidence": 0.74,
+      "legend": {
+        "0": "Poor fit",
+        "1": "Weak fit",
+        "2": "Good fit",
+        "3": "Strong fit"
+      },
+      "probabilities": {
+        "0": 0.07,
+        "1": 0.75,
+        "2": 0.17,
+        "3": 0.01
+      }
+    },
+    "fit_13165461201": {
+      "type": "score",
+      "score": 0.79,
+      "confidence": 0.76,
+      "legend": {
+        "0": "Poor fit",
+        "1": "Weak fit",
+        "2": "Good fit",
+        "3": "Strong fit"
+      },
+      "probabilities": {
+        "0": 0.23,
+        "1": 0.76,
+        "2": 0.01,
+        "3": 0
+      }
+    },
+    "fit_11754487748": {
+      "type": "score",
+      "score": 1.53,
+      "confidence": 0.49,
+      "legend": {
+        "0": "Poor fit",
+        "1": "Weak fit",
+        "2": "Good fit",
+        "3": "Strong fit"
+      },
+      "probabilities": {
+        "0": 0.01,
+        "1": 0.47,
+        "2": 0.5,
+        "3": 0.02
+      }
+    },
+    "fit_2547243350": {
+      "type": "score",
+      "score": 1.08,
+      "confidence": 0.8,
+      "legend": {
+        "0": "Poor fit",
+        "1": "Weak fit",
+        "2": "Good fit",
+        "3": "Strong fit"
+      },
+      "probabilities": {
+        "0": 0.06,
+        "1": 0.8,
+        "2": 0.14,
+        "3": 0
+      }
+    },
+    "fit_14066885111": {
+      "type": "score",
+      "score": 1.03,
+      "confidence": 0.86,
+      "legend": {
+        "0": "Poor fit",
+        "1": "Weak fit",
+        "2": "Good fit",
+        "3": "Strong fit"
+      },
+      "probabilities": {
+        "0": 0.06,
+        "1": 0.86,
+        "2": 0.08,
+        "3": 0
+      }
+    }
+  },
+  "places": {
+    "city": "New York",
+    "source": "OpenStreetMap Nominatim",
+    "ms": 1697,
+    "items": [
+      {
+        "id": "14252540002",
+        "name": "Manjul",
+        "lat": 40.7195404,
+        "lon": -74.0007982,
+        "address": "Howard Street 31, Manhattan",
+        "distanceKm": 0.7,
+        "tags": {
+          "opening_hours": "Mo-Fr 07:00-18:00; Sa-Su 08:00-18:00"
+        }
+      },
+      {
+        "id": "5756089925",
+        "name": "Dreamers Coffee",
+        "lat": 40.7189834,
+        "lon": -74.0009997,
+        "address": "Canal Street, Manhattan",
+        "distanceKm": 0.7,
+        "tags": {
+          "opening_hours": "Fr-Su 10:00-19:00",
+          "cuisine": "coffee_shop"
+        }
+      },
+      {
+        "id": "11223060596",
+        "name": "Ashby's",
+        "lat": 40.7080354,
+        "lon": -74.0105959,
+        "address": "Pine Street, Manhattan",
+        "distanceKm": 0.8,
+        "tags": {
+          "outdoor_seating": "no",
+          "indoor_seating": "yes"
+        }
+      },
+      {
+        "id": "5265713182",
+        "name": "Ferrara",
+        "lat": 40.7191024,
+        "lon": -73.9970647,
+        "address": "Grand Street 195, Manhattan",
+        "distanceKm": 0.9,
+        "tags": {
+          "opening_hours": "Mo-Th,Su 09:00-22:00; Fr-Sa 09:00-23:00",
+          "cuisine": "italian"
+        }
+      },
+      {
+        "id": "13165461201",
+        "name": "Ateaz Cafe",
+        "lat": 40.707305,
+        "lon": -74.0137268,
+        "address": "Greenwich Street 77, Manhattan",
+        "distanceKm": 1
+      },
+      {
+        "id": "11754487748",
+        "name": "Conwell Coffee Hall",
+        "lat": 40.7054382,
+        "lon": -74.0091433,
+        "address": "Hanover Street 6, Manhattan",
+        "distanceKm": 1,
+        "tags": {
+          "opening_hours": "Mo-Fr 07:30-21:00; Sa-Su 09:00-21:00",
+          "outdoor_seating": "no"
+        }
+      },
+      {
+        "id": "2547243350",
+        "name": "Kolkata Chai Co",
+        "lat": 40.7208307,
+        "lon": -73.9959563,
+        "address": "Kenmare Street 60, Manhattan",
+        "distanceKm": 1.1,
+        "tags": {
+          "opening_hours": "Mo-Fr 09:00-18:00; Sa 10:00-19:00; Su 10:00-17:00",
+          "cuisine": "indian"
+        }
+      },
+      {
+        "id": "14066885111",
+        "name": "Fa San Coffee",
+        "lat": 40.7158267,
+        "lon": -73.9918445,
+        "address": "Allen Street 34, Manhattan",
+        "distanceKm": 1.2,
+        "tags": {
+          "opening_hours": "Mo-Su 10:00-17:00"
+        }
+      }
+    ],
+    "cached": false
+  }
+}
