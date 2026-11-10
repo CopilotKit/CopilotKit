@@ -217,8 +217,12 @@ access token of your own works: your comments stay user messages.
 ### State store
 
 `stateStore` holds the open numbered choices. The default `MemoryStore` loses
-them on restart. When you run more than one instance, pass a shared
-`StateStore`, so any instance can decode a numbered reply.
+them on restart.
+
+`thread.awaitChoice` waits inside the process that posted the list, so the
+reply must reach that same process. Run one instance, or send each repository's
+webhooks to the same instance. A shared `StateStore` does not change this:
+another instance would take the reply, but it cannot resume the waiting run.
 
 The engine's `ActionStore` (from `@copilotkit/channels`) holds the button
 handlers. It is in-memory by default. Pass a durable one to

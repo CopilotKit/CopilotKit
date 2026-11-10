@@ -146,8 +146,10 @@ comment it creates or edits (`bot-marker.ts`). Two checks use it:
 - Ingress skips a comment by a bot account or with the marker. A person who
   copies the marker only hides their own comment.
 - History treats a comment as the bot's when the posting login wrote it and it
-  is a bot account or carries the marker. A person cannot fake this, because
-  they would have to post as the bot.
+  is a bot account or carries the marker. Other people cannot fake this,
+  because they would have to post as the bot. In token mode the token owner
+  is the posting login, so the owner can add the marker to a comment and make
+  it an assistant message. Use token mode only for your own development.
 
 So a personal access token of the same person who comments works: that
 person's comments have no marker and stay user messages.

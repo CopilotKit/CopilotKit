@@ -229,8 +229,8 @@ mention. The list stays open for one hour.
 - No modals, ephemeral messages, or file uploads.
 - Reactions go out only. GitHub sends no reaction webhooks, so the agent does
   not see the reactions that people add.
-- Open numbered lists are kept in memory by default. If you run more than one
-  instance, pass a shared `stateStore` to `github({...})`.
+- A numbered list waits in the process that posted it. Run one instance, or
+  send each repository's webhooks to the same instance.
 - For GitHub Enterprise Server, set `apiBaseUrl` to your API URL.
 
 For every option and export, see
