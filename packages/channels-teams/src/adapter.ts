@@ -41,6 +41,7 @@ import {
 } from "./service-url.js";
 import type { TeamsServer } from "./listener.js";
 import { conversationKeyOf, parseCardAction } from "./interaction.js";
+import { isRecipientMentioned } from "./mention.js";
 import { createRunRenderer } from "./event-renderer.js";
 import { renderTeamsMarkdown } from "./render/markdown.js";
 import { renderAdaptiveCard, isPlainText } from "./render/adaptive-card.js";
@@ -228,7 +229,9 @@ export class TeamsAdapter implements PlatformAdapter {
       return;
     }
 
-    // Ordinary chat message. Strip any `<at>bot</at>` mention (channel scope).
+    // Ordinary chat message. Read the mention before we strip the
+    // `<at>bot</at>` tag from the text (channel scope).
+    const mentioned = isRecipientMentioned(activity);
     let text = "";
     try {
       text = (activity.removeRecipientMention() ?? activity.text ?? "").trim();
@@ -282,7 +285,7 @@ export class TeamsAdapter implements PlatformAdapter {
             kind: "created",
             logicalMessageId: activity.id ?? conversationKey,
             revisionId: activity.id ?? conversationKey,
-            mentioned: false,
+            mentioned,
           },
           actor,
           identityContext,

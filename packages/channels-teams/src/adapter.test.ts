@@ -319,6 +319,35 @@ describe("TeamsAdapter inbound files", () => {
   });
 });
 
+describe("TeamsAdapter mentions", () => {
+  const prevClientId = process.env.clientId;
+  beforeEach(() => delete process.env.clientId);
+  afterEach(() => {
+    if (prevClientId !== undefined) process.env.clientId = prevClientId;
+  });
+
+  it.each([
+    [
+      "mentions the bot",
+      [{ type: "mention", mentioned: { id: "bot-1" } }],
+      true,
+    ],
+    ["has no mention", undefined, false],
+  ])("marks a turn that %s", async (_label, entities, mentioned) => {
+    const adapter = new TeamsAdapter({});
+    const sink = mockSink();
+    const ctx = messageContext("hello");
+    Object.assign(ctx.activity, { recipient: { id: "bot-1" }, entities });
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await (adapter as any).handleActivity(ctx, sink);
+    await flush();
+
+    expect(sink.onTurn).toHaveBeenCalledTimes(1);
+    expect(sink.onTurn.mock.calls[0]![0].operation.mentioned).toBe(mentioned);
+  });
+});
+
 describe("TeamsAdapter.postFile", () => {
   it("sends a PNG as an inline image attachment via a data: URI", async () => {
     const adapter = new TeamsAdapter({});
