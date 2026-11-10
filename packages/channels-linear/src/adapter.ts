@@ -1,15 +1,16 @@
-import {
-  MemoryStore,
-  type IngressSink,
-  type PlatformAdapter,
-  type StateStore,
-  type SurfaceCapabilities,
-  type UserQuery,
+import { MemoryStore } from "@copilotkit/channels-core";
+import type {
+  IngressSink,
+  PlatformAdapter,
+  StateStore,
+  SurfaceCapabilities,
+  UserQuery,
 } from "@copilotkit/channels-core";
 import type { ChannelNode } from "@copilotkit/channels-ui";
 import { LinearApiClient } from "./client.js";
 import { LinearConversationStore } from "./conversation-store.js";
-import { createRunRenderer, type LinearRunRenderer } from "./event-renderer.js";
+import { createRunRenderer } from "./event-renderer.js";
+import type { LinearRunRenderer } from "./event-renderer.js";
 import { handleAgentSessionEvent } from "./ingress.js";
 import { savePendingChoices } from "./pending-choices.js";
 import { LINEAR_LIMITS, truncateText } from "./render/budget.js";

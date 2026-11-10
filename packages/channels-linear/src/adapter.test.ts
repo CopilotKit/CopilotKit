@@ -1,18 +1,12 @@
 import { createHmac } from "node:crypto";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import {
-  EventType,
-  HttpAgent,
-  type AgentSubscriber,
-  type RunAgentParameters,
-} from "@ag-ui/client";
-import {
-  createChannel,
-  FakeAgent,
-  type Channel,
-} from "@copilotkit/channels-core";
+import { EventType, HttpAgent } from "@ag-ui/client";
+import type { AgentSubscriber, RunAgentParameters } from "@ag-ui/client";
+import { createChannel, FakeAgent } from "@copilotkit/channels-core";
+import type { Channel } from "@copilotkit/channels-core";
 import { Actions, Button } from "@copilotkit/channels-ui";
-import { linear, type LinearAdapter } from "./adapter.js";
+import { linear } from "./adapter.js";
+import type { LinearAdapter } from "./adapter.js";
 import type {
   AgentActivityContent,
   AgentActivitySignal,

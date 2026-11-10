@@ -1,10 +1,7 @@
 import type { IngressSink, StateStore } from "@copilotkit/channels-core";
 import type { ProviderActor } from "@copilotkit/channels-ui";
-import {
-  conversationKeyOf,
-  decodeSelectReply,
-  type InteractionEventBase,
-} from "./interaction.js";
+import { conversationKeyOf, decodeSelectReply } from "./interaction.js";
+import type { InteractionEventBase } from "./interaction.js";
 import { clearPendingChoices, readPendingChoices } from "./pending-choices.js";
 import type {
   AgentSessionEventWebhook,

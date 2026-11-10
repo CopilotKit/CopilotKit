@@ -1,15 +1,9 @@
-import {
-  MemoryStore,
-  type IncomingTurn,
-  type InteractionEvent,
-} from "@copilotkit/channels-core";
+import { MemoryStore } from "@copilotkit/channels-core";
+import type { IncomingTurn, InteractionEvent } from "@copilotkit/channels-core";
 import { describe, expect, it } from "vitest";
 import { handleAgentSessionEvent } from "./ingress.js";
-import {
-  readPendingChoices,
-  savePendingChoices,
-  type PendingChoiceSet,
-} from "./pending-choices.js";
+import { readPendingChoices, savePendingChoices } from "./pending-choices.js";
+import type { PendingChoiceSet } from "./pending-choices.js";
 import type {
   AgentSessionEventWebhook,
   LinearWebhookAgentActivity,

@@ -1,10 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import {
-  EventType,
-  HttpAgent,
-  type AgentSubscriber,
-  type ToolCallResultEvent,
-} from "@ag-ui/client";
+import { EventType, HttpAgent } from "@ag-ui/client";
+import type { AgentSubscriber, ToolCallResultEvent } from "@ag-ui/client";
 import type { CreateActivityOptions, LinearApiClient } from "./client.js";
 import { createRunRenderer } from "./event-renderer.js";
 import type { AgentActivityContent, ReplyTarget } from "./types.js";

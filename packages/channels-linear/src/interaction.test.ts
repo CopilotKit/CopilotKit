@@ -1,9 +1,6 @@
 import { describe, expect, it } from "vitest";
-import {
-  conversationKeyOf,
-  decodeSelectReply,
-  type InteractionEventBase,
-} from "./interaction.js";
+import { conversationKeyOf, decodeSelectReply } from "./interaction.js";
+import type { InteractionEventBase } from "./interaction.js";
 import type { PendingChoiceSet } from "./pending-choices.js";
 
 const base: InteractionEventBase = {
