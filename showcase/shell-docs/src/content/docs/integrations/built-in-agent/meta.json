@@ -1,20 +1,11 @@
 {
   "title": "Built-in Agent",
-  "root": true,
   "pages": [
-    "---Getting Started---",
     "index",
     "quickstart",
-    "---Concepts---",
-    "---Built-in Agent---",
     "server-tools",
     "mcp-servers",
     "model-selection",
-    "advanced-configuration",
-    "---Runtime---",
-    "---Intelligence---",
-    "---Deploy---",
-    "---Platforms---",
-    "---Other---"
+    "advanced-configuration"
   ]
 }

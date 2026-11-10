@@ -1,4 +1,4 @@
-import { notFound, redirect } from "next/navigation";
+import { notFound, permanentRedirect } from "next/navigation";
 import { Suspense } from "react";
 import type { Metadata } from "next";
 import { DExamples } from "@/proto/examples-d";
@@ -11,7 +11,7 @@ import {
   catalogComponentSlug,
   catalogReferenceFromPath,
 } from "@/components/standard-catalog/catalog-reference";
-import { frontendFallback, resolveLivePage } from "@/lib/live-docs";
+import { resolveLivePage, unsupportedRedirect } from "@/lib/live-docs";
 import { absoluteUrl } from "@/lib/seo/base-url";
 import {
   HOME_DESCRIPTION,
@@ -42,9 +42,10 @@ export default async function Page({ params }: PageProps<"/[[...path]]">) {
   const catalog = catalogReferenceFromPath(path);
   if (catalog) return <CatalogReferenceArticle {...catalog} />;
 
-  // A page only another frontend has opens this frontend's quickstart.
-  const fallback = frontendFallback(path);
-  if (fallback) redirect(fallback);
+  // An unscoped URL of a page the built-in agent has no showcase cell for
+  // opens the page under a framework that has one.
+  const moved = unsupportedRedirect(path);
+  if (moved) permanentRedirect(moved);
 
   // Anything else isn't a docs page.
   notFound();
@@ -99,8 +100,10 @@ export async function generateMetadata({
         description: live.overview.subheader,
       }
     : live.page.data;
-  // Canonical URL, Open Graph and Twitter cards, as shell-docs sets them.
-  const seo = liveDocMetadata({ title, description, path: url });
+  // The page's one indexed URL (`canonicalUrl`), Open Graph and Twitter
+  // cards. `/vue/mastra/backend/copilot-runtime` is the same page as
+  // `/backend/copilot-runtime`, so it points there.
+  const seo = liveDocMetadata({ title, description, path: live.canonical });
   return {
     title,
     description,

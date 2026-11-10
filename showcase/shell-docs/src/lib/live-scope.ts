@@ -6,17 +6,8 @@ import registryDocsModes from "@/data/docs-modes.json";
 // How live docs URLs are scoped, shared by the server resolver
 // (`live-docs.ts`) and the client sidebar (`src/proto/live-tree.tsx`).
 
-type DocsMode = "generated" | "authored";
-
-/**
- * Frameworks with docs but no showcase package, so no manifest
- * (shell-docs' `DOCS_ONLY_FRAMEWORK_MODES`).
- */
-export const DOCS_ONLY_FRAMEWORK_MODES: Record<string, DocsMode> = {
-  a2a: "generated",
-  "agent-spec": "generated",
-  deepagents: "generated",
-};
+/** Frameworks with docs but no showcase package, so no manifest. */
+export const DOCS_ONLY_FRAMEWORKS = ["a2a", "agent-spec", "deepagents"];
 
 /** The `docs/integrations/<folder>` a framework's own docs live in, when it isn't its slug. */
 export const DOCS_FOLDER_OVERRIDES: Record<string, string> = {
@@ -32,30 +23,22 @@ export const DOCS_FOLDER_OVERRIDES: Record<string, string> = {
   "ms-agent-harness-dotnet": "microsoft-agent-framework",
 };
 
-const docsModes: Record<string, DocsMode | "hidden"> = {
-  ...(registryDocsModes as Record<string, DocsMode | "hidden">),
-};
-for (const [slug, mode] of Object.entries(DOCS_ONLY_FRAMEWORK_MODES)) {
-  docsModes[slug] ??= mode;
-}
-
 /**
- * Each framework with docs: its URL slug, its folder under
- * `docs/integrations`, and its `docs_mode`, read from
- * `showcase/integrations/<slug>/manifest.yaml` through the registry, in
- * registry order (shell-docs' `getDocsMode` and `getDocsFolder`). `hidden`
- * frameworks have no docs.
+ * Each framework with docs, in registry order, and the folder under
+ * `docs/integrations` that holds its own pages. A showcase manifest's
+ * `docs_mode: hidden` takes a framework out of the docs.
  */
-export const LIVE_FRAMEWORKS: Record<
-  string,
-  { folder: string; mode: DocsMode }
-> = Object.fromEntries(
-  Object.entries(docsModes).flatMap(([slug, mode]) =>
-    mode === "hidden"
-      ? []
-      : [[slug, { folder: DOCS_FOLDER_OVERRIDES[slug] ?? slug, mode }]],
-  ),
-);
+export const LIVE_FRAMEWORKS: Record<string, { folder: string }> =
+  Object.fromEntries(
+    [
+      ...Object.entries(registryDocsModes as Record<string, string>),
+      ...DOCS_ONLY_FRAMEWORKS.map((slug) => [slug, "generated"]),
+    ].flatMap(([slug, mode]) =>
+      mode === "hidden"
+        ? []
+        : [[slug, { folder: DOCS_FOLDER_OVERRIDES[slug] ?? slug }]],
+    ),
+  );
 
 /** A framework URL slug's docs, if it has any. */
 export function liveFramework(slug: string | undefined) {
@@ -71,12 +54,8 @@ export function liveFrontend(segment: string | undefined) {
     : undefined;
 }
 
-/** Slugs whose per-framework page wins even when docs are generated. */
-export const FRAMEWORK_WINS = new Set(["quickstart", "threads-import"]);
-
 /** URL prefixes that scope a page to a frontend (React is the default). */
 export const LIVE_FRONTENDS: Record<string, FrontendId> = {
-  "react-spa": "react",
   vue: "vue",
   "react-native": "react-native",
   angular: "angular",
@@ -84,71 +63,25 @@ export const LIVE_FRONTENDS: Record<string, FrontendId> = {
   teams: "teams",
 };
 
+/** Slack and Teams are channels: they share one guide and a sidebar of their own. */
+export function isChannel(frontend: FrontendId) {
+  return frontend === "slack" || frontend === "teams";
+}
+
 /**
- * The Slack and Teams guide (`docs/channels/<slug>`) in sidebar order, with
- * each page's sidebar title and section (shell-docs'
- * `channel-guide-routes.ts`). `/slack` itself opens the guide's overview and
- * `/slack/connect` the channel's quickstart.
+ * Where each frontend's own pages live, in lookup order. React's are the
+ * pages at the content root; Slack and Teams each have a folder for their
+ * connection guide, then share `channels/`. Every frontend also has the
+ * shared pages (`docs/(shared)`) and the framework's own.
  */
-export const CHANNEL_GUIDES = [
-  {
-    slug: "intelligence",
-    title: "Configure the Channel in Intelligence",
-    section: "Getting Started",
-  },
-  { slug: "tools", title: "Tools and context", section: "Build" },
-  {
-    slug: "identity-and-memory",
-    title: "Identity and Memory",
-    section: "Build",
-  },
-  {
-    slug: "rich-messages",
-    title: "Rich messages and components",
-    section: "Build",
-  },
-  {
-    slug: "posting-jsx-as-images",
-    title: "Posting JSX as images",
-    section: "Build",
-  },
-  {
-    slug: "render-and-carousel",
-    title: "Render and carousel",
-    section: "Build",
-  },
-  {
-    slug: "interactive",
-    title: "Interactive messages and approvals",
-    section: "Build",
-  },
-  {
-    slug: "commands-and-reactions",
-    title: "Commands and reactions",
-    section: "Build",
-  },
-  {
-    slug: "files-and-multimodality",
-    title: "Files and multimodal input",
-    section: "Build",
-  },
-  { slug: "threads-and-state", title: "Threads and state", section: "Build" },
-  {
-    slug: "persistence-and-scaling",
-    title: "Persistence and scaling",
-    section: "Production",
-  },
-  {
-    slug: "history-and-transcripts",
-    title: "History and transcripts",
-    section: "Production",
-  },
-  {
-    slug: "deploy-and-operate",
-    title: "Deploy and operate",
-    section: "Production",
-  },
-] as const;
+export const FRONTEND_FOLDERS: Record<FrontendId, string[]> = {
+  react: [],
+  vue: ["frontends/vue"],
+  angular: ["frontends/angular"],
+  "react-native": ["frontends/react-native"],
+  slack: ["frontends/slack", "channels"],
+  teams: ["frontends/teams", "channels"],
+};
 
 /** shell-docs serves the React reference at both `/reference/v2/*` and `/reference/*`. */
 export const REFERENCE_ROOT_VERSION = "v2";
@@ -169,7 +102,6 @@ export const UNSCOPED_SEGMENTS = new Set([
   "reference",
   "frontends",
   "api",
-  "channels",
   "agentic-protocols",
   "cookbook",
   "examples",
@@ -182,10 +114,13 @@ export const ROOT_FRAMEWORK = "built-in-agent";
  * Keeps a root-relative link in the page's scope, as shell-docs'
  * `resolveDocsHref` does: on `/mastra/...`, `/quickstart` means
  * `/mastra/quickstart`. Links that name a framework, frontend, or a global
- * section stay as written.
+ * section stay as written. On Slack and Teams, a link into the shared
+ * channel guide (`/channels/tools`) opens the reader's own channel's page.
  */
 export function scopedHref(href: string | undefined, scope: DocsScope) {
   if (!href?.startsWith("/") || href.startsWith("//")) return href;
+  const fe =
+    scope.frontend !== "react" ? `/${frontendSegment(scope.frontend)}` : "";
   // shell-docs still serves a framework's pages at their content path
   // (`/docs/integrations/<folder>/...`); here they live at the framework URL.
   const contentPath = href.match(/^\/(?:docs\/)?integrations\/([^/?#]+)(.*)$/);
@@ -194,10 +129,13 @@ export function scopedHref(href: string | undefined, scope: DocsScope) {
       ? contentPath[1]
       : frameworkForFolder(contentPath[1], scope.framework ?? undefined);
     if (fw) {
-      const fe =
-        scope.frontend !== "react" ? `/${frontendSegment(scope.frontend)}` : "";
       return `${fe}${fw === ROOT_FRAMEWORK ? "" : `/${fw}`}${contentPath[2]}`;
     }
+  }
+  const channelGuide = href.match(/^\/channels(?=[/?#]|$)(.*)$/);
+  if (channelGuide) {
+    const channel = isChannel(scope.frontend) ? scope.frontend : "slack";
+    return `/${channel}${channelGuide[1]}`;
   }
   const first = href.slice(1).split(/[/?#]/, 1)[0];
   // Content also names a framework by its docs folder (`/langgraph/...`,
@@ -207,8 +145,6 @@ export function scopedHref(href: string | undefined, scope: DocsScope) {
     ? frameworkForFolder(first, scope.framework ?? undefined)
     : undefined;
   if (folderFramework) {
-    const fe =
-      scope.frontend !== "react" ? `/${frontendSegment(scope.frontend)}` : "";
     return `${fe}/${folderFramework}${href.slice(1 + first.length)}`;
   }
   if (
@@ -223,8 +159,6 @@ export function scopedHref(href: string | undefined, scope: DocsScope) {
     scope.framework && scope.framework !== ROOT_FRAMEWORK
       ? `/${scope.framework}`
       : "";
-  const fe =
-    scope.frontend !== "react" ? `/${frontendSegment(scope.frontend)}` : "";
   return `${fe}${fw}${href}`;
 }
 
@@ -237,12 +171,11 @@ function frameworkForFolder(folder: string, current: string | undefined) {
   )?.[0];
 }
 
-/** The URL prefix for a frontend (`react-spa` is React's old alias). */
+/** The URL prefix for a frontend. */
 export function frontendSegment(frontend: FrontendId) {
   return (
-    Object.entries(LIVE_FRONTENDS).find(
-      ([segment, id]) => id === frontend && segment !== "react-spa",
-    )?.[0] ?? frontend
+    Object.entries(LIVE_FRONTENDS).find(([, id]) => id === frontend)?.[0] ??
+    frontend
   );
 }
 
@@ -273,11 +206,11 @@ export function scopeFromPath(path: string[]): DocsScope & {
 }
 
 /**
- * The URL's page under another frontend, as shell-docs' frontend picker maps
- * it (`frontendPathForCurrentPath`): `/mastra/frontend-tools` on Vue is
- * `/vue/mastra/frontend-tools`. An app's pages don't carry over to Slack or
- * Teams, so those open the channel's overview; `slug` names another page
- * (`""` for the frontend's quickstart).
+ * The URL of `slug` (default: the URL's own page) under another frontend:
+ * `/mastra/frontend-tools` on Vue is `/vue/mastra/frontend-tools`. `""` is
+ * the frontend's home: its quickstart, or a channel's overview; React's home
+ * is the framework's quickstart. The picker checks the page exists there
+ * first (`whereIs`) and sends the reader home when it doesn't.
  */
 export function frontendHref(
   path: string[],
@@ -285,13 +218,9 @@ export function frontendHref(
   slug?: string,
 ) {
   const scope = scopeFromPath(path);
-  const isChannel = (id: FrontendId) => id === "slack" || id === "teams";
-  const page =
-    slug ??
-    (isChannel(frontend) && !isChannel(scope.frontend) ? "" : scope.slug);
+  const page = slug ?? scope.slug;
   const fe = frontend !== "react" ? `/${frontendSegment(frontend)}` : "";
   const fw = scope.framework ? `/${scope.framework}` : "";
-  // React has no landing of its own: its quickstart is the framework's.
   const tail = page || (frontend === "react" ? "quickstart" : "");
   return `${fe}${fw}${tail ? `/${tail}` : ""}`;
 }

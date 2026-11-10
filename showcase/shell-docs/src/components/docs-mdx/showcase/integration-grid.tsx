@@ -12,7 +12,7 @@ import {
 import { FrameworkLogo } from "@/components/icons/framework-icons";
 import { LIVE_FRAMEWORKS } from "@/lib/live-scope";
 import type { DocsMdxContext } from "../context";
-import { ROOT_FRAMEWORK, getDocsMode, getIntegrations } from "../data";
+import { ROOT_FRAMEWORK, hasDocs, getIntegrations } from "../data";
 import type { DocsScope } from "../scope";
 import { frameworkPageHref } from "./paths";
 
@@ -49,7 +49,7 @@ export function IntegrationGrid({
         i.deployed &&
         i.slug in LIVE_FRAMEWORKS &&
         i.slug !== ROOT_FRAMEWORK &&
-        getDocsMode(i.slug) !== "hidden" &&
+        hasDocs(i.slug) &&
         !exclude.includes(i.slug),
     )
     .sort((a, b) => (a.sort_order ?? 999) - (b.sort_order ?? 999));

@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useMemo, useState, type ReactNode } from "react";
+import { useMemo, useState } from "react";
+import type { ReactNode } from "react";
 import { ArrowRight, Check, ChevronsUpDown, Info, Search } from "lucide-react";
 import { IntelligenceGlyph } from "@/components/icons/glyphs";
 import {
@@ -11,7 +12,9 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { cn } from "@/lib/cn";
+import { whereIs } from "@/lib/live-pages";
 import { frontendHref, liveFrontend, scopeFromPath } from "@/lib/live-scope";
+import { useLivePages } from "./live-pages-context";
 import { trackEvent } from "@/lib/telemetry/analytics";
 import frameworkCategories from "@/data/framework-categories.json";
 import { FrameworkLogo } from "@/components/icons/framework-icons";
@@ -23,11 +26,11 @@ import {
   frameworkById,
   frontendById,
   LANGUAGES,
-  type Framework,
-  type FrontendId,
 } from "./data";
+import type { Framework, FrontendId } from "./data";
 import { useFrontend } from "./frontend";
-import { frameworkHref, type VariantId } from "./routes";
+import { frameworkHref } from "./routes";
+import type { VariantId } from "./routes";
 
 /* ---------- menus ---------- */
 
@@ -96,11 +99,19 @@ function FrameworkList({
   );
 }
 
-/** `prefix` keeps the URL's frontend (`/vue`). */
-function useFrameworkNav(variant: VariantId, slug: string, prefix = "") {
+/**
+ * `prefix` keeps the URL's frontend (`/vue`); `has` says whether the
+ * framework has the page, and when it doesn't, its home opens instead.
+ */
+function useFrameworkNav(
+  variant: VariantId,
+  slug: string,
+  prefix = "",
+  has: (id: string) => boolean = () => true,
+) {
   const router = useRouter();
   return (id: string) =>
-    router.push(`${prefix}${frameworkHref(variant, id, slug)}`);
+    router.push(`${prefix}${frameworkHref(variant, id, has(id) ? slug : "")}`);
 }
 
 /** A framework menu trigger. `look` changes only the trigger. */
@@ -687,10 +698,14 @@ export function StackRows({
   const path = pathname.split("/").filter(Boolean);
   const { frontend } = scopeFromPath(path);
   const [open, setOpen] = useState<"frontend" | "framework" | null>(null);
+  const pages = useLivePages();
+  const scope = scopeFromPath(path);
+  // The same page under the new framework when it has one, else its home.
   const nav = useFrameworkNav(
     variant,
     slug,
     liveFrontend(path[0]) ? `/${path[0]}` : "",
+    (id) => !pages || !slug || !!whereIs(pages, frontend, id, slug),
   );
   const go = onFramework ?? nav;
   const fw = frameworkById(framework);
@@ -719,7 +734,17 @@ export function StackRows({
                   if (f.id === frontend) return;
                   // Remembered for the pages that aren't per frontend.
                   setFrontend(f.id);
-                  const destination = frontendHref(path, f.id);
+                  // The same page on the new frontend when it has one, else
+                  // the frontend's home.
+                  const same =
+                    !pages ||
+                    !scope.slug ||
+                    !!whereIs(pages, f.id, scope.framework, scope.slug);
+                  const destination = frontendHref(
+                    path,
+                    f.id,
+                    same ? undefined : "",
+                  );
                   // Shell-docs' framework selector event, same properties.
                   trackEvent("docs.frontend_selected", {
                     frontend: f.id,

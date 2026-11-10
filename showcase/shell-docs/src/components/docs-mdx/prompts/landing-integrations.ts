@@ -2,7 +2,7 @@
 // the showcase registry (shell-docs' lib/landing-integrations.ts,
 // integration-groups.ts and framework-order.ts).
 
-import { getDocsMode, getIntegrations } from "../data";
+import { hasDocs, getIntegrations } from "../data";
 
 export interface LandingIntegration {
   id: string;
@@ -100,7 +100,7 @@ const PRIORITY_GROUPS: Pick<LandingIntegration, "id" | "name" | "choices">[] = [
 /** Group language variants without losing any visible registry destination. */
 export function landingIntegrations(): LandingIntegration[] {
   const integrations = getIntegrations()
-    .filter((integration) => getDocsMode(integration.slug) !== "hidden")
+    .filter((integration) => hasDocs(integration.slug))
     .sort((a, b) => compareByDisplayOrder(a.slug, b.slug));
   const bySlug = new Map(integrations.map((i) => [i.slug, i]));
   const grouped = new Set<string>();

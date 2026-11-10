@@ -1,101 +1,124 @@
 import type { DocsScope } from "@/components/docs-mdx/scope";
-import type { FrontendId } from "@/proto/data";
+import { frameworkSupports } from "@/components/docs-mdx/showcase/framework-gates";
 import {
-  CHANNEL_GUIDES,
-  FRAMEWORK_WINS,
-  scopedHref,
   LIVE_FRAMEWORKS,
-  LIVE_FRONTENDS,
   REFERENCE_FOLDERS,
   REFERENCE_ROOT_VERSION,
   ROOT_FRAMEWORK,
-  frontendHref,
-  liveFramework,
-  liveFrontend,
+  frontendSegment,
+  isChannel,
   scopeFromPath,
+  scopedHref,
 } from "./live-scope";
+import { whereIs } from "./live-pages";
+import type { PageIndex, PageLocation } from "./live-pages";
 import { liveSource, referenceSource } from "./live-source";
-import {
-  frameworkOverviews,
-  type FrameworkOverviewData,
-} from "@/data/frameworks";
+import { frameworkOverviews } from "@/data/frameworks";
+import type { FrameworkOverviewData } from "@/data/frameworks";
 
 export { LIVE_FRAMEWORKS, scopedHref } from "./live-scope";
 
 /**
- * `scopedHref`, except when the reader's framework has no such page and the
- * unscoped one exists: `/model-selection` from a Mastra page stays
- * `/model-selection`, since `/mastra/model-selection` would be a 404.
- */
-export function liveHref(href: string | undefined, scope: DocsScope) {
-  const to = scopedHref(href, scope);
-  if (!href || !to || to === href) return to;
-  const path = (url: string) => url.split(/[?#]/)[0].split("/").filter(Boolean);
-  if (resolveLivePage(path(to)) || !resolveLivePage(path(href))) return to;
-  return href;
-}
-
-/**
- * Where a URL goes when its frontend lacks the page but another frontend has
- * it: the frontend's quickstart, as shell-docs' frontend picker sent a Slack
- * guide to Vue (`/vue/mastra/tools` opens `/vue/mastra`). So switching
- * frontends from an Angular guide opens Vue's quickstart, not a 404.
- */
-export function frontendFallback(path: string[]): string | null {
-  const { frontend, slug } = scopeFromPath(path);
-  if (!slug) return null;
-  const elsewhere = [...new Set(Object.values(LIVE_FRONTENDS))].some(
-    (other) =>
-      other !== frontend &&
-      resolveLivePage(
-        frontendHref(path, other, slug).split("/").filter(Boolean),
-      ),
-  );
-  return elsewhere ? frontendHref(path, frontend, "") : null;
-}
-
-/**
- * Resolves a docs.copilotkit.ai URL to a page in `src/content`, the way
- * shell-docs does (`src/lib/docs-render.tsx`, `src/app/[framework]`), so every
- * live URL keeps working:
+ * Resolves a docs.copilotkit.ai URL to a page in `src/content`. The URL names
+ * the reader's frontend and framework (`/vue/mastra/frontend-tools`); the
+ * page comes from `whereIs` (`src/lib/live-pages.ts`):
  *
  *   /frontend-tools                 docs/frontend-tools.mdx
+ *   /mastra/frontend-tools          the same page, with Mastra's code
+ *   /mastra/background-tasks        docs/integrations/mastra/background-tasks.mdx
+ *   /vue/mastra/frontend-tools      docs/frontends/vue/frontend-tools.mdx
+ *   /slack/tools                    docs/channels/tools.mdx
+ *   /backend/copilot-runtime        docs/(shared)/backend/copilot-runtime.mdx
  *   /mastra                         docs/integrations/mastra/index.mdx
  *   /google-adk                     src/data/frameworks/google-adk.ts
- *   /mastra/frontend-tools          docs/integrations/mastra/frontend-tools.mdx,
- *                                   else docs/frontend-tools.mdx scoped to Mastra
- *   /vue/mastra/frontend-tools      the same, scoped to Vue
- *   /vue                            docs/frontends/vue.mdx
+ *   /vue                            docs/frontends/vue/index.mdx
  *   /reference/v2/hooks/use-agent   reference/hooks/use-agent.mdx
  */
 
+type DocPage = NonNullable<ReturnType<typeof liveSource.getPage>>;
+
 export type LivePage =
-  | NonNullable<ReturnType<typeof liveSource.getPage>>
+  | DocPage
   | NonNullable<ReturnType<typeof referenceSource.getPage>>;
 
 export interface ResolvedLivePage {
   page: LivePage;
   scope: DocsScope;
-  /** Path under shell-docs' `src/content`, the source of truth for edits. */
+  /** Path under `src/content`, the source of truth for edits. */
   contentPath: string;
   /**
    * A generated framework's landing (`/google-adk`), drawn from its record in
    * `src/data/frameworks`. `page` is then the framework's quickstart, which
-   * the landing's Markdown serves, as shell-docs' `llms-mdx` route did.
+   * the landing's Markdown serves.
    */
   overview?: FrameworkOverviewData;
+  /** The page's one indexed URL (`canonicalUrl`). */
+  canonical: string;
 }
 
 const docPage = (slug: string) =>
   liveSource.getPage(slug.split("/").filter(Boolean));
 
+const isShared = (page: DocPage) => page.path.startsWith("(shared)/");
+
+/** A folder's pages by slug inside it (`""` is its index). */
+function folderSlugs(folder: string): string[] {
+  const prefix = `${folder}/`;
+  return liveSource.getPages().flatMap((page) => {
+    const slug = page.slugs.join("/");
+    if (slug === folder) return [""];
+    return slug.startsWith(prefix) ? [slug.slice(prefix.length)] : [];
+  });
+}
+
+let index: PageIndex | undefined;
+
+/** Every page's place, for `whereIs`. Built once per server process. */
+export function getPageIndex(): PageIndex {
+  if (index) return index;
+  const folders: Record<string, string[]> = {};
+  for (const folder of [
+    "frontends/vue",
+    "frontends/angular",
+    "frontends/react-native",
+    "frontends/slack",
+    "frontends/teams",
+    "channels",
+  ]) {
+    folders[folder] = folderSlugs(folder);
+  }
+  for (const { folder } of Object.values(LIVE_FRAMEWORKS)) {
+    folders[`integrations/${folder}`] ??= folderSlugs(`integrations/${folder}`);
+  }
+  const react: string[] = [];
+  const shared: string[] = [];
+  const features = new Map<string, string>();
+  for (const page of liveSource.getPages()) {
+    const slug = page.slugs.join("/");
+    if (!slug || /^(frontends|channels|integrations)(\/|$)/.test(slug)) {
+      continue;
+    }
+    (isShared(page) ? shared : react).push(slug);
+    const cell = page.data.snippet_cell;
+    if (typeof cell === "string") features.set(slug, cell);
+  }
+  const unsupported: Record<string, string[]> = {};
+  for (const fw of Object.keys(LIVE_FRAMEWORKS)) {
+    unsupported[fw] = [...features]
+      .filter(([, cell]) => !frameworkSupports(fw, cell))
+      .map(([slug]) => slug);
+  }
+  index = { folders, react, shared, unsupported };
+  return index;
+}
+
 export function resolveLivePage(input: string[]): ResolvedLivePage | null {
   // `/agentic-protocols/index` is `/agentic-protocols`.
   const path = input.at(-1) === "index" ? input.slice(0, -1) : input;
-  const [first, ...rest] = path;
-  if (!first) return null;
+  if (!path.length) return null;
 
-  if (first === "reference") {
+  if (path[0] === "reference") {
+    const rest = path.slice(1);
     const slugs = rest[0] === REFERENCE_ROOT_VERSION ? rest.slice(1) : rest;
     const page = referenceSource.getPage(slugs);
     return page
@@ -103,149 +126,210 @@ export function resolveLivePage(input: string[]): ResolvedLivePage | null {
           page,
           scope: { framework: null, frontend: "react" },
           contentPath: `reference/${page.path}`,
+          canonical: referenceUrl(page.slugs),
         }
       : null;
   }
 
-  const frontend = liveFrontend(first);
-  if (!frontend) return resolveScoped(path, "react");
-
-  // `/vue/mastra/...`: the backend after the frontend is optional.
-  const framework = liveFramework(rest[0]) ? rest[0] : null;
-  const tail = (framework ? rest.slice(1) : rest).join("/");
-  const scope = { framework, frontend };
-
-  if (frontend === "slack" || frontend === "teams") {
-    const guide = channelGuide(first, tail);
-    if (guide) return found(guide, scope);
+  const { frontend, framework, slug } = scopeFromPath(path);
+  const scope: DocsScope = { framework, frontend };
+  if (!slug && framework && frontend === "react") {
+    return frameworkLanding(framework);
   }
-
-  // `using-these-docs` is a frontend's own page when it has one (Vue's),
-  // else its docs status.
-  const own =
-    !tail || tail === "quickstart"
-      ? docPage(`frontends/${first}`)
-      : tail === "using-these-docs"
-        ? (docPage(`frontends/${first}/using-these-docs`) ??
-          docPage(
-            first === "angular"
-              ? "frontends/angular/docs-status"
-              : "frontends/docs-status",
-          ))
-        : docPage(`frontends/${first}/${tail}`);
-  if (own) return found(own, scope);
-  return resolveScoped(rest, frontend);
-}
-
-/**
- * Slack and Teams share one guide (`docs/channels`): `/slack` and
- * `/slack/<framework>` open its overview, `/slack/connect` the channel's
- * quickstart, `/slack/tools` its Tools page (shell-docs'
- * `channel-guide-routes.ts`).
- */
-function channelGuide(channel: string, tail: string) {
-  if (!tail || tail === "overview") return docPage("channels");
-  if (tail === "connect") return docPage(`frontends/${channel}`);
-  return CHANNEL_GUIDES.some((guide) => guide.slug === tail)
-    ? docPage(`channels/${tail}`)
-    : undefined;
-}
-
-function resolveScoped(
-  path: string[],
-  frontend: FrontendId,
-): ResolvedLivePage | null {
-  const [first, ...rest] = path;
-  if (!first) return null;
-  const fw = liveFramework(first);
-  if (fw) {
-    const slug = rest.join("/");
-    if (!slug) return frameworkLanding(first, fw, frontend);
-    const own = `integrations/${fw.folder}/${slug}`;
-    const order =
-      fw.mode === "authored" || FRAMEWORK_WINS.has(slug)
-        ? [own, slug]
-        : [slug, own];
-    for (const candidate of order) {
-      const page = docPage(candidate);
-      if (page) return found(page, { framework: first, frontend });
-    }
-    return null;
-  }
-  // Framework folders are only reachable through their framework's URL.
-  if (first === "integrations") return null;
-  // shell-docs' unscoped pages are the built-in agent's docs: its own page
-  // wins (`/quickstart`, `/angular/model-selection`). On React, a root page
-  // is scoped to it only when it pins a showcase cell (`UnscopedDocsPage`),
-  // so a page's `snippet_framework` still applies otherwise.
-  const { folder } = LIVE_FRAMEWORKS[ROOT_FRAMEWORK];
-  const own = docPage(`integrations/${folder}/${path.join("/")}`);
-  if (own) {
-    return found(own, {
-      framework: frontend === "react" ? ROOT_FRAMEWORK : null,
-      frontend,
-    });
-  }
-  const page = liveSource.getPage(path);
+  if (!slug && frontend === "react") return null;
+  const at = whereIs(getPageIndex(), frontend, framework, slug);
+  if (!at) return null;
+  const page = pageAt(at);
   if (!page) return null;
-  const pinsCell =
-    frontend === "react" && typeof page.data.snippet_cell === "string";
-  return found(page, {
-    framework: pinsCell ? ROOT_FRAMEWORK : null,
-    frontend,
-  });
+  // A root page at an unscoped URL reads as the built-in agent's when it
+  // pins a showcase cell; otherwise its `snippet_framework` applies.
+  const unscopedReact =
+    !framework &&
+    frontend === "react" &&
+    (at.kind === "react" || at.kind === "shared");
+  return {
+    page,
+    scope: unscopedReact
+      ? {
+          framework:
+            typeof page.data.snippet_cell === "string" ? ROOT_FRAMEWORK : null,
+          frontend,
+        }
+      : at.kind === "framework" && !framework
+        ? { framework: ROOT_FRAMEWORK, frontend }
+        : scope,
+    contentPath: `docs/${page.path}`,
+    canonical: canonicalUrl(at, scope),
+  };
+}
+
+function pageAt(at: PageLocation): DocPage | undefined {
+  return at.kind === "frontend" || at.kind === "framework"
+    ? docPage(at.slug ? `${at.folder}/${at.slug}` : at.folder)
+    : docPage(at.slug);
 }
 
 /**
- * A framework's landing, as shell-docs' framework root drew it: a generated
- * framework's overview record, else its folder's `index.mdx`.
+ * A framework's landing: its overview record (`src/data/frameworks`), else
+ * its folder's `index.mdx`.
  */
-function frameworkLanding(
-  slug: string,
-  fw: { folder: string; mode: string },
-  frontend: FrontendId,
-): ResolvedLivePage | null {
-  const scope = { framework: slug, frontend };
-  const overview =
-    fw.mode === "generated" ? frameworkOverviews[slug] : undefined;
+function frameworkLanding(slug: string): ResolvedLivePage | null {
+  const { folder } = LIVE_FRAMEWORKS[slug];
+  const scope = { framework: slug, frontend: "react" as const };
+  const canonical = `/${slug}`;
+  const overview = frameworkOverviews[slug];
   if (overview) {
     const quickstart =
-      docPage(`integrations/${fw.folder}/quickstart`) ?? docPage("quickstart");
-    return quickstart ? { ...found(quickstart, scope), overview } : null;
+      docPage(`integrations/${folder}/quickstart`) ?? docPage("quickstart");
+    return quickstart
+      ? {
+          page: quickstart,
+          scope,
+          contentPath: `docs/${quickstart.path}`,
+          overview,
+          canonical,
+        }
+      : null;
   }
-  const index = docPage(`integrations/${fw.folder}`);
-  return index ? found(index, scope) : null;
+  const page = docPage(`integrations/${folder}`);
+  return page
+    ? { page, scope, contentPath: `docs/${page.path}`, canonical }
+    : null;
 }
 
-function found(
-  page: NonNullable<ReturnType<typeof liveSource.getPage>>,
-  scope: DocsScope,
-): ResolvedLivePage {
-  return { page, scope, contentPath: `docs/${page.path}` };
+/**
+ * The one URL a page is indexed under. The reader's framework is dropped
+ * unless the page is the framework's own, and the frontend is dropped
+ * unless the page is the frontend's own, so `/vue/mastra/backend/copilot-runtime`
+ * is `/backend/copilot-runtime` and `/teams/mastra/tools` is `/teams/tools`.
+ * A shared page the built-in agent has no showcase cell for lives under the
+ * first framework that has one. Framework quickstarts keep their framework,
+ * so every framework's quickstart is indexed.
+ */
+export function canonicalUrl(at: PageLocation, scope: DocsScope): string {
+  if (at.kind === "frontend") {
+    const fe = isChannel(scope.frontend)
+      ? scope.frontend
+      : frontendSegment(scope.frontend);
+    return url(fe, at.slug);
+  }
+  if (at.kind === "framework") {
+    const fw = scope.framework ?? ROOT_FRAMEWORK;
+    const first = at.slug === "quickstart" ? fw : firstFrameworkFor(at.folder);
+    return url(first === ROOT_FRAMEWORK ? "" : first, at.slug);
+  }
+  const unsupported = getPageIndex().unsupported;
+  if (!unsupported[ROOT_FRAMEWORK]?.includes(at.slug)) return url(at.slug);
+  const fw = Object.keys(LIVE_FRAMEWORKS).find(
+    (slug) => !unsupported[slug]?.includes(at.slug),
+  );
+  return url(fw ?? "", at.slug);
 }
 
-/** Every live URL the site serves, for static generation and sitemaps. */
-export function liveParams(): { path: string[] }[] {
-  const out = new Map<string, string[]>();
-  const add = (p: string[]) => out.set(p.join("/"), p);
-  for (const page of liveSource.getPages()) {
-    const [head, folder, ...tail] = page.slugs;
-    if (head !== "integrations") {
-      if (page.slugs.length) add(page.slugs);
-      continue;
+/** A URL from its non-empty segments (`url("", "x")` is `/x`). */
+const url = (...parts: string[]) => `/${parts.filter(Boolean).join("/")}`;
+
+/** A URL's path segments, without its query or hash. */
+const segmentsOf = (href: string) =>
+  href.split(/[?#]/)[0].split("/").filter(Boolean);
+
+/** The first framework (registry order) whose own pages live in `folder`. */
+function firstFrameworkFor(folder: string): string {
+  const name = folder.replace(/^integrations\//, "");
+  return (
+    Object.keys(LIVE_FRAMEWORKS).find(
+      (slug) => LIVE_FRAMEWORKS[slug].folder === name,
+    ) ?? name
+  );
+}
+
+/** A reference page's live URL: React's under `/reference/v2`, other SDKs under their folder. */
+export function referenceUrl(slugs: string[]): string {
+  const path = REFERENCE_FOLDERS.has(slugs[0])
+    ? slugs
+    : [REFERENCE_ROOT_VERSION, ...slugs];
+  return `/reference/${path.join("/")}`;
+}
+
+/**
+ * Where an unscoped URL goes when the built-in agent has no showcase cell for
+ * its page: the page's canonical URL, under a framework that has one. The
+ * URL was the page's home before the showcase decided which frameworks have
+ * it, so links to it keep working.
+ */
+export function unsupportedRedirect(path: string[]): string | null {
+  const { frontend, framework, slug } = scopeFromPath(path);
+  if (framework || frontend !== "react" || !slug) return null;
+  const pages = getPageIndex();
+  if (!pages.unsupported[ROOT_FRAMEWORK]?.includes(slug)) return null;
+  if (whereIs(pages, "react", null, slug)) return null;
+  const kind = pages.react.includes(slug) ? "react" : "shared";
+  if (!pages[kind].includes(slug)) return null;
+  const canonical = canonicalUrl({ kind, slug }, { framework, frontend });
+  return canonical === `/${slug}` ? null : canonical;
+}
+
+/**
+ * `scopedHref`, except when the reader's scope has no such page: then the
+ * page's canonical URL, so `/model-selection` from a Mastra page stays
+ * `/model-selection`, since `/mastra/model-selection` would be a 404.
+ */
+export function liveHref(href: string | undefined, scope: DocsScope) {
+  const to = scopedHref(href, scope);
+  if (!href || !to || to === href) return to;
+  if (resolveLivePage(segmentsOf(to))) return to;
+  const own = resolveLivePage(segmentsOf(href));
+  if (!own) return to;
+  const rest = href.slice(href.split(/[?#]/)[0].length);
+  return `${own.canonical}${rest}`;
+}
+
+/**
+ * Every page once, at its canonical URL (`canonicalUrl`), plus each
+ * framework's landing and quickstart, and the reference. Channel guide pages
+ * are listed once per channel, since each channel reads its own version.
+ * The sitemap, llms.txt, search, and MCP all list these.
+ */
+export function livePages(): ResolvedLivePage[] {
+  const urls = new Set<string>();
+  const pages = getPageIndex();
+  const frameworks = Object.keys(LIVE_FRAMEWORKS);
+  for (const slug of [...pages.react, ...pages.shared]) {
+    const kind = pages.react.includes(slug) ? "react" : "shared";
+    urls.add(
+      canonicalUrl({ kind, slug }, { framework: null, frontend: "react" }),
+    );
+  }
+  for (const [folder, slugs] of Object.entries(pages.folders)) {
+    if (folder.startsWith("integrations/")) continue;
+    const frontends =
+      folder === "channels"
+        ? ["slack", "teams"]
+        : [folder.replace(/^frontends\//, "")];
+    for (const fe of frontends) {
+      for (const slug of slugs) urls.add(`/${fe}${slug ? `/${slug}` : ""}`);
     }
-    for (const [slug, fw] of Object.entries(LIVE_FRAMEWORKS)) {
-      if (fw.folder !== folder || !tail.length) continue;
-      // The built-in agent's pages are the root ones (`/quickstart`).
-      add(slug === ROOT_FRAMEWORK ? tail : [slug, ...tail]);
+  }
+  for (const fw of frameworks) {
+    if (fw !== ROOT_FRAMEWORK) urls.add(`/${fw}`);
+    const folder = `integrations/${LIVE_FRAMEWORKS[fw].folder}`;
+    for (const slug of pages.folders[folder] ?? []) {
+      if (!slug) continue;
+      urls.add(
+        canonicalUrl(
+          { kind: "framework", folder, slug },
+          { framework: fw, frontend: "react" },
+        ),
+      );
     }
   }
   for (const page of referenceSource.getPages()) {
-    add(
-      REFERENCE_FOLDERS.has(page.slugs[0])
-        ? ["reference", ...page.slugs]
-        : ["reference", REFERENCE_ROOT_VERSION, ...page.slugs],
-    );
+    urls.add(referenceUrl(page.slugs));
   }
-  return [...out.values()].map((path) => ({ path }));
+  const out: ResolvedLivePage[] = [];
+  for (const url of urls) {
+    const live = resolveLivePage(url.split("/").filter(Boolean));
+    if (live && live.canonical === url) out.push(live);
+  }
+  return out;
 }
