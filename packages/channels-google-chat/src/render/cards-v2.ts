@@ -1,47 +1,13 @@
 import type { ChannelNode } from "@copilotkit/channels-ui";
 import { GCHAT_LIMITS, truncateText, clampArray } from "./budget.js";
 import { markdownToChat } from "../markdown.js";
+import { isAbsoluteHttpsUrl, isSafeUrl } from "../url.js";
 
 type Widget = Record<string, unknown>;
 
 /** Escape the HTML-significant characters so user text can't inject markup. */
 function escapeHtml(s: string): string {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-}
-
-/**
- * Allow only safe link schemes. Permits http:, https:, and mailto:
- * (case-insensitive), scheme-relative `//host` URLs, and relative URLs with
- * no scheme at all (no `:` before the first `/`, `?`, or `#`). Any other
- * scheme (javascript:, data:, vbscript:, file:, …) is rejected.
- */
-function isSafeUrl(url: string): boolean {
-  const trimmed = url.trim();
-  if (trimmed.startsWith("//")) return true; // scheme-relative
-  const colon = trimmed.indexOf(":");
-  if (colon === -1) return true; // no scheme → relative
-  const slash = trimmed.indexOf("/");
-  const question = trimmed.indexOf("?");
-  const hash = trimmed.indexOf("#");
-  const beforeDelimiter = (d: number) => d === -1 || colon < d;
-  if (
-    beforeDelimiter(slash) &&
-    beforeDelimiter(question) &&
-    beforeDelimiter(hash)
-  ) {
-    const scheme = trimmed.slice(0, colon).toLowerCase();
-    return scheme === "http" || scheme === "https" || scheme === "mailto";
-  }
-  return true;
-}
-
-/** Cards v2 loads images only from absolute HTTPS URLs. */
-function isAbsoluteHttpsUrl(url: string): boolean {
-  try {
-    return new URL(url).protocol === "https:";
-  } catch {
-    return false;
-  }
 }
 
 /**
