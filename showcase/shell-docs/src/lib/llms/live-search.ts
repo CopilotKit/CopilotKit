@@ -1,10 +1,7 @@
 import type * as PageTree from "fumadocs-core/page-tree";
 import type { SortedResult } from "fumadocs-core/search";
-import {
-  createSearchAPI,
-  type AdvancedIndex,
-  type SearchAPI,
-} from "fumadocs-core/search/server";
+import { createSearchAPI } from "fumadocs-core/search/server";
+import type { AdvancedIndex, SearchAPI } from "fumadocs-core/search/server";
 import type { DocsScope } from "@/components/docs-mdx/scope";
 import { resolveLivePage } from "@/lib/live-docs";
 import {
@@ -40,24 +37,30 @@ async function buildIndexes(): Promise<AdvancedIndex[]> {
     ...breadcrumbs(referenceSource.getPageTree(), ["Reference"]),
   ]);
 
-  const live = await mapLimit(searchEntries(), 8, async ({ url, live }) => {
-    try {
-      const { structuredData } = await live.page.data.load();
-      return {
-        id: url,
-        url,
-        title: live.page.data.title,
-        description: live.page.data.description,
-        breadcrumbs:
-          frameworkCrumb(live.scope.framework) ?? crumbs.get(live.page.url),
-        structuredData,
-      } satisfies AdvancedIndex;
-    } catch (error) {
-      // One page that fails to compile shouldn't take search down.
-      console.error(`[search] failed to index ${url}`, error);
-      return null;
-    }
-  });
+  const live = await mapLimit(
+    searchEntries(),
+    8,
+    async ({ url, live, frontends }) => {
+      try {
+        const { structuredData } = await live.page.data.load();
+        return {
+          id: url,
+          url,
+          // The route filters by the reader's frontend (`/api/search`).
+          tag: frontends,
+          title: live.page.data.title,
+          description: live.page.data.description,
+          breadcrumbs:
+            frameworkCrumb(live.scope.framework) ?? crumbs.get(live.page.url),
+          structuredData,
+        } satisfies AdvancedIndex;
+      } catch (error) {
+        // One page that fails to compile shouldn't take search down.
+        console.error(`[search] failed to index ${url}`, error);
+        return null;
+      }
+    },
+  );
 
   return live.filter((index) => index !== null);
 }
