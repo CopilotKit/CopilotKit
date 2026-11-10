@@ -39,7 +39,7 @@ export function markdownToChat(input: string): string {
   // of them first, see step 0, so they can never collide with real content).
   // Do NOT "clean them up" or replace them with visible text.
   const codeRegions: string[] = [];
-  const codePlaceholder = (i: number) => `CODE${i}`;
+  const codePlaceholder = (i: number) => `\x10CODE${i}\x10`;
 
   let body = sanitized.replace(/```[\s\S]*?```/g, (match) => {
     codeRegions.push(match);
@@ -91,8 +91,8 @@ export function markdownToChat(input: string): string {
   // The two strings below are single non-printing control-character bytes
   // (\x11 open, \x12 close) — deliberate, load-bearing sentinels, NOT empty
   // strings. Do NOT replace them with visible markers (see note in step 1).
-  const BOLD_OPEN = "";
-  const BOLD_CLOSE = "";
+  const BOLD_OPEN = "\x11";
+  const BOLD_CLOSE = "\x12";
   body = body.replace(/\*\*([^\n*]+?)\*\*/g, `${BOLD_OPEN}$1${BOLD_CLOSE}`);
   body = body.replace(/__([^\n_]+?)__/g, `${BOLD_OPEN}$1${BOLD_CLOSE}`);
 
@@ -113,7 +113,10 @@ export function markdownToChat(input: string): string {
   body = body.replace(/~~([^\n~]+?)~~/g, "~$1~");
 
   // Italic *text* → _text_ (skip already-converted bold sentinels).
-  body = body.replace(/(^|[^*\w])\*(\S(?:[^*\n]*\S)?)\*(?!\w)/g, "$1_$2_");
+  body = body.replace(
+    /(^|[^*\w\x11\x12])\*(\S(?:[^*\n]*\S)?)\*(?!\w)/g,
+    "$1_$2_",
+  );
   // Italic _text_ stays _text_ (no-op transform, but ensures the form is canonical).
 
   // (Markdown links were already extracted into sentinel placeholders in step
@@ -134,7 +137,7 @@ export function markdownToChat(input: string): string {
     (_m, idx) => linkRegions[Number(idx)] ?? "",
   );
   body = body.replace(
-    /CODE(\d+)/g,
+    /\x10CODE(\d+)\x10/g,
     (_m, idx) => codeRegions[Number(idx)] ?? "",
   );
 
