@@ -380,3 +380,18 @@ The following command failed before the fix and passed after, in a local run of 
 ```sh
 cd packages/runtime && npx vitest run src/v2/runtime/__tests__/intelligence-lock-release.test.ts
 ```
+
+## TypeScript A2UI action history
+
+Baseline: `917e84b4ea5141af38fbf794a06c715e0e3f083f`.
+Case: `a2ui.action-history-and-catalog`.
+
+The local TypeScript socket case failed reading `assistant.toolCalls` because its assertion still required the synthetic `log_a2ui_event` pair. Published middleware 0.0.15 now supplies complete action JSON as private user context. The TypeScript driver declares that expected contract in its readiness record; the case requires it and rejects fabricated log calls. Port-only legacy drivers retain their existing paired-tool assertions, and the catalog assertion is unchanged.
+
+The same command failed before the test correction and passed after it:
+
+```sh
+pnpm nx run runtime-conformance:conformance --args='--filter a2ui.action-history-and-catalog -- node tools/runtime-conformance/typescript-driver.mjs'
+```
+
+This is local socket conformance with the existing platform fixture, not live-model or deployed-service validation. No production runtime behavior changed.
