@@ -2602,6 +2602,9 @@ importers:
       '@copilotkit/channels-discord':
         specifier: workspace:*
         version: link:../channels-discord
+      '@copilotkit/channels-resend':
+        specifier: workspace:*
+        version: link:../channels-resend
       '@copilotkit/channels-slack':
         specifier: workspace:*
         version: link:../channels-slack

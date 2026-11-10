@@ -24,6 +24,7 @@ export const ADAPTERS = [
   "@copilotkit/channels-teams",
   "@copilotkit/channels-discord",
   "@copilotkit/channels-whatsapp",
+  "@copilotkit/channels-resend",
 ] as const;
 
 export const FAMILY = [

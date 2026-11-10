@@ -378,6 +378,20 @@
           }
         },
         {
+          "importPath": "@copilotkit/channels/resend",
+          "exportKey": "./resend",
+          "kind": "code",
+          "conditions": {
+            "types": "./dist/resend.d.ts",
+            "import": "./dist/resend.js"
+          },
+          "provenance": {
+            "kind": "package-json",
+            "path": "packages/channels/package.json",
+            "selector": "exports[\"./resend\"]"
+          }
+        },
+        {
           "importPath": "@copilotkit/channels/slack",
           "exportKey": "./slack",
           "kind": "code",
@@ -739,6 +753,47 @@
         "version": {
           "kind": "package-json",
           "path": "packages/channels-intelligence/package.json",
+          "selector": "version"
+        },
+        "releaseScope": {
+          "kind": "release-config",
+          "path": "release.config.json",
+          "selector": "scopes.channels.packages"
+        }
+      }
+    },
+    {
+      "name": "@copilotkit/channels-resend",
+      "version": "0.12.0",
+      "sourceDirectory": "packages/channels-resend",
+      "entrypoints": [
+        {
+          "importPath": "@copilotkit/channels-resend",
+          "exportKey": ".",
+          "kind": "code",
+          "conditions": {
+            "types": "./dist/index.d.ts",
+            "import": "./dist/index.js"
+          },
+          "provenance": {
+            "kind": "package-json",
+            "path": "packages/channels-resend/package.json",
+            "selector": "exports[\".\"]"
+          }
+        }
+      ],
+      "compatibility": {
+        "provenance": []
+      },
+      "provenance": {
+        "name": {
+          "kind": "package-json",
+          "path": "packages/channels-resend/package.json",
+          "selector": "name"
+        },
+        "version": {
+          "kind": "package-json",
+          "path": "packages/channels-resend/package.json",
           "selector": "version"
         },
         "releaseScope": {
