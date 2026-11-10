@@ -1,12 +1,18 @@
-import type { Edit, SgNode } from "codemod:ast-grep";
-import type TS from "codemod:ast-grep/langs/typescript";
-import type TSX from "codemod:ast-grep/langs/tsx";
+import type { Edit } from "codemod:ast-grep";
+import {
+  argumentNodes,
+  indentOf,
+  keyOf,
+  propertyKey,
+  removeEntry,
+  stringLiteral,
+  valueOf,
+} from "./ast-helpers.ts";
+import type { Node } from "./ast-helpers.ts";
 import { charIndex } from "./offsets.ts";
-
-type Node = SgNode<TS | TSX>;
+import { migrateV1Calls } from "./v1-calls.ts";
 
 const TODO = "TODO(copilotkit-2.0):";
-const V1_SOURCE = "@copilotkit/react-core";
 const RESULT_NOTE =
   "`result` is the tool's result as a string in 2.0; v1 parsed it as JSON first. Parse it with `JSON.parse` where you need the object. https://docs.copilotkit.ai/reference/v2/hooks/useFrontendTool";
 
@@ -32,76 +38,12 @@ const RESULT_NOTE =
  * Returns the new source, or `null` when nothing changed.
  */
 export function migrateCopilotActions(rootNode: Node): string | null {
-  const source = rootNode.text();
-  if (!source.includes("useCopilotAction")) return null;
-  const imports = rootNode
-    .findAll({ rule: { kind: "import_statement" } })
-    .filter((statement) => {
-      const from = statement.field("source")?.text().slice(1, -1);
-      return from === V1_SOURCE;
-    });
-  const specifiers = imports.flatMap((statement) =>
-    statement
-      .findAll({ rule: { kind: "import_specifier" } })
-      .filter(
-        (specifier) => specifier.field("name")?.text() === "useCopilotAction",
-      )
-      .map((specifier) => ({ statement, specifier })),
-  );
-  // An aliased import, or a type-only one, is left alone.
-  const plain = specifiers.filter(
-    ({ specifier }) =>
-      !specifier.field("alias") && !/^type\s/.test(specifier.text()),
-  );
-  if (plain.length !== 1) return null;
-
-  const zod = zodBinding(rootNode);
-  const z = zod ?? "z";
-  const edits: Edit[] = [];
-  const hooks = new Set<string>();
-  let usesZod = false;
-  let left = 0;
-
-  const calls = rootNode.findAll({
-    rule: {
-      kind: "call_expression",
-      has: {
-        field: "function",
-        kind: "identifier",
-        regex: "^useCopilotAction$",
-      },
-    },
+  return migrateV1Calls(rootNode, "useCopilotAction", (call, context) => {
+    const converted = convertCall(call, context.z, context.source);
+    if (!converted) return null;
+    if (converted.usesZod) context.useZod();
+    return { edits: converted.edits, hooks: [converted.hook] };
   });
-  for (const call of calls) {
-    const converted = convertCall(call, z, source);
-    if (!converted) {
-      left++;
-      continue;
-    }
-    edits.push(...converted.edits);
-    hooks.add(converted.hook);
-    usesZod ||= converted.usesZod;
-  }
-  if (hooks.size === 0) return null;
-
-  // The import: the new hooks in place of `useCopilotAction`, which stays
-  // while a call of it is left.
-  const { statement, specifier } = plain[0]!;
-  const imported = new Set(
-    statement
-      .findAll({ rule: { kind: "import_specifier" } })
-      .map((other: Node) => other.field("name")?.text()),
-  );
-  const added = [...hooks].filter((hook) => !imported.has(hook));
-  const names = left > 0 ? ["useCopilotAction", ...added] : added;
-  if (names.length === 0) {
-    edits.push(removeSpecifier(specifier, source));
-  } else {
-    edits.push(specifier.replace(names.join(", ")));
-  }
-
-  if (usesZod && zod === undefined) edits.push(zodImport(rootNode, source));
-  return rootNode.commitEdits(edits);
 }
 
 interface Converted {
@@ -476,147 +418,4 @@ function zodParameter(
     else if (required.kind() !== "true") return null;
   }
   return schema;
-}
-
-// ---------------------------------------------------------------------------
-// Helpers
-
-function argumentNodes(call: Node): Node[] {
-  return (call.field("arguments")?.children() ?? []).filter(
-    (child) => !["(", ")", ",", "comment"].includes(child.kind()),
-  );
-}
-
-function keyOf(entry: Node): string | undefined {
-  switch (entry.kind()) {
-    case "pair":
-    case "method_definition": {
-      const key = entry.field("key") ?? entry.field("name");
-      if (!key) return undefined;
-      return key.kind() === "string" ? key.text().slice(1, -1) : key.text();
-    }
-    case "shorthand_property_identifier":
-      return entry.text();
-    default:
-      return undefined;
-  }
-}
-
-/** The value of an entry: the pair's value, the shorthand itself, or the method. */
-function valueOf(entry: Node | undefined): Node | null | undefined {
-  if (!entry) return undefined;
-  if (entry.kind() === "pair") return entry.field("value");
-  return entry;
-}
-
-function stringLiteral(node: Node): string | undefined {
-  if (node.kind() !== "string") return undefined;
-  const text = node.text();
-  return text.slice(1, -1);
-}
-
-function propertyKey(name: string) {
-  return /^[A-Za-z_$][\w$]*$/.test(name) ? name : JSON.stringify(name);
-}
-
-/** The indentation of the line `node` starts on. */
-function indentOf(node: Node, source: string) {
-  const start = charIndex(source, node.range().start.index);
-  const lineStart = source.lastIndexOf("\n", start - 1) + 1;
-  return /^[ \t]*/.exec(source.slice(lineStart, start))?.[0] ?? "";
-}
-
-/** Deletes an object entry with its comma. */
-function removeEntry(entry: Node, source: string): Edit {
-  const startChar = charIndex(source, entry.range().start.index);
-  const endChar = charIndex(source, entry.range().end.index);
-  let end = endChar;
-  const after = /^[ \t]*,?[ \t]*(\/\/[^\n]*)?\n?/.exec(source.slice(end));
-  if (after) end += after[0].length;
-  let start = startChar;
-  while (start > 0 && /[ \t]/.test(source[start - 1]!)) start--;
-  return {
-    startPos: entry.range().start.index - (startChar - start),
-    endPos: entry.range().end.index + byteLength(source.slice(endChar, end)),
-    insertedText: "",
-  };
-}
-
-/** Deletes an import specifier with its comma. */
-function removeSpecifier(specifier: Node, source: string): Edit {
-  const endChar = charIndex(source, specifier.range().end.index);
-  const comma = /^\s*,/.exec(source.slice(endChar));
-  return {
-    startPos: specifier.range().start.index,
-    endPos:
-      specifier.range().end.index +
-      (comma
-        ? byteLength(source.slice(endChar, endChar + comma[0].length))
-        : 0),
-    insertedText: "",
-  };
-}
-
-function byteLength(text: string) {
-  let bytes = 0;
-  for (let i = 0; i < text.length; i++) {
-    const code = text.charCodeAt(i);
-    if (code < 0x80) bytes += 1;
-    else if (code < 0x800) bytes += 2;
-    else if (code >= 0xd800 && code <= 0xdbff) {
-      bytes += 4;
-      i++;
-    } else bytes += 3;
-  }
-  return bytes;
-}
-
-/** The name `zod` is imported under (`z` from `import { z }` or `* as z`). */
-function zodBinding(rootNode: Node): string | undefined {
-  for (const statement of rootNode.findAll({
-    rule: { kind: "import_statement" },
-  })) {
-    const from = statement.field("source")?.text().slice(1, -1);
-    if (from !== "zod" && from !== "zod/v4") continue;
-    if (/^import\s+type\b/.test(statement.text())) continue;
-    const namespace = statement.find({ rule: { kind: "namespace_import" } });
-    if (namespace)
-      return namespace.find({ rule: { kind: "identifier" } })?.text();
-    for (const specifier of statement.findAll({
-      rule: { kind: "import_specifier" },
-    })) {
-      if (
-        specifier.field("name")?.text() === "z" &&
-        !/^type\s/.test(specifier.text())
-      ) {
-        return (specifier.field("alias") ?? specifier.field("name"))?.text();
-      }
-    }
-  }
-  return undefined;
-}
-
-/** `import { z } from "zod";` after the last import of the file. */
-function zodImport(rootNode: Node, source: string): Edit {
-  const imports = rootNode.findAll({ rule: { kind: "import_statement" } });
-  const last = imports[imports.length - 1];
-  if (!last) {
-    return {
-      startPos: 0,
-      endPos: 0,
-      insertedText: 'import { z } from "zod";\n',
-    };
-  }
-  const end = last.range().end.index;
-  return source[charIndex(source, end)] === "\n"
-    ? {
-        startPos: end + 1,
-        endPos: end + 1,
-        insertedText: 'import { z } from "zod";\n',
-      }
-    : {
-        startPos: end,
-        endPos: end,
-        insertedText: '\nimport { z } from "zod";',
-      };
 }

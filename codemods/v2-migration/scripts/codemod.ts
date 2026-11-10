@@ -7,6 +7,7 @@ import { migrateGenerativeUI } from "./generative-ui.ts";
 import { migrateRuntimeAdapters } from "./runtime-adapters.ts";
 import { migrateCopilotActions } from "./copilot-action.ts";
 import { migrateChatComponents } from "./chat-components.ts";
+import { migrateReadables } from "./readable.ts";
 import type { Codemod, Edit, SgNode } from "codemod:ast-grep";
 import type TS from "codemod:ast-grep/langs/typescript";
 import type TSX from "codemod:ast-grep/langs/tsx";
@@ -471,23 +472,23 @@ function todoLines(name: string, entry: V1Export | undefined): string[] {
  *   `generative-ui.ts`).
  */
 const codemod: Codemod<Lang> = async (root, options) => {
-  const adapters = migrateRuntimeAdapters(root.root());
-  const afterAdapters =
-    adapters === null
-      ? root.root()
-      : parse<Lang>(options.language, adapters).root();
-  const actions = migrateCopilotActions(afterAdapters);
-  const afterActions =
-    actions === null
-      ? afterAdapters
-      : parse<Lang>(options.language, actions).root();
-  const chats = migrateChatComponents(
-    afterActions,
-    !/\.[mc]?ts$/.test(root.filename()),
-  );
-  const migrated = chats ?? actions ?? adapters;
-  const rootNode =
-    chats === null ? afterActions : parse<Lang>(options.language, chats).root();
+  // Passes that rewrite v1 code while the imports still say it is v1. Each
+  // one returns the new source, or `null` when it changed nothing.
+  const jsxFile = !/\.[mc]?ts$/.test(root.filename());
+  const prePasses: ((node: Node) => string | null)[] = [
+    migrateRuntimeAdapters,
+    migrateCopilotActions,
+    migrateReadables,
+    (node) => migrateChatComponents(node, jsxFile),
+  ];
+  let rootNode = root.root();
+  let migrated: string | null = null;
+  for (const pass of prePasses) {
+    const next = pass(rootNode);
+    if (next === null) continue;
+    migrated = next;
+    rootNode = parse<Lang>(options.language, next).root();
+  }
   const source = rootNode.text();
   const edits: Edit[] = [];
   /** Local names of the v1 `<CopilotKit>` provider. */

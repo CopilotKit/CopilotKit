@@ -1,11 +1,9 @@
 // TODO(copilotkit-2.0): `useCopilotAction` was removed in 2.0. Use `useFrontendTool` from "@copilotkit/react-core" instead. Its API is different: https://docs.copilotkit.ai/reference/v2/hooks/useFrontendTool
-// TODO(copilotkit-2.0): `useCopilotReadable` was removed in 2.0. Use `useAgentContext` from "@copilotkit/react-core" instead. Its API is different: https://docs.copilotkit.ai/reference/v2/hooks/useAgentContext
-// TODO(copilotkit-2.0): `useCopilotReadable`: V2 models readable application state as agent context.
-import { useCopilotAction, useFrontendTool, useHumanInTheLoop, useRenderTool, useCopilotReadable } from "@copilotkit/react-core";
+import { useCopilotAction, useFrontendTool, useHumanInTheLoop, useRenderTool, useAgentContext } from "@copilotkit/react-core";
 import { z } from "zod";
 
 export function Tools({ items }: { items: string[] }) {
-  useCopilotReadable({ description: "items", value: items });
+  useAgentContext({ description: "items", value: items });
 
   // A frontend tool: a handler and parameters of every kind.
   useFrontendTool({
