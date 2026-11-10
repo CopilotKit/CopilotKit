@@ -1,0 +1,137 @@
+<Steps>
+  <Step>
+    ### `useHumanInTheLoop`: no frontend-tool code on the agent
+
+    `AGUIStream` turns every tool the client declares into a client-side tool,
+    so a tool you register with `useHumanInTheLoop` reaches the model through
+    the AG-UI request. Do not declare it on the AG2 agent. Name it in the
+    agent's `prompt` so the model calls it.
+
+    To keep the user's answer, have a backend tool write it to
+    `context.variables`. When a tool changes the variables, `AGUIStream` sends
+    a `STATE_SNAPSHOT` at the end of the run:
+
+    ```python title="agent.py"
+    from typing import Annotated
+
+    from fastapi import FastAPI, Header
+    from fastapi.responses import StreamingResponse
+    from pydantic import Field
+
+    from ag2 import Agent, Context, tool
+    from ag2.ag_ui import AGUIStream, RunAgentInput
+    from ag2.config import OpenAIResponsesConfig
+
+    @tool
+    def store_user_choice(
+        choice: Annotated[str, Field(description="The option selected by the user")],
+        context: Context,
+    ) -> str:
+        """Store the latest user choice in shared state."""
+        context.variables["hitl"] = {"latest_choice": choice}
+        return f"Stored choice: {choice}"
+
+    agent = Agent(
+        name="assistant",
+        prompt=(
+            "When you need the user to choose, call the frontend tool `offerOptions`. "
+            "After it returns, call `store_user_choice` with the selected value."
+        ),
+        config=OpenAIResponsesConfig(model="gpt-5.5"),
+        tools=[store_user_choice],
+    )
+
+    stream = AGUIStream(agent)
+    app = FastAPI()
+
+    @app.post("/chat")
+    async def run_agent(
+        message: RunAgentInput,
+        accept: str | None = Header(None),
+    ) -> StreamingResponse:
+        return StreamingResponse(
+            stream.dispatch(message, accept=accept),
+            media_type=accept or "text/event-stream",
+        )
+    ```
+
+  </Step>
+  <Step>
+    ### Approve a tool call with interrupts
+
+    AG2 can also pause a run on the **backend**. A tool wrapped in
+    `ApprovalRequired` is held until the user approves or rejects the call.
+    AG2 sends the held call to the client as an AG-UI interrupt, and
+    CopilotKit's `useInterrupt` renders it.
+
+    ```python title="tools.py"
+    from typing import Annotated
+
+    from pydantic import Field
+
+    from ag2 import Context, tool
+    from ag2.middleware.builtin.tools.approval import ApprovalRequired
+
+    @tool(
+        description="Save a city to the user's favorites. The user confirms before anything is saved.",
+        middleware=[
+            ApprovalRequired("Save this city to your favorites?\n{tool_arguments}", allow_always=False)
+        ],
+    )
+    async def save_favorite_city(
+        context: Context,
+        city: Annotated[str, Field(description="The city name to save, e.g. 'Lisbon'")],
+    ) -> list[str]:
+        favorites = list(context.variables.get("favorites", []))
+        if city not in favorites:
+            favorites.append(city)
+        context.variables["favorites"] = favorites
+        return favorites
+    ```
+
+    Serve the agent with `AGUIStream` as usual. Do not set a `hitl_hook` on
+    the agent. With one, AG2 asks in-process and no interrupt reaches the
+    browser.
+
+    The run ends with an interrupt of reason `tool_call`. The backend reads the
+    answer as a boolean, so `resolve(true)` approves the call and
+    `resolve(false)` refuses it. A refusal does not fail the run: the model is
+    told the call was refused and carries on.
+
+    ```tsx title="page.tsx"
+    import { useInterrupt } from "@copilotkit/react-core/v2";
+
+    export function Page() {
+      useInterrupt({
+        render: ({ interrupt, resolve }) => (
+          <div>
+            <p>{interrupt?.message ?? "The assistant needs your confirmation."}</p>
+            <button onClick={() => resolve(true)}>Approve</button>
+            <button onClick={() => resolve(false)}>Reject</button>
+          </div>
+        ),
+      });
+
+      // ...
+    }
+    ```
+
+    Ask `Save Lisbon to my favorites`. The approval card appears in the chat.
+    Approve it, and the city shows up in the shared state.
+
+    <Callout type="warn">
+      `useInterrupt().resolve()` and `.cancel()` send no `metadata` in the
+      resume entry. That is enough for a gated tool call like the one above,
+      but not for an AG2 server built with `require_resume_proof=True`, which
+      needs the interrupt's `metadata` copied into the resume entry. See
+      <a href="https://docs.ag2.ai/docs/user-guide/ag-ui/overview#asking-the-human-a-question" target="_blank">Asking the human a question</a>
+      in the AG2 docs.
+    </Callout>
+
+    A held turn lives in the AG2 process that served the run, so the resuming
+    run must reach that same process. See
+    <a href="https://docs.ag2.ai/docs/user-guide/ag-ui/overview#deployment-a-held-turn-lives-in-one-process" target="_blank">the AG2 deployment notes</a>
+    before you run several replicas.
+
+  </Step>
+</Steps>

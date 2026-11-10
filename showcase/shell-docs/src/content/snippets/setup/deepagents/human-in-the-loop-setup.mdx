@@ -1,0 +1,156 @@
+Deep Agents compile to LangGraph graphs, so they support both patterns.
+`CopilotKitMiddleware` forwards a `useHumanInTheLoop` tool to the model, the
+same way it forwards any frontend tool. For `useInterrupt`, call LangGraph's
+native `interrupt()` from a middleware hook. Deep Agents has no live demo on
+these pages yet, so the steps below carry the code.
+
+<Steps>
+  <Step>
+    ### Call `interrupt` from a middleware hook
+
+    A Deep Agent has no custom nodes, so put the pause in a middleware hook.
+    This hook runs before the model call and asks the user to name the agent
+    the first time. The middleware also declares the `agent_name` state field
+    that stores the answer.
+
+    <Tabs groupId="agent_language" items={['Python', 'TypeScript']} persist>
+      <Tab value="Python">
+        ```python title="agent.py"
+        from typing import Any, NotRequired
+
+        from copilotkit import CopilotKitMiddleware, CopilotKitState
+        from deepagents import create_deep_agent
+        from langchain.agents.middleware import AgentMiddleware
+        from langgraph.runtime import Runtime
+        from langgraph.types import interrupt
+
+        class AgentState(CopilotKitState):
+            agent_name: NotRequired[str]
+
+        class AgentNameMiddleware(AgentMiddleware[AgentState, Any]):
+            state_schema = AgentState
+
+            def before_model(self, state: AgentState, runtime: Runtime[Any]) -> dict[str, Any] | None:
+                if not state.get("agent_name"):
+                    # Interrupt and wait for the user to respond with a name
+                    name = interrupt("Before we start, what would you like to call me?")
+                    return {"agent_name": name}
+                return None
+
+        agent = create_deep_agent(
+            model="openai:gpt-4o",
+            middleware=[
+                AgentNameMiddleware(),
+                CopilotKitMiddleware(expose_state=["agent_name"]),
+            ],
+            system_prompt=(
+                "You are a helpful assistant. After the user chooses a name, "
+                "Current agent state contains agent_name. Use that value as your own name."
+            ),
+        )
+        ```
+      </Tab>
+      <Tab value="TypeScript">
+        ```ts title="agent.ts"
+        import {
+          createCopilotkitMiddleware,
+          zodState,
+        } from "@copilotkit/sdk-js/langgraph";
+        import { createMiddleware } from "langchain";
+        import { createDeepAgent } from "deepagents";
+        import { interrupt } from "@langchain/langgraph";
+        import { z } from "zod";
+
+        const agentNameMiddleware = createMiddleware({
+          name: "AgentState",
+          stateSchema: z.object({
+            // zodState keeps this custom field in AG-UI state snapshots.
+            agentName: zodState(z.string().optional()),
+          }),
+          beforeModel: (state) => {
+            if (!state.agentName) {
+              // Interrupt and wait for the user to respond with a name
+              const name: string = interrupt("Before we start, what would you like to call me?");
+              return { agentName: name };
+            }
+          },
+        });
+
+        const stateAwareCopilotKitMiddleware = createCopilotkitMiddleware({
+          exposeState: ["agentName"],
+        });
+
+        export const agent = createDeepAgent({
+          model: "openai:gpt-4o",
+          middleware: [
+            agentNameMiddleware,
+            stateAwareCopilotKitMiddleware,
+          ],
+          systemPrompt:
+            "You are a helpful assistant. After the user chooses a name, " +
+            "Current agent state contains agentName. Use that value as your own name.",
+        });
+        ```
+      </Tab>
+    </Tabs>
+
+  </Step>
+  <Step>
+    ### Make the agent aware of the answer
+
+    Resuming an interrupt and telling the model about the answer are separate
+    steps. By default the model is not aware of the interaction: the run
+    resumes, and the model never sees what the user chose.
+
+    The custom middleware saves the answer in thread state. In TypeScript,
+    `zodState` also keeps the custom field in the graph's output, so AG-UI can
+    send it to the frontend. The CopilotKit middleware then adds only the
+    allowlisted field (`expose_state` / `exposeState`) to each model request,
+    and the system prompt says what that field means. State exposure is off by
+    default, so without the allowlist the model never sees the name. Keep the
+    allowlist narrow, and do not expose unrelated application state.
+
+  </Step>
+  <Step>
+    ### Handle the interrupt in your frontend
+
+    Give `useInterrupt` a component to render, and call `resolve` with the
+    user's answer. Whatever you pass to `resolve` becomes the return value of
+    `interrupt()`.
+
+    ```tsx title="app/page.tsx"
+    import { useInterrupt } from "@copilotkit/react-core/v2";
+    // ...
+
+    const YourMainContent = () => {
+      // ...
+      // styles omitted for brevity
+      useInterrupt({
+        render: ({ event, resolve }) => (
+          <div>
+            <p>{event.value}</p>
+            <form onSubmit={(e) => {
+              e.preventDefault();
+              resolve((e.target as HTMLFormElement).response.value);
+            }}>
+              <input type="text" name="response" placeholder="Enter your response" />
+              <button type="submit">Submit</button>
+            </form>
+          </div>
+        )
+      });
+      // ...
+
+      return <div>{/* ... */}</div>
+    }
+    ```
+
+    The AG-UI LangGraph adapter sends an object interrupt value as a JSON
+    string, so parse `event.value` before you read fields from it.
+
+    When your app already selects an agent in its `CopilotKit` provider,
+    `useInterrupt` uses that agent. Pass `agentId` only when this component
+    must target a different agent in a multi-agent app.
+
+  </Step>
+</Steps>

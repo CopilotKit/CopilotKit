@@ -1,0 +1,101 @@
+<Steps>
+  <Step>
+    ### Type the agent's deps with `StateDeps`
+
+    Declare the shared state as a Pydantic model and set
+    `deps_type=StateDeps[YourState]`. The AG-UI adapter writes the state the UI
+    sent into `ctx.deps.state` at the start of every run.
+
+    ```python title="src/agents/shared_state_read_write.py"
+    from pydantic import BaseModel, Field
+    from pydantic_ai import Agent, RunContext
+    from pydantic_ai.ui import StateDeps
+    from pydantic_ai.models.openai import OpenAIResponsesModel
+
+
+    class Preferences(BaseModel):
+        name: str = ""
+        tone: str = "casual"
+        language: str = "English"
+        interests: list[str] = Field(default_factory=list)
+
+
+    class SharedStateRWState(BaseModel):
+        preferences: Preferences = Field(default_factory=Preferences)
+        notes: list[str] = Field(default_factory=list)
+
+
+    agent = Agent(
+        model=OpenAIResponsesModel("gpt-5-mini"),
+        deps_type=StateDeps[SharedStateRWState],
+        system_prompt=_BASE_SYSTEM_PROMPT,
+    )
+    ```
+
+  </Step>
+  <Step>
+    ### Read what the UI wrote
+
+    A dynamic system prompt reads `ctx.deps.state` on every turn, so values the
+    UI writes with `agent.setState` steer the model:
+
+    ```python title="src/agents/shared_state_read_write.py"
+    @agent.system_prompt
+    def _inject_preferences(
+        ctx: RunContext[StateDeps[SharedStateRWState]],
+    ) -> str:
+        block = _build_prefs_block(ctx.deps.state.preferences)
+        return block or ""
+    ```
+
+  </Step>
+  <Step>
+    ### Write state from a tool
+
+    Change `ctx.deps.state`, then return a `StateSnapshotEvent` so the UI
+    receives the new state as soon as the tool returns. Serialize the model
+    with `model_dump()`:
+
+    ```python title="src/agents/shared_state_read_write.py"
+    from ag_ui.core import EventType, StateSnapshotEvent
+
+
+    @agent.tool
+    async def set_notes(
+        ctx: RunContext[StateDeps[SharedStateRWState]],
+        notes: list[str],
+    ) -> StateSnapshotEvent:
+        """Replace the notes array in shared state with the full updated list."""
+        ctx.deps.state.notes = list(notes)
+        return StateSnapshotEvent(
+            type=EventType.STATE_SNAPSHOT,
+            snapshot=ctx.deps.state.model_dump(),
+        )
+    ```
+
+  </Step>
+  <Step>
+    ### Build the deps fresh on every request
+
+    The adapter writes the client's state into `deps.state`, so a shared
+    `StateDeps` instance leaks state between concurrent requests and users:
+
+    ```python title="agent.py"
+    from pydantic_ai.ui.ag_ui import AGUIAdapter
+    from starlette.applications import Starlette
+    from starlette.requests import Request
+    from starlette.responses import Response
+    from starlette.routing import Route
+
+
+    async def run_agent(request: Request) -> Response:
+        return await AGUIAdapter.dispatch_request(
+            request, agent=agent, deps=StateDeps(SharedStateRWState())
+        )
+
+
+    app = Starlette(routes=[Route("/", run_agent, methods=["POST"])])
+    ```
+
+  </Step>
+</Steps>

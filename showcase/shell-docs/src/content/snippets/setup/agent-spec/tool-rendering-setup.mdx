@@ -1,0 +1,72 @@
+<Steps>
+  <Step>
+    ### Give your Agent Spec agent a tool to call
+
+    Open Agent Spec has no live demo on this page yet, so the backend code
+    above does not show for it. In Agent Spec, a backend tool is a
+    `ServerTool` in the agent config. `AgentSpecAgent` runs it through the
+    Python function you register under the same name in `tool_registry`:
+
+    ```python title="agent.py"
+    # Create the agent
+    from pyagentspec.agent import Agent
+    from pyagentspec.llms import OpenAiCompatibleConfig
+    from pyagentspec.property import StringProperty
+    from pyagentspec.tools import ServerTool
+    from pyagentspec.serialization import AgentSpecSerializer
+
+    llm = OpenAiCompatibleConfig(
+        name="my_llm",
+        model_id="gpt-5.4-mini",
+        url="https://api.openai.com/v1",
+    )
+    weather_tool = ServerTool( # ServerTool are backend tools in Agent Spec
+        name="get_weather",
+        description="Get the weather for a given location.",
+        inputs=[StringProperty(title="location", description="The location to get the weather forecast. Must be a city/town name.")],
+        outputs=[StringProperty(title="weather_result")],
+    )
+    agent = Agent(
+        name="my_agent",
+        llm_config=llm,
+        system_prompt="Based on the weather forecast result and the user input, write a response to the user",
+        tools=[weather_tool],
+        human_in_the_loop=True,
+    )
+    agentspec_json_config = AgentSpecSerializer().to_json(agent)
+
+    async def get_weather(location: str = "Everywhere ever") -> str:
+        """Get the weather for a given location. Ensure location is fully spelled out."""
+        return f"The weather in {location} is sunny."
+
+    # Start the server
+    import uvicorn
+    from fastapi import APIRouter, FastAPI
+    from ag_ui_agentspec.agent import AgentSpecAgent
+    from ag_ui_agentspec.endpoint import add_agentspec_fastapi_endpoint
+
+
+    runtime = "langgraph" # you can also choose "wayflow"
+    router = APIRouter()
+    add_agentspec_fastapi_endpoint(
+        app=router,
+        agentspec_agent=AgentSpecAgent(
+            agentspec_json_config,
+            runtime=runtime,
+            tool_registry={"get_weather": get_weather},
+        ),
+        path=f"/{runtime}/path_to_my_agent",
+    )
+    app = FastAPI(title="Agent-Spec x AG-UI Examples - Backend Tool")
+    app.include_router(router)
+
+    if __name__ == "__main__":
+        uvicorn.run(app, host="0.0.0.0", port=8000)
+    ```
+
+    Three names must match: the `ServerTool` name, the `tool_registry` key,
+    and the `name` you pass to `useRenderTool` (`get_weather` here). A
+    renderer with a different name never shows its card.
+
+  </Step>
+</Steps>

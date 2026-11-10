@@ -1,0 +1,65 @@
+<Steps>
+  <Step>
+    ### Give your Deep Agent a tool to call
+
+    Deep Agents has no live demo on this page yet, so the backend code above
+    does not show for it. A backend tool is a normal LangChain tool that you
+    pass to the agent:
+
+    <Tabs groupId="agent_language" items={['Python', 'TypeScript']} persist>
+      <Tab value="Python">
+        ```python title="agent.py"
+        from deepagents import create_deep_agent
+        from langchain.tools import tool
+
+        @tool
+        def get_weather(location: str):
+            """
+            Get the weather for a given location.
+            """
+            return f"The weather for {location} is 70 degrees."
+
+        agent = create_deep_agent(
+            model="openai:gpt-4o",
+            tools=[get_weather],
+            system_prompt="You are a helpful assistant.",
+        )
+        ```
+      </Tab>
+      <Tab value="TypeScript">
+        ```ts title="agent.ts"
+        import { createDeepAgent } from "deepagents";
+        import { tool } from "langchain";
+        import { z } from "zod";
+
+        const getWeather = tool(
+          (args) => {
+            return `The weather for ${args.location} is 70 degrees.`;
+          },
+          {
+            name: "get_weather",
+            description: "Get the weather for a given location.",
+            schema: z.object({
+              location: z.string().describe("The location to get weather for"),
+            }),
+          }
+        );
+
+        export const agent = createDeepAgent({
+          model: "openai:gpt-4o",
+          tools: [getWeather],
+          systemPrompt: "You are a helpful assistant.",
+        });
+        ```
+      </Tab>
+    </Tabs>
+
+    The tool name (`get_weather`) must match the `name` you pass to
+    `useRenderTool`. If the names differ, the call renders with no card.
+
+    This tool returns a plain string, so a renderer gets that string as
+    `result`. A renderer that reads fields from `result`, like the
+    `WeatherCard` above, needs a tool that returns a JSON object.
+
+  </Step>
+</Steps>

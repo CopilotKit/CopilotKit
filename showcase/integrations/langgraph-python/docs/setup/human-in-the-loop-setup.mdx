@@ -19,4 +19,30 @@
     CopilotKit setup beyond the middleware above.
 
   </Step>
+  <Step>
+    ### Using a custom graph instead of `create_agent`
+
+    `CopilotKitMiddleware` only works with `create_agent`. In a graph where you
+    define the nodes and edges yourself, inherit your state from
+    `CopilotKitState` and bind the forwarded tools from
+    `state["copilotkit"]["actions"]` to the model, or it can never call the
+    `useHumanInTheLoop` tool:
+
+    ```python title="agent.py"
+    from copilotkit import CopilotKitState
+    from langchain_core.runnables import RunnableConfig
+    from langchain_openai import ChatOpenAI
+
+    class AgentState(CopilotKitState):
+        pass
+
+    async def agent_node(state: AgentState, config: RunnableConfig):
+        # Access the tools from the copilotkit property
+        tools = state.get("copilotkit", {}).get("actions", [])
+        model = ChatOpenAI(model="gpt-5.4").bind_tools(tools)
+
+        # ...
+    ```
+
+  </Step>
 </Steps>

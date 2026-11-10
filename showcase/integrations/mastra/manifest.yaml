@@ -186,6 +186,7 @@ demos:
     route: /demos/shared-state-streaming
     animated_preview_url:
     highlight:
+      - src/mastra/agents/index.ts
       - src/app/demos/shared-state-streaming/page.tsx
       - src/app/api/copilotkit/route.ts
   - id: readonly-state-agent-context

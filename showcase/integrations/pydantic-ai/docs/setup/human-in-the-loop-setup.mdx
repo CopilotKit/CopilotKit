@@ -1,0 +1,36 @@
+<Steps>
+  <Step>
+    ### Nothing to declare on the agent
+
+    The agent has no tool of its own for a `useHumanInTheLoop` tool. Pydantic
+    AI's AG-UI adapter gives the model the frontend tools on every run. When
+    the model calls one, the chat shows your component, and the user's answer
+    returns to the agent as the tool result. Tell the model when to call the
+    tool:
+
+    ```python title="agent.py"
+    from pydantic_ai import Agent
+    from pydantic_ai.ui.ag_ui import AGUIAdapter
+    from starlette.applications import Starlette
+    from starlette.requests import Request
+    from starlette.responses import Response
+    from starlette.routing import Route
+
+    agent = Agent(
+        "openai:gpt-5.4-mini",
+        instructions=(
+            "When the user asks for an essay, call the write_essay tool with the full draft. "
+            "Wait for the user's answer before you continue."
+        ),
+    )
+
+
+    async def run_agent(request: Request) -> Response:
+        return await AGUIAdapter.dispatch_request(request, agent=agent)
+
+
+    app = Starlette(routes=[Route("/", run_agent, methods=["POST"])])
+    ```
+
+  </Step>
+</Steps>

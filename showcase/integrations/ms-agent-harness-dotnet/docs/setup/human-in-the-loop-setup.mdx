@@ -1,0 +1,31 @@
+<Steps>
+  <Step>
+    ### Nothing to wire for `useHumanInTheLoop`
+
+    A tool registered with `useHumanInTheLoop` is a frontend tool. The AG-UI
+    hosting layer merges the request's tool definitions into the tool list the
+    model sees, so the agent declares nothing for it. The harness takes its
+    tool list through `ChatOptions`, and leaving `Tools` empty is correct when
+    the only tools in play are frontend ones:
+
+    ```csharp title="agent/Program.cs"
+    return chatClient.AsHarnessAgent(
+        HarnessMaxContextWindowTokens,
+        HarnessMaxOutputTokens,
+        new HarnessAgentOptions
+        {
+            Name = "AGUIAssistant",
+            ChatOptions = new ChatOptions
+            {
+                Instructions = SystemPrompt,
+                MaxOutputTokens = HarnessMaxOutputTokens,
+                Tools = [],
+            },
+        });
+    ```
+
+    To pause before one of the agent's own backend tools runs, see
+    [Interrupt flow](/ms-agent-harness-dotnet/human-in-the-loop/interrupt-flow).
+
+  </Step>
+</Steps>

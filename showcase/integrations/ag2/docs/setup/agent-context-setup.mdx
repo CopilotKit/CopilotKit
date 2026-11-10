@@ -1,0 +1,115 @@
+<Steps>
+  <Step>
+    ### Use AG2 1.1.2 or later
+
+    With AG2 1.1.2 or later, `AGUIStream` hands every `useAgentContext` entry
+    to the model, so a plain AG-UI endpoint needs no extra code. On AG2 1.0.x
+    the entries never reach the model, and nothing reports an error. Upgrade
+    first:
+
+    ```bash
+    pip install "ag2[ag-ui,openai]>=1.1.2"
+    ```
+
+  </Step>
+  <Step>
+    ### Serve the agent as usual
+
+    `AGUIStream` adds the entries from `RunAgentInput.context` to the run's
+    system prompt, after the agent's own prompt, as one block:
+
+    ```text
+    ## Context from the application
+
+    - The current user's colleagues: [{"id":1,"name":"John Doe","role":"Developer"}, ...]
+    ```
+
+    Each line is the entry's `description`, then its `value` exactly as the
+    client sent it. The block is prose for the model, not variables, so tool
+    code does not see it.
+
+    Do not add the entries to `dispatch(prompt=...)` yourself. That repeats
+    them, and `prompt=` replaces the agent's own prompt rather than adding to
+    it.
+
+    To render the entries differently, pass `context_prompt=` to `dispatch`. It
+    receives the entries and returns the block, or `None` to leave them out:
+
+    ```python title="agent.py"
+    def colleagues_only(entries):
+        lines = [f"- {e.value}" for e in entries if "colleagues" in e.description]
+        return "## Colleagues\n\n" + "\n".join(lines) if lines else None
+
+    stream.dispatch(message, accept=accept, context_prompt=colleagues_only)
+    ```
+
+  </Step>
+  <Step>
+    ### Pass a context value to your tools (optional)
+
+    To give a tool the value itself, decode the entry from
+    `RunAgentInput.context` and pass it as a conversation variable. The
+    `Variable()` annotation injects it into the tool, so the model does not
+    have to pass it around. A value that the frontend passed as an object or an
+    array arrives as a JSON string.
+
+    ```python title="agent.py"
+    import json
+    from typing import Annotated
+
+    from fastapi import FastAPI, Header
+    from fastapi.responses import StreamingResponse
+
+    from ag2 import Agent, Variable, tool
+    from ag2.ag_ui import AGUIStream, RunAgentInput
+    from ag2.config import OpenAIResponsesConfig
+
+    def get_readable(message: RunAgentInput, description: str):
+        raw = next(
+            (item.value for item in message.context if item.description == description),
+            None,
+        )
+        if raw is None:
+            return None
+        # `useAgentContext` JSON-encodes objects and arrays, but passes a
+        # plain string through untouched — so decoding is best-effort.
+        try:
+            return json.loads(raw)
+        except json.JSONDecodeError:
+            return raw
+
+    @tool
+    def get_colleagues(
+        colleagues: Annotated[list, Variable(default_factory=list)],
+    ) -> list:
+        """Return the current user's colleagues from CopilotKit readables."""
+        return colleagues
+
+    agent = Agent(
+        name="assistant",
+        prompt="You are a helpful assistant that can help emailing colleagues.",
+        config=OpenAIResponsesConfig(model="gpt-5.5"),
+        tools=[get_colleagues],
+    )
+
+    stream = AGUIStream(agent)
+    app = FastAPI()
+
+    @app.post("/chat")
+    async def run_agent(
+        message: RunAgentInput,
+        accept: str | None = Header(None),
+    ) -> StreamingResponse:
+        colleagues = get_readable(message, "The current user's colleagues") or []
+        return StreamingResponse(
+            stream.dispatch(message, variables={"colleagues": colleagues}, accept=accept),
+            media_type=accept or "text/event-stream",
+        )
+    ```
+
+    Everything in `dispatch(variables=...)` is sent back to the browser in
+    `STATE_SNAPSHOT`. Do not put secrets there. Pass them with
+    `dispatch(dependencies=...)`, which never leaves the server.
+
+  </Step>
+</Steps>
