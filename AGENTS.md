@@ -45,6 +45,17 @@ CI fails on new lint errors in `packages/` source. Before you say that work is d
 
 Details: [Fix a failing lint check](dev-docs/static-analysis.md).
 
+## Client logic lives in core
+
+The client libraries (`react-core`, `vue`, `angular`, `react-native`) are thin adapters over `@copilotkit/core`. When you add or change client behavior, put the logic in `packages/core` and keep the adapter to rendering and binding.
+
+- **Core owns the logic.** State, rules, decisions, side effects, timers, network calls, and DOM behavior that does not depend on a framework all go in core. Examples: what a send does, when a thread loads, how a tool call is rendered, when the list scrolls.
+- **The adapter only connects core to the framework.** It subscribes to core state, renders it, and passes user events back to core. It does not decide anything.
+- **Do not write the same logic two times.** If two adapters need the same `if`, the same derived value, or the same state machine, move it into core before you add the second copy. Do not make the adapters match by porting code from React.
+- **Internal shared APIs use the `ɵ` prefix.** Export a helper that only the adapters use from core with a `ɵ` name, for example `ɵcn` or `ɵThreadsController`. App code must not import these names.
+- **Test the logic in core.** Put the behavior tests next to the code in `packages/core`. Adapter tests check only the binding: core state reaches the view, and events reach core.
+- **Exceptions need a reason.** Code that only works in one framework (a React hook, an Angular signal, a Vue ref) stays in the adapter. If you think other logic must stay in an adapter, write the reason in the PR description.
+
 ## Private Agent Instructions
 
 Individual developers may optionally create a `private-agents.md` file at the repo root. This file is gitignored and not shared with the team -- it contains personal agent instructions, workflow overrides, or context that applies only to that developer's work. If `private-agents.md` exists, read it and follow its instructions (they take precedence over the defaults in this file where they conflict).
