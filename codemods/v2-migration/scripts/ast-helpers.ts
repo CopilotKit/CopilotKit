@@ -135,3 +135,67 @@ export function zodBinding(rootNode: Node): string | undefined {
   }
   return undefined;
 }
+
+/**
+ * A namer for new variables: each name it returns is free in the file
+ * (`agent`, then `agent2`, ...), and is taken from then on.
+ */
+export function uniqueNamer(rootNode: Node): (base: string) => string {
+  const taken = new Set(
+    rootNode
+      .findAll({ rule: { kind: "identifier" } })
+      .map((node) => node.text()),
+  );
+  return (base) => {
+    let name = base;
+    for (let i = 2; taken.has(name); i++) name = `${base}${i}`;
+    taken.add(name);
+    return name;
+  };
+}
+
+/**
+ * The local names an object pattern binds, by the member it reads, or
+ * `null` for a pattern with a default, a rest or a nested pattern.
+ */
+export function destructuredMembers(pattern: Node): Map<string, string> | null {
+  const members = new Map<string, string>();
+  for (const property of pattern.children()) {
+    const kind = property.kind();
+    if (["{", "}", ",", "comment"].includes(kind)) continue;
+    if (kind === "shorthand_property_identifier_pattern") {
+      members.set(property.text(), property.text());
+    } else if (kind === "pair_pattern") {
+      const key = property.field("key")?.text();
+      const value = property.field("value");
+      if (!key || value?.kind() !== "identifier") return null;
+      members.set(key, value.text());
+    } else {
+      return null;
+    }
+  }
+  return members;
+}
+
+/**
+ * The `const { ... } = call` declaration a call is the whole value of, in a
+ * function body, with its object pattern. `null` for any other place.
+ */
+export function destructuringDeclaration(
+  call: Node,
+): { declaration: Node; pattern: Node } | null {
+  const declarator = call.parent();
+  if (declarator?.kind() !== "variable_declarator") return null;
+  const declaration = declarator.parent();
+  if (
+    !declaration ||
+    declaration.kind() !== "lexical_declaration" ||
+    declaration.parent()?.kind() !== "statement_block" ||
+    declaration.findAll({ rule: { kind: "variable_declarator" } }).length !== 1
+  ) {
+    return null;
+  }
+  const pattern = declarator.field("name");
+  if (pattern?.kind() !== "object_pattern") return null;
+  return { declaration, pattern };
+}

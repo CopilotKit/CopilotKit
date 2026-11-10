@@ -1,5 +1,13 @@
 import type { Edit } from "codemod:ast-grep";
-import { argumentNodes, indentOf, keyOf, valueOf } from "./ast-helpers.ts";
+import {
+  argumentNodes,
+  destructuredMembers,
+  destructuringDeclaration,
+  indentOf,
+  keyOf,
+  uniqueNamer,
+  valueOf,
+} from "./ast-helpers.ts";
 import type { Node } from "./ast-helpers.ts";
 import { migrateV1Calls } from "./v1-calls.ts";
 
@@ -31,50 +39,14 @@ const MEMBERS = new Set([
  * reads `nodeName`, keeps the TODO.
  */
 export function migrateCoAgents(rootNode: Node): string | null {
-  const taken = new Set(
-    rootNode
-      .findAll({ rule: { kind: "identifier" } })
-      .map((node) => node.text()),
-  );
-  const unique = (base: string) => {
-    let name = base;
-    for (let i = 2; taken.has(name); i++) name = `${base}${i}`;
-    taken.add(name);
-    return name;
-  };
+  const unique = uniqueNamer(rootNode);
 
   return migrateV1Calls(rootNode, "useCoAgent", (call, { source }) => {
-    const declarator = call.parent();
-    if (declarator?.kind() !== "variable_declarator") return null;
-    const declaration = declarator.parent();
-    if (
-      !declaration ||
-      declaration.kind() !== "lexical_declaration" ||
-      declaration.parent()?.kind() !== "statement_block" ||
-      declaration.findAll({ rule: { kind: "variable_declarator" } }).length !==
-        1
-    ) {
-      return null;
-    }
-    const pattern = declarator.field("name");
-    if (pattern?.kind() !== "object_pattern") return null;
-
-    // `local` names of the destructured members.
-    const members = new Map<string, string>();
-    for (const property of pattern.children()) {
-      const kind = property.kind();
-      if (["{", "}", ",", "comment"].includes(kind)) continue;
-      if (kind === "shorthand_property_identifier_pattern") {
-        members.set(property.text(), property.text());
-      } else if (kind === "pair_pattern") {
-        const key = property.field("key")?.text();
-        const value = property.field("value");
-        if (!key || value?.kind() !== "identifier") return null;
-        members.set(key, value.text());
-      } else {
-        return null;
-      }
-    }
+    const found = destructuringDeclaration(call);
+    if (!found) return null;
+    const { declaration, pattern } = found;
+    const members = destructuredMembers(pattern);
+    if (!members) return null;
     if ([...members.keys()].some((key) => !MEMBERS.has(key))) return null;
 
     const args = argumentNodes(call);
@@ -105,6 +77,8 @@ export function migrateCoAgents(rootNode: Node): string | null {
         ? camel
         : `${camel}Agent`;
     const agent = unique(/^[A-Za-z_$][\w$]*$/.test(base) ? base : "agent");
+    // `{ agent }` when the variable is named `agent`.
+    const agentProp = agent === "agent" ? "agent" : `agent: ${agent}`;
     const indent = indentOf(declaration, source);
     const keyword = declaration.text().startsWith("let") ? "let" : "const";
     const binding = agent === "agent" ? "{ agent }" : `{ agent: ${agent} }`;
@@ -180,12 +154,12 @@ export function migrateCoAgents(rootNode: Node): string | null {
       for (const member of runs) {
         lines.push(
           `const ${members.get(member)} = (parameters?: { forwardedProps?: Record<string, unknown>; runId?: string }) =>`,
-          `  ${copilotkit}.runAgent({ agent: ${agent}, ...parameters });`,
+          `  ${copilotkit}.runAgent({ ${agentProp}, ...parameters });`,
         );
       }
       if (members.has("stop")) {
         lines.push(
-          `const ${members.get("stop")} = () => ${copilotkit}.stopAgent({ agent: ${agent} });`,
+          `const ${members.get("stop")} = () => ${copilotkit}.stopAgent({ ${agentProp} });`,
         );
       }
     }
