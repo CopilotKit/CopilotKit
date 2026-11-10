@@ -342,8 +342,10 @@ See `@copilotkit/channels-slack` for a complete implementation.
 `"handled"`, `"refused"` (with a `reason` such as `"not-initiator"`), or
 `"ignored"` (a duplicate delivery, or a control with no action). A handler
 error still rejects the promise. A comment-based adapter can remove its pending
-numbered-choice list before the call. If the status is `"refused"`, restore the
-list, so that the initiator can still answer the `awaitChoice`.
+numbered-choice list before the call. Restore the list unless the status is
+`"handled"`, so that the initiator can still answer the `awaitChoice`. Restore
+on `"ignored"` too: a redelivery of a refused reply is a duplicate, so it comes
+back as `"ignored"`, and the choice is still open.
 
 ## Exports
 
