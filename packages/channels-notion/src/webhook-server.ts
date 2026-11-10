@@ -11,7 +11,32 @@ export interface NotionWebhookServerOptions {
 
 const BODYLESS_METHODS = new Set(["GET", "HEAD"]);
 
-async function toRequest(req: IncomingMessage, url: URL) {
+/** Largest request body the server reads. Notion events are small JSON objects. */
+const MAX_BODY_BYTES = 1024 * 1024;
+
+/**
+ * Buffers the request body. Resolves `null` as soon as the body grows past
+ * {@link MAX_BODY_BYTES}, and keeps no more of it.
+ */
+function readBody(req: IncomingMessage) {
+  return new Promise<Buffer | null>((resolve, reject) => {
+    const chunks: Buffer[] = [];
+    let size = 0;
+    req.on("data", (chunk: Buffer) => {
+      size += chunk.length;
+      if (size > MAX_BODY_BYTES) {
+        chunks.length = 0;
+        resolve(null);
+        return;
+      }
+      chunks.push(chunk);
+    });
+    req.on("end", () => resolve(Buffer.concat(chunks)));
+    req.on("error", reject);
+  });
+}
+
+function toRequest(req: IncomingMessage, url: URL, body: Buffer) {
   const headers = new Headers();
   const entries = Object.entries(req.headers);
   for (const [name, value] of entries) {
@@ -23,13 +48,14 @@ async function toRequest(req: IncomingMessage, url: URL) {
   if (BODYLESS_METHODS.has(method)) {
     return new Request(url, { method, headers });
   }
-  const chunks: Buffer[] = [];
-  for await (const chunk of req) chunks.push(Buffer.from(chunk));
-  return new Request(url, {
-    method,
-    headers,
-    body: new Uint8Array(Buffer.concat(chunks)),
-  });
+  return new Request(url, { method, headers, body: new Uint8Array(body) });
+}
+
+/** Answers 413 and closes the connection, so the client stops sending. */
+function rejectTooLarge(res: ServerResponse) {
+  res.statusCode = 413;
+  res.setHeader("connection", "close");
+  res.end();
 }
 
 async function sendResponse(response: Response, res: ServerResponse) {
@@ -43,7 +69,7 @@ async function sendResponse(response: Response, res: ServerResponse) {
  *
  * It serves the given fetch-style handler at `path`, answers `GET /` with
  * 200 "ok" as a health check (when `path` is not "/"), and returns 404 for
- * every other path.
+ * every other path. A request body over 1 MiB gets 413.
  *
  * ```ts
  * const server = new NotionWebhookServer({ handler: createWebhookHandler({ ... }) });
@@ -117,8 +143,18 @@ export class NotionWebhookServer {
       res.end();
       return;
     }
+    const declaredLength = Number(req.headers["content-length"]);
+    if (declaredLength > MAX_BODY_BYTES) {
+      rejectTooLarge(res);
+      return;
+    }
     try {
-      const response = await this.handler(await toRequest(req, url));
+      const body = await readBody(req);
+      if (body === null) {
+        rejectTooLarge(res);
+        return;
+      }
+      const response = await this.handler(toRequest(req, url, body));
       await sendResponse(response, res);
     } catch (error) {
       console.error("[channels-notion] webhook request failed:", error);

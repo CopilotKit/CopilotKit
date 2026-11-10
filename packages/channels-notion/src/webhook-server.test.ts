@@ -1,4 +1,5 @@
 import { createHmac } from "node:crypto";
+import { request } from "node:http";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { NotionWebhookEvent } from "./types.js";
 import { createWebhookHandler } from "./webhook.js";
@@ -33,6 +34,33 @@ async function startServer(path?: string) {
   const baseUrl = `http://127.0.0.1:${address.port}`;
   return { server, onEvent, baseUrl };
 }
+
+/**
+ * POSTs to the webhook path with `node:http`, so a test controls the headers
+ * and how much body it sends. Resolves the response status. A write error after
+ * the server answers and closes the socket is expected, so it is ignored.
+ */
+function postRaw(
+  baseUrl: string,
+  options: { headers?: Record<string, string>; chunks: Buffer[] },
+) {
+  return new Promise<number>((resolve, reject) => {
+    const req = request(`${baseUrl}/webhook`, {
+      method: "POST",
+      headers: options.headers,
+    });
+    req.on("response", (res) => {
+      res.resume();
+      resolve(res.statusCode ?? 0);
+      req.destroy();
+    });
+    req.on("error", reject);
+    req.flushHeaders();
+    for (const chunk of options.chunks) req.write(chunk);
+  });
+}
+
+const MIB = 1024 * 1024;
 
 afterEach(async () => {
   const running = servers.splice(0);
@@ -82,6 +110,28 @@ describe("NotionWebhookServer", () => {
     const response = await fetch(`${baseUrl}/`);
 
     expect(response.status).toBe(405);
+  });
+
+  it("answers 413 before reading when Content-Length is over 1 MiB", async () => {
+    const { baseUrl, onEvent } = await startServer();
+
+    const status = await postRaw(baseUrl, {
+      headers: { "content-length": String(2 * MIB) },
+      chunks: [],
+    });
+
+    expect(status).toBe(413);
+    expect(onEvent).not.toHaveBeenCalled();
+  });
+
+  it("answers 413 when a body without Content-Length grows past 1 MiB", async () => {
+    const { baseUrl, onEvent } = await startServer();
+    const chunk = Buffer.alloc(MIB / 2 + 1, "a");
+
+    const status = await postRaw(baseUrl, { chunks: [chunk, chunk] });
+
+    expect(status).toBe(413);
+    expect(onEvent).not.toHaveBeenCalled();
   });
 
   it("reports no address after stop", async () => {

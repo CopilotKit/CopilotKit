@@ -19,7 +19,7 @@ connection, and the runtime starts and stops the Channel.
 ## Install
 
 ```sh
-pnpm add @copilotkit/channels @copilotkit/channels-notion
+pnpm add @copilotkit/channels @copilotkit/channels-notion @copilotkit/runtime @ag-ui/client
 ```
 
 The umbrella package also exports this adapter as `@copilotkit/channels/notion`.
@@ -27,10 +27,15 @@ The umbrella package also exports this adapter as `@copilotkit/channels/notion`.
 ## Quickstart
 
 ```ts
+import { HttpAgent } from "@ag-ui/client";
 import { createChannel } from "@copilotkit/channels";
 import { notion, defaultNotionContext } from "@copilotkit/channels-notion";
 import { CopilotRuntime, CopilotKitIntelligence } from "@copilotkit/runtime/v2";
 import { createCopilotNodeListener } from "@copilotkit/runtime/v2/node";
+
+// Any AG-UI agent works. This one calls an AG-UI endpoint over HTTP.
+const makeAgent = (threadId: string) =>
+  new HttpAgent({ url: process.env.AGENT_URL!, threadId });
 
 const bot = createChannel({
   identifyUser: "platform",
@@ -42,7 +47,7 @@ const bot = createChannel({
       port: 3000,
     }),
   ],
-  agent: makeAgent(process.env.AGENT_URL!),
+  agent: makeAgent,
   context: [...defaultNotionContext],
 });
 
@@ -67,6 +72,7 @@ With `port` set, the adapter starts a `node:http` server:
 - `POST /webhook` (option `path`) receives the Notion webhook.
 - `GET /` answers `200 ok` as a health check.
 - Every other path gets `404`.
+- A request body over 1 MiB gets `413`.
 
 Without `port`, no server starts. Mount `adapter.handleWebhook` in your own
 framework. It takes a fetch `Request` and returns a `Response`:
@@ -218,7 +224,9 @@ turn:
 
 - The bot's comments become assistant messages. Other comments become user
   messages.
-- It reads up to 1000 comments of the page, and keeps the last 50 messages.
+- It reads up to 10000 comments of the page, and keeps the last 50 messages.
+  If the page has more comments, `thread.runAgent()` throws and the agent does
+  not reply.
 - Notion lists only un-resolved comments, so a resolved discussion has no
   history.
 
@@ -248,8 +256,8 @@ adapter backs these `thread` methods:
 ## Limits
 
 - Resolved comments are not in history.
-- History reads up to 1000 comments per page. The agent sees the last 50
-  messages.
+- History reads up to 10000 comments per page. The agent sees the last 50
+  messages. On a page with more comments, the agent does not reply.
 - Notion allows about 3 requests per second per integration. The adapter edits
   a streamed reply about once per second. A `429` with `Retry-After` of 5
   seconds or less is retried one time.

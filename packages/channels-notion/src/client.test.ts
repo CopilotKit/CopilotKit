@@ -69,6 +69,19 @@ function createComment(
   };
 }
 
+/** `count` list pages of one comment each in discussion "d-1", chained by cursor. */
+function commentPages(count: number, options: { lastHasMore: boolean }) {
+  return Array.from({ length: count }, (_, i) => {
+    const hasMore = i < count - 1 || options.lastHasMore;
+    return json({
+      object: "list",
+      results: [createComment(`c-${i}`, "d-1")],
+      has_more: hasMore,
+      next_cursor: hasMore ? `cursor-${i + 1}` : null,
+    });
+  });
+}
+
 const EXPECTED_HEADERS = {
   authorization: "Bearer secret_TOKEN",
   "notion-version": "2026-03-11",
@@ -208,21 +221,24 @@ describe("NotionApiClient.listDiscussionComments", () => {
     ]);
   });
 
-  it("stops after 10 pages even when Notion reports more", async () => {
-    const pages = Array.from({ length: 11 }, (_, i) =>
-      json({
-        object: "list",
-        results: [createComment(`c-${i}`, "d-1")],
-        has_more: true,
-        next_cursor: `cursor-${i + 1}`,
-      }),
-    );
-    const { client, requests } = createNotion(pages);
+  it("reads every page, so the newest comment is in the list", async () => {
+    const { client } = createNotion(commentPages(12, { lastHasMore: false }));
 
     const comments = await client.listDiscussionComments("page-1", "d-1");
 
-    expect(comments).toHaveLength(10);
-    expect(requests).toHaveLength(10);
+    expect(comments).toHaveLength(12);
+    expect(comments.at(-1)?.id).toBe("c-11");
+  });
+
+  it("throws after 100 pages instead of returning a list without the newest comments", async () => {
+    const { client, requests } = createNotion(
+      commentPages(100, { lastHasMore: true }),
+    );
+
+    await expect(
+      client.listDiscussionComments("page-1", "d-1"),
+    ).rejects.toThrow("Notion block page-1 has more than 10000 comments");
+    expect(requests).toHaveLength(100);
   });
 });
 

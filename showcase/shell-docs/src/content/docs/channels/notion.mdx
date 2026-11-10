@@ -95,10 +95,11 @@ const app = new Hono();
 app.post("/webhook", (c) => notionAdapter.handleWebhook(c.req.raw));
 app.all("/api/copilotkit/*", (c) => copilot.fetch(c.req.raw));
 
-serve({ fetch: app.fetch, port: Number(process.env.PORT ?? 3000) });
-
-// A long-running Hono server must start its Channels itself.
+// A long-running Hono server must start its Channels itself. Start them before
+// you serve, because the adapter drops events that arrive before the start.
 await copilot.channels?.ready({ timeoutMs: 30_000 });
+
+serve({ fetch: app.fetch, port: Number(process.env.PORT ?? 3000) });
 ```
 
 `defaultNotionContext` tells the agent which Markdown renders in a comment and
@@ -162,29 +163,33 @@ A comment goes to the agent when one of these is true:
 If you do not use Hono or another framework, set `port`. The adapter then
 starts its own `node:http` server when the runtime starts the Channel.
 
-In the step 2 file, make two changes:
-
-1. Add `port: 3000` to the `notion()` options.
-2. Replace the Hono imports and everything after `new CopilotRuntime(...)` with
-   a Node listener.
+In the step 2 file, add `port: 3000` to the existing `notion()` call. Do not
+declare a second adapter:
 
 ```ts title="channel.ts"
-import { createCopilotNodeListener } from "@copilotkit/runtime/v2/node";
-
 const notionAdapter = notion({
   token: required("NOTION_TOKEN"),
   verificationToken: process.env.NOTION_VERIFICATION_TOKEN,
   port: 3000,
 });
+```
 
-// createChannel, onMessage, and new CopilotRuntime(...) stay as in step 2.
+Then remove the three Hono imports. Replace everything after
+`new CopilotRuntime(...)` with a Node listener:
+
+```ts title="channel.ts"
+import { createCopilotNodeListener } from "@copilotkit/runtime/v2/node";
+
+// The other imports, notionAdapter, createChannel, onMessage, and
+// new CopilotRuntime(...) stay as in step 2.
 
 const listener = createCopilotNodeListener({ runtime });
 await listener.channels.ready({ timeoutMs: 30_000 });
 ```
 
 The webhook URL is then `http://<host>:3000/webhook`. Set the `path` option to
-use a different path. `GET /` answers `200 ok` as a health check.
+use a different path. `GET /` answers `200 ok` as a health check. A request body
+over 1 MiB gets `413`.
 
 ## Ask the person to choose
 
@@ -223,8 +228,8 @@ that posted the list, so the reply must reach that same process. If you use
 History:
 
 - Notion lists only un-resolved comments. A resolved discussion has no history.
-- History reads up to 1000 comments per page. The agent sees the last 50
-  messages.
+- History reads up to 10000 comments per page. The agent sees the last 50
+  messages. On a page with more comments, the agent does not reply.
 
 Delivery:
 

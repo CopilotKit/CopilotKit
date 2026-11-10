@@ -16,8 +16,12 @@ const DEFAULT_NOTION_VERSION = "2026-03-11";
 
 /** `page_size` for `GET /v1/comments` (the API maximum). */
 const LIST_PAGE_SIZE = 100;
-/** Page cap for one discussion listing: 10 pages x 100 = 1000 comments. */
-const LIST_MAX_PAGES = 10;
+/**
+ * Page cap for one discussion listing: 100 pages x 100 = 10000 comments.
+ * Notion lists comments oldest first, so a listing cut at this cap would miss
+ * the newest comments, the inbound turn among them. The client throws instead.
+ */
+const LIST_MAX_PAGES = 100;
 
 /**
  * A 429 is retried once, in place, only when `Retry-After` is at most this
@@ -103,8 +107,9 @@ export class NotionApiClient {
    * List the un-resolved comments of one discussion, oldest first.
    *
    * Notion lists comments per page or block (`GET /v1/comments?block_id=`),
-   * so this pages through that list (up to 1000 comments) and keeps the ones
-   * whose `discussion_id` matches.
+   * so this pages through the whole list and keeps the ones whose
+   * `discussion_id` matches. It throws when the block has more than 10000
+   * comments: Notion lists oldest first, so a cut list would miss the newest.
    *
    * @param blockOrPageId Page or block that holds the discussion.
    * @param discussionId Discussion thread to keep.
@@ -126,10 +131,12 @@ export class NotionApiClient {
         (comment) => comment.discussion_id === discussionId,
       );
       comments.push(...inDiscussion);
-      if (!list.has_more || list.next_cursor === null) break;
+      if (!list.has_more || list.next_cursor === null) return comments;
       cursor = list.next_cursor;
     }
-    return comments;
+    throw new Error(
+      `Notion block ${blockOrPageId} has more than ${LIST_MAX_PAGES * LIST_PAGE_SIZE} comments; the discussion history cannot be read.`,
+    );
   }
 
   /**
