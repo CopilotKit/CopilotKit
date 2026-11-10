@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
+import { ActionExpiredError } from "./action-registry.js";
 import { createChannel } from "./create-channel.js";
 import type { Channel } from "./create-channel.js";
 import { FakeAdapter } from "./testing/fake-adapter.js";
@@ -187,6 +188,44 @@ describe("the outcome the sink returns for an interaction", () => {
     const outcome = await interact(fake, { id, actor: alice });
 
     expect(outcome).toEqual({ status: "handled" });
+  });
+
+  it("ignores a pick whose picker closed while its handler was dispatched, when no handler finished", async () => {
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    vi.spyOn(console, "debug").mockImplementation(() => {});
+    const fake = new FakeAdapter({ nativeEphemeral: true });
+    const channel = createChannel({
+      identifyUser: "platform",
+      adapters: [fake],
+      agent: () => new FakeAgent(),
+    });
+    const card = Actions({
+      children: [
+        Button({ value: { ok: true }, onClick: () => {}, children: "OK" }),
+      ],
+    });
+    let pickerClosed!: () => void;
+    const closed = new Promise<void>((resolve) => {
+      pickerClosed = resolve;
+    });
+    channel.onMention(async ({ thread }) => {
+      await thread.awaitChoice(card, { timeoutMs: 30 }).catch(() => {});
+      pickerClosed();
+    });
+    await channel.ɵruntime.start();
+    activeChannels.push(channel);
+    fake.emitTurn({ userText: "go", conversationKey: KEY, actor: alice });
+    await tick();
+    const id = buttonIds(fake.posted[0]!)[0]!;
+    // The handler outlives the picker, then turns out to be gone.
+    channel.onInteraction(id, async () => {
+      await closed;
+      throw new ActionExpiredError(id);
+    });
+
+    const outcome = await interact(fake, { id, actor: alice });
+
+    expect(outcome).toEqual({ status: "ignored" });
   });
 
   it("ignores a second delivery of the same event", async () => {

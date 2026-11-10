@@ -1342,10 +1342,12 @@ export function createChannel<
             "value-not-offered",
           );
         }
+        let handlerRan = false;
         try {
           const explicit = interactionHandlers.get(evt.id);
           if (explicit) {
             await explicit(ctx);
+            handlerRan = true;
           } else if (control && !control.bound) {
             // A picker control without a handler: nothing to dispatch.
           } else {
@@ -1353,6 +1355,7 @@ export function createChannel<
               conversationKey: evt.conversationKey,
               platform,
             });
+            handlerRan = true;
           }
         } catch (err) {
           // An action presented from another conversation never runs and never
@@ -1413,6 +1416,15 @@ export function createChannel<
           console.debug(
             `[channel] ${platform} interaction ${evt.id} in conversation ${conversationLogRef(evt.conversationKey)} is not a control of the pending awaitChoice picker; the picker stays pending`,
           );
+        }
+        // The picker closed while dispatch waited, and no handler finished:
+        // the reply answered nothing.
+        if (
+          picker &&
+          waiters.get(evt.conversationKey) !== picker &&
+          !handlerRan
+        ) {
+          return { status: "ignored" };
         }
         return { status: "handled" };
       },
