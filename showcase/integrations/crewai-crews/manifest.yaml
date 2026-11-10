@@ -8,7 +8,7 @@ partner_docs: null
 repo: https://github.com/CopilotKit/CopilotKit/tree/main/showcase/integrations/crewai-crews
 copilotkit_version: 2.0.0
 deployed: true
-docs_mode: authored
+docs_mode: generated
 sort_order: 40
 generative_ui:
   - constrained-explicit
@@ -68,6 +68,7 @@ features:
 a2ui_pattern: schema-loading
 agent_config_pattern: shared-state
 auth_pattern: runtime-onrequest
+interrupt_pattern: native
 demos:
   - id: cli-start
     name: CLI Start Command
