@@ -1,0 +1,30 @@
+<Steps>
+  <Step>
+    ### Nothing to wire for `useHumanInTheLoop`
+
+    A tool registered with `useHumanInTheLoop` is a frontend tool. The AG-UI
+    endpoint forwards its definition to the agent with each run, and the chat
+    client sees it alongside the agent's own tools. The agent declares
+    nothing for it:
+
+    ```python title="agent/src/agent.py"
+    from agent_framework import Agent
+    from agent_framework.ag_ui import add_agent_framework_fastapi_endpoint
+    from fastapi import FastAPI
+
+    # Frontend tools registered with useHumanInTheLoop are automatically available
+    agent = Agent(
+        name="sample_agent",
+        instructions="You are a helpful assistant.",
+        client=chat_client,
+    )
+
+    app = FastAPI(title="AG-UI Server (Python)")
+    add_agent_framework_fastapi_endpoint(app=app, agent=agent, path="/")
+    ```
+
+    To pause before one of the agent's own backend tools runs, see
+    [Interrupt flow](/ms-agent-python/human-in-the-loop/interrupt-flow).
+
+  </Step>
+</Steps>
