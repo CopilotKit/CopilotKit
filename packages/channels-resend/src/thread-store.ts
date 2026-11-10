@@ -103,7 +103,7 @@ export class ResendThreadStore {
 
   /** Whether an inbound email was seen before. Read-only. */
   async emailSeen(emailId: string): Promise<boolean> {
-    return (await this.state.kv.get<boolean>(emailKey(emailId))) === true;
+    return (await this.state.kv.get<boolean>(emailSeenKey(emailId))) === true;
   }
 
   /** Claim an inbound email. Returns `false` when another delivery already claimed it. */
@@ -113,7 +113,7 @@ export class ResendThreadStore {
       EMAIL_DEDUP_TTL_MS,
     );
     if (seen) return false;
-    await this.state.kv.set(emailKey(emailId), true, EMAIL_DEDUP_TTL_MS);
+    await this.state.kv.set(emailSeenKey(emailId), true, EMAIL_DEDUP_TTL_MS);
     return true;
   }
 
@@ -132,3 +132,4 @@ const threadKey = (conversationKey: string) =>
 const historyKey = (conversationKey: string) =>
   `resend:history:${conversationKey}`;
 const emailKey = (emailId: string) => `resend:email:${emailId}`;
+const emailSeenKey = (emailId: string) => `resend:email-seen:${emailId}`;
