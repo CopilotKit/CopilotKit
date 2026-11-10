@@ -173,7 +173,9 @@ import {
 
 `TelegramAdapterOptions` requires a bot `token`. Ingress defaults to
 long-polling. Set `mode: "webhook"` and provide `webhook` configuration for a
-public webhook deployment. The entry point also exports its listener,
+public webhook deployment. In webhook mode, set `webhook.secretToken` so that
+the webhook rejects requests that do not come from Telegram. Without it, the
+adapter logs a warning at start. The entry point also exports its listener,
 renderer, conversation store, streaming helper, built-in context and tools,
 file helpers, and `TELEGRAM_LIMITS`.
 

@@ -70,6 +70,11 @@ export interface TelegramAdapterOptions {
     domain: string;
     path?: string;
     port?: number;
+    /**
+     * Secret that Telegram sends in `X-Telegram-Bot-Api-Secret-Token`. The
+     * webhook rejects requests without it. Strongly recommended: without it
+     * the webhook accepts any request. An empty string is rejected at start.
+     */
     secretToken?: string;
   };
   /** AG-UI event names that should interrupt the running agent. */

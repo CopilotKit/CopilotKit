@@ -178,6 +178,21 @@ export class TelegramAdapter implements PlatformAdapter {
     if (!webhook?.domain) {
       throw new Error("Telegram webhook mode requires opts.webhook.domain");
     }
+    // An empty secret makes grammY skip the header check, so the webhook
+    // would accept any request. Refuse it instead of failing open.
+    if (
+      webhook.secretToken !== undefined &&
+      webhook.secretToken.trim() === ""
+    ) {
+      throw new Error(
+        "Telegram webhook.secretToken must not be empty. Set a secret or omit it.",
+      );
+    }
+    if (webhook.secretToken === undefined) {
+      console.warn(
+        "[telegram] webhook.secretToken is not set. The webhook accepts any request that reaches its URL. Set webhook.secretToken to verify that updates come from Telegram.",
+      );
+    }
     const normalizedPath = webhook.path
       ? webhook.path.startsWith("/")
         ? webhook.path

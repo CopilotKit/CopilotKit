@@ -183,6 +183,12 @@ command to the engine's `onCommand` handlers.
 | `webhook` | grammY webhook + minimal Node HTTP server. Requires `webhook.domain`.            |
 | `auto`    | Webhook when `VERCEL`/`AWS_LAMBDA_FUNCTION_NAME`/`NETLIFY` is set, else polling. |
 
+In webhook mode, set `webhook.secretToken`. Telegram sends it in the
+`X-Telegram-Bot-Api-Secret-Token` header, and the webhook rejects requests
+that do not have it. If you omit it, the webhook accepts any request that
+reaches its URL, and the adapter logs a warning at start. An empty
+`secretToken` is an error.
+
 ## Reactions
 
 `message_reaction` updates are enabled automatically. The adapter exports

@@ -301,6 +301,88 @@ describe("TelegramAdapter", () => {
     }
   });
 
+  function webhookAdapter(secretToken: string | undefined) {
+    const a = telegram({
+      token: "t",
+      mode: "webhook",
+      webhook: { domain: "https://bot.example", port: 0, secretToken },
+    });
+    const api = {
+      ...fakeApi(),
+      getMe: vi.fn(async () => ({ id: 1, username: "bot" })),
+      setWebhook: vi.fn(async () => true),
+      deleteWebhook: vi.fn(async () => true),
+    };
+    (a as any).bot = {
+      api,
+      on: vi.fn(),
+      command: vi.fn(),
+      catch: vi.fn(),
+      stop: vi.fn(async () => {}),
+      // Used by grammY's real webhookCallback.
+      isRunning: () => false,
+      init: vi.fn(async () => {}),
+      handleUpdate: vi.fn(async () => {}),
+    };
+    return { a, api };
+  }
+
+  it("webhook mode refuses an empty secretToken before registering the webhook", async () => {
+    const { a, api } = webhookAdapter("  ");
+    await expect(a.start({ submit: vi.fn() } as any)).rejects.toThrow(
+      /secretToken must not be empty/,
+    );
+    expect(api.setWebhook).not.toHaveBeenCalled();
+  });
+
+  it("webhook mode warns when secretToken is missing", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const { a, api } = webhookAdapter(undefined);
+    try {
+      await a.start({ submit: vi.fn() } as any);
+      expect(api.setWebhook).toHaveBeenCalledWith(
+        "https://bot.example/telegram",
+        undefined,
+      );
+      expect(warn).toHaveBeenCalledWith(
+        expect.stringContaining("webhook.secretToken is not set"),
+      );
+    } finally {
+      await a.stop();
+      warn.mockRestore();
+    }
+  });
+
+  it("webhook mode registers the secret and rejects requests without it", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const { a, api } = webhookAdapter("s3cret");
+    try {
+      await a.start({ submit: vi.fn() } as any);
+      expect(api.setWebhook).toHaveBeenCalledWith(
+        "https://bot.example/telegram",
+        { secret_token: "s3cret" },
+      );
+      expect(warn).not.toHaveBeenCalled();
+      const { port } = (a as any).webhookServer.address();
+      const post = (headers: Record<string, string>) =>
+        fetch(`http://127.0.0.1:${port}/telegram`, {
+          method: "POST",
+          headers: { "content-type": "application/json", ...headers },
+          body: JSON.stringify({ update_id: 1 }),
+        });
+      expect((await post({})).status).toBe(401);
+      expect(
+        (await post({ "x-telegram-bot-api-secret-token": "wrong" })).status,
+      ).toBe(401);
+      expect(
+        (await post({ "x-telegram-bot-api-secret-token": "s3cret" })).status,
+      ).toBe(200);
+    } finally {
+      await a.stop();
+      warn.mockRestore();
+    }
+  });
+
   it("stop() deletes the webhook BEFORE closing the server, then stops the bot", async () => {
     const a = telegram({ token: "t" });
     const callOrder: string[] = [];
