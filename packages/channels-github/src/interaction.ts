@@ -1,5 +1,6 @@
 import type { InteractionEvent } from "@copilotkit/channels-core";
 import type { PendingChoices } from "./pending-choices.js";
+import type { GitHubCommentRef } from "./client.js";
 import type { GitHubMessageRef, ReplyTarget } from "./types.js";
 
 /**
@@ -29,6 +30,24 @@ export function conversationKeyOf(target: ReplyTarget) {
  */
 export function messageRefOf(ref: GitHubMessageRef) {
   return { ...ref, id: String(ref.id) };
+}
+
+/**
+ * The ref the adapter keeps for a comment it posted. It carries the parts of
+ * the reply target that `update`/`delete` need later (installation for auth,
+ * review thread for the pending-choice key).
+ */
+export function postedRefOf(target: ReplyTarget, comment: GitHubCommentRef) {
+  const ref: GitHubMessageRef = {
+    id: comment.commentId,
+    kind: comment.kind,
+    owner: target.owner,
+    repo: target.repo,
+    issueNumber: target.issueNumber,
+    installationId: target.installationId,
+    reviewCommentId: target.reviewCommentId,
+  };
+  return ref;
 }
 
 /** Event fields a decoded choice reply shares with any other ingress event. */

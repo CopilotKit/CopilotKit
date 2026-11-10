@@ -251,7 +251,9 @@ describe("createRunRenderer text streaming", () => {
 
   it("replies inside the review thread when the target has a reviewCommentId", async () => {
     const github = createFakeGitHub();
-    const renderer = createRenderer(github, { target: REVIEW_TARGET });
+    const renderer = createRenderer(github, {
+      target: { ...REVIEW_TARGET, installationId: 51234567 },
+    });
     const emit = createEmitter(renderer.subscriber);
 
     await emit.start("m1");
@@ -265,6 +267,8 @@ describe("createRunRenderer text streaming", () => {
       "PATCH /repos/acme/widgets/pulls/comments/100",
     ]);
     expect(github.commentBodies()).toEqual(["Looks good"]);
+    // The ref keeps the review thread, so update/delete find the comment and
+    // its pending-choice key again.
     expect(renderer.getPostedRefs()).toEqual([
       {
         id: 100,
@@ -272,6 +276,8 @@ describe("createRunRenderer text streaming", () => {
         owner: "acme",
         repo: "widgets",
         issueNumber: 7,
+        installationId: 51234567,
+        reviewCommentId: 55,
       },
     ]);
   });

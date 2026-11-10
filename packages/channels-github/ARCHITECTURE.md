@@ -123,8 +123,12 @@ the sink.
 `handleGitHubEvent` is split in two phases. The prepare phase runs before the
 response, inside the 10 s ack deadline of GitHub. It reads the payload, the
 open choice list, and decodes a numbered reply. It consumes the list last, so
-an earlier failure keeps the list for the redelivery. The dispatch phase runs
-after the response and calls `sink.onTurn` or `sink.onInteraction`.
+an earlier failure keeps the list for the redelivery. One case is not covered:
+when a new list replaced the decoded one before the consume, prepare puts the
+taken list back after the consume. If that read or write fails, the answer is
+`500`, but the list is already gone, so a redelivery cannot restore it. The
+dispatch phase runs after the response and calls `sink.onTurn` or
+`sink.onInteraction`.
 
 `handleGitHubEvent` reads only `issue_comment` and
 `pull_request_review_comment` deliveries with action `created`. It builds the

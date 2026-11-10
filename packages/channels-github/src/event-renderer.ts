@@ -6,6 +6,7 @@ import type {
 } from "@copilotkit/channels-core";
 import { GitHubApiError } from "./client.js";
 import type { GitHubApiClient, GitHubCommentRef } from "./client.js";
+import { postedRefOf } from "./interaction.js";
 import { GITHUB_LIMITS, truncateText } from "./render/budget.js";
 import type { GitHubMessageRef, ReplyTarget } from "./types.js";
 
@@ -193,13 +194,9 @@ export function createRunRenderer(options: GitHubRunRendererOptions) {
       reviewCommentId === undefined
         ? await client.createIssueComment(target, body)
         : await client.replyToReviewComment(target, reviewCommentId, body);
-    postedRefs.push({
-      id: comment.id,
-      kind: refKind,
-      owner: target.owner,
-      repo: target.repo,
-      issueNumber: target.issueNumber,
-    });
+    postedRefs.push(
+      postedRefOf(target, { kind: refKind, commentId: comment.id }),
+    );
     return comment.id;
   };
 

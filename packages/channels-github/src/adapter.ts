@@ -18,7 +18,7 @@ import type { GitHubCommentRef, GitHubReactionContent } from "./client.js";
 import { GitHubConversationStore } from "./conversation-store.js";
 import { createRunRenderer as createGitHubRunRenderer } from "./event-renderer.js";
 import { handleGitHubEvent } from "./ingress.js";
-import { conversationKeyOf, messageRefOf } from "./interaction.js";
+import { conversationKeyOf, messageRefOf, postedRefOf } from "./interaction.js";
 import {
   clearPendingChoices,
   readPendingChoices,
@@ -79,24 +79,6 @@ function errorMessage(error: unknown) {
 /** Which comment kind a reply to `target` is: a review reply or an issue comment. */
 function commentKindOf(target: ReplyTarget) {
   return target.reviewCommentId === undefined ? "issue" : "review";
-}
-
-/**
- * The ref the adapter keeps for a comment it posted. It carries the parts of
- * the reply target that `update`/`delete` need later (installation for auth,
- * review thread for the pending-choice key).
- */
-function postedRefOf(target: ReplyTarget, comment: GitHubCommentRef) {
-  const ref: GitHubMessageRef = {
-    id: comment.commentId,
-    kind: comment.kind,
-    owner: target.owner,
-    repo: target.repo,
-    issueNumber: target.issueNumber,
-    installationId: target.installationId,
-    reviewCommentId: target.reviewCommentId,
-  };
-  return ref;
 }
 
 /** Read a comment ref the adapter returned (or ingress reported) back into a comment and its target. */
