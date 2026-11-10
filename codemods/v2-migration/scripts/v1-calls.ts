@@ -8,10 +8,19 @@ const V1_SOURCE = "@copilotkit/react-core";
 /** What a call needs besides its own edits. */
 export interface CallConversion {
   edits: Edit[];
-  /** 2.0 names to import from `@copilotkit/react-core`. */
+  /** 2.0 names to import from the module the v1 name came from. */
   hooks: string[];
   /** Other imports the new code uses, by module. */
   imports?: Record<string, string[]>;
+  /** Names of that module's import to drop once nothing uses them. */
+  dropIfUnused?: string[];
+}
+
+export interface V1CallOptions {
+  /** The module the v1 name is imported from. */
+  source?: string;
+  /** Parses changed source: needed to drop imports that end up unused. */
+  reparse?: (text: string) => Node;
 }
 
 export interface CallContext {
@@ -37,14 +46,16 @@ export function migrateV1Calls(
   rootNode: Node,
   v1Name: string,
   convert: (call: Node, context: CallContext) => CallConversion | null,
+  options: V1CallOptions = {},
 ): string | null {
+  const v1Source = options.source ?? V1_SOURCE;
   const source = rootNode.text();
   if (!source.includes(v1Name)) return null;
   const specifiers = rootNode
     .findAll({ rule: { kind: "import_statement" } })
     .filter(
       (statement) =>
-        statement.field("source")?.text().slice(1, -1) === V1_SOURCE,
+        statement.field("source")?.text().slice(1, -1) === v1Source,
     )
     .flatMap((statement) =>
       statement
@@ -70,6 +81,7 @@ export function migrateV1Calls(
   const edits: Edit[] = [];
   const hooks = new Set<string>();
   const imports = new Map<string, Set<string>>();
+  const dropIfUnused = new Set<string>();
   let left = 0;
   const calls = rootNode.findAll({
     rule: {
@@ -85,6 +97,7 @@ export function migrateV1Calls(
     }
     edits.push(...converted.edits);
     for (const hook of converted.hooks) hooks.add(hook);
+    for (const name of converted.dropIfUnused ?? []) dropIfUnused.add(name);
     for (const [from, names] of Object.entries(converted.imports ?? {})) {
       const set = imports.get(from) ?? new Set<string>();
       for (const name of names) set.add(name);
@@ -114,7 +127,42 @@ export function migrateV1Calls(
     imports.set("zod", (imports.get("zod") ?? new Set()).add("z"));
   }
   edits.push(...importEdits(rootNode, source, imports));
-  return rootNode.commitEdits(edits);
+  const migrated = rootNode.commitEdits(edits);
+  if (dropIfUnused.size === 0 || !options.reparse) return migrated;
+  return (
+    dropUnusedSpecifiers(options.reparse(migrated), v1Source, dropIfUnused) ??
+    migrated
+  );
+}
+
+/** Drops the named specifiers of `from`'s import that nothing else uses. */
+function dropUnusedSpecifiers(
+  rootNode: Node,
+  from: string,
+  names: Set<string>,
+): string | null {
+  const source = rootNode.text();
+  const edits: Edit[] = [];
+  for (const statement of rootNode.findAll({
+    rule: { kind: "import_statement" },
+  })) {
+    if (statement.field("source")?.text().slice(1, -1) !== from) continue;
+    for (const specifier of statement.findAll({
+      rule: { kind: "import_specifier" },
+    })) {
+      const name = specifier.field("name")?.text();
+      if (!name || !names.has(name) || specifier.field("alias")) continue;
+      const uses = rootNode.findAll({
+        rule: {
+          any: [{ kind: "identifier" }, { kind: "type_identifier" }],
+          regex: `^${name}$`,
+        },
+      }).length;
+      // The specifier's own identifier is the one use.
+      if (uses <= 1) edits.push(removeSpecifier(specifier, source));
+    }
+  }
+  return edits.length === 0 ? null : rootNode.commitEdits(edits);
 }
 
 /** Deletes the `// TODO(copilotkit-2.0): \`name\`...` lines of the file. */

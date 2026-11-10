@@ -82,17 +82,28 @@ export function removeEntry(entry: Node, source: string): Edit {
   };
 }
 
-/** Deletes an import specifier with its comma. */
+/**
+ * Deletes an import specifier with its comma, and its line when it is alone
+ * on one.
+ */
 export function removeSpecifier(specifier: Node, source: string): Edit {
+  const startChar = charIndex(source, specifier.range().start.index);
   const endChar = charIndex(source, specifier.range().end.index);
   const comma = /^\s*,/.exec(source.slice(endChar));
+  let end = comma ? endChar + comma[0].length : endChar;
+  let start = startChar;
+  const lineStart = source.lastIndexOf("\n", startChar - 1) + 1;
+  const rest = /^[ \t]*\n/.exec(source.slice(end));
+  if (source.slice(lineStart, startChar).trim() === "" && rest) {
+    start = lineStart;
+    end += rest[0].length;
+  }
   return {
-    startPos: specifier.range().start.index,
+    startPos:
+      specifier.range().start.index -
+      byteLength(source.slice(start, startChar)),
     endPos:
-      specifier.range().end.index +
-      (comma
-        ? byteLength(source.slice(endChar, endChar + comma[0].length))
-        : 0),
+      specifier.range().end.index + byteLength(source.slice(endChar, end)),
     insertedText: "",
   };
 }
@@ -198,4 +209,23 @@ export function destructuringDeclaration(
   const pattern = declarator.field("name");
   if (pattern?.kind() !== "object_pattern") return null;
   return { declaration, pattern };
+}
+
+/**
+ * The text of `node` with `edits` applied. Each edit must lie inside the
+ * node. For code that builds a replacement which contains the node, where
+ * the edits themselves would overlap the replacement.
+ */
+export function applyEdits(node: Node, edits: Edit[]): string {
+  const original = node.text();
+  const offset = node.range().start.index;
+  let text = original;
+  // From the end, so the text before each edit is still the original's.
+  for (const edit of [...edits].sort((a, b) => b.startPos - a.startPos)) {
+    text =
+      text.slice(0, charIndex(original, edit.startPos - offset)) +
+      edit.insertedText +
+      text.slice(charIndex(original, edit.endPos - offset));
+  }
+  return text;
 }

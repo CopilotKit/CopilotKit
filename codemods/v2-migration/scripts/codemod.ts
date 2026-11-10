@@ -11,6 +11,7 @@ import { migrateReadables } from "./readable.ts";
 import { migrateCoAgents } from "./coagent.ts";
 import { migrateChatHooks } from "./chat-hook.ts";
 import { migrateGqlMessages } from "./gql-messages.ts";
+import { migrateV1Endpoints } from "./v1-endpoints.ts";
 import type { Codemod, Edit, SgNode } from "codemod:ast-grep";
 import type TS from "codemod:ast-grep/langs/typescript";
 import type TSX from "codemod:ast-grep/langs/tsx";
@@ -485,6 +486,10 @@ const codemod: Codemod<Lang> = async (root, options) => {
     migrateCoAgents,
     migrateChatHooks,
     migrateGqlMessages,
+    (node) =>
+      migrateV1Endpoints(node, (text) =>
+        parse<Lang>(options.language, text).root(),
+      ),
     (node) => migrateChatComponents(node, jsxFile),
   ];
   let rootNode = root.root();
