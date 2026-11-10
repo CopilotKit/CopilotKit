@@ -1,11 +1,16 @@
 import { createHmac } from "node:crypto";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createWebhookHandler } from "./webhook.js";
-import type { GitHubWebhookEvent } from "./webhook.js";
+import type { GitHubWebhookDispatch, GitHubWebhookEvent } from "./webhook.js";
 
 const SECRET = "test-secret";
 const DELIVERY_ID = "72d3162e-cc78-11e3-81ab-4c9367dc0958";
 const PAYLOAD = { action: "created", comment: { id: 7, body: "@bot hi" } };
+const EVENT: GitHubWebhookEvent = {
+  name: "issue_comment",
+  deliveryId: DELIVERY_ID,
+  payload: PAYLOAD,
+};
 
 function sign(body: string, secret = SECRET) {
   return `sha256=${createHmac("sha256", secret).update(body).digest("hex")}`;
@@ -38,7 +43,9 @@ function delivery(init: DeliveryInit = {}) {
 }
 
 function setup(
-  onEvent: (event: GitHubWebhookEvent) => Promise<void> = async () => {},
+  onEvent: (
+    event: GitHubWebhookEvent,
+  ) => Promise<GitHubWebhookDispatch | void> = async () => {},
 ) {
   const events: GitHubWebhookEvent[] = [];
   const errors: Array<{ error: unknown; event: GitHubWebhookEvent }> = [];
@@ -46,7 +53,7 @@ function setup(
     secret: SECRET,
     onEvent: async (event) => {
       events.push(event);
-      await onEvent(event);
+      return onEvent(event);
     },
     onError: (error, event) => errors.push({ error, event }),
   });
@@ -70,23 +77,42 @@ describe("createWebhookHandler", () => {
     await flushDispatch();
 
     expect(response.status).toBe(200);
-    expect(events).toEqual([
-      {
-        name: "issue_comment",
-        deliveryId: DELIVERY_ID,
-        payload: { action: "created", comment: { id: 7, body: "@bot hi" } },
-      },
-    ]);
+    expect(events).toEqual([EVENT]);
   });
 
-  it("returns 200 before onEvent settles", async () => {
-    const { handler, events } = setup(() => new Promise<void>(() => {}));
+  it("waits for onEvent before it answers", async () => {
+    let finishPrepare = () => {};
+    const { handler } = setup(
+      () =>
+        new Promise<void>((resolve) => {
+          finishPrepare = resolve;
+        }),
+    );
+    let status: number | undefined;
+
+    const answered = handler(delivery()).then((response) => {
+      status = response.status;
+    });
+    await flushDispatch();
+    expect(status).toBeUndefined();
+
+    finishPrepare();
+    await answered;
+    expect(status).toBe(200);
+  });
+
+  it("answers 200, then runs the dispatch that onEvent returned without waiting for it", async () => {
+    let dispatched = 0;
+    const { handler } = setup(async () => async () => {
+      dispatched += 1;
+      await new Promise<void>(() => {});
+    });
 
     const response = await handler(delivery());
+    await flushDispatch();
 
     expect(response.status).toBe(200);
-    await flushDispatch();
-    expect(events).toHaveLength(1);
+    expect(dispatched).toBe(1);
   });
 
   it.each([
@@ -174,9 +200,21 @@ describe("createWebhookHandler", () => {
     expect(events).toEqual([]);
   });
 
-  it("routes an onEvent rejection to onError", async () => {
-    const failure = new Error("agent down");
+  it("answers 500 and routes the error to onError when onEvent rejects", async () => {
+    const failure = new Error("state store down");
     const { handler, errors } = setup(async () => {
+      throw failure;
+    });
+
+    const response = await handler(delivery());
+
+    expect(response.status).toBe(500);
+    expect(errors).toEqual([{ error: failure, event: EVENT }]);
+  });
+
+  it("routes a dispatch rejection to onError after the 200", async () => {
+    const failure = new Error("agent down");
+    const { handler, errors } = setup(async () => async () => {
       throw failure;
     });
 
@@ -184,16 +222,7 @@ describe("createWebhookHandler", () => {
     await flushDispatch();
 
     expect(response.status).toBe(200);
-    expect(errors).toEqual([
-      {
-        error: failure,
-        event: {
-          name: "issue_comment",
-          deliveryId: DELIVERY_ID,
-          payload: { action: "created", comment: { id: 7, body: "@bot hi" } },
-        },
-      },
-    ]);
+    expect(errors).toEqual([{ error: failure, event: EVENT }]);
   });
 
   it("logs an onEvent failure with a [channels-github] prefix when onError is not set", async () => {
@@ -209,9 +238,8 @@ describe("createWebhookHandler", () => {
     });
 
     const response = await handler(delivery());
-    await flushDispatch();
 
-    expect(response.status).toBe(200);
+    expect(response.status).toBe(500);
     expect(consoleError).toHaveBeenCalledTimes(1);
     const [message, loggedError] = consoleError.mock.calls[0] ?? [];
     expect(String(message).startsWith("[channels-github]")).toBe(true);

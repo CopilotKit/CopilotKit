@@ -95,10 +95,16 @@ app.post("/github/webhook", (c) => adapter.handleWebhook(c.req.raw));
 
 | Status | When                                                                 |
 | ------ | -------------------------------------------------------------------- |
-| `200`  | A `ping`, or an accepted delivery. The work continues in background. |
+| `200`  | A `ping`, or an accepted delivery. The agent runs in the background. |
 | `400`  | `X-GitHub-Event` or `X-GitHub-Delivery` is missing, or bad JSON.     |
 | `401`  | `X-Hub-Signature-256` is missing or wrong.                           |
 | `405`  | The method is not `POST`.                                            |
+| `500`  | The adapter cannot read the delivery's state from `stateStore`.      |
+
+Before it answers, the adapter reads the open choice list of the conversation.
+If this read fails, the adapter logs the error and answers `500`. GitHub does
+not retry a failed delivery automatically. The delivery shows as failed in
+**Recent Deliveries** of the webhook settings, and you can redeliver it there.
 
 The adapter drops deliveries that arrive before the runtime starts the Channel.
 Run it on a long-running host. A serverless function can freeze before the

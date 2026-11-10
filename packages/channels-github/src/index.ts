@@ -13,6 +13,7 @@ export type {
 
 export { createWebhookHandler } from "./webhook.js";
 export type {
+  GitHubWebhookDispatch,
   GitHubWebhookEvent,
   GitHubWebhookHandlerOptions,
 } from "./webhook.js";

@@ -67,6 +67,8 @@ interface TextStream {
   lastSyncAt: number;
   /** Earliest time the next edit may run after a rate-limit error. */
   retryAt: number;
+  /** The error of the last sync. A later sync that succeeds clears it. */
+  failure: { error: unknown } | undefined;
 }
 
 function createTextStream() {
@@ -82,6 +84,7 @@ function createTextStream() {
     queued: false,
     lastSyncAt: 0,
     retryAt: 0,
+    failure: undefined,
   };
   return stream;
 }
@@ -149,8 +152,10 @@ function commentBodies(stream: TextStream) {
  * `throttleMs`, and TEXT_MESSAGE_END writes the final text. Text longer than
  * a GitHub comment continues in a new comment, with code fences balanced at
  * the cut. Client calls for one message run one at a time, and a queued edit
- * always sends the newest text. A failed edit is logged and never thrown; a
- * rate-limited edit waits for its `retryAfterMs`.
+ * always sends the newest text. A failed edit is logged; a rate-limited edit
+ * waits for its `retryAfterMs`. The subscriber hooks never throw. `finish()`
+ * rejects with the error when the final write of a text message failed, so
+ * the run does not report success for a reply the reader cannot see.
  *
  * The trigger comment gets an `eyes` reaction at the first text message. The
  * reaction is removed in `finish()` and `markInterrupted()`.
@@ -245,8 +250,10 @@ export function createRunRenderer(options: GitHubRunRendererOptions) {
         await updateComment(posted.id, body);
         posted.body = body;
       }
+      stream.failure = undefined;
     } catch (err) {
       console.warn(`${LOG_PREFIX} streaming a reply comment failed:`, err);
+      stream.failure = { error: err };
       const retryAfterMs =
         err instanceof GitHubApiError ? err.retryAfterMs : undefined;
       if (retryAfterMs === undefined) return;
@@ -408,6 +415,12 @@ export function createRunRenderer(options: GitHubRunRendererOptions) {
       for (const stream of open) void finalize(stream);
       await settleAll();
       await removeReaction();
+      // sync() logged the error already. A rate-limited final write still
+      // retries after its wait, but the reply is not complete now.
+      const all = Array.from(streams.values());
+      for (const stream of all) {
+        if (stream.failure !== undefined) throw stream.failure.error;
+      }
     },
   } satisfies GitHubRunRenderer;
   return renderer;

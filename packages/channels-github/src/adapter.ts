@@ -182,8 +182,11 @@ export class GitHubAdapter implements PlatformAdapter {
   /** The GitHub REST client the adapter posts with. */
   readonly client: GitHubApiClient;
   /**
-   * Web-standard webhook handler. It verifies `X-Hub-Signature-256`, answers
-   * `200` at once, and routes the delivery to the channel in the background.
+   * Web-standard webhook handler. It verifies `X-Hub-Signature-256` and reads
+   * the delivery's state (the open choice list) before it answers. When that
+   * read fails, it answers `500`. Otherwise it answers `200` and routes the
+   * delivery to the channel in the background. GitHub does not retry a failed
+   * delivery by itself, but you can redeliver it from the webhook settings.
    * Mount it in Hono, Next.js route handlers, Workers, or any `Request` host.
    * Deliveries that arrive before `start()` or after `stop()` are dropped.
    *
@@ -406,8 +409,8 @@ export class GitHubAdapter implements PlatformAdapter {
 
   private async onEvent(event: GitHubWebhookEvent) {
     const sink = this.sink;
-    if (sink === undefined) return;
-    await handleGitHubEvent(event, {
+    if (sink === undefined) return undefined;
+    return handleGitHubEvent(event, {
       sink,
       stateStore: this.state,
       botLogin: () => this.opts.botUsername,

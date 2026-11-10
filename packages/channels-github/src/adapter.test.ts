@@ -1,7 +1,11 @@
 import { createHmac } from "node:crypto";
 import { EventType } from "@ag-ui/client";
 import type { AgentSubscriber, RunAgentInput } from "@ag-ui/client";
-import { createChannel, FakeAgent } from "@copilotkit/channels-core";
+import {
+  createChannel,
+  FakeAgent,
+  MemoryStore,
+} from "@copilotkit/channels-core";
 import type { Channel, ChannelHandler } from "@copilotkit/channels-core";
 import { Actions, Button } from "@copilotkit/channels-ui";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -247,6 +251,7 @@ async function setup(
   handler: ChannelHandler,
   agentScript: AgentScript = [],
   fakeGitHub = createFakeGitHub(),
+  stateStore = new MemoryStore(),
 ) {
   const adapter = github({
     token: "ghp_test",
@@ -254,6 +259,7 @@ async function setup(
     botUsername: BOT,
     apiBaseUrl: API,
     fetch: fakeGitHub.fetch,
+    stateStore,
   });
   const channel = createChannel({
     identifyUser: "platform",
@@ -405,5 +411,34 @@ describe("github() adapter end to end", () => {
     );
 
     await vi.waitFor(() => expect(texts).toEqual(["summarize this issue"]));
+  });
+
+  it("answers 500 when the delivery's state cannot be read, and runs the turn when the delivery is sent again", async () => {
+    const consoleError = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => undefined);
+    const stateStore = new MemoryStore();
+    vi.spyOn(stateStore.kv, "get").mockRejectedValueOnce(
+      new Error("store down"),
+    );
+    const texts: string[] = [];
+    const { adapter } = await setup(
+      ({ message }) => {
+        texts.push(message.text);
+      },
+      [],
+      createFakeGitHub(),
+      stateStore,
+    );
+    const request = issueComment({ id: 6001, body: "@acme-helper retry me" });
+
+    const failed = await adapter.handleWebhook(request.clone());
+    expect(failed.status).toBe(500);
+    expect(consoleError).toHaveBeenCalledTimes(1);
+    expect(texts).toEqual([]);
+
+    const redelivered = await adapter.handleWebhook(request);
+    expect(redelivered.status).toBe(200);
+    await vi.waitFor(() => expect(texts).toEqual(["retry me"]));
   });
 });

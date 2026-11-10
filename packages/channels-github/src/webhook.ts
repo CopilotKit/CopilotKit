@@ -10,15 +10,25 @@ export interface GitHubWebhookEvent {
   payload: unknown;
 }
 
+/** The work `onEvent` leaves for after the response, such as running the agent. */
+export type GitHubWebhookDispatch = () => Promise<void>;
+
 /** Options for {@link createWebhookHandler}. */
 export interface GitHubWebhookHandlerOptions {
   /** Webhook secret set on the GitHub App or repository webhook. */
   secret: string;
-  /** Called after the 200 ack with each verified delivery (except `ping`). */
-  onEvent: (event: GitHubWebhookEvent) => Promise<void> | void;
   /**
-   * Called when `onEvent` throws or rejects. Defaults to `console.error` with a
-   * `[channels-github]` prefix. Errors never surface as unhandled rejections.
+   * Called with each verified delivery (except `ping`) before the response.
+   * Do the fast reads here. When it throws, the handler answers `500`. Return
+   * a dispatch function for the slow work: it runs after the `200`.
+   */
+  onEvent: (
+    event: GitHubWebhookEvent,
+  ) => Promise<GitHubWebhookDispatch | void> | GitHubWebhookDispatch | void;
+  /**
+   * Called when `onEvent` or its dispatch function throws or rejects. Defaults
+   * to `console.error` with a `[channels-github]` prefix. Errors never surface
+   * as unhandled rejections.
    */
   onError?: (error: unknown, event: GitHubWebhookEvent) => void;
 }
@@ -55,16 +65,22 @@ function parseJson(text: string) {
 /**
  * Create a Web-standard request handler for GitHub webhooks.
  *
- * The handler verifies `X-Hub-Signature-256` against `secret`, answers `200`
- * at once, and then calls `onEvent` in the background. It works anywhere that
- * speaks `Request`/`Response`: Hono, Next.js route handlers, Workers, or
- * Node 18+ (see `GitHubWebhookServer` for a built-in `node:http` server).
+ * The handler verifies `X-Hub-Signature-256` against `secret` and awaits
+ * `onEvent`. When `onEvent` succeeds, the handler answers `200` and then runs
+ * the dispatch function that `onEvent` returned, in the background. When
+ * `onEvent` fails, the handler answers `500`. GitHub does not retry a failed
+ * delivery by itself, but you can redeliver it from the webhook settings.
+ *
+ * The handler works anywhere that speaks `Request`/`Response`: Hono, Next.js
+ * route handlers, Workers, or Node 18+ (see `GitHubWebhookServer` for a
+ * built-in `node:http` server).
  *
  * Responses:
  * - `405` for any method except `POST`
  * - `401` when the signature is missing or wrong
  * - `400` when `X-GitHub-Event` or `X-GitHub-Delivery` is missing, or the body is not JSON
  * - `200` for `ping` (no dispatch) and for every accepted delivery
+ * - `500` when `onEvent` throws or rejects
  *
  * @example
  * ```ts
@@ -88,14 +104,17 @@ export function createWebhookHandler(options: GitHubWebhookHandlerOptions) {
       console.error("[channels-github] onError threw:", handlerError);
     }
     console.error(
-      `[channels-github] onEvent failed for ${event.name} delivery ${event.deliveryId}:`,
+      `[channels-github] handling ${event.name} delivery ${event.deliveryId} failed:`,
       error,
     );
   };
 
-  const dispatch = (event: GitHubWebhookEvent) => {
+  const runInBackground = (
+    dispatch: GitHubWebhookDispatch,
+    event: GitHubWebhookEvent,
+  ) => {
     void Promise.resolve()
-      .then(() => onEvent(event))
+      .then(dispatch)
       .catch((error: unknown) => reportError(error, event));
   };
 
@@ -124,7 +143,14 @@ export function createWebhookHandler(options: GitHubWebhookHandlerOptions) {
       return emptyResponse(400);
     }
 
-    dispatch({ name, deliveryId, payload: parsed.value });
+    const event = { name, deliveryId, payload: parsed.value };
+    try {
+      const dispatch = await onEvent(event);
+      if (dispatch) runInBackground(dispatch, event);
+    } catch (error) {
+      reportError(error, event);
+      return emptyResponse(500);
+    }
     return emptyResponse(200);
   };
 }

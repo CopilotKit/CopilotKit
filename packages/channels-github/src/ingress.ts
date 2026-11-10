@@ -1,4 +1,8 @@
-import type { IngressSink, StateStore } from "@copilotkit/channels-core";
+import type {
+  IncomingTurn,
+  IngressSink,
+  StateStore,
+} from "@copilotkit/channels-core";
 import { hasBotMarker } from "./bot-marker.js";
 import {
   conversationKeyOf,
@@ -192,7 +196,8 @@ function eventBase(
 }
 
 /**
- * Route one verified GitHub webhook delivery to the engine.
+ * Prepare one verified GitHub webhook delivery for the engine, and return the
+ * step that hands it to the engine.
  *
  * Only `issue_comment` and `pull_request_review_comment` deliveries with
  * action `created` are read. Comments by bot accounts, and comments that
@@ -200,10 +205,15 @@ function eventBase(
  *
  * 1. When the conversation has a pending choice list and the comment (with
  *    any bot mention removed) is a listed number or an option label, the list
- *    is cleared and `sink.onInteraction` gets the decoded choice.
- * 2. When the comment mentions the bot, `sink.onTurn` gets the comment text
- *    with the mention removed.
- * 3. Any other comment is ignored. GitHub is mention-only.
+ *    is cleared and the returned step calls `sink.onInteraction` with the
+ *    decoded choice.
+ * 2. When the comment mentions the bot, the returned step calls `sink.onTurn`
+ *    with the comment text, with the mention removed.
+ * 3. Any other comment gives `undefined`. GitHub is mention-only.
+ *
+ * The state store reads and the list consume happen before this function
+ * resolves, so a failure here leaves nothing dispatched. The consume runs
+ * last, so an earlier failure keeps the list for a redelivery.
  *
  * @param event - A verified delivery from `createWebhookHandler`.
  * @param deps - Engine sink, state store, and the bot login.
@@ -222,14 +232,14 @@ export async function handleGitHubEvent(
   deps: GitHubIngressDeps,
 ) {
   const delivery = readCommentDelivery(event);
-  if (delivery === undefined) return;
+  if (delivery === undefined) return undefined;
 
   const { comment, kind, target } = delivery;
   const slug = botSlugOf(await deps.botLogin());
   // The adapter's own comments carry the hidden marker. A person's comments
   // stay turns even when the token is their own.
   const isFromBot = comment.user.type === "Bot" || hasBotMarker(comment.body);
-  if (isFromBot) return;
+  if (isFromBot) return undefined;
 
   const { text, mentioned } = stripBotMention(comment.body, slug);
   const conversationKey = conversationKeyOf(target);
@@ -247,7 +257,7 @@ export async function handleGitHubEvent(
     // Clear before dispatch: the handler may post a new list, which must stay.
     // `undefined` means a concurrent reply already answered this list.
     const taken = await clearPendingChoices(deps.stateStore, conversationKey);
-    if (taken === undefined) return;
+    if (taken === undefined) return undefined;
     // A new list can replace the one read above before the consume. Decode
     // against the list actually taken, and put it back when the reply does
     // not fit it, unless an even newer list was saved meanwhile. StateStore
@@ -259,8 +269,9 @@ export async function handleGitHubEvent(
       eventBase(event, delivery, "interaction"),
     );
     if (decoded !== undefined) {
-      await deps.sink.onInteraction(decoded);
-      return;
+      return async () => {
+        await deps.sink.onInteraction(decoded);
+      };
     }
     const newer = await readPendingChoices(deps.stateStore, conversationKey);
     if (newer === undefined) {
@@ -268,7 +279,7 @@ export async function handleGitHubEvent(
     }
   }
 
-  if (!mentioned) return;
+  if (!mentioned) return undefined;
 
   const messageRef = messageRefOf({
     id: comment.id,
@@ -282,7 +293,7 @@ export async function handleGitHubEvent(
     ...delivery,
     target: { ...target, triggerCommentId: comment.id },
   };
-  await deps.sink.onTurn({
+  const turn: IncomingTurn = {
     ...eventBase(event, turnDelivery, "message"),
     platform: PLATFORM,
     userText: text,
@@ -293,5 +304,8 @@ export async function handleGitHubEvent(
       mentioned: true,
     },
     messageRef,
-  });
+  };
+  return async () => {
+    await deps.sink.onTurn(turn);
+  };
 }

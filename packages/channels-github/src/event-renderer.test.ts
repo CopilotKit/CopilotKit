@@ -488,4 +488,52 @@ describe("createRunRenderer interruption and errors", () => {
     await expect(emit.end("m1")).resolves.toBeUndefined();
     expect(github.commentBodies()).toEqual([]);
   });
+
+  it("finish rejects with the error when the final write fails, and logs it once", async () => {
+    const github = createFakeGitHub();
+    const renderer = createRenderer(github);
+    const emit = createEmitter(renderer.subscriber);
+
+    await emit.start("m1");
+    await emit.delta("m1", "One");
+    await advance();
+    github.failWith((request) =>
+      request.method === "PATCH"
+        ? new Response("boom", { status: 500 })
+        : undefined,
+    );
+    await emit.delta("m1", " two");
+    await expect(emit.end("m1")).resolves.toBeUndefined();
+
+    await expect(renderer.finish()).rejects.toMatchObject({
+      name: "GitHubApiError",
+      status: 500,
+      method: "PATCH",
+    });
+    expect(github.commentBodies()).toEqual(["One"]);
+    expect(console.warn).toHaveBeenCalledTimes(1);
+  });
+
+  it("finish resolves when the final write succeeds after an earlier edit failed", async () => {
+    const github = createFakeGitHub();
+    let failNextEdit = true;
+    github.failWith((request) => {
+      if (request.method !== "PATCH" || !failNextEdit) return undefined;
+      failNextEdit = false;
+      return new Response("boom", { status: 500 });
+    });
+    const renderer = createRenderer(github);
+    const emit = createEmitter(renderer.subscriber);
+
+    await emit.start("m1");
+    await emit.delta("m1", "One");
+    await advance();
+    await emit.delta("m1", " two");
+    await advance(1000);
+    await emit.delta("m1", "!");
+    await emit.end("m1");
+
+    await expect(renderer.finish()).resolves.toBeUndefined();
+    expect(github.commentBodies()).toEqual(["One two!"]);
+  });
 });

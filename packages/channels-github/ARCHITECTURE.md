@@ -27,7 +27,8 @@ GitHub:
    behind the `PlatformAdapter` interface.
 3. **One file, one job.** Each source file has a single responsibility.
 4. **Failures are contained.** A failed reaction or comment edit logs a
-   warning. It does not stop the run.
+   warning. It does not stop the run. A failed final reply also makes
+   `renderer.finish()` reject, so `thread.runAgent()` rejects.
 5. **GitHub is the history.** Every comment is on GitHub already, so the adapter
    reads history from GitHub on every turn. It keeps no history store. The only
    adapter state is the open numbered-choice list (`stateStore`).
@@ -72,14 +73,18 @@ GitHub (App webhook or repository webhook)
   ▼
 createWebhookHandler (webhook.ts)
   • 405 not POST, 401 bad signature, 400 missing headers or bad JSON
-  • 200 at once, then onEvent runs in the background
+  • awaits onEvent (prepare): 500 when it fails
+  • 200, then runs the returned dispatch step in the background
   ▼
 handleGitHubEvent (ingress.ts)
+  prepare, before the response:
   • reads issue_comment / pull_request_review_comment, action "created"
   • skips comments by bot accounts and comments with the hidden marker
+  • reads the open choice list, decodes the reply, consumes the list (last)
+  dispatch, after the response:
   • open choice list + numbered reply ──► sink.onInteraction
   • mentions the bot                   ──► sink.onTurn
-  • anything else                      ──► ignored
+  • anything else                      ──► ignored (no dispatch step)
   ▼
 @copilotkit/channels-core: Thread
   │  thread.runAgent()
@@ -101,10 +106,25 @@ tool handlers / onInterrupt ──► thread.post(<JSX/>)
 
 ### Ingress
 
-`createWebhookHandler` checks `X-Hub-Signature-256` with a timing-safe compare,
-answers `200`, and then calls `onEvent` in the background. A `ping` gets `200`
-and no dispatch. Errors in `onEvent` go to `console.error` with a
-`[channels-github]` prefix. They never become unhandled rejections.
+`createWebhookHandler` checks `X-Hub-Signature-256` with a timing-safe compare.
+Then it awaits `onEvent`, which is the prepare phase. If `onEvent` fails, the
+handler answers `500`. If it succeeds, the handler answers `200` and then runs
+the dispatch function that `onEvent` returned, in the background. A `ping` gets
+`200` and no dispatch. Errors in `onEvent` and in the dispatch go to
+`console.error` with a `[channels-github]` prefix. They never become unhandled
+rejections.
+
+GitHub does not retry a failed delivery automatically. A `500` shows as a
+failed delivery in **Recent Deliveries** of the webhook settings, and you can
+redeliver it from there. A redelivery is not a duplicate for the engine: the
+engine marks an event as seen in the sink, and a failed prepare never calls
+the sink.
+
+`handleGitHubEvent` is split in two phases. The prepare phase runs before the
+response, inside the 10 s ack deadline of GitHub. It reads the payload, the
+open choice list, and decodes a numbered reply. It consumes the list last, so
+an earlier failure keeps the list for the redelivery. The dispatch phase runs
+after the response and calls `sink.onTurn` or `sink.onInteraction`.
 
 `handleGitHubEvent` reads only `issue_comment` and
 `pull_request_review_comment` deliveries with action `created`. It builds the
@@ -163,6 +183,9 @@ already on GitHub, so the store seeds the inbound turn
 
 - The first text creates the comment. Later text edits it, at most once per
   second. A rate-limit error moves the next edit later.
+- A failed edit logs a warning. If the final write of a text message fails,
+  `finish()` rejects with that error after the log, so `thread.runAgent()`
+  rejects. A later write that succeeds clears the failure.
 - When the text passes the soft limit (65,536 minus 256 characters), the
   current comment is frozen and the text continues in a new comment. The cut
   goes after a newline, else after a space.
@@ -225,9 +248,9 @@ src/
 ├── index.ts               # public exports
 ├── adapter.ts             # github() factory + GitHubAdapter (PlatformAdapter impl)
 ├── types.ts               # GitHubAdapterOptions, ReplyTarget, GitHubMessageRef, webhook payload types
-├── webhook.ts             # createWebhookHandler: signature check, status codes, background dispatch
+├── webhook.ts             # createWebhookHandler: signature check, status codes, prepare, background dispatch
 ├── webhook-server.ts      # GitHubWebhookServer: node:http wrapper for the built-in server (port)
-├── ingress.ts             # handleGitHubEvent: comment delivery → onTurn / onInteraction
+├── ingress.ts             # handleGitHubEvent: prepare a comment delivery, dispatch to onTurn / onInteraction
 ├── interaction.ts         # conversationKeyOf, decodeChoiceReply, messageRefOf
 ├── pending-choices.ts     # open numbered-choice list per conversation, in stateStore
 ├── event-renderer.ts      # createRunRenderer: AG-UI subscriber → streamed, split comments + eyes reaction

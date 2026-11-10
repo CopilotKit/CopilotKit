@@ -131,7 +131,8 @@ const PENDING: PendingChoices = {
   ],
 };
 
-async function deliver(
+/** Run the prepare phase only. `dispatch` hands the event to the recording sink. */
+async function prepare(
   event: GitHubWebhookEvent,
   options: {
     pending?: PendingChoices;
@@ -145,7 +146,7 @@ async function deliver(
   }
   const turns: IncomingTurn[] = [];
   const interactions: InteractionEvent[] = [];
-  await handleGitHubEvent(event, {
+  const dispatch = await handleGitHubEvent(event, {
     sink: {
       onTurn: (turn) => {
         turns.push(turn);
@@ -157,7 +158,17 @@ async function deliver(
     stateStore,
     botLogin: () => options.botLogin ?? BOT_LOGIN,
   });
-  return { turns, interactions, stateStore };
+  return { turns, interactions, stateStore, dispatch };
+}
+
+/** Prepare `event`, then run its dispatch step. */
+async function deliver(
+  event: GitHubWebhookEvent,
+  options: Parameters<typeof prepare>[1] = {},
+) {
+  const { dispatch, ...recorded } = await prepare(event, options);
+  await dispatch?.();
+  return recorded;
 }
 
 function onlyTurn(turns: IncomingTurn[]) {
@@ -271,6 +282,32 @@ describe("handleGitHubEvent: turns", () => {
       });
     },
   );
+});
+
+describe("handleGitHubEvent: prepare and dispatch", () => {
+  it("reaches the sink only when the returned dispatch step runs", async () => {
+    const { turns, dispatch } = await prepare(
+      issueComment({ body: "@acme-helper hi" }),
+    );
+    expect(turns).toEqual([]);
+
+    await dispatch?.();
+    expect(turns.map((turn) => turn.userText)).toEqual(["hi"]);
+  });
+
+  it("consumes the choice list before it resolves, and hands the choice to the sink only in dispatch", async () => {
+    const { interactions, stateStore, dispatch } = await prepare(
+      issueComment({ body: "1" }),
+      { pending: PENDING },
+    );
+    expect(interactions).toEqual([]);
+    expect(await readPendingChoices(stateStore, ISSUE_KEY)).toBeUndefined();
+
+    await dispatch?.();
+    expect(interactions.map(({ id, value }) => ({ id, value }))).toEqual([
+      { id: "ck:deploy", value: "deploy" },
+    ]);
+  });
 });
 
 describe("handleGitHubEvent: ignored deliveries", () => {

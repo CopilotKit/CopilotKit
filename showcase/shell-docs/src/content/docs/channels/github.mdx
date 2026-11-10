@@ -144,9 +144,18 @@ The adapter does not add `defaultGitHubContext` by itself. Keep it in
 [Tools and context](/channels/tools) for more context options.
 
 <Callout type="info" title="Run on a long-running host">
-  `handleWebhook` answers GitHub with `200` at once, then runs the agent in the
-  background. A serverless function can freeze before that work ends. Run the
-  Channel on a long-running Node.js host.
+  `handleWebhook` reads the open choice list of the conversation, answers
+  GitHub with `200`, and then runs the agent in the background. A serverless
+  function can freeze before that work ends. Run the Channel on a long-running
+  Node.js host.
+</Callout>
+
+<Callout type="info" title="Failed deliveries and replies">
+  If the adapter cannot read the event, it logs the error and answers `500`.
+  GitHub does not retry a failed delivery automatically. To send it again, open
+  the webhook settings, find the delivery in **Recent Deliveries**, and click
+  **Redeliver**. If the final reply comment cannot be written,
+  `thread.runAgent()` rejects with the error.
 </Callout>
 
 ## 5. Send the first message
