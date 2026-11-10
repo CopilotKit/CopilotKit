@@ -538,6 +538,7 @@ function generateLayout(): string {
   return `import type { Metadata } from "next";
 import "@copilotkit/react-core/v2/styles.css";
 import "./globals.css";
+import { themeScript } from "../../_shared/ts/theme";
 
 export const metadata: Metadata = {
     title: "CopilotKit Showcase",
@@ -549,7 +550,10 @@ export default function RootLayout({
     children: React.ReactNode;
 }) {
     return (
-        <html lang="en">
+        <html lang="en" suppressHydrationWarning>
+            <head>
+                <script dangerouslySetInnerHTML={{ __html: themeScript() }} />
+            </head>
             <body>
                 <script
                     dangerouslySetInnerHTML={{
@@ -589,9 +593,32 @@ function generateGlobalsCss(): string {
   return `@import "tailwindcss";
 @import "@copilotkit/react-core/v2/styles.css";
 
+/* The layout's theme script puts \`class="dark"\` on <html>; \`dark:\` follows it. */
+@custom-variant dark (&:where(.dark, .dark *));
+
 :root {
+    color-scheme: light;
     --copilot-kit-background-color: #f8f9fa;
     --copilot-kit-primary-color: #0066ff;
+    --background: #ffffff;
+    --foreground: #1a1a18;
+    --border: #dbdbe5;
+}
+
+:root.dark {
+    color-scheme: dark;
+    --background: #0a0a0a;
+    --foreground: #fafafa;
+    --border: #303136;
+}
+
+/* In dark mode, a \`border\` without a color takes --border, not currentColor. */
+@layer base {
+    .dark *,
+    .dark ::before,
+    .dark ::after {
+        border-color: var(--border);
+    }
 }
 
 * {
@@ -601,6 +628,8 @@ function generateGlobalsCss(): string {
 body {
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
     min-height: 100vh;
+    background: var(--background);
+    color: var(--foreground);
 }
 `;
 }
@@ -1825,6 +1854,13 @@ async function main() {
       generateAgentServer(args),
     );
   }
+
+  // Shared integration source (the theme bootstrap the layout inlines, among
+  // others). Builds dereference this link into the Docker context.
+  fs.symlinkSync("../_shared", path.join(packageDir, "_shared"));
+  console.log(
+    `  Linked:  ${path.relative(ROOT, packageDir)}/_shared -> ../_shared`,
+  );
 
   // App source
   writeFile(
