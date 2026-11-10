@@ -1,7 +1,5 @@
-import {
-  DEFAULT_AWAIT_CHOICE_TIMEOUT_MS,
-  type StateStore,
-} from "@copilotkit/channels-core";
+import { DEFAULT_AWAIT_CHOICE_TIMEOUT_MS } from "@copilotkit/channels-core";
+import type { StateStore } from "@copilotkit/channels-core";
 import type { RenderedChoice } from "./render/message.js";
 import type { NotionMessageRef } from "./types.js";
 

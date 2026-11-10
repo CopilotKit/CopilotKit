@@ -6,11 +6,8 @@ import type {
 } from "@copilotkit/channels-core";
 import type { ThreadMessage } from "@copilotkit/channels-ui";
 import type { NotionApiClient } from "./client.js";
-import {
-  addressedText,
-  resolveTrigger,
-  type NotionBotIdentity,
-} from "./ingress.js";
+import { addressedText, resolveTrigger } from "./ingress.js";
+import type { NotionBotIdentity } from "./ingress.js";
 import { richTextToPlainText } from "./render/rich-text.js";
 import type { NotionComment, ReplyTarget } from "./types.js";
 

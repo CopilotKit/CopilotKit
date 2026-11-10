@@ -1,16 +1,14 @@
-import {
-  MemoryStore,
-  type IncomingTurn,
-  type InteractionEvent,
-} from "@copilotkit/channels-core";
+import { MemoryStore } from "@copilotkit/channels-core";
+import type { IncomingTurn, InteractionEvent } from "@copilotkit/channels-core";
 import { describe, expect, it } from "vitest";
 import {
   markJoined,
   readPendingChoices,
   savePendingChoices,
-  type PendingChoices,
 } from "./conversation-state.js";
-import { handleNotionEvent, type NotionIngressDeps } from "./ingress.js";
+import type { PendingChoices } from "./conversation-state.js";
+import { handleNotionEvent } from "./ingress.js";
+import type { NotionIngressDeps } from "./ingress.js";
 import type {
   NotionComment,
   NotionWebhookEvent,

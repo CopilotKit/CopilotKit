@@ -1,10 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { PendingChoices } from "./conversation-state.js";
-import {
-  conversationKeyOf,
-  decodeChoiceReply,
-  type InteractionBase,
-} from "./interaction.js";
+import { conversationKeyOf, decodeChoiceReply } from "./interaction.js";
+import type { InteractionBase } from "./interaction.js";
 
 const base: InteractionBase = {
   conversationKey: "notion:disc-1",

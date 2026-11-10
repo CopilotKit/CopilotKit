@@ -1,10 +1,10 @@
-import {
-  MemoryStore,
-  type IngressSink,
-  type PlatformAdapter,
-  type StateStore,
-  type SurfaceCapabilities,
-  type UserQuery,
+import { MemoryStore } from "@copilotkit/channels-core";
+import type {
+  IngressSink,
+  PlatformAdapter,
+  StateStore,
+  SurfaceCapabilities,
+  UserQuery,
 } from "@copilotkit/channels-core";
 import type { ChannelNode } from "@copilotkit/channels-ui";
 import { NotionApiClient } from "./client.js";
@@ -16,9 +16,11 @@ import {
 } from "./conversation-state.js";
 import { NotionConversationStore } from "./conversation-store.js";
 import { createRunRenderer } from "./event-renderer.js";
-import { handleNotionEvent, type NotionBotIdentity } from "./ingress.js";
+import { handleNotionEvent } from "./ingress.js";
+import type { NotionBotIdentity } from "./ingress.js";
 import { NOTION_LIMITS, truncateText } from "./render/budget.js";
-import { renderNotionMessage, type RenderedChoice } from "./render/message.js";
+import { renderNotionMessage } from "./render/message.js";
+import type { RenderedChoice } from "./render/message.js";
 import { markdownToRichText } from "./render/rich-text.js";
 import type {
   NotionAdapterOptions,
