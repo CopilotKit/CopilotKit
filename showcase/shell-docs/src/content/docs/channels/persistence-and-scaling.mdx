@@ -1,7 +1,7 @@
 ---
 title: Persistence and scaling
 icon: "lucide/Database"
-description: Make Slack and Teams workflow state restart-safe, implement the StateStore contract, and deploy within the managed listener's concurrency model.
+description: Make Slack and Teams workflow state restart-safe with the Redis or Postgres store or your own StateStore, and deploy within the managed listener's concurrency model.
 doc_type: how-to
 ---
 
@@ -113,9 +113,97 @@ channel.onMessage(async ({ thread, message }) => {
 Store JSON-serializable values; remote backends do not preserve `Date`, `Map`,
 class instances, or functions.
 
+## Use the Redis or Postgres store
+
+CopilotKit ships two durable stores. Each store is a separate package and
+passes the `StateStore` conformance suite.
+
+| Package                               | Backend            | Driver              |
+| ------------------------------------- | ------------------ | ------------------- |
+| `@copilotkit/channels-store-redis`    | Redis 6.2 or later | `redis` (version 4) |
+| `@copilotkit/channels-store-postgres` | Postgres           | `pg` (version 8)    |
+
+The examples on this page import `durableStateStore` from `state-store.ts`.
+Create it there with one of these stores.
+
+### Redis
+
+```bash title="Terminal"
+npm install @copilotkit/channels-store-redis
+```
+
+```ts title="state-store.ts"
+import { createRedisStore } from "@copilotkit/channels-store-redis";
+
+export const durableStateStore = createRedisStore({
+  url: process.env.REDIS_URL,
+  keyPrefix: "support-channel:",
+});
+```
+
+| Option      | Default | Meaning                                                    |
+| ----------- | ------- | ---------------------------------------------------------- |
+| `url`       | none    | Connection URL, for example `redis://localhost:6379`.      |
+| `client`    | none    | A node-redis client to use instead of `url`.               |
+| `keyPrefix` | `cpk:`  | Prefix for every key the store writes.                     |
+| `onError`   | none    | Gets connection errors from a client that the store makes. |
+
+The store connects on first use. Redis removes expired keys itself. Call
+`await durableStateStore.quit()` on shutdown. `quit()` does not close a
+`client` that you supply.
+
+### Postgres
+
+```bash title="Terminal"
+npm install @copilotkit/channels-store-postgres
+```
+
+```ts title="state-store.ts"
+import { createPostgresStore } from "@copilotkit/channels-store-postgres";
+
+export const durableStateStore = createPostgresStore({
+  connectionString: process.env.DATABASE_URL,
+  autoMigrate: true,
+  keyPrefix: "support-channel:",
+});
+```
+
+| Option             | Default | Meaning                                           |
+| ------------------ | ------- | ------------------------------------------------- |
+| `connectionString` | none    | Connection string for a new `pg` pool.            |
+| `pool`             | none    | A `pg` pool to use instead of `connectionString`. |
+| `autoMigrate`      | `false` | Create the tables on first use.                   |
+| `keyPrefix`        | `cpk:`  | Prefix for every key the store writes.            |
+
+The store uses three tables: `cpk_state_kv`, `cpk_state_list`, and
+`cpk_state_queue`. If you do not set `autoMigrate`, create the tables before
+the Channel starts:
+
+```ts title="migrate.ts"
+import pg from "pg";
+import { migrate } from "@copilotkit/channels-store-postgres";
+
+const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL });
+await migrate(pool);
+await pool.end();
+```
+
+`migrate()` is safe to run more than once. Reads delete the expired rows that
+they find. To delete expired rows that nobody reads, call
+`await durableStateStore.sweepExpired()` on a schedule. Call
+`await durableStateStore.end()` on shutdown. `end()` does not close a `pool`
+that you supply.
+
+### Share one store between replicas
+
+Point every replica at the same server and the same `keyPrefix`. Then locks,
+deduplication, and queues apply across all replicas. Give each Channel its
+own `keyPrefix` so that one Channel cannot read the keys of another.
+
 ## Implement every StateStore facet
 
-A complete production store implements:
+To use a different backend, write your own store. A complete production store
+implements:
 
 | Facet   | Required behavior                                          |
 | ------- | ---------------------------------------------------------- |
@@ -152,8 +240,8 @@ Run it against the real backend:
 npx vitest run state-store.test.ts
 ```
 
-The SDK ships `MemoryStore` and the conformance suite; it does not ship a fully
-durable Redis or Postgres implementation in the umbrella package.
+The umbrella package ships `MemoryStore` and the conformance suite. The durable
+Redis and Postgres stores are in their own packages, shown above.
 
 ## Preserve interactive callbacks across restarts
 
@@ -232,7 +320,8 @@ do not use it to raise the managed same-Thread delivery limit. See
 
 - Prefer an agent factory; singletons are cloned per run automatically.
 - Choose `store.concurrency` deliberately if you need serial workflow state.
-- Provide a durable store before promising restart-safe state or callbacks.
+- Provide a durable store, for example the Redis or Postgres store, before
+  promising restart-safe state or callbacks.
 - Run the StateStore conformance suite against the real backend.
 - Test a restart while a card is awaiting a click.
 - Make external writes idempotent.
