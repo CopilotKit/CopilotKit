@@ -375,7 +375,13 @@ const TODO = "TODO(copilotkit-2.0)";
 function hasTodoNear(appDir, file, line) {
   try {
     const lines = fs.readFileSync(path.join(appDir, file), "utf8").split("\n");
-    for (let i = Math.max(0, line - 6); i < Math.min(lines.length, line); i++) {
+    // Above the error, or inside the statement it starts (a TODO before a
+    // property of a call reported on the call's first line).
+    for (
+      let i = Math.max(0, line - 6);
+      i < Math.min(lines.length, line + 8);
+      i++
+    ) {
       if (lines[i].includes(TODO)) return true;
     }
   } catch {
@@ -405,6 +411,39 @@ function classify(appDir, error, beforeKeys, originalKeys) {
   if (hasTodoNear(appDir, error.file, error.line)) return "todo";
   if (beforeKeys.has(key)) return "unchanged";
   return "unexplained";
+}
+
+// ---------------------------------------------------------------------------
+// The dependency step of the migration skill (`agents/skill/v2-migration`):
+// add the packages that the migrated code now imports.
+
+/** Versions the 2.0 packages use; anything else installs as `latest`. */
+const COMPANION_VERSIONS = {
+  zod: "^4.2.0",
+  "@ag-ui/client": "1.0.4",
+  "@ag-ui/core": "1.0.4",
+  "@ag-ui/encoder": "1.0.4",
+  "@ag-ui/langgraph": "latest",
+  "@tanstack/ai": "^1.2.0",
+  "@tanstack/ai-openai": "^1.1.1",
+  "@tanstack/ai-anthropic": "^1.1.1",
+  "@tanstack/ai-gemini": "^1.1.1",
+  "@tanstack/ai-mcp": "^1.1.0",
+};
+
+/** Packages that a missing-dependency error names, by project. */
+function missingPackages(after) {
+  const byProject = new Map();
+  for (const [dir, result] of Object.entries(after)) {
+    for (const error of result.errors) {
+      if (error.kind !== "missing-dep") continue;
+      const match = /Cannot find module '([^']+)'/.exec(error.message);
+      const pkg = match && packageOf(match[1]);
+      if (!pkg || !(pkg in COMPANION_VERSIONS)) continue;
+      byProject.set(dir, (byProject.get(dir) ?? new Set()).add(pkg));
+    }
+  }
+  return byProject;
 }
 
 // ---------------------------------------------------------------------------
@@ -669,6 +708,58 @@ async function runExample(example, args, tarballs, index) {
     report.after[project.dir] = after;
   }
 
+  // 5b. The skill's dependency step, then the type check again: what an app
+  // looks like once its package.json is updated.
+  const missing = missingPackages(report.after);
+  report.addedDependencies = Object.fromEntries(
+    [...missing].map(([dir, pkgs]) => [dir, [...pkgs]]),
+  );
+  if (missing.size > 0 && !args.skipInstall) {
+    const roots = new Set();
+    for (const [dir, pkgs] of missing) {
+      const file = path.join(appDir, dir, "package.json");
+      const pkg = readJson(file);
+      pkg.dependencies = { ...pkg.dependencies };
+      for (const name of pkgs)
+        pkg.dependencies[name] = COMPANION_VERSIONS[name];
+      writeJson(file, pkg);
+      roots.add(installRootFor(appDir, dir));
+    }
+    for (const root of roots) {
+      await run(
+        "pnpm",
+        [
+          "install",
+          "--no-frozen-lockfile",
+          "--ignore-scripts",
+          "--prefer-offline",
+          "--reporter=silent",
+        ],
+        { cwd: path.join(appDir, root), timeout: 15 * 60 * 1000 },
+      );
+    }
+    report.afterDeps = {};
+    for (const project of tsProjects) {
+      const result = await typecheck(appDir, project);
+      const beforeKeys = new Set(
+        report.before[project.dir].errors.map(
+          (e) => `${e.file}|${e.code}|${e.message}`,
+        ),
+      );
+      const originalKeys = new Set(
+        (report.original[project.dir]?.errors ?? []).map(
+          (e) => `${e.file}|${e.code}|${e.message}`,
+        ),
+      );
+      for (const error of result.errors) {
+        error.kind = classify(appDir, error, beforeKeys, originalKeys);
+      }
+      report.afterDeps[project.dir] = result;
+    }
+  } else {
+    report.afterDeps = report.after;
+  }
+
   // 6. v1 imports left in the code.
   report.leftovers = scanLeftovers(appDir);
   return report;
@@ -694,7 +785,9 @@ function summarize(reports) {
       (n, t) => n + t.errors.length,
       0,
     );
-    const afterErrors = Object.values(r.after ?? {}).flatMap((t) => t.errors);
+    const afterErrors = Object.values(r.afterDeps ?? r.after ?? {}).flatMap(
+      (t) => t.errors,
+    );
     const counts = Object.fromEntries(kinds.map((k) => [k, 0]));
     for (const e of afterErrors) counts[e.kind] = (counts[e.kind] ?? 0) + 1;
     for (const k of kinds) totals[k] += counts[k];
