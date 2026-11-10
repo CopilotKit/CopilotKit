@@ -92,6 +92,12 @@ export interface ChunkedMessageStreamConfig {
 }
 
 const DEFAULT_LIMIT = 3900;
+/**
+ * Chat's hard cap on message text. `transform` (Markdown to Chat format) and
+ * fence balancing run after the split and can push a chunk past it, which
+ * makes Chat reject the edit.
+ */
+const HARD_LIMIT = 4096;
 
 export class ChunkedMessageStream {
   private buffer = "";
@@ -212,7 +218,15 @@ export class ChunkedMessageStream {
       const name = await this.postPlaceholder(placeholder);
       this.streams.push(
         new MessageStream({
-          update: (text) => this.updateAt(name, this.transform(text) || " "),
+          update: (text) => {
+            const out = this.transform(text) || " ";
+            return this.updateAt(
+              name,
+              out.length > HARD_LIMIT
+                ? out.slice(0, HARD_LIMIT - 1) + "…"
+                : out,
+            );
+          },
           minIntervalMs: this.minIntervalMs,
         }),
       );

@@ -231,3 +231,23 @@ describe("ChunkedMessageStream placeholder failures", () => {
     await expect(s.finish()).rejects.toThrow("503");
   });
 });
+
+describe("ChunkedMessageStream hard limit", () => {
+  it("caps a chunk that the transform grows past Chat's 4096-character limit", async () => {
+    const updates: string[] = [];
+    const s = new ChunkedMessageStream({
+      postPlaceholder: async () => "spaces/A/messages/M1",
+      updateAt: async (_name, text) => {
+        updates.push(text);
+      },
+      // Doubles the text, as a bullet- or table-heavy conversion can grow it.
+      transform: (t) => t + t,
+      minIntervalMs: 0,
+    });
+    s.append("x".repeat(3000));
+    await s.finish();
+    const last = updates.at(-1)!;
+    expect(last).toHaveLength(4096);
+    expect(last.endsWith("…")).toBe(true);
+  });
+});
