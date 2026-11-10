@@ -1,6 +1,6 @@
 ---
 title: Direct provider adapters
-description: Public Slack, Teams, Discord, and WhatsApp adapter entry points in @copilotkit/channels.
+description: Public Slack, Teams, Discord, WhatsApp, and Google Chat adapter entry points in @copilotkit/channels.
 ---
 
 import ChannelsInstall from "@/snippets/shared/channels/install.mdx";
@@ -10,10 +10,10 @@ import ChannelsInstall from "@/snippets/shared/channels/install.mdx";
 | Model                | Channel declaration                                      | Provider connection                                                                       | Available providers                                     |
 | -------------------- | -------------------------------------------------------- | ----------------------------------------------------------------------------------------- | ------------------------------------------------------- |
 | Cloud-hosted Intelligence | `createChannel({ name, identifyUser, agent })`           | CopilotKit Intelligence stores provider credentials and owns ingress and egress           | Slack and Microsoft Teams                               |
-| Direct adapter       | `createChannel({ name, adapters, identifyUser, agent })` | Your Channels process stores provider credentials and owns the provider socket or webhook | Slack, Microsoft Teams, Discord, and WhatsApp           |
+| Direct adapter       | `createChannel({ name, adapters, identifyUser, agent })` | Your Channels process stores provider credentials and owns the provider socket or webhook | Slack, Microsoft Teams, Discord, WhatsApp, and Google Chat |
 
-Cloud-hosted Intelligence support for Discord and WhatsApp is coming soon. Their
-direct adapters already ship in `@copilotkit/channels`.
+Cloud-hosted Intelligence support for Discord, WhatsApp, and Google Chat is
+coming soon. Their direct adapters already ship in `@copilotkit/channels`.
 
 <Callout type="info" title="Direct does not mean standalone">
   A direct adapter moves the provider connection into your process. The
@@ -175,6 +175,50 @@ import {
 and `verifyToken`. The webhook server uses port `3000` and path `/webhook` by
 default. The entry point also exports its client, renderer, conversation and
 history stores, built-in context and tools, file helpers, and `WA_LIMITS`.
+
+### Google Chat
+
+```ts
+import {
+  googleChat,
+  GoogleChatAdapter,
+  type GoogleChatAdapterOptions,
+} from "@copilotkit/channels/google-chat";
+```
+
+The adapter receives Google Chat events on an HTTPS webhook and replies through
+the Chat REST API. It accepts the Chat API event format and the Google
+Workspace add-on event format.
+
+Set the webhook verifier that matches the Chat app's **Authentication
+audience** setting. The constructor fails when you set neither option:
+
+| Authentication audience | Option                    | Notes                                                                                                                    |
+| ----------------------- | ------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| HTTP endpoint URL       | `endpointUrl`             | Use the exact URL from the Chat app configuration. For an add-on Chat app, also set `workspaceAddOnServiceAccountEmail`. |
+| Project number          | `googleChatProjectNumber` | Use the Google Cloud project number.                                                                                     |
+
+For an add-on Chat app, `endpointUrl` is also required for card buttons. An
+add-on sends each button click to a URL, not to a function name.
+
+The adapter calls the Chat API as a service account. Pass the key in
+`credentials`, or set `GOOGLE_CHAT_CREDENTIALS`. If neither is set, the adapter
+uses Application Default Credentials.
+
+Set `port` to start a webhook server. The default path is `/`. To use your own
+HTTP server, mount `adapter.nodeHandler`, or call `adapter.requestHandler` with
+the request headers and the parsed JSON body. The adapter replies to the
+webhook immediately and runs the agent after the reply.
+
+In a space, Google Chat sends the app only the messages that @-mention it. The
+adapter answers in the thread of that message. In a direct message, the app
+gets every message. The adapter keeps its own transcript of each thread and
+gives it to the agent on every turn. The default store is in memory. For a
+durable store, pass a `historyStore`.
+
+The adapter does not support modals, reactions, file uploads, or user lookup.
+Configure slash commands in the Google Cloud console. The adapter sends each
+command to the `onCommand` handler with the same name.
 
 ## Capability boundaries
 
