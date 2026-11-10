@@ -10,6 +10,7 @@ import type TS from "codemod:ast-grep/langs/typescript";
 import type TSX from "codemod:ast-grep/langs/tsx";
 import { V1_API } from "./v1-api.ts";
 import type { V1Export } from "./v1-api.ts";
+import { byteIndex, charIndex } from "./offsets.ts";
 
 type Lang = TS | TSX;
 type Node = SgNode<Lang>;
@@ -636,7 +637,10 @@ const codemod: Codemod<Lang> = async (root, options) => {
     if (REMOVED_RUNTIME_PATHS.has(value)) {
       const comment = `/* ${TODO} ${ADAPTER_NOTE} */`;
       if (
-        !source.slice(0, string.range().start.index).trimEnd().endsWith(comment)
+        !source
+          .slice(0, charIndex(source, string.range().start.index))
+          .trimEnd()
+          .endsWith(comment)
       ) {
         edits.push(string.replace(`${comment} ${string.text()}`));
       }
@@ -762,17 +766,23 @@ function commentBefore(
 ): Edit | undefined {
   const comment = `/* ${TODO} ${message} */`;
   const start = node.range().start.index;
-  if (source.slice(0, start).trimEnd().endsWith(comment)) return undefined;
+  if (source.slice(0, charIndex(source, start)).trimEnd().endsWith(comment)) {
+    return undefined;
+  }
   return { startPos: start, endPos: start, insertedText: `${comment} ` };
 }
 
 /** Deletes `node` with its indentation and line break. */
 function deleteLine(node: Node, source: string): Edit {
-  let startPos = node.range().start.index;
-  let endPos = node.range().end.index;
-  while (startPos > 0 && /[ \t]/.test(source[startPos - 1]!)) startPos--;
-  if (source[endPos] === "\n") endPos++;
-  return { startPos, endPos, insertedText: "" };
+  let start = charIndex(source, node.range().start.index);
+  let end = charIndex(source, node.range().end.index);
+  while (start > 0 && /[ \t]/.test(source[start - 1]!)) start--;
+  if (source[end] === "\n") end++;
+  return {
+    startPos: byteIndex(source, start),
+    endPos: byteIndex(source, end),
+    insertedText: "",
+  };
 }
 
 /** The name of an object key or JSX attribute, without quotes. */
@@ -1318,7 +1328,7 @@ function adapterImportEdits(
   const end = last.range().end.index;
   const lines = added.join("\n");
   const insert =
-    source[end] === "\n"
+    source[charIndex(source, end)] === "\n"
       ? { startPos: end + 1, endPos: end + 1, insertedText: `${lines}\n` }
       : { startPos: end, endPos: end, insertedText: `\n${lines}` };
   return [...edits, insert];

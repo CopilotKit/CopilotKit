@@ -1,6 +1,7 @@
 import type { Edit, SgNode } from "codemod:ast-grep";
 import type TS from "codemod:ast-grep/langs/typescript";
 import type TSX from "codemod:ast-grep/langs/tsx";
+import { charIndex } from "./offsets.ts";
 
 type Node = SgNode<TS | TSX>;
 
@@ -45,7 +46,9 @@ export function angularCopyButtonEdits(rootNode: Node, source: string) {
   for (const write of writes) {
     const comment = `/* ${TODO} ${COPIED_NOTE} */`;
     const start = write.range().start.index;
-    if (source.slice(0, start).trimEnd().endsWith(comment)) continue;
+    if (source.slice(0, charIndex(source, start)).trimEnd().endsWith(comment)) {
+      continue;
+    }
     edits.push({ startPos: start, endPos: start, insertedText: `${comment} ` });
   }
   return edits;

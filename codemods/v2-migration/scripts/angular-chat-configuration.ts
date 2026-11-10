@@ -1,6 +1,7 @@
 import type { Edit, SgNode } from "codemod:ast-grep";
 import type TS from "codemod:ast-grep/langs/typescript";
 import type TSX from "codemod:ast-grep/langs/tsx";
+import { charIndex } from "./offsets.ts";
 
 type Node = SgNode<TS | TSX>;
 
@@ -102,8 +103,9 @@ export function migrateAngularChatConfiguration(rootNode: Node) {
     });
     for (const method of methods) {
       const start = method.range().start.index;
-      const lineStart = source.lastIndexOf("\n", start - 1) + 1;
-      const indent = source.slice(lineStart, start);
+      const startChar = charIndex(source, start);
+      const lineStart = source.lastIndexOf("\n", startChar - 1) + 1;
+      const indent = source.slice(lineStart, startChar);
       const comment = `// ${TODO} ${OVERRIDE_NOTE}`;
       if (source.slice(0, lineStart).trimEnd().endsWith(comment)) continue;
       edits.push({
