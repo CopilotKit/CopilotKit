@@ -7,6 +7,7 @@ snippet_cell: readonly-state-agent-context
 ---
 
 import InspectorPaneContext from "@/snippets/shared/inspector/open-inspector-pane-context.mdx";
+import AgentContextJsonString from "@/snippets/shared/basics/agent-context-json-string.mdx";
 
 
 <InlineDemo demo="readonly-state-agent-context" />
@@ -51,13 +52,21 @@ runtime that is:
 - Automatically removed when the component unmounts.
 - Sent to the agent with every run. The Built-in Agent adds each entry to
   the system prompt. Python LangGraph agents need `CopilotKitMiddleware`
-  to add the entries.
+  to add the entries, and ADK agents need an instruction provider.
+  Microsoft Agent Framework, CrewAI Flows and Pydantic AI agents drop the
+  entries silently unless you wire them. The setup above shows the code
+  for your framework.
 
 <Snippet region="use-agent-context-call" title="frontend/src/app/page.tsx — useAgentContext" />
 
 The `description` is important: it's a short human-readable label the
 agent sees alongside the value, so it knows what to do with it. Treat
 it like a parameter docstring.
+
+Call `useAgentContext` in as many components as you like. The agent
+receives every registered entry.
+
+<AgentContextJsonString components={props.components} />
 
 ## Wire it to your own state
 
@@ -69,6 +78,15 @@ React to avoid a render loop. In the demo we use a handful of
 provider, a router hook, and your domain state stores.
 
 <Snippet region="context-provider-sketch" title="frontend/src/app/page.tsx — sourcing context values" />
+
+## Treat entries as untrusted input
+
+Every entry is a claim your frontend made, and a user can change it. It
+never proves who is making the request. Let entries inform the agent's
+answer, but take facts that grant access, such as the authenticated user,
+the workspace, or the tenant, from your server. If your agent builds its
+prompt from entries, keep them apart from your own instructions, so text in
+an entry can't override them.
 
 ## Try it
 

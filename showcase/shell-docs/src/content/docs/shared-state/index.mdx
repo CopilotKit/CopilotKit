@@ -2,6 +2,7 @@
 title: Shared State
 description: Create a two-way connection between your UI and agent state.
 icon: "lucide/Repeat"
+snippet_cell: shared-state-read-write
 ---
 
 import InspectorPaneState from "@/snippets/shared/inspector/open-inspector-pane-state.mdx";
@@ -65,6 +66,26 @@ This makes shared state two-way. The UI can also send the agent new inputs,
 such as preferences, selections, or partial work. These inputs do not go
 through the chat.
 
+The agent reads the new state on its next run. To run it right away, call
+`copilotkit.runAgent({ agent })` (from `useCopilotKit`) after `setState`.
+Running through `copilotkit` also sends your frontend tools and context with
+the run. To tell the model what changed, add a hint message first:
+
+```tsx
+const { copilotkit } = useCopilotKit();
+
+agent.setState({ language: newLanguage });
+agent.addMessage({
+  id: crypto.randomUUID(),
+  role: "user",
+  content: `the language has been updated to ${newLanguage}`,
+});
+await copilotkit.runAgent({ agent });
+```
+
+See [Programmatic control](/programmatic-control) for more ways to run the
+agent from code.
+
 ## Rendering shared state in the UI
 
 Because `agent.state` is plain React data, the UI layer is whatever you'd
@@ -86,10 +107,21 @@ long-running tool call appears as one big burst at the end. State streaming
 copies one tool argument into a state key while the model writes it. The UI
 shows the answer token by token.
 
+<WhenFrameworkSupports feature="shared-state-streaming">
+
 <Snippet region="state-streaming-middleware" cell="shared-state-streaming" title="backend: streaming state update" />
 
 See **[State streaming](/shared-state/streaming)** for the full walkthrough,
 including the corresponding `useAgent` subscription on the frontend.
+
+</WhenFrameworkSupports>
+
+<WhenFrameworkSupports feature="shared-state-streaming" not>
+
+State streaming isn't available on this framework yet. The UI gets the
+agent's state between checkpoints.
+
+</WhenFrameworkSupports>
 
 ## Read-only context
 

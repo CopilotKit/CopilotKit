@@ -83,7 +83,8 @@ In your app, use your own runtime URL and your own chat in place of the
 demo's `Chat` component.
 
 That is all the default path needs. The catalog auto-enables A2UI and
-injects the `generate_a2ui` tool, so the runtime needs no `a2ui` block.
+injects the `generate_a2ui` tool, so the runtime needs no `a2ui` block,
+unless your agent brings its own A2UI tool (see [Agent setup](#agent-setup)).
 (No catalog? Turn it on from the runtime instead with
 `a2ui: { injectA2UITool: true }`.)
 </Step>
@@ -96,6 +97,14 @@ dashboard for this quarter`. The dashboard renders in the chat with the
 components from your catalog.
 </Step>
 </Steps>
+
+## Agent setup
+
+Tell the model in its instructions when to call `generate_a2ui`, for example
+for any answer that needs a dashboard, a card layout, or a chart. A model with
+no instruction about the tool answers in prose and never calls it.
+
+<FrameworkSetup concept="a2ui-dynamic-schema-setup" />
 
 ## I opted out of auto-inject, now what?
 

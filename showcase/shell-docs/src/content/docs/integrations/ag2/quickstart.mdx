@@ -200,7 +200,7 @@ app = FastAPI()
 app.mount("/chat", stream.build_asgi())
 ```
 
-Register the agent in your [Copilot Runtime](/ag2/copilot-runtime) with `new HttpAgent({ url: "http://localhost:8000/chat" })`. Then the agent answers in the CopilotKit UI. See the <a href="https://docs.ag2.ai/docs/user-guide/ag-ui/" target="_blank">AG2 AG-UI integration docs</a> for supported protocol events, interrupts, capabilities, and shared-state details.
+Register the agent in your [Copilot Runtime](/ag2/backend/copilot-runtime) with `new HttpAgent({ url: "http://localhost:8000/chat" })`. Then the agent answers in the CopilotKit UI. See the <a href="https://docs.ag2.ai/docs/user-guide/ag-ui/" target="_blank">AG2 AG-UI integration docs</a> for supported protocol events, interrupts, capabilities, and shared-state details.
 
 ## What's next?
 

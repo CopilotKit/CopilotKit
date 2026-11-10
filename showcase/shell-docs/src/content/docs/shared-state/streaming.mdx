@@ -41,6 +41,9 @@ to one shared-state key. Each framework does this in its own way:
   `emitIntermediateState` mapping.
 - Direct SDK adapters: parse partial tool arguments in the streaming loop,
   and emit `STATE_SNAPSHOT` whenever the mapped value changes.
+- LlamaIndex and Pydantic AI: there is no per-token mapping. A backend tool
+  sends a state snapshot after each step or tool call instead (see the setup
+  above).
 
 When the LLM streams that argument, CopilotKit writes every partial value
 into shared state before the tool even finishes executing.
@@ -52,9 +55,10 @@ A few things to note:
 - The state key must exist in your agent state (`document` in this demo).
 - The tool and argument names must match the exact LLM-facing tool call
   you want to forward (`write_document.document` here).
-- When the tool call completes, its final return value is written to
-  the same key, so the streamed partial eventually becomes the
-  authoritative final value.
+- Streamed values are previews. When the step ends, the state the agent
+  saves replaces them, so save the final value when the tool finishes. On
+  CrewAI, LlamaIndex and Pydantic AI, write the final value to the agent
+  state yourself, or it is overwritten when the step returns.
 
 ## The frontend: useAgent + OnStateChanged
 

@@ -174,26 +174,20 @@ describe("inlineSnippets", () => {
 });
 
 describe("loadDoc", () => {
-  it("resolves the AG-UI Streams overview at its canonical root and authored framework paths", () => {
-    for (const slug of [
-      "AG-UI-Streams",
-      "integrations/built-in-agent/AG-UI-Streams",
-      "integrations/mastra/AG-UI-Streams",
-      "integrations/deepagents/AG-UI-Streams",
-    ]) {
-      expect(loadDoc(slug)?.fm.title, slug).toBe("AG-UI Streams");
-    }
+  it("resolves the AG-UI Streams overview at its canonical root", () => {
+    // The per-framework copies were folded into this root page.
+    expect(loadDoc("AG-UI-Streams")?.fm.title).toBe("AG-UI Streams");
+    expect(loadDoc("integrations/mastra/AG-UI-Streams")).toBeNull();
     expect(loadDoc("threads")).toBeNull();
   });
 
   it("resolves clean URLs to files stored under route-group folders", () => {
-    // llamaindex is an `authored` integration, so this file is served content
-    // rather than a copy the root page shadows. The aws-strands equivalent
-    // this used to assert on was deleted as a never-served duplicate.
-    const doc = loadDoc("integrations/llamaindex/telemetry");
+    // The per-framework `(other)` copies this used to assert on were folded
+    // into the shared pages; the root `(other)` group still holds this one.
+    const doc = loadDoc("contributing/code-contributions");
 
     expect(doc?.filePath.split(path.sep).join("/")).toContain(
-      "integrations/llamaindex/(other)/telemetry/index.mdx",
+      "(other)/contributing/code-contributions/index.mdx",
     );
   });
 });
@@ -235,6 +229,7 @@ describe("framework nav", () => {
     ).toEqual([
       { label: "Basics", href: null },
       { label: "Chat", href: null },
+      { label: "Prebuilt Components", href: null },
     ]);
     expect(
       navAncestorBreadcrumbsForSlug(navTree, "custom-look-and-feel/slots"),

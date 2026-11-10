@@ -41,8 +41,6 @@ Use HITL when you need:
 
 ## Two patterns for HITL in CopilotKit
 
-<FrameworkSetup concept="human-in-the-loop-setup" />
-
 CopilotKit ships two complementary ways to pause an agent turn and ask
 the human something. They look similar from the outside (the chat
 pauses, a custom component appears, the user answers, the run resumes)
@@ -51,7 +49,7 @@ but they're wired differently on the backend, and each has its own niche.
 | Pattern | Who decides to pause? | Backend surface |
 | --- | --- | --- |
 | `useHumanInTheLoop` | The **LLM**, by calling a registered client-side tool | A frontend-only tool description (Zod schema + `render`) |
-| `useInterrupt` | Your **agent code**, at a step that must stop for a person | An interrupt your agent emits, for example LangGraph `interrupt()` |
+| `useInterrupt` | Your **agent code**, at a step that must stop for a person | An interrupt your agent emits, for example LangGraph `interrupt()` or Mastra `suspend()` |
 
 **Pick `useHumanInTheLoop`** when the pause is an _agent-initiated_
 decision (the model chose to ask the user) and you want the picker UI
@@ -61,6 +59,8 @@ inlined into the normal tool-call flow.
 the code path always requires a human answer, and the server-side contract is
 an interrupt. On the Built-in Agent, interrupts are temporarily unavailable, so
 use `useHumanInTheLoop` there.
+
+<FrameworkSetup concept="human-in-the-loop-setup" />
 
 ## Pattern 1: `useHumanInTheLoop` (tool-based)
 
@@ -87,9 +87,10 @@ calendar API, or anything else:
 
 <Snippet region="time-slots" title="frontend/src/app/page.tsx — candidate slots" />
 
-## Pattern 2: `useInterrupt` (graph-paused)
+## Pattern 2: `useInterrupt` (agent-paused)
 
-With LangGraph's `interrupt()`, the graph itself enforces the pause:
+With an interrupt, your agent code enforces the pause, for example with
+LangGraph's `interrupt()`:
 
 1. A node calls `interrupt({...})`, and the run stops.
 2. The client receives the payload and renders your UI.
