@@ -416,6 +416,27 @@ describe("createInboundVerifier with an endpoint-URL audience", () => {
     );
   });
 
+  it("never echoes the bearer token in a rejection", async () => {
+    const token = "aaaaaaaaaa.bbbbbbbbbb.cccccccccc";
+    verifyIdToken.mockRejectedValueOnce(
+      new Error(`Invalid token signature: ${token}`),
+    );
+    verifySignedJwtWithCertsAsync.mockRejectedValue(
+      new Error(
+        `Wrong recipient, payload audience != requiredAudience: ${token}`,
+      ),
+    );
+    const v = createInboundVerifier({
+      endpointUrl: ENDPOINT,
+      googleChatProjectNumber: "123",
+    });
+    const err = await v.verify(`Bearer ${token}`).catch((e: Error) => e);
+    expect(err).toBeInstanceOf(UnauthorizedError);
+    expect((err as Error).message).not.toContain("aaaaaaaaaa");
+    expect((err as Error).message).not.toContain("cccccccccc");
+    expect((err as Error).message).toContain("[redacted]");
+  });
+
   it("refuses to build without any verifier", () => {
     expect(() => createInboundVerifier({})).toThrow(/googleChatProjectNumber/);
   });

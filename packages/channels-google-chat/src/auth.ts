@@ -134,31 +134,52 @@ export function createInboundVerifier(
     async verify(header) {
       const token = header?.startsWith("Bearer ") ? header.slice(7) : undefined;
       if (!token) throw new UnauthorizedError("missing bearer token");
-      let endpointError: unknown;
-      if (endpoint) {
-        try {
-          await endpoint(token);
-          return;
-        } catch (e) {
-          if (!project) throw e;
-          endpointError = e;
-        }
-      }
-      if (project) {
-        try {
-          await project(token);
-          return;
-        } catch (e) {
-          if (e instanceof CertFetchError) throw e;
-          throw endpointError instanceof UnauthorizedError
-            ? new UnauthorizedError(
-                `${endpointError.message}; ${(e as Error).message}`,
-              )
-            : e;
-        }
+      try {
+        await verifyToken(token);
+      } catch (e) {
+        // google-auth-library puts the token in its error messages. Never
+        // let a bearer token reach the logs.
+        if (e instanceof UnauthorizedError)
+          throw new UnauthorizedError(redactToken(e.message, token));
+        throw e;
       }
     },
   };
+
+  async function verifyToken(token: string): Promise<void> {
+    let endpointError: unknown;
+    if (endpoint) {
+      try {
+        await endpoint(token);
+        return;
+      } catch (e) {
+        if (!project) throw e;
+        endpointError = e;
+      }
+    }
+    if (project) {
+      try {
+        await project(token);
+        return;
+      } catch (e) {
+        if (e instanceof CertFetchError) throw e;
+        throw endpointError instanceof UnauthorizedError
+          ? new UnauthorizedError(
+              `${endpointError.message}; ${(e as Error).message}`,
+            )
+          : e;
+      }
+    }
+  }
+}
+
+/** Replace the token, and each of its segments, in an error message. */
+function redactToken(message: string, token: string): string {
+  let out = message;
+  for (const part of [token, ...token.split(".")]) {
+    if (part.length >= 8) out = out.split(part).join("[redacted]");
+  }
+  return out.split(token).join("[redacted]");
 }
 
 /** Verify an endpoint-URL-audience OIDC token and who it was issued to. */
