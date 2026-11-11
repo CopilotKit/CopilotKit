@@ -6,23 +6,33 @@
 // entrypoint so langgraph_runtime_inmem never flushes its unbounded pickle
 // state to `.langgraph_api/*.pckl`. Python reads that env var at import time
 // inside the runtime package; the TypeScript stack (`@langchain/langgraph-api`)
-// has NO such switch, so we neutralise the flush ourselves at the fs layer.
+// has NO such switch, so we neutralise the flush ourselves, at two layers:
 //
-// Why the fs layer (and not the class):
+//   1. The flush itself: `FileSystemPersistence.prototype.schedulePersist` and
+//      `.persist` are made no-ops (see the end of this module). Without this the
+//      class still ran `superjson.stringify` over the ENTIRE in-memory store on a
+//      3-second timer re-armed by every mutation — a transient heap copy 2-3x the
+//      store, `RangeError: Invalid string length` once the store outgrew V8's
+//      max string, and ultimately the 4 GB heap-limit OOM (2026-11-10 prod).
+//   2. The fs write surface for the `.langgraph_api/` persist dir, as defence in
+//      depth: even if a future version flushes through another path, nothing
+//      lands on disk and the size watchdog never trips.
+//
+// Why the fs layer at all (and not only the class):
 //   @langchain/langgraph-api's `FileSystemPersistence`
 //   (dist/storage/persist.mjs) is the single writer for all three persist
 //   targets (.langgraphjs_ops.json, .langgraphjs_api.store.json,
 //   .langgraphjs_api.checkpointer.json — all under a `.langgraph_api/` dir).
 //   Its module singletons (checkpointer, store, ops) are constructed at import
-//   time and are NOT exported, and the package's exports map blocks a deep
-//   import of persist.mjs (ERR_PACKAGE_PATH_NOT_EXPORTED), so the class
-//   prototype cannot be patched from here. Intercepting the fs write surface
-//   for the persist dir fully stops disk growth while leaving the in-memory
-//   store — the actual runtime state — untouched. Conversation/thread/run
-//   state still works within a container's lifetime; it just never persists to
-//   disk. This matches python's behaviour: in-memory state bounded by process
-//   memory, discarded on restart, nothing accumulating on disk to trip the
-//   size watchdog.
+//   time and are NOT exported, and the package's exports map blocks a BARE deep
+//   import of persist.mjs (ERR_PACKAGE_PATH_NOT_EXPORTED). The prototype is
+//   reached by importing the file by URL instead (exports maps do not apply to
+//   file URLs), but the fs interception stays as the guard that does not depend
+//   on the class shape. Either way the in-memory store — the actual runtime
+//   state — is untouched: conversation/thread/run state still works within a
+//   container's lifetime; it just never persists to disk. This matches python's
+//   behaviour: in-memory state bounded by process memory, discarded on restart,
+//   nothing accumulating on disk to trip the size watchdog.
 //
 // Why the CJS handle (and not `import * as fs from "node:fs/promises"`):
 //   An ESM namespace object is sealed — `fsPromises.writeFile = ...` throws
