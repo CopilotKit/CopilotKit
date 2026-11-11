@@ -1,0 +1,246 @@
+---
+title: GitHub
+icon: "lucide/GitPullRequest"
+description: Mention your agent in a GitHub issue, pull request, or review thread and get the answer in that same place.
+doc_type: how-to
+---
+
+Your team triages issues and reviews pull requests in GitHub. To ask your agent
+something, they copy the issue into another tool and paste the answer back.
+
+The GitHub adapter puts the agent in GitHub. A person writes `@acme-helper` in an
+issue, a pull request, or a review thread, and the agent replies in that thread.
+
+At the end of this page, your agent answers its first mention on GitHub.
+
+## What you need
+
+- A Channels project with an agent factory (`makeAgent`). See
+  [Threads and state](/channels/threads-and-state) for the factory shape.
+- A CopilotKit Intelligence API key (`CPK_INTELLIGENCE_API_KEY`). The runtime
+  uses it to start and stop the Channel.
+- A public HTTPS URL for your server. For local development, use a tunnel such
+  as ngrok.
+
+## 1. Create the GitHub App
+
+1. Open **GitHub > Settings > Developer settings > GitHub Apps > New GitHub App**.
+   For an organization, open the organization settings instead.
+2. Enter a name, for example `Acme Helper`. GitHub makes the App slug from the
+   name: `acme-helper`. People mention the bot with this slug.
+3. Set **Webhook URL** to `https://<your-host>/github/webhook`.
+4. Set **Webhook secret** to a long random string. Keep it for step 3.
+5. Set these **Repository permissions**, then subscribe to the events below.
+
+| Repository permission | Access         |
+| --------------------- | -------------- |
+| Issues                | Read and write |
+| Pull requests         | Read and write |
+| Metadata              | Read-only      |
+
+Subscribe to these events:
+
+- **Issue comment**: comments on issues and in pull request conversations.
+- **Pull request review comment**: inline comments in a pull request review.
+
+Then select **Create GitHub App**.
+
+## 2. Get the App credentials and install the App
+
+1. On the App settings page, copy the **App ID**.
+2. Under **Private keys**, select **Generate a private key**. GitHub downloads a
+   `.pem` file.
+3. Select **Install App**, then install it on the repositories that the bot
+   serves.
+
+## 3. Set the environment variables
+
+```dotenv title=".env"
+CPK_INTELLIGENCE_API_KEY=<project-api-key>
+GITHUB_APP_ID=123456
+GITHUB_WEBHOOK_SECRET=<the-secret-from-step-1>
+# The .pem file on one line, with each line break written as \n
+GITHUB_PRIVATE_KEY="-----BEGIN RSA PRIVATE KEY-----\nMIIE...\n-----END RSA PRIVATE KEY-----\n"
+PORT=3000
+```
+
+The adapter reads no environment variables itself. Your code passes each value
+to `github({...})`.
+
+## 4. Create the Channel and mount the webhook
+
+This file declares the Channel, starts it with the runtime, and serves the
+webhook with Hono on Node.js:
+
+```ts title="channel.ts"
+import { serve } from "@hono/node-server";
+import { Hono } from "hono";
+import { createChannel } from "@copilotkit/channels";
+import { defaultGitHubContext, github } from "@copilotkit/channels/github";
+import {
+  CopilotKitIntelligence,
+  CopilotRuntime,
+} from "@copilotkit/runtime/v2";
+import { createCopilotNodeListener } from "@copilotkit/runtime/v2/node";
+import { makeAgent } from "./agent.js";
+
+function required(name: string) {
+  const value = process.env[name];
+  if (!value) throw new Error(`Missing required environment variable: ${name}`);
+  return value;
+}
+
+const githubAdapter = github({
+  appId: required("GITHUB_APP_ID"),
+  // Restore the line breaks of the PEM key.
+  privateKey: required("GITHUB_PRIVATE_KEY").replace(/\\n/g, "\n"),
+  webhookSecret: required("GITHUB_WEBHOOK_SECRET"),
+  botUsername: "acme-helper", // the App slug, without @
+});
+
+const channel = createChannel({
+  name: "github-helper",
+  identifyUser: "platform",
+  adapters: [githubAdapter],
+  agent: makeAgent,
+  // Tells the model which Markdown renders on GitHub and how replies arrive.
+  context: [...defaultGitHubContext],
+});
+
+channel.onMention(async ({ thread }) => {
+  await thread.runAgent();
+});
+
+const runtime = new CopilotRuntime({
+  agents: {},
+  intelligence: new CopilotKitIntelligence({
+    apiKey: required("CPK_INTELLIGENCE_API_KEY"),
+  }),
+  channels: [channel],
+});
+
+// Creating the listener starts the Channel and its GitHub adapter.
+const listener = createCopilotNodeListener({ runtime });
+await listener.channels.ready({ timeoutMs: 30_000 });
+
+const app = new Hono();
+app.post("/github/webhook", (c) => githubAdapter.handleWebhook(c.req.raw));
+
+const port = Number(process.env.PORT ?? 3000);
+serve({ fetch: app.fetch, port });
+console.log(`GitHub webhook listening on :${port}/github/webhook`);
+```
+
+Install the server packages, then start the file. `--env-file` loads `.env`
+(Node.js 20.6 or later):
+
+```sh
+npm install @hono/node-server hono
+npx tsx --env-file=.env channel.ts
+```
+
+The adapter does not add `defaultGitHubContext` by itself. Keep it in
+`context`, next to your own entries. See
+[Tools and context](/channels/tools) for more context options.
+
+<Callout type="info" title="Run on a long-running host">
+  `handleWebhook` reads the open choice list of the conversation, answers
+  GitHub with `200`, and then runs the agent in the background. A serverless
+  function can freeze before that work ends. Run the Channel on a long-running
+  Node.js host.
+</Callout>
+
+<Callout type="info" title="Failed deliveries and replies">
+  If the adapter cannot read the event, it logs the error and answers `500`.
+  GitHub does not retry a failed delivery automatically. To send it again, open
+  the webhook settings, find the delivery in **Recent Deliveries**, and click
+  **Redeliver**. If the final reply comment cannot be written,
+  `thread.runAgent()` rejects with the error.
+</Callout>
+
+## 5. Send the first message
+
+1. Open an issue in a repository where the App is installed.
+2. Write a comment: `@acme-helper what does this issue need next?`
+3. Watch the comment. An eyes reaction appears while the agent works.
+4. The reply appears as a new comment and grows as the agent writes.
+
+Your agent now answers on GitHub.
+
+## Use the built-in server instead
+
+If you do not have an HTTP framework, set `port`. The adapter then starts its
+own `node:http` server on `POST /webhook`, and you drop the Hono code:
+
+```ts title="channel.ts"
+const githubAdapter = github({
+  appId: required("GITHUB_APP_ID"),
+  privateKey: required("GITHUB_PRIVATE_KEY").replace(/\\n/g, "\n"),
+  webhookSecret: required("GITHUB_WEBHOOK_SECRET"),
+  botUsername: "acme-helper",
+  port: 3000, // serves POST /webhook. Set `path` to change it.
+});
+```
+
+Set the App's **Webhook URL** to `https://<your-host>/webhook`.
+
+## Develop locally with a personal access token
+
+You can test before you create an App. Use your own personal access token and
+a repository webhook:
+
+1. Create a fine-grained token for the repository. Set Issues and Pull requests
+   to read and write. Put the token in `.env` as `GITHUB_TOKEN`.
+2. In the repository, open **Settings > Webhooks > Add webhook**.
+3. Set the payload URL and the secret. Put the same secret in `.env` as
+   `GITHUB_WEBHOOK_SECRET`. Set **Content type** to `application/json`, and
+   select the **Issue comments** and **Pull request review comments** events.
+4. Pass `token` instead of `appId` and `privateKey`. Set `botUsername` to your
+   own login:
+
+```ts title="channel.ts"
+const githubAdapter = github({
+  token: required("GITHUB_TOKEN"),
+  webhookSecret: required("GITHUB_WEBHOOK_SECRET"),
+  botUsername: "octocat", // your login, so a mention notifies nobody else
+});
+```
+
+5. Start the file with `npx tsx --env-file=.env channel.ts`.
+6. Comment `@octocat summarize this issue`. The reply is posted from your
+   account.
+
+Every comment the bot writes ends with a hidden HTML marker. The bot uses it to
+tell its own replies apart from your comments, so one account can play both
+roles.
+
+## What your team sees
+
+- **Mentions only.** The bot answers comments that mention it. Other comments do
+  not start a turn.
+- **Progress.** An eyes reaction stays on the comment while the agent works.
+- **Streaming.** The reply is one comment that the adapter edits about once per
+  second. Past 65,536 characters, the reply continues in a new comment.
+- **Review threads.** A mention in an inline review comment gets its reply in
+  that review thread.
+- **History.** On each turn, the agent reads the last 50 messages of the issue,
+  the pull request, or the review thread.
+- **Context.** The agent also gets the issue or pull request title and
+  description. In a review thread, it gets the file, the line, and the diff
+  hunk that the thread is on.
+
+When the agent offers choices, the comment ends with a numbered list. A person
+replies with a number (`2`) or the exact option text. The reply does not need a
+mention. The list stays open for one hour.
+
+## Limits
+
+- No modals, ephemeral messages, or file uploads.
+- Reactions go out only. GitHub sends no reaction webhooks, so the agent does
+  not see the reactions that people add.
+- A numbered list waits in the process that posted it. Run one instance, or
+  send each repository's webhooks to the same instance.
+- For GitHub Enterprise Server, set `apiBaseUrl` to your API URL.
+
+For every option and export, see
+[Direct provider adapters](/reference/channels/sdk/direct-adapters#github).

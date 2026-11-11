@@ -7,6 +7,7 @@ import { slack } from "@copilotkit/channels/slack";
 import { teams } from "@copilotkit/channels/teams";
 import { discord } from "@copilotkit/channels/discord";
 import { whatsapp } from "@copilotkit/channels/whatsapp";
+import { github } from "@copilotkit/channels/github";
 import { slackCodec } from "@copilotkit/channels/slack/codec";
 import { renderSlackMessage } from "@copilotkit/channels/slack/render";
 import { renderAdaptiveCard } from "@copilotkit/channels/teams/render";
@@ -29,6 +30,7 @@ describe("@copilotkit/channels umbrella", () => {
       teams,
       discord,
       whatsapp,
+      github,
       renderSlackMessage,
       renderAdaptiveCard,
     ]) {
