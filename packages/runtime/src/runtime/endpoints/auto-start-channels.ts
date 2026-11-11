@@ -1,4 +1,5 @@
-import { logger } from "@copilotkit/shared";
+import { getRuntimeLogger } from "../core/logger";
+import type { CopilotRuntimeLogger } from "../core/logger";
 import type { ChannelsControl } from "../core/channel-manager";
 
 /**
@@ -33,7 +34,10 @@ import type { ChannelsControl } from "../core/channel-manager";
  *   runtime declares no Channels or opted out via `activateChannels: false`
  *   (both no-op, so the opt-out stays a genuine "open no socket").
  */
-export function autoStartChannels(channels: ChannelsControl | undefined): void {
+export function autoStartChannels(
+  channels: ChannelsControl | undefined,
+  logger: CopilotRuntimeLogger = getRuntimeLogger(),
+): void {
   if (!channels) {
     return;
   }

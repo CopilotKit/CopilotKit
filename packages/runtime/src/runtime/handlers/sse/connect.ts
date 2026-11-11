@@ -1,5 +1,6 @@
 import type { AbstractAgent } from "@ag-ui/client";
 import type { CopilotRuntimeLike } from "../../core/runtime";
+import { getRuntimeLogger } from "../../core/logger";
 import { createSseEventResponse } from "../shared/sse-response";
 import {
   mergeForwardableHeaders,
@@ -47,6 +48,7 @@ export function handleSseConnect({
     // route resolved to — not the literal string "connect".
     agentId,
     telemetry: runtime.telemetry,
+    logger: getRuntimeLogger(runtime),
     keepAliveIntervalSeconds: runtime.sseKeepAliveIntervalSeconds,
     observableFactory: () =>
       runtime.runner.connect({

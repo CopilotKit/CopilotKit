@@ -10,7 +10,8 @@
 // multiple times (tests, hot-reload), but the disclosure is informational
 // and a single line is enough.
 
-import { processEnv } from "@copilotkit/shared";
+import { logger as consoleLogger, processEnv } from "@copilotkit/shared";
+import type { CopilotRuntimeLogger } from "../core/logger";
 
 // Canonical telemetry docs page on main.
 // Mirror constant: packages/web-inspector/src/shared/telemetry/privacy.ts
@@ -35,12 +36,13 @@ let disclosureLogged = false;
  *
  * Idempotent — safe to call from multiple constructor paths.
  */
-export function logRuntimeTelemetryDisclosure(): void {
+export function logRuntimeTelemetryDisclosure(
+  logger: CopilotRuntimeLogger = consoleLogger,
+): void {
   if (disclosureLogged) return;
   if (isTelemetryDisabled()) return;
   disclosureLogged = true;
-  // eslint-disable-next-line no-console
-  console.info(
+  logger.info(
     `[CopilotKit Runtime] telemetry enabled — see ${TELEMETRY_DOCS_URL} to opt out (set COPILOTKIT_TELEMETRY_DISABLED=true).`,
   );
 }

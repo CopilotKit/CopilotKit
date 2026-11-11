@@ -24,7 +24,9 @@ import { resolveMcpAppsServers } from "./mcp-apps-servers";
 import { resolveIntelligenceUser } from "./resolve-intelligence-user";
 import { grantAllowsMemory, resolveWebMemory } from "./memory-policy";
 import { errorResponse } from "./json-response";
-import { logger, processEnv } from "@copilotkit/shared";
+import { processEnv } from "@copilotkit/shared";
+import { getRuntimeLogger } from "../../core/logger";
+import type { CopilotRuntimeLogger } from "../../core/logger";
 
 type MiddlewareCapableAgent = AbstractAgent & {
   use?: (middleware: unknown) => void;
@@ -254,7 +256,7 @@ export async function attachIntelligenceEnterpriseLearning(params: {
   // `identifyUser`, so an enterprise-learning-only run keeps warning rather
   // than acquiring a new way to fail.
   if (runtime.memory === undefined && typeof agent.use !== "function") {
-    logger.warn(NO_MIDDLEWARE_WARNING);
+    getRuntimeLogger(runtime).warn(NO_MIDDLEWARE_WARNING);
     return;
   }
 
@@ -290,7 +292,7 @@ export async function attachIntelligenceEnterpriseLearning(params: {
         500,
       );
     }
-    logger.warn(NO_MIDDLEWARE_WARNING);
+    getRuntimeLogger(runtime).warn(NO_MIDDLEWARE_WARNING);
     return;
   }
 
@@ -322,14 +324,18 @@ export async function attachIntelligenceEnterpriseLearning(params: {
 // AG-UI helper (AG-UI does not export one). Keep these aligned
 // with client/src/middleware/compatibility-boundary.ts and AG-UI's migration guide.
 // Required nulls and nulls within application data must remain untouched.
-function warnCompatibility(what: string, replacement: string) {
+function warnCompatibility(
+  what: string,
+  replacement: string,
+  logger: CopilotRuntimeLogger,
+) {
   if (
     typeof process !== "undefined" &&
     typeof processEnv() !== "undefined" &&
     processEnv().SUPPRESS_TRANSFORMATION_WARNINGS
   )
     return;
-  console.warn(
+  logger.warn(
     `[ag-ui][compat] Converting deprecated ${what} to ${replacement}. The old shape leaves the protocol after its shim window — see the repo-root DEPRECATIONS.md. Set SUPPRESS_TRANSFORMATION_WARNINGS=true to silence.`,
   );
 }
@@ -342,9 +348,10 @@ function omitLegacyNull(
   value: unknown,
   field: string,
   context: string,
+  logger: CopilotRuntimeLogger,
 ): unknown {
   if (!isRecord(value) || value[field] !== null) return value;
-  warnCompatibility(`${context}.${field}: null`, "an absent field");
+  warnCompatibility(`${context}.${field}: null`, "an absent field", logger);
   const { [field]: _null, ...rest } = value;
   return rest;
 }
@@ -391,7 +398,10 @@ function sameSource(part: unknown, converted: Record<string, unknown>) {
  * with only an `id` has no 1.0 form; it is dropped with a warning instead of
  * failing the whole request, which is what BuiltInAgent already did with it.
  */
-function upgradeLegacyBinaryParts(content: unknown[]): unknown[] {
+function upgradeLegacyBinaryParts(
+  content: unknown[],
+  logger: CopilotRuntimeLogger,
+): unknown[] {
   return content.flatMap((part) => {
     if (
       !isRecord(part) ||
@@ -406,12 +416,16 @@ function upgradeLegacyBinaryParts(content: unknown[]): unknown[] {
           ? "url"
           : null;
     if (kind === null) {
-      console.warn(
+      logger.warn(
         "[CopilotKit] Dropping a legacy binary content part that has no data or url; AG-UI 1.0 has no equivalent for it.",
       );
       return [];
     }
-    warnCompatibility("binary input content", "the modern media content part");
+    warnCompatibility(
+      "binary input content",
+      "the modern media content part",
+      logger,
+    );
     const converted: Record<string, unknown> = {
       type: mediaTypeFor(part.mimeType),
       source: {
@@ -429,14 +443,17 @@ function upgradeLegacyBinaryParts(content: unknown[]): unknown[] {
   });
 }
 
-function normalizeLegacyMessageContent(message: unknown): unknown {
+function normalizeLegacyMessageContent(
+  message: unknown,
+  logger: CopilotRuntimeLogger,
+): unknown {
   const upgraded =
     isRecord(message) &&
     Array.isArray(message.content) &&
     message.content.some((part) => isRecord(part) && part.type === "binary")
       ? {
           ...message,
-          content: upgradeLegacyBinaryParts(message.content),
+          content: upgradeLegacyBinaryParts(message.content, logger),
         }
       : message;
   return mapProtocolArray(upgraded, "content", (part) => {
@@ -446,44 +463,59 @@ function normalizeLegacyMessageContent(message: unknown): unknown {
       case "audio":
       case "video":
       case "document":
-        return omitLegacyNull(part, "metadata", `${part.type} input content`);
+        return omitLegacyNull(
+          part,
+          "metadata",
+          `${part.type} input content`,
+          logger,
+        );
       default:
         return part;
     }
   });
 }
 
-function normalizeLegacyRunAgentInput(input: unknown): unknown {
-  let normalized = omitLegacyNull(input, "forwardedProps", "RunAgentInput");
+function normalizeLegacyRunAgentInput(
+  input: unknown,
+  logger: CopilotRuntimeLogger,
+): unknown {
+  let normalized = omitLegacyNull(
+    input,
+    "forwardedProps",
+    "RunAgentInput",
+    logger,
+  );
   normalized = mapProtocolArray(normalized, "tools", (tool) =>
-    omitLegacyNull(tool, "parameters", "Tool"),
+    omitLegacyNull(tool, "parameters", "Tool", logger),
   );
   normalized = mapProtocolArray(normalized, "resume", (entry) =>
-    omitLegacyNull(entry, "payload", "ResumeEntry"),
+    omitLegacyNull(entry, "payload", "ResumeEntry", logger),
   );
-  return mapProtocolArray(
-    normalized,
-    "messages",
-    normalizeLegacyMessageContent,
+  return mapProtocolArray(normalized, "messages", (message) =>
+    normalizeLegacyMessageContent(message, logger),
   );
 }
 
-function parseRunAgentInput(value: unknown): RunAgentInput {
+function parseRunAgentInput(
+  value: unknown,
+  logger: CopilotRuntimeLogger,
+): RunAgentInput {
   // With strictNullChecks disabled, Zod infers some required nested fields
   // (such as image.source) as optional. The schema still validates them.
   return RunAgentInputSchema.parse(
-    normalizeLegacyRunAgentInput(value),
+    normalizeLegacyRunAgentInput(value, logger),
   ) as RunAgentInput;
 }
 
 export async function parseRunRequest(
   request: Request,
+  logger: CopilotRuntimeLogger = getRuntimeLogger(),
 ): Promise<RunAgentInput | Response> {
   try {
     const requestBody = await request.json();
-    return parseRunAgentInput(requestBody);
+    return parseRunAgentInput(requestBody, logger);
   } catch (error) {
-    logger.error("Invalid run request body:", error);
+    logger.error({ err: error }, "Invalid run request body");
     return new Response(
       JSON.stringify({
         error: "Invalid request body",
@@ -497,7 +529,10 @@ export async function parseRunRequest(
   }
 }
 
-export async function parseConnectRequest(request: Request): Promise<
+export async function parseConnectRequest(
+  request: Request,
+  logger: CopilotRuntimeLogger = getRuntimeLogger(),
+): Promise<
   | Response
   | {
       input: RunAgentInput;
@@ -506,7 +541,7 @@ export async function parseConnectRequest(request: Request): Promise<
 > {
   try {
     const requestBody = await request.json();
-    const input = parseRunAgentInput(requestBody);
+    const input = parseRunAgentInput(requestBody, logger);
     let lastSeenEventId: string | null = null;
 
     if (
@@ -521,7 +556,7 @@ export async function parseConnectRequest(request: Request): Promise<
 
     return { input, lastSeenEventId };
   } catch (error) {
-    logger.error("Invalid connect request body:", error);
+    logger.error({ err: error }, "Invalid connect request body");
     return new Response(
       JSON.stringify({
         error: "Invalid request body",

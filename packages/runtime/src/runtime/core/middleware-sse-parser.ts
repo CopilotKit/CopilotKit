@@ -1,4 +1,5 @@
-import { logger } from "@copilotkit/shared";
+import { getRuntimeLogger } from "./logger";
+import type { CopilotRuntimeLogger } from "./logger";
 
 export interface ParsedSSEResult {
   messages: Message[];
@@ -27,6 +28,7 @@ interface ToolCall {
  */
 export async function parseSSEResponse(
   response: Response,
+  logger: CopilotRuntimeLogger = getRuntimeLogger(),
 ): Promise<ParsedSSEResult> {
   const contentType = response.headers.get("content-type") ?? "";
   if (!contentType.includes("text/event-stream")) {

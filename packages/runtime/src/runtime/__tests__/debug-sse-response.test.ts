@@ -1,4 +1,5 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import type { MockInstance } from "vitest";
 import type { Observable } from "rxjs";
 import { of } from "rxjs";
 import type {
@@ -9,24 +10,6 @@ import type {
 } from "@ag-ui/client";
 import { EventType } from "@ag-ui/client";
 import type { ResolvedDebugConfig } from "@copilotkit/shared";
-
-const { mockDebug, mockCreateLogger } = vi.hoisted(() => {
-  const debug = vi.fn();
-  return {
-    mockDebug: debug,
-    mockCreateLogger: vi.fn(() => ({
-      debug,
-      info: vi.fn(),
-      warn: vi.fn(),
-      error: vi.fn(),
-      child: vi.fn(),
-    })),
-  };
-});
-
-vi.mock("../core/logger", () => ({
-  createLogger: mockCreateLogger,
-}));
 
 vi.mock("../../telemetry", () => ({
   telemetry: { capture: vi.fn() },
@@ -83,7 +66,10 @@ function textMessageStart(): TextMessageStartEvent {
 
 async function runStream(
   events: BaseEvent[],
-  options: { debug?: ResolvedDebugConfig; logger?: CopilotRuntimeLogger } = {},
+  options: {
+    debug?: ResolvedDebugConfig;
+    debugLogger?: CopilotRuntimeLogger;
+  } = {},
 ) {
   const response = createSseEventResponse({
     request: createMockRequest(),
@@ -93,28 +79,49 @@ async function runStream(
   await drainResponse(response);
 }
 
-function eventEmittedCalls() {
-  return mockDebug.mock.calls.filter(
-    (call) => call[call.length - 1] === "Event emitted",
-  );
+interface DebugLine {
+  level: number;
+  component?: string;
+  msg?: string;
+  eventCount?: number;
+  loggedEventCount?: number;
+  type?: string;
+  messageId?: string;
+  event?: BaseEvent;
+}
+
+// With no app logger, debug output is JSON lines written by console.log.
+let consoleLog: MockInstance<Console["log"]>;
+
+function debugLines(): DebugLine[] {
+  return consoleLog.mock.calls.map(([line]) => JSON.parse(String(line)));
+}
+
+function linesWithMessage(msg: string) {
+  return debugLines().filter((line) => line.msg === msg);
 }
 
 describe("createSseEventResponse debug logging", () => {
   beforeEach(() => {
-    mockDebug.mockClear();
-    mockCreateLogger.mockClear();
+    consoleLog = vi.spyOn(console, "log").mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    consoleLog.mockRestore();
   });
 
   it("does not log when debug is undefined", async () => {
     await runStream([]);
 
-    expect(mockDebug).not.toHaveBeenCalled();
+    expect(consoleLog).not.toHaveBeenCalled();
   });
 
   it("logs lifecycle message on stream open", async () => {
     await runStream([runStarted()], { debug: debugConfig({}) });
 
-    expect(mockDebug).toHaveBeenCalledWith("SSE stream opened");
+    expect(linesWithMessage("SSE stream opened")).toEqual([
+      expect.objectContaining({ level: 20, component: "copilotkit-debug" }),
+    ]);
   });
 
   it("logs lifecycle completion with total eventCount even when event logging is off", async () => {
@@ -122,10 +129,9 @@ describe("createSseEventResponse debug logging", () => {
       debug: debugConfig({}),
     });
 
-    expect(mockDebug).toHaveBeenCalledWith(
-      { eventCount: 2, loggedEventCount: 0 },
-      "SSE stream completed",
-    );
+    expect(linesWithMessage("SSE stream completed")).toEqual([
+      expect.objectContaining({ eventCount: 2, loggedEventCount: 0 }),
+    ]);
   });
 
   it("logs lifecycle completion with matching eventCount and loggedEventCount when events enabled", async () => {
@@ -133,10 +139,9 @@ describe("createSseEventResponse debug logging", () => {
       debug: debugConfig({ events: true }),
     });
 
-    expect(mockDebug).toHaveBeenCalledWith(
-      { eventCount: 2, loggedEventCount: 2 },
-      "SSE stream completed",
-    );
+    expect(linesWithMessage("SSE stream completed")).toEqual([
+      expect.objectContaining({ eventCount: 2, loggedEventCount: 2 }),
+    ]);
   });
 
   it("logs events in summary mode when verbose is false", async () => {
@@ -144,14 +149,13 @@ describe("createSseEventResponse debug logging", () => {
       debug: debugConfig({ events: true, lifecycle: false }),
     });
 
-    const calls = eventEmittedCalls();
-    expect(calls.length).toBeGreaterThanOrEqual(1);
-
-    const [summaryArg] = calls[0];
-    expect(summaryArg).toHaveProperty("type", EventType.TEXT_MESSAGE_START);
-    expect(summaryArg).toHaveProperty("messageId", "msg-1");
-    // In summary mode the full event object is not passed directly
-    expect(summaryArg).not.toHaveProperty("event");
+    const [summary] = linesWithMessage("Event emitted");
+    expect(summary).toMatchObject({
+      type: EventType.TEXT_MESSAGE_START,
+      messageId: "msg-1",
+    });
+    // In summary mode the full event object is not written
+    expect(summary).not.toHaveProperty("event");
   });
 
   it("logs events in verbose mode with full event object", async () => {
@@ -161,38 +165,34 @@ describe("createSseEventResponse debug logging", () => {
       debug: debugConfig({ events: true, lifecycle: false, verbose: true }),
     });
 
-    const calls = eventEmittedCalls();
-    expect(calls.length).toBeGreaterThanOrEqual(1);
-
-    const [verboseArg] = calls[0];
-    expect(verboseArg).toHaveProperty("event");
-    expect(verboseArg.event).toEqual(event);
+    const [verbose] = linesWithMessage("Event emitted");
+    expect(verbose.event).toEqual({
+      type: "TEXT_MESSAGE_START",
+      messageId: "msg-1",
+      role: "assistant",
+    });
   });
 
-  it("uses a pre-created logger instead of calling createLogger when one is provided", async () => {
+  it("writes to a pre-created debug logger instead of the console when one is provided", async () => {
     const externalDebug = vi.fn();
     const externalLogger: CopilotRuntimeLogger = {
       debug: externalDebug,
       info: vi.fn(),
       warn: vi.fn(),
       error: vi.fn(),
-      child: vi.fn(),
     };
 
     await runStream([runStarted()], {
       debug: debugConfig({}),
-      logger: externalLogger,
+      debugLogger: externalLogger,
     });
 
-    // The external logger should have been used for lifecycle messages
     expect(externalDebug).toHaveBeenCalledWith("SSE stream opened");
     expect(externalDebug).toHaveBeenCalledWith(
       { eventCount: 1, loggedEventCount: 0 },
       "SSE stream completed",
     );
-
-    // createLogger should NOT have been called: the pre-created logger was reused
-    expect(mockCreateLogger).not.toHaveBeenCalled();
+    expect(consoleLog).not.toHaveBeenCalled();
   });
 
   it("does not log events when events is disabled", async () => {
@@ -200,14 +200,7 @@ describe("createSseEventResponse debug logging", () => {
       debug: debugConfig({}),
     });
 
-    expect(eventEmittedCalls()).toHaveLength(0);
-
-    // Only lifecycle calls should be present
-    const lifecycleCalls = mockDebug.mock.calls.filter(
-      (call) =>
-        call[call.length - 1] === "SSE stream opened" ||
-        call[call.length - 1] === "SSE stream completed",
-    );
-    expect(lifecycleCalls.length).toBeGreaterThanOrEqual(1);
+    expect(linesWithMessage("Event emitted")).toHaveLength(0);
+    expect(linesWithMessage("SSE stream opened")).toHaveLength(1);
   });
 });

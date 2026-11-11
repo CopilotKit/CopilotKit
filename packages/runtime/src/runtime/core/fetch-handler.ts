@@ -118,7 +118,7 @@ import {
   detectSingleRouteEnvelope,
 } from "../endpoints/single-route-helpers";
 import type { MethodCall } from "../endpoints/single-route-helpers";
-import { logger } from "@copilotkit/shared";
+import { getRuntimeLogger } from "./logger";
 import { fireInstanceCreatedTelemetry } from "../telemetry/instance-created";
 import type { RuntimeInstanceCreatedInfo } from "../telemetry/events";
 
@@ -285,7 +285,7 @@ function getOrCreateChannelManager(
       : {}),
     channels: runtime.channels,
     telemetry: runtime.telemetry,
-    // Bridge the manager's diagnostic sink to the shared logger. Without this
+    // Bridge the manager's diagnostic sink to the runtime's logger. Without this
     // every `this.log?.(...)` breadcrumb in the manager (setup_required,
     // failed-to-activate, dropped-session, teardown-stop failures) is a no-op,
     // so a channel that fails to activate is permanently dead with zero output.
@@ -297,7 +297,10 @@ function getOrCreateChannelManager(
     // renders as `{}` and the cause is lost. Route an Error to `err` and keep the
     // `meta` key for everything else (`meta` is typed `unknown`).
     log: (msg, meta) =>
-      logger.warn(meta instanceof Error ? { err: meta } : { meta }, msg),
+      getRuntimeLogger(runtime).warn(
+        meta instanceof Error ? { err: meta } : { meta },
+        msg,
+      ),
     ...(engine ? { activateChannel: engine } : {}),
   });
   channelManagers.set(runtime, manager);
@@ -334,6 +337,7 @@ export function createCopilotRuntimeHandler(
   options: CopilotRuntimeHandlerOptions,
 ): CopilotRuntimeFetchHandler {
   const { runtime, basePath, mode = "multi-route", cors, hooks } = options;
+  const logger = getRuntimeLogger(runtime);
 
   fireInstanceCreatedTelemetry({
     runtime,

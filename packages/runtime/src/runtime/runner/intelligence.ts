@@ -13,8 +13,9 @@ import {
   stripIntelligenceRoutingFields,
   AG_UI_CHANNEL_EVENT,
   phoenixExponentialBackoff,
-  logger,
 } from "@copilotkit/shared";
+import { getRuntimeLogger } from "../core/logger";
+import type { CopilotRuntimeLogger } from "../core/logger";
 import type { Channel } from "phoenix";
 import { Socket } from "phoenix";
 
@@ -33,6 +34,8 @@ export interface IntelligenceAgentRunnerOptions {
    * @default 15_000
    */
   heartbeatIntervalMs?: number;
+  /** Where the runner writes its logs. Default: the console. */
+  logger?: CopilotRuntimeLogger;
 }
 
 export interface RunnerStartupBoundary {
@@ -95,11 +98,13 @@ export const STOP_RECORD_DEADLINE_MS = 2_000;
 export class IntelligenceAgentRunner extends AgentRunner {
   private options: IntelligenceAgentRunnerOptions;
   private threads = new Map<string, ThreadState>();
+  private readonly logger: CopilotRuntimeLogger;
 
   constructor(options: IntelligenceAgentRunnerOptions) {
     super();
     // Store config — sockets are created per-run, not eagerly.
     this.options = options;
+    this.logger = getRuntimeLogger(options);
   }
 
   /**
@@ -378,7 +383,7 @@ export class IntelligenceAgentRunner extends AgentRunner {
             { threadId, runId: state.runId },
             { recordWithIntelligence: false },
           ).catch((error) => {
-            logger.error(
+            this.logger.error(
               { err: error, threadId, runId: state.runId },
               "Failed to stop Intelligence run",
             );
@@ -553,7 +558,11 @@ export class IntelligenceAgentRunner extends AgentRunner {
     // the run's terminal event as a normal finish. Record it first; the
     // terminal event waits for this, the agent does not.
     if (options.recordWithIntelligence && state.recordStop) {
-      state.stopRecorded = recordStopWithin(state, STOP_RECORD_DEADLINE_MS);
+      state.stopRecorded = recordStopWithin(
+        state,
+        STOP_RECORD_DEADLINE_MS,
+        this.logger,
+      );
     }
 
     // Fence output before abort: adapters may emit synchronously, throw, or
@@ -579,13 +588,13 @@ export class IntelligenceAgentRunner extends AgentRunner {
       if (typeof state.agent.detachActiveRun === "function") {
         try {
           Promise.resolve(state.agent.detachActiveRun()).catch((error) => {
-            logger.warn(
+            this.logger.warn(
               { err: error, threadId: state.threadId, runId: state.runId },
               "Failed to detach stopped agent",
             );
           });
         } catch (error) {
-          logger.warn(
+          this.logger.warn(
             { err: error, threadId: state.threadId, runId: state.runId },
             "Failed to detach stopped agent",
           );
@@ -1176,6 +1185,7 @@ export class IntelligenceAgentRunner extends AgentRunner {
 function recordStopWithin(
   state: ThreadState,
   deadlineMs: number,
+  logger: CopilotRuntimeLogger,
 ): Promise<void> {
   const record = state.recordStop;
   if (!record) return Promise.resolve();

@@ -72,6 +72,9 @@ export default defineConfig({
     "@react-native/metro-config": "^0.85.0",
     "aws-cdk-lib": "^2.0.0",
     "@types/aws-lambda": "^8.10.0",
+    // Loggers in the runtime `logger` examples.
+    pino: "^10.0.0",
+    winston: "^3.0.0",
     "serverless-http": "^4.0.0",
     "rehype-highlight": "^7.0.0",
     "rehype-katex": "^7.0.0",

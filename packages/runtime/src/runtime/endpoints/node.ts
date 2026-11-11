@@ -5,6 +5,7 @@ import type { ChannelsControl } from "../core/channel-manager";
 import { createCopilotNodeHandler } from "./node-fetch-handler";
 import type { NodeFetchHandler } from "./node-fetch-handler";
 import { autoStartChannels } from "./auto-start-channels";
+import { getRuntimeLogger } from "../core/logger";
 
 /**
  * A Node.js HTTP request listener that is also a callable object carrying an
@@ -112,8 +113,12 @@ export function createCopilotNodeListener(
   options: CopilotRuntimeHandlerOptions,
 ): NodeCopilotListener {
   const handler = createCopilotRuntimeHandler(options);
-  const listener: NodeCopilotListener = createCopilotNodeHandler(handler);
+  const logger = getRuntimeLogger(options.runtime);
+  const listener: NodeCopilotListener = createCopilotNodeHandler(
+    handler,
+    logger,
+  );
   listener.channels = handler.channels;
-  autoStartChannels(listener.channels);
+  autoStartChannels(listener.channels, logger);
   return listener;
 }

@@ -1,5 +1,5 @@
 import type { Message, RunAgentInput } from "@ag-ui/client";
-import { logger } from "@copilotkit/shared";
+import { getRuntimeLogger } from "../../core/logger";
 import type { CopilotIntelligenceRuntimeLike } from "../../core/runtime";
 import {
   cloneAgentForRequest,
@@ -45,6 +45,7 @@ export async function generateThreadNameForNewThread({
   thread,
   userId,
 }: GenerateThreadNameParams): Promise<void> {
+  const logger = getRuntimeLogger(runtime);
   if (!runtime.generateThreadNames || hasThreadName(thread.name)) {
     return;
   }
@@ -101,6 +102,7 @@ async function runTitleGenerationAttempt(params: {
   prompt: string;
 }): Promise<string | null> {
   const { runtime, request, agentId, threadId, prompt } = params;
+  const logger = getRuntimeLogger(runtime);
   const agent = await cloneAgentForRequest(runtime, agentId, request);
   if (isHandlerResponse(agent)) {
     logger.warn(

@@ -1,3 +1,4 @@
+import { getRuntimeLogger } from "../../core/logger";
 import type { CopilotRuntimeLike } from "../../core/runtime";
 import type { AgentRunner } from "../../runner/agent-runner";
 import {
@@ -117,7 +118,7 @@ export function warnIfThreadOwnershipUnenforced(
   runtime: CopilotRuntimeLike,
 ): void {
   if (hasIdentifyUser(runtime) && !enforcesThreadOwnership(runtime.runner)) {
-    console.warn(
+    getRuntimeLogger(runtime).warn(
       `[CopilotKit] ${threadOwnershipUnsupportedMessage(runtime.runner)}`,
     );
   }
@@ -165,7 +166,7 @@ export function warnIfThreadListRefused(runtime: CopilotRuntimeLike): void {
   if (!supportsLocalThreadEndpoints(runtime.runner)) return;
   if (isThreadOperationAvailable(runtime, "list")) return;
   threadListRefusalWarned = true;
-  console.warn(
+  getRuntimeLogger(runtime).warn(
     `[CopilotKit] ${THREAD_ACCESS_NOT_CONFIGURED_MESSAGE} Until then, ` +
       "GET /threads and POST /threads/clear return HTTP 403.",
   );

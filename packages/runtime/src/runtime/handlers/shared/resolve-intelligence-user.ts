@@ -5,6 +5,7 @@ import type {
   IdentifyUserCallback,
 } from "../../core/runtime";
 import { isIntelligenceRuntime } from "../../core/runtime";
+import { getRuntimeLogger } from "../../core/logger";
 import { errorResponse } from "./json-response";
 import { isValidIdentifier } from "./intelligence-utils";
 
@@ -52,7 +53,9 @@ async function resolveUser(
   request: Request,
 ): Promise<CopilotRuntimeUser | Response> {
   if (!hasIdentifyUser(runtime)) {
-    console.error("Error identifying user: identifyUser is not configured");
+    getRuntimeLogger(runtime).error(
+      "Error identifying user: identifyUser is not configured",
+    );
     return errorResponse("Failed to identify user", 500);
   }
   try {
@@ -68,7 +71,7 @@ async function resolveUser(
 
     return { id: user.id, name: hasName ? user.name : user.id };
   } catch (error) {
-    console.error("Error identifying user:", error);
+    getRuntimeLogger(runtime).error({ err: error }, "Error identifying user");
     return errorResponse("Failed to identify user", 500);
   }
 }

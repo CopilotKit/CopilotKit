@@ -1,4 +1,5 @@
-import { logger } from "@copilotkit/shared";
+import { getRuntimeLogger } from "../core/logger";
+import type { CopilotRuntimeLogger } from "../core/logger";
 import { PlatformRequestError } from "./client";
 import type { RenewThreadLockResponse } from "./client";
 
@@ -41,6 +42,8 @@ export interface ThreadLockHeartbeatOptions {
   onLost: (error: unknown) => void;
   /** Unref timers so a pending heartbeat never keeps the process alive. */
   unref?: boolean;
+  /** Where retried renewals are reported. Default: the console. */
+  logger?: CopilotRuntimeLogger;
 }
 
 export interface ThreadLockHeartbeat {
@@ -87,6 +90,7 @@ export function startThreadLockHeartbeat(
   options: ThreadLockHeartbeatOptions,
 ): ThreadLockHeartbeat {
   const { renew, intervalMs, fallbackTtlSeconds, onLost } = options;
+  const logger = options.logger ?? getRuntimeLogger();
   let stopped = false;
   let timer: ReturnType<typeof setTimeout> | undefined;
   const initialTtlSeconds =

@@ -1,4 +1,5 @@
-import { logger } from "@copilotkit/shared";
+import { getRuntimeLogger } from "../../core/logger";
+import type { CopilotRuntimeLogger } from "../../core/logger";
 import type {
   CopilotIntelligenceRuntimeLike,
   CopilotRuntimeLike,
@@ -28,6 +29,7 @@ interface AnnotateBody {
 
 async function parseJsonBody(
   request: Request,
+  logger: CopilotRuntimeLogger,
 ): Promise<Record<string, unknown> | Response> {
   try {
     return (await request.json()) as Record<string, unknown>;
@@ -71,10 +73,11 @@ export async function handleAnnotate({
   runtime,
   request,
 }: AnnotateHandlerParams): Promise<Response> {
+  const logger = getRuntimeLogger(runtime);
   const intelligenceRuntime = requireIntelligenceRuntime(runtime);
   if (isHandlerResponse(intelligenceRuntime)) return intelligenceRuntime;
 
-  const body = await parseJsonBody(request);
+  const body = await parseJsonBody(request, logger);
   if (isHandlerResponse(body)) return body;
 
   const user = await resolveIntelligenceUser({

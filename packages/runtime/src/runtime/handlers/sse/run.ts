@@ -3,6 +3,7 @@ import type { Observable } from "rxjs";
 import { isThreadAccessDeniedError } from "../../runner/agent-runner";
 import { threadAccessDeniedResponse } from "../shared/thread-access";
 import type { ResolvedDebugConfig, ModelHostClass } from "@copilotkit/shared";
+import { getRuntimeLogger } from "../../core/logger";
 import type { CopilotRuntimeLogger } from "../../core/logger";
 import type { CopilotRuntimeLike } from "../../core/runtime";
 import { getRuntimeErrorReporter } from "../../core/runtime-error-reporter";
@@ -15,8 +16,8 @@ interface HandleSseRunParams {
   input: RunAgentInput;
   agentId: string;
   debug?: ResolvedDebugConfig;
-  /** Pre-created logger instance to avoid creating a new logger per request. */
-  logger?: CopilotRuntimeLogger;
+  /** Pre-created debug logger, so a request does not create its own. */
+  debugLogger?: CopilotRuntimeLogger;
   startTime?: number;
   /** Identity the run acts as; the runner records it as the thread owner. */
   ownerId?: string;
@@ -29,10 +30,11 @@ export function handleSseRun({
   input,
   agentId,
   debug,
-  logger,
+  debugLogger,
   startTime,
   ownerId,
 }: HandleSseRunParams): Response {
+  const logger = getRuntimeLogger(runtime);
   // Start the run before the stream opens. When another identity claimed the
   // thread after the handler's owner check, the runner refuses at once, and
   // that refusal becomes the same HTTP error as the check's, not a streamed
@@ -49,7 +51,7 @@ export function handleSseRun({
     });
   } catch (error) {
     if (isThreadAccessDeniedError(error)) {
-      console.warn(
+      logger.warn(
         "[CopilotKit] Run refused: the thread belongs to another identity.",
       );
       return threadAccessDeniedResponse();
@@ -62,6 +64,7 @@ export function handleSseRun({
     debugEventBus: runtime.debugEventBus,
     agentId,
     debug,
+    debugLogger,
     logger,
     runtimeErrorReporter: getRuntimeErrorReporter(runtime),
     startTime,

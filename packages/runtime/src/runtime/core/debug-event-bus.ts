@@ -1,5 +1,6 @@
-import { processEnv } from "@copilotkit/shared";
+import { logger as consoleLogger, processEnv } from "@copilotkit/shared";
 import type { BaseEvent } from "@ag-ui/client";
+import type { CopilotRuntimeLogger } from "./logger";
 import type {
   DebugEventEnvelope,
   ResolvedDebugConfig,
@@ -9,6 +10,9 @@ export type DebugEventListener = (envelope: DebugEventEnvelope) => void;
 
 export class DebugEventBus {
   private listeners = new Set<DebugEventListener>();
+
+  /** @param logger - Where a failing listener is reported. Default: the console. */
+  constructor(private readonly logger: CopilotRuntimeLogger = consoleLogger) {}
 
   subscribe(listener: DebugEventListener): () => void {
     this.listeners.add(listener);
@@ -35,10 +39,7 @@ export class DebugEventBus {
       try {
         listener(envelope);
       } catch (err) {
-        console.warn(
-          "[DebugEventBus] Listener error suppressed:",
-          err instanceof Error ? err.message : err,
-        );
+        this.logger.warn({ err }, "[DebugEventBus] Listener error suppressed");
       }
     }
   }

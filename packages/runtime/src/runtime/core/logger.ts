@@ -28,7 +28,7 @@
  * END V1 SDK DEPRECATED. USE V2 INSTEAD NOTICE
  */
 
-import { processEnv } from "@copilotkit/shared";
+import { logger as consoleLogger, processEnv } from "@copilotkit/shared";
 
 export type LogLevel = "debug" | "info" | "warn" | "error";
 
@@ -42,17 +42,50 @@ type LogFn = {
 };
 
 /**
- * The logger that `createLogger` returns and `runtime.debugLogger` holds.
- * Each call writes one JSON line in pino's format, so `npx pino-pretty` can
- * format the output.
+ * A logger the runtime can write to. The shape is pino's: each method takes a
+ * message, or an object of fields and then a message. pino and `console` fit
+ * it as they are. For a logger that takes the message first (for example
+ * winston), pass a small adapter.
  */
 export interface CopilotRuntimeLogger {
   debug: LogFn;
   info: LogFn;
   warn: LogFn;
   error: LogFn;
-  /** Returns a logger that adds `bindings` to each line it writes. */
-  child(bindings: Record<string, unknown>): CopilotRuntimeLogger;
+  /**
+   * Returns a logger that adds `bindings` to each line it writes. Optional:
+   * when it is missing, the runtime uses the logger itself.
+   */
+  child?(bindings: Record<string, unknown>): CopilotRuntimeLogger;
+}
+
+/** The logger a runtime writes to. A runtime without one writes to the console. */
+export function getRuntimeLogger(runtime?: {
+  logger?: CopilotRuntimeLogger;
+}): CopilotRuntimeLogger {
+  if (runtime === undefined || runtime.logger === undefined) {
+    return consoleLogger;
+  }
+  return runtime.logger;
+}
+
+const DEBUG_COMPONENT = "copilotkit-debug";
+
+/**
+ * The logger for `debug` output. With an app logger, a child of it (or the
+ * logger itself when it has no `child`). Without one, JSON lines from
+ * `createLogger`.
+ */
+export function createDebugLogger(
+  logger?: CopilotRuntimeLogger,
+): CopilotRuntimeLogger {
+  if (logger === undefined) {
+    return createLogger({ level: "debug", component: DEBUG_COMPONENT });
+  }
+  // `child` is optional: `console`, for example, has none.
+  return typeof logger.child === "function"
+    ? logger.child({ component: DEBUG_COMPONENT })
+    : logger;
 }
 
 // pino's number levels. A logger writes a line only when the level of the

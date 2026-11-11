@@ -336,7 +336,7 @@ describe("handleSuggestAgent", () => {
 
     const runtime: FakeRuntime = { runner: { run: vi.fn() } };
 
-    // The stream's error handler logs via `console.error`. Spy on it and
+    // With no app logger, the stream's error handler logs via `console.error`. Spy on it and
     // swallow output so the failure trace is asserted without noise.
     const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
 
@@ -356,13 +356,10 @@ describe("handleSuggestAgent", () => {
 
     expect(runtime.runner.run).not.toHaveBeenCalled();
     // Operator trace: the failure is logged server-side.
-    expect(
-      errorSpy.mock.calls.some((call) =>
-        call.some(
-          (arg) => arg === runError || String(arg).includes("exploded"),
-        ),
-      ),
-    ).toBe(true);
+    expect(errorSpy).toHaveBeenCalledWith(
+      { err: runError },
+      "Error running agent",
+    );
 
     errorSpy.mockRestore();
   });

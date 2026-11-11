@@ -39,8 +39,9 @@ import type {
   BeforeRequestMiddleware,
   AfterRequestMiddleware,
 } from "./middleware";
-import { createLogger } from "./logger";
+import { createDebugLogger, getRuntimeLogger } from "./logger";
 import type { CopilotRuntimeLogger } from "./logger";
+export type { CopilotRuntimeLogger } from "./logger";
 import { logRuntimeTelemetryDisclosure } from "../telemetry/disclosure";
 import type { TranscriptionService } from "../transcription-service/transcription-service";
 import { DebugEventBus, isDebugEventFeedEnabled } from "./debug-event-bus";
@@ -236,6 +237,17 @@ interface BaseCopilotRuntimeOptions extends CopilotRuntimeMiddlewares {
   /** Enable debug logging for the event pipeline. */
   debug?: DebugConfig;
   /**
+   * Where the runtime writes its logs. Pass pino, `console`, or any object
+   * with pino-style `debug`, `info`, `warn` and `error` methods
+   * (`(message)` or `(fields, message)`). When `debug` is on, debug output
+   * goes to `logger.child({ component: "copilotkit-debug" })`, or to the
+   * logger itself when it has no `child`.
+   *
+   * Without it, the runtime writes to the console, and debug output is JSON
+   * lines on stdout.
+   */
+  logger?: CopilotRuntimeLogger;
+  /**
    * Policy controlling which inbound HTTP headers are forwarded onto the
    * outgoing agent call. By default a built-in denylist strips known
    * infrastructure/proxy/platform headers (`x-forwarded-*`, `x-real-ip`,
@@ -417,6 +429,12 @@ export interface CopilotRuntimeLike {
   debug: ResolvedDebugConfig;
   debugLogger?: CopilotRuntimeLogger;
   /**
+   * The logger the runtime writes to. Optional so external implementations of
+   * this published interface remain source-compatible; a missing value means
+   * the console.
+   */
+  logger?: CopilotRuntimeLogger;
+  /**
    * Runtime-bound telemetry capture. Optional so external implementations of
    * this published interface remain source-compatible.
    */
@@ -484,6 +502,7 @@ abstract class BaseCopilotRuntime implements CopilotRuntimeLike {
   public readonly debugEventBus?: DebugEventBus;
   public debug: ResolvedDebugConfig;
   public debugLogger?: CopilotRuntimeLogger;
+  public readonly logger: CopilotRuntimeLogger;
   public readonly telemetry: TelemetryCapture;
   public readonly forwardHeadersPolicy: ResolvedForwardHeadersPolicy;
   public readonly sseKeepAliveIntervalSeconds: number;
@@ -508,7 +527,8 @@ abstract class BaseCopilotRuntime implements CopilotRuntimeLike {
   }
 
   constructor(options: BaseCopilotRuntimeOptions, runner: AgentRunner) {
-    logRuntimeTelemetryDisclosure();
+    this.logger = getRuntimeLogger(options);
+    logRuntimeTelemetryDisclosure(this.logger);
 
     const {
       agents,
@@ -565,16 +585,13 @@ abstract class BaseCopilotRuntime implements CopilotRuntimeLike {
 
     this.debug = resolveDebugConfig(options.debug);
     if (this.debug.enabled) {
-      this.debugLogger = createLogger({
-        level: "debug",
-        component: "copilotkit-debug",
-      });
+      this.debugLogger = createDebugLogger(options.logger);
     }
     // The debug feed carries every thread's events to any subscriber, so the
     // bus only exists where the feed is allowed to be served. Resolving
     // `debug` first keeps the bus and the route gate reading one value.
     if (isDebugEventFeedEnabled(this.debug)) {
-      this.debugEventBus = new DebugEventBus();
+      this.debugEventBus = new DebugEventBus(this.logger);
     }
     // Resolve the inbound-header forwarding policy once (mirroring the
     // `debug` → `ResolvedDebugConfig` resolve-once above) so both the /run and
@@ -686,7 +703,7 @@ export class CopilotIntelligenceRuntime
       throw new Error("Intelligence Runtime `identifyUser` must be a callback");
     }
     if (rawOptions.threads !== undefined) {
-      console.warn(
+      getRuntimeLogger(options).warn(
         "[CopilotKit] `threads` has no effect on an Intelligence runtime: the " +
           "platform scopes threads per user. Remove the option.",
       );
@@ -760,6 +777,7 @@ export class CopilotIntelligenceRuntime
         maxReconnectMs: options.maxReconnectMs,
         maxRejoinMs: options.maxRejoinMs,
         heartbeatIntervalMs: options.heartbeatIntervalMs,
+        logger: getRuntimeLogger(options),
       }),
     );
     this.intelligence = options.intelligence;
@@ -1035,6 +1053,10 @@ class CopilotRuntimeShim implements CopilotRuntime {
 
   get debugLogger(): CopilotRuntimeLogger | undefined {
     return this.delegate.debugLogger;
+  }
+
+  get logger(): CopilotRuntimeLogger {
+    return this.delegate.logger;
   }
 
   get telemetry(): TelemetryCapture {
