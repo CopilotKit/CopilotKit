@@ -41,6 +41,7 @@ _CVDIAG_TS_INTEGRATIONS=(
   "mastra"
   "built-in-agent"
   "strands-typescript"
+  "cloudflare-agents"
 )
 
 # The canonical L0-A sources (relative to harness/src/cvdiag/). They are

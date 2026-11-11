@@ -22,7 +22,7 @@ const recipes = [
 
 test("covers every Showcase Node image and the twelve deployed starters", () => {
   expect(starters).toHaveLength(12);
-  expect(recipes).toHaveLength(42);
+  expect(recipes).toHaveLength(43);
 });
 
 test.each(recipes)("%s cannot silently rebuild with an older Node", (path) => {
@@ -172,7 +172,7 @@ test("manual builds bypass PR filtering and use event-safe metadata", () => {
   expect(matrixStep.run).not.toContain("${{");
 });
 
-test("manual matrix executes Bash/jq and covers exactly all 42 recipe paths", () => {
+test("manual matrix executes Bash/jq and covers exactly all 43 recipe paths", () => {
   // Read the actual dispatch filter value from the workflow's environment.
   const dispatchChanges =
     matrixStep.env!.FILTER_CHANGES.match(/&& '([^']+)'/)?.[1];
