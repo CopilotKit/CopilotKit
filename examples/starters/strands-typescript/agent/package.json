@@ -11,7 +11,6 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@ag-ui/a2ui-toolkit": "0.0.4",
     "@ag-ui/aws-strands": "0.2.3",
     "@ag-ui/core": "0.0.59",
     "@anthropic-ai/sdk": "0.92.0",

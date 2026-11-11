@@ -8,7 +8,6 @@ dependencies = [
   "claude-agent-sdk==0.2.104",
   "ag-ui-claude-sdk==0.1.5",
   "ag-ui-protocol==0.1.19",
-  "copilotkit==0.1.94",
   "fastapi>=0.115.0",
   "uvicorn>=0.34.0",
   "python-dotenv>=1.0.1",

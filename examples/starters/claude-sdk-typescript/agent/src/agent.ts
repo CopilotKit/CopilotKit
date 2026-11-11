@@ -1,11 +1,12 @@
 /**
  * The Claude Agent SDK agent — backend tools + the official AG-UI adapter.
  *
- * Three backend tools live in their own modules (src/query.ts,
- * src/a2ui_fixed_schema.ts, src/a2ui_dynamic_schema.ts). The official
- * ClaudeAgentAdapter does everything else: it drives Claude via the Claude Agent
- * SDK, bridges CopilotKit frontend tools + human-in-the-loop, and manages the
- * shared `todos` state via its built-in ag_ui_update_state tool.
+ * Two backend tools live in their own modules (src/query.ts, src/flights.ts).
+ * The official ClaudeAgentAdapter does everything else: it drives Claude via the
+ * Claude Agent SDK, bridges CopilotKit frontend tools (including the runtime's
+ * render_ui generative UI tool) + human-in-the-loop, appends the run's AG-UI
+ * context (the generative UI guide, app context) to the system prompt, and
+ * manages the shared `todos` state via its built-in ag_ui_update_state tool.
  */
 
 import path from "node:path";
@@ -17,8 +18,8 @@ import { createSdkMcpServer } from "@anthropic-ai/claude-agent-sdk";
 
 import { resolveModel } from "./model";
 import { queryData } from "./query";
-import { searchFlights } from "./a2ui_fixed_schema";
-import { generateA2ui } from "./a2ui_dynamic_schema";
+// Flight data, rendered as generative UI with render_ui
+import { searchFlights } from "./flights";
 
 // Load .env from the starter root before building the adapter (which reads the
 // model from the environment); fall back to the current working directory.
@@ -29,11 +30,17 @@ dotenv.config();
 const SYSTEM_PROMPT = [
   "You are a polished, professional demo assistant. Keep responses to 1-2 sentences.",
   "",
-  "- Flights: call search_flights to show flight cards.",
-  "- Dashboards: call generate_a2ui to build a rich dashboard UI; it renders itself.",
+  "Tool guidance:",
+  "",
+  "- Flights: call search_flights, then show the flights with render_ui as a Row",
+  "  of FlightCard components.",
+  "- Dashboards & rich UI: call render_ui to build dashboards with metrics, charts,",
+  "  tables, and cards from the generative UI catalog.",
   "- Charts: call query_data first, then render with the chart component.",
-  "- Todos: the todo board is shared state under `todos`; call ag_ui_update_state",
-  "  with the COMPLETE list to add or change todos.",
+  "- Todos: enable app mode first, then manage todos. The todo board is shared",
+  "  state under `todos`; call ag_ui_update_state with the COMPLETE list.",
+  "- Generative UI actions: a click on a button you rendered (e.g. selecting a",
+  "  flight) arrives as a user message. Respond with a brief confirmation.",
 ].join("\n");
 
 // The Claude Agent SDK exposes custom tools through an in-process MCP server
@@ -42,7 +49,7 @@ const SYSTEM_PROMPT = [
 // (`tools` is a different field — Claude Code's BUILT-IN toolset; [] disables it
 // so the model only uses ours + the AG-UI protocol tools.)
 const SERVER_NAME = "copilotkit";
-const backendTools = [queryData, searchFlights, generateA2ui];
+const backendTools = [queryData, searchFlights];
 
 export const adapter = new ClaudeAgentAdapter({
   agentId: "claude-sdk-typescript",

@@ -3,12 +3,6 @@ import { randomUUID } from "node:crypto";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import {
-  A2UI_OPERATIONS_KEY,
-  createSurface,
-  updateComponents,
-  updateDataModel,
-} from "@ag-ui/a2ui-toolkit";
 import { StrandsAgent } from "@ag-ui/aws-strands";
 import type {
   StatePayload,
@@ -19,47 +13,31 @@ import type { RunAgentInput } from "@ag-ui/core";
 import { Agent, tool } from "@strands-agents/sdk";
 import { parse } from "csv-parse/sync";
 import dotenv from "dotenv";
-import type OpenAI from "openai";
 import { z } from "zod";
 
+// Flight data, rendered as generative UI with render_ui
+import { searchFlights } from "./flights.js";
 import { forwardingFetch } from "./header-forwarding.js";
-import {
-  createChatCompletionsClient,
-  createStrandsModel,
-  resolveAgentModel,
-} from "./model.js";
-import {
-  APP_CATALOG_ID,
-  buildA2uiOperations,
-  DYNAMIC_A2UI_SYSTEM_PROMPT,
-  parseRenderA2uiArguments,
-  RENDER_A2UI_TOOL,
-} from "./a2ui-contract.js";
+import { createStrandsModel, resolveAgentModel } from "./model.js";
 
 const agentDir = dirname(fileURLToPath(import.meta.url));
 dotenv.config({ path: resolve(agentDir, "../../.env") });
 dotenv.config();
 
 const AIMOCK_CONTEXT = "strands-typescript";
-const FLIGHT_SURFACE_ID = "flight-search-results";
-const FLIGHT_SCHEMA = JSON.parse(
-  readFileSync(
-    resolve(agentDir, "a2ui", "schemas", "flight_schema.json"),
-    "utf8",
-  ),
-) as Array<Record<string, unknown>>;
 
 const SYSTEM_PROMPT = `You are a polished, professional demo assistant. Keep responses to 1-2 sentences.
 
 Tool guidance:
 
-- Flights: call search_flights to show flight cards with a pre-built schema.
-- Dashboards & rich UI: call generate_a2ui to create dashboard UIs with metrics,
-  charts, tables, and cards. It handles rendering automatically.
+- Flights: call search_flights, then show the flights with render_ui as a Row
+  of FlightCard components.
+- Dashboards & rich UI: call render_ui to build dashboards with metrics, charts,
+  tables, and cards from the generative UI catalog.
 - Charts: call query_data first, then render with the chart component.
 - Todos: enable app mode first, then manage todos.
-- A2UI actions: when you see a log_a2ui_event result (e.g. "view_details"),
-  respond with a brief confirmation. The UI already updated on the frontend.`;
+- Generative UI actions: a click on a button you rendered (e.g. selecting a
+  flight) arrives as a user message. Respond with a brief confirmation.`;
 
 export interface StarterState {
   todos?: Todo[];
@@ -102,10 +80,13 @@ function parseToolInput(raw: unknown): unknown {
 }
 
 /**
- * Render what the page shares (`useAgentContext`) for the prompt.
+ * Render the run's AG-UI `context` for the prompt.
  *
- * `@ag-ui/aws-strands` passes a run's AG-UI `context` to hooks only and does
- * not add it to the prompt itself, so without this the model never sees it.
+ * The context carries what the page shares (`useAgentContext`) and the
+ * runtime's generative UI guide, which tells the model how to call
+ * `render_ui`. `@ag-ui/aws-strands` passes a run's AG-UI `context` to hooks
+ * only and does not add it to the prompt itself, so without this the model
+ * never sees it.
  */
 function pageContextText(input: RunAgentInput): string {
   const entries = input.context ?? [];
@@ -165,91 +146,13 @@ const queryData = tool({
   callback: () => JSON.stringify(dataRows),
 });
 
-const flightSchema = z.object({
-  id: z.string(),
-  airline: z.string(),
-  airlineLogo: z.string(),
-  flightNumber: z.string(),
-  origin: z.string(),
-  destination: z.string(),
-  date: z.string(),
-  departureTime: z.string(),
-  arrivalTime: z.string(),
-  duration: z.string(),
-  status: z.string(),
-  statusIcon: z.string(),
-  price: z.string(),
-});
-
-const searchFlights = tool({
-  name: "search_flights",
-  description:
-    "Show exactly two flight results as rich cards. Include every requested flight field.",
-  inputSchema: z.object({ flights: z.array(flightSchema).length(2) }),
-  callback: ({ flights }) =>
-    JSON.parse(
-      JSON.stringify({
-        [A2UI_OPERATIONS_KEY]: [
-          createSurface(FLIGHT_SURFACE_ID, APP_CATALOG_ID),
-          updateComponents(FLIGHT_SURFACE_ID, FLIGHT_SCHEMA),
-          updateDataModel(FLIGHT_SURFACE_ID, { flights }),
-        ],
-      }),
-    ),
-});
-
-// COPILOTKIT_AGENT_MODEL (e.g. "anthropic:claude-sonnet-4-5") picks the model
-// for BOTH model sites below; unset, both use MODEL_ID or gpt-6-luna on OpenAI.
+// COPILOTKIT_AGENT_MODEL (e.g. "anthropic:claude-sonnet-4-5") picks the model;
+// unset, it uses MODEL_ID or gpt-6-luna on OpenAI.
 const agentModel = resolveAgentModel();
 const clientExtras = {
   defaultHeaders: { "x-aimock-context": AIMOCK_CONTEXT },
   fetch: forwardingFetch,
 };
-
-let chatClient: OpenAI | undefined;
-
-function getChatClient(): OpenAI {
-  chatClient ??= createChatCompletionsClient(agentModel, clientExtras);
-  return chatClient;
-}
-
-export const generateA2ui = tool({
-  name: "generate_a2ui",
-  description:
-    "Design and render a dashboard with A2UI components for the user's request.",
-  inputSchema: z.object({ user_intent: z.string() }),
-  callback: async ({ user_intent }) => {
-    const request: OpenAI.Chat.Completions.ChatCompletionCreateParamsNonStreaming =
-      {
-        model: agentModel.model,
-        messages: [
-          {
-            role: "system",
-            content: DYNAMIC_A2UI_SYSTEM_PROMPT,
-          },
-          { role: "user", content: user_intent },
-        ],
-        tools: [RENDER_A2UI_TOOL],
-        tool_choice: { type: "function", function: { name: "render_a2ui" } },
-      };
-    // The pinned SDK predates Luna's "none" effort. Extend the validated
-    // request through its body override while preserving every tool field.
-    const response = await getChatClient().chat.completions.create(
-      request,
-      agentModel.provider === "openai" && agentModel.model === "gpt-6-luna"
-        ? { body: { ...request, reasoning_effort: "none" } }
-        : undefined,
-    );
-
-    const call = response.choices[0]?.message.tool_calls?.[0];
-    if (!call || call.type !== "function") {
-      throw new Error("The UI model did not return an A2UI surface.");
-    }
-    const args = parseRenderA2uiArguments(call.function.arguments);
-    const operations = buildA2uiOperations(args);
-    return JSON.parse(JSON.stringify({ [A2UI_OPERATIONS_KEY]: operations }));
-  },
-});
 
 const model = createStrandsModel(agentModel, clientExtras);
 
@@ -263,7 +166,7 @@ const config: StrandsAgentConfig = {
 const strandsAgent = new Agent({
   model,
   systemPrompt: SYSTEM_PROMPT,
-  tools: [manageTodos, getTodos, queryData, generateA2ui, searchFlights],
+  tools: [manageTodos, getTodos, queryData, searchFlights],
 });
 
 export const agent = new StrandsAgent({

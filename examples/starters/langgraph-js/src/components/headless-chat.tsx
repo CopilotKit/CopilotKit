@@ -1,4 +1,4 @@
-import { useAgent } from "@copilotkit/react-core/v2";
+import { useAgent } from "@copilotkit/react-core";
 import { useCallback, useState } from "react";
 
 export const HeadlessChat = () => {

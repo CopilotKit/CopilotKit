@@ -11,7 +11,7 @@ import csv
 import json
 import os
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import List
 from uuid import uuid4
 
 from ag_ui_strands import (
@@ -21,14 +21,13 @@ from ag_ui_strands import (
     ToolBehavior,
     create_strands_app,
 )
-from copilotkit import a2ui
 from dotenv import load_dotenv
-from langchain_core.messages import SystemMessage
-from langchain_core.tools import tool as lc_tool
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 from strands import Agent, tool
 
-from src.model import create_chat_model, create_strands_model
+# Flight data, rendered as generative UI with render_ui
+from src.flights import search_flights
+from src.model import create_strands_model
 
 # ---------------------------------------------------------------------------
 # Env loading (shared demo root pattern used by the other integration demos)
@@ -112,152 +111,17 @@ def query_data(query: str) -> str:
 
 
 # ---------------------------------------------------------------------------
-# A2UI tools (framework-agnostic — use copilotkit.a2ui helpers directly)
-# ---------------------------------------------------------------------------
-CATALOG_ID = "copilotkit://app-dashboard-catalog"
-FLIGHT_SURFACE_ID = "flight-search-results"
-FLIGHT_SCHEMA = a2ui.load_schema(
-    Path(__file__).parent / "src" / "a2ui" / "schemas" / "flight_schema.json"
-)
-
-
-class Flight(BaseModel):
-    id: str
-    airline: str
-    airlineLogo: str
-    flightNumber: str
-    origin: str
-    destination: str
-    date: str
-    departureTime: str
-    arrivalTime: str
-    duration: str
-    status: str
-    statusIcon: str
-    price: str
-
-
-class FlightList(BaseModel):
-    flights: List[Flight]
-
-
-@tool
-def search_flights(flight_list: FlightList) -> str:
-    """Search for flights and display the results as rich cards.
-
-    Return exactly 2 flights. Each flight must have: id, airline, airlineLogo
-    (Google favicon API URL for the airline domain), flightNumber, origin,
-    destination, date (e.g. "Tue, Mar 18" — use near-future dates),
-    departureTime, arrivalTime, duration (e.g. "4h 25m"), status (e.g.
-    "On Time" or "Delayed"), statusIcon (colored dot URL:
-    https://placehold.co/12/22c55e/22c55e.png for On Time,
-    https://placehold.co/12/eab308/eab308.png for Delayed,
-    https://placehold.co/12/ef4444/ef4444.png for Cancelled), and price
-    (e.g. "$289").
-    """
-    # Strands @tool passes plain dicts (model_dump output) — ``flight_list``
-    # is a dict, ``flight_list["flights"]`` is a list of dicts. Validate
-    # back to Pydantic to enforce the schema, then dump for a2ui rendering.
-    parsed = FlightList.model_validate(flight_list)
-    flights_payload = [f.model_dump() for f in parsed.flights]
-    return a2ui.render(
-        operations=[
-            a2ui.create_surface(FLIGHT_SURFACE_ID, catalog_id=CATALOG_ID),
-            a2ui.update_components(FLIGHT_SURFACE_ID, FLIGHT_SCHEMA),
-            a2ui.update_data_model(FLIGHT_SURFACE_ID, {"flights": flights_payload}),
-        ],
-    )
-
-
-@lc_tool
-def render_a2ui(
-    surfaceId: str,
-    catalogId: str,
-    components: List[Dict[str, Any]],
-    data: Dict[str, Any] | None = None,
-) -> str:
-    """Render a dynamic A2UI v0.9 surface.
-
-    Args:
-        surfaceId: Unique surface identifier.
-        catalogId: The catalog ID (use "copilotkit://app-dashboard-catalog").
-        components: A2UI v0.9 component array (flat format). The root
-            component must have id "root".
-        data: Optional initial data model for the surface (e.g. form values,
-            list items for data-bound components).
-    """
-    return "rendered"
-
-
-@tool
-def generate_a2ui(user_intent: str, agent) -> str:
-    """Generate dynamic A2UI components based on the conversation.
-
-    A secondary LLM designs the UI schema and data. The result is returned
-    as an a2ui_operations container for the middleware to detect and render.
-
-    Seed the secondary LLM with the catalog + component schema entries
-    that CopilotKit's runtime middleware injects into
-    ``RunAgentInput.context``. The ag_ui_strands adapter forwards those
-    entries onto ``agent.state`` under the ``agui_context`` key.
-    """
-    context_entries = []
-    try:
-        context_entries = agent.state.get("agui_context") or []
-    except Exception:
-        context_entries = []
-
-    context_text = "\n\n".join(
-        e.get("value", "")
-        for e in context_entries
-        if isinstance(e, dict) and e.get("value")
-    )
-    prompt = f"{context_text}\n\n{user_intent}" if context_text else user_intent
-
-    # COPILOTKIT_AGENT_MODEL overrides this site too; unset, it uses gpt-6-luna.
-    model = create_chat_model("openai:gpt-6-luna")
-    model_with_tool = model.bind_tools(
-        [render_a2ui],
-        tool_choice="render_a2ui",
-    )
-    try:
-        response = model_with_tool.invoke(
-            [SystemMessage(content=prompt)],
-        )
-    except Exception as exc:  # pragma: no cover — surface LLM/network failures
-        return json.dumps({"error": f"dynamic-a2ui LLM call failed: {exc}"})
-
-    if not response.tool_calls:
-        return json.dumps({"error": "LLM did not call render_a2ui"})
-
-    tool_call = response.tool_calls[0]
-    args = tool_call["args"]
-
-    surface_id = args.get("surfaceId", "dynamic-surface")
-    catalog_id = args.get("catalogId", CATALOG_ID)
-    components = args.get("components", []) or []
-    data = args.get("data") or {}
-
-    ops = [
-        a2ui.create_surface(surface_id, catalog_id=catalog_id),
-        a2ui.update_components(surface_id, components),
-    ]
-    if data:
-        ops.append(a2ui.update_data_model(surface_id, data))
-
-    return a2ui.render(operations=ops)
-
-
-# ---------------------------------------------------------------------------
 # Shared-state config: inject todos into the prompt, stream state back on
 # every manage_todos tool call.
 # ---------------------------------------------------------------------------
 
 
 def page_context_text(input_data) -> str:
-    """Render what the page shares (``useAgentContext``) for the prompt.
+    """Render the run's AG-UI context for the prompt.
 
-    ``ag_ui_strands`` only copies ``RunAgentInput.context`` onto
+    The context carries what the page shares (``useAgentContext``) and the
+    runtime's generative UI guide, which tells the model how to call
+    ``render_ui``. ``ag_ui_strands`` only copies ``RunAgentInput.context`` onto
     ``agent.state["agui_context"]`` for tools to read; it never adds it to
     the prompt, so without this the model does not see it.
     """
@@ -327,23 +191,24 @@ model = create_strands_model(
 system_prompt = (
     "You are a polished, professional demo assistant. Keep responses to 1-2 sentences.\n\n"
     "Tool guidance:\n"
-    "- Flights: call search_flights to show flight cards with a pre-built schema.\n"
-    "- Dashboards & rich UI: call generate_a2ui to create dashboard UIs with metrics,\n"
-    "  charts, tables, and cards. It handles rendering automatically.\n"
+    "- Flights: call search_flights, then show the flights with render_ui as a Row\n"
+    "  of FlightCard components.\n"
+    "- Dashboards & rich UI: call render_ui to build dashboards with metrics, charts,\n"
+    "  tables, and cards from the generative UI catalog.\n"
     "- Charts: call query_data first, then render with the chart component.\n"
     "- Todos: enable app mode first, then manage todos.\n"
     "- Diagrams (Excalidraw): when MCP Excalidraw tools are exposed (e.g. create_view),\n"
     "  call create_view ONCE with 3-5 elements (shapes + arrows + optional title text).\n"
     "  Include ONE cameraUpdate at the end to frame the diagram. Do NOT call read_me\n"
     "  even if it appears in the toolset — you already know the basic shape API.\n"
-    '- A2UI actions: when you see a log_a2ui_event result (e.g. "view_details"),\n'
-    "  respond with a brief confirmation. The UI already updated on the frontend."
+    "- Generative UI actions: a click on a button you rendered (e.g. selecting a\n"
+    "  flight) arrives as a user message. Respond with a brief confirmation."
 )
 
 strands_agent = Agent(
     model=model,
     system_prompt=system_prompt,
-    tools=[manage_todos, get_todos, query_data, generate_a2ui, search_flights],
+    tools=[manage_todos, get_todos, query_data, search_flights],
 )
 
 agui_agent = StrandsAgent(
