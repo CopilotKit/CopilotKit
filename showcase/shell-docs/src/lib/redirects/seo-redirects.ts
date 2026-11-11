@@ -19,6 +19,7 @@
  * Spec & Inventory: https://www.notion.so/33c3aa38185281d7b243c5cf0a7c14cb
  */
 
+import { liveFramework } from "@/lib/live-scope";
 import { FOLDED_PAGES } from "./folded-pages";
 
 export interface RedirectEntry {
@@ -1338,6 +1339,27 @@ for (const entry of seoRedirects) {
  * was later folded), so a legacy URL takes one hop, not two.
  */
 export function findSeoRedirect(pathname: string): SeoRedirectMatch | null {
+  return findUnprefixed(pathname) ?? findUnderFrontend(pathname);
+}
+
+const FRONTEND_PREFIX = /^\/(vue|angular|react-native|slack|teams)(\/.+)$/;
+
+/**
+ * A framework page's redirect also applies under a frontend prefix:
+ * `/angular/mastra/ag-ui` lands where `/mastra/ag-ui` does, kept under
+ * `/angular`. Only redirects that stay inside the same framework carry over.
+ */
+function findUnderFrontend(pathname: string): SeoRedirectMatch | null {
+  const [, frontend, rest] = pathname.match(FRONTEND_PREFIX) ?? [];
+  if (!rest) return null;
+  const match = findUnprefixed(rest);
+  const framework = rest.split("/")[1];
+  if (!liveFramework(framework)) return null;
+  if (!match || !match.destination.startsWith(`/${framework}/`)) return null;
+  return { id: match.id, destination: `/${frontend}${match.destination}` };
+}
+
+function findUnprefixed(pathname: string): SeoRedirectMatch | null {
   const match = firstSeoRedirect(pathname);
   if (!match) return null;
   let { destination } = match;

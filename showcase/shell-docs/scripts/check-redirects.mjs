@@ -441,6 +441,12 @@ for (const [from, to] of [
   // Unlike next.config, the proxy table drops the query string (as shell-docs does).
   ["/coagents?ref=blog", "/langgraph-python"],
   ["/crewai-conversational-flows", "/crewai-crews/quickstart"],
+  // A framework page's redirect also applies under a frontend prefix.
+  ["/angular/mastra/ag-ui", "/angular/mastra/backend/ag-ui"],
+  [
+    "/vue/langgraph-python/deploy-langsmith",
+    "/vue/langgraph-python/deploy/langsmith",
+  ],
   ["/crewai-conversational-flows/feature-parity", "/crewai-crews/quickstart"],
   ["/crewai-conversational-flows/quickstart", "/crewai-flows/quickstart"],
   ["/langgraph/quickstart/langgraph", "/langgraph-python/quickstart"],
