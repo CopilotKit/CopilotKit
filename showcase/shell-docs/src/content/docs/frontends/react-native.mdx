@@ -1098,6 +1098,8 @@ You start with the chat screen from the quickstart. You end with an agent that r
         The agent knows nothing about the user's accounts yet. Give it the data with [`useAgentContext`](/reference/react-native/hooks/useAgentContext), in any component under the provider:
 
         ```tsx
+        import { useAgentContext } from "@copilotkit/react-native/headless";
+
         useAgentContext({
           description: "The user's accounts. Show only these, with these exact balances.",
           value: [
@@ -1115,14 +1117,18 @@ You start with the chat screen from the quickstart. You end with an agent that r
         A surface does not need a chat. A home screen can start a run of its own agent when it mounts, and show whatever surface that run renders. Add a `home` agent to the runtime from the quickstart:
 
         ```ts title="server.ts"
+        import { CopilotRuntime } from "@copilotkit/runtime";
+        import { BuiltInAgent } from "@copilotkit/runtime/agent";
+        import { openaiText } from "@tanstack/ai-openai";
+
         const runtime = new CopilotRuntime({
           agents: {
             default: new BuiltInAgent({
-              model: "openai:gpt-6-luna",
+              model: openaiText("gpt-6-luna"),
               prompt: "You are a helpful assistant for a React Native app.",
             }),
             home: new BuiltInAgent({ // [!code highlight:4]
-              model: "openai:gpt-6-luna",
+              model: openaiText("gpt-6-luna"),
               prompt: "You compose the home screen of a banking app. Render it with one render_ui call into the chat target: the balances first, then one insight.",
             }),
           },
@@ -1305,6 +1311,8 @@ You start with the chat screen from the quickstart. You end with an agent that r
 
 ```tsx
 import { GenerativeUISurface } from "@copilotkit/react-native/generative-ui";
+import { bankUI } from "./src/bankUI";
+import { InsightsPlaceholder } from "./src/InsightsPlaceholder";
 
 <GenerativeUISurface
   id="insights"
