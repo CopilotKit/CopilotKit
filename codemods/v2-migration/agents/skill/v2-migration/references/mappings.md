@@ -4,7 +4,7 @@ Every example imports from the 2.0 package roots. There is no `/v2` subpath in 2
 
 ## Provider
 
-`<CopilotKitProvider>` is the 2.0 provider. The codemod already renamed `<CopilotKit>` to it and `agent` to `agentId`. For the other v1 props:
+`<CopilotKitProvider>` is the 2.0 provider. The codemod already renamed `<CopilotKit>` to it and `agent` to `agentId`. 2.0 still exports `CopilotKit` as an alias of `CopilotKitProvider`, so an import of `CopilotKit` from `@copilotkit/react-core` is valid. The alias takes the 2.0 props, so check its props the same way. Use `CopilotKitProvider` in new code. For the other v1 props:
 
 | v1 prop                                                | 2.0                                                                                                     |
 | ------------------------------------------------------ | ------------------------------------------------------------------------------------------------------- |
