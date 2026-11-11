@@ -8,7 +8,7 @@ import CopilotGenerativeUITabs from "../Tabs.vue";
 import { parentOf, spacing, ui } from "./helpers";
 
 /**
- * Tests ported from the a2ui-renderer standard catalog (React's
+ * Tests ported from the former React standard catalog (React's
  * layout-parity.test.tsx), the layout specs of the Angular port, and the
  * "standard Tabs" case of React's child-refs.test.tsx. A test-only Label
  * stands in for Text, so the layout group needs no other group.

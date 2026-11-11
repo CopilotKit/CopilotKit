@@ -5,18 +5,18 @@ import {
   screen,
   waitFor,
 } from "@testing-library/vue";
-import { defineComponent, ref, toRaw } from "vue";
+import { defineComponent, h, ref, toRaw } from "vue";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type * as CoreModule from "@copilotkit/core";
 import type { AbstractAgent } from "@ag-ui/client";
 import { EventType } from "@ag-ui/client";
-import type { A2UITheme as Theme } from "../../../types";
 import { IntelligenceAgent } from "@copilotkit/core";
+import { z } from "zod";
+import type { VueActivityMessageRenderer } from "../../../types";
 import CopilotChat from "../CopilotChat.vue";
 import CopilotKitProvider from "../../../providers/CopilotKitProvider.vue";
 import CopilotChatConfigurationProvider from "../../../providers/CopilotChatConfigurationProvider.vue";
 import { useCopilotKit } from "../../../providers/useCopilotKit";
-import { createA2UIMessageRenderer } from "../../../components/A2UIMessageRenderer";
 import {
   activitySnapshotEvent,
   MockReconnectableAgent,
@@ -221,6 +221,15 @@ afterEach(() => {
   cleanup();
 });
 
+/** A surface that the activity content names, drawn as a marked element. */
+const SURFACE_ACTIVITY_TYPE = "dashboard-surface";
+const surfaceRenderer = {
+  activityType: SURFACE_ACTIVITY_TYPE,
+  content: z.object({ surfaceId: z.string(), text: z.string() }),
+  render: ({ content }: { content: { surfaceId: string; text: string } }) =>
+    h("div", { "data-surface-id": content.surfaceId }, content.text),
+} as unknown as VueActivityMessageRenderer<unknown>;
+
 describe("CopilotChat activity message rendering", () => {
   it("renders custom components for activity snapshots", async () => {
     const agent = new MockStepwiseAgent();
@@ -388,18 +397,15 @@ describe("CopilotChat activity message rendering", () => {
     expect(toRaw(capturedAgent.value!).threadId).toBe(threadId);
   });
 
-  it("restores a completed A2UI surface after reconnect from an event-native baseline", async () => {
+  it("restores a completed activity surface after reconnect from an event-native baseline", async () => {
     const agent = new MockReconnectableAgent();
-    const threadId = testId("a2ui-thread");
+    const threadId = testId("surface-thread");
     const surfaceId = testId("surface");
-    const a2uiRenderer = createA2UIMessageRenderer({
-      theme: {} as Theme,
-    });
 
     const { unmount } = renderWithCopilotKit({
       agent,
       threadId,
-      renderActivityMessages: [a2uiRenderer],
+      renderActivityMessages: [surfaceRenderer],
     });
 
     // Allow the /connect bootstrap cycle to settle before submitting.
@@ -416,34 +422,9 @@ describe("CopilotChat activity message rendering", () => {
     await agent.emit(runStartedEvent());
     await agent.emit(
       activitySnapshotEvent({
-        messageId: testId("a2ui-activity"),
-        activityType: "a2ui-surface",
-        content: {
-          a2ui_operations: [
-            {
-              version: "v0.9",
-              createSurface: {
-                surfaceId,
-                catalogId:
-                  "https://a2ui.org/specification/v0_9/basic_catalog.json",
-              },
-            },
-            {
-              version: "v0.9",
-              updateComponents: {
-                surfaceId,
-                components: [
-                  {
-                    id: "root",
-                    component: "Text",
-                    text: "Restored dashboard",
-                    variant: "body",
-                  },
-                ],
-              },
-            },
-          ],
-        },
+        messageId: testId("surface-activity"),
+        activityType: SURFACE_ACTIVITY_TYPE,
+        content: { surfaceId, text: "Restored dashboard" },
       }),
     );
     await agent.emit(runFinishedEvent());
@@ -464,7 +445,7 @@ describe("CopilotChat activity message rendering", () => {
     renderWithCopilotKit({
       agent,
       threadId,
-      renderActivityMessages: [a2uiRenderer],
+      renderActivityMessages: [surfaceRenderer],
     });
 
     await waitFor(
@@ -477,7 +458,7 @@ describe("CopilotChat activity message rendering", () => {
     );
   });
 
-  it("restores a completed A2UI surface from IntelligenceAgent /connect gateway replay", async () => {
+  it("restores a completed activity surface from IntelligenceAgent /connect gateway replay", async () => {
     const threadId = testId("intelligence-connect-thread");
     const surfaceId = testId("intelligence-connect-surface");
     const fetchMock = vi.fn().mockResolvedValueOnce(
@@ -499,15 +480,12 @@ describe("CopilotChat activity message rendering", () => {
       runtimeUrl: "http://localhost:4000",
       agentId: "my-agent",
     });
-    const a2uiRenderer = createA2UIMessageRenderer({
-      theme: {} as Theme,
-    });
 
     try {
       renderWithCopilotKit({
         agent,
         threadId,
-        renderActivityMessages: [a2uiRenderer],
+        renderActivityMessages: [surfaceRenderer],
       });
 
       await waitFor(() => {
@@ -543,34 +521,9 @@ describe("CopilotChat activity message rendering", () => {
       });
       channel.serverPush("ag_ui_event", {
         type: EventType.ACTIVITY_SNAPSHOT,
-        messageId: testId("connect-a2ui-activity"),
-        activityType: "a2ui-surface",
-        content: {
-          a2ui_operations: [
-            {
-              version: "v0.9",
-              createSurface: {
-                surfaceId,
-                catalogId:
-                  "https://a2ui.org/specification/v0_9/basic_catalog.json",
-              },
-            },
-            {
-              version: "v0.9",
-              updateComponents: {
-                surfaceId,
-                components: [
-                  {
-                    id: "root",
-                    component: "Text",
-                    text: "Restored dashboard",
-                    variant: "body",
-                  },
-                ],
-              },
-            },
-          ],
-        },
+        messageId: testId("connect-surface-activity"),
+        activityType: SURFACE_ACTIVITY_TYPE,
+        content: { surfaceId, text: "Restored dashboard" },
       });
       channel.serverPush("ag_ui_event", {
         type: EventType.RUN_FINISHED,
@@ -645,7 +598,7 @@ describe("CopilotChat activity message rendering", () => {
     const { unmount } = renderOpenGenerativeUIChat();
 
     // Allow the /connect bootstrap cycle to settle before submitting.
-    // See the A2UI reconnect test above for the full rationale.
+    // See the activity surface reconnect test above for the full rationale.
     await waitFor(() => {
       expect(screen.queryByTestId("copilot-chat-view")).not.toBeNull();
     });
