@@ -8,6 +8,8 @@
     The agent declares nothing for it:
 
     ```csharp title="Program.cs"
+    #pragma warning disable OPENAI001
+    using Microsoft.Extensions.AI;
     using Microsoft.Agents.AI;
     using Microsoft.Agents.AI.Hosting.AGUI.AspNetCore;
     using OpenAI;
@@ -22,7 +24,11 @@
 
     // Create the agent - frontend tools are automatically available
     var agent = new OpenAIClient(openAiApiKey)
-        .GetChatClient("gpt-5.4-mini")
+        .GetChatClient("gpt-6-luna")
+        .AsIChatClient().AsBuilder()
+        .ConfigureOptions(options => options.RawRepresentationFactory = _ =>
+            new OpenAI.Chat.ChatCompletionOptions { ReasoningEffortLevel = new("none") })
+        .Build()
         .AsAIAgent(name: "AGUIAssistant", instructions: "You are a helpful assistant.");
 
     // Map the AG-UI endpoint

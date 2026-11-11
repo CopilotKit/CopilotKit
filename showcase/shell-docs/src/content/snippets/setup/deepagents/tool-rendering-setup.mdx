@@ -10,6 +10,7 @@
       <Tab value="Python">
         ```python title="agent.py"
         from deepagents import create_deep_agent
+        from langchain_openai import ChatOpenAI
         from langchain.tools import tool
 
         @tool
@@ -20,7 +21,7 @@
             return f"The weather for {location} is 70 degrees."
 
         agent = create_deep_agent(
-            model="openai:gpt-4o",
+            model=ChatOpenAI(model="gpt-6-luna", reasoning_effort="none"),
             tools=[get_weather],
             system_prompt="You are a helpful assistant.",
         )
@@ -46,7 +47,7 @@
         );
 
         export const agent = createDeepAgent({
-          model: "openai:gpt-4o",
+          model: "openai:gpt-6-luna",
           tools: [getWeather],
           systemPrompt: "You are a helpful assistant.",
         });

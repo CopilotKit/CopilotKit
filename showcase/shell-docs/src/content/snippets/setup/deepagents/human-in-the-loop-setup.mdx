@@ -20,6 +20,7 @@ these pages yet, so the steps below carry the code.
 
         from copilotkit import CopilotKitMiddleware, CopilotKitState
         from deepagents import create_deep_agent
+        from langchain_openai import ChatOpenAI
         from langchain.agents.middleware import AgentMiddleware
         from langgraph.runtime import Runtime
         from langgraph.types import interrupt
@@ -38,7 +39,7 @@ these pages yet, so the steps below carry the code.
                 return None
 
         agent = create_deep_agent(
-            model="openai:gpt-4o",
+            model=ChatOpenAI(model="gpt-6-luna", reasoning_effort="none"),
             middleware=[
                 AgentNameMiddleware(),
                 CopilotKitMiddleware(expose_state=["agent_name"]),
@@ -81,7 +82,7 @@ these pages yet, so the steps below carry the code.
         });
 
         export const agent = createDeepAgent({
-          model: "openai:gpt-4o",
+          model: "openai:gpt-6-luna",
           middleware: [
             agentNameMiddleware,
             stateAwareCopilotKitMiddleware,

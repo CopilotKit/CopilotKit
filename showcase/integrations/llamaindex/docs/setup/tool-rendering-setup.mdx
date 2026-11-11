@@ -14,7 +14,7 @@ def get_weather(location: str) -> str:
 
 
 agentic_chat_router = get_ag_ui_workflow_router(
-    llm=OpenAI(model="gpt-5.4"),
+    llm=OpenAI(model="gpt-6-luna"),
     backend_tools=[get_weather],
     system_prompt="You are a helpful AI assistant with access to various tools and capabilities.",
 )

@@ -13,7 +13,7 @@
     from langchain_openai import ChatOpenAI
 
     graph = create_deep_agent(
-        model=ChatOpenAI(model="gpt-5.4"),
+        model=ChatOpenAI(model="gpt-6-luna", reasoning_effort="none"),
         tools=[],
         middleware=[CopilotKitMiddleware()],
         system_prompt=(

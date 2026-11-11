@@ -40,7 +40,7 @@
     async def agent_node(state: AgentState, config: RunnableConfig):
         # Access the tools from the copilotkit property
         tools = state.get("copilotkit", {}).get("actions", [])
-        model = ChatOpenAI(model="gpt-5.4").bind_tools(tools)
+        model = ChatOpenAI(model="gpt-6-luna", reasoning_effort="none").bind_tools(tools)
 
         # ...
     ```

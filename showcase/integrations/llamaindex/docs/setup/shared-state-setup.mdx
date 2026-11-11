@@ -13,7 +13,7 @@
     from llama_index.protocols.ag_ui.router import get_ag_ui_workflow_router
 
     shared_state_read_write_router = get_ag_ui_workflow_router(
-        llm=OpenAI(model="gpt-5-mini"),
+        llm=OpenAI(model="gpt-6-luna"),
         frontend_tools=[],
         backend_tools=[set_notes],
         system_prompt=SYSTEM_PROMPT,

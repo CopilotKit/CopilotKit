@@ -62,7 +62,7 @@
             The user's colleagues are: {colleague_list}"""
         )
 
-        response = ChatOpenAI(model="gpt-5.4").invoke(
+        response = ChatOpenAI(model="gpt-6-luna", reasoning_effort="none").invoke(
             [system_message, *state["messages"]],
             config
         )
