@@ -452,8 +452,9 @@ function capabilitiesValue(
     return lines.join("\n");
   }
   const extra = names.filter((name) => !V09_BASIC_COMPONENTS.has(name));
+  const nameSet = new Set(names);
   const isSuperset = [...V09_BASIC_COMPONENTS].every((name) =>
-    names.includes(name),
+    nameSet.has(name),
   );
   if (catalogId === A2UI_V09_BASIC_CATALOG_ID && isSuperset && !extra.length) {
     lines.push(`- ${catalogId} (basic catalog)`);

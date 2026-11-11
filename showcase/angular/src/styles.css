@@ -257,7 +257,8 @@ showcase-root {
   display: block;
   margin: 0.5rem 0;
   padding: 1rem;
-  border-left: 3px solid #2563eb;
+  border: 1px solid #bfdbfe;
+  border-radius: 0.5rem;
   background: #eff6ff;
 }
 
