@@ -63,7 +63,10 @@ export interface CopilotRuntimeLogger {
 export function getRuntimeLogger(runtime?: {
   logger?: CopilotRuntimeLogger;
 }): CopilotRuntimeLogger {
-  return runtime?.logger ?? consoleLogger;
+  if (runtime === undefined || runtime.logger === undefined) {
+    return consoleLogger;
+  }
+  return runtime.logger;
 }
 
 const DEBUG_COMPONENT = "copilotkit-debug";
@@ -76,10 +79,13 @@ const DEBUG_COMPONENT = "copilotkit-debug";
 export function createDebugLogger(
   logger?: CopilotRuntimeLogger,
 ): CopilotRuntimeLogger {
-  if (logger) {
-    return logger.child?.({ component: DEBUG_COMPONENT }) ?? logger;
+  if (logger === undefined) {
+    return createLogger({ level: "debug", component: DEBUG_COMPONENT });
   }
-  return createLogger({ level: "debug", component: DEBUG_COMPONENT });
+  // `child` is optional: `console`, for example, has none.
+  return typeof logger.child === "function"
+    ? logger.child({ component: DEBUG_COMPONENT })
+    : logger;
 }
 
 // pino's number levels. A logger writes a line only when the level of the
