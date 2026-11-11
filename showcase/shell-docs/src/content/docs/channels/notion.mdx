@@ -1,0 +1,246 @@
+---
+title: Notion comments
+icon: "lucide/MessageSquareMore"
+description: Mention your agent in a Notion page comment and keep talking to it in that discussion.
+doc_type: how-to
+---
+
+Your team writes in Notion. When a person has a question about a page, they
+must leave the page to ask an agent, then copy the answer back.
+
+The Notion adapter puts your agent in the page comments. A person mentions the
+agent in a comment, and the agent replies in the same discussion. Later
+comments in that discussion go to the agent without a new mention.
+
+At the end of this page, your agent answers a comment on a Notion page.
+
+You need:
+
+- A Notion workspace where you can create integrations.
+- A CopilotKit Intelligence project key (`CPK_INTELLIGENCE_API_KEY`).
+- A public HTTPS URL for your Channels process, for example from a tunnel.
+
+## 1. Create the Notion integration
+
+1. Open [Notion integrations](https://www.notion.so/profile/integrations) and
+   create an integration.
+2. Under **Capabilities**, turn on **Read comments**, **Insert comments**, and
+   **Read user information**.
+3. Copy the integration secret. You use it as `NOTION_TOKEN`.
+4. On each page that the agent must see, open the page menu, then
+   **Connections**, and add the integration.
+
+The adapter reads the bot user with `GET /v1/users/me`. The bot name sets the
+default trigger text, for example `@Docs Agent`.
+
+## 2. Add the adapter to your Channel
+
+Install the packages:
+
+```bash title="Terminal"
+npm install @copilotkit/channels @copilotkit/runtime hono @hono/node-server
+```
+
+Create the adapter, give it to `createChannel`, and mount `handleWebhook` on
+`POST /webhook`. `./agent.js` exports `makeAgent`, the same agent factory as in
+the other Channels guides.
+
+```ts title="channel.ts"
+import { serve } from "@hono/node-server";
+import { Hono } from "hono";
+import { createChannel } from "@copilotkit/channels";
+import { defaultNotionContext, notion } from "@copilotkit/channels/notion";
+import { CopilotKitIntelligence, CopilotRuntime } from "@copilotkit/runtime/v2";
+import { createCopilotHonoHandler } from "@copilotkit/runtime/v2/hono";
+import { makeAgent } from "./agent.js";
+
+function required(name: string): string {
+  const value = process.env[name];
+  if (!value) throw new Error(`Missing required environment variable: ${name}`);
+  return value;
+}
+
+const notionAdapter = notion({
+  token: required("NOTION_TOKEN"),
+  // Not set on the first deploy. Step 4 explains where it comes from.
+  verificationToken: process.env.NOTION_VERIFICATION_TOKEN,
+});
+
+const channel = createChannel({
+  name: "notion-comments",
+  identifyUser: "platform",
+  adapters: [notionAdapter],
+  agent: makeAgent,
+  context: [...defaultNotionContext],
+});
+
+channel.onMessage(async ({ thread }) => {
+  await thread.runAgent();
+});
+
+const runtime = new CopilotRuntime({
+  agents: {},
+  intelligence: new CopilotKitIntelligence({
+    apiKey: required("CPK_INTELLIGENCE_API_KEY"),
+  }),
+  channels: [channel],
+});
+
+const copilot = createCopilotHonoHandler({
+  runtime,
+  basePath: "/api/copilotkit",
+});
+
+const app = new Hono();
+app.post("/webhook", (c) => notionAdapter.handleWebhook(c.req.raw));
+app.all("/api/copilotkit/*", (c) => copilot.fetch(c.req.raw));
+
+// A long-running Hono server must start its Channels itself. Start them before
+// you serve, because the adapter drops events that arrive before the start.
+await copilot.channels?.ready({ timeoutMs: 30_000 });
+
+serve({ fetch: app.fetch, port: Number(process.env.PORT ?? 3000) });
+```
+
+`defaultNotionContext` tells the agent which Markdown renders in a comment and
+how choices work.
+
+`handleWebhook` takes a fetch `Request` and returns a `Response`, so any
+framework that uses `Request` can mount it. It reads the comment before it
+answers. If it cannot read the event, it answers `500` and Notion retries the
+delivery. Otherwise it answers `200` and routes the event after the response.
+
+## 3. Create the webhook subscription
+
+1. Deploy `channel.ts` without `NOTION_VERIFICATION_TOKEN`.
+2. In the integration settings, open **Webhooks** and create a subscription.
+3. Set the URL to your public webhook URL, for example
+   `https://agent.example.com/webhook`.
+4. Select the `comment.created` event. The adapter ignores all other events.
+
+When you create the subscription, Notion sends a verification token to the URL.
+
+## 4. Verify the webhook
+
+Notion signs every event with the verification token. Notion sends this token
+one time only.
+
+1. Find the token in your process log. The line starts with
+   `[channels-notion] Notion sent the webhook verification token`.
+2. In the Notion webhook settings, click **Verify** and paste the token.
+3. Set the token as `NOTION_VERIFICATION_TOKEN` and deploy again.
+
+To store the token without the log, pass `onVerificationToken` to `notion()`.
+The adapter calls it with the token.
+
+<Callout type="warn" title="Events fail until you set the token">
+  Before step 3, the webhook answers `401` to every signed event, and the agent
+  does not reply. After step 3, the webhook checks the `X-Notion-Signature`
+  header on every POST and ignores verification requests.
+</Callout>
+
+## 5. Mention the agent in a comment
+
+Open a page that you shared with the integration. Add a comment that mentions
+the agent:
+
+```text
+@Docs Agent what does this page say about rate limits?
+```
+
+The agent reply appears in the same discussion. Its text updates about once
+per second while the agent writes. Reply in that discussion again, without a
+mention, and the agent answers again.
+
+A comment goes to the agent when one of these is true:
+
+- It mentions the bot user.
+- It starts with the trigger text. The default is `@<bot name>`. Set the
+  `trigger` option to change it.
+- It is in a discussion where the agent replied in the last 30 days.
+
+## Run the built-in webhook server
+
+If you do not use Hono or another framework, set `port`. The adapter then
+starts its own `node:http` server when the runtime starts the Channel.
+
+In the step 2 file, add `port: 3000` to the existing `notion()` call. Do not
+declare a second adapter:
+
+```ts title="channel.ts"
+const notionAdapter = notion({
+  token: required("NOTION_TOKEN"),
+  verificationToken: process.env.NOTION_VERIFICATION_TOKEN,
+  port: 3000,
+});
+```
+
+Then remove the three Hono imports. Replace everything after
+`new CopilotRuntime(...)` with a Node listener:
+
+```ts title="channel.ts"
+import { createCopilotNodeListener } from "@copilotkit/runtime/v2/node";
+
+// The other imports, notionAdapter, createChannel, onMessage, and
+// new CopilotRuntime(...) stay as in step 2.
+
+const listener = createCopilotNodeListener({ runtime });
+await listener.channels.ready({ timeoutMs: 30_000 });
+```
+
+The webhook URL is then `http://<host>:3000/webhook`. Set the `path` option to
+use a different path. `GET /` answers `200 ok` as a health check, unless you
+set `path` to `/`. Then `GET /` reaches the webhook handler, so keep the default
+path if you need the health check. A request body over 1 MiB gets `413`.
+
+## Ask the person to choose
+
+Notion comments have no buttons. The adapter shows buttons and selects as a
+numbered list, so `thread.awaitChoice` and `onClick` work:
+
+```text
+Which environment do you want to deploy to?
+
+Reply with a number:
+1. Staging
+2. Production
+```
+
+A reply of `2`, `#2`, `2.`, or `Production` picks the second option. Choices
+expire after one hour. See [Interactive messages](/channels/interactive) for
+the JSX.
+
+## Run more than one instance
+
+The adapter remembers two things in an in-process `MemoryStore`:
+
+- The discussions where the agent replied.
+- The numbered choices that wait for a reply.
+
+If you run more than one instance, pass a shared store as `stateStore`, so
+every instance knows the joined discussions. Use the same kind of durable store
+as in [Persistence and scaling](/channels/persistence-and-scaling).
+
+A numbered choice is different: `thread.awaitChoice` waits inside the process
+that posted the list, so the reply must reach that same process. If you use
+`awaitChoice`, run one instance.
+
+## Limits
+
+History:
+
+- Notion lists only un-resolved comments. A resolved discussion has no history.
+- History reads up to 10000 comments per page. The agent sees the last 50
+  messages. On a page with more comments, the agent does not reply.
+
+Delivery:
+
+- Notion allows about 3 requests per second. The adapter edits a reply about
+  once per second.
+- The agent replies only in existing discussions. The Notion API cannot start
+  a new inline discussion.
+- There are no reactions, typing indicator, modals, ephemeral messages, or
+  file uploads.
+
+For the full option list, see
+[Direct provider adapters](/reference/channels/sdk/direct-adapters#notion).

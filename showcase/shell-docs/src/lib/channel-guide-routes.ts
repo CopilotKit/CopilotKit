@@ -98,6 +98,12 @@ export const CHANNEL_GUIDE_ROUTES = [
     section: "build",
   },
   {
+    slug: "notion",
+    sourceSlug: "channels/notion",
+    navTitle: "Notion comments",
+    section: "build",
+  },
+  {
     slug: "persistence-and-scaling",
     sourceSlug: "channels/persistence-and-scaling",
     navTitle: "Persistence and scaling",
