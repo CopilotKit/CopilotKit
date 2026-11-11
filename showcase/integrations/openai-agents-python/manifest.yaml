@@ -570,6 +570,4 @@ demos:
       - src/app/api/copilotkit-ogui/route.ts
 
 starter_validation:
-  supported: false
-  reason: >-
-    The OpenAI Agents SDK has no starter template in examples/integrations and is not in the starter-smoke matrix.
+  path: examples/integrations/openai-agents-python
