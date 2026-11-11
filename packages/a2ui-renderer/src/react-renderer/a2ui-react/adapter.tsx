@@ -120,6 +120,11 @@ export function createReactComponent<Api extends ComponentApi>(
     buildChild: (id: string, basePath?: string) => React.ReactNode;
     properties: ComponentContext["componentModel"]["properties"];
   }> = ({ context, buildChild, properties }) => {
+    // The visual implementation can be shared across protocol catalogs; binding
+    // must use the schema of the catalog that owns this component instance.
+    const schema =
+      context.componentModel.catalog?.components.get(api.name)?.schema ??
+      api.schema;
     // Rebuild on wire updates as well as context changes, so a previously
     // failed binding cannot leave stale resolved props on a corrected component.
     // web_core reports a failed evaluation (unknown function, malformed
@@ -140,7 +145,7 @@ export function createReactComponent<Api extends ComponentApi>(
         );
         try {
           return {
-            binding: new GenericBinder<Props>(context, api.schema),
+            binding: new GenericBinder<Props>(context, schema),
             bindError: errors.length > 0 ? errors.join("; ") : null,
           };
         } finally {
@@ -175,7 +180,7 @@ export function createReactComponent<Api extends ComponentApi>(
           return () => sub.unsubscribe();
         },
       };
-    }, [context, properties]);
+    }, [context, properties, schema]);
 
     const { props, bindError } = useSyncExternalStore(subscribe, getSnapshot);
 
@@ -221,7 +226,10 @@ export function createReactComponent<Api extends ComponentApi>(
     // Validate the wire props, not the bound props: the binder turns valid
     // actions into callbacks and child templates into resolved child lists.
     // A plain string schema deliberately does not accept a { path } binding.
-    const validation = api.schema.safeParse(properties);
+    const schema =
+      context.componentModel.catalog?.components.get(api.name)?.schema ??
+      api.schema;
+    const validation = schema.safeParse(properties);
     if (!validation.success) {
       const fields = validation.error.issues
         .map((issue) => `${issue.path.join(".") || "props"}: ${issue.message}`)

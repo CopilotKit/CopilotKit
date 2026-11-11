@@ -84,7 +84,7 @@ export type {
 // Low-level a2ui-react primitives (vendored from @a2ui/react)
 export { createReactComponent } from "./a2ui-react/adapter";
 export type { ReactComponentImplementation } from "./a2ui-react/adapter";
-export { basicCatalog } from "./a2ui-react/catalog/basic";
+export { basicCatalog, basicCatalogV1 } from "./a2ui-react/catalog/basic";
 export { Catalog } from "@a2ui/web_core/v0_9";
 
 // Prop schemas for catalog definitions. A prop the A2UI schema binds to the
