@@ -27,7 +27,7 @@ export function A2UIFormat({
 
   return (
     <div className="flex h-screen w-full flex-col">
-      <div className="flex items-center justify-center gap-3 border-b border-neutral-200 bg-white px-4 py-2 text-sm">
+      <div className="flex items-center justify-center gap-3 border-b border-neutral-200 bg-white px-4 py-2 text-sm dark:border-border dark:bg-card dark:text-foreground">
         <label htmlFor="a2ui-format">
           {template ? "Template format" : "Inference format"}
         </label>
@@ -42,13 +42,13 @@ export function A2UIFormat({
             window.history.replaceState(null, "", url);
             setFormat(next);
           }}
-          className="rounded border border-neutral-300 bg-white px-2 py-1"
+          className="rounded border border-neutral-300 bg-white px-2 py-1 dark:border-border dark:bg-muted"
         >
           <option value="express">A2UI Express</option>
           <option value="direct_json">Direct JSON</option>
         </select>
         {template && (
-          <span className="text-neutral-500">
+          <span className="text-neutral-500 dark:text-muted-foreground">
             Authored layout; the agent supplies flight data.
           </span>
         )}
