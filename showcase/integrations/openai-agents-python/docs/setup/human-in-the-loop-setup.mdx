@@ -1,0 +1,72 @@
+<Steps>
+  <Step>
+    ### Install the OpenAI Agents AG-UI adapter
+
+    ```bash
+    pip install ag-ui-openai-agents openai-agents
+    ```
+
+  </Step>
+  <Step>
+    ### Ask for the human with a frontend tool
+
+    The simplest route is an ordinary frontend tool. Register it in the
+    browser with `useHumanInTheLoop`, or with `useFrontendTool` and an `async`
+    handler that resolves once the user has answered. The adapter hands the
+    tool to the model on every run. When the model calls it, the run stops and
+    the browser asks the user. The answer goes back with the next request as
+    the call's result, and the model continues from there. Nothing waits on
+    the server in between.
+
+  </Step>
+  <Step>
+    ### Name the tool in the agent's instructions
+
+    That leaves the agent with one job: knowing the tool exists and when to
+    call it. A model that is never told about `book_call` will answer in prose
+    and the picker will never mount.
+
+    <DemoCode file="src/demo_agents/hitl.py" region="hitl-frontend-tool-agent" />
+
+  </Step>
+  <Step>
+    ### Or gate a server tool with `needs_approval`
+
+    When the backend decides it needs the user, mark the tool
+    `needs_approval=True`. The SDK pauses before the tool runs, and the
+    adapter ends the AG-UI run with an interrupt for that call, which
+    `useInterrupt` renders. The interrupt's `reason` is `"tool_approval"`,
+    its `metadata` carries `tool_name` and the parsed `tool_input`, and it
+    asks for `{"approved": boolean}`.
+
+    <DemoCode file="src/demo_agents/interrupt_agent.py" region="backend-interrupt-tool" />
+
+    The next request resumes the interrupt. `{"approved": true}` runs the
+    tool before the model is called again. Any other answer gives the model
+    the SDK's rejection text, and a cancelled interrupt answers the call as
+    cancelled. If the user sends a new message instead of deciding, the
+    approval stays open: the run ends with the same interrupt again, and the
+    new message reaches the model once the approval is decided.
+
+  </Step>
+  <Step>
+    ### Hand the tool more than a yes or no
+
+    An Agents SDK approval is only a yes or a no, so an approved tool runs
+    with its own arguments and nothing else. The showcase's picker sends the
+    chosen time beside `approved`. A small `OpenAIAgentsAgent` subclass keeps
+    each request's answers, by tool call id, where `schedule_meeting` can
+    read them:
+
+    <DemoCode file="src/demo_agents/interrupt_agent.py" region="interrupt-resume-payload" />
+
+  </Step>
+</Steps>
+
+<Callout type="warn" title="Nothing is kept on the server">
+  The paused call lives in the conversation the page holds, and the server
+  trusts the history it is sent. Replaying the same resume request runs an
+  approved tool again, so key side effects on `ToolContext.tool_call_id`
+  where a retry must not repeat them, and authorize the decision yourself if
+  that matters.
+</Callout>

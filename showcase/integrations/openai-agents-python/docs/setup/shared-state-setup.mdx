@@ -1,0 +1,38 @@
+<Steps>
+  <Step>
+    ### Show the model the state in its instructions
+
+    The page's state arrives with every run as `RunAgentInput.state`, and the
+    adapter makes it the run's shared state. It does not reach the prompt by
+    itself. Give the agent dynamic instructions that read it with the
+    adapter's `shared_state()`, so the model sees the current value on every
+    turn, including edits the user made with `agent.setState`:
+
+    <DemoCode file="src/demo_agents/shared_state.py" region="shared-state-instructions" />
+
+    <DemoCode file="src/demo_agents/shared_state.py" region="shared-state-read-write-agent" />
+
+  </Step>
+  <Step>
+    ### Write state from a server tool
+
+    Server tools are ordinary `@function_tool` functions. Inside one,
+    `shared_state().update(...)` merges top-level keys into the state and
+    streams a `STATE_SNAPSHOT` to the browser before the tool's own result, so
+    any component subscribed with `useAgent` re-renders while the agent is
+    still running.
+
+    <DemoCode file="src/demo_agents/shared_state.py" region="shared-state-write-tool" />
+
+    `shared_state().set(value)` replaces the whole state instead. The
+    request's own `state` is never changed.
+
+  </Step>
+</Steps>
+
+<Callout type="info" title="Inside an OpenAIAgentsAgent run">
+  `OpenAIAgentsAgent` sets up `shared_state()` for every request. If you
+  drive the SDK yourself with the adapter's translator, start the run inside
+  `use_shared_state(SharedState(run_input.state))` and pass the same object
+  to `to_agui`.
+</Callout>

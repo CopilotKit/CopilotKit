@@ -11,8 +11,8 @@ description: >-
 partner_docs: https://openai.github.io/openai-agents-python/
 repo: https://github.com/CopilotKit/CopilotKit/tree/main/showcase/integrations/openai-agents-python
 copilotkit_version: 2.0.0
-deployed: false
-docs_mode: hidden
+deployed: true
+docs_mode: generated
 sort_order: 62
 generative_ui:
   - constrained-explicit

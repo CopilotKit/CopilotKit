@@ -71,6 +71,7 @@ interrupt_agent = Agent(
 )
 
 
+# @region[interrupt-resume-payload]
 class SchedulerAgent(OpenAIAgentsAgent):
     """Lets ``schedule_meeting`` read the time the user picked.
 
@@ -91,3 +92,6 @@ class SchedulerAgent(OpenAIAgentsAgent):
         async with aclosing(super().run_streamed(input)) as events:
             async for event in events:
                 yield event
+
+
+# @endregion[interrupt-resume-payload]
