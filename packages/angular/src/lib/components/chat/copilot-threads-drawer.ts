@@ -252,17 +252,25 @@ export class CopilotThreadsDrawer {
   // Core resolves the license context (the same rules as the provider's
   // license banner) and whether the threads drawer may load its list:
   // `unknown` counts as licensed so the threads endpoint decides; `null` (not
-  // reported yet) is pending, never the locked view.
-  private readonly threadsLicense = computed(() =>
-    ɵresolveThreadsLicense(
+  // reported yet) is pending, never the locked view, until a runtime
+  // connects without reporting a license (no Intelligence).
+  private readonly threadsLicense = computed(() => {
+    const licenseStatus = this.copilotkit.licenseStatus();
+    const runtimeEntitlements = this.copilotkit.runtimeEntitlements?.();
+    return ɵresolveThreadsLicense(
       ɵresolveLicenseState({
-        status: this.copilotkit.licenseStatus(),
-        entitlements: this.copilotkit.runtimeEntitlements?.(),
+        status: licenseStatus,
+        entitlements: runtimeEntitlements,
         retryPending:
           this.copilotkit.runtimeEntitlementRetryPending?.() ?? false,
       }).context,
-    ),
-  );
+      {
+        status: this.copilotkit.runtimeConnectionStatus(),
+        licenseStatus,
+        runtimeEntitlements,
+      },
+    );
+  });
 
   protected readonly licensed = computed(() => this.threadsLicense().licensed);
 

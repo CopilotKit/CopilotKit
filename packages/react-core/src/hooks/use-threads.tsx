@@ -74,7 +74,9 @@ export interface UseThreadsResult {
    * `null`. Unlike {@link error}, this EXCLUDES developer/config errors (a
    * missing runtime URL, or a runtime that does not advertise thread
    * endpoints), so an end-user surface can render it directly without leaking
-   * a developer-facing configuration message into the UI.
+   * a developer-facing configuration message into the UI. It does report a
+   * runtime that refuses to list threads because the caller has no identity
+   * (no `identifyUser`), since the list cannot load until that is set.
    */
   listError: Error | null;
   /**

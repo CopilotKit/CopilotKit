@@ -62,6 +62,10 @@ export interface ɵThreadsSnapshot {
   isLoading: boolean;
   /** Configuration error first, then the list error. */
   error: Error | null;
+  /**
+   * Why the list did not load: a failed load, or a runtime that refuses to
+   * list threads for a caller without identity. Not a configuration error.
+   */
   listError: Error | null;
   fetchMoreError: Error | null;
   hasMoreThreads: boolean;
@@ -72,6 +76,8 @@ export interface ɵThreadsSnapshot {
 const RUNTIME_URL_MISSING = "Runtime URL is not configured";
 const THREAD_ENDPOINTS_UNAVAILABLE =
   "Thread endpoints are not available on this CopilotKit runtime";
+const THREAD_LIST_NEEDS_IDENTITY =
+  "Listing threads needs a caller identity. Set identifyUser on CopilotRuntime.";
 const THREAD_MUTATIONS_UNAVAILABLE =
   "Thread mutations are not available on this CopilotKit runtime";
 
@@ -127,6 +133,7 @@ export class ɵThreadsController {
   #configErrorDismissed = false;
   #runtimeError: Error | null = null;
   #endpointsError: Error | null = null;
+  #listAccessError: Error | null = null;
   #mutationsError: Error | null = null;
   #storeThreads: readonly ɵThread[] | null = null;
   #threads: ɵThreadSummary[] = [];
@@ -242,6 +249,19 @@ export class ɵThreadsController {
     return !!this.#runtimeUrl && this.#isConnected && !this.#listSupported;
   }
 
+  /**
+   * The runtime refuses to list threads because the caller has no identity:
+   * it reads a thread by id but does not list. Only the runtime's anonymous
+   * thread access policy (no `identifyUser`, default `owner` access) reports
+   * that pair; a runtime without thread endpoints reports neither.
+   */
+  get #listNeedsIdentity() {
+    return (
+      this.#endpointsUnavailable &&
+      this.#core.ɵruntimeInfo.threadEndpoints?.inspect === true
+    );
+  }
+
   #guard(mutation: () => Promise<void>) {
     if (this.#mutationsError) return Promise.reject(this.#mutationsError);
     return mutation();
@@ -315,7 +335,8 @@ export class ɵThreadsController {
 
   #syncConfigErrors() {
     const hasRuntimeError = !this.#runtimeUrl;
-    const hasEndpointsError = this.#endpointsUnavailable;
+    const listNeedsIdentity = this.#listNeedsIdentity;
+    const hasEndpointsError = this.#endpointsUnavailable && !listNeedsIdentity;
     const runtimeChanged = hasRuntimeError !== (this.#runtimeError !== null);
     const endpointsChanged =
       hasEndpointsError !== (this.#endpointsError !== null);
@@ -327,6 +348,11 @@ export class ɵThreadsController {
     if (endpointsChanged) {
       this.#endpointsError = hasEndpointsError
         ? new Error(THREAD_ENDPOINTS_UNAVAILABLE)
+        : null;
+    }
+    if (listNeedsIdentity !== (this.#listAccessError !== null)) {
+      this.#listAccessError = listNeedsIdentity
+        ? new Error(THREAD_LIST_NEEDS_IDENTITY)
         : null;
     }
     // A configuration change brings a dismissed error back.
@@ -358,7 +384,7 @@ export class ɵThreadsController {
       !!this.#runtimeUrl &&
       !this.#endpointsUnavailable &&
       !this.#hasDispatchedContext;
-    const listError = selectors.error(state);
+    const listError = this.#listAccessError ?? selectors.error(state);
     return {
       threads: this.#threads,
       isLoading: configError

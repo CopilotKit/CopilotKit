@@ -6,7 +6,9 @@ import { ɵThreadsController, ɵprojectThread } from "../threads-controller";
 import type { ɵThreadsCore, ɵThreadsInput } from "../threads-controller";
 import type { ɵRuntimeInfo } from "../core/runtime-info";
 
-function endpoints(overrides: { list?: boolean; mutations?: boolean } = {}) {
+function endpoints(
+  overrides: { list?: boolean; inspect?: boolean; mutations?: boolean } = {},
+) {
   return {
     list: true,
     inspect: true,
@@ -27,7 +29,18 @@ function createCore({
 }: CoreOverrides = {}): ɵThreadsCore {
   return {
     runtimeUrl: "https://runtime.local/api",
-    ɵruntimeInfo: { status, threadEndpoints, intelligence } as ɵRuntimeInfo,
+    ɵruntimeInfo: {
+      status,
+      a2uiEnabled: false,
+      a2uiAgents: undefined,
+      openGenerativeUIEnabled: false,
+      licenseStatus: undefined,
+      runtimeEntitlements: undefined,
+      runtimeEntitlementRetryPending: false,
+      threadEndpoints,
+      intelligence,
+      audioFileTranscriptionEnabled: false,
+    },
     ɵheadersGeneration: 0,
     registerThreadStore: vi.fn(),
     unregisterThreadStore: vi.fn(),
@@ -157,16 +170,55 @@ describe("ɵThreadsController errors", () => {
   });
 
   it("reports thread endpoints the runtime does not support", () => {
-    const core = createCore({ threadEndpoints: endpoints({ list: false }) });
+    const core = createCore({
+      threadEndpoints: endpoints({ list: false, inspect: false }),
+    });
     const { controller, setContext, input } = createController({ core });
     controller.update(input);
 
-    expect(controller.getSnapshot().error).toEqual(
-      new Error(
+    expect(controller.getSnapshot()).toMatchObject({
+      error: new Error(
         "Thread endpoints are not available on this CopilotKit runtime",
       ),
-    );
+      listError: null,
+      isLoading: false,
+    });
     expect(setContext).not.toHaveBeenCalled();
+  });
+
+  it("reports a list the runtime refuses without a caller identity", () => {
+    // A runtime without identifyUser serves a thread by id but not the list.
+    const core = createCore({
+      threadEndpoints: endpoints({ list: false, mutations: false }),
+    });
+    const { controller, setContext, input } = createController({ core });
+    controller.update(input);
+
+    const identityError = new Error(
+      "Listing threads needs a caller identity. Set identifyUser on CopilotRuntime.",
+    );
+    expect(controller.getSnapshot()).toMatchObject({
+      error: identityError,
+      listError: identityError,
+      isLoading: false,
+    });
+    expect(setContext).not.toHaveBeenCalled();
+  });
+
+  it("drops the identity error once the runtime lists threads", () => {
+    const core = createCore({
+      threadEndpoints: endpoints({ list: false, mutations: false }),
+    });
+    const { controller, input } = createController({ core });
+    controller.update(input);
+
+    controller.update({ ...input, core: createCore() });
+
+    expect(controller.getSnapshot()).toMatchObject({
+      error: null,
+      listError: null,
+      isLoading: true,
+    });
   });
 
   it("rejects mutations the runtime does not support", async () => {

@@ -31,6 +31,7 @@ import {
 import { useThreads } from "../../hooks/use-threads";
 import type { Thread } from "../../hooks/use-threads";
 import { useCopilotChatConfiguration } from "../../providers/useCopilotChatConfiguration";
+import { useCopilotKit } from "../../providers/useCopilotKit";
 import { useLicenseContext } from "../../providers/useLicenseContext";
 
 const props = withDefaults(
@@ -76,9 +77,14 @@ const emit = defineEmits<{
 const config = useCopilotChatConfiguration();
 const license = useLicenseContext();
 
+const { copilotkit } = useCopilotKit();
+
 // `unknown` (an unrecovered entitlement lookup) counts as licensed so the
-// threads endpoint decides; `null` (not reported yet) is pending.
-const threadsLicense = computed(() => ɵresolveThreadsLicense(license.value));
+// threads endpoint decides; `null` (not reported yet) is pending, until a
+// runtime connects without reporting a license (no Intelligence).
+const threadsLicense = computed(() =>
+  ɵresolveThreadsLicense(license.value, copilotkit.value.ɵruntimeInfo),
+);
 const licensed = computed(() => threadsLicense.value.licensed);
 const licensePending = computed(() => threadsLicense.value.licensePending);
 
