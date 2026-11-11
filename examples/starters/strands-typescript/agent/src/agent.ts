@@ -80,30 +80,17 @@ function parseToolInput(raw: unknown): unknown {
 }
 
 /**
- * Render the run's AG-UI `context` for the prompt.
+ * Inject the current todos into the prompt.
  *
- * The context carries what the page shares (`useAgentContext`) and the
- * runtime's generative UI guide, which tells the model how to call
- * `render_ui`. `@ag-ui/aws-strands` passes a run's AG-UI `context` to hooks
- * only and does not add it to the prompt itself, so without this the model
- * never sees it.
+ * The run's AG-UI `context` (what the page shares with `useAgentContext` and
+ * the runtime's generative UI guide for `render_ui`) needs no handling here:
+ * `@ag-ui/aws-strands` adds it to every model call itself.
  */
-function pageContextText(input: RunAgentInput): string {
-  const entries = input.context ?? [];
-  if (entries.length === 0) return "";
-  const shared = entries
-    .map(({ description, value }) => `${description}:\n${value}`)
-    .join("\n\n");
-  return `Context provided by the application:\n\n${shared}`;
-}
-
 function buildStatePrompt(input: RunAgentInput, prompt: string): string {
   const state = (input.state ?? {}) as StarterState;
-  const request = state.todos
+  return state.todos
     ? `Current todos list:\n${JSON.stringify(state.todos, null, 2)}\n\nUser request: ${prompt}`
     : prompt;
-  const context = pageContextText(input);
-  return context ? `${context}\n\n${request}` : request;
 }
 
 async function todosStateFromArgs(

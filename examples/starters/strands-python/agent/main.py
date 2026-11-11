@@ -111,34 +111,18 @@ def query_data(query: str) -> str:
 # ---------------------------------------------------------------------------
 
 
-def page_context_text(input_data) -> str:
-    """Render the run's AG-UI context for the prompt.
-
-    The context carries what the page shares (``useAgentContext``) and the
-    runtime's generative UI guide, which tells the model how to call
-    ``render_ui``. ``ag_ui_strands`` only copies ``RunAgentInput.context`` onto
-    ``agent.state["agui_context"]`` for tools to read; it never adds it to
-    the prompt, so without this the model does not see it.
-    """
-    entries = []
-    for ctx in getattr(input_data, "context", None) or []:
-        description = getattr(ctx, "description", "") or ""
-        value = getattr(ctx, "value", "") or ""
-        entries.append(f"{description}:\n{value}")
-    if not entries:
-        return ""
-    return "Context provided by the application:\n\n" + "\n\n".join(entries)
-
-
 def build_todos_prompt(input_data, user_message: str) -> str:
-    """Inject the page's shared context and the current todos into the prompt."""
-    prompt = user_message
+    """Inject the current todos into the prompt.
+
+    The run's AG-UI context (what the page shares with ``useAgentContext`` and
+    the runtime's generative UI guide for ``render_ui``) needs no handling
+    here: ``ag_ui_strands`` adds it to every model call itself.
+    """
     state_dict = getattr(input_data, "state", None)
     if isinstance(state_dict, dict) and "todos" in state_dict:
         todos_json = json.dumps(state_dict.get("todos", []), indent=2)
-        prompt = f"Current todos list:\n{todos_json}\n\nUser request: {user_message}"
-    context_text = page_context_text(input_data)
-    return f"{context_text}\n\n{prompt}" if context_text else prompt
+        return f"Current todos list:\n{todos_json}\n\nUser request: {user_message}"
+    return user_message
 
 
 async def todos_state_from_args(context):
@@ -222,7 +206,9 @@ agui_agent = StrandsAgent(
 )
 
 agent_path = os.getenv("AGENT_PATH", "/")
-app = create_strands_app(agui_agent, agent_path)
+# Only the app's Next.js runtime calls the agent, server to server, so it
+# needs no CORS.
+app = create_strands_app(agui_agent, agent_path, cors_enabled=False)
 
 
 @app.get("/health")

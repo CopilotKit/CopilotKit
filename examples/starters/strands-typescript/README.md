@@ -86,7 +86,7 @@ This starter lets the agent build rich, interactive UI in the chat. Instead of p
 2. **`render_ui`** — when a run carries the catalog, the runtime gives the agent a `render_ui` tool and a guide to the catalog. The agent calls it with the operations, and the runtime checks each one before the browser renders it.
 3. **Surface** — the rendered UI in the chat. A button the agent binds to an event sends a user message to the agent when it is clicked.
 
-The agent must pass the run's tools and context to the model. The Strands adapter (`@ag-ui/aws-strands`) registers the run's tools, but it does not add the run's context to the prompt. So `buildStatePrompt` in `agent/src/agent.ts` adds the context (including the `render_ui` guide) to the latest user message.
+The agent must pass the run's tools and context to the model. The Strands adapter (`@ag-ui/aws-strands`) does both: it registers the run's tools, and it adds the run's context (including the `render_ui` guide) to each model call. `buildStatePrompt` in `agent/src/agent.ts` adds only the current todos to the latest user message.
 
 ### Examples
 
