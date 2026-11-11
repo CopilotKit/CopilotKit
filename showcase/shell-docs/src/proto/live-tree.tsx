@@ -410,4 +410,5 @@ const ROW_GLYPHS: Record<string, ReactNode> = {
   "build-with-agents": <AgentsGlyph />,
   "intelligence/overview": <IntelligenceGlyph />,
   "using-these-docs": <DocsGlyph />,
+  features: <CapabilitiesGlyph />,
 };

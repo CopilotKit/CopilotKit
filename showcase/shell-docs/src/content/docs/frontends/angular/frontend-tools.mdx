@@ -1,0 +1,32 @@
+---
+title: Frontend Tools
+description: Let an agent run browser code in your Angular app with registerFrontendTool.
+icon: "lucide/Wrench"
+doc_type: how-to
+---
+
+Frontend tools let an agent call code inside the user's browser.
+[Add a renderer](/angular/generative-ui/tool-rendering) to the same registration
+when the tool should show progress or a result in chat.
+
+## Register a browser tool
+
+Call `registerFrontendTool` from an Angular injection context. The live
+Showcase example builds a typed tool config around a writable signal:
+
+<AngularSnippet region="frontend-tool-registration" />
+
+Register that config from a component or service with
+`registerFrontendTool(createBackgroundTool(background))`. The registration is
+removed when that injector is destroyed.
+
+The schema advertises the input shape and supplies TypeScript inference.
+Runtime arguments arrive as parsed JSON; validate inside the handler when the
+action needs a hard trust boundary. The handler receives the calling agent,
+the raw tool call, and an optional abort signal as its second argument.
+
+## Next steps
+
+- [registerFrontendTool API](/reference/angular/functions/registerFrontendTool)
+- [Tool Call Rendering](/angular/generative-ui/tool-rendering): show the tool's progress and result in chat.
+- [Runnable tool and generative UI examples](/angular/features#frontend-tools)

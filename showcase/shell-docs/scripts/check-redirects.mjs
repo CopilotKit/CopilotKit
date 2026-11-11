@@ -55,11 +55,8 @@ withSuffixes(
     ["/react-native/mastra/threads", "/react-native/mastra/AG-UI-Streams"],
     ["/slack/mastra/threads", "/slack/mastra/AG-UI-Streams"],
     ["/teams/mastra/threads", "/teams/mastra/AG-UI-Streams"],
-    ["/angular/threads", "/angular/guides/threads-memory-attachments-headless"],
-    [
-      "/angular/mastra/threads",
-      "/angular/mastra/guides/threads-memory-attachments-headless",
-    ],
+    ["/angular/threads", "/angular/headless-threads"],
+    ["/angular/mastra/threads", "/angular/mastra/headless-threads"],
     ["/learn/threads", "/intelligence/threads-explained"],
     ["/concepts/threads", "/intelligence/threads-explained"],
   ],
@@ -87,9 +84,9 @@ withSuffixes(
     ["/react/generative-ui/open-json-ui", "/generative-ui/a2ui"],
     [
       "/angular/langgraph-python/generative-ui/open-json-ui",
-      "/angular/langgraph-python/guides/a2ui",
+      "/angular/langgraph-python/generative-ui/a2ui",
     ],
-    ["/angular/generative-ui/open-json-ui", "/angular/guides/a2ui"],
+    ["/angular/generative-ui/open-json-ui", "/angular/generative-ui/a2ui"],
     [
       "/vue/langgraph-python/generative-ui/open-json-ui",
       "/vue/langgraph-python/generative-ui/a2ui",
@@ -121,13 +118,10 @@ withSuffixes(
     ["/built-in-agent/threads-self-managed", "/AG-UI-Streams"],
     ["/react/threads-self-managed", "/AG-UI-Streams"],
     ["/react/mastra/threads-self-managed", "/mastra/AG-UI-Streams"],
-    [
-      "/angular/threads-self-managed",
-      "/angular/guides/threads-memory-attachments-headless",
-    ],
+    ["/angular/threads-self-managed", "/angular/headless-threads"],
     [
       "/angular/mastra/threads-self-managed",
-      "/angular/mastra/guides/threads-memory-attachments-headless",
+      "/angular/mastra/headless-threads",
     ],
     ["/vue/threads-self-managed", "/vue/AG-UI-Streams"],
     ["/vue/mastra/threads-self-managed", "/vue/mastra/AG-UI-Streams"],
@@ -142,6 +136,33 @@ withSuffixes(
   ],
   PERMANENT,
 );
+
+// --- next.config: Angular's split task guides ----------------------------
+withSuffixes(
+  [
+    ["/angular/guides/chat-ui", "/angular/prebuilt-components"],
+    ["/angular/guides/frontend-tools-generative-ui", "/angular/frontend-tools"],
+    ["/angular/guides/a2ui", "/angular/generative-ui/a2ui"],
+    ["/angular/guides/voice-multimodal", "/angular/voice"],
+    ["/angular/guides/human-in-the-loop", "/angular/human-in-the-loop"],
+    ["/angular/guides/shared-state", "/angular/shared-state"],
+    [
+      "/angular/guides/threads-memory-attachments-headless",
+      "/angular/headless-threads",
+    ],
+    ["/angular/guides/troubleshooting", "/angular/troubleshooting"],
+    ["/angular/mastra/guides/chat-ui", "/angular/mastra/prebuilt-components"],
+    [
+      "/angular/langgraph-python/guides/threads-memory-attachments-headless",
+      "/angular/langgraph-python/headless-threads",
+    ],
+  ],
+  PERMANENT,
+);
+none("/angular/prebuilt-components");
+none("/angular/headless-threads");
+none("/angular/troubleshooting");
+none("/angular/features");
 
 // --- next.config: Channels guides ----------------------------------------
 const CHANNEL_FRONTENDS = ["slack", "teams"];

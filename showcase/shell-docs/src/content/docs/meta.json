@@ -3,6 +3,7 @@
   "pages": [
     "quickstart",
     "[Using these docs](/using-these-docs)",
+    "[Feature examples](/features)",
     "(shared)/build-with-agents",
     "[Intelligence](/intelligence/overview)",
     "---Basics---",
