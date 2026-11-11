@@ -229,7 +229,16 @@ export function createReactComponent<Api extends ComponentApi>(
     const schema =
       context.componentModel.catalog?.components.get(api.name)?.schema ??
       api.schema;
-    const validation = schema.safeParse(properties);
+    // In 1.0, accessibility belongs to ComponentCommon, which the processor
+    // already validates. It remains on the model but is not a prop of the
+    // strict component-specific schema.
+    const { accessibility: _accessibility, ...componentProperties } =
+      properties;
+    const validation = schema.safeParse(
+      context.dataContext.surface?.protocolVersion === "1.0"
+        ? componentProperties
+        : properties,
+    );
     if (!validation.success) {
       const fields = validation.error.issues
         .map((issue) => `${issue.path.join(".") || "props"}: ${issue.message}`)

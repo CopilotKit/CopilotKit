@@ -19,7 +19,7 @@ import { createReactComponent } from "../../../adapter";
 import { SliderApi } from "@a2ui/web_core/v0_9/basic_catalog";
 import { LEAF_MARGIN } from "../utils";
 
-export const Slider = createReactComponent(SliderApi, ({ props }) => {
+export const Slider = createReactComponent(SliderApi, ({ props, context }) => {
   const onChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     props.setValue(Number(e.target.value));
   };
@@ -32,7 +32,9 @@ export const Slider = createReactComponent(SliderApi, ({ props }) => {
   const step =
     typeof steps === "number" && steps > 0 && max > min
       ? (max - min) / steps
-      : undefined;
+      : context.componentModel.catalog?.protocolVersion === "1.0"
+        ? "any"
+        : undefined;
 
   return (
     <div

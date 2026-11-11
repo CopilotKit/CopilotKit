@@ -124,6 +124,14 @@ describe("native 1.0 basic visual properties", () => {
     expect(view.getByRole("slider").hasAttribute("step")).toBe(false);
   });
 
+  it("keeps native sliders continuous when divisions are omitted", () => {
+    const view = mount({ component: "Slider", min: 0, max: 1, value: 0.5 });
+    const input = view.getByRole("slider") as HTMLInputElement;
+    expect(view.queryByRole("alert")).toBeNull();
+    expect(input.getAttribute("step")).toBe("any");
+    expect(input.validity.stepMismatch).toBe(false);
+  });
+
   it("updates the video's bound poster without replacing the video", () => {
     const view = mount(
       {

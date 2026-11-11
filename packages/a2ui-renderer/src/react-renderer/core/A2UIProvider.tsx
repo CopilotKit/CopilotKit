@@ -1,6 +1,10 @@
 import { createContext, useContext, useRef, useState, useMemo } from "react";
 import type { ReactNode } from "react";
 import { MessageProcessor } from "@a2ui/web_core/v0_9";
+import {
+  isCatalogVersionCompatible,
+  VersionAdapterFactory,
+} from "@a2ui/web_core/adapters";
 import { basicCatalog, basicCatalogV1 } from "../a2ui-react";
 import type { A2UIContextValue, A2UIActions } from "./store";
 import { ThemeProvider } from "../theme/ThemeContext";
@@ -20,6 +24,41 @@ const A2UIStateContext = createContext<{
   error: string | null;
   surfaceErrors: Readonly<Record<string, string>>;
 } | null>(null);
+
+/** Unwrap SDK message lists once so validation and processing see the same batch. */
+function normalizeMessages(
+  messages: Array<Record<string, unknown>>,
+  inheritedVersion: unknown = "v0.9",
+): Array<Record<string, unknown>> {
+  return messages.flatMap<Record<string, unknown>>((message) => {
+    if (Array.isArray(message))
+      return normalizeMessages(message, inheritedVersion);
+    if (Array.isArray(message.messages)) {
+      // The SDK selects a wrapper's adapter from its first message, then uses
+      // that adapter's version for subsequent messages that omit a version.
+      let first = message.messages[0];
+      while (Array.isArray(first) || Array.isArray(first?.messages)) {
+        first = (Array.isArray(first) ? first : first.messages)[0];
+      }
+      const version =
+        first?.version !== undefined
+          ? first.version
+          : message.version !== undefined
+            ? message.version
+            : inheritedVersion;
+      const normalized = normalizeMessages(message.messages, version);
+      // Retain SDK validation for homogeneous wrappers and strict envelopes;
+      // flattening must not turn a rejected wrapper into accepted messages.
+      VersionAdapterFactory.resolveFromPayload({ version }).extractOperations(
+        normalized,
+      );
+      return normalized;
+    }
+    return message.version === undefined
+      ? { ...message, version: inheritedVersion }
+      : message;
+  });
+}
 
 /**
  * Surface IDs whose component tree a message replaces or removes. A rejected
@@ -64,7 +103,7 @@ function validateSurfaceVersions(
           ? message.version.replace(/^v/, "")
           : undefined;
       const existing = versions.get(surfaceId);
-      if (existing && existing !== version) {
+      if (existing && !isCatalogVersionCompatible(existing, version)) {
         throw new Error(
           `A2UI surface "${surfaceId}" uses protocol version ${existing}; received ${String(message.version)}. Create a new surface to change versions.`,
         );
@@ -170,14 +209,11 @@ export function A2UIProvider({
   if (!actionsRef.current) {
     actionsRef.current = {
       processMessages: (messages: Array<Record<string, unknown>>) => {
+        let versioned: Array<Record<string, unknown>>;
         try {
           // Registering a 1.0 catalog disables web_core's implicit v0.9
           // fallback. Preserve the existing provider default explicitly.
-          const versioned = messages.map((message) =>
-            message.version === undefined
-              ? { ...message, version: "v0.9" }
-              : message,
-          );
+          versioned = normalizeMessages(messages);
           validateSurfaceVersions(versioned, processor);
           processor.processMessages(versioned as any[]);
         } catch (err) {
@@ -186,7 +222,7 @@ export function A2UIProvider({
           return;
         }
         setError(null);
-        const reset = surfacesResetBy(messages);
+        const reset = surfacesResetBy(versioned);
         if (reset.length > 0) {
           setSurfaceErrors((prev) => {
             if (!reset.some((id) => id in prev)) return prev;
