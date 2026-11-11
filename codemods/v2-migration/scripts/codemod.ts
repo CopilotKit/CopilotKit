@@ -12,6 +12,7 @@ import { migrateCoAgents } from "./coagent.ts";
 import { migrateChatHooks } from "./chat-hook.ts";
 import { migrateGqlMessages } from "./gql-messages.ts";
 import { migrateV1Endpoints } from "./v1-endpoints.ts";
+import { mergeCopilotKitImports } from "./merge-imports.ts";
 import type { Codemod, Edit, SgNode } from "codemod:ast-grep";
 import type TS from "codemod:ast-grep/langs/typescript";
 import type TSX from "codemod:ast-grep/langs/tsx";
@@ -763,7 +764,13 @@ const codemod: Codemod<Lang> = async (root, options) => {
       ? rootNode
       : parse<Lang>(options.language, afterGenerativeUI).root(),
   );
-  return angular ?? afterGenerativeUI;
+  const afterAngular = angular ?? afterGenerativeUI;
+  const merged = mergeCopilotKitImports(
+    afterAngular === null
+      ? rootNode
+      : parse<Lang>(options.language, afterAngular).root(),
+  );
+  return merged ?? afterAngular;
 };
 
 function collectProviderNames(

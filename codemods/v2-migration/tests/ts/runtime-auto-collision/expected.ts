@@ -1,5 +1,7 @@
-import { createCopilotRuntimeHandler as createCopilotHonoHandler } from "@copilotkit/runtime";
-import { createCopilotRuntimeHandler as createCopilotEndpointSingleRoute } from "@copilotkit/runtime";
+import {
+  createCopilotRuntimeHandler as createCopilotHonoHandler,
+  createCopilotRuntimeHandler as createCopilotEndpointSingleRoute,
+} from "@copilotkit/runtime";
 const createCopilotRuntimeHandler = unrelated;
 const multi = createCopilotHonoHandler({ cors: true, runtime, basePath: "/api" });
 const single = createCopilotEndpointSingleRoute({ cors: true, mode: "single-route", runtime, basePath: "/rpc" });
