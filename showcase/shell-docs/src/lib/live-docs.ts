@@ -308,13 +308,42 @@ export function referenceUrl(slugs: string[]): string {
  */
 export function unsupportedRedirect(path: string[]): string | null {
   const { frontend, framework, slug } = scopeFromPath(path);
-  if (framework || !slug) return null;
+  if (!slug) return null;
   const pages = getPageIndex();
-  if (!pages.unsupported[ROOT_FRAMEWORK]?.includes(slug)) return null;
-  const fw = supportingFramework(slug);
-  if (!fw || fw === ROOT_FRAMEWORK) return null;
-  const at = whereIs(pages, frontend, fw, slug);
-  return at ? canonicalUrl(at, { framework: fw, frontend }) : null;
+  const fw = framework ?? ROOT_FRAMEWORK;
+  if (!pages.unsupported[fw]?.includes(slug)) return null;
+  if (!framework) {
+    const other = supportingFramework(slug);
+    const at = other && whereIs(pages, frontend, other, slug);
+    if (at && other !== ROOT_FRAMEWORK) {
+      return canonicalUrl(at, { framework: other, frontend });
+    }
+  }
+  return parentTopic(pages, frontend, framework, slug);
+}
+
+/**
+ * The nearest parent page the reader's framework has, in the reader's scope:
+ * `/agno/shared-state/streaming` goes to `/agno/shared-state`, since Agno's
+ * showcase has no state streaming. Main served these URLs as "not
+ * supported" notices, so old links land on the topic instead of a 404.
+ */
+function parentTopic(
+  pages: PageIndex,
+  frontend: FrontendId,
+  framework: string | null,
+  slug: string,
+): string {
+  const fe = frontend === "react" ? "" : frontendSegment(frontend);
+  const parts = slug.split("/");
+  while (parts.length > 1) {
+    parts.pop();
+    const parent = parts.join("/");
+    if (whereIs(pages, frontend, framework, parent)) {
+      return url(fe, framework ?? "", parent);
+    }
+  }
+  return url(fe, framework ?? "");
 }
 
 /**
