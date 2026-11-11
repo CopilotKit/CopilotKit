@@ -1,0 +1,117 @@
+/**
+ * Per-Google-Chat-message streaming text state machine.
+ *
+ * Wraps a single posted Google Chat message and lets callers feed it the growing
+ * text buffer of a streaming reply. Edits are throttled (Google Chat's update
+ * rate limit is ~1/sec per message) and *serialised* through a per-message
+ * promise queue so concurrent updates can't race — a hazard the previous
+ * implementation hit, where End-triggered flush of "ALPHA" could be
+ * overtaken by an in-flight flush of "AL" and the final state read "AL".
+ *
+ * Nothing in this file knows about AG-UI events or Google Chat SDK — it's a
+ * pure Google-Chat-side primitive: "give me text, I'll keep one Google Chat message
+ * in sync with it."
+ */
+export interface TextStream {
+  append(text: string): void;
+  finish(): Promise<void>;
+}
+
+export interface MessageStreamConfig {
+  /** Function that actually writes `text` to Google Chat (e.g. spaces.messages.update). */
+  update: (text: string) => Promise<void>;
+  /** Minimum gap between consecutive flushes, in ms (defaults to 1000). */
+  minIntervalMs?: number;
+}
+
+const DEFAULT_MIN_INTERVAL_MS = 1000;
+
+export class MessageStream implements TextStream {
+  private buffer = "";
+  private posted = "";
+  private queue: Promise<void> = Promise.resolve();
+  private lastFlushedAt = 0;
+  private flushTimer: NodeJS.Timeout | undefined;
+  private readonly minIntervalMs: number;
+  private readonly update: (text: string) => Promise<void>;
+
+  constructor(config: MessageStreamConfig) {
+    this.update = config.update;
+    this.minIntervalMs = config.minIntervalMs ?? DEFAULT_MIN_INTERVAL_MS;
+  }
+
+  /** Replace the in-flight buffer (callers pass the accumulated text). */
+  append(text: string): void {
+    if (text === this.buffer) return;
+    this.buffer = text;
+    this.scheduleFlush();
+  }
+
+  /**
+   * Mark the stream done. Cancels any pending throttled flush, enqueues a
+   * final flush, and resolves once the entire queue (including the final
+   * flush and anything previously in flight) has drained.
+   *
+   * After this resolves, the Google Chat message reflects the final buffer state.
+   */
+  async finish(): Promise<void> {
+    if (this.flushTimer) {
+      clearTimeout(this.flushTimer);
+      this.flushTimer = undefined;
+    }
+    this.enqueueFlush();
+    await this.queue;
+  }
+
+  private scheduleFlush(): void {
+    if (this.flushTimer) return;
+    const elapsed = Date.now() - this.lastFlushedAt;
+    const delay = Math.max(0, this.minIntervalMs - elapsed);
+    this.flushTimer = setTimeout(() => {
+      this.flushTimer = undefined;
+      this.enqueueFlush();
+    }, delay);
+  }
+
+  private enqueueFlush(): void {
+    this.queue = this.queue.then(() => this.flushNow());
+  }
+
+  /** Wait until `minIntervalMs` has passed since the last write. */
+  private async waitForSlot(): Promise<void> {
+    const wait = this.lastFlushedAt + this.minIntervalMs - Date.now();
+    if (wait > 0) await new Promise((r) => setTimeout(r, wait));
+  }
+
+  private async flushNow(): Promise<void> {
+    if (this.buffer === this.posted) return;
+    try {
+      // Every write, including the final flush and its retry, respects the
+      // throttle: Chat rate-limits edits to one message.
+      await this.waitForSlot();
+      const text = this.buffer;
+      // `posted` is advanced ONLY after a write succeeds. If the write throws,
+      // `posted` stays unchanged so a later flush re-attempts the same (or
+      // newer) text — critical for the FINAL flush, which has no subsequent
+      // append to trigger a retry. There is NO automatic 429/Retry-After retry
+      // in the Google Chat client (`ChatClient.request` throws on the first
+      // non-2xx), so transient blips (rate-limit/network) land here. We retry
+      // the write ONCE; if the retry also throws, we log and swallow (a hard
+      // failure still must not sink the stream) and leave `posted` unchanged.
+      try {
+        await this.update(text);
+      } catch {
+        this.lastFlushedAt = Date.now();
+        await this.waitForSlot();
+        await this.update(text);
+      }
+      this.posted = text;
+    } catch (err) {
+      console.error("[message-stream] update failed:", err);
+    } finally {
+      // Set lastFlushedAt *after* the update returns so the throttle
+      // measures wall-clock time between completions, not starts.
+      this.lastFlushedAt = Date.now();
+    }
+  }
+}

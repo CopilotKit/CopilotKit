@@ -36,6 +36,12 @@
     "notice": "LICENSE"
   },
   {
+    "directory": "packages/channels-google-chat",
+    "names": ["@copilotkit/channels-google-chat"],
+    "license": "MIT",
+    "notice": "LICENSE"
+  },
+  {
     "directory": "packages/channels-intelligence",
     "names": ["@copilotkit/channels-intelligence"],
     "license": "MIT",

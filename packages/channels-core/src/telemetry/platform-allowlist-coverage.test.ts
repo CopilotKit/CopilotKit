@@ -39,11 +39,11 @@ describe("normalizePlatform allow-list coverage (monorepo invariant)", () => {
         "platforms" in properties ? properties.platforms : properties.platform,
     );
     expect(platformProperties).toEqual([
-      "string[] (each normalized: slack|discord|whatsapp|teams|custom)",
-      "string[] (each normalized: slack|discord|whatsapp|teams|custom)",
-      "string (normalized: slack|discord|whatsapp|teams|custom)",
-      "string (normalized: slack|discord|whatsapp|teams|custom)",
-      "string (normalized: slack|discord|whatsapp|teams|custom)",
+      "string[] (each normalized: slack|discord|whatsapp|teams|google-chat|custom)",
+      "string[] (each normalized: slack|discord|whatsapp|teams|google-chat|custom)",
+      "string (normalized: slack|discord|whatsapp|teams|google-chat|custom)",
+      "string (normalized: slack|discord|whatsapp|teams|google-chat|custom)",
+      "string (normalized: slack|discord|whatsapp|teams|google-chat|custom)",
     ]);
   });
 
@@ -55,6 +55,7 @@ describe("normalizePlatform allow-list coverage (monorepo invariant)", () => {
       `expected to discover the official channel adapters under ${packagesDir}`,
     ).toEqual([
       { pkg: "channels-discord", platform: "discord" },
+      { pkg: "channels-google-chat", platform: "google-chat" },
       { pkg: "channels-slack", platform: "slack" },
       { pkg: "channels-teams", platform: "teams" },
       { pkg: "channels-whatsapp", platform: "whatsapp" },
