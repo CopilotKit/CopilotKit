@@ -8,6 +8,10 @@ import {
 } from "../core/A2UIProvider";
 import { A2UIRenderer } from "../core/A2UIRenderer";
 
+/**
+ * Mount a basic component in the selected protocol and expose provider actions
+ * for subsequent updates, with processing errors rendered as alerts.
+ */
 function mount(
   component: Record<string, unknown>,
   data: Record<string, unknown> = {},

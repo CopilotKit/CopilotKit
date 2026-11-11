@@ -13,6 +13,10 @@ const V1_CATALOG =
   "https://a2ui.org/specification/v1_0/catalogs/basic/catalog.json";
 const V09_CATALOG = "https://a2ui.org/specification/v0_9/basic_catalog.json";
 type Component = { id: string; component: string; [key: string]: unknown };
+/**
+ * Build a canonical native snapshot with inline components, keeping an omitted
+ * data model distinct from an explicitly supplied empty object.
+ */
 function inline(components: Component[], dataModel?: Record<string, unknown>) {
   return {
     a2ui_operations: [
@@ -32,6 +36,10 @@ function renderer(onAction?: ReturnType<typeof vi.fn>) {
   return createA2UIMessageRenderer({ theme: {}, onAction })
     .render as React.FC<any>;
 }
+/**
+ * Read the surface wrapper's reveal state so tests distinguish mounted offscreen
+ * content from a completed loader-to-surface handoff.
+ */
 function visible(view: ReturnType<typeof render>) {
   return view.container
     .querySelector("[aria-hidden]")

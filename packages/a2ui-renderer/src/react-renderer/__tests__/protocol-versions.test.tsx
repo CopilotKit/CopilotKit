@@ -14,6 +14,10 @@ const versions = [
 ] as const;
 
 type WireComponent = { id: string; component: string; [key: string]: unknown };
+/**
+ * Initialize a surface with the supplied protocol and catalog, exposing provider
+ * actions and captured user actions so every protocol case uses the same harness.
+ */
 function mount(
   version: string,
   catalogId: string,

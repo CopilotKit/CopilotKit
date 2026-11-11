@@ -12,6 +12,10 @@ const LEGACY_CATALOG = "https://a2ui.org/specification/v0_9/basic_catalog.json";
 const NATIVE_CATALOG =
   "https://a2ui.org/specification/v1_0/catalogs/basic/catalog.json";
 
+/**
+ * Expose an empty provider's actions and error alerts so separate message batches
+ * can exercise wrapper validation and protocol compatibility on the same surface.
+ */
 function setup() {
   let actions!: ReturnType<typeof useA2UIActions>;
   function Surface() {
