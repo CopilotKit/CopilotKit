@@ -18,7 +18,7 @@ cd examples/<category>/<name>
 
 > The Intelligence dashboard also links to [Project Manager](./canvas/mastra-pm/), a maintained v2 example covered by the public-example tests.
 
-## Integrations (25)
+## Integrations (26)
 
 Framework integration starters demonstrating CopilotKit with various agent frameworks.
 
@@ -31,6 +31,7 @@ Framework integration starters demonstrating CopilotKit with various agent frame
 | [crewai-flows](./integrations/crewai-flows/)                           | Starter template for building AI agents using CrewAI Flows (uv-based)                |
 | [llamaindex](./integrations/llamaindex/)                               | Starter template with a LlamaIndex investment analyst agent                          |
 | [pydantic-ai](./integrations/pydantic-ai/)                             | Starter template with a PydanticAI investment analyst agent                          |
+| [openai-agents-python](./integrations/openai-agents-python/)           | Starter template using the OpenAI Agents SDK (Python) with a proverbs agent          |
 | [ms-agent-framework-python](./integrations/ms-agent-framework-python/) | CopilotKit with Microsoft Agent Framework (Python/FastAPI, AG-UI protocol)           |
 | [ms-agent-framework-dotnet](./integrations/ms-agent-framework-dotnet/) | CopilotKit with Microsoft Agent Framework (.NET/C#, AG-UI protocol)                  |
 | [strands-python](./integrations/strands-python/)                       | Starter template with a Strands investment analyst agent                             |
