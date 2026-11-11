@@ -1,4 +1,6 @@
+// @region[weather-tool-backend]
 using System.ComponentModel;
+// @endregion[weather-tool-backend]
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using System.Text.Json;
@@ -283,6 +285,8 @@ public sealed class D5ParityAgentFactory
             });
     }
 
+    // @region[weather-tool-backend]
+    // Registered as "get_weather" by AIFunctionFactory.Create in CreateToolRenderingAgent.
     [Description("Get the current weather for a given location.")]
     private static object GetWeather([Description("The city or region to describe.")] string location)
     {
@@ -295,6 +299,7 @@ public sealed class D5ParityAgentFactory
             conditions = "Sunny",
         };
     }
+    // @endregion[weather-tool-backend]
 
     [Description("Search mock flights from an origin airport to a destination airport.")]
     private static object SearchFlights(
