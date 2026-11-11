@@ -409,5 +409,4 @@ const ROW_GLYPHS: Record<string, ReactNode> = {
   quickstart: <QuickstartGlyph />,
   "build-with-agents": <AgentsGlyph />,
   "intelligence/overview": <IntelligenceGlyph />,
-  features: <CapabilitiesGlyph />,
 };

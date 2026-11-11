@@ -18,7 +18,7 @@ import {
 import type { DocsMdxContext } from "../context";
 import type { DocsScope } from "../scope";
 import { AgentCoreCommandTabs } from "./agentcore";
-import { AngularFeatureCatalog, AngularSnippet } from "./angular";
+import { AngularSnippet } from "./angular";
 import { ApiKeyHint } from "./api-key-hint";
 import { DemoSource } from "./demo-source";
 import { FeatureIntegrations, FeatureMatrix } from "./feature-support";
@@ -79,7 +79,6 @@ export function showcaseComponents(
       props: Authored<typeof FrameworkSetup, "scope" | "ctx">,
     ) => <FrameworkSetup {...props} scope={scope} ctx={ctx} />,
     AngularSnippet,
-    AngularFeatureCatalog,
     FrameworkOverview: (
       props: Authored<typeof FrameworkOverview, "scope" | "ctx">,
     ) => <FrameworkOverview {...props} scope={scope} ctx={ctx} />,
