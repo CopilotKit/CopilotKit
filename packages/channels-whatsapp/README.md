@@ -9,10 +9,9 @@ You write your UI as JSX once (`@copilotkit/channels-ui`) and drive the bot with
 `@copilotkit/channels`; this package is the only one that talks to the WhatsApp Cloud API.
 
 The adapter keeps its own WhatsApp Cloud API credentials (`accessToken` /
-`phoneNumberId` / …) — in the managed path the Channel runs inside a CopilotKit
-Intelligence-configured `CopilotRuntime` (free plan available), which starts and
-owns the channel's lifecycle. Building and operating your own channel runner on
-the SDK primitives is also a supported path.
+`phoneNumberId` / …).
+The Channel runs in your own Node process: call `bot.start()`. No
+Intelligence key is needed.
 
 ## Install
 
@@ -28,12 +27,9 @@ import {
   whatsapp,
   defaultWhatsAppContext,
 } from "@copilotkit/channels-whatsapp";
-import { CopilotRuntime, CopilotKitIntelligence } from "@copilotkit/runtime/v2";
-import { createCopilotNodeListener } from "@copilotkit/runtime/v2/node";
 
 const bot = createChannel({
   identifyUser: "platform",
-  name: "support-bot", // project-unique Intelligence Channel name
   adapters: [
     whatsapp({
       accessToken: process.env.WHATSAPP_ACCESS_TOKEN!,
@@ -53,22 +49,13 @@ bot.onMessage(async ({ thread }) => {
   await thread.runAgent();
 });
 
-// The runtime owns the channel's lifecycle — there is no `bot.start()`.
-const runtime = new CopilotRuntime({
-  intelligence: new CopilotKitIntelligence({
-    // apiUrl and wsUrl default to cloud-hosted CopilotKit Intelligence — override
-    // both together only for a self-hosted deployment.
-    apiKey: process.env.CPK_INTELLIGENCE_API_KEY!, // free tier available
-  }),
-  channels: [bot],
-});
-
-// Creating the listener starts the Channel's connection.
-const listener = createCopilotNodeListener({ runtime });
-// Optional: await that activation so a broken config fails startup loudly.
-await listener.channels.ready(); // listener.channels.stop() tears it down
+await bot.start(); // bot.stop() tears it down
 console.log("[whatsapp-bot] listening for webhooks");
 ```
+
+To run this Channel through a CopilotKit Intelligence-configured
+`CopilotRuntime` instead, see the **copilotkit-channels** skill. The runtime then
+starts the Channel, so do not also call `bot.start()`.
 
 `whatsapp(opts)` returns a `WhatsAppAdapter`. It starts an HTTP server on `port`
 (default 3000) that handles the Meta webhook: a `GET /webhook` verification

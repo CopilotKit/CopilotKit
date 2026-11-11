@@ -3,8 +3,9 @@ title: Channel
 description: Reference for createChannel options, managed providers, handlers, tools, storage, and runtime lifecycle.
 ---
 
-`createChannel(options)` returns the Channel you declare on
-`CopilotRuntime({ channels })`.
+`createChannel(options)` returns a Channel. Declare it on
+`CopilotRuntime({ channels })` to connect it through CopilotKit Intelligence, or attach
+direct adapters and call `channel.start()` to run it on its own.
 
 ```ts title="channel.ts"
 import { createChannel } from "@copilotkit/channels";
@@ -124,7 +125,8 @@ release a lock only when the supplied token still owns it.
 | `transcripts`    | `Transcripts`                | Optional SDK transcript API. It is not the managed provider-history store.                                    |
 
 The `transcripts` getter is only available after Channel activation and throws
-if it is read before the runtime listener starts the Channel.
+if it is read before `channel.start()` or the runtime listener starts the
+Channel.
 
 ## Message handlers
 
@@ -179,9 +181,46 @@ channel.tool(getIncident);
 See [Tools and context for Slack](/slack/tools) or
 [Tools and context for Teams](/teams/tools).
 
+## Standalone lifecycle
+
+A Channel with direct adapters runs in any Node process. It needs no
+`CopilotRuntime` and no Intelligence key:
+
+```ts title="channel.ts"
+import { createChannel } from "@copilotkit/channels";
+import { slack } from "@copilotkit/channels/slack";
+import { makeAgent } from "./agent.js";
+
+const channel = createChannel({
+  identifyUser: "platform",
+  agent: makeAgent,
+  adapters: [slack({ botToken, appToken })],
+});
+
+channel.onMessage(async ({ thread }) => {
+  await thread.runAgent();
+});
+
+await channel.start();
+
+process.once("SIGTERM", () => void channel.stop());
+```
+
+| Method                | Description                                                                                          |
+| --------------------- | ---------------------------------------------------------------------------------------------------- |
+| `addAdapter(adapter)` | Attach an adapter before `start()`. Throws after the Channel has started.                            |
+| `start()`             | Start every adapter. A second call while running does nothing. Rejects when no adapter could start. |
+| `stop()`              | Stop every adapter. A later `start()` is a full restart.                                             |
+
+In this mode your process owns persistence, retries, and delivery. Pass a
+shared `store.adapter` when you run more than one replica. Channel Memory
+requires an Intelligence connection and is not available to a standalone
+Channel.
+
 ## Runtime lifecycle
 
-A Channel has no public `start()` method. Node and Express listeners own a
+On a `CopilotRuntime` the runtime owns the Channel lifecycle. Do not also
+call `channel.start()` for a Channel you declare there. Node and Express listeners own a
 long-running process lifetime, so creating either listener starts the managed
 Channel automatically. On those mounts, `ready()` is optional: await it when
 startup must observe the initial managed status before the rest of the process

@@ -18,6 +18,10 @@ how the SDK, Runtime, Intelligence, and provider connection fit together.
 Before you continue, [configure the Channel in Intelligence](/channels/intelligence).
 You should have `CHANNEL_CODE` and `CPK_INTELLIGENCE_API_KEY`.
 
+To run without Intelligence, use the direct Slack adapter instead. Your
+process then holds the Slack bot and app tokens, and you start the Channel with
+`channel.start()`. See [Direct provider adapters](/reference/channels/sdk/direct-adapters).
+
 ## Start with your coding agent
 
 Use this prompt to connect your agent to Slack, start the Channels SDK listener, and verify a real workspace message. You can also follow the manual steps below.

@@ -10,18 +10,17 @@ import ChannelsInstall from "@/snippets/shared/channels/install.mdx";
 | Model                | Channel declaration                                      | Provider connection                                                                       | Available providers                                     |
 | -------------------- | -------------------------------------------------------- | ----------------------------------------------------------------------------------------- | ------------------------------------------------------- |
 | Cloud-hosted Intelligence | `createChannel({ name, identifyUser, agent })`           | CopilotKit Intelligence stores provider credentials and owns ingress and egress           | Slack and Microsoft Teams                               |
-| Direct adapter       | `createChannel({ name, adapters, identifyUser, agent })` | Your Channels process stores provider credentials and owns the provider socket or webhook | Slack, Microsoft Teams, Discord, and WhatsApp           |
+| Direct adapter       | `createChannel({ adapters, identifyUser, agent })`       | Your Channels process stores provider credentials and owns the provider socket or webhook | Slack, Microsoft Teams, Discord, and WhatsApp           |
 
 Cloud-hosted Intelligence support for Discord and WhatsApp is coming soon. Their
 direct adapters already ship in `@copilotkit/channels`.
 
-<Callout type="info" title="Direct does not mean standalone">
-  A direct adapter moves the provider connection into your process. The
-  `CopilotRuntime` still owns the Channel lifecycle and uses an Intelligence
-  connection. Direct provider traffic does not traverse the managed Realtime
-  Gateway or its canonical delivery, retry, and durability layer, so your
-  process owns transport reliability. There is no public `channel.start()`
-  method.
+<Callout type="info" title="A direct Channel runs on its own">
+  A direct adapter moves the provider connection into your process. You start
+  the Channel with `channel.start()`; it needs no `CopilotRuntime` and no
+  Intelligence key. Direct provider traffic does not traverse the managed
+  Realtime Gateway or its canonical delivery, retry, and durability layer, so
+  your process owns transport reliability.
 </Callout>
 
 ## Declare a direct adapter
@@ -47,7 +46,6 @@ function required(name: string): string {
 }
 
 export const channel = createChannel({
-  name: "support-direct",
   identifyUser: "platform",
   adapters: [
     slack({
@@ -66,14 +64,34 @@ channel.onMessage(async ({ thread }) => {
 });
 ```
 
-Pass this Channel to `new CopilotRuntime({ channels: [channel], ... })` and
-start it through the runtime's Channels control, just as in the managed
-quickstarts. Intelligence-attached Slack and Teams connections select the
-managed provider; there is no `provider` option on `createChannel`. Direct
-adapters may coexist on the same Channel and keep their own provider traffic.
+Start it, and stop it on shutdown:
 
-One direct Channel may contain multiple direct adapters. Its `name` must still
-be present and unique among the Channels declared on that `CopilotRuntime`.
+```ts title="main.ts"
+import { channel } from "./channel.js";
+
+await channel.start();
+
+const shutdown = async () => {
+  await channel.stop();
+  process.exit(0);
+};
+process.once("SIGTERM", shutdown);
+process.once("SIGINT", shutdown);
+```
+
+`start()` rejects when every adapter fails to connect. When some adapters
+start and others fail, the Channel runs on the adapters that started and logs
+the failures. One direct Channel may contain multiple direct adapters.
+
+### Combine with cloud-hosted Intelligence
+
+You can also declare a direct Channel on
+`new CopilotRuntime({ intelligence, channels: [channel] })`. The runtime then
+starts and stops it, so do not call `channel.start()` yourself. Give the
+Channel a `name` that is unique among the Channels on that `CopilotRuntime`.
+Intelligence-attached Slack and Teams connections select the managed provider;
+there is no `provider` option on `createChannel`. Direct adapters may coexist
+on the same Channel and keep their own provider traffic.
 
 ## Provider entry points
 

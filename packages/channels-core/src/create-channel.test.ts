@@ -133,6 +133,44 @@ function captureSessionAgents(fake: FakeAdapter): { agents: FakeAgent[] } {
   return { agents };
 }
 
+describe("createChannel standalone lifecycle", () => {
+  it("runs a turn through the public start/addAdapter/stop with no runtime", async () => {
+    const fake = new FakeAdapter();
+    const channel = createChannel({ identifyUser: "platform" });
+    channel.onMention(async ({ thread }) => {
+      await thread.post(Section({ children: "standalone reply" }));
+    });
+
+    const stop = vi.spyOn(fake, "stop");
+    channel.addAdapter(fake);
+    await channel.start();
+    try {
+      expect(fake.started).toBe(true);
+      expect(() => channel.addAdapter(new FakeAdapter())).toThrow(
+        "channel.addAdapter must be called before channel.start()",
+      );
+
+      await fake.getSink().onTurn({
+        conversationKey: "c1",
+        replyTarget: {},
+        userText: "hello",
+        platform: "fake",
+      });
+      expect(collectText(fake.posted[0]!)).toBe("standalone reply");
+    } finally {
+      await channel.stop();
+    }
+    expect(stop).toHaveBeenCalledOnce();
+  });
+
+  it("points at the public start() before the channel has started", () => {
+    const channel = createChannel({ identifyUser: "platform" });
+    expect(() => channel.transcripts).toThrow(
+      "channel.transcripts is available after channel.start()",
+    );
+  });
+});
+
 describe("createChannel", () => {
   it("reports a missing Channel agent only when a handler calls runAgent", async () => {
     const fake = new FakeAdapter();

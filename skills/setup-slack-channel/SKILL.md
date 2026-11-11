@@ -319,8 +319,8 @@ Slack API directly as a test client.
 
 **Never switch to a direct Slack adapter to get unblocked.** It moves platform
 credentials into the app, abandons managed delivery's retries/dedup/ordering,
-still requires an Intelligence key, and means you validated a different
-architecture than the one the developer asked about. If the managed path is
+and means you validated a different architecture than the one the developer
+asked about. If the managed path is
 blocked, say it is blocked and say why.
 
 **Never create the Slack app from the starter's own `slack-app-manifest.yaml`.**

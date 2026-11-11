@@ -226,9 +226,7 @@ export class FakeAdapter implements PlatformAdapter {
   /** Expose the registered sink so tests can invoke onTurn() directly for overlap/lock tests. */
   getSink(): FakeIngressSink {
     if (!this.sink)
-      throw new Error(
-        "FakeAdapter: sink not set — start the channel (channel.ɵruntime.start()) first",
-      );
+      throw new Error("FakeAdapter: sink not set — call channel.start() first");
     const sink = this.sink;
     const adapter = this;
     return new Proxy(sink, {
