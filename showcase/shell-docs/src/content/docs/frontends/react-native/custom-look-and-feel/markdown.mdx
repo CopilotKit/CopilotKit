@@ -1,0 +1,68 @@
+---
+title: "Markdown Rendering"
+icon: "lucide/TextSelect"
+description: "Render the markdown in assistant replies in React Native, with CopilotMarkdown or your own renderer."
+---
+
+Agents often answer in markdown: headings, lists, links, and code. A plain `Text` shows that markdown as raw characters. This page shows how to render it.
+
+## In the rendered chat
+
+The rendered `CopilotChat` and `CopilotModal` from `@copilotkit/react-native/components` render assistant replies as markdown for you. They use `CopilotMarkdown`, which wraps [`react-native-streamdown`](https://github.com/software-mansion-labs/react-native-streamdown), a renderer for markdown that is still streaming in. They use its default styles, and they have no prop to restyle or replace it. To change how replies look, render the messages yourself, as below.
+
+## In your own chat
+
+Import `CopilotMarkdown` from `/components` and use it for assistant text in your message list:
+
+```tsx title="src/AssistantBubble.tsx"
+import { View } from "react-native";
+import {
+  CopilotMarkdown,
+  defaultMarkdownStyles,
+} from "@copilotkit/react-native/components";
+
+const markdownStyle = {
+  paragraph: { ...defaultMarkdownStyles.paragraph, fontSize: 15, lineHeight: 22 },
+  link: { ...defaultMarkdownStyles.link, color: "#5057cc" },
+};
+
+export function AssistantBubble({ text }: { text: string }) {
+  return (
+    <View style={{ backgroundColor: "#f1f1f4", borderRadius: 16, padding: 12, maxWidth: "80%" }}>
+      <CopilotMarkdown content={text} style={markdownStyle} />
+    </View>
+  );
+}
+```
+
+`CopilotMarkdown` takes three props:
+
+- `content`: the markdown string.
+- `style`: overrides per element. A key replaces the whole default for that element, so spread the element's entry from `defaultMarkdownStyles`, as above.
+- `streamingAnimation`: the fade-in for streaming text. It is on by default. Pass `false` to turn it off.
+
+The default style keys are `paragraph`, `h1`, `h2`, `h3`, `strong`, `em`, `link`, `blockquote`, `code`, `codeBlock`, and `list`. The style object goes to `react-native-streamdown`, which passes it to its markdown engine. See that engine's style reference for every element and property.
+
+Define the style object outside the component, or memoize it, so it doesn't change on every render.
+
+### The ready-made bubble
+
+`AssistantMessage` from `/components` is the bubble the rendered chat uses: `CopilotMarkdown` in a left-aligned bubble, with an optional typing indicator. Pass `content`, and optionally `isLoading`, `timestamp`, and `style` for the outer container. Its bubble colors are fixed. For your own colors, wrap `CopilotMarkdown` as above.
+
+```tsx
+import { AssistantMessage } from "@copilotkit/react-native/components";
+
+<AssistantMessage content={text} isLoading={isStreaming} />;
+```
+
+## Peer dependencies
+
+`CopilotMarkdown` needs the `react-native-streamdown` peer dependency. That library has peers of its own and a required `react-native-worklets` setup, so follow its [installation guide](https://github.com/software-mansion-labs/react-native-streamdown#installation). Importing anything from `/components` also makes Metro resolve the other peers of that entry: `@gorhom/bottom-sheet`, `react-native-gesture-handler`, and `react-native-reanimated`. See [Import surfaces](/quickstart#import-surfaces).
+
+## Use another renderer
+
+Any React Native markdown library works in your own chat. Give it the assistant message's `content` string. If you don't use `/components` anywhere, you don't need its peers at all.
+
+## Custom tags
+
+Markdown is for text. For a richer view in the conversation, such as a card, a chart, or a form, use [generative UI](/generative-ui/tool-rendering): the agent calls a tool, and you render a React Native component for that call.
