@@ -79,10 +79,6 @@ describe("translateSchedulingResume", () => {
 describe("scheduleMeetingTool", () => {
   const options = toolOptions("call-1");
 
-  it("needs approval before it runs", () => {
-    expect(scheduleMeetingTool(new Map()).needsApproval).toBe(true);
-  });
-
   it("reports the slot the picker chose, once", async () => {
     const choices = new Map<string, MeetingChoice>([["call-1", SLOT]]);
     const execute = scheduleMeetingTool(choices).execute!;

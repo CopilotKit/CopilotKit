@@ -66,6 +66,9 @@ abstract class ShowcaseAgentBase extends withAGUI(Agent<Env, ShowcaseState>) {
     return {};
   }
 
+  /** Server tools that wait for the user (AI SDK `toolApproval`: an AG-UI interrupt). */
+  protected readonly approvalRequired: string[] = [];
+
   /** The page's tools. A server tool of the same name wins. */
   protected clientTools(run: Run): ToolSet {
     return run.clientTools;
@@ -90,6 +93,9 @@ abstract class ShowcaseAgentBase extends withAGUI(Agent<Env, ShowcaseState>) {
       instructions: run.instructions(this.prompt),
       messages: run.messages,
       tools: { ...this.clientTools(run), ...this.tools(run) },
+      toolApproval: Object.fromEntries(
+        this.approvalRequired.map((name) => [name, "user-approval" as const]),
+      ),
       providerOptions: this.providerOptions(),
       stopWhen: stepCountIs(this.maxSteps),
       abortSignal: run.abortSignal,
@@ -207,12 +213,13 @@ export class A2uiRecovery extends DeclarativeGenUi {}
 
 /**
  * gen-ui-interrupt and interrupt-headless: `schedule_meeting` pauses for the
- * user's pick (AI SDK `needsApproval`, an AG-UI interrupt). The pages resume
+ * user's pick (AI SDK `toolApproval`, an AG-UI interrupt). The pages resume
  * with the picked slot rather than `{ approved }`; `translateSchedulingResume`
  * rewrites the resume before the adapter reads it (see ./scheduling.ts).
  */
 export class Interrupt extends ShowcaseAgentBase {
   protected readonly prompt = INTERRUPT_SYSTEM_PROMPT;
+  protected readonly approvalRequired = ["schedule_meeting"];
   private readonly choices = new Map<string, MeetingChoice>();
 
   protected tools(): ToolSet {

@@ -3,7 +3,8 @@
  *
  * gen-ui-interrupt and interrupt-headless pause `schedule_meeting` until the
  * user picks a time. `@ag-ui/cloudflare-agents` pauses a tool through the AI
- * SDK's `needsApproval`: the run ends with an AG-UI interrupt, and the next
+ * SDK's tool approval (`toolApproval`, set by the `Interrupt` agent): the run
+ * ends with an AG-UI interrupt, and the next
  * run's resume answers it with `{ approved: boolean }`. The two shared pages
  * answer with the picked slot instead (`{ chosen_time, chosen_label }`, or
  * `{ cancelled: true }`), because their picker returns a value rather than a
@@ -78,8 +79,9 @@ export function translateSchedulingResume(
 }
 
 /**
- * `schedule_meeting`, paused for the user's pick. It runs only once the
- * picker approved it, and reports the slot `choices` holds for its call.
+ * `schedule_meeting`, paused for the user's pick (the `Interrupt` agent
+ * requires approval for it). It runs only once the picker approved it, and
+ * reports the slot `choices` holds for its call.
  */
 export function scheduleMeetingTool(choices: Map<string, MeetingChoice>) {
   return tool({
@@ -89,7 +91,6 @@ export function scheduleMeetingTool(choices: Map<string, MeetingChoice>) {
       topic: z.string().describe("Short description of the meeting purpose."),
       attendee: z.string().optional().describe("Who the meeting is with."),
     }),
-    needsApproval: true,
     execute: async ({ topic }, { toolCallId }) => {
       const choice = choices.get(toolCallId);
       choices.delete(toolCallId);
