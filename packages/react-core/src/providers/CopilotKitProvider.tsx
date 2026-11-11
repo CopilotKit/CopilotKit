@@ -878,6 +878,8 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
 /**
  * Alias of {@link CopilotKitProvider}: the same component under its v1 name,
  * so `<CopilotKit>` keeps working. `CopilotKitProvider` is the preferred name.
+ *
+ * @alias
  */
 export const CopilotKit = CopilotKitProvider;
 
