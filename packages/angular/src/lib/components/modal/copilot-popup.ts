@@ -13,6 +13,7 @@ import {
 } from "@angular/core";
 import { randomUUID } from "@copilotkit/shared";
 
+import { injectChatLabels } from "../../chat-config";
 import { CopilotChat } from "../chat/copilot-chat";
 import { dimensionToCss } from "./modal-utils";
 
@@ -30,7 +31,7 @@ import { dimensionToCss } from "./modal-utils";
       data-copilot-popup-toggle
       [attr.aria-controls]="dialogId"
       [attr.aria-expanded]="open()"
-      [attr.aria-label]="open() ? 'Close Copilot chat' : 'Open Copilot chat'"
+      [attr.aria-label]="toggleLabel()"
       [tabIndex]="open() ? -1 : 0"
       (click)="toggle()"
     >
@@ -67,7 +68,7 @@ import { dimensionToCss } from "./modal-utils";
             #initialFocus
             type="button"
             cdkFocusInitial
-            aria-label="Close Copilot chat"
+            [attr.aria-label]="closeLabel"
             (click)="close()"
           >
             <span aria-hidden="true">×</span>
@@ -190,6 +191,14 @@ export class CopilotPopup {
 
   protected readonly dialogId = `copilot-popup-${randomUUID()}`;
   protected readonly titleId = `${this.dialogId}-title`;
+  private readonly labels = injectChatLabels();
+  protected readonly toggleLabel = computed(() =>
+    this.open()
+      ? (this.labels.chatToggleCloseLabel ?? "Close Copilot chat")
+      : (this.labels.chatToggleOpenLabel ?? "Open Copilot chat"),
+  );
+  protected readonly closeLabel =
+    this.labels.modalHeaderCloseButtonLabel ?? "Close Copilot chat";
   protected readonly resolvedWidth = computed(() =>
     dimensionToCss(this.width(), 420),
   );

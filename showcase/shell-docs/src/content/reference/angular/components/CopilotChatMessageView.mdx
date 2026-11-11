@@ -52,6 +52,10 @@ export class MessagesComponent {
   Whether the agent is currently streaming. Forwarded to assistant and reasoning renderers.
 </PropertyReference>
 
+<PropertyReference name="isRunning" type="boolean" default="false">
+  Whether the agent is running. Only reasoning messages read it: they stream while it or `isLoading` is true. Tool-call status still follows `isLoading`. [`CopilotChatView`](/reference/angular/components/CopilotChatView) sets it.
+</PropertyReference>
+
 <PropertyReference name="state" type="unknown" default="{}">
   Current agent state passed to the content rendered after the message list.
 </PropertyReference>
