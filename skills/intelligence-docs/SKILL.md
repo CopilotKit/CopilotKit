@@ -4,7 +4,7 @@ description: >
   Keeps the CopilotKit Intelligence landing page in sync when a new Intelligence
   feature ships or when Intelligence docs are added, renamed, or removed. Use
   when adding Intelligence capabilities, writing or moving pages under
-  docs/intelligence, editing IntelligenceFeatureCards, or changing
+  docs/(shared)/intelligence, editing IntelligenceFeatureCards, or changing
   snippets/shared/intelligence/overview.mdx. Don't use for OSS-only frontend
   docs, Inspector pane callouts, or marketing-site copy.
 ---
@@ -22,7 +22,7 @@ Load this skill when:
 - A new Intelligence feature ships (threads, analytics, learning, channels,
   hosting, inspection, or a later pillar)
 - A page is added, renamed, or removed under
-  `showcase/shell-docs/src/content/docs/intelligence/`
+  `showcase/shell-docs/src/content/docs/(shared)/intelligence/`
 - The shared Intelligence overview snippet or feature cards change
 
 Before writing customer-facing words on those pages, also follow
@@ -35,26 +35,29 @@ Inspector pane callouts (`inspector-docs`).
 
 Edit these in the same change as the feature or docs page:
 
-| Surface                              | File                                                                                                   |
-| ------------------------------------ | ------------------------------------------------------------------------------------------------------ |
-| Hero CTA and cards                   | `showcase/shell-docs/src/components/docs-mdx/showcase/intelligence.tsx`                                |
-| Body, quickstart link, hosting links | `showcase/shell-docs/src/content/snippets/shared/intelligence/overview.mdx`                            |
-| Section nav                          | `showcase/shell-docs/src/content/docs/intelligence/meta.json`                                          |
-| Root sidebar Intelligence group      | `showcase/shell-docs/src/content/docs/meta.json`                                                       |
-| Intelligence sidebar section         | `showcase/shell-docs/src/lib/live-sidebar.ts` (hard-coded; `meta.json` alone doesn't add a page to it) |
+| Surface                              | File                                                                                       |
+| ------------------------------------ | ------------------------------------------------------------------------------------------ |
+| Hero CTA and cards                   | `showcase/shell-docs/src/components/docs-mdx/showcase/intelligence.tsx`                    |
+| Body, quickstart link, hosting links | `showcase/shell-docs/src/content/snippets/shared/intelligence/overview.mdx`                |
+| Section nav                          | `showcase/shell-docs/src/content/docs/(shared)/intelligence/meta.json`                     |
+| Root sidebar Intelligence link       | `showcase/shell-docs/src/content/docs/meta.json`                                           |
+| Intelligence sidebar section         | `showcase/shell-docs/src/content/docs/(shared)/meta.json` (its `---Intelligence---` group) |
+
+Intelligence pages live in the `docs/(shared)` route group, so every frontend's
+sidebar ends with them. The group isn't part of the URL:
+`docs/(shared)/intelligence/memories.mdx` serves `/intelligence/memories`.
 
 The root overview page only wraps the snippet. Do not duplicate landing copy
-in `docs/intelligence/overview.mdx`.
+in `docs/(shared)/intelligence/overview.mdx`.
 
 ## Procedures
 
 ### Procedure 1: Add a feature or docs page
 
-1. Add or update the guide page under `docs/intelligence/` (or the existing
-   threads/channels path the feature already uses).
-2. Put the page in `intelligence/meta.json` and in the Intelligence group in
-   `docs/meta.json` when it belongs in the sidebar, and add it to the
-   Intelligence section in `live-sidebar.ts`.
+1. Add or update the guide page under `docs/(shared)/intelligence/` (or the
+   existing threads/channels path the feature already uses).
+2. Put the page in `(shared)/intelligence/meta.json`, and in the Intelligence
+   group of `docs/(shared)/meta.json` when it belongs in the sidebar.
 3. Link the page from the shared snippet. A user-facing pillar gets a card in
    `INTELLIGENCE_FEATURES` in `intelligence.tsx` (`title`, `body`, `href`,
    `Icon`) with a unique title. A
@@ -97,6 +100,6 @@ in `docs/intelligence/overview.mdx`.
 - **No docs page yet:** do not invent a guide. You can still add a snippet
   link that points at the current public product URL, and replace it when
   the guide ships.
-- **Feature is Intelligence-only but lives outside `docs/intelligence/`:**
+- **Feature is Intelligence-only but lives outside `docs/(shared)/intelligence/`:**
   still add the landing CTA. Use the real path (`/threads`, `/channels`, and
   similar).
