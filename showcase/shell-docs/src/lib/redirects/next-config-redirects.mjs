@@ -498,6 +498,12 @@ const CHANNEL_REDIRECTS = [
   ...CHANNEL_PLATFORM_REDIRECTS,
   ...permanentRedirectsWithSuffixes("/slack/using-these-docs", "/slack"),
   ...permanentRedirectsWithSuffixes("/teams/using-these-docs", "/teams"),
+  // Angular's feature catalog page is gone; its URL opens Angular's quickstart.
+  ...permanentRedirectsWithSuffixes("/angular/features", "/angular"),
+  ...permanentRedirectsWithSuffixes(
+    `/angular/${FRAMEWORK}/features`,
+    "/angular/:framework",
+  ),
   // The app frontends' "Using these docs" pages are gone: each frontend's
   // sidebar is the docs it has, so the orientation page opens its quickstart.
   ...["vue", "angular", "react-native"].flatMap((frontend) => [
