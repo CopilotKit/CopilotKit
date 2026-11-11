@@ -162,7 +162,8 @@ withSuffixes(
 none("/angular/prebuilt-components");
 none("/angular/headless-threads");
 none("/angular/troubleshooting");
-none("/angular/features");
+// Angular's feature catalog page was dropped; its URL goes to the quickstart.
+redirect("/angular/features", "/angular", PERMANENT);
 
 // --- next.config: Channels guides ----------------------------------------
 const CHANNEL_FRONTENDS = ["slack", "teams"];
@@ -404,8 +405,17 @@ for (const [from, to, status] of [
 ]) {
   redirect(from, to, status);
 }
-none("/mastra/generative-ui/your-components/display-only");
-none("/mastra/generative-ui/your-components/interactive");
+// The per-framework copies folded into the shared pages (folded-pages.ts).
+redirect(
+  "/mastra/generative-ui/your-components/display-only",
+  "/mastra/generative-ui/display",
+  MOVED,
+);
+redirect(
+  "/mastra/generative-ui/your-components/interactive",
+  "/mastra/human-in-the-loop",
+  MOVED,
+);
 
 // --- proxy: route groups and retired raw-Markdown URLs --------------------
 redirect("/(other)/learning.md", "/learning.md", MOVED);
@@ -514,7 +524,8 @@ for (const [from, to] of [
   ["/direct-to-llm/shared-state", "/shared-state"],
   ["/shared/frontend-tools", "/frontend-tools"],
   ["/generative-ui/langgraph/agentic", "/langgraph-python/agentic"],
-  ["/generative-ui-specs/a2ui", "/generative-ui/specs/a2ui"],
+  // One hop: /generative-ui/specs/a2ui itself now goes to /generative-ui/a2ui.
+  ["/generative-ui-specs/a2ui", "/generative-ui/a2ui"],
   ["/guides/anything", "/"],
   ["/learn/frontend-tools", "/concepts/frontend-tools"],
   // Nothing is served under /docs: shell-docs' legacy prefix goes to the root.
