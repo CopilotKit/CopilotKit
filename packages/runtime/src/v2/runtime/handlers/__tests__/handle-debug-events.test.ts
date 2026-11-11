@@ -1,7 +1,13 @@
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { handleDebugEvents } from "../handle-debug-events";
-import { DebugEventBus } from "../../core/debug-event-bus";
+import {
+  DebugEventBus,
+  ɵresetDebugEventFeedWarning,
+} from "../../core/debug-event-bus";
+import { CopilotRuntime } from "../../core/runtime";
 import type { CopilotRuntimeLike } from "../../core/runtime";
+import { createCopilotRuntimeHandler } from "../../core/fetch-handler";
+import { testAgents } from "../../__tests__/helpers/thread-access-harness";
 import type { BaseEvent } from "@ag-ui/client";
 import type { ResolvedDebugConfig } from "@copilotkit/shared";
 
@@ -64,6 +70,30 @@ async function readNextSSELine(
  * Tests
  * --------------------------------------------------------------------------------------------- */
 
+const FEED_DEBUG_VALUES = [
+  undefined,
+  false,
+  true,
+  { verbose: false },
+  { events: true, lifecycle: true, verbose: true },
+] as const;
+
+function setNodeEnv(nodeEnv: string | undefined) {
+  if (nodeEnv === undefined) {
+    delete process.env.NODE_ENV;
+  } else {
+    process.env.NODE_ENV = nodeEnv;
+  }
+}
+
+function expectedStatus(
+  nodeEnv: string | undefined,
+  debug: (typeof FEED_DEBUG_VALUES)[number],
+): number {
+  if (nodeEnv === "development") return 200;
+  return nodeEnv === "test" && debug ? 200 : 404;
+}
+
 describe("handleDebugEvents", () => {
   let savedNodeEnv: string | undefined;
 
@@ -101,8 +131,8 @@ describe("handleDebugEvents", () => {
     });
 
     it("refuses the feed when NODE_ENV is unset", () => {
-      // The reported hole: a plain `node server.js` sets no NODE_ENV, and the
-      // old `!== "production"` gate read that absence as development.
+      // A plain `node server.js` sets no NODE_ENV, and that absence is not
+      // development.
       expect(statusFor(undefined, DEBUG_OFF)).toBe(404);
     });
 
@@ -115,10 +145,16 @@ describe("handleDebugEvents", () => {
       expect(statusFor("test", DEBUG_OFF)).toBe(404);
     });
 
-    it("serves the feed wherever debug is explicitly enabled", () => {
-      expect(statusFor("production", DEBUG_ON)).toBe(200);
-      expect(statusFor(undefined, DEBUG_ON)).toBe(200);
+    it("serves the feed under debug in test", () => {
+      expect(statusFor("test", DEBUG_ON)).toBe(200);
     });
+
+    it.each([undefined, "", "production", "prod", "Production", "staging"])(
+      "refuses the feed under debug alone when NODE_ENV=%j",
+      (nodeEnv) => {
+        expect(statusFor(nodeEnv, DEBUG_ON)).toBe(404);
+      },
+    );
 
     it("returns the 404 body, so a hidden route reads as absent", async () => {
       process.env.NODE_ENV = "production";
@@ -130,6 +166,134 @@ describe("handleDebugEvents", () => {
 
       expect(await response.text()).toBe("Not Found");
     });
+  });
+
+  describe("through a constructed runtime", () => {
+    const NODE_ENVS = [
+      undefined,
+      "",
+      "production",
+      "prod",
+      "Production",
+      "staging",
+      "test",
+      "development",
+    ];
+    function open(options: {
+      debug?: (typeof FEED_DEBUG_VALUES)[number];
+      exposeDebugEvents?: boolean;
+    }) {
+      const runtime = new CopilotRuntime({ agents: testAgents(), ...options });
+      const handler = createCopilotRuntimeHandler({
+        runtime,
+        basePath: "/api",
+      });
+      const abort = new AbortController();
+      return handler(
+        new Request("http://localhost/api/cpk-debug-events", {
+          signal: abort.signal,
+        }),
+      ).then((response) => {
+        abort.abort();
+        return { status: response.status, runtime };
+      });
+    }
+
+    let warn: ReturnType<typeof vi.spyOn>;
+
+    beforeEach(() => {
+      ɵresetDebugEventFeedWarning();
+      warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    });
+
+    afterEach(() => {
+      warn.mockRestore();
+    });
+
+    function feedWarnings(): number {
+      return warn.mock.calls.filter((call: unknown[]) =>
+        String(call[0]).includes("exposeDebugEvents"),
+      ).length;
+    }
+
+    for (const nodeEnv of NODE_ENVS) {
+      for (const debug of FEED_DEBUG_VALUES) {
+        const expected = expectedStatus(nodeEnv, debug);
+        it(`NODE_ENV=${nodeEnv} debug=${JSON.stringify(debug)} answers ${expected}`, async () => {
+          setNodeEnv(nodeEnv);
+          const { status, runtime } = await open({ debug });
+          expect(status).toBe(expected);
+          expect(runtime.debugEventBus !== undefined).toBe(expected === 200);
+        });
+
+        it(`NODE_ENV=${nodeEnv} debug=${JSON.stringify(debug)} opens with exposeDebugEvents`, async () => {
+          setNodeEnv(nodeEnv);
+          expect((await open({ debug, exposeDebugEvents: true })).status).toBe(
+            200,
+          );
+        });
+      }
+    }
+
+    describe("method handling", () => {
+      const post = (options: { exposeDebugEvents?: boolean }) =>
+        createCopilotRuntimeHandler({
+          runtime: new CopilotRuntime({ agents: testAgents(), ...options }),
+          basePath: "/api",
+        })(
+          new Request("http://localhost/api/cpk-debug-events", {
+            method: "POST",
+          }),
+        );
+
+      it("answers a closed feed 404 on any method", async () => {
+        process.env.NODE_ENV = "production";
+        const response = await post({});
+        expect(response.status).toBe(404);
+        expect(response.headers.has("Allow")).toBe(false);
+      });
+
+      it("answers 405 on an open feed", async () => {
+        process.env.NODE_ENV = "production";
+        const response = await post({ exposeDebugEvents: true });
+        expect(response.status).toBe(405);
+        expect(response.headers.get("Allow")).toBe("GET");
+      });
+    });
+
+    it("takes only `true` as the opt-in", async () => {
+      setNodeEnv("production");
+      const exposeDebugEvents = "true" as unknown as boolean;
+      expect((await open({ exposeDebugEvents })).status).toBe(404);
+    });
+
+    it("warns once per process when the feed opens outside development and test", async () => {
+      setNodeEnv("production");
+      await open({ exposeDebugEvents: true });
+      await open({ exposeDebugEvents: true });
+      expect(feedWarnings()).toBe(1);
+    });
+
+    it("warns when the opt-in opens the feed under an unset NODE_ENV", async () => {
+      setNodeEnv(undefined);
+      await open({ exposeDebugEvents: true });
+      expect(feedWarnings()).toBe(1);
+    });
+
+    it("does not warn when production keeps the feed closed", async () => {
+      setNodeEnv("production");
+      await open({ debug: true });
+      expect(feedWarnings()).toBe(0);
+    });
+
+    it.each(["development", "test"])(
+      "does not warn under NODE_ENV=%s",
+      async (nodeEnv) => {
+        setNodeEnv(nodeEnv);
+        await open({ exposeDebugEvents: true });
+        expect(feedWarnings()).toBe(0);
+      },
+    );
   });
 
   it("returns 503 when debugEventBus is undefined", async () => {
