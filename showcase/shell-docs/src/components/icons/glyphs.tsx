@@ -6,6 +6,7 @@ import {
   PiBracketsCurlyFill,
   PiBooksFill,
   PiBrainFill,
+  PiBriefcaseFill,
   PiChatCircleDotsFill,
   PiChatsCircleFill,
   PiCookingPotFill,
@@ -22,6 +23,7 @@ import {
   PiPlayCircleFill,
   PiPlugsConnectedFill,
   PiPuzzlePieceFill,
+  PiRobotFill,
   PiSquaresFourFill,
   PiStackFill,
   PiTerminalWindowFill,
@@ -69,6 +71,9 @@ export {
   PiStackFill as StackGlyph,
   PiArrowSquareOutFill as OpenPageGlyph,
   PiFileTextFill as PageGlyph,
+  // OpenBot, built with CopilotKit: the product, for business, for builders.
+  PiRobotFill as OpenBotGlyph,
+  PiBriefcaseFill as BusinessGlyph,
 };
 
 /** Intelligence is marked with the kite outline the live docs use. */

@@ -386,6 +386,16 @@ for (const [from, to, status] of [
   ["/learn", "/concepts/architecture", PERMANENT],
   ["/learn/whats-new/v1-50", "/", PERMANENT],
   [
+    "/cookbook/antigravity-repo-doctor",
+    "/cookbook/google-antigravity",
+    PERMANENT,
+  ],
+  [
+    "/mastra/cookbook/antigravity-repo-doctor",
+    "/mastra/cookbook/google-antigravity",
+    PERMANENT,
+  ],
+  [
     "/concepts/three-types-of-gen-ui",
     "/concepts/generative-ui-overview",
     PERMANENT,

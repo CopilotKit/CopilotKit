@@ -270,6 +270,16 @@ const ALL_FRAMEWORKS: Framework[] = [
     caps: ALL,
   },
   {
+    id: "openai-agents-python",
+    name: "OpenAI Agents SDK",
+    short: "OpenAI Agents",
+    language: "Python",
+    summary:
+      "OpenAI's agent loop: a model, its tools, guardrails and handoffs.",
+    demos: 39,
+    caps: ALL,
+  },
+  {
     id: "langroid",
     name: "Langroid",
     short: "Langroid",

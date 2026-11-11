@@ -9,6 +9,7 @@ import {
   AskAIGlyph,
   BackendGlyph,
   CookbookGlyph,
+  OpenBotGlyph,
   DirectoryGlyph,
   DeclarativeUIGlyph,
   FrontendToolsGlyph,
@@ -377,6 +378,14 @@ function DHomeLayout({
           description: "Every hook, component, and runtime API.",
           url: "/reference",
           menu: card(<ReferenceGlyph />),
+        },
+        {
+          text: "OpenBot",
+          description:
+            "The self-hostable workspace for AI coworkers, built on CopilotKit.",
+          url: "https://open.bot",
+          external: true,
+          menu: card(<OpenBotGlyph />),
         },
         MENU_TRAY,
       ],

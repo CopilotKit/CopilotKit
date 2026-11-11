@@ -954,7 +954,21 @@ const PAGE_REDIRECTS = [
 ];
 
 /** Same order as shell-docs' `redirects()`; first match wins. */
+// The Antigravity cookbook lives under the product's full name (main's
+// cf12dd13da), under any frontend or framework prefix too.
+const ANTIGRAVITY_COOKBOOK_REDIRECTS = [
+  ...permanentRedirectsWithSuffixes(
+    "/cookbook/antigravity-repo-doctor",
+    "/cookbook/google-antigravity",
+  ),
+  ...permanentRedirectsWithSuffixes(
+    "/:prefix+/cookbook/antigravity-repo-doctor",
+    "/:prefix+/cookbook/google-antigravity",
+  ),
+];
+
 export const nextConfigRedirects = [
+  ...ANTIGRAVITY_COOKBOOK_REDIRECTS,
   ...AG_UI_STREAMS_REDIRECTS,
   ...OPEN_JSON_UI_RETIREMENT_REDIRECTS,
   ...THREADS_SELF_MANAGED_RETIREMENT_REDIRECTS,

@@ -3,7 +3,12 @@
 import { SiDiscord, SiGithub, SiX } from "react-icons/si";
 import { PixelMatrix } from "@/components/brand/pixel-matrix";
 import { CopilotKitLogo } from "@/components/copilotkit-logo";
-import { IntelligenceGlyph } from "@/components/icons/glyphs";
+import {
+  BusinessGlyph,
+  IntelligenceGlyph,
+  OpenBotGlyph,
+  OtherGlyph,
+} from "@/components/icons/glyphs";
 import { FrameworkLogo } from "@/components/icons/framework-icons";
 import { useIntegrationClickTracking } from "@/components/telemetry/homepage";
 import { FRAMEWORKS, FRAMEWORK_FAMILIES, TOPICS, TOPIC_SUMMARY } from "./data";
@@ -111,6 +116,31 @@ export function DHome() {
               />
             );
           })}
+        </Tray>
+      </section>
+
+      {/* OpenBot, as on docs.copilotkit.ai's home. */}
+      <section className="flex flex-col gap-5">
+        <h2 className={sectionTitle}>Built with CopilotKit</h2>
+        <Tray>
+          <LinkCard
+            href="https://open.bot"
+            icon={<OpenBotGlyph />}
+            title="OpenBot"
+            description="The self-hostable workspace for AI coworkers, built on CopilotKit and AG-UI."
+          />
+          <LinkCard
+            href="https://open.bot/business"
+            icon={<BusinessGlyph />}
+            title="OpenBot for Business"
+            description="Enterprise governance for AI coworkers: boundaries, SSO, and audit."
+          />
+          <LinkCard
+            href="https://open.bot/builders#start"
+            icon={<OtherGlyph />}
+            title="Setup guide for builders"
+            description="Choose the models, tools, and infrastructure your coworkers run on."
+          />
         </Tray>
       </section>
 
