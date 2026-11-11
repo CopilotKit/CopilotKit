@@ -199,8 +199,8 @@ function zodSchemaToSimpleObject(
 ): Record<string, unknown> {
   const shape: object = "shape" in schema ? (schema.shape as object) : {};
   const properties: Record<string, { type: string; description?: string }> = {};
-  for (const [key, value] of Object.entries(shape)) {
-    const zodValue = value as any;
+  // `Object.entries` of an `object` gives `any` values: Zod 3 schemas.
+  for (const [key, zodValue] of Object.entries(shape)) {
     properties[key] = {
       type: zodValue._def?.typeName ?? "unknown",
       ...(zodValue.description ? { description: zodValue.description } : {}),

@@ -247,7 +247,7 @@
     "typescript-eslint(no-explicit-any)": {
       "packages/a2ui-renderer/src/react-renderer/core/A2UIProvider.tsx": 7,
       "packages/a2ui-renderer/src/react-renderer/core/store.ts": 2,
-      "packages/a2ui-renderer/src/react-renderer/create-catalog.tsx": 6,
+      "packages/a2ui-renderer/src/react-renderer/create-catalog.tsx": 3,
       "packages/a2ui-renderer/src/react-renderer/hooks/useA2UI.ts": 1,
       "packages/a2ui-renderer/src/react-renderer/types.ts": 10,
       "packages/angular/src/a2ui/lib/types.ts": 1,
