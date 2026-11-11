@@ -498,6 +498,18 @@ const CHANNEL_REDIRECTS = [
   ...CHANNEL_PLATFORM_REDIRECTS,
   ...permanentRedirectsWithSuffixes("/slack/using-these-docs", "/slack"),
   ...permanentRedirectsWithSuffixes("/teams/using-these-docs", "/teams"),
+  // The app frontends' "Using these docs" pages are gone: each frontend's
+  // sidebar is the docs it has, so the orientation page opens its quickstart.
+  ...["vue", "angular", "react-native"].flatMap((frontend) => [
+    ...permanentRedirectsWithSuffixes(
+      `/${frontend}/using-these-docs`,
+      `/${frontend}`,
+    ),
+    ...permanentRedirectsWithSuffixes(
+      `/${frontend}/${FRAMEWORK}/using-these-docs`,
+      `/${frontend}/:framework`,
+    ),
+  ]),
   // Broad legacy roots last. Child redirects are intentionally exact: an
   // unknown `/channels/*` child must not become an accidental guide URL.
   ...CHANNEL_ROOT_REDIRECTS,
