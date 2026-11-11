@@ -617,6 +617,10 @@ const nextConfig: NextConfig = {
         "/cookbook/antigravity-repo-doctor",
         "/cookbook/google-antigravity",
       ),
+      ...permanentRedirectsWithSuffixes(
+        "/:framework/cookbook/antigravity-repo-doctor",
+        "/:framework/cookbook/google-antigravity",
+      ),
       {
         // Built-in agent is the default framework, so its overview page
         // is the docs root. Avoid surfacing a redundant "Introduction"
