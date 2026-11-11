@@ -25,8 +25,22 @@ export interface LiveHttpOptions {
   maxBodyBytes?: number;
 }
 
-// Only messages constructed inside the registry boundary may reach audit logs.
+// Category marker only; exported errors can contain untrusted messages.
 export class CaptureError extends Error {}
+
+/** Retain only complete, bounded messages from the fixed diagnostic vocabulary. */
+export function captureDiagnostic(error: unknown): string | undefined {
+  const message = error instanceof CaptureError ? error.message : undefined;
+  if (typeof message !== "string" || message.length > 256) return undefined;
+  const request = String.raw`Registry request (?:timed out|failed|returned HTTP [1-5][0-9]{2})\.`;
+  const stage = String.raw`(?:service index \(https://api\.nuget\.org/v3/index\.json\)|registration index|registration page)`;
+  const allowed = new RegExp(
+    String.raw`^(?:${request}|NuGet request failed; the inventory is incomplete\. \[${stage}\](?: ${request})?|NuGet (?:request returned HTTP [1-5][0-9]{2}\.|response is not valid JSON\.) \[${stage}\])$`,
+  );
+  const match = allowed.exec(message);
+  // JavaScript's $ also matches before a final newline; require the whole input.
+  return match?.[0] === message ? match[0] : undefined;
+}
 
 function allowedUrl(value: string, redirect = false): URL {
   const message = redirect

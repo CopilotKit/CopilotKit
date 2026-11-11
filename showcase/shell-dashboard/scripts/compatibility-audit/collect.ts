@@ -1,7 +1,7 @@
 import { lstat, writeFile } from "node:fs/promises";
 import { isAbsolute } from "node:path";
 import { fileURLToPath } from "node:url";
-import { CaptureError, createLiveHttpClient } from "./http";
+import { captureDiagnostic, createLiveHttpClient } from "./http";
 import { COMPATIBILITY_MAPPING } from "./mapping";
 import { collectMaven } from "./registries/maven";
 import { collectNpm } from "./registries/npm";
@@ -178,9 +178,9 @@ export async function collectAudit(
       try {
         inventory = await COLLECTORS[library.registry](library.name, client);
       } catch (error) {
-        const detail =
-          error instanceof CaptureError ? `: ${error.message}` : "";
-        // Raw causes can contain credentials; only trusted details reach logs.
+        const diagnostic = captureDiagnostic(error);
+        const detail = diagnostic ? `: ${diagnostic}` : "";
+        // Raw causes can contain credentials; only validated details reach logs.
         const failure = new Error(
           `Registry collection failed for ${library.registry}/${library.name}${detail}`,
         );

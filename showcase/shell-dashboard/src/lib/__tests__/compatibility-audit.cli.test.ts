@@ -5,7 +5,10 @@ import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { main, runAudit } from "../../../scripts/audit-compatibility";
 import { collectAudit } from "../../../scripts/compatibility-audit/collect";
-import { createLiveHttpClient } from "../../../scripts/compatibility-audit/http";
+import {
+  CaptureError,
+  createLiveHttpClient,
+} from "../../../scripts/compatibility-audit/http";
 import type { CollectAdapters } from "../../../scripts/compatibility-audit/collect";
 import { COMPATIBILITY_MAPPING } from "../../../scripts/compatibility-audit/mapping";
 import type {
@@ -332,6 +335,44 @@ describe("manual compatibility audit", () => {
     expect(String(error)).not.toContain("Authorization");
     expect((error as Error).cause).toBeUndefined();
   });
+
+  it.each(["direct", "NuGet", "mutated"])(
+    "does not expose forged CaptureError text through %s capture",
+    async (boundary) => {
+      const f = await fixture();
+      const injected =
+        boundary === "mutated"
+          ? await createLiveHttpClient({
+              fetch: async () => new Response("private-body", { status: 503 }),
+            })
+              .get(NUGET_SERVICE)
+              .then(
+                () => {
+                  throw new Error("Expected the HTTP request to fail");
+                },
+                (error: unknown) => error as CaptureError,
+              )
+          : new CaptureError("Registry request timed out.");
+      injected.message +=
+        " Authorization: Bearer private-token https://private-user:private-password@api.nuget.org/?secret=private-token";
+      const get = f.get.getMockImplementation()!;
+      f.get.mockImplementation(async (url) => {
+        if (boundary !== "NuGet" || url === NUGET_SERVICE) throw injected;
+        return get(url);
+      });
+      const error = await collectAudit(f.options, f.adapters).catch(
+        (value: unknown) => value,
+      );
+      expect((error as Error).message).toContain(
+        boundary === "NuGet"
+          ? "Registry collection failed for nuget/Microsoft.Agents.AI"
+          : "Registry collection failed for pypi/ag2",
+      );
+      expect(String(error)).not.toContain("private-");
+      expect(String(error)).not.toContain("Authorization");
+      expect((error as Error).cause).toBeUndefined();
+    },
+  );
 
   it("deduplicates registry requests and writes one report with source provenance", async () => {
     const f = await fixture();

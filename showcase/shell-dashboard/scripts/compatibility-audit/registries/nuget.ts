@@ -1,5 +1,5 @@
 import { hasAsciiControl } from "../ascii";
-import { CaptureError } from "../http";
+import { CaptureError, captureDiagnostic } from "../http";
 import type { HttpClient, Inventory, Release } from "../types";
 
 const SERVICE_INDEX = "https://api.nuget.org/v3/index.json";
@@ -68,7 +68,8 @@ async function document(
   try {
     response = await client.get(url, "application/json");
   } catch (error) {
-    const detail = error instanceof CaptureError ? ` ${error.message}` : "";
+    const diagnostic = captureDiagnostic(error);
+    const detail = diagnostic ? ` ${diagnostic}` : "";
     throw new CaptureError(
       `NuGet request failed; the inventory is incomplete. [${context}]${detail}`,
     );
