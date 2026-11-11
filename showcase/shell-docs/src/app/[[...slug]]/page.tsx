@@ -179,6 +179,53 @@ function DocsOverview() {
 
           <DocsLandingNext />
 
+          <section
+            id="openbot"
+            aria-labelledby="openbot-heading"
+            className="not-prose mt-12 sm:mt-14"
+          >
+            <div className="rounded-xl border border-[var(--border)] p-6">
+              <p className="text-sm font-semibold text-[var(--accent)]">
+                Built with CopilotKit
+              </p>
+              <h2
+                id="openbot-heading"
+                className="mt-2 text-[1.375rem] font-semibold leading-tight tracking-[-0.03em] text-[var(--text)]"
+              >
+                OpenBot
+              </h2>
+              <p className="mt-2 max-w-[62ch] text-sm leading-relaxed text-[var(--text-secondary)]">
+                The modular, self-hostable workspace for AI coworkers, built on
+                CopilotKit and AG-UI. Bring any agent, then choose the models,
+                tools and infrastructure it runs on. It&rsquo;s enterprise-ready
+                with governance built in, like SSO and SCIM, boundaries, a full
+                audit trail and more.
+              </p>
+              <div className="mt-4 flex flex-wrap items-center gap-x-6 gap-y-2 text-sm font-medium">
+                {[
+                  { href: "https://open.bot", label: "Explore OpenBot" },
+                  {
+                    href: "https://open.bot/business",
+                    label: "OpenBot for Business",
+                  },
+                  {
+                    href: "https://open.bot/builders#start",
+                    label: "Setup guide for builders",
+                  },
+                ].map((link) => (
+                  <a
+                    key={link.href}
+                    href={link.href}
+                    className="inline-flex items-center gap-2 text-[var(--accent)] hover:underline underline-offset-4"
+                  >
+                    {link.label}{" "}
+                    <ArrowRight aria-hidden="true" className="h-4 w-4" />
+                  </a>
+                ))}
+              </div>
+            </div>
+          </section>
+
           <footer className="mt-12 flex flex-wrap items-center justify-between gap-4 border-t border-[var(--border)] pt-6 text-sm sm:mt-16">
             <a
               href="https://github.com/CopilotKit/CopilotKit"

@@ -612,6 +612,15 @@ const nextConfig: NextConfig = {
       // OSS: the retired `/ag-ui/*` mirror hands its search equity to the
       // canonical upstream docs at docs.ag-ui.com (see AG_UI_MIRROR_REDIRECTS).
       ...AG_UI_MIRROR_REDIRECTS,
+      // The Antigravity cookbook lives under the product's full name.
+      ...permanentRedirectsWithSuffixes(
+        "/cookbook/antigravity-repo-doctor",
+        "/cookbook/google-antigravity",
+      ),
+      ...permanentRedirectsWithSuffixes(
+        "/:prefix+/cookbook/antigravity-repo-doctor",
+        "/:prefix+/cookbook/google-antigravity",
+      ),
       {
         // Built-in agent is the default framework, so its overview page
         // is the docs root. Avoid surfacing a redundant "Introduction"

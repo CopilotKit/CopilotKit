@@ -42,6 +42,7 @@ export const DOCS_MEGA_MENU_COLUMNS: readonly MegaMenuColumn[] = [
       { href: "/", label: "Introduction", icon: "book" },
       { href: "/quickstart", label: "Quickstart", icon: "rocket" },
       { href: "/cli", label: "CLI", icon: "terminal" },
+      { href: "https://open.bot", label: "OpenBot", icon: "bot" },
     ],
   },
   {
