@@ -158,8 +158,8 @@ const CONTRACTS = {
     ...REACT_NATIVE_RULES,
     advice:
       "DOM and Lit code belongs in the web /generative-ui entry, not in\n" +
-      "/generative-ui/native. Import @a2ui/web_core models from its DOM-free\n" +
-      "subpaths (`@a2ui/web_core/state`, `/catalog`), never the `/v0_9` barrel.\n" +
+      "/generative-ui/native. Surface state comes from @copilotkit/core/generative-ui;\n" +
+      "never import @a2ui/web_core's `/v0_9` barrel, which loads its Lit catalog.\n" +
       STATIC_BLOCK_ADVICE,
   },
 };

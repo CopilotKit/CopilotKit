@@ -1,11 +1,5 @@
 import { containsDynamicValue } from "./resolve";
-// From the `catalog` and `state` entries, not the `v0_9` barrel: the barrel
-// also exports the basic catalog's Lit elements, and lit-html reads
-// `document` when it loads, which throws outside a browser (React Native).
-// The classes are the same modules either way.
-import { Catalog } from "@a2ui/web_core/catalog";
-import { ComponentModel, DataModel, SurfaceModel } from "@a2ui/web_core/state";
-import { z } from "zod";
+import { ComponentModel, DataModel, SurfaceModel } from "./surface-model";
 import {
   A2UI_COMPONENT_ENVELOPE_KEYS,
   cloneValue,
@@ -44,7 +38,7 @@ export interface ManagedSurface {
   readonly surfaceId: string;
   readonly agentId: string | undefined;
   /** Replaced by an empty model when the surface closes, to free its data. */
-  model: SurfaceModel<any>;
+  model: SurfaceModel;
   readonly createdAt: number;
   target: string;
   status: GenerativeUISurfaceStatus;
@@ -219,7 +213,7 @@ function summarizeRejections(rejections: GenerativeUIRejectedOperation[]) {
 }
 
 /**
- * Framework-agnostic store of generated surfaces. One web_core SurfaceModel per
+ * Framework-agnostic store of generated surfaces. One SurfaceModel per
  * (threadId, surfaceId), shared by every mount. Applies only newly committed
  * operations, validates each before applying it, and owns app state and the
  * data model paths that the user wrote, so agent updates cannot overwrite
@@ -250,23 +244,13 @@ export class GenerativeUISurfaceManager {
    * to every part, so an input in one part drives a binding in another.
    */
   private readonly linked = new Map<string, ReadonlySet<string>>();
-  private readonly webCoreCatalog: Catalog<any>;
   private activeThreadId: string | undefined;
   private version = 0;
 
   constructor(
     private readonly ui: GenerativeUI,
     private readonly options: GenerativeUISurfaceManagerOptions = {},
-  ) {
-    // `SurfaceModel` only needs component names; it never reads a schema.
-    // `Catalog<any>` because web_core types schemas as Zod 3 and this
-    // package uses Zod 4.
-    this.webCoreCatalog = new Catalog<any>(
-      ui.id,
-      [...ui.components.keys()].map((name) => ({ name, schema: z.any() })),
-      [],
-    );
-  }
+  ) {}
 
   subscribe = (listener: () => void): (() => void) => {
     this.listeners.add(listener);
@@ -676,7 +660,7 @@ export class GenerativeUISurfaceManager {
   private writeOwnedValue(key: string, path: string, owned: OwnedValue) {
     const surface = this.surfaces.get(key);
     if (!surface || surface.deleted) return;
-    // A `null` removes the key (web_core's default, the v1.0 protocol).
+    // A `null` removes the key (the v1.0 protocol).
     surface.model.dataModel.set(path, cloneValue(owned.value));
     const values = this.owned.get(key) ?? new Map<string, OwnedValue>();
     values.set(path, owned);
@@ -745,7 +729,7 @@ export class GenerativeUISurfaceManager {
       threadId,
       surfaceId: content.surfaceId,
       agentId,
-      model: new SurfaceModel(content.surfaceId, this.webCoreCatalog),
+      model: new SurfaceModel(content.surfaceId),
       createdAt: ++creationCounter,
       target: content.target,
       status: content.status,
@@ -772,7 +756,7 @@ export class GenerativeUISurfaceManager {
   private closeSurface(surface: ManagedSurface) {
     surface.deleted = true;
     surface.model.dispose();
-    surface.model = new SurfaceModel(surface.surfaceId, this.webCoreCatalog);
+    surface.model = new SurfaceModel(surface.surfaceId);
     this.owned.delete(surface.key);
     this.linked.delete(surface.key);
   }
@@ -915,9 +899,9 @@ export class GenerativeUISurfaceManager {
     }
     if ("updateDataModel" in typed) {
       const { path = "/", value } = typed.updateDataModel;
-      // A `null` value deletes the key (v1.0). web_core's `DataModel.set`
-      // removes the key for `null` too (`preserveNull` is false), and the
-      // merge treats both alike: mapping it to `undefined` only states it.
+      // A `null` value deletes the key (v1.0). `DataModel.set` removes the
+      // key for `null` too, and the merge treats both alike: mapping it to
+      // `undefined` only states it.
       const written = value === null ? undefined : value;
       const failure = this.writeAgentData(
         surface,
@@ -1001,7 +985,7 @@ export class GenerativeUISurfaceManager {
     return issues.length > 0 ? formatIssues(issues) : undefined;
   }
 
-  private upsertNode(model: SurfaceModel<any>, node: A2UIComponentNode) {
+  private upsertNode(model: SurfaceModel, node: A2UIComponentNode) {
     const { id, component, ...rest } = node;
     const properties = cloneValue(rest);
     const existing = model.componentsModel.get(id);

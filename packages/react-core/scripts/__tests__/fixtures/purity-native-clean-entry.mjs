@@ -1,5 +1,5 @@
 // Fixture for the generative-ui/native contract's no-false-positive direction.
-// It imports the DOM-free @a2ui/web_core subpath (what surface-manager.ts uses)
+// It imports a DOM-free @a2ui/web_core subpath (`/state`, no Lit in its graph)
 // and plain `react`, and mentions react-dom, lit, lit-html and a static block only
 // as TEXT, in comments, strings and a template:
 //   import { createPortal } from "react-dom";

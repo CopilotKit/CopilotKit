@@ -984,8 +984,8 @@ describe("contractFor — the generative-ui/native contract", () => {
   });
 
   it("fails a native entry that imports the @a2ui/web_core/v0_9 barrel", async () => {
-    // The surface-manager.ts regression: one model import through the barrel
-    // drags the Lit basic catalog in.
+    // The surface manager's old regression: one model import through the
+    // barrel drags the Lit basic catalog in.
     const report = await purity("purity-native-a2ui-barrel-entry.mjs");
     assert.ok(
       report.pathHits.some((hit) =>
@@ -1609,15 +1609,6 @@ describe("stale-reference guard for the gate's comments and advice", () => {
     "dev-docs/bundle-size.md": {
       file: "dev-docs/bundle-size.md",
       contains: ["OSS-122"],
-    },
-    "surface-manager.ts": {
-      // "the DOM-free subpath (what surface-manager.ts uses)" and "used to"
-      // import the /v0_9 barrel — it must not any more.
-      file: "packages/core/src/generative-ui/surface-manager.ts",
-      check: (text) => {
-        assert.ok(text.includes('"@a2ui/web_core/state"'));
-        assert.ok(!text.includes('"@a2ui/web_core/v0_9"'));
-      },
     },
     "src/headless.ts": {
       // "the five banned tokens sit in src/headless.ts's own file banner"
