@@ -16,6 +16,31 @@ releases have no changelog: the per-package files from the changesets era stoppe
 at `1.55.2` while the lane shipped `1.69.3`, and they are recoverable from git
 history (for example `git show v1.69.3:packages/core/CHANGELOG.md`).
 
+## 1.87.0 - 2026-11-11
+
+This release adds support for rendering A2UI 1.0 operations alongside the existing v0.9 protocol, so agents emitting native 1.0 surfaces (such as those from ADK) now render correctly without breaking existing integrations.
+
+## Features
+
+- **A2UI 1.0 rendering support** (#8353) — `A2UIMessageRenderer` now renders native 1.0 `a2ui_operations` alongside v0.9 surfaces, with v0.9 remaining the default. The SDK's multi-version processor includes a native React basic catalog, and both protocol versions can coexist in chat history with their metadata preserved.
+- **Explicit 1.0 custom catalogs** (#8353) — You can now configure explicit 1.0 custom catalogs while keeping the v0.9 default. Native 1.0 schemas and generation guidelines are now advertised and exported, and user actions can include catalog IDs, messages, and extension metadata.
+- **Markdown formatting for native 1.0 text** (#8353) — Native Text now supports safe Markdown headings, paragraphs, emphasis, and strong emphasis, rendered as safe React elements.
+- **Accessibility attributes** (#8353) — Common accessibility fields are now applied to basic DOM elements across built-in components.
+
+## Fixes
+
+- **Preserve edits across snapshot replay** (#8353) — Inline A2UI snapshots now replay component and data changes without remounting, preserving local edits across later streaming snapshots.
+- **Native 1.0 snapshot safety** (#8353) — Native 1.0 A2UI snapshots are now replayed safely in `react-core`.
+- **Primitive data bindings** (#8353) — Surfaces bound to primitive data are now revealed correctly, and bound text is coerced to strings (including numeric zero) to match SDK behavior.
+- **Preserve bindings and legacy payloads** (#8353) — SDK bindings and legacy payloads are retained when filtering surfaces.
+- **Merged catalog themes** (#8353) — Merged native catalogs now retain the basic theme schema.
+- **Component rendering corrections** (#8353) — Improved slider step handling, text-field placeholders, video poster safety, and rendering with custom catalogs.
+
+## Notes
+
+- Automatic generation-catalog switching for updates to older cards is not yet included (tracked in PNI-801).
+- The AG-UI Direct JSON streaming middleware fix is still required before 1.0 works end to end in that mode.
+
 ## 1.86.0 - 2026-11-11
 
 This release extends native generative UI to Vue and React Native, bumps the A2UI middleware, and hardens the runtime's MCP Apps and A2UI integration.
