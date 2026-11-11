@@ -62,17 +62,22 @@ export function whereIs(
   if (RESERVED.has(slug.split("/")[0])) return null;
   const has = (folder: string, s: string) =>
     index.folders[folder]?.includes(s) ?? false;
+  const fw = framework ?? ROOT_FRAMEWORK;
+  // A frontend's own version of a feature page (`/vue/shared-state/streaming`)
+  // documents the same showcase feature, so the framework decides it too.
+  const unsupported = index.unsupported[fw]?.includes(slug) ?? false;
   for (const folder of FRONTEND_FOLDERS[frontend]) {
     const own = slug === "quickstart" && !has(folder, slug) ? "" : slug;
-    if (has(folder, own)) return { kind: "frontend", folder, slug: own };
+    if (!unsupported && has(folder, own)) {
+      return { kind: "frontend", folder, slug: own };
+    }
   }
-  const fw = framework ?? ROOT_FRAMEWORK;
   const fwFolder = LIVE_FRAMEWORKS[fw]?.folder;
   // A framework's index is its landing, which the URL `/mastra` opens.
   if (slug && fwFolder && has(`integrations/${fwFolder}`, slug)) {
     return { kind: "framework", folder: `integrations/${fwFolder}`, slug };
   }
-  if (!slug || index.unsupported[fw]?.includes(slug)) return null;
+  if (!slug || unsupported) return null;
   if (frontend === "react" && index.react.includes(slug)) {
     return { kind: "react", slug };
   }
