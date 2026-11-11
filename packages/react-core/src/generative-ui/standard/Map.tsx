@@ -3,6 +3,7 @@ import type { z } from "zod";
 import { useRequiredGenerativeUIRuntime } from "../runtime-context";
 import type { GenerativeUILibraryLoader } from "../runtime-context";
 import { useStableValue } from "./Chart";
+import { useLatestRef } from "../../lib/use-latest-ref";
 import {
   FONT_WEIGHT,
   backgroundColor,
@@ -196,9 +197,8 @@ export function MapView(props: MapProps) {
   const { theme } = runtime;
   // A ref, so an inline loader (a new function on each provider render) does
   // not draw the map again.
-  const loaderRef = useRef(runtime.config.map);
-  loaderRef.current = runtime.config.map;
-  const hasLoader = loaderRef.current !== undefined;
+  const loaderRef = useLatestRef(runtime.config.map);
+  const hasLoader = runtime.config.map !== undefined;
   // Without a loader the list shows at once, on the server too, so the
   // server HTML and the first client render match.
   const [status, setStatus] = useState<MapStatus>(
@@ -325,7 +325,7 @@ export function MapView(props: MapProps) {
         // The map is already removed.
       }
     };
-  }, [hasLoader, markers, center, zoom, route, styleUrl]);
+  }, [hasLoader, loaderRef, markers, center, zoom, route, styleUrl]);
 
   const isFallback = status === "fallback";
   return (
