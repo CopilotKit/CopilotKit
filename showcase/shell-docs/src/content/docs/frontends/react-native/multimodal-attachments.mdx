@@ -1,0 +1,246 @@
+---
+title: Multimodal Attachments
+icon: "lucide/Paperclip"
+description: Let users send images, audio, video, and documents to the agent from a React Native app.
+---
+
+You have a working chat and want users to attach files (images, PDFs, audio, video) that the agent can see and respond to. On React Native, files come from the native document picker through Expo modules. By the end of this guide, your chat can pick files, show them before sending, and send them with the message.
+
+## Install the Expo modules
+
+Attachments use [`expo-document-picker`](https://docs.expo.dev/versions/latest/sdk/document-picker/) to pick files and [`expo-file-system`](https://docs.expo.dev/versions/latest/sdk/filesystem/) to read them. Both are optional peer dependencies of `@copilotkit/react-native`:
+
+```bash
+npx expo install expo-document-picker expo-file-system
+```
+
+On a bare React Native app, Expo modules need the `expo` package set up first. See Expo's guide to [installing Expo modules](https://docs.expo.dev/bare/installing-expo-modules/).
+
+The attachment APIs come from the package root, `@copilotkit/react-native`, not from `/headless`.
+
+<Callout type="warn" title="expo-file-system 19 and later: pass your own reader">
+  The default reader calls `readAsStringAsync` from the main `expo-file-system` entry. From `expo-file-system` 19.0.0 (Expo SDK 54), that method moved to `expo-file-system/legacy`, and the old import throws when called. Every file then fails with `upload-failed`. To see your version, run `npm ls expo-file-system`. On 19 or later, read the file yourself in `onUpload`:
+
+  ```tsx
+  import * as FileSystem from "expo-file-system/legacy";
+
+  const attachments = {
+    enabled: true,
+    onUpload: async (file: NativeFileInput) => ({
+      type: "data" as const,
+      value: await FileSystem.readAsStringAsync(file.uri, {
+        encoding: FileSystem.EncodingType.Base64,
+      }),
+      mimeType: file.mimeType,
+    }),
+  };
+  ```
+
+  `NativeFileInput` is a type export of `@copilotkit/react-native`. Pass this object as the `attachments` prop in the samples below.
+</Callout>
+
+## Quick start
+
+Pass `attachments` to the root `CopilotChat`. It draws no UI. It adds the attachment state to `useCopilotChatContext`, which your own chat UI reads:
+
+```tsx title="src/ChatScreen.tsx"
+import { useState } from "react";
+import { Image, Pressable, Text, TextInput, View } from "react-native";
+import { CopilotChat, useCopilotChatContext } from "@copilotkit/react-native";
+
+function Composer() {
+  const { attachments, openPicker, removeAttachment, submitMessage, isRunning } =
+    useCopilotChatContext();
+  const [text, setText] = useState("");
+
+  return (
+    <View style={{ padding: 8, gap: 8 }}>
+      <View style={{ flexDirection: "row", gap: 8 }}>
+        {attachments.map((attachment) => (
+          <Pressable key={attachment.id} onPress={() => removeAttachment(attachment.id)}>
+            {attachment.type === "image" && attachment.source.type === "data" ? (
+              <Image
+                source={{ uri: `data:${attachment.source.mimeType};base64,${attachment.source.value}` }}
+                style={{ width: 48, height: 48, borderRadius: 8 }}
+              />
+            ) : (
+              <Text>{attachment.status === "uploading" ? "Uploading..." : attachment.filename}</Text>
+            )}
+          </Pressable>
+        ))}
+      </View>
+      <View style={{ flexDirection: "row", gap: 8 }}>
+        <Pressable onPress={openPicker}>
+          <Text>Attach</Text>
+        </Pressable>
+        <TextInput
+          style={{ flex: 1, borderWidth: 1, borderRadius: 8, padding: 8 }}
+          value={text}
+          onChangeText={setText}
+          placeholder="Type a message..."
+        />
+        <Pressable
+          disabled={isRunning}
+          onPress={() => {
+            void submitMessage(text);
+            setText("");
+          }}
+        >
+          <Text>Send</Text>
+        </Pressable>
+      </View>
+    </View>
+  );
+}
+
+export function ChatScreen() {
+  return (
+    <CopilotChat agentId="default" attachments={{ enabled: true }}> {/* [!code highlight] */}
+      {/* Your message list goes here. */}
+      <Composer />
+    </CopilotChat>
+  );
+}
+```
+
+Tap **Attach**, pick a photo, type a question, and tap **Send**. The thumbnail clears when the message goes out, and the agent answers about the photo.
+
+`submitMessage` does the sending work for you:
+
+1. It refuses to send while a file is still uploading.
+2. It takes the ready attachments off the queue.
+3. It adds a user message whose `content` is a list of parts: your text, then one part per file.
+4. It runs the agent.
+
+`CopilotPopup` and `CopilotSidebar` take the same `attachments` prop and pass it to the chat inside them. The rendered `CopilotChat` from `/components` does not support attachments.
+
+## Configuration
+
+`attachments` takes a `NativeAttachmentsConfig`:
+
+```tsx
+<CopilotChat
+  attachments={{
+    enabled: true,
+    // Omit `accept` to allow all file types (default: "*/*").
+    accept: "image/*,application/pdf",
+    maxSize: 10 * 1024 * 1024, // 10MB (default: 20MB)
+  }}
+>
+  <Composer />
+</CopilotChat>
+```
+
+| Option | Type | Default | Description |
+| --- | --- | --- | --- |
+| `enabled` | `boolean` | none | Turn attachments on. |
+| `accept` | `string` | `"*/*"` | MIME filter for the picker, such as `"image/*"` or `"image/*,application/pdf"`. |
+| `maxSize` | `number` | `20 * 1024 * 1024` | Maximum file size in bytes. |
+| `onUpload` | `(file: NativeFileInput) => AttachmentUploadResult \| Promise<...>` | none | Custom upload handler. See [Custom upload handler](#custom-upload-handler). |
+| `onUploadFailed` | `(error) => void` | none | Called when a file fails validation or upload. See [Handling upload errors](#handling-upload-errors). |
+
+The web `maxConcurrentUploads` option doesn't exist here. Files picked together upload one after another.
+
+`NativeFileInput` takes the place of the web `File` object. It has `uri` (a local `file://` URI), `name`, `size` in bytes, and `mimeType`.
+
+## Supported file types
+
+Each attachment gets a modality from its MIME type:
+
+| Modality | MIME types | AI support |
+| --- | --- | --- |
+| **Image** | `image/*` | Supported by most vision-capable models |
+| **Audio** | `audio/*` | Model-dependent |
+| **Video** | `video/*` | Model-dependent |
+| **Document** | Everything else | Sent as file content. Model support varies |
+
+<Callout type="info">
+  Not all models support all modalities. For the details, see your model provider's docs. If the agent run fails, the `onError` callback on `CopilotChat` receives the error.
+</Callout>
+
+## Custom upload handler
+
+By default, the file is read as base64 with `expo-file-system` and sent inline in the message. On `expo-file-system` 19 or later, you need your own reader for that (see the warning above). For large files, upload them to your own storage and send a URL instead.
+
+`onUpload` receives the `NativeFileInput` and returns an `AttachmentUploadResult`: `{ type: "data", value, mimeType }` for inline base64, or `{ type: "url", value, mimeType? }` for a hosted file.
+
+```tsx
+<CopilotChat
+  attachments={{
+    enabled: true,
+    onUpload: async (file) => {
+      const body = new FormData();
+      // React Native's FormData takes a { uri, name, type } object for a file.
+      body.append("file", { uri: file.uri, name: file.name, type: file.mimeType } as any);
+      const res = await fetch("https://your-api.example.com/upload", { method: "POST", body });
+      const { url } = await res.json();
+      return {
+        type: "url",
+        value: url,
+        mimeType: file.mimeType,
+        metadata: { uploadedBy: currentUserId },
+      };
+    },
+  }}
+>
+  <Composer />
+</CopilotChat>
+```
+
+`metadata` is optional. It is merged into the content part that the agent receives. The filename is always added for you.
+
+## Handling upload errors
+
+Use `onUploadFailed` to react when a file is rejected or its upload fails, for example with an alert:
+
+```tsx
+import { Alert } from "react-native";
+
+<CopilotChat
+  attachments={{
+    enabled: true,
+    accept: "image/*",
+    maxSize: 5 * 1024 * 1024,
+    onUploadFailed: (error) => {
+      // error.reason: "file-too-large" | "invalid-type" | "upload-failed"
+      // error.file: the NativeFileInput
+      Alert.alert("Can't attach file", error.message);
+    },
+  }}
+>
+  <Composer />
+</CopilotChat>
+```
+
+| Reason | When it fires |
+| --- | --- |
+| `invalid-type` | The file doesn't match the `accept` filter. |
+| `file-too-large` | The file is bigger than `maxSize`. |
+| `upload-failed` | Your `onUpload` threw, or the default base64 read failed. |
+
+## Without CopilotChat
+
+To manage attachments in your own composer, call `useAttachments` directly. It returns `attachments`, `enabled`, `openPicker`, `processFiles`, `removeAttachment`, and `consumeAttachments`:
+
+```tsx
+import { useAttachments } from "@copilotkit/react-native";
+
+const { attachments, openPicker, consumeAttachments } = useAttachments({
+  config: { enabled: true, accept: "image/*" },
+});
+```
+
+When you send, call `consumeAttachments()` to take the ready files off the queue. Build the message `content` from them yourself: a `{ type: "text", text }` part, then one part per attachment with its `type` and `source`. Then call `agent.addMessage` and `copilotkit.runAgent({ agent })`. `processFiles` takes files from a source other than the picker, such as a camera library.
+
+## How it works
+
+When a user attaches files and sends a message, CopilotKit:
+
+1. Reads each file, with the default base64 reader or your `onUpload` handler.
+2. Builds a list of content parts: text, plus one part per attachment.
+3. Adds the message to the agent with `content: [{ type: "text", ... }, { type: "image", source: ... }, ...]`.
+4. Sends it to your agent over AG-UI, which forwards it to the model.
+
+The parts follow the standard AG-UI content schema, so any AG-UI agent can receive them.
+
+For every option, see the [`useAttachments` reference](/reference/react-native/hooks/useAttachments).
