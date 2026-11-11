@@ -21,6 +21,7 @@
     "intelligence",
     "discord",
     "whatsapp",
+    "linear",
     "copilotkit",
     "ag-ui"
   ],
@@ -82,6 +83,10 @@
     "./whatsapp": {
       "types": "./dist/whatsapp.d.ts",
       "import": "./dist/whatsapp.js"
+    },
+    "./linear": {
+      "types": "./dist/linear.d.ts",
+      "import": "./dist/linear.js"
     }
   },
   "files": [
@@ -101,7 +106,8 @@
     "@copilotkit/channels-slack": "workspace:*",
     "@copilotkit/channels-teams": "workspace:*",
     "@copilotkit/channels-discord": "workspace:*",
-    "@copilotkit/channels-whatsapp": "workspace:*"
+    "@copilotkit/channels-whatsapp": "workspace:*",
+    "@copilotkit/channels-linear": "workspace:*"
   },
   "devDependencies": {
     "@copilotkit/typescript-config": "workspace:^",

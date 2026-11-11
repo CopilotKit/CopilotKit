@@ -1,0 +1,259 @@
+---
+title: Linear agent
+nav_title: Linear
+icon: "lucide/ListChecks"
+description: Make your AG-UI agent a Linear agent that people can mention or delegate issues to, with its thoughts and tool calls visible in the session.
+doc_type: how-to
+---
+
+Your team plans in Linear. You want people to give work to your agent the same
+way they give it to a teammate, and to see what the agent did.
+
+The Linear adapter makes your agent a Linear agent. People @mention it in a
+comment or delegate an issue to it. The agent then works in a Linear agent
+session, where its thoughts, tool calls, and replies are visible.
+
+At the end of this page, your agent answers its first Linear session.
+
+You need:
+
+- A Linear workspace where you are an admin.
+- An AG-UI agent that you can reach over HTTP.
+- A CopilotKit Intelligence API key. The `CopilotRuntime` uses it to start and
+  stop the Channel.
+- A public HTTPS URL for the webhook. For local development, use a tunnel
+  such as ngrok.
+
+## 1. Install the packages
+
+```bash title="Terminal"
+npm install @copilotkit/channels @copilotkit/runtime @ag-ui/client@1.0.2 hono @hono/node-server
+```
+
+The packages are ESM-only. Use `import` and set `"type": "module"` in your
+`package.json`.
+
+## 2. Create the Linear app
+
+1. In Linear, open Settings, then API, then Applications. Create a new
+   application.
+2. Set the name and icon. People see them on the agent in Linear.
+3. Add a callback URL, for example `https://your-host.example.com/oauth/callback`.
+   The page does not have to exist. You only copy a code from it in step 3.
+4. Turn on webhooks. Set the webhook URL to
+   `https://your-host.example.com/linear/webhook`.
+5. Select the **Agent session events** category. Save the app.
+
+Copy these values from the app page:
+
+- The client ID and the client secret.
+- The webhook signing secret.
+
+## 3. Install the app as an agent
+
+Linear gives an agent its own identity when you install the app with
+`actor=app`. The two `app:` scopes let people mention the agent and delegate
+issues to it.
+
+1. Open this URL in your browser. Replace the client ID and the URL-encoded
+   callback URL with your values:
+
+   ```text title="Install URL"
+   https://linear.app/oauth/authorize?client_id=YOUR_CLIENT_ID&redirect_uri=YOUR_CALLBACK_URL&response_type=code&scope=read,write,app:assignable,app:mentionable&actor=app
+   ```
+
+2. Approve the install. Linear sends your browser to the callback URL with a
+   `code` query parameter. Copy that code.
+3. Exchange the code for an access token:
+
+   ```bash title="Terminal"
+   curl -X POST https://api.linear.app/oauth/token \
+     -H "Content-Type: application/x-www-form-urlencoded" \
+     -d code=YOUR_CODE \
+     -d redirect_uri=YOUR_CALLBACK_URL \
+     -d client_id=YOUR_CLIENT_ID \
+     -d client_secret=YOUR_CLIENT_SECRET \
+     -d grant_type=authorization_code
+   ```
+
+4. Copy `access_token` from the response into your environment:
+
+   ```dotenv title=".env"
+   LINEAR_ACCESS_TOKEN=<access_token from the response>
+   LINEAR_WEBHOOK_SECRET=<webhook signing secret from the app page>
+   CPK_INTELLIGENCE_API_KEY=<your Intelligence API key>
+   ```
+
+## 4. Write the Channel
+
+`makeAgent` returns the AG-UI agent for one conversation:
+
+```ts title="agent.ts"
+import { HttpAgent } from "@ag-ui/client";
+
+export const makeAgent = (threadId: string) =>
+  new HttpAgent({ url: "http://localhost:8000", threadId });
+```
+
+The server mounts the Linear webhook on `POST /linear/webhook` and starts the
+Channel:
+
+```ts title="server.ts"
+import { serve } from "@hono/node-server";
+import { Hono } from "hono";
+import { createChannel } from "@copilotkit/channels";
+import { defaultLinearContext, linear } from "@copilotkit/channels/linear";
+import { CopilotKitIntelligence, CopilotRuntime } from "@copilotkit/runtime/v2";
+import { createCopilotHonoHandler } from "@copilotkit/runtime/v2/hono";
+import { makeAgent } from "./agent.js";
+
+function required(name: string): string {
+  const value = process.env[name];
+  if (!value) throw new Error(`Missing required environment variable: ${name}`);
+  return value;
+}
+
+const linearAdapter = linear({
+  accessToken: required("LINEAR_ACCESS_TOKEN"),
+  webhookSecret: required("LINEAR_WEBHOOK_SECRET"),
+});
+
+const channel = createChannel({
+  name: "linear-agent",
+  identifyUser: "platform",
+  adapters: [linearAdapter],
+  agent: makeAgent,
+  // Tells the agent that replies are Markdown and cannot be edited.
+  context: [...defaultLinearContext],
+});
+
+// A mention, a delegation, and each follow-up message start a turn.
+channel.onMessage(async ({ thread }) => {
+  await thread.runAgent();
+});
+
+const runtime = new CopilotRuntime({
+  agents: {},
+  intelligence: new CopilotKitIntelligence({
+    apiKey: required("CPK_INTELLIGENCE_API_KEY"),
+  }),
+  channels: [channel],
+});
+
+const copilot = createCopilotHonoHandler({
+  runtime,
+  basePath: "/api/copilotkit",
+});
+const channels = copilot.channels;
+if (!channels) throw new Error("Channels were not configured.");
+
+const app = new Hono();
+app.post("/linear/webhook", (c) => linearAdapter.handleWebhook(c.req.raw));
+app.all("/api/copilotkit/*", (c) => copilot.fetch(c.req.raw));
+
+const shutdown = async () => {
+  await channels.stop();
+  process.exit(0);
+};
+process.once("SIGINT", shutdown);
+process.once("SIGTERM", shutdown);
+
+// A Hono mount starts the Channel, and with it the Linear adapter, on ready().
+await channels.ready({ timeoutMs: 30_000 });
+
+const port = Number(process.env.PORT ?? 3000);
+serve({ fetch: app.fetch, port });
+console.log(`Linear agent listening on :${port}`);
+```
+
+`handleWebhook` takes a fetch `Request` and returns a `Response`. You can mount
+it on any server that uses fetch requests, for example a Next.js route handler.
+
+<Callout type="info" title="Webhook checks">
+  The handler answers `401` when the `Linear-Signature` header does not match
+  the body, or when the webhook timestamp is more than 60 s off. A valid request
+  gets `200`, and the agent runs after the response. If the adapter cannot read
+  the event, for example because the state store fails, the handler answers
+  `500`. Linear then retries the delivery.
+</Callout>
+
+## 5. Start your first session
+
+1. Start the server:
+
+   ```bash title="Terminal"
+   npx tsx --env-file=.env server.ts
+   ```
+
+2. In Linear, open an issue and write a comment that @mentions your agent.
+   You can also delegate the issue to the agent.
+3. Open the agent session on the issue.
+
+The session shows "Looking into this…" at once. Then your agent's reply
+appears as a response.
+
+## Use the built-in server
+
+If you do not have a server, set `port`. The adapter then starts its own
+`node:http` server when the Channel starts:
+
+```ts title="server.ts"
+const linearAdapter = linear({
+  accessToken: required("LINEAR_ACCESS_TOKEN"),
+  webhookSecret: required("LINEAR_WEBHOOK_SECRET"),
+  port: 3000,
+  path: "/linear/webhook", // default "/webhook"
+});
+```
+
+The built-in server also answers `GET /` with `200 ok` for health checks.
+Remove the Hono app and the `serve` call. Keep `channels.ready()`, because it
+starts the adapter.
+
+## What your team sees
+
+Each event of the run is an activity in the agent session:
+
+- **Acknowledgement:** a "Looking into this…" thought, as soon as the session
+  starts. Linear expects activity within 10 s.
+- **Reasoning:** thoughts.
+- **Tool calls:** actions with the tool name and arguments, then again with
+  the result.
+- **Agent text:** responses.
+- **Run errors:** error activities.
+
+Buttons and selects from [interactive messages](/channels/interactive) become
+select options on an elicitation. The pick comes back as the user's next
+message in the session, and the engine resolves it as a click. By default,
+only the person who started an `awaitChoice` can answer it. To let anyone in
+the session answer, pass `answerableBy: "conversation"`.
+
+When someone stops the agent in Linear, the run ends. The agent posts one
+final `Stopped.` response, and Linear marks the session as stopped.
+
+## Limits
+
+- Activities cannot be edited. `thread.update` posts a new activity, and
+  `delete` does nothing.
+- There is no streaming. Each message posts once, when it is complete.
+- There are no reactions, modals, ephemeral messages, or files.
+- History comes from the agent session: up to 1000 activities, and the last 50
+  messages go to the agent.
+- Linear access tokens expire. To keep the agent running, pass `accessToken`
+  as a function that returns a valid token. The adapter calls it before every
+  request, so the function can cache a token and get a new one before it expires.
+
+## Run more than one process
+
+A session's webhooks must reach the process that runs its agent:
+
+- `thread.awaitChoice` waits inside the process that posted the choices. A pick
+  that reaches another process cannot resume it.
+- A stop signal aborts the run only in the process that runs it. Another
+  process posts `Stopped.`, but the run there keeps going.
+
+Run one process, or send each workspace's webhooks to the same process. A
+shared `stateStore` does not change this.
+
+For the adapter options and exports, see
+[direct provider adapters](/reference/channels/sdk/direct-adapters#linear).

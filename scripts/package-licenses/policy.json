@@ -42,6 +42,12 @@
     "notice": "LICENSE"
   },
   {
+    "directory": "packages/channels-linear",
+    "names": ["@copilotkit/channels-linear"],
+    "license": "MIT",
+    "notice": "LICENSE"
+  },
+  {
     "directory": "packages/channels-slack",
     "names": ["@copilotkit/channels-slack"],
     "license": "MIT",

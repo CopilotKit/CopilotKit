@@ -98,6 +98,12 @@ export const CHANNEL_GUIDE_ROUTES = [
     section: "build",
   },
   {
+    slug: "linear",
+    sourceSlug: "channels/linear",
+    navTitle: "Linear agent sessions",
+    section: "build",
+  },
+  {
     slug: "persistence-and-scaling",
     sourceSlug: "channels/persistence-and-scaling",
     navTitle: "Persistence and scaling",
