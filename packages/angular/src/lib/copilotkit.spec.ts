@@ -270,11 +270,11 @@ describe("CopilotKit", () => {
 
     const toolConfig = {
       name: "approval",
-      args: z.object({ summary: z.string() }),
+      description: "Request approval",
+      parameters: z.object({ summary: z.string() }),
       component: class {
-        toolCall = signal({});
+        toolCall = signal({} as any);
       },
-      toolCall: vi.fn(),
       agentId: "agent-1",
     } as const;
 
@@ -288,14 +288,16 @@ describe("CopilotKit", () => {
     const tool = mockAddTool.mock.calls.at(-1)![0];
     const controller = new AbortController();
     const mockAgent = { agentId: "agent-1" };
-    await tool.handler(
-      {},
-      {
-        toolCall: { id: "call-1", function: { name: "approval" } },
-        agent: mockAgent,
-        signal: controller.signal,
-      },
-    );
+    await expect(
+      tool.handler(
+        {},
+        {
+          toolCall: { id: "call-1", function: { name: "approval" } },
+          agent: mockAgent,
+          signal: controller.signal,
+        },
+      ),
+    ).resolves.toBe("result");
     expect(onResultSpy).toHaveBeenCalledWith(
       "call-1",
       "approval",
@@ -303,6 +305,125 @@ describe("CopilotKit", () => {
     );
 
     onResultSpy.mockRestore();
+  });
+
+  describe("human-in-the-loop response callbacks", () => {
+    function registerApproval(
+      onResponse: (
+        args: { summary: string },
+        response: { approved: boolean },
+        context: import("@copilotkit/core").FrontendToolHandlerContext,
+      ) => unknown,
+    ) {
+      TestBed.configureTestingModule({
+        providers: [provideCopilotKit({ licenseKey })],
+      });
+      const copilotKit = TestBed.inject(CopilotKit);
+      copilotKit.addHumanInTheLoop({
+        name: "approval",
+        description: "Request approval",
+        parameters: z.object({ summary: z.string() }),
+        component: class {
+          toolCall = signal({} as any);
+        },
+        onResponse,
+      });
+      const tool = mockAddTool.mock.calls.at(-1)![0];
+      const context = {
+        toolCall: {
+          id: "call-1",
+          function: { name: "approval", arguments: "{}" },
+        },
+        signal: new AbortController().signal,
+      };
+      return { tool, context, hitl: TestBed.inject(HumanInTheLoop) };
+    }
+
+    it.each([true, false])(
+      "maps the human decision to an application result (approved: %s)",
+      async (approved) => {
+        const save = vi.fn();
+        const onResponse = vi.fn((args, response) => {
+          if (response.approved) save(args);
+          return { saved: response.approved };
+        });
+        const { tool, context, hitl } = registerApproval(onResponse);
+        const args = { summary: "Save this meal" };
+        const pending = tool.handler(args, context);
+        expect(onResponse).not.toHaveBeenCalled();
+        hitl.addResult("other-call", "approval", { approved: true });
+        hitl.addResult("call-1", "approval", { approved });
+        hitl.addResult("call-1", "approval", { approved: !approved });
+        await expect(pending).resolves.toEqual({ saved: approved });
+        expect(onResponse).toHaveBeenCalledExactlyOnceWith(
+          args,
+          { approved },
+          context,
+        );
+        expect(save).toHaveBeenCalledTimes(approved ? 1 : 0);
+        expect(tool).not.toHaveProperty("onResponse");
+      },
+    );
+
+    it("waits for asynchronous application work before resolving the tool", async () => {
+      let complete!: (result: { saved: boolean }) => void;
+      const applicationWork = new Promise((resolve) => {
+        complete = resolve;
+      });
+      const onResponse = vi.fn(() => applicationWork);
+      const { tool, context, hitl } = registerApproval(onResponse);
+      const completed = vi.fn();
+      const pending = tool
+        .handler({ summary: "Save" }, context)
+        .then(completed);
+      hitl.addResult("call-1", "approval", { approved: true });
+      await Promise.resolve();
+      expect(onResponse).toHaveBeenCalledOnce();
+      expect(completed).not.toHaveBeenCalled();
+      complete({ saved: true });
+      await pending;
+      expect(completed).toHaveBeenCalledExactlyOnceWith({ saved: true });
+    });
+
+    it.each([false, true])(
+      "propagates callback failures (async: %s)",
+      async (asyncFailure) => {
+        const error = new Error("Saving failed");
+        const { tool, context, hitl } = registerApproval(() => {
+          if (asyncFailure) return Promise.reject(error);
+          throw error;
+        });
+        const pending = tool.handler({ summary: "Save" }, context);
+        const rejected = expect(pending).rejects.toBe(error);
+        hitl.addResult("call-1", "approval", { approved: true });
+        await rejected;
+      },
+    );
+
+    it.each([false, true])(
+      "does not start application work after abort (answered: %s)",
+      async (answered) => {
+        const onResponse = vi.fn();
+        const { tool, context, hitl } = registerApproval(onResponse);
+        const controller = new AbortController();
+        const pending = tool.handler(
+          { summary: "Save" },
+          { ...context, signal: controller.signal },
+        );
+        const rejected = expect(pending).rejects.toThrow();
+        if (answered) hitl.addResult("call-1", "approval", { approved: true });
+        controller.abort();
+        await rejected;
+        expect(onResponse).not.toHaveBeenCalled();
+      },
+    );
+
+    it("preserves undefined callback results instead of substituting the decision", async () => {
+      const { tool, context, hitl } = registerApproval(() => undefined);
+      const pending = tool.handler({ summary: "Save" }, context);
+      hitl.addResult("call-1", "approval", { approved: true });
+      await expect(pending).resolves.toBeUndefined();
+    });
   });
 
   it("registers Open Generative UI tool, activity renderer, and contexts", async () => {

@@ -84,9 +84,43 @@ export class ApprovalToolsService {
 }
 ```
 
-There is no handler. CopilotKit supplies one that waits for `respond`, returns
-the decision to the agent, and continues the run. The registration is removed
-when the owning injector is destroyed.
+CopilotKit supplies a handler that waits for `respond`. Without an `onResponse`
+callback, the decision is returned unchanged to the agent. The registration is
+removed when the owning injector is destroyed.
+
+### Handle the decision in application code
+
+Add `onResponse` when approval should trigger application work. The confirmation
+component only collects the decision; the registration owns the operation.
+
+```ts
+registerHumanInTheLoop({
+  name: "approveOrder",
+  description: "Ask the user before placing an order",
+  parameters: z.object({ orderId: z.string() }),
+  component: OrderApprovalComponent,
+  onResponse: async (args, decision: { approved: boolean }, context) => {
+    if (!decision.approved) return { placed: false };
+
+    await orders.place(args.orderId, { signal: context.signal });
+    return { placed: true, orderId: args.orderId };
+  },
+});
+```
+
+The component can declare its response type with
+`HumanInTheLoopToolCall<{ orderId: string }, { approved: boolean }>` and call
+`toolCall().respond({ approved: true })`. The optional response type defaults
+to `unknown`, preserving existing components.
+
+`onResponse` receives the tool arguments, the human response, and the existing
+frontend tool context. Synchronous and asynchronous callbacks are supported.
+The agent waits for completion and receives the callback's return value as the
+tool result, including `undefined` if nothing is returned. Callback errors follow
+the normal tool-error path. Aborting while waiting skips the callback; pass
+`context.signal` to asynchronous operations for cooperative cancellation once
+the callback has started. Previously completed calls do not run it again when
+history is rendered.
 
 ## Handle an interrupt from the store
 
