@@ -424,6 +424,10 @@ By default, the runtime writes its warnings and errors to the console. To send t
 ```ts title="app/api/copilotkit/[[...slug]]/route.ts"
 import pino from "pino";
 import { CopilotRuntime } from "@copilotkit/runtime";
+import { BuiltInAgent } from "@copilotkit/runtime/agent";
+import { openaiText } from "@tanstack/ai-openai";
+
+const myAgent = new BuiltInAgent({ model: openaiText("gpt-6-luna") });
 
 const runtime = new CopilotRuntime({
   agents: { default: myAgent },
@@ -437,7 +441,10 @@ A logger that takes the message first, such as winston, needs a small adapter. W
 
 ```ts
 import winston from "winston";
+import { CopilotRuntime } from "@copilotkit/runtime";
 import type { CopilotRuntimeLogger } from "@copilotkit/runtime";
+import { BuiltInAgent } from "@copilotkit/runtime/agent";
+import { openaiText } from "@tanstack/ai-openai";
 
 function fromWinston(logger: winston.Logger): CopilotRuntimeLogger {
   const method =
@@ -453,6 +460,8 @@ function fromWinston(logger: winston.Logger): CopilotRuntimeLogger {
     error: method("error"),
   };
 }
+
+const myAgent = new BuiltInAgent({ model: openaiText("gpt-6-luna") });
 
 const runtime = new CopilotRuntime({
   agents: { default: myAgent },
