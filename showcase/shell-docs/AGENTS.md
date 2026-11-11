@@ -11,6 +11,10 @@ Stay on stock Fumadocs. Brand it only through Fumadocs' supported theming surfac
 replace, or restyle Fumadocs components from the outside. The theme rides on
 Fumadocs' shadcn bridge preset, so colors are shadcn variables in `theme.css`.
 
+For any component Fumadocs doesn't ship, use shadcn/ui (`components.json`,
+`src/components/ui`); add it with `npx shadcn@latest add <name>` instead of
+hand-building it.
+
 ## Adding, moving or removing pages
 
 `page-inventory.json` lists every page file, the pages that sit in no sidebar,
@@ -18,10 +22,6 @@ and the sitemap's URLs, and CI fails when the site drifts from it. A new page
 belongs in a sidebar `meta.json`; then run
 `BASE_URL=http://localhost:3003 npm run check-page-inventory -- --update` with
 the dev server up, and commit the inventory so reviewers see the change.
-
-For any component Fumadocs doesn't ship, use shadcn/ui (`components.json`,
-`src/components/ui`); add it with `npx shadcn@latest add <name>` instead of
-hand-building it.
 
 <!-- BEGIN:nextjs-agent-rules -->
 
