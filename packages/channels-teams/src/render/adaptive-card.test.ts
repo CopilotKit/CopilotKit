@@ -328,6 +328,70 @@ describe("renderAdaptiveCard", () => {
     });
   });
 
+  it("maps the portable image size onto the Adaptive Card size", () => {
+    // Every image used to render full width, because renderImage hard-coded
+    // `size: "Auto"` regardless of the portable `<Image size>` prop.
+    const sizes = { small: "Small", medium: "Medium", large: "Large" };
+    for (const [size, expected] of Object.entries(sizes)) {
+      const card = renderAdaptiveCard([
+        {
+          type: "image",
+          props: { url: "https://example.com/icon.svg", size },
+        },
+      ]);
+      expect(card.body[0]).toMatchObject({
+        type: "Image",
+        size: expected,
+      });
+    }
+  });
+
+  it("keeps Auto for an absent, unknown, or non-string image size", () => {
+    for (const size of [undefined, "huge", "", 42, null]) {
+      const card = renderAdaptiveCard([
+        {
+          type: "image",
+          props: { url: "https://example.com/hat.png", size },
+        },
+      ]);
+      expect(card.body[0]).toMatchObject({ type: "Image", size: "Auto" });
+    }
+  });
+
+  it("applies the image size to a carousel card's hero image", () => {
+    const card = renderAdaptiveCard([
+      {
+        type: "carousel",
+        props: {
+          children: [
+            {
+              type: "carouselCard",
+              props: {
+                children: [
+                  {
+                    type: "image",
+                    props: {
+                      url: "https://example.com/hat.png",
+                      size: "small",
+                    },
+                  },
+                  el("header", [text("Hat")]),
+                ],
+              },
+            },
+          ],
+        },
+      },
+    ]);
+    const carousel = card.body[0] as {
+      pages: { items: Record<string, unknown>[] }[];
+    };
+    expect(carousel.pages[0]!.items[0]).toMatchObject({
+      type: "Image",
+      size: "Small",
+    });
+  });
+
   it("renders a filled carousel IR as Adaptive Card Carousel pages", () => {
     const card = renderAdaptiveCard([
       {
