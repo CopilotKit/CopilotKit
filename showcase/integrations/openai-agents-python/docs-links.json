@@ -54,8 +54,8 @@
       "shell_docs_path": "/human-in-the-loop"
     },
     "gen-ui-interrupt": {
-      "og_docs_url": "https://docs.copilotkit.ai/openai-agents-python/human-in-the-loop/interrupt-flow",
-      "shell_docs_path": "/human-in-the-loop/interrupt-flow"
+      "og_docs_url": "https://docs.copilotkit.ai/openai-agents-python/human-in-the-loop/useInterrupt",
+      "shell_docs_path": "/human-in-the-loop/useInterrupt"
     },
     "interrupt-headless": {
       "og_docs_url": "https://docs.copilotkit.ai/openai-agents-python/human-in-the-loop/headless",
