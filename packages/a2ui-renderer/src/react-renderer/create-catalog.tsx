@@ -163,6 +163,9 @@ export function createCatalog<D extends CatalogDefinitions>(
     protocolVersion === "v0.9" ? "0.9" : protocolVersion,
     allComponents,
     functions,
+    includeBasic && protocolVersion === "1.0"
+      ? { themeSchema: defaults.themeSchema }
+      : undefined,
   );
 }
 

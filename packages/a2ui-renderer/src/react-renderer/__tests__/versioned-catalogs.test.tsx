@@ -2,7 +2,7 @@ import React, { useEffect } from "react";
 import { act, fireEvent, render, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { z } from "zod";
-import { Catalog } from "@a2ui/web_core/v0_9";
+import { Catalog, MessageProcessor } from "@a2ui/web_core/v0_9";
 import type { ComponentApi } from "@a2ui/web_core/v0_9";
 import {
   ActionSchema,
@@ -62,6 +62,10 @@ function makeCatalog() {
     includeBasicCatalog: true,
   });
 }
+/**
+ * Process initial messages with the selected catalog and expose both surface
+ * hosts, provider actions, and dispatched events for catalog-isolation checks.
+ */
 function mount(catalog: Catalog<any>, messages: Record<string, unknown>[]) {
   let actions!: ReturnType<typeof useA2UIActions>;
   const onAction = vi.fn();
@@ -121,6 +125,55 @@ function nativeMessages(catalogId: string): Record<string, unknown>[] {
 }
 
 describe("versioned custom catalogs", () => {
+  it("validates basic native themes on raw create-surface operations", () => {
+    const catalog = makeCatalog();
+    const processor = new MessageProcessor([catalog]);
+
+    expect(() =>
+      processor.processMessages({
+        type: "createSurface",
+        version: "1.0",
+        surfaceId: "invalid-theme",
+        catalogId: catalog.id,
+        theme: { primaryColor: "not-a-color" },
+      }),
+    ).toThrow(/primaryColor/);
+    expect(processor.model.getSurface("invalid-theme")).toBeUndefined();
+
+    processor.processMessages({
+      type: "createSurface",
+      version: "1.0",
+      surfaceId: "valid-theme",
+      catalogId: catalog.id,
+      theme: { primaryColor: "#00BFFF" },
+    });
+    expect(processor.model.getSurface("valid-theme")?.theme).toEqual({
+      primaryColor: "#00BFFF",
+    });
+  });
+
+  it.each([
+    { protocolVersion: "v0.9", includeBasicCatalog: true },
+    { protocolVersion: "v0.9", includeBasicCatalog: false },
+    { protocolVersion: "1.0", includeBasicCatalog: false },
+  ] as const)(
+    "keeps theme validation unchanged for $protocolVersion with includeBasicCatalog=$includeBasicCatalog",
+    (options) => {
+      const catalog = createCatalog({}, {}, options);
+      const processor = new MessageProcessor([catalog]);
+      expect(catalog.themeSchema).toBeUndefined();
+      expect(() =>
+        processor.processMessages({
+          type: "createSurface",
+          version: options.protocolVersion,
+          surfaceId: "custom-theme",
+          catalogId: catalog.id,
+          theme: { primaryColor: "not-a-color" },
+        }),
+      ).not.toThrow();
+    },
+  );
+
   it("defaults both creation APIs to v0.9 and opts into native 1.0 explicitly", () => {
     expect(createCatalog({}, {}).protocolVersion).toBe("0.9");
     expect(createA2UICatalog({}).protocolVersion).toBe("0.9");
