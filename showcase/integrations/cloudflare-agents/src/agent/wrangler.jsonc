@@ -25,8 +25,8 @@
       { "name": "A2uiRecovery", "class_name": "A2uiRecovery" },
       { "name": "Interrupt", "class_name": "Interrupt" },
       { "name": "Reasoning", "class_name": "Reasoning" },
-      { "name": "ReasoningChain", "class_name": "ReasoningChain" }
-    ]
+      { "name": "ReasoningChain", "class_name": "ReasoningChain" },
+    ],
   },
   "migrations": [
     {
@@ -42,9 +42,9 @@
         "A2uiRecovery",
         "Interrupt",
         "Reasoning",
-        "ReasoningChain"
-      ]
-    }
+        "ReasoningChain",
+      ],
+    },
   ],
   // Defaults for a bare `wrangler dev`. entrypoint.sh sets
   // CLOUDFLARE_INCLUDE_PROCESS_ENV=true, so the container's environment
@@ -54,7 +54,7 @@
     "OPENAI_BASE_URL": "https://api.openai.com/v1",
     "MODEL_ID": "gpt-6-luna",
     "OPENAI_REASONING_MODEL": "gpt-6-luna",
-    "AIMOCK_CONTEXT": "cloudflare-agents"
+    "AIMOCK_CONTEXT": "cloudflare-agents",
   },
-  "observability": { "enabled": false }
+  "observability": { "enabled": false },
 }
