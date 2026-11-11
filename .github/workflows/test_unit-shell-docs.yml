@@ -108,6 +108,7 @@ jobs:
           status=0
           npm run check-redirects || status=1
           npm run check-live-pages || status=1
+          npm run check-page-inventory || status=1
           if [ "$status" -ne 0 ]; then
             echo "::group::next start log"
             cat "$log"
