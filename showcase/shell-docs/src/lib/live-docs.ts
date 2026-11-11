@@ -1,4 +1,5 @@
 import type { DocsScope } from "@/components/docs-mdx/scope";
+import type { FrontendId } from "@/proto/data";
 import { frameworkSupports } from "@/components/docs-mdx/showcase/framework-gates";
 import {
   LIVE_FRAMEWORKS,
@@ -207,23 +208,31 @@ function frameworkLanding(slug: string): ResolvedLivePage | null {
  * so every framework's quickstart is indexed.
  */
 export function canonicalUrl(at: PageLocation, scope: DocsScope): string {
-  if (at.kind === "frontend") {
-    const fe = isChannel(scope.frontend)
-      ? scope.frontend
-      : frontendSegment(scope.frontend);
-    return url(fe, at.slug);
-  }
   if (at.kind === "framework") {
     const fw = scope.framework ?? ROOT_FRAMEWORK;
     const first = at.slug === "quickstart" ? fw : firstFrameworkFor(at.folder);
     return url(first === ROOT_FRAMEWORK ? "" : first, at.slug);
   }
-  const unsupported = getPageIndex().unsupported;
-  if (!unsupported[ROOT_FRAMEWORK]?.includes(at.slug)) return url(at.slug);
-  const fw = Object.keys(LIVE_FRAMEWORKS).find(
-    (slug) => !unsupported[slug]?.includes(at.slug),
+  const fe =
+    at.kind !== "frontend"
+      ? ""
+      : isChannel(scope.frontend)
+        ? scope.frontend
+        : frontendSegment(scope.frontend);
+  const fw = supportingFramework(at.slug);
+  return url(fe, fw === ROOT_FRAMEWORK ? "" : (fw ?? ""), at.slug);
+}
+
+/**
+ * The built-in agent when its showcase has the feature a page documents,
+ * else the first framework (registry order) whose showcase does.
+ */
+function supportingFramework(slug: string): string | undefined {
+  const { unsupported } = getPageIndex();
+  if (!unsupported[ROOT_FRAMEWORK]?.includes(slug)) return ROOT_FRAMEWORK;
+  return Object.keys(LIVE_FRAMEWORKS).find(
+    (fw) => !unsupported[fw]?.includes(slug),
   );
-  return url(fw ?? "", at.slug);
 }
 
 /** A URL from its non-empty segments (`url("", "x")` is `/x`). */
@@ -259,14 +268,13 @@ export function referenceUrl(slugs: string[]): string {
  */
 export function unsupportedRedirect(path: string[]): string | null {
   const { frontend, framework, slug } = scopeFromPath(path);
-  if (framework || frontend !== "react" || !slug) return null;
+  if (framework || !slug) return null;
   const pages = getPageIndex();
   if (!pages.unsupported[ROOT_FRAMEWORK]?.includes(slug)) return null;
-  if (whereIs(pages, "react", null, slug)) return null;
-  const kind = pages.react.includes(slug) ? "react" : "shared";
-  if (!pages[kind].includes(slug)) return null;
-  const canonical = canonicalUrl({ kind, slug }, { framework, frontend });
-  return canonical === `/${slug}` ? null : canonical;
+  const fw = supportingFramework(slug);
+  if (!fw || fw === ROOT_FRAMEWORK) return null;
+  const at = whereIs(pages, frontend, fw, slug);
+  return at ? canonicalUrl(at, { framework: fw, frontend }) : null;
 }
 
 /**
@@ -307,7 +315,14 @@ export function livePages(): ResolvedLivePage[] {
         ? ["slack", "teams"]
         : [folder.replace(/^frontends\//, "")];
     for (const fe of frontends) {
-      for (const slug of slugs) urls.add(`/${fe}${slug ? `/${slug}` : ""}`);
+      for (const slug of slugs) {
+        urls.add(
+          canonicalUrl(
+            { kind: "frontend", folder, slug },
+            { framework: null, frontend: fe as FrontendId },
+          ),
+        );
+      }
     }
   }
   for (const fw of frameworks) {
