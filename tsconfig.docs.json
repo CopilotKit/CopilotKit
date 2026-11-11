@@ -151,12 +151,18 @@
       "@copilotkit/react-core/generative-ui": [
         "./packages/react-core/src/generative-ui/index.ts"
       ],
+      "@copilotkit/react-core/generative-ui/native": [
+        "./packages/react-core/src/generative-ui/native.ts"
+      ],
       "@copilotkit/react-core/headless": [
         "./packages/react-core/src/headless.ts"
       ],
       "@copilotkit/react-native": ["./packages/react-native/src/index.ts"],
       "@copilotkit/react-native/components": [
         "./packages/react-native/src/components/index.ts"
+      ],
+      "@copilotkit/react-native/generative-ui": [
+        "./packages/react-native/src/generative-ui/index.ts"
       ],
       "@copilotkit/react-native/headless": [
         "./packages/react-native/src/headless.ts"
@@ -204,6 +210,15 @@
       "@copilotkit/voice": ["./packages/voice/src/index.ts"],
       "@copilotkit/vue": ["./packages/vue/src/index.ts"],
       "@copilotkit/vue/v2": ["./packages/vue/src/v2/index.ts"],
+      "@copilotkit/vue/v2/generative-ui": [
+        "./packages/vue/src/v2/generative-ui/index.ts"
+      ],
+      "@copilotkit/vue/v2/generative-ui/chart": [
+        "./packages/vue/src/v2/generative-ui-chart/index.ts"
+      ],
+      "@copilotkit/vue/v2/generative-ui/map": [
+        "./packages/vue/src/v2/generative-ui-map/index.ts"
+      ],
       "@copilotkit/web-components": ["./packages/web-components/src/index.ts"],
       "@copilotkit/web-components/threads-drawer": [
         "./packages/web-components/src/threads-drawer/index.ts"

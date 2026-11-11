@@ -60,7 +60,17 @@ This is the default, so the provider needs only the catalog:
   </Tab>
   <Tab value="React Native">
     ```tsx
-    <GenerativeUIProvider ui={shopUI}>
+    import type { ReactNode } from "react";
+    import { GenerativeUIProvider } from "@copilotkit/react-native/generative-ui";
+    import { shopUI } from "./shopUI";
+
+    export function Providers({ children }: { children: ReactNode }) {
+      return (
+        <GenerativeUIProvider ui={shopUI}>
+          {children}
+        </GenerativeUIProvider>
+      );
+    }
     ```
 
     React Native always uses the tool transport. It has no `standardUI`, so `shopUI` stands for a catalog of your own native components.
@@ -184,7 +194,17 @@ By default every agent gets generative UI. To give it only to some of them, list
   </Tab>
   <Tab value="React Native">
     ```tsx
-    <GenerativeUIProvider ui={shopUI} agentIds={["shop"]}>
+    import type { ReactNode } from "react";
+    import { GenerativeUIProvider } from "@copilotkit/react-native/generative-ui";
+    import { shopUI } from "./shopUI";
+
+    export function Providers({ children }: { children: ReactNode }) {
+      return (
+        <GenerativeUIProvider ui={shopUI} agentIds={["shop"]}>
+          {children}
+        </GenerativeUIProvider>
+      );
+    }
     ```
   </Tab>
   <Tab value="Vue">

@@ -102,6 +102,7 @@ Wrap an area of your page in a target. Give it an id, and tell the agent what th
     ```tsx title="src/FeaturedProducts.tsx"
     import { GenerativeUISurface } from "@copilotkit/react-native/generative-ui";
     import { ProductRow } from "./ProductRow";
+    import type { Product } from "./products";
     import { shopUI } from "./shopUI";
 
     export function FeaturedProducts({ products }: { products: Product[] }) {
@@ -206,6 +207,9 @@ A product row must hold product cards, not a slider or a chart. `components` nam
   </Tab>
   <Tab value="React Native">
     ```tsx
+    import { GenerativeUISurface } from "@copilotkit/react-native/generative-ui";
+    import { shopUI } from "./shopUI";
+
     <GenerativeUISurface id="featured" ui={shopUI} components={["ProductGrid", "ProductCard"]} />
     ```
   </Tab>
@@ -245,6 +249,10 @@ When the agent starts to render into a target, the page scrolls to it, unless it
     React Native has no `autoScroll`. Instead, `onGenerationStart` is called once each time the agent starts to render into the target (each `render_ui` call, for a new surface or an update), and when the target mounts, its `id` changes, or the active thread changes, while the agent is rendering into it. A re-render, `<React.StrictMode>` or a new callback does not call it again for the same start, and an error it throws is caught and logged with `console.error`. A call counts as new when the surface starts streaming again, or keeps streaming while the runtime resets its rejected operations; so when a reconnect delivers the next call already streaming and neither call had a rejected operation, the two calls count as one start. Scroll there yourself. The position you have may be out of date when the call comes: a target that mounts while the agent renders into it gets the call before its first layout, and content above the target can move as the generation starts. So for a short time after each call, scroll again whenever `onLayout` gives a new position:
 
     ```tsx
+    import { useRef } from "react";
+    import { ScrollView, View } from "react-native";
+    import { GenerativeUISurface } from "@copilotkit/react-native/generative-ui";
+
     const scrollRef = useRef<ScrollView>(null);
     const notesY = useRef<number | undefined>(undefined);
     // Until this time, a new position of the target scrolls to it again.
@@ -340,11 +348,17 @@ A target can be specific. A product page can give each product its own target, s
   </Tab>
   <Tab value="React Native">
     ```tsx
-    <GenerativeUISurface
-      key={product.id}
-      id={`recommendations-${product.id}`}
-      description={`The "You might also like" row under ${product.name}. Show related products here. Never include ${product.name} itself.`}
-    />
+    import { GenerativeUISurface } from "@copilotkit/react-native/generative-ui";
+
+    export function Recommendations({ product }: { product: { id: string; name: string } }) {
+      return (
+        <GenerativeUISurface
+          key={product.id}
+          id={`recommendations-${product.id}`}
+          description={`The "You might also like" row under ${product.name}. Show related products here. Never include ${product.name} itself.`}
+        />
+      );
+    }
     ```
   </Tab>
   <Tab value="Vue">
@@ -423,19 +437,32 @@ Each component renders inside its own error boundary. One broken component shows
     Angular has no per-component error boundary. A component that throws while it is created shows the fallback and reports to `onError`; an error in a later change detection goes to the `ErrorHandler` of the app. After a render error, the default fallback shows a Retry button that creates the component again with the current data. A custom `errorFallback` gets the same function in its `retry` input, if it declares one.
   </Tab>
   <Tab value="React Native">
-    ```tsx
-    <CopilotKitProvider runtimeUrl={runtimeUrl}>
-      <GenerativeUIProvider
-        ui={shopUI}
-        errorBoundary={{
-          onError: (info) => console.warn(info.kind, info.surfaceId, info.error.message),
-          fallback: ({ retry }) => (
-            <Pressable onPress={retry}>
-              <Text>Try again</Text>
-            </Pressable>
-          ),
-        }}
-      >
+    ```tsx title="src/Providers.tsx"
+    import type { ReactNode } from "react";
+    import { Pressable, Text } from "react-native";
+    import { CopilotKitProvider } from "@copilotkit/react-native";
+    import { GenerativeUIProvider } from "@copilotkit/react-native/generative-ui";
+    import { shopUI } from "./shopUI";
+
+    export function Providers({ runtimeUrl, children }: { runtimeUrl: string; children: ReactNode }) {
+      return (
+        <CopilotKitProvider runtimeUrl={runtimeUrl}>
+          <GenerativeUIProvider
+            ui={shopUI}
+            errorBoundary={{
+              onError: (info) => console.warn(info.kind, info.surfaceId, info.error.message),
+              fallback: ({ retry }) => (
+                <Pressable onPress={retry}>
+                  <Text>Try again</Text>
+                </Pressable>
+              ),
+            }}
+          >
+            {children}
+          </GenerativeUIProvider>
+        </CopilotKitProvider>
+      );
+    }
     ```
 
     The default fallback is the `NodeFallback` of the provider's `host`, `NativeNodeFallback` unless you pass your own `host`: the error, in native views, and a Retry button after a render error. A component whose props fail its schema shows it too, with the reason and no Retry button; your own `fallback` is not used for it. When your `fallback` throws, the host fallback with Retry shows in its place; when the host fallback throws, the node renders nothing. Either way the failure stays in its node, and it is reported to `onError`.

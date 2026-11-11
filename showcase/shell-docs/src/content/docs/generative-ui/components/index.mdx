@@ -183,13 +183,12 @@ Already have CopilotKit running? Do step 3 only. Your runtime needs no change: w
     import { createServer } from "node:http";
     import { chat } from "@tanstack/ai";
     import { openaiText } from "@tanstack/ai-openai";
+    import { CopilotRuntime, InMemoryAgentRunner } from "@copilotkit/runtime";
+    import { createCopilotNodeListener } from "@copilotkit/runtime/node";
     import {
       BuiltInAgent,
       convertInputToTanStackAI,
-      CopilotRuntime,
-      InMemoryAgentRunner,
-    } from "@copilotkit/runtime/v2";
-    import { createCopilotNodeListener } from "@copilotkit/runtime/v2/node";
+    } from "@copilotkit/runtime/agent";
 
     const agent = new BuiltInAgent({
       type: "tanstack",
@@ -203,6 +202,7 @@ Already have CopilotKit running? Do step 3 only. Your runtime needs no change: w
             ...systemPrompts,
           ],
           tools,
+          threadId: input.threadId,
           abortController,
         });
       },
@@ -227,13 +227,12 @@ Already have CopilotKit running? Do step 3 only. Your runtime needs no change: w
     import { createServer } from "node:http";
     import { chat } from "@tanstack/ai";
     import { openaiText } from "@tanstack/ai-openai";
+    import { CopilotRuntime, InMemoryAgentRunner } from "@copilotkit/runtime";
+    import { createCopilotNodeListener } from "@copilotkit/runtime/node";
     import {
       BuiltInAgent,
       convertInputToTanStackAI,
-      CopilotRuntime,
-      InMemoryAgentRunner,
-    } from "@copilotkit/runtime/v2";
-    import { createCopilotNodeListener } from "@copilotkit/runtime/v2/node";
+    } from "@copilotkit/runtime/agent";
 
     const agent = new BuiltInAgent({
       type: "tanstack",
@@ -247,6 +246,7 @@ Already have CopilotKit running? Do step 3 only. Your runtime needs no change: w
             ...systemPrompts,
           ],
           tools,
+          threadId: input.threadId,
           abortController,
         });
       },
