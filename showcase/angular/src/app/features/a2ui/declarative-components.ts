@@ -44,7 +44,9 @@ export class DeclarativeColumnComponent {
 @Component({
   selector: "showcase-a2ui-text",
   host,
-  template: ` <p class="a2ui-text">{{ text() }}</p> `,
+  template: `
+    <p class="a2ui-text">{{ text() }}</p>
+  `,
 })
 export class DeclarativeTextComponent {
   readonly text = input.required<string>();

@@ -20,15 +20,15 @@ import { CopilotChat, provideCopilotChatLabels } from "@copilotkit/angular";
       <aside class="explainer">
         <h1>Angular A2UI</h1>
         <p>
-          The agent streams A2UI v0.9 operations. The runtime converts them to
-          A2UI 1.0, and this app renders them with generative UI and standalone
-          Angular components: the standard catalog plus five components
-          registered in a few lines.
+          The agent streams A2UI v0.9 operations. The runtime converts them to A2UI
+          1.0, and this app renders them with generative UI and standalone Angular
+          components: the standard catalog plus five components registered in a few
+          lines.
         </p>
         <pre><code>{{ snippet }}</code></pre>
         <p>
-          <strong>Metric</strong> binds <code>value</code> to the data model,
-          each component takes one input per prop, and
+          <strong>Metric</strong> binds <code>value</code> to the data model, each
+          component takes one input per prop, and
           <strong>DashboardCard</strong> renders its <code>child</code> slot.
           Buttons send their events back to the agent in v0.9 form.
         </p>

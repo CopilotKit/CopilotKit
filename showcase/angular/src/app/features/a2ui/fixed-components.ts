@@ -21,7 +21,9 @@ export class FixedCardComponent {
 @Component({
   selector: "showcase-a2ui-title",
   host,
-  template: ` <h3>{{ text() }}</h3> `,
+  template: `
+    <h3>{{ text() }}</h3>
+  `,
 })
 export class FixedTitleComponent {
   readonly text = input.required<string>();
@@ -30,7 +32,9 @@ export class FixedTitleComponent {
 @Component({
   selector: "showcase-a2ui-airport",
   host,
-  template: ` <strong class="a2ui-airport">{{ code() }}</strong> `,
+  template: `
+    <strong class="a2ui-airport">{{ code() }}</strong>
+  `,
 })
 export class FixedAirportComponent {
   readonly code = input.required<string>();
@@ -39,14 +43,18 @@ export class FixedAirportComponent {
 @Component({
   selector: "showcase-a2ui-arrow",
   host,
-  template: ` <span class="a2ui-arrow" aria-hidden="true">→</span> `,
+  template: `
+    <span class="a2ui-arrow" aria-hidden="true">→</span>
+  `,
 })
 export class FixedArrowComponent {}
 
 @Component({
   selector: "showcase-a2ui-airline-badge",
   host,
-  template: ` <span class="a2ui-airline">{{ name() }}</span> `,
+  template: `
+    <span class="a2ui-airline">{{ name() }}</span>
+  `,
 })
 export class FixedAirlineBadgeComponent {
   readonly name = input.required<string>();
@@ -55,7 +63,9 @@ export class FixedAirlineBadgeComponent {
 @Component({
   selector: "showcase-a2ui-price-tag",
   host,
-  template: ` <strong class="a2ui-price">{{ amount() }}</strong> `,
+  template: `
+    <strong class="a2ui-price">{{ amount() }}</strong>
+  `,
 })
 export class FixedPriceTagComponent {
   readonly amount = input.required<string>();

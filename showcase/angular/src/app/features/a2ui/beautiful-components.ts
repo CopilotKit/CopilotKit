@@ -10,7 +10,9 @@ type TableColumn = { key: string; label: string };
 @Component({
   selector: "showcase-a2ui-dashboard-title",
   host,
-  template: ` <h2>{{ text() }}</h2> `,
+  template: `
+    <h2>{{ text() }}</h2>
+  `,
 })
 export class BeautifulTitleComponent {
   readonly text = input.required<string>();
@@ -143,7 +145,9 @@ export class BeautifulBarChartComponent {
 @Component({
   selector: "showcase-a2ui-dashboard-badge",
   host,
-  template: ` <span>{{ text() }}</span> `,
+  template: `
+    <span>{{ text() }}</span>
+  `,
 })
 export class BeautifulBadgeComponent {
   readonly text = input.required<string>();
