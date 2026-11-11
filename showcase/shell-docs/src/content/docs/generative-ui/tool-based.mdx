@@ -69,6 +69,15 @@ stream in as the agent fills the payload. The example above uses
 [Recharts](https://recharts.org) for the bar chart; it doesn't know
 anything about CopilotKit.
 
+<Callout type="warn">
+  The component renders while the agent is still streaming the arguments, so
+  its props are partial until the call completes: any field, nested ones
+  included, can be missing. `useComponent` also passes a `toolCallStatus` prop
+  (`"inProgress"`, `"executing"` or `"complete"`). Check it before you read
+  nested fields, for example `if (toolCallStatus !== "complete") return
+  <Loading />;`. See [`useComponent`](/reference/hooks/useComponent).
+</Callout>
+
 <Callout type="info">
   The `name` you pass to `useComponent` is what the agent sees as the tool
   name. Make it a verb like `render_bar_chart` or `show_weather` so the LLM

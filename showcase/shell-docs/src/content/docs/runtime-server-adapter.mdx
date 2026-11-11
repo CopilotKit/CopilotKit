@@ -757,14 +757,36 @@ app.listen(4000, () => {
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
 | `runtime` | `CopilotRuntime` | *required* | The runtime instance |
-| `basePath` | `string` | *required* | URL path prefix (e.g. `"/api/copilotkit"`) |
+| `basePath` | `string` | *required* | The path the router matches, after Express removes any `app.use()` mount prefix (e.g. `"/api/copilotkit"`). See [Mounting under a prefix](#mounting-under-a-prefix) |
 | `mode` | `"multi-route"` \| `"single-route"` | `"multi-route"` | Multi-route exposes individual endpoints; single-route uses a JSON envelope |
-| `cors` | `boolean` \| `CorsOptions` | `false` | CORS configuration. `true` for permissive defaults, or pass a `cors` options object |
+| `cors` | `boolean` \| `CorsOptions` | `true` | CORS configuration. `true` for permissive defaults, `false` to turn CORS off, or pass a `cors` options object |
 | `hooks` | `CopilotRuntimeHooks` | — | [Lifecycle hooks](#lifecycle-hooks) |
 
 <Callout type="info">
 The Express adapter is compatible with `express.json()` body parsing. If you have `app.use(express.json())` before the CopilotKit router, the adapter will detect the pre-parsed body and handle it correctly.
 </Callout>
+
+### Mounting under a prefix
+
+`basePath` is not always the full URL path. It is the path that is left after
+Express removes the mount prefix. When you call `app.use("/prefix", router)`,
+Express strips `/prefix` from the URL before the router sees it. The router
+then matches `basePath` against the rest of the path.
+
+Both of these setups serve the runtime at `http://localhost:4000/api/copilotkit`:
+
+```ts title="server.ts"
+// No mount prefix: basePath is the full path.
+app.use(createCopilotExpressHandler({ runtime, basePath: "/api/copilotkit" }));
+
+// Mount prefix "/api": Express strips it, so basePath is only the rest.
+app.use("/api", createCopilotExpressHandler({ runtime, basePath: "/copilotkit" }));
+```
+
+If you mount under `/api` and also set `basePath: "/api/copilotkit"`, the
+runtime listens at `/api/api/copilotkit`. Requests to `/api/copilotkit/info`
+then return 404. The frontend `runtimeUrl` is always the full public URL, for
+example `http://localhost:4000/api/copilotkit`.
 
 ## Hono
 
