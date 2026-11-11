@@ -227,10 +227,15 @@ type RenderContext = {
   caretNode: ReactNode;
 };
 
+// The shared caret attrs use the DOM name `class`; React needs `className`.
+const { class: CARET_CLASS_NAME, ...CARET_ATTRS } =
+  STREAMING_MARKDOWN_CARET_ATTRS;
+
 function renderDefaultCaret() {
   return (
     <span
-      {...STREAMING_MARKDOWN_CARET_ATTRS}
+      {...CARET_ATTRS}
+      className={CARET_CLASS_NAME}
       style={STREAMING_MARKDOWN_CARET_STYLE}
     />
   );
