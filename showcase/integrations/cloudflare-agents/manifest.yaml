@@ -73,7 +73,7 @@ features:
   - gen-ui-interrupt
   - interrupt-headless
 a2ui_pattern: schema-loading
-# schedule_meeting pauses through AI SDK `needsApproval`, which the adapter
+# schedule_meeting pauses through AI SDK `toolApproval`, which the adapter
 # turns into an AG-UI interrupt the page answers through `useInterrupt`.
 interrupt_pattern: native
 # The config page publishes tone/expertise/length through useAgentContext;
@@ -570,7 +570,7 @@ demos:
     name: In-Chat HITL (useInterrupt — low-level primitive)
     description: Interactive component rendered inline in the chat via the
       lower-level `useInterrupt` primitive, driven by an AI SDK
-      `needsApproval` pause that @ag-ui/cloudflare-agents turns into an AG-UI
+      `toolApproval` pause that @ag-ui/cloudflare-agents turns into an AG-UI
       interrupt
     tags:
       - generative-ui

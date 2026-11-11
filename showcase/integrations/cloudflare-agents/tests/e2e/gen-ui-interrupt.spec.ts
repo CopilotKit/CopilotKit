@@ -4,7 +4,7 @@ import { test, expect } from "@playwright/test";
 // Demo source: src/app/demos/gen-ui-interrupt/{page.tsx, time-picker-card.tsx}
 //
 // Uses `useInterrupt({ renderInChat: true })` — the low-level CopilotKit
-// primitive wired to an AI SDK `needsApproval` pause (an AG-UI interrupt) on
+// primitive wired to an AI SDK `toolApproval` pause (an AG-UI interrupt) on
 // the dedicated Interrupt agent (`src/agent/agents.ts`, shared with
 // `interrupt-headless`). When the agent invokes the backend
 // `schedule_meeting` tool, the tool pauses and a `TimePickerCard` renders

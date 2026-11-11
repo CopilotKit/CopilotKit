@@ -4,7 +4,7 @@ import { test, expect } from "@playwright/test";
 // Demo source: src/app/demos/interrupt-headless/page.tsx
 //
 // Same NATIVE interrupt backend as gen-ui-interrupt (the `schedule_meeting`
-// tool pauses through AI SDK `needsApproval` → @ag-ui/cloudflare-agents →
+// tool pauses through AI SDK `toolApproval` → @ag-ui/cloudflare-agents →
 // AG-UI interrupt outcome). The DIFFERENCE is the frontend: `useInterrupt({ renderInChat:
 // false })` returns the picker element, which the demo places in the LEFT
 // app-surface pane instead of the chat.

@@ -3,7 +3,7 @@
 ## Scope
 
 Manual QA checklist for the `gen-ui-interrupt` demo. The backend tool
-pauses for the user's pick (AI SDK `needsApproval`, which
+pauses for the user's pick (AI SDK `toolApproval`, which
 `@ag-ui/cloudflare-agents` turns into an AG-UI interrupt); the frontend renders
 the time picker inline in the chat through `useInterrupt`. The Interrupt agent
 turns the picked slot into the approval (`src/agent/scheduling.ts`).
