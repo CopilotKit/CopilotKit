@@ -13,7 +13,7 @@ In the dynamic-schema approach, a secondary LLM generates the entire UI — sche
 
 ## Frontend / runtime
 
-Enable A2UI on your `CopilotRuntime` with `injectA2UITool: true`:
+Your agent writes A2UI v0.9. Set `a2uiVersion: "0.9"` and `injectA2UITool: true` on your `CopilotRuntime`:
 
 ```typescript title="app/api/copilotkit/[[...slug]]/route.ts"
 import { CopilotRuntime } from "@copilotkit/runtime";
@@ -26,30 +26,54 @@ const runtime = new CopilotRuntime({
       graphId: "default",
     }),
   },
-  a2ui: {
+  generativeUI: {
+    a2uiVersion: "0.9",
     injectA2UITool: true,
   },
 });
 ```
 
-`injectA2UITool: true` is the single switch: it forwards the decision to the agent so the A2UI tool is injected. Set it to `false` to turn A2UI off entirely — nothing is injected and no surfaces render.
+`injectA2UITool: true` forwards the decision to the agent, so the A2UI tool is injected. Set it to `false` to inject no tool. The runtime still converts the v0.9 surfaces of the agent to A2UI 1.0.
 
-Register your component catalog on the provider so the LLM knows what it can draw (see [Bring Your Own Catalog](../../../../generative-ui/a2ui/dynamic-schema) for the catalog `definitions` / `renderers` / `createCatalog` split):
+The client catalog tells the LLM what it can draw. In React and Vue, the provider uses the [standard catalog](/generative-ui/components/standard-catalog) when you pass no `generativeUI`. To add your own components, pass a UI from `createGenerativeUI`:
 
 ```tsx title="frontend/src/app/providers.tsx"
 "use client";
 
+import { z } from "zod";
 import { CopilotKitProvider } from "@copilotkit/react-core";
-import { myCatalog } from "./a2ui/catalog";
+import {
+  createGenerativeUI,
+  standardUI,
+} from "@copilotkit/react-core/generative-ui";
+
+const appUI = createGenerativeUI({
+  id: "acme/dashboard@1",
+  extends: [standardUI],
+  components: {
+    Metric: {
+      component: ({ label, value }: { label: string; value: string }) => (
+        <div>
+          <small>{label}</small>
+          <strong>{value}</strong>
+        </div>
+      ),
+      description: "One number with its label, for example latency or uptime.",
+      props: z.object({ label: z.string(), value: z.string() }),
+    },
+  },
+});
 
 export function Providers({ children }: { children: React.ReactNode }) {
   return (
-    <CopilotKitProvider runtimeUrl="/api/copilotkit" a2ui={{ catalog: myCatalog }}>
+    <CopilotKitProvider runtimeUrl="/api/copilotkit" generativeUI={{ ui: appUI }}>
       {children}
     </CopilotKitProvider>
   );
 }
 ```
+
+The runtime turns this catalog into a v0.9 component schema for the agent. See [Dynamic Schema](/generative-ui/a2ui/dynamic-schema).
 
 ## Backend
 
@@ -84,8 +108,6 @@ The secondary LLM's `render_a2ui` tool call streams through LangGraph as `TOOL_C
 4. Extracts complete `items` objects progressively and emits `updateDataModel` for each
 5. Cards appear one by one as data streams in
 
-## Built-in progress indicator
+## Progress indicator
 
-CopilotKit includes a built-in progress indicator that shows while the schema is being generated. It appears automatically and hides once data items start streaming.
-
-To replace it with a custom component, see the [Advanced — Custom A2UI Progress Renderer](./advanced#custom-a2ui-progress-renderer) guide.
+To show a progress component while the schema is being generated, see [Custom A2UI Progress Renderer](./advanced#custom-a2ui-progress-renderer).

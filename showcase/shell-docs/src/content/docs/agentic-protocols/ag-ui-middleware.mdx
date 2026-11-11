@@ -69,7 +69,7 @@ const runtime = new CopilotRuntime({
 
 The runtime ships first-class middleware options you can enable directly on `CopilotRuntime` without calling `.use()` on each agent:
 
-- **`a2ui`** — apply `A2UIMiddleware` to all (or a subset of) registered agents. See [Copilot Runtime → A2UI](/backend/copilot-runtime#a2ui).
+- **`generativeUI`**: give agents the generative UI tool, and convert the surfaces of agents that write A2UI v0.9. See [Copilot Runtime: Generative UI](/backend/copilot-runtime#generative-ui).
 - **`mcpApps`** — configure MCP servers for all agents from a single place. See [Copilot Runtime → mcpApps](/backend/copilot-runtime#mcpapps).
 
 ## Related

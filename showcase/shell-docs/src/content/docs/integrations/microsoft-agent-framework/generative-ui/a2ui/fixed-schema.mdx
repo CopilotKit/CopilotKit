@@ -9,7 +9,7 @@ In the fixed-schema approach, you design the UI schema once (in a JSON file or u
 1. Schema is loaded from a JSON file at startup
 2. Agent tool receives data from the LLM (e.g., flight search results)
 3. Tool returns an `a2ui_operations` container with createSurface + updateComponents + updateDataModel
-4. The A2UI middleware intercepts the tool result and renders the surface
+4. The A2UI middleware finds the operations in the tool result, and the runtime converts them to A2UI 1.0 for the browser
 
 ## Implementation
 
@@ -62,7 +62,7 @@ def display_flight(
 Key points:
 - The `Annotated` + `Field` parameters are essential — Microsoft Agent Framework serializes them into the tool's JSON schema, which is what the LLM sees when deciding what data to generate.
 - The tool builds the `a2ui_operations` container by hand and does not declare server-side action handlers. Button clicks are forwarded to the agent, but this example has no server-side handler for them.
-- `"book_flight"` is the action name used by the schema button and can be handled with the frontend APIs in the [Advanced — Action Handlers](./advanced#action-handlers) guide.
+- `"book_flight"` is the action name of the schema button. See [Action Handlers](./advanced#action-handlers) for what the agent receives on a click.
 </Step>
 
 <Step>
@@ -86,7 +86,7 @@ agent = AgentFrameworkAgent(agent=base_agent)
 <Step>
 ### Configure the runtime (TypeScript)
 
-Enable A2UI in your CopilotRuntime. The middleware auto-detects A2UI operations in any tool result, so no tool injection is needed here — the agent's `display_flight` tool returns them directly.
+Set `a2uiVersion: "0.9"` on your CopilotRuntime, and turn off the injected tool. The agent's `display_flight` tool returns the operations directly, and the runtime converts them to A2UI 1.0.
 
 ```typescript title="app/api/copilotkit-a2ui-fixed-schema/route.ts"
 import { CopilotRuntime } from "@copilotkit/runtime";
@@ -96,17 +96,61 @@ const fixedSchemaAgent = new HttpAgent({ url: "http://localhost:8000/" });
 
 const runtime = new CopilotRuntime({
   agents: { "a2ui-fixed-schema": fixedSchemaAgent },
-  a2ui: {
+  generativeUI: {
+    a2uiVersion: "0.9",
     injectA2UITool: false,
   },
 });
 ```
 </Step>
+
+<Step>
+### Declare the components (React)
+
+The schema uses custom components, so the client catalog must have them, with the same names. The `id` of the UI is the `CATALOG_ID` of the agent. `extends: [standardUI]` adds `Card`, `Column`, `Row`, `Title`, `Button`, and the other standard components:
+
+```tsx title="app/flight-ui.tsx"
+"use client";
+import { z } from "zod";
+import {
+  createGenerativeUI,
+  standardUI,
+} from "@copilotkit/react-core/generative-ui";
+
+export const flightUI = createGenerativeUI({
+  id: "copilotkit://flight-fixed-catalog",
+  extends: [standardUI],
+  components: {
+    Airport: {
+      component: ({ code }: { code: string }) => <strong>{code}</strong>,
+      description: "A 3-letter airport code, displayed large.",
+      props: z.object({ code: z.string() }),
+    },
+    Arrow: {
+      component: () => <span aria-hidden="true">→</span>,
+      description: "A right-pointing arrow used between airports.",
+    },
+    AirlineBadge: {
+      component: ({ name }: { name: string }) => <span>{name}</span>,
+      description: "A pill-styled airline name tag.",
+      props: z.object({ name: z.string() }),
+    },
+    PriceTag: {
+      component: ({ amount }: { amount: string }) => <span>{amount}</span>,
+      description: "A stylized price display, for example '$289'.",
+      props: z.object({ amount: z.string() }),
+    },
+  },
+});
+```
+
+Pass it to the provider with `generativeUI={{ ui: flightUI }}`. See [Fixed Schema](/generative-ui/a2ui/fixed-schema) for the full walkthrough.
+</Step>
 </Steps>
 
 ## Action handler details
 
-The current Python SDK does not support the `action_handlers=` option. The button schema can still define the action context used by frontend handlers. Here's how the schema side looks:
+The current Python SDK does not support the `action_handlers=` option. The button schema can still define the action context that the agent receives. Here's how the schema side looks:
 
 ### Button with action context
 
@@ -130,8 +174,8 @@ In your `flight_schema.json`, buttons declare an `action` with data-bound contex
 }
 ```
 
-When this button is clicked on a card showing flight AA100 at $350, frontend action handling receives `context: { flightNumber: "AA100", price: "$350" }`. The Python `action_handlers=` path is not yet supported.
+When the user clicks this button on a card for flight AA100 at $350, the agent receives the v0.9 user action in `forwardedProps.a2uiAction.userAction`, with `context: { flightNumber: "AA100", price: "$350" }`.
 
 <Callout type="info">
-For custom frontend handling with `createA2UIMessageRenderer` and its `onAction` option, see the [Advanced — Action Handlers](./advanced#action-handlers) guide.
+To handle a click in the browser instead, see [Action Handlers](./advanced#action-handlers).
 </Callout>

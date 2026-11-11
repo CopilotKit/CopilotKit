@@ -13,27 +13,76 @@ the agent generates the component tree and data for each request.
 
 ## Frontend catalog
 
-Define your components, renderers, and catalog in the demo source. The same
-catalog works whether Mastra runs with the CopilotKit route or in a separate
-process.
+Declare your components with `createGenerativeUI`. The `id` is the catalog ID
+that the agent writes, and `extends: [standardUI]` adds the standard
+components. The same UI works whether Mastra runs with the CopilotKit route or
+in a separate process.
 
-<Snippet region="definitions-zod" />
+```tsx title="src/app/dashboard-ui.tsx"
+"use client";
+import { z } from "zod";
+import {
+  createGenerativeUI,
+  standardUI,
+} from "@copilotkit/react-core/generative-ui";
 
-<Snippet region="renderers-react" />
+export const dashboardUI = createGenerativeUI({
+  id: "declarative-gen-ui-catalog",
+  extends: [standardUI],
+  components: {
+    Metric: {
+      component: ({ label, value }: { label: string; value: string }) => (
+        <div>
+          <small>{label}</small>
+          <strong>{value}</strong>
+        </div>
+      ),
+      description: "One number with its label, for example revenue or uptime.",
+      props: z.object({ label: z.string(), value: z.string() }),
+    },
+  },
+});
+```
 
-<Snippet region="create-catalog" />
+Pass the UI to the provider. Its `runtimeUrl` must point to a **CopilotKit
+endpoint**, and the agent must match a key returned by that endpoint.
 
-Pass the catalog to the provider. Its `runtimeUrl` must point to a **CopilotKit
-endpoint**, and its `agent` must match a key returned by that endpoint.
+```tsx title="src/app/providers.tsx"
+"use client";
+import { CopilotKitProvider } from "@copilotkit/react-core";
+import { dashboardUI } from "./dashboard-ui";
 
-<Snippet region="provider-a2ui-prop" />
+export function Providers({ children }: { children: React.ReactNode }) {
+  return (
+    <CopilotKitProvider runtimeUrl="/api/copilotkit" generativeUI={{ ui: dashboardUI }}>
+      {children}
+    </CopilotKitProvider>
+  );
+}
+```
 
 ## Mastra in the same process
 
 The live demo uses a dedicated CopilotKit runtime route and a local Mastra
 agent. Its agent already supplies its own `generate_a2ui` tool, so the route
 sets `injectA2UITool: false` to avoid registering the tool twice. The route
-also pins `defaultCatalogId` to the catalog registered by the page.
+also pins `defaultCatalogId` to the catalog ID of the page. Both options go in
+`generativeUI`, next to `a2uiVersion: "0.9"`:
+
+```ts title="src/app/api/copilotkit/[[...slug]]/route.ts"
+import { CopilotRuntime } from "@copilotkit/runtime";
+// Your local Mastra agent, bridged as in the Copilot Runtime guide.
+import { dashboardAgent } from "./dashboard-agent";
+
+const runtime = new CopilotRuntime({
+  agents: { "declarative-gen-ui": dashboardAgent },
+  generativeUI: {
+    a2uiVersion: "0.9",
+    injectA2UITool: false,
+    defaultCatalogId: "declarative-gen-ui-catalog",
+  },
+});
+```
 
 Use this layout when the Mastra instance is imported into the same process as
 the runtime route. See the [Copilot Runtime guide](/mastra/copilot-runtime)
@@ -104,7 +153,7 @@ this A2UI configuration, use the registered endpoint so the A2UI tool runs
 beside the Mastra agent. A completed `render_a2ui` tool call alone does not
 prove that a surface rendered: check that the response contains nonempty
 `a2ui_operations` for components and data, and that the dashboard appears in
-the browser rather than remaining at “Building Interface.”
+the browser.
 
 ## When to use dynamic schemas
 

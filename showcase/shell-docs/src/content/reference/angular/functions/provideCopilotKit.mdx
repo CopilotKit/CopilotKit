@@ -193,52 +193,6 @@ passing the key explicitly as `undefined`.
   this is omitted or `false`.
 </PropertyReference>
 
-  <PropertyReference name="a2ui" type="A2UIConfig">
-    Configuration for A2UI (agent-to-UI declarative surfaces). A runtime may
-    advertise A2UI through `/info`; supplying a catalog also enables the
-    frontend renderers and agent context without that runtime capability.
-
-    <PropertyReference name="theme" type="Record<string, unknown>">
-      The A2UI theme used to style rendered surfaces.
-    </PropertyReference>
-    <PropertyReference name="catalog" type="A2UICatalog">
-      The catalog surfaces render with: `basicCatalog` or one from
-      `createAngularCatalog`, both in `@copilotkit/angular/a2ui`. Providing it
-      enables A2UI even when the runtime does not advertise A2UI through
-      `/info`. Without a catalog, A2UI stays off, even when the runtime
-      enables it, and CopilotKit logs a warning.
-    </PropertyReference>
-    <PropertyReference name="loadingComponent" type="Type<unknown>">
-      An Angular component shown while a surface is loading.
-    </PropertyReference>
-    <PropertyReference name="includeSchema" type="boolean" default="true">
-      Whether to send the catalog component schemas to the agent as context. Set
-      to `false` to omit the schema context: the agent still receives the
-      catalog ID and the names of the catalog's custom components, without
-      their JSON schemas or the A2UI generation and design guidelines. A
-      LangGraph agent that uses the CopilotKit middleware's injected A2UI tool
-      then gives its A2UI subagent the component names only. To give the
-      subagent more detail, pass a composition guide through the middleware's
-      A2UI guidelines: `a2uiParams.guidelines.compositionGuide` in TypeScript,
-      or `a2ui_params["guidelines"]["composition_guide"]` in Python.
-    </PropertyReference>
-    <PropertyReference name="recovery" type="A2UIRecoveryOptions">
-      Controls when A2UI retry and diagnostic state becomes visible.
-
-      <PropertyReference name="showAfterMs" type="number" default="2000">
-        Delay before revealing a transient retry.
-      </PropertyReference>
-      <PropertyReference name="showAfterAttempts" type="number" default="2">
-        Attempt number that reveals retry state immediately.
-      </PropertyReference>
-      <PropertyReference name="debugExposure" type='"hidden" | "collapsed" | "verbose"'>
-        Client diagnostic visibility. Authoritative server lifecycle content may
-        override it.
-      </PropertyReference>
-    </PropertyReference>
-
-  </PropertyReference>
-
   <PropertyReference name="openGenerativeUI" type="OpenGenerativeUIConfig">
     Configuration for open generative UI (the `generateSandboxedUi` tool).
     Providing this object enables the feature.

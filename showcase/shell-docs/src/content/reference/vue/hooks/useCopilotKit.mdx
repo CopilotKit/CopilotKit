@@ -48,22 +48,6 @@ The composable returns the `CopilotKitContextValue` object. Every member is a Vu
   A ref to the set of tool call IDs currently being executed. This is tracked at the provider level so that tool execution events are captured even before child components mount, which matters for scenarios like human-in-the-loop reconnection where pending tool calls may already exist when the component tree mounts.
 </PropertyReference>
 
-<PropertyReference name="a2uiTheme" type="ComputedRef<A2UITheme | undefined>">
-  A computed ref to the A2UI theme configured on the provider, or `undefined` if no theme was supplied.
-</PropertyReference>
-
-<PropertyReference name="a2uiCatalog" type="ComputedRef<unknown>">
-  A computed ref to the A2UI component catalog configured on the provider.
-</PropertyReference>
-
-<PropertyReference name="a2uiLoadingComponent" type="ComputedRef<unknown>">
-  A computed ref to the component rendered while an A2UI surface is loading.
-</PropertyReference>
-
-<PropertyReference name="a2uiIncludeSchema" type="ComputedRef<boolean>">
-  A computed ref indicating whether the A2UI schema is included.
-</PropertyReference>
-
 ## Usage
 
 ### Accessing the Core Instance

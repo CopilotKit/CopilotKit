@@ -9,7 +9,7 @@ You can design and preview A2UI schemas visually using the [A2UI Composer](https
 
 ## Setup
 
-Enable A2UI in your CopilotRuntime by adding `a2ui: {}`:
+Your agent writes A2UI v0.9. Tell the CopilotRuntime with `generativeUI: { a2uiVersion: "0.9" }`:
 
 ```typescript title="app/api/copilotkit/[[...slug]]/route.ts"
 import { CopilotRuntime, InMemoryAgentRunner } from "@copilotkit/runtime";
@@ -22,7 +22,7 @@ const runtime = new CopilotRuntime({
       graphId: "default",
     }),
   },
-  a2ui: {},
+  generativeUI: { a2uiVersion: "0.9" },
   runner: new InMemoryAgentRunner(),
 });
 ```
@@ -40,18 +40,17 @@ const runtime = new CopilotRuntime({
       graphId: "default",
     }),
   },
-  a2ui: {
+  generativeUI: {
+    a2uiVersion: "0.9",
     injectA2UITool: true,
   },
   runner: new InMemoryAgentRunner(),
 });
 ```
 
-This tells the runtime to apply the A2UI middleware to your agents. The middleware intercepts tool results containing A2UI operations and renders them as rich UI surfaces in the chat.
+The runtime finds A2UI v0.9 operations in tool results and converts them to A2UI 1.0. The browser renders them with [Components and surfaces](/generative-ui/components). In React and Vue, the provider uses the standard catalog, so no frontend code is needed. In Angular, add `provideGenerativeUI({ ui: standardUI })`.
 
-<Callout type="warn">
-Without `a2ui` configured in your CopilotRuntime, A2UI surfaces will not render — tool results will appear as plain text.
-</Callout>
+To set the version per agent, pass a record: `a2uiVersion: { default: "0.9" }`. See [Keep a v0.9 agent](/generative-ui/components/from-a2ui#keep-a-v09-agent) for what the runtime converts and the limits.
 
 ## Approaches
 

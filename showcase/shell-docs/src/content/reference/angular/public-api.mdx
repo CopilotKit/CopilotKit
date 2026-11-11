@@ -4,7 +4,8 @@ description: "Supported entry points and API families for @copilotkit/angular."
 ---
 
 The supported entry points are `@copilotkit/angular`,
-`@copilotkit/angular/a2ui`, and `@copilotkit/angular/mcp-apps`. The
+`@copilotkit/angular/generative-ui` (with its `/chart`, `/icons` and `/map`
+entries), and `@copilotkit/angular/mcp-apps`. The
 published package includes `API.md`, an alphabetized, machine-validated list of
 every exported value and type. A test resolves both TypeScript entry points and
 requires every export to appear exactly once in that inventory.
@@ -29,9 +30,9 @@ requires every export to appear exactly once in that inventory.
 - **Interrupts:** `injectInterrupt`, `InterruptController`,
   `InterruptExpiredError`, and the event, view, runner, handler, and options
   types.
-- **Generative UI:** A2UI configuration, activity/tool/progress/recovery
-  components and lifecycle schemas; Open Generative UI configuration,
-  sandboxes, activity/tool renderers, content schemas, and constants.
+- **Generative UI:** Open Generative UI configuration, sandboxes,
+  activity/tool renderers, content schemas, and constants. Native generative
+  UI (A2UI 1.0) is in `@copilotkit/angular/generative-ui`.
 - **Attachments and transcription:** attachment types, queue and renderer
   components, attachment directive, audio recorder controls, transcription
   function, errors, and result/state types.
