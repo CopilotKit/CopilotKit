@@ -417,6 +417,51 @@ In allowlist mode the built-in denylist does **not** apply — only your `allow`
 
 A run can be silent for a long time while the agent reasons or waits on a slow tool. The runtime writes a `: keep-alive` SSE comment after 15 seconds without output so proxies and browsers with idle timeouts keep the connection open. Comments are transport frames: they never become AG-UI events. Tune or disable this with `sseKeepAliveIntervalSeconds` (`0` disables it).
 
+## Sending logs to your own logger
+
+By default, the runtime writes its warnings and errors to the console. To send them to your logger, pass it as `logger`. The runtime accepts any object that has `debug`, `info`, `warn`, and `error` methods in the pino style: each method takes a message, or an object of fields and then a message. pino and `console` work as they are.
+
+```ts title="app/api/copilotkit/[[...slug]]/route.ts"
+import pino from "pino";
+import { CopilotRuntime } from "@copilotkit/runtime";
+
+const runtime = new CopilotRuntime({
+  agents: { default: myAgent },
+  logger: pino({ level: "info" }), // [!code highlight]
+});
+```
+
+When `debug` is on, debug output goes to `logger.child({ component: "copilotkit-debug" })`. If your logger has no `child` method, debug output goes to the logger itself. Your logger's own level decides which lines it writes, so set it to `debug` to see debug output.
+
+A logger that takes the message first, such as winston, needs a small adapter. Without it, winston loses the message:
+
+```ts
+import winston from "winston";
+import type { CopilotRuntimeLogger } from "@copilotkit/runtime";
+
+function fromWinston(logger: winston.Logger): CopilotRuntimeLogger {
+  const method =
+    (level: "debug" | "info" | "warn" | "error") =>
+    (fieldsOrMessage: object | string, message?: string) =>
+      typeof fieldsOrMessage === "string"
+        ? logger[level](fieldsOrMessage)
+        : logger[level](message ?? "", fieldsOrMessage);
+  return {
+    debug: method("debug"),
+    info: method("info"),
+    warn: method("warn"),
+    error: method("error"),
+  };
+}
+
+const runtime = new CopilotRuntime({
+  agents: { default: myAgent },
+  logger: fromWinston(winston.createLogger()),
+});
+```
+
+Agents, runners, and the `CopilotKitIntelligence` client are objects that you create, so they do not use this logger. They write to the console.
+
 ## Connecting to an AG-UI agent directly
 
 CopilotKit is built on the [AG-UI protocol](/backend/ag-ui), which is an open

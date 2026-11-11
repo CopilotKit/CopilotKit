@@ -28,7 +28,8 @@ import {
   sendResponse,
 } from "@remix-run/node-fetch-server";
 import type { CopilotRuntimeFetchHandler } from "../core/fetch-handler";
-import { logger } from "@copilotkit/shared";
+import { getRuntimeLogger } from "../core/logger";
+import type { CopilotRuntimeLogger } from "../core/logger";
 
 const METHODS_WITHOUT_BODY = new Set(["GET", "HEAD", "OPTIONS"]);
 
@@ -39,6 +40,7 @@ export type NodeFetchHandler = (
 
 export function createCopilotNodeHandler(
   handler: CopilotRuntimeFetchHandler,
+  logger: CopilotRuntimeLogger = getRuntimeLogger(),
 ): NodeFetchHandler {
   return async (req: IncomingMessage, res: ServerResponse) => {
     try {

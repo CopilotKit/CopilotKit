@@ -2,6 +2,7 @@ import { handleIntelligenceConnect } from "./intelligence/connect";
 import { handleSseConnect } from "./sse/connect";
 import { resolveLocalThreadOwner } from "./shared/thread-access";
 import { isIntelligenceRuntime } from "../core/runtime";
+import { getRuntimeLogger } from "../core/logger";
 import { telemetry } from "../telemetry";
 import type { RunAgentParameters as ConnectAgentParameters } from "./shared/agent-utils";
 import {
@@ -40,7 +41,10 @@ export async function handleConnectAgent({
     }
 
     // Parse a clone, so `identifyUser` can still read the original body.
-    const connectRequest = await parseConnectRequest(request.clone());
+    const connectRequest = await parseConnectRequest(
+      request.clone(),
+      getRuntimeLogger(runtime),
+    );
     if (connectRequest instanceof Response) {
       return connectRequest;
     }
@@ -76,16 +80,7 @@ export async function handleConnectAgent({
       agent,
     });
   } catch (error) {
-    console.error("Error running agent:", error);
-    console.error(
-      "Error stack:",
-      error instanceof Error ? error.stack : "No stack trace",
-    );
-    console.error("Error details:", {
-      name: error instanceof Error ? error.name : "Unknown",
-      message: error instanceof Error ? error.message : String(error),
-      cause: error instanceof Error ? error.cause : undefined,
-    });
+    getRuntimeLogger(runtime).error({ err: error }, "Error running agent");
 
     return new Response(
       JSON.stringify({

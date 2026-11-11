@@ -1,3 +1,4 @@
+import { getRuntimeLogger } from "../core/logger";
 import type { AgentCapabilities } from "@ag-ui/core";
 import type { CopilotRuntimeLike } from "../core/runtime";
 import { hasLearningContainerConfiguration } from "../core/learning";
@@ -140,9 +141,9 @@ export async function handleGetRuntimeInfo({
         } catch (error) {
           // Per-agent isolation: a single agent failing to report capabilities
           // must not take down the entire /info endpoint.
-          console.warn(
-            `Failed to fetch capabilities for agent "${name}":`,
-            error instanceof Error ? error.message : error,
+          getRuntimeLogger(runtime).warn(
+            { err: error, agentId: name },
+            `Failed to fetch capabilities for agent "${name}"`,
           );
           capabilities = undefined;
         }

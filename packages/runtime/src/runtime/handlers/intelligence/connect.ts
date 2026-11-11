@@ -1,3 +1,4 @@
+import { getRuntimeLogger } from "../../core/logger";
 import type { CopilotIntelligenceRuntimeLike } from "../../core/runtime";
 import { getPlatformErrorStatus } from "../shared/intelligence-utils";
 import { resolveIntelligenceUser } from "../shared/resolve-intelligence-user";
@@ -100,7 +101,10 @@ export async function handleIntelligenceConnect({
     // the browser the thread does not exist, when the truth is that the platform
     // is temporarily unwell and the request is worth retrying.
     if (typeof status === "number") {
-      console.error(`Connect request failed with status ${status}:`, error);
+      getRuntimeLogger(runtime).error(
+        { err: error, status },
+        "Connect request failed",
+      );
       return Response.json(
         { error: "Connect request failed", message },
         {
@@ -114,7 +118,10 @@ export async function handleIntelligenceConnect({
     // behind me is unreachable", which is both true and actionable. It must not
     // be a 404, which asserts the thread does not exist and sends the caller off
     // to investigate the wrong thing entirely.
-    console.error("Connect request could not reach Intelligence:", error);
+    getRuntimeLogger(runtime).error(
+      { err: error },
+      "Connect request could not reach Intelligence",
+    );
     return Response.json(
       {
         error: "Connect request failed",

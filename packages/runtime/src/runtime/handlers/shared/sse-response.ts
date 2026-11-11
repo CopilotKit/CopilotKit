@@ -12,7 +12,7 @@ import {
   isThreadAccessDeniedError,
 } from "../../runner/agent-runner";
 import type { ResolvedDebugConfig } from "@copilotkit/shared";
-import { createLogger } from "../../core/logger";
+import { createDebugLogger, getRuntimeLogger } from "../../core/logger";
 import type { CopilotRuntimeLogger } from "../../core/logger";
 import { telemetry as defaultTelemetry } from "../../telemetry";
 import type { TelemetryCapture } from "../../telemetry/telemetry-client";
@@ -44,7 +44,9 @@ interface CreateSseEventResponseParams {
   debugEventBus?: DebugEventBus;
   agentId?: string;
   debug?: ResolvedDebugConfig;
-  /** Pre-created logger instance to avoid creating a new logger per request. */
+  /** Pre-created debug logger, so a request does not create its own. */
+  debugLogger?: CopilotRuntimeLogger;
+  /** Where errors and warnings go. Default: the console. */
   logger?: CopilotRuntimeLogger;
   /** Runtime-bound telemetry capture. Falls back for external direct callers. */
   telemetry?: TelemetryCapture;
@@ -79,7 +81,8 @@ export function createSseEventResponse({
   debugEventBus,
   agentId,
   debug,
-  logger,
+  debugLogger: preCreatedDebugLogger,
+  logger = getRuntimeLogger(),
   telemetry = defaultTelemetry,
   executionSeed,
   captureTelemetry = true,
@@ -102,8 +105,7 @@ export function createSseEventResponse({
   let debugRunId = "";
 
   const debugLogger = debug?.enabled
-    ? (logger ??
-      createLogger({ level: "debug", component: "copilotkit-debug" }))
+    ? (preCreatedDebugLogger ?? createDebugLogger())
     : undefined;
 
   const closeStream = async () => {
@@ -163,16 +165,7 @@ export function createSseEventResponse({
   };
 
   const logError = (error: unknown) => {
-    console.error("Error running agent:", error);
-    console.error(
-      "Error stack:",
-      error instanceof Error ? error.stack : "No stack trace",
-    );
-    console.error("Error details:", {
-      name: error instanceof Error ? error.name : "Unknown",
-      message: error instanceof Error ? error.message : String(error),
-      cause: error instanceof Error ? error.cause : undefined,
-    });
+    logger.error({ err: error }, "Error running agent");
   };
 
   let subscription: Subscription | undefined;
@@ -181,9 +174,9 @@ export function createSseEventResponse({
   // A refused run is an access decision, not an agent failure: log it as a
   // warning and keep it out of the error reporter.
   const logAccessDenied = (error: unknown) => {
-    console.warn(
+    logger.warn(
+      { err: error },
       "[CopilotKit] Run refused: the thread belongs to another identity.",
-      error instanceof Error ? error.message : String(error),
     );
   };
 

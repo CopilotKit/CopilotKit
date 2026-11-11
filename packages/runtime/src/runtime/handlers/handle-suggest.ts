@@ -2,6 +2,7 @@ import type { AbstractAgent, BaseEvent } from "@ag-ui/client";
 import { createRunEventFinalizer } from "@copilotkit/shared";
 import { Observable } from "rxjs";
 import type { CopilotRuntimeLike } from "../core/runtime";
+import { getRuntimeLogger } from "../core/logger";
 import {
   mergeForwardableHeaders,
   resolveForwardHeadersPolicy,
@@ -69,7 +70,7 @@ export async function handleSuggestAgent({
   // the run sees the correct agentId.
   agent.agentId = agentId;
 
-  const parsed = await parseRunRequest(request);
+  const parsed = await parseRunRequest(request, getRuntimeLogger(runtime));
   if (parsed instanceof Response) {
     return parsed;
   }
@@ -111,6 +112,7 @@ export async function handleSuggestAgent({
     request,
     agentId,
     captureTelemetry: false,
+    logger: getRuntimeLogger(runtime),
     keepAliveIntervalSeconds: runtime.sseKeepAliveIntervalSeconds,
     observableFactory: () =>
       new Observable<BaseEvent>((subscriber) => {

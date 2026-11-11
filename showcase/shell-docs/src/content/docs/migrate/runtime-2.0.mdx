@@ -173,11 +173,16 @@ If your code calls `runtime.debugLogger` (type `CopilotRuntimeLogger`), it has
 only these methods in 2.0:
 
 - `debug`, `info`, `warn`, and `error`. Each one takes `(msg)` or `(obj, msg)`.
-- `child(bindings)`. It returns a logger that adds `bindings` to each line.
+- `child(bindings)`. It returns a logger that adds `bindings` to each line. It
+  is optional on the type, because a logger that you pass as `logger` may not
+  have it.
 
 Other pino `Logger` methods and fields are not available, for example `trace`,
 `fatal`, `level`, and `flush`. If your code uses them, change it to use the
 methods above. The `LOG_LEVEL` environment variable still sets the log level.
+
+In 2.0 you can also pass your own logger, for example pino, as `logger`. See
+[Sending logs to your own logger](/backend/copilot-runtime#sending-logs-to-your-own-logger).
 
 ## Built-in Agent
 

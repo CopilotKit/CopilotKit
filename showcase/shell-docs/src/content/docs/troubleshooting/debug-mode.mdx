@@ -68,6 +68,23 @@ The formatted output looks like this:
     loggedEventCount: 4
 ```
 
+To send debug output to your own logger instead of stdout, pass the logger as
+`logger`. Debug lines then go to `logger.child({ component: "copilotkit-debug" })`.
+Your logger's level decides which lines it writes, so set it to `debug`:
+
+```ts
+import pino from "pino";
+import { CopilotRuntime } from "@copilotkit/runtime";
+
+const runtime = new CopilotRuntime({
+  agents: { default: myAgent },
+  debug: true,
+  logger: pino({ level: "debug" }), // [!code highlight]
+});
+```
+
+For more about `logger`, see [Sending logs to your own logger](/backend/copilot-runtime#sending-logs-to-your-own-logger).
+
 <FrontendOnly frontend="react">
 ### Client-Side
 

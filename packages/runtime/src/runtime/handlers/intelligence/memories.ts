@@ -3,7 +3,8 @@ import type {
   CopilotRuntimeLike,
 } from "../../core/runtime";
 import { isIntelligenceRuntime } from "../../core/runtime";
-import { logger } from "@copilotkit/shared";
+import { getRuntimeLogger } from "../../core/logger";
+import type { CopilotRuntimeLogger } from "../../core/logger";
 import { errorResponse, isHandlerResponse } from "../shared/json-response";
 import { resolveIntelligenceUser } from "../shared/resolve-intelligence-user";
 import { grantAllowsMemory, resolveWebMemory } from "../shared/memory-policy";
@@ -59,6 +60,7 @@ const memoryErrorResponse = platformErrorResponse;
 
 async function parseJsonBody(
   request: Request,
+  logger: CopilotRuntimeLogger,
 ): Promise<Record<string, unknown> | Response> {
   try {
     return (await request.json()) as Record<string, unknown>;
@@ -178,6 +180,7 @@ export async function handleListMemories({
   runtime,
   request,
 }: MemoriesHandlerParams): Promise<Response> {
+  const logger = getRuntimeLogger(runtime);
   if (isIntelligenceRuntime(runtime)) {
     try {
       const url = new URL(request.url);
@@ -235,11 +238,12 @@ export async function handleRecallMemories({
   runtime,
   request,
 }: MemoriesHandlerParams): Promise<Response> {
+  const logger = getRuntimeLogger(runtime);
   if (!isIntelligenceRuntime(runtime)) {
     return errorResponse(MISSING_INTELLIGENCE_MESSAGE, 422);
   }
   try {
-    const body = await parseJsonBody(request);
+    const body = await parseJsonBody(request, logger);
     if (isHandlerResponse(body)) return body;
     const fields = parseRecallBody(body);
     if (isHandlerResponse(fields)) return fields;
@@ -293,6 +297,7 @@ export async function handleSubscribeToMemories({
   runtime,
   request,
 }: MemoriesHandlerParams): Promise<Response> {
+  const logger = getRuntimeLogger(runtime);
   if (isIntelligenceRuntime(runtime)) {
     try {
       const access = await resolveClientMemory(runtime, request);
@@ -337,11 +342,12 @@ export async function handleCreateMemory({
   runtime,
   request,
 }: MemoriesHandlerParams): Promise<Response> {
+  const logger = getRuntimeLogger(runtime);
   if (!isIntelligenceRuntime(runtime)) {
     return errorResponse(MISSING_INTELLIGENCE_MESSAGE, 422);
   }
   try {
-    const body = await parseJsonBody(request);
+    const body = await parseJsonBody(request, logger);
     if (isHandlerResponse(body)) return body;
     const fields = parseMemoryBody(body);
     if (isHandlerResponse(fields)) return fields;
@@ -370,11 +376,12 @@ export async function handleUpdateMemory({
   request,
   memoryId,
 }: MemoryMutationParams): Promise<Response> {
+  const logger = getRuntimeLogger(runtime);
   if (!isIntelligenceRuntime(runtime)) {
     return errorResponse(MISSING_INTELLIGENCE_MESSAGE, 422);
   }
   try {
-    const body = await parseJsonBody(request);
+    const body = await parseJsonBody(request, logger);
     if (isHandlerResponse(body)) return body;
     const fields = parseMemoryBody(body);
     if (isHandlerResponse(fields)) return fields;
@@ -404,6 +411,7 @@ export async function handleRemoveMemory({
   request,
   memoryId,
 }: MemoryMutationParams): Promise<Response> {
+  const logger = getRuntimeLogger(runtime);
   if (!isIntelligenceRuntime(runtime)) {
     return errorResponse(MISSING_INTELLIGENCE_MESSAGE, 422);
   }

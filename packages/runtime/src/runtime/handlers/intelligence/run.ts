@@ -7,7 +7,7 @@ import type {
 import { EventType } from "@ag-ui/client";
 import type { CopilotIntelligenceRuntimeLike } from "../../core/runtime";
 import { generateThreadNameForNewThread } from "./thread-names";
-import { logger } from "@copilotkit/shared";
+import { getRuntimeLogger } from "../../core/logger";
 import { telemetry } from "../../telemetry";
 import { resolveIntelligenceUser } from "../shared/resolve-intelligence-user";
 import { isHandlerResponse } from "../shared/json-response";
@@ -82,6 +82,7 @@ export async function handleIntelligenceRun({
   analyticsContext: forwardedAnalyticsContext,
   startTime,
 }: HandleIntelligenceRunParams): Promise<Response> {
+  const logger = getRuntimeLogger(runtime);
   const runtimeTelemetry = runtime.telemetry ?? telemetry;
 
   if (!runtime.intelligence) {
@@ -119,7 +120,10 @@ export async function handleIntelligenceRun({
 
   // An app's analytics context labels the run in Intelligence. A missing or
   // malformed one is left off the lock request and never fails the run.
-  const analyticsContext = normalizeAnalyticsContext(forwardedAnalyticsContext);
+  const analyticsContext = normalizeAnalyticsContext(
+    forwardedAnalyticsContext,
+    logger,
+  );
 
   let learningContainerId: string | undefined;
   try {
@@ -140,7 +144,7 @@ export async function handleIntelligenceRun({
           userId,
         });
   } catch (error) {
-    logger.error("Failed to resolve Learning Container:", error);
+    logger.error({ err: error }, "Failed to resolve Learning Container");
     return Response.json(
       { error: "Failed to resolve Learning Container" },
       { status: 500 },
@@ -167,11 +171,11 @@ export async function handleIntelligenceRun({
         thread,
         userId,
       }).catch((nameError) => {
-        logger.error("Failed to generate thread name:", nameError);
+        logger.error({ err: nameError }, "Failed to generate thread name");
       });
     }
   } catch (error) {
-    logger.error("Failed to get or create thread:", error);
+    logger.error({ err: error }, "Failed to get or create thread");
     const platformStatus = getPlatformErrorStatus(error);
     return Response.json(
       {
@@ -213,7 +217,7 @@ export async function handleIntelligenceRun({
         result: run.result ?? null,
       });
     } catch (error) {
-      logger.error("MCP resource read failed:", error);
+      logger.error({ err: error }, "MCP resource read failed");
       const status = getPlatformErrorStatus(error);
       return Response.json(
         { error: "MCP resource read failed" },
@@ -252,7 +256,7 @@ export async function handleIntelligenceRun({
     backendThreadId = lockResult.backendThreadId;
     lockTtlSeconds = lockResult.ttlSeconds;
   } catch (error) {
-    logger.error("Thread lock denied:", error);
+    logger.error({ err: error }, "Thread lock denied");
     const platformStatus = getPlatformErrorStatus(error);
     return Response.json(
       {
@@ -308,7 +312,7 @@ export async function handleIntelligenceRun({
         (message) => !historicMessageIds.has(message.id),
       );
     } catch (error) {
-      logger.error("Thread history lookup failed:", error);
+      logger.error({ err: error }, "Thread history lookup failed");
       await cleanupLock("thread-history-lookup-failed");
       return Response.json(
         {
@@ -328,6 +332,7 @@ export async function handleIntelligenceRun({
   // failures are retried within the lock's remaining TTL; only a lost lock
   // (or running out of time) aborts the run.
   const heartbeat = startThreadLockHeartbeat({
+    logger,
     renew: (signal) =>
       runtime.intelligence.ɵrenewThreadLock({
         threadId: canonicalThreadId,
@@ -348,13 +353,13 @@ export async function handleIntelligenceRun({
         ? undefined
         : lockTtlSeconds - (Date.now() - lockRequestedAt) / 1_000,
     onLost: (err) => {
-      logger.error("Failed to renew thread lock:", err);
+      logger.error({ err: err }, "Failed to renew thread lock");
       try {
         agent.abortRun();
       } catch (abortError) {
         logger.error(
-          "Failed to abort agent after lock renewal failure:",
-          abortError,
+          { err: abortError },
+          "Failed to abort agent after lock renewal failure",
         );
       }
     },
@@ -471,7 +476,7 @@ export async function handleIntelligenceRun({
         void releaseLock(
           runStarted.current ? "runner-error" : "runner-start-error",
         );
-        logger.error("Error running agent:", error);
+        logger.error({ err: error }, "Error running agent");
       },
       complete: () => {
         // The runner has delivered the run's last events.
@@ -489,7 +494,7 @@ export async function handleIntelligenceRun({
   } catch (error) {
     reportAgentError(error, "intelligence.startup");
     await releaseLock("runner-start-threw");
-    logger.error("Error starting agent runner:", error);
+    logger.error({ err: error }, "Error starting agent runner");
     return Response.json(
       {
         error: "Failed to start runner",

@@ -14,7 +14,7 @@
 
 import type { CopilotRuntimeLike } from "./runtime";
 import type { MaybePromise } from "@copilotkit/shared";
-import { logger } from "@copilotkit/shared";
+import { getRuntimeLogger } from "./logger";
 import { parseSSEResponse } from "./middleware-sse-parser";
 import type { Message } from "./middleware-sse-parser";
 
@@ -82,7 +82,10 @@ export async function callBeforeRequestMiddleware({
     return (mw as BeforeRequestMiddlewareFn)({ runtime, request, path });
   }
 
-  logger.warn({ mw }, "Unsupported beforeRequestMiddleware value – skipped");
+  getRuntimeLogger(runtime).warn(
+    { mw },
+    "Unsupported beforeRequestMiddleware value – skipped",
+  );
   return;
 }
 
@@ -98,7 +101,11 @@ export async function callAfterRequestMiddleware({
   const mw = runtime.afterRequestMiddleware;
   if (!mw) return;
 
-  const { messages, threadId, runId } = await parseSSEResponse(response);
+  const logger = getRuntimeLogger(runtime);
+  const { messages, threadId, runId } = await parseSSEResponse(
+    response,
+    logger,
+  );
 
   if (typeof mw === "function") {
     return (mw as AfterRequestMiddlewareFn)({

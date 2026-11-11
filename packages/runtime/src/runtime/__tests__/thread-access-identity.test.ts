@@ -92,8 +92,8 @@ describe("identifyUser on SSE runtimes (T9)", () => {
       expect(await response.json()).toEqual({
         error: "Failed to identify user",
       });
-      const labels = error.mock.calls.map((call) => String(call[0]));
-      expect(labels).toContain("Error identifying user:");
+      const labels = error.mock.calls.map((call) => String(call.at(-1)));
+      expect(labels).toContain("Error identifying user");
       expect(labels.join(" ")).not.toMatch(/intelligence/i);
     } finally {
       error.mockRestore();

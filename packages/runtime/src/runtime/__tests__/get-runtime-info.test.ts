@@ -835,8 +835,11 @@ describe("handleGetRuntimeInfo", () => {
 
     // Error should be logged, not silently swallowed
     expect(warnSpy).toHaveBeenCalledWith(
-      'Failed to fetch capabilities for agent "failing":',
-      "capability fetch failed",
+      {
+        err: expect.objectContaining({ message: "capability fetch failed" }),
+        agentId: "failing",
+      },
+      'Failed to fetch capabilities for agent "failing"',
     );
 
     warnSpy.mockRestore();

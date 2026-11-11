@@ -1,5 +1,6 @@
 import type { RunAgentInput } from "@ag-ui/client";
-import { logger } from "@copilotkit/shared";
+import { getRuntimeLogger } from "../core/logger";
+import type { CopilotRuntimeLogger } from "../core/logger";
 
 /**
  * The `forwardedProps` key an app uses to hand the runtime its analytics
@@ -58,6 +59,7 @@ export function takeAnalyticsContext(input: RunAgentInput): {
  */
 export function normalizeAnalyticsContext(
   value: unknown,
+  logger: CopilotRuntimeLogger = getRuntimeLogger(),
 ): Record<string, unknown> | undefined {
   if (value === undefined || value === null) return undefined;
   const result = serializeAnalyticsContext(value);

@@ -3,7 +3,8 @@ import type {
   CopilotRuntimeLike,
 } from "../../core/runtime";
 import { isIntelligenceRuntime } from "../../core/runtime";
-import { logger } from "@copilotkit/shared";
+import { getRuntimeLogger } from "../../core/logger";
+import type { CopilotRuntimeLogger } from "../../core/logger";
 import { errorResponse, isHandlerResponse } from "../shared/json-response";
 import {
   getPlatformErrorStatus,
@@ -31,6 +32,7 @@ interface ThreadMutationContext {
 
 async function parseJsonBody(
   request: Request,
+  logger: CopilotRuntimeLogger,
 ): Promise<Record<string, unknown> | Response> {
   try {
     return (await request.json()) as Record<string, unknown>;
@@ -57,7 +59,7 @@ async function resolveThreadMutationContext(
   runtime: CopilotIntelligenceRuntimeLike,
   request: Request,
 ): Promise<ThreadMutationContext | Response> {
-  const body = await parseJsonBody(request);
+  const body = await parseJsonBody(request, getRuntimeLogger(runtime));
   if (isHandlerResponse(body)) return body;
 
   const user = await resolveIntelligenceUser({ runtime, request });
@@ -92,6 +94,7 @@ async function requireUserThread(
   userId: string,
   failure: string,
 ): Promise<{ threadId: string } | Response> {
+  const logger = getRuntimeLogger(runtime);
   let thread: Awaited<ReturnType<typeof runtime.intelligence.getThread>>;
   try {
     thread = await runtime.intelligence.getThread({ threadId, userId });
@@ -120,6 +123,7 @@ export async function handleListThreads({
   runtime,
   request,
 }: ThreadsHandlerParams): Promise<Response> {
+  const logger = getRuntimeLogger(runtime);
   // CopilotKit Intelligence path
   if (isIntelligenceRuntime(runtime)) {
     try {
@@ -195,6 +199,7 @@ export async function handleClearThreads({
   runtime,
   request,
 }: ThreadsHandlerParams): Promise<Response> {
+  const logger = getRuntimeLogger(runtime);
   if (supportsLocalThreadEndpoints(runtime.runner)) {
     const ownerId = await resolveLocalThreadOwner({
       runtime,
@@ -217,6 +222,7 @@ export async function handleUpdateThread({
   request,
   threadId,
 }: ThreadMutationParams): Promise<Response> {
+  const logger = getRuntimeLogger(runtime);
   const intelligenceRuntime = requireIntelligenceRuntime(runtime);
   if (isHandlerResponse(intelligenceRuntime)) {
     return intelligenceRuntime;
@@ -255,6 +261,7 @@ export async function handleSubscribeToThreads({
   runtime,
   request,
 }: ThreadsHandlerParams): Promise<Response> {
+  const logger = getRuntimeLogger(runtime);
   const intelligenceRuntime = requireIntelligenceRuntime(runtime);
   if (isHandlerResponse(intelligenceRuntime)) {
     return intelligenceRuntime;
@@ -284,6 +291,7 @@ export async function handleArchiveThread({
   request,
   threadId,
 }: ThreadMutationParams): Promise<Response> {
+  const logger = getRuntimeLogger(runtime);
   const intelligenceRuntime = requireIntelligenceRuntime(runtime);
   if (isHandlerResponse(intelligenceRuntime)) {
     return intelligenceRuntime;
@@ -314,6 +322,7 @@ export async function handleDeleteThread({
   request,
   threadId,
 }: ThreadMutationParams): Promise<Response> {
+  const logger = getRuntimeLogger(runtime);
   const intelligenceRuntime = requireIntelligenceRuntime(runtime);
   if (isHandlerResponse(intelligenceRuntime)) {
     return intelligenceRuntime;
@@ -344,6 +353,7 @@ export async function handleGetThreadMessages({
   request,
   threadId,
 }: ThreadMutationParams): Promise<Response> {
+  const logger = getRuntimeLogger(runtime);
   // CopilotKit Intelligence path
   if (isIntelligenceRuntime(runtime)) {
     try {
@@ -436,6 +446,7 @@ export async function handleGetThreadEvents({
   request,
   threadId,
 }: ThreadMutationParams): Promise<Response> {
+  const logger = getRuntimeLogger(runtime);
   // CopilotKit Intelligence path. Delegates to the platform's `_inspect`
   // endpoint (Intelligence PR #144). Auth still flows through the standard
   // identifyUser → API key path. `_inspect` is not user-scoped, so the
@@ -495,6 +506,7 @@ export async function handleGetThreadState({
   request,
   threadId,
 }: ThreadMutationParams): Promise<Response> {
+  const logger = getRuntimeLogger(runtime);
   // CopilotKit Intelligence path. Delegates to the platform's `_inspect`
   // state endpoint, which folds STATE_DELTA events onto the latest
   // STATE_SNAPSHOT to return the thread's current state.

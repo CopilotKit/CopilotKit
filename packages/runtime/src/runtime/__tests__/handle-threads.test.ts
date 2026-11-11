@@ -206,8 +206,8 @@ describe("thread handlers", () => {
       // The throw originates inside `resolveIntelligenceUser`, which
       // logs and returns 500 before `subscribeToThreads` is reached.
       expect(errorSpy).toHaveBeenCalledWith(
-        expect.stringContaining("Error identifying user"),
-        expect.any(Error),
+        { err: expect.any(Error) },
+        "Error identifying user",
       );
     } finally {
       errorSpy.mockRestore();

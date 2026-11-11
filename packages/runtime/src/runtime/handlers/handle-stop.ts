@@ -1,5 +1,6 @@
 import type { CopilotRuntimeLike } from "../core/runtime";
 import { isIntelligenceRuntime, resolveAgents } from "../core/runtime";
+import { getRuntimeLogger } from "../core/logger";
 import { EventType } from "@ag-ui/client";
 import { resolveIntelligenceUser } from "./shared/resolve-intelligence-user";
 import { isHandlerResponse } from "./shared/json-response";
@@ -144,7 +145,7 @@ export async function handleStopAgent({
       },
     );
   } catch (error) {
-    console.error("Error stopping agent run:", error);
+    getRuntimeLogger(runtime).error({ err: error }, "Error stopping agent run");
 
     return new Response(
       JSON.stringify({

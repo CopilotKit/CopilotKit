@@ -1,5 +1,6 @@
 import { readCopilotKitUIEnvelope } from "@copilotkit/shared";
 import { isIntelligenceRuntime } from "../core/runtime";
+import { getRuntimeLogger } from "../core/logger";
 import { telemetry } from "../telemetry";
 import { readGuardrailsEnabled } from "./shared/cloud-telemetry";
 import type { RunAgentParameters } from "./shared/agent-utils";
@@ -51,7 +52,10 @@ export async function handleRunAgent({
     // `a2uiCatalogAvailable` below). Middleware is applied to the agent here;
     // the run itself is kicked off later, so this is safe. The body is read
     // from a clone, so `identifyUser` can still read the original request.
-    const parsed = await parseRunRequest(request.clone());
+    const parsed = await parseRunRequest(
+      request.clone(),
+      getRuntimeLogger(runtime),
+    );
     if (parsed instanceof Response) {
       return parsed;
     }
@@ -142,7 +146,7 @@ export async function handleRunAgent({
       input,
       agentId,
       debug: runtime.debug,
-      logger: runtime.debugLogger,
+      debugLogger: runtime.debugLogger,
       startTime,
       ownerId,
     });
@@ -155,16 +159,7 @@ export async function handleRunAgent({
       phase: "common",
       startTime,
     });
-    console.error("Error running agent:", error);
-    console.error(
-      "Error stack:",
-      error instanceof Error ? error.stack : "No stack trace",
-    );
-    console.error("Error details:", {
-      name: error instanceof Error ? error.name : "Unknown",
-      message: error instanceof Error ? error.message : String(error),
-      cause: error instanceof Error ? error.cause : undefined,
-    });
+    getRuntimeLogger(runtime).error({ err: error }, "Error running agent");
 
     return new Response(
       JSON.stringify({
