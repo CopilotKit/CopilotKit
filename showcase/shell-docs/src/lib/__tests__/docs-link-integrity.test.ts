@@ -45,18 +45,6 @@ const PUBLIC_DIR = path.resolve(CONTENT_DIR, "../../../public");
  */
 const KNOWN_BROKEN_LINKS: ReadonlyArray<readonly [string, string]> = [
   [
-    "/agentcore/full-stack-example",
-    "no such page anywhere in the content tree",
-  ],
-  [
-    "/custom-look-and-feel/bring-your-own-components",
-    "exists only as a snippet, which is not routable",
-  ],
-  [
-    "/generative-ui/your-components",
-    "directory has display-only.mdx and interactive.mdx but no index.mdx",
-  ],
-  [
     "/shared-state/in-app-agent-read",
     "exists per framework, not on the root surface",
   ],
