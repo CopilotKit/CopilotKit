@@ -585,24 +585,21 @@ export default config;
 `;
 }
 
+// Every integration shares one root stylesheet, so copy it rather than keep a
+// second version here. The demos need its `height: 100%` on <html> and <body>:
+// without it a full-page <CopilotChat> shrinks to the height of its welcome
+// screen and sits at the top of the page.
+const CANONICAL_GLOBALS_CSS_PATH = path.join(
+  ROOT,
+  "integrations",
+  "langgraph-python",
+  "src",
+  "app",
+  "globals.css",
+);
+
 function generateGlobalsCss(): string {
-  return `@import "tailwindcss";
-@import "@copilotkit/react-core/v2/styles.css";
-
-:root {
-    --copilot-kit-background-color: #f8f9fa;
-    --copilot-kit-primary-color: #0066ff;
-}
-
-* {
-    box-sizing: border-box;
-}
-
-body {
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-    min-height: 100vh;
-}
-`;
+  return fs.readFileSync(CANONICAL_GLOBALS_CSS_PATH, "utf-8");
 }
 
 function generateIndexPage(args: CLIArgs, features: Feature[]): string {
