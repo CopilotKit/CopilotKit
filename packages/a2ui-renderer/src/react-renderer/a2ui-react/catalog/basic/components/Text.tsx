@@ -17,40 +17,79 @@
 import React from "react";
 import { createReactComponent } from "../../../adapter";
 import { TextApi } from "@a2ui/web_core/v0_9/basic_catalog";
-import { getBaseLeafStyle } from "../utils";
+import { getAccessibilityProps, getBaseLeafStyle } from "../utils";
+import { renderNativeTextMarkdown } from "../native-text-markdown";
 
-export const Text = createReactComponent(TextApi, ({ props }) => {
-  const text = props.text ?? "";
-  const style: React.CSSProperties = {
-    ...getBaseLeafStyle(),
-    display: "inline-block",
-  };
+export const Text = createReactComponent(
+  TextApi,
+  /** Apply common accessibility to whichever semantic text element the variant selects. */
+  ({ props, context }) => {
+    const text = props.text ?? "";
+    const accessibilityProps = getAccessibilityProps(props.accessibility);
+    const style: React.CSSProperties = {
+      ...getBaseLeafStyle(),
+      display: "inline-block",
+    };
 
-  switch (props.variant) {
-    case "h1":
-      return <h1 style={style}>{text}</h1>;
-    case "h2":
-      return <h2 style={style}>{text}</h2>;
-    case "h3":
-      return <h3 style={style}>{text}</h3>;
-    case "h4":
-      return <h4 style={style}>{text}</h4>;
-    case "h5":
-      return <h5 style={style}>{text}</h5>;
-    case "caption":
-      return (
-        <small
-          style={{
-            ...style,
-            color: "var(--a2ui-color-muted, #666)",
-            textAlign: "left",
-          }}
-        >
-          {text}
-        </small>
-      );
-    case "body":
-    default:
-      return <span style={style}>{text}</span>;
-  }
-});
+    switch (props.variant) {
+      case "h1":
+        return (
+          <h1 {...accessibilityProps} style={style}>
+            {text}
+          </h1>
+        );
+      case "h2":
+        return (
+          <h2 {...accessibilityProps} style={style}>
+            {text}
+          </h2>
+        );
+      case "h3":
+        return (
+          <h3 {...accessibilityProps} style={style}>
+            {text}
+          </h3>
+        );
+      case "h4":
+        return (
+          <h4 {...accessibilityProps} style={style}>
+            {text}
+          </h4>
+        );
+      case "h5":
+        return (
+          <h5 {...accessibilityProps} style={style}>
+            {text}
+          </h5>
+        );
+      case "caption":
+        return (
+          <small
+            {...accessibilityProps}
+            style={{
+              ...style,
+              color: "var(--a2ui-color-muted, #666)",
+              textAlign: "left",
+            }}
+          >
+            {text}
+          </small>
+        );
+      case "body":
+      default:
+        if (context.dataContext.surface?.protocolVersion === "1.0") {
+          const markdown = renderNativeTextMarkdown(String(text));
+          return React.createElement(
+            markdown.block ? "div" : "span",
+            { ...accessibilityProps, style },
+            markdown.children,
+          );
+        }
+        return (
+          <span {...accessibilityProps} style={style}>
+            {text}
+          </span>
+        );
+    }
+  },
+);

@@ -1,16 +1,56 @@
 ---
 title: "Adopt from A2UI"
 icon: "lucide/ArrowRightLeft"
-description: "Move an app from the a2ui renderer (A2UI v0.9) to components and surfaces (A2UI 1.0): the provider, the catalog, the operations, and what the agent receives."
+description: "Move an app from the a2ui renderer to components and surfaces: the provider, the catalog, the operations, and what the agent receives."
 ---
 
 ## What is this?
 
-The `a2ui` provider option and `@copilotkit/a2ui-renderer` render A2UI v0.9: you build a catalog with `createCatalog`, and the agent streams a fixed or a generated schema into it. Components and surfaces is the A2UI 1.0 engine. The idea is the same: the agent writes operations, and the browser renders your components. The engine adds typed catalogs, the [standard catalog](/generative-ui/components/standard-catalog), areas of the page as targets, two transports, dynamic values that compute in the browser, and functions the agent can call. This page maps one to the other.
+The `a2ui` provider option and `@copilotkit/a2ui-renderer` render A2UI v0.9 by default, with explicit A2UI 1.0 support in React: you build a catalog with `createCatalog`, and the agent streams a fixed or a generated schema into it. Components and surfaces is a separate A2UI 1.0 engine. The idea is the same: the agent writes operations, and the browser renders your components. The engine adds typed catalogs, the [standard catalog](/generative-ui/components/standard-catalog), areas of the page as targets, two transports, dynamic values that compute in the browser, and functions the agent can call. This page maps one to the other.
+
+## Use 1.0 with the React a2ui renderer
+
+You can keep the `a2ui` provider option and opt into the native 1.0 basic catalog:
+
+```tsx
+import { basicCatalogV1 } from "@copilotkit/a2ui-renderer";
+
+<CopilotKit runtimeUrl="/api/copilotkit" a2ui={{ catalog: basicCatalogV1 }}>
+  {/* Your app */}
+</CopilotKit>
+```
+
+For a custom catalog, choose its protocol explicitly and use the matching binding schemas:
+
+```tsx
+import { z } from "zod";
+import {
+  createCatalog,
+  DynamicStringSchemaV1,
+} from "@copilotkit/a2ui-renderer";
+
+const myCatalog = createCatalog(
+  { Greeting: { props: z.object({ name: DynamicStringSchemaV1 }) } },
+  { Greeting: ({ props }) => <p>Hello {props.name}</p> },
+  {
+    catalogId: "acme/greetings@1",
+    protocolVersion: "1.0",
+    includeBasicCatalog: true,
+  },
+);
+```
+
+The package also exports `DynamicNumberSchemaV1`, `DynamicBooleanSchemaV1`, `DynamicStringListSchemaV1`, `DataBindingSchemaV1`, `ChildListSchemaV1`, `ActionSchemaV1`, and `CheckRuleSchemaV1`. Bound values use `{ "@path": "/name" }` and function values use `{ "@call": "formatNumber", "args": { ... } }`. Repeating children keep the structural form `{ componentId: "row", path: "/items" }`. Omitting `protocolVersion` from `createCatalog` keeps the existing v0.9 behavior.
+
+Default basic-catalog cards using v0.9 and 1.0 can remain in the same chat history. Each surface keeps its original protocol; create a new surface to change versions. Retaining several historical custom catalogs is not automatic. After an app upgrades its generation catalog, updating an older card may need app-side handling: the renderer forwards its actions but does not switch the agent's catalog for that run.
+
+Your agent integration must also emit native 1.0 `a2ui_operations` through the `a2ui-surface` activity. Selecting this catalog does not upgrade backend packages or establish support in every adapter and streaming mode. This path continues to use the `a2ui` contract; migrating to the `render_ui` contract below is a separate choice.
 
 ## Before and after
 
 The provider takes a UI instead of a catalog, and the runtime needs no A2UI option:
+
+The examples below start from a v0.9 catalog. If your React a2ui renderer already uses 1.0, its values already use the 1.0 binding syntax; the provider and catalog migration still applies.
 
 <Tabs groupId="frontend_framework" items={["React", "Angular", "Vue"]} persist>
   <Tab value="React">

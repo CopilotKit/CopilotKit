@@ -58,6 +58,7 @@
     "@a2ui/web_core": "0.15.0",
     "@copilotkit/shared": "workspace:*",
     "clsx": "^2.1.1",
+    "marked": "12.0.2",
     "zod": "^3.25.75",
     "zod-to-json-schema": "^3.24.1"
   },

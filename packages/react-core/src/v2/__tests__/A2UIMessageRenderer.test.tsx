@@ -2,6 +2,7 @@ import { afterEach, describe, it, expect, vi } from "vitest";
 import { render, act, waitFor } from "@testing-library/react";
 import React, { useState } from "react";
 import type { Theme } from "@copilotkit/a2ui-renderer";
+import a2ui10Fixture from "./fixtures/a2ui-1-0.json";
 
 // Imported statically, NOT with `await import()` inside each test.
 //
@@ -32,6 +33,18 @@ vi.mock("../providers", () => ({
 }));
 
 describe("A2UIMessageRenderer rendering integration", () => {
+  // ag-ui #3374, test_a2ui_protocol_versions.py::_ops at 89a59e1:
+  // native 1.0 operations, with its test catalog replaced by the basic catalog.
+  it("renders native 1.0 a2ui_operations from the ADK protocol fixture", async () => {
+    const RenderComponent = createA2UIMessageRenderer({ theme: {} as Theme })
+      .render as React.FC<any>;
+    const view = render(
+      <RenderComponent content={a2ui10Fixture} agent={null} />,
+    );
+    await waitFor(() => expect(view.getByText("Hello")).toBeTruthy());
+    expect(view.container.textContent).not.toContain("A2UI render error");
+  });
+
   it("recovers a bind-time function failure when only data is added to the activity snapshot", async () => {
     const renderer = createA2UIMessageRenderer({ theme: {} as Theme });
     const RenderComponent = renderer.render as React.FC<any>;
