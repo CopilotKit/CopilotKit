@@ -8,9 +8,11 @@ export type { CopilotChatLabels } from "@copilotkit/core";
 
 export {
   CopilotKitProvider,
+  CopilotKit,
   useCopilotKit,
   useLicenseContext,
   type CopilotKitProviderProps,
+  type CopilotKitProps,
   type CopilotKitContextValue,
 } from "./CopilotKitProvider";
 

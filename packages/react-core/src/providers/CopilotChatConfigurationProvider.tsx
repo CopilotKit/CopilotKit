@@ -73,7 +73,7 @@ export interface CopilotChatConfigurationValue {
    * `<CopilotThreadsDrawer>` selecting a thread row sets it explicitly so the chat
    * connects to that backend thread.
    *
-   * Guarded like the top-level `<CopilotKit>` provider's `setThreadId`: when
+   * Guarded like the top-level `<CopilotKitProvider>`'s `setThreadId`: when
    * the consumer controls the threadId via the `threadId` prop on this
    * provider, this is a no-op (a warning is logged) so a prop-controlled
    * threadId is never silently overridden.

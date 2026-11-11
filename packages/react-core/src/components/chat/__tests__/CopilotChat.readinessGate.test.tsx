@@ -306,7 +306,7 @@ describe("CopilotChat readiness gate — suggestion submission", () => {
  * Production-shaped regression for the readiness gate that crosses the real
  * network → SSE transport boundary (rather than injecting a controllable agent
  * and emitting events directly). It renders the public provider the way an app
- * does — `<CopilotKit runtimeUrl=... agentId="agentic_chat">` — so it
+ * does — `<CopilotKitProvider runtimeUrl=... agentId="agentic_chat">` — so it
  * drives the same provider chain, agent selection, and single-endpoint POST
  * `info` / `agent/run` path used in production. Single-endpoint transport is a precondition of this
  * fixture rather than the behaviour under test, so it is pinned explicitly with

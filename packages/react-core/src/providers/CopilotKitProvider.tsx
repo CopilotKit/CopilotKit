@@ -152,7 +152,7 @@ export interface CopilotKitProviderProps extends ɵCopilotKitProviderBaseOptions
    *
    * @example
    * ```tsx
-   * <CopilotKit
+   * <CopilotKitProvider
    *   runtimeUrl="/api/copilotkit"
    *   openGenerativeUI={{
    *     sandboxFunctions: [{ name: "addToCart", description: "…", parameters: schema, handler: fn }],
@@ -203,9 +203,9 @@ export interface CopilotKitProviderProps extends ɵCopilotKitProviderBaseOptions
    *
    * @example
    * ```tsx
-   * <CopilotKit runtimeUrl="/api/copilotkit" a2ui={{ theme: myCustomTheme }}>
+   * <CopilotKitProvider runtimeUrl="/api/copilotkit" a2ui={{ theme: myCustomTheme }}>
    *   {children}
-   * </CopilotKit>
+   * </CopilotKitProvider>
    * ```
    */
   a2ui?: ɵA2UIBaseOptions & {
@@ -874,6 +874,18 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
     </CopilotStyleOptionsProvider>
   );
 };
+
+/**
+ * Alias of {@link CopilotKitProvider}: the same component under its v1 name,
+ * so `<CopilotKit>` keeps working. `CopilotKitProvider` is the preferred name.
+ */
+export const CopilotKit = CopilotKitProvider;
+
+/**
+ * Alias of {@link CopilotKitProviderProps}, the props of {@link CopilotKit}.
+ * Prefer `CopilotKitProviderProps` in new code.
+ */
+export type CopilotKitProps = CopilotKitProviderProps;
 
 // Re-export useCopilotKit from context for backward compatibility
 export { useCopilotKit } from "../context";
