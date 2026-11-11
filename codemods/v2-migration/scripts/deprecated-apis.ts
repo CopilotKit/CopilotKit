@@ -1,6 +1,7 @@
 import type { Edit, SgNode } from "codemod:ast-grep";
 import type TS from "codemod:ast-grep/langs/typescript";
 import type TSX from "codemod:ast-grep/langs/tsx";
+import { byteIndex, charIndex } from "./offsets.ts";
 
 type Node = SgNode<TS | TSX>;
 
@@ -211,19 +212,23 @@ export function migrateDeprecatedApis(
 
 /** Deletes a specifier with its comma, and its line when it is alone on one. */
 function deleteSpecifier(specifier: Node, source: string): Edit {
-  let startPos = specifier.range().start.index;
-  let endPos = specifier.range().end.index;
-  const comma = /^\s*,[ \t]*\n?/.exec(source.slice(endPos));
+  let start = charIndex(source, specifier.range().start.index);
+  let end = charIndex(source, specifier.range().end.index);
+  const comma = /^\s*,[ \t]*\n?/.exec(source.slice(end));
   if (comma) {
-    endPos += comma[0].length;
-    let lineStart = startPos;
+    end += comma[0].length;
+    let lineStart = start;
     while (lineStart > 0 && /[ \t]/.test(source[lineStart - 1]!)) lineStart--;
-    if (source[lineStart - 1] === "\n") startPos = lineStart;
+    if (source[lineStart - 1] === "\n") start = lineStart;
   } else {
-    const before = /,\s*$/.exec(source.slice(0, startPos));
-    if (before) startPos -= before[0].length;
+    const before = /,\s*$/.exec(source.slice(0, start));
+    if (before) start -= before[0].length;
   }
-  return { startPos, endPos, insertedText: "" };
+  return {
+    startPos: byteIndex(source, start),
+    endPos: byteIndex(source, end),
+    insertedText: "",
+  };
 }
 
 function propEdits(
@@ -254,17 +259,21 @@ function propEdits(
       const start = attribute.range().start.index;
       if (message === null) {
         // Delete the attribute with the whitespace before it.
-        let startPos = start;
-        while (startPos > 0 && /\s/.test(source[startPos - 1]!)) startPos--;
+        let startChar = charIndex(source, start);
+        while (startChar > 0 && /\s/.test(source[startChar - 1]!)) startChar--;
         edits.push({
-          startPos,
+          startPos: byteIndex(source, startChar),
           endPos: attribute.range().end.index,
           insertedText: "",
         });
         continue;
       }
       const comment = `/* ${TODO} ${message} */`;
-      if (source.slice(0, start).trimEnd().endsWith(comment)) continue;
+      if (
+        source.slice(0, charIndex(source, start)).trimEnd().endsWith(comment)
+      ) {
+        continue;
+      }
       edits.push({
         startPos: start,
         endPos: start,
@@ -277,11 +286,15 @@ function propEdits(
 
 /** Deletes a node with the whitespace before it on its line, and its line break. */
 function deleteLine(node: Node, source: string): Edit {
-  let startPos = node.range().start.index;
-  let endPos = node.range().end.index;
-  while (startPos > 0 && /[ \t]/.test(source[startPos - 1]!)) startPos--;
-  if (source[endPos] === "\n") endPos++;
-  return { startPos, endPos, insertedText: "" };
+  let start = charIndex(source, node.range().start.index);
+  let end = charIndex(source, node.range().end.index);
+  while (start > 0 && /[ \t]/.test(source[start - 1]!)) start--;
+  if (source[end] === "\n") end++;
+  return {
+    startPos: byteIndex(source, start),
+    endPos: byteIndex(source, end),
+    insertedText: "",
+  };
 }
 
 /**
@@ -327,11 +340,11 @@ function superMethodEdits(
           .children()
           .find((child) => child.kind() === "override_modifier");
         if (!modifier) continue;
-        let endPos = modifier.range().end.index;
-        while (/[ \t]/.test(source[endPos] ?? "")) endPos++;
+        let end = charIndex(source, modifier.range().end.index);
+        while (/[ \t]/.test(source[end] ?? "")) end++;
         edits.push({
           startPos: modifier.range().start.index,
-          endPos,
+          endPos: byteIndex(source, end),
           insertedText: "",
         });
       }

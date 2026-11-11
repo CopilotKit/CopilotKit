@@ -1,6 +1,7 @@
 import type { Edit, SgNode } from "codemod:ast-grep";
 import type TS from "codemod:ast-grep/langs/typescript";
 import type TSX from "codemod:ast-grep/langs/tsx";
+import { charIndex } from "./offsets.ts";
 
 type Node = SgNode<TS | TSX>;
 type Adapter = { node: boolean; single: boolean };
@@ -51,13 +52,16 @@ const span = (start: number, end: number, text: string): Edit => ({
 
 /** Keep original text/comments inside an options object while applying local edits. */
 function patch(node: Node, edits: Edit[]): string {
-  let text = node.text();
+  const original = node.text();
   const offset = node.range().start.index;
+  let text = original;
+  // Edits go from the end, so the text before each one is still the
+  // original's, and its positions convert against the original.
   for (const e of [...edits].sort((a, b) => b.startPos - a.startPos)) {
     text =
-      text.slice(0, e.startPos - offset) +
+      text.slice(0, charIndex(original, e.startPos - offset)) +
       e.insertedText +
-      text.slice(e.endPos - offset);
+      text.slice(charIndex(original, e.endPos - offset));
   }
   return text;
 }

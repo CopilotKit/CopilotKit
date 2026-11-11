@@ -37,6 +37,37 @@
   "main": "./dist/index.cjs",
   "module": "./dist/index.mjs",
   "types": "./dist/index.d.cts",
+  "typesVersions": {
+    "*": {
+      "headless": [
+        "./dist/headless.d.cts"
+      ],
+      "generative-ui": [
+        "./dist/generative-ui/index.d.cts"
+      ],
+      "polyfills": [
+        "./dist/polyfills.d.cts"
+      ],
+      "polyfills/streams": [
+        "./dist/polyfills/streams.d.cts"
+      ],
+      "polyfills/encoding": [
+        "./dist/polyfills/encoding.d.cts"
+      ],
+      "polyfills/crypto": [
+        "./dist/polyfills/crypto.d.cts"
+      ],
+      "polyfills/dom": [
+        "./dist/polyfills/dom.d.cts"
+      ],
+      "polyfills/location": [
+        "./dist/polyfills/location.d.cts"
+      ],
+      "components": [
+        "./dist/components/index.d.cts"
+      ]
+    }
+  },
   "exports": {
     ".": {
       "import": "./dist/index.mjs",

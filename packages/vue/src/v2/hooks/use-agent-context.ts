@@ -8,7 +8,12 @@ export type JsonSerializable = ɵJsonSerializable;
 
 export interface AgentContextInput {
   description: MaybeRefOrGetter<string>;
-  value: MaybeRefOrGetter<JsonSerializable>;
+  /**
+   * The context value. A string is sent as-is; any other value is sent as
+   * its JSON text, so it should be JSON-serializable. Interface types and
+   * optional fields are accepted.
+   */
+  value: MaybeRefOrGetter<unknown>;
 }
 
 /**

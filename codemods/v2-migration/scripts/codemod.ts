@@ -5,11 +5,20 @@ import { migrateAngularChatConfiguration } from "./angular-chat-configuration.ts
 import { migrateDeprecatedApis } from "./deprecated-apis.ts";
 import { migrateGenerativeUI } from "./generative-ui.ts";
 import { migrateRuntimeAdapters } from "./runtime-adapters.ts";
+import { migrateCopilotActions } from "./copilot-action.ts";
+import { migrateChatComponents } from "./chat-components.ts";
+import { migrateReadables } from "./readable.ts";
+import { migrateCoAgents } from "./coagent.ts";
+import { migrateChatHooks } from "./chat-hook.ts";
+import { migrateGqlMessages } from "./gql-messages.ts";
+import { migrateV1Endpoints } from "./v1-endpoints.ts";
 import type { Codemod, Edit, SgNode } from "codemod:ast-grep";
 import type TS from "codemod:ast-grep/langs/typescript";
 import type TSX from "codemod:ast-grep/langs/tsx";
 import { V1_API } from "./v1-api.ts";
+import { V1_SHAPES } from "./v1-shapes.ts";
 import type { V1Export } from "./v1-api.ts";
+import { byteIndex, charIndex } from "./offsets.ts";
 
 type Lang = TS | TSX;
 type Node = SgNode<Lang>;
@@ -467,11 +476,30 @@ function todoLines(name: string, entry: V1Export | undefined): string[] {
  *   `generative-ui.ts`).
  */
 const codemod: Codemod<Lang> = async (root, options) => {
-  const migrated = migrateRuntimeAdapters(root.root());
-  const rootNode =
-    migrated === null
-      ? root.root()
-      : parse<Lang>(options.language, migrated).root();
+  // Passes that rewrite v1 code while the imports still say it is v1. Each
+  // one returns the new source, or `null` when it changed nothing.
+  const jsxFile = !/\.[mc]?ts$/.test(root.filename());
+  const prePasses: ((node: Node) => string | null)[] = [
+    migrateRuntimeAdapters,
+    migrateCopilotActions,
+    migrateReadables,
+    migrateCoAgents,
+    migrateChatHooks,
+    migrateGqlMessages,
+    (node) =>
+      migrateV1Endpoints(node, (text) =>
+        parse<Lang>(options.language, text).root(),
+      ),
+    (node) => migrateChatComponents(node, jsxFile),
+  ];
+  let rootNode = root.root();
+  let migrated: string | null = null;
+  for (const pass of prePasses) {
+    const next = pass(rootNode);
+    if (next === null) continue;
+    migrated = next;
+    rootNode = parse<Lang>(options.language, next).root();
+  }
   const source = rootNode.text();
   const edits: Edit[] = [];
   /** Local names of the v1 `<CopilotKit>` provider. */
@@ -594,11 +622,14 @@ const codemod: Codemod<Lang> = async (root, options) => {
       if (renamed) renamedAny = true;
       const name = renamed?.name ?? specifier.name;
       const entry = entryOf(name);
+      const v1Shape = own(own(V1_SHAPES, from), name);
       const skipsTodo =
         renamed !== undefined ||
         (isRuntimeRoot &&
           (RUNTIME_ADAPTERS.has(name) ||
-            (hasRuntimeHandler && name === "CopilotRuntime")));
+            (hasRuntimeHandler && name === "CopilotRuntime"))) ||
+        // Same name in v1 and 2.0: only a use in the v1 shape needs work.
+        (v1Shape !== undefined && !v1Shape(rootNode, localName(specifier)));
       if (!skipsTodo) todos.push(...todoLines(name, entry));
       const replacement = entry?.replacement;
       const target = replacement?.name === name ? replacement.importPath : home;
@@ -636,7 +667,10 @@ const codemod: Codemod<Lang> = async (root, options) => {
     if (REMOVED_RUNTIME_PATHS.has(value)) {
       const comment = `/* ${TODO} ${ADAPTER_NOTE} */`;
       if (
-        !source.slice(0, string.range().start.index).trimEnd().endsWith(comment)
+        !source
+          .slice(0, charIndex(source, string.range().start.index))
+          .trimEnd()
+          .endsWith(comment)
       ) {
         edits.push(string.replace(`${comment} ${string.text()}`));
       }
@@ -762,17 +796,23 @@ function commentBefore(
 ): Edit | undefined {
   const comment = `/* ${TODO} ${message} */`;
   const start = node.range().start.index;
-  if (source.slice(0, start).trimEnd().endsWith(comment)) return undefined;
+  if (source.slice(0, charIndex(source, start)).trimEnd().endsWith(comment)) {
+    return undefined;
+  }
   return { startPos: start, endPos: start, insertedText: `${comment} ` };
 }
 
 /** Deletes `node` with its indentation and line break. */
 function deleteLine(node: Node, source: string): Edit {
-  let startPos = node.range().start.index;
-  let endPos = node.range().end.index;
-  while (startPos > 0 && /[ \t]/.test(source[startPos - 1]!)) startPos--;
-  if (source[endPos] === "\n") endPos++;
-  return { startPos, endPos, insertedText: "" };
+  let start = charIndex(source, node.range().start.index);
+  let end = charIndex(source, node.range().end.index);
+  while (start > 0 && /[ \t]/.test(source[start - 1]!)) start--;
+  if (source[end] === "\n") end++;
+  return {
+    startPos: byteIndex(source, start),
+    endPos: byteIndex(source, end),
+    insertedText: "",
+  };
 }
 
 /** The name of an object key or JSX attribute, without quotes. */
@@ -1318,7 +1358,7 @@ function adapterImportEdits(
   const end = last.range().end.index;
   const lines = added.join("\n");
   const insert =
-    source[end] === "\n"
+    source[charIndex(source, end)] === "\n"
       ? { startPos: end + 1, endPos: end + 1, insertedText: `${lines}\n` }
       : { startPos: end, endPos: end, insertedText: `\n${lines}` };
   return [...edits, insert];

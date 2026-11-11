@@ -38,7 +38,7 @@ useAgentContext satisfies (context: AgentContextInput) => void;
     plain string, a ref, a computed, or a getter function.
   </PropertyReference>
 
-  <PropertyReference name="value" type="MaybeRefOrGetter<JsonSerializable>" required>
+  <PropertyReference name="value" type="MaybeRefOrGetter<unknown>" required>
     The context value to provide. Must resolve to a JSON-serializable value:
     `string`, `number`, `boolean`, `null`, arrays, or plain objects with string
     keys and serializable values. Non-string values are serialized with
@@ -226,7 +226,7 @@ Where that context list surfaces in your agent depends on your framework's AG-UI
 
 - **Scope lifecycle**: The context is registered while the composable's reactive scope is active and is removed automatically on scope cleanup (component unmount). No manual cleanup is required.
 - **Reactive updates**: `description` and `value` are resolved with `toValue`, so refs, computeds, and getters are tracked. When a resolved value changes, the previous context entry is removed and the new value is re-registered, keeping the agent in sync.
-- **Serialization**: String values are passed through as-is. Any other value is serialized with `JSON.stringify`, so it must conform to `JsonSerializable` (`string | number | boolean | null | JsonSerializable[] | { [key: string]: JsonSerializable }`). Non-serializable values such as functions, class instances, or symbols will not serialize correctly. The agent therefore always reads a string - see [What the agent receives](#what-the-agent-receives).
+- **Serialization**: `value` takes any value. A string is sent through unchanged; any other value is sent as its `JSON.stringify` text, so the agent always reads a string. Give it data JSON can represent: interface types, arrays and optional fields work, while functions, class instances and symbols lose their meaning -- see [What the agent receives](#what-the-agent-receives).
 - **Multiple contexts**: Multiple `useAgentContext` calls across your component tree are all visible to the agent concurrently. Each is identified internally by an ID returned from `addContext` and removed on cleanup.
 - **No return value**: The composable returns `void`.
 

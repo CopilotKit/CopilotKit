@@ -1,6 +1,7 @@
 import type { Edit, SgNode } from "codemod:ast-grep";
 import type TS from "codemod:ast-grep/langs/typescript";
 import type TSX from "codemod:ast-grep/langs/tsx";
+import { charIndex } from "./offsets.ts";
 
 type Node = SgNode<TS | TSX>;
 
@@ -37,7 +38,9 @@ function rendererListNote(list: string) {
 function commentBefore(node: Node, message: string, source: string) {
   const comment = `/* ${TODO} ${message} */`;
   const start = node.range().start.index;
-  if (source.slice(0, start).trimEnd().endsWith(comment)) return undefined;
+  if (source.slice(0, charIndex(source, start)).trimEnd().endsWith(comment)) {
+    return undefined;
+  }
   const edit: Edit = {
     startPos: start,
     endPos: start,
@@ -53,8 +56,9 @@ function commentBefore(node: Node, message: string, source: string) {
 function commentAbove(node: Node, message: string, source: string) {
   const comment = `// ${TODO} ${message}`;
   const start = node.range().start.index;
-  const lineStart = source.lastIndexOf("\n", start - 1) + 1;
-  const indent = source.slice(lineStart, start);
+  const startChar = charIndex(source, start);
+  const lineStart = source.lastIndexOf("\n", startChar - 1) + 1;
+  const indent = source.slice(lineStart, startChar);
   const previousLineEnd = lineStart - 1;
   const previousLine = source
     .slice(source.lastIndexOf("\n", previousLineEnd - 1) + 1, previousLineEnd)

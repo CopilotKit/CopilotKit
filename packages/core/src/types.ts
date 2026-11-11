@@ -113,7 +113,11 @@ export type FrontendTool<
   name: string;
   description?: string;
   parameters?: StandardSchemaV1<any, T>;
-  handler?: (args: T, context: FrontendToolHandlerContext) => Promise<unknown>;
+  /**
+   * Runs the tool in the app. It returns the result, or a promise of it: a
+   * sync handler works as well as an async one.
+   */
+  handler?: (args: T, context: FrontendToolHandlerContext) => unknown;
   followUp?: boolean;
   /**
    * Whether to run the handler again for a call that is still unanswered when
