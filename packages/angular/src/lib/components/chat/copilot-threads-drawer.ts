@@ -79,7 +79,7 @@ export class CopilotThreadsDrawerRow {
  * Thread list state is fetched from CopilotKit Intelligence via
  * {@link injectThreads} and pushed onto the element's JS properties via an
  * `effect`, following the imperative property-assignment pattern used elsewhere
- * in this package (see `CopilotA2UIActivityRenderer`).
+ * in this package.
  *
  * DOM events emitted by the element are routed back to the chat configuration
  * and thread mutation methods via declarative Angular event bindings.
