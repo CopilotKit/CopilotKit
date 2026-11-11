@@ -237,6 +237,7 @@ jobs:
           - adk
           - agno
           - antigravity
+          - openai-agents-python
           - llamaindex
           - langgraph-fastapi
           - strands-python

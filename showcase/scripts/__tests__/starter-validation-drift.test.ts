@@ -188,7 +188,7 @@ describe("starter_validation drift", () => {
   // can never become a rendered claim.
   //
   // MUTATION: delete the block from any one of the 23 manifests.
-  it("3 — all 23 columns declare a block; the 6 unsupported ones declare a reason", () => {
+  it("3 — all 23 columns declare a block; the 5 unsupported ones declare a reason", () => {
     const cols = columns();
     expect(cols).toHaveLength(23);
     expect(
@@ -204,7 +204,6 @@ describe("starter_validation drift", () => {
       "built-in-agent",
       "langroid",
       "ms-agent-harness-dotnet",
-      "openai-agents-python",
       "spring-ai",
     ]);
     for (const c of unsupported) {
@@ -262,16 +261,16 @@ describe("starter_validation drift", () => {
   // Non-vacuity: assertions 1a/1b/2 all quantify over the declared set. If that
   // set were ever empty they would pass by construction, so the shape of the
   // declaration set is pinned directly.
-  it("non-vacuity: the declared set is 12 provisioned + 5 in-repo-only + 6 unsupported", () => {
+  it("non-vacuity: the declared set is 12 provisioned + 6 in-repo-only + 5 unsupported", () => {
     const cols = columns();
     const supported = cols.filter((c) => c.block && isSupported(c.block));
     const provisioned = supported.filter(
       (c) => (c.block as { service?: string }).service,
     );
     expect(provisioned).toHaveLength(12);
-    expect(supported.length - provisioned.length).toBe(5);
+    expect(supported.length - provisioned.length).toBe(6);
     expect(cols.filter((c) => c.block && !isSupported(c.block))).toHaveLength(
-      6,
+      5,
     );
   });
 });
