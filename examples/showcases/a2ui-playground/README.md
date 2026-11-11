@@ -4,7 +4,7 @@ Watch an agent write UI. Ask for anything ("Q3 sales by region as a dashboard", 
 
 This playground uses published `@copilotkit/*` 1.85.0 packages with canonical `"1.0"` wire operations and `@a2ui/agent` 0.1.0 native streaming. These include the canonical protocol changes first released in CopilotKit 1.84.0 from [#8155](https://github.com/CopilotKit/CopilotKit/pull/8155).
 
-A hosted version of the pre-migration playground runs at https://web-production-d0431.up.railway.app.
+The hosted playground runs at https://a2ui-playground.copilotkit.ai.
 
 ## What it shows
 
@@ -94,7 +94,7 @@ The website and docs show the playground in an iframe. `?embed=1` drops the site
 
 ```html
 <iframe
-  src="https://web-production-d0431.up.railway.app/?embed=1&ds=material"
+  src="https://a2ui-playground.copilotkit.ai/?embed=1&ds=material"
   width="600"
   height="600"
   title="A2UI Playground by CopilotKit"
