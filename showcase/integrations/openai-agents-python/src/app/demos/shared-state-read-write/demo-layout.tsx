@@ -21,7 +21,7 @@ export function DemoLayout({
   onClearNotes,
 }: DemoLayoutProps) {
   return (
-    <div className="min-h-screen w-full overflow-y-auto bg-gray-50 dark:bg-background">
+    <div className="h-full w-full overflow-y-auto bg-gray-50 dark:bg-background">
       <main className="mx-auto max-w-6xl p-6 md:p-10">
         <header className="mb-8 space-y-2">
           <h1 className="text-3xl font-semibold text-[#010507] dark:text-foreground">
