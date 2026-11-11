@@ -153,6 +153,12 @@ export interface GenerativeUISurfaceContent {
   operations: A2UIOperation[];
   status: GenerativeUISurfaceStatus;
   rejected: GenerativeUIRejectedOperation[];
+  /**
+   * `"0.9"` when the runtime converted the surface from A2UI v0.9 operations,
+   * so a user event on it goes back to the agent as a v0.9 action. Left out
+   * for a surface that the agent wrote in 1.0.
+   */
+  a2uiSourceVersion?: "0.9";
 }
 
 /** Content of a `generative-ui-function-call` activity message. */

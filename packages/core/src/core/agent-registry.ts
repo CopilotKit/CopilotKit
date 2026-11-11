@@ -186,6 +186,8 @@ export class AgentRegistry {
   private inspectorMetadataNotificationQueue: Promise<void> = Promise.resolve();
   private _a2uiEnabled: boolean = false;
   private _a2uiAgents?: string[];
+  private _generativeUIEnabled: boolean = false;
+  private _generativeUIAgents?: string[];
   private _openGenerativeUIEnabled: boolean = false;
   private _licenseStatus?: RuntimeLicenseStatus;
   private _runtimeEntitlements?: RuntimeEntitlementResponse;
@@ -284,6 +286,19 @@ export class AgentRegistry {
    */
   get a2uiAgents(): string[] | undefined {
     return this._a2uiAgents;
+  }
+
+  /** Whether the runtime turns generative UI (A2UI 1.0) on. */
+  get generativeUIEnabled(): boolean {
+    return this._generativeUIEnabled;
+  }
+
+  /**
+   * Agent ids the runtime limits generative UI to. `undefined` means every
+   * agent, or off; check `generativeUIEnabled`.
+   */
+  get generativeUIAgents(): string[] | undefined {
+    return this._generativeUIAgents;
   }
 
   get openGenerativeUIEnabled(): boolean {
@@ -1496,6 +1511,8 @@ export class AgentRegistry {
       this._inspectorLearning = false;
       this._a2uiEnabled = false;
       this._a2uiAgents = undefined;
+      this._generativeUIEnabled = false;
+      this._generativeUIAgents = undefined;
       this._openGenerativeUIEnabled = false;
       this._licenseStatus = undefined;
       this._runtimeEntitlements = undefined;
@@ -1646,6 +1663,11 @@ export class AgentRegistry {
       this._a2uiEnabled =
         a2uiInfo?.enabled ?? runtimeInfoResponse.a2uiEnabled ?? false;
       this._a2uiAgents = a2uiInfo?.enabled ? a2uiInfo.agents : undefined;
+      const generativeUIInfo = runtimeInfoResponse.generativeUI;
+      this._generativeUIEnabled = generativeUIInfo?.enabled ?? false;
+      this._generativeUIAgents = generativeUIInfo?.enabled
+        ? generativeUIInfo.agents
+        : undefined;
       this._openGenerativeUIEnabled =
         runtimeInfoResponse.openGenerativeUIEnabled ?? false;
       this._licenseStatus = runtimeInfoResponse.licenseStatus;
@@ -1718,6 +1740,8 @@ export class AgentRegistry {
         this._inspectorLearning = false;
         this._a2uiEnabled = false;
         this._a2uiAgents = undefined;
+        this._generativeUIEnabled = false;
+        this._generativeUIAgents = undefined;
         this._openGenerativeUIEnabled = false;
         // A failed bounded retry must settle the authority that caused it. Keep
         // that retryable result so consumers can distinguish terminal denial

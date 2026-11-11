@@ -17,10 +17,10 @@ import type { CopilotRuntimeLike } from "../core/runtime";
  * collision, while non-colliding inbound headers still forward (no regression
  * to the existing forward-for-auth use case).
  */
-// Minimal runtime: configureAgentForRequest only reads a2ui / mcpApps /
+// Minimal runtime: configureAgentForRequest only reads generativeUI / mcpApps /
 // openGenerativeUI (all unset here) before performing the header merge.
 const runtime = {
-  a2ui: undefined,
+  generativeUI: undefined,
   mcpApps: undefined,
   openGenerativeUI: undefined,
   // The /run call site reads the resolved forwarding policy off the runtime.

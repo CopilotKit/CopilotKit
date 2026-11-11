@@ -5,9 +5,14 @@ import type { A2UIMiddlewareConfig } from "@ag-ui/a2ui-middleware";
 import { firstValueFrom, from, toArray } from "rxjs";
 import type { Observable } from "rxjs";
 import { OpenGenerativeUIMiddleware } from "./open-generative-ui-middleware";
+import { A2UIV09BridgeMiddleware } from "../generative-ui/a2ui-v09-middleware";
 
 export interface RecordedEventTransformOptions {
-  /** Use the original runtime configuration, including its catalog when known. */
+  /**
+   * Apply `A2UIMiddleware` with this configuration, including its catalog
+   * when known. As in the runtime, its v0.9 surfaces are then converted to
+   * A2UI 1.0 (`generative-ui-surface`).
+   */
   a2ui?: A2UIMiddlewareConfig;
   openGenerativeUI?: boolean;
 }
@@ -55,7 +60,8 @@ export async function transformRecordedEvents(
   options: RecordedEventTransformOptions,
 ): Promise<BaseEvent[]> {
   let agent: AbstractAgent = new RecordedEventAgent(input, () => from(events));
-  // Runtime registers A2UI before Open GenUI; the first middleware is outermost.
+  // Runtime registers the v0.9 bridge, then A2UI, then Open GenUI; the first
+  // middleware is outermost.
   if (options.openGenerativeUI) {
     const next = agent;
     const middleware = new OpenGenerativeUIMiddleware();
@@ -68,6 +74,11 @@ export async function transformRecordedEvents(
     const middleware = new A2UIMiddleware(options.a2ui);
     agent = new RecordedEventAgent(input, (runInput) =>
       middleware.run(runInput, next),
+    );
+    const inner = agent;
+    const bridge = new A2UIV09BridgeMiddleware();
+    agent = new RecordedEventAgent(input, (runInput) =>
+      bridge.run(runInput, inner),
     );
   }
   return firstValueFrom(agent.run(input).pipe(toArray()));

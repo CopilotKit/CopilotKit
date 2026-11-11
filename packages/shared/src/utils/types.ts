@@ -98,6 +98,13 @@ export type RuntimeEntitlementResponse =
   | RuntimeEntitlementReadyResponse
   | RuntimeEntitlementErrorResponse;
 
+/** Generative UI (A2UI 1.0) as the runtime reports it in `GET /info`. */
+export interface GenerativeUIRuntimeInfo {
+  enabled: boolean;
+  /** Agent ids generative UI is limited to. Omitted: every agent. */
+  agents?: string[];
+}
+
 export interface A2UIRuntimeInfo {
   enabled: boolean;
   /**
@@ -135,11 +142,16 @@ export interface RuntimeInfo {
    */
   suggestions?: boolean;
   /**
-   * @deprecated Use `a2ui` instead, which preserves per-agent scoping.
-   * Kept for backward compatibility with older clients.
+   * @deprecated The runtime no longer sends it. Use `generativeUI`: the
+   * runtime converts A2UI v0.9 surfaces to A2UI 1.0.
    */
   a2uiEnabled?: boolean;
+  /**
+   * @deprecated The runtime no longer sends it. Use `generativeUI`: the
+   * runtime converts A2UI v0.9 surfaces to A2UI 1.0.
+   */
   a2ui?: A2UIRuntimeInfo;
+  generativeUI?: GenerativeUIRuntimeInfo;
   openGenerativeUIEnabled?: boolean;
   /** Structured Runtime-level entitlement authority, when advertised. */
   runtimeEntitlements?: RuntimeEntitlementResponse;

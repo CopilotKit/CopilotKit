@@ -18,6 +18,10 @@ export interface ɵRuntimeInfo {
   /** `undefined` means A2UI applies to every agent (or is off). */
   readonly a2uiAgents: string[] | undefined;
   readonly openGenerativeUIEnabled: boolean;
+  /** The runtime reports generative UI (`render_ui`) as on. */
+  readonly generativeUIEnabled: boolean;
+  /** `undefined` means generative UI applies to every agent (or is off). */
+  readonly generativeUIAgents: string[] | undefined;
   readonly licenseStatus: RuntimeLicenseStatus | undefined;
   readonly runtimeEntitlements: RuntimeEntitlementResponse | undefined;
   readonly runtimeEntitlementRetryPending: boolean;
@@ -31,6 +35,8 @@ const RUNTIME_INFO_KEYS = [
   "a2uiEnabled",
   "a2uiAgents",
   "openGenerativeUIEnabled",
+  "generativeUIEnabled",
+  "generativeUIAgents",
   "licenseStatus",
   "runtimeEntitlements",
   "runtimeEntitlementRetryPending",

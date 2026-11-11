@@ -9,6 +9,8 @@ function createInfo(overrides: Partial<ɵRuntimeInfo> = {}): ɵRuntimeInfo {
     a2uiEnabled: false,
     a2uiAgents: undefined,
     openGenerativeUIEnabled: false,
+    generativeUIEnabled: false,
+    generativeUIAgents: undefined,
     licenseStatus: undefined,
     runtimeEntitlements: undefined,
     runtimeEntitlementRetryPending: false,
@@ -47,6 +49,31 @@ describe("ɵRuntimeInfoStore", () => {
     store.refresh();
     store.refresh();
     expect(listener).toHaveBeenCalledTimes(1);
+  });
+
+  it("returns a new snapshot when the generative UI fields change", () => {
+    const agents = ["agentic_chat"];
+    let info = createInfo();
+    const store = new ɵRuntimeInfoStore(() => info);
+    const listener = vi.fn();
+    store.subscribe(listener);
+    const before = store.getSnapshot();
+
+    info = createInfo({ generativeUIEnabled: true });
+    store.refresh();
+    const enabled = store.getSnapshot();
+    expect(enabled).not.toBe(before);
+    expect(enabled.generativeUIEnabled).toBe(true);
+
+    info = createInfo({
+      generativeUIEnabled: true,
+      generativeUIAgents: agents,
+    });
+    store.refresh();
+    const scoped = store.getSnapshot();
+    expect(scoped).not.toBe(enabled);
+    expect(scoped.generativeUIAgents).toEqual(["agentic_chat"]);
+    expect(listener).toHaveBeenCalledTimes(2);
   });
 
   it("notifies on refresh after a read already picked up the change", () => {
@@ -132,6 +159,38 @@ describe("CopilotKitCore.ɵruntimeInfo", () => {
       audioFileTranscriptionEnabled: true,
     });
     expect(listener).toHaveBeenCalled();
+    core.dispose();
+  });
+
+  it("reports the generative UI of /info", async () => {
+    vi.mocked(global.fetch).mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          version: "1.0.0",
+          agents: {},
+          generativeUI: { enabled: true, agents: ["legacy", "current"] },
+        }),
+        { status: 200, headers: { "content-type": "application/json" } },
+      ),
+    );
+    const core = new CopilotKitCore({
+      runtimeUrl: "https://runtime.example",
+      runtimeTransport: "rest",
+      deferInitialConnection: true,
+    });
+    expect(core.ɵruntimeInfo.generativeUIEnabled).toBe(false);
+
+    core.connect();
+
+    await vi.waitFor(() =>
+      expect(core.ɵruntimeInfo.status).toBe(
+        CopilotKitCoreRuntimeConnectionStatus.Connected,
+      ),
+    );
+    expect(core.ɵruntimeInfo).toMatchObject({
+      generativeUIEnabled: true,
+      generativeUIAgents: ["legacy", "current"],
+    });
     core.dispose();
   });
 });

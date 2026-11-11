@@ -43,7 +43,6 @@ function createIntelligenceRuntimeLike(
     beforeRequestMiddleware: undefined,
     afterRequestMiddleware: undefined,
     runner: new InMemoryAgentRunner(),
-    a2ui: undefined,
     mcpApps: undefined,
     openGenerativeUI: undefined,
     mode: "intelligence",
@@ -395,7 +394,6 @@ describe("handleGetRuntimeInfo", () => {
       beforeRequestMiddleware: undefined,
       afterRequestMiddleware: undefined,
       runner: createRunner(),
-      a2ui: undefined,
       mcpApps: undefined,
       openGenerativeUI: undefined,
       mode: "sse",
@@ -428,8 +426,8 @@ describe("handleGetRuntimeInfo", () => {
       mode: "sse",
       threadEndpoints: unconfiguredLocalThreadEndpoints,
       suggestions: true,
-      a2uiEnabled: false,
       openGenerativeUIEnabled: false,
+      generativeUI: { enabled: true },
       telemetryDisabled: false,
     });
   });
@@ -456,8 +454,8 @@ describe("handleGetRuntimeInfo", () => {
       mode: "sse",
       threadEndpoints: unconfiguredLocalThreadEndpoints,
       suggestions: true,
-      a2uiEnabled: false,
       openGenerativeUIEnabled: false,
+      generativeUI: { enabled: true },
       telemetryDisabled: false,
     });
   });
@@ -496,8 +494,8 @@ describe("handleGetRuntimeInfo", () => {
       mode: "sse",
       threadEndpoints: unconfiguredLocalThreadEndpoints,
       suggestions: true,
-      a2uiEnabled: false,
       openGenerativeUIEnabled: false,
+      generativeUI: { enabled: true },
       telemetryDisabled: false,
     });
   });
@@ -636,10 +634,10 @@ describe("handleGetRuntimeInfo", () => {
     expect(selector).not.toHaveBeenCalled();
   });
 
-  it("should return a2uiEnabled: true when runtime has a2ui configured", async () => {
+  it("does not send the retired a2ui fields", async () => {
     const runtime = new CopilotRuntime({
       agents: {},
-      a2ui: {},
+      generativeUI: { a2uiVersion: "0.9" },
     });
 
     const response = await handleGetRuntimeInfo({
@@ -650,63 +648,69 @@ describe("handleGetRuntimeInfo", () => {
     expect(response.status).toBe(200);
 
     const data = await response.json();
-    expect(data.a2uiEnabled).toBe(true);
-    expect(data.a2ui).toEqual({ enabled: true });
+    expect(data).not.toHaveProperty("a2uiEnabled");
+    expect(data).not.toHaveProperty("a2ui");
   });
 
-  it("should forward per-agent a2ui scoping in the a2ui info object", async () => {
-    const runtime = new CopilotRuntime({
-      agents: {},
-      a2ui: { agents: ["agentic_chat", "tool_based_generative_ui"] },
+  describe("generativeUI", () => {
+    const getGenerativeUI = async (runtime: CopilotRuntimeLike) => {
+      const response = await handleGetRuntimeInfo({
+        runtime,
+        request: mockRequest,
+      });
+      expect(response.status).toBe(200);
+      const data: RuntimeInfo = await response.json();
+      return data.generativeUI;
+    };
+
+    it("reports generative UI on for every agent when generativeUI is true", async () => {
+      expect(
+        await getGenerativeUI(
+          new CopilotRuntime({ agents: {}, generativeUI: true }),
+        ),
+      ).toEqual({ enabled: true });
     });
 
-    const response = await handleGetRuntimeInfo({
-      runtime,
-      request: mockRequest,
+    it("reports the agents that generativeUI is limited to", async () => {
+      expect(
+        await getGenerativeUI(
+          new CopilotRuntime({
+            agents: {},
+            generativeUI: { agents: ["agentic_chat"] },
+          }),
+        ),
+      ).toEqual({ enabled: true, agents: ["agentic_chat"] });
     });
 
-    expect(response.status).toBe(200);
-
-    const data = await response.json();
-    expect(data.a2uiEnabled).toBe(true);
-    expect(data.a2ui).toEqual({
-      enabled: true,
-      agents: ["agentic_chat", "tool_based_generative_ui"],
-    });
-  });
-
-  it("should omit the a2ui info object when a2ui is not configured", async () => {
-    const runtime = new CopilotRuntime({
-      agents: {},
+    it("reports generative UI on when every agent speaks A2UI v0.9", async () => {
+      expect(
+        await getGenerativeUI(
+          new CopilotRuntime({
+            agents: {},
+            generativeUI: { a2uiVersion: "0.9", agents: ["legacy"] },
+          }),
+        ),
+      ).toEqual({ enabled: true, agents: ["legacy"] });
     });
 
-    const response = await handleGetRuntimeInfo({
-      runtime,
-      request: mockRequest,
+    it("reports generative UI off when generativeUI is false", async () => {
+      expect(
+        await getGenerativeUI(
+          new CopilotRuntime({ agents: {}, generativeUI: false }),
+        ),
+      ).toEqual({ enabled: false });
     });
 
-    expect(response.status).toBe(200);
-
-    const data = await response.json();
-    expect(data.a2uiEnabled).toBe(false);
-    expect(data.a2ui).toBeUndefined();
-  });
-
-  it("should return a2uiEnabled: false when a2ui is explicitly disabled", async () => {
-    const runtime = new CopilotRuntime({
-      agents: {},
-      a2ui: { enabled: false },
+    it("reports generative UI off when the runtime does not serve web clients", async () => {
+      expect(
+        await getGenerativeUI(
+          createIntelligenceRuntimeLike({
+            identifyUser: undefined,
+            generativeUI: { agents: ["agentic_chat"] },
+          }),
+        ),
+      ).toEqual({ enabled: false });
     });
-
-    const response = await handleGetRuntimeInfo({
-      runtime,
-      request: mockRequest,
-    });
-
-    expect(response.status).toBe(200);
-
-    const data = await response.json();
-    expect(data.a2uiEnabled).toBe(false);
   });
 
   it("should include capabilities when agent implements getCapabilities", async () => {

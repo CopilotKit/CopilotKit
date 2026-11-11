@@ -105,38 +105,93 @@ export interface OpenGenerativeUIOptions extends BaseCopilotRuntimeMiddlewareOpt
 
 export type OpenGenerativeUIConfig = boolean | OpenGenerativeUIOptions;
 
-interface CopilotRuntimeMiddlewares {
+/** An A2UI protocol version that an agent speaks. */
+export type A2UIVersion = "0.9" | "1.0";
+
+/**
+ * Options of {@link CopilotRuntimeMiddlewares.generativeUI}.
+ *
+ * The client renders A2UI 1.0 only. An agent that speaks A2UI v0.9 is set
+ * to `"0.9"` with `a2uiVersion`: the runtime then gives it the v0.9 tool and
+ * catalog, and converts its surfaces to 1.0 for the client and the clicks
+ * on them back to v0.9 for the agent.
+ *
+ * @example
+ * ```ts
+ * new CopilotRuntime({
+ *   agents: { legacy: legacyAgent, current: currentAgent },
+ *   generativeUI: { a2uiVersion: { legacy: "0.9" } },
+ * });
+ * ```
+ */
+export interface GenerativeUIOptions extends BaseCopilotRuntimeMiddlewareOptions {
   /**
-   * Auto-apply A2UIMiddleware to agents at run time.
-   * Pass an object to enable and customise behaviour, or omit to disable.
+   * The A2UI version that the agents speak. Default: `"1.0"`.
+   *
+   * - `"1.0"`: the agent gets the `render_ui` tool and the generative UI
+   *   guide.
+   * - `"0.9"`: the agent gets the `render_a2ui` tool of
+   *   `@ag-ui/a2ui-middleware`, its guide, and the v0.9 component schema of
+   *   the client's catalog. It does not get `render_ui`.
+   * - A record of agent id to version: one version for each agent. An agent
+   *   that is not in the record speaks `"1.0"`.
+   *
+   * For both versions, the runtime converts the v0.9 surfaces that a run
+   * emits (for example, from a tool result) to 1.0, and turns a click on a
+   * converted surface back into a v0.9 action.
    */
-  a2ui?: BaseCopilotRuntimeMiddlewareOptions &
-    A2UIMiddlewareConfig & {
-      /**
-       * Explicit on/off switch. Omit (or set `true`) to enable; set `false`
-       * to disable A2UI for this runtime while keeping the rest of the config
-       * (e.g. a `schema`/`catalog`) in place. A bare `a2ui: {}` stays enabled
-       * for backwards compatibility.
-       */
-      enabled?: boolean;
-    };
+  a2uiVersion?: A2UIVersion | Record<string, A2UIVersion>;
+  /**
+   * v0.9 agents only. The component schema for `A2UIMiddleware` to add to
+   * the agent's context. It replaces the schema that the runtime makes from
+   * the client's catalog.
+   */
+  schema?: A2UIMiddlewareConfig["schema"];
+  /**
+   * v0.9 agents only. The generation lifecycle options of `A2UIMiddleware`:
+   * `debugExposure`, `showProgressTokens` and `maxAttempts`.
+   */
+  recovery?: A2UIMiddlewareConfig["recovery"];
+  /**
+   * v0.9 agents only. Adds the A2UI render tool to the agent's tools: `true`
+   * adds `render_a2ui`, a string adds it with that name, and `false` adds no
+   * tool. Default: `true` when the client sends a generative UI catalog
+   * with the "tool" transport.
+   */
+  injectA2UITool?: A2UIMiddlewareConfig["injectA2UITool"];
+  /**
+   * v0.9 agents only. The tool names that `A2UIMiddleware` streams into
+   * surfaces. Default: `["render_a2ui"]`.
+   */
+  a2uiToolNames?: A2UIMiddlewareConfig["a2uiToolNames"];
+  /**
+   * v0.9 agents only. The catalog id of the surfaces that `A2UIMiddleware`
+   * creates from a streamed render tool call. Default: the catalog id of the
+   * component schema in the agent's context.
+   */
+  defaultCatalogId?: A2UIMiddlewareConfig["defaultCatalogId"];
+}
+
+interface CopilotRuntimeMiddlewares {
   /** Auto-apply MCPAppsMiddleware to agents at run time. */
   mcpApps?: McpAppsConfig;
   /** Auto-apply OpenGenerativeUIMiddleware to agents at run time. */
   openGenerativeUI?: OpenGenerativeUIConfig;
   /**
-   * Experimental: CopilotKit generative UI surfaces (`render_ui`).
+   * CopilotKit generative UI surfaces (A2UI 1.0).
    *
    * - Omitted: applied to a run when the React provider sends a
    *   tool-transport envelope (`forwardedProps.copilotkit.ui`).
    * - `true`: applied to every run.
-   * - `{ agents }`: applied to every run of the named agents.
+   * - An object: applied to every run of `agents` (all agents when
+   *   omitted). See {@link GenerativeUIOptions}, which also sets the A2UI
+   *   version of each agent with `a2uiVersion`.
    * - `false`: never applied.
    *
    * A run with a markdown-transport envelope never gets it: the model writes
    * the UI in a2ui code fences, and the client renders them.
    */
-  generativeUI?: boolean | BaseCopilotRuntimeMiddlewareOptions;
+  generativeUI?: boolean | GenerativeUIOptions;
 }
 
 /**
@@ -411,7 +466,6 @@ export interface CopilotRuntimeLike {
   beforeRequestMiddleware: CopilotRuntimeOptions["beforeRequestMiddleware"];
   afterRequestMiddleware: CopilotRuntimeOptions["afterRequestMiddleware"];
   runner: AgentRunner;
-  a2ui: CopilotRuntimeOptions["a2ui"];
   mcpApps: CopilotRuntimeOptions["mcpApps"];
   openGenerativeUI: CopilotRuntimeOptions["openGenerativeUI"];
   generativeUI?: CopilotRuntimeOptions["generativeUI"];
@@ -495,7 +549,6 @@ abstract class BaseCopilotRuntime implements CopilotRuntimeLike {
   public beforeRequestMiddleware: CopilotRuntimeOptions["beforeRequestMiddleware"];
   public afterRequestMiddleware: CopilotRuntimeOptions["afterRequestMiddleware"];
   public runner: AgentRunner;
-  public a2ui: CopilotRuntimeOptions["a2ui"];
   public mcpApps: CopilotRuntimeOptions["mcpApps"];
   public openGenerativeUI: CopilotRuntimeOptions["openGenerativeUI"];
   public generativeUI: CopilotRuntimeOptions["generativeUI"];
@@ -535,7 +588,6 @@ abstract class BaseCopilotRuntime implements CopilotRuntimeLike {
       transcriptionService,
       beforeRequestMiddleware,
       afterRequestMiddleware,
-      a2ui,
       mcpApps,
       openGenerativeUI,
       generativeUI,
@@ -545,7 +597,6 @@ abstract class BaseCopilotRuntime implements CopilotRuntimeLike {
     this.transcriptionService = transcriptionService;
     this.beforeRequestMiddleware = beforeRequestMiddleware;
     this.afterRequestMiddleware = afterRequestMiddleware;
-    this.a2ui = a2ui || undefined;
     this.mcpApps = mcpApps;
     this.openGenerativeUI = openGenerativeUI;
     this.generativeUI = generativeUI;
@@ -844,22 +895,6 @@ export function isIntelligenceRuntime(
 }
 
 /**
- * Single source of truth for "is A2UI on for this runtime?". Both the run path
- * (which applies `A2UIMiddleware`) and the `/info` response (which tells the
- * client whether to mount the A2UI renderer + catalog context) MUST go through
- * this, so they can never disagree — the divergence between them was the root
- * of CopilotKit/CopilotKit#5369.
- *
- * Backwards compatible: any config object is enabled (matching the historical
- * `!!runtime.a2ui`); only an explicit `enabled: false` turns it off.
- */
-export function isA2UIEnabled(
-  a2ui: CopilotRuntimeOptions["a2ui"],
-): a2ui is NonNullable<CopilotRuntimeOptions["a2ui"]> {
-  return !!a2ui && a2ui.enabled !== false;
-}
-
-/**
  * Compile-time phantom brand marking a {@link CopilotRuntime} that was
  * constructed with at least one declared Intelligence Channel. It has no runtime
  * representation — the shim never sets this property; it exists purely so
@@ -969,10 +1004,6 @@ class CopilotRuntimeShim implements CopilotRuntime {
 
   get runner(): AgentRunner {
     return this.delegate.runner;
-  }
-
-  get a2ui(): CopilotRuntimeOptions["a2ui"] {
-    return this.delegate.a2ui;
   }
 
   get mcpApps(): CopilotRuntimeOptions["mcpApps"] {
