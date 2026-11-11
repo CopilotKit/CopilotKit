@@ -141,8 +141,7 @@
     "valibot": "^1.2.0",
     "vitest": "^3.2.4",
     "@playwright/test": "^1.59.1",
-    "rxjs": "7.8.1",
-    "zod-v3": "npm:zod@^3.25.76"
+    "rxjs": "7.8.1"
   },
   "peerDependencies": {
     "maplibre-gl": "^5.0.0",

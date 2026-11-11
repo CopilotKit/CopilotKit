@@ -12,7 +12,6 @@ export * from "./features";
 export * from "./interrupt-state";
 export * from "./inspector-thread-bridge";
 export * from "./a2ui-markdown";
-export * from "./a2ui";
 export * from "./chat";
 export * from "./open-generative-ui";
 export { ɵThreadsController, ɵprojectThread } from "./threads-controller";

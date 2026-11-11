@@ -71,7 +71,6 @@ examples/dev/by-frontend/react-router/vite.config.ts
 examples/dev/by-frontend/react/demo/next.config.ts
 examples/dev/by-frontend/vue/vite-inspector/src/vite-env.d.ts
 examples/dev/by-frontend/vue/vite-inspector/vite.config.ts
-packages/a2ui-renderer/tsdown.config.ts
 packages/agentcore-runner/tsdown.config.ts
 packages/core/tsdown.config.ts
 packages/intelligence-delivery-core/tsdown.config.ts

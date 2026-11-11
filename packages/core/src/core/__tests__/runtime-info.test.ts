@@ -6,8 +6,6 @@ import { CopilotKitCore, CopilotKitCoreRuntimeConnectionStatus } from "../core";
 function createInfo(overrides: Partial<ɵRuntimeInfo> = {}): ɵRuntimeInfo {
   return {
     status: CopilotKitCoreRuntimeConnectionStatus.Disconnected,
-    a2uiEnabled: false,
-    a2uiAgents: undefined,
     openGenerativeUIEnabled: false,
     generativeUIEnabled: false,
     generativeUIAgents: undefined,
@@ -45,7 +43,7 @@ describe("ɵRuntimeInfoStore", () => {
     store.subscribe(listener);
     store.refresh();
     expect(listener).toHaveBeenCalledTimes(0);
-    info = createInfo({ a2uiEnabled: true });
+    info = createInfo({ openGenerativeUIEnabled: true });
     store.refresh();
     store.refresh();
     expect(listener).toHaveBeenCalledTimes(1);
@@ -95,7 +93,7 @@ describe("ɵRuntimeInfoStore", () => {
     store.subscribe(unsubscribed)();
     store.subscribe(disposed);
     store.dispose();
-    info = createInfo({ a2uiEnabled: true });
+    info = createInfo({ openGenerativeUIEnabled: true });
     store.refresh();
     expect(unsubscribed).not.toHaveBeenCalled();
     expect(disposed).not.toHaveBeenCalled();
@@ -113,7 +111,6 @@ describe("CopilotKitCore.ɵruntimeInfo", () => {
         JSON.stringify({
           version: "1.0.0",
           agents: {},
-          a2uiEnabled: true,
           openGenerativeUIEnabled: true,
           licenseStatus: "valid",
           audioFileTranscriptionEnabled: true,
@@ -153,7 +150,6 @@ describe("CopilotKitCore.ɵruntimeInfo", () => {
       ),
     );
     expect(core.ɵruntimeInfo).toMatchObject({
-      a2uiEnabled: true,
       openGenerativeUIEnabled: true,
       licenseStatus: "valid",
       audioFileTranscriptionEnabled: true,

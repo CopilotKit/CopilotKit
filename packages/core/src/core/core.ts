@@ -631,8 +631,6 @@ export class CopilotKitCore {
 
     this.runtimeInfoStore = new ɵRuntimeInfoStore(() => ({
       status: this.runtimeConnectionStatus,
-      a2uiEnabled: this.a2uiEnabled,
-      a2uiAgents: this.a2uiAgents,
       generativeUIEnabled: this.generativeUIEnabled,
       generativeUIAgents: this.generativeUIAgents,
       openGenerativeUIEnabled: this.openGenerativeUIEnabled,
@@ -1053,18 +1051,6 @@ export class CopilotKitCore {
   /** Refresh trusted inspector metadata without reconnecting runtime agents. */
   async refreshInspectorMetadata(): Promise<void> {
     await this.agentRegistry.refreshInspectorMetadata();
-  }
-
-  get a2uiEnabled(): boolean {
-    return this.agentRegistry.a2uiEnabled;
-  }
-
-  /**
-   * Agent ids the runtime applies A2UI to. `undefined` means A2UI applies to
-   * every agent (or is disabled — check `a2uiEnabled`).
-   */
-  get a2uiAgents(): string[] | undefined {
-    return this.agentRegistry.a2uiAgents;
   }
 
   /** Whether the runtime turns generative UI (A2UI 1.0) on. */

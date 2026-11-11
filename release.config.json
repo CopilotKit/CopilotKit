@@ -3,7 +3,6 @@
   "scopes": {
     "monorepo": {
       "packages": [
-        "@copilotkit/a2ui-renderer",
         "@copilotkit/agentcore-runner",
         "@copilotkit/core",
         "@copilotkit/learning",

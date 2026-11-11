@@ -272,7 +272,6 @@ test("every skip-list entry skips the matrix", () => {
     "tools/compatibility-monitor/x.mjs",
     "tools/intelligence-smoke/run.mjs",
     "tools/learned-skill-conformance/x.mjs",
-    "packages/a2ui-renderer/src/x.ts",
     "packages/agentcore-runner/src/x.ts",
     "packages/angular/src/x.ts",
     "packages/intelligence-adk-python/x.py",

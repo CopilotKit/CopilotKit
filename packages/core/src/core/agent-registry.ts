@@ -184,8 +184,6 @@ export class AgentRegistry {
   private inspectorMetadataCredentialsGeneration: number = 0;
   private inspectorMetadataAbortController?: AbortController;
   private inspectorMetadataNotificationQueue: Promise<void> = Promise.resolve();
-  private _a2uiEnabled: boolean = false;
-  private _a2uiAgents?: string[];
   private _generativeUIEnabled: boolean = false;
   private _generativeUIAgents?: string[];
   private _openGenerativeUIEnabled: boolean = false;
@@ -274,18 +272,6 @@ export class AgentRegistry {
 
   get inspectorMetadata(): InspectorMetadataV1 | undefined {
     return this._inspectorMetadata;
-  }
-
-  get a2uiEnabled(): boolean {
-    return this._a2uiEnabled;
-  }
-
-  /**
-   * Agent ids the runtime applies A2UI to (#5369). `undefined` means A2UI
-   * applies to every agent — or is disabled entirely; check `a2uiEnabled`.
-   */
-  get a2uiAgents(): string[] | undefined {
-    return this._a2uiAgents;
   }
 
   /** Whether the runtime turns generative UI (A2UI 1.0) on. */
@@ -1509,8 +1495,6 @@ export class AgentRegistry {
       this._singleRouteResourceOperations = false;
       this._suggestions = undefined;
       this._inspectorLearning = false;
-      this._a2uiEnabled = false;
-      this._a2uiAgents = undefined;
       this._generativeUIEnabled = false;
       this._generativeUIAgents = undefined;
       this._openGenerativeUIEnabled = false;
@@ -1659,10 +1643,6 @@ export class AgentRegistry {
       if (!this._inspectorMetadataSupported) {
         this.setInspectorMetadata(undefined);
       }
-      const a2uiInfo = runtimeInfoResponse.a2ui;
-      this._a2uiEnabled =
-        a2uiInfo?.enabled ?? runtimeInfoResponse.a2uiEnabled ?? false;
-      this._a2uiAgents = a2uiInfo?.enabled ? a2uiInfo.agents : undefined;
       const generativeUIInfo = runtimeInfoResponse.generativeUI;
       this._generativeUIEnabled = generativeUIInfo?.enabled ?? false;
       this._generativeUIAgents = generativeUIInfo?.enabled
@@ -1738,8 +1718,6 @@ export class AgentRegistry {
         this._singleRouteResourceOperations = false;
         this._suggestions = undefined;
         this._inspectorLearning = false;
-        this._a2uiEnabled = false;
-        this._a2uiAgents = undefined;
         this._generativeUIEnabled = false;
         this._generativeUIAgents = undefined;
         this._openGenerativeUIEnabled = false;

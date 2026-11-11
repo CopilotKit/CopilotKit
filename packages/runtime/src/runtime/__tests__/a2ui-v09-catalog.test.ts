@@ -36,9 +36,8 @@ class ScriptedAgent extends AbstractAgent {
   }
 }
 
-// The description strings the v0.9 client sent, copied from
-// packages/a2ui-renderer/src/catalog-context.ts:19-24 and
-// packages/a2ui-renderer/src/catalog-description.ts:23-24.
+// The description strings the removed v0.9 client (`@copilotkit/a2ui-renderer`)
+// sent, copied from its catalog-context.ts and catalog-description.ts.
 const CAPABILITIES =
   "A2UI catalog capabilities: available catalog IDs and custom component definitions the client can render.";
 const SCHEMA =

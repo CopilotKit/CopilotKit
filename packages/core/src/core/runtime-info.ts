@@ -14,9 +14,6 @@ import type { CopilotKitCoreRuntimeConnectionStatus } from "./core";
  */
 export interface ɵRuntimeInfo {
   readonly status: CopilotKitCoreRuntimeConnectionStatus;
-  readonly a2uiEnabled: boolean;
-  /** `undefined` means A2UI applies to every agent (or is off). */
-  readonly a2uiAgents: string[] | undefined;
   readonly openGenerativeUIEnabled: boolean;
   /** The runtime reports generative UI (`render_ui`) as on. */
   readonly generativeUIEnabled: boolean;
@@ -32,8 +29,6 @@ export interface ɵRuntimeInfo {
 
 const RUNTIME_INFO_KEYS = [
   "status",
-  "a2uiEnabled",
-  "a2uiAgents",
   "openGenerativeUIEnabled",
   "generativeUIEnabled",
   "generativeUIAgents",

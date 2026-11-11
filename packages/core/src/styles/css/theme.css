@@ -72,7 +72,7 @@
   --sidebar-border: oklch(0.269 0 0);
   --sidebar-ring: oklch(0.439 0 0);
 
-  /* A2UI basic catalog from @copilotkit/a2ui-renderer; light values are its fallbacks. */
+  /* Generative UI standard catalog colors; light values are its fallbacks. */
   --a2ui-color-surface: var(--card);
   /* rgb(64, 64, 64), the Angular stylesheet's dark A2UI border; --border is too faint on --card. */
   --a2ui-color-border: oklch(0.371 0 0);

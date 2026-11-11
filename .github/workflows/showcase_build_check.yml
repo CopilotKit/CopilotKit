@@ -13,7 +13,6 @@ on:
     paths:
       - "showcase/**"
       - "examples/starters/**"
-      - "packages/a2ui-renderer/**"
       - "packages/angular/**"
       - "packages/core/**"
       - "packages/shared/**"
@@ -84,7 +83,6 @@ jobs:
               - 'examples/starters/ms-agent-framework-dotnet/**'
             angular:
               - 'showcase/angular/**'
-              - 'packages/a2ui-renderer/**'
               - 'packages/angular/**'
               - 'packages/core/**'
               - 'packages/shared/**'

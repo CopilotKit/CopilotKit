@@ -105,15 +105,6 @@ export interface GenerativeUIRuntimeInfo {
   agents?: string[];
 }
 
-export interface A2UIRuntimeInfo {
-  enabled: boolean;
-  /**
-   * Agent ids the runtime applies A2UI to. When omitted, A2UI applies to
-   * every agent served by the runtime.
-   */
-  agents?: string[];
-}
-
 /** Intelligence resource support available through a single runtime route. */
 export interface SingleRouteRuntimeInfo {
   /** Whether the runtime accepts resource requests through the single route. */
@@ -141,16 +132,6 @@ export interface RuntimeInfo {
    * client-side agent run.
    */
   suggestions?: boolean;
-  /**
-   * @deprecated The runtime no longer sends it. Use `generativeUI`: the
-   * runtime converts A2UI v0.9 surfaces to A2UI 1.0.
-   */
-  a2uiEnabled?: boolean;
-  /**
-   * @deprecated The runtime no longer sends it. Use `generativeUI`: the
-   * runtime converts A2UI v0.9 surfaces to A2UI 1.0.
-   */
-  a2ui?: A2UIRuntimeInfo;
   generativeUI?: GenerativeUIRuntimeInfo;
   openGenerativeUIEnabled?: boolean;
   /** Structured Runtime-level entitlement authority, when advertised. */

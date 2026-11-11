@@ -7,7 +7,6 @@ import {
   ɵSTABLE_ARRAY_WARNINGS,
   ɵassembleActivityRenderers,
   ɵassembleProviderRegistry,
-  ɵresolveA2UIActivation,
   ɵstableArrayPropWarning,
 } from "../provider-config";
 
@@ -149,46 +148,14 @@ describe("ɵassembleProviderRegistry", () => {
   });
 });
 
-describe("ɵresolveA2UIActivation", () => {
-  it("turns A2UI on from the runtime or from a catalog", () => {
-    expect(
-      ɵresolveA2UIActivation({ runtimeEnabled: true, hasCatalog: false }),
-    ).toEqual({ active: true, missingCatalog: false });
-    expect(
-      ɵresolveA2UIActivation({ runtimeEnabled: false, hasCatalog: true }),
-    ).toEqual({ active: true, missingCatalog: false });
-    expect(
-      ɵresolveA2UIActivation({ runtimeEnabled: false, hasCatalog: false }),
-    ).toEqual({ active: false, missingCatalog: false });
-  });
-
-  it("keeps A2UI off without a catalog when one is required, and reports it", () => {
-    expect(
-      ɵresolveA2UIActivation({
-        runtimeEnabled: true,
-        hasCatalog: false,
-        requireCatalog: true,
-      }),
-    ).toEqual({ active: false, missingCatalog: true });
-    expect(
-      ɵresolveA2UIActivation({
-        runtimeEnabled: false,
-        hasCatalog: false,
-        requireCatalog: true,
-      }),
-    ).toEqual({ active: false, missingCatalog: false });
-  });
-});
-
 describe("ɵassembleActivityRenderers", () => {
-  it("puts app renderers first, then A2UI, then the other built-ins, without empty entries", () => {
+  it("puts app renderers first, then the built-ins, without empty entries", () => {
     expect(
       ɵassembleActivityRenderers({
         app: ["app"],
-        a2ui: "a2ui",
         builtIns: ["mcp", false, undefined, "ogui"],
       }),
-    ).toEqual(["app", "a2ui", "mcp", "ogui"]);
+    ).toEqual(["app", "mcp", "ogui"]);
   });
 });
 

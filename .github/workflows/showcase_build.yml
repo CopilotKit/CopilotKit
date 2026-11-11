@@ -36,7 +36,6 @@ on:
     paths:
       - "showcase/**"
       - "examples/starters/**"
-      - "packages/a2ui-renderer/**"
       - "packages/angular/**"
       - "packages/core/**"
       - "packages/shared/**"
@@ -147,7 +146,6 @@ jobs:
               - '.github/workflows/showcase_build_check.yml'
             angular:
               - 'showcase/angular/**'
-              - 'packages/a2ui-renderer/**'
               - 'packages/angular/**'
               - 'packages/core/**'
               - 'packages/shared/**'

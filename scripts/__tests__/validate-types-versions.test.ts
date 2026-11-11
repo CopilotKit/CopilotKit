@@ -17,7 +17,6 @@ const PACKAGES = [
   "react-core",
   "react-native",
   "markdown",
-  "a2ui-renderer",
   "mcp-apps-renderer",
   "web-components",
   "web-inspector",

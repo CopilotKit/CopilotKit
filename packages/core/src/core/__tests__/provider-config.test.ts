@@ -97,24 +97,11 @@ describe("ɵresolveProviderConfig", () => {
     expect(resolved.agents.b).toBe(managedB);
   });
 
-  it("adds a2uiCatalogAvailable when a catalog is set", () => {
-    const resolved = ɵresolveProviderConfig({
-      runtimeUrl: "/r",
-      properties: { tenant: "acme" },
-      a2uiCatalog: { id: "catalog" },
-    });
-    expect(resolved.properties).toEqual({
-      tenant: "acme",
-      a2uiCatalogAvailable: true,
-    });
-  });
-
-  it("returns the same properties object without a catalog", () => {
+  it("returns the same properties object", () => {
     const properties = { tenant: "acme" };
     const resolved = ɵresolveProviderConfig({
       runtimeUrl: "/r",
       properties,
-      a2uiCatalog: null,
     });
     expect(resolved.properties).toBe(properties);
   });
