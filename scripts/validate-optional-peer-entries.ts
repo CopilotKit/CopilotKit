@@ -19,8 +19,7 @@ import ts from "typescript";
 //
 // An entry may reach a peer that it is dedicated to: `./v2/express` is allowed
 // to need `express`, because importing it IS asking for Express. Likewise
-// `./agent` may need `@tanstack/ai` and `./agent/ai-sdk` may need `ai`, through
-// the aliases in ENTRY_SEGMENT_ALIASES.
+// `./agent/ai-sdk` may need `ai`, through the alias in ENTRY_SEGMENT_ALIASES.
 //
 // Counterpart to validate-dts-imports.ts: that one checks what the published
 // TYPES reach for, this one checks what the published CODE reaches for -- in
@@ -233,17 +232,13 @@ export function walkEagerGraph(
  * Entry-path segments that name a peer by something other than its package
  * name's last segment, keyed by the full package name.
  *
- * - `ai` is the AI SDK, and its entry is `./agent/ai-sdk`. Its leaf, "ai", is
- *   too generic to stretch into a pattern such as `<leaf>-sdk`.
- * - `@tanstack/ai` runs the classic `BuiltInAgent`, and its entry is
- *   `./agent`, which imports it at module scope.
- *
- * Both packages have the leaf "ai". Keying by the full name keeps each alias to
- * the one package it was written for.
+ * `ai` is the AI SDK, and its entry is `./agent/ai-sdk`. Its leaf, "ai", is
+ * too generic to stretch into a pattern such as `<leaf>-sdk`. Keying by the
+ * full name keeps the alias off other packages with the leaf "ai", such as
+ * `@tanstack/ai`.
  */
 const ENTRY_SEGMENT_ALIASES: Partial<Record<string, string>> = {
   ai: "ai-sdk",
-  "@tanstack/ai": "agent",
 };
 
 /**
@@ -252,8 +247,7 @@ const ENTRY_SEGMENT_ALIASES: Partial<Record<string, string>> = {
  * `./v2/express` is dedicated to `express`; `./v2` is not. Matching on the
  * entry's last path segment keeps this derived from the exports map rather
  * than configured. The segment is the peer's last name segment, or its entry
- * in ENTRY_SEGMENT_ALIASES. Only the last segment counts, so `./agent/ai-sdk`
- * is not dedicated to the peer of its parent `./agent`.
+ * in ENTRY_SEGMENT_ALIASES. Only the last segment counts.
  */
 export function isDedicatedEntry(entry: string, peer: string): boolean {
   const name = packageNameOf(peer);

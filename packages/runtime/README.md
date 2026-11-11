@@ -185,10 +185,10 @@ events and supports both single-event and batched gateway acknowledgments.
 
 ## BuiltInAgent skill delivery from multiple containers
 
-`BuiltInAgent` takes a TanStack AI adapter as `model`. Install TanStack AI and the adapter for your provider:
+`BuiltInAgent` takes a TanStack AI adapter as `model`. The runtime installs TanStack AI (`@tanstack/ai`). Install the adapter for your provider:
 
 ```bash
-npm install @tanstack/ai @tanstack/ai-openai
+npm install @tanstack/ai-openai
 ```
 
 ```typescript

@@ -349,12 +349,13 @@ const status = (await runtime.getLicenseChecker())?.getStatus();
 
 Each adapter reads its key from the environment, so you do not pass it. If TypeScript rejects a model name, the adapter package does not list that model.
 
-Install the packages the app needs. The runtime does not install them:
+Install the packages the app needs. The runtime installs `@tanstack/ai`, but not the adapters:
 
-1. Add `@tanstack/ai` and the package from the table for each adapter the code imports.
-2. If a `BuiltInAgent` used `mcpServers`, add `@tanstack/ai-mcp`.
-3. If the code imports from `@copilotkit/runtime/agent/ai-sdk`, keep or add `ai`.
-4. Remove `@ai-sdk/*` packages that the code no longer imports.
+1. Add the package from the table for each adapter the code imports.
+2. Add `@tanstack/ai` only if the code imports from it, such as the `AnyTextAdapter` type below. Use a version in the runtime's range (`^1.2.0`).
+3. If a `BuiltInAgent` used `mcpServers`, add `@tanstack/ai-mcp`.
+4. If the code imports from `@copilotkit/runtime/agent/ai-sdk`, keep or add `ai`.
+5. Remove `@ai-sdk/*` packages that the code no longer imports.
 
 The codemod moved `maxRetries` into the `retry` option: `maxRetries: 3` became `retry: { maxRetries: 3 }`.
 

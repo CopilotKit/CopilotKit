@@ -121,12 +121,6 @@ export const RUNTIME = "@copilotkit/runtime";
 export const CHANNELS_INTELLIGENCE = "@copilotkit/channels-intelligence";
 
 /**
- * The optional peer that the `/agent` entry imports at module scope. A
- * consumer that imports `/agent` installs it.
- */
-export const BUILT_IN_AGENT_PEERS = ["@tanstack/ai"] as const;
-
-/**
  * The TanStack AI adapter that the Built-in Agent consumer passes as `model`.
  * It is not a peer of the runtime: the app installs the adapter it picks. The
  * consumer takes the range the runtime tests against, from `devDependencies`.

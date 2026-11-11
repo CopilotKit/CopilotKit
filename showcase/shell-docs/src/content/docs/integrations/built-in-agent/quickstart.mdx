@@ -58,12 +58,13 @@ Before you begin, you'll need the following:
         ### Install CopilotKit packages
 
         ```npm
-        npm install @copilotkit/react-core @copilotkit/runtime @tanstack/ai @tanstack/ai-openai
+        npm install @copilotkit/react-core @copilotkit/runtime @tanstack/ai-openai
         ```
 
         The components used below (`CopilotKitProvider`, `CopilotSidebar`) come
         from `@copilotkit/react-core`. The Built-in Agent runs the model with
-        `@tanstack/ai`, and `@tanstack/ai-openai` connects it to OpenAI. For
+        `@tanstack/ai`, which the runtime installs, and `@tanstack/ai-openai`
+        connects it to OpenAI. For
         another provider, install its adapter instead. See
         [Model Selection](/model-selection#install-the-packages).
 
