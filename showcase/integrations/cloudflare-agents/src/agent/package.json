@@ -12,7 +12,7 @@
   "dependencies": {
     "@ag-ui/a2ui-toolkit": "0.0.5",
     "@ag-ui/client": "1.0.4",
-    "@ag-ui/cloudflare-agents": "https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/cloudflare-agents@07ce607",
+    "@ag-ui/cloudflare-agents": "https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/cloudflare-agents@07fb0e8",
     "@ag-ui/core": "1.0.4",
     "@ai-sdk/openai": "4.0.114",
     "@modelcontextprotocol/client": "2.4.0",
