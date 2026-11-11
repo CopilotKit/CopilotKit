@@ -57,12 +57,13 @@ const DROPPED_REPORT_PATH = path.join(
 );
 
 // Coverage floor for the docs portion of the shell-docs index. Measured at
-// 266 entries after the per-framework copies of the shared pages were folded
-// into them (each topic is one page now, so it's one row); the floor sits
-// ~15% under that so ordinary content churn (a section retired, a folder
-// merged) passes while a broken navigation walk — which collapses the
-// union to near zero — fails the build instead of shipping an empty search.
-const MIN_DOCS_ENTRIES = 225;
+// 256 entries once the frontend-neutral pages moved into `docs/(shared)`
+// and every frontend's pages were placed by where they live (255 in the
+// build test's tree, which stages no snippets); the floor sits ~15% under
+// that so ordinary content churn (a section retired, a folder merged)
+// passes while a broken navigation walk — which collapses the union to
+// near zero — fails the build instead of shipping an empty search.
+const MIN_DOCS_ENTRIES = 218;
 
 interface SearchEntry {
   type: "page" | "reference";
