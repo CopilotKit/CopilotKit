@@ -1,6 +1,6 @@
 # CopilotKit Examples
 
-This directory contains 67 consolidated demo repositories showcasing CopilotKit integrations, canvas apps, and showcases.
+This directory contains 68 consolidated demo repositories showcasing CopilotKit integrations, canvas apps, and showcases.
 
 Each example is a self-contained project. To get started:
 
