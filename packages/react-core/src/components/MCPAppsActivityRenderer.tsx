@@ -14,7 +14,7 @@ import { useCopilotKit } from "../providers/CopilotKitProvider";
 // is re-exported from the package's bridge-free `/activity` entry, so importing
 // it (for the activity registry) does NOT pull the ext-apps bundle. The bridge
 // itself is loaded lazily via a dynamic `import("@copilotkit/mcp-apps-renderer")`
-// inside the effect, so a `<CopilotKit>` app only pays for it when it actually
+// inside the effect, so a `<CopilotKitProvider>` app only pays for it when it actually
 // renders an MCP App.
 export {
   MCPAppsActivityType,

@@ -79,7 +79,9 @@ const ADAPTER_NOTE =
 
 /**
  * The 2.0 provider is `CopilotKitProvider`. `CopilotKit` was the v1 provider,
- * also re-exported from `/v2`, and it does not exist in 2.0.
+ * also re-exported from `/v2`. 2.0 keeps `CopilotKit` as an alias of
+ * `CopilotKitProvider`, but the codemod still moves code to the preferred name,
+ * and the v1 props of `<CopilotKit>` (`agent`, `threadId`, ...) still need it.
  */
 const PROVIDER_RENAMES: Record<string, string> = {
   CopilotKit: "CopilotKitProvider",
@@ -535,6 +537,21 @@ const codemod: Codemod<Lang> = async (root, options) => {
     );
   });
 
+  // Names the file already imports, unaliased, from a CopilotKit package. A
+  // renamed import whose 2.0 name is one of them is dropped rather than
+  // renamed: `import { CopilotKit }` next to `import { CopilotKitProvider }`
+  // would otherwise import `CopilotKitProvider` twice.
+  const importedNames = new Set<string>();
+  for (const statement of statements) {
+    const sourceNode = statement.field("source");
+    if (statement.kind() !== "import_statement" || !sourceNode) continue;
+    if (!unquote(sourceNode).startsWith("@copilotkit/")) continue;
+    for (const specifier of specifiersOf(statement) ?? []) {
+      if (localName(specifier) === specifier.name)
+        importedNames.add(specifier.name);
+    }
+  }
+
   for (const statement of statements) {
     const sourceNode = statement.field("source");
     if (!sourceNode) continue;
@@ -620,6 +637,13 @@ const codemod: Codemod<Lang> = async (root, options) => {
     for (const specifier of specifiers) {
       const renamed = rename(specifier);
       if (renamed) renamedAny = true;
+      if (
+        renamed &&
+        statement.kind() === "import_statement" &&
+        localName(specifier) === specifier.name &&
+        importedNames.has(renamed.name)
+      )
+        continue;
       const name = renamed?.name ?? specifier.name;
       const entry = entryOf(name);
       const v1Shape = own(own(V1_SHAPES, from), name);
@@ -637,6 +661,11 @@ const codemod: Codemod<Lang> = async (root, options) => {
         ...(groups.get(target) ?? []),
         renamed?.text ?? specifier.text,
       ]);
+    }
+    if (groups.size === 0) {
+      // Every specifier was a duplicate of another import.
+      edits.push(deleteLine(statement, source));
+      continue;
     }
     const keepsShape = groups.size === 1 && groups.has(home) && !renamedAny;
     replaceStatement(

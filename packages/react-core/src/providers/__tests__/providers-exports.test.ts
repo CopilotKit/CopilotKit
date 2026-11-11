@@ -30,6 +30,8 @@ describe("@copilotkit/react-core provider entry exports", () => {
   it("exports the providers themselves", () => {
     const values: (keyof typeof providers)[] = [
       "CopilotKitProvider",
+      // v1's name, kept as an alias of CopilotKitProvider.
+      "CopilotKit",
       "CopilotChatConfigurationProvider",
       "SandboxFunctionsContext",
     ];

@@ -34,6 +34,11 @@ Replace the v1 hooks with their 2.0 equivalents, and replace the `<CopilotKit>`
 provider with `<CopilotKitProvider>`. The provider's `agent` prop is `agentId`
 in 2.0.
 
+`CopilotKit` and `CopilotKitProps` still work in 2.0. They are aliases of
+`CopilotKitProvider` and `CopilotKitProviderProps`, so an existing import does
+not break. Use `CopilotKitProvider` in new code. The alias takes the 2.0 props,
+so you must still rename `agent` to `agentId`.
+
 #### Before
 
 {/* kiira: ignore, shows the v1 code this guide migrates away from */}

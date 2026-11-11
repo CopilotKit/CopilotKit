@@ -6,7 +6,7 @@ import {
 } from "@copilotkit/runtime";
 import { BuiltInAgent as Agent, BuiltInAgent as Legacy } from "@copilotkit/runtime/agent";
 import { InMemoryAgentRunner as Runtime } from "@copilotkit/runtime";
-import { BuiltInAgent as Other, BuiltInAgent } from "@copilotkit/runtime/agent";
+import { BuiltInAgent as Other } from "@copilotkit/runtime/agent";
 import { openaiText } from "@tanstack/ai-openai";
 
 export const a = new BuiltInAgent({ model: openaiText("gpt-5") });

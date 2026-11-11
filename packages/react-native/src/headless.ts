@@ -39,6 +39,10 @@ export type { CopilotKitNativeProviderProps } from "./CopilotKitProvider";
 // Provider props alias (mirrors web's CopilotKitProviderProps)
 export type { CopilotKitNativeProviderProps as CopilotKitProviderProps } from "./CopilotKitProvider";
 
+// v1 names, kept as aliases (mirrors web's `CopilotKit` / `CopilotKitProps`).
+// `CopilotKitProvider` is the preferred name.
+export { CopilotKit, type CopilotKitProps } from "./CopilotKitProvider";
+
 // Re-export context and hooks from react-core (platform-agnostic)
 export {
   useCopilotKit,

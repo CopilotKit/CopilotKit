@@ -240,3 +240,17 @@ export const CopilotKitProvider: React.FC<CopilotKitNativeProviderProps> = ({
     </CopilotKitContext.Provider>
   );
 };
+
+/**
+ * Alias of {@link CopilotKitProvider}: the same component under its v1 name,
+ * so `<CopilotKit>` keeps working. `CopilotKitProvider` is the preferred name.
+ *
+ * @alias
+ */
+export const CopilotKit = CopilotKitProvider;
+
+/**
+ * Alias of {@link CopilotKitNativeProviderProps}, the props of
+ * {@link CopilotKit}. Prefer `CopilotKitProviderProps` in new code.
+ */
+export type CopilotKitProps = CopilotKitNativeProviderProps;
