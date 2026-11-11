@@ -2118,11 +2118,9 @@
           "node": "^20.19.3 || >=22.13.0"
         },
         "peerDependencies": {
-          "@tanstack/ai": "^1.2.0",
           "ai": ">=6.0.104"
         },
         "optionalPeerDependencies": [
-          "@tanstack/ai",
           "ai"
         ],
         "provenance": [
