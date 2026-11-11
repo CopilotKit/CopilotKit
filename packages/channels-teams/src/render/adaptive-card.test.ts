@@ -329,7 +329,7 @@ describe("renderAdaptiveCard", () => {
   });
 
   it("maps the portable image size onto the Adaptive Card size", () => {
-    // Every image used to render full width, because renderImage hard-coded
+    // Every image used to render at `Auto`, because renderImage hard-coded
     // `size: "Auto"` regardless of the portable `<Image size>` prop.
     const sizes = { small: "Small", medium: "Medium", large: "Large" };
     for (const [size, expected] of Object.entries(sizes)) {
@@ -347,7 +347,11 @@ describe("renderAdaptiveCard", () => {
   });
 
   it("keeps Auto for an absent, unknown, or non-string image size", () => {
-    for (const size of [undefined, "huge", "", 42, null]) {
+    // `__proto__` and the inherited members are the interesting ones: a plain
+    // object lookup resolves them to something that is not an Adaptive Card
+    // size, so the card would carry `size: {}` or omit the key entirely.
+    const sizes = [undefined, "huge", "", 42, null, "__proto__", "constructor"];
+    for (const size of sizes) {
       const card = renderAdaptiveCard([
         {
           type: "image",
