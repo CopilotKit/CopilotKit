@@ -309,7 +309,8 @@ export function showcaseTools({
         }
       },
       execute: async ({ document }) => {
-        update(state, { document });
+        // Usually streamed in full already; write only what is still missing.
+        if (state.get().document !== document) update(state, { document });
         return "Document written to shared state.";
       },
     }),
