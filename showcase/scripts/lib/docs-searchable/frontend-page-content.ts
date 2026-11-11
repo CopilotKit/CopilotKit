@@ -1,13 +1,10 @@
-import fs from "node:fs";
-import path from "node:path";
 import { FRONTEND_OPTIONS, isChannelFrontend } from "./frontend-options";
 import type { FrontendId } from "./frontend-options";
 import { CHANNEL_GUIDE_ROUTES } from "./channel-guide-routes";
 import type { ChannelGuideSection } from "./channel-guide-routes";
-import { buildRootSurfaceNav, CONTENT_DIR } from "./docs-render";
+import { buildFrameworkNav, loadDoc, SHARED_GROUP } from "./docs-render";
 import { getDocsFolder, ROOT_FRAMEWORK } from "./registry";
 import type { NavNode } from "./docs-render";
-import { resolveFrontendDocPage } from "./frontend-doc-policy";
 
 export type FrontendPageId = Exclude<FrontendId, "react">;
 
@@ -309,6 +306,32 @@ export function getFrontendQuickstartNavTree(id: FrontendPageId): NavNode[] {
   ];
 }
 
+/** First segments that are folders of their own, never a frontend's page. */
+const NON_PAGE_ROOTS = new Set(["frontends", "channels", "integrations"]);
+
+/**
+ * Whether `frontend` has a page at `slugPath`, by where the page lives (the
+ * docs app's rule, shell-docs/src/lib/live-pages.ts): the frontend's own
+ * folder (`frontends/vue`; Slack and Teams also share `channels`), the
+ * frontend-neutral pages in `docs/(shared)`, and on React the pages at the
+ * content root as well.
+ */
+export function frontendHasPage(id: FrontendId, slugPath: string): boolean {
+  const slug = slugPath.split("/").filter(Boolean).join("/");
+  if (NON_PAGE_ROOTS.has(slug.split("/")[0])) return false;
+  if (id === "react" || id === "react-spa") {
+    // A root page or, through its route group, a shared one.
+    return slug !== "" && loadDoc(slug) !== null;
+  }
+  const folders = isChannelFrontend(id)
+    ? [`frontends/${id}`, "channels"]
+    : [`frontends/${id}`];
+  if (folders.some((folder) => loadDoc(slug ? `${folder}/${slug}` : folder))) {
+    return true;
+  }
+  return slug !== "" && loadDoc(`${SHARED_GROUP}/${slug}`) !== null;
+}
+
 function filterVueNavNodes(nodes: NavNode[]): NavNode[] {
   const filtered: NavNode[] = [];
   let sectionIndex: number | null = null;
@@ -333,22 +356,8 @@ function filterVueNavNodes(nodes: NavNode[]): NavNode[] {
       continue;
     }
 
-    // These historical root announcements are intentionally not part of the
-    // accepted Vue surface. Keep the rest of What's New derived from policy.
-    if (
-      node.slug === "" ||
-      node.slug === "whats-new/a2ui-launch" ||
-      node.slug === "whats-new/v1-50" ||
-      resolveFrontendDocPage("vue", node.slug).status !== "found"
-    ) {
-      continue;
-    }
-    filtered.push({
-      ...node,
-      slug: node.slug.endsWith("/index")
-        ? node.slug.slice(0, -"/index".length)
-        : node.slug,
-    });
+    if (node.slug === "" || !frontendHasPage("vue", node.slug)) continue;
+    filtered.push(node);
     sectionHasPages = true;
   }
 
@@ -360,26 +369,14 @@ function filterVueNavNodes(nodes: NavNode[]): NavNode[] {
 }
 
 /**
- * Vue follows the root React information architecture, retaining only pages
- * that the frontend-policy resolver can serve at a Vue URL. This keeps the
- * root tree as the single navigation source while preserving Vue variants.
+ * Vue's sidebar is the built-in agent's (`buildFrameworkNav`), keeping only
+ * the rows whose page Vue has (`frontendHasPage`), after Vue's own
+ * quickstart.
  */
 export function buildVueDocsNavTree(): NavNode[] {
-  const rootNav = filterVueNavNodes(
-    buildRootSurfaceNav(getDocsFolder(ROOT_FRAMEWORK)),
-  );
-  const vueGettingStarted: NavNode[] = [
-    { type: "page", title: "Quickstart", slug: "" },
-    {
-      type: "page",
-      title: getFrontendGuidanceTitle("vue"),
-      slug: "using-these-docs",
-    },
-  ];
-
   return [
-    ...vueGettingStarted,
-    ...rootNav,
+    { type: "page", title: "Quickstart", slug: "" },
+    ...filterVueNavNodes(buildFrameworkNav(getDocsFolder(ROOT_FRAMEWORK))),
     {
       type: "page",
       title: "Reference docs",
@@ -387,47 +384,4 @@ export function buildVueDocsNavTree(): NavNode[] {
       href: "/reference/vue",
     },
   ];
-}
-
-/** Shared sidebar pages plus authored Vue guides, including unlisted pages. */
-export function getVueDocsPageRoutes(): Array<{
-  slugPath: string;
-  canonicalSlugPath: string;
-}> {
-  const routes = collectVueDocsPageRoutes(buildVueDocsNavTree());
-  const vueDir = path.join(CONTENT_DIR, "frontends", "vue");
-  for (const file of fs.readdirSync(vueDir, {
-    recursive: true,
-    encoding: "utf8",
-  })) {
-    if (!file.endsWith(".mdx")) continue;
-    const slugPath = file.replaceAll(path.sep, "/").replace(/\.mdx$/, "");
-    const canonicalSlugPath = slugPath.replace(/(^|\/)index$/, "");
-    if (resolveFrontendDocPage("vue", slugPath).status !== "found") continue;
-    routes.push({ slugPath, canonicalSlugPath });
-  }
-  return [
-    ...new Map(
-      routes.map((route) => [route.canonicalSlugPath, route]),
-    ).values(),
-  ];
-}
-
-function collectVueDocsPageRoutes(
-  nodes: NavNode[],
-): Array<{ slugPath: string; canonicalSlugPath: string }> {
-  return nodes.flatMap((node) => {
-    if (node.type === "page") {
-      if (node.href) return [];
-      return [
-        {
-          slugPath: node.slug,
-          canonicalSlugPath: node.slug.endsWith("/index")
-            ? node.slug.slice(0, -"/index".length)
-            : node.slug,
-        },
-      ];
-    }
-    return node.type === "group" ? collectVueDocsPageRoutes(node.children) : [];
-  });
 }

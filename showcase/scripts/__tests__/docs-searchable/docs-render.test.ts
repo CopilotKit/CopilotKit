@@ -15,16 +15,16 @@ vi.mock("../../lib/docs-searchable/registry", async (importOriginal) => {
 
 import {
   buildFrameworkNav,
-  buildFrameworkOnlyNav,
-  buildRootSurfaceNav,
+  CONTENT_DIR,
   inlineSnippets,
   loadDoc,
   navAncestorBreadcrumbsForSlug,
-  normalizeSidebarNav,
+  readMeta,
   readTitle,
   SNIPPET_MAP,
   SNIPPETS_DIR,
 } from "../../lib/docs-searchable/docs-render";
+import type { MetaPageEntry } from "../../lib/docs-searchable/docs-render";
 import type { NavNode } from "../../lib/docs-searchable/docs-render";
 
 let tempDir = "";
@@ -74,6 +74,18 @@ function hasPageTitle(navTree: NavNode[], page: string): boolean {
 }
 
 type NavPageEntry = { title: string; slug: string };
+
+/** The rows under a sidebar section heading, up to the next one. */
+function sectionNodes(navTree: NavNode[], section: string): NavNode[] {
+  const start = navTree.findIndex(
+    (node) => node.type === "section" && node.title === section,
+  );
+  if (start === -1) return [];
+  const end = navTree.findIndex(
+    (node, i) => i > start && node.type === "section",
+  );
+  return navTree.slice(start + 1, end === -1 ? undefined : end);
+}
 
 function groupPageEntries(
   navTree: NavNode[],
@@ -214,7 +226,7 @@ describe("readTitle", () => {
 
 describe("framework nav", () => {
   it("derives breadcrumbs from the complete sidebar hierarchy", () => {
-    const navTree = buildRootSurfaceNav("built-in-agent");
+    const navTree = buildFrameworkNav("built-in-agent");
 
     expect(navAncestorBreadcrumbsForSlug(navTree, "frontend-tools")).toEqual([
       { label: "Basics", href: null },
@@ -224,12 +236,13 @@ describe("framework nav", () => {
       { label: "Features", href: null },
       { label: "AG-UI Streams", href: null },
     ]);
+    // Prebuilt Components is one row in Chat now (a link entry in
+    // docs/meta.json), not a folder of its own pages.
     expect(
       navAncestorBreadcrumbsForSlug(navTree, "prebuilt-components"),
     ).toEqual([
       { label: "Basics", href: null },
       { label: "Chat", href: null },
-      { label: "Prebuilt Components", href: null },
     ]);
     expect(
       navAncestorBreadcrumbsForSlug(navTree, "custom-look-and-feel/slots"),
@@ -245,45 +258,37 @@ describe("framework nav", () => {
   });
 
   it("keeps frontend platform guides out of generated framework nav", () => {
-    const navTree = buildFrameworkNav(
-      "langgraph",
-      "LangGraph (Python)",
-      "langgraph-python",
-    );
+    const navTree = buildFrameworkNav("langgraph", "LangGraph (Python)");
 
     expect(hasSectionPage(navTree, "Platforms", "React Native")).toBe(false);
     expect(hasSectionPage(navTree, "Platforms", "Vue")).toBe(false);
   });
 
-  it("keeps frontend platform guides out of authored framework nav", () => {
-    const navTree = buildFrameworkOnlyNav("built-in-agent");
+  it("keeps frontend platform guides out of the built-in agent's nav", () => {
+    const navTree = buildFrameworkNav("built-in-agent");
 
     expect(hasSectionPage(navTree, "Platforms", "React Native")).toBe(false);
     expect(hasSectionPage(navTree, "Platforms", "Slack")).toBe(false);
   });
 
-  it("preserves new authored Threads pages through sidebar normalization", () => {
-    const nav = structuredClone(buildRootSurfaceNav("built-in-agent"));
-    const threads = nav.find(
-      (node) => node.type === "group" && node.title === "Threads",
+  // The sidebar is docs/meta.json as authored; nothing regroups it any more,
+  // so this checks the authored Threads pages all land, in order.
+  it("keeps every authored Threads page in the sidebar", () => {
+    const threadsMeta = readMeta(CONTENT_DIR)?.pages?.find(
+      (entry): entry is Exclude<MetaPageEntry, string> =>
+        typeof entry === "object" && entry.title === "Threads",
     );
-    if (!threads || threads.type !== "group")
-      throw new Error("Missing Threads group");
-    threads.children.push({
-      type: "page",
-      title: "Custom thread UI",
-      slug: "custom-thread-ui",
-    });
-    const normalized = normalizeSidebarNav(nav);
-    expect(groupPageEntries(normalized, "Threads")).toContainEqual({
-      title: "Custom thread UI",
-      slug: "custom-thread-ui",
-    });
-    expect(
-      navAncestorBreadcrumbsForSlug(normalized, "custom-thread-ui")?.map(
-        ({ label }) => label,
-      ),
-    ).toEqual(["Basics", "Threads"]);
+    if (!threadsMeta) throw new Error("Missing Threads group in meta.json");
+    const nav = buildFrameworkNav("built-in-agent");
+
+    expect(groupPageEntries(nav, "Threads").map(({ slug }) => slug)).toEqual(
+      threadsMeta.pages,
+    );
+    for (const slug of threadsMeta.pages as string[]) {
+      expect(
+        navAncestorBreadcrumbsForSlug(nav, slug)?.map(({ label }) => label),
+      ).toEqual(["Basics", "Threads"]);
+    }
   });
 });
 
@@ -293,17 +298,19 @@ it("keeps the existing-thread guide discoverable in root and framework sidebars"
     slug: "intelligence/bring-your-own-thread-system",
   };
   for (const nav of [
-    buildRootSurfaceNav("built-in-agent"),
-    buildFrameworkNav("langgraph", "LangGraph (Python)", "langgraph-python"),
-    buildFrameworkOnlyNav("ag2"),
+    buildFrameworkNav("built-in-agent"),
+    buildFrameworkNav("langgraph", "LangGraph (Python)"),
+    buildFrameworkNav("ag2", "AG2"),
   ]) {
+    // A framework's own pages can carry an "AG-UI Streams" group too
+    // (LangGraph's import guide), so look in the shared Intelligence section.
     expect(
-      groupPageEntries(normalizeSidebarNav(nav), "AG-UI Streams"),
+      groupPageEntries(sectionNodes(nav, "Intelligence"), "AG-UI Streams"),
     ).toContainEqual(expected);
   }
 });
 
-it("groups Trajectories guides without moving the other Intelligence features", () => {
+it("lists the Trajectories overview among the other Intelligence features", () => {
   const expectedSlugs = [
     "intelligence/trajectories",
     "intelligence/trajectories-quickstart",
@@ -315,32 +322,28 @@ it("groups Trajectories guides without moving the other Intelligence features", 
     expect(loadDoc(slug)?.fm.earlyAccess, slug).toBe("trajectories");
   }
   for (const nav of [
-    buildRootSurfaceNav("built-in-agent"),
-    buildFrameworkNav("langgraph", "LangGraph (Python)", "langgraph-python"),
-    buildFrameworkOnlyNav("ag2"),
+    buildFrameworkNav("built-in-agent"),
+    buildFrameworkNav("langgraph", "LangGraph (Python)"),
+    buildFrameworkNav("ag2", "AG2"),
   ]) {
-    const normalized = normalizeSidebarNav(nav);
-    expect(
-      groupPageEntries(normalized, "Trajectories").map(({ slug }) => slug),
-    ).toEqual(expectedSlugs);
-    expect(
-      groupPageEntries(normalized, "Automatic Learning").map(
-        ({ slug }) => slug,
-      ),
-    ).toEqual(["learning", "intelligence/learned-skills"]);
-    expect(hasSectionPage(normalized, "Intelligence", "User Memories")).toBe(
+    const features = (slug: string) =>
+      navAncestorBreadcrumbsForSlug(nav, slug)?.map(({ label }) => label);
+    // docs/(shared)/meta.json lists the Trajectories overview and Automatic
+    // Learning as single Features rows; the other Trajectories guides and
+    // Skill delivery left the sidebar and are linked from those pages.
+    expect(features("intelligence/trajectories")).toEqual([
+      "Intelligence",
+      "Features",
+    ]);
+    expect(features("learning")).toEqual(["Intelligence", "Features"]);
+    for (const slug of expectedSlugs.slice(1)) {
+      expect(navAncestorBreadcrumbsForSlug(nav, slug), slug).toBeNull();
+    }
+    expect(hasSectionPage(nav, "Intelligence", "User Memories")).toBe(true);
+    // Angular capture routes to the standalone collector, so it stays in the
+    // Intelligence nav.
+    expect(hasSectionPage(nav, "Intelligence", "Standalone collector")).toBe(
       true,
     );
-    // Angular capture routes to the standalone collector, so it stays in the
-    // Intelligence nav, outside the Trajectories group pinned above.
-    expect(
-      hasSectionPage(normalized, "Intelligence", "Standalone collector"),
-    ).toBe(true);
-    expect(
-      navAncestorBreadcrumbsForSlug(
-        normalized,
-        "intelligence/capture-interactions",
-      )?.map(({ label }) => label),
-    ).toEqual(["Intelligence", "Features", "Trajectories"]);
   }
 });

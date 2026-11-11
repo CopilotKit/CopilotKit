@@ -3,17 +3,16 @@
  *
  * Search used to be built by walking every `.mdx` file under
  * `src/content/docs`. The sidebar is built from curated `meta.json`
- * navigation plus the programmatic reorganization layer in
- * `docs-render.tsx`. The two drifted: search offered pages that appear in
- * no sidebar — leftovers from past reorganizations, with stale content and
- * no surrounding context.
+ * navigation. The two drifted: search offered pages that appear in no
+ * sidebar — leftovers from past reorganizations, with stale content and no
+ * surrounding context.
  *
  * A slug is searchable when EITHER of these holds:
  *
  *   (a) It appears in a navigation surface. Navigation is not one tree, so
- *       this is the union over the root tree, every non-hidden
- *       integration's sidebar, and every `"root": true` sub-tree (which the
- *       root walk deliberately skips).
+ *       this is the union over the app outline, the shared sections, every
+ *       non-hidden integration's sidebar, and every `"root": true` sub-tree
+ *       (which the root walk deliberately skips).
  *
  *   (b) A navigable page links to it, counting the snippets that page
  *       inlines as part of it — most CopilotKit pages are thin wrappers
@@ -30,9 +29,8 @@
  * sidebar and that nothing links to either.
  *
  * Slugs are canonical: no leading slash, no `/docs` prefix, route-group
- * segments (`(other)`) stripped, and no trailing `/index`. Route groups
- * are stripped because the sidebar strips them too (`normalizeSidebarNav`)
- * and the middleware 301-redirects any URL that still carries one.
+ * segments (`(shared)`, `(other)`) stripped, and no trailing `/index`.
+ * Route groups are stripped because they aren't part of a page's URL.
  *
  * This module has no side effects and no Next.js imports, so it is
  * directly unit-testable and importable from a `tsx` build script.
@@ -43,8 +41,8 @@ import path from "path";
 import { parseFrontmatter } from "./frontmatter";
 import {
   CONTENT_DIR,
+  SHARED_GROUP,
   buildFrameworkNav,
-  buildFrameworkOnlyNav,
   buildNavTree,
   inlineSnippets,
   readMeta,
@@ -460,13 +458,15 @@ export function computeSearchablePages(
 /**
  * Build the navigation surfaces the docs app can actually render.
  *
- * Three kinds, and all three are needed — dropping any one of them removes
+ * Four kinds, and all four are needed — dropping any one of them removes
  * pages that a reader can reach from a real sidebar:
  *
- *   1. the root tree;
- *   2. every non-hidden integration, using the builder the app itself picks
- *      for that integration's `docs_mode`;
- *   3. every `"root": true` sub-tree, which the root walk skips by design
+ *   1. the app frontends' outline, `docs/meta.json`;
+ *   2. the shared sections, `docs/(shared)/meta.json`, which close every
+ *      sidebar (the outline only links a few of their pages);
+ *   3. every non-hidden integration's sidebar (`buildFrameworkNav`), which
+ *      adds the framework's own pages;
+ *   4. every `"root": true` sub-tree, which the root walk skips by design
  *      (`if (subMeta?.root) continue`) because each is its own surface.
  */
 export function defaultNavigationSurfaces(
@@ -474,19 +474,18 @@ export function defaultNavigationSurfaces(
 ): NavigationSurface[] {
   const surfaces: NavigationSurface[] = [
     { id: "root", nodes: buildNavTree(contentDir) },
+    {
+      id: "shared",
+      nodes: buildNavTree(path.join(contentDir, SHARED_GROUP), SHARED_GROUP),
+    },
   ];
 
   for (const integration of getIntegrations()) {
-    const mode = getDocsMode(integration.slug);
-    if (mode === "hidden") continue;
+    if (getDocsMode(integration.slug) === "hidden") continue;
     const folder = getDocsFolder(integration.slug);
-    const nodes =
-      mode === "authored"
-        ? buildFrameworkOnlyNav(folder)
-        : buildFrameworkNav(folder, integration.name, integration.slug);
     surfaces.push({
       id: `integration:${integration.slug}`,
-      nodes,
+      nodes: buildFrameworkNav(folder, integration.name),
       integrationFolder: folder,
       routeScope: integration.slug,
     });
