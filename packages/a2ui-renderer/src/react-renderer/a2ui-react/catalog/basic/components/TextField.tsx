@@ -27,6 +27,10 @@ export const TextField = createReactComponent(TextFieldApi, ({ props }) => {
   };
 
   const isLong = props.variant === "longText";
+  const placeholder =
+    "placeholder" in props && typeof props.placeholder === "string"
+      ? props.placeholder
+      : undefined;
   const type =
     props.variant === "number"
       ? "number"
@@ -70,6 +74,7 @@ export const TextField = createReactComponent(TextFieldApi, ({ props }) => {
       {isLong ? (
         <textarea
           id={uniqueId}
+          placeholder={placeholder}
           style={{
             ...style,
             border: hasError
@@ -83,6 +88,7 @@ export const TextField = createReactComponent(TextFieldApi, ({ props }) => {
         <input
           id={uniqueId}
           type={type}
+          placeholder={placeholder}
           style={{
             ...style,
             border: hasError

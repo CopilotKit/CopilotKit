@@ -25,6 +25,14 @@ export const Slider = createReactComponent(SliderApi, ({ props }) => {
   };
 
   const uniqueId = React.useId();
+  const min = props.min ?? 0;
+  const max = props.max ?? 100;
+  const steps = "steps" in props ? props.steps : undefined;
+  // The 1.0 property counts divisions; the HTML property is their size.
+  const step =
+    typeof steps === "number" && steps > 0 && max > min
+      ? (max - min) / steps
+      : undefined;
 
   return (
     <div
@@ -54,8 +62,9 @@ export const Slider = createReactComponent(SliderApi, ({ props }) => {
       <input
         id={uniqueId}
         type="range"
-        min={props.min ?? 0}
+        min={min}
         max={props.max}
+        step={step}
         value={props.value ?? 0}
         onChange={onChange}
         style={{ width: "100%", cursor: "pointer" }}

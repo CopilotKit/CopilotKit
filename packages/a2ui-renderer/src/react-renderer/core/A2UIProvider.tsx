@@ -120,6 +120,7 @@ export function A2UIProvider({
       if (onActionRef.current) {
         const message: A2UIClientEventMessage = {
           userAction: {
+            ...action,
             name: action?.name ?? "unknown",
             surfaceId: action?.surfaceId ?? "default",
             sourceComponentId: action?.sourceComponentId,
@@ -131,7 +132,15 @@ export function A2UIProvider({
       }
     };
     processorRef.current = new MessageProcessor(
-      catalog ? [catalog] : [basicCatalog, basicCatalogV1],
+      // A selected catalog controls all rendering for its own protocol. Only
+      // add the other protocol's default for historical cards; adding the
+      // same-version default would bypass component enable/disable filtering.
+      catalog
+        ? [
+            catalog,
+            catalog.protocolVersion === "1.0" ? basicCatalog : basicCatalogV1,
+          ]
+        : [basicCatalog, basicCatalogV1],
       // No processor-level action handler: the surface group forwards actions
       // without awaiting its listeners, so `surface.dispatchAction` would
       // settle before `onAction` does. Each surface awaits its own listeners.
