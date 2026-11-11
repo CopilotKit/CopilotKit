@@ -101,6 +101,7 @@
     {
       "title": "Troubleshooting",
       "pages": [
+        "[Troubleshooting Angular apps](/troubleshooting)",
         "troubleshooting/common-issues",
         "[Error message reference](/troubleshooting/error-reference)",
         "[Error Debugging & Observability](/troubleshooting/error-debugging)",

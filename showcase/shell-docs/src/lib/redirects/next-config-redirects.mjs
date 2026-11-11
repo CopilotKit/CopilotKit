@@ -74,9 +74,12 @@ function permanentRedirectsWithSuffixes(source, destination) {
 
 const NON_REACT_DOCS_FRONTENDS = ["react-spa", "vue", "react-native"];
 
+/** Angular's own threads page, where its retired threads URLs land. */
+const ANGULAR_THREADS_PAGE = "headless-threads";
+
 // ---------------------------------------------------------------------------
 // AG-UI Streams overview (was `/threads`). React is the unprefixed default;
-// Angular keeps its native thread guide.
+// Angular lands on its own Headless Threads page.
 // ---------------------------------------------------------------------------
 /** @type {Redirect[]} */
 const AG_UI_STREAMS_REDIRECTS = [
@@ -100,11 +103,11 @@ const AG_UI_STREAMS_REDIRECTS = [
   ]),
   ...permanentRedirectsWithSuffixes(
     "/angular/threads",
-    "/angular/guides/threads-memory-attachments-headless",
+    `/angular/${ANGULAR_THREADS_PAGE}`,
   ),
   ...permanentRedirectsWithSuffixes(
     "/angular/:framework/threads",
-    "/angular/:framework/guides/threads-memory-attachments-headless",
+    `/angular/:framework/${ANGULAR_THREADS_PAGE}`,
   ),
 ];
 
@@ -140,11 +143,11 @@ const OPEN_JSON_UI_RETIREMENT_REDIRECTS = [
   ),
   ...permanentRedirectsWithSuffixes(
     "/angular/generative-ui/open-json-ui",
-    "/angular/guides/a2ui",
+    "/angular/generative-ui/a2ui",
   ),
   ...permanentRedirectsWithSuffixes(
     "/angular/:framework/generative-ui/open-json-ui",
-    "/angular/:framework/guides/a2ui",
+    "/angular/:framework/generative-ui/a2ui",
   ),
   ...NON_REACT_DOCS_FRONTENDS.flatMap((frontend) => [
     ...permanentRedirectsWithSuffixes(
@@ -164,10 +167,8 @@ const OPEN_JSON_UI_RETIREMENT_REDIRECTS = [
 
 // ---------------------------------------------------------------------------
 // Self-managed thread persistence is retired: its URLs land on the AG-UI
-// Streams overview (Angular on its native threads guide).
+// Streams overview (Angular on its own Headless Threads page).
 // ---------------------------------------------------------------------------
-const ANGULAR_THREADS_GUIDE = "guides/threads-memory-attachments-headless";
-
 /** @type {Redirect[]} */
 const THREADS_SELF_MANAGED_RETIREMENT_REDIRECTS = [
   ...permanentRedirectsWithSuffixes("/threads-self-managed", "/AG-UI-Streams"),
@@ -185,11 +186,11 @@ const THREADS_SELF_MANAGED_RETIREMENT_REDIRECTS = [
   ),
   ...permanentRedirectsWithSuffixes(
     "/angular/threads-self-managed",
-    `/angular/${ANGULAR_THREADS_GUIDE}`,
+    `/angular/${ANGULAR_THREADS_PAGE}`,
   ),
   ...permanentRedirectsWithSuffixes(
     "/angular/:framework/threads-self-managed",
-    `/angular/:framework/${ANGULAR_THREADS_GUIDE}`,
+    `/angular/:framework/${ANGULAR_THREADS_PAGE}`,
   ),
   ...NON_REACT_DOCS_FRONTENDS.flatMap((frontend) => [
     ...permanentRedirectsWithSuffixes(
@@ -206,6 +207,38 @@ const THREADS_SELF_MANAGED_RETIREMENT_REDIRECTS = [
     "/:framework/AG-UI-Streams",
   ),
 ];
+
+// ---------------------------------------------------------------------------
+// Angular's combined task guides (`/angular/guides/<guide>`) were split onto
+// the React URLs for the same topics. Each old URL, with or without a
+// framework, lands on the page that holds its guide's main topic.
+// ---------------------------------------------------------------------------
+/** Old guide slug → the Angular page that now holds its main topic. */
+const ANGULAR_GUIDE_PAGES = {
+  "chat-ui": "prebuilt-components",
+  "frontend-tools-generative-ui": "frontend-tools",
+  a2ui: "generative-ui/a2ui",
+  "generative-ui-components": "generative-ui/native",
+  "voice-multimodal": "voice",
+  "human-in-the-loop": "human-in-the-loop",
+  "shared-state": "shared-state",
+  "threads-memory-attachments-headless": ANGULAR_THREADS_PAGE,
+  troubleshooting: "troubleshooting",
+};
+
+/** @type {Redirect[]} */
+const ANGULAR_GUIDE_REDIRECTS = Object.entries(ANGULAR_GUIDE_PAGES).flatMap(
+  ([guide, page]) => [
+    ...permanentRedirectsWithSuffixes(
+      `/angular/guides/${guide}`,
+      `/angular/${page}`,
+    ),
+    ...permanentRedirectsWithSuffixes(
+      `/angular/:framework/guides/${guide}`,
+      `/angular/:framework/${page}`,
+    ),
+  ],
+);
 
 // ---------------------------------------------------------------------------
 // Channels (OSS-615): legacy global, scoped, generated-reference, and Bots
@@ -910,6 +943,7 @@ export const nextConfigRedirects = [
   ...AG_UI_STREAMS_REDIRECTS,
   ...OPEN_JSON_UI_RETIREMENT_REDIRECTS,
   ...THREADS_SELF_MANAGED_RETIREMENT_REDIRECTS,
+  ...ANGULAR_GUIDE_REDIRECTS,
   ...CHANNEL_REDIRECTS,
   ...AG_UI_MIRROR_REDIRECTS,
   ...PAGE_REDIRECTS,

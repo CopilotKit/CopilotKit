@@ -1,7 +1,7 @@
 ---
-title: Shared state and agent context
-description: Read and write agent state with Angular signals, and send application-owned context to the agent.
-icon: "lucide/Repeat2"
+title: Shared State
+description: Read and write agent state with Angular signals, and choose between shared state and agent context.
+icon: "lucide/Repeat"
 doc_type: how-to
 ---
 
@@ -11,6 +11,9 @@ Shared state and agent context solve two different data flows.
 | --- | --- |
 | Agent and application both read and write the value | `injectAgentStore` and `agent.setState` |
 | The application owns the value and the agent only reads it | `connectAgentContext` or `CopilotKitAgentContext` |
+
+This page covers shared state. For values the agent only reads, see
+[Agent Read-Only Context](/angular/shared-state/agent-readonly).
 
 ## Read agent state
 
@@ -73,75 +76,8 @@ The same store gives you:
 - `store().agent` for `setState`, `addMessage`, and `abortRun`
 
 To start a run, call `inject(CopilotKit).core.runAgent({ agent })`, as in the
-[headless chat](/angular/guides/threads-memory-attachments-headless#build-a-headless-chat).
+[headless chat](/angular/custom-look-and-feel/headless-ui#build-a-headless-chat).
 That call sends your registered frontend tools and agent context with the run.
-
-## Send read-only application context
-
-Use `connectAgentContext` for values such as the signed-in user's name,
-selected record, timezone, or current screen. Pass an accessor so signal reads
-stay reactive.
-
-```ts title="src/app/account-context.component.ts"
-import { Component, signal } from "@angular/core";
-import { connectAgentContext } from "@copilotkit/angular";
-
-@Component({
-  selector: "app-account-context",
-  template: `
-    <button type="button" (click)="timezone.set('Europe/London')">
-      Use London time
-    </button>
-  `,
-})
-export class AccountContextComponent {
-  readonly userName = signal("Ada");
-  readonly timezone = signal("America/Los_Angeles");
-
-  constructor() {
-    connectAgentContext(() => ({
-      description: "Current account and timezone",
-      value: JSON.stringify({
-        userName: this.userName(),
-        timezone: this.timezone(),
-      }),
-    }));
-  }
-}
-```
-
-The internal effect removes the old context and registers the new value when a
-read signal changes. It removes the final registration when the owning
-injector is destroyed. If you already have an `Injector`, pass it as
-`{ injector }`; that injector takes precedence over the ambient one.
-
-## Bind context in a template
-
-Use `CopilotKitAgentContext` when the context is already shaped in the
-template.
-
-```ts title="src/app/selection-context.component.ts"
-import { Component, computed, signal } from "@angular/core";
-import { CopilotKitAgentContext } from "@copilotkit/angular";
-
-@Component({
-  selector: "app-selection-context",
-  imports: [CopilotKitAgentContext],
-  template: `
-    <div [copilotkitAgentContext]="selectionContext()"></div>
-  `,
-})
-export class SelectionContextComponent {
-  readonly selectedId = signal("record-42");
-  readonly selectionContext = computed(() => ({
-    description: "The record selected in the application",
-    value: this.selectedId(),
-  }));
-}
-```
-
-Render the directive only after you have a complete context. If it starts
-without one, later input changes do not create the first registration.
 
 ## Keep ownership clear
 
@@ -155,6 +91,5 @@ without one, later input changes do not create the first registration.
 ## Next steps
 
 - [injectAgentStore API](/reference/angular/functions/injectAgentStore)
-- [connectAgentContext API](/reference/angular/functions/connectAgentContext)
-- [CopilotKitAgentContext API](/reference/angular/directives/CopilotKitAgentContext)
+- [Agent Read-Only Context](/angular/shared-state/agent-readonly)
 - [Runnable state examples](/angular/features#shared-state-read-write)
