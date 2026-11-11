@@ -75,6 +75,783 @@ function mcpConfiguration(platform) {
   };
 }
 
+/** Generative UI (A2UI 1.0) and the A2UI v0.9 agents that the runtime converts for it. */
+const SURFACE_ACTIVITY = "generative-ui-surface";
+const V09_SURFACE_ACTIVITY = "a2ui-surface";
+const STANDARD_CATALOG = "copilotkit/standard@1";
+const RENDER_UI = "render_ui";
+const RENDER_A2UI = "render_a2ui";
+const GENERATIVE_UI_GUIDE =
+  "Generative UI guide: available components, functions, targets, and how to call render_ui.";
+const V09_TOOL_GUIDE = (name) =>
+  `A2UI render tool usage guide — how to call ${name} with valid arguments.`;
+
+/** A 1.0 component manifest, as the client describes an app component. */
+const productCard = {
+  description: "A product",
+  props: {
+    type: "object",
+    properties: { name: { type: "string" } },
+    required: ["name"],
+  },
+};
+
+/**
+ * The `forwardedProps` of a run from the 1.0 client: a "tool" envelope with
+ * one inline catalog, and the click that started the run when there is one.
+ */
+function envelope({ action, catalogId = "shop" } = {}) {
+  return {
+    copilotkit: {
+      ui: {
+        "1.0": {
+          supportedCatalogIds: [catalogId],
+          inlineCatalogs: [
+            {
+              catalogId,
+              protocolVersion: "1.0",
+              components: { ProductCard: productCard },
+              functions: {},
+            },
+          ],
+        },
+        metadata: {
+          extensions: {
+            copilotkit_format: 3,
+            copilotkit_transport: "tool",
+            copilotkit_targets: [{ id: "chat", kind: "chat" }],
+            copilotkit_surfaces: {},
+            copilotkit_contextSent: false,
+            ...(action ? { copilotkit_action: action } : {}),
+          },
+        },
+      },
+    },
+  };
+}
+
+/** A 1.0 click, as the client sends it in `copilotkit_action`. */
+function clickAction(surfaceId = "card") {
+  return {
+    version: "1.0",
+    action: {
+      name: "confirm",
+      surfaceId,
+      sourceComponentId: "button",
+      timestamp: "2026-10-20T10:00:00.000Z",
+      userMessage: "Confirm",
+      context: { selected: 2 },
+    },
+  };
+}
+
+/** The surface snapshots a browser receives, in order. */
+function surfaceSnapshots(events) {
+  return events.filter(
+    (event) =>
+      event.type === "ACTIVITY_SNAPSHOT" &&
+      event.activityType === SURFACE_ACTIVITY,
+  );
+}
+
+/** Every operation of the surface snapshots, in order. */
+function surfaceOperations(events) {
+  return surfaceSnapshots(events).flatMap((event) => event.content.operations);
+}
+
+/** A v0.9 surface must reach the browser only as a 1.0 surface. */
+function assertNoV09Activity(events) {
+  assert.equal(
+    events.some((event) => event.activityType === V09_SURFACE_ACTIVITY),
+    false,
+    "An A2UI v0.9 activity reached the browser; it must be converted to 1.0",
+  );
+}
+
+/** The tool names of the first agent input. */
+function toolNames(context) {
+  return context.platform.agentInputs[0].tools.map((tool) => tool.name);
+}
+
+/** Script several tool calls in one run, each with visible chunk boundaries. */
+function toolCallsStream(calls) {
+  return (request) => [
+    { type: "RUN_STARTED", threadId: request.threadId, runId: request.runId },
+    ...calls.flatMap(({ name, chunks, toolCallId }) => [
+      {
+        type: "TOOL_CALL_START",
+        toolCallId,
+        toolCallName: name,
+        parentMessageId: "assistant-message",
+      },
+      ...chunks.map((delta) => ({ type: "TOOL_CALL_ARGS", toolCallId, delta })),
+      { type: "TOOL_CALL_END", toolCallId },
+    ]),
+    { type: "RUN_FINISHED", threadId: request.threadId, runId: request.runId },
+  ];
+}
+
+/** Script a backend tool whose result carries A2UI operations. */
+function toolResultStream(operations) {
+  return (request) => [
+    { type: "RUN_STARTED", threadId: request.threadId, runId: request.runId },
+    {
+      type: "TOOL_CALL_START",
+      toolCallId: "search-call",
+      toolCallName: "search_plans",
+      parentMessageId: "assistant-message",
+    },
+    { type: "TOOL_CALL_ARGS", toolCallId: "search-call", delta: "{}" },
+    { type: "TOOL_CALL_END", toolCallId: "search-call" },
+    {
+      type: "TOOL_CALL_RESULT",
+      messageId: "search-result",
+      toolCallId: "search-call",
+      content: JSON.stringify({ a2ui_operations: operations }),
+    },
+    { type: "RUN_FINISHED", threadId: request.threadId, runId: request.runId },
+  ];
+}
+
+/** A run with no output, for cases that check the agent input only. */
+function emptyStream(request) {
+  return [
+    { type: "RUN_STARTED", threadId: request.threadId, runId: request.runId },
+    { type: "RUN_FINISHED", threadId: request.threadId, runId: request.runId },
+  ];
+}
+
+/** A v0.9 surface with a binding, the basic catalog, and a Button action. */
+const v09PlanOperations = [
+  {
+    version: "v0.9",
+    createSurface: { surfaceId: "plans", catalogId: BASIC_CATALOG },
+  },
+  {
+    version: "v0.9",
+    updateComponents: {
+      surfaceId: "plans",
+      components: [
+        { id: "root", component: "Column", children: ["title", "choose"] },
+        { id: "title", component: "Text", text: { path: "/title" } },
+        {
+          id: "choose",
+          component: "Button",
+          child: "choose-label",
+          action: {
+            event: { name: "choose", context: { plan: { path: "/plan" } } },
+          },
+        },
+        { id: "choose-label", component: "Text", text: "Choose" },
+      ],
+    },
+  },
+  {
+    version: "v0.9",
+    updateDataModel: {
+      surfaceId: "plans",
+      path: "/",
+      value: { title: "Plans", plan: "team" },
+    },
+  },
+];
+
+/** The 1.0 operations of `v09PlanOperations`. */
+const convertedPlanOperations = [
+  {
+    version: "1.0",
+    createSurface: { surfaceId: "plans", catalogId: STANDARD_CATALOG },
+  },
+  {
+    version: "1.0",
+    updateComponents: {
+      surfaceId: "plans",
+      components: [
+        { id: "root", component: "Column", children: ["title", "choose"] },
+        { id: "title", component: "Text", text: { "@path": "/title" } },
+        {
+          id: "choose",
+          component: "Button",
+          child: "choose-label",
+          onClick: {
+            event: { name: "choose", context: { plan: { "@path": "/plan" } } },
+          },
+        },
+        { id: "choose-label", component: "Text", text: "Choose" },
+      ],
+    },
+  },
+  {
+    version: "1.0",
+    updateDataModel: {
+      surfaceId: "plans",
+      path: "/",
+      value: { title: "Plans", plan: "team" },
+    },
+  },
+];
+
+/** Assert the one converted surface of `v09PlanOperations`. */
+function assertConvertedPlanSurface(events) {
+  assertNoV09Activity(events);
+  const snapshots = surfaceSnapshots(events);
+  assert.equal(snapshots.length, 1, "Expected one converted surface snapshot");
+  const [snapshot] = snapshots;
+  assert.equal(snapshot.messageId, "genui:plans");
+  assert.equal(snapshot.replace, true);
+  assert.deepEqual(snapshot.content, {
+    surfaceId: "plans",
+    target: "chat",
+    catalogId: STANDARD_CATALOG,
+    operations: convertedPlanOperations,
+    status: "ready",
+    rejected: [],
+    a2uiSourceVersion: "0.9",
+  });
+  assert.ok(
+    events.indexOf(snapshot) <
+      events.findIndex((event) => event.type === "RUN_FINISHED"),
+  );
+}
+
+const validCard = [
+  { id: "root", component: "Column", children: ["text"] },
+  { id: "text", component: "Text", text: "Hello" },
+];
+
+const a2uiCases = [
+  {
+    id: "a2ui.late-identifiers-preserve-painted-surface",
+    configuration: {
+      generativeUI: { a2uiVersion: "0.9", injectA2UITool: true, schema },
+    },
+    async run(context) {
+      context.platform.faults.agentChunkDelayMs = 15;
+      context.platform.faults.agentEvents = toolStream(RENDER_A2UI, [
+        '{"components":[{"id":"root","component":"Column","children":["text"]},{"id":"text","component":"Text","text":"Hello"}]',
+        ',"surfaceId":"late-surface"',
+        ',"catalogId":"late-catalog","data":{"items":[{"name":"one"},',
+        '{"name":"two"}]}}',
+      ]);
+      const events = await runAndWait(context);
+      assertNoV09Activity(events);
+      const snapshots = surfaceSnapshots(events);
+      assert.ok(
+        snapshots.length >= 2,
+        "Complete components and progressive data must produce snapshots",
+      );
+      assert.ok(
+        snapshots.every((event) => event.messageId === "genui:late-surface"),
+        "A late surfaceId must not move the painted surface",
+      );
+      const operations = surfaceOperations(events);
+      const created = operations
+        .filter((operation) => operation.createSurface)
+        .map((operation) => operation.createSurface);
+      assert.equal(
+        new Set(created.map((surface) => surface.surfaceId)).size,
+        1,
+        "A late surfaceId must not replace a painted surface",
+      );
+      assert.equal(
+        new Set(created.map((surface) => surface.catalogId)).size,
+        1,
+        "A late catalogId must not replace a painted catalog",
+      );
+      assert.equal(
+        new Set(snapshots.map((event) => event.content.catalogId)).size,
+        1,
+        "A late catalogId must not replace a painted catalog",
+      );
+      const updates = operations
+        .filter((operation) => operation.updateDataModel)
+        .map((operation) => operation.updateDataModel);
+      assert.ok(
+        updates.length >= 2,
+        "Data must still stream after late identifiers",
+      );
+      assert.ok(
+        updates.every((update) => update.surfaceId === created[0].surfaceId),
+      );
+      assert.equal(updates.at(-1).value.items.length, 2);
+    },
+  },
+  ...[
+    ["self-cycle", [{ id: "root", component: "Column", children: ["root"] }]],
+    [
+      "two-node-cycle",
+      [
+        { id: "root", component: "Column", children: ["child"] },
+        { id: "child", component: "Column", children: ["root"] },
+      ],
+    ],
+    [
+      "duplicate-id",
+      [
+        { id: "root", component: "Text", text: "One" },
+        { id: "root", component: "Text", text: "Two" },
+      ],
+    ],
+  ].map(([name, components]) => ({
+    id: `a2ui.reject-${name}`,
+    configuration: {
+      generativeUI: { a2uiVersion: "0.9", injectA2UITool: true, schema },
+    },
+    async run(context) {
+      // The first call is invalid. The model retries in the same run.
+      context.platform.faults.agentEvents = toolCallsStream([
+        {
+          name: RENDER_A2UI,
+          toolCallId: "render-call",
+          chunks: [JSON.stringify({ surfaceId: "card", components })],
+        },
+        {
+          name: RENDER_A2UI,
+          toolCallId: "render-retry",
+          chunks: [
+            JSON.stringify({ surfaceId: "card", components: validCard }),
+          ],
+        },
+      ]);
+      const events = await runAndWait(context);
+      assertNoV09Activity(events);
+      const painted = surfaceOperations(events)
+        .filter((operation) => operation.updateComponents)
+        .map((operation) => operation.updateComponents.components);
+      assert.ok(painted.length > 0, "The valid retry must paint the surface");
+      for (const tree of painted) {
+        assert.deepEqual(
+          tree,
+          validCard,
+          "Invalid component tree reached the browser",
+        );
+      }
+    },
+  })),
+  {
+    id: "a2ui.custom-tool-included-agent",
+    configuration: {
+      generativeUI: {
+        a2uiVersion: "0.9",
+        injectA2UITool: "custom_render",
+        agents: ["default"],
+      },
+    },
+    async run(context) {
+      context.platform.faults.agentEvents = toolStream("custom_render", [
+        '{"surfaceId":"card","components":[{"id":"root","component":"Text","text":"Hello"}]}',
+      ]);
+      const events = await runAndWait(context);
+      const tools = toolNames(context);
+      assert.equal(tools.filter((tool) => tool === "custom_render").length, 1);
+      assert.equal(tools.includes(RENDER_A2UI), false);
+      assert.equal(tools.includes(RENDER_UI), false);
+      assertNoV09Activity(events);
+      const snapshot = surfaceSnapshots(events).at(-1);
+      assert.equal(snapshot?.messageId, "genui:card");
+      assert.deepEqual(
+        snapshot.content.operations.find((op) => op.updateComponents)
+          ?.updateComponents.components,
+        [{ id: "root", component: "Text", text: "Hello" }],
+      );
+    },
+  },
+  {
+    id: "a2ui.atomic-components-and-progressive-data",
+    configuration: {
+      generativeUI: { a2uiVersion: "0.9", injectA2UITool: true, schema },
+    },
+    async run(context) {
+      const { platform } = context;
+      platform.faults.agentChunkDelayMs = 15;
+      platform.faults.agentEvents = toolStream(RENDER_A2UI, [
+        '{"surfaceId":"card","components":[{"id":"root","component":"Column","children":["text"]},',
+        '{"id":"text","component":"Text","text":"Hello"}],"data":{"items":[{"name":"one"},',
+        '{"name":"two"}]}}',
+      ]);
+      const events = await runAndWait(context);
+      assert.equal(
+        toolNames(context).filter((tool) => tool === RENDER_A2UI).length,
+        1,
+      );
+      assert.ok(
+        platform.agentInputs[0].context.some(
+          (entry) =>
+            entry.description === SCHEMA_DESCRIPTION &&
+            entry.value === JSON.stringify(schema),
+        ),
+        "The configured schema must reach the agent",
+      );
+      assertNoV09Activity(events);
+      const painted = surfaceSnapshots(events);
+      assert.ok(painted.length >= 2, "Missing progressive data snapshots");
+      for (const activity of painted) {
+        assert.equal(activity.messageId, "genui:card");
+        assert.equal(activity.replace, true);
+        assert.equal(activity.content.surfaceId, "card");
+        assert.equal(activity.content.status, "ready");
+        assert.equal(activity.content.a2uiSourceVersion, "0.9");
+        assert.ok(
+          activity.content.operations.every((op) => op.version === "1.0"),
+        );
+        const components = activity.content.operations.find(
+          (op) => op.updateComponents,
+        )?.updateComponents.components;
+        assert.equal(
+          components.length,
+          2,
+          "Partial component tree was painted",
+        );
+        assert.equal(
+          activity.content.operations[0].createSurface.catalogId,
+          STANDARD_CATALOG,
+          "The v0.9 basic catalog must become the standard catalog",
+        );
+        assert.equal(activity.content.catalogId, STANDARD_CATALOG);
+      }
+      const firstPaintIndex = events.indexOf(painted[0]);
+      const firstArgsIndex = events.findIndex(
+        (event) => event.type === "TOOL_CALL_ARGS",
+      );
+      const closedArgsIndex = events.findIndex(
+        (event) =>
+          event.type === "TOOL_CALL_ARGS" && event.delta.includes('}],"data"'),
+      );
+      assert.ok(
+        firstPaintIndex > firstArgsIndex && firstPaintIndex < closedArgsIndex,
+      );
+      const sizes = painted.flatMap((event) =>
+        event.content.operations
+          .filter((op) => op.updateDataModel)
+          .map((op) => op.updateDataModel.value.items.length),
+      );
+      assert.ok(sizes.includes(1) && sizes.includes(2));
+      const result = events.find(
+        (event) =>
+          event.type === "TOOL_CALL_RESULT" &&
+          event.toolCallId === "render-call",
+      );
+      assert.deepEqual(JSON.parse(result.content), { status: "rendered" });
+      assert.ok(
+        events.indexOf(result) <
+          events.findIndex((event) => event.type === "RUN_FINISHED"),
+      );
+    },
+  },
+  {
+    id: "a2ui.action-history-and-catalog",
+    configuration: { generativeUI: { a2uiVersion: "0.9" } },
+    async run(context) {
+      const catalogId = "https://example.test/catalog";
+      context.platform.faults.agentEvents = toolStream(RENDER_A2UI, [
+        '{"surfaceId":"card","components":[{"id":"root","component":"Text","text":"Hello"}]}',
+      ]);
+      const events = await runAndWait(
+        context,
+        input({
+          messages: [{ id: randomUUID(), role: "user", content: "Confirm" }],
+          forwardedProps: envelope({ action: clickAction(), catalogId }),
+        }),
+      );
+      const messages = context.platform.agentInputs[0].messages;
+      const assistant = messages.find(
+        (message) => message.toolCalls?.[0]?.function.name === "log_a2ui_event",
+      );
+      assert.deepEqual(JSON.parse(assistant.toolCalls[0].function.arguments), {
+        name: "confirm",
+        surfaceId: "card",
+        sourceComponentId: "button",
+        context: { selected: 2 },
+        timestamp: "2026-10-20T10:00:00.000Z",
+      });
+      assert.ok(
+        messages.some(
+          (message) =>
+            message.role === "tool" &&
+            message.toolCallId === assistant.toolCalls[0].id &&
+            message.content ===
+              'User performed action "confirm" on surface "card" (component: button). Context: {"selected":2}',
+        ),
+      );
+      assertNoV09Activity(events);
+      const painted = surfaceSnapshots(events).at(-1);
+      assert.equal(painted?.content.catalogId, catalogId);
+      assert.equal(
+        painted.content.operations[0].createSurface.catalogId,
+        catalogId,
+        "A surface must keep the client's own catalog id",
+      );
+    },
+  },
+  {
+    id: "a2ui.explicit-disable-wins-over-catalog",
+    configuration: { generativeUI: false },
+    async run(context) {
+      context.platform.faults.agentEvents = toolStream(RENDER_A2UI, [
+        '{"surfaceId":"card","components":[{"id":"root","component":"Text","text":"Hello"}]}',
+      ]);
+      const events = await runAndWait(
+        context,
+        input({ forwardedProps: envelope() }),
+      );
+      assert.equal(
+        events.filter((event) =>
+          [SURFACE_ACTIVITY, V09_SURFACE_ACTIVITY].includes(event.activityType),
+        ).length,
+        0,
+      );
+      const tools = toolNames(context);
+      assert.equal(tools.includes(RENDER_A2UI), false);
+      assert.equal(tools.includes(RENDER_UI), false);
+    },
+  },
+  {
+    id: "a2ui.invalid-tree-does-not-paint",
+    configuration: {
+      generativeUI: { a2uiVersion: "0.9", injectA2UITool: true, schema },
+    },
+    async run(context) {
+      context.platform.faults.agentEvents = toolStream(RENDER_A2UI, [
+        '{"surfaceId":"card","components":[{"id":"root","component":"Column","children":["missing"]}]}',
+      ]);
+      const events = await runAndWait(context);
+      assert.ok(
+        toolNames(context).includes(RENDER_A2UI),
+        "The v0.9 render path must be active",
+      );
+      assertNoV09Activity(events);
+      assert.equal(
+        surfaceSnapshots(events).length,
+        0,
+        "A tree with an unresolved child was painted",
+      );
+      assert.equal(
+        events.some((event) => event.type === "ACTIVITY_DELTA"),
+        false,
+      );
+    },
+  },
+  {
+    id: "a2ui.custom-tool-and-agent-scope",
+    configuration: {
+      generativeUI: {
+        a2uiVersion: "0.9",
+        injectA2UITool: "custom_render",
+        agents: ["another-agent"],
+      },
+    },
+    async run(context) {
+      const response = await context.request("GET", "/info");
+      assert.deepEqual(response.body.generativeUI, {
+        enabled: true,
+        agents: ["another-agent"],
+      });
+      context.platform.faults.agentEvents = toolStream("custom_render", [
+        '{"surfaceId":"card","components":[{"id":"root","component":"Text","text":"Hello"}]}',
+      ]);
+      const events = await runAndWait(
+        context,
+        input({ forwardedProps: envelope() }),
+      );
+      assert.equal(
+        events.some((event) =>
+          [SURFACE_ACTIVITY, V09_SURFACE_ACTIVITY].includes(event.activityType),
+        ),
+        false,
+      );
+      const tools = toolNames(context);
+      assert.equal(tools.includes("custom_render"), false);
+      assert.equal(tools.includes(RENDER_UI), false);
+    },
+  },
+  ...[
+    ["omitted", undefined],
+    ["explicit", { generativeUI: { a2uiVersion: "1.0" } }],
+    ["unlisted-in-map", { generativeUI: { a2uiVersion: { other: "0.9" } } }],
+  ].map(([label, configuration]) => ({
+    id: `generative-ui.a2ui-version.v10-agent-gets-render-ui-${label}`,
+    configuration,
+    async run(context) {
+      context.platform.faults.agentEvents = emptyStream;
+      await runAndWait(context, input({ forwardedProps: envelope() }));
+      const tools = toolNames(context);
+      assert.equal(tools.filter((tool) => tool === RENDER_UI).length, 1);
+      assert.equal(tools.includes(RENDER_A2UI), false);
+      const descriptions = context.platform.agentInputs[0].context.map(
+        (entry) => entry.description,
+      );
+      assert.ok(descriptions.includes(GENERATIVE_UI_GUIDE));
+      assert.equal(
+        descriptions.some((description) => description.startsWith("A2UI")),
+        false,
+        "A 1.0 agent must not get a v0.9 prompt",
+      );
+    },
+  })),
+  ...[
+    ["single", { a2uiVersion: "0.9" }],
+    ["listed-in-map", { a2uiVersion: { default: "0.9" } }],
+  ].map(([label, generativeUI]) => ({
+    id: `generative-ui.a2ui-version.v09-agent-gets-render-a2ui-${label}`,
+    configuration: { generativeUI },
+    async run(context) {
+      context.platform.faults.agentEvents = emptyStream;
+      await runAndWait(context, input({ forwardedProps: envelope() }));
+      const tools = toolNames(context);
+      assert.equal(tools.filter((tool) => tool === RENDER_A2UI).length, 1);
+      assert.equal(tools.includes(RENDER_UI), false);
+      const entries = context.platform.agentInputs[0].context;
+      const descriptions = entries.map((entry) => entry.description);
+      assert.equal(descriptions.includes(GENERATIVE_UI_GUIDE), false);
+      assert.ok(descriptions.includes(V09_TOOL_GUIDE(RENDER_A2UI)));
+      const schemas = entries.filter(
+        (entry) => entry.description === SCHEMA_DESCRIPTION,
+      );
+      assert.equal(schemas.length, 1, "Expected one v0.9 component schema");
+      const catalog = JSON.parse(schemas[0].value);
+      assert.equal(catalog.catalogId, "shop");
+      assert.deepEqual(
+        Object.keys(catalog.components),
+        ["ProductCard"],
+        "The v0.9 schema must list the client's catalog components",
+      );
+    },
+  })),
+  {
+    id: "generative-ui.a2ui-version.v09-schema-replaces-client-entry",
+    configuration: { generativeUI: { a2uiVersion: "0.9" } },
+    async run(context) {
+      context.platform.faults.agentEvents = emptyStream;
+      await runAndWait(
+        context,
+        input({
+          context: [{ description: SCHEMA_DESCRIPTION, value: "{}" }],
+          forwardedProps: envelope(),
+        }),
+      );
+      const schemas = context.platform.agentInputs[0].context.filter(
+        (entry) => entry.description === SCHEMA_DESCRIPTION,
+      );
+      assert.equal(schemas.length, 1, "A stale schema entry was duplicated");
+      assert.equal(JSON.parse(schemas[0].value).catalogId, "shop");
+    },
+  },
+  {
+    id: "generative-ui.a2ui-version.v09-operations-convert-to-v10",
+    configuration: { generativeUI: { a2uiVersion: "0.9" } },
+    async run(context) {
+      context.platform.faults.agentEvents = toolResultStream(v09PlanOperations);
+      const events = await runAndWait(
+        context,
+        input({ forwardedProps: envelope() }),
+      );
+      assertConvertedPlanSurface(events);
+    },
+  },
+  {
+    id: "generative-ui.a2ui-version.v10-agent-tool-result-converts",
+    async run(context) {
+      context.platform.faults.agentEvents = toolResultStream(v09PlanOperations);
+      const events = await runAndWait(
+        context,
+        input({ forwardedProps: envelope() }),
+      );
+      assertConvertedPlanSurface(events);
+    },
+  },
+  ...[
+    ["v09", { generativeUI: { a2uiVersion: "0.9" } }],
+    ["v10", undefined],
+  ].map(([label, configuration]) => ({
+    id: `generative-ui.a2ui-version.click-reaches-${label}-agent`,
+    configuration,
+    async run(context) {
+      context.platform.faults.agentEvents = emptyStream;
+      const history = [
+        { id: randomUUID(), role: "user", content: "Which plans are there?" },
+        { id: randomUUID(), role: "assistant", content: "Here they are." },
+      ];
+      const click = {
+        id: randomUUID(),
+        role: "user",
+        content: "Confirm\n\nselected: 2",
+      };
+      const body = input({
+        messages: [...history, click],
+        forwardedProps: envelope({ action: clickAction() }),
+      });
+      const events = await runAndWait(context, body);
+      const agentInput = context.platform.agentInputs[0];
+      const ids = agentInput.messages.map((message) => message.id);
+      if (label === "v10") {
+        assert.equal(ids.at(-1), click.id, "A 1.0 agent must see the click");
+        assert.equal(
+          Object.hasOwn(agentInput.forwardedProps, "a2uiAction"),
+          false,
+        );
+        assert.equal(
+          agentInput.messages.some((message) =>
+            message.toolCalls?.some(
+              (call) => call.function.name === "log_a2ui_event",
+            ),
+          ),
+          false,
+        );
+      } else {
+        assert.equal(
+          ids.includes(click.id),
+          false,
+          "A v0.9 agent must get the click as an action, not a message",
+        );
+        assert.deepEqual(ids.slice(0, 2), [history[0].id, history[1].id]);
+        const [call, result] = agentInput.messages.slice(-2);
+        assert.equal(call.role, "assistant");
+        assert.equal(call.toolCalls[0].function.name, "log_a2ui_event");
+        const userAction = {
+          name: "confirm",
+          surfaceId: "card",
+          sourceComponentId: "button",
+          context: { selected: 2 },
+          timestamp: "2026-10-20T10:00:00.000Z",
+        };
+        assert.deepEqual(
+          JSON.parse(call.toolCalls[0].function.arguments),
+          userAction,
+        );
+        assert.equal(result.role, "tool");
+        assert.equal(result.toolCallId, call.toolCalls[0].id);
+        assert.deepEqual(agentInput.forwardedProps.a2uiAction, { userAction });
+      }
+      const started = events.find((event) => event.type === "RUN_STARTED");
+      assert.deepEqual(
+        started.input.messages.map((message) => message.id),
+        [history[0].id, history[1].id, click.id],
+        "The stored thread must keep the click message",
+      );
+    },
+  })),
+  ...[
+    ["omitted", undefined, { enabled: true }],
+    ["v09", { a2uiVersion: "0.9" }, { enabled: true }],
+    [
+      "agents",
+      { a2uiVersion: { default: "0.9" }, agents: ["default"] },
+      { enabled: true, agents: ["default"] },
+    ],
+    ["disabled", false, { enabled: false }],
+  ].map(([label, generativeUI, expected]) => ({
+    id: `generative-ui.a2ui-version.info-${label}`,
+    configuration: generativeUI === undefined ? undefined : { generativeUI },
+    async run(context) {
+      const response = await context.request("GET", "/info");
+      assert.equal(response.status, 200);
+      assert.deepEqual(response.body.generativeUI, expected);
+      assert.equal(Object.hasOwn(response.body, "a2uiEnabled"), false);
+      assert.equal(Object.hasOwn(response.body, "a2ui"), false);
+    },
+  })),
+];
+
 export const uiCases = [
   ...["agent", "resource-proxy", "tool-proxy"].map((path) => ({
     id: `mcp-apps.standard-mime-${path}`,
@@ -313,329 +1090,7 @@ export const uiCases = [
       assert.equal(activity?.content.resourceUri, "ui://fixture/card");
     },
   })),
-  {
-    id: "a2ui.late-identifiers-preserve-painted-surface",
-    configuration: { a2ui: { enabled: true, injectA2UITool: true, schema } },
-    async run(context) {
-      context.platform.faults.agentChunkDelayMs = 15;
-      context.platform.faults.agentEvents = toolStream("render_a2ui", [
-        '{"components":[{"id":"root","component":"Column","children":["text"]},{"id":"text","component":"Text","text":"Hello"}]',
-        ',"surfaceId":"late-surface"',
-        ',"catalogId":"late-catalog","data":{"items":[{"name":"one"},',
-        '{"name":"two"}]}}',
-      ]);
-      const events = await runAndWait(context);
-      const snapshots = events.filter(
-        (event) =>
-          event.activityType === "a2ui-surface" &&
-          event.content?.a2ui_operations,
-      );
-      assert.ok(
-        snapshots.length >= 2,
-        "Complete components and progressive data must produce snapshots",
-      );
-      const operations = snapshots.flatMap(
-        (event) => event.content.a2ui_operations,
-      );
-      const created = operations
-        .filter((operation) => operation.createSurface)
-        .map((operation) => operation.createSurface);
-      assert.equal(
-        new Set(created.map((surface) => surface.surfaceId)).size,
-        1,
-        "A late surfaceId must not replace a painted surface",
-      );
-      assert.equal(
-        new Set(created.map((surface) => surface.catalogId)).size,
-        1,
-        "A late catalogId must not replace a painted catalog",
-      );
-      const updates = operations
-        .filter((operation) => operation.updateDataModel)
-        .map((operation) => operation.updateDataModel);
-      assert.ok(
-        updates.length >= 2,
-        "Data must still stream after late identifiers",
-      );
-      assert.ok(
-        updates.every((update) => update.surfaceId === created[0].surfaceId),
-      );
-      assert.equal(updates.at(-1).value.items.length, 2);
-    },
-  },
-  ...[
-    ["self-cycle", [{ id: "root", component: "Column", children: ["root"] }]],
-    [
-      "two-node-cycle",
-      [
-        { id: "root", component: "Column", children: ["child"] },
-        { id: "child", component: "Column", children: ["root"] },
-      ],
-    ],
-    [
-      "duplicate-id",
-      [
-        { id: "root", component: "Text", text: "One" },
-        { id: "root", component: "Text", text: "Two" },
-      ],
-    ],
-  ].map(([name, components]) => ({
-    id: `a2ui.reject-${name}`,
-    configuration: { a2ui: { enabled: true, injectA2UITool: true, schema } },
-    async run(context) {
-      context.platform.faults.agentEvents = toolStream("render_a2ui", [
-        JSON.stringify({ surfaceId: "card", components }),
-      ]);
-      const events = await runAndWait(context);
-      assert.equal(
-        events.some((event) => event.content?.a2ui_operations),
-        false,
-        "Invalid component tree reached the browser",
-      );
-      assert.ok(
-        events.some(
-          (event) =>
-            event.content?.status === "retrying" &&
-            event.content.errors.length > 0,
-        ),
-      );
-    },
-  })),
-  {
-    id: "a2ui.custom-tool-included-agent",
-    configuration: {
-      a2ui: {
-        enabled: true,
-        injectA2UITool: "custom_render",
-        agents: ["default"],
-      },
-    },
-    async run(context) {
-      context.platform.faults.agentEvents = toolStream("custom_render", [
-        '{"surfaceId":"card","components":[{"id":"root","component":"Text","text":"Hello"}]}',
-      ]);
-      const events = await runAndWait(context);
-      const tools = context.platform.agentInputs[0].tools;
-      assert.equal(
-        tools.filter((tool) => tool.name === "custom_render").length,
-        1,
-      );
-      assert.equal(
-        tools.some((tool) => tool.name === "render_a2ui"),
-        false,
-      );
-      assert.ok(events.some((event) => event.content?.a2ui_operations));
-    },
-  },
-  {
-    id: "a2ui.atomic-components-and-progressive-data",
-    configuration: { a2ui: { enabled: true, injectA2UITool: true, schema } },
-    async run(context) {
-      const { platform } = context;
-      platform.faults.agentChunkDelayMs = 15;
-      platform.faults.agentEvents = toolStream("render_a2ui", [
-        '{"surfaceId":"card","components":[{"id":"root","component":"Column","children":["text"]},',
-        '{"id":"text","component":"Text","text":"Hello"}],"data":{"items":[{"name":"one"},',
-        '{"name":"two"}]}}',
-      ]);
-      const events = await runAndWait(context);
-      assert.equal(
-        platform.agentInputs[0].tools.filter(
-          (tool) => tool.name === "render_a2ui",
-        ).length,
-        1,
-      );
-      assert.ok(
-        platform.agentInputs[0].context.some(
-          (entry) => entry.description === SCHEMA_DESCRIPTION,
-        ),
-      );
-      const activities = events.filter(
-        (event) => event.activityType === "a2ui-surface",
-      );
-      assert.equal(activities[0].content.status, "building");
-      assert.ok(
-        activities.every(
-          (event) =>
-            event.messageId === "a2ui-surface-render-call" &&
-            event.replace === true,
-        ),
-      );
-      const painted = activities.filter(
-        (event) => event.content.a2ui_operations,
-      );
-      assert.ok(painted.length >= 2, "Missing progressive data snapshots");
-      for (const activity of painted) {
-        const components = activity.content.a2ui_operations.find(
-          (op) => op.updateComponents,
-        )?.updateComponents.components;
-        assert.equal(
-          components.length,
-          2,
-          "Partial component tree was painted",
-        );
-        assert.equal(
-          activity.content.a2ui_operations[0].createSurface.catalogId,
-          BASIC_CATALOG,
-        );
-      }
-      const firstPaintIndex = events.indexOf(painted[0]);
-      const firstArgsIndex = events.findIndex(
-        (event) => event.type === "TOOL_CALL_ARGS",
-      );
-      const closedArgsIndex = events.findIndex(
-        (event) =>
-          event.type === "TOOL_CALL_ARGS" && event.delta.includes('}],"data"'),
-      );
-      assert.ok(
-        firstPaintIndex > firstArgsIndex && firstPaintIndex < closedArgsIndex,
-      );
-      const sizes = painted.flatMap((event) =>
-        event.content.a2ui_operations
-          .filter((op) => op.updateDataModel)
-          .map((op) => op.updateDataModel.value.items.length),
-      );
-      assert.ok(sizes.includes(1) && sizes.includes(2));
-      const result = events.find(
-        (event) =>
-          event.type === "TOOL_CALL_RESULT" &&
-          event.toolCallId === "render-call",
-      );
-      assert.deepEqual(JSON.parse(result.content), { status: "rendered" });
-      assert.ok(
-        events.indexOf(result) <
-          events.findIndex((event) => event.type === "RUN_FINISHED"),
-      );
-    },
-  },
-  {
-    id: "a2ui.action-history-and-catalog",
-    configuration: { a2ui: { enabled: true } },
-    async run(context) {
-      const action = {
-        name: "confirm",
-        surfaceId: "card",
-        sourceComponentId: "button",
-        context: { selected: 2 },
-      };
-      context.platform.faults.agentEvents = toolStream("render_a2ui", [
-        '{"surfaceId":"card","components":[{"id":"root","component":"Text","text":"Hello"}]}',
-      ]);
-      const events = await runAndWait(
-        context,
-        input({
-          context: [
-            {
-              description: SCHEMA_DESCRIPTION,
-              value: JSON.stringify({
-                catalogId: "https://example.test/catalog",
-                components: {},
-              }),
-            },
-          ],
-          forwardedProps: {
-            a2uiCatalogAvailable: true,
-            a2uiAction: { userAction: action },
-          },
-        }),
-      );
-      const messages = context.platform.agentInputs[0].messages;
-      const assistant = messages.find(
-        (message) => message.toolCalls?.[0]?.function.name === "log_a2ui_event",
-      );
-      assert.deepEqual(
-        JSON.parse(assistant.toolCalls[0].function.arguments),
-        action,
-      );
-      assert.ok(
-        messages.some(
-          (message) =>
-            message.role === "tool" &&
-            message.toolCallId === assistant.toolCalls[0].id &&
-            message.content ===
-              'User performed action "confirm" on surface "card" (component: button). Context: {"selected":2}',
-        ),
-      );
-      const painted = events.find((event) => event.content?.a2ui_operations);
-      assert.equal(
-        painted.content.a2ui_operations[0].createSurface.catalogId,
-        "https://example.test/catalog",
-      );
-    },
-  },
-  {
-    id: "a2ui.explicit-disable-wins-over-catalog",
-    configuration: { a2ui: { enabled: false, injectA2UITool: true } },
-    async run(context) {
-      context.platform.faults.agentEvents = toolStream("render_a2ui", [
-        '{"surfaceId":"card","components":[{"id":"root","component":"Text","text":"Hello"}]}',
-      ]);
-      const events = await runAndWait(
-        context,
-        input({ forwardedProps: { a2uiCatalogAvailable: true } }),
-      );
-      assert.equal(
-        events.filter((event) => event.activityType === "a2ui-surface").length,
-        0,
-      );
-      assert.equal(
-        context.platform.agentInputs[0].tools.some(
-          (tool) => tool.name === "render_a2ui",
-        ),
-        false,
-      );
-    },
-  },
-  {
-    id: "a2ui.invalid-tree-does-not-paint",
-    configuration: { a2ui: { enabled: true, injectA2UITool: true, schema } },
-    async run(context) {
-      context.platform.faults.agentEvents = toolStream("render_a2ui", [
-        '{"surfaceId":"card","components":[{"id":"root","component":"Column","children":["missing"]}]}',
-      ]);
-      const events = await runAndWait(context);
-      assert.equal(
-        events.some((event) => event.content?.a2ui_operations),
-        false,
-      );
-      const retry = events.find(
-        (event) => event.content?.status === "retrying",
-      );
-      assert.ok(
-        retry?.content.errors.some(
-          (error) => error.code === "unresolved_child",
-        ),
-      );
-    },
-  },
-  {
-    id: "a2ui.custom-tool-and-agent-scope",
-    configuration: {
-      a2ui: {
-        enabled: true,
-        injectA2UITool: "custom_render",
-        agents: ["another-agent"],
-      },
-    },
-    async run(context) {
-      const response = await context.request("GET", "/info");
-      assert.deepEqual(response.body.a2ui.agents, ["another-agent"]);
-      context.platform.faults.agentEvents = toolStream("custom_render", [
-        '{"surfaceId":"card","components":[{"id":"root","component":"Text","text":"Hello"}]}',
-      ]);
-      const events = await runAndWait(context);
-      assert.equal(
-        events.some((event) => event.activityType === "a2ui-surface"),
-        false,
-      );
-      assert.equal(
-        context.platform.agentInputs[0].tools.some(
-          (tool) => tool.name === "custom_render",
-        ),
-        false,
-      );
-    },
-  },
+  ...a2uiCases,
   {
     id: "mcp-apps.discover-execute-and-persist",
     configuration: mcpConfiguration,
