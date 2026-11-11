@@ -24,10 +24,8 @@ You have an existing LLM backend and you want a CopilotKit copilot using it. Pic
 <Tabs items={["AI SDK", "TanStack AI", "Custom"]}>
 <Tab value="AI SDK">
 ```npm
-npm install @copilotkit/runtime @tanstack/ai ai @ai-sdk/openai
+npm install @copilotkit/runtime ai @ai-sdk/openai
 ```
-
-The types of `@copilotkit/runtime/agent` come from `@tanstack/ai`, so install it with every factory.
 
 ```typescript title="src/copilotkit.ts"
 import {
@@ -110,7 +108,7 @@ export default handler;
 </Tab>
 <Tab value="Custom">
 ```npm
-npm install @copilotkit/runtime @tanstack/ai
+npm install @copilotkit/runtime
 ```
 
 ```typescript title="src/copilotkit.ts"

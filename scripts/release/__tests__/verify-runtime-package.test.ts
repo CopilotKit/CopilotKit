@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
   BUILT_IN_AGENT_ADAPTERS,
-  BUILT_IN_AGENT_PEERS,
   CHANNELS_INTELLIGENCE,
   createRuntimeConsumerManifest,
   declaredRanges,
@@ -144,14 +143,14 @@ describe("createRuntimeConsumerManifest", () => {
       packageManager: "pnpm@10.33.4",
       overrides,
       llmPackages: {
-        "@tanstack/ai": "^1.2.0",
         "@tanstack/ai-openai": "^1.1.1",
+        ai: ">=6.0.104",
       },
     });
     expect(withPeers.dependencies).toEqual({
       [RUNTIME]: "file:/tmp/tarballs/copilotkit-runtime-1.63.2.tgz",
-      "@tanstack/ai": "^1.2.0",
       "@tanstack/ai-openai": "^1.1.1",
+      ai: ">=6.0.104",
     });
   });
 
@@ -171,16 +170,15 @@ describe("declaredRanges", () => {
     name: RUNTIME,
     version: "2.0.0",
     devDependencies: {
-      "@tanstack/ai": "^1.2.0",
       "@tanstack/ai-openai": "^1.1.1",
     },
-    peerDependencies: { "@tanstack/ai": "^1.2.0", ai: ">=6.0.104" },
+    peerDependencies: { ai: ">=6.0.104" },
   };
 
-  it("returns the peer range the runtime declares for /agent", () => {
-    expect(
-      declaredRanges(packedRuntime, "peerDependencies", BUILT_IN_AGENT_PEERS),
-    ).toEqual({ "@tanstack/ai": "^1.2.0" });
+  it("returns the peer range the runtime declares for /agent/ai-sdk", () => {
+    expect(declaredRanges(packedRuntime, "peerDependencies", ["ai"])).toEqual({
+      ai: ">=6.0.104",
+    });
   });
 
   it("returns the adapter range the runtime tests against", () => {

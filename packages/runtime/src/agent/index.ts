@@ -396,8 +396,8 @@ export type ResolvedModelOptions = Pick<
  * Classic config: BuiltInAgent runs the model with TanStack AI `chat()` and
  * handles tools, MCP, state tools, and the system prompt.
  *
- * Install `@tanstack/ai` and the adapter package for your provider, for
- * example `@tanstack/ai-openai`.
+ * The runtime installs `@tanstack/ai`. Install the adapter package for your
+ * provider, for example `@tanstack/ai-openai`.
  *
  * Next to the CopilotKit settings below, it takes the `chat()` options in
  * {@link BuiltInAgentChatOptions}, typed by the adapter in `model`:

@@ -68,5 +68,5 @@ export default {
 };
 ```
 
-Install `@tanstack/ai` and the adapter package (here `@tanstack/ai-openai`) in
-the Worker project.
+Install the adapter package (here `@tanstack/ai-openai`) in the Worker
+project. The runtime installs `@tanstack/ai`.

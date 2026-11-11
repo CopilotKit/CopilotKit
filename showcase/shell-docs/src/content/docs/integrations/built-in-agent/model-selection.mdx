@@ -19,10 +19,10 @@ const agent = new BuiltInAgent({
 
 ## Install the packages
 
-Install `@tanstack/ai` and the adapter package for your provider:
+The runtime installs `@tanstack/ai`. Install the adapter package for your provider:
 
 ```npm
-npm install @tanstack/ai @tanstack/ai-openai
+npm install @tanstack/ai-openai
 ```
 
 | Provider          | Package                  | Adapter                | API key from                                   |
@@ -322,7 +322,8 @@ The run now uses GPT-6 Luna. `resolveModel` can return three things:
 The configured `modelOptions` and `reasoning` are typed for the configured
 model. When a name picks a model from another provider, give that model its own
 options. Build them with `createChatOptions` from `@tanstack/ai`, so that the
-new adapter types them:
+new adapter types them. Your code imports `@tanstack/ai` here, so add it to
+your dependencies:
 
 ```typescript
 import { BuiltInAgent } from "@copilotkit/runtime/agent";

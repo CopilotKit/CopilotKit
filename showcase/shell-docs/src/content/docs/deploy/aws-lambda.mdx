@@ -111,7 +111,7 @@ async function* chunksOf(body: ReadableStream<Uint8Array>) {
 Install the runtime and the TanStack AI adapter that the handler imports:
 
 ```
-npm install @copilotkit/runtime @tanstack/ai @tanstack/ai-openai
+npm install @copilotkit/runtime @tanstack/ai-openai
 ```
 
 `awslambda` is a global injected by the managed Node.js runtime. `@types/aws-lambda` declares it, together with the event types, so install that package as a dev dependency:
@@ -381,7 +381,7 @@ CopilotKitMethod:
 Behind an HTTP API or an Application Load Balancer there is no streaming path, so `serverless-http` adapting an Express app that mounts the runtime's Node listener is as good as it gets. Chat still functions end to end, but every response arrives in one piece at the end of the run.
 
 ```
-npm install express serverless-http @copilotkit/runtime @tanstack/ai @tanstack/ai-openai
+npm install express serverless-http @copilotkit/runtime @tanstack/ai-openai
 ```
 
 ```ts title="src/handler.ts"

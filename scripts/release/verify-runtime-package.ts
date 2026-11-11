@@ -12,7 +12,6 @@ import { fileURLToPath } from "node:url";
 import { createConsumerWorkspaceYaml } from "./lib/channels-umbrella.js";
 import {
   BUILT_IN_AGENT_ADAPTERS,
-  BUILT_IN_AGENT_PEERS,
   CHANNELS_INTELLIGENCE,
   createRuntimeConsumerManifest,
   declaredRanges,
@@ -53,9 +52,16 @@ function assertVersion(expected: string): string {
 }`;
 }
 
-/** Runs `script` as CommonJS in `cwd`. */
+/**
+ * Runs `script` as CommonJS in `cwd`, with two-argument `import.meta.resolve`
+ * in the ES modules it imports.
+ */
 function runCjs(script: string, cwd: string): void {
-  run("pnpm", ["exec", "node", "--eval", script], cwd);
+  run(
+    "pnpm",
+    ["exec", "node", "--experimental-import-meta-resolve", "--eval", script],
+    cwd,
+  );
 }
 
 /** Runs `script` as an ES module in `cwd`, with two-argument `import.meta.resolve`. */
@@ -77,17 +83,38 @@ function runEsm(script: string, cwd: string): void {
 /**
  * Script text that fails unless `load` (an expression that loads the packed
  * `/agent` entry) succeeds. `/agent` loads `@tanstack/ai` only when a classic
- * agent runs, so factory-only apps can load it without TanStack AI.
+ * agent runs, so the entry also loads in CommonJS and on edge runtimes.
  */
 function assertAgentLoads(load: string): string {
   return `await Promise.resolve().then(() => ${load});`;
 }
 
 /**
+ * ES module text that exports `fakeText` from the `@tanstack/ai` that the
+ * runtime installs. The consumer does not list `@tanstack/ai`, so it resolves
+ * from the runtime's location.
+ */
+const LOAD_FAKE_TEXT = `export const { fakeText } = await import(
+  import.meta.resolve("@tanstack/ai/testing", import.meta.resolve("@copilotkit/runtime")),
+);
+`;
+
+/**
+ * Script text (ES module) that fails unless the OpenAI adapter's `@tanstack/ai`
+ * peer resolves to the same copy as the runtime's `@tanstack/ai` dependency.
+ */
+const ASSERT_ONE_TANSTACK_AI = `const { realpathSync } = await import("node:fs");
+const { fileURLToPath } = await import("node:url");
+const where = (parent) => realpathSync(fileURLToPath(import.meta.resolve("@tanstack/ai", import.meta.resolve(parent))));
+if (where("@tanstack/ai-openai") !== where("@copilotkit/runtime")) {
+  throw new Error("The adapter and the runtime load different copies of @tanstack/ai: " + where("@tanstack/ai-openai") + " and " + where("@copilotkit/runtime"));
+}`;
+
+/**
  * Script text that builds a classic `BuiltInAgent` on the OpenAI adapter, and
  * fails unless a model string is refused with the adapter hint and a run on
  * `fakeText()` streams text through TanStack AI `chat()`. Expects
- * `BuiltInAgent` and `openaiText` in scope.
+ * `BuiltInAgent`, `openaiText` and `fakeText` in scope.
  */
 const CONSTRUCT_AGENT = `process.env.OPENAI_API_KEY = "verify-key";
 const agent = new BuiltInAgent({ model: openaiText("gpt-5") });
@@ -101,7 +128,6 @@ try {
 if (!String(refused?.message).includes("Pass a TanStack AI text adapter")) {
   throw new Error("BuiltInAgent must refuse a model string with the adapter hint, got: " + refused);
 }
-const { fakeText } = await import("@tanstack/ai/testing");
 const fake = fakeText();
 fake.setResponses([{ text: "verify ok" }]);
 const events = [];
@@ -203,8 +229,8 @@ function main(): void {
       packageManager,
       overrides,
     };
-    // Every optional peer of the runtime (`@tanstack/ai` and `ai`), and the
-    // adapter the Built-in Agent consumer installs.
+    // Every optional peer of the runtime (`ai`), and the adapter the Built-in
+    // Agent consumer installs.
     const llmPackages = [
       ...Object.keys(packedManifest.peerDependencies ?? {}),
       ...BUILT_IN_AGENT_ADAPTERS,
@@ -239,27 +265,24 @@ ${assertAgentLoads('import("@copilotkit/runtime/agent")')}`,
       bareDir,
     );
 
-    // A consumer that installs `@tanstack/ai` and the OpenAI adapter: the
-    // packed `/agent` must load and build an agent on an adapter instance.
+    // A consumer that installs only the OpenAI adapter: the runtime brings
+    // `@tanstack/ai`, the adapter's peer resolves to that same copy, and the
+    // packed `/agent` builds an agent on an adapter instance.
     const agentDir = installConsumer({
       ...consumer,
       name: "built-in-agent",
-      llmPackages: {
-        ...declaredRanges(
-          packedManifest,
-          "peerDependencies",
-          BUILT_IN_AGENT_PEERS,
-        ),
-        ...declaredRanges(
-          packedManifest,
-          "devDependencies",
-          BUILT_IN_AGENT_ADAPTERS,
-        ),
-      },
+      llmPackages: declaredRanges(
+        packedManifest,
+        "devDependencies",
+        BUILT_IN_AGENT_ADAPTERS,
+      ),
     });
+    writeFileSync(join(agentDir, "load-fake-text.mjs"), LOAD_FAKE_TEXT);
     runEsm(
-      `const { BuiltInAgent } = await import("@copilotkit/runtime/agent");
+      `${ASSERT_ONE_TANSTACK_AI}
+const { BuiltInAgent } = await import("@copilotkit/runtime/agent");
 const { openaiText } = await import("@tanstack/ai-openai");
+const { fakeText } = await import("./load-fake-text.mjs");
 ${CONSTRUCT_AGENT}`,
       agentDir,
     );
@@ -267,13 +290,14 @@ ${CONSTRUCT_AGENT}`,
       `(async () => {
 const { BuiltInAgent } = require("@copilotkit/runtime/agent");
 const { openaiText } = await import("@tanstack/ai-openai");
+const { fakeText } = await import("./load-fake-text.mjs");
 ${CONSTRUCT_AGENT}
 })().catch((error) => { console.error(error); process.exit(1); });`,
       agentDir,
     );
 
     console.log(
-      `OK: packed runtime ${runtimeVersion} installs ${CHANNELS_INTELLIGENCE}; the root entry loads through ESM and CJS with no LLM package installed; /agent/ai-sdk resolves; /agent loads; with ${[...BUILT_IN_AGENT_PEERS, ...BUILT_IN_AGENT_ADAPTERS].join(" and ")} it builds a BuiltInAgent on openaiText("gpt-5") and runs one on fakeText() through ESM and CJS.`,
+      `OK: packed runtime ${runtimeVersion} installs ${CHANNELS_INTELLIGENCE}; the root entry loads through ESM and CJS with no LLM package installed; /agent/ai-sdk resolves; /agent loads; with only ${BUILT_IN_AGENT_ADAPTERS.join(" and ")} installed it loads one @tanstack/ai, builds a BuiltInAgent on openaiText("gpt-5") and runs one on fakeText() through ESM and CJS.`,
     );
   } finally {
     rmSync(temp, { recursive: true, force: true });

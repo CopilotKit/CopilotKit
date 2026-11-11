@@ -43,19 +43,19 @@ Use this prompt to set up CopilotKit in your React Native app, configure Metro a
         <Tabs groupId="package-manager" items={['npm', 'pnpm', 'yarn']}>
             <Tab value="npm">
                 ```bash
-                npm install @copilotkit/react-native @copilotkit/runtime @tanstack/ai @tanstack/ai-openai
+                npm install @copilotkit/react-native @copilotkit/runtime @tanstack/ai-openai
                 npm install -D tsx typescript @types/node
                 ```
             </Tab>
             <Tab value="pnpm">
                 ```bash
-                pnpm add @copilotkit/react-native @copilotkit/runtime @tanstack/ai @tanstack/ai-openai
+                pnpm add @copilotkit/react-native @copilotkit/runtime @tanstack/ai-openai
                 pnpm add -D tsx typescript @types/node
                 ```
             </Tab>
             <Tab value="yarn">
                 ```bash
-                yarn add @copilotkit/react-native @copilotkit/runtime @tanstack/ai @tanstack/ai-openai
+                yarn add @copilotkit/react-native @copilotkit/runtime @tanstack/ai-openai
                 yarn add -D tsx typescript @types/node
                 ```
             </Tab>
@@ -521,10 +521,10 @@ The runtime from the quickstart hosts a `BuiltInAgent` and serves it with `creat
 
 `cors: true` adds `Access-Control-*` response headers and answers `OPTIONS` preflights. That matters for **browser** clients — Expo Web or `react-native-web` — but it has no bearing on whether a native iOS or Android build can reach the server: CORS is enforced by the browser, and React Native's native networking stack (`NSURLSession` / OkHttp) neither sends an `Origin` header nor consults `Access-Control-Allow-Origin`. Native reachability is decided by the server's bind address, LAN routing and firewall, and platform transport security — see [Connecting from a device or bench](#connecting-from-a-device-or-bench).
 
-`BuiltInAgent` takes a TanStack AI text adapter as its `model`. Install `@tanstack/ai` and the adapter package for each provider that you use:
+`BuiltInAgent` takes a TanStack AI text adapter as its `model`. The runtime installs `@tanstack/ai`. Install the adapter package for each provider that you use:
 
 ```bash
-npm install @tanstack/ai @tanstack/ai-openai @tanstack/ai-anthropic @tanstack/ai-gemini
+npm install @tanstack/ai-openai @tanstack/ai-anthropic @tanstack/ai-gemini
 ```
 
 ```ts

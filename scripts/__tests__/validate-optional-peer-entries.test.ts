@@ -85,8 +85,10 @@ describe("isDedicatedEntry", () => {
     expect(isDedicatedEntry("./agent/ai-sdk", "@tanstack/ai")).toBe(false);
   });
 
-  it("treats ./agent as dedicated to @tanstack/ai only", () => {
-    expect(isDedicatedEntry("./agent", "@tanstack/ai")).toBe(true);
+  it("does not treat ./agent as dedicated to an ai package", () => {
+    // `@tanstack/ai` is a dependency of the runtime, not a peer, so `./agent`
+    // needs no exemption for it.
+    expect(isDedicatedEntry("./agent", "@tanstack/ai")).toBe(false);
     expect(isDedicatedEntry("./agent", "ai")).toBe(false);
     expect(isDedicatedEntry("./agent", "@tanstack/ai-openai")).toBe(false);
   });

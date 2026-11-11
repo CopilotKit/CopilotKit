@@ -102,6 +102,7 @@
     "@copilotkit/shared": "workspace:*",
     "@modelcontextprotocol/sdk": "^1.29.0",
     "@remix-run/node-fetch-server": "^0.13.0",
+    "@tanstack/ai": "^1.2.0",
     "fflate": "0.8.2",
     "phoenix": "^1.8.4",
     "rxjs": "7.8.1",
@@ -115,7 +116,6 @@
     "@stryker-mutator/core": "10.1.1",
     "@stryker-mutator/vitest-runner": "10.1.1",
     "@swc/core": "1.5.28",
-    "@tanstack/ai": "^1.2.0",
     "@tanstack/ai-mcp": "^1.1.0",
     "@tanstack/ai-openai": "^1.1.1",
     "@tanstack/intent": "^0.0.29",
@@ -154,13 +154,9 @@
     "node": "^20.19.3 || >=22.13.0"
   },
   "peerDependencies": {
-    "@tanstack/ai": "^1.2.0",
     "ai": ">=6.0.104"
   },
   "peerDependenciesMeta": {
-    "@tanstack/ai": {
-      "optional": true
-    },
     "ai": {
       "optional": true
     }
