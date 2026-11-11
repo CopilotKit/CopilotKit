@@ -1450,7 +1450,7 @@
     {
       "name": "showcase-openai-agents-python",
       "serviceId": "be6a4cb2-6258-4994-bd20-4c6e0eb37e96",
-      "prodInstanceId": "be6a4cb2-6258-4994-bd20-4c6e0eb37e96",
+      "prodInstanceId": "a86ab35f-5646-48cd-bdd8-617d394d304f",
       "stagingInstanceId": "aa2c2665-331f-4a2a-821a-79859ae87994",
       "ciBuilt": true,
       "gateValidated": true,
@@ -1459,15 +1459,14 @@
         "presence": "required",
         "image": "showcase-convention"
       },
-      "onlyEnvironment": "staging",
       "dispatchName": "openai-agents-python",
       "domains": {
         "staging": "showcase-openai-agents-python-staging.up.railway.app",
-        "prod": ""
+        "prod": "showcase-openai-agents-python-production.up.railway.app"
       },
       "probe": {
         "staging": true,
-        "prod": false,
+        "prod": true,
         "driver": "agent"
       },
       "promoteTier": 2,
@@ -1479,6 +1478,7 @@
         }
       ],
       "healthcheckPath": {
+        "prod": "/api/health",
         "staging": "/api/health"
       },
       "autoUpdates": {
@@ -2219,6 +2219,10 @@
         "tier": 2
       },
       {
+        "name": "showcase-openai-agents-python",
+        "tier": 2
+      },
+      {
         "name": "showcase-langgraph-fastapi",
         "tier": 2
       },
@@ -2320,10 +2324,6 @@
       }
     ],
     "skipped": [
-      {
-        "name": "showcase-openai-agents-python",
-        "reason": "no \"prod\" environment in the SSOT — cannot be promoted (it exists in: staging)."
-      },
       {
         "name": "showcase-intelligence-api",
         "reason": "no \"prod\" environment in the SSOT — cannot be promoted (it exists in: staging)."

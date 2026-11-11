@@ -62,6 +62,7 @@ on:
           - ms-agent-dotnet
           - ms-agent-harness-dotnet
           - ms-agent-python
+          - openai-agents-python
           - pydantic-ai
           - shell
           - shell-dashboard
