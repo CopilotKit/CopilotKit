@@ -24,17 +24,6 @@ interaction_modalities:
   - chat
 not_supported_features:
   - shared-state-streaming
-  # QUARANTINED pending a @copilotkit/react-core release. gen-ui-interrupt /
-  # interrupt-headless fail turn-2 on a useInterrupt/useHeadlessInterrupt
-  # RESUME-PATH hook bug in @copilotkit/react-core/v2: backend resumes + streams
-  # (HTTP 200) but the frontend never appends the confirmation assistant bubble,
-  # so the harness DOM settle-check times out. Fix is a published-package change
-  # (out of scope here); honestly marked not-supported (skipped-incapable, not
-  # green, not red) rather than a regression. Demos remain wired below. The
-  # harness inherits the SAME three not-supported features as the Framework
-  # column (identical MapAGUI runtime, same upstream blocker).
-  - gen-ui-interrupt
-  - interrupt-headless
 features:
   - beautiful-chat
   - cli-start
@@ -73,6 +62,8 @@ features:
   - voice
   - agent-config
   - shared-state-read
+  - gen-ui-interrupt
+  - interrupt-headless
 a2ui_pattern: schema-inline
 interrupt_pattern: promise-based
 agent_config_pattern: shared-state
