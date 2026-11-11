@@ -6,6 +6,8 @@ import { createSkillTools, formatSkillCatalog } from "./skill-tools.js";
 
 export interface SkillRegistryMiddlewareOptions {
   registry: SkillRegistry;
+  /** Add the tool that runs scripts delivered with learned skills. Off by default. */
+  scripts?: boolean;
 }
 
 /**
@@ -23,6 +25,7 @@ export interface SkillRegistryMiddlewareOptions {
  */
 export function createSkillRegistryMiddleware({
   registry,
+  scripts = false,
 }: SkillRegistryMiddlewareOptions) {
   if (!registry || typeof registry.acquireSnapshot !== "function") {
     throw new SkillDeliveryError("INVALID_CONFIG", false);
@@ -30,7 +33,7 @@ export function createSkillRegistryMiddleware({
   const scope = new SkillInvocationScope(registry);
   const middleware = createMiddleware({
     name: "CopilotKitSkillRegistry",
-    tools: createSkillTools(() => scope.snapshot()),
+    tools: createSkillTools(() => scope.snapshot(), { scripts }),
     beforeAgent: async () => {
       await scope.snapshot();
     },

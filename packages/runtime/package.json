@@ -118,6 +118,7 @@
     "phoenix": "^1.8.4",
     "pino": "^10.1.1",
     "pino-pretty": "^11.2.1",
+    "quickjs-emscripten": "0.32.0",
     "reflect-metadata": "^0.2.2",
     "rxjs": "7.8.1",
     "type-graphql": "2.0.0-rc.1",
