@@ -404,11 +404,10 @@ const RECIPE_ICONS: Record<string, ReactNode> = {
   "custom/google-adk": <RecipeLogo src="/logos/google-adk.png" />,
 };
 
-/** The top rows: Quickstart, Build with agents, Intelligence, a frontend's docs status. */
+/** The top rows: Quickstart, Build with agents, Intelligence. */
 const ROW_GLYPHS: Record<string, ReactNode> = {
   quickstart: <QuickstartGlyph />,
   "build-with-agents": <AgentsGlyph />,
   "intelligence/overview": <IntelligenceGlyph />,
-  "using-these-docs": <DocsGlyph />,
   features: <CapabilitiesGlyph />,
 };

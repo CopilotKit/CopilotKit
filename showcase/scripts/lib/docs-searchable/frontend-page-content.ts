@@ -16,19 +16,6 @@ export function getFrontendContentSlug(id: FrontendPageId): string {
   return `frontends/${id}`;
 }
 
-/** A frontend's orientation page (`/vue/using-these-docs`). */
-export function getFrontendGuidanceContentSlug(id: FrontendPageId): string {
-  return `frontends/${id}/using-these-docs`;
-}
-
-export function getFrontendGuidanceTitle(_id: FrontendPageId): string {
-  return "Using these docs";
-}
-
-export function getFrontendUsingTheseDocsPath(id: FrontendPageId): string {
-  return `/${id}/using-these-docs`;
-}
-
 /**
  * A frontend's page for a topic has the topic's own slug (Angular's frontend
  * tools page is `/angular/frontend-tools`), so the canonical slug is the

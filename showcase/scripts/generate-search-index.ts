@@ -76,13 +76,12 @@ interface SearchEntry {
 interface FrontendSearchPage {
   id: string;
   name: string;
-  guidanceTitle?: "Docs status";
 }
 
 const FRONTEND_SEARCH_PAGES: readonly FrontendSearchPage[] = [
-  { id: "vue", name: "Vue", guidanceTitle: "Docs status" },
-  { id: "react-native", name: "React Native", guidanceTitle: "Docs status" },
-  { id: "angular", name: "Angular", guidanceTitle: "Docs status" },
+  { id: "vue", name: "Vue" },
+  { id: "react-native", name: "React Native" },
+  { id: "angular", name: "Angular" },
   { id: "slack", name: "Slack" },
   { id: "teams", name: "Microsoft Teams" },
 ];
@@ -184,19 +183,8 @@ function normalizeDocsSearchEntry(entry: SearchEntry): SearchEntry[] {
   if (!entry.href.startsWith(frontendPrefix)) return [entry];
 
   const slugPath = entry.href.slice(frontendPrefix.length);
-  if (slugPath === "using-these-docs") {
+  if (slugPath === "using-these-docs" || slugPath === "docs-status") {
     return [];
-  }
-
-  if (slugPath === "docs-status") {
-    return FRONTEND_SEARCH_PAGES.filter(
-      (frontend) => frontend.guidanceTitle === "Docs status",
-    ).map((frontend) => ({
-      ...entry,
-      title: `${frontend.name}: ${frontend.guidanceTitle}`,
-      section: "Frontends",
-      href: `/${frontend.id}/using-these-docs`,
-    }));
   }
 
   const [frontend, ...tail] = slugPath.split("/").filter(Boolean);
