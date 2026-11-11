@@ -10,11 +10,12 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@ag-ui/claude-agent-sdk": "0.0.3",
-    "@ag-ui/core": "0.0.59",
-    "@ag-ui/encoder": "0.0.59",
-    "@anthropic-ai/claude-agent-sdk": "0.2.141",
-    "@anthropic-ai/sdk": "0.57.0",
+    "@ag-ui/claude-agent-sdk": "0.0.8",
+    "@ag-ui/client": "1.0.4",
+    "@ag-ui/core": "1.0.4",
+    "@ag-ui/encoder": "1.0.4",
+    "@anthropic-ai/claude-agent-sdk": "0.3.296",
+    "@anthropic-ai/sdk": "1.8.0",
     "dotenv": "^16.4.0",
     "zod": "^4.3.6"
   },

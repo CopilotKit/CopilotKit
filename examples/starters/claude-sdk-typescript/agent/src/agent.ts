@@ -65,9 +65,7 @@ export const adapter = new ClaudeAgentAdapter({
   },
   allowedTools: backendTools.map((tool) => `mcp__${SERVER_NAME}__${tool.name}`),
   tools: [],
-  // Load no Claude Code settings: by default the SDK reads the user's and the
-  // project's settings, CLAUDE.md and .mcp.json servers, so the agent would
-  // pick up whatever repo or machine it runs in.
-  settingSources: [],
+  // The adapter loads no Claude Code settings (~/.claude, CLAUDE.md, .mcp.json)
+  // unless you pass `settingSources`.
   includePartialMessages: true,
 });
