@@ -169,6 +169,161 @@ describe("A2UIMessageRenderer native 1.0 lifecycle", () => {
     );
   });
 
+  it.each([
+    {
+      value: "Hello",
+      path: "/headline",
+      components: text({ "@path": "/headline" }),
+    },
+    {
+      value: 0,
+      path: "/amount",
+      components: [
+        {
+          id: "root",
+          component: "Slider",
+          label: "Amount",
+          max: 10,
+          value: { "@path": "/amount" },
+        },
+      ],
+    },
+    {
+      value: false,
+      path: "/enabled",
+      components: [
+        {
+          id: "root",
+          component: "CheckBox",
+          label: "Enabled",
+          value: { "@path": "/enabled" },
+        },
+      ],
+    },
+  ])(
+    "reveals a native surface after a scalar leaf update with value $value",
+    async ({ value, path, components }) => {
+      const Render = renderer();
+      const view = render(
+        <Render
+          content={{
+            a2ui_operations: [
+              {
+                version: "1.0",
+                createSurface: { surfaceId: "native", catalogId: V1_CATALOG },
+              },
+              {
+                version: "1.0",
+                updateComponents: { surfaceId: "native", components },
+              },
+              {
+                version: "1.0",
+                updateDataModel: { surfaceId: "native", path, value },
+              },
+            ],
+          }}
+          agent={null}
+        />,
+      );
+      await waitFor(() => expect(visible(view)).toBe("false"));
+      expect(view.queryByRole("alert")).toBeNull();
+      if (typeof value === "string") expect(view.getByText(value)).toBeTruthy();
+      if (typeof value === "number")
+        expect((view.getByRole("slider") as HTMLInputElement).value).toBe("0");
+      if (typeof value === "boolean")
+        expect((view.getByRole("checkbox") as HTMLInputElement).checked).toBe(
+          false,
+        );
+    },
+  );
+
+  it("keeps an empty template leaf update behind the loader", async () => {
+    const Render = renderer();
+    const components = [
+      {
+        id: "root",
+        component: "List",
+        children: { componentId: "item", path: "/items" },
+      },
+      { id: "item", component: "Text", text: { "@path": "name" } },
+    ];
+    const view = render(
+      <Render
+        content={{
+          a2ui_operations: [
+            {
+              version: "1.0",
+              createSurface: { surfaceId: "native", catalogId: V1_CATALOG },
+            },
+            {
+              version: "1.0",
+              updateComponents: { surfaceId: "native", components },
+            },
+            {
+              version: "1.0",
+              updateDataModel: {
+                surfaceId: "native",
+                path: "/items",
+                value: [],
+              },
+            },
+          ],
+        }}
+        agent={null}
+      />,
+    );
+    await act(async () => {
+      await new Promise<void>((resolve) =>
+        requestAnimationFrame(() => resolve()),
+      );
+    });
+    expect(visible(view)).toBe("true");
+  });
+
+  it("does not reveal an empty template for an unrelated scalar leaf update", async () => {
+    const Render = renderer();
+    const components = [
+      {
+        id: "root",
+        component: "List",
+        children: { componentId: "item", path: "/items" },
+      },
+      { id: "item", component: "Text", text: { "@path": "name" } },
+    ];
+    const view = render(
+      <Render
+        content={{
+          a2ui_operations: [
+            ...inline(components).a2ui_operations,
+            {
+              version: "1.0",
+              updateDataModel: {
+                surfaceId: "native",
+                path: "/items",
+                value: [],
+              },
+            },
+            {
+              version: "1.0",
+              updateDataModel: {
+                surfaceId: "native",
+                path: "/count",
+                value: 0,
+              },
+            },
+          ],
+        }}
+        agent={null}
+      />,
+    );
+    await act(async () => {
+      await new Promise<void>((resolve) =>
+        requestAnimationFrame(() => resolve()),
+      );
+    });
+    expect(visible(view)).toBe("true");
+  });
+
   it("paints repeating children when inline data arrives in a later snapshot", async () => {
     const Render = renderer();
     const components = [

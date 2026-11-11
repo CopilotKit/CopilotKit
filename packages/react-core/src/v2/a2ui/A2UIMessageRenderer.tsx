@@ -716,6 +716,17 @@ function surfaceHasRenderableContent(operations: any[]): boolean {
     const v =
       o?.updateDataModel?.value ??
       (o?.version === "1.0" ? o?.createSurface?.dataModel : undefined);
+    if (
+      typeof v === "string" ||
+      typeof v === "number" ||
+      typeof v === "boolean"
+    ) {
+      const path = o?.updateDataModel?.path ?? "/";
+      const key = o?.version === "1.0" ? "@path" : "path";
+      // Match the value binding itself, not a structural {componentId, path}
+      // template or a scalar update to an unrelated part of the data model.
+      return v !== "" && serialized.includes(JSON.stringify({ [key]: path }));
+    }
     if (!v || typeof v !== "object") return false;
     return Object.values(v).some((x) =>
       Array.isArray(x)
