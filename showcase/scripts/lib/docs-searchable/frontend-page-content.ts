@@ -12,188 +12,35 @@ export const FRONTEND_PAGE_IDS = FRONTEND_OPTIONS.filter(
   (option) => option.id !== "react",
 ).map((option) => option.id) as FrontendPageId[];
 
-export const ANGULAR_GUIDE_PAGES = [
-  { title: "Chat UI and customization", slug: "guides/chat-ui" },
-  {
-    title: "Frontend tools and generative UI",
-    slug: "guides/frontend-tools-generative-ui",
-  },
-  {
-    title: "A2UI schemas, styling, and recovery",
-    slug: "guides/a2ui",
-  },
-  {
-    title: "Voice and multimodal input",
-    slug: "guides/voice-multimodal",
-  },
-  {
-    title: "Human-in-the-loop and interrupts",
-    slug: "guides/human-in-the-loop",
-  },
-  { title: "Shared state and agent context", slug: "guides/shared-state" },
-  {
-    title: "Threads, memory, attachments, and headless UI",
-    slug: "guides/threads-memory-attachments-headless",
-  },
-  {
-    title: "Troubleshooting Angular apps",
-    slug: "guides/troubleshooting",
-  },
-] as const;
-
-interface FrontendGuidePage {
-  title: string;
-  slug: string;
-}
-
-/**
- * Frontend-owned task guides, keyed by frontend. A frontend absent from this
- * map has no guides yet and shows only its quickstart, docs status, and
- * reference in the sidebar.
- */
-const FRONTEND_GUIDE_PAGES: Partial<
-  Record<FrontendPageId, readonly FrontendGuidePage[]>
-> = {
-  angular: ANGULAR_GUIDE_PAGES,
-};
-
-/**
- * React's root IA names frontend-specific capabilities more granularly than
- * the Angular task guides. Keep selector changes useful without copying the
- * React page tree: each React-only topic lands on the Angular-native guide
- * that owns the same job.
- */
-export const ANGULAR_DOC_REDIRECTS: Readonly<Record<string, string>> = {
-  "concepts/which-hook": "features",
-  "agentic-protocols/mcp": "guides/frontend-tools-generative-ui",
-  "prebuilt-components": "guides/chat-ui",
-  "prebuilt-components/chat": "guides/chat-ui",
-  "prebuilt-components/sidebar": "guides/chat-ui",
-  "prebuilt-components/popup": "guides/chat-ui",
-  "prebuilt-components/chat-controls": "guides/chat-ui",
-  "custom-look-and-feel/css": "guides/chat-ui",
-  "custom-look-and-feel/slots": "guides/chat-ui",
-  "custom-look-and-feel/markdown": "guides/chat-ui",
-  "custom-look-and-feel/reasoning-messages": "guides/chat-ui",
-  "multimodal-attachments": "guides/voice-multimodal",
-  voice: "guides/voice-multimodal",
-  "generative-ui/reasoning": "guides/frontend-tools-generative-ui",
-  "generative-ui": "guides/frontend-tools-generative-ui",
-  "generative-ui/display": "guides/frontend-tools-generative-ui",
-  "generative-ui/interactive": "guides/frontend-tools-generative-ui",
-  "generative-ui/tool-based": "guides/frontend-tools-generative-ui",
-  "generative-ui/tool-rendering": "guides/frontend-tools-generative-ui",
-  "generative-ui/backend-tools": "guides/frontend-tools-generative-ui",
-  "generative-ui/state-rendering": "guides/frontend-tools-generative-ui",
-  "generative-ui/open-generative-ui": "guides/frontend-tools-generative-ui",
-  "generative-ui/json-render": "guides/a2ui",
-  "generative-ui/hashbrown": "guides/a2ui",
-  "generative-ui/declarative-json-render": "guides/a2ui",
-  "generative-ui/declarative-hashbrown": "guides/a2ui",
-  "generative-ui/your-components/display-only":
-    "guides/frontend-tools-generative-ui",
-  "generative-ui/your-components/interactive":
-    "guides/frontend-tools-generative-ui",
-  "generative-ui/your-components/interrupt-based": "guides/human-in-the-loop",
-  "generative-ui/a2ui": "guides/a2ui",
-  "generative-ui/a2ui/index": "guides/a2ui",
-  "generative-ui/a2ui/advanced": "guides/a2ui",
-  "generative-ui/a2ui/dynamic-schema": "guides/a2ui",
-  "generative-ui/a2ui/fixed-schema": "guides/a2ui",
-  "generative-ui/a2ui/styling": "guides/a2ui",
-  "generative-ui/mcp-apps": "guides/frontend-tools-generative-ui",
-  "frontend-tools": "guides/frontend-tools-generative-ui",
-  "human-in-the-loop": "guides/human-in-the-loop",
-  "human-in-the-loop/index": "guides/human-in-the-loop",
-  "human-in-the-loop/interrupt-flow": "guides/human-in-the-loop",
-  "human-in-the-loop/tool-based": "guides/human-in-the-loop",
-  "human-in-the-loop/useInterrupt": "guides/human-in-the-loop",
-  "human-in-the-loop/headless": "guides/human-in-the-loop",
-  // Added 2026-08-01 with the governed-action page; the redirect was missed,
-  // so the React nav had a destination Angular could not reach.
-  "human-in-the-loop/governed-actions": "guides/human-in-the-loop",
-  "shared-state": "guides/shared-state",
-  "shared-state/in-app-agent-read": "guides/shared-state",
-  "shared-state/in-app-agent-write": "guides/shared-state",
-  "shared-state/state-inputs-outputs": "guides/shared-state",
-  "shared-state/predictive-state-updates": "guides/shared-state",
-  "shared-state/read": "guides/shared-state",
-  "shared-state/write": "guides/shared-state",
-  readables: "guides/shared-state",
-  "shared-state/rendering-in-app": "guides/shared-state",
-  "shared-state/streaming": "guides/shared-state",
-  "shared-state/agent-readonly": "guides/shared-state",
-  "agent-app-context": "guides/shared-state",
-  threads: "guides/threads-memory-attachments-headless",
-  "AG-UI-Streams": "guides/threads-memory-attachments-headless",
-  "prebuilt-components/copilot-threads-drawer":
-    "guides/threads-memory-attachments-headless",
-  "headless-threads": "guides/threads-memory-attachments-headless",
-  "threads-lifecycle": "guides/threads-memory-attachments-headless",
-  "threads-import": "guides/threads-memory-attachments-headless",
-  "intelligence/headless-ui": "guides/threads-memory-attachments-headless",
-  "intelligence/capture-interactions": "intelligence/standalone-collector",
-  "custom-look-and-feel/headless-ui":
-    "guides/threads-memory-attachments-headless",
-  "programmatic-control": "guides/threads-memory-attachments-headless",
-  "troubleshooting/error-reference": "guides/troubleshooting",
-  "troubleshooting/error-debugging": "guides/troubleshooting",
-  "troubleshooting/inspector-dev-console": "guides/troubleshooting",
-  "troubleshooting/hook-explorer": "guides/troubleshooting",
-  "deploy-agentcore": "deploy/agentcore",
-  "troubleshooting/migrate-to-1.8.2": "using-these-docs",
-  "troubleshooting/migrate-to-1.10.X": "using-these-docs",
-  "troubleshooting/migrate-to-v2": "using-these-docs",
-  "migrate/1.8.2": "using-these-docs",
-  "migrate/1.10.X": "using-these-docs",
-  "migrate/v2": "using-these-docs",
-  "whats-new/v1-50": "using-these-docs",
-  "multi-agent-flows": "multi-agent/subagents",
-  "ag-ui-protocol": "agentic-protocols/ag-ui",
-  "a2a-protocol": "agentic-protocols/a2a",
-  "a2a/generative-ui/declarative-a2ui": "guides/a2ui",
-  "connect-mcp-servers": "guides/frontend-tools-generative-ui",
-  "langgraph/auth": "auth",
-  "langgraph/quickstart": "langgraph-python/quickstart",
-  "(other)/telemetry": "telemetry",
-};
-
 export function getFrontendContentSlug(id: FrontendPageId): string {
   return `frontends/${id}`;
 }
 
-export const FRONTEND_DOCS_STATUS_CONTENT_SLUG = "frontends/docs-status";
-
+/** A frontend's orientation page (`/vue/using-these-docs`). */
 export function getFrontendGuidanceContentSlug(id: FrontendPageId): string {
-  if (id === "angular") return "frontends/angular/docs-status";
-  if (id === "vue") return "frontends/vue/using-these-docs";
-  return FRONTEND_DOCS_STATUS_CONTENT_SLUG;
+  return `frontends/${id}/using-these-docs`;
 }
 
-export function getFrontendGuidanceTitle(id: FrontendPageId): string {
-  if (id === "vue") return "Using these docs";
-  return "Docs status";
+export function getFrontendGuidanceTitle(_id: FrontendPageId): string {
+  return "Using these docs";
 }
 
 export function getFrontendUsingTheseDocsPath(id: FrontendPageId): string {
   return `/${id}/using-these-docs`;
 }
 
-/** Collapse legacy frontend guide slugs to the public canonical path. */
+/**
+ * A frontend's page for a topic has the topic's own slug (Angular's frontend
+ * tools page is `/angular/frontend-tools`), so the canonical slug is the
+ * slug, without a route group.
+ */
 export function getFrontendCanonicalSlug(
-  id: FrontendPageId,
+  _id: FrontendPageId,
   slugPath: string,
 ): string {
-  if (id !== "angular") return slugPath;
-  const publicSlugPath = slugPath.startsWith("(other)/")
+  return slugPath.startsWith("(other)/")
     ? slugPath.slice("(other)/".length)
     : slugPath;
-  if (publicSlugPath === "docs-status") return "using-these-docs";
-  return (
-    ANGULAR_DOC_REDIRECTS[slugPath] ??
-    ANGULAR_DOC_REDIRECTS[publicSlugPath] ??
-    publicSlugPath
-  );
 }
 
 const FRONTEND_REFERENCE_SLUGS = {
@@ -224,8 +71,6 @@ function getChannelGuidePages(
 }
 
 export function getFrontendQuickstartNavTree(id: FrontendPageId): NavNode[] {
-  if (id === "vue") return buildVueDocsNavTree();
-
   if (isChannelFrontend(id)) {
     return [
       { type: "section", title: "Getting Started", icon: "lucide/Rocket" },
@@ -248,62 +93,7 @@ export function getFrontendQuickstartNavTree(id: FrontendPageId): NavNode[] {
       },
     ];
   }
-
-  const frontendName =
-    FRONTEND_OPTIONS.find((option) => option.id === id)?.name ?? id;
-
-  const guidePages: NavNode[] = (FRONTEND_GUIDE_PAGES[id] ?? []).map(
-    (guide): NavNode => ({
-      type: "page",
-      title: guide.title,
-      slug: guide.slug,
-    }),
-  );
-  const authoredGuides: NavNode[] = [
-    ...(id === "angular"
-      ? ([
-          { type: "page", title: "Feature examples", slug: "features" },
-        ] satisfies NavNode[])
-      : []),
-    ...(guidePages.length > 0
-      ? ([
-          { type: "section", title: "Guides", icon: "lucide/BookOpen" },
-        ] satisfies NavNode[])
-      : []),
-    ...guidePages,
-  ];
-  const upcomingGuides: NavNode[] =
-    id === "angular"
-      ? []
-      : [
-          {
-            type: "section",
-            title: frontendName,
-            icon: "lucide/RefreshCw",
-            variant: "frontend-docs-upcoming",
-            quickstartHref: `/${id}`,
-            referenceHref: `/${getFrontendReferenceSlug(id)}`,
-            frontendDocsStatus: "feature-complete",
-          },
-        ];
-
-  return [
-    { type: "section", title: "Getting Started", icon: "lucide/Rocket" },
-    { type: "page", title: "Quickstart", slug: "" },
-    {
-      type: "page",
-      title: getFrontendGuidanceTitle(id),
-      slug: "using-these-docs",
-    },
-    ...authoredGuides,
-    {
-      type: "page",
-      title: "Reference docs",
-      slug: getFrontendReferenceSlug(id),
-      href: `/${getFrontendReferenceSlug(id)}`,
-    },
-    ...upcomingGuides,
-  ];
+  return buildAppFrontendNavTree(id === "react-spa" ? "vue" : id);
 }
 
 /** First segments that are folders of their own, never a frontend's page. */
@@ -332,7 +122,7 @@ export function frontendHasPage(id: FrontendId, slugPath: string): boolean {
   return slug !== "" && loadDoc(`${SHARED_GROUP}/${slug}`) !== null;
 }
 
-function filterVueNavNodes(nodes: NavNode[]): NavNode[] {
+function filterFrontendNavNodes(id: FrontendId, nodes: NavNode[]): NavNode[] {
   const filtered: NavNode[] = [];
   let sectionIndex: number | null = null;
   let sectionHasPages = false;
@@ -349,14 +139,14 @@ function filterVueNavNodes(nodes: NavNode[]): NavNode[] {
     }
 
     if (node.type === "group") {
-      const children = filterVueNavNodes(node.children);
+      const children = filterFrontendNavNodes(id, node.children);
       if (children.length === 0) continue;
       filtered.push({ ...node, children });
       sectionHasPages = true;
       continue;
     }
 
-    if (node.slug === "" || !frontendHasPage("vue", node.slug)) continue;
+    if (node.slug === "" || !frontendHasPage(id, node.slug)) continue;
     filtered.push(node);
     sectionHasPages = true;
   }
@@ -369,19 +159,23 @@ function filterVueNavNodes(nodes: NavNode[]): NavNode[] {
 }
 
 /**
- * Vue's sidebar is the built-in agent's (`buildFrameworkNav`), keeping only
- * the rows whose page Vue has (`frontendHasPage`), after Vue's own
- * quickstart.
+ * An app frontend's sidebar (Vue, Angular, React Native): the built-in
+ * agent's (`buildFrameworkNav`), keeping only the rows whose page the
+ * frontend has (`frontendHasPage`), after its own quickstart. The docs app
+ * draws the same rows (shell-docs/src/proto/live-tree.tsx).
  */
-export function buildVueDocsNavTree(): NavNode[] {
+export function buildAppFrontendNavTree(id: FrontendPageId): NavNode[] {
   return [
     { type: "page", title: "Quickstart", slug: "" },
-    ...filterVueNavNodes(buildFrameworkNav(getDocsFolder(ROOT_FRAMEWORK))),
+    ...filterFrontendNavNodes(
+      id,
+      buildFrameworkNav(getDocsFolder(ROOT_FRAMEWORK)),
+    ),
     {
       type: "page",
       title: "Reference docs",
-      slug: "reference/vue",
-      href: "/reference/vue",
+      slug: getFrontendReferenceSlug(id),
+      href: `/${getFrontendReferenceSlug(id)}`,
     },
   ];
 }

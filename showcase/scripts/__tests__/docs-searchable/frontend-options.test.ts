@@ -292,59 +292,36 @@ test("parses and builds two-axis frontend/backend routes", () => {
   ).toBe("/teams/threads-and-state");
 });
 
-test("routes Angular interaction capture to the standalone collector", () => {
-  const captureSlug = "intelligence/capture-interactions";
-  const collectorSlug = "intelligence/standalone-collector";
-
-  expect(getFrontendCanonicalSlug("angular", captureSlug)).toBe(collectorSlug);
-  // Capture is a React page (docs/intelligence); the collector is shared.
-  expect(frontendHasPage("angular", captureSlug)).toBe(false);
-  expect(frontendHasPage("angular", collectorSlug)).toBe(true);
-});
-
-test("canonicalizes React-only frontend topics to Angular-native task guides", () => {
+test("gives Angular its own page at the React topic's slug", () => {
+  // Angular's pages live at React's slugs, so a topic keeps its slug.
   expect(getFrontendCanonicalSlug("angular", "frontend-tools")).toBe(
-    "guides/frontend-tools-generative-ui",
+    "frontend-tools",
   );
-  expect(
-    getFrontendCanonicalSlug(
-      "angular",
-      "prebuilt-components/copilot-threads-drawer",
-    ),
-  ).toBe("guides/threads-memory-attachments-headless");
-  expect(getFrontendCanonicalSlug("angular", "intelligence/overview")).toBe(
-    "intelligence/overview",
-  );
+  expect(frontendHasPage("angular", "frontend-tools")).toBe(true);
+  expect(frontendHasPage("angular", "headless-threads")).toBe(true);
   expect(
     getFrontendCanonicalSlug(
       "angular",
       "(other)/contributing/code-contributions",
     ),
   ).toBe("contributing/code-contributions");
-  expect(
-    getFrontendCanonicalSlug("angular", "generative-ui/a2ui/styling"),
-  ).toBe("guides/a2ui");
-  expect(getFrontendCanonicalSlug("angular", "voice")).toBe(
-    "guides/voice-multimodal",
+  // Capture is a React page (docs/intelligence); the collector is shared.
+  expect(frontendHasPage("angular", "intelligence/capture-interactions")).toBe(
+    false,
   );
-  expect(getFrontendCanonicalSlug("angular", "multimodal-attachments")).toBe(
-    "guides/voice-multimodal",
+  expect(frontendHasPage("angular", "intelligence/standalone-collector")).toBe(
+    true,
   );
-  expect(getFrontendCanonicalSlug("angular", "generative-ui/hashbrown")).toBe(
-    "guides/a2ui",
-  );
-  expect(getFrontendCanonicalSlug("angular", "generative-ui/json-render")).toBe(
-    "guides/a2ui",
-  );
-  expect(getFrontendCanonicalSlug("angular", "deploy-agentcore")).toBe(
-    "deploy/agentcore",
-  );
-  expect(getFrontendCanonicalSlug("angular", "deploy/agentcore")).toBe(
-    "deploy/agentcore",
-  );
-  expect(
-    getFrontendCanonicalSlug("angular", "a2a/generative-ui/declarative-a2ui"),
-  ).toBe("guides/a2ui");
+});
+
+test("keeps Angular and React Native sidebar links reachable", () => {
+  for (const id of ["angular", "react-native"] as const) {
+    const urls = collectPageUrls(getFrontendQuickstartNavTree(id), `/${id}`);
+    expect(urls).toContain(`/${id}/frontend-tools`);
+    for (const url of urls.filter((href) => href.startsWith(`/${id}/`))) {
+      expect(frontendHasPage(id, url.slice(id.length + 2)), url).toBe(true);
+    }
+  }
 });
 
 test("does not link breadcrumbs for section-only paths", () => {
