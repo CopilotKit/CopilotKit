@@ -64,6 +64,40 @@ export default defineConfig([
       "@copilotkit/shared",
       "@copilotkit/runtime-client-gql",
     ],
+    plugins: [
+      {
+        name: "umd-lazy-syntax-highlighter",
+        renderChunk(code) {
+          // Native import() exceeds the ES2018 UMD target. Resolve the same
+          // external only when a code block mounts, from CommonJS or its global.
+          const highlighterImport =
+            /import\(["']react-syntax-highlighter\/dist\/esm\/(prism|light)["']\)/g;
+          if (code.match(highlighterImport)?.length !== 2) {
+            throw new Error(
+              "Expected two lazy syntax highlighter imports in the UMD bundle",
+            );
+          }
+          const deferredHighlighter = [
+            "Promise.resolve().then(() =>",
+            'typeof define === "function" && define.amd && typeof require === "function"',
+            '? new Promise((resolve, reject) => require(["react-syntax-highlighter"], resolve, reject))',
+            ': typeof require === "function" ? require("react-syntax-highlighter")',
+            ': typeof globalThis !== "undefined" ? globalThis.ReactSyntaxHighlighter',
+            ': typeof window !== "undefined" ? window.ReactSyntaxHighlighter : undefined)',
+          ].join(" ");
+          const output = code.replace(highlighterImport, (_import, name) => {
+            const exportName = name === "prism" ? "Prism" : "Light";
+            return `${deferredHighlighter}.then((module) => ({ default: module && module.${exportName} }))`;
+          });
+          if (/\bimport\s*\(/.test(output)) {
+            throw new Error(
+              "UMD output still contains an unsupported dynamic import",
+            );
+          }
+          return output;
+        },
+      },
+    ],
     outputOptions(options) {
       options.codeSplitting = false;
       options.entryFileNames = "[name].umd.js";
