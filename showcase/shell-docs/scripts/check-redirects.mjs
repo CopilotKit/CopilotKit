@@ -384,7 +384,7 @@ for (const [from, to, status] of [
     PERMANENT,
   ],
   ["/learn", "/concepts/architecture", PERMANENT],
-  ["/learn/whats-new/v1-50", "/whats-new/v1-50", PERMANENT],
+  ["/learn/whats-new/v1-50", "/", PERMANENT],
   [
     "/concepts/three-types-of-gen-ui",
     "/concepts/generative-ui-overview",
@@ -432,7 +432,7 @@ for (const suffix of SUFFIXES) {
 for (const [from, to] of [
   [
     "/coagents/tutorials/ai-travel-app/overview",
-    "/langgraph-python/tutorials/ai-travel-app",
+    "/langgraph-python/quickstart",
   ],
   ["/coagents", "/langgraph-python"],
   ["/coagents/quickstart", "/langgraph-python/quickstart"],
@@ -440,11 +440,8 @@ for (const [from, to] of [
   ["/coagents/some/deep/page", "/langgraph-python/some/deep/page"],
   // Unlike next.config, the proxy table drops the query string (as shell-docs does).
   ["/coagents?ref=blog", "/langgraph-python"],
-  ["/crewai-conversational-flows", "/crewai-flows/conversational-flows"],
-  [
-    "/crewai-conversational-flows/feature-parity",
-    "/crewai-flows/conversational-flows",
-  ],
+  ["/crewai-conversational-flows", "/crewai-crews/quickstart"],
+  ["/crewai-conversational-flows/feature-parity", "/crewai-crews/quickstart"],
   ["/crewai-conversational-flows/quickstart", "/crewai-flows/quickstart"],
   ["/langgraph/quickstart/langgraph", "/langgraph-python/quickstart"],
   ["/coding-agents", "/build-with-agents"],
@@ -473,8 +470,8 @@ for (const [from, to] of [
   ["/langgraph/deep-agents", "/deepagents"],
   ["/migration-guides", "/migrate/v2"],
   ["/migration-guides/migrate-to-v2", "/migrate/v2"],
-  ["/migration-guides/migrate-to-1.10.X", "/migrate/1.10.X"],
-  ["/migration-guides/migrate-to-1.8.2", "/migrate/1.8.2"],
+  ["/migration-guides/migrate-to-1.10.X", "/migrate/v2"],
+  ["/migration-guides/migrate-to-1.8.2", "/migrate/v2"],
   ["/premium/observability", "/intelligence/overview"],
   [
     "/langgraph-python/premium/observability",

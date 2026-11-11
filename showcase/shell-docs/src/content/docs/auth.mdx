@@ -215,8 +215,6 @@ async def my_agent_node(state: AgentState, config: RunnableConfig):
 When nodes don't need the identity (you just want unauthenticated traffic rejected), keep `add_langgraph_fastapi_endpoint` and hang the dependency off the app: `FastAPI(dependencies=[Depends(current_user)])`. The gate applies, but nothing lands on the run config, so `config["configurable"]` stays empty of user context.
 </Callout>
 
-Coming from `CopilotKitRemoteEndpoint`? See [Migrate to AG-UI](/langgraph-python/troubleshooting/migrate-to-agui).
-
 </Tab>
 </Tabs>
 

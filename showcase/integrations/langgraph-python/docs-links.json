@@ -67,7 +67,7 @@
     },
     "gen-ui-interrupt": {
       "og_docs_url": "https://docs.copilotkit.ai/langgraph/generative-ui/your-components/interrupt-based",
-      "shell_docs_path": "/human-in-the-loop/interrupt-flow"
+      "shell_docs_path": "/human-in-the-loop/useInterrupt"
     },
     "interrupt-headless": {
       "og_docs_url": "https://docs.copilotkit.ai/langgraph/human-in-the-loop/interrupt-flow",

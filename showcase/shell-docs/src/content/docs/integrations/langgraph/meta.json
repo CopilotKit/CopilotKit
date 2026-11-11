@@ -9,10 +9,7 @@
       "defaultOpen": true,
       "pages": ["threads-import"]
     },
-    "---App Control---",
-    "shared-state",
     "---LangGraph---",
-    "human-in-the-loop/interrupt-flow",
     "configurable",
     "subgraphs",
     "guardrails"

@@ -84,8 +84,7 @@
         "agentic-protocols/ag-ui",
         "agentic-protocols/ag-ui-middleware",
         "agentic-protocols/mcp",
-        "agentic-protocols/a2a",
-        "[Common Questions](/faq)"
+        "agentic-protocols/a2a"
       ]
     },
     "[Cookbook](/cookbook)",

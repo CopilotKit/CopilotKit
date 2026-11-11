@@ -9,11 +9,11 @@ hideTOC: true
 
 `@copilotkit/vue/v2` ships three chat surfaces:
 
-- [**CopilotChat**](/vue/prebuilt-components/chat): an inline pane that fills
+- **CopilotChat**: an inline pane that fills
   the container you give it.
-- [**CopilotSidebar**](/vue/prebuilt-components/sidebar): a collapsible,
+- **CopilotSidebar**: a collapsible,
   docked surface.
-- [**CopilotPopup**](/vue/prebuilt-components/popup): a floating launcher and
+- **CopilotPopup**: a floating launcher and
   overlay chat.
 
 They share the same chat primitives while choosing different layouts. Pick the surface that fits the
@@ -67,6 +67,3 @@ useConfigureSuggestions({
   suggestions: [{ title: "Summarize", message: "Summarize this page" }],
 });
 ```
-
-For controlling a popup or sidebar from your own UI, and for feedback actions,
-see [Open, close, and feedback](/vue/prebuilt-components/chat-controls).

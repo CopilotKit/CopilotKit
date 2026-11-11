@@ -233,17 +233,17 @@ const DEEP_COAGENTS: RedirectEntry[] = [
   {
     id: "D1",
     source: "/coagents/tutorials/ai-travel-app/overview",
-    destination: "/langgraph-python/tutorials/ai-travel-app",
+    destination: "/langgraph-python/quickstart",
   },
   {
     id: "D2",
     source: "/coagents/chat-ui/hitl/json-hitl",
-    destination: "/langgraph-python/human-in-the-loop/interrupt-flow",
+    destination: "/langgraph-python/human-in-the-loop/useInterrupt",
   },
   {
     id: "D3",
     source: "/coagents/react-ui/frontend-functions",
-    destination: "/langgraph-python/human-in-the-loop/interrupt-flow",
+    destination: "/langgraph-python/human-in-the-loop/useInterrupt",
   },
   {
     id: "D4",
@@ -253,12 +253,12 @@ const DEEP_COAGENTS: RedirectEntry[] = [
   {
     id: "D5",
     source: "/coagents/chat-ui/hitl",
-    destination: "/langgraph-python/human-in-the-loop/interrupt-flow",
+    destination: "/langgraph-python/human-in-the-loop/useInterrupt",
   },
   {
     id: "D6",
     source: "/coagents/chat-ui/hitl/interrupt-flow",
-    destination: "/langgraph-python/human-in-the-loop/interrupt-flow",
+    destination: "/langgraph-python/human-in-the-loop/useInterrupt",
   },
   {
     id: "D7",
@@ -279,7 +279,7 @@ const DEEP_COAGENTS: RedirectEntry[] = [
   {
     id: "D10",
     source: "/coagents/react-ui/hitl",
-    destination: "/langgraph-python/human-in-the-loop/interrupt-flow",
+    destination: "/langgraph-python/human-in-the-loop/useInterrupt",
   },
   {
     id: "D11",
@@ -299,7 +299,7 @@ const DEEP_COAGENTS: RedirectEntry[] = [
   {
     id: "D14",
     source: "/coagents/advanced/manually-emitting-messages",
-    destination: "/langgraph-python/advanced/emit-messages",
+    destination: "/langgraph-python/shared-state/streaming",
   },
   {
     id: "D15",
@@ -362,17 +362,17 @@ const SPECIFIC_FRAMEWORK: RedirectEntry[] = [
   {
     id: "CF-mode-parity",
     source: "/crewai-conversational-flows/feature-parity",
-    destination: "/crewai-flows/conversational-flows",
+    destination: "/crewai-crews/quickstart",
   },
   {
     id: "CF-mode-parity-canonical",
     source: "/crewai-crews/feature-parity",
-    destination: "/crewai-flows/conversational-flows",
+    destination: "/crewai-crews/quickstart",
   },
   {
     id: "CF-mode-root",
     source: "/crewai-conversational-flows",
-    destination: "/crewai-flows/conversational-flows",
+    destination: "/crewai-crews/quickstart",
   },
   {
     id: "CF-mode-wild",
@@ -433,7 +433,7 @@ const SPECIFIC_FRAMEWORK: RedirectEntry[] = [
   {
     id: "F11",
     source: "/langgraph/human-in-the-loop/node-flow",
-    destination: "/langgraph-python/human-in-the-loop/interrupt-flow",
+    destination: "/langgraph-python/human-in-the-loop/useInterrupt",
   },
   {
     id: "F12",
@@ -950,22 +950,22 @@ const MIGRATION_GUIDES: RedirectEntry[] = [
   {
     id: "MG3",
     source: "/migration-guides/1.10.X",
-    destination: "/migrate/1.10.X",
+    destination: "/migrate/v2",
   },
   {
     id: "MG3a",
     source: "/migration-guides/migrate-to-1.10.X",
-    destination: "/migrate/1.10.X",
+    destination: "/migrate/v2",
   },
   {
     id: "MG4",
     source: "/migration-guides/1.8.2",
-    destination: "/migrate/1.8.2",
+    destination: "/migrate/v2",
   },
   {
     id: "MG4a",
     source: "/migration-guides/migrate-to-1.8.2",
-    destination: "/migrate/1.8.2",
+    destination: "/migrate/v2",
   },
 ];
 

@@ -218,7 +218,7 @@ const ANGULAR_GUIDE_PAGES = {
   "chat-ui": "prebuilt-components",
   "frontend-tools-generative-ui": "frontend-tools",
   a2ui: "generative-ui/a2ui",
-  "generative-ui-components": "generative-ui/native",
+  "generative-ui-components": "generative-ui",
   "voice-multimodal": "voice",
   "human-in-the-loop": "human-in-the-loop",
   "shared-state": "shared-state",
@@ -617,12 +617,12 @@ const PAGE_REDIRECTS = [
   },
   {
     source: "/troubleshooting/migrate-to-1.10.X",
-    destination: "/migrate/1.10.X",
+    destination: "/migrate/v2",
     permanent: true,
   },
   {
     source: "/troubleshooting/migrate-to-1.8.2",
-    destination: "/migrate/1.8.2",
+    destination: "/migrate/v2",
     permanent: true,
   },
   {
@@ -728,12 +728,12 @@ const PAGE_REDIRECTS = [
   },
   {
     source: "/unselected/troubleshooting/migrate-to-1.10.X",
-    destination: "/migrate/1.10.X",
+    destination: "/migrate/v2",
     permanent: true,
   },
   {
     source: "/unselected/troubleshooting/migrate-to-1.8.2",
-    destination: "/migrate/1.8.2",
+    destination: "/migrate/v2",
     permanent: true,
   },
   {
@@ -880,12 +880,9 @@ const PAGE_REDIRECTS = [
     destination: "/",
     permanent: true,
   },
-  {
-    source: "/learn/whats-new/:path*",
-    destination: "/whats-new/:path*",
-    permanent: true,
-  },
-  { source: "/learn/whats-new", destination: "/whats-new", permanent: true },
+  // What's New was never in main's navigation; its pages are gone.
+  { source: "/learn/whats-new/:path*", destination: "/", permanent: true },
+  { source: "/learn/whats-new", destination: "/", permanent: true },
 
   // Concepts restructure: protocol pages moved to /agentic-protocols/,
   // Intelligence + Threads explanations to /intelligence/.

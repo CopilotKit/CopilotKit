@@ -79,14 +79,12 @@ const FRAMEWORK_PAGES: Record<string, [string, string][]> = {
   ],
   mastra: [["Background tasks", "background-tasks"]],
   "langgraph-python": [
-    ["Interrupt flow", "interrupt-flow"],
     ["Configurable", "configurable"],
     ["Subgraphs", "subgraphs"],
     ["Auth", "auth"],
     ["Guardrails", "guardrails"],
   ],
   "langgraph-typescript": [
-    ["Interrupt flow", "interrupt-flow"],
     ["Configurable", "configurable"],
     ["Subgraphs", "subgraphs"],
     ["Auth", "auth"],

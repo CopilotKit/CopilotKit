@@ -41,12 +41,12 @@ export const FOLDED_PAGES: RedirectEntry[] = [
   {
     id: "FOLD",
     source: "/ag2/troubleshooting/migrate-to-1.10.X",
-    destination: "/ag2/migrate/1.10.X",
+    destination: "/ag2/migrate/v2",
   },
   {
     id: "FOLD",
     source: "/ag2/troubleshooting/migrate-to-1.8.2",
-    destination: "/ag2/migrate/1.8.2",
+    destination: "/ag2/migrate/v2",
   },
   {
     id: "FOLD",
@@ -77,12 +77,12 @@ export const FOLDED_PAGES: RedirectEntry[] = [
   {
     id: "FOLD",
     source: "/agno/troubleshooting/migrate-to-1.10.X",
-    destination: "/agno/migrate/1.10.X",
+    destination: "/agno/migrate/v2",
   },
   {
     id: "FOLD",
     source: "/agno/troubleshooting/migrate-to-1.8.2",
-    destination: "/agno/migrate/1.8.2",
+    destination: "/agno/migrate/v2",
   },
   {
     id: "FOLD",
@@ -152,12 +152,12 @@ export const FOLDED_PAGES: RedirectEntry[] = [
   {
     id: "FOLD",
     source: "/crewai-crews/troubleshooting/migrate-to-1.10.X",
-    destination: "/crewai-crews/migrate/1.10.X",
+    destination: "/crewai-crews/migrate/v2",
   },
   {
     id: "FOLD",
     source: "/crewai-crews/troubleshooting/migrate-to-1.8.2",
-    destination: "/crewai-crews/migrate/1.8.2",
+    destination: "/crewai-crews/migrate/v2",
   },
   {
     id: "FOLD",
@@ -303,7 +303,7 @@ export const FOLDED_PAGES: RedirectEntry[] = [
   {
     id: "FOLD",
     source: "/langgraph-fastapi/generative-ui/your-components/interrupt-based",
-    destination: "/langgraph-fastapi/human-in-the-loop/interrupt-flow",
+    destination: "/langgraph-fastapi/human-in-the-loop/useInterrupt",
   },
   {
     id: "FOLD",
@@ -328,17 +328,17 @@ export const FOLDED_PAGES: RedirectEntry[] = [
   {
     id: "FOLD",
     source: "/langgraph-fastapi/shared-state/workflow-execution",
-    destination: "/langgraph-fastapi/shared-state/state-inputs-outputs",
+    destination: "/langgraph-fastapi/shared-state",
   },
   {
     id: "FOLD",
     source: "/langgraph-fastapi/troubleshooting/migrate-to-1.10.X",
-    destination: "/langgraph-fastapi/migrate/1.10.X",
+    destination: "/langgraph-fastapi/migrate/v2",
   },
   {
     id: "FOLD",
     source: "/langgraph-fastapi/troubleshooting/migrate-to-1.8.2",
-    destination: "/langgraph-fastapi/migrate/1.8.2",
+    destination: "/langgraph-fastapi/migrate/v2",
   },
   {
     id: "FOLD",
@@ -404,7 +404,7 @@ export const FOLDED_PAGES: RedirectEntry[] = [
   {
     id: "FOLD",
     source: "/langgraph-python/generative-ui/your-components/interrupt-based",
-    destination: "/langgraph-python/human-in-the-loop/interrupt-flow",
+    destination: "/langgraph-python/human-in-the-loop/useInterrupt",
   },
   {
     id: "FOLD",
@@ -429,17 +429,17 @@ export const FOLDED_PAGES: RedirectEntry[] = [
   {
     id: "FOLD",
     source: "/langgraph-python/shared-state/workflow-execution",
-    destination: "/langgraph-python/shared-state/state-inputs-outputs",
+    destination: "/langgraph-python/shared-state",
   },
   {
     id: "FOLD",
     source: "/langgraph-python/troubleshooting/migrate-to-1.10.X",
-    destination: "/langgraph-python/migrate/1.10.X",
+    destination: "/langgraph-python/migrate/v2",
   },
   {
     id: "FOLD",
     source: "/langgraph-python/troubleshooting/migrate-to-1.8.2",
-    destination: "/langgraph-python/migrate/1.8.2",
+    destination: "/langgraph-python/migrate/v2",
   },
   {
     id: "FOLD",
@@ -512,7 +512,7 @@ export const FOLDED_PAGES: RedirectEntry[] = [
     id: "FOLD",
     source:
       "/langgraph-typescript/generative-ui/your-components/interrupt-based",
-    destination: "/langgraph-typescript/human-in-the-loop/interrupt-flow",
+    destination: "/langgraph-typescript/human-in-the-loop/useInterrupt",
   },
   {
     id: "FOLD",
@@ -537,17 +537,17 @@ export const FOLDED_PAGES: RedirectEntry[] = [
   {
     id: "FOLD",
     source: "/langgraph-typescript/shared-state/workflow-execution",
-    destination: "/langgraph-typescript/shared-state/state-inputs-outputs",
+    destination: "/langgraph-typescript/shared-state",
   },
   {
     id: "FOLD",
     source: "/langgraph-typescript/troubleshooting/migrate-to-1.10.X",
-    destination: "/langgraph-typescript/migrate/1.10.X",
+    destination: "/langgraph-typescript/migrate/v2",
   },
   {
     id: "FOLD",
     source: "/langgraph-typescript/troubleshooting/migrate-to-1.8.2",
-    destination: "/langgraph-typescript/migrate/1.8.2",
+    destination: "/langgraph-typescript/migrate/v2",
   },
   {
     id: "FOLD",
@@ -597,12 +597,12 @@ export const FOLDED_PAGES: RedirectEntry[] = [
   {
     id: "FOLD",
     source: "/llamaindex/troubleshooting/migrate-to-1.10.X",
-    destination: "/llamaindex/migrate/1.10.X",
+    destination: "/llamaindex/migrate/v2",
   },
   {
     id: "FOLD",
     source: "/llamaindex/troubleshooting/migrate-to-1.8.2",
-    destination: "/llamaindex/migrate/1.8.2",
+    destination: "/llamaindex/migrate/v2",
   },
   {
     id: "FOLD",
@@ -658,12 +658,12 @@ export const FOLDED_PAGES: RedirectEntry[] = [
   {
     id: "FOLD",
     source: "/mastra/troubleshooting/migrate-to-1.10.X",
-    destination: "/mastra/migrate/1.10.X",
+    destination: "/mastra/migrate/v2",
   },
   {
     id: "FOLD",
     source: "/mastra/troubleshooting/migrate-to-1.8.2",
-    destination: "/mastra/migrate/1.8.2",
+    destination: "/mastra/migrate/v2",
   },
   {
     id: "FOLD",
@@ -875,12 +875,12 @@ export const FOLDED_PAGES: RedirectEntry[] = [
   {
     id: "FOLD",
     source: "/pydantic-ai/troubleshooting/migrate-to-1.10.X",
-    destination: "/pydantic-ai/migrate/1.10.X",
+    destination: "/pydantic-ai/migrate/v2",
   },
   {
     id: "FOLD",
     source: "/pydantic-ai/troubleshooting/migrate-to-1.8.2",
-    destination: "/pydantic-ai/migrate/1.8.2",
+    destination: "/pydantic-ai/migrate/v2",
   },
   {
     id: "FOLD",
@@ -925,12 +925,12 @@ export const FOLDED_PAGES: RedirectEntry[] = [
   {
     id: "FOLD",
     source: "/strands-typescript/troubleshooting/migrate-to-1.10.X",
-    destination: "/strands-typescript/migrate/1.10.X",
+    destination: "/strands-typescript/migrate/v2",
   },
   {
     id: "FOLD",
     source: "/strands-typescript/troubleshooting/migrate-to-1.8.2",
-    destination: "/strands-typescript/migrate/1.8.2",
+    destination: "/strands-typescript/migrate/v2",
   },
   {
     id: "FOLD",
@@ -975,12 +975,12 @@ export const FOLDED_PAGES: RedirectEntry[] = [
   {
     id: "FOLD",
     source: "/strands/troubleshooting/migrate-to-1.10.X",
-    destination: "/strands/migrate/1.10.X",
+    destination: "/strands/migrate/v2",
   },
   {
     id: "FOLD",
     source: "/strands/troubleshooting/migrate-to-1.8.2",
-    destination: "/strands/migrate/1.8.2",
+    destination: "/strands/migrate/v2",
   },
   {
     id: "FOLD",

@@ -5,9 +5,7 @@
     "---Getting Started---",
     "index",
     "quickstart",
-    "conversational-flows",
     "---CrewAI Flows---",
-    "advanced",
-    "persistence"
+    "advanced"
   ]
 }
