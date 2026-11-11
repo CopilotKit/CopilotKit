@@ -58,7 +58,9 @@ def reconcile_durable_memories(user_id: str) -> int:
         rid = getattr(r, "id", None)
         content = (getattr(r, "content", "") or "").strip()
         if rid and content:
-            facts.append({"id": rid, "when": str(getattr(r, "timestamp", "")), "text": content})
+            facts.append(
+                {"id": rid, "when": str(getattr(r, "timestamp", "")), "text": content}
+            )
 
     if len(facts) < 2:
         return 0
@@ -66,7 +68,7 @@ def reconcile_durable_memories(user_id: str) -> int:
     valid_ids = {f["id"] for f in facts}
     try:
         resp = _client().chat.completions.create(
-            model=os.getenv("MEMORY_LLM_MODEL", "gpt-5.4-mini"),
+            model=os.getenv("MEMORY_LLM_MODEL", "gpt-6-luna"),
             response_format={"type": "json_object"},
             messages=[
                 {"role": "system", "content": _SYSTEM_PROMPT},
@@ -86,5 +88,7 @@ def reconcile_durable_memories(user_id: str) -> int:
         except Exception as exc:
             print(f"[reconcile] delete {rid} failed: {exc!r}")
     if deleted:
-        print(f"[reconcile] superseded {deleted} stale/duplicate memories for {user_id}")
+        print(
+            f"[reconcile] superseded {deleted} stale/duplicate memories for {user_id}"
+        )
     return deleted

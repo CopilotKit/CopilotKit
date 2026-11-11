@@ -242,6 +242,62 @@ function handleError(event: {
 
 </PropertyReference>
 
+<PropertyReference name="generativeUI" type="GenerativeUIConfig">
+  Experimental. Turns on native generative UI. The agent renders your Vue components in the chat, or in a [`GenerativeUISurface`](/reference/vue/components/GenerativeUISurface) on the page. Import the types from `@copilotkit/vue/v2/generative-ui`.
+
+Bind it in camelCase, as `:generativeUI`. Vue reads the kebab-case `:generative-ui` as a different prop (`generativeUi`), so the config does not reach the provider.
+
+```vue
+<script setup lang="ts">
+import { CopilotChat, CopilotKitProvider } from "@copilotkit/vue/v2";
+import { shopUI } from "./shop-ui";
+</script>
+
+<template>
+  <CopilotKitProvider runtime-url="/api/copilotkit" :generativeUI="{ ui: shopUI }">
+    <CopilotChat />
+  </CopilotKitProvider>
+</template>
+```
+
+  <PropertyReference name="ui" type="GenerativeUI" required>
+    The object from `createGenerativeUI`: the components the model can render, the app state they read, and the functions they call.
+  </PropertyReference>
+
+  <PropertyReference name="transport" type='"tool" | "markdown"' default='"tool"'>
+    How the model sends UI operations.
+
+    - `"tool"`: the model calls the `render_ui` tool. The runtime validates each operation before it streams it to the client.
+    - `"markdown"`: the model writes the operations in `a2ui` code fences in its reply. The client reads and validates them.
+  </PropertyReference>
+
+  <PropertyReference name="agentIds" type="string[]">
+    The agents that get the generative UI. When you omit it, every agent gets it.
+  </PropertyReference>
+
+  <PropertyReference name="theme" type="GenerativeUITheme">
+    Values for the `--a2ui-*` CSS variables and the map style. Top-level values apply in light and dark mode. Values under `dark` apply in dark mode, which is on under a `.dark` class.
+  </PropertyReference>
+
+  <PropertyReference name="errorBoundary" type="{ fallback?: Component; onError?: (info: GenerativeUIErrorInfo) => void }">
+    Fallback UI and error reports for generated UI.
+
+    - `fallback`: a Vue component that replaces the default fallback of a failed component. It gets `error`, `retry`, `surfaceId`, and `componentId` as props.
+    - `onError`: called for render, props, operation, function, and event failures.
+  </PropertyReference>
+
+  <PropertyReference name="sendContext" type="boolean" default="true">
+    Markdown transport only. Sends the component schema and the fence guideline as context entries. Set `false` when your backend builds its own prompt.
+  </PropertyReference>
+
+  <PropertyReference name="includeCatalog" type="boolean" default="true">
+    Markdown transport only. Sends the component schemas in the envelope (`catalog.components`).
+  </PropertyReference>
+
+For a full walkthrough, see [Surfaces](/generative-ui/components/surfaces) and [State and actions](/generative-ui/components/state-and-actions).
+
+</PropertyReference>
+
 <PropertyReference name="mcpApps" type="{ allowSameOriginFallback?: boolean }">
   Configuration for the built-in MCP Apps renderer. `allowSameOriginFallback` restores `allow-same-origin` on the MCP App sandbox; by default widgets get an opaque origin. **Unsafe:** with it set, a widget runs with your page's origin and can read your cookies, storage and DOM. Only use it for widgets you trust that need `localStorage`, `IndexedDB` or cookies. See [Sandbox and widget storage](/vue/generative-ui/mcp-apps#sandbox-and-widget-storage).
 </PropertyReference>

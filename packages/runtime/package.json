@@ -1,6 +1,6 @@
 {
   "name": "@copilotkit/runtime",
-  "version": "1.84.1",
+  "version": "1.86.0",
   "private": false,
   "keywords": [
     "ai",
@@ -81,12 +81,12 @@
     "attw": "attw --pack . --profile node16"
   },
   "dependencies": {
-    "@ag-ui/a2ui-middleware": "0.0.10",
+    "@ag-ui/a2ui-middleware": "0.0.15",
     "@ag-ui/client": "1.0.2",
     "@ag-ui/core": "1.0.2",
     "@ag-ui/encoder": "1.0.2",
     "@ag-ui/langgraph": "0.0.44",
-    "@ag-ui/mcp-apps-middleware": "^0.1.1",
+    "@ag-ui/mcp-apps-middleware": "0.1.1",
     "@ag-ui/mcp-middleware": "0.0.2",
     "@ai-sdk/anthropic": "^3.0.49",
     "@ai-sdk/google": "^3.0.33",

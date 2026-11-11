@@ -107,7 +107,12 @@ async def outline_writer(research_query, state):
         optional_params = {"response_format": {"type": "json_object"}}
 
         response = (
-            ChatOpenAI(model="gpt-5-mini", max_retries=1, model_kwargs=optional_params)
+            ChatOpenAI(
+                reasoning_effort="none",
+                model="gpt-6-luna",
+                max_retries=1,
+                model_kwargs=optional_params,
+            )
             .invoke(lc_messages, config)
             .content
         )

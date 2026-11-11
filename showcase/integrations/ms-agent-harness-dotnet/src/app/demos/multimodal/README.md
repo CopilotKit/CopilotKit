@@ -10,7 +10,7 @@ by a vision-capable ChatClientAgent on the .NET side.
 - Runtime: `/api/copilotkit-multimodal` — proxies to the .NET backend over
   AG-UI (HTTP).
 - Agent: `agent/MultimodalAgent.cs` — a dedicated `ChatClientAgent` wired to
-  `gpt-4o-mini` (vision-capable). Mounted at `/multimodal` in `Program.cs` via
+  `gpt-6-luna` (vision-capable). Mounted at `/multimodal` in `Program.cs` via
   `app.MapAGUI("/multimodal", ...)`.
 
 ## Why a dedicated runtime?

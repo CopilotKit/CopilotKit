@@ -2,12 +2,14 @@ fastapi>=0.115.0
 uvicorn[standard]>=0.34.0
 python-dotenv
 pydantic
-google-adk==2.13.0
+# Keep the Google agent/model pair reproducible. ADK 2.x requires GenAI <3.
+google-adk==2.14.0
 google-genai==2.34.0
-ag-ui-protocol==1.0.0
 # A2UI Express needs ag-ui-adk >= 0.12.0 (published A2UI SDK streaming) and
-# the A2UI toolkit >= 0.0.6 (bounded inference-failure recovery).
-a2ui-agent-sdk==0.10.0
-a2ui-core==0.5.0
+# the A2UI toolkit >= 0.0.6 (bounded inference-failure recovery). ag-ui-adk
+# 0.12 requires Python AG-UI 1.0. Keep these aligned with the ADK starters.
 ag-ui-adk==0.12.0
 ag-ui-a2ui-toolkit==0.0.6
+a2ui-agent-sdk==0.10.0
+a2ui-core==0.5.0
+ag-ui-protocol==1.0.0

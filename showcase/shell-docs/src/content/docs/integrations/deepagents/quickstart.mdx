@@ -88,7 +88,7 @@ Before you begin, you'll need the following:
                     return f"The weather in {location} is sunny."
 
                 agent = create_deep_agent(
-                    model="openai:gpt-4o",
+                    model="openai:gpt-6-luna",
                     tools=[get_weather],
                     middleware=[CopilotKitMiddleware()], # for frontend tools and context
                     system_prompt="You are a helpful research assistant.",
@@ -133,7 +133,7 @@ Before you begin, you'll need the following:
                 );
 
                 export const agent = createDeepAgent({
-                    model: "openai:gpt-4o",
+                    model: "openai:gpt-6-luna",
                     tools: [getWeather],
                     middleware: [copilotkitMiddleware],
                     systemPrompt: "You are a helpful research assistant.",
@@ -185,7 +185,7 @@ Before you begin, you'll need the following:
                     return f"The weather in {location} is sunny."
 
                 agent = create_deep_agent(
-                    model="openai:gpt-4o",
+                    model="openai:gpt-6-luna",
                     tools=[get_weather],
                     middleware=[CopilotKitMiddleware()], # for frontend tools and context
                     system_prompt="You are a helpful research assistant.",

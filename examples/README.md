@@ -1,6 +1,6 @@
 # CopilotKit Examples
 
-This directory contains 65 consolidated demo repositories showcasing CopilotKit integrations, canvas apps, and showcases.
+This directory contains 67 consolidated demo repositories showcasing CopilotKit integrations, canvas apps, and showcases.
 
 Each example is a self-contained project. To get started:
 
@@ -18,7 +18,7 @@ cd examples/<category>/<name>
 
 > The Intelligence dashboard also links to [Project Manager](./canvas/mastra-pm/), a maintained v2 example covered by the public-example tests.
 
-## Integrations (24)
+## Integrations (25)
 
 Framework integration starters demonstrating CopilotKit with various agent frameworks.
 
@@ -48,6 +48,7 @@ Framework integration starters demonstrating CopilotKit with various agent frame
 | [claude-sdk-python](./integrations/claude-sdk-python/)                 | Starter template using the Claude Agent SDK (Python) and CopilotKit                  |
 | [claude-sdk-typescript](./integrations/claude-sdk-typescript/)         | Starter template using the Claude Agent SDK (TypeScript) and CopilotKit              |
 | [claude-managed-agents](./integrations/claude-managed-agents/)         | Beautiful Chat starter with Claude Managed Agents and Intelligence Skills            |
+| [omnara](./integrations/omnara/)                                       | Beautiful Chat starter with Omnara agents and Intelligence threads                   |
 
 ## Canvas (7)
 
@@ -63,15 +64,16 @@ AI-powered canvas applications with visual card interfaces, real-time state sync
 | [gemini](./canvas/gemini/)                           | Open Gemini Canvas — post generator and stack analyzer agents (Gemini + LangGraph)      |
 | [mastra-pm](./canvas/mastra-pm/)                     | CopilotKit v2 + Mastra project manager — shared project state and tool UI               |
 
-## Showcases (34)
+## Showcases (35)
 
 Full-featured demo applications highlighting CopilotKit capabilities in real-world scenarios.
 
-### Current showcases (26)
+### Current showcases (27)
 
 | Example                                                                 | Description                                                                                                         |
 | ----------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
 | [a2ui-pdf-analyst](./showcases/a2ui-pdf-analyst/)                       | PDF analyst that builds fixed or dynamic A2UI surfaces from document data                                           |
+| [a2ui-playground](./showcases/a2ui-playground/)                         | Chat-first A2UI 1.0 playground: watch Gemini write Express line by line, with macros, skills and evals              |
 | [arcade-tools](./showcases/arcade-tools/)                               | Built-in Agent with authenticated Arcade Gmail and news tools plus inline OAuth UI                                  |
 | [claude-managed-agents](./showcases/claude-managed-agents/)             | Hosted Claude Managed Agent over AG-UI with an interactive growth chart                                             |
 | [daytona-runcode](./showcases/daytona-runcode/)                         | Built-in Agent that runs Python, TypeScript, and JavaScript in isolated Daytona sandboxes                           |

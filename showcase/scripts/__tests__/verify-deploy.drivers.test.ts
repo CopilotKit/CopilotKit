@@ -966,6 +966,26 @@ describe("probeDocs production canonical-host guard", () => {
       expect(error === undefined).toBe(allowed);
     },
   );
+
+  it.each([
+    ["https://open.bot", true],
+    ["https://open.bot/builders", true],
+    ["https://github.com/CopilotKit/OpenBot", true],
+    ["https://open.bot/pricing", false],
+    ["https://www.open.bot", false],
+    // openbot.co redirects to open.bot, so the index should name open.bot instead.
+    ["https://openbot.co", false],
+    ["https://github.com/CopilotKit/CopilotKit", false],
+  ])(
+    "allows only the exact OpenBot links the index names: %s",
+    async (url, allowed) => {
+      const error = await checkProductionDocsCanonicalHost(
+        target.host,
+        docsSurfaceFetch(undefined, url),
+      );
+      expect(error === undefined).toBe(allowed);
+    },
+  );
 });
 
 describe("docs deployed auth runtime-config guard", () => {

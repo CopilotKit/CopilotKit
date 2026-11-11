@@ -13,7 +13,7 @@ const agent = skills.wrapAgent(
     id: "learned-skill-acceptance",
     name: "Learned skill acceptance",
     model: {
-      id: "openai/gpt-4o-mini",
+      id: "openai/gpt-6-luna",
       apiKey: "aimock",
       url: `${process.env.LEARNED_SKILL_AIMOCK_URL}/v1`,
     },
@@ -25,6 +25,7 @@ const agent = skills.wrapAgent(
 );
 const result = await agent.generate("Learned skill acceptance refund", {
   maxSteps: 4,
+  providerOptions: { openai: { reasoningEffort: "none" } },
 });
 assert.equal(result.text, "Acceptance complete");
 assert.equal(registry.status.initialized, true);

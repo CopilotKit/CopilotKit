@@ -4,7 +4,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 import { useGenerativeUIAccessibility } from "../accessibility";
 import { createGenerativeUI } from "../catalog";
-import { createGenerativeUIDispatcher } from "../dispatcher";
+import { createGenerativeUIDispatcher } from "@copilotkit/core/generative-ui";
 import { renderSurface } from "../standard/__tests__/render";
 
 function Text({ text }: { text: string | number }) {

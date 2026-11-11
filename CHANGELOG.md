@@ -16,6 +16,100 @@ releases have no changelog: the per-package files from the changesets era stoppe
 at `1.55.2` while the lane shipped `1.69.3`, and they are recoverable from git
 history (for example `git show v1.69.3:packages/core/CHANGELOG.md`).
 
+## 1.86.0 - 2026-11-11
+
+This release extends native generative UI to Vue and React Native, bumps the A2UI middleware, and hardens the runtime's MCP Apps and A2UI integration.
+
+## Features
+
+### Native generative UI for Vue (#8280)
+
+Vue apps can now let agents render their own Vue components, matching the generative UI already available in React. The new `@copilotkit/vue/v2/generative-ui` entry exports the same names as React's `/v2/generative-ui`.
+
+- **Setup:** enable the feature with `<CopilotKitProvider :generativeUI="{ ui }">`. Both the tool transport (`render_ui`) and the markdown transport (a2ui fences) are supported.
+- **Where UI renders:** agents render into the chat or into a `<GenerativeUISurface id="...">` placed anywhere on the page. The surface's default slot is its fallback content.
+- **App integration:** `useGenerativeUIState` and `useGenerativeUIFunction` connect generated UI to your app's state and functions.
+- **Standard catalog:** `standardUI` ships all 69 components as Vue SFCs. Chart and Map are opt-in via `app.use(GenerativeUIChart)` and `app.use(GenerativeUIMap)`; without them, Chart falls back to a table and Map to a list.
+- **Chat card:** a `#generative-ui-surface` slot on `CopilotChat`, `CopilotPopup`, and `CopilotSidebar` replaces the default card.
+- **Compatibility:** standard component IDs work on Vue 3.3 and 3.4 (not just 3.5+ `useId`).
+
+> **Note:** write the binding in camelCase (`:generativeUI`). Vue reads `:generative-ui` as a different prop (`generativeUi`).
+
+This change is additive and opt-in — nothing changes unless an app sets `generativeUI` or imports `/v2/generative-ui`. As part of the port, `toError`, `withCause`, the surface activity content parser, and several framework-free catalog helpers moved into `@copilotkit/shared/generative-ui` and `@copilotkit/core/generative-ui`; React and Angular re-export them, so their public exports are unchanged.
+
+### Native generative UI for React Native (#8260)
+
+React Native apps can now let agents render their own native components via the new `@copilotkit/react-native/generative-ui` entry. No runtime changes are required.
+
+- **`GenerativeUIProvider`:** goes inside `CopilotKitProvider` and supplies React Native host elements (overridable with `host`). Tool transport only for now.
+- **`GenerativeUIActivity`:** renders any agent's activity message surface, in a chat list or on a screen with no chat at all (for example, a home screen composed by a background agent run).
+- **`GenerativeUISurface`:** a named target with `onGenerationStart` (StrictMode-safe) in place of the DOM `autoScroll`.
+- **New react-core entry `@copilotkit/react-core/v2/generative-ui/native`:** a DOM-free entry exposing the catalog API, hooks, root wiring, and `SurfaceView` without react-dom, KaTeX, or streamdown. Existing web output is unchanged.
+- **Hermes/Metro compatibility:** `@copilotkit/shared` adds `cloneValue` (uses native `structuredClone` when available, otherwise a deep-copy fallback with matching semantics). The engine and host elements avoid browser-only APIs, and every published entry imports polyfills first.
+- **Error containment:** throwing app or host fallbacks stay inside their node, any thrown value becomes an `Error` (with the original value as its `cause`), malformed activity messages are skipped with a dev warning, and failures are reported once per place until content changes.
+
+`zod` remains an optional peer at `>=3.0.0`; pin `zod@^3.25` since `child()`/`childList()` return zod 3 schemas.
+
+**Not yet included on React Native:** the markdown transport, a native standard catalog, `theme`, and rendering surfaces inside the prebuilt RN `CopilotChat`.
+
+### A2UI middleware bump (#8137)
+
+`@ag-ui/a2ui-middleware` is bumped to `0.0.15`, enabling the opt-in `a2uiGenerationToolNames` option on `CopilotRuntime`'s `a2ui` config. This also pulls in upstream behavior changes:
+
+- After the middleware answers a render call in the current run, it continues the agent with that result in the same run (up to 10 rounds).
+- A render call left unanswered by an earlier run is now answered with a `cancelled` result at `RUN_STARTED`, rather than `rendered` at `RUN_FINISHED`.
+
+## Fixes
+
+- **runtime:** pin `@ag-ui/mcp-apps-middleware` to exactly `0.1.1` (#8319). This prevents fresh installs from selecting `0.1.2`/`0.1.3`, whose automatic continuations can replay resume inputs. A2UI conformance checks were also aligned so the runtime validates A2UI action history in the private user context for the TypeScript driver.
+
+## 1.85.0 - 2026-11-06
+
+This release introduces native Generative UI for Angular, adds analytics context forwarding for Intelligence runs, and fixes several reliability issues around Intelligence run stops and A2UI rendering.
+
+## Features
+
+### Native Generative UI for Angular (#8105)
+
+Angular apps can now render the same agent-driven surfaces as React, from the same A2UI v1.0 operations. The new `@copilotkit/angular/generative-ui` entry ports React's native generative UI, including all 69 components of the `copilotkit/standard@1` catalog.
+
+- `provideGenerativeUI({ ui })` as the root provider, with a signal-based node renderer that binds inputs, models, and outputs.
+- Named surfaces with fallback content, inline chat activity rendering, app state connection, and app function registration.
+- chart.js, MapLibre, and Lucide load on first use as optional peers; highlight.js and KaTeX load lazily in chat.
+
+As part of this work, the generative UI catalog, standard catalog declarations, and engine moved into shared entry points (`@copilotkit/shared/generative-ui` and `@copilotkit/core/generative-ui`) so React and Angular run the same code. The public API of `@copilotkit/react-core/v2/generative-ui` is unchanged.
+
+### Analytics context forwarding for Intelligence (#8215)
+
+Apps can now attribute their Intelligence runs by passing `forwardedProps.__copilotkitAnalyticsContext` on a run. The runtime forwards this object as `analyticsContext` on the thread lock request so Intelligence can label the accepted run and its summary with the app's own attribution.
+
+- The runtime never reads the fields — it only validates that the value is a plain JSON-serializable object under 4 KB. Missing, malformed, or oversized context is ignored with a warning (that never logs the content) and never fails a run.
+- The context is stripped from the run input as soon as the request is parsed, so it never reaches the agent, the stored `RUN_STARTED` input, SSE agents, or suggestion agents.
+
+Runtime-triggered stops (the stop route or a server-side `runner.stop`) are now recorded with Intelligence the same way a browser Stop is, so a stopped run correctly reads as `cancelled` instead of a normal finish. Stops relayed by Intelligence and runs that finish normally are not recorded as runtime-side stops.
+
+## Fixes
+
+### Runtime
+
+- **Intelligence lock held until the run's final events (#8236).** The runner previously released the thread lock as soon as a run errored, before its last events reached the gateway — which rejected them as an `active_lock_mismatch`, hiding the real error and preventing clean thread resumption. The lock is now held until the final events are delivered.
+- **`oss.runtime.instance_created` fires once per runtime (#8243).** This telemetry event was being emitted multiple times per request for v1 users on runtime ≥1.74. The v2 handler is now the sole emitter, a `WeakSet` guard ensures at most one event per runtime object, and `runtime.framework` now correctly reflects the entry point you called instead of being overwritten with `"node-http"`. Dashboards will show lower (corrected) counts for v1 users after upgrade.
+
+### Core
+
+- **Intelligence stop cleanup scoped to the run it stopped (#8237).** A follow-up sent within ~10 seconds of pressing Stop could stay stuck on "Thinking": the stop's cleanup tore down whatever run was current rather than the one it actually stopped. `abortRun` now records the channel, socket, and run ID it stops and only cleans those up, and only when a newer run has started.
+
+### A2UI
+
+- **Recover React bind-time failures on data updates (#8226).** A React A2UI component that called a binding (e.g. `formatNumber`) before its data arrived would keep its failure card after a data-only update. The binding error is now retained in the adapter's snapshot and the failed component is re-evaluated when its bound props change, clearing the error once it evaluates cleanly. Sibling components remain isolated.
+- **Upgraded `@a2ui/web_core` to 0.15.0 (#8211)** across `core`, `a2ui-renderer`, `react-core`, and `vue`. This release adapts to several upstream behavior changes:
+  - Component updates are now validated against the catalog before rendering; rejected updates surface a per-surface alert that clears on the next successful component update.
+  - Expression failures now arrive on the surface error channel and show as a component failure card.
+  - Button actions are invoked without passing the click event (`props.action?.()`).
+  - Noncanonical v0.9 envelopes carrying extra top-level routing metadata are normalized before strict validation, preserving nested action IDs.
+
+  Note: because validation is now always on, a component that arrives before its required props will show an error until a valid update arrives, rather than rendering with props missing.
+
 ## 1.84.1 - 2026-11-03
 
 This patch release improves A2UI catalog serialization so that composed custom component trees are correctly recognized by agent SDKs.

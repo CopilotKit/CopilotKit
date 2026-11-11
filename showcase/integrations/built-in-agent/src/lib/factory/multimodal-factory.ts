@@ -4,7 +4,7 @@ import { createBuiltInAgent } from "./tanstack-factory";
 
 // Built-in agent for the Multimodal Attachments demo.
 //
-// The base built-in agent (gpt-5.4) consumes image `document`/`image` content
+// The base built-in agent (gpt-6-luna) consumes image `document`/`image` content
 // parts natively via its vision adapter, but the OpenAI TEXT adapter cannot
 // consume PDF `document` parts — the turn is dropped before the model is even
 // called (aimock records zero PDF requests). LGP solves this by flattening
@@ -70,7 +70,7 @@ async function extractPdfText(base64: string): Promise<string> {
 /**
  * Flatten PDF `document` parts on user messages to text parts the OpenAI text
  * adapter can consume. Images and every non-PDF part pass through untouched.
- * Duplicate PDF parts (the frontend shim appends a legacy `binary` mirror that
+ * Duplicate PDF parts (an older client may send a legacy `binary` mirror that
  * also converts to a `document` part) are de-duplicated by their base64 value
  * so the model sees each document once.
  */

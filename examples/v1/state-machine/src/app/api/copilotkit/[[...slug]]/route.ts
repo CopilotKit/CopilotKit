@@ -9,7 +9,7 @@ import {
 const runtime = new CopilotRuntime({
   agents: {
     default: new BuiltInAgent({
-      model: process.env.COPILOTKIT_MODEL ?? "openai/gpt-5-mini",
+      model: process.env.COPILOTKIT_MODEL ?? "openai/gpt-6-luna",
       prompt: systemPrompt,
     }),
   },

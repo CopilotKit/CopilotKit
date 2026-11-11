@@ -108,6 +108,11 @@ const PROMPTS: Readonly<Record<string, { heal: string; exhaust: string }>> = {
     exhaust:
       "Chart an Antigravity board that never passes validation so I can preview the fallback.",
   },
+  "openai-agents-python": {
+    heal: "Compose the OpenAI Agents quarterly revenue board and repair a malformed first render.",
+    exhaust:
+      "Compose an OpenAI Agents board that never passes validation so I can preview the fallback.",
+  },
   "langgraph-python": {
     heal: "Build my Q2 revenue summary and self-correct a malformed first attempt.",
     exhaust:

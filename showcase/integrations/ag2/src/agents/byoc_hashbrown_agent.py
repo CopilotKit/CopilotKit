@@ -89,7 +89,7 @@ Example response (sales dashboard):
 byoc_hashbrown_agent = Agent(
     "byoc_hashbrown_assistant",
     prompt=BYOC_HASHBROWN_SYSTEM_PROMPT,
-    config=OpenAIResponsesConfig(model="gpt-5-mini", streaming=True),
+    config=OpenAIResponsesConfig(model="gpt-6-luna", streaming=True),
     middleware=[loop_cap(3)],
 )
 

@@ -261,7 +261,7 @@ function toolsForRun(state: BeautifulChatState, config: RunnableConfig) {
     );
   if (!enabled) return { context, actions, localTools: tools };
   const generator = getA2UITools({
-    model: makeChatOpenAI(config, { model: "gpt-5-mini" }),
+    model: makeChatOpenAI(config, { model: "gpt-6-luna" }),
     defaultCatalogId: context.catalogId ?? CATALOG_ID,
     catalog: context.catalog,
   });
@@ -312,7 +312,7 @@ Tool guidance:
 
 async function chatNode(state: BeautifulChatState, config: RunnableConfig) {
   const model = makeChatOpenAI(config, {
-    model: "gpt-5-mini",
+    model: "gpt-6-luna",
     modelKwargs: { parallel_tool_calls: false },
   });
 

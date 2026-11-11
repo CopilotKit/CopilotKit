@@ -55,14 +55,14 @@ SYSTEM_PROMPT = (
     "rendering — and its automatic recovery — for you."
 )
 
-_MODEL = "gpt-4.1"
+_MODEL = "gpt-6-luna"
 
 graph = create_agent(
-    model=ChatOpenAI(model=_MODEL),
+    model=ChatOpenAI(reasoning_effort="none", model=_MODEL),
     tools=[
         get_a2ui_tools(
             {
-                "model": ChatOpenAI(model=_MODEL),
+                "model": ChatOpenAI(reasoning_effort="none", model=_MODEL),
                 "default_catalog_id": "declarative-gen-ui-catalog",
                 "recovery": {"maxAttempts": 3},
                 "on_a2ui_attempt": _log_attempt,

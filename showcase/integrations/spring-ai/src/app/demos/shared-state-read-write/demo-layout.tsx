@@ -3,7 +3,8 @@
 import React from "react";
 import { CopilotSidebar } from "@copilotkit/react-core/v2";
 
-import { PreferencesCard, Preferences } from "./preferences-card";
+import type { Preferences } from "./preferences-card";
+import { PreferencesCard } from "./preferences-card";
 import { NotesCard } from "./notes-card";
 
 interface DemoLayoutProps {
@@ -20,13 +21,13 @@ export function DemoLayout({
   onClearNotes,
 }: DemoLayoutProps) {
   return (
-    <div className="min-h-screen w-full overflow-y-auto bg-gray-50">
+    <div className="min-h-screen w-full overflow-y-auto bg-gray-50 dark:bg-background">
       <main className="mx-auto max-w-6xl p-6 md:p-10">
         <header className="mb-8 space-y-2">
-          <h1 className="text-3xl font-semibold text-[#010507]">
+          <h1 className="text-3xl font-semibold text-[#010507] dark:text-foreground">
             Shared state — read &amp; write
           </h1>
-          <p className="text-sm text-[#57575B] max-w-2xl">
+          <p className="text-sm text-[#57575B] max-w-2xl dark:text-muted-foreground">
             The UI writes preferences into agent state and reads back the
             agent&apos;s scratch pad. Open the chat sidebar and ask the agent to
             remember something.

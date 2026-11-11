@@ -4,6 +4,7 @@ import {
   readExpectedDocsImage,
   verifyDocsDeployment,
 } from "./verify-docs-deployment";
+import { SupersededImageError } from "./verify-image-deployment";
 import { DOCS_GHCR_IMAGE } from "./docs-prod-pin";
 import { SERVICES, STAGING_ENV_ID } from "./railway-envs";
 import { stepsOf } from "./__tests__/showcase-build-workflow";
@@ -49,7 +50,7 @@ afterEach(() => vi.restoreAllMocks());
 
 describe("readExpectedDocsImage", () => {
   function inspector(latest = INDEX) {
-    return vi.fn((ref: string, format: "digest" | "manifest") => {
+    return vi.fn((ref: string, format: "digest" | "manifest" | "config") => {
       if (format === "digest") return ref.endsWith(":latest") ? latest : INDEX;
       return JSON.stringify({
         schemaVersion: 2,
@@ -64,41 +65,46 @@ describe("readExpectedDocsImage", () => {
     });
   }
 
-  it("binds verification to the commit image and its amd64 manifest, excluding attestations", () => {
+  it("binds verification to the commit image and its amd64 manifest, excluding attestations", async () => {
     const inspect = inspector();
-    expect(readExpectedDocsImage(IMAGE, inspect)).toEqual(expected);
+    await expect(readExpectedDocsImage(IMAGE, inspect)).resolves.toEqual({
+      ...expected,
+      build: { repository: DOCS_GHCR_IMAGE, sha: "d".repeat(40) },
+    });
     expect(inspect).toHaveBeenCalledWith(
       `${DOCS_GHCR_IMAGE}@${INDEX}`,
       "manifest",
     );
   });
 
-  it("refuses a superseded build before creating a deployment", () => {
-    expect(() => readExpectedDocsImage(IMAGE, inspector(OLD))).toThrow(
+  it("refuses a superseded build before creating a deployment", async () => {
+    await expect(readExpectedDocsImage(IMAGE, inspector(OLD))).rejects.toThrow(
       /latest.*this build/,
     );
   });
 
-  it("rejects mutable or unrelated expected image references", () => {
+  it("rejects mutable or unrelated expected image references", async () => {
     const inspect = inspector();
     for (const ref of [
       `${DOCS_GHCR_IMAGE}:latest`,
       "ghcr.io/other/image:main",
       "",
     ]) {
-      expect(() => readExpectedDocsImage(ref, inspect)).toThrow(/commit image/);
+      await expect(readExpectedDocsImage(ref, inspect)).rejects.toThrow(
+        /commit image/,
+      );
     }
     expect(inspect).not.toHaveBeenCalled();
   });
 
-  it("rejects an image index without a usable amd64 manifest", () => {
-    expect(() =>
+  it("rejects an image index without a usable amd64 manifest", async () => {
+    await expect(
       readExpectedDocsImage(IMAGE, (_ref, format) =>
         format === "digest"
           ? INDEX
           : JSON.stringify({ schemaVersion: 2, manifests: [] }),
       ),
-    ).toThrow(/amd64/);
+    ).rejects.toThrow(/amd64/);
   });
 });
 
@@ -111,6 +117,32 @@ describe("verifyDocsDeployment", () => {
       return new Response(content);
     });
   }
+
+  it("avoids all route requests for a positively proven superseded image race", async () => {
+    const fetchImpl = fetcher(node("SUCCESS", OLD));
+    const inspect = vi.fn(
+      async (_ref: string, format: "digest" | "manifest" | "config") =>
+        format === "digest"
+          ? OLD
+          : format === "config"
+            ? JSON.stringify({
+                "org.opencontainers.image.revision": "e".repeat(40),
+              })
+            : JSON.stringify({ schemaVersion: 2, config: {}, layers: [] }),
+    );
+    await expect(
+      verifyDocsDeployment(
+        "token",
+        "fresh-docs",
+        {
+          ...expected,
+          build: { repository: DOCS_GHCR_IMAGE, sha: "d".repeat(40) },
+        },
+        { fetchImpl, inspect, compare: async () => "behind" },
+      ),
+    ).rejects.toBeInstanceOf(SupersededImageError);
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+  });
 
   it("rejects SUCCESS on the previous image even when the site could return 200", async () => {
     const fetchImpl = fetcher(node("SUCCESS", OLD));

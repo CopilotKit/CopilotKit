@@ -98,15 +98,15 @@ function WeatherFailure({ toolCallId }: { toolCallId: string }) {
   return (
     <div
       role="alert"
-      className="my-4 w-full max-w-md rounded-2xl border border-[#DBDBE5] bg-[#EDEDF5] p-5 text-[#010507]"
+      className="my-4 w-full max-w-md rounded-2xl border border-[#DBDBE5] dark:border-border bg-[#EDEDF5] dark:bg-muted p-5 text-[#010507] dark:text-foreground"
     >
       <p className="font-semibold">Weather lookup failed.</p>
-      <p className="mt-1 text-sm text-[#57575B]">
+      <p className="mt-1 text-sm text-[#57575B] dark:text-muted-foreground">
         Retry to request the weather again.
       </p>
       <button
         type="button"
-        className="mt-3 rounded-lg border border-[#57575B] px-4 py-2 text-sm font-medium disabled:opacity-50"
+        className="mt-3 rounded-lg border border-[#57575B] dark:border-muted-foreground px-4 py-2 text-sm font-medium disabled:opacity-50"
         disabled={!canRetry(toolCallId)}
         onClick={() => retry(toolCallId)}
       >

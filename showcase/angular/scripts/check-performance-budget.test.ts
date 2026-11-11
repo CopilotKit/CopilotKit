@@ -61,8 +61,9 @@ describe("Angular Showcase performance budget", () => {
 
     expect(baseline).toMatchObject({
       schemaVersion: 1,
-      sourceRevision: "checkpoint-3-shared-build",
-      command: "pnpm --dir showcase/angular build",
+      sourceRevision: expect.stringMatching(/^[a-f0-9]{40}$/),
+      command:
+        "pnpm nx run @copilotkit/showcase-angular-host:build --skip-nx-cache",
       initial: {
         rawBytes: expect.any(Number),
         gzipBytes: expect.any(Number),

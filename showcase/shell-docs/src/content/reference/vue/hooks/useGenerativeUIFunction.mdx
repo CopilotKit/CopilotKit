@@ -1,0 +1,107 @@
+---
+title: "useGenerativeUIFunction"
+description: "Run your own code when a generated component calls a declared function, such as add to cart"
+---
+
+## Overview
+
+A user clicks "Add to cart" on a generated `ProductCard`. That click must add to the cart, with no message to the agent. `useGenerativeUIFunction` mounts the handler of a function that you declare in `createGenerativeUI({ functions })`. When generated UI calls the function, your handler runs.
+
+<Callout type="warn">
+  Generative UI is experimental. Call `useGenerativeUIFunction` in `setup()`
+  (or `<script setup>`) of a component under a
+  [`CopilotKitProvider`](/reference/vue/components/CopilotKitProvider) that has
+  a `generativeUI` config. Outside such a provider, the composable throws an
+  error.
+</Callout>
+
+For a full walkthrough, see [State and actions](/generative-ui/components/state-and-actions).
+
+## Import
+
+```ts
+import { useGenerativeUIFunction } from "@copilotkit/vue/v2/generative-ui";
+```
+
+## Signature
+
+```ts
+import type { GenerativeUIFunctionArgs } from "@copilotkit/vue/v2/generative-ui";
+
+useGenerativeUIFunction<UI, Name>(
+  ui: UI,
+  name: Name,
+  handler: (args: GenerativeUIFunctionArgs<UI, Name>) => unknown,
+): void;
+```
+
+## Parameters
+
+<PropertyReference name="ui" type="GenerativeUI" required>
+  The object from `createGenerativeUI`. It gives `name` and the handler arguments their types. Pass the same object that you give the provider as `generativeUI.ui`.
+</PropertyReference>
+
+<PropertyReference name="name" type="string" required>
+  A key of the `functions` that you declare in `createGenerativeUI({ functions })`.
+</PropertyReference>
+
+<PropertyReference name="handler" type="(args: GenerativeUIFunctionArgs<UI, Name>) => unknown" required>
+  Runs when generated UI calls the function. It gets the parsed arguments, with schema defaults set. Its return value goes back to the caller as `{ ok: true, result }`. It can return a promise.
+</PropertyReference>
+
+## Return value
+
+None. The handler stays mounted until the effect scope is disposed.
+
+## Example
+
+`shopUI` declares the function:
+
+```ts title="shop-ui.ts"
+export const shopUI = createGenerativeUI({
+  id: "acme/shop@1",
+  functions: {
+    addToCart: {
+      description: "Add a product to the cart",
+      parameters: z.object({ productId: z.string(), quantity: z.number().default(1) }),
+    },
+  },
+  components: {
+    /* ... */
+  },
+});
+```
+
+Mount the handler from a component:
+
+```vue title="CartActions.vue"
+<script setup lang="ts">
+import { useGenerativeUIFunction } from "@copilotkit/vue/v2/generative-ui";
+import { useCartStore } from "./cart-store";
+import { shopUI } from "./shop-ui";
+
+const cart = useCartStore();
+
+useGenerativeUIFunction(shopUI, "addToCart", ({ productId, quantity }) => {
+  cart.addItem(productId, quantity);
+  return { added: productId };
+});
+</script>
+
+<template>
+  <slot />
+</template>
+```
+
+## Behavior
+
+- Generated UI can call the function only while exactly one handler for it is mounted. Mount one handler for each function.
+- The handler is registered once. It reads refs, props, and stores when it runs, so it sees their current values.
+- The handler is unregistered when the effect scope is disposed, for example when the component unmounts.
+- Failures go to `errorBoundary.onError` of the provider's `generativeUI` config.
+
+## Related
+
+- [`useGenerativeUIState`](/reference/vue/hooks/useGenerativeUIState) - give generated components live app state
+- [`GenerativeUISurface`](/reference/vue/components/GenerativeUISurface) - mark an area of your page for generated UI
+- [`CopilotKitProvider`](/reference/vue/components/CopilotKitProvider) - give the provider the `generativeUI` config

@@ -7,7 +7,7 @@ import {
 import { prompt } from "../../../../lib/prompt";
 
 const agent = new BuiltInAgent({
-  model: process.env.COPILOTKIT_MODEL ?? "openai/gpt-5-mini",
+  model: process.env.COPILOTKIT_MODEL ?? "openai/gpt-6-luna",
   prompt,
   maxSteps: 5,
 });

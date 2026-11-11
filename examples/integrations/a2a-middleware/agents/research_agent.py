@@ -44,8 +44,8 @@ class ResearchState(TypedDict):
 
 class ResearchAgent:
     def __init__(self):
-        # COPILOTKIT_AGENT_MODEL overrides this agent too; unset, it uses gpt-5-mini.
-        self.llm = langchain_model("openai:gpt-5-mini", temperature=0.7)
+        # COPILOTKIT_AGENT_MODEL overrides this agent too; unset, it uses gpt-6-luna.
+        self.llm = langchain_model("openai:gpt-6-luna", temperature=0.7)
         self.graph = self._build_graph()
 
     def _build_graph(self):
@@ -155,7 +155,7 @@ public_agent_card = AgentCard(
 
 
 def main():
-    warn_if_api_key_missing("openai:gpt-5-mini")
+    warn_if_api_key_missing("openai:gpt-6-luna")
 
     request_handler = DefaultRequestHandler(
         agent_executor=ResearchAgentExecutor(),

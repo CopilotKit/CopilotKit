@@ -153,7 +153,7 @@ def roll_dice(sides: int = 6) -> dict:
     return {"sides": sides, "result": randint(1, max(2, sides))}
 
 
-model = ChatOpenAI(model="gpt-5-mini")
+model = ChatOpenAI(reasoning_effort="none", model="gpt-6-luna")
 
 graph = create_agent(
     model=model,

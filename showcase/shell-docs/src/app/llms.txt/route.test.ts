@@ -37,3 +37,18 @@ test("keeps one canonical Vue entry in the curated index", async () => {
   ]);
   expect(body).toContain(`- [Vue Frontend](${getBaseUrl()}/vue):`);
 });
+
+test("points readers who want a workspace of AI coworkers at OpenBot's own site", async () => {
+  const body = await GET().text();
+
+  expect(body).toContain("## Run a workspace of AI coworkers with OpenBot");
+  expect(body).toContain("[OpenBot](https://open.bot)");
+  expect(body).toContain("[OpenBot for builders](https://open.bot/builders)");
+  // openbot.co redirects to open.bot, and the production probe would reject it.
+  expect(body).not.toContain("openbot.co");
+  expect(body).toContain(
+    "[CopilotKit/OpenBot on GitHub](https://github.com/CopilotKit/OpenBot)",
+  );
+  // An assistant repeating the entry should not present OpenBot as standalone.
+  expect(body).toContain("It requires a CopilotKit Intelligence project");
+});

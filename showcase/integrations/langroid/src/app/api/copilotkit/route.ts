@@ -74,14 +74,7 @@ const agentNames = [
   "interrupt-headless",
 ];
 
-// Reasoning agent names — backed by the reasoning-enabled sub-app at
-// /reasoning. Langroid's stock unified agent calls OpenAI non-streaming and
-// drops the model's reasoning_content channel, so reasoning cells route here
-// instead. Emits AG-UI REASONING_MESSAGE_* events that the frontend renders
-// via the `reasoningMessage` slot (built-in card for `reasoning-default`,
-// custom amber ReasoningBlock for `reasoning-custom`). `agentic-chat-reasoning`
-// and `reasoning-default-render` are legacy aliases kept for any cell that
-// still references them.
+// Reasoning demos use the Responses endpoint and public summary events.
 const reasoningAgentNames = [
   "reasoning-default",
   "reasoning-custom",
@@ -96,6 +89,7 @@ for (const name of agentNames) {
 for (const name of reasoningAgentNames) {
   agents[name] = createAgent("/reasoning/");
 }
+agents["tool-rendering-reasoning-chain"] = createAgent("/reasoning/tools/");
 agents["default"] = createAgent();
 
 // gen-ui-agent owns a typed `steps` slice of shared state that the

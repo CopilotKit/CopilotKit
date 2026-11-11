@@ -122,26 +122,71 @@ export function createReactComponent<Api extends ComponentApi>(
   }> = ({ context, buildChild, properties }) => {
     // Rebuild on wire updates as well as context changes, so a previously
     // failed binding cannot leave stale resolved props on a corrected component.
-    const binding = useMemo(
-      () => new GenericBinder<Props>(context, api.schema),
-      [context, properties],
-    );
+    // web_core reports a failed evaluation (unknown function, malformed
+    // arguments) on the surface's error channel instead of throwing. Errors
+    // dispatched while the binder resolves its initial props belong to this
+    // component, so collect them and show the failure in place.
+    const {
+      binding: binder,
+      subscribe,
+      getSnapshot,
+    } = useMemo(() => {
+      const createBinding = () => {
+        const errors: string[] = [];
+        const subscription = context.dataContext.surface?.onError.subscribe(
+          (error) => {
+            errors.push(error.message);
+          },
+        );
+        try {
+          return {
+            binding: new GenericBinder<Props>(context, api.schema),
+            bindError: errors.length > 0 ? errors.join("; ") : null,
+          };
+        } finally {
+          subscription?.unsubscribe();
+        }
+      };
+      const initial = createBinding();
+      const binding = initial.binding;
+      let snapshot = { props: binding.snapshot, bindError: initial.bindError };
 
-    const subscribe = useCallback(
-      (callback: () => void) => {
-        const sub = binding.subscribe(callback);
-        return () => sub.unsubscribe();
-      },
-      [binding],
-    );
+      return {
+        binding,
+        getSnapshot: () => snapshot,
+        subscribe: (callback: () => void) => {
+          const update = () => {
+            if (snapshot.props === binding.snapshot) return;
+            let bindError = snapshot.bindError;
+            if (bindError) {
+              // A partial snapshot is not proof of recovery: another prop may
+              // have changed while a function still fails. Re-evaluate this
+              // component only, collecting errors for the synchronous attempt.
+              const retry = createBinding();
+              bindError = retry.bindError;
+              retry.binding.dispose();
+            }
+            snapshot = { props: binding.snapshot, bindError };
+            callback();
+          };
+          const sub = binding.subscribe(update);
+          // Connecting the binder rebuilds its snapshot before registering us.
+          update();
+          return () => sub.unsubscribe();
+        },
+      };
+    }, [context, properties]);
 
-    const getSnapshot = useCallback(() => binding.snapshot, [binding]);
-    const props = useSyncExternalStore(subscribe, getSnapshot);
+    const { props, bindError } = useSyncExternalStore(subscribe, getSnapshot);
 
     // Prevent DataModel subscription leaks on unmount
     useEffect(() => {
-      return () => binding.dispose();
-    }, [binding]);
+      return () => binder.dispose();
+    }, [binder]);
+
+    if (bindError) {
+      return <ComponentFailure name={api.name} detail={bindError} />;
+    }
 
     return (
       <RenderBoundary name={api.name} snapshot={props}>

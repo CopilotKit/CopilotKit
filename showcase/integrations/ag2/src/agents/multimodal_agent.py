@@ -1,16 +1,15 @@
 """AG2 agent backing the Multimodal Attachments demo.
 
-Vision-capable AG2 ``Agent`` (gpt-5-mini) that accepts image + PDF
+Vision-capable AG2 ``Agent`` (gpt-6-luna) that accepts image + PDF
 attachments. The frontend (src/app/demos/multimodal/page.tsx) sends
 attachments as AG-UI message content parts, and AG2 1.x's ``AGUIStream`` maps
 image and document parts to typed model inputs natively.
 
-The frontend's legacy-converter shim
-(``src/app/demos/multimodal/legacy-converter-shim.tsx``) also APPENDS a legacy
-``{"type": "binary", ...}`` mirror next to each modern part for LangChain-based
-integrations. AG2's run-input parser strips parts it does not recognise (with a
-warning) rather than refusing the run, and the modern part the mirror
-duplicates is all this agent needs — so no request rewriting is required.
+An older client may still append a legacy ``{"type": "binary", ...}`` mirror
+next to each modern part. AG2's run-input parser strips parts it does not
+recognise (with a warning) rather than refusing the run, and the modern part
+the mirror duplicates is all this agent needs — so no request rewriting is
+required.
 """
 
 from __future__ import annotations
@@ -34,7 +33,7 @@ SYSTEM_PROMPT = (
 multimodal_agent = Agent(
     "multimodal_assistant",
     prompt=SYSTEM_PROMPT,
-    config=OpenAIResponsesConfig(model="gpt-5-mini", streaming=True),
+    config=OpenAIResponsesConfig(model="gpt-6-luna", streaming=True),
     middleware=[loop_cap(5)],
 )
 

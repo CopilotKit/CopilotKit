@@ -108,8 +108,8 @@ class SampleAgentFlow(Flow[AgentState]):
         #    copilotkit_stream and set stream=True.
         # 1.1 Specify the model to use. COPILOTKIT_AGENT_MODEL (e.g.
         #     "anthropic:claude-sonnet-4-5") overrides it; unset, the agent
-        #     uses gpt-5-mini.
-        model = resolve_model("openai:gpt-5-mini")
+        #     uses gpt-6-luna.
+        model = resolve_model("openai:gpt-6-luna")
         response = await copilotkit_stream(
             await acompletion(
                 model=model,
