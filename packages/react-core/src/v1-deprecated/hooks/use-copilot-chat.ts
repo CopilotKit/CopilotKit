@@ -89,6 +89,10 @@
  * Whether the chat is currently generating a response
  * </PropertyReference>
  *
+ * <PropertyReference name="isAvailable" type="boolean">
+ * Whether the chat agent is available to generate responses.
+ * </PropertyReference>
+ *
  * <PropertyReference name="runChatCompletion" type="() => Promise<Message[]>">
  * Manually trigger chat completion for advanced usage
  * </PropertyReference>

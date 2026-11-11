@@ -24,6 +24,10 @@
  */
 
 /**
+ * <Callout type="info">
+ *   In v2, use [`CopilotChat`](/reference/v2/components/CopilotChat) from `@copilotkit/react-core/v2`.
+ * </Callout>
+ *
  * <br/>
  * <img src="https://cdn.copilotkit.ai/docs/copilotkit/images/CopilotChat.gif" width="500" />
  *
@@ -54,10 +58,11 @@
  *
  * ### With Observability Hooks
  *
- * To monitor user interactions, provide the `observabilityHooks` prop.
+ * To monitor user interactions, set `publicLicenseKey` on `<CopilotKit>` and pass the
+ * `observabilityHooks` prop. Without the key, the hooks do not run.
  *
  * ```tsx
- * <CopilotKit>
+ * <CopilotKit publicLicenseKey="YOUR_PUBLIC_LICENSE_KEY">
  *   <CopilotChat
  *     observabilityHooks={{
  *       onMessageSent: (message) => {
@@ -83,7 +88,7 @@
  *   );
  * }
  * ```
- * For more information about how to customize the styles, check out the [Customize Look & Feel](/guides/custom-look-and-feel/customize-built-in-ui-components) guide.
+ * For more information about how to customize the styles, check out the [Customize Look & Feel](/custom-look-and-feel/css) guide.
  */
 
 import type { CopilotChatIcons, CopilotChatLabels } from "./ChatContext";
@@ -174,7 +179,8 @@ export interface CopilotChatProps {
    * `manual` - Suggestions are controlled programmatically:
    *   - Use `setSuggestions()` to set custom suggestions
    *   - Use `generateSuggestions()` to trigger AI generation
-   *   - Access via `useCopilotChat` hook
+   *   - Read `setSuggestions` and `generateSuggestions` from the `useCopilotChatHeadless_c`
+   *     hook, which needs `publicLicenseKey` on `<CopilotKit>`
    *
    * `SuggestionItem[]` - Static suggestions array:
    *   - Always shows the same suggestions
@@ -273,7 +279,6 @@ export interface CopilotChatProps {
    * Supports images, audio, video, and documents. Omit `accept` to allow all
    * file types (default: `"*\/*"`), or restrict with a MIME filter.
    *
-   * @example
    * ```tsx
    * <CopilotChat
    *   attachments={{
@@ -386,6 +391,9 @@ export interface CopilotChatProps {
    */
   children?: React.ReactNode;
 
+  /**
+   * Hides the stop button while the agent responds.
+   */
   hideStopButton?: boolean;
 
   /**

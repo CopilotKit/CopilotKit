@@ -49,18 +49,22 @@ class CopilotKitConfig(TypedDict):
     def merge_state(
         *,
         state: dict,
-        messages: List[BaseMessage],
+        messages: List[Any],
         actions: List[Any],
-        agent_name: str
+        agent_name: str,
+        flow: Flow,
     ):
         # ...implementation...
 
     ```
 
+    merge_state runs only for flow-based agents.
+
     Parameters
     ----------
-    merge_state : Callable
+    merge_state : Optional[Callable]
         This function lets you customize how CopilotKit merges the agent state.
+        Defaults to the built-in merge.
     """
 
     merge_state: NotRequired[Callable]
@@ -103,7 +107,7 @@ class CrewAIAgent(Agent):
     See [the CrewAI docs](https://docs.crewai.com/concepts/cli#9-chat) for more information.
 
     ```python
-    from copilotkit import CrewAIAgent
+    from copilotkit.crewai import CrewAIAgent
 
 
     CrewAIAgent(
@@ -132,10 +136,12 @@ class CrewAIAgent(Agent):
     ----------
     name : str
         The name of the agent.
-    crew : Crew
+    crew : Optional[Crew]
         When using a Crew based agent, pass in a `Crew` object to the `crew` parameter.
-    flow : Flow
+        Pass exactly one of `crew` or `flow`.
+    flow : Optional[Flow]
         When using a Flow based agent, pass in a `Flow` object to the `flow` parameter.
+        Pass exactly one of `crew` or `flow`.
     description : Optional[str]
         The description of the agent.
     copilotkit_config : Optional[CopilotKitConfig]

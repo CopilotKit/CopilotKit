@@ -86,8 +86,8 @@ export {
    * Use `AssistantMessage` from `@copilotkit/react-core/v2` instead.
    * Import and usage example:
    * ```ts
-   * import { AssistantMessage } from "@copilotkit/react-core/v2";
-   * const v2AssistantMessage = AssistantMessage;
+   * import type { AssistantMessage } from "@copilotkit/react-core/v2";
+   * type V2AssistantMessage = AssistantMessage;
    * ```
    * V2 docs: https://docs.copilotkit.ai/
    * V2 reference docs: https://docs.copilotkit.ai/reference/v2
@@ -115,8 +115,8 @@ export {
    * Use `UserMessage` from `@copilotkit/react-core/v2` instead.
    * Import and usage example:
    * ```ts
-   * import { UserMessage } from "@copilotkit/react-core/v2";
-   * const v2UserMessage = UserMessage;
+   * import type { UserMessage } from "@copilotkit/react-core/v2";
+   * type V2UserMessage = UserMessage;
    * ```
    * V2 docs: https://docs.copilotkit.ai/
    * V2 reference docs: https://docs.copilotkit.ai/reference/v2

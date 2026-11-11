@@ -18,6 +18,10 @@
  */
 
 /**
+ * <Callout type="info">
+ *   `LangChainAdapter` has no direct v2 replacement. For v2, see [Runtime server adapter](/runtime-server-adapter).
+ * </Callout>
+ *
  * Copilot Runtime adapter for LangChain.
  *
  * ## Example
@@ -34,7 +38,7 @@
  *   apiKey: "<your-api-key>",
  * });
  *
- * return new LangChainAdapter({
+ * const serviceAdapter = new LangChainAdapter({
  *   chainFn: async ({ messages, tools }) => {
  *     return model.bindTools(tools).stream(messages);
  *     // or optionally enable strict mode

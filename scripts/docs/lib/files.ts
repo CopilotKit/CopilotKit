@@ -185,6 +185,8 @@ export const REFERENCE_DOCS: ReferenceDocConfiguration[] = [
       "copilotkit_emit_state",
       "copilotkit_emit_message",
       "copilotkit_emit_tool_call",
+      "copilotkit_interrupt",
+      "CopilotKitState",
     ],
   },
   {
@@ -200,6 +202,7 @@ export const REFERENCE_DOCS: ReferenceDocConfiguration[] = [
       "copilotkit_exit",
       "copilotkit_emit_message",
       "copilotkit_emit_tool_call",
+      "copilotkit_stream",
     ],
   },
 
@@ -211,7 +214,7 @@ export const REFERENCE_DOCS: ReferenceDocConfiguration[] = [
     title: "LangGraphAGUIAgent",
     description:
       "LangGraphAGUIAgent lets you define your agent for use with CopilotKit.",
-    pythonSymbols: ["LangGraphAGUIAgent", "CopilotKitConfig"],
+    pythonSymbols: ["LangGraphAGUIAgent"],
   },
   {
     sourcePath: "sdk-python/copilotkit/crewai/crewai_agent.py",
@@ -232,7 +235,7 @@ export const REFERENCE_DOCS: ReferenceDocConfiguration[] = [
     pythonSymbols: ["CopilotKitRemoteEndpoint", "CopilotKitContext"],
   },
   {
-    sourcePath: "packages/sdk-js/src/langgraph/index.ts",
+    sourcePath: "packages/sdk-js/src/langgraph/utils.ts",
     destinationPath:
       "showcase/shell-docs/src/content/reference/v1/sdk/js/LangGraph.mdx",
     title: "LangGraph SDK",
