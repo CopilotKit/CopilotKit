@@ -20,8 +20,6 @@ import os from "os";
 import path from "path";
 import { fileURLToPath } from "url";
 
-import { buildAngularFeatureSearchEntries } from "./lib/angular-feature-search";
-
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, "..");
 // The docs pages live in shell-docs. The showcase shell's header search links
@@ -471,19 +469,6 @@ async function main() {
       `[generate-search-index] all scan directories missing — emitting static-pages stub only. Missing: ${scanDirsMissing.join(", ")}`,
     );
   }
-
-  const frontendRegistry = JSON.parse(
-    fs.readFileSync(path.join(SHARED_DIR, "frontend-registry.json"), "utf-8"),
-  );
-  const featureRegistry = JSON.parse(
-    fs.readFileSync(path.join(SHARED_DIR, "feature-registry.json"), "utf-8"),
-  );
-  const angularFeatureEntries = buildAngularFeatureSearchEntries(
-    frontendRegistry,
-    featureRegistry,
-  );
-  entries.push(...angularFeatureEntries);
-  console.log(`  Angular features: ${angularFeatureEntries.length} entries`);
 
   const deduplicatedEntries = dedupeByHref(entries);
 
