@@ -275,11 +275,230 @@ const content = result.value;
 
 If the code composed the schema into a zod schema, write those fields in zod in the app.
 
-`filterCatalog` from `@copilotkit/a2ui-renderer` infers its type. The codemod deletes explicit type arguments. Its type parameter is now the catalog type, not the component type.
+```text
+TODO(copilotkit-2.0): `filterCatalog` was removed with `@copilotkit/a2ui-renderer` in 2.0. To drop standard components, use `extends: [standardUI.omit(["Name"])]` in `createGenerativeUI`. To limit your own components, pass `createGenerativeUI` only the components you want. See https://docs.copilotkit.ai/generative-ui/components/standard-catalog#drop-components
+```
+
+`@copilotkit/a2ui-renderer` is gone, so `filterCatalog` is too. Find what the filtered catalog was for:
+
+- It dropped components of the basic catalog: use `extends: [standardUI.omit(["Map", "Video"])]` in `createGenerativeUI`, with the names the filter removed. The names are typed.
+- It picked some of your own components: pass `createGenerativeUI` only those components, or build two UIs that share the component definitions.
+- It depended on runtime data (a predicate on user settings): build the UI once per case at module level, and pick the one to pass to `generativeUI={{ ui }}`.
+
+See "A2UI v0.9 to generative UI" below.
 
 Angular `CopilotA2UIRecovery` no longer exposes `lifecycle`, `retryRevealed`, `debugExposure`, `label`, `phase`, `failureDiagnostics`, or `retryDiagnostics`. Read the lifecycle with `readA2UILifecycleContent(content)` from `@copilotkit/angular`.
 
 The Open Generative UI placeholder element (test id `open-generative-ui-placeholder`) was removed. While the agent generates, tests can query `open-generative-ui-progress-overlay` and `open-generative-ui-spinner`. Once generation ends, neither shows.
+
+## A2UI v0.9 to generative UI
+
+Docs: https://docs.copilotkit.ai/generative-ui/components/from-a2ui
+
+2.0 has no A2UI v0.9 client: the `a2ui` provider option, `@copilotkit/a2ui-renderer` and `@copilotkit/angular/a2ui` are gone. Generative UI (A2UI 1.0) replaces them. The codemod already did the mechanical part:
+
+| v0.9                                                                           | 2.0                                                                                                              |
+| ------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------- |
+| `createCatalog(definitions, renderers, options)` (`@copilotkit/a2ui-renderer`) | `createGenerativeUI({ id, extends, components })` from `@copilotkit/react-core/generative-ui`                    |
+| `createAngularCatalog(...)` (`@copilotkit/angular/a2ui`)                       | `createGenerativeUI(...)` from `@copilotkit/angular/generative-ui`                                               |
+| `catalogId: "x"`                                                               | `id: "x"`                                                                                                        |
+| `includeBasicCatalog: true`                                                    | `extends: [standardUI]`                                                                                          |
+| `DynamicStringSchema`, `DynamicNumberSchema`, `DynamicBooleanSchema`           | `z.string()`, `z.number()`, `z.boolean()`                                                                        |
+| `DynamicStringListSchema`, `ChildListSchema`                                   | `z.array(z.string())`, `childList()`                                                                             |
+| `z.union([z.string(), z.object({ path: z.string() })])`                        | `z.string()`                                                                                                     |
+| `import { z } from "zod-v3"`                                                   | `import { z } from "zod"`                                                                                        |
+| `<CopilotKitProvider a2ui={{ catalog: myCatalog }}>`                           | `<CopilotKitProvider generativeUI={{ ui: myCatalog }}>`                                                          |
+| `a2ui={{}}`, `a2ui={{ catalog: basicCatalog }}`                                | Deleted. The client uses the standard catalog when the runtime enables generative UI.                            |
+| `provideCopilotKit({ ..., a2ui: { catalog } })`                                | `provideCopilotKit({ ... })` and `provideGenerativeUI({ ui: catalog })` from `@copilotkit/angular/generative-ui` |
+| `new CopilotRuntime({ a2ui: { agents, injectA2UITool } })`                     | `new CopilotRuntime({ generativeUI: { a2uiVersion: "0.9", agents, injectA2UITool } })`                           |
+| `new CopilotRuntime({ a2ui: { enabled: false } })`                             | Deleted.                                                                                                         |
+
+A converted catalog looks like this. Each component keeps its old renderer under a TODO:
+
+```tsx
+import { z } from "zod";
+import {
+  createGenerativeUI,
+  standardUI,
+} from "@copilotkit/react-core/generative-ui";
+
+export const appUI = createGenerativeUI({
+  id: "acme/flights",
+  extends: [standardUI],
+  components: {
+    // TODO(copilotkit-2.0): This was a v0.9 renderer, ...
+    Airport: {
+      component: ({ props }) => <strong>{props.code}</strong>,
+      description: "An airport by IATA code.",
+      props: z.object({ code: z.string() }),
+    },
+  },
+});
+```
+
+The finished entry:
+
+```tsx
+function Airport({ code }: { code: string }) {
+  return <strong>{code}</strong>;
+}
+
+// in components:
+Airport: {
+  component: Airport,
+  description: "An airport by IATA code.",
+  props: z.object({ code: z.string() }),
+},
+```
+
+`createGenerativeUI` throws when a name comes from two places. If a component has the name of a standard component (`Text`, `Button`, `Row`, ...) and the catalog has `extends: [standardUI]`, rename it, drop the standard one with `extends: [standardUI.omit(["Button"])]`, or replace only its component with `overrides: { Button: { component } }`. See https://docs.copilotkit.ai/generative-ui/components/standard-catalog#replace-a-component
+
+### Rewrite a renderer
+
+```text
+TODO(copilotkit-2.0): This was a v0.9 renderer, which got `{ props, children, dispatch }`. A 2.0 component gets its resolved props directly, child components as slots or `child()` / `childList()` props, and calls an event or a function instead of `dispatch`. Rewrite it. See https://docs.copilotkit.ai/generative-ui/components/from-a2ui#convert-a-custom-catalog
+```
+
+A v0.9 renderer got `{ props, children, dispatch }`. A 2.0 component gets its props directly. Rewrite the body:
+
+- **Props.** `({ props }) => props.code` becomes `({ code }) => code`. Each value arrives resolved: a component never sees `{ path }`, `{ "@path" }` or `{ "@call" }`. Delete any code that resolved a binding by hand. Type the props with `GenerativeUIComponentProps<typeof appUI, "Airport">`.
+- **Children.** `children(id)` and `props.children.map(...)` go. Declare `slots: { children: "multiple" }` (or `{ child: "single" }`) on the entry, and render the `children` prop: it is a React node (a Vue named slot). For references inside the props, put `child()` or `childList()` in the schema (`ChildListSchema` already became `childList()`); the component gets rendered nodes in place of the ids. Delete the old `children` union from `props` when it becomes a slot.
+- **`dispatch`.** A v0.9 action becomes an event prop. Declare it on the entry, then call the prop:
+  - The action should reach the agent (a v0.9 `{ name, context }` action): declare `events: { onBuy: { description: "...", parameters: z.object({ ... }) } }`. The model sets `onBuy` to `{ "event": { "name": "buy", "userMessage": "...", "context": { ... } } }`, and a call of `onBuy(args)` sends the event to the agent as a user message.
+  - The action should run app code: declare `functions: { addToCart: { parameters: z.object({ productId: z.string() }) } }` on `createGenerativeUI`, and `events: { onAddToCart: {} }` on the component (an event binds to the function with its name, or the name without `on`). Register the handler in a component inside the provider with `useGenerativeUIFunction(appUI, "addToCart", (args) => ...)` (React and Vue). The component calls `await onAddToCart?.({ productId })`; the result is `{ ok: true }` or `{ ok: false, error }`.
+- **Local writes** (`set(path, value)` in v0.9) become `writable: ["value"]` on the entry: the component gets a `setValue` prop.
+
+See https://docs.copilotkit.ai/generative-ui/components/state-and-actions
+
+```text
+TODO(copilotkit-2.0): This was a v0.9 Angular component. In 2.0 it gets each prop as an input with its resolved value, child components as `GenerativeUIChildren` inputs, and an event input or a `registerGenerativeUIFunction` function replaces `dispatch` from `injectA2UIComponentContext()`. Update the component. See https://docs.copilotkit.ai/generative-ui/components/from-a2ui#convert-a-custom-catalog
+```
+
+In Angular the component stays a standalone component, and the same rules apply to its inputs:
+
+- Each key of `props` is an input with its resolved value: `readonly code = input<string>()`. Delete `injectA2UIComponentContext()` and the reads of `dataContext`.
+- A slot (`slots: { children: "multiple" }`) or a `child()` / `childList()` prop is an input of type `GenerativeUIChildren`. Render it with `CopilotGenerativeUIChildren` (`*copilotGenerativeUIChildren`). `CopilotA2UIChild` is gone.
+- `dispatch(...)` becomes an event input: declare `events: { onBuy: { ... } }` and read `readonly onBuy = input<GenerativeUIEventHandler<typeof appUI, "onBuy">>()`, then call it. For app code, declare `functions` and register the handler with `registerGenerativeUIFunction` from `@copilotkit/angular/generative-ui`.
+- A Custom Element entry (`{ tagName, element }`) has no 2.0 form. Wrap the element in an Angular component.
+
+### Write a description
+
+```text
+TODO(copilotkit-2.0): Add a `description` to this component. The agent reads it to choose the component. See https://docs.copilotkit.ai/generative-ui/components/from-a2ui#convert-a-custom-catalog
+```
+
+Add `description` to the entry: one or two sentences that say what the component shows and when to use it, for example `"A flight from one airport to another, with times and price. Use one per flight."` Read the renderer and the call sites to learn its purpose. Ask the user when it is not clear.
+
+### Imports of the removed v0.9 client
+
+```text
+TODO(copilotkit-2.0): The A2UI v0.9 client (`@copilotkit/a2ui-renderer`, `@copilotkit/angular/a2ui`) was removed in 2.0. Use generative UI from the framework's `/generative-ui` entry: `createGenerativeUI` and `standardUI` for catalogs, `GenerativeUISurface` for a surface, and `useGenerativeUIState` and `useGenerativeUIFunction` for state and actions. Then delete this import. See https://docs.copilotkit.ai/generative-ui/components/from-a2ui
+```
+
+An import from `@copilotkit/a2ui-renderer` or `@copilotkit/angular/a2ui` is left after the conversion. Replace each name, then delete the import:
+
+| v0.9                                                           | 2.0                                                                                                                                     |
+| -------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| `A2UIRenderer`, `A2UIProvider`, `CopilotA2UISurface`           | The chat renders surfaces by itself. For an area of the page, `<GenerativeUISurface id="...">` (Angular: `CopilotGenerativeUISurface`). |
+| `basicCatalog`, `vueBasicCatalog`                              | `standardUI`, in `extends` of `createGenerativeUI`.                                                                                     |
+| `Catalog`, `CatalogDefinitions`, `CatalogRenderers`, `PropsOf` | `GenerativeUI`, and `GenerativeUIComponentProps<typeof ui, "Name">` for the props of a component.                                       |
+| `useA2UIContext`, `useA2UIState`, `useA2UIActions`             | `state` with `useGenerativeUIState`, and `functions` with `useGenerativeUIFunction`.                                                    |
+| `extractSchema`                                                | `exportA2UICatalog(ui)`.                                                                                                                |
+| `injectA2UIComponentContext`, `CopilotA2UIChild` (Angular)     | Inputs, and `GenerativeUIChildren` with `CopilotGenerativeUIChildren`.                                                                  |
+
+The removed 1.x deprecations get their own TODO with the same advice:
+
+```text
+TODO(copilotkit-2.0): `createA2UICatalog` was removed in 2.0. Declare the components with `createGenerativeUI({ id, components })` from "@copilotkit/react-core/generative-ui": one entry per component with `component`, `description` and `props`. See https://docs.copilotkit.ai/generative-ui/components/from-a2ui#convert-a-custom-catalog
+TODO(copilotkit-2.0): `useA2UIStore` was removed in 2.0. Generative UI has no A2UI store. Declare app state as `state` on `createGenerativeUI`, set it with `useGenerativeUIState(ui, key, value)` from "@copilotkit/react-core/generative-ui", and components read it as bound props. See https://docs.copilotkit.ai/generative-ui/components/state-and-actions
+TODO(copilotkit-2.0): `extractA2UISchema` was removed in 2.0. Use `exportA2UICatalog(ui)` from "@copilotkit/react-core/generative-ui", with a UI from `createGenerativeUI`. See https://docs.copilotkit.ai/generative-ui/components/from-a2ui
+```
+
+`useA2UIStoreSelector` gets the `useA2UIStore` advice, and `A2UIComponentDefinition`, `A2UIComponentMap`, `A2UIComponentProps`, `ComponentLoader` and `ComponentRegistration` get the `createA2UICatalog` advice.
+
+### A catalog the codemod could not convert
+
+```text
+TODO(copilotkit-2.0): This v0.9 catalog could not be converted automatically. Rewrite it with `createGenerativeUI({ id, extends: [standardUI], components })`, one entry per component with `component`, `description` and plain `props`. See https://docs.copilotkit.ai/generative-ui/components/from-a2ui#convert-a-custom-catalog
+```
+
+The call has a spread, a computed key, options other than `catalogId` and `includeBasicCatalog` (for example Angular `functions`), or both arguments are imported. Open the definitions and the renderers, and write one entry per component as in the table above. In Angular, the basic A2UI functions are part of `standardUI`; declare your own under `functions`.
+
+### Binding and action schemas
+
+```text
+TODO(copilotkit-2.0): This v0.9 binding or action schema has no 2.0 equivalent. A bound prop takes its plain type (the engine resolves `{ "@path" }` before the component renders), and an action becomes an event that the component calls. See https://docs.copilotkit.ai/generative-ui/components/from-a2ui#bindings-and-actions
+```
+
+- `DataBindingSchema`: use the plain type of the value (`z.string()`, `z.number()`, ...). The model can still bind the prop with `{ "@path": "/x" }`.
+- `ActionSchema`: delete the prop from `props`. Declare an event (`events: { onClick: { parameters: z.object({}) } }`) and call it from the component, as in "Rewrite a renderer".
+
+Delete the import from `@copilotkit/a2ui-renderer` or `@copilotkit/angular/a2ui` when nothing uses it.
+
+A definitions file that imports neither package (plain zod, with its own `z.union([z.string(), z.object({ path: z.string() })])` helpers) was not changed. Make its prop types plain there too.
+
+### Provider
+
+```text
+TODO(copilotkit-2.0): The `a2ui` option was removed in 2.0. Pass `generativeUI={{ ui }}` with a UI from `createGenerativeUI`, or delete it to use the standard catalog. See https://docs.copilotkit.ai/generative-ui/components/from-a2ui#before-and-after
+```
+
+The `a2ui` value is a variable, or the provider already has `generativeUI`. Find the catalog in the value and pass it as `generativeUI={{ ui: catalog }}` (merge it into the existing `generativeUI`). If it had no catalog, or `basicCatalog` / `vueBasicCatalog`, delete `a2ui`.
+
+```text
+TODO(copilotkit-2.0): The `a2ui` option was removed in 2.0, and these options have no 1:1 equivalent: `theme` becomes the `theme` of the generative UI config (CSS variables), `onAction` becomes events or functions on the components, and `loadingComponent`, `recovery` and `includeSchema` are gone. Move what you need, then delete `a2ui`. See https://docs.copilotkit.ai/generative-ui/components/from-a2ui
+```
+
+The codemod left the options it could not move in `a2ui`, so the type check points at them:
+
+| v0.9 `a2ui` option | 2.0                                                                                                                                                                                                                        |
+| ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `theme`            | `generativeUI={{ ui, theme }}` (Angular: `provideGenerativeUI({ ui, theme })`). It takes values for the `--a2ui-*` CSS variables, not a v0.9 theme object. See https://docs.copilotkit.ai/generative-ui/components/theming |
+| `onAction`         | Events and functions on the components (see "Rewrite a renderer"). 2.0 has no hook that sees every action, so move each case to the component that raises it.                                                              |
+| `loadingComponent` | Removed. Ask the user whether the default progress UI is fine.                                                                                                                                                             |
+| `recovery`         | Removed.                                                                                                                                                                                                                   |
+| `includeSchema`    | Removed. Generative UI always sends the catalog with the run.                                                                                                                                                              |
+
+Then delete `a2ui`. In a `.vue` template, the codemod did not change `:a2ui`. Replace it with `:generativeUI="{ ui: appUI }"` by hand.
+
+```text
+TODO(copilotkit-2.0): The `a2ui` option was removed in 2.0. Add `provideGenerativeUI({ ui })` from "@copilotkit/angular/generative-ui" next to `provideCopilotKit`, with a UI from `createGenerativeUI`, and delete `a2ui`. See https://docs.copilotkit.ai/generative-ui/components/from-a2ui#before-and-after
+```
+
+The `provideCopilotKit` call is not in a providers array, or `a2ui` is not an object literal. Add `provideGenerativeUI({ ui: appUI })` next to `provideCopilotKit` wherever the app collects its providers:
+
+```ts
+import type { ApplicationConfig } from "@angular/core";
+import { provideCopilotKit } from "@copilotkit/angular";
+import { provideGenerativeUI } from "@copilotkit/angular/generative-ui";
+import { appUI } from "./app-ui";
+
+export const appConfig: ApplicationConfig = {
+  providers: [
+    provideCopilotKit({ runtimeUrl: "/api/copilotkit" }),
+    provideGenerativeUI({ ui: appUI }),
+  ],
+};
+```
+
+### Runtime
+
+```text
+TODO(copilotkit-2.0): The runtime `a2ui` option moved to `generativeUI: { a2uiVersion: "0.9", ...options }` in 2.0. The codemod could not move this one: its value is not an object literal, its `enabled` is not `true` or `false`, or `generativeUI` already sets one of its keys. Move it by hand, or delete it if it was off. See https://docs.copilotkit.ai/generative-ui/components/from-a2ui#before-and-after
+```
+
+Move the options under `generativeUI` with `a2uiVersion: "0.9"`, which keeps the v0.9 behavior for the agents:
+
+```ts
+import { CopilotRuntime } from "@copilotkit/runtime";
+
+const runtime = new CopilotRuntime({
+  agents: { shop },
+  generativeUI: { a2uiVersion: "0.9", agents: ["shop"], injectA2UITool: true },
+});
+```
+
+If `generativeUI` already sets a key that `a2ui` also set (for example `agents`), ask the user which value to keep. If `enabled` was `false`, delete `a2ui`. `a2uiVersion` can also be a map from agent id to version.
 
 ## Runtime
 

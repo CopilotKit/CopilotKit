@@ -4,6 +4,7 @@ import { angularCopyButtonEdits } from "./angular-copy-buttons.ts";
 import { migrateAngularChatConfiguration } from "./angular-chat-configuration.ts";
 import { migrateDeprecatedApis } from "./deprecated-apis.ts";
 import { migrateGenerativeUI } from "./generative-ui.ts";
+import { migrateA2UI } from "./a2ui-to-generative-ui.ts";
 import { migrateRuntimeAdapters } from "./runtime-adapters.ts";
 import { migrateCopilotActions } from "./copilot-action.ts";
 import { migrateChatComponents } from "./chat-components.ts";
@@ -763,7 +764,14 @@ const codemod: Codemod<Lang> = async (root, options) => {
       ? rootNode
       : parse<Lang>(options.language, afterGenerativeUI).root(),
   );
-  return angular ?? afterGenerativeUI;
+  const afterAngular = angular ?? afterGenerativeUI;
+  const a2ui = migrateA2UI(
+    afterAngular === null
+      ? rootNode
+      : parse<Lang>(options.language, afterAngular).root(),
+    (text) => parse<Lang>(options.language, text).root(),
+  );
+  return a2ui ?? afterAngular;
 };
 
 function collectProviderNames(

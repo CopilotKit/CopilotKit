@@ -32,7 +32,7 @@ const PARSE_METHODS = new Set([
 /** A call that builds a zod schema from other schemas. */
 const ZOD_COMPOSITION = /^(z|zod)\.|\.(extend|merge|and|or|pipe)$/;
 
-/** `filterCatalog` keeps its name; its type parameter changed meaning. */
+/** `filterCatalog` was removed with the v0.9 client. */
 const FILTER_CATALOG_SOURCES = new Set(["@copilotkit/a2ui-renderer"]);
 
 /** Members of Angular's `CopilotA2UIRecovery` that 2.0 removed. */
@@ -62,6 +62,8 @@ function memberNote(name: string, member: string) {
 function compositionNote(name: string) {
   return `\`${name}\` is a Standard Schema in 2.0, not a zod schema, so it cannot be part of a zod schema. Write the fields in zod yourself, or validate with \`${name}["~standard"].validate(value)\`. See ${GUIDE}`;
 }
+
+const FILTER_CATALOG_NOTE = `\`filterCatalog\` was removed with \`@copilotkit/a2ui-renderer\` in 2.0. To drop standard components, use \`extends: [standardUI.omit(["Name"])]\` in \`createGenerativeUI\`. To limit your own components, pass \`createGenerativeUI\` only the components you want. See https://docs.copilotkit.ai/generative-ui/components/standard-catalog#drop-components`;
 
 const RECOVERY_NOTE = `\`CopilotA2UIRecovery\` no longer exposes \`lifecycle\`, \`retryRevealed\`, \`debugExposure\`, \`label\`, \`phase\`, \`failureDiagnostics\` or \`retryDiagnostics\`. Read the lifecycle from the activity content with \`readA2UILifecycleContent\`. See ${GUIDE}`;
 
@@ -104,8 +106,8 @@ function importedLocals(
 /**
  * Migrates the generative UI APIs that changed in 2.0:
  *
- * - `filterCatalog<T>(…)` from `@copilotkit/a2ui-renderer` loses its type
- *   argument: the type parameter is now the catalog type, and it is inferred;
+ * - `filterCatalog(…)` from `@copilotkit/a2ui-renderer`, which 2.0 removed,
+ *   gets a TODO that names `standardUI.omit` and `createGenerativeUI`;
  * - uses of the Vue and Angular Open Generative UI schemas as zod schemas
  *   (`.parse`, `.safeParse`, other zod members, zod composition) get a TODO
  *   that names the Standard Schema call;
@@ -142,10 +144,7 @@ export function migrateGenerativeUI(rootNode: Node): string | null {
         has: { field: "function", regex: `^${local}$` },
       },
     });
-    for (const call of calls) {
-      const typeArguments = call.field("type_arguments");
-      if (typeArguments) edits.push(typeArguments.replace(""));
-    }
+    for (const call of calls) addTodo(call, FILTER_CATALOG_NOTE);
   }
 
   const schemas = importedLocals(
