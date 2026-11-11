@@ -85,7 +85,11 @@ The agent does not know how many items are in the cart, and it must not guess. D
     The component reads the bound prop as a normal input: `readonly inCart = input.required<number>()`.
   </Tab>
   <Tab value="React Native">
-    ```tsx title="src/shopUI.tsx"
+    ```tsx title="src/shopUI.tsx" group=rn-cart-state
+    import { z } from "zod";
+    import { createGenerativeUI } from "@copilotkit/react-native/generative-ui";
+    import { ProductCard } from "./ProductCard";
+
     const cartSchema = z.object({
       items: z.array(z.object({ productId: z.string(), quantity: z.number() })),
     });
@@ -108,6 +112,10 @@ The agent does not know how many items are in the cart, and it must not guess. D
   </Tab>
   <Tab value="Vue">
     ```ts title="src/shop-ui.ts"
+    import { z } from "zod";
+    import { createGenerativeUI } from "@copilotkit/vue/v2/generative-ui";
+    import ProductCard from "./components/ProductCard.vue";
+
     const cartSchema = z.object({
       items: z.array(z.object({ productId: z.string(), quantity: z.number() })),
     });
@@ -166,8 +174,9 @@ Then give the state its value from your app:
     ```
   </Tab>
   <Tab value="React Native">
-    ```tsx
+    ```tsx group=rn-cart-state
     import { useGenerativeUIState } from "@copilotkit/react-native/generative-ui";
+    import type { Cart } from "./cart";
 
     function CartState({ cart }: { cart: Cart }) {
       useGenerativeUIState(shopUI, "cart", { items: cart.items });
@@ -291,7 +300,10 @@ The agent does not see the state either. To let it answer "what is in my cart?",
     ```
   </Tab>
   <Tab value="React Native">
-    ```tsx title="src/shopUI.tsx"
+    ```tsx title="src/shopUI.tsx" group=rn-add-to-cart
+    import { z } from "zod";
+    import { createGenerativeUI } from "@copilotkit/react-native/generative-ui";
+
     export const shopUI = createGenerativeUI({
       id: "acme/shop@1",
       functions: {
@@ -310,8 +322,9 @@ The agent does not see the state either. To let it answer "what is in my cart?",
     });
     ```
 
-    ```tsx
+    ```tsx group=rn-add-to-cart
     import { useGenerativeUIFunction } from "@copilotkit/react-native/generative-ui";
+    import type { Cart } from "./cart";
 
     function CartActions({ cart }: { cart: Cart }) {
       useGenerativeUIFunction(shopUI, "addToCart", ({ productId, quantity }) => {
@@ -324,6 +337,10 @@ The agent does not see the state either. To let it answer "what is in my cart?",
   </Tab>
   <Tab value="Vue">
     ```ts title="src/shop-ui.ts"
+    import { z } from "zod";
+    import { createGenerativeUI } from "@copilotkit/vue/v2/generative-ui";
+    import ProductCard from "./components/ProductCard.vue";
+
     export const shopUI = createGenerativeUI({
       id: "acme/shop@1",
       functions: {
@@ -389,7 +406,8 @@ In the component, the event is a typed prop, or a typed function input in Angula
   <Tab value="Angular">
     The input holds a function only while the event is bound, so `@if` on it shows the button only then:
 
-    ```ts
+    {/* kiira: ignore, imports the reader's own `./shop-ui`; kiira resolves an import by name to the last fence above that exports it, which here is the catalog of another framework's tab */}
+    ```ts ignore
     import { Component, input, signal } from "@angular/core";
     import type { GenerativeUIEventHandler } from "@copilotkit/angular/generative-ui";
     import { shopUI } from "./shop-ui";
@@ -422,7 +440,7 @@ In the component, the event is a typed prop, or a typed function input in Angula
     ```
   </Tab>
   <Tab value="React Native">
-    ```tsx
+    ```tsx group=rn-add-to-cart
     import { useState } from "react";
     import { Pressable, Text, View } from "react-native";
     import type { GenerativeUIComponentProps } from "@copilotkit/react-native/generative-ui";
@@ -598,6 +616,7 @@ export const shopUI = createGenerativeUI({
     ```tsx
     import { TextInput } from "react-native";
     import type { GenerativeUIComponentProps } from "@copilotkit/react-native/generative-ui";
+    import { shopUI } from "./shopUI";
 
     function CheckoutForm({ email, setEmail }: GenerativeUIComponentProps<typeof shopUI, "CheckoutForm">) {
       return <TextInput value={email ?? ""} onChangeText={setEmail} keyboardType="email-address" />;

@@ -26,13 +26,21 @@ import { useGenerativeUIFunction } from "@copilotkit/vue/v2/generative-ui";
 ## Signature
 
 ```ts
-import type { GenerativeUIFunctionArgs } from "@copilotkit/vue/v2/generative-ui";
+import {
+  useGenerativeUIFunction,
+  type GenerativeUI,
+  type GenerativeUIFunctionArgs,
+  type GenerativeUIFunctionName,
+} from "@copilotkit/vue/v2/generative-ui";
 
-useGenerativeUIFunction<UI, Name>(
+useGenerativeUIFunction satisfies <
+  UI extends GenerativeUI,
+  Name extends GenerativeUIFunctionName<UI>,
+>(
   ui: UI,
   name: Name,
   handler: (args: GenerativeUIFunctionArgs<UI, Name>) => unknown,
-): void;
+) => void;
 ```
 
 ## Parameters
@@ -58,6 +66,9 @@ None. The handler stays mounted until the effect scope is disposed.
 `shopUI` declares the function:
 
 ```ts title="shop-ui.ts"
+import { z } from "zod";
+import { createGenerativeUI } from "@copilotkit/vue/v2/generative-ui";
+
 export const shopUI = createGenerativeUI({
   id: "acme/shop@1",
   functions: {

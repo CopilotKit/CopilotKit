@@ -260,7 +260,8 @@ Then give it to the provider, in a client component. In your own app, import `sh
     ```
   </Tab>
   <Tab value="Angular">
-    ```ts title="src/app/app.config.ts"
+    {/* kiira: ignore, imports the reader's own `./shop-ui`; kiira resolves an import by name to the last fence above that exports it, which here is the catalog of another framework's tab */}
+    ```ts ignore title="src/app/app.config.ts"
     import type { ApplicationConfig } from "@angular/core";
     import { provideCopilotKit } from "@copilotkit/angular";
     import { provideGenerativeUI } from "@copilotkit/angular/generative-ui";
@@ -275,7 +276,8 @@ Then give it to the provider, in a client component. In your own app, import `sh
     ```
   </Tab>
   <Tab value="React Native">
-    ```tsx title="App.tsx"
+    {/* kiira: ignore, imports the reader's own `./src/shopUI`; kiira resolves an import by name to the last fence above that exports it, which here is the catalog of another framework's tab */}
+    ```tsx ignore title="App.tsx"
     import { Platform } from "react-native";
     import { CopilotKitProvider } from "@copilotkit/react-native/headless";
     import { GenerativeUIProvider } from "@copilotkit/react-native/generative-ui";
@@ -377,10 +379,11 @@ Next to `id` and `component`, every component the agent writes may carry the A2U
   <Tab value="React Native">
     ```tsx
     import type { GenerativeUIComponentProps } from "@copilotkit/react-native/generative-ui";
+    import { shopUI } from "./shopUI";
 
     function ProductCard(props: GenerativeUIComponentProps<typeof shopUI, "ProductCard">) {
       props.price; // number
-      props.color; // type error: not a prop of ProductCard
+      // props.color is a type error: not a prop of ProductCard
     }
     ```
   </Tab>
@@ -390,10 +393,11 @@ Next to `id` and `component`, every component the agent writes may carry the A2U
     ```ts
     import { h } from "vue";
     import type { GenerativeUIComponentProps } from "@copilotkit/vue/v2/generative-ui";
+    import { shopUI } from "./shop-ui";
 
     function ProductCard(props: GenerativeUIComponentProps<typeof shopUI, "ProductCard">) {
       props.price; // number
-      props.color; // type error: not a prop of ProductCard
+      // props.color is a type error: not a prop of ProductCard
       return h("article", props.name);
     }
     ```
@@ -502,8 +506,13 @@ These work: zod 4.2 or later, ArkType 2.1.28 or later, and Valibot with `@valibo
   <Tab value="React Native">
     React Native has no `standardUI` to extend, so combine catalogs of your own:
 
-    ```ts
+    {/* kiira: ignore, imports the reader's own catalogs and components, which kiira cannot see */}
+    ```ts ignore
+    import { z } from "zod";
     import { createGenerativeUI } from "@copilotkit/react-native/generative-ui";
+    import { cartUI } from "./cartUI";
+    import { Hero } from "./Hero";
+    import { shopUI } from "./shopUI";
 
     export const appUI = createGenerativeUI({
       id: "acme/app@1",
@@ -513,8 +522,12 @@ These work: zod 4.2 or later, ArkType 2.1.28 or later, and Valibot with `@valibo
     ```
   </Tab>
   <Tab value="Vue">
-    ```ts
+    {/* kiira: ignore, imports the reader's own catalogs and components, which kiira cannot see */}
+    ```ts ignore
+    import { z } from "zod";
     import { createGenerativeUI, standardUI } from "@copilotkit/vue/v2/generative-ui";
+    import { cartUI } from "./cart-ui";
+    import Hero from "./components/Hero.vue";
 
     export const appUI = createGenerativeUI({
       id: "acme/app@1",
@@ -552,7 +565,8 @@ A name can come from one catalog only. Two components named `Card` throw an erro
     ```
   </Tab>
   <Tab value="Angular">
-    ```ts
+    {/* kiira: ignore, imports the reader's own `./app-ui`; kiira resolves an import by name to the last fence above that exports it, which here is the catalog of another framework's tab */}
+    ```ts ignore
     import { writeFileSync } from "node:fs";
     import { exportA2UICatalog } from "@copilotkit/angular/generative-ui";
     import { appUI } from "./app-ui";
@@ -564,17 +578,21 @@ A name can come from one catalog only. Two components named `Card` throw an erro
   <Tab value="React Native">
     ```ts
     import { exportA2UICatalog } from "@copilotkit/react-native/generative-ui";
+    import { appUI } from "./appUI";
 
     const catalog = exportA2UICatalog(appUI, { title: "Acme app" });
     console.log(JSON.stringify(catalog, null, 2));
     ```
   </Tab>
   <Tab value="Vue">
-    ```ts
+    {/* kiira: ignore, the Vue entry re-exports exportA2UICatalog with a parameter typed for function and class components, so a catalog of Vue components (even standardUI) is a type error although it works at runtime. Remove once the Vue entry types it for Vue catalogs. */}
+    ```ts ignore
+    import { writeFileSync } from "node:fs";
     import { exportA2UICatalog } from "@copilotkit/vue/v2/generative-ui";
+    import { appUI } from "./app-ui";
 
     const catalog = exportA2UICatalog(appUI, { title: "Acme app" });
-    fs.writeFileSync("acme-catalog.json", JSON.stringify(catalog, null, 2));
+    writeFileSync("acme-catalog.json", JSON.stringify(catalog, null, 2));
     ```
   </Tab>
 </Tabs>
