@@ -318,6 +318,34 @@ Already have CopilotKit running? Do step 3 only. Your runtime needs no change: w
       return <CopilotChat />;
     }
     ```
+
+    Charts and icons need nothing more. Maps draw with an optional library. When you want them, install it:
+
+    ```bash
+    npm install maplibre-gl
+    ```
+
+    Then pass its loader to the provider, next to the catalog:
+
+    ```tsx title="app/providers.tsx"
+    "use client";
+    import { CopilotKitProvider } from "@copilotkit/react-core";
+    import { standardUI } from "@copilotkit/react-core/generative-ui";
+    import { loadMapLibre } from "@copilotkit/react-core/generative-ui/map";
+
+    export function Providers({ children }: { children: React.ReactNode }) {
+      return (
+        <CopilotKitProvider
+          runtimeUrl="/api/copilotkit"
+          generativeUI={{ ui: standardUI, map: loadMapLibre }}
+        >
+          {children}
+        </CopilotKitProvider>
+      );
+    }
+    ```
+
+    Without it, a map shows a list of places, and the app builds without `maplibre-gl`.
     </Tab>
     <Tab value="Angular">
     ```ts title="src/app/app.config.ts"

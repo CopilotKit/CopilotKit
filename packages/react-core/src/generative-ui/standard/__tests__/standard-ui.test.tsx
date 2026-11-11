@@ -1,6 +1,6 @@
 import fs from "fs";
 import path from "path";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import { z } from "zod";
 import { compositeComponents } from "../composites";
 import { dataComponents } from "../data";
@@ -11,12 +11,6 @@ import { layoutComponents } from "../layout";
 import { mediaComponents } from "../media";
 import { textComponents } from "../text";
 import { renderSurface } from "./render";
-
-// maplibre-gl is an optional peer dependency. This models an app that does
-// not install it: the import rejects, and the Map shows a list of places.
-vi.mock("maplibre-gl", () => {
-  throw new Error("Cannot find package 'maplibre-gl'");
-});
 
 /** The fixture uses every standard component at least once. */
 const fixtureSchema = z.object({

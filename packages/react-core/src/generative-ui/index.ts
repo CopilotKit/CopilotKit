@@ -35,6 +35,7 @@ export type {
 export type {
   GenerativeUIConfig,
   GenerativeUIErrorBoundaryConfig,
+  GenerativeUILibraryLoader,
   GenerativeUIMarkdownConfig,
   GenerativeUITheme,
   GenerativeUIToolConfig,

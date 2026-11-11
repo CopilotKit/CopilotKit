@@ -151,6 +151,9 @@
       "@copilotkit/react-core/generative-ui": [
         "./packages/react-core/src/generative-ui/index.ts"
       ],
+      "@copilotkit/react-core/generative-ui/map": [
+        "./packages/react-core/src/generative-ui/map.ts"
+      ],
       "@copilotkit/react-core/generative-ui/native": [
         "./packages/react-core/src/generative-ui/native.ts"
       ],

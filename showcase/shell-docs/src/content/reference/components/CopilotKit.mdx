@@ -325,7 +325,10 @@ for widgets you trust that need `localStorage`, `IndexedDB` or cookies. See
 <PropertyReference name="generativeUI" type="GenerativeUIConfig">
   Experimental. Native generative UI: `generativeUI={{ ui }}`, where `ui` comes
   from `createGenerativeUI`. The agent renders your React components into chat
-  or into `<GenerativeUISurface id>` mounts.
+  or into `<GenerativeUISurface id>` mounts. The standard `Map` draws with
+  `maplibre-gl` only when you pass `map: loadMapLibre` from
+  `@copilotkit/react-core/generative-ui/map`; without it, a map shows a list
+  of places.
 </PropertyReference>
 
 <PropertyReference name="defaultThrottleMs" type="number">

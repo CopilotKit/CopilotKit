@@ -1,6 +1,6 @@
 import React from "react";
 import { act, fireEvent, renderHook, waitFor } from "@testing-library/react";
-import { beforeAll, describe, expect, it, vi } from "vitest";
+import { beforeAll, describe, expect, it } from "vitest";
 import { z } from "zod";
 import { createGenerativeUI } from "../../catalog";
 import { useStableValue } from "../Chart";
@@ -15,12 +15,6 @@ import { renderSurface } from "./render";
 beforeAll(async () => {
   await import("recharts");
 }, 30_000);
-
-// maplibre-gl is an optional peer dependency. This models an app that does
-// not install it: the import rejects.
-vi.mock("maplibre-gl", () => {
-  throw new Error("Cannot find package 'maplibre-gl'");
-});
 
 /** A test-only leaf for table cells and list children. */
 function Label({ text }: { text: string }) {
@@ -385,7 +379,7 @@ describe("useStableValue", () => {
 });
 
 describe("Map", () => {
-  it("shows a list of places when maplibre-gl is not installed, and a pick writes the bound path", async () => {
+  it("shows a list of places without a map loader, and a pick writes the bound path", async () => {
     const view = renderSurface(
       ui,
       [

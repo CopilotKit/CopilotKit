@@ -1,14 +1,9 @@
-import { beforeAll, describe, expect, it, vi } from "vitest";
+import { beforeAll, describe, expect, it } from "vitest";
 import { fireEvent, waitFor } from "@testing-library/react";
 import { standardUI } from "../index";
 import { renderSurface } from "./render";
 
 /** Tests ported from the a2ui-renderer standard catalog. */
-
-// maplibre-gl is an optional peer dependency. Without it the Map lists its places.
-vi.mock("maplibre-gl", () => {
-  throw new Error("Cannot find package 'maplibre-gl'");
-});
 
 const render = (
   ...args: Parameters<typeof renderSurface> extends [unknown, ...infer Rest]
@@ -331,7 +326,7 @@ describe("standard catalog: data and media (parity)", () => {
     expect(svg.getAttribute("preserveAspectRatio")).toBe("none");
   });
 
-  it("Chart renders a recharts container and Map renders a fallback marker list without maplibre", async () => {
+  it("Chart renders a recharts container and Map renders a fallback marker list without a map loader", async () => {
     const v = render([
       { id: "root", component: "Column", children: ["c", "m"] },
       {

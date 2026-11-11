@@ -133,8 +133,7 @@
       "packages/react-core/src/components/chat/CopilotSidebarView.tsx": 2
     },
     "eslint-plugin-next(no-assign-module-variable)": {
-      "packages/angular/src/generative-ui/lib/standard/data/map.ts": 1,
-      "packages/react-core/src/generative-ui/standard/Map.tsx": 1
+      "packages/angular/src/generative-ui/lib/standard/data/map.ts": 1
     },
     "eslint-plugin-next(no-img-element)": {
       "packages/a2ui-renderer/src/react-renderer/a2ui-react/catalog/basic/components/Image.tsx": 1,

@@ -56,9 +56,23 @@ interface GenerativeUIBaseConfig {
    * Native ignores it.
    */
   theme?: GenerativeUITheme;
+  /**
+   * Web only. Loads `maplibre-gl` for the standard `Map` component. Pass
+   * `loadMapLibre` from `@copilotkit/react-core/generative-ui/map` and
+   * install `maplibre-gl`. Without it, Map shows its markers as a list, and
+   * the app builds without `maplibre-gl`. React Native ignores it.
+   */
+  map?: GenerativeUILibraryLoader;
   /** Fallback UI and error reporting for generated UI. */
   errorBoundary?: GenerativeUIErrorBoundaryConfig;
 }
+
+/**
+ * Loads an optional library for a standard component, such as
+ * `loadMapLibre` from `@copilotkit/react-core/generative-ui/map`. The
+ * library stays out of apps that do not pass a loader.
+ */
+export type GenerativeUILibraryLoader = () => Promise<unknown>;
 
 /**
  * The tool transport: the model calls the `render_ui` tool, and the runtime

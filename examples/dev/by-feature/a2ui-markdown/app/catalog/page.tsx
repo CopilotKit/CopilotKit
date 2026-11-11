@@ -12,6 +12,7 @@ import {
   standardUI,
 } from "@copilotkit/react-core/generative-ui";
 import type { GenerativeUIErrorInfo } from "@copilotkit/react-core/generative-ui";
+import { loadMapLibre } from "@copilotkit/react-core/generative-ui/map";
 import {
   createCatalogAgent,
   sampleOperations,
@@ -248,7 +249,11 @@ export default function CatalogPage() {
   return (
     <CopilotKitProvider
       agents__unsafe_dev_only={agents}
-      generativeUI={{ ui: standardUI, errorBoundary: { onError } }}
+      generativeUI={{
+        ui: standardUI,
+        map: loadMapLibre,
+        errorBoundary: { onError },
+      }}
     >
       <Catalog errors={errors} />
     </CopilotKitProvider>

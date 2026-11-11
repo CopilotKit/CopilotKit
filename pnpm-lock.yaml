@@ -535,6 +535,9 @@ importers:
       '@tanstack/ai-openai':
         specifier: ^1.1.1
         version: 1.1.1(@aws-sdk/credential-provider-node@3.972.29)(@tanstack/ai@1.2.0(@opentelemetry/api@1.9.1)(zod@4.6.7))(google-auth-library@10.6.2)(undici@7.30.0)(ws@8.21.3)(zod@4.6.7)
+      maplibre-gl:
+        specifier: ^5.24.0
+        version: 5.24.0
       next:
         specifier: 15.5.24
         version: 15.5.24(@babel/core@8.0.1)(@opentelemetry/api@1.9.1)(@playwright/test@1.59.1)(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(sass@1.101.0)
