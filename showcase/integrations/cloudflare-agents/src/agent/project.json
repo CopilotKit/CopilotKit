@@ -1,0 +1,30 @@
+{
+  "name": "showcase-cloudflare-agents-worker",
+  "targets": {
+    "test": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "pnpm exec vitest run --config vitest.config.ts",
+        "cwd": "showcase/integrations/cloudflare-agents/src/agent"
+      },
+      "dependsOn": ["install-dependencies"],
+      "cache": false
+    },
+    "check-types": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "pnpm exec tsc --noEmit",
+        "cwd": "showcase/integrations/cloudflare-agents/src/agent"
+      },
+      "dependsOn": ["install-dependencies"]
+    },
+    "install-dependencies": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "npm ci --legacy-peer-deps --ignore-scripts --no-audit --no-fund",
+        "cwd": "showcase/integrations/cloudflare-agents/src/agent"
+      },
+      "cache": false
+    }
+  }
+}

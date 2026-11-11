@@ -1,0 +1,60 @@
+{
+  // The showcase's agent backend: a Cloudflare Worker that `wrangler dev` runs
+  // on workerd with a local Durable Object store, so the container needs no
+  // Cloudflare account. entrypoint.sh starts it on :8000 next to Next.js.
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "copilotkit-showcase-cloudflare-agents",
+  "main": "index.ts",
+  "compatibility_date": "2026-09-01",
+  // nodejs_compat: the CVDIAG emitter (../cvdiag) uses node:crypto, Buffer and
+  // process.env, which this flag provides (process.env holds the bindings).
+  "compatibility_flags": ["nodejs_compat"],
+  // One Agents SDK agent class per backend the Next.js routes reach, mirroring
+  // the Strands TypeScript split. routeAgentRequest serves each binding at
+  // /agents/<kebab-case binding>/<thread id>; every thread is one Durable
+  // Object instance of its class.
+  "durable_objects": {
+    "bindings": [
+      { "name": "Showcase", "class_name": "Showcase" },
+      { "name": "BeautifulChat", "class_name": "BeautifulChat" },
+      { "name": "Voice", "class_name": "Voice" },
+      { "name": "ByocHashbrown", "class_name": "ByocHashbrown" },
+      { "name": "ByocJsonRender", "class_name": "ByocJsonRender" },
+      { "name": "A2uiFixedSchema", "class_name": "A2uiFixedSchema" },
+      { "name": "DeclarativeGenUi", "class_name": "DeclarativeGenUi" },
+      { "name": "A2uiRecovery", "class_name": "A2uiRecovery" },
+      { "name": "Interrupt", "class_name": "Interrupt" },
+      { "name": "Reasoning", "class_name": "Reasoning" },
+      { "name": "ReasoningChain", "class_name": "ReasoningChain" },
+    ],
+  },
+  "migrations": [
+    {
+      "tag": "v1",
+      "new_sqlite_classes": [
+        "Showcase",
+        "BeautifulChat",
+        "Voice",
+        "ByocHashbrown",
+        "ByocJsonRender",
+        "A2uiFixedSchema",
+        "DeclarativeGenUi",
+        "A2uiRecovery",
+        "Interrupt",
+        "Reasoning",
+        "ReasoningChain",
+      ],
+    },
+  ],
+  // Defaults for a bare `wrangler dev`. entrypoint.sh sets
+  // CLOUDFLARE_INCLUDE_PROCESS_ENV=true, so the container's environment
+  // (OPENAI_BASE_URL pointing at aimock, OPENAI_API_KEY, the CVDIAG settings)
+  // overrides these as bindings without putting the key on a command line.
+  "vars": {
+    "OPENAI_BASE_URL": "https://api.openai.com/v1",
+    "MODEL_ID": "gpt-6-luna",
+    "OPENAI_REASONING_MODEL": "gpt-6-luna",
+    "AIMOCK_CONTEXT": "cloudflare-agents",
+  },
+  "observability": { "enabled": false },
+}

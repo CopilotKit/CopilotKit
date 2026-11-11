@@ -615,6 +615,51 @@ services:
       # mount would otherwise clobber src/agent/node_modules installed at build).
       - /app/src/agent/node_modules
 
+  cloudflare-agents:
+    <<: *integration-defaults
+    build: ./integrations/cloudflare-agents
+    image: showcase-cloudflare-agents:local
+    container_name: showcase-cloudflare-agents
+    # The agents run in a Cloudflare Worker (`wrangler dev` on workerd) inside
+    # the container; entrypoint.sh hands this environment to it as bindings.
+    # CVDIAG backend emitter + writer-role PocketBase persistence for the
+    # AGENT-SIDE emitter (src/agent/cvdiag.ts), as for strands-typescript: the
+    # emitter is gated OFF by default and enabled here so backend.* boundaries
+    # persist to cvdiag_events.
+    #
+    # NOTE: a service-level `environment:` does NOT deep-merge with the
+    # `<<: *integration-defaults` anchor's `environment:`, so the anchor's
+    # entries are RE-LISTED verbatim here, then the three CVDIAG vars
+    # appended. Keep the re-listed block in sync with x-integration-defaults.
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-sk-mock}
+      - OPENAI_BASE_URL=http://aimock:4010/v1
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-sk-mock-anthropic}
+      - ANTHROPIC_BASE_URL=http://aimock:4010
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY:-fake-gemini-key}
+      - GOOGLE_GEMINI_BASE_URL=${GOOGLE_GEMINI_BASE_URL:-http://aimock:4010}
+      - SPRING_AI_OPENAI_BASE_URL=http://aimock:4010
+      - AIMOCK_URL=http://aimock:4010
+      - GitHubToken=${GitHubToken:-gh-mock-local-dev}
+      - LANGGRAPH_HTTP={"configurable_headers":{"include":["x-*"]}}
+      - CVDIAG_BACKEND_EMITTER=1
+      - CVDIAG_PB_URL=http://pocketbase:8090
+      - CVDIAG_WRITER_KEY=cvdiagwriterpass123
+    # Persisting CVDIAG rows requires PocketBase to be up alongside aimock.
+    depends_on:
+      aimock:
+        condition: service_healthy
+      pocketbase:
+        condition: service_healthy
+    ports:
+      - "3123:10000"
+    profiles: ["cloudflare-agents", "all"]
+    volumes:
+      - ./integrations/cloudflare-agents/src:/app/src
+      # Keep the Worker's node_modules from the image (linux workerd binary);
+      # the src bind mount would otherwise replace src/agent/node_modules.
+      - /app/src/agent/node_modules
+
   langroid:
     <<: *integration-defaults
     build: ./integrations/langroid

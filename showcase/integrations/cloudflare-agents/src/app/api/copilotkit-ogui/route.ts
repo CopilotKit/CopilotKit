@@ -1,0 +1,55 @@
+// Dedicated runtime for the Open Generative UI demos.
+//
+// Isolated here because the `openGenerativeUI` runtime flag sets
+// `openGenerativeUIEnabled: true` globally on the probe response, which
+// causes the CopilotKit provider's setTools effect to wipe per-demo
+// `useFrontendTool`/`useComponent` registrations in the default runtime.
+
+import type { NextRequest } from "next/server";
+import { NextResponse } from "next/server";
+import {
+  CopilotRuntime,
+  createCopilotRuntimeHandler,
+} from "@copilotkit/runtime/v2";
+import { cloudflareAgent, withForwardedHeaders } from "@/lib/cloudflare-agents";
+
+function createAgent() {
+  return cloudflareAgent("showcase");
+}
+
+const openGenUiAgent = createAgent();
+const openGenUiAdvancedAgent = createAgent();
+
+const agents = {
+  "open-gen-ui": openGenUiAgent,
+  "open-gen-ui-advanced": openGenUiAdvancedAgent,
+  default: openGenUiAgent,
+};
+
+export const POST = async (req: NextRequest) =>
+  withForwardedHeaders(req, async () => {
+    try {
+      const copilotHandler = createCopilotRuntimeHandler({
+        // @region[minimal-runtime-flag]
+        // @region[advanced-runtime-config]
+        runtime: new CopilotRuntime({
+          // @ts-ignore -- see main route.ts
+          agents,
+          openGenerativeUI: {
+            agents: ["open-gen-ui", "open-gen-ui-advanced"],
+          },
+        }),
+        // @endregion[advanced-runtime-config]
+        // @endregion[minimal-runtime-flag],
+        basePath: "/api/copilotkit-ogui",
+        mode: "single-route",
+      });
+      return await copilotHandler(req);
+    } catch (error: unknown) {
+      const e = error as { message?: string; stack?: string };
+      return NextResponse.json(
+        { error: e.message, stack: e.stack },
+        { status: 500 },
+      );
+    }
+  });

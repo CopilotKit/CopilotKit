@@ -455,7 +455,12 @@ describe("fixture collision detection", () => {
     // Bumped 393 → 395 for openai-agents-python's interrupt demos: as in
     // strands, interrupt-headless.json repeats gen-ui-interrupt.json's two
     // first legs (both demos share one backend agent and the same prompts).
-    const KNOWN_DUPLICATE_CEILING = 395;
+    // Bumped 395 → 400 for cloudflare-agents. Its fixtures start from
+    // strands-typescript's and inherit the same 5 intentional aliases
+    // (headless-complete revenue chart ×1, the schedule_meeting first legs
+    // shared by gen-ui-interrupt, interrupt-headless and hitl-in-chat ×4),
+    // each disambiguated at runtime by the probe's route or fixtureFile.
+    const KNOWN_DUPLICATE_CEILING = 400;
 
     const collisions: string[] = [];
 

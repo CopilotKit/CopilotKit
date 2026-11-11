@@ -56,10 +56,12 @@ on:
   workflow_dispatch:
     inputs:
       slug:
-        description: "Package slug to test (Python integration with aimock support)"
+        description: "Package slug to test (Python or Cloudflare Worker integration with aimock support)"
         required: true
-        # Only Python integrations that exercise the AIMOCK_URL path
-        # end-to-end belong here. Restricting the enum prevents accidental
+        # Only integrations whose agent this workflow can start (a Python
+        # agent, or the Cloudflare Worker of cloudflare-agents, run by
+        # `wrangler dev`) and that exercise the aimock path end-to-end
+        # belong here. Restricting the enum prevents accidental
         # dispatch of a TS-only (mastra) or Java (spring-ai) slug that would
         # skip the Python agent startup step and then fail with a misleading
         # Playwright timeout. When a new Python slug is validated, append it.
@@ -75,6 +77,7 @@ on:
           - google-antigravity
           - ag2
           - openai-agents-python
+          - cloudflare-agents
 
 # Default to read-only at the job level. The only step that needs write access
 # is "Post result to PR" at the end — we grant it write perms inline there.
@@ -255,6 +258,12 @@ jobs:
             echo "agent_type=langgraph" >> "$GITHUB_OUTPUT"
             echo "agent_port=8123" >> "$GITHUB_OUTPUT"
             echo "agent_health_path=/ok" >> "$GITHUB_OUTPUT"
+          elif [ -f "$PKG_DIR/src/agent/wrangler.jsonc" ]; then
+            # A Cloudflare Worker (cloudflare-agents), served by `wrangler dev`
+            # on workerd. It has no Python agent.
+            echo "agent_type=wrangler" >> "$GITHUB_OUTPUT"
+            echo "agent_port=8000" >> "$GITHUB_OUTPUT"
+            echo "agent_health_path=/health" >> "$GITHUB_OUTPUT"
           else
             echo "agent_type=uvicorn" >> "$GITHUB_OUTPUT"
             echo "agent_port=8000" >> "$GITHUB_OUTPUT"
@@ -272,9 +281,9 @@ jobs:
             echo "ships_toggle=false" >> "$GITHUB_OUTPUT"
             echo "::notice::Slug '$SLUG' does not ship aimock_toggle.py — aimock redirect will be injected via OPENAI_BASE_URL env var"
           fi
-          # Still require Python — this workflow cannot exercise TS-only or
-          # Java slugs (no Python agent to start).
-          if [ ! -f "$PKG_DIR/requirements.txt" ] && [ ! -f "$PKG_DIR/pyproject.toml" ]; then
+          # Still require Python (or the Worker above) — this workflow cannot
+          # exercise other TS-only or Java slugs (no agent it can start).
+          if [ ! -f "$PKG_DIR/src/agent/wrangler.jsonc" ] && [ ! -f "$PKG_DIR/requirements.txt" ] && [ ! -f "$PKG_DIR/pyproject.toml" ]; then
             echo "::error::Slug '$SLUG' has no requirements.txt or pyproject.toml — this workflow only exercises Python-backed packages."
             exit 1
           fi
@@ -447,6 +456,31 @@ jobs:
           done
           curl -sf --max-time 2 --connect-timeout 1 "http://localhost:${AGENT_PORT}${AGENT_HEALTH}" > /dev/null 2>&1 \
             || { echo "Python agent failed to start on :${AGENT_PORT}"; exit 1; }
+
+      - name: Start Cloudflare Worker
+        if: steps.pkg-type.outputs.agent_type == 'wrangler'
+        run: |
+          SLUG="${{ steps.slug.outputs.slug }}"
+          AGENT_PORT="${{ steps.pkg-type.outputs.agent_port }}"
+          AGENT_HEALTH="${{ steps.pkg-type.outputs.agent_health_path }}"
+          cd "showcase/integrations/$SLUG/src/agent"
+          # `--ignore-scripts` for the same reason as the other installs; the
+          # workerd and esbuild binaries come from their platform packages.
+          npm ci --legacy-peer-deps --ignore-scripts --no-audit --no-fund
+          # wrangler serves the Worker on workerd with a local Durable Object
+          # store; no Cloudflare account is involved. The Worker reads its
+          # OpenAI settings as bindings, which CLOUDFLARE_INCLUDE_PROCESS_ENV
+          # takes from this environment.
+          CLOUDFLARE_INCLUDE_PROCESS_ENV=true CI=true WRANGLER_SEND_METRICS=false \
+          OPENAI_BASE_URL=http://localhost:4010/v1 \
+          OPENAI_API_KEY=sk-aimock-dev-ci-only \
+            npx wrangler dev --port "$AGENT_PORT" --ip 127.0.0.1 --show-interactive-dev-session=false &
+          for i in $(seq 1 45); do
+            curl -sf --max-time 2 --connect-timeout 1 "http://localhost:${AGENT_PORT}${AGENT_HEALTH}" > /dev/null 2>&1 && break
+            sleep 2
+          done
+          curl -sf --max-time 2 --connect-timeout 1 "http://localhost:${AGENT_PORT}${AGENT_HEALTH}" > /dev/null 2>&1 \
+            || { echo "Cloudflare Worker failed to start on :${AGENT_PORT}"; exit 1; }
 
       - name: Install package dependencies
         run: |

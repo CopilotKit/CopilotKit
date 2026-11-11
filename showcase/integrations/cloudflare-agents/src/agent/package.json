@@ -1,0 +1,30 @@
+{
+  "name": "cloudflare-agents-showcase-worker",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev --port 8000 --ip 127.0.0.1 --show-interactive-dev-session=false",
+    "start": "wrangler dev --port 8000 --ip 0.0.0.0 --show-interactive-dev-session=false --persist-to /tmp/cloudflare-agents-state",
+    "typecheck": "tsc --noEmit",
+    "test": "pnpm exec vitest run --config vitest.config.ts"
+  },
+  "dependencies": {
+    "@ag-ui/a2ui-toolkit": "0.0.5",
+    "@ag-ui/client": "1.0.4",
+    "@ag-ui/cloudflare-agents": "https://pkg.pr.new/ag-ui-protocol/ag-ui/@ag-ui/cloudflare-agents@07fb0e8",
+    "@ag-ui/core": "1.0.4",
+    "@ai-sdk/openai": "4.0.114",
+    "@modelcontextprotocol/client": "2.4.0",
+    "agents": "0.33.0",
+    "ai": "7.0.169",
+    "rxjs": "7.8.1",
+    "zod": "4.6.5"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "4.20260702.1",
+    "@types/node": "22.20.5",
+    "typescript": "5.9.3",
+    "wrangler": "4.160.0"
+  }
+}
