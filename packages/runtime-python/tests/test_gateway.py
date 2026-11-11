@@ -191,6 +191,7 @@ async def test_receiver_logs_debug_on_invalid_frame(caplog):
     """Verify that a malformed Phoenix frame is logged at DEBUG level."""
 
     async def server(socket):
+        """Reply to the join then send a non-list frame to trigger the debug log path."""
         frame = json.loads(await socket.recv())
         await socket.send(json.dumps([*frame[:3], "phx_reply", {"status": "ok"}]))
         # Send a frame that does not match the [join_ref, ref, topic, event, payload] schema
@@ -224,6 +225,7 @@ async def test_join_retry_logs_warning_on_transient_failure(caplog):
     attempts = []
 
     async def server(socket):
+        """Reject the first join as gateway_draining; succeed on the second."""
         frame = json.loads(await socket.recv())
         attempts.append(frame)
         # Reject first attempt as retryable, succeed on second
