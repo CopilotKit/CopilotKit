@@ -767,7 +767,7 @@
       "packages/runtime/src/runtime/event-transforms/open-generative-ui-middleware.ts": 9,
       "packages/runtime/src/runtime/event-transforms/recorded-events.ts": 2,
       "packages/runtime/src/runtime/event-transforms/streaming-json-scanner.ts": 8,
-      "packages/runtime/src/runtime/generative-ui/a2ui-v09-actions.ts": 6,
+      "packages/runtime/src/runtime/generative-ui/a2ui-v09-actions.ts": 8,
       "packages/runtime/src/runtime/generative-ui/a2ui-v09-catalog.ts": 4,
       "packages/runtime/src/runtime/generative-ui/a2ui-v09-middleware.ts": 3,
       "packages/runtime/src/runtime/generative-ui/a2ui-v09-operations.ts": 6,

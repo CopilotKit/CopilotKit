@@ -261,6 +261,13 @@ export interface GenerativeUISurfaceSummary {
    * rejected, so it does not exist; a corrected createSurface can use the id.
    */
   status?: "deleted" | "failed";
+  /**
+   * `"0.9"` when the runtime converted the surface from A2UI v0.9 (copied
+   * from {@link GenerativeUISurfaceContent.a2uiSourceVersion}), so the
+   * runtime sends a user event on it to the agent as a v0.9 action. Left out
+   * for a surface that the agent wrote in 1.0.
+   */
+  a2uiSourceVersion?: "0.9";
 }
 
 /** A user interaction bound to `{ event }`, sent to the agent. */

@@ -23,8 +23,17 @@ const action: A2UIActionMessage = {
   },
 };
 
-/** A format 3 envelope, as the 1.0 client sends it, with an optional action. */
-function envelope(copilotkitAction?: unknown): CopilotKitUIEnvelope {
+type Surfaces =
+  CopilotKitUIEnvelope["metadata"]["extensions"]["copilotkit_surfaces"];
+
+/**
+ * A format 3 envelope, as the 1.0 client sends it, with an optional action
+ * and the surface summaries.
+ */
+function envelope(
+  copilotkitAction?: unknown,
+  surfaces: Surfaces = {},
+): CopilotKitUIEnvelope {
   return {
     "1.0": {
       supportedCatalogIds: ["shop"],
@@ -37,7 +46,7 @@ function envelope(copilotkitAction?: unknown): CopilotKitUIEnvelope {
         copilotkit_format: 3,
         copilotkit_transport: "tool",
         copilotkit_targets: [{ id: "chat", kind: "chat" }],
-        copilotkit_surfaces: {},
+        copilotkit_surfaces: surfaces,
         copilotkit_contextSent: false,
         ...(copilotkitAction === undefined
           ? {}
@@ -73,6 +82,7 @@ const clickMessage: Message = {
 function runInput(
   messages: Message[],
   copilotkitAction: unknown = action,
+  surfaces: Surfaces = {},
 ): RunAgentInput {
   return {
     threadId: "thread",
@@ -83,7 +93,7 @@ function runInput(
     context: [],
     forwardedProps: {
       other: true,
-      copilotkit: { ui: envelope(copilotkitAction) },
+      copilotkit: { ui: envelope(copilotkitAction, surfaces) },
     },
   };
 }
@@ -186,6 +196,64 @@ describe("downgradeA2UIV09Action", () => {
     expect(converted.messages).toEqual(firstTurn);
     expect(downgradeA2UIV09Action(input, { agentVersion: "1.0" })).toBe(input);
     expect(downgradeA2UIV09Action(input)).toBe(input);
+  });
+
+  describe("the surface summary in the envelope", () => {
+    it("converts a click on a surface the summary marks 0.9, whatever the agent speaks", () => {
+      // The 1.0 client sends no activity messages: only the summary knows.
+      const input = runInput([...firstTurn, clickMessage], action, {
+        plans: { target: "chat", a2uiSourceVersion: "0.9" },
+      });
+
+      const result = downgradeA2UIV09Action(input, { agentVersion: "1.0" });
+
+      expect(
+        (result.forwardedProps as Record<string, unknown>).a2uiAction,
+      ).toStrictEqual({ userAction: expectedUserAction });
+      expect(result.messages).toEqual(firstTurn);
+    });
+
+    it("leaves a click on a surface the summary lists without a tag unchanged", () => {
+      const input = runInput(
+        [...firstTurn, surfaceMessage("plans", "0.9"), clickMessage],
+        action,
+        { plans: { target: "chat" } },
+      );
+
+      expect(downgradeA2UIV09Action(input, { agentVersion: "0.9" })).toBe(
+        input,
+      );
+    });
+
+    it("falls back to the activity message and agentVersion when it does not list the surface", () => {
+      const surfaces = {
+        other: { target: "chat", a2uiSourceVersion: "0.9" as const },
+      };
+      const fromMessage = runInput(
+        [...firstTurn, surfaceMessage("plans", "0.9"), clickMessage],
+        action,
+        surfaces,
+      );
+      const unknown = runInput([...firstTurn, clickMessage], action, surfaces);
+
+      expect(
+        (
+          downgradeA2UIV09Action(fromMessage).forwardedProps as Record<
+            string,
+            unknown
+          >
+        ).a2uiAction,
+      ).toStrictEqual({ userAction: expectedUserAction });
+      expect(downgradeA2UIV09Action(unknown, { agentVersion: "1.0" })).toBe(
+        unknown,
+      );
+      expect(
+        (
+          downgradeA2UIV09Action(unknown, { agentVersion: "0.9" })
+            .forwardedProps as Record<string, unknown>
+        ).a2uiAction,
+      ).toStrictEqual({ userAction: expectedUserAction });
+    });
   });
 
   it("leaves a run with no action unchanged", () => {

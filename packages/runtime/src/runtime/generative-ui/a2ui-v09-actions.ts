@@ -3,6 +3,7 @@ import {
   GENERATIVE_UI_ACTIVITY_TYPE,
   readCopilotKitUIEnvelope,
 } from "@copilotkit/shared";
+import type { CopilotKitUIEnvelope } from "@copilotkit/shared";
 import { isRecord } from "../../agent/converters/usage";
 
 /**
@@ -20,15 +21,16 @@ interface A2UIV09UserAction {
 
 export interface DowngradeA2UIV09ActionOptions {
   /**
-   * The A2UI version the agent speaks. Used only when `input.messages` has
-   * no `generative-ui-surface` activity message for the clicked surface.
+   * The A2UI version the agent speaks. Used only when neither the envelope
+   * summary nor `input.messages` knows the clicked surface.
    */
   agentVersion?: "0.9" | "1.0";
 }
 
 /** The 1.0 action of the user event that started the run, if one did. */
-function readAction(forwardedProps: unknown): A2UIV09UserAction | undefined {
-  const envelope = readCopilotKitUIEnvelope(forwardedProps);
+function readAction(
+  envelope: CopilotKitUIEnvelope | undefined,
+): A2UIV09UserAction | undefined {
   const message: unknown = envelope?.metadata.extensions.copilotkit_action;
   if (!isRecord(message) || !isRecord(message.action)) return undefined;
   const { name, surfaceId, sourceComponentId, context, timestamp } =
@@ -48,15 +50,23 @@ function readAction(forwardedProps: unknown): A2UIV09UserAction | undefined {
 }
 
 /**
- * True when the surface was converted from A2UI v0.9. The last
- * `generative-ui-surface` activity message of the surface decides. With no
- * such message, `agentVersion` decides.
+ * True when the surface was converted from A2UI v0.9. The first of these
+ * that knows the surface decides:
+ * 1. The summary of the surface in the envelope (`copilotkit_surfaces`).
+ * 2. The last `generative-ui-surface` activity message of the surface.
+ * 3. `agentVersion`.
  */
 function isV09Surface(
+  surfaces: CopilotKitUIEnvelope["metadata"]["extensions"]["copilotkit_surfaces"],
   messages: readonly Message[],
   surfaceId: string,
   agentVersion: DowngradeA2UIV09ActionOptions["agentVersion"],
 ) {
+  // `readCopilotKitUIEnvelope` checked the summary, so the tag is "0.9" or
+  // left out. An own-key check: the ids come from the client.
+  if (Object.hasOwn(surfaces, surfaceId)) {
+    return surfaces[surfaceId].a2uiSourceVersion === "0.9";
+  }
   const surface = messages.findLast(
     (message) =>
       message.role === "activity" &&
@@ -108,9 +118,16 @@ function withoutActionUserMessage(messages: Message[]) {
  * agent gets the same input as it did from the v0.9 client. The 1.0 client
  * still shows the message in its chat.
  *
- * Origin: the last `generative-ui-surface` activity message for the
- * surface in `input.messages` decides (`a2uiSourceVersion === "0.9"`). With
- * no such message, `options.agentVersion === "0.9"` decides.
+ * Origin: the first of these that knows the clicked surface decides.
+ * 1. Its summary in the envelope
+ *    (`forwardedProps.copilotkit.ui.metadata.extensions.copilotkit_surfaces`):
+ *    `a2uiSourceVersion === "0.9"` means v0.9 origin, left out means 1.0. The
+ *    1.0 client copies the tag from the surface's activity content, so this
+ *    is what decides for runs from the 1.0 client.
+ * 2. The last `generative-ui-surface` activity message for the surface in
+ *    `input.messages` (`a2uiSourceVersion === "0.9"`), for a caller that
+ *    passes activity messages.
+ * 3. `options.agentVersion === "0.9"`.
  *
  * @param input - The run input from the 1.0 client.
  * @param options - `agentVersion`: the fallback when the surface is unknown.
@@ -131,10 +148,16 @@ export function downgradeA2UIV09Action(
   if (!isRecord(forwardedProps) || forwardedProps.a2uiAction !== undefined) {
     return input;
   }
-  const userAction = readAction(forwardedProps);
-  if (!userAction) return input;
+  const envelope = readCopilotKitUIEnvelope(forwardedProps);
+  const userAction = readAction(envelope);
+  if (!envelope || !userAction) return input;
   if (
-    !isV09Surface(input.messages, userAction.surfaceId, options.agentVersion)
+    !isV09Surface(
+      envelope.metadata.extensions.copilotkit_surfaces,
+      input.messages,
+      userAction.surfaceId,
+      options.agentVersion,
+    )
   ) {
     return input;
   }

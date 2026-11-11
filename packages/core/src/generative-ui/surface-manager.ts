@@ -51,6 +51,11 @@ export interface ManagedSurface {
   clientRejected: GenerativeUIRejectedOperation[];
   /** The committed operations of the latest content, for the inspector. */
   operations: readonly A2UIOperation[];
+  /**
+   * `"0.9"` when the runtime converted the surface from A2UI v0.9, from the
+   * latest content. The surface summary sends it to the runtime.
+   */
+  a2uiSourceVersion?: "0.9";
 }
 
 export interface GenerativeUISurfaceManagerOptions {
@@ -95,6 +100,11 @@ export interface GenerativeUIMountedTarget {
 }
 
 let creationCounter = 0;
+
+/** `"0.9"` for content that the runtime converted from A2UI v0.9. */
+function sourceVersionOf(content: GenerativeUISurfaceContent) {
+  return content.a2uiSourceVersion === "0.9" ? ("0.9" as const) : undefined;
+}
 
 const FORBIDDEN_SEGMENTS = new Set(["__proto__", "constructor", "prototype"]);
 
@@ -357,6 +367,8 @@ export class GenerativeUISurfaceManager {
       surface.serverRejected = serverRejected;
       changed = true;
     }
+    // Only the summary for the runtime reads it, so a change does not notify.
+    surface.a2uiSourceVersion = sourceVersionOf(content);
     if (changed) this.notify();
   }
 
@@ -436,6 +448,9 @@ export class GenerativeUISurfaceManager {
           ? { rejected: summarizeRejections(rejections) }
           : {}),
         ...(status ? { status } : {}),
+        ...(surface.a2uiSourceVersion
+          ? { a2uiSourceVersion: surface.a2uiSourceVersion }
+          : {}),
       };
     }
     return described;
