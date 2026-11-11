@@ -63,7 +63,7 @@
 // place before any langgraph code touches the filesystem.
 
 import { createRequire } from "node:module";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
 const PERSIST_MARKER = ".langgraph_api";
 
@@ -96,6 +96,9 @@ if (!disabled) {
   // source no longer matches the expected writer shape, FAIL LOUDLY at boot so
   // the mismatch is caught here and not as a silent disk-growth outage in prod.
   const EXPECTED_PKG_VERSION = "1.1.17";
+  // `<pkgRoot>/` of the installed @langchain/langgraph-api; also used below to
+  // reach dist/storage/persist.mjs by file URL for the flush disable.
+  let pkgRoot;
   try {
     const pkgJsonPath =
       require.resolve("@langchain/langgraph-api/package.json");
@@ -112,7 +115,7 @@ if (!disabled) {
     // Confirm the writer still uses namespace fs access (not a named import)
     // and still writes via fs.writeFile. Reading the source is a cheap, robust
     // shape check. persist.mjs sits at <pkgRoot>/dist/storage/persist.mjs.
-    const pkgRoot = pkgJsonPath.slice(0, -"package.json".length);
+    pkgRoot = pkgJsonPath.slice(0, -"package.json".length);
     const persistSrc = fs.readFileSync(
       `${pkgRoot}dist/storage/persist.mjs`,
       "utf-8",
@@ -444,10 +447,54 @@ if (!disabled) {
     throw new Error(msg);
   }
 
+  // --- Disable the flush itself, not just its write --------------------------
+  // The fs interception above stops `.langgraph_api` growing on disk, but
+  // `FileSystemPersistence.persist()` runs `superjson.stringify(this.data)`
+  // BEFORE it reaches the (no-op'd) `fs.writeFile`, and `conn.with()` re-arms
+  // the 3-second `schedulePersist` timer after every store mutation. With
+  // threads retained for the container's life that meant the whole in-memory
+  // store (checkpoints are `Uint8Array`s in MemorySaver, so every flush also
+  // builds a base64 string per checkpoint) was re-serialised every 3 s: a
+  // transient heap copy 2-3x the store size, and once the serialised form
+  // passed V8's max string length, `RangeError: Invalid string length` on every
+  // flush, forever. That churn is what pushed prod to the 4 GB heap limit
+  // (2026-11-10, exit 134 after ~40 h).
+  //
+  // The class is not on the package's exports map, but ESM exports maps only
+  // gate bare specifiers: importing the file by URL returns the SAME module
+  // instance the package's own `./storage/persist.mjs` imports resolve to, so a
+  // prototype patch here is observed by every `FileSystemPersistence` the server
+  // constructs later (ops, checkpointer, store). This is the TypeScript
+  // equivalent of the Python runtime's `disable_persistence=True`.
+  const persistUrl = pathToFileURL(`${pkgRoot}dist/storage/persist.mjs`).href;
+  const { FileSystemPersistence } = await import(persistUrl);
+  const proto = FileSystemPersistence?.prototype;
+  if (
+    typeof proto?.schedulePersist !== "function" ||
+    typeof proto?.persist !== "function"
+  ) {
+    const msg =
+      "[persistence] FATAL: @langchain/langgraph-api's FileSystemPersistence " +
+      "no longer exposes prototype.schedulePersist/persist, so the flush " +
+      "cannot be disabled. Re-verify persist.mjs before trusting the " +
+      "persistence disable (every 3 s the whole store would be re-serialised).";
+    console.error(msg);
+    throw new Error(msg);
+  }
+  proto.schedulePersist = function schedulePersist() {
+    // Keep the timer field in the shape the class expects, but never arm it.
+    clearTimeout(this.flushTimeout);
+    this.flushTimeout = undefined;
+  };
+  proto.persist = async function persist() {
+    // No serialisation, no write. In-memory state is the runtime state.
+  };
+
   console.log(
     "[persistence] LANGGRAPH_DISABLE_FILE_PERSISTENCE enabled " +
-      `(value=${JSON.stringify(rawFlag)}) — FileSystemPersistence disk flush ` +
-      "disabled across all fs write surfaces (in-memory only); " +
+      `(value=${JSON.stringify(rawFlag)}) — FileSystemPersistence flush disabled ` +
+      "(no 3 s store serialisation) and all fs write surfaces no-op'd " +
+      "(in-memory only); " +
       `namespace binding-identity verified for ${Object.keys(patchedMembers).length} members`,
   );
 }
