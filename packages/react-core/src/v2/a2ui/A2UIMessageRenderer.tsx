@@ -564,11 +564,17 @@ function A2UISurfaceOrError({
 
 /**
  * Full activity snapshots repeat creation. Native 1.0 can carry the current
- * components and data inline there, so replay those fields as updates for an
- * existing surface. Retain invalid or version-changing creates for the
+ * components and data inline there, so replay changed initialization data and
+ * components as updates for an existing surface. Compare against the previous
+ * wire snapshot, rather than the SDK's mutable data model, to retain local edits.
+ * Retain invalid or version-changing creates for the
  * provider/SDK to reject, instead of sanitizing them while replaying.
  */
-function replaySnapshotOperations(operations: any[], existing: any): any[] {
+function replaySnapshotOperations(
+  operations: any[],
+  existing: any,
+  previousOperations: any[],
+): any[] {
   if (!existing) return operations;
   let nativeSurfaceDeleted = false;
   return operations.flatMap((operation) => {
@@ -595,8 +601,20 @@ function replaySnapshotOperations(operations: any[], existing: any): any[] {
     )
       return [operation];
     const updates = [];
+    const previousCreate = previousOperations.find(
+      (previous) =>
+        previous?.version === "1.0" &&
+        previous.createSurface?.surfaceId === create.surfaceId,
+    )?.createSurface;
     // Initial data is applied before components by the native create operation.
-    if (Object.hasOwn(create, "dataModel"))
+    // Repeated unchanged initialization must not replace client-side edits.
+    if (
+      Object.hasOwn(create, "dataModel") &&
+      (!previousCreate ||
+        !Object.hasOwn(previousCreate, "dataModel") ||
+        JSON.stringify(create.dataModel) !==
+          JSON.stringify(previousCreate.dataModel))
+    )
       updates.push({
         version: "1.0",
         updateDataModel: {
@@ -637,10 +655,19 @@ function SurfaceMessageProcessor({
     // the same logical content but different object references.
     const hash = JSON.stringify(operations);
     if (hash === lastHashRef.current) return;
+    // Preserve wire values before processing: the SDK may mutate input data
+    // objects when a bound control updates the surface's data model.
+    const previousOperations = lastHashRef.current
+      ? JSON.parse(lastHashRef.current)
+      : [];
     lastHashRef.current = hash;
 
     const existing = getSurface(surfaceId);
-    const ops = replaySnapshotOperations(operations, existing);
+    const ops = replaySnapshotOperations(
+      operations,
+      existing,
+      previousOperations,
+    );
 
     // Error handling is done inside A2UIProvider.processMessages
     processMessages(ops.map(stripRoutingSurfaceId));

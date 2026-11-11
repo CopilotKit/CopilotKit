@@ -497,6 +497,94 @@ describe("A2UIMessageRenderer native 1.0 lifecycle", () => {
     expect(view.queryByText("Invalid update")).toBeNull();
   });
 
+  it.each([{ name: "Ada" }, {}])(
+    "preserves local edits when a fresh snapshot repeats unchanged inline initialization %j",
+    async (initialData) => {
+      const onAction = vi.fn(() => null);
+      const Render = renderer(onAction);
+      const wireSnapshot = JSON.stringify(
+        inline(
+          [
+            {
+              id: "root",
+              component: "Column",
+              children: ["field", "status", "submit"],
+            },
+            {
+              id: "field",
+              component: "TextField",
+              label: "Name",
+              value: { "@path": "/name" },
+            },
+            { id: "status", component: "Text", text: "Initial status" },
+            {
+              id: "submit",
+              component: "Button",
+              child: "label",
+              action: {
+                event: {
+                  name: "save",
+                  context: { name: { "@path": "/name" } },
+                },
+              },
+            },
+            { id: "label", component: "Text", text: "Save" },
+          ],
+          initialData,
+        ),
+      );
+      const view = render(
+        <Render content={JSON.parse(wireSnapshot)} agent={{}} />,
+      );
+      fireEvent.change(view.getByLabelText("Name"), {
+        target: { value: "Grace" },
+      });
+      expect((view.getByLabelText("Name") as HTMLInputElement).value).toBe(
+        "Grace",
+      );
+
+      // Deserialize the original wire content again: SDK binding edits can mutate
+      // the first snapshot's data object and otherwise mask an initialization replay.
+      const nextSnapshot = JSON.parse(wireSnapshot);
+      nextSnapshot.a2ui_operations.push({
+        version: "1.0",
+        updateComponents: {
+          surfaceId: "native",
+          components: [
+            { id: "status", component: "Text", text: "Updated status" },
+          ],
+        },
+      });
+      view.rerender(<Render content={nextSnapshot} agent={{}} />);
+      await waitFor(() =>
+        expect(view.getByText("Updated status")).toBeTruthy(),
+      );
+      fireEvent.click(view.getByRole("button", { name: "Save", hidden: true }));
+      await waitFor(() =>
+        expect(onAction).toHaveBeenCalledWith(
+          expect.objectContaining({ name: "save", context: { name: "Grace" } }),
+          expect.any(Function),
+        ),
+      );
+      expect((view.getByLabelText("Name") as HTMLInputElement).value).toBe(
+        "Grace",
+      );
+
+      // Deletion starts a new surface lifecycle even with the same initialization.
+      const recreated = JSON.parse(wireSnapshot);
+      recreated.a2ui_operations.unshift({
+        version: "1.0",
+        deleteSurface: { surfaceId: "native" },
+      });
+      view.rerender(<Render content={recreated} agent={{}} />);
+      await waitFor(() =>
+        expect((view.getByLabelText("Name") as HTMLInputElement).value).toBe(
+          initialData.name ?? "",
+        ),
+      );
+    },
+  );
+
   it("forwards edited native form values, functions and the action userMessage", async () => {
     const onAction = vi.fn(() => null);
     const Render = renderer(onAction);
