@@ -363,10 +363,52 @@ indicator rather than displaying one over stale data.
 <FrontendOnly frontend="angular">
 ### Angular
 
-`injectMemories()` exposes the same surface as signals. See
-<a href="/angular/guides/threads-memory-attachments-headless">Threads, memory, attachments, and headless UI</a>
-for a worked component, and the
-<a href="/reference/angular/public-api">Angular public API</a>
+`injectMemories()` exposes the same surface as signals: the current
+runtime-authenticated user's memory list. Check `isAvailable()` before showing
+memory controls because a runtime may not provide the memory routes.
+
+```ts title="src/app/memory-list.component.ts"
+import { Component } from "@angular/core";
+import { injectMemories } from "@copilotkit/angular";
+
+@Component({
+  selector: "app-memory-list",
+  template: `
+    @if (!memory.isAvailable()) {
+      <p>Memory is not available for this runtime.</p>
+    } @else {
+      @for (item of memory.memories(); track item.id) {
+        <article>
+          <p>{{ item.content }}</p>
+          <button type="button" (click)="remove(item.id)">Forget</button>
+        </article>
+      }
+    }
+  `,
+})
+export class MemoryListComponent {
+  readonly memory = injectMemories();
+
+  protected remove(id: string): void {
+    this.memory.removeMemory(id).catch(() => undefined);
+  }
+
+  protected addPreference(): void {
+    this.memory
+      .addMemory({
+        kind: "operational",
+        content: "Prefer concise status updates.",
+      })
+      .catch(() => undefined);
+  }
+}
+```
+
+`updateMemory` supersedes a memory with a full replacement and returns a new
+record with a new id. Re-send `content`, `kind`, and any
+`sourceThreadIds` you want to keep.
+
+See the <a href="/reference/angular/public-api">Angular public API</a>
 for the exported surface.
 </FrontendOnly>
 

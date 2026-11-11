@@ -1,0 +1,51 @@
+---
+title: "Open Generative UI"
+description: Let the agent stream sandboxed HTML, CSS, and script into Angular chat, with narrow host functions.
+icon: "lucide/Code"
+doc_type: how-to
+---
+
+An `openGenerativeUI` object opts the frontend into the built-in sandboxed
+renderer. Expose narrow host functions when generated UI must ask the
+application to act.
+
+```ts title="src/app/app.config.ts"
+import { ApplicationConfig } from "@angular/core";
+import {
+  provideCopilotKit,
+  type SandboxFunction,
+} from "@copilotkit/angular";
+import { z } from "zod";
+
+const dashboardFilterParameters = z.object({ filter: z.string() });
+
+const setDashboardFilter: SandboxFunction = {
+  name: "setDashboardFilter",
+  description: "Set the active dashboard filter",
+  parameters: dashboardFilterParameters,
+  handler: async (args) => {
+    const { filter } = dashboardFilterParameters.parse(args);
+    sessionStorage.setItem("dashboard-filter", filter);
+    return { applied: filter };
+  },
+};
+
+export const appConfig: ApplicationConfig = {
+  providers: [
+    provideCopilotKit({
+      runtimeUrl: "/api/copilotkit",
+      openGenerativeUI: {
+        sandboxFunctions: [setDashboardFilter],
+      },
+    }),
+  ],
+};
+```
+
+Generated code runs in a sandboxed iframe without same-origin access. It calls
+only the host functions you list in `sandboxFunctions`.
+
+## Next steps
+
+- [Other generative UI paths](/angular/generative-ui)
+- [Runnable tool and generative UI examples](/angular/features#frontend-tools)
