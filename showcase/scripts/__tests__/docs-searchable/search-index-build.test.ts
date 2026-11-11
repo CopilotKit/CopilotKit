@@ -142,12 +142,14 @@ describe("search index built with only showcase/scripts installed", () => {
     ).toEqual([]);
   });
 
-  it("keeps the synthesized Vue docs-status entry for its canonical route", () => {
+  it("keeps one entry for Vue's docs guide at its canonical route", () => {
     const entries = docsIndex.filter(
       (entry) => entry.href === "/vue/using-these-docs",
     );
     expect(entries).toHaveLength(1);
-    expect(entries[0]?.title).toBe("Vue: Docs status");
+    // The shared frontends/docs-status page is gone; Vue's own
+    // frontends/vue/using-these-docs page is the row now.
+    expect(entries[0]?.title).toBe("Using these docs");
   });
 
   it("leaves the docs for no showcase-host destination", () => {

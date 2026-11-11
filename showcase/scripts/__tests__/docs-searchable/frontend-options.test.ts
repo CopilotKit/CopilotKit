@@ -12,6 +12,7 @@ import {
   shouldNavigateFrontendSelection,
 } from "../../lib/docs-searchable/frontend-options";
 import {
+  frontendHasPage,
   getFrontendContentSlug,
   getFrontendCanonicalSlug,
   getFrontendReferenceSlug,
@@ -23,7 +24,6 @@ import {
   navSectionTitleForSlug,
   visibleGuideBreadcrumbs,
 } from "../../lib/docs-searchable/docs-render";
-import { resolveFrontendDocPage } from "../../lib/docs-searchable/frontend-doc-policy";
 import type { NavNode } from "../../lib/docs-searchable/docs-render";
 
 // The first docs app's page-tree, Angular-navigation and link-rewrite modules
@@ -297,9 +297,9 @@ test("routes Angular interaction capture to the standalone collector", () => {
   const collectorSlug = "intelligence/standalone-collector";
 
   expect(getFrontendCanonicalSlug("angular", captureSlug)).toBe(collectorSlug);
-  expect(resolveFrontendDocPage("angular", captureSlug)).toEqual({
-    status: "not-found",
-  });
+  // Capture is a React page (docs/intelligence); the collector is shared.
+  expect(frontendHasPage("angular", captureSlug)).toBe(false);
+  expect(frontendHasPage("angular", collectorSlug)).toBe(true);
 });
 
 test("canonicalizes React-only frontend topics to Angular-native task guides", () => {
@@ -446,10 +446,7 @@ test("keeps Vue sidebar links reachable", () => {
     ]),
   );
   for (const url of urls.filter((href) => href.startsWith("/vue/"))) {
-    expect(
-      resolveFrontendDocPage("vue", url.slice("/vue/".length)).status,
-      url,
-    ).toBe("found");
+    expect(frontendHasPage("vue", url.slice("/vue/".length)), url).toBe(true);
   }
 });
 
@@ -460,9 +457,7 @@ test("links the Vue quickstart to a reachable Vue guide", () => {
   )?.[1];
 
   expect(href).toBe("/vue/generative-ui/tool-based");
-  expect(resolveFrontendDocPage("vue", "generative-ui/tool-based").status).toBe(
-    "found",
-  );
+  expect(frontendHasPage("vue", "generative-ui/tool-based")).toBe(true);
 });
 
 test("keeps frontends without guides free of an empty Guides section", () => {
