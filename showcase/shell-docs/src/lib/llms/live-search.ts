@@ -19,7 +19,8 @@ import {
   referenceSource,
 } from "@/lib/live-source";
 import { getIntegration, ROOT_FRAMEWORK } from "@/components/docs-mdx/data";
-import { searchEntries } from "./live-inventory";
+import type { StructuredData } from "fumadocs-core/mdx-plugins";
+import { frameworkSetupEntries, searchEntries } from "./live-inventory";
 import { mapLimit } from "./map-limit";
 
 // Orama search over the live docs (each page once, at an unscoped live URL;
@@ -46,8 +47,9 @@ async function buildIndexes(): Promise<AdvancedIndex[]> {
         return {
           id: url,
           url,
-          // The route filters by the reader's frontend (`/api/search`).
-          tag: frontends,
+          // The route asks for the reader's frontend and framework
+          // (`/api/search`); a page is there for every framework.
+          tag: [...frontends, ...ALL_FRAMEWORK_TAGS],
           title: live.page.data.title,
           description: live.page.data.description,
           breadcrumbs:
@@ -62,7 +64,63 @@ async function buildIndexes(): Promise<AdvancedIndex[]> {
     },
   );
 
-  return live.filter((index) => index !== null);
+  // Each framework's setup steps on a shared page, under that framework's
+  // version of the page, so its own APIs and caveats are searchable.
+  const setup = frameworkSetupEntries().map(
+    ({ url, live, framework, sources, frontends }) =>
+      ({
+        id: url,
+        url,
+        // Only readers on this framework get its setup steps.
+        tag: [...frontends, frameworkTag(framework)],
+        title: live.page.data.title,
+        description: live.page.data.description,
+        breadcrumbs: frameworkCrumb(framework),
+        structuredData: setupText(sources),
+      }) satisfies AdvancedIndex,
+  );
+
+  return [...live.filter((index) => index !== null), ...setup];
+}
+
+/**
+ * The search tag for a reader's framework: frameworks that share a docs
+ * folder (the LangGraph variants) share a tag, and the built-in agent, the
+ * framework a reader on no framework reads as, is `fw:root`.
+ */
+export function frameworkTag(framework: string | null): string {
+  if (!framework || framework === ROOT_FRAMEWORK) return "fw:root";
+  return `fw:${LIVE_FRAMEWORKS[framework]?.folder ?? framework}`;
+}
+
+/** Every framework's tag: the pages every framework's readers have carry them all. */
+const ALL_FRAMEWORK_TAGS = [
+  ...new Set([
+    frameworkTag(null),
+    ...Object.keys(LIVE_FRAMEWORKS).map(frameworkTag),
+  ]),
+];
+
+/**
+ * Setup MDX as search text: its headings and prose, one entry per line,
+ * without code blocks or component tags.
+ */
+function setupText(sources: string[]): StructuredData {
+  const contents = sources.flatMap((source) =>
+    source
+      .replace(/```[\s\S]*?```/g, "\n")
+      .replace(/<[^>]+>/g, " ")
+      .split("\n")
+      .map((line) =>
+        line
+          .replace(/^#{1,6}\s+/, "")
+          .replace(/[`*_]/g, "")
+          .trim(),
+      )
+      .filter(Boolean)
+      .map((content) => ({ heading: undefined, content })),
+  );
+  return { headings: [], contents };
 }
 
 /** A framework's own page is labeled with the framework (`Mastra`). */

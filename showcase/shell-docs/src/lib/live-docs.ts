@@ -1,5 +1,6 @@
 import type { DocsScope } from "@/components/docs-mdx/scope";
 import type { FrontendId } from "@/proto/data";
+import { getFrameworkVariants } from "@/components/docs-mdx/data";
 import { frameworkSupports } from "@/components/docs-mdx/showcase/framework-gates";
 import {
   LIVE_FRAMEWORKS,
@@ -55,6 +56,12 @@ export interface ResolvedLivePage {
   overview?: FrameworkOverviewData;
   /** The page's one indexed URL (`canonicalUrl`). */
   canonical: string;
+  /**
+   * The framework whose own version of a shared page this is
+   * (`/mastra/shared-state` shows Mastra's setup and code), when it's
+   * indexed as a page of its own (`frameworkVariant`).
+   */
+  variant?: string;
 }
 
 const docPage = (slug: string) =>
@@ -161,6 +168,7 @@ export function resolveLivePage(input: string[]): ResolvedLivePage | null {
         : scope,
     contentPath: `docs/${page.path}`,
     canonical: canonicalUrl(at, scope),
+    variant: frameworkVariant(at, scope) ?? undefined,
   };
 }
 
@@ -175,6 +183,9 @@ function pageAt(at: PageLocation): DocPage | undefined {
  * its folder's `index.mdx`.
  */
 function frameworkLanding(slug: string): ResolvedLivePage | null {
+  // The built-in agent's landing is the docs home (`/built-in-agent`
+  // redirects there).
+  if (slug === ROOT_FRAMEWORK) return null;
   const { folder } = LIVE_FRAMEWORKS[slug];
   const scope = { framework: slug, frontend: "react" as const };
   const canonical = `/${slug}`;
@@ -208,6 +219,8 @@ function frameworkLanding(slug: string): ResolvedLivePage | null {
  * so every framework's quickstart is indexed.
  */
 export function canonicalUrl(at: PageLocation, scope: DocsScope): string {
+  const variant = frameworkVariant(at, scope);
+  if (variant) return url(variant, at.slug);
   if (at.kind === "framework") {
     const fw = scope.framework ?? ROOT_FRAMEWORK;
     const first = at.slug === "quickstart" ? fw : firstFrameworkFor(at.folder);
@@ -221,6 +234,33 @@ export function canonicalUrl(at: PageLocation, scope: DocsScope): string {
         : frontendSegment(scope.frontend);
   const fw = supportingFramework(at.slug);
   return url(fe, fw === ROOT_FRAMEWORK ? "" : (fw ?? ""), at.slug);
+}
+
+/**
+ * Frameworks whose version of a shared page repeats another's, so their URLs
+ * point at that one: LangGraph FastAPI uses LangGraph Python's setup.
+ */
+const INDEXED_AS: Record<string, string> = {
+  "langgraph-fastapi": "langgraph-python",
+};
+
+/**
+ * The framework a shared page is indexed under on its own, or null. A page
+ * that shows a framework's own showcase code, demo, or setup steps reads
+ * differently for that framework, so `/mastra/shared-state` is a page of its
+ * own; one that reads the same for every framework is indexed once. The list
+ * is generated from the content and showcase data (`framework-variants.json`).
+ * A frontend's own pages stay one page each: `/vue/mastra/...` is `/vue/...`.
+ */
+function frameworkVariant(at: PageLocation, scope: DocsScope): string | null {
+  if (at.kind !== "react" && at.kind !== "shared") return null;
+  if (scope.frontend !== "react") return null;
+  const fw = scope.framework;
+  if (!fw || fw === ROOT_FRAMEWORK) return null;
+  const indexed = INDEXED_AS[fw] ?? fw;
+  return getFrameworkVariants().variants[indexed]?.includes(at.slug)
+    ? indexed
+    : null;
 }
 
 /**
@@ -294,9 +334,11 @@ export function liveHref(href: string | undefined, scope: DocsScope) {
 
 /**
  * Every page once, at its canonical URL (`canonicalUrl`), plus each
- * framework's landing and quickstart, and the reference. Channel guide pages
- * are listed once per channel, since each channel reads its own version.
- * The sitemap, llms.txt, search, and MCP all list these.
+ * framework's landing and quickstart, each framework's own version of a
+ * shared page (`variant`), and the reference. Channel guide pages are listed
+ * once per channel, since each channel reads its own version. The sitemap
+ * lists them all; llms-full.txt and search skip the framework versions,
+ * whose text is the shared page's.
  */
 export function livePages(): ResolvedLivePage[] {
   const urls = new Set<string>();
@@ -336,6 +378,12 @@ export function livePages(): ResolvedLivePage[] {
           { framework: fw, frontend: "react" },
         ),
       );
+    }
+  }
+  for (const fw of frameworks) {
+    if (fw === ROOT_FRAMEWORK || INDEXED_AS[fw]) continue;
+    for (const slug of getFrameworkVariants().variants[fw] ?? []) {
+      urls.add(`/${fw}/${slug}`);
     }
   }
   for (const page of referenceSource.getPages()) {

@@ -1,6 +1,11 @@
 import { statSync } from "node:fs";
-import { livePages } from "@/lib/live-docs";
+import {
+  getFrameworkVariants,
+  getSetupContent,
+} from "@/components/docs-mdx/data";
+import { getPageIndex, livePages } from "@/lib/live-docs";
 import type { ResolvedLivePage } from "@/lib/live-docs";
+import { whereIs } from "@/lib/live-pages";
 import { findSeoRedirect } from "@/lib/redirects/seo-redirects";
 import type { FrontendId } from "@/proto/data";
 
@@ -36,10 +41,13 @@ function entries(): LiveEntry[] {
     .sort((a, b) => a.url.localeCompare(b.url));
 }
 
-/** The pages `/llms-full.txt` concatenates, sorted by URL. */
+/**
+ * The pages `/llms-full.txt` concatenates, sorted by URL: each page's text
+ * once, so a shared page's framework versions are left out.
+ */
 export function llmsFullEntries(): LiveEntry[] {
   return entries().filter(
-    ({ live }) => !live.overview && !isEarlyAccess(live.page),
+    ({ live }) => !live.overview && !live.variant && !isEarlyAccess(live.page),
   );
 }
 
@@ -98,11 +106,64 @@ function frontendsOf({ live, url }: LiveEntry): FrontendId[] {
   return ["react"];
 }
 
-/** Every page once, at its canonical URL, with the frontends that have it. */
+/**
+ * Every page once, at its canonical URL, with the frontends that have it. A
+ * shared page's framework versions repeat its text, so search lists the page
+ * once; the framework's own setup text is indexed on its own
+ * (`frameworkSetupEntries`).
+ */
 export function searchEntries(): (LiveEntry & { frontends: FrontendId[] })[] {
   return entries()
-    .filter(({ live }) => !live.overview && !isEarlyAccess(live.page))
+    .filter(
+      ({ live }) =>
+        !live.overview && !live.variant && !isEarlyAccess(live.page),
+    )
     .map((entry) => ({ ...entry, frontends: frontendsOf(entry) }));
+}
+
+/** The frontends a framework's version of a shared page opens on. */
+function variantFrontends(framework: string, slug: string): FrontendId[] {
+  const index = getPageIndex();
+  return ALL_FRONTENDS.filter((fe) => whereIs(index, fe, framework, slug));
+}
+
+export interface FrameworkSetupEntry {
+  /** `/crewai-crews/shared-state`, the framework's version of the page. */
+  url: string;
+  live: ResolvedLivePage;
+  framework: string;
+  /** The framework's setup text the page renders, as MDX. */
+  sources: string[];
+  frontends: FrontendId[];
+}
+
+/**
+ * Each framework's setup steps on each shared page that shows them
+ * (`<FrameworkSetup concept>`), so a search for a framework's own API or
+ * caveat ("CopilotKitState context") finds that framework's version of the
+ * page, which the page's own text doesn't mention.
+ */
+export function frameworkSetupEntries(): FrameworkSetupEntry[] {
+  const { concepts } = getFrameworkVariants();
+  const setup = getSetupContent().concepts;
+  return entries().flatMap(({ url, live }) => {
+    if (!live.variant || isEarlyAccess(live.page)) return [];
+    const slug = url.split("/").slice(2).join("/");
+    const sources = (concepts[slug] ?? []).flatMap((concept) => {
+      const source = setup[`${live.variant}::${concept}`]?.source;
+      return source ? [source] : [];
+    });
+    if (!sources.length) return [];
+    return [
+      {
+        url,
+        live,
+        framework: live.variant,
+        sources,
+        frontends: variantFrontends(live.variant, slug),
+      },
+    ];
+  });
 }
 
 /** Frontmatter `lastmod`, else the file's mtime. */

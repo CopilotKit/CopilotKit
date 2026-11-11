@@ -16,12 +16,13 @@ import {
   copyFileSync,
   existsSync,
   mkdirSync,
+  readdirSync,
   readFileSync,
   rmSync,
   symlinkSync,
   writeFileSync,
 } from "node:fs";
-import { dirname, join } from "node:path";
+import { dirname, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 import { build } from "esbuild";
 
@@ -126,6 +127,78 @@ writeFileSync(
   `${JSON.stringify(frameworkCategories, null, 2)}\n`,
 );
 
+// Which shared pages read differently per framework (src/lib/live-docs.ts):
+// a page that shows a framework's own showcase code, demo, or setup steps is
+// a page of its own for that framework, indexed at /<framework>/<page>; a
+// page that reads the same everywhere stays one page. `concepts` lists each
+// page's setup concepts, which search indexes per framework.
+const docsDir = join(app, "src", "content", "docs");
+const demoContent = JSON.parse(
+  readFileSync(join(out, "demo-content.json"), "utf8"),
+).demos;
+const setupConcepts = JSON.parse(
+  readFileSync(join(out, "setup-content.json"), "utf8"),
+).concepts;
+const DOCS_ONLY_FRAMEWORKS = ["a2a", "agent-spec", "deepagents"];
+const variantFrameworks = [
+  ...registry.integrations.filter(
+    (i) => i.docs_mode !== "hidden" && i.slug !== "built-in-agent",
+  ),
+  ...DOCS_ONLY_FRAMEWORKS.map((slug) => ({ slug })),
+];
+const walkDocs = (dir) =>
+  readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
+    const path = join(dir, entry.name);
+    if (entry.isDirectory()) return walkDocs(path);
+    return entry.name.endsWith(".mdx") ? [path] : [];
+  });
+const variants = {};
+const pageConcepts = {};
+for (const file of walkDocs(docsDir)) {
+  const rel = relative(docsDir, file);
+  if (/^(frontends|channels|integrations)\//.test(rel)) continue;
+  const slug = rel
+    .split("/")
+    .filter((part) => !/^\(.+\)$/.test(part))
+    .join("/")
+    .replace(/\.mdx$/, "")
+    .replace(/(^|\/)index$/, "");
+  if (!slug) continue;
+  const source = readFileSync(file, "utf8");
+  const cell = source.match(/^snippet_cell:\s*(\S+)/m)?.[1];
+  const snippets = [...source.matchAll(/<Snippet\b([^>]*)\/?>/g)]
+    .map(([, attrs]) => ({
+      region: attrs.match(/region="([^"]+)"/)?.[1],
+      cell: attrs.match(/cell="([^"]+)"/)?.[1] ?? cell,
+      pinned: /framework="/.test(attrs),
+    }))
+    .filter((s) => s.region && s.cell && !s.pinned);
+  const concepts = [
+    ...new Set(
+      [...source.matchAll(/<FrameworkSetup\s+concept="([^"]+)"/g)].map(
+        ([, concept]) => concept,
+      ),
+    ),
+  ];
+  const demo = cell && /<InlineDemo\b/.test(source);
+  if (concepts.length) pageConcepts[slug] = concepts;
+  if (!snippets.length && !concepts.length && !demo) continue;
+  for (const fw of variantFrameworks) {
+    if (cell && (fw.not_supported_features ?? []).includes(cell)) continue;
+    const own =
+      snippets.some(
+        (s) => demoContent[`${fw.slug}::${s.cell}`]?.regions?.[s.region],
+      ) ||
+      concepts.some((c) => setupConcepts[`${fw.slug}::${c}`]) ||
+      (demo && demoContent[`${fw.slug}::${cell}`]);
+    if (own) (variants[fw.slug] ??= []).push(slug);
+  }
+}
+writeFileSync(
+  join(out, "framework-variants.json"),
+  `${JSON.stringify({ variants, concepts: pageConcepts })}\n`,
+);
+
 // The examples playground's catalog (src/proto/examples.ts): each showcase
 // feature with the demos that run it, by framework. A framework the registry
 // hides, and a demo its manifest marks not supported, stay out. Only what
@@ -165,4 +238,4 @@ writeFileSync(
     features,
   }) + "\n",
 );
-console.log(`[showcase-data] ${OUTPUTS.length + 3} files -> src/data`);
+console.log(`[showcase-data] ${OUTPUTS.length + 4} files -> src/data`);
