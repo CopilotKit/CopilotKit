@@ -11,11 +11,11 @@ import { provideGenerativeUI } from "@copilotkit/angular/generative-ui";
 import { provideGenerativeUIChart } from "@copilotkit/angular/generative-ui/chart";
 import { provideGenerativeUIIcons } from "@copilotkit/angular/generative-ui/icons";
 import { provideGenerativeUIMap } from "@copilotkit/angular/generative-ui/map";
+import { dashboardUI } from "./routes/a2ui-angular/dashboard-ui";
 import { shopUI } from "./routes/generative-ui/shop-ui";
 import { CatalogAgent } from "./routes/generative-ui/catalog-agent";
 import { WildcardToolRenderComponent } from "./components/wildcard-tool-render.component";
 import { a2uiDemoSandboxFunctions } from "./routes/a2ui/a2ui-demo-sandbox-functions";
-import { dashboardCatalog } from "./routes/a2ui-angular/dashboard-catalog";
 import { routes } from "./app.routes";
 import { z } from "zod";
 
@@ -27,8 +27,10 @@ export const appConfig: ApplicationConfig = {
     // opts in once at the root because the activity renderer is resolved from
     // the root injector (a lazy-route provider would never be seen).
     provideMCPApps(),
-    // Native generative UI with the standard catalog (route /generative-ui).
-    provideGenerativeUI({ ui: shopUI }),
+    // Native generative UI: the standard catalog, the shop components
+    // (route /generative-ui) and the dashboard components (route
+    // /a2ui-angular).
+    provideGenerativeUI({ ui: dashboardUI }),
     provideGenerativeUIChart(),
     provideGenerativeUIIcons(),
     provideGenerativeUIMap(),
@@ -47,20 +49,6 @@ export const appConfig: ApplicationConfig = {
       ],
       suggestionsConfig: [
         {
-          consumerAgentId: "a2ui-recovery",
-          available: "always",
-          suggestions: [
-            {
-              title: "Recover after a retry",
-              message: "Show the weekly signups dashboard",
-            },
-            {
-              title: "Fail every attempt",
-              message: "Show a dashboard that fails every attempt",
-            },
-          ],
-        },
-        {
           instructions:
             "Suggest follow-up tasks based on the current page content",
           available: "always",
@@ -68,8 +56,6 @@ export const appConfig: ApplicationConfig = {
       ],
       humanInTheLoop: [],
       openGenerativeUI: { sandboxFunctions: a2uiDemoSandboxFunctions },
-      // Render A2UI with the basic catalog plus the dashboard components.
-      a2ui: { catalog: dashboardCatalog },
     }),
     provideCopilotChatLabels({
       chatInputPlaceholder: "Ask me anything...",

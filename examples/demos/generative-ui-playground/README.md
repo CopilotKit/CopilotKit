@@ -22,7 +22,7 @@ This demo demonstrates how different types of generative UI can be used to creat
 - **CopilotSidebar** - Chat interface component
 - **useRenderToolCall** - Display-only tool rendering (WeatherCard, StockCard)
 - **useHumanInTheLoop** - Interactive approval flows (TaskApprovalCard)
-- **A2UIRenderer** - Renders A2UI declarative JSON from agent responses
+- **generativeUI** - Renders A2UI surfaces from agent responses with the standard catalog
 - **MCPAppsMiddleware** - Bridges MCP server tools with UI resources
 - **BuiltInAgent** - TypeScript agent for Static GenUI + MCP Apps
 - **HttpAgent** - Connects to Python A2A backend for A2UI
@@ -106,7 +106,7 @@ Frontend (Next.js) ────────────────────�
 ├── Protocol tabs switch between agents
 ├── Static GenUI: useRenderToolCall, useHumanInTheLoop
 ├── MCP Apps: Automatic iframe rendering via middleware events
-└── A2UI: A2UIRenderer for declarative JSON
+└── A2UI: generativeUI with standardUI
                     │
           ┌─────────┴─────────┐
           ▼                   ▼

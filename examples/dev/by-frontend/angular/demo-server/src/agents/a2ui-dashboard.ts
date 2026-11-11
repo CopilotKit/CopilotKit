@@ -2,7 +2,8 @@ import { AbstractAgent, EventType } from "@ag-ui/client";
 import type { BaseEvent, RunAgentInput } from "@ag-ui/client";
 import { Observable } from "rxjs";
 
-const A2UI_DASHBOARD_CATALOG_ID = "copilotkit://angular-dashboard-catalog";
+/** The id of `dashboardUI` in the Angular demo. */
+const A2UI_DASHBOARD_CATALOG_ID = "copilotkit/demo-dashboard@1";
 
 interface DashboardData {
   revenue: string;
@@ -32,8 +33,8 @@ const SNAPSHOTS: DashboardData[] = [
 /**
  * The dashboard is a fixed component tree bound to the data model: basic
  * components (Column, Row, Button, Text) mixed with the custom ones the
- * Angular demo registers (Card with a title, Metric, StatusBadge, InfoRow,
- * BarChart).
+ * Angular demo registers (DashboardCard, Metric, StatusBadge, InfoRow,
+ * BarChart). The operations are A2UI v0.9; the runtime converts them to 1.0.
  */
 function dashboardOperations(data: DashboardData): unknown[] {
   const surfaceId = "dashboard";
@@ -82,7 +83,7 @@ function dashboardOperations(data: DashboardData): unknown[] {
           },
           {
             id: "pipeline",
-            component: "Card",
+            component: "DashboardCard",
             title: "Pipeline health",
             subtitle: "Q3 · EMEA",
             child: "pipeline-body",

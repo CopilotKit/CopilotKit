@@ -2,9 +2,10 @@ import { Component } from "@angular/core";
 import { CopilotChat, provideCopilotChatLabels } from "@copilotkit/angular";
 
 /**
- * Chat with the scripted `a2ui-dashboard` agent (no API key needed). Its
- * dashboard renders with `dashboardCatalog`: the Angular basic catalog plus
- * the custom components in `./dashboard-components.ts`.
+ * Chat with the scripted `a2ui-dashboard` agent (no API key needed). The
+ * agent writes A2UI v0.9; the runtime converts its surface to A2UI 1.0, and
+ * `dashboardUI` renders it: the standard catalog plus the custom components
+ * in `./dashboard-components.ts`.
  */
 @Component({
   selector: "a2ui-angular-demo",
@@ -19,16 +20,17 @@ import { CopilotChat, provideCopilotChatLabels } from "@copilotkit/angular";
       <aside class="explainer">
         <h1>Angular A2UI</h1>
         <p>
-          The agent streams A2UI operations; this app renders them with standalone
-          Angular components. The catalog is the basic catalog plus five components
-          registered in a few lines:
+          The agent streams A2UI v0.9 operations. The runtime converts them to
+          A2UI 1.0, and this app renders them with generative UI and standalone
+          Angular components: the standard catalog plus five components
+          registered in a few lines.
         </p>
         <pre><code>{{ snippet }}</code></pre>
         <p>
           <strong>Metric</strong> binds <code>value</code> to the data model,
-          <strong>InfoRow</strong> takes one input per prop, and
-          <strong>Card</strong> replaces the basic card. Buttons send A2UI actions
-          back to the agent.
+          each component takes one input per prop, and
+          <strong>DashboardCard</strong> renders its <code>child</code> slot.
+          Buttons send their events back to the agent in v0.9 form.
         </p>
       </aside>
       <copilot-chat class="chat" agentId="a2ui-dashboard" />
@@ -70,21 +72,24 @@ import { CopilotChat, provideCopilotChatLabels } from "@copilotkit/angular";
   `,
 })
 export class A2UIAngularDemoComponent {
-  protected readonly snippet = `const definitions = {
-  Metric: {
-    props: z.object({
-      label: z.string(),
-      value: DynamicStringSchema,
-    }),
+  protected readonly snippet = `export const dashboardUI = createGenerativeUI({
+  id: "copilotkit/demo-dashboard@1",
+  extends: [shopUI], // standardUI + the shop components
+  components: {
+    Metric: {
+      component: MetricComponent,
+      description: "A KPI tile with an optional trend.",
+      props: z.object({ label: z.string(), value: z.string() }),
+    },
+    // DashboardCard, StatusBadge, InfoRow, BarChart…
   },
-  // Card, StatusBadge, InfoRow, BarChart…
-} satisfies A2UICatalogDefinitions;
+});
 
-export const dashboardCatalog = createAngularCatalog(
-  definitions,
-  { Metric: MetricComponent, /* … */ },
-  { includeBasicCatalog: true },
-);
+provideGenerativeUI({ ui: dashboardUI });
 
-provideCopilotKit({ a2ui: { catalog: dashboardCatalog } });`;
+// Runtime: the agent speaks A2UI v0.9.
+new CopilotRuntime({
+  agents,
+  generativeUI: { a2uiVersion: { "a2ui-dashboard": "0.9" } },
+});`;
 }

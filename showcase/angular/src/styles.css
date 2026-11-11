@@ -513,7 +513,9 @@ showcase-root {
   flex-wrap: wrap;
   width: 100%;
 }
-.beautiful-row > div {
+/* Children render with layout-transparent hosts, so size what they render. */
+.beautiful-row > :not([style*="display: contents"]),
+.beautiful-row > [style*="display: contents"] > * {
   flex: 1 1 16rem;
   min-width: 0;
 }

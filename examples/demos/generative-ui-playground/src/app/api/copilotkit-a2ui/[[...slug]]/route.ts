@@ -27,6 +27,9 @@ const runtime = new CopilotRuntime({
     default: a2uiAgent,
   },
   runner: new InMemoryAgentRunner(),
+  // The A2A agent writes legacy A2UI surfaces and calls no tools: the runtime
+  // converts v0.9 surfaces to A2UI 1.0 and sends clicks back in v0.9 form.
+  generativeUI: { a2uiVersion: "0.9", injectA2UITool: false },
 });
 
 // Create Hono endpoint

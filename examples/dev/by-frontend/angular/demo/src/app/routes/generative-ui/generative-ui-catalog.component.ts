@@ -5,8 +5,8 @@ import { CopilotGenerativeUISurface } from "@copilotkit/angular/generative-ui";
 import {
   sampleOperations,
   sampleSurfaceId,
-} from "../../../../../../../../showcase/shared/generative-ui-catalog/operations";
-import { SAMPLES } from "../../../../../../../../showcase/shared/generative-ui-catalog/samples";
+} from "../../../../../../../../../showcase/shared/generative-ui-catalog/operations";
+import { SAMPLES } from "../../../../../../../../../showcase/shared/generative-ui-catalog/samples";
 import { CATALOG_AGENT_ID } from "./catalog-agent";
 import { shopUI } from "./shop-ui";
 

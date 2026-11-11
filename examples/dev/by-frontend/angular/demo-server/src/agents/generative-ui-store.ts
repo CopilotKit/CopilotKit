@@ -2,17 +2,17 @@ import { createRequire } from "node:module";
 import { AbstractAgent, EventType } from "@ag-ui/client";
 import type { BaseEvent, RunAgentInput } from "@ag-ui/client";
 import { Observable } from "rxjs";
-import type * as CatalogOperations from "../../../../../../showcase/shared/generative-ui-catalog/operations.js";
-import type * as CatalogSamples from "../../../../../../showcase/shared/generative-ui-catalog/samples.js";
+import type * as CatalogOperations from "../../../../../../../showcase/shared/generative-ui-catalog/operations.js";
+import type * as CatalogSamples from "../../../../../../../showcase/shared/generative-ui-catalog/samples.js";
 
 // The shared samples sit under the root package.json, which has no
 // "type": "module", so tsx loads them as CommonJS and an ES import does not
 // see their named exports.
 const require = createRequire(import.meta.url);
 const { sampleOperations } =
-  require("../../../../../../showcase/shared/generative-ui-catalog/operations.js") as typeof CatalogOperations;
+  require("../../../../../../../showcase/shared/generative-ui-catalog/operations.js") as typeof CatalogOperations;
 const { SAMPLES } =
-  require("../../../../../../showcase/shared/generative-ui-catalog/samples.js") as typeof CatalogSamples;
+  require("../../../../../../../showcase/shared/generative-ui-catalog/samples.js") as typeof CatalogSamples;
 
 // The server emits the surface activity itself, the way the runtime's
 // generative UI middleware does for a model's render_ui tool call, so the
