@@ -1,7 +1,8 @@
 "use client";
 
 import "./renderers.css";
-import { useMemo, type ReactNode } from "react";
+import { useMemo } from "react";
+import type { ReactNode } from "react";
 import {
   columnFilteringFeature,
   createFilteredRowModel,
@@ -15,8 +16,8 @@ import {
   sortFn_basic,
   tableFeatures,
   useTable,
-  type ColumnDef,
 } from "@tanstack/react-table";
+import type { ColumnDef } from "@tanstack/react-table";
 import {
   ArrowDown,
   ArrowDownRight,
@@ -32,8 +33,8 @@ import {
   Star,
   X,
   icons,
-  type LucideIcon,
 } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import {
   Avatar,
   AvatarBadge,

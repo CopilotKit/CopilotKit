@@ -910,6 +910,18 @@ jobs:
               }
               pkg_extra_env="LGT_REQUIRE_BEHAVIORAL=1"
             fi
+            if [ "$pkg" = "google-adk" ]; then
+              # The A2UI conformance tests read the catalogs the frontend
+              # registers. They are build artifacts (gitignored), exported
+              # from the same catalog objects the browser uses, as the
+              # Docker build does (including --legacy-peer-deps).
+              echo "Exporting google-adk A2UI catalogs (npm ci + export:a2ui-catalogs)"
+              (cd "$pkg_dir" && npm ci --legacy-peer-deps --no-audit --no-fund && npm run export:a2ui-catalogs) || {
+                echo "::error::A2UI catalog export failed for google-adk"
+                failed=1
+                continue
+              }
+            fi
             # Export PYTHONPATH so `from tools import ...` in agent modules
             # resolves via the `tools` symlink at the integration root.
             # Also include src/ so `from agents.X import ...` works even if

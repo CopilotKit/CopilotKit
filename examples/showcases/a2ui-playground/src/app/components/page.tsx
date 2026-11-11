@@ -17,8 +17,8 @@ import {
   TILE_FLOOR,
   TILE_LAYOUT,
   TILE_SCALE,
-  type TileSize,
 } from "@/components/docs/tile-sizes";
+import type { TileSize } from "@/components/docs/tile-sizes";
 import { TilePreview } from "@/components/docs/live-preview";
 import {
   STANDARD_DOCS_URL,
