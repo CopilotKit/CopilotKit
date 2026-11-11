@@ -2362,6 +2362,9 @@ importers:
       clsx:
         specifier: ^2.1.1
         version: 2.1.1
+      marked:
+        specifier: 12.0.2
+        version: 12.0.2
       react:
         specifier: 19.2.3
         version: 19.2.3

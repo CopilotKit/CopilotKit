@@ -18,11 +18,12 @@ import React from "react";
 import { createReactComponent } from "../../../adapter";
 import { TextApi } from "@a2ui/web_core/v0_9/basic_catalog";
 import { getAccessibilityProps, getBaseLeafStyle } from "../utils";
+import { renderNativeTextMarkdown } from "../native-text-markdown";
 
 export const Text = createReactComponent(
   TextApi,
   /** Apply common accessibility to whichever semantic text element the variant selects. */
-  ({ props }) => {
+  ({ props, context }) => {
     const text = props.text ?? "";
     const accessibilityProps = getAccessibilityProps(props.accessibility);
     const style: React.CSSProperties = {
@@ -76,6 +77,14 @@ export const Text = createReactComponent(
         );
       case "body":
       default:
+        if (context.dataContext.surface?.protocolVersion === "1.0") {
+          const markdown = renderNativeTextMarkdown(String(text));
+          return React.createElement(
+            markdown.block ? "div" : "span",
+            { ...accessibilityProps, style },
+            markdown.children,
+          );
+        }
         return (
           <span {...accessibilityProps} style={style}>
             {text}
