@@ -24,7 +24,7 @@ const runtime = new CopilotRuntime({
 });
 ```
 
-`injectA2UITool: true` is the single switch: it forwards the decision to the agent so the A2UI tool is injected. Set it to `false` to turn A2UI off entirely — nothing is injected and no surfaces render.
+`injectA2UITool: true` requests auto-injection from the Python adapter. The backend must also opt in with `a2ui_config["inject_a2ui_tool"] = True`, as shown below. Setting the runtime flag to `false` disables auto-injection; it does not disable any A2UI tools you bind yourself.
 
 Register your component catalog on the provider so the LLM knows what it can draw (see [Bring Your Own Catalog](../../../../generative-ui/a2ui/dynamic-schema) for the catalog `definitions` / `renderers` / `createCatalog` split):
 
@@ -36,11 +36,20 @@ Register your component catalog on the provider so the LLM knows what it can dra
 
 ## Backend — auto-injected tool
 
-The agent binds no A2UI tool of its own. When `injectA2UITool` is on, the `agent-framework-ag-ui` adapter auto-injects `generate_a2ui` (built from your agent's own model) and executes it:
+Start from the [Python quickstart](../../quickstart?agent=bring-your-own) and install the adapter's optional A2UI dependencies in the same backend environment:
+
+```bash
+uv add 'agent-framework-ag-ui[a2ui]'
+# Or, with pip:
+pip install 'agent-framework-ag-ui[a2ui]'
+```
+
+The base `agent-framework-ag-ui` package alone does not install A2UI support. The `[a2ui]` extra supplies the toolkit used to generate and validate surfaces.
+
+The agent binds no A2UI tool of its own. With the extra installed and both the runtime request and backend opt-in enabled, the adapter injects and executes `generate_a2ui` using your agent's model:
 
 ```python title="src/agents/a2ui_dynamic.py"
 from agent_framework import Agent
-from agent_framework_ag_ui import AgentFrameworkAgent
 
 base_agent = Agent(
     client=chat_client,
@@ -52,35 +61,39 @@ base_agent = Agent(
     ),
 )
 
-# No A2UI tool here — the adapter auto-injects `generate_a2ui` when
-# `injectA2UITool` is on. Binding one yourself would suppress auto-injection.
-agent = AgentFrameworkAgent(agent=base_agent)
+# Pass this raw agent to the endpoint below. Do not pre-wrap it in
+# AgentFrameworkAgent: the endpoint applies a2ui_config when it wraps the agent.
 ```
 
 The system prompt can be used to tell the model *when* to draw; the adapter supplies and runs the tool.
 
 ## Backend — recovery and other policy
 
-The auto-inject path takes an optional `a2ui_config` on the endpoint — a backend
-policy dict the adapter reads when it injects the tool. This is where the
-error-recovery demo pins the validate→retry loop's attempt cap (and where MAF's
-upstream recovery example puts its config). The agent stays a plain agent; only
-the endpoint config changes:
+Register the raw `base_agent` with an explicit backend opt-in. Match the endpoint path to the URL used by your runtime's `HttpAgent`.
+
+This example uses `single_user=True` for local development only. For a shared or deployed endpoint, replace `single_user=True` with an `authorization_scope_resolver` that returns a non-empty scope from validated authentication. Do not derive that scope from an unverified client-supplied user ID. A2UI configuration does not authenticate callers.
 
 ```python title="src/agents/agent_server.py"
+from agent_framework_ag_ui import add_agent_framework_fastapi_endpoint
+
 add_agent_framework_fastapi_endpoint(
     app=app,
-    agent=a2ui_recovery_agent,
-    path="/a2ui_recovery",
+    agent=base_agent,
+    path="/",
+    single_user=True,  # Local single-user development only.
     a2ui_config={
+        "inject_a2ui_tool": True,
         "recovery": {"maxAttempts": 3},
         "default_catalog_id": "declarative-gen-ui-catalog",
     },
 )
 ```
 
-`a2ui_config` accepts the same params the adapter uses under the hood:
+Use your catalog's ID for `default_catalog_id`; the value above is an example. Recovery settings are optional, but `inject_a2ui_tool: True` is required for this auto-inject path.
 
+`a2ui_config` accepts these parameters:
+
+- **`inject_a2ui_tool`** — explicit backend opt-in to auto-inject `generate_a2ui` when the runtime requests it.
 - **`recovery`** — the validate→retry loop config, e.g. `{"maxAttempts": 3}`. When every attempt is invalid the tool returns a graceful `a2ui_recovery_exhausted` fallback.
 - **`default_catalog_id`** — binds generated surfaces to your catalog (BYOC). Catalog ownership stays with the host; the model never picks it.
 - **`guidelines`** — optional prompt knobs for the render sub-agent (which components exist and how to compose them).
