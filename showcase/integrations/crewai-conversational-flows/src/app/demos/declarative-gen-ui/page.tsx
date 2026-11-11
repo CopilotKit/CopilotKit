@@ -31,6 +31,7 @@ import { Chat } from "./chat";
 export default function DeclarativeGenUIDemo() {
   return (
     <CopilotKit
+      useSingleEndpoint
       runtimeUrl="/api/copilotkit-declarative-gen-ui"
       agent="declarative-gen-ui"
       a2ui={{ catalog: myCatalog }}

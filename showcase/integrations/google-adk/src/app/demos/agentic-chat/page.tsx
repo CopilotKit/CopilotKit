@@ -7,7 +7,11 @@ import { useAgenticChatSuggestions } from "./suggestions";
 export default function AgenticChatDemo() {
   return (
     // @region[provider-setup]
-    <CopilotKit runtimeUrl="/api/copilotkit" agent="agentic_chat">
+    <CopilotKit
+      useSingleEndpoint
+      runtimeUrl="/api/copilotkit"
+      agent="agentic_chat"
+    >
       <Chat />
     </CopilotKit>
     // @endregion[provider-setup]

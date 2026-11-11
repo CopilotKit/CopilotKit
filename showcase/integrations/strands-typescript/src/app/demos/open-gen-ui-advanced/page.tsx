@@ -39,6 +39,7 @@ export default function OpenGenUiAdvancedDemo() {
     // The built-in `OpenGenerativeUIActivityRenderer` wires these as callable
     // remotes inside the agent-authored iframe.
     <CopilotKit
+      useSingleEndpoint
       runtimeUrl="/api/copilotkit-ogui"
       agent="open-gen-ui-advanced"
       openGenerativeUI={{

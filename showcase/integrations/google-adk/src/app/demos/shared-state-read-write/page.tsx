@@ -7,7 +7,7 @@ import {
   UseAgentUpdate,
 } from "@copilotkit/react-core/v2";
 
-import { Preferences } from "./preferences-card";
+import type { Preferences } from "./preferences-card";
 import { DemoLayout } from "./demo-layout";
 import { useSharedStateReadWriteSuggestions } from "./suggestions";
 
@@ -29,7 +29,11 @@ interface RWAgentState {
 
 export default function SharedStateReadWriteDemo() {
   return (
-    <CopilotKit runtimeUrl="/api/copilotkit" agent="shared-state-read-write">
+    <CopilotKit
+      useSingleEndpoint
+      runtimeUrl="/api/copilotkit"
+      agent="shared-state-read-write"
+    >
       <DemoContent />
     </CopilotKit>
   );

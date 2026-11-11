@@ -10,7 +10,8 @@ import {
   useConfigureSuggestions,
 } from "@copilotkit/react-core/v2";
 import { z } from "zod";
-import { TimePickerCard, TimeSlot } from "./time-picker-card";
+import type { TimeSlot } from "./time-picker-card";
+import { TimePickerCard } from "./time-picker-card";
 
 const DEFAULT_SLOTS: TimeSlot[] = [
   { label: "Tomorrow 10:00 AM", iso: "2026-04-19T10:00:00-07:00" },
@@ -22,7 +23,11 @@ const DEFAULT_SLOTS: TimeSlot[] = [
 
 export default function HitlInChatDemo() {
   return (
-    <CopilotKit runtimeUrl="/api/copilotkit" agent="hitl-in-chat">
+    <CopilotKit
+      useSingleEndpoint
+      runtimeUrl="/api/copilotkit"
+      agent="hitl-in-chat"
+    >
       <div className="flex justify-center items-center h-screen w-full">
         <div className="h-full w-full max-w-4xl">
           <Chat />

@@ -43,7 +43,11 @@ function Chat() {
 
 export default function FrontendToolsDemo() {
   return (
-    <CopilotKit runtimeUrl="/api/copilotkit" agent="frontend_tools">
+    <CopilotKit
+      useSingleEndpoint
+      runtimeUrl="/api/copilotkit"
+      agent="frontend_tools"
+    >
       <Chat />
     </CopilotKit>
   );

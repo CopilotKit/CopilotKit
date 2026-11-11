@@ -29,6 +29,7 @@ import { observationalMemoryActivityRenderer } from "./activity-renderer";
 export default function ObservationalMemoryDemo() {
   return (
     <CopilotKit
+      useSingleEndpoint
       runtimeUrl="/api/copilotkit-observational-memory"
       agent="observational-memory"
       renderActivityMessages={[observationalMemoryActivityRenderer]}

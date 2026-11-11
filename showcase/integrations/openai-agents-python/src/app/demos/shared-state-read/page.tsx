@@ -25,7 +25,11 @@ import { INITIAL_RECIPE } from "./types";
 
 export default function SharedStateReadDemo() {
   return (
-    <CopilotKit runtimeUrl="/api/copilotkit" agent="shared-state-read">
+    <CopilotKit
+      useSingleEndpoint
+      runtimeUrl="/api/copilotkit"
+      agent="shared-state-read"
+    >
       <div className="min-h-screen w-full bg-gray-50 dark:bg-background">
         <div className="mx-auto max-w-2xl px-4 py-8 md:py-12">
           <Recipe />

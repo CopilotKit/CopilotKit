@@ -689,7 +689,7 @@ function generateDemoPage(
   const body = `export default function ${toPascalCase(featureId)}Demo() {
     return (
         <DemoErrorBoundary demoName="${feature?.name || featureId}">
-            <CopilotKit runtimeUrl="/api/copilotkit" agent="${agentId}">
+            <CopilotKit useSingleEndpoint runtimeUrl="/api/copilotkit" agent="${agentId}">
                 <DemoContent />
             </CopilotKit>
         </DemoErrorBoundary>

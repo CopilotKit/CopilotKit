@@ -32,7 +32,11 @@ import { useChatSlotsSuggestions } from "./suggestions";
 // customizable and where it lives. Hover any region to reveal its slot path.
 export default function ChatSlotsDemo() {
   return (
-    <CopilotKit runtimeUrl="/api/copilotkit" agent="chat-slots">
+    <CopilotKit
+      useSingleEndpoint
+      runtimeUrl="/api/copilotkit"
+      agent="chat-slots"
+    >
       <div className="flex flex-col h-screen w-full bg-background">
         <div className="flex-1 flex justify-center items-stretch p-4 min-h-0">
           <div className="h-full w-full max-w-5xl">

@@ -28,6 +28,7 @@ import { Chat } from "./chat";
 export default function A2uiRecoveryDemo() {
   return (
     <CopilotKit
+      useSingleEndpoint
       runtimeUrl="/api/copilotkit-a2ui-recovery"
       agent="a2ui-recovery"
       a2ui={{ catalog: myCatalog }}

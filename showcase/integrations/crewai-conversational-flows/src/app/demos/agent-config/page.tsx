@@ -28,6 +28,7 @@ export default function AgentConfigDemoPage() {
   return (
     // @region[provider-setup]
     <CopilotKit
+      useSingleEndpoint
       runtimeUrl="/api/copilotkit-agent-config"
       agent="agent-config-demo"
     >

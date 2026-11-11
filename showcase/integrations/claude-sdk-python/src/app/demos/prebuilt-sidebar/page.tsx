@@ -8,7 +8,11 @@ import { Suggestions } from "./suggestions-mount";
 export default function PrebuiltSidebarDemo() {
   return (
     // @region[sidebar-basic-setup]
-    <CopilotKit runtimeUrl="/api/copilotkit" agent="prebuilt-sidebar">
+    <CopilotKit
+      useSingleEndpoint
+      runtimeUrl="/api/copilotkit"
+      agent="prebuilt-sidebar"
+    >
       <MainContent />
       {/* @region[sidebar-configuration] */}
       <CopilotSidebar agentId="prebuilt-sidebar" defaultOpen={true} />

@@ -24,7 +24,7 @@ const AGENT_ID = "reasoning-default-render";
 
 export default function ReasoningDefaultDemo() {
   return (
-    <CopilotKit runtimeUrl="/api/copilotkit" agent={AGENT_ID}>
+    <CopilotKit useSingleEndpoint runtimeUrl="/api/copilotkit" agent={AGENT_ID}>
       <div className="flex justify-center items-center h-screen w-full">
         <div className="h-full w-full max-w-4xl">
           <Chat />

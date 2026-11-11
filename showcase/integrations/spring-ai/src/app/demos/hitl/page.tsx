@@ -13,7 +13,11 @@ import { StepsFeedback } from "./steps-feedback";
 
 export default function HitlDemo() {
   return (
-    <CopilotKit runtimeUrl="/api/copilotkit" agent="human_in_the_loop">
+    <CopilotKit
+      useSingleEndpoint
+      runtimeUrl="/api/copilotkit"
+      agent="human_in_the_loop"
+    >
       <DemoContent />
     </CopilotKit>
   );

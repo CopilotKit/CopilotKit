@@ -376,6 +376,7 @@ describe("Template Generator", () => {
       const page = fs.readFileSync(path.join(demoDir, "page.tsx"), "utf-8");
       expect(page).toContain("CopilotKit");
       expect(page).toContain("CopilotChat");
+      expect(page).toContain("useSingleEndpoint");
 
       // Agent file (Python for this test)
       expect(fs.existsSync(path.join(demoDir, "agent.py"))).toBe(true);

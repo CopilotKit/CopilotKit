@@ -47,6 +47,7 @@ interface FlightSearchResult {
 export default function ToolRenderingReasoningChainDemo() {
   return (
     <CopilotKit
+      useSingleEndpoint
       runtimeUrl="/api/copilotkit"
       agent="tool-rendering-reasoning-chain"
     >

@@ -14,6 +14,7 @@ import { useReadonlyStateAgentContextSuggestions } from "./suggestions";
 export default function ReadonlyStateAgentContextDemo() {
   return (
     <CopilotKit
+      useSingleEndpoint
       runtimeUrl="/api/copilotkit"
       agent="readonly-state-agent-context"
     >

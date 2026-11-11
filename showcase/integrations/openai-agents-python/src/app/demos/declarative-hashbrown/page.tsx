@@ -7,6 +7,7 @@ import { Chat } from "./chat";
 export default function ByocHashbrownDemoPage() {
   return (
     <CopilotKit
+      useSingleEndpoint
       runtimeUrl="/api/copilotkit-declarative-hashbrown"
       agent="declarative-hashbrown-demo"
     >

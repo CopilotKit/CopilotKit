@@ -21,6 +21,7 @@ import { useSuggestions } from "./suggestions";
 export default function ToolRenderingCustomCatchallDemo() {
   return (
     <CopilotKit
+      useSingleEndpoint
       runtimeUrl="/api/copilotkit"
       agent="tool-rendering-custom-catchall"
     >

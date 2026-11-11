@@ -45,7 +45,11 @@ function Chat() {
 
 export default function ControlledGenUiDemo() {
   return (
-    <CopilotKit runtimeUrl="/api/copilotkit" agent="gen-ui-tool-based">
+    <CopilotKit
+      useSingleEndpoint
+      runtimeUrl="/api/copilotkit"
+      agent="gen-ui-tool-based"
+    >
       <Chat />
     </CopilotKit>
   );

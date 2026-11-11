@@ -136,7 +136,11 @@ interface D20Result {
 
 export default function ToolRenderingDemo() {
   return (
-    <CopilotKit runtimeUrl="/api/copilotkit" agent="tool-rendering">
+    <CopilotKit
+      useSingleEndpoint
+      runtimeUrl="/api/copilotkit"
+      agent="tool-rendering"
+    >
       <div className="flex justify-center items-center h-screen w-full">
         <div className="h-full w-full max-w-4xl">
           <Chat />

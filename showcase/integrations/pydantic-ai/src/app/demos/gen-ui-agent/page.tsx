@@ -37,7 +37,11 @@ import { useSuggestions } from "./suggestions";
  */
 export default function GenUiAgentDemo() {
   return (
-    <CopilotKit runtimeUrl="/api/copilotkit" agent="gen-ui-agent">
+    <CopilotKit
+      useSingleEndpoint
+      runtimeUrl="/api/copilotkit"
+      agent="gen-ui-agent"
+    >
       <div className="flex justify-center items-center h-screen w-full">
         <div className="h-full w-full max-w-4xl">
           <Chat />

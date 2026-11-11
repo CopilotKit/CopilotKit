@@ -10,7 +10,11 @@ import { Chat } from "./chat";
 
 export default function HeadlessSimpleDemo() {
   return (
-    <CopilotKit runtimeUrl="/api/copilotkit" agent="headless-simple">
+    <CopilotKit
+      useSingleEndpoint
+      runtimeUrl="/api/copilotkit"
+      agent="headless-simple"
+    >
       <Chat />
     </CopilotKit>
   );

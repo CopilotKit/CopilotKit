@@ -87,7 +87,7 @@ function FrontendToolRegistration() {
 
 export default function ThreadIdFrontendToolRoundTripDemo() {
   return (
-    <CopilotKit runtimeUrl="/api/copilotkit" agent={AGENT_ID}>
+    <CopilotKit useSingleEndpoint runtimeUrl="/api/copilotkit" agent={AGENT_ID}>
       <ThreadIdRoundTripChat />
     </CopilotKit>
   );

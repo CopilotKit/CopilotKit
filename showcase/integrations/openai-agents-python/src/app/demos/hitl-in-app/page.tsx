@@ -16,7 +16,11 @@ import { useHitlInAppSuggestions } from "./suggestions";
 
 export default function HitlInAppDemo() {
   return (
-    <CopilotKit runtimeUrl="/api/copilotkit" agent="hitl-in-app">
+    <CopilotKit
+      useSingleEndpoint
+      runtimeUrl="/api/copilotkit"
+      agent="hitl-in-app"
+    >
       <Layout />
     </CopilotKit>
   );

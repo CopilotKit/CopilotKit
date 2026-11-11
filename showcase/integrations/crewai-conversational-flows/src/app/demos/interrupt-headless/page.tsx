@@ -28,7 +28,11 @@ type InterruptPayload = {
 
 export default function InterruptHeadlessDemo() {
   return (
-    <CopilotKit runtimeUrl="/api/copilotkit" agent="interrupt-headless">
+    <CopilotKit
+      useSingleEndpoint
+      runtimeUrl="/api/copilotkit"
+      agent="interrupt-headless"
+    >
       <Layout />
     </CopilotKit>
   );

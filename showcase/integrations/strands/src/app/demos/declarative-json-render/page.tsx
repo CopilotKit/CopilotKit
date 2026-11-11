@@ -6,6 +6,7 @@ import { AGENT_ID, Chat } from "./chat";
 export default function ByocJsonRenderDemo() {
   return (
     <CopilotKit
+      useSingleEndpoint
       runtimeUrl="/api/copilotkit-declarative-json-render"
       agent={AGENT_ID}
     >

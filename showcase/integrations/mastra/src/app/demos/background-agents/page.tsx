@@ -32,6 +32,7 @@ const activityRenderers = [backgroundTaskActivityRenderer];
 export default function BackgroundAgentsDemo() {
   return (
     <CopilotKit
+      useSingleEndpoint
       runtimeUrl="/api/copilotkit-background-agents"
       agent="background-agents"
       renderActivityMessages={activityRenderers}
