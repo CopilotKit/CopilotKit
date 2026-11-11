@@ -5,6 +5,7 @@ import {
   ɵCOPILOT_CLOUD_RUNTIME_URL,
   ɵpublicKeyHeaderDefaults,
   ɵreportProviderConfigDiagnostics,
+  ɵresolveGenerativeUIDefault,
   ɵresolveProviderConfig,
   ɵtoolRendererShapeChanged,
 } from "../provider-config";
@@ -247,5 +248,46 @@ describe("ɵtoolRendererShapeChanged", () => {
         [{ name: "a", agentId: "y" }],
       ),
     ).toBe(true);
+  });
+});
+
+describe("ɵresolveGenerativeUIDefault", () => {
+  it("falls back to the standard UI for every agent when the runtime enables generative UI and the provider has no UI", () => {
+    expect(
+      ɵresolveGenerativeUIDefault({ runtimeEnabled: true, hasUI: false }),
+    ).toEqual({ active: true, agentIds: undefined });
+  });
+
+  it("scopes the fallback to the agents the runtime reports", () => {
+    const runtimeAgents = ["research", "support"];
+    const result = ɵresolveGenerativeUIDefault({
+      runtimeEnabled: true,
+      runtimeAgents,
+      hasUI: false,
+    });
+    expect(result).toEqual({ active: true, agentIds: ["research", "support"] });
+  });
+
+  it("does not fall back when the provider has a UI of its own", () => {
+    expect(
+      ɵresolveGenerativeUIDefault({
+        runtimeEnabled: true,
+        runtimeAgents: ["research"],
+        hasUI: true,
+      }),
+    ).toEqual({ active: false });
+  });
+
+  it("does not fall back when the runtime does not enable generative UI", () => {
+    expect(
+      ɵresolveGenerativeUIDefault({ runtimeEnabled: false, hasUI: false }),
+    ).toEqual({ active: false });
+    expect(
+      ɵresolveGenerativeUIDefault({
+        runtimeEnabled: false,
+        runtimeAgents: ["research"],
+        hasUI: false,
+      }),
+    ).toEqual({ active: false });
   });
 });

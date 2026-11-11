@@ -516,6 +516,59 @@ export function ɵresolveA2UIActivation({
   return { active: runtimeEnabled || hasCatalog, missingCatalog: false };
 }
 
+/** @internal The input of {@link ɵresolveGenerativeUIDefault}. */
+export interface ɵGenerativeUIDefaultInput {
+  /** The runtime reports generative UI as on (`ɵruntimeInfo.generativeUIEnabled`). */
+  runtimeEnabled: boolean;
+  /**
+   * The agents the runtime limits generative UI to
+   * (`ɵruntimeInfo.generativeUIAgents`). `undefined` means every agent.
+   */
+  runtimeAgents?: string[] | undefined;
+  /** The provider has a `generativeUI` config with a `ui` of its own. */
+  hasUI: boolean;
+}
+
+/**
+ * @internal The result of {@link ɵresolveGenerativeUIDefault}. When `active`,
+ * the provider renders generative UI with the standard UI (`standardUI`),
+ * scoped to `agentIds` (`undefined` means every agent).
+ */
+export type ɵGenerativeUIDefault =
+  | { active: false }
+  | { active: true; agentIds: string[] | undefined };
+
+/**
+ * @internal Whether the provider falls back to the standard UI for generative
+ * UI. That is when the provider has no `generativeUI` UI of its own and the
+ * runtime turns generative UI on. A UI of the app always wins, with its own
+ * `agentIds`.
+ *
+ * The fallback is scoped to the agents of the runtime: pass `agentIds` on as
+ * the `agentIds` of the generative UI config, so only those agents get the
+ * envelope.
+ *
+ * @example
+ * const fallback = ɵresolveGenerativeUIDefault({
+ *   runtimeEnabled: runtimeInfo.generativeUIEnabled,
+ *   runtimeAgents: runtimeInfo.generativeUIAgents,
+ *   hasUI: !!generativeUI?.ui,
+ * });
+ * const config =
+ *   generativeUI ??
+ *   (fallback.active
+ *     ? { ui: standardUI, agentIds: fallback.agentIds }
+ *     : undefined);
+ */
+export function ɵresolveGenerativeUIDefault({
+  runtimeEnabled,
+  runtimeAgents,
+  hasUI,
+}: ɵGenerativeUIDefaultInput): ɵGenerativeUIDefault {
+  if (hasUI || !runtimeEnabled) return { active: false };
+  return { active: true, agentIds: runtimeAgents };
+}
+
 /** @internal The input of {@link ɵassembleActivityRenderers}. */
 export interface ɵActivityRenderersInput<R> {
   /** The app's activity renderers. They come first, so they win. */
