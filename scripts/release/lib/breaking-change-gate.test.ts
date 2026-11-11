@@ -103,14 +103,20 @@ describe("findPublicApiBreaks", () => {
   it("reports a removed entrypoint and a removed export condition", () => {
     const base = committedManifest();
     const head = committedManifest();
-    const pkg = head.packages.find((candidate) =>
-      candidate.entrypoints.some(
-        (entry) =>
-          entry.exportKey === "." &&
-          typeof entry.conditions === "object" &&
-          entry.conditions !== null &&
-          "require" in entry.conditions,
-      ),
+    // A package whose root entry has `require.default`, plus another entry.
+    const pkg = head.packages.find(
+      (candidate) =>
+        candidate.entrypoints.some((entry) => entry.exportKey !== ".") &&
+        candidate.entrypoints.some(
+          (entry) =>
+            entry.exportKey === "." &&
+            typeof entry.conditions === "object" &&
+            entry.conditions !== null &&
+            "require" in entry.conditions &&
+            typeof entry.conditions.require === "object" &&
+            entry.conditions.require !== null &&
+            "default" in entry.conditions.require,
+        ),
     )!;
     const rootEntry = pkg.entrypoints.find((entry) => entry.exportKey === ".")!;
     delete (rootEntry.conditions as Record<string, unknown>).require;
@@ -129,8 +135,13 @@ describe("findPublicApiBreaks", () => {
   it("reports narrowed compatibility", () => {
     const base = committedManifest();
     const head = committedManifest();
-    const basePkg = base.packages[0];
-    const pkg = head.packages[0];
+    // The first package with a required peer, so a peer range can narrow.
+    const index = base.packages.findIndex(
+      (candidate) =>
+        Object.keys(candidate.compatibility.peerDependencies ?? {}).length > 0,
+    );
+    const basePkg = base.packages[index];
+    const pkg = head.packages[index];
     pkg.compatibility.engines = { node: ">=24" };
     pkg.compatibility.peerDependencies = {
       ...pkg.compatibility.peerDependencies,
