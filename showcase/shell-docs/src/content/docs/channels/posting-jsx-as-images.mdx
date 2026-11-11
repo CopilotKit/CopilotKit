@@ -11,7 +11,7 @@ Existing apps do not need to migrate. Native messages, actions, and `<Chart>` ke
 Image rendering is opt-in. React and Takumi, the rasterizer, are optional peer dependencies, and only the `@copilotkit/channels/takumi` entry point imports them. Apps that only post native messages do not install them, and their bundles never include Takumi.
 
 <Callout type="warn" title="Install react and takumi-js, then pass the renderer">
-  The image path renders through React and [Takumi](https://github.com/takumi-rs/takumi). Both are **optional peer dependencies** of `@copilotkit/channels`, so they are not pulled in automatically. Add them before posting images:
+  The image path renders through React and [Takumi](https://github.com/kane50613/takumi). Both are **optional peer dependencies** of `@copilotkit/channels`, so they are not pulled in automatically. Add them before posting images:
 
   ```bash
   pnpm add react takumi-js
@@ -39,7 +39,7 @@ Image rendering is opt-in. React and Takumi, the rasterizer, are optional peer d
     `thread.post` expands component functions once per operation and classifies their output:
 
     - Channel components such as `<Message>`, `<Header>`, and `<Button>` stay native, including when wrapped in your own component or a React fragment.
-    - Host markup such as `<div>`, `<span>`, and `<svg>` becomes a PNG through [Takumi](https://github.com/takumi-rs/takumi).
+    - Host markup such as `<div>`, `<span>`, and `<svg>` becomes a PNG through [Takumi](https://github.com/kane50613/takumi).
     - To combine a snapshot with native text or buttons, put the snapshot inside `<Render>`.
 
     ```tsx

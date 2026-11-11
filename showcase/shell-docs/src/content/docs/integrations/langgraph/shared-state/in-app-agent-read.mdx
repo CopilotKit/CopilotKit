@@ -100,7 +100,7 @@ state updates, you can reflect these updates natively in your application.
     function YourMainContent() {
       // [!code highlight:3]
       const { agent } = useAgent({
-        agentId: "sample_agent",
+        agentId: "default",
       });
 
       const language = (agent.state.language as string) ?? "english";
@@ -131,7 +131,7 @@ state updates, you can reflect these updates natively in your application.
     </Frame>
 
     <Callout type="info">
-      Pictured above is the [coagent starter](https://github.com/copilotkit/copilotkit/tree/main/examples/coagents-starter) with
+      Pictured above is the [coagent starter](https://github.com/CopilotKit/CopilotKit/tree/main/examples/integrations/langgraph-python) with
       the [implementation](#implementation) section applied!
     </Callout>
   </Step>
@@ -147,7 +147,7 @@ import { useAgent } from "@copilotkit/react-core/v2"; // [!code highlight]
 function YourMainContent() {
   // [!code highlight:3]
   const { agent } = useAgent({
-    agentId: "sample_agent",
+    agentId: "default",
   });
 
   const language = (agent.state.language as string) ?? "english";
