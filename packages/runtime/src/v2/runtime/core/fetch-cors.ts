@@ -57,14 +57,13 @@ function setCorsHeaders(
 
   // Per the Fetch spec, Access-Control-Allow-Origin: * combined with
   // Access-Control-Allow-Credentials: true causes browsers to reject the
-  // response. Auto-resolve wildcard to the request origin when credentials
-  // are enabled; if there is no request origin, skip CORS entirely.
+  // response. `assertValidCorsConfig` rejects that pairing when the handler is
+  // built, so reaching here means an origin resolver produced a wildcard at
+  // request time. Skip CORS rather than echo the request origin: echoing it
+  // would allow *every* site to make credentialed requests, which is the
+  // broadest possible reading of a configuration that was already invalid.
   if (config.credentials && allowedOrigin === "*") {
-    if (requestOrigin) {
-      allowedOrigin = requestOrigin;
-    } else {
-      return;
-    }
+    return;
   }
 
   headers.set("Access-Control-Allow-Origin", allowedOrigin);
@@ -133,4 +132,30 @@ export function addCorsHeaders(
     statusText: response.statusText,
     headers,
   });
+}
+
+/**
+ * Rejects a CORS configuration that would allow credentialed requests from any
+ * origin.
+ *
+ * `credentials: true` with no `origin` (or with `"*"`) is invalid per the Fetch
+ * spec. There are two ways to resolve it: refuse the configuration, or echo
+ * whichever origin asked. Echoing is valid CORS and allows every site on the
+ * internet to send cookies to the runtime, so this refuses instead. The
+ * failure happens when the handler is built, not on the first cross-origin
+ * request, so it surfaces in development rather than in production.
+ */
+export function assertValidCorsConfig(config: CopilotCorsConfig): void {
+  if (config.credentials !== true) return;
+
+  const { origin } = config;
+  const isWildcard = origin === undefined || origin === null || origin === "*";
+  if (!isWildcard) return;
+
+  throw new Error(
+    "Invalid CORS configuration: `credentials: true` requires an explicit `origin`. " +
+      "Allowing credentials from any origin would let any website send cookies and " +
+      "authorization headers to your runtime. Name the origins you trust, for example " +
+      '`cors: { origin: ["https://app.example.com"], credentials: true }`.',
+  );
 }
