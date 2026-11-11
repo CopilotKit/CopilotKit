@@ -48,8 +48,13 @@ supported.
 The controller exposes `event`, `interrupt`, `interrupts`, `result`, `error`,
 `hasInterrupt`, and `view` signals plus `resolve(payload?, interruptId?)` and
 `cancel(interruptId?)`. When several standard interrupts are pending, resolve
-or cancel every ID before the agent resumes. Tool-backed decisions persist a
-tool-result message before resumption.
+or cancel every ID before the agent resumes. Standard tool-bound decisions are
+sent in `resume[]` without creating a tool-result message; the resumed agent
+supplies the actual result. Existing frontend handler results are preserved.
+Integrations that deliberately use the interrupt response as a client tool result
+must set `metadata: { "ag-ui:tool-execution": "client" }` on that interrupt.
+The value `"server"` prevents client result synthesis; omitted or unknown values
+send only the decision unless a real frontend result is being restored.
 
 Every store already exposes an unfiltered controller as
 [`AgentStore.interruptController`](/reference/angular/functions/injectAgentStore).

@@ -11,6 +11,20 @@ By default, interrupt UI is rendered inside `<CopilotChat>` automatically. If yo
 
 `event.value` is typed as `any` since the interrupt payload shape depends on your agent. Type-narrow it in your callbacks (e.g. `handler`, `enabled`, `render`) as needed.
 
+## Tool approvals and results
+
+For a standard `tool_call` interrupt, `resolve` and `cancel` send the decision in
+`resume[]`. They do not turn that decision into a tool-result message. The resumed
+agent supplies the actual `TOOL_CALL_RESULT`, including the outcome of a denial or
+cancellation. No ownership metadata is required for this default behavior.
+
+Results already produced by frontend tool handlers are preserved without adding a
+second result. If an integration intentionally uses an interrupt response as the
+client's tool result, its interrupt must explicitly set
+`metadata: { "ag-ui:tool-execution": "client" }`. Setting the value to `"server"`
+prevents client result synthesis. This metadata does not replace server-side
+authorization.
+
 ## Signature
 
 ```tsx

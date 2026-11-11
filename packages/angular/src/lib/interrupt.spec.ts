@@ -150,11 +150,55 @@ describe("InterruptController", () => {
     expect(controller.interrupt()?.id).toBe("restored");
   });
 
+  it.each(["approve", "deny", "cancel"] as const)(
+    "%s resumes an unmarked tool approval without fabricating a result",
+    async (action) => {
+      const { agent, controller, run, startResume } = setup();
+      finalizeStandard(agent, [
+        makeInterrupt("native-approval", {
+          reason: "tool_call",
+          toolCallId: "server-call",
+        }),
+      ]);
+      const resumed =
+        action === "cancel"
+          ? controller.cancel("native-approval")
+          : controller.resolve(
+              { approved: action === "approve" },
+              "native-approval",
+            );
+
+      expect(agent.addMessage).not.toHaveBeenCalled();
+      expect(agent.messages).toEqual([]);
+      expect(run).toHaveBeenCalledExactlyOnceWith(agent, {
+        resume: [
+          action === "cancel"
+            ? { interruptId: "native-approval", status: "cancelled" }
+            : {
+                interruptId: "native-approval",
+                status: "resolved",
+                payload: { approved: action === "approve" },
+              },
+        ],
+      });
+      startResume();
+      await resumed;
+    },
+  );
+
   it("accumulates multiple decisions, persists tool results, and resumes once", async () => {
     const { agent, controller, run, startResume } = setup();
     finalizeStandard(agent, [
-      makeInterrupt("one", { reason: "tool_call", toolCallId: "tool-one" }),
-      makeInterrupt("two", { reason: "tool_call", toolCallId: "tool-two" }),
+      makeInterrupt("one", {
+        reason: "tool_call",
+        toolCallId: "tool-one",
+        metadata: { "ag-ui:tool-execution": "client" },
+      }),
+      makeInterrupt("two", {
+        reason: "tool_call",
+        toolCallId: "tool-two",
+        metadata: { "ag-ui:tool-execution": "client" },
+      }),
     ]);
 
     await controller.cancel("two");
