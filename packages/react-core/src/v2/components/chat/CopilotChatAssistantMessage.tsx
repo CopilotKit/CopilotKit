@@ -52,6 +52,7 @@ import {
 import { useFeedbackComment, useMessageFeedback } from "./message-feedback";
 import type { FeedbackComment } from "./message-feedback";
 import { MESSAGE_FEEDBACK_MAX_COMMENT_LENGTH } from "../../lib/message-feedback";
+import { MessageTimestamp } from "./MessageTimestamp";
 import type { MessageFeedbackRating } from "../../lib/message-feedback";
 
 export type CopilotChatFeedbackMessage = AssistantMessage & {
@@ -650,6 +651,7 @@ export function CopilotChatAssistantMessage({
         </div>
       </WorkText>
       {boundToolCallsView}
+      <MessageTimestamp message={message} />
       {shouldShowToolbar && boundToolbar}
       {feedbackComment}
     </div>
