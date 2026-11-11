@@ -92,11 +92,16 @@ CopilotKit's basic catalog (Card, Column, Row, Text, Button, …) via
 
 The catalog, definitions and renderers below all import from
 `@copilotkit/a2ui-renderer`. It ships separately from
-`@copilotkit/react-core`, and the definitions use `zod` for prop schemas:
+`@copilotkit/react-core`, and the definitions use Zod 3 for prop schemas,
+because the A2UI binder reads Zod 3 schemas. CopilotKit 2 needs Zod 4 for
+tool schemas, so install Zod 3 next to it under the `zod-v3` alias:
 
 ```npm
-npm install @copilotkit/a2ui-renderer zod
+npm install @copilotkit/a2ui-renderer zod@^4.2.0 zod-v3@npm:zod@^3.25.76
 ```
+
+In the definitions, import `z` from `zod-v3` where the examples below
+import it from `zod`.
 </Step>
 
 <Step>

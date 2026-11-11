@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { z } from "zod";
+import { z } from "zod-v3";
 import { Catalog } from "@a2ui/web_core/v0_9";
 import type { ComponentApi } from "@a2ui/web_core/v0_9";
 import { CopilotKitCore } from "@copilotkit/core";

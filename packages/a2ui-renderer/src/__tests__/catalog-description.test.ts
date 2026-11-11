@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { z } from "zod";
+import { z } from "zod-v3";
+import { BASIC_COMPONENTS } from "@a2ui/web_core/v0_9/basic_catalog";
 import {
   buildA2UICatalogContextValue,
   extractA2UICatalogSchemas,
@@ -310,6 +311,27 @@ describe("extractA2UICatalogSchemas", () => {
     );
 
     expect(props(schema, "Widget").meta.default).toEqual({ label: "x" });
+  });
+
+  it("serializes the basic catalog that @a2ui/web_core builds", () => {
+    // web_core builds these schemas with its own zod 3 install, and
+    // zod-to-json-schema reads them through this package's Zod 4 `zod/v3`.
+    const divider = BASIC_COMPONENTS.find((api) => api.name === "Divider");
+    const schema = extractA2UICatalogSchemas(
+      catalog({ Divider: divider.schema }),
+    );
+
+    expect(props(schema, "Divider").axis).toEqual({
+      type: "string",
+      enum: ["horizontal", "vertical"],
+      default: "horizontal",
+      description: "The orientation of the divider.",
+    });
+    expect(props(schema, "Divider").accessibility).toEqual({
+      $ref: "common_types.json#/$defs/AccessibilityAttributes",
+    });
+    // The $ref resolves within the payload.
+    expect(commonTypes(schema)).toHaveProperty("AccessibilityAttributes");
   });
 
   it("keeps a component's root description", () => {

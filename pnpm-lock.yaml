@@ -522,7 +522,7 @@ importers:
     dependencies:
       '@ag-ui/langgraph':
         specifier: 0.0.44
-        version: 0.0.44(@ag-ui/client@1.0.4(zod@4.6.7))(@ag-ui/core@1.0.4(zod@4.6.7))(@opentelemetry/api@1.9.1)(@opentelemetry/sdk-trace-base@2.12.0(@opentelemetry/api@1.9.1))(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(ws@8.21.3)
+        version: 0.0.44(@ag-ui/client@1.0.4(zod@4.6.7))(@ag-ui/core@1.0.4(zod@4.6.7))(@opentelemetry/api@1.9.1)(@opentelemetry/sdk-trace-base@2.12.0(@opentelemetry/api@1.9.1))(openai@7.51.0(@aws-sdk/credential-provider-node@3.972.29)(google-auth-library@10.6.2)(undici@7.30.0)(ws@8.21.3)(zod@4.6.7))(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(ws@8.21.3)
       '@copilotkit/react-core':
         specifier: workspace:*
         version: link:../../../../packages/react-core
@@ -1519,11 +1519,11 @@ importers:
         specifier: 19.2.3
         version: 19.2.3(react@19.2.3)
       zod:
-        specifier: ^3.25.76
-        version: 3.25.76
+        specifier: ^4.2.0
+        version: 4.6.7
       zod-to-json-schema:
         specifier: ^3.25.2
-        version: 3.25.2(zod@3.25.76)
+        version: 3.25.2(zod@4.6.7)
     devDependencies:
       '@tanstack/intent':
         specifier: ^0.0.29
@@ -1552,6 +1552,9 @@ importers:
       vitest:
         specifier: ^3.2.4
         version: 3.2.4(@edge-runtime/vm@5.0.0)(@types/debug@4.1.12)(@types/node@25.6.0)(@vitest/ui@3.2.4)(jiti@2.7.0)(jsdom@26.1.0)(less@4.6.7)(lightningcss@1.33.0)(sass@1.101.0)(terser@5.49.0)(tsx@4.21.0)(yaml@2.9.0)
+      zod-v3:
+        specifier: npm:zod@^3.25.76
+        version: zod@3.25.76
 
   packages/agentcore-runner:
     dependencies:
@@ -2135,7 +2138,7 @@ importers:
         version: 1.2.11(@opentelemetry/api@1.9.1)(@opentelemetry/sdk-trace-base@2.12.0(@opentelemetry/api@1.9.1))(openai@7.51.0(@aws-sdk/credential-provider-node@3.972.29)(google-auth-library@10.6.2)(undici@7.30.0)(ws@8.21.3)(zod@4.6.7))(ws@8.21.3)
       '@langchain/langgraph':
         specifier: 1.4.15
-        version: 1.4.15(@langchain/core@1.2.11(@opentelemetry/api@1.9.1)(@opentelemetry/sdk-trace-base@2.12.0(@opentelemetry/api@1.9.1))(openai@7.51.0(@aws-sdk/credential-provider-node@3.972.29)(google-auth-library@10.6.2)(undici@7.30.0)(ws@8.21.3)(zod@4.6.7))(ws@8.21.3))(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(zod@4.6.7)
+        version: 1.4.15(@langchain/core@1.2.11(@opentelemetry/api@1.9.1)(@opentelemetry/sdk-trace-base@2.12.0(@opentelemetry/api@1.9.1))(ws@8.21.3))(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(zod@4.6.7)
       '@types/node':
         specifier: ^22.15.3
         version: 22.19.11
@@ -23725,25 +23728,6 @@ snapshots:
       - react-dom
       - ws
 
-  '@ag-ui/langgraph@0.0.44(@ag-ui/client@1.0.4(zod@4.6.7))(@ag-ui/core@1.0.4(zod@4.6.7))(@opentelemetry/api@1.9.1)(@opentelemetry/sdk-trace-base@2.12.0(@opentelemetry/api@1.9.1))(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(ws@8.21.3)':
-    dependencies:
-      '@ag-ui/a2ui-toolkit': 0.0.4
-      '@ag-ui/client': 1.0.4(zod@4.6.7)
-      '@ag-ui/core': 1.0.4(zod@4.6.7)
-      '@langchain/core': 1.2.11(@opentelemetry/api@1.9.1)(@opentelemetry/sdk-trace-base@2.12.0(@opentelemetry/api@1.9.1))(openai@7.51.0(@aws-sdk/credential-provider-node@3.972.29)(google-auth-library@10.6.2)(undici@7.30.0)(ws@8.21.3)(zod@4.6.7))(ws@8.21.3)
-      '@langchain/langgraph-sdk': 1.11.0(@langchain/core@1.2.11(@opentelemetry/api@1.9.1)(@opentelemetry/sdk-trace-base@2.12.0(@opentelemetry/api@1.9.1))(ws@8.21.3))(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
-      langchain: 1.5.11(@langchain/core@1.2.11(@opentelemetry/api@1.9.1)(@opentelemetry/sdk-trace-base@2.12.0(@opentelemetry/api@1.9.1))(ws@8.21.3))(@opentelemetry/api@1.9.1)(@opentelemetry/sdk-trace-base@2.12.0(@opentelemetry/api@1.9.1))(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(ws@8.21.3)
-      partial-json: 0.1.7
-      rxjs: 7.8.1
-    transitivePeerDependencies:
-      - '@opentelemetry/api'
-      - '@opentelemetry/exporter-trace-otlp-proto'
-      - '@opentelemetry/sdk-trace-base'
-      - openai
-      - react
-      - react-dom
-      - ws
-
   '@ag-ui/mcp-apps-middleware@0.0.1(@ag-ui/client@1.0.4(zod@4.6.7))(@cfworker/json-schema@4.1.1)(rxjs@7.8.1)(zod@4.6.7)':
     dependencies:
       '@ag-ui/client': 1.0.4(zod@4.6.7)
@@ -30718,7 +30702,7 @@ snapshots:
       langsmith: 0.5.25(@opentelemetry/api@1.9.1)(@opentelemetry/sdk-trace-base@2.12.0(@opentelemetry/api@1.9.1))(openai@7.51.0(@aws-sdk/credential-provider-node@3.972.29)(google-auth-library@10.6.2)(undici@7.30.0)(ws@8.21.3)(zod@4.6.7))(ws@8.21.3)
       mustache: 4.2.0
       p-queue: 6.6.2
-      zod: 3.25.76
+      zod: 4.6.7
     transitivePeerDependencies:
       - '@opentelemetry/api'
       - '@opentelemetry/exporter-trace-otlp-proto'
@@ -30734,7 +30718,7 @@ snapshots:
       langsmith: 0.5.25(@opentelemetry/api@1.9.1)(@opentelemetry/sdk-trace-base@2.12.0(@opentelemetry/api@1.9.1))(openai@7.51.0(@aws-sdk/credential-provider-node@3.972.29)(google-auth-library@10.6.2)(undici@7.30.0)(ws@8.21.3)(zod@4.6.7))(ws@8.21.3)
       mustache: 4.2.0
       p-queue: 6.6.2
-      zod: 3.25.76
+      zod: 4.6.7
     transitivePeerDependencies:
       - '@opentelemetry/api'
       - '@opentelemetry/exporter-trace-otlp-proto'
@@ -30785,22 +30769,6 @@ snapshots:
       react-dom: 19.2.3(react@19.2.3)
       vue: 3.5.34(typescript@5.9.3)
 
-  '@langchain/langgraph@1.2.9(@langchain/core@1.1.42(@opentelemetry/api@1.9.1)(@opentelemetry/sdk-trace-base@2.12.0(@opentelemetry/api@1.9.1))(openai@7.51.0(@aws-sdk/credential-provider-node@3.972.29)(google-auth-library@10.6.2)(undici@7.30.0)(ws@8.21.3)(zod@4.6.7))(ws@8.21.3))(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(vue@3.5.34(typescript@5.9.3))(zod-to-json-schema@3.25.2(zod@4.6.7))(zod@3.25.76)':
-    dependencies:
-      '@langchain/core': 1.1.42(@opentelemetry/api@1.9.1)(@opentelemetry/sdk-trace-base@2.12.0(@opentelemetry/api@1.9.1))(openai@7.51.0(@aws-sdk/credential-provider-node@3.972.29)(google-auth-library@10.6.2)(undici@7.30.0)(ws@8.21.3)(zod@4.6.7))(ws@8.21.3)
-      '@langchain/langgraph-checkpoint': 1.0.1(@langchain/core@1.1.42(@opentelemetry/api@1.9.1)(@opentelemetry/sdk-trace-base@2.12.0(@opentelemetry/api@1.9.1))(openai@7.51.0(@aws-sdk/credential-provider-node@3.972.29)(google-auth-library@10.6.2)(undici@7.30.0)(ws@8.21.3)(zod@4.6.7))(ws@8.21.3))
-      '@langchain/langgraph-sdk': 1.8.9(@langchain/core@1.1.42(@opentelemetry/api@1.9.1)(@opentelemetry/sdk-trace-base@2.12.0(@opentelemetry/api@1.9.1))(openai@7.51.0(@aws-sdk/credential-provider-node@3.972.29)(google-auth-library@10.6.2)(undici@7.30.0)(ws@8.21.3)(zod@4.6.7))(ws@8.21.3))(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(vue@3.5.34(typescript@5.9.3))
-      '@standard-schema/spec': 1.1.0
-      uuid: 10.0.0
-      zod: 3.25.76
-    optionalDependencies:
-      zod-to-json-schema: 3.25.2(zod@4.6.7)
-    transitivePeerDependencies:
-      - react
-      - react-dom
-      - svelte
-      - vue
-
   '@langchain/langgraph@1.2.9(@langchain/core@1.1.42(@opentelemetry/api@1.9.1)(@opentelemetry/sdk-trace-base@2.12.0(@opentelemetry/api@1.9.1))(openai@7.51.0(@aws-sdk/credential-provider-node@3.972.29)(google-auth-library@10.6.2)(undici@7.30.0)(ws@8.21.3)(zod@4.6.7))(ws@8.21.3))(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(vue@3.5.34(typescript@5.9.3))(zod-to-json-schema@3.25.2(zod@4.6.7))(zod@4.6.7)':
     dependencies:
       '@langchain/core': 1.1.42(@opentelemetry/api@1.9.1)(@opentelemetry/sdk-trace-base@2.12.0(@opentelemetry/api@1.9.1))(openai@7.51.0(@aws-sdk/credential-provider-node@3.972.29)(google-auth-library@10.6.2)(undici@7.30.0)(ws@8.21.3)(zod@4.6.7))(ws@8.21.3)
@@ -30817,19 +30785,7 @@ snapshots:
       - svelte
       - vue
 
-  '@langchain/langgraph@1.4.15(@langchain/core@1.2.11(@opentelemetry/api@1.9.1)(@opentelemetry/sdk-trace-base@2.12.0(@opentelemetry/api@1.9.1))(openai@7.51.0(@aws-sdk/credential-provider-node@3.972.29)(google-auth-library@10.6.2)(undici@7.30.0)(ws@8.21.3)(zod@4.6.7))(ws@8.21.3))(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(zod@3.25.76)':
-    dependencies:
-      '@langchain/core': 1.2.11(@opentelemetry/api@1.9.1)(@opentelemetry/sdk-trace-base@2.12.0(@opentelemetry/api@1.9.1))(openai@7.51.0(@aws-sdk/credential-provider-node@3.972.29)(google-auth-library@10.6.2)(undici@7.30.0)(ws@8.21.3)(zod@4.6.7))(ws@8.21.3)
-      '@langchain/langgraph-checkpoint': 1.1.5(@langchain/core@1.2.11(@opentelemetry/api@1.9.1)(@opentelemetry/sdk-trace-base@2.12.0(@opentelemetry/api@1.9.1))(ws@8.21.3))
-      '@langchain/langgraph-sdk': 1.11.0(@langchain/core@1.2.11(@opentelemetry/api@1.9.1)(@opentelemetry/sdk-trace-base@2.12.0(@opentelemetry/api@1.9.1))(ws@8.21.3))(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
-      '@langchain/protocol': 0.0.19
-      '@standard-schema/spec': 1.1.0
-      zod: 3.25.76
-    transitivePeerDependencies:
-      - react
-      - react-dom
-
-  '@langchain/langgraph@1.4.15(@langchain/core@1.2.11(@opentelemetry/api@1.9.1)(@opentelemetry/sdk-trace-base@2.12.0(@opentelemetry/api@1.9.1))(openai@7.51.0(@aws-sdk/credential-provider-node@3.972.29)(google-auth-library@10.6.2)(undici@7.30.0)(ws@8.21.3)(zod@4.6.7))(ws@8.21.3))(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(zod@4.6.7)':
+  '@langchain/langgraph@1.4.15(@langchain/core@1.2.11(@opentelemetry/api@1.9.1)(@opentelemetry/sdk-trace-base@2.12.0(@opentelemetry/api@1.9.1))(ws@8.21.3))(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(zod@4.6.7)':
     dependencies:
       '@langchain/core': 1.2.11(@opentelemetry/api@1.9.1)(@opentelemetry/sdk-trace-base@2.12.0(@opentelemetry/api@1.9.1))(openai@7.51.0(@aws-sdk/credential-provider-node@3.972.29)(google-auth-library@10.6.2)(undici@7.30.0)(ws@8.21.3)(zod@4.6.7))(ws@8.21.3)
       '@langchain/langgraph-checkpoint': 1.1.5(@langchain/core@1.2.11(@opentelemetry/api@1.9.1)(@opentelemetry/sdk-trace-base@2.12.0(@opentelemetry/api@1.9.1))(ws@8.21.3))
@@ -30841,24 +30797,12 @@ snapshots:
       - react
       - react-dom
 
-  '@langchain/langgraph@1.4.15(@langchain/core@1.2.11(@opentelemetry/api@1.9.1)(@opentelemetry/sdk-trace-base@2.12.0(@opentelemetry/api@1.9.1))(ws@8.21.3))(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(zod@3.25.76)':
-    dependencies:
-      '@langchain/core': 1.2.11(@opentelemetry/api@1.9.1)(@opentelemetry/sdk-trace-base@2.12.0(@opentelemetry/api@1.9.1))(openai@7.51.0(@aws-sdk/credential-provider-node@3.972.29)(google-auth-library@10.6.2)(undici@7.30.0)(ws@8.21.3)(zod@4.6.7))(ws@8.21.3)
-      '@langchain/langgraph-checkpoint': 1.1.5(@langchain/core@1.2.11(@opentelemetry/api@1.9.1)(@opentelemetry/sdk-trace-base@2.12.0(@opentelemetry/api@1.9.1))(ws@8.21.3))
-      '@langchain/langgraph-sdk': 1.11.0(@langchain/core@1.2.11(@opentelemetry/api@1.9.1)(@opentelemetry/sdk-trace-base@2.12.0(@opentelemetry/api@1.9.1))(ws@8.21.3))(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
-      '@langchain/protocol': 0.0.19
-      '@standard-schema/spec': 1.1.0
-      zod: 3.25.76
-    transitivePeerDependencies:
-      - react
-      - react-dom
-
   '@langchain/openai@1.5.12(@aws-sdk/credential-provider-node@3.972.29)(@langchain/core@1.2.11(@opentelemetry/api@1.9.1)(@opentelemetry/sdk-trace-base@2.12.0(@opentelemetry/api@1.9.1))(openai@7.51.0(@aws-sdk/credential-provider-node@3.972.29)(google-auth-library@10.6.2)(undici@7.30.0)(ws@8.21.3)(zod@4.6.7))(ws@8.21.3))(undici@7.30.0)(ws@8.21.3)':
     dependencies:
       '@langchain/core': 1.2.11(@opentelemetry/api@1.9.1)(@opentelemetry/sdk-trace-base@2.12.0(@opentelemetry/api@1.9.1))(openai@7.51.0(@aws-sdk/credential-provider-node@3.972.29)(google-auth-library@10.6.2)(undici@7.30.0)(ws@8.21.3)(zod@4.6.7))(ws@8.21.3)
       js-tiktoken: 1.0.21
-      openai: 7.15.0(@aws-sdk/credential-provider-node@3.972.29)(undici@7.30.0)(ws@8.21.3)(zod@3.25.76)
-      zod: 3.25.76
+      openai: 7.15.0(@aws-sdk/credential-provider-node@3.972.29)(undici@7.30.0)(ws@8.21.3)(zod@4.6.7)
+      zod: 4.6.7
     transitivePeerDependencies:
       - '@aws-sdk/credential-provider-node'
       - '@smithy/hash-node'
@@ -39816,8 +39760,8 @@ snapshots:
       '@babel/parser': 7.29.7
       eslint: 9.39.2(jiti@2.7.0)
       hermes-parser: 0.25.1
-      zod: 3.25.76
-      zod-validation-error: 4.0.2(zod@3.25.76)
+      zod: 4.6.7
+      zod-validation-error: 4.0.2(zod@4.6.7)
     transitivePeerDependencies:
       - supports-color
 
@@ -42374,10 +42318,10 @@ snapshots:
   langchain@1.3.5(@langchain/core@1.1.42(@opentelemetry/api@1.9.1)(@opentelemetry/sdk-trace-base@2.12.0(@opentelemetry/api@1.9.1))(openai@7.51.0(@aws-sdk/credential-provider-node@3.972.29)(google-auth-library@10.6.2)(undici@7.30.0)(ws@8.21.3)(zod@4.6.7))(ws@8.21.3))(@opentelemetry/api@1.9.1)(@opentelemetry/sdk-trace-base@2.12.0(@opentelemetry/api@1.9.1))(openai@7.51.0(@aws-sdk/credential-provider-node@3.972.29)(google-auth-library@10.6.2)(undici@7.30.0)(ws@8.21.3)(zod@4.6.7))(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(vue@3.5.34(typescript@5.9.3))(ws@8.21.3)(zod-to-json-schema@3.25.2(zod@4.6.7)):
     dependencies:
       '@langchain/core': 1.1.42(@opentelemetry/api@1.9.1)(@opentelemetry/sdk-trace-base@2.12.0(@opentelemetry/api@1.9.1))(openai@7.51.0(@aws-sdk/credential-provider-node@3.972.29)(google-auth-library@10.6.2)(undici@7.30.0)(ws@8.21.3)(zod@4.6.7))(ws@8.21.3)
-      '@langchain/langgraph': 1.2.9(@langchain/core@1.1.42(@opentelemetry/api@1.9.1)(@opentelemetry/sdk-trace-base@2.12.0(@opentelemetry/api@1.9.1))(openai@7.51.0(@aws-sdk/credential-provider-node@3.972.29)(google-auth-library@10.6.2)(undici@7.30.0)(ws@8.21.3)(zod@4.6.7))(ws@8.21.3))(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(vue@3.5.34(typescript@5.9.3))(zod-to-json-schema@3.25.2(zod@4.6.7))(zod@3.25.76)
+      '@langchain/langgraph': 1.2.9(@langchain/core@1.1.42(@opentelemetry/api@1.9.1)(@opentelemetry/sdk-trace-base@2.12.0(@opentelemetry/api@1.9.1))(openai@7.51.0(@aws-sdk/credential-provider-node@3.972.29)(google-auth-library@10.6.2)(undici@7.30.0)(ws@8.21.3)(zod@4.6.7))(ws@8.21.3))(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(vue@3.5.34(typescript@5.9.3))(zod-to-json-schema@3.25.2(zod@4.6.7))(zod@4.6.7)
       '@langchain/langgraph-checkpoint': 1.0.1(@langchain/core@1.1.42(@opentelemetry/api@1.9.1)(@opentelemetry/sdk-trace-base@2.12.0(@opentelemetry/api@1.9.1))(openai@7.51.0(@aws-sdk/credential-provider-node@3.972.29)(google-auth-library@10.6.2)(undici@7.30.0)(ws@8.21.3)(zod@4.6.7))(ws@8.21.3))
       langsmith: 0.5.25(@opentelemetry/api@1.9.1)(@opentelemetry/sdk-trace-base@2.12.0(@opentelemetry/api@1.9.1))(openai@7.51.0(@aws-sdk/credential-provider-node@3.972.29)(google-auth-library@10.6.2)(undici@7.30.0)(ws@8.21.3)(zod@4.6.7))(ws@8.21.3)
-      zod: 3.25.76
+      zod: 4.6.7
     transitivePeerDependencies:
       - '@opentelemetry/api'
       - '@opentelemetry/exporter-trace-otlp-proto'
@@ -42393,26 +42337,10 @@ snapshots:
   langchain@1.5.11(@langchain/core@1.2.11(@opentelemetry/api@1.9.1)(@opentelemetry/sdk-trace-base@2.12.0(@opentelemetry/api@1.9.1))(openai@7.51.0(@aws-sdk/credential-provider-node@3.972.29)(google-auth-library@10.6.2)(undici@7.30.0)(ws@8.21.3)(zod@4.6.7))(ws@8.21.3))(@opentelemetry/api@1.9.1)(@opentelemetry/sdk-trace-base@2.12.0(@opentelemetry/api@1.9.1))(openai@7.51.0(@aws-sdk/credential-provider-node@3.972.29)(google-auth-library@10.6.2)(undici@7.30.0)(ws@8.21.3)(zod@4.6.7))(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(ws@8.21.3):
     dependencies:
       '@langchain/core': 1.2.11(@opentelemetry/api@1.9.1)(@opentelemetry/sdk-trace-base@2.12.0(@opentelemetry/api@1.9.1))(openai@7.51.0(@aws-sdk/credential-provider-node@3.972.29)(google-auth-library@10.6.2)(undici@7.30.0)(ws@8.21.3)(zod@4.6.7))(ws@8.21.3)
-      '@langchain/langgraph': 1.4.15(@langchain/core@1.2.11(@opentelemetry/api@1.9.1)(@opentelemetry/sdk-trace-base@2.12.0(@opentelemetry/api@1.9.1))(openai@7.51.0(@aws-sdk/credential-provider-node@3.972.29)(google-auth-library@10.6.2)(undici@7.30.0)(ws@8.21.3)(zod@4.6.7))(ws@8.21.3))(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(zod@3.25.76)
+      '@langchain/langgraph': 1.4.15(@langchain/core@1.2.11(@opentelemetry/api@1.9.1)(@opentelemetry/sdk-trace-base@2.12.0(@opentelemetry/api@1.9.1))(ws@8.21.3))(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(zod@4.6.7)
       '@langchain/langgraph-checkpoint': 1.1.5(@langchain/core@1.2.11(@opentelemetry/api@1.9.1)(@opentelemetry/sdk-trace-base@2.12.0(@opentelemetry/api@1.9.1))(ws@8.21.3))
       langsmith: 0.5.25(@opentelemetry/api@1.9.1)(@opentelemetry/sdk-trace-base@2.12.0(@opentelemetry/api@1.9.1))(openai@7.51.0(@aws-sdk/credential-provider-node@3.972.29)(google-auth-library@10.6.2)(undici@7.30.0)(ws@8.21.3)(zod@4.6.7))(ws@8.21.3)
-      zod: 3.25.76
-    transitivePeerDependencies:
-      - '@opentelemetry/api'
-      - '@opentelemetry/exporter-trace-otlp-proto'
-      - '@opentelemetry/sdk-trace-base'
-      - openai
-      - react
-      - react-dom
-      - ws
-
-  langchain@1.5.11(@langchain/core@1.2.11(@opentelemetry/api@1.9.1)(@opentelemetry/sdk-trace-base@2.12.0(@opentelemetry/api@1.9.1))(ws@8.21.3))(@opentelemetry/api@1.9.1)(@opentelemetry/sdk-trace-base@2.12.0(@opentelemetry/api@1.9.1))(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(ws@8.21.3):
-    dependencies:
-      '@langchain/core': 1.2.11(@opentelemetry/api@1.9.1)(@opentelemetry/sdk-trace-base@2.12.0(@opentelemetry/api@1.9.1))(openai@7.51.0(@aws-sdk/credential-provider-node@3.972.29)(google-auth-library@10.6.2)(undici@7.30.0)(ws@8.21.3)(zod@4.6.7))(ws@8.21.3)
-      '@langchain/langgraph': 1.4.15(@langchain/core@1.2.11(@opentelemetry/api@1.9.1)(@opentelemetry/sdk-trace-base@2.12.0(@opentelemetry/api@1.9.1))(ws@8.21.3))(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(zod@3.25.76)
-      '@langchain/langgraph-checkpoint': 1.1.5(@langchain/core@1.2.11(@opentelemetry/api@1.9.1)(@opentelemetry/sdk-trace-base@2.12.0(@opentelemetry/api@1.9.1))(ws@8.21.3))
-      langsmith: 0.5.25(@opentelemetry/api@1.9.1)(@opentelemetry/sdk-trace-base@2.12.0(@opentelemetry/api@1.9.1))(openai@7.51.0(@aws-sdk/credential-provider-node@3.972.29)(google-auth-library@10.6.2)(undici@7.30.0)(ws@8.21.3)(zod@4.6.7))(ws@8.21.3)
-      zod: 3.25.76
+      zod: 4.6.7
     transitivePeerDependencies:
       - '@opentelemetry/api'
       - '@opentelemetry/exporter-trace-otlp-proto'
@@ -44996,12 +44924,12 @@ snapshots:
       ws: 8.21.3
       zod: 4.6.7
 
-  openai@7.15.0(@aws-sdk/credential-provider-node@3.972.29)(undici@7.30.0)(ws@8.21.3)(zod@3.25.76):
+  openai@7.15.0(@aws-sdk/credential-provider-node@3.972.29)(undici@7.30.0)(ws@8.21.3)(zod@4.6.7):
     optionalDependencies:
       '@aws-sdk/credential-provider-node': 3.972.29
       undici: 7.30.0
       ws: 8.21.3
-      zod: 3.25.76
+      zod: 4.6.7
 
   openai@7.51.0(@aws-sdk/credential-provider-node@3.972.29)(google-auth-library@10.6.2)(undici@7.30.0)(ws@8.19.0)(zod@4.6.7):
     optionalDependencies:
@@ -50916,9 +50844,9 @@ snapshots:
     dependencies:
       zod: 4.6.7
 
-  zod-validation-error@4.0.2(zod@3.25.76):
+  zod-validation-error@4.0.2(zod@4.6.7):
     dependencies:
-      zod: 3.25.76
+      zod: 4.6.7
 
   zod@3.24.1: {}
 

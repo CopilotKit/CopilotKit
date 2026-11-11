@@ -178,6 +178,11 @@ const definitions = {
 };
 ```
 
+Do not import from `zod/v3` in Zod 4 for this. It is a separate copy of the
+Zod 3 types. Mixed with `DynamicStringSchema` and the other `@a2ui/web_core`
+schemas, it can make the typecheck run out of memory. A Zod 4 schema in
+`createCatalog` is a type error.
+
 </Step>
 <Step>
 ### Replace React UI imports

@@ -105,7 +105,7 @@
     "@copilotkit/core": "workspace:*",
     "@copilotkit/shared": "workspace:*",
     "clsx": "^2.1.1",
-    "zod": "^3.25.76",
+    "zod": "^4.2.0",
     "zod-to-json-schema": "^3.25.2"
   },
   "devDependencies": {
@@ -117,7 +117,8 @@
     "jsdom": "^26.1.0",
     "tsdown": "^0.20.3",
     "typescript": "5.9.2",
-    "vitest": "^3.2.4"
+    "vitest": "^3.2.4",
+    "zod-v3": "npm:zod@^3.25.76"
   },
   "peerDependencies": {
     "react": "^18 || ^19 || ^19.0.0-rc",

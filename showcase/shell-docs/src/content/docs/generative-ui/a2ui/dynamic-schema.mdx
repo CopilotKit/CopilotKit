@@ -43,6 +43,11 @@ is crucial; the LLM reads it to decide which component to emit. The
 example below ships a small dashboard catalog (Card / StatusBadge /
 Metric / InfoRow / PrimaryButton):
 
+The prop schemas are Zod 3, because the A2UI binder reads Zod 3 schemas.
+Next to the Zod 4 that CopilotKit 2 needs, install Zod 3 under an alias
+(`npm install zod-v3@npm:zod@^3.25.76`) and import `z` from `zod-v3` where
+the example imports it from `zod`.
+
 <Snippet region="definitions-zod" />
 </Step>
 

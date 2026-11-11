@@ -21,7 +21,7 @@ import { Row } from "./components/Row";
 import { Column } from "./components/Column";
 import { TextField } from "./components/TextField";
 import type { ReactComponentImplementation } from "../../../a2ui-react/adapter";
-import { z } from "zod";
+import { z } from "zod-v3";
 
 const minimalComponents: ReactComponentImplementation[] = [
   Text,

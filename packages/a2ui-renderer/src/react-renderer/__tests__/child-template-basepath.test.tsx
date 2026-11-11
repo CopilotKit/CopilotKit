@@ -1,7 +1,7 @@
 import React, { useEffect } from "react";
 import { describe, it, expect } from "vitest";
 import { render, screen, act } from "@testing-library/react";
-import { z } from "zod";
+import { z } from "zod-v3";
 import { CommonSchemas } from "@a2ui/web_core/v0_9";
 import type { AnyComponent } from "@a2ui/web_core/v0_9";
 import { createCatalog } from "../create-catalog";

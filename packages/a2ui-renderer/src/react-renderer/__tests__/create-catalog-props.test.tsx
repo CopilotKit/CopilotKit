@@ -1,7 +1,8 @@
 import React, { useEffect } from "react";
 import { describe, it, expect, vi } from "vitest";
 import { render, screen, act, fireEvent } from "@testing-library/react";
-import { z } from "zod";
+import { z } from "zod-v3";
+import { z as z4 } from "zod";
 import { CommonSchemas } from "@a2ui/web_core/v0_9";
 import { createCatalog } from "../create-catalog";
 import { A2UIProvider, useA2UIActions } from "../core/A2UIProvider";
@@ -109,6 +110,14 @@ describe("createCatalog renderer props", () => {
       surfaceId: SURFACE,
       context: { to: 65 },
     });
+  });
+
+  it("rejects a Zod 4 props schema, which the binder cannot read", () => {
+    createCatalog(
+      // @ts-expect-error props must be a Zod 3 schema (see CatalogPropsSchema)
+      { Dimmer: { props: z4.object({ level: z4.number() }) } },
+      { Dimmer: () => null },
+    );
   });
 
   it("still type-check setter arguments", () => {

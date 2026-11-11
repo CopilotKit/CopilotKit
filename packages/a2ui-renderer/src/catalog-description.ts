@@ -8,8 +8,11 @@
  *
  * Component schemas in an A2UI catalog are Zod 3 schemas: `@a2ui/web_core`
  * builds its basic catalog with Zod 3 and its binder reads Zod 3 internals.
- * Zod 3 schemas cannot describe themselves as JSON Schema, so this is the one
- * place in CopilotKit that still converts with `zod-to-json-schema`.
+ * Zod 3 schemas cannot describe themselves as JSON Schema, and Zod 4's
+ * `z.toJSONSchema` reads only Zod 4 schemas, so this is the one place in
+ * CopilotKit that still converts with `zod-to-json-schema`. That library reads
+ * Zod 3 schemas through the `zod/v3` API, which the Zod 4 this package
+ * depends on provides.
  */
 import { BASIC_COMPONENTS } from "@a2ui/web_core/v0_9/basic_catalog";
 import { ignoreOverride, zodToJsonSchema } from "zod-to-json-schema";

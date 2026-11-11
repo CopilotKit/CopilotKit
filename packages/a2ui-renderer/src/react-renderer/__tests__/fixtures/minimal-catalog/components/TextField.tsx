@@ -16,7 +16,7 @@
 
 import React from "react";
 import { createReactComponent } from "../../../../a2ui-react/adapter";
-import { z } from "zod";
+import { z } from "zod-v3";
 import { CommonSchemas } from "@a2ui/web_core/v0_9";
 
 export const TextFieldSchema = z.object({

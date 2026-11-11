@@ -275,6 +275,18 @@ const content = result.value;
 
 If the code composed the schema into a zod schema, write those fields in zod in the app.
 
+A2UI catalogs stay on Zod 3. `createCatalog` from `@copilotkit/a2ui-renderer` and `createAngularCatalog` from `@copilotkit/angular/a2ui` take Zod 3 schemas, because `@a2ui/web_core` reads Zod 3 schema internals. A Zod 4 schema is a type error. After the app moves to Zod 4, install Zod 3 under an alias and import it only in the catalog definitions:
+
+```bash
+npm install zod-v3@npm:zod@^3.25.76
+```
+
+```ts
+import { z } from "zod-v3";
+```
+
+Do not use `zod/v3` from Zod 4 for this. It is a separate copy of the Zod 3 types, and mixed with `DynamicStringSchema` and the other `@a2ui/web_core` schemas it can make the typecheck run out of memory. The type parameter of `CatalogComponentDefinition` is now the props schema, not its shape: `CatalogComponentDefinition<typeof props>`, not `CatalogComponentDefinition<{ title: ZodString }>`.
+
 `filterCatalog` from `@copilotkit/a2ui-renderer` infers its type. The codemod deletes explicit type arguments. Its type parameter is now the catalog type, not the component type.
 
 Angular `CopilotA2UIRecovery` no longer exposes `lifecycle`, `retryRevealed`, `debugExposure`, `label`, `phase`, `failureDiagnostics`, or `retryDiagnostics`. Read the lifecycle with `readA2UILifecycleContent(content)` from `@copilotkit/angular`.

@@ -40,6 +40,7 @@ export { filterCatalog } from "../filter-catalog";
 export type {
   CatalogComponentDefinition,
   CatalogDefinitions,
+  CatalogPropsSchema,
   CatalogRenderers,
   RendererProps,
   ComponentRenderer,

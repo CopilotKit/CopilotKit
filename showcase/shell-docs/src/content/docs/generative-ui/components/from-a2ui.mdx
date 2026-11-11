@@ -14,9 +14,10 @@ The provider takes a UI instead of a catalog, and the runtime needs no A2UI opti
 
 <Tabs groupId="frontend_framework" items={["React", "Angular", "Vue"]} persist>
   <Tab value="React">
-    ```tsx title="Before" group=a2ui-before
+    ```tsx title="Before"
     "use client";
     import { CopilotKitProvider } from "@copilotkit/react-core";
+    import { myCatalog } from "./my-catalog";
 
     export function Providers({ children }: { children: React.ReactNode }) {
       return (
@@ -107,12 +108,13 @@ The chat renders surfaces on its own. For an area of the page, mount [`<Generati
 
 ## Convert a custom catalog
 
-Before, a catalog was definitions plus renderers, and a bound prop had to be declared as a union with the binding object:
+Before, a catalog was definitions plus renderers, and a bound prop had to be declared as a union with the binding object. The prop schemas are Zod 3, imported from a [`zod-v3` alias](/migrate/v2#upgrade-to-zod-42-or-later) next to Zod 4:
 
 <Tabs groupId="frontend_framework" items={["React", "Angular", "Vue"]} persist>
   <Tab value="React">
-    ```tsx title="Before" group=a2ui-before
-    import { z } from "zod";
+    {/* kiira: ignore, `zod-v3` is an npm alias that the reader installs */}
+    ```tsx title="Before" ignore
+    import { z } from "zod-v3";
     import { createCatalog, DynamicStringSchema } from "@copilotkit/a2ui-renderer";
 
     const definitions = {
@@ -138,8 +140,9 @@ Before, a catalog was definitions plus renderers, and a bound prop had to be dec
     ```
   </Tab>
   <Tab value="Angular">
-    ```ts title="Before"
-    import { z } from "zod";
+    {/* kiira: ignore, `zod-v3` is an npm alias that the reader installs */}
+    ```ts title="Before" ignore
+    import { z } from "zod-v3";
     import { createAngularCatalog, DynamicStringSchema } from "@copilotkit/angular/a2ui";
     import { Airport, Arrow } from "./flight-components";
 
