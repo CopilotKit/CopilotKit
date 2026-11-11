@@ -129,6 +129,9 @@ export class MemoryStore implements StateStore {
       this.kvMap.set(k, { value: 1, expiresAt: Date.now() + ttlMs });
       return false;
     },
+    forget: async (key: string): Promise<void> => {
+      this.kvMap.delete(`dedup:${key}`);
+    },
   };
 
   queue = {

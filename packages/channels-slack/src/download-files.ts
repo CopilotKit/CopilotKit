@@ -55,6 +55,75 @@ const DEFAULTS = {
   maxTextBytes: 200 * 1024,
 } as const;
 
+/**
+ * Hosts the bot token may be sent to: Slack's file hosts, `files.slack.com`
+ * and siblings such as `files-edge.slack.com`, and their GovSlack equivalents.
+ */
+const FILE_HOST = /^files[a-z0-9-]*\.slack(?:-gov)?\.com$/;
+/** Hosts a redirect may reach for the bytes alone; they never get the token. */
+const CDN_HOST = /^(?:[a-z0-9-]+\.)*(?:slack-files|slack-edge)\.com$/;
+const MAX_REDIRECTS = 5;
+const REDIRECTS = new Set([301, 302, 303, 307, 308]);
+
+/** Web API paths are never file downloads. An undecodable path is refused. */
+function isApiPath(pathname: string): boolean {
+  try {
+    return /^\/api(?:\/|$)/i.test(decodeURIComponent(pathname));
+  } catch {
+    return true;
+  }
+}
+
+/** Fixed message: it reaches the agent as a skip note, so no URL in it. */
+function parseSlackFileUrl(value: string, base?: URL): URL {
+  const allowed = (host: string) =>
+    FILE_HOST.test(host) || (base !== undefined && CDN_HOST.test(host));
+  let url: URL | undefined;
+  try {
+    url = new URL(value, base);
+  } catch {
+    // Reported below.
+  }
+  if (
+    url?.protocol !== "https:" ||
+    url.port !== "" ||
+    url.username !== "" ||
+    url.password !== "" ||
+    !allowed(url.hostname) ||
+    isApiPath(url.pathname)
+  ) {
+    throw new Error("URL is not an allowed Slack file URL");
+  }
+  return url;
+}
+
+/**
+ * Fetch a Slack file with the bot token, following redirects by hand so every
+ * hop is checked before the request goes out. An off-allowlist redirect fails
+ * the download.
+ */
+async function fetchSlackFile(
+  source: string,
+  botToken: string,
+): Promise<Response> {
+  let url = parseSlackFileUrl(source);
+  for (let hop = 0; ; hop++) {
+    const res = await fetch(url.href, {
+      headers: FILE_HOST.test(url.hostname)
+        ? { Authorization: `Bearer ${botToken}` }
+        : {},
+      redirect: "manual",
+    });
+    if (!REDIRECTS.has(res.status)) return res;
+    await res.body?.cancel();
+    const location = res.headers.get("location");
+    if (hop >= MAX_REDIRECTS || !location) {
+      throw new Error("unusable download redirect");
+    }
+    url = parseSlackFileUrl(location, url);
+  }
+}
+
 const TEXT_MIME_PREFIXES = ["text/"];
 const TEXT_MIME_EXACT = new Set([
   "application/json",
@@ -133,9 +202,7 @@ export async function buildFileContentParts(
 
     let bytes: Buffer;
     try {
-      const res = await fetch(f.url_private, {
-        headers: { Authorization: `Bearer ${botToken}` },
-      });
+      const res = await fetchSlackFile(f.url_private, botToken);
       if (!res.ok) {
         notes.push(`skipped "${label}": download failed (HTTP ${res.status})`);
         continue;

@@ -85,6 +85,9 @@ export function ApprovalCard({ summary }: { summary: string }) {
               return;
             }
 
+            // Refuses a click that may not resume, before the card changes.
+            await thread.assertCanResume();
+
             if (message.ref.id) {
               try {
                 await thread.update(
@@ -114,6 +117,9 @@ export function ApprovalCard({ summary }: { summary: string }) {
               );
               return;
             }
+
+            // Refuses a click that may not resume, before the card changes.
+            await thread.assertCanResume();
 
             if (message.ref.id) {
               try {
@@ -207,6 +213,57 @@ non-empty. The card update in this example is best-effort: a missing ref or a
 failed update must not prevent `thread.resume(value)` from continuing the
 approval.
 
+`thread.assertCanResume()` applies the same rules as `resume` and consumes
+nothing, so a refused click throws before the card changes. Let the error
+propagate: the SDK refuses the click and logs why. On Slack, including managed
+Slack, the person who clicked also sees a private message saying why, as they
+do in WhatsApp and in a Teams personal chat, where a reply is already private.
+In a Teams group chat or channel and on Discord the refusal is only logged,
+because there is no reply limited to the clicker, so the click appears to do
+nothing. A `catch` around either call hides the refusal.
+
+Only one control posted during a run can resume it, whether `onInterrupt` or a
+tool posted it. Once Approve has resumed the run, Reject and a second click on
+Approve are refused as already answered, even while the resumed run is still
+going. Two clicks at the same moment can both pass `assertCanResume`, so both
+can update the card and it can show the choice that lost, but only one resumes.
+
+## Choose who can approve
+
+By default only the provider account that started the run can resume it. To let
+anyone in the conversation approve, pass the same option to both calls:
+
+```ts
+await thread.assertCanResume({ answerableBy: "conversation" });
+// update the card
+await thread.resume(value, { answerableBy: "conversation" });
+```
+
+The check matches the account id that started the chain, whatever its kind, so
+a chain started by a bot can be resumed only by that bot. If people should
+approve bot-started runs, pass `answerableBy: "conversation"`. The same applies
+to a run whose starting account has no id: without the option, clicks on its
+cards are refused.
+
+### Migrating to initiator-only approvals
+
+Earlier versions let anyone in the conversation resume. After upgrading:
+
+- Pass `answerableBy: "conversation"` to `resume` wherever a teammate is meant
+  to approve, or the click is refused. Cards already posted follow the new
+  default too.
+- Add `await thread.assertCanResume()` before anything a refused click must not
+  do. A handler that updates the card and then calls `resume` would otherwise
+  show "Approved" on a click that was refused.
+- Don't swallow errors from `resume`. Refusals reach the SDK as errors with
+  stable codes: `channel_action_not_initiator`,
+  `channel_action_already_claimed`, and `channel_choice_initiator_unknown`.
+- A second control of a run no longer starts a second resumed run. Cards posted
+  before the upgrade keep the old limit: each control is one-use, so two
+  different controls on such a card can still each resume.
+- `awaitChoice` inside a resumed run now belongs to the person who started the
+  chain, not whoever resumed it.
+
 ## Use post-and-resume for managed approvals
 
 Managed deliveries cannot wait inside `thread.awaitChoice()`. The click arrives
@@ -219,8 +276,8 @@ is:
 1. The agent emits an `on_interrupt` event.
 2. `channel.onInterrupt` posts the registered component and returns.
 3. Intelligence acknowledges the original turn.
-4. A later click updates the card when possible and calls
-   `thread.resume(value)`.
+4. A later click calls `thread.assertCanResume()`, updates the card when
+   possible, and calls `thread.resume(value)`.
 5. The SDK re-enters the agent with the approval result.
 
 The selected agent framework decides how it emits and consumes the interrupt.

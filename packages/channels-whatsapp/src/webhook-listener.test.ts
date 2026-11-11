@@ -1,4 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
+import { createChannel, FakeAdapter } from "@copilotkit/channels-core";
 import { handleWebhookValue } from "./webhook-listener.js";
 import { InMemoryHistoryStore } from "./history-store.js";
 import type { ChangeValue } from "./types.js";
@@ -245,5 +246,68 @@ describe("handleWebhookValue", () => {
       ),
     ).toBe(true);
     expect(sink.onTurn).toHaveBeenCalled();
+  });
+});
+
+describe("redelivered webhooks", () => {
+  async function start() {
+    const fake = new FakeAdapter({ platform: "whatsapp" });
+    const channel = createChannel({
+      identifyUser: "platform",
+      adapters: [fake],
+      agent: () => {
+        throw new Error("no agent run expected");
+      },
+      commands: [
+        {
+          name: "deploy",
+          description: "Deploy",
+          handler: () => {
+            ran.command++;
+          },
+        },
+      ],
+    });
+    const ran = { command: 0, button: 0 };
+    channel.onInteraction("approve", () => {
+      ran.button++;
+    });
+    await channel.ɵruntime.start();
+    const deliver = async (msg: object) => {
+      for (let i = 0; i < 3; i++) {
+        await handleWebhookValue(
+          { messages: [msg] } as ChangeValue,
+          baseArgs(fake.getSink()),
+        );
+      }
+    };
+    return { ran, deliver, stop: () => channel.ɵruntime.stop() };
+  }
+
+  it("runs a command once for one wamid", async () => {
+    const { ran, deliver, stop } = await start();
+    await deliver({
+      from: "111",
+      id: "wamid.cmd",
+      type: "text",
+      text: { body: "/deploy" },
+    });
+    expect(ran.command).toBe(1);
+    await stop();
+  });
+
+  it("runs a button handler once for one wamid", async () => {
+    const { ran, deliver, stop } = await start();
+    await deliver({
+      from: "111",
+      id: "wamid.btn",
+      type: "interactive",
+      interactive: {
+        type: "button_reply",
+        button_reply: { id: "approve", title: "Approve" },
+      },
+    });
+    expect(ran.button).toBe(1);
+    await stop();
   });
 });

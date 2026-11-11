@@ -78,14 +78,22 @@ it("resumes approvals even when the interaction message cannot be updated", () =
         "await thread.resume(value);",
         updateIndex,
       );
+      const assertIndex = source.lastIndexOf(
+        "await thread.assertCanResume();",
+        updateIndex,
+      );
       const catchIndex = source.indexOf("} catch {", updateIndex);
       const resumeIndex = source.indexOf(
         "await thread.resume(value);",
         updateIndex,
       );
 
-      expect(guardIndex, `${slug} guards message update`).toBeGreaterThan(
+      // A refused click must leave the card alone.
+      expect(assertIndex, `${slug} checks before updating`).toBeGreaterThan(
         previousResumeIndex,
+      );
+      expect(guardIndex, `${slug} guards message update`).toBeGreaterThan(
+        assertIndex,
       );
       expect(
         catchIndex,

@@ -93,6 +93,8 @@ interface StateStore {
   dedup: {
     // true means the key was already recorded inside the TTL.
     seen(key: string, ttlMs: number): Promise<boolean>;
+    // Optional: drop a recorded key so a redelivery can retry a failed event.
+    forget?(key: string): Promise<void>;
   };
   queue: {
     enqueue<T>(
