@@ -17,60 +17,65 @@
 import React from "react";
 import { createReactComponent } from "../../../adapter";
 import { SliderApi } from "@a2ui/web_core/v0_9/basic_catalog";
-import { LEAF_MARGIN } from "../utils";
+import { getAccessibilityProps, LEAF_MARGIN } from "../utils";
 
-export const Slider = createReactComponent(SliderApi, ({ props, context }) => {
-  const onChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    props.setValue(Number(e.target.value));
-  };
+export const Slider = createReactComponent(
+  SliderApi,
+  /** Put accessibility on the range control while retaining protocol-specific step behavior. */
+  ({ props, context }) => {
+    const onChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+      props.setValue(Number(e.target.value));
+    };
 
-  const uniqueId = React.useId();
-  const min = props.min ?? 0;
-  const max = props.max ?? 100;
-  const steps = "steps" in props ? props.steps : undefined;
-  // The 1.0 property counts divisions; the HTML property is their size.
-  const step =
-    typeof steps === "number" && steps > 0 && max > min
-      ? (max - min) / steps
-      : context.componentModel.catalog?.protocolVersion === "1.0"
-        ? "any"
-        : undefined;
+    const uniqueId = React.useId();
+    const min = props.min ?? 0;
+    const max = props.max ?? 100;
+    const steps = "steps" in props ? props.steps : undefined;
+    // The 1.0 property counts divisions; the HTML property is their size.
+    const step =
+      typeof steps === "number" && steps > 0 && max > min
+        ? (max - min) / steps
+        : context.componentModel.catalog?.protocolVersion === "1.0"
+          ? "any"
+          : undefined;
 
-  return (
-    <div
-      style={{
-        display: "flex",
-        flexDirection: "column",
-        gap: "4px",
-        margin: LEAF_MARGIN,
-        width: "100%",
-      }}
-    >
-      <div style={{ display: "flex", justifyContent: "space-between" }}>
-        {props.label && (
-          <label
-            htmlFor={uniqueId}
-            style={{ fontSize: "14px", fontWeight: "bold" }}
+    return (
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          gap: "4px",
+          margin: LEAF_MARGIN,
+          width: "100%",
+        }}
+      >
+        <div style={{ display: "flex", justifyContent: "space-between" }}>
+          {props.label && (
+            <label
+              htmlFor={uniqueId}
+              style={{ fontSize: "14px", fontWeight: "bold" }}
+            >
+              {props.label}
+            </label>
+          )}
+          <span
+            style={{ fontSize: "12px", color: "var(--a2ui-color-muted, #666)" }}
           >
-            {props.label}
-          </label>
-        )}
-        <span
-          style={{ fontSize: "12px", color: "var(--a2ui-color-muted, #666)" }}
-        >
-          {props.value}
-        </span>
+            {props.value}
+          </span>
+        </div>
+        <input
+          {...getAccessibilityProps(props.accessibility)}
+          id={uniqueId}
+          type="range"
+          min={min}
+          max={props.max}
+          step={step}
+          value={props.value ?? 0}
+          onChange={onChange}
+          style={{ width: "100%", cursor: "pointer" }}
+        />
       </div>
-      <input
-        id={uniqueId}
-        type="range"
-        min={min}
-        max={props.max}
-        step={step}
-        value={props.value ?? 0}
-        onChange={onChange}
-        style={{ width: "100%", cursor: "pointer" }}
-      />
-    </div>
-  );
-});
+    );
+  },
+);
