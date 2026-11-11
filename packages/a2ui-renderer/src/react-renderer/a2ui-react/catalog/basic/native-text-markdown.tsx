@@ -15,7 +15,7 @@ function renderInline(tokens: Token[]): React.ReactNode {
         case "text":
           return "tokens" in token && token.tokens
             ? renderInline(token.tokens)
-            : token.text;
+            : token.raw;
         case "escape":
           return token.raw.slice(1);
         default:

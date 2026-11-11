@@ -125,6 +125,15 @@ describe("native Text formatting", () => {
     const view = mountText("Plain message");
     expect(view.getByText("Plain message").tagName).toBe("SPAN");
   });
+
+  it.each(["Tom & Jerry", 'Say "hello"', "Don't stop"])(
+    "preserves source punctuation in %s",
+    /** Keep React text literal instead of displaying the lexer's HTML entities. */
+    (text) => {
+      const view = mountText(text);
+      expect(view.container.textContent).toBe(text);
+    },
+  );
 });
 
 describe("existing Text behavior", () => {
