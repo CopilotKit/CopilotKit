@@ -72,13 +72,8 @@ def manage_todos(todos: List[Todo]) -> str:
     # Strands @tool validates with pydantic but passes ``model_dump()`` output
     # to the function body — so list elements arrive as plain dicts, not
     # ``Todo`` instances. Rehydrate before touching attributes.
-    todos = [Todo.model_validate(t) for t in todos]
-    # Ensure every todo has a stable id. The state emission callback
-    # (state_from_args below) re-reads the tool arguments and sends the
-    # final list to the UI, so id injection here is enough.
-    for todo in todos:
-        if not todo.id:
-            todo.id = str(uuid4())
+    # The UI gets the list from the tool arguments (todos_state_from_args
+    # below), which also gives every todo without an id a stable one.
     return "Successfully updated todos"
 
 
@@ -156,7 +151,12 @@ async def todos_state_from_args(context):
         tool_input = context.tool_input
         if isinstance(tool_input, str):
             tool_input = json.loads(tool_input)
-        todos = tool_input.get("todos", [])
+        todos = [dict(todo) for todo in tool_input.get("todos", [])]
+        # The model may omit ids. The UI keys todos by id, and the next run
+        # sends this list back as state, so an id given here stays stable.
+        for todo in todos:
+            if not todo.get("id"):
+                todo["id"] = str(uuid4())
         return {"todos": todos}
     except Exception:
         return None

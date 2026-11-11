@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import { useState } from "react";
 import { ModeToggle } from "./mode-toggle";
 import { useFrontendTool } from "@copilotkit/react-core";
+import { z } from "zod";
 
 interface ExampleLayoutProps {
   chatContent: ReactNode;
@@ -17,6 +18,7 @@ export function ExampleLayout({ chatContent, appContent }: ExampleLayoutProps) {
     name: "enableAppMode",
     description:
       "Enable app mode, make sure its open when interacting with todos.",
+    parameters: z.object({}),
     handler: async () => {
       setMode("app");
     },
@@ -25,6 +27,7 @@ export function ExampleLayout({ chatContent, appContent }: ExampleLayoutProps) {
   useFrontendTool({
     name: "enableChatMode",
     description: "Enable chat mode",
+    parameters: z.object({}),
     handler: async () => {
       setMode("chat");
     },

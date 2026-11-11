@@ -72,5 +72,9 @@ adapter = ClaudeAgentAdapter(
         },
         "allowed_tools": [f"mcp__{SERVER_NAME}__{tool.name}" for tool in BACKEND_TOOLS],
         "tools": [],
+        # Load no Claude Code settings: by default the SDK reads the user's and
+        # the project's settings, CLAUDE.md and .mcp.json servers, so the agent
+        # would pick up whatever repo or machine it runs in.
+        "setting_sources": [],
     },
 )
