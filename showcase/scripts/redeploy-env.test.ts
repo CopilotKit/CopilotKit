@@ -150,7 +150,7 @@ describe("runRedeploy", () => {
 
     expect(result.exitCode).toBe(0);
     // 42 CI-built (30 showcase/infra incl. conversational flows,
-    // google-antigravity and the staging-only openai-agents-python, + 12
+    // google-antigravity and openai-agents-python, + 12
     // starters) + harness-workers (imageOf consumer of showcase-harness) = 43.
     // All 42 declare staging, so the env-aware default scope keeps every one
     // of them.
@@ -225,15 +225,16 @@ describe("runRedeploy", () => {
     ]);
   });
 
-  it("default prod scope includes the dual-env worker, Strands TS, and CrewAI conversational flows", async () => {
+  it("default prod scope includes the dual-env worker, Strands TS, CrewAI conversational flows, and OpenAI Agents Python", async () => {
     // The default scope is env-aware: a service joins the prod scope when it
     // declares a prod env. harness-workers is now dual-env (the prod worker was
     // backfilled into the SSOT), so the env-aware imageOf expansion pulls it
     // into the prod scope as a showcase-harness consumer. showcase-strands-typescript
     // is also dual-env and joins. CrewAI Conversational Flows now has a prod
-    // instance and joins too, as does google-antigravity. The prod default =
-    // the 42 services that declare prod (29 CI-built showcase/infra + 12
-    // starters + the imageOf-consumer harness-workers).
+    // instance and joins too, as do google-antigravity and
+    // openai-agents-python. The prod default = the 43 services that declare
+    // prod (30 CI-built showcase/infra + 12 starters + the imageOf-consumer
+    // harness-workers).
     const seenNames: string[] = [];
     const redeploy = vi.fn(async (serviceId: string) => {
       const name = Object.entries(SERVICES).find(
@@ -247,7 +248,7 @@ describe("runRedeploy", () => {
       redeploy,
       appendSummary,
     });
-    expect(result.attempted).toBe(42);
+    expect(result.attempted).toBe(43);
     // harness-workers is now dual-env, so a prod redeploy of its showcase-harness
     // image bounces the prod worker too (it used to be silently skipped).
     expect(seenNames).toContain("harness-workers");
@@ -257,6 +258,8 @@ describe("runRedeploy", () => {
     expect(seenNames).toContain("showcase-crewai-conversational-flows");
     // google-antigravity is now dual-env, so it joins the prod scope.
     expect(seenNames).toContain("showcase-google-antigravity");
+    // openai-agents-python is now dual-env, so it joins the prod scope.
+    expect(seenNames).toContain("showcase-openai-agents-python");
     // S2: starters ARE in the default prod scope (CI-built, dual-env).
     expect(seenNames).toContain("starter-adk");
   });
@@ -737,7 +740,7 @@ describe("resolveTargetServices", () => {
   it("returns the CI_BUILT_SERVICES set sorted when given undefined", () => {
     const resolved = resolveTargetServices(undefined);
     // 30 showcase/infra CI-built (incl. conversational flows,
-    // google-antigravity and the staging-only openai-agents-python) + 12
+    // google-antigravity and openai-agents-python) + 12
     // starters = 42.
     // resolveTargetServices returns the FULL CI_BUILT set;
     // the env-aware narrowing happens later in runRedeploy, not here.
