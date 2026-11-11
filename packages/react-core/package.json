@@ -97,10 +97,8 @@
     "test:browser": "playwright test --config browser/playwright.config.ts"
   },
   "dependencies": {
-    "@a2ui/web_core": "0.15.0",
     "@ag-ui/client": "1.0.4",
     "@ag-ui/core": "1.0.4",
-    "@copilotkit/a2ui-renderer": "workspace:*",
     "@copilotkit/core": "workspace:*",
     "@copilotkit/markdown": "workspace:*",
     "@copilotkit/mcp-apps-renderer": "workspace:*",

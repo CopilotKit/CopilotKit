@@ -1,12 +1,10 @@
 // Fixture for the generative-ui/native contract's no-false-positive direction.
-// It imports a DOM-free @a2ui/web_core subpath (`/state`, no Lit in its graph)
-// and plain `react`, and mentions react-dom, lit, lit-html and a static block only
-// as TEXT, in comments, strings and a template:
+// It imports plain `react`, and mentions react-dom, lit, lit-html and a static
+// block only as TEXT, in comments, strings and a template:
 //   import { createPortal } from "react-dom";
 //   import { LitElement } from "lit";
 //   class Boundary { static { this.contextType = ctx; } }
 import { createElement } from "react";
-import { SurfaceModel } from "@a2ui/web_core/state";
 
 export const NOTES = [
   "react-dom",
@@ -29,4 +27,3 @@ export class Boundary {
     return null;
   }
 }
-export { SurfaceModel };

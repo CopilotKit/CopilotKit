@@ -2,9 +2,7 @@ import { render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 import type { ToolCall } from "@ag-ui/core";
-import { Catalog } from "@copilotkit/a2ui-renderer";
 import { GENERATIVE_UI_RENDER_TOOL } from "@copilotkit/shared";
-import { ɵRENDER_A2UI_TOOL_NAME as RENDER_A2UI_TOOL_NAME } from "@copilotkit/core";
 import type { CopilotKitCoreReact } from "../../lib/react-core";
 import { useRenderToolCall } from "../../hooks/use-render-tool-call";
 import { standardUI } from "../../generative-ui";
@@ -13,13 +11,11 @@ import type { ReactFrontendTool } from "../../types/frontend-tool";
 import type { ReactHumanInTheLoop } from "../../types/human-in-the-loop";
 import { CopilotKitProvider, useCopilotKit } from "../CopilotKitProvider";
 
-// Built-in tool renderers (A2UI's `render_a2ui`, generative UI's `render_ui`)
-// used to rebuild the provider's renderer list from a field that no longer
-// exists, so turning either feature on erased the app's renderers.
+// The built-in tool renderer (generative UI's `render_ui`) used to rebuild the
+// provider's renderer list from a field that no longer exists, so turning the
+// feature on erased the app's renderers.
 
-function makeCatalog() {
-  return new Catalog("copilotkit://test-catalog", [], []);
-}
+const generativeUI = { ui: standardUI };
 
 function toolCall(name: string): ToolCall {
   return {
@@ -64,10 +60,10 @@ function rendererNames() {
 }
 
 describe("CopilotKitProvider built-in tool renderers", () => {
-  it("keeps the app's renderers when A2UI is active", async () => {
+  it("keeps the app's renderers when generative UI is active", async () => {
     render(
       <CopilotKitProvider
-        a2ui={{ catalog: makeCatalog() }}
+        generativeUI={generativeUI}
         renderToolCalls={[weatherRenderer]}
         frontendTools={[searchTool]}
         humanInTheLoop={[approveTool]}
@@ -80,75 +76,50 @@ describe("CopilotKitProvider built-in tool renderers", () => {
     );
 
     await waitFor(() =>
-      expect(rendererNames()).toContain(RENDER_A2UI_TOOL_NAME),
+      expect(rendererNames()).toContain(GENERATIVE_UI_RENDER_TOOL),
     );
     expect(screen.getByTestId("weather-card").textContent).toBe("weather");
     expect(screen.getByTestId("search-card").textContent).toBe("search");
     expect(screen.getByTestId("approve-card").textContent).toBe("approve");
   });
 
-  it("keeps the app's renderers when A2UI and generative UI are both active", async () => {
+  it("lets an app renderer for render_ui win over the built-in one", async () => {
     render(
       <CopilotKitProvider
-        a2ui={{ catalog: makeCatalog() }}
-        generativeUI={{ ui: standardUI }}
-        renderToolCalls={[weatherRenderer]}
-      >
-        <CoreCapture />
-        <ToolCallProbe name="weather" />
-      </CopilotKitProvider>,
-    );
-
-    await waitFor(() =>
-      expect(rendererNames()).toEqual(
-        expect.arrayContaining([
-          "weather",
-          RENDER_A2UI_TOOL_NAME,
-          GENERATIVE_UI_RENDER_TOOL,
-        ]),
-      ),
-    );
-    expect(screen.getByTestId("weather-card").textContent).toBe("weather");
-  });
-
-  it("lets an app renderer for render_a2ui win over the built-in one", async () => {
-    render(
-      <CopilotKitProvider
-        a2ui={{ catalog: makeCatalog() }}
+        generativeUI={generativeUI}
         renderToolCalls={[
           {
-            name: RENDER_A2UI_TOOL_NAME,
+            name: GENERATIVE_UI_RENDER_TOOL,
             args: z.any(),
-            render: () => <div data-testid="custom-a2ui">custom</div>,
+            render: () => <div data-testid="custom-render-ui">custom</div>,
           },
         ]}
       >
-        <ToolCallProbe name={RENDER_A2UI_TOOL_NAME} />
+        <ToolCallProbe name={GENERATIVE_UI_RENDER_TOOL} />
       </CopilotKitProvider>,
     );
 
-    expect((await screen.findByTestId("custom-a2ui")).textContent).toBe(
+    expect((await screen.findByTestId("custom-render-ui")).textContent).toBe(
       "custom",
     );
   });
 
   it("keeps the built-in renderer when the provider's renderers change", async () => {
-    const catalog = makeCatalog();
     const { rerender } = render(
       <CopilotKitProvider
-        a2ui={{ catalog }}
+        generativeUI={generativeUI}
         renderToolCalls={[weatherRenderer]}
       >
         <CoreCapture />
       </CopilotKitProvider>,
     );
     await waitFor(() =>
-      expect(rendererNames()).toContain(RENDER_A2UI_TOOL_NAME),
+      expect(rendererNames()).toContain(GENERATIVE_UI_RENDER_TOOL),
     );
 
     rerender(
       <CopilotKitProvider
-        a2ui={{ catalog }}
+        generativeUI={generativeUI}
         renderToolCalls={[{ ...weatherRenderer }]}
         frontendTools={[searchTool]}
       >
@@ -157,23 +128,23 @@ describe("CopilotKitProvider built-in tool renderers", () => {
     );
 
     await waitFor(() => expect(rendererNames()).toContain("search"));
-    expect(rendererNames()).toContain(RENDER_A2UI_TOOL_NAME);
+    expect(rendererNames()).toContain(GENERATIVE_UI_RENDER_TOOL);
   });
 
-  it("removes the built-in renderer when A2UI turns off", async () => {
+  it("removes the built-in renderer when generative UI turns off", async () => {
     // The same array on both renders, so only the built-in cleanup can remove
     // the renderer.
     const renderToolCalls = [weatherRenderer];
     const { rerender } = render(
       <CopilotKitProvider
-        a2ui={{ catalog: makeCatalog() }}
+        generativeUI={generativeUI}
         renderToolCalls={renderToolCalls}
       >
         <CoreCapture />
       </CopilotKitProvider>,
     );
     await waitFor(() =>
-      expect(rendererNames()).toContain(RENDER_A2UI_TOOL_NAME),
+      expect(rendererNames()).toContain(GENERATIVE_UI_RENDER_TOOL),
     );
 
     rerender(

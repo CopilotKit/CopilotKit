@@ -3,9 +3,9 @@ import { standardUI } from "../index";
 import { renderSurface } from "./render";
 
 /**
- * Tests ported from the a2ui-renderer standard catalog: literal props take
- * `{ path }` bindings. On this engine every prop accepts a binding, so the
- * tests pin that the components read the bound values.
+ * Tests ported from the standard catalog of the retired v0.9 renderer:
+ * literal props take `{ path }` bindings. On this engine every prop accepts a
+ * binding, so the tests pin that the components read the bound values.
  */
 
 // The data-table fallback of the Chart makes bound rows visible in jsdom.

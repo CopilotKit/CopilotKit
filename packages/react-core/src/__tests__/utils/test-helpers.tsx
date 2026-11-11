@@ -196,6 +196,7 @@ export function renderWithCopilotKit({
   threadId,
   defaultThrottleMs,
   mcpApps,
+  generativeUI,
   injectStyles,
   children,
 }: {
@@ -210,6 +211,7 @@ export function renderWithCopilotKit({
   threadId?: string;
   defaultThrottleMs?: number;
   mcpApps?: CopilotKitProviderProps["mcpApps"];
+  generativeUI?: CopilotKitProviderProps["generativeUI"];
   injectStyles?: boolean;
   children?: React.ReactNode;
 }): ReturnType<typeof render> {
@@ -227,6 +229,7 @@ export function renderWithCopilotKit({
       humanInTheLoop={humanInTheLoop}
       defaultThrottleMs={defaultThrottleMs}
       mcpApps={mcpApps}
+      generativeUI={generativeUI}
       injectStyles={injectStyles}
     >
       <CopilotChatConfigurationProvider

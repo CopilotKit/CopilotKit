@@ -2,7 +2,6 @@
 
 import type { AbstractAgent } from "@ag-ui/client";
 import type {
-  ɵA2UIBaseOptions,
   ɵCopilotKitProviderBaseOptions,
   ɵRuntimeInfo,
   ɵStableArrayProp,
@@ -14,7 +13,6 @@ import {
   ɵassembleProviderToolRenderers,
   ɵassembleProviderTools,
   ɵhitlRenderProps,
-  ɵresolveA2UIActivation,
   ɵstableArrayPropWarning,
   ɵtoLearningConfig,
 } from "@copilotkit/core";
@@ -66,11 +64,8 @@ import {
   OpenGenerativeUIActivityRenderer,
   OpenGenerativeUIToolRenderer,
 } from "../components/OpenGenerativeUIRenderer";
-import { createA2UIMessageRenderer } from "../a2ui/A2UIMessageRenderer";
-import type { A2UIActionInterceptor } from "../a2ui/A2UIMessageRenderer";
-import type { A2UIRecoveryRendererOptions } from "../a2ui/A2UIRecoveryStates";
-import { A2UIBuiltInToolCallRenderer } from "../a2ui/A2UIToolCallRenderer";
 import { useGenerativeUIRoot } from "../generative-ui/use-generative-ui-root";
+import { useStandardUIFallback } from "../generative-ui/use-standard-ui-fallback";
 import type { GenerativeUIConfig } from "../generative-ui/runtime-context";
 import {
   createGenerativeUIActivityRenderer,
@@ -78,14 +73,6 @@ import {
   GenerativeUIToolCallRenderer,
 } from "../generative-ui/chat";
 import { GenerativeUIRuntimeContext } from "../generative-ui/runtime-context";
-import {
-  viewerTheme,
-  filterCatalog,
-  Catalog,
-  basicCatalog as a2uiBasicCatalog,
-} from "@copilotkit/a2ui-renderer";
-import { A2UICatalogController } from "@copilotkit/a2ui-renderer/catalog-schema";
-import type { Theme as A2UITheme } from "@copilotkit/a2ui-renderer";
 import { CopilotKitCoreReact } from "../lib/react-core";
 import type {
   ReactActivityMessageRenderer,
@@ -196,54 +183,15 @@ export interface CopilotKitProviderProps extends ɵCopilotKitProviderBaseOptions
    */
   showIntelligenceIndicator?: boolean;
   /**
-   * Configuration for the A2UI (Agent-to-UI) renderer.
-   * The built-in A2UI renderer is activated automatically when the runtime reports
-   * that `a2ui` is configured in `CopilotRuntime`. This prop is optional and only
-   * needed if you want to override the default theme.
-   *
-   * @example
-   * ```tsx
-   * <CopilotKitProvider runtimeUrl="/api/copilotkit" a2ui={{ theme: myCustomTheme }}>
-   *   {children}
-   * </CopilotKitProvider>
-   * ```
-   */
-  a2ui?: ɵA2UIBaseOptions & {
-    /**
-     * Override the default A2UI viewer theme.
-     * When omitted, the built-in `viewerTheme` from `@copilotkit/a2ui-renderer` is used.
-     */
-    theme?: A2UITheme;
-    /**
-     * Optional component catalog to pass to the A2UI renderer.
-     * When omitted, the default basicCatalog is used.
-     */
-    catalog?: any;
-    /**
-     * Optional custom loading component shown while an A2UI surface is generating.
-     * When omitted, a default animated skeleton is shown.
-     */
-    loadingComponent?: React.ComponentType;
-    /**
-     * Options for the A2UI error-recovery status UI (OSS-162): how long before
-     * the transient "Retrying…" hint appears, after how many attempts, and how
-     * much retry/debug detail to surface. When omitted, sane defaults apply.
-     */
-    recovery?: A2UIRecoveryRendererOptions;
-    /**
-     * Intercept A2UI user actions before they reach the agent: return `null`
-     * to handle an action client-side (e.g. a `navigate` event), return an
-     * action to forward that one instead, or return nothing to forward it
-     * unchanged.
-     */
-    onAction?: A2UIActionInterceptor;
-  };
-  /**
    * Experimental. Native generative UI: `generativeUI={{ ui }}`, where `ui`
    * comes from `createGenerativeUI`. The agent renders your React components
    * into chat or into `<GenerativeUISurface id>` mounts. Props that match
    * the declared state and events that match the declared functions are
    * bound by the library, and the model does not see them.
+   *
+   * When it is left out and the runtime turns generative UI on, the provider
+   * uses `standardUI` for the agents the runtime names. The standard
+   * components load on demand, the first time the runtime turns it on.
    */
   generativeUI?: GenerativeUIConfig;
 }
@@ -292,7 +240,6 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
   showIntelligenceIndicator = true,
   useSingleEndpoint,
   onError,
-  a2ui,
   generativeUI,
   mcpApps,
   defaultThrottleMs,
@@ -325,23 +272,15 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
   // Core's runtime info snapshot, projected once the core exists (see the
   // subscription effect below). `null` until the first sync.
   const [runtimeInfo, setRuntimeInfo] = useState<ɵRuntimeInfo | null>(null);
-  const runtimeA2UIEnabled = runtimeInfo?.a2uiEnabled ?? false;
   const runtimeOpenGenUIEnabled = runtimeInfo?.openGenerativeUIEnabled ?? false;
-  // Bumped by onCatalogComponentsChanged so the filtered catalog re-derives
-  // when a component is enabled/disabled after mount.
-  const [catalogToggleVersion, setCatalogToggleVersion] = useState(0);
   const openGenUIActive = ɵisOpenGenerativeUIActive({
     runtimeEnabled: runtimeOpenGenUIEnabled,
     configured: !!openGenerativeUI,
   });
-  // A catalog passed to the provider is enough to turn A2UI on: render the
-  // surfaces locally and forward the catalog signal so the runtime injects the
-  // render tool — no runtime-side `a2ui` config required.
-  const a2uiActive = ɵresolveA2UIActivation({
-    runtimeEnabled: runtimeA2UIEnabled,
-    hasCatalog: !!a2ui?.catalog,
-  }).active;
-  const generativeUIActive = !!generativeUI?.ui;
+  // The app's `generativeUI`, or the standard UI when the runtime turns
+  // generative UI on and the app has none (loaded on demand).
+  const generativeUIConfig = useStandardUIFallback(generativeUI, runtimeInfo);
+  const generativeUIActive = !!generativeUIConfig?.ui;
   const runtimeLicenseStatus = runtimeInfo?.licenseStatus;
   const runtimeEntitlements = runtimeInfo?.runtimeEntitlements;
   const runtimeEntitlementRetryPending =
@@ -386,33 +325,10 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
     ReactActivityMessageRenderer<any>
   >(renderActivityMessages, "renderActivityMessages");
 
-  // Stable core instance ref, declared here (before the activity-renderer memo)
-  // so the filtered-catalog memo can read enablement off the current instance.
-  // The instance itself is created in the ref-init block below; on the very
-  // first render `current` is still null (nothing is disabled yet), so the
-  // filtered catalog correctly equals the full catalog.
+  // Stable core instance ref, declared here so the human-in-the-loop memo
+  // below can read the core lazily. The instance itself is created further
+  // down.
   const copilotkitRef = useRef<CopilotKitCoreReact | null>(null);
-
-  // Raw catalog provided by the caller (typed loosely to match `a2ui.catalog?: any`).
-  const rawCatalog = a2ui?.catalog as Catalog<any> | undefined;
-
-  // Derive the FILTERED catalog for the render path: only components currently
-  // enabled on core. Re-derives when enablement changes (catalogToggleVersion
-  // bump from `a2uiCatalogController` below). The advertisement path is that
-  // controller, which filters with the same `filterCatalog`, so a disabled
-  // component vanishes from what the model sees AND what can paint.
-  const filteredCatalog = useMemo(() => {
-    if (!rawCatalog) return rawCatalog;
-    // Only genuine `Catalog` instances are filtered (as the controller does). Callers may
-    // also pass a minimal catalog-shaped object; only filter genuine instances.
-    if (!(rawCatalog instanceof Catalog)) return rawCatalog;
-    const core = copilotkitRef.current;
-    return filterCatalog(rawCatalog, (name) =>
-      core ? core.isCatalogComponentEnabled(name) : true,
-    );
-    // catalogToggleVersion forces re-derivation when enablement changes.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rawCatalog, catalogToggleVersion]);
 
   const mcpAppsAllowSameOrigin = mcpApps?.allowSameOriginFallback === true;
 
@@ -421,20 +337,6 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
     () =>
       ɵassembleActivityRenderers<ReactActivityMessageRenderer<any>>({
         app: renderActivityMessagesList,
-        // The a2ui-surface renderer owns the WHOLE generative-UI lifecycle
-        // (OSS-162): building skeleton → retrying → hard-failure → painted
-        // surface, all on one activity, swapped in place. `recovery` tunes the
-        // pre-paint UX (timing + debug exposure); the server can override
-        // debugExposure via the middleware.
-        a2ui: a2uiActive
-          ? createA2UIMessageRenderer({
-              theme: a2ui?.theme ?? viewerTheme,
-              catalog: filteredCatalog,
-              loadingComponent: a2ui?.loadingComponent,
-              recovery: a2ui?.recovery,
-              onAction: a2ui?.onAction,
-            })
-          : undefined,
         builtIns: [
           {
             activityType: MCPAppsActivityType,
@@ -455,17 +357,14 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
       }),
     [
       renderActivityMessagesList,
-      a2uiActive,
       openGenUIActive,
       generativeUIActive,
-      a2ui,
-      filteredCatalog,
       mcpAppsAllowSameOrigin,
     ],
   );
 
-  // Key fallback, Copilot Cloud URL, transport, agent merge and the catalog
-  // property all come from core.
+  // Key fallback, Copilot Cloud URL, transport and agent merge all come from
+  // core.
   const resolvedConfig = useMemo(
     () =>
       ɵresolveProviderConfig({
@@ -476,7 +375,6 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
         agents__unsafe_dev_only: agents,
         selfManagedAgents,
         properties,
-        a2uiCatalog: a2ui?.catalog,
       }),
     [
       runtimeUrl,
@@ -486,7 +384,6 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
       agents,
       selfManagedAgents,
       properties,
-      a2ui?.catalog,
     ],
   );
   const resolvedPublicKey = resolvedConfig.publicKey;
@@ -596,8 +493,8 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
     ],
   );
 
-  // One core for the provider lifetime (ref declared above so the
-  // filtered-catalog memo can read enablement off it), disposed on unmount.
+  // One core for the provider lifetime (ref declared above), disposed on
+  // unmount.
   // Updates are applied via setter effects below rather than recreating the
   // instance.
   const copilotkit = ɵuseOwnedCore(
@@ -628,32 +525,9 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
         learning: learningConfig,
       }),
   );
-  const generativeUIRuntime = useGenerativeUIRoot(copilotkit, generativeUI);
-
-  // Shared with Vue and Angular: registers the catalog's components with core
-  // (for the inspector), tells this provider when one is toggled so the
-  // filtered catalog above re-derives, and owns the A2UI agent context entries
-  // (scoped to `copilotkit.ɵruntimeInfo.a2uiAgents`, #5369).
-  const [a2uiCatalogController] = useState(
-    () => new A2UICatalogController<Catalog<any>>(copilotkit, a2uiBasicCatalog),
-  );
-  useEffect(
-    () =>
-      a2uiCatalogController.subscribe(() =>
-        setCatalogToggleVersion((v) => v + 1),
-      ),
-    [a2uiCatalogController],
-  );
-  useEffect(() => {
-    a2uiCatalogController.update({
-      enabled: a2uiActive,
-      catalog: rawCatalog,
-      includeSchema: a2ui?.includeSchema,
-    });
-  }, [a2uiCatalogController, a2uiActive, rawCatalog, a2ui?.includeSchema]);
-  useEffect(
-    () => () => a2uiCatalogController.dispose(),
-    [a2uiCatalogController],
+  const generativeUIRuntime = useGenerativeUIRoot(
+    copilotkit,
+    generativeUIConfig,
   );
 
   // Project core's runtime info snapshot (one object with every `/info`
@@ -837,7 +711,6 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
       <SandboxFunctionsContext.Provider value={sandboxFunctionsList}>
         <CopilotKitContext.Provider value={contextValue}>
           <LicenseContext.Provider value={licenseState.context}>
-            {a2uiActive && <A2UIBuiltInToolCallRenderer />}
             {generativeUIActive && <GenerativeUIToolCallRenderer />}
             <MarkdownRendererProvider renderer={markdownRenderer}>
               <CopilotKitInspectorContextProvider value={inspectorContextValue}>

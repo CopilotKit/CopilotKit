@@ -148,7 +148,6 @@ export default defineConfig([
       "@copilotkit/shared",
       "@copilotkit/react-core/context",
       "@copilotkit/web-inspector",
-      "@copilotkit/a2ui-renderer",
       // Keep @copilotkit/web-components (the Lit drawer element) + its subpaths
       // external. The drawer wrapper loads it via a client-only dynamic import;
       // bundling it inline ships a duplicate element + a second copy of lit-html,
@@ -232,7 +231,6 @@ export default defineConfig([
       "@copilotkit/core",
       "@copilotkit/shared",
       "@copilotkit/web-inspector",
-      "@copilotkit/a2ui-renderer",
       "@copilotkit/mcp-apps-renderer/activity",
       "@ag-ui/client",
       "@ag-ui/core",
@@ -248,7 +246,6 @@ export default defineConfig([
         "@copilotkit/core": "CopilotKitCore",
         "@copilotkit/shared": "CopilotKitShared",
         "@copilotkit/web-inspector": "CopilotKitWebInspector",
-        "@copilotkit/a2ui-renderer": "CopilotKitA2UIRenderer",
         "@copilotkit/mcp-apps-renderer/activity":
           "CopilotKitMcpAppsRendererActivity",
         "@ag-ui/client": "AgUIClient",

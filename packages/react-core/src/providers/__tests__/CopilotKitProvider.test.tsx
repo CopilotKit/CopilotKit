@@ -7,7 +7,10 @@ import { z } from "zod";
 import { ToolCallStatus } from "@copilotkit/core";
 import type { ReactFrontendTool } from "../../types/frontend-tool";
 import type { ReactHumanInTheLoop } from "../../types/human-in-the-loop";
-import { DEFAULT_AGENT_ID } from "@copilotkit/shared";
+import {
+  DEFAULT_AGENT_ID,
+  GENERATIVE_UI_ACTIVITY_TYPE,
+} from "@copilotkit/shared";
 import { HttpAgent } from "@ag-ui/client";
 import { defineWebInspector } from "@copilotkit/web-inspector";
 import { CopilotKitProvider, useCopilotKit } from "../CopilotKitProvider";
@@ -620,7 +623,7 @@ describe("CopilotKitProvider", () => {
     });
   });
 
-  describe("a2ui prop", () => {
+  describe("generative UI from the runtime", () => {
     const originalFetch = global.fetch;
     let restoreLocation: () => void = () => {};
 
@@ -635,48 +638,40 @@ describe("CopilotKitProvider", () => {
       restoreLocation();
     });
 
-    it("does not register an a2ui-surface renderer by default", () => {
+    const mockInfo = (generativeUI?: { enabled: boolean }) => {
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          version: "1.0.0",
+          agents: {},
+          audioFileTranscriptionEnabled: false,
+          ...(generativeUI ? { generativeUI } : {}),
+        }),
+      });
+    };
+
+    const surfaceRenderers = (copilotkit: {
+      renderActivityMessages: readonly {
+        activityType: string;
+        render: unknown;
+      }[];
+    }) =>
+      copilotkit.renderActivityMessages.filter(
+        (r) => r.activityType === GENERATIVE_UI_ACTIVITY_TYPE,
+      );
+
+    it("does not register a generative UI surface renderer by default", () => {
       const { result } = renderHook(() => useCopilotKit(), {
         wrapper: ({ children }) => (
           <CopilotKitProvider>{children}</CopilotKitProvider>
         ),
       });
 
-      const a2uiRenderer =
-        result.current.copilotkit.renderActivityMessages.find(
-          (r) => r.activityType === "a2ui-surface",
-        );
-      expect(a2uiRenderer).toBeUndefined();
+      expect(surfaceRenderers(result.current.copilotkit)).toEqual([]);
     });
 
-    it("does not register an a2ui-surface renderer when a2ui.theme is provided but runtime has not signaled a2uiEnabled", () => {
-      const customTheme = { components: {}, elements: {}, markdown: {} } as any;
-
-      const { result } = renderHook(() => useCopilotKit(), {
-        wrapper: ({ children }) => (
-          <CopilotKitProvider a2ui={{ theme: customTheme }}>
-            {children}
-          </CopilotKitProvider>
-        ),
-      });
-
-      const a2uiRenderer =
-        result.current.copilotkit.renderActivityMessages.find(
-          (r) => r.activityType === "a2ui-surface",
-        );
-      expect(a2uiRenderer).toBeUndefined();
-    });
-
-    it("registers an a2ui-surface renderer when runtime reports a2uiEnabled: true", async () => {
-      global.fetch = vi.fn().mockResolvedValue({
-        ok: true,
-        json: async () => ({
-          version: "1.0.0",
-          agents: {},
-          audioFileTranscriptionEnabled: false,
-          a2uiEnabled: true,
-        }),
-      });
+    it("registers a generative UI surface renderer when the runtime reports generativeUI enabled", async () => {
+      mockInfo({ enabled: true });
 
       const { result } = renderHook(() => useCopilotKit(), {
         wrapper: ({ children }) => (
@@ -687,105 +682,12 @@ describe("CopilotKitProvider", () => {
       });
 
       await vi.waitFor(() => {
-        const a2uiRenderer =
-          result.current.copilotkit.renderActivityMessages.find(
-            (r) => r.activityType === "a2ui-surface",
-          );
-        expect(a2uiRenderer).toBeDefined();
+        expect(surfaceRenderers(result.current.copilotkit)).toHaveLength(1);
       });
     });
 
-    describe("A2UI catalog context scoping (#5369)", () => {
-      // setupTests pins randomUUID to a constant ("mock-thread-id"), which
-      // makes every addContext id collide so the ContextStore can only hold a
-      // single entry. These tests assert on all four catalog entries, so they
-      // need unique ids.
-      beforeEach(async () => {
-        const { randomUUID } = await import("@copilotkit/shared");
-        let n = 0;
-        vi.mocked(randomUUID).mockImplementation(() => `ctx-uuid-${n++}`);
-      });
-
-      afterEach(async () => {
-        const { randomUUID } = await import("@copilotkit/shared");
-        vi.mocked(randomUUID).mockImplementation(() => "mock-thread-id");
-      });
-
-      it("scopes the A2UI catalog context entries to the runtime's a2ui agents", async () => {
-        global.fetch = vi.fn().mockResolvedValue({
-          ok: true,
-          json: async () => ({
-            version: "1.0.0",
-            agents: {},
-            audioFileTranscriptionEnabled: false,
-            a2uiEnabled: true,
-            a2ui: { enabled: true, agents: ["my_a2ui_agent"] },
-          }),
-        });
-
-        const { result } = renderHook(() => useCopilotKit(), {
-          wrapper: ({ children }) => (
-            <CopilotKitProvider runtimeUrl="http://localhost:3000/api">
-              {children}
-            </CopilotKitProvider>
-          ),
-        });
-
-        await vi.waitFor(() => {
-          expect(
-            Object.values(result.current.copilotkit.context).length,
-          ).toBeGreaterThanOrEqual(4);
-        });
-
-        const entries = Object.values(result.current.copilotkit.context);
-        for (const entry of entries) {
-          expect(entry.agentIds).toEqual(["my_a2ui_agent"]);
-        }
-      });
-
-      it("leaves the A2UI catalog context unscoped when the runtime applies a2ui to all agents", async () => {
-        global.fetch = vi.fn().mockResolvedValue({
-          ok: true,
-          json: async () => ({
-            version: "1.0.0",
-            agents: {},
-            audioFileTranscriptionEnabled: false,
-            a2uiEnabled: true,
-            a2ui: { enabled: true },
-          }),
-        });
-
-        const { result } = renderHook(() => useCopilotKit(), {
-          wrapper: ({ children }) => (
-            <CopilotKitProvider runtimeUrl="http://localhost:3000/api">
-              {children}
-            </CopilotKitProvider>
-          ),
-        });
-
-        await vi.waitFor(() => {
-          expect(
-            Object.values(result.current.copilotkit.context).length,
-          ).toBeGreaterThanOrEqual(4);
-        });
-
-        const entries = Object.values(result.current.copilotkit.context);
-        for (const entry of entries) {
-          expect(entry.agentIds).toBeUndefined();
-        }
-      });
-    });
-
-    it("does not register an a2ui-surface renderer when runtime reports a2uiEnabled: false", async () => {
-      global.fetch = vi.fn().mockResolvedValue({
-        ok: true,
-        json: async () => ({
-          version: "1.0.0",
-          agents: {},
-          audioFileTranscriptionEnabled: false,
-          a2uiEnabled: false,
-        }),
-      });
+    it("does not register a generative UI surface renderer when the runtime reports it off", async () => {
+      mockInfo({ enabled: false });
 
       const { result } = renderHook(() => useCopilotKit(), {
         wrapper: ({ children }) => (
@@ -795,31 +697,19 @@ describe("CopilotKitProvider", () => {
         ),
       });
 
-      // Let the connection settle
       await vi.waitFor(() => {
-        expect(global.fetch).toHaveBeenCalled();
-      });
-
-      const a2uiRenderer =
-        result.current.copilotkit.renderActivityMessages.find(
-          (r) => r.activityType === "a2ui-surface",
+        expect(result.current.copilotkit.runtimeConnectionStatus).toBe(
+          "connected",
         );
-      expect(a2uiRenderer).toBeUndefined();
+      });
+      expect(surfaceRenderers(result.current.copilotkit)).toEqual([]);
     });
 
-    it("user-provided renderActivityMessages with activityType a2ui-surface takes precedence over built-in", async () => {
-      global.fetch = vi.fn().mockResolvedValue({
-        ok: true,
-        json: async () => ({
-          version: "1.0.0",
-          agents: {},
-          audioFileTranscriptionEnabled: false,
-          a2uiEnabled: true,
-        }),
-      });
+    it("puts a user-provided generative UI surface renderer before the built-in one", async () => {
+      mockInfo({ enabled: true });
 
       const userRenderer = {
-        activityType: "a2ui-surface",
+        activityType: GENERATIVE_UI_ACTIVITY_TYPE,
         content: {} as any,
         render: () => null,
       };
@@ -836,12 +726,9 @@ describe("CopilotKitProvider", () => {
       });
 
       await vi.waitFor(() => {
-        const renderers =
-          result.current.copilotkit.renderActivityMessages.filter(
-            (r) => r.activityType === "a2ui-surface",
-          );
+        const renderers = surfaceRenderers(result.current.copilotkit);
         // Both present; user-provided comes first (index 0)
-        expect(renderers.length).toBeGreaterThanOrEqual(1);
+        expect(renderers).toHaveLength(2);
         expect(renderers[0]!.render).toBe(userRenderer.render);
       });
     });
@@ -1123,52 +1010,6 @@ describe("CopilotKitProvider", () => {
         result.current.copilotkit.getTool({ toolName: "followUpTool" })
           ?.followUp,
       ).toBe(false);
-    });
-  });
-
-  describe("a2ui catalog auto-enable", () => {
-    it("forwards a2uiCatalogAvailable when a catalog is passed to the provider", () => {
-      const { result } = renderHook(() => useCopilotKit(), {
-        wrapper: ({ children }) => (
-          <CopilotKitProvider a2ui={{ catalog: { components: new Map() } }}>
-            {children}
-          </CopilotKitProvider>
-        ),
-      });
-
-      expect(result.current.copilotkit.properties.a2uiCatalogAvailable).toBe(
-        true,
-      );
-    });
-
-    it("does not forward a2uiCatalogAvailable when no catalog is passed", () => {
-      const { result } = renderHook(() => useCopilotKit(), {
-        wrapper: ({ children }) => (
-          <CopilotKitProvider a2ui={{}}>{children}</CopilotKitProvider>
-        ),
-      });
-
-      expect(
-        result.current.copilotkit.properties.a2uiCatalogAvailable,
-      ).toBeUndefined();
-    });
-
-    it("preserves user-provided properties alongside the catalog signal", () => {
-      const { result } = renderHook(() => useCopilotKit(), {
-        wrapper: ({ children }) => (
-          <CopilotKitProvider
-            a2ui={{ catalog: { components: new Map() } }}
-            properties={{ tenant: "acme" }}
-          >
-            {children}
-          </CopilotKitProvider>
-        ),
-      });
-
-      expect(result.current.copilotkit.properties).toMatchObject({
-        tenant: "acme",
-        a2uiCatalogAvailable: true,
-      });
     });
   });
 });

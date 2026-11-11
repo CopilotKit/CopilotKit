@@ -68,6 +68,42 @@ const writeTree = (root, files) => {
   }
 };
 
+/**
+ * A stub of @a2ui/web_core shaped like the real regression: its `/v0_9` barrel
+ * re-exports the basic catalog's Lit elements and the Lit-based `universal`
+ * module next to the DOM-free models, so importing ONE model from it loads
+ * lit-html (which reads `document` at module load) under Hermes. The surface
+ * manager of packages/core once did this. react-core no longer depends on
+ * the package, so the tests build it in a temp directory, with a stub `lit`.
+ * `entry.mjs` imports one model through the barrel.
+ */
+const A2UI_BARREL_TREE = {
+  "node_modules/@a2ui/web_core/package.json": {
+    name: "@a2ui/web_core",
+    version: "0.0.0",
+    exports: { "./v0_9": "./src/v0_9/index.js" },
+  },
+  "node_modules/@a2ui/web_core/src/v0_9/index.js":
+    'export { SurfaceModel } from "./state/surface-model.js";\n' +
+    'export { Button } from "./basic_catalog/button.js";\n' +
+    'export { element } from "../universal/element.js";\n',
+  "node_modules/@a2ui/web_core/src/v0_9/state/surface-model.js":
+    "export class SurfaceModel {}\n",
+  "node_modules/@a2ui/web_core/src/v0_9/basic_catalog/button.js":
+    'import { LitElement } from "lit";\n' +
+    "export class Button extends LitElement {}\n",
+  "node_modules/@a2ui/web_core/src/universal/element.js":
+    'import { html } from "lit";\nexport const element = html;\n',
+  "node_modules/lit/package.json": {
+    name: "lit",
+    version: "0.0.0",
+    main: "index.js",
+  },
+  "node_modules/lit/index.js":
+    "export class LitElement {}\nexport const html = 1;\n",
+  "entry.mjs": 'export { SurfaceModel } from "@a2ui/web_core/v0_9";\n',
+};
+
 /** A react-core subpath specifier, for the import-reader fixtures. */
 const coreEntry = (name) => `@copilotkit/react-core/${name}`;
 
@@ -930,12 +966,15 @@ describe("contractFor — the generative-ui/native contract", () => {
   it("skips the path and static-block checks when a caller does not ask for them", async () => {
     // assertEntryPurity's defaults: only the package list is checked. The gate
     // always passes all three fields; this keeps the opt-in explicit.
-    const barrel = await assertEntryPurity({
-      entryFile: fixture("purity-native-a2ui-barrel-entry.mjs"),
-      pkgRoot,
-      forbidden: STAND_IN,
+    await withScratch("purity-a2ui-defaults-", async (root) => {
+      writeTree(root, A2UI_BARREL_TREE);
+      const barrel = await assertEntryPurity({
+        entryFile: path.join(root, "entry.mjs"),
+        pkgRoot,
+        forbidden: STAND_IN,
+      });
+      assert.deepEqual(barrel.pathHits, []);
     });
-    assert.deepEqual(barrel.pathHits, []);
     const statics = await assertEntryPurity({
       entryFile: fixture("purity-native-static-block-entry.mjs"),
       pkgRoot,
@@ -986,20 +1025,27 @@ describe("contractFor — the generative-ui/native contract", () => {
   it("fails a native entry that imports the @a2ui/web_core/v0_9 barrel", async () => {
     // The surface manager's old regression: one model import through the
     // barrel drags the Lit basic catalog in.
-    const report = await purity("purity-native-a2ui-barrel-entry.mjs");
-    assert.ok(
-      report.pathHits.some((hit) =>
-        hit.includes("@a2ui/web_core/src/v0_9/basic_catalog/"),
-      ),
-      `expected a basic_catalog path hit, got ${JSON.stringify(report.pathHits)}`,
-    );
-    assert.ok(
-      report.pathHits.some((hit) =>
-        hit.includes("@a2ui/web_core/src/universal/"),
-      ),
-      `expected a universal path hit, got ${JSON.stringify(report.pathHits)}`,
-    );
-    assert.ok(report.hits.some(({ dep }) => dep === "lit"));
+    await withScratch("purity-a2ui-barrel-", async (root) => {
+      writeTree(root, A2UI_BARREL_TREE);
+      const report = await assertEntryPurity({
+        entryFile: path.join(root, "entry.mjs"),
+        pkgRoot,
+        ...contractFor(NATIVE),
+      });
+      assert.ok(
+        report.pathHits.some((hit) =>
+          hit.includes("@a2ui/web_core/src/v0_9/basic_catalog/"),
+        ),
+        `expected a basic_catalog path hit, got ${JSON.stringify(report.pathHits)}`,
+      );
+      assert.ok(
+        report.pathHits.some((hit) =>
+          hit.includes("@a2ui/web_core/src/universal/"),
+        ),
+        `expected a universal path hit, got ${JSON.stringify(report.pathHits)}`,
+      );
+      assert.ok(report.hits.some(({ dep }) => dep === "lit"));
+    });
   });
 
   it("fails a native entry whose first-party code has a class static block", async () => {
@@ -1265,23 +1311,25 @@ describe("runGate (the CLI block)", () => {
     );
   });
 
-  it("hands the scan forbiddenPaths: the @a2ui/web_core/v0_9 barrel exits 1", async () => {
-    await withDist(
-      {
-        "generative-ui/native.mjs": reexport(
-          "purity-native-a2ui-barrel-entry.mjs",
-        ),
-      },
-      async (dist) => {
-        const { exitCode, output } = await runGate(dist, [
-          "generative-ui/native.mjs",
-        ]);
-        assert.equal(exitCode, 1, output);
-        assert.match(output, /links forbidden modules:/);
-        assert.match(output, /@a2ui\/web_core\/src\/universal\//);
-      },
-    );
-  });
+  it("hands the scan forbiddenPaths: the @a2ui/web_core/v0_9 barrel exits 1", () =>
+    withScratch("purity-a2ui-gate-", async (stub) => {
+      writeTree(stub, A2UI_BARREL_TREE);
+      await withDist(
+        {
+          "generative-ui/native.mjs": `export * from ${JSON.stringify(
+            path.join(stub, "entry.mjs"),
+          )};\n`,
+        },
+        async (dist) => {
+          const { exitCode, output } = await runGate(dist, [
+            "generative-ui/native.mjs",
+          ]);
+          assert.equal(exitCode, 1, output);
+          assert.match(output, /links forbidden modules:/);
+          assert.match(output, /@a2ui\/web_core\/src\/universal\//);
+        },
+      );
+    }));
 
   it("names only the failing entries in the closing advice", async () => {
     await withDist(
