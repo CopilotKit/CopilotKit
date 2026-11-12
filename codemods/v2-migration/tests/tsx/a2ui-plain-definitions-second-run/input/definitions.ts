@@ -4,6 +4,10 @@ import { childList, child } from "@copilotkit/react-core/generative-ui";
 /** A literal string or a data-model path binding. */
 const DynString = z.string();
 
+/** Child ids, or a template, shared by the containers. */
+const childrenRef = childList();
+const childRef = child();
+
 export const demoDefinitions = {
   Row: {
     description: "Horizontal layout container.",
@@ -12,6 +16,14 @@ export const demoDefinitions = {
       // Union with { componentId, path } for template children.
       children: childList(),
     }),
+  },
+  Column: {
+    description: "Vertical layout container.",
+    props: z.object({ children: childrenRef }),
+  },
+  Panel: {
+    description: "A panel with an optional body.",
+    props: z.object({ child: childRef.optional() }),
   },
   Card: {
     description: "A card with one child.",

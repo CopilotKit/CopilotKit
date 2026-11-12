@@ -10,6 +10,13 @@ const ActionSchema = z
   .union([z.object({ event: z.object({ name: z.string() }) }), z.null()])
   .optional();
 
+/** Child ids, or a template, shared by the containers. */
+const childrenRef = z.union([
+  z.array(z.string()),
+  z.object({ componentId: z.string(), path: z.string() }),
+]);
+const childRef = z.string();
+
 export const demoDefinitions = {
   Row: {
     description: "Horizontal layout container.",
@@ -21,6 +28,14 @@ export const demoDefinitions = {
         z.object({ componentId: z.string(), path: z.string() }),
       ]),
     }),
+  },
+  Column: {
+    description: "Vertical layout container.",
+    props: z.object({ children: childrenRef }),
+  },
+  Panel: {
+    description: "A panel with an optional body.",
+    props: z.object({ child: childRef.optional() }),
   },
   Card: {
     description: "A card with one child.",

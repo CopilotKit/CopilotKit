@@ -24,7 +24,7 @@ import { byteIndex, charIndex } from "./offsets.ts";
 const TODO = "TODO(copilotkit-2.0):";
 const GUIDE = "https://docs.copilotkit.ai/generative-ui/components/from-a2ui";
 
-export const RENDERER_NOTE = `This was a v0.9 renderer, which got \`{ props, children, dispatch }\`. A 2.0 component gets its resolved props directly, child components as slots or \`child()\` / \`childList()\` props, and calls an event or a function instead of \`dispatch\`. Rewrite it. See ${GUIDE}#convert-a-custom-catalog`;
+export const RENDERER_NOTE = `This was a v0.9 renderer, which got \`{ props, children, dispatch }\`. A 2.0 component gets its resolved props directly, child components as slots or \`child()\` / \`childList()\` props, and calls an event or a function instead of \`dispatch\`. Rewrite it, and type its props (\`z.output\` of its schema): \`createGenerativeUI\` does not infer them. See ${GUIDE}#convert-a-custom-catalog`;
 export const ANGULAR_COMPONENT_NOTE = `This was a v0.9 Angular component. In 2.0 it gets each prop as an input with its resolved value, child components as \`GenerativeUIChildren\` inputs, and an event input or a \`registerGenerativeUIFunction\` function replaces \`dispatch\` from \`injectA2UIComponentContext()\`. Update the component. See ${GUIDE}#convert-a-custom-catalog`;
 export const DESCRIPTION_NOTE = `Add a \`description\` to this component. The agent reads it to choose the component. See ${GUIDE}#convert-a-custom-catalog`;
 export const CATALOG_NOTE = `This v0.9 catalog could not be converted automatically. Rewrite it with \`createGenerativeUI({ id, extends: [standardUI], components })\`, one entry per component with \`component\`, \`description\` and plain \`props\`. See ${GUIDE}#convert-a-custom-catalog`;
@@ -33,6 +33,10 @@ export const PROVIDER_NOTE = `The \`a2ui\` option was removed in 2.0. Pass \`gen
 export const PROVIDER_OPTIONS_NOTE = `The \`a2ui\` option was removed in 2.0, and these options have no 1:1 equivalent: \`theme\` becomes the \`theme\` of the generative UI config (CSS variables), \`onAction\` becomes events or functions on the components, and \`loadingComponent\`, \`recovery\` and \`includeSchema\` are gone. Move what you need, then delete \`a2ui\`. See ${GUIDE}`;
 export const ANGULAR_PROVIDER_NOTE = `The \`a2ui\` option was removed in 2.0. Add \`provideGenerativeUI({ ui })\` from "@copilotkit/angular/generative-ui" next to \`provideCopilotKit\`, with a UI from \`createGenerativeUI\`, and delete \`a2ui\`. See ${GUIDE}#before-and-after`;
 export const PACKAGE_NOTE = `The A2UI v0.9 client (\`@copilotkit/a2ui-renderer\`, \`@copilotkit/angular/a2ui\`) was removed in 2.0. Use generative UI from the framework's \`/generative-ui\` entry: \`createGenerativeUI\` and \`standardUI\` for catalogs, \`GenerativeUISurface\` for a surface, and \`useGenerativeUIState\` and \`useGenerativeUIFunction\` for state and actions. Then delete this import. See ${GUIDE}`;
+export const CHAT_RENDERER_NOTE = `The v0.9 chat renderer (\`createA2UIMessageRenderer\`, its option and action types, \`A2UITheme\`, \`a2uiDefaultTheme\`) was removed in 2.0. Generative UI renders the chat surfaces itself: delete the renderer and its \`renderActivityMessages\` entry, pass a wrapper component as \`<CopilotChat generativeUISurface>\`, and set colors with \`generativeUI.theme\`. See ${GUIDE}`;
+export const ACTIVITY_NOTE = `2.0 sends A2UI surfaces as \`generative-ui-surface\` activities, with the A2UI 1.0 operations in \`content.operations\` (not \`a2ui_operations\`). When the runtime has generative UI on, \`a2ui-surface\` activities no longer reach the client, so this code never runs. See ${GUIDE}`;
+export const MIDDLEWARE_NOTE = `2.0's runtime runs the A2UI middleware itself for \`generativeUI: { a2uiVersion: "0.9" }\`. Delete this one, or the agent gets two, and move its options (\`injectA2UITool\`, ...) to \`generativeUI\`. See ${GUIDE}#keep-a-v09-agent`;
+export const A2UI_PACKAGES_NOTE = `CopilotKit 2.0 renders A2UI with generative UI and does not use the \`@a2ui/*\` renderers or their themes. Delete this import if it served the v0.9 client. See ${GUIDE}`;
 export const RUNTIME_NOTE = `The runtime \`a2ui\` option moved to \`generativeUI: { a2uiVersion: "0.9", ...options }\` in 2.0. The codemod could not move this one: its value is not an object literal, its \`enabled\` is not \`true\` or \`false\`, or \`generativeUI\` already sets one of its keys. Move it by hand, or delete it if it was off. See ${GUIDE}#before-and-after`;
 
 const A2UI_RENDERER = "@copilotkit/a2ui-renderer";
@@ -235,7 +239,7 @@ export function migrateA2UI(
     const edits = importEdits(current, state);
     if (edits.length > 0) current = reparse(current.commitEdits(edits));
   }
-  const todos = packageEdits(current);
+  const todos = [...packageEdits(current), ...leftoverEdits(current)];
   if (todos.length > 0) return current.commitEdits(todos);
   return state.changed ? current.text() : null;
 }
@@ -257,6 +261,83 @@ function packageEdits(rootNode: Node): Edit[] {
     if (from === undefined || !A2UI_SOURCES.has(from)) continue;
     const todo = todoAbove(statement, source, PACKAGE_NOTE);
     if (todo) edits.push(todo);
+  }
+  return edits;
+}
+
+/** The A2UI exports of the 1.x \`react-core/v2\` entry that 2.0 removed. */
+const REMOVED_CHAT_RENDERER = new Set([
+  "createA2UIMessageRenderer",
+  "A2UIMessageRendererOptions",
+  "A2UIUserAction",
+  "A2UIActionInterceptor",
+  "A2UIRecoveryRendererOptions",
+  "A2UITheme",
+  "a2uiDefaultTheme",
+]);
+
+/**
+ * TODOs for v0.9 code that the other steps do not convert: the removed chat
+ * renderer, readers of the \`a2ui-surface\` activity, an app's own
+ * \`A2UIMiddleware\`, \`@a2ui/*\` renderer imports, and renderers typed with
+ * \`RendererProps\`. Only in files that use CopilotKit.
+ */
+function leftoverEdits(rootNode: Node): Edit[] {
+  const imported = importsOf(rootNode);
+  if (!imported.some((entry) => entry.source.startsWith("@copilotkit/")))
+    return [];
+  const source = rootNode.text();
+  const edits: Edit[] = [];
+  const done = new Set<number>();
+  const add = (node: Node, note: string) => {
+    const start = node.range().start.index;
+    if (done.has(start)) return;
+    done.add(start);
+    const todo = todoAbove(node, source, note);
+    if (todo) edits.push(todo);
+  };
+  for (const entry of imported) {
+    if (
+      REMOVED_CHAT_RENDERER.has(entry.name) &&
+      (entry.source === "@copilotkit/react-core" ||
+        entry.source === "@copilotkit/react-core/v2")
+    )
+      add(entry.statement, CHAT_RENDERER_NOTE);
+    else if (entry.source.startsWith("@a2ui/"))
+      add(entry.statement, A2UI_PACKAGES_NOTE);
+  }
+  for (const statement of rootNode.findAll({
+    rule: { kind: "import_statement" },
+  })) {
+    const from = statement.field("source")?.text().slice(1, -1) ?? "";
+    // A namespace or default import of an @a2ui package has no specifier.
+    if (from.startsWith("@a2ui/")) add(statement, A2UI_PACKAGES_NOTE);
+  }
+  for (const literal of rootNode.findAll({
+    rule: { kind: "string", regex: "^[\"'`]a2ui-surface[\"'`]$" },
+  }))
+    add(enclosingStatement(literal), ACTIVITY_NOTE);
+  for (const local of localsOf(
+    rootNode,
+    ["@ag-ui/a2ui-middleware"],
+    ["A2UIMiddleware"],
+  ).keys()) {
+    for (const construction of rootNode.findAll({
+      rule: {
+        kind: "new_expression",
+        has: { field: "constructor", regex: `^${local}$` },
+      },
+    }))
+      add(enclosingStatement(construction), MIDDLEWARE_NOTE);
+  }
+  for (const [local, framework] of a2uiLocals(rootNode, "RendererProps")) {
+    for (const reference of references(rootNode, local)) {
+      if (reference.kind() !== "type_identifier") continue;
+      add(
+        enclosingStatement(reference),
+        framework === "angular" ? ANGULAR_COMPONENT_NOTE : RENDERER_NOTE,
+      );
+    }
   }
   return edits;
 }
@@ -918,6 +999,113 @@ function definitionEdits(
 }
 
 /**
+ * A top-level `const` that holds a v0.9 child reference and that only
+ * `children` or `child` props of the definitions use, such as
+ * `const childrenRef = z.array(z.string())` with `children: childrenRef`.
+ * Its value becomes `childList()` or `child()`; a description stays.
+ */
+function childRefConstEdits(
+  rootNode: Node,
+  z: string,
+  objects: Map<number, { object: Node; framework: Framework }>,
+  state: State,
+): Edit[] {
+  const edits: Edit[] = [];
+  /** By const name: the role of each use, and the framework. */
+  const uses = new Map<string, { roles: Set<string>; framework: Framework }>();
+  for (const { object, framework } of objects.values()) {
+    for (const entry of entriesOf(object) ?? []) {
+      const value = unwrap(
+        entry.kind() === "pair" ? entry.field("value") : null,
+      );
+      const fields = value?.kind() === "object" ? entriesOf(value) : null;
+      const props = fields && entryNamed(fields, "props");
+      const call = props?.kind() === "pair" ? props.field("value") : null;
+      if (calleeOf(call) !== `${z}.object`) continue;
+      const shape = unwrap(argumentNodes(call!)[0]);
+      for (const prop of (shape?.kind() === "object" && entriesOf(shape)) ||
+        []) {
+        if (prop.kind() !== "pair") continue;
+        const schema = prop.field("value");
+        if (!schema) continue;
+        const { base } = peelSchema(schema);
+        if (base.kind() !== "identifier") continue;
+        const record = uses.get(base.text()) ?? {
+          roles: new Set<string>(),
+          framework,
+        };
+        record.roles.add(keyOf(prop) ?? "");
+        uses.set(base.text(), record);
+      }
+    }
+  }
+  for (const [name, { roles, framework }] of uses) {
+    const declarator = rootNode.find({
+      rule: {
+        kind: "variable_declarator",
+        has: { field: "name", regex: `^${name.replace(/\$/g, "\\$")}$` },
+      },
+    });
+    const declaration = declarator?.parent();
+    const init = declarator?.field("value");
+    if (
+      !declarator ||
+      !init ||
+      declaration?.kind() !== "lexical_declaration" ||
+      !["program", "export_statement"].includes(
+        declaration.parent()?.kind() ?? "",
+      )
+    )
+      continue;
+    const { base, optional, description, ref } = peelSchema(init);
+    const compact = base.text().replace(/\s/g, "");
+    const suffix = optional ? ".optional()" : "";
+    // Every use outside the definitions would keep the old meaning.
+    const declaredAt = declarator.field("name")!.range().start.index;
+    const outside = references(rootNode, name).filter(
+      (reference) => reference.range().start.index !== declaredAt,
+    ).length;
+    const inProps = [...roles].length > 0;
+    const from = GENERATIVE_UI_SOURCE[framework];
+    const isList =
+      ref === "ChildList" ||
+      (roles.size === 1 &&
+        roles.has("children") &&
+        (compact === `${z}.array(${z}.string())` ||
+          isTemplateChildUnion(base, z)));
+    const isChild =
+      ref === "ComponentId" ||
+      (roles.size === 1 && roles.has("child") && compact === `${z}.string()`);
+    if (!inProps || outside === 0) continue;
+    if (!isList && !isChild) continue;
+    // Only when the definitions are the only users of the const.
+    const propUses = rootNode
+      .findAll({ rule: { kind: "identifier", regex: `^${name}$` } })
+      .filter((reference) => {
+        if (reference.range().start.index === declaredAt) return false;
+        let node: Node | null = reference;
+        while (
+          node?.parent() &&
+          ["member_expression", "call_expression", "arguments"].includes(
+            node.parent()!.kind(),
+          )
+        )
+          node = node.parent();
+        const pair = node?.parent();
+        return (
+          pair?.kind() === "pair" &&
+          ["children", "child"].includes(keyOf(pair) ?? "")
+        );
+      }).length;
+    if (propUses !== outside) continue;
+    const helper = isList ? "childList" : "child";
+    need(state, from, helper);
+    edits.push(init.replace(`${helper}(${description ?? ""})${suffix}`));
+  }
+  return edits;
+}
+
+/**
  * A v0.9 definitions object (typed `CatalogDefinitions`, or the definitions
  * of a `createCatalog` call in the file): the type goes, and the props of
  * each component follow the 2.0 conventions (see `definitionEdits`).
@@ -987,6 +1175,7 @@ function definitionsEdits(rootNode: Node, state: State): Edit[] {
       );
     }
   }
+  edits.push(...childRefConstEdits(rootNode, z, objects, state));
   // A local action schema that only the moved props used goes too, with
   // the comments above it.
   for (const [name, moved] of movedSchemas) {

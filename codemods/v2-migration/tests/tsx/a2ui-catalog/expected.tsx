@@ -12,7 +12,7 @@ export const myCatalog = createGenerativeUI({
   id: "acme/flights",
   extends: [standardUI],
   components: {
-    // TODO(copilotkit-2.0): This was a v0.9 renderer, which got `{ props, children, dispatch }`. A 2.0 component gets its resolved props directly, child components as slots or `child()` / `childList()` props, and calls an event or a function instead of `dispatch`. Rewrite it. See https://docs.copilotkit.ai/generative-ui/components/from-a2ui#convert-a-custom-catalog
+    // TODO(copilotkit-2.0): This was a v0.9 renderer, which got `{ props, children, dispatch }`. A 2.0 component gets its resolved props directly, child components as slots or `child()` / `childList()` props, and calls an event or a function instead of `dispatch`. Rewrite it, and type its props (`z.output` of its schema): `createGenerativeUI` does not infer them. See https://docs.copilotkit.ai/generative-ui/components/from-a2ui#convert-a-custom-catalog
     Airport: {
       component: ({ props }) => (
         <div>
@@ -23,7 +23,7 @@ export const myCatalog = createGenerativeUI({
       description: "An airport by IATA code, with its city under it.",
       props: z.object({ code: z.string(), city: z.string() }),
     },
-    // TODO(copilotkit-2.0): This was a v0.9 renderer, which got `{ props, children, dispatch }`. A 2.0 component gets its resolved props directly, child components as slots or `child()` / `childList()` props, and calls an event or a function instead of `dispatch`. Rewrite it. See https://docs.copilotkit.ai/generative-ui/components/from-a2ui#convert-a-custom-catalog
+    // TODO(copilotkit-2.0): This was a v0.9 renderer, which got `{ props, children, dispatch }`. A 2.0 component gets its resolved props directly, child components as slots or `child()` / `childList()` props, and calls an event or a function instead of `dispatch`. Rewrite it, and type its props (`z.output` of its schema): `createGenerativeUI` does not infer them. See https://docs.copilotkit.ai/generative-ui/components/from-a2ui#convert-a-custom-catalog
     // TODO(copilotkit-2.0): Add a `description` to this component. The agent reads it to choose the component. See https://docs.copilotkit.ai/generative-ui/components/from-a2ui#convert-a-custom-catalog
     Price: {
       component: ({ props, dispatch }) => (
@@ -36,7 +36,7 @@ export const myCatalog = createGenerativeUI({
       }),
     },
     // Drawn between two airports.
-    // TODO(copilotkit-2.0): This was a v0.9 renderer, which got `{ props, children, dispatch }`. A 2.0 component gets its resolved props directly, child components as slots or `child()` / `childList()` props, and calls an event or a function instead of `dispatch`. Rewrite it. See https://docs.copilotkit.ai/generative-ui/components/from-a2ui#convert-a-custom-catalog
+    // TODO(copilotkit-2.0): This was a v0.9 renderer, which got `{ props, children, dispatch }`. A 2.0 component gets its resolved props directly, child components as slots or `child()` / `childList()` props, and calls an event or a function instead of `dispatch`. Rewrite it, and type its props (`z.output` of its schema): `createGenerativeUI` does not infer them. See https://docs.copilotkit.ai/generative-ui/components/from-a2ui#convert-a-custom-catalog
     // TODO(copilotkit-2.0): Add a `description` to this component. The agent reads it to choose the component. See https://docs.copilotkit.ai/generative-ui/components/from-a2ui#convert-a-custom-catalog
     Arrow: {
       component: () => <span aria-hidden="true">→</span>,
@@ -50,7 +50,7 @@ export const label: string = "Flights";
 export const inlineCatalog = createGenerativeUI({
   id: "copilotkit://custom-catalog",
   components: {
-    // TODO(copilotkit-2.0): This was a v0.9 renderer, which got `{ props, children, dispatch }`. A 2.0 component gets its resolved props directly, child components as slots or `child()` / `childList()` props, and calls an event or a function instead of `dispatch`. Rewrite it. See https://docs.copilotkit.ai/generative-ui/components/from-a2ui#convert-a-custom-catalog
+    // TODO(copilotkit-2.0): This was a v0.9 renderer, which got `{ props, children, dispatch }`. A 2.0 component gets its resolved props directly, child components as slots or `child()` / `childList()` props, and calls an event or a function instead of `dispatch`. Rewrite it, and type its props (`z.output` of its schema): `createGenerativeUI` does not infer them. See https://docs.copilotkit.ai/generative-ui/components/from-a2ui#convert-a-custom-catalog
     Badge: {
       component: ({ props }) => <em>{props.text}</em>,
       description: "A small label.",
@@ -62,7 +62,7 @@ export const inlineCatalog = createGenerativeUI({
 export const cardCatalog = createGenerativeUI({
   id: "copilotkit://custom-catalog",
   components: {
-    // TODO(copilotkit-2.0): This was a v0.9 renderer, which got `{ props, children, dispatch }`. A 2.0 component gets its resolved props directly, child components as slots or `child()` / `childList()` props, and calls an event or a function instead of `dispatch`. Rewrite it. See https://docs.copilotkit.ai/generative-ui/components/from-a2ui#convert-a-custom-catalog
+    // TODO(copilotkit-2.0): This was a v0.9 renderer, which got `{ props, children, dispatch }`. A 2.0 component gets its resolved props directly, child components as slots or `child()` / `childList()` props, and calls an event or a function instead of `dispatch`. Rewrite it, and type its props (`z.output` of its schema): `createGenerativeUI` does not infer them. See https://docs.copilotkit.ai/generative-ui/components/from-a2ui#convert-a-custom-catalog
     Card: {
       component: sharedRenderers.Card,
       description: "A card with a title and children.",
@@ -78,7 +78,7 @@ export const cardCatalog = createGenerativeUI({
 export const sharedCatalog = createGenerativeUI({
   id: "copilotkit://custom-catalog",
   components: {
-    // TODO(copilotkit-2.0): This was a v0.9 renderer, which got `{ props, children, dispatch }`. A 2.0 component gets its resolved props directly, child components as slots or `child()` / `childList()` props, and calls an event or a function instead of `dispatch`. Rewrite it. See https://docs.copilotkit.ai/generative-ui/components/from-a2ui#convert-a-custom-catalog
+    // TODO(copilotkit-2.0): This was a v0.9 renderer, which got `{ props, children, dispatch }`. A 2.0 component gets its resolved props directly, child components as slots or `child()` / `childList()` props, and calls an event or a function instead of `dispatch`. Rewrite it, and type its props (`z.output` of its schema): `createGenerativeUI` does not infer them. See https://docs.copilotkit.ai/generative-ui/components/from-a2ui#convert-a-custom-catalog
     Title: {
       component: ({ props }) => <h1>{props.text}</h1>,
       ...sharedDefinitions.Title,
