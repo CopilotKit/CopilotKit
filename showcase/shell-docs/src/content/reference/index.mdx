@@ -233,6 +233,10 @@ export function Providers({ children }: { children: ReactNode }) {
   or loopback hosts. It is shown by default unless set to `false`, and is never
   loaded on remote hosts, in production, or during SSR, even when explicitly
   set to `true`.
+
+  2.0 removed the `showDevConsole` prop and its error banners. Runtime, agent,
+  and tool errors show in the Inspector. To handle them in your code, use
+  `onError`.
 </PropertyReference>
 
 <PropertyReference name="onError" type="(event: { error: Error; code: CopilotKitCoreErrorCode; context: Record<string, any> }) => void | Promise<void>">

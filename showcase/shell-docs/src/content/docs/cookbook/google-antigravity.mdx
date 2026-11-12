@@ -122,7 +122,10 @@ pnpm add @copilotkit/react-core@2 @copilotkit/runtime@2 @copilotkit/a2ui-rendere
 ```
 
 `@copilotkit/a2ui-renderer` draws the test results card, and `@ag-ui/client` connects the runtime to the Python agent.
-The A2UI catalog needs zod 3, so `zod` stays on 3.25.76.
+The A2UI catalog needs zod 3: `@copilotkit/a2ui-renderer` reads zod 3 schemas, so `zod` stays on 3.25.76.
+The other CopilotKit packages bring their own zod 4. This app uses its zod only for the catalog, a tool renderer's
+`parameters`, and the agent state. A tool schema that CopilotKit sends to the agent, such as `useFrontendTool`
+`parameters`, needs zod 4.2 or later. See [Upgrade to Zod 4.2 or later](/migrate/v2#upgrade-to-zod-42-or-later).
 
 The provider wraps the app. It points at the runtime route, registers the A2UI catalog for the test results card
 (you'll build it in a later step), and turns on the CopilotKit Inspector in development:

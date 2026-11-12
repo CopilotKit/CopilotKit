@@ -104,7 +104,7 @@ export function Chat() {
 
 `CopilotChat` accepts all props from [`CopilotChatViewProps`](/reference/components/CopilotChatView) **except** `messages`, `isRunning`, `suggestions`, `suggestionLoadingIndexes`, and `onSelectSuggestion`, which are managed internally by the agent connection. `CopilotChat` also manages the view's attachment props (`onRemoveAttachment`, `onAddFile`, `dragOver`, `onDragOver`, `onDragLeave`, and `onDrop`) internally. Its own `attachments` prop takes an `AttachmentsConfig`, not the view's `Attachment[]`.
 
-This means you can pass the slot overrides `messageView`, `scrollView`, `input`, `suggestionView`, `welcomeScreen`, and `intelligenceIndicator` directly to `CopilotChat`. To change the disclaimer, pass `input={{ disclaimer: MyDisclaimer }}`.
+This means you can pass the slot overrides `messageView`, `scrollView`, `input`, `suggestionView`, `welcomeScreen`, and `intelligenceIndicator` directly to `CopilotChat`. To change the disclaimer, pass `input={{ disclaimer: MyDisclaimer }}`. To hide it, pass `input={{ showDisclaimer: false }}`. To change only its text, set `labels.chatDisclaimerText`.
 
 <PropertyReference name="autoScroll" type="AutoScrollMode | boolean" default="true">
   Controls how the chat scrolls when messages arrive. `AutoScrollMode` is

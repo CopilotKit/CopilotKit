@@ -13,12 +13,12 @@ description: Drop-in React Native chat surfaces, from a full-screen chat to a bo
 
 | Component | Import | What it draws | Native peers |
 | --- | --- | --- | --- |
-| `CopilotChat` | `/components` | A full-screen chat | `@gorhom/bottom-sheet`, `react-native-gesture-handler`, `react-native-reanimated`, `react-native-streamdown` |
+| `CopilotChat` | `/components` | A full-screen chat | `@gorhom/bottom-sheet`, `react-native-gesture-handler`, `react-native-reanimated` |
 | `CopilotModal` | `/components` | The same chat in a bottom sheet | Same as above |
 | `CopilotPopup` | root | A floating button and a modal card around your chat UI | `expo-document-picker`, `expo-file-system` |
 | `CopilotSidebar` | root | A right-side drawer around your chat UI | `expo-document-picker`, `expo-file-system` |
 
-Metro resolves every peer of a surface when you import from it, even peers of components you don't use. See [Import surfaces](/quickstart#import-surfaces). Follow each library's own setup guide. For example, `react-native-streamdown` has peers of its own and a required `react-native-worklets` setup, described in its [installation guide](https://github.com/software-mansion-labs/react-native-streamdown#installation).
+Metro resolves every peer of a surface when you import from it, even peers of components you don't use. See [Import surfaces](/quickstart#import-surfaces). Follow each library's own setup guide. Markdown needs no peer: `CopilotMarkdown` uses `@copilotkit/markdown`, which `@copilotkit/react-native` installs for you.
 
 <Callout type="warn" title="Two components named CopilotChat">
   The root `CopilotChat` and `CopilotModal` draw nothing. They give an agent to their children through `useCopilotChatContext`. The ones that draw a chat come from `@copilotkit/react-native/components`. If you get a blank screen, check the import path.

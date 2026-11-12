@@ -98,13 +98,19 @@ agents at all. The prebuilt components default to the agent named `"default"`.
   import { openaiText } from "@tanstack/ai-openai";
 
   const runtime = new CopilotRuntime({
-    agents: { default: new BuiltInAgent({ model: openaiText("gpt-5.5") }) },
+    agents: { default: new BuiltInAgent({ model: openaiText("gpt-6-luna") }) },
   });
   ```
 - Confirm the id matches the "Known agents" list in the message.
 - Verify the runtime is reachable by hitting `GET {runtimeUrl}/info` directly (see
   [Runtime HTTP endpoints](/backend/runtime-endpoints)). A discovery failure here
   cascades into this error.
+
+`useAgent` throws this error while it renders, so your nearest React error
+boundary catches it. It does not go to `onError`. `useAgent` throws only after
+`/info` loads. If `/info` itself fails, `useAgent` waits instead, `onError`
+gets the code `runtime_info_fetch_failed`, and the Inspector shows a
+**Runtime error**.
 
 ## Agent route returned 404
 

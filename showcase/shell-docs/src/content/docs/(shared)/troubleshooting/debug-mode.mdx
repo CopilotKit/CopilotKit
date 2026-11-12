@@ -18,7 +18,7 @@ Enable it to see:
 - The full lifecycle of a request from start to finish
 
 <Callout type="info">
-  For visual error display during local development (error banners, dev console), see [Error Debugging](/troubleshooting/error-debugging). Debug mode focuses on event pipeline logging rather than UI-level error display.
+  For visual error display during local development (the Inspector), see [Error Debugging](/troubleshooting/error-debugging). Debug mode focuses on event pipeline logging rather than UI-level error display.
 </Callout>
 
 ## Enabling Debug Mode
@@ -33,7 +33,7 @@ import { BuiltInAgent } from "@copilotkit/runtime/agent";
 import { openaiText } from "@tanstack/ai-openai";
 
 const runtime = new CopilotRuntime({
-  agents: { default: new BuiltInAgent({ model: openaiText("gpt-5.5") }) },
+  agents: { default: new BuiltInAgent({ model: openaiText("gpt-6-luna") }) },
   debug: true, // [!code highlight]
 });
 ```
@@ -139,7 +139,7 @@ import { BuiltInAgent } from "@copilotkit/runtime/agent";
 import { openaiText } from "@tanstack/ai-openai";
 
 const runtime = new CopilotRuntime({
-  agents: { default: new BuiltInAgent({ model: openaiText("gpt-5.5") }) },
+  agents: { default: new BuiltInAgent({ model: openaiText("gpt-6-luna") }) },
   debug: {
     events: true, // Log every event emitted/received
     lifecycle: true, // Log request/run lifecycle (start, finish, error)
@@ -168,7 +168,7 @@ import { BuiltInAgent } from "@copilotkit/runtime/agent";
 import { openaiText } from "@tanstack/ai-openai";
 
 const runtime = new CopilotRuntime({
-  agents: { default: new BuiltInAgent({ model: openaiText("gpt-5.5") }) },
+  agents: { default: new BuiltInAgent({ model: openaiText("gpt-6-luna") }) },
   debug: { events: false, lifecycle: true },
 });
 ```
@@ -181,7 +181,7 @@ import { BuiltInAgent } from "@copilotkit/runtime/agent";
 import { openaiText } from "@tanstack/ai-openai";
 
 const runtime = new CopilotRuntime({
-  agents: { default: new BuiltInAgent({ model: openaiText("gpt-5.5") }) },
+  agents: { default: new BuiltInAgent({ model: openaiText("gpt-6-luna") }) },
   debug: { events: true, lifecycle: false, verbose: true },
 });
 ```

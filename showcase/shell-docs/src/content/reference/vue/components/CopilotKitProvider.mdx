@@ -205,6 +205,10 @@ const properties: CopilotKitProviderProps["properties"] = {
   Controls the CopilotKit Inspector during development. It is enabled by
   default in browser development builds and is never loaded in production or
   during SSR. In a Vue template, pass `:enable-inspector="false"` to disable it.
+
+  2.0 removed the `showDevConsole` prop and its error banners. Runtime, agent,
+  and tool errors show in the Inspector. To handle them in your code, use
+  `onError`.
 </PropertyReference>
 
 <PropertyReference name="onError" type="(event: { error: Error; code: CopilotKitCoreErrorCode; context: Record<string, any> }) => void | Promise<void>">

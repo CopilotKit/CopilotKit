@@ -31,7 +31,7 @@ The `useThreads` hook lists, creates, renames, archives, and deletes CopilotKit 
 - A model provider key supported by your runtime
 
 For multi-user applications, configure the Runtime to
-[scope AG-UI Streams to the signed-in user](/threads-lifecycle#scope-rich-threads-to-the-signed-in-user)
+[scope CopilotKit threads to the signed-in user](/threads-lifecycle#scope-copilotkit-threads-to-the-signed-in-user)
 before exposing thread lists or lifecycle actions.
 
 Already have threads in LangGraph, ADK, Mastra, or Strands? See
@@ -57,7 +57,7 @@ Already have threads in LangGraph, ADK, Mastra, or Strands? See
 
         const runtime = new CopilotRuntime({
           agents: {
-            default: new BuiltInAgent({ model: openaiText("gpt-5.5") }),
+            default: new BuiltInAgent({ model: openaiText("gpt-6-luna") }),
           },
           // Without `intelligence` the runtime runs in SSE mode and the thread
           // UI has nothing to list — chat still works, so this fails quietly.

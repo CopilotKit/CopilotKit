@@ -100,7 +100,9 @@ import { CopilotChatInput } from "@copilotkit/react-core";
 
 <PropertyReference name="showDisclaimer" type="boolean">
   Whether to show the disclaimer. Defaults to `true` for `"absolute"`
-  positioning and `false` for `"static"`.
+  positioning and `false` for `"static"`. `CopilotChatView`, and so
+  `CopilotChat`, `CopilotPopup`, and `CopilotSidebar`, pass `true`. To hide
+  the disclaimer there, pass `input={{ showDisclaimer: false }}`.
 </PropertyReference>
 
 <PropertyReference
@@ -493,7 +495,7 @@ function StyledInput() {
 
 ## Behavior
 
-- **Auto-Growing Textarea**: The default textarea automatically expands as the user types, up to a maximum of 5 rows. After reaching the maximum, the textarea becomes scrollable.
+- **Auto-Growing Textarea**: The default textarea automatically expands as the user types, up to a maximum of 5 rows. After reaching the maximum, the textarea becomes scrollable. The React input has no prop to change the row limit.
 - **Layout Stacking**: When the input text spans multiple rows, the layout switches from inline (textarea and buttons side by side) to stacked (textarea above the control row containing the action buttons).
 - **Mode Switching**: Setting `mode` to `"transcribe"` replaces the textarea with the `audioRecorder` slot component. The transcription control buttons (`cancelTranscribeButton`, `finishTranscribeButton`) replace the standard send button.
 - **Controlled and Uncontrolled**: The component supports both controlled mode (via `value` and `onChange`) and uncontrolled mode (internal state management).

@@ -173,7 +173,7 @@ stays visible:
 Either form logs the same one-line warning the first time it fires. The
 warning fires once per store, not once per eviction. A busy thread that trims
 a run on every append logs one line. Every eviction after that line is silent.
-Clearing the store re-arms the warning, so one more line can fire after it. Treat the line as a signal that
+Clearing threads (`POST /threads/clear`) does not re-arm the warning. Treat the line as a signal that
 eviction is happening, not a per-drop audit.
 
 Eviction also weakens message de-duplication on that thread. `run()` strips

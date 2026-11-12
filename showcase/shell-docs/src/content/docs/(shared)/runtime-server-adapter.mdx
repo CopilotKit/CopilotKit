@@ -709,7 +709,8 @@ Express has no dedicated adapter. Mount the Node listener from
 `basePath: "/"`. Express strips the mount prefix from `req.url`, so the base
 path is relative to the mount.
 
-The listener is not an Express router. Keep `.use()`, `.get()`, and your other
+`createCopilotNodeListener` returns a Node request listener, `(req, res) => void`.
+It is not an Express router. Keep `.use()`, `.get()`, and your other
 routes on your own app. Mount the listener only on the runtime path: a request
 that matches no runtime route gets a runtime 404 and does not call `next()`.
 

@@ -61,6 +61,8 @@ Use this prompt to set up CopilotKit in your React Native app, configure Metro a
             </Tab>
         </Tabs>
 
+        This quickstart does not need `zod`. When you write tool `parameters` or a [generative UI](#generative-ui-with-your-own-components) catalog, install `zod` 4.2 or later (`npm install zod`). Every import comes from `@copilotkit/react-native` or one of its subpaths. CopilotKit 2.0 has no `/v2` subpath.
+
         <Callout type="info" title="TypeScript: use bundler module resolution">
             The `/headless`, `/components`, `/generative-ui` and `/polyfills` subpaths are published through the package `exports` map, which TypeScript's legacy `"moduleResolution": "node"` (`node10`) ignores. Under that setting, type checking fails with `Cannot find module '@copilotkit/react-native/headless'` even though Metro bundles the app. Set `"moduleResolution": "bundler"` in `tsconfig.json`; if `module` is `commonjs` or unset, also set `"module": "esnext"`. `@react-native/typescript-config` and Expo's base config already use `bundler`.
         </Callout>
@@ -322,7 +324,7 @@ The quickstart above is enough for a development build. Read this section and th
 |--------|--------------|---------------------------------|
 | `@copilotkit/react-native/headless` | `CopilotKitProvider` and every platform-agnostic hook. No components. | **None** |
 | `@copilotkit/react-native` (root) | Everything in `/headless`, plus `useAttachments`, the two context-only chat wrappers (`CopilotChat`, `CopilotModal`) and the `CopilotSidebar` / `CopilotPopup` chrome | `expo-document-picker`, `expo-file-system` (via `useAttachments`) |
-| `@copilotkit/react-native/components` | The **rendered** chat UI: a `CopilotChat` with a message list, a bottom-sheet `CopilotModal`, `CopilotMarkdown`, `AssistantMessage`, `UserMessage` | `@gorhom/bottom-sheet` (which itself needs `react-native-reanimated` + `react-native-gesture-handler`), `react-native-streamdown` |
+| `@copilotkit/react-native/components` | The **rendered** chat UI: a `CopilotChat` with a message list, a bottom-sheet `CopilotModal`, `CopilotMarkdown`, `AssistantMessage`, `UserMessage` | `@gorhom/bottom-sheet` (which itself needs `react-native-reanimated` + `react-native-gesture-handler`) |
 
 Supporting entry points:
 
@@ -1447,7 +1449,7 @@ So read the records your app actually holds, and confirm the answer names those 
 
 ## Known limitations
 
-- **Markdown in a custom UI**: the rendered chat on `@copilotkit/react-native/components` renders markdown for you (via `CopilotMarkdown`, backed by `react-native-streamdown`). If you build your own UI, a plain `Text` shows markdown as-is. Reuse `CopilotMarkdown` or bring your own renderer.
+- **Markdown in a custom UI**: the rendered chat on `@copilotkit/react-native/components` renders markdown for you (via `CopilotMarkdown`, backed by `@copilotkit/markdown`). If you build your own UI, a plain `Text` shows markdown as-is. Reuse `CopilotMarkdown` or bring your own renderer.
 - **Inspector**: the [Inspector](/inspector#where-inspector-runs) is a browser overlay that mounts a custom element into the DOM, so it has no React Native surface and `@copilotkit/react-native` does not ship it. The three checks under [Proving it works](#proving-it-works) cover what it would have shown you.
 - **Voice**: `@copilotkit/voice` has not been adapted for React Native; wire your own STT as above.
 - **Cloud provider props**: `publicApiKey` / `licenseToken` are not supported on the React Native provider; connect via `runtimeUrl`.

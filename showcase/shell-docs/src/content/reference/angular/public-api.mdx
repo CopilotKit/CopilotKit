@@ -4,10 +4,16 @@ description: "Supported entry points and API families for @copilotkit/angular."
 ---
 
 The supported entry points are `@copilotkit/angular`,
-`@copilotkit/angular/a2ui`, and `@copilotkit/angular/mcp-apps`. The
-published package includes `API.md`, an alphabetized, machine-validated list of
-every exported value and type. A test resolves all three TypeScript entry points and
-requires every export to appear exactly once in that inventory.
+`@copilotkit/angular/a2ui`, `@copilotkit/angular/generative-ui`, and
+`@copilotkit/angular/mcp-apps`. Three more subpaths add optional renderers to
+generative UI: `@copilotkit/angular/generative-ui/chart`,
+`@copilotkit/angular/generative-ui/map`, and
+`@copilotkit/angular/generative-ui/icons`.
+
+The published package includes `API.md`, an alphabetized, machine-validated
+list of every exported value and type. A test resolves the root, A2UI,
+generative UI, and MCP Apps entry points and requires every export to appear
+exactly once in that inventory.
 
 ## Root API families
 
@@ -56,6 +62,24 @@ them.
 The `@copilotkit/angular/a2ui` entry point exports `basicCatalog`,
 `createAngularCatalog`, `injectA2UIComponentContext`, and the catalog,
 component, and schema types for rendering A2UI with your own Angular components.
+
+## Generative UI API family
+
+The `@copilotkit/angular/generative-ui` entry point lets the agent render your
+own Angular components. It exports `provideGenerativeUI`, the catalog helpers
+`createGenerativeUI`, `child`, and `childList`, the standard catalog
+`standardUI`, the `CopilotGenerativeUI` and `CopilotGenerativeUISurface`
+components, and their configuration types. See
+[Components and surfaces](/generative-ui/components).
+
+Each of the three subpaths exports one provider. Add it next to
+`provideGenerativeUI`, and add its library to your app:
+
+| Subpath | Provider | Library | Without the provider |
+| --- | --- | --- | --- |
+| `@copilotkit/angular/generative-ui/chart` | `provideGenerativeUIChart()` | `chart.js` | `Chart` shows its data as a table. |
+| `@copilotkit/angular/generative-ui/map` | `provideGenerativeUIMap()` | `maplibre-gl` | `Map` shows its markers as a list. |
+| `@copilotkit/angular/generative-ui/icons` | `provideGenerativeUIIcons()` | `lucide` | Icons render nothing. |
 
 ## MCP Apps API family
 

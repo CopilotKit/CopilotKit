@@ -281,7 +281,7 @@ function OrderSearch() {
 
 ## Behavior
 
-- **Same name**: If a tool with the same `name` is already registered, the hook logs a warning. The new tool is active while the component is mounted. When the component unmounts, the earlier tool is active again. This also applies to a tool that you pass to `CopilotKitProvider`.
+- **Same name**: If a tool with the same `name` and `agentId` is already registered, the hook logs a warning. The new tool is active while the component is mounted. When the component unmounts, the earlier tool is active again. This also applies to a tool that you pass to `CopilotKitProvider`.
 - **Mount/Unmount lifecycle**: The tool and its optional render component are registered on mount. On unmount, the hook removes the tool. The render component stays registered, so past tool calls still render in the chat history.
 - **Dependency tracking**: When `deps` is provided, the tool registration is refreshed whenever a dependency changes. Plain data compares by value. A function never counts as changed. Class instances and other objects compare by identity.
 - **WebMCP registration**: With `webmcp` set, the tool is also registered on `document.modelContext` and unregistered on unmount. The tool needs a `description` for this (WebMCP rejects tools without one).

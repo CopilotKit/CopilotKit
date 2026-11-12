@@ -150,7 +150,7 @@ When you are done, your Runtime will send selected Threads to a Learning Space, 
 
     const runtime = new CopilotRuntime({
       agents: {
-        "expense-agent": new BuiltInAgent({ model: openaiText("gpt-5.5") }),
+        "expense-agent": new BuiltInAgent({ model: openaiText("gpt-6-luna") }),
       },
       intelligence,
       identifyUser: async (request) => {

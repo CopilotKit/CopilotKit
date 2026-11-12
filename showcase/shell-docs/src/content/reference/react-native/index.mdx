@@ -5,6 +5,8 @@ description: "API reference for @copilotkit/react-native: the headless provider,
 
 `@copilotkit/react-native` brings CopilotKit to React Native. It ships a lightweight [provider](/reference/react-native/components/CopilotKitProvider), a set of prebuilt UI components, hooks built for React Native, and re-exports of the platform-agnostic hooks from `@copilotkit/react-core`. Everything is built on the [AG-UI](https://docs.ag-ui.com) agent protocol, with no DOM, CSS, or web framework dependencies.
 
+Import from `@copilotkit/react-native` or one of its subpaths (`/headless`, `/components`, `/generative-ui`, `/polyfills`). CopilotKit 2.0 has no `/v2` subpath.
+
 ## Installation
 
 New to CopilotKit on React Native? Start with the [React Native quickstart](/react-native).
@@ -12,6 +14,8 @@ New to CopilotKit on React Native? Start with the [React Native quickstart](/rea
 ```sh
 npm install @copilotkit/react-native
 ```
+
+You do not need `zod` to install the package. To write tool `parameters` or a [generative UI](/react-native#generative-ui-with-your-own-components) catalog, install `zod` 4.2 or later (`npm install zod`). The `child()` and `childList()` helpers return zod 4 schemas.
 
 The prebuilt UI components and native attachments rely on a few optional peer dependencies:
 

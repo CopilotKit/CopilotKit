@@ -182,7 +182,7 @@ import { BuiltInAgent } from "@copilotkit/runtime/agent";
 import { openaiText } from "@tanstack/ai-openai";
 
 const runtime = new CopilotRuntime({
-  agents: { default: new BuiltInAgent({ model: openaiText("gpt-5.5") }) },
+  agents: { default: new BuiltInAgent({ model: openaiText("gpt-6-luna") }) },
 });
 
 const handler = createCopilotRuntimeHandler({
@@ -220,6 +220,10 @@ const handler = createCopilotRuntimeHandler({
   hosts, and is always disabled on remote hosts, in production, and during
   server rendering. An explicit value takes priority over `CopilotChat`'s
   `inspectorTools` prop.
+
+  2.0 removed the `showDevConsole` prop and its error banners. Runtime, agent,
+  and tool errors show in the Inspector. To handle them in your code, use
+  `onError`.
 </PropertyReference>
 
 <PropertyReference name="showIntelligenceIndicator" type="boolean">

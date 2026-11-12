@@ -139,7 +139,7 @@ import { BuiltInAgent } from "@copilotkit/runtime/agent";
 import { openaiText } from "@tanstack/ai-openai";
 
 const runtime = new CopilotRuntime({
-  agents: { default: new BuiltInAgent({ model: openaiText("gpt-5.5") }) },
+  agents: { default: new BuiltInAgent({ model: openaiText("gpt-6-luna") }) },
   a2ui: {}, // enables A2UI rendering for all agents
 });
 ```
@@ -152,7 +152,7 @@ import { BuiltInAgent } from "@copilotkit/runtime/agent";
 import { openaiText } from "@tanstack/ai-openai";
 
 const runtime = new CopilotRuntime({
-  agents: { "my-agent": new BuiltInAgent({ model: openaiText("gpt-5.5") }) },
+  agents: { "my-agent": new BuiltInAgent({ model: openaiText("gpt-6-luna") }) },
   a2ui: { agents: ["my-agent"] },
 });
 ```
@@ -210,7 +210,7 @@ import { BuiltInAgent } from "@copilotkit/runtime/agent";
 import { openaiText } from "@tanstack/ai-openai";
 
 const runtime = new CopilotRuntime({
-  agents: { default: new BuiltInAgent({ model: openaiText("gpt-5.5") }) },
+  agents: { default: new BuiltInAgent({ model: openaiText("gpt-6-luna") }) },
   mcpApps: {
     servers: [
       { type: "http", url: "http://localhost:3108/mcp", serverId: "my-server" },

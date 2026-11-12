@@ -67,7 +67,7 @@ import { openaiText } from "@tanstack/ai-openai";
 import { verifyJwt } from "./auth"; // Your token verifier.
 
 const runtime = new CopilotRuntime({
-  agents: { default: new BuiltInAgent({ model: openaiText("gpt-5.5") }) },
+  agents: { default: new BuiltInAgent({ model: openaiText("gpt-6-luna") }) },
 });
 
 const handler = createCopilotRuntimeHandler({
@@ -568,7 +568,7 @@ const intelligence = new CopilotKitIntelligence({
 });
 
 const runtime = new CopilotRuntime({
-  agents: { default: new BuiltInAgent({ model: openaiText("gpt-5.5") }) },
+  agents: { default: new BuiltInAgent({ model: openaiText("gpt-6-luna") }) },
   intelligence,
   identifyUser: async (request) => {
     const session = await verifyAppSession(request); // Your server-side auth.
@@ -611,7 +611,7 @@ For everything in the Yes rows there is no ownership table to build. What you ow
   thread scope.
 </Callout>
 
-See [Scope AG-UI Streams to the signed-in user](/threads-lifecycle#scope-rich-threads-to-the-signed-in-user) for the full runtime contract.
+See [Scope CopilotKit threads to the signed-in user](/threads-lifecycle#scope-copilotkit-threads-to-the-signed-in-user) for the full runtime contract.
 
 ### Scope threads yourself
 
@@ -654,7 +654,7 @@ import { openaiText } from "@tanstack/ai-openai";
 import { userOwnsThread, verifyRequest } from "./auth"; // Your auth and ownership checks.
 
 const runtime = new CopilotRuntime({
-  agents: { default: new BuiltInAgent({ model: openaiText("gpt-5.5") }) },
+  agents: { default: new BuiltInAgent({ model: openaiText("gpt-6-luna") }) },
 });
 
 const handler = createCopilotRuntimeHandler({

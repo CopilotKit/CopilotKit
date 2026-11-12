@@ -27,7 +27,11 @@ provideCopilotKit satisfies (config?: CopilotKitConfig) => Provider;
 
 <PropertyReference name="runtimeUrl" type="string">
   The URL of your CopilotKit runtime endpoint. Set this to route agent traffic
-  through a runtime (for example a Next.js, Express, or Hono backend).
+  through a runtime. The runtime is a Fetch handler from
+  `createCopilotRuntimeHandler` (`@copilotkit/runtime`), or a Node listener
+  from `createCopilotNodeListener` (`@copilotkit/runtime/node`). It runs in a
+  Next.js route, on an Express or Hono server, or on any platform with the
+  Fetch API. See [Deploy to any runtime](/runtime-server-adapter).
 </PropertyReference>
 
 <PropertyReference name="headers" type="Record<string, string | null | undefined> | (() => Record<string, string | null | undefined>) | (() => Promise<Record<string, string | null | undefined>>)">

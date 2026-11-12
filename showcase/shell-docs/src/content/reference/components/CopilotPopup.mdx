@@ -100,7 +100,7 @@ import { CopilotPopup } from "@copilotkit/react-core";
   Controls the welcome screen shown when no messages exist.
 </PropertyReference>
 
-The `CopilotChatView` slots `messageView`, `input`, `scrollView`, and `suggestionView` are also accepted and forwarded. To pass props to the input, use the `input` slot, for example `input={{ autoFocus: true }}`. To change the disclaimer, use `input={{ disclaimer: MyDisclaimer }}`.
+The `CopilotChatView` slots `messageView`, `input`, `scrollView`, and `suggestionView` are also accepted and forwarded. To pass props to the input, use the `input` slot, for example `input={{ autoFocus: true }}`. To change the disclaimer, use `input={{ disclaimer: MyDisclaimer }}`. To hide it, use `input={{ showDisclaimer: false }}`. To change only its text, set `labels.chatDisclaimerText`.
 
 ## Slot System
 

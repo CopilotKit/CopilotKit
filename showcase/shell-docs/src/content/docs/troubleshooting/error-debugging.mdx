@@ -10,7 +10,7 @@ When a run fails, you need to see the error while you develop and send it to you
 
 ## Quick setup
 
-The Inspector is on by default in development builds. `enableInspector` controls it:
+The Inspector is on by default in development builds on localhost. `enableInspector` controls it:
 
 ```tsx
 import { CopilotKitProvider } from "@copilotkit/react-core";
@@ -26,6 +26,8 @@ export default function App({ children }: { children: React.ReactNode }) {
   );
 }
 ```
+
+To check the setup, stop your runtime and reload the page. The Inspector launcher shows a **Runtime error** pill. Open the Inspector to see the details. An `onError` handler gets the code `runtime_info_fetch_failed`.
 
 <Callout type="info">
 The Inspector never loads in production builds, so it does not expose internal error details to end users. See [Inspector and dev console](/troubleshooting/inspector-dev-console).

@@ -38,6 +38,20 @@ npx codemod @copilotkit/v2-migration
 | `@copilotkit/vue`                        | `@copilotkit/vue/v2`                  |
 | `CopilotTextarea` (`@copilotkit/react-textarea`) | Removed. 2.0 has no equivalent. |
 
+## Minimum versions
+
+CopilotKit 2.0 removes the v1 APIs, so v1 and 2.0 code cannot run side by
+side in one app. Upgrade every `@copilotkit/*` package to 2.0 at the same time.
+
+2.0 needs:
+
+- Node.js `^20.19.3` or `>=22.13.0` for `@copilotkit/runtime`, and Node.js 20
+  or later for the other packages. See
+  [Check your Node.js and LangChain versions](#check-your-nodejs-and-langchain-versions).
+- React 18 or 19.
+- Zod 4.2 or later for your tool schemas. See
+  [Upgrade to Zod 4.2 or later](#upgrade-to-zod-42-or-later).
+
 ## Migration Steps
 
 <Steps>
@@ -253,7 +267,7 @@ import { BuiltInAgent } from "@copilotkit/runtime/agent";
 import { openaiText } from "@tanstack/ai-openai";
 
 const runtime = new CopilotRuntime({
-  agents: { default: new BuiltInAgent({ model: openaiText("gpt-5.5") }) },
+  agents: { default: new BuiltInAgent({ model: openaiText("gpt-6-luna") }) },
 });
 
 const handler = createCopilotRuntimeHandler({

@@ -7,12 +7,16 @@ description: "Vue 3 component for displaying assistant messages with Markdown, t
 
 `CopilotChatAssistantMessage` is a Vue 3 component that displays assistant messages with Markdown support, tool call rendering, and an action toolbar. [`CopilotChatMessageView`](/reference/vue/components/CopilotChatMessageView) renders it as the default assistant message. For user messages, see [`CopilotChatUserMessage`](/reference/vue/components/CopilotChatUserMessage).
 
-Markdown is rendered with `streamdown-vue` (`StreamMarkdown`):
+Markdown is rendered with CopilotKit's streaming renderer from
+[`@copilotkit/markdown`](/reference/packages/markdown):
 
-- GitHub Flavored Markdown tables, with copy and download actions.
-- Math expressions. KaTeX styles load automatically.
-- Code blocks highlighted by Shiki (`github-light` and `github-dark` themes), with copy and download actions.
-- Images, with a download button on hover.
+- GitHub Flavored Markdown: headings, lists, task lists, block quotes, fenced code, tables, strikethrough, and autolinks.
+- Citations, and a fade-in for each new token while the message streams.
+- No math and no syntax highlighting. Fenced code shows as plain code.
+
+To add math or highlighting, pass your own renderer with the provider's
+`markdownRenderer` prop, or use the `message-renderer` slot. See
+[Markdown Rendering](/markdown-rendering).
 
 The toolbar provides copy, thumbs up, thumbs down, read aloud, and regenerate buttons, and an Inspector button in local development. Each icon button shows its label in a tooltip on hover and on keyboard focus. The tooltip and aria labels come from the nearest `CopilotChatConfigurationProvider` (see [`useCopilotChatConfiguration`](/reference/vue/hooks/useCopilotChatConfiguration)). The thumbs up, thumbs down, read aloud, and regenerate buttons are only rendered when a listener for the corresponding event is attached. The thumbs also render while Automatic Learning records [reply ratings](#reply-ratings). The copy button is always shown when the toolbar is visible.
 
@@ -130,7 +134,7 @@ behavior to the message and toolbar handlers.
 
 <PropertyReference name="message-renderer" type="slot">
   Replaces the Markdown renderer. Receives `message` and `content` (the
-  normalized text). Use this to swap out `StreamMarkdown` for a custom renderer.
+  normalized text). Use this to swap out the built-in renderer for a custom renderer.
 </PropertyReference>
 
 <PropertyReference name="tool-calls-view" type="slot">

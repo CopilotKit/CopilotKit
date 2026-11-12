@@ -86,7 +86,7 @@ Before you start, have a working CopilotKit frontend and agent. The TypeScript t
 
     const runtime = new CopilotRuntime({
       // Your existing agent registration
-      agents: { default: new BuiltInAgent({ model: openaiText("gpt-5.5") }) },
+      agents: { default: new BuiltInAgent({ model: openaiText("gpt-6-luna") }) },
       // Pass the Intelligence client to the runtime
       intelligence,
       // Identify the user from a verified session or token

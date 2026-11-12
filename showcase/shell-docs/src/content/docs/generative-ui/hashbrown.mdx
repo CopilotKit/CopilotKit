@@ -52,10 +52,22 @@ The bundled demos pin `@hashbrownai/core` and `@hashbrownai/react` to `0.5.0-bet
 
 The UI kit exposes `metric`, `pieChart`, `barChart`, `dealCard`, and Markdown with their prop schemas. The renderer parses the streamed message against the kit schema and renders what it has so far:
 
-```tsx ignore title="hashbrown-renderer.tsx (excerpt)"
-const { value } = useJsonParser(content, kit.schema);
-if (!value) return null;
-return <div>{kit.render(value)}</div>;
+```tsx title="hashbrown-renderer.tsx (excerpt)"
+import { useJsonParser, type useUiKit } from "@hashbrownai/react";
+
+type Kit = ReturnType<typeof useUiKit>;
+
+export function AssistantMessage({
+  content,
+  kit,
+}: {
+  content: string;
+  kit: Kit;
+}) {
+  const { value } = useJsonParser(content, kit.schema);
+  if (!value) return null;
+  return <div>{kit.render(value)}</div>;
+}
 ```
 
 Chart `data` is a JSON-encoded **string**. The chart wrappers parse it before they pass an array to the chart components.
