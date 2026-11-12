@@ -58,7 +58,7 @@ The driver mounts the library without reimplementing routes, middleware, telemet
 
 ## Coverage
 
-The suite has 147 cases. These include 17 initial cases, 46 UI cases, and 18 additional analytics cases.
+The suite has 148 cases. These include 17 initial cases, 47 UI cases, and 18 additional analytics cases.
 Fourteen runner cases, 18 access cases, and five frontend-client cases cover the remaining requirements.
 Six Inspector metadata cases cover discovery, independent module validation, action URLs, private responses, server credentials, and the five-second deadline.
 Twenty-three entitlement cases cover current and legacy responses, schema validation, safe errors, server credentials, concurrent requests, and request deadlines.
@@ -66,6 +66,7 @@ Separate deadline cases delay response headers and response bodies. Both must pr
 They also verify cache expiry for active grants, inactive grants, and lookup failures through public `/info` requests.
 The active-grant case waits 31 seconds before a failed refresh, then verifies recovery after the five-second failure cache expires.
 The UI cases cover A2UI validation, progressive data, action history, MCP calls, and iframe request boundaries.
+When the A2UI recovery of a v0.9 agent gives up, the browser gets one `generative-ui-surface` with status "error", no operations, and the error as its one rejected entry.
 The generative UI cases select the A2UI version of each agent with `generativeUI.a2uiVersion`.
 An A2UI 1.0 agent gets `render_ui`. An A2UI v0.9 agent gets `render_a2ui` and a v0.9 component schema of the client's catalog.
 The browser receives only A2UI 1.0 `generative-ui-surface` events. The runtime converts v0.9 operations, also from a tool result of a 1.0 agent.
