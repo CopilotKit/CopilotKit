@@ -41,7 +41,7 @@ vi.mock("@ag-ui/mastra", () => {
 
 // Stub @copilotkit/runtime so the route module can import without pulling
 // the real runtime into the test env.
-vi.mock("@copilotkit/runtime/v2", () => ({
+vi.mock("@copilotkit/runtime", () => ({
   CopilotRuntime: vi.fn().mockImplementation(({ agents }) => ({ agents })),
   createCopilotRuntimeHandler: vi.fn(() =>
     vi.fn(async () => new Response("ok")),
@@ -64,7 +64,7 @@ import { MastraAgent, getLocalAgent } from "@ag-ui/mastra";
 import {
   CopilotRuntime,
   createCopilotRuntimeHandler,
-} from "@copilotkit/runtime/v2";
+} from "@copilotkit/runtime";
 
 const mockedGetLocalAgents = vi.mocked(MastraAgent.getLocalAgents);
 const mockedGetLocalAgent = vi.mocked(getLocalAgent);

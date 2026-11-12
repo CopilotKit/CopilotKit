@@ -5,8 +5,8 @@ import { NextResponse } from "next/server";
 import {
   CopilotRuntime,
   createCopilotRuntimeHandler,
-} from "@copilotkit/runtime/v2";
-import { LangGraphAgent } from "@copilotkit/runtime/langgraph";
+} from "@copilotkit/runtime";
+import { LangGraphAgent } from "@ag-ui/langgraph";
 
 const AGENT_URL = process.env.AGENT_URL || "http://localhost:8123";
 
@@ -19,7 +19,7 @@ const runtime = new CopilotRuntime({
   // @ts-ignore -- see main route.ts
   agents: { "declarative-gen-ui": declarativeGenUiAgent },
   // No runtime `a2ui` config: the page passes a catalog to the provider
-  // (`<CopilotKit a2ui={{ catalog }}>`), which auto-enables A2UI and defaults
+  // (`<CopilotKitProvider generativeUI={{ ui: catalog }}>`), which auto-enables A2UI and defaults
   // tool injection on (CopilotKit >= 1.61.2, PR #5611).
 });
 

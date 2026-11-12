@@ -8,14 +8,14 @@
 // https://docs.copilotkit.ai/custom-look-and-feel/customize-built-in-ui-components
 
 import React from "react";
-import { CopilotKit, CopilotChat } from "@copilotkit/react-core/v2";
+import { CopilotKitProvider, CopilotChat } from "@copilotkit/react-core";
 // @region[theme-css-import]
 import "./theme.css";
 // @endregion[theme-css-import]
 
 export default function ChatCustomizationCssDemo() {
   return (
-    <CopilotKit runtimeUrl="/api/copilotkit" agent="chat-customization-css">
+    <CopilotKitProvider runtimeUrl="/api/copilotkit" agentId="chat-customization-css">
       <div className="flex justify-center items-center h-screen w-full bg-white p-6 dark:bg-background">
         <div className="chat-css-demo-scope h-full w-full max-w-4xl">
           <CopilotChat
@@ -25,6 +25,6 @@ export default function ChatCustomizationCssDemo() {
           />
         </div>
       </div>
-    </CopilotKit>
+    </CopilotKitProvider>
   );
 }

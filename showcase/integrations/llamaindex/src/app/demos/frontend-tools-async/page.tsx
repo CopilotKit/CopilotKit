@@ -3,10 +3,10 @@
 import React from "react";
 import {
   CopilotChat,
-  CopilotKit,
+  CopilotKitProvider,
   useConfigureSuggestions,
   useFrontendTool,
-} from "@copilotkit/react-core/v2";
+} from "@copilotkit/react-core";
 import { z } from "zod";
 import { NotesCard, type Note } from "./notes-card";
 import { NOTES_DB, sleep } from "./fake-notes-db";
@@ -14,13 +14,13 @@ import { parseJsonResult } from "../_shared/parse-json-result";
 
 export default function FrontendToolsAsyncDemo() {
   return (
-    <CopilotKit runtimeUrl="/api/copilotkit" agent="frontend-tools-async">
+    <CopilotKitProvider runtimeUrl="/api/copilotkit" agentId="frontend-tools-async">
       <div className="flex justify-center items-center h-screen w-full">
         <div className="h-full w-full max-w-4xl">
           <Chat />
         </div>
       </div>
-    </CopilotKit>
+    </CopilotKitProvider>
   );
 }
 

@@ -12,7 +12,7 @@ import type { NextRequest } from "next/server";
 import {
   CopilotRuntime,
   createCopilotRuntimeHandler,
-} from "@copilotkit/runtime/v2";
+} from "@copilotkit/runtime";
 import { createClaudeHttpAgent } from "@/app/api/_shared/claude-http-agent";
 import { internalRuntimeErrorResponse } from "@/app/api/_shared/route-error";
 
@@ -26,7 +26,8 @@ const declarativeGenUiAgent = createClaudeHttpAgent(
 const runtime = new CopilotRuntime({
   // @ts-ignore -- see main route.ts
   agents: { "declarative-gen-ui": declarativeGenUiAgent },
-  a2ui: {
+  generativeUI: {
+    a2uiVersion: "0.9",
     // The backend agent owns `generate_a2ui` explicitly (see
     // src/agents/a2ui_dynamic.py), so the runtime MUST NOT auto-inject its
     // own A2UI tool on top. The A2UI middleware still runs — it serialises

@@ -19,11 +19,11 @@ import {
   CopilotRuntime,
   TranscriptionService,
   createCopilotRuntimeHandler,
-} from "@copilotkit/runtime/v2";
+} from "@copilotkit/runtime";
 import type {
   CopilotRuntimeOptions,
   TranscribeFileOptions,
-} from "@copilotkit/runtime/v2";
+} from "@copilotkit/runtime";
 import { createClaudeHttpAgent } from "@/app/api/_shared/claude-http-agent";
 import { TranscriptionServiceOpenAI } from "@copilotkit/voice";
 import OpenAI from "openai";

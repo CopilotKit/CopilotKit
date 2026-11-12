@@ -19,7 +19,7 @@ import { NextResponse } from "next/server";
 import {
   CopilotRuntime,
   createCopilotRuntimeHandler,
-} from "@copilotkit/runtime/v2";
+} from "@copilotkit/runtime";
 import type { AbstractAgent } from "@ag-ui/client";
 import { HttpAgent } from "@ag-ui/client";
 
@@ -38,7 +38,8 @@ const runtime = new CopilotRuntime({
   // @ts-ignore -- see main route.ts
   agents,
   openGenerativeUI: true,
-  a2ui: {
+  generativeUI: {
+    a2uiVersion: "0.9",
     // The targeted `main` Agno agent (`/agui`) already registers the
     // `generate_a2ui` tool itself (src/agents/main.py), so the runtime must
     // NOT inject a second copy — that would double-bind the render tool.

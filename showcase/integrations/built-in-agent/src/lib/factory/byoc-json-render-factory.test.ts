@@ -23,7 +23,7 @@ const capture: {
 
 let streamChunks: Chunk[] = [];
 
-vi.mock("@copilotkit/runtime/v2", () => ({
+vi.mock("@copilotkit/runtime", () => ({
   // `new`-able stand-in that just captures the config so the test can reach the
   // factory closure. A function rather than a class: the class form is a
   // constructor-only class, which the lint rules (rightly) flag.

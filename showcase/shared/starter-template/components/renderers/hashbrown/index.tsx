@@ -8,7 +8,6 @@ import {
   useUiKit,
   useJsonParser,
 } from "@hashbrownai/react";
-import type { RenderMessageProps } from "@copilotkit/react-ui";
 import type { AssistantMessage } from "@ag-ui/core";
 
 import { PieChart } from "../../charts/pie-chart";
@@ -263,7 +262,11 @@ export function HashBrownDashboard({ children }: HashBrownDashboardProps) {
  * Stable message renderer component that consumes the kit from context.
  * Defined at module level to avoid unstable function identity.
  */
-function HashBrownRenderMessage({ message }: RenderMessageProps) {
+function HashBrownRenderMessage({
+  message,
+}: {
+  message: { role: string; content?: string };
+}) {
   const kit = useHashBrownKit();
   if (message.role === "assistant") {
     return (

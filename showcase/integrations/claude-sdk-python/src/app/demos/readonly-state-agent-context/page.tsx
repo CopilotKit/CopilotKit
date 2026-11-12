@@ -3,19 +3,19 @@
 // @region[context-provider-sketch]
 import React, { useState } from "react";
 import {
-  CopilotKit,
+  CopilotKitProvider,
   CopilotPopup,
   useAgentContext,
-} from "@copilotkit/react-core/v2";
+} from "@copilotkit/react-core";
 
 import { ACTIVITIES, DemoLayout } from "./demo-layout";
 import { useReadonlyStateAgentContextSuggestions } from "./suggestions";
 
 export default function ReadonlyStateAgentContextDemo() {
   return (
-    <CopilotKit
+    <CopilotKitProvider
       runtimeUrl="/api/copilotkit"
-      agent="readonly-state-agent-context"
+      agentId="readonly-state-agent-context"
     >
       <DemoContent />
       <CopilotPopup
@@ -23,7 +23,7 @@ export default function ReadonlyStateAgentContextDemo() {
         defaultOpen={true}
         labels={{ chatInputPlaceholder: "Ask about your context..." }}
       />
-    </CopilotKit>
+    </CopilotKitProvider>
   );
 }
 

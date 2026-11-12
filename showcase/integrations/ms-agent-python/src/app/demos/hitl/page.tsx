@@ -2,10 +2,10 @@
 
 import React, { useState } from "react";
 import {
-  CopilotKit,
+  CopilotKitProvider,
   CopilotChat,
   useHumanInTheLoop,
-} from "@copilotkit/react-core/v2";
+} from "@copilotkit/react-core";
 import { z } from "zod";
 import { useHitlSuggestions } from "./suggestions";
 
@@ -16,9 +16,9 @@ interface Step {
 
 export default function HitlDemo() {
   return (
-    <CopilotKit runtimeUrl="/api/copilotkit" agent="human_in_the_loop">
+    <CopilotKitProvider runtimeUrl="/api/copilotkit" agentId="human_in_the_loop">
       <DemoContent />
-    </CopilotKit>
+    </CopilotKitProvider>
   );
 }
 

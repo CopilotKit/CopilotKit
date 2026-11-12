@@ -8,7 +8,7 @@
  * (../../beautiful-chat/declarative-generative-ui/renderers.tsx) so the two
  * demos read as the same product family — same card chrome, metric
  * typography, recharts donut/bar styling, and palette. The assembled catalog
- * (definitions × renderers via `createCatalog`) lives in `./catalog.ts`.
+ * (definitions × renderers via `createGenerativeUI`) lives in `./catalog.ts`.
  *
  * Reference:
  *   https://docs.copilotkit.ai/integrations/langgraph/generative-ui/a2ui
@@ -26,8 +26,9 @@ import {
   Tooltip,
   CartesianGrid,
 } from "recharts";
-import type { CatalogRenderers } from "@copilotkit/a2ui-renderer";
 import { TriangleAlert, CircleAlert, CircleCheck, Info } from "lucide-react";
+
+import type { z } from "zod";
 
 import type { MyDefinitions } from "./definitions";
 import { Badge } from "../_components/badge";
@@ -109,18 +110,30 @@ function CardShell({
   );
 }
 
+/**
+ * The props a component gets: the output of its schema. Generative UI
+ * resolves data bindings before render, and hands `child` / `children` over
+ * as rendered nodes.
+ */
+type PropsOf<Name extends keyof MyDefinitions> = z.output<
+  MyDefinitions[Name]["props"]
+>;
+
 // @region[renderers-react]
-export const myRenderers: CatalogRenderers<MyDefinitions> = {
-  Row: ({ props, children }) => {
+export const myRenderers = {
+  Row: (props: PropsOf<"Row">) => {
     const justifyMap: Record<string, string> = {
       start: "flex-start",
       center: "center",
       end: "flex-end",
       spaceBetween: "space-between",
     };
-    const items = Array.isArray(props.children) ? props.children : [];
     return (
+      // Each child takes an equal share of the row. The children are the
+      // rendered components (a template renders them as siblings too), so
+      // a child selector sizes them.
       <div
+        className="[&>*]:min-w-0 [&>*]:flex-[1_1_0]"
         style={{
           display: "flex",
           flexDirection: "row",
@@ -131,17 +144,12 @@ export const myRenderers: CatalogRenderers<MyDefinitions> = {
           width: "100%",
         }}
       >
-        {items.map((id, i) => (
-          <div key={`${id}-${i}`} style={{ flex: "1 1 0", minWidth: 0 }}>
-            {children(id)}
-          </div>
-        ))}
+        {props.children}
       </div>
     );
   },
 
-  Column: ({ props, children }) => {
-    const items = Array.isArray(props.children) ? props.children : [];
+  Column: (props: PropsOf<"Column">) => {
     return (
       <div
         style={{
@@ -151,20 +159,18 @@ export const myRenderers: CatalogRenderers<MyDefinitions> = {
           width: "100%",
         }}
       >
-        {items.map((id, i) => (
-          <React.Fragment key={`${id}-${i}`}>{children(id)}</React.Fragment>
-        ))}
+        {props.children}
       </div>
     );
   },
 
-  Text: ({ props }) => (
+  Text: (props: PropsOf<"Text">) => (
     <span style={{ fontSize: "0.85rem", color: c.cardFg, lineHeight: 1.5 }}>
       {props.text}
     </span>
   ),
 
-  Card: ({ props, children }) => (
+  Card: (props: PropsOf<"Card">) => (
     // `data-testid="declarative-card"` stays shared so existing e2e selectors
     // still find every card; `data-card-id={props.title}` disambiguates
     // sibling cards (e.g. the at-risk pill's 3 severity cards) so test
@@ -175,11 +181,11 @@ export const myRenderers: CatalogRenderers<MyDefinitions> = {
       testid="declarative-card"
       cardId={props.title}
     >
-      {props.child && children(props.child)}
+      {props.child}
     </CardShell>
   ),
 
-  StatusBadge: ({ props }) => {
+  StatusBadge: (props: PropsOf<"StatusBadge">) => {
     const variant = props.variant ?? "info";
     const Icon = {
       error: TriangleAlert,
@@ -202,7 +208,7 @@ export const myRenderers: CatalogRenderers<MyDefinitions> = {
     );
   },
 
-  Metric: ({ props }) => {
+  Metric: (props: PropsOf<"Metric">) => {
     const trendColors: Record<string, string> = {
       up: "light-dark(#059669, #34d399)",
       down: "light-dark(#dc2626, #f87171)",
@@ -262,7 +268,7 @@ export const myRenderers: CatalogRenderers<MyDefinitions> = {
     );
   },
 
-  InfoRow: ({ props }) => (
+  InfoRow: (props: PropsOf<"InfoRow">) => (
     // Divider via `border-b last:border-b-0` so the final row doesn't dangle
     // a trailing line, regardless of whether the agent wraps these in a
     // Column or drops them directly into a Card's child slot.
@@ -279,7 +285,7 @@ export const myRenderers: CatalogRenderers<MyDefinitions> = {
     </div>
   ),
 
-  DataTable: ({ props }) => {
+  DataTable: (props: PropsOf<"DataTable">) => {
     const cols = Array.isArray(props.columns) ? props.columns : [];
     const rows = Array.isArray(props.rows) ? props.rows : [];
     return (
@@ -332,17 +338,15 @@ export const myRenderers: CatalogRenderers<MyDefinitions> = {
     );
   },
 
-  PrimaryButton: ({ props, dispatch }) => (
-    <Button
-      onClick={() => {
-        if (props.action && dispatch) dispatch(props.action);
-      }}
-    >
+  PrimaryButton: (
+    props: PropsOf<"PrimaryButton"> & { action?: () => void },
+  ) => (
+    <Button onClick={() => props.action?.()}>
       {props.label}
     </Button>
   ),
 
-  PieChart: ({ props }) => {
+  PieChart: (props: PropsOf<"PieChart">) => {
     // Coerce values to numbers — the LLM sometimes emits them as strings.
     // Use a strict finite check so null/undefined/NaN/non-numeric strings are
     // surfaced via console.warn rather than silently collapsed to 0 (which
@@ -405,7 +409,7 @@ export const myRenderers: CatalogRenderers<MyDefinitions> = {
     );
   },
 
-  BarChart: ({ props }) => {
+  BarChart: (props: PropsOf<"BarChart">) => {
     // Coerce values to numbers — the LLM sometimes emits them as strings,
     // which recharts treats as categorical (unordered Y-axis ticks). Use a
     // strict finite check so null/undefined/NaN/non-numeric strings are

@@ -1,19 +1,20 @@
 /**
- * A2UI catalog DEFINITIONS — platform-agnostic.
+ * Generative UI component DEFINITIONS — platform-agnostic.
  *
  * Each entry declares a custom component name + Zod props schema + a short
- * description. The runtime's A2UI middleware serialises this schema into
- * the agent's `copilotkit.context` at request time, so the LLM knows which
- * components it may emit and what each prop expects.
+ * description. CopilotKit sends these schemas to the agent with each run,
+ * so the LLM knows which components it may emit and what each prop
+ * expects. `childList()` and `child()` mark the props that hold other
+ * components.
  *
  * The React implementations live next to these definitions in
- * `./renderers.tsx`, where they are wired through `createCatalog(...)` with
- * `includeBasicCatalog: true` so the built-in A2UI primitives (Text, Row,
+ * `./renderers.tsx`. `./catalog.ts` joins both with `createGenerativeUI`,
+ * extending the standard catalog so the built-in components (Text, Row,
  * Column, Image, Card, Button, …) come along for free.
  */
 // @region[definitions-zod]
 import { z } from "zod";
-import type { CatalogDefinitions } from "@copilotkit/a2ui-renderer";
+import { child } from "@copilotkit/react-core/generative-ui";
 
 export const myDefinitions = {
   Card: {
@@ -22,7 +23,7 @@ export const myDefinitions = {
     props: z.object({
       title: z.string(),
       subtitle: z.string().optional(),
-      child: z.string().optional(),
+      child: child().optional(),
     }),
   },
 
@@ -56,11 +57,11 @@ export const myDefinitions = {
 
   PrimaryButton: {
     description:
-      "A styled primary call-to-action button. Attach an optional `action` that will be dispatched back to the agent when the user clicks it.",
+      "A styled primary call-to-action button. Attach an optional `action` event that is sent back to the agent when the user clicks it.",
     props: z.object({
       label: z.string(),
-      action: z.any().optional(),
     }),
+    events: { action: { parameters: z.object({}) } },
   },
 
   PieChart: {
@@ -92,7 +93,7 @@ export const myDefinitions = {
       ),
     }),
   },
-} satisfies CatalogDefinitions;
+};
 // @endregion[definitions-zod]
 
 export type MyDefinitions = typeof myDefinitions;

@@ -2,10 +2,10 @@
 
 import React, { useEffect, useRef } from "react";
 import {
-  CopilotKit,
+  CopilotKitProvider,
   useAgent,
   UseAgentUpdate,
-} from "@copilotkit/react-core/v2";
+} from "@copilotkit/react-core";
 
 import type { Preferences } from "./preferences-card";
 import { DemoLayout } from "./demo-layout";
@@ -29,9 +29,9 @@ interface RWAgentState {
 
 export default function SharedStateReadWriteDemo() {
   return (
-    <CopilotKit runtimeUrl="/api/copilotkit" agent="shared-state-read-write">
+    <CopilotKitProvider runtimeUrl="/api/copilotkit" agentId="shared-state-read-write">
       <DemoContent />
-    </CopilotKit>
+    </CopilotKitProvider>
   );
 }
 

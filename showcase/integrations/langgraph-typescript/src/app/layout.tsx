@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import "@copilotkit/react-core/v2/styles.css";
 import "./globals.css";
 import { themeScript } from "../../_shared/ts/theme";
 

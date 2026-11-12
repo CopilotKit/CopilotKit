@@ -7,7 +7,7 @@
  */
 
 import { useState } from "react";
-import { useAgent, useCopilotKit } from "@copilotkit/react-core/v2";
+import { useAgent, useCopilotKit } from "@copilotkit/react-core";
 import { Sparkles } from "lucide-react";
 
 import {

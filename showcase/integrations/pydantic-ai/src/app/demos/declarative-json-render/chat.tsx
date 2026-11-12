@@ -3,7 +3,7 @@
 import {
   CopilotChat,
   CopilotChatAssistantMessage,
-} from "@copilotkit/react-core/v2";
+} from "@copilotkit/react-core";
 import { JsonRenderAssistantMessage } from "./json-render-renderer";
 import { useByocJsonRenderSuggestions } from "./suggestions";
 

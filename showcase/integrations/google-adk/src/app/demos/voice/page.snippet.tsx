@@ -7,17 +7,17 @@
 // region markers from each. See showcase/scripts/bundle-demo-content.ts.
 
 // @region[voice-page]
-import { CopilotChat, CopilotKit } from "@copilotkit/react-core/v2";
+import { CopilotChat, CopilotKitProvider } from "@copilotkit/react-core";
 
 export default function VoicePage() {
   return (
-    <CopilotKit
+    <CopilotKitProvider
       runtimeUrl="/api/copilotkit-voice"
-      agent="voice-demo"
+      agentId="voice-demo"
       useSingleEndpoint={false}
     >
       <CopilotChat />
-    </CopilotKit>
+    </CopilotKitProvider>
   );
 }
 // @endregion[voice-page]

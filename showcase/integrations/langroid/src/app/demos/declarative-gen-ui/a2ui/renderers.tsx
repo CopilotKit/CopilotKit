@@ -6,7 +6,7 @@
  * React implementations for each definition in `./definitions.ts`,
  * styled with the demo's local ShadCN-flavoured primitives in
  * `../_components/`. The assembled catalog (definitions × renderers via
- * `createCatalog`) lives in `./catalog.ts`.
+ * `createGenerativeUI`) lives in `./catalog.ts`.
  *
  * Reference:
  *   https://docs.copilotkit.ai/integrations/langgraph/generative-ui/a2ui
@@ -23,7 +23,8 @@ import {
   ResponsiveContainer,
   Rectangle,
 } from "recharts";
-import type { CatalogRenderers } from "@copilotkit/a2ui-renderer";
+
+import type { z } from "zod";
 
 import type { MyDefinitions } from "./definitions";
 import {
@@ -159,9 +160,19 @@ function AnimatedBar(props: any) {
   );
 }
 
+
+/**
+ * The props a component gets: the output of its schema. Generative UI
+ * resolves data bindings before render, and hands `child` / `children` over
+ * as rendered nodes.
+ */
+type PropsOf<Name extends keyof MyDefinitions> = z.output<
+  MyDefinitions[Name]["props"]
+>;
+
 // @region[renderers-react]
-export const myRenderers: CatalogRenderers<MyDefinitions> = {
-  Card: ({ props, children }) => (
+export const myRenderers = {
+  Card: (props: PropsOf<"Card">) => (
     <Card
       className="w-full min-w-0 overflow-hidden"
       data-testid="declarative-card"
@@ -172,13 +183,13 @@ export const myRenderers: CatalogRenderers<MyDefinitions> = {
       </CardHeader>
       {props.child && (
         <CardContent className="flex flex-col gap-4">
-          {children(props.child)}
+          {props.child}
         </CardContent>
       )}
     </Card>
   ),
 
-  StatusBadge: ({ props }) => (
+  StatusBadge: (props: PropsOf<"StatusBadge">) => (
     <Badge
       variant={props.variant ?? "info"}
       data-testid="declarative-status-badge"
@@ -187,7 +198,7 @@ export const myRenderers: CatalogRenderers<MyDefinitions> = {
     </Badge>
   ),
 
-  Metric: ({ props }) => {
+  Metric: (props: PropsOf<"Metric">) => {
     const trend = props.trend ?? "neutral";
     const arrow = trend === "up" ? "↑" : trend === "down" ? "↓" : "";
     const trendClass =
@@ -198,7 +209,7 @@ export const myRenderers: CatalogRenderers<MyDefinitions> = {
           : "text-[var(--foreground)]";
     return (
       // `flex-1 min-w-[120px]` lets a row of Metrics distribute evenly
-      // inside the basic catalog's gap-less Row — 3 metrics in a 600px
+      // inside the standard Row — 3 metrics in a 600px
       // card column get ~200px each instead of squishing to content width.
       <div
         data-testid="declarative-metric"
@@ -220,7 +231,7 @@ export const myRenderers: CatalogRenderers<MyDefinitions> = {
     );
   },
 
-  InfoRow: ({ props }) => (
+  InfoRow: (props: PropsOf<"InfoRow">) => (
     // Divider via `border-b last:border-b-0` so the final row doesn't dangle
     // a trailing line, regardless of whether the agent wraps these in a
     // Column or drops them directly into a Card's child slot.
@@ -237,7 +248,7 @@ export const myRenderers: CatalogRenderers<MyDefinitions> = {
     </div>
   ),
 
-  DataTable: ({ props }) => {
+  DataTable: (props: PropsOf<"DataTable">) => {
     const cols = Array.isArray(props.columns) ? props.columns : [];
     const rows = Array.isArray(props.rows) ? props.rows : [];
     return (
@@ -290,17 +301,17 @@ export const myRenderers: CatalogRenderers<MyDefinitions> = {
     );
   },
 
-  PrimaryButton: ({ props, dispatch }) => (
+  PrimaryButton: (props: PropsOf<"PrimaryButton"> & { action?: () => void }) => (
     <Button
       onClick={() => {
-        if (props.action && dispatch) dispatch(props.action);
+        props.action?.();
       }}
     >
       {props.label}
     </Button>
   ),
 
-  PieChart: ({ props }) => {
+  PieChart: (props: PropsOf<"PieChart">) => {
     const data = props.data ?? [];
     const safeData = Array.isArray(data) ? data : [];
     const total = safeData.reduce((sum, d) => sum + (Number(d.value) || 0), 0);
@@ -362,7 +373,7 @@ export const myRenderers: CatalogRenderers<MyDefinitions> = {
     );
   },
 
-  BarChart: ({ props }) => {
+  BarChart: (props: PropsOf<"BarChart">) => {
     const { isNew } = useSeenIndices();
     const data = props.data ?? [];
     const safeData = Array.isArray(data) ? data : [];

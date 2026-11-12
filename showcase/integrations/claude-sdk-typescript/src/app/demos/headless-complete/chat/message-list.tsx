@@ -20,7 +20,7 @@ import React, { useMemo } from "react";
 import {
   useRenderActivityMessage,
   useRenderToolCall,
-} from "@copilotkit/react-core/v2";
+} from "@copilotkit/react-core";
 import type { Message, ToolResult } from "@copilotkit/shared";
 import { ActivityWrapper } from "./message-activity";
 import { AssistantBubble } from "./message-assistant";

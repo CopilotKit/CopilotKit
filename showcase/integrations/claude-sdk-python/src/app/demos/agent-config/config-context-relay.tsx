@@ -8,7 +8,7 @@
  * it into the model's prompt.
  */
 
-import { useAgentContext } from "@copilotkit/react-core/v2";
+import { useAgentContext } from "@copilotkit/react-core";
 import type { AgentConfig } from "./config-types";
 
 export function ConfigContextRelay({ config }: { config: AgentConfig }) {

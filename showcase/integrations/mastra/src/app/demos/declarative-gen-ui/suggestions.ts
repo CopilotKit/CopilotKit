@@ -1,4 +1,4 @@
-import { useConfigureSuggestions } from "@copilotkit/react-core/v2";
+import { useConfigureSuggestions } from "@copilotkit/react-core";
 
 // Pill prompts are natural business questions — chart-type steering lives in
 // the agent's instructions (src/mastra/agents/index.ts). Each pill maps to a

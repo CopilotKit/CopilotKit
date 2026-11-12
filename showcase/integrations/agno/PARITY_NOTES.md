@@ -111,7 +111,7 @@ _run_agent_config`) that reads `RunAgentInput.forwarded_props` and builds
   `run_context.session_state["copilotkit"]["context"]` and feeds it to
   the secondary OpenAI client, so the rendered components stay in sync
   with whatever catalog the frontend registers via `<CopilotKit
-a2ui={{ catalog }}>`. See `src/app/demos/declarative-gen-ui/README.md`
+generativeUI={{ ui: catalog }}>`. See `src/app/demos/declarative-gen-ui/README.md`
   for the differences vs. the main-agent path.
 
 ### Third pass (state + multi-agent recovery)

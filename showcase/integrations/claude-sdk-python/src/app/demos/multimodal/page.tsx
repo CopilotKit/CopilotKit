@@ -24,15 +24,15 @@
  *   code path — whatever works for one works for both.
  */
 
-import { CopilotKit } from "@copilotkit/react-core/v2";
+import { CopilotKitProvider } from "@copilotkit/react-core";
 import { LegacyConverterShim } from "./legacy-converter-shim";
 import { MultimodalChat } from "./multimodal-chat";
 
 export default function MultimodalDemoPage() {
   return (
-    <CopilotKit runtimeUrl="/api/copilotkit-multimodal" agent="multimodal-demo">
+    <CopilotKitProvider runtimeUrl="/api/copilotkit-multimodal" agentId="multimodal-demo">
       <LegacyConverterShim />
       <MultimodalChat />
-    </CopilotKit>
+    </CopilotKitProvider>
   );
 }

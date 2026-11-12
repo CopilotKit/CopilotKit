@@ -12,11 +12,11 @@
 // @region[headless-useinterrupt-primitives]
 import React, { useEffect, useState } from "react";
 import {
-  CopilotKit,
+  CopilotKitProvider,
   CopilotChat,
   useConfigureSuggestions,
   useInterrupt,
-} from "@copilotkit/react-core/v2";
+} from "@copilotkit/react-core";
 import { generateFallbackSlots } from "../_shared/interrupt-fallback-slots";
 import type { TimeSlot } from "../_shared/interrupt-fallback-slots";
 
@@ -28,9 +28,9 @@ type InterruptPayload = {
 
 export default function InterruptHeadlessDemo() {
   return (
-    <CopilotKit runtimeUrl="/api/copilotkit" agent="interrupt-headless">
+    <CopilotKitProvider runtimeUrl="/api/copilotkit" agentId="interrupt-headless">
       <Layout />
-    </CopilotKit>
+    </CopilotKitProvider>
   );
 }
 

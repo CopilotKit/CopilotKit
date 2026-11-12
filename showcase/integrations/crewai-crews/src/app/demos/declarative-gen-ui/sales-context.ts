@@ -1,4 +1,4 @@
-import { useAgentContext } from "@copilotkit/react-core/v2";
+import { useAgentContext } from "@copilotkit/react-core";
 
 // Grounding data + composition rules for the sales-analyst demo persona.
 // Registered as agent context so it reaches both the primary agent (App

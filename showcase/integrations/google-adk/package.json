@@ -4,21 +4,18 @@
   "private": true,
   "scripts": {
     "dev": "concurrently \"next dev --turbopack\" \"cd src && PYTHONPATH=.. python -m uvicorn agent_server:app --host 0.0.0.0 --port 8000 --reload\"",
-    "build": "npm run export:a2ui-catalogs && next build",
+    "build": "next build",
     "typecheck:json-render": "tsc --noEmit -p tsconfig.json-render-check.json",
     "start": "next start",
     "lint": "next lint",
-    "test:e2e": "playwright test",
-    "export:a2ui-catalogs": "tsx scripts/export-a2ui-catalogs.ts",
-    "predev": "npm run export:a2ui-catalogs"
+    "test:e2e": "playwright test"
   },
   "dependencies": {
-    "@ag-ui/client": "1.0.2",
-    "@copilotkit/a2ui-renderer": "1.86.0",
-    "@copilotkit/react-core": "1.86.0",
-    "@copilotkit/runtime": "1.86.0",
-    "@copilotkit/shared": "1.86.0",
-    "@copilotkit/voice": "1.86.0",
+    "@ag-ui/client": "1.0.4",
+    "@copilotkit/react-core": "2.0.0-rc.44",
+    "@copilotkit/runtime": "2.0.0-rc.44",
+    "@copilotkit/shared": "2.0.0-rc.44",
+    "@copilotkit/voice": "2.0.0-rc.44",
     "@hashbrownai/core": "0.5.0-beta.4",
     "@hashbrownai/react": "0.5.0-beta.4",
     "@json-render/core": "0.18.0",
@@ -37,8 +34,7 @@
     "recharts": "^2.15.0",
     "remark-gfm": "^4.0.1",
     "tailwind-merge": "^3.5.0",
-    "zod": "^3.25.0",
-    "zod4": "npm:zod@4.4.3"
+    "zod": "^4.2.0"
   },
   "devDependencies": {
     "@playwright/test": "^1.50.0",

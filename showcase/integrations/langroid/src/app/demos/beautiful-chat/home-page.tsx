@@ -1,6 +1,6 @@
 "use client";
 
-import { CopilotChat } from "@copilotkit/react-core/v2";
+import { CopilotChat } from "@copilotkit/react-core";
 import { ExampleLayout } from "./components/example-layout";
 import { ExampleCanvas } from "./components/example-canvas";
 import { useGenerativeUIExamples, useExampleSuggestions } from "./hooks";

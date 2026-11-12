@@ -2,7 +2,7 @@ import {
   CopilotRuntime,
   createCopilotRuntimeHandler,
   InMemoryAgentRunner,
-} from "@copilotkit/runtime/v2";
+} from "@copilotkit/runtime";
 import { createMcpAppsAgent } from "@/lib/factory/mcp-apps-factory";
 import { createBuiltInAgent } from "@/lib/factory/tanstack-factory";
 // Wrap handlers so inbound x-* headers (e.g. x-aimock-context) are bound

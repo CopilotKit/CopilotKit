@@ -1,8 +1,11 @@
 "use client";
 
 import React from "react";
-import { CopilotKit } from "@copilotkit/react-core";
-import { CopilotSidebar } from "@copilotkit/react-core/v2";
+import {
+  CopilotChatAssistantMessage,
+  CopilotKitProvider,
+  CopilotSidebar,
+} from "@copilotkit/react-core";
 import { SalesDashboard } from "../components/sales-dashboard";
 import { RendererSelector } from "../components/renderers/renderer-selector";
 import { useRenderMode } from "../components/renderers/use-render-mode";
@@ -43,16 +46,21 @@ function HashBrownInner() {
   useShowcaseSuggestions();
 
   return (
-    <CopilotKit runtimeUrl="/api/copilotkit" agent={AGENT_ID}>
+    <CopilotKitProvider runtimeUrl="/api/copilotkit" agentId={AGENT_ID}>
       <div className="min-h-screen w-full flex items-center justify-center">
         <SalesDashboard agentId={AGENT_ID} />
         <CopilotSidebar
           defaultOpen={true}
           labels={{ modalHeaderTitle: "Sales Dashboard Assistant" }}
-          RenderMessage={RenderMessage}
+          messageView={{
+            // The renderer reads only `message` from the slot props; cast to
+            // the wider CopilotChatAssistantMessage signature for the slot.
+            assistantMessage:
+              RenderMessage as unknown as typeof CopilotChatAssistantMessage,
+          }}
         />
       </div>
-    </CopilotKit>
+    </CopilotKitProvider>
   );
 }
 

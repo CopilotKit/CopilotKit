@@ -2,10 +2,10 @@
 
 import {
   CopilotChat,
-  CopilotKit,
+  CopilotKitProvider,
   useHumanInTheLoop,
   useInterrupt,
-} from "@copilotkit/react-core/v2";
+} from "@copilotkit/react-core";
 import { z } from "zod";
 import { useHitlSuggestions } from "./suggestions";
 import { StepSelector } from "./step-selector";
@@ -13,9 +13,9 @@ import { StepsFeedback } from "./steps-feedback";
 
 export default function HitlDemo() {
   return (
-    <CopilotKit runtimeUrl="/api/copilotkit" agent="human_in_the_loop">
+    <CopilotKitProvider runtimeUrl="/api/copilotkit" agentId="human_in_the_loop">
       <DemoContent />
-    </CopilotKit>
+    </CopilotKitProvider>
   );
 }
 

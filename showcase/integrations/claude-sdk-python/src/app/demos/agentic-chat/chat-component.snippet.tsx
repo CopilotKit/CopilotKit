@@ -12,7 +12,7 @@
 import {
   CopilotChat,
   useConfigureSuggestions,
-} from "@copilotkit/react-core/v2";
+} from "@copilotkit/react-core";
 
 // @region[chat-component]
 export function Chat() {

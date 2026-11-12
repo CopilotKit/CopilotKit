@@ -19,7 +19,7 @@
  */
 
 import React from "react";
-import { CopilotKit } from "@copilotkit/react-core/v2";
+import { CopilotKitProvider } from "@copilotkit/react-core";
 import { Chat } from "./chat";
 
 export default function MCPAppsDemo() {
@@ -28,13 +28,13 @@ export default function MCPAppsDemo() {
   // CopilotKitProvider auto-registers the built-in `MCPAppsActivityRenderer`
   // for the "mcp-apps" activity type. A plain <CopilotChat /> is enough.
   return (
-    <CopilotKit runtimeUrl="/api/copilotkit-mcp-apps" agent="mcp-apps">
+    <CopilotKitProvider runtimeUrl="/api/copilotkit-mcp-apps" agentId="mcp-apps">
       <div className="flex justify-center items-center h-screen w-full">
         <div className="h-full w-full max-w-4xl">
           <Chat />
         </div>
       </div>
-    </CopilotKit>
+    </CopilotKitProvider>
   );
   // @endregion[no-frontend-renderer-needed]
 }

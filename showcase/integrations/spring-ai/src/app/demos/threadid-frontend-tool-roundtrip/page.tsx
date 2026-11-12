@@ -4,9 +4,9 @@ import React, { useState } from "react";
 import {
   CopilotChat,
   CopilotChatConfigurationProvider,
-  CopilotKit,
+  CopilotKitProvider,
   useFrontendTool,
-} from "@copilotkit/react-core/v2";
+} from "@copilotkit/react-core";
 import { z } from "zod";
 
 const AGENT_ID = "threadid-frontend-tool-roundtrip";
@@ -87,8 +87,8 @@ function FrontendToolRegistration() {
 
 export default function ThreadIdFrontendToolRoundTripDemo() {
   return (
-    <CopilotKit runtimeUrl="/api/copilotkit" agent={AGENT_ID}>
+    <CopilotKitProvider runtimeUrl="/api/copilotkit" agentId={AGENT_ID}>
       <ThreadIdRoundTripChat />
-    </CopilotKit>
+    </CopilotKitProvider>
   );
 }

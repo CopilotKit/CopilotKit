@@ -9,7 +9,7 @@
  * `highlight_note` generative-UI tool — a sticky-note style card.
  */
 
-import { useComponent } from "@copilotkit/react-core/v2";
+import { useComponent } from "@copilotkit/react-core";
 import { z } from "zod";
 import { HighlightNote } from "../tools/highlight-note";
 

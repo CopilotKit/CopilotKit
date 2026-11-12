@@ -1,15 +1,15 @@
 "use client";
 
 import React from "react";
-import { CopilotKit, CopilotChat } from "@copilotkit/react-core/v2";
+import { CopilotKitProvider, CopilotChat } from "@copilotkit/react-core";
 import { useAgenticChatSuggestions } from "./suggestions";
 
 export default function AgenticChatDemo() {
   return (
     // @region[provider-setup]
-    <CopilotKit runtimeUrl="/api/copilotkit" agent="agentic_chat">
+    <CopilotKitProvider runtimeUrl="/api/copilotkit" agentId="agentic_chat">
       <Chat />
-    </CopilotKit>
+    </CopilotKitProvider>
     // @endregion[provider-setup]
   );
 }

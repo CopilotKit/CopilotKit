@@ -19,7 +19,7 @@ import { NextResponse } from "next/server";
 import {
   CopilotRuntime,
   createCopilotRuntimeHandler,
-} from "@copilotkit/runtime/v2";
+} from "@copilotkit/runtime";
 import type { AbstractAgent } from "@ag-ui/client";
 import { HttpAgent } from "@ag-ui/client";
 import { extractForwardedHeaders } from "@/lib/header-forwarding";
@@ -51,7 +51,8 @@ export const POST = async (req: NextRequest) => {
       agents,
       // Canonical: openGenerativeUI: true, a2ui.injectA2UITool: false, mcpApps.
       openGenerativeUI: true,
-      a2ui: {
+      generativeUI: {
+        a2uiVersion: "0.9",
         // The backend agent OWNS `generate_a2ui` via the ag-ui-adk >= 0.7.0
         // middleware (get_a2ui_tool — render_a2ui sub-agent + recovery loop +
         // hard-fail, OSS-158), so the runtime must NOT inject a second copy

@@ -18,8 +18,8 @@ import { NextResponse } from "next/server";
 import {
   CopilotRuntime,
   createCopilotRuntimeHandler,
-} from "@copilotkit/runtime/v2";
-import { LangGraphAgent } from "@copilotkit/runtime/langgraph";
+} from "@copilotkit/runtime";
+import { LangGraphAgent } from "@ag-ui/langgraph";
 
 const LANGGRAPH_URL =
   process.env.LANGGRAPH_DEPLOYMENT_URL || "http://localhost:8123";
@@ -39,7 +39,8 @@ const runtime = new CopilotRuntime({
   agents,
   // Canonical: openGenerativeUI: true, a2ui.injectA2UITool: true, mcpApps.
   openGenerativeUI: true,
-  a2ui: {
+  generativeUI: {
+    a2uiVersion: "0.9",
     // Inject the dynamic `generate_a2ui` tool into the agent
     injectA2UITool: true,
     // Models follow the tool-usage guide and omit `catalogId`, and the

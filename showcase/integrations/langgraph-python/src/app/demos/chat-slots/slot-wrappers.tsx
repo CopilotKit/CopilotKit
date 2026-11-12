@@ -13,7 +13,7 @@ import {
   type CopilotChatUserMessageProps,
   type CopilotChatReasoningMessageProps,
   type CopilotChatSuggestionPillProps,
-} from "@copilotkit/react-core/v2";
+} from "@copilotkit/react-core";
 import { SlotMarker } from "./slot-marker";
 
 // =====================================================================

@@ -1,14 +1,14 @@
 "use client";
 
 import React from "react";
-import { CopilotKit, CopilotPopup } from "@copilotkit/react-core/v2";
+import { CopilotKitProvider, CopilotPopup } from "@copilotkit/react-core";
 import { MainContent } from "./main-content";
 import { Suggestions } from "./suggestions-mount";
 
 export default function PrebuiltPopupDemo() {
   return (
     // @region[popup-basic-setup]
-    <CopilotKit runtimeUrl="/api/copilotkit" agent="prebuilt-popup">
+    <CopilotKitProvider runtimeUrl="/api/copilotkit" agentId="prebuilt-popup">
       <MainContent />
       <CopilotPopup
         agentId="prebuilt-popup"
@@ -18,7 +18,7 @@ export default function PrebuiltPopupDemo() {
         }}
       />
       <Suggestions />
-    </CopilotKit>
+    </CopilotKitProvider>
     // @endregion[popup-basic-setup]
   );
 }

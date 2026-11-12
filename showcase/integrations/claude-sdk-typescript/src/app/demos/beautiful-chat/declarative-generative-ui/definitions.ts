@@ -10,13 +10,14 @@
  */
 
 import { z } from "zod";
+import { childList, child } from "@copilotkit/react-core/generative-ui";
 
 /**
- * Dynamic string: accepts either a literal string or a data-model path binding
- * like `{ path: "airline" }`. The GenericBinder resolves path bindings to the
- * actual value at render time.
+ * A string the agent may bind to a data-model path like `{ path: "airline" }`.
+ * Generative UI resolves the binding before render, so the component only
+ * sees the resolved string.
  */
-const DynString = z.union([z.string(), z.object({ path: z.string() })]);
+const DynString = z.string();
 
 export const demonstrationCatalogDefinitions = {
   Title: {
@@ -27,11 +28,10 @@ export const demonstrationCatalogDefinitions = {
     }),
   },
 
-  // Custom Row/Column: override the basic catalog's versions so we can
-  // honour `gap` (basic Row/Column from web_core ignores it). Children may
-  // be a literal-string array (flat trees) OR a structural template form
-  // `{ componentId, path }` so the GenericBinder expands per-row templates
-  // from the data model — required for fixed-schema flows like
+  // Custom Row/Column: replace the standard versions so `gap` is a pixel
+  // value. `childList()` takes a list of component ids (flat trees) OR a
+  // template `{ componentId, path }` that repeats a component for each item
+  // of a data-model list — required for fixed-schema flows like
   // flight_schema.json (Row.children = { componentId, path: "/flights" }).
   Row: {
     description: "Horizontal layout container.",
@@ -39,12 +39,7 @@ export const demonstrationCatalogDefinitions = {
       gap: z.number().optional(),
       align: z.string().optional(),
       justify: z.string().optional(),
-      // Union with { componentId, path } so GenericBinder treats this as
-      // STRUCTURAL and resolves template children from the data model.
-      children: z.union([
-        z.array(z.string()),
-        z.object({ componentId: z.string(), path: z.string() }),
-      ]),
+      children: childList(),
     }),
   },
 
@@ -53,11 +48,7 @@ export const demonstrationCatalogDefinitions = {
     props: z.object({
       gap: z.number().optional(),
       align: z.string().optional(),
-      // Same union as Row — required for template children support.
-      children: z.union([
-        z.array(z.string()),
-        z.object({ componentId: z.string(), path: z.string() }),
-      ]),
+      children: childList(),
     }),
   },
 
@@ -67,7 +58,7 @@ export const demonstrationCatalogDefinitions = {
     props: z.object({
       title: z.string(),
       subtitle: z.string().optional(),
-      child: z.string().optional(),
+      child: child().optional(),
     }),
   },
 
@@ -121,33 +112,18 @@ export const demonstrationCatalogDefinitions = {
     description: "A data table with columns and rows.",
     props: z.object({
       columns: z.array(z.object({ key: z.string(), label: z.string() })),
-      rows: z.array(z.record(z.any())),
+      rows: z.array(z.record(z.string(), z.any())),
     }),
   },
 
   Button: {
     description:
-      "An interactive button with an action event. Use 'child' with a Text component ID for the label. 'action' is dispatched on click.",
+      "An interactive button with an action event. Use 'child' with a Text component ID for the label. 'action' is sent to the agent on click.",
     props: z.object({
-      child: z
-        .string()
-        .describe(
-          "The ID of the child component (e.g. a Text component for the label).",
-        ),
+      child: child("The ID of the child component (e.g. a Text component for the label)."),
       variant: z.enum(["primary", "secondary", "ghost"]).optional(),
-      // Union with { event } so GenericBinder resolves this as ACTION → callable () => void.
-      action: z
-        .union([
-          z.object({
-            event: z.object({
-              name: z.string(),
-              context: z.record(z.any()).optional(),
-            }),
-          }),
-          z.null(),
-        ])
-        .optional(),
     }),
+    events: { onClick: { parameters: z.object({}) } },
   },
 
   FlightCard: {
@@ -166,18 +142,8 @@ export const demonstrationCatalogDefinitions = {
       status: DynString,
       statusColor: DynString.optional(),
       price: DynString,
-      action: z
-        .union([
-          z.object({
-            event: z.object({
-              name: z.string(),
-              context: z.record(z.any()).optional(),
-            }),
-          }),
-          z.null(),
-        ])
-        .optional(),
     }),
+    events: { action: { parameters: z.object({}) } },
   },
 };
 

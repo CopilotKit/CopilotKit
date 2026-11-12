@@ -12,7 +12,7 @@ import { NextResponse } from "next/server";
 import {
   CopilotRuntime,
   createCopilotRuntimeHandler,
-} from "@copilotkit/runtime/v2";
+} from "@copilotkit/runtime";
 import { getLocalAgent } from "@ag-ui/mastra";
 import { mastra } from "@/mastra";
 import { withForwardedHeaders } from "@/mastra/_header_forwarding";
@@ -37,7 +37,8 @@ const runtime = new CopilotRuntime({
     default: beautifulChatAgent,
   },
   openGenerativeUI: true,
-  a2ui: {
+  generativeUI: {
+    a2uiVersion: "0.9",
     // beautifulChatAgent already owns its `generate_a2ui` tool — don't double-bind.
     injectA2UITool: false,
     // Models follow the tool-usage guide and omit `catalogId`, and the

@@ -270,7 +270,7 @@ Scope: all testing-related workflows (unit, integration, e2e, smoke) across the 
 The build-check matrix selects both canonical artifacts for any integration image.
 Changes to `packages/core`, `packages/shared`, or `packages/web-components` compile
 both hosts without selecting images. Vue/web-inspector changes compile only Vue;
-Angular/a2ui-renderer changes compile only Angular. Changes to either showcase
+Angular changes compile only Angular. Changes to either showcase
 build workflow select every service in the PR-check matrix and both artifacts.
 A shell-only change selects its image without frontend compilation.
 Both artifact jobs still finish as successful no-ops so their `needs`

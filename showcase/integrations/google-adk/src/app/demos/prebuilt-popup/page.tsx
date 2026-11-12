@@ -2,16 +2,16 @@
 
 import React from "react";
 import {
-  CopilotKit,
+  CopilotKitProvider,
   CopilotPopup,
   useConfigureSuggestions,
-} from "@copilotkit/react-core/v2";
+} from "@copilotkit/react-core";
 
 // Outer layer — provider + main content + floating popup launcher.
 export default function PrebuiltPopupDemo() {
   return (
     // @region[popup-basic-setup]
-    <CopilotKit runtimeUrl="/api/copilotkit" agent="prebuilt-popup">
+    <CopilotKitProvider runtimeUrl="/api/copilotkit" agentId="prebuilt-popup">
       <MainContent />
       <CopilotPopup
         agentId="prebuilt-popup"
@@ -21,7 +21,7 @@ export default function PrebuiltPopupDemo() {
         }}
       />
       <Suggestions />
-    </CopilotKit>
+    </CopilotKitProvider>
     // @endregion[popup-basic-setup]
   );
 }

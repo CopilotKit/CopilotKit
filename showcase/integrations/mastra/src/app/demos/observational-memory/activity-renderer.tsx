@@ -2,7 +2,7 @@
 
 import React from "react";
 import { z } from "zod";
-import type { ReactActivityMessageRenderer } from "@copilotkit/react-core/v2";
+import type { ReactActivityMessageRenderer } from "@copilotkit/react-core";
 
 // Inlined from @ag-ui/mastra's `MASTRA_OBSERVATIONAL_MEMORY_ACTIVITY_TYPE`.
 // We intentionally do NOT import the bridge here: it re-exports the Node-only

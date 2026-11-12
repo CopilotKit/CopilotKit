@@ -2,10 +2,10 @@
 
 import React from "react";
 import {
-  CopilotKit,
+  CopilotKitProvider,
   useAgent,
   UseAgentUpdate,
-} from "@copilotkit/react-core/v2";
+} from "@copilotkit/react-core";
 
 import { DemoLayout } from "./demo-layout";
 import { useSharedStateStreamingSuggestions } from "./suggestions";
@@ -16,9 +16,9 @@ interface StreamingAgentState {
 
 export default function SharedStateStreamingDemo() {
   return (
-    <CopilotKit runtimeUrl="/api/copilotkit" agent="shared-state-streaming">
+    <CopilotKitProvider runtimeUrl="/api/copilotkit" agentId="shared-state-streaming">
       <DemoContent />
-    </CopilotKit>
+    </CopilotKitProvider>
   );
 }
 

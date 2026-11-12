@@ -14,7 +14,7 @@ import { NextResponse } from "next/server";
 import {
   CopilotRuntime,
   createCopilotRuntimeHandler,
-} from "@copilotkit/runtime/v2";
+} from "@copilotkit/runtime";
 import type { AbstractAgent } from "@ag-ui/client";
 import { HttpAgent } from "@ag-ui/client";
 
@@ -27,7 +27,8 @@ const a2uiFixedAgent = new HttpAgent({
 const runtime = new CopilotRuntime({
   // @ts-ignore -- see main route.ts
   agents: { "a2ui-fixed-schema": a2uiFixedAgent as AbstractAgent },
-  a2ui: {
+  generativeUI: {
+    a2uiVersion: "0.9",
     // Set `true` so the middleware WATCHES the `render_a2ui` tool-call name
     // (the watched-names set is only populated when the tool is injected). The
     // backend re-emits the fixed schema as a streamed `render_a2ui` call that

@@ -1,4 +1,4 @@
-import { useConfigureSuggestions } from "@copilotkit/react-core/v2";
+import { useConfigureSuggestions } from "@copilotkit/react-core";
 
 // Observational Memory fires on UNOBSERVED MESSAGE-TOKEN SIZE, not turn count.
 // The floor that reliably trips OM's async buffering is ~600 message tokens.

@@ -22,15 +22,15 @@
  */
 
 import React from "react";
-import { CopilotKit } from "@copilotkit/react-core/v2";
+import { CopilotKitProvider } from "@copilotkit/react-core";
 import { Chat } from "./chat";
 import { observationalMemoryActivityRenderer } from "./activity-renderer";
 
 export default function ObservationalMemoryDemo() {
   return (
-    <CopilotKit
+    <CopilotKitProvider
       runtimeUrl="/api/copilotkit-observational-memory"
-      agent="observational-memory"
+      agentId="observational-memory"
       renderActivityMessages={[observationalMemoryActivityRenderer]}
     >
       <div className="flex justify-center items-center h-screen w-full">
@@ -38,6 +38,6 @@ export default function ObservationalMemoryDemo() {
           <Chat />
         </div>
       </div>
-    </CopilotKit>
+    </CopilotKitProvider>
   );
 }

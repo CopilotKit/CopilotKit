@@ -17,7 +17,7 @@
 
 ### 2. Feature-Specific Checks
 
-#### Schema Wiring (fixed catalog + `includeBasicCatalog`)
+#### Schema Wiring (fixed catalog + `extends: [standardUI]`)
 
 - [ ] DevTools → Network: after the first successful `display_flight` call, verify the response stream contains an `a2ui_operations` container with `catalogId: "copilotkit://flight-fixed-catalog"` (matches `CATALOG_ID` in `src/agents/a2ui_fixed.py` and `src/app/demos/a2ui-fixed-schema/a2ui/catalog.ts`)
 - [ ] Verify the same container carries the full `FLIGHT_SCHEMA` component tree (12 nodes from `src/agents/a2ui_schemas/flight_schema.json`: `root`, `content`, `title`, `route`, `from`, `arrow`, `to`, `meta`, `airline`, `price`, `bookButton`, `bookButtonLabel`)

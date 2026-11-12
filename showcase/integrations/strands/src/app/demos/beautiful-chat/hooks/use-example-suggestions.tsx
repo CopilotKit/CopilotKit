@@ -9,7 +9,7 @@
  * A2UI agent tools: agent/src/a2ui_fixed_schema.py, a2ui_dynamic_schema.py
  * A2UI catalog: src/app/declarative-generative-ui/
  */
-import { useConfigureSuggestions } from "@copilotkit/react-core/v2";
+import { useConfigureSuggestions } from "@copilotkit/react-core";
 import showcaseConfig from "../showcase.json";
 
 const showcase = showcaseConfig.showcase;

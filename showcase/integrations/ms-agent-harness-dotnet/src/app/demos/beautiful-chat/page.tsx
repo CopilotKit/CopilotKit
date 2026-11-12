@@ -21,7 +21,7 @@
  */
 
 import React from "react";
-import { CopilotKit } from "@copilotkit/react-core/v2";
+import { CopilotKitProvider } from "@copilotkit/react-core";
 
 import { ThemeProvider } from "./hooks/use-theme";
 import { demonstrationCatalog } from "./declarative-generative-ui/renderers";
@@ -30,10 +30,10 @@ import { HomePage } from "./home-page";
 export default function BeautifulChatPage() {
   return (
     <ThemeProvider>
-      <CopilotKit
+      <CopilotKitProvider
         runtimeUrl="/api/copilotkit-beautiful-chat"
-        agent="beautiful-chat"
-        a2ui={{ catalog: demonstrationCatalog }}
+        agentId="beautiful-chat"
+        generativeUI={{ ui: demonstrationCatalog }}
         openGenerativeUI={{}}
         /*
          * `useSingleEndpoint` defaults to true (the single-POST-endpoint
@@ -46,7 +46,7 @@ export default function BeautifulChatPage() {
          */
       >
         <HomePage />
-      </CopilotKit>
+      </CopilotKitProvider>
     </ThemeProvider>
   );
 }
