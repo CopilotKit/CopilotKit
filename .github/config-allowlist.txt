@@ -39,6 +39,7 @@ examples/showcases/a2ui-playground/next.config.ts
 examples/showcases/adk-dashboard/next.config.ts
 examples/showcases/antigravity-repo-doctor/next.config.ts
 examples/showcases/arcade-tools/next.config.ts
+examples/showcases/boxd-runcode/next.config.ts
 examples/showcases/chatkit-studio/apps/playground/next.config.ts
 examples/showcases/chatkit-studio/apps/studio/next.config.ts
 examples/showcases/chatkit-studio/apps/world/next.config.ts

@@ -402,6 +402,7 @@ const RECIPE_ICONS: Record<string, ReactNode> = {
     <RecipeLogo src="/logos/manufact.svg" className="dark:invert" />
   ),
   "custom/google-adk": <RecipeLogo src="/logos/google-adk.png" />,
+  "custom/boxd": <RecipeLogo src="/logos/boxd.svg" className="dark:invert" />,
 };
 
 /** The top rows: Quickstart, Build with agents, Intelligence. */

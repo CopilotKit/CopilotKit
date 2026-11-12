@@ -1,0 +1,184 @@
+---
+title: "boxd"
+description: "Give CopilotKit's Built-in Agent a tool that runs code on a fresh, isolated boxd machine, then return the output to the chat."
+icon: "custom/boxd"
+showIcon: true
+doc_type: how-to
+---
+
+[boxd](https://boxd.sh?ref=CopilotKit) runs **machines** for AI agents: full Ubuntu VMs with their own
+filesystem, network, and CPU/RAM, created in about a second. This recipe adds a server tool to
+CopilotKit's [Built-in Agent](/) that writes the agent's code to a new machine, runs it there, and
+returns the result to the chat, so the agent can execute code it writes without touching your host.
+
+This guide assumes you already have a running Built-in Agent app. If you don't, follow the
+[Quickstart](/quickstart) first. It takes a few minutes.
+
+## Prerequisites
+
+- A running Built-in Agent app (see the [Quickstart](/quickstart)).
+- A boxd account and API key. Sign up at [boxd.sh](https://boxd.sh?ref=CopilotKit), then create a key
+  in the [boxd console](https://app.boxd.sh?ref=CopilotKit) or with the boxd CLI:
+  `boxd auth keys create copilotkit`.
+
+Add the key to your `.env`:
+
+```plaintext title=".env"
+BOXD_API_KEY=your_boxd_api_key
+# Optional: create machines in an organization instead of your personal account
+# BOXD_ORG=your_org
+```
+
+## Install the boxd SDK
+
+```npm
+npm install @boxd-sh/sdk
+```
+
+The SDK is ESM-only and needs Node 20 or later.
+
+## Define the sandbox tool
+
+Add a `runCode` [server tool](/server-tools) and register it on your `BuiltInAgent`. The
+tool creates a fresh machine, writes the code to a file, runs it, returns stdout, stderr and the exit
+code, and deletes the machine, so every call is isolated.
+
+```ts title="app/api/copilotkit/[[...slug]]/route.ts" doctest="component"
+import {
+  CopilotRuntime,
+  createCopilotRuntimeHandler,
+  InMemoryAgentRunner,
+} from "@copilotkit/runtime/v2";
+import { BuiltInAgent, defineTool } from "@copilotkit/runtime/v2"; // [!code highlight]
+import { Boxd } from "@boxd-sh/sdk"; // [!code highlight]
+import { z } from "zod";
+
+const boxd = new Boxd(); // reads BOXD_API_KEY
+
+// File name and interpreter per language. Node runs TypeScript directly.
+const runners = {
+  python: { file: "main.py", command: "python3" },
+  typescript: { file: "main.ts", command: "node" },
+  javascript: { file: "main.js", command: "node" },
+} as const;
+
+const runCode = defineTool({ // [!code highlight:30]
+  name: "runCode",
+  description: "Execute code on an isolated boxd machine and return its output.",
+  parameters: z.object({
+    code: z.string().describe("The code to run on the machine"),
+    language: z
+      .enum(["python", "typescript", "javascript"])
+      .default("python")
+      .describe("Language runtime for the code"),
+  }),
+  execute: async ({ code, language }) => {
+    const machine = await boxd.machines.create({
+      org: process.env.BOXD_ORG,
+      isolated: true,
+    });
+    try {
+      await boxd.machines.waitUntilReady(machine.id);
+      const { file, command } = runners[language];
+      const path = `/home/boxd/runcode/${file}`;
+      await boxd.machines.fs.write(machine.id, path, code);
+      const res = await boxd.machines.exec(machine.id, {
+        command: [command, path],
+        timeout: 60_000,
+      });
+      return { stdout: res.stdout, stderr: res.stderr, exitCode: res.exitCode };
+    } finally {
+      await boxd.machines.delete(machine.id);
+    }
+  },
+});
+
+const builtInAgent = new BuiltInAgent({
+  model: "openai:gpt-6-luna",
+  tools: [runCode], // [!code highlight]
+  maxSteps: 2, // required so the agent can call the tool and then respond // [!code highlight]
+});
+
+const runtime = new CopilotRuntime({
+  agents: { default: builtInAgent },
+  runner: new InMemoryAgentRunner(),
+});
+
+const handler = createCopilotRuntimeHandler({
+  runtime,
+  basePath: "/api/copilotkit",
+});
+
+export const GET = handler;
+export const POST = handler;
+export const PATCH = handler;
+export const DELETE = handler;
+```
+
+<Callout type="info" title="Isolated machines">
+  `isolated: true` keeps the machine off your organization's private network and leaves it without
+  boxd credentials, so code the agent writes can't reach your other machines. It still has outbound
+  internet access, so it can install packages with `pip` or `npm`.
+</Callout>
+
+## Try it
+
+Start your app and ask the agent to run something. The tool runs Python by default, and the agent can
+pass `language` to run TypeScript or JavaScript instead:
+
+```text
+Run a Python snippet that prints the first 10 Fibonacci numbers.
+```
+
+```text
+Run JavaScript that logs the current timestamp.
+```
+
+The agent writes the code, calls `runCode`, and reports back the machine's output.
+
+## Going further
+
+- **Reuse a machine** to skip the per-call create: create one lazily, keep its id, and drop the
+  `delete` call. Call `boxd.machines.hibernate(id)` when the user goes idle; the next `exec` wakes it
+  with its files intact.
+- **Run a server and preview it**: start the app in the background with `exec`, and the machine serves
+  it at `https://<machine-name>.boxd.sh`. That URL is public, so only do this for apps you're happy to
+  share.
+- **Custom environments**: install packages on one machine, save it with
+  `boxd.snapshots.create(id, "my-env")`, and start new machines from it with
+  `boxd.machines.create({ fromSnapshot: "my-env", isolated: true })`.
+- **Any other language**: every machine is a full Ubuntu system with Python, Node, Go and Docker. Add
+  an entry to `runners`, or pass a shell command line to `exec`.
+
+See the [boxd docs](https://docs.boxd.sh?ref=CopilotKit) for the full SDK.
+
+## Get started with a coding agent
+
+Paste this prompt into your coding agent (Cursor, Claude Code, etc.) to add the integration to an existing
+Built-in Agent app:
+
+```text
+In my existing CopilotKit Built-in Agent app, add a boxd-backed code execution tool:
+
+1. Install the boxd SDK: `npm install @boxd-sh/sdk`. It is ESM-only and needs Node 20+.
+2. Add BOXD_API_KEY to my .env (I'll supply the value). BOXD_ORG is optional.
+3. In my CopilotKit runtime route, create a boxd client with `new Boxd()` (from "@boxd-sh/sdk") and
+   define a server tool with `defineTool` from "@copilotkit/runtime/v2":
+   - name: "runCode"
+   - description: "Execute code on an isolated boxd machine and return its output."
+   - parameters: a Zod object with a `code` string field and a `language` enum
+     ("python" | "typescript" | "javascript", default "python").
+   - execute: create a machine with
+     `boxd.machines.create({ org: process.env.BOXD_ORG, isolated: true })`, then
+     `await boxd.machines.waitUntilReady(machine.id)`. Write the code to
+     `/home/boxd/runcode/main.py` (or `main.ts` / `main.js`) with
+     `boxd.machines.fs.write(machine.id, path, code)`. Run it with
+     `boxd.machines.exec(machine.id, { command: [interpreter, path], timeout: 60_000 })`,
+     using `python3` for Python and `node` for TypeScript and JavaScript. Return
+     `{ stdout: res.stdout, stderr: res.stderr, exitCode: res.exitCode }`. Call
+     `boxd.machines.delete(machine.id)` in a finally block so the machine is removed even on error.
+4. Register the tool on my BuiltInAgent (`tools: [runCode]`) and set `maxSteps: 2` so it can call the
+   tool and then respond.
+
+Keep my existing model and runtime setup unchanged.
+```
