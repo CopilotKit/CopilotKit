@@ -7,8 +7,8 @@ import type { BaseEvent } from "@ag-ui/client";
 import {
   CopilotChatConfigurationProvider,
   CopilotKitProvider,
-} from "@copilotkit/react-core/v2";
-import { useGenerativeUIRuntime } from "@copilotkit/react-core/v2/generative-ui";
+} from "@copilotkit/react-core";
+import { useGenerativeUIRuntime } from "@copilotkit/react-core/generative-ui";
 import {
   GENERATIVE_UI_ACTIVITY_TYPE,
   GENERATIVE_UI_CHAT_TARGET,
@@ -59,7 +59,6 @@ export function StaticGenUIProvider({ children }: { children: ReactNode }) {
       agents__unsafe_dev_only={AGENTS}
       generativeUI={GENERATIVE_UI}
       enableInspector={false}
-      showDevConsole={false}
     >
       {children}
     </CopilotKitProvider>

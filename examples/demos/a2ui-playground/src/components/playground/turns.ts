@@ -6,7 +6,7 @@
  */
 import { useEffect, useState } from "react";
 import type { Message } from "@ag-ui/client";
-import { useAgent } from "@copilotkit/react-core/v2";
+import { useAgent } from "@copilotkit/react-core";
 import {
   GENERATIVE_UI_ACTIVITY_TYPE,
   generativeUISurfaceMessageId,

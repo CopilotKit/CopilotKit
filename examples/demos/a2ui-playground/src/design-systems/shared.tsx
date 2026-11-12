@@ -6,7 +6,7 @@
  * accessibility, its icon, its failed check), so a swapped button behaves like the one it replaces.
  */
 import type { MouseEvent, ReactNode } from "react";
-import { useGenerativeUIAccessibility } from "@copilotkit/react-core/v2/generative-ui";
+import { useGenerativeUIAccessibility } from "@copilotkit/react-core/generative-ui";
 import { iconFor } from "@/a2ui/catalog/renderers/data";
 import { formatNumber } from "@/a2ui/catalog/renderers/format";
 

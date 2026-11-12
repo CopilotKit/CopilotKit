@@ -5,7 +5,7 @@
  * variable never falls through to the library's own dark default in one mode only. A new theme repaints
  * the surfaces without remounting them.
  */
-import type { GenerativeUITheme } from "@copilotkit/react-core/v2/generative-ui";
+import type { GenerativeUITheme } from "@copilotkit/react-core/generative-ui";
 import { playgroundTheme } from "@/a2ui/catalog/catalog";
 import type { DesignSystemId } from "./registry";
 

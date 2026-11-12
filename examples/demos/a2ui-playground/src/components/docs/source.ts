@@ -192,6 +192,10 @@ function childMark(t: Any): "one" | "list" | null {
       : null;
 }
 
+/** A Zod 4 schema's definition: `type` names the kind ("string", "optional", "pipe", ...). */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const defOf = (t: Any) => t._zod.def as any;
+
 function unwrap(t: Any): {
   inner: Any;
   optional: boolean;
@@ -200,14 +204,15 @@ function unwrap(t: Any): {
   let cur = t;
   let optional = false;
   let description: string | null = t.description ?? null;
+  // `pipe` is a `.transform()` (as in `child()`): its input is the schema.
   while (
-    ["ZodOptional", "ZodDefault", "ZodNullable", "ZodEffects"].includes(
-      cur._def.typeName,
+    ["optional", "default", "prefault", "nullable", "pipe"].includes(
+      defOf(cur).type,
     )
   ) {
-    if (cur._def.typeName !== "ZodEffects") optional = true;
-    cur =
-      cur._def.typeName === "ZodEffects" ? cur._def.schema : cur._def.innerType;
+    const d = defOf(cur);
+    if (d.type !== "pipe") optional = true;
+    cur = d.type === "pipe" ? d.in : d.innerType;
     description = description ?? cur.description ?? null;
   }
   const mark = childMark(cur);
@@ -219,26 +224,31 @@ function unwrap(t: Any): {
   return { inner: cur, optional, description };
 }
 
+const shapeOf = (t: Any) => defOf(t).shape as Record<string, Any>;
+
 function typeOf(t: Any, depth = 0): string {
   const { inner } = unwrap(t);
   const mark = childMark(inner);
   if (mark)
     return mark === "one" ? "component id" : "string[] | { componentId, path }";
+  const d = defOf(inner);
   const base = (() => {
-    switch (inner._def.typeName) {
-      case "ZodString":
+    switch (d.type) {
+      case "string":
         return "string";
-      case "ZodNumber":
+      case "number":
         return "number";
-      case "ZodBoolean":
+      case "boolean":
         return "boolean";
-      case "ZodAny":
-      case "ZodUnknown":
+      case "any":
+      case "unknown":
         return "any";
-      case "ZodLiteral":
-        return JSON.stringify(inner._def.value);
-      case "ZodEnum": {
-        const v = inner._def.values as string[];
+      case "literal":
+        return (d.values as unknown[])
+          .map((v) => JSON.stringify(v))
+          .join(" | ");
+      case "enum": {
+        const v = Object.values(d.entries as Record<string, string>);
         return v.length > 6
           ? `${v
               .slice(0, 6)
@@ -246,33 +256,28 @@ function typeOf(t: Any, depth = 0): string {
               .join(" | ")} | ...`
           : v.map((x) => `"${x}"`).join(" | ");
       }
-      case "ZodArray": {
-        const el = typeOf(inner._def.type, depth + 1);
+      case "array": {
+        const el = typeOf(d.element, depth + 1);
         return el.includes("|") ? `(${el})[]` : `${el}[]`;
       }
-      case "ZodRecord":
+      case "record":
         return "Record<string, any>";
-      case "ZodObject": {
-        const shape = inner._def.shape() as Record<string, Any>;
-        const keys = Object.entries(shape).map(
+      case "object": {
+        const keys = Object.entries(shapeOf(inner)).map(
           ([k, v]) => `${k}${unwrap(v).optional ? "?" : ""}`,
         );
         if (depth > 2) return "object";
         return `{ ${keys.join(", ")} }`;
       }
-      case "ZodUnion": {
-        const opts = inner._def.options as Any[];
+      case "union": {
+        const opts = d.options as Any[];
         if (
-          opts.some(
-            (o) => o._def.typeName === "ZodObject" && "event" in o._def.shape(),
-          )
+          opts.some((o) => defOf(o).type === "object" && "event" in shapeOf(o))
         )
           return "Action";
         if (
           opts.some(
-            (o) =>
-              o._def.typeName === "ZodObject" &&
-              "componentId" in o._def.shape(),
+            (o) => defOf(o).type === "object" && "componentId" in shapeOf(o),
           )
         )
           return "string[] | { componentId, path }";

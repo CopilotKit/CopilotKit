@@ -1,13 +1,13 @@
 /**
  * The code in the Get started prompt. The snippets type-check against the
- * installed @copilotkit/* 1.85.0 typings.
+ * installed @copilotkit/* 2.0.0-rc.44 typings.
  */
 
 export const INSTALL =
-  "npm i @copilotkit/react-core@1.85.0 @copilotkit/runtime@1.85.0 zod@3.25.76";
+  "npm i @copilotkit/react-core@2.0.0-rc.44 @copilotkit/runtime@2.0.0-rc.44 @tanstack/ai-gemini zod@^4.2.0";
 
 export const CATALOG = `"use client";
-import { createGenerativeUI, standardUI } from "@copilotkit/react-core/v2/generative-ui";
+import { createGenerativeUI, standardUI } from "@copilotkit/react-core/generative-ui";
 import { z } from "zod";
 
 const weatherProps = z.object({
@@ -39,8 +39,7 @@ export const ui = createGenerativeUI({
 });`;
 
 export const PROVIDER = `"use client";
-import "@copilotkit/react-core/v2/styles.css";
-import { CopilotChat, CopilotKitProvider } from "@copilotkit/react-core/v2";
+import { CopilotChat, CopilotKitProvider } from "@copilotkit/react-core";
 import { ui } from "./genui";
 
 export default function Page() {
@@ -51,14 +50,12 @@ export default function Page() {
   );
 }`;
 
-export const ROUTE = `import {
-  BuiltInAgent,
-  CopilotRuntime,
-  createCopilotRuntimeHandler,
-} from "@copilotkit/runtime/v2";
+export const ROUTE = `import { CopilotRuntime, createCopilotRuntimeHandler } from "@copilotkit/runtime";
+import { BuiltInAgent } from "@copilotkit/runtime/agent";
+import { geminiText } from "@tanstack/ai-gemini";
 
 const copilotRuntime = new CopilotRuntime({
-  agents: { default: new BuiltInAgent({ model: "google/gemini-3.8-flash" }) },
+  agents: { default: new BuiltInAgent({ model: geminiText("gemini-3.8-flash") }) },
 });
 
 const handler = createCopilotRuntimeHandler({
@@ -68,7 +65,7 @@ const handler = createCopilotRuntimeHandler({
 export const GET = handler;
 export const POST = handler;`;
 
-export const EXPORT_CATALOG = `import { exportA2UICatalog } from "@copilotkit/react-core/v2/generative-ui";
+export const EXPORT_CATALOG = `import { exportA2UICatalog } from "@copilotkit/react-core/generative-ui";
 import { ui } from "./genui";
 
 const catalog = exportA2UICatalog(ui, {

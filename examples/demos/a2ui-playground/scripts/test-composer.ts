@@ -5,7 +5,7 @@ import OpenAI from "openai";
 import {
   createGenerativeUI,
   standardUI,
-} from "@copilotkit/react-core/v2/generative-ui";
+} from "@copilotkit/react-core/generative-ui";
 import { A2UI_VERSION } from "@copilotkit/shared";
 import type { GenerativeUIManifest } from "@copilotkit/shared";
 import { ownEntries } from "../src/a2ui/catalog/entries";

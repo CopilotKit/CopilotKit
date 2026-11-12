@@ -30,7 +30,7 @@ import {
   RotateCcw,
   TriangleAlert,
 } from "lucide-react";
-import { standardUI } from "@copilotkit/react-core/v2/generative-ui";
+import { standardUI } from "@copilotkit/react-core/generative-ui";
 import { playgroundUI } from "@/a2ui/catalog/catalog";
 import { highlightJson } from "@/components/app/json-view";
 import {

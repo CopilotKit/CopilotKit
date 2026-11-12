@@ -1618,8 +1618,7 @@
           "required": [
            "title",
            "child"
-          ],
-          "additionalProperties": false
+          ]
          },
          {
           "$ref": "common_types.json#/$defs/DataBinding"
@@ -3564,8 +3563,7 @@
             },
             "required": [
              "value"
-            ],
-            "additionalProperties": false
+            ]
            }
           ]
          },
@@ -3957,8 +3955,7 @@
             },
             "required": [
              "value"
-            ],
-            "additionalProperties": false
+            ]
            }
           ]
          },
@@ -4142,7 +4139,8 @@
      "anyOf": [
       {
        "type": "integer",
-       "minimum": 1
+       "minimum": 1,
+       "maximum": 9007199254740991
       },
       {
        "$ref": "common_types.json#/$defs/DataBinding"
@@ -4204,8 +4202,7 @@
           },
           "required": [
            "value"
-          ],
-          "additionalProperties": false
+          ]
          },
          {
           "$ref": "common_types.json#/$defs/DataBinding"
@@ -4337,8 +4334,7 @@
             },
             "required": [
              "value"
-            ],
-            "additionalProperties": false
+            ]
            }
           ]
          },
@@ -4522,8 +4518,7 @@
             },
             "required": [
              "value"
-            ],
-            "additionalProperties": false
+            ]
            }
           ]
          },
@@ -5277,8 +5272,7 @@
             },
             "required": [
              "label"
-            ],
-            "additionalProperties": false
+            ]
            },
            {
             "anyOf": [
@@ -5301,8 +5295,7 @@
               },
               "required": [
                "componentId"
-              ],
-              "additionalProperties": false
+              ]
              },
              {
               "type": "object",
@@ -5323,8 +5316,7 @@
               },
               "required": [
                "id"
-              ],
-              "additionalProperties": false
+              ]
              }
             ]
            }
@@ -5756,8 +5748,7 @@
             },
             "required": [
              "label"
-            ],
-            "additionalProperties": false
+            ]
            }
           ]
          },
@@ -6042,6 +6033,9 @@
         "anyOf": [
          {
           "type": "object",
+          "propertyNames": {
+           "type": "string"
+          },
           "additionalProperties": {
            "anyOf": [
             {},
@@ -6143,8 +6137,7 @@
             },
             "required": [
              "key"
-            ],
-            "additionalProperties": false
+            ]
            }
           ]
          },
@@ -6277,8 +6270,7 @@
           }
          ]
         }
-       },
-       "additionalProperties": false
+       }
       },
       {
        "$ref": "common_types.json#/$defs/DataBinding"
@@ -6612,8 +6604,7 @@
            "label",
            "lat",
            "lng"
-          ],
-          "additionalProperties": false
+          ]
          },
          {
           "$ref": "common_types.json#/$defs/DataBinding"
@@ -6709,8 +6700,7 @@
        "required": [
         "lat",
         "lng"
-       ],
-       "additionalProperties": false
+       ]
       },
       {
        "$ref": "common_types.json#/$defs/DataBinding"
@@ -6850,8 +6840,7 @@
        },
        "required": [
         "label"
-       ],
-       "additionalProperties": false
+       ]
       },
       {
        "$ref": "common_types.json#/$defs/DataBinding"
@@ -6901,8 +6890,7 @@
          },
          "required": [
           "svgPath"
-         ],
-         "additionalProperties": false
+         ]
         }
        ]
       },
@@ -7118,8 +7106,7 @@
           },
           "required": [
            "d"
-          ],
-          "additionalProperties": false
+          ]
          },
          {
           "$ref": "common_types.json#/$defs/DataBinding"
@@ -7333,8 +7320,7 @@
            "cx",
            "cy",
            "r"
-          ],
-          "additionalProperties": false
+          ]
          },
          {
           "$ref": "common_types.json#/$defs/DataBinding"
@@ -7459,8 +7445,7 @@
            "y",
            "width",
            "height"
-          ],
-          "additionalProperties": false
+          ]
          },
          {
           "$ref": "common_types.json#/$defs/DataBinding"
@@ -7559,8 +7544,7 @@
            "y1",
            "x2",
            "y2"
-          ],
-          "additionalProperties": false
+          ]
          },
          {
           "$ref": "common_types.json#/$defs/DataBinding"
@@ -7676,8 +7660,7 @@
            "x",
            "y",
            "text"
-          ],
-          "additionalProperties": false
+          ]
          },
          {
           "$ref": "common_types.json#/$defs/DataBinding"
@@ -7839,8 +7822,7 @@
           },
           "required": [
            "url"
-          ],
-          "additionalProperties": false
+          ]
          },
          {
           "$ref": "common_types.json#/$defs/DataBinding"
@@ -8208,8 +8190,7 @@
             },
             "required": [
              "label"
-            ],
-            "additionalProperties": false
+            ]
            }
           ]
          },
@@ -8278,6 +8259,7 @@
      "description": "Up to three buttons. A button without href sends onAction with its label",
      "anyOf": [
       {
+       "maxItems": 3,
        "type": "array",
        "items": {
         "anyOf": [
@@ -8333,8 +8315,7 @@
           },
           "required": [
            "label"
-          ],
-          "additionalProperties": false
+          ]
          },
          {
           "$ref": "common_types.json#/$defs/DataBinding"
@@ -8343,8 +8324,7 @@
           "$ref": "common_types.json#/$defs/FunctionCall"
          }
         ]
-       },
-       "maxItems": 3
+       }
       },
       {
        "$ref": "common_types.json#/$defs/DataBinding"
@@ -8474,8 +8454,7 @@
        },
        "required": [
         "label"
-       ],
-       "additionalProperties": false
+       ]
       },
       {
        "$ref": "common_types.json#/$defs/DataBinding"
@@ -8624,8 +8603,7 @@
           },
           "required": [
            "url"
-          ],
-          "additionalProperties": false
+          ]
          },
          {
           "$ref": "common_types.json#/$defs/DataBinding"
@@ -8802,8 +8780,7 @@
           },
           "required": [
            "title"
-          ],
-          "additionalProperties": false
+          ]
          },
          {
           "$ref": "common_types.json#/$defs/DataBinding"
@@ -9060,8 +9037,7 @@
           },
           "required": [
            "url"
-          ],
-          "additionalProperties": false
+          ]
          },
          {
           "$ref": "common_types.json#/$defs/DataBinding"
@@ -9391,8 +9367,7 @@
           "required": [
            "label",
            "value"
-          ],
-          "additionalProperties": false
+          ]
          },
          {
           "$ref": "common_types.json#/$defs/DataBinding"
@@ -9550,8 +9525,7 @@
           },
           "required": [
            "name"
-          ],
-          "additionalProperties": false
+          ]
          },
          {
           "$ref": "common_types.json#/$defs/DataBinding"
@@ -9699,8 +9673,7 @@
           "required": [
            "key",
            "label"
-          ],
-          "additionalProperties": false
+          ]
          },
          {
           "$ref": "common_types.json#/$defs/DataBinding"
@@ -9727,6 +9700,9 @@
         "anyOf": [
          {
           "type": "object",
+          "propertyNames": {
+           "type": "string"
+          },
           "additionalProperties": {
            "anyOf": [
             {},
@@ -9864,8 +9840,7 @@
           "required": [
            "label",
            "value"
-          ],
-          "additionalProperties": false
+          ]
          },
          {
           "$ref": "common_types.json#/$defs/DataBinding"
@@ -9992,8 +9967,7 @@
           },
           "required": [
            "title"
-          ],
-          "additionalProperties": false
+          ]
          },
          {
           "$ref": "common_types.json#/$defs/DataBinding"
@@ -10429,8 +10403,7 @@
                  },
                  "required": [
                   "title"
-                 ],
-                 "additionalProperties": false
+                 ]
                 },
                 {
                  "$ref": "common_types.json#/$defs/DataBinding"
@@ -10453,8 +10426,7 @@
           "required": [
            "date",
            "events"
-          ],
-          "additionalProperties": false
+          ]
          },
          {
           "$ref": "common_types.json#/$defs/DataBinding"
@@ -10581,8 +10553,7 @@
           "required": [
            "feature",
            "values"
-          ],
-          "additionalProperties": false
+          ]
          },
          {
           "$ref": "common_types.json#/$defs/DataBinding"
@@ -10754,8 +10725,7 @@
           "required": [
            "x",
            "y"
-          ],
-          "additionalProperties": false
+          ]
          },
          {
           "$ref": "common_types.json#/$defs/DataBinding"
@@ -10939,8 +10909,7 @@
           "required": [
            "x",
            "y"
-          ],
-          "additionalProperties": false
+          ]
          },
          {
           "$ref": "common_types.json#/$defs/DataBinding"
@@ -11124,8 +11093,7 @@
           "required": [
            "x",
            "y"
-          ],
-          "additionalProperties": false
+          ]
          },
          {
           "$ref": "common_types.json#/$defs/DataBinding"
@@ -11306,8 +11274,7 @@
           "required": [
            "label",
            "value"
-          ],
-          "additionalProperties": false
+          ]
          },
          {
           "$ref": "common_types.json#/$defs/DataBinding"
@@ -11514,8 +11481,7 @@
           "required": [
            "x",
            "y"
-          ],
-          "additionalProperties": false
+          ]
          },
          {
           "$ref": "common_types.json#/$defs/DataBinding"
@@ -11697,8 +11663,7 @@
            "x",
            "y",
            "value"
-          ],
-          "additionalProperties": false
+          ]
          },
          {
           "$ref": "common_types.json#/$defs/DataBinding"
@@ -11949,8 +11914,7 @@
           "required": [
            "axis",
            "value"
-          ],
-          "additionalProperties": false
+          ]
          },
          {
           "$ref": "common_types.json#/$defs/DataBinding"
@@ -12147,8 +12111,7 @@
            "high",
            "low",
            "close"
-          ],
-          "additionalProperties": false
+          ]
          },
          {
           "$ref": "common_types.json#/$defs/DataBinding"
@@ -12303,8 +12266,7 @@
           "required": [
            "name",
            "value"
-          ],
-          "additionalProperties": false
+          ]
          },
          {
           "$ref": "common_types.json#/$defs/DataBinding"
@@ -12460,8 +12422,7 @@
            "source",
            "target",
            "value"
-          ],
-          "additionalProperties": false
+          ]
          },
          {
           "$ref": "common_types.json#/$defs/DataBinding"
@@ -12695,8 +12656,7 @@
            "name",
            "lat",
            "lon"
-          ],
-          "additionalProperties": false
+          ]
          },
          {
           "$ref": "common_types.json#/$defs/DataBinding"
@@ -13136,8 +13096,7 @@
            "name",
            "lat",
            "lon"
-          ],
-          "additionalProperties": false
+          ]
          },
          {
           "$ref": "common_types.json#/$defs/DataBinding"
@@ -13291,8 +13250,7 @@
           "required": [
            "value",
            "label"
-          ],
-          "additionalProperties": false
+          ]
          },
          {
           "$ref": "common_types.json#/$defs/DataBinding"
@@ -13505,8 +13463,7 @@
           "required": [
            "value",
            "label"
-          ],
-          "additionalProperties": false
+          ]
          },
          {
           "$ref": "common_types.json#/$defs/DataBinding"
@@ -13616,8 +13573,7 @@
           "required": [
            "value",
            "label"
-          ],
-          "additionalProperties": false
+          ]
          },
          {
           "$ref": "common_types.json#/$defs/DataBinding"
@@ -14087,8 +14043,7 @@
           "required": [
            "label",
            "temp"
-          ],
-          "additionalProperties": false
+          ]
          },
          {
           "$ref": "common_types.json#/$defs/DataBinding"
@@ -14186,8 +14141,7 @@
            "label",
            "min",
            "max"
-          ],
-          "additionalProperties": false
+          ]
          },
          {
           "$ref": "common_types.json#/$defs/DataBinding"
@@ -14403,8 +14357,7 @@
           "required": [
            "label",
            "value"
-          ],
-          "additionalProperties": false
+          ]
          },
          {
           "$ref": "common_types.json#/$defs/DataBinding"
@@ -14553,8 +14506,7 @@
           "required": [
            "name",
            "price"
-          ],
-          "additionalProperties": false
+          ]
          },
          {
           "$ref": "common_types.json#/$defs/DataBinding"
@@ -14956,8 +14908,7 @@
           "required": [
            "label",
            "value"
-          ],
-          "additionalProperties": false
+          ]
          },
          {
           "$ref": "common_types.json#/$defs/DataBinding"

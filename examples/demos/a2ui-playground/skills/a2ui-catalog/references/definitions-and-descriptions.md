@@ -34,7 +34,7 @@ export const onAction = (description: string) => ({
 export const writableValue = { writable: ["value"] as const };
 ```
 
-`@copilotkit/react-core/v2/generative-ui` exports `child()` and `childList()` too, but that module is client-only; these write the same marks from `@copilotkit/shared`, so the server can import the definitions.
+`@copilotkit/react-core/generative-ui` exports `child()` and `childList()` too, but that module is client-only; these write the same marks from `@copilotkit/shared`, so the server can import the definitions.
 
 What the Gen UI 2.0 engine does with each piece:
 

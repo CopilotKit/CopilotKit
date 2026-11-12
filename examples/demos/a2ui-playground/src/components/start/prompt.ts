@@ -21,14 +21,14 @@ export const UI_NOTE: Record<DesignSystemId, string> = {
   byoc: "ui is your own components, each with a Zod schema and a one-line description of when to use it. The prompt writes it.",
 };
 
-/** Where `createGenerativeUI` and `standardUI` come from (not the `@copilotkit/react-core/v2` root). */
-const GENUI_FILE = `Create app/genui.tsx, starting with \`"use client";\` and \`import { createGenerativeUI, standardUI } from "@copilotkit/react-core/v2/generative-ui";\``;
+/** Where `createGenerativeUI` and `standardUI` come from (not the `@copilotkit/react-core` root). */
+const GENUI_FILE = `Create app/genui.tsx, starting with \`"use client";\` and \`import { createGenerativeUI, standardUI } from "@copilotkit/react-core/generative-ui";\``;
 
 /** What a component that replaces a standard Button must keep, so a click still does what the model meant. */
 const BUTTON_CONTRACT = `A replacement Button takes the standard Button's props (read every component's schema with \`exportA2UICatalog(standardUI)\`): it shows \`children\`, \`child\` or \`label\` and its \`icon\`; it is a submit button when \`submit\` is set, so a Form still sends; it is disabled while \`disabled\`, \`loading\` or a check in \`checks\` fails with severity "error"; and on click it opens \`href\` (http, https or mailto only), else copies \`copy\`, else calls \`onClick({})\`, which is how the click reaches the agent. Spread \`useGenerativeUIAccessibility()\` from the same import path on its root element.`;
 
 const CATALOG_STEP: Record<DesignSystemId, string> = {
-  copilotkit: `Create app/genui.tsx: \`"use client";\` then \`export { standardUI as ui } from "@copilotkit/react-core/v2/generative-ui";\`. That is CopilotKit's standard catalog (69 components: Column, Row, Card, Text, Button, TextField, Table, Chart, Map and more). To match this app's look, pass a \`theme\` with the \`--a2ui-*\` CSS variables next to \`ui\` in \`generativeUI\`.`,
+  copilotkit: `Create app/genui.tsx: \`"use client";\` then \`export { standardUI as ui } from "@copilotkit/react-core/generative-ui";\`. That is CopilotKit's standard catalog (69 components: Column, Row, Card, Text, Button, TextField, Table, Chart, Map and more). To match this app's look, pass a \`theme\` with the \`--a2ui-*\` CSS variables next to \`ui\` in \`generativeUI\`.`,
   chatcn: `This app should use shadcn/ui (run \`npx shadcn@latest init\` if it does not). Add the primitives the surfaces need: \`npx shadcn@latest add badge button separator\`. ChatCN's chat components install from its shadcn registry the same way, if you also want them for the chat itself. ${GENUI_FILE}, then:
 \`export const ui = createGenerativeUI({ id: "<app-name>/genui@1", extends: [standardUI], overrides: { Button: { component: ShadcnButton }, Badge: { component: ShadcnBadge }, Divider: { component: ShadcnSeparator } }, components: {} });\`
 Each override is a small wrapper around the shadcn component that takes the props of the standard component it replaces. Badge gets \`label\`, \`variant\` and \`color\`. ${BUTTON_CONTRACT} Override leaves like these, not containers: Card and the layout components keep their implementation and match shadcn through \`theme\` (map your shadcn tokens onto the \`--a2ui-*\` variables), so a surface's inputs keep their state.`,
@@ -69,7 +69,7 @@ ${PROVIDER}
 
 5. Verify: start the dev server, ask the chat for "a dashboard of this week's signups", and check that a UI renders. Fix any catalog error the browser console reports.
 
-Optional, for an agent that writes A2UI outside CopilotKit (ADK, Gemini CLI, another runtime): export the catalog with \`exportA2UICatalog(ui)\` from @copilotkit/react-core/v2/generative-ui, and generate an agent skill from it with \`SkillGenerator\` from @a2ui/agent.
+Optional, for an agent that writes A2UI outside CopilotKit (ADK, Gemini CLI, another runtime): export the catalog with \`exportA2UICatalog(ui)\` from @copilotkit/react-core/generative-ui, and generate an agent skill from it with \`SkillGenerator\` from @a2ui/agent.
 
 References:
 - A working example of this setup: ${origin}
