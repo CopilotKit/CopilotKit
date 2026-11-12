@@ -47,7 +47,7 @@ vi.mock("next/navigation", () => ({
 }));
 
 const readable = { value: "" };
-vi.mock("@copilotkit/react-core/v2", () => ({
+vi.mock("@copilotkit/react-core", () => ({
   useAgentContext: ({ value }: { value: string }) => {
     readable.value = value;
   },

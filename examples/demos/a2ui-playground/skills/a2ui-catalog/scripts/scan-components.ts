@@ -119,7 +119,8 @@ function zodFor(t: ts.Type, depth = 0): string {
     const props = checker
       .getPropertiesOfType(t)
       .filter((p) => !SKIP.has(p.name));
-    if (!props.length || props.length > 25) return "z.record(z.any())";
+    if (!props.length || props.length > 25)
+      return "z.record(z.string(), z.any())";
     return `z.object({ ${props
       .map((p) => {
         const pt = checker.getTypeOfSymbol(p);

@@ -1051,7 +1051,9 @@ internal static class A2UIUpgrade
 /// v0.9); a surface that this run only updates gets its new operations as an <c>ACTIVITY_DELTA</c>. A surface written
 /// in native 1.0 (for example by ADK) has no <c>a2uiSourceVersion</c>, so a click on it reaches the agent unchanged.
 /// One surface has one version, the version of its first operation; an operation of the other version is rejected.
-/// A lifecycle snapshot (no operations) names no surface, so it is consumed.
+/// A lifecycle snapshot (no operations) names no surface, so it is consumed. A <c>failed</c> one (the agent's recovery
+/// gave up) becomes a surface with no operations, status "error", and its error as the one rejected entry, so the chat
+/// shows that the UI could not be made. Its surfaceId is the source messageId.
 /// </summary>
 internal sealed class A2UIV09ActivityUpgrader
 {
@@ -1075,6 +1077,33 @@ internal sealed class A2UIV09ActivityUpgrader
     private readonly Dictionary<string, JsonNode?> sources = new(StringComparer.Ordinal);
     private readonly Dictionary<string, SurfaceState> surfaces = new(StringComparer.Ordinal);
     private readonly List<string> surfaceOrder = [];
+    // The source messages whose `failed` snapshot was sent.
+    private readonly HashSet<string> failures = new(StringComparer.Ordinal);
+
+    /// <summary>The error of a <c>failed</c> lifecycle snapshot (the agent's A2UI recovery gave up), or null.</summary>
+    private static string? FailedLifecycleError(JsonNode? content)
+    {
+        if (content is not JsonObject record || JsonText.Str(record["status"]) != "failed") return null;
+        var error = JsonText.Str(record["error"]) is { Length: > 0 } message ? message : "A2UI generation failed";
+        return error.Length > GenerativeUI.MaxRejectionLength ? error[..GenerativeUI.MaxRejectionLength] : error;
+    }
+
+    /// <summary>The surface that shows a failed lifecycle snapshot, sent once.</summary>
+    private List<JsonObject> Failure(string surfaceId, string error)
+    {
+        if (!failures.Add(surfaceId)) return [];
+        var content = new JsonObject
+        {
+            ["surfaceId"] = surfaceId,
+            ["target"] = GenerativeUI.ChatTarget,
+            ["catalogId"] = GenerativeUI.StandardCatalogId,
+            ["operations"] = new JsonArray(),
+            ["status"] = "error",
+            ["rejected"] = new JsonArray(new JsonObject { ["index"] = 0, ["reason"] = error }),
+            ["a2uiSourceVersion"] = "0.9",
+        };
+        return [new JsonObject { ["type"] = "ACTIVITY_SNAPSHOT", ["messageId"] = GenerativeUI.SurfaceMessageId(surfaceId), ["activityType"] = GenerativeUI.ActivityType, ["content"] = content, ["replace"] = true }];
+    }
 
     private static List<JsonObject> Snapshot(string surfaceId, SurfaceState state, List<JsonObject> operations, JsonArray rejected, string version)
     {
@@ -1142,7 +1171,7 @@ internal sealed class A2UIV09ActivityUpgrader
     }
 
     /// <summary>Convert the stored content of one source message again.</summary>
-    private List<JsonObject> Refresh(string messageId)
+    private List<JsonObject> Refresh(string messageId, string? sourceId)
     {
         var parts = new List<KeyValuePair<string, SourcePart>>();
         var operations = A2UIUpgrade.ReadOperations(sources.GetValueOrDefault(messageId));
@@ -1172,7 +1201,9 @@ internal sealed class A2UIV09ActivityUpgrader
             var index = state.Parts.FindIndex(pair => pair.Key == messageId);
             if (index >= 0) state.Parts[index] = new(messageId, part); else state.Parts.Add(new(messageId, part));
         }
-        return touched.SelectMany(Emit).ToList();
+        var events = touched.SelectMany(Emit).ToList();
+        if (sourceId is not null && FailedLifecycleError(sources.GetValueOrDefault(messageId)) is { } error) events.AddRange(Failure(sourceId, error));
+        return events;
     }
 
     /// <summary>The events that replace one event of the run.</summary>
@@ -1181,18 +1212,19 @@ internal sealed class A2UIV09ActivityUpgrader
         var type = JsonText.Str(value["type"]);
         if (type is not ("ACTIVITY_SNAPSHOT" or "ACTIVITY_DELTA") || JsonText.Str(value["activityType"]) != A2UIUpgrade.V09SurfaceActivityType) return [value];
         var messageId = JsonText.Compact(value["messageId"]);
+        var sourceId = JsonText.Str(value["messageId"]);
         if (type == "ACTIVITY_SNAPSHOT")
         {
             // `replace: false` does not replace a message that already exists.
             if (JsonText.IsFalse(value["replace"]) && sources.ContainsKey(messageId)) return [];
             sources[messageId] = value["content"]?.DeepClone();
-            return Refresh(messageId);
+            return Refresh(messageId, sourceId);
         }
         if (!sources.TryGetValue(messageId, out var stored)) return [];
         try { sources[messageId] = A2UIUpgrade.ApplyJsonPatch(stored?.DeepClone(), value["patch"]); }
         // The AG-UI client also skips a delta that does not apply.
         catch (Exception error) when (error is FormatException or InvalidOperationException or ArgumentException) { return []; }
-        return Refresh(messageId);
+        return Refresh(messageId, sourceId);
     }
 }
 

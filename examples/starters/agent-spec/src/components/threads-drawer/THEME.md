@@ -2,7 +2,7 @@
 
 These are agent-spec's **bespoke** copies of the threads panel. They are no
 longer a shared/tokenized base component — they are styled to read as one
-product with agent-spec's chat surface from `@copilotkit/react-core/v2`.
+product with agent-spec's chat surface from `@copilotkit/react-core`.
 
 ## Design source of truth
 

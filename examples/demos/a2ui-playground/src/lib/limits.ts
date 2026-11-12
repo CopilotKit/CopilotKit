@@ -7,7 +7,7 @@
  * Railway instance the playground runs on; with more instances, each one counts
  * on its own and the real limits multiply by the number of instances.
  */
-import type { CopilotRuntimeHooks } from "@copilotkit/runtime/v2";
+import type { CopilotRuntimeHooks } from "@copilotkit/runtime";
 
 const MINUTE = 60_000;
 

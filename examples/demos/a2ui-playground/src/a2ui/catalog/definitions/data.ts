@@ -75,7 +75,7 @@ export const dataDefinitions = {
           align: z.enum(["left", "right"]).optional(),
         }),
       ),
-      rows: z.array(z.record(z.any())),
+      rows: z.array(z.record(z.string(), z.any())),
       searchable: z.boolean().optional(),
       pageSize: z.number().optional(),
     }),

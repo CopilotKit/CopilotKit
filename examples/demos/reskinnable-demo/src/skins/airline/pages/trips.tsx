@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
-import { useAgentContext } from "@copilotkit/react-core/v2";
+import { useAgentContext } from "@copilotkit/react-core";
 import { useConciergeView } from "../components/concierge-view";
 import { FlightCard, SeatMap, BoardingPass } from "../components";
 import { isSelectableSeat, orderedSeats } from "../components/seat-map";

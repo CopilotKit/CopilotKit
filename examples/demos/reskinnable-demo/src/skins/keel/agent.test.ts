@@ -1,3 +1,6 @@
+// @vitest-environment node
+// The agents build an OpenAI client (TanStack AI), which refuses to start in
+// a browser-like environment such as jsdom. These tests never touch the DOM.
 import { beforeEach, describe, expect, it } from "vitest";
 import { keelAgent } from "@/skins/keel/agent";
 import * as store from "@/skins/keel/data/store";

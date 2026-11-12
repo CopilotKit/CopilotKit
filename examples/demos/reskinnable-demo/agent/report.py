@@ -38,7 +38,7 @@ The ``a2ui_operations`` contract with the middleware
 CopilotKit's A2UI middleware watches the AG-UI event stream. On a
 ``TOOL_CALL_RESULT`` it parses the result content and looks for the key
 ``a2ui_operations``; if it finds an array there it converts it into an
-``a2ui-surface`` activity, which the shared canvas hands to the banking skin's
+surface activity (``generative-ui-surface`` once the runtime converts it to A2UI 1.0), which the shared canvas hands to the banking skin's
 ``CanvasSurface``. The middleware inspects EVENTS only and does not care which
 process produced them, so a remote Python agent works identically to the built-in
 TypeScript one — provided the tool result is structurally identical: same key,

@@ -348,6 +348,34 @@ describe("generative UI integration", () => {
     );
   });
 
+  it("shows the chat-card error for a surface that failed with no operations", async () => {
+    // What the runtime sends when a v0.9 agent's A2UI recovery gives up.
+    const { agent } = setup();
+    await send("compare");
+    agent.emit(runStartedEvent({ threadId: T, runId: "r1" }));
+    agent.emit({
+      type: EventType.ACTIVITY_SNAPSHOT,
+      messageId: "genui:cmp",
+      activityType: "generative-ui-surface",
+      content: {
+        surfaceId: "cmp",
+        target: "chat",
+        catalogId: "shop",
+        operations: [],
+        status: "error",
+        rejected: [{ index: 0, reason: "root is missing" }],
+      },
+      replace: true,
+    } as BaseEvent);
+    agent.emit(runFinishedEvent({ threadId: T, runId: "r1" }));
+    await waitFor(() =>
+      expect(within(cardEl()!).getByRole("alert").textContent).toBe(
+        "Part of this UI couldn't be shown.",
+      ),
+    );
+    expect(cardEl()!.textContent).toBe("Part of this UI couldn't be shown.");
+  });
+
   it("passes the raw rejection list to a custom chat wrapper", async () => {
     CapturingAgent.inputs = [];
     const agent = new CapturingAgent();

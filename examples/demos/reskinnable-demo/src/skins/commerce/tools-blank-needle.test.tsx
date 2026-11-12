@@ -109,7 +109,7 @@ interface RegisteredTool {
   handler?: ToolHandler;
 }
 
-vi.mock("@copilotkit/react-core/v2", () => ({
+vi.mock("@copilotkit/react-core", () => ({
   useAgentContext: () => {},
   useComponent: () => {},
   useFrontendTool: (config: RegisteredTool) => TOOLS.set(config.name, config),

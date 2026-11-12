@@ -80,7 +80,7 @@ function useStableArrayProp(
 
 // Partial mock: sibling shell modules pull plenty of other exports from this
 // package at import time, so keep the real namespace and swap only the provider.
-vi.mock("@copilotkit/react-core/v2", async (importOriginal) => ({
+vi.mock("@copilotkit/react-core", async (importOriginal) => ({
   ...(await importOriginal<Record<string, unknown>>()),
   CopilotKitProvider: (props: Record<string, unknown>) => {
     providerProps.push(props);

@@ -6,8 +6,8 @@ import {
   CopilotKitProvider,
   CopilotChatConfigurationProvider,
   useConfigureSuggestions,
-} from "@copilotkit/react-core/v2";
-import type { ReactActivityMessageRenderer } from "@copilotkit/react-core/v2";
+} from "@copilotkit/react-core";
+import type { ReactActivityMessageRenderer } from "@copilotkit/react-core";
 import type { Skin } from "@/shell/skin-contract";
 import { getSkin } from "@/shell/registry";
 import { isSkinLockedOut, useLockedSkin } from "@/shell/locked-skin-context";
@@ -20,6 +20,7 @@ import { TOOL_CALL_RENDERERS } from "@/shell/chat/tool-activity";
 import {
   CanvasProvider,
   classifyA2uiSurface,
+  SURFACE_ACTIVITY_TYPE,
 } from "@/shell/canvas/canvas-context";
 import { SubagentActivityProvider } from "@/shell/subagents/subagent-activity";
 import { CanvasRegion } from "@/shell/canvas/canvas";
@@ -30,8 +31,9 @@ import {
 } from "@/shell/chat/inline-block-surface";
 
 /**
- * The agent's render_report result becomes an `a2ui-surface` activity that the
- * shared canvas renders full-region; generateSandboxedUi becomes an
+ * The agent's render_report result becomes a surface activity
+ * (`generative-ui-surface`: the runtime converts the agent's A2UI v0.9 ops to
+ * 1.0) that the shared canvas renders full-region; generateSandboxedUi becomes an
  * `open-generative-ui` activity that ALSO renders full-region on the canvas
  * (this build ships the workspace OGUI renderer). In the chat we leave only a
  * small handoff pill in place of each built-in inline surface renderer —
@@ -39,7 +41,7 @@ import {
  * block dashboard tile that should render right in the transcript instead of
  * handing off to the canvas. `blockSurfaceIdFrom` (shared with the exec skin's
  * op-builder by hand, see that module's comment) recognizes the convention;
- * any other `a2ui-surface` id falls back to a handoff pill.
+ * any other surface id falls back to a handoff pill.
  *
  * WHICH pill depends on what the canvas will actually do with the activity,
  * which is `classifyA2uiSurface`'s call and not this renderer's: content the
@@ -112,7 +114,7 @@ function OguiHandoffPill() {
  */
 const A2UI_RENDERERS: ReactActivityMessageRenderer<unknown>[] = [
   {
-    activityType: "a2ui-surface",
+    activityType: SURFACE_ACTIVITY_TYPE,
     content: z.any(),
     render: A2UISurfaceActivity,
   },
@@ -235,12 +237,11 @@ function SkinCopilotRuntime({
   const Tools = skin.Tools;
 
   // The provider's config objects are memoized rather than written inline: it
-  // keys internal memos off `a2ui` by identity (rebuilding its activity-renderer
-  // list whenever that reference changes), and reads
+  // keys internal memos off `generativeUI` by identity, and reads
   // `openGenerativeUI.sandboxFunctions` through a by-reference stability check.
   // `skin` is fixed for this subtree's lifetime (keyed remount on skin change),
   // so both are effectively constants.
-  const a2ui = useMemo(() => ({ catalog: skin.catalog }), [skin.catalog]);
+  const generativeUI = useMemo(() => ({ ui: skin.catalog }), [skin.catalog]);
   const openGenerativeUI = useMemo(
     () => ({
       sandboxFunctions: skin.sandboxFunctions ?? NO_SANDBOX_FUNCTIONS,
@@ -257,10 +258,9 @@ function SkinCopilotRuntime({
       useSingleEndpoint={false}
       // Provider-OWNED identity: a skin's `useRuntimeProperties` result flows
       // straight in here, so the runtime's per-user Intelligence scoping never
-      // depends on a child effect firing in the right order. The provider adds
-      // `a2uiCatalogAvailable` itself, so a skin need not set it.
+      // depends on a child effect firing in the right order.
       properties={properties}
-      a2ui={a2ui}
+      generativeUI={generativeUI}
       // Replace the built-in inline surface renderers with small handoff pills
       // (report + OGUI both render full-region on the shared canvas).
       renderActivityMessages={A2UI_RENDERERS}

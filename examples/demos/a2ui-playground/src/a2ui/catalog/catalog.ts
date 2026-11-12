@@ -25,8 +25,8 @@ import type { ComponentType } from "react";
 import {
   createGenerativeUI,
   standardUI,
-} from "@copilotkit/react-core/v2/generative-ui";
-import type { GenerativeUITheme } from "@copilotkit/react-core/v2/generative-ui";
+} from "@copilotkit/react-core/generative-ui";
+import type { GenerativeUITheme } from "@copilotkit/react-core/generative-ui";
 import { z } from "zod";
 import { useOverride } from "@/design-systems/overrides";
 import type { ComponentName } from "./definitions";

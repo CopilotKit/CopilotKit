@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import { useAgentContext } from "@copilotkit/react-core/v2";
+import { useAgentContext } from "@copilotkit/react-core";
 import { BellRing, Megaphone, Sparkles } from "lucide-react";
 import { useMyelinLedger } from "../data/ledger-context";
 import { relativeTime } from "../data/derive";

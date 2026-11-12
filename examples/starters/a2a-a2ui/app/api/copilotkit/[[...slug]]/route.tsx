@@ -1,16 +1,15 @@
 import {
   CopilotRuntime,
   CopilotKitIntelligence,
-  createCopilotEndpoint,
   InMemoryAgentRunner,
-} from "@copilotkit/runtime/v2";
+  createCopilotRuntimeHandler,
+} from "@copilotkit/runtime";
 import type {
   AgentSubscriber,
   RunAgentInput,
   RunAgentParameters,
   RunAgentResult,
 } from "@ag-ui/client";
-import { handle } from "hono/vercel";
 import { A2AAgent } from "@ag-ui/a2a";
 import type { A2AAgentConfig } from "@ag-ui/a2a";
 import { A2AClient } from "@a2a-js/sdk/client";
@@ -84,7 +83,11 @@ const runtime = new CopilotRuntime({
   agents: {
     default: agent,
   },
-  a2ui: {},
+  // The A2A agent sends A2UI v0.8 (`@ag-ui/a2a` forwards only v0.8
+  // operations). Generative UI converts v0.9 and 1.0 only, and it would drop
+  // these surfaces, so it stays off. `app/components/a2ui-v0-8-renderer.tsx`
+  // renders them.
+  generativeUI: false,
   // --- copilotkit:intelligence (remove this block to opt out) ---
   ...(process.env.CPK_INTELLIGENCE_API_KEY
     ? {
@@ -107,12 +110,13 @@ const runtime = new CopilotRuntime({
   // --- /copilotkit:intelligence ---
 });
 
-const app = createCopilotEndpoint({
+const app = createCopilotRuntimeHandler({
+  cors: true,
   runtime,
   basePath: "/api/copilotkit",
 });
 
-export const GET = handle(app);
-export const POST = handle(app);
-export const PATCH = handle(app);
-export const DELETE = handle(app);
+export const GET = app;
+export const POST = app;
+export const PATCH = app;
+export const DELETE = app;

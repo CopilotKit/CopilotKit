@@ -103,7 +103,7 @@ internal static class GenerativeUI
     private const int EnvelopeFormat = 3;
     private const int MaxTargetComponents = 100;
     private const int MaxSummaryRejections = 20;
-    private const int MaxRejectionLength = 500;
+    internal const int MaxRejectionLength = 500;
     private const int MaxUserValuesLength = 500;
     private const string IndexFunction = "@index";
 

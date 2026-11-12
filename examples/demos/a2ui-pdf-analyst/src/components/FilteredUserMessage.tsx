@@ -12,7 +12,7 @@
  * The wire message that actually reaches the agent is untouched. this
  * only affects display.
  */
-import { CopilotChatUserMessage } from "@copilotkit/react-core/v2";
+import { CopilotChatUserMessage } from "@copilotkit/react-core";
 import type { ComponentProps } from "react";
 import type {
   UserMessage,

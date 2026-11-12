@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Check, Clock, X } from "lucide-react";
-import { useAgentContext } from "@copilotkit/react-core/v2";
+import { useAgentContext } from "@copilotkit/react-core";
 import { cn } from "@/lib/utils";
 import { useSkin } from "@/shell/skin-provider";
 import { useSkinHref } from "@/shell/skin-path";

@@ -92,11 +92,11 @@ export default function Home() {
         <section className="mt-14 grid md:grid-cols-3 gap-3">
           <Spec
             k="Frontend"
-            v="Next.js 16 · React 19 · Tailwind v4 · @copilotkit/react-core/v2"
+            v="Next.js 16 · React 19 · Tailwind v4 · @copilotkit/react-core (generative UI)"
           />
           <Spec
             k="Bridge"
-            v="@copilotkit/runtime (v2) · @ag-ui/client · a2ui middleware"
+            v="@copilotkit/runtime · @ag-ui/client · A2UI v0.9 → 1.0 bridge"
           />
           <Spec
             k="Backend"

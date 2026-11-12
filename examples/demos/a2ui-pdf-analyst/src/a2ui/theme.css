@@ -1,5 +1,6 @@
-/* A2UI surface theme — mapped to verified CopilotKit brand tokens.
-   Scoped to .a2ui-surface and consumed by @copilotkit/a2ui-renderer. */
+/* Surface theme — mapped to verified CopilotKit brand tokens.
+   Scoped to .a2ui-surface, the wrapper of every rendered surface (the
+   canvas and the catalog previews). */
 .a2ui-surface {
   --background: #fafafc;
   --foreground: #010507;

@@ -1,6 +1,6 @@
 "use client";
 
-import { OpenGenerativeUIActivityRenderer } from "@copilotkit/react-core/v2";
+import { OpenGenerativeUIActivityRenderer } from "@copilotkit/react-core";
 import { useSkin } from "@/shell/skin-provider";
 import { useOguiSurface } from "./use-ogui-surface";
 import { useCanvas } from "./canvas-context";
@@ -16,7 +16,7 @@ import { useCanvas } from "./canvas-context";
  * - "report" surfaces defer to the active skin's `CanvasSurface`. A skin with
  *   no a2ui report surface (bookstore and exec) would render nothing for that
  *   kind — but that `return null` is DEFENSIVE, not exercised. No skin
- *   shipping today reaches it: bookstore emits no `a2ui-surface` activity at
+ *   shipping today reaches it: bookstore emits no surface activity at
  *   all (it ships no report tool), and exec's are all `block:`-prefixed, which
  *   `useLatestCanvasSurface` skips before it can claim the region, so
  *   `activeSurfaceKind` is never "report" for either. Keep the branch — a

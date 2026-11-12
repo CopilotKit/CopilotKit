@@ -12,7 +12,7 @@ import {
 /**
  * The trigger contract between the `render_trip_brief` server tool and
  * `AirlineCanvasSurface`. Everything here fails SILENTLY when wrong: a mistyped
- * operations key means the middleware never emits an `a2ui-surface` activity and
+ * operations key means the middleware never emits a `generative-ui-surface` activity and
  * the canvas simply never opens, with nothing in the log to say why.
  */
 

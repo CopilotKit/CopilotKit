@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 import { z } from "zod";
-import type { SandboxFunction } from "@copilotkit/react-core/v2";
+import type { SandboxFunction } from "@copilotkit/react-core";
 import { useKeelDesk } from "@/skins/keel/desk-data";
 import type { KeelDeskView } from "@/skins/keel/desk-data";
 import type { Run } from "@/skins/keel/data/types";

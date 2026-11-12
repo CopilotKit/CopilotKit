@@ -7,6 +7,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
       agent="sample_agent"
       threadId="thread-1"
       guardrails_c={{ validTopics: ["cooking"] }}
+      onError={(event) => console.error(event.type, event.error)}
     >
       {children}
     </CopilotKit>

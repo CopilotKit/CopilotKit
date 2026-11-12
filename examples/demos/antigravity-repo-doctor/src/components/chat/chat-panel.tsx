@@ -9,11 +9,8 @@ import {
   useState,
   useSyncExternalStore,
 } from "react";
-import {
-  CopilotChat,
-  useAgent,
-  useCopilotKit,
-} from "@copilotkit/react-core/v2";
+import { CopilotChat, useAgent, useCopilotKit } from "@copilotkit/react-core";
+import type { GenerativeUIChatSurfaceProps } from "@copilotkit/react-core/generative-ui";
 import Image from "next/image";
 import { CircleAlert, Star, X } from "lucide-react";
 import { AGENT_ID } from "@/lib/agent-id";
@@ -163,6 +160,26 @@ function RepoCard({
   );
 }
 
+// The test report is a card of its own, so its surface renders without the
+// default generative UI chat card around it. The rhythm rules in globals.css
+// space it like every other card.
+function ChatSurface({
+  surfaceId,
+  error,
+  children,
+}: GenerativeUIChatSurfaceProps) {
+  return (
+    <div data-generative-ui-chat-surface={surfaceId} className="w-full">
+      {children}
+      {error && (
+        <p role="alert" className="mt-2 text-[14px] text-fail">
+          Part of this report couldn&apos;t be shown.
+        </p>
+      )}
+    </div>
+  );
+}
+
 // The welcome screen is a component CopilotChat renders, so the cards reach it
 // through context rather than props.
 const ReposContext = createContext<readonly RepoCardData[]>([]);
@@ -261,6 +278,7 @@ export function ChatPanel({ repos }: { repos: readonly RepoCardData[] }) {
           labels={{
             chatInputPlaceholder: placeholder,
           }}
+          generativeUISurface={ChatSurface}
         />
       </div>
     </ReposContext.Provider>

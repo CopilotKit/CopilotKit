@@ -1,13 +1,8 @@
 "use client";
 
-import { useAgent } from "@copilotkit/react-core/v2";
+import { useLatestSurfaceOperations } from "@/shell/canvas/canvas-context";
 import { TripBriefCard } from "./canvas/trip-brief-card";
-import {
-  A2UI_OPERATIONS_KEY,
-  extractSurfaceId,
-  readBriefId,
-} from "./canvas/trip-brief-ops";
-import type { A2UIOp } from "./canvas/trip-brief-ops";
+import { readBriefId } from "./canvas/trip-brief-ops";
 import { selectBrief, useTripBriefs } from "./canvas/use-trip-briefs";
 
 /**
@@ -17,12 +12,13 @@ import { selectBrief, useTripBriefs } from "./canvas/use-trip-briefs";
  * `render_trip_brief` server tool in `agent.ts` emits `buildTripBriefOps(briefId)`
  * from `./canvas/trip-brief-ops` under `A2UI_OPERATIONS_KEY` — without that
  * emission nothing ever opens this region, because the a2ui middleware only
- * produces an `a2ui-surface` activity from an in-stream TOOL_CALL_RESULT. The
+ * produces a surface activity from an in-stream TOOL_CALL_RESULT (the runtime
+ * streams it to the browser as a `generative-ui-surface` activity). The
  * shell owns the region, the "← Back" affordance, OGUI and the surface-kind
  * detection (`src/shell/canvas/`); this component owns only what goes inside for
  * a "report" surface.
  *
- * WHY THERE IS NO `A2UIProvider` / `A2UIRenderer` HERE, unlike the other four
+ * WHY THERE IS NO `<PageSurface>` HERE, unlike the other four
  * skins. Their briefs are compositions the agent selects, so the ops carry a
  * component tree and the catalog carries the renderers. Aeronova's Trip Brief is
  * a single durable record of fixed shape that the SERVER already settled — the
@@ -35,19 +31,11 @@ import { selectBrief, useTripBriefs } from "./canvas/use-trip-briefs";
  * the conversation and this canvas draws exactly the same thing.
  */
 
-/** Minimal shape of an activity message in the agent's message list. */
-type MaybeActivityMessage = {
-  id?: string;
-  role?: string;
-  activityType?: string;
-  content?: Record<string, unknown>;
-};
-
 /**
  * The latest a2ui surface in the agent's message stream — the same read banking,
- * logistics, people and commerce each do, because the a2ui middleware turns the
- * render tool's result into an `a2ui-surface` activity carrying
- * `a2ui_operations`.
+ * logistics, people and commerce each do (`useLatestSurfaceOperations`),
+ * because the a2ui middleware turns the render tool's result into a
+ * `generative-ui-surface` activity carrying the ops under `operations`.
  *
  * `activityId` is returned as well as the brief id: it is what re-triggers the
  * fetch, so a brief filed during THIS run is read after it was written. Keying
@@ -59,27 +47,8 @@ function useTripBriefSurface(): {
   briefId: string | null;
   activityId: string | null;
 } {
-  const { agent } = useAgent();
-  const messages = agent?.messages as MaybeActivityMessage[] | undefined;
-  if (messages) {
-    for (let i = messages.length - 1; i >= 0; i--) {
-      const message = messages[i];
-      if (
-        message?.role !== "activity" ||
-        message?.activityType !== "a2ui-surface"
-      ) {
-        continue;
-      }
-      const operations =
-        (message.content?.[A2UI_OPERATIONS_KEY] as A2UIOp[] | undefined) ?? [];
-      return {
-        briefId: readBriefId(operations),
-        activityId:
-          message.id ?? extractSurfaceId(operations) ?? "a2ui-surface",
-      };
-    }
-  }
-  return { briefId: null, activityId: null };
+  const { operations, activityId } = useLatestSurfaceOperations();
+  return { briefId: readBriefId(operations), activityId };
 }
 
 /**

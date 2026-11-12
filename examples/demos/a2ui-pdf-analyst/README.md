@@ -1,6 +1,6 @@
 # A2UI PDF Analyst
 
-Chat with your PDF and watch the agent build the UI for each answer. Powered by **A2UI v0.9 (Agent-to-UI)** — the open protocol that lets an agent describe a surface as structured component operations your frontend renders against its own design system. Same chat input, two rendering strategies, one shared 21-component catalog.
+Chat with your PDF and watch the agent build the UI for each answer. Powered by **A2UI (Agent-to-UI)** — the open protocol that lets an agent describe a surface as structured component operations your frontend renders against its own design system — and CopilotKit generative UI. The agents write A2UI v0.9; the CopilotKit runtime converts their surfaces to A2UI 1.0 for the browser. Same chat input, two rendering strategies, one shared 21-component catalog.
 
 https://github.com/user-attachments/assets/c053d2e8-1d40-43cb-8c5a-8e5c121b851f
 
@@ -50,7 +50,7 @@ a2ui-pdf-analyst/
 ├── public/                   → static assets (CopilotKit brand SVGs)
 ├── src/                      → Next.js 16 · React 19 · Tailwind v4
 │   ├── app/
-│   │   ├── api/copilotkit/   → CopilotKit V2 runtime endpoint (HttpAgent → Python)
+│   │   ├── api/copilotkit/   → CopilotKit runtime endpoint (HttpAgent → Python, A2UI v0.9 bridge)
 │   │   ├── fixed/            → fixed-schema route: pre-authored dashboard
 │   │   ├── dynamic/          → dynamic-schema route: agent invents the layout
 │   │   ├── catalog/          → live showcase of all 21 components
@@ -61,16 +61,14 @@ a2ui-pdf-analyst/
 │   │   ├── catalog/
 │   │   │   ├── definitions.ts → Zod prop schemas + agent-facing descriptions
 │   │   │   ├── renderers.tsx  → React renderers (Recharts charts, tables, cards)
-│   │   │   └── index.ts       → createCatalog() (definitions + renderers, catalogId)
-│   │   ├── theme.css          → brand tokens, scoped to .a2ui-surface
-│   │   ├── surface-bus.ts     → per-agent A2UI op stream the canvas subscribes to
-│   │   └── MirrorRenderer.tsx → activity renderer that forwards ops to the canvas
+│   │   │   └── index.ts       → createGenerativeUI() (definitions + renderers, catalog id)
+│   │   └── theme.css          → brand tokens, scoped to .a2ui-surface
 │   ├── components/
-│   │   ├── SurfaceCanvas.tsx        → mounts A2UIProvider + renders surfaces
+│   │   ├── SurfaceCanvas.tsx        → GenerativeUISurface for the latest surface + the chat pill
 │   │   ├── FilteredUserMessage.tsx  → strips inlined PDF text from chat
 │   │   ├── FilteredAssistantMessage.tsx → suppresses JSON-shaped agent replies
 │   │   ├── Split.tsx                → VS-Code-style resizable chat/canvas split
-│   │   ├── Providers.tsx            → <CopilotKit> + activity renderers
+│   │   ├── Providers.tsx            → <CopilotKitProvider generativeUI={{ ui: catalog }}>
 │   │   └── Brand.tsx                → SiteNav + PageHeader
 │   └── lib/pdf.ts            → client-side PDF text extraction (pdfjs-dist)
 └── agent/                    → Python · LangChain · LangGraph · FastAPI · AG-UI
@@ -98,7 +96,7 @@ a2ui-pdf-analyst/
 2. Agent calls `query_pdf` → a sub-LLM reads the document and returns structured JSON: `shape_hint`, `title`, `summary`, `data`.
 3. Agent calls `generate_a2ui` (no arguments) → spawns a second sub-LLM bound to a no-op `render_a2ui` shim with `tool_choice` forced to that shim.
 4. The second LLM's tool-call arguments (surfaceId, catalogId, components, data) become A2UI `create_surface` + `update_components` + `update_data_model` operations.
-5. The JS-side A2UI middleware detects `a2ui_operations` in the tool result and emits the snapshot events the canvas listens for. Surface renders. Agent emits an empty chat message.
+5. The CopilotKit runtime (`generativeUI: { a2uiVersion: "0.9" }`) detects `a2ui_operations` in the tool result and converts the v0.9 operations to an A2UI 1.0 generative UI surface. The chat shows a small pill, and `<GenerativeUISurface>` renders the surface in the canvas. Agent emits an empty chat message.
 
 ## Sample PDFs
 
@@ -130,9 +128,9 @@ On `/fixed` after attaching a PDF:
 
 ## Tech stack
 
-| Layer          | Stack                                                                                                                                  |
-| -------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
-| Frontend       | Next.js 16 · React 19 · Tailwind v4 · TypeScript · `@copilotkit/react-core/v2` · `@copilotkit/a2ui-renderer` · `pdfjs-dist` · Recharts |
-| Runtime bridge | `@copilotkit/runtime/v2` · `@ag-ui/client` (HttpAgent)                                                                                 |
-| Backend        | Python 3.12 · FastAPI · `ag-ui-langgraph` · `copilotkit` (Python SDK) · `langchain` agents + LangGraph · `langchain-openai`            |
-| Model          | `gpt-6-luna` for both the main agent and the secondary LLMs                                                                            |
+| Layer          | Stack                                                                                                                                          |
+| -------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| Frontend       | Next.js 16 · React 19 · Tailwind v4 · TypeScript · `@copilotkit/react-core` · `@copilotkit/react-core/generative-ui` · `pdfjs-dist` · Recharts |
+| Runtime bridge | `@copilotkit/runtime` (A2UI v0.9 → 1.0 bridge) · `@ag-ui/client` (HttpAgent)                                                                   |
+| Backend        | Python 3.12 · FastAPI · `ag-ui-langgraph` · `copilotkit` (Python SDK) · `langchain` agents + LangGraph · `langchain-openai`                    |
+| Model          | `gpt-6-luna` for both the main agent and the secondary LLMs                                                                                    |

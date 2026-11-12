@@ -8,7 +8,7 @@
  * so switching never remounts what a visitor typed or picked inside them.
  */
 import type { ReactNode } from "react";
-import { useGenerativeUIAccessibility } from "@copilotkit/react-core/v2/generative-ui";
+import { useGenerativeUIAccessibility } from "@copilotkit/react-core/generative-ui";
 import { asArray } from "@/a2ui/catalog/renderers/format";
 import type { RendererMap } from "@/a2ui/catalog/renderers/types";
 import { str, trendOf, useButton, valueText } from "./shared";

@@ -54,7 +54,7 @@ const ledger: CommerceStoreState = {
 
 // The page's only two outbound couplings. Mocking them keeps this a render test
 // of the list, not of the provider stack or the runtime.
-vi.mock("@copilotkit/react-core/v2", () => ({
+vi.mock("@copilotkit/react-core", () => ({
   useAgentContext: () => undefined,
 }));
 vi.mock("@/skins/commerce/data/ledger-context", () => ({

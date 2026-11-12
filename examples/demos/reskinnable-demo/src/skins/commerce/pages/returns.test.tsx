@@ -121,7 +121,7 @@ const state: { data: CommerceStoreState; refreshed: boolean; count: number } = {
   count: 0,
 };
 
-vi.mock("@copilotkit/react-core/v2", () => ({
+vi.mock("@copilotkit/react-core", () => ({
   useAgentContext: () => {},
 }));
 

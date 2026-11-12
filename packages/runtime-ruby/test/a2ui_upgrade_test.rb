@@ -79,6 +79,27 @@ class A2UIUpgradeTest < Minitest::Test
     { 'type' => kind, 'messageId' => message_id, 'activityType' => 'a2ui-surface', 'content' => { 'a2ui_operations' => operations }, 'replace' => true }
   end
 
+  def test_upgrader_shows_a_failed_lifecycle_snapshot_as_an_error_surface_once
+    upgrader = UP::ActivityUpgrader.new
+    lifecycle = ->(message_id, content) { upgrader.transform(activity(message_id, []).merge('content' => content)) }
+    assert_equal [], lifecycle.call('a2ui-surface-call1', { 'status' => 'retrying', 'attempt' => 2 })
+    failed = { 'status' => 'failed', 'error' => 'root is missing', 'attempts' => [] }
+    expected = [{
+      'type' => 'ACTIVITY_SNAPSHOT', 'messageId' => 'genui:a2ui-surface-call1', 'activityType' => 'generative-ui-surface',
+      'content' => {
+        'surfaceId' => 'a2ui-surface-call1', 'target' => 'chat', 'catalogId' => STANDARD, 'operations' => [],
+        'status' => 'error', 'rejected' => [{ 'index' => 0, 'reason' => 'root is missing' }], 'a2uiSourceVersion' => '0.9'
+      },
+      'replace' => true
+    }]
+    assert_equal expected, lifecycle.call('a2ui-surface-call1', failed)
+    assert_equal [], lifecycle.call('a2ui-surface-call1', failed)
+    long = lifecycle.call('a2ui-surface-call2', { 'status' => 'failed', 'error' => 'x' * 600 })
+    assert_equal 500, long[0].dig('content', 'rejected', 0, 'reason').length
+    generic = lifecycle.call('a2ui-surface-call3', { 'status' => 'failed' })
+    assert_equal [{ 'index' => 0, 'reason' => 'A2UI generation failed' }], generic[0].dig('content', 'rejected')
+  end
+
   def test_upgrader_sends_one_cumulative_surface_per_surface_id
     upgrader = UP::ActivityUpgrader.new
     assert_equal [], upgrader.transform(activity('m', []).merge('content' => { 'status' => 'building' }))

@@ -15,7 +15,7 @@ import { useId, useState } from "react";
 import type { FormEvent } from "react";
 import { ArrowUp } from "lucide-react";
 import type { AbstractAgent, Message } from "@ag-ui/client";
-import { useAgent } from "@copilotkit/react-core/v2";
+import { useAgent } from "@copilotkit/react-core";
 import {
   GENERATIVE_UI_ACTIVITY_TYPE,
   GENERATIVE_UI_CHAT_TARGET,

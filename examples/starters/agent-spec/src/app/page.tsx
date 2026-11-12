@@ -1,33 +1,19 @@
 "use client";
 
-import "@copilotkit/react-core/v2/styles.css";
 import {
   CopilotChat,
   CopilotChatConfigurationProvider,
   CopilotKitProvider,
-  createA2UIMessageRenderer,
   ToolCallStatus,
   useFrontendTool,
   useConfigureSuggestions,
-} from "@copilotkit/react-core/v2";
-import {
-  A2UIProvider,
-  A2UIRenderer,
-  useA2UIActions,
-  viewerTheme,
-} from "@copilotkit/a2ui-renderer";
+} from "@copilotkit/react-core";
 import { z } from "zod";
-import {
-  useState,
-  useCallback,
-  useEffect,
-  useId,
-  useMemo,
-  useRef,
-} from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 
-import { withA2UIActivityMessage } from "@/components/a2ui-activity-wrapper";
-import { theme } from "./theme";
+import { A2UIChatSurface } from "@/components/a2ui-activity-wrapper";
+import { A2UIV08View } from "@/components/a2ui-v0-8-view";
+import type { A2UIV08Component } from "@/components/a2ui-v0-8-view";
 import { CalendarView, CalendarLoadingState } from "@/components/calendar-view";
 import type { CalendarEvent } from "@/components/calendar-view";
 import { InboxView, InboxLoadingState } from "@/components/inbox-view";
@@ -44,10 +30,6 @@ import styles from "@/components/threads-drawer/threads-drawer.module.css";
 // Disable static optimization for this page
 export const dynamic = "force-dynamic";
 
-const BaseA2UIMessageRenderer = createA2UIMessageRenderer({ theme });
-const A2UIMessageRenderer = withA2UIActivityMessage(BaseA2UIMessageRenderer);
-const activityRenderers = [A2UIMessageRenderer];
-
 // ---------------------------------------------------------------------------
 // Canvas state — supports A2UI dashboard + native React components
 // ---------------------------------------------------------------------------
@@ -56,7 +38,7 @@ type CanvasContent =
   | {
       type: "dashboard";
       root: string;
-      components: any[];
+      components: A2UIV08Component[];
       data: Record<string, unknown>;
     }
   | { type: "calendar"; date: string; dayName: string; events: CalendarEvent[] }
@@ -66,123 +48,6 @@ type CanvasContent =
 interface CanvasState {
   mode: "chat" | "canvas";
   content: CanvasContent | null;
-}
-
-function A2UIStaticViewer({
-  root,
-  components,
-  data,
-  styles,
-  className,
-}: {
-  root: string;
-  components: any[];
-  data: Record<string, unknown>;
-  styles?: Record<string, string>;
-  className?: string;
-}) {
-  const baseId = useId();
-  const surfaceId = useMemo(() => {
-    const definitionKey = `${root}-${JSON.stringify(components)}`;
-    let hash = 0;
-    for (let i = 0; i < definitionKey.length; i++) {
-      hash = (hash << 5) - hash + definitionKey.charCodeAt(i);
-      hash &= hash;
-    }
-    return `surface${baseId.replace(/:/g, "-")}${hash}`;
-  }, [baseId, root, components]);
-
-  if (!components.length) {
-    return (
-      <div className={className} style={{ padding: 16, color: "#666" }}>
-        No content to display
-      </div>
-    );
-  }
-
-  return (
-    <A2UIProvider theme={viewerTheme}>
-      <A2UIStaticViewerInner
-        surfaceId={surfaceId}
-        root={root}
-        components={components}
-        data={data}
-        styles={styles}
-        className={className}
-      />
-    </A2UIProvider>
-  );
-}
-
-function A2UIStaticViewerInner({
-  surfaceId,
-  root,
-  components,
-  data,
-  styles,
-  className,
-}: {
-  surfaceId: string;
-  root: string;
-  components: any[];
-  data: Record<string, unknown>;
-  styles?: Record<string, string>;
-  className?: string;
-}) {
-  const { processMessages } = useA2UIActions();
-  const lastProcessedRef = useRef<string>("");
-
-  useEffect(() => {
-    const key = `${surfaceId}-${JSON.stringify(components)}-${JSON.stringify(data)}`;
-    if (key === lastProcessedRef.current) return;
-    lastProcessedRef.current = key;
-
-    const messages: any[] = [
-      { beginRendering: { surfaceId, root, styles: styles ?? {} } },
-      { surfaceUpdate: { surfaceId, components } },
-    ];
-
-    const contents = objectToValueMaps(data);
-    if (contents.length) {
-      messages.push({
-        dataModelUpdate: { surfaceId, path: "/", contents },
-      });
-    }
-
-    processMessages(messages);
-  }, [processMessages, surfaceId, root, components, data, styles]);
-
-  return (
-    <div className={className}>
-      <A2UIRenderer surfaceId={surfaceId} />
-    </div>
-  );
-}
-
-function objectToValueMaps(obj: Record<string, unknown>): any[] {
-  return Object.entries(obj).map(([key, value]) => valueToValueMap(key, value));
-}
-
-function valueToValueMap(key: string, value: unknown): any {
-  if (typeof value === "string") return { key, valueString: value };
-  if (typeof value === "number") return { key, valueNumber: value };
-  if (typeof value === "boolean") return { key, valueBoolean: value };
-  if (value === null || value === undefined) return { key };
-  if (Array.isArray(value)) {
-    return {
-      key,
-      valueMap: value.map((item, index) =>
-        valueToValueMap(String(index), item),
-      ),
-    };
-  }
-  if (typeof value === "object") {
-    return {
-      key,
-      valueMap: objectToValueMaps(value as Record<string, unknown>),
-    };
-  }
-  return { key };
 }
 
 const CANVAS_TITLES: Record<CanvasContent["type"], string> = {
@@ -417,14 +282,11 @@ function CanvasContentRenderer({ content }: { content: CanvasContent }) {
   switch (content.type) {
     case "dashboard":
       return (
-        <A2UIStaticViewer
+        <A2UIV08View
           root={content.root}
           components={content.components}
           data={content.data}
-          styles={{
-            primaryColor: "#4f46e5",
-            font: "Inter, system-ui, sans-serif",
-          }}
+          style={{ fontFamily: "Inter, system-ui, sans-serif" }}
           className="canvas-a2ui"
         />
       );
@@ -784,6 +646,7 @@ function Chat({
     <CopilotChat
       className="flex-1 min-h-0 overflow-hidden"
       agentId="my_a2ui_agent"
+      generativeUISurface={A2UIChatSurface}
       labels={{
         welcomeMessageText: "How can I help you today?",
         chatInputPlaceholder: isCanvasMode
@@ -862,11 +725,7 @@ export default function Page() {
   const isCanvasMode = canvas.mode === "canvas" && canvas.content !== null;
 
   return (
-    <CopilotKitProvider
-      runtimeUrl="/api/copilotkit"
-      useSingleEndpoint={false}
-      renderActivityMessages={activityRenderers}
-    >
+    <CopilotKitProvider runtimeUrl="/api/copilotkit" useSingleEndpoint={false}>
       <div className={`${styles.layout} threadsLayout`}>
         <ThreadsPanelGate>
           <ThreadsDrawer

@@ -41,7 +41,7 @@ vi.mock("next/link", () => ({
 // `useCopilotKit`, which THROWS outside a provider by design, and this tree is
 // rendered bare — so it is stubbed rather than the throw tolerated. Nothing here
 // asserts on the readable (that is `on-screen-readables.test.tsx`'s job).
-vi.mock("@copilotkit/react-core/v2", () => ({
+vi.mock("@copilotkit/react-core", () => ({
   useAgentContext: () => {},
 }));
 

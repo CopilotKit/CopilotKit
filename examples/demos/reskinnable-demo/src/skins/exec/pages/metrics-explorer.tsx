@@ -3,7 +3,7 @@
 import { useMemo } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { AlertTriangle } from "lucide-react";
-import { useAgentContext } from "@copilotkit/react-core/v2";
+import { useAgentContext } from "@copilotkit/react-core";
 import { cn } from "@/lib/utils";
 import { useSkinHref } from "@/shell/skin-path";
 import { DEPARTMENT_LABEL } from "../data/department-label";

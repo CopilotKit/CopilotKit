@@ -24,7 +24,7 @@ import {
   envelopeToManifest,
   readCopilotKitUIEnvelope,
 } from "@copilotkit/shared";
-import { BuiltInAgent } from "@copilotkit/runtime/v2";
+import { BuiltInAgent } from "@copilotkit/runtime/agent";
 import { composeExpress } from "./compose-express";
 import { compose, GENERATE_A2UI_TOOL_NAME } from "./composer";
 import { EventQueue, EventType, pipeline, uid } from "./events";

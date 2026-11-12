@@ -3,7 +3,7 @@
  *
  * EMITTED by the `render_trip_brief` SERVER tool in `agent.ts`, which returns
  * them under `A2UI_OPERATIONS_KEY` in its tool result; the a2ui middleware turns
- * that into the `a2ui-surface` activity the shell's `CanvasProvider` keys off, and
+ * that into the `generative-ui-surface` activity the shell's `CanvasProvider` keys off, and
  * `AirlineCanvasSurface` takes the region. It has to be a server tool — a client
  * frontend-tool result never produces that activity — which is why the brief id
  * travels back through `fileTripBrief`'s sentence for the agent to pass along.
@@ -20,8 +20,8 @@
  * survives deleting the conversation, not a re-render of what the model said.
  *
  * A consequence worth stating, because it is the file's one surprise: these ops
- * reference NO catalog component, and `AirlineCanvasSurface` mounts no
- * `A2UIRenderer`. A component tree here would be ceremony around a record that
+ * reference NO catalog component, and `AirlineCanvasSurface` renders no
+ * generative UI surface. A component tree here would be ceremony around a record that
  * has exactly one layout.
  *
  * Emitting a full component tree instead breaks nothing: the surface reads only
@@ -37,7 +37,7 @@ export const A2UI_OPERATIONS_KEY = "a2ui_operations";
 export const TRIP_BRIEF_SURFACE_ID = "trip-brief";
 
 /**
- * The id `catalog/index.tsx` passes to `createCatalog`. Restated rather than
+ * The id `catalog/index.tsx` passes to `createGenerativeUI`. Restated rather than
  * imported: that module is `"use client"` and carries JSX, so importing it here
  * would drag React into `agent.ts`. `trip-brief-ops.test.ts` pins the pair.
  */

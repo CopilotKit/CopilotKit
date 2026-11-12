@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import localFont from "next/font/local";
 import { Inter } from "next/font/google";
-import "@copilotkit/react-core/v2/styles.css";
 import "./globals.css";
 import { PresenterResetProvider } from "@/shell/presenter-reset-context";
 import { presenterResetEnabled } from "@/lib/presenter";

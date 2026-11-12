@@ -118,7 +118,7 @@ Required:
 | `nav`         | `NavRoute[]`                                    | Nav entries; also the source of truth for which segments are valid.                 |
 | `resolvePage` | `(segments: string[]) => ComponentType \| null` | Maps URL segments after `/[skin]` to a page component, or `null` → 404.             |
 | `Tools`       | `ComponentType`                                 | Registers frontend tools / HITL / gen-UI + agent-context readables. Renders `null`. |
-| `catalog`     | `A2uiCatalog`                                   | The skin's a2ui catalog from `createCatalog()`.                                     |
+| `catalog`     | `A2uiCatalog`                                   | The skin's generative UI from `createGenerativeUI()`.                               |
 | `suggestions` | `Suggestion[]`                                  | Static suggestion pills, registered `available:"always"`.                           |
 | `designSkill` | `string`                                        | OGUI design brief, injected as agent context to style generated UIs.                |
 
@@ -154,7 +154,7 @@ Supporting types (also in the contract file):
 - `NavRoute` — `{ segment: string; label: string; icon?: ComponentType<{ className?: string }> }`.
 - `Suggestion` — `{ title: string; message: string }`.
 - `ChatHeaderAction` — `{ icon: ComponentType<{ className?: string }>; label: string; onClick: () => void }`.
-- `A2uiCatalog` — `ReturnType<typeof createCatalog>` from `@copilotkit/a2ui-renderer`.
+- `A2uiCatalog` — `GenerativeUI` from `@copilotkit/react-core/generative-ui` (the result of `createGenerativeUI()`). The shell passes it to `CopilotKitProvider` as `generativeUI={{ ui: skin.catalog }}`.
 
 ## The client/server boundary (important)
 
@@ -434,12 +434,14 @@ takes over the page-content region with a "← Back" affordance:
   A skin does NOT supply an OGUI renderer; it only contributes
   `sandboxFunctions` + `designSkill`. In the chat, a small "→ rendered on the
   canvas" handoff pill stands in for the surface.
-- **a2ui report** — a report tool result becomes an `a2ui-surface` activity;
-  the canvas defers to the active skin's own `CanvasSurface`. A skin without one
+- **a2ui report** — a report tool result (A2UI v0.9 ops under
+  `a2ui_operations`) becomes a `generative-ui-surface` activity: the runtime
+  (`generativeUI: { a2uiVersion: "0.9" }`) converts the ops to A2UI 1.0 and
+  puts them under `content.operations`. The canvas defers to the active skin's own `CanvasSurface`. A skin without one
   renders nothing for that kind; `bookstore` and `exec` omit it
   (`grep -lE '^\s+CanvasSurface[,:]' src/skins/*/skin.tsx` derives the rest).
   That `return null` in `ReportCanvas` is DEFENSIVE, not exercised: `bookstore`
-  emits no `a2ui-surface` activity at all (it ships no report tool), and
+  emits no surface activity at all (it ships no report tool), and
   `exec`'s are all `block:`-prefixed, which `useLatestCanvasSurface` skips
   before it can claim the region (`src/shell/canvas/canvas-context.tsx`, the
   `blockSurfaceIdFrom(m.content)` guard). Keep the branch — a future skin that
@@ -448,15 +450,16 @@ takes over the page-content region with a "← Back" affordance:
 - **a2ui `block:` surface** — INLINE in the transcript, never the canvas. The
   shell's chat activity renderer `A2UISurfaceActivity`
   (`src/app/[skin]/layout.tsx`, wired module-level into `A2UI_RENDERERS` so the
-  array reference stays stable) reads the activity's `content.a2ui_operations`,
+  array reference stays stable) reads the activity's `content.operations`,
   takes the first `createSurface`/`updateComponents`/`updateDataModel` surface
   id, and dispatches on the `block:` prefix: a match renders
   `InlineBlockSurface` (`src/shell/chat/inline-block-surface.tsx`) where the
   activity message sits; anything else still gets the report handoff pill. The
-  card mounts its OWN `<A2UIProvider catalog={useSkin().catalog}>` — there is no
-  ambient a2ui store on this path, because `A2UI_RENDERERS` shadows the built-in
-  renderer whose `ReactSurfaceHost` would otherwise have mounted one — so a
-  block's surface state can never collide with the canvas's. `exec` is the only
+  card renders the ops through `<PageSurface>`
+  (`src/shell/generative-ui/page-surface.tsx`) under its OWN target
+  (`inline:<surfaceId>`) — `A2UI_RENDERERS` shadows the built-in
+  `generative-ui-surface` renderer, so nothing else would draw it — so a
+  block's surface can never collide with the canvas's. `exec` is the only
   skin on this path today; the `block:` spelling is duplicated by hand across
   TWO modules, because the shell must not import from `src/skins/`.
   `BLOCK_SURFACE_PREFIX` lives in

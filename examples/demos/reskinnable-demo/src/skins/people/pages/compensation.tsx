@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { AlertTriangle, Check, FileWarning, Loader2 } from "lucide-react";
-import { useAgentContext } from "@copilotkit/react-core/v2";
+import { useAgentContext } from "@copilotkit/react-core";
 import { cn } from "@/lib/utils";
 import { usePeopleLedger } from "../data/ledger-context";
 import {

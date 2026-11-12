@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useAgentContext } from "@copilotkit/react-core/v2";
+import { useAgentContext } from "@copilotkit/react-core";
 import { Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useMyelinLedger } from "../data/ledger-context";

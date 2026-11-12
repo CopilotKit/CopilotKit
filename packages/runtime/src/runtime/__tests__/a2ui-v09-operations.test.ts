@@ -997,6 +997,63 @@ describe("createA2UIV09ActivityUpgrader", () => {
     ).toEqual([]);
   });
 
+  it("shows a failed lifecycle snapshot as an error surface, once", () => {
+    const upgrader = createA2UIV09ActivityUpgrader();
+    const lifecycle = (content: Record<string, unknown>) =>
+      upgrader.transform({
+        type: EventType.ACTIVITY_SNAPSHOT,
+        messageId: "a2ui-surface-call1",
+        activityType: "a2ui-surface",
+        content,
+        replace: true,
+      } as ActivitySnapshotEvent);
+    expect(lifecycle({ status: "building" })).toEqual([]);
+    expect(lifecycle({ status: "retrying", attempt: 2 })).toEqual([]);
+    const failed = { status: "failed", error: "root is missing", attempts: [] };
+    expect(lifecycle(failed)).toEqual([
+      {
+        type: EventType.ACTIVITY_SNAPSHOT,
+        messageId: "genui:a2ui-surface-call1",
+        activityType: "generative-ui-surface",
+        content: {
+          surfaceId: "a2ui-surface-call1",
+          target: "chat",
+          catalogId: STANDARD_CATALOG_ID,
+          operations: [],
+          status: "error",
+          rejected: [{ index: 0, reason: "root is missing" }],
+          a2uiSourceVersion: "0.9",
+        },
+        replace: true,
+      },
+    ]);
+    expect(lifecycle(failed)).toEqual([]);
+  });
+
+  it("gives a failed lifecycle snapshot with no error a generic reason", () => {
+    const upgrader = createA2UIV09ActivityUpgrader();
+    const [event] = upgrader.transform({
+      type: EventType.ACTIVITY_SNAPSHOT,
+      messageId: "a2ui-surface-call2",
+      activityType: "a2ui-surface",
+      content: { status: "failed", error: "x".repeat(600) },
+      replace: true,
+    } as ActivitySnapshotEvent) as ActivitySnapshotEvent[];
+    const [rejected] = (event!.content as { rejected: { reason: string }[] })
+      .rejected;
+    expect(rejected!.reason).toHaveLength(500);
+    const [generic] = upgrader.transform({
+      type: EventType.ACTIVITY_SNAPSHOT,
+      messageId: "a2ui-surface-call3",
+      activityType: "a2ui-surface",
+      content: { status: "failed" },
+      replace: true,
+    } as ActivitySnapshotEvent) as ActivitySnapshotEvent[];
+    expect(
+      (generic!.content as { rejected: { reason: string }[] }).rejected,
+    ).toEqual([{ index: 0, reason: "A2UI generation failed" }]);
+  });
+
   it("applies a2ui-surface deltas and sends the new cumulative content", () => {
     const upgrader = createA2UIV09ActivityUpgrader();
     upgrader.transform(surfaceSnapshot("m1", [create(), update(card)]));

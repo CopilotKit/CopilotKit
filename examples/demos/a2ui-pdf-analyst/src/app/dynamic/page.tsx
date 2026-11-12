@@ -2,13 +2,13 @@
 
 import { useState } from "react";
 import { z } from "zod";
-import {
-  CopilotChat,
-  useAgent,
-  useRenderTool,
-} from "@copilotkit/react-core/v2";
+import { CopilotChat, useAgent, useRenderTool } from "@copilotkit/react-core";
 import { SiteNav } from "@/components/Brand";
-import { SurfaceCanvas, CanvasEmptyState } from "@/components/SurfaceCanvas";
+import {
+  SurfaceCanvas,
+  CanvasEmptyState,
+  SurfaceHandoffPill,
+} from "@/components/SurfaceCanvas";
 import { FilteredUserMessage } from "@/components/FilteredUserMessage";
 import { FilteredAssistantMessage } from "@/components/FilteredAssistantMessage";
 import { Split } from "@/components/Split";
@@ -83,6 +83,7 @@ export default function DynamicPage() {
             <div className="flex-1 min-h-0">
               <CopilotChat
                 agentId={AGENT_ID}
+                generativeUISurface={SurfaceHandoffPill}
                 chatView={{
                   messageView: {
                     userMessage: FilteredUserMessage,

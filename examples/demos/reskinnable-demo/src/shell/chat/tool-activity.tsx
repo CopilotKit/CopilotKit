@@ -7,11 +7,8 @@ import {
   useState,
   useSyncExternalStore,
 } from "react";
-import {
-  defineToolCallRenderer,
-  ToolCallStatus,
-} from "@copilotkit/react-core/v2";
-import type { ReactToolCallRenderer } from "@copilotkit/react-core/v2";
+import { defineToolCallRenderer, ToolCallStatus } from "@copilotkit/react-core";
+import type { ReactToolCallRenderer } from "@copilotkit/react-core";
 import { Check, ChevronRight, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useSkin } from "@/shell/skin-provider";

@@ -159,10 +159,10 @@ function coerce(
     const pick = own ?? entries[0];
     if (pick) return { ok: true, value: pick[1] };
   }
-  if (issue.code === "invalid_enum_value" || issue.code === "invalid_union") {
+  if (issue.code === "invalid_value" || issue.code === "invalid_union") {
     if (typeof value === "number") return { ok: true, value: String(value) };
     if (typeof value === "string") {
-      const opts = (issue as { options?: unknown[] }).options;
+      const opts = (issue as { values?: unknown[] }).values;
       const hit = opts?.find(
         (o) => typeof o === "string" && o.toLowerCase() === value.toLowerCase(),
       );
@@ -176,9 +176,14 @@ function coerce(
 function flatten(issues: z.ZodIssue[]): z.ZodIssue[] {
   const out: z.ZodIssue[] = [];
   for (const issue of issues) {
-    if (issue.code === "invalid_union" && issue.unionErrors?.length) {
-      const branches = issue.unionErrors
-        .map((e) => flatten(e.issues))
+    if (issue.code === "invalid_union" && issue.errors.length) {
+      // Zod 4 gives each branch's issues with paths relative to the union.
+      const branches = issue.errors
+        .map((branch) =>
+          flatten(
+            branch.map((i) => ({ ...i, path: [...issue.path, ...i.path] })),
+          ),
+        )
         .filter((b) => !b.every((i) => i.path[i.path.length - 1] === "path"));
       const best = branches.sort(
         (a, b) =>
@@ -313,7 +318,8 @@ export function repairComponent(
     if (r.success) break;
     let changed = false;
     for (const issue of flatten(r.error.issues)) {
-      const path = issue.path;
+      // Zod 4 types a path as PropertyKey[]; the props are JSON, so no symbols.
+      const path = issue.path as (string | number)[];
       if (!path.length) continue;
       // A binding or function call anywhere on the path is resolved in the browser.
       if (path.some((_, i) => isDynamic(getPath(props, path.slice(0, i + 1)))))

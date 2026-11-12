@@ -1,23 +1,29 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
 import {
-  A2UIProvider,
-  A2UIRenderer,
-  useA2UIActions,
-} from "@copilotkit/a2ui-renderer";
-import { useAgent } from "@copilotkit/react-core/v2";
+  GenerativeUISurface,
+  useGenerativeUIFunction,
+  useGenerativeUIRuntime,
+} from "@copilotkit/react-core/generative-ui";
+import type { GenerativeUIChatSurfaceProps } from "@copilotkit/react-core/generative-ui";
 import { catalog } from "@/a2ui/catalog";
-import { surfaceBus } from "@/a2ui/surface-bus";
 
-/* The big workspace pane. A page-level A2UIProvider subscribes to the
- * surface bus so any surface produced by chat renders here at canvas size.
+/* The agents write A2UI v0.9 surfaces into their tool results. The runtime
+ * (`generativeUI: { a2uiVersion: "0.9" }`) converts them to generative UI
+ * surfaces for the chat. `GenerativeUISurface` with the chat's target id
+ * shows the latest of them here, at canvas size, and the chat shows
+ * `SurfaceHandoffPill` in its place. */
+const CHAT_TARGET = "chat";
+
+/* The big workspace pane. It renders the latest surface of the active
+ * thread, so the surface produced by chat renders here at canvas size.
  *
- * Critically, the provider's `onAction` callback forwards every chip / button
- * click in a rendered surface back to the agent as
+ * A Button click goes to the agent on its own: the runtime hands the v0.9
+ * agent the click as
  *   forwardedProps.a2uiAction.userAction = { name, surfaceId, context, ... }
- * The A2UI middleware on the backend sees this on the next run and injects
- * a `log_a2ui_event` tool result so the agent's reasoning step can react. */
+ * and the agent's CopilotKit middleware injects a `log_a2ui_event` tool
+ * result so the agent's reasoning step can react. ChoiceChips calls the
+ * `selectChip` function, which sends the same `select_chip` action here. */
 export function SurfaceCanvas({
   channel,
   emptyState,
@@ -25,136 +31,61 @@ export function SurfaceCanvas({
   channel: string;
   emptyState: React.ReactNode;
 }) {
-  const { agent } = useAgent({ agentId: channel });
+  const runtime = useGenerativeUIRuntime();
 
-  return (
-    <A2UIProvider
-      catalog={catalog}
-      onAction={(message) => {
-        console.log(
-          `[surface-canvas] chip dispatch channel=${channel}`,
-          message,
-        );
-        // `message` shape: { userAction: { name, surfaceId, context, ... } }
-        // 1. Add a visible user message so the chat reflects the click .
-        //    otherwise the action travels silently via forwardedProps and
-        //    the user sees the agent respond without context.
-        // 2. Run the agent with the action carried in forwardedProps so the
-        //    A2UI middleware can inject the log_a2ui_event tool result.
-        const ua = message?.userAction;
-        const labelHint = readContextLabel(ua?.context);
-        if (ua?.name) {
-          agent.addMessage({
-            id: crypto.randomUUID(),
-            role: "user",
-            content: humanizeAction(ua.name, labelHint),
-          });
-        }
-        void agent
-          .runAgent({
-            forwardedProps: { a2uiAction: message },
-          })
-          .then(() =>
-            console.log(`[surface-canvas] runAgent resolved for ${channel}`),
-          )
-          .catch((err) => {
-            console.warn("[surface-canvas] runAgent failed", err);
-          });
-      }}
-    >
-      <CanvasInner channel={channel} emptyState={emptyState} />
-    </A2UIProvider>
-  );
-}
-
-function CanvasInner({
-  channel,
-  emptyState,
-}: {
-  channel: string;
-  emptyState: React.ReactNode;
-}) {
-  const actions = useA2UIActions();
-  const [surfaceId, setSurfaceId] = useState<string | null>(null);
-  const seenRef = useRef(0);
-  const createdSurfacesRef = useRef<Set<string>>(new Set());
-
-  /* The MessageProcessor THROWS on duplicate createSurface. Each agent call
-   * to render_dashboard emits a fresh createSurface + updateComponents +
-   * updateDataModel batch. the second batch's createSurface would crash
-   * the batch and the data update never lands. Track which surfaceIds
-   * we've already created and strip duplicate createSurface ops. */
-  function applyOps(
-    ops: typeof seenRef extends never ? never : Array<Record<string, unknown>>,
-  ) {
-    if (!ops.length) return;
-    const out = ops.filter((op) => {
-      const cs = op.createSurface as { surfaceId?: string } | undefined;
-      if (cs?.surfaceId) {
-        if (createdSurfacesRef.current.has(cs.surfaceId)) {
-          console.log(
-            `[surface-canvas] skip duplicate createSurface(${cs.surfaceId})`,
-          );
-          return false;
-        }
-        createdSurfacesRef.current.add(cs.surfaceId);
-      }
-      return true;
-    });
-    console.log(
-      `[surface-canvas] processMessages channel=${channel} ` +
-        `(${out.length} ops after dedupe, ${ops.length} raw)`,
+  useGenerativeUIFunction(catalog, "selectChip", async ({ value, label }) => {
+    const surface = runtime?.manager.getSurfaceForTarget(CHAT_TARGET);
+    if (!runtime || !surface) return;
+    console.log(`[surface-canvas] chip dispatch channel=${channel}`, value);
+    // Adds a visible user message so the chat reflects the click, then runs
+    // the agent with the action. A click while the agent runs is dropped.
+    const result = await runtime.forwardEvent(
+      {
+        name: "select_chip",
+        surfaceId: surface.surfaceId,
+        componentId: "",
+        context: { value, label },
+        userMessage: humanizeAction("select_chip", value),
+      },
+      channel,
     );
-    try {
-      actions.processMessages(out);
-    } catch (err) {
-      console.warn("[surface-canvas] processMessages threw:", err);
-    }
-  }
-
-  useEffect(() => {
-    const initial = surfaceBus.snapshot(channel);
-    if (initial.ops.length) {
-      applyOps(initial.ops as never);
-      seenRef.current = initial.ops.length;
-      setSurfaceId(initial.surfaceId);
-    }
-    return surfaceBus.subscribe(channel, (snap) => {
-      const tail = snap.ops.slice(seenRef.current);
-      console.log(
-        `[surface-canvas] bus notify channel=${channel} ` +
-          `(snap=${snap.ops.length} seen=${seenRef.current} tail=${tail.length} ` +
-          `surfaceId=${snap.surfaceId ?? "null"})`,
-      );
-      if (tail.length) applyOps(tail as never);
-      seenRef.current = snap.ops.length;
-      if (snap.surfaceId) setSurfaceId(snap.surfaceId);
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [actions, channel]);
-
-  if (!surfaceId) {
-    return (
-      <div className="h-full flex items-center justify-center p-8">
-        {emptyState}
-      </div>
-    );
-  }
+    if (!result.ok)
+      console.warn("[surface-canvas] chip dispatch failed", result.error);
+  });
 
   return (
     <div className="h-full overflow-y-auto">
-      <div className="a2ui-surface p-6 md:p-8">
-        <A2UIRenderer surfaceId={surfaceId} />
-      </div>
+      <GenerativeUISurface
+        id={CHAT_TARGET}
+        ui={catalog}
+        autoScroll={false}
+        className="a2ui-surface p-6 md:p-8"
+        fallback={
+          <div className="h-full flex items-center justify-center p-8">
+            {emptyState}
+          </div>
+        }
+      />
     </div>
   );
 }
 
-function readContextLabel(ctx: unknown): string | undefined {
-  if (!ctx || typeof ctx !== "object") return undefined;
-  const c = ctx as Record<string, unknown>;
-  const v = c.value ?? c.label;
-  return typeof v === "string" ? v : undefined;
+/* What the chat shows in place of a surface: a small pill, so the user has a
+ * clear handoff signal while the surface renders in the canvas. Pass it to
+ * `<CopilotChat generativeUISurface={SurfaceHandoffPill}>`. */
+export function SurfaceHandoffPill(_props: GenerativeUIChatSurfaceProps) {
+  return (
+    <div className="my-1.5 inline-flex items-center gap-2 max-w-fit px-3 py-2 rounded-full border border-[var(--line)] bg-[color-mix(in_oklab,var(--lilac)_8%,var(--surface))] text-[12.5px] text-[var(--ink)] font-medium leading-none">
+      <span className="w-2 h-2 rounded-full bg-[var(--lilac)] shadow-[0_0_0_3px_color-mix(in_oklab,var(--lilac)_30%,transparent)]" />
+      <span className="mono uppercase tracking-[0.1em] text-[10.5px] text-[var(--ink)]">
+        surface
+      </span>
+      <span aria-hidden className="text-[var(--ink)]/40">
+        →
+      </span>
+      <span>rendered in the canvas</span>
+    </div>
+  );
 }
 
 function humanizeAction(name: string, hint?: string): string {

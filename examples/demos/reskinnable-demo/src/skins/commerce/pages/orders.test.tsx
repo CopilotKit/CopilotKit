@@ -35,7 +35,7 @@ vi.mock("next/navigation", () => ({
 // beat-3b tests below read the value the page hands it, so record it rather than
 // dropping it.
 const readable = { value: "" };
-vi.mock("@copilotkit/react-core/v2", () => ({
+vi.mock("@copilotkit/react-core", () => ({
   useAgentContext: ({ value }: { value: string }) => {
     readable.value = value;
   },

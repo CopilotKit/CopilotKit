@@ -112,8 +112,8 @@ One workspace per conversation: the cloned repo, its venv, a local push remote
    own file tools for reading and editing code, plus Repo Doctor's tools for cloning, reading CI, installing,
    testing, checking, showing the diff and pushing.
 3. Before a risky tool runs, the agent pauses and the chat shows an approval card. Your answer resumes the same run.
-4. Tools update shared state, which drives the workspace panel on the right. Each test run returns an A2UI surface,
-   which the chat renders as the test report card.
+4. Tools update shared state, which drives the workspace panel on the right. Each test run returns an A2UI v0.9
+   surface. The runtime converts it to A2UI 1.0, and the chat renders it as the test report card.
 5. Each conversation gets its own folder. With `WORKSPACE_BUCKET` set, the folder and the agent's session are saved
    to Cloud Storage after every run, and restored if the service restarts.
 
@@ -128,7 +128,7 @@ The full picture, including every tool, the approval flow, safety and the saved 
 │   ├── app/api/workspaces/        Deletes a conversation's files when it is deleted
 │   ├── components/chat/           Approval card, diff card, tool rows, check and test cards
 │   ├── components/shell/          Navbar, conversation list, workspace panel
-│   ├── a2ui/                      The A2UI catalog for the test report
+│   ├── a2ui/                      The generative UI catalog for the test report
 │   └── lib/                       Shared state, GitHub card data, the report download
 ├── agent/src/repo_doctor/
 │   ├── agent.py                   The Antigravity agent: approvals, one workspace per conversation
@@ -284,11 +284,11 @@ denies the first approval, and `--command` approves a shell command.
 
 ## Tech stack
 
-| Layer         | Stack                                                                                                                                       |
-| ------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
-| Frontend      | Next.js 16, React 19, Tailwind v4, CopilotKit `@copilotkit/react-core`                                                                      |
-| Generative UI | `useInterrupt` (approve or deny card), `useRenderTool` (diff card and tool rows), A2UI with `@copilotkit/a2ui-renderer` (test results card) |
-| Runtime       | `@copilotkit/runtime`, `@ag-ui/client`, CopilotKit Intelligence                                                                             |
-| Agent         | Python 3.13, FastAPI, Antigravity AG-UI SDK (`ag-ui-antigravity`), `google-antigravity`                                                     |
-| Model         | Gemini (`gemini-3.5-flash` by default)                                                                                                      |
-| Deploy        | Cloud Run, Cloud Storage, Secret Manager                                                                                                    |
+| Layer         | Stack                                                                                                                                                  |
+| ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Frontend      | Next.js 16, React 19, Tailwind v4, CopilotKit `@copilotkit/react-core`                                                                                 |
+| Generative UI | `useInterrupt` (approve or deny card), `useRenderTool` (diff card and tool rows), A2UI with `@copilotkit/react-core/generative-ui` (test results card) |
+| Runtime       | `@copilotkit/runtime`, `@ag-ui/client`, CopilotKit Intelligence                                                                                        |
+| Agent         | Python 3.13, FastAPI, Antigravity AG-UI SDK (`ag-ui-antigravity`), `google-antigravity`                                                                |
+| Model         | Gemini (`gemini-3.5-flash` by default)                                                                                                                 |
+| Deploy        | Cloud Run, Cloud Storage, Secret Manager                                                                                                               |

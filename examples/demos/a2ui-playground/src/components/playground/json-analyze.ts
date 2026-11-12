@@ -17,7 +17,7 @@ import {
   validateOperation,
 } from "@copilotkit/shared";
 import type { ValidateOperationOptions } from "@copilotkit/shared";
-import type { GenerativeUI } from "@copilotkit/react-core/v2/generative-ui";
+import type { GenerativeUI } from "@copilotkit/react-core/generative-ui";
 import { latestComponents, surfaceIdOf } from "@/lib/run-store";
 import type { A2UIOp } from "@/lib/run-store";
 

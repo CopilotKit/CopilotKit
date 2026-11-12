@@ -1,6 +1,5 @@
 import { describe, it, expect } from "vitest";
 import { render, screen } from "@testing-library/react";
-import type { RendererProps } from "@copilotkit/a2ui-renderer";
 import { PolicyType } from "@/skins/banking/data/data";
 import type { ExpensePolicy, Transaction } from "@/skins/banking/data/data";
 import { formatCurrency } from "@/lib/utils";
@@ -55,22 +54,17 @@ const data: ReportData = {
   ],
 };
 
-// The catalog renderers are typed as A2UI RendererProps components; call them
-// directly as functions at the test boundary with the props they consume.
-const StatCard = renderers.StatCard as (
-  props: RendererProps<{ metric: string; label: string }>,
-) => React.ReactElement;
+// The catalog components take their resolved props directly; render them at
+// the test boundary with the props they consume.
+const StatCard = renderers.StatCard as (props: {
+  metric: string;
+  label: string;
+}) => React.ReactElement;
 
 function renderStatCard(metric: string, label: string) {
   return render(
     <ReportDataProvider value={data}>
-      <StatCard
-        props={{ metric, label }}
-        // `children` here is the RendererProps render-callback (a function),
-        // not React children — passing it as a prop is intentional.
-        // eslint-disable-next-line react/no-children-prop
-        children={() => null as unknown as React.ReactNode}
-      />
+      <StatCard metric={metric} label={label} />
     </ReportDataProvider>,
   );
 }
@@ -97,19 +91,14 @@ describe("banking catalog StatCard renderer", () => {
   });
 });
 
-const Transactions = renderers.Transactions as (
-  props: RendererProps<{ status?: string }>,
-) => React.ReactElement;
+const Transactions = renderers.Transactions as (props: {
+  status?: string;
+}) => React.ReactElement;
 
 function renderTransactions(status: string) {
   return render(
     <ReportDataProvider value={data}>
-      <Transactions
-        props={{ status }}
-        // `children` is the RendererProps render-callback, not React children.
-        // eslint-disable-next-line react/no-children-prop
-        children={() => null as unknown as React.ReactNode}
-      />
+      <Transactions status={status} />
     </ReportDataProvider>,
   );
 }

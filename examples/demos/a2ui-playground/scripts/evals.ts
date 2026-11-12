@@ -34,7 +34,7 @@ import { inflateRawSync } from "node:zlib";
 import {
   createGenerativeUI,
   standardUI,
-} from "@copilotkit/react-core/v2/generative-ui";
+} from "@copilotkit/react-core/generative-ui";
 import {
   A2UI_VERSION,
   childIdsAtRefs,

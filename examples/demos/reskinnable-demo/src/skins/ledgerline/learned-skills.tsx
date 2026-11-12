@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { z } from "zod";
-import { useAgentContext, useFrontendTool } from "@copilotkit/react-core/v2";
+import { useAgentContext, useFrontendTool } from "@copilotkit/react-core";
 import { CircleAlert, GraduationCap, Loader2 } from "lucide-react";
 import type { Skill } from "./learning/types";
 

@@ -5,7 +5,7 @@ import {
   useAgentContext,
   useFrontendTool,
   useHumanInTheLoop,
-} from "@copilotkit/react-core/v2";
+} from "@copilotkit/react-core";
 import { useRouter } from "next/navigation";
 import { useSkin } from "@/shell/skin-provider";
 import { useSkinHref } from "@/shell/skin-path";

@@ -1,9 +1,6 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import {
-  A2UI_OPERATIONS_KEY,
-  buildBlockOps,
-} from "@/skins/exec/blocks/build-block-ops";
+import { buildBlockOps } from "@/skins/exec/blocks/build-block-ops";
 import {
   CanvasProvider,
   classifyA2uiSurface,
@@ -16,44 +13,44 @@ const { messagesRef } = vi.hoisted(() => ({
   messagesRef: { current: [] as unknown[] },
 }));
 
-vi.mock("@copilotkit/react-core/v2", () => ({
+vi.mock("@copilotkit/react-core", () => ({
   useAgent: () => ({ agent: { messages: messagesRef.current } }),
 }));
 
 const opsFor = (surfaceId: string) => ({
-  a2ui_operations: [{ createSurface: { surfaceId } }],
+  operations: [{ createSurface: { surfaceId } }],
 });
 
 const a2uiSurface = (surfaceId: string, id: string) => ({
   id,
   role: "activity",
-  activityType: "a2ui-surface",
+  activityType: "generative-ui-surface",
   content: opsFor(surfaceId),
 });
 
-/** An `a2ui-surface` activity the stream never gave an id to. */
+/** An `generative-ui-surface` activity the stream never gave an id to. */
 const idlessSurface = (surfaceId: string) => ({
   role: "activity",
-  activityType: "a2ui-surface",
+  activityType: "generative-ui-surface",
   content: opsFor(surfaceId),
 });
 
-/** An `a2ui-surface` activity carrying arbitrary (possibly junk) content. */
+/** An `generative-ui-surface` activity carrying arbitrary (possibly junk) content. */
 const surfaceWithContent = (content: unknown, id?: string) => ({
   ...(id ? { id } : {}),
   role: "activity",
-  activityType: "a2ui-surface",
+  activityType: "generative-ui-surface",
   content,
 });
 
 /** Ops whose surfaceId arrives on a LATER op than the first. */
 const trailingOps = (surfaceId: string) => ({
-  a2ui_operations: [{ beginRendering: {} }, { createSurface: { surfaceId } }],
+  operations: [{ beginRendering: {} }, { createSurface: { surfaceId } }],
 });
 
 /** One op whose FIRST surface container is empty and whose second carries the id. */
 const splitContainerOps = (surfaceId: string) => ({
-  a2ui_operations: [{ createSurface: {}, updateComponents: { surfaceId } }],
+  operations: [{ createSurface: {}, updateComponents: { surfaceId } }],
 });
 
 /** An `open-generative-ui` activity carrying arbitrary (possibly junk) content. */
@@ -196,7 +193,7 @@ describe("useLatestCanvasSurface (via CanvasProvider)", () => {
   });
 });
 
-describe("classification of malformed a2ui-surface content", () => {
+describe("classification of malformed surface activity content", () => {
   // One labelled case per payload, so a failure NAMES the payload that broke
   // instead of reporting "expected none, got report" from a loop with no way to
   // tell which entry it was — and so one bad payload no longer hides the rest.
@@ -206,19 +203,19 @@ describe("classification of malformed a2ui-surface content", () => {
     ["a non-JSON string", "not json at all"],
     ["a number", 42],
     ["an empty object", {}],
-    ["a non-array operations key", { a2ui_operations: "nope" }],
-    ["an empty operations list", { a2ui_operations: [] }],
+    ["a non-array operations key", { operations: "nope" }],
+    ["an empty operations list", { operations: [] }],
     [
       "ops with no surfaceId anywhere",
-      { a2ui_operations: [null, { createSurface: {} }, { unknownOp: 1 }] },
+      { operations: [null, { createSurface: {} }, { unknownOp: 1 }] },
     ],
     [
       "a non-string surfaceId",
-      { a2ui_operations: [{ createSurface: { surfaceId: 42 } }] },
+      { operations: [{ createSurface: { surfaceId: 42 } }] },
     ],
     [
       "a non-object op container",
-      { a2ui_operations: [{ createSurface: "block:kpis" }] },
+      { operations: [{ createSurface: "block:kpis" }] },
     ],
   ];
 
@@ -285,7 +282,7 @@ describe("classification of malformed a2ui-surface content", () => {
       renderWith([
         surfaceWithContent(
           {
-            a2ui_operations: [
+            operations: [
               { createSurface: { surfaceId: "block:kpis" } },
               { updateComponents: { surfaceId: "keel-ops-report-x1" } },
             ],
@@ -302,7 +299,7 @@ describe("classification of malformed a2ui-surface content", () => {
    * this module re-spells the prefix because the shell must not import from
    * `src/skins/`. Asserting our constant against itself proves nothing — this
    * runs REAL minted ops through the shell's classifier, so either copy
-   * drifting (prefix or operations key) fails here instead of silently flipping
+   * drifting fails here instead of silently flipping
    * an inline tile into a page-blanking report claim.
    *
    * (`build-block-ops.test.ts` runs the same ops through the chat's reader; the
@@ -313,7 +310,8 @@ describe("classification of malformed a2ui-surface content", () => {
       { kind: "metricTile", title: "Revenue", metricId: "revenue" } as const,
       "b1",
     );
-    const content = { [A2UI_OPERATIONS_KEY]: ops };
+    // The runtime streams the surface with its ops under `operations`.
+    const content = { operations: ops };
     expect(classifyA2uiSurface(content)).toBe("inline-block");
     expect(renderWith([surfaceWithContent(content, "m1")])).toEqual({
       kind: "none",
@@ -340,9 +338,7 @@ describe("classification of malformed a2ui-surface content", () => {
       classifyA2uiSurface(JSON.stringify(opsFor("keel-ops-report-x1"))),
     ).toBe("unclassifiable");
     expect(classifyA2uiSurface("<<garbage>>")).toBe("unclassifiable");
-    expect(classifyA2uiSurface({ a2ui_operations: [{}] })).toBe(
-      "unclassifiable",
-    );
+    expect(classifyA2uiSurface({ operations: [{}] })).toBe("unclassifiable");
   });
 });
 

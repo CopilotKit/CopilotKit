@@ -130,7 +130,7 @@ describe("airline tool registration", () => {
 
   it("registers `render_trip_brief` as a SERVER tool, or the canvas never opens", () => {
     // The a2ui middleware only turns an `a2ui_operations` payload into an
-    // `a2ui-surface` activity when it observes it in an in-stream
+    // `generative-ui-surface` activity when it observes it in an in-stream
     // TOOL_CALL_RESULT — a client frontend-tool result never produces one. So
     // this specific tool cannot live in `tools.tsx`, and it has to be listed on
     // the agent, not merely defined next to it.

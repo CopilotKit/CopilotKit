@@ -1,8 +1,8 @@
 "use client";
 
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
-import { CopilotKitProvider } from "@copilotkit/react-core/v2";
-import type { GenerativeUIConfig } from "@copilotkit/react-core/v2/generative-ui";
+import { CopilotKitProvider } from "@copilotkit/react-core";
+import type { GenerativeUIConfig } from "@copilotkit/react-core/generative-ui";
 import { playgroundUI } from "@/a2ui/catalog/catalog";
 import { useDesignSystem } from "@/design-systems/context";
 import { DESIGN_SYSTEM_THEMES } from "@/design-systems/themes";

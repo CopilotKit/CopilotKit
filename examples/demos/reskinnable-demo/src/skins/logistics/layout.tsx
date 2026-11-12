@@ -3,7 +3,7 @@ import "./theme.css"; // side-effect import registers the .theme-logistics block
 
 import type { ReactNode } from "react";
 import Link from "next/link";
-import { useAgentContext } from "@copilotkit/react-core/v2";
+import { useAgentContext } from "@copilotkit/react-core";
 import { useSkinHref, useSkinSegments } from "@/shell/skin-path";
 import { HelpCircle, RotateCcw } from "lucide-react";
 import { useSkin } from "@/shell/skin-provider";

@@ -5,7 +5,7 @@ import {
   useAgent,
   useCopilotChatConfiguration,
   useCopilotKit,
-} from "@copilotkit/react-core/v2";
+} from "@copilotkit/react-core";
 
 /**
  * Send a message to the copilot on the user's behalf: opens the docked panel,

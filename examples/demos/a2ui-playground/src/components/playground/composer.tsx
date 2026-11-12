@@ -9,7 +9,7 @@ import {
   useSyncExternalStore,
 } from "react";
 import type { FormEvent, KeyboardEvent, ReactNode } from "react";
-import { useAgent, useCopilotKit } from "@copilotkit/react-core/v2";
+import { useAgent, useCopilotKit } from "@copilotkit/react-core";
 import { DropdownMenu } from "radix-ui";
 import {
   ArrowUp,

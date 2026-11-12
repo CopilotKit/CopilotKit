@@ -5,7 +5,7 @@ import {
   CopilotKitCoreErrorCode,
   useAgent,
   useCopilotKit,
-} from "@copilotkit/react-core/v2";
+} from "@copilotkit/react-core";
 import type { Message } from "@ag-ui/client";
 import { runStore } from "@/lib/run-store";
 import type { RunRecord } from "@/lib/run-store";

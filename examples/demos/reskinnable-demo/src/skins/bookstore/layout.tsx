@@ -4,7 +4,7 @@ import "./theme.css"; // side-effect import registers the .theme-bookstore block
 import type { ReactNode } from "react";
 import Link from "next/link";
 import { HelpCircle, RotateCcw, ShoppingBag } from "lucide-react";
-import { useAgentContext } from "@copilotkit/react-core/v2";
+import { useAgentContext } from "@copilotkit/react-core";
 import { useSkin, useSkinData } from "@/shell/skin-provider";
 import { usePresenterReset } from "@/shell/presenter-reset-context";
 import { GovernancePopover } from "@/shell/governance-popover";

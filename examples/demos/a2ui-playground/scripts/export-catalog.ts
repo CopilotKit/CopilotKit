@@ -17,7 +17,7 @@ import {
   createGenerativeUI,
   exportA2UICatalog,
   standardUI,
-} from "@copilotkit/react-core/v2/generative-ui";
+} from "@copilotkit/react-core/generative-ui";
 import type { ComponentType } from "react";
 import type { z } from "zod";
 import { definitions } from "../src/a2ui/catalog/definitions";

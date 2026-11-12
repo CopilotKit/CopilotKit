@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { BuiltInAgent, defineTool } from "@copilotkit/runtime/v2";
+import { BuiltInAgent, defineTool } from "@copilotkit/runtime/agent";
 import * as store from "@/skins/exec/data/store";
 import {
   isBreach,
@@ -18,6 +18,7 @@ import type {
   MetricId,
   NarrativeCode,
 } from "@/skins/exec/data/types";
+import { openaiText } from "@tanstack/ai-openai";
 
 // SERVER-SAFE. No client directive, no JSX, no React. Imported only by the
 // server agent registry (src/shell/agent-registry.ts), never by the client skin
@@ -464,7 +465,7 @@ function describeSupportedProps(kind: BlockKindName): string {
  *
  * The agent picks a small selection (`BlockSpec`); `buildBlockOps` expands it
  * deterministically into A2UI operations, which the A2UI middleware turns into
- * an `a2ui-surface` activity the shell renders INLINE (a `block:`-prefixed
+ * a `generative-ui-surface` activity the shell renders INLINE (a `block:`-prefixed
  * surface id is what routes it to the transcript rather than to a canvas).
  * Building the ops in code, rather than having the model author component JSON,
  * is what keeps generation fast and reliable — the model emits only the tiny
@@ -1092,7 +1093,7 @@ export const execAgent = () =>
   new BuiltInAgent({
     // `openai/gpt-6-luna` is the alias used across the repo; the full (non-mini)
     // model routes the multi-step arc more reliably.
-    model: "openai/gpt-6-luna",
+    model: openaiText("gpt-6-luna"),
     prompt: EXEC_PROMPT,
     // `publishBoardPackTool` is DELIBERATELY absent — see its doc comment.
     tools: [

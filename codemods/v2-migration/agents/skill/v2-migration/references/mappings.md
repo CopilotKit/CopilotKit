@@ -6,12 +6,13 @@ Every example imports from the 2.0 package roots. There is no `/v2` subpath in 2
 
 `<CopilotKitProvider>` is the 2.0 provider. The codemod already renamed `<CopilotKit>` to it and `agent` to `agentId`. 2.0 still exports `CopilotKit` as an alias of `CopilotKitProvider`, so an import of `CopilotKit` from `@copilotkit/react-core` is valid. The alias takes the 2.0 props, so check its props the same way. Use `CopilotKitProvider` in new code. For the other v1 props:
 
-| v1 prop                                                | 2.0                                                                                                     |
-| ------------------------------------------------------ | ------------------------------------------------------------------------------------------------------- |
-| `threadId`                                             | `<CopilotChat threadId="...">`, or wrap the chat in `<CopilotChatConfigurationProvider threadId="...">` |
-| `guardrails_c`, `cloudRestrictToTopic`, `authConfig_c` | Removed. Ask the user how they want to replace them.                                                    |
-| `forwardedParameters`                                  | Removed. Set model parameters on the agent.                                                             |
-| `transcribeAudioUrl`, `textToSpeechUrl`                | Removed. Voice input goes through the runtime's transcription service.                                  |
+| v1 prop                                                | 2.0                                                                                                      |
+| ------------------------------------------------------ | -------------------------------------------------------------------------------------------------------- |
+| `threadId`                                             | `<CopilotChat threadId="...">`, or wrap the chat in `<CopilotChatConfigurationProvider threadId="...">`  |
+| `guardrails_c`, `cloudRestrictToTopic`, `authConfig_c` | Removed. Ask the user how they want to replace them.                                                     |
+| `forwardedParameters`                                  | Removed. Set model parameters on the agent.                                                              |
+| `transcribeAudioUrl`, `textToSpeechUrl`                | Removed. Voice input goes through the runtime's transcription service.                                   |
+| `onError={(event) => ...}` with `event.type`           | Same prop, new event: `{ error, code, context }`. Read `event.code` where the handler read `event.type`. |
 
 ## Angular runtime config
 
@@ -297,21 +298,27 @@ Docs: https://docs.copilotkit.ai/generative-ui/components/from-a2ui
 
 2.0 has no A2UI v0.9 client: the `a2ui` provider option, `@copilotkit/a2ui-renderer` and `@copilotkit/angular/a2ui` are gone. Generative UI (A2UI 1.0) replaces them. The codemod already did the mechanical part:
 
-| v0.9                                                                           | 2.0                                                                                                              |
-| ------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------- |
-| `createCatalog(definitions, renderers, options)` (`@copilotkit/a2ui-renderer`) | `createGenerativeUI({ id, extends, components })` from `@copilotkit/react-core/generative-ui`                    |
-| `createAngularCatalog(...)` (`@copilotkit/angular/a2ui`)                       | `createGenerativeUI(...)` from `@copilotkit/angular/generative-ui`                                               |
-| `catalogId: "x"`                                                               | `id: "x"`                                                                                                        |
-| `includeBasicCatalog: true`                                                    | `extends: [standardUI]`                                                                                          |
-| `DynamicStringSchema`, `DynamicNumberSchema`, `DynamicBooleanSchema`           | `z.string()`, `z.number()`, `z.boolean()`                                                                        |
-| `DynamicStringListSchema`, `ChildListSchema`                                   | `z.array(z.string())`, `childList()`                                                                             |
-| `z.union([z.string(), z.object({ path: z.string() })])`                        | `z.string()`                                                                                                     |
-| `import { z } from "zod-v3"`                                                   | `import { z } from "zod"`                                                                                        |
-| `<CopilotKitProvider a2ui={{ catalog: myCatalog }}>`                           | `<CopilotKitProvider generativeUI={{ ui: myCatalog }}>`                                                          |
-| `a2ui={{}}`, `a2ui={{ catalog: basicCatalog }}`                                | Deleted. The client uses the standard catalog when the runtime enables generative UI.                            |
-| `provideCopilotKit({ ..., a2ui: { catalog } })`                                | `provideCopilotKit({ ... })` and `provideGenerativeUI({ ui: catalog })` from `@copilotkit/angular/generative-ui` |
-| `new CopilotRuntime({ a2ui: { agents, injectA2UITool } })`                     | `new CopilotRuntime({ generativeUI: { a2uiVersion: "0.9", agents, injectA2UITool } })`                           |
-| `new CopilotRuntime({ a2ui: { enabled: false } })`                             | Deleted.                                                                                                         |
+| v0.9                                                                           | 2.0                                                                                                               |
+| ------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------- |
+| `createCatalog(definitions, renderers, options)` (`@copilotkit/a2ui-renderer`) | `createGenerativeUI({ id, extends, components })` from `@copilotkit/react-core/generative-ui`                     |
+| `createAngularCatalog(...)` (`@copilotkit/angular/a2ui`)                       | `createGenerativeUI(...)` from `@copilotkit/angular/generative-ui`                                                |
+| `catalogId: "x"`                                                               | `id: "x"`                                                                                                         |
+| `includeBasicCatalog: true`                                                    | `extends: [standardUI]`                                                                                           |
+| `DynamicStringSchema`, `DynamicNumberSchema`, `DynamicBooleanSchema`           | `z.string()`, `z.number()`, `z.boolean()`                                                                         |
+| `DynamicStringListSchema`, `ChildListSchema`                                   | `z.array(z.string())`, `childList()`                                                                              |
+| `z.union([z.string(), z.object({ path: z.string() })])`                        | `z.string()`                                                                                                      |
+| `children: z.array(z.string())` in a definition                                | `children: childList()`                                                                                           |
+| `child: z.string()` in a definition                                            | `child: child()`                                                                                                  |
+| `action: ActionSchema` (or `z.unknown()`, `z.any()`) in a definition           | `events: { action: { parameters: z.object({}) } }` on the entry (`onClick` on a `Button`); the component calls it |
+| `{ ... } satisfies CatalogDefinitions`, `: CatalogRenderers<T>`                | Deleted                                                                                                           |
+| `import { z } from "zod-v3"`                                                   | `import { z } from "zod"`                                                                                         |
+| `<CopilotKitProvider a2ui={{ catalog: myCatalog }}>`                           | `<CopilotKitProvider generativeUI={{ ui: myCatalog }}>`                                                           |
+| `a2ui={{}}`, `a2ui={{ catalog: basicCatalog }}`                                | Deleted. The client uses the standard catalog when the runtime enables generative UI.                             |
+| `provideCopilotKit({ ..., a2ui: { catalog } })`                                | `provideCopilotKit({ ... })` and `provideGenerativeUI({ ui: catalog })` from `@copilotkit/angular/generative-ui`  |
+| `new CopilotRuntime({ a2ui: { agents, injectA2UITool } })`                     | `new CopilotRuntime({ generativeUI: { a2uiVersion: "0.9", agents, injectA2UITool } })`                            |
+| `new CopilotRuntime({ a2ui: { enabled: false } })`                             | Deleted.                                                                                                          |
+
+When the definitions and the renderers are in their own modules (`./definitions`, `./renderers`), the catalog reads them by name (`component: renderers.Card`, `...definitions.Card`), and each renderer gets its TODO in the renderers module.
 
 A converted catalog looks like this. Each component keeps its old renderer under a TODO:
 
@@ -351,7 +358,7 @@ Airport: {
 },
 ```
 
-`createGenerativeUI` throws when a name comes from two places. If a component has the name of a standard component (`Text`, `Button`, `Row`, ...) and the catalog has `extends: [standardUI]`, rename it, drop the standard one with `extends: [standardUI.omit(["Button"])]`, or replace only its component with `overrides: { Button: { component } }`. See https://docs.copilotkit.ai/generative-ui/components/standard-catalog#replace-a-component
+`createGenerativeUI` throws when a name comes from two places. The codemod already extends `standardUI.omit([...])` for the custom components that have a standard name. If you add a component with the name of a standard component (`Text`, `Button`, `Row`, ...) and the catalog has `extends: [standardUI]`, rename it, drop the standard one with `extends: [standardUI.omit(["Button"])]`, or replace only its component with `overrides: { Button: { component } }`. See https://docs.copilotkit.ai/generative-ui/components/standard-catalog#replace-a-component
 
 ### Rewrite a renderer
 

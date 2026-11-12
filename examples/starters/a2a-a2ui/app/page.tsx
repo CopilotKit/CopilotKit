@@ -4,17 +4,18 @@ import {
   CopilotChat,
   CopilotChatConfigurationProvider,
   CopilotKitProvider,
-} from "@copilotkit/react-core/v2";
+} from "@copilotkit/react-core";
 import { useState } from "react";
 import { a2uiV08Renderer } from "./components/a2ui-v0-8-renderer";
 import { ThreadsDrawer } from "./components/threads-drawer";
 import { ThreadsPanelGate } from "./components/threads-drawer/locked-state";
 import styles from "./components/threads-drawer/threads-drawer.module.css";
-import { theme } from "./theme";
 
 // Disable static optimization for this page
 export const dynamic = "force-dynamic";
 
+// The A2A agent sends A2UI v0.8, which CopilotKit's generative UI does not
+// render. This app-owned renderer draws its `a2ui-surface` activities.
 const activityRenderers = [a2uiV08Renderer];
 
 export default function Home() {
@@ -24,7 +25,6 @@ export default function Home() {
     <CopilotKitProvider
       runtimeUrl="/api/copilotkit"
       useSingleEndpoint={false}
-      a2ui={{ theme }}
       renderActivityMessages={activityRenderers}
     >
       <div className={`${styles.layout} threadsLayout`}>

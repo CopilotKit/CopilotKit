@@ -32,7 +32,7 @@
  */
 
 import { useMemo } from "react";
-import { useAgentContext } from "@copilotkit/react-core/v2";
+import { useAgentContext } from "@copilotkit/react-core";
 import { useAirlineLedger } from "../ledger-context";
 import { buildAccountTrips, TripList } from "../components/trip-list";
 import type { AccountTrip } from "../components/trip-list";

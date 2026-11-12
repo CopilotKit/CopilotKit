@@ -649,9 +649,9 @@ describe("render_metric_block's settled render", () => {
 
 describe("the platform abort sentinel this file reconstructs", () => {
   /**
-   * `HITL_ABORTED` is spelled out here because NEITHER half is exported: the
-   * message comes from `@copilotkit/react-core`'s v2
-   * `use-human-in-the-loop.tsx`, and the `Error: ` prefix from
+   * `HITL_ABORTED` is spelled out here because NEITHER half is a public
+   * export: the message is `@copilotkit/core`'s internal
+   * `ɵHITL_ABORTED_MESSAGE`, and the `Error: ` prefix comes from
    * `@copilotkit/core`'s `CopilotKitCore.executeToolHandler`. These tests read
    * the INSTALLED packages so an upstream reword fails here — loudly, naming
    * the file to look in — instead of silently turning every aborted card back
@@ -685,16 +685,16 @@ describe("the platform abort sentinel this file reconstructs", () => {
     ).toMatchObject({ kind: "cancelled", via: "abort" });
   });
 
-  it("fails if @copilotkit/react-core rewords the abort message", () => {
-    const dir = distOf("react-core");
+  it("fails if @copilotkit/core rewords the abort message", () => {
+    const dir = distOf("core");
     const bundles = readdirSync(dir).filter((f) => f.endsWith(".mjs"));
     const found = bundles.some((f) =>
       readFileSync(join(dir, f), "utf8").includes(HITL_ABORT_MESSAGE),
     );
     expect(
       found,
-      `"${HITL_ABORT_MESSAGE}" is no longer in @copilotkit/react-core's bundles — ` +
-        "re-read v2 use-human-in-the-loop.tsx and update HITL_ABORT_MESSAGE.",
+      `"${HITL_ABORT_MESSAGE}" is no longer in @copilotkit/core's bundles — ` +
+        "re-read its ɵHITL_ABORTED_MESSAGE and update HITL_ABORT_MESSAGE.",
     ).toBe(true);
   });
 
@@ -706,8 +706,8 @@ describe("the platform abort sentinel this file reconstructs", () => {
     const dir = distOf("core");
     const bundles = readdirSync(dir).filter((f) => f.endsWith(".mjs"));
     const found = bundles.some((f) =>
-      readFileSync(join(dir, f), "utf8").includes(
-        "toolCallResult = `Error: ${errorMessage}`",
+      /toolCallResult = (?:toolCallText = )?`Error: \$\{errorMessage\}`/.test(
+        readFileSync(join(dir, f), "utf8"),
       ),
     );
     expect(

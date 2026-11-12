@@ -22,6 +22,7 @@ The codemod already did the mechanical part: `/v2` import paths now point at the
 - **Markdown lost features by default.** The built-in renderer does no syntax highlighting, math, or mermaid diagrams. Before you delete a Streamdown prop, read the "Markdown rendering" section of `references/mappings.md`.
 - **A converted A2UI catalog still needs its components rewritten.** Each component under a renderer TODO still reads `props.x`, calls `children(id)` or calls `dispatch`. Rewrite it to take plain props, slots and events, as the "A2UI v0.9 to generative UI" section of `references/mappings.md` shows. Write a real `description` for each component: the agent reads it to choose components.
 - **Keep behavior the same.** If a v1 feature has no 2.0 equivalent, stop and ask the user before you drop it.
+- **A model adapter reads its API key when it is created.** `openaiText("gpt-5")` and the other TanStack AI adapters throw without the key. A `BuiltInAgent` that a Next.js route creates at module level then fails `next build` on a machine without the key. Create the runtime on the first request instead: `let handler; export const POST = (req) => (handler ??= createCopilotRuntimeHandler({ runtime: createRuntime(), ... }))(req);`.
 
 ## Steps
 
@@ -36,7 +37,8 @@ The codemod already did the mechanical part: `/v2` import paths now point at the
    - if the code imports from `@copilotkit/runtime/agent`, add the adapter package for each provider it uses: `@tanstack/ai-openai`, `@tanstack/ai-anthropic`, `@tanstack/ai-gemini`, or `@tanstack/ai-vertex` (see the Built-in Agent section of `references/mappings.md`). The runtime installs `@tanstack/ai`; add it only if the code imports from `@tanstack/ai` itself;
    - add `@tanstack/ai-mcp` if the code imports `createMCPClient`;
    - add `ai` only if the code imports from `@copilotkit/runtime/agent/ai-sdk`;
-   - remove `streamdown`, `streamdown-vue`, `react-native-streamdown`, and `katex` if the code no longer imports them.
+   - remove `streamdown`, `streamdown-vue`, `react-native-streamdown`, and `katex` if the code no longer imports them;
+   - add each package the code imports that only 1.x installed for it. The 1.x packages brought some in as their own dependencies (for example `lucide-react`); 2.0 does not. The build shows them as "Cannot find module".
 4. Install, then run the typecheck and the build. Fix what they report.
    - The TanStack AI packages (`@tanstack/ai*`) are ESM only. A CommonJS server (no `"type": "module"`, or `"module": "commonjs"` in `tsconfig.json`) cannot `import` them statically: move the server to ESM, or load the adapter with `await import("@tanstack/ai-openai")`.
 5. Report to the user: what changed, each v1 feature that has no 2.0 equivalent, and anything you could not verify.

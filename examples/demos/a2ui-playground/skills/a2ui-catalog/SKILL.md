@@ -5,13 +5,13 @@ description: Turns an app's existing React components into a CopilotKit Gen UI 2
 
 # A2UI catalog: from your React components to Gen UI 2.0 in CopilotKit
 
-Built in `a2ui-playground` (123 components: CopilotKit's 69 standard ones plus 54 of the app's own; Next 16, CopilotKit 1.85 Gen UI 2.0, A2UI 1.0). Fixed surfaces paint in ~1.4 to 3 s, dynamic in ~3 s first paint with progressive streaming (measured on the v0.9 build of the same pipeline; re-measure after porting). Every step below links to a reference with the real code.
+Built in `a2ui-playground` (123 components: CopilotKit's 69 standard ones plus 54 of the app's own; Next 16, CopilotKit 2.0 Gen UI, A2UI 1.0). Fixed surfaces paint in ~1.4 to 3 s, dynamic in ~3 s first paint with progressive streaming (measured on the v0.9 build of the same pipeline; re-measure after porting). Every step below links to a reference with the real code.
 
 ## Quick start (minimum path)
 
 One custom component rendering in CopilotKit chat, with the runtime giving a stock agent the `render_ui` tool. The playground's `/minimal` page is this path (`src/app/minimal/page.tsx`, `src/app/api/minimal/[[...slug]]/route.ts`).
 
-1. **Install**: `pnpm add @copilotkit/react-core @copilotkit/runtime @copilotkit/shared zod` (zod 3.25+, or zod 4.2+).
+1. **Install**: `pnpm add @copilotkit/react-core @copilotkit/runtime @copilotkit/shared zod` (CopilotKit 2.0, zod 4.2+).
 2. **Define the component** (React-free file). The schema describes the literal value only: the engine resolves `{ "@path" }` bindings and `{ "@call" }` functions at any depth before it validates.
    ```ts
    export const definitions = {
@@ -30,7 +30,7 @@ One custom component rendering in CopilotKit chat, with the runtime giving a sto
    import {
      createGenerativeUI,
      standardUI,
-   } from "@copilotkit/react-core/v2/generative-ui";
+   } from "@copilotkit/react-core/generative-ui";
    export const ui = createGenerativeUI({
      id: "https://example.dev/catalogs/main/v1",
      extends: [standardUI],
@@ -106,7 +106,7 @@ That path has the primary model write the whole surface, and each operation pain
 
 ## Migrating from v0.9
 
-`@copilotkit/a2ui-renderer`, `@ag-ui/a2ui-middleware` and `@ag-ui/a2ui-toolkit` are replaced by `@copilotkit/react-core/v2/generative-ui`, `@copilotkit/runtime/v2` and `@copilotkit/shared`. `createCatalog(..., { includeBasicCatalog })` becomes `createGenerativeUI({ extends: [standardUI] })`; `{ path }` becomes `{ "@path" }` and `dyn()` unions go away; `action` props become event props (`onClick`, `onAction`); `{ a2ui_operations }` tool results and `a2ui-surface` snapshots become `generative-ui-surface` activities with cumulative `operations`; the runtime's `a2ui` option becomes `generativeUI`. The basic-catalog names are now standard components with different props; a2ui-playground `src/a2ui/upgrade-v09.ts` maps them (Card title to a Title child, Text variants to Title/Caption, string gaps to numbers).
+`@copilotkit/a2ui-renderer`, `@ag-ui/a2ui-middleware` and `@ag-ui/a2ui-toolkit` are replaced by `@copilotkit/react-core/generative-ui`, `@copilotkit/runtime` and `@copilotkit/shared`. `createCatalog(..., { includeBasicCatalog })` becomes `createGenerativeUI({ extends: [standardUI] })`; `{ path }` becomes `{ "@path" }` and `dyn()` unions go away; `action` props become event props (`onClick`, `onAction`); `{ a2ui_operations }` tool results and `a2ui-surface` snapshots become `generative-ui-surface` activities with cumulative `operations`; the runtime's `a2ui` option becomes `generativeUI`. The basic-catalog names are now standard components with different props; a2ui-playground `src/a2ui/upgrade-v09.ts` maps them (Card title to a Title child, Text variants to Title/Caption, string gaps to numbers).
 
 ## Files in this skill
 

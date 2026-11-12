@@ -2,9 +2,9 @@
 
 import {
   CopilotChatConfigurationProvider,
-  CopilotKit,
+  CopilotKitProvider,
   useCopilotChatConfiguration,
-} from "@copilotkit/react-core/v2";
+} from "@copilotkit/react-core";
 import { catalog } from "@/a2ui/catalog";
 import { ChatPanel } from "@/components/chat/chat-panel";
 import { ToolRenderers } from "@/components/chat/tool-renderers";
@@ -19,7 +19,8 @@ import { Header } from "./header";
 import { ThreadList } from "./thread-list";
 import { WorkspacePanel } from "./workspace-panel";
 
-const A2UI = { catalog };
+// The test report catalog: the agent's v0.9 surfaces render with it.
+const GENERATIVE_UI = { ui: catalog };
 
 interface ShellProps {
   threadsEnabled: boolean;
@@ -32,10 +33,10 @@ export function AppShell(props: ShellProps) {
     // REST transport so thread routes and runs share one multi-route endpoint.
     // enableInspector shows the CopilotKit Inspector (the kite button) in
     // development, for watching AG-UI events, agent state and messages live.
-    <CopilotKit
+    <CopilotKitProvider
       runtimeUrl="/api/copilotkit"
       useSingleEndpoint={false}
-      a2ui={A2UI}
+      generativeUI={GENERATIVE_UI}
       enableInspector={process.env.NODE_ENV === "development"}
     >
       {/* Owns the active thread, so the header and thread list can switch it. */}
@@ -45,7 +46,7 @@ export function AppShell(props: ShellProps) {
           <Layout {...props} />
         </WorkspaceProvider>
       </CopilotChatConfigurationProvider>
-    </CopilotKit>
+    </CopilotKitProvider>
   );
 }
 

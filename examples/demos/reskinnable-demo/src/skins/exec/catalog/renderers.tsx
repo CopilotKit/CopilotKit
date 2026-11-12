@@ -16,11 +16,8 @@
  * precedent) — no chart library.
  */
 
+import type { ReactNode } from "react";
 import { useState } from "react";
-import type {
-  CatalogRenderers,
-  RendererProps,
-} from "@copilotkit/a2ui-renderer";
 import { cn } from "@/lib/utils";
 import { useBlockData } from "../block-data";
 import { DEPARTMENT_LABEL, departmentLabel } from "../data/department-label";
@@ -40,20 +37,19 @@ import type {
   MetricPoint,
   MetricUnit,
 } from "../data/types";
-import type { Definitions } from "./definitions";
 
 const GAP = { sm: "gap-2", md: "gap-4", lg: "gap-6", xl: "gap-10" } as const;
 
-// Text props in the catalog are declared `string | { path }` (a data-bound
-// ref), but that is the shape the AGENT sends, not the shape a renderer sees:
-// the A2UI binder (`GenericBinder`, `@a2ui/web_core`) resolves every dynamic
-// prop BEFORE render and hands the renderer the RESOLVED value. A path that
-// names nothing in the data model therefore arrives as `undefined` — the
-// binder never leaves a standing `{ path }` object behind. So anything that
-// is not a string here is a BROKEN BINDING, and `undefined` is its ordinary
-// shape; `UnresolvedText` reports whichever shape arrives rather than reading
-// into it. (`{ path }` stays in the union for a surface built by hand, past
-// the binder — the guard names the path when there is one to name.)
+// Text props in the catalog are declared `z.string()`. The agent may still
+// bind one (`{ "@path": ... }` in A2UI 1.0; the runtime converts a v0.9
+// `{ path }`), but that is the shape the AGENT sends, not the shape a component
+// sees: the generative UI engine resolves every bound prop BEFORE render and
+// hands the component the RESOLVED value. A path that names nothing in the
+// data model therefore arrives as `undefined`. So anything that is not a
+// string here is a BROKEN BINDING, and `undefined` is its ordinary shape;
+// `UnresolvedText` reports whichever shape arrives rather than reading into
+// it. (`{ path }` stays in the union for a component rendered by hand, past
+// the engine — the guard names the path when there is one to name.)
 type TextRef = string | { path: string } | undefined;
 
 /** MetricTile's sparkline window — six closed months, per the block spec. */
@@ -84,10 +80,6 @@ const MONTH_LABEL = [
   "Nov",
   "Dec",
 ];
-
-function Slot({ render }: { render: React.ReactNode }) {
-  return <>{render}</>;
-}
 
 // ── Snapshot queries (selection only — arithmetic lives in ../data/derive) ──
 
@@ -213,9 +205,9 @@ function MissingTile({ title, reason }: { title: string; reason: string }) {
 
 /**
  * A text prop that did not resolve to a string — a broken binding (see
- * `TextRef`). The value is read DEFENSIVELY: `undefined` is what the binder
+ * `TextRef`). The value is read DEFENSIVELY: `undefined` is what the engine
  * passes for an unresolved ref, and reaching into `.path` on it threw a
- * `TypeError` out of the renderer, which takes down the whole A2UI surface
+ * `TypeError` out of the component, which takes down the whole surface
  * instead of the one label that failed to bind.
  */
 function UnresolvedText({ label, text }: { label: string; text: unknown }) {
@@ -354,18 +346,13 @@ function Sparkline({ values, label }: { values: number[]; label: string }) {
 
 // ── Layout / label-only renderers ──────────────────────────────────────────
 
-const Stack = ({
-  props,
-  children,
-}: RendererProps<{ children: string[]; gap?: keyof typeof GAP }>) => (
+const Stack = (props: { children?: ReactNode; gap?: keyof typeof GAP }) => (
   <div className={cn("flex flex-col", GAP[props.gap ?? "md"])}>
-    {props.children?.map((id) => (
-      <Slot key={id} render={children(id)} />
-    ))}
+    {props.children}
   </div>
 );
 
-const Heading = ({ props }: RendererProps<{ text: TextRef }>) => {
+const Heading = (props: { text: TextRef }) => {
   if (typeof props.text !== "string") {
     return <UnresolvedText label="Heading" text={props.text} />;
   }
@@ -384,9 +371,7 @@ const Heading = ({ props }: RendererProps<{ text: TextRef }>) => {
  * neutral-caption primitive the definition describes; see the same note on
  * `Text` in `./definitions.ts`.
  */
-const Text = ({
-  props,
-}: RendererProps<{ text: TextRef; tone?: "default" | "muted" }>) => {
+const Text = (props: { text: TextRef; tone?: "default" | "muted" }) => {
   if (typeof props.text !== "string") {
     return <UnresolvedText label="Text" text={props.text} />;
   }
@@ -404,13 +389,11 @@ const Text = ({
 
 // ── Data-bound renderers ───────────────────────────────────────────────────
 
-const MetricTile = ({
-  props,
-}: RendererProps<{
+const MetricTile = (props: {
   metricId: MetricId;
   department?: Department | "all";
   compare?: "plan" | "forecast";
-}>) => {
+}) => {
   const { snapshot } = useBlockData();
   const department = props.department ?? "all";
   const def = findDef(snapshot, props.metricId);
@@ -464,13 +447,11 @@ const MetricTile = ({
   );
 };
 
-const TrendLine = ({
-  props,
-}: RendererProps<{
+const TrendLine = (props: {
   metricId: MetricId;
   department?: Department | "all";
   months?: number;
-}>) => {
+}) => {
   const { snapshot } = useBlockData();
   const department = props.department ?? "all";
   const def = findDef(snapshot, props.metricId);
@@ -552,7 +533,7 @@ const TrendLine = ({
   );
 };
 
-const VarianceBar = ({ props }: RendererProps<{ metricId: MetricId }>) => {
+const VarianceBar = (props: { metricId: MetricId }) => {
   const { snapshot } = useBlockData();
   const def = findDef(snapshot, props.metricId);
   // Company-wide ("all") rows are not a department and must never become a
@@ -802,9 +783,7 @@ const InitiativeTable = () => {
   );
 };
 
-const ExceptionList = ({
-  props,
-}: RendererProps<{ audience?: "ceo" | "cfo" | "both" }>) => {
+const ExceptionList = (props: { audience?: "ceo" | "cfo" | "both" }) => {
   const { snapshot } = useBlockData();
 
   // NO-DATA IS NOT NO-VARIANCE. Both halves of the ledger are required before
@@ -907,7 +886,7 @@ const ExceptionList = ({
  * must come back. A local `pinned` flag set on success never cleared, leaving
  * "Pinned ✓" over an unpinned block with no route back.
  */
-const AddToDashboard = ({ props }: RendererProps<{ blockId: string }>) => {
+const AddToDashboard = (props: { blockId: string }) => {
   const { addBlock, isPinned } = useBlockData();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -976,4 +955,4 @@ export const renderers = {
   InitiativeTable,
   ExceptionList,
   AddToDashboard,
-} satisfies CatalogRenderers<Definitions>;
+};

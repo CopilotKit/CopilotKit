@@ -12,12 +12,11 @@ import type { BriefCitationRow } from "./impact-brief-ops";
 afterEach(() => cleanup());
 
 /**
- * The a2ui runtime hands a renderer `{ props, children, ... }`; only `props` is
- * read by any of these three, so mount them with a props bag directly rather
- * than standing up a provider that would hide what is being asserted.
+ * The generative UI engine hands a component its resolved props directly, so
+ * mount these three with a props bag rather than standing up a provider that
+ * would hide what is being asserted.
  */
-const rowsProps = (rows: BriefCitationRow[]) =>
-  ({ props: { rows } }) as Parameters<typeof BriefCitations>[0];
+const rowsProps = (rows: BriefCitationRow[]) => ({ rows });
 
 const CARRIED: BriefCitationRow = {
   ref: "POL-114",
@@ -107,7 +106,7 @@ describe("BriefMeta", () => {
   };
 
   it("prints the document's effective date verbatim", () => {
-    render(BriefMeta({ props } as Parameters<typeof BriefMeta>[0]));
+    render(BriefMeta(props));
     // The regulator's own words. Reformatting it here would be the app editing a
     // statement it carried across verbatim through the route and the store.
     expect(screen.getByText("1 October 2026")).toBeTruthy();
@@ -119,18 +118,14 @@ describe("BriefMeta", () => {
   });
 
   it("formats the filing timestamp with the skin's pinned formatter", () => {
-    render(BriefMeta({ props } as Parameters<typeof BriefMeta>[0]));
+    render(BriefMeta(props));
     // Locale and zone are pinned in `pages/format-date.ts` so server render and
     // hydration agree; asserting the label keeps that dependency visible.
     expect(screen.getByText("Aug 12, 2026, UTC")).toBeTruthy();
   });
 
   it("prints an unknown space rather than a blank cell", () => {
-    render(
-      BriefMeta({
-        props: { ...props, space: "supply-chain" },
-      } as Parameters<typeof BriefMeta>[0]),
-    );
+    render(BriefMeta({ ...props, space: "supply-chain" }));
     expect(screen.getByText("supply-chain")).toBeTruthy();
   });
 });
@@ -138,9 +133,7 @@ describe("BriefMeta", () => {
 describe("BriefImpacts", () => {
   it("lists the desk's follow-ups in order", () => {
     render(
-      BriefImpacts({
-        props: { items: ["Assess each listed document", "Record it"] },
-      } as Parameters<typeof BriefImpacts>[0]),
+      BriefImpacts({ items: ["Assess each listed document", "Record it"] }),
     );
     const items = screen.getByTestId("brief-impacts").querySelectorAll("li");
     expect([...items].map((li) => li.textContent)).toEqual([
@@ -150,16 +143,7 @@ describe("BriefImpacts", () => {
   });
 
   it("renders nothing at all when there are none", () => {
-    render(
-      // `[] as string[]`, not a bare `[]`: an empty array literal infers
-      // `never[]`, which does not overlap `RendererProps<{ items: string[] }>`,
-      // so the cast below is a TS2352 error rather than a widening. Caught by
-      // `tsc --noEmit` only — `pnpm build` never reaches test files, and vitest
-      // does not typecheck, so nothing in this app's gates would have failed.
-      BriefImpacts({ props: { items: [] as string[] } } as Parameters<
-        typeof BriefImpacts
-      >[0]),
-    );
+    render(BriefImpacts({ items: [] }));
     expect(screen.queryByTestId("brief-impacts")).toBeNull();
   });
 });
