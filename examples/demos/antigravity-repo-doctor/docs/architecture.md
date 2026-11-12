@@ -13,7 +13,8 @@ Browser
 Next.js (src/app/api/copilotkit/[[...slug]]/route.ts)
   CopilotRuntime
    - agent "repo-doctor": an HttpAgent pointed at AGENT_URL
-   - A2UI middleware (the agent writes its own surfaces, so no injected tool)
+   - generativeUI with a2uiVersion "0.9": converts the agent's A2UI v0.9 surfaces to A2UI 1.0 (the agent writes its
+     own surfaces, so no injected tool)
    - CopilotKit Intelligence when CPK_INTELLIGENCE_API_KEY is set, otherwise an in-memory runner
      │ AG-UI over HTTP and server-sent events
      ▼
@@ -99,8 +100,9 @@ Tools write shared state with the Antigravity AG-UI SDK's `experimental_set_stat
 snapshot. `src/lib/use-workspace.tsx` reads it once and the workspace panel renders Repository, Check, Tests,
 Approvals and the pushed branch.
 
-`run_tests` returns `a2ui_operations` for a fixed `TestReport` component, one surface per run, so red and green stay
-side by side. The catalog is in `src/a2ui/`.
+`run_tests` returns `a2ui_operations` (A2UI v0.9) for a fixed `TestReport` component, one surface per run, so red and
+green stay side by side. The runtime converts each surface to A2UI 1.0, and the browser renders it with the generative
+UI catalog in `src/a2ui/` (`createGenerativeUI`, given to the provider as `generativeUI={{ ui: catalog }}`).
 
 The report download (`src/lib/report.ts`) is built in the browser from state and messages, so it works on reopened
 conversations too.

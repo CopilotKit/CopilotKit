@@ -4,8 +4,9 @@ Fixed schema: the component tree below never changes, and each run only fills
 the data model. The browser renders `TestReport` from its own catalog
 (src/a2ui in the Next.js app), and every prop is a `{ path }` binding into that data.
 
-CopilotKit's runtime A2UI middleware finds the `a2ui_operations` key in the
-tool result and paints the surface in the chat.
+CopilotKit's runtime (`generativeUI: { a2uiVersion: "0.9" }`) finds the
+`a2ui_operations` key in the tool result, converts the surface to A2UI 1.0, and
+the browser paints it in the chat.
 """
 
 from __future__ import annotations
@@ -15,7 +16,8 @@ from typing import Any
 
 from .test_report import TestReport
 
-# Must match CATALOG_ID in src/a2ui/catalog.tsx (the Next.js app).
+# Must match CATALOG_ID in src/a2ui/catalog.tsx (the Next.js app): the id of
+# its generative UI catalog.
 CATALOG_ID = "https://repo-doctor.dev/a2ui/catalog/v1"
 
 _BINDINGS = (

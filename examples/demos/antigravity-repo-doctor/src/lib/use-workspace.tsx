@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useMemo } from "react";
 import type { ReactNode } from "react";
-import { useAgent } from "@copilotkit/react-core/v2";
+import { useAgent } from "@copilotkit/react-core";
 import { AGENT_ID } from "./agent-id";
 import { parseAgentState } from "./agent-state";
 import type { AgentState } from "./agent-state";

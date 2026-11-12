@@ -232,12 +232,6 @@
   ) {
   margin-top: 20px;
 }
-/* The A2UI renderer pads each surface by 24px top and bottom; the rhythm above
-   already spaces the test report like every other card. */
-.chat-host [data-testid="copilot-message-list"] :has(> * > .a2ui-surface) {
-  padding-block: 0;
-}
-
 /* Typography adds literal backticks around inline code; the chip already marks it. */
 .chat-host .cpk\:prose :where(code)::before,
 .chat-host .cpk\:prose :where(code)::after {

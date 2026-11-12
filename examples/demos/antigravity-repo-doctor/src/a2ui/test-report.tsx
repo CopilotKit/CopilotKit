@@ -6,15 +6,6 @@ import { StatusPill, TestBar } from "@/components/ui/status";
 import { cn } from "@/lib/cn";
 import type { FailedTestData, FileResultData } from "./definitions";
 
-// The binder resolves `{ path }` bindings before render; these narrow the
-// literal-or-binding prop types to the resolved values.
-export const num = (value: unknown): number =>
-  typeof value === "number" ? value : 0;
-export const str = (value: unknown): string =>
-  typeof value === "string" ? value : "";
-export const list = <T,>(value: unknown): T[] =>
-  Array.isArray(value) ? (value as T[]) : [];
-
 const VISIBLE_FAILURES = 4;
 const VISIBLE_FILES = 4;
 
@@ -33,7 +24,7 @@ export interface TestReportProps {
   summary: string;
 }
 
-/** The live report card for one test run, painted from an A2UI surface. */
+/** The live report card for one test run, painted from a generative UI surface. */
 export function TestReport(props: TestReportProps) {
   const [showAll, setShowAll] = useState(false);
   const broken = props.failed + props.errors;

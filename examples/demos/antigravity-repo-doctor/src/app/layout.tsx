@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
-import "@copilotkit/react-core/v2/styles.css";
 import "./globals.css";
 import { THEME_SCRIPT } from "@/lib/theme";
 
