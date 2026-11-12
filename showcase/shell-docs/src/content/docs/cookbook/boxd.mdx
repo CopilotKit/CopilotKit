@@ -7,7 +7,7 @@ doc_type: how-to
 ---
 
 [boxd](https://boxd.sh?ref=CopilotKit) runs **machines** for AI agents: full Ubuntu VMs with their own
-filesystem, network, and CPU/RAM, created in about a second. This recipe adds a server tool to
+filesystem, network, and CPU/RAM. This recipe adds a server tool to
 CopilotKit's [Built-in Agent](/) that writes the agent's code to a new machine, runs it there, and
 returns the result to the chat, so the agent can execute code it writes without touching your host.
 
@@ -55,7 +55,8 @@ import { z } from "zod";
 
 const boxd = new Boxd(); // reads BOXD_API_KEY
 
-// File name and interpreter per language. Node runs TypeScript directly.
+// File name and interpreter per language. Node strips TypeScript types, so
+// TypeScript must use erasable syntax only (no enums or namespaces).
 const runners = {
   python: { file: "main.py", command: "python3" },
   typescript: { file: "main.ts", command: "node" },
@@ -70,7 +71,9 @@ const runCode = defineTool({ // [!code highlight:30]
     language: z
       .enum(["python", "typescript", "javascript"])
       .default("python")
-      .describe("Language runtime for the code"),
+      .describe(
+        "Language runtime for the code. TypeScript runs on Node with type stripping: no enums or namespaces.",
+      ),
   }),
   execute: async ({ code, language }) => {
     const machine = await boxd.machines.create({
@@ -88,7 +91,9 @@ const runCode = defineTool({ // [!code highlight:30]
       });
       return { stdout: res.stdout, stderr: res.stderr, exitCode: res.exitCode };
     } finally {
-      await boxd.machines.delete(machine.id);
+      await boxd.machines
+        .delete(machine.id)
+        .catch((err) => console.error(`Failed to delete machine ${machine.id}`, err));
     }
   },
 });
@@ -117,9 +122,13 @@ export const DELETE = handler;
 
 <Callout type="info" title="Isolated machines">
   `isolated: true` keeps the machine off your organization's private network and leaves it without
-  boxd credentials, so code the agent writes can't reach your other machines. It still has outbound
-  internet access, so it can install packages with `pip` or `npm`.
+  boxd credentials, so code the agent writes can't reach your other machines over that network. It
+  still has outbound internet access, so it can download packages from npm or PyPI.
 </Callout>
+
+The `finally` block deletes the machine when the call ends, also when the code fails or times out. It
+can't run if your server process dies mid-call. If that matters for your deployment, pass
+`deleteAfter: 600` to `create` and boxd deletes the machine after ten minutes regardless.
 
 ## Try it
 
@@ -140,12 +149,13 @@ The agent writes the code, calls `runCode`, and reports back the machine's outpu
 
 - **Reuse a machine** to skip the per-call create: create one lazily, keep its id, and drop the
   `delete` call. Call `boxd.machines.hibernate(id)` when the user goes idle; the next `exec` wakes it
-  with its files intact.
-- **Run a server and preview it**: start the app in the background with `exec`, and the machine serves
-  it at `https://<machine-name>.boxd.sh`. That URL is public, so only do this for apps you're happy to
-  share.
+  with its files intact. Delete it yourself when the session ends.
+- **Run a server and preview it**: start the app on port 8000 in the background, for example
+  `exec(id, { command: "nohup python3 -m http.server 8000 > server.log 2>&1 &" })`, and the machine
+  serves it at `machine.access.url`. That URL is public, so only do this for apps you're happy to share.
 - **Custom environments**: install packages on one machine, save it with
-  `boxd.snapshots.create(id, "my-env")`, and start new machines from it with
+  `boxd.snapshots.create(id, "my-env")`, wait until `boxd.snapshots.get("my-env")` reports
+  `status: "ready"`, and start new machines from it with
   `boxd.machines.create({ fromSnapshot: "my-env", isolated: true })`.
 - **Any other language**: every machine is a full Ubuntu system with Python, Node, Go and Docker. Add
   an entry to `runners`, or pass a shell command line to `exec`.
@@ -174,9 +184,11 @@ In my existing CopilotKit Built-in Agent app, add a boxd-backed code execution t
      `/home/boxd/runcode/main.py` (or `main.ts` / `main.js`) with
      `boxd.machines.fs.write(machine.id, path, code)`. Run it with
      `boxd.machines.exec(machine.id, { command: [interpreter, path], timeout: 60_000 })`,
-     using `python3` for Python and `node` for TypeScript and JavaScript. Return
+     using `python3` for Python and `node` for TypeScript and JavaScript (Node strips TypeScript
+     types, so tell the model to avoid enums and namespaces). Return
      `{ stdout: res.stdout, stderr: res.stderr, exitCode: res.exitCode }`. Call
-     `boxd.machines.delete(machine.id)` in a finally block so the machine is removed even on error.
+     `boxd.machines.delete(machine.id)` in a finally block so the machine is removed even on error,
+     and log a failed delete instead of throwing.
 4. Register the tool on my BuiltInAgent (`tools: [runCode]`) and set `maxSteps: 2` so it can call the
    tool and then respond.
 
