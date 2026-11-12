@@ -771,6 +771,7 @@ const codemod: Codemod<Lang> = async (root, options) => {
       ? rootNode
       : parse<Lang>(options.language, afterAngular).root(),
     (text) => parse<Lang>(options.language, text).root(),
+    root.filename(),
   );
   const afterA2UI = a2ui ?? afterAngular;
   // Last: merge the CopilotKit imports the earlier steps added.

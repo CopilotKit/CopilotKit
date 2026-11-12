@@ -306,12 +306,18 @@ Docs: https://docs.copilotkit.ai/generative-ui/components/from-a2ui
 | `DynamicStringSchema`, `DynamicNumberSchema`, `DynamicBooleanSchema`           | `z.string()`, `z.number()`, `z.boolean()`                                                                        |
 | `DynamicStringListSchema`, `ChildListSchema`                                   | `z.array(z.string())`, `childList()`                                                                             |
 | `z.union([z.string(), z.object({ path: z.string() })])`                        | `z.string()`                                                                                                     |
+| `children: z.array(z.string())` in a definition                                | `children: childList()`                                                                                          |
+| `child: z.string()` in a definition                                            | `child: child()`                                                                                                 |
+| `action: ActionSchema` (or `z.unknown()`, `z.any()`) in a definition           | `events: { action: {} }` on the entry; the component calls `action?.()`                                          |
+| `{ ... } satisfies CatalogDefinitions`, `: CatalogRenderers<T>`                | Deleted                                                                                                          |
 | `import { z } from "zod-v3"`                                                   | `import { z } from "zod"`                                                                                        |
 | `<CopilotKitProvider a2ui={{ catalog: myCatalog }}>`                           | `<CopilotKitProvider generativeUI={{ ui: myCatalog }}>`                                                          |
 | `a2ui={{}}`, `a2ui={{ catalog: basicCatalog }}`                                | Deleted. The client uses the standard catalog when the runtime enables generative UI.                            |
 | `provideCopilotKit({ ..., a2ui: { catalog } })`                                | `provideCopilotKit({ ... })` and `provideGenerativeUI({ ui: catalog })` from `@copilotkit/angular/generative-ui` |
 | `new CopilotRuntime({ a2ui: { agents, injectA2UITool } })`                     | `new CopilotRuntime({ generativeUI: { a2uiVersion: "0.9", agents, injectA2UITool } })`                           |
 | `new CopilotRuntime({ a2ui: { enabled: false } })`                             | Deleted.                                                                                                         |
+
+When the definitions and the renderers are in their own modules (`./definitions`, `./renderers`), the catalog reads them by name (`component: renderers.Card`, `...definitions.Card`), and each renderer gets its TODO in the renderers module.
 
 A converted catalog looks like this. Each component keeps its old renderer under a TODO:
 

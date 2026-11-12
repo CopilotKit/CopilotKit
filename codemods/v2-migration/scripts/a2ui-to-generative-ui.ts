@@ -1,4 +1,7 @@
+import { parse } from "codemod:ast-grep";
 import type { Edit, SgNode } from "codemod:ast-grep";
+import { readFileSync, statSync } from "fs";
+import { dirname, resolve } from "path";
 import type TSX from "codemod:ast-grep/langs/tsx";
 import {
   applyEdits,
@@ -123,11 +126,19 @@ const ZOD_SOURCES = new Set(["zod", "zod/v4", "zod-v3"]);
 export function migrateA2UI(
   rootNode: Node,
   reparse: (text: string) => Node,
+  filename?: string,
 ): string | null {
   if (!/a2ui/i.test(rootNode.text())) return null;
-  const state: State = { imports: new Map(), changed: false };
+  const state: State = { imports: new Map(), changed: false, filename };
   let current = rootNode;
-  for (const step of [catalogEdits, schemaEdits, unionEdits, configEdits]) {
+  for (const step of [
+    definitionsEdits,
+    renderersEdits,
+    catalogEdits,
+    schemaEdits,
+    unionEdits,
+    configEdits,
+  ]) {
     const edits = step(current, state);
     if (edits.length === 0) continue;
     state.changed = true;
@@ -167,6 +178,8 @@ interface State {
   /** Imports to add: names by source. */
   imports: Map<string, Set<string>>;
   changed: boolean;
+  /** The path of the file, to read the modules it imports. */
+  filename?: string;
 }
 
 function need(state: State, source: string, name: string) {
@@ -581,23 +594,321 @@ function unwrap(node: Node | null | undefined): Node | null {
   return current;
 }
 
+// ---- Definitions and renderers modules ----
+
+/** The local names of `name` imported from the v0.9 client, with their framework. */
+function a2uiLocals(rootNode: Node, name: string): Map<string, Framework> {
+  const locals = new Map<string, Framework>();
+  for (const entry of importsOf(rootNode)) {
+    const framework = FRAMEWORK_OF[entry.source];
+    if (framework !== undefined && entry.name === name)
+      locals.set(entry.local, framework);
+  }
+  return locals;
+}
+
+/**
+ * Object literals typed with the v0.9 type `name`, as `const x: T = {...}`
+ * or `{...} satisfies T`, with the edit that deletes the type.
+ */
+function typedObjects(
+  rootNode: Node,
+  name: string,
+): { object: Node; framework: Framework; untype: Edit }[] {
+  const result: { object: Node; framework: Framework; untype: Edit }[] = [];
+  for (const [local, framework] of a2uiLocals(rootNode, name)) {
+    for (const reference of references(rootNode, local)) {
+      if (reference.kind() !== "type_identifier") continue;
+      const type =
+        reference.parent()?.kind() === "generic_type"
+          ? reference.parent()!
+          : reference;
+      const holder = type.parent();
+      if (holder?.kind() === "satisfies_expression") {
+        const expression = holder.child(0);
+        const object = unwrap(expression);
+        if (!expression || object?.kind() !== "object") continue;
+        result.push({
+          object,
+          framework,
+          untype: {
+            startPos: expression.range().end.index,
+            endPos: holder.range().end.index,
+            insertedText: "",
+          },
+        });
+      } else if (
+        holder?.kind() === "type_annotation" &&
+        holder.parent()?.kind() === "variable_declarator"
+      ) {
+        const object = unwrap(holder.parent()!.field("value"));
+        if (object?.kind() !== "object") continue;
+        result.push({
+          object,
+          framework,
+          untype: {
+            startPos: holder.range().start.index,
+            endPos: holder.range().end.index,
+            insertedText: "",
+          },
+        });
+      }
+    }
+  }
+  return result;
+}
+
+/** `text` without `.optional()` at the end, and whether it had it. */
+function splitOptional(text: string): [string, boolean] {
+  return text.endsWith(".optional()")
+    ? [text.slice(0, -".optional()".length), true]
+    : [text, false];
+}
+
+/**
+ * The v0.9 conventions in the props of one component definition:
+ * `children: z.array(z.string())` is a child list and `child: z.string()`
+ * a child, which the v0.9 renderer drew with `children(id)`; an `action`
+ * prop (`ActionSchema`, `z.unknown()` or `z.any()`) was passed to
+ * `dispatch`, and is an event in 2.0.
+ */
+function definitionEdits(
+  entry: Node,
+  z: string,
+  actionSchemas: Set<string>,
+  framework: Framework,
+  source: string,
+  state: State,
+): Edit[] {
+  const value = unwrap(entry.kind() === "pair" ? entry.field("value") : null);
+  const fields = value?.kind() === "object" ? entriesOf(value) : null;
+  if (!fields) return [];
+  const propsEntry = entryNamed(fields, "props");
+  const propsValue =
+    propsEntry?.kind() === "pair" ? propsEntry.field("value") : null;
+  if (
+    !propsEntry ||
+    propsValue?.kind() !== "call_expression" ||
+    propsValue.field("function")?.text() !== `${z}.object`
+  )
+    return [];
+  const shape = unwrap(argumentNodes(propsValue)[0]);
+  const props = shape?.kind() === "object" ? entriesOf(shape) : null;
+  if (!props) return [];
+  const from = GENERATIVE_UI_SOURCE[framework];
+  const edits: Edit[] = [];
+  for (const prop of props) {
+    if (prop.kind() !== "pair") continue;
+    const schema = prop.field("value");
+    if (!schema) continue;
+    const [base, optional] = splitOptional(schema.text().replace(/\s/g, ""));
+    const suffix = optional ? ".optional()" : "";
+    const key = keyOf(prop);
+    if (key === "children" && base === `${z}.array(${z}.string())`) {
+      need(state, from, "childList");
+      edits.push(schema.replace(`childList()${suffix}`));
+    } else if (key === "child" && base === `${z}.string()`) {
+      need(state, from, "child");
+      edits.push(schema.replace(`child()${suffix}`));
+    } else if (
+      key === "action" &&
+      (actionSchemas.has(base) ||
+        base === `${z}.unknown()` ||
+        base === `${z}.any()`) &&
+      entryNamed(fields, "events") === undefined
+    ) {
+      edits.push(removeEntry(prop, source));
+      const end = propsEntry.range().end.index;
+      edits.push({
+        startPos: end,
+        endPos: end,
+        insertedText: `,\n${indentOf(propsEntry, source)}events: { action: {} }`,
+      });
+    }
+  }
+  return edits;
+}
+
+/**
+ * A v0.9 definitions object (typed `CatalogDefinitions`, or the definitions
+ * of a `createCatalog` call in the file): the type goes, and the props of
+ * each component follow the 2.0 conventions (see `definitionEdits`).
+ */
+function definitionsEdits(rootNode: Node, state: State): Edit[] {
+  const source = rootNode.text();
+  const z = zodName(rootNode);
+  const actionSchemas = new Set(a2uiLocals(rootNode, "ActionSchema").keys());
+  const edits: Edit[] = [];
+  const objects = new Map<number, { object: Node; framework: Framework }>();
+  for (const { object, framework, untype } of typedObjects(
+    rootNode,
+    "CatalogDefinitions",
+  )) {
+    edits.push(untype);
+    objects.set(object.range().start.index, { object, framework });
+  }
+  for (const factory of CATALOG_FACTORIES) {
+    for (const local of localsOf(
+      rootNode,
+      [factory.source],
+      [factory.name],
+    ).keys()) {
+      for (const call of rootNode.findAll({
+        rule: {
+          kind: "call_expression",
+          has: { field: "function", regex: `^${local}$` },
+        },
+      })) {
+        const first = argumentNodes(call)[0];
+        const side = first && resolveSide(rootNode, first);
+        const object =
+          side?.kind === "inline"
+            ? side.object
+            : side?.kind === "named"
+              ? side.entries[0]?.parent()
+              : undefined;
+        if (object)
+          objects.set(object.range().start.index, {
+            object,
+            framework: factory.framework,
+          });
+      }
+    }
+  }
+  if (z === undefined) return edits;
+  for (const { object, framework } of objects.values()) {
+    for (const entry of entriesOf(object) ?? []) {
+      edits.push(
+        ...definitionEdits(entry, z, actionSchemas, framework, source, state),
+      );
+    }
+  }
+  return edits;
+}
+
+/**
+ * A v0.9 renderers object in its own module (typed `CatalogRenderers`): the
+ * type goes, and each renderer gets the TODO to rewrite it. A renderers
+ * object that a `createCatalog` call of the same file uses gets its TODOs
+ * from `catalogEdits`.
+ */
+function renderersEdits(rootNode: Node): Edit[] {
+  const hasCatalog = CATALOG_FACTORIES.some(
+    (factory) => localsOf(rootNode, [factory.source], [factory.name]).size > 0,
+  );
+  if (hasCatalog) return [];
+  const source = rootNode.text();
+  const edits: Edit[] = [];
+  for (const { object, framework, untype } of typedObjects(
+    rootNode,
+    "CatalogRenderers",
+  )) {
+    edits.push(untype);
+    const note =
+      framework === "angular" ? ANGULAR_COMPONENT_NOTE : RENDERER_NOTE;
+    for (const entry of entriesOf(object) ?? []) {
+      const todo = todoAbove(entry, source, note);
+      if (todo) edits.push(todo);
+    }
+  }
+  return edits;
+}
+
 // ---- Catalogs ----
 
 /** One side of `createCatalog`: the definitions or the renderers. */
 type Side =
   /** An object literal in the call, or a `const` used only there: inlined. */
   | { kind: "inline"; entries: Node[]; object: Node; declaration?: Node }
-  /** A `const` with a literal that is also used elsewhere: read by name. */
-  | { kind: "named"; name: string; entries: Node[] }
+  /**
+   * A `const` with a literal that is also used elsewhere, or that another
+   * module of the app exports: read by name. `external` is set for an
+   * imported one: its renderers get their TODO in their own module.
+   */
+  | { kind: "named"; name: string; entries: Node[]; external?: boolean }
   /** Anything else with a name: names are unknown, members read by name. */
   | { kind: "opaque"; name: string };
+
+/** Extensions a relative import can leave out, in the order bundlers try them. */
+const MODULE_SUFFIXES = [
+  "",
+  ".ts",
+  ".tsx",
+  ".js",
+  ".jsx",
+  ".mts",
+  "/index.ts",
+  "/index.tsx",
+  "/index.js",
+];
+
+/** The parsed module that `specifier` points to from `filename`, or `null`. */
+function readModule(
+  filename: string | undefined,
+  specifier: string,
+): Node | null {
+  if (!filename || !specifier.startsWith(".")) return null;
+  const base = resolve(dirname(filename), specifier);
+  for (const suffix of MODULE_SUFFIXES) {
+    const path = base + suffix;
+    if (!/\.[mc]?[jt]sx?$/.test(path)) continue;
+    let text: string;
+    try {
+      if (!statSync(path).isFile()) continue;
+      text = readFileSync(path, "utf8");
+    } catch {
+      continue;
+    }
+    // `.ts` files go through the TypeScript grammar: in TSX, `<T>value`
+    // parses as JSX.
+    const language = /\.[mc]?ts$/.test(path) ? "typescript" : "tsx";
+    return parse(language, text).root() as unknown as Node;
+  }
+  return null;
+}
+
+/**
+ * The entries of the object literal that another module of the app exports
+ * as the import `local`: `import { definitions } from "./definitions"`.
+ * `null` when the module cannot be read or does not export a literal.
+ */
+function importedObject(
+  rootNode: Node,
+  local: string,
+  filename: string | undefined,
+): Node[] | null {
+  const imported = importsOf(rootNode).find((entry) => entry.local === local);
+  if (!imported) return null;
+  const module = readModule(filename, imported.source);
+  if (!module) return null;
+  for (const declarator of module.findAll({
+    rule: {
+      kind: "variable_declarator",
+      has: {
+        field: "name",
+        regex: `^${imported.name.replace(/\$/g, "\\$")}$`,
+      },
+      inside: { kind: "export_statement", stopBy: "end" },
+    },
+  })) {
+    const value = unwrap(declarator.field("value"));
+    if (value?.kind() !== "object") continue;
+    return entriesOf(value);
+  }
+  return null;
+}
 
 /**
  * `ignore`: a declaration that the conversion deletes. References inside it
  * do not count, so `CatalogRenderers<typeof definitions>` does not keep
  * `definitions` from being inlined.
  */
-function resolveSide(rootNode: Node, arg: Node, ignore?: Node): Side | null {
+function resolveSide(
+  rootNode: Node,
+  arg: Node,
+  ignore?: Node,
+  filename?: string,
+): Side | null {
   const node = unwrap(arg);
   if (!node) return null;
   if (node.kind() === "object") {
@@ -614,6 +925,12 @@ function resolveSide(rootNode: Node, arg: Node, ignore?: Node): Side | null {
       has: { field: "name", regex: `^${name.replace(/\$/g, "\\$")}$` },
     },
   });
+  if (!declarator) {
+    const imported = importedObject(rootNode, name, filename);
+    return imported
+      ? { kind: "named", name, entries: imported, external: true }
+      : { kind: "opaque", name };
+  }
   const declaration = declarator?.parent();
   const value = unwrap(declarator?.field("value"));
   const atTop =
@@ -803,11 +1120,12 @@ function convertCatalog(
 ): Edit[] | null {
   const args = argumentNodes(call);
   if (args.length < 2 || args.length > 3) return null;
-  const renderers = resolveSide(rootNode, args[1]!);
+  const renderers = resolveSide(rootNode, args[1]!, undefined, state.filename);
   const definitions = resolveSide(
     rootNode,
     args[0]!,
     renderers?.kind === "inline" ? renderers.declaration : undefined,
+    state.filename,
   );
   if (!definitions || !renderers) return null;
   if (definitions.kind === "opaque" && renderers.kind === "opaque") return null;
@@ -836,7 +1154,10 @@ function convertCatalog(
       ...commentsBefore(definitions, name, source, entryIndent),
       ...commentsBefore(renderers, name, source, entryIndent),
       ...[
-        ...(component ? [rendererNote] : []),
+        // An imported renderer gets its TODO in its own module.
+        ...(component && !(renderers.kind === "named" && renderers.external)
+          ? [rendererNote]
+          : []),
         ...(hasDescription === false ? [DESCRIPTION_NOTE] : []),
       ].map((note) => `// ${TODO} ${note}`),
     ].map((line) => `${entryIndent}${line}\n`);
