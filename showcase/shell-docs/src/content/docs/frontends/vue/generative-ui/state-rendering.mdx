@@ -9,10 +9,6 @@ snippet_cell: shared-state-streaming
 
 State rendering lets you build UI that reflects your agent's state in real-time. As your agent progresses through nodes and emits state updates, your frontend renders those changes, showing progress, drafts, or intermediate results.
 
-<Callout type="info">
-  **Free course:** See this pattern built end-to-end in [Build Interactive Agents with Generative UI](https://www.deeplearning.ai/short-courses/build-interactive-agents-with-generative-ui/) — a free DeepLearning.AI short course taught by CopilotKit's CEO covering the full Generative UI spectrum (Controlled, Declarative, and Open-Ended).
-</Callout>
-
 ## When should I use this?
 
 Use state rendering when you want to:
@@ -64,11 +60,13 @@ import ResearchProgress from "./components/ResearchProgress.vue";
 </template>
 ```
 
-On the backend, a state-streaming mapping forwards a specific tool argument straight into a state key *as it's being generated*. Some frameworks provide that as middleware; direct SDK adapters can emit `STATE_SNAPSHOT` events from their streaming loop. Either way, the UI can watch the answer assemble token-by-token rather than appearing in one burst between checkpoints.
+On the backend, a state-streaming mapping forwards a tool argument into a state key while the model writes it. Some frameworks provide that as middleware. Direct SDK adapters can emit `STATE_SNAPSHOT` events from their streaming loop. Either way, the UI can watch the answer assemble token-by-token rather than appearing in one burst between checkpoints.
 
 <FrameworkSetup concept="state-streaming-setup" />
 
 <Snippet region="state-streaming-middleware" title="backend — state streaming mapping" />
+
+Ask the researcher agent to write a report. The status line and the progress bar change while the agent runs, and the draft text grows as the tokens arrive.
 
 Treat agent state as untrusted external data. Validate it before using it for privileged actions, and avoid putting secrets in state that is streamed to the browser.
 

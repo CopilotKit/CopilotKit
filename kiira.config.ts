@@ -84,6 +84,8 @@ export default defineConfig({
     "@heroicons/react": "^2.0.0",
     "@a2ui/lit": "^0.14.0",
     "react-native-streamdown": "^0.3.0",
+    // The bottom-sheet chat needs GestureHandlerRootView at the app root.
+    "react-native-gesture-handler": "^2.0.0",
     "@arcadeai/arcadejs": "^2.4.1",
     // Same version scripts/doc-tests runs the Daytona cookbook against.
     "@daytonaio/sdk": "0.182.0",

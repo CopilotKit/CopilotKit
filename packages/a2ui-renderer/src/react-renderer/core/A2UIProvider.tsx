@@ -1,8 +1,10 @@
 import { createContext, useContext, useRef, useState, useMemo } from "react";
 import type { ReactNode } from "react";
 import { MessageProcessor } from "@a2ui/web_core/v0_9";
-import { basicCatalog } from "../a2ui-react";
+import { VersionAdapterFactory } from "@a2ui/web_core/adapters";
+import { basicCatalog, basicCatalogV1 } from "../a2ui-react";
 import { A2UIOperationApplier } from "../../engine/apply-operations";
+import { a2uiNativeOperations } from "../../engine/native-operations";
 import type { A2UIContextValue, A2UIActions } from "./store";
 import { ThemeProvider } from "../theme/ThemeContext";
 import type { OnActionCallback } from "../types";
@@ -21,6 +23,41 @@ const A2UIStateContext = createContext<{
   error: string | null;
   surfaceErrors: Readonly<Record<string, string>>;
 } | null>(null);
+
+/** Unwrap SDK message lists once so validation and processing see the same batch. */
+function normalizeMessages(
+  messages: Array<Record<string, unknown>>,
+  inheritedVersion: unknown = "v0.9",
+): Array<Record<string, unknown>> {
+  return messages.flatMap<Record<string, unknown>>((message) => {
+    if (Array.isArray(message))
+      return normalizeMessages(message, inheritedVersion);
+    if (Array.isArray(message.messages)) {
+      // The SDK selects a wrapper's adapter from its first message, then uses
+      // that adapter's version for subsequent messages that omit a version.
+      let first = message.messages[0];
+      while (Array.isArray(first) || Array.isArray(first?.messages)) {
+        first = (Array.isArray(first) ? first : first.messages)[0];
+      }
+      const version =
+        first?.version !== undefined
+          ? first.version
+          : message.version !== undefined
+            ? message.version
+            : inheritedVersion;
+      const normalized = normalizeMessages(message.messages, version);
+      // Retain SDK validation for homogeneous wrappers and strict envelopes;
+      // flattening must not turn a rejected wrapper into accepted messages.
+      VersionAdapterFactory.resolveFromPayload({ version }).extractOperations(
+        normalized,
+      );
+      return normalized;
+    }
+    return message.version === undefined
+      ? { ...message, version: inheritedVersion }
+      : message;
+  });
+}
 
 /**
  * Surface IDs whose component tree a message replaces or removes. A rejected
@@ -54,7 +91,7 @@ export interface A2UIProviderProps {
 }
 
 /**
- * Provider component that sets up the A2UI v0.9 context for descendant components.
+ * Provider component that sets up A2UI context for descendant components.
  * Uses a two-context architecture for performance:
  * - A2UIActionsContext: Stable actions that never change (no re-renders)
  * - A2UIStateContext: Reactive state that triggers re-renders when needed
@@ -76,14 +113,15 @@ export function A2UIProvider({
     Readonly<Record<string, string>>
   >({});
 
-  // Create v0.9 MessageProcessor only once using ref
+  // The SDK processor handles both protocol versions and owns surface state.
   const processorRef = useRef<MessageProcessor<any> | null>(null);
   if (!processorRef.current) {
-    // Action handler: convert v0.9 Action to A2UIClientEventMessage format
+    // Convert surface actions to the CopilotKit client-event envelope.
     const handleAction = (action: any) => {
       if (onActionRef.current) {
         const message: A2UIClientEventMessage = {
           userAction: {
+            ...action,
             name: action?.name ?? "unknown",
             surfaceId: action?.surfaceId ?? "default",
             sourceComponentId: action?.sourceComponentId,
@@ -95,7 +133,15 @@ export function A2UIProvider({
       }
     };
     processorRef.current = new MessageProcessor(
-      [catalog ?? basicCatalog],
+      // A selected catalog controls all rendering for its own protocol. Only
+      // add the other protocol's default for historical cards; adding the
+      // same-version default would bypass component enable/disable filtering.
+      catalog
+        ? [
+            catalog,
+            catalog.protocolVersion === "1.0" ? basicCatalog : basicCatalogV1,
+          ]
+        : [basicCatalog, basicCatalogV1],
       // No processor-level action handler: the surface group forwards actions
       // without awaiting its listeners, so `surface.dispatchAction` would
       // settle before `onAction` does. Each surface awaits its own listeners.
@@ -115,9 +161,17 @@ export function A2UIProvider({
   const processor = processorRef.current;
   const applierRef = useRef<A2UIOperationApplier<any> | null>(null);
   if (!applierRef.current) {
+    // v0.9 surfaces are pinned to the v0.9 catalog: the app's own unless it
+    // is a native 1.0 catalog, in which case the basic v0.9 catalog renders
+    // historical v0.9 cards.
     applierRef.current = new A2UIOperationApplier(
       processor,
-      (catalog ?? basicCatalog).id,
+      (catalog?.protocolVersion === "1.0"
+        ? basicCatalog
+        : (catalog ?? basicCatalog)
+      ).id,
+      undefined,
+      { native: a2uiNativeOperations },
     );
   }
   const applier = applierRef.current;
@@ -134,15 +188,20 @@ export function A2UIProvider({
   if (!actionsRef.current) {
     actionsRef.current = {
       processMessages: (messages: Array<Record<string, unknown>>) => {
+        let versioned: Array<Record<string, unknown>>;
         try {
-          processor.processMessages(messages as any[]);
+          // Registering a 1.0 catalog disables web_core's implicit v0.9
+          // fallback. Preserve the existing provider default explicitly.
+          versioned = normalizeMessages(messages);
+          a2uiNativeOperations.validate(processor, versioned);
+          processor.processMessages(versioned as any[]);
         } catch (err) {
           console.warn("[A2UI] processMessages error:", err);
           setError(err instanceof Error ? err.message : String(err));
           return;
         }
         setError(null);
-        const reset = surfacesResetBy(messages);
+        const reset = surfacesResetBy(versioned);
         if (reset.length > 0) {
           setSurfaceErrors((prev) => {
             if (!reset.some((id) => id in prev)) return prev;
@@ -177,9 +236,12 @@ export function A2UIProvider({
       clearSurfaces: () => {
         // Process a deleteSurface for all known surfaces
         const surfaces = processor.model.surfacesMap;
-        for (const [id] of surfaces) {
+        for (const [id, surface] of surfaces) {
           processor.processMessages([
-            { version: "v0.9", deleteSurface: { surfaceId: id } } as any,
+            {
+              version: surface.protocolVersion ?? "v0.9",
+              deleteSurface: { surfaceId: id },
+            } as any,
           ]);
         }
         setSurfaceErrors({});

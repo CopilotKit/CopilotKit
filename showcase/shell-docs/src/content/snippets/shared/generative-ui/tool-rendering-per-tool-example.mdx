@@ -186,9 +186,10 @@ import { ToolRenderers } from "./tool-renderers";
 
 export default function Page() {
   return (
-    <CopilotKitProvider runtimeUrl="/api/copilotkit" agentId="tool-rendering">
+    // Use the agent name you registered on CopilotRuntime
+    <CopilotKitProvider runtimeUrl="/api/copilotkit" agentId="default">
       <ToolRenderers />
-      <CopilotChat agentId="tool-rendering" />
+      <CopilotChat agentId="default" />
     </CopilotKitProvider>
   );
 }

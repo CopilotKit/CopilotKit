@@ -250,18 +250,25 @@ function ReactSurfaceHost({
 }
 
 /**
- * Renders the A2UI surface, or an error message if processing failed.
+ * Renders the A2UI surface, with an error message above it if processing
+ * failed. A rejected snapshot leaves the surface as it was, so the card the
+ * user already sees stays visible next to the error.
  * Must be a child of A2UIProvider to access the error state.
  */
 function A2UISurfaceOrError({ surfaceId }: { surfaceId: string }) {
   const error = useA2UIError();
-  if (error) {
-    return (
-      <div className="cpk-a2ui-message-error">A2UI render error: {error}</div>
-    );
-  }
   return (
-    <A2UIRenderer surfaceId={surfaceId} className="cpk-a2ui-message-surface" />
+    <>
+      {error && (
+        <div role="alert" className="cpk-a2ui-message-error">
+          A2UI render error: {error}
+        </div>
+      )}
+      <A2UIRenderer
+        surfaceId={surfaceId}
+        className="cpk-a2ui-message-surface"
+      />
+    </>
   );
 }
 

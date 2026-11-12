@@ -1,52 +1,41 @@
-import React from "react";
 import Link from "next/link";
-import { notFound } from "next/navigation";
-import { DocsPage, DocsBody } from "fumadocs-ui/page";
-import { DocsPageView } from "@/components/docs-page-view";
-import { ShellDocsLayout } from "@/components/shell-docs-layout";
-import { DocsContentHeader } from "@/components/docs-content-header";
-import { navTreeToPageTree } from "@/lib/page-tree-bridge";
+import type { TOCItemType } from "fumadocs-core/toc";
+import { Heading } from "fumadocs-ui/components/heading";
+import {
+  DocsBody,
+  DocsDescription,
+  DocsPage,
+  DocsTitle,
+} from "fumadocs-ui/layouts/spacious/page";
+import { Feedback } from "@/components/feedback/client";
+import { sendPageFeedback } from "@/lib/feedback";
 import {
   CatalogComponentApi,
   CatalogReferenceDescription,
 } from "./catalog-reference-api";
-import { CatalogExampleLoader } from "./catalog-example-loader";
+import { CatalogStoryLoader } from "./catalog-story-loader";
 import {
   CATALOG_REFERENCE_PATH,
-  catalogReferenceNav,
-  catalogReferenceNameFromPath,
-  catalogComponentHref,
   catalogComponentSlug,
   catalogParts,
 } from "./catalog-reference";
 
-function SidebarBanner() {
-  return (
-    <div className="space-y-3 px-2 py-3">
-      <Link href="/generative-ui" className="text-sm text-[var(--text-muted)]">
-        ← Back to Generative UI
-      </Link>
-      <p className="text-sm font-semibold">Standard components</p>
-    </div>
-  );
-}
-
-export async function CatalogReferencePage({ slugPath }: { slugPath: string }) {
-  const nav = catalogReferenceNav();
-  if (slugPath === CATALOG_REFERENCE_PATH.slice(1))
-    return (
-      <DocsPageView
-        slugPath={slugPath}
-        slugHrefPrefix=""
-        navTree={nav}
-        sidebarBannerSlot={<SidebarBanner />}
-      />
-    );
-  const name = catalogReferenceNameFromPath(slugPath);
-  if (!name) notFound();
+/**
+ * A standard catalog component's reference page (shell-docs'
+ * `CatalogReferencePage`): its story (a live preview with a control per prop,
+ * one variant per catalog sample) and props, then each of its parts
+ * (`GridItem` on Grid's page) under its own heading, so `#grid-item` lands on
+ * it. `prefix` is the URL's scope (`/vue/mastra`), for its links.
+ */
+export function CatalogReferenceArticle({
+  name,
+  prefix,
+}: {
+  name: string;
+  prefix: string;
+}) {
   const parts = catalogParts(name);
-  const toc = [
-    { title: "Examples", url: "#examples", depth: 2 },
+  const toc: TOCItemType[] = [
     { title: "Props", url: "#props", depth: 2 },
     ...parts.map((part) => ({
       title: part,
@@ -54,52 +43,39 @@ export async function CatalogReferencePage({ slugPath }: { slugPath: string }) {
       depth: 2,
     })),
   ];
+  const index = `${prefix}${CATALOG_REFERENCE_PATH}`;
+
   return (
-    <ShellDocsLayout
-      tree={navTreeToPageTree(nav, "")}
-      banner={<SidebarBanner />}
-    >
-      <DocsPage
-        toc={toc}
-        breadcrumb={{ enabled: false }}
-        footer={{ enabled: false }}
-      >
-        <div className="docs-inner-content docs-article-content mx-auto px-4 pb-6 pt-2 md:px-6 md:pt-3 xl:pt-4">
-          <DocsContentHeader
-            ancestorBreadcrumbs={[
-              { label: "Standard catalog", href: CATALOG_REFERENCE_PATH },
-            ]}
-            title={name}
-            description={<CatalogReferenceDescription name={name} />}
-          />
-          <DocsBody className="reference-content">
-            <h2 id="examples" className="scroll-mt-24">
-              Examples
-            </h2>
-            <CatalogExampleLoader name={name} />
-            <h2 id="props" className="scroll-mt-24">
-              Props
-            </h2>
-            <CatalogComponentApi name={name} />
-            {parts.map((part) => (
-              <section key={part} aria-label={part}>
-                <h2 id={catalogComponentSlug(part)} className="scroll-mt-24">
-                  {part}
-                </h2>
-                <p>
-                  <CatalogReferenceDescription name={part} />
-                </p>
-                <CatalogExampleLoader name={part} />
-                <CatalogComponentApi name={part} />
-              </section>
-            ))}
+    <DocsPage toc={toc} footer={{ enabled: false }}>
+      <DocsTitle className="text-[2.25rem] leading-[1.1] font-medium md:text-[2.5rem] tracking-[-0.03em] text-balance wrap-anywhere">
+        {name}
+      </DocsTitle>
+      <DocsDescription className="mb-0">
+        <CatalogReferenceDescription name={name} />
+      </DocsDescription>
+      <DocsBody>
+        <CatalogStoryLoader name={name} />
+        <Heading as="h2" id="props">
+          Props
+        </Heading>
+        <CatalogComponentApi name={name} />
+        {parts.map((part) => (
+          <section key={part} aria-label={part}>
+            <Heading as="h2" id={catalogComponentSlug(part)}>
+              {part}
+            </Heading>
             <p>
-              <Link href={catalogComponentHref(name)}>Link to {name}</Link> ·{" "}
-              <Link href={CATALOG_REFERENCE_PATH}>All standard components</Link>
+              <CatalogReferenceDescription name={part} />
             </p>
-          </DocsBody>
-        </div>
-      </DocsPage>
-    </ShellDocsLayout>
+            <CatalogStoryLoader name={part} />
+            <CatalogComponentApi name={part} />
+          </section>
+        ))}
+        <p>
+          <Link href={index}>All standard components</Link>
+        </p>
+      </DocsBody>
+      <Feedback onSendAction={sendPageFeedback} />
+    </DocsPage>
   );
 }

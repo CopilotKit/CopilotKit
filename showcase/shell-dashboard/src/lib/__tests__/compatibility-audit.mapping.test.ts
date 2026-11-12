@@ -23,7 +23,7 @@ describe("Showcase compatibility mapping", () => {
     expect(() =>
       assertMappingCoverage(COMPATIBILITY_MAPPING, manifestSlugs),
     ).not.toThrow();
-    expect(COMPATIBILITY_MAPPING).toHaveLength(22);
+    expect(COMPATIBILITY_MAPPING).toHaveLength(23);
 
     const expected = COMPATIBILITY_SNAPSHOT.rows
       .filter((row) => !row.slug.endsWith("-dotnet"))
@@ -36,7 +36,7 @@ describe("Showcase compatibility mapping", () => {
     const mapped = COMPATIBILITY_MAPPING.flatMap((variant) =>
       variant.libraries.map((pkg) => `${variant.slug}/${pkg.name}`),
     );
-    expect(mapped).toHaveLength(34);
+    expect(mapped).toHaveLength(35);
     expect(mapped.sort()).toEqual(
       [
         ...expected,
@@ -44,6 +44,7 @@ describe("Showcase compatibility mapping", () => {
         "ms-agent-dotnet/Microsoft.Agents.AI",
         "ms-agent-harness-dotnet/Microsoft.Agents.AI",
         "ms-agent-harness-dotnet/Microsoft.Agents.AI.Harness",
+        "openai-agents-python/openai-agents",
       ].sort(),
     );
   });
@@ -67,6 +68,31 @@ describe("Showcase compatibility mapping", () => {
       ],
       excludedLibraries: [
         { name: "ag-ui-antigravity", reason: expect.any(String) },
+      ],
+    });
+  });
+
+  it("maps the OpenAI Agents SDK to its framework SDK and excludes its AG-UI adapter", () => {
+    expect(
+      COMPATIBILITY_MAPPING.find(
+        (item) => item.slug === "openai-agents-python",
+      ),
+    ).toMatchObject({
+      language: "python",
+      libraries: [
+        {
+          name: "openai-agents",
+          registry: "pypi",
+          required: true,
+          role: "framework",
+          source: {
+            kind: "requirements",
+            path: "showcase/integrations/openai-agents-python/requirements.txt",
+          },
+        },
+      ],
+      excludedLibraries: [
+        { name: "ag-ui-openai-agents", reason: expect.any(String) },
       ],
     });
   });

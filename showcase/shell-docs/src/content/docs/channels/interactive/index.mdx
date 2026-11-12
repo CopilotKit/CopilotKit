@@ -17,11 +17,15 @@ On Slack, Channels JSX renders as Block Kit. Button clicks return as
 
 <Callout type="info" title="Use the current Slack manifest">
   Newly generated Slack manifests enable **Interactivity** and configure the
-  managed callback URL. If the app was created from an older manifest, open the
-  Channel in Intelligence, return to its Slack setup instructions, apply the
-  generated manifest, and reinstall the app before testing buttons. After the
-  reinstall, use the current Bot User OAuth token in Intelligence in case Slack
-  reissued it. See [Configure the Channel in Intelligence](/channels/intelligence).
+  managed callback URL. If the app came from an older manifest, do these steps
+  before you test buttons:
+
+  1. Open the Channel in Intelligence.
+  2. Copy the generated manifest from its Slack setup instructions.
+  3. Apply the manifest to the app and reinstall the app.
+  4. Paste the current Bot User OAuth token into Intelligence.
+
+  See [Configure the Channel in Intelligence](/channels/intelligence).
 </Callout>
 
 </FrontendOnly>
@@ -223,29 +227,35 @@ is:
    `thread.resume(value)`.
 5. The SDK re-enters the agent with the approval result.
 
+To check the flow, ask the agent for an action that needs approval. The
+**Approval required** card appears. Click **Approve**. The card changes to
+**Approved**, and the agent continues with `{ approved: true }`.
+
 The selected agent framework decides how it emits and consumes the interrupt.
 Follow its [human-in-the-loop guide](/human-in-the-loop) for the agent-side
 interrupt; keep the Channel handler limited to portable presentation and
 `resume`.
 
 <Callout type="info" title="Framework interrupt support is not universal">
-  The validated managed path is a DeepAgent tool-driven approval that emits
+  Only a DeepAgent tool-driven approval is tested on the managed path. It emits
   `on_interrupt`, returns from delivery, then resumes from a later interaction.
-  For every other backend, follow its human-in-the-loop guide and run a real
-  provider test that confirms the interrupt reaches `onInterrupt`, the handler
-  returns, the later click calls `resume`, and the agent consumes the value. Do
-  not assume native AG-UI interrupts are portable. The default
-  `sanitizeAgentEvents` behavior repairs a known event-validation issue; it
-  does not add framework interrupt support by itself.
+  For every other backend, follow its human-in-the-loop guide. Then run a real
+  provider test and make sure that:
+
+  - the interrupt reaches `onInterrupt`
+  - the handler returns
+  - the later click calls `resume`
+  - the agent consumes the value
+
+  The default `sanitizeAgentEvents` behavior repairs a known event-validation
+  issue. It does not add framework interrupt support.
 </Callout>
 
-<Callout type="warn" title="Restart durability needs a StateStore">
-  The managed realtime connection does not automatically persist SDK action
-  snapshots. The default MemoryStore keeps them only in the current process.
-  Registered components make recovery possible, but clicks on pre-restart
-  cards still require a durable
-  `createChannel({ store: { adapter } })` backend. See
-  [Threads and state](/channels/threads-and-state).
+<Callout type="info" title="Restart durability for callbacks">
+  On the managed connection, the SDK stores action snapshots in Intelligence by
+  default. A click on a card from a registered component still runs after a
+  restart. Pass `createChannel({ store: { adapter } })` only to use your own
+  backend. See [Persistence and scaling](/channels/persistence-and-scaling).
 </Callout>
 
 ## Capability differences

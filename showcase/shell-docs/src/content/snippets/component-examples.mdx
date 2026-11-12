@@ -1,4 +1,3 @@
-import { Tabs, Tab } from "fumadocs-ui/components/tabs";
 
 <Tabs groupId="component" items={["CopilotChat", "CopilotSidebar", "CopilotPopup", "Headless UI"]}>
   <Tab value="CopilotPopup">
@@ -29,7 +28,7 @@ import { Tabs, Tab } from "fumadocs-ui/components/tabs";
 
   </Tab>
   <Tab value="CopilotSidebar">
-    `CopilotSidebar` is a convenience wrapper for `CopilotChat` that renders next to your main content. It provides a **collapsible and expandable sidebar** chat interface.
+    `CopilotSidebar` is a convenience wrapper for `CopilotChat` that sits next to your main content. It provides a **collapsible and expandable sidebar** chat interface.
 
     <img src="https://cdn.copilotkit.ai/docs/copilotkit/images/sidebar-example.gif" alt="Sidebar Example" className="w-full rounded-lg my-4" />
 
@@ -80,7 +79,7 @@ import { Tabs, Tab } from "fumadocs-ui/components/tabs";
   <Tab value="Headless UI">
     The built-in Copilot UI can be customized in many ways -- both through CSS and by using the slot system for component replacement.
 
-    CopilotKit also offers **fully custom headless UI**, through the `useAgent` and `useCopilotKit` hooks. Everything built with the built-in UI (and more) can be implemented with the headless UI, providing deep customizability.
+    CopilotKit also offers **fully custom headless UI**, through the `useAgent` and `useCopilotKit` hooks. Everything built with the built-in UI can also be built with the headless UI.
 
     ```tsx
     import { useAgent } from "@copilotkit/react-core";

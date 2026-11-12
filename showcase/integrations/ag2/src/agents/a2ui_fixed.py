@@ -12,6 +12,8 @@ A2UI middleware with `injectA2UITool: false` because the backend owns
 the rendering tool itself.
 """
 
+# @region[backend-render-operations]
+# @region[backend-schema-json-load]
 from __future__ import annotations
 
 import json
@@ -23,10 +25,14 @@ from ag2.ag_ui import AGUIStream
 from ag2.config.openai import OpenAIResponsesConfig
 from fastapi import FastAPI
 from pydantic import Field
+# @endregion[backend-schema-json-load]
+# @endregion[backend-render-operations]
 
 from ._loop_cap import loop_cap
 
 
+# @region[backend-render-operations]
+# @region[backend-schema-json-load]
 CATALOG_ID = "copilotkit://flight-fixed-catalog"
 SURFACE_ID = "flight-fixed-schema"
 
@@ -40,6 +46,7 @@ def _load_schema(filename: str) -> list[dict]:
 
 
 FLIGHT_SCHEMA = _load_schema("flight_schema.json")
+# @endregion[backend-schema-json-load]
 
 
 async def display_flight(
@@ -94,6 +101,9 @@ async def display_flight(
         },
     ]
     return json.dumps({"a2ui_operations": operations})
+
+
+# @endregion[backend-render-operations]
 
 
 SYSTEM_PROMPT = (

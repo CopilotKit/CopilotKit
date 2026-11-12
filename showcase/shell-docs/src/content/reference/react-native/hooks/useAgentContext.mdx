@@ -35,7 +35,7 @@ useAgentContext satisfies (context: AgentContextInput) => void;
 </PropertyReference>
 
   <PropertyReference name="value" type="unknown" required>
-    The context value to provide. Must be JSON-serializable: `string`, `number`, `boolean`, `null`, arrays, or plain objects with string keys and serializable values. Anything that is not already a string is stringified with `JSON.stringify` before it is sent, so the agent receives a JSON string rather than the value you passed: see [What the agent receives](#what-the-agent-receives).
+    The context value. Use a JSON-serializable value: a `string`, `number`, `boolean`, `null`, an array, or a plain object with string keys and serializable values. The hook sends a string unchanged. It sends any other value as a `JSON.stringify` string. See [What the agent receives](#what-the-agent-receives).
   </PropertyReference>
 </PropertyReference>
 
@@ -208,7 +208,3 @@ Where that context list surfaces in your agent depends on your framework's AG-UI
 - **Serialization**: `value` takes any value. A string is sent through unchanged; any other value is sent as its `JSON.stringify` text, so the agent always reads a string. Give it data JSON can represent: interface types, arrays and optional fields work, while functions, class instances and symbols lose their meaning -- see [What the agent receives](#what-the-agent-receives).
 - **Multiple contexts**: Multiple `useAgentContext` calls across your component tree are all visible to the agent concurrently. Each is identified by its description and value.
 - **No return value**: The hook returns `void`. Unlike `useCopilotReadable`, it does not return an ID for parent-child hierarchies.
-
-## Related
-
-- [React reference](/reference/hooks/useAgentContext): the web `useAgentContext` this hook mirrors

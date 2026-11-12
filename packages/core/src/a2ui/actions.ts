@@ -9,6 +9,10 @@ export type A2UIUserAction = {
   timestamp: string;
   context?: Record<string, unknown>;
   dataContextPath?: string;
+  /** Optional native (A2UI 1.0) action details, kept when forwarding to the agent. */
+  catalogId?: string;
+  userMessage?: string;
+  metadata?: { extensions?: Record<string, unknown> };
 };
 
 /**
@@ -47,17 +51,23 @@ export interface A2UIProcessorAction {
   sourceComponentId?: string;
   context?: Record<string, unknown>;
   timestamp?: string;
+  dataContextPath?: string;
+  catalogId?: string;
+  userMessage?: string;
+  metadata?: { extensions?: Record<string, unknown> };
 }
 
 /**
  * Wraps a raw processor action in the client-event envelope the runtimes read,
- * filling the fields a partial action leaves out.
+ * filling the fields a partial action leaves out. Other fields the action
+ * carries, such as a native action's `userMessage`, are kept.
  *
  * @param action - What the `MessageProcessor` action handler received.
  */
 export function toA2UIClientEvent(action: A2UIProcessorAction) {
   const event: A2UIClientEvent = {
     userAction: {
+      ...action,
       name: action.name ?? "unknown",
       surfaceId: action.surfaceId ?? A2UI_DEFAULT_SURFACE_ID,
       sourceComponentId: action.sourceComponentId ?? "",

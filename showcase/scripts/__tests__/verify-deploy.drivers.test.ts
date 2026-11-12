@@ -31,8 +31,9 @@ import type { FetchLike } from "../verify-deploy.drivers.baseline";
 import { probeShell } from "../verify-deploy.drivers.shell";
 import {
   checkProductionDocsCanonicalHost,
+  DOCS_RUNTIME_CONFIG_PATH,
   probeDocs,
-  validateDocsAuthRuntimeConfig,
+  validateDocsRuntimeConfig,
 } from "../verify-deploy.drivers.docs";
 import { probeDashboard } from "../verify-deploy.drivers.dashboard";
 import { probeDojo } from "../verify-deploy.drivers.dojo";
@@ -63,6 +64,20 @@ function mkResponse(body: {
     async json() {
       return body.json ?? {};
     },
+  };
+}
+
+/** What the docs app serves at DOCS_RUNTIME_CONFIG_PATH. */
+function docsRuntimeConfig(
+  overrides: Record<string, unknown> = {},
+): Record<string, unknown> {
+  return {
+    posthogKey: "phc_shared",
+    scarfPixelId: "",
+    googleAnalyticsTrackingId: "",
+    reb2bKey: "",
+    reoKey: "",
+    ...overrides,
   };
 }
 
@@ -728,9 +743,9 @@ describe.each(DRIVER_CASES)(
         return Promise.resolve(
           mkResponse({
             status: 200,
-            text:
-              label === "docs"
-                ? '<script>window.__SHOWCASE_CONFIG__={"intelligenceSignupUrl":"https://dashboard.staging.operations.copilotkit.ai","clerkPublishableKey":"pk_test_shared"};</script>'
+            json:
+              label === "docs" && url.endsWith(DOCS_RUNTIME_CONFIG_PATH)
+                ? docsRuntimeConfig()
                 : undefined,
           }),
         );
@@ -773,9 +788,10 @@ describe.each(DRIVER_CASES)(
       // `__SHOWCASE_CONFIG__` (see verify-deploy.drivers.dashboard.ts). That
       // extra GET targets the same `/` path, so both non-graphql fetches go
       // to `https://<host>/`. The production docs driver additionally probes
-      // two representative pages plus all four crawler surfaces.
+      // two representative pages, all four crawler surfaces and its runtime
+      // config.
       const expectedHealthCount =
-        label === "dashboard" ? 2 : label === "docs" ? 7 : 1;
+        label === "dashboard" ? 2 : label === "docs" ? 8 : 1;
       expect(healthUrls).toHaveLength(expectedHealthCount);
       if (label === "docs") {
         expect(healthUrls).toEqual(
@@ -788,6 +804,7 @@ describe.each(DRIVER_CASES)(
               "/sitemap.xml",
               "/llms.txt",
               "/llms-full.txt",
+              DOCS_RUNTIME_CONFIG_PATH,
             ].map(
               (urlPath) => `https://${domainFor(service, "prod")}${urlPath}`,
             ),
@@ -883,9 +900,13 @@ describe("probeDocs production canonical-host guard", () => {
   function docsSurfaceFetch(
     leak?: MachineSurface,
     onboardingUrl = "https://copilotkit.ai/onboarding-prompts",
+    runtimeConfig: Record<string, unknown> = docsRuntimeConfig(),
   ): FetchLike {
     return makeFetch((url) => {
       if (url.includes("/graphql/v2")) return gqlDeploymentResponse("SUCCESS");
+      if (url.endsWith(DOCS_RUNTIME_CONFIG_PATH)) {
+        return Promise.resolve(mkResponse({ json: runtimeConfig }));
+      }
       if (url.endsWith("/robots.txt")) {
         const origin = leak === "robots" ? leakedOrigin : canonicalOrigin;
         return Promise.resolve(
@@ -922,7 +943,6 @@ describe("probeDocs production canonical-host guard", () => {
       return Promise.resolve(
         mkResponse({
           text:
-            '<script>window.__SHOWCASE_CONFIG__={"intelligenceSignupUrl":"https://dashboard.operations.copilotkit.ai","clerkPublishableKey":"pk_live_shared"};</script>' +
             `<link rel="canonical" href="${canonical}${urlPath}">` +
             `<meta property="og:url" content="${openGraph}${urlPath}">`,
         }),
@@ -934,6 +954,18 @@ describe("probeDocs production canonical-host guard", () => {
     await withGlobalSeam(docsSurfaceFetch(), TOKEN, async () => {
       expect(await probeDocs(target)).toEqual({ ok: true });
     });
+  });
+
+  it("fails when production serves no PostHog key", async () => {
+    const error = await checkProductionDocsCanonicalHost(
+      target.host,
+      docsSurfaceFetch(
+        undefined,
+        undefined,
+        docsRuntimeConfig({ posthogKey: "" }),
+      ),
+    );
+    expect(error).toContain("posthogKey");
   });
 
   it.each<MachineSurface>([
@@ -988,54 +1020,67 @@ describe("probeDocs production canonical-host guard", () => {
   );
 });
 
-describe("docs deployed auth runtime-config guard", () => {
-  const html = (opsUrl: string, publishableKey: string) =>
-    `<script>window.__SHOWCASE_CONFIG__=${JSON.stringify({
-      intelligenceSignupUrl: opsUrl,
-      clerkPublishableKey: publishableKey,
-    })};</script>`;
+describe("docs deployed runtime-config guard", () => {
+  const body = (overrides: Record<string, unknown> = {}) =>
+    JSON.stringify(docsRuntimeConfig(overrides));
 
-  it("accepts the matching stable non-production Ops origin and Clerk key", () => {
+  it("accepts the config with analytics off outside production", () => {
     expect(
-      validateDocsAuthRuntimeConfig(
-        html(
-          "https://dashboard.staging.operations.copilotkit.ai",
-          "pk_test_shared",
-        ),
-        "https://dashboard.staging.operations.copilotkit.ai",
-        "pk_test_",
+      validateDocsRuntimeConfig(
+        body({
+          posthogKey: "",
+          scarfPixelId: "",
+          googleAnalyticsTrackingId: "",
+          reb2bKey: "",
+          reoKey: "",
+        }),
+        false,
       ),
     ).toBeUndefined();
   });
 
-  it("rejects a missing Clerk publishable key", () => {
-    expect(
-      validateDocsAuthRuntimeConfig(
-        html("https://dashboard.operations.copilotkit.ai", ""),
-        "https://dashboard.operations.copilotkit.ai",
-        "pk_live_",
-      ),
-    ).toContain("clerkPublishableKey");
+  it("accepts the production config with its PostHog project key", () => {
+    expect(validateDocsRuntimeConfig(body(), true)).toBeUndefined();
   });
 
-  it("rejects the non-production Clerk key in production", () => {
-    expect(
-      validateDocsAuthRuntimeConfig(
-        html("https://dashboard.operations.copilotkit.ai", "pk_test_shared"),
-        "https://dashboard.operations.copilotkit.ai",
-        "pk_live_",
-      ),
-    ).toContain("pk_live_");
+  it("rejects an empty PostHog key in production", () => {
+    expect(validateDocsRuntimeConfig(body({ posthogKey: "" }), true)).toContain(
+      "posthogKey",
+    );
   });
 
-  it("rejects a production Ops URL in stable non-production", () => {
+  it("rejects a config missing a key", () => {
     expect(
-      validateDocsAuthRuntimeConfig(
-        html("https://dashboard.operations.copilotkit.ai", "pk_test_shared"),
-        "https://dashboard.staging.operations.copilotkit.ai",
-        "pk_test_",
-      ),
-    ).toContain("dashboard.staging.operations.copilotkit.ai");
+      validateDocsRuntimeConfig(body({ reoKey: undefined }), false),
+    ).toContain("reoKey");
+  });
+
+  it("rejects a body that isn't a JSON object", () => {
+    expect(validateDocsRuntimeConfig("<!doctype html>", false)).toContain(
+      "not valid JSON",
+    );
+    expect(validateDocsRuntimeConfig("[]", false)).toContain("JSON object");
+  });
+
+  it("fails a non-production probe whose config route is missing", async () => {
+    const fetchImpl = makeFetch((url) => {
+      if (url.includes("/graphql/v2")) return gqlDeploymentResponse("SUCCESS");
+      if (url.endsWith(DOCS_RUNTIME_CONFIG_PATH))
+        return Promise.resolve(mkResponse({ status: 404 }));
+      return Promise.resolve(mkResponse({ status: 200 }));
+    });
+    await withGlobalSeam(fetchImpl, TOKEN, async () => {
+      const out = await probeDocs({
+        name: "docs",
+        host: asHost(domainFor("docs", "staging")),
+        driver: "docs",
+      });
+      expect(out.ok).toBe(false);
+      if (out.ok === false) {
+        expect(out.error).toContain(DOCS_RUNTIME_CONFIG_PATH);
+        expect(out.error).toContain("404");
+      }
+    });
   });
 });
 

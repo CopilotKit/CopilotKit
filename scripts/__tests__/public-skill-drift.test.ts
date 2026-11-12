@@ -47,6 +47,10 @@ function docsPathResolves(docsPath: string): boolean {
   const candidates = [
     join(contentDir, "docs", `${slug}.mdx`),
     join(contentDir, "docs", slug, "index.mdx"),
+    // Pages every frontend shares sit in the `(shared)` route group, which
+    // isn't part of their URL: /backend/ag-ui is docs/(shared)/backend/ag-ui.mdx.
+    join(contentDir, "docs", "(shared)", `${slug}.mdx`),
+    join(contentDir, "docs", "(shared)", slug, "index.mdx"),
     join(contentDir, `${slug}.mdx`),
     join(contentDir, slug, "index.mdx"),
   ];

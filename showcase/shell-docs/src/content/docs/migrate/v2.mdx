@@ -82,7 +82,7 @@ Use this table to find the 2.0 replacement for each v1 hook:
 | `useCopilotAdditionalInstructions` | [`useAgentContext`](/reference/hooks/useAgentContext)                      |
 | `useCoAgent`                       | [`useAgent`](/reference/hooks/useAgent)                                    |
 | `useCoAgentStateRender`            | [`useAgent`](/reference/hooks/useAgent)                                    |
-| `useCopilotChat`                   | [`useAgent`](/reference/hooks/useAgent)                                    |
+| `useCopilotChat`                   | [`useAgent`](/reference/hooks/useAgent) (custom chat UI: [Headless UI](/custom-look-and-feel/headless-ui)) |
 | `useCopilotChatHeadless_c`         | [`useAgent`](/reference/hooks/useAgent)                                    |
 | `useCopilotChatSuggestions`        | [`useConfigureSuggestions`](/reference/hooks/useConfigureSuggestions)      |
 | `useLangGraphInterrupt`            | [`useInterrupt`](/reference/hooks/useInterrupt)                            |
@@ -267,7 +267,7 @@ export const POST = handler;
 
 </Step>
 <Step>
-### Update Vue imports
+### If you use Vue, update Vue imports
 
 The Vue 2.0 API lives at the `@copilotkit/vue/v2` subpath. The v1 `CopilotKit`
 component becomes `CopilotKitProvider`; most exports otherwise retain their
@@ -409,3 +409,5 @@ export function App({ children }: { children: ReactNode }) {
   );
 }
 ```
+
+Run your type check. It must pass. When it passes and no import from a v1 API or a `/v2` React or runtime subpath is left, the migration is complete.

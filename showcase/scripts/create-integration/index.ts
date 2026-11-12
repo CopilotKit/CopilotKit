@@ -538,6 +538,7 @@ function generateLayout(): string {
   return `import type { Metadata } from "next";
 import "@copilotkit/react-core/v2/styles.css";
 import "./globals.css";
+import { themeScript } from "../../_shared/ts/theme";
 
 export const metadata: Metadata = {
     title: "CopilotKit Showcase",
@@ -549,7 +550,10 @@ export default function RootLayout({
     children: React.ReactNode;
 }) {
     return (
-        <html lang="en">
+        <html lang="en" suppressHydrationWarning>
+            <head>
+                <script dangerouslySetInnerHTML={{ __html: themeScript() }} />
+            </head>
             <body>
                 <script
                     dangerouslySetInnerHTML={{
@@ -585,24 +589,21 @@ export default config;
 `;
 }
 
+// Every integration shares one root stylesheet, so copy it rather than keep a
+// second version here. The demos need its `height: 100%` on <html> and <body>:
+// without it a full-page <CopilotChat> shrinks to the height of its welcome
+// screen and sits at the top of the page.
+const CANONICAL_GLOBALS_CSS_PATH = path.join(
+  ROOT,
+  "integrations",
+  "langgraph-python",
+  "src",
+  "app",
+  "globals.css",
+);
+
 function generateGlobalsCss(): string {
-  return `@import "tailwindcss";
-@import "@copilotkit/react-core/v2/styles.css";
-
-:root {
-    --copilot-kit-background-color: #f8f9fa;
-    --copilot-kit-primary-color: #0066ff;
-}
-
-* {
-    box-sizing: border-box;
-}
-
-body {
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-    min-height: 100vh;
-}
-`;
+  return fs.readFileSync(CANONICAL_GLOBALS_CSS_PATH, "utf-8");
 }
 
 function generateIndexPage(args: CLIArgs, features: Feature[]): string {
@@ -1824,6 +1825,13 @@ async function main() {
       generateAgentServer(args),
     );
   }
+
+  // Shared integration source (the theme bootstrap the layout inlines, among
+  // others). Builds dereference this link into the Docker context.
+  fs.symlinkSync("../_shared", path.join(packageDir, "_shared"));
+  console.log(
+    `  Linked:  ${path.relative(ROOT, packageDir)}/_shared -> ../_shared`,
+  );
 
   // App source
   writeFile(

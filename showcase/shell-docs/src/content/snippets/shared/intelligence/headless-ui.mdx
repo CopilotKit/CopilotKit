@@ -1,10 +1,3 @@
-import {
-  MessageCircleDashed,
-  Blocks,
-  LayoutList,
-  UserPen,
-  BookOpen,
-} from "lucide-react";
 
 ## Overview
 
@@ -17,39 +10,37 @@ Headless UI uses the `useAgent` and `useCopilotKit` hooks. You build the chat UI
 
 ## Navigation
 
-This page has all the information you need to get started with CopilotKit's headless UI. Select where you'd like to get started below.
-
 <Cards className="gap-6">
   <Card
-    icon={<MessageCircleDashed className="text-primary" />}
+    icon={<MessageCircleDashed />}
     className="p-6 rounded-xl text-base md:col-span-2"
     title="Getting started"
     description="Build a Headless UI chat from the ground up to get started."
     href="#getting-started"
   />
   <Card
-    icon={<Blocks className="text-primary" />}
+    icon={<Blocks />}
     className="p-6 rounded-xl text-base"
     title="Generative UI"
     description="Learn how to work with generative UI to render tools and other UI elements."
     href="#working-with-generative-ui"
   />
   <Card
-    icon={<LayoutList className="text-primary" />}
+    icon={<LayoutList />}
     className="p-6 rounded-xl text-base"
     title="Suggestions"
     description="Learn how to work with suggestions to provide your users with a list of generated or static options to operate the chat with."
     href="#working-with-suggestions"
   />
   <Card
-    icon={<UserPen className="text-primary" />}
+    icon={<UserPen />}
     className="p-6 rounded-xl text-base"
     title="Human-in-the-loop"
     description="Learn how to work with human-in-the-loop to pause the chat and wait for a human to respond."
     href="#working-with-human-in-the-loop"
   />
   <Card
-    icon={<BookOpen className="text-primary" />}
+    icon={<BookOpen />}
     className="p-6 rounded-xl text-base"
     title="Reference"
     description="Reference documentation for the `useAgent` hook."
@@ -343,7 +334,7 @@ export function StaticSuggestions() {
 
 ## Working with human-in-the-loop
 
-Human-in-the-loop (HITL) pauses the chat and waits for the user's input. It comes in two flavors: **tool-based** and **interrupt-based** (certain frameworks only).
+Human-in-the-loop (HITL) pauses the chat and waits for the user's input. It comes in two flavors: **tool-based** and **interrupt-based** (certain frameworks only). This section shows the tool-based flow. For interrupt-based HITL, use the [`useInterrupt`](/reference/hooks/useInterrupt) hook.
 
 <video
   src="https://cdn.copilotkit.ai/docs/copilotkit/videos/hitl.mp4"

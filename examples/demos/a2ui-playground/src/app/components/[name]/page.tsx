@@ -2,7 +2,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowUpRight, ChevronLeft, ChevronRight } from "lucide-react";
 import { highlight } from "sugar-high";
-import { definitions, type ComponentName } from "@/a2ui/catalog/definitions";
+import { definitions } from "@/a2ui/catalog/definitions";
+import type { ComponentName } from "@/a2ui/catalog/definitions";
 import { CATALOG_ID } from "@/a2ui/catalog/ids";
 import { firstSentence } from "@/a2ui/catalog/prompt-trim";
 import { sampleFor, sampleOps } from "@/a2ui/catalog/samples";
@@ -13,7 +14,8 @@ import {
   FLAT,
   isComponentName,
 } from "@/components/docs/catalog-index";
-import { ComponentTabs, type Code } from "@/components/docs/component-tabs";
+import { ComponentTabs } from "@/components/docs/component-tabs";
+import type { Code } from "@/components/docs/component-tabs";
 import { PropsTable } from "@/components/docs/props-table";
 import {
   definitionSource,

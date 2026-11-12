@@ -2,10 +2,8 @@
 
 import { useEffect } from "react";
 import { StaticSurface } from "@/components/app/static-surface";
-import {
-  useUIGeneration,
-  type UseUIGenerationOptions,
-} from "@/components/app/use-ui-generation";
+import { useUIGeneration } from "@/components/app/use-ui-generation";
+import type { UseUIGenerationOptions } from "@/components/app/use-ui-generation";
 import { AskingJev } from "./parts";
 import type { JevResult, JevRunState } from "./use-jev-run";
 

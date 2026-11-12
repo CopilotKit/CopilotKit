@@ -30,7 +30,7 @@ Update this file in the same change that adds or removes a pane.
 Neither has a browser, so neither can mount the overlay. Each surface states the
 absence and names what to use instead.
 
-| Surface      | Where the absence is stated                                                                                      |
-| ------------ | ---------------------------------------------------------------------------------------------------------------- |
-| React Native | `docs/inspector.mdx` "Where Inspector runs", and the Known limitations list on `docs/frontends/react-native.mdx` |
-| Channels     | `docs/inspector.mdx` "Where Inspector runs"                                                                      |
+| Surface      | Where the absence is stated                                                                                                     |
+| ------------ | ------------------------------------------------------------------------------------------------------------------------------- |
+| React Native | `docs/(shared)/inspector.mdx` "Where Inspector runs", and the Known limitations list on `docs/frontends/react-native/index.mdx` |
+| Channels     | `docs/(shared)/inspector.mdx` "Where Inspector runs"                                                                            |

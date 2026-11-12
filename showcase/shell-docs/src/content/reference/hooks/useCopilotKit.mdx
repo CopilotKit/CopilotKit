@@ -9,10 +9,10 @@ description: "Low-level React hook for accessing the CopilotKit context"
 
 <Callout type="info">
   `useCopilotKit` is a low-level hook. Most applications should use higher-level
-  hooks like `useAgent` or `useFrontendTool` instead.
+  hooks like [`useAgent`](/reference/hooks/useAgent) or [`useFrontendTool`](/reference/hooks/useFrontendTool) instead.
 </Callout>
 
-**Throws an error** if used outside of a `<CopilotKitProvider>`.
+**Throws an error** if used outside [`CopilotKitProvider`](/reference/components/CopilotKit) (or its `CopilotKit` alias).
 
 ## Signature
 
@@ -42,7 +42,7 @@ This hook takes no parameters.
     - Runtime connection management
     - Event subscription via `subscribe()`
 
-    The core instance is created once per `<CopilotKitProvider>` and is stable across re-renders.
+    The core instance is created once per `CopilotKitProvider` and is stable across re-renders.
 
   </PropertyReference>
 
@@ -51,7 +51,7 @@ This hook takes no parameters.
   </PropertyReference>
 
   <PropertyReference name="executingToolCallIds" type="ReadonlySet<string>">
-    Set of tool call IDs currently being executed. This is tracked at the provider level to ensure tool execution events are captured even before child components mount. This is important for scenarios like human-in-the-loop reconnection, where pending tool calls may already exist when the component tree mounts.
+    Set of tool call IDs currently being executed. This is tracked at the provider level so that tool execution events are captured even before child components mount. This is important for scenarios like human-in-the-loop reconnection, where pending tool calls may already exist when the component tree mounts.
   </PropertyReference>
 </PropertyReference>
 
@@ -107,7 +107,7 @@ function ConnectionMonitor() {
 
 ### Running a Tool Programmatically
 
-`copilotkit.runTool()` lets you execute a registered frontend tool directly from code — no LLM turn required. The tool's handler runs, render components appear in the UI, and both the tool call and result are added to the agent's message history.
+`copilotkit.runTool()` lets you execute a frontend tool registered with [`useFrontendTool`](/reference/hooks/useFrontendTool) directly from code. No LLM turn is required. The tool's handler runs, render components appear in the UI, and both the tool call and result are added to the agent's message history.
 
 ```tsx
 import { z } from "zod";
@@ -131,11 +131,16 @@ function ExportButton() {
 
   // Trigger it from a button — no LLM needed
   const handleExport = async () => {
-    const { error } = await copilotkit.runTool({
-      name: "exportData",
-      parameters: { format: "csv" },
-    });
-    if (error) console.error(error);
+    try {
+      const { error } = await copilotkit.runTool({
+        name: "exportData",
+        parameters: { format: "csv" },
+      });
+      if (error) console.error(error);
+    } catch (e) {
+      // The tool or its agent was not found.
+      console.error(e);
+    }
   };
 
   return <button onClick={handleExport}>Export CSV</button>;
@@ -163,9 +168,9 @@ function ExportButton() {
 
   <PropertyReference name="followUp" type="string | false" default="false">
     Controls whether an LLM follow-up is triggered after execution:
-    - `false` — execute tool and stop (default)
-    - `"generate"` — trigger an agent run so the LLM responds to the tool result
-    - Any other string — add a user message with this text, then trigger an agent run
+    - `false`: execute tool and stop (default)
+    - `"generate"`: trigger an agent run so the LLM responds to the tool result
+    - Any other string: add a user message with this text, then trigger an agent run
   </PropertyReference>
 </PropertyReference>
 
@@ -186,6 +191,8 @@ function ExportButton() {
   </PropertyReference>
 </PropertyReference>
 
+`runTool` throws `Tool not found: <name>` or `Agent not found: <agentId>` when either lookup fails. The `error` field does not report these failures.
+
 ### Checking Tool Execution State
 
 ```tsx
@@ -204,13 +211,7 @@ function ToolExecutionIndicator() {
 
 ## Behavior
 
-- **Error on Missing Provider**: Throws an error if the hook is used outside of `<CopilotKitProvider>`.
+- **Error on Missing Provider**: Throws an error if the hook is used outside `CopilotKitProvider` (or its `CopilotKit` alias).
 - **Runtime Status Subscription**: The hook subscribes to `onRuntimeConnectionStatusChanged` and `onHeadersChanged` events, so components re-render when the runtime connection completes or fails, or when the provider's headers change.
 - **Stable Core Reference**: The `copilotkit` instance is created once per provider and remains stable across re-renders. Only the `executingToolCallIds` set changes as tool calls begin and complete.
-- **Provider-Level Tool Tracking**: `executingToolCallIds` is tracked at the provider level rather than in individual components. This ensures that tool execution start events fired before child components mount are not lost.
-
-## Related
-
-- [`useAgent`](/reference/hooks/useAgent) -- High-level hook for accessing agent instances
-- [`useFrontendTool`](/reference/hooks/useFrontendTool) -- Register frontend tools that `runTool()` can execute
-- [`CopilotKitProvider`](/reference/components/CopilotKit) -- The provider component that creates the context
+- **Provider-Level Tool Tracking**: `executingToolCallIds` is tracked at the provider level rather than in individual components. As a result, tool execution start events fired before child components mount are not lost.

@@ -14,13 +14,8 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import {
-  directionsUrl,
-  isLngLat,
-  validPath,
-  validPoints,
-  type MapPoint,
-} from "./map/geo";
+import { directionsUrl, isLngLat, validPath, validPoints } from "./map/geo";
+import type { MapPoint } from "./map/geo";
 import type { MapCanvasProps } from "./map/map-canvas";
 import type { RendererMap } from "./types";
 
