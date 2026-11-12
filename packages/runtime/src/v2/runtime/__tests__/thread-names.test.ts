@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import type { Message, RunAgentInput } from "@ag-ui/client";
+import { APICallError } from "ai";
 import { MockLanguageModelV3 } from "ai/test";
 
 import {
@@ -140,7 +141,19 @@ describe("generateThreadNameForNewThread", () => {
     return { runtime, updateThread };
   }
 
-  async function nameThread(runtime: CopilotIntelligenceRuntimeLike) {
+  const IMAGE_PART = {
+    type: "image",
+    source: {
+      type: "data",
+      value: "iVBORw0KGgoAAAANSUhEUgAA",
+      mimeType: "image/png",
+    },
+  };
+
+  async function nameThread(
+    runtime: CopilotIntelligenceRuntimeLike,
+    messages: Message[] = [{ id: "user-1", role: "user", content: USER_TEXT }],
+  ) {
     await generateThreadNameForNewThread({
       runtime,
       agentId: "my-agent",
@@ -148,7 +161,7 @@ describe("generateThreadNameForNewThread", () => {
         threadId: "thread-1",
         runId: "run-1",
         state: {},
-        messages: [{ id: "user-1", role: "user", content: USER_TEXT }],
+        messages,
         tools: [],
         context: [],
         forwardedProps: {},
@@ -200,6 +213,60 @@ describe("generateThreadNameForNewThread", () => {
     const model = textModel(
       "Here is a draft email for contact c11. Hi there, I wanted to follow up on the renewal.",
     );
+    const { runtime, updateThread } = createRuntime({ model });
+    await nameThread(runtime);
+    expect(model.doGenerateCalls).toHaveLength(1);
+    expectName(updateThread, "Draft a follow-up email to contact c11 about");
+  });
+
+  it("names a message with an attachment from its text parts only", async () => {
+    const { runtime, updateThread } = createRuntime(true);
+    await nameThread(runtime, [
+      {
+        id: "user-1",
+        role: "user",
+        content: [{ type: "text", text: USER_TEXT }, IMAGE_PART],
+      } as Message,
+    ]);
+    expectName(updateThread, "Draft a follow-up email to contact c11 about");
+  });
+
+  it("does not name a thread whose first message has no text", async () => {
+    const { runtime, updateThread } = createRuntime(true);
+    await nameThread(runtime, [
+      { id: "user-1", role: "user", content: [IMAGE_PART] } as Message,
+    ]);
+    expect(updateThread).not.toHaveBeenCalled();
+  });
+
+  it("sends only text parts to the model", async () => {
+    const model = textModel('{"title":"Renewal follow-up email"}');
+    const { runtime } = createRuntime({ model });
+    await nameThread(runtime, [
+      {
+        id: "user-1",
+        role: "user",
+        content: [{ type: "text", text: USER_TEXT }, IMAGE_PART],
+      } as Message,
+    ]);
+    const prompt = JSON.stringify(model.doGenerateCalls[0].prompt);
+    expect(prompt).toContain(USER_TEXT);
+    expect(prompt).not.toContain(IMAGE_PART.source.value);
+    expect(prompt).not.toContain('\\"type\\"');
+  });
+
+  it("does not retry a failed model call", async () => {
+    const model = new MockLanguageModelV3({
+      doGenerate: async () => {
+        throw new APICallError({
+          message: "rate limited",
+          url: "https://example.com",
+          requestBodyValues: {},
+          statusCode: 429,
+          isRetryable: true,
+        });
+      },
+    });
     const { runtime, updateThread } = createRuntime({ model });
     await nameThread(runtime);
     expect(model.doGenerateCalls).toHaveLength(1);

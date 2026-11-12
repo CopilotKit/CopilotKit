@@ -357,7 +357,7 @@ interface CopilotIntelligenceRuntimeBaseOptions extends BaseCopilotRuntimeOption
    */
   ɵlearning?: CopilotRuntimeLearningConfig;
   /**
-   * Names each new thread after its first run.
+   * Names each new thread when its first run creates it.
    *
    * - `true` (default): the name is the first user message, cut to 8 words.
    *   No model runs, and the app's agent does not run.

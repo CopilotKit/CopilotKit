@@ -25,6 +25,7 @@ const MAX_TITLE_LENGTH = 80;
 const MAX_TITLE_WORDS = 8;
 const MAX_TRANSCRIPT_MESSAGES = 8;
 const MAX_TITLE_OUTPUT_TOKENS = 64;
+const TITLE_MODEL_TIMEOUT_MS = 15_000;
 const FALLBACK_THREAD_TITLE = "Untitled";
 
 interface GenerateThreadNameParams {
@@ -97,6 +98,9 @@ async function generateTitleWithModel(
     system: THREAD_NAME_SYSTEM_PROMPT,
     prompt,
     maxOutputTokens: MAX_TITLE_OUTPUT_TOKENS,
+    // One call only: on any failure the first user message names the thread.
+    maxRetries: 0,
+    abortSignal: AbortSignal.timeout(TITLE_MODEL_TIMEOUT_MS),
   });
   return normalizeGeneratedTitle(text);
 }
@@ -130,20 +134,31 @@ function buildThreadTitlePrompt(
   ].join("\n\n");
 }
 
+/**
+ * Returns the text of a message. For content parts (a message with an
+ * attachment), it keeps only the text parts: images, files, and other binary
+ * parts never go into a title or a title prompt.
+ */
 function stringifyMessageContent(content: Message["content"]): string {
   if (typeof content === "string") {
     return content.trim();
   }
 
-  if (content == null) {
+  if (!Array.isArray(content)) {
     return "";
   }
 
-  try {
-    return JSON.stringify(content).trim();
-  } catch {
-    return "";
-  }
+  return content
+    .map((part: unknown) =>
+      typeof part === "object" &&
+      part !== null &&
+      (part as { type?: unknown }).type === "text" &&
+      typeof (part as { text?: unknown }).text === "string"
+        ? (part as { text: string }).text
+        : "",
+    )
+    .join(" ")
+    .trim();
 }
 
 function normalizeGeneratedTitle(rawTitle: string): string | null {
