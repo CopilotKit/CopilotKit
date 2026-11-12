@@ -1288,7 +1288,12 @@ function convertCatalog(
   if (!options) return null;
 
   const names = [...new Set([...namesOf(definitions), ...namesOf(renderers)])];
-  if (names.length === 0) return null;
+  // No names is only safe when both sides are written out empty: `{}`.
+  if (
+    names.length === 0 &&
+    !(definitions.kind === "inline" && renderers.kind === "inline")
+  )
+    return null;
 
   const base = indentOf(enclosingStatement(call), source);
   const unit = "  ";
@@ -1334,7 +1339,9 @@ function convertCatalog(
   const config = [
     `${base}${unit}id: ${options.id},\n`,
     options.extendsStandard ? `${base}${unit}extends: [${standard}],\n` : "",
-    `${base}${unit}components: {\n${components.join("")}${base}${unit}},\n`,
+    components.length === 0
+      ? `${base}${unit}components: {},\n`
+      : `${base}${unit}components: {\n${components.join("")}${base}${unit}},\n`,
   ].join("");
 
   const edits: Edit[] = [
