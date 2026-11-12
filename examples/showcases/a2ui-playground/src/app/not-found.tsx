@@ -26,10 +26,10 @@ export default function NotFound() {
             Open the playground <ArrowRight className="size-4" />
           </Link>
           <Link
-            href="/components"
+            href="/start"
             className="inline-flex h-10 items-center rounded-lg border border-border px-4 text-[14px] font-medium transition-colors hover:bg-black/[0.04] dark:hover:bg-white/[0.04]"
           >
-            Browse the components
+            Get started
           </Link>
           <Link
             href="/"
