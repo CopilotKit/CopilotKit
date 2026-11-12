@@ -1,22 +1,17 @@
 """
-Fixed-schema A2UI tool: flight search results.
+Flight search tool: returns the flights as data.
 
-Schema is loaded from a JSON file. Only the data changes per invocation.
+The agent renders them with the runtime's `render_ui` tool, as `FlightCard`
+components of the app's generative UI catalog
+(src/app/declarative-generative-ui/).
 """
 
 from __future__ import annotations
 
-from pathlib import Path
+import json
 from typing import TypedDict
 
-from copilotkit import a2ui
 from langchain.tools import tool
-
-CATALOG_ID = "copilotkit://app-dashboard-catalog"
-SURFACE_ID = "flight-search-results"
-FLIGHT_SCHEMA = a2ui.load_schema(
-    Path(__file__).parent / "a2ui" / "schemas" / "flight_schema.json"
-)
 
 
 class Flight(TypedDict):
@@ -31,13 +26,12 @@ class Flight(TypedDict):
     arrivalTime: str
     duration: str
     status: str
-    statusIcon: str
     price: str
 
 
 @tool
 def search_flights(flights: list[Flight]) -> str:
-    """Search for flights and display the results as rich cards. Return exactly 2 flights.
+    """Search for flights. Return exactly 2 flights.
 
     Each flight must have: id, airline (e.g. "United Airlines"),
     airlineLogo (use Google favicon API: https://www.google.com/s2/favicons?domain={airline_domain}&sz=128
@@ -48,16 +42,10 @@ def search_flights(flights: list[Flight]) -> str:
     flightNumber, origin, destination,
     date (short readable format like "Tue, Mar 18" — use near-future dates),
     departureTime, arrivalTime,
-    duration (e.g. "4h 25m"), status (e.g. "On Time" or "Delayed"),
-    statusIcon (colored dot: use "https://placehold.co/12/22c55e/22c55e.png"
-    for On Time, "https://placehold.co/12/eab308/eab308.png" for Delayed,
-    "https://placehold.co/12/ef4444/ef4444.png" for Cancelled),
+    duration (e.g. "4h 25m"), status ("On Time", "Delayed" or "Cancelled"),
     and price (e.g. "$289").
+
+    Then show the flights with render_ui: a Row with one FlightCard per
+    flight, each value copied from the result.
     """
-    return a2ui.render(
-        operations=[
-            a2ui.create_surface(SURFACE_ID, catalog_id=CATALOG_ID),
-            a2ui.update_components(SURFACE_ID, FLIGHT_SCHEMA),
-            a2ui.update_data_model(SURFACE_ID, {"flights": flights}),
-        ],
-    )
+    return json.dumps({"flights": flights})

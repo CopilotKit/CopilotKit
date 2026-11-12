@@ -6,7 +6,7 @@ import {
   useFrontendTool,
   useHumanInTheLoop,
   useDefaultRenderTool,
-} from "@copilotkit/react-core/v2";
+} from "@copilotkit/react-core";
 
 import {
   PieChart,
@@ -56,9 +56,7 @@ export const useGenerativeUIExamples = () => {
 
   // Default Tool Rendering (backend tool UI)
   const ignoredTools = [
-    "render_a2ui", // Rendered by A2UI streaming, not as a tool card
-    "generate_a2ui", // Legacy: rendered by A2UI, not as a tool card
-    "log_a2ui_event", // Internal A2UI event tracker
+    "render_ui", // Rendered as a generative UI surface, not as a tool card
   ];
   useDefaultRenderTool({
     render: ({ name, status, parameters }) => {

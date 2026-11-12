@@ -1,17 +1,16 @@
 import {
   CopilotRuntime,
   CopilotKitIntelligence,
-  createCopilotEndpoint,
   InMemoryAgentRunner,
-} from "@copilotkit/runtime/v2";
+  createCopilotRuntimeHandler,
+} from "@copilotkit/runtime";
 import { createDefaultAgent } from "@/agent";
-import { handle } from "hono/vercel";
 
 // Strands-specific: the agent runs under uvicorn + ag_ui_strands, which
 // speaks AG-UI directly. We talk to it via HttpAgent (not LangGraphAgent
 // or LangGraphHttpAgent — those target LangGraph-shaped endpoints).
-// Everything else — runtime config, v2 endpoint wiring, MCP apps,
-// openGenerativeUI, a2ui — mirrors the canonical demo.
+// Everything else — runtime config, endpoint wiring, MCP apps,
+// openGenerativeUI — mirrors the canonical demo.
 const defaultAgent = createDefaultAgent();
 
 const runtime = new CopilotRuntime({
@@ -37,9 +36,6 @@ const runtime = new CopilotRuntime({
     : { runner: new InMemoryAgentRunner() }),
   // --- /copilotkit:intelligence ---
   openGenerativeUI: true,
-  a2ui: {
-    injectA2UITool: false,
-  },
   mcpApps: {
     servers: [
       {
@@ -51,12 +47,13 @@ const runtime = new CopilotRuntime({
   },
 });
 
-const app = createCopilotEndpoint({
+const app = createCopilotRuntimeHandler({
+  cors: true,
   runtime,
   basePath: "/api/copilotkit",
 });
 
-export const GET = handle(app);
-export const POST = handle(app);
-export const PATCH = handle(app);
-export const DELETE = handle(app);
+export const GET = app;
+export const POST = app;
+export const PATCH = app;
+export const DELETE = app;

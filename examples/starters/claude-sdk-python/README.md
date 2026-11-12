@@ -7,13 +7,13 @@ agent that speaks the [AG-UI protocol](https://docs.ag-ui.com), and shows Copilo
 
 - a shared-state **todos canvas** the agent and the user both edit,
 - **charts** rendered from queried data,
-- **flight cards** and **dynamic dashboards** via A2UI generative UI,
+- **flight cards** and **dynamic dashboards** via A2UI generative UI (the runtime's `render_ui` tool),
 - a **human-in-the-loop** meeting picker,
 - a light/dark **theme toggle**, and
 - the SDK **threads drawer** (activated with a CopilotKit Intelligence license).
 
-The agent is powered by Claude (`claude-sonnet-5` by default) and exposes three backend tools —
-`query_data`, `search_flights`, and `generate_a2ui` — while the todo board is shared state the
+The agent is powered by Claude (`claude-sonnet-5` by default) and exposes two backend tools —
+`query_data` and `search_flights` — while the todo board is shared state the
 agent updates through the adapter's built-in `ag_ui_update_state` tool.
 
 ## Prerequisites
@@ -117,7 +117,7 @@ it) before treating the Channel as working.
 ├── src/
 │   ├── app/
 │   │   ├── page.tsx                       # Main page (chat + todos canvas + threads drawer)
-│   │   ├── layout.tsx                     # CopilotKit v2 provider + A2UI catalog
+│   │   ├── layout.tsx                     # CopilotKit provider + generative UI catalog
 │   │   └── api/copilotkit/[[...slug]]/     # CopilotKit runtime route (HttpAgent → :8000)
 │   ├── components/                        # Canvas, generative UI, chat, UI primitives
 │   └── hooks/                             # Example suggestions + generative-UI examples
@@ -128,27 +128,87 @@ it) before treating the Channel as working.
         ├── agent.py                       # The agent: backend tools → ClaudeAgentAdapter
         ├── model.py                       # Model resolution (COPILOTKIT_AGENT_MODEL)
         ├── query.py                       # query_data tool
-        ├── a2ui_fixed_schema.py           # search_flights tool (fixed A2UI schema)
-        ├── a2ui_dynamic_schema.py         # generate_a2ui tool (LLM-designed dashboard)
-        ├── db.csv                         # Sample data for query_data
-        └── a2ui/schemas/flight_schema.json
+        ├── flights.py                     # search_flights tool (flight data for render_ui)
+        └── db.csv                         # Sample data for query_data
 ```
 
 ## How it works
 
-- The **frontend** uses CopilotKit's v2 React hooks. Shared state (like the todo list) lives in
+- The **frontend** uses CopilotKit's React hooks. Shared state (like the todo list) lives in
   the agent and syncs bidirectionally with the UI.
 - The **runtime route** (`src/app/api/copilotkit/[[...slug]]/route.ts`) connects to the agent
   over HTTP with `HttpAgent` from `@ag-ui/client`.
 - The **agent** is a thin layer on the official
   [`ag-ui-claude-sdk`](https://pypi.org/project/ag-ui-claude-sdk/) adapter. `src/agent.py`
-  defines the three backend tools and hands them to `ClaudeAgentAdapter`; `main.py` serves it
+  defines the two backend tools and hands them to `ClaudeAgentAdapter`; `main.py` serves it
   with the adapter's `add_claude_fastapi_endpoint`. The adapter drives Claude through the Claude
-  Agent SDK, bridges CopilotKit frontend tools + human-in-the-loop, and manages the shared
+  Agent SDK, bridges CopilotKit frontend tools (including `render_ui`) + human-in-the-loop, passes
+  the run's context to the model in the system prompt, and manages the shared
   `todos` state via its built-in `ag_ui_update_state` tool.
 
 To customize: add or edit tools in `agent/src/` and the system prompt in `agent/src/agent.py`,
 and the UI in `src/app/page.tsx` and `src/components/`.
+
+## Generative UI (A2UI)
+
+This starter lets the agent build rich, interactive UI in the chat. Instead of plain text, the agent writes [A2UI](https://a2ui.org/specification/) 1.0 operations, and the frontend renders them with your React components.
+
+### How it works
+
+1. **Catalog** — the components the agent can use, each with a description and a Zod schema of its props. The demo catalog extends the standard catalog (Row, Column, Title, Text, Button, Badge, Table, ...). It is registered once in `layout.tsx` via `<CopilotKitProvider generativeUI={{ ui: demonstrationUI }}>`.
+2. **`render_ui`** — when a run carries the catalog, the runtime gives the agent a `render_ui` tool and a guide to the catalog. The agent calls it with the operations, and the runtime checks each one before the browser renders it.
+3. **Surface** — the rendered UI in the chat. A button the agent binds to an event sends a user message to the agent when it is clicked.
+
+The agent must pass the run's tools and context to the model. In this starter, `ClaudeAgentAdapter` does that: it adds the frontend tools (including `render_ui`) as tools of an `ag_ui` MCP server, and appends the run's context (including the guide) to the system prompt.
+
+### Examples
+
+| Suggestion          | What the agent does                                                                    |
+| ------------------- | -------------------------------------------------------------------------------------- |
+| **Search Flights**  | Calls `search_flights` for the data, then renders a `Row` of `FlightCard` components.  |
+| **Sales Dashboard** | Calls `query_data`, then renders `DashboardCard`, `Metric`, `PieChart` and `BarChart`. |
+
+### Key files
+
+| Purpose                           | Path                                               |
+| --------------------------------- | -------------------------------------------------- |
+| Catalog definitions (Zod schemas) | `src/app/declarative-generative-ui/definitions.ts` |
+| Catalog components (React)        | `src/app/declarative-generative-ui/renderers.tsx`  |
+| Catalog registration              | `src/app/layout.tsx`                               |
+| Flight data tool                  | `agent/src/flights.py`                             |
+| Showcase config                   | `showcase.json`                                    |
+
+### Adding a custom component
+
+1. **Define** the component in `definitions.ts`:
+
+   ```typescript
+   MyWidget: {
+     description: "A brief description for the agent.",
+     props: z.object({ title: z.string(), value: z.number() }),
+   },
+   ```
+
+2. **Render** it in `renderers.tsx`, and add it to `createGenerativeUI`:
+
+   ```tsx
+   function MyWidget({ title, value }: Props<"MyWidget">) {
+     return <div>{title}: {value}</div>;
+   }
+
+   // in createGenerativeUI({ components: { ... } }):
+   MyWidget: { ...definitions.MyWidget, component: MyWidget },
+   ```
+
+   The props are typed from the schema, so TypeScript errors if the component and the definition do not match.
+
+3. **Use it** from the agent. The runtime lists every component of the catalog in the `render_ui` guide.
+
+### Further reading
+
+- [Generative UI components](https://docs.copilotkit.ai/generative-ui/components)
+- [Adopt from A2UI](https://docs.copilotkit.ai/generative-ui/components/from-a2ui)
+- [A2UI Specification](https://a2ui.org/specification/)
 
 ## Troubleshooting
 
