@@ -6,9 +6,10 @@ import {
   useContext,
   useMemo,
   useSyncExternalStore,
-  type ReactNode,
 } from "react";
-import { FRONTENDS, type FrontendId } from "./data";
+import type { ReactNode } from "react";
+import { FRONTENDS } from "./data";
+import type { FrontendId } from "./data";
 
 // The frontend is chosen in the page, remembered across pages, and can be
 // pinned in a link with ?frontend=vue (also what an agent would request).

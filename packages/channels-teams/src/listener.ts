@@ -85,7 +85,7 @@ export interface TeamsServer {
  * place the package uses it. It is an OPTIONAL peer dependency (OSS-1177), so a
  * static import here would make it a hard install requirement of the package's
  * root entry point for every self-hosted bot — including the ones that bring
- * their own HTTP server and never call this function, as `examples/teams` does.
+ * their own HTTP server and never call this function, as `examples/templates/teams` does.
  * Pinned by `listener-lazy-express.test.ts`.
  */
 /**

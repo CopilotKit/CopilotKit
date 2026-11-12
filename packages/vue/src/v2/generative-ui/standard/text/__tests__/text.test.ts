@@ -281,8 +281,7 @@ describe("standard text", () => {
     ]);
     const heading = await view.findByRole("heading", { level: 1 });
     expect(heading.textContent).toBe("Title");
-    // Streamdown marks bold text with its own element, as in the chat.
-    expect(view.getByText("bold").dataset.streamdown).toBe("strong");
+    expect(view.getByText("bold").closest("strong")).not.toBeNull();
     const items = view.container.querySelectorAll("ul li");
     expect([...items].map((item) => item.textContent)).toEqual(["one", "two"]);
     expect(view.container.querySelector("blockquote")?.textContent).toContain(
@@ -296,28 +295,19 @@ describe("standard text", () => {
     );
   });
 
-  it("typesets Math with KaTeX, inline and as a block", async () => {
+  it("shows Math as its TeX source, inline and as a block", async () => {
     const view = renderSurface(ui, [
       { id: "root", component: "Column", children: ["i", "b"] },
       { id: "i", component: "Math", value: "x^2" },
-      { id: "b", component: "Math", value: "\\frac{a}{b}", block: true },
+      { id: "b", component: "Math", value: "\\frac{a", block: true },
     ]);
-    await view.findAllByText("x");
-    const inline = view.container.querySelector('[data-math="inline"]');
-    expect(inline?.tagName).toBe("SPAN");
-    expect(inline?.querySelector(".katex math")).not.toBeNull();
-    expect(inline?.querySelector(".katex-display")).toBeNull();
-    const block = view.container.querySelector('[data-math="block"]');
-    expect(block?.tagName).toBe("DIV");
-    expect(block?.querySelector(".katex-display mfrac")).not.toBeNull();
-  });
-
-  it("shows invalid TeX as source text instead of failing", async () => {
-    const view = renderSurface(ui, [
-      { id: "root", component: "Math", value: "\\frac{a" },
-    ]);
-    const error = await view.findByText("\\frac{a");
-    expect(error.classList.contains("katex-error")).toBe(true);
+    const inline = await view.findByText("x^2");
+    expect(inline.tagName).toBe("CODE");
+    expect(inline.dataset.math).toBe("inline");
+    const block = view.getByText("\\frac{a");
+    expect(block.tagName).toBe("CODE");
+    expect(block.parentElement?.tagName).toBe("PRE");
+    expect(block.parentElement?.dataset.math).toBe("block");
     expect(view.reportError).not.toHaveBeenCalled();
   });
 
@@ -584,7 +574,7 @@ describe("Vue-specific semantics", () => {
     ]);
     expect(html).toContain("Plan</h3>");
     expect(html).toContain("<strong>$29</strong>");
-    expect(html).toContain('class="katex"');
+    expect(html).toContain('<code data-math="inline">x^2</code>');
     expect(html).toContain("notes");
     expect(html).toContain('role="tooltip"');
     expect(html).toContain("Not stable yet");

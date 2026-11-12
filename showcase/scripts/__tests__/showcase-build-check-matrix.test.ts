@@ -244,7 +244,6 @@ describe("showcase PR build matrix", () => {
     ["packages/vue/**", ["vue"]],
     ["packages/web-inspector/**", ["vue"]],
     ["packages/angular/**", ["angular"]],
-    ["packages/a2ui-renderer/**", ["angular"]],
     ["showcase/vue/**", ["vue"]],
     ["showcase/angular/**", ["angular"]],
   ])(

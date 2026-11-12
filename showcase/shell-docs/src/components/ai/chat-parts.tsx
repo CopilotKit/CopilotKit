@@ -1,19 +1,14 @@
 "use client";
 
-import {
-  createContext,
-  isValidElement,
-  useContext,
-  type AnchorHTMLAttributes,
-  type ButtonHTMLAttributes,
-  type ComponentProps,
-  type ReactNode,
+import { createContext, isValidElement, useContext } from "react";
+import type {
+  AnchorHTMLAttributes,
+  ButtonHTMLAttributes,
+  ComponentProps,
+  ReactNode,
 } from "react";
-import {
-  CopilotChatAssistantMessage,
-  type CopilotChatView,
-  type Suggestion,
-} from "@copilotkit/react-core/v2";
+import { CopilotChatAssistantMessage } from "@copilotkit/react-core/v2";
+import type { CopilotChatView, Suggestion } from "@copilotkit/react-core/v2";
 import { DynamicCodeBlock } from "fumadocs-ui/components/dynamic-codeblock";
 import Link from "fumadocs-core/link";
 import { useTreePath } from "fumadocs-ui/contexts/tree";

@@ -3,7 +3,8 @@
 import { DynamicCodeBlock } from "fumadocs-ui/components/dynamic-codeblock";
 import { STAGE_WINDOW, Stage, isCommandLang } from "@/components/brand/stage";
 import { brandDark, brandLight } from "./code-theme";
-import { frameworkById, type FrontendId } from "./data";
+import { frameworkById } from "./data";
+import type { FrontendId } from "./data";
 
 // Snippets use APIs checked in this repo (packages/react-core, vue, angular,
 // react-native, runtime). Feature examples exist for React only so far.
@@ -64,7 +65,7 @@ function channelSnippet(adapter: "slack" | "teams") {
     lang: "ts",
     code: `import { createChannel } from "@copilotkit/channels";
 ${imports}
-import { CopilotRuntime, CopilotKitIntelligence } from "@copilotkit/runtime/v2";
+import { CopilotRuntime, CopilotKitIntelligence } from "@copilotkit/runtime";
 
 const bot = createChannel({
   name: "support-bot",
@@ -141,7 +142,7 @@ export default function App() {
       return {
         title: "app/page.tsx",
         lang: "tsx",
-        code: `import { CopilotKitProvider, CopilotChat } from "@copilotkit/react-core/v2";
+        code: `import { CopilotKitProvider, CopilotChat } from "@copilotkit/react-core";
 
 export default function Page() {
   return (
@@ -165,7 +166,7 @@ export function runtimeSnippet(frameworkId: string): string {
     frameworkId === "langgraph-python" ||
     frameworkId === "langgraph-typescript"
   ) {
-    imports = `import { LangGraphAgent } from "@copilotkit/runtime/langgraph";`;
+    imports = `import { LangGraphAgent } from "@ag-ui/langgraph";`;
     agent = `new LangGraphAgent({\n        deploymentUrl: process.env.LANGGRAPH_URL!,\n        graphId: "agent",\n      })`;
   } else {
     imports = `import { HttpAgent } from "@ag-ui/client";`;
@@ -174,7 +175,7 @@ export function runtimeSnippet(frameworkId: string): string {
   return `import {
   CopilotRuntime,
   createCopilotRuntimeHandler,
-} from "@copilotkit/runtime/v2";
+} from "@copilotkit/runtime";
 ${imports}
 
 const handler = createCopilotRuntimeHandler({

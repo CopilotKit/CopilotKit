@@ -16,7 +16,7 @@ description: "React hook for listing, managing, and syncing conversation threads
 </Callout>
 
 <Callout type="info">
-  Re-exported from `@copilotkit/react-core/v2`, identical to the [React (V2) `useThreads`](/reference/v2/hooks/useThreads). The only difference is the import path.
+  Re-exported from `@copilotkit/react-core`, identical to the [React `useThreads`](/reference/hooks/useThreads). The only difference is the import path.
 </Callout>
 
 Threads are sorted by most recent run first. The hook supports cursor-based pagination when a `limit` is provided.
@@ -24,9 +24,13 @@ Threads are sorted by most recent run first. The hook supports cursor-based pagi
 ## Signature
 
 ```tsx
-import { useThreads } from "@copilotkit/react-native";
+import {
+  useThreads,
+  type UseThreadsInput,
+  type UseThreadsResult,
+} from "@copilotkit/react-native";
 
-function useThreads(input: UseThreadsInput): UseThreadsResult
+useThreads satisfies (input: UseThreadsInput) => UseThreadsResult;
 ```
 
 ## Parameters

@@ -5,7 +5,9 @@ description: "Render Markdown text with React Native styling tuned for chat. Ren
 
 ## Overview
 
-`CopilotMarkdown` renders a Markdown string with sensible React Native styling, built on [`react-native-streamdown`](https://www.npmjs.com/package/react-native-streamdown). It renders incomplete (streaming) Markdown incrementally as content arrives, which makes it ideal for assistant messages. Requires the `react-native-streamdown` peer dependency. [`AssistantMessage`](/reference/react-native/components/AssistantMessage) renders its content with this component.
+`CopilotMarkdown` renders a Markdown string with sensible React Native styling. It uses the React Native renderer of [`@copilotkit/markdown`](/reference/packages/markdown), which `@copilotkit/react-native` installs for you, so it needs no extra peer dependency. It renders incomplete (streaming) Markdown incrementally as content arrives, which makes it ideal for assistant messages. [`AssistantMessage`](/reference/react-native/components/AssistantMessage) renders its content with this component.
+
+It renders GitHub Flavored Markdown: headings, lists, block quotes, fenced code, tables, strikethrough, and links. It does not render math or highlight code. Fenced code shows as plain code.
 
 ## Import
 
@@ -26,8 +28,9 @@ import { CopilotMarkdown, defaultMarkdownStyles } from "@copilotkit/react-native
   default style of that element.
 </PropertyReference>
 
-<PropertyReference name="streamingAnimation" type="boolean" default="true">
-  Whether to enable the streaming fade-in animation as content arrives.
+<PropertyReference name="streamingAnimation" type="boolean" default="false">
+  Kept for backward compatibility. It has no visual effect: the React Native
+  renderer does not animate tokens as they arrive.
 </PropertyReference>
 
 ## `defaultMarkdownStyles`

@@ -1,36 +1,55 @@
 /**
- * Regression tests for #3510, driven by the REAL AI SDK `streamText` (via a
- * mock LanguageModelV3 — no network). When a tool's `execute` throws,
- * `streamText` emits a `tool-error` part. Both the classic BuiltInAgent path
- * and the factory (`convertAISDKStream`) path must surface it as a
- * TOOL_CALL_RESULT instead of finishing the run with no result and no error.
- * `streamText` also emits `tool-error` when a call's arguments fail the tool's
- * schema, including AG-UI frontend tools validated on the server.
+ * Regression tests for #3510. When a tool's `execute` throws, the run must
+ * surface the error as a TOOL_CALL_RESULT instead of finishing with no result
+ * and no error. Arguments that fail the tool's schema, including those of
+ * AG-UI frontend tools, surface the same way.
+ *
+ * The classic tests run the real TanStack AI `chat()` against a fake model.
+ * The factory test runs the real AI SDK `streamText` against a mock
+ * LanguageModelV3, so it keeps `ai` (an AI SDK factory is still supported).
  */
 import { describe, it, expect } from "vitest";
 import { EventType } from "@ag-ui/client";
 import type { BaseEvent, RunAgentInput } from "@ag-ui/client";
-import { streamText, tool } from "ai";
-import type { FlexibleSchema } from "ai";
+import { streamText } from "ai";
 import { MockLanguageModelV3, simulateReadableStream } from "ai/test";
 import { z } from "zod";
+import { BuiltInAgent, defineTool } from "../index";
 import {
-  BuiltInAgent,
   convertMessagesToVercelAISDKMessages,
-  defineTool,
-} from "../index";
-import { collectEvents, createDefaultInput } from "./agent-test-helpers";
+  convertToolDefinitionsToVercelAITools,
+} from "../ai-sdk";
+import {
+  collectEvents,
+  createDefaultInput,
+  eventsOfType,
+  runClassicAgent,
+} from "./agent-test-helpers";
 
 const USAGE = {
   inputTokens: { total: 0, noCache: 0, cacheRead: 0, cacheWrite: 0 },
   outputTokens: { total: 0, text: 0, reasoning: 0 },
 } as const;
 
-type GetCatsInput = { limit: number };
+const MESSAGES: RunAgentInput["messages"] = [
+  { id: "u1", role: "user", content: "Show me a cat" },
+];
 
-const getCatsSchema = z.object({ limit: z.number() });
+const GET_CATS_CALL = { id: "tc-1", name: "get_cats", input: { limit: 1 } };
 
-function modelCallingGetCats(): MockLanguageModelV3 {
+/** A `get_cats` tool whose `execute` throws `thrown`. */
+function getCatsThrowing(thrown: unknown) {
+  return defineTool({
+    name: "get_cats",
+    description: "Get cat images",
+    parameters: z.object({ limit: z.number() }),
+    execute: async () => {
+      throw thrown;
+    },
+  });
+}
+
+function modelCallingGetCats() {
   return new MockLanguageModelV3({
     doStream: async () => ({
       stream: simulateReadableStream({
@@ -52,92 +71,66 @@ function modelCallingGetCats(): MockLanguageModelV3 {
   });
 }
 
-function throwMissingKey(): never {
-  throw new Error("Missing THE_CAT_API_KEY");
-}
-
-const runInput = createDefaultInput({
-  messages: [
-    { id: "u1", role: "user", content: "Show me a cat" },
-  ] as RunAgentInput["messages"],
-});
-
-function expectToolErrorSurfaced(events: BaseEvent[]) {
-  const results = events.filter((e) => e.type === EventType.TOOL_CALL_RESULT);
-  expect(results).toHaveLength(1);
-  expect(results[0]).toMatchObject({
-    toolCallId: "tc-1",
-    content: "Error: Missing THE_CAT_API_KEY",
-  });
-  expect(events.some((e) => e.type === EventType.RUN_ERROR)).toBe(false);
+function expectToolErrorSurfaced(events: BaseEvent[], content: string) {
+  expect(eventsOfType(events, EventType.TOOL_CALL_RESULT)).toEqual([
+    expect.objectContaining({ toolCallId: "tc-1", content }),
+  ]);
+  expect(eventsOfType(events, EventType.RUN_ERROR)).toEqual([]);
   expect(events.at(-1)?.type).toBe(EventType.RUN_FINISHED);
 }
 
-describe("tool execute throws (real streamText)", () => {
+describe("tool execute throws", () => {
   it("classic BuiltInAgent emits the error as a TOOL_CALL_RESULT", async () => {
-    const agent = new BuiltInAgent({
-      model: modelCallingGetCats(),
-      tools: [
-        defineTool({
-          name: "get_cats",
-          description: "Get cat images",
-          parameters: getCatsSchema,
-          execute: async () => throwMissingKey(),
-        }),
-      ],
-    });
+    const { events } = await runClassicAgent(
+      { tools: [getCatsThrowing(new Error("Missing THE_CAT_API_KEY"))] },
+      [{ toolCalls: [GET_CATS_CALL] }],
+      { messages: MESSAGES },
+    );
 
-    expectToolErrorSurfaced(await collectEvents(agent.run(runInput)));
+    expectToolErrorSurfaced(events, "Error: Missing THE_CAT_API_KEY");
+  });
+
+  it("classic BuiltInAgent uses a thrown non-Error value as the error text", async () => {
+    const { events } = await runClassicAgent(
+      { tools: [getCatsThrowing("quota exceeded")] },
+      [{ toolCalls: [GET_CATS_CALL] }],
+      { messages: MESSAGES },
+    );
+
+    expectToolErrorSurfaced(events, "Error: quota exceeded");
   });
 
   it("factory aisdk agent emits the error as a TOOL_CALL_RESULT", async () => {
     const model = modelCallingGetCats();
+    const tools = convertToolDefinitionsToVercelAITools([
+      getCatsThrowing(new Error("Missing THE_CAT_API_KEY")),
+    ]);
     const agent = new BuiltInAgent({
       type: "aisdk",
       factory: ({ input, abortSignal }) =>
         streamText({
           model,
           messages: convertMessagesToVercelAISDKMessages(input.messages),
-          tools: {
-            get_cats: tool<GetCatsInput, string>({
-              description: "Get cat images",
-              inputSchema:
-                getCatsSchema as unknown as FlexibleSchema<GetCatsInput>,
-              execute: async () => throwMissingKey(),
-            }),
-          },
+          tools,
           abortSignal,
         }),
     });
 
-    expectToolErrorSurfaced(await collectEvents(agent.run(runInput)));
-  });
-
-  it("frontend tool called with invalid arguments emits the validation error", async () => {
-    const model = new MockLanguageModelV3({
-      doStream: async () => ({
-        stream: simulateReadableStream({
-          chunks: [
-            {
-              type: "tool-call",
-              toolCallId: "tc-1",
-              toolName: "showCity",
-              input: JSON.stringify({ city: 42 }),
-            },
-            {
-              type: "finish",
-              finishReason: { unified: "tool-calls", raw: "tool-calls" },
-              usage: USAGE,
-            },
-          ],
-        }),
-      }),
-    });
-    const agent = new BuiltInAgent({ model });
-
     const events = await collectEvents(
-      agent.run({
-        ...runInput,
+      agent.run(createDefaultInput({ messages: MESSAGES })),
+    );
+
+    expectToolErrorSurfaced(events, "Error: Missing THE_CAT_API_KEY");
+  });
+});
+
+describe("tool arguments fail the schema", () => {
+  it("frontend tool called with invalid arguments emits the validation error", async () => {
+    const { events } = await runClassicAgent(
+      {},
+      [{ toolCalls: [{ id: "tc-1", name: "showCity", input: { city: 42 } }] }],
+      {
+        messages: MESSAGES,
         tools: [
           {
             name: "showCity",
@@ -149,14 +142,14 @@ describe("tool execute throws (real streamText)", () => {
             },
           },
         ],
-      }),
+      },
     );
 
-    const results = events.filter((e) => e.type === EventType.TOOL_CALL_RESULT);
-    expect(results).toHaveLength(1);
-    expect(results[0]).toMatchObject({ toolCallId: "tc-1" });
-    expect((results[0] as unknown as { content: string }).content).toMatch(
-      /^Error: Invalid input for tool showCity: .*Invalid arguments for tool showCity/s,
+    const [result, ...rest] = eventsOfType(events, EventType.TOOL_CALL_RESULT);
+    expect(rest).toEqual([]);
+    expect(result?.toolCallId).toBe("tc-1");
+    expect(result?.content).toMatch(
+      /^Error: Input validation failed for tool showCity: #\/city: .*Expected "string"/,
     );
     expect(events.at(-1)?.type).toBe(EventType.RUN_FINISHED);
   });

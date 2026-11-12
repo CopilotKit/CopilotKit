@@ -3,8 +3,8 @@ export const adapters = {
   "builtin-ts": {
     directory: "runtime",
     name: "@copilotkit/runtime",
-    entrypoint: "@copilotkit/runtime/v2",
-    packages: ["ai", "zod"],
+    entrypoint: "@copilotkit/runtime",
+    packages: ["ai", "@tanstack/ai", "zod"],
   },
   "langgraph-ts": {
     directory: "intelligence-langgraph",

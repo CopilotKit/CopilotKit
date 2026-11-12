@@ -73,6 +73,19 @@ describe("connectAgentContext", () => {
     expect(core.removeContext).toHaveBeenNthCalledWith(2, "ctx-2");
   });
 
+  it("sends a non-string value as its JSON text", async () => {
+    connectAgentContext(
+      { description: "Form", value: { name: "Ada", tags: ["a"] } },
+      { injector: TestBed.inject(Injector) },
+    );
+    await TestBed.inject(Injector).get(ApplicationRef).whenStable();
+
+    expect(core.addContext).toHaveBeenCalledWith({
+      description: "Form",
+      value: '{"name":"Ada","tags":["a"]}',
+    });
+  });
+
   it("throws when used outside of an injection context", () => {
     expect(() =>
       connectAgentContext({ description: "missing", value: "0" }),

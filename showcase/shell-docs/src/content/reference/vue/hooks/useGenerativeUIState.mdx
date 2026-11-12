@@ -8,7 +8,7 @@ description: "Give generated components live app state, such as the cart, withou
 A generated `ProductCard` must show how many of the product are in the cart. The agent does not know that number, and it must not guess. `useGenerativeUIState` gives one key of the declared app state its value. The props that read this key get the value. The model does not see it.
 
 <Callout type="warn">
-  Generative UI is experimental. Call `useGenerativeUIState` in `setup()` (or
+  Call `useGenerativeUIState` in `setup()` (or
   `<script setup>`) of a component under a
   [`CopilotKitProvider`](/reference/vue/components/CopilotKitProvider) that has
   a `generativeUI` config. Outside such a provider, the composable throws an
@@ -27,12 +27,25 @@ import { useGenerativeUIState } from "@copilotkit/vue/v2/generative-ui";
 
 ```ts
 import type { MaybeRefOrGetter } from "vue";
+import type { GenerativeUIDefinitionsOf, SchemaInput } from "@copilotkit/shared/generative-ui";
+import {
+  useGenerativeUIState,
+  type GenerativeUI,
+  type GenerativeUIStateOf,
+} from "@copilotkit/vue/v2/generative-ui";
 
-useGenerativeUIState<UI, Key>(
+type StateInput<UI extends GenerativeUI, Key extends keyof GenerativeUIStateOf<UI>> = SchemaInput<
+  GenerativeUIDefinitionsOf<UI>["state"][Key]
+>;
+
+useGenerativeUIState satisfies <
+  UI extends GenerativeUI,
+  Key extends keyof GenerativeUIStateOf<UI> & string,
+>(
   ui: UI,
   key: Key,
   value: MaybeRefOrGetter<StateInput<UI, Key>>,
-): void;
+) => void;
 ```
 
 `StateInput<UI, Key>` is the input type of the schema of `key`. It is not exported. Let TypeScript infer it from `ui` and `key`.
@@ -60,6 +73,9 @@ None. The composable writes the value to the provider.
 `shopUI` declares the key in its state:
 
 ```ts title="shop-ui.ts"
+import { z } from "zod";
+import { createGenerativeUI } from "@copilotkit/vue/v2/generative-ui";
+
 const cartSchema = z.object({
   items: z.array(z.object({ productId: z.string(), quantity: z.number() })),
 });

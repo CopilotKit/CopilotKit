@@ -21,12 +21,12 @@ const hoisted = vi.hoisted(() => {
 // behavior. Tool-call rendering (which drives a REAL useRenderToolCall) lives
 // in CopilotChatToolCalls.test.tsx; here useRenderToolCall is a stub that
 // resolves no renderer, so tool calls fall through to the placeholder.
-vi.mock("@copilotkit/react-core/v2/headless", () => ({
+vi.mock("@copilotkit/react-core/headless", () => ({
   useAgent: vi.fn(() => ({ agent: hoisted.mockAgent })),
   useRenderToolCall: vi.fn(() => () => null),
 }));
 
-vi.mock("@copilotkit/react-core/v2/context", () => ({
+vi.mock("@copilotkit/react-core/context", () => ({
   useCopilotKit: vi.fn(() => ({
     copilotkit: {
       runAgent: hoisted.mockRunAgent,
@@ -324,7 +324,7 @@ describe("CopilotChat", () => {
     expect(getByText("Network timeout")).toBeTruthy();
   });
 
-  it("uses incrementing message IDs instead of Date.now()", async () => {
+  it("gives every sent message its own id", async () => {
     const { getByTestId } = render(<CopilotChat />);
     const input = getByTestId("text-input");
     const sendBtn = getByTestId("send-button");
@@ -344,7 +344,11 @@ describe("CopilotChat", () => {
     });
 
     const calls = hoisted.mockAgent.addMessage.mock.calls;
-    expect(calls[0][0].id).toBe("user-1");
-    expect(calls[1][0].id).toBe("user-2");
+    expect(calls.map(([message]) => message.content)).toEqual([
+      "first",
+      "second",
+    ]);
+    expect(calls[0][0].id).toEqual(expect.any(String));
+    expect(calls[0][0].id).not.toBe(calls[1][0].id);
   });
 });

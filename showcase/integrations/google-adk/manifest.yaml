@@ -546,5 +546,5 @@ demos:
 # Starter VALIDATION ladder (dashboard). NOT the `starter:` key — that one
 # drives the public "Full Starter" section on the integration profile page.
 starter_validation:
-  path: examples/integrations/adk
+  path: examples/starters/adk
   service: starter-adk

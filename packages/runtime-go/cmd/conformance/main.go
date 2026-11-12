@@ -19,21 +19,21 @@ import (
 
 func main() {
 	var c struct {
-		Port                int                    `json:"port"`
-		APIURL              string                 `json:"apiUrl"`
-		RunnerURL           string                 `json:"runnerUrl"`
-		ClientURL           string                 `json:"clientUrl"`
-		APIKey              string                 `json:"apiKey"`
-		AgentURL            string                 `json:"agentUrl"`
-		TelemetryURL        string                 `json:"telemetryUrl"`
-		TelemetrySampleRate *float64               `json:"telemetrySampleRate"`
-		TelemetryDisabled   bool                   `json:"telemetryDisabled"`
-		TelemetryID         string                 `json:"telemetryId"`
-		LicenseToken        string                 `json:"licenseToken"`
-		A2UI                *runtime.A2UIConfig    `json:"a2ui"`
-		MCPApps             *runtime.MCPAppsConfig `json:"mcpApps"`
-		MemoryGrant         json.RawMessage        `json:"memoryGrant"`
-		OmitMemoryPolicy    bool                   `json:"omitMemoryPolicy"`
+		Port                int                         `json:"port"`
+		APIURL              string                      `json:"apiUrl"`
+		RunnerURL           string                      `json:"runnerUrl"`
+		ClientURL           string                      `json:"clientUrl"`
+		APIKey              string                      `json:"apiKey"`
+		AgentURL            string                      `json:"agentUrl"`
+		TelemetryURL        string                      `json:"telemetryUrl"`
+		TelemetrySampleRate *float64                    `json:"telemetrySampleRate"`
+		TelemetryDisabled   bool                        `json:"telemetryDisabled"`
+		TelemetryID         string                      `json:"telemetryId"`
+		LicenseToken        string                      `json:"licenseToken"`
+		GenerativeUI        *runtime.GenerativeUIConfig `json:"generativeUI"`
+		MCPApps             *runtime.MCPAppsConfig      `json:"mcpApps"`
+		MemoryGrant         json.RawMessage             `json:"memoryGrant"`
+		OmitMemoryPolicy    bool                        `json:"omitMemoryPolicy"`
 	}
 	if err := json.Unmarshal([]byte(os.Getenv("CPK_CONFIG")), &c); err != nil {
 		log.Fatal(err)
@@ -54,7 +54,7 @@ func main() {
 			return runtime.MemoryGrant{User: "read-write", Project: "read-write"}, nil
 		}
 	}
-	rt, err := runtime.New(runtime.Config{APIKey: c.APIKey, APIURL: c.APIURL, RunnerURL: c.RunnerURL, ClientURL: c.ClientURL, TelemetryURL: c.TelemetryURL, TelemetrySampleRate: c.TelemetrySampleRate, TelemetryDisabled: c.TelemetryDisabled, TelemetryID: c.TelemetryID, LicenseToken: c.LicenseToken, A2UI: c.A2UI, MCPApps: c.MCPApps, Agents: map[string]runtime.Agent{"default": &runtime.HTTPAgent{URL: c.AgentURL, DescriptionText: "Conformance agent"}}, IdentifyUser: func(r *http.Request) (runtime.User, error) {
+	rt, err := runtime.New(runtime.Config{APIKey: c.APIKey, APIURL: c.APIURL, RunnerURL: c.RunnerURL, ClientURL: c.ClientURL, TelemetryURL: c.TelemetryURL, TelemetrySampleRate: c.TelemetrySampleRate, TelemetryDisabled: c.TelemetryDisabled, TelemetryID: c.TelemetryID, LicenseToken: c.LicenseToken, GenerativeUI: c.GenerativeUI, MCPApps: c.MCPApps, Agents: map[string]runtime.Agent{"default": &runtime.HTTPAgent{URL: c.AgentURL, DescriptionText: "Conformance agent"}}, IdentifyUser: func(r *http.Request) (runtime.User, error) {
 		id, name := r.Header.Get("x-test-user-id"), r.Header.Get("x-test-user-name")
 		if id == "" {
 			id = "test-user"

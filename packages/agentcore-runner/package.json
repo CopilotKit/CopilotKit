@@ -32,7 +32,7 @@
     "attw": "attw --pack . --profile node16"
   },
   "dependencies": {
-    "@ag-ui/client": "1.0.2",
+    "@ag-ui/client": "1.0.4",
     "@copilotkit/runtime": "workspace:*",
     "rxjs": "7.8.1"
   },
@@ -44,6 +44,6 @@
     "vitest": "^3.0.5"
   },
   "engines": {
-    "node": ">=20"
+    "node": "^20.19.3 || >=22.13.0"
   }
 }

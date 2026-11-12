@@ -58,7 +58,7 @@ Before you begin, you'll need the following:
 
           <Callout type="info" title="If the CLI does not list Google Antigravity yet">
             Until the CLI catalog gains this entry, clone the CopilotKit
-            repository and copy `examples/integrations/antigravity` — it is a
+            repository and copy `examples/starters/antigravity` — it is a
             complete Next.js app plus Python agent server with the same
             layout the CLI scaffolds.
           </Callout>
@@ -230,7 +230,7 @@ Before you begin, you'll need the following:
           ```bash
           npx create-next-app@latest frontend
           cd frontend
-          npm install @copilotkit/runtime @copilotkit/react-core @ag-ui/client@1.0.2
+          npm install @copilotkit/runtime @copilotkit/react-core @ag-ui/client@1.0.4
           ```
         </Step>
 
@@ -244,7 +244,7 @@ Before you begin, you'll need the following:
           import {
             CopilotRuntime,
             createCopilotRuntimeHandler,
-          } from "@copilotkit/runtime/v2";
+          } from "@copilotkit/runtime";
           import type { NextRequest } from "next/server";
 
           const runtime = new CopilotRuntime({
@@ -268,20 +268,19 @@ Before you begin, you'll need the following:
         <Step>
           ### Mount CopilotKit in React
 
-          Wrap your app with `CopilotKit` and target the agent name you registered in the runtime route.
+          Wrap your app with `CopilotKitProvider` and target the agent name you registered in the runtime route.
 
           ```tsx title="app/layout.tsx"
-          import { CopilotKit } from "@copilotkit/react-core/v2";
-          import "@copilotkit/react-core/v2/styles.css";
+          import { CopilotKitProvider } from "@copilotkit/react-core";
           import "./globals.css";
 
           export default function RootLayout({ children }: { children: React.ReactNode }) {
             return (
               <html lang="en">
                 <body>
-                  <CopilotKit runtimeUrl="/api/copilotkit" agent="antigravity_agent">
+                  <CopilotKitProvider runtimeUrl="/api/copilotkit" agentId="antigravity_agent">
                     {children}
-                  </CopilotKit>
+                  </CopilotKitProvider>
                 </body>
               </html>
             );
@@ -301,7 +300,7 @@ Before you begin, you'll need the following:
           ```tsx title="app/page.tsx"
           "use client";
 
-          import { CopilotSidebar } from "@copilotkit/react-core/v2";
+          import { CopilotSidebar } from "@copilotkit/react-core";
 
           export default function Page() {
             return (

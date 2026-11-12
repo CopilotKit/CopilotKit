@@ -4,6 +4,19 @@
     "quickstart",
     "(shared)/build-with-agents",
     "[Intelligence](/intelligence/overview)",
+    {
+      "title": "Migrate to 2.0",
+      "pages": [
+        "migrate/v2",
+        "migrate/removed-apis-2.0",
+        "migrate/runtime-2.0",
+        "migrate/providers-2.0",
+        "migrate/chat-2.0",
+        "migrate/generative-ui-2.0",
+        "migrate/shared-2.0",
+        "migrate/markdown-renderer"
+      ]
+    },
     "---Basics---",
     {
       "title": "Chat",
@@ -19,6 +32,7 @@
             "custom-look-and-feel/reasoning-messages"
           ]
         },
+        "markdown-rendering",
         "multimodal-attachments",
         "voice",
         "generative-ui/reasoning",

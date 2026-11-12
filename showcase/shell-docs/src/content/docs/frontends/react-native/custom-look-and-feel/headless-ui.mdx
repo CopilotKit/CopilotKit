@@ -175,12 +175,18 @@ How the pieces fit:
 - **Suggestions.** `useSuggestions` returns the prompts that `useConfigureSuggestions` set up. Configure them once, anywhere under the provider:
 
   ```tsx
-  useConfigureSuggestions({
-    suggestions: [
-      { title: "Plan my day", message: "Plan my day around my calendar." },
-      { title: "What's due?", message: "Which tasks are due this week?" },
-    ],
-  });
+  import { useConfigureSuggestions } from "@copilotkit/react-native/headless";
+
+  export function StarterSuggestions() {
+    useConfigureSuggestions({
+      suggestions: [
+        { title: "Plan my day", message: "Plan my day around my calendar." },
+        { title: "What's due?", message: "Which tasks are due this week?" },
+      ],
+    });
+
+    return null;
+  }
   ```
 
 - **Ids.** The polyfills give Hermes `crypto.getRandomValues`, not `crypto.randomUUID`, so the sample builds message ids from a timestamp.

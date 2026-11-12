@@ -132,7 +132,10 @@ function surfacePart(
     @for (part of parts(); track part.key) {
       @switch (part.kind) {
         @case ("markdown") {
-          <copilot-chat-assistant-message-renderer [content]="part.text" />
+          <copilot-chat-assistant-message-renderer
+            [content]="part.text"
+            [isStreaming]="isStreaming() && $last"
+          />
         }
         @case ("surface") {
           <ng-container *ngComponentOutlet="cardType; inputs: part.inputs" />

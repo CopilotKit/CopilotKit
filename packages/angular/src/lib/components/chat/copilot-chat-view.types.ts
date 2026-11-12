@@ -7,6 +7,12 @@ import { Message } from "@ag-ui/client";
 export interface CopilotChatViewProps {
   messages?: Message[];
   autoScroll?: boolean;
+  /** `true` while the agent runs. Suggestions hide meanwhile. */
+  isRunning?: boolean;
+  /** `true` while the thread's connect is loading. */
+  isConnecting?: boolean;
+  /** `false` turns the welcome screen off for an empty chat. */
+  welcomeScreen?: boolean;
 
   // Slot configurations
   messageViewComponent?: Type<any>;

@@ -86,6 +86,14 @@ bearer token in core headers if those agents point at a third party.
   Indicates whether the user agent should send or receive cookies for cross-origin requests. Set to `"include"` to enable HTTP-only cookie authentication (configure CORS with credentials on your runtime endpoint to match).
 </PropertyReference>
 
+<PropertyReference name="nonce" type="string">
+  CSP nonce for the `<style>` tag CopilotKit adds. Set it when your Content-Security-Policy limits `style-src` to a nonce.
+</PropertyReference>
+
+<PropertyReference name="injectStyles" type="boolean" default="true">
+  Set to `false` when you import `@copilotkit/core/styles.css` yourself, so browsers cache the CSS as a file. CopilotKit then adds no `<style>` tag. See [Load the CSS as a cached file](/reference/vue#load-the-css-as-a-cached-file).
+</PropertyReference>
+
 <PropertyReference name="messageFilter" type="(messages: Message[], context: { agentId: string }) => Message[]">
   Rewrites the message list sent to the agent on every run.
 
@@ -141,15 +149,18 @@ Don't have it yet? Go to https://dashboard.operations.copilotkit.ai and get one 
 <PropertyReference name="properties" type="Record<string, unknown>" default="{}">
   Custom properties sent with each request. Can include `threadMetadata` for thread creation and `authorization` for LangGraph Platform authentication.
 
-```js
-{
+```ts
+import type { CopilotKitProviderProps } from "@copilotkit/vue/v2";
+
+// Pass as `:properties="properties"` on <CopilotKitProvider>.
+const properties: CopilotKitProviderProps["properties"] = {
   user_id: "users_id",
   authorization: "your-auth-token", // For LangGraph Platform authentication
   threadMetadata: {
     account_id: "123",
     user_type: "premium",
   },
-}
+};
 ```
 
 </PropertyReference>
@@ -171,7 +182,7 @@ Don't have it yet? Go to https://dashboard.operations.copilotkit.ai and get one 
 </PropertyReference>
 
 <PropertyReference name="renderActivityMessages" type="VueActivityMessageRenderer<unknown>[]" default="[]">
-  Renderers for activity messages, mapping an activity type and content schema to a Vue component. The built-in MCP Apps renderer is always merged in automatically; the A2UI and Open Generative UI renderers are merged in when those features are active.
+  Renderers for activity messages, mapping an activity type and content schema to a Vue component. The built-in MCP Apps renderer is always merged in automatically; the generative UI and Open Generative UI renderers are merged in when those features are active.
 </PropertyReference>
 
 <PropertyReference name="renderCustomMessages" type="VueCustomMessageRenderer[]" default="[]">
@@ -194,11 +205,10 @@ Don't have it yet? Go to https://dashboard.operations.copilotkit.ai and get one 
   Controls the CopilotKit Inspector during development. It is enabled by
   default in browser development builds and is never loaded in production or
   during SSR. In a Vue template, pass `:enable-inspector="false"` to disable it.
-</PropertyReference>
 
-<PropertyReference name="showDevConsole" type="boolean | &quot;auto&quot;">
-  **Deprecated:** use `enableInspector`. This prop does not control the
-  Inspector.
+  2.0 removed the `showDevConsole` prop and its error banners. Runtime, agent,
+  and tool errors show in the Inspector. To handle them in your code, use
+  `onError`.
 </PropertyReference>
 
 <PropertyReference name="onError" type="(event: { error: Error; code: CopilotKitCoreErrorCode; context: Record<string, any> }) => void | Promise<void>">
@@ -226,26 +236,8 @@ function handleError(event: {
 
 </PropertyReference>
 
-<PropertyReference name="a2ui" type="{ theme?: A2UITheme; catalog?: any; loadingComponent?: Component; includeSchema?: boolean }">
-  Configuration for the A2UI (Agent-to-UI) renderer. The built-in A2UI renderer activates automatically when the runtime reports that `a2ui` is configured in `CopilotRuntime`, so this prop is optional and only needed to override the theme, supply a custom component `catalog`, set a `loadingComponent`, or toggle whether the schema is included (`includeSchema`).
-
-  `includeSchema` defaults to `true`, which sends the catalog's component schemas and the A2UI generation and design guidelines to the agent as context. With `includeSchema: false`, the agent still receives the catalog ID and the names of the catalog's custom components, without their JSON schemas or the guidelines. A LangGraph agent that uses the CopilotKit middleware's injected A2UI tool then gives its A2UI subagent the component names only. To give the subagent more detail, pass a composition guide through the middleware's A2UI guidelines: `a2uiParams.guidelines.compositionGuide` in TypeScript, or `a2ui_params["guidelines"]["composition_guide"]` in Python.
-
-```vue
-<template>
-  <CopilotKitProvider
-    runtime-url="/api/copilotkit"
-    :a2ui="{ theme: myCustomTheme }"
-  >
-    <!-- ... your app ... -->
-  </CopilotKitProvider>
-</template>
-```
-
-</PropertyReference>
-
 <PropertyReference name="generativeUI" type="GenerativeUIConfig">
-  Experimental. Turns on native generative UI. The agent renders your Vue components in the chat, or in a [`GenerativeUISurface`](/reference/vue/components/GenerativeUISurface) on the page. Import the types from `@copilotkit/vue/v2/generative-ui`.
+  Turns on native generative UI. The agent renders your Vue components in the chat, or in a [`GenerativeUISurface`](/reference/vue/components/GenerativeUISurface) on the page. Import the types from `@copilotkit/vue/v2/generative-ui`. When you leave it out and the runtime has generative UI on, the provider uses the standard catalog (`standardUI`).
 
 Bind it in camelCase, as `:generativeUI`. Vue reads the kebab-case `:generative-ui` as a different prop (`generativeUi`), so the config does not reach the provider.
 
@@ -306,6 +298,27 @@ For a full walkthrough, see [Surfaces](/generative-ui/components/surfaces) and [
 
 <PropertyReference name="debug" type="DebugConfig">
   Enable debug logging for the client-side event pipeline. Accepts `true` / `false` to toggle events and lifecycle logging (verbose off), or `{ events?: boolean; lifecycle?: boolean; verbose?: boolean }` for granular control.
+</PropertyReference>
+
+<PropertyReference name="learning" type="boolean | CopilotKitLearningOptions">
+  Turns on Trajectory capture for Automatic Learning. `learning` or `:learning="true"` captures with the default options. Pass an object to set options. `false` or no prop turns capture off and stops the active Trajectory.
+
+  Capture starts after the provider mounts and stops when it unmounts, including Trajectories started with `startTrajectory()`. Option changes apply to the next Trajectory. They do not restart the active one. Without a `sink`, Core connects through your runtime and sends the events to Intelligence. While capture runs, the reply thumbs record ratings (see [Reply ratings](/reference/vue/components/CopilotChatAssistantMessage#reply-ratings)).
+
+  The object takes the capture options in the [Trajectories reference](/intelligence/trajectories-reference) (`capture`, `ignoreUrls`, `beforeSend`, `onError` and others), and these provider options:
+
+  - `autoStart` (default `true`): starts a Trajectory after mount. Set `false` to call `startTrajectory()` yourself.
+  - `trajectoryId`: the UUID of the Trajectory that the provider starts. Without it, the provider generates a UUID. That ID stays the same while the options change. Turning capture off or setting `autoStart: false` ends it, and the next Trajectory gets a new ID. With `autoStart: false`, the provider ignores `trajectoryId` and logs a warning.
+  - `learningContainerIds`: used only with a custom `sink`. Without a sink, the provider logs a warning and ignores it. Assign Learning Spaces on the server with `getTrajectoryLearningContainerIds` on `CopilotKitIntelligence`.
+
+```vue
+<template>
+  <CopilotKitProvider runtime-url="/api/copilotkit" learning>
+    <App />
+  </CopilotKitProvider>
+</template>
+```
+
 </PropertyReference>
 
 ## Slots

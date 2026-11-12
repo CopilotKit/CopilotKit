@@ -8,7 +8,6 @@ import { computed, onMounted, onScopeDispose, ref, watchEffect } from "vue";
 // below is kept at module scope.
 import type {
   CopilotKitThreadsDrawer as CopilotKitThreadsDrawerElement,
-  DrawerThread,
   ThreadSelectedDetail,
   ArchiveDetail,
   UnarchiveDetail,
@@ -22,7 +21,13 @@ import type {
 // lands and is published; declared locally here because the built element types
 // in this worktree predate it.
 type CollapseChangeDetail = { collapsed: boolean };
-import { DEFAULT_AGENT_ID } from "@copilotkit/shared";
+import {
+  ɵcreateThreadsDrawerActions,
+  ɵgetThreadsDrawerElementProps,
+  ɵresolveAgentId,
+  ɵresolveThreadsLicense,
+  ɵtoDrawerThread,
+} from "@copilotkit/core";
 import { useThreads } from "../../hooks/use-threads";
 import type { Thread } from "../../hooks/use-threads";
 import { useCopilotChatConfiguration } from "../../providers/useCopilotChatConfiguration";
@@ -71,18 +76,17 @@ const emit = defineEmits<{
 const config = useCopilotChatConfiguration();
 const license = useLicenseContext();
 
-const licensed = computed(() => {
-  const status = license.value.status;
-  // `unknown` is an unrecovered retryable entitlement lookup, not a settled
-  // negative: fetch the list and let the threads endpoint decide.
-  if (status === "unknown") return true;
-  const present = status === "valid" || status === "expiring";
-  return present && license.value.checkFeature("threads");
-});
-const licensePending = computed(() => license.value.status === null);
+// `unknown` (an unrecovered entitlement lookup) counts as licensed so the
+// threads endpoint decides; `null` (not reported yet) is pending.
+const threadsLicense = computed(() => ɵresolveThreadsLicense(license.value));
+const licensed = computed(() => threadsLicense.value.licensed);
+const licensePending = computed(() => threadsLicense.value.licensePending);
 
-const resolvedAgentId = computed(
-  () => props.agentId ?? config.value?.agentId ?? DEFAULT_AGENT_ID,
+const resolvedAgentId = computed(() =>
+  ɵresolveAgentId({
+    agentId: props.agentId,
+    chatAgentId: config.value?.agentId,
+  }),
 );
 const activeThreadId = computed(() => config.value?.threadId ?? null);
 
@@ -107,18 +111,8 @@ const threadsApi = useThreads({
   limit: () => props.limit,
 });
 
-function toDrawerThread(t: Thread): DrawerThread {
-  return {
-    id: t.id,
-    name: t.name,
-    archived: t.archived,
-    createdAt: t.createdAt,
-    updatedAt: t.updatedAt,
-    ...(t.lastRunAt !== undefined ? { lastRunAt: t.lastRunAt } : {}),
-  };
-}
 const drawerThreads = computed(() =>
-  threadsApi.threads.value.map(toDrawerThread),
+  threadsApi.threads.value.map(ɵtoDrawerThread),
 );
 
 // Client-only element registration (SSR-safe). The element module is imported
@@ -144,10 +138,15 @@ watchEffect(
     const el = elRef.value;
     if (!el) return;
     el.threads = drawerThreads.value;
-    el.loading = threadsApi.isLoading.value || licensePending.value;
+    const elementProps = ɵgetThreadsDrawerElementProps({
+      loading: threadsApi.isLoading.value,
+      licensed: licensed.value,
+      licensePending: licensePending.value,
+    });
+    el.loading = elementProps.loading;
     el.error = threadsApi.listError.value?.message ?? null;
     el.activeThreadId = activeThreadId.value;
-    el.licensed = licensed.value || licensePending.value;
+    el.licensed = elementProps.licensed;
     el.hasMore = threadsApi.hasMoreThreads.value;
     el.fetchingMore = threadsApi.isFetchingMoreThreads.value;
     // Dedicated fetch-more error channel: drives the element's inline
@@ -177,101 +176,40 @@ const unregisterDrawer = config.value?.registerDrawer?.();
 if (unregisterDrawer) onScopeDispose(unregisterDrawer);
 
 // --- Outbound event handlers ------------------------------------------------
-/** The chat input textarea's documented `data-testid`. */
-const CHAT_INPUT_TESTID = "copilot-chat-input-textarea";
-/** The chat view container's documented `data-testid`. */
-const CHAT_CONTAINER_TESTID = "copilot-chat-view";
-
-/**
- * Returns the chat input element for focus-return after a thread is selected.
- *
- * Best-effort and SCOPED: walks up from the drawer's custom element looking
- * for an ancestor that contains a chat-view container
- * (`data-testid="copilot-chat-view"`), then returns the chat input within
- * that subtree. This avoids focusing the wrong composer on a page hosting
- * more than one chat (multi-chat dashboards), where a document-global lookup
- * would grab whichever input appears first in DOM order rather than the one
- * this drawer drives.
- *
- * Falls back to a document-global lookup when no scoping ancestor is found
- * (e.g. the drawer and chat share no common container, or headless usage).
- */
-function findChatInput(origin: Element | null): HTMLElement | null {
-  if (typeof document === "undefined") return null;
-  const container = origin?.closest?.(
-    `[data-testid="${CHAT_CONTAINER_TESTID}"]`,
-  );
-  if (container) {
-    const scoped = container.querySelector<HTMLElement>(
-      `[data-testid="${CHAT_INPUT_TESTID}"]`,
-    );
-    if (scoped) return scoped;
-  }
-  return document.querySelector<HTMLElement>(
-    `[data-testid="${CHAT_INPUT_TESTID}"]`,
-  );
-}
-
-function focusChatInput() {
-  findChatInput(elRef.value)?.focus();
-}
+// Core owns the drawer actions; they read the latest values at call time.
+const actions = ɵcreateThreadsDrawerActions({
+  getThreads: () => threadsApi,
+  getConfig: () => config.value,
+  getCallbacks: () => ({
+    onThreadSelect: props.onThreadSelect,
+    onNewThread: props.onNewThread,
+  }),
+  getElement: () => elRef.value,
+});
 
 function onThreadSelected(event: Event) {
   const { threadId } = (event as CustomEvent<ThreadSelectedDetail>).detail;
-  if (props.onThreadSelect) props.onThreadSelect(threadId);
-  else config.value?.setActiveThreadId?.(threadId, { explicit: true });
-  focusChatInput();
+  actions.selectThread(threadId);
 }
-function handleNewThread() {
-  threadsApi.startNewThread();
-  if (props.onNewThread) props.onNewThread();
-  else config.value?.startNewThread?.();
-}
+const handleNewThread = actions.newThread;
 function onArchive(event: Event) {
-  const { threadId } = (event as CustomEvent<ArchiveDetail>).detail;
-  void threadsApi
-    .archiveThread(threadId)
-    .catch((e) =>
-      console.error("CopilotThreadsDrawer: archiveThread failed", e),
-    );
+  actions.archive((event as CustomEvent<ArchiveDetail>).detail.threadId);
 }
 function onUnarchive(event: Event) {
-  const { threadId } = (event as CustomEvent<UnarchiveDetail>).detail;
-  void threadsApi
-    .unarchiveThread(threadId)
-    .catch((e) =>
-      console.error("CopilotThreadsDrawer: unarchiveThread failed", e),
-    );
+  actions.unarchive((event as CustomEvent<UnarchiveDetail>).detail.threadId);
 }
 function onDelete(event: Event) {
-  const { threadId } = (event as CustomEvent<DeleteDetail>).detail;
-  const wasActive = threadId === activeThreadId.value;
-  void threadsApi
-    .deleteThread(threadId)
-    .then(() => {
-      if (wasActive) {
-        handleNewThread();
-      }
-    })
-    .catch((e) =>
-      console.error("CopilotThreadsDrawer: deleteThread failed", e),
-    );
+  actions.remove((event as CustomEvent<DeleteDetail>).detail.threadId);
 }
-function onFilterChange() {
-  threadsApi.refetchThreads();
-}
+const onFilterChange = actions.refetch;
 function onCollapseChange(event: Event) {
   const { collapsed } = (event as CustomEvent<CollapseChangeDetail>).detail;
   emit("collapse-change", collapsed);
 }
 function onRetry(event: Event) {
-  const { scope } = (event as CustomEvent<RetryDetail>).detail;
-  if (scope === "fetch-more") threadsApi.fetchMoreThreads();
-  else threadsApi.refetchThreads();
+  actions.retry((event as CustomEvent<RetryDetail>).detail.scope);
 }
-function onLoadMore() {
-  threadsApi.fetchMoreThreads();
-}
+const onLoadMore = actions.loadMore;
 function onOpenChange(event: Event) {
   const { open } = (event as CustomEvent<OpenChangeDetail>).detail;
   setDrawerOpen(open);

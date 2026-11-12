@@ -68,8 +68,44 @@ const writeTree = (root, files) => {
   }
 };
 
-/** A react-core v2 subpath specifier, for the import-reader fixtures. */
-const v2Entry = (name) => `@copilotkit/react-core/v2/${name}`;
+/**
+ * A stub of @a2ui/web_core shaped like the real regression: its `/v0_9` barrel
+ * re-exports the basic catalog's Lit elements and the Lit-based `universal`
+ * module next to the DOM-free models, so importing ONE model from it loads
+ * lit-html (which reads `document` at module load) under Hermes. The surface
+ * manager of packages/core once did this. react-core no longer depends on
+ * the package, so the tests build it in a temp directory, with a stub `lit`.
+ * `entry.mjs` imports one model through the barrel.
+ */
+const A2UI_BARREL_TREE = {
+  "node_modules/@a2ui/web_core/package.json": {
+    name: "@a2ui/web_core",
+    version: "0.0.0",
+    exports: { "./v0_9": "./src/v0_9/index.js" },
+  },
+  "node_modules/@a2ui/web_core/src/v0_9/index.js":
+    'export { SurfaceModel } from "./state/surface-model.js";\n' +
+    'export { Button } from "./basic_catalog/button.js";\n' +
+    'export { element } from "../universal/element.js";\n',
+  "node_modules/@a2ui/web_core/src/v0_9/state/surface-model.js":
+    "export class SurfaceModel {}\n",
+  "node_modules/@a2ui/web_core/src/v0_9/basic_catalog/button.js":
+    'import { LitElement } from "lit";\n' +
+    "export class Button extends LitElement {}\n",
+  "node_modules/@a2ui/web_core/src/universal/element.js":
+    'import { html } from "lit";\nexport const element = html;\n',
+  "node_modules/lit/package.json": {
+    name: "lit",
+    version: "0.0.0",
+    main: "index.js",
+  },
+  "node_modules/lit/index.js":
+    "export class LitElement {}\nexport const html = 1;\n",
+  "entry.mjs": 'export { SurfaceModel } from "@a2ui/web_core/v0_9";\n',
+};
+
+/** A react-core subpath specifier, for the import-reader fixtures. */
+const coreEntry = (name) => `@copilotkit/react-core/${name}`;
 
 /**
  * Every `@copilotkit/react-core` entry that the source files under `dir` load at
@@ -175,10 +211,10 @@ describe("packageNameFor", () => {
   });
 
   it("returns null for first-party files", () => {
-    assert.equal(packageNameFor("dist/v2/headless.mjs"), null);
+    assert.equal(packageNameFor("dist/headless.mjs"), null);
     // The old guard's substring match would have flagged this file. A path is
     // not a dependency.
-    assert.equal(packageNameFor("src/v2/katex-notes.ts"), null);
+    assert.equal(packageNameFor("src/katex-notes.ts"), null);
   });
 });
 
@@ -238,7 +274,7 @@ describe("forbiddenHits", () => {
   it("flags a dep resolved into the graph", () => {
     const hits = forbiddenHits({
       inputs: [
-        "dist/v2/headless.mjs",
+        "dist/headless.mjs",
         "../../node_modules/.pnpm/streamdown@1.3.0/node_modules/streamdown/dist/index.js",
       ],
       forbidden: REAL_FORBIDDEN,
@@ -249,7 +285,7 @@ describe("forbiddenHits", () => {
   it("does not flag a first-party path that merely contains the token", () => {
     assert.deepEqual(
       forbiddenHits({
-        inputs: ["dist/v2/headless.mjs", "src/v2/lib/katex-helpers.ts"],
+        inputs: ["dist/headless.mjs", "src/lib/katex-helpers.ts"],
         forbidden: REAL_FORBIDDEN,
       }),
       [],
@@ -258,7 +294,7 @@ describe("forbiddenHits", () => {
 
   it("flags a dep left EXTERNAL, which resolves to no graph input at all", () => {
     const hits = forbiddenHits({
-      inputs: ["dist/v2/headless.mjs"],
+      inputs: ["dist/headless.mjs"],
       externalSpecifiers: ["react", "streamdown/lib/lazy"],
       forbidden: REAL_FORBIDDEN,
     });
@@ -767,12 +803,12 @@ describe("classStaticBlocks", () => {
 describe("staticBlocksIn — inputs it cannot read", () => {
   it("fails loudly on an unreadable first-party input when called on its own", () => {
     const { blocks, unreadable } = staticBlocksIn({
-      inputs: ["dist/v2/purity-does-not-exist.mjs"],
+      inputs: ["dist/purity-does-not-exist.mjs"],
       pkgRoot,
     });
     assert.deepEqual(blocks, []);
     assert.equal(unreadable.length, 1);
-    assert.match(unreadable[0], /^dist\/v2\/purity-does-not-exist\.mjs — /);
+    assert.match(unreadable[0], /^dist\/purity-does-not-exist\.mjs — /);
   });
 
   it("skips an input esbuild disabled through a browser field: it ships no code", () => {
@@ -791,21 +827,21 @@ describe("staticBlocksIn — inputs it cannot read", () => {
     assert.equal(typeof gate.mergeUnreadable, "function");
     assert.deepEqual(
       gate.mergeUnreadable(
-        ["dist/v2/x.mjs — in the graph but not readable on disk"],
+        ["dist/x.mjs — in the graph but not readable on disk"],
         [
-          "dist/v2/x.mjs — in the graph but not readable on disk, so it was not scanned for class static blocks",
+          "dist/x.mjs — in the graph but not readable on disk, so it was not scanned for class static blocks",
           "../node_modules/y/z.js — in the graph but not readable on disk, so it was not scanned for class static blocks",
         ],
       ),
       [
-        "dist/v2/x.mjs — in the graph but not readable on disk",
+        "dist/x.mjs — in the graph but not readable on disk",
         "../node_modules/y/z.js — in the graph but not readable on disk, so it was not scanned for class static blocks",
       ],
     );
   });
 });
 
-// The /v2/generative-ui/native entry is what @copilotkit/react-native imports, and
+// The /generative-ui/native entry is what @copilotkit/react-native imports, and
 // its contract is stricter than the other targets': no react-dom, no Lit packages,
 // none of @a2ui/web_core's Lit-based modules, and no class static block in any
 // JavaScript file of the graph. Each fixture below is one way to break it, or a
@@ -830,11 +866,11 @@ describe("contractFor — the generative-ui/native contract", () => {
     assert.equal(mjs.forbidStaticBlocks, true);
   });
 
-  it("holds /v2/headless and /v2/context to the same Hermes/Metro checks", () => {
+  it("holds /headless and /context to the same Hermes/Metro checks", () => {
     // @copilotkit/react-native imports these two entries as well (see
     // packages/react-native/src), so Hermes loads them and Metro bundles them:
     // react-dom, Lit, the Lit-based a2ui modules and static blocks break an RN app
-    // there exactly as they do through /v2/generative-ui/native.
+    // there exactly as they do through /generative-ui/native.
     const native = contractFor("generative-ui/native.mjs");
     for (const target of [
       "headless.mjs",
@@ -860,9 +896,9 @@ describe("contractFor — the generative-ui/native contract", () => {
         path.join(repoRoot, "packages/react-native/src"),
       ),
       [
-        "@copilotkit/react-core/v2/context",
-        "@copilotkit/react-core/v2/generative-ui/native",
-        "@copilotkit/react-core/v2/headless",
+        "@copilotkit/react-core/context",
+        "@copilotkit/react-core/generative-ui/native",
+        "@copilotkit/react-core/headless",
       ],
     );
   });
@@ -870,30 +906,30 @@ describe("contractFor — the generative-ui/native contract", () => {
   it("sees every way a source file can load a react-core entry", () =>
     withScratch("rn-imports-", (root) => {
       writeTree(root, {
-        "double.ts": `import { a } from "${v2Entry("double")}";`,
-        "single.tsx": `import { b } from '${v2Entry("single")}';`,
-        "side-effect.ts": `import "${v2Entry("side-effect")}";`,
-        "dynamic.ts": `const m = () => import(\n  "${v2Entry("dynamic")}"\n);`,
-        "required.js": `const r = require('${v2Entry("required")}');`,
-        "re-export.ts": `export { c } from "${v2Entry("re-export")}";`,
-        "plain.mjs": `import * as d from "${v2Entry("plain")}";`,
-        "nested/deep.jsx": `import e from "${v2Entry("deep")}";`,
-        "inline-type.ts": `import { type F, g } from "${v2Entry("inline-type")}";`,
-        "after-comment.ts": `import /* a */ h /* b */ from /* c */ "${v2Entry("after-comment")}";`,
+        "double.ts": `import { a } from "${coreEntry("double")}";`,
+        "single.tsx": `import { b } from '${coreEntry("single")}';`,
+        "side-effect.ts": `import "${coreEntry("side-effect")}";`,
+        "dynamic.ts": `const m = () => import(\n  "${coreEntry("dynamic")}"\n);`,
+        "required.js": `const r = require('${coreEntry("required")}');`,
+        "re-export.ts": `export { c } from "${coreEntry("re-export")}";`,
+        "plain.mjs": `import * as d from "${coreEntry("plain")}";`,
+        "nested/deep.jsx": `import e from "${coreEntry("deep")}";`,
+        "inline-type.ts": `import { type F, g } from "${coreEntry("inline-type")}";`,
+        "after-comment.ts": `import /* a */ h /* b */ from /* c */ "${coreEntry("after-comment")}";`,
         // None of these loads anything at runtime, or ships in the package.
         "commented.ts": [
-          `// import { x } from "${v2Entry("line-comment")}";`,
-          `/* import "${v2Entry("block-comment")}"; */`,
-          `const s = "import '${v2Entry("string")}'";`,
+          `// import { x } from "${coreEntry("line-comment")}";`,
+          `/* import "${coreEntry("block-comment")}"; */`,
+          `const s = "import '${coreEntry("string")}'";`,
         ].join("\n"),
         "types-only.ts": [
-          `import type { T } from "${v2Entry("import-type")}";`,
-          `export type { U } from "${v2Entry("export-type")}";`,
-          `import type {\n  V,\n} from "${v2Entry("multiline-type")}";`,
+          `import type { T } from "${coreEntry("import-type")}";`,
+          `export type { U } from "${coreEntry("export-type")}";`,
+          `import type {\n  V,\n} from "${coreEntry("multiline-type")}";`,
         ].join("\n"),
-        "ambient.d.ts": `import { W } from "${v2Entry("declaration")}";`,
-        "__mocks__/mock.tsx": `import { m } from "${v2Entry("mock")}";`,
-        "__tests__/a.test.ts": `import { t } from "${v2Entry("test")}";`,
+        "ambient.d.ts": `import { W } from "${coreEntry("declaration")}";`,
+        "__mocks__/mock.tsx": `import { m } from "${coreEntry("mock")}";`,
+        "__tests__/a.test.ts": `import { t } from "${coreEntry("test")}";`,
         "unrelated.ts": `import { y } from "@copilotkit/react-core-other";`,
       });
       assert.deepEqual(
@@ -909,7 +945,7 @@ describe("contractFor — the generative-ui/native contract", () => {
           "required",
           "side-effect",
           "single",
-        ].map(v2Entry),
+        ].map(coreEntry),
       );
     }));
 
@@ -919,7 +955,7 @@ describe("contractFor — the generative-ui/native contract", () => {
   });
 
   it("fails the same react-dom import under the headless contract too", async () => {
-    // /v2/headless reaches React Native as well, so react-dom is banned there.
+    // /headless reaches React Native as well, so react-dom is banned there.
     const report = await purity(
       "purity-native-react-dom-entry.mjs",
       "headless.mjs",
@@ -930,12 +966,15 @@ describe("contractFor — the generative-ui/native contract", () => {
   it("skips the path and static-block checks when a caller does not ask for them", async () => {
     // assertEntryPurity's defaults: only the package list is checked. The gate
     // always passes all three fields; this keeps the opt-in explicit.
-    const barrel = await assertEntryPurity({
-      entryFile: fixture("purity-native-a2ui-barrel-entry.mjs"),
-      pkgRoot,
-      forbidden: STAND_IN,
+    await withScratch("purity-a2ui-defaults-", async (root) => {
+      writeTree(root, A2UI_BARREL_TREE);
+      const barrel = await assertEntryPurity({
+        entryFile: path.join(root, "entry.mjs"),
+        pkgRoot,
+        forbidden: STAND_IN,
+      });
+      assert.deepEqual(barrel.pathHits, []);
     });
-    assert.deepEqual(barrel.pathHits, []);
     const statics = await assertEntryPurity({
       entryFile: fixture("purity-native-static-block-entry.mjs"),
       pkgRoot,
@@ -945,33 +984,68 @@ describe("contractFor — the generative-ui/native contract", () => {
   });
 
   it("fails a native entry that imports lit", async () => {
-    const report = await purity("purity-native-lit-entry.mjs");
-    const lit = report.hits.find(({ dep }) => dep === "lit");
-    assert.ok(lit, `expected a lit hit, got ${JSON.stringify(report.hits)}`);
-    assert.ok(lit.via.includes("lit"));
-    assert.ok(
-      lit.via.includes("lit-html"),
-      "lit-html is what reads `document`",
-    );
+    // Stub lit packages: react-core does not depend on lit, so the real one
+    // does not resolve from here.
+    await withScratch("purity-lit-", async (root) => {
+      writeTree(root, {
+        "node_modules/lit/package.json": {
+          name: "lit",
+          version: "0.0.0",
+          main: "index.js",
+        },
+        "node_modules/lit/index.js":
+          'export { html as LitElement } from "lit-html";\n',
+        "node_modules/lit-html/package.json": {
+          name: "lit-html",
+          version: "0.0.0",
+          main: "index.js",
+        },
+        "node_modules/lit-html/index.js": "export const html = document;\n",
+        // lit-html reads `document` while its module loads, which throws
+        // under Hermes before any component renders.
+        "entry.mjs":
+          'import { LitElement } from "lit";\n' +
+          "export class Widget extends LitElement {}\n",
+      });
+      const report = await assertEntryPurity({
+        entryFile: path.join(root, "entry.mjs"),
+        pkgRoot,
+        ...contractFor(NATIVE),
+      });
+      const lit = report.hits.find(({ dep }) => dep === "lit");
+      assert.ok(lit, `expected a lit hit, got ${JSON.stringify(report.hits)}`);
+      assert.ok(lit.via.includes("lit"));
+      assert.ok(
+        lit.via.includes("lit-html"),
+        "lit-html is what reads `document`",
+      );
+    });
   });
 
   it("fails a native entry that imports the @a2ui/web_core/v0_9 barrel", async () => {
-    // The surface-manager.ts regression: one model import through the barrel
-    // drags the Lit basic catalog in.
-    const report = await purity("purity-native-a2ui-barrel-entry.mjs");
-    assert.ok(
-      report.pathHits.some((hit) =>
-        hit.includes("@a2ui/web_core/src/v0_9/basic_catalog/"),
-      ),
-      `expected a basic_catalog path hit, got ${JSON.stringify(report.pathHits)}`,
-    );
-    assert.ok(
-      report.pathHits.some((hit) =>
-        hit.includes("@a2ui/web_core/src/universal/"),
-      ),
-      `expected a universal path hit, got ${JSON.stringify(report.pathHits)}`,
-    );
-    assert.ok(report.hits.some(({ dep }) => dep === "lit"));
+    // The surface manager's old regression: one model import through the
+    // barrel drags the Lit basic catalog in.
+    await withScratch("purity-a2ui-barrel-", async (root) => {
+      writeTree(root, A2UI_BARREL_TREE);
+      const report = await assertEntryPurity({
+        entryFile: path.join(root, "entry.mjs"),
+        pkgRoot,
+        ...contractFor(NATIVE),
+      });
+      assert.ok(
+        report.pathHits.some((hit) =>
+          hit.includes("@a2ui/web_core/src/v0_9/basic_catalog/"),
+        ),
+        `expected a basic_catalog path hit, got ${JSON.stringify(report.pathHits)}`,
+      );
+      assert.ok(
+        report.pathHits.some((hit) =>
+          hit.includes("@a2ui/web_core/src/universal/"),
+        ),
+        `expected a universal path hit, got ${JSON.stringify(report.pathHits)}`,
+      );
+      assert.ok(report.hits.some(({ dep }) => dep === "lit"));
+    });
   });
 
   it("fails a native entry whose first-party code has a class static block", async () => {
@@ -1152,8 +1226,8 @@ describe("runGate (the CLI block)", () => {
       const link = path.join(root, "node_modules");
       try {
         fs.symlinkSync(path.join(pkgRoot, "node_modules"), link, "dir");
-        writeTree(path.join(root, "dist", "v2"), files);
-        return await run(path.join(root, "dist", "v2"));
+        writeTree(path.join(root, "dist"), files);
+        return await run(path.join(root, "dist"));
       } finally {
         // Unlink the symlink first (if it was made): never hand a recursive
         // remove a link that points at this package's node_modules.
@@ -1178,8 +1252,8 @@ describe("runGate (the CLI block)", () => {
   const reexport = (name) =>
     `export * from ${JSON.stringify(fixture(name))};\n`;
 
-  const HEADLESS_ADVICE = /belongs in the main \/v2 entry/;
-  const NATIVE_ADVICE = /belongs in the web \/v2\/generative-ui entry/;
+  const HEADLESS_ADVICE = /belongs in the main entry/;
+  const NATIVE_ADVICE = /belongs in the web \/generative-ui entry/;
 
   it("scans both native builds, under the native contract", () => {
     assert.ok(Array.isArray(gate.targets), "targets is exported");
@@ -1237,28 +1311,31 @@ describe("runGate (the CLI block)", () => {
     );
   });
 
-  it("hands the scan forbiddenPaths: the @a2ui/web_core/v0_9 barrel exits 1", async () => {
-    await withDist(
-      {
-        "generative-ui/native.mjs": reexport(
-          "purity-native-a2ui-barrel-entry.mjs",
-        ),
-      },
-      async (dist) => {
-        const { exitCode, output } = await runGate(dist, [
-          "generative-ui/native.mjs",
-        ]);
-        assert.equal(exitCode, 1, output);
-        assert.match(output, /links forbidden modules:/);
-        assert.match(output, /@a2ui\/web_core\/src\/universal\//);
-      },
-    );
-  });
+  it("hands the scan forbiddenPaths: the @a2ui/web_core/v0_9 barrel exits 1", () =>
+    withScratch("purity-a2ui-gate-", async (stub) => {
+      writeTree(stub, A2UI_BARREL_TREE);
+      await withDist(
+        {
+          "generative-ui/native.mjs": `export * from ${JSON.stringify(
+            path.join(stub, "entry.mjs"),
+          )};\n`,
+        },
+        async (dist) => {
+          const { exitCode, output } = await runGate(dist, [
+            "generative-ui/native.mjs",
+          ]);
+          assert.equal(exitCode, 1, output);
+          assert.match(output, /links forbidden modules:/);
+          assert.match(output, /@a2ui\/web_core\/src\/universal\//);
+        },
+      );
+    }));
 
   it("names only the failing entries in the closing advice", async () => {
     await withDist(
       {
-        "headless.mjs": 'import katex from "katex";\nexport const k = katex;\n',
+        "headless.mjs":
+          'import { createPortal } from "react-dom";\nexport const k = createPortal;\n',
         "context.mjs": "export const c = 1;\n",
       },
       async (dist) => {
@@ -1269,10 +1346,10 @@ describe("runGate (the CLI block)", () => {
         assert.equal(exitCode, 1, output);
         assert.match(output, /✓ context\.mjs/);
         const advice = output.slice(output.indexOf("(headless contract)") - 80);
-        assert.match(advice, /\/v2\/headless/);
+        assert.match(advice, /\/headless/);
         assert.doesNotMatch(
           advice,
-          /\/v2\/context/,
+          /\/context/,
           "context.mjs passed, so the advice must not name it",
         );
       },
@@ -1377,15 +1454,15 @@ describe("runGate (the CLI block)", () => {
       name: "a real violation next to an edge the scan cannot follow (headless)",
       target: "headless.mjs",
       files: {
-        "headless.mjs": `import katex from "katex";\nexport const k = katex;\n${OPAQUE_CALL}`,
+        "headless.mjs": `import { createPortal } from "react-dom";\nexport const k = createPortal;\n${OPAQUE_CALL}`,
       },
       exitCode: 1,
       lines: [
         /✗ headless\.mjs has edges this scan cannot follow[^]*import\(name\)/,
-        /✗ headless\.mjs breaks the headless contract[^]*links forbidden packages: katex/,
+        /✗ headless\.mjs breaks the headless contract[^]*links forbidden packages: react-dom/,
       ],
       advice: [
-        CONTRACT_ADVICE("/v2/headless", "headless.mjs"),
+        CONTRACT_ADVICE("/headless", "headless.mjs"),
         SCAN_ADVICE("headless.mjs", false),
       ],
     },
@@ -1404,7 +1481,7 @@ describe("runGate (the CLI block)", () => {
         /has class static blocks, which Metro cannot parse:/,
       ],
       advice: [
-        CONTRACT_ADVICE("/v2/generative-ui/native", "generative-ui/native.mjs"),
+        CONTRACT_ADVICE("/generative-ui/native", "generative-ui/native.mjs"),
         SCAN_ADVICE("generative-ui/native.mjs", false),
       ],
     },
@@ -1414,7 +1491,7 @@ describe("runGate (the CLI block)", () => {
       files: { "context.mjs": 'export { createPortal } from "react-dom";\n' },
       exitCode: 1,
       lines: [/✗ context\.mjs breaks the headless contract/],
-      advice: [CONTRACT_ADVICE("/v2/context", "context.mjs")],
+      advice: [CONTRACT_ADVICE("/context", "context.mjs")],
     },
   ];
 
@@ -1559,7 +1636,7 @@ describe("stale-reference guard for the gate's comments and advice", () => {
     /node_modules\//, // an example of a resolved third-party path
     /^\.\/chunk-abc\.mjs$/, // an example of a split-out chunk's name
   ];
-  /** The gate's own targets, named relative to dist/v2 (build output). */
+  /** The gate's own targets, named relative to dist (build output). */
   const isTarget = (cited) => gate.targets.includes(cited);
   /** The text "isEntrypoint … Duplicated verbatim in <file>" holds only if it is. */
   const isEntrypointSource = (file) => {
@@ -1573,26 +1650,17 @@ describe("stale-reference guard for the gate's comments and advice", () => {
     "packages/react-native/src/__tests__/headless-entry-surface.test.ts": {
       file: "packages/react-native/src/__tests__/headless-entry-surface.test.ts",
       contains: [
-        "@copilotkit/react-core/v2/headless",
-        "@copilotkit/react-core/v2/context",
+        "@copilotkit/react-core/headless",
+        "@copilotkit/react-core/context",
       ],
     },
     "dev-docs/bundle-size.md": {
       file: "dev-docs/bundle-size.md",
       contains: ["OSS-122"],
     },
-    "surface-manager.ts": {
-      // "the DOM-free subpath (what surface-manager.ts uses)" and "used to"
-      // import the /v0_9 barrel — it must not any more.
-      file: "packages/core/src/generative-ui/surface-manager.ts",
-      check: (text) => {
-        assert.ok(text.includes('"@a2ui/web_core/state"'));
-        assert.ok(!text.includes('"@a2ui/web_core/v0_9"'));
-      },
-    },
-    "src/v2/headless.ts": {
-      // "the five banned tokens sit in src/v2/headless.ts's own file banner"
-      file: "packages/react-core/src/v2/headless.ts",
+    "src/headless.ts": {
+      // "the five banned tokens sit in src/headless.ts's own file banner"
+      file: "packages/react-core/src/headless.ts",
       check: (text) => {
         const banner = text.slice(0, text.indexOf("*/"));
         for (const token of REAL_FORBIDDEN) {
@@ -1656,7 +1724,7 @@ describe("stale-reference guard for the gate's comments and advice", () => {
 
   it("finds the citations it is meant to check (guard the guard)", () => {
     assert.ok(citations.has("dev-docs/bundle-size.md"), [...citations.keys()]);
-    assert.ok(citations.has("src/v2/headless.ts"));
+    assert.ok(citations.has("src/headless.ts"));
   });
 
   it("finds every ./sibling a fixture cites next to it", () => {

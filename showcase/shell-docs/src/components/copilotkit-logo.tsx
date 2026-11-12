@@ -1,6 +1,7 @@
 "use client";
 
-import { useId, type SVGProps } from "react";
+import { useId } from "react";
+import type { SVGProps } from "react";
 
 // Official CopilotKit full logotype, from the copilotkit-branding skill
 // (CopilotKit/internal-skills: skills/copilotkit-branding/assets/logo-full.svg).

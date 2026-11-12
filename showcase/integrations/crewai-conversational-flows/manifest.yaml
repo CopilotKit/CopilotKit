@@ -435,4 +435,4 @@ demos:
 # omitted and the cell renders the gray no-data state, never a capability
 # claim that this framework has no starter.
 starter_validation:
-  path: examples/integrations/crewai-flows
+  path: examples/starters/crewai-flows

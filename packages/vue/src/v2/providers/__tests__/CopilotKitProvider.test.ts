@@ -5,11 +5,12 @@ import {
   createSSRApp,
   defineComponent,
   h,
+  inject,
   nextTick,
   ref,
   watchEffect,
 } from "vue";
-import type { VNode } from "vue";
+import type { ComputedRef, VNode } from "vue";
 import { renderToString } from "vue/server-renderer";
 import type {
   CopilotKitCoreSubscriber,
@@ -23,6 +24,7 @@ import { defineWebInspector } from "@copilotkit/web-inspector";
 import { z } from "zod";
 import CopilotKitProvider from "../CopilotKitProvider.vue";
 import { useCopilotKit } from "../useCopilotKit";
+import { InspectorKey } from "../keys";
 import type { VueFrontendTool } from "../../types";
 import type { VueHumanInTheLoop } from "../../types";
 import { mountWithProvider } from "../../__tests__/utils/mount";
@@ -247,35 +249,6 @@ describe("CopilotKitProvider", () => {
         source: "self-managed",
       });
     });
-
-    it("exposes a2ui theme through provider context", () => {
-      const Child = defineComponent({
-        setup() {
-          const { a2uiTheme } = useCopilotKit();
-          return () =>
-            h(
-              "span",
-              { "data-testid": "a2ui-theme" },
-              String(
-                (a2uiTheme.value as { mode?: string } | undefined)?.mode ??
-                  "missing",
-              ),
-            );
-        },
-      });
-
-      const wrapper = mount(CopilotKitProvider, {
-        props: {
-          runtimeUrl: "/api/copilotkit",
-          a2ui: {
-            theme: { mode: "storybook" },
-          },
-        },
-        slots: { default: () => h(Child) },
-      });
-
-      expect(wrapper.find("[data-testid=a2ui-theme]").text()).toBe("storybook");
-    });
   });
 
   describe("frontendTools prop", () => {
@@ -320,7 +293,7 @@ describe("CopilotKitProvider", () => {
       expect(renderTool?.render).toStrictEqual(TestComponent);
     });
 
-    it("does not scope frontendTools-derived render entries by agentId", () => {
+    it("scopes frontendTools-derived render entries by agentId, like useFrontendTool", () => {
       const TestComponent = defineComponent({
         setup() {
           return () => h("div", "Test");
@@ -342,7 +315,7 @@ describe("CopilotKitProvider", () => {
       );
 
       expect(renderTool).toBeDefined();
-      expect(renderTool?.agentId).toBeUndefined();
+      expect(renderTool?.agentId).toBe("specific-agent");
     });
   });
 
@@ -407,6 +380,39 @@ describe("CopilotKitProvider", () => {
       );
       expect(renderTool).toBeDefined();
       expect(typeof renderTool?.render).toBe("function");
+    });
+
+    it("keeps the wrapped render and the tools when only renderToolCalls changes", async () => {
+      // A new wrapper is a new component type, so Vue would remount the card
+      // and lose its state.
+      const humanInTheLoop: VueHumanInTheLoop[] = [
+        {
+          name: "approvalTool",
+          parameters: z.object({}),
+          render: HitlComponent,
+        },
+      ];
+      const weather = () => [
+        { name: "weather", args: z.any(), render: HitlComponent },
+      ];
+      const { wrapper, getCore } = mountWithProvider(() => h("div"), {
+        humanInTheLoop,
+        renderToolCalls: weather(),
+      });
+      const approveRender = () =>
+        getCore().renderToolCalls.find((rc) => rc.name === "approvalTool")
+          ?.render;
+      const before = approveRender();
+      const setTools = vi.spyOn(getCore(), "setTools");
+
+      await wrapper.setProps({ renderToolCalls: weather() });
+      await flush();
+
+      expect(getCore().renderToolCalls.map((rc) => rc.name)).toContain(
+        "weather",
+      );
+      expect(approveRender()).toBe(before);
+      expect(setTools).not.toHaveBeenCalled();
     });
 
     it("keeps the tool call pending until respond is called", async () => {
@@ -810,6 +816,23 @@ describe("CopilotKitProvider", () => {
     });
   });
 
+  describe("Unmount", () => {
+    it("disposes the core it created, so subscribers stop hearing from it", () => {
+      const { getCore, wrapper } = mountWithProvider(() => h("div"));
+      const core = getCore();
+      const onPropertiesChanged = vi.fn();
+      core.subscribe({ onPropertiesChanged });
+
+      core.setProperties({ before: "unmount" });
+      expect(onPropertiesChanged).toHaveBeenCalledTimes(1);
+
+      wrapper.unmount();
+      core.setProperties({ after: "unmount" });
+
+      expect(onPropertiesChanged).toHaveBeenCalledTimes(1);
+    });
+  });
+
   describe("inspector visibility", () => {
     async function settleInspectorLoad(): Promise<void> {
       await vi.dynamicImportSettled();
@@ -821,7 +844,7 @@ describe("CopilotKitProvider", () => {
       vi.stubEnv("NODE_ENV", "development");
     });
 
-    it("renders by default on any development host and passes the provider core before connection", async () => {
+    it("renders by default on a loopback development host and passes the provider core before connection", async () => {
       let providerCore: CopilotKitCoreContextValue | null = null;
       const Probe = defineComponent({
         setup() {
@@ -855,6 +878,47 @@ describe("CopilotKitProvider", () => {
       view.unmount();
     });
 
+    it("never renders or loads on a remote development host, even when explicitly enabled", async () => {
+      vi.stubGlobal("location", new URL("http://192.168.1.25:3000"));
+      const view = render(CopilotKitProvider, {
+        props: { runtimeUrl: "/api/copilotkit", enableInspector: true },
+        slots: { default: "child" },
+      });
+
+      await settleInspectorLoad();
+      expect(view.container.querySelector("cpk-web-inspector")).toBeNull();
+      expect(defineWebInspector).not.toHaveBeenCalled();
+      view.unmount();
+    });
+
+    it("enables Inspector message actions only while the Inspector is shown", async () => {
+      let isInspectorEnabled: ComputedRef<boolean> | undefined;
+      const Probe = defineComponent({
+        setup() {
+          isInspectorEnabled = inject(InspectorKey)?.isInspectorEnabled;
+          return () => null;
+        },
+      });
+      const view = render(CopilotKitProvider, {
+        props: { runtimeUrl: "/api/copilotkit" },
+        slots: { default: Probe },
+      });
+
+      await waitFor(() => {
+        expect(isInspectorEnabled?.value).toBe(true);
+      });
+      const inspector = view.container.querySelector("cpk-web-inspector")!;
+      inspector.dispatchEvent(
+        new CustomEvent("cpk-inspector-visibility-change", {
+          detail: { visible: false },
+        }),
+      );
+      await nextTick();
+      expect(isInspectorEnabled?.value).toBe(false);
+      expect(inspector.isConnected).toBe(true);
+      view.unmount();
+    });
+
     it("does not render or load when explicitly disabled in development", async () => {
       const view = render(CopilotKitProvider, {
         props: {
@@ -876,39 +940,6 @@ describe("CopilotKitProvider", () => {
         props: {
           runtimeUrl: "/api/copilotkit",
           enableInspector: true,
-        },
-        slots: { default: "child" },
-      });
-
-      await settleInspectorLoad();
-      expect(view.container.querySelector("cpk-web-inspector")).toBeNull();
-      expect(defineWebInspector).not.toHaveBeenCalled();
-      view.unmount();
-    });
-
-    it("does not let legacy showDevConsole disable the development Inspector", async () => {
-      const view = render(CopilotKitProvider, {
-        props: {
-          runtimeUrl: "/api/copilotkit",
-          showDevConsole: false,
-        },
-        slots: { default: "child" },
-      });
-
-      await waitFor(() => {
-        expect(
-          view.container.querySelector("cpk-web-inspector"),
-        ).not.toBeNull();
-      });
-      view.unmount();
-    });
-
-    it("does not let legacy showDevConsole enable the production Inspector", async () => {
-      vi.stubEnv("NODE_ENV", "production");
-      const view = render(CopilotKitProvider, {
-        props: {
-          runtimeUrl: "/api/copilotkit",
-          showDevConsole: "auto",
         },
         slots: { default: "child" },
       });

@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { DataModel } from "@a2ui/web_core/state";
+import { DataModel } from "../surface-model";
 import type {
   A2UIOperation,
   GenerativeUISurfaceContent,

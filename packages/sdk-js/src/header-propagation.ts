@@ -7,13 +7,13 @@
  *
  * @copilotkit/sdk-js — getForwardedHeaders:
  *   No 1:1 v2 replacement is available.
- *   Start at: @copilotkit/runtime/v2
+ *   Start at: @copilotkit/runtime
  *   V2 docs: https://docs.copilotkit.ai/
  *   V2 reference docs: https://docs.copilotkit.ai/reference/v2
  *
  * @copilotkit/sdk-js — withForwardedHeaders:
  *   No 1:1 v2 replacement is available.
- *   Start at: @copilotkit/runtime/v2
+ *   Start at: @copilotkit/runtime
  *   V2 docs: https://docs.copilotkit.ai/
  *   V2 reference docs: https://docs.copilotkit.ai/reference/v2
  *

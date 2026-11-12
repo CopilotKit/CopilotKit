@@ -84,15 +84,26 @@ Both methods start the agent, but they work at different levels:
 
 `copilotkit.runTool()` runs a registered frontend tool directly. The handler runs, the tool's `render` shows in the chat, and both the tool call and its result are added to `agent.messages`. No LLM turn happens unless you ask for one.
 
-```tsx
-const { copilotkit } = useCopilotKit();
+```tsx title="src/ShowOpenTasks.tsx"
+import { Button } from "react-native";
+import { useCopilotKit } from "@copilotkit/react-native/headless";
 
-const { result, error } = await copilotkit.runTool({
-  name: "filter_tasks",
-  parameters: { status: "open" },
-  // false (default): no follow-up. "generate": the agent responds to the result.
-  followUp: false,
-});
+export function ShowOpenTasks() {
+  const { copilotkit } = useCopilotKit();
+
+  const showOpen = async () => {
+    const { result, error } = await copilotkit.runTool({ // [!code highlight:6]
+      name: "filter_tasks",
+      parameters: { status: "open" },
+      // false (default): no follow-up. "generate": the agent responds to the result.
+      followUp: false,
+    });
+    if (error) console.error("filter_tasks failed:", error);
+    else console.log("filter_tasks result:", result);
+  };
+
+  return <Button title="Show open tasks" onPress={showOpen} />;
+}
 ```
 
 The tool must be registered with `useFrontendTool` somewhere under the provider. See [Frontend Tools](/frontend-tools).
@@ -103,17 +114,26 @@ The tool must be registered with `useFrontendTool` somewhere under the provider.
 
 Subscribe in an effect and unsubscribe in its cleanup:
 
-```tsx
-import { useEffect } from "react";
+```tsx title="src/RunStatus.tsx"
+import { useEffect, useState } from "react";
+import { Text } from "react-native";
+import { useAgent } from "@copilotkit/react-native/headless";
 
-useEffect(() => {
-  const { unsubscribe } = agent.subscribe({
-    onRunStartedEvent: () => setStatus("working"),
-    onRunFinalized: () => setStatus("done"),
-    onRunFailed: () => setStatus("failed"),
-  });
-  return unsubscribe;
-}, [agent]);
+export function RunStatus({ agentId }: { agentId: string }) {
+  const { agent } = useAgent({ agentId });
+  const [status, setStatus] = useState("idle");
+
+  useEffect(() => { // [!code highlight:8]
+    const { unsubscribe } = agent.subscribe({
+      onRunStartedEvent: () => setStatus("working"),
+      onRunFinalized: () => setStatus("done"),
+      onRunFailed: () => setStatus("failed"),
+    });
+    return unsubscribe;
+  }, [agent]);
+
+  return <Text>Agent status: {status}</Text>;
+}
 ```
 
 `useAgent` can swap in a new `agent` object once the runtime connects, so keep `agent` in the effect's dependencies.

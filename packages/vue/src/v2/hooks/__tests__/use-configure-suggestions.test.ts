@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { defineComponent, h, nextTick, reactive, ref } from "vue";
+import { flushPromises } from "@vue/test-utils";
 import type {
   AbstractAgent,
   AgentSubscriber,
@@ -12,7 +13,10 @@ import type { Observable } from "rxjs";
 import { useConfigureSuggestions } from "../use-configure-suggestions";
 import { useSuggestions } from "../use-suggestions";
 import { useCopilotKit } from "../../providers/useCopilotKit";
-import { mountWithProvider } from "../../__tests__/utils/mount";
+import {
+  mountWithProvider,
+  renderWithCopilotKit,
+} from "../../__tests__/utils/mount";
 import {
   StateCapturingAgent,
   SuggestionsProviderAgent,
@@ -265,13 +269,13 @@ describe("useConfigureSuggestions", () => {
       },
     });
 
-    await nextTick();
-    await nextTick();
+    // The reload runs the provider agent, so wait for its promises to settle
+    // rather than for a fixed number of ticks.
+    await flushPromises();
     expect(wrapper.find("[data-testid=json]").text()).toContain("Version 0");
 
     await wrapper.find("[data-testid=bump]").trigger("click");
-    await nextTick();
-    await nextTick();
+    await flushPromises();
 
     expect(wrapper.find("[data-testid=json]").text()).toContain("Version 1");
   });
@@ -395,5 +399,31 @@ describe("useConfigureSuggestions", () => {
     await nextTick();
 
     expect(wrapper.find("[data-testid=json]").text()).toContain("Deferred");
+  });
+
+  it("loads a global static config for the chat's agent before any agent registers", async () => {
+    const Harness = defineComponent({
+      setup() {
+        useConfigureSuggestions({
+          suggestions: [{ title: "Welcome", message: "Say hi" }],
+          available: "always",
+        });
+        const { suggestions } = useSuggestions({ agentId: "support" });
+        return () =>
+          h(
+            "span",
+            { "data-testid": "titles" },
+            suggestions.value.map((suggestion) => suggestion.title).join(","),
+          );
+      },
+    });
+
+    const { wrapper } = renderWithCopilotKit(() => h(Harness), {
+      agentId: "support",
+      agents: {},
+    });
+    await nextTick();
+
+    expect(wrapper.find("[data-testid=titles]").text()).toBe("Welcome");
   });
 });

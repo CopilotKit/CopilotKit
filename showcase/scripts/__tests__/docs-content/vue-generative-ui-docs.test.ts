@@ -12,7 +12,7 @@ const CONTENT = "showcase/shell-docs/src/content";
 const REFERENCE = `${CONTENT}/reference/vue`;
 const VUE_GENUI = "packages/vue/src/v2/generative-ui";
 const README = "packages/vue/README.md";
-const DEMO = "examples/v2/vue/demo";
+const DEMO = "examples/dev/by-frontend/vue/demo";
 
 function read(file: string): string {
   return fs.readFileSync(path.join(REPO_ROOT, file), "utf8");

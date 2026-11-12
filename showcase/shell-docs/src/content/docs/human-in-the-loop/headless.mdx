@@ -111,6 +111,8 @@ interrupt element directly so you can place it anywhere in your tree. This
 panel starts the run itself and shows the slot buttons while the agent waits:
 
 ```tsx
+import { useAgent, useCopilotKit, useInterrupt } from "@copilotkit/react-core";
+
 const SLOTS = [
   { iso: "2026-11-03T15:00:00Z", label: "Tue 3 PM" },
   { iso: "2026-11-04T10:00:00Z", label: "Wed 10 AM" },
@@ -195,7 +197,14 @@ A few things the hand-rolled variant is careful about:
 The same panel, built on the `useHeadlessInterrupt` hook from the snippet:
 
 ```tsx
-// SLOTS is the list from the previous sample.
+import { useAgent, useCopilotKit } from "@copilotkit/react-core";
+import { useHeadlessInterrupt } from "./use-headless-interrupt";
+
+const SLOTS = [
+  { iso: "2026-11-03T15:00:00Z", label: "Tue 3 PM" },
+  { iso: "2026-11-04T10:00:00Z", label: "Wed 10 AM" },
+];
+
 function HeadlessInterruptPanelRaw() {
   const { copilotkit } = useCopilotKit();
   const { agent } = useAgent({ agentId: "interrupt-headless" });

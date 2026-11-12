@@ -48,7 +48,7 @@ An empty case selection is an error.
 | `telemetryDisabled`   | Explicit analytics opt-out                                     |
 | `telemetryId`         | Header-only analytics identity                                 |
 | `licenseToken`        | Legacy token with an analytics identity claim                  |
-| `a2ui`                | A2UI configuration for the selected case                       |
+| `generativeUI`        | Generative UI and A2UI version configuration for the case      |
 | `mcpApps`             | MCP server configuration for the selected case                 |
 
 Each driver configures agent `default` and a trusted identity callback.
@@ -58,7 +58,7 @@ The driver mounts the library without reimplementing routes, middleware, telemet
 
 ## Coverage
 
-The suite has 132 cases. These include 17 initial cases, 31 UI cases, and 18 additional analytics cases.
+The suite has 148 cases. These include 17 initial cases, 47 UI cases, and 18 additional analytics cases.
 Fourteen runner cases, 18 access cases, and five frontend-client cases cover the remaining requirements.
 Six Inspector metadata cases cover discovery, independent module validation, action URLs, private responses, server credentials, and the five-second deadline.
 Twenty-three entitlement cases cover current and legacy responses, schema validation, safe errors, server credentials, concurrent requests, and request deadlines.
@@ -66,6 +66,14 @@ Separate deadline cases delay response headers and response bodies. Both must pr
 They also verify cache expiry for active grants, inactive grants, and lookup failures through public `/info` requests.
 The active-grant case waits 31 seconds before a failed refresh, then verifies recovery after the five-second failure cache expires.
 The UI cases cover A2UI validation, progressive data, action history, MCP calls, and iframe request boundaries.
+When the A2UI recovery of a v0.9 agent gives up, the browser gets one `generative-ui-surface` with status "error", no operations, and the error as its one rejected entry.
+The generative UI cases select the A2UI version of each agent with `generativeUI.a2uiVersion`.
+An A2UI 1.0 agent gets `render_ui`. An A2UI v0.9 agent gets `render_a2ui` and a v0.9 component schema of the client's catalog.
+The browser receives only A2UI 1.0 `generative-ui-surface` events. The runtime converts v0.9 operations, also from a tool result of a 1.0 agent.
+Native A2UI 1.0 operations on the same path (for example from ADK) pass through. The 1.0 basic catalog becomes the standard catalog, and the surface has no `a2uiSourceVersion`.
+A click on a converted surface reaches a v0.9 agent once. The TypeScript driver announces `expectedA2uiActionHistory: "private-user-json"`: its agent gets one private `A2UI user action:` user message. The other drivers give a `log_a2ui_event` tool call and result.
+A click on a native 1.0 surface reaches the agent unchanged. The stored thread keeps the click message.
+`/info` reports `generativeUI` and does not report `a2uiEnabled` or `a2ui`.
 Analytics cases cover canonical events, timestamps, sampling, identity, privacy, and opt-out.
 Seven cases cover legacy license identity, environment fallback, whitespace rules, standalone identity precedence, malformed tokens, and opt-out precedence.
 Runner cases cover batches, draining joins, planned restarts, final acknowledgments, and stop boundaries.
@@ -92,7 +100,7 @@ The native commands require Python, Go, Ruby, and .NET. The five-language CI wor
 ## Source references
 
 The initial reference is TypeScript commit `862ff3c180`.
-Browser route contracts live in `packages/runtime/src/v2/runtime/core/fetch-router.ts` and `handlers/intelligence/`.
+Browser route contracts live in `packages/runtime/src/runtime/core/fetch-router.ts` and `handlers/intelligence/`.
 Platform requests live in `intelligence-platform/client.ts`.
 Phoenix delivery lives in `runner/intelligence.ts`.
 Analytics contracts live in `telemetry/` and `packages/shared/src/telemetry/lambda-client.ts`.
@@ -101,7 +109,7 @@ The fixture makes one deliberate security requirement stronger than a route stub
 all runtimes must verify app-user ownership before exposing thread inspection data.
 Account display metadata remains public and uses server credentials with private no-store responses.
 Its source contract is `packages/shared/src/utils/inspector-metadata.ts` and the TypeScript SDK's `getInspectorMetadata` method.
-The public route follows `packages/runtime/src/v2/runtime/handlers/handle-inspector-metadata.ts`.
+The public route follows `packages/runtime/src/runtime/handlers/handle-inspector-metadata.ts`.
 The suite also requires trusted MCP HTTP headers, explicit session deletion, and blocked-method rejection before a connection.
 These MCP requirements improve the pinned TypeScript middleware and must apply to TypeScript too.
 Future case changes must cite their reference behavior or explain an intentional correction.

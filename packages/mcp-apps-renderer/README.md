@@ -31,11 +31,10 @@ This package also ships a UMD build of the bridge-free `/activity` entry:
 `@copilotkit/mcp-apps-renderer/activity` to register the built-in MCP Apps
 activity). **Script-tag consumers of react-core's UMD must therefore load
 `activity.umd.js` before `@copilotkit/react-core`'s UMD bundle**, alongside the
-other UMD globals it depends on (React, `CopilotKitCore`,
-`CopilotKitA2UIRenderer`, …):
+other UMD globals it depends on (React, `CopilotKitCore`, …):
 
 ```html
-<!-- ...React, @copilotkit/core, @copilotkit/a2ui-renderer, etc. first... -->
+<!-- ...React, @copilotkit/core, etc. first... -->
 <script src="https://unpkg.com/@copilotkit/mcp-apps-renderer/dist/activity.umd.js"></script>
 <script src="https://unpkg.com/@copilotkit/react-core/dist/index.umd.js"></script>
 ```

@@ -18,7 +18,7 @@
  * THE POINT OF THIS FILE IS NON-CIRCULARITY. Every expectation below is
  * derived from a source the mapping does not control:
  *
- *   - `examples/integrations/` — the starter directories on disk.
+ *   - `examples/starters/` — the starter directories on disk.
  *   - `.github/workflows/test_smoke-starter.yml` — the CI smoke matrix.
  *   - `showcase/tests/e2e/starter-smoke.spec.ts` — the Playwright matrix.
  *   - `showcase/integrations/` — the dashboard column directories.
@@ -54,8 +54,8 @@ const STARTER_SPEC_FILE = resolve(
 );
 /** Dashboard columns = the `showcase/integrations/<slug>` manifest dirs. */
 const COLUMNS_DIR = resolve(SHOWCASE_DIR, "integrations");
-/** Starters = the `examples/integrations/<slug>` template dirs. */
-const STARTERS_DIR = resolve(REPO_ROOT, "examples/integrations");
+/** Starters = the `examples/starters/<slug>` template dirs. */
+const STARTERS_DIR = resolve(REPO_ROOT, "examples/starters");
 const SMOKE_WORKFLOW_FILE = resolve(
   REPO_ROOT,
   ".github/workflows/test_smoke-starter.yml",
@@ -72,7 +72,7 @@ const DOCS_INTEGRATIONS_DIR = resolve(
 );
 
 /**
- * Directories under `examples/integrations/` that are NOT starter templates —
+ * Directories under `examples/starters/` that are NOT starter templates —
  * shared parity fixtures and standalone demos with no dashboard column. Kept
  * tiny and explicit: a name only belongs here if it is not a starter at all,
  * never to silence a mapping gap.
@@ -188,7 +188,7 @@ describe("starter-mapping-drift", () => {
     // THE anti-rot assertion. `starterSupport(col) === "unsupported"` is the
     // ONLY input to the 🚫 branch of `buildStarterBadge`, and 🚫 is an
     // outward-facing capability claim about a partner framework. Expectation is
-    // derived from `examples/integrations/` — the mapping cannot satisfy this
+    // derived from `examples/starters/` — the mapping cannot satisfy this
     // by describing itself.
     //
     // Identity is a SOUND (not complete) starter↔column test: it cannot detect
@@ -204,7 +204,7 @@ describe("starter-mapping-drift", () => {
     expect(
       falseClaims,
       `these dashboard columns render 🚫 "Not supported by this framework" but ` +
-        `examples/integrations/<slug> EXISTS for them: ${JSON.stringify(falseClaims)} — ` +
+        `examples/starters/<slug> EXISTS for them: ${JSON.stringify(falseClaims)} — ` +
         `the framework IS supported and a starter ships for it. Add each to ` +
         `STARTER_COLUMNS_UNPROBED (live-status.ts) if nothing probes it, or to ` +
         `STARTER_TO_COLUMN + STARTER_COLUMNS if the fleet does.`,
@@ -216,7 +216,7 @@ describe("starter-mapping-drift", () => {
     // tooltip is itself a factual claim, so it may not be handed to a column
     // with no starter directory.
     const starters = new Set(readStarterDirs());
-    // A column qualifies EITHER by identity (`examples/integrations/<col>`) or
+    // A column qualifies EITHER by identity (`examples/starters/<col>`) or
     // via a declared name-drift entry whose KEY is a real starter directory —
     // `crewai-conversational-flows`'s starter is named `crewai-flows`. The
     // drift entry is not self-certifying: its key is checked against the
@@ -234,7 +234,7 @@ describe("starter-mapping-drift", () => {
     expect(
       phantom,
       `STARTER_COLUMNS_UNPROBED claims "starter exists in-repo" for columns ` +
-        `with no examples/integrations/<slug> directory: ${JSON.stringify(phantom)}.`,
+        `with no examples/starters/<slug> directory: ${JSON.stringify(phantom)}.`,
     ).toEqual([]);
   });
 
@@ -321,13 +321,13 @@ describe("starter-mapping-drift", () => {
     ).toEqual([]);
   });
 
-  it("every mapped starter slug is a real examples/integrations directory", () => {
+  it("every mapped starter slug is a real examples/starters directory", () => {
     const orphans = Object.keys(STARTER_TO_COLUMN).filter(
       (slug) => !existsSync(resolve(STARTERS_DIR, slug)),
     );
     expect(
       orphans,
-      `STARTER_TO_COLUMN keys with no examples/integrations/<slug> directory: ` +
+      `STARTER_TO_COLUMN keys with no examples/starters/<slug> directory: ` +
         `${JSON.stringify(orphans)} — the starter was renamed or removed.`,
     ).toEqual([]);
   });
@@ -370,7 +370,7 @@ describe("starter-mapping-drift", () => {
     //   - `showcase/shell-docs/.../integrations/<dir>/quickstart.mdx` — the
     //     docs page, whose DIRECTORY is named for the starter template.
     // When both advertise the same `--framework <flag>` and
-    // `examples/integrations/<dir>` exists, the column and the starter scaffold
+    // `examples/starters/<dir>` exists, the column and the starter scaffold
     // ONE template, so the column demonstrably has a starter and the 🚫
     // "Not supported by this framework" capability claim is false.
     //
@@ -419,7 +419,7 @@ describe("starter-mapping-drift", () => {
       falseClaims,
       `these dashboard columns render 🚫 "Not supported by this framework" but ` +
         `advertise the SAME \`npx copilotkit init --framework\` command as a real ` +
-        `starter under examples/integrations/: ${JSON.stringify(falseClaims)} — ` +
+        `starter under examples/starters/: ${JSON.stringify(falseClaims)} — ` +
         `they are the same integration under two names. Declare the pairing in ` +
         `UNPROBED_STARTER_TO_COLUMN (starter-mapping.ts) + STARTER_COLUMNS_UNPROBED ` +
         `(live-status.ts), or in STARTER_TO_COLUMN + STARTER_COLUMNS if the fleet ` +
@@ -459,7 +459,7 @@ describe("starter-mapping-drift", () => {
     expect(
       stale,
       `NON_STARTER_EXAMPLE_DIRS names that no longer exist under ` +
-        `examples/integrations/: ${JSON.stringify(stale)}.`,
+        `examples/starters/: ${JSON.stringify(stale)}.`,
     ).toEqual([]);
   });
 });

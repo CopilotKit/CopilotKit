@@ -42,6 +42,11 @@
     "test:watch": {
       "cache": false
     },
+    "test:mutation": {
+      "dependsOn": ["^build"],
+      "cache": false,
+      "parallelism": false
+    },
     "test:coverage": {
       "inputs": ["test"],
       "outputs": ["{projectRoot}/coverage/**"],
@@ -49,15 +54,6 @@
     },
     "check-types": {
       "dependsOn": ["^build", "^check-types"],
-      "cache": true
-    },
-    "generate-graphql-schema": {
-      "dependsOn": ["^build"],
-      "outputs": ["{projectRoot}/__snapshots__/**"],
-      "cache": true
-    },
-    "graphql-codegen": {
-      "dependsOn": ["^build"],
       "cache": true
     },
     "link:global": {

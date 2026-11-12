@@ -107,21 +107,18 @@ const OUTER = {
 const OMITTED = { type: "object", oneOf: [BRANCH_A, BRANCH_B] };
 
 const LEGAL: [string, unknown][] = [
-  [
-    "{path, service}",
-    { path: "examples/integrations/x", service: "starter-x" },
-  ],
-  ["{path}", { path: "examples/integrations/x" }],
+  ["{path, service}", { path: "examples/starters/x", service: "starter-x" }],
+  ["{path}", { path: "examples/starters/x" }],
   ["{supported:false, reason}", { supported: false, reason: "no starter" }],
 ];
 const ILLEGAL: [string, unknown][] = [
   [
     "{supported:false, reason, path} — a not-supported claim carrying a path",
-    { supported: false, reason: "r", path: "examples/integrations/x" },
+    { supported: false, reason: "r", path: "examples/starters/x" },
   ],
   [
     "{path, srvice} — a misspelled service key",
-    { path: "examples/integrations/x", srvice: "starter-x" },
+    { path: "examples/starters/x", srvice: "starter-x" },
   ],
   ["{reason} — no supported discriminator", { reason: "r" }],
   ["{} — empty", {}],
@@ -181,12 +178,12 @@ describe("starter_validation schema", () => {
       acceptCount(OMITTED, {
         supported: false,
         reason: "r",
-        path: "examples/integrations/x",
+        path: "examples/starters/x",
       }),
     ).toBe(N);
     expect(
       acceptCount(OMITTED, {
-        path: "examples/integrations/x",
+        path: "examples/starters/x",
         srvice: "starter-x",
       }),
     ).toBe(N);

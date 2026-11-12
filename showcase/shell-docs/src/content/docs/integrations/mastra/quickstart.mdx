@@ -26,7 +26,7 @@ Use this prompt to connect your Mastra agent to CopilotKit and verify a working 
 Before you begin, you'll need the following:
 
 - An OpenAI API key, or an Anthropic API key if you run the agent on Claude
-- Node.js 20+
+- Node.js 20.19.3+ or 22.13+
 - Your favorite package manager
 
 ## Getting started
@@ -172,7 +172,7 @@ Before you begin, you'll need the following:
 
                 <Callout type="warn" title="The record key is the agent's name, not its `id`">
                   Mastra names each agent by the key you register it under, here `myAgent`. The
-                  runtime and the provider's `agent` prop use that key. The `name` and the `id` are
+                  runtime and the provider's `agentId` prop use that key. The `name` and the `id` are
                   not used for routing.
                 </Callout>
 
@@ -247,7 +247,7 @@ Before you begin, you'll need the following:
                 ### Install CopilotKit packages
 
                 ```npm
-                npm install @copilotkit/react-ui @copilotkit/react-core @copilotkit/runtime @ag-ui/mastra @ag-ui/core@1.0.2 @ag-ui/client@1.0.2 @mastra/client-js
+                npm install @copilotkit/react-core @copilotkit/runtime @ag-ui/mastra @ag-ui/core@1.0.4 @ag-ui/client@1.0.4 @mastra/client-js
                 ```
             </Step>
             <Step>
@@ -263,7 +263,7 @@ Before you begin, you'll need the following:
                   CopilotKitIntelligence,
                   CopilotRuntime,
                   createCopilotRuntimeHandler,
-                } from "@copilotkit/runtime/v2";
+                } from "@copilotkit/runtime";
                 import { MastraAgent } from "@ag-ui/mastra";
                 import { MastraClient } from "@mastra/client-js";
 
@@ -346,13 +346,13 @@ Before you begin, you'll need the following:
                 ```tsx title="app/providers.tsx"
                 "use client";
 
-                import { CopilotKit } from "@copilotkit/react-core/v2";
+                import { CopilotKitProvider } from "@copilotkit/react-core";
 
                 export function Providers({ children }: { children: React.ReactNode }) {
                   return (
-                    <CopilotKit runtimeUrl="/api/copilotkit" agent="myAgent" useSingleEndpoint={false}>
+                    <CopilotKitProvider runtimeUrl="/api/copilotkit" agentId="myAgent" useSingleEndpoint={false}>
                       {children}
-                    </CopilotKit>
+                    </CopilotKitProvider>
                   );
                 }
                 ```
@@ -361,7 +361,6 @@ Before you begin, you'll need the following:
 
                 ```tsx title="app/layout.tsx"
                 import { Providers } from "./providers"; // [!code highlight]
-                import "@copilotkit/react-core/v2/styles.css";
                 import './globals.css';
 
                 // ...
@@ -392,7 +391,7 @@ Before you begin, you'll need the following:
               ```tsx title="app/page.tsx"
               "use client"; // [!code highlight]
 
-              import { CopilotSidebar } from "@copilotkit/react-core/v2"; // [!code highlight:1]
+              import { CopilotSidebar } from "@copilotkit/react-core"; // [!code highlight:1]
 
               export default function Page() {
                 return (

@@ -596,4 +596,4 @@ demos:
 starter_validation:
   supported: false
   reason: >-
-    Spring AI has no starter template in examples/integrations and is not in the starter-smoke matrix.
+    Spring AI has no starter template in examples/starters and is not in the starter-smoke matrix.

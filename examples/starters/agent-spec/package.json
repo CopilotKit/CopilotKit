@@ -1,0 +1,55 @@
+{
+  "name": "agent-spec-starter",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "concurrently \"npm run dev:ui\" \"npm run dev:agent\" --names ui,agentspecagent --prefix-colors blue,green --kill-others",
+    "dev:debug": "LOG_LEVEL=debug npm run dev",
+    "dev:agent": "./scripts/run-agent.sh",
+    "dev:ui": "next dev --turbopack",
+    "build": "next build",
+    "start": "next start",
+    "install:agent": "./scripts/setup-agent.sh",
+    "postinstall": "npm run install:agent"
+  },
+  "dependencies": {
+    "@ag-ui/client": "1.0.4",
+    "@ag-ui/core": "1.0.4",
+    "@ag-ui/encoder": "1.0.4",
+    "@ag-ui/proto": "1.0.4",
+    "@copilotkit/react-core": "2.0.0-rc.44",
+    "@copilotkit/runtime": "2.0.0-rc.44",
+    "lucide-react": "^0.577.0",
+    "next": "16.3.8",
+    "react": "^19.2.3",
+    "react-dom": "^19.2.3",
+    "react-is": "^19.2.4",
+    "zod": "^4.2.0"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4.1.13",
+    "@types/node": "^22.15.3",
+    "@types/react": "19.2.3",
+    "@types/react-dom": "19.2.3",
+    "concurrently": "^9.2.1",
+    "postcss": "^8.4.49",
+    "tailwindcss": "^4.1.13",
+    "typescript": "5.9.2"
+  },
+  "resolutions": {},
+  "overrides": {
+    "@ag-ui/client": "1.0.4",
+    "@ag-ui/core": "1.0.4",
+    "@ag-ui/encoder": "1.0.4",
+    "@ag-ui/proto": "1.0.4"
+  },
+  "pnpm": {
+    "overrides": {
+      "@ag-ui/client": "1.0.4",
+      "@ag-ui/core": "1.0.4",
+      "@ag-ui/encoder": "1.0.4",
+      "@ag-ui/proto": "1.0.4"
+    }
+  }
+}

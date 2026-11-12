@@ -28,18 +28,21 @@ import {
 import { CopilotChatUserMessageToolbar } from "./copilot-chat-user-message-toolbar";
 import { CopilotChatUserMessageBranchNavigation } from "./copilot-chat-user-message-branch-navigation";
 import { cn } from "../../utils";
+import { hostStyles } from "../host-styles";
 import { UserMessage } from "@ag-ui/core";
 import { CopilotChatAttachmentRenderer } from "./copilot-chat-attachment-renderer";
 import {
-  flattenUserMessageContent,
-  getUserMessageMediaFilename,
-  getUserMessageMediaParts,
-  type UserMessageMediaPart,
-} from "./copilot-chat-user-message-utils";
+  ɵflattenUserMessageContent,
+  ɵgetBranchNavState,
+  ɵgetUserMessageMediaFilename,
+  ɵgetUserMessageMediaParts,
+} from "@copilotkit/core";
+import type { ɵUserMessageMediaPart } from "@copilotkit/core";
 
 @Component({
   selector: "copilot-chat-user-message",
-  host: { "data-copilotkit": "", class: "cpk:block cpk:w-full" },
+  host: { "data-copilotkit": "" },
+  styles: [hostStyles],
   imports: [
     CommonModule,
     CopilotSlot,
@@ -60,9 +63,7 @@ import {
       role="article"
     >
       @if (mediaParts().length > 0) {
-        <div
-          class="cpk:flex cpk:flex-row cpk:flex-wrap cpk:justify-end cpk:gap-2 cpk:mb-2"
-        >
+        <div class="cpk-user-message-attachments">
           @for (part of mediaParts(); track $index) {
             <copilot-chat-attachment-renderer
               [type]="part.type"
@@ -99,7 +100,7 @@ import {
         </copilot-slot>
       } @else {
         <div copilotChatUserMessageToolbar [inputClass]="toolbarClass()">
-          <div class="cpk:flex cpk:items-center cpk:gap-1 cpk:justify-end">
+          <div class="cpk-user-message-toolbar-items">
             <!-- Additional toolbar items -->
             @if (additionalToolbarItems()) {
               <ng-container
@@ -157,6 +158,7 @@ import {
                 <copilot-chat-user-message-branch-navigation
                   [currentBranch]="branchIndexValue()"
                   [numberOfBranches]="numberOfBranchesValue()"
+                  [branchSwitchEnabled]="branchSwitchEnabled()"
                   [message]="message()!"
                   [inputClass]="branchNavigationClass()"
                   (switchToBranch)="handleSwitchToBranch($event)"
@@ -201,6 +203,14 @@ export class CopilotChatUserMessage {
   message = input<UserMessage>();
   branchIndex = input<number | undefined>();
   numberOfBranches = input<number | undefined>();
+  /**
+   * Whether something handles `switchToBranch`, so the branch arrows can work.
+   * With `false` the branch navigation stays hidden, as React and Vue hide it
+   * without an `onSwitchToBranch` handler. An Angular `output()` cannot tell
+   * whether a listener is bound, so this defaults to `true`: navigation shows
+   * whenever there is more than one branch.
+   */
+  branchSwitchEnabled = input<boolean>(true);
   additionalToolbarItems = input<TemplateRef<any> | undefined>();
   inputClass = input<string | undefined>();
 
@@ -221,21 +231,28 @@ export class CopilotChatUserMessage {
     CopilotChatUserMessageBranchNavigation;
 
   // Computed values
-  showBranchNavigation = computed(() => (this.numberOfBranches() ?? 1) > 1);
+  showBranchNavigation = computed(
+    () =>
+      ɵgetBranchNavState({
+        branchIndex: this.branchIndexValue(),
+        numberOfBranches: this.numberOfBranchesValue(),
+        canSwitch: this.branchSwitchEnabled(),
+      }).show,
+  );
 
   computedClass = computed(() =>
     cn(
-      "copilotKitMessage copilotKitUserMessage cpk:flex cpk:flex-col cpk:items-end cpk:group cpk:pt-10",
+      "copilotKitMessage copilotKitUserMessage cpk-user-message",
       this.inputClass(),
     ),
   );
 
   // Context for slots (reactive via signals)
   flattenedContent = computed(() =>
-    flattenUserMessageContent(this.message()?.content),
+    ɵflattenUserMessageContent(this.message()?.content),
   );
   mediaParts = computed(() =>
-    getUserMessageMediaParts(this.message()?.content),
+    ɵgetUserMessageMediaParts(this.message()?.content),
   );
 
   messageRendererContext = computed<MessageRendererContext>(() => ({
@@ -272,8 +289,7 @@ export class CopilotChatUserMessage {
     this.switchToBranch.emit(props);
   }
 
-  filenameFor(part: UserMessageMediaPart): string | undefined {
-    return getUserMessageMediaFilename(part);
+  filenameFor(part: ɵUserMessageMediaPart) {
+    return ɵgetUserMessageMediaFilename(part);
   }
-  constructor() {}
 }

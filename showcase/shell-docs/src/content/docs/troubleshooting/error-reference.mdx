@@ -20,61 +20,69 @@ Error string:
 Missing required prop: 'runtimeUrl' or 'publicApiKey' or 'publicLicenseKey'
 ```
 
-**Where:** the **v2** provider, `<CopilotKitProvider>`, imported from
-`@copilotkit/react-core/v2`. In production
+**Where:** the provider, `<CopilotKitProvider>`, imported from
+`@copilotkit/react-core`. In production
 (`NODE_ENV === "production"`) it's a thrown `Error`; in development it's a
 `console.warn` so local-agent and test setups still run.
 
-<Callout type="info" title="v1 behaves differently">
-  The **v1** `<CopilotKit>` provider throws in **both development and
-  production** when nothing is configured, whereas the v2 `<CopilotKitProvider>`
-  only warns in development. Either way, registering `selfManagedAgents` or
-  `agents__unsafe_dev_only` satisfies the check. No `runtimeUrl` or Copilot
-  Cloud key is required.
+<Callout type="info" title="Local agents satisfy the check">
+  Registering `selfManagedAgents` or `agents__unsafe_dev_only` satisfies the
+  check. No `runtimeUrl` or Copilot Cloud key is required.
 </Callout>
 
 **Cause:** the provider has no way to reach an agent. You didn't pass a
 `runtimeUrl`, a Copilot Cloud key (`publicApiKey` / `publicLicenseKey`), **and** you
 didn't register any local agents.
 
-**Fix (v2):** provide one of these values to `CopilotKitProvider`, imported from
-`@copilotkit/react-core/v2`:
+**Fix:** provide one of these values to `CopilotKitProvider`, imported from
+`@copilotkit/react-core`:
 
 ```tsx
+import { CopilotKitProvider, HttpAgent } from "@copilotkit/react-core";
+
 // Runtime-backed (recommended)
-<CopilotKitProvider runtimeUrl="/api/copilotkit">{children}</CopilotKitProvider>
+export function RuntimeProvider({ children }: { children: React.ReactNode }) {
+  return (
+    <CopilotKitProvider runtimeUrl="/api/copilotkit">{children}</CopilotKitProvider>
+  );
+}
 
 // Copilot Cloud
-<CopilotKitProvider publicApiKey="ck_pub_...">{children}</CopilotKitProvider>
+export function CloudProvider({ children }: { children: React.ReactNode }) {
+  return (
+    <CopilotKitProvider publicApiKey="ck_pub_...">{children}</CopilotKitProvider>
+  );
+}
 
-// Agents you manage yourself — the `selfManagedAgents` prop is also accepted by the v1 `<CopilotKit>` wrapper
-<CopilotKitProvider selfManagedAgents={{ "my-agent": myAgent }}>{children}</CopilotKitProvider>
+// Agents you manage yourself
+const myAgent = new HttpAgent({ url: "http://localhost:8000/agent" });
+
+export function SelfManagedProvider({ children }: { children: React.ReactNode }) {
+  return (
+    <CopilotKitProvider selfManagedAgents={{ "my-agent": myAgent }}>
+      {children}
+    </CopilotKitProvider>
+  );
+}
 ```
 
 See [Self-managed agents](/backend/self-managed-agents) for the local-agent path.
 
 ## Agent discovery failed
 
-Error name:
+Error string:
 
 ```txt
-CopilotKitAgentDiscoveryError
+useAgent: Agent '<id>' not found after runtime sync (runtimeUrl=<url>). Known agents: [<list>] Verify your runtime /info and/or agents__unsafe_dev_only.
 ```
 
-This is the error **name** (`error.name`). The accompanying message is one of:
+**Where:** a thrown `Error` from `useAgent` (and the prebuilt components that
+call it), imported from `@copilotkit/react-core`. When no agents are
+registered, the message shows `No agents registered.` in place of the
+known-agents list.
 
-- `Agent '<name>' was not found. Available agents are: <list>. Please verify the agent name in your configuration and ensure it matches one of the available agents.`
-- `The requested agent was not found. Available agents are: <list>. ...`
-- `Agent '<name>' was not found. Please set up at least one agent before proceeding.` (when **no** agents are registered)
-
-`CopilotKitAgentDiscoveryError` comes from the v1 hooks, such as
-`useCoAgentStateRender`, and from the v1 GraphQL runtime. With
-`@copilotkit/react-core/v2`, `useAgent` throws an `Error` with this message for
-the same cause:
-
-```txt
-useAgent: Agent '<id>' not found after runtime sync (runtimeUrl=<url>). ...
-```
+In v1, the hooks and the GraphQL runtime reported this cause as a
+`CopilotKitAgentDiscoveryError`. CopilotKit 2.0 removed those APIs.
 
 **Cause:** the frontend asked for an `agentId` that the runtime didn't return from
 its `/info` discovery. This is usually a typo, a missing registration, or a runtime that has no
@@ -85,15 +93,24 @@ agents at all. The prebuilt components default to the agent named `"default"`.
 - Register the agent under the id you're requesting (or under `"default"` if you
   pass no `agentId`):
   ```ts
-  new CopilotRuntime({ agents: { default: myAgent } });
+  import { CopilotRuntime } from "@copilotkit/runtime";
+  import { BuiltInAgent } from "@copilotkit/runtime/agent";
+  import { openaiText } from "@tanstack/ai-openai";
+
+  const runtime = new CopilotRuntime({
+    agents: { default: new BuiltInAgent({ model: openaiText("gpt-6-luna") }) },
+  });
   ```
-- Confirm the id matches the "Available agents" list in the message.
+- Confirm the id matches the "Known agents" list in the message.
 - Verify the runtime is reachable by hitting `GET {runtimeUrl}/info` directly (see
   [Runtime HTTP endpoints](/backend/runtime-endpoints)). A discovery failure here
   cascades into this error.
 
-`CopilotKitAgentDiscoveryError` is a **banner** error. It renders as a fixed
-banner in the dev console rather than a dismissible toast.
+`useAgent` throws this error while it renders, so your nearest React error
+boundary catches it. It does not go to `onError`. `useAgent` throws only after
+`/info` loads. If `/info` itself fails, `useAgent` waits instead, `onError`
+gets the code `runtime_info_fetch_failed`, and the Inspector shows a
+**Runtime error**.
 
 ## Agent route returned 404
 
@@ -129,12 +146,12 @@ Failed to run agent
 **Where:** a `500` JSON body from the runtime's run/connect routes, with a
 `message` field carrying the underlying error.
 
-**Cause:** the agent threw while executing. Common causes include a bad model string, a missing API key
+**Cause:** the agent threw while executing. Common causes include a bad model id, a missing API key
 on the server, a provider error, or an exception inside the agent itself.
 
 **Fix:** read the `message` field and check your server logs (the runtime logs the
 error name, message, and stack). Common culprits: an unset `OPENAI_API_KEY` (or
-equivalent) on the server, or a model string the provider doesn't recognize.
+equivalent) on the server, or a model id the provider doesn't recognize.
 
 ## Capability discovery failed
 

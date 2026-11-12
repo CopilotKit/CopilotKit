@@ -1,5 +1,5 @@
 id: image-drift
-name: "GHCR image drift vs showcase/ or examples/integrations/ HEAD"
+name: "GHCR image drift vs showcase/ or examples/starters/ HEAD"
 owner: "@oss"
 
 signal:

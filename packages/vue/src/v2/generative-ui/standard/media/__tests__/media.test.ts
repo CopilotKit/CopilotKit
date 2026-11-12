@@ -8,7 +8,7 @@ import { renderSurface } from "../../../__tests__/helpers/render-surface";
 import { renderInColumn, ui } from "./helpers";
 
 // The port of React's `standard/__tests__/media.test.tsx`.
-vi.mock("lucide-vue-next", () => import("./fake-lucide"));
+vi.mock("lucide", () => import("./fake-lucide"));
 
 describe("mediaComponents", () => {
   it("is valid input for createGenerativeUI, with a description for every component", () => {

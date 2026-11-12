@@ -15,11 +15,11 @@ import {
   useGenerativeUIRejected,
   useGenerativeUIRuntime,
   useManagerVersion,
-} from "@copilotkit/react-core/v2/generative-ui/native";
+} from "@copilotkit/react-core/generative-ui/native";
 import type {
   GenerativeUI,
   GenerativeUIComponentName,
-} from "@copilotkit/react-core/v2/generative-ui/native";
+} from "@copilotkit/react-core/generative-ui/native";
 import { GenerativeUIProviderPresentContext } from "./GenerativeUIProvider";
 import type { GenerativeUIActivityWrapperProps } from "./GenerativeUIActivity";
 import { useDevelopmentWarnings } from "./internal";

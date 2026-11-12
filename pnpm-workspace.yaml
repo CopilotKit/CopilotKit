@@ -1,19 +1,19 @@
 packages:
   - "packages/*"
+  - "codemods/*"
   - "tools/runtime-conformance"
+  - "tools/runtime-edge-smoke"
   - "tools/learned-skill-conformance"
   - "tools/genui-eval"
-  - "examples/v1/*"
-  - "examples/canvas/mastra-pm"
-  - "examples/v1/research-canvas/agents/typescript"
-  - "examples/v2/*"
-  - "examples/v2/*/apps/*"
-  - "examples/v2/react/*"
-  - "examples/v2/vue/*"
-  - "examples/v2/angular/*"
-  - "examples/v2/react-native/*"
-  - "examples/v2/runtime/*"
-  - "examples/showcases/generative-ui-playground"
+  - "examples/dev/by-backend/*"
+  - "examples/dev/by-feature/*"
+  - "examples/dev/by-frontend/react/*"
+  - "examples/dev/by-frontend/vue/*"
+  - "examples/dev/by-frontend/angular/*"
+  - "examples/dev/by-frontend/react-native"
+  - "examples/dev/by-frontend/react-router"
+  - "examples/templates/generative-ui-shop"
+  - "examples/demos/generative-ui-playground"
   # NOTE: `community/*` is intentionally NOT part of this workspace. Community
   # packages are lightly supported and community-maintained: each ships its
   # own lockfile and pins published `@copilotkit/*` versions exactly, so a
@@ -21,7 +21,7 @@ packages:
   # through this file, so leaving them out also keeps them out of every
   # repo-wide build/typecheck/test sweep; `.github/workflows/test_community.yml`
   # gates them instead. See community/README.md.
-  # NOTE: `examples/showcases/reskinnable-demo` is intentionally NOT part of
+  # NOTE: `examples/demos/reskinnable-demo` is intentionally NOT part of
   # this pnpm workspace, for the same reason as `showcase/shell-dashboard`
   # below: it ships its own lockfile and installs its `@copilotkit/*` and
   # `@ag-ui/*` dependencies from npm rather than from `workspace:*`.
@@ -44,9 +44,8 @@ packages:
   # currently unbuilt and untype-checked in CI. It needs its own workflow job
   # (`pnpm install && pnpm build && pnpm typecheck` in its directory), which is
   # NOT in this change. Run the four gates locally until that lands.
-  - "examples/slack"
-  - "examples/teams"
-  - "!examples/v1/_legacy"
+  - "examples/templates/slack"
+  - "examples/templates/teams"
   - "showcase/scripts"
   # No npm lockfile here: installs with pnpm from the root pnpm-lock.yaml.
   - "showcase/harness"

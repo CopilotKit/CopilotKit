@@ -79,6 +79,46 @@ Before editing framework docs, check the framework's `docs_mode`.
   change `docs_mode`, regenerate shell-docs data, and verify routes, sidebar entries, search
   results, snippets, and framework switching.
 
+### Code fences are type-checked
+
+Every `ts`, `tsx`, `js`, and `jsx` fence in `showcase/shell-docs/src/content/` is
+type-checked against the source in `packages/*/src` with
+[kiira](https://kiira.dev) (`kiira.config.ts`, `tsconfig.docs.json`). The
+`static / docs snippets` workflow runs it on docs and package changes, so a page
+fails when it teaches an API that was renamed, removed, or tagged `@deprecated`.
+
+- Run it: `pnpm check:docs-snippets`, or for a few files
+  `pnpm kiira check <file-or-dir> --verbose`. Always read `--verbose` output
+  before you act; the short form cuts the message.
+- Each fence is its own module. Import what it uses, because readers copy one
+  fence. Use `group=<id>` only for a step-by-step walkthrough where a later
+  fence continues an earlier one.
+- Write a reference `## Signature` block as a check against the real export:
+
+  ```tsx
+  import {
+    useFrontendTool,
+    type ReactFrontendTool,
+  } from "@copilotkit/react-core";
+
+  useFrontendTool satisfies <T extends Record<string, unknown>>(
+    tool: ReactFrontendTool<T>,
+    deps?: ReadonlyArray<unknown>,
+  ) => void;
+  ```
+
+- Do not make an error go away with `declare const`, an `as` cast, `any`,
+  `@ts-ignore`, or by renaming a variable. Fix the example, using the source as
+  the truth. Show where a value comes from, or import the reader's own code from
+  a relative path (`./db`), which kiira does not check.
+- A package the docs import that does not resolve goes in `externalPackages` in
+  `kiira.config.ts`; a subpath import also needs a `tsconfig.docs.json` path
+  (kiira's fallback does not read `exports`). It is never a reason to `ignore`.
+- `ignore` is for fences kiira cannot check: the "before" code of a migration
+  guide, or code typed by a file generated in the reader's project. Put the
+  reason on the line above: `{/* kiira: ignore, <reason> */}`.
+- kiira's own skills are in `node_modules/kiira/skills/`.
+
 **API reference is different.** The v2 reference (`reference/{components,hooks,sdk}/`) has
 **no `meta.json`** — navigation is generated automatically by walking the tree and reading
 each page's `title`/`description` frontmatter (see

@@ -5,8 +5,8 @@ import { DynamicCodeBlock } from "fumadocs-ui/components/dynamic-codeblock";
 import {
   createGenerativeUI,
   standardUI,
-  type GenerativeUITheme,
 } from "@copilotkit/react-core/v2/generative-ui";
+import type { GenerativeUITheme } from "@copilotkit/react-core/v2/generative-ui";
 import { STAGE_WINDOW, Stage } from "@/components/brand/stage";
 import { brandDark, brandLight } from "@/proto/code-theme";
 import { withLineBreaks } from "./guide-markdown";

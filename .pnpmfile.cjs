@@ -17,7 +17,6 @@ const fs = require("fs");
 const A2UI_ROOT = path.resolve(__dirname, "..", "A2UI");
 
 const A2UI_PACKAGES = {
-  "@a2ui/web_core": "renderers/web_core",
   "@a2ui/react": "renderers/react",
 };
 

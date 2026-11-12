@@ -4,8 +4,8 @@ import {
   CopilotChatConfigurationProvider,
   CopilotChatView,
   CopilotKitProvider,
-} from "@copilotkit/react-core/v2";
-import "@copilotkit/react-core/v2/styles.css";
+  CopilotKitStyles,
+} from "@copilotkit/react-core";
 
 const params = new URLSearchParams(window.location.search);
 const count = Number(params.get("count") ?? "80");
@@ -13,6 +13,7 @@ const nextCount = Number(params.get("nextCount") ?? String(count));
 const mode = params.get("mode") === "none" ? "none" : "pin-to-bottom";
 const standalone = params.get("standalone") === "true";
 const variedRows = params.get("variedRows") === "true";
+const prependCount = Number(params.get("prependCount") ?? "1");
 
 function App() {
   const [hidden, setHidden] = useState(false);
@@ -25,13 +26,11 @@ function App() {
   // slot wrapper while hidden and after the host becomes measurable again.
   const messages = [
     ...(prepended
-      ? [
-          {
-            id: "older",
-            role: "user" as const,
-            content: "Older message " + "sample text ".repeat(20),
-          },
-        ]
+      ? Array.from({ length: prependCount }, (_, i) => ({
+          id: prependCount === 1 ? "older" : `older-${i}`,
+          role: i % 2 ? ("assistant" as const) : ("user" as const),
+          content: `Older message ${i} ` + "sample text ".repeat(20),
+        }))
       : []),
     ...Array.from({ length: thread === "one" ? count : nextCount }, (_, i) => ({
       id: `${thread}-${i}`,
@@ -83,6 +82,8 @@ function App() {
         style={{ display: hidden ? "none" : "block", height: 500, width }}
       >
         <CopilotKitProvider>
+          {/* CopilotChatView without CopilotChat needs the styles itself. */}
+          <CopilotKitStyles />
           {standalone ? (
             chat
           ) : (

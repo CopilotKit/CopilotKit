@@ -1,16 +1,12 @@
 "use client";
 
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState } from "react";
+import type { ReactNode } from "react";
 import { cn } from "@/lib/cn";
 import { FrameworkLogo } from "@/components/icons/framework-icons";
 import { FrontendLogo } from "@/components/icons/frontend-logo";
-import {
-  FRAMEWORKS,
-  FRONTENDS,
-  frameworkById,
-  frontendById,
-  type FrontendId,
-} from "./data";
+import { FRAMEWORKS, FRONTENDS, frameworkById, frontendById } from "./data";
+import type { FrontendId } from "./data";
 import { useFrontend } from "./frontend";
 import { useLastFramework } from "./last-framework";
 

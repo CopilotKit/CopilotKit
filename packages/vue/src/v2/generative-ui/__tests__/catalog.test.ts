@@ -8,7 +8,7 @@ import {
 } from "../catalog";
 import { child, childList } from "../refs";
 
-// Mirrors `packages/react-core/src/v2/generative-ui/__tests__/catalog.test.tsx`.
+// Mirrors `packages/react-core/src/generative-ui/__tests__/catalog.test.tsx`.
 // The components are never rendered here; only their identity matters.
 const Card = defineComponent({ render: () => null });
 const Grid = defineComponent({ render: () => null });
@@ -66,9 +66,13 @@ describe("createGenerativeUI", () => {
         events: {
           onShare: {
             description: "Share",
-            parameters: objectSchema({ channel: { type: "string" } }, [
-              "channel",
-            ]),
+            // Event parameters are the Zod 4 JSON Schema as-is, which
+            // leaves `additionalProperties` open on a non-strict object.
+            parameters: {
+              type: "object",
+              properties: { channel: { type: "string" } },
+              required: ["channel"],
+            },
           },
         },
       },

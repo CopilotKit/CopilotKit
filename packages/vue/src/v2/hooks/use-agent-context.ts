@@ -1,18 +1,19 @@
 import { computed, toValue, watch } from "vue";
 import type { MaybeRefOrGetter } from "vue";
+import { ɵserializeContextValue } from "@copilotkit/core";
+import type { ɵJsonSerializable } from "@copilotkit/core";
 import { useCopilotKit } from "../providers/useCopilotKit";
 
-export type JsonSerializable =
-  | string
-  | number
-  | boolean
-  | null
-  | JsonSerializable[]
-  | { [key: string]: JsonSerializable };
+export type JsonSerializable = ɵJsonSerializable;
 
 export interface AgentContextInput {
   description: MaybeRefOrGetter<string>;
-  value: MaybeRefOrGetter<JsonSerializable>;
+  /**
+   * The context value. A string is sent as-is; any other value is sent as
+   * its JSON text, so it should be JSON-serializable. Interface types and
+   * optional fields are accepted.
+   */
+  value: MaybeRefOrGetter<unknown>;
 }
 
 /**
@@ -35,9 +36,7 @@ export function useAgentContext(context: AgentContextInput): void {
   const resolvedValue = computed(() => toValue(context.value));
 
   const stringValue = computed(() =>
-    typeof resolvedValue.value === "string"
-      ? resolvedValue.value
-      : JSON.stringify(resolvedValue.value),
+    ɵserializeContextValue(resolvedValue.value),
   );
 
   watch(

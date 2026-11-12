@@ -4,7 +4,7 @@ import { renderInColumn } from "./helpers";
 
 // The Icon cases of Angular's `standard/media/__tests__/icon.spec.ts` that
 // React's suites do not have. The cases both have are in `media.test.ts`.
-vi.mock("lucide-vue-next", () => import("./fake-lucide"));
+vi.mock("lucide", () => import("./fake-lucide"));
 
 /** The rendered Lucide icon of `name`, once the icon set has loaded. */
 async function findLucideIcon(container: Element, name: string) {

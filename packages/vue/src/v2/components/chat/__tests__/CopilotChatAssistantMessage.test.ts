@@ -907,7 +907,7 @@ describe("CopilotChatAssistantMessage", () => {
             <CopilotChatConfigurationProvider :thread-id="TEST_THREAD_ID">
               <CopilotChatAssistantMessage :message="basicMessage" :toolbar-visible="false">
                 <template #layout="{ toolbar, toolbarVisible, message }">
-                  <span class="cpk:hidden">{{ childrenSpy(toolbar, toolbarVisible, message) }}</span>
+                  <span hidden>{{ childrenSpy(toolbar, toolbarVisible, message) }}</span>
                   <div data-testid="children-render" />
                 </template>
               </CopilotChatAssistantMessage>
@@ -941,7 +941,7 @@ describe("CopilotChatAssistantMessage", () => {
             <CopilotChatConfigurationProvider :thread-id="TEST_THREAD_ID">
               <CopilotChatAssistantMessage :message="basicMessage">
                 <template #layout="{ toolbar, toolbarVisible, message }">
-                  <span class="cpk:hidden">{{ childrenSpy(toolbar, toolbarVisible, message) }}</span>
+                  <span hidden>{{ childrenSpy(toolbar, toolbarVisible, message) }}</span>
                   <div />
                 </template>
               </CopilotChatAssistantMessage>
@@ -1062,47 +1062,6 @@ describe("CopilotChatAssistantMessage", () => {
       );
       expect(container).toBeDefined();
       expect(screen.queryByRole("button", { name: /copy/i })).toBeNull();
-    });
-  });
-
-  describe("Vue-specific semantics", () => {
-    it("renders markdown image and table actions", () => {
-      const message: AssistantMessage = {
-        id: "assistant-vue-extra",
-        role: "assistant",
-        content: `![Alt text](https://example.com/image.png)\n\n| Feature | Supported |\n| --- | --- |\n| Tables | yes |`,
-        timestamp: new Date(),
-      };
-
-      const Host = defineComponent({
-        components: {
-          CopilotKitProvider,
-          CopilotChatConfigurationProvider,
-          CopilotChatAssistantMessage,
-        },
-        setup() {
-          return { message, TEST_THREAD_ID };
-        },
-        template: `
-          <CopilotKitProvider runtime-url="/api/copilotkit">
-            <CopilotChatConfigurationProvider :thread-id="TEST_THREAD_ID">
-              <CopilotChatAssistantMessage :message="message" />
-            </CopilotChatConfigurationProvider>
-          </CopilotKitProvider>
-        `,
-      });
-
-      renderWithProvider(Host);
-      expect(
-        document.querySelector('button[title="Download image"]'),
-      ).toBeDefined();
-      expect(document.querySelector("table")).toBeDefined();
-      expect(
-        document.querySelector('button[title="Copy table"]'),
-      ).toBeDefined();
-      expect(
-        document.querySelector('button[title="Download table"]'),
-      ).toBeDefined();
     });
   });
 });

@@ -36,7 +36,7 @@ BASIC_FUNCTIONS.formatString = (args) =>
  * at any depth. A value with nothing dynamic in it keeps its identity.
  */
 
-/** Reads the data model. The surface data model of web_core fits. */
+/** Reads the data model. The `DataModel` of a surface fits. */
 export interface DataReader {
   get(path: string): unknown;
 }

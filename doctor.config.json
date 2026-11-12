@@ -1,0 +1,4 @@
+{
+  "adoptExistingLintConfig": false,
+  "supplyChain": { "enabled": false }
+}

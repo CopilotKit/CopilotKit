@@ -31,19 +31,46 @@ This is the default, so the provider needs only the catalog:
 <Tabs groupId="frontend_framework" items={["React", "Angular", "React Native", "Vue"]} persist>
   <Tab value="React">
     ```tsx
-    import { standardUI } from "@copilotkit/react-core/v2/generative-ui";
+    "use client";
+    import { CopilotKitProvider } from "@copilotkit/react-core";
+    import { standardUI } from "@copilotkit/react-core/generative-ui";
 
-    <CopilotKitProvider runtimeUrl="/api/copilotkit" generativeUI={{ ui: standardUI }}>
+    export function Providers({ children }: { children: React.ReactNode }) {
+      return (
+        <CopilotKitProvider runtimeUrl="/api/copilotkit" generativeUI={{ ui: standardUI }}>
+          {children}
+        </CopilotKitProvider>
+      );
+    }
     ```
   </Tab>
   <Tab value="Angular">
     ```ts
-    provideGenerativeUI({ ui: standardUI }),
+    import type { ApplicationConfig } from "@angular/core";
+    import { provideCopilotKit } from "@copilotkit/angular";
+    import { provideGenerativeUI, standardUI } from "@copilotkit/angular/generative-ui";
+
+    export const appConfig: ApplicationConfig = {
+      providers: [
+        provideCopilotKit({ runtimeUrl: "/api/copilotkit" }),
+        provideGenerativeUI({ ui: standardUI }),
+      ],
+    };
     ```
   </Tab>
   <Tab value="React Native">
     ```tsx
-    <GenerativeUIProvider ui={shopUI}>
+    import type { ReactNode } from "react";
+    import { GenerativeUIProvider } from "@copilotkit/react-native/generative-ui";
+    import { shopUI } from "./shopUI";
+
+    export function Providers({ children }: { children: ReactNode }) {
+      return (
+        <GenerativeUIProvider ui={shopUI}>
+          {children}
+        </GenerativeUIProvider>
+      );
+    }
     ```
 
     React Native always uses the tool transport. It has no `standardUI`, so `shopUI` stands for a catalog of your own native components.
@@ -64,11 +91,23 @@ The runtime option `generativeUI` controls when the tool is added:
 - `{ agents: ["shop"] }`: for every run of those agents.
 - `false`: never.
 
-```ts title="app/api/copilotkit/route.ts"
+```ts title="app/api/copilotkit/[[...slug]]/route.ts"
+import {
+  CopilotRuntime,
+  createCopilotRuntimeHandler,
+} from "@copilotkit/runtime";
+import { BuiltInAgent } from "@copilotkit/runtime/agent";
+import { openaiText } from "@tanstack/ai-openai";
+
 const runtime = new CopilotRuntime({
-  agents: { default: agent },
+  agents: { default: new BuiltInAgent({ model: openaiText("gpt-6-luna") }) },
   generativeUI: true,
 });
+
+const handler = createCopilotRuntimeHandler({ runtime, basePath: "/api/copilotkit" });
+
+export const GET = handler;
+export const POST = handler;
 ```
 
 Your agent must use the tools and the context entries of the run. The built-in agent does this. For a LangGraph Python agent, add `CopilotKitMiddleware`.
@@ -80,12 +119,31 @@ Set `transport: "markdown"`:
 <Tabs groupId="frontend_framework" items={["React", "Angular", "React Native", "Vue"]} persist>
   <Tab value="React">
     ```tsx
-    <CopilotKitProvider runtimeUrl="/api/copilotkit" generativeUI={{ ui: standardUI, transport: "markdown" }}>
+    "use client";
+    import { CopilotKitProvider } from "@copilotkit/react-core";
+    import { standardUI } from "@copilotkit/react-core/generative-ui";
+
+    export function Providers({ children }: { children: React.ReactNode }) {
+      return (
+        <CopilotKitProvider runtimeUrl="/api/copilotkit" generativeUI={{ ui: standardUI, transport: "markdown" }}>
+          {children}
+        </CopilotKitProvider>
+      );
+    }
     ```
   </Tab>
   <Tab value="Angular">
     ```ts
-    provideGenerativeUI({ ui: standardUI, transport: "markdown" }),
+    import type { ApplicationConfig } from "@angular/core";
+    import { provideCopilotKit } from "@copilotkit/angular";
+    import { provideGenerativeUI, standardUI } from "@copilotkit/angular/generative-ui";
+
+    export const appConfig: ApplicationConfig = {
+      providers: [
+        provideCopilotKit({ runtimeUrl: "/api/copilotkit" }),
+        provideGenerativeUI({ ui: standardUI, transport: "markdown" }),
+      ],
+    };
     ```
   </Tab>
   <Tab value="React Native">
@@ -107,20 +165,46 @@ By default every agent gets generative UI. To give it only to some of them, list
 <Tabs groupId="frontend_framework" items={["React", "Angular", "React Native", "Vue"]} persist>
   <Tab value="React">
     ```tsx
-    <CopilotKitProvider
-      runtimeUrl="/api/copilotkit"
-      generativeUI={{ ui: standardUI, agentIds: ["shop"] }}
-    >
+    "use client";
+    import { CopilotKitProvider } from "@copilotkit/react-core";
+    import { standardUI } from "@copilotkit/react-core/generative-ui";
+
+    export function Providers({ children }: { children: React.ReactNode }) {
+      return (
+        <CopilotKitProvider runtimeUrl="/api/copilotkit" generativeUI={{ ui: standardUI, agentIds: ["shop"] }}>
+          {children}
+        </CopilotKitProvider>
+      );
+    }
     ```
   </Tab>
   <Tab value="Angular">
     ```ts
-    provideGenerativeUI({ ui: standardUI, agentIds: ["shop"] }),
+    import type { ApplicationConfig } from "@angular/core";
+    import { provideCopilotKit } from "@copilotkit/angular";
+    import { provideGenerativeUI, standardUI } from "@copilotkit/angular/generative-ui";
+
+    export const appConfig: ApplicationConfig = {
+      providers: [
+        provideCopilotKit({ runtimeUrl: "/api/copilotkit" }),
+        provideGenerativeUI({ ui: standardUI, agentIds: ["shop"] }),
+      ],
+    };
     ```
   </Tab>
   <Tab value="React Native">
     ```tsx
-    <GenerativeUIProvider ui={shopUI} agentIds={["shop"]}>
+    import type { ReactNode } from "react";
+    import { GenerativeUIProvider } from "@copilotkit/react-native/generative-ui";
+    import { shopUI } from "./shopUI";
+
+    export function Providers({ children }: { children: ReactNode }) {
+      return (
+        <GenerativeUIProvider ui={shopUI} agentIds={["shop"]}>
+          {children}
+        </GenerativeUIProvider>
+      );
+    }
     ```
   </Tab>
   <Tab value="Vue">

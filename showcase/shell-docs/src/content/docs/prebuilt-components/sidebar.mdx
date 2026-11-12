@@ -28,17 +28,16 @@ conversations and switching between them, the sidebar hosts the
 
 ## Basic setup
 
-Wrap your app in `<CopilotKit>` once (it wires the runtime, session, and
+Wrap your app in `<CopilotKitProvider>` once (it wires the runtime, session, and
 agent registry) and drop `<CopilotSidebar>` alongside your main content.
 The sidebar renders as a sibling. On screens 768px and wider, the open
 sidebar adds a margin to the page body to make room for the chat:
 
 ```tsx
-import { CopilotKit, CopilotSidebar } from "@copilotkit/react-core/v2";
-import "@copilotkit/react-core/v2/styles.css";
+import { CopilotKitProvider, CopilotSidebar } from "@copilotkit/react-core";
 ```
 
-Import from `@copilotkit/react-core/v2`. The `CopilotSidebar` in `@copilotkit/react-ui` is the [deprecated v1 sidebar](/migrate/v2).
+Import from `@copilotkit/react-core`. In v1, `<CopilotSidebar>` came from `@copilotkit/react-ui`, which CopilotKit 2.0 removed. See the [migration guide](/migrate/v2).
 
 <Snippet region="sidebar-basic-setup" title="frontend/src/app/page.tsx — CopilotSidebar wired up" />
 

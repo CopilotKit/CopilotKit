@@ -3,6 +3,7 @@ import {
   Component,
   type DestroyRef,
   Input,
+  type Signal,
   signal,
 } from "@angular/core";
 import { TestBed } from "@angular/core/testing";
@@ -29,16 +30,57 @@ import {
  *  via Pick so the fields stay in sync with the real class. */
 type StubCore = Pick<
   CopilotKitCore,
+  | "agents"
+  | "credentials"
+  | "getAgent"
   | "runtimeUrl"
   | "runtimeTransport"
-  | "runtimeConnectionStatus"
+  | "ɵruntimeInfo"
   | "headers"
   | "subscribeToAgentWithOptions"
   | "runAgent"
   | "applyHeadersToAgent"
-> & {
-  agents?: Record<string, AbstractAgent>;
-};
+>;
+
+function createStubCore(sources: {
+  agents: Signal<Record<string, AbstractAgent>>;
+  runtimeConnectionStatus: Signal<CopilotKitCoreRuntimeConnectionStatus>;
+  runtimeUrl: Signal<string | undefined>;
+  runtimeTransport: Signal<"rest" | "single" | "auto">;
+  credentials: Signal<RequestCredentials | undefined>;
+  coreInstance: CopilotKitCore;
+  runAgent: CopilotKitCore["runAgent"];
+}): StubCore {
+  const { coreInstance } = sources;
+  return {
+    get agents() {
+      return sources.agents();
+    },
+    get credentials() {
+      return sources.credentials();
+    },
+    getAgent: (id: string) => sources.agents()[id],
+    get runtimeUrl() {
+      return sources.runtimeUrl();
+    },
+    get runtimeTransport() {
+      return sources.runtimeTransport();
+    },
+    get ɵruntimeInfo() {
+      return {
+        ...coreInstance.ɵruntimeInfo,
+        status: sources.runtimeConnectionStatus(),
+      };
+    },
+    get headers() {
+      return coreInstance.headers;
+    },
+    subscribeToAgentWithOptions:
+      coreInstance.subscribeToAgentWithOptions.bind(coreInstance),
+    runAgent: sources.runAgent,
+    applyHeadersToAgent: coreInstance.applyHeadersToAgent.bind(coreInstance),
+  };
+}
 
 const DUMMY_RUN_INPUT: RunAgentInput = {
   threadId: "",
@@ -118,6 +160,8 @@ class MockAgent extends AbstractAgent {
   }
 
   emitRunInitialized() {
+    // Like `AbstractAgent`, which sets `isRunning` before this callback.
+    this.isRunning = true;
     for (const s of this.subscribers) {
       s.onRunInitialized?.({
         messages: this.messages,
@@ -155,6 +199,8 @@ class MockAgent extends AbstractAgent {
   }
 
   emitRunFinalized() {
+    // Like `AbstractAgent`, which sets `isRunning` before this callback.
+    this.isRunning = false;
     for (const s of this.subscribers) {
       s.onRunFinalized?.({
         messages: this.messages,
@@ -166,6 +212,8 @@ class MockAgent extends AbstractAgent {
   }
 
   emitRunFailed() {
+    // Like `AbstractAgent`, which sets `isRunning` before this callback.
+    this.isRunning = false;
     for (const s of this.subscribers) {
       s.onRunFailed?.({
         messages: this.messages,
@@ -203,39 +251,34 @@ class CopilotKitStub {
   // rather than a no-op spy (#1937).
   #coreInstance = new CopilotKitCore({});
   runAgent = vi.fn(async () => ({ result: null, newMessages: [] }));
-  core: StubCore = {
-    runtimeUrl: undefined,
-    runtimeTransport: "auto",
-    runtimeConnectionStatus: CopilotKitCoreRuntimeConnectionStatus.Disconnected,
-    headers: {},
-    subscribeToAgentWithOptions:
-      this.#coreInstance.subscribeToAgentWithOptions.bind(this.#coreInstance),
+  // One stable object, like the real service's core: the agent resolver is
+  // cached per core instance.
+  readonly core: StubCore = createStubCore({
+    agents: this.#agents,
+    runtimeConnectionStatus: this.#runtimeConnectionStatus,
+    runtimeUrl: this.#runtimeUrl,
+    runtimeTransport: this.#runtimeTransport,
+    credentials: this.#credentials,
+    coreInstance: this.#coreInstance,
     runAgent: this.runAgent as unknown as CopilotKitCore["runAgent"],
-    applyHeadersToAgent: this.#coreInstance.applyHeadersToAgent.bind(
-      this.#coreInstance,
-    ),
-  };
+  });
 
   setAgents(map: Record<string, AbstractAgent>) {
     this.#agents.set(map);
-    this.core = { ...this.core, agents: map };
   }
 
   setRuntimeConnectionStatus(value: CopilotKitCoreRuntimeConnectionStatus) {
     this.#runtimeConnectionStatus.set(value);
-    this.core = { ...this.core, runtimeConnectionStatus: value };
   }
 
   setRuntimeUrl(value: string | undefined) {
     this.#runtimeUrl.set(value);
-    this.core = { ...this.core, runtimeUrl: value };
   }
 
   setHeaders(value: Record<string, string>) {
     this.#coreInstance.setHeaders(value);
     this.#headers.set(this.#coreInstance.headers);
     this.#headersGeneration.set(this.#coreInstance.ɵheadersGeneration);
-    this.core = { ...this.core, headers: this.#coreInstance.headers };
   }
 
   setCredentials(value: RequestCredentials | undefined) {
@@ -244,7 +287,6 @@ class CopilotKitStub {
 
   setRuntimeTransport(value: "rest" | "single" | "auto") {
     this.#runtimeTransport.set(value);
-    this.core = { ...this.core, runtimeTransport: value };
   }
 }
 

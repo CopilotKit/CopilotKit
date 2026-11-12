@@ -11,6 +11,7 @@ import { ChevronLeft, ChevronRight, CopilotIcon } from "../icons/copilot-icon";
 import { type CopilotChatUserMessageOnSwitchToBranchProps } from "./copilot-chat-user-message.types";
 import { cn } from "../../utils";
 import { injectChatLabels } from "../../chat-config";
+import { ɵgetBranchNavState } from "@copilotkit/core";
 import { UserMessage } from "@ag-ui/core";
 
 @Component({
@@ -20,7 +21,7 @@ import { UserMessage } from "@ag-ui/core";
   encapsulation: ViewEncapsulation.None,
   template: `
     @if (showNavigation()) {
-      <div [class]="computedClass()">
+      <div data-testid="copilot-branch-navigation" [class]="computedClass()">
         <button
           type="button"
           [attr.aria-label]="labels.userMessageToolbarPreviousBranchLabel"
@@ -28,11 +29,12 @@ import { UserMessage } from "@ag-ui/core";
           [disabled]="!canGoPrev()"
           (click)="handlePrevious()"
         >
-          <copilot-icon [img]="ChevronLeftIcon" [size]="20"></copilot-icon>
+          <copilot-icon
+            [img]="ChevronLeftIcon"
+            iconClass="cpk-user-message-branch-icon"
+          ></copilot-icon>
         </button>
-        <span
-          class="cpk:text-sm cpk:text-muted-foreground cpk:px-0 cpk:font-medium"
-        >
+        <span class="cpk-user-message-branch-counter">
           {{ currentBranch() + 1 }}/{{ numberOfBranches() }}
         </span>
         <button
@@ -42,7 +44,10 @@ import { UserMessage } from "@ag-ui/core";
           [disabled]="!canGoNext()"
           (click)="handleNext()"
         >
-          <copilot-icon [img]="ChevronRightIcon" [size]="20"></copilot-icon>
+          <copilot-icon
+            [img]="ChevronRightIcon"
+            iconClass="cpk-user-message-branch-icon"
+          ></copilot-icon>
         </button>
       </div>
     }
@@ -51,6 +56,14 @@ import { UserMessage } from "@ag-ui/core";
 export class CopilotChatUserMessageBranchNavigation {
   currentBranch = input<number>(0);
   numberOfBranches = input<number>(1);
+  /**
+   * Whether something handles `switchToBranch`, so the branch arrows can work.
+   * With `false` the branch navigation stays hidden, as React and Vue hide it
+   * without an `onSwitchToBranch` handler. An Angular `output()` cannot tell
+   * whether a listener is bound, so this defaults to `true`: navigation shows
+   * whenever there is more than one branch.
+   */
+  branchSwitchEnabled = input<boolean>(true);
   message = input<UserMessage>();
   inputClass = input<string | undefined>();
   switchToBranch = output<CopilotChatUserMessageOnSwitchToBranchProps>();
@@ -59,33 +72,25 @@ export class CopilotChatUserMessageBranchNavigation {
   readonly ChevronRightIcon = ChevronRight;
   readonly labels = injectChatLabels();
 
-  readonly buttonClass = cn(
-    // Flex centering
-    "cpk:inline-flex cpk:items-center cpk:justify-center",
-    // Cursor
-    "cpk:cursor-pointer",
-    // Background and text
-    "cpk:p-0 cpk:text-[rgb(93,93,93)] cpk:hover:bg-[#E8E8E8]",
-    // Dark mode
-    "cpk:dark:text-[rgb(243,243,243)] cpk:dark:hover:bg-[#303030]",
-    // Shape and sizing
-    "cpk:h-6 cpk:w-6 cpk:rounded-md",
-    // Interactions
-    "cpk:transition-colors",
-    // Disabled state
-    "cpk:disabled:opacity-50 cpk:disabled:cursor-not-allowed",
+  readonly buttonClass =
+    "cpk-button cpk-button-assistant-message-toolbar cpk-button-size-default cpk-user-message-branch-button";
+
+  readonly #navState = computed(() =>
+    ɵgetBranchNavState({
+      branchIndex: this.currentBranch(),
+      numberOfBranches: this.numberOfBranches(),
+      canSwitch: this.branchSwitchEnabled(),
+    }),
   );
 
-  showNavigation = computed(() => this.numberOfBranches() > 1);
+  showNavigation = computed(() => this.#navState().show);
 
-  canGoPrev = computed(() => this.currentBranch() > 0);
+  canGoPrev = computed(() => this.#navState().canGoPrev);
 
-  canGoNext = computed(
-    () => this.currentBranch() < this.numberOfBranches() - 1,
-  );
+  canGoNext = computed(() => this.#navState().canGoNext);
 
   computedClass = computed(() => {
-    return cn("cpk:flex cpk:items-center cpk:gap-1", this.inputClass());
+    return cn("cpk-user-message-branch-navigation", this.inputClass());
   });
 
   handlePrevious(): void {

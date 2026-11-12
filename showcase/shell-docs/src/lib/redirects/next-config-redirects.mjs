@@ -209,6 +209,79 @@ const THREADS_SELF_MANAGED_RETIREMENT_REDIRECTS = [
 ];
 
 // ---------------------------------------------------------------------------
+// CopilotKit 2.0 deleted the v1 React and Runtime APIs, so their reference
+// pages under /reference/v1 are gone. Send every published HTML and raw-doc
+// URL to the 2.0 page for the same job in one hop. The generated SDK pages
+// under /reference/v1/sdk/* are still live and keep their URLs.
+// ---------------------------------------------------------------------------
+/** @type {[legacyPath: string, destination: string][]} */
+const RETIRED_V1_REFERENCE_PAGES = [
+  ["export-map", "/migrate/v2"],
+  ["components/CopilotKit", "/reference/v2/components/CopilotKit"],
+  // CopilotTextarea has no 2.0 equivalent.
+  ["components/CopilotTextarea", "/migrate/v2"],
+  ["components/chat", "/reference/v2/components/CopilotChat"],
+  ["components/chat/CopilotChat", "/reference/v2/components/CopilotChat"],
+  ["components/chat/CopilotPopup", "/reference/v2/components/CopilotPopup"],
+  ["components/chat/CopilotSidebar", "/reference/v2/components/CopilotSidebar"],
+  ["hooks/useAgent", "/reference/v2/hooks/useAgent"],
+  ["hooks/useCoAgent", "/reference/v2/hooks/useAgent"],
+  ["hooks/useCoAgentStateRender", "/reference/v2/hooks/useAgent"],
+  ["hooks/useCopilotAction", "/reference/v2/hooks/useFrontendTool"],
+  [
+    "hooks/useCopilotAdditionalInstructions",
+    "/reference/v2/hooks/useAgentContext",
+  ],
+  ["hooks/useCopilotChat", "/reference/v2/hooks/useAgent"],
+  ["hooks/useCopilotChatHeadless_c", "/reference/v2/hooks/useAgent"],
+  [
+    "hooks/useCopilotChatSuggestions",
+    "/reference/v2/hooks/useConfigureSuggestions",
+  ],
+  ["hooks/useCopilotReadable", "/reference/v2/hooks/useAgentContext"],
+  ["hooks/useDefaultTool", "/reference/v2/hooks/useDefaultRenderTool"],
+  ["hooks/useFrontendTool", "/reference/v2/hooks/useFrontendTool"],
+  ["hooks/useHumanInTheLoop", "/reference/v2/hooks/useHumanInTheLoop"],
+  ["hooks/useLangGraphInterrupt", "/reference/v2/hooks/useInterrupt"],
+  ["hooks/useRenderToolCall", "/reference/v2/hooks/useRenderTool"],
+  ["classes/CopilotRuntime", "/backend/copilot-runtime"],
+  ["classes/CopilotTask", "/programmatic-control"],
+  // 2.0 has no service adapters. A model runs in a BuiltInAgent.
+  ...[
+    "AnthropicAdapter",
+    "GoogleGenerativeAIAdapter",
+    "GroqAdapter",
+    "LangChainAdapter",
+    "OpenAIAdapter",
+    "OpenAIAssistantAdapter",
+  ].map((adapter) => /** @type {[string, string]} */ ([
+    `classes/llm-adapters/${adapter}`,
+    "/model-selection",
+  ])),
+];
+
+/** @type {Redirect[]} */
+const V1_REFERENCE_RETIREMENT_REDIRECTS = RETIRED_V1_REFERENCE_PAGES.flatMap(
+  ([legacyPath, destination]) =>
+    permanentRedirectsWithSuffixes(`/reference/v1/${legacyPath}`, destination),
+);
+
+// The CopilotTextarea tutorial is deleted for good: CopilotTextarea has no
+// 2.0 equivalent. It goes to the quickstart instead of `/`, where the other
+// retired tutorials land (PAGE_REDIRECTS), so it must come before them.
+/** @type {Redirect[]} */
+const TEXTAREA_TUTORIAL_RETIREMENT_REDIRECTS = [
+  ...permanentRedirectsWithSuffixes(
+    "/tutorials/ai-powered-textarea",
+    "/quickstart",
+  ),
+  ...permanentRedirectsWithSuffixes(
+    "/tutorials/ai-powered-textarea/:path*",
+    "/quickstart",
+  ),
+];
+
+// ---------------------------------------------------------------------------
 // Angular's combined task guides (`/angular/guides/<guide>`) were split onto
 // the React URLs for the same topics. Each old URL, with or without a
 // framework, lands on the page that holds its guide's main topic.
@@ -972,6 +1045,10 @@ export const nextConfigRedirects = [
   ...AG_UI_STREAMS_REDIRECTS,
   ...OPEN_JSON_UI_RETIREMENT_REDIRECTS,
   ...THREADS_SELF_MANAGED_RETIREMENT_REDIRECTS,
+  // The v1 React and Runtime reference and the CopilotTextarea tutorial are
+  // deleted in 2.0; their URLs land on the closest 2.0 page.
+  ...V1_REFERENCE_RETIREMENT_REDIRECTS,
+  ...TEXTAREA_TUTORIAL_RETIREMENT_REDIRECTS,
   ...ANGULAR_GUIDE_REDIRECTS,
   ...CHANNEL_REDIRECTS,
   ...AG_UI_MIRROR_REDIRECTS,

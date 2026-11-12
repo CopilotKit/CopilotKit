@@ -8,7 +8,7 @@ MCP Apps are MCP servers that expose tools with associated UI resources. When th
 Before you begin, you'll need the following:
 
 - An OpenAI API key (or API key for your preferred LLM provider)
-- Node.js 20+
+- Node.js 20.19.3+ or 22.13+
 - Your favorite package manager
 - An MCP server running (see [Example MCP Servers](#example-mcp-servers) below)
 
@@ -39,14 +39,12 @@ npx copilotkit create -f mcp-apps
     ### Add the dependencies
 
     ```npm
-    npm install @copilotkit/react-core @copilotkit/runtime
+    npm install @copilotkit/react-core @copilotkit/runtime @tanstack/ai-openai
     ```
 
-    Use `@copilotkit/runtime` 1.76.0 or later. The runtime includes the MCP Apps
-    middleware, so the `mcpApps` option below needs no other package. Install
-    `@ag-ui/mcp-apps-middleware` only if you attach the middleware to an agent
-    yourself with `.use()`. Its current release needs `@ag-ui/client` 1.x, which
-    runtime 1.76.0 and later use.
+    The runtime includes the MCP Apps middleware, so the `mcpApps` option below
+    needs no other package. Install `@ag-ui/mcp-apps-middleware` only if you
+    attach the middleware to an agent yourself with `.use()`.
 
   </Step>
   <Step>
@@ -68,12 +66,13 @@ npx copilotkit create -f mcp-apps
       CopilotRuntime,
       createCopilotRuntimeHandler,
       InMemoryAgentRunner,
-    } from "@copilotkit/runtime/v2";
-    import { BuiltInAgent } from "@copilotkit/runtime/v2";
+    } from "@copilotkit/runtime";
+    import { BuiltInAgent } from "@copilotkit/runtime/agent";
+    import { openaiText } from "@tanstack/ai-openai";
 
     // 1. Create your agent
     const agent = new BuiltInAgent({
-      model: "openai/gpt-6-luna",
+      model: openaiText("gpt-6-luna"),
       prompt: "You are a helpful assistant.",
     });
 
@@ -112,9 +111,11 @@ npx copilotkit create -f mcp-apps
 
     ```typescript title="app/api/copilotkit/[[...slug]]/route.ts"
     import { MCPAppsMiddleware } from "@ag-ui/mcp-apps-middleware";
+    import { BuiltInAgent } from "@copilotkit/runtime/agent";
+    import { openaiText } from "@tanstack/ai-openai";
 
     const agent = new BuiltInAgent({
-      model: "openai/gpt-6-luna",
+      model: openaiText("gpt-6-luna"),
       prompt: "You are a helpful assistant.",
     }).use(
       new MCPAppsMiddleware({
@@ -153,18 +154,18 @@ npx copilotkit create -f mcp-apps
   <Step>
     ### Configure CopilotKit Provider
 
-    Wrap your application with the CopilotKit provider:
+    Wrap your application with `CopilotKitProvider`:
 
     ```tsx title="app/providers.tsx"
     "use client";
 
-    import { CopilotKit } from "@copilotkit/react-core/v2";
+    import { CopilotKitProvider } from "@copilotkit/react-core";
 
     export function Providers({ children }: { children: React.ReactNode }) {
       return (
-        <CopilotKit runtimeUrl="/api/copilotkit" useSingleEndpoint={false}>
+        <CopilotKitProvider runtimeUrl="/api/copilotkit">
           {children}
-        </CopilotKit>
+        </CopilotKitProvider>
       );
     }
     ```
@@ -174,7 +175,6 @@ npx copilotkit create -f mcp-apps
     ```tsx title="app/layout.tsx"
     // [!code highlight:2]
     import { Providers } from "./providers";
-    import "@copilotkit/react-core/v2/styles.css";
 
     // ...
 
@@ -201,7 +201,7 @@ npx copilotkit create -f mcp-apps
     ```tsx title="app/page.tsx"
     "use client";
 
-    import { CopilotSidebar } from "@copilotkit/react-core/v2";
+    import { CopilotSidebar } from "@copilotkit/react-core";
 
     export default function Page() {
         return (
@@ -258,11 +258,13 @@ The middleware supports two transport types:
 For MCP servers using HTTP-based communication:
 
 ```typescript
-{
+import type { McpAppsServerConfig } from "@copilotkit/runtime";
+
+const httpServer = {
   type: "http",
   url: "http://localhost:3101/mcp",
-  serverId: "my-http-server"
-}
+  serverId: "my-http-server",
+} satisfies McpAppsServerConfig;
 ```
 
 ### SSE Transport
@@ -270,15 +272,19 @@ For MCP servers using HTTP-based communication:
 For MCP servers using Server-Sent Events:
 
 ```typescript
-{
+import type { McpAppsServerConfig } from "@copilotkit/runtime";
+
+const sseServer = {
   type: "sse",
   url: "https://mcp.example.com/sse",
   headers: {
-    "Authorization": "Bearer token"
+    Authorization: "Bearer token",
   },
-  serverId: "my-sse-server"
-}
+  serverId: "my-sse-server",
+} satisfies McpAppsServerConfig;
 ```
+
+Pass either object in `mcpApps.servers` on `CopilotRuntime`.
 
 ## Threading Support
 

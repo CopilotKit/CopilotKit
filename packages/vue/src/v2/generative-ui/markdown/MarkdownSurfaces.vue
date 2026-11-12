@@ -1,20 +1,22 @@
 <script lang="ts">
 /**
- * Experimental. The props of `MarkdownSurfaces`. Other attributes go to each
- * `StreamMarkdown` of the prose, as the props of `StreamMarkdown`.
+ * Experimental. The props of `MarkdownSurfaces`. Other attributes go to the
+ * markdown renderer of each part of the prose, as its config.
  */
 export interface MarkdownSurfacesProps {
   /** The text of the assistant message, complete or still streaming. */
   content: string;
   /** The id of the message. The fences of the message are found by it. */
   messageId: string;
+  /** Whether the message is still streaming. Default false. */
+  isStreaming?: boolean;
 }
 </script>
 
 <script setup lang="ts">
 /**
  * Experimental. Renders an assistant message of the markdown transport.
- * Prose renders as markdown with `StreamMarkdown`. In place of each ```a2ui
+ * Prose renders as markdown, like the chat text. In place of each ```a2ui
  * fence:
  *
  * - the fence that created a chat surface renders that surface (and the
@@ -32,7 +34,6 @@ export interface MarkdownSurfacesProps {
  * ```
  */
 import { computed } from "vue";
-import { StreamMarkdown } from "streamdown-vue";
 import { splitA2UIMarkdown } from "@copilotkit/core";
 import { getMarkdownSurfaceSource } from "@copilotkit/core/generative-ui";
 import type { ManagedSurface } from "@copilotkit/core/generative-ui";
@@ -45,9 +46,12 @@ import { useManagerVersion } from "../hooks";
 import { useRequiredGenerativeUIRuntime } from "../runtime-context";
 import type { GenerativeUIRuntime } from "../runtime-context";
 import DefaultMarkdownChatSurface from "./DefaultMarkdownChatSurface.vue";
+import ProviderMarkdown from "./ProviderMarkdown.vue";
 
 defineOptions({ name: "MarkdownSurfaces", inheritAttrs: false });
-const props = defineProps<MarkdownSurfacesProps>();
+const props = withDefaults(defineProps<MarkdownSurfacesProps>(), {
+  isStreaming: false,
+});
 
 type Part =
   | { kind: "markdown"; key: string; text: string }
@@ -128,11 +132,12 @@ const parts = computed(() => {
 </script>
 
 <template>
-  <template v-for="part in parts" :key="part.key">
-    <StreamMarkdown
+  <template v-for="(part, index) in parts" :key="part.key">
+    <ProviderMarkdown
       v-if="part.kind === 'markdown'"
       v-bind="$attrs"
       :content="part.text"
+      :is-streaming="isStreaming && index === parts.length - 1"
     />
     <GenerativeUIChatSurfaceOutlet
       v-else

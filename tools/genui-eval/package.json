@@ -10,7 +10,7 @@
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {
-    "@ag-ui/client": "1.0.2",
+    "@ag-ui/client": "1.0.4",
     "@ai-sdk/openai": "^3.0.36",
     "@ai-sdk/provider": "^3.0.8",
     "@copilotkit/core": "workspace:*",
@@ -21,7 +21,7 @@
     "jsonrepair": "^3.15.0",
     "rxjs": "7.8.1",
     "tsx": "^4.21.0",
-    "zod": "^3.25.18"
+    "zod": "^4.2.0"
   },
   "devDependencies": {
     "@types/node": "^22.15.3",

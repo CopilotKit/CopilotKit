@@ -17,7 +17,7 @@ Some agent actions need a person to say yes first, such as running a command. `u
 This example asks the user to approve a command before the agent runs it. Use the `useHumanInTheLoop` hook to create a tool that prompts the user for approval.
 
 ```tsx title="page.tsx"
-import { useHumanInTheLoop } from "@copilotkit/react-core/v2"; // [!code highlight]
+import { useHumanInTheLoop } from "@copilotkit/react-core"; // [!code highlight]
 import { z } from "zod";
 
 export function Page() {

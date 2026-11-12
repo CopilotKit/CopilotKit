@@ -28,6 +28,7 @@ import {
   runtimeInfoError,
 } from "../utils/runtime-info-error";
 import { isAbortError } from "../utils/abort-error";
+import { shallowEqualRecord } from "../utils/shallow-equal";
 import type { RuntimeRequestMeta } from "../utils/runtime-request";
 import {
   RUNTIME_REQUEST_WATCHDOG_MS,
@@ -131,6 +132,13 @@ export interface CopilotKitCoreRegisterProxiedAgentResult {
 export class AgentRegistry {
   private _agents: Record<string, AbstractAgent> = {};
   private localAgents: Record<string, AbstractAgent> = {};
+  /**
+   * Whether `onAgentsChanged` has run since {@link initialize}. Constructor
+   * agents are not announced, so the first `setAgents__unsafe_dev_only` with
+   * the same agents must still announce them (core subscribes to agents on
+   * that notification).
+   */
+  private agentsPublished = false;
   private remoteAgents: Record<string, AbstractAgent> = {};
 
   private readonly mintedThreadIds = new WeakMap<AbstractAgent, string>();
@@ -176,8 +184,8 @@ export class AgentRegistry {
   private inspectorMetadataCredentialsGeneration: number = 0;
   private inspectorMetadataAbortController?: AbortController;
   private inspectorMetadataNotificationQueue: Promise<void> = Promise.resolve();
-  private _a2uiEnabled: boolean = false;
-  private _a2uiAgents?: string[];
+  private _generativeUIEnabled: boolean = false;
+  private _generativeUIAgents?: string[];
   private _openGenerativeUIEnabled: boolean = false;
   private _licenseStatus?: RuntimeLicenseStatus;
   private _runtimeEntitlements?: RuntimeEntitlementResponse;
@@ -194,6 +202,12 @@ export class AgentRegistry {
   private runtimeRecoveryRunning: boolean = false;
   private runtimeRecoveryPending: boolean = false;
   private runtimeHealthGeneration: number = 0;
+  /**
+   * Aborted by {@link dispose}. Runtime probes, recovery fetches and request
+   * watchdogs listen to it so a disposed core leaves no timer or request
+   * behind.
+   */
+  private readonly disposeController = new AbortController();
 
   /**
    * The headers each HttpAgent was constructed with, captured on the first
@@ -260,16 +274,17 @@ export class AgentRegistry {
     return this._inspectorMetadata;
   }
 
-  get a2uiEnabled(): boolean {
-    return this._a2uiEnabled;
+  /** Whether the runtime turns generative UI (A2UI 1.0) on. */
+  get generativeUIEnabled(): boolean {
+    return this._generativeUIEnabled;
   }
 
   /**
-   * Agent ids the runtime applies A2UI to (#5369). `undefined` means A2UI
-   * applies to every agent — or is disabled entirely; check `a2uiEnabled`.
+   * Agent ids the runtime limits generative UI to. `undefined` means every
+   * agent, or off; check `generativeUIEnabled`.
    */
-  get a2uiAgents(): string[] | undefined {
-    return this._a2uiAgents;
+  get generativeUIAgents(): string[] | undefined {
+    return this._generativeUIAgents;
   }
 
   get openGenerativeUIEnabled(): boolean {
@@ -293,6 +308,29 @@ export class AgentRegistry {
 
   get telemetryDisabled(): boolean {
     return this._telemetryDisabled;
+  }
+
+  /**
+   * Stop runtime work this registry owns: the entitlement retry timer, the
+   * inspector metadata request, runtime probes and recovery fetches with
+   * their timeouts, and request watchdogs. In-flight `/info` connections are
+   * detached so their late results change nothing. Called by
+   * `CopilotKitCore.dispose`.
+   */
+  dispose(): void {
+    if (this.disposeController.signal.aborted) return;
+    this.disposeController.abort();
+    this._activeRuntimeConnectionAttempt = undefined;
+    this._connectionInFlight = undefined;
+    this.resetRuntimeEntitlementRetry();
+    this.inspectorMetadataGeneration += 1;
+    this.inspectorMetadataAbortController?.abort();
+    this.inspectorMetadataAbortController = undefined;
+    this.abandonRuntimeHealthProbe();
+  }
+
+  private get isDisposed(): boolean {
+    return this.disposeController.signal.aborted;
   }
 
   /**
@@ -443,9 +481,14 @@ export class AgentRegistry {
   }
 
   /**
-   * Set all agents at once (for development use)
+   * Set all agents at once (for development use). Same ids mapped to the
+   * same instances as the current local agents is a no-op once the agents
+   * have been announced.
    */
   setAgents__unsafe_dev_only(agents: Record<string, AbstractAgent>): void {
+    const isUnchanged =
+      this.agentsPublished && shallowEqualRecord(agents, this.localAgents);
+    if (isUnchanged) return;
     // Validate all agents before making any changes
     Object.entries(agents).forEach(([id, agent]) => {
       if (agent) {
@@ -813,11 +856,17 @@ export class AgentRegistry {
       return { clear: () => {}, checked: () => false };
     }
     let checked = false;
+    const disposeSignal = this.disposeController.signal;
     const timeoutId = setTimeout(() => {
       checked = this.handleRuntimeRequestOutcome("failed");
     }, RUNTIME_REQUEST_WATCHDOG_MS);
+    const clear = () => {
+      clearTimeout(timeoutId);
+      disposeSignal.removeEventListener("abort", clear);
+    };
+    disposeSignal.addEventListener("abort", clear, { once: true });
     return {
-      clear: () => clearTimeout(timeoutId),
+      clear,
       checked: () => checked,
     };
   }
@@ -1100,7 +1149,7 @@ export class AgentRegistry {
     outcome: RuntimeRequestOutcome,
     alreadyChecked: () => boolean = () => false,
   ): boolean {
-    if (outcome === "aborted" || outcome === "ignored") {
+    if (outcome === "aborted" || outcome === "ignored" || this.isDisposed) {
       return false;
     }
     if (outcome === "failed" && alreadyChecked()) {
@@ -1155,22 +1204,42 @@ export class AgentRegistry {
       abortController.signal,
     );
     void request.catch(() => {});
+    const disposeSignal = this.disposeController.signal;
+    let rejectOnAbort: (() => void) | undefined;
+    const abortOnDispose = () => abortController.abort();
     try {
       const timedOut = new Promise<never>((_resolve, reject) => {
         timeoutId = setTimeout(() => {
-          abortController.abort();
+          // Reject before aborting, so the race reports the timeout and not
+          // the abort that the timeout causes.
           reject(
             new Error(
               `Runtime did not answer within ${ɵRUNTIME_PROBE_TIMEOUT_MS}ms`,
             ),
           );
+          abortController.abort();
         }, ɵRUNTIME_PROBE_TIMEOUT_MS);
       });
-      return await Promise.race([request, timedOut]);
+      // Settle at once on abort (a probe abandoned or the core disposed),
+      // even when the fetch ignores its signal, so the timeout is cleared.
+      const aborted = new Promise<never>((_resolve, reject) => {
+        rejectOnAbort = () => reject(new Error("Runtime request aborted"));
+        abortController.signal.addEventListener("abort", rejectOnAbort, {
+          once: true,
+        });
+      });
+      void aborted.catch(() => {});
+      disposeSignal.addEventListener("abort", abortOnDispose, { once: true });
+      if (disposeSignal.aborted) abortController.abort();
+      return await Promise.race([request, timedOut, aborted]);
     } finally {
       if (timeoutId !== undefined) {
         clearTimeout(timeoutId);
       }
+      if (rejectOnAbort) {
+        abortController.signal.removeEventListener("abort", rejectOnAbort);
+      }
+      disposeSignal.removeEventListener("abort", abortOnDispose);
     }
   }
 
@@ -1263,8 +1332,8 @@ export class AgentRegistry {
   private async updateRuntimeConnection(
     options?: RuntimeConnectionOptions,
   ): Promise<void> {
-    // Skip fetching on the server (SSR)
-    if (typeof window === "undefined") {
+    // Skip fetching on the server (SSR), and after dispose
+    if (typeof window === "undefined" || this.isDisposed) {
       return;
     }
 
@@ -1372,6 +1441,7 @@ export class AgentRegistry {
 
     this._runtimeEntitlementRetryAttemptedKey = key;
     this._runtimeEntitlementRetryPendingKey = key;
+    if (this.isDisposed) return;
     this._runtimeEntitlementRetryTimer = setTimeout(() => {
       this._runtimeEntitlementRetryTimer = undefined;
       void this.executeRuntimeEntitlementRetry(attempt).catch(
@@ -1425,8 +1495,8 @@ export class AgentRegistry {
       this._singleRouteResourceOperations = false;
       this._suggestions = undefined;
       this._inspectorLearning = false;
-      this._a2uiEnabled = false;
-      this._a2uiAgents = undefined;
+      this._generativeUIEnabled = false;
+      this._generativeUIAgents = undefined;
       this._openGenerativeUIEnabled = false;
       this._licenseStatus = undefined;
       this._runtimeEntitlements = undefined;
@@ -1573,10 +1643,11 @@ export class AgentRegistry {
       if (!this._inspectorMetadataSupported) {
         this.setInspectorMetadata(undefined);
       }
-      const a2uiInfo = runtimeInfoResponse.a2ui;
-      this._a2uiEnabled =
-        a2uiInfo?.enabled ?? runtimeInfoResponse.a2uiEnabled ?? false;
-      this._a2uiAgents = a2uiInfo?.enabled ? a2uiInfo.agents : undefined;
+      const generativeUIInfo = runtimeInfoResponse.generativeUI;
+      this._generativeUIEnabled = generativeUIInfo?.enabled ?? false;
+      this._generativeUIAgents = generativeUIInfo?.enabled
+        ? generativeUIInfo.agents
+        : undefined;
       this._openGenerativeUIEnabled =
         runtimeInfoResponse.openGenerativeUIEnabled ?? false;
       this._licenseStatus = runtimeInfoResponse.licenseStatus;
@@ -1647,8 +1718,8 @@ export class AgentRegistry {
         this._singleRouteResourceOperations = false;
         this._suggestions = undefined;
         this._inspectorLearning = false;
-        this._a2uiEnabled = false;
-        this._a2uiAgents = undefined;
+        this._generativeUIEnabled = false;
+        this._generativeUIAgents = undefined;
         this._openGenerativeUIEnabled = false;
         // A failed bounded retry must settle the authority that caused it. Keep
         // that retryable result so consumers can distinguish terminal denial
@@ -1865,6 +1936,7 @@ export class AgentRegistry {
    * Notify subscribers of agent changes
    */
   private async notifyAgentsChanged(): Promise<void> {
+    this.agentsPublished = true;
     await (
       this.core as unknown as CopilotKitCoreFriendsAccess
     ).notifySubscribers(

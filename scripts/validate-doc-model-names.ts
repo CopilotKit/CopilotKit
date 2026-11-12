@@ -231,6 +231,17 @@ const MODEL_ATTR_REGEX =
  */
 const CALL_ARGUMENT_REGEX = /\(\s*["']([\w./-]+)["']\s*\)/g;
 
+/**
+ * The model id passed to a TanStack AI text adapter, such as
+ * `openaiText("gpt-5.5")` or `openaiCompatibleText("gpt-5-mini", { ... })`.
+ *
+ * The Built-in Agent takes its model as one of these calls. A config object
+ * can follow the id, so `CALL_ARGUMENT_REGEX` does not match it, and the
+ * adapter name keeps this pattern safe to run over prose as well as source.
+ */
+const ADAPTER_CALL_REGEX =
+  /\b(?:openai|anthropic|gemini|vertex|openaiCompatible)Text\(\s*["'`]([\w./-]+)["'`]/g;
+
 const BARE_PROVIDER_REGEX = new RegExp(
   `(?:${PROVIDER_PREFIXES.map((p) => p.replace("/", "\\/")).join("|")})([\\w.-]+)`,
   "g",
@@ -245,8 +256,13 @@ export function extractModelNames(
 
   const regions = extractCodeRegions(content, wholeFileIsCode);
   const patterns = wholeFileIsCode
-    ? [MODEL_ATTR_REGEX, BARE_PROVIDER_REGEX, CALL_ARGUMENT_REGEX]
-    : [MODEL_ATTR_REGEX, BARE_PROVIDER_REGEX];
+    ? [
+        MODEL_ATTR_REGEX,
+        BARE_PROVIDER_REGEX,
+        CALL_ARGUMENT_REGEX,
+        ADAPTER_CALL_REGEX,
+      ]
+    : [MODEL_ATTR_REGEX, BARE_PROVIDER_REGEX, ADAPTER_CALL_REGEX];
 
   for (const region of regions) {
     const regionLines = region.text.split("\n");
@@ -366,50 +382,81 @@ export function validateFiles(
 /**
  * The page whose table tells a reader which models the Built-in Agent takes.
  *
- * The quickstart pinned `openai:gpt-5.4-mini` while this table did not list it,
- * so a reader could not tell whether the quickstart model was supported. The
- * resolver passes any model id through to the provider, so the table is not a
- * fixed list the code enforces. It is the list the docs promise, and every
- * model string a page teaches has to be on it.
+ * The quickstart once pinned a model this table did not list, so a reader could
+ * not tell whether the quickstart model was supported (PE-418). The adapter
+ * passes any model id through to the provider, so the table is not a fixed list
+ * the code enforces. It is the list the docs promise, and every adapter call a
+ * page teaches has to be on it.
  */
 const MODEL_TABLE_PATH = path.resolve(
   __dirname,
   "../showcase/shell-docs/src/content/docs/integrations/built-in-agent/model-selection.mdx",
 );
 
-/** Trees whose `.mdx` pages can teach a Built-in Agent model string. */
+/** Trees whose `.mdx` pages can teach a Built-in Agent model. */
 const MODEL_TABLE_DIRS = [
   DOCS_DIR,
   path.resolve(__dirname, "../showcase/integrations"),
 ];
 
-/** Providers the Built-in Agent resolves from a string. */
+/**
+ * The table provider for each adapter whose models the table lists.
+ *
+ * `vertexText` runs the Gemini models, so it reads the Google rows.
+ * `openaiCompatibleText` is absent: it takes the model ids of any host.
+ */
+const ADAPTER_PROVIDERS = {
+  openaiText: "openai",
+  anthropicText: "anthropic",
+  geminiText: "google",
+  vertexText: "google",
+} as const;
+
+type TableAdapter = keyof typeof ADAPTER_PROVIDERS;
+
+const TABLE_ADAPTERS = Object.keys(ADAPTER_PROVIDERS).join("|");
+
+/**
+ * A table adapter call with its model id, such as `openaiText("gpt-5.5")`.
+ * Group 1 is the adapter, group 2 the model id.
+ */
+const TABLE_CELL_REGEX = new RegExp(
+  `\\b(${TABLE_ADAPTERS})\\(\\s*["'\`]([\\w.-]+)["'\`]`,
+  "g",
+);
+
+/**
+ * The same call as the `model` of a Built-in Agent. A factory passes its own
+ * `adapter` to `chat()`, and the table makes no promise about that model.
+ */
+const MODEL_ADAPTER_REGEX = new RegExp(
+  `\\bmodel\\s*:\\s*${TABLE_CELL_REGEX.source}`,
+  "g",
+);
+
+/** `openaiText("gpt-5")` names the same row as `openai:gpt-5`. */
+function adapterSpec(adapter: TableAdapter, model: string) {
+  return `${ADAPTER_PROVIDERS[adapter]}:${model}`;
+}
+
+function isTableAdapter(name: string): name is TableAdapter {
+  return name in ADAPTER_PROVIDERS;
+}
+
+/** Every `provider:model` spec of the table adapter calls `pattern` finds. */
+function adapterSpecs(text: string, pattern: RegExp) {
+  const specs: string[] = [];
+  for (const [, adapter, model] of text.matchAll(pattern)) {
+    if (isTableAdapter(adapter)) specs.push(adapterSpec(adapter, model));
+  }
+  return specs;
+}
+
+/** Providers a table cell can name as a `provider:model` string. */
 const TABLE_PROVIDERS = "openai|anthropic|google|minimax";
 
-/**
- * A quoted `provider:model` string. LangChain's `init_chat_model`, Deep Agents
- * and Pydantic AI use this form too, and their pages are not bound by the
- * Built-in Agent table. So, like the slash form below, it is read only inside a
- * code block that builds a `BuiltInAgent`.
- */
-const COLON_SPEC_REGEX = new RegExp(
-  `["'\`]((?:${TABLE_PROVIDERS}):[\\w.-]+)["'\`]`,
-  "gi",
-);
-
-/**
- * A `model: "provider/model"` attribute. Mastra and others use the slash form
- * too, so it is read only inside a code block that builds a `BuiltInAgent`.
- * The attribute is required here because other slash strings in those blocks,
- * such as an OpenRouter model id, are not Built-in Agent specifiers.
- */
-const SLASH_SPEC_REGEX = new RegExp(
-  `model\\s*:\\s*["']((?:${TABLE_PROVIDERS})/[\\w.-]+)["']`,
-  "gi",
-);
-
 /** `openai/gpt-5` and `OpenAI:gpt-5` name the same row as `openai:gpt-5`. */
-function normalizeSpec(spec: string): string {
+function normalizeSpec(spec: string) {
   const separator = spec.search(/[:/]/u);
   return `${spec.slice(0, separator).toLowerCase()}:${spec.slice(separator + 1)}`;
 }
@@ -418,14 +465,18 @@ function normalizeSpec(spec: string): string {
 const SUPPORTED_MODELS_HEADING = "## Supported Models";
 
 /**
- * Every specifier in a table row under "Supported Models".
+ * Every model in a table row under "Supported Models".
  *
- * Other tables on the page, such as "How it works", show how a string resolves.
- * A model named only there is an example, not a promise, so it does not count.
+ * A cell names a model as an adapter call (`openaiText("gpt-5.5")`) or as a
+ * `provider:model` string. Other tables on the page, such as "How it works",
+ * show examples, not promises, so they do not count.
  */
 export function loadModelTable(tablePath: string): Set<string> {
   const specs = new Set<string>();
-  const cell = new RegExp(`\`((?:${TABLE_PROVIDERS})[:/][\\w.-]+)\``, "gi");
+  const stringCell = new RegExp(
+    `\`((?:${TABLE_PROVIDERS})[:/][\\w.-]+)\``,
+    "gi",
+  );
   let inSection = false;
   for (const line of fs.readFileSync(tablePath, "utf-8").split("\n")) {
     if (/^##\s/u.test(line)) {
@@ -433,12 +484,15 @@ export function loadModelTable(tablePath: string): Set<string> {
       continue;
     }
     if (!inSection || !line.trimStart().startsWith("|")) continue;
-    for (const match of line.matchAll(cell)) specs.add(normalizeSpec(match[1]));
+    for (const match of line.matchAll(stringCell)) {
+      specs.add(normalizeSpec(match[1]));
+    }
+    for (const spec of adapterSpecs(line, TABLE_CELL_REGEX)) specs.add(spec);
   }
   return specs;
 }
 
-/** The Built-in Agent model strings a page teaches in its code blocks. */
+/** The Built-in Agent `model` adapter calls a page teaches in code blocks. */
 export function extractBuiltInAgentModels(
   content: string,
 ): Array<{ spec: string; line: number }> {
@@ -446,30 +500,21 @@ export function extractBuiltInAgentModels(
   const lines = content.split("\n");
   let block: Array<{ text: string; line: number }> | null = null;
 
-  const scan = (
-    text: string,
-    line: number,
-    patterns: readonly RegExp[],
-  ): void => {
-    if (text.includes(IGNORE_MARKER)) return;
-    for (const pattern of patterns) {
-      for (const match of text.matchAll(pattern)) {
-        results.push({ spec: normalizeSpec(match[1]), line });
-      }
-    }
-  };
-
   for (let i = 0; i < lines.length; i++) {
     if (lines[i].trimStart().startsWith("```")) {
       if (block === null) {
         block = [];
         continue;
       }
-      // Every Built-in Agent model string in the docs sits in a block that
-      // names `BuiltInAgent`, so that is the scope. Checked on 2026-09-28.
+      // A Built-in Agent sample names `BuiltInAgent` in its block. Adapter
+      // calls in other blocks, such as a plain TanStack AI `chat()`, are not
+      // a promise about the Built-in Agent.
       if (block.some(({ text }) => text.includes("BuiltInAgent"))) {
         for (const { text, line } of block) {
-          scan(text, line, [COLON_SPEC_REGEX, SLASH_SPEC_REGEX]);
+          if (text.includes(IGNORE_MARKER)) continue;
+          for (const spec of adapterSpecs(text, MODEL_ADAPTER_REGEX)) {
+            results.push({ spec, line });
+          }
         }
       }
       block = null;
@@ -481,7 +526,7 @@ export function extractBuiltInAgentModels(
   return results;
 }
 
-/** Every Built-in Agent model string under `dirs` that the table lacks. */
+/** Every Built-in Agent adapter model under `dirs` that the table lacks. */
 export function validateModelTable(
   dirs: readonly string[],
   tablePath: string,
@@ -572,7 +617,7 @@ function main() {
   console.log(
     `\nA starter may only pin a model listed under "ship". Documentation may also name` +
       `\none listed under "recognize". Both lists are showcase/shell-docs/model-allowlist.json.` +
-      `\nA Built-in Agent model string must be a row in the table on` +
+      `\nA Built-in Agent adapter model must be a row in the table on` +
       `\n${path.relative(path.resolve(__dirname, ".."), MODEL_TABLE_PATH)}.`,
   );
 

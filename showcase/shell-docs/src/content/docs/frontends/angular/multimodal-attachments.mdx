@@ -52,8 +52,19 @@ Showcase accepts images and PDFs up to 10 MiB:
 
 Expose the config as a field on your chat component:
 
-```ts
-protected readonly multimodalAttachments = MULTIMODAL_ATTACHMENTS;
+```ts title="media-chat.component.ts"
+import { Component } from "@angular/core";
+import { CopilotChat } from "@copilotkit/angular";
+import { MULTIMODAL_ATTACHMENTS } from "./multimodal-attachments";
+
+@Component({
+  selector: "app-media-chat",
+  imports: [CopilotChat],
+  templateUrl: "./media-chat.component.html",
+})
+export class MediaChatComponent {
+  protected readonly multimodalAttachments = MULTIMODAL_ATTACHMENTS;
+}
 ```
 
 Then bind the field in the template:

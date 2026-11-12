@@ -1,14 +1,16 @@
 ### Mastra in the same process
 
 When the Mastra instance is imported into the same process as the runtime
-route, add an `a2ui` block to the runtime and pin `defaultCatalogId` to the
-catalog that your page registers. Without it, a model that leaves out
-`catalogId` fails with "Catalog not found".
+route, set `generativeUI` on the runtime. The agent writes A2UI v0.9, so set
+`a2uiVersion: "0.9"`. Pin `defaultCatalogId` to the `id` of the UI that your
+page passes to the provider. Without it, a model that leaves out `catalogId`
+writes a surface for a catalog that the page does not have.
 
 ```ts title="app/api/copilotkit/route.ts"
 const runtime = new CopilotRuntime({
   agents: { "declarative-gen-ui": agent },
-  a2ui: {
+  generativeUI: {
+    a2uiVersion: "0.9",
     defaultCatalogId: "declarative-gen-ui-catalog",
   },
 });
@@ -76,7 +78,8 @@ export const mastra = new Mastra({
           if (!agent) throw new Error("dashboardAgent is not registered");
           return { "declarative-gen-ui": agent, default: agent };
         },
-        a2ui: {
+        generativeUI: {
+          a2uiVersion: "0.9",
           injectA2UITool: true,
           defaultCatalogId: "declarative-gen-ui-catalog",
         },
@@ -98,5 +101,5 @@ Then connect the frontend:
 4. In production, set `resourceId` from the signed-in user, not from the fixed
    example value.
 
-If the surface stays at "Building Interface", check that the response has
-nonempty `a2ui_operations` for the components and the data.
+If no surface renders, check that the response has nonempty
+`a2ui_operations` for the components and the data.

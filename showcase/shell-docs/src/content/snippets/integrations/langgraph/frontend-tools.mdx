@@ -13,10 +13,10 @@
                 ```python title="agent.py"
                 from langchain_core.runnables import RunnableConfig
                 from langchain_openai import ChatOpenAI
+                from copilotkit import CopilotKitState
 
-                async def agent_node(state: YourAgentState, config: RunnableConfig):
+                async def agent_node(state: CopilotKitState, config: RunnableConfig):
                     # Access the tools from the copilotkit property
-
                     tools = state.get("copilotkit", {}).get("actions", []) # [!code highlight]
                     model = ChatOpenAI(model="gpt-6-luna", reasoning_effort="none").bind_tools(tools)
 
@@ -27,15 +27,20 @@
                 ```typescript title="agent-js/src/agent.ts"
                 import type { RunnableConfig } from "@langchain/core/runnables";
                 import { ChatOpenAI } from "@langchain/openai";
-                import { convertActionsToDynamicStructuredTools } from "@copilotkit/sdk-js/langgraph";
+                import {
+                  CopilotKitStateAnnotation,
+                  convertActionsToDynamicStructuredTools,
+                } from "@copilotkit/sdk-js/langgraph";
 
-                async function agentNode(state: YourAgentState, config: RunnableConfig): Promise<YourAgentState> {
-                // Access the tools from the copilotkit property
+                type AgentState = typeof CopilotKitStateAnnotation.State;
 
-                const tools = convertActionsToDynamicStructuredTools(state.copilotkit?.actions ?? []); // [!code highlight]
-                const model = new ChatOpenAI({ modelKwargs: { reasoning_effort: "none" }, model: "gpt-6-luna" }).bindTools(tools);
+                async function agentNode(state: AgentState, config: RunnableConfig) {
+                  // Access the tools from the copilotkit property
+                  const tools = convertActionsToDynamicStructuredTools(state.copilotkit?.actions ?? []); // [!code highlight]
+                  const model = new ChatOpenAI({ model: "gpt-6-luna", modelKwargs: { reasoning_effort: "none" } }).bindTools(tools);
 
-                // ...
+                  const response = await model.invoke(state.messages, config);
+                  return { messages: [response] };
                 }
                 ```
             </Tab>

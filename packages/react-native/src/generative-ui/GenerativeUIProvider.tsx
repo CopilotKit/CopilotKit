@@ -1,16 +1,16 @@
 import React, { createContext, useEffect, useRef } from "react";
 import type { ReactNode } from "react";
-import { useCopilotKit } from "@copilotkit/react-core/v2/context";
+import { useCopilotKit } from "@copilotkit/react-core/context";
 import {
   GenerativeUIHostContext,
   GenerativeUIRuntimeContext,
   GenerativeUIToolCallRenderer,
   useGenerativeUIRoot,
-} from "@copilotkit/react-core/v2/generative-ui/native";
+} from "@copilotkit/react-core/generative-ui/native";
 import type {
   GenerativeUIHost,
   GenerativeUIToolConfig as WebGenerativeUIToolConfig,
-} from "@copilotkit/react-core/v2/generative-ui/native";
+} from "@copilotkit/react-core/generative-ui/native";
 import { nativeGenerativeUIHost } from "./host";
 import {
   describeValue,

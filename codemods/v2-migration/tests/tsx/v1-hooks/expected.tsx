@@ -1,0 +1,24 @@
+// TODO(copilotkit-2.0): `useCopilotAction` was removed in 2.0. Use `useFrontendTool` from "@copilotkit/react-core" instead. Its API is different: https://docs.copilotkit.ai/reference/v2/hooks/useFrontendTool
+// TODO(copilotkit-2.0): `useFrontendTool`: The v2 API uses a Zod schema instead of the v1 Parameter[] shape. https://docs.copilotkit.ai/reference/v2/hooks/useFrontendTool
+import {
+  useAgentContext,
+  useCopilotAction,
+  useAgent,
+  useThreads,
+  useFrontendTool,
+} from "@copilotkit/react-core";
+// TODO(copilotkit-2.0): `FrontendAction` was removed in 2.0 and has no direct replacement. See https://docs.copilotkit.ai/generative-ui/tool-based
+import type { FrontendAction } from "@copilotkit/react-core";
+
+export function Tools({ items }: { items: string[] }) {
+  useAgentContext({ description: "items", value: items });
+  const { agent } = useAgent({ agentId: "agent" });
+  const state = agent.state as any;
+  useThreads();
+  useFrontendTool({
+    name: "addItem",
+    parameters: [{ name: "item", type: "string" }],
+    handler: () => {},
+  });
+  return null;
+}

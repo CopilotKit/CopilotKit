@@ -1,17 +1,17 @@
 // Fails if a React-Native-reachable react-core entry breaks its contract.
-// @copilotkit/react-native imports three react-core entries (/v2/headless,
-// /v2/context and /v2/generative-ui/native, and no other: the test file checks
+// @copilotkit/react-native imports three react-core entries (/headless,
+// /context and /generative-ui/native, and no other: the test file checks
 // this against packages/react-native/src), so Hermes loads all three and Metro
 // bundles all three. Each built entry (.mjs and .cjs) is checked against the
 // contract for its target (see CONTRACTS below). The HEADLESS contract covers
-// /v2/headless and /v2/context, and the NATIVE contract covers
-// /v2/generative-ui/native. Both enforce the same rules. They differ only in
+// /headless and /context, and the NATIVE contract covers
+// /generative-ui/native. Both enforce the same rules. They differ only in
 // their advice, i.e. where offending code should go instead:
 //
 //   • No chat-message rendering stack: none of the ~5.5 MB shiki grammars/themes,
-//     mermaid, cytoscape, katex or streamdown (issue #4893). /v2/headless exists
+//     mermaid, cytoscape, katex or streamdown (issue #4893). /headless exists
 //     so consumers with a custom UI can import hooks without that weight, and
-//     /v2/context carries CopilotKitCoreReact, so its transitive subtree must stay
+//     /context carries CopilotKitCoreReact, so its transitive subtree must stay
 //     clean too.
 //   • Nothing Hermes or Metro cannot take. The graph may not contain:
 //       - the packages react-dom (and its subpaths), lit, lit-html, lit-element,
@@ -49,14 +49,14 @@
 // directions:
 //
 //  1. It sees only the entry files, so any violation reached through an edge OUT
-//     of them is invisible: a re-export from the fat `@copilotkit/react-core/v2`
+//     of them is invisible: a re-export from the fat `@copilotkit/react-core`
 //     entry (which links the whole render stack) is just a bare import string in
-//     `dist/v2/headless.mjs`; a heavy dep reached through `@copilotkit/core`,
+//     `dist/headless.mjs`; a heavy dep reached through `@copilotkit/core`,
 //     which is external to this build, shows up only as `from "@copilotkit/core"`;
 //     and a split-out chunk (`import "./chunk-abc.mjs"`) hides the same way.
 //  2. `code.includes(dep)` is unanchored, so it matches comments, strings and
 //     identifiers. The build output is comment-preserving, and the five banned
-//     tokens sit in `src/v2/headless.ts`'s own file banner: the same sentence in
+//     tokens sit in `src/headless.ts`'s own file banner: the same sentence in
 //     any module that ships code would fail CI on all five tokens while linking
 //     none of them.
 //
@@ -148,7 +148,7 @@ const CONTRACTS = {
     summary: REACT_NATIVE_SUMMARY,
     ...REACT_NATIVE_RULES,
     advice:
-      "If a hook you added needs the render stack, it belongs in the main /v2 entry instead,\n" +
+      "If a hook you added needs the render stack, it belongs in the main entry instead,\n" +
       "and so does DOM or Lit code: React Native imports this entry too.\n" +
       STATIC_BLOCK_ADVICE,
   },
@@ -157,15 +157,15 @@ const CONTRACTS = {
     summary: REACT_NATIVE_SUMMARY,
     ...REACT_NATIVE_RULES,
     advice:
-      "DOM and Lit code belongs in the web /v2/generative-ui entry, not in\n" +
-      "/v2/generative-ui/native. Import @a2ui/web_core models from its DOM-free\n" +
-      "subpaths (`@a2ui/web_core/state`, `/catalog`), never the `/v0_9` barrel.\n" +
+      "DOM and Lit code belongs in the web /generative-ui entry, not in\n" +
+      "/generative-ui/native. Surface state comes from @copilotkit/core/generative-ui;\n" +
+      "never import @a2ui/web_core's `/v0_9` barrel, which loads its Lit catalog.\n" +
       STATIC_BLOCK_ADVICE,
   },
 };
 
 /**
- * The contract a built target (a path relative to dist/v2) is checked against.
+ * The contract a built target (a path relative to dist) is checked against.
  *
  * @param {string} target - e.g. `headless.mjs` or `generative-ui/native.cjs`.
  * @returns {{ name: string, summary: string, forbidden: string[], forbiddenPaths: RegExp[], forbidStaticBlocks: boolean, advice: string }}
@@ -181,7 +181,7 @@ export function contractFor(target) {
 // package.json's `engines` floor (">=20") still admits. Same idiom as scripts/measure-copilotchat.mjs.
 const builtDist = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
-  "../dist/v2",
+  "../dist",
 );
 export const targets = [
   "headless.mjs",
@@ -1217,7 +1217,7 @@ function listed(items, limit = 10) {
  * failure.
  *
  * @param {object} options
- * @param {string} options.dist - The built dist/v2 directory.
+ * @param {string} options.dist - The built dist directory.
  * @param {string} options.pkgRoot - Working directory for esbuild resolution.
  * @param {string[]} [options.targets] - Paths relative to `dist`.
  * @param {{ log: Function, warn: Function, error: Function }} [options.log]
@@ -1313,7 +1313,7 @@ export async function runGate({
 
   for (const [contract, failed] of broken) {
     const entries = failed.map(
-      (target) => `/v2/${target.replace(/\.[cm]js$/, "")}`,
+      (target) => `/${target.replace(/\.[cm]js$/, "")}`,
     );
     log.error(
       `\n${[...new Set(entries)].join(", ")} (${contract.name} contract) ` +

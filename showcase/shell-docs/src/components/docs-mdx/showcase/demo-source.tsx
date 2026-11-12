@@ -18,7 +18,8 @@ import { ServerCodeBlock } from "fumadocs-ui/components/codeblock.rsc";
 import { STAGE_WINDOW, Stage } from "@/components/brand/stage";
 import { brandDark, brandLight } from "@/proto/code-theme";
 import { DocsCode } from "../code";
-import { getDemoRecord, type DemoFile } from "../data";
+import { getDemoRecord } from "../data";
+import type { DemoFile } from "../data";
 import { shikiLanguage } from "./snippet";
 
 type SourceFile = DemoFile & { highlightOrder?: number };

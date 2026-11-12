@@ -1,5 +1,5 @@
-import { onBeforeUnmount, onMounted, shallowRef } from "vue";
-import type { LucideIcon } from "lucide-vue-next";
+import { h, onBeforeUnmount, onMounted, shallowRef } from "vue";
+import type { FunctionalComponent } from "vue";
 import type { ICON_SIZES, Weight } from "@copilotkit/shared/generative-ui";
 
 /** The pixel size of each named icon size. */
@@ -119,14 +119,63 @@ export function iconAria(
   return { role: "img", "aria-label": label, "aria-description": description };
 }
 
+/** A Lucide icon as the `lucide` package stores it: `[tag, attributes]` pairs. */
+type LucideIconData = [
+  tag: string,
+  attributes: Record<string, string | number>,
+][];
+
+/** One Lucide icon as a Vue component that renders its `<svg>`. */
+export type LucideIcon = FunctionalComponent;
 type IconMap = Record<string, LucideIcon>;
 let lucidePromise: Promise<IconMap> | null = null;
 let lucideIcons: IconMap | null = null;
 
+/** "ArrowRight" gives "arrow-right", as Lucide names its icon classes. */
+function pascalToKebab(name: string) {
+  return name.replace(/([a-z0-9])([A-Z])/g, "$1-$2").toLowerCase();
+}
+
+/**
+ * A component that renders one icon of the `lucide` package as an
+ * `svg.lucide.lucide-<name>`: `color` is the stroke, `strokeWidth` the stroke
+ * width, and the other attributes go on the `<svg>` as they are.
+ */
+function lucideComponent(key: string, data: LucideIconData): LucideIcon {
+  const className = `lucide lucide-${pascalToKebab(key)}`;
+  const icon: LucideIcon = (_props, { attrs }) => {
+    const { color, strokeWidth, ...rest } = attrs;
+    return h(
+      "svg",
+      {
+        xmlns: "http://www.w3.org/2000/svg",
+        width: 24,
+        height: 24,
+        viewBox: "0 0 24 24",
+        fill: "none",
+        stroke: color ?? "currentColor",
+        "stroke-width": strokeWidth ?? 2,
+        "stroke-linecap": "round",
+        "stroke-linejoin": "round",
+        class: className,
+        ...rest,
+      },
+      data.map(([tag, attributes]) => h(tag, attributes)),
+    );
+  };
+  icon.inheritAttrs = false;
+  return icon;
+}
+
 function loadLucideIcons() {
-  lucidePromise ??= import("lucide-vue-next").then(
+  lucidePromise ??= import("lucide").then(
     (module) => {
-      const icons: IconMap = module.icons;
+      const icons: IconMap = {};
+      for (const [key, data] of Object.entries(
+        module.icons as Record<string, LucideIconData>,
+      )) {
+        icons[key] = lucideComponent(key, data);
+      }
       lucideIcons = icons;
       return icons;
     },
@@ -140,8 +189,8 @@ function loadLucideIcons() {
 }
 
 /**
- * The `icons` map of lucide-vue-next, as a ref: `null` until it is loaded.
- * lucide-vue-next has about 1,500 icons. A static import of its `icons` map
+ * The Lucide icons, as a ref: `null` until they are loaded. `lucide` (an
+ * optional peer dependency) has about 1,500 icons. A static import of its `icons` map
  * puts all of them in every bundle, so the map loads once, on first use, in
  * the browser only. The server renders no icon.
  */

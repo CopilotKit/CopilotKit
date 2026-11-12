@@ -6,7 +6,9 @@ description: "Define backend tools for your Built-in Agent."
 
 ## What are Server Tools?
 
-Server tools are functions that run on your backend that the Built-in Agent can invoke. They're defined using `defineTool()` with Zod schemas for type-safe parameters.
+Your agent needs data from a database, an API, or a service that uses a secret. A server tool runs that code on your backend. The Built-in Agent calls it when the model asks for it.
+
+Define the tool with `defineTool()` and a schema library such as Zod. The result is a TanStack AI server tool. You define each tool once, then use it in `BuiltInAgent` and in your own `chat()` calls.
 
 ## When should I use this?
 
@@ -38,7 +40,8 @@ render-only registration.
 ## Defining a tool
 
 ```typescript title="src/copilotkit.ts"
-import { BuiltInAgent, defineTool } from "@copilotkit/runtime/v2";
+import { BuiltInAgent, defineTool } from "@copilotkit/runtime/agent";
+import { openaiText } from "@tanstack/ai-openai";
 import { z } from "zod";
 
 const getWeather = defineTool({
@@ -54,7 +57,7 @@ const getWeather = defineTool({
 });
 
 const builtInAgent = new BuiltInAgent({
-  model: "openai:gpt-6-luna",
+  model: openaiText("gpt-6-luna"),
   tools: [getWeather],
   maxSteps: 2                   //Important for tool calls
 });
@@ -78,6 +81,12 @@ Tools can return any JSON-serializable value. The agent uses the response to con
 Pass an array of tools. The agent chooses which to call based on the user's request:
 
 ```typescript title="src/copilotkit.ts"
+import { BuiltInAgent, defineTool } from "@copilotkit/runtime/agent";
+import { openaiText } from "@tanstack/ai-openai";
+import { z } from "zod";
+import { db } from "./db";
+import { search } from "./search";
+
 const searchDocs = defineTool({
   name: "searchDocs",
   description: "Search the documentation for relevant articles",
@@ -105,7 +114,7 @@ const createTicket = defineTool({
 });
 
 const builtInAgent = new BuiltInAgent({
-  model: "openai:gpt-6-luna",
+  model: openaiText("gpt-6-luna"),
   tools: [searchDocs, createTicket], // [!code highlight]
   maxSteps: 2                        
 });
@@ -121,11 +130,79 @@ sides and the model only ever sees the server one, so the frontend handler never
 each side a distinct name when both need their own.
 </Callout>
 
+## Add TanStack and provider tools
+
+Some tools do not come from `defineTool()`. You can have a TanStack AI tool that you already wrote. The model provider can also run a tool for you, such as web search. Put them in the same `tools` array:
+
+```typescript title="src/copilotkit.ts"
+import { BuiltInAgent, defineTool } from "@copilotkit/runtime/agent";
+import { toolDefinition } from "@tanstack/ai";
+import { openaiText } from "@tanstack/ai-openai";
+import { webSearchTool } from "@tanstack/ai-openai/tools";
+import { z } from "zod";
+
+const getWeather = defineTool({
+  name: "getWeather",
+  description: "Get the current weather for a location",
+  parameters: z.object({ location: z.string() }),
+  execute: async ({ location }) => ({ temperature: 72, location }),
+});
+
+const getTime = toolDefinition({
+  name: "getTime",
+  description: "Get the current time in a time zone",
+  inputSchema: z.object({ timeZone: z.string() }),
+}).server(async ({ timeZone }) => ({
+  time: new Date().toLocaleTimeString("en-US", { timeZone }),
+}));
+
+const builtInAgent = new BuiltInAgent({
+  model: openaiText("gpt-6-luna"),
+  tools: [
+    getWeather,
+    getTime,
+    webSearchTool({ type: "web_search", search_context_size: "medium" }), // [!code highlight]
+  ],
+  maxSteps: 3,
+});
+```
+
+- `getWeather` and `getTime` run on your server.
+- `webSearchTool` runs at OpenAI. You do not write an `execute` for it.
+
+TypeScript checks each provider tool against the model. If the model does not support a provider tool, the `tools` array does not compile.
+
+## Use the same tool in your own `chat()` call
+
+You can also call TanStack AI's `chat()` yourself, for example in a script or in a different route. Pass the same tool object. You do not convert it:
+
+```typescript title="src/weather-report.ts"
+import { chat } from "@tanstack/ai";
+import { openaiText } from "@tanstack/ai-openai";
+import { getWeather } from "./tools";
+
+const { text } = await chat({
+  adapter: openaiText("gpt-6-luna"),
+  messages: [{ role: "user", content: "What is the weather in Paris?" }],
+  tools: [getWeather],
+  threadId: "weather-report",
+  stream: false,
+});
+
+console.log(text);
+```
+
+Your own `chat()` call can also be inside a `type: "tanstack"` factory. See [Use any model router](/backend/custom-agent#with-tools).
+
 ## Complex Zod schemas
 
 Use nested objects, arrays, enums, and optional fields for sophisticated tool parameters:
 
 ```typescript
+import { defineTool } from "@copilotkit/runtime/agent";
+import { z } from "zod";
+import { searchFlights } from "./flights";
+
 const bookFlight = defineTool({
   name: "bookFlight",
   description: "Search for and book flights",
@@ -155,6 +232,10 @@ const bookFlight = defineTool({
 Throw errors or return error objects from your tool. The agent will see the error and can inform the user or try a different approach:
 
 ```typescript
+import { defineTool } from "@copilotkit/runtime/agent";
+import { z } from "zod";
+import { db } from "./db";
+
 const getUser = defineTool({
   name: "getUser",
   description: "Look up a user by email",
@@ -182,10 +263,28 @@ naming the tool, and the model reasons over that instead of your data. Return pl
 By default, the agent performs a single step. If your agent needs to chain tool calls (e.g., search first, then create a ticket), set `maxSteps`:
 
 ```typescript
+import { BuiltInAgent, defineTool } from "@copilotkit/runtime/agent";
+import { openaiText } from "@tanstack/ai-openai";
+import { z } from "zod";
+
+const searchDocs = defineTool({
+  name: "searchDocs",
+  description: "Search the documentation",
+  parameters: z.object({ query: z.string() }),
+  execute: async ({ query }) => ({ results: [`Article about ${query}`] }),
+});
+
+const createTicket = defineTool({
+  name: "createTicket",
+  description: "Create a support ticket",
+  parameters: z.object({ title: z.string() }),
+  execute: async ({ title }) => ({ ticketId: "T-1", title }),
+});
+
 const builtInAgent = new BuiltInAgent({
-  model: "openai:gpt-6-luna",
+  model: openaiText("gpt-6-luna"),
   maxSteps: 5, // [!code highlight]
-  tools: [searchDocs, createTicket, getUser],
+  tools: [searchDocs, createTicket],
 });
 ```
 
@@ -195,15 +294,44 @@ With `maxSteps: 5`, the agent can:
 3. Call `createTicket` with details from the search
 4. Continue until done (up to 5 iterations)
 
+## Pause for a human
+
+Some tool calls need a person to say yes first, such as a refund or a delete. Set `interrupt: true` and leave out `execute`:
+
+```typescript
+import { defineTool } from "@copilotkit/runtime/agent";
+import { z } from "zod";
+
+const approveRefund = defineTool({
+  name: "approveRefund",
+  description: "Ask a human to approve a refund",
+  parameters: z.object({
+    orderId: z.string(),
+    amount: z.number(),
+  }),
+  interrupt: true, // [!code highlight]
+  interruptReason: "refund_approval",
+  interruptMessage: "Approve this refund?",
+});
+```
+
+When the model calls `approveRefund`, the run pauses. CopilotKit resumes the run with the answer of the person as the tool result.
+
+- `interruptReason`: the category of the pause. The default is `"tool_call"`.
+- `interruptMessage`: a text for the person who answers.
+
+To show the approval UI, see [Pausing the agent for input](/human-in-the-loop/useInterrupt).
+
 <Callout type="info">
-See [Advanced Configuration](/advanced-configuration) for more options like `toolChoice`, `temperature`, and `providerOptions`.
+See [Advanced Configuration](/advanced-configuration) for more options like `toolChoice` and `modelOptions`.
 </Callout>
 
-<Callout type="warn" title="A factory ignores the `tools` array">
-Everything on this page describes a Built-in Agent constructed with `model` and `tools`. If
-you build one from a `factory` instead, the `tools` array is not read. The factory owns the
-model call, so it has to pass the tools itself. Convert them with
-`convertToolDefinitionsToVercelAITools` for an AI SDK factory, or the equivalent converter for
-your runner, and pass the result into the call the factory makes. For factory samples with tools,
-see [Custom Agent](/backend/custom-agent#with-tools).
+<Callout type="warn" title="A factory passes its own tools">
+A Built-in Agent with a `factory` does not read the `tools` array, because the factory makes
+the model call. Pass the tools in that call:
+
+- `type: "tanstack"`: pass your `defineTool()` tools to `chat()` as they are.
+- `type: "aisdk"`: convert them with `convertToolDefinitionsToVercelAITools`.
+
+See the "With Tools" examples in [Use any model router](/backend/custom-agent#with-tools).
 </Callout>

@@ -11,7 +11,7 @@ Your frontend needs a server endpoint that reaches your agents and keeps API key
 The runtime is a lightweight server endpoint that you add to your backend:
 
 ```npm
-npm install @copilotkit/runtime
+npm install @copilotkit/runtime @tanstack/ai-openai
 ```
 
 Here's a minimal example using Next.js. `createCopilotRuntimeHandler` returns a
@@ -24,7 +24,7 @@ import {
   CopilotRuntime,
   createCopilotRuntimeHandler,
   InMemoryAgentRunner,
-} from "@copilotkit/runtime/v2";
+} from "@copilotkit/runtime";
 
 const runtime = new CopilotRuntime({
   agents: {
@@ -51,20 +51,27 @@ discover your runtime. Open it to confirm that the endpoint works.
 Then point your frontend at the endpoint:
 
 <FrontendOnly frontend="react">
-```tsx
-<CopilotKit runtimeUrl="/api/copilotkit" useSingleEndpoint={false}>
-  <YourApp />
-</CopilotKit>
+```tsx title="app/providers.tsx"
+import type { ReactNode } from "react";
+import { CopilotKitProvider } from "@copilotkit/react-core";
+
+export function Providers({ children }: { children: ReactNode }) {
+  return (
+    <CopilotKitProvider runtimeUrl="/api/copilotkit">
+      {children}
+    </CopilotKitProvider>
+  );
+}
 ```
 
-<Callout type="warn">
-  `useSingleEndpoint={false}` selects the REST transport, which is what
-  `createCopilotRuntimeHandler` serves by default. If you omit the prop,
-  `<CopilotKit>` reads `GET /info` and picks the transport itself. See [Provider
-  and handler pairs](/backend/runtime-endpoints#provider-and-handler-pairs).
+<Callout type="info">
+  When you omit `useSingleEndpoint`, `<CopilotKitProvider>` negotiates the
+  transport from `GET /info` and uses the REST transport that
+  `createCopilotRuntimeHandler` serves. See [Provider and handler
+  pairs](/backend/runtime-endpoints#provider-and-handler-pairs).
 
-  To keep a single POST-only URL instead, pass `mode: "single-route"` to
-  `createCopilotRuntimeHandler` at a plain `route.ts` and omit this prop.
+  To keep a single POST-only URL instead, create the handler with
+  `mode: "single-route"` at a plain `route.ts`.
 </Callout>
 </FrontendOnly>
 
@@ -87,6 +94,9 @@ For setup with other backend frameworks (Express, NestJS, Node.js HTTP), see the
 If you register an agent with the name `"default"`, CopilotKit's prebuilt UI components will use it automatically without any additional configuration on the frontend. This is useful when you have one primary agent and don't want to specify an `agentId` everywhere.
 
 ```ts title="app/api/copilotkit/[[...slug]]/route.ts"
+import { HttpAgent } from "@ag-ui/client";
+import { CopilotRuntime } from "@copilotkit/runtime";
+
 const runtime = new CopilotRuntime({
   agents: {
     // Frontend APIs use this agent when no other agent id is selected.
@@ -119,61 +129,75 @@ Features like [threads](/AG-UI-Streams) and the [inspector](/inspector) are prov
 
 The runtime has built-in middleware options that you can enable directly on `CopilotRuntime`, without a call to `.use()` on each agent. This section covers two of them.
 
-### A2UI
+### Generative UI
 
-Pass `a2ui: {}` to automatically apply `A2UIMiddleware` to all registered agents:
+The `generativeUI` option gives the agent the `render_ui` tool and its guide, so it can render components in the chat. By default, it is on for each run where the client sends a catalog:
+
+- Omitted: on for runs where the client sends a catalog. In React and Vue, the provider sends the [standard catalog](/generative-ui/components/standard-catalog) by default.
+- `true`: on for every run.
+- `{ agents: [...] }`: on only for these agents.
+- `false`: off.
 
 ```ts title="app/api/copilotkit/[[...slug]]/route.ts"
+import { CopilotRuntime } from "@copilotkit/runtime";
+import { BuiltInAgent } from "@copilotkit/runtime/agent";
+import { openaiText } from "@tanstack/ai-openai";
+
 const runtime = new CopilotRuntime({
-  agents: { default: myAgent },
-  a2ui: {}, // enables A2UI rendering for all agents
+  agents: { "my-agent": new BuiltInAgent({ model: openaiText("gpt-6-luna") }) },
+  generativeUI: { agents: ["my-agent"] },
 });
 ```
 
-To scope it to specific agents only, pass an `agents` list:
+An agent that writes A2UI v0.9 (for example, with the Python `copilotkit.a2ui` helpers) needs `a2uiVersion: "0.9"`. The runtime then converts its surfaces to A2UI 1.0:
 
-```ts
+```ts title="app/api/copilotkit/[[...slug]]/route.ts"
+import { HttpAgent } from "@ag-ui/client";
+import { CopilotRuntime } from "@copilotkit/runtime";
+
 const runtime = new CopilotRuntime({
-  agents: { "my-agent": myAgent },
-  a2ui: { agents: ["my-agent"] },
+  agents: { default: new HttpAgent({ url: "http://localhost:8000/" }) },
+  generativeUI: { a2uiVersion: "0.9" },
 });
 ```
 
-<FrontendOnly frontend="react">
-On the frontend, the A2UI renderer activates automatically. Configure `a2ui`
-only when you want to override its defaults:
+See [Keep a v0.9 agent](/generative-ui/components/from-a2ui#keep-a-v09-agent).
 
-```tsx
-<CopilotKit
-  runtimeUrl="/api/copilotkit"
-  useSingleEndpoint={false}
-  a2ui={{ theme: myCustomTheme }}
->
-  {children}
-</CopilotKit>
-```
-</FrontendOnly>
+An agent that sends A2UI 1.0 operations on the A2UI path, for example a Google ADK agent, needs no option. The runtime passes them through as they are. See [Keep an agent that sends A2UI 1.0](/generative-ui/components/from-a2ui#keep-an-agent-that-sends-a2ui-10).
 
 <FrontendOnly frontend="angular">
-In Angular, A2UI turns on only when you set `a2ui.catalog`:
+Angular has no default catalog. Add `provideGenerativeUI` to the root providers:
 
 ```ts title="src/app/app.config.ts"
-import { basicCatalog } from "@copilotkit/angular/a2ui";
+import type { ApplicationConfig } from "@angular/core";
+import { provideCopilotKit } from "@copilotkit/angular";
+import {
+  provideGenerativeUI,
+  standardUI,
+} from "@copilotkit/angular/generative-ui";
 
-provideCopilotKit({
-  runtimeUrl: "/api/copilotkit",
-  a2ui: { catalog: basicCatalog, theme: myCustomTheme },
-})
+export const appConfig: ApplicationConfig = {
+  providers: [
+    provideCopilotKit({ runtimeUrl: "/api/copilotkit" }),
+    provideGenerativeUI({ ui: standardUI }),
+  ],
+};
 ```
 </FrontendOnly>
+
+To use your own components or colors, see [Components and surfaces](/generative-ui/components) and [Theme the components](/generative-ui/components/theming).
 
 ### mcpApps
 
 Pass `mcpApps` to configure MCP servers for all agents from a single place:
 
 ```ts title="app/api/copilotkit/[[...slug]]/route.ts"
+import { CopilotRuntime } from "@copilotkit/runtime";
+import { BuiltInAgent } from "@copilotkit/runtime/agent";
+import { openaiText } from "@tanstack/ai-openai";
+
 const runtime = new CopilotRuntime({
-  agents: { default: myAgent },
+  agents: { default: new BuiltInAgent({ model: openaiText("gpt-6-luna") }) },
   mcpApps: {
     servers: [
       { type: "http", url: "http://localhost:3108/mcp", serverId: "my-server" },

@@ -1,79 +1,75 @@
 import { Component, computed, input, signal } from "@angular/core";
-import type { A2UIProps } from "@copilotkit/angular/a2ui";
-import {
-  CopilotA2UIChild,
-  injectA2UIComponentContext,
-} from "@copilotkit/angular/a2ui";
+import { CopilotGenerativeUIChildren } from "@copilotkit/angular/generative-ui";
+import type { GenerativeUIChildren } from "@copilotkit/angular/generative-ui";
 
-import type { beautifulDefinitions } from "./a2ui-definitions";
 import { a2uiHost as host } from "./a2ui-host";
 
-type Props<K extends keyof typeof beautifulDefinitions> = A2UIProps<
-  typeof beautifulDefinitions,
-  K
->;
+type ChartDatum = { label: string; value: number };
+type TableColumn = { key: string; label: string };
 
 @Component({
   selector: "showcase-a2ui-dashboard-title",
   host,
   template: `
-    <h2>{{ props().text }}</h2>
+    <h2>{{ text() }}</h2>
   `,
 })
 export class BeautifulTitleComponent {
-  readonly props = input.required<Props<"Title">>();
+  readonly text = input.required<string>();
+  readonly level = input<string>();
 }
 
 @Component({
   selector: "showcase-a2ui-dashboard-row",
-  imports: [CopilotA2UIChild],
+  imports: [CopilotGenerativeUIChildren],
   host,
   template: `
-    <div class="beautiful-row" [style.gap.px]="props().gap ?? 16">
-      @for (child of props().children; track $index) {
-        <div><copilot-a2ui-child [child]="child" /></div>
-      }
+    <div class="beautiful-row" [style.gap.px]="gap() ?? 16">
+      <ng-container *copilotGenerativeUIChildren="children()" />
     </div>
   `,
 })
 export class BeautifulRowComponent {
-  readonly props = input.required<Props<"Row">>();
+  readonly gap = input<number>();
+  readonly align = input<string>();
+  readonly justify = input<string>();
+  readonly children = input<GenerativeUIChildren>();
 }
 
 @Component({
   selector: "showcase-a2ui-dashboard-column",
-  imports: [CopilotA2UIChild],
+  imports: [CopilotGenerativeUIChildren],
   host,
   template: `
-    <div class="beautiful-column" [style.gap.px]="props().gap ?? 12">
-      @for (child of props().children; track $index) {
-        <copilot-a2ui-child [child]="child" />
-      }
+    <div class="beautiful-column" [style.gap.px]="gap() ?? 12">
+      <ng-container *copilotGenerativeUIChildren="children()" />
     </div>
   `,
 })
 export class BeautifulColumnComponent {
-  readonly props = input.required<Props<"Column">>();
+  readonly gap = input<number>();
+  readonly align = input<string>();
+  readonly children = input<GenerativeUIChildren>();
 }
 
 @Component({
   selector: "showcase-a2ui-dashboard-card",
-  imports: [CopilotA2UIChild],
+  imports: [CopilotGenerativeUIChildren],
   host,
   template: `
     <article class="beautiful-card">
-      <h3>{{ props().title }}</h3>
-      @if (props().subtitle) {
-        <p>{{ props().subtitle }}</p>
+      <h3>{{ title() }}</h3>
+      @if (subtitle()) {
+        <p>{{ subtitle() }}</p>
       }
-      @if (props().child) {
-        <copilot-a2ui-child [child]="props().child" />
-      }
+      <ng-container *copilotGenerativeUIChildren="child()" />
     </article>
   `,
 })
 export class BeautifulDashboardCardComponent {
-  readonly props = input.required<Props<"DashboardCard">>();
+  readonly title = input.required<string>();
+  readonly subtitle = input<string>();
+  readonly child = input<GenerativeUIChildren>();
 }
 
 @Component({
@@ -81,16 +77,19 @@ export class BeautifulDashboardCardComponent {
   host,
   template: `
     <section class="beautiful-metric">
-      <span>{{ props().label }}</span
-      ><strong>{{ props().value }}</strong>
-      @if (props().trendValue) {
-        <small>{{ props().trendValue }}</small>
+      <span>{{ label() }}</span
+      ><strong>{{ value() }}</strong>
+      @if (trendValue()) {
+        <small>{{ trendValue() }}</small>
       }
     </section>
   `,
 })
 export class BeautifulMetricComponent {
-  readonly props = input.required<Props<"Metric">>();
+  readonly label = input.required<string>();
+  readonly value = input.required<string>();
+  readonly trend = input<"up" | "down" | "neutral">();
+  readonly trendValue = input<string>();
 }
 
 @Component({
@@ -98,7 +97,7 @@ export class BeautifulMetricComponent {
   host,
   template: `
     <div class="beautiful-pie" role="img" aria-label="Pie chart">
-      @for (datum of props().data; track $index) {
+      @for (datum of data(); track $index) {
         <div>
           <i [style.background]="datum.color ?? colorAt($index)"></i>
           <span>{{ datum.label }}</span
@@ -109,7 +108,8 @@ export class BeautifulMetricComponent {
   `,
 })
 export class BeautifulPieChartComponent {
-  readonly props = input.required<Props<"PieChart">>();
+  readonly data = input.required<(ChartDatum & { color?: string })[]>();
+  readonly innerRadius = input<number>();
   protected readonly colorAt = colorAt;
 }
 
@@ -118,11 +118,11 @@ export class BeautifulPieChartComponent {
   host,
   template: `
     <div class="beautiful-bars" role="img" aria-label="Bar chart">
-      @for (datum of props().data; track $index) {
+      @for (datum of data(); track $index) {
         <div>
           <i
             [style.height.%]="barHeight(datum.value)"
-            [style.background]="props().color ?? colorAt($index)"
+            [style.background]="color() ?? colorAt($index)"
           ></i>
           <small>{{ datum.label }}</small>
         </div>
@@ -131,10 +131,11 @@ export class BeautifulPieChartComponent {
   `,
 })
 export class BeautifulBarChartComponent {
-  readonly props = input.required<Props<"BarChart">>();
+  readonly data = input.required<ChartDatum[]>();
+  readonly color = input<string>();
   protected readonly colorAt = colorAt;
   private readonly max = computed(() =>
-    Math.max(1, ...this.props().data.map(({ value }) => value)),
+    Math.max(1, ...this.data().map(({ value }) => value)),
   );
   protected barHeight(value: number): number {
     return Math.max(4, (value / this.max()) * 100);
@@ -145,11 +146,14 @@ export class BeautifulBarChartComponent {
   selector: "showcase-a2ui-dashboard-badge",
   host,
   template: `
-    <span>{{ props().text }}</span>
+    <span>{{ text() }}</span>
   `,
 })
 export class BeautifulBadgeComponent {
-  readonly props = input.required<Props<"Badge">>();
+  readonly text = input.required<string>();
+  readonly variant = input<
+    "success" | "warning" | "error" | "info" | "neutral"
+  >();
 }
 
 @Component({
@@ -159,15 +163,15 @@ export class BeautifulBadgeComponent {
     <table>
       <thead>
         <tr>
-          @for (column of props().columns; track $index) {
+          @for (column of columns(); track $index) {
             <th>{{ column.label }}</th>
           }
         </tr>
       </thead>
       <tbody>
-        @for (row of props().rows; track $index) {
+        @for (row of rows(); track $index) {
           <tr>
-            @for (column of props().columns; track $index) {
+            @for (column of columns(); track $index) {
               <td>{{ row[column.key] }}</td>
             }
           </tr>
@@ -177,12 +181,13 @@ export class BeautifulBadgeComponent {
   `,
 })
 export class BeautifulDataTableComponent {
-  readonly props = input.required<Props<"DataTable">>();
+  readonly columns = input.required<TableColumn[]>();
+  readonly rows = input.required<Record<string, unknown>[]>();
 }
 
 @Component({
   selector: "showcase-a2ui-dashboard-button",
-  imports: [CopilotA2UIChild],
+  imports: [CopilotGenerativeUIChildren],
   host,
   template: `
     <button
@@ -208,18 +213,20 @@ export class BeautifulDataTableComponent {
         </svg>
         Done
       } @else {
-        <copilot-a2ui-child [child]="props().child" />
+        <ng-container *copilotGenerativeUIChildren="child()" />
       }
     </button>
   `,
 })
 export class BeautifulButtonComponent {
-  readonly props = input.required<Props<"Button">>();
-  protected readonly context = injectA2UIComponentContext();
+  readonly child = input<GenerativeUIChildren>();
+  readonly variant = input<"primary" | "secondary" | "ghost">();
+  /** Set when the agent binds an action to the button. */
+  readonly onClick = input<() => unknown>();
   protected readonly done = signal(false);
 
   protected confirm(): void {
-    void this.context.dispatch(this.props().action);
+    void this.onClick()?.();
     this.done.set(true);
   }
 }
@@ -230,28 +237,41 @@ export class BeautifulButtonComponent {
   template: `
     <article class="beautiful-flight">
       <header>
-        <strong>{{ props().airline }}</strong>
-        <strong>{{ props().price }}</strong>
+        <strong>{{ airline() }}</strong>
+        <strong>{{ price() }}</strong>
       </header>
       <div class="beautiful-flight-meta">
-        <span>{{ props().flightNumber }}</span
-        ><span>{{ props().date }}</span>
+        <span>{{ flightNumber() }}</span
+        ><span>{{ date() }}</span>
       </div>
       <div class="beautiful-flight-times">
-        <span>{{ props().departureTime }}</span>
-        <small>{{ props().duration }}</small>
-        <span>{{ props().arrivalTime }}</span>
+        <span>{{ departureTime() }}</span>
+        <small>{{ duration() }}</small>
+        <span>{{ arrivalTime() }}</span>
       </div>
       <div class="beautiful-flight-route">
-        <strong>{{ props().origin }}</strong
-        ><span>→</span><strong>{{ props().destination }}</strong>
+        <strong>{{ origin() }}</strong
+        ><span>→</span><strong>{{ destination() }}</strong>
       </div>
-      <small>{{ props().status }}</small>
+      <small>{{ status() }}</small>
     </article>
   `,
 })
 export class BeautifulFlightCardComponent {
-  readonly props = input.required<Props<"FlightCard">>();
+  readonly airline = input.required<string>();
+  readonly airlineLogo = input.required<string>();
+  readonly flightNumber = input.required<string>();
+  readonly origin = input.required<string>();
+  readonly destination = input.required<string>();
+  readonly date = input.required<string>();
+  readonly departureTime = input.required<string>();
+  readonly arrivalTime = input.required<string>();
+  readonly duration = input.required<string>();
+  readonly status = input.required<string>();
+  readonly statusColor = input<string>();
+  readonly price = input.required<string>();
+  /** Set when the agent binds an action to the card. */
+  readonly action = input<() => unknown>();
 }
 
 /** The showcase chart palette, cycling by index. */

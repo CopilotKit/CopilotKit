@@ -29,8 +29,8 @@ import {
   defaultDiscordTools,
   defaultDiscordContext,
 } from "@copilotkit/channels-discord";
-import { CopilotRuntime, CopilotKitIntelligence } from "@copilotkit/runtime/v2";
-import { createCopilotNodeListener } from "@copilotkit/runtime/v2/node";
+import { CopilotRuntime, CopilotKitIntelligence } from "@copilotkit/runtime";
+import { createCopilotNodeListener } from "@copilotkit/runtime/node";
 
 const bot = createChannel({
   identifyUser: "platform",
@@ -300,7 +300,7 @@ in `ctx.text`.
 
 > **App setup** (OAuth scopes, bot permissions, invite URL) is done via the
 > Discord Developer Portal and the OAuth2 invite flow. A complete wiring example
-> lives in [`examples/slack`](../../examples/slack) — one bot app that runs
+> lives in [`examples/templates/slack`](../../examples/templates/slack) — one bot app that runs
 > Slack and/or Discord depending on which secrets you set.
 
 ## What's NOT in v1

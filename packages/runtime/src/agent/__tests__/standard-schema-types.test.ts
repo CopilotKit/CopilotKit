@@ -1,8 +1,10 @@
 import { describe, it, expectTypeOf } from "vitest";
 import { z } from "zod";
 import * as v from "valibot";
+import { toStandardJsonSchema } from "@valibot/to-json-schema";
 import { type } from "arktype";
 import type { StandardSchemaV1 } from "@copilotkit/shared";
+import type { AnyServerTool } from "@tanstack/ai";
 import { defineTool } from "../index";
 import type { ToolDefinition } from "../index";
 
@@ -22,8 +24,8 @@ describe("ToolDefinition type inference", () => {
         execute: async (args) => {
           // args should be fully typed
           expectTypeOf(args).toEqualTypeOf<{
-            city?: string;
-            units?: "celsius" | "fahrenheit";
+            city: string;
+            units: "celsius" | "fahrenheit";
           }>();
           return {};
         },
@@ -31,7 +33,7 @@ describe("ToolDefinition type inference", () => {
 
       expectTypeOf(tool.name).toBeString();
       expectTypeOf(tool.description).toBeString();
-      expectTypeOf(tool.parameters).toMatchTypeOf<StandardSchemaV1>();
+      expectTypeOf(tool).toMatchTypeOf<AnyServerTool>();
     });
 
     it("infers execute args with optional Zod fields", () => {
@@ -44,7 +46,7 @@ describe("ToolDefinition type inference", () => {
         }),
         execute: async (args) => {
           expectTypeOf(args).toEqualTypeOf<{
-            query?: string;
+            query: string;
             limit?: number;
           }>();
           return {};
@@ -58,10 +60,12 @@ describe("ToolDefinition type inference", () => {
       defineTool({
         name: "search",
         description: "Search",
-        parameters: v.object({
-          query: v.string(),
-          limit: v.number(),
-        }),
+        parameters: toStandardJsonSchema(
+          v.object({
+            query: v.string(),
+            limit: v.number(),
+          }),
+        ),
         execute: async (args) => {
           expectTypeOf(args).toEqualTypeOf<{
             query: string;
@@ -76,10 +80,12 @@ describe("ToolDefinition type inference", () => {
       defineTool({
         name: "search",
         description: "Search",
-        parameters: v.object({
-          query: v.string(),
-          limit: v.optional(v.number()),
-        }),
+        parameters: toStandardJsonSchema(
+          v.object({
+            query: v.string(),
+            limit: v.optional(v.number()),
+          }),
+        ),
         execute: async (args) => {
           expectTypeOf(args).toEqualTypeOf<{
             query: string;
@@ -135,28 +141,27 @@ describe("ToolDefinition type inference", () => {
 
       expectTypeOf<ZodTool["execute"]>().toBeFunction();
       expectTypeOf<Parameters<ZodTool["execute"]>[0]>().toEqualTypeOf<{
-        city?: string;
+        city: string;
       }>();
     });
 
-    it("default generic parameter is StandardSchemaV1", () => {
+    it("default generic parameter takes unknown execute args", () => {
       type DefaultTool = ToolDefinition;
 
-      expectTypeOf<
-        DefaultTool["parameters"]
-      >().toMatchTypeOf<StandardSchemaV1>();
+      expectTypeOf<Parameters<DefaultTool["execute"]>[0]>().toBeUnknown();
     });
 
-    it("preserves schema type through defineTool return", () => {
-      const schema = z.object({ x: z.number() });
+    it("types the returned execute with the schema input, before defaults", () => {
       const tool = defineTool({
         name: "t",
         description: "d",
-        parameters: schema,
+        parameters: z.object({ x: z.number().default(1) }),
         execute: async () => ({}),
       });
 
-      expectTypeOf(tool.parameters).toEqualTypeOf<typeof schema>();
+      expectTypeOf<Parameters<typeof tool.execute>[0]>().toEqualTypeOf<{
+        x?: number | undefined;
+      }>();
     });
   });
 });

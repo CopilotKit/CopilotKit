@@ -41,12 +41,22 @@ Voice requests can call the same backend tools as typed requests. Register
 renderers only for the exact tool names your backend exposes. Call
 `registerRenderToolCall` from an Angular injection context:
 
-```ts
-registerRenderToolCall({
-  name: "getWeather",
-  args: z.object({ city: z.string() }),
-  component: WeatherCardComponent,
-});
+```ts title="src/app/chat.component.ts"
+import { Component } from "@angular/core";
+import { z } from "zod";
+import { registerRenderToolCall } from "@copilotkit/angular";
+import { WeatherCardComponent } from "./weather-card.component";
+
+@Component({ selector: "app-chat", template: `` })
+export class ChatComponent {
+  constructor() {
+    registerRenderToolCall({
+      name: "getWeather",
+      args: z.object({ city: z.string() }),
+      component: WeatherCardComponent,
+    });
+  }
+}
 ```
 
 `WeatherCardComponent` is the renderer from

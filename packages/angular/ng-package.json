@@ -6,23 +6,15 @@
     "entryFile": "src/index.ts"
   },
   "allowedNonPeerDependencies": [
-    "@a2ui/web_core",
     "@ag-ui/client",
     "@ag-ui/core",
     "@copilotkit/mcp-apps-renderer",
     "@copilotkit/shared",
     "@copilotkit/core",
+    "@copilotkit/markdown",
     "@copilotkit/web-components",
     "@copilotkit/web-inspector",
-    "@jetbrains/websandbox",
-    "rxjs",
     "zod",
-    "zod-to-json-schema",
-    "highlight.js",
-    "katex",
-    "marked",
-    "dompurify",
-    "clsx",
-    "tailwind-merge"
+    "katex"
   ]
 }

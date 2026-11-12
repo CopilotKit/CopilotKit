@@ -18,19 +18,31 @@ Use it as it is:
 <Tabs groupId="frontend_framework" items={["React", "Angular", "Vue"]} persist>
   <Tab value="React">
     ```tsx
-    import { standardUI } from "@copilotkit/react-core/v2/generative-ui";
+    "use client";
+    import { CopilotKitProvider } from "@copilotkit/react-core";
+    import { standardUI } from "@copilotkit/react-core/generative-ui";
 
-    <CopilotKitProvider runtimeUrl="/api/copilotkit" generativeUI={{ ui: standardUI }}>
+    export function Providers({ children }: { children: React.ReactNode }) {
+      return (
+        <CopilotKitProvider runtimeUrl="/api/copilotkit" generativeUI={{ ui: standardUI }}>
+          {children}
+        </CopilotKitProvider>
+      );
+    }
     ```
   </Tab>
   <Tab value="Angular">
     ```ts title="src/app/app.config.ts"
+    import type { ApplicationConfig } from "@angular/core";
+    import { provideCopilotKit } from "@copilotkit/angular";
     import { provideGenerativeUI, standardUI } from "@copilotkit/angular/generative-ui";
 
-    providers: [
-      provideCopilotKit({ runtimeUrl: "/api/copilotkit" }),
-      provideGenerativeUI({ ui: standardUI }),
-    ],
+    export const appConfig: ApplicationConfig = {
+      providers: [
+        provideCopilotKit({ runtimeUrl: "/api/copilotkit" }),
+        provideGenerativeUI({ ui: standardUI }),
+      ],
+    };
     ```
   </Tab>
   <Tab value="Vue">
@@ -67,7 +79,7 @@ A few things to know:
 
 - **Inputs keep what users type.** When the agent binds an input to a value, what the user types stays. A later agent update cannot write over it.
 - **`Button` and `Pressable` can act in the browser.** `href` opens a URL, and `Button` with `copy` copies text, with no message to the agent.
-- **`Map` needs one package.** Run `npm install maplibre-gl` if your agent draws maps. Without it, the map shows a list of the places. In Angular, also add `provideGenerativeUIMap()` from `@copilotkit/angular/generative-ui/map` to the root providers. In Vue, also add `app.use(GenerativeUIMap)` from `@copilotkit/vue/v2/generative-ui/map`.
+- **`Map` needs one package.** Run `npm install maplibre-gl` if your agent draws maps, and turn the map on. In React, pass `map: loadMapLibre` from `@copilotkit/react-core/generative-ui/map` in `generativeUI`, next to `ui`. When the runtime turns generative UI on and you use the standard catalog, `generativeUI={{ map: loadMapLibre }}` is enough. Without it, the map shows a list of the places, and your app builds without `maplibre-gl`. In Angular, also add `provideGenerativeUIMap()` from `@copilotkit/angular/generative-ui/map` to the root providers. In Vue, also add `app.use(GenerativeUIMap)` from `@copilotkit/vue/v2/generative-ui/map`.
 - **`Chart` needs no extra install in React.** It uses `recharts`, which comes with CopilotKit. In Angular, `Chart` draws with `chart.js` and `Icon` with `lucide`: install them and add `provideGenerativeUIChart()` and `provideGenerativeUIIcons()` from the `/chart` and `/icons` entries of `@copilotkit/angular/generative-ui`. Without them, a chart shows its data as a table and an icon shows nothing. In Vue, `Chart` draws with `chart.js`: install it and add `app.use(GenerativeUIChart)` from `@copilotkit/vue/v2/generative-ui/chart`. Without it, a chart shows its data as a table. Icons work with no setup.
 
 Component details:
@@ -86,40 +98,63 @@ Put your components on top of the standard ones with `extends`:
 
 <Tabs groupId="frontend_framework" items={["React", "Angular", "Vue"]} persist>
   <Tab value="React">
-    ```ts
-    import { createGenerativeUI, standardUI } from "@copilotkit/react-core/v2/generative-ui";
+    ```tsx
+    import { z } from "zod";
+    import { createGenerativeUI, standardUI } from "@copilotkit/react-core/generative-ui";
+
+    function ProductCard({ name, price }: { name: string; price: number }) {
+      return (
+        <article>
+          <h4>{name}</h4>
+          <p>${price}</p>
+        </article>
+      );
+    }
 
     export const appUI = createGenerativeUI({
       id: "acme/app@1",
       extends: [standardUI],
       components: {
-        ProductCard: { component: ProductCard, props: productSchema },
+        ProductCard: {
+          component: ProductCard,
+          props: z.object({ name: z.string(), price: z.number() }),
+        },
       },
     });
     ```
   </Tab>
   <Tab value="Angular">
     ```ts
+    import { z } from "zod";
     import { createGenerativeUI, standardUI } from "@copilotkit/angular/generative-ui";
+    import { ProductCard } from "./product-card";
 
     export const appUI = createGenerativeUI({
       id: "acme/app@1",
       extends: [standardUI],
       components: {
-        ProductCard: { component: ProductCard, props: productSchema },
+        ProductCard: {
+          component: ProductCard,
+          props: z.object({ name: z.string(), price: z.number() }),
+        },
       },
     });
     ```
   </Tab>
   <Tab value="Vue">
     ```ts
+    import { z } from "zod";
     import { createGenerativeUI, standardUI } from "@copilotkit/vue/v2/generative-ui";
+    import ProductCard from "./components/ProductCard.vue";
 
     export const appUI = createGenerativeUI({
       id: "acme/app@1",
       extends: [standardUI],
       components: {
-        ProductCard: { component: ProductCard, props: productSchema },
+        ProductCard: {
+          component: ProductCard,
+          props: z.object({ name: z.string(), price: z.number() }),
+        },
       },
     });
     ```
@@ -133,6 +168,8 @@ See [Catalogs](/generative-ui/components/catalogs) for how to declare a componen
 Every component makes the prompt a little longer. If your app never needs a map or a video, remove them. `omit` returns a copy of the catalog without them, and the agent does not see them:
 
 ```ts
+import { createGenerativeUI, standardUI } from "@copilotkit/react-core/generative-ui";
+
 export const appUI = createGenerativeUI({
   id: "acme/app@1",
   extends: [standardUI.omit(["Map", "Video", "HtmlView"])],
@@ -153,7 +190,7 @@ Your app has its own card, with your shadows and spacing. `overrides` swaps the 
       createGenerativeUI,
       standardUI,
       type GenerativeUIComponentProps,
-    } from "@copilotkit/react-core/v2/generative-ui";
+    } from "@copilotkit/react-core/generative-ui";
 
     function MyCard({ children }: GenerativeUIComponentProps<typeof standardUI, "Card">) {
       return <div className="rounded-2xl border p-6 shadow-sm">{children}</div>;

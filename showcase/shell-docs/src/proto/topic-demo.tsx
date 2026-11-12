@@ -2,7 +2,8 @@
 
 import { DemoFrame } from "@/components/demo-frame";
 import { useSiteHosts } from "@/components/site-hosts";
-import { frameworkById, type TopicSlug } from "./data";
+import { frameworkById } from "./data";
+import type { TopicSlug } from "./data";
 import { EXAMPLES, demoSourceUrl, demoUrl } from "./examples";
 
 /** Each topic's live showcase demo (a feature id in `EXAMPLES`). */

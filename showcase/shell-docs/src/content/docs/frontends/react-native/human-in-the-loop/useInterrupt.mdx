@@ -176,26 +176,33 @@ Ask the agent to book a call. The picker appears in the chat. Tap **Tomorrow at 
 
 If your agent issues more than one kind of interrupt, tag each payload with a `type` field and install one `useInterrupt` per shape, each gated by `enabled`:
 
-```tsx
+```tsx title="src/InterruptHandlers.tsx"
+import { useInterrupt } from "@copilotkit/react-native/headless";
+import { ApproveCard, AskCard } from "./cards";
+
 // The LangGraph adapter sends `event.value` as a JSON string.
 const readValue = (value: unknown): { type?: string; content?: string } =>
   typeof value === "string" ? JSON.parse(value) : (value ?? {});
 
-useInterrupt({
-  agentId: "gen-ui-interrupt",
-  enabled: (event) => readValue(event.value).type === "ask",
-  render: ({ event, resolve }) => (
-    <AskCard question={readValue(event.value).content} onAnswer={resolve} />
-  ),
-});
+export function InterruptHandlers() {
+  useInterrupt({
+    agentId: "gen-ui-interrupt",
+    enabled: (event) => readValue(event.value).type === "ask",
+    render: ({ event, resolve }) => (
+      <AskCard question={readValue(event.value).content} onAnswer={resolve} />
+    ),
+  });
 
-useInterrupt({
-  agentId: "gen-ui-interrupt",
-  enabled: (event) => readValue(event.value).type === "approval",
-  render: ({ event, resolve }) => (
-    <ApproveCard content={readValue(event.value).content} onAnswer={resolve} />
-  ),
-});
+  useInterrupt({
+    agentId: "gen-ui-interrupt",
+    enabled: (event) => readValue(event.value).type === "approval",
+    render: ({ event, resolve }) => (
+      <ApproveCard content={readValue(event.value).content} onAnswer={resolve} />
+    ),
+  });
+
+  return null;
+}
 ```
 
 `AskCard` and `ApproveCard` are your own components. For a standard interrupt, `event.value` is the primary `Interrupt` object, so read your tag from its `metadata` instead.
@@ -204,26 +211,34 @@ useInterrupt({
 
 When an interrupt can sometimes be answered without the user (for example, the current user already has permission), pass a `handler`. It runs before `render`. It can call `resolve(...)` to resume the agent early, or return a value that `render` receives as `result`:
 
-```tsx
-useInterrupt({
-  agentId: "gen-ui-interrupt",
-  handler: async ({ event, resolve }) => {
-    const value = typeof event.value === "string" ? JSON.parse(event.value) : event.value;
-    const department = await lookupUserDepartment(); // your own lookup
-    if (value.accessDepartment === department || department === "admin") {
-      await resolve({ code: "AUTH_BY_DEPARTMENT" });
-      return;
-    }
-    return { department };
-  },
-  render: ({ result, resolve }) => (
-    <RequestAccessCard
-      department={result?.department}
-      onRequest={() => resolve({ code: "REQUEST_AUTH" })}
-      onCancel={() => resolve({ code: "CANCEL" })}
-    />
-  ),
-});
+```tsx title="src/AccessInterrupt.tsx"
+import { useInterrupt } from "@copilotkit/react-native/headless";
+import { lookupUserDepartment } from "./auth"; // your own lookup
+import { RequestAccessCard } from "./RequestAccessCard";
+
+export function AccessInterrupt() {
+  useInterrupt({
+    agentId: "gen-ui-interrupt",
+    handler: async ({ event, resolve }) => {
+      const value = typeof event.value === "string" ? JSON.parse(event.value) : event.value;
+      const department: string = await lookupUserDepartment();
+      if (value.accessDepartment === department || department === "admin") {
+        await resolve({ code: "AUTH_BY_DEPARTMENT" });
+        return;
+      }
+      return { department };
+    },
+    render: ({ result, resolve }) => (
+      <RequestAccessCard
+        department={result?.department}
+        onRequest={() => resolve({ code: "REQUEST_AUTH" })}
+        onCancel={() => resolve({ code: "CANCEL" })}
+      />
+    ),
+  });
+
+  return null;
+}
 ```
 
 </WhenFrameworkHas>
@@ -283,17 +298,27 @@ Both methods return the run result once the run restarts, or nothing while other
 Some agents issue more than one interrupt in a single run. Each has its own `id`, so answer them one by one:
 
 ```tsx
-render: ({ interrupts, resolve, cancel }) => (
-  <View>
-    {interrupts.map((item) => (
-      <View key={item.id} style={{ flexDirection: "row", gap: 8 }}>
-        <Text>{item.message}</Text>
-        <Button title="Approve" onPress={() => resolve({ ok: true }, item.id)} />
-        <Button title="Cancel" onPress={() => cancel(item.id)} />
+import { Button, Text, View } from "react-native";
+import { useInterrupt } from "@copilotkit/react-native/headless";
+
+function MultiApprovalPanel() {
+  const element = useInterrupt({
+    renderInChat: false,
+    render: ({ interrupts, resolve, cancel }) => (
+      <View>
+        {interrupts.map((item) => (
+          <View key={item.id} style={{ flexDirection: "row", gap: 8 }}>
+            <Text>{item.message}</Text>
+            <Button title="Approve" onPress={() => resolve({ ok: true }, item.id)} />
+            <Button title="Cancel" onPress={() => cancel(item.id)} />
+          </View>
+        ))}
       </View>
-    ))}
-  </View>
-),
+    ),
+  });
+
+  return element;
+}
 ```
 
 The run resumes only after **every** open interrupt is addressed. If you leave out `interruptId`, the primary interrupt is targeted, and the hook logs a warning when several are open.

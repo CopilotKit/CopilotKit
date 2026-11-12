@@ -11,7 +11,7 @@ name: test / smoke / starter
 # scheduled-failure Slack signal too) until S5 starter-service probing is
 # confirmed live, at which point the cron can be retired in favour of the
 # harness signal. The fast pre-merge build-sanity gate is the
-# `pull_request` trigger on examples/integrations/**: it builds + smoke-
+# `pull_request` trigger on examples/starters/**: it builds + smoke-
 # tests each starter offline against aimock on every starter change. The
 # post-merge GHCR `:latest` publish that feeds the Railway services lives in
 # showcase_build.yml's build-starters job (push:main, §b stage 1), so it is
@@ -27,7 +27,7 @@ on:
     types: [completed]
   pull_request:
     paths:
-      - "examples/integrations/**"
+      - "examples/starters/**"
       - ".github/workflows/test_smoke-starter.yml"
       # Both the two-container smoke job and the production-image gate run
       # showcase/tests/e2e/starter-smoke.spec.ts, so a change to the spec or
@@ -46,7 +46,7 @@ jobs:
   # `smoke-starter` above builds docker/Dockerfile.app + docker/Dockerfile.agent
   # into a two-container stack with AGENT_URL / LANGGRAPH_DEPLOYMENT_URL
   # injected by compose. That is NOT what ships. showcase_build.yml's
-  # `build-starters` job builds `examples/integrations/<slug>/Dockerfile` —
+  # `build-starters` job builds `examples/starters/<slug>/Dockerfile` —
   # the single-container root Dockerfile with its own entrypoint.sh and its
   # own Docker route override — and pushes it to
   # ghcr.io/copilotkit/starter-<slug>, which is what the Railway starter
@@ -60,7 +60,7 @@ jobs:
   # bug builds clean and 404s at runtime.
   #
   # SCOPE — what is and is NOT gated, deliberately:
-  #   * Gated on PRs: only starters whose own examples/integrations/<slug>/**
+  #   * Gated on PRs: only starters whose own examples/starters/<slug>/**
   #     files changed (plus all 12 when this workflow file itself changes).
   #     Each slot is a full Next.js + Python/.NET image build, so running all
   #     12 on every PR would add ~12 x 10-15 min of build to every starter PR.
@@ -91,33 +91,33 @@ jobs:
           filters: |
             workflow_config:
               - '.github/workflows/test_smoke-starter.yml'
-              - 'examples/integrations/docker-compose.production-image.yml'
-              - 'examples/integrations/production-image-gate.sh'
+              - 'examples/starters/docker-compose.production-image.yml'
+              - 'examples/starters/production-image-gate.sh'
               - 'showcase/tests/**'
             langgraph-python:
-              - 'examples/integrations/langgraph-python/**'
+              - 'examples/starters/langgraph-python/**'
             mastra:
-              - 'examples/integrations/mastra/**'
+              - 'examples/starters/mastra/**'
             langgraph-js:
-              - 'examples/integrations/langgraph-js/**'
+              - 'examples/starters/langgraph-js/**'
             crewai-crews:
-              - 'examples/integrations/crewai-crews/**'
+              - 'examples/starters/crewai-crews/**'
             pydantic-ai:
-              - 'examples/integrations/pydantic-ai/**'
+              - 'examples/starters/pydantic-ai/**'
             adk:
-              - 'examples/integrations/adk/**'
+              - 'examples/starters/adk/**'
             agno:
-              - 'examples/integrations/agno/**'
+              - 'examples/starters/agno/**'
             llamaindex:
-              - 'examples/integrations/llamaindex/**'
+              - 'examples/starters/llamaindex/**'
             langgraph-fastapi:
-              - 'examples/integrations/langgraph-fastapi/**'
+              - 'examples/starters/langgraph-fastapi/**'
             strands-python:
-              - 'examples/integrations/strands-python/**'
+              - 'examples/starters/strands-python/**'
             ms-agent-framework-python:
-              - 'examples/integrations/ms-agent-framework-python/**'
+              - 'examples/starters/ms-agent-framework-python/**'
             ms-agent-framework-dotnet:
-              - 'examples/integrations/ms-agent-framework-dotnet/**'
+              - 'examples/starters/ms-agent-framework-dotnet/**'
 
       - name: Build production-image matrix
         id: matrix
@@ -184,13 +184,13 @@ jobs:
           # Guard against the divergence re-opening silently: if the
           # published Dockerfile path ever moves, fail here rather than
           # quietly gating the wrong artifact again.
-          grep -qE '^ *file: examples/integrations/.*/Dockerfile$' \
+          grep -qE '^ *file: examples/starters/.*/Dockerfile$' \
             .github/workflows/showcase_build.yml \
-            || { echo "::error::showcase_build.yml no longer builds examples/integrations/<slug>/Dockerfile — this gate is now testing the wrong artifact"; exit 1; }
-          test -f "examples/integrations/$STARTER/Dockerfile"
+            || { echo "::error::showcase_build.yml no longer builds examples/starters/<slug>/Dockerfile — this gate is now testing the wrong artifact"; exit 1; }
+          test -f "examples/starters/$STARTER/Dockerfile"
 
       - name: Build and smoke-test the production image
-        working-directory: examples/integrations
+        working-directory: examples/starters
         env:
           STARTER: ${{ matrix.starter }}
         run: |
@@ -199,14 +199,14 @@ jobs:
 
       - name: Dump container logs on failure
         if: failure()
-        working-directory: examples/integrations
+        working-directory: examples/starters
         env:
           STARTER: ${{ matrix.starter }}
         run: docker compose -f docker-compose.production-image.yml logs --no-color --tail 200
 
       - name: Tear down
         if: always()
-        working-directory: examples/integrations
+        working-directory: examples/starters
         env:
           STARTER: ${{ matrix.starter }}
         run: docker compose -f docker-compose.production-image.yml down -v
@@ -259,13 +259,13 @@ jobs:
 
       - name: Verify the documented Agno pnpm path
         if: matrix.starter == 'agno'
-        working-directory: examples/integrations/agno
+        working-directory: examples/starters/agno
         run: |
           pnpm install --ignore-workspace --ignore-scripts --no-lockfile
           pnpm build
 
       - name: Run starter smoke tests
-        working-directory: examples/integrations/${{ matrix.starter }}
+        working-directory: examples/starters/${{ matrix.starter }}
         env:
           STARTER: ${{ matrix.starter }}
         run: |
@@ -274,7 +274,7 @@ jobs:
       - name: Capture failure cause
         if: failure()
         id: failure-cause
-        working-directory: examples/integrations/${{ matrix.starter }}
+        working-directory: examples/starters/${{ matrix.starter }}
         env:
           EVENT_NAME: ${{ github.event_name }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
@@ -312,9 +312,9 @@ jobs:
             elif [ "$EVENT_NAME" = "schedule" ] || [ "$EVENT_NAME" = "workflow_run" ]; then
               # Use GitHub API instead of git log (avoids needing deep clone)
               echo "Recent commits touching this starter (last 12h):"
-              gh api "repos/${{ github.repository }}/commits?path=examples/integrations/${{ matrix.starter }}&since=$(date -u -d '12 hours ago' +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || date -u -v-12H +%Y-%m-%dT%H:%M:%SZ)&per_page=5" \
+              gh api "repos/${{ github.repository }}/commits?path=examples/starters/${{ matrix.starter }}&since=$(date -u -d '12 hours ago' +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || date -u -v-12H +%Y-%m-%dT%H:%M:%SZ)&per_page=5" \
                 --jq '.[] | "\(.sha[0:7]) \(.commit.message | split("\n")[0])"' 2>/dev/null || true
-              starter_commits=$(gh api "repos/${{ github.repository }}/commits?path=examples/integrations/${{ matrix.starter }}&since=$(date -u -d '12 hours ago' +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || date -u -v-12H +%Y-%m-%dT%H:%M:%SZ)&per_page=1" --jq 'length' 2>/dev/null || echo "0")
+              starter_commits=$(gh api "repos/${{ github.repository }}/commits?path=examples/starters/${{ matrix.starter }}&since=$(date -u -d '12 hours ago' +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || date -u -v-12H +%Y-%m-%dT%H:%M:%SZ)&per_page=1" --jq 'length' 2>/dev/null || echo "0")
               if [ "$starter_commits" = "0" ]; then
                 echo "No starter code changes — likely a floating dependency update or upstream CopilotKit release"
                 echo "Recent releases:"
@@ -327,7 +327,7 @@ jobs:
 
       - name: Tear down
         if: always()
-        working-directory: examples/integrations/${{ matrix.starter }}
+        working-directory: examples/starters/${{ matrix.starter }}
         run: docker compose -f docker-compose.test.yml down -v
 
       - name: Upload test artifacts on failure

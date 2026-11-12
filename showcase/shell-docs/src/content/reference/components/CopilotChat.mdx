@@ -14,8 +14,7 @@ For a walkthrough, see [Prebuilt components](/prebuilt-components). To restyle p
 ## Import
 
 ```tsx
-import { CopilotChat } from "@copilotkit/react-core/v2";
-import "@copilotkit/react-core/v2/styles.css";
+import { CopilotChat } from "@copilotkit/react-core";
 ```
 
 ## Props
@@ -24,7 +23,7 @@ import "@copilotkit/react-core/v2/styles.css";
 
 <PropertyReference name="agentId" type="string">
   ID of the agent to use. Must match an agent configured in
-  `CopilotKit`. Defaults to the provider-level default agent when
+  `CopilotKitProvider`. Defaults to the provider-level default agent when
   omitted.
 </PropertyReference>
 
@@ -36,7 +35,7 @@ import "@copilotkit/react-core/v2/styles.css";
 <PropertyReference name="labels" type="Partial<CopilotChatLabels>">
   Partial label overrides for all text strings rendered inside the chat (input
   placeholder, toolbar buttons, disclaimer text, etc.). Any label you omit falls
-  back to the built-in default.
+  back to the built-in default. See [CopilotChatLabels](/reference/hooks/useCopilotChatConfiguration#copilotchatlabels) for all keys.
 </PropertyReference>
 
 <PropertyReference name="chatView" type="SlotValue<React.ComponentType<CopilotChatViewProps>>">
@@ -47,7 +46,7 @@ import "@copilotkit/react-core/v2/styles.css";
 
 <PropertyReference name="inspectorTools" type="boolean" default="true">
   Controls Inspector message shortcuts for this chat. An explicit
-  `enableInspector` value on the `CopilotKit` provider takes priority: provider
+  `enableInspector` value on the `CopilotKitProvider` takes priority: provider
   `true` overrides chat `false`, and provider `false` overrides chat `true`.
   When the provider omits the prop, `inspectorTools={false}` hides this chat's
   shortcuts. Shortcuts only appear on localhost/loopback in development and
@@ -59,14 +58,21 @@ import "@copilotkit/react-core/v2/styles.css";
   Error handler scoped to this chat's agent. Fires in addition to the provider-level `onError` (does not suppress it). Only receives errors whose `context.agentId` matches this chat's agent, plus errors without an `agentId` context.
 
 ```tsx
-<CopilotChat
-  agentId="my-agent"
-  onError={(event) => {
-    if (event.code === "agent_connect_failed") {
-      showToast("Could not connect to agent. Please retry.");
-    }
-  }}
-/>
+import { CopilotChat, CopilotKitCoreErrorCode } from "@copilotkit/react-core";
+import { showToast } from "./toast";
+
+export function Chat() {
+  return (
+    <CopilotChat
+      agentId="my-agent"
+      onError={(event) => {
+        if (event.code === CopilotKitCoreErrorCode.AGENT_CONNECT_FAILED) {
+          showToast("Could not connect to agent. Please retry.");
+        }
+      }}
+    />
+  );
+}
 ```
 
 </PropertyReference>
@@ -90,7 +96,7 @@ import "@copilotkit/react-core/v2/styles.css";
 </PropertyReference>
 
 <PropertyReference name="generativeUISurface" type="React.ComponentType<GenerativeUIChatSurfaceProps>">
-  Experimental. Wrapper for the generative UI surfaces in this chat. It receives
+  Wrapper for the generative UI surfaces in this chat. It receives
   `surfaceId`, `isStreaming`, `error`, `rejected`, and `children`.
 </PropertyReference>
 
@@ -98,7 +104,7 @@ import "@copilotkit/react-core/v2/styles.css";
 
 `CopilotChat` accepts all props from [`CopilotChatViewProps`](/reference/components/CopilotChatView) **except** `messages`, `isRunning`, `suggestions`, `suggestionLoadingIndexes`, and `onSelectSuggestion`, which are managed internally by the agent connection. `CopilotChat` also manages the view's attachment props (`onRemoveAttachment`, `onAddFile`, `dragOver`, `onDragOver`, `onDragLeave`, and `onDrop`) internally. Its own `attachments` prop takes an `AttachmentsConfig`, not the view's `Attachment[]`.
 
-This means you can pass the slot overrides `messageView`, `scrollView`, `input`, `suggestionView`, `welcomeScreen`, and `intelligenceIndicator` directly to `CopilotChat`. To change the disclaimer, pass `input={{ disclaimer: MyDisclaimer }}`.
+This means you can pass the slot overrides `messageView`, `scrollView`, `input`, `suggestionView`, `welcomeScreen`, and `intelligenceIndicator` directly to `CopilotChat`. To change the disclaimer, pass `input={{ disclaimer: MyDisclaimer }}`. To hide it, pass `input={{ showDisclaimer: false }}`. To change only its text, set `labels.chatDisclaimerText`.
 
 <PropertyReference name="autoScroll" type="AutoScrollMode | boolean" default="true">
   Controls how the chat scrolls when messages arrive. `AutoScrollMode` is
@@ -149,6 +155,8 @@ Additionally, a `children` render-prop can be used to receive all composed slot 
 ### Basic Usage
 
 ```tsx
+import { CopilotChat } from "@copilotkit/react-core";
+
 function App() {
   return (
     <CopilotChat
@@ -162,6 +170,8 @@ function App() {
 ### Custom Welcome Screen
 
 ```tsx
+import { CopilotChat } from "@copilotkit/react-core";
+
 function App() {
   return (
     <CopilotChat
@@ -181,6 +191,8 @@ function App() {
 ### Overriding the Chat View Slot
 
 ```tsx
+import { CopilotChat } from "@copilotkit/react-core";
+
 function App() {
   return (
     <CopilotChat

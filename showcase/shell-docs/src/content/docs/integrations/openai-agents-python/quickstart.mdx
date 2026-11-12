@@ -96,7 +96,7 @@ Before you begin, you'll need the following:
     ```bash
     npx create-next-app@latest frontend
     cd frontend
-    npm install @copilotkit/runtime @copilotkit/react-core @ag-ui/client@1.0.2
+    npm install @copilotkit/runtime @copilotkit/react-core @ag-ui/client@1.0.4
     ```
   </Step>
 
@@ -110,7 +110,7 @@ Before you begin, you'll need the following:
     import {
       CopilotRuntime,
       createCopilotRuntimeHandler,
-    } from "@copilotkit/runtime/v2";
+    } from "@copilotkit/runtime";
     import type { NextRequest } from "next/server";
 
     const runtime = new CopilotRuntime({
@@ -142,15 +142,14 @@ Before you begin, you'll need the following:
     Wrap your app with `CopilotKit` and target the agent name you registered in the runtime route.
 
     ```tsx title="app/layout.tsx"
-    import { CopilotKit } from "@copilotkit/react-core/v2";
-    import "@copilotkit/react-core/v2/styles.css";
+    import { CopilotKit } from "@copilotkit/react-core";
     import "./globals.css";
 
     export default function RootLayout({ children }: { children: React.ReactNode }) {
       return (
         <html lang="en">
           <body>
-            <CopilotKit runtimeUrl="/api/copilotkit" agent="openai_agent">
+            <CopilotKit runtimeUrl="/api/copilotkit" agentId="openai_agent">
               {children}
             </CopilotKit>
           </body>
@@ -172,7 +171,7 @@ Before you begin, you'll need the following:
     ```tsx title="app/page.tsx"
     "use client";
 
-    import { CopilotSidebar } from "@copilotkit/react-core/v2";
+    import { CopilotSidebar } from "@copilotkit/react-core";
 
     export default function Page() {
       return (

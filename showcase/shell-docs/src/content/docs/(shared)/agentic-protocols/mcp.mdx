@@ -54,28 +54,40 @@ For the protocol itself, see the [Model Context Protocol](https://modelcontextpr
   <Step>
     ### Connect to MCP Servers
 
-    Add the MCP server to the agent in your runtime route:
+    Install the agent packages and the MCP client:
 
-    ```tsx title="app/api/copilotkit/[[...slug]]/route.ts"
+    ```bash
+    npm install @tanstack/ai-openai @tanstack/ai-mcp
+    ```
+
+    Create an MCP client for the server in your runtime route, and give it to the agent in `mcp.clients`:
+
+    ```ts title="app/api/copilotkit/[[...slug]]/route.ts"
     import {
-      BuiltInAgent,
       CopilotRuntime,
       createCopilotRuntimeHandler,
-    } from "@copilotkit/runtime/v2";
+    } from "@copilotkit/runtime";
+    import { BuiltInAgent } from "@copilotkit/runtime/agent";
+    import { openaiText } from "@tanstack/ai-openai";
+    import { createMCPClient } from "@tanstack/ai-mcp";
+
+    // Try a sample MCP server at https://mcp.composio.dev/
+    const mcpClient = await createMCPClient({
+      transport: {
+        type: "sse",
+        url: "your_mcp_sse_url",
+        // Optional: send a token to the server
+        // headers: { Authorization: `Bearer ${process.env.MCP_API_KEY}` },
+      },
+    });
 
     const runtime = new CopilotRuntime({
       agents: {
         default: new BuiltInAgent({
-          model: "openai/gpt-6-luna",
-          mcpServers: [
-            {
-              type: "sse",
-              // Try a sample MCP server at https://mcp.composio.dev/
-              url: "your_mcp_sse_url",
-              // Optional: send a token to the server
-              // headers: { Authorization: `Bearer ${process.env.MCP_API_KEY}` },
-            },
-          ],
+          model: openaiText("gpt-6-luna"),
+          mcp: { clients: [mcpClient] },
+          // One step calls a tool, the next answers with its result.
+          maxSteps: 3,
         }),
       },
     });
@@ -89,8 +101,8 @@ For the protocol itself, see the [Model Context Protocol](https://modelcontextpr
     export const POST = handler;
     ```
 
-    The agent opens a client for each server at the start of a run and closes it when the run ends.
-    For the HTTP transport, multiple servers, and `mcpClients`, see [MCP servers](/built-in-agent/mcp-servers).
+    The client stays open between runs. The agent reads its tools at the start of each run.
+    For the HTTP transport, multiple servers, lazy tools, and error handling, see [MCP servers](/built-in-agent/mcp-servers).
   </Step>
   <Step>
     ### Set up the CopilotKit Provider
@@ -100,12 +112,13 @@ For the protocol itself, see the [Model Context Protocol](https://modelcontextpr
     ```tsx
     "use client";
 
-    import { CopilotKit } from "@copilotkit/react-core/v2";
+    import type { ReactNode } from "react";
+    import { CopilotKit } from "@copilotkit/react-core";
 
-    export default function App() {
+    export default function App({ children }: { children: ReactNode }) {
       return (
         <CopilotKit runtimeUrl="/api/copilotkit">
-          {/* Your app content */}
+          {children}
         </CopilotKit>
       );
     }
@@ -119,7 +132,7 @@ For the protocol itself, see the [Model Context Protocol](https://modelcontextpr
     ```tsx
     "use client";
 
-    import { CopilotChat } from "@copilotkit/react-core/v2";
+    import { CopilotChat } from "@copilotkit/react-core";
 
     export default function ChatInterface() {
       return (
@@ -140,7 +153,7 @@ For the protocol itself, see the [Model Context Protocol](https://modelcontextpr
     ```tsx title="ToolRenderer.tsx"
     "use client";
 
-    import { useDefaultRenderTool } from "@copilotkit/react-core/v2";
+    import { useDefaultRenderTool } from "@copilotkit/react-core";
     import { McpToolCall } from "./McpToolCall";
 
     export function ToolRenderer() {
@@ -165,7 +178,7 @@ For the protocol itself, see the [Model Context Protocol](https://modelcontextpr
     ```tsx
     "use client";
 
-    import { CopilotKit, CopilotChat } from "@copilotkit/react-core/v2";
+    import { CopilotKit, CopilotChat } from "@copilotkit/react-core";
     import { ToolRenderer } from "./ToolRenderer";
 
     export default function Page() {
@@ -208,14 +221,17 @@ This is the most common case, and it needs the least work. Examples are a docs s
 Connect the server and stop there. If you want the call to be visible rather than invisible, a wildcard renderer gives every tool call a status card without writing one renderer per tool:
 
 ```tsx
-import { useDefaultRenderTool } from "@copilotkit/react-core/v2";
+import { useDefaultRenderTool } from "@copilotkit/react-core";
 import { McpToolCall } from "./McpToolCall";
 
-useDefaultRenderTool({
-  render: ({ name, status, parameters, result }) => (
-    <McpToolCall status={status} name={name} args={parameters} result={result} />
-  ),
-});
+export function ToolCallStatus() {
+  useDefaultRenderTool({
+    render: ({ name, status, parameters, result }) => (
+      <McpToolCall status={status} name={name} args={parameters} result={result} />
+    ),
+  });
+  return null;
+}
 ```
 
 Use an MCP App here only if the *result* is interactive, such as a chart that the user filters. A table that the user only reads does not need one.

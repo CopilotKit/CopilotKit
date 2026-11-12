@@ -24,14 +24,15 @@ const copilotkit = new CopilotKitCore({
 // Register a frontend tool the agent can call.
 copilotkit.addTool({
   name: "showAlert",
+  description: "Show a browser alert with a message",
   parameters: z.object({ message: z.string() }),
   handler: async ({ message }) => {
     window.alert(message);
-    return "Alert shown";
+    return "shown";
   },
 });
 
-// Agents load after the runtime responds.
+// Agents populate after the runtime responds, so run once they arrive.
 const sub = copilotkit.subscribe({
   onAgentsChanged: async ({ agents }) => {
     const agent = agents["default"];

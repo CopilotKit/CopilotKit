@@ -77,8 +77,6 @@ export interface CaptureOptions {
 
 export interface CollectorOptions {
   sink: LearningSink;
-  /** @deprecated Capture retains raw URLs; route templates no longer transform events. */
-  routes?: string[];
   /** URLs (prefix match on the absolute URL) or patterns that network capture skips. */
   ignoreUrls?: (string | RegExp)[];
   /** Turns capture modules on or off. All are on by default. */

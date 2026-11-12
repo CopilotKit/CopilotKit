@@ -9,7 +9,7 @@ description: "Register a React component as a frontend tool renderer in chat"
 It registers a tool and renders a React Native component in chat using the tool call parameters.
 
 <Callout type="info">
-  Re-exported from `@copilotkit/react-core/v2`. It is identical to the [React (V2) `useComponent`](/reference/v2/hooks/useComponent); only the import path differs.
+  Re-exported from `@copilotkit/react-core`. It is identical to the [React `useComponent`](/reference/hooks/useComponent); only the import path differs.
 </Callout>
 
 Use this when you want a visual component renderer without writing a full frontend tool config manually. Your `render` component returns React Native elements, and CopilotKit shows them in the chat. It uses the same renderer registry as [`useRenderTool`](/reference/react-native/hooks/useRenderTool) and `useFrontendTool`. The chat reads that registry through `useRenderToolCall`.
@@ -17,23 +17,31 @@ Use this when you want a visual component renderer without writing a full fronte
 ## Signature
 
 ```tsx
-import type { StandardSchemaV1 } from "@copilotkit/shared";
 import type { ComponentType } from "react";
+import type { InferSchemaOutput, StandardSchemaV1 } from "@copilotkit/shared";
 import { useComponent } from "@copilotkit/react-native";
 
-function useComponent<TSchema extends StandardSchemaV1 | undefined = undefined>(
+useComponent satisfies <
+  TSchema extends
+    | StandardSchemaV1<unknown, Record<string, unknown>>
+    | undefined = undefined,
+>(
   config: {
     name: string;
     description?: string;
     parameters?: TSchema;
     // When parameters is provided, props are inferred from the schema output.
     // When omitted, render accepts any props.
-    render: ComponentType<InferRenderProps<TSchema>>;
+    render: ComponentType<
+      TSchema extends StandardSchemaV1
+        ? InferSchemaOutput<TSchema>
+        : Record<string, unknown>
+    >;
     agentId?: string;
     followUp?: boolean;
   },
   deps?: ReadonlyArray<unknown>,
-): void;
+) => void;
 ```
 
 ## Parameters

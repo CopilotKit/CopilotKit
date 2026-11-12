@@ -25,7 +25,6 @@ You typically only need to specify which agent to connect and, optionally, custo
 ```vue
 <script setup lang="ts">
 import { CopilotChat } from "@copilotkit/vue/v2";
-import "@copilotkit/vue/styles.css";
 </script>
 ```
 
@@ -48,7 +47,7 @@ All reactive props are declared with `defineProps`. `CopilotChat` extends `Copil
 </PropertyReference>
 
 <PropertyReference name="labels" type="Partial<CopilotChatLabels>">
-  Partial label overrides for the text strings rendered inside the chat (input placeholder, welcome message, toolbar buttons, disclaimer, etc.). Any label you omit falls back to the built-in default. Provided to descendants via [`useCopilotChatConfiguration`](/reference/vue/hooks/useCopilotChatConfiguration).
+  Partial label overrides for the text strings rendered inside the chat (input placeholder, welcome message, toolbar buttons, disclaimer, and more). Any label you omit falls back to the built-in default. Provided to descendants via [`useCopilotChatConfiguration`](/reference/vue/hooks/useCopilotChatConfiguration). See [CopilotChatLabels](/reference/vue/hooks/useCopilotChatConfiguration#copilotchatlabels) for all keys.
 </PropertyReference>
 
 <PropertyReference name="attachments" type="AttachmentsConfig">
@@ -81,6 +80,14 @@ function handleError(event: {
 </PropertyReference>
 
 ### Inherited CopilotChatView props
+
+<PropertyReference name="toolCallDisplay" type='"grouped" | "line" | "stacked" | "turn" | "separate"' default='"grouped"'>
+  How tool calls show. Passed to the message view. See [`CopilotChatMessageView`](/reference/vue/components/CopilotChatMessageView#toolcalldisplay).
+</PropertyReference>
+
+<PropertyReference name="messageFeedback" type="boolean" default="true">
+  Whether reply thumbs record ratings for Automatic Learning once a Trajectory has started. Passed to the message view.
+</PropertyReference>
 
 <PropertyReference name="autoScroll" type="AutoScrollMode | boolean" default="true">
   Controls how the chat scrolls as new messages stream in. Accepts `"pin-to-bottom"` / `true` (stick to the bottom while at the bottom), `"pin-to-send"` (anchor the latest user message near the top while the assistant streams), or `"none"` / `false` (never auto-scroll).
@@ -150,7 +157,7 @@ Vue uses named slots in place of React's render props and sub-component props. P
 </PropertyReference>
 
 <PropertyReference name="generative-ui-surface" type="GenerativeUIChatSurfaceSlotProps">
-  Experimental. Replaces the default card around each [generative UI](/reference/vue/components/GenerativeUISurface) surface that the agent renders in this chat. It applies only when the provider has a [`generativeUI`](/reference/vue/components/CopilotKitProvider) config. Slot props:
+  Replaces the default card around each [generative UI](/reference/vue/components/GenerativeUISurface) surface that the agent renders in this chat. It applies only when the provider has a [`generativeUI`](/reference/vue/components/CopilotKitProvider) config. Slot props:
 
 - `surfaceId` (`string`): the id of the surface.
 - `isStreaming` (`boolean`): `true` while the agent streams operations into the surface.
@@ -171,7 +178,6 @@ Vue uses named slots in place of React's render props and sub-component props. P
 ```vue
 <script setup lang="ts">
 import { CopilotChat } from "@copilotkit/vue/v2";
-import "@copilotkit/vue/styles.css";
 </script>
 
 <template>

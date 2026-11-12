@@ -7,16 +7,14 @@
 ]}>
   <CodePanel>
     ```tsx title="app.tsx"
-    import { CopilotKit } from "@copilotkit/react-core/v2";
-    import { CopilotSidebar } from "@copilotkit/react-core/v2";
-    import "@copilotkit/react-core/v2/styles.css";
+    import { CopilotKitProvider, CopilotSidebar } from "@copilotkit/react-core";
 
     export default function App() {
       return (
-        <CopilotKit runtimeUrl="/api/copilotkit" useSingleEndpoint={false}>
-          <YourApp />
-          <CopilotSidebar/>
-        </CopilotKit>
+        <CopilotKitProvider runtimeUrl="/api/copilotkit">
+          <main>{/* your app */}</main>
+          <CopilotSidebar />
+        </CopilotKitProvider>
       );
     }
     ```
@@ -24,7 +22,7 @@
   </CodePanel>
   <CodePanel>
     ```tsx title="chat.tsx"
-    import { useAgent, useCopilotKit } from "@copilotkit/react-core/v2";
+    import { useAgent, useCopilotKit } from "@copilotkit/react-core";
 
     export default function Chat() {
       const { agent } = useAgent();
@@ -38,7 +36,7 @@
       return (
         <div>
           {agent.messages.map((m) => (
-            <p key={m.id}>{m.content}</p>
+            <p key={m.id}>{typeof m.content === "string" ? m.content : null}</p>
           ))}
           <button onClick={send}>
             {agent.isRunning ? "Thinking..." : "Send"}
@@ -52,9 +50,9 @@
   <CodePanel>
     ```tsx title="weather-card.tsx"
     import { z } from "zod";
-    import { useComponent } from "@copilotkit/react-core/v2";
+    import { useComponent } from "@copilotkit/react-core";
 
-    // Render <WeatherCardTool /> inside <CopilotKit>.
+    // Render <WeatherCardTool /> inside <CopilotKitProvider>.
     export function WeatherCardTool() {
       useComponent({
         name: "showWeather",
@@ -82,7 +80,7 @@
       CopilotRuntime,
       createCopilotRuntimeHandler,
       InMemoryAgentRunner,
-    } from "@copilotkit/runtime/v2";
+    } from "@copilotkit/runtime";
 
     const runtime = new CopilotRuntime({
       agents: {

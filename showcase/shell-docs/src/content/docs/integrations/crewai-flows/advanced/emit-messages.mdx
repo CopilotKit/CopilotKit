@@ -79,7 +79,7 @@ Use this when a method does slow work before it answers and you want to:
         Read `status` from the agent state with `useAgent`. Use the agent ID that you registered in your runtime.
 
         ```tsx title="app/page.tsx"
-        import { useAgent } from "@copilotkit/react-core/v2";
+        import { useAgent } from "@copilotkit/react-core";
 
         export function AgentStatus() {
           const { agent } = useAgent({ agentId: "sample_agent" });

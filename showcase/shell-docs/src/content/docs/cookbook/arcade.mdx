@@ -139,11 +139,11 @@ rules for each tool definition:
 
 ```ts title="app/api/copilotkit/[[...slug]]/route.ts"
 import {
-  BuiltInAgent,
   CopilotRuntime,
   createCopilotRuntimeHandler,
-  defineTool,
-} from "@copilotkit/runtime/v2";
+} from "@copilotkit/runtime";
+import { BuiltInAgent, defineTool } from "@copilotkit/runtime/agent";
+import { openaiText } from "@tanstack/ai-openai";
 import { z } from "zod";
 import { getArcadeUserId, runArcadeTool } from "@/lib/arcade";
 
@@ -194,8 +194,7 @@ tool cards show the details.`;
 
 function buildAgent(userId: string) {
   return new BuiltInAgent({
-    model: process.env.OPENAI_MODEL || "openai/gpt-6-luna",
-    apiKey: process.env.OPENAI_API_KEY,
+    model: openaiText("gpt-6-luna"), // reads OPENAI_API_KEY
     prompt: SYSTEM_PROMPT,
     tools: buildTools(userId),
     maxSteps: 6, // > 1 so the agent can call a tool and then respond
@@ -256,18 +255,23 @@ This is the generative-UI moment: the OAuth handshake becomes a card in the chat
 
 ```tsx title="app/page.tsx"
 "use client";
-import { CopilotChat, useRenderTool } from "@copilotkit/react-core/v2";
+import { CopilotChat, useRenderTool } from "@copilotkit/react-core";
 import { z } from "zod";
 import { AuthorizationCard } from "@/components/authorization-card";
 
-// useRenderTool usually hands `result` back as a JSON string, but tolerate an
-// already-parsed object or an empty/missing value so a partial result never throws.
-function parse<T>(result: unknown): T | undefined {
-  if (result == null) return undefined;
-  if (typeof result === "object") return result as T;
-  if (typeof result !== "string" || result.length === 0) return undefined;
+// The tool result arrives as a JSON string. Validate it before reading fields,
+// so a partial or unexpected result never throws.
+const arcadeResultSchema = z.object({
+  error: z.string().optional(),
+  authorizationRequired: z.boolean().optional(),
+  provider: z.string().optional(),
+  authUrl: z.string().optional(),
+});
+
+function parseResult(result: string) {
   try {
-    return JSON.parse(result) as T;
+    const parsed = arcadeResultSchema.safeParse(JSON.parse(result));
+    return parsed.success ? parsed.data : undefined;
   } catch {
     return undefined;
   }
@@ -279,9 +283,9 @@ export default function Page() {
     parameters: z.object({ recipient: z.string(), subject: z.string(), body: z.string() }),
     render: ({ status, parameters, result }) => {
       if (status !== "complete") return <p>Sending email…</p>;
-      const r = parse<any>(result);
+      const r = parseResult(result);
       if (r?.error) return <p role="alert">{r.error}</p>;
-      if (r?.authorizationRequired)
+      if (r?.authorizationRequired && r.provider && r.authUrl)
         return <AuthorizationCard provider={r.provider} authUrl={r.authUrl} />;
       return <p>Sent to {parameters.recipient}: {parameters.subject}</p>;
     },
@@ -335,9 +339,10 @@ matches the single-route handler:
 ```tsx title="app/providers.tsx"
 "use client";
 
-import { CopilotKitProvider } from "@copilotkit/react-core/v2";
+import type { ReactNode } from "react";
+import { CopilotKitProvider } from "@copilotkit/react-core";
 
-export function Providers({ children }: { children: React.ReactNode }) {
+export function Providers({ children }: { children: ReactNode }) {
   return (
     <CopilotKitProvider runtimeUrl="/api/copilotkit" useSingleEndpoint>
       {children}
@@ -345,8 +350,6 @@ export function Providers({ children }: { children: React.ReactNode }) {
   );
 }
 ```
-
-Keep the `@copilotkit/react-core/v2/styles.css` import in `app/layout.tsx`, as in the quickstart.
 
 ## Try it
 

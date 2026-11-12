@@ -4,7 +4,7 @@ import {
   registerRenderActivityMessage,
   registerRenderToolCall,
 } from "@copilotkit/angular";
-import { z } from "zod";
+import * as z from "zod";
 
 import { FeatureHeaderComponent } from "../feature-header.component";
 import { ShowcaseChatHostComponent } from "../showcase-chat-host.component";

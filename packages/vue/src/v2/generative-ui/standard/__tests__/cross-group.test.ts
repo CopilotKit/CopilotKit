@@ -37,7 +37,7 @@ import { standardUI } from "../index";
 // Image lightbox and other Button and Pressable cases of React's
 // `composites.test.tsx` (layout, media and inputs).
 //
-// The lucide icons load from the real lucide-vue-next, so the icon checks
+// The lucide icons load from the real `lucide` package, so the icon checks
 // wait for the svg.
 
 afterEach(() => {

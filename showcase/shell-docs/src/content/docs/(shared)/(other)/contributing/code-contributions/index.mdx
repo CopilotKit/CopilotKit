@@ -70,22 +70,17 @@ Now you can start making changes to the code.
 Run an example from the `examples` folder. The examples use the monorepo packages, so they show your changes.
 
 <FrontendOnly frontend="react">
-For this tutorial, we'll use the `next-openai` example, specifically the Presentation Demo (`/presentation`).
+For this tutorial, we'll use the React demo app in `examples/dev/by-frontend/react/demo`, specifically its popup page (`/popup`).
 
 In a separate terminal, run the following command to start the example:
 
 ```bash
-cd examples/v1/next-openai
+cd examples/dev/by-frontend/react/demo
 export OPENAI_API_KEY=<your-openai-api-key>
-pnpm run example-dev
+pnpm run dev
 ```
 
-<Callout type="info">
-  We use the `pnpm run example-dev` command to run examples, which is different
-  from the `pnpm run dev` command we use to work on the individual packages.
-</Callout>
-
-Now navigate to http://localhost:3000/presentation and you should see the example running. Any changes you make to the CopilotKit packages will immediately be reflected here.
+Now navigate to http://localhost:3000/popup and you should see the example running. Any changes you make to the CopilotKit packages will immediately be reflected here.
 </FrontendOnly>
 
 <FrontendOnly frontend="angular">
@@ -124,7 +119,7 @@ Now that you've made your changes, commit and push them. Then, go to the [Pull R
 When you run CopilotKit on localhost, the CopilotKit Inspector is on by default. Use it to see agent state, context, and the tools the agent can call. See [Inspector and dev console](/troubleshooting/inspector-dev-console).
 
 <FrontendOnly frontend="react">
-To hide the Inspector locally, set `enableInspector={false}` on your `<CopilotKit />` provider.
+To hide the Inspector locally, set `enableInspector={false}` on your `<CopilotKitProvider>`.
 </FrontendOnly>
 
 <FrontendOnly frontend="angular">

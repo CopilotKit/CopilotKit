@@ -14,10 +14,10 @@ You typically configure the connection one of two ways: point at a CopilotKit ru
 ## Signature
 
 ```ts
-import { provideCopilotKit } from "@copilotkit/angular";
+import { provideCopilotKit, type CopilotKitConfig } from "@copilotkit/angular";
 import type { Provider } from "@angular/core";
 
-function provideCopilotKit(config?: CopilotKitConfig): Provider;
+provideCopilotKit satisfies (config?: CopilotKitConfig) => Provider;
 ```
 
 ## Parameters
@@ -27,7 +27,11 @@ function provideCopilotKit(config?: CopilotKitConfig): Provider;
 
 <PropertyReference name="runtimeUrl" type="string">
   The URL of your CopilotKit runtime endpoint. Set this to route agent traffic
-  through a runtime (for example a Next.js, Express, or Hono backend).
+  through a runtime. The runtime is a Fetch handler from
+  `createCopilotRuntimeHandler` (`@copilotkit/runtime`), or a Node listener
+  from `createCopilotNodeListener` (`@copilotkit/runtime/node`). It runs in a
+  Next.js route, on an Express or Hono server, or on any platform with the
+  Fetch API. See [Deploy to any runtime](/runtime-server-adapter).
 </PropertyReference>
 
 <PropertyReference name="headers" type="Record<string, string | null | undefined> | (() => Record<string, string | null | undefined>) | (() => Promise<Record<string, string | null | undefined>>)">
@@ -36,22 +40,23 @@ function provideCopilotKit(config?: CopilotKitConfig): Provider;
   (sync or async) to build them fresh. A builder runs when each request is
   sent, so a refreshed token is always used.
 
-  Cache inside the builder. A builder that calls the network every time adds
-  one call per request. If the builder throws or rejects, that request is not
-  sent and `onError` gets `header_resolution_failed`.
+Cache inside the builder. A builder that calls the network every time adds
+one call per request. If the builder throws or rejects, that request is not
+sent and `onError` gets `header_resolution_failed`.
 
-  Re-passing the same builder function is a no-op. On a user switch, pass a
-  new function (or a record) to `copilotKit.updateRuntime({ headers })` (see
-  the [`CopilotKit`](/reference/angular/services/CopilotKit) service), or
-  remount, so Inspector metadata and thread lists reload for the new user.
-  This does not refetch the runtime's `/info`.
+Re-passing the same builder function is a no-op. On a user switch, pass a
+new function (or a record) to `copilotKit.updateRuntime({ headers })` (see
+the [`CopilotKit`](/reference/angular/services/CopilotKit) service), or
+remount, so Inspector metadata and thread lists reload for the new user.
+This does not refetch the runtime's `/info`.
 
-  Core headers are also sent to any `agents` or `selfManagedAgents`
-  agent, including ones on other origins. Don't put
-  a bearer token in core headers if those agents point at a third party.
+Core headers are also sent to any `agents` or `selfManagedAgents` agent,
+including ones on other origins. Don't put a bearer token in core headers if
+those agents point at a third party.
 
-  If you pass a format-valid `licenseKey`, a `X-CopilotCloud-Public-Api-Key`
-  header is merged in automatically unless you already set one here.
+If you pass a format-valid `licenseKey`, a `X-CopilotCloud-Public-Api-Key`
+header is merged in automatically unless you already set one here.
+
 </PropertyReference>
 
 <PropertyReference name="credentials" type="RequestCredentials">
@@ -72,10 +77,17 @@ model every turn twice.
 Return the messages to send:
 
 ```ts
-provideCopilotKit({
-  runtimeUrl: "/api/copilotkit",
-  messageFilter: (messages) => messages.slice(-1),
-});
+import type { ApplicationConfig } from "@angular/core";
+import { provideCopilotKit } from "@copilotkit/angular";
+
+export const appConfig: ApplicationConfig = {
+  providers: [
+    provideCopilotKit({
+      runtimeUrl: "/api/copilotkit",
+      messageFilter: (messages) => messages.slice(-1),
+    }),
+  ],
+};
 ```
 
 The filter changes the request body only. The transcript the UI renders is
@@ -107,6 +119,12 @@ passing the key explicitly as `undefined`.
   Controls the CopilotKit Inspector in development browser builds. It is shown
   by default unless set to `false`, and is never loaded in production or during
   server-side rendering, even when explicitly set to `true`.
+</PropertyReference>
+
+<PropertyReference name="injectStyles" type="boolean" default="true">
+  Set to `false` when you add `@copilotkit/core/styles.css` to the `styles` in
+  `angular.json`, so browsers cache the CSS as a file. CopilotKit then adds no
+  `<style>` tag. See [Styling](/reference/angular#styling).
 </PropertyReference>
 
 <PropertyReference name="agents" type="Record<string, AbstractAgent>">
@@ -172,55 +190,12 @@ passing the key explicitly as `undefined`.
 </PropertyReference>
 
 <PropertyReference name="defaultToolRendering" type="boolean" default="false">
-  Opts into the text-only fallback renderer for otherwise unknown tool calls.
-  Unknown tools are hidden when this is omitted or `false`.
+  Shows CopilotKit's built-in tool-call card for tool calls that have no
+  renderer of their own. It is the same card as React's. The card shows the
+  tool name and status, and opens to the arguments and the result. Calls made
+  in a row are grouped (see `toolCallDisplay`). Unknown tools are hidden when
+  this is omitted or `false`.
 </PropertyReference>
-
-  <PropertyReference name="a2ui" type="A2UIConfig">
-    Configuration for A2UI (agent-to-UI declarative surfaces). A runtime may
-    advertise A2UI through `/info`; supplying a catalog also enables the
-    frontend renderers and agent context without that runtime capability.
-
-    <PropertyReference name="theme" type="Record<string, unknown>">
-      The A2UI theme used to style rendered surfaces.
-    </PropertyReference>
-    <PropertyReference name="catalog" type="A2UICatalog">
-      The catalog surfaces render with: `basicCatalog` or one from
-      `createAngularCatalog`, both in `@copilotkit/angular/a2ui`. Providing it
-      enables A2UI even when the runtime does not advertise A2UI through
-      `/info`. Without a catalog, A2UI stays off, even when the runtime
-      enables it, and CopilotKit logs a warning.
-    </PropertyReference>
-    <PropertyReference name="loadingComponent" type="Type<unknown>">
-      An Angular component shown while a surface is loading.
-    </PropertyReference>
-    <PropertyReference name="includeSchema" type="boolean" default="true">
-      Whether to send the catalog component schemas to the agent as context. Set
-      to `false` to omit the schema context: the agent still receives the
-      catalog ID and the names of the catalog's custom components, without
-      their JSON schemas or the A2UI generation and design guidelines. A
-      LangGraph agent that uses the CopilotKit middleware's injected A2UI tool
-      then gives its A2UI subagent the component names only. To give the
-      subagent more detail, pass a composition guide through the middleware's
-      A2UI guidelines: `a2uiParams.guidelines.compositionGuide` in TypeScript,
-      or `a2ui_params["guidelines"]["composition_guide"]` in Python.
-    </PropertyReference>
-    <PropertyReference name="recovery" type="A2UIRecoveryOptions">
-      Controls when A2UI retry and diagnostic state becomes visible.
-
-      <PropertyReference name="showAfterMs" type="number" default="2000">
-        Delay before revealing a transient retry.
-      </PropertyReference>
-      <PropertyReference name="showAfterAttempts" type="number" default="2">
-        Attempt number that reveals retry state immediately.
-      </PropertyReference>
-      <PropertyReference name="debugExposure" type='"hidden" | "collapsed" | "verbose"'>
-        Client diagnostic visibility. Authoritative server lifecycle content may
-        override it.
-      </PropertyReference>
-    </PropertyReference>
-
-  </PropertyReference>
 
   <PropertyReference name="openGenerativeUI" type="OpenGenerativeUIConfig">
     Configuration for open generative UI (the `generateSandboxedUi` tool).

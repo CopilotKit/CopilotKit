@@ -1,0 +1,19 @@
+:where(.cpk-message-view) {
+  display: flex;
+  flex-direction: column;
+}
+:where(.cpk-message-view-work-summary) {
+  padding-top: 0.25rem;
+  padding-bottom: 0.5rem;
+}
+:where(.cpk-message-view-cursor-container) {
+  margin-top: 0.5rem;
+}
+:where(.cpk-message-view-cursor) {
+  width: 11px;
+  height: 11px;
+  margin-left: 0.25rem;
+  border-radius: calc(infinity * 1px);
+  background-color: var(--foreground);
+  animation: cpk-pulse-cursor 0.9s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}

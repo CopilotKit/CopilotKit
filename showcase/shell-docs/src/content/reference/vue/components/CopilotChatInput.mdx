@@ -32,7 +32,6 @@ It supports both `v-model` (via `modelValue` / `update:modelValue`) and uncontro
 ```vue
 <script setup lang="ts">
 import { CopilotChatInput } from "@copilotkit/vue/v2";
-import "@copilotkit/vue/styles.css";
 </script>
 ```
 
@@ -42,7 +41,6 @@ import "@copilotkit/vue/styles.css";
 <script setup lang="ts">
 import { ref } from "vue";
 import { CopilotChatInput } from "@copilotkit/vue/v2";
-import "@copilotkit/vue/styles.css";
 
 const value = ref("");
 
@@ -290,7 +288,10 @@ Use the string `"-"` as an array entry to render a visual separator between menu
 items:
 
 ```ts
-const toolsMenu = [
+import type { ToolsMenuItem } from "@copilotkit/vue/v2";
+import { openSettings, search } from "./actions";
+
+const toolsMenu: (ToolsMenuItem | "-")[] = [
   { label: "Search", action: () => search() },
   "-",
   { label: "Settings", action: () => openSettings() },
@@ -299,10 +300,16 @@ const toolsMenu = [
 
 ### Nested Submenus
 
-A menu item with an `items` array renders as a group. The menu shows its label as a heading and lists the child items under it, indented:
+Menu items with an `items` array render as expandable submenus. A submenu
+opens when you point to its item, or when you press the right arrow key, Enter,
+or Space on it. The left arrow key closes it. Escape closes the menu and moves
+focus back to the add button.
 
 ```ts
-const toolsMenu = [
+import type { ToolsMenuItem } from "@copilotkit/vue/v2";
+import { exportCSV, exportPDF, printDoc } from "./actions";
+
+const toolsMenu: (ToolsMenuItem | "-")[] = [
   {
     label: "Export",
     items: [

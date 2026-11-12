@@ -1,15 +1,16 @@
 "use client";
 
 import "@copilotkit/react-core/v2/styles.css";
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import type { ReactNode } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { createPortal } from "react-dom";
 import { CopilotKitProvider, useAgent } from "@copilotkit/react-core/v2";
 import {
   DocsLayout as SpaciousLayout,
   useSpaciousLayout,
-  type DocsLayoutProps,
 } from "fumadocs-ui/layouts/spacious";
+import type { DocsLayoutProps } from "fumadocs-ui/layouts/spacious";
 import { Maximize2, SquarePen, X } from "lucide-react";
 import { AskAIGlyph } from "@/components/icons/glyphs";
 import { Button } from "@/components/ui/button";

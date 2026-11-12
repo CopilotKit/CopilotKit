@@ -17,15 +17,18 @@ import {
   viewChild,
 } from "@angular/core";
 import { NgTemplateOutlet } from "@angular/common";
+import { DEFAULT_AGENT_ID } from "@copilotkit/shared";
 import {
-  DEFAULT_AGENT_ID,
-  createLicenseContextValue,
-} from "@copilotkit/shared";
+  ɵcreateThreadsDrawerActions,
+  ɵgetThreadsDrawerElementProps,
+  ɵresolveLicenseState,
+  ɵresolveThreadsLicense,
+  ɵtoDrawerThread,
+} from "@copilotkit/core";
 import { defineCopilotKitThreadsDrawer } from "@copilotkit/web-components/threads-drawer";
 import type {
   ArchiveDetail,
   DeleteDetail,
-  DrawerThread,
   OpenChangeDetail,
   RetryDetail,
   ThreadSelectedDetail,
@@ -41,65 +44,6 @@ type CollapseChangeDetail = { collapsed: boolean };
 import { COPILOT_CHAT_CONFIGURATION } from "../../chat-configuration";
 import { CopilotKit } from "../../copilotkit";
 import { injectThreads } from "../../threads";
-import type { Thread } from "../../threads";
-
-/**
- * Maps a {@link Thread} from the platform store onto the minimal
- * {@link DrawerThread} shape the `<copilotkit-threads-drawer>` element accepts.
- *
- * `lastRunAt` is spread conditionally so the key is absent (rather than
- * `undefined`) when the source thread has never been run — matching the
- * element's optional typing and avoiding spurious property pollution.
- */
-function toDrawerThread(thread: Thread): DrawerThread {
-  return {
-    id: thread.id,
-    name: thread.name,
-    archived: thread.archived,
-    createdAt: thread.createdAt,
-    updatedAt: thread.updatedAt,
-    ...(thread.lastRunAt !== undefined ? { lastRunAt: thread.lastRunAt } : {}),
-  };
-}
-
-/**
- * The Angular chat view container's element selector. Used to scope the
- * focus-return lookup so a multi-chat page focuses THIS drawer's composer.
- */
-const CHAT_CONTAINER_SELECTOR = "copilot-chat-view";
-/**
- * The Angular chat input's element selector (`<textarea copilotChatTextarea>`).
- * Note: this is the Angular chat input, NOT React's `copilot-chat-textarea` or
- * Vue's `copilot-chat-input-textarea` `data-testid` — the Angular chat
- * components identify by element/attribute selector rather than `data-testid`.
- */
-const CHAT_INPUT_SELECTOR = "textarea[copilotChatTextarea]";
-
-/**
- * Returns the chat input element for focus-return after a thread is selected.
- *
- * Best-effort and SCOPED: walks up from the drawer element looking for an
- * ancestor chat-view container ({@link CHAT_CONTAINER_SELECTOR}), then returns
- * the chat input ({@link CHAT_INPUT_SELECTOR}) within that subtree. This avoids
- * focusing the wrong composer on a page hosting more than one chat, where a
- * document-global lookup would grab whichever input appears first in DOM order.
- *
- * Falls back to a document-global lookup when no scoping ancestor is found
- * (e.g. the drawer and chat share no common container, or headless usage), and
- * returns `null` when there is no chat input at all. Mirrors the React and Vue
- * wrappers' `findChatInput`, scoped to the Angular chat selectors.
- *
- * @param origin - The drawer element to scope the search from.
- */
-function findChatInput(origin: Element | null): HTMLElement | null {
-  if (typeof document === "undefined") return null;
-  const container = origin?.closest?.(CHAT_CONTAINER_SELECTOR);
-  if (container) {
-    const scoped = container.querySelector<HTMLElement>(CHAT_INPUT_SELECTOR);
-    if (scoped) return scoped;
-  }
-  return document.querySelector<HTMLElement>(CHAT_INPUT_SELECTOR);
-}
 
 /**
  * Structural directive that captures a per-row template for projection into
@@ -135,7 +79,7 @@ export class CopilotThreadsDrawerRow {
  * Thread list state is fetched from CopilotKit Intelligence via
  * {@link injectThreads} and pushed onto the element's JS properties via an
  * `effect`, following the imperative property-assignment pattern used elsewhere
- * in this package (see `CopilotA2UIActivityRenderer`).
+ * in this package.
  *
  * DOM events emitted by the element are routed back to the chat configuration
  * and thread mutation methods via declarative Angular event bindings.
@@ -305,75 +249,27 @@ export class CopilotThreadsDrawer {
     () => this.agentId() ?? this.config?.agentId() ?? DEFAULT_AGENT_ID,
   );
 
-  /**
-   * Normalized license context derived from Core's structured and legacy
-   * Runtime authority, with the same precedence as the React provider.
-   */
-  private readonly licenseContext = computed(() => {
-    const runtimeLicenseStatus = this.copilotkit.licenseStatus();
-    const runtimeEntitlements = this.copilotkit.runtimeEntitlements?.();
-    const retryableRuntimeEntitlementFailure =
-      runtimeEntitlements?.status !== "ready" &&
-      runtimeEntitlements?.error.retryable === true;
-    const hasNonReadyRuntimeEntitlement =
-      runtimeEntitlements !== undefined &&
-      runtimeEntitlements.status !== "ready";
-    const hasLegacyRuntimeEntitlementFallback =
-      runtimeLicenseStatus === "valid" || runtimeLicenseStatus === "expiring";
-    const runtimeEntitlementRetryInProgress =
-      retryableRuntimeEntitlementFailure &&
-      (this.copilotkit.runtimeEntitlementRetryPending?.() ?? false) &&
-      !hasLegacyRuntimeEntitlementFallback;
-    // Only a terminal failure denies features. A retryable failure (a
-    // timeout, a network error, a 5xx) says nothing about what the project
-    // may use.
-    const terminalRuntimeEntitlementFailure =
-      hasNonReadyRuntimeEntitlement &&
-      !retryableRuntimeEntitlementFailure &&
-      !hasLegacyRuntimeEntitlementFallback;
-    const runtimeLicenseContext = createLicenseContextValue(
-      runtimeEntitlementRetryInProgress ? undefined : runtimeLicenseStatus,
-      runtimeEntitlements,
-    );
-
-    if (!terminalRuntimeEntitlementFailure) {
-      return runtimeLicenseContext;
-    }
-
-    return {
-      ...runtimeLicenseContext,
-      checkFeature: () => false,
-      getLimit: () => null,
-    };
-  });
-
-  /**
-   * Two-pronged license gate, mirroring the React wrapper. `checkFeature` fails
-   * OPEN (returns true) when no license is configured, so it cannot by itself
-   * detect the no-license case; we therefore also require a positive
-   * license-present signal. Only a resolved `valid`/`expiring` status counts as
-   * present — a resolved `none`/`expired`/`invalid` gates the drawer to the
-   * locked view. `unknown` is an unrecovered retryable entitlement lookup, not
-   * a settled negative: fetch the list and let the threads endpoint decide.
-   */
-  protected readonly licensed = computed(() => {
-    const ctx = this.licenseContext();
-    if (ctx.status === "unknown") return true;
-    const licensePresent = ctx.status === "valid" || ctx.status === "expiring";
-    return licensePresent && ctx.checkFeature("threads");
-  });
-
-  /**
-   * Whether the runtime has not yet reported a license status. The status is
-   * `null` until the first `/info` response lands; treat that window as
-   * "not yet unlicensed" — show the loading state, never the locked view — so a
-   * licensed drawer never flashes (or strands) the Upgrade CTA mid-resolution.
-   */
-  protected readonly licensePending = computed(
-    () => this.licenseContext().status === null,
+  // Core resolves the license context (the same rules as the provider's
+  // license banner) and whether the threads drawer may load its list:
+  // `unknown` counts as licensed so the threads endpoint decides; `null` (not
+  // reported yet) is pending, never the locked view.
+  private readonly threadsLicense = computed(() =>
+    ɵresolveThreadsLicense(
+      ɵresolveLicenseState({
+        status: this.copilotkit.licenseStatus(),
+        entitlements: this.copilotkit.runtimeEntitlements?.(),
+        retryPending:
+          this.copilotkit.runtimeEntitlementRetryPending?.() ?? false,
+      }).context,
+    ),
   );
 
-  /** Live thread list from CopilotKit Intelligence for the resolved agent. */
+  protected readonly licensed = computed(() => this.threadsLicense().licensed);
+
+  protected readonly licensePending = computed(
+    () => this.threadsLicense().licensePending,
+  );
+
   protected readonly threads = injectThreads({
     agentId: this.resolvedAgentId,
     includeArchived: true,
@@ -385,7 +281,7 @@ export class CopilotThreadsDrawer {
 
   /** Thread records mapped to the element's {@link DrawerThread} shape. */
   protected readonly drawerThreads = computed(() =>
-    this.threads.threads().map(toDrawerThread),
+    this.threads.threads().map(ɵtoDrawerThread),
   );
 
   /**
@@ -456,7 +352,12 @@ export class CopilotThreadsDrawer {
       el.threads = this.drawerThreads();
       // While the license is still resolving, force the loading state so the
       // element shows its spinner instead of an empty/locked body.
-      el.loading = this.threads.isLoading() || this.licensePending();
+      const elementProps = ɵgetThreadsDrawerElementProps({
+        loading: this.threads.isLoading(),
+        licensed: this.licensed(),
+        licensePending: this.licensePending(),
+      });
+      el.loading = elementProps.loading;
       el.error = this.errorMessage();
       el.fetchMoreError = this.fetchMoreErrorMessage();
       el.activeThreadId = this.activeThreadId();
@@ -468,7 +369,7 @@ export class CopilotThreadsDrawer {
       // Pending counts as licensed for rendering: the element shows the locked
       // view only when `licensed` is false, so keeping it true until the status
       // resolves prevents the locked view from flashing mid-resolution.
-      el.licensed = this.licensed() || this.licensePending();
+      el.licensed = elementProps.licensed;
       if (this.label() !== undefined) el.label = this.label() as string;
       const licenseUrl = this.licenseUrl();
       if (licenseUrl !== undefined) el.licenseUrl = licenseUrl;
@@ -485,28 +386,29 @@ export class CopilotThreadsDrawer {
     });
   }
 
-  /**
-   * Handles the `thread-selected` event from the drawer element.
-   *
-   * When a `threadSelectHandler` override is provided by the host, it is called
-   * exclusively. Otherwise, the ambient chat configuration is driven directly so
-   * a bare `<copilot-threads-drawer>` works without any host wiring.
-   *
-   * @param event - The raw DOM event; cast to `CustomEvent<ThreadSelectedDetail>` to extract `threadId`.
-   */
+  // Core owns the drawer actions; they read the latest values at call time.
+  private readonly actions = ɵcreateThreadsDrawerActions({
+    getThreads: () => this.threads,
+    getConfig: () => {
+      const config = this.config;
+      if (!config) return null;
+      return {
+        threadId: config.threadId(),
+        setActiveThreadId: (threadId, options) =>
+          config.setActiveThreadId(threadId, options),
+        startNewThread: () => config.startNewThread(),
+      };
+    },
+    getCallbacks: () => ({
+      onThreadSelect: this.threadSelectHandler(),
+      onNewThread: this.newThreadHandler(),
+    }),
+    getElement: () => this.drawerRef()?.nativeElement ?? null,
+  });
+
   protected onThreadSelected(event: Event): void {
     const { threadId } = (event as CustomEvent<ThreadSelectedDetail>).detail;
-    const handler = this.threadSelectHandler();
-    if (handler) {
-      handler(threadId);
-    } else {
-      this.config?.setActiveThreadId(threadId, { explicit: true });
-    }
-    // Return focus to the chat input so keyboard users land in the composer.
-    // Scope the lookup to this drawer's own chat (not document-global). Mirrors
-    // the React (`findChatInput(...).focus()`) and Vue (`focusChatInput()`)
-    // wrappers.
-    findChatInput(this.drawerRef()?.nativeElement ?? null)?.focus();
+    this.actions.selectThread(threadId);
   }
 
   /**
@@ -527,95 +429,25 @@ export class CopilotThreadsDrawer {
     }
   }
 
-  /**
-   * Handles the `new-thread` event from the drawer element.
-   *
-   * Always resets the core thread store to a fresh, non-explicit client-side
-   * thread first. When a `newThreadHandler` override is provided by the host,
-   * it is called exclusively. Otherwise, the ambient chat configuration is
-   * driven directly so a bare `<copilot-threads-drawer>` works without any host wiring.
-   */
   protected onNewThread(): void {
-    this.threads.startNewThread();
-    const handler = this.newThreadHandler();
-    if (handler) {
-      handler();
-    } else {
-      this.config?.startNewThread();
-    }
+    this.actions.newThread();
   }
 
-  /**
-   * Handles the `archive` event from the drawer element.
-   *
-   * Delegates to the threads mutation and logs any failure to the console.
-   *
-   * @param event - The raw DOM event; cast to `CustomEvent<ArchiveDetail>` to extract `threadId`.
-   */
   protected onArchive(event: Event): void {
-    const { threadId } = (event as CustomEvent<ArchiveDetail>).detail;
-    this.threads.archiveThread(threadId).catch((err) => {
-      console.error("CopilotThreadsDrawer: archiveThread failed", err);
-    });
+    this.actions.archive((event as CustomEvent<ArchiveDetail>).detail.threadId);
   }
 
-  /**
-   * Handles the `unarchive` event from the drawer element.
-   *
-   * Delegates to the threads mutation and logs any failure to the console.
-   *
-   * @param event - The raw DOM event; cast to `CustomEvent<UnarchiveDetail>` to extract `threadId`.
-   */
   protected onUnarchive(event: Event): void {
     const { threadId } = (event as CustomEvent<UnarchiveDetail>).detail;
-    this.threads.unarchiveThread(threadId).catch((err) => {
-      console.error("CopilotThreadsDrawer: unarchiveThread failed", err);
-    });
+    this.actions.unarchive(threadId);
   }
 
-  /**
-   * Handles the `delete` event from the drawer element.
-   *
-   * Deleting the active thread resets to a fresh, non-explicit thread so the
-   * user is not stranded on a now-gone conversation. Archiving the active
-   * thread keeps the user viewing it.
-   *
-   * The core `threads.startNewThread()` reset is always called when the deleted
-   * thread was active. When a `newThreadHandler` override is provided by the
-   * host, it is called exclusively; otherwise the ambient chat configuration is
-   * driven directly.
-   *
-   * @param event - The raw DOM event; cast to `CustomEvent<DeleteDetail>` to extract `threadId`.
-   */
   protected onDelete(event: Event): void {
-    const { threadId } = (event as CustomEvent<DeleteDetail>).detail;
-    const wasActive = threadId === this.activeThreadId();
-    this.threads
-      .deleteThread(threadId)
-      .then(() => {
-        if (wasActive) {
-          this.threads.startNewThread();
-          const handler = this.newThreadHandler();
-          if (handler) {
-            handler();
-          } else {
-            this.config?.startNewThread();
-          }
-        }
-      })
-      .catch((err) => {
-        console.error("CopilotThreadsDrawer: deleteThread failed", err);
-      });
+    this.actions.remove((event as CustomEvent<DeleteDetail>).detail.threadId);
   }
 
-  /**
-   * Handles the `filter-change` event from the drawer element.
-   *
-   * The element owns the Active/All filter; on change we refetch so the list
-   * reflects the server.
-   */
   protected onFilterChange(): void {
-    this.threads.refetchThreads();
+    this.actions.refetch();
   }
 
   /**
@@ -630,30 +462,12 @@ export class CopilotThreadsDrawer {
     this.collapseChange.emit(collapsed);
   }
 
-  /**
-   * Handles the `retry` event from the drawer element.
-   *
-   * `scope` distinguishes an initial fetch retry from a fetch-more retry so
-   * the correct pagination operation is invoked.
-   *
-   * @param event - The raw DOM event; cast to `CustomEvent<RetryDetail>` to extract `scope`.
-   */
   protected onRetry(event: Event): void {
-    const { scope } = (event as CustomEvent<RetryDetail>).detail;
-    if (scope === "fetch-more") {
-      this.threads.fetchMoreThreads();
-    } else {
-      this.threads.refetchThreads();
-    }
+    this.actions.retry((event as CustomEvent<RetryDetail>).detail.scope);
   }
 
-  /**
-   * Handles the `load-more` event from the drawer element — advances pagination
-   * by fetching the next page. No-op when there is no next page (the element
-   * only surfaces the "Load more" control while `hasMoreThreads` is true).
-   */
   protected onLoadMore(): void {
-    this.threads.fetchMoreThreads();
+    this.actions.loadMore();
   }
 
   /**

@@ -4,7 +4,22 @@ import { z } from "zod";
 import type { AbstractAgent } from "@ag-ui/client";
 import { useHumanInTheLoop } from "../use-human-in-the-loop";
 import { mountWithProvider } from "../../__tests__/utils/mount";
-import { StateCapturingAgent } from "../../__tests__/utils/agents";
+import {
+  SequencedRunAgent,
+  StateCapturingAgent,
+  toolCallMessage,
+} from "../../__tests__/utils/agents";
+
+/** Handler context for one tool call; core always passes the call. */
+function callContext(id: string, name = "tool") {
+  return {
+    toolCall: {
+      id,
+      type: "function" as const,
+      function: { name, arguments: "{}" },
+    },
+  };
+}
 
 describe("useHumanInTheLoop", () => {
   beforeEach(() => {
@@ -53,7 +68,7 @@ describe("useHumanInTheLoop", () => {
 
     const pending = registeredTool!.handler!(
       { question: "Proceed?" },
-      {} as never,
+      callContext("tc-approve"),
     );
 
     const executingVNode = renderer!.render({
@@ -107,8 +122,8 @@ describe("useHumanInTheLoop", () => {
     const renderA = getCore().renderToolCalls.find((rc) => rc.name === "toolA");
     const renderB = getCore().renderToolCalls.find((rc) => rc.name === "toolB");
 
-    const pA = toolA!.handler!({}, {} as never);
-    const pB = toolB!.handler!({}, {} as never);
+    const pA = toolA!.handler!({}, callContext("tc-a"));
+    const pB = toolB!.handler!({}, callContext("tc-b"));
 
     const respondA = (
       renderA!.render({
@@ -138,6 +153,72 @@ describe("useHumanInTheLoop", () => {
 
     await expect(pA).resolves.toBe("A");
     await expect(pB).resolves.toBe("B");
+  });
+
+  it("gives parallel calls of one tool their own respond", async () => {
+    const RenderComp = defineComponent({
+      props: ["respond"],
+      setup() {
+        return () => h("div");
+      },
+    });
+    const Child = defineComponent({
+      setup() {
+        useHumanInTheLoop({
+          name: "parallelTool",
+          parameters: z.object({}),
+          render: RenderComp,
+        });
+        return () => null;
+      },
+    });
+    const { getCore } = mountWithProvider(() => h(Child));
+    const handler = getCore().getTool({ toolName: "parallelTool" })!.handler!;
+    const renderer = getCore().renderToolCalls.find(
+      (rc) => rc.name === "parallelTool",
+    )!;
+    const respondFor = (toolCallId: string) =>
+      (
+        renderer.render({
+          name: "parallelTool",
+          toolCallId,
+          args: {},
+          status: "executing",
+          result: undefined,
+        }) as { props?: { respond?: (result: unknown) => Promise<void> } }
+      ).props!.respond!;
+
+    const first = handler({}, callContext("call-1"));
+    const second = handler({}, callContext("call-2"));
+    await respondFor("call-2")("second");
+    await respondFor("call-1")("first");
+
+    await expect(first).resolves.toBe("first");
+    await expect(second).resolves.toBe("second");
+  });
+
+  it("passes the called tool's name to a catch-all render", () => {
+    const RenderComp = defineComponent({
+      setup() {
+        return () => h("div");
+      },
+    });
+    const Child = defineComponent({
+      setup() {
+        useHumanInTheLoop({ name: "*", render: RenderComp });
+        return () => null;
+      },
+    });
+    const { getCore } = mountWithProvider(() => h(Child));
+    const renderer = getCore().renderToolCalls.find((rc) => rc.name === "*")!;
+    const vnode = renderer.render({
+      name: "deleteFile",
+      toolCallId: "tc-any",
+      args: {},
+      status: "inProgress",
+      result: undefined,
+    }) as { props?: Record<string, unknown> };
+    expect(vnode.props?.name).toBe("deleteFile");
   });
 
   it("only exposes respond during executing status", () => {
@@ -323,9 +404,9 @@ describe("useHumanInTheLoop", () => {
       const controller = new AbortController();
       controller.abort();
 
-      await expect(handler!({}, { signal: controller.signal })).rejects.toEqual(
-        new Error("Human-in-the-loop interaction aborted"),
-      );
+      await expect(
+        handler!({}, { ...callContext("tc-x"), signal: controller.signal }),
+      ).rejects.toEqual(new Error("Human-in-the-loop interaction aborted"));
     });
 
     it("rejects once on abort, clears pending refs, and installs a one-shot listener", async () => {
@@ -344,7 +425,7 @@ describe("useHumanInTheLoop", () => {
         }),
       } as unknown as AbortSignal;
 
-      const pending = handler!({}, { signal });
+      const pending = handler!({}, { ...callContext("tc-aborted"), signal });
       expect(listeners.size).toBe(1);
       const onAbort = [...listeners][0];
       onAbort();
@@ -379,7 +460,13 @@ describe("useHumanInTheLoop", () => {
         }),
       } as unknown as AbortSignal;
 
-      const pending = handler!({}, { signal }).then((result) => {
+      const pending = handler!(
+        {},
+        {
+          ...callContext("tc-respond"),
+          signal,
+        },
+      ).then((result) => {
         events.push(`resolved:${String(result)}`);
         return result;
       });
@@ -511,10 +598,98 @@ describe("useHumanInTheLoop", () => {
       expect(vnode.props?.agentId).toBeUndefined();
     });
 
+    it("lets a message queued behind an unanswered prompt send after the prompt unmounts", async () => {
+      const prompt = toolCallMessage("unmountApproval");
+      const toolCallId = (prompt as { toolCalls: { id: string }[] })
+        .toolCalls[0]!.id;
+      const agent = new SequencedRunAgent(
+        [
+          () => ({ result: undefined, newMessages: [prompt] }),
+          () => ({
+            result: undefined,
+            newMessages: [{ id: "reply", role: "assistant", content: "ok" }],
+          }),
+        ],
+        "default",
+      );
+      const RenderComp = defineComponent({
+        setup() {
+          return () => h("div");
+        },
+      });
+      const shown = ref(true);
+      const Child = defineComponent({
+        setup() {
+          useHumanInTheLoop({
+            name: "unmountApproval",
+            parameters: z.object({}),
+            render: RenderComp,
+          });
+          return () => null;
+        },
+      });
+      const { getCore } = mountWithProvider(
+        () => (shown.value ? h(Child) : null),
+        {
+          agents__unsafe_dev_only: {
+            default: agent as unknown as AbstractAgent,
+          },
+        },
+      );
+      const core = getCore();
+      const sendMessage = async (content: string) => {
+        agent.addMessage({ id: content, role: "user", content });
+        await core.runAgent({ agent: agent as unknown as AbstractAgent });
+      };
+
+      const first = sendMessage("approve this");
+      const queued = first.then(() => sendMessage("next question"));
+      await vi.waitFor(() =>
+        expect(core.ɵhumanInTheLoop.isPending(toolCallId)).toBe(true),
+      );
+
+      shown.value = false;
+      await nextTick();
+
+      await expect(queued).resolves.toBeUndefined();
+      expect(agent.messages).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            role: "tool",
+            toolCallId,
+            error: "Human-in-the-loop interaction aborted",
+          }),
+          expect.objectContaining({ id: "reply", content: "ok" }),
+        ]),
+      );
+    });
+
     it("does not settle a pending HITL promise when its renderer unmounts", async () => {
-      const mounted = mountHitlTool();
-      const pending = mounted.handler({}, {});
-      mounted.wrapper.unmount();
+      const RenderComp = defineComponent({
+        setup() {
+          return () => h("div");
+        },
+      });
+      const shown = ref(true);
+      const Child = defineComponent({
+        setup() {
+          useHumanInTheLoop({
+            name: "unmountTool",
+            parameters: z.object({}),
+            render: RenderComp,
+          });
+          return () => null;
+        },
+      });
+      const { getCore } = mountWithProvider(() =>
+        shown.value ? h(Child) : null,
+      );
+      const pending = getCore().getTool({ toolName: "unmountTool" })!.handler!(
+        {},
+        callContext("tc-unmount"),
+      );
+      shown.value = false;
+      await nextTick();
 
       const outcome = await Promise.race([
         pending.then(

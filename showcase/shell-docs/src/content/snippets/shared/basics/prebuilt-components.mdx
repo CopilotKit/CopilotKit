@@ -16,11 +16,7 @@ CopilotKit ships three prebuilt chat components that connect directly to your ag
 
 ## Setup
 
-Import the default styles in your root layout:
-
-```tsx title="layout.tsx"
-import "@copilotkit/react-core/v2/styles.css";
-```
+The components include their own styles, so you don't import a stylesheet.
 
 ### CopilotChat
 
@@ -28,7 +24,7 @@ import "@copilotkit/react-core/v2/styles.css";
 
 ```tsx title="page.tsx"
 // [!code word:CopilotChat]
-import { CopilotChat } from "@copilotkit/react-core/v2";
+import { CopilotChat } from "@copilotkit/react-core";
 
 export function YourComponent() {
   return (
@@ -47,7 +43,7 @@ Adds a collapsible chat panel at the side of the page. Render it next to your ma
 
 ```tsx title="page.tsx"
 // [!code word:CopilotSidebar]
-import { CopilotSidebar } from "@copilotkit/react-core/v2";
+import { CopilotSidebar } from "@copilotkit/react-core";
 
 export default function YourApp() {
   return (
@@ -71,7 +67,7 @@ export default function YourApp() {
 
 ```tsx title="page.tsx"
 // [!code word:CopilotPopup]
-import { CopilotPopup } from "@copilotkit/react-core/v2";
+import { CopilotPopup } from "@copilotkit/react-core";
 
 export default function YourApp() {
   return (
@@ -93,16 +89,22 @@ export default function YourApp() {
 All three components support the [slot system](/custom-look-and-feel/slots) for deep customization, from Tailwind classes to full component replacement:
 
 ```tsx title="page.tsx"
-<CopilotChat
-  // Style slots with Tailwind classes
-  input={{
-    textArea: "text-blue-500",
-    sendButton: "bg-blue-600 hover:bg-blue-700",
-  }}
-  // Customize nested message slots
-  messageView={{
-    assistantMessage: "bg-blue-50 rounded-xl p-2",
-    userMessage: "bg-blue-100 rounded-xl",
-  }}
-/>
+import { CopilotChat } from "@copilotkit/react-core";
+
+export function StyledChat() {
+  return (
+    <CopilotChat
+      // Style slots with Tailwind classes
+      input={{
+        textArea: "text-blue-500",
+        sendButton: "bg-blue-600 hover:bg-blue-700",
+      }}
+      // Customize nested message slots
+      messageView={{
+        assistantMessage: "bg-blue-50 rounded-xl p-2",
+        userMessage: "bg-blue-100 rounded-xl",
+      }}
+    />
+  );
+}
 ```

@@ -3,17 +3,14 @@
   "scopes": {
     "monorepo": {
       "packages": [
-        "@copilotkit/a2ui-renderer",
         "@copilotkit/agentcore-runner",
         "@copilotkit/core",
         "@copilotkit/learning",
+        "@copilotkit/markdown",
         "@copilotkit/mcp-apps-renderer",
         "@copilotkit/react-core",
         "@copilotkit/react-native",
-        "@copilotkit/react-textarea",
-        "@copilotkit/react-ui",
         "@copilotkit/runtime",
-        "@copilotkit/runtime-client-gql",
         "@copilotkit/sdk-js",
         "@copilotkit/shared",
         "@copilotkit/sqlite-runner",

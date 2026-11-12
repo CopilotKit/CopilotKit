@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { useRef, type ReactNode } from "react";
+import { useRef } from "react";
+import type { ReactNode } from "react";
 import { ArrowRight } from "lucide-react";
 import { SiDotnet, SiFastapi, SiPython, SiTypescript } from "react-icons/si";
 import { cn } from "@/lib/cn";

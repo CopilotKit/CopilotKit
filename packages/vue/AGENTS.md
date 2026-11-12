@@ -1,29 +1,29 @@
 # AGENTS.md - `@copilotkit/vue` workflow guide
 
-This file defines contributor workflow for keeping `@copilotkit/vue` aligned with upstream `@copilotkit/react`.
+This file defines contributor workflow for `@copilotkit/vue`. The package is a thin Vue adapter over `@copilotkit/core`, and its public API stays aligned with `@copilotkit/react-core`.
 
 ## Scope
 
-- Package implementation scope is limited to `packages/vue/**`.
+- Vue bindings, components, and slots live in `packages/vue/**`. Behavior that React, Vue, or Angular share lives in `packages/core/**`. See [Client logic lives in core](../../AGENTS.md#client-logic-lives-in-core).
 - The documented integration exceptions are Vue docs and runnable examples under `showcase/**`, plus their registry, generated-catalog, and validation-workflow plumbing described in [Documentation ownership](#documentation-ownership).
-- Keep other upstream changes outside the Vue package to a minimum until the Vue port is merged.
 
 ## Parity source of truth
 
-- React remains the canonical behavioral reference: `packages/react-core/`, `packages/react-ui/`, and `packages/react-textarea/`.
+- `@copilotkit/core` is the source of the logic. Vue does not copy behavior from React. It calls the same core code that React calls.
+- React (`packages/react-core/`) remains the reference for the public API shape: names, props, slots, and hook results.
 - Use [PARITY.md](./PARITY.md) as the canonical Vue-side parity policy, architectural translation guide, strict test-port rulebook, and living React-to-Vue implementation/test matrix.
 - Keep [README.md](./README.md) as the slim npm-facing package entry point.
 
 ## Required parity workflow
 
-When porting a React feature:
+When adding a feature or porting one from React:
 
-1. Identify impacted React implementation and tests.
+1. Identify impacted React implementation and tests. If the logic is still in `react-core`, move it into `@copilotkit/core` first, and make React and Vue both use it.
 2. Classify whether the feature is near-100% translatable using [PARITY.md](./PARITY.md).
 3. If it is near-100% translatable, mirror the React suite/file structure and keep matching `describe` and `it` text word-for-word for the mirrored cases.
 4. If API divergence seems necessary or likely, discuss it with the user before introducing a Vue-specific translation.
-5. Implement Vue behavior in `packages/vue/src/**`.
-6. Add or update equivalent Vue tests with parity-friendly discoverability.
+5. Implement the Vue binding in `packages/vue/src/**`: subscribe to core state, render it, and pass events back to core. Do not add rules, state machines, or side effects in Vue that core can own.
+6. Test the behavior in `packages/core`. Add or update Vue tests that check the binding, with parity-friendly discoverability.
 7. Update the relevant matrix rows in [PARITY.md](./PARITY.md) in the same change.
 8. Document intentional divergences in [PARITY.md](./PARITY.md).
 9. Do not add fallback or shallower test paths to force green status for near-100% parity suites; keep strict parity boundary and let failures be explicit.

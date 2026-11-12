@@ -172,11 +172,11 @@ The Vue `#interrupt` slot receives `{ event, result, resolve }`. For the complet
 
 ## Multiple interrupts? Add a type and gate with `enabled`
 
-If your graph issues more than one kind of interrupt, tag each payload with a `type` field and install one `useInterrupt` per shape, each gated by `enabled`:
+If your graph issues more than one kind of interrupt, tag each payload with a `type` field and install one `useInterrupt` per shape, each gated by `enabled`. The samples below share a `readValue` helper, like the one in the first sample:
 
-```ts
+```ts title="src/read-value.ts"
 // The LangGraph adapter sends the interrupt value as a JSON string.
-function readValue(value: unknown): Record<string, unknown> {
+export function readValue(value: unknown): Record<string, unknown> {
   if (typeof value !== "string") return (value ?? {}) as Record<string, unknown>;
   try {
     return JSON.parse(value) as Record<string, unknown>;
@@ -184,6 +184,12 @@ function readValue(value: unknown): Record<string, unknown> {
     return {};
   }
 }
+```
+
+```ts
+// Inside <script setup lang="ts">
+import { useInterrupt } from "@copilotkit/vue/v2";
+import { readValue } from "./read-value";
 
 useInterrupt({
   agentId: "gen-ui-interrupt",
@@ -201,12 +207,16 @@ useInterrupt({
 For cases where the interrupt can sometimes be resolved _without_ user input, pass a `handler` that runs before the UI is rendered. The handler can call `resolve(...)` itself to resume the agent early, or return a value exposed as `result`:
 
 ```ts
-const { slotProps } = useInterrupt({
+// Inside <script setup lang="ts">
+import { useInterrupt } from "@copilotkit/vue/v2";
+import { lookupUserDepartment } from "./directory";
+import { readValue } from "./read-value";
+
+const { slotProps } = useInterrupt<unknown, { department: string } | undefined>({
   agentId: "gen-ui-interrupt",
   renderInChat: false,
   handler: async ({ event, resolve }) => {
     const department = await lookupUserDepartment();
-    // readValue is the helper from the previous sample.
     const required = readValue(event.value).accessDepartment;
 
     if (required === department || department === "admin") {

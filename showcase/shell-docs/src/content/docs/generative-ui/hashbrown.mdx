@@ -30,12 +30,22 @@ The bundled demos pin `@hashbrownai/core` and `@hashbrownai/react` to `0.5.0-bet
 2. Register `HashBrownRenderMessage` in the `assistantMessage` slot of `CopilotChat`:
 
    ```tsx title="chat.tsx"
-   <CopilotChat
-     messageView={{
-       assistantMessage:
-         HashBrownRenderMessage as unknown as typeof CopilotChatAssistantMessage,
-     }}
-   />
+   import {
+     CopilotChat,
+     CopilotChatAssistantMessage,
+   } from "@copilotkit/react-core";
+   import { HashBrownRenderMessage } from "./hashbrown-renderer";
+
+   export function Chat() {
+     return (
+       <CopilotChat
+         messageView={{
+           assistantMessage:
+             HashBrownRenderMessage as unknown as typeof CopilotChatAssistantMessage,
+         }}
+       />
+     );
+   }
    ```
 
 3. Tell the agent to answer with one `{ "ui": [...] }` object, as shown in [Backend](#backend).
@@ -43,9 +53,21 @@ The bundled demos pin `@hashbrownai/core` and `@hashbrownai/react` to `0.5.0-bet
 The UI kit exposes `metric`, `pieChart`, `barChart`, `dealCard`, and Markdown with their prop schemas. The renderer parses the streamed message against the kit schema and renders what it has so far:
 
 ```tsx title="hashbrown-renderer.tsx (excerpt)"
-const { value } = useJsonParser(content, kit.schema);
-if (!value) return null;
-return <div>{kit.render(value)}</div>;
+import { useJsonParser, type useUiKit } from "@hashbrownai/react";
+
+type Kit = ReturnType<typeof useUiKit>;
+
+export function AssistantMessage({
+  content,
+  kit,
+}: {
+  content: string;
+  kit: Kit;
+}) {
+  const { value } = useJsonParser(content, kit.schema);
+  if (!value) return null;
+  return <div>{kit.render(value)}</div>;
+}
 ```
 
 Chart `data` is a JSON-encoded **string**. The chart wrappers parse it before they pass an array to the chart components.

@@ -127,7 +127,7 @@ export class MCPAppsRequestQueue {
       });
 
       // Start processing if not already running
-      this.processQueue(key, agent);
+      void this.processQueue(key, agent);
     });
   }
 

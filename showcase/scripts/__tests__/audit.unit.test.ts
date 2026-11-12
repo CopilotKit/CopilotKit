@@ -26,8 +26,8 @@ import {
   canonicalizeForIsMain,
   BORN_IN_SHOWCASE,
   SLUG_TO_EXAMPLES,
-  type Anomaly,
 } from "../audit.js";
+import type { Anomaly } from "../audit.js";
 import {
   makeTmpTree,
   makeConfig,
@@ -360,15 +360,13 @@ describe("findExamplesSource", () => {
     makeExampleDir(root, "crewai-crews");
     const cfg = makeConfig(root);
     const r = findExamplesSource("crewai-crews", cfg);
-    expect(r.source).toBe(
-      path.join("examples", "integrations", "crewai-crews"),
-    );
+    expect(r.source).toBe(path.join("examples", "starters", "crewai-crews"));
     expect(r.unreadableForSlug).toBe(false);
   });
 
   it("does not crash if statSync throws — treats error as not-found", () => {
     makeExampleDir(root, "crewai-crews");
-    const target = path.join(root, "examples", "integrations", "crewai-crews");
+    const target = path.join(root, "examples", "starters", "crewai-crews");
     const orig = fs.statSync;
     const spy = vi.spyOn(fs, "statSync").mockImplementation(((
       p: fs.PathLike,
@@ -426,7 +424,7 @@ describe("findExamplesSource", () => {
 
   it("statSync failures land on the sink (not stderr)", () => {
     makeExampleDir(root, "crewai-crews");
-    const target = path.join(root, "examples", "integrations", "crewai-crews");
+    const target = path.join(root, "examples", "starters", "crewai-crews");
     const orig = fs.statSync;
     const spy = vi.spyOn(fs, "statSync").mockImplementation(((
       p: fs.PathLike,
@@ -463,7 +461,7 @@ describe("findExamplesSource", () => {
     makeExampleDir(root, first);
     const cfg = makeConfig(root);
     const r = findExamplesSource(slug, cfg);
-    expect(r.source).toBe(path.join("examples", "integrations", first));
+    expect(r.source).toBe(path.join("examples", "starters", first));
     expect(r.unreadableForSlug).toBe(false);
   });
 
@@ -479,21 +477,21 @@ describe("findExamplesSource", () => {
     makeExampleDir(root, "real-later");
     const cfg = makeConfig(root);
     const r = resolveExamplesSource(slug, mapped, cfg);
-    expect(r.source).toBe(path.join("examples", "integrations", "real-later"));
+    expect(r.source).toBe(path.join("examples", "starters", "real-later"));
     expect(r.unreadableForSlug).toBe(false);
   });
 
   it("warns and returns null when an unmapped slug's candidate path exists but is a regular file", () => {
     // An unmapped slug whose candidate path resolves to a regular file
-    // (stray file in examples/integrations, or a name collision) must
+    // (stray file in examples/starters, or a name collision) must
     // warn rather than return null silently — operators need a signal
     // that a seemingly-present path was skipped. The warning wording
     // ("exists but is not a directory") is distinct from the
     // mapped-entry "no matching directory" warning so the two
     // misconfiguration modes stay disambiguable.
     const slug = "unmapped-file-slug";
-    // Write a regular file at examples/integrations/<slug> (no mkdir).
-    const full = path.join(root, "examples", "integrations", slug);
+    // Write a regular file at examples/starters/<slug> (no mkdir).
+    const full = path.join(root, "examples", "starters", slug);
     fs.writeFileSync(full, "not a directory\n");
     const cfg = makeConfig(root);
     const sink: string[] = [];
@@ -533,7 +531,7 @@ describe("findExamplesSource", () => {
     // old code path would see false (as if ENOENT), while statSync is
     // configured to throw EACCES for the candidate path — which is the
     // signal the fixed code must use.
-    const full = path.join(root, "examples", "integrations", "only-cand");
+    const full = path.join(root, "examples", "starters", "only-cand");
     const origExists = fs.existsSync;
     const existsSpy = vi.spyOn(fs, "existsSync").mockImplementation(((
       p: fs.PathLike,
@@ -588,7 +586,7 @@ describe("findExamplesSource", () => {
     makeExampleDir(root, "later-dir");
     const cfg = makeConfig(root);
     const r = resolveExamplesSource(slug, mapped, cfg);
-    expect(r.source).toBe(path.join("examples", "integrations", "first-dir"));
+    expect(r.source).toBe(path.join("examples", "starters", "first-dir"));
     expect(r.unreadableForSlug).toBe(false);
   });
 });
@@ -642,13 +640,13 @@ describe("BORN_IN_SHOWCASE set", () => {
     expect(BORN_IN_SHOWCASE.has("spring-ai")).toBe(true);
   });
 
-  it("every BORN_IN_SHOWCASE slug has no counterpart directory under examples/integrations/ (fixture-synthesized invariant)", () => {
+  it("every BORN_IN_SHOWCASE slug has no counterpart directory under examples/starters/ (fixture-synthesized invariant)", () => {
     // Fixture-based version of the real-repo invariant: synthesize a
-    // tmpdir that mimics examples/integrations/ containing only the
+    // tmpdir that mimics examples/starters/ containing only the
     // slugs that SHOULD be there (i.e. nothing from BORN_IN_SHOWCASE).
     // This always runs in CI — no `if (!fs.existsSync) return;` bail.
     //
-    // The invariant asserted: given a clean examples/integrations/
+    // The invariant asserted: given a clean examples/starters/
     // tree that contains no BORN_IN_SHOWCASE slugs, findExamplesSource
     // must return null for every BORN_IN_SHOWCASE member. If someone
     // later adds a BORN_IN_SHOWCASE slug to SLUG_TO_EXAMPLES by mistake
@@ -691,8 +689,8 @@ describe("SLUG_TO_EXAMPLES — dead entries removed", () => {
     },
   );
 
-  it("every mapped target resolves when its examples/integrations/ dir is present (fixture-synthesized)", () => {
-    // Fixture-based dead-entry guard: synthesize an examples/integrations/
+  it("every mapped target resolves when its examples/starters/ dir is present (fixture-synthesized)", () => {
+    // Fixture-based dead-entry guard: synthesize an examples/starters/
     // tmpdir containing every target named in SLUG_TO_EXAMPLES, then
     // assert findExamplesSource returns a non-null path for each slug.
     // This exercises the positive resolution path deterministically and
@@ -805,8 +803,8 @@ describe("findExamplesSource — unreadable-candidates ERROR branch", () => {
     const mapped = ["cand-a", "cand-b"] as const;
     makeExampleDir(root, "cand-a");
     makeExampleDir(root, "cand-b");
-    const dirA = path.join(root, "examples", "integrations", "cand-a");
-    const dirB = path.join(root, "examples", "integrations", "cand-b");
+    const dirA = path.join(root, "examples", "starters", "cand-a");
+    const dirB = path.join(root, "examples", "starters", "cand-b");
     const orig = fs.statSync;
     const spy = vi.spyOn(fs, "statSync").mockImplementation(((
       p: fs.PathLike,
@@ -923,7 +921,7 @@ describe("UnreadableDirError", () => {
     try {
       const cfg = {
         packagesDir: path.join(root, "does-not-exist"),
-        examplesIntegrationsDir: path.join(root, "examples", "integrations"),
+        examplesIntegrationsDir: path.join(root, "examples", "starters"),
         repoRoot: root,
       };
       let thrown: unknown = null;

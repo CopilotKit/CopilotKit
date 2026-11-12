@@ -18,7 +18,7 @@
  *      sees the forwarded flag (the dedicated backend agent wires no tool
  *      itself). The A2UI middleware serialises the registered catalog schema
  *      so the planner knows which components are available. Mirrors the
- *      canonical `examples/integrations/langgraph-python` reference.
+ *      canonical `examples/starters/langgraph-python` reference.
  *
  * Reference:
  *   https://docs.copilotkit.ai/integrations/langgraph/generative-ui/a2ui

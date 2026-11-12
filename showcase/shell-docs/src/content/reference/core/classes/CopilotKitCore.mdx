@@ -16,7 +16,9 @@ import { CopilotKitCore } from "@copilotkit/core";
 ## Constructor
 
 ```ts
-new CopilotKitCore(config: CopilotKitCoreConfig)
+import { CopilotKitCore, type CopilotKitCoreConfig } from "@copilotkit/core";
+
+CopilotKitCore satisfies new (config: CopilotKitCoreConfig) => CopilotKitCore;
 ```
 
 <PropertyReference name="config" type="CopilotKitCoreConfig" required>
@@ -102,12 +104,12 @@ new CopilotKitCore(config: CopilotKitCoreConfig)
 
 ### Tools
 
-<PropertyReference name="addTool" type="(tool: FrontendTool) => void" required>
-  Registers a frontend tool the agent can call. If an earlier `addTool` call registered a tool with the same name and `agentId`, this call does nothing and logs a warning. A tool with the same name and `agentId` from the `tools` config is replaced by this one. See [FrontendTool](/reference/core/types/FrontendTool).
+<PropertyReference name="addTool" type="(tool: FrontendTool) => () => void" required>
+  Registers a frontend tool the agent can call, and returns a function that removes this registration. If a tool with the same name and `agentId` is already registered, the new tool is active until you call that function. Then the earlier tool is active again. See [FrontendTool](/reference/core/types/FrontendTool).
 </PropertyReference>
 
 <PropertyReference name="removeTool" type="(id: string, agentId?: string) => void" required>
-  Removes a registered tool by name. With no `agentId`, removes only the global (unscoped) tool of that name; with `agentId`, removes only the tool scoped to that agent.
+  Removes a registered tool by name. With no `agentId`, it removes only the global (unscoped) tool of that name. With `agentId`, it removes only the tool scoped to that agent. It removes every registration of that name, including a tool from `tools`. To undo only one `addTool` call, call the function that `addTool` returns.
 </PropertyReference>
 
 <PropertyReference name="getTool" type="(params: CopilotKitCoreGetToolParams) => FrontendTool<any> | undefined" required>
@@ -124,8 +126,8 @@ new CopilotKitCore(config: CopilotKitCoreConfig)
 
 ### Context
 
-<PropertyReference name="addContext" type="(context: Context) => string" required>
-  Adds a context entry shared with the agent and returns its generated id.
+<PropertyReference name="addContext" type="(context: ScopedContext) => string" required>
+  Adds a context entry shared with the agent and returns its generated id. `ScopedContext` is an AG-UI `Context` (`description`, `value`) with an optional `agentIds` list that limits the entry to those agents.
 </PropertyReference>
 
 <PropertyReference name="removeContext" type="(id: string) => void" required>
@@ -162,6 +164,12 @@ new CopilotKitCore(config: CopilotKitCoreConfig)
 
 <PropertyReference name="subscribeToAgentWithOptions" type="(agent, subscriber, options?) => CopilotKitCoreSubscription" required>
   Subscribes to a single agent's message, state, and run-lifecycle callbacks with optional throttling. Every callback is wrapped with error protection. Use `agent.subscribe()` directly when you need AG-UI event handlers or per-item notifications.
+</PropertyReference>
+
+### Teardown
+
+<PropertyReference name="dispose" type="() => void" required>
+  Stops the instance. It stops running agents, cancels pending runtime requests, clears timers, and removes all subscribers. Call it when your app no longer uses this instance. Do not use the instance after `dispose()`. A second call does nothing.
 </PropertyReference>
 
 ### Inspector metadata
@@ -255,7 +263,7 @@ new CopilotKitCore(config: CopilotKitCoreConfig)
   The currently registered frontend tools.
 </PropertyReference>
 
-<PropertyReference name="context" type="Readonly<Record<string, Context>>" required>
+<PropertyReference name="context" type="Readonly<Record<string, ScopedContext>>" required>
   The current shared context entries, keyed by id.
 </PropertyReference>
 
@@ -292,20 +300,21 @@ import { z } from "zod";
 
 const copilotkit = new CopilotKitCore({
   runtimeUrl: "/api/copilotkit",
-  tools: [
-    {
-      name: "showAlert",
-      description: "Show a browser alert",
-      parameters: z.object({ message: z.string() }),
-      handler: async ({ message }) => {
-        window.alert(message);
-      },
-    },
-  ],
+});
+
+copilotkit.addTool({
+  name: "showAlert",
+  description: "Show a browser alert with a message",
+  parameters: z.object({ message: z.string() }),
+  handler: async ({ message }) => {
+    window.alert(message);
+    return "shown";
+  },
 });
 
 const subscription = copilotkit.subscribe({
   onRuntimeConnectionStatusChanged: ({ status }) => console.log(status),
+  // `agents` is filled after the runtime responds, so wait for it here.
   onAgentsChanged: async () => {
     const agent = copilotkit.getAgent("default");
     if (!agent) return;
@@ -313,12 +322,16 @@ const subscription = copilotkit.subscribe({
     await copilotkit.runAgent({ agent });
   },
 });
+
+// When your app no longer uses this instance:
+copilotkit.dispose();
 ```
 
 ## Behavior
 
 - **Asynchronous agent population**: `agents` is populated after the runtime responds, so it may be empty immediately after construction. Use `subscribe({ onAgentsChanged })` to react when agents become available.
 - **Error surfacing**: failures from runtime fetches, agent runs, tool runs, and subscriber callbacks go to the `onError` subscriber callback with a [CopilotKitCoreErrorCode](/reference/core/enums/CopilotKitCoreErrorCode). The method that failed does not throw them. The exception is `runTool()`: it also throws when it cannot find the named tool or its agent.
+- **Unchanged values**: `setCredentials`, `setProperties`, `setMessageFilter`, `setHeaders`, and `setRuntimeUrl` do nothing when the new value equals the current value. So a framework can call them on every render.
 - **Subscriber isolation**: a throw in one subscriber callback is caught and logged; it does not stall notifications to other subscribers.
 - **Inspector metadata isolation**: metadata loads after the connected and agent notifications finish. A `setHeaders` call that changes the resolved values, or a credential change, refreshes it. It does not refetch `/info`. Runtime URL, transport, auth, connection, and capability checks prevent a stale request from replacing a newer value.
 - **`__unsafe_dev_only` APIs**: the `*Agent__unsafe_dev_only` methods register local agents that run in the browser and talk to their AG-UI endpoints directly, with no CopilotRuntime. The React `selfManagedAgents` prop uses this path in production.

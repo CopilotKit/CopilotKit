@@ -1,11 +1,7 @@
 "use client";
 
-import {
-  useEffect,
-  useState,
-  useSyncExternalStore,
-  type ReactNode,
-} from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
+import type { ReactNode } from "react";
 import { AppWindow, CodeXml, ExternalLink, RotateCw } from "lucide-react";
 import { SiGithub } from "react-icons/si";
 import { STAGE_WINDOW, Stage } from "@/components/brand/stage";

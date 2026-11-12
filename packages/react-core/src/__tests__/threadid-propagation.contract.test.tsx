@@ -2,16 +2,29 @@ import React from "react";
 import { render, act } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import type { AbstractAgent } from "@ag-ui/client";
-import { useCopilotKit } from "../v2/context";
-import type * as ContextModule from "../v2/context";
-import { useAgent } from "../v2/hooks/use-agent";
-import { CopilotChatConfigurationProvider } from "../v2/providers/CopilotChatConfigurationProvider";
+import { useCopilotKit } from "../context";
+import type * as ContextModule from "../context";
+import { useAgent } from "../hooks/use-agent";
+import { CopilotChatConfigurationProvider } from "../providers/CopilotChatConfigurationProvider";
 import {
   CopilotKitCoreRuntimeConnectionStatus,
   ProxiedCopilotRuntimeAgent,
 } from "@copilotkit/core";
 
-vi.mock("../v2/context", async (importOriginal) => ({
+/** Core's `ɵruntimeInfo` snapshot, built from a fake core's runtime fields. */
+function runtimeInfoOf(core: {
+  runtimeConnectionStatus: CopilotKitCoreRuntimeConnectionStatus;
+  threadEndpoints?: unknown;
+  intelligence?: unknown;
+}) {
+  return {
+    status: core.runtimeConnectionStatus,
+    threadEndpoints: core.threadEndpoints,
+    intelligence: core.intelligence,
+  };
+}
+
+vi.mock("../context", async (importOriginal) => ({
   ...(await importOriginal<typeof ContextModule>()),
   useCopilotKit: vi.fn(),
   useDefaultAgentId: vi.fn(() => undefined),
@@ -46,6 +59,7 @@ describe("useAgent → agent.threadId sync from chat configuration", () => {
     getAgent: ReturnType<typeof vi.fn>;
     registerProxiedAgent: ReturnType<typeof vi.fn>;
     runtimeUrl: string | undefined;
+    readonly ɵruntimeInfo: unknown;
     runtimeConnectionStatus: CopilotKitCoreRuntimeConnectionStatus;
     runtimeTransport: string;
     headers: Record<string, string>;
@@ -92,6 +106,9 @@ describe("useAgent → agent.threadId sync from chat configuration", () => {
         },
       ),
       runtimeUrl: "http://localhost:3000/api/copilotkit",
+      get ɵruntimeInfo() {
+        return runtimeInfoOf(this);
+      },
       runtimeConnectionStatus:
         CopilotKitCoreRuntimeConnectionStatus.Disconnected,
       runtimeTransport: "rest",

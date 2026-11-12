@@ -35,8 +35,7 @@ on:
     branches: [main]
     paths:
       - "showcase/**"
-      - "examples/integrations/**"
-      - "packages/a2ui-renderer/**"
+      - "examples/starters/**"
       - "packages/angular/**"
       - "packages/core/**"
       - "packages/shared/**"
@@ -150,7 +149,6 @@ jobs:
               - '.github/workflows/showcase_build_check.yml'
             angular:
               - 'showcase/angular/**'
-              - 'packages/a2ui-renderer/**'
               - 'packages/angular/**'
               - 'packages/core/**'
               - 'packages/shared/**'
@@ -787,7 +785,7 @@ jobs:
   # Fully decoupled from the showcase `build`→`aggregate`→`redeploy` chain
   # above: starters are self-contained npm projects (no monorepo-source
   # build, no shared-module copy) and build from their own root Dockerfile
-  # at examples/integrations/<slug>/Dockerfile (the single-image deployable:
+  # at examples/starters/<slug>/Dockerfile (the single-image deployable:
   # Next.js frontend + agent, EXPOSE 3000, CMD entrypoint.sh — distinct from
   # the docker/Dockerfile.app + docker/Dockerfile.agent split stack used by
   # docker-compose.test.yml). Published to ghcr.io/copilotkit/starter-<slug>
@@ -825,29 +823,29 @@ jobs:
         with:
           filters: |
             langgraph_python:
-              - 'examples/integrations/langgraph-python/**'
+              - 'examples/starters/langgraph-python/**'
             mastra:
-              - 'examples/integrations/mastra/**'
+              - 'examples/starters/mastra/**'
             langgraph_js:
-              - 'examples/integrations/langgraph-js/**'
+              - 'examples/starters/langgraph-js/**'
             crewai_crews:
-              - 'examples/integrations/crewai-crews/**'
+              - 'examples/starters/crewai-crews/**'
             pydantic_ai:
-              - 'examples/integrations/pydantic-ai/**'
+              - 'examples/starters/pydantic-ai/**'
             adk:
-              - 'examples/integrations/adk/**'
+              - 'examples/starters/adk/**'
             agno:
-              - 'examples/integrations/agno/**'
+              - 'examples/starters/agno/**'
             llamaindex:
-              - 'examples/integrations/llamaindex/**'
+              - 'examples/starters/llamaindex/**'
             langgraph_fastapi:
-              - 'examples/integrations/langgraph-fastapi/**'
+              - 'examples/starters/langgraph-fastapi/**'
             strands_python:
-              - 'examples/integrations/strands-python/**'
+              - 'examples/starters/strands-python/**'
             ms_agent_framework_python:
-              - 'examples/integrations/ms-agent-framework-python/**'
+              - 'examples/starters/ms-agent-framework-python/**'
             ms_agent_framework_dotnet:
-              - 'examples/integrations/ms-agent-framework-dotnet/**'
+              - 'examples/starters/ms-agent-framework-dotnet/**'
 
       - name: Build starter matrix
         id: starter-matrix
@@ -857,7 +855,7 @@ jobs:
           WORKFLOW_RUNTIME_CHANGED: ${{ steps.workflow-impact.outputs.changed }}
         run: |
           set -euo pipefail
-          # One slot per starter. `slug` is the examples/integrations/<slug>
+          # One slot per starter. `slug` is the examples/starters/<slug>
           # directory name; `image` is the published GHCR repo (starter-<slug>);
           # `filter_key` matches the paths-filter key above.
           ALL_STARTERS='[
@@ -949,8 +947,8 @@ jobs:
         uses: depot/build-push-action@0f27be7c41d76663a98518dfe68f1c46582242c4 # v1.19.0
         with:
           project: m2kw2wmmcp
-          context: examples/integrations/${{ matrix.starter.slug }}
-          file: examples/integrations/${{ matrix.starter.slug }}/Dockerfile
+          context: examples/starters/${{ matrix.starter.slug }}
+          file: examples/starters/${{ matrix.starter.slug }}/Dockerfile
           # Pin amd64: Railway and GHCR serve x86 hosts. Depot defaults to
           # the runner's native arch, so an arm64-only image would crash on
           # pull with "does not have a linux/amd64 variant available".
@@ -1298,7 +1296,7 @@ jobs:
     needs: [detect-starter-changes, build-starters, verify-image-refs]
     # Starter analogue of `redeploy-staging`. The starter lane
     # (detect-starter-changes → build-starters) previously ENDED at the GHCR
-    # push: a starter-only change (examples/integrations/<slug>/**) built a
+    # push: a starter-only change (examples/starters/<slug>/**) built a
     # fresh `starter-<slug>:latest` image, but nothing ever told Railway to
     # pull it, so the fix sat undeployed until someone manually redeployed
     # (the PR #6061 agno incident — merged + built to GHCR, never deployed,
@@ -1661,7 +1659,7 @@ jobs:
     #
     # `detect-starter-changes` + `build-starters` + `redeploy-staging-starters`
     # are included so a FAILED starter image build OR a failed starter staging
-    # redeploy (examples/integrations/*) also triggers the Slack alert + PR
+    # redeploy (examples/starters/*) also triggers the Slack alert + PR
     # comment. Previously the starter lane had NO alert surface: its jobs were
     # absent from `needs`, so `if: failure()` could never see a starter build
     # failure and it shipped silently. `if: failure()` still no-ops when the

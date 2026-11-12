@@ -4,7 +4,6 @@ import * as path from "node:path";
 import {
   extractCallees,
   readCatalogFile,
-  readRuntimeCatalog,
   buildRuntimeEvents,
 } from "../telemetry/extract";
 
@@ -144,7 +143,7 @@ describe("extractCallees", () => {
 });
 
 // ---------------------------------------------------------------------------
-// readCatalogFile / readRuntimeCatalog (runtime / catalog mode)
+// readCatalogFile (runtime / catalog mode)
 // ---------------------------------------------------------------------------
 
 const CATALOG = `
@@ -192,26 +191,6 @@ describe("readCatalogFile", () => {
   });
 });
 
-describe("readRuntimeCatalog", () => {
-  it("returns the catalog when v1 and v2 agree", () => {
-    const cat = readRuntimeCatalog(f("v1.ts", CATALOG), f("v2.ts", CATALOG));
-    expect([...cat.keys()].sort()).toEqual([
-      "oss.runtime.copilot_request_created",
-      "oss.runtime.instance_created",
-    ]);
-  });
-
-  it("fails loud when v1 and v2 diverge", () => {
-    const v2 = CATALOG.replace(
-      "actionsAmount: number;",
-      "actionsAmount: number;\n  extra?: string;",
-    );
-    expect(() =>
-      readRuntimeCatalog(f("v1.ts", CATALOG), f("v2.ts", v2)),
-    ).toThrow(/diverge/);
-  });
-});
-
 describe("buildRuntimeEvents", () => {
   it("takes properties from the catalog and call sites from the scan; drops non-catalog scanned events", () => {
     const catalog = new Map([
@@ -241,26 +220,16 @@ describe("buildRuntimeEvents", () => {
 
 describe("real runtime catalog", () => {
   const root = path.join(__dirname, "..", "..");
-  const v1 = path.join(root, "packages/shared/src/telemetry/events.ts");
-  const v2 = path.join(
+  const catalog = path.join(
     root,
-    "packages/runtime/src/v2/runtime/telemetry/events.ts",
+    "packages/runtime/src/runtime/telemetry/events.ts",
   );
 
-  it("v1 parses to a non-empty oss.runtime.* catalog", () => {
-    const cat = readCatalogFile(v1, fs.readFileSync(v1, "utf8"));
+  it("parses to a non-empty oss.runtime.* catalog", () => {
+    const cat = readCatalogFile(catalog, fs.readFileSync(catalog, "utf8"));
     expect(cat.size).toBeGreaterThan(0);
     for (const name of cat.keys())
       expect(name.startsWith("oss.runtime.")).toBe(true);
-  });
-
-  it("v1 and v2 catalogs agree (drift guard)", () => {
-    expect(() =>
-      readRuntimeCatalog(
-        { path: v1, content: fs.readFileSync(v1, "utf8") },
-        { path: v2, content: fs.readFileSync(v2, "utf8") },
-      ),
-    ).not.toThrow();
   });
 });
 

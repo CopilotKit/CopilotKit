@@ -71,16 +71,16 @@ The CLI saves the previous configuration before it makes changes. It refuses to 
 Install the packages used by the examples:
 
 ```bash
-npm install @copilotkit/react-core@1.79.1 @copilotkit/runtime@1.79.1
+npm install @copilotkit/react-core @copilotkit/runtime @tanstack/ai-openai
 ```
 
 Use the values from `.env` to configure the Intelligence client in your existing Runtime:
 
 ```ts title="Your CopilotKit Runtime"
-import {
-  CopilotKitIntelligence,
-  CopilotRuntime,
-} from "@copilotkit/runtime/v2";
+import { CopilotKitIntelligence, CopilotRuntime } from "@copilotkit/runtime";
+import { BuiltInAgent } from "@copilotkit/runtime/agent";
+import { openaiText } from "@tanstack/ai-openai";
+import { identifyUser } from "./auth";
 
 const intelligence = new CopilotKitIntelligence({
   apiKey: process.env.CPK_INTELLIGENCE_API_KEY!,
@@ -89,7 +89,8 @@ const intelligence = new CopilotKitIntelligence({
 });
 
 const runtime = new CopilotRuntime({
-  agents,
+  // Your existing agent registration
+  agents: { default: new BuiltInAgent({ model: openaiText("gpt-6-luna") }) },
   intelligence,
   identifyUser,
 });
@@ -108,9 +109,15 @@ Before you turn on capture, read [Captured data](/intelligence/captured-data).
 Add `learning` to your existing provider:
 
 ```tsx title="Your CopilotKit provider"
-<CopilotKitProvider runtimeUrl="/api/copilotkit" learning>
-  {children}
-</CopilotKitProvider>
+import { CopilotKitProvider } from "@copilotkit/react-core";
+
+export function Providers({ children }: { children: React.ReactNode }) {
+  return (
+    <CopilotKitProvider runtimeUrl="/api/copilotkit" learning>
+      {children}
+    </CopilotKitProvider>
+  );
+}
 ```
 
 Keep your existing `runtimeUrl` and authentication props. If your Runtime uses a single endpoint, keep `useSingleEndpoint` too. Capture starts when the provider mounts.

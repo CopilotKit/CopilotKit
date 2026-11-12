@@ -5,12 +5,12 @@
 Install the peer dependencies the Quick Start below uses:
 
 ```bash
-npm install react react-native "zod@^3.25" @gorhom/bottom-sheet react-native-gesture-handler react-native-reanimated react-native-streamdown expo-document-picker expo-file-system
+npm install react react-native zod @gorhom/bottom-sheet react-native-gesture-handler react-native-reanimated expo-document-picker expo-file-system
 ```
 
-`zod` 3.25 or later is needed by every entry: `@copilotkit/react-core` requires it as a peer dependency. The command installs zod 3, which a generative UI catalog that uses `child()` or `childList()` needs.
+`zod` 4.2 or later is what you write tool parameters and generative UI catalogs with. `@copilotkit/react-core` depends on zod 4, and the `child()` and `childList()` helpers return zod 4 schemas.
 
-The other packages are optional peer dependencies. The default entry (`@copilotkit/react-native`) re-exports `useAttachments`, which imports `expo-document-picker` and `expo-file-system`, so Metro needs both whenever an app imports from it. `@gorhom/bottom-sheet`, `react-native-gesture-handler`, `react-native-reanimated` and `react-native-streamdown` are used by the prebuilt components in `@copilotkit/react-native/components`. An app that only imports `@copilotkit/react-native/headless` or `/generative-ui` needs none of them (see "Headless Import Path" below).
+The other packages are optional peer dependencies. The default entry (`@copilotkit/react-native`) re-exports `useAttachments`, which imports `expo-document-picker` and `expo-file-system`, so Metro needs both whenever an app imports from it. `@gorhom/bottom-sheet`, `react-native-gesture-handler` and `react-native-reanimated` are used by the prebuilt components in `@copilotkit/react-native/components`. An app that only imports `@copilotkit/react-native/headless` or `/generative-ui` needs none of them (see "Headless Import Path" below). `CopilotMarkdown` uses a built-in basic-GFM renderer — no extra markdown library install required.
 
 ## Quick Start
 
@@ -256,18 +256,12 @@ required.
 ## Generative UI (experimental)
 
 `@copilotkit/react-native/generative-ui` lets the agent render a catalog of your
-own native components with the `render_ui` tool. Install `zod` 3.25 or later:
-every entry of this package needs it, because `@copilotkit/react-core` requires
-it as a peer dependency (`@copilotkit/react-native` declares `zod` an optional
-peer at `>=3.0.0` only because narrowing that range would be a breaking
-change). Install zod 3 (`npm install "zod@^3.25"`) for a catalog that uses
-`child()` or `childList()`: they return zod 3 schemas, which a zod 4 schema
-cannot hold. The runtime needs no change by default: `CopilotRuntime` adds the
+own native components with the `render_ui` tool. Write the catalog with `zod`
+4.2 or later: `child()` and `childList()` return zod 4 schemas. The runtime needs no change by default: `CopilotRuntime` adds the
 tool when the app sends a catalog with at least one component, unless the
 server sets `generativeUI: false` or limits it with
 `generativeUI: { agents: [...] }`. This example needs a `home` agent on the
-runtime: once the runtime has connected, `useAgent` throws without it. `/generative-ui` is not in 1.85.0 or any earlier version; it first
-ships in the release after 1.85.0.
+runtime: once the runtime has connected, `useAgent` throws without it.
 
 ```tsx
 import { useCallback, useEffect, useRef, useState } from "react";

@@ -20,9 +20,7 @@
     "url": "https://github.com/CopilotKit/CopilotKit.git"
   },
   "type": "module",
-  "sideEffects": [
-    "**/*.css"
-  ],
+  "sideEffects": false,
   "main": "./dist/index.cjs",
   "module": "./dist/index.mjs",
   "types": "./dist/index.d.cts",
@@ -93,18 +91,15 @@
         "default": "./dist/v2/generative-ui/map.cjs"
       }
     },
-    "./styles.css": "./dist/styles.css",
     "./package.json": "./package.json"
   },
   "publishConfig": {
     "access": "public"
   },
   "scripts": {
-    "build": "vite build && pnpm build:css && pnpm build:types",
-    "build:css": "npx @tailwindcss/cli -i ./src/styles/globals.css -o ./dist/styles.css -m && node scripts/scope-preflight.mjs ./dist/styles.css",
+    "build": "vite build && pnpm build:types",
     "build:types": "vue-tsc -p tsconfig.json --declaration --emitDeclarationOnly --outDir dist --skipLibCheck && node -e \"const fs=require('fs');for(const d of ['index','v2/index','v2/generative-ui/index','v2/generative-ui-chart/index','v2/generative-ui-map/index']){const f='./dist/'+d;fs.cpSync(f+'.d.ts',f+'.d.mts');fs.cpSync(f+'.d.ts',f+'.d.cts')}\"",
-    "dev:css": "npx @tailwindcss/cli -i ./src/styles/globals.css -o ./dist/styles.css --watch --minify",
-    "dev": "concurrently \"pnpm dev:css\" \"vite build --watch\"",
+    "dev": "vite build --watch",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
@@ -112,31 +107,23 @@
     "lint": "eslint .",
     "check-types": "vue-tsc --noEmit && vue-tsc --noEmit -p tsconfig.typetests.json",
     "publint": "publint .",
-    "attw": "attw --pack . --profile node16 --exclude-entrypoints ./styles.css --ignore-rules internal-resolution-error",
+    "attw": "attw --pack . --profile node16 --ignore-rules internal-resolution-error",
     "clean": "node -e \"const fs=require('fs');fs.rmSync('dist',{recursive:true,force:true})\""
   },
   "dependencies": {
-    "@a2ui/web_core": "0.15.0",
-    "@ag-ui/client": "1.0.2",
-    "@ag-ui/core": "1.0.2",
+    "@ag-ui/client": "1.0.4",
+    "@ag-ui/core": "1.0.4",
     "@copilotkit/core": "workspace:*",
+    "@copilotkit/markdown": "workspace:*",
     "@copilotkit/mcp-apps-renderer": "workspace:*",
     "@copilotkit/shared": "workspace:*",
     "@copilotkit/web-components": "workspace:*",
     "@copilotkit/web-inspector": "workspace:*",
-    "@jetbrains/websandbox": "^1.1.3",
-    "katex": "^0.16.27",
-    "lucide-vue-next": "^0.525.0",
-    "streamdown-vue": "^1.0.29",
-    "zod": "^3.25.75",
-    "zod-to-json-schema": "^3.24.5"
+    "zod": "^4.2.0"
   },
   "devDependencies": {
     "@copilotkit/typescript-config": "workspace:*",
     "@eslint/js": "^9.39.2",
-    "@tailwindcss/cli": "^4.1.11",
-    "@tailwindcss/postcss": "^4.1.11",
-    "@tailwindcss/typography": "^0.5.16",
     "@testing-library/vue": "^8.1.0",
     "@types/node": "^22.15.3",
     "@vitejs/plugin-vue": "^5.2.1",
@@ -144,17 +131,14 @@
     "@vue/test-utils": "^2.4.6",
     "arktype": "^2.1.29",
     "chart.js": "^4.4.0",
-    "concurrently": "^9.1.0",
     "eslint": "^9.30.0",
     "eslint-plugin-vue": "^10.8.0",
     "globals": "^16.5.0",
     "jsdom": "^26.1.0",
+    "lucide": "^0.525.0",
     "maplibre-gl": "^5.0.0",
     "phoenix": "^1.8.4",
-    "postcss": "^8.5.6",
     "rxjs": "7.8.1",
-    "tailwindcss": "^4.0.8",
-    "tw-animate-css": "^1.3.5",
     "typescript": "5.8.2",
     "typescript-eslint": "^8.52.0",
     "valibot": "^1.3.0",
@@ -166,11 +150,15 @@
   },
   "peerDependencies": {
     "chart.js": "^4.4.0",
+    "lucide": "^0.525.0",
     "maplibre-gl": "^5.0.0",
     "vue": ">=3.3.0"
   },
   "peerDependenciesMeta": {
     "chart.js": {
+      "optional": true
+    },
+    "lucide": {
       "optional": true
     },
     "maplibre-gl": {

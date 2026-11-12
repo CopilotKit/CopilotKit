@@ -1,5 +1,5 @@
 // The `@copilotkit/vue/v2/generative-ui` entry. It mirrors the
-// `@copilotkit/react-core/v2/generative-ui` export list, plus the Vue-only
+// `@copilotkit/react-core/generative-ui` export list, plus the Vue-only
 // types for emits, slots and the error fallback. Every export is named.
 // The chart and map plugins have their own entries (`/chart`, `/map`).
 export { createGenerativeUI } from "./catalog";

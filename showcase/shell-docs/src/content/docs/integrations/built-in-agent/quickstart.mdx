@@ -19,7 +19,7 @@ Use this prompt to build a working chat with CopilotKit's built-in agent. Your c
 Before you begin, you'll need the following:
 
 - An OpenAI API key (or Anthropic/Google, see [Model Selection](/model-selection))
-- Node.js 20+
+- Node.js 20.19.3+ or 22.13+
 - Your favorite package manager
 
 ## Getting started
@@ -50,15 +50,18 @@ Before you begin, you'll need the following:
         ### Install CopilotKit packages
 
         ```npm
-        npm install @copilotkit/react-core @copilotkit/runtime
+        npm install @copilotkit/react-core @copilotkit/runtime @tanstack/ai-openai
         ```
 
-        The components used below (`CopilotKitProvider`, `CopilotSidebar`) and the
-        stylesheet all come from `@copilotkit/react-core/v2`, so
-        `@copilotkit/react-ui` is not needed for this setup.
+        The components used below (`CopilotKitProvider`, `CopilotSidebar`) come
+        from `@copilotkit/react-core`. The Built-in Agent runs the model with
+        `@tanstack/ai`, which the runtime installs, and `@tanstack/ai-openai`
+        connects it to OpenAI. For
+        another provider, install its adapter instead. See
+        [Model Selection](/model-selection#install-the-packages).
 
         <Callout type="info" title="TypeScript: use bundler module resolution">
-          CopilotKit's `/v2` subpaths are published through the package `exports` map, which TypeScript's `"moduleResolution": "node"` (`node10`) setting ignores. Under that setting, type checking fails with `Cannot find module '@copilotkit/react-core/v2'` even though the app runs. Set `"moduleResolution": "bundler"` in `tsconfig.json`; if `module` is `commonjs` or unset, also set `"module": "esnext"`. `create-next-app` already uses `bundler`.
+          CopilotKit's subpath entry points (such as `@copilotkit/runtime/agent`) are published through the package `exports` map, which TypeScript's `"moduleResolution": "node"` (`node10`) setting ignores. Under that setting, type checking fails with `Cannot find module '@copilotkit/runtime/agent'` even though the app runs. Set `"moduleResolution": "bundler"` in `tsconfig.json`; if `module` is `commonjs` or unset, also set `"module": "esnext"`. `create-next-app` already uses `bundler`.
         </Callout>
     </Step>
     <Step>
@@ -95,11 +98,12 @@ Before you begin, you'll need the following:
         import {
           CopilotRuntime,
           createCopilotRuntimeHandler,
-        } from "@copilotkit/runtime/v2";
-        import { BuiltInAgent } from "@copilotkit/runtime/v2"; // [!code highlight]
+        } from "@copilotkit/runtime";
+        import { BuiltInAgent } from "@copilotkit/runtime/agent"; // [!code highlight]
+        import { openaiText } from "@tanstack/ai-openai"; // [!code highlight]
 
         const builtInAgent = new BuiltInAgent({ // [!code highlight:3]
-          model: "openai:gpt-6-luna",
+          model: openaiText("gpt-6-luna"),
         });
 
         const runtime = new CopilotRuntime({
@@ -116,6 +120,8 @@ Before you begin, you'll need the following:
         export const PATCH = handler;
         export const DELETE = handler;
         ```
+
+        `openaiText` reads `OPENAI_API_KEY` from your `.env` file.
     </Step>
     <Step>
         ### Configure CopilotKit Provider
@@ -125,7 +131,7 @@ Before you begin, you'll need the following:
         ```tsx title="app/providers.tsx"
         "use client";
 
-        import { CopilotKitProvider } from "@copilotkit/react-core/v2";
+        import { CopilotKitProvider } from "@copilotkit/react-core";
 
         export function Providers({ children }: { children: React.ReactNode }) {
           return (
@@ -140,7 +146,6 @@ Before you begin, you'll need the following:
 
         ```tsx title="app/layout.tsx"
         import { Providers } from "./providers"; // [!code highlight]
-        import "@copilotkit/react-core/v2/styles.css"; // [!code highlight]
         import './globals.css';
 
         // ...
@@ -175,7 +180,7 @@ Before you begin, you'll need the following:
         ```tsx title="app/page.tsx"
         "use client"; // [!code highlight]
 
-        import { CopilotSidebar } from "@copilotkit/react-core/v2"; // [!code highlight]
+        import { CopilotSidebar } from "@copilotkit/react-core"; // [!code highlight]
 
         export default function Page() {
           return (

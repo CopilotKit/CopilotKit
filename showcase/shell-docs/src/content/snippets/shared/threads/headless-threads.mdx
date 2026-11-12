@@ -28,11 +28,10 @@ The `useThreads` hook lists, creates, renames, archives, and deletes CopilotKit 
 ## Prerequisites
 
 - A CopilotKit application connected to CopilotKit Intelligence
-- `@copilotkit/react-core` v1.56 or later
 - A model provider key supported by your runtime
 
 For multi-user applications, configure the Runtime to
-[scope AG-UI Streams to the signed-in user](/threads-lifecycle#scope-rich-threads-to-the-signed-in-user)
+[scope CopilotKit threads to the signed-in user](/threads-lifecycle#scope-copilotkit-threads-to-the-signed-in-user)
 before exposing thread lists or lifecycle actions.
 
 Already have threads in LangGraph, ADK, Mastra, or Strands? See
@@ -50,11 +49,15 @@ Already have threads in LangGraph, ADK, Mastra, or Strands? See
         import {
           CopilotKitIntelligence,
           CopilotRuntime,
-        } from "@copilotkit/runtime/v2";
+        } from "@copilotkit/runtime";
+        import { BuiltInAgent } from "@copilotkit/runtime/agent";
+        import { openaiText } from "@tanstack/ai-openai";
+        // Your app's own session check.
+        import { verifyAppSession } from "./auth";
 
         const runtime = new CopilotRuntime({
           agents: {
-            default: agent,
+            default: new BuiltInAgent({ model: openaiText("gpt-6-luna") }),
           },
           // Without `intelligence` the runtime runs in SSE mode and the thread
           // UI has nothing to list — chat still works, so this fails quietly.
@@ -97,7 +100,7 @@ Already have threads in LangGraph, ADK, Mastra, or Strands? See
         Use the `useThreads` hook to fetch and manage threads for a specific agent. The hook returns the thread list, loading state, and mutation methods.
 
         ```tsx title="ThreadSidebar.tsx"
-        import { useThreads } from "@copilotkit/react-core/v2"; // [!code highlight]
+        import { useThreads } from "@copilotkit/react-core"; // [!code highlight]
 
         function ThreadSidebar({
           onSelectThread,
@@ -145,8 +148,10 @@ Already have threads in LangGraph, ADK, Mastra, or Strands? See
         When a user selects a thread, pass its `threadId` to your chat component. The chat clears the current messages, fetches the selected thread's history, and replays it. If the agent is still running on that thread, the chat picks up the live stream.
 
         ```tsx title="App.tsx"
-        import { CopilotChat } from "@copilotkit/react-core/v2"; // [!code highlight]
+        import { CopilotChat } from "@copilotkit/react-core"; // [!code highlight]
         import { useState } from "react";
+        // Your thread list, extended to call `onSelectThread(thread.id)` on click.
+        import { ThreadSidebar } from "./ThreadSidebar";
 
         function App() {
           const [activeThreadId, setActiveThreadId] = useState<string | undefined>();
@@ -179,25 +184,32 @@ Already have threads in LangGraph, ADK, Mastra, or Strands? See
         For users with many conversations, use the `limit` parameter to enable cursor-based pagination.
 
         ```tsx title="ThreadSidebar.tsx"
-        const {
-          threads,
-          hasMoreThreads,
-          isFetchingMoreThreads,
-          fetchMoreThreads,
-        } = useThreads({
-          agentId: "default",
-          limit: 20, // [!code highlight]
-        });
+        import { useThreads } from "@copilotkit/react-core";
 
-        // In your JSX:
-        {hasMoreThreads && (
-          <button
-            onClick={fetchMoreThreads}
-            disabled={isFetchingMoreThreads}
-          >
-            {isFetchingMoreThreads ? "Loading..." : "Load more"}
-          </button>
-        )}
+        function ThreadSidebar() {
+          const {
+            threads,
+            hasMoreThreads,
+            isFetchingMoreThreads,
+            fetchMoreThreads,
+          } = useThreads({
+            agentId: "default",
+            limit: 20, // [!code highlight]
+          });
+
+          return (
+            <div>
+              {threads.map((thread) => (
+                <div key={thread.id}>{thread.name ?? "New conversation"}</div>
+              ))}
+              {hasMoreThreads && (
+                <button onClick={fetchMoreThreads} disabled={isFetchingMoreThreads}>
+                  {isFetchingMoreThreads ? "Loading..." : "Load more"}
+                </button>
+              )}
+            </div>
+          );
+        }
         ```
       </Step>
 
@@ -215,11 +227,17 @@ specific thread** (for example, one open tab per thread), pass all three of
 `agentId`, `runtimeAgentId` and `threadId` to `useAgent`:
 
 ```tsx
-const { agent } = useAgent({
-  agentId: `chat-${threadId}`, // local id, unique per mounted thread
-  runtimeAgentId: "default",   // the one runtime agent they all route to
-  threadId,                    // the thread this instance is pinned to
-});
+import { useAgent } from "@copilotkit/react-core";
+
+function ThreadPane({ threadId }: { threadId: string }) {
+  const { agent } = useAgent({
+    agentId: `chat-${threadId}`, // local id, unique per mounted thread
+    runtimeAgentId: "default",   // the one runtime agent they all route to
+    threadId,                    // the thread this instance is pinned to
+  });
+
+  return <div>{agent.messages.length} messages</div>;
+}
 ```
 
 This registers a private proxied agent per hook, so several threads can be

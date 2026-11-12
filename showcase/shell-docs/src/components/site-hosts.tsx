@@ -1,7 +1,9 @@
 "use client";
 
-import { createContext, useContext, type ReactNode } from "react";
-import { PRODUCTION_SITE_HOSTS, type SiteHosts } from "@/lib/site-hosts";
+import { createContext, useContext } from "react";
+import type { ReactNode } from "react";
+import { PRODUCTION_SITE_HOSTS } from "@/lib/site-hosts";
+import type { SiteHosts } from "@/lib/site-hosts";
 
 // This deployment's site hosts for client components. The `(d)` layout reads
 // them on the server (src/lib/runtime-config.ts) and provides them here;

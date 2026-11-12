@@ -1,0 +1,968 @@
+import { handleGetRuntimeInfo } from "../handlers/get-runtime-info";
+import { CopilotRuntime } from "../core/runtime";
+import { resolveForwardHeadersPolicy } from "../handlers/header-utils";
+import type {
+  CopilotIntelligenceRuntimeLike,
+  CopilotRuntimeLike,
+} from "../core/runtime";
+import type { AgentRunner } from "../runner/agent-runner";
+import { InMemoryAgentRunner } from "../runner/in-memory";
+import { CopilotKitIntelligence } from "../intelligence-platform";
+import { TranscriptionService } from "../transcription-service/transcription-service";
+import { describe, it, expect, test, vi, beforeEach, afterEach } from "vitest";
+import type { AbstractAgent } from "@ag-ui/client";
+import { createLicenseChecker } from "@copilotkit/license-verifier";
+import type { RuntimeInfo } from "@copilotkit/shared";
+import {
+  DEGRADED_RUNTIME_ENTITLEMENTS,
+  findForbiddenPublicKeyPaths,
+  MISCONFIGURED_RUNTIME_ENTITLEMENTS,
+  READY_RUNTIME_ENTITLEMENTS,
+  UNAVAILABLE_RUNTIME_ENTITLEMENTS,
+} from "./runtime-entitlement-test-utils";
+
+// Mock transcription service
+class MockTranscriptionService extends TranscriptionService {
+  async transcribeFile(): Promise<string> {
+    return "Mock transcription result";
+  }
+}
+
+const mockRequest = new Request("https://example.com/info");
+const INVALID_LEGACY_LICENSE_TOKEN = `header.${Buffer.from(
+  '{"telemetry_id":"legacy-license-id"}',
+).toString("base64url")}.signature`;
+
+/** Build the typed Intelligence runtime fixture shared by `/info` tests. */
+function createIntelligenceRuntimeLike(
+  overrides: Partial<CopilotIntelligenceRuntimeLike> = {},
+): CopilotIntelligenceRuntimeLike {
+  return {
+    agents: {},
+    transcriptionService: undefined,
+    beforeRequestMiddleware: undefined,
+    afterRequestMiddleware: undefined,
+    runner: new InMemoryAgentRunner(),
+    mcpApps: undefined,
+    openGenerativeUI: undefined,
+    mode: "intelligence",
+    debug: { enabled: false, events: false, lifecycle: false, verbose: false },
+    forwardHeadersPolicy: resolveForwardHeadersPolicy(undefined),
+    intelligence: new CopilotKitIntelligence({
+      apiUrl: "https://runtime.example",
+      wsUrl: "wss://runtime.example",
+      apiKey: "test-key",
+    }),
+    identifyUser: vi.fn().mockResolvedValue({ id: "user-1", name: "User One" }),
+    generateThreadNames: true,
+    lockTtlSeconds: 20,
+    lockHeartbeatIntervalSeconds: 15,
+    channels: [],
+    ...overrides,
+  };
+}
+
+/** Install the wished entitlement lookup API on the real Intelligence client. */
+function installRuntimeEntitlementsLookup(
+  runtime: CopilotIntelligenceRuntimeLike,
+  lookup: () => Promise<unknown>,
+): void {
+  Object.defineProperty(runtime.intelligence, "getRuntimeEntitlements", {
+    configurable: true,
+    value: lookup,
+  });
+}
+
+/** Install and return cleanup for a wished client-wide entitlement lookup. */
+function installRuntimeEntitlementsLookupPrototype(
+  lookup: () => Promise<unknown>,
+): () => void {
+  const methodName = "getRuntimeEntitlements";
+  const previousDescriptor = Object.getOwnPropertyDescriptor(
+    CopilotKitIntelligence.prototype,
+    methodName,
+  );
+  Object.defineProperty(CopilotKitIntelligence.prototype, methodName, {
+    configurable: true,
+    value: lookup,
+  });
+
+  return () => {
+    if (previousDescriptor) {
+      Object.defineProperty(
+        CopilotKitIntelligence.prototype,
+        methodName,
+        previousDescriptor,
+      );
+      return;
+    }
+    Reflect.deleteProperty(CopilotKitIntelligence.prototype, methodName);
+  };
+}
+
+/** Request Runtime info with one injectable entitlement lookup result. */
+async function requestRuntimeInfoWithLookup(
+  lookup: () => Promise<unknown>,
+  options: { readonly licenseToken?: string } = {},
+) {
+  const runtime = createIntelligenceRuntimeLike({
+    getLicenseChecker: async () =>
+      options.licenseToken === undefined
+        ? undefined
+        : createLicenseChecker(options.licenseToken),
+  });
+  installRuntimeEntitlementsLookup(runtime, lookup);
+
+  const response = await handleGetRuntimeInfo({
+    runtime,
+    request: mockRequest,
+  });
+  const data: RuntimeInfo = await response.json();
+
+  return { data, response };
+}
+
+test("does not request Runtime entitlements for an SSE-only Runtime", async () => {
+  const getRuntimeEntitlements = vi
+    .fn()
+    .mockResolvedValue(READY_RUNTIME_ENTITLEMENTS);
+  const restoreRuntimeEntitlementsLookup =
+    installRuntimeEntitlementsLookupPrototype(getRuntimeEntitlements);
+
+  try {
+    const runtime = new CopilotRuntime({
+      agents: {},
+      licenseToken: INVALID_LEGACY_LICENSE_TOKEN,
+    });
+
+    const response = await handleGetRuntimeInfo({
+      runtime,
+      request: mockRequest,
+    });
+    const data: RuntimeInfo = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(data.mode).toBe("sse");
+    expect(data.runtimeEntitlements).toBeUndefined();
+    expect(data.licenseStatus).toBeUndefined();
+    expect(data.telemetryDisabled).toBe(false);
+    expect(getRuntimeEntitlements).not.toHaveBeenCalled();
+  } finally {
+    restoreRuntimeEntitlementsLookup();
+  }
+});
+
+test("maps active Runtime entitlements to the compatible valid license status", async () => {
+  const getRuntimeEntitlements = vi
+    .fn()
+    .mockResolvedValue(READY_RUNTIME_ENTITLEMENTS);
+  const { data, response } = await requestRuntimeInfoWithLookup(
+    getRuntimeEntitlements,
+  );
+
+  expect(response.status).toBe(200);
+  expect(data.runtimeEntitlements).toEqual(READY_RUNTIME_ENTITLEMENTS);
+  expect(data.licenseStatus).toBe("valid");
+  expect(findForbiddenPublicKeyPaths(data)).toEqual([]);
+  expect(getRuntimeEntitlements).toHaveBeenCalledOnce();
+});
+
+test("keeps an inactive AWS Marketplace entitlement authoritative over a legacy license", async () => {
+  const marketplaceEntitlements = {
+    status: "ready",
+    entitlement: {
+      source: "awsMarketplaceDeploymentLicense",
+      active: false,
+      features: {},
+      limits: {},
+    },
+  } as const;
+  const getRuntimeEntitlements = vi
+    .fn()
+    .mockResolvedValue(marketplaceEntitlements);
+  const { data, response } = await requestRuntimeInfoWithLookup(
+    getRuntimeEntitlements,
+    { licenseToken: INVALID_LEGACY_LICENSE_TOKEN },
+  );
+
+  expect(response.status).toBe(200);
+  expect(data.runtimeEntitlements).toEqual(marketplaceEntitlements);
+  expect(data.licenseStatus).toBe("none");
+});
+
+test.each([
+  {
+    label: "degraded",
+    runtimeEntitlements: DEGRADED_RUNTIME_ENTITLEMENTS,
+  },
+  {
+    label: "misconfigured",
+    runtimeEntitlements: MISCONFIGURED_RUNTIME_ENTITLEMENTS,
+  },
+  {
+    label: "unavailable",
+    runtimeEntitlements: UNAVAILABLE_RUNTIME_ENTITLEMENTS,
+  },
+] as const)(
+  "passes through resolved $label Runtime entitlements without losing backend error detail",
+  async ({ runtimeEntitlements }) => {
+    const getRuntimeEntitlements = vi
+      .fn()
+      .mockResolvedValue(runtimeEntitlements);
+    const { data, response } = await requestRuntimeInfoWithLookup(
+      getRuntimeEntitlements,
+    );
+
+    expect(response.status).toBe(200);
+    expect(data.runtimeEntitlements).toEqual(runtimeEntitlements);
+    expect(findForbiddenPublicKeyPaths(data)).toEqual([]);
+    expect(getRuntimeEntitlements).toHaveBeenCalledOnce();
+  },
+);
+
+test.each([
+  {
+    outcome: "succeeds",
+    lookup: () => Promise.resolve(READY_RUNTIME_ENTITLEMENTS),
+  },
+  {
+    outcome: "fails",
+    lookup: () =>
+      Promise.reject(new Error("dependency details must stay private")),
+  },
+] as const)(
+  "resolves managed authority and legacy fallback when entitlement lookup $outcome",
+  async ({ lookup, outcome }) => {
+    const { data, response } = await requestRuntimeInfoWithLookup(lookup, {
+      licenseToken: INVALID_LEGACY_LICENSE_TOKEN,
+    });
+
+    expect(response.status).toBe(200);
+    expect(data.licenseStatus).toBe(
+      outcome === "succeeds" ? "valid" : "invalid",
+    );
+  },
+);
+
+test("keeps `/info` successful when Runtime entitlement lookup fails", async () => {
+  const getRuntimeEntitlements = vi
+    .fn()
+    .mockRejectedValue(new Error("dependency details must stay private"));
+  const { data, response } = await requestRuntimeInfoWithLookup(
+    getRuntimeEntitlements,
+  );
+
+  expect(response.status).toBe(200);
+  expect(data.runtimeEntitlements).toEqual({
+    status: "unavailable",
+    error: {
+      code: "runtime_entitlements_unavailable",
+      message: "Runtime entitlement lookup failed",
+      retryable: true,
+    },
+  });
+  expect(data.licenseStatus).toBe("unknown");
+  expect(findForbiddenPublicKeyPaths(data)).toEqual([]);
+  expect(getRuntimeEntitlements).toHaveBeenCalledOnce();
+});
+
+test("starts Runtime entitlement lookup before agent discovery finishes", async () => {
+  let finishAgentDiscovery: ((agents: {}) => void) | undefined;
+  const getRuntimeEntitlements = vi
+    .fn()
+    .mockResolvedValue(READY_RUNTIME_ENTITLEMENTS);
+  const runtime = createIntelligenceRuntimeLike({
+    agents: () =>
+      new Promise((resolve) => {
+        finishAgentDiscovery = resolve;
+      }),
+  });
+  installRuntimeEntitlementsLookup(runtime, getRuntimeEntitlements);
+
+  const responsePromise = handleGetRuntimeInfo({
+    runtime,
+    request: mockRequest,
+  });
+  await vi.waitFor(() => expect(finishAgentDiscovery).toBeDefined());
+
+  expect(getRuntimeEntitlements).toHaveBeenCalledOnce();
+
+  finishAgentDiscovery?.({});
+  const response = await responsePromise;
+  expect(response.status).toBe(200);
+});
+
+test.each([
+  {
+    expectedCode: "runtime_entitlements_misconfigured",
+    expectedMessage: "Runtime entitlement lookup is misconfigured",
+    expectedRetryable: false,
+    label: "401 credential rejection",
+    response: () => new Response("private credential detail", { status: 401 }),
+  },
+  {
+    expectedCode: "runtime_entitlements_misconfigured",
+    expectedMessage: "Runtime entitlement lookup is misconfigured",
+    expectedRetryable: false,
+    label: "403 credential rejection",
+    response: () => new Response("private credential detail", { status: 403 }),
+  },
+  {
+    expectedCode: "runtime_entitlements_misconfigured",
+    expectedMessage: "Runtime entitlement lookup is misconfigured",
+    expectedRetryable: false,
+    label: "malformed successful contract",
+    response: () =>
+      new Response("{not-json", {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      }),
+  },
+  {
+    expectedCode: "runtime_entitlements_unavailable",
+    expectedMessage: "Runtime entitlement lookup failed",
+    expectedRetryable: true,
+    label: "503 dependency outage",
+    response: () => new Response("private dependency detail", { status: 503 }),
+  },
+] as const)(
+  "classifies a $label without exposing upstream details",
+  async ({
+    expectedCode,
+    expectedMessage,
+    expectedRetryable,
+    response: createResponse,
+  }) => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(createResponse()));
+
+    try {
+      const runtime = createIntelligenceRuntimeLike();
+      const response = await handleGetRuntimeInfo({
+        runtime,
+        request: mockRequest,
+      });
+      const data: RuntimeInfo = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(data.runtimeEntitlements).toEqual({
+        status: expectedRetryable ? "unavailable" : "misconfigured",
+        error: {
+          code: expectedCode,
+          message: expectedMessage,
+          retryable: expectedRetryable,
+        },
+      });
+      expect(JSON.stringify(data)).not.toContain("private");
+      expect(data.licenseStatus).toBe(expectedRetryable ? "unknown" : "none");
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  },
+);
+
+describe("handleGetRuntimeInfo", () => {
+  const inMemoryThreadEndpoints = {
+    list: true,
+    inspect: true,
+    mutations: false,
+    realtimeMetadata: false,
+  };
+  // Without identity, a default SSE runtime refuses list but serves reads of
+  // a thread by id, so it advertises inspect only.
+  const unconfiguredLocalThreadEndpoints = {
+    list: false,
+    inspect: true,
+    mutations: false,
+    realtimeMetadata: false,
+  };
+  const createRunner = (supportsLocalThreadEndpoints = false) =>
+    ({
+      ...(supportsLocalThreadEndpoints
+        ? { ɵsupportsLocalThreadEndpoints: true }
+        : {}),
+      run: vi.fn(),
+      connect: vi.fn(),
+      isRunning: vi.fn(),
+      stop: vi.fn(),
+    }) as unknown as AgentRunner;
+  const createRuntimeLike = (
+    overrides: Partial<CopilotRuntimeLike>,
+  ): CopilotRuntimeLike =>
+    ({
+      agents: {},
+      transcriptionService: undefined,
+      beforeRequestMiddleware: undefined,
+      afterRequestMiddleware: undefined,
+      runner: createRunner(),
+      mcpApps: undefined,
+      openGenerativeUI: undefined,
+      mode: "sse",
+      debug: {
+        enabled: false,
+        events: false,
+        lifecycle: false,
+        verbose: false,
+      },
+      ...overrides,
+    }) as unknown as CopilotRuntimeLike;
+  it("should return runtime info with audioFileTranscriptionEnabled=false when no transcription service", async () => {
+    const runtime = new CopilotRuntime({
+      agents: {},
+      // No transcriptionService provided
+    });
+
+    const response = await handleGetRuntimeInfo({
+      runtime,
+      request: mockRequest,
+    });
+
+    expect(response.status).toBe(200);
+
+    const data = await response.json();
+    expect(data).toEqual({
+      version: expect.any(String),
+      agents: {},
+      audioFileTranscriptionEnabled: false,
+      mode: "sse",
+      threadEndpoints: unconfiguredLocalThreadEndpoints,
+      suggestions: true,
+      openGenerativeUIEnabled: false,
+      generativeUI: { enabled: true },
+      telemetryDisabled: false,
+    });
+  });
+
+  it("should return runtime info with audioFileTranscriptionEnabled=true when transcription service is configured", async () => {
+    const mockTranscriptionService = new MockTranscriptionService();
+    const runtime = new CopilotRuntime({
+      agents: {},
+      transcriptionService: mockTranscriptionService,
+    });
+
+    const response = await handleGetRuntimeInfo({
+      runtime,
+      request: mockRequest,
+    });
+
+    expect(response.status).toBe(200);
+
+    const data = await response.json();
+    expect(data).toEqual({
+      version: expect.any(String),
+      agents: {},
+      audioFileTranscriptionEnabled: true,
+      mode: "sse",
+      threadEndpoints: unconfiguredLocalThreadEndpoints,
+      suggestions: true,
+      openGenerativeUIEnabled: false,
+      generativeUI: { enabled: true },
+      telemetryDisabled: false,
+    });
+  });
+
+  it("should include agents information along with audioFileTranscriptionEnabled", async () => {
+    const mockAgent = {
+      description: "Test agent description",
+      constructor: { name: "TestAgent" },
+    };
+
+    const runtime = new CopilotRuntime({
+      agents: {
+        testAgent: mockAgent as AbstractAgent,
+      },
+      transcriptionService: new MockTranscriptionService(),
+    });
+
+    const response = await handleGetRuntimeInfo({
+      runtime,
+      request: mockRequest,
+    });
+
+    expect(response.status).toBe(200);
+
+    const data = await response.json();
+    expect(data).toEqual({
+      version: expect.any(String),
+      agents: {
+        testAgent: {
+          name: "testAgent",
+          description: "Test agent description",
+          className: "TestAgent",
+        },
+      },
+      audioFileTranscriptionEnabled: true,
+      mode: "sse",
+      threadEndpoints: unconfiguredLocalThreadEndpoints,
+      suggestions: true,
+      openGenerativeUIEnabled: false,
+      generativeUI: { enabled: true },
+      telemetryDisabled: false,
+    });
+  });
+
+  it("advertises the stateless suggestions capability", async () => {
+    const runtime = new CopilotRuntime({
+      agents: {},
+    });
+
+    const response = await handleGetRuntimeInfo({
+      runtime,
+      request: mockRequest,
+    });
+
+    expect(response.status).toBe(200);
+
+    const data = await response.json();
+    expect(data.suggestions).toBe(true);
+  });
+
+  it("advertises suggestions for an Intelligence runtime", async () => {
+    const runtime = createIntelligenceRuntimeLike();
+
+    const response = await handleGetRuntimeInfo({
+      runtime,
+      request: mockRequest,
+      threadEndpointsEnabled: true,
+    });
+
+    expect(response.status).toBe(200);
+
+    const data = await response.json();
+    expect(data.suggestions).toBe(true);
+  });
+
+  it("detects local thread endpoints from the runner capability flag", async () => {
+    const runtime = createRuntimeLike({
+      runner: createRunner(true),
+      threadAccess: "open",
+    });
+
+    const response = await handleGetRuntimeInfo({
+      runtime,
+      request: mockRequest,
+      threadEndpointsEnabled: true,
+    });
+
+    expect(response.status).toBe(200);
+
+    const data = await response.json();
+    expect(data.threadEndpoints).toEqual(inMemoryThreadEndpoints);
+  });
+
+  it("reports no thread endpoints when multi-route REST endpoints are disabled", async () => {
+    // Open access would advertise list and inspect, so the disabled routes
+    // are the only reason left for them to be off.
+    const runtime = createRuntimeLike({
+      runner: createRunner(true),
+      threadAccess: "open",
+    });
+
+    const response = await handleGetRuntimeInfo({
+      runtime,
+      request: mockRequest,
+      threadEndpointsEnabled: false,
+    });
+
+    expect(response.status).toBe(200);
+
+    const data = await response.json();
+    expect(data.threadEndpoints).toEqual({
+      list: false,
+      inspect: false,
+      mutations: false,
+      realtimeMetadata: false,
+    });
+  });
+
+  it("does not advertise thread endpoints for a plain runner", async () => {
+    const runtime = createRuntimeLike({
+      runner: createRunner(false),
+    });
+
+    const response = await handleGetRuntimeInfo({
+      runtime,
+      request: mockRequest,
+      threadEndpointsEnabled: true,
+    });
+
+    expect(response.status).toBe(200);
+
+    const data = await response.json();
+    expect(data.threadEndpoints).toEqual({
+      list: false,
+      inspect: false,
+      mutations: false,
+      realtimeMetadata: false,
+    });
+  });
+
+  it("reports all Intelligence thread endpoints when multi-route REST endpoints are enabled", async () => {
+    const runtime = createIntelligenceRuntimeLike();
+
+    const response = await handleGetRuntimeInfo({
+      runtime,
+      request: mockRequest,
+      threadEndpointsEnabled: true,
+    });
+
+    expect(response.status).toBe(200);
+
+    const data = await response.json();
+    expect(data.threadEndpoints).toEqual({
+      list: true,
+      inspect: true,
+      mutations: true,
+      realtimeMetadata: true,
+    });
+    expect(data.intelligence).toEqual({
+      wsUrl: "wss://runtime.example/client",
+    });
+    expect(data.inspectorLearning).not.toBe(true);
+  });
+
+  it("advertises configured Learning without debug mode or an opt-in and does not invoke the selector", async () => {
+    const runtime = createIntelligenceRuntimeLike();
+    const selector = vi.fn(() => "support");
+    vi.spyOn(runtime.intelligence, "ɵgetLearningContainerId").mockReturnValue(
+      selector,
+    );
+    const response = await handleGetRuntimeInfo({
+      runtime,
+      request: mockRequest,
+    });
+    expect(await response.json()).toHaveProperty("inspectorLearning", true);
+    expect(selector).not.toHaveBeenCalled();
+  });
+
+  it("does not send the retired a2ui fields", async () => {
+    const runtime = new CopilotRuntime({
+      agents: {},
+      generativeUI: { a2uiVersion: "0.9" },
+    });
+
+    const response = await handleGetRuntimeInfo({
+      runtime,
+      request: mockRequest,
+    });
+
+    expect(response.status).toBe(200);
+
+    const data = await response.json();
+    expect(data).not.toHaveProperty("a2uiEnabled");
+    expect(data).not.toHaveProperty("a2ui");
+  });
+
+  describe("generativeUI", () => {
+    const getGenerativeUI = async (runtime: CopilotRuntimeLike) => {
+      const response = await handleGetRuntimeInfo({
+        runtime,
+        request: mockRequest,
+      });
+      expect(response.status).toBe(200);
+      const data: RuntimeInfo = await response.json();
+      return data.generativeUI;
+    };
+
+    it("reports generative UI on for every agent when generativeUI is true", async () => {
+      expect(
+        await getGenerativeUI(
+          new CopilotRuntime({ agents: {}, generativeUI: true }),
+        ),
+      ).toEqual({ enabled: true });
+    });
+
+    it("reports the agents that generativeUI is limited to", async () => {
+      expect(
+        await getGenerativeUI(
+          new CopilotRuntime({
+            agents: {},
+            generativeUI: { agents: ["agentic_chat"] },
+          }),
+        ),
+      ).toEqual({ enabled: true, agents: ["agentic_chat"] });
+    });
+
+    it("reports generative UI on when every agent speaks A2UI v0.9", async () => {
+      expect(
+        await getGenerativeUI(
+          new CopilotRuntime({
+            agents: {},
+            generativeUI: { a2uiVersion: "0.9", agents: ["legacy"] },
+          }),
+        ),
+      ).toEqual({ enabled: true, agents: ["legacy"] });
+    });
+
+    it("reports generative UI off when generativeUI is false", async () => {
+      expect(
+        await getGenerativeUI(
+          new CopilotRuntime({ agents: {}, generativeUI: false }),
+        ),
+      ).toEqual({ enabled: false });
+    });
+
+    it("reports generative UI off when the runtime does not serve web clients", async () => {
+      expect(
+        await getGenerativeUI(
+          createIntelligenceRuntimeLike({
+            identifyUser: undefined,
+            generativeUI: { agents: ["agentic_chat"] },
+          }),
+        ),
+      ).toEqual({ enabled: false });
+    });
+  });
+
+  it("should include capabilities when agent implements getCapabilities", async () => {
+    const mockCapabilities = {
+      tools: { supported: true, clientProvided: true },
+      transport: { streaming: true },
+    };
+
+    const mockAgent = {
+      description: "Capable agent",
+      constructor: { name: "CapableAgent" },
+      getCapabilities: async () => mockCapabilities,
+    };
+
+    const runtime = new CopilotRuntime({
+      agents: {
+        capableAgent: mockAgent as unknown as AbstractAgent,
+      },
+    });
+
+    const response = await handleGetRuntimeInfo({
+      runtime,
+      request: mockRequest,
+    });
+
+    expect(response.status).toBe(200);
+
+    const data = await response.json();
+    expect(data.agents.capableAgent.capabilities).toEqual(mockCapabilities);
+  });
+
+  it("should omit capabilities when agent does not implement getCapabilities", async () => {
+    const mockAgent = {
+      description: "Basic agent",
+      constructor: { name: "BasicAgent" },
+    };
+
+    const runtime = new CopilotRuntime({
+      agents: {
+        basicAgent: mockAgent as unknown as AbstractAgent,
+      },
+    });
+
+    const response = await handleGetRuntimeInfo({
+      runtime,
+      request: mockRequest,
+    });
+
+    expect(response.status).toBe(200);
+
+    const data = await response.json();
+    expect(data.agents.basicAgent.capabilities).toBeUndefined();
+  });
+
+  it("should include empty capabilities object when getCapabilities returns {}", async () => {
+    const mockAgent = {
+      description: "Empty caps agent",
+      constructor: { name: "EmptyCapsAgent" },
+      getCapabilities: async () => ({}),
+    };
+
+    const runtime = new CopilotRuntime({
+      agents: {
+        emptyAgent: mockAgent as unknown as AbstractAgent,
+      },
+    });
+
+    const response = await handleGetRuntimeInfo({
+      runtime,
+      request: mockRequest,
+    });
+
+    expect(response.status).toBe(200);
+
+    const data = await response.json();
+    // {} is truthy, so it should be included in the response
+    expect(data.agents.emptyAgent.capabilities).toEqual({});
+  });
+
+  it("should isolate per-agent getCapabilities failures and log a warning", async () => {
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    const failingAgent = {
+      description: "Failing agent",
+      constructor: { name: "FailingAgent" },
+      getCapabilities: async () => {
+        throw new Error("capability fetch failed");
+      },
+    };
+
+    const healthyAgent = {
+      description: "Healthy agent",
+      constructor: { name: "HealthyAgent" },
+      getCapabilities: async () => ({
+        tools: { supported: true },
+      }),
+    };
+
+    const runtime = new CopilotRuntime({
+      agents: {
+        failing: failingAgent as unknown as AbstractAgent,
+        healthy: healthyAgent as unknown as AbstractAgent,
+      },
+    });
+
+    const response = await handleGetRuntimeInfo({
+      runtime,
+      request: mockRequest,
+    });
+
+    expect(response.status).toBe(200);
+
+    const data = await response.json();
+    // Failing agent should still appear but without capabilities
+    expect(data.agents.failing).toEqual({
+      name: "failing",
+      description: "Failing agent",
+      className: "FailingAgent",
+    });
+    expect(data.agents.failing.capabilities).toBeUndefined();
+
+    // Healthy agent should have its capabilities
+    expect(data.agents.healthy.capabilities).toEqual({
+      tools: { supported: true },
+    });
+
+    // Error should be logged, not silently swallowed
+    expect(warnSpy).toHaveBeenCalledWith(
+      {
+        err: expect.objectContaining({ message: "capability fetch failed" }),
+        agentId: "failing",
+      },
+      'Failed to fetch capabilities for agent "failing"',
+    );
+
+    warnSpy.mockRestore();
+  });
+
+  describe("telemetryDisabled", () => {
+    beforeEach(() => {
+      delete process.env.COPILOTKIT_TELEMETRY_DISABLED;
+      delete process.env.DO_NOT_TRACK;
+    });
+
+    afterEach(() => {
+      delete process.env.COPILOTKIT_TELEMETRY_DISABLED;
+      delete process.env.DO_NOT_TRACK;
+    });
+
+    it("returns telemetryDisabled: false when env var is not set", async () => {
+      const runtime = new CopilotRuntime({ agents: {} });
+      const response = await handleGetRuntimeInfo({
+        runtime,
+        request: mockRequest,
+      });
+      const data = await response.json();
+      expect(data.telemetryDisabled).toBe(false);
+    });
+
+    it("returns telemetryDisabled: true when COPILOTKIT_TELEMETRY_DISABLED=true", async () => {
+      process.env.COPILOTKIT_TELEMETRY_DISABLED = "true";
+      const runtime = new CopilotRuntime({ agents: {} });
+      const response = await handleGetRuntimeInfo({
+        runtime,
+        request: mockRequest,
+      });
+      const data = await response.json();
+      expect(data.telemetryDisabled).toBe(true);
+    });
+
+    it("returns telemetryDisabled: true when COPILOTKIT_TELEMETRY_DISABLED=1", async () => {
+      process.env.COPILOTKIT_TELEMETRY_DISABLED = "1";
+      const runtime = new CopilotRuntime({ agents: {} });
+      const response = await handleGetRuntimeInfo({
+        runtime,
+        request: mockRequest,
+      });
+      const data = await response.json();
+      expect(data.telemetryDisabled).toBe(true);
+    });
+
+    it("returns telemetryDisabled: true when DO_NOT_TRACK=1", async () => {
+      process.env.DO_NOT_TRACK = "1";
+      const runtime = new CopilotRuntime({ agents: {} });
+      const response = await handleGetRuntimeInfo({
+        runtime,
+        request: mockRequest,
+      });
+      const data = await response.json();
+      expect(data.telemetryDisabled).toBe(true);
+    });
+  });
+
+  it("should return 500 error when runtime.agents throws an error", async () => {
+    const runtime = {
+      get agents(): Record<string, AbstractAgent> {
+        throw new Error("Failed to get agents");
+      },
+      transcriptionService: undefined,
+      beforeRequestMiddleware: undefined,
+      afterRequestMiddleware: undefined,
+      mode: "sse",
+    } as CopilotRuntime;
+
+    const response = await handleGetRuntimeInfo({
+      runtime,
+      request: mockRequest,
+    });
+
+    expect(response.status).toBe(500);
+
+    const data = await response.json();
+    expect(data).toEqual({
+      error: "Failed to retrieve runtime information",
+      message: "Failed to get agents",
+    });
+  });
+});
+
+test("get-runtime-info advertises inspector metadata without fetching it", async () => {
+  const intelligence = new CopilotKitIntelligence({
+    apiUrl: "https://runtime.example",
+    wsUrl: "wss://runtime.example",
+    apiKey: "server-api-key",
+  });
+  const getInspectorMetadata = vi.spyOn(intelligence, "getInspectorMetadata");
+  const runtime = new CopilotRuntime({
+    agents: {},
+    intelligence,
+    identifyUser: async () => ({ id: "user-1", name: "User One" }),
+  });
+
+  const response = await handleGetRuntimeInfo({
+    runtime,
+    request: new Request("https://example.com/info"),
+  });
+  const data = await response.json();
+
+  expect(response.status).toBe(200);
+  expect(data.inspectorMetadata).toBe(true);
+  expect(getInspectorMetadata).not.toHaveBeenCalled();
+});
+
+test("get-runtime-info omits inspector metadata for an SSE runtime", async () => {
+  const runtime = new CopilotRuntime({ agents: {} });
+
+  const response = await handleGetRuntimeInfo({
+    runtime,
+    request: new Request("https://example.com/info"),
+  });
+  const data = await response.json();
+
+  expect(response.status).toBe(200);
+  expect(data).not.toHaveProperty("inspectorMetadata");
+});

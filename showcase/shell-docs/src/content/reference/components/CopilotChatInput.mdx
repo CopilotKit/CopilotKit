@@ -12,8 +12,7 @@ The component operates in three modes: `"input"` (default text entry), `"transcr
 ## Import
 
 ```tsx
-import { CopilotChatInput } from "@copilotkit/react-core/v2";
-import "@copilotkit/react-core/v2/styles.css";
+import { CopilotChatInput } from "@copilotkit/react-core";
 ```
 
 ## Props
@@ -94,14 +93,28 @@ import "@copilotkit/react-core/v2/styles.css";
   the add-menu (+) button, after the attach item.
 </PropertyReference>
 
+<PropertyReference name="positioning" type='"static" | "absolute"' default='"static"'>
+  Positioning mode for the input container. `"absolute"` pins the input to the
+  bottom of its container.
+</PropertyReference>
+
+<PropertyReference name="showDisclaimer" type="boolean">
+  Whether to show the disclaimer. Defaults to `true` for `"absolute"`
+  positioning and `false` for `"static"`. `CopilotChatView`, and so
+  `CopilotChat`, `CopilotPopup`, and `CopilotSidebar`, pass `true`. To hide
+  the disclaimer there, pass `input={{ showDisclaimer: false }}`.
+</PropertyReference>
+
 <PropertyReference
   name="children"
-  type="(props: { textArea: React.ReactElement; sendButton: React.ReactElement; addMenuButton: React.ReactElement; startTranscribeButton: React.ReactElement; cancelTranscribeButton: React.ReactElement; finishTranscribeButton: React.ReactElement; audioRecorder: React.ReactElement; disclaimer: React.ReactElement }) => React.ReactNode"
+  type="(props: slot elements & input props) => React.ReactNode"
 >
-  Optional render-prop function that replaces the input's markup. It receives
-  each slot as a rendered element, and also the input props, such as `mode`,
-  `isRunning`, and `onSubmitMessage`. Place the slot elements you need, such as
-  `textArea` and `sendButton`, in your layout. The textarea still auto-grows.
+  Optional render-prop function for a custom layout. It receives each slot as a
+  rendered element (`textArea`, `sendButton`, `startTranscribeButton`,
+  `cancelTranscribeButton`, `finishTranscribeButton`, `addMenuButton`,
+  `audioRecorder`, `disclaimer`) together with the input's props (`mode`,
+  `isRunning`, `toolsMenu`, `onSubmitMessage`, and the others). Place the
+  elements where you want them. The textarea keeps its auto-grow behavior.
 </PropertyReference>
 
 ## Slots
@@ -114,7 +127,11 @@ All slot props follow the CopilotKit slot system: each accepts a replacement Rea
 **As a className:**
 
 ```tsx
-<CopilotChatInput textArea="font-mono text-sm" />
+import { CopilotChatInput } from "@copilotkit/react-core";
+
+export function MonoInput() {
+  return <CopilotChatInput textArea="font-mono text-sm" />;
+}
 ```
 
 </PropertyReference>
@@ -125,16 +142,22 @@ All slot props follow the CopilotKit slot system: each accepts a replacement Rea
 **As a replacement component:**
 
 ```tsx
-<CopilotChatInput
-  sendButton={({ onClick }) => (
-    <button
-      onClick={onClick}
-      className="bg-blue-500 text-white px-3 py-1 rounded"
-    >
-      Send
-    </button>
-  )}
-/>
+import { CopilotChatInput } from "@copilotkit/react-core";
+
+export function BlueSendInput() {
+  return (
+    <CopilotChatInput
+      sendButton={({ onClick }) => (
+        <button
+          onClick={onClick}
+          className="bg-blue-500 text-white px-3 py-1 rounded"
+        >
+          Send
+        </button>
+      )}
+    />
+  );
+}
 ```
 
 </PropertyReference>
@@ -166,15 +189,28 @@ All slot props follow the CopilotKit slot system: each accepts a replacement Rea
   Defaults to [`CopilotChatAudioRecorder`](#copilotchataudiorecorder).
 </PropertyReference>
 
+<PropertyReference name="disclaimer" type="SlotValue<typeof CopilotChatInput.Disclaimer>">
+  Slot for the disclaimer text below the input. Only rendered when
+  `showDisclaimer` is `true`.
+</PropertyReference>
+
 ## ToolsMenuItem
 
 The `ToolsMenuItem` type defines items in the tools menu. Items can trigger actions directly or contain nested submenus.
 
 ```ts
-type ToolsMenuItem = { label: string } & (
-  | { action: () => void }
-  | { items: (ToolsMenuItem | "-")[] }
-);
+import type { ToolsMenuItem } from "@copilotkit/react-core";
+
+// An item has a `label` and either an `action` or nested `items`.
+const searchItem = {
+  label: "Search",
+  action: () => console.log("search"),
+} satisfies ToolsMenuItem;
+
+const exportMenu = {
+  label: "Export",
+  items: [searchItem, "-", { label: "Print", action: () => window.print() }],
+} satisfies ToolsMenuItem;
 ```
 
 <PropertyReference name="label" type="string" required>
@@ -195,11 +231,20 @@ type ToolsMenuItem = { label: string } & (
 Use the string `"-"` as an array entry to render a visual separator between menu items:
 
 ```tsx
-toolsMenu={[
-  { label: "Search", action: () => search() },
-  "-",
-  { label: "Settings", action: () => openSettings() },
-]}
+import { CopilotChatInput } from "@copilotkit/react-core";
+import { openSettings, search } from "./actions";
+
+export function InputWithSeparator() {
+  return (
+    <CopilotChatInput
+      toolsMenu={[
+        { label: "Search", action: () => search() },
+        "-",
+        { label: "Settings", action: () => openSettings() },
+      ]}
+    />
+  );
+}
 ```
 
 ### Nested Submenus
@@ -207,17 +252,26 @@ toolsMenu={[
 Menu items with an `items` array render as expandable submenus:
 
 ```tsx
-toolsMenu={[
-  {
-    label: "Export",
-    items: [
-      { label: "As PDF", action: () => exportPDF() },
-      { label: "As CSV", action: () => exportCSV() },
-      "-",
-      { label: "Print", action: () => printDoc() },
-    ],
-  },
-]}
+import { CopilotChatInput } from "@copilotkit/react-core";
+import { exportCSV, exportPDF, printDoc } from "./actions";
+
+export function InputWithSubmenu() {
+  return (
+    <CopilotChatInput
+      toolsMenu={[
+        {
+          label: "Export",
+          items: [
+            { label: "As PDF", action: () => exportPDF() },
+            { label: "As CSV", action: () => exportCSV() },
+            "-",
+            { label: "Print", action: () => printDoc() },
+          ],
+        },
+      ]}
+    />
+  );
+}
 ```
 
 ## CopilotChatAudioRecorder
@@ -227,23 +281,25 @@ A visual audio waveform component used during transcription mode. It displays a 
 ### Import
 
 ```tsx
-import { CopilotChatAudioRecorder } from "@copilotkit/react-core/v2";
+import { CopilotChatAudioRecorder } from "@copilotkit/react-core";
 ```
 
 ### Imperative API
 
 The component exposes the following imperative methods via React `ref`:
 
-<PropertyReference name="state" type='"idle" | "recording" | "processing"'>
+<PropertyReference name="state" type='AudioRecorderState ("idle" | "recording" | "processing")'>
   The current state of the recorder.
 </PropertyReference>
 
 <PropertyReference name="start" type="() => Promise<void>">
-  Begins audio recording and starts the waveform visualization.
+  Requests microphone access, begins audio recording, and starts the waveform
+  visualization. Rejects with an `AudioRecorderError` when recording cannot
+  start.
 </PropertyReference>
 
 <PropertyReference name="stop" type="() => Promise<Blob>">
-  Stops recording and resolves with the recorded audio.
+  Stops the current recording session and resolves with the recorded audio.
 </PropertyReference>
 
 <PropertyReference name="dispose" type="() => void">
@@ -254,14 +310,26 @@ The component exposes the following imperative methods via React `ref`:
 ### Usage
 
 ```tsx
+import { useRef, type ComponentRef } from "react";
+import { CopilotChatAudioRecorder } from "@copilotkit/react-core";
+import { uploadAudio } from "./upload-audio";
+
 function CustomRecorder() {
-  const recorderRef = useRef(null);
+  const recorderRef =
+    useRef<ComponentRef<typeof CopilotChatAudioRecorder>>(null);
 
   return (
     <div>
       <CopilotChatAudioRecorder ref={recorderRef} />
       <button onClick={() => recorderRef.current?.start()}>Record</button>
-      <button onClick={() => recorderRef.current?.stop()}>Stop</button>
+      <button
+        onClick={async () => {
+          const audio = await recorderRef.current?.stop();
+          if (audio) await uploadAudio(audio);
+        }}
+      >
+        Stop
+      </button>
     </div>
   );
 }
@@ -272,6 +340,10 @@ function CustomRecorder() {
 ### Basic Chat Input
 
 ```tsx
+import { useState } from "react";
+import { CopilotChatInput } from "@copilotkit/react-core";
+import { sendMessage } from "./send-message";
+
 function ChatInput() {
   const [value, setValue] = useState("");
 
@@ -292,6 +364,10 @@ function ChatInput() {
 ### With Voice Transcription
 
 ```tsx
+import { useState } from "react";
+import { CopilotChatInput } from "@copilotkit/react-core";
+import { sendMessage, transcribeAudio } from "./chat-actions";
+
 function VoiceInput() {
   const [mode, setMode] = useState<"input" | "transcribe">("input");
   const [value, setValue] = useState("");
@@ -317,6 +393,15 @@ function VoiceInput() {
 ### With Tools Menu
 
 ```tsx
+import { CopilotChatInput } from "@copilotkit/react-core";
+import {
+  exportMarkdown,
+  exportPDF,
+  sendMessage,
+  triggerAnalysis,
+  triggerSearch,
+} from "./chat-actions";
+
 function InputWithTools() {
   return (
     <CopilotChatInput
@@ -341,6 +426,12 @@ function InputWithTools() {
 ### With Stop Button During Execution
 
 ```tsx
+import {
+  CopilotChatInput,
+  useAgent,
+  useCopilotKit,
+} from "@copilotkit/react-core";
+
 function ChatInputWithAgent() {
   const { agent } = useAgent();
   const { copilotkit } = useCopilotKit();
@@ -368,6 +459,9 @@ function ChatInputWithAgent() {
 ### Custom Layout with Children Render Prop
 
 ```tsx
+import { CopilotChatInput } from "@copilotkit/react-core";
+import { sendMessage } from "./send-message";
+
 function CustomLayoutInput() {
   return (
     <CopilotChatInput onSubmitMessage={(text) => sendMessage(text)}>
@@ -385,6 +479,9 @@ function CustomLayoutInput() {
 ### Styled Slots
 
 ```tsx
+import { CopilotChatInput } from "@copilotkit/react-core";
+import { sendMessage } from "./send-message";
+
 function StyledInput() {
   return (
     <CopilotChatInput
@@ -398,7 +495,7 @@ function StyledInput() {
 
 ## Behavior
 
-- **Auto-Growing Textarea**: The default textarea automatically expands as the user types, up to a maximum of 5 rows. After reaching the maximum, the textarea becomes scrollable.
+- **Auto-Growing Textarea**: The default textarea automatically expands as the user types, up to a maximum of 5 rows. After reaching the maximum, the textarea becomes scrollable. The React input has no prop to change the row limit.
 - **Layout Stacking**: When the input text spans multiple rows, the layout switches from inline (textarea and buttons side by side) to stacked (textarea above the control row containing the action buttons).
 - **Mode Switching**: Setting `mode` to `"transcribe"` replaces the textarea with the `audioRecorder` slot component. The transcription control buttons (`cancelTranscribeButton`, `finishTranscribeButton`) replace the standard send button.
 - **Controlled and Uncontrolled**: The component supports both controlled mode (via `value` and `onChange`) and uncontrolled mode (internal state management).

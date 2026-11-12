@@ -7,7 +7,7 @@ import * as ts from "typescript";
 import { expect, test } from "vitest";
 
 const repoRoot = path.resolve(__dirname, "..", "..");
-const integrationsDir = path.join(repoRoot, "examples", "integrations");
+const integrationsDir = path.join(repoRoot, "examples", "starters");
 
 const MANAGED_API_KEY = "CPK_INTELLIGENCE_API_KEY";
 const MANAGED_API_KEY_SENTINEL = "cpk_secret_must_not_reach_browser_assets";
@@ -56,6 +56,7 @@ const MANAGED_ENTITLEMENT_CONTRACT_BY_SDK_VERSION = {
     "1.73.2": true,
     "1.78.0": true,
     "1.79.0": true,
+    "2.0.0-rc.41": true,
   },
   "@copilotkit/react-core": {
     "1.62.2": false,
@@ -68,6 +69,7 @@ const MANAGED_ENTITLEMENT_CONTRACT_BY_SDK_VERSION = {
     "1.73.2": true,
     "1.78.0": true,
     "1.79.0": true,
+    "2.0.0-rc.41": true,
   },
 } as const satisfies Readonly<
   Record<ManagedSdkPackageName, Readonly<Record<string, boolean>>>
@@ -1375,16 +1377,18 @@ function exportedEndpointHandlers(
       const initializer = declaration.initializer
         ? unwrapExpression(declaration.initializer)
         : null;
-      if (
-        ts.isIdentifier(declaration.name) &&
+      // 1.x starters wrap the Hono app (`handle(app)`). 2.0 starters export
+      // the fetch handler from `createCopilotRuntimeHandler` directly (`app`).
+      const exportsApp =
         initializer &&
-        ts.isCallExpression(initializer) &&
-        ts.isIdentifier(initializer.expression) &&
-        initializer.expression.text === "handle" &&
-        initializer.arguments.length === 1 &&
-        ts.isIdentifier(initializer.arguments[0]) &&
-        initializer.arguments[0].text === "app"
-      ) {
+        ((ts.isIdentifier(initializer) && initializer.text === "app") ||
+          (ts.isCallExpression(initializer) &&
+            ts.isIdentifier(initializer.expression) &&
+            initializer.expression.text === "handle" &&
+            initializer.arguments.length === 1 &&
+            ts.isIdentifier(initializer.arguments[0]) &&
+            initializer.arguments[0].text === "app"));
+      if (ts.isIdentifier(declaration.name) && exportsApp) {
         methods.add(declaration.name.text);
       }
     }
@@ -1837,7 +1841,7 @@ function readManagedSdkPins(
     expect(
       version,
       `${contract.directory} must pin ${packageName} in ${packagePath}`,
-    ).toMatch(/^\d+\.\d+\.\d+$/u);
+    ).toMatch(/^\d+\.\d+\.\d+(?:-[0-9A-Za-z.]+)?$/u);
 
     return { packageName, packagePath, version };
   });
@@ -2716,7 +2720,7 @@ function workflowSteps(contents: string): WorkflowStep[] {
 /** Assert the parity workflow preserves filters and runs red contracts second. */
 function expectIntegrationParityWorkflowContract(contents: string): void {
   const expectedPaths = [
-    "examples/integrations/**",
+    "examples/starters/**",
     "scripts/__tests__/integration-intelligence-migration.test.ts",
     "scripts/__tests__/starter-model-env-contract.test.ts",
     ".github/workflows/integrations_parity.yml",
@@ -3710,7 +3714,7 @@ test("integration parity workflow preserves filters and runs parity before the e
 
 test("integration parity workflow helper rejects missing filters and reversed contract order", () => {
   const paths = [
-    "examples/integrations/**",
+    "examples/starters/**",
     "scripts/__tests__/integration-intelligence-migration.test.ts",
     ".github/workflows/integrations_parity.yml",
   ];

@@ -6,11 +6,6 @@ description: "Let your agent render your own components, in the chat and in area
 
 import InspectorPaneGenerativeUI from "@/snippets/shared/inspector/open-inspector-pane-generative-ui.mdx";
 
-
-<Callout type="warn" title="Experimental">
-  Components and surfaces implements [A2UI 1.0](https://a2ui.org) as of spec revision [`cbaa5ee`](https://github.com/a2ui-project/a2ui/tree/cbaa5ee62c737b50d0695c1e5794d0f648b61dca/specification/v1_0) (October 2026). Upstream still calls 1.0 a candidate, and the API of this feature can change. The [support matrix](/generative-ui/components/from-a2ui#support-matrix) lists what is supported. Anything that it does not list is not supported.
-</Callout>
-
 ## What is this?
 
 A text answer is often the wrong answer. "Compare these three plans" wants a table. "Show me cheap running shoes" wants product cards, and maybe in the product row of your page, not in the chat.
@@ -22,11 +17,13 @@ With components and surfaces, the agent renders real React, Angular, React Nativ
 
 You decide what the agent can render. The agent decides what to show and fills in the values. Users can type into the UI, press its buttons, and ask follow-up questions about it.
 
+The feature implements [A2UI 1.0](https://a2ui.org) as of spec revision [`cbaa5ee`](https://github.com/a2ui-project/a2ui/tree/cbaa5ee62c737b50d0695c1e5794d0f648b61dca/specification/v1_0) (October 2026). The [support matrix](/generative-ui/components/from-a2ui#support-matrix) lists what is supported.
+
 ## Try it
 
 These steps add generative UI to a Next.js, Angular, React Native or Vue app, with an OpenAI model through TanStack AI.
 
-Already have CopilotKit running? Do step 3 only. Your runtime needs no change: when the provider sends a catalog with at least one component, the runtime gives that run a `render_ui` tool and a short guide. Your agent must pass the run's tools and context to its model, as in step 2. For a LangGraph Python agent, add `CopilotKitMiddleware`.
+Already have CopilotKit running? Do step 3 only. Your runtime needs no change: when the provider sends a catalog with at least one component, the runtime gives that run a `render_ui` tool and a short guide. In React and Vue, the provider uses the standard catalog when you pass no `generativeUI`, so step 3 is only needed for your own components. Your agent must pass the run's tools and context to its model, as in step 2. For a LangGraph Python agent, add `CopilotKitMiddleware`.
 
 <Steps>
   <Step>
@@ -60,11 +57,9 @@ Already have CopilotKit running? Do step 3 only. Your runtime needs no change: w
     Start from a React Native app with the entry point and Metro set up as in the [React Native quickstart](/react-native#getting-started): the polyfill imports at the top of `index.js` are required. Then add the packages:
 
     ```bash
-    npm install @copilotkit/react-native @copilotkit/runtime @tanstack/ai @tanstack/ai-openai "zod@^3.25"
+    npm install @copilotkit/react-native @copilotkit/runtime @tanstack/ai @tanstack/ai-openai zod
     npm install -D tsx
     ```
-
-    `@copilotkit/react-native` needs `zod` 3.25 or later. Install zod 3, as above: `child()` and `childList()` return zod 3 schemas, and a zod 4 schema cannot hold one (see [Catalogs](/generative-ui/components/catalogs#what-a-component-can-declare)).
 
     The runtime runs as its own Node process, so set your OpenAI key in the terminal that starts it:
 
@@ -97,12 +92,14 @@ Already have CopilotKit running? Do step 3 only. Your runtime needs no change: w
     import { chat } from "@tanstack/ai";
     import { openaiText } from "@tanstack/ai-openai";
     import {
-      BuiltInAgent,
-      convertInputToTanStackAI,
       CopilotRuntime,
       createCopilotRuntimeHandler,
       InMemoryAgentRunner,
-    } from "@copilotkit/runtime/v2";
+    } from "@copilotkit/runtime";
+    import {
+      BuiltInAgent,
+      convertInputToTanStackAI,
+    } from "@copilotkit/runtime/agent";
 
     const agent = new BuiltInAgent({
       type: "tanstack",
@@ -116,6 +113,7 @@ Already have CopilotKit running? Do step 3 only. Your runtime needs no change: w
             ...systemPrompts,
           ],
           tools,
+          threadId: input.threadId,
           abortController,
         });
       },
@@ -139,13 +137,12 @@ Already have CopilotKit running? Do step 3 only. Your runtime needs no change: w
     import { createServer } from "node:http";
     import { chat } from "@tanstack/ai";
     import { openaiText } from "@tanstack/ai-openai";
+    import { CopilotRuntime, InMemoryAgentRunner } from "@copilotkit/runtime";
+    import { createCopilotNodeListener } from "@copilotkit/runtime/node";
     import {
       BuiltInAgent,
       convertInputToTanStackAI,
-      CopilotRuntime,
-      InMemoryAgentRunner,
-    } from "@copilotkit/runtime/v2";
-    import { createCopilotNodeListener } from "@copilotkit/runtime/v2/node";
+    } from "@copilotkit/runtime/agent";
 
     const agent = new BuiltInAgent({
       type: "tanstack",
@@ -159,6 +156,7 @@ Already have CopilotKit running? Do step 3 only. Your runtime needs no change: w
             ...systemPrompts,
           ],
           tools,
+          threadId: input.threadId,
           abortController,
         });
       },
@@ -183,13 +181,12 @@ Already have CopilotKit running? Do step 3 only. Your runtime needs no change: w
     import { createServer } from "node:http";
     import { chat } from "@tanstack/ai";
     import { openaiText } from "@tanstack/ai-openai";
+    import { CopilotRuntime, InMemoryAgentRunner } from "@copilotkit/runtime";
+    import { createCopilotNodeListener } from "@copilotkit/runtime/node";
     import {
       BuiltInAgent,
       convertInputToTanStackAI,
-      CopilotRuntime,
-      InMemoryAgentRunner,
-    } from "@copilotkit/runtime/v2";
-    import { createCopilotNodeListener } from "@copilotkit/runtime/v2/node";
+    } from "@copilotkit/runtime/agent";
 
     const agent = new BuiltInAgent({
       type: "tanstack",
@@ -203,6 +200,7 @@ Already have CopilotKit running? Do step 3 only. Your runtime needs no change: w
             ...systemPrompts,
           ],
           tools,
+          threadId: input.threadId,
           abortController,
         });
       },
@@ -227,13 +225,12 @@ Already have CopilotKit running? Do step 3 only. Your runtime needs no change: w
     import { createServer } from "node:http";
     import { chat } from "@tanstack/ai";
     import { openaiText } from "@tanstack/ai-openai";
+    import { CopilotRuntime, InMemoryAgentRunner } from "@copilotkit/runtime";
+    import { createCopilotNodeListener } from "@copilotkit/runtime/node";
     import {
       BuiltInAgent,
       convertInputToTanStackAI,
-      CopilotRuntime,
-      InMemoryAgentRunner,
-    } from "@copilotkit/runtime/v2";
-    import { createCopilotNodeListener } from "@copilotkit/runtime/v2/node";
+    } from "@copilotkit/runtime/agent";
 
     const agent = new BuiltInAgent({
       type: "tanstack",
@@ -247,6 +244,7 @@ Already have CopilotKit running? Do step 3 only. Your runtime needs no change: w
             ...systemPrompts,
           ],
           tools,
+          threadId: input.threadId,
           abortController,
         });
       },
@@ -278,13 +276,14 @@ Already have CopilotKit running? Do step 3 only. Your runtime needs no change: w
 
   Give the provider the standard catalog. It has 69 ready-made components: layout, text, inputs, tables, charts, maps, and more. On React Native, you give it a catalog of your own native components.
 
+  In React and Vue, the provider uses the standard catalog on its own when you pass no `generativeUI` and the runtime has generative UI on (the default). The code below passes it explicitly. Angular has no default: add `provideGenerativeUI`.
+
   <Tabs groupId="frontend_framework" items={["React", "Angular", "React Native", "Vue"]} persist>
     <Tab value="React">
     ```tsx title="app/providers.tsx"
     "use client";
-    import { CopilotKitProvider } from "@copilotkit/react-core/v2";
-    import { standardUI } from "@copilotkit/react-core/v2/generative-ui";
-    import "@copilotkit/react-core/v2/styles.css";
+    import { CopilotKitProvider } from "@copilotkit/react-core";
+    import { standardUI } from "@copilotkit/react-core/generative-ui";
 
     export function Providers({ children }: { children: React.ReactNode }) {
       return (
@@ -313,16 +312,44 @@ Already have CopilotKit running? Do step 3 only. Your runtime needs no change: w
 
     ```tsx title="app/page.tsx"
     "use client";
-    import { CopilotChat } from "@copilotkit/react-core/v2";
+    import { CopilotChat } from "@copilotkit/react-core";
 
     export default function Page() {
       return <CopilotChat />;
     }
     ```
+
+    Charts and icons need nothing more. Maps draw with an optional library. When you want them, install it:
+
+    ```bash
+    npm install maplibre-gl
+    ```
+
+    Then pass its loader to the provider, next to the catalog:
+
+    ```tsx title="app/providers.tsx"
+    "use client";
+    import { CopilotKitProvider } from "@copilotkit/react-core";
+    import { standardUI } from "@copilotkit/react-core/generative-ui";
+    import { loadMapLibre } from "@copilotkit/react-core/generative-ui/map";
+
+    export function Providers({ children }: { children: React.ReactNode }) {
+      return (
+        <CopilotKitProvider
+          runtimeUrl="/api/copilotkit"
+          generativeUI={{ ui: standardUI, map: loadMapLibre }}
+        >
+          {children}
+        </CopilotKitProvider>
+      );
+    }
+    ```
+
+    Without it, a map shows a list of places, and the app builds without `maplibre-gl`.
     </Tab>
     <Tab value="Angular">
     ```ts title="src/app/app.config.ts"
-    import { ApplicationConfig } from "@angular/core";
+    import type { ApplicationConfig } from "@angular/core";
     import { provideCopilotKit } from "@copilotkit/angular";
     import { provideGenerativeUI, standardUI } from "@copilotkit/angular/generative-ui";
 
@@ -334,11 +361,7 @@ Already have CopilotKit running? Do step 3 only. Your runtime needs no change: w
     };
     ```
 
-    `provideGenerativeUI` must be in the root providers: the chat resolves its renderers from the root injector, so a provider in a lazy route is never seen. Add the chat stylesheet, and put a chat in a component:
-
-    ```css title="src/styles.css"
-    @import "@copilotkit/angular/styles.css";
-    ```
+    `provideGenerativeUI` must be in the root providers: the chat resolves its renderers from the root injector, so a provider in a lazy route is never seen. Put a chat in a component. The components add their own styles, so there is no stylesheet to import:
 
     ```ts title="src/app/app.ts"
     import { Component } from "@angular/core";
@@ -684,17 +707,7 @@ Already have CopilotKit running? Do step 3 only. Your runtime needs no change: w
     The [React Native guide](/react-native#generative-ui-with-your-own-components) adds a screen with no chat, named areas, and error handling.
     </Tab>
     <Tab value="Vue">
-    Import the stylesheet once, in your app entry:
-
-    ```ts title="src/main.ts"
-    import { createApp } from "vue";
-    import App from "./App.vue";
-    import "@copilotkit/vue/styles.css";
-
-    createApp(App).mount("#app");
-    ```
-
-    Give the provider the catalog, and put a chat inside it:
+    The styles load on their own: no stylesheet import is needed. Give the provider the catalog, and put a chat inside it:
 
     ```vue title="src/App.vue"
     <script setup lang="ts">
@@ -729,7 +742,6 @@ Already have CopilotKit running? Do step 3 only. Your runtime needs no change: w
     import { GenerativeUIChart } from "@copilotkit/vue/v2/generative-ui/chart";
     import { GenerativeUIMap } from "@copilotkit/vue/v2/generative-ui/map";
     import App from "./App.vue";
-    import "@copilotkit/vue/styles.css";
 
     createApp(App).use(GenerativeUIChart).use(GenerativeUIMap).mount("#app");
     ```
@@ -761,7 +773,7 @@ The agent answered, but the UI did not show, or it shows the wrong thing. Open I
 
 | What you see | Open | What to look for |
 | --- | --- | --- |
-| The pane says "No generative UI" | Nothing to open | The provider has no `generativeUI` config. Pass `generativeUI={{ ui }}` to `CopilotKitProvider`, or add `provideGenerativeUI({ ui })` to the root providers in Angular. In Vue, bind `:generativeUI="{ ui }"` in camelCase. |
+| The pane says "No generative UI" | Nothing to open | The provider has no `generativeUI` config, and the runtime has `generativeUI: false`. Pass `generativeUI={{ ui }}` to `CopilotKitProvider`, or add `provideGenerativeUI({ ui })` to the root providers in Angular. In Vue, bind `:generativeUI="{ ui }"` in camelCase. |
 | The surface stays empty, or shows its fallback | **Surfaces** | Find the surface and open its card. **Rejected operations** gives the reason for each dropped operation, for example an unknown component. |
 | A component shows wrong or missing values | **Surfaces** | The component tree shows each rendered component with the props that the agent sent. |
 | The agent never uses a component or a function | **Catalog** | Search for its name. A component that is not in the list is not sent to the model. A function with no mounted handler gets a warning. |
@@ -783,8 +795,8 @@ Three ideas carry the whole feature:
 - [Connect app state and actions](/generative-ui/components/state-and-actions): show live app data, run your code on a click, and keep what users type.
 - [Theme the components](/generative-ui/components/theming): your colors and fonts, and dark mode.
 - [Markdown mode](/generative-ui/components/markdown-mode): the agent writes the UI inside its reply, with no tool call.
-- [Adopt from A2UI](/generative-ui/components/from-a2ui): move from the `a2ui` renderer, with the v0.9 to 1.0 mapping and a support matrix.
+- [Adopt from A2UI](/generative-ui/components/from-a2ui): move from the `a2ui` provider option, keep an agent that writes A2UI v0.9, and see the support matrix.
 
 ## See it in an app
 
-[`examples/v2/generative-ui-shop`](https://github.com/CopilotKit/CopilotKit/tree/main/examples/v2/generative-ui-shop) is a shop where the chat changes the page. Ask for "top rated" products, and the featured row on the home page swaps to what the agent picked.
+[`examples/templates/generative-ui-shop`](https://github.com/CopilotKit/CopilotKit/tree/main/examples/templates/generative-ui-shop) is a shop where the chat changes the page. Ask for "top rated" products, and the featured row on the home page swaps to what the agent picked.

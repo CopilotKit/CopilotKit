@@ -11,7 +11,7 @@ import {
   SurfaceView,
   useGenerativeUIActivitySurface,
   useGenerativeUIRuntime,
-} from "@copilotkit/react-core/v2/generative-ui/native";
+} from "@copilotkit/react-core/generative-ui/native";
 import { GenerativeUIProviderPresentContext } from "./GenerativeUIProvider";
 import { useDevelopmentWarnings } from "./internal";
 

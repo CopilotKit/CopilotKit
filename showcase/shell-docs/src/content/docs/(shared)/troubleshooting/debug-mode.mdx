@@ -18,7 +18,7 @@ Enable it to see:
 - The full lifecycle of a request from start to finish
 
 <Callout type="info">
-  For visual error display during local development (error banners, dev console), see [Error Debugging](/troubleshooting/error-debugging). Debug mode focuses on event pipeline logging rather than UI-level error display.
+  For visual error display during local development (the Inspector), see [Error Debugging](/troubleshooting/error-debugging). Debug mode focuses on event pipeline logging rather than UI-level error display.
 </Callout>
 
 ## Enabling Debug Mode
@@ -27,16 +27,24 @@ Enable it to see:
 
 Pass `debug: true` to the `CopilotRuntime` constructor:
 
-```ts title="app/api/copilotkit/route.ts"
+```ts title="app/api/copilotkit/[[...slug]]/route.ts"
+import { CopilotRuntime } from "@copilotkit/runtime";
+import { BuiltInAgent } from "@copilotkit/runtime/agent";
+import { openaiText } from "@tanstack/ai-openai";
+
 const runtime = new CopilotRuntime({
-  agents: {
-    // your agents
-  },
+  agents: { default: new BuiltInAgent({ model: openaiText("gpt-6-luna") }) },
   debug: true, // [!code highlight]
 });
 ```
 
-This produces structured Pino logs (formatted by `pino-pretty`) with a `copilotkit-debug` component label:
+This produces JSON logs in the pino format, with a `copilotkit-debug` component label. The runtime writes them to stdout as JSON lines. To read them formatted, pipe your server output through `pino-pretty`:
+
+```bash
+npm run dev | npx pino-pretty
+```
+
+The formatted output looks like this:
 
 ```
 [14:32:01.123] DEBUG (copilotkit-debug): Agent run started
@@ -59,6 +67,27 @@ This produces structured Pino logs (formatted by `pino-pretty`) with a `copilotk
     loggedEventCount: 4
 ```
 
+To send debug output to your own logger instead of stdout, pass the logger as
+`logger`. Debug lines then go to `logger.child({ component: "copilotkit-debug" })`.
+Your logger's level decides which lines it writes, so set it to `debug`:
+
+```ts
+import pino from "pino";
+import { CopilotRuntime } from "@copilotkit/runtime";
+import { BuiltInAgent } from "@copilotkit/runtime/agent";
+import { openaiText } from "@tanstack/ai-openai";
+
+const myAgent = new BuiltInAgent({ model: openaiText("gpt-6-luna") });
+
+const runtime = new CopilotRuntime({
+  agents: { default: myAgent },
+  debug: true,
+  logger: pino({ level: "debug" }), // [!code highlight]
+});
+```
+
+For more about `logger`, see [Sending logs to your own logger](/backend/copilot-runtime#sending-logs-to-your-own-logger).
+
 <Callout type="warn">
   Do not turn on debug mode in production. Debug mode writes a large volume of logs, especially in verbose mode.
 </Callout>
@@ -66,15 +95,21 @@ This produces structured Pino logs (formatted by `pino-pretty`) with a `copilotk
 <FrontendOnly frontend="react">
 ### Client-Side
 
-Pass `debug={true}` to the `<CopilotKit>` provider:
+Pass `debug={true}` to `<CopilotKitProvider>`:
 
 ```tsx
-<CopilotKit
-  runtimeUrl="/api/copilotkit"
-  debug={true} // [!code highlight]
->
-  <YourApp />
-</CopilotKit>
+import { CopilotKitProvider } from "@copilotkit/react-core";
+
+export function Providers({ children }: { children: React.ReactNode }) {
+  return (
+    <CopilotKitProvider
+      runtimeUrl="/api/copilotkit"
+      debug={true} // [!code highlight]
+    >
+      {children}
+    </CopilotKitProvider>
+  );
+}
 ```
 
 The client passes this setting to the AG-UI transport. The AG-UI library decides if it logs anything. For full event logs, turn on `debug` in `CopilotRuntime`.
@@ -99,11 +134,18 @@ On `CopilotRuntime`, pass an object instead of `true` for fine-grained control
 over what gets logged:
 
 ```ts
-debug: {
-  events: true,     // Log every event emitted/received
-  lifecycle: true,  // Log request/run lifecycle (start, finish, error)
-  verbose: false,   // Log full payloads instead of summaries
-}
+import { CopilotRuntime } from "@copilotkit/runtime";
+import { BuiltInAgent } from "@copilotkit/runtime/agent";
+import { openaiText } from "@tanstack/ai-openai";
+
+const runtime = new CopilotRuntime({
+  agents: { default: new BuiltInAgent({ model: openaiText("gpt-6-luna") }) },
+  debug: {
+    events: true, // Log every event emitted/received
+    lifecycle: true, // Log request/run lifecycle (start, finish, error)
+    verbose: false, // Log full payloads instead of summaries
+  },
+});
 ```
 
 ### Defaults
@@ -121,13 +163,27 @@ When `debug` is a boolean (`true`), events and lifecycle logging are enabled but
 Log only lifecycle events (no per-event logs):
 
 ```ts
-debug: { events: false, lifecycle: true }
+import { CopilotRuntime } from "@copilotkit/runtime";
+import { BuiltInAgent } from "@copilotkit/runtime/agent";
+import { openaiText } from "@tanstack/ai-openai";
+
+const runtime = new CopilotRuntime({
+  agents: { default: new BuiltInAgent({ model: openaiText("gpt-6-luna") }) },
+  debug: { events: false, lifecycle: true },
+});
 ```
 
 Log events with full payloads but skip lifecycle:
 
 ```ts
-debug: { events: true, lifecycle: false, verbose: true }
+import { CopilotRuntime } from "@copilotkit/runtime";
+import { BuiltInAgent } from "@copilotkit/runtime/agent";
+import { openaiText } from "@tanstack/ai-openai";
+
+const runtime = new CopilotRuntime({
+  agents: { default: new BuiltInAgent({ model: openaiText("gpt-6-luna") }) },
+  debug: { events: true, lifecycle: false, verbose: true },
+});
 ```
 
 ## Troubleshooting with Debug Mode

@@ -37,7 +37,7 @@
           "{workspaceRoot}/showcase/*/Dockerfile",
           "{workspaceRoot}/showcase/integrations/*/Dockerfile",
           "!{workspaceRoot}/showcase/pocketbase/Dockerfile",
-          "{workspaceRoot}/examples/integrations/*/Dockerfile",
+          "{workspaceRoot}/examples/starters/*/Dockerfile",
           "{workspaceRoot}/.github/workflows/showcase_build.yml",
           "{workspaceRoot}/.github/workflows/showcase_deploy.yml",
           "{workspaceRoot}/.github/workflows/showcase_build_check.yml",

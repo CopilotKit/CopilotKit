@@ -1,8 +1,5 @@
-import {
-  type NextFetchEvent,
-  type NextRequest,
-  NextResponse,
-} from "next/server";
+import { NextResponse } from "next/server";
+import type { NextFetchEvent, NextRequest } from "next/server";
 import { isMarkdownPreferred } from "fumadocs-core/negotiation";
 import { legacyRedirect } from "@/lib/redirects/legacy-redirect";
 import { trackRequest } from "@/lib/telemetry/proxy";

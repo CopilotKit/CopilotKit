@@ -50,9 +50,9 @@ Everything you need to build a working agentic app, with no external service fro
 
 </FrontendOnly>
 
-- **Runtime**: `@copilotkit/runtime`, the request handler that mounts in your application server. Framework-agnostic core plus thin adapters for Express, Hono, Bun, Deno, Cloudflare Workers.
+- **Runtime**: `@copilotkit/runtime`, the request handler that mounts in your application server. A framework-agnostic Fetch handler and Node listener that run in Express, Hono, Bun, Deno, Cloudflare Workers, and other servers.
 - **AG-UI protocol**: open standard for communication between agents and frontends. Typed events for text, tool calls, state, reasoning, and run lifecycle. Transport-agnostic.
-- **Built-in Agent**: `BuiltInAgent` runs an in-process agent loop (OpenAI / Anthropic / Google / any AI-SDK model) without requiring an external framework.
+- **Built-in Agent**: `BuiltInAgent` runs an in-process agent loop (OpenAI, Anthropic, Google, or any TanStack AI text adapter) without an external framework.
 - **Integrations**: first-party adapters for LangGraph (Python / TypeScript / FastAPI), Mastra, CrewAI, Pydantic AI, Microsoft Agent Framework, AWS Strands, Google ADK, and others.
 - **Generative UI primitives**: tool rendering, state rendering, headless APIs, and framework-native theming.
 

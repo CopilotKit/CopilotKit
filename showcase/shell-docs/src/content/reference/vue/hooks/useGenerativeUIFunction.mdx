@@ -8,7 +8,7 @@ description: "Run your own code when a generated component calls a declared func
 A user clicks "Add to cart" on a generated `ProductCard`. That click must add to the cart, with no message to the agent. `useGenerativeUIFunction` mounts the handler of a function that you declare in `createGenerativeUI({ functions })`. When generated UI calls the function, your handler runs.
 
 <Callout type="warn">
-  Generative UI is experimental. Call `useGenerativeUIFunction` in `setup()`
+  Call `useGenerativeUIFunction` in `setup()`
   (or `<script setup>`) of a component under a
   [`CopilotKitProvider`](/reference/vue/components/CopilotKitProvider) that has
   a `generativeUI` config. Outside such a provider, the composable throws an
@@ -26,13 +26,21 @@ import { useGenerativeUIFunction } from "@copilotkit/vue/v2/generative-ui";
 ## Signature
 
 ```ts
-import type { GenerativeUIFunctionArgs } from "@copilotkit/vue/v2/generative-ui";
+import {
+  useGenerativeUIFunction,
+  type GenerativeUI,
+  type GenerativeUIFunctionArgs,
+  type GenerativeUIFunctionName,
+} from "@copilotkit/vue/v2/generative-ui";
 
-useGenerativeUIFunction<UI, Name>(
+useGenerativeUIFunction satisfies <
+  UI extends GenerativeUI,
+  Name extends GenerativeUIFunctionName<UI>,
+>(
   ui: UI,
   name: Name,
   handler: (args: GenerativeUIFunctionArgs<UI, Name>) => unknown,
-): void;
+) => void;
 ```
 
 ## Parameters
@@ -58,6 +66,9 @@ None. The handler stays mounted until the effect scope is disposed.
 `shopUI` declares the function:
 
 ```ts title="shop-ui.ts"
+import { z } from "zod";
+import { createGenerativeUI } from "@copilotkit/vue/v2/generative-ui";
+
 export const shopUI = createGenerativeUI({
   id: "acme/shop@1",
   functions: {

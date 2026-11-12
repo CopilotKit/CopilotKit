@@ -3,13 +3,8 @@
 // icons content names inline (shell-docs drew most icons as emoji stand-ins;
 // here they are the real marks).
 
-import {
-  Children as ReactChildren,
-  isValidElement,
-  type ComponentProps,
-  type ReactElement,
-  type ReactNode,
-} from "react";
+import { Children as ReactChildren, isValidElement } from "react";
+import type { ComponentProps, ReactElement, ReactNode } from "react";
 import NextLink from "next/link";
 import defaultMdxComponents from "fumadocs-ui/mdx";
 import {

@@ -15,7 +15,8 @@
  * For an integration-level test that exercises real React rendering, see
  * packages/v2/react/src/hooks/__tests__/use-agent-context-timing.e2e.test.tsx
  */
-import { describe, it, expect, beforeEach, vi, afterEach } from "vitest";
+import type { AbstractAgent, RunAgentInput } from "@ag-ui/client";
+import { describe, it, expect, vi, afterEach } from "vitest";
 import { CopilotKitCore } from "../core";
 import {
   MockAgent,
@@ -23,20 +24,63 @@ import {
   createToolCallMessage,
 } from "./test-utils";
 
+/** Yield one macrotask, the way a framework scheduler defers its updates. */
+function yieldToScheduler() {
+  return new Promise<void>((resolve) => setTimeout(resolve, 0));
+}
+
 /**
- * Subclass that simulates the React adapter's behavior:
- * waitForPendingFrameworkUpdates flushes pending framework state so that
- * deferred context updates can complete before the follow-up agent run.
- *
- * In production, CopilotKitCoreReact calls flushSync() which forces React to
- * commit pending state synchronously, causing useLayoutEffect (useAgentContext)
- * to run immediately. Here we simulate the same net effect with setTimeout(0)
- * to keep this test dependency-free from React and react-dom.
+ * Subclass that simulates an adapter that overrides
+ * waitForPendingFrameworkUpdates, so deferred context updates can complete
+ * before the follow-up agent run.
  */
 class CopilotKitCoreWithFrameworkFlush extends CopilotKitCore {
   async waitForPendingFrameworkUpdates(): Promise<void> {
-    await new Promise<void>((resolve) => setTimeout(resolve, 0));
+    await yieldToScheduler();
   }
+}
+
+/**
+ * Run an agent whose first turn calls a tool. The tool handler changes the
+ * context one macrotask later (like React's deferred effects). Returns the
+ * context values the follow-up run received.
+ */
+async function followUpContextAfterDeferredUpdate(core: CopilotKitCore) {
+  const initialId = core.addContext({
+    description: "prefs",
+    value: '{"spicy":true}',
+  });
+  core.addTool({
+    name: "updatePrefs",
+    followUp: true,
+    handler: async () => {
+      setTimeout(() => {
+        core.removeContext(initialId);
+        core.addContext({ description: "prefs", value: '{"spicy":false}' });
+      }, 0);
+      return "updated";
+    },
+  });
+
+  const followUpContextValues: string[] = [];
+  const agent = new MockAgent({
+    newMessages: [createToolCallMessage("updatePrefs")],
+    agentId: "test",
+  });
+  agent.runAgentCallback = (input: RunAgentInput) => {
+    if (agent.runAgentCalls.length !== 2) return;
+    followUpContextValues.push(...input.context.map((entry) => entry.value));
+    agent.setNewMessages([createAssistantMessage({ content: "Done" })]);
+  };
+  // MockAgent implements only the AbstractAgent surface core uses here; it is
+  // not a subclass, so it needs this one cast.
+  const asAgent = agent as unknown as AbstractAgent;
+  core.addAgent__unsafe_dev_only({ id: "test", agent: asAgent });
+
+  await core.runAgent({ agent: asAgent });
+
+  expect(agent.runAgentCalls).toHaveLength(2);
+  return followUpContextValues;
 }
 
 describe("Event-loop yield mechanism for follow-up context reads", () => {
@@ -45,111 +89,29 @@ describe("Event-loop yield mechanism for follow-up context reads", () => {
   });
 
   it("follow-up run reads stale context when no yield is present", async () => {
-    // Use plain CopilotKitCore — no framework flush (base no-op)
-    const core = new CopilotKitCore({});
+    const values = await followUpContextAfterDeferredUpdate(
+      new CopilotKitCore({}),
+    );
 
-    const initialId = core.addContext({
-      description: "prefs",
-      value: '{"spicy":true}',
-    });
-
-    const followUpContextValues: string[] = [];
-
-    // Simulate a deferred context update (analogous to React's useEffect deferral):
-    // the tool handler schedules the context change via setTimeout(0) rather than
-    // applying it synchronously. In real React, setState() + useEffect produces
-    // the same deferral via the React scheduler.
-    const tool = {
-      name: "updatePrefs",
-      followUp: true,
-      handler: async () => {
-        // Deferred update via setTimeout(0), simulating React's useEffect deferral.
-        // In production the deferral comes from React's scheduler, not a manual
-        // setTimeout — see the React integration test for the real flow.
-        setTimeout(() => {
-          core.removeContext(initialId);
-          core.addContext({ description: "prefs", value: '{"spicy":false}' });
-        }, 0);
-        return "updated";
-      },
-    };
-    core.addTool(tool);
-
-    const followUpMessage = createAssistantMessage({ content: "Done" });
-    let callCount = 0;
-    const agent = new MockAgent({
-      newMessages: [createToolCallMessage("updatePrefs")],
-      agentId: "test",
-    });
-    core.addAgent__unsafe_dev_only({ id: "test", agent: agent as any });
-
-    agent.runAgentCallback = (input: any) => {
-      callCount++;
-      if (callCount === 2) {
-        // Capture context on the follow-up run
-        const values = (input.context ?? []).map((c: any) => c.value);
-        followUpContextValues.push(...values);
-        agent.setNewMessages([followUpMessage]);
-      }
-    };
-
-    await core.runAgent({ agent: agent as any });
-
-    expect(agent.runAgentCalls).toHaveLength(2);
-    // Without a yield, the deferred context update hasn't fired yet when
-    // runAgent is called, so the follow-up sees the old value.
-    expect(followUpContextValues).toContain('{"spicy":true}');
-    expect(followUpContextValues).not.toContain('{"spicy":false}');
+    expect(values).toEqual(['{"spicy":true}']);
   });
 
-  it("follow-up run sees fresh context when the framework flush yield is present", async () => {
-    // Use the subclass that yields before the follow-up (mirrors CopilotKitCoreReact)
-    const core = new CopilotKitCoreWithFrameworkFlush({});
+  it("follow-up run sees fresh context when a subclass overrides the wait", async () => {
+    const values = await followUpContextAfterDeferredUpdate(
+      new CopilotKitCoreWithFrameworkFlush({}),
+    );
 
-    const initialId = core.addContext({
-      description: "prefs",
-      value: '{"spicy":true}',
-    });
+    expect(values).toEqual(['{"spicy":false}']);
+  });
 
-    const followUpContextValues: string[] = [];
+  it("follow-up run sees fresh context when ɵwaitForFrameworkUpdates is passed", async () => {
+    const waitForFrameworkUpdates = vi.fn(yieldToScheduler);
 
-    const tool = {
-      name: "updatePrefs",
-      followUp: true,
-      handler: async () => {
-        // Same deferred context update as above
-        setTimeout(() => {
-          core.removeContext(initialId);
-          core.addContext({ description: "prefs", value: '{"spicy":false}' });
-        }, 0);
-        return "updated";
-      },
-    };
-    core.addTool(tool);
+    const values = await followUpContextAfterDeferredUpdate(
+      new CopilotKitCore({ ɵwaitForFrameworkUpdates: waitForFrameworkUpdates }),
+    );
 
-    const followUpMessage = createAssistantMessage({ content: "Done" });
-    let callCount = 0;
-    const agent = new MockAgent({
-      newMessages: [createToolCallMessage("updatePrefs")],
-      agentId: "test",
-    });
-    core.addAgent__unsafe_dev_only({ id: "test", agent: agent as any });
-
-    agent.runAgentCallback = (input: any) => {
-      callCount++;
-      if (callCount === 2) {
-        const values = (input.context ?? []).map((c: any) => c.value);
-        followUpContextValues.push(...values);
-        agent.setNewMessages([followUpMessage]);
-      }
-    };
-
-    await core.runAgent({ agent: agent as any });
-
-    expect(agent.runAgentCalls).toHaveLength(2);
-    // The yield (setTimeout(0)) lets the deferred context update fire before
-    // the follow-up run reads the context store, so the new value is visible.
-    expect(followUpContextValues).toContain('{"spicy":false}');
-    expect(followUpContextValues).not.toContain('{"spicy":true}');
+    expect(values).toEqual(['{"spicy":false}']);
+    expect(waitForFrameworkUpdates).toHaveBeenCalledTimes(1);
   });
 });

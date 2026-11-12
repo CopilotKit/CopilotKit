@@ -12,8 +12,7 @@ on:
   pull_request:
     paths:
       - "showcase/**"
-      - "examples/integrations/**"
-      - "packages/a2ui-renderer/**"
+      - "examples/starters/**"
       - "packages/angular/**"
       - "packages/core/**"
       - "packages/shared/**"
@@ -61,32 +60,31 @@ jobs:
             eval_webhook:
               - 'showcase/eval-webhook/**'
             starter_langgraph_python:
-              - 'examples/integrations/langgraph-python/**'
+              - 'examples/starters/langgraph-python/**'
             starter_mastra:
-              - 'examples/integrations/mastra/**'
+              - 'examples/starters/mastra/**'
             starter_langgraph_js:
-              - 'examples/integrations/langgraph-js/**'
+              - 'examples/starters/langgraph-js/**'
             starter_crewai_crews:
-              - 'examples/integrations/crewai-crews/**'
+              - 'examples/starters/crewai-crews/**'
             starter_pydantic_ai:
-              - 'examples/integrations/pydantic-ai/**'
+              - 'examples/starters/pydantic-ai/**'
             starter_adk:
-              - 'examples/integrations/adk/**'
+              - 'examples/starters/adk/**'
             starter_agno:
-              - 'examples/integrations/agno/**'
+              - 'examples/starters/agno/**'
             starter_llamaindex:
-              - 'examples/integrations/llamaindex/**'
+              - 'examples/starters/llamaindex/**'
             starter_langgraph_fastapi:
-              - 'examples/integrations/langgraph-fastapi/**'
+              - 'examples/starters/langgraph-fastapi/**'
             starter_strands_python:
-              - 'examples/integrations/strands-python/**'
+              - 'examples/starters/strands-python/**'
             starter_ms_agent_framework_python:
-              - 'examples/integrations/ms-agent-framework-python/**'
+              - 'examples/starters/ms-agent-framework-python/**'
             starter_ms_agent_framework_dotnet:
-              - 'examples/integrations/ms-agent-framework-dotnet/**'
+              - 'examples/starters/ms-agent-framework-dotnet/**'
             angular:
               - 'showcase/angular/**'
-              - 'packages/a2ui-renderer/**'
               - 'packages/angular/**'
               - 'packages/core/**'
               - 'packages/shared/**'
@@ -224,18 +222,18 @@ jobs:
             {"dispatch_name":"showcase-harness","filter_key":"showcase_harness","context":".","image":"showcase-harness","timeout":35,"build_args":"","dockerfile":"showcase/harness/Dockerfile"},
             {"dispatch_name":"showcase-aimock","filter_key":"showcase_aimock","context":"showcase/aimock","image":"showcase-aimock","timeout":10,"build_args":"","dockerfile":"showcase/aimock/Dockerfile"},
             {"dispatch_name":"webhooks","filter_key":"eval_webhook","context":"showcase/eval-webhook","image":"showcase-eval-webhook","timeout":15,"build_args":"","dockerfile":""},
-            {"dispatch_name":"starter-langgraph-python","filter_key":"starter_langgraph_python","context":"examples/integrations/langgraph-python","image":"starter-langgraph-python","timeout":35,"build_args":"","dockerfile":""},
-            {"dispatch_name":"starter-mastra","filter_key":"starter_mastra","context":"examples/integrations/mastra","image":"starter-mastra","timeout":35,"build_args":"","dockerfile":""},
-            {"dispatch_name":"starter-langgraph-js","filter_key":"starter_langgraph_js","context":"examples/integrations/langgraph-js","image":"starter-langgraph-js","timeout":35,"build_args":"","dockerfile":""},
-            {"dispatch_name":"starter-crewai-crews","filter_key":"starter_crewai_crews","context":"examples/integrations/crewai-crews","image":"starter-crewai-crews","timeout":35,"build_args":"","dockerfile":""},
-            {"dispatch_name":"starter-pydantic-ai","filter_key":"starter_pydantic_ai","context":"examples/integrations/pydantic-ai","image":"starter-pydantic-ai","timeout":35,"build_args":"","dockerfile":""},
-            {"dispatch_name":"starter-adk","filter_key":"starter_adk","context":"examples/integrations/adk","image":"starter-adk","timeout":35,"build_args":"","dockerfile":""},
-            {"dispatch_name":"starter-agno","filter_key":"starter_agno","context":"examples/integrations/agno","image":"starter-agno","timeout":35,"build_args":"","dockerfile":""},
-            {"dispatch_name":"starter-llamaindex","filter_key":"starter_llamaindex","context":"examples/integrations/llamaindex","image":"starter-llamaindex","timeout":35,"build_args":"","dockerfile":""},
-            {"dispatch_name":"starter-langgraph-fastapi","filter_key":"starter_langgraph_fastapi","context":"examples/integrations/langgraph-fastapi","image":"starter-langgraph-fastapi","timeout":35,"build_args":"","dockerfile":""},
-            {"dispatch_name":"starter-strands-python","filter_key":"starter_strands_python","context":"examples/integrations/strands-python","image":"starter-strands-python","timeout":35,"build_args":"","dockerfile":""},
-            {"dispatch_name":"starter-ms-agent-framework-python","filter_key":"starter_ms_agent_framework_python","context":"examples/integrations/ms-agent-framework-python","image":"starter-ms-agent-framework-python","timeout":35,"build_args":"","dockerfile":""},
-            {"dispatch_name":"starter-ms-agent-framework-dotnet","filter_key":"starter_ms_agent_framework_dotnet","context":"examples/integrations/ms-agent-framework-dotnet","image":"starter-ms-agent-framework-dotnet","timeout":35,"build_args":"","dockerfile":""}
+            {"dispatch_name":"starter-langgraph-python","filter_key":"starter_langgraph_python","context":"examples/starters/langgraph-python","image":"starter-langgraph-python","timeout":35,"build_args":"","dockerfile":""},
+            {"dispatch_name":"starter-mastra","filter_key":"starter_mastra","context":"examples/starters/mastra","image":"starter-mastra","timeout":35,"build_args":"","dockerfile":""},
+            {"dispatch_name":"starter-langgraph-js","filter_key":"starter_langgraph_js","context":"examples/starters/langgraph-js","image":"starter-langgraph-js","timeout":35,"build_args":"","dockerfile":""},
+            {"dispatch_name":"starter-crewai-crews","filter_key":"starter_crewai_crews","context":"examples/starters/crewai-crews","image":"starter-crewai-crews","timeout":35,"build_args":"","dockerfile":""},
+            {"dispatch_name":"starter-pydantic-ai","filter_key":"starter_pydantic_ai","context":"examples/starters/pydantic-ai","image":"starter-pydantic-ai","timeout":35,"build_args":"","dockerfile":""},
+            {"dispatch_name":"starter-adk","filter_key":"starter_adk","context":"examples/starters/adk","image":"starter-adk","timeout":35,"build_args":"","dockerfile":""},
+            {"dispatch_name":"starter-agno","filter_key":"starter_agno","context":"examples/starters/agno","image":"starter-agno","timeout":35,"build_args":"","dockerfile":""},
+            {"dispatch_name":"starter-llamaindex","filter_key":"starter_llamaindex","context":"examples/starters/llamaindex","image":"starter-llamaindex","timeout":35,"build_args":"","dockerfile":""},
+            {"dispatch_name":"starter-langgraph-fastapi","filter_key":"starter_langgraph_fastapi","context":"examples/starters/langgraph-fastapi","image":"starter-langgraph-fastapi","timeout":35,"build_args":"","dockerfile":""},
+            {"dispatch_name":"starter-strands-python","filter_key":"starter_strands_python","context":"examples/starters/strands-python","image":"starter-strands-python","timeout":35,"build_args":"","dockerfile":""},
+            {"dispatch_name":"starter-ms-agent-framework-python","filter_key":"starter_ms_agent_framework_python","context":"examples/starters/ms-agent-framework-python","image":"starter-ms-agent-framework-python","timeout":35,"build_args":"","dockerfile":""},
+            {"dispatch_name":"starter-ms-agent-framework-dotnet","filter_key":"starter_ms_agent_framework_dotnet","context":"examples/starters/ms-agent-framework-dotnet","image":"starter-ms-agent-framework-dotnet","timeout":35,"build_args":"","dockerfile":""}
           ]'
 
           CHANGES="${FILTER_CHANGES:-[]}"

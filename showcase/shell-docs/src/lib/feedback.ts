@@ -1,10 +1,10 @@
 "use server";
 
 import { z } from "zod";
-import {
-  pageFeedback,
-  type ActionResponse,
-  type PageFeedback,
+import { pageFeedback } from "@/components/feedback/schema";
+import type {
+  ActionResponse,
+  PageFeedback,
 } from "@/components/feedback/schema";
 
 /**

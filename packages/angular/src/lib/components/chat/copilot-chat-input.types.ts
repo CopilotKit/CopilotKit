@@ -1,4 +1,5 @@
 import type { Type, TemplateRef } from "@angular/core";
+import type { ɵAudioRecorderState } from "@copilotkit/core";
 
 /**
  * Mode of the chat input component
@@ -24,17 +25,12 @@ export type ToolsMenuItem = {
 /**
  * Audio recorder state
  */
-export type AudioRecorderState = "idle" | "recording" | "processing";
+export type AudioRecorderState = ɵAudioRecorderState;
 
 /**
  * Error class for audio recorder failures
  */
-export class AudioRecorderError extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = "AudioRecorderError";
-  }
-}
+export { ɵAudioRecorderError as AudioRecorderError } from "@copilotkit/core";
 
 /**
  * Props for textarea component

@@ -2,8 +2,8 @@
 
 Baseline: `showcase/integrations/langgraph-python/`.
 
-Google Antigravity now has an `examples/integrations/` Dojo counterpart:
-`examples/integrations/antigravity` (the CLI starter, framework id
+Google Antigravity now has an `examples/starters/` Dojo counterpart:
+`examples/starters/antigravity` (the CLI starter, framework id
 `antigravity`), added 2026-09-10. The showcase package still pins the same
 adapter commit as the starter. It is unusual among the Python integrations:
 instead of a graph or agent framework you author per-demo logic in, it drives
@@ -387,7 +387,7 @@ The `cli-start` demo's `command` now names the real CLI framework id
 slug. The CLI catalog entry itself is not done yet — it lives in the
 Intelligence repo, not this one — so the quickstart's Callout still tells
 readers to clone the CopilotKit repository and copy
-`examples/integrations/antigravity` until that entry ships.
+`examples/starters/antigravity` until that entry ships.
 
 What is deliberately absent: no setup snippet for state streaming, the one
 concept this adapter can't support (`state-streaming-setup.mdx` says so and

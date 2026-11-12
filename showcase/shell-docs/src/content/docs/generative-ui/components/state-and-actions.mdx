@@ -20,7 +20,13 @@ The agent does not know how many items are in the cart, and it must not guess. D
 
 <Tabs groupId="frontend_framework" items={["React", "Angular", "React Native", "Vue"]} persist>
   <Tab value="React">
-    ```tsx title="app/catalog.tsx"
+    ```tsx title="app/catalog.tsx" group=cart-state
+    import { z } from "zod";
+    import {
+      createGenerativeUI,
+      type GenerativeUIComponentProps,
+    } from "@copilotkit/react-core/generative-ui";
+
     const cartSchema = z.object({
       items: z.array(z.object({ productId: z.string(), quantity: z.number() })),
     });
@@ -39,10 +45,23 @@ The agent does not know how many items are in the cart, and it must not guess. D
         },
       },
     });
+
+    function ProductCard({ name, inCart }: GenerativeUIComponentProps<typeof shopUI, "ProductCard">) {
+      return (
+        <article>
+          <h4>{name}</h4>
+          <p>{inCart} in your cart</p>
+        </article>
+      );
+    }
     ```
   </Tab>
   <Tab value="Angular">
     ```ts title="src/app/shop-ui.ts"
+    import { z } from "zod";
+    import { createGenerativeUI } from "@copilotkit/angular/generative-ui";
+    import { ProductCard } from "./product-card";
+
     const cartSchema = z.object({
       items: z.array(z.object({ productId: z.string(), quantity: z.number() })),
     });
@@ -66,7 +85,11 @@ The agent does not know how many items are in the cart, and it must not guess. D
     The component reads the bound prop as a normal input: `readonly inCart = input.required<number>()`.
   </Tab>
   <Tab value="React Native">
-    ```tsx title="src/shopUI.tsx"
+    ```tsx title="src/shopUI.tsx" group=rn-cart-state
+    import { z } from "zod";
+    import { createGenerativeUI } from "@copilotkit/react-native/generative-ui";
+    import { ProductCard } from "./ProductCard";
+
     const cartSchema = z.object({
       items: z.array(z.object({ productId: z.string(), quantity: z.number() })),
     });
@@ -89,6 +112,10 @@ The agent does not know how many items are in the cart, and it must not guess. D
   </Tab>
   <Tab value="Vue">
     ```ts title="src/shop-ui.ts"
+    import { z } from "zod";
+    import { createGenerativeUI } from "@copilotkit/vue/v2/generative-ui";
+    import ProductCard from "./components/ProductCard.vue";
+
     const cartSchema = z.object({
       items: z.array(z.object({ productId: z.string(), quantity: z.number() })),
     });
@@ -117,10 +144,10 @@ Then give the state its value from your app:
 
 <Tabs groupId="frontend_framework" items={["React", "Angular", "React Native", "Vue"]} persist>
   <Tab value="React">
-    ```tsx
-    import { useGenerativeUIState } from "@copilotkit/react-core/v2/generative-ui";
+    ```tsx group=cart-state
+    import { useGenerativeUIState } from "@copilotkit/react-core/generative-ui";
 
-    function CartState({ cart }: { cart: Cart }) {
+    export function CartState({ cart }: { cart: z.infer<typeof cartSchema> }) {
       useGenerativeUIState(shopUI, "cart", { items: cart.items });
       return null;
     }
@@ -129,13 +156,14 @@ Then give the state its value from your app:
   <Tab value="Angular">
     `connectGenerativeUIState` takes a signal or a function, keeps the key current, and removes it when the injection context is destroyed:
 
-    ```ts
+    {/* kiira: ignore, imports the reader's own Angular files and components, which kiira cannot see */}
+    ```ts ignore
     import { Component, inject } from "@angular/core";
     import { connectGenerativeUIState } from "@copilotkit/angular/generative-ui";
     import { CartStore } from "./cart.store";
     import { shopUI } from "./shop-ui";
 
-    @Component({ /* ... */ })
+    @Component({ selector: "app-cart-state", template: "" })
     export class CartState {
       readonly #cart = inject(CartStore);
 
@@ -146,8 +174,9 @@ Then give the state its value from your app:
     ```
   </Tab>
   <Tab value="React Native">
-    ```tsx
+    ```tsx group=rn-cart-state
     import { useGenerativeUIState } from "@copilotkit/react-native/generative-ui";
+    import type { Cart } from "./cart";
 
     function CartState({ cart }: { cart: Cart }) {
       useGenerativeUIState(shopUI, "cart", { items: cart.items });
@@ -185,7 +214,13 @@ The agent does not see the state either. To let it answer "what is in my cart?",
 
 <Tabs groupId="frontend_framework" items={["React", "Angular", "React Native", "Vue"]} persist>
   <Tab value="React">
-    ```tsx title="app/catalog.tsx"
+    ```tsx title="app/catalog.tsx" group=add-to-cart
+    import { z } from "zod";
+    import {
+      createGenerativeUI,
+      type GenerativeUIComponentProps,
+    } from "@copilotkit/react-core/generative-ui";
+
     export const shopUI = createGenerativeUI({
       id: "acme/shop@1",
       functions: {
@@ -204,10 +239,12 @@ The agent does not see the state either. To let it answer "what is in my cart?",
     });
     ```
 
-    ```tsx
-    import { useGenerativeUIFunction } from "@copilotkit/react-core/v2/generative-ui";
+    ```tsx group=add-to-cart
+    import { useGenerativeUIFunction } from "@copilotkit/react-core/generative-ui";
+    import { useCart } from "./cart";
 
-    function CartActions({ cart }: { cart: Cart }) {
+    export function CartActions() {
+      const cart = useCart();
       useGenerativeUIFunction(shopUI, "addToCart", ({ productId, quantity }) => {
         cart.addItem(productId, quantity);
         return { added: productId };
@@ -218,6 +255,10 @@ The agent does not see the state either. To let it answer "what is in my cart?",
   </Tab>
   <Tab value="Angular">
     ```ts title="src/app/shop-ui.ts"
+    import { z } from "zod";
+    import { createGenerativeUI } from "@copilotkit/angular/generative-ui";
+    import { ProductCard } from "./product-card";
+
     export const shopUI = createGenerativeUI({
       id: "acme/shop@1",
       functions: {
@@ -238,13 +279,14 @@ The agent does not see the state either. To let it answer "what is in my cart?",
 
     `registerGenerativeUIFunction` mounts the handler for as long as the injection context lives:
 
-    ```ts
+    {/* kiira: ignore, imports the reader's own Angular files and components, which kiira cannot see */}
+    ```ts ignore
     import { Component, inject } from "@angular/core";
     import { registerGenerativeUIFunction } from "@copilotkit/angular/generative-ui";
     import { CartStore } from "./cart.store";
     import { shopUI } from "./shop-ui";
 
-    @Component({ /* ... */ })
+    @Component({ selector: "app-cart-actions", template: "" })
     export class CartActions {
       readonly #cart = inject(CartStore);
 
@@ -258,7 +300,10 @@ The agent does not see the state either. To let it answer "what is in my cart?",
     ```
   </Tab>
   <Tab value="React Native">
-    ```tsx title="src/shopUI.tsx"
+    ```tsx title="src/shopUI.tsx" group=rn-add-to-cart
+    import { z } from "zod";
+    import { createGenerativeUI } from "@copilotkit/react-native/generative-ui";
+
     export const shopUI = createGenerativeUI({
       id: "acme/shop@1",
       functions: {
@@ -277,8 +322,9 @@ The agent does not see the state either. To let it answer "what is in my cart?",
     });
     ```
 
-    ```tsx
+    ```tsx group=rn-add-to-cart
     import { useGenerativeUIFunction } from "@copilotkit/react-native/generative-ui";
+    import type { Cart } from "./cart";
 
     function CartActions({ cart }: { cart: Cart }) {
       useGenerativeUIFunction(shopUI, "addToCart", ({ productId, quantity }) => {
@@ -291,6 +337,10 @@ The agent does not see the state either. To let it answer "what is in my cart?",
   </Tab>
   <Tab value="Vue">
     ```ts title="src/shop-ui.ts"
+    import { z } from "zod";
+    import { createGenerativeUI } from "@copilotkit/vue/v2/generative-ui";
+    import ProductCard from "./components/ProductCard.vue";
+
     export const shopUI = createGenerativeUI({
       id: "acme/shop@1",
       functions: {
@@ -331,9 +381,8 @@ In the component, the event is a typed prop, or a typed function input in Angula
 
 <Tabs groupId="frontend_framework" items={["React", "Angular", "React Native", "Vue"]} persist>
   <Tab value="React">
-    ```tsx
+    ```tsx group=add-to-cart
     import { useState } from "react";
-    import type { GenerativeUIComponentProps } from "@copilotkit/react-core/v2/generative-ui";
 
     function ProductCard({ productId, name, onAddToCart }: GenerativeUIComponentProps<typeof shopUI, "ProductCard">) {
       const [error, setError] = useState<string>();
@@ -357,7 +406,8 @@ In the component, the event is a typed prop, or a typed function input in Angula
   <Tab value="Angular">
     The input holds a function only while the event is bound, so `@if` on it shows the button only then:
 
-    ```ts
+    {/* kiira: ignore, imports the reader's own `./shop-ui`; kiira resolves an import by name to the last fence above that exports it, which here is the catalog of another framework's tab */}
+    ```ts ignore
     import { Component, input, signal } from "@angular/core";
     import type { GenerativeUIEventHandler } from "@copilotkit/angular/generative-ui";
     import { shopUI } from "./shop-ui";
@@ -390,7 +440,7 @@ In the component, the event is a typed prop, or a typed function input in Angula
     ```
   </Tab>
   <Tab value="React Native">
-    ```tsx
+    ```tsx group=rn-add-to-cart
     import { useState } from "react";
     import { Pressable, Text, View } from "react-native";
     import type { GenerativeUIComponentProps } from "@copilotkit/react-native/generative-ui";
@@ -457,13 +507,32 @@ Only your UI can call a function. In this version, the agent cannot call it. To 
 
 Some clicks need the agent. For example, "Show me the Team plan" needs a new answer. An event that matches no function does that. Give it `parameters`:
 
-```ts
-events: {
-  onChoose: {
-    description: "The user picked a plan",
-    parameters: z.object({ plan: z.string() }),
+```tsx
+import { z } from "zod";
+import {
+  createGenerativeUI,
+  type GenerativeUIComponentProps,
+} from "@copilotkit/react-core/generative-ui";
+
+function PlanCard({ plan, onChoose }: GenerativeUIComponentProps<typeof plansUI, "PlanCard">) {
+  return <button onClick={() => onChoose?.({ plan })}>Choose {plan}</button>;
+}
+
+export const plansUI = createGenerativeUI({
+  id: "acme/plans@1",
+  components: {
+    PlanCard: {
+      component: PlanCard,
+      props: z.object({ plan: z.string() }),
+      events: {
+        onChoose: {
+          description: "The user picked a plan",
+          parameters: z.object({ plan: z.string() }),
+        },
+      },
+    },
   },
-},
+});
 ```
 
 When the user clicks, the click becomes a visible user message, and the agent answers it. The agent can also choose the text of that message (its `userMessage`), for example "Show me the Team plan".
@@ -506,17 +575,28 @@ A2UI 1.0 has no arithmetic, so CopilotKit adds two catalog functions. `calc` eva
 
 A checkout form that the agent filled in must keep the user's edits. List the props that the component can change in `writable`. Each one gets a setter, a two-way `model()` input in Angular, or a `v-model` in Vue:
 
-```tsx
-CheckoutForm: {
-  component: CheckoutForm,
-  props: z.object({ email: z.string().optional() }),
-  writable: ["email"],
-},
+```tsx title="app/catalog.tsx" group=checkout-form
+import { z } from "zod";
+import {
+  createGenerativeUI,
+  type GenerativeUIComponentProps,
+} from "@copilotkit/react-core/generative-ui";
+
+export const shopUI = createGenerativeUI({
+  id: "acme/shop@1",
+  components: {
+    CheckoutForm: {
+      component: CheckoutForm,
+      props: z.object({ email: z.string().optional() }),
+      writable: ["email"],
+    },
+  },
+});
 ```
 
 <Tabs groupId="frontend_framework" items={["React", "Angular", "React Native", "Vue"]} persist>
   <Tab value="React">
-    ```tsx
+    ```tsx group=checkout-form
     function CheckoutForm({ email, setEmail }: GenerativeUIComponentProps<typeof shopUI, "CheckoutForm">) {
       return <input value={email ?? ""} onChange={(event) => setEmail(event.target.value)} />;
     }
@@ -539,6 +619,7 @@ CheckoutForm: {
     ```tsx
     import { TextInput } from "react-native";
     import type { GenerativeUIComponentProps } from "@copilotkit/react-native/generative-ui";
+    import { shopUI } from "./shopUI";
 
     function CheckoutForm({ email, setEmail }: GenerativeUIComponentProps<typeof shopUI, "CheckoutForm">) {
       return <TextInput value={email ?? ""} onChangeText={setEmail} keyboardType="email-address" />;

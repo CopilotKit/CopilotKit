@@ -1,9 +1,15 @@
 import { computed, ref, toValue, watch } from "vue";
 import type { MaybeRefOrGetter, Ref } from "vue";
-import type { Suggestion } from "@copilotkit/core";
+import {
+  ɵresolveAgentId,
+  ɵsubscribeToAgentSuggestions,
+} from "@copilotkit/core";
+import type {
+  CopilotKitCoreGetSuggestionsResult,
+  Suggestion,
+} from "@copilotkit/core";
 import { useCopilotKit } from "../providers/useCopilotKit";
 import { useCopilotChatConfiguration } from "../providers/useCopilotChatConfiguration";
-import { DEFAULT_AGENT_ID } from "@copilotkit/shared";
 
 export interface UseSuggestionsOptions {
   agentId?: MaybeRefOrGetter<string | undefined>;
@@ -34,50 +40,25 @@ export function useSuggestions(
 ): UseSuggestionsResult {
   const { copilotkit } = useCopilotKit();
   const config = useCopilotChatConfiguration();
-  const resolvedAgentId = computed(
-    () => toValue(options.agentId) ?? config.value?.agentId ?? DEFAULT_AGENT_ID,
+  const resolvedAgentId = computed(() =>
+    ɵresolveAgentId({
+      agentId: toValue(options.agentId),
+      chatAgentId: config.value?.agentId,
+    }),
   );
 
   const suggestions = ref<Suggestion[]>([]);
   const isLoading = ref(false);
-
-  const initState = () => {
-    const result = copilotkit.value.getSuggestions(resolvedAgentId.value);
+  const apply = (result: CopilotKitCoreGetSuggestionsResult) => {
     suggestions.value = result.suggestions;
     isLoading.value = result.isLoading;
   };
 
-  watch([() => copilotkit.value, resolvedAgentId], () => initState(), {
-    immediate: true,
-  });
-
   watch(
     [() => copilotkit.value, resolvedAgentId],
-    (_newValues, _old, onCleanup) => {
-      const core = copilotkit.value;
-      const agentId = resolvedAgentId.value;
-      const sub = core.subscribe({
-        onSuggestionsChanged: ({ agentId: changedAgentId, suggestions: s }) => {
-          if (changedAgentId !== agentId) return;
-          suggestions.value = s;
-          const result = core.getSuggestions(agentId);
-          isLoading.value = result.isLoading;
-        },
-        onSuggestionsStartedLoading: ({ agentId: changedAgentId }) => {
-          if (changedAgentId !== agentId) return;
-          isLoading.value = true;
-        },
-        onSuggestionsFinishedLoading: ({ agentId: changedAgentId }) => {
-          if (changedAgentId !== agentId) return;
-          isLoading.value = false;
-        },
-        onSuggestionsConfigChanged: () => {
-          const result = core.getSuggestions(agentId);
-          suggestions.value = result.suggestions;
-          isLoading.value = result.isLoading;
-        },
-      });
-      onCleanup(() => sub.unsubscribe());
+    ([core, agentId], _old, onCleanup) => {
+      apply(core.getSuggestions(agentId));
+      onCleanup(ɵsubscribeToAgentSuggestions(core, agentId, apply));
     },
     { immediate: true },
   );

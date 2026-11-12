@@ -187,3 +187,161 @@ export function onInspectorViewThreadResult(
 ): () => void {
   return on("view-thread-result", handler);
 }
+
+type InspectorThreadOverrideState = {
+  requestId: string;
+  threadId: string;
+  agentId: string;
+  previousThreadId: string;
+};
+
+/** The thread a chat shows because the Inspector asked to view it. */
+export type ɵInspectorThreadOverrideSnapshot = {
+  threadId: string;
+  requestId: string;
+} | null;
+
+/** The chat inputs an {@link ɵInspectorThreadOverride} compares against. */
+export type ɵInspectorThreadOverrideInput = {
+  /** The agent the chat renders. Only matching "view thread" requests apply. */
+  agentId: string;
+  /** The thread the chat shows when the Inspector does not override it. */
+  baseThreadId: string;
+};
+
+/**
+ * The "view this thread" override a chat applies when the Inspector asks it
+ * to show another thread.
+ *
+ * - A matching view request is claimed, answered with `ok: true`, and the
+ *   override replaces the chat's thread. The thread the chat showed before is
+ *   kept, so stopping restores it.
+ * - The override ends (and the Inspector hears the restored thread) when the
+ *   Inspector stops viewing, the chat's agent changes, the chat's own thread
+ *   changes to something else, or the connect fails ({@link fail}).
+ *
+ * Listening to the Inspector starts with the first `subscribe()` and stops
+ * when the last subscriber leaves, so a React StrictMode double mount does
+ * not leave a listener behind. Development-only, like the bridge.
+ */
+export class ɵInspectorThreadOverride {
+  #input: ɵInspectorThreadOverrideInput;
+  #override: InspectorThreadOverrideState | null = null;
+  #snapshot: ɵInspectorThreadOverrideSnapshot = null;
+  readonly #listeners = new Set<() => void>();
+  #disconnect: (() => void) | null = null;
+
+  constructor(input: ɵInspectorThreadOverrideInput) {
+    this.#input = input;
+  }
+
+  /** The current override, or `null`. Same object until it changes. */
+  getSnapshot = () => this.#snapshot;
+
+  /** Listen for override changes. Returns unsubscribe. */
+  subscribe = (listener: () => void) => {
+    this.#listeners.add(listener);
+    if (this.#listeners.size === 1) this.#connect();
+    return () => {
+      this.#listeners.delete(listener);
+      if (this.#listeners.size === 0) this.#disconnectBridge();
+    };
+  };
+
+  /** Give the chat's current agent and thread; ends a stale override. */
+  update(input: ɵInspectorThreadOverrideInput) {
+    this.#input = input;
+    this.#restoreIfStale();
+  }
+
+  /**
+   * Report that connecting to the overriding thread failed: the Inspector
+   * gets `ok: false` with `connect-failed`, and the previous thread returns.
+   * Ignored when `requestId` is not the current override.
+   */
+  fail = (requestId: string) => {
+    const current = this.#override;
+    if (!current || current.requestId !== requestId) return;
+    emitInspectorViewThreadResult({
+      requestId,
+      threadId: current.threadId,
+      agentId: current.agentId,
+      ok: false,
+      reason: "connect-failed",
+    });
+    this.#restore(current, current.previousThreadId);
+  };
+
+  dispose() {
+    this.#disconnectBridge();
+    this.#listeners.clear();
+  }
+
+  #connect() {
+    if (!isInspectorThreadBridgeEnabled()) return;
+    const offView = onInspectorViewThread((payload) => {
+      if (payload.agentId !== this.#input.agentId) return false;
+      this.#setOverride(
+        this.#override
+          ? { ...this.#override, ...payload }
+          : { ...payload, previousThreadId: this.#input.baseThreadId },
+      );
+      emitInspectorViewThreadResult({ ...payload, ok: true });
+      emitInspectorActiveThread({ ...payload, source: "override" });
+      this.#restoreIfStale();
+      return true;
+    });
+    const offStop = onInspectorStopViewing((payload) => {
+      const current = this.#override;
+      if (!current) return;
+      const isCurrentRequest =
+        payload.requestId === current.requestId &&
+        payload.agentId === current.agentId;
+      if (!isCurrentRequest) return;
+      this.#restore(current, current.previousThreadId);
+    });
+    this.#disconnect = () => {
+      offView();
+      offStop();
+    };
+  }
+
+  #disconnectBridge() {
+    this.#disconnect?.();
+    this.#disconnect = null;
+  }
+
+  #restoreIfStale() {
+    const current = this.#override;
+    if (!current) return;
+    const { agentId, baseThreadId } = this.#input;
+    if (agentId !== current.agentId) {
+      this.#restore(current, current.previousThreadId);
+      return;
+    }
+    const isBaseUnchanged =
+      baseThreadId === current.previousThreadId ||
+      baseThreadId === current.threadId;
+    if (isBaseUnchanged) return;
+    this.#restore(current, baseThreadId);
+  }
+
+  #restore(current: InspectorThreadOverrideState, nextThreadId: string) {
+    this.#setOverride(null);
+    emitInspectorActiveThread({
+      requestId: current.requestId,
+      threadId: nextThreadId,
+      agentId: current.agentId,
+      source: "app",
+    });
+  }
+
+  #setOverride(next: InspectorThreadOverrideState | null) {
+    this.#override = next;
+    this.#snapshot = next
+      ? { threadId: next.threadId, requestId: next.requestId }
+      : null;
+    const listeners = [...this.#listeners];
+    for (const listener of listeners) listener();
+  }
+}

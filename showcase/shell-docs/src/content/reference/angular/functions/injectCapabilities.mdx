@@ -16,9 +16,9 @@ import { injectCapabilities } from "@copilotkit/angular";
 import type { Signal } from "@angular/core";
 import type { AgentCapabilities } from "@ag-ui/core";
 
-function injectCapabilities(
+injectCapabilities satisfies (
   agentId?: string | Signal<string | undefined>,
-): Signal<AgentCapabilities | undefined>;
+) => Signal<AgentCapabilities | undefined>;
 ```
 
 ## Parameters

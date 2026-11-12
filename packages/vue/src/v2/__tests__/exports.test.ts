@@ -11,6 +11,7 @@ describe("package exports", () => {
     expect(typeof VuePackage.CopilotChat.View).toBe("object");
     expect(typeof VuePackage.CopilotChatMessageView).toBe("object");
     expect(typeof VuePackage.CopilotChatToolCallsView).toBe("object");
+    expect(typeof VuePackage.CopilotChatToolCallGroup).toBe("object");
     expect(typeof VuePackage.CopilotChatInput).toBe("object");
     expect(typeof VuePackage.CopilotChatAssistantMessage).toBe("object");
     expect(typeof VuePackage.CopilotChatUserMessage).toBe("object");
@@ -24,23 +25,38 @@ describe("package exports", () => {
     expect(typeof VuePackage.CopilotSidebar).toBe("object");
     expect(VuePackage.MCPAppsActivityType).toBe("mcp-apps");
     expect(typeof VuePackage.MCPAppsActivityRenderer).toBe("object");
-    expect(VuePackage.A2UISurfaceActivityType).toBe("a2ui-surface");
-    expect(typeof VuePackage.A2UISurfaceActivityRenderer).toBe("object");
+    // Standard Schemas since 2.0 (see the generative UI migration guide).
+    expect(VuePackage.OpenGenerativeUIContentSchema["~standard"].vendor).toBe(
+      "copilotkit",
+    );
+    expect(VuePackage.GenerateSandboxedUiArgsSchema["~standard"].vendor).toBe(
+      "copilotkit",
+    );
   });
 
-  it("exports the default A2UI catalog for the catalog-on-provider path", () => {
-    // Users pass this to `a2ui.catalog` to enable A2UI from the provider.
-    // Guards against the library build tree-shaking the re-export away.
-    expect(VuePackage.vueBasicCatalog).toBeDefined();
-    expect(VuePackage.vueBasicCatalog.components.size).toBeGreaterThan(0);
+  it("no longer exports the A2UI v0.9 renderer, since 2.0", () => {
+    // Generative UI (`/v2/generative-ui`) is the only A2UI path now.
+    for (const name of [
+      "A2UISurfaceActivityRenderer",
+      "A2UISurfaceActivityType",
+      "A2UIActivityContentSchema",
+      "createA2UIMessageRenderer",
+      "getOperationSurfaceId",
+      "vueBasicCatalog",
+      "A2uiSurface",
+      "createVueComponent",
+    ]) {
+      expect(VuePackage).not.toHaveProperty(name);
+    }
   });
 
-  it("exports the vue stylesheet entrypoint", () => {
+  it("exports CopilotKitStyles and no stylesheet, since the CSS is injected", () => {
     const packageJson = JSON.parse(readFileSync("package.json", "utf8")) as {
       exports?: Record<string, unknown>;
     };
 
-    expect(packageJson.exports?.["./styles.css"]).toBe("./dist/styles.css");
+    expect(typeof VuePackage.CopilotKitStyles).toBe("object");
+    expect(packageJson.exports?.["./styles.css"]).toBeUndefined();
   });
 });
 

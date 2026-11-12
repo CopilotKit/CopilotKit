@@ -6,7 +6,6 @@ icon: "lucide/Rocket"
 
 import OpenInspectorStep from "@/snippets/shared/inspector/open-inspector-step.mdx";
 
-
 ## Start with your coding agent
 
 Use this prompt to connect your Deep Agents agent to CopilotKit and verify a working conversation. Your coding agent will follow this guide in your project, or you can work through the manual steps below.
@@ -18,7 +17,7 @@ Use this prompt to connect your Deep Agents agent to CopilotKit and verify a wor
 Before you begin, you'll need the following:
 
 - An OpenAI API key
-- Node.js 20+
+- Node.js 20.19.3+ or 22.13+
 - Your favorite package manager
 - A LangSmith API key, only if you deploy the agent to LangGraph Platform
 
@@ -66,10 +65,10 @@ Before you begin, you'll need the following:
                 ```
             </Tab>
             <Tab value="TypeScript">
-                Add the `deepagents`, `@langchain/langgraph`, `@copilotkit/sdk-js`, `@langchain/openai`, `langchain`, and `zod` packages. `@copilotkit/sdk-js` needs Zod 3:
+                Add the `deepagents`, `@langchain/langgraph`, `@copilotkit/sdk-js`, `@langchain/openai`, `langchain`, and `zod` packages. `@copilotkit/sdk-js` needs Zod 4.2 or later:
 
                 ```bash
-                npm install deepagents @langchain/langgraph @copilotkit/sdk-js @langchain/openai langchain zod@3
+                npm install deepagents @langchain/langgraph @copilotkit/sdk-js @langchain/openai langchain zod@^4.2.0
                 ```
             </Tab>
         </Tabs>
@@ -251,7 +250,7 @@ Before you begin, you'll need the following:
         ### Install CopilotKit packages
 
         ```npm
-        npm install @copilotkit/react-core @copilotkit/runtime @ag-ui/client@1.0.2
+        npm install @copilotkit/react-core @copilotkit/runtime @ag-ui/client@1.0.4
         ```
 
         The **FastAPI** route below imports `HttpAgent` from `@ag-ui/client`.
@@ -279,8 +278,8 @@ Before you begin, you'll need the following:
                   CopilotKitIntelligence,
                   CopilotRuntime,
                   createCopilotRuntimeHandler,
-                } from "@copilotkit/runtime/v2";
-                import { LangGraphAgent } from "@copilotkit/runtime/langgraph";
+                } from "@copilotkit/runtime";
+                import { LangGraphAgent } from "@ag-ui/langgraph";
 
                 const runtime = new CopilotRuntime({
                     agents: {
@@ -318,7 +317,7 @@ Before you begin, you'll need the following:
                   CopilotKitIntelligence,
                   CopilotRuntime,
                   createCopilotRuntimeHandler,
-                } from "@copilotkit/runtime/v2";
+                } from "@copilotkit/runtime";
                 import { HttpAgent } from "@ag-ui/client";
 
                 const runtime = new CopilotRuntime({
@@ -379,7 +378,7 @@ Before you begin, you'll need the following:
         ```tsx title="app/providers.tsx"
         "use client";
 
-        import { CopilotKitProvider } from "@copilotkit/react-core/v2";
+        import { CopilotKitProvider } from "@copilotkit/react-core";
 
         export function Providers({ children }: { children: React.ReactNode }) {
           return (
@@ -394,7 +393,6 @@ Before you begin, you'll need the following:
 
         ```tsx title="app/layout.tsx"
         import { Providers } from "./providers";
-        import "@copilotkit/react-core/v2/styles.css";
 
         // ...
 
@@ -427,8 +425,8 @@ Before you begin, you'll need the following:
         ```tsx title="app/page.tsx"
         "use client";
 
-        import { CopilotSidebar } from "@copilotkit/react-core/v2";
-        import { useDefaultRenderTool } from "@copilotkit/react-core/v2";
+        import { CopilotSidebar } from "@copilotkit/react-core";
+        import { useDefaultRenderTool } from "@copilotkit/react-core";
 
         export default function Page() {
             useDefaultRenderTool({

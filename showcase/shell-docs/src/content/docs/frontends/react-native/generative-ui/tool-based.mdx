@@ -112,13 +112,40 @@ The rendered `CopilotChat` and `CopilotModal` from `/components` draw registered
 
 In your own chat, call `useRenderToolCall()` and render each tool call in your list:
 
-```tsx
-import { useRenderToolCall } from "@copilotkit/react-native/headless";
+```tsx title="src/ToolCalls.tsx"
+import { View } from "react-native";
+import {
+  useRenderToolCall,
+  type AssistantMessageType,
+  type Message,
+  type ToolMessage,
+} from "@copilotkit/react-native/headless";
 
-const renderToolCall = useRenderToolCall();
+// Draws the tool calls of one assistant message in your own list.
+export function ToolCalls({
+  message,
+  messages,
+}: {
+  message: AssistantMessageType;
+  messages: Message[];
+}) {
+  const renderToolCall = useRenderToolCall();
 
-// For each tool call on an assistant message:
-renderToolCall({ toolCall, toolMessage });
+  return (
+    <View>
+      {(message.toolCalls ?? []).map((toolCall) => {
+        const toolMessage = messages.find(
+          (m): m is ToolMessage => m.role === "tool" && m.toolCallId === toolCall.id,
+        );
+        return (
+          <View key={toolCall.id}>
+            {renderToolCall({ toolCall, toolMessage })} {/* [!code highlight] */}
+          </View>
+        );
+      })}
+    </View>
+  );
+}
 ```
 
 `toolMessage` is the `tool`-role message whose `toolCallId` matches the call. It returns a React Native element, or `null` when nothing is registered for that tool. See [Headless UI](/custom-look-and-feel/headless-ui) for a full list.

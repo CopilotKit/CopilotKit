@@ -7,16 +7,20 @@ description: "Register a typed Angular renderer for AG-UI activity messages."
 activity type for the lifetime of the current injector.
 
 ```ts
-function registerRenderActivityMessage(
-  config: RenderActivityMessageConfig,
-): void;
+import type { Type } from "@angular/core";
+import {
+  registerRenderActivityMessage,
+  type ActivityRenderer,
+  type AngularActivityContentSchema,
+} from "@copilotkit/angular";
 
-interface RenderActivityMessageConfig<TContent = unknown> {
+// RenderActivityMessageConfig:
+registerRenderActivityMessage satisfies (config: {
   activityType: string;
   agentId?: string;
-  content: AngularActivityContentSchema<TContent>;
-  component: Type<ActivityRenderer<TContent>>;
-}
+  content: AngularActivityContentSchema<unknown>;
+  component: Type<ActivityRenderer<unknown>>;
+}) => void;
 ```
 
 ```ts
@@ -57,6 +61,6 @@ export class ActivityRegistration {
 - Call it in an injection context. On destroy, it removes the exact registration.
 - Content must pass `safeParse` before the component renders.
 - `agentId` scopes a renderer to one agent.
-- Application registrations take precedence over CopilotKit built-ins such as A2UI, Open Generative UI, and MCP Apps.
+- Application registrations take precedence over CopilotKit built-ins such as generative UI, Open Generative UI, and MCP Apps.
 - Make renderer components standalone and OnPush- or zoneless-compatible.
 - Renderer components must guard their own browser-only work for SSR and hydration.

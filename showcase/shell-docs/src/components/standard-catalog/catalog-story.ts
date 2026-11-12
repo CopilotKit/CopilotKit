@@ -1,6 +1,7 @@
 import type { TypeNode } from "@fumadocs/story/type-tree";
 import { standardUI } from "@copilotkit/react-core/v2/generative-ui";
-import { SAMPLES, sampleOperations, type CatalogSample } from "./catalog-data";
+import { SAMPLES, sampleOperations } from "./catalog-data";
+import type { CatalogSample } from "./catalog-data";
 import { catalogComponentSlug, catalogPartParent } from "./catalog-reference";
 
 /**

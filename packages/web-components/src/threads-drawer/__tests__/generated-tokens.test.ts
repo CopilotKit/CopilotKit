@@ -6,7 +6,7 @@
  * `generated-tokens.ts`. These tests assert (a) the generated file exposes the
  * tokens the shadow-DOM CSS depends on, and (b) the checked-in values still
  * match what the canonical theme currently declares — i.e. the generated file
- * has not drifted from `react-core/.../globals.css`.
+ * has not drifted from `core/src/styles/css/theme.css`.
  */
 import { readFileSync } from "node:fs";
 import path from "node:path";
@@ -24,7 +24,7 @@ const dirname = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(dirname, "../../../../../");
 const GLOBALS_CSS = path.join(
   repoRoot,
-  "packages/react-core/src/v2/styles/globals.css",
+  "packages/core/src/styles/css/theme.css",
 );
 
 /** Maps drawer token keys back to the react-core custom property they derive from. */
@@ -88,7 +88,7 @@ test("checked-in generated defaults have not drifted from react-core's canonical
     ).toBeDefined();
     expect(
       GENERATED_DRAWER_TOKEN_DEFAULTS[drawerKey as GeneratedDrawerTokenKey],
-      `drawer token "${drawerKey}" drifted from react-core --${reactCoreVar}; run "pnpm run gen:tokens"`,
+      `drawer token "${drawerKey}" drifted from core theme.css --${reactCoreVar}; run "pnpm run gen:tokens"`,
     ).toBe(canonicalValue);
   }
 });
@@ -118,4 +118,20 @@ test("extractLightThemeBlock throws on unbalanced braces rather than truncating"
   const css = "[data-copilotkit] {\n  --background: #fff;\n  { --orphan: 1;\n";
 
   expect(() => extractLightThemeBlock(css)).toThrow(/Unbalanced braces/);
+});
+
+test("extractLightThemeBlock reads a :where() block and skips rules shown in comments", () => {
+  const css = [
+    "/* Apps override [data-copilotkit] { --primary: red } in any layer. */",
+    ":where([data-copilotkit]) {",
+    "  --primary: #111;",
+    "}",
+    ":where(.dark [data-copilotkit], [data-copilotkit].dark) {",
+    "  --primary: #eee;",
+    "}",
+  ].join("\n");
+
+  expect(parseCustomProperties(extractLightThemeBlock(css))).toEqual(
+    new Map([["primary", "#111"]]),
+  );
 });

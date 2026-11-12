@@ -5,7 +5,7 @@ import type {
   GenerativeUIHost,
   GenerativeUINodeFallbackProps,
   GenerativeUISurfaceRootProps,
-} from "@copilotkit/react-core/v2/generative-ui/native";
+} from "@copilotkit/react-core/generative-ui/native";
 
 /**
  * A surface needs no box of its own on React Native: the catalog's

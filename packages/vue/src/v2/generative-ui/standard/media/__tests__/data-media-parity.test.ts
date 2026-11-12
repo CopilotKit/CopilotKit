@@ -8,7 +8,7 @@ import { ui } from "./helpers";
 // React renders with `standardUI`; this file uses the media components and a
 // test-only Column. The data cases (Table, List, Chart, Map) belong to the
 // data group.
-vi.mock("lucide-vue-next", () => import("./fake-lucide"));
+vi.mock("lucide", () => import("./fake-lucide"));
 
 const render = (components: A2UIComponentNode[]) =>
   renderSurface(ui, components);

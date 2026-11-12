@@ -137,6 +137,110 @@ withSuffixes(
   PERMANENT,
 );
 
+// --- next.config: retired v1 React and Runtime reference (2.0) ------------
+withSuffixes(
+  [
+    ["/reference/v1/export-map", "/migrate/v2"],
+    [
+      "/reference/v1/components/CopilotKit",
+      "/reference/v2/components/CopilotKit",
+    ],
+    ["/reference/v1/components/CopilotTextarea", "/migrate/v2"],
+    ["/reference/v1/components/chat", "/reference/v2/components/CopilotChat"],
+    [
+      "/reference/v1/components/chat/CopilotChat",
+      "/reference/v2/components/CopilotChat",
+    ],
+    [
+      "/reference/v1/components/chat/CopilotPopup",
+      "/reference/v2/components/CopilotPopup",
+    ],
+    [
+      "/reference/v1/components/chat/CopilotSidebar",
+      "/reference/v2/components/CopilotSidebar",
+    ],
+    ["/reference/v1/hooks/useAgent", "/reference/v2/hooks/useAgent"],
+    ["/reference/v1/hooks/useCoAgent", "/reference/v2/hooks/useAgent"],
+    [
+      "/reference/v1/hooks/useCoAgentStateRender",
+      "/reference/v2/hooks/useAgent",
+    ],
+    [
+      "/reference/v1/hooks/useCopilotAction",
+      "/reference/v2/hooks/useFrontendTool",
+    ],
+    [
+      "/reference/v1/hooks/useCopilotAdditionalInstructions",
+      "/reference/v2/hooks/useAgentContext",
+    ],
+    ["/reference/v1/hooks/useCopilotChat", "/reference/v2/hooks/useAgent"],
+    [
+      "/reference/v1/hooks/useCopilotChatHeadless_c",
+      "/reference/v2/hooks/useAgent",
+    ],
+    [
+      "/reference/v1/hooks/useCopilotChatSuggestions",
+      "/reference/v2/hooks/useConfigureSuggestions",
+    ],
+    [
+      "/reference/v1/hooks/useCopilotReadable",
+      "/reference/v2/hooks/useAgentContext",
+    ],
+    [
+      "/reference/v1/hooks/useDefaultTool",
+      "/reference/v2/hooks/useDefaultRenderTool",
+    ],
+    [
+      "/reference/v1/hooks/useFrontendTool",
+      "/reference/v2/hooks/useFrontendTool",
+    ],
+    [
+      "/reference/v1/hooks/useHumanInTheLoop",
+      "/reference/v2/hooks/useHumanInTheLoop",
+    ],
+    [
+      "/reference/v1/hooks/useLangGraphInterrupt",
+      "/reference/v2/hooks/useInterrupt",
+    ],
+    [
+      "/reference/v1/hooks/useRenderToolCall",
+      "/reference/v2/hooks/useRenderTool",
+    ],
+    ["/reference/v1/classes/CopilotRuntime", "/backend/copilot-runtime"],
+    ["/reference/v1/classes/CopilotTask", "/programmatic-control"],
+    ...[
+      "AnthropicAdapter",
+      "GoogleGenerativeAIAdapter",
+      "GroqAdapter",
+      "LangChainAdapter",
+      "OpenAIAdapter",
+      "OpenAIAssistantAdapter",
+    ].map((adapter) => [
+      `/reference/v1/classes/llm-adapters/${adapter}`,
+      "/model-selection",
+    ]),
+    // The CopilotTextarea tutorial lands on the quickstart, not on `/`.
+    ["/tutorials/ai-powered-textarea", "/quickstart"],
+    ["/tutorials/ai-powered-textarea/overview", "/quickstart"],
+    ["/tutorials/ai-powered-textarea/step-3-copilot-textarea", "/quickstart"],
+  ],
+  PERMANENT,
+);
+// The generated v1 SDK pages and the v1 index stay live.
+for (const path of [
+  "/reference/v1",
+  "/reference/v1/sdk/js/LangGraph",
+  "/reference/v1/sdk/python/LangGraph",
+  "/reference/v1/sdk/python/LangGraphAGUIAgent",
+  "/reference/v1/sdk/python/CrewAI",
+  "/reference/v1/sdk/python/CrewAIAgent",
+  "/reference/v1/sdk/python/RemoteEndpoints",
+]) {
+  for (const suffix of SUFFIXES) none(`${path}${suffix}`);
+}
+// 2.0's package reference.
+none("/reference/v2/packages/markdown");
+
 // --- next.config: Angular's split task guides ----------------------------
 withSuffixes(
   [

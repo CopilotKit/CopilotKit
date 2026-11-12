@@ -1,0 +1,69 @@
+import type { Interrupt, RunAgentResult } from "@ag-ui/client";
+import type { ɵInterruptEvent } from "../interrupt-state";
+
+/** Name of the legacy custom event agents emit to signal an interrupt. */
+export const INTERRUPT_EVENT_NAME = "on_interrupt";
+
+/** Legacy custom-event interrupt payload (agent emits a custom `on_interrupt` event). */
+export type InterruptEvent<TValue = unknown> = ɵInterruptEvent<TValue>;
+
+/**
+ * Resolve the agent with user input for an interrupt.
+ *
+ * - Standard interrupts: records `{ status: "resolved", payload }` for the target
+ *   interrupt (defaults to the primary one). Resumes once every open interrupt is
+ *   addressed; returns the resume run result, or `void` while still awaiting others.
+ * - Legacy interrupts: resumes immediately via `command.resume = payload`.
+ */
+export type InterruptResolveFn = (
+  payload?: unknown,
+  interruptId?: string,
+) => Promise<RunAgentResult | void>;
+
+/**
+ * Cancel an interrupt.
+ *
+ * - Standard interrupts: records `{ status: "cancelled" }` for the target interrupt
+ *   (defaults to the primary one), then resumes once all are addressed.
+ * - Legacy interrupts: dismisses the pending interrupt without resuming.
+ */
+export type InterruptCancelFn = (
+  interruptId?: string,
+) => Promise<RunAgentResult | void>;
+
+/**
+ * Props an interrupt handler receives.
+ *
+ * @typeParam TValue - The shape of the interrupt value.
+ */
+export interface InterruptHandlerProps<TValue = unknown> {
+  /**
+   * Legacy event shape (`{ name, value }`). Always present for back-compat: for
+   * standard interrupts, `value` is the primary `Interrupt` and `name` is `"on_interrupt"`.
+   * Prefer `interrupt` / `interrupts` for standard interrupts.
+   */
+  event: InterruptEvent<TValue>;
+  /** Primary standard interrupt (`interrupts[0]`), or `null` for legacy interrupts. */
+  interrupt: Interrupt | null;
+  /** All open standard interrupts (empty array for legacy interrupts). */
+  interrupts: Interrupt[];
+  resolve: InterruptResolveFn;
+  cancel: InterruptCancelFn;
+}
+
+/**
+ * Props an interrupt renderer receives. Same as {@link InterruptHandlerProps},
+ * plus the value the handler returned.
+ *
+ * @typeParam TValue - The shape of the interrupt value.
+ * @typeParam TResult - The value the interrupt handler returned.
+ */
+export interface InterruptRenderProps<TValue = unknown, TResult = unknown> {
+  event: InterruptEvent<TValue>;
+  interrupt: Interrupt | null;
+  interrupts: Interrupt[];
+  /** The value the interrupt handler returned. */
+  result: TResult;
+  resolve: InterruptResolveFn;
+  cancel: InterruptCancelFn;
+}

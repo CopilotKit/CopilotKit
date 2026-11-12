@@ -1,0 +1,55 @@
+// Runtime-side telemetry disclosure log.
+//
+// The runtime has shipped telemetry for some time (see `./telemetry-client.ts`).
+// Sends are anonymous by default but can carry a configured standalone or
+// legacy identity. This file surfaces a neutral one-line pointer to the opt-out
+// docs on first instantiation so the disclosure stays true for every identity
+// mode. It pairs with the inspector's first-run console disclosure.
+//
+// Fires at most once per process — runtime instances may be constructed
+// multiple times (tests, hot-reload), but the disclosure is informational
+// and a single line is enough.
+
+import { logger as consoleLogger, processEnv } from "@copilotkit/shared";
+import type { CopilotRuntimeLogger } from "../core/logger";
+
+// Canonical telemetry docs page on main.
+// Mirror constant: packages/web-inspector/src/shared/telemetry/privacy.ts
+const TELEMETRY_DOCS_URL = "https://docs.copilotkit.ai/telemetry";
+
+function isTelemetryDisabled(): boolean {
+  const env = processEnv();
+  return (
+    env.COPILOTKIT_TELEMETRY_DISABLED === "true" ||
+    env.COPILOTKIT_TELEMETRY_DISABLED === "1" ||
+    env.DO_NOT_TRACK === "true" ||
+    env.DO_NOT_TRACK === "1"
+  );
+}
+
+let disclosureLogged = false;
+
+/**
+ * Logs a one-line telemetry notice on Runtime startup. No-op when telemetry is
+ * disabled via `COPILOTKIT_TELEMETRY_DISABLED` or `DO_NOT_TRACK`, or when
+ * already logged once in this process.
+ *
+ * Idempotent — safe to call from multiple constructor paths.
+ */
+export function logRuntimeTelemetryDisclosure(
+  logger: CopilotRuntimeLogger = consoleLogger,
+): void {
+  if (disclosureLogged) return;
+  if (isTelemetryDisabled()) return;
+  disclosureLogged = true;
+  logger.info(
+    `[CopilotKit Runtime] telemetry enabled — see ${TELEMETRY_DOCS_URL} to opt out (set COPILOTKIT_TELEMETRY_DISABLED=true).`,
+  );
+}
+
+// Test-only reset hook so the once-per-process guard doesn't leak between
+// test cases. Not part of the public package surface — used by the runtime
+// disclosure tests.
+export function _resetRuntimeTelemetryDisclosureForTesting(): void {
+  disclosureLogged = false;
+}

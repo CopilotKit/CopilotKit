@@ -18,7 +18,7 @@ their request to `onOpenChange`, and the surface does not move by itself.
 
 ```tsx
 import { useState } from "react";
-import { CopilotSidebar } from "@copilotkit/react-core/v2";
+import { CopilotSidebar } from "@copilotkit/react-core";
 
 function Layout() {
   const [chatOpen, setChatOpen] = useState(false);
@@ -56,7 +56,7 @@ configuration context**. Read it with `useCopilotChatConfiguration()` and call
 `setModalOpen(true | false)` from anywhere inside the provider:
 
 ```tsx
-import { useCopilotChatConfiguration } from "@copilotkit/react-core/v2";
+import { useCopilotChatConfiguration } from "@copilotkit/react-core";
 
 function OpenChatButton() {
   const config = useCopilotChatConfiguration();
@@ -76,9 +76,18 @@ function OpenChatButton() {
 To toggle, read `config.isModalOpen` and flip it:
 
 ```tsx
-<button onClick={() => config.setModalOpen(!config.isModalOpen)}>
-  {config.isModalOpen ? "Close chat" : "Open chat"}
-</button>
+import { useCopilotChatConfiguration } from "@copilotkit/react-core";
+
+function ToggleChatButton() {
+  const config = useCopilotChatConfiguration();
+  if (!config?.setModalOpen) return null;
+
+  return (
+    <button onClick={() => config.setModalOpen(!config.isModalOpen)}>
+      {config.isModalOpen ? "Close chat" : "Open chat"}
+    </button>
+  );
+}
 ```
 
 <Callout type="info">
@@ -96,7 +105,11 @@ You can also set the **initial** open state declaratively, and then let the
 surface manage itself. The prebuilt surfaces accept a `defaultOpen` prop:
 
 ```tsx
-<CopilotSidebar defaultOpen={false} />
+import { CopilotSidebar } from "@copilotkit/react-core";
+
+function Layout() {
+  return <CopilotSidebar defaultOpen={false} />;
+}
 ```
 
 `defaultOpen` and `open` are the usual uncontrolled/controlled pair: use
@@ -111,20 +124,28 @@ slot**. Without Automatic Learning capture, the buttons only render when a
 handler or a custom thumb slot is provided:
 
 ```tsx
-import { CopilotChat } from "@copilotkit/react-core/v2";
+import { CopilotChat } from "@copilotkit/react-core";
+import { analytics } from "./analytics";
 
-<CopilotChat
-  messageView={{
-    assistantMessage: {
-      onThumbsUp: (message) => {
-        analytics.track("feedback", { messageId: message.id, value: "up" });
-      },
-      onThumbsDown: (message) => {
-        analytics.track("feedback", { messageId: message.id, value: "down" });
-      },
-    },
-  }}
-/>;
+function Chat() {
+  return (
+    <CopilotChat
+      messageView={{
+        assistantMessage: {
+          onThumbsUp: (message) => {
+            analytics.track("feedback", { messageId: message.id, value: "up" });
+          },
+          onThumbsDown: (message) => {
+            analytics.track("feedback", {
+              messageId: message.id,
+              value: "down",
+            });
+          },
+        },
+      }}
+    />
+  );
+}
 ```
 
 Each handler receives the assistant `message`, so you can record the feedback

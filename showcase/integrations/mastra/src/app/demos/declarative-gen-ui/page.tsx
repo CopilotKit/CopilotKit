@@ -14,7 +14,7 @@
  *      configured with `injectA2UITool: false` — the backend agent
  *      (`src/agents/a2ui_dynamic.py`) owns the `generate_a2ui` tool
  *      explicitly, mirroring the working pattern from beautiful-chat and the
- *      canonical `examples/integrations/langgraph-python` reference. The
+ *      canonical `examples/starters/langgraph-python` reference. The
  *      A2UI middleware still serialises the registered catalog schema into
  *      `copilotkit.context` so the secondary LLM inside `generate_a2ui`
  *      knows which components are available.

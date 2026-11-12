@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { defineComponent, h, provide, ref } from "vue";
-import { render, waitFor } from "@testing-library/vue";
+import { fireEvent, render, waitFor } from "@testing-library/vue";
 import type { Message } from "@ag-ui/core";
 import CopilotKitProvider from "../../../providers/CopilotKitProvider.vue";
 import CopilotChatConfigurationProvider from "../../../providers/CopilotChatConfigurationProvider.vue";
@@ -73,6 +73,10 @@ function renderView(
 // `hasMounted` gate; Vue doesn't, so we wait for the chat view root.
 async function waitForMount(screen: ReturnType<typeof render>) {
   await screen.findByTestId("copilot-chat-view");
+}
+
+function rect(top: number, bottom: number) {
+  return { top, bottom, left: 0, right: 0, width: 0, height: bottom - top };
 }
 
 describe("CopilotChatView pin-to-send mode", () => {
@@ -162,5 +166,43 @@ describe("CopilotChatView pin-to-send mode", () => {
     await waitFor(() =>
       expect(spacer.getAttribute("data-pin-to-send-spacer")).not.toBeNull(),
     );
+  });
+  // The spacer under the messages is not content: the scroll-to-bottom
+  // button follows the end of the messages, as in React.
+  describe("scroll-to-bottom button", () => {
+    async function setup(contentBottom: number) {
+      const screen = renderView("pin-to-send");
+      await waitForMount(screen);
+      const scrollElement = screen.getByTestId("copilot-chat-view-scroll");
+      const contentElement = screen.getByTestId("copilot-scroll-content");
+      // The spacer makes the scroll height far larger than the view.
+      Object.defineProperty(scrollElement, "scrollHeight", {
+        configurable: true,
+        get: () => 2000,
+      });
+      Object.defineProperty(scrollElement, "clientHeight", {
+        configurable: true,
+        get: () => 400,
+      });
+      scrollElement.getBoundingClientRect = () => rect(0, 400) as DOMRect;
+      contentElement.getBoundingClientRect = () =>
+        rect(-200, contentBottom) as DOMRect;
+      await fireEvent.scroll(scrollElement);
+      return screen;
+    }
+
+    it("stays hidden when only the spacer is below the view", async () => {
+      const screen = await setup(390);
+      expect(
+        screen.queryByTestId("copilot-chat-view-scroll-to-bottom"),
+      ).toBeNull();
+    });
+
+    it("shows when messages sit below the view", async () => {
+      const screen = await setup(700);
+      expect(
+        await screen.findByTestId("copilot-chat-view-scroll-to-bottom"),
+      ).toBeDefined();
+    });
   });
 });

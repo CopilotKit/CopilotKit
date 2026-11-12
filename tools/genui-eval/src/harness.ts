@@ -2,7 +2,12 @@ import { randomUUID } from "node:crypto";
 import type { BaseEvent, Message, RunAgentInput } from "@ag-ui/client";
 import { AbstractAgent, EventType } from "@ag-ui/client";
 import { splitA2UIMarkdown, extractFenceOperations } from "@copilotkit/core";
-import { BuiltInAgent, GenerativeUIMiddleware } from "@copilotkit/runtime/v2";
+import { GenerativeUIMiddleware } from "@copilotkit/runtime";
+import {
+  BuiltInAgent,
+  convertInputToTanStackAI,
+} from "@copilotkit/runtime/agent";
+import { convertMessagesToVercelAISDKMessages } from "@copilotkit/runtime/agent/ai-sdk";
 import {
   GENERATIVE_UI_ACTIVITY_TYPE,
   GENERATIVE_UI_CONTEXT_DESCRIPTION,
@@ -23,7 +28,7 @@ import type {
   GenerativeUIRejectedOperation,
   GenerativeUISurfaceContent,
 } from "@copilotkit/shared";
-import { wrapLanguageModel } from "ai";
+import { jsonSchema, streamText, tool, wrapLanguageModel } from "ai";
 import type { LanguageModel } from "ai";
 import type { LanguageModelV3, LanguageModelV3Prompt } from "@ai-sdk/provider";
 import type { Observable } from "rxjs";
@@ -100,8 +105,7 @@ function promptToText(prompt: LanguageModelV3Prompt) {
 
 /**
  * Wraps the model so the harness sees the exact prompt and the token
- * counts of the call without changing its tools or tool choice. The
- * production BuiltInAgent offers state tools even in markdown mode.
+ * counts of the call without changing its tools or tool choice.
  */
 function recordingModel(
   model: LanguageModel,
@@ -166,6 +170,82 @@ class SpecAgent extends AbstractAgent {
     );
     return this.inner.run({ ...input, context });
   }
+}
+
+/**
+ * The state tools the classic BuiltInAgent offers on every run, with the
+ * same names, descriptions, and schemas (`STATE_TOOLS` in
+ * packages/runtime/src/agent/classic-tools.ts). The eval keeps them so the
+ * model sees the production tool list. They have no `execute`: the eval
+ * state is empty and no case reads it back.
+ */
+const STATE_TOOLS = {
+  AGUISendStateSnapshot: tool({
+    description: "Replace the entire application state with a new snapshot",
+    inputSchema: jsonSchema({
+      type: "object",
+      properties: {
+        snapshot: { description: "The complete new state object" },
+      },
+      required: ["snapshot"],
+      additionalProperties: false,
+    }),
+  }),
+  AGUISendStateDelta: tool({
+    description:
+      "Apply incremental updates to application state using JSON Patch operations",
+    inputSchema: jsonSchema({
+      type: "object",
+      properties: {
+        delta: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              op: {
+                type: "string",
+                enum: ["add", "replace", "remove"],
+                description: "The operation to perform",
+              },
+              path: {
+                type: "string",
+                description: "JSON Pointer path (e.g., '/foo/bar')",
+              },
+              value: {
+                description:
+                  "The value to set. Required for 'add' and 'replace' operations, ignored for 'remove'.",
+              },
+            },
+            required: ["op", "path"],
+            additionalProperties: false,
+          },
+          description: "Array of JSON Patch operations",
+        },
+      },
+      required: ["delta"],
+      additionalProperties: false,
+    }),
+  }),
+};
+
+/**
+ * The run's tools as AI SDK tools, built with this package's `ai`: the
+ * client tools of the run, then the classic agent's state tools. The
+ * runtime's `convertToolsToVercelAITools` builds client tools with its own
+ * copy of `ai`, whose types do not match this one (this package uses zod 3).
+ * The client tools have no `execute`, so each call goes back to the client.
+ */
+function runTools(tools: RunAgentInput["tools"]) {
+  const client = Object.fromEntries(
+    tools.map((t) => [
+      t.name,
+      tool({
+        description: t.description,
+        inputSchema: jsonSchema(t.parameters),
+      }),
+    ]),
+  );
+  return { ...client, ...STATE_TOOLS };
 }
 
 /** Applies the JSON Patch ops the middleware sends in ACTIVITY_DELTA. */
@@ -441,11 +521,30 @@ export async function runSample(input: {
     input: 0,
     output: 0,
   };
+  const model = recordingModel(input.model, record);
+  // The eval models are AI SDK models, so the agent runs them in an AI SDK
+  // factory. The system prompt is the one the classic agent builds from the
+  // run's context and state: with no forwarded messages, it is the only
+  // entry. streamText makes one model call by default.
   const agent = new BuiltInAgent({
-    model: recordingModel(input.model, record),
-    maxSteps: 1,
-    temperature: input.entry.params?.temperature,
-    maxOutputTokens: input.entry.params?.maxOutputTokens ?? MAX_OUTPUT_TOKENS,
+    type: "aisdk",
+    factory: ({ input: run, abortSignal }) => {
+      const { systemPrompts } = convertInputToTanStackAI(run, {
+        format: "classic",
+        forwardSystemMessages: false,
+        forwardDeveloperMessages: false,
+      });
+      return streamText({
+        model,
+        system: systemPrompts[0],
+        messages: convertMessagesToVercelAISDKMessages(run.messages),
+        tools: runTools(run.tools),
+        temperature: input.entry.params?.temperature,
+        maxOutputTokens:
+          input.entry.params?.maxOutputTokens ?? MAX_OUTPUT_TOKENS,
+        abortSignal,
+      });
+    },
   });
   const runInput = buildInput(
     input.case,

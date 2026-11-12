@@ -15,7 +15,7 @@ import {
   DOCS_CALLEE_NAMES,
   buildRuntimeEvents,
   extractCallees,
-  readRuntimeCatalog,
+  readCatalogFile,
 } from "./extract";
 import type { FragmentEvent } from "./extract";
 
@@ -91,13 +91,11 @@ function runtimeFragment(): {
   released_in: string;
   events: FragmentEvent[];
 } {
-  const v1Rel = "packages/shared/src/telemetry/events.ts";
-  const v2Rel = "packages/runtime/src/v2/runtime/telemetry/events.ts";
-  const read = (rel: string) => ({
-    path: rel,
-    content: fs.readFileSync(path.join(REPO_ROOT, rel), "utf8"),
-  });
-  const catalog = readRuntimeCatalog(read(v1Rel), read(v2Rel));
+  const catalogRel = "packages/runtime/src/runtime/telemetry/events.ts";
+  const catalog = readCatalogFile(
+    catalogRel,
+    fs.readFileSync(path.join(REPO_ROOT, catalogRel), "utf8"),
+  );
   const callSiteFiles = load(
     walk(path.join(REPO_ROOT, "packages/runtime/src"), [".ts"]),
   );

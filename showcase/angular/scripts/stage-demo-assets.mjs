@@ -73,21 +73,20 @@ packageManifest.exports = {
     types: "./src/index.ts",
     default: "./src/index.ts",
   },
-  "./a2ui": {
-    types: "./src/a2ui/index.ts",
-    default: "./src/a2ui/index.ts",
+  "./generative-ui": {
+    types: "./src/generative-ui/index.ts",
+    default: "./src/generative-ui/index.ts",
   },
   "./mcp-apps": {
     types: "./src/mcp-apps/index.ts",
     default: "./src/mcp-apps/index.ts",
   },
-  "./styles.css": "./styles.css",
 };
 await writeFile(
   packageManifestPath,
   `${JSON.stringify(packageManifest, null, 2)}\n`,
 );
-for (const entry of ["a2ui", "mcp-apps"]) {
+for (const entry of ["generative-ui", "mcp-apps"]) {
   await mkdir(`${packageDestination}/${entry}`, { recursive: true });
   await writeFile(
     `${packageDestination}/${entry}/package.json`,

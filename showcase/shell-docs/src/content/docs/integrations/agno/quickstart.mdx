@@ -19,7 +19,7 @@ Use this prompt to connect your Agno agent to CopilotKit and verify a working co
 Before you begin, you'll need the following:
 
 - An OpenAI API key
-- Node.js 20+
+- Node.js 20.19.3+ or 22.13+
 - Python 3.12+
 - Your favorite package manager
 
@@ -187,7 +187,7 @@ Before you begin, you'll need the following:
                 ### Install CopilotKit packages
 
                 ```npm
-                npm install @copilotkit/react-ui @copilotkit/react-core @copilotkit/runtime @ag-ui/agno
+                npm install @copilotkit/react-core @copilotkit/runtime @ag-ui/agno
                 ```
             </Step>
             <Step>
@@ -200,7 +200,7 @@ Before you begin, you'll need the following:
                   CopilotKitIntelligence,
                   CopilotRuntime,
                   createCopilotRuntimeHandler,
-                } from "@copilotkit/runtime/v2";
+                } from "@copilotkit/runtime";
                 import { AgnoAgent } from "@ag-ui/agno";
 
                 const runtime = new CopilotRuntime({
@@ -258,13 +258,13 @@ Before you begin, you'll need the following:
                 ```tsx title="app/providers.tsx"
                 "use client";
 
-                import { CopilotKit } from "@copilotkit/react-core/v2";
+                import { CopilotKitProvider } from "@copilotkit/react-core";
 
                 export function Providers({ children }: { children: React.ReactNode }) {
                   return (
-                    <CopilotKit runtimeUrl="/api/copilotkit" agent="my_agent" useSingleEndpoint={false}>
+                    <CopilotKitProvider runtimeUrl="/api/copilotkit" agentId="my_agent" useSingleEndpoint={false}>
                       {children}
-                    </CopilotKit>
+                    </CopilotKitProvider>
                   );
                 }
                 ```
@@ -273,7 +273,6 @@ Before you begin, you'll need the following:
 
                 ```tsx title="app/layout.tsx"
                 import { Providers } from "./providers"; // [!code highlight]
-                import "@copilotkit/react-core/v2/styles.css";
                 import './globals.css';
 
                 // ...
@@ -308,7 +307,7 @@ Before you begin, you'll need the following:
               ```tsx title="app/page.tsx"
               "use client"; // [!code highlight]
 
-              import { CopilotSidebar } from "@copilotkit/react-core/v2"; // [!code highlight:1]
+              import { CopilotSidebar } from "@copilotkit/react-core"; // [!code highlight:1]
 
               export default function Page() {
                 return (

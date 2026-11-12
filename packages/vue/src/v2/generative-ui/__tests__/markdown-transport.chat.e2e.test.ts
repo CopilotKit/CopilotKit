@@ -149,6 +149,19 @@ async function reply(
 const chatSurfaces = () =>
   document.querySelectorAll<HTMLElement>("[data-generative-ui-chat-surface]");
 
+/**
+ * The innermost element that holds the whole text. The built-in markdown
+ * renderer puts each word in its own span, so a text match by element fails;
+ * this finds the element whose text is exactly `text`.
+ */
+function findProse(text: string) {
+  return screen.findByText(
+    (_, element) =>
+      element?.textContent === text &&
+      ![...element.children].some((child) => child.textContent === text),
+  );
+}
+
 describe("markdown transport", () => {
   it("renders a fence as a surface in the message and the prose around it as markdown", async () => {
     const { agent } = setup();
@@ -162,8 +175,8 @@ describe("markdown transport", () => {
     expect(within(chatSurfaces()[0]).getByRole("button").textContent).toBe(
       "Buy",
     );
-    // StreamMarkdown renders after a tick.
-    expect((await screen.findByText("the offer")).tagName).toBe("STRONG");
+    // The markdown renders after a tick.
+    expect((await findProse("the offer")).closest("strong")).not.toBeNull();
     expect(screen.queryByText(/createSurface/)).toBeNull();
   });
 
@@ -215,7 +228,7 @@ describe("markdown transport", () => {
     expect(within(chatSurfaces()[0]).getByRole("button").textContent).toBe(
       "Buy",
     );
-    const prose = await screen.findByText("Pick one plan.");
+    const prose = await findProse("Pick one plan.");
     expect(chatSurfaces()[0].contains(prose)).toBe(false);
     expect(screen.queryByTestId("surface-text")).toBeNull();
     agent.emit(runFinishedEvent({ threadId: T, runId: "r1" }));
@@ -241,7 +254,7 @@ describe("markdown transport", () => {
     );
     const secondMessage = document.querySelector('[data-message-id="m2"]');
     expect(secondMessage?.contains(chatSurfaces()[1])).toBe(true);
-    expect(await screen.findByText("Another one.")).toBeTruthy();
+    expect(await findProse("Another one.")).toBeTruthy();
   });
 
   it("renders a target=<id> fence inside <GenerativeUISurface id> and not in the chat", async () => {

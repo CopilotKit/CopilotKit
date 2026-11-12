@@ -19,21 +19,25 @@ Use this when you want a visual component renderer without writing a full fronte
 
 ```ts
 import type { Component, WatchSource } from "vue";
-import type { StandardSchemaV1 } from "@copilotkit/shared";
+import type { InferSchemaOutput, StandardSchemaV1 } from "@copilotkit/shared";
 import { useComponent } from "@copilotkit/vue/v2";
 
-function useComponent<TSchema extends StandardSchemaV1 | undefined = undefined>(
+useComponent satisfies <
+  TSchema extends StandardSchemaV1 | undefined = undefined,
+>(
   config: {
     name: string;
     description?: string;
     parameters?: TSchema;
     // When parameters is provided, props are inferred from the schema output.
     // When omitted, the component accepts any props.
-    render: Component<NoInfer<InferRenderProps<TSchema>>>;
+    render: Component<
+      TSchema extends StandardSchemaV1 ? InferSchemaOutput<TSchema> : object
+    >;
     agentId?: string;
   },
   deps?: WatchSource<unknown>[],
-): void;
+) => void;
 ```
 
 ## Parameters

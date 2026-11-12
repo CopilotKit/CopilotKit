@@ -19,7 +19,7 @@ If you only need file uploads (audio, images, video, documents), use [Multimodal
 
 ## Frontend
 
-Render `<CopilotChat />` from `@copilotkit/react-core/v2`. It shows the mic button when the runtime advertises `audioFileTranscriptionEnabled: true` on its `/info` endpoint. You turn that on in the [Backend](#backend) section.
+Render `<CopilotChat />` from `@copilotkit/react-core`. It shows the mic button when the runtime advertises `audioFileTranscriptionEnabled: true` on its `/info` endpoint. You turn that on in the [Backend](#backend) section.
 
 <Snippet region="voice-page" title="frontend/src/app/page.tsx — chat surface" />
 
@@ -32,7 +32,7 @@ The `runtimeUrl="/api/copilotkit-voice"` points the browser to your Next.js API 
 ### Next.js API route
 
 1. Create the route file `app/api/copilotkit-voice/[[...slug]]/route.ts`. The `[[...slug]]` catch-all lets the runtime serve `/info`, `/agent/:id/run`, and `/transcribe` under the `/api/copilotkit-voice` base path.
-2. In that file, create a `CopilotRuntime` with a `transcriptionService`. Serve it with `createCopilotRuntimeHandler` from `@copilotkit/runtime/v2`. The V1 wrapper drops the `transcriptionService` option.
+2. In that file, create a `CopilotRuntime` with a `transcriptionService`. Serve it with `createCopilotRuntimeHandler` from `@copilotkit/runtime`.
 3. Set `basePath` to `/api/copilotkit-voice`, the directory path of the route.
 
 <Snippet region="voice-runtime" title="app/api/copilotkit-voice/[[...slug]]/route.ts" />
@@ -54,7 +54,7 @@ For the Google ADK showcase, agent runs take one more hop: this Next.js route re
 
 ### Custom transcription backends
 
-`TranscriptionService` from `@copilotkit/runtime/v2` is an abstract class. Subclass it to plug in any transcription provider: Whisper, AssemblyAI, Deepgram, or your own model. `@copilotkit/voice` ships `TranscriptionServiceOpenAI`, which uses OpenAI Whisper.
+`TranscriptionService` from `@copilotkit/runtime` is an abstract class. Subclass it to plug in any transcription provider: Whisper, AssemblyAI, Deepgram, or your own model. `@copilotkit/voice` ships `TranscriptionServiceOpenAI`, which uses OpenAI Whisper.
 
 <Callout type="info" title="TranscriptionServiceOpenAI takes an openai 5.x client">
 `@copilotkit/voice` depends on `openai` `^5.9.0`, and the `openai` option of

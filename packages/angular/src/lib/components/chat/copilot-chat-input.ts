@@ -1,23 +1,33 @@
+import type { OnDestroy, Type, ElementRef } from "@angular/core";
 import {
   Component,
   TemplateRef,
   signal,
   computed,
   ChangeDetectionStrategy,
-  OnDestroy,
-  Type,
   ViewEncapsulation,
   contentChild,
   input,
   output,
   viewChild,
   afterNextRender,
+  afterRenderEffect,
   inject,
+  DestroyRef,
+  PLATFORM_ID,
 } from "@angular/core";
-import { CommonModule } from "@angular/common";
+import { CommonModule, isPlatformBrowser } from "@angular/common";
+import {
+  ɵCOMPOSER_DEFAULT_MAX_ROWS,
+  ɵcomposerButtonState,
+  ɵcreateComposerAutosize,
+  ɵresolveComposerKey,
+  ɵsyncRecorderToMode,
+} from "@copilotkit/core";
+import type { ɵComposerInput } from "@copilotkit/core";
 import { CopilotSlot } from "../../slots/copilot-slot";
 import { injectChatLabels } from "../../chat-config";
-import { ArrowUp, CopilotIcon } from "../icons/copilot-icon";
+import { ArrowUp, CopilotIcon, Loader2, Square } from "../icons/copilot-icon";
 import { CopilotChatTextarea } from "./copilot-chat-textarea";
 import { CopilotChatAudioRecorder } from "./copilot-chat-audio-recorder";
 import {
@@ -33,15 +43,22 @@ import type {
   ToolsMenuItem,
 } from "./copilot-chat-input.types";
 import { cn } from "../../utils";
+import { hostStyles } from "../host-styles";
 import { injectChatState } from "../../chat-state";
 import { explicitEffect } from "../../explicit-effect";
 import { CopilotKit } from "../../copilotkit";
+import { COPILOT_CHAT_RUN_CONTROL } from "./copilot-chat-run-control";
 
 /**
  * Context provided to slot templates
  */
 export interface SendButtonContext {
+  /** Send the typed text. */
   send: () => void;
+  /** Stop the agent's run. Does nothing when no run can stop. */
+  stop: () => void;
+  /** What a click on the button does: send the text or stop the run. */
+  action: "send" | "stop";
   disabled: boolean;
   value: string;
 }
@@ -53,7 +70,7 @@ export interface ToolbarContext {
 
 @Component({
   selector: "copilot-chat-input",
-  host: { "data-copilotkit": "", class: "cpk:block cpk:w-full" },
+  host: { "data-copilotkit": "", class: "cpk-chat-input" },
   imports: [
     CommonModule,
     CopilotSlot,
@@ -82,6 +99,13 @@ export interface ToolbarContext {
           <copilot-chat-audio-recorder [inputShowControls]="true">
           </copilot-chat-audio-recorder>
         }
+      } @else if (computedMode() === "processing") {
+        <div class="cpk-chat-input-processing">
+          <copilot-icon
+            [img]="Loader2Icon"
+            iconClass="cpk-chat-input-processing-spinner"
+          ></copilot-icon>
+        </div>
       } @else {
         @if (textAreaTemplate() || textAreaComponent()) {
           <copilot-slot
@@ -94,7 +118,6 @@ export interface ToolbarContext {
             copilotChatTextarea
             [inputValue]="computedValue()"
             [inputAutoFocus]="computedAutoFocus()"
-            [inputDisabled]="computedMode() === 'processing'"
             [inputClass]="defaultTextAreaClass()"
             [inputMaxRows]="textAreaMaxRows()"
             [inputPlaceholder]="textAreaPlaceholder()"
@@ -228,61 +251,64 @@ export interface ToolbarContext {
           >
           </copilot-slot>
         } @else {
-          <div class="cpk:mr-[10px]">
+          <div class="cpk-chat-input-send">
             <button
               type="button"
-              [attr.aria-label]="labels.chatInputToolbarSendButtonLabel"
+              [attr.aria-label]="
+                showsStop()
+                  ? labels.chatInputToolbarStopButtonLabel
+                  : labels.chatInputToolbarSendButtonLabel
+              "
               [class]="sendButtonClass() || defaultButtonClass"
               [disabled]="sendButtonDisabled()"
-              (click)="send()"
+              (click)="handleSendButtonClick()"
             >
-              <copilot-icon [img]="ArrowUpIcon" [size]="18"></copilot-icon>
+              @if (showsStop()) {
+                <copilot-icon
+                  [img]="StopIcon"
+                  iconClass="cpk-chat-input-stop-icon"
+                ></copilot-icon>
+              } @else {
+                <copilot-icon
+                  [img]="ArrowUpIcon"
+                  iconClass="cpk-chat-input-send-icon"
+                ></copilot-icon>
+              }
             </button>
           </div>
         }
       }
     </ng-template>
 
-    <div [class]="computedClass()">
-      @if (toolbarTemplate() || toolbarComponent()) {
-        <ng-container [ngTemplateOutlet]="mainInputArea"></ng-container>
-        <copilot-slot
-          [slot]="toolbarTemplate() || toolbarComponent()"
-          [context]="toolbarContext()"
-          [defaultComponent]="CopilotChatToolbar"
-        >
-        </copilot-slot>
-      } @else {
-        <div
-          class="cpk:grid cpk:w-full cpk:grid-cols-[auto_minmax(0,1fr)_auto] cpk:items-center cpk:gap-x-3 cpk:gap-y-3 cpk:px-3 cpk:py-2"
-          data-layout="compact"
-        >
-          <div class="cpk:col-start-1 cpk:row-start-1 cpk:flex cpk:items-center">
-            <ng-container [ngTemplateOutlet]="leadingToolbarItems"></ng-container>
-          </div>
-          <div
-            class="cpk:relative cpk:col-start-2 cpk:row-start-1 cpk:flex cpk:min-h-[50px] cpk:min-w-0 cpk:flex-col cpk:justify-center"
+    <div class="cpk-chat-input-wrapper">
+      <div #pill [class]="computedClass()" [attr.data-layout]="layoutValue()">
+        @if (toolbarTemplate() || toolbarComponent()) {
+          <ng-container [ngTemplateOutlet]="mainInputArea"></ng-container>
+          <copilot-slot
+            [slot]="toolbarTemplate() || toolbarComponent()"
+            [context]="toolbarContext()"
+            [defaultComponent]="CopilotChatToolbar"
           >
-            <ng-container [ngTemplateOutlet]="mainInputArea"></ng-container>
+          </copilot-slot>
+        } @else {
+          <div #grid class="cpk-chat-input-grid" [attr.data-layout]="layoutValue()">
+            <div #start class="cpk-chat-input-start">
+              <ng-container [ngTemplateOutlet]="leadingToolbarItems"></ng-container>
+            </div>
+            <div class="cpk-chat-input-field">
+              <ng-container [ngTemplateOutlet]="mainInputArea"></ng-container>
+            </div>
+            <div #actions class="cpk-chat-input-actions">
+              <ng-container
+                [ngTemplateOutlet]="trailingToolbarItems"
+              ></ng-container>
+            </div>
           </div>
-          <div
-            class="cpk:col-start-3 cpk:row-start-1 cpk:flex cpk:items-center cpk:justify-end cpk:gap-2"
-          >
-            <ng-container [ngTemplateOutlet]="trailingToolbarItems"></ng-container>
-          </div>
-        </div>
-      }
+        }
+      </div>
     </div>
   `,
-  styles: [
-    `
-      .ck-input-shadow {
-        box-shadow:
-          0 4px 4px 0 #0000000a,
-          0 0 1px 0 #0000009e !important;
-      }
-    `,
-  ],
+  styles: [hostStyles],
 })
 export class CopilotChatInput implements OnDestroy {
   readonly textAreaRef = viewChild(CopilotChatTextarea);
@@ -363,38 +389,28 @@ export class CopilotChatInput implements OnDestroy {
 
   // Output events
   submitMessage = output<string>();
-  startTranscribe = output<void>();
-  cancelTranscribe = output<void>();
-  finishTranscribe = output<void>();
+  startTranscribe = output();
+  cancelTranscribe = output();
+  finishTranscribe = output();
   finishTranscribeWithAudio = output<Blob>();
-  addFile = output<void>();
+  addFile = output();
   valueChange = output<string>();
 
   // Icons and default classes
   readonly ArrowUpIcon = ArrowUp;
-  readonly defaultButtonClass = cn(
-    // Base button styles
-    "cpk:inline-flex cpk:items-center cpk:justify-center cpk:gap-2 cpk:whitespace-nowrap cpk:rounded-md cpk:text-sm cpk:font-medium",
-    "cpk:transition-all cpk:disabled:pointer-events-none cpk:disabled:opacity-50",
-    "cpk:shrink-0 cpk:outline-none",
-    "cpk:focus-visible:border-ring cpk:focus-visible:ring-ring/50 cpk:focus-visible:ring-[3px]",
-    // chatInputToolbarPrimary variant
-    "cpk:cursor-pointer",
-    "cpk:bg-black cpk:text-white",
-    "cpk:dark:bg-white cpk:dark:text-black cpk:dark:focus-visible:outline-white",
-    "cpk:rounded-full cpk:h-9 cpk:w-9",
-    "cpk:transition-colors",
-    "cpk:focus:outline-none",
-    "cpk:hover:opacity-70 cpk:disabled:hover:opacity-100",
-    "cpk:disabled:cursor-not-allowed cpk:disabled:bg-[#00000014] cpk:disabled:text-[rgb(13,13,13)]",
-    "cpk:dark:disabled:bg-[#454545] cpk:dark:disabled:text-white",
-  );
+  /** Lucide's `square`, drawn filled on the button while the agent runs. */
+  readonly StopIcon = Square;
+  readonly Loader2Icon = Loader2;
+  readonly defaultButtonClass =
+    "cpk-button cpk-button-chat-input-toolbar-primary cpk-button-size-chat-input-toolbar-icon";
 
   // Services
   readonly labels = injectChatLabels();
   // readonly chatConfig = injectChatConfig();
   readonly chatState = injectChatState();
   readonly copilotKit = inject(CopilotKit);
+  /** Run state from `CopilotChat`. Without it, the input never shows stop. */
+  readonly #runControl = inject(COPILOT_CHAT_RUN_CONTROL, { optional: true });
 
   // Signals
   modeSignal = signal<CopilotChatInputMode>("input");
@@ -414,7 +430,21 @@ export class CopilotChatInput implements OnDestroy {
   CopilotChatStartTranscribeButton = CopilotChatStartTranscribeButton;
 
   // Computed values
-  computedMode = computed(() => this.mode() ?? this.modeSignal());
+  // While CopilotChat transcribes a recording, the input shows a spinner.
+  computedMode = computed<CopilotChatInputMode>(
+    () =>
+      this.mode() ??
+      (this.chatState.isTranscribing?.() ? "processing" : this.modeSignal()),
+  );
+  /**
+   * `"expanded"` puts the textarea on its own row above the buttons, as in
+   * React: when the text breaks onto a second line, is too wide for the
+   * single row, or the viewport is narrower than 768px.
+   */
+  readonly layout = signal<"compact" | "expanded">("compact");
+  readonly layoutValue = computed(() =>
+    this.computedMode() === "input" ? this.layout() : "compact",
+  );
   computedToolsMenu = computed(() => this.toolsMenu() ?? []);
   computedAutoFocus = computed(() => this.autoFocus() ?? true);
   audioTranscriptionEnabled = computed(
@@ -436,38 +466,41 @@ export class CopilotChatInput implements OnDestroy {
       ? () => this.handleAddFile()
       : undefined,
   );
-  sendButtonDisabled = computed(
-    () =>
-      !this.computedValue().trim() ||
-      this.computedMode() === "processing" ||
-      this.chatState.attachmentsUploading(),
+  /** What the send/stop rules from `@copilotkit/core` read. */
+  readonly composerInput = computed<ɵComposerInput>(() => ({
+    mode: this.computedMode(),
+    isRunning: this.#runControl?.isRunning() ?? false,
+    value: this.computedValue(),
+    canSubmit: true,
+    canStop: this.#runControl?.canStop() ?? false,
+    disabled: this.computedMode() === "processing",
+    attachmentsUploading: this.chatState.attachmentsUploading(),
+  }));
+  readonly buttonState = computed(() =>
+    ɵcomposerButtonState(this.composerInput()),
+  );
+  /** The button stops the run instead of sending. */
+  readonly showsStop = computed(() => this.buttonState().action === "stop");
+  sendButtonDisabled = computed(() => this.buttonState().disabled);
+
+  computedClass = computed(() =>
+    cn("copilotKitInput cpk-chat-input-pill", this.customClass()),
   );
 
-  computedClass = computed(() => {
-    const baseClasses = cn(
-      // V1 compatibility class for custom styling
-      "copilotKitInput",
-      // Layout
-      "cpk:flex cpk:w-full cpk:flex-col cpk:items-center cpk:justify-center",
-      // Interaction
-      "cpk:cursor-text",
-      // Overflow and clipping
-      "cpk:overflow-visible cpk:bg-clip-padding cpk:contain-inline-size",
-      // Background
-      "cpk:bg-white cpk:dark:bg-[#303030]",
-      // Visual effects
-      "ck-input-shadow cpk:rounded-[28px]",
-    );
-    return cn(baseClasses, this.customClass());
-  });
-
   defaultTextAreaClass = computed(() =>
-    cn("cpk:w-full cpk:py-3 cpk:pr-5", this.textAreaClass()),
+    cn(
+      this.layoutValue() === "expanded"
+        ? "cpk-chat-input-textarea-expanded"
+        : "cpk-chat-input-textarea-compact",
+      this.textAreaClass(),
+    ),
   );
 
   // Context for slots (reactive via signals)
   sendButtonContext = computed<SendButtonContext>(() => ({
     send: () => this.send(),
+    stop: () => this.stopRun(),
+    action: this.buttonState().action,
     disabled: this.sendButtonDisabled(),
     value: this.computedValue(),
   }));
@@ -481,6 +514,7 @@ export class CopilotChatInput implements OnDestroy {
     value: this.computedValue(),
     autoFocus: this.computedAutoFocus(),
     disabled: this.computedMode() === "processing",
+    layout: this.layoutValue(),
     maxRows: this.textAreaMaxRows(),
     placeholder: this.textAreaPlaceholder(),
     inputClass: this.textAreaClass(),
@@ -507,13 +541,14 @@ export class CopilotChatInput implements OnDestroy {
       }),
       ({ recorder, mode }) => {
         if (!recorder) return;
-        if (mode === "transcribe") {
-          if (recorder.getState() === "idle") {
-            recorder.start().catch((error) => console.error(error));
-          }
-        } else if (recorder.getState() === "recording") {
-          recorder.stop().catch((error) => console.error(error));
-        }
+        void ɵsyncRecorderToMode(
+          {
+            state: recorder.getState(),
+            start: () => recorder.start(),
+            stop: () => recorder.stop(),
+          },
+          mode,
+        );
       },
     );
 
@@ -522,6 +557,43 @@ export class CopilotChatInput implements OnDestroy {
         this.textAreaRef()?.focus();
       }
     });
+
+    // Re-evaluate the layout after every render that changes the text or mode.
+    afterRenderEffect(() => this.evaluateLayout());
+    const unsubscribe = this.autosize.subscribe(() =>
+      this.layout.set(this.autosize.getSnapshot()),
+    );
+    this.destroyRef.onDestroy(() => {
+      unsubscribe();
+      this.autosize.dispose();
+    });
+  }
+
+  private readonly grid = viewChild<ElementRef<HTMLElement>>("grid");
+  private readonly start = viewChild<ElementRef<HTMLElement>>("start");
+  private readonly actions = viewChild<ElementRef<HTMLElement>>("actions");
+  private readonly destroyRef = inject(DestroyRef);
+  private readonly isBrowser = isPlatformBrowser(inject(PLATFORM_ID));
+  /** Sizes the text box and picks the layout, as in React and Vue. */
+  private readonly autosize = ɵcreateComposerAutosize({
+    getElements: () => ({
+      textarea: this.textAreaRef()?.textareaRef.nativeElement,
+      grid: this.grid()?.nativeElement,
+      start: this.start()?.nativeElement,
+      actions: this.actions()?.nativeElement,
+    }),
+  });
+
+  /**
+   * Picks the compact or expanded layout like React's input: expanded when
+   * the text has a line break, wraps, or is wider than the compact row.
+   */
+  evaluateLayout(): void {
+    if (!this.isBrowser) return;
+    this.autosize.setMaxRows(
+      this.textAreaMaxRows() ?? ɵCOMPOSER_DEFAULT_MAX_ROWS,
+    );
+    this.autosize.evaluate(this.computedValue(), this.computedMode());
   }
 
   // Output maps for slots
@@ -536,7 +608,10 @@ export class CopilotChatInput implements OnDestroy {
     clicked: () => this.handleStartTranscribe(),
   };
   // Support both `clicked` (idiomatic in our slots) and `click` (legacy)
-  sendButtonOutputs = { clicked: () => this.send(), click: () => this.send() };
+  sendButtonOutputs = {
+    clicked: () => this.handleSendButtonClick(),
+    click: () => this.handleSendButtonClick(),
+  };
 
   ngOnDestroy(): void {
     // Clean up any resources
@@ -546,17 +621,35 @@ export class CopilotChatInput implements OnDestroy {
     }
   }
 
+  /**
+   * Enter sends the text. Enter in an empty input while the agent runs stops
+   * the run. Shift+Enter adds a line break, and Enter during IME composition
+   * (for example CJK input) is left to the browser.
+   */
   handleKeyDown(event: KeyboardEvent): void {
-    // Skip key handling during IME composition (e.g. CJK input).
-    // The compositionend event will fire separately when composition ends.
-    if (event.isComposing || event.keyCode === 229) {
+    // Enter never adds a line break, also when there is nothing to send.
+    const { action, preventDefault } = ɵresolveComposerKey(
+      event,
+      this.composerInput(),
+    );
+    if (preventDefault) event.preventDefault();
+    if (action === "send") this.send();
+    if (action === "stop") this.stopRun();
+  }
+
+  /** While the agent runs, the button stops it. Otherwise it sends. */
+  handleSendButtonClick(): void {
+    if (this.buttonState().action === "stop") {
+      this.stopRun();
       return;
     }
+    this.send();
+  }
 
-    if (event.key === "Enter" && !event.shiftKey) {
-      event.preventDefault();
-      this.send();
-    }
+  /** Stop the agent's run, when one can stop. */
+  stopRun(): void {
+    if (!this.composerInput().canStop) return;
+    this.#runControl?.stop();
   }
 
   handleValueChange(value: string): void {
@@ -565,21 +658,20 @@ export class CopilotChatInput implements OnDestroy {
   }
 
   send(): void {
+    if (!this.buttonState().canSend) return;
     const trimmed = this.computedValue().trim();
-    if (trimmed && !this.chatState.attachmentsUploading()) {
-      this.submitMessage.emit(trimmed);
+    this.submitMessage.emit(trimmed);
 
-      this.chatState.submitInput(trimmed);
+    void this.chatState.submitInput(trimmed);
 
-      if (this.chatState) this.chatState.changeInput("");
-      this.textAreaRef()?.setValue("");
+    if (this.chatState) this.chatState.changeInput("");
+    this.textAreaRef()?.setValue("");
 
-      // Refocus input
-      if (this.textAreaRef()) {
-        setTimeout(() => {
-          this.textAreaRef()?.focus();
-        });
-      }
+    // Refocus input
+    if (this.textAreaRef()) {
+      setTimeout(() => {
+        this.textAreaRef()?.focus();
+      });
     }
   }
 

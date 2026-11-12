@@ -24,6 +24,7 @@ Set initial headers in `provideCopilotKit`:
 ```ts title="src/app/app.config.ts"
 import { ApplicationConfig } from "@angular/core";
 import { provideCopilotKit } from "@copilotkit/angular";
+import { readSessionToken } from "./session";
 
 export const appConfig: ApplicationConfig = {
   providers: [
@@ -41,16 +42,22 @@ When sign-in state changes after bootstrap, update the runtime connection
 through the `CopilotKit` service:
 
 ```ts
-import { inject } from "@angular/core";
+import { Injectable, inject } from "@angular/core";
 import { CopilotKit } from "@copilotkit/angular";
 
-const copilotKit = inject(CopilotKit);
+@Injectable({ providedIn: "root" })
+export class SessionHeaders {
+  private readonly copilotKit = inject(CopilotKit);
 
-copilotKit.updateRuntime({
-  headers: sessionToken
-    ? { Authorization: `Bearer ${sessionToken}` }
-    : {},
-});
+  // Call this from your sign-in and sign-out flow.
+  onSessionChange(sessionToken: string | null) {
+    this.copilotKit.updateRuntime({
+      headers: sessionToken
+        ? { Authorization: `Bearer ${sessionToken}` }
+        : {},
+    });
+  }
+}
 ```
 
 The runnable Angular Showcase uses the same header shape:
@@ -81,11 +88,16 @@ origin. Credentialed CORS requests cannot use `*` as the allowed origin.
 
 ## Validate every runtime request
 
-Use the runtime adapter's request hook to reject missing, expired, or
+Use the runtime listener's `onRequest` hook to reject missing, expired, or
 unauthorized sessions before CopilotKit discovers or runs an agent:
 
 ```ts title="server.ts"
-import { createCopilotNodeListener } from "@copilotkit/runtime/v2/node";
+import { createServer } from "node:http";
+import { CopilotRuntime } from "@copilotkit/runtime";
+import { createCopilotNodeListener } from "@copilotkit/runtime/node";
+import { verifySession } from "./auth";
+
+const runtime = new CopilotRuntime({ agents: {} }); // Supply your agents.
 
 const listener = createCopilotNodeListener({
   runtime,
@@ -104,6 +116,8 @@ const listener = createCopilotNodeListener({
     },
   },
 });
+
+createServer(listener).listen(4000);
 ```
 
 Apply authorization as well as authentication. A valid user token does not
@@ -112,7 +126,7 @@ automatically grant access to every agent, tenant, or thread.
 To test the hook, start the runtime and send a request with no token:
 
 ```bash
-curl -i http://localhost:8200/api/copilotkit/info
+curl -i http://localhost:4000/api/copilotkit/info
 ```
 
 The runtime returns `401 Unauthorized`. Send the same request with
@@ -126,8 +140,11 @@ self-hosted agent, subject to its denylist. Prefer a small allowlist when your
 agent needs only specific context:
 
 ```ts
+import { HttpAgent } from "@ag-ui/client";
+import { CopilotRuntime } from "@copilotkit/runtime";
+
 const runtime = new CopilotRuntime({
-  agents: { default: myAgent },
+  agents: { default: new HttpAgent({ url: "https://agent.example.com" }) },
   forwardHeaders: {
     allow: ["authorization", "x-tenant-id"],
   },

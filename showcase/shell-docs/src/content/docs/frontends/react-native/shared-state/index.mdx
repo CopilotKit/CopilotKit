@@ -69,35 +69,57 @@ export function NotesCard() {
 
 The same `agent` has a `setState` method. Call it from a UI event, and the agent reads the new value on its next turn. The UI's writes steer the model.
 
-```tsx
+```tsx title="src/ToneButton.tsx"
 import { Button } from "react-native";
+import { useAgent, UseAgentUpdate } from "@copilotkit/react-native/headless";
 
-// In NotesCard, below the list:
-<Button
-  title="Prefer short answers"
-  onPress={() =>
-    agent.setState({
-      ...state,
-      preferences: { ...state.preferences, tone: "concise" },
-    })
-  }
-/>
+type NotesState = {
+  notes?: string[];
+  preferences?: { tone?: string };
+};
+
+export function ToneButton() {
+  const { agent } = useAgent({
+    agentId: "default",
+    updates: [UseAgentUpdate.OnStateChanged],
+  });
+  const state = (agent.state ?? {}) as NotesState;
+
+  return (
+    <Button
+      title="Prefer short answers"
+      onPress={() =>
+        agent.setState({ // [!code highlight:4]
+          ...state,
+          preferences: { ...state.preferences, tone: "concise" },
+        })
+      }
+    />
+  );
+}
 ```
 
 This makes shared state two-way. The UI can send the agent new inputs, such as preferences, selections, or partial work, without the chat.
 
 The agent reads the new state on its next run. To run it right away, call `copilotkit.runAgent({ agent })` (from `useCopilotKit`) after `setState`. Running through `copilotkit` also sends your frontend tools and context with the run. To tell the model what changed, add a message first:
 
-```tsx
-const { copilotkit } = useCopilotKit();
+```tsx title="src/useSetLanguage.ts"
+import { useAgent, useCopilotKit } from "@copilotkit/react-native/headless";
 
-agent.setState({ ...state, language: newLanguage });
-agent.addMessage({
-  id: `user-${Date.now()}`,
-  role: "user",
-  content: `The language has been updated to ${newLanguage}.`,
-});
-await copilotkit.runAgent({ agent });
+export function useSetLanguage() {
+  const { agent } = useAgent({ agentId: "default" });
+  const { copilotkit } = useCopilotKit();
+
+  return async (newLanguage: string) => {
+    agent.setState({ ...agent.state, language: newLanguage }); // [!code highlight]
+    agent.addMessage({
+      id: `user-${Date.now()}`,
+      role: "user",
+      content: `The language has been updated to ${newLanguage}.`,
+    });
+    await copilotkit.runAgent({ agent }); // [!code highlight]
+  };
+}
 ```
 
 See [Programmatic Control](/programmatic-control) for more ways to run the agent from code.

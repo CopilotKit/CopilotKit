@@ -8,12 +8,8 @@ import {
 } from "@angular/core";
 import type { Suggestion } from "@copilotkit/core";
 import { cn } from "../../utils";
+import { hostStyles } from "../host-styles";
 import { CopilotChatSuggestionPill } from "./copilot-chat-suggestion-pill";
-
-const suggestionViewClass = cn(
-  "cpk:flex cpk:flex-wrap cpk:items-center cpk:gap-1.5 cpk:sm:gap-2 cpk:pl-0 cpk:pr-4 cpk:@3xl:px-0",
-  "cpk:pointer-events-none",
-);
 
 @Component({
   selector: "copilot-chat-suggestion-view",
@@ -21,6 +17,7 @@ const suggestionViewClass = cn(
   changeDetection: ChangeDetectionStrategy.OnPush,
   encapsulation: ViewEncapsulation.None,
   host: { "data-copilotkit": "" },
+  styles: [hostStyles],
   template: `
     @if (suggestions().length > 0) {
       <div
@@ -50,7 +47,7 @@ export class CopilotChatSuggestionView {
   }>();
 
   protected readonly computedClass = computed(() =>
-    cn(suggestionViewClass, this.inputClass()),
+    cn("cpk-suggestion-view", this.inputClass()),
   );
 
   handleSelect(suggestion: Suggestion, index: number): void {

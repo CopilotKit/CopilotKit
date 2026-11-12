@@ -1,6 +1,16 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, useSlots, watch } from "vue";
-import type { Component, FunctionalComponent, VNodeChild } from "vue";
+import {
+  computed,
+  h,
+  onBeforeUnmount,
+  onMounted,
+  provide,
+  ref,
+  shallowRef,
+  useSlots,
+  watch,
+} from "vue";
+import type { Component, FunctionalComponent, VNode, VNodeChild } from "vue";
 import type {
   ActivityMessage,
   AssistantMessage,
@@ -10,11 +20,25 @@ import type {
   UserMessage,
 } from "@ag-ui/core";
 import {
-  DEFAULT_AGENT_ID,
   commitRowKeyStore,
   createRowKeyStore,
   resolveRowRenderKeysById,
 } from "@copilotkit/shared";
+import {
+  ɵdeduplicateMessages,
+  ɵcreateMessageViewModel,
+  ɵduplicateMessagesWarning,
+  ɵgetCustomMessageRenderProps,
+  ɵgetToolCallRendererNames,
+  ɵresolveActivityRenderer,
+  ɵresolveAgentId,
+  ɵresolveCustomMessageRenderers,
+} from "@copilotkit/core";
+import type {
+  CopilotChatToolCallDisplay,
+  ToolCallEntry,
+  ɵToolCallDisplayContextValue,
+} from "@copilotkit/core";
 import type {
   InterruptRenderProps,
   VueCustomMessageRendererProps,
@@ -24,6 +48,16 @@ import { useCopilotChatConfiguration } from "../../providers/useCopilotChatConfi
 import CopilotChatAssistantMessage from "./CopilotChatAssistantMessage.vue";
 import CopilotChatReasoningMessage from "./CopilotChatReasoningMessage.vue";
 import CopilotChatUserMessage from "./CopilotChatUserMessage.vue";
+import CopilotChatWorkSummary from "./CopilotChatWorkSummary.vue";
+import { CopilotChatCollapsible } from "./tool-call-group-parts";
+import { TurnWorkFold } from "./turn-work";
+import {
+  MessageFeedbackScopeKey,
+  useLearningFeedbackEnabled,
+} from "./message-feedback";
+import type { MessageFeedbackScope } from "./message-feedback";
+import { ToolCallDisplayContextKey } from "./tool-call-display-context";
+import type { CopilotChatWorkSummarySlotProps } from "./types";
 
 interface MessageMetaProps {
   message: Message;
@@ -56,10 +90,26 @@ const props = withDefaults(
   defineProps<{
     messages?: Message[];
     isRunning?: boolean;
+    /**
+     * How tool calls show. Defaults to `"grouped"`: calls made in a row
+     * share one card that opens to a row per call. `"line"` and `"stacked"`
+     * group them too; `"turn"` folds a reply's whole working phase into
+     * "Worked for 9s" once it's done; `"separate"` gives every call its own
+     * card. Calls with a renderer of their own always show on their own.
+     */
+    toolCallDisplay?: CopilotChatToolCallDisplay;
+    /**
+     * While Learning records this chat, the assistant thumbs record ratings
+     * and ask for a comment. Set `false` to leave the thumbs to the app's own
+     * handlers.
+     */
+    messageFeedback?: boolean;
   }>(),
   {
     messages: () => [],
     isRunning: false,
+    toolCallDisplay: "grouped",
+    messageFeedback: true,
   },
 );
 
@@ -81,6 +131,8 @@ defineSlots<{
   "activity-message"?: (props: ActivitySlotProps) => unknown;
   [key: string]: ((props: any) => unknown) | undefined;
   cursor?: () => unknown;
+  /** The "Working… / Worked for 9s" line of the `"turn"` tool-call display. */
+  "work-summary"?: (props: CopilotChatWorkSummarySlotProps) => unknown;
   "tool-call"?: (props: {
     name: string;
     args: unknown;
@@ -105,8 +157,8 @@ const stateTick = ref(0);
 const interruptState = ref<InterruptSlotProps | null>(null);
 const componentSlots = useSlots() as Record<string, (props?: any) => unknown>;
 const forwardedSlotNames = computed(() => Object.keys(componentSlots));
-const resolvedAgentId = computed(
-  () => config.value?.agentId ?? DEFAULT_AGENT_ID,
+const resolvedAgentId = computed(() =>
+  ɵresolveAgentId({ chatAgentId: config.value?.agentId }),
 );
 const resolvedThreadAgent = computed(() => {
   // Read the registry so this recomputes when agents are added or replaced.
@@ -163,33 +215,104 @@ watch(
   { immediate: true },
 );
 
-function deduplicateMessages(messages: Message[]): Message[] {
-  const byId = new Map<string, Message>();
-  for (const message of messages) {
-    const existing = byId.get(message.id);
-    if (
-      existing &&
-      message.role === "assistant" &&
-      existing.role === "assistant"
-    ) {
-      const content = message.content || existing.content;
-      const toolCalls = message.toolCalls ?? existing.toolCalls;
-      byId.set(message.id, {
-        ...existing,
-        ...message,
-        content,
-        toolCalls,
-      } as AssistantMessage);
-    } else {
-      byId.set(message.id, message);
-    }
-  }
-  return [...byId.values()];
-}
-
 const deduplicatedMessages = computed(() =>
-  deduplicateMessages(props.messages),
+  ɵdeduplicateMessages(props.messages),
 );
+
+// Groups of calls can span messages (an agent often sends each call as its
+// own message), so they're laid out here for the whole list and handed to
+// each message's tool calls view through provide/inject.
+const rendererNames = computed(() =>
+  ɵgetToolCallRendererNames(copilotkit.value.renderToolCalls, {
+    slotNames: forwardedSlotNames.value,
+  }),
+);
+// The list's tool-call layout and turn state live in core. A user's open or
+// close of a reply's work is the only change it reports by itself.
+const viewModel = ɵcreateMessageViewModel();
+const toggledTurns = shallowRef(viewModel.getSnapshot());
+const unsubscribeViewModel = viewModel.subscribe(() => {
+  toggledTurns.value = viewModel.getSnapshot();
+});
+onBeforeUnmount(unsubscribeViewModel);
+const viewState = computed(() => {
+  void toggledTurns.value;
+  return viewModel.update({
+    display: props.toolCallDisplay,
+    messages: props.messages,
+    rendered: deduplicatedMessages.value,
+    isRunning: props.isRunning,
+    rendererNames: rendererNames.value,
+    now: Date.now(),
+  });
+});
+const learningFeedbackEnabled = useLearningFeedbackEnabled(copilotkit);
+provide(
+  MessageFeedbackScopeKey,
+  computed<MessageFeedbackScope | null>(() =>
+    props.messageFeedback &&
+    learningFeedbackEnabled.value &&
+    config.value?.agentId !== undefined &&
+    config.value?.threadId !== undefined
+      ? {
+          copilotkit: copilotkit.value,
+          agentId: config.value.agentId,
+          threadId: config.value.threadId,
+        }
+      : null,
+  ),
+);
+
+const turnByFirstMessage = computed(() => viewState.value.turnByFirstMessage);
+// The latest reply is keyed by the user message it answers (see getTurnWork).
+const latestTurnKey = computed(() => viewState.value.latestTurnKey);
+
+provide(
+  ToolCallDisplayContextKey,
+  computed<ɵToolCallDisplayContextValue>(() => ({
+    display: props.toolCallDisplay,
+    isRunning: props.isRunning,
+    layouts: viewState.value.layouts,
+    workOpen: viewState.value.workOpen,
+    workTextOpen: viewState.value.workTextOpen,
+  })),
+);
+
+/** The `"turn"` display's summary line for a reply, or its slot. */
+const WorkSummaryRow: FunctionalComponent<{
+  turnKey: string;
+  calls: ToolCallEntry[];
+}> = ({ turnKey, calls }) => {
+  void viewState.value;
+  const isWorking = viewModel.isTurnWorking(turnKey);
+  const isOpen = viewModel.isTurnOpen(turnKey);
+  const times = viewModel.getWorkTime(turnKey);
+  const summaryProps: CopilotChatWorkSummarySlotProps = {
+    isWorking,
+    isOpen,
+    calls,
+    elapsedMs: times?.elapsedMs,
+    workingSince: times?.workingSince,
+    onClick: () => {
+      viewModel.toggleTurn(turnKey);
+    },
+  };
+  const slot = componentSlots["work-summary"];
+  return h(
+    CopilotChatCollapsible,
+    { open: isWorking || calls.length > 0 },
+    () => [
+      h(
+        "div",
+        { class: "cpk-message-view-work-summary" },
+        slot
+          ? (slot(summaryProps) as VNode[])
+          : [h(CopilotChatWorkSummary, summaryProps)],
+      ),
+    ],
+  );
+};
+WorkSummaryRow.props = ["turnKey", "calls"];
 
 // Stable per-row keys. Backends can re-key a message mid-stream, and keying
 // rows by the canonical id tears the row down on that swap (the HITL chat
@@ -208,91 +331,33 @@ watch(
   (messages) => commitRowKeyStore(rowKeyStore, messages),
   { flush: "post" },
 );
-const lastMessage = computed(() => props.messages[props.messages.length - 1]);
-const showCursor = computed(
-  () => props.isRunning && lastMessage.value?.role !== "reasoning",
-);
+const showCursor = computed(() => viewState.value.showCursor);
+const pendingWorkSummary = computed(() => viewState.value.pendingWorkSummary);
 
 watch(
   [() => props.messages.length, () => deduplicatedMessages.value.length],
   ([messageCount, deduplicatedCount]) => {
-    if (
-      process.env.NODE_ENV === "development" &&
-      deduplicatedCount < messageCount
-    ) {
-      console.warn(
-        `CopilotChatMessageView: Deduplicated ${messageCount - deduplicatedCount} message(s) with duplicate IDs.`,
-      );
-    }
+    if (process.env.NODE_ENV !== "development") return;
+    const warning = ɵduplicateMessagesWarning(messageCount, deduplicatedCount);
+    if (warning) console.warn(warning);
   },
   { immediate: true },
 );
 
-function getMeta(
-  message: Message,
-): Omit<MessageMetaProps, "position" | "message"> {
-  stateTick.value += 0;
-  const agentId = resolvedAgentId.value;
-  const threadId = config.value?.threadId ?? "";
-  const core = copilotkit.value;
-
-  const resolvedRunId =
-    core.getRunIdForMessage(agentId, threadId, message.id) ??
-    core.getRunIdsForThread(agentId, threadId).slice(-1)[0];
-  const runId = resolvedRunId ?? `missing-run-id:${message.id}`;
-
-  const agent = resolvedThreadAgent.value ?? core.getAgent(agentId);
-
-  const messageIdsInRun =
-    resolvedRunId && agent
-      ? agent.messages
-          .filter(
-            (msg) =>
-              core.getRunIdForMessage(agentId, threadId, msg.id) ===
-              resolvedRunId,
-          )
-          .map((msg) => msg.id)
-      : [message.id];
-
-  const rawMessageIndex = agent
-    ? agent.messages.findIndex((msg) => msg.id === message.id)
-    : -1;
-  const messageIndex = rawMessageIndex >= 0 ? rawMessageIndex : 0;
-  const messageIndexInRun = resolvedRunId
-    ? Math.max(messageIdsInRun.indexOf(message.id), 0)
-    : 0;
-  const numberOfMessagesInRun = resolvedRunId ? messageIdsInRun.length : 1;
-
-  // `getStateByRun` deep-clones the whole run state, so resolve it only when
-  // a consumer reads `stateSnapshot`, and at most once per meta object.
-  let stateSnapshot: unknown;
-  let stateSnapshotResolved = false;
-
-  return {
-    runId,
-    messageIndex,
-    messageIndexInRun,
-    numberOfMessagesInRun,
-    agentId,
-    get stateSnapshot() {
-      if (!stateSnapshotResolved) {
-        stateSnapshotResolved = true;
-        stateSnapshot = resolvedRunId
-          ? core.getStateByRun(agentId, threadId, resolvedRunId)
-          : undefined;
-      }
-      return stateSnapshot;
-    },
-  };
-}
-
-// `Object.assign` onto the meta object keeps the lazy `stateSnapshot` getter.
-// A spread would call it.
+// Core builds the props with a lazy `stateSnapshot` getter, so slots that
+// never read it do not clone the run state.
 function getMessageSlotProps(
   message: Message,
   position: MessageMetaProps["position"],
 ): MessageMetaProps {
-  return Object.assign(getMeta(message), { message, position });
+  stateTick.value += 0;
+  return ɵgetCustomMessageRenderProps(copilotkit.value, {
+    agentId: resolvedAgentId.value,
+    threadId: config.value?.threadId ?? "",
+    agent: resolvedThreadAgent.value,
+    message,
+    position,
+  });
 }
 
 // Calls a `#message-before` / `#message-after` slot with the meta object
@@ -319,21 +384,12 @@ function resolveCustomMessageRenderer(
     return null;
   }
 
-  const agentId = resolvedAgentId.value;
-  const renderers = [...copilotkit.value.renderCustomMessages]
-    .filter(
-      (renderer) =>
-        renderer.agentId === undefined || renderer.agentId === agentId,
-    )
-    .sort((a, b) => {
-      const aHasAgent = a.agentId !== undefined;
-      const bHasAgent = b.agentId !== undefined;
-      if (aHasAgent === bHasAgent) return 0;
-      return aHasAgent ? -1 : 1;
-    });
-
-  const selected = renderers[0];
-  if (!selected?.render) {
+  // Try each renderer in order and use the first that has something to draw.
+  const selected = ɵresolveCustomMessageRenderers(
+    copilotkit.value.renderCustomMessages,
+    resolvedAgentId.value,
+  ).find((renderer) => renderer.render);
+  if (!selected) {
     return null;
   }
 
@@ -348,53 +404,43 @@ function resolveActivityRenderer(
 ): { renderer: Component; props: ActivitySlotProps } | null {
   stateTick.value += 0;
 
-  const agentId = resolvedAgentId.value;
-  const renderer = [...copilotkit.value.renderActivityMessages]
-    .filter(
-      (entry) =>
-        entry.activityType === message.activityType &&
-        (entry.agentId === undefined || entry.agentId === agentId),
-    )
-    .sort((a, b) => {
-      const aScoped = a.agentId !== undefined;
-      const bScoped = b.agentId !== undefined;
-      if (aScoped === bScoped) return 0;
-      return aScoped ? -1 : 1;
-    })[0];
-
-  if (!renderer) return null;
-  const parsed = renderer.content.safeParse(message.content);
-  if (!parsed.success) return null;
+  const match = ɵresolveActivityRenderer(
+    copilotkit.value.renderActivityMessages,
+    {
+      activityType: message.activityType,
+      agentId: resolvedAgentId.value,
+      content: message.content,
+    },
+  );
+  if (!match) return null;
 
   return {
-    renderer: renderer.render as Component,
+    renderer: match.renderer.render as Component,
     props: {
       activityType: message.activityType,
-      content: parsed.data,
+      content: match.content,
       message,
       agent: resolvedThreadAgent.value,
     },
   };
 }
-
-function resolveToolMessage(
-  message: Message,
-  toolCallId: string,
-): ToolMessage | undefined {
-  return props.messages.find(
-    (candidate) =>
-      candidate.role === "tool" &&
-      (candidate as ToolMessage).toolCallId === toolCallId,
-  ) as ToolMessage | undefined;
-}
 </script>
 
 <template>
-  <div data-copilotkit class="cpk:flex cpk:flex-col" v-bind="$attrs">
+  <div
+    data-copilotkit
+    class="copilotKitMessages cpk-message-view"
+    v-bind="$attrs"
+  >
     <template
       v-for="message in deduplicatedMessages"
       :key="rowRenderKeys.get(message.id) ?? message.id"
     >
+      <WorkSummaryRow
+        v-if="turnByFirstMessage.get(message.id)"
+        :turn-key="turnByFirstMessage.get(message.id)!.key"
+        :calls="turnByFirstMessage.get(message.id)!.calls"
+      />
       <MessageMetaSlot
         v-if="componentSlots['message-before']"
         :render="componentSlots['message-before']"
@@ -444,19 +490,30 @@ function resolveToolMessage(
         </CopilotChatUserMessage>
       </slot>
 
-      <slot
+      <!-- Reasoning during a reply's working phase folds away with the work.
+           Always wrapped in this display, so reasoning that turns into work
+           keeps its node (and its "Thought for" timer) instead of remounting. -->
+      <TurnWorkFold
         v-else-if="message.role === 'reasoning'"
-        name="reasoning-message"
-        :message="message"
-        :messages="messages"
-        :is-running="isRunning"
+        :open="
+          toolCallDisplay === 'turn'
+            ? (viewState.workOpen.get(message.id) ?? true)
+            : undefined
+        "
       >
-        <CopilotChatReasoningMessage
+        <slot
+          name="reasoning-message"
           :message="message"
           :messages="messages"
           :is-running="isRunning"
-        />
-      </slot>
+        >
+          <CopilotChatReasoningMessage
+            :message="message"
+            :messages="messages"
+            :is-running="isRunning"
+          />
+        </slot>
+      </TurnWorkFold>
 
       <slot
         v-else-if="message.role === 'activity'"
@@ -504,11 +561,19 @@ function resolveToolMessage(
       :cancel="interruptState.cancel"
     />
 
-    <slot v-if="showCursor" name="cursor">
-      <div
-        class="cpk:w-[11px] cpk:h-[11px] cpk:rounded-full cpk:bg-foreground cpk:animate-pulse cpk:ml-1"
-        data-testid="copilot-loading-cursor"
-      />
-    </slot>
+    <WorkSummaryRow
+      v-if="pendingWorkSummary"
+      :turn-key="latestTurnKey"
+      :calls="[]"
+    />
+
+    <div v-if="showCursor" class="cpk-message-view-cursor-container">
+      <slot name="cursor">
+        <div
+          class="cpk-message-view-cursor"
+          data-testid="copilot-loading-cursor"
+        />
+      </slot>
+    </div>
   </div>
 </template>

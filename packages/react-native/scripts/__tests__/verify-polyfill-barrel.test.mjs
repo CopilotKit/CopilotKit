@@ -79,7 +79,7 @@ function packageWithEntry({ esm, cjs }) {
 // polyfills: core-loading modules first, no polyfill barrel at all.
 const UNPOLYFILLED_ESM =
   'import React from "react";\n' +
-  'import { useCopilotKit } from "@copilotkit/react-core/v2/context";\n';
+  'import { useCopilotKit } from "@copilotkit/react-core/context";\n';
 const UNPOLYFILLED_CJS =
   "Object.defineProperty(exports, Symbol.toStringTag, { value: 'Module' });\n" +
   "const require_chunk = require('../chunk-C0xms8kb.cjs');\n" +

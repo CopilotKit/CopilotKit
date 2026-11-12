@@ -1,0 +1,122 @@
+import {
+  CopilotRuntime,
+  CopilotKitIntelligence,
+  InMemoryAgentRunner,
+  createCopilotRuntimeHandler,
+} from "@copilotkit/runtime";
+import type {
+  AgentSubscriber,
+  RunAgentInput,
+  RunAgentParameters,
+  RunAgentResult,
+} from "@ag-ui/client";
+import { A2AAgent } from "@ag-ui/a2a";
+import type { A2AAgentConfig } from "@ag-ui/a2a";
+import { A2AClient } from "@a2a-js/sdk/client";
+
+const a2aClient = new A2AClient("http://localhost:10002");
+
+type RuntimeRunAgentInput = RunAgentParameters &
+  Partial<Pick<RunAgentInput, "messages" | "state" | "threadId">>;
+
+class RuntimeA2AAgent extends A2AAgent {
+  private readonly client: A2AClient;
+
+  constructor(config: A2AAgentConfig) {
+    super(config);
+    this.client = config.a2aClient;
+  }
+
+  async runAgent(
+    parameters: RuntimeRunAgentInput = {},
+    subscriber?: AgentSubscriber,
+  ): Promise<RunAgentResult> {
+    const isolatedAgent = new A2AAgent({
+      a2aClient: this.client,
+      agentId: this.agentId,
+      debug: this.debug,
+      description: this.description,
+      initialMessages: this.messages,
+      initialState: this.state,
+      threadId: this.threadId,
+    });
+
+    if (parameters.threadId) {
+      isolatedAgent.threadId = parameters.threadId;
+    }
+
+    if (parameters.state) {
+      isolatedAgent.setState(parameters.state);
+    }
+
+    if (parameters.messages) {
+      isolatedAgent.setMessages(parameters.messages);
+    }
+
+    return isolatedAgent.runAgent(
+      {
+        context: parameters.context,
+        forwardedProps: parameters.forwardedProps,
+        runId: parameters.runId,
+        tools: parameters.tools,
+      },
+      subscriber,
+    );
+  }
+
+  clone(): RuntimeA2AAgent {
+    return new RuntimeA2AAgent({
+      a2aClient: this.client,
+      agentId: this.agentId,
+      debug: this.debug,
+      description: this.description,
+      initialMessages: this.messages,
+      initialState: this.state,
+      threadId: this.threadId,
+    });
+  }
+}
+
+const agent = new RuntimeA2AAgent({ a2aClient });
+
+const runtime = new CopilotRuntime({
+  agents: {
+    default: agent,
+  },
+  // The A2A agent sends A2UI v0.8 (`@ag-ui/a2a` forwards only v0.8
+  // operations). Generative UI converts v0.9 and 1.0 only, and it would drop
+  // these surfaces, so it stays off. `app/components/a2ui-v0-8-renderer.tsx`
+  // renders them.
+  generativeUI: false,
+  // --- copilotkit:intelligence (remove this block to opt out) ---
+  ...(process.env.CPK_INTELLIGENCE_API_KEY
+    ? {
+        intelligence: new CopilotKitIntelligence({
+          apiKey: process.env.CPK_INTELLIGENCE_API_KEY,
+          ...(process.env.INTELLIGENCE_API_URL
+            ? { apiUrl: process.env.INTELLIGENCE_API_URL }
+            : {}),
+          ...(process.env.INTELLIGENCE_GATEWAY_WS_URL
+            ? { wsUrl: process.env.INTELLIGENCE_GATEWAY_WS_URL }
+            : {}),
+        }),
+        // Demo stub — replace with your real auth-derived user identity before any
+        // multi-user deployment, or all users share one thread history. The id
+        // must correspond to a user that exists in CopilotKit Intelligence;
+        // an unknown id (like this literal) can make thread operations fail.
+        identifyUser: () => ({ id: "demo-user", name: "Demo User" }),
+      }
+    : { runner: new InMemoryAgentRunner() }),
+  // --- /copilotkit:intelligence ---
+});
+
+const app = createCopilotRuntimeHandler({
+  cors: true,
+  runtime,
+  basePath: "/api/copilotkit",
+});
+
+export const GET = app;
+export const POST = app;
+export const PATCH = app;
+export const DELETE = app;

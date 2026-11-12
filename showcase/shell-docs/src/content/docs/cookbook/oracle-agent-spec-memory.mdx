@@ -20,7 +20,7 @@ The example is a personal **travel concierge**: it remembers your preferences ac
 - The `recall_memory` tool reads saved preferences from Oracle Agent Memory. After each response streams, the server saves the turn. A reconcile pass then removes outdated facts, so an updated preference wins next time.
 
 ```text
-CopilotKit (Next.js, V2) ──/api/copilotkit──▶ CopilotRuntime (HttpAgent)
+CopilotKit (Next.js) ──/api/copilotkit──▶ CopilotRuntime (HttpAgent)
                                                     │  AG-UI (SSE)
                                                     ▼
                                   Agent Spec JSON → ag_ui_agentspec (LangGraph)
@@ -51,19 +51,19 @@ the current conversation.
 
 ## Prerequisites
 
-- **Python 3.12** (required: `oracleagentmemory` ships a cp312 wheel), [`uv`](https://docs.astral.sh/uv/), Node.js 20+
+- **Python 3.12** (required: `oracleagentmemory` ships a cp312 wheel), [`uv`](https://docs.astral.sh/uv/), Node.js 20.19.3+ or 22.13+
 - Docker (for the local Oracle AI Database) or your own Oracle AI Database
 - `OPENAI_API_KEY` (defaults use OpenAI via litellm)
 
-<Callout type="warning" title="Pre-release dependencies">
-This frontend uses CopilotKit **V2** pre-release builds so Agent Spec's human-in-the-loop renders, and the `ag_ui_agentspec` adapter is installed from the `ag-ui` repo (not PyPI). Both are pinned in the manifests.
+<Callout type="warning" title="Adapter installed from source">
+The `ag_ui_agentspec` adapter is installed from the `ag-ui` repo (not PyPI). It is pinned in the agent manifest.
 </Callout>
 
 ## Start the database and run the agent
 
 ```bash
 git clone https://github.com/CopilotKit/CopilotKit.git
-cd CopilotKit/examples/showcases/oracle-agent-memory
+cd CopilotKit/examples/demos/oracle-agent-memory
 
 docker compose up -d                 # wait for "DATABASE IS READY TO USE"
 ./db/setup-db.sh                     # create the cookbook DB user (idempotent)
@@ -79,7 +79,7 @@ uv run uvicorn concierge.server:app --reload --port 8000
 In a second terminal, from the folder where you cloned the repo:
 
 ```bash
-cd CopilotKit/examples/showcases/oracle-agent-memory/frontend
+cd CopilotKit/examples/demos/oracle-agent-memory/frontend
 cp .env.local.example .env.local     # optional; defaults to localhost:8000/run
 npm install
 npm run dev
@@ -137,7 +137,7 @@ The adapter has no post-run hook, so the server persists each turn to Oracle Age
 
 - **Per-user memory**: the cookbook defaults to a single `demo-user`. The stock adapter does not forward `forwarded_props`, so scope `user_id` via a FastAPI dependency / ContextVar (see `agent/concierge/tools.py`).
 - **Swap the runtime**: Agent Spec's adapter also supports Oracle's WayFlow runtime; the same spec runs on either.
-- **Multi-turn workaround.** `agent/concierge/server.py` replaces the adapter's message merge with the full history each turn, to work around an upstream `tool_call_id` bug. See [`agentspec-multiturn-toolcall-correlation`](https://github.com/CopilotKit/CopilotKit/blob/main/examples/showcases/oracle-agent-memory/docs/known-issues/agentspec-multiturn-toolcall-correlation.md).
+- **Multi-turn workaround.** `agent/concierge/server.py` replaces the adapter's message merge with the full history each turn, to work around an upstream `tool_call_id` bug. See [`agentspec-multiturn-toolcall-correlation`](https://github.com/CopilotKit/CopilotKit/blob/main/examples/demos/oracle-agent-memory/docs/known-issues/agentspec-multiturn-toolcall-correlation.md).
 - **Memory reconciliation**: after each turn a small LLM pass (`reconcile_durable_memories` in `agent/concierge/reconcile.py`) prunes outdated or duplicate durable facts so an updated preference supersedes the old one on recall. Swap in your own policy (e.g. keep history, or reconcile on a schedule).
 
 ## Get started with a coding agent
@@ -161,8 +161,7 @@ long-term memory on Oracle AI Database. Requirements:
   persist each turn to Oracle Agent Memory after the AG-UI stream drains.
 - A Next.js CopilotKit frontend that proxies to the agent over AG-UI with
   `HttpAgent`, so the agent owns the LLM call (register the `HttpAgent` on a
-  v2 `CopilotRuntime` with an `InMemoryAgentRunner`, and no service
-  adapter). The frontend renders generative UI: `search_flights` →
+  `CopilotRuntime` with an `InMemoryAgentRunner`). The frontend renders generative UI: `search_flights` →
   flight-option cards, `recall_memory` → a "🧠 Remembered your preferences"
   chip, and `book_flight` → a confirmation card that stamps into a
   boarding-pass ticket. A collapsible left sidebar lists conversation
@@ -176,4 +175,4 @@ Walk me through it step by step, starting with the agent.
 
 ## Get the code
 
-Full source: [`examples/showcases/oracle-agent-memory`](https://github.com/CopilotKit/CopilotKit/tree/main/examples/showcases/oracle-agent-memory), with `agent/` (the Agent Spec agent) and `frontend/` (the CopilotKit V2 chat).
+Full source: [`examples/demos/oracle-agent-memory`](https://github.com/CopilotKit/CopilotKit/tree/main/examples/demos/oracle-agent-memory), with `agent/` (the Agent Spec agent) and `frontend/` (the CopilotKit chat).

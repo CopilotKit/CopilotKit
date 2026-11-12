@@ -1,9 +1,6 @@
 <script setup lang="ts">
-import { computed } from "vue";
-import { renderToString } from "katex";
 import type { z } from "zod";
 import type { mathSchema } from "@copilotkit/shared/generative-ui";
-import { useKatexStyles } from "../../../hooks/use-katex-styles";
 import { useStandardStyles } from "../../standard-styles";
 
 defineOptions({ name: "CopilotGenerativeUIMath" });
@@ -11,13 +8,11 @@ defineOptions({ name: "CopilotGenerativeUIMath" });
 type MathProps = z.output<typeof mathSchema>;
 
 /**
- * A TeX formula, typeset with KaTeX: a `<span>`, or a centered `<div>` on
- * its own line when `block` is true. KaTeX escapes the source and adds
- * MathML for screen readers. With `trust: false`, commands that make links
- * or raw HTML do not work. An invalid formula shows as red source text, not
- * as an error.
+ * Shows the TeX source as code: a `<code>`, or a `<pre>` on its own line
+ * when `block` is true. @copilotkit/vue ships no math typesetter, so a
+ * formula reads as its source, which is still exact.
  */
-const props = defineProps<{
+defineProps<{
   /** The TeX source. */
   value: MathProps["value"];
   /** Default false. */
@@ -25,19 +20,9 @@ const props = defineProps<{
 }>();
 
 useStandardStyles();
-useKatexStyles();
-
-const html = computed(() =>
-  renderToString(props.value, {
-    displayMode: props.block === true,
-    throwOnError: false,
-    trust: false,
-  }),
-);
 </script>
 
 <template>
-  <!-- KaTeX escapes the source, so its HTML is safe to set. -->
-  <div v-if="block" data-math="block" v-html="html" />
-  <span v-else data-math="inline" v-html="html" />
+  <pre v-if="block" data-math="block"><code>{{ value }}</code></pre>
+  <code v-else data-math="inline">{{ value }}</code>
 </template>

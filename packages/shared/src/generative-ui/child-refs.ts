@@ -107,7 +107,8 @@ export function collectChildRefs(schema: GenerativeUIJSONSchema): ChildRef[] {
         );
         const key = (ref: ChildRef) =>
           `${ref.kind}\u0000${ref.path.join("\u0000")}`;
-        const shared = perVariant[0].filter((ref) =>
+        // `list` is not empty (checked above), so `perVariant` is not empty.
+        const shared = perVariant[0]!.filter((ref) =>
           perVariant.every((refs) => refs.some((r) => key(r) === key(ref))),
         );
         shared.forEach((ref) => add([...path, ...ref.path], ref.kind));
@@ -146,8 +147,8 @@ export function childIdsAtRefs(
     }
   };
   const visit = (value: unknown, path: readonly string[]) => {
-    if (path.length === 0) return collect(value);
     const [head, ...rest] = path;
+    if (head === undefined) return collect(value);
     if (head === "*") {
       if (Array.isArray(value)) value.forEach((item) => visit(item, rest));
       return;
@@ -173,8 +174,8 @@ export function hasBoundChildRef(
     isRecord(value) && ("@path" in value || "@call" in value);
   const visit = (value: unknown, path: readonly string[]): boolean => {
     if (isDynamic(value)) return true;
-    if (path.length === 0) return false;
     const [head, ...rest] = path;
+    if (head === undefined) return false;
     if (head === "*") {
       return Array.isArray(value) && value.some((item) => visit(item, rest));
     }
@@ -197,8 +198,8 @@ export function mapAtChildRef(
   path: readonly string[],
   replace: (found: unknown) => unknown,
 ): unknown {
-  if (path.length === 0) return replace(value);
   const [head, ...rest] = path;
+  if (head === undefined) return replace(value);
   if (head === "*") {
     if (!Array.isArray(value)) return value;
     return value.map((item) => mapAtChildRef(item, rest, replace));

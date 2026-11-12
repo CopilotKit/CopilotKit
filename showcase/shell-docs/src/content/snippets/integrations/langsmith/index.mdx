@@ -232,7 +232,7 @@ point the runtime at the LangSmith deployment URL.
         In your frontend app:
 
         ```npm
-        npm install @copilotkit/react-core @copilotkit/runtime
+        npm install @copilotkit/react-core @copilotkit/runtime @ag-ui/langgraph
         ```
       </Step>
 
@@ -247,8 +247,8 @@ point the runtime at the LangSmith deployment URL.
           CopilotRuntime,
           createCopilotRuntimeHandler,
           InMemoryAgentRunner,
-        } from "@copilotkit/runtime/v2";
-        import { LangGraphAgent } from "@copilotkit/runtime/langgraph";
+        } from "@copilotkit/runtime";
+        import { LangGraphAgent } from "@ag-ui/langgraph";
 
         const runtime = new CopilotRuntime({
           agents: {
@@ -278,18 +278,18 @@ point the runtime at the LangSmith deployment URL.
       </Step>
 
       <Step>
-        ### Add the CopilotKit provider
+        ### Add the CopilotKitProvider
 
         ```tsx title="app/providers.tsx"
         "use client";
 
-        import { CopilotKit } from "@copilotkit/react-core/v2";
+        import { CopilotKitProvider } from "@copilotkit/react-core";
 
         export function Providers({ children }: { children: React.ReactNode }) {
           return (
-            <CopilotKit runtimeUrl="/api/copilotkit" agent="my_agent" useSingleEndpoint={false}>
+            <CopilotKitProvider runtimeUrl="/api/copilotkit" agentId="my_agent">
               {children}
-            </CopilotKit>
+            </CopilotKitProvider>
           );
         }
         ```
@@ -298,7 +298,6 @@ point the runtime at the LangSmith deployment URL.
 
         ```tsx title="app/layout.tsx"
         import { Providers } from "./providers";
-        import "@copilotkit/react-core/v2/styles.css";
 
         export default function RootLayout({ children }: { children: React.ReactNode }) {
           return (
@@ -355,7 +354,7 @@ point the runtime at the LangSmith deployment URL.
         ### Install CopilotKit
 
         ```npm
-        npm install @copilotkit/react-core @copilotkit/runtime
+        npm install @copilotkit/react-core @copilotkit/runtime @ag-ui/langgraph
         ```
       </Step>
 
@@ -369,8 +368,8 @@ point the runtime at the LangSmith deployment URL.
           CopilotRuntime,
           createCopilotRuntimeHandler,
           InMemoryAgentRunner,
-        } from "@copilotkit/runtime/v2";
-        import { LangGraphAgent } from "@copilotkit/runtime/langgraph";
+        } from "@copilotkit/runtime";
+        import { LangGraphAgent } from "@ag-ui/langgraph";
 
         const runtime = new CopilotRuntime({
           agents: {
@@ -400,18 +399,18 @@ point the runtime at the LangSmith deployment URL.
       </Step>
 
       <Step>
-        ### Add the CopilotKit provider
+        ### Add the CopilotKitProvider
 
         ```tsx title="app/providers.tsx"
         "use client";
 
-        import { CopilotKit } from "@copilotkit/react-core/v2";
+        import { CopilotKitProvider } from "@copilotkit/react-core";
 
         export function Providers({ children }: { children: React.ReactNode }) {
           return (
-            <CopilotKit runtimeUrl="/api/copilotkit" agent="my_agent" useSingleEndpoint={false}>
+            <CopilotKitProvider runtimeUrl="/api/copilotkit" agentId="my_agent">
               {children}
-            </CopilotKit>
+            </CopilotKitProvider>
           );
         }
         ```
@@ -420,7 +419,6 @@ point the runtime at the LangSmith deployment URL.
 
         ```tsx title="app/layout.tsx"
         import { Providers } from "./providers";
-        import "@copilotkit/react-core/v2/styles.css";
 
         export default function RootLayout({ children }: { children: React.ReactNode }) {
           return (
@@ -444,7 +442,7 @@ point the runtime at the LangSmith deployment URL.
         ```tsx title="app/page.tsx"
         "use client"; // [!code highlight]
 
-        import { CopilotSidebar } from "@copilotkit/react-core/v2";
+        import { CopilotSidebar } from "@copilotkit/react-core";
 
         export default function Page() {
           return (

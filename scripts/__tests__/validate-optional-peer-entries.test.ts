@@ -57,8 +57,12 @@ describe("packageNameOf", () => {
 });
 
 describe("isDedicatedEntry", () => {
-  it("treats a matching path segment as dedicated", () => {
+  it("treats a matching last path segment as dedicated", () => {
     expect(isDedicatedEntry("./v2/express", "express")).toBe(true);
+  });
+
+  it("does not treat a parent segment as dedicated", () => {
+    expect(isDedicatedEntry("./express/v2", "express")).toBe(false);
   });
 
   it("does not treat a barrel as dedicated", () => {
@@ -71,6 +75,22 @@ describe("isDedicatedEntry", () => {
       false,
     );
     expect(isDedicatedEntry("./core", "@langchain/core")).toBe(true);
+  });
+
+  it("treats ./agent/ai-sdk as dedicated to the ai package", () => {
+    expect(isDedicatedEntry("./agent/ai-sdk", "ai")).toBe(true);
+  });
+
+  it("does not extend the ai-sdk alias to a scoped peer with the same leaf", () => {
+    expect(isDedicatedEntry("./agent/ai-sdk", "@tanstack/ai")).toBe(false);
+  });
+
+  it("does not treat ./agent as dedicated to an ai package", () => {
+    // `@tanstack/ai` is a dependency of the runtime, not a peer, so `./agent`
+    // needs no exemption for it.
+    expect(isDedicatedEntry("./agent", "@tanstack/ai")).toBe(false);
+    expect(isDedicatedEntry("./agent", "ai")).toBe(false);
+    expect(isDedicatedEntry("./agent", "@tanstack/ai-openai")).toBe(false);
   });
 });
 

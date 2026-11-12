@@ -561,5 +561,5 @@ demos:
 # Starter VALIDATION ladder (dashboard). NOT the `starter:` key — that one
 # drives the public "Full Starter" section on the integration profile page.
 starter_validation:
-  path: examples/integrations/ms-agent-framework-python
+  path: examples/starters/ms-agent-framework-python
   service: starter-ms-agent-framework-python

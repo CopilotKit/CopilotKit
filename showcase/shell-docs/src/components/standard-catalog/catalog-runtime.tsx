@@ -7,10 +7,11 @@ import {
   useMemo,
   useState,
   useSyncExternalStore,
-  type ReactNode,
 } from "react";
+import type { ReactNode } from "react";
 import { useStory } from "@fumadocs/story";
-import { defineStoryFactory, type Story } from "@fumadocs/story/next/client";
+import { defineStoryFactory } from "@fumadocs/story/next/client";
+import type { Story } from "@fumadocs/story/next/client";
 import { DynamicCodeBlock } from "fumadocs-ui/components/dynamic-codeblock";
 import {
   CopilotKitProvider,
@@ -28,8 +29,8 @@ import {
   catalogVariants,
   variantNode,
   variantOperations,
-  type CatalogVariant,
 } from "./catalog-story";
+import type { CatalogVariant } from "./catalog-story";
 
 // The catalog pages' previews: a Fumadocs Story per component, its controls
 // the component's props. Each preview draws its surface straight from the

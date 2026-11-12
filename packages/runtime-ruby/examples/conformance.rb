@@ -16,7 +16,7 @@ runtime = CopilotKit::Runtime.new(
   }),
   telemetry: CopilotKit::Telemetry.new(url: config['telemetryUrl'], sample_rate: config.fetch('telemetrySampleRate', 1),
     disabled: config.fetch('telemetryDisabled', false), telemetry_id: config['telemetryId'], license_token: config['licenseToken']),
-  a2ui: config['a2ui'], mcp_apps: config['mcpApps']
+  generative_ui: config['generativeUI'], mcp_apps: config['mcpApps']
 )
 app = runtime
 if ENV['CPK_RAILS_FIXTURE'] == 'true'

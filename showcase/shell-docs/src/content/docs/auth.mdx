@@ -26,33 +26,49 @@ The runtime hooks on this page use the TypeScript API. Python, Go, Ruby, and C#/
 
 ## Frontend
 
-Pass your token via the `headers` prop on `<CopilotKit>`. CopilotKit forwards every request with that header attached.
+Pass your token via the `headers` prop on `<CopilotKitProvider>`. CopilotKit forwards every request with that header attached.
 
-```tsx title="frontend/src/app/page.tsx"
-import { CopilotKit } from "@copilotkit/react-core/v2";
+```tsx title="frontend/src/app/providers.tsx"
+import type { ReactNode } from "react";
+import { CopilotKitProvider } from "@copilotkit/react-core";
 
-<CopilotKit
-  runtimeUrl="/api/copilotkit"
-  headers={{
-    Authorization: `Bearer ${userToken}`,
-  }}
->
-  <YourApp />
-</CopilotKit>
+export function Providers({
+  userToken,
+  children,
+}: {
+  userToken: string;
+  children: ReactNode;
+}) {
+  return (
+    <CopilotKitProvider
+      runtimeUrl="/api/copilotkit"
+      headers={{
+        Authorization: `Bearer ${userToken}`,
+      }}
+    >
+      {children}
+    </CopilotKitProvider>
+  );
+}
 ```
 
 ## Backend
 
-Wire authentication into the V2 runtime via the `onRequest` hook. The hook runs before any agent code and receives the raw `Request`. Read the `Authorization` header there and verify the token. If the token is not valid, throw a `401` response:
+Wire authentication into the runtime via the `onRequest` hook. The hook runs before any agent code and receives the raw `Request`. Read the `Authorization` header there and verify the token. If the token is not valid, throw a `401` response:
 
 ```ts title="app/api/copilotkit/[[...slug]]/route.ts"
 import type { NextRequest } from "next/server";
 import {
   CopilotRuntime,
   createCopilotRuntimeHandler,
-} from "@copilotkit/runtime/v2";
+} from "@copilotkit/runtime";
+import { BuiltInAgent } from "@copilotkit/runtime/agent";
+import { openaiText } from "@tanstack/ai-openai";
+import { verifyJwt } from "./auth"; // Your token verifier.
 
-const runtime = new CopilotRuntime({ agents: { default: myAgent } });
+const runtime = new CopilotRuntime({
+  agents: { default: new BuiltInAgent({ model: openaiText("gpt-6-luna") }) },
+});
 
 const handler = createCopilotRuntimeHandler({
   runtime,
@@ -79,9 +95,9 @@ export const PATCH = (req: NextRequest) => handler(req);
 export const DELETE = (req: NextRequest) => handler(req);
 ```
 
-To check the gate, remove `headers` from `<CopilotKit>` and reload the page. The requests to `/api/copilotkit` return `401`. Put the header back and send a message. The agent replies.
+To check the gate, remove `headers` from `<CopilotKitProvider>` and reload the page. The requests to `/api/copilotkit` return `401`. Put the header back and send a message. The agent replies.
 
-Coming from v1? See [Migrate to v2](/migrate/v2).
+Coming from v1? See [Migrate from v1 to 2.0](/migrate/v2).
 
 </WhenFrameworkHas>
 
@@ -91,17 +107,28 @@ Coming from v1? See [Migrate to v2](/migrate/v2).
 
 Pass your token via the `headers` prop. CopilotKit attaches it to every runtime request, and the runtime forwards the `Authorization` header on to your agent. The agent can be a LangGraph deployment or a self-hosted AG-UI endpoint.
 
-```tsx title="frontend/src/app/page.tsx"
-import { CopilotKit } from "@copilotkit/react-core/v2";
+```tsx title="frontend/src/app/providers.tsx"
+import type { ReactNode } from "react";
+import { CopilotKitProvider } from "@copilotkit/react-core";
 
-<CopilotKit
-  runtimeUrl="/api/copilotkit"
-  headers={{
-    Authorization: `Bearer ${userToken}`,
-  }}
->
-  <YourApp />
-</CopilotKit>
+export function Providers({
+  userToken,
+  children,
+}: {
+  userToken: string;
+  children: ReactNode;
+}) {
+  return (
+    <CopilotKitProvider
+      runtimeUrl="/api/copilotkit"
+      headers={{
+        Authorization: `Bearer ${userToken}`,
+      }}
+    >
+      {children}
+    </CopilotKitProvider>
+  );
+}
 ```
 
 <Callout type="warning" title="`properties` is not an auth channel">
@@ -224,19 +251,30 @@ When nodes don't need the identity (you just want unauthenticated traffic reject
 
 ## Frontend
 
-Pass your token via the `headers` prop. CopilotKit forwards it to AG2's `/chat` endpoint as a request header.
+Pass your token via the `headers` prop. CopilotKit attaches it to every runtime request, and the runtime forwards the `Authorization` header to AG2's `/chat` endpoint.
 
-```tsx title="frontend/src/app/page.tsx"
-import { CopilotKit } from "@copilotkit/react-core/v2";
+```tsx title="frontend/src/app/providers.tsx"
+import type { ReactNode } from "react";
+import { CopilotKitProvider } from "@copilotkit/react-core";
 
-<CopilotKit
-  runtimeUrl="/api/copilotkit"
-  headers={{
-    Authorization: `Bearer ${userToken}`,
-  }}
->
-  <YourApp />
-</CopilotKit>
+export function Providers({
+  userToken,
+  children,
+}: {
+  userToken: string;
+  children: ReactNode;
+}) {
+  return (
+    <CopilotKitProvider
+      runtimeUrl="/api/copilotkit"
+      headers={{
+        Authorization: `Bearer ${userToken}`,
+      }}
+    >
+      {children}
+    </CopilotKitProvider>
+  );
+}
 ```
 
 ## Backend
@@ -339,19 +377,30 @@ If you expose the capabilities `GET` route (`stream.capabilities()`, see [AG-UI]
 
 ## Frontend
 
-Microsoft Agent Framework's AG-UI host expects authentication on a request header rather than the runtime properties channel. Pass the token via `<CopilotKit headers={...}>`:
+Microsoft Agent Framework's AG-UI host expects authentication on a request header rather than the runtime properties channel. Pass the token via `<CopilotKitProvider headers={...}>`:
 
-```tsx title="frontend/src/app/page.tsx"
-import { CopilotKit } from "@copilotkit/react-core/v2";
+```tsx title="frontend/src/app/providers.tsx"
+import type { ReactNode } from "react";
+import { CopilotKitProvider } from "@copilotkit/react-core";
 
-<CopilotKit
-  runtimeUrl="/api/copilotkit"
-  headers={{
-    Authorization: `Bearer ${userToken}`,
-  }}
->
-  <YourApp />
-</CopilotKit>
+export function Providers({
+  userToken,
+  children,
+}: {
+  userToken: string;
+  children: ReactNode;
+}) {
+  return (
+    <CopilotKitProvider
+      runtimeUrl="/api/copilotkit"
+      headers={{
+        Authorization: `Bearer ${userToken}`,
+      }}
+    >
+      {children}
+    </CopilotKitProvider>
+  );
+}
 ```
 
 ## Backend
@@ -502,11 +551,24 @@ If several users share one deployment, each user must reach only their own threa
 
 ### CopilotKit Intelligence scopes thread routes
 
-The Intelligence runtime requires an `identifyUser` callback. Construction throws without one (or without at least one Channel). It runs on the server, once per request, and the id it returns is the scope the runtime hands to the platform. (`intelligence` below is a `CopilotKitIntelligence` instance; [Connect your runtime to Intelligence](/intelligence/quickstart) covers building it.)
+The Intelligence runtime requires an `identifyUser` callback. Construction throws without one (or without at least one Channel). It runs on the server, once per request, and the id it returns is the scope the runtime hands to the platform. ([Connect your runtime to Intelligence](/intelligence/quickstart) covers the `CopilotKitIntelligence` client below.)
 
 ```ts title="app/api/copilotkit/[[...slug]]/route.ts"
+import {
+  CopilotKitIntelligence,
+  CopilotRuntime,
+  createCopilotRuntimeHandler,
+} from "@copilotkit/runtime";
+import { BuiltInAgent } from "@copilotkit/runtime/agent";
+import { openaiText } from "@tanstack/ai-openai";
+import { verifyAppSession } from "./auth"; // Your server-side auth.
+
+const intelligence = new CopilotKitIntelligence({
+  apiKey: process.env.CPK_INTELLIGENCE_API_KEY!,
+});
+
 const runtime = new CopilotRuntime({
-  agents: { default: agent },
+  agents: { default: new BuiltInAgent({ model: openaiText("gpt-6-luna") }) },
   intelligence,
   identifyUser: async (request) => {
     const session = await verifyAppSession(request); // Your server-side auth.
@@ -549,7 +611,7 @@ For everything in the Yes rows there is no ownership table to build. What you ow
   thread scope.
 </Callout>
 
-See [Scope AG-UI Streams to the signed-in user](/threads-lifecycle#scope-rich-threads-to-the-signed-in-user) for the full runtime contract.
+See [Scope CopilotKit threads to the signed-in user](/threads-lifecycle#scope-copilotkit-threads-to-the-signed-in-user) for the full runtime contract.
 
 ### Scope threads yourself
 
@@ -582,7 +644,19 @@ Write a row when a conversation is first created. See [minting a thread with you
 
 `onRequest` runs before routing, so it can't see which thread is being addressed. `onBeforeHandler` runs after, and receives a `route` that names the operation and (for thread-scoped routes) the `threadId`:
 
-```ts
+```ts title="app/api/copilotkit/[[...slug]]/route.ts"
+import {
+  CopilotRuntime,
+  createCopilotRuntimeHandler,
+} from "@copilotkit/runtime";
+import { BuiltInAgent } from "@copilotkit/runtime/agent";
+import { openaiText } from "@tanstack/ai-openai";
+import { userOwnsThread, verifyRequest } from "./auth"; // Your auth and ownership checks.
+
+const runtime = new CopilotRuntime({
+  agents: { default: new BuiltInAgent({ model: openaiText("gpt-6-luna") }) },
+});
+
 const handler = createCopilotRuntimeHandler({
   runtime,
   basePath: "/api/copilotkit",
@@ -615,6 +689,11 @@ const handler = createCopilotRuntimeHandler({
     },
   },
 });
+
+export const GET = handler;
+export const POST = handler;
+export const PATCH = handler;
+export const DELETE = handler;
 ```
 
 The routes that carry a `threadId` on `route` are `agent/stop`, `threads/update`, `threads/archive`, `threads/messages`, `threads/events`, and `threads/state`.

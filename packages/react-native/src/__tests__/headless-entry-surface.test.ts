@@ -9,7 +9,7 @@ import { createRequire } from "node:module";
 import type * as HeadlessEntry from "../headless";
 // Same reason, and additionally: the identity assertion below needs the module
 // this entry re-exports FROM, to compare bindings rather than merely count them.
-import type * as CoreHeadlessEntry from "@copilotkit/react-core/v2/headless";
+import type * as CoreHeadlessEntry from "@copilotkit/react-core/headless";
 
 /**
  * Guards the import graphs of the published entries of
@@ -18,8 +18,8 @@ import type * as CoreHeadlessEntry from "@copilotkit/react-core/v2/headless";
  * `/components` and the polyfill subpaths are walked as well.
  *
  * The second `describe` covers the opt-in `/generative-ui` entry
- * (src/generative-ui/index.ts): it may reach react-core only through `/v2/context`
- * and the DOM-free `/v2/generative-ui/native`, it may reach the `zod` optional
+ * (src/generative-ui/index.ts): it may reach react-core only through `/context`
+ * and the DOM-free `/generative-ui/native`, it may reach the `zod` optional
  * peer, it owns no registry, and no OTHER entry may reach it or any
  * generative-UI subpath of a workspace package (that deny-list is derived from
  * the packages' `exports` maps). The third `describe` checks react-core's built
@@ -34,7 +34,7 @@ import type * as CoreHeadlessEntry from "@copilotkit/react-core/v2/headless";
  * (nothing in a normal typecheck/test catches it, because those are optional
  * peers). This walks the relative-import graph and fails if that happens.
  *
- * Mirrors the export-surface guard added for @copilotkit/react-core/v2/headless
+ * Mirrors the export-surface guard added for @copilotkit/react-core/headless
  * (PR #5883).
  *
  * ─── Why the walker looks the way it does ──────────────────────────────────
@@ -44,7 +44,7 @@ import type * as CoreHeadlessEntry from "@copilotkit/react-core/v2/headless";
  * to close them and each is covered by a test:
  *
  *  1. It only saw `import … from "x"`. A lazy optional-peer
- *     `require("@copilotkit/react-core/v2")` or `await import(…)` — which Metro
+ *     `require("@copilotkit/react-core")` or `await import(…)` — which Metro
  *     follows and bundles just the same — was invisible. Now static, bare
  *     side-effect, dynamic `import()` and `require()` are all extracted, and a
  *     loader whose argument is NOT a literal is reported as unanalyzable rather
@@ -54,7 +54,7 @@ import type * as CoreHeadlessEntry from "@copilotkit/react-core/v2/headless";
  *     `…/headless`, `…/polyfills` and its five subpaths) that NO source file
  *     imports (half the reported bare-specifier set), purely from JSDoc
  *     examples. In the other direction, a "don't do this: import from
- *     @copilotkit/react-core/v2" counter-example written in a doc comment failed
+ *     @copilotkit/react-core" counter-example written in a doc comment failed
  *     the build. Comments are stripped before matching now.
  *  3. `resolveLocal` returned null for an edge it could not resolve and the
  *     caller dropped it, so an unresolvable specifier read as "clean" while
@@ -98,18 +98,18 @@ const FORBIDDEN_LOCAL = [
 ];
 
 // The one react-core entry this package's hooks come from.
-const CORE_HEADLESS = "@copilotkit/react-core/v2/headless";
+const CORE_HEADLESS = "@copilotkit/react-core/headless";
 
 // ─── #4893 bundle guard ──────────────────────────────────────────────────────
-// @copilotkit/react-core/v2 (the "fat" entry) re-exports from a monolithic chunk
+// @copilotkit/react-core (the "fat" entry) re-exports from a monolithic chunk
 // that pulls the chat-message rendering stack: streamdown -> shiki (~5.5 MB of
 // grammars + themes), plus mermaid, cytoscape and katex. Metro does not
 // tree-shake, so ONE import of that specifier from anywhere in this package puts
 // all of it in every consumer's app bundle (issue #4893). PR #5883 moved the lean
-// hooks into /v2/headless precisely so this package never needs the fat entry.
+// hooks into /headless precisely so this package never needs the fat entry.
 const ALLOWED_REACT_CORE_ENTRIES = [
   CORE_HEADLESS,
-  "@copilotkit/react-core/v2/context",
+  "@copilotkit/react-core/context",
 ];
 
 /**
@@ -163,7 +163,6 @@ const FORBIDDEN_HEAVY = [
   "cytoscape",
   "katex",
   "streamdown",
-  "@copilotkit/a2ui-renderer",
   "@copilotkit/web-inspector",
   "@copilotkit/runtime-client-gql",
 ];
@@ -190,6 +189,15 @@ interface RegistryApiExemption {
 }
 
 const REGISTRY_API_EXEMPTIONS: readonly RegistryApiExemption[] = [
+  {
+    file: "components/MarkdownRendererContext.tsx",
+    declarations: [
+      /(import React, \{ )createContext, /,
+      /(const Ctx = )createContext<MarkdownRendererValue \| undefined>\(undefined\);/,
+    ],
+    reason:
+      "holds the provider-level `markdownRenderer` (a component, or config for the built-in markdown renderer). It stores no tools and no tool-call renderers",
+  },
   {
     file: "generative-ui/GenerativeUIProvider.tsx",
     declarations: [
@@ -268,7 +276,7 @@ const REQUIRED_HEADLESS_MODULES = [
   "CopilotKitProvider.tsx",
   "polyfills.ts",
 ];
-const REQUIRED_HEADLESS_BARE = ["@copilotkit/react-core/v2/headless"];
+const REQUIRED_HEADLESS_BARE = ["@copilotkit/react-core/headless"];
 
 interface PkgManifest {
   dependencies?: Record<string, string>;
@@ -293,7 +301,7 @@ interface PkgManifest {
  * The walk covers this package's OWN sources only, so this set bounds what
  * THEY import, not what the consumer must install in total. `zod` is the case
  * in point: it is an optional peer here, and no module of this package imports
- * it, yet every entry needs it at runtime — react-core's `/v2/headless`, which
+ * it, yet every entry needs it at runtime — react-core's `/headless`, which
  * both entries import, loads `zod` on import, and react-core declares it as a
  * REQUIRED peer (`>=3.25`). It stays an optional peer at `>=3.0.0` here only
  * because making a peer required, or narrowing its range, is a breaking change
@@ -307,7 +315,7 @@ interface PkgManifest {
  *
  * What this set does NOT police is WHICH ENTRY of an allowed package is imported:
  * `@copilotkit/react-core` is a legitimate dependency, so the fat
- * `@copilotkit/react-core/v2` passes here and is caught by the dedicated
+ * `@copilotkit/react-core` passes here and is caught by the dedicated
  * ALLOWED_REACT_CORE_ENTRIES test (which is package-wide, i.e. stricter). Keep
  * both — this one is the catch-all for UNENUMERATED packages, that one is the
  * #4893 entry ban.
@@ -783,8 +791,8 @@ describe("@copilotkit/react-native/headless entry", () => {
    *
    *   - vitest.config.mjs sets `server.deps.inline: [/@copilotkit/]`, so the
    *     workspace dists this entry pulls are transformed rather than loaded
-   *     natively: ~283 KB (core ~218 KB, react-core v2/headless ~55 KB, plus
-   *     v2/context and shared), on top of the 11 RN source modules.
+   *     natively: ~283 KB (core ~218 KB, react-core /headless ~55 KB, plus
+   *     /context and shared), on top of the 11 RN source modules.
    *   - Measured on one dev machine: ~0.9–1.8s inside the full suite as it
    *     was then (22 test files; there are more now) (n=8), ~0.7–1.1s for
    *     this file alone (n=8) — but 4568ms on the run straight after a cold
@@ -811,12 +819,12 @@ describe("@copilotkit/react-native/headless entry", () => {
     let coreHeadless: typeof CoreHeadlessEntry;
 
     beforeAll(async () => {
-      // Both loads live in the ONE budgeted hook. core's /v2/headless is already
+      // Both loads live in the ONE budgeted hook. core's /headless is already
       // inside this entry's own graph, so importing it here is a module-cache
       // hit rather than a second traversal.
       [mod, coreHeadless] = await Promise.all([
         import("../headless"),
-        import("@copilotkit/react-core/v2/headless"),
+        import("@copilotkit/react-core/headless"),
       ]);
     }, IMPORT_BUDGET_MS);
 
@@ -872,7 +880,7 @@ describe("@copilotkit/react-native/headless entry", () => {
       expect(
         mod.useFrontendTool,
         "`useFrontendTool` on the RN headless entry is NOT the binding from " +
-          "@copilotkit/react-core/v2/headless. RN must own no implementation of " +
+          "@copilotkit/react-core/headless. RN must own no implementation of " +
           "it: re-export core's, or a local one will drift from it silently " +
           "under a name consumers already trust.",
       ).toBe(coreHeadless.useFrontendTool);
@@ -948,7 +956,7 @@ describe("@copilotkit/react-native/headless entry", () => {
   // Applies to BOTH entries: the fat-entry ban is package-wide, unlike the
   // native-peer-dep ban above which only constrains the headless entry.
   it.each(ENTRIES)(
-    "%s entry imports no react-core entry other than /v2/headless and /v2/context",
+    "%s entry imports no react-core entry other than /headless and /context",
     (_label, entry) => {
       const { bareSpecs } = graphFor(entry);
       const offenders = [...bareSpecs].filter(
@@ -957,7 +965,7 @@ describe("@copilotkit/react-native/headless entry", () => {
       expect(
         offenders,
         `must import only ${ALLOWED_REACT_CORE_ENTRIES.join(" or ")} — found: ${offenders.join(", ")}. ` +
-          `Importing @copilotkit/react-core/v2 drags the shiki/mermaid/katex render stack into every RN bundle (#4893).`,
+          `Importing @copilotkit/react-core drags the shiki/mermaid/katex render stack into every RN bundle (#4893).`,
       ).toEqual([]);
     },
   );
@@ -980,13 +988,13 @@ describe("@copilotkit/react-native/headless entry", () => {
 // entry may reach it, so a consumer that does not use generative UI never
 // bundles the surface engine or the catalog schemas of @copilotkit/shared.
 // (zod is in the bundle of every entry regardless, but for different reasons:
-// the headless and default entries load it through react-core's /v2/headless,
-// and this entry through react-core's /v2/generative-ui/native, whose chat
+// the headless and default entries load it through react-core's /headless,
+// and this entry through react-core's /generative-ui/native, whose chat
 // chunk imports it.)
 const generativeUIEntry = path.join(srcDir, "generative-ui", "index.ts");
 const GENERATIVE_UI_REACT_CORE_ENTRIES = [
-  "@copilotkit/react-core/v2/context",
-  "@copilotkit/react-core/v2/generative-ui/native",
+  "@copilotkit/react-core/context",
+  "@copilotkit/react-core/generative-ui/native",
 ];
 const REQUIRED_GENERATIVE_UI_MODULES = [
   path.join("generative-ui", "index.ts"),
@@ -1005,34 +1013,25 @@ const REQUIRED_GENERATIVE_UI_MODULES = [
  * harvesting them is a walk that is no longer checking anything.
  */
 const REQUIRED_GENERATIVE_UI_BARE = [
-  "@copilotkit/react-core/v2/generative-ui/native",
+  "@copilotkit/react-core/generative-ui/native",
   "react-native",
 ];
 
 /**
  * Optional peers the generative UI entry is DELIBERATELY allowed to reach, on
- * top of guaranteedPackages().
+ * top of guaranteedPackages(). None today.
  *
- * `zod` only. It is optional in package.json, but every consumer has it
- * already, because react-core declares it as a REQUIRED peer (`>=3.25`; see
- * guaranteedPackages). That peer is what this entry relies on: react-core's
- * `/v2/generative-ui/native`, which this entry imports, loads zod (its chat
- * chunk does `import { z } from "zod"`). `@copilotkit/core` and
- * `@copilotkit/shared` list zod in their own `dependencies`, so the copy they
- * load is theirs and says nothing about the consumer's install. So an edge to
- * zod from this graph asks the consumer for nothing they do not have. No RN
- * source module imports zod directly today (the walk stops at this package's
- * boundary), so this is a standing allowance, not a description of the
- * current graph.
+ * zod needs no entry: it is not a peer of this package. react-core,
+ * `@copilotkit/core` and `@copilotkit/shared` list it in their own
+ * `dependencies`, so the copy they load is theirs and asks the consumer for
+ * nothing.
  *
- * Every OTHER optional peer stays unsanctioned: the chat/attachment natives
- * (`@gorhom/bottom-sheet`, `expo-document-picker`, `expo-file-system`,
- * `react-native-streamdown`) and the gesture/animation peers
- * (`react-native-gesture-handler`, `react-native-reanimated`) are things a
- * generative-UI-only consumer has not been told to install. Extend this list
- * only with a reason, like zod's.
+ * Every optional peer stays unsanctioned: the chat/attachment natives
+ * (`@gorhom/bottom-sheet`, `expo-document-picker`, `expo-file-system`) are
+ * things a generative-UI-only consumer has not been told to install. Extend
+ * this list only with a reason.
  */
-const GENERATIVE_UI_ALLOWED_OPTIONAL_PEERS = ["zod"];
+const GENERATIVE_UI_ALLOWED_OPTIONAL_PEERS: string[] = [];
 
 /**
  * Bare specifiers that ARE generative UI, matched exactly or as a subpath
@@ -1054,7 +1053,7 @@ const matchesBare = (spec: string, dep: string) =>
 
 const GENERATIVE_UI_BARE_FLOOR = [
   "@copilotkit/react-native/generative-ui",
-  "@copilotkit/react-core/v2/generative-ui",
+  "@copilotkit/react-core/generative-ui",
   "@copilotkit/core/generative-ui",
   "@copilotkit/shared/generative-ui",
 ];
@@ -1232,7 +1231,7 @@ describe("@copilotkit/react-native/generative-ui entry", () => {
     ).toEqual([]);
   });
 
-  it("imports only react-core's /v2/context and DOM-free /v2/generative-ui/native", () => {
+  it("imports only react-core's /context and DOM-free /generative-ui/native", () => {
     const { bareSpecs } = graphFor(generativeUIEntry);
     const offenders = [...bareSpecs].filter(
       (s) =>
@@ -1241,8 +1240,8 @@ describe("@copilotkit/react-native/generative-ui entry", () => {
     expect(
       offenders,
       `must import only ${GENERATIVE_UI_REACT_CORE_ENTRIES.join(" or ")} — ` +
-        `found: ${offenders.join(", ")}. /v2/generative-ui carries the DOM ` +
-        `standard catalog (react-dom portals, KaTeX, streamdown), and /v2 the ` +
+        `found: ${offenders.join(", ")}. /generative-ui carries the DOM ` +
+        `standard catalog (react-dom portals, KaTeX, streamdown), and the root entry the ` +
         `chat render stack (#4893).`,
     ).toEqual([]);
   });
@@ -1349,14 +1348,24 @@ describe("@copilotkit/react-native/generative-ui entry", () => {
     // the real exemption: the old code applied it as a silent no-op and then
     // blamed `createContext` for it.
     const file = path.join(srcDir, "generative-ui", "GenerativeUIProvider.tsx");
-    const stale: RegistryApiExemption[] = REGISTRY_API_EXEMPTIONS.map((e) => ({
-      ...e,
-      declarations: [...e.declarations, /()createContext<boolean>\(false\);/],
-    }));
+    const exemption = REGISTRY_API_EXEMPTIONS.find(
+      (e) => e.file === "generative-ui/GenerativeUIProvider.tsx",
+    )!;
+    const stale: RegistryApiExemption[] = REGISTRY_API_EXEMPTIONS.map((e) =>
+      e === exemption
+        ? {
+            ...e,
+            declarations: [
+              ...e.declarations,
+              /()createContext<boolean>\(false\);/,
+            ],
+          }
+        : e,
+    );
     const offenders = registryOffenders([file], stale);
     expect(offenders).toHaveLength(1);
     expect(offenders[0]).toContain("stale exemption");
-    expect(offenders[0]).toContain(REGISTRY_API_EXEMPTIONS[0]!.reason);
+    expect(offenders[0]).toContain(exemption.reason);
   });
 
   it("derives the generative UI deny-list from every generative UI export", () => {
@@ -1437,15 +1446,15 @@ describe("@copilotkit/react-native/generative-ui entry", () => {
 // The RN generative UI entry works only if the context its provider SETS and
 // the context its surfaces READ are the same object. GenerativeUIProvider puts
 // the runtime into react-core's `GenerativeUIRuntimeContext` and the host into
-// `GenerativeUIHostContext`, both imported from `/v2/generative-ui/native`;
+// `GenerativeUIHostContext`, both imported from `/generative-ui/native`;
 // react-core's own hooks and SurfaceView read them from whatever chunk they
-// were bundled into. react-core's tsdown config keeps `/v2/generative-ui/native`
+// were bundled into. react-core's tsdown config keeps `/generative-ui/native`
 // in the main build precisely so that every entry shares ONE chunk carrying
 // these modules. If a config change inlined a second copy (native moved to its
 // own build, a chunking option), every typecheck and source-level test would
 // stay green — vitest and tsc see one source module — and a surface would
 // silently never see its runtime. react-core's context-singleton-preflight only
-// covers src/v2/context.ts, so this checks the generative UI context modules in
+// covers src/context.ts, so this checks the generative UI context modules in
 // the BUILT dist, by the `//#region <src path>` banner tsdown writes for every
 // inlined module (the same marker that preflight relies on).
 const reactCoreDir = (() => {
@@ -1460,8 +1469,8 @@ const reactCoreDir = (() => {
 
 /** Context modules that MUST be bundled exactly once per format. A floor. */
 const REQUIRED_SINGLE_CONTEXT_MODULES = [
-  "src/v2/generative-ui/runtime-context.ts",
-  "src/v2/generative-ui/host.tsx",
+  "src/generative-ui/runtime-context.ts",
+  "src/generative-ui/host.tsx",
 ];
 
 /** Every file under `dir` (recursively) whose name matches `re`. */
@@ -1488,7 +1497,7 @@ describe("@copilotkit/react-core dist: one copy of each generative UI context", 
     // Derived from source: every generative UI module that calls
     // createContext, so a new context module is covered without listing it.
     const contextModules = filesUnder(
-      path.join(reactCoreDir, "src", "v2", "generative-ui"),
+      path.join(reactCoreDir, "src", "generative-ui"),
       /\.tsx?$/,
     )
       .filter((f) =>

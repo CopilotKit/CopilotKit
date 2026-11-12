@@ -18,7 +18,7 @@ const V1_NOTICE = `/*
  *
  * @copilotkit/react-core — useCopilotAction:
  *   V2 import and usage:
- *     import { useFrontendTool } from "@copilotkit/react-core/v2";
+ *     import { useFrontendTool } from "@copilotkit/react-core";
  *
  * Migration guide: https://docs.copilotkit.ai/migrate/v2
  *

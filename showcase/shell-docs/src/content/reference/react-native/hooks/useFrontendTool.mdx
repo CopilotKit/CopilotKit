@@ -8,7 +8,7 @@ description: "React hook for registering client-side tool handlers with optional
 `useFrontendTool` registers a client-side tool with CopilotKit at component scope. When the agent decides to call the tool, the provided `handler` function executes on the device. Optionally, you can supply a `render` component to display custom UI in the chat showing the tool's execution progress and results.
 
 <Callout type="info">
-  Re-exported from `@copilotkit/react-core/v2`. It is identical to the [React (V2) `useFrontendTool`](/reference/v2/hooks/useFrontendTool); only the import path differs.
+  Re-exported from `@copilotkit/react-core`. It is identical to the [React `useFrontendTool`](/reference/hooks/useFrontendTool); only the import path differs.
 </Callout>
 
 The hook manages the full registration lifecycle: it warns if a tool with the same name already exists, and registers the tool and its render component on mount. On unmount, the hook removes the tool. The render component stays registered, so past tool calls still render in the chat history. Define `parameters` with a Standard Schema library such as [Zod](https://zod.dev). To run the tool from your own code, see `copilotkit.runTool()` in [`useCopilotKit`](/reference/react-native/hooks/useCopilotKit).
@@ -16,12 +16,15 @@ The hook manages the full registration lifecycle: it warns if a tool with the sa
 ## Signature
 
 ```tsx
-import { useFrontendTool } from "@copilotkit/react-native";
+import {
+  useFrontendTool,
+  type ReactFrontendTool,
+} from "@copilotkit/react-native";
 
-function useFrontendTool<T extends Record<string, unknown>>(
+useFrontendTool satisfies <T extends Record<string, unknown>>(
   tool: ReactFrontendTool<T>,
   deps?: ReadonlyArray<unknown>,
-): void;
+) => void;
 ```
 
 ## Parameters
@@ -246,14 +249,21 @@ function AdminPanel({ isAdmin }: { isAdmin: boolean }) {
 **this compiles**:
 
 ```tsx
-useFrontendTool({
-  name: "showWeather",
-  description: "Show the weather",
-  parameters: z.object({ city: z.string() }),
-  handler: async ({ city }) => city,
-  // Compiles. `ReactNode` includes `string`.
-  render: ({ args }) => `Weather in ${args.city}`,
-});
+import { useFrontendTool } from "@copilotkit/react-native";
+import { z } from "zod";
+
+function WeatherTool() {
+  useFrontendTool({
+    name: "showWeather",
+    description: "Show the weather",
+    parameters: z.object({ city: z.string() }),
+    handler: async ({ city }) => city,
+    // Compiles. `ReactNode` includes `string`.
+    render: ({ args }) => `Weather in ${args.city}`,
+  });
+
+  return null;
+}
 ```
 
 and then fails on a device. The string reaches the prebuilt chat's `FlatList` as
@@ -275,17 +285,23 @@ const renderWeather: FrontendToolRenderFunction<{ city: string }> = ({
   args,
 }) => <Text>{args.city}</Text>;
 
-// `TS2322: Type 'string' is not assignable to type 'ReactElement…'`
-const broken: FrontendToolRenderFunction<{ city: string }> = ({ args }) =>
-  `Weather in ${args.city}`;
+// The compiler rejects a string return with
+// `TS2322: Type 'string' is not assignable to type 'ReactElement…'`:
+//
+// const broken: FrontendToolRenderFunction<{ city: string }> = ({ args }) =>
+//   `Weather in ${args.city}`;
 
-useFrontendTool({
-  name: "showWeather",
-  description: "Show the weather",
-  parameters: z.object({ city: z.string() }),
-  handler: async ({ city }) => city,
-  render: renderWeather,
-});
+function WeatherTool() {
+  useFrontendTool({
+    name: "showWeather",
+    description: "Show the weather",
+    parameters: z.object({ city: z.string() }),
+    handler: async ({ city }) => city,
+    render: renderWeather,
+  });
+
+  return null;
+}
 ```
 
 <PropertyReference name="FrontendToolRenderFunction<T>" type="(props: React.ComponentProps<ReactToolCallRenderer<T>['render']>) => React.ReactElement | null">
@@ -314,7 +330,7 @@ string is rejected there without any annotation.
 
 ## Behavior
 
-- **Duplicate detection**: If a tool with the same `name` is already registered, the hook logs a warning. Only one tool per name is active at a time.
+- **Same name**: If a tool with the same `name` and `agentId` is already registered, the hook logs a warning. The new tool is active while the component is mounted. When the component unmounts, the earlier tool is active again. This also applies to a tool that you pass to `CopilotKitProvider`.
 - **Mount/Unmount lifecycle**: The tool and its optional render component are registered on mount. On unmount, the hook removes the tool. The render component stays registered, so past tool calls still render in the chat history.
 - **Dependency tracking**: When `deps` is provided, the registration is refreshed whenever a dependency changes. Plain data compares by value. A function never counts as changed. Class instances and other objects compare by identity. See [Dependency comparison](#dependency-comparison) below.
 - **Handler and render are captured at registration**: Neither closure is re-read on every render. A value your `handler` or `render` reads from component state or props is frozen at whatever it was when the tool was last registered, so it must be declared in `deps`.

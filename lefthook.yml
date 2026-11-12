@@ -56,6 +56,8 @@ pre-commit:
         - "showcase/aimock/shared/**"
         - "showcase/aimock/d4/**"
         - "showcase/aimock/d6/**"
+        # Codemod fixtures are compared byte for byte.
+        - "codemods/*/tests/**"
       # Use `set --` so the staged files become positional args; this is the
       # only shell-portable way to test "are there any" without breaking on
       # multi-file expansion. The old `[ -n "{staged_files}" ]` form failed
@@ -70,6 +72,13 @@ pre-commit:
       # paths in this monorepo never contain spaces. JSON is excluded from the
       # glob above, so oxfmt never receives package.json (the old explicit
       # package.json filter is unnecessary). ruff is scoped to .py via `case`.
+      # Lint goes through the baseline gate in file-list mode: it applies
+      # --fix, then fails only on errors that are not in
+      # .lint-baseline/oxlint.json, so a touched file with old errors still
+      # commits. The gate skips files oxlint cannot lint (md, css, py, ...).
+      # `|| exit 1` is required: the script's exit status is that of its last
+      # command (the ruff loop), so without it a lint failure would not block
+      # the commit.
       run: |
         files=
         for f in {staged_files}; do
@@ -77,13 +86,17 @@ pre-commit:
         done
         set -- $files
         if [ $# -gt 0 ]; then
-          pnpm exec oxlint --fix $@
+          pnpm exec tsx scripts/lint/gate.ts --fix $@ || exit 1
           pnpm exec oxfmt --write $@
           for f in $@; do
             case $f in *.py) ruff format $f 2>/dev/null || true ;; esac
           done
         fi
       stage_fixed: true
+      fail_text: |
+        A staged file has lint errors that are not in the baseline.
+        Run: pnpm lint
+        See dev-docs/static-analysis.md for how to fix or baseline them.
     test-and-check-packages:
       tags: test-packages
       env:

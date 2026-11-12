@@ -6,6 +6,9 @@ agent's own `name`, `id`, or class name is never used for routing, and the two a
 free to differ.
 
 ```ts title="app/api/copilotkit/[[...slug]]/route.ts"
+import { HttpAgent } from "@ag-ui/client";
+import { CopilotRuntime } from "@copilotkit/runtime";
+
 const runtime = new CopilotRuntime({
   agents: {
     // `my_agent` is the key — the one string the frontend may ask for.
@@ -16,9 +19,16 @@ const runtime = new CopilotRuntime({
 
 <FrontendOnly frontend="react">
 ```tsx title="app/providers.tsx"
-<CopilotKit runtimeUrl="/api/copilotkit" agent="my_agent" useSingleEndpoint={false}>
-  <YourApp />
-</CopilotKit>
+import type { ReactNode } from "react";
+import { CopilotKitProvider } from "@copilotkit/react-core";
+
+export function Providers({ children }: { children: ReactNode }) {
+  return (
+    <CopilotKitProvider runtimeUrl="/api/copilotkit" agentId="my_agent">
+      {children}
+    </CopilotKitProvider>
+  );
+}
 ```
 </FrontendOnly>
 

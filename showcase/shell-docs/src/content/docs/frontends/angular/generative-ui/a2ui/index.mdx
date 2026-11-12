@@ -1,114 +1,80 @@
 ---
 title: "A2UI"
-description: Configure typed A2UI catalogs, Angular-owned styles, and incomplete-stream recovery.
+description: Render the A2UI surfaces of an agent in Angular chat, also when the agent writes A2UI v0.9.
 icon: "lucide/FileJson"
 doc_type: how-to
 ---
 
-When your agent builds UI on the fly, you want it to use only components you
-approve. A2UI renders the agent's UI in Angular chat from a catalog that you
-define. The renderer creates only components that the catalog defines.
+Your agent writes A2UI, and you want its surfaces to render in Angular chat.
+Angular renders A2UI with [components and surfaces](/generative-ui/components):
+a catalog of Angular components that the agent can use.
 
-## Choose a schema strategy
+## Turn it on
 
-Catalog component definitions use Zod schemas for their props. A broad catalog
-lets the agent compose several application primitives. A fixed catalog narrows
-the generated interface to a specific domain and set of shapes.
-
-The flight example keeps its component vocabulary deliberately small:
-
-<AngularSnippet region="a2ui-fixed-schema" />
-
-Give each catalog a stable `catalogId`. In an application config, pass the
-chosen catalog and lifecycle policy through the `a2ui` option of
-`provideCopilotKit`:
+Add `provideGenerativeUI` next to `provideCopilotKit`, at the root:
 
 ```ts title="src/app/app.config.ts"
-provideCopilotKit({
-  runtimeUrl: "/api/copilotkit",
-  a2ui: {
-    catalog: productCatalog,
-    recovery: { showAfterMs: 2_000, showAfterAttempts: 2 },
-  },
+import type { ApplicationConfig } from "@angular/core";
+import { provideCopilotKit } from "@copilotkit/angular";
+import {
+  provideGenerativeUI,
+  standardUI,
+} from "@copilotkit/angular/generative-ui";
+
+export const appConfig: ApplicationConfig = {
+  providers: [
+    provideCopilotKit({ runtimeUrl: "/api/copilotkit" }),
+    provideGenerativeUI({ ui: standardUI }),
+  ],
+};
+```
+
+`standardUI` has the 18 basic A2UI components and more. Without
+`provideGenerativeUI`, no surface renders, and CopilotKit warns once in dev
+mode when the runtime has generative UI on.
+
+## Keep an agent that writes A2UI v0.9
+
+Set `a2uiVersion` on the runtime. The runtime converts the v0.9 operations of
+the agent to A2UI 1.0, and Angular renders them:
+
+```ts title="server.ts"
+import { HttpAgent } from "@ag-ui/client";
+import { CopilotRuntime } from "@copilotkit/runtime";
+
+const runtime = new CopilotRuntime({
+  agents: { default: new HttpAgent({ url: "http://localhost:8000/" }) },
+  generativeUI: { a2uiVersion: "0.9" },
 });
 ```
 
-A catalog is required: without one, A2UI stays off even when the runtime
-enables it, and CopilotKit logs a warning.
+A custom v0.9 component renders only when your catalog has a component with
+the same name. Add it with `createGenerativeUI`, as in
+[Convert a custom catalog](/generative-ui/components/from-a2ui#convert-a-custom-catalog).
+See [Keep a v0.9 agent](/generative-ui/components/from-a2ui#keep-a-v09-agent)
+for what the runtime converts and the limits.
 
-### Use existing web components
-
-A catalog entry can also be a Custom Element, such as a component from an
-existing design system. Pass `{ tagName, element }` instead of an Angular
-component, and mix both kinds freely:
-
-```ts title="src/app/a2ui-catalog.ts"
-import { ChildListSchema, createAngularCatalog } from "@copilotkit/angular/a2ui";
-import { z } from "zod";
-
-const catalog = createAngularCatalog(
-  {
-    Badge: { props: z.object({ label: z.string() }) },
-    Panel: { props: z.object({ children: ChildListSchema }) },
-  },
-  {
-    Badge: { tagName: "acme-badge", element: AcmeBadge },
-    Panel: PanelComponent,
-  },
-  { includeBasicCatalog: true },
-);
-```
-
-CopilotKit registers the element, renders it in place of the node, and assigns
-the node's A2UI `ComponentContext` to its `context` property on every update.
-The element reads its props and writes to the data model through that context,
-for example with web_core's `GenericBinder`. Elements render in the browser
-only, not during server rendering.
-
-By default, CopilotKit includes the catalog schema in agent context. Set
-`includeSchema: false` only when the server already supplies equivalent schema
-and generation instructions. Otherwise the agent cannot reliably know which
-components and props are valid. With `includeSchema: false`, the agent context
-lists only the catalog ID and the custom component names. A LangGraph A2UI
-subagent then gets only the component names. To give it more, pass a
-composition guide through the A2UI guidelines of the CopilotKit middleware.
+An agent that sends A2UI 1.0 operations, for example a Google ADK agent, needs
+no runtime option. The runtime passes them through as they are. See
+[Keep an agent that sends A2UI 1.0](/generative-ui/components/from-a2ui#keep-an-agent-that-sends-a2ui-10).
 
 ## Style rendered components
 
-Catalog components are Angular components with application-owned class
-names. Style those classes in the global stylesheet so generated surfaces and
-their nested elements receive the same rules:
-
-<AngularSnippet region="a2ui-styling" />
-
-Keep semantic state in explicit classes such as `a2ui-status-success` rather
-than asking the model to invent colors. You can also pass an A2UI `theme`
-through `provideCopilotKit` for renderer-level theme values; catalog CSS
-remains the right place for product-specific layout and visual states.
-
-## Recover incomplete streams
-
-An interrupted stream can leave an A2UI surface without a terminal lifecycle
-event. Configure `recovery.showAfterMs` to avoid flashing recovery UI during a
-normal pause and `recovery.showAfterAttempts` to wait through transient retry
-attempts. The provider sample above uses two seconds and two attempts.
-
-Use `recovery.debugExposure` only when users should see protocol diagnostics.
-Keep it hidden in consumer-facing chat, or choose a collapsed or verbose mode
-for internal debugging. Recovery thresholds affect client display; the server
-still owns activity lifecycle status and retry behavior.
+Set the `--a2ui-*` variables with the `theme` option of `provideGenerativeUI`.
+See [Theme the components](/generative-ui/components/theming).
 
 ## Angular support boundaries
 
 - **Hashbrown is unsupported.** The stable Hashbrown Angular package does not support the Angular 22 policy.
   Use A2UI with a typed catalog instead.
-- **JSON Renderer is not applicable.** JSON Renderer does not provide an Angular renderer; use A2UI for declarative Angular interfaces.
+- **JSON Renderer is not applicable.** JSON Renderer does not provide an Angular renderer. Use A2UI for declarative Angular interfaces.
 
 ## Check the result
 
-Ask the agent to show your data with one of your catalog components. The chat
-renders that component from your catalog.
+Ask the agent to show your data with a component from your catalog. The chat
+renders that component.
 
 ## Next steps
 
+- [Components and surfaces](/generative-ui/components): your own components, surfaces on the page, state and actions.
 - [Other generative UI paths](/angular/generative-ui)

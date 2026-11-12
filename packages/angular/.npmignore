@@ -19,8 +19,6 @@ vitest.config.ts
 jest.config.js
 
 # Config files
-tailwind.config.js
-postcss.config.js
 .eslintrc.js
 .prettierrc
 

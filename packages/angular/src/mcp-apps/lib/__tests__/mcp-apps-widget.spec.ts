@@ -129,14 +129,22 @@ async function settle(fixture: {
   fixture.detectChanges();
 }
 
+/**
+ * Polls until `predicate` is true. The budget is time, not a tick count: the
+ * first widget in a run waits for the cold `import("@copilotkit/mcp-apps-renderer")`,
+ * which can take far longer than 40 zero-delay timers on a loaded CI runner.
+ */
 async function waitFor(
   predicate: () => boolean,
   message: string,
+  timeoutMs = 5_000,
 ): Promise<void> {
-  for (let attempt = 0; attempt < 40; attempt += 1) {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
     if (predicate()) return;
-    await new Promise((resolve) => setTimeout(resolve, 0));
+    await new Promise((resolve) => setTimeout(resolve, 5));
   }
+  if (predicate()) return;
   throw new Error(message);
 }
 
@@ -554,6 +562,16 @@ test("shows accessible loading and missing-resource errors", async () => {
   ).toContain("No resource content in response");
 });
 
+test("shows the shared error when no agent is available", async () => {
+  configureTestingModule();
+  const fixture = TestBed.createComponent(CopilotMCPAppsWidget);
+  fixture.componentRef.setInput("data", snapshot);
+  await settle(fixture);
+  expect(
+    fixture.nativeElement.querySelector("[role='alert']")?.textContent,
+  ).toContain("No agent available to fetch resource");
+});
+
 test("shows an accessible error when the sandbox handshake times out", async () => {
   configureTestingModule(undefined, 30_000, 5);
   const agent = createAgent();
@@ -561,12 +579,18 @@ test("shows an accessible error when the sandbox handshake times out", async () 
   fixture.componentRef.setInput("data", snapshot);
   fixture.componentRef.setInput("agent", agent);
   await settle(fixture);
-  await new Promise((resolve) => setTimeout(resolve, 10));
-  fixture.detectChanges();
+  const alertText = () => {
+    fixture.detectChanges();
+    return fixture.nativeElement.querySelector("[role='alert']")?.textContent;
+  };
+  await waitFor(
+    () => Boolean(alertText()),
+    "the sandbox timeout error was not shown",
+  );
 
-  expect(
-    fixture.nativeElement.querySelector("[role='alert']")?.textContent,
-  ).toContain("Timed out after 5ms waiting for the MCP App sandbox");
+  expect(alertText()).toContain(
+    "Timed out after 5ms waiting for the MCP App sandbox",
+  );
 });
 
 test("renders through the built-in activity config and passes the agent", async () => {
@@ -812,8 +836,10 @@ test("names the missing packages when the MCP Apps bridge cannot be loaded", asy
     fixture.componentRef.setInput("data", snapshot);
     fixture.componentRef.setInput("agent", agent);
     await settle(fixture);
-    await new Promise((resolve) => setTimeout(resolve, 50));
-    await settle(fixture);
+    await waitFor(() => {
+      fixture.detectChanges();
+      return Boolean(fixture.nativeElement.querySelector('[role="alert"]'));
+    }, "the missing-package error was not shown");
 
     const alert: HTMLElement | null =
       fixture.nativeElement.querySelector('[role="alert"]');
