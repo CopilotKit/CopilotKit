@@ -22,7 +22,7 @@ This patch release fixes A2UI rendering for catalogs that declare protocol versi
 
 ## Fixes
 
-- **Fix A2UI 1.0 Direct JSON rendering** (#8370): Bumped `@ag-ui/a2ui-middleware` to `0.0.16` in `@copilotkit/runtime` and `@copilotkit/shared`. Previously, Direct JSON snapshots were always stamped as `v0.9`, causing surfaces whose catalog declared `protocolVersion: "1.0"` to fail with a version mismatch error (e.g. *"specification version (1.0) does not match message protocol version (v0.9)"*). Snapshots are now stamped with the version declared by the catalog. The Express transport was already correct, and `v0.9` catalogs continue to behave as before.
+- **Fix A2UI 1.0 Direct JSON rendering** (#8370): Bumped `@ag-ui/a2ui-middleware` to `0.0.16` in `@copilotkit/runtime` and `@copilotkit/shared`. Previously, Direct JSON snapshots were always stamped as `v0.9`, causing surfaces whose catalog declared `protocolVersion: "1.0"` to fail with a version mismatch error (e.g. _"specification version (1.0) does not match message protocol version (v0.9)"_). Snapshots are now stamped with the version declared by the catalog. The Express transport was already correct, and `v0.9` catalogs continue to behave as before.
 
 ## 1.87.0 - 2026-11-11
 
