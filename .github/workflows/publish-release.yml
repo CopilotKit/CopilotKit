@@ -1122,6 +1122,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PUSH_BEFORE: ${{ github.event.before }}
           PUSH_AFTER: ${{ github.event.after }}
+          PY_SHOULD_PUBLISH: ${{ needs.build-python.outputs.should_publish }}
         run: |
           set -euo pipefail
           # npm intent: a STABLE manual dispatch (mode != prerelease — the default
@@ -1138,12 +1139,18 @@ jobs:
           echo "npm_intended=$NPM_INTENDED" >> "$GITHUB_OUTPUT"
 
           # Python intent: a python_publish dispatch, OR a push to main that
-          # changed sdk-python/pyproject.toml (per the GitHub compare API).
+          # changed sdk-python/pyproject.toml (per the GitHub compare API), OR a
+          # push where detect found an unpublished version. The last case is a
+          # catch-up release: an earlier bump failed, and this push retries it
+          # without touching pyproject.toml. The compare API stays as the
+          # fallback for a build-python failure before detect.
           # Merged PRs never carry Python intent: the Python lane runs on the
           # push, not on the PR. Default false.
           PY_INTENDED="false"
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             if [ "${{ inputs.python_publish }}" = "true" ]; then PY_INTENDED="true"; fi
+          elif [ "${{ github.event_name }}" = "push" ] && [ "$PY_SHOULD_PUBLISH" = "true" ]; then
+            PY_INTENDED="true"
           elif [ "${{ github.event_name }}" = "push" ]; then
             # Fail TOWARD paging: if the API call fails, default
             # PY_INTENDED=true (never toward silence) and emit a ::warning::.
