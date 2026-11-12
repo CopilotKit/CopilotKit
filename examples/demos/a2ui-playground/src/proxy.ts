@@ -4,7 +4,8 @@
  * /adk and its proxy to ADK_AGENT_URL) and /snapshot, a screenshot utility.
  * Each one answers 404 unless its opt-in is set to 1. In development they all stay open.
  */
-import { NextResponse, type NextRequest } from "next/server";
+import { NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
 
 /** The first path segment (after /api for a route) and the env var that opens it. */
 const OPT_IN: Record<string, string> = {

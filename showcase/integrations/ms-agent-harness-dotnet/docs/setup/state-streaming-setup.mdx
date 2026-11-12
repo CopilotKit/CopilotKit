@@ -1,0 +1,56 @@
+<Steps>
+  <Step>
+    ### Map the tool call to a state snapshot
+
+    `AGUIStreamOptions.MapCall` maps a tool call to AG-UI events. Return a
+    `StateSnapshotEvent` built from the tool's arguments, and attach the
+    options to the endpoint with `WithMetadata`. Give the tool to the harness
+    agent through the `Tools` list of its `ChatOptions`:
+
+    ```csharp title="Program.cs"
+    using System.ComponentModel;
+    using System.Text.Json;
+    using AGUI.Abstractions;
+    using AGUI.Server;
+    using Microsoft.Agents.AI;
+    using Microsoft.Agents.AI.Hosting.AGUI.AspNetCore;
+    using Microsoft.Extensions.AI;
+
+    // Define a tool the LLM may call to report its progress
+    [Description("Report current step progress.")]
+    static string StepProgress([Description("Steps completed so far")] string[] steps)
+        => "Progress received.";
+
+    AITool stepProgress = AIFunctionFactory.Create(StepProgress, name: "step_progress");
+    // Add stepProgress to ChatOptions.Tools in your AsHarnessAgent call.
+
+    // Map the completed tool arguments to a shared-state snapshot
+    AGUIStreamOptions streamOptions = new AGUIStreamOptions()
+        .MapCall("step_progress", call =>
+        {
+            if (call.Arguments?.TryGetValue("steps", out object? steps) is not true)
+            {
+                return [];
+            }
+
+            JsonElement snapshot = JsonSerializer.SerializeToElement(
+                new { observed_steps = steps });
+            return [new StateSnapshotEvent { Snapshot = snapshot }];
+        });
+
+    app.MapAGUIServer("/", agent).WithMetadata(streamOptions);
+    await app.RunAsync();
+    ```
+
+  </Step>
+  <Step>
+    ### Know what streams and what does not
+
+    `MapCall` runs on the completed `FunctionCallContent`, so the state key
+    updates once, when the tool call finishes. It does not grow token by
+    token while the model writes the arguments. To stream partial arguments
+    into state, register a provider-specific extractor with
+    `MapStreamingToolCallArguments`.
+
+  </Step>
+</Steps>

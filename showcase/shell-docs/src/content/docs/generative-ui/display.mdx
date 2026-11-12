@@ -10,7 +10,7 @@ snippet_cell: gen-ui-tool-based
 
 ## What is this?
 
-Render-only generative UI lets you register React components as tools your agent can invoke. When the agent calls the tool, CopilotKit renders your component directly in the chat with the tool's arguments as props; no handler logic or user interaction required.
+A display component is a React component that your agent can call as a tool. When the agent calls the tool, CopilotKit renders your component directly in the chat with the tool's arguments as props. You do not write a handler, and the user does not need to do anything.
 
 <Tabs items={['page.tsx', 'chart.tsx']}>
   <Tab value="page.tsx">
@@ -62,7 +62,7 @@ Render-only generative UI lets you register React components as tools your agent
 
 ## When should I use this?
 
-Use render-only generative UI when you want to:
+Use a display component when you want to:
 
 - Display rich UI (cards, charts, tables) inline in the chat
 - Show structured data from agent responses
@@ -73,14 +73,64 @@ Use render-only generative UI when you want to:
 
 <FrameworkSetup concept="frontend-tools-setup" />
 
-The renderer component receives the tool's arguments as typed props and
-mounts inline in the chat. Below is the chart renderer wired up in the
-canonical demo — the agent emits the data, the component draws it.
+The display component receives the tool's arguments as typed props and
+mounts inline in the chat. Below is the bar chart from the demo. The
+agent sends the data, and the component draws it.
 
 <Snippet
   region="bar-chart-renderer"
   title="frontend/src/app/page.tsx — bar chart renderer"
   highlight="1-6"
 />
+
+Ask the agent for a chart, for example `Show me a bar chart of quarterly
+sales for Q1, Q2, Q3, Q4`. The chart renders in the chat with the data
+that the agent filled in.
+
+## Without parameters
+
+For simple components that don't need typed parameters, leave out
+`parameters`. The component then accepts any props:
+
+```tsx
+"use client";
+import { useComponent } from "@copilotkit/react-core";
+
+export function GreetingTool() {
+  useComponent({
+    name: "showGreeting",
+    render: ({ message }: { message: string }) => (
+      <div className="rounded border p-3 bg-blue-50">
+        <p>{message}</p>
+      </div>
+    ),
+  });
+  return null;
+}
+```
+
+## Scoping to an agent
+
+In multi-agent setups, pass `agentId` to scope a component to one agent:
+
+```tsx
+"use client";
+import { useComponent } from "@copilotkit/react-core";
+import { z } from "zod";
+
+function ProfileCard({ userId }: { userId: string }) {
+  return <div className="rounded border p-3">Profile: {userId}</div>;
+}
+
+export function ProfileTool() {
+  useComponent({
+    name: "renderProfile",
+    parameters: z.object({ userId: z.string() }),
+    render: ProfileCard,
+    agentId: "support-agent",
+  });
+  return null;
+}
+```
 
 <IntegrationGrid path="render-only" />

@@ -1,0 +1,20 @@
+{
+  "_meta": {
+    "description": "D6 fixtures for openai-agents-python / voice",
+    "created": "2026-11-03",
+    "copiedFrom": "ms-agent-python"
+  },
+  "fixtures": [
+    {
+      "_comment": "Voice probe fast-path: exact-match content-only response.",
+      "match": {
+        "userMessage": "What is the weather in Tokyo?",
+        "hasToolResult": false,
+        "context": "openai-agents-python"
+      },
+      "response": {
+        "content": "The weather in Tokyo is currently 22°C with partly cloudy skies and light easterly winds."
+      }
+    }
+  ]
+}

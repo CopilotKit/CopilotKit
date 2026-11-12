@@ -7,11 +7,26 @@ import { ReferenceDoc } from "./lib/reference-doc";
 const repoRoot = path.resolve(__dirname, "..", "..");
 process.chdir(repoRoot);
 
+// Optional filters: `tsx scripts/docs/gen.ts <path>...` regenerates only the
+// pages whose destination or source path contains one of the arguments.
+const filters = process.argv.slice(2);
+const selectedDocs = filters.length
+  ? REFERENCE_DOCS.filter((doc) =>
+      filters.some(
+        (f) => doc.destinationPath.includes(f) || doc.sourcePath.includes(f),
+      ),
+    )
+  : REFERENCE_DOCS;
+if (filters.length && selectedDocs.length === 0) {
+  console.error(`[gen] No reference docs match: ${filters.join(", ")}`);
+  process.exit(1);
+}
+
 // allSettled so one missing source (e.g. an SDK file that was renamed
 // upstream) doesn't abort the entire pipeline — we still want every other
 // reference page to land in shell-docs.
 Promise.allSettled(
-  REFERENCE_DOCS.map(async (referenceDoc) => {
+  selectedDocs.map(async (referenceDoc) => {
     const doc = new ReferenceDoc(referenceDoc);
     await doc.generate();
   }),
@@ -22,7 +37,7 @@ Promise.allSettled(
   for (const { r, i } of failures) {
     const reason = (r as PromiseRejectedResult).reason;
     console.error(
-      `[gen] Failed: ${REFERENCE_DOCS[i].destinationPath}: ${
+      `[gen] Failed: ${selectedDocs[i].destinationPath}: ${
         reason instanceof Error ? reason.message : String(reason)
       }`,
     );

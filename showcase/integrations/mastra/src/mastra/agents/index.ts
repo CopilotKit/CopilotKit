@@ -535,6 +535,7 @@ export const toolRenderingAgent = new Agent({
 });
 // @endregion[tool-rendering-agent]
 
+// @region[state-streaming-middleware]
 // @region[shared-state-streaming-agent]
 /**
  * Mastra agent backing the Shared State (Streaming) demo.
@@ -582,6 +583,7 @@ Rules:
   }),
 });
 // @endregion[shared-state-streaming-agent]
+// @endregion[state-streaming-middleware]
 
 // @region[subagents-supervisor]
 /**

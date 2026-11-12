@@ -1,3 +1,4 @@
+import vm from "node:vm";
 import { describe, it, expect, vi } from "vitest";
 import { getD5Script } from "../helpers/d5-registry.js";
 import type { D5BuildContext } from "../helpers/d5-registry.js";
@@ -67,5 +68,57 @@ describe("d5-gen-ui-a2ui-fixed script", () => {
     };
     const assertion = buildA2uiFixedAssertion({ timeoutMs: 100 });
     await expect(assertion(page)).rejects.toThrow(/a2ui-fixed-card.*mount/);
+  });
+});
+
+describe("default A2UI evidence", () => {
+  function evidencePage(selected?: string) {
+    const sandbox = {
+      document: {
+        querySelector: () => (selected ? { value: selected } : null),
+        querySelectorAll: () => [],
+        body: {},
+      },
+      MutationObserver: class {
+        observe() {}
+        disconnect() {}
+      },
+      performance,
+    };
+    const page = {
+      evaluate: async (fn: () => unknown) =>
+        vm.runInNewContext(`(${fn.toString()})()`, sandbox),
+    } as unknown as Page;
+    return {
+      page,
+      sandbox: sandbox as typeof sandbox & { __hk_a2uiProbe?: unknown },
+    };
+  }
+  it.each(["express", "direct_json"])(
+    "arms evidence for the page's %s default without a CLI flag",
+    async (selected) => {
+      const { page, sandbox } = evidencePage(selected);
+      const turn = buildTurns({
+        integrationSlug: "generic",
+        featureType: "gen-ui-a2ui-fixed",
+        baseUrl: "http://localhost",
+      })[0]!;
+      await turn.preFill?.(page);
+      expect(sandbox.__hk_a2uiProbe).toBeDefined();
+      const first = sandbox.__hk_a2uiProbe;
+      await turn.afterReload?.(page);
+      expect(sandbox.__hk_a2uiProbe).toBeDefined();
+      expect(sandbox.__hk_a2uiProbe).not.toBe(first);
+    },
+  );
+  it("leaves existing pages without a format selector on their existing assertions", async () => {
+    const { page, sandbox } = evidencePage();
+    const turn = buildTurns({
+      integrationSlug: "generic",
+      featureType: "gen-ui-a2ui-fixed",
+      baseUrl: "http://localhost",
+    })[0]!;
+    await turn.preFill?.(page);
+    expect(sandbox.__hk_a2uiProbe).toBeUndefined();
   });
 });

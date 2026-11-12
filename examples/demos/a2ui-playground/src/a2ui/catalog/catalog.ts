@@ -20,12 +20,13 @@
  * id has arrived but whose props are still streaming (and for every leaf of a
  * fixed template before its data lands). The composer prompt never lists it.
  */
-import { createElement, type ComponentType } from "react";
+import { createElement } from "react";
+import type { ComponentType } from "react";
 import {
   createGenerativeUI,
   standardUI,
-  type GenerativeUITheme,
 } from "@copilotkit/react-core/v2/generative-ui";
+import type { GenerativeUITheme } from "@copilotkit/react-core/v2/generative-ui";
 import { z } from "zod";
 import { useOverride } from "@/design-systems/overrides";
 import type { ComponentName } from "./definitions";

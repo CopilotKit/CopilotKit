@@ -14,8 +14,8 @@ import {
   rect,
   stack,
   text,
-  type ChartGradient,
 } from "@tanstack/charts";
+import type { ChartGradient } from "@tanstack/charts";
 import { crosshair } from "@tanstack/charts/crosshair";
 import { treemap } from "@tanstack/charts/hierarchy/treemap";
 import { sankeyDiagram } from "@tanstack/charts/network/sankey";
@@ -55,8 +55,8 @@ import {
   shortLabel,
   smoothCurve,
   tickFormatter,
-  type Row,
 } from "./chart-kit";
+import type { Row } from "./chart-kit";
 
 /* ---------------------------------------------------------------- shared */
 

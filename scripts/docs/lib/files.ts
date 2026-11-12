@@ -63,12 +63,14 @@ export const REFERENCE_DOCS: ReferenceDocConfiguration[] = [
     pythonSymbols: ["CopilotKitRemoteEndpoint", "CopilotKitContext"],
   },
   {
-    sourcePath: "packages/sdk-js/src/langgraph/index.ts",
+    // The functions live in utils.ts. index.ts only re-exports them, so the
+    // generator finds no declarations there and writes an empty page.
+    sourcePath: "packages/sdk-js/src/langgraph/utils.ts",
     destinationPath:
       "showcase/shell-docs/src/content/reference/v1/sdk/js/LangGraph.mdx",
     title: "LangGraph SDK",
     description:
-      "The CopilotKit LangGraph SDK for JavaScript allows you to build and run LangGraph workflows with CopilotKit.",
+      "Use the CopilotKit LangGraph SDK for JavaScript to build and run LangGraph workflows with CopilotKit.",
     typescriptSymbols: [
       "copilotkitCustomizeConfig",
       "copilotkitExit",

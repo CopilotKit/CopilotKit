@@ -386,7 +386,13 @@ export class SourceFile {
       ) {
         functionArguments = node.parameters.map((param) => {
           const name = param.name.getText();
-          const type = param.type?.getText() || "unknown";
+          // Drop comments inside inline types (e.g. JSDoc on an options
+          // object's members) and collapse to one line for the attribute.
+          const type = (param.type?.getText() || "unknown")
+            .replace(/\/\*[\s\S]*?\*\//g, "")
+            .replace(/\/\/.*$/gm, "")
+            .replace(/\s+/g, " ")
+            .trim();
           const required = !param.questionToken;
           const defaultValue = param.initializer
             ? param.initializer.getText()

@@ -80,9 +80,14 @@ export class Comments {
   }
 
   static removeCommentSyntax(commentText: string): string {
+    // Strip only the comment delimiters and each line's leading `*`, so the
+    // body keeps its relative indentation (nested lists, code samples) and any
+    // `*` inside the text, and blank comment lines come out truly empty.
     return commentText
-      .replace(/\/\*\*|\*\/|\*|\/\* ?/gm, "")
-      .replace(/^  /gm, "")
+      .replace(/^\s*\/\*\*?/, "")
+      .replace(/\*\/\s*$/, "")
+      .replace(/^[ \t]*\* ?/gm, "")
+      .replace(/[ \t]+$/gm, "")
       .trim();
   }
 

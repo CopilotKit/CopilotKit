@@ -60,7 +60,7 @@ CI, `npm run build`, `npm run dev`) regenerates them automatically.
 | `registry.json`        | `generate-registry.ts`      | shell, shell-docs, shell-dojo, shell-dashboard | Integration manifest — scans `integrations/*/manifest.yaml`, builds the full catalog with metadata, feature flags, categories |
 | `demo-content.json`    | `bundle-demo-content.ts`    | shell, shell-docs, shell-dojo                  | Bundled source code from every demo directory — powers the Code tab, Snippet components, dojo cell viewer                     |
 | `constraints.json`     | `generate-registry.ts`      | shell                                          | Filter facets for the integration explorer (categories, frameworks, features)                                                 |
-| `search-index.json`    | `generate-search-index.ts`  | shell, shell-docs                              | Cmd-K search entries — scans MDX docs, AG-UI content, and registry data                                                       |
+| `search-index.json`    | `generate-search-index.ts`  | shell                                          | Cmd-K search entries — scans MDX docs, AG-UI content, and registry data                                                       |
 | `starter-content.json` | `bundle-starter-content.ts` | shell                                          | Starter template source bundles for the "Get Started" code viewer                                                             |
 | `docs-status.json`     | `probe-docs.ts`             | shell-dashboard                                | Per-feature docs reachability — HTTP HEAD on og_docs_url, file-exists check on shell-docs MDX                                 |
 

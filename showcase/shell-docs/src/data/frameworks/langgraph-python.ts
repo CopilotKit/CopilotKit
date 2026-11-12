@@ -41,7 +41,7 @@ const data: FrameworkOverviewData = {
       iconKey: "user",
       description:
         "A node calls interrupt() and stops mid-execution. CopilotKit catches that event, renders your own UI for the decision, and resumes the graph with the answer.",
-      documentationLink: "/langgraph/human-in-the-loop/interrupt-flow",
+      documentationLink: "/langgraph-python/human-in-the-loop/useInterrupt",
     },
     {
       title: "Shared state",
@@ -62,8 +62,8 @@ const data: FrameworkOverviewData = {
       "Your graph stays where it runs today: LangGraph Platform, LangSmith, or your own FastAPI service. CopilotKit reaches it over AG-UI, so nothing inside the graph changes.",
     filename: "app/api/copilotkit/[[...slug]]/route.ts",
     language: "ts",
-    code: `import { CopilotRuntime, createCopilotRuntimeHandler } from "@copilotkit/runtime/v2";
-import { LangGraphAgent } from "@copilotkit/runtime/langgraph";
+    code: `import { CopilotRuntime, createCopilotRuntimeHandler } from "@copilotkit/runtime";
+import { LangGraphAgent } from "@ag-ui/langgraph";
 
 const runtime = new CopilotRuntime({
   agents: {
@@ -116,7 +116,7 @@ export const DELETE = handler;
   architectureImage:
     "https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/coagents-highlevel-overview.png",
   liveDemos: [],
-  tutorialLink: "/langgraph/tutorials/ai-travel-app",
+  tutorialLink: "/langgraph-python/quickstart",
   cta: {
     variant: "card",
     title: "Bring your LangGraph agents to production",

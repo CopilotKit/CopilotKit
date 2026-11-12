@@ -4,10 +4,17 @@ import {
   buildCatalogContextValue as buildContextValue,
   extractCatalogComponentSchemas as extractComponentSchemas,
 } from "../catalog-description";
-import type { InlineCatalogSchema } from "../catalog-description";
+import type {
+  A2UICatalogSchema,
+  InlineCatalogSchema,
+} from "../catalog-description";
 
 export { A2UI_SCHEMA_CONTEXT_DESCRIPTION } from "../catalog-description";
-export type { InlineCatalogSchema } from "../catalog-description";
+export type {
+  InlineCatalogSchema,
+  NativeInlineCatalogSchema,
+  A2UICatalogSchema,
+} from "../catalog-description";
 
 const basicComponentNames: ReadonlySet<string> = new Set(
   basicCatalog.components.keys(),
@@ -54,14 +61,19 @@ export function buildCatalogContextValue(
 }
 
 /**
- * Extract component, function and theme schemas from a catalog in the A2UI
- * v0.9 inline catalog format. Defaults to the basic catalog.
+ * Extract schemas in the selected catalog's protocol format. Native 1.0
+ * catalogs retain their function maps and local definitions; v0.9 catalogs
+ * use the A2UI v0.9 inline catalog format. Defaults to the basic catalog.
  *
  * When sent via `useAgentContext` with `A2UI_SCHEMA_CONTEXT_DESCRIPTION`,
  * the middleware can optionally overwrite it with a server-side schema.
  */
+export function extractCatalogComponentSchemas(): InlineCatalogSchema;
 export function extractCatalogComponentSchemas(
   catalog?: Catalog<ComponentApi>,
-): InlineCatalogSchema {
+): A2UICatalogSchema;
+export function extractCatalogComponentSchemas(
+  catalog?: Catalog<ComponentApi>,
+): A2UICatalogSchema {
   return extractComponentSchemas(catalog ?? basicCatalog);
 }

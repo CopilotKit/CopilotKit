@@ -1,0 +1,89 @@
+---
+title: State Streaming
+description: Stream partial agent state to your React Native UI while a tool call is still running.
+icon: "lucide/Podcast"
+hideTOC: true
+---
+
+## What is this?
+
+By default, agent state only updates *between* backend checkpoints, so a long tool call (writing a full document, drafting an email) reaches the UI as one burst at the end. In an agent-native app, that feels broken: users expect to watch the output appear.
+
+**State streaming** copies one tool argument into an agent state key while the model writes the argument. Your screen, subscribed with `useAgent`, re-renders on every token.
+
+## When should I use this?
+
+Use state streaming when a tool's output is long-form text or a growing structured value, and you want the user to see it build up in real time. Common shapes:
+
+- A writing agent that produces a document
+- A research agent that collects a list of findings
+- A planning agent that builds a step-by-step plan
+
+<WhenFrameworkSupports feature="shared-state-streaming" not>
+
+<Callout type="info">
+  **Not available on this framework yet.** This framework's showcase doesn't support state streaming. The UI gets the agent's state between checkpoints, which the [Shared State](/shared-state) page covers.
+</Callout>
+
+</WhenFrameworkSupports>
+
+## The backend: one streaming state mapping
+
+<FrameworkSetup concept="state-streaming-setup" />
+
+The backend pattern is always the same: map one streaming tool argument to one shared-state key. Each framework does this in its own way:
+
+- LangGraph Python: `StateStreamingMiddleware` with `StateItem(...)` entries.
+- LangGraph TypeScript: `copilotkitCustomizeConfig` with an `emitIntermediateState` mapping.
+- Direct SDK adapters: parse partial tool arguments in the streaming loop, and emit `STATE_SNAPSHOT` whenever the mapped value changes.
+- LlamaIndex and Pydantic AI: there is no per-token mapping. A backend tool sends a state snapshot after each step or tool call instead (see the setup above).
+
+When the model streams that argument, CopilotKit writes every partial value into shared state before the tool finishes.
+
+<WhenFrameworkSupports feature="shared-state-streaming">
+
+<Snippet region="state-streaming-middleware" cell="shared-state-streaming" title="backend — streaming state mapping" />
+
+</WhenFrameworkSupports>
+
+A few things to note:
+
+- The state key must exist in your agent state (`document` in this example).
+- The tool and argument names must match the exact tool call the model makes (`write_document.document` here).
+- Streamed values are previews. When the step ends, the state the agent saves replaces them, so save the final value when the tool finishes. On CrewAI, LlamaIndex, and Pydantic AI, write the final value to the agent state yourself, or it is overwritten when the step returns.
+
+## The frontend: useAgent and OnStateChanged
+
+The app side is the same as any other [shared-state](/shared-state) subscription: `useAgent` with `OnStateChanged` gives you a live `agent.state`. Add `OnRunStatusChanged` for a "writing" indicator.
+
+```tsx title="src/DocumentView.tsx"
+import { ActivityIndicator, ScrollView, Text, View } from "react-native";
+import { useAgent, UseAgentUpdate } from "@copilotkit/react-native/headless";
+
+export function DocumentView() {
+  const { agent } = useAgent({ // [!code highlight:4]
+    agentId: "default",
+    updates: [UseAgentUpdate.OnStateChanged, UseAgentUpdate.OnRunStatusChanged],
+  });
+  const document = (agent.state as { document?: string } | undefined)?.document ?? "";
+
+  return (
+    <View style={{ padding: 16, gap: 8 }}>
+      {agent.isRunning ? <ActivityIndicator /> : null}
+      <ScrollView style={{ maxHeight: 320 }}>
+        <Text>{document}</Text>
+      </ScrollView>
+    </View>
+  );
+}
+```
+
+`agent.state.document` is a string that grows on every token, and `agent.isRunning` tells you whether to show the indicator. The `ScrollView` with a `maxHeight` keeps a long document from pushing the rest of the screen away.
+
+If a fast stream re-renders a heavy screen too often, pass `throttleMs` to `useAgent` to batch the updates.
+
+## Try it
+
+Ask the agent to write a short poem. The `document` text grows on your screen while the agent writes. When the run ends, `agent.isRunning` is `false`, so the indicator goes away.
+
+<IntegrationGrid path="shared-state/streaming" exclude={["agno", "agent-spec", "spring-ai", "langroid"]} />

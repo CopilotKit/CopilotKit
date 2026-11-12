@@ -11,13 +11,8 @@ import type { ReactNode } from "react";
 import { useGenerativeUIAccessibility } from "@copilotkit/react-core/v2/generative-ui";
 import { asArray } from "@/a2ui/catalog/renderers/format";
 import type { RendererMap } from "@/a2ui/catalog/renderers/types";
-import {
-  str,
-  trendOf,
-  useButton,
-  valueText,
-  type StandardProps,
-} from "./shared";
+import { str, trendOf, useButton, valueText } from "./shared";
+import type { StandardProps } from "./shared";
 
 function Delta({ delta, trend }: { delta?: string; trend?: string }) {
   if (!delta) return null;
