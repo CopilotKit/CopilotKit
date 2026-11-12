@@ -31,9 +31,10 @@ export interface StandardUIFallbackRuntimeInfo {
 
 /**
  * The generative UI config of the provider. That is the `generativeUI` prop
- * when the app sets one. Otherwise, when the runtime turns generative UI on,
- * it is the standard UI for the agents of the runtime, once the standard UI
- * has loaded. `undefined` while generative UI is off, or still loading.
+ * when it has a `ui`. Otherwise, when the runtime turns generative UI on, it
+ * is the standard UI for the agents of the runtime, once the standard UI has
+ * loaded, with the other options of the prop (such as `map` or `theme`).
+ * `undefined` while generative UI is off, or still loading.
  */
 export function useStandardUIFallback(
   generativeUI: GenerativeUIConfig | undefined,
@@ -68,8 +69,12 @@ export function useStandardUIFallback(
   }, [active, standardUI]);
 
   return useMemo(() => {
-    if (generativeUI) return generativeUI;
+    if (generativeUI?.ui) return generativeUI;
     if (!active || !standardUI) return undefined;
-    return { ui: standardUI, agentIds };
+    return {
+      ...generativeUI,
+      ui: standardUI,
+      agentIds: generativeUI?.agentIds ?? agentIds,
+    };
   }, [generativeUI, active, standardUI, agentIds]);
 }

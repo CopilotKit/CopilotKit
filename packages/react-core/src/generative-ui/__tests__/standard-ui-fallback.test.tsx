@@ -184,6 +184,25 @@ describe("CopilotKitProvider: the standard UI for the runtime's generative UI", 
     expect(captured.runtime?.ui).toBe(ui);
   });
 
+  it("keeps the other options of a generativeUI without ui, such as the map loader", async () => {
+    mockInfo({ enabled: true, agents: ["other"] });
+    const map = vi.fn(async () => ({}));
+    const { captured } = setup({ map, agentIds: ["default"] });
+
+    await waitFor(() => expect(captured.runtime?.ui).toBe(standardUI));
+    expect(captured.runtime?.config.map).toBe(map);
+    // The app's agents win over the runtime's.
+    expect(captured.runtime?.config.agentIds).toEqual(["default"]);
+  });
+
+  it("does nothing for a generativeUI without ui when the runtime has generative UI off", async () => {
+    mockInfo({ enabled: false });
+    const { captured } = setup({ map: vi.fn(async () => ({})) });
+
+    await send("show me");
+    expect(captured.runtime).toBeNull();
+  });
+
   it("gives the standard UI only to the agents the runtime names", async () => {
     mockInfo({ enabled: true, agents: ["other"] });
     const { captured } = setup();

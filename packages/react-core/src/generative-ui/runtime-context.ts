@@ -41,9 +41,11 @@ export interface GenerativeUIErrorBoundaryConfig {
 interface GenerativeUIBaseConfig {
   /**
    * The result of `createGenerativeUI`: the components the model can render,
-   * the app state they read and the functions they call.
+   * the app state they read and the functions they call. Leave it out to
+   * use `standardUI` when the runtime turns generative UI on; the other
+   * options (such as `map` or `theme`) still apply.
    */
-  ui: GenerativeUI;
+  ui?: GenerativeUI;
   /**
    * The agents that get the generative UI. When omitted, every agent gets
    * it. Other agents get no envelope.
