@@ -261,7 +261,37 @@ function adapterModel(construction: Node): string | null | undefined {
   return model;
 }
 
-/** Keys of the v1 runtime config that 2.0 does not take. */
+/**
+ * The options of the 2.0 `CopilotRuntime`, and `a2ui`, which a later step
+ * moves under `generativeUI`. A v1-only key (`remoteEndpoints`, `actions`,
+ * `middleware`, ...) keeps the TODO.
+ */
+const RUNTIME_OPTIONS = new Set([
+  "agents",
+  "transcriptionService",
+  "beforeRequestMiddleware",
+  "afterRequestMiddleware",
+  "licenseToken",
+  "telemetryId",
+  "telemetryProperties",
+  "debug",
+  "logger",
+  "forwardHeaders",
+  "sseKeepAliveIntervalSeconds",
+  "exposeMemoryRoutes",
+  "threads",
+  "mcpApps",
+  "openGenerativeUI",
+  "generativeUI",
+  "a2ui",
+  "runner",
+  "identifyUser",
+  "intelligence",
+  "generateThreadNames",
+  "channels",
+]);
+
+/** Whether the runtime config has only options that 2.0 takes. */
 function runtimeIsSupported(construction: Node): boolean {
   const [config] = argumentNodes(construction);
   if (config === undefined) return true;
@@ -269,7 +299,7 @@ function runtimeIsSupported(construction: Node): boolean {
   return config
     .children()
     .filter((entry) => !["{", "}", ",", "comment"].includes(entry.kind()))
-    .every((entry) => keyOf(entry) === "agents");
+    .every((entry) => RUNTIME_OPTIONS.has(keyOf(entry) ?? ""));
 }
 
 /** Adds `default: <agent>` to `new CopilotRuntime({ agents })`. */
