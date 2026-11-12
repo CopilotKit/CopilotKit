@@ -112,9 +112,6 @@
     "eslint(no-unused-expressions)": {
       "packages/web-components/src/threads-drawer/copilotkit-threads-drawer.ts": 2
     },
-    "eslint(no-unused-private-class-members)": {
-      "packages/web-inspector/src/ui/json-viewer/host-renderer.d.ts": 1
-    },
     "eslint(no-unused-vars)": {
       "packages/react-core/src/generative-ui/standard/composites.tsx": 1
     },
@@ -183,22 +180,7 @@
     "eslint-plugin-unicorn(require-module-specifiers)": {
       "packages/react-native/src/polyfills/crypto.ts": 1,
       "packages/react-native/src/polyfills/dom.ts": 1,
-      "packages/react-native/src/polyfills/location.ts": 1,
-      "packages/web-inspector/src/domains/announcements/view.d.ts": 1,
-      "packages/web-inspector/src/domains/learning/recall.d.ts": 1,
-      "packages/web-inspector/src/domains/learning/subscription.d.ts": 1,
-      "packages/web-inspector/src/domains/live-inspection/agents/view.d.ts": 1,
-      "packages/web-inspector/src/domains/playground/message-adapter.d.ts": 1,
-      "packages/web-inspector/src/domains/playground/view.d.ts": 1,
-      "packages/web-inspector/src/domains/threads/detail/conversation-view.d.ts": 1,
-      "packages/web-inspector/src/domains/threads/detail/thread-inspector-view.d.ts": 1,
-      "packages/web-inspector/src/domains/threads/selectors.d.ts": 1,
-      "packages/web-inspector/src/domains/threads/store-bridge.d.ts": 1,
-      "packages/web-inspector/src/shell/launcher/controller.d.ts": 1,
-      "packages/web-inspector/src/shell/settings/view.d.ts": 1,
-      "packages/web-inspector/src/shell/window/view.d.ts": 1,
-      "packages/web-inspector/src/ui/copy-button/copy-button.d.ts": 1,
-      "packages/web-inspector/src/ui/json-viewer/host-renderer.d.ts": 1
+      "packages/react-native/src/polyfills/location.ts": 1
     },
     "eslint-plugin-unicorn(require-post-message-target-origin)": {
       "packages/channels-slack/src/adapter.ts": 3,
@@ -245,11 +227,6 @@
       "packages/web-inspector/src/shared/display/display-value.ts": 1,
       "packages/web-inspector/src/shared/telemetry/telemetry-transport-contract.ts": 1,
       "packages/web-inspector/src/shell/web-inspector-element.ts": 2
-    },
-    "typescript-eslint(no-duplicate-type-constituents)": {
-      "packages/web-inspector/src/register.d.ts": 1,
-      "packages/web-inspector/src/ui/copy-button/copy-button.d.ts": 1,
-      "packages/web-inspector/src/ui/json-viewer/json-viewer.d.ts": 1
     },
     "typescript-eslint(no-explicit-any)": {
       "packages/angular/src/generative-ui/lib/state.ts": 3,
@@ -363,7 +340,6 @@
       "packages/vue/src/hooks/use-copilot-action.ts": 1,
       "packages/vue/src/hooks/use-frontend-tool.ts": 1,
       "packages/vue/src/v2/types/sandbox-function.ts": 1,
-      "packages/web-inspector/src/domains/threads/usage.d.ts": 1,
       "packages/web-inspector/src/domains/threads/usage.ts": 1
     },
     "typescript-eslint(no-this-alias)": {
@@ -1178,23 +1154,6 @@
       "packages/web-inspector/src/shell/navigation/model.ts": 1,
       "packages/web-inspector/src/shell/web-inspector-element.ts": 27,
       "packages/web-inspector/src/ui/json-viewer/host-renderer.ts": 1
-    },
-    "typescript-eslint(no-useless-empty-export)": {
-      "packages/web-inspector/src/domains/announcements/view.d.ts": 1,
-      "packages/web-inspector/src/domains/learning/recall.d.ts": 1,
-      "packages/web-inspector/src/domains/learning/subscription.d.ts": 1,
-      "packages/web-inspector/src/domains/live-inspection/agents/view.d.ts": 1,
-      "packages/web-inspector/src/domains/playground/message-adapter.d.ts": 1,
-      "packages/web-inspector/src/domains/playground/view.d.ts": 1,
-      "packages/web-inspector/src/domains/threads/detail/conversation-view.d.ts": 1,
-      "packages/web-inspector/src/domains/threads/detail/thread-inspector-view.d.ts": 1,
-      "packages/web-inspector/src/domains/threads/selectors.d.ts": 1,
-      "packages/web-inspector/src/domains/threads/store-bridge.d.ts": 1,
-      "packages/web-inspector/src/shell/launcher/controller.d.ts": 1,
-      "packages/web-inspector/src/shell/settings/view.d.ts": 1,
-      "packages/web-inspector/src/shell/window/view.d.ts": 1,
-      "packages/web-inspector/src/ui/copy-button/copy-button.d.ts": 1,
-      "packages/web-inspector/src/ui/json-viewer/host-renderer.d.ts": 1
     },
     "typescript-eslint(require-array-sort-compare)": {
       "packages/react-core/scripts/assert-dist-context-types.mjs": 1,
