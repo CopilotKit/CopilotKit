@@ -11,7 +11,11 @@ import {
   catalogComponentSlug,
   catalogReferenceFromPath,
 } from "@/components/standard-catalog/catalog-reference";
-import { resolveLivePage, unsupportedRedirect } from "@/lib/live-docs";
+import {
+  goneRedirect,
+  resolveLivePage,
+  unsupportedRedirect,
+} from "@/lib/live-docs";
 import { absoluteUrl } from "@/lib/seo/base-url";
 import {
   HOME_DESCRIPTION,
@@ -46,6 +50,11 @@ export default async function Page({ params }: PageProps<"/[[...path]]">) {
   // opens the page under a framework that has one.
   const moved = unsupportedRedirect(path);
   if (moved) permanentRedirect(moved);
+
+  // A page docs.copilotkit.ai served that the rebuild dropped or scopes
+  // differently goes to its replacement.
+  const gone = goneRedirect(path);
+  if (gone) permanentRedirect(gone);
 
   // Anything else isn't a docs page.
   notFound();

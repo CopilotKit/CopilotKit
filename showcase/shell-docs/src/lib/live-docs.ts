@@ -347,6 +347,110 @@ function parentTopic(
 }
 
 /**
+ * Pages docs.copilotkit.ai served that the rebuild dropped (they were in no
+ * sidebar, or duplicated another page), each with the page that replaces it.
+ * `""` is the reader's scope root; a path starting with `/` is unscoped.
+ * A key ending in `/` also covers every page under it.
+ */
+const DROPPED_PAGES: Record<string, string> = {
+  "whats-new": "",
+  "whats-new/": "",
+  faq: "troubleshooting/common-issues",
+  examples: "/examples",
+  "migrate/1.10.X": "migrate/v2",
+  "migrate/1.8.2": "migrate/v2",
+  "migrate/ag-ui-1.0": "migrate/v2",
+  "generative-ui/frontend-cards": "generative-ui",
+  headless: "custom-look-and-feel/headless-ui",
+  "built-in-agent": "",
+  "agentic-chat-ui": "prebuilt-components",
+  "human-in-the-loop/interrupt-flow": "human-in-the-loop/useInterrupt",
+  "shared-state/state-inputs-outputs": "shared-state",
+  "advanced/disabling-state-streaming": "shared-state/streaming",
+  "advanced/emit-messages": "shared-state/streaming",
+  "advanced/emit-api-hook-mapping": "",
+  "advanced/exit-agent": "",
+  "coagent-troubleshooting/common-coagent-issues":
+    "troubleshooting/common-issues",
+  "troubleshooting/migrate-to-agui": "migrate/v2",
+  "videos/research-canvas": "",
+  "conversational-flows": "quickstart",
+  "persistence/message-persistence": "",
+  // Older URLs main's own links already broke, with a clear replacement.
+  "generative-ui/frontend-tools": "frontend-tools",
+  "generative-ui/backend-tools": "generative-ui/tool-rendering",
+  "generative-ui/agentic": "generative-ui/state-rendering",
+  "generative-ui/render-only": "generative-ui/display",
+  "shared-state/in-app-agent-read": "shared-state/agent-readonly",
+  "custom-look-and-feel/bring-your-own-components":
+    "custom-look-and-feel/slots",
+  "custom-look-and-feel/markdown-rendering": "custom-look-and-feel/markdown",
+  "use-agent-hook": "/reference/v2/hooks/useAgent",
+  "agentcore/full-stack-example": "/deploy/agentcore",
+  // `/coagents/<x>` lands on `/langgraph-python/<x>`; these sections are gone.
+  videos: "",
+  tutorials: "",
+  persistence: "",
+  "advanced/persistence": "advanced/persistence/message-persistence",
+};
+
+/** Sections served once, unscoped, whatever frontend or framework the URL names. */
+const UNSCOPED_SECTIONS = new Set(["reference", "examples"]);
+
+/**
+ * Where a URL that would 404 goes instead, when docs.copilotkit.ai served it:
+ * a dropped page's replacement in the reader's scope, a scoped reference URL
+ * (`/mastra/reference/...`) at its one unscoped URL, or, for a page the
+ * reader's frontend doesn't have (`/vue/voice`), the nearest parent page it
+ * does have, else that frontend's home. Unknown URLs still 404.
+ */
+export function goneRedirect(path: string[]): string | null {
+  const { frontend, framework, prefix, slug } = scopeFromPath(path);
+  if (!slug) return null;
+  if (prefix && UNSCOPED_SECTIONS.has(slug.split("/")[0])) return `/${slug}`;
+  if (droppedKey(slug)) return dropTarget(prefix, slug);
+  if (!prefix) return null;
+  // A page some scope has, missing from this one.
+  const pages = getPageIndex();
+  const known =
+    pages.react.includes(slug) ||
+    pages.shared.includes(slug) ||
+    Object.values(pages.folders).some((s) => s.includes(slug));
+  if (!known) return null;
+  const parts = slug.split("/");
+  while (parts.length > 1) {
+    parts.pop();
+    const parent = parts.join("/");
+    if (whereIs(pages, frontend, framework, parent)) {
+      return `${prefix}/${parent}`;
+    }
+  }
+  return prefix;
+}
+
+/** The DROPPED_PAGES key that covers `slug`, if any. */
+function droppedKey(slug: string): string | undefined {
+  if (slug in DROPPED_PAGES) return slug;
+  return Object.keys(DROPPED_PAGES).find(
+    (k) => k.endsWith("/") && slug.startsWith(k),
+  );
+}
+
+function dropTarget(prefix: string, slug: string): string {
+  const to = DROPPED_PAGES[droppedKey(slug)!];
+  if (to.startsWith("/")) return to;
+  // The replacement may not exist in this scope (a framework without that
+  // feature): fall back to its nearest parent, then the scope's root.
+  const parts = to ? to.split("/") : [];
+  while (parts.length) {
+    const scoped = `${prefix}/${parts.join("/")}`;
+    if (resolveLivePage(segmentsOf(scoped))) return scoped;
+    parts.pop();
+  }
+  return prefix || "/";
+}
+
+/**
  * `scopedHref`, except when the reader's scope has no such page: then the
  * page's canonical URL, so `/model-selection` from a Mastra page stays
  * `/model-selection`, since `/mastra/model-selection` would be a 404.
