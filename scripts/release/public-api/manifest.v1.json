@@ -1571,6 +1571,20 @@
           }
         },
         {
+          "importPath": "@copilotkit/react-core/generative-ui/map",
+          "exportKey": "./generative-ui/map",
+          "kind": "code",
+          "conditions": {
+            "import": "./dist/generative-ui/map.mjs",
+            "require": "./dist/generative-ui/map.cjs"
+          },
+          "provenance": {
+            "kind": "package-json",
+            "path": "packages/react-core/package.json",
+            "selector": "exports[\"./generative-ui/map\"]"
+          }
+        },
+        {
           "importPath": "@copilotkit/react-core/generative-ui/native",
           "exportKey": "./generative-ui/native",
           "kind": "code",

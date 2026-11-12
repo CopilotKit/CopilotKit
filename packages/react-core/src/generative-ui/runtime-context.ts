@@ -41,9 +41,11 @@ export interface GenerativeUIErrorBoundaryConfig {
 interface GenerativeUIBaseConfig {
   /**
    * The result of `createGenerativeUI`: the components the model can render,
-   * the app state they read and the functions they call.
+   * the app state they read and the functions they call. Leave it out to
+   * use `standardUI` when the runtime turns generative UI on; the other
+   * options (such as `map` or `theme`) still apply.
    */
-  ui: GenerativeUI;
+  ui?: GenerativeUI;
   /**
    * The agents that get the generative UI. When omitted, every agent gets
    * it. Other agents get no envelope.
@@ -56,9 +58,23 @@ interface GenerativeUIBaseConfig {
    * Native ignores it.
    */
   theme?: GenerativeUITheme;
+  /**
+   * Web only. Loads `maplibre-gl` for the standard `Map` component. Pass
+   * `loadMapLibre` from `@copilotkit/react-core/generative-ui/map` and
+   * install `maplibre-gl`. Without it, Map shows its markers as a list, and
+   * the app builds without `maplibre-gl`. React Native ignores it.
+   */
+  map?: GenerativeUILibraryLoader;
   /** Fallback UI and error reporting for generated UI. */
   errorBoundary?: GenerativeUIErrorBoundaryConfig;
 }
+
+/**
+ * Loads an optional library for a standard component, such as
+ * `loadMapLibre` from `@copilotkit/react-core/generative-ui/map`. The
+ * library stays out of apps that do not pass a loader.
+ */
+export type GenerativeUILibraryLoader = () => Promise<unknown>;
 
 /**
  * The tool transport: the model calls the `render_ui` tool, and the runtime

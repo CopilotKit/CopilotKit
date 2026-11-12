@@ -128,6 +128,10 @@ export default defineConfig([
       // The DOM-free generative UI entry for React Native. It is in this
       // build for the same reason: one copy of each context.
       "generative-ui/native": "src/generative-ui/native.ts",
+      // The opt-in loader of maplibre-gl, the optional peer of the standard
+      // Map. It is the only module that imports the package, so an app that
+      // does not import this entry builds without it.
+      "generative-ui/map": "src/generative-ui/map.ts",
     },
     format: ["esm", "cjs"],
     dts: true,

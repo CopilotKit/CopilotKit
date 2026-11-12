@@ -39,6 +39,9 @@
       "generative-ui": [
         "./dist/generative-ui.d.cts"
       ],
+      "generative-ui/map": [
+        "./dist/generative-ui/map.d.cts"
+      ],
       "generative-ui/native": [
         "./dist/generative-ui/native.d.cts"
       ],
@@ -58,6 +61,10 @@
     "./generative-ui": {
       "import": "./dist/generative-ui.mjs",
       "require": "./dist/generative-ui.cjs"
+    },
+    "./generative-ui/map": {
+      "import": "./dist/generative-ui/map.mjs",
+      "require": "./dist/generative-ui/map.cjs"
     },
     "./generative-ui/native": {
       "import": "./dist/generative-ui/native.mjs",

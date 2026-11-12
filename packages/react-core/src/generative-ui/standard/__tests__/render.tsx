@@ -12,7 +12,10 @@ import type { GenerativeUI } from "../../catalog";
 import { createGenerativeUIDispatcher } from "@copilotkit/core/generative-ui";
 import type { GenerativeUIErrorInfo } from "@copilotkit/shared/generative-ui";
 import { GenerativeUIRuntimeContext } from "../../runtime-context";
-import type { GenerativeUIRuntime } from "../../runtime-context";
+import type {
+  GenerativeUILibraryLoader,
+  GenerativeUIRuntime,
+} from "../../runtime-context";
 import { GenerativeUISurfaceManager } from "@copilotkit/core/generative-ui";
 import { SurfaceView } from "../../SurfaceView";
 
@@ -35,7 +38,8 @@ export interface SurfaceRender extends RenderResult {
 /**
  * Renders one surface of `ui` through the real engine. `components` is the
  * `updateComponents` list, with a component of id "root". `data` (optional)
- * is written to the data model at "/".
+ * is written to the data model at "/". `map` (optional) is the `map` loader
+ * of the `generativeUI` config.
  *
  * The result has the testing-library queries, plus:
  * - `update(...operations)`: ingests more operations on the same surface.
@@ -46,6 +50,7 @@ export function renderSurface(
   ui: GenerativeUI,
   components: A2UIComponentNode[],
   data?: Record<string, unknown>,
+  { map }: { map?: GenerativeUILibraryLoader } = {},
 ): SurfaceRender {
   const manager = new GenerativeUISurfaceManager(ui);
   const reportError = vi.fn<(info: GenerativeUIErrorInfo) => void>();
@@ -57,7 +62,7 @@ export function renderSurface(
     manager,
     ui,
     transport: "tool",
-    config: { ui },
+    config: { ui, map },
     reportError,
     forwardEvent,
     dispatcher: createGenerativeUIDispatcher({

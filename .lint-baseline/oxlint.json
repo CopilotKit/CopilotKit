@@ -126,8 +126,7 @@
       "packages/react-core/src/components/chat/CopilotSidebarView.tsx": 2
     },
     "eslint-plugin-next(no-assign-module-variable)": {
-      "packages/angular/src/generative-ui/lib/standard/data/map.ts": 1,
-      "packages/react-core/src/generative-ui/standard/Map.tsx": 1
+      "packages/angular/src/generative-ui/lib/standard/data/map.ts": 1
     },
     "eslint-plugin-next(no-img-element)": {
       "packages/react-core/src/components/chat/CopilotChatAttachmentQueue.tsx": 3,
@@ -599,7 +598,7 @@
       "packages/react-core/src/providers/CopilotKitProvider.tsx": 2,
       "packages/react-native/scripts/measure-headless.mjs": 1,
       "packages/react-native/src/components/CopilotChat.tsx": 2,
-      "packages/react-native/src/generative-ui/GenerativeUIProvider.tsx": 3,
+      "packages/react-native/src/generative-ui/GenerativeUIProvider.tsx": 2,
       "packages/react-native/src/generative-ui/internal.ts": 1,
       "packages/react-native/src/hooks/use-attachments.ts": 2,
       "packages/runtime/src/agent/ai-sdk/index.ts": 16,

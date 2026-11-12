@@ -297,6 +297,9 @@ for widgets you trust that need `localStorage`, `IndexedDB` or cookies. See
   `createGenerativeUI`. The agent renders your React components into chat or
   into `<GenerativeUISurface id>` mounts. When you leave it out and the runtime
   has generative UI on, the provider uses the standard catalog (`standardUI`).
+  The standard `Map` draws with `maplibre-gl` only when you pass
+  `map: loadMapLibre` from `@copilotkit/react-core/generative-ui/map`; without
+  it, a map shows a list of places.
   See [Components and surfaces](/generative-ui/components).
 </PropertyReference>
 

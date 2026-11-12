@@ -1,7 +1,9 @@
 import React, { useEffect, useInsertionEffect, useRef, useState } from "react";
 import type { z } from "zod";
 import { useRequiredGenerativeUIRuntime } from "../runtime-context";
+import type { GenerativeUILibraryLoader } from "../runtime-context";
 import { useStableValue } from "./Chart";
+import { useLatestRef } from "../../lib/use-latest-ref";
 import {
   FONT_WEIGHT,
   backgroundColor,
@@ -133,14 +135,22 @@ function isMapLibre(value: unknown): value is MapLibre {
 }
 
 /**
- * Imports maplibre-gl on the client. The package is an optional peer
- * dependency. The import rejects when it is not installed.
+ * Loads maplibre-gl on the client with the `map` loader of the
+ * `generativeUI` config. This module never imports the package itself: a
+ * bundler resolves each dynamic import at build time, so an app without the
+ * optional peer would fail to build. Rejects when the module is not
+ * maplibre-gl.
  */
-async function loadMapLibre() {
-  const module = await import("maplibre-gl");
+async function loadMapLibre(loader: GenerativeUILibraryLoader) {
+  const loaded = await loader();
   // maplibre-gl is a UMD bundle. Some bundlers put its exports on `default`.
-  const fromDefault: unknown = "default" in module ? module.default : undefined;
-  return isMapLibre(fromDefault) ? fromDefault : module;
+  const fromDefault: unknown =
+    typeof loaded === "object" && loaded !== null && "default" in loaded
+      ? loaded.default
+      : undefined;
+  if (isMapLibre(fromDefault)) return fromDefault;
+  if (isMapLibre(loaded)) return loaded;
+  throw new Error("The map loader did not give maplibre-gl.");
 }
 
 const isValidMarker = (marker: MapMarker) =>
@@ -170,8 +180,9 @@ function useIsDark(ref: React.RefObject<HTMLElement | null>) {
 }
 
 /**
- * A MapLibre map with markers. maplibre-gl loads only in the browser. When
- * it is not installed, or WebGL is not there, the component shows a list of
+ * A MapLibre map with markers. maplibre-gl loads only in the browser, with
+ * the `map` loader of the `generativeUI` config. Without the loader, when
+ * the load fails, or when WebGL is not there, the component shows a list of
  * the places. A click on a place or a marker sets `selected`.
  */
 export function MapView(props: MapProps) {
@@ -182,10 +193,19 @@ export function MapView(props: MapProps) {
   const { zoom, route } = props;
   const height = props.height ?? 240;
   const containerRef = useRef<HTMLDivElement>(null);
-  const [status, setStatus] = useState<MapStatus>("loading");
+  const runtime = useRequiredGenerativeUIRuntime();
+  const { theme } = runtime;
+  // A ref, so an inline loader (a new function on each provider render) does
+  // not draw the map again.
+  const loaderRef = useLatestRef(runtime.config.map);
+  const hasLoader = runtime.config.map !== undefined;
+  // Without a loader the list shows at once, on the server too, so the
+  // server HTML and the first client render match.
+  const [status, setStatus] = useState<MapStatus>(
+    hasLoader ? "loading" : "fallback",
+  );
   const setSelectedRef = useRef(props.setSelected);
   setSelectedRef.current = props.setSelected;
-  const { theme } = useRequiredGenerativeUIRuntime();
   const isDark = useIsDark(containerRef);
   // A top-level style applies in both modes. `dark.mapStyle` wins in dark mode.
   const styleUrl = isDark
@@ -196,8 +216,14 @@ export function MapView(props: MapProps) {
     let isCancelled = false;
     let map: InstanceType<MapLibre["Map"]> | undefined;
 
-    async function mount() {
-      const maplibregl = await loadMapLibre();
+    const loader = loaderRef.current;
+    if (!loader) {
+      setStatus("fallback");
+      return;
+    }
+
+    async function mount(load: GenerativeUILibraryLoader) {
+      const maplibregl = await loadMapLibre(load);
       const container = containerRef.current;
       if (isCancelled || !container) return;
       const first = markers[0];
@@ -284,8 +310,8 @@ export function MapView(props: MapProps) {
       setStatus("ready");
     }
 
-    mount().catch(() => {
-      // maplibre-gl is not installed, or there is no WebGL.
+    mount(loader).catch(() => {
+      // maplibre-gl failed to load, or there is no WebGL.
       map?.remove();
       map = undefined;
       if (!isCancelled) setStatus("fallback");
@@ -299,7 +325,7 @@ export function MapView(props: MapProps) {
         // The map is already removed.
       }
     };
-  }, [markers, center, zoom, route, styleUrl]);
+  }, [hasLoader, loaderRef, markers, center, zoom, route, styleUrl]);
 
   const isFallback = status === "fallback";
   return (
