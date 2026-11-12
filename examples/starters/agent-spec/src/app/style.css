@@ -542,11 +542,11 @@
 }
 
 /* === Canvas A2UI Polish === */
-/* A2UIViewer uses a hardcoded internal theme that doesn't include our custom
-   Card shadows, Divider styling, etc. These CSS overrides apply the polish
-   to the canvas-rendered A2UI surface. */
+/* Styles for the daily brief dashboard in the canvas, which
+   src/components/a2ui-v0-8-view.tsx renders from the agent's A2UI v0.8
+   components: card shadows, the modal dialog, dividers, icons. */
 
-/* Cards — shadow, rounded corners, proper padding (overrides viewer-theme inline padding: 32px) */
+/* Cards — shadow, rounded corners, proper padding */
 .canvas-a2ui .a2ui-card > section {
   border-radius: 12px !important;
   padding: 20px 24px !important;
