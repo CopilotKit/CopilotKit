@@ -16,7 +16,7 @@
 // Build the tarballs first: `pnpm pack` every public package under packages/
 // into one directory (see README.md next to this file).
 
-import { execFile as execFileCb } from "node:child_process";
+import { execFile as execFileCb, execFileSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -413,6 +413,34 @@ function classify(appDir, error, beforeKeys, originalKeys) {
   return "unexplained";
 }
 
+/**
+ * The zod a package declares in its tarball, or `undefined` without one.
+ */
+function tarballZodRange(tarball) {
+  if (!tarball) return undefined;
+  const manifest = execFileSync(
+    "tar",
+    ["-xOzf", tarball.replace(/^file:/, ""), "package/package.json"],
+    { encoding: "utf8" },
+  );
+  return JSON.parse(manifest).dependencies?.zod;
+}
+
+/**
+ * One zod major for the app, as the skill says: `@ag-ui/client` has zod as a
+ * peer, and two zod majors install two `AbstractAgent` copies. A2UI is the
+ * exception: `@a2ui/web_core` reads zod 3 internals to bind catalog props, so
+ * it and the renderer keep the zod they declare.
+ */
+function zodOverrides(tarballs) {
+  const renderer = tarballZodRange(tarballs["@copilotkit/a2ui-renderer"]);
+  return {
+    zod: COMPANION_VERSIONS.zod,
+    "@a2ui/web_core>zod": "^3.25.76",
+    ...(renderer && { "@copilotkit/a2ui-renderer>zod": renderer }),
+  };
+}
+
 // ---------------------------------------------------------------------------
 // The dependency step of the migration skill (`agents/skill/v2-migration`):
 // add the packages that the migrated code now imports.
@@ -755,9 +783,7 @@ async function runExample(example, args, tarballs, index) {
           ...Object.fromEntries(
             AG_UI.map((name) => [name, COMPANION_VERSIONS[name]]),
           ),
-          // @ag-ui/client has zod as a peer: one copy per zod major. One
-          // zod makes one AbstractAgent.
-          zod: COMPANION_VERSIONS.zod,
+          ...zodOverrides(tarballs),
         },
       };
       writeJson(file, pkg);
