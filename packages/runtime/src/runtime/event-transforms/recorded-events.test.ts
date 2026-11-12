@@ -87,18 +87,15 @@ describe("transformRecordedEvents", () => {
       a2ui: {},
       openGenerativeUI: true,
     });
-    // A2UI cancels a render left unanswered by an earlier run.
+    // A2UI cancels a render left unanswered by an earlier run. Its "failed"
+    // lifecycle snapshot names no surface, so the v0.9 bridge consumes it:
+    // the 1.0 client renders no `a2ui-surface` activity.
     expect(output).toEqual([
       events[0],
       expect.objectContaining({
         type: EventType.TOOL_CALL_RESULT,
         toolCallId: "pending",
         content: expect.stringContaining('"status":"cancelled"'),
-      }),
-      expect.objectContaining({
-        type: EventType.ACTIVITY_SNAPSHOT,
-        messageId: "a2ui-surface-pending",
-        content: expect.objectContaining({ status: "failed" }),
       }),
       ...events.slice(1),
     ]);

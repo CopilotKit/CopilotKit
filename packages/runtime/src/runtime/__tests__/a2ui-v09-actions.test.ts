@@ -305,7 +305,7 @@ describe("downgradeA2UIV09Action", () => {
     expect(input).toStrictEqual(snapshot);
   });
 
-  it("gives A2UIMiddleware one click: the log_a2ui_event pair ends the conversation", async () => {
+  it("gives A2UIMiddleware one click: its private action message ends the conversation", async () => {
     class RecordingAgent extends AbstractAgent {
       lastInput?: RunAgentInput;
       run(input: RunAgentInput): Observable<BaseEvent> {
@@ -325,17 +325,27 @@ describe("downgradeA2UIV09Action", () => {
       new A2UIMiddleware().run(input, agent).pipe(toArray()),
     );
 
+    // `@ag-ui/a2ui-middleware` 0.0.15 appends the action as a private user
+    // message. The visible click message is gone, so the agent sees the
+    // click once, and the conversation ends with it.
     const messages = agent.lastInput!.messages;
-    const [call, result] = messages.slice(-2);
-    expect(call).toMatchObject({ role: "assistant" });
-    const toolCall = (
-      call as { toolCalls: { function: { name: string; arguments: string } }[] }
-    ).toolCalls[0]!;
-    expect(toolCall.function.name).toBe("log_a2ui_event");
-    expect(JSON.parse(toolCall.function.arguments)).toEqual(expectedUserAction);
-    expect(result).toMatchObject({ role: "tool" });
+    const prefix = "A2UI user action:\n";
+    const actionMessages = messages.filter(
+      (message) =>
+        message.role === "user" &&
+        typeof message.content === "string" &&
+        message.content.startsWith(prefix),
+    );
+    expect(actionMessages).toHaveLength(1);
+    expect(messages.at(-1)).toBe(actionMessages[0]);
+    expect(
+      JSON.parse((actionMessages[0]!.content as string).slice(prefix.length)),
+    ).toEqual(expectedUserAction);
     expect(messages.some((message) => message.id === clickMessage.id)).toBe(
       false,
     );
+    expect(
+      messages.some((message) => "toolCalls" in message && message.toolCalls),
+    ).toBe(false);
   });
 });

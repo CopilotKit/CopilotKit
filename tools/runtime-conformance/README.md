@@ -58,7 +58,7 @@ The driver mounts the library without reimplementing routes, middleware, telemet
 
 ## Coverage
 
-The suite has 146 cases. These include 17 initial cases, 45 UI cases, and 18 additional analytics cases.
+The suite has 147 cases. These include 17 initial cases, 46 UI cases, and 18 additional analytics cases.
 Fourteen runner cases, 18 access cases, and five frontend-client cases cover the remaining requirements.
 Six Inspector metadata cases cover discovery, independent module validation, action URLs, private responses, server credentials, and the five-second deadline.
 Twenty-three entitlement cases cover current and legacy responses, schema validation, safe errors, server credentials, concurrent requests, and request deadlines.
@@ -69,7 +69,9 @@ The UI cases cover A2UI validation, progressive data, action history, MCP calls,
 The generative UI cases select the A2UI version of each agent with `generativeUI.a2uiVersion`.
 An A2UI 1.0 agent gets `render_ui`. An A2UI v0.9 agent gets `render_a2ui` and a v0.9 component schema of the client's catalog.
 The browser receives only A2UI 1.0 `generative-ui-surface` events. The runtime converts v0.9 operations, also from a tool result of a 1.0 agent.
-A click on a converted surface reaches a v0.9 agent as a `log_a2ui_event` tool call and result. The stored thread keeps the click message.
+Native A2UI 1.0 operations on the same path (for example from ADK) pass through. The 1.0 basic catalog becomes the standard catalog, and the surface has no `a2uiSourceVersion`.
+A click on a converted surface reaches a v0.9 agent once. The TypeScript driver announces `expectedA2uiActionHistory: "private-user-json"`: its agent gets one private `A2UI user action:` user message. The other drivers give a `log_a2ui_event` tool call and result.
+A click on a native 1.0 surface reaches the agent unchanged. The stored thread keeps the click message.
 `/info` reports `generativeUI` and does not report `a2uiEnabled` or `a2ui`.
 Analytics cases cover canonical events, timestamps, sampling, identity, privacy, and opt-out.
 Seven cases cover legacy license identity, environment fallback, whitespace rules, standalone identity precedence, malformed tokens, and opt-out precedence.

@@ -733,6 +733,134 @@ describe("upgradeA2UIV09Operations: surface operations", () => {
   });
 });
 
+// ---- Native A2UI 1.0 operations ----
+
+const V10_BASIC_CATALOG_ID =
+  "https://a2ui.org/specification/v1_0/catalogs/basic/catalog.json";
+
+/**
+ * The native 1.0 operations of an ADK agent: the fixture of #8353
+ * (`react-core/src/v2/__tests__/fixtures/a2ui-1-0.json`), from ag-ui #3374
+ * `test_a2ui_protocol_versions.py::_ops` at 89a59e1.
+ */
+const adkOperations = [
+  {
+    version: "1.0",
+    createSurface: { surfaceId: "s", catalogId: V10_BASIC_CATALOG_ID },
+  },
+  {
+    version: "1.0",
+    updateComponents: {
+      surfaceId: "s",
+      components: [{ id: "root", component: "Text", text: "Hello" }],
+    },
+  },
+  {
+    version: "1.0",
+    updateDataModel: { surfaceId: "s", path: "/", value: {} },
+  },
+];
+
+describe("upgradeA2UIV09Operations: native 1.0 operations", () => {
+  it("maps the 1.0 basic catalog id of the ADK fixture to the standard catalog", () => {
+    const { operations, dropped } = upgradeA2UIV09Operations(adkOperations);
+    expect(dropped).toEqual([]);
+    expect(operations).toEqual([
+      {
+        version: "1.0",
+        createSurface: { surfaceId: "s", catalogId: STANDARD_CATALOG_ID },
+      },
+      adkOperations[1],
+      adkOperations[2],
+    ]);
+    expectValid(operations);
+  });
+
+  it("gives inline and updated basic components the standard names", () => {
+    // A native form, as the 1.0 basic catalog writes it (#8353).
+    const components = [
+      { id: "root", component: "Column", children: ["title", "save"] },
+      { id: "title", component: "Text", variant: "h2", text: "Profile" },
+      {
+        id: "save",
+        component: "Button",
+        child: "label",
+        action: {
+          event: {
+            name: "save",
+            userMessage: "Save the form",
+            context: { name: { "@path": "/name" } },
+          },
+        },
+      },
+      { id: "label", component: "Text", text: "Save" },
+    ];
+    const { operations, dropped } = upgradeA2UIV09Operations([
+      {
+        version: "1.0",
+        createSurface: {
+          surfaceId: "s",
+          catalogId: V10_BASIC_CATALOG_ID,
+          components,
+          dataModel: { name: "Ada" },
+        },
+      },
+      {
+        version: "1.0",
+        updateComponents: { surfaceId: "s", components: [components[1]] },
+      },
+    ]);
+    expect(dropped).toEqual([]);
+    const title = {
+      id: "title",
+      component: "Title",
+      text: "Profile",
+      size: "xl",
+    };
+    expect(operations).toEqual([
+      {
+        version: "1.0",
+        createSurface: {
+          surfaceId: "s",
+          catalogId: STANDARD_CATALOG_ID,
+          components: [
+            components[0],
+            title,
+            {
+              id: "save",
+              component: "Button",
+              child: "label",
+              onClick: components[2].action,
+            },
+            components[3],
+          ],
+          dataModel: { name: "Ada" },
+        },
+      },
+      {
+        version: "1.0",
+        updateComponents: { surfaceId: "s", components: [title] },
+      },
+    ]);
+    expectValid(operations);
+  });
+
+  it("keeps another catalog id and its components", () => {
+    const native = {
+      version: "1.0",
+      createSurface: {
+        surfaceId: "s",
+        catalogId: "https://example.test/catalog",
+        components: [{ id: "root", component: "ProductCard", name: "Team" }],
+      },
+    };
+    expect(upgradeA2UIV09Operations([native])).toEqual({
+      operations: [native],
+      dropped: [],
+    });
+  });
+});
+
 // ---- The activity upgrader ----
 
 const surfaceSnapshot = (
@@ -1020,6 +1148,77 @@ describe("createA2UIV09ActivityUpgrader", () => {
           version: "1.0",
           updateDataModel: { surfaceId: "s", path: "/x", value: 1 },
         },
+      },
+    ]);
+  });
+
+  it("turns a native 1.0 surface into a 1.0 surface without the v0.9 tag", () => {
+    const upgrader = createA2UIV09ActivityUpgrader();
+    const [event, ...rest] = upgrader.transform(
+      surfaceSnapshot("a2ui-surface-call1", adkOperations),
+    );
+    expect(rest).toEqual([]);
+    expect(event).toMatchObject({ messageId: "genui:s" });
+    const content = contentOf(event);
+    expect(content).toEqual({
+      surfaceId: "s",
+      target: "chat",
+      catalogId: STANDARD_CATALOG_ID,
+      operations: upgradeA2UIV09Operations(adkOperations).operations,
+      status: "ready",
+      rejected: [],
+    });
+    // A click on it is a 1.0 action, which reaches the agent unchanged.
+    expect(content).not.toHaveProperty("a2uiSourceVersion");
+    expectValid(content.operations);
+  });
+
+  it("rejects an operation of the other version on a surface", () => {
+    const upgrader = createA2UIV09ActivityUpgrader();
+    const [native] = upgrader.transform(
+      surfaceSnapshot("m1", [adkOperations[0], update(card)]),
+    );
+    expect(contentOf(native).operations).toEqual([
+      {
+        version: "1.0",
+        createSurface: { surfaceId: "s", catalogId: STANDARD_CATALOG_ID },
+      },
+    ]);
+    expect(contentOf(native).rejected).toEqual([
+      {
+        index: 1,
+        reason:
+          'surface "s" is A2UI 1.0; an A2UI 0.9 operation cannot change it',
+      },
+    ]);
+    expect(contentOf(native)).not.toHaveProperty("a2uiSourceVersion");
+
+    const [converted] = createA2UIV09ActivityUpgrader().transform(
+      surfaceSnapshot("m1", [create(), adkOperations[1]]),
+    );
+    expect(contentOf(converted).operations).toHaveLength(1);
+    expect(contentOf(converted).rejected).toEqual([
+      {
+        index: 1,
+        reason:
+          'surface "s" is A2UI 0.9; an A2UI 1.0 operation cannot change it',
+      },
+    ]);
+    expect(contentOf(converted).a2uiSourceVersion).toBe("0.9");
+  });
+
+  it("rejects an operation of an unknown version", () => {
+    const upgrader = createA2UIV09ActivityUpgrader();
+    const [event] = upgrader.transform(
+      surfaceSnapshot("m1", [
+        adkOperations[0],
+        { ...adkOperations[1], version: "1.1" },
+      ]),
+    );
+    expect(contentOf(event).rejected).toEqual([
+      {
+        index: 1,
+        reason: expect.stringContaining('unsupported A2UI version "1.1"'),
       },
     ]);
   });

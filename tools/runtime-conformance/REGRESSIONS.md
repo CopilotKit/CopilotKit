@@ -395,3 +395,23 @@ pnpm nx run runtime-conformance:conformance --args='--filter a2ui.action-history
 ```
 
 This is local socket conformance with the existing platform fixture, not live-model or deployed-service validation. No production runtime behavior changed.
+
+## Native A2UI 1.0 operations on the A2UI path
+
+Baseline: `d91dab4faf` (the merge of `2.0.0` into the branch that removes the A2UI v0.9 renderer).
+Cases: `generative-ui.a2ui-version.native-v10-operations-pass-through`, and the action history of `a2ui.action-history-and-catalog` and `generative-ui.a2ui-version.click-reaches-v09-agent`.
+
+#8353 taught the removed v0.9 renderer to render native 1.0 `a2ui_operations` from ADK. The runtimes now carry that case. A native 1.0 `a2ui-surface` becomes a `generative-ui-surface`: the 1.0 basic catalog id becomes `copilotkit/standard@1`, its basic catalog components get the standard names, and the surface has no `a2uiSourceVersion`. A surface keeps the version of its first operation and rejects an operation of the other version. The case uses the ADK fixture of #8353.
+
+The click half of the case failed for Python before the fix: `A click on a native 1.0 surface must reach the agent unchanged`. A surface summary without `a2uiSourceVersion` fell back to the agent version, so the click on a 1.0 surface became a v0.9 action. TypeScript treats a summary without the tag as a 1.0 surface. Go, Ruby and .NET had the same check as Python and were fixed in the same change; they were not run before the fix.
+
+The two action history cases now branch on `expectedA2uiActionHistory`, as `ef86391d18` did. The action history case renders the client's `ProductCard`: middleware 0.0.15 checks the components of a render against the schema in the agent's context.
+
+All 147 cases passed locally for each driver after the change:
+
+```sh
+node tools/runtime-conformance/run.mjs -- node tools/runtime-conformance/typescript-driver.mjs
+node tools/runtime-conformance/run.mjs -- packages/runtime-python/.venv/bin/python packages/runtime-python/examples/conformance.py
+```
+
+Go, Ruby (Rack and Rails) and .NET ran in Docker (`golang:1.22` with the harness in `node:22`, Ruby 3.3, .NET 8 SDK), with the commands of `.github/workflows/intelligence-runtimes.yml`. This is local socket conformance, not live-model or deployed-service validation.

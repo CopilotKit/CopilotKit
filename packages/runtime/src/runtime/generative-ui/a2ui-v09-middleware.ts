@@ -68,7 +68,9 @@ export function prepareA2UIV09AgentInput(
  * - Output: every `a2ui-surface` activity event becomes a
  *   `generative-ui-surface` event, see `createA2UIV09ActivityUpgrader`.
  *   The version of each operation decides, so v0.9 surfaces convert also
- *   for a `"1.0"` agent (for example, from a tool result).
+ *   for a `"1.0"` agent (for example, from a tool result), and native 1.0
+ *   operations on this path (for example, from ADK) reach the client as 1.0
+ *   surfaces too.
  *
  * The first middleware given to `agent.use` is the outermost: it sees the
  * input first and the events last. Use this middleware before

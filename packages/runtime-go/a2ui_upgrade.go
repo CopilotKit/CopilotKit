@@ -29,6 +29,13 @@ var v09BasicCatalogIDs = map[string]bool{
 	"https://a2ui.org/specification/v0_9/catalogs/basic/catalog.json": true,
 }
 
+// The A2UI 1.0 basic catalog, which native 1.0 agents (for example ADK) send. It has the 18
+// components of the v0.9 basic catalog with 1.0 bindings, so it becomes the standard catalog
+// too.
+var v10BasicCatalogIDs = map[string]bool{
+	"https://a2ui.org/specification/v1_0/catalogs/basic/catalog.json": true,
+}
+
 // v0.9 Text heading variants as 1.0 Title sizes, largest first.
 var headingSizes = map[string]string{"h1": "2xl", "h2": "xl", "h3": "lg", "h4": "md", "h5": "sm"}
 
@@ -260,17 +267,63 @@ func convertCreateSurface(payload map[string]any, surfaceID string) map[string]a
 	return map[string]any{"version": a2uiVersion10, "createSurface": create}
 }
 
+// toStandardComponents returns basic catalog components as standard ones; anything else stays.
+func toStandardComponents(components any) any {
+	list, ok := components.([]any)
+	if !ok {
+		return components
+	}
+	out := make([]any, len(list))
+	for i, node := range list {
+		if m, ok := record(node); ok {
+			out[i] = basicCatalogChanges(m)
+		} else {
+			out[i] = node
+		}
+	}
+	return out
+}
+
+// upgradeV10Operation returns a native A2UI 1.0 operation for the standard catalog: the 1.0
+// basic catalog id becomes the standard catalog id, and the basic catalog components (inline
+// in createSurface, or in updateComponents) get the changes of basicCatalogChanges. Bindings
+// are already 1.0. Everything else stays; the client validates the operation.
+func upgradeV10Operation(op map[string]any) map[string]any {
+	if create, ok := record(op["createSurface"]); ok {
+		create = shallowCopy(create)
+		if catalogID, _ := create["catalogId"].(string); v10BasicCatalogIDs[catalogID] {
+			create["catalogId"] = standardCatalogID
+		}
+		if components, ok := create["components"]; ok {
+			create["components"] = toStandardComponents(components)
+		}
+		out := shallowCopy(op)
+		out["createSurface"] = create
+		return out
+	}
+	if update, ok := record(op["updateComponents"]); ok {
+		update = shallowCopy(update)
+		if components, ok := update["components"]; ok {
+			update["components"] = toStandardComponents(components)
+		}
+		out := shallowCopy(op)
+		out["updateComponents"] = update
+		return out
+	}
+	return op
+}
+
 func upgradeOperation(op any) (map[string]any, error) {
 	m, ok := record(op)
 	if !ok {
 		return nil, errors.New("operation must be a JSON object")
 	}
 	if m["version"] == a2uiVersion10 {
-		return m, nil
+		return upgradeV10Operation(m), nil
 	}
 	if !isV09Operation(m) {
 		if version, ok := m["version"].(string); ok {
-			return nil, fmt.Errorf(`unsupported A2UI version "%s"; only v0.9 operations are converted`, version)
+			return nil, fmt.Errorf(`unsupported A2UI version "%s"; only v0.9 and 1.0 operations are supported`, version)
 		}
 		return nil, errors.New("not an A2UI v0.9 operation: it needs exactly one of " + strings.Join(v09Kinds, ", "))
 	}
@@ -311,9 +364,11 @@ type droppedOperation struct {
 	reason    string
 }
 
-// upgradeV09Operations converts A2UI v0.9 operations to 1.0, in order. A 1.0 operation stays
-// as it is. Any other operation, and a v0.9 operation that cannot be converted, is returned
-// in the second list with the reason.
+// upgradeV09Operations converts A2UI v0.9 operations to 1.0, in order. A native 1.0
+// operation keeps its form: only the 1.0 basic catalog id becomes the standard catalog id,
+// and its basic catalog components get the same changes as v0.9 ones. Any other operation,
+// and a v0.9 operation that cannot be converted, is returned in the second list with the
+// reason.
 func upgradeV09Operations(operations []any) ([]any, []droppedOperation) {
 	upgraded := []any{}
 	dropped := []droppedOperation{}
@@ -579,8 +634,16 @@ func applyJSONPatch(document any, patch any) (any, error) {
 	return root, nil
 }
 
+// sourceOperation is one converted operation, with its index in the source message and the
+// A2UI version it was written in ("0.9" or "1.0").
+type sourceOperation struct {
+	operation any
+	index     int
+	version   string
+}
+
 type sourcePart struct {
-	operations []any
+	operations []sourceOperation
 	rejected   []any
 }
 
@@ -615,13 +678,17 @@ func (s *surfaceState) deletePart(messageID string) bool {
 	return true
 }
 
-// a2uiV09Upgrader converts the v0.9 surfaces of one run to 1.0 surfaces. Create one per run.
+// a2uiV09Upgrader converts the a2ui-surface surfaces of one run (A2UI v0.9, or native 1.0)
+// to generative-ui-surface surfaces. Create one per run.
 //
 // An a2ui-surface snapshot or delta is kept per messageId and its operations converted. Each
 // surface becomes one genui:<surfaceId> message: a surface created in this run is sent as a
-// cumulative snapshot (chat target, status "ready", a2uiSourceVersion "0.9"); a surface that
-// this run only updates gets its new operations as an ACTIVITY_DELTA. A lifecycle snapshot
-// (no operations) names no surface, so it is consumed.
+// cumulative snapshot (chat target, status "ready", a2uiSourceVersion "0.9" for a surface
+// written in v0.9); a surface that this run only updates gets its new operations as an
+// ACTIVITY_DELTA. A surface written in native 1.0 (for example by ADK) has no
+// a2uiSourceVersion, so a click on it reaches the agent unchanged. One surface has one
+// version, the version of its first operation; an operation of the other version is
+// rejected. A lifecycle snapshot (no operations) names no surface, so it is consumed.
 type a2uiV09Upgrader struct {
 	sources      map[string]any
 	surfaces     map[string]*surfaceState
@@ -632,7 +699,7 @@ func newA2UIV09Upgrader() *a2uiV09Upgrader {
 	return &a2uiV09Upgrader{sources: map[string]any{}, surfaces: map[string]*surfaceState{}}
 }
 
-func (u *a2uiV09Upgrader) snapshot(surfaceID string, state *surfaceState, operations, rejected []any) []Event {
+func (u *a2uiV09Upgrader) snapshot(surfaceID string, state *surfaceState, operations, rejected []any, version string) []Event {
 	catalogID := ""
 	for _, op := range operations {
 		if create, ok := object(op)["createSurface"]; ok {
@@ -643,7 +710,10 @@ func (u *a2uiV09Upgrader) snapshot(surfaceID string, state *surfaceState, operat
 	if catalogID == "" {
 		catalogID = standardCatalogID
 	}
-	content := newOrdered().set("surfaceId", surfaceID).set("target", generativeUIChatTarget).set("catalogId", catalogID).set("operations", operations).set("status", "ready").set("rejected", rejected).set("a2uiSourceVersion", "0.9")
+	content := newOrdered().set("surfaceId", surfaceID).set("target", generativeUIChatTarget).set("catalogId", catalogID).set("operations", operations).set("status", "ready").set("rejected", rejected)
+	if version == "0.9" {
+		content.set("a2uiSourceVersion", "0.9")
+	}
 	serialized := compactJSON(content)
 	if serialized == state.lastSnapshot {
 		return nil
@@ -684,22 +754,30 @@ func (u *a2uiV09Upgrader) emit(surfaceID string) []Event {
 	}
 	operations, rejected := []any{}, []any{}
 	created := false
+	version := ""
 	for _, messageID := range state.partOrder {
 		part := state.parts[messageID]
-		for _, op := range part.operations {
-			if _, ok := object(op)["createSurface"]; ok {
+		for _, entry := range part.operations {
+			if version == "" {
+				version = entry.version
+			}
+			if entry.version != version {
+				rejected = append(rejected, map[string]any{"index": entry.index, "reason": fmt.Sprintf(`surface "%s" is A2UI %s; an A2UI %s operation cannot change it`, surfaceID, version, entry.version)})
+				continue
+			}
+			if _, ok := object(entry.operation)["createSurface"]; ok {
 				// A second createSurface of the same id is rejected in 1.0.
 				if created {
 					continue
 				}
 				created = true
 			}
-			operations = append(operations, op)
+			operations = append(operations, entry.operation)
 		}
 		rejected = append(rejected, part.rejected...)
 	}
 	if created {
-		return u.snapshot(surfaceID, state, operations, rejected)
+		return u.snapshot(surfaceID, state, operations, rejected, version)
 	}
 	return u.delta(surfaceID, state, operations, rejected)
 }
@@ -716,12 +794,19 @@ func (u *a2uiV09Upgrader) refresh(messageID string) []Event {
 		}
 		part := parts[surfaceID]
 		if part == nil {
-			part = &sourcePart{operations: []any{}, rejected: []any{}}
+			part = &sourcePart{operations: []sourceOperation{}, rejected: []any{}}
 			parts[surfaceID] = part
 			touched = append(touched, surfaceID)
 		}
 		operations, dropped := upgradeV09Operations([]any{op})
-		part.operations = append(part.operations, operations...)
+		// Only v0.9 and 1.0 operations convert.
+		version := "0.9"
+		if object(op)["version"] == a2uiVersion10 {
+			version = "1.0"
+		}
+		for _, operation := range operations {
+			part.operations = append(part.operations, sourceOperation{operation, index, version})
+		}
 		for _, entry := range dropped {
 			part.rejected = append(part.rejected, map[string]any{"index": index, "reason": entry.reason})
 		}
@@ -855,12 +940,11 @@ func readV09Action(envelope map[string]any) map[string]any {
 }
 
 // isV09Surface is true when the surface was converted from v0.9. The client's surface
-// summary decides, then the last generative-ui-surface activity message of the surface,
-// then agentVersion.
+// summary decides (no a2uiSourceVersion means a 1.0 surface), then the last
+// generative-ui-surface activity message of the surface, then agentVersion.
 func isV09Surface(envelope map[string]any, messages []any, surfaceID, agentVersion string) bool {
-	summary := object(object(extensionsOf(envelope)["copilotkit_surfaces"])[surfaceID])
-	if source, ok := summary["a2uiSourceVersion"].(string); ok {
-		return source == "0.9"
+	if summary, ok := record(object(extensionsOf(envelope)["copilotkit_surfaces"])[surfaceID]); ok {
+		return summary["a2uiSourceVersion"] == "0.9"
 	}
 	for i := len(messages) - 1; i >= 0; i-- {
 		message, ok := record(messages[i])

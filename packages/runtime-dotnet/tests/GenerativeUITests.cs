@@ -30,6 +30,7 @@ internal static class GenerativeUITests
         await RenderUIAsync();
         Upgrade();
         Upgrader();
+        NativeV10();
         Patch();
         Clicks();
         Catalog();
@@ -179,7 +180,7 @@ internal static class GenerativeUITests
         var (kept, rejected) = A2UIUpgrade.UpgradeOperations(JsonNode.Parse("""[{"version":"v0.9","updateDataModel":{"surfaceId":"s","path":"items"}},{"version":"v0.9","updateDataModel":{"surfaceId":"s"}},{"version":"1.0","deleteSurface":{"surfaceId":"s"}},{"version":"v0.8","deleteSurface":{"surfaceId":"s"}},{"version":"v0.9","updateDataModel":{"surfaceId":"s","path":"/","value":3}},{"version":"v0.9","updateComponents":{"surfaceId":"s","components":[{"id":"x"}]}}]"""));
         Check(JsonText.Compact(kept[0]["updateDataModel"]) == """{"surfaceId":"s","path":"/items","value":null}""" && JsonText.Compact(kept[1]["updateDataModel"]) == """{"surfaceId":"s","path":"/","value":{}}"""
             && JsonText.Compact(kept[2]) == """{"version":"1.0","deleteSurface":{"surfaceId":"s"}}"""
-            && rejected.Select(entry => entry.Reason).SequenceEqual(["unsupported A2UI version \"v0.8\"; only v0.9 operations are converted", "a root updateDataModel value must be a JSON object in A2UI 1.0", "component \"x\": the component type must be a string (the v0.9 flat format)"]),
+            && rejected.Select(entry => entry.Reason).SequenceEqual(["unsupported A2UI version \"v0.8\"; only v0.9 and 1.0 operations are supported", "a root updateDataModel value must be a JSON object in A2UI 1.0", "component \"x\": the component type must be a string (the v0.9 flat format)"]),
             "left-out values remove and unconvertible operations are dropped with the reason");
     }
 
@@ -205,6 +206,35 @@ internal static class GenerativeUITests
         Check(Type(earlier) == "ACTIVITY_DELTA" && earlier["messageId"]!.GetValue<string>() == "genui:old"
             && JsonText.Compact(earlier["patch"]) == """[{"op":"add","path":"/operations/-","value":{"version":"1.0","updateDataModel":{"surfaceId":"old","path":"/a","value":1}}},{"op":"replace","path":"/rejected","value":[{"index":1,"reason":"updateComponents.components must be a non-empty array"}]}]""",
             "updates of a surface from an earlier run are appended as a delta");
+    }
+
+    // The native 1.0 operations of an ADK agent: the fixture of #8353, from ag-ui #3374
+    // test_a2ui_protocol_versions.py::_ops at 89a59e1.
+    private const string AdkV10 = """[{"version":"1.0","createSurface":{"surfaceId":"s","catalogId":"https://a2ui.org/specification/v1_0/catalogs/basic/catalog.json"}},{"version":"1.0","updateComponents":{"surfaceId":"s","components":[{"id":"root","component":"Text","text":"Hello"}]}},{"version":"1.0","updateDataModel":{"surfaceId":"s","path":"/","value":{}}}]""";
+
+    private static void NativeV10()
+    {
+        var adkOperations = """[{"version":"1.0","createSurface":{"surfaceId":"s","catalogId":"copilotkit/standard@1"}},{"version":"1.0","updateComponents":{"surfaceId":"s","components":[{"id":"root","component":"Text","text":"Hello"}]}},{"version":"1.0","updateDataModel":{"surfaceId":"s","path":"/","value":{}}}]""";
+        var input = JsonNode.Parse(AdkV10)!.AsArray();
+        input.Add(JsonNode.Parse("""{"version":"1.0","createSurface":{"surfaceId":"s","catalogId":"https://a2ui.org/specification/v1_0/catalogs/basic/catalog.json","components":[{"id":"title","component":"Text","variant":"h2","text":"Profile"},{"id":"save","component":"Button","child":"label","action":{"event":{"name":"save"}}}],"dataModel":{"name":"Ada"}}}"""));
+        input.Add(JsonNode.Parse("""{"version":"1.0","createSurface":{"surfaceId":"c","catalogId":"https://example.test/catalog"}}"""));
+        var (operations, dropped) = A2UIUpgrade.UpgradeOperations(input);
+        Check(dropped.Count == 0 && JsonText.Compact(new JsonArray(operations.ToArray<JsonNode?>())) == adkOperations.TrimEnd(']') + ""","""
+            + """{"version":"1.0","createSurface":{"surfaceId":"s","catalogId":"copilotkit/standard@1","components":[{"id":"title","component":"Title","text":"Profile","size":"xl"},{"id":"save","component":"Button","child":"label","onClick":{"event":{"name":"save"}}}],"dataModel":{"name":"Ada"}}},"""
+            + """{"version":"1.0","createSurface":{"surfaceId":"c","catalogId":"https://example.test/catalog"}}]""",
+            "native 1.0 operations keep their form; the 1.0 basic catalog becomes the standard catalog");
+
+        var mixed = JsonNode.Parse(AdkV10)!.AsArray();
+        mixed.Add(JsonNode.Parse("""{"version":"v0.9","updateDataModel":{"surfaceId":"s","path":"/x","value":1}}"""));
+        var native = new A2UIV09ActivityUpgrader().Transform(Activity("m", mixed)).Single();
+        Check(native["messageId"]!.GetValue<string>() == "genui:s" && JsonText.Compact(native["content"]) == $$"""{"surfaceId":"s","target":"chat","catalogId":"copilotkit/standard@1","operations":{{adkOperations}},"status":"ready","rejected":[{"index":3,"reason":"surface \"s\" is A2UI 1.0; an A2UI 0.9 operation cannot change it"}]}""",
+            "a native 1.0 surface has no a2uiSourceVersion and rejects a v0.9 operation");
+        var converted = new A2UIV09ActivityUpgrader().Transform(Activity("m", JsonNode.Parse("""[{"version":"v0.9","createSurface":{"surfaceId":"plans","catalogId":"https://a2ui.org/specification/v0_9/basic_catalog.json"}},{"version":"1.0","deleteSurface":{"surfaceId":"plans"}}]""")!)).Single();
+        Check(converted["content"]!["a2uiSourceVersion"]!.GetValue<string>() == "0.9"
+            && JsonText.Compact(converted["content"]!["rejected"]) == """[{"index":1,"reason":"surface \"plans\" is A2UI 0.9; an A2UI 1.0 operation cannot change it"}]""",
+            "a v0.9 surface keeps its tag and rejects a 1.0 operation");
+        var untagged = ClickInput(Forwarded(action: Click, surfaces: """{"card":{"target":"chat"}}"""));
+        Check(ReferenceEquals(A2UIUpgrade.DowngradeAction(untagged, "0.9"), untagged), "a click on a native 1.0 surface reaches even a 0.9 agent unchanged");
     }
 
     private static void Patch()

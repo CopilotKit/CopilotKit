@@ -115,7 +115,11 @@ const toolResultRun: BaseEvent[] = [
   { type: EventType.RUN_FINISHED, threadId: "thread-1", runId: "run-1" },
 ];
 
-/** A run whose model streams a `render_a2ui` call. */
+/**
+ * A run whose model streams a `render_a2ui` call. `A2UIMiddleware` checks the
+ * components against the v0.9 schema in the context, which lists the
+ * client's catalog, so the surface uses its `ProductCard`.
+ */
 const renderA2UIRun: BaseEvent[] = [
   { type: EventType.RUN_STARTED, threadId: "thread-1", runId: "run-1" },
   {
@@ -129,7 +133,7 @@ const renderA2UIRun: BaseEvent[] = [
     toolCallId: "render-call",
     delta: JSON.stringify({
       surfaceId: "plans",
-      components: [{ id: "root", component: "Text", text: "Plans" }],
+      components: [{ id: "root", component: "ProductCard", name: "Team" }],
     }),
   },
   { type: EventType.TOOL_CALL_END, toolCallId: "render-call" },
@@ -344,7 +348,7 @@ describe("a click on a converted surface", () => {
     content: "Show me the Team plan\n\nplan: team",
   };
 
-  it("reaches a v0.9 agent as a log_a2ui_event tool call", async () => {
+  it("reaches a v0.9 agent once, as the private A2UI action message", async () => {
     const { input } = await runConfigured(
       { a2uiVersion: "0.9" },
       emptyRun,
@@ -352,17 +356,26 @@ describe("a click on a converted surface", () => {
       { copilotkit: { ui: envelope(action) } },
     );
 
-    const [call, result] = input.messages.slice(-2);
-    const toolCall = (
-      call as { toolCalls: { function: { name: string; arguments: string } }[] }
-    ).toolCalls[0]!;
-    expect(toolCall.function.name).toBe("log_a2ui_event");
-    expect(JSON.parse(toolCall.function.arguments)).toMatchObject({
+    const prefix = "A2UI user action:\n";
+    const last = input.messages.at(-1)!;
+    expect(last.role).toBe("user");
+    expect(typeof last.content === "string" && last.content).toMatch(
+      /^A2UI user action:\n/,
+    );
+    expect(
+      JSON.parse((last.content as string).slice(prefix.length)),
+    ).toMatchObject({
       name: "choose",
       surfaceId: "plans",
       context: { plan: "team" },
     });
-    expect(result).toMatchObject({ role: "tool" });
+    expect(
+      input.messages.filter(
+        (message) =>
+          typeof message.content === "string" &&
+          message.content.startsWith(prefix),
+      ),
+    ).toHaveLength(1);
     expect(input.messages.some((message) => message.id === "click")).toBe(
       false,
     );
@@ -408,7 +421,10 @@ describe("a click on a converted surface", () => {
     // The agent got the v0.9 action instead of the click message ...
     const agentMessages = agent.inputs[0]!.messages;
     expect(agentMessages.some((message) => message.id === "click")).toBe(false);
-    expect(agentMessages.at(-1)).toMatchObject({ role: "tool" });
+    expect(agentMessages.at(-1)).toMatchObject({
+      role: "user",
+      content: expect.stringMatching(/^A2UI user action:\n/),
+    });
 
     // ... and the thread that the runtime stores still has it.
     // An anonymous run belongs to the anonymous owner, "".

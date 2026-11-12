@@ -45,6 +45,10 @@ _V09_BASIC_CATALOG_IDS = {
     "https://a2ui.org/specification/v0_9/basic_catalog.json",
     "https://a2ui.org/specification/v0_9/catalogs/basic/catalog.json",
 }
+# The A2UI 1.0 basic catalog, which native 1.0 agents (for example ADK) send. It has the
+# 18 components of the v0.9 basic catalog with 1.0 bindings, so it becomes the standard
+# catalog too.
+_V10_BASIC_CATALOG_IDS = {"https://a2ui.org/specification/v1_0/catalogs/basic/catalog.json"}
 # v0.9 `Text` heading variants as 1.0 `Title` sizes, largest first.
 _HEADING_SIZES = {"h1": "2xl", "h2": "xl", "h3": "lg", "h4": "md", "h5": "sm"}
 
@@ -212,15 +216,53 @@ def _convert_create_surface(payload: Json, surface_id: str) -> Json:
     return {"version": A2UI_VERSION, "createSurface": create}
 
 
+def _standard_components(components: Any) -> Any:
+    """Basic catalog components as standard ones; anything else stays."""
+    if not isinstance(components, list):
+        return components
+    return [
+        _basic_catalog_changes(node) if is_record(node) and "component" in node else node
+        for node in components
+    ]
+
+
+def _upgrade_v10_operation(op: Json) -> Json:
+    """A native A2UI 1.0 operation, for the standard catalog.
+
+    The 1.0 basic catalog id becomes the standard catalog id, and the basic catalog
+    components (inline in createSurface, or in updateComponents) get the changes of
+    `_basic_catalog_changes`. Bindings are already 1.0. Everything else stays; the client
+    validates the operation.
+    """
+    create = op.get("createSurface")
+    if is_record(create):
+        create = dict(create)
+        if (
+            isinstance(create.get("catalogId"), str)
+            and create["catalogId"] in _V10_BASIC_CATALOG_IDS
+        ):
+            create["catalogId"] = STANDARD_CATALOG_ID
+        if "components" in create:
+            create["components"] = _standard_components(create["components"])
+        return {**op, "createSurface": create}
+    update = op.get("updateComponents")
+    if is_record(update):
+        update = dict(update)
+        if "components" in update:
+            update["components"] = _standard_components(update["components"])
+        return {**op, "updateComponents": update}
+    return op
+
+
 def _upgrade_operation(op: Any) -> Json:
     if not is_record(op):
         raise _Failed("operation must be a JSON object")
     if op.get("version", _UNSET) == A2UI_VERSION:
-        return op
+        return _upgrade_v10_operation(op)
     if not is_v09_operation(op):
         version = op.get("version")
         raise _Failed(
-            f'unsupported A2UI version "{version}"; only v0.9 operations are converted'
+            f'unsupported A2UI version "{version}"; only v0.9 and 1.0 operations are supported'
             if isinstance(version, str)
             else "not an A2UI v0.9 operation: it needs exactly one of " + ", ".join(_V09_KINDS)
         )
@@ -256,8 +298,10 @@ def _upgrade_operation(op: Any) -> Json:
 def upgrade_v09_operations(operations: Any) -> tuple[list[Json], list[tuple[Any, str]]]:
     """Convert A2UI v0.9 operations to 1.0, in order. Never raises.
 
-    A 1.0 operation stays as it is. Any other operation, and a v0.9 operation that cannot be
-    converted, is returned in the second list with the reason.
+    A native 1.0 operation keeps its form: only the 1.0 basic catalog id becomes the
+    standard catalog id, and its basic catalog components get the same changes as v0.9
+    ones. Any other operation, and a v0.9 operation that cannot be converted, is returned
+    in the second list with the reason.
     """
     upgraded: list[Json] = []
     dropped: list[tuple[Any, str]] = []
@@ -400,7 +444,8 @@ def apply_json_patch(document: Any, patch: Any) -> Any:
 
 @dataclass
 class _SourcePart:
-    operations: list[Json] = field(default_factory=list)
+    # (converted operation, index in the source message, "0.9" or "1.0").
+    operations: list[tuple[Json, int, str]] = field(default_factory=list)
     rejected: list[Json] = field(default_factory=list)
 
 
@@ -415,13 +460,18 @@ class _SurfaceState:
 
 
 class A2UIV09ActivityUpgrader:
-    """Convert the v0.9 surfaces of one run to 1.0 surfaces. Create one per run.
+    """Convert the `a2ui-surface` surfaces of one run (A2UI v0.9, or native 1.0) to
+    `generative-ui-surface` surfaces. Create one per run.
 
     An `a2ui-surface` snapshot or delta is kept per messageId and its operations converted.
     Each surface becomes one `genui:<surfaceId>` message: a surface created in this run is
-    sent as a cumulative snapshot (chat target, status "ready", `a2uiSourceVersion` "0.9");
-    a surface that this run only updates gets its new operations as an `ACTIVITY_DELTA`.
-    A lifecycle snapshot (no operations) names no surface, so it is consumed.
+    sent as a cumulative snapshot (chat target, status "ready", `a2uiSourceVersion` "0.9"
+    for a surface written in v0.9); a surface that this run only updates gets its new
+    operations as an `ACTIVITY_DELTA`. A surface written in native 1.0 (for example by
+    ADK) has no `a2uiSourceVersion`, so a click on it reaches the agent unchanged. One
+    surface has one version, the version of its first operation; an operation of the other
+    version is rejected. A lifecycle snapshot (no operations) names no surface, so it is
+    consumed.
     """
 
     def __init__(self) -> None:
@@ -429,7 +479,12 @@ class A2UIV09ActivityUpgrader:
         self._surfaces: dict[str, _SurfaceState] = {}
 
     def _snapshot(
-        self, surface_id: str, state: _SurfaceState, operations: list[Json], rejected: list[Json]
+        self,
+        surface_id: str,
+        state: _SurfaceState,
+        operations: list[Json],
+        rejected: list[Json],
+        version: str,
     ) -> list[Json]:
         create = next((op for op in operations if "createSurface" in op), None)
         catalog_id = (
@@ -437,15 +492,16 @@ class A2UIV09ActivityUpgrader:
             if create and is_record(create["createSurface"])
             else None
         ) or STANDARD_CATALOG_ID
-        content = {
+        content: Json = {
             "surfaceId": surface_id,
             "target": GENERATIVE_UI_CHAT_TARGET,
             "catalogId": catalog_id,
             "operations": operations,
             "status": "ready",
             "rejected": rejected,
-            "a2uiSourceVersion": "0.9",
         }
+        if version == "0.9":
+            content["a2uiSourceVersion"] = "0.9"
         serialized = compact_json(content)
         if serialized == state.last_snapshot:
             return []
@@ -500,8 +556,20 @@ class A2UIV09ActivityUpgrader:
         operations: list[Json] = []
         rejected: list[Json] = []
         created = False
+        version: str | None = None
         for part in state.parts.values():
-            for op in part.operations:
+            for op, index, op_version in part.operations:
+                if version is None:
+                    version = op_version
+                if op_version != version:
+                    rejected.append(
+                        {
+                            "index": index,
+                            "reason": f'surface "{surface_id}" is A2UI {version}; '
+                            f"an A2UI {op_version} operation cannot change it",
+                        }
+                    )
+                    continue
                 if "createSurface" in op:
                     # A second createSurface of the same id is rejected in 1.0.
                     if created:
@@ -510,7 +578,7 @@ class A2UIV09ActivityUpgrader:
                 operations.append(op)
             rejected.extend(part.rejected)
         if created:
-            return self._snapshot(surface_id, state, operations, rejected)
+            return self._snapshot(surface_id, state, operations, rejected, version or "0.9")
         return self._delta(surface_id, state, operations, rejected)
 
     def _refresh(self, message_id: Any) -> list[Json]:
@@ -523,7 +591,9 @@ class A2UIV09ActivityUpgrader:
                 continue
             part = parts.setdefault(surface_id, _SourcePart())
             operations, dropped = upgrade_v09_operations([op])
-            part.operations.extend(operations)
+            # Only v0.9 and 1.0 operations convert.
+            version = "1.0" if is_record(op) and op.get("version") == A2UI_VERSION else "0.9"
+            part.operations.extend((operation, index, version) for operation in operations)
             part.rejected.extend({"index": index, "reason": reason} for _, reason in dropped)
         touched = dict.fromkeys(parts)
         for surface_id, state in self._surfaces.items():
@@ -605,12 +675,13 @@ def _is_v09_surface(
 ) -> bool:
     """True when the surface was converted from v0.9.
 
-    The client's surface summary decides, then the last `generative-ui-surface` activity
-    message of the surface, then `agent_version`.
+    The client's surface summary decides (no `a2uiSourceVersion` means a 1.0 surface),
+    then the last `generative-ui-surface` activity message of the surface, then
+    `agent_version`.
     """
     summary = envelope["metadata"]["extensions"]["copilotkit_surfaces"].get(surface_id)
-    if is_record(summary) and isinstance(summary.get("a2uiSourceVersion"), str):
-        return bool(summary["a2uiSourceVersion"] == "0.9")
+    if is_record(summary):
+        return bool(summary.get("a2uiSourceVersion") == "0.9")
     for message in reversed(messages):
         if (
             is_record(message)

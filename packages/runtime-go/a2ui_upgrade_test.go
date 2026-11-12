@@ -72,7 +72,7 @@ func TestLeftOutValuesRemoveAndUnconvertibleOperationsAreDropped(t *testing.T) {
 		reasons = append(reasons, entry.reason)
 	}
 	want := []string{
-		`unsupported A2UI version "v0.8"; only v0.9 operations are converted`,
+		`unsupported A2UI version "v0.8"; only v0.9 and 1.0 operations are supported`,
 		"a root updateDataModel value must be a JSON object in A2UI 1.0",
 		`component "x": the component type must be a string (the v0.9 flat format)`,
 		"operation must be a JSON object",
@@ -137,6 +137,72 @@ func TestUpgraderAppendsUpdatesOfASurfaceFromAnEarlierRun(t *testing.T) {
 		map[string]any{"op": "add", "path": "/operations/-", "value": map[string]any{"version": "1.0", "updateDataModel": map[string]any{"surfaceId": "old", "path": "/a", "value": 1}}},
 		map[string]any{"op": "replace", "path": "/rejected", "value": []any{map[string]any{"index": 1, "reason": "updateComponents.components must be a non-empty array"}}},
 	})
+}
+
+const basicV10 = "https://a2ui.org/specification/v1_0/catalogs/basic/catalog.json"
+
+// adkV10 is the native 1.0 operations of an ADK agent: the fixture of #8353, from ag-ui #3374
+// test_a2ui_protocol_versions.py::_ops at 89a59e1.
+func adkV10() []any {
+	return []any{
+		map[string]any{"version": "1.0", "createSurface": map[string]any{"surfaceId": "s", "catalogId": basicV10}},
+		map[string]any{"version": "1.0", "updateComponents": map[string]any{"surfaceId": "s", "components": []any{map[string]any{"id": "root", "component": "Text", "text": "Hello"}}}},
+		map[string]any{"version": "1.0", "updateDataModel": map[string]any{"surfaceId": "s", "path": "/", "value": map[string]any{}}},
+	}
+}
+
+func TestNativeV10OperationsKeepTheirFormOnTheStandardCatalog(t *testing.T) {
+	save := map[string]any{"event": map[string]any{"name": "save", "context": map[string]any{"name": map[string]any{"@path": "/name"}}}}
+	native := map[string]any{"version": "1.0", "createSurface": map[string]any{"surfaceId": "s", "catalogId": basicV10, "components": []any{
+		map[string]any{"id": "title", "component": "Text", "variant": "h2", "text": "Profile"},
+		map[string]any{"id": "save", "component": "Button", "child": "label", "action": save},
+	}, "dataModel": map[string]any{"name": "Ada"}}}
+	custom := map[string]any{"version": "1.0", "createSurface": map[string]any{"surfaceId": "c", "catalogId": "https://example.test/catalog"}}
+	adk := adkV10()
+	operations, dropped := upgradeV09Operations(append(adk, native, custom))
+	if len(dropped) != 0 {
+		t.Fatalf("dropped: %v", dropped)
+	}
+	assertJSON(t, operations, []any{
+		map[string]any{"version": "1.0", "createSurface": map[string]any{"surfaceId": "s", "catalogId": standardCatalogID}},
+		adk[1],
+		adk[2],
+		map[string]any{"version": "1.0", "createSurface": map[string]any{"surfaceId": "s", "catalogId": standardCatalogID, "components": []any{
+			map[string]any{"id": "title", "component": "Title", "text": "Profile", "size": "xl"},
+			map[string]any{"id": "save", "component": "Button", "child": "label", "onClick": save},
+		}, "dataModel": map[string]any{"name": "Ada"}}},
+		custom,
+	})
+}
+
+func TestUpgraderSendsANativeV10SurfaceWithoutTheV09Tag(t *testing.T) {
+	v09 := map[string]any{"version": "v0.9", "updateDataModel": map[string]any{"surfaceId": "s", "path": "/x", "value": 1}}
+	out := newA2UIV09Upgrader().transform(v09Activity("m", append(adkV10(), v09)))
+	if len(out) != 1 || out[0]["messageId"] != "genui:s" || out[0]["activityType"] != generativeUIActivityType {
+		t.Fatalf("out: %v", out)
+	}
+	operations, _ := upgradeV09Operations(adkV10())
+	assertJSON(t, out[0]["content"], map[string]any{
+		"surfaceId": "s", "target": "chat", "catalogId": standardCatalogID, "operations": operations, "status": "ready",
+		"rejected": []any{map[string]any{"index": 3, "reason": `surface "s" is A2UI 1.0; an A2UI 0.9 operation cannot change it`}},
+	})
+	// A v0.9 surface rejects a 1.0 operation the same way, and keeps its tag.
+	native := map[string]any{"version": "1.0", "deleteSurface": map[string]any{"surfaceId": "plans"}}
+	converted := newA2UIV09Upgrader().transform(v09Activity("m", []any{planV09[0], native}))
+	content := object(converted[0]["content"])
+	if content["a2uiSourceVersion"] != "0.9" {
+		t.Fatalf("content: %v", content)
+	}
+	assertJSON(t, content["rejected"], []any{map[string]any{"index": 1, "reason": `surface "plans" is A2UI 0.9; an A2UI 1.0 operation cannot change it`}})
+}
+
+func TestASummaryWithoutTheV09TagIsAV10Surface(t *testing.T) {
+	// A native 1.0 surface: its click reaches even a 0.9 agent unchanged.
+	input := map[string]any{"messages": history(), "forwardedProps": testEnvelope(t, envelopeOptions{action: clickAction, surfaces: map[string]any{"card": map[string]any{"target": "chat"}}})}
+	out := downgradeV09Action(input, "0.9")
+	if _, converted := object(out["forwardedProps"])["a2uiAction"]; converted || len(out["messages"].([]any)) != 2 {
+		t.Fatalf("out: %v", out)
+	}
 }
 
 func TestJSONPatchAppliesRFC6902OperationsAndRejectsBadPaths(t *testing.T) {

@@ -47,6 +47,18 @@ const V09_BASIC_CATALOG_IDS: ReadonlySet<string> = new Set([
   "https://a2ui.org/specification/v0_9/catalogs/basic/catalog.json",
 ]);
 
+/**
+ * The ids of the A2UI 1.0 basic catalog, which native 1.0 agents (for
+ * example ADK) send. It has the 18 components of the v0.9 basic catalog
+ * with 1.0 bindings, so it becomes the standard catalog too.
+ */
+const V10_BASIC_CATALOG_IDS: ReadonlySet<string> = new Set([
+  "https://a2ui.org/specification/v1_0/catalogs/basic/catalog.json",
+]);
+
+/** The A2UI version that an `a2ui-surface` operation was written in. */
+type SourceVersion = "0.9" | "1.0";
+
 /** v0.9 `Text` heading variants as 1.0 `Title` sizes, largest first. */
 const HEADING_SIZES: Readonly<Record<string, string>> = {
   h1: "2xl",
@@ -307,15 +319,62 @@ function convertCreateSurface(
   };
 }
 
+/** Basic catalog components as standard ones; anything else stays. */
+function standardComponents(components: unknown) {
+  return Array.isArray(components)
+    ? components.map((node) =>
+        isRecord(node) ? applyBasicCatalogChanges(node) : node,
+      )
+    : components;
+}
+
+/**
+ * A native A2UI 1.0 operation, for the standard catalog: the 1.0 basic
+ * catalog id becomes the standard catalog id, and the basic catalog
+ * components (inline in createSurface, or in updateComponents) get the
+ * changes of {@link applyBasicCatalogChanges}. Bindings are already 1.0.
+ * Everything else stays; the client validates the operation.
+ */
+function upgradeV10Operation(op: Record<string, unknown>): A2UIOperation {
+  const { createSurface: create, updateComponents: update } = op;
+  if (isRecord(create)) {
+    const { catalogId } = create;
+    return {
+      ...op,
+      createSurface: {
+        ...create,
+        ...(typeof catalogId === "string" &&
+        V10_BASIC_CATALOG_IDS.has(catalogId)
+          ? { catalogId: STANDARD_CATALOG_ID }
+          : {}),
+        ...(create.components === undefined
+          ? {}
+          : { components: standardComponents(create.components) }),
+      },
+    } as A2UIOperation;
+  }
+  if (isRecord(update)) {
+    return {
+      ...op,
+      updateComponents: {
+        ...update,
+        ...(update.components === undefined
+          ? {}
+          : { components: standardComponents(update.components) }),
+      },
+    } as A2UIOperation;
+  }
+  return op as A2UIOperation;
+}
+
 /** One operation as 1.0, or why it cannot be converted. */
 function upgradeOperation(op: unknown): Converted<A2UIOperation> {
   if (!isRecord(op)) return failed("operation must be a JSON object");
-  // Already 1.0: the client validates it as it is.
-  if (op.version === A2UI_VERSION) return ok(op as A2UIOperation);
+  if (op.version === A2UI_VERSION) return ok(upgradeV10Operation(op));
   if (!isA2UIV09Operation(op)) {
     return failed(
       typeof op.version === "string"
-        ? `unsupported A2UI version "${op.version}"; only v0.9 operations are converted`
+        ? `unsupported A2UI version "${op.version}"; only v0.9 and 1.0 operations are supported`
         : `not an A2UI v0.9 operation: it needs exactly one of ${V09_KINDS.join(", ")}`,
     );
   }
@@ -363,9 +422,11 @@ function upgradeOperation(op: unknown): Converted<A2UIOperation> {
  *   the root.
  * - deleteSurface: unchanged.
  *
- * An operation that is already 1.0 stays as it is. Any other operation, and
- * any v0.9 operation that cannot be converted, goes to `dropped` with the
- * reason.
+ * An operation that is already 1.0 (native, for example from ADK) keeps its
+ * form: only the 1.0 basic catalog id becomes the standard catalog id, and
+ * its basic catalog components get the same changes as v0.9 ones. Any other
+ * operation, and any v0.9 operation that cannot be converted, goes to
+ * `dropped` with the reason.
  *
  * @example
  * ```ts
@@ -530,9 +591,17 @@ function applyJsonPatch(document: unknown, patch: unknown): unknown {
   return root;
 }
 
+/** One converted operation, with where it came from. */
+interface SourceOperation {
+  operation: A2UIOperation;
+  /** Its index in the source message. */
+  index: number;
+  version: SourceVersion;
+}
+
 /** The converted part of one surface that one source message holds. */
 interface SourcePart {
-  operations: A2UIOperation[];
+  operations: SourceOperation[];
   rejected: GenerativeUIRejectedOperation[];
 }
 
@@ -548,8 +617,9 @@ interface SurfaceState {
 }
 
 /**
- * Converts the v0.9 surfaces of one run to 1.0 surfaces. Create one per run
- * and pass every event of the run through `transform`, in order.
+ * Converts the `a2ui-surface` surfaces of one run (A2UI v0.9, or native
+ * A2UI 1.0) to `generative-ui-surface` surfaces. Create one per run and pass
+ * every event of the run through `transform`, in order.
  *
  * - An `a2ui-surface` `ACTIVITY_SNAPSHOT` or `ACTIVITY_DELTA` is kept per
  *   messageId (a delta is applied to the stored content), and its
@@ -560,7 +630,13 @@ interface SurfaceState {
  *   cumulative 1.0 content: the operations of every source message for it,
  *   in order, with only the first createSurface. The target is the chat,
  *   the status is "ready", dropped operations are `rejected` (at their
- *   index in the source message), and `a2uiSourceVersion` is "0.9".
+ *   index in the source message), and `a2uiSourceVersion` is "0.9" for a
+ *   surface written in v0.9.
+ * - A surface written in native A2UI 1.0 (`version: "1.0"`, for example
+ *   from ADK) becomes the same `generative-ui-surface` message, without
+ *   `a2uiSourceVersion`: a click on it is a 1.0 action, so it reaches the
+ *   agent unchanged. One surface has one version, the version of its
+ *   first operation; an operation of the other version is rejected.
  * - A surface that this run updates but does not create (v0.9 sends no
  *   second createSurface) was created in an earlier run, so its new
  *   operations are appended to its message with an `ACTIVITY_DELTA`, as
@@ -585,6 +661,7 @@ export function createA2UIV09ActivityUpgrader(): {
     state: SurfaceState,
     operations: A2UIOperation[],
     rejected: GenerativeUIRejectedOperation[],
+    version: SourceVersion,
   ): BaseEvent[] => {
     const create = operations.find((op) => "createSurface" in op);
     const catalogId =
@@ -597,7 +674,7 @@ export function createA2UIV09ActivityUpgrader(): {
       operations,
       status: "ready",
       rejected,
-      a2uiSourceVersion: "0.9",
+      ...(version === "0.9" ? { a2uiSourceVersion: "0.9" as const } : {}),
     };
     const json = JSON.stringify(content);
     if (json === state.lastSnapshot) return [];
@@ -656,19 +733,28 @@ export function createA2UIV09ActivityUpgrader(): {
     const operations: A2UIOperation[] = [];
     const rejected: GenerativeUIRejectedOperation[] = [];
     let created = false;
+    let version: SourceVersion | undefined;
     for (const part of state.parts.values()) {
-      for (const op of part.operations) {
-        if ("createSurface" in op) {
+      for (const { operation, index, version: opVersion } of part.operations) {
+        version ??= opVersion;
+        if (opVersion !== version) {
+          rejected.push({
+            index,
+            reason: `surface "${surfaceId}" is A2UI ${version}; an A2UI ${opVersion} operation cannot change it`,
+          });
+          continue;
+        }
+        if ("createSurface" in operation) {
           // A second createSurface of the same id is rejected in 1.0.
           if (created) continue;
           created = true;
         }
-        operations.push(op);
+        operations.push(operation);
       }
       rejected.push(...part.rejected);
     }
     return created
-      ? snapshotOf(surfaceId, state, operations, rejected)
+      ? snapshotOf(surfaceId, state, operations, rejected, version ?? "0.9")
       : deltaOf(surfaceId, state, operations, rejected);
   };
 
@@ -685,7 +771,12 @@ export function createA2UIV09ActivityUpgrader(): {
         parts.set(surfaceId, part);
       }
       const { operations, dropped } = upgradeA2UIV09Operations([op]);
-      part.operations.push(...operations);
+      // Only v0.9 and 1.0 operations convert.
+      const version: SourceVersion =
+        isRecord(op) && op.version === A2UI_VERSION ? "1.0" : "0.9";
+      for (const operation of operations) {
+        part.operations.push({ operation, index, version });
+      }
       for (const { reason } of dropped) part.rejected.push({ index, reason });
     });
     const touched = new Set(parts.keys());

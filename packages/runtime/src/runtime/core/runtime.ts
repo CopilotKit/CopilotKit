@@ -165,6 +165,13 @@ export interface GenerativeUIOptions extends BaseCopilotRuntimeMiddlewareOptions
    */
   a2uiToolNames?: A2UIMiddlewareConfig["a2uiToolNames"];
   /**
+   * v0.9 agents only. The tool names that `A2UIMiddleware` treats as
+   * generation wrappers: a render call inside one of them belongs to it.
+   * Left out, every tool can wrap a render call. Use `[]` when there are no
+   * generation wrappers.
+   */
+  a2uiGenerationToolNames?: A2UIMiddlewareConfig["a2uiGenerationToolNames"];
+  /**
    * v0.9 agents only. The catalog id of the surfaces that `A2UIMiddleware`
    * creates from a streamed render tool call. Default: the catalog id of the
    * component schema in the agent's context.

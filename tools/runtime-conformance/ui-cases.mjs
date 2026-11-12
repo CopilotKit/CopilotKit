@@ -291,6 +291,85 @@ const convertedPlanOperations = [
   },
 ];
 
+const V10_BASIC_CATALOG =
+  "https://a2ui.org/specification/v1_0/catalogs/basic/catalog.json";
+
+/**
+ * Native A2UI 1.0 operations on the A2UI path, as an ADK agent sends them:
+ * the ADK fixture of #8353 (ag-ui #3374, `test_a2ui_protocol_versions.py`
+ * `_ops`), then basic catalog components, then a v0.9 operation, which the
+ * 1.0 surface rejects.
+ */
+const nativeV10Operations = [
+  {
+    version: "1.0",
+    createSurface: { surfaceId: "s", catalogId: V10_BASIC_CATALOG },
+  },
+  {
+    version: "1.0",
+    updateComponents: {
+      surfaceId: "s",
+      components: [{ id: "root", component: "Text", text: "Hello" }],
+    },
+  },
+  {
+    version: "1.0",
+    updateDataModel: { surfaceId: "s", path: "/", value: {} },
+  },
+  {
+    version: "1.0",
+    updateComponents: {
+      surfaceId: "s",
+      components: [
+        { id: "root", component: "Column", children: ["title", "save"] },
+        { id: "title", component: "Text", variant: "h2", text: "Profile" },
+        {
+          id: "save",
+          component: "Button",
+          child: "save-label",
+          action: {
+            event: { name: "save", context: { name: { "@path": "/name" } } },
+          },
+        },
+        { id: "save-label", component: "Text", text: "Save" },
+      ],
+    },
+  },
+  {
+    version: "v0.9",
+    updateDataModel: { surfaceId: "s", path: "/name", value: "Ada" },
+  },
+];
+
+/** What the client gets for `nativeV10Operations`. */
+const passedNativeV10Operations = [
+  {
+    version: "1.0",
+    createSurface: { surfaceId: "s", catalogId: STANDARD_CATALOG },
+  },
+  nativeV10Operations[1],
+  nativeV10Operations[2],
+  {
+    version: "1.0",
+    updateComponents: {
+      surfaceId: "s",
+      components: [
+        { id: "root", component: "Column", children: ["title", "save"] },
+        { id: "title", component: "Title", text: "Profile", size: "xl" },
+        {
+          id: "save",
+          component: "Button",
+          child: "save-label",
+          onClick: {
+            event: { name: "save", context: { name: { "@path": "/name" } } },
+          },
+        },
+        { id: "save-label", component: "Text", text: "Save" },
+      ],
+    },
+  },
+];
+
 /** Assert the one converted surface of `v09PlanOperations`. */
 function assertConvertedPlanSurface(events) {
   assertNoV09Activity(events);
@@ -311,6 +390,63 @@ function assertConvertedPlanSurface(events) {
   assert.ok(
     events.indexOf(snapshot) <
       events.findIndex((event) => event.type === "RUN_FINISHED"),
+  );
+}
+
+/** The v0.9 `userAction` of `clickAction()`, as a v0.9 agent gets it. */
+const clickUserAction = {
+  name: "confirm",
+  surfaceId: "card",
+  sourceComponentId: "button",
+  context: { selected: 2 },
+  timestamp: "2026-10-20T10:00:00.000Z",
+};
+
+/**
+ * Assert the click history of a v0.9 agent: the click of `clickAction()`
+ * once, at the end of the conversation. A driver that announces
+ * `expectedA2uiActionHistory: "private-user-json"` (TypeScript, whose
+ * `@ag-ui/a2ui-middleware` 0.0.15 sends the action as private user JSON)
+ * must give one `A2UI user action:` user message and no `log_a2ui_event`
+ * call. The other drivers keep the `log_a2ui_event` tool call and result.
+ */
+function assertA2UIActionHistory(context, messages) {
+  if (context.expectedA2uiActionHistory === "private-user-json") {
+    const actionPrefix = "A2UI user action:\n";
+    const actionMessages = messages.filter(
+      (message) =>
+        message.role === "user" &&
+        typeof message.content === "string" &&
+        message.content.startsWith(actionPrefix),
+    );
+    assert.equal(actionMessages.length, 1);
+    assert.equal(messages.at(-1), actionMessages[0]);
+    assert.deepEqual(
+      JSON.parse(actionMessages[0].content.slice(actionPrefix.length)),
+      clickUserAction,
+    );
+    assert.ok(
+      !messages.some((message) =>
+        message.toolCalls?.some(
+          (call) => call.function.name === "log_a2ui_event",
+        ),
+      ),
+    );
+    return;
+  }
+  assert.equal(context.expectedA2uiActionHistory, undefined);
+  const [call, result] = messages.slice(-2);
+  assert.equal(call.role, "assistant");
+  assert.equal(call.toolCalls[0].function.name, "log_a2ui_event");
+  assert.deepEqual(
+    JSON.parse(call.toolCalls[0].function.arguments),
+    clickUserAction,
+  );
+  assert.equal(result.role, "tool");
+  assert.equal(result.toolCallId, call.toolCalls[0].id);
+  assert.equal(
+    result.content,
+    'User performed action "confirm" on surface "card" (component: button). Context: {"selected":2}',
   );
 }
 
@@ -543,8 +679,10 @@ const a2uiCases = [
     configuration: { generativeUI: { a2uiVersion: "0.9" } },
     async run(context) {
       const catalogId = "https://example.test/catalog";
+      // The client's catalog has only `ProductCard`, and a v0.9 render may
+      // use only the components of the schema in the agent's context.
       context.platform.faults.agentEvents = toolStream(RENDER_A2UI, [
-        '{"surfaceId":"card","components":[{"id":"root","component":"Text","text":"Hello"}]}',
+        '{"surfaceId":"card","components":[{"id":"root","component":"ProductCard","name":"Hello"}]}',
       ]);
       const events = await runAndWait(
         context,
@@ -553,25 +691,9 @@ const a2uiCases = [
           forwardedProps: envelope({ action: clickAction(), catalogId }),
         }),
       );
-      const messages = context.platform.agentInputs[0].messages;
-      const assistant = messages.find(
-        (message) => message.toolCalls?.[0]?.function.name === "log_a2ui_event",
-      );
-      assert.deepEqual(JSON.parse(assistant.toolCalls[0].function.arguments), {
-        name: "confirm",
-        surfaceId: "card",
-        sourceComponentId: "button",
-        context: { selected: 2 },
-        timestamp: "2026-10-20T10:00:00.000Z",
-      });
-      assert.ok(
-        messages.some(
-          (message) =>
-            message.role === "tool" &&
-            message.toolCallId === assistant.toolCalls[0].id &&
-            message.content ===
-              'User performed action "confirm" on surface "card" (component: button). Context: {"selected":2}',
-        ),
+      assertA2UIActionHistory(
+        context,
+        context.platform.agentInputs[0].messages,
       );
       assertNoV09Activity(events);
       const painted = surfaceSnapshots(events).at(-1);
@@ -759,6 +881,75 @@ const a2uiCases = [
       assertConvertedPlanSurface(events);
     },
   },
+  {
+    id: "generative-ui.a2ui-version.native-v10-operations-pass-through",
+    configuration: { generativeUI: { a2uiVersion: "0.9" } },
+    async run(context) {
+      context.platform.faults.agentEvents =
+        toolResultStream(nativeV10Operations);
+      const events = await runAndWait(
+        context,
+        input({ forwardedProps: envelope() }),
+      );
+      assertNoV09Activity(events);
+      const snapshots = surfaceSnapshots(events);
+      assert.equal(snapshots.length, 1, "Expected one native surface snapshot");
+      const [snapshot] = snapshots;
+      assert.equal(snapshot.messageId, "genui:s");
+      assert.equal(snapshot.replace, true);
+      // No `a2uiSourceVersion`: the surface is 1.0, so a click on it is 1.0.
+      assert.deepEqual(snapshot.content, {
+        surfaceId: "s",
+        target: "chat",
+        catalogId: STANDARD_CATALOG,
+        operations: passedNativeV10Operations,
+        status: "ready",
+        rejected: [
+          {
+            index: 4,
+            reason:
+              'surface "s" is A2UI 1.0; an A2UI 0.9 operation cannot change it',
+          },
+        ],
+      });
+
+      // The client sends the click on the native surface as a 1.0 action,
+      // with the surface summary that has no `a2uiSourceVersion`. The agent
+      // gets it unchanged, even though it is a v0.9 agent.
+      context.platform.faults.agentEvents = emptyStream;
+      const click = {
+        id: randomUUID(),
+        role: "user",
+        content: "Confirm\n\nselected: 2",
+      };
+      const forwardedProps = envelope({ action: clickAction("s") });
+      forwardedProps.copilotkit.ui.metadata.extensions.copilotkit_surfaces = {
+        s: { target: "chat" },
+      };
+      await runAndWait(context, input({ messages: [click], forwardedProps }));
+      const agentInput = context.platform.agentInputs.at(-1);
+      assert.equal(
+        agentInput.messages.at(-1).id,
+        click.id,
+        "A click on a native 1.0 surface must reach the agent unchanged",
+      );
+      assert.equal(
+        Object.hasOwn(agentInput.forwardedProps, "a2uiAction"),
+        false,
+      );
+      assert.equal(
+        agentInput.messages.some(
+          (message) =>
+            message.toolCalls?.some(
+              (call) => call.function.name === "log_a2ui_event",
+            ) ||
+            (typeof message.content === "string" &&
+              message.content.startsWith("A2UI user action:")),
+        ),
+        false,
+      );
+    },
+  },
   ...[
     ["v09", { generativeUI: { a2uiVersion: "0.9" } }],
     ["v10", undefined],
@@ -804,23 +995,10 @@ const a2uiCases = [
           "A v0.9 agent must get the click as an action, not a message",
         );
         assert.deepEqual(ids.slice(0, 2), [history[0].id, history[1].id]);
-        const [call, result] = agentInput.messages.slice(-2);
-        assert.equal(call.role, "assistant");
-        assert.equal(call.toolCalls[0].function.name, "log_a2ui_event");
-        const userAction = {
-          name: "confirm",
-          surfaceId: "card",
-          sourceComponentId: "button",
-          context: { selected: 2 },
-          timestamp: "2026-10-20T10:00:00.000Z",
-        };
-        assert.deepEqual(
-          JSON.parse(call.toolCalls[0].function.arguments),
-          userAction,
-        );
-        assert.equal(result.role, "tool");
-        assert.equal(result.toolCallId, call.toolCalls[0].id);
-        assert.deepEqual(agentInput.forwardedProps.a2uiAction, { userAction });
+        assertA2UIActionHistory(context, agentInput.messages);
+        assert.deepEqual(agentInput.forwardedProps.a2uiAction, {
+          userAction: clickUserAction,
+        });
       }
       const started = events.find((event) => event.type === "RUN_STARTED");
       assert.deepEqual(

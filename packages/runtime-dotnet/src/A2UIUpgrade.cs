@@ -26,6 +26,12 @@ internal static class A2UIUpgrade
         "https://a2ui.org/specification/v0_9/basic_catalog.json",
         "https://a2ui.org/specification/v0_9/catalogs/basic/catalog.json",
     };
+    // The A2UI 1.0 basic catalog, which native 1.0 agents (for example ADK) send. It has the 18 components of the
+    // v0.9 basic catalog with 1.0 bindings, so it becomes the standard catalog too.
+    private static readonly HashSet<string> V10BasicCatalogIds = new(StringComparer.Ordinal)
+    {
+        "https://a2ui.org/specification/v1_0/catalogs/basic/catalog.json",
+    };
     // v0.9 `Text` heading variants as 1.0 `Title` sizes, largest first.
     private static readonly Dictionary<string, string> HeadingSizes = new(StringComparer.Ordinal) { ["h1"] = "2xl", ["h2"] = "xl", ["h3"] = "lg", ["h4"] = "md", ["h5"] = "sm" };
 
@@ -181,13 +187,40 @@ internal static class A2UIUpgrade
         return new JsonObject { ["version"] = GenerativeUI.Version, ["createSurface"] = create };
     }
 
+    /// <summary>Basic catalog components as standard ones; anything else stays.</summary>
+    private static JsonNode? ToStandardComponents(JsonNode? components) =>
+        components is JsonArray list
+            ? new JsonArray(list.Select(node => node is JsonObject record ? BasicCatalogChanges((JsonObject)record.DeepClone()) : node?.DeepClone()).ToArray())
+            : components?.DeepClone();
+
+    /// <summary>
+    /// A native A2UI 1.0 operation, for the standard catalog: the 1.0 basic catalog id becomes the standard catalog
+    /// id, and the basic catalog components (inline in createSurface, or in updateComponents) get the changes of
+    /// <see cref="BasicCatalogChanges"/>. Bindings are already 1.0. Everything else stays; the client validates the
+    /// operation.
+    /// </summary>
+    private static JsonObject UpgradeV10Operation(JsonObject op)
+    {
+        var result = (JsonObject)op.DeepClone();
+        if (result["createSurface"] is JsonObject create)
+        {
+            if (JsonText.Str(create["catalogId"]) is { } catalogId && V10BasicCatalogIds.Contains(catalogId)) create["catalogId"] = GenerativeUI.StandardCatalogId;
+            if (create.ContainsKey("components")) create["components"] = ToStandardComponents(create["components"]);
+        }
+        else if (result["updateComponents"] is JsonObject update && update.ContainsKey("components"))
+        {
+            update["components"] = ToStandardComponents(update["components"]);
+        }
+        return result;
+    }
+
     private static JsonObject UpgradeOperation(JsonNode? node)
     {
         if (node is not JsonObject op) throw new ConversionException("operation must be a JSON object");
-        if (op.TryGetPropertyValue("version", out var version) && JsonText.Str(version) == GenerativeUI.Version) return (JsonObject)op.DeepClone();
+        if (op.TryGetPropertyValue("version", out var version) && JsonText.Str(version) == GenerativeUI.Version) return UpgradeV10Operation(op);
         if (!IsV09Operation(op))
             throw new ConversionException(JsonText.Str(version) is { } text
-                ? $"unsupported A2UI version \"{text}\"; only v0.9 operations are converted"
+                ? $"unsupported A2UI version \"{text}\"; only v0.9 and 1.0 operations are supported"
                 : "not an A2UI v0.9 operation: it needs exactly one of " + string.Join(", ", V09Kinds));
         var kind = V09Kind(op) ?? throw new ConversionException("operation must contain exactly one of " + string.Join(", ", V09Kinds));
         if (op[kind] is not JsonObject payload || JsonText.Str(payload["surfaceId"]) is not { Length: > 0 } surfaceId) throw new ConversionException($"{kind}.surfaceId is required");
@@ -207,8 +240,10 @@ internal static class A2UIUpgrade
     }
 
     /// <summary>
-    /// Convert A2UI v0.9 operations to 1.0, in order. Never throws. A 1.0 operation stays as it is.
-    /// Any other operation, and a v0.9 operation that cannot be converted, is returned in the second list with the reason.
+    /// Convert A2UI v0.9 operations to 1.0, in order. Never throws. A native 1.0 operation keeps its form: only the
+    /// 1.0 basic catalog id becomes the standard catalog id, and its basic catalog components get the same changes as
+    /// v0.9 ones. Any other operation, and a v0.9 operation that cannot be converted, is returned in the second list
+    /// with the reason.
     /// </summary>
     internal static (List<JsonObject> Upgraded, List<(JsonNode? Operation, string Reason)> Dropped) UpgradeOperations(JsonNode? operations)
     {
@@ -376,13 +411,14 @@ internal static class A2UIUpgrade
     }
 
     /// <summary>
-    /// True when the surface was converted from v0.9. The client's surface summary decides, then the last
-    /// <c>generative-ui-surface</c> activity message of the surface, then the agent's version.
+    /// True when the surface was converted from v0.9. The client's surface summary decides (no
+    /// <c>a2uiSourceVersion</c> means a 1.0 surface), then the last <c>generative-ui-surface</c> activity message of
+    /// the surface, then the agent's version.
     /// </summary>
     private static bool IsV09Surface(JsonObject envelope, JsonArray messages, string surfaceId, string agentVersion)
     {
         var summary = GenerativeUI.Extensions(envelope)["copilotkit_surfaces"]?[surfaceId];
-        if (summary is JsonObject entry && JsonText.Str(entry["a2uiSourceVersion"]) is { } source) return source == "0.9";
+        if (summary is JsonObject entry) return JsonText.Str(entry["a2uiSourceVersion"]) == "0.9";
         for (var index = messages.Count - 1; index >= 0; index--)
         {
             if (messages[index] is JsonObject message && JsonText.Str(message["role"]) == "activity" && JsonText.Str(message["activityType"]) == GenerativeUI.ActivityType
@@ -1008,17 +1044,21 @@ internal static class A2UIUpgrade
 }
 
 /// <summary>
-/// Converts the v0.9 surfaces of one run to 1.0 surfaces. Create one per run. An <c>a2ui-surface</c> snapshot
-/// or delta is kept per messageId and its operations converted. Each surface becomes one
-/// <c>genui:&lt;surfaceId&gt;</c> message: a surface created in this run is sent as a cumulative snapshot (chat
-/// target, status "ready", <c>a2uiSourceVersion</c> "0.9"); a surface that this run only updates gets its new
-/// operations as an <c>ACTIVITY_DELTA</c>. A lifecycle snapshot (no operations) names no surface, so it is consumed.
+/// Converts the <c>a2ui-surface</c> surfaces of one run (A2UI v0.9, or native 1.0) to <c>generative-ui-surface</c>
+/// surfaces. Create one per run. An <c>a2ui-surface</c> snapshot or delta is kept per messageId and its operations
+/// converted. Each surface becomes one <c>genui:&lt;surfaceId&gt;</c> message: a surface created in this run is sent
+/// as a cumulative snapshot (chat target, status "ready", <c>a2uiSourceVersion</c> "0.9" for a surface written in
+/// v0.9); a surface that this run only updates gets its new operations as an <c>ACTIVITY_DELTA</c>. A surface written
+/// in native 1.0 (for example by ADK) has no <c>a2uiSourceVersion</c>, so a click on it reaches the agent unchanged.
+/// One surface has one version, the version of its first operation; an operation of the other version is rejected.
+/// A lifecycle snapshot (no operations) names no surface, so it is consumed.
 /// </summary>
 internal sealed class A2UIV09ActivityUpgrader
 {
     private sealed class SourcePart
     {
-        internal List<JsonObject> Operations { get; } = [];
+        // Each converted operation, with its index in the source message and its version ("0.9" or "1.0").
+        internal List<(JsonObject Operation, int Index, string Version)> Operations { get; } = [];
         internal JsonArray Rejected { get; } = [];
     }
 
@@ -1036,7 +1076,7 @@ internal sealed class A2UIV09ActivityUpgrader
     private readonly Dictionary<string, SurfaceState> surfaces = new(StringComparer.Ordinal);
     private readonly List<string> surfaceOrder = [];
 
-    private static List<JsonObject> Snapshot(string surfaceId, SurfaceState state, List<JsonObject> operations, JsonArray rejected)
+    private static List<JsonObject> Snapshot(string surfaceId, SurfaceState state, List<JsonObject> operations, JsonArray rejected, string version)
     {
         var create = operations.FirstOrDefault(op => op.ContainsKey("createSurface"));
         var catalogId = create?["createSurface"] is JsonObject payload && JsonText.Truthy(payload["catalogId"]) ? payload["catalogId"]!.DeepClone() : JsonValue.Create(GenerativeUI.StandardCatalogId);
@@ -1048,8 +1088,8 @@ internal sealed class A2UIV09ActivityUpgrader
             ["operations"] = new JsonArray(operations.Select(op => (JsonNode?)op.DeepClone()).ToArray()),
             ["status"] = "ready",
             ["rejected"] = rejected.DeepClone(),
-            ["a2uiSourceVersion"] = "0.9"
         };
+        if (version == "0.9") content["a2uiSourceVersion"] = "0.9";
         var serialized = JsonText.Compact(content);
         if (serialized == state.LastSnapshot) return [];
         state.LastSnapshot = serialized;
@@ -1077,10 +1117,17 @@ internal sealed class A2UIV09ActivityUpgrader
         var operations = new List<JsonObject>();
         var rejected = new JsonArray();
         var created = false;
+        string? version = null;
         foreach (var (_, part) in state.Parts)
         {
-            foreach (var op in part.Operations)
+            foreach (var (op, index, opVersion) in part.Operations)
             {
+                version ??= opVersion;
+                if (opVersion != version)
+                {
+                    rejected.Add(new JsonObject { ["index"] = index, ["reason"] = $"surface \"{surfaceId}\" is A2UI {version}; an A2UI {opVersion} operation cannot change it" });
+                    continue;
+                }
                 if (op.ContainsKey("createSurface"))
                 {
                     // A second createSurface of the same id is rejected in 1.0.
@@ -1091,7 +1138,7 @@ internal sealed class A2UIV09ActivityUpgrader
             }
             foreach (var entry in part.Rejected) rejected.Add(entry?.DeepClone());
         }
-        return created ? Snapshot(surfaceId, state, operations, rejected) : Delta(surfaceId, state, operations, rejected);
+        return created ? Snapshot(surfaceId, state, operations, rejected, version ?? "0.9") : Delta(surfaceId, state, operations, rejected);
     }
 
     /// <summary>Convert the stored content of one source message again.</summary>
@@ -1107,7 +1154,9 @@ internal sealed class A2UIV09ActivityUpgrader
             var part = parts.FirstOrDefault(pair => pair.Key == surfaceId).Value;
             if (part is null) { part = new SourcePart(); parts.Add(new(surfaceId, part)); }
             var (upgraded, dropped) = A2UIUpgrade.UpgradeOperations(new JsonArray(op?.DeepClone()));
-            part.Operations.AddRange(upgraded);
+            // Only v0.9 and 1.0 operations convert.
+            var version = op is JsonObject record && JsonText.Str(record["version"]) == GenerativeUI.Version ? "1.0" : "0.9";
+            foreach (var operation in upgraded) part.Operations.Add((operation, index, version));
             foreach (var (_, reason) in dropped) part.Rejected.Add(new JsonObject { ["index"] = index, ["reason"] = reason });
         }
         var touched = parts.Select(pair => pair.Key).ToList();

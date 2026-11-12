@@ -27,6 +27,10 @@ module CopilotKit
       https://a2ui.org/specification/v0_9/basic_catalog.json
       https://a2ui.org/specification/v0_9/catalogs/basic/catalog.json
     ].freeze
+    # The A2UI 1.0 basic catalog, which native 1.0 agents (for example ADK) send. It has the
+    # 18 components of the v0.9 basic catalog with 1.0 bindings, so it becomes the standard
+    # catalog too.
+    V10_BASIC_CATALOG_IDS = %w[https://a2ui.org/specification/v1_0/catalogs/basic/catalog.json].freeze
     # v0.9 `Text` heading variants as 1.0 `Title` sizes, largest first.
     HEADING_SIZES = { 'h1' => '2xl', 'h2' => 'xl', 'h3' => 'lg', 'h4' => 'md', 'h5' => 'sm' }.freeze
 
@@ -174,12 +178,39 @@ module CopilotKit
       { 'version' => GUI::A2UI_VERSION, 'createSurface' => create }
     end
 
+    # Basic catalog components as standard ones; anything else stays.
+    def standard_components(components)
+      return components unless components.is_a?(Array)
+      components.map { |node| node.is_a?(Hash) ? basic_catalog_changes(node) : node }
+    end
+
+    # A native A2UI 1.0 operation, for the standard catalog.
+    #
+    # The 1.0 basic catalog id becomes the standard catalog id, and the basic catalog
+    # components (inline in createSurface, or in updateComponents) get the changes of
+    # `basic_catalog_changes`. Bindings are already 1.0. Everything else stays; the client
+    # validates the operation.
+    def upgrade_v10_operation(op)
+      if op['createSurface'].is_a?(Hash)
+        create = op['createSurface'].dup
+        create['catalogId'] = GUI::STANDARD_CATALOG_ID if V10_BASIC_CATALOG_IDS.include?(create['catalogId'])
+        create['components'] = standard_components(create['components']) if create.key?('components')
+        return op.merge('createSurface' => create)
+      end
+      if op['updateComponents'].is_a?(Hash)
+        update = op['updateComponents'].dup
+        update['components'] = standard_components(update['components']) if update.key?('components')
+        return op.merge('updateComponents' => update)
+      end
+      op
+    end
+
     def upgrade_operation(op)
       raise Failed, 'operation must be a JSON object' unless op.is_a?(Hash)
-      return op if op.key?('version') && op['version'] == GUI::A2UI_VERSION
+      return upgrade_v10_operation(op) if op.key?('version') && op['version'] == GUI::A2UI_VERSION
       unless v09_operation?(op)
         version = op['version']
-        raise Failed, (version.is_a?(String) ? "unsupported A2UI version \"#{version}\"; only v0.9 operations are converted" : 'not an A2UI v0.9 operation: it needs exactly one of ' + V09_KINDS.join(', '))
+        raise Failed, (version.is_a?(String) ? "unsupported A2UI version \"#{version}\"; only v0.9 and 1.0 operations are supported" : 'not an A2UI v0.9 operation: it needs exactly one of ' + V09_KINDS.join(', '))
       end
       kind = v09_kind(op)
       raise Failed, 'operation must contain exactly one of ' + V09_KINDS.join(', ') if kind.nil?
@@ -199,8 +230,10 @@ module CopilotKit
 
     # Converts A2UI v0.9 operations to 1.0, in order. Never raises.
     #
-    # A 1.0 operation stays as it is. Any other operation, and a v0.9 operation that cannot
-    # be converted, is returned in the second list as [operation, reason].
+    # A native 1.0 operation keeps its form: only the 1.0 basic catalog id becomes the
+    # standard catalog id, and its basic catalog components get the same changes as v0.9
+    # ones. Any other operation, and a v0.9 operation that cannot be converted, is returned
+    # in the second list as [operation, reason].
     def upgrade_operations(operations)
       upgraded = []
       dropped = []
@@ -332,6 +365,7 @@ module CopilotKit
       root[0]
     end
 
+    # `operations` holds [converted operation, index in the source message, "0.9" or "1.0"].
     SourcePart = Struct.new(:operations, :rejected)
     # `parts` holds the part of each source message, in the order they first touched the
     # surface. `sent_operations` are the operations sent as deltas, for a surface created in
@@ -342,13 +376,17 @@ module CopilotKit
       end
     end
 
-    # Converts the v0.9 surfaces of one run to 1.0 surfaces. Create one per run.
+    # Converts the `a2ui-surface` surfaces of one run (A2UI v0.9, or native 1.0) to
+    # `generative-ui-surface` surfaces. Create one per run.
     #
     # An `a2ui-surface` snapshot or delta is kept per messageId and its operations converted.
     # Each surface becomes one `genui:<surfaceId>` message: a surface created in this run is
-    # sent as a cumulative snapshot (chat target, status "ready", `a2uiSourceVersion` "0.9");
-    # a surface that this run only updates gets its new operations as an `ACTIVITY_DELTA`.
-    # A lifecycle snapshot (no operations) names no surface, so it is consumed.
+    # sent as a cumulative snapshot (chat target, status "ready", `a2uiSourceVersion` "0.9"
+    # for a surface written in v0.9); a surface that this run only updates gets its new
+    # operations as an `ACTIVITY_DELTA`. A surface written in native 1.0 (for example by ADK)
+    # has no `a2uiSourceVersion`, so a click on it reaches the agent unchanged. One surface
+    # has one version, the version of its first operation; an operation of the other version
+    # is rejected. A lifecycle snapshot (no operations) names no surface, so it is consumed.
     class ActivityUpgrader
       def initialize
         @sources = {}
@@ -379,14 +417,15 @@ module CopilotKit
 
       private
 
-      def snapshot(surface_id, state, operations, rejected)
+      def snapshot(surface_id, state, operations, rejected, version)
         create = operations.find { |op| op.key?('createSurface') }
         catalog_id = create && create['createSurface'].is_a?(Hash) ? create['createSurface']['catalogId'] : nil
         content = {
           'surfaceId' => surface_id, 'target' => GUI::CHAT_TARGET,
           'catalogId' => GUI.truthy?(catalog_id) ? catalog_id : GUI::STANDARD_CATALOG_ID,
-          'operations' => operations, 'status' => 'ready', 'rejected' => rejected, 'a2uiSourceVersion' => '0.9'
+          'operations' => operations, 'status' => 'ready', 'rejected' => rejected
         }
+        content['a2uiSourceVersion'] = '0.9' if version == '0.9'
         serialized = GUI.compact_json(content)
         return [] if serialized == state.last_snapshot
         state.last_snapshot = serialized
@@ -415,8 +454,14 @@ module CopilotKit
         operations = []
         rejected = []
         created = false
+        version = nil
         state.parts.each_value do |part|
-          part.operations.each do |op|
+          part.operations.each do |(op, index, op_version)|
+            version ||= op_version
+            if op_version != version
+              rejected << { 'index' => index, 'reason' => "surface \"#{surface_id}\" is A2UI #{version}; an A2UI #{op_version} operation cannot change it" }
+              next
+            end
             if op.key?('createSurface')
               # A second createSurface of the same id is rejected in 1.0.
               next if created
@@ -426,7 +471,7 @@ module CopilotKit
           end
           rejected.concat(part.rejected)
         end
-        created ? snapshot(surface_id, state, operations, rejected) : delta(surface_id, state, operations, rejected)
+        created ? snapshot(surface_id, state, operations, rejected, version) : delta(surface_id, state, operations, rejected)
       end
 
       # Converts the stored content of one source message again.
@@ -438,7 +483,9 @@ module CopilotKit
           next if surface_id.nil?
           part = (parts[surface_id] ||= SourcePart.new([], []))
           operations, dropped = A2UIUpgrade.upgrade_operations([op])
-          part.operations.concat(operations)
+          # Only v0.9 and 1.0 operations convert.
+          version = op.is_a?(Hash) && op['version'] == GUI::A2UI_VERSION ? '1.0' : '0.9'
+          operations.each { |operation| part.operations << [operation, index, version] }
           dropped.each { |(_, reason)| part.rejected << { 'index' => index, 'reason' => reason } }
         end
         touched = parts.keys
@@ -474,11 +521,11 @@ module CopilotKit
 
     # True when the surface was converted from v0.9.
     #
-    # The client's surface summary decides, then the last `generative-ui-surface` activity
-    # message of the surface, then `agent_version`.
+    # The client's surface summary decides (no `a2uiSourceVersion` means a 1.0 surface), then
+    # the last `generative-ui-surface` activity message of the surface, then `agent_version`.
     def v09_surface?(envelope, messages, surface_id, agent_version)
       summary = envelope['metadata']['extensions']['copilotkit_surfaces'][surface_id]
-      return summary['a2uiSourceVersion'] == '0.9' if summary.is_a?(Hash) && summary['a2uiSourceVersion'].is_a?(String)
+      return summary['a2uiSourceVersion'] == '0.9' if summary.is_a?(Hash)
       messages.reverse_each do |message|
         next unless message.is_a?(Hash) && message['role'] == 'activity' && message['activityType'] == GUI::ACTIVITY_TYPE &&
                     message['content'].is_a?(Hash) && message['content']['surfaceId'] == surface_id

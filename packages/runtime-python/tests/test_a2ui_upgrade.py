@@ -123,7 +123,7 @@ def test_left_out_values_remove_and_unconvertible_operations_are_dropped():
     ]
     assert operations[2] == {"version": "1.0", "deleteSurface": {"surfaceId": "s"}}
     assert [reason for _, reason in dropped] == [
-        'unsupported A2UI version "v0.8"; only v0.9 operations are converted',
+        'unsupported A2UI version "v0.8"; only v0.9 and 1.0 operations are supported',
         "a root updateDataModel value must be a JSON object in A2UI 1.0",
         'component "x": the component type must be a string (the v0.9 flat format)',
     ]
@@ -183,6 +183,93 @@ def test_upgrader_appends_updates_of_a_surface_from_an_earlier_run():
                 {"index": 1, "reason": "updateComponents.components must be a non-empty array"}
             ],
         },
+    ]
+
+
+V10_BASIC = "https://a2ui.org/specification/v1_0/catalogs/basic/catalog.json"
+# The native 1.0 operations of an ADK agent: the fixture of #8353, from ag-ui #3374
+# `test_a2ui_protocol_versions.py::_ops` at 89a59e1.
+ADK_V10 = [
+    {"version": "1.0", "createSurface": {"surfaceId": "s", "catalogId": V10_BASIC}},
+    {
+        "version": "1.0",
+        "updateComponents": {
+            "surfaceId": "s",
+            "components": [{"id": "root", "component": "Text", "text": "Hello"}],
+        },
+    },
+    {"version": "1.0", "updateDataModel": {"surfaceId": "s", "path": "/", "value": {}}},
+]
+
+
+def test_native_v10_operations_keep_their_form_on_the_standard_catalog():
+    save = {"event": {"name": "save", "context": {"name": {"@path": "/name"}}}}
+    native = {
+        "version": "1.0",
+        "createSurface": {
+            "surfaceId": "s",
+            "catalogId": V10_BASIC,
+            "components": [
+                {"id": "title", "component": "Text", "variant": "h2", "text": "Profile"},
+                {"id": "save", "component": "Button", "child": "label", "action": save},
+            ],
+            "dataModel": {"name": "Ada"},
+        },
+    }
+    custom = {
+        "version": "1.0",
+        "createSurface": {"surfaceId": "c", "catalogId": "https://example.test/catalog"},
+    }
+    operations, dropped = upgrade_v09_operations([*ADK_V10, native, custom])
+    assert dropped == []
+    assert operations == [
+        {"version": "1.0", "createSurface": {"surfaceId": "s", "catalogId": STANDARD}},
+        ADK_V10[1],
+        ADK_V10[2],
+        {
+            "version": "1.0",
+            "createSurface": {
+                "surfaceId": "s",
+                "catalogId": STANDARD,
+                "components": [
+                    {"id": "title", "component": "Title", "text": "Profile", "size": "xl"},
+                    {"id": "save", "component": "Button", "child": "label", "onClick": save},
+                ],
+                "dataModel": {"name": "Ada"},
+            },
+        },
+        custom,
+    ]
+
+
+def test_upgrader_sends_a_native_v10_surface_without_the_v09_tag():
+    upgrader = A2UIV09ActivityUpgrader()
+    v09 = {"version": "v0.9", "updateDataModel": {"surfaceId": "s", "path": "/x", "value": 1}}
+    [event] = upgrader.transform(activity("m", [*ADK_V10, v09]))
+    assert event["messageId"] == "genui:s"
+    assert event["activityType"] == "generative-ui-surface"
+    assert event["content"] == {
+        "surfaceId": "s",
+        "target": "chat",
+        "catalogId": STANDARD,
+        "operations": upgrade_v09_operations(ADK_V10)[0],
+        "status": "ready",
+        "rejected": [
+            {
+                "index": 3,
+                "reason": 'surface "s" is A2UI 1.0; an A2UI 0.9 operation cannot change it',
+            }
+        ],
+    }
+    # A v0.9 surface rejects a 1.0 operation the same way, and keeps its tag.
+    native = {"version": "1.0", "deleteSurface": {"surfaceId": "plans"}}
+    [converted] = A2UIV09ActivityUpgrader().transform(activity("m", [PLAN_V09[0], native]))
+    assert converted["content"]["a2uiSourceVersion"] == "0.9"
+    assert converted["content"]["rejected"] == [
+        {
+            "index": 1,
+            "reason": 'surface "plans" is A2UI 0.9; an A2UI 1.0 operation cannot change it',
+        }
     ]
 
 
@@ -286,6 +373,15 @@ def test_surface_origin_decides_before_the_agent_version(source, agent_version, 
     for input in (from_message, from_summary):
         agent_input = downgrade_v09_action(input, agent_version)
         assert ("a2uiAction" in agent_input["forwardedProps"]) is converted
+
+
+def test_a_summary_without_the_v09_tag_is_a_v10_surface():
+    # A native 1.0 surface: its click reaches even a 0.9 agent unchanged.
+    input = {
+        "messages": HISTORY,
+        "forwardedProps": ui(action=CLICK, surfaces={"card": {"target": "chat"}}),
+    }
+    assert downgrade_v09_action(input, "0.9") is input
 
 
 def test_an_existing_v09_action_is_kept():

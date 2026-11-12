@@ -107,11 +107,12 @@ function withoutActionUserMessage(messages: Message[]) {
  *
  * The visible user message is removed because the v0.9 consumers already
  * turn `a2uiAction` into what the agent sees:
- * - `@ag-ui/a2ui-middleware` (and the Python, Go, Ruby and .NET runtimes)
- *   append a synthetic `log_a2ui_event` tool call and result to the
- *   messages, and prompt the model to answer them when they end the
- *   conversation. With the user message kept, the model sees the click
- *   twice, and the conversation no longer ends with the tool result.
+ * - `@ag-ui/a2ui-middleware` appends the action as a private user message,
+ *   `A2UI user action:` and the action JSON. The Python, Go, Ruby and .NET
+ *   runtimes append a synthetic `log_a2ui_event` tool call and result, and
+ *   prompt the model to answer them when they end the conversation. With
+ *   the visible message kept, the model sees the click twice, and the
+ *   conversation no longer ends with the action.
  * - `@ag-ui/a2a` attaches `a2uiAction` as a data part to the latest user
  *   message, and A2A agents read the data part first.
  * The v0.9 client sent no user message for a click, so with it removed the
