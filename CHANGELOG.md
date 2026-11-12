@@ -16,6 +16,14 @@ releases have no changelog: the per-package files from the changesets era stoppe
 at `1.55.2` while the lane shipped `1.69.3`, and they are recoverable from git
 history (for example `git show v1.69.3:packages/core/CHANGELOG.md`).
 
+## 1.87.1 - 2026-11-12
+
+This patch release fixes A2UI rendering for catalogs that declare protocol version 1.0 when streaming Direct JSON.
+
+## Fixes
+
+- **Fix A2UI 1.0 Direct JSON rendering** (#8370): Bumped `@ag-ui/a2ui-middleware` to `0.0.16` in `@copilotkit/runtime` and `@copilotkit/shared`. Previously, Direct JSON snapshots were always stamped as `v0.9`, causing surfaces whose catalog declared `protocolVersion: "1.0"` to fail with a version mismatch error (e.g. _"specification version (1.0) does not match message protocol version (v0.9)"_). Snapshots are now stamped with the version declared by the catalog. The Express transport was already correct, and `v0.9` catalogs continue to behave as before.
+
 ## 1.87.0 - 2026-11-11
 
 This release adds support for rendering A2UI 1.0 operations alongside the existing v0.9 protocol, so agents emitting native 1.0 surfaces (such as those from ADK) now render correctly without breaking existing integrations.
