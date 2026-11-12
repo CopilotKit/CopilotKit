@@ -206,8 +206,16 @@ export function migrateA2UI(
   reparse: (text: string) => Node,
   filename?: string,
 ): string | null {
-  if (!/a2ui/i.test(rootNode.text())) return null;
-  const state: State = { imports: new Map(), changed: false, filename };
+  // A file that names A2UI, or that has a v0.9 binding or template shape.
+  if (!/a2ui|\bpath\s*:|componentId/i.test(rootNode.text())) return null;
+  const z = zodName(rootNode);
+  const state: State = {
+    imports: new Map(),
+    changed: false,
+    filename,
+    // Decided on the original file: the steps remove the shapes it looks for.
+    v09Schemas: z !== undefined && isV09SchemaFile(rootNode, z),
+  };
   let current = rootNode;
   for (const step of [
     definitionsEdits,
@@ -215,6 +223,7 @@ export function migrateA2UI(
     catalogEdits,
     schemaEdits,
     unionEdits,
+    zodRecordEdits,
     configEdits,
   ]) {
     const edits = step(current, state);
@@ -258,6 +267,8 @@ interface State {
   changed: boolean;
   /** The path of the file, to read the modules it imports. */
   filename?: string;
+  /** Whether the file has v0.9 prop schemas (see `isV09SchemaFile`). */
+  v09Schemas: boolean;
 }
 
 function need(state: State, source: string, name: string) {
@@ -830,7 +841,10 @@ function definitionEdits(
     const compact = base.text().replace(/\s/g, "");
     const suffix = optional ? ".optional()" : "";
     const key = keyOf(prop);
-    if (key === "children" && compact === `${z}.array(${z}.string())`) {
+    if (
+      key === "children" &&
+      (compact === `${z}.array(${z}.string())` || isTemplateChildUnion(base, z))
+    ) {
       need(state, from, "childList");
       edits.push(schema.replace(`childList(${description ?? ""})${suffix}`));
     } else if (key === "child" && compact === `${z}.string()`) {
@@ -910,6 +924,13 @@ function definitionsEdits(rootNode: Node, state: State): Edit[] {
     }
   }
   if (z === undefined) return edits;
+  if (state.v09Schemas) {
+    const framework = frameworkOf(rootNode);
+    for (const object of exportedDefinitionObjects(rootNode, z)) {
+      const start = object.range().start.index;
+      if (!objects.has(start)) objects.set(start, { object, framework });
+    }
+  }
   for (const { object, framework } of objects.values()) {
     for (const entry of entriesOf(object) ?? []) {
       edits.push(
@@ -1382,13 +1403,147 @@ function schemaEdits(rootNode: Node, state: State): Edit[] {
 }
 
 /** Binding unions, in files of the v0.9 client. After `schemaEdits`, so the edits do not overlap. */
-function unionEdits(rootNode: Node): Edit[] {
-  const isA2UIFile = importsOf(rootNode).some((entry) =>
-    A2UI_SOURCES.has(entry.source),
-  );
+function unionEdits(rootNode: Node, state: State): Edit[] {
   const z = zodName(rootNode);
-  if (!isA2UIFile || z === undefined) return [];
+  if (z === undefined || !state.v09Schemas) return [];
   return bindingUnionEdits(rootNode, z);
+}
+
+/** One-argument `z.record` in v0.9 schema files. After `unionEdits`, so the edits do not overlap. */
+function zodRecordEdits(rootNode: Node, state: State): Edit[] {
+  const z = zodName(rootNode);
+  if (z === undefined || !state.v09Schemas) return [];
+  return recordEdits(rootNode, z);
+}
+
+/**
+ * A file of v0.9 prop schemas: it imports the v0.9 client, or it uses a
+ * shape that only the v0.9 binder read (a union with a `{ path }` binding,
+ * or the `{ componentId, path }` template of a child list).
+ */
+function isV09SchemaFile(rootNode: Node, z: string) {
+  if (importsOf(rootNode).some((entry) => A2UI_SOURCES.has(entry.source)))
+    return true;
+  return rootNode
+    .findAll({ rule: { kind: "call_expression" } })
+    .some((call) => isBindingUnion(call, z) || isTemplateObject(call, z));
+}
+
+/** `z.union([T, { path }])` or `T.or({ path })`: a v0.9 bound prop. */
+function isBindingUnion(call: Node, z: string) {
+  const callee = call.field("function");
+  const args = argumentNodes(call);
+  if (callee?.text() === `${z}.union` && args[0]?.kind() === "array") {
+    return args[0]
+      .children()
+      .some((item) => item.isNamed() && isPathBinding(item, z));
+  }
+  return (
+    callee?.kind() === "member_expression" &&
+    callee.field("property")?.text() === "or" &&
+    args.length === 1 &&
+    isPathBinding(args[0]!, z)
+  );
+}
+
+/** The framework of a file without a v0.9 import: Angular when it uses Angular. */
+function frameworkOf(rootNode: Node): Framework {
+  for (const entry of importsOf(rootNode)) {
+    const framework = FRAMEWORK_OF[entry.source];
+    if (framework) return framework;
+    if (
+      entry.source.startsWith("@angular/") ||
+      entry.source.startsWith("@copilotkit/angular")
+    )
+      return "angular";
+  }
+  return "react";
+}
+
+/**
+ * The top-level object literals whose entries are all v0.9 component
+ * definitions (`{ ..., props: z.object(...) }`).
+ */
+function exportedDefinitionObjects(rootNode: Node, z: string): Node[] {
+  const result: Node[] = [];
+  for (const declarator of rootNode.findAll({
+    rule: { kind: "variable_declarator" },
+  })) {
+    const declaration = declarator.parent();
+    if (
+      declaration?.kind() !== "lexical_declaration" ||
+      !["program", "export_statement"].includes(
+        declaration.parent()?.kind() ?? "",
+      )
+    )
+      continue;
+    const object = unwrap(declarator.field("value"));
+    const entries = object?.kind() === "object" ? entriesOf(object) : null;
+    if (!object || !entries || entries.length === 0) continue;
+    const isDefinition = (entry: Node) => {
+      const value = unwrap(
+        entry.kind() === "pair" ? entry.field("value") : null,
+      );
+      const fields = value?.kind() === "object" ? entriesOf(value) : null;
+      const props = fields && entryNamed(fields, "props");
+      return (
+        props?.kind() === "pair" &&
+        props.field("value")?.field("function")?.text() === `${z}.object`
+      );
+    };
+    if (entries.every(isDefinition)) result.push(object);
+  }
+  return result;
+}
+
+/** `z.object({ componentId: z.string(), path: z.string() })`: a v0.9 template. */
+function isTemplateObject(node: Node, z: string) {
+  const text = node.text().replace(/\s|,(?=\s*[})])/g, "");
+  return (
+    text === `${z}.object({componentId:${z}.string(),path:${z}.string()})` ||
+    text === `${z}.object({path:${z}.string(),componentId:${z}.string()})`
+  );
+}
+
+/** `z.union([z.array(z.string()), <template>])`: a v0.9 child list. */
+function isTemplateChildUnion(node: Node, z: string) {
+  if (
+    node.kind() !== "call_expression" ||
+    node.field("function")?.text() !== `${z}.union`
+  )
+    return false;
+  const array = argumentNodes(node)[0];
+  if (array?.kind() !== "array") return false;
+  const items = array
+    .children()
+    .filter((child) => child.isNamed() && child.kind() !== "comment");
+  return (
+    items.length === 2 &&
+    items.some(
+      (item) => item.text().replace(/\s/g, "") === `${z}.array(${z}.string())`,
+    ) &&
+    items.some((item) => isTemplateObject(item, z))
+  );
+}
+
+/**
+ * `z.record(value)` with one argument is Zod 3. 2.0 reads the schemas with
+ * Zod 4, which needs the key schema: `z.record(z.string(), value)`.
+ */
+function recordEdits(rootNode: Node, z: string): Edit[] {
+  const edits: Edit[] = [];
+  for (const call of rootNode.findAll({ rule: { kind: "call_expression" } })) {
+    if (call.field("function")?.text() !== `${z}.record`) continue;
+    const args = argumentNodes(call);
+    if (args.length !== 1) continue;
+    const start = args[0]!.range().start.index;
+    edits.push({
+      startPos: start,
+      endPos: start,
+      insertedText: `${z}.string(), `,
+    });
+  }
+  return edits;
 }
 
 /** `{ path: z.string() }` as v0.9 wrote a data binding. */
