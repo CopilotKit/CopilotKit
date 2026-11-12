@@ -23,7 +23,7 @@ For components that need user interaction, see [Human-in-the-loop](/vue/human-in
 
 ## How it works in code
 
-`useComponent` takes a name, a Zod schema for its props, and the component to render. The runtime advertises that schema when it registers the frontend tool, and TypeScript infers the component props from it. Runtime arguments are JSON-parsed but are not validated against the schema.
+`useComponent` takes a name, a Zod schema for its props, and the component to render. CopilotKit sends that schema to the agent when it registers the frontend tool, and TypeScript infers the component props from it. Runtime arguments are JSON-parsed but are not validated against the schema.
 
 ```vue title="src/components/WeatherCard.vue"
 <script setup lang="ts">
@@ -73,6 +73,8 @@ import AgentExperience from "./components/AgentExperience.vue";
   </CopilotKitProvider>
 </template>
 ```
+
+Ask the agent for the weather in Paris. A weather card with the city, temperature, and condition appears in the chat.
 
 The component itself is ordinary Vue: it reads only its props and can stream in as the agent fills the payload. It doesn't know anything about CopilotKit.
 

@@ -12,7 +12,7 @@ Read the store by calling the outer signal, then read each member by calling its
 Call it from an injection context such as a constructor or field initializer. The subscription is torn down automatically when the owning component or service is destroyed.
 
 <Callout type="warn">
-  Resolution of the agent is lazy and reactive. If no agent can be resolved for the given `agentId` after the runtime has synced (for example, the id does not match any agent reported by your runtime `/info` or configured through `agents` or `selfManagedAgents`), reading the store signal throws an error listing the known agents.
+  Agent resolution is lazy and reactive. After the runtime syncs, reading the store signal throws an error if no agent matches `agentId`. The error lists the known agents. To find the cause, compare `agentId` with the agents in your runtime `/info` response and in `agents` or `selfManagedAgents`.
 </Callout>
 
 ## Signature
@@ -44,7 +44,7 @@ function injectAgentStore(
   </PropertyReference>
 
   <PropertyReference name="messages" type="Signal<Message[]>">
-    A readonly signal of the agent's conversation messages. Read it with `store().messages()`. Each entry is an AG-UI `Message` with fields such as `id`, `role` (`"user" | "assistant" | "system" | "tool" | "developer"`), and `content`. Updates whenever the agent's messages change.
+    A readonly signal of the agent's conversation messages. Read it with `store().messages()`. Each entry is an AG-UI `Message` with fields such as `id`, `role` (`"user" | "assistant" | "system" | "tool" | "developer" | "activity" | "reasoning"`), and `content`. Updates whenever the agent's messages change.
   </PropertyReference>
 
   <PropertyReference name="state" type="Signal<unknown>">
@@ -56,7 +56,7 @@ function injectAgentStore(
   </PropertyReference>
 
   <PropertyReference name="interruptController" type="InterruptController">
-    The pending interrupt for this conversation — the same agent and thread the other members describe. Read it directly (`store().interruptController`), then bind its signals: `hasInterrupt()`, `view()`, `interrupt()`, `interrupts()`, `error()`, and resolve with `resolve(payload?, interruptId?)` or `cancel(interruptId?)`.
+    The pending interrupt for this conversation (the same agent and thread the other members describe). Read it directly (`store().interruptController`), then bind its signals: `hasInterrupt()`, `view()`, `interrupt()`, `interrupts()`, `error()`, and resolve with `resolve(payload?, interruptId?)` or `cancel(interruptId?)`.
 
     The controller is created and connected with the store. Standard AG-UI interrupts retained by the agent are surfaced immediately, and legacy `on_interrupt` events are observed for the store's full lifetime. The controller is destroyed when the store is torn down or the agent is swapped.
 
@@ -91,11 +91,13 @@ Read the state via the signal, and write it through the agent instance.
 
 ```ts title="src/app/theme-panel.component.ts"
 import { Component } from "@angular/core";
+import { JsonPipe } from "@angular/common";
 import { injectAgentStore } from "@copilotkit/angular";
 
 @Component({
   selector: "app-theme-panel",
   standalone: true,
+  imports: [JsonPipe],
   template: `
     <pre>{{ store().state() | json }}</pre>
     <button (click)="setDark()">Dark theme</button>
@@ -141,26 +143,3 @@ export class MultiAgentComponent {
 - **Provisional agents.** When a runtime is configured but not yet connected, a provisional proxied runtime agent is created and cached so the store has something to render before the runtime syncs.
 - **Automatic cleanup.** The agent subscription is unsubscribed when the owning component or service is destroyed. Switching to a new agent tears down the previous store's subscription first, including its interrupt controller.
 - **Error on missing agent.** If no agent resolves after the runtime has synced, reading the store signal throws an error that lists the known agent ids.
-
-## Related
-
-<Cards>
-  <Card
-    title="connectAgentContext"
-    description="Share application state with the agent reactively from a function."
-    href="/reference/angular/functions/connectAgentContext"
-    icon={<LinkIcon />}
-  />
-  <Card
-    title="CopilotKit service"
-    description="The central handle on agents, tools, and the runtime connection."
-    href="/reference/angular/services/CopilotKit"
-    icon={<LinkIcon />}
-  />
-  <Card
-    title="AG-UI AbstractAgent"
-    description="Full agent interface: methods, messages, state, and subscriptions."
-    href="https://docs.ag-ui.com/sdk/js/client/abstract-agent"
-    icon={<LinkIcon />}
-  />
-</Cards>

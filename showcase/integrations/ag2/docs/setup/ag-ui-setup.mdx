@@ -1,0 +1,44 @@
+### Serve an AG2 agent over AG-UI
+
+On the AG2 side, `AGUIStream` (from the `ag2.ag_ui` module, AG2 1.1.2+) exposes
+any agent as an AG-UI endpoint that CopilotKit consumes directly. See the
+[quickstart](/ag2/quickstart) and the
+<a href="https://docs.ag2.ai/docs/user-guide/ag-ui/" target="_blank">AG2 AG-UI integration docs</a>.
+
+### Serve the capabilities document
+
+If you wrote your own `@app.post("/chat")` route, a `GET` to that endpoint
+returns 405. AG-UI clients use that `GET` to read what your agent supports. In
+AG2 1.1.2+, `stream.build_asgi()` answers it with a **capabilities** document
+(`stream.capabilities()`). With your own route, you add the `GET` route
+yourself.
+
+The CopilotKit runtime does not request this document from an `HttpAgent`, so
+your CopilotKit app works without the `GET` route.
+
+The document holds:
+
+- The agent identity.
+- Support for client-provided tools.
+- Support for state snapshots.
+- The named sub-agents.
+- Support for interrupts.
+
+AG2 reads the document off the agent before any run starts. If AG2 does not
+know a value, it leaves that group out. AG-UI reads a missing group as
+"unknown". See the
+<a href="https://docs.ag2.ai/docs/user-guide/ag-ui/overview#capabilities" target="_blank">AG2 capabilities reference</a>.
+
+Add a route that returns the document:
+
+```python title="run_ag_ui.py"
+from fastapi.responses import JSONResponse
+
+@app.get("/chat")
+async def capabilities() -> JSONResponse:
+    # The same serialization `build_asgi()` uses: camelCase keys, unset groups left out.
+    return JSONResponse(stream.capabilities().model_dump(by_alias=True, exclude_none=True))
+```
+
+If the `/chat` route checks a token, apply the same check to this route, so it
+does not describe your agent to anonymous callers.

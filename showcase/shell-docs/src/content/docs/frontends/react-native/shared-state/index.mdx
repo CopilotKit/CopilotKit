@@ -1,0 +1,133 @@
+---
+title: Shared State
+description: Create a two-way connection between your React Native UI and agent state.
+icon: "lucide/Repeat"
+---
+
+## What is shared state?
+
+Shared state connects your app's UI with the agent's run. With shared state you can:
+
+- Display the agent's current progress and intermediate results
+- Update the agent's state through UI interactions
+- React to state changes in real time across your app
+
+<ImageZoom
+  src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/SharedStateCoAgents.gif"
+  alt="Shared State Demo"
+  width={1000}
+  height={1000}
+  className="rounded-lg shadow-lg border mt-0"
+/>
+
+## When should I use this?
+
+Use shared state when you want the agent and the user to work on the same app state. The UI shows what the agent writes. The agent reads what the user changes in the UI.
+
+<OpsPlatformCTA
+  variant="inline"
+  title="Building stateful agents?"
+  body="Persistent threads ship with CopilotKit Intelligence on the free Developer tier."
+  surface="docs_shared_state"
+/>
+
+## Reading agent state
+
+<FrameworkSetup concept="shared-state-setup" />
+
+Subscribe a component to the agent's state with `useAgent`. Each time the agent changes its state, for example from a tool call, the hook re-renders your component with the new values.
+
+```tsx title="src/NotesCard.tsx"
+import { Text, View } from "react-native";
+import { useAgent, UseAgentUpdate } from "@copilotkit/react-native/headless";
+
+type NotesState = {
+  notes?: string[];
+  preferences?: { tone?: string };
+};
+
+export function NotesCard() {
+  const { agent } = useAgent({ // [!code highlight:4]
+    agentId: "default",
+    updates: [UseAgentUpdate.OnStateChanged],
+  });
+  const state = (agent.state ?? {}) as NotesState;
+
+  return (
+    <View style={{ padding: 16, gap: 4 }}>
+      {(state.notes ?? []).map((note) => (
+        <Text key={note}>• {note}</Text>
+      ))}
+    </View>
+  );
+}
+```
+
+`agent.state` is a plain object. Read it like any other React data and render the parts you care about: notes the agent wrote, structured output, progress, or anything else the agent put there.
+
+## Writing agent state
+
+The same `agent` has a `setState` method. Call it from a UI event, and the agent reads the new value on its next turn. The UI's writes steer the model.
+
+```tsx
+import { Button } from "react-native";
+
+// In NotesCard, below the list:
+<Button
+  title="Prefer short answers"
+  onPress={() =>
+    agent.setState({
+      ...state,
+      preferences: { ...state.preferences, tone: "concise" },
+    })
+  }
+/>
+```
+
+This makes shared state two-way. The UI can send the agent new inputs, such as preferences, selections, or partial work, without the chat.
+
+The agent reads the new state on its next run. To run it right away, call `copilotkit.runAgent({ agent })` (from `useCopilotKit`) after `setState`. Running through `copilotkit` also sends your frontend tools and context with the run. To tell the model what changed, add a message first:
+
+```tsx
+const { copilotkit } = useCopilotKit();
+
+agent.setState({ ...state, language: newLanguage });
+agent.addMessage({
+  id: `user-${Date.now()}`,
+  role: "user",
+  content: `The language has been updated to ${newLanguage}.`,
+});
+await copilotkit.runAgent({ agent });
+```
+
+See [Programmatic Control](/programmatic-control) for more ways to run the agent from code.
+
+## Rendering shared state in the UI
+
+Because `agent.state` is plain React data, the UI layer is whatever you'd normally build. Nothing about it is chat-specific: `useAgent` works in any component under `CopilotKitProvider`, so you can render the state on your main screen, not just next to the chat. See **[Render agent state in your app](/shared-state/rendering-in-app)** for the full pattern.
+
+## Streaming partial state updates
+
+By default, agent state only updates *between* backend checkpoints, so a long tool call shows up as one burst at the end. State streaming copies one tool argument into a state key while the model writes it, so the UI shows the answer token by token.
+
+<WhenFrameworkSupports feature="shared-state-streaming">
+
+<Snippet region="state-streaming-middleware" cell="shared-state-streaming" title="backend: streaming state update" />
+
+See **[State Streaming](/shared-state/streaming)** for the full walkthrough, including the `useAgent` subscription on the frontend.
+
+</WhenFrameworkSupports>
+
+<WhenFrameworkSupports feature="shared-state-streaming" not>
+
+State streaming isn't available on this framework yet. The UI gets the agent's state between checkpoints.
+
+</WhenFrameworkSupports>
+
+## Read-only context
+
+When a value is **UI-owned**, and the agent should read it but never write it back, use `useAgentContext` instead of shared state. Examples are the current user, the selected record, or the open screen. It sends values one way, from the UI to the agent, and removes them when the component unmounts.
+
+See **[Agent Read-Only Context](/shared-state/agent-readonly)** for the full pattern.
+
+<IntegrationGrid path="shared-state" exclude={["agno", "agent-spec", "spring-ai", "langroid"]} />

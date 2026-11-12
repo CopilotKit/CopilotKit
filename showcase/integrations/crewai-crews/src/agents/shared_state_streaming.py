@@ -37,6 +37,7 @@ WRITE_DOCUMENT_TOOL = {
 }
 
 
+# @region[state-streaming-middleware]
 class SharedStateStreamingState(CopilotKitState):
     document: str = ""
 
@@ -55,6 +56,7 @@ class SharedStateStreamingFlow(Flow[SharedStateStreamingState]):
                 )
             ]
         )
+        # @endregion[state-streaming-middleware]
         tools = [*self.state.copilotkit.actions, WRITE_DOCUMENT_TOOL]
         response = await copilotkit_stream(
             await acompletion(

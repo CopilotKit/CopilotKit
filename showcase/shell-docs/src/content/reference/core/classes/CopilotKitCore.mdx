@@ -5,7 +5,7 @@ description: "Framework-agnostic client that connects to a CopilotRuntime and ma
 
 ## Overview
 
-`CopilotKitCore` is the main entry point of `@copilotkit/core`. It connects to a CopilotRuntime over the AG-UI protocol, exposes the available agents, holds the registry of frontend tools, shared context, and suggestions, and notifies subscribers when any of that state changes. The React, Angular, and vanilla bindings all wrap a single instance of this class — reach for it directly when you need an agent client outside of those frameworks.
+`CopilotKitCore` is the main entry point of [`@copilotkit/core`](/reference/core). It connects to a CopilotRuntime over the AG-UI protocol, exposes the available agents, holds the registry of frontend tools, shared context, and suggestions, and notifies subscribers when any of that state changes. The React, Angular, and vanilla bindings all wrap a single instance of this class. Use it directly when you need an agent client outside of those frameworks.
 
 ## Import
 
@@ -34,7 +34,7 @@ new CopilotKitCore(config: CopilotKitCoreConfig)
     Headers appended to every HTTP request made by the core. Pass a record for
     static headers, or a function (sync or async) to build them fresh. A
     builder runs when each request is sent, so a refreshed token is always
-    used. Cache inside the builder — a builder that calls the network every
+    used. Cache inside the builder. A builder that calls the network every
     time adds one call per request. If the builder throws or rejects, the
     request is not sent and `onError` gets `HEADER_RESOLUTION_FAILED`.
   </PropertyReference>
@@ -56,7 +56,7 @@ new CopilotKitCore(config: CopilotKitCoreConfig)
   </PropertyReference>
 
   <PropertyReference name="agents__unsafe_dev_only" type="Record<string, AbstractAgent>" default="{}">
-    Local agent instances keyed by name. Development only — production requires a CopilotRuntime.
+    Local agent instances keyed by name. These agents run in the browser and talk to their AG-UI endpoints directly, with no CopilotRuntime. The React `selfManagedAgents` prop uses this path in production.
   </PropertyReference>
 
   <PropertyReference name="debug" type="DebugConfig">
@@ -68,105 +68,105 @@ new CopilotKitCore(config: CopilotKitCoreConfig)
 
 ### Agents
 
-<PropertyReference name="getAgent(id: string): AbstractAgent | undefined" type="method">
+<PropertyReference name="getAgent" type="(id: string) => AbstractAgent | undefined" required>
   Returns the agent registered under `id`, or `undefined` if none exists.
 </PropertyReference>
 
-<PropertyReference name="runAgent(params: CopilotKitCoreRunAgentParams): Promise<RunAgentResult>" type="method">
+<PropertyReference name="runAgent" type="(params: CopilotKitCoreRunAgentParams) => Promise<RunAgentResult>" required>
   Runs an agent against the runtime, streaming events and executing any frontend tool calls it produces.
 </PropertyReference>
 
-<PropertyReference name="connectAgent(params: CopilotKitCoreConnectAgentParams): Promise<RunAgentResult>" type="method">
+<PropertyReference name="connectAgent" type="(params: CopilotKitCoreConnectAgentParams) => Promise<RunAgentResult>" required>
   Connects to an agent to receive its current state and message stream without starting a new run.
 </PropertyReference>
 
-<PropertyReference name="stopAgent(params: CopilotKitCoreStopAgentParams): void" type="method">
+<PropertyReference name="stopAgent" type="(params: CopilotKitCoreStopAgentParams) => void" required>
   Aborts the current run for the given agent.
 </PropertyReference>
 
-<PropertyReference name="registerProxiedAgent(params): { agent; unregister }" type="method">
+<PropertyReference name="registerProxiedAgent" type="(params) => { agent; unregister }" required>
   Registers a [ProxiedCopilotRuntimeAgent](/reference/core/classes/ProxiedCopilotRuntimeAgent) under a local `agentId` that routes outbound requests to `runtimeAgentId`. Returns the proxy and an `unregister` cleanup handle. Throws if `agentId` is already taken.
 </PropertyReference>
 
-<PropertyReference name="addAgent__unsafe_dev_only(params: CopilotKitCoreAddAgentParams): void" type="method">
+<PropertyReference name="addAgent__unsafe_dev_only" type="(params: CopilotKitCoreAddAgentParams) => void" required>
   Adds a local agent instance. Development only.
 </PropertyReference>
 
-<PropertyReference name="removeAgent__unsafe_dev_only(id: string): void" type="method">
+<PropertyReference name="removeAgent__unsafe_dev_only" type="(id: string) => void" required>
   Removes a local agent by id. Development only.
 </PropertyReference>
 
-<PropertyReference name="setAgents__unsafe_dev_only(agents: Record<string, AbstractAgent>): void" type="method">
+<PropertyReference name="setAgents__unsafe_dev_only" type="(agents: Record<string, AbstractAgent>) => void" required>
   Replaces the full set of local agents. Development only.
 </PropertyReference>
 
 ### Tools
 
-<PropertyReference name="addTool(tool: FrontendTool): void" type="method">
-  Registers a frontend tool the agent can call. If a tool with the same name and `agentId` is already registered, the call is a no-op (a warning is logged). See [FrontendTool](/reference/core/types/FrontendTool).
+<PropertyReference name="addTool" type="(tool: FrontendTool) => void" required>
+  Registers a frontend tool the agent can call. If an earlier `addTool` call registered a tool with the same name and `agentId`, this call does nothing and logs a warning. A tool with the same name and `agentId` from the `tools` config is replaced by this one. See [FrontendTool](/reference/core/types/FrontendTool).
 </PropertyReference>
 
-<PropertyReference name="removeTool(id: string, agentId?: string): void" type="method">
+<PropertyReference name="removeTool" type="(id: string, agentId?: string) => void" required>
   Removes a registered tool by name. With no `agentId`, removes only the global (unscoped) tool of that name; with `agentId`, removes only the tool scoped to that agent.
 </PropertyReference>
 
-<PropertyReference name="getTool(params: CopilotKitCoreGetToolParams): FrontendTool<any> | undefined" type="method">
+<PropertyReference name="getTool" type="(params: CopilotKitCoreGetToolParams) => FrontendTool<any> | undefined" required>
   Returns a registered tool, or `undefined` if not found.
 </PropertyReference>
 
-<PropertyReference name="setTools(tools: FrontendTool<any>[]): void" type="method">
-  Replaces the entire tool registry.
+<PropertyReference name="setTools" type="(tools: FrontendTool<any>[]) => void" required>
+  Replaces the tools set by the `tools` config. Tools registered with `addTool` stay registered.
 </PropertyReference>
 
-<PropertyReference name="runTool(params: CopilotKitCoreRunToolParams): Promise<CopilotKitCoreRunToolResult>" type="method">
+<PropertyReference name="runTool" type="(params: CopilotKitCoreRunToolParams) => Promise<CopilotKitCoreRunToolResult>" required>
   Executes a registered frontend tool directly, without an LLM turn. The handler runs, render components appear, and both the tool call and result messages are appended to `agent.messages`.
 </PropertyReference>
 
 ### Context
 
-<PropertyReference name="addContext(context: Context): string" type="method">
+<PropertyReference name="addContext" type="(context: Context) => string" required>
   Adds a context entry shared with the agent and returns its generated id.
 </PropertyReference>
 
-<PropertyReference name="removeContext(id: string): void" type="method">
+<PropertyReference name="removeContext" type="(id: string) => void" required>
   Removes a context entry by id.
 </PropertyReference>
 
 ### Suggestions
 
-<PropertyReference name="addSuggestionsConfig(config: SuggestionsConfig): string" type="method">
+<PropertyReference name="addSuggestionsConfig" type="(config: SuggestionsConfig) => string" required>
   Registers a suggestion configuration and returns its generated id.
 </PropertyReference>
 
-<PropertyReference name="removeSuggestionsConfig(id: string): void" type="method">
+<PropertyReference name="removeSuggestionsConfig" type="(id: string) => void" required>
   Removes a suggestion configuration by id.
 </PropertyReference>
 
-<PropertyReference name="getSuggestions(agentId: string): CopilotKitCoreGetSuggestionsResult" type="method">
+<PropertyReference name="getSuggestions" type="(agentId: string) => CopilotKitCoreGetSuggestionsResult" required>
   Returns the current suggestions and loading state for an agent.
 </PropertyReference>
 
-<PropertyReference name="reloadSuggestions(agentId: string): void" type="method">
+<PropertyReference name="reloadSuggestions" type="(agentId: string) => void" required>
   Re-generates suggestions for an agent.
 </PropertyReference>
 
-<PropertyReference name="clearSuggestions(agentId: string): void" type="method">
+<PropertyReference name="clearSuggestions" type="(agentId: string) => void" required>
   Clears the current suggestions for an agent.
 </PropertyReference>
 
 ### Subscriptions
 
-<PropertyReference name="subscribe(subscriber: CopilotKitCoreSubscriber): CopilotKitCoreSubscription" type="method">
+<PropertyReference name="subscribe" type="(subscriber: CopilotKitCoreSubscriber) => CopilotKitCoreSubscription" required>
   Subscribes to core lifecycle events (agents changed, context changed, errors, runtime connection status, and more). Returns a subscription with an `unsubscribe()` method. See [CopilotKitCoreSubscriber](/reference/core/types/CopilotKitCoreSubscriber).
 </PropertyReference>
 
-<PropertyReference name="subscribeToAgentWithOptions(agent, subscriber, options?): CopilotKitCoreSubscription" type="method">
+<PropertyReference name="subscribeToAgentWithOptions" type="(agent, subscriber, options?) => CopilotKitCoreSubscription" required>
   Subscribes to a single agent's message, state, and run-lifecycle callbacks with optional throttling. Every callback is wrapped with error protection. Use `agent.subscribe()` directly when you need AG-UI event handlers or per-item notifications.
 </PropertyReference>
 
 ### Inspector metadata
 
-<PropertyReference name="refreshInspectorMetadata(): Promise<void>" type="method">
+<PropertyReference name="refreshInspectorMetadata" type="() => Promise<void>" required>
   Refreshes optional trusted Inspector metadata without reconnecting runtime
   agents. Core makes the request only while connected to a runtime that reports
   `inspectorMetadata: true` from its runtime-info response. Each refresh has a
@@ -176,17 +176,17 @@ new CopilotKitCore(config: CopilotKitCoreConfig)
 
 ### Configuration
 
-<PropertyReference name="setRuntimeUrl(runtimeUrl: string | undefined): void" type="method">
+<PropertyReference name="setRuntimeUrl" type="(runtimeUrl: string | undefined) => void" required>
   Updates the runtime endpoint.
 </PropertyReference>
 
-<PropertyReference name="setRuntimeTransport(runtimeTransport: CopilotRuntimeTransport): void" type="method">
+<PropertyReference name="setRuntimeTransport" type="(runtimeTransport: CopilotRuntimeTransport) => void" required>
   Updates the transport style.
 </PropertyReference>
 
-<PropertyReference name="setHeaders(headers: CopilotKitHeadersSource): void" type="method">
+<PropertyReference name="setHeaders" type="(headers: CopilotKitHeadersSource) => void" required>
   Replaces the request headers and re-applies them to existing agents. Pass a
-  record, a sync builder, or an async builder — see the
+  record, a sync builder, or an async builder. See the
   [`headers`](/reference/core/types/CopilotKitCoreConfig) config option. For a
   record, any key whose value is `null` or `undefined` is dropped from the
   stored headers, which is the supported way to clear a header (e.g.
@@ -194,80 +194,80 @@ new CopilotKitCore(config: CopilotKitCoreConfig)
   is preserved. Core clears trusted Inspector metadata before refreshing it
   with the new headers, and `onHeadersChanged` subscribers are notified.
 
-  This is a no-op — no Inspector refresh, no `onHeadersChanged` — when the
+  This is a no-op (no Inspector refresh, no `onHeadersChanged`) when the
   current source is also a record with equal normalized values. A new builder
   function, a record with different values, or a record↔builder switch all
   count as a change. A builder resolving a new token on its own (a rotated
   auth token, for example) never fires `onHeadersChanged` and never re-applies
-  headers on its own — it is picked up the next time a request is sent. Key
+  headers on its own. The new token is used the next time a request is sent. Key
   reactive work off a change in headers, not off header values or object
   identity.
 </PropertyReference>
 
-<PropertyReference name="resolveHeaders(): Record<string, string> | Promise<Record<string, string>>" type="method">
+<PropertyReference name="resolveHeaders" type="() => Record<string, string> | Promise<Record<string, string>>" required>
   Resolves the current headers: synchronous for a record or a sync builder, a
   promise for an async builder. Concurrent calls share one in-flight builder
-  call. Use this to get the value a builder would produce right now — the
+  call. Use this to get the value a builder would produce right now. The
   `headers` getter below only reflects the last resolved value.
 </PropertyReference>
 
-<PropertyReference name="setCredentials(credentials: RequestCredentials | undefined): void" type="method">
+<PropertyReference name="setCredentials" type="(credentials: RequestCredentials | undefined) => void" required>
   Replaces the fetch credentials mode and re-applies it to existing agents. Core clears trusted Inspector metadata before refreshing it with the new mode.
 </PropertyReference>
 
-<PropertyReference name="setMessageFilter(messageFilter: CopilotKitMessageFilter | undefined): void" type="method">
+<PropertyReference name="setMessageFilter" type="(messageFilter: CopilotKitMessageFilter | undefined) => void" required>
   Replaces the filter applied to the outbound message list and re-applies it to existing agents. Agents discovered later pick it up too, so a filter set before `/info` lands is not lost. Pass `undefined` to go back to sending the full thread.
 </PropertyReference>
 
-<PropertyReference name="setProperties(properties: Record<string, unknown>): void" type="method">
+<PropertyReference name="setProperties" type="(properties: Record<string, unknown>) => void" required>
   Replaces the forwarded properties sent to agents.
 </PropertyReference>
 
-<PropertyReference name="setDebug(debug: DebugConfig | undefined): void" type="method">
+<PropertyReference name="setDebug" type="(debug: DebugConfig | undefined) => void" required>
   Toggles debug logging for the client-side event pipeline.
 </PropertyReference>
 
-<PropertyReference name="setDefaultThrottleMs(value: number | undefined): void" type="method">
+<PropertyReference name="setDefaultThrottleMs" type="(value: number | undefined) => void" required>
   Sets the default throttle interval (ms) used by `subscribeToAgentWithOptions`. Invalid values are ignored.
 </PropertyReference>
 
 ### State queries
 
-<PropertyReference name="getStateByRun(agentId, threadId, runId): State | undefined" type="method">
+<PropertyReference name="getStateByRun" type="(agentId, threadId, runId) => State | undefined" required>
   Returns the agent state snapshot recorded for a specific run.
 </PropertyReference>
 
-<PropertyReference name="getRunIdForMessage(agentId, threadId, messageId): string | undefined" type="method">
+<PropertyReference name="getRunIdForMessage" type="(agentId, threadId, messageId) => string | undefined" required>
   Returns the run id that produced a given message.
 </PropertyReference>
 
-<PropertyReference name="getRunIdsForThread(agentId, threadId): string[]" type="method">
+<PropertyReference name="getRunIdsForThread" type="(agentId, threadId) => string[]" required>
   Returns the ordered run ids recorded for a thread.
 </PropertyReference>
 
 ### Properties (read-only)
 
-<PropertyReference name="agents: Readonly<Record<string, AbstractAgent>>" type="getter">
+<PropertyReference name="agents" type="Readonly<Record<string, AbstractAgent>>" required>
   The currently registered agents, keyed by id.
 </PropertyReference>
 
-<PropertyReference name="tools: Readonly<FrontendTool<any>[]>" type="getter">
+<PropertyReference name="tools" type="Readonly<FrontendTool<any>[]>" required>
   The currently registered frontend tools.
 </PropertyReference>
 
-<PropertyReference name="context: Readonly<Record<string, Context>>" type="getter">
+<PropertyReference name="context" type="Readonly<Record<string, Context>>" required>
   The current shared context entries, keyed by id.
 </PropertyReference>
 
-<PropertyReference name="runtimeUrl: string | undefined" type="getter">
+<PropertyReference name="runtimeUrl" type="string | undefined" required>
   The configured runtime endpoint.
 </PropertyReference>
 
-<PropertyReference name="runtimeConnectionStatus: CopilotKitCoreRuntimeConnectionStatus" type="getter">
+<PropertyReference name="runtimeConnectionStatus" type="CopilotKitCoreRuntimeConnectionStatus" required>
   The current runtime connection status. See [CopilotKitCoreRuntimeConnectionStatus](/reference/core/enums/CopilotKitCoreRuntimeConnectionStatus).
 </PropertyReference>
 
-<PropertyReference name="inspectorMetadata: InspectorMetadataV1 | undefined" type="getter">
+<PropertyReference name="inspectorMetadata" type="InspectorMetadataV1 | undefined" required>
   The latest trusted, parsed metadata from the connected runtime. It is
   `undefined` when the runtime does not advertise the capability, the optional
   request fails, or the runtime has no supported metadata. Subscribe with
@@ -275,54 +275,50 @@ new CopilotKitCore(config: CopilotKitCoreConfig)
   to react to changes.
 </PropertyReference>
 
-<PropertyReference name="headers / credentials / properties" type="getter">
+<PropertyReference name="headers / credentials / properties" type="getter" required>
   Snapshots of the configured headers, credentials mode, and forwarded
-  properties. `headers` is the last resolved value — with a builder this may
+  properties. `headers` is the last resolved value. With a builder, this may
   be `{}` before the first request, or stale between requests. Call
   `resolveHeaders()` for the value a builder would produce right now.
 </PropertyReference>
 
 ## Usage
 
+A tool's `parameters` take any Standard Schema. This sample uses `zod`.
+
 ```ts
 import { CopilotKitCore } from "@copilotkit/core";
+import { z } from "zod";
 
 const copilotkit = new CopilotKitCore({
   runtimeUrl: "/api/copilotkit",
   tools: [
     {
       name: "showAlert",
-      handler: ({ message }: { message: string }) => window.alert(message),
+      description: "Show a browser alert",
+      parameters: z.object({ message: z.string() }),
+      handler: async ({ message }) => {
+        window.alert(message);
+      },
     },
   ],
 });
 
 const subscription = copilotkit.subscribe({
   onRuntimeConnectionStatusChanged: ({ status }) => console.log(status),
+  onAgentsChanged: async () => {
+    const agent = copilotkit.getAgent("default");
+    if (!agent) return;
+    subscription.unsubscribe();
+    await copilotkit.runAgent({ agent });
+  },
 });
-
-// `agents` populates after the runtime responds — `onAgentsChanged` (above)
-// fires when they're ready; this guarded lookup is for illustration.
-const agent = copilotkit.getAgent("default");
-if (agent) {
-  await copilotkit.runAgent({ agent });
-}
-
-subscription.unsubscribe();
 ```
 
 ## Behavior
 
-- **Asynchronous agent population** — `agents` is populated after the runtime responds, so it may be empty immediately after construction. Use `subscribe({ onAgentsChanged })` to react when agents become available.
-- **Error surfacing** — failures (runtime fetch, agent run, tool execution, subscriber callbacks) are delivered through the `onError` subscriber callback with a [CopilotKitCoreErrorCode](/reference/core/enums/CopilotKitCoreErrorCode); they are not thrown from the originating method — except `runTool()`, which also throws when the named tool or its resolved agent cannot be found.
-- **Subscriber isolation** — a throw in one subscriber callback is caught and logged; it does not stall notifications to other subscribers.
-- **Inspector metadata isolation** — metadata loads after the connected and agent notifications finish. A `setHeaders` call that changes the resolved values, or a credential change, refreshes it — it does not refetch `/info`. Runtime URL, transport, auth, connection, and capability checks prevent a stale request from replacing a newer value.
-- **`__unsafe_dev_only` APIs** — the `*Agent__unsafe_dev_only` methods register local in-memory agents for development. Production setups must go through a CopilotRuntime.
-
-## Related
-
-- [@copilotkit/core overview](/reference/core)
-- [CopilotKitCoreConfig](/reference/core/types/CopilotKitCoreConfig)
-- [CopilotKitCoreSubscriber](/reference/core/types/CopilotKitCoreSubscriber)
-- [ProxiedCopilotRuntimeAgent](/reference/core/classes/ProxiedCopilotRuntimeAgent)
-- [FrontendTool](/reference/core/types/FrontendTool)
+- **Asynchronous agent population**: `agents` is populated after the runtime responds, so it may be empty immediately after construction. Use `subscribe({ onAgentsChanged })` to react when agents become available.
+- **Error surfacing**: failures from runtime fetches, agent runs, tool runs, and subscriber callbacks go to the `onError` subscriber callback with a [CopilotKitCoreErrorCode](/reference/core/enums/CopilotKitCoreErrorCode). The method that failed does not throw them. The exception is `runTool()`: it also throws when it cannot find the named tool or its agent.
+- **Subscriber isolation**: a throw in one subscriber callback is caught and logged; it does not stall notifications to other subscribers.
+- **Inspector metadata isolation**: metadata loads after the connected and agent notifications finish. A `setHeaders` call that changes the resolved values, or a credential change, refreshes it. It does not refetch `/info`. Runtime URL, transport, auth, connection, and capability checks prevent a stale request from replacing a newer value.
+- **`__unsafe_dev_only` APIs**: the `*Agent__unsafe_dev_only` methods register local agents that run in the browser and talk to their AG-UI endpoints directly, with no CopilotRuntime. The React `selfManagedAgents` prop uses this path in production.

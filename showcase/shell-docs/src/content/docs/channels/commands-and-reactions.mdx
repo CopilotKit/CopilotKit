@@ -21,10 +21,12 @@ Teams Channel into command routing.
 
 ## Route mentions and ordinary messages
 
-Register `onMessage` for ordinary provider messages. A bot mention selects
-`onMention` when that handler is registered; otherwise the mention falls back
-to `onMessage`. Non-mention messages select `onMessage`, and one inbound message
-runs exactly one of those handler paths.
+Register `onMessage` for ordinary provider messages. Each inbound message runs
+exactly one handler:
+
+- A bot mention runs `onMention`. If you did not register `onMention`, it runs
+  `onMessage`.
+- Any other message runs `onMessage`.
 
 <FrontendOnly frontend="slack">
 
@@ -92,8 +94,8 @@ Classic reactions such as Like and Heart, plus recognized modern emoji tokens,
 map to the SDK's portable names.
 
 Outbound reaction add/remove uses Microsoft's public-preview reaction API.
-Managed setup verifies that API for the tenant and remains not ready when the
-tenant cannot use it.
+Managed setup tests this API for your tenant. If the tenant cannot use it,
+setup stays in the not-ready state.
 
 </FrontendOnly>
 
@@ -123,8 +125,9 @@ export function FeedbackCard({ answerId }: { answerId: string }) {
 ```
 
 Register `FeedbackCard` in `createChannel({ components: [FeedbackCard] })`.
-Surviving a process restart also requires a durable `StateStore`, because the
-SDK must reload the component snapshot that owns the callback.
+The SDK reloads the component snapshot that owns the callback. On a managed
+Channel, Intelligence stores that snapshot, so the callback survives a process
+restart.
 
 Add or remove the bot's reaction with the delivery-scoped reference from the
 current message or transcript:
@@ -140,6 +143,9 @@ The portable set works on managed Slack and Teams. A provider-native string is
 allowed when your code branches on the native provider: use `message.platform`
 in a message handler or `reaction.thread.platform` in `onReaction`.
 Unsupported values fail explicitly.
+
+To check the handler, post `FeedbackCard` and react to it with 👍. The bot
+replies "Thanks for the feedback." in the same thread.
 
 See the [command reference](/reference/channels/functions/defineChannelCommand)
 and [Message reference](/reference/channels/components/Message) for the complete

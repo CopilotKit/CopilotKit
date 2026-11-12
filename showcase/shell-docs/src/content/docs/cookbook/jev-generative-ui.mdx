@@ -1,6 +1,6 @@
 ---
 title: "Jev: fast generative UI"
-description: "Use Jev to choose and rank prepared controls, render them through CopilotKit and AG-UI, and optionally improve those choices with Automatic Learning."
+description: "Use Jev to choose and rank prepared panels, render them through CopilotKit and AG-UI, and optionally improve those choices with Automatic Learning."
 icon: "custom/typesafe"
 showIcon: true
 doc_type: how-to
@@ -22,12 +22,12 @@ You’ll build a workspace picker in Next.js that asks clarifying questions, com
 
 | Part | Responsibility |
 | --- | --- |
-| **Jev** | Makes structured judgments: which prepared control fits, and how well each candidate matches. |
+| **Jev** | Makes structured judgments: which prepared panel fits, and how well each candidate matches. |
 | **CopilotKit + AG-UI** | Connect the agent and React UI. AG-UI carries run events and state; CopilotKit exposes that state and sends user actions back. |
 | **Your application** | Owns schemas, components, fixed labels, candidate IDs, validation, and confirmed actions. |
 | **Intelligence, optionally** | Persists Threads, analyzes evidence into Insights and candidate Skills, and delivers approved versions. |
 
-You design the components and their labels. Jev decides which one fits the moment and what goes in it; AG-UI carries the result to your UI. Asking the right question is better agent behavior. Giving the user two useful buttons makes it better generative UI, too.
+You design the components and their labels. Jev decides which one fits the moment and what goes in it; AG-UI carries the result to your UI.
 
 <Callout type="info">
 This recipe renders [shared agent state](/shared-state). For tool-call-based rendering and other approaches, see [Generative UI](/concepts/generative-ui-overview).
@@ -38,10 +38,10 @@ This recipe renders [shared agent state](/shared-state). For tool-call-based ren
 Use a Next.js App Router project with TypeScript, React 19, a root layout, and the `@/*` alias pointing to the project root. If your project uses `src/`, place all files below inside `src/` and point the alias there. Use Node.js 22 or later.
 
 ```bash
-npm install @copilotkit/core@1.73.0 @copilotkit/react-core@1.73.0 @copilotkit/runtime@1.73.0 @ag-ui/client@1.0.1 @ag-ui/core@1.0.1 @typesafe-ai/sdk@0.6.0 rxjs@7.8.1 zod@4.6.5 @langchain/openai@1.5.13 @langchain/core@1.2.11
+npm install @copilotkit/core@1.73.0 @copilotkit/react-core@1.73.0 @copilotkit/runtime@1.73.0 @ag-ui/client@0.0.59 @ag-ui/core@0.0.59 @typesafe-ai/sdk@0.6.0 rxjs@7.8.1 zod@4.6.5 @langchain/openai@1.5.13 @langchain/core@1.2.11
 ```
 
-Get a Jev key using the [TypeSafe quickstart](https://docs.typesafe.ai/introduction/quickstart). Add it and an OpenAI key to your server environment. Neither key belongs in a `NEXT_PUBLIC_` variable.
+Jev comes from TypeSafe AI, and its SDK is `@typesafe-ai/sdk`. Get a TypeSafe API key from the [TypeSafe quickstart](https://docs.typesafe.ai/introduction/quickstart). Add it and an OpenAI key to your server environment. Neither key belongs in a `NEXT_PUBLIC_` variable.
 
 ```dotenv title=".env.local"
 TYPESAFE_API_KEY=your-typesafe-key
@@ -92,7 +92,7 @@ export const clarificationOptions = [
 </Step>
 <Step>
 
-## Batch the control choice and candidate scores
+## Batch the panel choice and candidate scores
 
 Build `lib/choose-panel.ts` from the following three blocks, in order. The first opens `choosePanel`, and the last closes it.
 
@@ -306,15 +306,14 @@ To add booking later, connect a tool that checks availability and permissions af
 Register the picker with your runtime, then render its state in React. Each button sends the user’s answer back through CopilotKit to start the next turn.
 
 ```ts title="app/api/copilotkit/[[...slug]]/route.ts"
-import { CopilotRuntime, createCopilotEndpoint } from "@copilotkit/runtime/v2";
+import { CopilotRuntime, createCopilotRuntimeHandler } from "@copilotkit/runtime/v2";
 import { PickerAgent } from "@/lib/picker-agent";
 
 export const runtime = "nodejs";
-const endpoint = createCopilotEndpoint({
+const handler = createCopilotRuntimeHandler({
   runtime: new CopilotRuntime({ agents: { picker: new PickerAgent() } }),
   basePath: "/api/copilotkit",
 });
-const handler = (request: Request) => endpoint.fetch(request);
 export { handler as GET, handler as POST, handler as PATCH, handler as DELETE };
 ```
 
@@ -366,7 +365,7 @@ Continue inside `Picker`. Subscribe to agent errors so the user sees a failed re
 
 ```
 
-Finish `Picker` by rendering the form and the current panel. Each option sends either a clarification answer or a room selection—the two message formats handled by `readAction` above.
+Finish `Picker` by rendering the form and the current panel. Each option sends either a clarification answer or a room selection (the two message formats handled by `readAction` above).
 
 ```tsx title="app/page.tsx"
   return <main>
@@ -397,19 +396,23 @@ Finish `Picker` by rendering the form and the current panel. Each option sends e
 
 ## Try your workspace picker
 
-Start your development server and open the page. Ask “Help me find a workspace,” then try “Compare rooms for quiet work.” Answer a question or click a room to make your selection. For a request that needs an explanation, try “What does an enclosed workspace offer?”
+1. Start your development server and open the page.
+2. Send “Help me find a workspace.” The picker shows a question or a list of rooms as buttons.
+3. Answer the question, or send “Compare rooms for quiet work.” to see the rooms.
+4. Click a room. “Selected workspace” shows its id, for example `quiet`.
+5. For a request that needs an explanation, send “What does an enclosed workspace offer?” The agent answers in text.
 
-Your picker can now take a request, show a useful control, and act on the answer. To build a product comparison or scheduling assistant, swap the room catalog and panels for the options your users need.
+Your picker can now take a request, show a useful panel, and act on the answer. To build a product comparison or scheduling assistant, swap the room catalog and panels for the options your users need.
 
 </Step>
 </Steps>
 
 ## Optional: improve decisions and UI with Automatic Learning
 
-What if users keep correcting the same mistake? Perhaps “I need to focus” keeps bringing up the team table. [Automatic Learning](/learning) can turn those corrections into reusable Skills that help the agent make better choices.
+This optional section is for apps that use CopilotKit Intelligence. What if users keep correcting the same mistake? Perhaps “I need to focus” keeps bringing up the team table. [Automatic Learning](/learning) can turn those corrections into reusable Skills that help the agent make better choices.
 
 <Callout type="info" title="Let your coding agent handle setup">
-You can simply ask your coding agent to use the [CopilotKit CLI](/cli) to set up Automatic Learning for this app, including passing approved Skills into Jev. Start with the [Automatic Learning setup prompt](/learning#start-with-your-coding-agent). You only need to follow the manual steps below if you prefer to wire it up yourself.
+You can ask your coding agent to use the [CopilotKit CLI](/cli) to set up Automatic Learning for this app, including passing approved Skills into Jev. Start with the [Automatic Learning setup prompt](/learning#start-with-your-coding-agent). You only need to follow the manual steps below if you prefer to wire it up yourself.
 </Callout>
 
 To set it up manually, connect [Intelligence](/intelligence/quickstart), persist Threads, and assign a stable Learning container **before each Thread’s first run**. Associate each user’s Threads with their authenticated identity. The picker above works without this extension.
@@ -438,7 +441,17 @@ export async function loadGuidance() {
 }
 ```
 
-In `picker-agent.ts`, import `loadGuidance` from `./learned-guidance`. Inside `respond`, immediately before `choosePanel`, call `const learned = await loadGuidance()` and replace its empty `[]` argument with `learned.guidance`. Let initialization failures reach the run-error handler; do not silently claim the learned configuration ran with empty guidance.
+Then pass the guidance to Jev in `respond`:
+
+```ts title="lib/picker-agent.ts"
+import { loadGuidance } from "./learned-guidance";
+
+// Inside respond(), replace the choosePanel call:
+const learned = await loadGuidance();
+const decision = await choosePanel(message, state, learned.guidance, signal);
+```
+
+Let initialization failures reach the run-error handler. Do not report that the learned configuration ran with empty guidance.
 
 This extension only supplies Jev with instructions. If you replace the simple explanatory fallback with a native LangChain `createAgent`, attach `createSkillRegistryMiddleware({ registry })` and invoke the result of `skills.wrapAgent(agent)`, as shown in the [delivery guide](/intelligence/learned-skills#langgraph-typescript). That model-side loading mechanism is separate from passing text to Jev.
 
