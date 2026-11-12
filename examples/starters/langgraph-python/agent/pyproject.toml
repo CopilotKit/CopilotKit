@@ -13,10 +13,10 @@ dependencies = [
   "python-dotenv>=1.0.0,<2.0.0",
   "langgraph-cli[inmem]==0.4.21",
   "langchain-openai==1.1.9",
-  # 2.0 runtime: needs the release after 0.1.96. CopilotKitMiddleware must read
-  # the run's context from state["ag-ui"] (sdk-python f49db3c876), or the model
+  # 2.0 runtime: needs 0.1.97 or later. CopilotKitMiddleware must read the
+  # run's context from state["ag-ui"] (sdk-python f49db3c876), or the model
   # never sees the render_ui guide or useAgentContext values.
-  "copilotkit==0.1.96",
+  "copilotkit==0.1.97",
   # Pinned explicitly even though copilotkit pulls it in transitively: without
   # this the lock floats and re-resolved to 0.0.43, whose clone() — called by
   # the fastapi endpoint on EVERY request — forwards
