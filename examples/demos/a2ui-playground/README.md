@@ -2,13 +2,13 @@
 
 Watch an agent write UI. Ask for anything ("Q3 sales by region as a dashboard", "compare three noise-cancelling headphones", "a signup form with a plan choice") and the answer arrives in the chat as real, interactive UI: an **A2UI 1.0** surface rendered by **CopilotKit Gen UI 2.0**. Beside the chat you see the **A2UI Express** the model writes, one line per component, and hovering a line lights up the component it made.
 
-This playground uses published `@copilotkit/*` 1.85.0 packages with canonical `"1.0"` wire operations and `@a2ui/agent` 0.1.0 native streaming. These include the canonical protocol changes first released in CopilotKit 1.84.0 from [#8155](https://github.com/CopilotKit/CopilotKit/pull/8155).
+This playground uses published `@copilotkit/*` 2.0.0-rc.44 packages with canonical `"1.0"` wire operations and `@a2ui/agent` 0.1.0 native streaming. The agent writes A2UI 1.0 itself, so the runtime needs no `a2uiVersion` bridge.
 
 A hosted version of the pre-migration playground runs at https://web-production-d0431.up.railway.app.
 
 ## What it shows
 
-- **A2UI 1.0 on CopilotKit Gen UI 2.0.** Every operation is `{ "version": "1.0", ... }`, streamed over AG-UI as `generative-ui-surface` activities and rendered with `@copilotkit/react-core` 1.85.
+- **A2UI 1.0 on CopilotKit Gen UI 2.0.** Every operation is `{ "version": "1.0", ... }`, streamed over AG-UI as `generative-ui-surface` activities and rendered with `@copilotkit/react-core` 2.0.
 - **A2UI Express by default.** The model writes one line per component and Google's `@a2ui/agent` SDK compiles it, usually about half the size of the same UI in JSON. JSON is the alternative. Express that still fails to compile after a retry is rewritten as JSON on the same surface.
 - **Any model.** Gemini Flash (`gemini-flash-latest`) is the default; Gemma 4 runs locally through Ollama (or any OpenAI-compatible server); GPT is in the picker too.
 - **A real catalog.** The 69 Gen UI 2.0 standard components, 52 of the playground's own (shadcn/ui, TanStack Charts, MapLibre) and 3 macros, `FlightCard`, `ProductCard` and `WeatherReport`, that the server expands into standard components.
@@ -111,12 +111,12 @@ The page is light unless it is opened with `?theme=dark` (for a dark page) or th
 The same setup in your own app, in three files (`/start` copies it as one prompt for a coding agent). Install the versions this repo runs:
 
 ```bash
-npm i @copilotkit/react-core@1.85.0 @copilotkit/runtime@1.85.0 zod@3.25.76
+npm i @copilotkit/react-core@2.0.0-rc.44 @copilotkit/runtime@2.0.0-rc.44 @tanstack/ai-gemini zod@^4.2.0
 ```
 
-1. **Catalog** (`app/genui.tsx`): `createGenerativeUI({ id, extends: [standardUI], components: { WeatherCard: { component: WeatherCard, description, props: z.object({ ... }) } } })` from `@copilotkit/react-core/v2/generative-ui`. The agent can use only what the catalog defines.
-2. **Provider** (`app/page.tsx`): `<CopilotKitProvider runtimeUrl="/api/copilotkit" generativeUI={{ ui }}><CopilotChat /></CopilotKitProvider>` from `@copilotkit/react-core/v2`. The catalog goes out with every run.
-3. **Runtime route** (`app/api/copilotkit/[[...slug]]/route.ts`): a `CopilotRuntime` with any agent (`new BuiltInAgent({ model: "google/gemini-3.8-flash" })` with `GOOGLE_API_KEY` is the shortest), served by `createCopilotRuntimeHandler`. Because the browser sends a catalog, the runtime adds the `render_ui` tool and the catalog guide to the agent's run and validates every A2UI operation it sends back. `/minimal` is this setup.
+1. **Catalog** (`app/genui.tsx`): `createGenerativeUI({ id, extends: [standardUI], components: { WeatherCard: { component: WeatherCard, description, props: z.object({ ... }) } } })` from `@copilotkit/react-core/generative-ui`. The agent can use only what the catalog defines.
+2. **Provider** (`app/page.tsx`): `<CopilotKitProvider runtimeUrl="/api/copilotkit" generativeUI={{ ui }}><CopilotChat /></CopilotKitProvider>` from `@copilotkit/react-core`. The catalog goes out with every run.
+3. **Runtime route** (`app/api/copilotkit/[[...slug]]/route.ts`): a `CopilotRuntime` from `@copilotkit/runtime` with any agent (`new BuiltInAgent({ model: geminiText("gemini-3.8-flash") })`, with `BuiltInAgent` from `@copilotkit/runtime/agent`, `geminiText` from `@tanstack/ai-gemini` and `GOOGLE_API_KEY`, is the shortest), served by `createCopilotRuntimeHandler`. Because the browser sends a catalog, the runtime adds the `render_ui` tool and the catalog guide to the agent's run and validates every A2UI operation it sends back. `/minimal` is this setup.
 
 **Bring your own agent: Google ADK.** `examples/adk` is a plain ADK `LlmAgent` on Gemini Flash (`ADK_MODEL`, default `gemini-3.5-flash`), served over AG-UI with `ag-ui-adk`, with no A2UI code. `src/app/api/adk/[[...slug]]/route.ts` fronts it with `HttpAgent` from `@ag-ui/client` (`ADK_AGENT_URL`, default `http://localhost:8000/`), and `/adk` is the chat page. The runtime's generative UI middleware applies to any AG-UI agent it fronts, not only `BuiltInAgent`; `AGUIToolset()` exposes `render_ui` to the model and the agent's instruction provider appends the catalog guide (AG-UI context) to its prompt.
 

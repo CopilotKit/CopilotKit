@@ -1,6 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
-import type { RendererProps } from "@copilotkit/a2ui-renderer";
 import type {
   DashboardId,
   Department,
@@ -68,15 +67,13 @@ function makeBlockData(overrides: Partial<BlockData>): BlockData {
   };
 }
 
-// The catalog renderers are typed as A2UI RendererProps components; call them
-// directly as functions at the test boundary with the props they consume.
-const MetricTile = renderers.MetricTile as (
-  props: RendererProps<{
-    metricId: MetricId;
-    department?: Department;
-    compare?: "plan" | "forecast";
-  }>,
-) => React.ReactElement;
+// The catalog components take their resolved props directly; render them at
+// the test boundary with the props they consume.
+const MetricTile = renderers.MetricTile as (props: {
+  metricId: MetricId;
+  department?: Department;
+  compare?: "plan" | "forecast";
+}) => React.ReactElement;
 
 function renderMetricTile(
   data: BlockData,
@@ -88,13 +85,7 @@ function renderMetricTile(
 ) {
   return render(
     <BlockDataProvider value={data}>
-      <MetricTile
-        props={props}
-        // `children` here is the RendererProps render-callback (a function),
-        // not React children — passing it as a prop is intentional.
-        // eslint-disable-next-line react/no-children-prop
-        children={() => null as unknown as React.ReactNode}
-      />
+      <MetricTile {...props} />
     </BlockDataProvider>,
   );
 }
@@ -110,28 +101,31 @@ function deltaWithText(container: HTMLElement, text: string) {
   );
 }
 
-const Stack = renderers.Stack as (
-  props: RendererProps<{
-    children: string[];
-    gap?: "sm" | "md" | "lg" | "xl";
-  }>,
-) => React.ReactElement;
+const Stack = renderers.Stack as (props: {
+  children?: React.ReactNode;
+  gap?: "sm" | "md" | "lg" | "xl";
+}) => React.ReactElement;
 
 /**
  * `Stack` is the layout primitive every generated block is wrapped in
  * (`../blocks/build-block-ops.ts` emits `Stack` + `Heading` + one kind
- * component), so a Stack that drops or reorders a child id silently drops a
- * whole block's contents.
+ * component), so a Stack that drops or reorders a child silently drops a
+ * whole block's contents. Its `children` prop is a `childList()`: the engine
+ * renders the child ids and hands the Stack the rendered nodes, in order.
  */
 describe("exec catalog Stack renderer", () => {
-  it("renders one slot per child id, in the order given", () => {
+  it("renders one slot per child, in the order given", () => {
     const { container } = render(
-      <Stack
-        props={{ children: ["block-a", "block-b"], gap: "lg" }}
-        // `children` is the RendererProps render-callback, not React children.
-        // eslint-disable-next-line react/no-children-prop
-        children={(id: string) => <p data-testid="slot">{id}</p>}
-      />,
+      <Stack gap="lg">
+        {[
+          <p key="block-a" data-testid="slot">
+            block-a
+          </p>,
+          <p key="block-b" data-testid="slot">
+            block-b
+          </p>,
+        ]}
+      </Stack>,
     );
 
     expect(
@@ -142,14 +136,8 @@ describe("exec catalog Stack renderer", () => {
     expect(container.firstElementChild?.className ?? "").toContain("gap-6");
   });
 
-  it("renders an empty container — not a child — when there are no child ids", () => {
-    const { container } = render(
-      <Stack
-        props={{ children: [] }}
-        // eslint-disable-next-line react/no-children-prop
-        children={() => <p>never rendered</p>}
-      />,
-    );
+  it("renders an empty container — not a child — when there are no children", () => {
+    const { container } = render(<Stack>{[]}</Stack>);
 
     expect(container.textContent).toBe("");
     // The default gap still applies, so an empty stack keeps the block's shape.
@@ -392,15 +380,13 @@ describe("exec catalog MetricTile renderer", () => {
  * the shapes the CATALOG's own type does not admit but the runtime delivers.
  */
 const LabelOnly = {
-  Heading: renderers.Heading as (
-    props: RendererProps<{ text: unknown }>,
-  ) => React.ReactElement,
-  Text: renderers.Text as (
-    props: RendererProps<{
-      text: unknown;
-      tone?: "default" | "muted";
-    }>,
-  ) => React.ReactElement,
+  Heading: renderers.Heading as (props: {
+    text: unknown;
+  }) => React.ReactElement,
+  Text: renderers.Text as (props: {
+    text: unknown;
+    tone?: "default" | "muted";
+  }) => React.ReactElement,
 };
 
 describe.each(["Heading", "Text"] as const)(
@@ -409,24 +395,14 @@ describe.each(["Heading", "Text"] as const)(
     const Component = LabelOnly[name];
 
     it("renders the resolved label text", () => {
-      const { container } = render(
-        <Component
-          props={{ text: "Board pack" }}
-          // eslint-disable-next-line react/no-children-prop
-          children={() => null as unknown as React.ReactNode}
-        />,
-      );
+      const { container } = render(<Component text="Board pack" />);
       expect(container.textContent).toContain("Board pack");
       expect(container.querySelector('[data-testid="block-error"]')).toBeNull();
     });
 
     it("reports an UNRESOLVED data ref through the block-error surface", () => {
       const { container } = render(
-        <Component
-          props={{ text: { path: "/metrics/revenue/label" } }}
-          // eslint-disable-next-line react/no-children-prop
-          children={() => null as unknown as React.ReactNode}
-        />,
+        <Component {...{ text: { path: "/metrics/revenue/label" } }} />,
       );
 
       const error = container.querySelector('[data-testid="block-error"]');
@@ -440,8 +416,8 @@ describe.each(["Heading", "Text"] as const)(
     });
 
     /**
-     * WHAT AN UNRESOLVED BINDING ACTUALLY LOOKS LIKE HERE. The binder
-     * (`GenericBinder`, `@a2ui/web_core`) resolves every dynamic prop before
+     * WHAT AN UNRESOLVED BINDING ACTUALLY LOOKS LIKE HERE. The generative UI
+     * engine resolves every bound prop before
      * render and passes on whatever the data model yielded — `undefined` for
      * a path that names nothing, and whatever non-string value a mistyped
      * path happens to name. Reaching into `.path` on those threw a
@@ -455,13 +431,7 @@ describe.each(["Heading", "Text"] as const)(
     ])("reports $shape through the block-error surface", ({ text }) => {
       let result: ReturnType<typeof render> | undefined;
       expect(() => {
-        result = render(
-          <Component
-            props={{ text }}
-            // eslint-disable-next-line react/no-children-prop
-            children={() => null as unknown as React.ReactNode}
-          />,
-        );
+        result = render(<Component text={text} />);
       }, "a broken binding must fail as one block, not as a thrown render").not.toThrow();
 
       const error = result?.container.querySelector(
@@ -474,13 +444,11 @@ describe.each(["Heading", "Text"] as const)(
   },
 );
 
-const TrendLine = renderers.TrendLine as (
-  props: RendererProps<{
-    metricId: MetricId;
-    department?: Department | "all";
-    months?: number;
-  }>,
-) => React.ReactElement;
+const TrendLine = renderers.TrendLine as (props: {
+  metricId: MetricId;
+  department?: Department | "all";
+  months?: number;
+}) => React.ReactElement;
 
 function renderTrendLine(
   data: BlockData,
@@ -492,12 +460,7 @@ function renderTrendLine(
 ) {
   return render(
     <BlockDataProvider value={data}>
-      <TrendLine
-        props={props}
-        // `children` is the RendererProps render-callback, not React children.
-        // eslint-disable-next-line react/no-children-prop
-        children={() => null as unknown as React.ReactNode}
-      />
+      <TrendLine {...props} />
     </BlockDataProvider>,
   );
 }
@@ -685,18 +648,13 @@ describe("exec catalog TrendLine renderer", () => {
 });
 
 const InitiativeTable = renderers.InitiativeTable as (
-  props: RendererProps<Record<string, never>>,
+  props: Record<string, never>,
 ) => React.ReactElement;
 
 function renderInitiativeTable(data: BlockData) {
   return render(
     <BlockDataProvider value={data}>
-      <InitiativeTable
-        props={{}}
-        // `children` is the RendererProps render-callback, not React children.
-        // eslint-disable-next-line react/no-children-prop
-        children={() => null as unknown as React.ReactNode}
-      />
+      <InitiativeTable />
     </BlockDataProvider>,
   );
 }
@@ -791,19 +749,14 @@ describe("exec catalog InitiativeTable renderer", () => {
   });
 });
 
-const VarianceBar = renderers.VarianceBar as (
-  props: RendererProps<{ metricId: MetricId }>,
-) => React.ReactElement;
+const VarianceBar = renderers.VarianceBar as (props: {
+  metricId: MetricId;
+}) => React.ReactElement;
 
 function renderVarianceBar(data: BlockData, metricId: MetricId) {
   return render(
     <BlockDataProvider value={data}>
-      <VarianceBar
-        props={{ metricId }}
-        // `children` is the RendererProps render-callback, not React children.
-        // eslint-disable-next-line react/no-children-prop
-        children={() => null as unknown as React.ReactNode}
-      />
+      <VarianceBar metricId={metricId} />
     </BlockDataProvider>,
   );
 }
@@ -1130,9 +1083,9 @@ describe("exec catalog VarianceBar renderer", () => {
   });
 });
 
-const ExceptionList = renderers.ExceptionList as (
-  props: RendererProps<{ audience?: "ceo" | "cfo" | "both" }>,
-) => React.ReactElement;
+const ExceptionList = renderers.ExceptionList as (props: {
+  audience?: "ceo" | "cfo" | "both";
+}) => React.ReactElement;
 
 function renderExceptionList(
   data: BlockData,
@@ -1140,12 +1093,7 @@ function renderExceptionList(
 ) {
   return render(
     <BlockDataProvider value={data}>
-      <ExceptionList
-        props={props}
-        // `children` is the RendererProps render-callback, not React children.
-        // eslint-disable-next-line react/no-children-prop
-        children={() => null as unknown as React.ReactNode}
-      />
+      <ExceptionList {...props} />
     </BlockDataProvider>,
   );
 }
@@ -1411,19 +1359,14 @@ describe("exec catalog ExceptionList renderer", () => {
   });
 });
 
-const AddToDashboard = renderers.AddToDashboard as (
-  props: RendererProps<{ blockId: string }>,
-) => React.ReactElement;
+const AddToDashboard = renderers.AddToDashboard as (props: {
+  blockId: string;
+}) => React.ReactElement;
 
 function renderAddToDashboard(data: BlockData, blockId: string) {
   return render(
     <BlockDataProvider value={data}>
-      <AddToDashboard
-        props={{ blockId }}
-        // `children` is the RendererProps render-callback, not React children.
-        // eslint-disable-next-line react/no-children-prop
-        children={() => null as unknown as React.ReactNode}
-      />
+      <AddToDashboard blockId={blockId} />
     </BlockDataProvider>,
   );
 }
@@ -1487,11 +1430,7 @@ describe("exec catalog AddToDashboard renderer", () => {
     const { pinned, data } = pinnableBlockData();
     const { rerender } = render(
       <BlockDataProvider value={data}>
-        <AddToDashboard
-          props={{ blockId: "block-1" }}
-          // eslint-disable-next-line react/no-children-prop
-          children={() => null as unknown as React.ReactNode}
-        />
+        <AddToDashboard blockId="block-1" />
       </BlockDataProvider>,
     );
 
@@ -1505,11 +1444,7 @@ describe("exec catalog AddToDashboard renderer", () => {
       <BlockDataProvider
         value={{ ...data, isPinned: (id: string) => pinned.has(id) }}
       >
-        <AddToDashboard
-          props={{ blockId: "block-1" }}
-          // eslint-disable-next-line react/no-children-prop
-          children={() => null as unknown as React.ReactNode}
-        />
+        <AddToDashboard blockId="block-1" />
       </BlockDataProvider>,
     );
 

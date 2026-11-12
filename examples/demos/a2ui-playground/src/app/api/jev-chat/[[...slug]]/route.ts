@@ -1,7 +1,7 @@
 import {
   CopilotRuntime,
   createCopilotRuntimeHandler,
-} from "@copilotkit/runtime/v2";
+} from "@copilotkit/runtime";
 import { agentRouteHooks } from "@/lib/limits";
 import { createJevChatAgent } from "@/jev/chat-agent";
 

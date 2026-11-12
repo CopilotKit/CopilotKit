@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback } from "react";
-import { useAgent, useCopilotKit } from "@copilotkit/react-core/v2";
+import { useAgent, useCopilotKit } from "@copilotkit/react-core";
 import { runStore } from "@/lib/run-store";
 import { useMode } from "./providers";
 import type { Mode } from "./providers";

@@ -16,7 +16,7 @@ import { MemberRole } from "@/skins/banking/data/data";
 import { useEffect, useReducer } from "react";
 import { TeamPageOperations } from "@/skins/banking/tools";
 import { useSearchParams } from "next/navigation";
-import { useAgentContext, useHumanInTheLoop } from "@copilotkit/react-core/v2";
+import { useAgentContext, useHumanInTheLoop } from "@copilotkit/react-core";
 import { z } from "zod";
 import type { DialogState } from "@/skins/banking/components/add-or-edit-member-dialog";
 import {

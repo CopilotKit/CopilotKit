@@ -2,8 +2,8 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { ComponentType } from "react";
-import { useCopilotKit } from "@copilotkit/react-core/v2";
-import type { ReactActivityMessageRenderer } from "@copilotkit/react-core/v2";
+import { useCopilotKit } from "@copilotkit/react-core";
+import type { ReactActivityMessageRenderer } from "@copilotkit/react-core";
 import { GENERATIVE_UI_ACTIVITY_TYPE } from "@copilotkit/shared";
 import type { GenerativeUISurfaceContent } from "@copilotkit/shared";
 import { z } from "zod";

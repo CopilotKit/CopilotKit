@@ -1,9 +1,11 @@
-import { BuiltInAgent, defineTool } from "@copilotkit/runtime/v2";
+import { BuiltInAgent, defineTool } from "@copilotkit/runtime/agent";
 import { z } from "zod";
 import {
   A2UI_OPERATIONS_KEY,
+  TRIP_BRIEF_SURFACE_ID,
   buildTripBriefOps,
 } from "./canvas/trip-brief-ops";
+import { openaiText } from "@tanstack/ai-openai";
 
 // SERVER-SAFE. No "use client", no JSX, no React. Imported only by the server
 // agent registry (src/shell/agent-registry.ts), never by the client skin
@@ -23,7 +25,7 @@ import {
  * BEAT 3d — open the filed Trip Brief on the canvas.
  *
  * A SERVER tool, and it has to be: the a2ui middleware only turns an
- * `a2ui_operations` payload into an `a2ui-surface` activity when it observes it
+ * `a2ui_operations` payload into a surface activity when it observes it
  * in an in-stream TOOL_CALL_RESULT event, so a client frontend-tool result never
  * produces one.
  *
@@ -46,8 +48,14 @@ const renderTripBriefTool = defineTool({
         "The brief id fileTripBrief returned. Leave blank only if you genuinely do not have one.",
       ),
   }),
+  // A fresh surfaceId per call: the runtime streams each surface as the
+  // activity message `genui:<surfaceId>`, and the canvas re-reads the briefs
+  // when that message id changes.
   execute: async ({ briefId }) => ({
-    [A2UI_OPERATIONS_KEY]: buildTripBriefOps(briefId),
+    [A2UI_OPERATIONS_KEY]: buildTripBriefOps(
+      briefId,
+      `${TRIP_BRIEF_SURFACE_ID}-${Date.now().toString(36)}`,
+    ),
   }),
 });
 
@@ -250,7 +258,7 @@ RULES
 
 export const airlineAgent = () =>
   new BuiltInAgent({
-    model: "openai/gpt-6-luna",
+    model: openaiText("gpt-6-luna"),
     prompt: AIRLINE_PROMPT,
     tools: [renderTripBriefTool],
   });

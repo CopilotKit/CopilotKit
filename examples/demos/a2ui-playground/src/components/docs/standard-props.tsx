@@ -1,6 +1,6 @@
 "use client";
 
-import { standardUI } from "@copilotkit/react-core/v2/generative-ui";
+import { standardUI } from "@copilotkit/react-core/generative-ui";
 import { PropsTable } from "./props-table";
 import type { PropRow } from "./props-table";
 

@@ -22,7 +22,7 @@ import {
   envelopeToManifest,
   readCopilotKitUIEnvelope,
 } from "@copilotkit/shared";
-import { BuiltInAgent } from "@copilotkit/runtime/v2";
+import { BuiltInAgent } from "@copilotkit/runtime/agent";
 import { compose, COMPOSER_MODEL, GENERATE_A2UI_TOOL_NAME } from "./composer";
 import { EventQueue, EventType, pipeline, uid } from "./events";
 import { SurfaceStream } from "./surface";

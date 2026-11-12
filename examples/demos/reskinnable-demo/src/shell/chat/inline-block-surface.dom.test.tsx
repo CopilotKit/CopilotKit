@@ -2,27 +2,27 @@
  * Provider-chain regression test for the shell's inline block surface.
  *
  * WHAT THIS GUARDS: `InlineBlockSurface` renders inside the chat transcript as
- * an `a2ui-surface` activity renderer, i.e. underneath `CopilotKitProvider`
- * with the shell's own `renderActivityMessages` array installed. That array
- * SHADOWS CopilotKit's built-in a2ui activity renderer — and the built-in one
- * is the only thing that ever mounts an `A2UIProvider` (via its internal
- * `ReactSurfaceHost`). `CopilotKitProvider`'s `a2ui.catalog` prop mounts NO
- * provider of its own; it only feeds agent-context strings.
- *
- * So the real chat chain has NO ambient a2ui store, and `useA2UIActions()`
- * throws unconditionally outside an `A2UIProvider`. This test mounts that real
- * chain (CopilotKitProvider + renderActivityMessages + SkinProvider) so the
- * card can never regress back to relying on an ambient provider that does not
- * exist.
+ * a `generative-ui-surface` activity renderer, i.e. underneath
+ * `CopilotKitProvider` with the shell's own `renderActivityMessages` array
+ * installed. That array SHADOWS CopilotKit's built-in surface renderer, so the
+ * card draws the block itself: it hands the activity's ops to the provider's
+ * surface manager under its own target (`<PageSurface>`) and renders that
+ * target. This test mounts that real chain (CopilotKitProvider with
+ * `generativeUI={{ ui }}` + renderActivityMessages + SkinProvider) and the
+ * real generative UI engine, so the card can never regress to relying on a
+ * renderer that the shell shadows.
  */
 
+import type { ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, render, screen, waitFor } from "@testing-library/react";
 import { z } from "zod";
-import { createCatalog } from "@copilotkit/a2ui-renderer";
-import type * as A2UIRendererModule from "@copilotkit/a2ui-renderer";
-import { CopilotKitProvider } from "@copilotkit/react-core/v2";
-import type { ReactActivityMessageRenderer } from "@copilotkit/react-core/v2";
+import { CopilotKitProvider } from "@copilotkit/react-core";
+import type { ReactActivityMessageRenderer } from "@copilotkit/react-core";
+import {
+  childList,
+  createGenerativeUI,
+} from "@copilotkit/react-core/generative-ui";
 import { SkinProvider } from "@/shell/skin-provider";
 import type { Skin } from "@/shell/skin-contract";
 import { InlineBlockSurface } from "./inline-block-surface";
@@ -30,86 +30,75 @@ import { InlineBlockSurface } from "./inline-block-surface";
 const CATALOG_ID = "https://cpk-a2ui.local/catalogs/shell-test/v1";
 
 /**
- * Every `processMessages` call the card makes, in order. The provider's own
- * `processMessages` swallows processor throws (it `console.warn`s, records the
- * message in its error state and returns void), so a REJECTED op list is
- * indistinguishable from an accepted one at the call site — counting calls is
- * the only way to observe whether the card latched the op-list hash and
- * stopped re-processing.
+ * A throwaway two-component UI, deliberately NOT the exec skin's — the shell
+ * must not import from `src/skins/`, and the behaviour under test (does the
+ * card render its skin's components?) is catalog-shape independent. Mirrors
+ * the exec op-builder's shape: a `root` container listing children by id, plus
+ * one leaf that paints text.
  */
-const { processCalls } = vi.hoisted(() => ({
-  processCalls: [] as unknown[][],
-}));
-
-vi.mock("@copilotkit/a2ui-renderer", async (importOriginal) => {
-  const actual = await importOriginal<typeof A2UIRendererModule>();
-  const react = await import("react");
-  return {
-    ...actual,
-    // Wrap the store's `processMessages` in a recorder. Memoised on the
-    // (stable) actions object so the returned identity stays stable too —
-    // the card lists `processMessages` in an effect dependency array.
-    useA2UIActions: () => {
-      const actions = actual.useA2UIActions();
-      return react.useMemo(
-        () => ({
-          ...actions,
-          processMessages: ((messages) => {
-            processCalls.push(messages as unknown[]);
-            actions.processMessages(messages);
-          }) as typeof actions.processMessages,
-        }),
-        [actions],
-      );
+const catalog = createGenerativeUI({
+  id: CATALOG_ID,
+  components: {
+    Root: {
+      component: (props: { children?: ReactNode }) => (
+        <div data-testid="test-root">{props.children}</div>
+      ),
+      description: "Test root container.",
+      props: z.object({ children: childList() }),
     },
-  };
+    Note: {
+      component: (props: { text: string }) => (
+        <p data-testid="test-note">{props.text}</p>
+      ),
+      description: "Test leaf that paints its text.",
+      props: z.object({ text: z.string() }),
+    },
+  },
 });
 
 /**
- * A throwaway two-component catalog, deliberately NOT the exec skin's — the
- * shell must not import from `src/skins/`, and the behaviour under test (does
- * the card get a working a2ui store and its skin's catalog?) is catalog-shape
- * independent. Mirrors the exec op-builder's shape: a `root` container listing
- * children by id, plus one leaf that paints text.
+ * The activity content the runtime hands a `generative-ui-surface` renderer:
+ * the agent's v0.9 ops, converted to A2UI 1.0, under `operations`.
  */
-const definitions = {
-  Root: {
-    description: "Test root container.",
-    props: z.object({ children: z.array(z.string()) }),
-  },
-  Note: {
-    description: "Test leaf that paints its text.",
-    props: z.object({ text: z.string() }),
-  },
-};
-
-const catalog = createCatalog(
-  definitions,
-  {
-    Root: ({ props, children }) => (
-      <div data-testid="test-root">
-        {props.children.map((id) => (
-          <div key={id}>{children(id)}</div>
-        ))}
-      </div>
-    ),
-    Note: ({ props }) => <p data-testid="test-note">{props.text}</p>,
-  },
-  { catalogId: CATALOG_ID, includeBasicCatalog: false },
-);
-
-/** The activity content the A2UI middleware hands an `a2ui-surface` renderer. */
-const blockContent = (surfaceId = "block:b1") => ({
-  a2ui_operations: [
-    { version: "v0.9", createSurface: { surfaceId, catalogId: CATALOG_ID } },
+const blockContent = (surfaceId = "block:b1", notes = ["Q3 revenue"]) => ({
+  surfaceId,
+  target: "chat",
+  catalogId: CATALOG_ID,
+  status: "ready",
+  rejected: [],
+  operations: [
+    { version: "1.0", createSurface: { surfaceId, catalogId: CATALOG_ID } },
     {
-      version: "v0.9",
+      version: "1.0",
       updateComponents: {
         surfaceId,
         components: [
-          { id: "root", component: "Root", children: ["note"] },
-          { id: "note", component: "Note", text: "Q3 revenue" },
+          {
+            id: "root",
+            component: "Root",
+            children: notes.map((_, i) => `note${i}`),
+          },
+          ...notes.map((text, i) => ({
+            id: `note${i}`,
+            component: "Note",
+            text,
+          })),
         ],
+      },
+    },
+  ],
+});
+
+/** An op list the browser rejects: a component the UI does not have. */
+const rejectedContent = (surfaceId = "block:missing") => ({
+  ...blockContent(surfaceId),
+  operations: [
+    { version: "1.0", createSurface: { surfaceId, catalogId: CATALOG_ID } },
+    {
+      version: "1.0",
+      updateComponents: {
+        surfaceId,
+        components: [{ id: "root", component: "NotInTheCatalog" }],
       },
     },
   ],
@@ -125,7 +114,7 @@ function InlineBlockActivity({ content }: { content: unknown }) {
  */
 const ACTIVITY_RENDERERS: ReactActivityMessageRenderer<unknown>[] = [
   {
-    activityType: "a2ui-surface",
+    activityType: "generative-ui-surface",
     content: z.any(),
     render: InlineBlockActivity,
   },
@@ -146,16 +135,15 @@ const skin = {
 
 /**
  * The real chat chain: CopilotKitProvider (with the shell's activity renderers
- * shadowing the built-in a2ui one, and `a2ui.catalog` set exactly as the
- * per-skin layout sets it) over SkinProvider. No A2UIProvider anywhere — that
- * is the point.
+ * shadowing the built-in surface one, and `generativeUI` set exactly as the
+ * per-skin layout sets it) over SkinProvider.
  */
 function chain(content: unknown) {
   return (
     <CopilotKitProvider
       runtimeUrl="/api/copilotkit"
       useSingleEndpoint={false}
-      a2ui={{ catalog }}
+      generativeUI={{ ui: catalog }}
       renderActivityMessages={ACTIVITY_RENDERERS}
     >
       <SkinProvider skin={skin}>
@@ -176,21 +164,7 @@ async function settle() {
   });
 }
 
-/** An op list the MessageProcessor rejects: `updateComponents` for a surface that was never created. */
-const rejectedContent = (surfaceId = "block:missing") => ({
-  a2ui_operations: [
-    {
-      version: "v0.9",
-      updateComponents: {
-        surfaceId,
-        components: [{ id: "root", component: "Root", children: [] }],
-      },
-    },
-  ],
-});
-
 beforeEach(() => {
-  processCalls.length = 0;
   // CopilotKitProvider probes `/api/copilotkit/info` on mount; jsdom has no
   // server. An empty agent registry is a valid runtime info payload, so the
   // provider connects cleanly instead of logging a connection failure.
@@ -212,7 +186,7 @@ afterEach(() => {
 });
 
 describe("InlineBlockSurface in the real chat provider chain", () => {
-  it("renders the block surface's components (no ambient A2UIProvider needed)", async () => {
+  it("renders the block surface's components", async () => {
     mountInChain(blockContent());
 
     const card = await screen.findByTestId("inline-block-surface");
@@ -223,87 +197,49 @@ describe("InlineBlockSurface in the real chat provider chain", () => {
   });
 
   it("renders a loud error state naming the block when the operations cannot be processed", async () => {
-    // `updateComponents` for a surface that was never created — the A2UI
-    // MessageProcessor rejects it, and the card must SAY so rather than
-    // render an empty box.
+    // A component the UI does not have — the browser rejects the op, and the
+    // card must SAY so rather than render an empty box.
     mountInChain(rejectedContent());
 
     const alert = await screen.findByRole("alert");
     // The card names the block from ITS OWN context (the surface id it
-    // resolved off the activity content), not from the provider's message —
-    // only 2 of the processor's 6 rejection messages mention the surface.
+    // resolved off the activity content); the validator's reason names a
+    // component, not the block.
     expect(alert.textContent).toMatch(/^block:missing:/);
     expect(alert.textContent).toMatch(/could not be rendered/);
   });
 
   /**
-   * THE LATCH CONTRACT. `A2UIProvider.processMessages` never throws — it
-   * catches, `console.warn`s and records the message in its error state — so
-   * "did that op list apply?" can only be answered by the store's `version`
-   * counter, which advances ONLY on success.
-   *
-   * A card that latches the op-list hash on a REJECTED list is stuck: the
-   * next snapshot carrying that same list is skipped as a duplicate, and the
-   * card stays blank forever with no path back.
+   * A rejected op list must not stick: the next snapshot for the same block,
+   * carrying corrected ops, renders the block and drops the error line.
    */
-  it("does not latch the ops hash when the op list is rejected, so the next snapshot retries", async () => {
-    const { rerender } = mountInChain(rejectedContent());
+  it("recovers when a corrected snapshot follows a rejected one", async () => {
+    const { rerender } = mountInChain(rejectedContent("block:b1"));
     await screen.findByRole("alert");
     await settle();
 
-    const callsAfterFirstSnapshot = processCalls.length;
-    expect(callsAfterFirstSnapshot).toBeGreaterThan(0);
-
-    // A fresh snapshot carrying the SAME op list (new array identity, as every
-    // activity-message re-emission produces). The rejected list must be
-    // re-processed, not skipped as an already-applied duplicate.
-    rerender(chain(rejectedContent()));
+    rerender(chain(blockContent("block:b1")));
     await settle();
 
-    expect(processCalls.length).toBeGreaterThan(callsAfterFirstSnapshot);
-    expect(screen.getByRole("alert").textContent).toMatch(/^block:missing:/);
+    await waitFor(() =>
+      expect(screen.getByTestId("test-note").textContent).toBe("Q3 revenue"),
+    );
+    expect(screen.queryByRole("alert")).toBeNull();
   });
 
   /**
-   * THE createSurface STRIP, exercised live. Every snapshot carries the FULL op
-   * list, so a GROWING one (the shape a streaming block actually takes: same
-   * createSurface, more components) is a NEW hash and must be processed — and
-   * replaying its `createSurface` would be rejected with "Surface … already
-   * exists", leaving the card stuck on an error line instead of growing.
-   *
-   * Without the strip this test fails; with it, the second snapshot applies
-   * cleanly. (The suite's other cases never reach the branch: the rejected list
-   * creates no surface, and the unchanged list is skipped as a duplicate.)
+   * Every snapshot carries the FULL op list, so a GROWING one (the shape a
+   * streaming block actually takes: same createSurface, more components) must
+   * apply over the existing surface rather than fail on its createSurface.
    */
-  it("applies a GROWING snapshot over an existing surface without replaying createSurface", async () => {
-    const grownContent = () => {
-      const content = blockContent();
-      const [create, update] = content.a2ui_operations;
-      return {
-        a2ui_operations: [
-          create,
-          {
-            ...update,
-            updateComponents: {
-              surfaceId: "block:b1",
-              components: [
-                { id: "root", component: "Root", children: ["note", "note2"] },
-                { id: "note", component: "Note", text: "Q3 revenue" },
-                { id: "note2", component: "Note", text: "Q4 outlook" },
-              ],
-            },
-          },
-        ],
-      };
-    };
-
+  it("applies a GROWING snapshot over an existing surface", async () => {
     const { rerender } = mountInChain(blockContent());
     await waitFor(() =>
       expect(screen.getByTestId("test-note").textContent).toBe("Q3 revenue"),
     );
     await settle();
 
-    rerender(chain(grownContent()));
+    rerender(chain(blockContent("block:b1", ["Q3 revenue", "Q4 outlook"])));
     await settle();
 
     await waitFor(() =>
@@ -314,18 +250,17 @@ describe("InlineBlockSurface in the real chat provider chain", () => {
     expect(screen.queryByRole("alert")).toBeNull();
   });
 
-  it("does latch after a successful op list, so an unchanged snapshot is not re-processed", async () => {
+  it("leaves the block as it is when an unchanged snapshot arrives again", async () => {
     const { rerender } = mountInChain(blockContent());
     await waitFor(() =>
       expect(screen.getByTestId("test-note").textContent).toBe("Q3 revenue"),
     );
     await settle();
 
-    const callsAfterFirstSnapshot = processCalls.length;
     rerender(chain(blockContent()));
     await settle();
 
-    expect(processCalls.length).toBe(callsAfterFirstSnapshot);
+    expect(screen.getAllByTestId("test-note")).toHaveLength(1);
     expect(screen.queryByRole("alert")).toBeNull();
   });
 });

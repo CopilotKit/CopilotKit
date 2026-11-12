@@ -9,7 +9,7 @@ import {
   useComponent,
   useFrontendTool,
   useHumanInTheLoop,
-} from "@copilotkit/react-core/v2";
+} from "@copilotkit/react-core";
 import {
   AlertTriangle,
   CheckCircle2,

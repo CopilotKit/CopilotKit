@@ -10,7 +10,7 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { useThreads } from "@copilotkit/react-core/v2";
+import { useThreads } from "@copilotkit/react-core";
 import styles from "./threads-drawer.module.css";
 
 export interface ThreadsDrawerProps {

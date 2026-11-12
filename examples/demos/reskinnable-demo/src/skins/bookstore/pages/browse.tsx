@@ -2,7 +2,7 @@
 
 import { useMemo } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useAgentContext } from "@copilotkit/react-core/v2";
+import { useAgentContext } from "@copilotkit/react-core";
 import { useSkinData } from "@/shell/skin-provider";
 import { useBookstoreHref } from "@/skins/bookstore/href";
 import { bookPath, browseTarget } from "@/skins/bookstore/nav-target";

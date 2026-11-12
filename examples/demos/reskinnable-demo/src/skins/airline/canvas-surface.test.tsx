@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 const { messagesRef } = vi.hoisted(() => ({
   messagesRef: { current: [] as unknown[] },
 }));
-vi.mock("@copilotkit/react-core/v2", () => ({
+vi.mock("@copilotkit/react-core", () => ({
   useAgent: () => ({ agent: { messages: messagesRef.current } }),
 }));
 
@@ -14,7 +14,6 @@ vi.mock("@copilotkit/react-core/v2", () => ({
 import { AirlineCanvasSurface } from "./canvas-surface";
 import { airlineCatalog } from "./catalog";
 import {
-  A2UI_OPERATIONS_KEY,
   buildTripBriefOps,
   TRIP_BRIEF_CATALOG_ID,
 } from "./canvas/trip-brief-ops";
@@ -79,14 +78,17 @@ function serveFiledBriefs() {
   return fetchSpy;
 }
 
-/** The activity the `render_trip_brief` server tool produces. */
+/**
+ * The activity the `render_trip_brief` server tool produces: the runtime
+ * streams its ops as a `generative-ui-surface` activity, under `operations`.
+ */
 function openCanvasOn(briefId: string | null, activityId = "act-1") {
   messagesRef.current = [
     {
       id: activityId,
       role: "activity",
-      activityType: "a2ui-surface",
-      content: { [A2UI_OPERATIONS_KEY]: buildTripBriefOps(briefId) },
+      activityType: "generative-ui-surface",
+      content: { operations: buildTripBriefOps(briefId) },
     },
   ];
 }

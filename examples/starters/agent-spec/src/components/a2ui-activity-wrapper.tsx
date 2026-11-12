@@ -1,124 +1,73 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import type { GenerativeUIChatSurfaceProps } from "@copilotkit/react-core/generative-ui";
 
-function getOperationSurfaceId(operation: unknown): string | null {
-  if (!operation || typeof operation !== "object") {
-    return null;
-  }
+/**
+ * The wrapper of each generative UI surface in the chat (the
+ * `generativeUISurface` slot of `CopilotChat`): a card with an
+ * "Interactive UI" header and a Show/Hide toggle. The card flashes when the
+ * agent updates a surface that it already rendered.
+ */
+export function A2UIChatSurface({
+  surfaceId,
+  isStreaming,
+  error,
+  children,
+}: GenerativeUIChatSurfaceProps) {
+  const [collapsed, setCollapsed] = useState(false);
+  const [flash, setFlash] = useState(false);
+  const wasStreamingRef = useRef(isStreaming);
+  const renderedRef = useRef(!isStreaming);
 
-  if (
-    "surfaceId" in operation &&
-    typeof (operation as any).surfaceId === "string"
-  ) {
-    return (operation as any).surfaceId;
-  }
-
-  const op = operation as any;
-  return (
-    op?.beginRendering?.surfaceId ??
-    op?.surfaceUpdate?.surfaceId ??
-    op?.dataModelUpdate?.surfaceId ??
-    op?.deleteSurface?.surfaceId ??
-    null
-  );
-}
-
-export function withA2UIActivityMessage(baseRenderer: any) {
-  function A2UIActivityMessage(props: any) {
-    const operations = props?.content?.operations as unknown[] | undefined;
-
-    const surfaceCount = useMemo(() => {
-      if (!Array.isArray(operations) || operations.length === 0) {
-        return 0;
-      }
-      const ids = new Set<string>();
-      for (const op of operations) {
-        const id = getOperationSurfaceId(op);
-        if (id) {
-          ids.add(id);
-        }
-      }
-      return ids.size || 1;
-    }, [operations]);
-
-    const activityLabel = useMemo(() => {
-      if (!Array.isArray(operations) || operations.length === 0)
-        return "Interactive UI";
-      return surfaceCount > 1
-        ? `Interactive UI \u00B7 ${surfaceCount} surfaces`
-        : "Interactive UI";
-    }, [operations, surfaceCount]);
-
-    const [collapsed, setCollapsed] = useState(false);
-    const [flash, setFlash] = useState(false);
-    const lastSignatureRef = useRef<string | null>(null);
-
-    const signature = useMemo(() => {
-      if (!Array.isArray(operations)) {
-        return null;
-      }
-      try {
-        return JSON.stringify(operations);
-      } catch {
-        return String(operations.length);
-      }
-    }, [operations]);
-
-    useEffect(() => {
-      if (!signature) {
-        lastSignatureRef.current = null;
-        return;
-      }
-
-      if (lastSignatureRef.current && lastSignatureRef.current !== signature) {
-        lastSignatureRef.current = signature;
-        setFlash(true);
-        const timeout = window.setTimeout(() => setFlash(false), 700);
-        return () => window.clearTimeout(timeout);
-      }
-
-      lastSignatureRef.current = signature;
-    }, [signature]);
-
-    if (!Array.isArray(operations) || operations.length === 0) {
-      return null;
+  useEffect(() => {
+    const wasStreaming = wasStreamingRef.current;
+    wasStreamingRef.current = isStreaming;
+    if (!wasStreaming || isStreaming) return;
+    // A stream ended. The first one renders the surface; a later one updates it.
+    if (!renderedRef.current) {
+      renderedRef.current = true;
+      return;
     }
+    setFlash(true);
+    const timeout = window.setTimeout(() => setFlash(false), 700);
+    return () => window.clearTimeout(timeout);
+  }, [isStreaming]);
 
-    const Inner = baseRenderer.render as any;
-    const classes = [
-      "a2ui-activity-message",
-      collapsed ? "a2ui-activity-message--collapsed" : "",
-      flash ? "a2ui-activity-message--flash" : "",
-    ]
-      .filter(Boolean)
-      .join(" ");
+  const classes = [
+    "a2ui-activity-message",
+    collapsed ? "a2ui-activity-message--collapsed" : "",
+    flash ? "a2ui-activity-message--flash" : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
 
-    return (
-      <div className={classes} data-a2ui-activity-message>
-        <div className="a2ui-activity-header">
-          <div className="a2ui-activity-header-left">
-            <span className="a2ui-activity-dot" aria-hidden="true" />
-            <span>{activityLabel}</span>
-          </div>
-          <button
-            type="button"
-            className="a2ui-activity-toggle"
-            onClick={() => setCollapsed((v) => !v)}
-            aria-expanded={!collapsed}
-          >
-            {collapsed ? "Show" : "Hide"}
-          </button>
+  return (
+    <div
+      className={classes}
+      data-a2ui-activity-message
+      data-generative-ui-chat-surface={surfaceId}
+    >
+      <div className="a2ui-activity-header">
+        <div className="a2ui-activity-header-left">
+          <span className="a2ui-activity-dot" aria-hidden="true" />
+          <span>Interactive UI</span>
         </div>
-        <div className="a2ui-activity-body">
-          <Inner {...props} />
-        </div>
+        <button
+          type="button"
+          className="a2ui-activity-toggle"
+          onClick={() => setCollapsed((v) => !v)}
+          aria-expanded={!collapsed}
+        >
+          {collapsed ? "Show" : "Hide"}
+        </button>
       </div>
-    );
-  }
-
-  return {
-    ...baseRenderer,
-    render: A2UIActivityMessage,
-  };
+      <div className="a2ui-activity-body">
+        {children}
+        {error && (
+          <div role="alert">Part of this UI couldn&apos;t be shown.</div>
+        )}
+      </div>
+    </div>
+  );
 }

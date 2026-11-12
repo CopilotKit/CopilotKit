@@ -34,7 +34,7 @@ import type { ImpactBrief } from "@/skins/keel/data/types";
  * contradicting itself, which is worse than either being wrong alone.
  *
  * It also makes the surface REPLAY-SAFE (beat 2): the operations live in the
- * `a2ui-surface` activity, so a reloaded thread repaints this canvas with no
+ * `generative-ui-surface` activity, so a reloaded thread repaints this canvas with no
  * fetch and no store read at all.
  *
  * ── WHY `carried` IS COMPUTED HERE AND NOT STORED ────────────────────────────
@@ -55,7 +55,7 @@ export const A2UI_OPERATIONS_KEY = "a2ui_operations";
  * The surface id the Impact Brief renders under.
  *
  * Deliberately NOT `SURFACE_ID` from `ops-report.ts` ("keel-ops-report"). The
- * a2ui provider keeps one surface per id, and re-using the ops report's would
+ * surface manager keeps one surface per id, and re-using the ops report's would
  * make a filed brief overwrite the components of a report the presenter is
  * still looking at (and vice versa) inside a single conversation.
  */
@@ -64,9 +64,9 @@ export const IMPACT_BRIEF_SURFACE_ID = "keel-impact-brief";
 /**
  * The catalog both keel canvas surfaces render through.
  *
- * MUST equal `REPORT_CATALOG_ID` in `ops-report.ts` and the `catalogId` of the
- * catalog created in `canvas-surface.tsx`, because `KeelCanvasSurface` mounts
- * ONE `A2UIProvider` for both surfaces. That constant is private to
+ * MUST equal `REPORT_CATALOG_ID` in `ops-report.ts` and the `id` of
+ * `keelReportUI` in `report-ui.tsx`, because both surfaces render through
+ * that ONE UI (the skin's UI extends it). That constant is private to
  * `ops-report.ts`, so this is a second spelling of it —
  * `impact-brief-ops.test.ts` pins the two together against `buildOpsReportOps`'s
  * own emitted op rather than trusting the comment.

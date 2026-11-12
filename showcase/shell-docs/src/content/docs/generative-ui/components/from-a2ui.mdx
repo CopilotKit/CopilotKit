@@ -221,6 +221,7 @@ Set `injectA2UITool: false` when the agent has its own tool that returns v0.9 op
 - **Custom components need a match.** A v0.9 custom component renders only when the client catalog has a component with the same name. Otherwise the browser rejects the component, and Inspector shows the reason.
 - **Old prop names are not mapped.** A v0.9 prop name that `@a2ui/web_core` 0.15 already rejected (an older draft name) is not converted. Use the v0.9 names.
 - **No v0.8.** The runtime does not convert A2UI v0.8. It drops v0.8 operations.
+- **A reused surface id updates the old surface.** A converted surface is the chat message `genui:<surfaceId>`. When an agent creates a surface with an id that it used before in the thread, the message with that id changes where it is. A new message is not added. Give each surface a new id when it must show as a new message.
 
 ### Other runtimes
 

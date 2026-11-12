@@ -1,7 +1,11 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { CopilotKit, useAgent, useCopilotKit } from "@copilotkit/react-core/v2";
+import {
+  CopilotKitProvider,
+  useAgent,
+  useCopilotKit,
+} from "@copilotkit/react-core";
 import { StaticSurface } from "@/components/app/static-surface";
 import { CopilotKitKite } from "@/components/site/brand";
 import { USE_CASES } from "@/jev/usecases";
@@ -40,9 +44,9 @@ type Turn = {
 /** Version 2: chat first. CopilotKit runs the agent over AG-UI; the surface lands in the thread. */
 export function ChatView() {
   return (
-    <CopilotKit runtimeUrl="/api/jev-chat" enableInspector={false}>
+    <CopilotKitProvider runtimeUrl="/api/jev-chat" enableInspector={false}>
       <Chat />
-    </CopilotKit>
+    </CopilotKitProvider>
   );
 }
 

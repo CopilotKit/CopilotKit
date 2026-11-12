@@ -12,7 +12,7 @@
  *
  * Child references use the A2UI 1.0 `ComponentId` / `ChildList` marks, the
  * same ones `child()` / `childList()` from
- * `@copilotkit/react-core/v2/generative-ui` write. They are re-declared here
+ * `@copilotkit/react-core/generative-ui` write. They are re-declared here
  * because that module is client-only. The engine renders the referenced
  * components and hands the renderer React nodes in place of the ids.
  */
@@ -85,7 +85,9 @@ export function def<T extends z.ZodRawShape>(
   category: Category,
   description: string,
   props: z.ZodObject<T>,
-  extra: Pick<Def<T>, "events" | "writable"> = {},
+  // Not `Def<T>`: `T` must come from `props` alone, or Zod 4 infers the wide
+  // `ZodRawShape` from `extra` and every renderer prop becomes `unknown`.
+  extra: Pick<Def, "events" | "writable"> = {},
 ): Def<T> {
   return { category, description, props, ...extra };
 }

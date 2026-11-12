@@ -328,6 +328,8 @@ everything, which is why it is listed above as the only full check.
 
 ## Tech
 
-Next.js 16, React 19, Tailwind v4, and workspace (`workspace:*`) builds of
-`@copilotkit/react-core`, `@copilotkit/runtime`, `@copilotkit/a2ui-renderer`,
-`@copilotkit/core`, and `@copilotkit/shared` (the v2 entry points).
+Next.js 16, React 19, Tailwind v4, and CopilotKit 2.0 (`@copilotkit/react-core`,
+`@copilotkit/runtime`, `@copilotkit/core`, and `@copilotkit/shared`). Each skin's
+a2ui catalog is a generative UI (`createGenerativeUI` from
+`@copilotkit/react-core/generative-ui`); the agents still write A2UI v0.9, and
+the runtime converts it to A2UI 1.0 (`generativeUI: { a2uiVersion: "0.9" }`).

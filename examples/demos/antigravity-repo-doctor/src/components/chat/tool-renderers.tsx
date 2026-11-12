@@ -1,6 +1,6 @@
 "use client";
 
-import { useInterrupt, useRenderTool } from "@copilotkit/react-core/v2";
+import { useInterrupt, useRenderTool } from "@copilotkit/react-core";
 import {
   Activity,
   CircleAlert,
@@ -693,7 +693,7 @@ function BuiltinRow({
 
 /* ───────────────────────── registration ───────────────────────── */
 
-const Any = z.record(z.unknown());
+const Any = z.record(z.string(), z.unknown());
 
 /** Registers every tool renderer and the approval interrupt handler. */
 export function ToolRenderers() {

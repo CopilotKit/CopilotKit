@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { BuiltInAgent, defineTool } from "@copilotkit/runtime/v2";
+import { BuiltInAgent, defineTool } from "@copilotkit/runtime/agent";
 import { searchCorpus } from "@/skins/keel/knowledge/search";
 import * as store from "@/skins/keel/data/store";
 import {
@@ -18,6 +18,7 @@ import {
   // be built correctly and simply never be recognised as a surface.
   A2UI_OPERATIONS_KEY as IMPACT_BRIEF_OPERATIONS_KEY,
 } from "@/skins/keel/canvas/impact-brief-ops";
+import { openaiText } from "@tanstack/ai-openai";
 
 // SERVER-SAFE. No client directive, no JSX, no React. Imported only by the
 // server agent registry (src/shell/agent-registry.ts), never by the client skin
@@ -67,8 +68,8 @@ const searchKnowledgeTool = defineTool({
  * Backend tool: render an operations report on the canvas. The agent supplies
  * only a small selection (title + which KPIs/charts/runs); this handler
  * deterministically expands it into A2UI operations and returns them wrapped in
- * `a2ui_operations`, which the A2UI middleware turns into an `a2ui-surface`
- * activity the KeelCanvasSurface renders. Mirrors banking's `render_report`:
+ * `a2ui_operations`, which the A2UI middleware turns into a
+ * `generative-ui-surface` activity the KeelCanvasSurface renders. Mirrors banking's `render_report`:
  * building the ops in code (rather than having the model author the full
  * component JSON inline) is what keeps it fast and reliable, and a unique
  * surfaceId per report means dismissing one never suppresses a later one.
@@ -389,12 +390,12 @@ export const keelAgent = () =>
   new BuiltInAgent({
     // `openai/gpt-6-luna` is the alias used across the repo; the full (non-mini)
     // model routes the multi-step arc more reliably.
-    model: "openai/gpt-6-luna",
+    model: openaiText("gpt-6-luna"),
     prompt: KEEL_PROMPT,
     tools: [searchKnowledgeTool, renderOpsReportTool, renderImpactBriefTool],
     // Temperature 0 for deterministic tool routing — banking pins it for the
     // same reason. The multi-step arc (search_knowledge -> showPlaybook ->
     // startRun HITL -> approveStep) needs the agent to pick the same path every
     // time, not sample alternatives, or the scripted demo drifts.
-    temperature: 0,
+    modelOptions: { temperature: 0 },
   });

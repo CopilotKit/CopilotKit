@@ -1,10 +1,15 @@
 import { z } from "zod";
+// `child()` / `childList()` mark the props that hold component ids. Imported
+// from `@copilotkit/shared` rather than the "use client"
+// `@copilotkit/react-core/generative-ui` entry: this module is also imported
+// by the server agent (the op builders read `CATALOG_ID`).
+import { child, childList } from "@copilotkit/shared/generative-ui";
 
 export const CATALOG_ID = "https://cpk-a2ui.local/catalogs/banking/v1";
 
-const childRef = z.string();
-const childrenRef = z.array(z.string());
-const stringOrPath = z.union([z.string(), z.object({ path: z.string() })]);
+const childRef = child();
+const childrenRef = childList();
+const stringOrPath = z.string();
 
 export const definitions = {
   Stack: {

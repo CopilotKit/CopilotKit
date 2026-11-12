@@ -8,7 +8,7 @@
  * each operation as it lands, so the surface paints while it streams.
  *
  * Copied from a2ui-playground `src/agent/surface.ts`. `createSurfaceWriter`
- * from `@copilotkit/runtime/v2` emits the same events (experimental); this
+ * from `@copilotkit/runtime` emits the same events (experimental); this
  * class adds `reopen()` for in-place updates across runs.
  */
 import {

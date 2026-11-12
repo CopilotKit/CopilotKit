@@ -2,7 +2,7 @@
 
 import { useMemo } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useAgentContext } from "@copilotkit/react-core/v2";
+import { useAgentContext } from "@copilotkit/react-core";
 import { cn } from "@/lib/utils";
 import { useKeelHref } from "@/skins/keel/href";
 import { useKeelLedger } from "@/skins/keel/ledger-context";

@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback } from "react";
-import { useAgent } from "@copilotkit/react-core/v2";
+import { useAgent } from "@copilotkit/react-core";
 import type { Suggestion } from "@copilotkit/core";
 import { cn } from "@/lib/utils";
 import { useSkin } from "@/shell/skin-provider";

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { useAgent } from "@copilotkit/react-core/v2";
+import { useAgent } from "@copilotkit/react-core";
 import { useSkinSegments } from "@/shell/skin-path";
 import { useChatInbox } from "@/shell/chat/chat-inbox-context";
 

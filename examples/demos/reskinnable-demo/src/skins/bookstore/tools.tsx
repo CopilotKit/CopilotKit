@@ -9,7 +9,7 @@ import {
   useComponent,
   useFrontendTool,
   useHumanInTheLoop,
-} from "@copilotkit/react-core/v2";
+} from "@copilotkit/react-core";
 import { useSkinData } from "@/shell/skin-provider";
 import { useShopper } from "@/skins/bookstore/providers";
 import { useBookstoreHref } from "@/skins/bookstore/href";

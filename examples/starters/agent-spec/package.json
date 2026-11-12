@@ -8,27 +8,24 @@
     "dev:debug": "LOG_LEVEL=debug npm run dev",
     "dev:agent": "./scripts/run-agent.sh",
     "dev:ui": "next dev --turbopack",
-    "patch:ui": "./scripts/apply-ui-patches.sh",
     "build": "next build",
     "start": "next start",
     "install:agent": "./scripts/setup-agent.sh",
     "postinstall": "npm run install:agent"
   },
   "dependencies": {
-    "@a2ui/lit": "^0.8.1",
-    "@ag-ui/a2ui-middleware": "0.0.5",
-    "@ag-ui/client": "1.0.2",
-    "@ag-ui/core": "1.0.2",
-    "@ag-ui/encoder": "1.0.2",
-    "@ag-ui/proto": "1.0.2",
-    "@copilotkit/a2ui-renderer": "1.79.0",
-    "@copilotkit/react-core": "1.79.0",
-    "@copilotkit/runtime": "1.79.0",
-    "hono": "^4.11.4",
+    "@ag-ui/client": "1.0.4",
+    "@ag-ui/core": "1.0.4",
+    "@ag-ui/encoder": "1.0.4",
+    "@ag-ui/proto": "1.0.4",
+    "@copilotkit/react-core": "2.0.0-rc.44",
+    "@copilotkit/runtime": "2.0.0-rc.44",
+    "lucide-react": "^0.577.0",
     "next": "16.3.8",
     "react": "^19.2.3",
     "react-dom": "^19.2.3",
-    "zod": "^3.25.75"
+    "react-is": "^19.2.4",
+    "zod": "^4.2.0"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.1.13",
@@ -42,17 +39,17 @@
   },
   "resolutions": {},
   "overrides": {
-    "@ag-ui/client": "1.0.2",
-    "@ag-ui/core": "1.0.2",
-    "@ag-ui/encoder": "1.0.2",
-    "@ag-ui/proto": "1.0.2"
+    "@ag-ui/client": "1.0.4",
+    "@ag-ui/core": "1.0.4",
+    "@ag-ui/encoder": "1.0.4",
+    "@ag-ui/proto": "1.0.4"
   },
   "pnpm": {
     "overrides": {
-      "@ag-ui/client": "1.0.2",
-      "@ag-ui/core": "1.0.2",
-      "@ag-ui/encoder": "1.0.2",
-      "@ag-ui/proto": "1.0.2"
+      "@ag-ui/client": "1.0.4",
+      "@ag-ui/core": "1.0.4",
+      "@ag-ui/encoder": "1.0.4",
+      "@ag-ui/proto": "1.0.4"
     }
   }
 }

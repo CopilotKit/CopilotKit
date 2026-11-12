@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { SandboxFunction } from "@copilotkit/react-core/v2";
+import type { SandboxFunction } from "@copilotkit/react-core";
 import { categoryParameter } from "./category-argument";
 import type { CommerceStoreState } from "./data/types";
 import {

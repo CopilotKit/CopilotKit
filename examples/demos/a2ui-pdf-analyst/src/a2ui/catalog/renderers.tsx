@@ -19,10 +19,17 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import type { RendererProps } from "@copilotkit/a2ui-renderer";
+import type { z } from "zod";
+import type { Definitions } from "./definitions";
 
-/* The runtime walks `{path}` bindings against the data model before
- * handing props to renderers, so every prop value below is post-resolution. */
+/* Generative UI resolves `{path}` bindings against the data model before it
+ * renders a component, so every prop value below is post-resolution. A
+ * `child()` / `childList()` prop arrives as rendered React nodes. */
+
+/** The props a component gets: the parsed output of its schema. */
+type PropsOf<Name extends keyof Definitions> = z.output<
+  Definitions[Name]["props"]
+>;
 
 const GAP = {
   xs: "gap-1",
@@ -125,14 +132,7 @@ const autoDelta = (value?: string, caption?: string): string | null => {
   return `${sign}${Math.abs(pct) < 10 ? pct.toFixed(1) : pct.toFixed(0)}%`;
 };
 
-const Stack = ({
-  props,
-  children,
-}: RendererProps<{
-  children: string[] | { componentId: string; path: string };
-  gap?: keyof typeof GAP;
-  align?: keyof typeof ALIGN;
-}>) => (
+const Stack = (props: PropsOf<"Stack">) => (
   <div
     className={clsx(
       "flex flex-col",
@@ -140,21 +140,11 @@ const Stack = ({
       props.align && ALIGN[props.align],
     )}
   >
-    {Array.isArray(props.children)
-      ? props.children.map((id) => <Slot key={id} render={children(id)} />)
-      : null}
+    {props.children}
   </div>
 );
 
-const Row = ({
-  props,
-  children,
-}: RendererProps<{
-  children: string[];
-  gap?: keyof typeof GAP;
-  justify?: keyof typeof JUSTIFY;
-  align?: keyof typeof ALIGN;
-}>) => (
+const Row = (props: PropsOf<"Row">) => (
   <div
     className={clsx(
       "flex flex-wrap",
@@ -163,20 +153,11 @@ const Row = ({
       ALIGN[props.align ?? "center"],
     )}
   >
-    {Array.isArray(props.children)
-      ? props.children.map((id) => <Slot key={id} render={children(id)} />)
-      : null}
+    {props.children}
   </div>
 );
 
-const Grid = ({
-  props,
-  children,
-}: RendererProps<{
-  children: string[];
-  columns?: number;
-  gap?: keyof typeof GAP;
-}>) => {
+const Grid = (props: PropsOf<"Grid">) => {
   const cols = props.columns ?? 3;
   const colMap: Record<number, string> = {
     1: "grid-cols-1",
@@ -188,17 +169,12 @@ const Grid = ({
   };
   return (
     <div className={clsx("grid", colMap[cols], GAP[props.gap ?? "md"])}>
-      {Array.isArray(props.children)
-        ? props.children.map((id) => <Slot key={id} render={children(id)} />)
-        : null}
+      {props.children}
     </div>
   );
 };
 
-const Section = ({
-  props,
-  children,
-}: RendererProps<{ title: string; eyebrow?: string; child: string }>) => (
+const Section = (props: PropsOf<"Section">) => (
   <section className="flex flex-col gap-3">
     <div className="flex flex-col gap-1">
       {props.eyebrow && (
@@ -210,17 +186,11 @@ const Section = ({
         {props.title}
       </h2>
     </div>
-    {children(props.child)}
+    {props.child}
   </section>
 );
 
-const Card = ({
-  props,
-  children,
-}: RendererProps<{
-  child: string;
-  tone?: "default" | "lilac" | "mint" | "warning";
-}>) => {
+const Card = (props: PropsOf<"Card">) => {
   const tones: Record<string, string> = {
     default: "bg-[var(--surface)] border-[var(--line)]",
     lilac:
@@ -236,16 +206,14 @@ const Card = ({
         tones[props.tone ?? "default"],
       )}
     >
-      {children(props.child)}
+      {props.child}
     </div>
   );
 };
 
 const Divider = () => <hr className="border-0 border-t border-[var(--line)]" />;
 
-const Heading = ({
-  props,
-}: RendererProps<{ text: string; level?: "1" | "2" | "3" }>) => {
+const Heading = (props: PropsOf<"Heading">) => {
   const level = props.level ?? "2";
   const Tag = level === "1" ? "h1" : level === "3" ? "h3" : "h2";
   const sizes = {
@@ -258,14 +226,7 @@ const Heading = ({
   );
 };
 
-const Text = ({
-  props,
-}: RendererProps<{
-  text: string;
-  tone?: "default" | "muted";
-  size?: "sm" | "md" | "lg";
-  weight?: "regular" | "medium" | "semibold";
-}>) => (
+const Text = (props: PropsOf<"Text">) => (
   <p
     className={clsx(
       props.size === "sm"
@@ -286,18 +247,13 @@ const Text = ({
   </p>
 );
 
-const Overline = ({ props }: RendererProps<{ text: string }>) => (
+const Overline = (props: PropsOf<"Overline">) => (
   <span className="mono text-[11px] uppercase tracking-[0.14em] text-[var(--ink)] font-medium">
     {props.text}
   </span>
 );
 
-const Badge = ({
-  props,
-}: RendererProps<{
-  label: string;
-  tone?: "neutral" | "positive" | "warning" | "danger" | "info";
-}>) => {
+const Badge = (props: PropsOf<"Badge">) => {
   const tones = {
     neutral:
       "bg-[var(--surface-soft)] text-[var(--ink-2)] border-[var(--line)]",
@@ -321,13 +277,7 @@ const Badge = ({
   );
 };
 
-const Callout = ({
-  props,
-}: RendererProps<{
-  body: string;
-  title?: string;
-  tone?: "info" | "positive" | "warning" | "neutral";
-}>) => {
+const Callout = (props: PropsOf<"Callout">) => {
   const tone = props.tone ?? "info";
   const accents: Record<
     typeof tone,
@@ -383,12 +333,7 @@ const Callout = ({
   );
 };
 
-const BulletList = ({
-  props,
-}: RendererProps<{
-  items: string[];
-  ordered?: boolean;
-}>) => {
+const BulletList = (props: PropsOf<"BulletList">) => {
   const items = Array.isArray(props.items) ? props.items : [];
   if (!items.length) return null;
   const Tag = props.ordered ? "ol" : "ul";
@@ -420,15 +365,7 @@ const BulletList = ({
   );
 };
 
-const StatCard = ({
-  props,
-}: RendererProps<{
-  label: string;
-  value: string;
-  delta?: string;
-  deltaTone?: "positive" | "negative" | "neutral";
-  caption?: string;
-}>) => {
+const StatCard = (props: PropsOf<"StatCard">) => {
   // Prefer the agent's delta. Fall back to auto-computing from value vs.
   // the prior number in caption when the agent left delta blank.
   const explicitDelta = hasMeaningfulDelta(props.delta)
@@ -546,9 +483,7 @@ function xAxisProps(data: Series) {
   };
 }
 
-const BarChart = ({
-  props,
-}: RendererProps<{ data: Series; height?: number }>) => {
+const BarChart = (props: PropsOf<"BarChart">) => {
   const data = props.data ?? [];
   const xa = xAxisProps(data);
   return (
@@ -602,9 +537,7 @@ const BarChart = ({
   );
 };
 
-const LineChart = ({
-  props,
-}: RendererProps<{ data: Series; height?: number }>) => {
+const LineChart = (props: PropsOf<"LineChart">) => {
   const data = props.data ?? [];
   const xa = xAxisProps(data);
   return (
@@ -669,9 +602,7 @@ const LineChart = ({
   );
 };
 
-const HorizontalBarChart = ({
-  props,
-}: RendererProps<{ data: Series; height?: number }>) => {
+const HorizontalBarChart = (props: PropsOf<"HorizontalBarChart">) => {
   const data = props.data ?? [];
   // Auto-size: ~32px per row + padding. Caller can override via height.
   const height = props.height ?? Math.max(180, data.length * 32 + 48);
@@ -725,14 +656,7 @@ const HorizontalBarChart = ({
 
 type ScatterPoint = { x: number; y: number; label?: string };
 
-const ScatterChart = ({
-  props,
-}: RendererProps<{
-  data: ScatterPoint[];
-  xLabel?: string;
-  yLabel?: string;
-  height?: number;
-}>) => {
+const ScatterChart = (props: PropsOf<"ScatterChart">) => {
   const data = props.data ?? [];
   return (
     <div style={{ width: "100%", height: props.height ?? 280 }}>
@@ -800,9 +724,7 @@ const ScatterChart = ({
   );
 };
 
-const DonutChart = ({
-  props,
-}: RendererProps<{ data: Series; height?: number }>) => {
+const DonutChart = (props: PropsOf<"DonutChart">) => {
   const data = props.data ?? [];
   const total = data.reduce((s, d) => s + d.value, 0);
   const height = props.height ?? 240;
@@ -880,12 +802,7 @@ const DonutChart = ({
   );
 };
 
-const DataTable = ({
-  props,
-}: RendererProps<{
-  columns: { key: string; label: string; align?: "left" | "right" }[];
-  rows: Record<string, string | number>[];
-}>) => {
+const DataTable = (props: PropsOf<"DataTable">) => {
   const columns = props.columns ?? [];
   const rows = props.rows ?? [];
   return (
@@ -965,14 +882,10 @@ const DataTable = ({
   );
 };
 
-const Button = ({
-  props,
-  dispatch,
-}: RendererProps<{
-  label: string;
-  variant?: "primary" | "secondary" | "ghost";
-  action: { event: { name: string; context?: Record<string, unknown> } };
-}>) => {
+/* A v0.9 `action` on a Button arrives as the `onClick` event. Calling it
+ * sends the action's event to the agent (the runtime hands a v0.9 agent the
+ * v0.9 user action). */
+const Button = (props: PropsOf<"Button"> & { onClick?: () => void }) => {
   const variants = {
     primary: "bg-[var(--ink)] text-white hover:bg-[#1d1d23]",
     secondary:
@@ -982,9 +895,7 @@ const Button = ({
   return (
     <button
       type="button"
-      onClick={() =>
-        dispatch?.({ ...props.action, sourceComponentId: undefined } as never)
-      }
+      onClick={() => props.onClick?.()}
       className={clsx(
         "inline-flex items-center gap-2 px-4 py-2 rounded-[10px] mono text-[12.5px] font-medium transition",
         variants[props.variant ?? "secondary"],
@@ -995,15 +906,14 @@ const Button = ({
   );
 };
 
-const ChoiceChips = ({
-  props,
-  dispatch,
-}: RendererProps<{
-  label: string;
-  options: { label: string; value: string }[];
-  value: string | string[];
-  multi?: boolean;
-}>) => {
+/* A chip click calls `onSelectChip`, which is bound to the `selectChip`
+ * function (see index.ts). SurfaceCanvas sends it to the agent as the
+ * `select_chip` action. */
+const ChoiceChips = (
+  props: PropsOf<"ChoiceChips"> & {
+    onSelectChip?: (args: { value: string; label: string }) => unknown;
+  },
+) => {
   const selected = Array.isArray(props.value)
     ? props.value
     : props.value
@@ -1022,12 +932,10 @@ const ChoiceChips = ({
               key={o.value}
               type="button"
               onClick={() =>
-                dispatch?.({
-                  event: {
-                    name: "select_chip",
-                    context: { value: o.value, label: props.label },
-                  },
-                } as never)
+                void props.onSelectChip?.({
+                  value: o.value,
+                  label: props.label,
+                })
               }
               className={clsx(
                 "px-3 py-1.5 rounded-full text-[12px] border transition mono",
@@ -1044,10 +952,6 @@ const ChoiceChips = ({
     </div>
   );
 };
-
-function Slot({ render }: { render: ReactNode }) {
-  return <>{render}</>;
-}
 
 export const renderers = {
   Stack,

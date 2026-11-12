@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useAgentContext } from "@copilotkit/react-core/v2";
+import { useAgentContext } from "@copilotkit/react-core";
 import { useSkinData } from "@/shell/skin-provider";
 import { useBookstoreHref, useBookstoreSegments } from "@/skins/bookstore/href";
 import type { BookstoreData } from "@/skins/bookstore/data/types";

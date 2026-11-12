@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useThreads } from "@copilotkit/react-core/v2";
+import { useThreads } from "@copilotkit/react-core";
 import { Archive, Trash2, SquarePen } from "lucide-react";
 import { AGENT_ID } from "@/lib/agent-id";
 import { cn } from "@/lib/cn";

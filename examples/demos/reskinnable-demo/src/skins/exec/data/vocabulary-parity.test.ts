@@ -74,26 +74,42 @@ const DEPARTMENTS = Object.keys(CANONICAL_DEPARTMENTS) as Department[];
 const sorted = (values: readonly string[]) => [...values].sort();
 
 /**
- * The members of a `z.enum`, through whatever `.optional()`/`.nullable()`/
+ * The members of an enum, through whatever `.optional()`/`.nullable()`/
  * `.default()` wrapper the field carries. Reads the SCHEMA the app actually
  * ships rather than the record it was built from — a hand-written enum beside
  * an intact record is exactly the drift this suite has to catch.
+ *
+ * Takes a zod schema (the catalog's and the sandbox's) or a JSON Schema node
+ * (a 2.0 server tool publishes its parameters as `inputSchema`).
  */
 const enumOptions = (schema: unknown): string[] => {
   let node = schema;
   for (let depth = 0; depth < 8; depth += 1) {
-    const def = (node as { _def?: Record<string, unknown> })?._def;
-    if (!def) break;
-    if (Array.isArray(def.values)) return def.values.map(String);
-    if (!def.innerType) break;
+    if (!node || typeof node !== "object") break;
+    const record = node as Record<string, unknown>;
+    // JSON Schema: `enum`, or the enum branch of an `anyOf` (`.nullable()`).
+    if (Array.isArray(record.enum)) return record.enum.map(String);
+    if (Array.isArray(record.anyOf)) {
+      const branch = record.anyOf.find(
+        (item) => item && typeof item === "object" && "enum" in item,
+      );
+      if (branch) return enumOptions(branch);
+    }
+    // zod 4: an enum lists its members as `options`; wrappers keep the
+    // wrapped schema on `_def.innerType`.
+    if (Array.isArray(record.options)) return record.options.map(String);
+    const def = record._def as Record<string, unknown> | undefined;
+    if (!def?.innerType) break;
     node = def.innerType;
   }
-  throw new Error("not a z.enum (or a wrapper around one)");
+  throw new Error("not an enum (or a wrapper around one)");
 };
 
-/** One field of a zod object schema, by name. */
+/** One field of a zod object schema or a JSON Schema object, by name. */
 const field = (schema: unknown, name: string): unknown => {
-  const shape = (schema as z.ZodObject<z.ZodRawShape>)?.shape;
+  const shape =
+    (schema as z.ZodObject<z.ZodRawShape>)?.shape ??
+    (schema as { properties?: Record<string, unknown> })?.properties;
   const found = shape?.[name];
   if (!found) throw new Error(`schema has no "${name}" field`);
   return found;
@@ -118,7 +134,7 @@ describe("the MetricId restatements are set-equal", () => {
 
   it("agent.ts's tool schema accepts exactly the canonical metrics", () => {
     expect(
-      sorted(enumOptions(field(getMetricsTool.parameters, "metricId"))),
+      sorted(enumOptions(field(getMetricsTool.inputSchema, "metricId"))),
     ).toEqual(sorted(METRIC_IDS));
   });
 
@@ -185,7 +201,9 @@ describe("the Department restatements are set-equal", () => {
   it("agent.ts's tool schema scopes to exactly the canonical departments", () => {
     expect(
       sorted(
-        withoutAll(enumOptions(field(getMetricsTool.parameters, "department"))),
+        withoutAll(
+          enumOptions(field(getMetricsTool.inputSchema, "department")),
+        ),
       ),
     ).toEqual(sorted(DEPARTMENTS));
   });
@@ -200,7 +218,7 @@ describe("the Department restatements are set-equal", () => {
   it("every schema offers the company-wide series", () => {
     for (const schema of [
       field(definitions.MetricTile.props, "department"),
-      field(getMetricsTool.parameters, "department"),
+      field(getMetricsTool.inputSchema, "department"),
       field(sandboxSeries(), "department"),
     ]) {
       expect(enumOptions(schema)).toContain("all");

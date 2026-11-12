@@ -5,7 +5,7 @@
  * activity (one A2UI 1.0 createSurface).
  */
 import type { RunAgentInput } from "@ag-ui/client";
-import { BuiltInAgent } from "@copilotkit/runtime/v2";
+import { BuiltInAgent } from "@copilotkit/runtime/agent";
 import { EventQueue, EventType } from "@/agent/events";
 import { SurfaceStream } from "@/agent/surface";
 import type { Node } from "@/agent/surface";

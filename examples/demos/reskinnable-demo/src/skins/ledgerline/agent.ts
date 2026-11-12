@@ -1,4 +1,5 @@
-import { BuiltInAgent } from "@copilotkit/runtime/v2";
+import { BuiltInAgent } from "@copilotkit/runtime/agent";
+import { openaiText } from "@tanstack/ai-openai";
 import { traceRunInput, traceRunOutput } from "./learning/agent-trace";
 
 /**
@@ -136,7 +137,7 @@ class TracedLedgerlineAgent extends BuiltInAgent {
 
 export const ledgerlineAgent = () =>
   new TracedLedgerlineAgent({
-    model: "openai/gpt-6-luna",
+    model: openaiText("gpt-6-luna"),
     prompt: PROMPT,
     // A full card close is ~12 tool calls; the runtime's default with a
     // learned skill loaded is 10.

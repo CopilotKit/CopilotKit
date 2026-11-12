@@ -1,10 +1,11 @@
-import { BuiltInAgent, defineTool } from "@copilotkit/runtime/v2";
+import { BuiltInAgent, defineTool } from "@copilotkit/runtime/agent";
 import {
   A2UI_OPERATIONS_KEY,
   buildBriefOps,
   renderBriefParams,
   SURFACE_ID,
 } from "./build-brief-ops";
+import { openaiText } from "@tanstack/ai-openai";
 
 /**
  * Bellwether's agent. SERVER-ONLY — no "use client", no JSX, no React. The
@@ -23,8 +24,8 @@ import {
 
 /**
  * The a2ui report canvas. This MUST be a server tool. The a2ui middleware only
- * converts an `{ [A2UI_OPERATIONS_KEY]: ops }` payload into an `a2ui-surface`
- * activity when it observes it in an in-stream TOOL_CALL_RESULT event, which a
+ * converts an `{ [A2UI_OPERATIONS_KEY]: ops }` payload into a
+ * `generative-ui-surface` activity when it observes it in an in-stream TOOL_CALL_RESULT event, which a
  * client frontend-tool result never produces — emit these client-side and the
  * canvas stays permanently blank with no error anywhere.
  *
@@ -272,7 +273,7 @@ exposed sandbox functions rather than typing numbers into the generated markup.
 
 export const commerceAgent = () =>
   new BuiltInAgent({
-    model: "openai/gpt-6-luna",
+    model: openaiText("gpt-6-luna"),
     prompt: COMMERCE_PROMPT,
     tools: [renderTradeBriefTool],
     // NO `temperature`. Banking pins it to 0 for determinism, but gpt-6-luna is a

@@ -1,6 +1,6 @@
 "use client";
 
-import { CopilotChat, CopilotKitProvider } from "@copilotkit/react-core/v2";
+import { CopilotChat, CopilotKitProvider } from "@copilotkit/react-core";
 import { playgroundTheme, playgroundUI } from "@/a2ui/catalog/catalog";
 
 const GENERATIVE_UI = { ui: playgroundUI, theme: playgroundTheme };

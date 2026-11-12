@@ -3,7 +3,7 @@
 import {
   CopilotRuntime,
   createCopilotRuntimeHandler,
-} from "@copilotkit/runtime/v2";
+} from "@copilotkit/runtime";
 import { createPlaygroundAgent } from "@/agent/agent";
 
 export const runtime = "nodejs";

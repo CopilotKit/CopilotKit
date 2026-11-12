@@ -42,7 +42,7 @@ function useStandardNames(load: boolean) {
   useEffect(() => {
     if (!load || names.length) return;
     let live = true;
-    import("@copilotkit/react-core/v2/generative-ui")
+    import("@copilotkit/react-core/generative-ui")
       .then(({ standardUI }) => {
         if (live)
           setNames(

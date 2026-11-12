@@ -1,6 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { cleanup, render, screen } from "@testing-library/react";
-import type { RendererProps } from "@copilotkit/a2ui-renderer";
 import type {
   CommerceStoreState,
   MarginFloor,
@@ -133,7 +132,7 @@ const state: { data: CommerceStoreState } = { data: ledger() };
 /** Every readable registered during a render, newest last. */
 const readables: { description: string; value: string }[] = [];
 
-vi.mock("@copilotkit/react-core/v2", () => ({
+vi.mock("@copilotkit/react-core", () => ({
   useAgentContext: (entry: { description: string; value: string }) => {
     readables.push(entry);
   },
@@ -305,9 +304,9 @@ describe("the Promotions page shows an unchecked markdown as unchecked", () => {
   });
 });
 
-const TradingList = renderers.TradingList as (
-  props: RendererProps<{ kind: string }>,
-) => React.ReactElement;
+const TradingList = renderers.TradingList as (props: {
+  kind: string;
+}) => React.ReactElement;
 
 describe("the a2ui pending-markdowns list agrees with its own comment", () => {
   const renderList = (promotions: Promotion[]) =>
@@ -320,12 +319,7 @@ describe("the a2ui pending-markdowns list agrees with its own comment", () => {
           promotions,
         }}
       >
-        <TradingList
-          props={{ kind: "pendingMarkdowns" }}
-          // The RendererProps render-callback, not React children.
-          // eslint-disable-next-line react/no-children-prop
-          children={() => null as unknown as React.ReactNode}
-        />
+        <TradingList kind="pendingMarkdowns" />
       </ReportDataProvider>,
     );
 

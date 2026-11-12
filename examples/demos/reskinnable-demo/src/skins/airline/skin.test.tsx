@@ -108,7 +108,7 @@ describe("airline skin wiring", () => {
 
   it("registers the Trip Brief canvas (beat 3d)", () => {
     // Without this the `render_trip_brief` tool result still becomes an
-    // `a2ui-surface` activity, the shell still takes the region, and the region
+    // `generative-ui-surface` activity, the shell still takes the region, and the region
     // renders NOTHING — a blank canvas on stage with no error anywhere.
     expect(airline.CanvasSurface).toBe(AirlineCanvasSurface);
   });

@@ -8,7 +8,7 @@ import {
   useComponent,
   useFrontendTool,
   useHumanInTheLoop,
-} from "@copilotkit/react-core/v2";
+} from "@copilotkit/react-core";
 import { CheckCircle2, CircleAlert, Radio, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useSkin } from "@/shell/skin-provider";

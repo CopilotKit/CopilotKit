@@ -1,4 +1,3 @@
-import "@copilotkit/react-core/v2/styles.css";
 import "@/vendor/transitions/ui-generation.css";
 import "./globals.css";
 import "@/design-systems/design-systems.css";

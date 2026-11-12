@@ -91,7 +91,9 @@ npm run dev:agent
 
 - `src/app/page.tsx` - Main chat UI with frontend tool renderers (calendar, inbox, email, daily brief)
 - `src/components/` - React components for CalendarView, InboxView, EmailComposeView
-- `src/app/theme.ts` - A2UI theme configuration
+- `src/components/a2ui-v0-8-view.tsx` - Renders the daily brief dashboard, which the agent writes as A2UI v0.8 components
+- `src/components/a2ui-activity-wrapper.tsx` - The card around each generative UI surface in the chat
+- `src/app/api/copilotkit/[[...slug]]/route.ts` - CopilotKit runtime with generative UI for A2UI v0.9 agents
 - `agent/src/a2ui_agentspec_agent.py` - Agent spec definition with system prompt, tools, and demo data
 - `agent/src/main.py` - FastAPI server entry point
 
@@ -121,34 +123,6 @@ Feel free to submit issues and enhancement requests! This starter is designed to
 This project is licensed under the MIT License - see the LICENSE file for details.
 
 ## Troubleshooting
-
-### A2UI surfaces clipped (temporary workaround)
-
-If A2UI cards (e.g. those with bottom action buttons) get clipped in the chat UI, we keep a temporary patch under:
-
-- `src/app/patches/@copilotkit/a2ui-renderer/dist/A2UIMessageRenderer.js`
-
-To apply it locally (this edits `node_modules` and will be overwritten by reinstalling dependencies):
-
-```bash
-npm run patch:ui
-```
-
-After copying, restart `npm run dev`.
-
-### Custom message key warning (temporary workaround)
-
-If you see React warnings about duplicate keys related to custom message rendering (keys like `${message.id}-custom-before` / `${message.id}-custom-after`), we keep a temporary patch under:
-
-- `src/app/patches/@copilotkit/react-core/dist/index.mjs`
-
-To apply it locally (this edits `node_modules` and will be overwritten by reinstalling dependencies):
-
-```bash
-npm run patch:ui
-```
-
-After copying, restart `npm run dev`.
 
 ### Agent Connection Issues
 

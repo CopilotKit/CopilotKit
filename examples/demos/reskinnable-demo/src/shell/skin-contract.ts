@@ -1,6 +1,6 @@
 import type { ComponentType, ReactNode } from "react";
-import type { createCatalog } from "@copilotkit/a2ui-renderer";
-import type { SandboxFunction } from "@copilotkit/react-core/v2";
+import type { GenerativeUI } from "@copilotkit/react-core/generative-ui";
+import type { SandboxFunction } from "@copilotkit/react-core";
 
 /**
  * The Skin contract — the single interface every skin implements. This is the
@@ -56,8 +56,12 @@ export interface ChatHeaderAction {
   onClick: () => void;
 }
 
-/** An a2ui catalog as produced by createCatalog() from @copilotkit/a2ui-renderer. */
-export type A2uiCatalog = ReturnType<typeof createCatalog>;
+/**
+ * A skin's generative UI, as produced by `createGenerativeUI()` from
+ * `@copilotkit/react-core/generative-ui`. The shell hands it to
+ * `CopilotKitProvider` as `generativeUI={{ ui }}`.
+ */
+export type A2uiCatalog = GenerativeUI;
 
 /** The single contract every skin implements. */
 export interface Skin {
@@ -100,13 +104,14 @@ export interface Skin {
    * OPTIONAL: renders this skin's a2ui report surface full-region on the shared
    * canvas. The shell owns the canvas region, OGUI rendering, and surface-kind
    * detection; a skin supplies this to render its own catalog-bound a2ui
-   * surface (it typically wraps its data provider + <A2UIProvider catalog>).
+   * surface (it typically wraps its data provider around a `<PageSurface>` from
+   * `src/shell/generative-ui/page-surface.tsx`).
    * The shell handles the OGUI surface kind generically, so a skin does NOT
    * supply an OGUI renderer here — this is only its own a2ui report surface.
    * Omit if the skin has no a2ui report canvas; bookstore and exec omit it.
    * That omission does NOT mean the canvas's "no surface for this kind" branch
    * runs: it is DEFENSIVE, not exercised. Bookstore ships no report tool and
-   * so emits no `a2ui-surface` activity at all, and exec's are all
+   * so emits no surface activity at all, and exec's are all
    * `block:`-prefixed, which `useLatestCanvasSurface` skips before it can
    * claim the region (`./canvas/canvas-context.tsx`). Keep the branch — a
    * future skin that emits a non-block report without a `CanvasSurface` lands

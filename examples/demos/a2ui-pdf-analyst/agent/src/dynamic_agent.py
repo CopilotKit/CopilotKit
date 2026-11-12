@@ -25,12 +25,13 @@ agent has a real Python tool (`generate_a2ui` here) that:
      `update_components` + `update_data_model` operations.
   4. Returns the rendered ops as a JSON string. a normal tool result.
 
-The JS-side a2ui middleware detects `a2ui_operations` in the
-TOOL_CALL_RESULT and emits the ACTIVITY_SNAPSHOT events the canvas
-listens for. No frontend tool stripping. No orphan. No turn-2 crash.
+The JS-side runtime detects `a2ui_operations` in the TOOL_CALL_RESULT,
+converts the v0.9 operations to an A2UI 1.0 generative UI surface, and
+the canvas renders it. No frontend tool stripping. No orphan. No turn-2
+crash.
 
-`web/src/app/api/copilotkit/route.ts` sets `injectA2UITool: false` to
-match.
+`src/app/api/copilotkit/route.ts` sets
+`generativeUI: { a2uiVersion: "0.9", injectA2UITool: false }` to match.
 """
 
 from __future__ import annotations
@@ -93,9 +94,10 @@ def generate_a2ui(runtime: ToolRuntime[Any]) -> str:
         if isinstance(entry, dict) and entry.get("value")
     )
 
-    # The runtime context only carries the basic catalog. Append our
-    # custom catalog spec so the secondary LLM picks our components, not
-    # the generic A2UI primitives.
+    # The runtime context carries the v0.9 component schema that the
+    # runtime builds from the client's catalog, which also lists the A2UI
+    # basic components. Append our custom catalog spec so the secondary LLM
+    # picks our components, not the generic A2UI primitives.
     custom_catalog_note = (
         f"\n\n## Use THIS catalog (NOT the basic one above):\n"
         f"catalogId: {CATALOG_ID}\n\n"

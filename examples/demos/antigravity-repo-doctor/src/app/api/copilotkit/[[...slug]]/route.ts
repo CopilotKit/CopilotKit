@@ -4,7 +4,7 @@ import {
   CopilotRuntime,
   InMemoryAgentRunner,
   createCopilotRuntimeHandler,
-} from "@copilotkit/runtime/v2";
+} from "@copilotkit/runtime";
 import { AGENT_ID } from "@/lib/agent-id";
 import { serverEnv } from "@/lib/env";
 import { userFromCookieHeader } from "@/lib/user";
@@ -17,10 +17,11 @@ const agent = new HttpAgent({ url: env.AGENT_URL });
 
 const runtime = new CopilotRuntime({
   agents: { [AGENT_ID]: agent },
-  // run_tests returns an `a2ui_operations` envelope. The A2UI middleware finds
-  // it in the tool result and paints the surface. The agent owns its tools,
-  // so the runtime does not inject its own render_a2ui tool.
-  a2ui: { injectA2UITool: false },
+  // run_tests returns an `a2ui_operations` envelope (A2UI v0.9). The runtime
+  // finds it in the tool result and converts the surface to A2UI 1.0, which
+  // the browser paints with the catalog from src/a2ui. The agent owns its
+  // tools, so the runtime does not inject its own render_a2ui tool.
+  generativeUI: { a2uiVersion: "0.9", injectA2UITool: false },
   ...(env.CPK_INTELLIGENCE_API_KEY
     ? {
         // Threads (AG-UI Streams) and Product Analytics.

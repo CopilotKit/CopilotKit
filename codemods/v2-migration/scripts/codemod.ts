@@ -266,6 +266,8 @@ const V1_ONLY_PROVIDER_PROPS: Record<string, string> = {
   transcribeAudioUrl:
     "`transcribeAudioUrl` was removed in 2.0. Voice input goes through the runtime's transcription service.",
   textToSpeechUrl: "`textToSpeechUrl` was removed in 2.0.",
+  onError:
+    "2.0 calls `onError` with `{ error, code, context }`, not the v1 `CopilotErrorEvent`: read the error kind from `code` (it was `type`), and `timestamp` is gone.",
 };
 
 const MARKDOWN_GUIDE = "https://docs.copilotkit.ai/migrate/markdown-renderer";
@@ -771,6 +773,7 @@ const codemod: Codemod<Lang> = async (root, options) => {
       ? rootNode
       : parse<Lang>(options.language, afterAngular).root(),
     (text) => parse<Lang>(options.language, text).root(),
+    root.filename(),
   );
   const afterA2UI = a2ui ?? afterAngular;
   // Last: merge the CopilotKit imports the earlier steps added.

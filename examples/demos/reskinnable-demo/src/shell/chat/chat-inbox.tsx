@@ -7,7 +7,7 @@ import {
   SquarePen,
   Trash2,
 } from "lucide-react";
-import { useThreads } from "@copilotkit/react-core/v2";
+import { useThreads } from "@copilotkit/react-core";
 
 import { cn } from "@/lib/utils";
 import { useSkin } from "@/shell/skin-provider";

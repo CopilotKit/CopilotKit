@@ -6,7 +6,7 @@ import {
   useHumanInTheLoop,
   useFrontendTool,
   useRenderTool,
-} from "@copilotkit/react-core/v2";
+} from "@copilotkit/react-core";
 import { ExpenseHarnessReport } from "@/skins/banking/components/expense-harness-report";
 import { HarnessConsole } from "@/skins/banking/components/harness-console";
 import { useFirstDelegationToolCallId } from "@/shell/subagents/subagent-activity";

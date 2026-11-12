@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import localFont from "next/font/local";
 import "./globals.css";
 import "./a2ui-theme.css";
-import "@copilotkit/react-core/v2/styles.css";
 
 const geistSans = localFont({
   src: "./fonts/GeistVF.woff",

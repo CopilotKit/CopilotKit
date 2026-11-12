@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { SandboxFunction } from "@copilotkit/react-core/v2";
+import type { SandboxFunction } from "@copilotkit/react-core";
 import type { InventoryRisk, Lane, Shipment } from "./data/types";
 import { computeMitigationOptions } from "./data/mitigation-options";
 import { deriveKpis } from "./components/kpi-strip";

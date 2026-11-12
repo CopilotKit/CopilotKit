@@ -1,4 +1,7 @@
+import { parse } from "codemod:ast-grep";
 import type { Edit, SgNode } from "codemod:ast-grep";
+import { readFileSync, statSync } from "fs";
+import { dirname, resolve } from "path";
 import type TSX from "codemod:ast-grep/langs/tsx";
 import {
   applyEdits,
@@ -21,7 +24,7 @@ import { byteIndex, charIndex } from "./offsets.ts";
 const TODO = "TODO(copilotkit-2.0):";
 const GUIDE = "https://docs.copilotkit.ai/generative-ui/components/from-a2ui";
 
-export const RENDERER_NOTE = `This was a v0.9 renderer, which got \`{ props, children, dispatch }\`. A 2.0 component gets its resolved props directly, child components as slots or \`child()\` / \`childList()\` props, and calls an event or a function instead of \`dispatch\`. Rewrite it. See ${GUIDE}#convert-a-custom-catalog`;
+export const RENDERER_NOTE = `This was a v0.9 renderer, which got \`{ props, children, dispatch }\`. A 2.0 component gets its resolved props directly, child components as slots or \`child()\` / \`childList()\` props, and calls an event or a function instead of \`dispatch\`. Rewrite it, and type its props (\`z.output\` of its schema): \`createGenerativeUI\` does not infer them. See ${GUIDE}#convert-a-custom-catalog`;
 export const ANGULAR_COMPONENT_NOTE = `This was a v0.9 Angular component. In 2.0 it gets each prop as an input with its resolved value, child components as \`GenerativeUIChildren\` inputs, and an event input or a \`registerGenerativeUIFunction\` function replaces \`dispatch\` from \`injectA2UIComponentContext()\`. Update the component. See ${GUIDE}#convert-a-custom-catalog`;
 export const DESCRIPTION_NOTE = `Add a \`description\` to this component. The agent reads it to choose the component. See ${GUIDE}#convert-a-custom-catalog`;
 export const CATALOG_NOTE = `This v0.9 catalog could not be converted automatically. Rewrite it with \`createGenerativeUI({ id, extends: [standardUI], components })\`, one entry per component with \`component\`, \`description\` and plain \`props\`. See ${GUIDE}#convert-a-custom-catalog`;
@@ -30,6 +33,10 @@ export const PROVIDER_NOTE = `The \`a2ui\` option was removed in 2.0. Pass \`gen
 export const PROVIDER_OPTIONS_NOTE = `The \`a2ui\` option was removed in 2.0, and these options have no 1:1 equivalent: \`theme\` becomes the \`theme\` of the generative UI config (CSS variables), \`onAction\` becomes events or functions on the components, and \`loadingComponent\`, \`recovery\` and \`includeSchema\` are gone. Move what you need, then delete \`a2ui\`. See ${GUIDE}`;
 export const ANGULAR_PROVIDER_NOTE = `The \`a2ui\` option was removed in 2.0. Add \`provideGenerativeUI({ ui })\` from "@copilotkit/angular/generative-ui" next to \`provideCopilotKit\`, with a UI from \`createGenerativeUI\`, and delete \`a2ui\`. See ${GUIDE}#before-and-after`;
 export const PACKAGE_NOTE = `The A2UI v0.9 client (\`@copilotkit/a2ui-renderer\`, \`@copilotkit/angular/a2ui\`) was removed in 2.0. Use generative UI from the framework's \`/generative-ui\` entry: \`createGenerativeUI\` and \`standardUI\` for catalogs, \`GenerativeUISurface\` for a surface, and \`useGenerativeUIState\` and \`useGenerativeUIFunction\` for state and actions. Then delete this import. See ${GUIDE}`;
+export const CHAT_RENDERER_NOTE = `The v0.9 chat renderer (\`createA2UIMessageRenderer\`, its option and action types, \`A2UITheme\`, \`a2uiDefaultTheme\`) was removed in 2.0. Generative UI renders the chat surfaces itself: delete the renderer and its \`renderActivityMessages\` entry, pass a wrapper component as \`<CopilotChat generativeUISurface>\`, and set colors with \`generativeUI.theme\`. See ${GUIDE}`;
+export const ACTIVITY_NOTE = `2.0 sends A2UI surfaces as \`generative-ui-surface\` activities, with the A2UI 1.0 operations in \`content.operations\` (not \`a2ui_operations\`). When the runtime has generative UI on, \`a2ui-surface\` activities no longer reach the client, so this code never runs. See ${GUIDE}`;
+export const MIDDLEWARE_NOTE = `2.0's runtime runs the A2UI middleware itself for \`generativeUI: { a2uiVersion: "0.9" }\`. Delete this one, or the agent gets two, and move its options (\`injectA2UITool\`, ...) to \`generativeUI\`. See ${GUIDE}#keep-a-v09-agent`;
+export const A2UI_PACKAGES_NOTE = `CopilotKit 2.0 renders A2UI with generative UI and does not use the \`@a2ui/*\` renderers or their themes. Delete this import if it served the v0.9 client. See ${GUIDE}`;
 export const RUNTIME_NOTE = `The runtime \`a2ui\` option moved to \`generativeUI: { a2uiVersion: "0.9", ...options }\` in 2.0. The codemod could not move this one: its value is not an object literal, its \`enabled\` is not \`true\` or \`false\`, or \`generativeUI\` already sets one of its keys. Move it by hand, or delete it if it was off. See ${GUIDE}#before-and-after`;
 
 const A2UI_RENDERER = "@copilotkit/a2ui-renderer";
@@ -62,6 +69,84 @@ const CATALOG_FACTORIES = [
     defaultId: "copilotkit://angular-catalog",
   },
 ] as const;
+
+/**
+ * The components of `standardUI` in 2.0 (React and Angular). A v0.9
+ * component with one of these names replaced the basic one; in 2.0 the
+ * catalog drops the standard one with `standardUI.omit([...])`, because
+ * `createGenerativeUI` throws when a name comes from two places.
+ */
+const STANDARD_COMPONENTS = new Set([
+  "Box",
+  "Column",
+  "Row",
+  "Grid",
+  "GridItem",
+  "Card",
+  "Flow",
+  "FlowItem",
+  "Carousel",
+  "CarouselItem",
+  "CarouselMediaItem",
+  "Spacer",
+  "Divider",
+  "Tabs",
+  "Title",
+  "Text",
+  "Caption",
+  "Label",
+  "Bold",
+  "Italic",
+  "Underline",
+  "Strikethrough",
+  "Badge",
+  "Blockquote",
+  "Code",
+  "Markdown",
+  "Math",
+  "ShimmerText",
+  "Link",
+  "Tooltip",
+  "Button",
+  "Pressable",
+  "Form",
+  "TextField",
+  "TextArea",
+  "Select",
+  "CheckBox",
+  "Radio",
+  "RadioGroup",
+  "Slider",
+  "SegmentedControl",
+  "ChoicePicker",
+  "DateTimeInput",
+  "PulseIndicator",
+  "FlashcardFlip",
+  "Popover",
+  "PopoverTrigger",
+  "PopoverContent",
+  "Modal",
+  "Table",
+  "TableSection",
+  "TableRow",
+  "TableCell",
+  "List",
+  "ListItem",
+  "Chart",
+  "Map",
+  "Image",
+  "Icon",
+  "Favicon",
+  "Svg",
+  "Video",
+  "AudioPlayer",
+  "HtmlView",
+  "LinkCard",
+  "Citation",
+  "FollowUp",
+  "EntityCard",
+  "ImageGrid",
+]);
 
 /** v0.9 prop schemas and the plain zod schema, by `z`, that replaces them. */
 const DYNAMIC_SCHEMAS: Record<string, (z: string) => string> = {
@@ -123,11 +208,28 @@ const ZOD_SOURCES = new Set(["zod", "zod/v4", "zod-v3"]);
 export function migrateA2UI(
   rootNode: Node,
   reparse: (text: string) => Node,
+  filename?: string,
 ): string | null {
-  if (!/a2ui/i.test(rootNode.text())) return null;
-  const state: State = { imports: new Map(), changed: false };
+  // A file that names A2UI, or that has a v0.9 binding or template shape.
+  if (!/a2ui|\bpath\s*:|componentId/i.test(rootNode.text())) return null;
+  const z = zodName(rootNode);
+  const state: State = {
+    imports: new Map(),
+    changed: false,
+    filename,
+    // Decided on the original file: the steps remove the shapes it looks for.
+    v09Schemas: z !== undefined && isV09SchemaFile(rootNode, z),
+  };
   let current = rootNode;
-  for (const step of [catalogEdits, schemaEdits, unionEdits, configEdits]) {
+  for (const step of [
+    definitionsEdits,
+    renderersEdits,
+    catalogEdits,
+    schemaEdits,
+    unionEdits,
+    zodRecordEdits,
+    configEdits,
+  ]) {
     const edits = step(current, state);
     if (edits.length === 0) continue;
     state.changed = true;
@@ -137,7 +239,7 @@ export function migrateA2UI(
     const edits = importEdits(current, state);
     if (edits.length > 0) current = reparse(current.commitEdits(edits));
   }
-  const todos = packageEdits(current);
+  const todos = [...packageEdits(current), ...leftoverEdits(current)];
   if (todos.length > 0) return current.commitEdits(todos);
   return state.changed ? current.text() : null;
 }
@@ -163,10 +265,91 @@ function packageEdits(rootNode: Node): Edit[] {
   return edits;
 }
 
+/** The A2UI exports of the 1.x \`react-core/v2\` entry that 2.0 removed. */
+const REMOVED_CHAT_RENDERER = new Set([
+  "createA2UIMessageRenderer",
+  "A2UIMessageRendererOptions",
+  "A2UIUserAction",
+  "A2UIActionInterceptor",
+  "A2UIRecoveryRendererOptions",
+  "A2UITheme",
+  "a2uiDefaultTheme",
+]);
+
+/**
+ * TODOs for v0.9 code that the other steps do not convert: the removed chat
+ * renderer, readers of the \`a2ui-surface\` activity, an app's own
+ * \`A2UIMiddleware\`, \`@a2ui/*\` renderer imports, and renderers typed with
+ * \`RendererProps\`. Only in files that use CopilotKit.
+ */
+function leftoverEdits(rootNode: Node): Edit[] {
+  const imported = importsOf(rootNode);
+  if (!imported.some((entry) => entry.source.startsWith("@copilotkit/")))
+    return [];
+  const source = rootNode.text();
+  const edits: Edit[] = [];
+  const done = new Set<number>();
+  const add = (node: Node, note: string) => {
+    const start = node.range().start.index;
+    if (done.has(start)) return;
+    done.add(start);
+    const todo = todoAbove(node, source, note);
+    if (todo) edits.push(todo);
+  };
+  for (const entry of imported) {
+    if (
+      REMOVED_CHAT_RENDERER.has(entry.name) &&
+      (entry.source === "@copilotkit/react-core" ||
+        entry.source === "@copilotkit/react-core/v2")
+    )
+      add(entry.statement, CHAT_RENDERER_NOTE);
+    else if (entry.source.startsWith("@a2ui/"))
+      add(entry.statement, A2UI_PACKAGES_NOTE);
+  }
+  for (const statement of rootNode.findAll({
+    rule: { kind: "import_statement" },
+  })) {
+    const from = statement.field("source")?.text().slice(1, -1) ?? "";
+    // A namespace or default import of an @a2ui package has no specifier.
+    if (from.startsWith("@a2ui/")) add(statement, A2UI_PACKAGES_NOTE);
+  }
+  for (const literal of rootNode.findAll({
+    rule: { kind: "string", regex: "^[\"'`]a2ui-surface[\"'`]$" },
+  }))
+    add(enclosingStatement(literal), ACTIVITY_NOTE);
+  for (const local of localsOf(
+    rootNode,
+    ["@ag-ui/a2ui-middleware"],
+    ["A2UIMiddleware"],
+  ).keys()) {
+    for (const construction of rootNode.findAll({
+      rule: {
+        kind: "new_expression",
+        has: { field: "constructor", regex: `^${local}$` },
+      },
+    }))
+      add(enclosingStatement(construction), MIDDLEWARE_NOTE);
+  }
+  for (const [local, framework] of a2uiLocals(rootNode, "RendererProps")) {
+    for (const reference of references(rootNode, local)) {
+      if (reference.kind() !== "type_identifier") continue;
+      add(
+        enclosingStatement(reference),
+        framework === "angular" ? ANGULAR_COMPONENT_NOTE : RENDERER_NOTE,
+      );
+    }
+  }
+  return edits;
+}
+
 interface State {
   /** Imports to add: names by source. */
   imports: Map<string, Set<string>>;
   changed: boolean;
+  /** The path of the file, to read the modules it imports. */
+  filename?: string;
+  /** Whether the file has v0.9 prop schemas (see `isV09SchemaFile`). */
+  v09Schemas: boolean;
 }
 
 function need(state: State, source: string, name: string) {
@@ -581,23 +764,588 @@ function unwrap(node: Node | null | undefined): Node | null {
   return current;
 }
 
+// ---- Definitions and renderers modules ----
+
+/** The local names of `name` imported from the v0.9 client, with their framework. */
+function a2uiLocals(rootNode: Node, name: string): Map<string, Framework> {
+  const locals = new Map<string, Framework>();
+  for (const entry of importsOf(rootNode)) {
+    const framework = FRAMEWORK_OF[entry.source];
+    if (framework !== undefined && entry.name === name)
+      locals.set(entry.local, framework);
+  }
+  return locals;
+}
+
+/**
+ * Object literals typed with the v0.9 type `name`, as `const x: T = {...}`
+ * or `{...} satisfies T`, with the edit that deletes the type.
+ */
+function typedObjects(
+  rootNode: Node,
+  name: string,
+): { object: Node; framework: Framework; untype: Edit }[] {
+  const result: { object: Node; framework: Framework; untype: Edit }[] = [];
+  for (const [local, framework] of a2uiLocals(rootNode, name)) {
+    for (const reference of references(rootNode, local)) {
+      if (reference.kind() !== "type_identifier") continue;
+      const type =
+        reference.parent()?.kind() === "generic_type"
+          ? reference.parent()!
+          : reference;
+      const holder = type.parent();
+      if (holder?.kind() === "satisfies_expression") {
+        const expression = holder.child(0);
+        const object = unwrap(expression);
+        if (!expression || object?.kind() !== "object") continue;
+        result.push({
+          object,
+          framework,
+          untype: {
+            startPos: expression.range().end.index,
+            endPos: holder.range().end.index,
+            insertedText: "",
+          },
+        });
+      } else if (
+        holder?.kind() === "type_annotation" &&
+        holder.parent()?.kind() === "variable_declarator"
+      ) {
+        const object = unwrap(holder.parent()!.field("value"));
+        if (object?.kind() !== "object") continue;
+        result.push({
+          object,
+          framework,
+          untype: {
+            startPos: holder.range().start.index,
+            endPos: holder.range().end.index,
+            insertedText: "",
+          },
+        });
+      }
+    }
+  }
+  return result;
+}
+
+/**
+ * A `.describe()` argument without the v0.9 `REF:<ref>|` marker: the text
+ * after `|` as a string literal, `undefined` for a bare marker, and any
+ * other argument as written.
+ */
+function withoutRefMarker(arg: Node): string | undefined {
+  const text = arg.text();
+  if (arg.kind() !== "string") return text;
+  const value = text.slice(1, -1);
+  if (!value.startsWith("REF:")) return text;
+  const bar = value.indexOf("|");
+  if (bar === -1) return undefined;
+  return `${text[0]}${value.slice(bar + 1)}${text[0]}`;
+}
+
+/**
+ * The callee of a call without whitespace: `z\n  .union` is `z.union`.
+ * `undefined` for a node that is not a call.
+ */
+function calleeOf(node: Node | null | undefined): string | undefined {
+  if (node?.kind() !== "call_expression") return undefined;
+  return node.field("function")?.text().replace(/\s/g, "");
+}
+
+/**
+ * A prop schema without its trailing `.optional()` and `.describe(text)`
+ * calls: the base schema, whether it was optional, the description, and
+ * the common type a v0.9 `REF:common_types.json#/$defs/<type>` marker
+ * names (`ComponentId`, `ChildList`, `Action`, ...).
+ */
+function peelSchema(schema: Node): {
+  base: Node;
+  optional: boolean;
+  description?: string;
+  ref?: string;
+} {
+  let base = schema;
+  let optional = false;
+  let description: string | undefined;
+  let ref: string | undefined;
+  for (;;) {
+    const callee =
+      base.kind() === "call_expression" ? base.field("function") : null;
+    const object = callee?.field("object");
+    if (callee?.kind() !== "member_expression" || !object) break;
+    const method = callee.field("property")?.text();
+    const args = argumentNodes(base);
+    if (method === "optional" && args.length === 0 && !optional) {
+      optional = true;
+    } else if (
+      method === "describe" &&
+      args.length === 1 &&
+      description === undefined
+    ) {
+      description = withoutRefMarker(args[0]!);
+      ref ??= /^["'`]REF:[^"'`|]*#\/\$defs\/(\w+)/.exec(args[0]!.text())?.[1];
+    } else break;
+    base = object;
+  }
+  return { base, optional, description, ref };
+}
+
+/** The comments right before `entry` in `object`, with nothing between. */
+function leadingComments(object: Node, entry: Node): Node[] {
+  const comments: Node[] = [];
+  for (const child of object.children()) {
+    if (child.kind() === "comment") {
+      comments.push(child);
+      continue;
+    }
+    if (child.range().start.index === entry.range().start.index)
+      return comments;
+    if (child.isNamed()) comments.length = 0;
+  }
+  return [];
+}
+
+/**
+ * The v0.9 conventions in the props of one component definition:
+ * `children: z.array(z.string())` is a child list and `child: z.string()`
+ * a child, which the v0.9 renderer drew with `children(id)`. An `action`
+ * prop with a schema that is not a plain value was passed to `dispatch`;
+ * in 2.0 it is an event. The runtime turns a v0.9 action into an event
+ * binding under the same name, except `Button.action`, which becomes
+ * `onClick` (the name of the standard Button), so a `Button` gets the
+ * event `onClick`.
+ */
+function definitionEdits(
+  entry: Node,
+  z: string,
+  actionSchemas: Set<string>,
+  framework: Framework,
+  source: string,
+  state: State,
+  /** Counts the identifiers that a moved action prop used as its schema. */
+  movedSchemas: Map<string, number>,
+): Edit[] {
+  const value = unwrap(entry.kind() === "pair" ? entry.field("value") : null);
+  const fields = value?.kind() === "object" ? entriesOf(value) : null;
+  if (!fields) return [];
+  const propsEntry = entryNamed(fields, "props");
+  const propsValue =
+    propsEntry?.kind() === "pair" ? propsEntry.field("value") : null;
+  if (
+    !propsEntry ||
+    propsValue?.kind() !== "call_expression" ||
+    calleeOf(propsValue) !== `${z}.object`
+  )
+    return [];
+  const shape = unwrap(argumentNodes(propsValue)[0]);
+  const props = shape?.kind() === "object" ? entriesOf(shape) : null;
+  if (!props) return [];
+  const from = GENERATIVE_UI_SOURCE[framework];
+  const plain = new RegExp(
+    `^${z.replace(/\$/g, "\\$")}\\.(string|number|boolean|enum|literal)\\(`,
+  );
+  const edits: Edit[] = [];
+  for (const prop of props) {
+    if (prop.kind() !== "pair") continue;
+    const schema = prop.field("value");
+    if (!schema) continue;
+    const { base, optional, description, ref } = peelSchema(schema);
+    const compact = base.text().replace(/\s/g, "");
+    const suffix = optional ? ".optional()" : "";
+    const key = keyOf(prop);
+    if (
+      ref === "ChildList" ||
+      (key === "children" &&
+        (compact === `${z}.array(${z}.string())` ||
+          isTemplateChildUnion(base, z)))
+    ) {
+      need(state, from, "childList");
+      edits.push(schema.replace(`childList(${description ?? ""})${suffix}`));
+    } else if (
+      ref === "ComponentId" ||
+      (key === "child" && compact === `${z}.string()`)
+    ) {
+      need(state, from, "child");
+      edits.push(schema.replace(`child(${description ?? ""})${suffix}`));
+    } else if (
+      (ref === "Action" ||
+        (key === "action" &&
+          (actionSchemas.has(compact) || !plain.test(compact)))) &&
+      entryNamed(fields, "events") === undefined
+    ) {
+      const name =
+        keyOf(entry) === "Button" && key === "action" ? "onClick" : key;
+      // An event that matches no declared function needs its parameters.
+      const parameters = `parameters: ${z}.object({})`;
+      const event =
+        description === undefined
+          ? `{ ${parameters} }`
+          : `{ description: ${description}, ${parameters} }`;
+      edits.push(removeEntry(prop, source));
+      if (/^[A-Za-z_$][\w$]*$/.test(compact))
+        movedSchemas.set(compact, (movedSchemas.get(compact) ?? 0) + 1);
+      // The comments right above the prop describe it: they go with it.
+      for (const comment of leadingComments(shape!, prop))
+        edits.push(deleteLines(comment, source));
+      const end = propsEntry.range().end.index;
+      edits.push({
+        startPos: end,
+        endPos: end,
+        insertedText: `,\n${indentOf(propsEntry, source)}events: { ${name}: ${event} }`,
+      });
+    }
+  }
+  return edits;
+}
+
+/**
+ * A top-level `const` that holds a v0.9 child reference and that only
+ * `children` or `child` props of the definitions use, such as
+ * `const childrenRef = z.array(z.string())` with `children: childrenRef`.
+ * Its value becomes `childList()` or `child()`; a description stays.
+ */
+function childRefConstEdits(
+  rootNode: Node,
+  z: string,
+  objects: Map<number, { object: Node; framework: Framework }>,
+  state: State,
+): Edit[] {
+  const edits: Edit[] = [];
+  /** By const name: the role of each use, and the framework. */
+  const uses = new Map<string, { roles: Set<string>; framework: Framework }>();
+  for (const { object, framework } of objects.values()) {
+    for (const entry of entriesOf(object) ?? []) {
+      const value = unwrap(
+        entry.kind() === "pair" ? entry.field("value") : null,
+      );
+      const fields = value?.kind() === "object" ? entriesOf(value) : null;
+      const props = fields && entryNamed(fields, "props");
+      const call = props?.kind() === "pair" ? props.field("value") : null;
+      if (calleeOf(call) !== `${z}.object`) continue;
+      const shape = unwrap(argumentNodes(call!)[0]);
+      for (const prop of (shape?.kind() === "object" && entriesOf(shape)) ||
+        []) {
+        if (prop.kind() !== "pair") continue;
+        const schema = prop.field("value");
+        if (!schema) continue;
+        const { base } = peelSchema(schema);
+        if (base.kind() !== "identifier") continue;
+        const record = uses.get(base.text()) ?? {
+          roles: new Set<string>(),
+          framework,
+        };
+        record.roles.add(keyOf(prop) ?? "");
+        uses.set(base.text(), record);
+      }
+    }
+  }
+  for (const [name, { roles, framework }] of uses) {
+    const declarator = rootNode.find({
+      rule: {
+        kind: "variable_declarator",
+        has: { field: "name", regex: `^${name.replace(/\$/g, "\\$")}$` },
+      },
+    });
+    const declaration = declarator?.parent();
+    const init = declarator?.field("value");
+    if (
+      !declarator ||
+      !init ||
+      declaration?.kind() !== "lexical_declaration" ||
+      !["program", "export_statement"].includes(
+        declaration.parent()?.kind() ?? "",
+      )
+    )
+      continue;
+    const { base, optional, description, ref } = peelSchema(init);
+    const compact = base.text().replace(/\s/g, "");
+    const suffix = optional ? ".optional()" : "";
+    // Every use outside the definitions would keep the old meaning.
+    const declaredAt = declarator.field("name")!.range().start.index;
+    const outside = references(rootNode, name).filter(
+      (reference) => reference.range().start.index !== declaredAt,
+    ).length;
+    const inProps = [...roles].length > 0;
+    const from = GENERATIVE_UI_SOURCE[framework];
+    const isList =
+      ref === "ChildList" ||
+      (roles.size === 1 &&
+        roles.has("children") &&
+        (compact === `${z}.array(${z}.string())` ||
+          isTemplateChildUnion(base, z)));
+    const isChild =
+      ref === "ComponentId" ||
+      (roles.size === 1 && roles.has("child") && compact === `${z}.string()`);
+    if (!inProps || outside === 0) continue;
+    if (!isList && !isChild) continue;
+    // Only when the definitions are the only users of the const.
+    const propUses = rootNode
+      .findAll({ rule: { kind: "identifier", regex: `^${name}$` } })
+      .filter((reference) => {
+        if (reference.range().start.index === declaredAt) return false;
+        let node: Node | null = reference;
+        while (
+          node?.parent() &&
+          ["member_expression", "call_expression", "arguments"].includes(
+            node.parent()!.kind(),
+          )
+        )
+          node = node.parent();
+        const pair = node?.parent();
+        return (
+          pair?.kind() === "pair" &&
+          ["children", "child"].includes(keyOf(pair) ?? "")
+        );
+      }).length;
+    if (propUses !== outside) continue;
+    const helper = isList ? "childList" : "child";
+    need(state, from, helper);
+    edits.push(init.replace(`${helper}(${description ?? ""})${suffix}`));
+  }
+  return edits;
+}
+
+/**
+ * A v0.9 definitions object (typed `CatalogDefinitions`, or the definitions
+ * of a `createCatalog` call in the file): the type goes, and the props of
+ * each component follow the 2.0 conventions (see `definitionEdits`).
+ */
+function definitionsEdits(rootNode: Node, state: State): Edit[] {
+  const source = rootNode.text();
+  const z = zodName(rootNode);
+  const actionSchemas = new Set(a2uiLocals(rootNode, "ActionSchema").keys());
+  const edits: Edit[] = [];
+  const objects = new Map<number, { object: Node; framework: Framework }>();
+  for (const { object, framework, untype } of typedObjects(
+    rootNode,
+    "CatalogDefinitions",
+  )) {
+    edits.push(untype);
+    objects.set(object.range().start.index, { object, framework });
+  }
+  for (const factory of CATALOG_FACTORIES) {
+    for (const local of localsOf(
+      rootNode,
+      [factory.source],
+      [factory.name],
+    ).keys()) {
+      for (const call of rootNode.findAll({
+        rule: {
+          kind: "call_expression",
+          has: { field: "function", regex: `^${local}$` },
+        },
+      })) {
+        const first = argumentNodes(call)[0];
+        const side = first && resolveSide(rootNode, first);
+        const object =
+          side?.kind === "inline"
+            ? side.object
+            : side?.kind === "named"
+              ? side.entries[0]?.parent()
+              : undefined;
+        if (object)
+          objects.set(object.range().start.index, {
+            object,
+            framework: factory.framework,
+          });
+      }
+    }
+  }
+  if (z === undefined) return edits;
+  if (state.v09Schemas) {
+    const framework = frameworkOf(rootNode);
+    for (const object of exportedDefinitionObjects(rootNode, z)) {
+      const start = object.range().start.index;
+      if (!objects.has(start)) objects.set(start, { object, framework });
+    }
+  }
+  const movedSchemas = new Map<string, number>();
+  for (const { object, framework } of objects.values()) {
+    for (const entry of entriesOf(object) ?? []) {
+      edits.push(
+        ...definitionEdits(
+          entry,
+          z,
+          actionSchemas,
+          framework,
+          source,
+          state,
+          movedSchemas,
+        ),
+      );
+    }
+  }
+  edits.push(...childRefConstEdits(rootNode, z, objects, state));
+  // A local action schema that only the moved props used goes too, with
+  // the comments above it.
+  for (const [name, moved] of movedSchemas) {
+    if (actionSchemas.has(name)) continue;
+    const declarator = rootNode.find({
+      rule: {
+        kind: "variable_declarator",
+        has: { field: "name", regex: `^${name.replace(/\$/g, "\\$")}$` },
+      },
+    });
+    const declaration = declarator?.parent();
+    if (
+      !declarator ||
+      declaration?.kind() !== "lexical_declaration" ||
+      declaration.parent()?.kind() !== "program" ||
+      declaration
+        .children()
+        .filter((child) => child.kind() === "variable_declarator").length !== 1
+    )
+      continue;
+    const uses = references(rootNode, name).filter(
+      (reference) =>
+        reference.range().start.index !==
+        declarator.field("name")!.range().start.index,
+    ).length;
+    if (uses !== moved) continue;
+    // One edit from the first comment to the end of the declaration, so
+    // that no blank lines pile up where they were.
+    const first = leadingComments(rootNode, declaration)[0] ?? declaration;
+    let start = charIndex(source, first.range().start.index);
+    let end = charIndex(source, declaration.range().end.index);
+    while (start > 0 && /[ \t]/.test(source[start - 1]!)) start--;
+    if (source[end] === "\n") end++;
+    if (
+      source[end] === "\n" &&
+      (start === 0 || source.slice(0, start).endsWith("\n\n"))
+    )
+      end++;
+    edits.push({
+      startPos: byteIndex(source, start),
+      endPos: byteIndex(source, end),
+      insertedText: "",
+    });
+  }
+  return edits;
+}
+
+/**
+ * A v0.9 renderers object in its own module (typed `CatalogRenderers`): the
+ * type goes, and each renderer gets the TODO to rewrite it. A renderers
+ * object that a `createCatalog` call of the same file uses gets its TODOs
+ * from `catalogEdits`.
+ */
+function renderersEdits(rootNode: Node): Edit[] {
+  const hasCatalog = CATALOG_FACTORIES.some(
+    (factory) => localsOf(rootNode, [factory.source], [factory.name]).size > 0,
+  );
+  if (hasCatalog) return [];
+  const source = rootNode.text();
+  const edits: Edit[] = [];
+  for (const { object, framework, untype } of typedObjects(
+    rootNode,
+    "CatalogRenderers",
+  )) {
+    edits.push(untype);
+    const note =
+      framework === "angular" ? ANGULAR_COMPONENT_NOTE : RENDERER_NOTE;
+    for (const entry of entriesOf(object) ?? []) {
+      const todo = todoAbove(entry, source, note);
+      if (todo) edits.push(todo);
+    }
+  }
+  return edits;
+}
+
 // ---- Catalogs ----
 
 /** One side of `createCatalog`: the definitions or the renderers. */
 type Side =
   /** An object literal in the call, or a `const` used only there: inlined. */
   | { kind: "inline"; entries: Node[]; object: Node; declaration?: Node }
-  /** A `const` with a literal that is also used elsewhere: read by name. */
-  | { kind: "named"; name: string; entries: Node[] }
+  /**
+   * A `const` with a literal that is also used elsewhere, or that another
+   * module of the app exports: read by name. `external` is set for an
+   * imported one: its renderers get their TODO in their own module.
+   */
+  | { kind: "named"; name: string; entries: Node[]; external?: boolean }
   /** Anything else with a name: names are unknown, members read by name. */
   | { kind: "opaque"; name: string };
+
+/** Extensions a relative import can leave out, in the order bundlers try them. */
+const MODULE_SUFFIXES = [
+  "",
+  ".ts",
+  ".tsx",
+  ".js",
+  ".jsx",
+  ".mts",
+  "/index.ts",
+  "/index.tsx",
+  "/index.js",
+];
+
+/** The parsed module that `specifier` points to from `filename`, or `null`. */
+function readModule(
+  filename: string | undefined,
+  specifier: string,
+): Node | null {
+  if (!filename || !specifier.startsWith(".")) return null;
+  const base = resolve(dirname(filename), specifier);
+  for (const suffix of MODULE_SUFFIXES) {
+    const path = base + suffix;
+    if (!/\.[mc]?[jt]sx?$/.test(path)) continue;
+    let text: string;
+    try {
+      if (!statSync(path).isFile()) continue;
+      text = readFileSync(path, "utf8");
+    } catch {
+      continue;
+    }
+    // `.ts` files go through the TypeScript grammar: in TSX, `<T>value`
+    // parses as JSX.
+    const language = /\.[mc]?ts$/.test(path) ? "typescript" : "tsx";
+    return parse(language, text).root() as unknown as Node;
+  }
+  return null;
+}
+
+/**
+ * The entries of the object literal that another module of the app exports
+ * as the import `local`: `import { definitions } from "./definitions"`.
+ * `null` when the module cannot be read or does not export a literal.
+ */
+function importedObject(
+  rootNode: Node,
+  local: string,
+  filename: string | undefined,
+): Node[] | null {
+  const imported = importsOf(rootNode).find((entry) => entry.local === local);
+  if (!imported) return null;
+  const module = readModule(filename, imported.source);
+  if (!module) return null;
+  for (const declarator of module.findAll({
+    rule: {
+      kind: "variable_declarator",
+      has: {
+        field: "name",
+        regex: `^${imported.name.replace(/\$/g, "\\$")}$`,
+      },
+      inside: { kind: "export_statement", stopBy: "end" },
+    },
+  })) {
+    const value = unwrap(declarator.field("value"));
+    if (value?.kind() !== "object") continue;
+    return entriesOf(value);
+  }
+  return null;
+}
 
 /**
  * `ignore`: a declaration that the conversion deletes. References inside it
  * do not count, so `CatalogRenderers<typeof definitions>` does not keep
  * `definitions` from being inlined.
  */
-function resolveSide(rootNode: Node, arg: Node, ignore?: Node): Side | null {
+function resolveSide(
+  rootNode: Node,
+  arg: Node,
+  ignore?: Node,
+  filename?: string,
+): Side | null {
   const node = unwrap(arg);
   if (!node) return null;
   if (node.kind() === "object") {
@@ -614,6 +1362,12 @@ function resolveSide(rootNode: Node, arg: Node, ignore?: Node): Side | null {
       has: { field: "name", regex: `^${name.replace(/\$/g, "\\$")}$` },
     },
   });
+  if (!declarator) {
+    const imported = importedObject(rootNode, name, filename);
+    return imported
+      ? { kind: "named", name, entries: imported, external: true }
+      : { kind: "opaque", name };
+  }
   const declaration = declarator?.parent();
   const value = unwrap(declarator?.field("value"));
   const atTop =
@@ -803,11 +1557,12 @@ function convertCatalog(
 ): Edit[] | null {
   const args = argumentNodes(call);
   if (args.length < 2 || args.length > 3) return null;
-  const renderers = resolveSide(rootNode, args[1]!);
+  const renderers = resolveSide(rootNode, args[1]!, undefined, state.filename);
   const definitions = resolveSide(
     rootNode,
     args[0]!,
     renderers?.kind === "inline" ? renderers.declaration : undefined,
+    state.filename,
   );
   if (!definitions || !renderers) return null;
   if (definitions.kind === "opaque" && renderers.kind === "opaque") return null;
@@ -815,7 +1570,12 @@ function convertCatalog(
   if (!options) return null;
 
   const names = [...new Set([...namesOf(definitions), ...namesOf(renderers)])];
-  if (names.length === 0) return null;
+  // No names is only safe when both sides are written out empty: `{}`.
+  if (
+    names.length === 0 &&
+    !(definitions.kind === "inline" && renderers.kind === "inline")
+  )
+    return null;
 
   const base = indentOf(enclosingStatement(call), source);
   const unit = "  ";
@@ -836,7 +1596,10 @@ function convertCatalog(
       ...commentsBefore(definitions, name, source, entryIndent),
       ...commentsBefore(renderers, name, source, entryIndent),
       ...[
-        ...(component ? [rendererNote] : []),
+        // An imported renderer gets its TODO in its own module.
+        ...(component && !(renderers.kind === "named" && renderers.external)
+          ? [rendererNote]
+          : []),
         ...(hasDescription === false ? [DESCRIPTION_NOTE] : []),
       ].map((note) => `// ${TODO} ${note}`),
     ].map((line) => `${entryIndent}${line}\n`);
@@ -850,10 +1613,17 @@ function convertCatalog(
   const from = GENERATIVE_UI_SOURCE[framework];
   need(state, from, "createGenerativeUI");
   if (options.extendsStandard) need(state, from, "standardUI");
+  const replaced = names.filter((name) => STANDARD_COMPONENTS.has(name));
+  const standard =
+    replaced.length > 0
+      ? `standardUI.omit([${replaced.map((name) => JSON.stringify(name)).join(", ")}])`
+      : "standardUI";
   const config = [
     `${base}${unit}id: ${options.id},\n`,
-    options.extendsStandard ? `${base}${unit}extends: [standardUI],\n` : "",
-    `${base}${unit}components: {\n${components.join("")}${base}${unit}},\n`,
+    options.extendsStandard ? `${base}${unit}extends: [${standard}],\n` : "",
+    components.length === 0
+      ? `${base}${unit}components: {},\n`
+      : `${base}${unit}components: {\n${components.join("")}${base}${unit}},\n`,
   ].join("");
 
   const edits: Edit[] = [
@@ -922,13 +1692,176 @@ function schemaEdits(rootNode: Node, state: State): Edit[] {
 }
 
 /** Binding unions, in files of the v0.9 client. After `schemaEdits`, so the edits do not overlap. */
-function unionEdits(rootNode: Node): Edit[] {
-  const isA2UIFile = importsOf(rootNode).some((entry) =>
-    A2UI_SOURCES.has(entry.source),
-  );
+function unionEdits(rootNode: Node, state: State): Edit[] {
   const z = zodName(rootNode);
-  if (!isA2UIFile || z === undefined) return [];
+  if (z === undefined || !state.v09Schemas) return [];
   return bindingUnionEdits(rootNode, z);
+}
+
+/** One-argument `z.record` in v0.9 schema files. After `unionEdits`, so the edits do not overlap. */
+function zodRecordEdits(rootNode: Node, state: State): Edit[] {
+  const z = zodName(rootNode);
+  if (z === undefined || !state.v09Schemas) return [];
+  return [...recordEdits(rootNode, z), ...refMarkerEdits(rootNode)];
+}
+
+/**
+ * `.describe("REF:<ref>|<description>")` was a v0.9 marker that the v0.9
+ * schema export turned into a `$ref`. 2.0 passes a description as is, so
+ * the marker goes and the description after `|` stays.
+ */
+function refMarkerEdits(rootNode: Node): Edit[] {
+  const edits: Edit[] = [];
+  for (const call of rootNode.findAll({ rule: { kind: "call_expression" } })) {
+    const callee = call.field("function");
+    const object = callee?.field("object");
+    if (
+      callee?.kind() !== "member_expression" ||
+      callee.field("property")?.text() !== "describe" ||
+      !object
+    )
+      continue;
+    const args = argumentNodes(call);
+    if (args.length !== 1 || args[0]!.kind() !== "string") continue;
+    const text = args[0]!.text();
+    const quote = text[0]!;
+    const value = text.slice(1, -1);
+    if (!value.startsWith("REF:")) continue;
+    const bar = value.indexOf("|");
+    edits.push(
+      bar === -1
+        ? call.replace(object.text())
+        : args[0]!.replace(`${quote}${value.slice(bar + 1)}${quote}`),
+    );
+  }
+  return edits;
+}
+
+/**
+ * A file of v0.9 prop schemas: it imports the v0.9 client, or it uses a
+ * shape that only the v0.9 binder read (a union with a `{ path }` binding,
+ * or the `{ componentId, path }` template of a child list).
+ */
+function isV09SchemaFile(rootNode: Node, z: string) {
+  if (importsOf(rootNode).some((entry) => A2UI_SOURCES.has(entry.source)))
+    return true;
+  return rootNode
+    .findAll({ rule: { kind: "call_expression" } })
+    .some((call) => isBindingUnion(call, z) || isTemplateObject(call, z));
+}
+
+/** `z.union([T, { path }])` or `T.or({ path })`: a v0.9 bound prop. */
+function isBindingUnion(call: Node, z: string) {
+  const callee = call.field("function");
+  const args = argumentNodes(call);
+  if (calleeOf(call) === `${z}.union` && args[0]?.kind() === "array") {
+    return args[0]
+      .children()
+      .some((item) => item.isNamed() && isPathBinding(item, z));
+  }
+  return (
+    callee?.kind() === "member_expression" &&
+    callee.field("property")?.text() === "or" &&
+    args.length === 1 &&
+    isPathBinding(args[0]!, z)
+  );
+}
+
+/** The framework of a file without a v0.9 import: Angular when it uses Angular. */
+function frameworkOf(rootNode: Node): Framework {
+  for (const entry of importsOf(rootNode)) {
+    const framework = FRAMEWORK_OF[entry.source];
+    if (framework) return framework;
+    if (
+      entry.source.startsWith("@angular/") ||
+      entry.source.startsWith("@copilotkit/angular")
+    )
+      return "angular";
+  }
+  return "react";
+}
+
+/**
+ * The top-level object literals whose entries are all v0.9 component
+ * definitions (`{ ..., props: z.object(...) }`).
+ */
+function exportedDefinitionObjects(rootNode: Node, z: string): Node[] {
+  const result: Node[] = [];
+  for (const declarator of rootNode.findAll({
+    rule: { kind: "variable_declarator" },
+  })) {
+    const declaration = declarator.parent();
+    if (
+      declaration?.kind() !== "lexical_declaration" ||
+      !["program", "export_statement"].includes(
+        declaration.parent()?.kind() ?? "",
+      )
+    )
+      continue;
+    const object = unwrap(declarator.field("value"));
+    const entries = object?.kind() === "object" ? entriesOf(object) : null;
+    if (!object || !entries || entries.length === 0) continue;
+    const isDefinition = (entry: Node) => {
+      const value = unwrap(
+        entry.kind() === "pair" ? entry.field("value") : null,
+      );
+      const fields = value?.kind() === "object" ? entriesOf(value) : null;
+      const props = fields && entryNamed(fields, "props");
+      return (
+        props?.kind() === "pair" &&
+        calleeOf(props.field("value")) === `${z}.object`
+      );
+    };
+    if (entries.every(isDefinition)) result.push(object);
+  }
+  return result;
+}
+
+/** `z.object({ componentId: z.string(), path: z.string() })`: a v0.9 template. */
+function isTemplateObject(node: Node, z: string) {
+  const text = node.text().replace(/\s|,(?=\s*[})])/g, "");
+  return (
+    text === `${z}.object({componentId:${z}.string(),path:${z}.string()})` ||
+    text === `${z}.object({path:${z}.string(),componentId:${z}.string()})`
+  );
+}
+
+/** `z.union([z.array(z.string()), <template>])`: a v0.9 child list. */
+function isTemplateChildUnion(node: Node, z: string) {
+  if (node.kind() !== "call_expression" || calleeOf(node) !== `${z}.union`)
+    return false;
+  const array = argumentNodes(node)[0];
+  if (array?.kind() !== "array") return false;
+  const items = array
+    .children()
+    .filter((child) => child.isNamed() && child.kind() !== "comment");
+  return (
+    items.length === 2 &&
+    items.some(
+      (item) => item.text().replace(/\s/g, "") === `${z}.array(${z}.string())`,
+    ) &&
+    items.some((item) => isTemplateObject(item, z))
+  );
+}
+
+/**
+ * `z.record(value)` with one argument is Zod 3. 2.0 reads the schemas with
+ * Zod 4, which needs the key schema: `z.record(z.string(), value)`.
+ */
+function recordEdits(rootNode: Node, z: string): Edit[] {
+  const edits: Edit[] = [];
+  for (const call of rootNode.findAll({ rule: { kind: "call_expression" } })) {
+    if (calleeOf(call) !== `${z}.record`) continue;
+    const args = argumentNodes(call);
+    if (args.length !== 1) continue;
+    const start = args[0]!.range().start.index;
+    edits.push({
+      startPos: start,
+      endPos: start,
+      insertedText: `${z}.string(), `,
+    });
+  }
+  return edits;
 }
 
 /** `{ path: z.string() }` as v0.9 wrote a data binding. */
@@ -945,7 +1878,7 @@ function bindingUnionEdits(rootNode: Node, z: string): Edit[] {
   for (const call of rootNode.findAll({ rule: { kind: "call_expression" } })) {
     const callee = call.field("function");
     const args = argumentNodes(call);
-    if (callee?.text() === `${z}.union` && args.length === 1) {
+    if (calleeOf(call) === `${z}.union` && args.length === 1) {
       const array = args[0]!;
       if (array.kind() !== "array") continue;
       const items = array

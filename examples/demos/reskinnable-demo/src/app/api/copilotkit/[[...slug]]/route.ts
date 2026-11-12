@@ -1,11 +1,10 @@
 import {
   CopilotRuntime,
-  createCopilotHonoHandler,
   InMemoryAgentRunner,
   CopilotKitIntelligence,
-} from "@copilotkit/runtime/v2";
-import type { IdentifyUserCallback } from "@copilotkit/runtime/v2";
-import { handle } from "hono/vercel";
+  createCopilotRuntimeHandler,
+} from "@copilotkit/runtime";
+import type { IdentifyUserCallback } from "@copilotkit/runtime";
 import { agentRegistry, agentIds } from "@/shell/agent-registry";
 import {
   MEMORY_GRANT_COOKIE,
@@ -273,7 +272,7 @@ const identifyUser: IdentifyUserCallback = async (request: Request) => {
 function createRuntime(): CopilotRuntime {
   if (intelligenceEnabled) {
     // Announce WHICH Intelligence backend this process resolved, exactly once at
-    // startup (createRuntime runs at module load). This app and the sibling
+    // startup (createRuntime runs on the first request). This app and the sibling
     // banking demo vendor the same stack with identical seeded ids, so a human
     // must be able to see at a glance that `pnpm dev` attached to THIS app's
     // backend and not the neighbour's. Never log the api key or license token.
@@ -324,7 +323,7 @@ function createRuntime(): CopilotRuntime {
       lockKeyPrefix: "northwind-lock",
       lockHeartbeatIntervalSeconds: 12,
       generateThreadNames: true,
-      a2ui: { injectA2UITool: false },
+      generativeUI: { a2uiVersion: "0.9", injectA2UITool: false },
       openGenerativeUI: { agents: agentIds },
     });
   }
@@ -333,14 +332,27 @@ function createRuntime(): CopilotRuntime {
   return new CopilotRuntime({
     agents: buildAgents(),
     runner: new InMemoryAgentRunner(),
-    a2ui: { injectA2UITool: false },
+    generativeUI: { a2uiVersion: "0.9", injectA2UITool: false },
     openGenerativeUI: { agents: agentIds },
   });
 }
 
-const runtime = createRuntime();
+/**
+ * Built on the FIRST request, not at module load. The 2.0 agents take a
+ * TanStack AI adapter (`openaiText(...)`), which reads OPENAI_API_KEY when it
+ * is constructed; `next build` loads this module to collect page data, and
+ * must not need a model key to do so.
+ */
+let handler: ReturnType<typeof createCopilotRuntimeHandler> | undefined;
 
-const app = createCopilotHonoHandler({ runtime, basePath: "/api/copilotkit" });
+function handle(request: Request) {
+  handler ??= createCopilotRuntimeHandler({
+    cors: true,
+    runtime: createRuntime(),
+    basePath: "/api/copilotkit",
+  });
+  return handler(request);
+}
 
-export const GET = handle(app);
-export const POST = handle(app);
+export const GET = handle;
+export const POST = handle;

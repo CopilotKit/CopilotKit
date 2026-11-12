@@ -202,7 +202,7 @@ import "./theme.css"; // side-effect import registers the .theme-<id> block
 import type { ReactNode } from "react";
 import Link from "next/link";
 import { HelpCircle, RotateCcw } from "lucide-react";
-import { useAgentContext } from "@copilotkit/react-core/v2";
+import { useAgentContext } from "@copilotkit/react-core";
 import { useSkin } from "@/shell/skin-provider";
 import { useSkinHref, useSkinSegments } from "@/shell/skin-path";
 import { usePresenterReset } from "@/shell/presenter-reset-context";
@@ -582,7 +582,7 @@ agent cannot report them as the contents of the view. See demo-beats.md § 3c.
 
 ```tsx
 "use client";
-import { useAgentContext } from "@copilotkit/react-core/v2";
+import { useAgentContext } from "@copilotkit/react-core";
 // The REST path, which is what every shipped skin does: ONE `GET /ledger`
 // snapshot shared through your own context. Only reach for
 // `useSkinData<<Id>Data>()` from "@/shell/skin-provider" if you set `useData`,
@@ -618,7 +618,7 @@ export function <Id>HomePage() {
 ## `tools.tsx`
 
 Renders `null`. Register frontend tools / HITL / gen-UI components and
-`useAgentContext` readables here (all from `@copilotkit/react-core/v2`). Mirror
+`useAgentContext` readables here (all from `@copilotkit/react-core`). Mirror
 `src/skins/logistics/tools.tsx` for the wiring and
 `src/skins/banking/tools.tsx` for the beats — between them they are the debugged
 reference for the five things this file MUST get right.
@@ -721,7 +721,7 @@ import {
   useComponent,
   useFrontendTool,
   ToolCallStatus,
-} from "@copilotkit/react-core/v2";
+} from "@copilotkit/react-core";
 import { use<Id>Ledger } from "./ledger-context";
 
 export function <Id>Tools() {
@@ -807,21 +807,22 @@ depend on it.
 
 ## `catalog/index.tsx`
 
-Minimal (no a2ui AT ALL): pass empty definitions/renderers. "No a2ui" means
-neither a `CanvasSurface` report nor the inline `block:` path — the inline path
-mounts `<A2UIProvider catalog={useSkin().catalog}>` and renders nothing against
-an empty catalog (see the `block:` note in the agent section above). For a real
-catalog with Zod definitions + React renderers, mirror
-`src/skins/airline/catalog/index.tsx`.
+Minimal (no a2ui AT ALL): no components. "No a2ui" means neither a
+`CanvasSurface` report nor the inline `block:` path — the inline path renders
+the block with the skin's UI (`useSkin().catalog`, the `generativeUI={{ ui }}`
+the shell hands `CopilotKitProvider`) and a surface that names components the
+UI does not have is rejected (see the `block:` note in the agent section below).
+For a real catalog with Zod props + React components, mirror
+`src/skins/airline/catalog/index.tsx`. Type each component's props yourself:
+`createGenerativeUI` does not infer them for an inline component.
 
 ```ts
-import { createCatalog } from "@copilotkit/a2ui-renderer";
+import { createGenerativeUI } from "@copilotkit/react-core/generative-ui";
 
-export const <id>Catalog = createCatalog(
-  {}, // component definitions (Zod-schema props)
-  {}, // renderers
-  { catalogId: "<id>", includeBasicCatalog: false },
-);
+export const <id>Catalog = createGenerativeUI({
+  id: "<id>", // must equal the catalogId your createSurface ops name
+  components: {}, // { Name: { component, description, props: z.object({...}) } }
+});
 ```
 
 ## `suggestions.ts` — ONE PILL PER BEAT, IN DEMO ORDER
@@ -1235,11 +1236,12 @@ vocabulary). Imported ONLY by `src/shell/agent-registry.ts`; the client skin nev
 imports it.
 
 ```ts
-import { BuiltInAgent } from "@copilotkit/runtime/v2";
+import { BuiltInAgent } from "@copilotkit/runtime/agent";
+import { openaiText } from "@tanstack/ai-openai";
 
 export const <id>Agent = () =>
   new BuiltInAgent({
-    model: "openai/gpt-6-luna", // the alias used across this repo
+    model: openaiText("gpt-6-luna"), // the model used across this repo
     prompt: <ID>_PROMPT,
     // tools: [...]       // optional server-side agent tools (defineTool)
     // NO `temperature`: gpt-6-luna is a reasoning model that REJECTS the
@@ -1278,8 +1280,9 @@ report path.
 
 **If your skin has a `CanvasSurface`, emit its a2ui operations from a SERVER tool
 here — never from a client `useFrontendTool`.** The a2ui middleware only converts
-the `{ [A2UI_OPERATIONS_KEY]: buildOps(spec) }` payload into an `a2ui-surface`
-activity when it observes it in an in-stream `TOOL_CALL_RESULT` event, which a
+the `{ [A2UI_OPERATIONS_KEY]: buildOps(spec) }` payload into a surface activity
+(streamed to the browser as `generative-ui-surface`, converted to A2UI 1.0 by
+the runtime's `generativeUI: { a2uiVersion: "0.9" }`) when it observes it in an in-stream `TOOL_CALL_RESULT` event, which a
 client frontend-tool result does NOT produce — do it client-side and the canvas
 stays permanently blank. Both banking (`render_report`) and logistics
 (`renderBrief`) do it server-side. Register the tool on the `BuiltInAgent` with
@@ -1288,20 +1291,26 @@ the tool takes agent-chosen selections + LABEL-only text and deterministically
 expands them into ops, so numbers bind to live client data, never the model):
 
 ```ts
-import { BuiltInAgent, defineTool } from "@copilotkit/runtime/v2";
+import { BuiltInAgent, defineTool } from "@copilotkit/runtime/agent";
+import { openaiText } from "@tanstack/ai-openai";
 // build-*-ops.ts is server-safe (plain Zod + string constants — no React/.tsx):
-import { renderReportParams, buildReportOps, A2UI_OPERATIONS_KEY } from "./build-report-ops";
+import { renderReportParams, buildReportOps, A2UI_OPERATIONS_KEY, SURFACE_ID } from "./build-report-ops";
 
 const renderReportTool = defineTool({
   name: "renderReport",
   description: "Build the report on the canvas. Supply selections + LABEL-ONLY text — never numbers.",
   parameters: renderReportParams,
-  execute: async (spec) => ({ [A2UI_OPERATIONS_KEY]: buildReportOps(spec) }),
+  // A fresh surface id per call: the runtime streams each surface as the
+  // activity message `genui:<surfaceId>`, so a reused id updates the first
+  // report's message in place instead of adding a new one.
+  execute: async (spec) => ({
+    [A2UI_OPERATIONS_KEY]: buildReportOps(spec, `${SURFACE_ID}-${Date.now().toString(36)}`),
+  }),
 });
 
 export const <id>Agent = () =>
   new BuiltInAgent({
-    model: "openai/gpt-6-luna",
+    model: openaiText("gpt-6-luna"),
     prompt: "You are the <Brand> agent. ...",
     tools: [renderReportTool],
   });
@@ -1317,12 +1326,12 @@ otherwise identical to the canvas case above: still a SERVER `defineTool`
 returning `{ [A2UI_OPERATIONS_KEY]: buildOps(spec) }`. `src/skins/exec/blocks/build-block-ops.ts`
 is the worked example (`BLOCK_SURFACE_PREFIX = "block:"`).
 
-**This path is NOT catalog-free.** `InlineBlockSurface` mounts its own
-`<A2UIProvider catalog={useSkin().catalog}>`
-(`src/shell/chat/inline-block-surface.tsx:180,193`), so the empty
-definitions/renderers under "`catalog/index.tsx`" above are for a skin with NO
-a2ui at all — inline or canvas. If you mint `block:` ids you must ship a real
-catalog whose `catalogId` matches the one your `createSurface` op names; exec's
+**This path is NOT catalog-free.** `InlineBlockSurface` renders the block with
+the skin's UI (`useSkin().catalog`, through `<PageSurface>` in
+`src/shell/chat/inline-block-surface.tsx`), so the empty `components` under
+"`catalog/index.tsx`" above are for a skin with NO a2ui at all — inline or
+canvas. If you mint `block:` ids you must ship a real catalog whose `id`
+matches the `catalogId` your `createSurface` op names; exec's
 (`src/skins/exec/catalog/index.ts`) is the worked example, and it registers zero
 `useComponent` renderers, so a catalog is not the same thing as transcript
 gen-UI.

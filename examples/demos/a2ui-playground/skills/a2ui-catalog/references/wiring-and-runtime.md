@@ -1,12 +1,12 @@
 # Wiring: generative UI, provider, runtime, agent
 
-Versions this was built on: `@copilotkit/react-core`, `@copilotkit/runtime`, `@copilotkit/shared` 1.85.0 (Gen UI 2.0, A2UI 1.0), `@ag-ui/client` 1.0.2, zod 3.25 (props schemas may be zod 3 or any Standard JSON Schema library: zod 4.2+, ArkType, Valibot), Next 16.4, React 19.3. No pnpm overrides are needed. Gen UI 2.0 is marked experimental in 1.84.
+Versions this was built on: `@copilotkit/react-core`, `@copilotkit/runtime`, `@copilotkit/shared` 2.0.0-rc.44 (Gen UI 2.0, A2UI 1.0), `@ag-ui/client` 1.0.4, zod 4.2+ (props schemas may be zod 4 or any Standard JSON Schema library: ArkType, Valibot), Next 16.4, React 19.3. Pin `@ag-ui/client`, `@ag-ui/core`, `@ag-ui/encoder` and `@ag-ui/proto` to 1.0.4 with `pnpm.overrides`, so one `AbstractAgent` is installed.
 
 ## Generative UI (templates/catalog.ts)
 
 ```ts
 "use client";
-import { createGenerativeUI, standardUI, type GenerativeUITheme } from "@copilotkit/react-core/v2/generative-ui";
+import { createGenerativeUI, standardUI, type GenerativeUITheme } from "@copilotkit/react-core/generative-ui";
 
 export const playgroundUI = createGenerativeUI({
   id: "https://your-app.dev/catalogs/main/v1",   // surfaces pin to it; the agent's createSurface uses the same catalogId
@@ -38,14 +38,14 @@ Keep the config object stable (module constant or `useMemo`). `transport: "tool"
 
 To render the same operations outside the chat (catalog previews, replays), use `StaticSurface` (templates/static-surface.tsx). It feeds CopilotKit's surface renderer a `generative-ui-surface` content object in its own thread, under a `StaticGenUIProvider` (a `CopilotKitProvider` with `generativeUI` and a no-op agent via `agents__unsafe_dev_only`) mounted once in the root layout.
 
-## Runtime route (catch-all, or the v2 client's `/info` 404s)
+## Runtime route (catch-all, or the client's `/info` 404s)
 
 ```ts
 // app/api/copilotkit/[[...slug]]/route.ts
 import {
   CopilotRuntime,
   createCopilotRuntimeHandler,
-} from "@copilotkit/runtime/v2";
+} from "@copilotkit/runtime";
 
 const runtime = new CopilotRuntime({
   agents: { default: createPlaygroundAgent() },
@@ -64,7 +64,7 @@ export const POST = handler;
 ## Agent: BuiltInAgent custom factory (no second server)
 
 ```ts
-import { BuiltInAgent } from "@copilotkit/runtime/v2";
+import { BuiltInAgent } from "@copilotkit/runtime/agent";
 
 export function createPlaygroundAgent() {
   return new BuiltInAgent({
@@ -82,7 +82,7 @@ The factory yields AG-UI events; `BuiltInAgent` emits `RUN_STARTED`/`RUN_FINISHE
 
 - Read the catalog: `const manifest = envelopeToManifest(readCopilotKitUIEnvelope(input.forwardedProps)!)` (both from `@copilotkit/shared`) gives `catalogId`, `components` (JSON Schema per component), `functions`, `surfaces` and the `action` of a click.
 - Stream the router (`TEXT_MESSAGE_*`, `TOOL_CALL_START/ARGS/END`), execute tools, push `TOOL_CALL_RESULT`s.
-- Write surfaces as `generative-ui-surface` activities (templates/surface.ts): one activity message per surface, id `generativeUISurfaceMessageId(surfaceId)`; an `ACTIVITY_SNAPSHOT` creates it with content `{ surfaceId, target: "chat", catalogId, operations: [createSurface], status: "streaming", rejected: [] }`, then `ACTIVITY_DELTA` JSON patches append to `/operations/-` and set `/status` to `"ready"`. `createSurfaceWriter(emit).openSurface({ target, surfaceId, catalog })` from `@copilotkit/runtime/v2` emits the same events (experimental; `setRoot`, `upsert`, `updateData`, `close`).
+- Write surfaces as `generative-ui-surface` activities (templates/surface.ts): one activity message per surface, id `generativeUISurfaceMessageId(surfaceId)`; an `ACTIVITY_SNAPSHOT` creates it with content `{ surfaceId, target: "chat", catalogId, operations: [createSurface], status: "streaming", rejected: [] }`, then `ACTIVITY_DELTA` JSON patches append to `/operations/-` and set `/status` to `"ready"`. `createSurfaceWriter(emit).openSurface({ target, surfaceId, catalog })` from `@copilotkit/runtime` emits the same events (experimental; `setRoot`, `upsert`, `updateData`, `close`).
 - `CUSTOM` events (`{ name: "a2ui.pipeline", value: { stage, t } }`) are a cheap way to expose timings to the UI; subscribe with `agent.subscribe({ onEvent })` from `useAgent`.
 
 Any other AG-UI agent (LangGraph, Python) works the same way: emit those activity events itself, or leave `generativeUI` on and let the middleware give it `render_ui`.

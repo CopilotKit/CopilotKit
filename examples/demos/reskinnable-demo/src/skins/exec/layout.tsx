@@ -9,7 +9,7 @@ import {
   useAgentContext,
   useCopilotChatConfiguration,
   useCopilotKit,
-} from "@copilotkit/react-core/v2";
+} from "@copilotkit/react-core";
 import { useSkinHref, useSkinSegments } from "@/shell/skin-path";
 import { HelpCircle, RotateCcw } from "lucide-react";
 import { useSkin } from "@/shell/skin-provider";

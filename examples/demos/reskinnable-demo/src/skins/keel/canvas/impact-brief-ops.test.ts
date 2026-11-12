@@ -223,7 +223,7 @@ describe("buildImpactBriefOps", () => {
   });
 
   it("does NOT share the operations report's surface id", () => {
-    // One a2ui provider keeps one surface per id, so sharing would make a filed
+    // The surface manager keeps one surface per id, so sharing would make a filed
     // brief overwrite an ops report the presenter is still looking at.
     const reportSurface = (
       buildOpsReportOps({ title: "Ops", kpis: [], charts: [] })[0]

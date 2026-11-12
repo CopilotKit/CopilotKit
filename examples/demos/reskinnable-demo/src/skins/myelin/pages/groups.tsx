@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo } from "react";
-import { useAgentContext } from "@copilotkit/react-core/v2";
+import { useAgentContext } from "@copilotkit/react-core";
 import { useMyelinLedger } from "../data/ledger-context";
 import { Card, PageHeader, Pill } from "../components/primitives";
 

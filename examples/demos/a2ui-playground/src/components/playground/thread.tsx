@@ -11,7 +11,7 @@ import {
 } from "react";
 import type { RefObject } from "react";
 import type { ActivityMessage } from "@ag-ui/client";
-import { useAgent, useRenderActivityMessage } from "@copilotkit/react-core/v2";
+import { useAgent, useRenderActivityMessage } from "@copilotkit/react-core";
 import { GENERATIVE_UI_ACTIVITY_TYPE } from "@copilotkit/shared";
 import { Code2, RotateCcw } from "lucide-react";
 import { DotOutline } from "@/a2ui/catalog/renderers/blueprint";

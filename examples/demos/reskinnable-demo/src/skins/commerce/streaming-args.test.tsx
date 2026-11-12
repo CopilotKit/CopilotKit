@@ -51,7 +51,7 @@ const { components, handlers } = vi.hoisted(() => ({
   handlers: new Map<string, (args: never) => Promise<string>>(),
 }));
 
-vi.mock("@copilotkit/react-core/v2", () => ({
+vi.mock("@copilotkit/react-core", () => ({
   useAgentContext: () => {},
   useComponent: (registration: ComponentRegistration) => {
     components.set(registration.name, registration);

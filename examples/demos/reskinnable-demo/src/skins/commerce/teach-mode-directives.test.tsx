@@ -24,7 +24,7 @@ const { renders } = vi.hoisted(() => ({
   renders: new Map<string, unknown>(),
 }));
 
-vi.mock("@copilotkit/react-core/v2", () => ({
+vi.mock("@copilotkit/react-core", () => ({
   useAgentContext: () => {},
   useComponent: () => {},
   useFrontendTool: (config: { name: string; render?: unknown }) => {

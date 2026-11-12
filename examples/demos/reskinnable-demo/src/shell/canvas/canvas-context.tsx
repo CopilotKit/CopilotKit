@@ -1,7 +1,8 @@
 "use client";
 
 import { createContext, useContext, useEffect, useRef, useState } from "react";
-import { useAgent } from "@copilotkit/react-core/v2";
+import { useAgent } from "@copilotkit/react-core";
+import { GENERATIVE_UI_ACTIVITY_TYPE } from "@copilotkit/shared";
 
 type SurfaceKind = "report" | "ogui";
 
@@ -39,7 +40,15 @@ type MaybeActivityMessage = {
  */
 export const BLOCK_SURFACE_PREFIX = "block:";
 
-const A2UI_OPERATIONS_KEY = "a2ui_operations";
+/**
+ * The activity a surface reaches the browser as. The agents still write A2UI
+ * v0.9 into their tool results (`{ a2ui_operations: [...] }`); the runtime
+ * (`generativeUI: { a2uiVersion: "0.9" }`) converts each surface to A2UI 1.0
+ * and streams it as this activity, with the ops under `operations`.
+ */
+export const SURFACE_ACTIVITY_TYPE = GENERATIVE_UI_ACTIVITY_TYPE;
+
+const SURFACE_OPERATIONS_KEY = "operations";
 
 /**
  * The op containers a surfaceId can arrive on. Each op is searched across ALL
@@ -54,7 +63,7 @@ const SURFACE_OP_KEYS = [
   "updateDataModel",
 ] as const;
 
-/** What an `a2ui-surface` activity's content means for the shared canvas. */
+/** What an `generative-ui-surface` activity's content means for the shared canvas. */
 export type A2uiSurfaceClaim =
   /** A report surface: the canvas takes over the content region for it. */
   | "canvas"
@@ -64,7 +73,7 @@ export type A2uiSurfaceClaim =
   | "unclassifiable";
 
 /**
- * THE single reader-side decision about an `a2ui-surface` activity — who owns
+ * THE single reader-side decision about an `generative-ui-surface` activity — who owns
  * it, and (for the chat) which surface to mount.
  *
  * Both shell readers derive from this one call: the canvas asks for `claim`,
@@ -93,13 +102,15 @@ const UNCLASSIFIABLE: A2uiSurfaceDecision = {
  * The ops array, but ONLY in the shape every downstream reader expects: plain
  * property access on an object, no parsing. Exported so the chat's card reads
  * the operations key through the same function that classified them, rather
- * than spelling `"a2ui_operations"` a second time on the read side.
+ * than spelling `"operations"` a second time on the read side.
  */
 export function readableOperations(
   content: unknown,
 ): Record<string, unknown>[] | null {
   if (!content || typeof content !== "object") return null;
-  const operations = (content as Record<string, unknown>)[A2UI_OPERATIONS_KEY];
+  const operations = (content as Record<string, unknown>)[
+    SURFACE_OPERATIONS_KEY
+  ];
   return Array.isArray(operations)
     ? (operations as Record<string, unknown>[])
     : null;
@@ -137,7 +148,7 @@ function decisionOf(
 }
 
 /**
- * Decide who owns an `a2ui-surface` activity's content.
+ * Decide who owns an `generative-ui-surface` activity's content.
  *
  * Biased AGAINST the canvas on purpose. Claiming the canvas replaces the whole
  * content region with the active skin's `CanvasSurface` behind a bare "← Back";
@@ -148,7 +159,7 @@ function decisionOf(
  *
  * That is why a STRINGIFIED envelope never claims the canvas: every consumer
  * (each skin's `CanvasSurface`, `InlineBlockSurface`) reads
- * `content["a2ui_operations"]` by property access and parses nothing, so a
+ * `content["operations"]` by property access and parses nothing, so a
  * string is unrenderable by all of them. We still parse it far enough to
  * recognise a `block:` surface, so envelope drift cannot turn an inline tile
  * into a page-blanking "report" — but the tile gets no id to mount either.
@@ -170,7 +181,7 @@ export function decideA2uiSurface(content: unknown): A2uiSurfaceDecision {
     : UNCLASSIFIABLE;
 }
 
-/** Classify an `a2ui-surface` activity's content. See `decideA2uiSurface`. */
+/** Classify an `generative-ui-surface` activity's content. See `decideA2uiSurface`. */
 export function classifyA2uiSurface(content: unknown): A2uiSurfaceClaim {
   return decideA2uiSurface(content).claim;
 }
@@ -236,7 +247,7 @@ function hasRenderableOguiContent(content: unknown): boolean {
  * of the activity content — never off a skin's catalog, so it works for any
  * skin without knowing one.
  *
- * Content matters because `a2ui-surface` carries two different things. An exec
+ * Content matters because `generative-ui-surface` carries two different things. An exec
  * `block:` surface is NOT a canvas event: it renders where the activity sits in
  * the transcript (`<InlineBlockSurface/>`). Claiming one here would flip the
  * whole content region into a report frame — blank for any skin without a
@@ -263,11 +274,11 @@ function useLatestCanvasSurface(): {
   for (let i = activities.length - 1; i >= 0; i--) {
     const m = activities[i];
     if (m?.role !== "activity") continue;
-    if (m.activityType === "a2ui-surface") {
+    if (m.activityType === SURFACE_ACTIVITY_TYPE) {
       if (classifyA2uiSurface(m.content) !== "canvas") continue;
       return {
         kind: "report",
-        surfaceId: m.id ?? `a2ui-surface#${i}`,
+        surfaceId: m.id ?? `${SURFACE_ACTIVITY_TYPE}#${i}`,
         driftedType,
       };
     }
@@ -331,4 +342,49 @@ export function CanvasProvider({ children }: { children: React.ReactNode }) {
 
 export function useCanvas(): CanvasValue {
   return useContext(CanvasContext);
+}
+
+/** The first surface id any op of `operations` names, or null. */
+function firstSurfaceId(operations: Record<string, unknown>[]): string | null {
+  for (const op of operations) {
+    if (!op || typeof op !== "object") continue;
+    for (const key of SURFACE_OP_KEYS) {
+      const target = op[key] as { surfaceId?: unknown } | undefined;
+      if (target && typeof target.surfaceId === "string" && target.surfaceId)
+        return target.surfaceId;
+    }
+  }
+  return null;
+}
+
+/**
+ * The latest surface activity in the agent's stream, whatever claims it: its
+ * operations (A2UI 1.0, converted by the runtime), the surface they name, and
+ * the activity's message id. A skin's `CanvasSurface` renders these ops on the
+ * canvas with `<PageSurface>` (`src/shell/generative-ui/page-surface.tsx`).
+ */
+export function useLatestSurfaceOperations(): {
+  operations: Record<string, unknown>[];
+  surfaceId: string | null;
+  activityId: string | null;
+} {
+  const { agent } = useAgent();
+  const { activities } = activityMessagesOf(agent?.messages);
+  for (let i = activities.length - 1; i >= 0; i--) {
+    const message = activities[i];
+    if (
+      message?.role !== "activity" ||
+      message.activityType !== SURFACE_ACTIVITY_TYPE
+    ) {
+      continue;
+    }
+    const operations = readableOperations(message.content) ?? [];
+    const surfaceId = firstSurfaceId(operations);
+    return {
+      operations,
+      surfaceId,
+      activityId: message.id ?? surfaceId ?? SURFACE_ACTIVITY_TYPE,
+    };
+  }
+  return { operations: [], surfaceId: null, activityId: null };
 }

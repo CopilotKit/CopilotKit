@@ -15,7 +15,7 @@ import {
   useAgent,
   UseAgentUpdate,
   useCopilotChatConfiguration,
-} from "@copilotkit/react-core/v2";
+} from "@copilotkit/react-core";
 
 /**
  * Tracks what a run's SUBAGENTS are doing, from the live AG-UI event stream.

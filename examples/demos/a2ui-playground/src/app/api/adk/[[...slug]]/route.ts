@@ -8,7 +8,7 @@ import { HttpAgent } from "@ag-ui/client";
 import {
   CopilotRuntime,
   createCopilotRuntimeHandler,
-} from "@copilotkit/runtime/v2";
+} from "@copilotkit/runtime";
 import { agentRouteHooks } from "@/lib/limits";
 
 const copilotRuntime = new CopilotRuntime({
