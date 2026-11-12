@@ -5,7 +5,11 @@ import { describe, expect, test } from "vitest";
 
 const root = path.resolve(import.meta.dirname, "../../../..");
 const read = (file: string) => fs.readFileSync(path.join(root, file), "utf8");
-const page = matter(read("showcase/shell-docs/src/content/docs/frontends/vue/generative-ui/tool-rendering.mdx"));
+const page = matter(
+  read(
+    "showcase/shell-docs/src/content/docs/frontends/vue/generative-ui/tool-rendering.mdx",
+  ),
+);
 
 describe("Vue tool-rendering backend example", () => {
   test("defaults an unscoped Vue page to the built-in agent without pinning explicit backends", () => {
@@ -16,8 +20,9 @@ describe("Vue tool-rendering backend example", () => {
   });
 
   test("explains how to match the built-in tool contract and register it", () => {
-    const backend = read("showcase/integrations/built-in-agent/src/lib/factory/server-tools.ts")
-      .split("// @endregion[weather-tool-backend]")[0];
+    const backend = read(
+      "showcase/integrations/built-in-agent/src/lib/factory/server-tools.ts",
+    ).split("// @endregion[weather-tool-backend]")[0];
     expect(backend).toContain('name: "weather"');
     expect(backend).toContain("city: z.string()");
     expect(page.content).toContain('name: "weather"');
