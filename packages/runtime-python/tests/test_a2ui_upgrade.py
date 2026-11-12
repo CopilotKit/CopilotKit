@@ -159,6 +159,38 @@ def test_upgrader_sends_one_cumulative_surface_per_surface_id():
     assert upgrader.transform(other) == [other]
 
 
+def test_upgrader_shows_a_failed_lifecycle_snapshot_as_an_error_surface_once():
+    upgrader = A2UIV09ActivityUpgrader()
+
+    def lifecycle(message_id, content):
+        return upgrader.transform({**activity(message_id, []), "content": content})
+
+    assert lifecycle("a2ui-surface-call1", {"status": "retrying", "attempt": 2}) == []
+    failed = {"status": "failed", "error": "root is missing", "attempts": []}
+    assert lifecycle("a2ui-surface-call1", failed) == [
+        {
+            "type": "ACTIVITY_SNAPSHOT",
+            "messageId": "genui:a2ui-surface-call1",
+            "activityType": "generative-ui-surface",
+            "content": {
+                "surfaceId": "a2ui-surface-call1",
+                "target": "chat",
+                "catalogId": STANDARD,
+                "operations": [],
+                "status": "error",
+                "rejected": [{"index": 0, "reason": "root is missing"}],
+                "a2uiSourceVersion": "0.9",
+            },
+            "replace": True,
+        }
+    ]
+    assert lifecycle("a2ui-surface-call1", failed) == []
+    [long] = lifecycle("a2ui-surface-call2", {"status": "failed", "error": "x" * 600})
+    assert len(long["content"]["rejected"][0]["reason"]) == 500
+    [generic] = lifecycle("a2ui-surface-call3", {"status": "failed"})
+    assert generic["content"]["rejected"] == [{"index": 0, "reason": "A2UI generation failed"}]
+
+
 def test_upgrader_appends_updates_of_a_surface_from_an_earlier_run():
     upgrader = A2UIV09ActivityUpgrader()
     update = {"version": "v0.9", "updateDataModel": {"surfaceId": "old", "path": "/a", "value": 1}}
