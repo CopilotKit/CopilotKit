@@ -842,8 +842,12 @@ function definitionEdits(
       entryNamed(fields, "events") === undefined
     ) {
       const name = keyOf(entry) === "Button" ? "onClick" : "action";
+      // An event that matches no declared function needs its parameters.
+      const parameters = `parameters: ${z}.object({})`;
       const event =
-        description === undefined ? "{}" : `{ description: ${description} }`;
+        description === undefined
+          ? `{ ${parameters} }`
+          : `{ description: ${description}, ${parameters} }`;
       edits.push(removeEntry(prop, source));
       // The comments right above the prop describe it: they go with it.
       for (const comment of leadingComments(shape!, prop))

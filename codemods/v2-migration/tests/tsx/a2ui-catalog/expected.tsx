@@ -70,7 +70,7 @@ export const cardCatalog = createGenerativeUI({
         title: z.string(),
         children: childList(),
       }),
-      events: { action: {} },
+      events: { action: { parameters: z.object({}) } },
     },
   },
 });

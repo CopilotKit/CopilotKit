@@ -21,7 +21,7 @@ export const myDefinitions = {
     props: z.object({
       label: z.string(),
     }),
-    events: { action: {} },
+    events: { action: { parameters: z.object({}) } },
   },
   Metric: {
     props: z.object({ label: z.string(), value: z.string() }),
@@ -31,7 +31,7 @@ export const myDefinitions = {
     props: z.object({
       child: child("The id of the label component."),
     }),
-    events: { onClick: {} },
+    events: { onClick: { parameters: z.object({}) } },
   },
   Shortcut: {
     description: "A keyboard shortcut hint.",
