@@ -8,6 +8,7 @@ import {
   A2UI_VERSION,
   GENERATIVE_UI_ACTIVITY_TYPE,
   GENERATIVE_UI_CHAT_TARGET,
+  GENERATIVE_UI_MAX_REJECTION_LENGTH,
   cloneValue,
   generativeUISurfaceMessageId,
 } from "@copilotkit/shared";
@@ -473,6 +474,19 @@ function surfaceIdOf(op: unknown) {
   return undefined;
 }
 
+/**
+ * The error of a `failed` lifecycle snapshot: the agent's A2UI recovery
+ * gave up (`a2ui_recovery_exhausted`). Undefined for any other content.
+ */
+function failedLifecycleError(content: unknown): string | undefined {
+  if (!isRecord(content) || content.status !== "failed") return undefined;
+  const error =
+    typeof content.error === "string" && content.error
+      ? content.error
+      : "A2UI generation failed";
+  return error.slice(0, GENERATIVE_UI_MAX_REJECTION_LENGTH);
+}
+
 /** The operations of `a2ui-surface` content. Lifecycle content has none. */
 function readOperations(content: unknown): unknown[] {
   if (!isRecord(content)) return [];
@@ -642,7 +656,11 @@ interface SurfaceState {
  *   operations are appended to its message with an `ACTIVITY_DELTA`, as
  *   the `render_ui` path updates an existing surface.
  * - A lifecycle snapshot (`status: "building"` and so on, no operations)
- *   names no surface, so it is consumed. Every other event passes through.
+ *   names no surface, so it is consumed. A `failed` one (the agent's
+ *   recovery gave up) becomes a surface with no operations, status
+ *   "error", and its error as the one rejected entry, so the chat shows
+ *   that the UI could not be made. Its surfaceId is the source messageId.
+ *   Every other event passes through.
  *
  * @example
  * ```ts
@@ -655,6 +673,31 @@ export function createA2UIV09ActivityUpgrader(): {
 } {
   const sources = new Map<string, unknown>();
   const surfaces = new Map<string, SurfaceState>();
+  /** The source messages whose `failed` snapshot was sent. */
+  const failures = new Set<string>();
+
+  /** The surface that shows a failed lifecycle snapshot, sent once. */
+  const failureOf = (messageId: string, error: string): BaseEvent[] => {
+    if (failures.has(messageId)) return [];
+    failures.add(messageId);
+    const content: GenerativeUISurfaceContent = {
+      surfaceId: messageId,
+      target: GENERATIVE_UI_CHAT_TARGET,
+      catalogId: STANDARD_CATALOG_ID,
+      operations: [],
+      status: "error",
+      rejected: [{ index: 0, reason: error }],
+      a2uiSourceVersion: "0.9",
+    };
+    const event: ActivitySnapshotEvent = {
+      type: EventType.ACTIVITY_SNAPSHOT,
+      messageId: generativeUISurfaceMessageId(messageId),
+      activityType: GENERATIVE_UI_ACTIVITY_TYPE,
+      content,
+      replace: true,
+    };
+    return [event];
+  };
 
   const snapshotOf = (
     surfaceId: string,
@@ -793,7 +836,11 @@ export function createA2UIV09ActivityUpgrader(): {
       }
       state.parts.set(messageId, part);
     }
-    return [...touched].flatMap(emitSurface);
+    const events = [...touched].flatMap(emitSurface);
+    const error = failedLifecycleError(sources.get(messageId));
+    return error === undefined
+      ? events
+      : [...events, ...failureOf(messageId, error)];
   };
 
   return {
