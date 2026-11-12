@@ -266,6 +266,8 @@ const V1_ONLY_PROVIDER_PROPS: Record<string, string> = {
   transcribeAudioUrl:
     "`transcribeAudioUrl` was removed in 2.0. Voice input goes through the runtime's transcription service.",
   textToSpeechUrl: "`textToSpeechUrl` was removed in 2.0.",
+  onError:
+    "2.0 calls `onError` with `{ error, code, context }`, not the v1 `CopilotErrorEvent`: read the error kind from `code` (it was `type`), and `timestamp` is gone.",
 };
 
 const MARKDOWN_GUIDE = "https://docs.copilotkit.ai/migrate/markdown-renderer";

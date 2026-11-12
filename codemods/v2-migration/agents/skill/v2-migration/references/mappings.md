@@ -6,12 +6,13 @@ Every example imports from the 2.0 package roots. There is no `/v2` subpath in 2
 
 `<CopilotKitProvider>` is the 2.0 provider. The codemod already renamed `<CopilotKit>` to it and `agent` to `agentId`. 2.0 still exports `CopilotKit` as an alias of `CopilotKitProvider`, so an import of `CopilotKit` from `@copilotkit/react-core` is valid. The alias takes the 2.0 props, so check its props the same way. Use `CopilotKitProvider` in new code. For the other v1 props:
 
-| v1 prop                                                | 2.0                                                                                                     |
-| ------------------------------------------------------ | ------------------------------------------------------------------------------------------------------- |
-| `threadId`                                             | `<CopilotChat threadId="...">`, or wrap the chat in `<CopilotChatConfigurationProvider threadId="...">` |
-| `guardrails_c`, `cloudRestrictToTopic`, `authConfig_c` | Removed. Ask the user how they want to replace them.                                                    |
-| `forwardedParameters`                                  | Removed. Set model parameters on the agent.                                                             |
-| `transcribeAudioUrl`, `textToSpeechUrl`                | Removed. Voice input goes through the runtime's transcription service.                                  |
+| v1 prop                                                | 2.0                                                                                                      |
+| ------------------------------------------------------ | -------------------------------------------------------------------------------------------------------- |
+| `threadId`                                             | `<CopilotChat threadId="...">`, or wrap the chat in `<CopilotChatConfigurationProvider threadId="...">`  |
+| `guardrails_c`, `cloudRestrictToTopic`, `authConfig_c` | Removed. Ask the user how they want to replace them.                                                     |
+| `forwardedParameters`                                  | Removed. Set model parameters on the agent.                                                              |
+| `transcribeAudioUrl`, `textToSpeechUrl`                | Removed. Voice input goes through the runtime's transcription service.                                   |
+| `onError={(event) => ...}` with `event.type`           | Same prop, new event: `{ error, code, context }`. Read `event.code` where the handler read `event.type`. |
 
 ## Angular runtime config
 
