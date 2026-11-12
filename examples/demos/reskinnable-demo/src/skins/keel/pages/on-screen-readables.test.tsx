@@ -62,7 +62,7 @@ vi.mock("next/link", () => ({
 // The pages register readables. No shell provider is mounted in this tree, so
 // record the value rather than dropping it. `useAgentContext` is the ONLY thing
 // these pages use from the runtime.
-vi.mock("@copilotkit/react-core/v2", () => ({
+vi.mock("@copilotkit/react-core", () => ({
   useAgentContext: ({ value }: { value: string }) => {
     readable.value = value;
   },

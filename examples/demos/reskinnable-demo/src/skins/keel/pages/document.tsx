@@ -10,7 +10,7 @@ import {
   useSyncExternalStore,
 } from "react";
 import { useParams } from "next/navigation";
-import { useAgentContext } from "@copilotkit/react-core/v2";
+import { useAgentContext } from "@copilotkit/react-core";
 import { getDoc } from "@/skins/keel/knowledge/corpus";
 import { DocReader } from "@/skins/keel/components/doc-reader";
 import { DocumentRegisterStrip } from "@/skins/keel/components/document-register-strip";

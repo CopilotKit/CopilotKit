@@ -1,7 +1,7 @@
 "use client";
 
-import { useAgent } from "@copilotkit/react-core/v2";
-import type { OpenGenerativeUIContent } from "@copilotkit/react-core/v2";
+import { useAgent } from "@copilotkit/react-core";
+import type { OpenGenerativeUIContent } from "@copilotkit/react-core";
 
 const OGUI_ACTIVITY_TYPE = "open-generative-ui";
 

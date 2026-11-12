@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { FileText, PackageSearch } from "lucide-react";
-import { useAgentContext } from "@copilotkit/react-core/v2";
+import { useAgentContext } from "@copilotkit/react-core";
 import { cn } from "@/lib/utils";
 import { useCommerceLedger } from "../data/ledger-context";
 import {

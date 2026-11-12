@@ -1,9 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { CopilotChat } from "@copilotkit/react-core/v2";
+import { CopilotChat } from "@copilotkit/react-core";
 import { SubagentFilteredAssistantMessage } from "@/shell/subagents/subagent-message-filter";
-import type { CopilotChatProps } from "@copilotkit/react-core/v2";
+import type { CopilotChatProps } from "@copilotkit/react-core";
 
 import { useSkin } from "@/shell/skin-provider";
 import {

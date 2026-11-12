@@ -1,9 +1,11 @@
-import { BuiltInAgent, defineTool } from "@copilotkit/runtime/v2";
+import { BuiltInAgent, defineTool } from "@copilotkit/runtime/agent";
 import {
   renderBriefParams,
   buildBriefOps,
   A2UI_OPERATIONS_KEY,
+  SURFACE_ID,
 } from "./build-brief-ops";
+import { openaiText } from "@tanstack/ai-openai";
 
 // SERVER-SAFE. No "use client", no JSX, no React. Imported only by the server
 // agent registry (src/shell/agent-registry.ts), never by the client skin
@@ -17,8 +19,8 @@ import {
  * Backend tool: render the decision brief on the CANVAS. Mirrors banking's
  * render_report — the agent supplies only selections + label-only text, and
  * this handler deterministically expands them into A2UI operations wrapped in
- * `a2ui_operations`. The A2UI middleware only converts that payload into an
- * `a2ui-surface` activity when it observes it in an in-stream TOOL_CALL_RESULT
+ * `a2ui_operations`. The A2UI middleware only converts that payload into a
+ * surface activity when it observes it in an in-stream TOOL_CALL_RESULT
  * event, so the emission MUST run server-side (a client frontend-tool result
  * never produces one). Named exactly "renderBrief" — the prompt below and the
  * skin's toolLabels both reference that name.
@@ -29,7 +31,15 @@ const renderBriefTool = defineTool({
     "Build a decision brief on the canvas. Pick which KPIs, charts, and tables to show; the figures bind to " +
     "live data on the client, so supply selections and LABEL-ONLY text — never numbers.",
   parameters: renderBriefParams,
-  execute: async (spec) => ({ [A2UI_OPERATIONS_KEY]: buildBriefOps(spec) }),
+  // A fresh surfaceId per call: the runtime streams each surface as the
+  // activity message `genui:<surfaceId>`, so a reused id would update the
+  // first brief's message in place instead of adding a new one at the end.
+  execute: async (spec) => ({
+    [A2UI_OPERATIONS_KEY]: buildBriefOps(
+      spec,
+      `${SURFACE_ID}-${Date.now().toString(36)}`,
+    ),
+  }),
 });
 
 const LOGISTICS_PROMPT = `
@@ -216,7 +226,7 @@ RULES
 
 export const logisticsAgent = () =>
   new BuiltInAgent({
-    model: "openai/gpt-6-luna",
+    model: openaiText("gpt-6-luna"),
     prompt: LOGISTICS_PROMPT,
     tools: [renderBriefTool],
   });

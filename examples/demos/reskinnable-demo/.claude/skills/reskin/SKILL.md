@@ -148,8 +148,9 @@ instead of the handoff pill — everything else still gets the pill + canvas
 path unchanged.** The shell's chat activity renderer
 (`A2UISurfaceActivity` in `src/app/[skin]/layout.tsx`, wired module-level into
 the `A2UI_RENDERERS` array so the reference stays stable across renders —
-`CopilotKitProvider` requires that) reads an `a2ui-surface` activity's
-`content.a2ui_operations`, walks it for the first
+`CopilotKitProvider` requires that) reads a `generative-ui-surface` activity's
+`content.operations` (the runtime's A2UI 1.0 conversion of the tool's
+`a2ui_operations`), walks it for the first
 `createSurface`/`updateComponents`/`updateDataModel` surface id, and checks
 whether that id starts with `block:` (`blockSurfaceIdFrom`,
 `src/shell/chat/inline-block-surface.tsx`). A match renders
@@ -168,15 +169,15 @@ a mixed op list (one `block:` surface plus one report surface) reads as a canvas
 claim there while the chat's first-id walk may still render it inline. Keep one
 surface per activity and the two agree, which is what exec does.
 
-**That card mounts its OWN `<A2UIProvider>` per
-rendered activity, and must:** there is no ambient a2ui store on this path.
-`CopilotKitProvider`'s `a2ui.catalog` prop mounts no provider — the only thing
-that would is the built-in `a2ui-surface` renderer's `ReactSurfaceHost`, and the
-shell's `renderActivityMessages` array SHADOWS that built-in (user-supplied
-renderers resolve first), so `useA2UIActions()` would throw and take the page
-down. The isolation is also deliberate: one provider per activity means a
-block's surface state can never collide with, or be clobbered by, the canvas's.
-The catalog comes from `useSkin().catalog` — the same object the layout hands
+**That card draws the block itself, and must:** the shell's
+`renderActivityMessages` array SHADOWS CopilotKit's built-in
+`generative-ui-surface` renderer (user-supplied renderers resolve first), so
+nothing else would. It hands the activity's ops to `<PageSurface>`
+(`src/shell/generative-ui/page-surface.tsx`), which renders them in the
+provider's surface manager under the card's OWN target (`inline:<surfaceId>`).
+The isolation is deliberate: a block's surface can never collide with, or be
+clobbered by, the canvas's. The components come from `useSkin().catalog` — the
+generative UI the layout hands
 `CopilotKitProvider` — reached through the contract rather than by importing
 from `src/skins/`. Anything else — including a `CanvasSurface` report like banking's
 `render_report` or logistics' `renderBrief` — still falls back to
@@ -220,9 +221,10 @@ canvas `CanvasSurface` path and the inline `block:` path alike.** Emit the
 `{ [A2UI_OPERATIONS_KEY]: buildOps(spec) }` payload from a **server-side
 `defineTool` on the `BuiltInAgent` in `agent.ts`** — not from a client
 `useFrontendTool`. The a2ui middleware only converts that payload into an
-`a2ui-surface` activity when it observes it in an in-stream `TOOL_CALL_RESULT`
-event, which a client frontend-tool result never produces. Do it client-side and
-NO `a2ui-surface` activity is ever minted, so the canvas stays permanently blank
+surface activity (`generative-ui-surface`, after the runtime's A2UI 1.0
+conversion) when it observes it in an in-stream `TOOL_CALL_RESULT` event, which
+a client frontend-tool result never produces. Do it client-side and NO surface
+activity is ever minted, so the canvas stays permanently blank
 AND the inline block card never appears — the rule is about how the activity is
 born, not about where it renders. Banking (`render_report`) and logistics
 (`renderBrief`) do it server-side for the canvas; exec's `render_metric_block`
@@ -247,7 +249,7 @@ against that file; it wins.
 | `nav`         | `NavRoute[]`                                    | Nav entries the layout renders. **Display-only — NOT the segment validator** (see below).       |
 | `resolvePage` | `(segments: string[]) => ComponentType \| null` | Maps URL segments (after `/[skin]`) to a page, or `null` → 404. **The sole segment validator.** |
 | `Tools`       | `ComponentType`                                 | Registers frontend tools / HITL / gen-UI + agent-context readables. **Renders `null`.**         |
-| `catalog`     | `A2uiCatalog`                                   | The skin's a2ui catalog from `createCatalog()`.                                                 |
+| `catalog`     | `A2uiCatalog`                                   | The skin's generative UI from `createGenerativeUI()`.                                           |
 | `suggestions` | `Suggestion[]`                                  | Static suggestion pills (`{ title, message }`), shown `available:"always"`.                     |
 | `designSkill` | `string`                                        | OGUI design brief — injected as agent context to style generated UIs.                           |
 
@@ -293,7 +295,7 @@ export interface ChatHeaderAction {
   label: string;
   onClick: () => void;
 }
-export type A2uiCatalog = ReturnType<typeof createCatalog>;
+export type A2uiCatalog = GenerativeUI; // from @copilotkit/react-core/generative-ui
 ```
 
 > The agent is deliberately absent from this interface — see the boundary
@@ -626,7 +628,7 @@ src/skins/<id>/
 ├── layout.tsx        # Layout chrome; side-effect `import "./theme.css"`
 ├── pages/            # one component per nav segment
 ├── tools.tsx         # <XTools/> — frontend tools/HITL/gen-UI + readables; renders null
-├── catalog/          # createCatalog(...) → the a2ui catalog (index.tsx)
+├── catalog/          # createGenerativeUI(...) → the a2ui catalog (index.tsx)
 ├── suggestions.ts    # Suggestion[] — ONE PILL PER BEAT, in demo order
 ├── design-skill.ts   # the OGUI design-brief string
 ├── data/             # seed data, types, derivations (+ an OPTIONAL useXData hook → useData)
@@ -713,7 +715,7 @@ Then build in dependency order so each slot compiles before the next depends on 
 4. **layout** (`layout.tsx`) — chrome; side-effect-import `./theme.css` here; the route readable (beat 3b) and the meta-utility strip live here.
 5. **pages** (`pages/`) — one component per nav segment, each registering its own on-screen readable (beat 3b).
 6. **tools** (`tools.tsx`) — frontend tools / HITL / gen-UI + `useAgentContext` readables. Replay-safe renders (beat 2), visible affordances on every mutation.
-7. **catalog** (`catalog/`) — a2ui catalog via `createCatalog`.
+7. **catalog** (`catalog/`) — a2ui catalog via `createGenerativeUI` (`@copilotkit/react-core/generative-ui`).
 8. **agent** (`agent.ts`) — server-only `BuiltInAgent` factory. This is where the beats are _enforced_: screen-awareness, recall-first, procedure separation, "never write a markdown table", pretty bold prose.
 9. **intelligence** (`intelligence/`, for beats 4–6) — `user-id.ts` + `seed-memories.ts` + `forget-memories.ts`. Scope the seeded procedure `user`, NOT `project` — see demo-beats.md § "Seeding memories".
 10. **suggestions** (`suggestions.ts`) — one pill per beat, in demo order — plus **design-skill** (`design-skill.ts`).

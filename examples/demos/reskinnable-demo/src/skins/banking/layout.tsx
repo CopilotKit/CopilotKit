@@ -27,7 +27,7 @@ import { MemberRole } from "@/skins/banking/data/data";
 import { useAuthContext } from "@/skins/banking/components/auth-context";
 import { useRecording } from "@/shell/teach";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
-import { useAgentContext } from "@copilotkit/react-core/v2";
+import { useAgentContext } from "@copilotkit/react-core";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useSkin } from "@/shell/skin-provider";
 import { useSkinHref, useSkinSegments } from "@/shell/skin-path";
@@ -152,7 +152,7 @@ export function LayoutComponent({ children }: { children: React.ReactNode }) {
       : restHead === segment;
 
   // Navigating dismisses any stale canvas surface. Watches the query string as
-  // well as the pathname: the surface is derived from the LAST a2ui-surface
+  // well as the pathname: the surface is derived from the LAST surface
   // message and stays live until dismissed, and dashboard tabs are `?tab=` on
   // one pathname — so keying to pathname alone left a filed report covering the
   // page after an in-page tab switch.

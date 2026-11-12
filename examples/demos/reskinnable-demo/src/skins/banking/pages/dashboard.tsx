@@ -2,7 +2,7 @@
 import useCreditCards from "@/skins/banking/actions";
 import { useMemo } from "react";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
-import { useAgentContext } from "@copilotkit/react-core/v2";
+import { useAgentContext } from "@copilotkit/react-core";
 import { ArrowDownRight, ArrowUpRight, Plus, ArrowRight } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { TransactionsList } from "@/skins/banking/components/transactions-list";

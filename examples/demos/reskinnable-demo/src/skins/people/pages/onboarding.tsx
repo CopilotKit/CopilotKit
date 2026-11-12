@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { CalendarDays, FileText, Sprout } from "lucide-react";
-import { useAgentContext } from "@copilotkit/react-core/v2";
+import { useAgentContext } from "@copilotkit/react-core";
 import { cn } from "@/lib/utils";
 import { usePeopleLedger } from "../data/ledger-context";
 import { daysUntil, tenureLabel } from "../data/derive";

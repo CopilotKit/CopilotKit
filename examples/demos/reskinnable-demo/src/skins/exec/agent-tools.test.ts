@@ -1,3 +1,6 @@
+// @vitest-environment node
+// The agents build an OpenAI client (TanStack AI), which refuses to start in
+// a browser-like environment such as jsdom. These tests never touch the DOM.
 import { beforeEach, describe, expect, it } from "vitest";
 import { z } from "zod";
 import {
@@ -95,65 +98,52 @@ const namesNoCode = (result: unknown) => {
 };
 
 /**
- * EVERY STRING A PARAMETER SCHEMA CARRIES — the `.describe()` texts AND the
- * enum values, which are what a `z.enum` publishes straight into the tool's
- * JSON schema. The withheld-vocabulary sweep used to read only the prompt and
- * the tool descriptions, which left the whole schema unguarded: turning
+ * EVERY STRING A PARAMETER SCHEMA CARRIES — the descriptions AND the enum
+ * values, which are what a `z.enum` publishes straight into the tool's JSON
+ * schema. The withheld-vocabulary sweep used to read only the prompt and the
+ * tool descriptions, which left the whole schema unguarded: turning
  * `file_variance_narrative`'s free-string `code` into a `z.enum` of the four
  * codes hands the model the entire catalogue and that suite stayed green.
  *
- * Walked off zod's own `_def` rather than through a JSON-schema conversion, so
- * it needs no serializer that could quietly drop a branch: object shapes
- * (`_def.shape()`), enum members (`_def.values`), descriptions, and the
- * wrapper chain optional/nullable/default/array puts between them.
+ * Walked off the tool's JSON Schema (`inputSchema`), which in 2.0 is exactly
+ * what `defineTool` publishes to the model, so no branch the model sees can
+ * hide from it: descriptions, enum members (`enum`), single literals
+ * (`const`), object properties, array items, union branches
+ * (`anyOf`/`oneOf`/`allOf`) and record values (`additionalProperties`).
  */
 const schemaStrings = (schema: unknown, depth = 0): string[] => {
   if (depth > 12 || typeof schema !== "object" || schema === null) return [];
-  const def = (schema as { _def?: Record<string, unknown> })._def;
-  if (!def) return [];
+  const node = schema as Record<string, unknown>;
   const out: string[] = [];
-  if (typeof def.description === "string") out.push(def.description);
-  // `z.enum([...])` / `z.nativeEnum(...)` — the members ride straight into the
-  // published JSON schema.
-  if (Array.isArray(def.values)) out.push(...def.values.map(String));
-  // `z.literal("VAR-TIMING")` — ONE member, on `value` rather than `values`.
+  if (typeof node.description === "string") out.push(node.description);
+  // `z.enum([...])` — the members ride straight into the published schema.
+  if (Array.isArray(node.enum)) out.push(...node.enum.map(String));
+  // `z.literal("VAR-TIMING")` — ONE member, on `const` rather than `enum`.
   // Without this arm a single literal published the code and the sweep stayed
   // green; a mutation proved it.
-  if (
-    "value" in def &&
-    (typeof def.value === "string" || typeof def.value === "number")
-  ) {
-    out.push(String(def.value));
+  if (typeof node.const === "string" || typeof node.const === "number") {
+    out.push(String(node.const));
   }
-  const shape = typeof def.shape === "function" ? def.shape() : def.shape;
-  if (shape && typeof shape === "object") {
-    for (const child of Object.values(shape)) {
+  const properties = node.properties;
+  if (properties && typeof properties === "object") {
+    for (const child of Object.values(properties)) {
       out.push(...schemaStrings(child, depth + 1));
     }
   }
-  // Branch containers: `z.union`/`z.discriminatedUnion` (`options`) and
-  // `z.tuple` (`items`). A union of literals is the other shape that hands the
-  // model the whole catalogue while every enum check passes.
-  for (const key of ["options", "items"]) {
-    const branches = def[key];
-    const list = branches instanceof Map ? [...branches.values()] : branches;
-    if (Array.isArray(list)) {
-      for (const branch of list) out.push(...schemaStrings(branch, depth + 1));
+  // Branch containers: `z.union` (`anyOf`/`oneOf`), intersections (`allOf`)
+  // and tuples (`prefixItems`). A union of literals is the other shape that
+  // hands the model the whole catalogue while every enum check passes.
+  for (const key of ["anyOf", "oneOf", "allOf", "prefixItems"]) {
+    const branches = node[key];
+    if (Array.isArray(branches)) {
+      for (const branch of branches) {
+        out.push(...schemaStrings(branch, depth + 1));
+      }
     }
   }
-  // Wrapper/child chains: optional, nullable, default, effects, array element,
-  // record key/value, intersection halves, lazy.
-  for (const key of [
-    "innerType",
-    "type",
-    "schema",
-    "element",
-    "keyType",
-    "valueType",
-    "left",
-    "right",
-  ]) {
-    if (def[key]) out.push(...schemaStrings(def[key], depth + 1));
+  // Array elements and record values.
+  for (const key of ["items", "additionalProperties"]) {
+    out.push(...schemaStrings(node[key], depth + 1));
   }
   return out;
 };
@@ -221,7 +211,10 @@ describe("get_metrics", () => {
    * refinement would not run at all — so putting the constraint back in the
    * schema fails these outright rather than passing by accident.
    */
-  it.each([0, -3, 1.5, Number.NaN])(
+  // No NaN case: tool arguments arrive as JSON, which cannot carry NaN, and in
+  // 2.0 `defineTool`'s `execute` checks the arguments against the schema first
+  // (`z.number()` rejects NaN), turning a failure into the tool's error result.
+  it.each([0, -3, 1.5])(
     "refuses months=%s as a READABLE RESULT, never a validation hang",
     async (months) => {
       const result = (await getMetricsTool.execute!({
@@ -574,7 +567,10 @@ describe("render_metric_block", () => {
    * narrows with `periods.slice(-months)`, and `slice(-0)` is `slice(0)` — the
    * FULL history on a chart the caller asked to narrow.
    */
-  it.each([0, -3, 1.5, Number.NaN])(
+  // No NaN case: tool arguments arrive as JSON, which cannot carry NaN, and in
+  // 2.0 `defineTool`'s `execute` checks the arguments against the schema first
+  // (`z.number()` rejects NaN), turning a failure into the tool's error result.
+  it.each([0, -3, 1.5])(
     "refuses a trendLine months=%s as a READABLE RESULT, never a throw",
     async (months) => {
       const result = (await renderMetricBlockTool.execute!({
@@ -739,7 +735,7 @@ describe("exec agent-facing text", () => {
       execAgent() as unknown as {
         config: {
           prompt: string;
-          tools: { description: string; parameters: unknown }[];
+          tools: { description: string; inputSchema: unknown }[];
         };
       }
     ).config;
@@ -750,7 +746,7 @@ describe("exec agent-facing text", () => {
   };
 
   const schemaSurfaces = () =>
-    config().tools.flatMap((t) => schemaStrings(t.parameters));
+    config().tools.flatMap((t) => schemaStrings(t.inputSchema));
 
   it("names no narrative code in the prompt or any tool description", () => {
     for (const text of surfaces()) {
@@ -810,7 +806,7 @@ describe("exec agent-facing text", () => {
         .optional(),
     });
 
-    const found = schemaStrings(synthetic);
+    const found = schemaStrings(z.toJSONSchema(synthetic));
     for (const sentinel of [
       "SENTINEL-LITERAL",
       "SENTINEL-UNION-LITERAL",

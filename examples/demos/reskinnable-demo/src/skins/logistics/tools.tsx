@@ -9,7 +9,7 @@ import {
   useFrontendTool,
   useHumanInTheLoop,
   ToolCallStatus,
-} from "@copilotkit/react-core/v2";
+} from "@copilotkit/react-core";
 import { useSkin } from "@/shell/skin-provider";
 import { useSkinHref } from "@/shell/skin-path";
 import { useRecording } from "@/shell/teach";

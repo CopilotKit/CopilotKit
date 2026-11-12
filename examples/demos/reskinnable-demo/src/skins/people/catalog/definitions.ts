@@ -1,4 +1,9 @@
 import { z } from "zod";
+// `child()` / `childList()` mark the props that hold component ids. Imported
+// from `@copilotkit/shared` rather than the "use client"
+// `@copilotkit/react-core/generative-ui` entry: this module is also imported
+// by the server agent (the op builders read `CATALOG_ID`).
+import { child, childList } from "@copilotkit/shared/generative-ui";
 
 /**
  * Rowan's a2ui catalog — the component vocabulary the People Review brief is
@@ -16,12 +21,14 @@ export const CATALOG_ID = "https://cpk-a2ui.local/catalogs/people/v1";
 
 // A single child id / a list of child ids. Layout components reference their
 // children BY ID (the components list is flat, rooted at "root"); they never
-// embed the child objects. `stringOrPath` is a2ui's "literal string OR a
-// data-bound { path }" union — text props accept either, though Rowan's builder
-// only ever emits literals (all data binding happens in the renderers).
-const childRef = z.string();
-const childrenRef = z.array(z.string());
-const stringOrPath = z.union([z.string(), z.object({ path: z.string() })]);
+// embed the child objects (`child()` / `childList()` mark those props).
+// `stringOrPath` is a plain string: the agent may still bind a text prop to
+// the data model (`{ "@path" }`), and the engine resolves it before render,
+// though the builder only ever emits literals (all data binding happens in
+// the renderers).
+const childRef = child();
+const childrenRef = childList();
+const stringOrPath = z.string();
 
 export const definitions = {
   Stack: {

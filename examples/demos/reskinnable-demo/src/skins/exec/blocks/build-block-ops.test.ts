@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 import {
-  A2UI_OPERATIONS_KEY,
   BLOCK_KIND_PROPS,
   buildBlockOps,
   extractSurfaceId,
@@ -45,17 +44,18 @@ describe("buildBlockOps", () => {
   });
 
   /**
-   * DRIFT GUARD for the deliberate duplicate. `BLOCK_SURFACE_PREFIX` (and
-   * `A2UI_OPERATIONS_KEY`) are spelled a second time inside
-   * `src/shell/chat/inline-block-surface.tsx` — the shell must not import from
-   * `src/skins/`, so the two copies are kept in sync by hand. Asserting our
-   * constant against ITSELF proves nothing; this runs the ops we MINT through
-   * the shell's own reader, so either copy drifting (prefix or operations key)
-   * fails here instead of silently routing blocks to the canvas.
+   * DRIFT GUARD for the deliberate duplicate. `BLOCK_SURFACE_PREFIX` is
+   * spelled a second time inside `src/shell/canvas/canvas-context.tsx` — the
+   * shell must not import from `src/skins/`, so the two copies are kept in sync
+   * by hand. Asserting our constant against ITSELF proves nothing; this runs
+   * the ops we MINT through the shell's own reader (wrapped the way the runtime
+   * streams them: a `generative-ui-surface` activity with the ops under
+   * `operations`), so the prefix drifting fails here instead of silently
+   * routing blocks to the canvas.
    */
   it("mints surface ids the shell's own reader recognizes", () => {
     const ops = buildBlockOps(spec, "b1");
-    expect(blockSurfaceIdFrom({ [A2UI_OPERATIONS_KEY]: ops })).toBe(
+    expect(blockSurfaceIdFrom({ operations: ops })).toBe(
       `${BLOCK_SURFACE_PREFIX}b1`,
     );
   });

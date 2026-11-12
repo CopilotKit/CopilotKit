@@ -1,4 +1,5 @@
-import { BuiltInAgent } from "@copilotkit/runtime/v2";
+import { BuiltInAgent } from "@copilotkit/runtime/agent";
+import { openaiText } from "@tanstack/ai-openai";
 
 // SERVER-SAFE. No "use client", no JSX, no React, no .tsx imports — this module
 // is reached only by the server agent registry (src/shell/agent-registry.ts) and
@@ -90,7 +91,7 @@ export const bookstoreAgent = () =>
     // `openai/gpt-6-luna` is the alias used across this app; the full (non-mini)
     // model routes the multi-step arc (recall_memory -> recommendBooks ->
     // addToCart -> openCheckout) more reliably.
-    model: "openai/gpt-6-luna",
+    model: openaiText("gpt-6-luna"),
     prompt: BOOKSTORE_PROMPT,
     // No backend tools: the catalog arrives as agent context, and every action
     // is a frontend tool in tools.tsx.

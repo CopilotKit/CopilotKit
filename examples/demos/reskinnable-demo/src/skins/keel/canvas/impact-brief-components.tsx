@@ -1,10 +1,6 @@
 "use client";
 
 import { z } from "zod";
-import type {
-  CatalogDefinitions,
-  RendererProps,
-} from "@copilotkit/a2ui-renderer";
 import { formatDate } from "@/skins/keel/pages/format-date";
 import type { BriefCitationRow } from "./impact-brief-ops";
 
@@ -12,14 +8,14 @@ import type { BriefCitationRow } from "./impact-brief-ops";
  * BEAT 3d — how a filed Impact Brief looks on the shared canvas.
  *
  * The definitions and renderers live here rather than inline in
- * `canvas-surface.tsx` for one reason that is not tidiness: the catalog objects
- * `createCatalog` produces are opaque, so a test that mounts the surface can
+ * `canvas-surface.tsx` for one reason that is not tidiness: the UI object
+ * `createGenerativeUI` produces is opaque, so a test that mounts the surface can
  * only ever assert that SOMETHING rendered. Exporting the renderers lets
  * `impact-brief-components.test.tsx` mount the actual citation table and assert
  * the row that carries the beat's proof — the policy the bulletin named that the
  * register does not hold — is drawn as uncarried.
  *
- * `canvas-surface.tsx` merges both exports into keel's ONE report catalog
+ * `canvas-surface.tsx` adds both exports to keel's ONE report UI
  * ("keel-report"), which the ops report already renders through. Additive: the
  * ops report's own components are untouched, and the two surfaces are told apart
  * by `surfaceId`, not by catalog.
@@ -28,8 +24,8 @@ import type { BriefCitationRow } from "./impact-brief-ops";
 /**
  * Kept in step with `BriefCitationRow` in `impact-brief-ops.ts`. Written out as
  * a schema rather than derived from the interface because the catalog is what
- * the a2ui runtime validates against, and `satisfies CatalogDefinitions` is what
- * makes a drifted field a type error at the renderer instead of a blank cell.
+ * the generative UI engine validates against: a drifted field is a rejected op
+ * (reported on the canvas) instead of a blank cell.
  */
 const citationRowSchema = z.object({
   ref: z.string(),
@@ -61,7 +57,7 @@ export const impactBriefDefinitions = {
     description: "The consequences the desk should act on, at most three.",
     props: z.object({ items: z.array(z.string()) }),
   },
-} satisfies CatalogDefinitions;
+};
 
 const SPACE_LABELS: Record<string, string> = {
   privacy: "Privacy",
@@ -83,16 +79,14 @@ function Field({ label, value }: { label: string; value: string }) {
   );
 }
 
-export const BriefMeta = ({
-  props,
-}: RendererProps<{
+export const BriefMeta = (props: {
   source: string;
   space: string;
   effective: string;
   filedBy: string;
   role: string;
   filedAt: string;
-}>) => (
+}) => (
   <dl
     className="grid grid-cols-2 gap-4 rounded-md border border-hairline bg-surface p-4 shadow-soft md:grid-cols-3"
     data-testid="brief-meta"
@@ -121,9 +115,7 @@ const inForce = (row: BriefCitationRow): string => {
   return row.currentRevision ?? "Never released";
 };
 
-export const BriefCitations = ({
-  props,
-}: RendererProps<{ rows: BriefCitationRow[] }>) => {
+export const BriefCitations = (props: { rows: BriefCitationRow[] }) => {
   const rows = props.rows ?? [];
   if (!rows.length) {
     return (
@@ -185,7 +177,7 @@ export const BriefCitations = ({
   );
 };
 
-export const BriefImpacts = ({ props }: RendererProps<{ items: string[] }>) => {
+export const BriefImpacts = (props: { items: string[] }) => {
   const items = props.items ?? [];
   if (!items.length) return null;
   return (

@@ -62,8 +62,8 @@ glitch, and prose with no chart wastes the beat.
 **The sanctioned alternative: a server-driven a2ui surface.** `useComponent` is
 the default and what most skins should reach for. But the beat asks for a real
 visual as the answer to the first pill, and a server tool that returns
-`{ [A2UI_OPERATIONS_KEY]: … }` satisfies it too — the operations become an
-`a2ui-surface` activity that renders as a catalog-bound surface, either
+`{ [A2UI_OPERATIONS_KEY]: … }` satisfies it too — the operations become a
+`generative-ui-surface` activity that renders as a catalog-bound surface, either
 full-region on the shared canvas (`CanvasSurface`) or inline in the transcript
 (the `block:` prefix). `exec` is the worked example of the inline form: its
 `render_metric_block` (`src/skins/exec/agent.ts`) is a server `defineTool`, it
@@ -104,7 +104,7 @@ written to be replay-safe.** This is the part that silently breaks:
 - **Keep secrets out of what you re-derive** (see beat 3a).
 
 **On the a2ui path (beat 1's alternative), replay works differently and the
-burden moves.** An `a2ui-surface` is an ACTIVITY MESSAGE in the thread, not a
+burden moves.** A surface (`generative-ui-surface`) is an ACTIVITY MESSAGE in the thread, not a
 tool-call render, so it replays with the thread without any `useComponent`
 registration — there is no `status`-vs-`result` trap to fall into. What replaces
 it: the operations must be built DETERMINISTICALLY server-side from the tool's

@@ -62,7 +62,7 @@ vi.mock("@/components/ui/theme-toggle", () => ({
 // Spread the original so every OTHER v2 export this skin's modules import
 // (tools.tsx, the pages) stays real — only the four hooks the layout calls are
 // replaced.
-vi.mock("@copilotkit/react-core/v2", async (importOriginal) => ({
+vi.mock("@copilotkit/react-core", async (importOriginal) => ({
   ...(await importOriginal<Record<string, unknown>>()),
   useAgent: () => ({ agent: { addMessage: chrome.addMessage } }),
   useAgentContext: () => {},
@@ -176,8 +176,8 @@ describe("exec skin wiring", () => {
   it("carries the a2ui catalog its blocks render through", () => {
     // An EMPTY catalog is the failure the type cannot see: the inline dashboard
     // blocks (beats 3a/5) then have no renderers and the chat shows raw a2ui
-    // ops. `includeBasicCatalog: false` means every component in here is one
-    // this skin registered (`./catalog/index.ts`).
+    // ops. The UI extends no standard catalog, so every component in here is
+    // one this skin registered (`./catalog/index.ts`).
     expect(exec.catalog.components.size).toBeGreaterThan(0);
   });
 

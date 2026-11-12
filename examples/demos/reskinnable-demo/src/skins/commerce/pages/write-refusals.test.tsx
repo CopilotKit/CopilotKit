@@ -115,7 +115,7 @@ const { LEDGER, OPERATOR, refresh, logStep } = vi.hoisted(() => {
   };
 });
 
-vi.mock("@copilotkit/react-core/v2", () => ({ useAgentContext: () => {} }));
+vi.mock("@copilotkit/react-core", () => ({ useAgentContext: () => {} }));
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: vi.fn(), replace: vi.fn() }),

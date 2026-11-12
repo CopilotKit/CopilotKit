@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
-import { useAgentContext } from "@copilotkit/react-core/v2";
+import { useAgentContext } from "@copilotkit/react-core";
 import { DashboardGrid } from "../components/dashboard-grid";
 import { useExecLedger } from "../data/ledger-context";
 

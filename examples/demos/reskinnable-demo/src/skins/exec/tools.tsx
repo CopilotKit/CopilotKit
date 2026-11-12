@@ -9,7 +9,7 @@ import {
   useFrontendTool,
   useHumanInTheLoop,
   useRenderTool,
-} from "@copilotkit/react-core/v2";
+} from "@copilotkit/react-core";
 import { useSkinHref } from "@/shell/skin-path";
 import { useRecording } from "@/shell/teach";
 import { useExecLedger } from "./data/ledger-context";
@@ -483,11 +483,12 @@ const PUBLISH_CANCELLED =
  * ⚠️ RECONSTRUCTED FROM UPSTREAM, WHICH EXPORTS NEITHER HALF. Both are hand-
  * copied, so both can drift silently:
  *
- *   - this message: `@copilotkit/react-core`'s v2 `use-human-in-the-loop.tsx`,
- *     which does `reject(new Error("Human-in-the-loop interaction aborted"))`;
+ *   - this message: `@copilotkit/core`'s `ɵHITL_ABORTED_MESSAGE`, which its
+ *     human-in-the-loop registry rejects a parked call with
+ *     (`reject(new Error(ɵHITL_ABORTED_MESSAGE))`);
  *   - the `Error: ` prefix: `@copilotkit/core`'s
  *     `CopilotKitCore.executeToolHandler`, whose last act on a rejected
- *     handler is ``toolCallResult = `Error: ${errorMessage}` ``.
+ *     handler is ``toolCallResult = toolCallText = `Error: ${errorMessage}` ``.
  *
  * `./tool-settle.test.tsx` reads both strings back out of the INSTALLED
  * packages, so an upstream reword fails a test that names the file to look in

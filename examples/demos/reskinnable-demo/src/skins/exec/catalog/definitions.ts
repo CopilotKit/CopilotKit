@@ -1,10 +1,15 @@
 import { z } from "zod";
+// `child()` / `childList()` mark the props that hold component ids. Imported
+// from `@copilotkit/shared` rather than the "use client"
+// `@copilotkit/react-core/generative-ui` entry: this module is also imported
+// by the server agent (the op builders read `CATALOG_ID`).
+import { childList } from "@copilotkit/shared/generative-ui";
 import type { Department, MetricId } from "../data/types";
 
 export const CATALOG_ID = "https://cpk-a2ui.local/catalogs/exec/v1";
 
-const childrenRef = z.array(z.string());
-const stringOrPath = z.union([z.string(), z.object({ path: z.string() })]);
+const childrenRef = childList();
+const stringOrPath = z.string();
 
 /**
  * THE VOCABULARY, CHECKED BY THE COMPILER. Zod schemas can't import a TS type

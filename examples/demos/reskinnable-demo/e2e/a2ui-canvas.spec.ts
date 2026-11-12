@@ -3,22 +3,23 @@ import { test, expect } from "@playwright/test";
 /**
  * A2UI report canvas E2E.
  *
- * Proves the render_report → a2ui-surface → full-screen canvas handoff: an
+ * Proves the render_report → generative-ui-surface → full-screen canvas handoff: an
  * assistant turn calls the backend `render_report` tool with a small selection
  * (which KPIs/charts); the tool builds A2UI ops, the A2UIMiddleware turns them
- * into an `a2ui-surface` activity, the chat shows a "rendered on the canvas"
+ * into a `generative-ui-surface` activity, the chat shows a "rendered on the canvas"
  * pill, and LayoutComponent swaps the dashboard body out for <ReportCanvas/>
  * (data-testid="a2ui-surface"), which reads the ops from the agent message
  * stream and renders them against the banking catalog with live client data.
  *
- * ── HOW render_report BECOMES AN a2ui-surface ACTIVITY (verified) ────────────────
+ * ── HOW render_report BECOMES A SURFACE ACTIVITY (verified) ────────────────
  * The runtime sets `a2ui: { injectA2UITool: false }` on both variants
  * (src/app/api/copilotkit/[[...slug]]/route.ts) and registers a backend tool
  * `render_report` on the BuiltInAgent whose `execute` returns
  * `{ a2ui_operations: [...] }` (built deterministically by
  * src/a2ui/build-report-ops.ts). With injectA2UITool:false the middleware
  * detects that `a2ui_operations` container in the tool result
- * (tryParseA2UIOperations) and emits the a2ui-surface activity. The model only
+ * (tryParseA2UIOperations) and emits the surface activity (the runtime streams it
+ * as `generative-ui-surface`, converted to A2UI 1.0). The model only
  * emits the tiny render_report selection — it never authors component JSON.
  *
  * ── REQUIRED aimock FIXTURE (not yet wired — see test.fixme below) ───────────────
@@ -85,7 +86,7 @@ test.describe("A2UI report canvas", () => {
     await input.fill(REPORT_PROMPT);
     await input.press("Enter");
 
-    // The chat shows the handoff pill (status-only a2ui-surface renderer in
+    // The chat shows the handoff pill (status-only surface renderer in
     // wrapper.tsx).
     await expect(page.getByText(/rendered on the canvas/i)).toBeVisible({
       timeout: 30_000,

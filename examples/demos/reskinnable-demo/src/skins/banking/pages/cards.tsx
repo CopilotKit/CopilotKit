@@ -5,7 +5,7 @@ import {
   useAgentContext,
   useHumanInTheLoop,
   useComponent,
-} from "@copilotkit/react-core/v2";
+} from "@copilotkit/react-core";
 import { z } from "zod";
 import type { NewCardRequest } from "@/skins/banking/data/data";
 import { CARD_COLORS, CardBrand } from "@/skins/banking/data/data";

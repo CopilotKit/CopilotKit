@@ -8,7 +8,7 @@ import {
   useComponent,
   useFrontendTool,
   useHumanInTheLoop,
-} from "@copilotkit/react-core/v2";
+} from "@copilotkit/react-core";
 import { useKeelDesk } from "@/skins/keel/desk-data";
 import { getDoc } from "@/skins/keel/knowledge/corpus";
 import { requestSection } from "@/skins/keel/knowledge/citation-target";
@@ -552,7 +552,7 @@ export function KeelTools() {
             'Who or what the run is about, e.g. "Priya Raman — Radiology contractor".',
           ),
         values: z
-          .record(z.string())
+          .record(z.string(), z.string())
           .optional()
           .describe("Optional playbook inputs, keyed by the input key."),
       }),

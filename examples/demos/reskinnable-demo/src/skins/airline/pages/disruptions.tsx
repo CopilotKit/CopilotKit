@@ -1,6 +1,6 @@
 "use client";
 
-import { useAgentContext } from "@copilotkit/react-core/v2";
+import { useAgentContext } from "@copilotkit/react-core";
 import { useConciergeView } from "../components/concierge-view";
 import {
   DisruptionAlert,

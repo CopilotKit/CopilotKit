@@ -1,6 +1,6 @@
 "use client";
 
-import { useFrontendTool } from "@copilotkit/react-core/v2";
+import { useFrontendTool } from "@copilotkit/react-core";
 import { z } from "zod";
 import { useAuthContext } from "@/skins/banking/components/auth-context";
 

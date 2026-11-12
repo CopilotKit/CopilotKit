@@ -48,7 +48,7 @@ vi.mock("next/link", () => ({
  * same package. A wholesale stub would break those at module-eval time, and the
  * failure would look nothing like its cause.
  */
-vi.mock("@copilotkit/react-core/v2", async (importOriginal) => ({
+vi.mock("@copilotkit/react-core", async (importOriginal) => ({
   ...(await importOriginal<Record<string, unknown>>()),
   useAgentContext: () => {},
 }));

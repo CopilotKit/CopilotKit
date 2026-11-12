@@ -3,12 +3,12 @@ import { classifyA2uiSurface } from "@/shell/canvas/canvas-context";
 import { blockSurfaceIdFrom } from "./inline-block-surface";
 
 const ops = (surfaceId: string) => ({
-  a2ui_operations: [{ createSurface: { surfaceId }, version: "v1" }],
+  operations: [{ createSurface: { surfaceId }, version: "v1" }],
 });
 
 /** One op whose FIRST surface container is empty and whose second carries the id. */
 const splitContainerOps = (surfaceId: string) => ({
-  a2ui_operations: [{ createSurface: {}, updateComponents: { surfaceId } }],
+  operations: [{ createSurface: {}, updateComponents: { surfaceId } }],
 });
 
 describe("blockSurfaceIdFrom", () => {
@@ -40,16 +40,16 @@ describe("blockSurfaceIdFrom", () => {
   it("returns null for a non-string surfaceId instead of throwing", () => {
     expect(() =>
       blockSurfaceIdFrom({
-        a2ui_operations: [{ createSurface: { surfaceId: 42 } }],
+        operations: [{ createSurface: { surfaceId: 42 } }],
       }),
     ).not.toThrow();
     expect(
       blockSurfaceIdFrom({
-        a2ui_operations: [{ createSurface: { surfaceId: 42 } }],
+        operations: [{ createSurface: { surfaceId: 42 } }],
       }),
     ).toBeNull();
     expect(
-      blockSurfaceIdFrom({ a2ui_operations: [{ createSurface: "block:b1" }] }),
+      blockSurfaceIdFrom({ operations: [{ createSurface: "block:b1" }] }),
     ).toBeNull();
   });
 
@@ -61,7 +61,7 @@ describe("blockSurfaceIdFrom", () => {
    */
   it("agrees with the canvas classifier on a mixed block+report op list", () => {
     const mixed = {
-      a2ui_operations: [
+      operations: [
         { createSurface: { surfaceId: "block:b1" } },
         { updateComponents: { surfaceId: "keel-ops-report-x1" } },
       ],
@@ -73,7 +73,7 @@ describe("blockSurfaceIdFrom", () => {
   /**
    * A STRINGIFIED envelope classifies (so a drifted block can never be mistaken
    * for a page-blanking report) but hands out no id: this card reads
-   * `content["a2ui_operations"]` by property access and parses nothing, so an
+   * `content["operations"]` by property access and parses nothing, so an
    * id without readable ops would mount an empty card.
    */
   it("returns null for a stringified block envelope the card cannot read", () => {
