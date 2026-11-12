@@ -65,7 +65,7 @@ export const IMPACT_BRIEF_SURFACE_ID = "keel-impact-brief";
  * The catalog both keel canvas surfaces render through.
  *
  * MUST equal `REPORT_CATALOG_ID` in `ops-report.ts` and the `id` of
- * `keelReportUI` in `canvas-surface.tsx`, because both surfaces render through
+ * `keelReportUI` in `report-ui.tsx`, because both surfaces render through
  * that ONE UI (the skin's UI extends it). That constant is private to
  * `ops-report.ts`, so this is a second spelling of it —
  * `impact-brief-ops.test.ts` pins the two together against `buildOpsReportOps`'s

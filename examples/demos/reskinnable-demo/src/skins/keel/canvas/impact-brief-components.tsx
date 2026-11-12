@@ -8,14 +8,14 @@ import type { BriefCitationRow } from "./impact-brief-ops";
  * BEAT 3d — how a filed Impact Brief looks on the shared canvas.
  *
  * The definitions and renderers live here rather than inline in
- * `canvas-surface.tsx` for one reason that is not tidiness: the UI object
+ * `report-ui.tsx` for one reason that is not tidiness: the UI object
  * `createGenerativeUI` produces is opaque, so a test that mounts the surface can
  * only ever assert that SOMETHING rendered. Exporting the renderers lets
  * `impact-brief-components.test.tsx` mount the actual citation table and assert
  * the row that carries the beat's proof — the policy the bulletin named that the
  * register does not hold — is drawn as uncarried.
  *
- * `canvas-surface.tsx` adds both exports to keel's ONE report UI
+ * `report-ui.tsx` adds both exports to keel's ONE report UI
  * ("keel-report"), which the ops report already renders through. Additive: the
  * ops report's own components are untouched, and the two surfaces are told apart
  * by `surfaceId`, not by catalog.

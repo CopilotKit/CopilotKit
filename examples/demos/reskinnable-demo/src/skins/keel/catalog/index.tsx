@@ -5,7 +5,7 @@ import { Anchor } from "lucide-react";
 import type { RunStatus, StepStatus } from "@/skins/keel/data/types";
 import { StatusPill } from "@/skins/keel/components/status-pill";
 import { createGenerativeUI } from "@copilotkit/react-core/generative-ui";
-import { keelReportUI } from "@/skins/keel/canvas-surface";
+import { keelReportUI } from "@/skins/keel/report-ui";
 
 /**
  * The Keel a2ui catalog: a compact run-recap surface the agent can render on the
@@ -14,7 +14,7 @@ import { keelReportUI } from "@/skins/keel/canvas-surface";
  * the shared design tokens (StatusPill carries the amber awaiting-approval
  * accent) so it reskins with the theme.
  *
- * It extends `keelReportUI` (`../canvas-surface.tsx`): the provider takes ONE
+ * It extends `keelReportUI` (`../report-ui.tsx`): the provider takes ONE
  * UI, and the canvas's report and impact-brief surfaces name that UI's id
  * ("keel-report") as their catalog.
  */

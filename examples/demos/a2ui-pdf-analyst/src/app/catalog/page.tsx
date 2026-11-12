@@ -708,16 +708,29 @@ const PREVIEW_THREAD = "catalog-preview";
 const PREVIEW_AGENT = "catalog-preview";
 const PREVIEW_UI = { ui: catalog };
 
+/** The ids of the run the preview agent was asked for, or none when the body is not JSON. */
+function parseRunInput(body: unknown): { threadId?: string; runId?: string } {
+  try {
+    const input: unknown = JSON.parse(String(body));
+    if (!input || typeof input !== "object") return {};
+    const { threadId, runId } = input as Record<string, unknown>;
+    return {
+      threadId: typeof threadId === "string" ? threadId : undefined,
+      runId: typeof runId === "string" ? runId : undefined,
+    };
+  } catch {
+    return {};
+  }
+}
+
 function createPreviewAgent() {
   return new HttpAgent({
     agentId: PREVIEW_AGENT,
     threadId: PREVIEW_THREAD,
     url: "/catalog/agent",
     fetch: async (_url, init) => {
-      const { threadId, runId } = JSON.parse(String(init?.body)) as {
-        threadId: string;
-        runId: string;
-      };
+      const { threadId = PREVIEW_THREAD, runId = "catalog-preview-run" } =
+        parseRunInput(init?.body);
       const events = [
         { type: EventType.RUN_STARTED, threadId, runId },
         { type: EventType.RUN_FINISHED, threadId, runId },

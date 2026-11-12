@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { pageSurfaceContent } from "./page-surface";
+import { pageSurfaceContent } from "./page-surface-content";
 
 describe("pageSurfaceContent", () => {
   it("re-addresses every op to the page target, as A2UI 1.0", () => {

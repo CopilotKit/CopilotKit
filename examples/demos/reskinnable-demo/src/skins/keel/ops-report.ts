@@ -12,10 +12,11 @@ import { z } from "zod";
  * is what keeps generation fast and reliable — the model only emits the tiny
  * selection below. Data is NOT carried in the ops: KpiCard/RunChart/RunsTable
  * bind live client data via useSkinData<KeelData>() in the report catalog
- * renderers (canvas-surface.tsx).
+ * renderers (report-ui.tsx).
  *
- * SCOPE (spec §8): this file + canvas-surface.tsx are the single DROPPABLE unit.
- * Dropping the pair leaves OGUI rendering full-region on the shared shell canvas
+ * SCOPE (spec §8): this file, report-ui.tsx and canvas-surface.tsx are the
+ * single DROPPABLE unit.
+ * Dropping the three leaves OGUI rendering full-region on the shared shell canvas
  * and the required `catalog` (RunSummary) contract field still satisfied.
  */
 
@@ -27,7 +28,7 @@ export const SURFACE_ID = "keel-ops-report";
 
 /**
  * The report's OWN a2ui catalog id. MUST equal the catalogId of the inline
- * report catalog created in canvas-surface.tsx. Deliberately NOT "keel" — that
+ * report UI created in report-ui.tsx. Deliberately NOT "keel" — that
  * id belongs to the minimal RunSummary contract catalog in catalog/index.tsx,
  * which is a separate catalog that survives when this droppable pair is cut.
  */

@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useRef } from "react";
+import { Fragment, useEffect, useRef } from "react";
 import type { CSSProperties, ReactNode } from "react";
 
 /**
@@ -89,14 +89,19 @@ function resolveText(value: V08Value | undefined, data: unknown): string {
 
 /** `**bold**` and `*italic*`, the markdown the agent's captions use. */
 function renderInlineMarkdown(text: string): ReactNode {
-  return text.split(/(\*\*[^*]+\*\*|\*[^*]+\*)/g).map((part, index) => {
+  // Each part is keyed by where it starts in `text`, which is unique and
+  // stays the same while the caption streams in.
+  let offset = 0;
+  return text.split(/(\*\*[^*]+\*\*|\*[^*]+\*)/g).map((part) => {
+    const key = offset;
+    offset += part.length;
     if (part.startsWith("**") && part.endsWith("**") && part.length > 4) {
-      return <strong key={index}>{part.slice(2, -2)}</strong>;
+      return <strong key={key}>{part.slice(2, -2)}</strong>;
     }
     if (part.startsWith("*") && part.endsWith("*") && part.length > 2) {
-      return <em key={index}>{part.slice(1, -1)}</em>;
+      return <em key={key}>{part.slice(1, -1)}</em>;
     }
-    return <Fragment key={index}>{part}</Fragment>;
+    return <Fragment key={key}>{part}</Fragment>;
   });
 }
 
@@ -151,6 +156,17 @@ function ModalNode({
   const dialogRef = useRef<HTMLDialogElement>(null);
   const open = () => dialogRef.current?.showModal();
   const close = () => dialogRef.current?.close();
+  // A click on the backdrop lands on the dialog element itself and closes it.
+  // Escape closes it natively, so the backdrop click is a pointer shortcut.
+  useEffect(() => {
+    const dialog = dialogRef.current;
+    if (!dialog) return;
+    const onBackdropClick = (event: MouseEvent) => {
+      if (event.target === dialog) dialog.close();
+    };
+    dialog.addEventListener("click", onBackdropClick);
+    return () => dialog.removeEventListener("click", onBackdropClick);
+  }, []);
   return (
     <div className="a2ui-modal">
       <section
@@ -166,13 +182,7 @@ function ModalNode({
       >
         {entry}
       </section>
-      <dialog
-        ref={dialogRef}
-        onClick={(event) => {
-          // A click on the backdrop lands on the dialog element itself.
-          if (event.target === event.currentTarget) close();
-        }}
-      >
+      <dialog ref={dialogRef} aria-label="Details">
         <div id="controls">
           <button type="button" onClick={close} aria-label="Close">
             <span className="g-icon" aria-hidden="true">
