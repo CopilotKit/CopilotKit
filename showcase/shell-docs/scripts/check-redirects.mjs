@@ -385,6 +385,16 @@ for (const [from, to, status] of [
   ],
   ["/learn", "/concepts/architecture", PERMANENT],
   ["/learn/whats-new/v1-50", "/", PERMANENT],
+  // Pages docs.copilotkit.ai served that the rebuild dropped (goneRedirect).
+  ["/whats-new/v1-50", "/", PERMANENT],
+  ["/mastra/faq", "/mastra/troubleshooting/common-issues", PERMANENT],
+  ["/vue/voice", "/vue", PERMANENT],
+  [
+    "/mastra/reference/v2/hooks/useCapabilities",
+    "/reference/v2/hooks/useCapabilities",
+    PERMANENT,
+  ],
+  ["/generative-ui/agentic", "/generative-ui", PERMANENT],
   [
     "/cookbook/antigravity-repo-doctor",
     "/cookbook/google-antigravity",
