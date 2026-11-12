@@ -31,6 +31,8 @@ Input events also include `target.label`, a cleaned name of the edited field. It
 
 Text edits are combined per field and recorded after a 300 ms pause. Committing or leaving the field, pressing Enter outside input-method composition, clicking, navigating, emitting a developer event, or stopping capture records the pending edit first. Paired `input` and `change` notifications for the same edit produce one record; a later user edit can record the same value again. Checkbox and select changes remain immediate. See [Form edit timing](https://docs.copilotkit.ai/intelligence/captured-data#form-edit-timing) for composition and delivery behavior.
 
+Error capture records `page.error` events with a `kind`: `uncaught` (errors that nothing catches), `rejection` (unhandled promise rejections), `resource` (failed image, script, stylesheet, media, or frame loads), `invalid` (native form validation failures, with the field label and the failed validity checks, never the value), and `alert` (text in `role="alert"` or `aria-live="assertive"` regions). Messages, validation messages, and alert text are cleaned like labels and capped. Stacks hold the cleaned message, have URL and credential redaction, and are capped at 1,000 characters. Each distinct error is sent at its 1st, 10th, 100th, … occurrence, with `count`, and a session sends at most 50. Set `capture: { errors: false }` to turn it off. See [Page errors](https://docs.copilotkit.ai/intelligence/captured-data#page-errors).
+
 ## Authenticated Trajectories
 
 Use Core to connect capture to CopilotKit Intelligence. This experimental integration targets the join and batch APIs in [Intelligence #1569](https://github.com/CopilotKit/Intelligence/pull/1569).

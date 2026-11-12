@@ -228,6 +228,40 @@ describe("Trajectory capture contract", () => {
     expect(second.value).not.toHaveProperty("appVersion");
   });
 
+  it("records page errors by default and stops when capture.errors is false", () => {
+    const handled = (event: Event) => event.preventDefault();
+    window.addEventListener("error", handled);
+    try {
+      const send = vi.fn();
+      const on = createTrajectoryCollector({ send });
+      on.start();
+      window.dispatchEvent(
+        new ErrorEvent("error", { error: new Error("boom") }),
+      );
+      on.stop();
+      const off = createTrajectoryCollector({
+        send,
+        capture: { errors: false },
+      });
+      off.start();
+      window.dispatchEvent(
+        new ErrorEvent("error", { error: new Error("boom") }),
+      );
+      off.stop();
+      expect(send.mock.calls.map(([event]) => event.name)).toEqual([
+        "page",
+        "page.error",
+        "page",
+      ]);
+      expect(send.mock.calls[1]![0].value).toMatchObject({
+        kind: "uncaught",
+        message: "boom",
+      });
+    } finally {
+      window.removeEventListener("error", handled);
+    }
+  });
+
   it("supports capture switches while retaining initial page context", () => {
     const { collector, send } = setup({
       capture: {

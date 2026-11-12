@@ -63,6 +63,10 @@ This page lists the `learning` prop, the Core methods, and the `CopilotKitIntell
     <PropertyReference name="network" type="boolean" default="true">
       Records `network` events for browser `fetch` and XHR requests.
     </PropertyReference>
+
+    <PropertyReference name="errors" type="boolean" default="true">
+      Records `page.error` events: uncaught errors, unhandled promise rejections, failed resource loads, form validation failures, and alert text. See [Page errors](/intelligence/captured-data#page-errors).
+    </PropertyReference>
   </PropertyReference>
 
   <PropertyReference name="ignoreUrls" type="(string | RegExp)[]" default="[]">

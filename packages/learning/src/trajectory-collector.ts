@@ -1,4 +1,5 @@
 import { installClickCapture } from "./clicks";
+import { installErrorCapture } from "./errors";
 import { installNavigationCapture } from "./navigation";
 import { installInputCapture } from "./inputs";
 import { installNetworkCapture } from "./network";
@@ -180,6 +181,9 @@ export function createTrajectoryCollector(
               redact,
             }),
           );
+        }
+        if (options.capture?.errors !== false) {
+          uninstalls.push(installErrorCapture({ emit: capture, redact }));
         }
         record("page", {
           route: getRoute(),

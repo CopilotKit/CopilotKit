@@ -21,6 +21,7 @@ Capture records browser-visible data by default. Your app can exclude or change 
 - A short, cleaned name of each edited field in `target.label`. See [Field labels](#field-labels).
 - Input, select, text area, and editable element values on input and change events.
 - Browser-visible request and response headers and bounded body snapshots.
+- Errors that the page reports: uncaught errors, unhandled promise rejections, failed resource loads, form validation failures, and alert text. See [Page errors](#page-errors).
 - Reply ratings with their comment and the first 500 characters of the rated reply. See [`message.feedback`](#events) below.
 
 ## Credential redaction
@@ -74,6 +75,7 @@ Sequence numbers start from the Core instance's creation time in microseconds. T
 | `navigation` | `from`, `to`, `navigationType` | Browser |
 | `click` | `target` (`tag`, `role`, `action`, `text`, `label`, `attributes`, control values, `input`), `route`, `url` | Browser |
 | `input` | `eventType`, `target` (element details, `label`, and control values), `route`, `url` | Browser |
+| `page.error` | `kind`, then fields for that kind, `count`, `route`, `url` | Browser. See [Page errors](#page-errors) |
 | `network` | `transport`, `method`, `url`, `origin`, `route`, `status`, `durationMs`, `outcome`, `request`, `response` | Browser |
 | `thread.linked` | `threadId` | Core |
 | `message.feedback` | `feedbackId`, `threadId`, `messageId`, `agentId`, `runId`, `rating`, `comment`, `response` | Chat, when a user rates a reply, changes the comment, or removes the rating |
@@ -170,6 +172,24 @@ For a select, the visible text of the chosen options follows the name, as in `De
 
 Capture cleans field labels with the same steps as click labels, and reads the label when the edit starts. When no name remains, `label` is omitted.
 
+## Page errors
+
+Many apps have no logging that Learning can read. Page errors show Learning where the app failed for the user. Each `page.error` event has a `kind`:
+
+| `kind` | Recorded when | Fields |
+| --- | --- | --- |
+| `uncaught` | A script throws an error that nothing catches. | `name`, `message`, `stack`, `source`, `line`, `column` |
+| `rejection` | A promise rejects and nothing handles it. | `name`, `message`, and `stack` when the reason has them. `reasonType` when the reason is not an object. |
+| `resource` | An image, script, stylesheet, media file, or frame fails to load. | `tag`, `source` |
+| `invalid` | The browser's form validation rejects a field. | `label` (see [Field labels](#field-labels)), `failed` (the failed validity checks, such as `valueMissing`), `validationMessage` |
+| `alert` | Text appears in a `role="alert"` or `aria-live="assertive"` region. | `text` |
+
+Capture cleans `message`, `validationMessage`, and `text` with the label cleanup steps above, and cuts them at 300 characters (200 for `text`). The `stack` holds the cleaned message, has the URL and credential redaction, and stops at 1,000 characters. `source` URLs have the URL redaction. An `invalid` event never contains the field's value. Fields and alert regions inside `data-copilotkit-ignore` are skipped.
+
+Alert text is what the page shows the user, so it can contain names or other app data. To keep it out, drop `alert` events in `beforeSend`, or turn off error capture with `capture: { errors: false }`.
+
+To limit volume, capture sends each distinct error at its 1st, 10th, 100th, and later powers-of-ten occurrence, with the occurrence number in `count`. A capture session sends at most 50 `page.error` events. Capture only listens. It does not change how your app handles errors.
+
 ## Form edit timing
 
 Text edits are combined per field. After 300 ms without another edit, capture records the latest value once. A field commit, focus change, Enter key outside input-method composition, click, submit, navigation, developer event, or explicit stop records the pending edit sooner, before the action that follows it. Paired `input` and `change` notifications for the same edit produce one record. A later user edit can record the same value again, including after the app clears a field.
@@ -199,7 +219,7 @@ In code (see the [API reference](/intelligence/trajectories-reference#learning-p
 | Option | Effect |
 | --- | --- |
 | `ignoreUrls` | URL prefixes or patterns that network capture skips. |
-| `capture` | Turn off `clicks`, `inputs`, `navigation`, or `network`. All four default to on. |
+| `capture` | Turn off `clicks`, `inputs`, `navigation`, `network`, or `errors`. All five default to on. |
 | `beforeSend` | Runs last, in the browser. Return the event, a changed copy, or `null` to drop it. |
 | `appVersion` | Your app's version, sent in the `page` event at start. |
 

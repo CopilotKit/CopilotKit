@@ -9,6 +9,7 @@ export const BUILT_IN_EVENT_NAMES = [
   "agent.run",
   "agent.message",
   "tool.call",
+  "page.error",
 ] as const;
 
 export type BuiltInEventName = (typeof BUILT_IN_EVENT_NAMES)[number];
@@ -76,6 +77,8 @@ export interface CaptureOptions {
   navigation?: boolean;
   network?: boolean;
   inputs?: boolean;
+  /** Uncaught errors, unhandled rejections, failed resource loads, form validation failures, and alert text. */
+  errors?: boolean;
 }
 
 export interface CollectorOptions {

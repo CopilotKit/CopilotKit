@@ -276,7 +276,7 @@ function contentText(element: Element) {
 }
 
 /** Removes invisible characters, credentials, emails, URLs, and tokens, then caps the length. */
-function cleanLabel(raw: string, redact: Redactor) {
+export function cleanText(raw: string, redact: Redactor, max: number) {
   const chars = Array.from(
     // Scrub again after collapsing, also for remembered values that differ
     // in whitespace or invisible characters.
@@ -290,9 +290,9 @@ function cleanLabel(raw: string, redact: Redactor) {
       .replace(JWT, `$1${REDACTED}`)
       .replace(TOKEN_RUN, (run) => (/\d/.test(run) ? REDACTED : run)),
   );
-  return chars.length > MAX_LABEL_LENGTH
+  return chars.length > max
     ? `${chars
-        .slice(0, MAX_LABEL_LENGTH - 1)
+        .slice(0, max - 1)
         .join("")
         .trimEnd()}…`
     : chars.join("");
@@ -300,7 +300,7 @@ function cleanLabel(raw: string, redact: Redactor) {
 
 function firstLabel(sources: (() => string | null)[], redact: Redactor) {
   for (const source of sources) {
-    const label = cleanLabel(source() ?? "", redact);
+    const label = cleanText(source() ?? "", redact, MAX_LABEL_LENGTH);
     if (label) return label;
   }
   return undefined;
@@ -391,12 +391,15 @@ export function fieldLabel(
     redact,
   );
   if (!(element instanceof HTMLSelectElement)) return caption;
-  const chosen = cleanLabel(
+  const chosen = cleanText(
     Array.from(element.selectedOptions, (option) => option.label).join(", "),
     redact,
+    MAX_LABEL_LENGTH,
   );
   if (!chosen) return caption;
-  return caption ? cleanLabel(`${caption}: ${chosen}`, redact) : chosen;
+  return caption
+    ? cleanText(`${caption}: ${chosen}`, redact, MAX_LABEL_LENGTH)
+    : chosen;
 }
 
 /** Snapshot live control properties; HTML attributes do not reflect edited values. */
