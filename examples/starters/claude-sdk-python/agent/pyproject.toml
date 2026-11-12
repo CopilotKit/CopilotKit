@@ -5,8 +5,8 @@ description = "Claude Agent SDK integration server for AG-UI"
 requires-python = ">=3.12,<3.14"
 dependencies = [
   "anthropic==0.111.0",
-  "claude-agent-sdk==0.2.180",
-  "ag-ui-claude-sdk==0.2.3",
+  "claude-agent-sdk==0.2.170",
+  "ag-ui-claude-sdk==0.2.4",
   "ag-ui-protocol==1.0.0",
   "fastapi>=0.115.0",
   "uvicorn>=0.34.0",
