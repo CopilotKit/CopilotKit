@@ -192,6 +192,8 @@ describe("generateThreadNameForNewThread", () => {
 
     expect(model.doGenerateCalls).toHaveLength(1);
     expect(model.doGenerateCalls[0].tools ?? []).toEqual([]);
+    // A small output cap leaves a reasoning model no tokens for the title.
+    expect(model.doGenerateCalls[0].maxOutputTokens).toBeUndefined();
     expect(JSON.stringify(model.doGenerateCalls[0].prompt)).toContain(
       USER_TEXT,
     );

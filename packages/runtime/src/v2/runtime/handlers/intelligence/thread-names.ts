@@ -24,7 +24,6 @@ const THREAD_NAME_SYSTEM_PROMPT = [
 const MAX_TITLE_LENGTH = 80;
 const MAX_TITLE_WORDS = 8;
 const MAX_TRANSCRIPT_MESSAGES = 8;
-const MAX_TITLE_OUTPUT_TOKENS = 64;
 const TITLE_MODEL_TIMEOUT_MS = 15_000;
 const FALLBACK_THREAD_TITLE = "Untitled";
 
@@ -97,7 +96,8 @@ async function generateTitleWithModel(
     model: resolveModel(config.model, config.apiKey),
     system: THREAD_NAME_SYSTEM_PROMPT,
     prompt,
-    maxOutputTokens: MAX_TITLE_OUTPUT_TOKENS,
+    // No maxOutputTokens: a reasoning model (gpt-5-mini) spends a small cap
+    // on reasoning and returns no text. The title is checked and cut anyway.
     // One call only: on any failure the first user message names the thread.
     maxRetries: 0,
     abortSignal: AbortSignal.timeout(TITLE_MODEL_TIMEOUT_MS),
