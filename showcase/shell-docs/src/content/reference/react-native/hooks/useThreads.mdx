@@ -183,4 +183,4 @@ function ThreadList() {
 - Mutations update the list at once, before the server confirms. If the server rejects a delete, the thread comes back and `error` is set. Rename, archive, and unarchive do not roll back. Promises resolve when the server accepts the request and reject on failure.
 - The `error` state updates with the most recent error from any operation.
 - The `threads` array is sorted by most recent run first (`lastRunAt`, then `updatedAt`, then `createdAt`). For a thread that has run, a rename or archive does not change its place.
-- New threads are **automatically named** by the LLM after their first run (a short title of 2 to 5 words). This is configurable via `generateThreadNames` on the runtime.
+- New threads are **automatically named** after their first run. By default, the name is the first user message. To get a short summary title from a model, set `generateThreadNames: { model }` on the runtime.

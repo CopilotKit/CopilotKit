@@ -1,12 +1,14 @@
-import { describe, expect, it } from "vitest";
-import type { Message } from "@ag-ui/client";
+import { describe, expect, it, vi } from "vitest";
+import type { Message, RunAgentInput } from "@ag-ui/client";
+import { MockLanguageModelV3 } from "ai/test";
 
 import {
+  generateThreadNameForNewThread,
   ɵnormalizeGeneratedTitle as normalizeGeneratedTitle,
-  ɵselectGeneratedTitleFromMessages as selectGeneratedTitleFromMessages,
   ɵbuildThreadTitlePrompt as buildThreadTitlePrompt,
   ɵhasThreadName as hasThreadName,
 } from "../handlers/intelligence/thread-names";
+import type { CopilotIntelligenceRuntimeLike } from "../core/runtime";
 
 // ---------------------------------------------------------------------------
 // normalizeGeneratedTitle
@@ -98,39 +100,116 @@ describe("normalizeGeneratedTitle", () => {
 });
 
 // ---------------------------------------------------------------------------
-// selectGeneratedTitleFromMessages
+// generateThreadNameForNewThread
 // ---------------------------------------------------------------------------
 
-describe("selectGeneratedTitleFromMessages", () => {
-  const msg = (role: string, content: unknown): Message =>
-    ({ id: `msg-${role}`, role, content }) as Message;
+describe("generateThreadNameForNewThread", () => {
+  const USER_TEXT = "Draft a follow-up email to contact c11 about the renewal";
 
-  it("uses the latest valid assistant title before a tool result", () => {
-    const result = selectGeneratedTitleFromMessages([
-      msg("assistant", '{"title":"Weather request"}'),
-      msg("tool", '{"timezone":"UTC","iso":"2026-06-01T00:00:00Z"}'),
-    ]);
+  function textModel(text: string) {
+    return new MockLanguageModelV3({
+      doGenerate: async () => ({
+        content: [{ type: "text", text }],
+        finishReason: { unified: "stop", raw: "stop" },
+        usage: {
+          inputTokens: {
+            total: 1,
+            noCache: 1,
+            cacheRead: undefined,
+            cacheWrite: undefined,
+          },
+          outputTokens: { total: 1, text: 1, reasoning: undefined },
+        },
+        warnings: [],
+      }),
+    });
+  }
 
-    expect(result).toBe("Weather request");
+  // `agents` throws on access: thread naming must never touch the app's agent.
+  function createRuntime(
+    generateThreadNames: CopilotIntelligenceRuntimeLike["generateThreadNames"],
+  ) {
+    const updateThread = vi.fn().mockResolvedValue(undefined);
+    const runtime = {
+      generateThreadNames,
+      intelligence: { updateThread },
+      get agents(): never {
+        throw new Error("thread naming must not resolve the app's agent");
+      },
+    } as unknown as CopilotIntelligenceRuntimeLike;
+    return { runtime, updateThread };
+  }
+
+  async function nameThread(runtime: CopilotIntelligenceRuntimeLike) {
+    await generateThreadNameForNewThread({
+      runtime,
+      agentId: "my-agent",
+      sourceInput: {
+        threadId: "thread-1",
+        runId: "run-1",
+        state: {},
+        messages: [{ id: "user-1", role: "user", content: USER_TEXT }],
+        tools: [],
+        context: [],
+        forwardedProps: {},
+      } as RunAgentInput,
+      thread: { id: "thread-1", name: null } as never,
+      userId: "user-1",
+    });
+  }
+
+  const expectName = (updateThread: ReturnType<typeof vi.fn>, name: string) =>
+    expect(updateThread).toHaveBeenCalledWith({
+      threadId: "thread-1",
+      userId: "user-1",
+      agentId: "my-agent",
+      updates: { name },
+    });
+
+  it("uses the first user message when no model is configured", async () => {
+    const { runtime, updateThread } = createRuntime(true);
+    await nameThread(runtime);
+    expectName(updateThread, "Draft a follow-up email to contact c11 about");
   });
 
-  it("ignores malformed assistant JSON and falls back to an earlier valid title", () => {
-    const result = selectGeneratedTitleFromMessages([
-      msg("assistant", '{"title":"Order refund"}'),
-      msg("assistant", '{"timezone":"UTC"}'),
-    ]);
+  it("calls the configured model once, with no tools", async () => {
+    const model = textModel('{"title":"Renewal follow-up email"}');
+    const { runtime, updateThread } = createRuntime({ model });
+    await nameThread(runtime);
 
-    expect(result).toBe("Order refund");
+    expect(model.doGenerateCalls).toHaveLength(1);
+    expect(model.doGenerateCalls[0].tools ?? []).toEqual([]);
+    expect(JSON.stringify(model.doGenerateCalls[0].prompt)).toContain(
+      USER_TEXT,
+    );
+    expectName(updateThread, "Renewal follow-up email");
   });
 
-  it("returns null when no assistant text response has a valid title", () => {
-    const result = selectGeneratedTitleFromMessages([
-      msg("tool", '{"title":"Tool payload"}'),
-      msg("assistant", { title: "Object payload" }),
-      msg("assistant", '{"title":42}'),
-    ]);
+  it("uses the first user message when the model call fails", async () => {
+    const model = new MockLanguageModelV3({
+      doGenerate: async () => {
+        throw new Error("provider down");
+      },
+    });
+    const { runtime, updateThread } = createRuntime({ model });
+    await nameThread(runtime);
+    expectName(updateThread, "Draft a follow-up email to contact c11 about");
+  });
 
-    expect(result).toBeNull();
+  it("uses the first user message when the model answers instead of naming", async () => {
+    const model = textModel(
+      "Here is a draft email for contact c11. Hi there, I wanted to follow up on the renewal.",
+    );
+    const { runtime, updateThread } = createRuntime({ model });
+    await nameThread(runtime);
+    expect(model.doGenerateCalls).toHaveLength(1);
+    expectName(updateThread, "Draft a follow-up email to contact c11 about");
+  });
+
+  it("does nothing when naming is off", async () => {
+    const { runtime, updateThread } = createRuntime(false);
+    await nameThread(runtime);
+    expect(updateThread).not.toHaveBeenCalled();
   });
 });
 

@@ -31,6 +31,7 @@ import type {
   ResolvedForwardHeadersPolicy,
 } from "../handlers/header-utils";
 import type { AbstractAgent } from "@ag-ui/client";
+import type { ModelSpecifier } from "../../../agent";
 import type { MCPClientConfig } from "@ag-ui/mcp-apps-middleware";
 import type { A2UIMiddlewareConfig } from "@ag-ui/a2ui-middleware";
 import { RUNTIME_PACKAGE_VERSION } from "./package-info";
@@ -332,6 +333,21 @@ export interface CopilotSseRuntimeOptions extends BaseCopilotRuntimeOptions {
   channels?: undefined;
 }
 
+/** Model configuration for {@link CopilotIntelligenceRuntimeOptions.generateThreadNames}. */
+export interface ThreadNameGenerationConfig {
+  /**
+   * The model that writes thread titles: a `"provider/model"` string such as
+   * `"openai/gpt-5-mini"`, or an AI SDK `LanguageModel`. A small, fast model
+   * is enough.
+   */
+  model: ModelSpecifier;
+  /**
+   * API key for a `"provider/model"` string. If it is not set, the provider's
+   * environment variable is used (for example `OPENAI_API_KEY`).
+   */
+  apiKey?: string;
+}
+
 interface CopilotIntelligenceRuntimeBaseOptions extends BaseCopilotRuntimeOptions {
   /** Configures Intelligence mode for durable threads and realtime events. */
   intelligence: CopilotKitIntelligence;
@@ -340,8 +356,19 @@ interface CopilotIntelligenceRuntimeBaseOptions extends BaseCopilotRuntimeOption
    * @deprecated Configure `getLearningContainerId` on `CopilotKitIntelligence`.
    */
   ɵlearning?: CopilotRuntimeLearningConfig;
-  /** Auto-generate short names for newly created threads. */
-  generateThreadNames?: boolean;
+  /**
+   * Names each new thread after its first run.
+   *
+   * - `true` (default): the name is the first user message, cut to 8 words.
+   *   No model runs, and the app's agent does not run.
+   * - `{ model }`: the runtime calls that model once, with no tools, for a
+   *   2 to 5 word title. If the call fails, the first user message is used.
+   * - `false`: threads are not named.
+   *
+   * The runtime never runs the app's agent to name a thread, because the
+   * agent's own server-side tools could run and change app data.
+   */
+  generateThreadNames?: boolean | ThreadNameGenerationConfig;
   /** Max delay (ms) for WebSocket reconnect backoff. @default 10_000 */
   maxReconnectMs?: number;
   /** Max delay (ms) for channel rejoin backoff. @default 30_000 */
@@ -455,7 +482,7 @@ export interface CopilotSseRuntimeLike extends CopilotRuntimeLike {
 export interface CopilotIntelligenceRuntimeLike extends CopilotRuntimeLike {
   intelligence: CopilotKitIntelligence;
   identifyUser?: IdentifyUserCallback;
-  generateThreadNames: boolean;
+  generateThreadNames: boolean | ThreadNameGenerationConfig;
   lockTtlSeconds: number;
   lockKeyPrefix?: string;
   lockHeartbeatIntervalSeconds: number;
@@ -630,7 +657,7 @@ export class CopilotIntelligenceRuntime
 {
   readonly intelligence: CopilotKitIntelligence;
   readonly identifyUser?: IdentifyUserCallback;
-  readonly generateThreadNames: boolean;
+  readonly generateThreadNames: boolean | ThreadNameGenerationConfig;
   readonly lockTtlSeconds: number;
   readonly lockKeyPrefix?: string;
   readonly lockHeartbeatIntervalSeconds: number;
@@ -842,8 +869,8 @@ export interface RuntimeWithDeclaredChannels {
 export interface CopilotRuntime extends CopilotRuntimeLike {
   /** Telemetry capture bound to this runtime's construction-time identity. */
   telemetry: TelemetryCapture;
-  /** Auto-generate short thread names; `undefined` in SSE mode. */
-  generateThreadNames?: boolean;
+  /** Thread naming configuration; `undefined` in SSE mode. */
+  generateThreadNames?: boolean | ThreadNameGenerationConfig;
   /** Thread lock TTL in seconds; `undefined` in SSE mode. */
   lockTtlSeconds?: number;
   /** Custom Redis key prefix for the thread lock; `undefined` in SSE mode. */
@@ -951,7 +978,7 @@ class CopilotRuntimeShim implements CopilotRuntime {
     return this.delegate.intelligence;
   }
 
-  get generateThreadNames(): boolean | undefined {
+  get generateThreadNames(): boolean | ThreadNameGenerationConfig | undefined {
     return isIntelligenceRuntime(this.delegate)
       ? this.delegate.generateThreadNames
       : undefined;
