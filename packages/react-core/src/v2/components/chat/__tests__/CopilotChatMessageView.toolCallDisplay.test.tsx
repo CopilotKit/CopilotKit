@@ -390,6 +390,15 @@ describe("CopilotChatMessageView toolCallDisplay", () => {
     expect(folded("r3")).toBe(false);
   });
 
+  it("keeps thinking visible when the reply called no tools", () => {
+    // Nothing folded it, so nothing can unfold it: a reply with no calls has
+    // no work summary to toggle (it would read "Used 0 tools").
+    renderView([question, think("r1", "No lookup needed."), say("t2", "42.")], {
+      toolCallDisplay: "turn",
+    });
+    expect(folded("r1")).toBe(false);
+  });
+
   it("leaves calls drawn by a custom catch-all on their own unless it opts in", () => {
     const draw = ({ name }: { name: string }) => (
       <div data-testid="custom-call">{name}</div>

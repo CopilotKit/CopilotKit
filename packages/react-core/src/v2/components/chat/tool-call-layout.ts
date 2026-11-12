@@ -245,9 +245,16 @@ export function getTurnWork(
     });
 
     // Work runs past the last tool call, over the thinking and the silent
-    // messages that follow it, and stops at the text that answers.
+    // messages that follow it, and stops at the text that answers. Only past
+    // a real call, though: a reply that called nothing has no work summary to
+    // fold into (it would read "Used 0 tools"), so folding its thinking would
+    // put it somewhere the reader can't open.
     let workEnd = lastWork;
-    for (let index = lastWork + 1; index < visible.length; index++) {
+    for (
+      let index = lastWork + 1;
+      lastWork >= 0 && index < visible.length;
+      index++
+    ) {
       const message = visible[index]!;
       const content = message.content;
       if (
