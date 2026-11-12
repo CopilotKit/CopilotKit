@@ -1,3 +1,4 @@
+import type { QuickJSWASMModule } from "quickjs-emscripten-core";
 import type { VerifiedSnapshot } from "./snapshot";
 
 const compare = (left: string, right: string) =>
@@ -136,6 +137,23 @@ function scriptEntries(
   });
 }
 
+let quickjsModule: Promise<QuickJSWASMModule> | undefined;
+
+/** The QuickJS module, loaded once. A failed load is tried again on the next script. */
+function sandbox(): Promise<QuickJSWASMModule> {
+  if (quickjsModule === undefined) {
+    // Loaded only when a script runs: the loader holds the WebAssembly (about
+    // 670 KB) and calls createRequire(import.meta.url).
+    quickjsModule = import("./quickjs-loader").then(({ loadQuickJS }) =>
+      loadQuickJS(),
+    );
+    quickjsModule.catch(() => {
+      quickjsModule = undefined;
+    });
+  }
+  return quickjsModule;
+}
+
 /**
  * Run a delivered skill script in a QuickJS sandbox. The script has no host
  * functions, network, files, clock, or randomness, so it computes only from
@@ -163,16 +181,12 @@ export async function runSkillScript(
         ? "Skill script is unavailable."
         : `Skill script is unavailable. Scripts of ${skill.name}: ${entries.map((item) => item.name).join(", ")}.`,
     );
-  const { getQuickJS, shouldInterruptAfterDeadline } =
-    await import("quickjs-emscripten");
-  const quickjs = await getQuickJS();
+  const quickjs = await sandbox();
   const runtime = quickjs.newRuntime();
-  const interrupt = shouldInterruptAfterDeadline(
-    Date.now() + SCRIPT_TIMEOUT_MS,
-  );
+  const deadline = Date.now() + SCRIPT_TIMEOUT_MS;
   let timedOut = false;
-  runtime.setInterruptHandler((rt) => {
-    timedOut = interrupt(rt) === true;
+  runtime.setInterruptHandler(() => {
+    timedOut = Date.now() > deadline;
     return timedOut;
   });
   runtime.setMemoryLimit(SCRIPT_MEMORY_BYTES);
