@@ -13,24 +13,18 @@ import type { RefObject } from "react";
 import type { ActivityMessage } from "@ag-ui/client";
 import { useAgent, useRenderActivityMessage } from "@copilotkit/react-core/v2";
 import { GENERATIVE_UI_ACTIVITY_TYPE } from "@copilotkit/shared";
-import { Code2, RotateCcw } from "lucide-react";
+import { Code2 } from "lucide-react";
 import { DotOutline } from "@/a2ui/catalog/renderers/blueprint";
-import { ResizeBox } from "@/components/app/build-sequence";
 import type { Mode } from "@/components/app/providers";
-import { StaticSurface } from "@/components/app/static-surface";
-import { useLandingReveal } from "@/components/app/use-landing-reveal";
 import { useSend } from "@/components/app/use-send";
-import { useDesignSystemRedraw } from "@/components/app/use-design-system-redraw";
-import { useUIGeneration } from "@/components/app/use-ui-generation";
 import { modelLabel } from "@/lib/model-options";
 import { nodeElements, nodeRect } from "@/lib/node-rects";
 import { latestComponents, useRunStore } from "@/lib/run-store";
 import type { A2UIOp, RunRecord } from "@/lib/run-store";
 import { cn } from "@/lib/utils";
-import { COMPACT, focusRing } from "./composer";
+import { focusRing } from "./composer";
 import { activeId, runStatus, useLink } from "./lines";
 import type { LineFormat } from "./lines";
-import type { Replay } from "./replay";
 import { runOf } from "./turns";
 import type { Turn } from "./turns";
 
@@ -40,7 +34,7 @@ const reducedMotion = () =>
 
 /** The surface the writes pane shows, and what the thread needs to link its lines to its components. */
 export type Selection = {
-  /** `replay` for the recording, else the surface's activity message id. */
+  /** The surface's activity message id. */
   key: string | null;
   count: number;
   format: LineFormat;
@@ -48,36 +42,27 @@ export type Selection = {
   ops: A2UIOp[] | null;
 };
 
-/** `turnId` null: the recording. `open`: on a phone, open the Express view too (and beside the conversation, the collapsed panel). */
-export type OnSelect = (turnId: string | null, open: boolean) => void;
+/** Selects a turn's surface. `open`: on a phone, open the Express view too (and beside the conversation, the collapsed panel). */
+export type OnSelect = (turnId: string, open: boolean) => void;
 
 /** Whether the selected surface's lines are on screen beside the conversation (900px and up, panel not collapsed). */
 export const LinesBeside = createContext(true);
 
 /**
- * The conversation: a compact intro, then each prompt with the UI it asked for, inline, painting as the
- * model writes it. Surfaces render through the provider's Gen UI 2.0 activity renderer
+ * The conversation: each prompt with the UI it asked for, inline, painting as the model writes it. Surfaces render through the provider's Gen UI 2.0 activity renderer
  * (src/components/app/surface-renderer.tsx), so their buttons and inputs still reach the agent.
- * The first visit plays a recorded run into the thread.
  */
 export function Thread({
   turns,
-  replay,
   selection,
   onSelect,
 }: {
   turns: Turn[];
-  replay: Replay;
   selection: Selection;
   onSelect: OnSelect;
 }) {
   const scroller = useRef<HTMLDivElement>(null);
-  useAgentPulse();
-  const showReplay =
-    (replay.status === "playing" || replay.status === "ended") && replay.sent;
   const lastId = turns[turns.length - 1]?.id ?? null;
-  // Something to look at: in a small frame the hero then steps aside (compact.css), so the answer leads.
-  const started = showReplay || turns.length > 0;
 
   // The last turn is at least as tall as the view, so a new prompt can scroll to the top and its UI paints below it, in view.
   useLayoutEffect(() => {
@@ -136,18 +121,46 @@ export function Thread({
         turn.getBoundingClientRect().top -
         el.getBoundingClientRect().top +
         el.scrollTop -
-        16;
+        32;
       el.scrollTo({
         top,
         behavior: smooth && !reducedMotion() ? "smooth" : "auto",
       });
     };
     toTurn(!restored);
-    // Restored surfaces settle their height a moment after they mount.
-    if (restored) {
-      const t = setTimeout(() => toTurn(false), 400);
-      return () => clearTimeout(t);
-    }
+    // What is above the new turn can still change height as it settles (an earlier surface re-renders when a
+    // run starts; restored surfaces measure a moment after they mount). Until the visitor scrolls, the turn
+    // stays where it was put, 32px under the top.
+    let moved = false;
+    const stop = () => {
+      moved = true;
+    };
+    const keys = (e: KeyboardEvent) => {
+      if (/^(Arrow(Up|Down)|Page(Up|Down)|Home|End| )$/.test(e.key)) stop();
+    };
+    let first = true;
+    const ro = new ResizeObserver(() => {
+      // The first callback is the observe itself: the smooth scroll above is already on its way.
+      if (first) {
+        first = false;
+        return;
+      }
+      if (!moved) toTurn(false);
+    });
+    const content = el.firstElementChild;
+    if (content) ro.observe(content);
+    // Any wheel, touch, scroll key or press in the thread (dragging its scrollbar included) hands the view back.
+    el.addEventListener("wheel", stop, { passive: true });
+    el.addEventListener("touchmove", stop, { passive: true });
+    el.addEventListener("pointerdown", stop);
+    el.addEventListener("keydown", keys);
+    return () => {
+      ro.disconnect();
+      el.removeEventListener("wheel", stop);
+      el.removeEventListener("touchmove", stop);
+      el.removeEventListener("pointerdown", stop);
+      el.removeEventListener("keydown", keys);
+    };
   }, [lastId]);
 
   // Where each surface shows. An update changes an earlier surface in place, and a typed follow-up brings
@@ -171,7 +184,7 @@ export function Thread({
   return (
     <div
       ref={scroller}
-      className="wb-scroll relative min-h-0 flex-1 overflow-y-auto overflow-x-hidden"
+      className="wb-scroll relative min-h-0 flex-1 overflow-y-auto overflow-x-hidden [overflow-anchor:none]"
       data-thread
       onPointerDownCapture={(e) => {
         if ((e.target as Element).closest?.(".wb-floor"))
@@ -186,37 +199,12 @@ export function Thread({
       }}
     >
       <div className="mx-auto w-full max-w-[844px] px-8 max-[1279px]:px-6 max-[899px]:px-4">
-        <header
-          className="pb-8 pt-8 max-[1279px]:pt-7 max-[899px]:pb-6 max-[899px]:pt-5"
-          data-wb-hero
-          data-started={started || undefined}
-        >
-          <h1 className="text-balance text-[32px] font-semibold leading-[1.08] tracking-[-0.025em] max-[1279px]:text-[28px] max-[899px]:text-[25px]">
-            Watch an&nbsp;agent write&nbsp;UI.
-          </h1>
-          <p className="mt-2.5 max-w-[62ch] text-[14px] leading-[1.55] text-[var(--pg-dim)] max-[899px]:mt-2">
-            A2UI 1.0 is Google&apos;s open protocol for agents that answer with
-            UI. The model writes one line per component, and a design system
-            draws it: switch it in the prompt box&apos;s + menu and the same
-            answer repaints.
-          </p>
-        </header>
-
         <HoverArea selection={selection}>
           <ol
             aria-label="Conversation"
-            className="flex flex-col gap-10 pb-6 max-[899px]:gap-8"
+            className="flex flex-col gap-10 pb-6 pt-8 max-[899px]:gap-8 max-[899px]:pt-5"
             data-wb-turns
           >
-            {showReplay ? (
-              <ReplayTurn
-                replay={replay}
-                sel={selection.key === "replay" ? selection : null}
-                onSelect={onSelect}
-                scroller={scroller}
-                last={!turns.length}
-              />
-            ) : null}
             {turns.map((t, i) => {
               const updatedKey = updatedKeyOf.get(t.id) ?? null;
               const mine = t.surfaceKey ?? updatedKey;
@@ -237,20 +225,6 @@ export function Thread({
             })}
           </ol>
         </HoverArea>
-
-        {!turns.length && !showReplay && replay.status === "off" ? (
-          <div
-            className="rounded-[14px] border border-dashed border-[var(--pg-line-strong)] px-6 py-10 text-center"
-            data-wb-empty
-          >
-            <p className="text-[15px] font-medium text-foreground/90">
-              Your UI draws here, in the conversation.
-            </p>
-            <p className="mt-1.5 text-[13.5px] text-[var(--pg-dim)]">
-              Ask for something, or pick one of the prompts below.
-            </p>
-          </div>
-        ) : null}
       </div>
     </div>
   );
@@ -590,179 +564,6 @@ function SurfaceMeta({
   );
 }
 
-/** The recording, played into the thread: its prompt, then its UI at the recorded times. */
-function ReplayTurn({
-  replay,
-  sel,
-  onSelect,
-  scroller,
-  last,
-}: {
-  replay: Replay;
-  sel: Selection | null;
-  onSelect: OnSelect;
-  scroller: RefObject<HTMLDivElement | null>;
-  last: boolean;
-}) {
-  const floor = useRef<HTMLDivElement>(null);
-  useChartInView(scroller, floor, replay.status === "playing", replay.runKey);
-  return (
-    <li
-      data-turn="replay"
-      className={cn(
-        "flex flex-col gap-3",
-        last && "min-h-[calc(var(--thread-h,0px)-40px)]",
-      )}
-    >
-      <Bubble text={replay.prompt} />
-      <div data-surface-block="replay">
-        <SurfaceMeta
-          selected={!!sel}
-          label={`Express${sel?.count ? ` · ${sel.count} ${sel.count === 1 ? "line" : "lines"}` : ""}`}
-          onOpen={() => onSelect(null, true)}
-          status={replay.status === "playing" ? "running" : "done"}
-          meta={
-            <>
-              {/* A narrow row (a phone, or beside the editor) has room for the chip and one more thing: the step
-                  while it plays, then Play again. */}
-              <span className="@max-[400px]:hidden">{replay.model}</span>
-              {replay.status === "playing" ? (
-                <>
-                  <span className="@max-[400px]:hidden"> · </span>Writing A2UI
-                  Express
-                </>
-              ) : null}
-            </>
-          }
-        >
-          {replay.status === "ended" ? (
-            <button
-              type="button"
-              onClick={replay.restart}
-              className={cn(
-                "ml-auto inline-flex h-7 flex-none items-center gap-1.5 rounded-md px-2 text-[12.5px] text-[var(--pg-dim)] transition-colors hover:text-foreground",
-                focusRing,
-              )}
-            >
-              <RotateCcw className="size-3.5" aria-hidden />
-              Play again
-            </button>
-          ) : null}
-        </SurfaceMeta>
-        <div
-          ref={floor}
-          className={cn(
-            "wb-floor relative rounded-[14px] border p-5 max-[899px]:p-3.5",
-            sel ? "border-[var(--pg-line-strong)]" : "border-[var(--pg-line)]",
-          )}
-          data-link-floor={sel ? "" : undefined}
-        >
-          {replay.ops ? (
-            <ReplaySurface
-              ops={replay.ops}
-              runKey={replay.runKey}
-              live={replay.status === "playing"}
-            />
-          ) : (
-            <Waiting />
-          )}
-          {sel ? (
-            <LinkOverlay
-              content={floor}
-              scroller={scroller}
-              ops={sel.ops}
-              lineOf={sel.lineOf}
-            />
-          ) : null}
-        </div>
-      </div>
-    </li>
-  );
-}
-
-/**
- * In a small frame (a square embed, a short window) the recorded answer is several screens tall, and its chart
- * lands out of sight below the numbers. When the first chart arrives, the view eases down to show it whole and
- * stays there, so the frame rests on the most visual part of the answer. It scrolls the thread itself, never
- * with scrollIntoView, which would also scroll the page an embed sits in. Once the visitor scrolls, or stops
- * the replay by typing, the view is theirs.
- */
-function useChartInView(
-  scroller: RefObject<HTMLDivElement | null>,
-  floor: RefObject<HTMLDivElement | null>,
-  playing: boolean,
-  runKey: string,
-) {
-  const live = useRef(playing);
-  live.current = playing;
-  useEffect(() => {
-    const el = scroller.current;
-    const host = floor.current;
-    if (!el || !host || !live.current || !matchMedia(COMPACT).matches) return;
-    let taken = false;
-    let timer = 0;
-    const take = () => {
-      taken = true;
-    };
-    const keys = (e: KeyboardEvent) => {
-      if (/^(Arrow(Up|Down)|Page(Up|Down)|Home|End| )$/.test(e.key))
-        taken = true;
-    };
-    const show = () => {
-      const chart = host.querySelector<HTMLElement>("figure.a2-chart");
-      if (taken || !live.current || !chart) return;
-      const view = el.getBoundingClientRect();
-      const box = chart.getBoundingClientRect();
-      if (box.top >= view.top && box.bottom <= view.bottom) return;
-      const gap = 16;
-      const at = (e: Element) =>
-        e.getBoundingClientRect().top - view.top + el.scrollTop;
-      const top = at(chart);
-      // Whole, with what comes before it above when there is room, the view starting at a heading or a card
-      // rather than through a line of text. A chart taller than the view shows its plot, down to the axis:
-      // from just under its caption (in the gap before the plot) when the plot fits, else as much as fits.
-      const from = top + box.height + gap - view.height;
-      const caption = chart.querySelector(":scope > figcaption");
-      const plot = caption
-        ? at(caption) + caption.getBoundingClientRect().height
-        : top;
-      const to =
-        box.height + gap * 2 <= view.height
-          ? Math.max(
-              from,
-              Math.min(
-                top,
-                ...[...host.querySelectorAll("h1, h2, h3, h4, .a2-card")]
-                  .map(at)
-                  .filter((t) => t >= from),
-              ) - gap,
-            )
-          : Math.max(from, plot + 4);
-      el.scrollTo({
-        top: Math.max(0, to),
-        behavior: reducedMotion() ? "auto" : "smooth",
-      });
-    };
-    // Wait for the chart's card to reach its height before measuring it.
-    const mo = new MutationObserver(() => {
-      if (!host.querySelector("figure.a2-chart")) return;
-      mo.disconnect();
-      timer = window.setTimeout(show, 350);
-    });
-    mo.observe(host, { childList: true, subtree: true });
-    el.addEventListener("wheel", take, { passive: true });
-    el.addEventListener("touchmove", take, { passive: true });
-    el.addEventListener("keydown", keys);
-    return () => {
-      mo.disconnect();
-      clearTimeout(timer);
-      el.removeEventListener("wheel", take);
-      el.removeEventListener("touchmove", take);
-      el.removeEventListener("keydown", keys);
-    };
-  }, [scroller, floor, runKey]);
-}
-
 /* ───────────────────────── line -> component ───────────────────────── */
 
 type Box = { x: number; y: number; w: number; h: number };
@@ -861,24 +662,37 @@ function LinkOverlay({
 
 /* ───────────────────────── surfaces ───────────────────────── */
 
-/** What changes a surface's activity message: more operations, or its status. */
+/** What changes a surface's activity message: its operations (more of them, or new content), or its status. */
 function surfaceVersion(message: ActivityMessage) {
   const c = message.content as {
     operations?: unknown[];
     status?: string;
     rejected?: unknown[];
   };
-  return `${c.operations?.length ?? 0}|${c.status}|${c.rejected?.length ?? 0}`;
+  // The operations' content, not only their count: a template fills its placeholders by patching the operations
+  // already there, which leaves the count as it was.
+  return `${c.operations?.length ?? 0}|${hash(JSON.stringify(c.operations ?? []))}|${c.status}|${c.rejected?.length ?? 0}`;
+}
+
+/** A short, cheap fingerprint of a string (FNV-1a), to tell one version of a surface from the next. */
+function hash(text: string) {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < text.length; i++) {
+    h ^= text.charCodeAt(i);
+    h = Math.imul(h, 0x01000193);
+  }
+  return (h >>> 0).toString(36);
 }
 
 /**
- * Agent events, once a frame. The thread subscribes when it mounts: a subscriber added during a run
- * hears nothing of that run, and a surface block mounts mid-run. Activity deltas do not report a
- * messages change, so blocks re-read their surface after any event and when a run ends.
+ * Agent events, once a frame. The workbench subscribes when it mounts, before any run: a subscriber added
+ * during a run hears nothing of that run, and the thread (after the landing) and its surface blocks mount
+ * mid-run. Activity deltas do not report a messages change, so blocks re-read their surface after any event
+ * and when a run ends.
  */
 const pulse = new Set<() => void>();
 
-function useAgentPulse() {
+export function useAgentPulse() {
   const { agent } = useAgent({ agentId: "default", updates: [] });
   useEffect(() => {
     if (!agent) return;
@@ -953,44 +767,6 @@ const LiveSurface = memo(
   },
   (a, b) => a.message.id === b.message.id && a.version === b.version,
 );
-
-/**
- * A recorded snapshot. Its first frame plays the whole transitions.dev drawing (the recording opens on the
- * finished first screen of a run); what lands after it reveals component by component, as a live run does.
- */
-const ReplaySurface = memo(function ReplaySurface({
-  ops,
-  runKey,
-  live,
-}: {
-  ops: A2UIOp[];
-  runKey: string;
-  live: boolean;
-}) {
-  const host = useRef<HTMLDivElement>(null);
-  // Once the recording has played, a design system switch redraws it (the host keeps its `key`: no remount).
-  const drawKey = useDesignSystemRedraw(host, { base: runKey, enabled: !live });
-  const generating = useUIGeneration(host, {
-    runKey: drawKey,
-    mode: "skeleton",
-    maxParts: 40,
-  });
-  useLandingReveal(host, live && !generating);
-  return (
-    <div className="wb-surface">
-      <ResizeBox>
-        <div
-          ref={host}
-          key={runKey}
-          className="a2-surface-host relative"
-          data-replay
-        >
-          <StaticSurface ops={ops} />
-        </div>
-      </ResizeBox>
-    </div>
-  );
-});
 
 /** Nothing has drawn yet: one transitions.dev generation frame, the shape of a pending component's (Blueprint). */
 function Waiting() {

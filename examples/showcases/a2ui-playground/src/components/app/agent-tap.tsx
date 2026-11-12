@@ -12,13 +12,29 @@ import type { RunRecord } from "@/lib/run-store";
 
 type Pipeline = { stage: string; t: number; [k: string]: unknown };
 
-/** The chat of this tab, kept for the session so leaving the playground and coming back keeps it. */
+/** The chat of this tab, kept for the session so leaving the playground and coming back keeps it; a reload clears it. */
 const CHAT_KEY = "a2ui-playground-chat";
 
 /** Forgets the chat saved for this session (New chat). */
 export function forgetChat() {
   try {
     sessionStorage.removeItem(CHAT_KEY);
+  } catch {}
+}
+
+/**
+ * Whether this document came from a reload. Checked once per document, so moving between pages in the app
+ * (which remounts the tap) still brings the chat back, while a reload starts a fresh one.
+ */
+let reloadChecked = false;
+function forgetChatOnReload() {
+  if (reloadChecked) return;
+  reloadChecked = true;
+  try {
+    const [nav] = performance.getEntriesByType(
+      "navigation",
+    ) as PerformanceNavigationTiming[];
+    if (nav?.type === "reload") forgetChat();
   } catch {}
 }
 
@@ -90,6 +106,7 @@ export function AgentTap() {
   // The chat for this session: restored once the real agent is up, saved as it changes.
   useEffect(() => {
     if (!agent || !isReady) return;
+    forgetChatOnReload();
     if (!agent.messages.length) {
       let saved: Message[] | null = null;
       try {

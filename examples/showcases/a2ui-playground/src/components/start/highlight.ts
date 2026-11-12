@@ -1,6 +1,6 @@
 import { highlight } from "sugar-high";
 
-export type Lang = "tsx" | "py" | "sh";
+export type Lang = "tsx" | "py" | "sh" | "md";
 
 const escape = (s: string) =>
   s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
@@ -51,8 +51,40 @@ function highlightShell(code: string) {
     .join("\n");
 }
 
-export function highlightCode(code: string, lang: Lang) {
+/** One line of Markdown prose: `inline code`, links, and a list or heading marker at its start. */
+function highlightMarkdownLine(line: string) {
+  const lead = line.match(/^(\s*(?:#{1,6}\s|[-*]\s|\d+\.\s))/)?.[0] ?? "";
+  let out = lead ? span("keyword", lead) : "";
+  let last = lead.length;
+  for (const m of line
+    .slice(lead.length)
+    .matchAll(/(`[^`\n]+`)|(https?:\/\/[^\s)]+[^\s).,;:])/g)) {
+    const at = lead.length + m.index;
+    out += escape(line.slice(last, at));
+    out += m[1] ? span("string", m[1]) : span("property", m[2]);
+    last = at + m[0].length;
+  }
+  return out + escape(line.slice(last));
+}
+
+/** Markdown: prose with inline code, links and list markers; fenced blocks highlighted as their language. */
+function highlightMarkdown(code: string): string {
+  return code
+    .split(/(```[a-z]*\n[\s\S]*?\n```)/g)
+    .map((part) => {
+      const fence = part.match(/^```([a-z]*)\n([\s\S]*?)\n```$/);
+      if (!fence) return part.split("\n").map(highlightMarkdownLine).join("\n");
+      const lang: Lang =
+        fence[1] === "py" ? "py" : fence[1] === "sh" ? "sh" : "tsx";
+      const ticks = (info: string) => span("comment", "```" + info);
+      return `${ticks(fence[1])}\n${highlightCode(fence[2], lang)}\n${ticks("")}`;
+    })
+    .join("");
+}
+
+export function highlightCode(code: string, lang: Lang): string {
   if (lang === "py") return highlightPython(code);
   if (lang === "sh") return highlightShell(code);
+  if (lang === "md") return highlightMarkdown(code);
   return highlight(code);
 }

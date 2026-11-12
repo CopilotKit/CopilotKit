@@ -53,18 +53,22 @@ function Mirrored(props: Props) {
   const Base = useBaseSurfaceRenderer();
   const key = props.message?.id ?? "surface";
   const ops = props.content?.operations;
-  const last = useRef(0);
+  // The operations can change in place (an activity delta patches the same array, keeping its length, as a
+  // template fills its placeholders), so what changed is read from their content, not the array or its length.
+  const sig = Array.isArray(ops) ? JSON.stringify(ops) : "";
+  const last = useRef("");
   const [hasFrame, setHasFrame] = useState(false);
   useEffect(() => {
-    if (!Array.isArray(ops) || !ops.length || ops.length === last.current)
-      return;
-    last.current = ops.length;
+    if (!Array.isArray(ops) || !ops.length || sig === last.current) return;
+    last.current = sig;
     runStore.upsertSurface(
       key,
       ops as unknown as Array<Record<string, unknown>>,
     );
     setHasFrame(true);
-  }, [ops, key]);
+    // `sig` stands for `ops`: the same array can carry new operations.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sig, key]);
   // A run that ended (stopped, failed, or a surface restored from an earlier visit) never fills its
   // pending slots: drop them instead of pulsing forever. The chat says what happened under the surface.
   const halted = useRunStore((s) => {
@@ -80,11 +84,13 @@ function Mirrored(props: Props) {
             (c) => c.component === "Blueprint",
           )
         : false,
-    [ops],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [sig],
   );
   const empty = useMemo(
     () => halted && pending && contentCount(ops as unknown as A2UIOp[]) === 0,
-    [halted, pending, ops],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [halted, pending, sig],
   );
   const collapse = halted && pending;
   // transitions.dev UI generation (skeleton) over the surface, once per message, from its first frame.

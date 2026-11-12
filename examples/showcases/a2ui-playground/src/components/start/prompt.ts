@@ -1,24 +1,40 @@
 /**
- * The Get started prompt: one block a visitor pastes into a coding agent (Claude Code, Cursor, Gemini CLI,
- * Codex) to add A2UI to their own app, written for the design system they picked. It carries the same code
+ * The Get started prompt: one block a visitor pastes into a coding agent (Claude Code, Codex, Cursor,
+ * Antigravity CLI, OpenCode, Hermes) to add A2UI to their own app, written for the design system they picked. It carries the same code
  * the site runs (`./snippets.ts`), so the agent copies working setup instead of guessing an API.
  */
 import type { DesignSystemId } from "@/design-systems/registry";
 import { DOCS_URL } from "./links";
-import { INSTALL, PROVIDER, ROUTE } from "./snippets";
+import {
+  CATALOG,
+  GENUI_MATERIAL,
+  GENUI_SHADCN,
+  PACKAGES,
+  PROVIDER,
+  PROVIDER_STANDARD,
+  ROUTE,
+} from "./snippets";
 
-/** The two lines it comes down to, by hand: the install, and the provider with the catalog as `ui`. */
-export const PROVIDER_LINE = `<CopilotKitProvider runtimeUrl="/api/copilotkit" generativeUI={{ ui }}>`;
+/** app/genui.tsx when you set A2UI up by hand. CopilotKit's standard catalog needs none: the page imports it. */
+export const GENUI_SNIPPET: Record<DesignSystemId, string | null> = {
+  copilotkit: null,
+  chatcn: GENUI_SHADCN,
+  material: GENUI_MATERIAL,
+  byoc: CATALOG,
+};
 
-/** What `ui` is for each design system. */
-export const UI_NOTE: Record<DesignSystemId, string> = {
-  copilotkit:
-    "ui is standardUI, CopilotKit's standard catalog: 69 components for layout, text, inputs, tables, charts and maps.",
+/** The page with the provider: the standard catalog straight from the package, or your app/genui.tsx. */
+export const providerSnippet = (ds: DesignSystemId) =>
+  ds === "copilotkit" ? PROVIDER_STANDARD : PROVIDER;
+
+/** What the catalog step says for each design system, in one line. */
+export const GENUI_NOTE: Record<DesignSystemId, string> = {
+  copilotkit: "",
   chatcn:
-    "ui is the standard catalog with its Button, Badge and Divider drawn by your shadcn/ui components and the rest themed with your shadcn tokens. The prompt writes it.",
+    "The standard catalog, with its Button, Badge and Divider drawn by your shadcn/ui components. Add them first: npx shadcn@latest add badge button separator.",
   material:
-    "ui is the standard catalog with its Button and Divider drawn by Material 3 components and the rest themed with Material's color roles. The prompt writes it.",
-  byoc: "ui is your own components, each with a Zod schema and a one-line description of when to use it. The prompt writes it.",
+    "The standard catalog, with its Button and Divider drawn by Material 3 Expressive. Install it first: npm install @language-lit/material3-expressive.",
+  byoc: "Give each component a Zod schema and a line on when to use it.",
 };
 
 /** Where `createGenerativeUI` and `standardUI` come from (not the `@copilotkit/react-core/v2` root). */
@@ -28,7 +44,7 @@ const GENUI_FILE = `Create app/genui.tsx, starting with \`"use client";\` and \`
 const BUTTON_CONTRACT = `A replacement Button takes the standard Button's props (read every component's schema with \`exportA2UICatalog(standardUI)\`): it shows \`children\`, \`child\` or \`label\` and its \`icon\`; it is a submit button when \`submit\` is set, so a Form still sends; it is disabled while \`disabled\`, \`loading\` or a check in \`checks\` fails with severity "error"; and on click it opens \`href\` (http, https or mailto only), else copies \`copy\`, else calls \`onClick({})\`, which is how the click reaches the agent. Spread \`useGenerativeUIAccessibility()\` from the same import path on its root element.`;
 
 const CATALOG_STEP: Record<DesignSystemId, string> = {
-  copilotkit: `Create app/genui.tsx: \`"use client";\` then \`export { standardUI as ui } from "@copilotkit/react-core/v2/generative-ui";\`. That is CopilotKit's standard catalog (69 components: Column, Row, Card, Text, Button, TextField, Table, Chart, Map and more). To match this app's look, pass a \`theme\` with the \`--a2ui-*\` CSS variables next to \`ui\` in \`generativeUI\`.`,
+  copilotkit: `Use CopilotKit's standard catalog as it ships, with no catalog file of your own: the page in step 4 imports \`standardUI\` from "@copilotkit/react-core/v2/generative-ui" and passes it as \`ui\`. That is 69 components: Column, Row, Card, Text, Button, TextField, Table, Chart, Map and more. To match this app's look, pass a \`theme\` with the \`--a2ui-*\` CSS variables next to \`ui\` in \`generativeUI\`.`,
   chatcn: `This app should use shadcn/ui (run \`npx shadcn@latest init\` if it does not). Add the primitives the surfaces need: \`npx shadcn@latest add badge button separator\`. ChatCN's chat components install from its shadcn registry the same way, if you also want them for the chat itself. ${GENUI_FILE}, then:
 \`export const ui = createGenerativeUI({ id: "<app-name>/genui@1", extends: [standardUI], overrides: { Button: { component: ShadcnButton }, Badge: { component: ShadcnBadge }, Divider: { component: ShadcnSeparator } }, components: {} });\`
 Each override is a small wrapper around the shadcn component that takes the props of the standard component it replaces. Badge gets \`label\`, \`variant\` and \`color\`. ${BUTTON_CONTRACT} Override leaves like these, not containers: Card and the layout components keep their implementation and match shadcn through \`theme\` (map your shadcn tokens onto the \`--a2ui-*\` variables), so a surface's inputs keep their state.`,
@@ -53,7 +69,7 @@ export function buildPrompt(ds: DesignSystemId, origin: string): string {
 
 The agent writes A2UI (a JSON description of components and data), and CopilotKit renders it with the components registered in a catalog. Do the following, then show me what you changed.
 
-1. Install with this project's package manager: \`${INSTALL.replace(/^npm i /, "")}\`.
+1. Install with this project's package manager: \`${PACKAGES}\`.
 
 2. ${CATALOG_STEP[ds]}
 
@@ -64,12 +80,12 @@ ${ROUTE}
 
 4. Wrap the app in the provider and render the chat where the assistant belongs:
 \`\`\`tsx
-${PROVIDER}
+${providerSnippet(ds)}
 \`\`\`
 
 5. Verify: start the dev server, ask the chat for "a dashboard of this week's signups", and check that a UI renders. Fix any catalog error the browser console reports.
 
-Optional, for an agent that writes A2UI outside CopilotKit (ADK, Gemini CLI, another runtime): export the catalog with \`exportA2UICatalog(ui)\` from @copilotkit/react-core/v2/generative-ui, and generate an agent skill from it with \`SkillGenerator\` from @a2ui/agent.
+Optional, for an agent that writes A2UI outside CopilotKit (ADK, Antigravity CLI, another runtime): export the catalog with \`exportA2UICatalog(ui)\` from @copilotkit/react-core/v2/generative-ui, and generate an agent skill from it with \`SkillGenerator\` from @a2ui/agent.
 
 References:
 - A working example of this setup: ${origin}

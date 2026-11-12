@@ -15,7 +15,7 @@ The hosted playground runs at https://a2ui-playground.copilotkit.ai.
 - **Any design system.** The first picker in the prompt box's "+" menu chooses what draws each surface: CopilotKit's standard catalog, ChatCN (shadcn/ui), Material (Material 3 Expressive), or a hand-written in-house set standing in for your own components. The agent's A2UI never changes; switching repaints every surface on the page, which is the point of a catalog: a contract, not a look. `src/design-systems/` swaps leaf components (Button, Badge, Stat, Heading and the like) and themes the rest; `?ds=chatcn`, `?ds=material` or `?ds=byoc` picks one in a link. Material's stylesheet and typeface load the first time it is picked.
 - **Chat first, with the code beside it.** Each prompt shows its UI inline as it paints. The side pane shows the selected surface's Express (or JSON) lines as they are written, the JSON with an editor (live preview, no model; then "Ask the model to change this"), and the run's timings.
 - **Light or dark, and embeddable.** Light by default, dark from the header or `?theme=dark`; `?embed=1` is a compact version for an iframe (see Embed it).
-- **Take it home.** `/start` is one Copy prompt for a coding agent (Claude Code, Cursor, Gemini CLI, Codex) that adds A2UI to an existing app for the design system you pick, plus the two lines it comes down to by hand. `/components` documents every component, `/catalog.json` and the agent skill download (`/api/skills?format=express&download=1`) carry the catalog to other renderers and agents, `/evals` shows per-model scores (`pnpm evals`), and `examples/adk` is a Google ADK agent on the same catalog.
+- **Take it home.** `/start` is one Copy prompt for a coding agent (Claude Code, Codex, Cursor, Antigravity CLI, OpenCode, Hermes) that adds A2UI to an existing app for the design system you pick, plus the two lines it comes down to by hand. `/components` documents every component, `/catalog.json` and the agent skill download (`/api/skills?format=express&download=1`) carry the catalog to other renderers and agents, `/evals` shows per-model scores (`pnpm evals`), and `examples/adk` is a Google ADK agent on the same catalog.
 
 ## Run it
 
@@ -35,7 +35,7 @@ pnpm skills:export       # skills/generated/{express,json}: the agent skills /ap
 pnpm evals               # per-model scores -> src/data/evals.json, shown at /evals
 pnpm evals --models gemini --formats express --tasks sales-dashboard,flights --out /tmp/evals.json
 pnpm evals --skill path/to/skill.zip --formats json   # score an agent skill (the /start download, or your own)
-node scripts/record-replay.mjs dynamic "<prompt>"     # re-record the first-visit replay (dev server running)
+node scripts/record-replay.mjs dynamic "<prompt>"     # re-record the /watch run (dev server running)
 ```
 
 ## How it works
@@ -84,7 +84,7 @@ The limits are constants in `src/lib/limits.ts`:
 
 A refused request gets a 429 (with `Retry-After`) or a 413, with a short message the chat shows, such as "You're sending a lot of requests. Try again in a minute." The page's startup calls (`info`, `connect`) and requests that can't start a run are not counted as runs. A run must be sent as `application/json`, so a page on another site can't start runs from its visitors' browsers (415 otherwise). The IP is the first `X-Forwarded-For` address, else `X-Real-IP`; an IPv6 address counts by its /64. The counts are kept in memory: right for one instance, but each extra replica counts on its own, and a redeploy resets them. Listing and clearing threads answers 403, since the runtime has no `identifyUser`.
 
-**Turning live runs off.** `AGENT_RUNS_PAUSED=1` makes every agent route refuse runs with "Live runs are paused on this server for now." The first-visit replay and `/watch` keep playing, since they never run the agent. Railway applies a variable change by redeploying the service, so time one before launch. To stop spending at once without a deploy, disable the key at the provider: runs then fail with a short error, and the replay still plays. After `AGENT_RUNS_PER_DAY` runs in a UTC day, runs are refused the same way until midnight UTC.
+**Turning live runs off.** `AGENT_RUNS_PAUSED=1` makes every agent route refuse runs with "Live runs are paused on this server for now." `/watch` keeps playing, since it never runs the agent. Railway applies a variable change by redeploying the service, so time one before launch. To stop spending at once without a deploy, disable the key at the provider: runs then fail with a short error. After `AGENT_RUNS_PER_DAY` runs in a UTC day, runs are refused the same way until midnight UTC.
 
 **Spend.** A run makes at most 4 model calls (router, composer, one Express retry, a JSON fallback), each under the output caps above, so `AGENT_RUNS_PER_DAY` bounds a day's spend. It is not a budget: set one, with alerts, on the Google Cloud billing account behind the Gemini key (and on the OpenAI project, if GPT is on).
 

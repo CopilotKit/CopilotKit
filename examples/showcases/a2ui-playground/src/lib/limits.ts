@@ -216,7 +216,7 @@ const utcDate = (now: number) => new Date(now).toISOString().slice(0, 10);
  * Why live runs are off on this server (in visitor words, with seconds until
  * they may be on again), or undefined while they are on. `AGENT_RUNS_PAUSED=1`
  * is the kill switch; AGENT_RUNS_PER_DAY turns them off until midnight UTC.
- * The recorded replay never runs the agent, so it keeps playing, and
+ * The recorded runs on /watch never run the agent, so they keep playing, and
  * `GET /api/models` shows the reason in the model picker.
  */
 export function liveRunsOff(now = Date.now()) {

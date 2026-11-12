@@ -713,8 +713,9 @@ main[tabindex="-1"]:focus {
   scrollbar-width: thin;
   scrollbar-color: oklch(var(--ink) / 12%) transparent;
 }
-/* The composer sits under the conversation: what scrolls behind it fades out instead of being cut. */
-.wb-composer::before {
+/* The composer sits under the conversation: what scrolls behind it fades out instead of being cut. The
+   landing has nothing behind it to fade. */
+.wb-composer:not([data-landing])::before {
   content: "";
   position: absolute;
   inset: -24px 0 100% 0;
@@ -986,3 +987,22 @@ main[tabindex="-1"]:focus {
   }
 }
 /* ─────────────── end workbench ─────────────── */
+
+/* A page arriving top to bottom (the playground landing, Get started): each part 6px up from a light blur.
+   `--rise` is its place in the order. Reduced motion: it is simply there. */
+@keyframes wb-rise {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+    filter: blur(2px);
+  }
+}
+.wb-rise {
+  animation: wb-rise 560ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation-delay: calc(var(--rise, 0) * 55ms + 40ms);
+}
+@media (prefers-reduced-motion: reduce) {
+  .wb-rise {
+    animation: none;
+  }
+}

@@ -1,7 +1,7 @@
 /**
- * Brand marks, inlined from public/brand/a2ui.svg and public/brand/copilotkit.svg.
- * Paths are untouched; only the dark ink fills are swapped to currentColor so
- * the marks take the text colour of either theme.
+ * Brand marks as inline SVG: A2UI and CopilotKit (from public/brand/a2ui.svg and copilotkit.svg), shadcn/ui
+ * and Material 3. Paths are untouched; only the dark ink fills are swapped to currentColor so the marks
+ * take the text colour of either theme.
  */
 import type { SVGProps } from "react";
 
@@ -259,4 +259,26 @@ export function CopilotKitKite(props: SVGProps<SVGSVGElement>) {
 /** The CopilotKit wordmark without its trailing kite: same artwork, viewBox cropped to the letters. */
 export function CopilotKitWordmark(props: SVGProps<SVGSVGElement>) {
   return <CopilotKitLogo viewBox="0.85 3.6 102.2 22.95" {...props} />;
+}
+
+/** The shadcn/ui mark (from Simple Icons), in currentColor. */
+export function ShadcnMark(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" {...props}>
+      <path d="M22.219 11.784 11.784 22.219c-.407.407-.407 1.068 0 1.476.407.407 1.068.407 1.476 0L23.695 13.26c.407-.408.407-1.069 0-1.476-.408-.407-1.069-.407-1.476 0ZM20.132.305.305 20.132c-.407.407-.407 1.068 0 1.476.408.407 1.069.407 1.476 0L21.608 1.781c.407-.407.407-1.068 0-1.476-.408-.407-1.069-.407-1.476 0Z" />
+    </svg>
+  );
+}
+
+/** The Material 3 logo, as m3.material.io shows it: the Material mark on Material's blue tile. */
+export function MaterialMark(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 70 70" fill="none" aria-hidden="true" {...props}>
+      <rect width="70" height="70" rx="21" fill="#00639B" />
+      <path
+        d="M35 59c-3.309 0-6.436-.618-9.382-1.854-2.909-1.273-5.454-2.982-7.636-5.128-2.146-2.181-3.855-4.727-5.127-7.636C11.617 41.436 11 38.309 11 35c0-3.345.618-6.473 1.854-9.382 1.273-2.909 2.982-5.436 5.128-7.582 2.182-2.181 4.727-3.89 7.636-5.127C28.564 11.636 31.691 11 35 11c3.346 0 6.473.636 9.382 1.91 2.909 1.236 5.436 2.945 7.582 5.126 2.182 2.146 3.89 4.673 5.127 7.582 1.273 2.91 1.91 6.037 1.91 9.382 0 3.31-.637 6.436-1.91 9.382-1.236 2.909-2.945 5.455-5.127 7.636-2.146 2.146-4.673 3.855-7.582 5.128C41.472 58.382 38.346 59 35 59ZM19.727 47.273V22.727A18.969 18.969 0 0 0 16.51 28.4c-.764 2.073-1.145 4.273-1.145 6.6s.381 4.545 1.145 6.655a19.143 19.143 0 0 0 3.218 5.618Zm3-27.546h24.6a18.97 18.97 0 0 0-5.672-3.218c-2.11-.764-4.328-1.145-6.655-1.145s-4.545.381-6.654 1.145a19.143 19.143 0 0 0-5.619 3.218ZM35 40.455l8.236-16.364H26.818L35 40.455Zm2.182 5.454h8.727V28.455l-8.727 17.454Zm-13.091 0h8.727l-8.727-17.454v17.454ZM35 54.636c2.326 0 4.544-.381 6.654-1.145 2.109-.764 4-1.836 5.672-3.218h-24.6a19.143 19.143 0 0 0 5.619 3.218c2.109.764 4.327 1.145 6.654 1.145Zm15.272-7.363a19.143 19.143 0 0 0 3.218-5.618c.764-2.11 1.145-4.328 1.145-6.655s-.381-4.527-1.145-6.6c-.764-2.11-1.836-4-3.218-5.673v24.546Z"
+        fill="#FBF7FF"
+      />
+    </svg>
+  );
 }

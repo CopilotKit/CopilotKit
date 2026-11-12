@@ -18,8 +18,7 @@ import { cn } from "@/lib/utils";
 import { Composer, focusRing } from "./composer";
 import { editorMemory } from "./json-editor";
 import { LinkContext, useLinkState, useShownLines } from "./lines";
-import { useReplay } from "./replay";
-import { LinesBeside, Thread } from "./thread";
+import { LinesBeside, Thread, useAgentPulse } from "./thread";
 import type { OnSelect, Selection } from "./thread";
 import { isHandEdited, runOf, surfaceOfTurn, useTurns } from "./turns";
 import { WritesPane } from "./writes-pane";
@@ -55,16 +54,10 @@ type Pane = "open" | "collapsed";
  */
 export function Workbench({ embed = false }: { embed?: boolean }) {
   const turns = useTurns();
-  const replay = useReplay();
   const { model } = useMode();
-  const replaying = replay.status === "playing" || replay.status === "ended";
   const narrow = useNarrow();
-
-  // A prompt of the visitor's own ends the recording: the conversation is theirs from then on.
-  const { dismiss } = replay;
-  useEffect(() => {
-    if (turns.length && replaying) dismiss();
-  }, [turns.length, replaying, dismiss]);
+  // Agent events for the surfaces, heard from before the first run: the thread mounts only once one starts.
+  useAgentPulse();
 
   // The selected surface: the newest, unless one was clicked in the conversation.
   const [picked, setPicked] = useState<string | null>(null);
@@ -78,22 +71,21 @@ export function Workbench({ embed = false }: { embed?: boolean }) {
       surfaceKey ? s.surfaces[surfaceKey]?.ops : undefined,
     ) ?? null;
 
-  const live = useShownLines({
+  const shown = useShownLines({
     run,
     ops: surfaceOps,
     handEdited: !!turn && isHandEdited(turn),
   });
-  const shown = replaying ? replay.shown : live;
 
   // The JSON tab shows the selected surface.
   useEffect(() => {
-    if (!replaying && surfaceKey) runStore.select(surfaceKey);
-  }, [replaying, surfaceKey]);
+    if (surfaceKey) runStore.select(surfaceKey);
+  }, [surfaceKey]);
 
   // The line <-> component link starts over with each surface.
   const link = useLinkState();
   const { setHover, togglePin, pinned } = link;
-  const linkScope = replaying ? "replay" : (surfaceKey ?? turn?.id ?? "");
+  const linkScope = surfaceKey ?? turn?.id ?? "";
   useEffect(() => {
     setHover(null);
     if (pinned) togglePin(pinned);
@@ -103,13 +95,13 @@ export function Workbench({ embed = false }: { embed?: boolean }) {
 
   const selection = useMemo<Selection>(
     () => ({
-      key: replaying ? "replay" : surfaceKey,
+      key: surfaceKey,
       count: shown.lines.filter((l) => l.kind === "line").length,
       format: shown.format,
       lineOf: shown.lineOf,
-      ops: replaying ? replay.ops : surfaceOps,
+      ops: surfaceOps,
     }),
-    [replaying, surfaceKey, shown, replay.ops, surfaceOps],
+    [surfaceKey, shown, surfaceOps],
   );
 
   const [tab, setTab] = useState<WritesTab>("lines");
@@ -128,6 +120,18 @@ export function Workbench({ embed = false }: { embed?: boolean }) {
     setPane(stored === "collapsed" ? "collapsed" : "open");
   }, [embed]);
   const collapsed = pane === "collapsed";
+  // The first prompt of an empty chat opens the side panel (beside the conversation, not over it on a phone),
+  // so the A2UI can be watched streaming in. It does not overwrite the stored choice.
+  const hadTurns = useRef(turns.length > 0);
+  useEffect(() => {
+    if (!turns.length) {
+      hadTurns.current = false;
+      return;
+    }
+    if (hadTurns.current) return;
+    hadTurns.current = true;
+    if (!embed && !matchMedia(NARROW).matches) setPane("open");
+  }, [turns.length, embed]);
   const setCollapsed = useCallback(
     (next: boolean) => {
       setPane(next ? "collapsed" : "open");
@@ -188,7 +192,7 @@ export function Workbench({ embed = false }: { embed?: boolean }) {
 
   const onSelect = useCallback<OnSelect>(
     (turnId, open) => {
-      if (turnId) setPicked(turnId);
+      setPicked(turnId);
       if (open) openCode();
     },
     [openCode],
@@ -223,7 +227,6 @@ export function Workbench({ embed = false }: { embed?: boolean }) {
 
   // "Start without AI": straight into the editor (a starter, no model).
   const startWithoutAI = () => {
-    replay.stop();
     editorMemory.focus = !matchMedia("(pointer: coarse)").matches;
     setEditing(true);
     setTab("json");
@@ -239,26 +242,28 @@ export function Workbench({ embed = false }: { embed?: boolean }) {
 
   // The JSON editor's "Ask the model to change this" sends the request: show the conversation it lands in.
   useEffect(() => {
-    const show = () => {
-      dismiss();
-      onSent();
-    };
+    const show = () => onSent();
     window.addEventListener("a2ui:show-chat", show);
     return () => window.removeEventListener("a2ui:show-chat", show);
-  }, [onSent, dismiss]);
+  }, [onSent]);
 
-  const writer = replaying ? replay.model : modelLabel(run?.model ?? model);
+  const writer = modelLabel(run?.model ?? model);
+  // Present tense while the lines stream in, past tense once the run is over.
+  const writing = !run || run.status === "running";
   // A template drew the surface (its lines are decompiled), so no model wrote them; by hand, nobody did.
   const title = hand
     ? "Editing by hand"
-    : !replaying && run?.path === "fixed"
+    : run?.path === "fixed"
       ? "From a template"
-      : `${writer} writes`;
+      : `${writer} ${writing ? "writes" : "wrote"}`;
   // The tab is named for what it shows: an Express run that fell back to JSON ends in JSON lines.
   const linesLabel = shown.format === "json" ? "JSON stream" : "Express";
   const wide = jsonWide && hand;
   const covered = narrow && codeOpen;
   const lineCount = hand ? 0 : selection.count;
+  // An empty chat is a landing: the heading, starter prompts and the prompt box, centered on their own. The
+  // conversation and the side panel take over with the first prompt (or "start without AI").
+  const landing = !turns.length && !hand && !codeOpen;
 
   return (
     <LinkContext.Provider value={link}>
@@ -267,6 +272,7 @@ export function Workbench({ embed = false }: { embed?: boolean }) {
         <main
           id="main"
           data-pane={pane ?? undefined}
+          data-landing={landing || undefined}
           className={cn(
             "wb wb-main relative grid min-h-0 flex-1 grid-cols-1 overflow-hidden",
             // Wide, the editor and its preview sit side by side from about 1280px.
@@ -279,84 +285,107 @@ export function Workbench({ embed = false }: { embed?: boolean }) {
             aria-label="Conversation"
             inert={covered || undefined}
             aria-hidden={covered || undefined}
-            className="flex min-h-0 flex-col min-[900px]:border-r min-[900px]:border-[var(--pg-line)]"
+            className={cn(
+              "flex min-h-0 flex-col",
+              !landing &&
+                "min-[900px]:border-r min-[900px]:border-[var(--pg-line)]",
+            )}
           >
-            <Thread
-              turns={turns}
-              replay={replay}
-              selection={selection}
-              onSelect={onSelect}
-            />
-            <Composer
-              replay={replay}
-              empty={!turns.length}
-              onSent={onSent}
-              onStartWithoutAI={startWithoutAI}
-            />
+            {landing ? (
+              <div className="wb-scroll flex min-h-0 flex-1 flex-col overflow-y-auto">
+                <div className="my-auto py-12 max-[899px]:py-8" data-wb-landing>
+                  <header className="mx-auto max-w-[680px] px-6 text-center max-[899px]:px-4">
+                    <h1 className="wb-rise text-balance text-[32px] font-semibold leading-[1.08] tracking-[-0.025em] max-[899px]:text-[26px]">
+                      Watch an&nbsp;agent write&nbsp;UI.
+                    </h1>
+                    <p
+                      style={{ "--rise": 1 } as React.CSSProperties}
+                      className="wb-rise mx-auto mt-3 max-w-[48ch] text-balance text-[15px] leading-[1.55] text-[var(--pg-dim)]"
+                    >
+                      Ask for a UI. The model writes A2UI, Google&apos;s open
+                      protocol, and your design system draws it.
+                    </p>
+                  </header>
+                  <Composer
+                    landing
+                    empty
+                    onSent={onSent}
+                    onStartWithoutAI={startWithoutAI}
+                  />
+                </div>
+              </div>
+            ) : (
+              <>
+                <Thread
+                  turns={turns}
+                  selection={selection}
+                  onSelect={onSelect}
+                />
+                <Composer
+                  empty={!turns.length}
+                  noAILine={!hand}
+                  onSent={onSent}
+                  onStartWithoutAI={startWithoutAI}
+                />
+              </>
+            )}
           </section>
 
-          <WritesPane
-            ref={back}
-            title={title}
-            linesLabel={linesLabel}
-            shown={shown}
-            tab={tab}
-            onTab={setTab}
-            runId={
-              replaying ? undefined : run ? run.id : turn ? null : undefined
-            }
-            recorded={
-              replaying
-                ? {
-                    events: replay.events,
-                    recordedAt: replay.recordedAt,
-                    model: replay.model,
-                  }
-                : null
-            }
-            jsonKey={jsonKey}
-            jsonWide={jsonWide}
-            onJsonWide={onJsonWide}
-            editing={editing}
-            onEditing={setEditing}
-            onDone={doneEditing}
-            onBack={closeCode}
-            onCollapse={collapse}
-            collapseRef={collapseBtn}
-            className={cn(
-              "bg-[var(--pg-bg)] max-[899px]:absolute max-[899px]:inset-0 max-[899px]:z-30",
-              codeOpen ? "wb-sheet" : "max-[899px]:hidden",
-            )}
-          />
+          {landing ? null : (
+            <>
+              <WritesPane
+                ref={back}
+                title={title}
+                linesLabel={linesLabel}
+                shown={shown}
+                tab={tab}
+                onTab={setTab}
+                runId={run ? run.id : turn ? null : undefined}
+                jsonKey={jsonKey}
+                jsonWide={jsonWide}
+                onJsonWide={onJsonWide}
+                editing={editing}
+                onEditing={setEditing}
+                onDone={doneEditing}
+                onBack={closeCode}
+                onCollapse={collapse}
+                collapseRef={collapseBtn}
+                className={cn(
+                  "bg-[var(--pg-bg)] max-[899px]:absolute max-[899px]:inset-0 max-[899px]:z-30",
+                  codeOpen ? "wb-sheet" : "max-[899px]:hidden",
+                )}
+              />
 
-          {/* The collapsed panel: a rail at the window's edge, the whole of it a button that opens it again. */}
-          <button
-            ref={rail}
-            type="button"
-            onClick={expand}
-            aria-expanded={false}
-            aria-controls="wb-writes-pane"
-            title="Expand panel"
-            data-wb-rail
-            // The ring sits inside the rail: outside it, the window's edge would cut it off.
-            className={cn(
-              focusRing,
-              "wb-rail group min-h-0 flex-col items-center gap-3 bg-[var(--pg-bg)] pt-2.5 text-[var(--pg-dim)] transition-colors hover:bg-[oklch(var(--ink)/3%)] hover:text-foreground focus-visible:-outline-offset-2",
-            )}
-          >
-            <span className="flex size-8 flex-none items-center justify-center rounded-md transition-colors group-hover:bg-[oklch(var(--ink)/5%)]">
-              <PanelRightOpen className="size-4" aria-hidden />
-            </span>
-            <span className="wb-rail-label text-[13px] font-medium">
-              <span className="sr-only">Expand panel: </span>
-              {title}
-              {lineCount ? (
-                <span className="font-mono text-[12px] font-normal">
-                  {` · ${lineCount} ${lineCount === 1 ? "line" : "lines"}`}
+              {/* The collapsed panel: a rail at the window's edge, the whole of it a button that opens it again. */}
+              <button
+                ref={rail}
+                type="button"
+                onClick={expand}
+                aria-expanded={false}
+                aria-controls="wb-writes-pane"
+                title="Expand panel"
+                data-wb-rail
+                // The ring sits inside the rail: outside it, the window's edge would cut it off.
+                className={cn(
+                  focusRing,
+                  "wb-rail group min-h-0 flex-col items-center gap-3 bg-[var(--pg-bg)] pt-2.5 text-[var(--pg-dim)] transition-colors hover:bg-[oklch(var(--ink)/3%)] hover:text-foreground focus-visible:-outline-offset-2",
+                )}
+              >
+                <span className="flex size-8 flex-none items-center justify-center rounded-md transition-colors group-hover:bg-[oklch(var(--ink)/5%)]">
+                  <PanelRightOpen className="size-4" aria-hidden />
                 </span>
-              ) : null}
-            </span>
-          </button>
+                <span className="wb-rail-label text-[13px] font-medium">
+                  <span className="sr-only">Expand panel: </span>
+                  {title}
+                  {lineCount ? (
+                    <span className="font-mono text-[12px] font-normal">
+                      {` · ${lineCount} ${lineCount === 1 ? "line" : "lines"}`}
+                    </span>
+                  ) : null}
+                </span>
+              </button>
+            </>
+          )}
         </main>
       </LinesBeside.Provider>
     </LinkContext.Provider>

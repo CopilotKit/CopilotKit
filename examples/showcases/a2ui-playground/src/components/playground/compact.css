@@ -50,48 +50,25 @@
     height: 22px;
   }
 
-  /* The hero: a smaller title and no paragraph (still read by screen readers). Once the replay or a
-     conversation is on screen, the title goes too, so the answer starts at the top of the thread. */
-  .wb-page [data-wb-hero] {
-    padding-top: 14px;
-    padding-bottom: 12px;
+  /* The landing: a smaller title, starters and box closer together, so all of it fits the frame. */
+  .wb-page [data-wb-landing] {
+    padding-block: 16px;
   }
-  .wb-page [data-wb-hero] h1 {
-    font-size: 20px;
-    line-height: 1.15;
+  .wb-page [data-wb-landing] h1 {
+    font-size: 22px;
   }
-  .wb-page [data-wb-hero] p,
-  .wb-page [data-wb-hero][data-started] h1 {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    margin: -1px;
-    padding: 0;
-    overflow: hidden;
-    clip-path: inset(50%);
-    white-space: nowrap;
+  .wb-page [data-wb-landing] header p {
+    margin-top: 6px;
+    font-size: 13.5px;
   }
-  .wb-page [data-wb-hero][data-started] {
-    padding: 12px 0 0;
-  }
-  /* Before anything is on screen (the replay's prompt still typing), the title stands in the middle of the
-     empty thread at its full small-screen size, instead of at the top edge over a blank frame. */
-  .wb-page [data-thread] > div {
-    display: flex;
-    flex-direction: column;
-    min-height: 100%;
-  }
-  .wb-page [data-wb-hero]:not([data-started]) {
-    margin-block: auto;
-    text-align: center;
-  }
-  .wb-page [data-wb-hero]:not([data-started]) h1 {
-    font-size: 25px;
+  .wb-page [data-wb-landing] .wb-composer {
+    padding-top: 16px;
   }
 
   /* The conversation: tighter turns, prompt bubbles and floors. */
   .wb-page [data-wb-turns] {
     gap: 24px;
+    padding-top: 14px;
     padding-bottom: 12px;
   }
   .wb-page [data-turn] {
@@ -104,9 +81,6 @@
   }
   .wb-page .wb-floor {
     padding: 12px;
-  }
-  .wb-page [data-wb-empty] {
-    padding: 18px 16px;
   }
   /* In a narrow frame (the square embeds), the answer gets the width: 10px gutters, a closer floor, and the
      generated UI drawn at 7/8 size, so a dashboard reads as a whole instead of filling the frame. `zoom` sits
@@ -150,17 +124,18 @@
   .wb-page [data-wb-chips] > li {
     flex: none;
   }
-  .wb-page [data-suggestion] {
+  .wb-page [data-wb-chips] [data-suggestion] {
     padding: 4px 11px;
     font-size: 12.5px;
     border-radius: 999px;
   }
 
-  /* One line to type in; it still grows (to four lines) for a longer prompt. */
+  /* One line to type in above the settings row; it still grows (to four lines) for a longer prompt. */
   .wb-page .wb-prompt {
     padding: 6px;
   }
   .wb-page #wb-prompt {
+    min-height: 36px;
     max-height: 104px;
   }
   .wb-page #wb-prompt::placeholder {
@@ -174,14 +149,15 @@
     }
   }
 
-  /* "Start without AI" under the prompt goes: it is in the "+" menu, with the pickers. */
-  .wb-page [data-wb-no-ai-line] {
+  /* The line under the prompt ("start without AI", or New chat) goes: the answer needs the row. */
+  .wb-page [data-wb-no-ai-line],
+  .wb-page [data-wb-new-chat-line] {
     display: none;
   }
 
   /* The smallest embeds (480px tall or less, a 320 to 480 square on a phone or in a docs column): the answer
-     needs every row it can get. The suggestions and the "+" menu go (the placeholder still suggests one),
-     leaving the prompt and Build. The pickers and "start without AI" are in the full playground, and `?ds=`
+     needs every row it can get. The suggestions and the Design menu go (the placeholder still suggests one),
+     leaving the prompt, the model and Build. The pickers and "start without AI" are in the full playground, and `?ds=`
      still picks the design system for the frame. */
   @media (max-height: 480px) {
     .wb-page[data-embed] [data-wb-chips-wrap],
@@ -222,4 +198,12 @@
     clip-path: inset(50%);
     white-space: nowrap;
   }
+}
+
+/* ───────────────────────── the landing (an empty chat) ───────────────────────── */
+
+/* No side panel or rail until the first prompt: the landing has the whole width. */
+.wb-main[data-landing],
+html[data-wb-pane="collapsed"] .wb-main[data-landing] {
+  grid-template-columns: minmax(0, 1fr);
 }
