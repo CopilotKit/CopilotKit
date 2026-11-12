@@ -4,7 +4,7 @@ import { createGenerativeUI, standardUI } from "@copilotkit/react-core/generativ
 
 export const myCatalog = createGenerativeUI({
   id: "dashboard-catalog",
-  extends: [standardUI],
+  extends: [standardUI.omit(["Row", "Card"])],
   components: {
     Row: {
       component: myRenderers.Row,

@@ -357,7 +357,7 @@ Airport: {
 },
 ```
 
-`createGenerativeUI` throws when a name comes from two places. If a component has the name of a standard component (`Text`, `Button`, `Row`, ...) and the catalog has `extends: [standardUI]`, rename it, drop the standard one with `extends: [standardUI.omit(["Button"])]`, or replace only its component with `overrides: { Button: { component } }`. See https://docs.copilotkit.ai/generative-ui/components/standard-catalog#replace-a-component
+`createGenerativeUI` throws when a name comes from two places. The codemod already extends `standardUI.omit([...])` for the custom components that have a standard name. If you add a component with the name of a standard component (`Text`, `Button`, `Row`, ...) and the catalog has `extends: [standardUI]`, rename it, drop the standard one with `extends: [standardUI.omit(["Button"])]`, or replace only its component with `overrides: { Button: { component } }`. See https://docs.copilotkit.ai/generative-ui/components/standard-catalog#replace-a-component
 
 ### Rewrite a renderer
 

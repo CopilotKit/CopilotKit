@@ -66,6 +66,84 @@ const CATALOG_FACTORIES = [
   },
 ] as const;
 
+/**
+ * The components of `standardUI` in 2.0 (React and Angular). A v0.9
+ * component with one of these names replaced the basic one; in 2.0 the
+ * catalog drops the standard one with `standardUI.omit([...])`, because
+ * `createGenerativeUI` throws when a name comes from two places.
+ */
+const STANDARD_COMPONENTS = new Set([
+  "Box",
+  "Column",
+  "Row",
+  "Grid",
+  "GridItem",
+  "Card",
+  "Flow",
+  "FlowItem",
+  "Carousel",
+  "CarouselItem",
+  "CarouselMediaItem",
+  "Spacer",
+  "Divider",
+  "Tabs",
+  "Title",
+  "Text",
+  "Caption",
+  "Label",
+  "Bold",
+  "Italic",
+  "Underline",
+  "Strikethrough",
+  "Badge",
+  "Blockquote",
+  "Code",
+  "Markdown",
+  "Math",
+  "ShimmerText",
+  "Link",
+  "Tooltip",
+  "Button",
+  "Pressable",
+  "Form",
+  "TextField",
+  "TextArea",
+  "Select",
+  "CheckBox",
+  "Radio",
+  "RadioGroup",
+  "Slider",
+  "SegmentedControl",
+  "ChoicePicker",
+  "DateTimeInput",
+  "PulseIndicator",
+  "FlashcardFlip",
+  "Popover",
+  "PopoverTrigger",
+  "PopoverContent",
+  "Modal",
+  "Table",
+  "TableSection",
+  "TableRow",
+  "TableCell",
+  "List",
+  "ListItem",
+  "Chart",
+  "Map",
+  "Image",
+  "Icon",
+  "Favicon",
+  "Svg",
+  "Video",
+  "AudioPlayer",
+  "HtmlView",
+  "LinkCard",
+  "Citation",
+  "FollowUp",
+  "EntityCard",
+  "ImageGrid",
+]);
+
 /** v0.9 prop schemas and the plain zod schema, by `z`, that replaces them. */
 const DYNAMIC_SCHEMAS: Record<string, (z: string) => string> = {
   DynamicStringSchema: (z) => `${z}.string()`,
@@ -1171,9 +1249,14 @@ function convertCatalog(
   const from = GENERATIVE_UI_SOURCE[framework];
   need(state, from, "createGenerativeUI");
   if (options.extendsStandard) need(state, from, "standardUI");
+  const replaced = names.filter((name) => STANDARD_COMPONENTS.has(name));
+  const standard =
+    replaced.length > 0
+      ? `standardUI.omit([${replaced.map((name) => JSON.stringify(name)).join(", ")}])`
+      : "standardUI";
   const config = [
     `${base}${unit}id: ${options.id},\n`,
-    options.extendsStandard ? `${base}${unit}extends: [standardUI],\n` : "",
+    options.extendsStandard ? `${base}${unit}extends: [${standard}],\n` : "",
     `${base}${unit}components: {\n${components.join("")}${base}${unit}},\n`,
   ].join("");
 
