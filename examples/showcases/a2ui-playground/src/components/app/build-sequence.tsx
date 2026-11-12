@@ -1,6 +1,6 @@
 "use client";
 
-/** Shared surface chrome for the chat renderer and the landing replay. */
+/** Shared surface chrome for the chat renderer and recorded runs. */
 import { useLayoutEffect, useRef, useState } from "react";
 
 /** transitions.dev card resize: the box eases to its content height as the surface grows. */

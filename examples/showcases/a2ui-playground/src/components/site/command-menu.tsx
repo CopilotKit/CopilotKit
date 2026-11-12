@@ -37,7 +37,7 @@ const PAGES = [
  * The package is large, so it loads the first time search is about to open
  * (pages that render surfaces already have it).
  */
-function useStandardNames(load: boolean) {
+export function useStandardNames(load: boolean) {
   const [names, setNames] = useState<string[]>([]);
   useEffect(() => {
     if (!load || names.length) return;

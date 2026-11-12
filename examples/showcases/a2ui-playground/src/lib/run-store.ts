@@ -83,7 +83,7 @@ export type RunRecord = {
   tokens: number | null;
   openId: string | null;
   openChars: number;
-  /** Recorded snapshots for replay (landing demo): ms since prompt + ops. */
+  /** Recorded snapshots of a run (/watch and the build studio): ms since prompt + ops. */
   frames: Array<{ t: number; key: string; ops: A2UIOp[] }>;
   serverPaintMs: number | null;
   /** `stopped`: the visitor pressed Stop (or left the page) before the run finished. */

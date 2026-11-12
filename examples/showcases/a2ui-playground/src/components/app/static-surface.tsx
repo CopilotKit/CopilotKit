@@ -39,7 +39,7 @@ const AGENTS = { default: new NoAgent() };
 
 /**
  * A Gen UI 2.0 provider with no runtime, for pages that show surfaces without
- * a chat (catalog previews, the landing replay, recorded runs). Mounted once
+ * a chat (catalog previews, recorded runs on /watch). Mounted once
  * in the root layout; the playground nests its own provider inside it. Under
  * a design system (the playground's JSON preview) it takes that theme, so the
  * swapped components and the standard ones agree.

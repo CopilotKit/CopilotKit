@@ -12,7 +12,6 @@ import type { KeyboardEvent, Ref } from "react";
 import { ArrowLeft, PanelRightClose } from "lucide-react";
 import { highlightExpress, highlightJson } from "@/components/app/json-view";
 import { cn } from "@/lib/utils";
-import type { TimelineEvent } from "@/lib/run-store";
 import { BuildPanel } from "./build-panel";
 import { focusRing } from "./composer";
 import { JsonTab } from "./json-tab";
@@ -139,7 +138,6 @@ export const WritesPane = forwardRef<HTMLButtonElement, WritesPaneProps>(
       tab,
       onTab,
       runId,
-      recorded,
       jsonKey,
       jsonWide,
       onJsonWide,
@@ -276,8 +274,6 @@ export const WritesPane = forwardRef<HTMLButtonElement, WritesPaneProps>(
               onEditing={onEditing}
               jsonOnly
             />
-          ) : recorded ? (
-            <RecordedLog {...recorded} />
           ) : (
             <BuildPanel runId={runId} />
           )}
@@ -294,12 +290,6 @@ type WritesPaneProps = {
   tab: WritesTab;
   onTab: (t: WritesTab) => void;
   runId: string | null | undefined;
-  /** The replay's recorded events, while it shows. */
-  recorded: {
-    events: TimelineEvent[];
-    recordedAt: string;
-    model: string;
-  } | null;
   jsonKey: number;
   jsonWide: boolean;
   onJsonWide: (wide: boolean) => void;
@@ -539,43 +529,4 @@ function spacedJson(text: string) {
   } catch {
     return text;
   }
-}
-
-const fmtMs = (ms: number) =>
-  ms < 1000 ? `${Math.round(ms)} ms` : `${(ms / 1000).toFixed(2)} s`;
-
-/** The Run tab during the replay: the recorded events so far, at their recorded times. */
-function RecordedLog({
-  events,
-  recordedAt,
-  model,
-}: {
-  events: TimelineEvent[];
-  recordedAt: string;
-  model: string;
-}) {
-  const shown = events.filter((e) => e.kind !== "op");
-  return (
-    <div className="wb-scroll min-h-0 flex-1 overflow-y-auto px-5 py-4 max-[899px]:px-4">
-      <p className="mb-3 text-[13px] leading-snug text-[var(--pg-dim)]">
-        A real {model} run, recorded on {recordedAt}. Times are from the
-        recording. Your own runs show their timings here.
-      </p>
-      <ol className="space-y-0.5 font-mono text-[12.5px] leading-[1.7]">
-        {shown.map((e, i) => (
-          <li key={i} className="grid grid-cols-[64px_minmax(0,1fr)] gap-3">
-            <span className="tabular-nums text-[var(--pg-dim)]">
-              {fmtMs(e.t)}
-            </span>
-            <span className="min-w-0">
-              <span className="text-foreground/90">{e.label}</span>
-              {e.detail ? (
-                <span className="text-[var(--pg-dim)]"> {e.detail}</span>
-              ) : null}
-            </span>
-          </li>
-        ))}
-      </ol>
-    </div>
-  );
 }
