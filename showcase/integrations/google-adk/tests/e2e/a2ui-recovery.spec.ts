@@ -9,7 +9,7 @@ import type { Page } from "@playwright/test";
 // STABLE end-states — the recovered surface paints (heal) and the hard-failure
 // UI shows (exhaust) — and deliberately do NOT assert the transient
 // "Retrying generation… (N/M)" label, which is threshold-gated + timing
-// dependent (see @copilotkit/react-core/v2 A2UIRecoveryStates) and would be
+// dependent (2.0 does not show it) and would be
 // flaky.
 //
 // The aimock fixtures (showcase/aimock/d6/google-adk/a2ui-recovery.json) drive
@@ -18,8 +18,8 @@ import type { Page } from "@playwright/test";
 // EXHAUST is structurally invalid (unresolved child) on every attempt, so the
 // validate->retry loop hits the cap and returns the a2ui_recovery_exhausted
 // envelope. Healing + the loop run live in the ADK middleware (ag_ui_adk >=
-// 0.7.0); the failure UI text ("Couldn't generate the UI") comes from
-// @copilotkit/react-core/v2. The recovered surface reuses the declarative-gen-ui
+// 0.7.0); the failure UI text ("Part of this UI couldn't be shown.") comes from
+// @copilotkit/react-core. The recovered surface reuses the declarative-gen-ui
 // catalog, so it carries the `declarative-metric` testid.
 //
 // Per-pill fixture selection: the adapter forwards the run's conversation into
@@ -37,7 +37,7 @@ import type { Page } from "@playwright/test";
  *  bubble with the pill's full message text appears). Adapted from
  *  declarative-gen-ui.spec.ts — the user bubble is matched by
  *  `data-testid="copilot-user-message"` (CopilotChatUserMessage in
- *  @copilotkit/react-core/v2 >= 1.60; the older `data-message-role="user"`
+ *  @copilotkit/react-core >= 1.60; the older `data-message-role="user"`
  *  selector the sibling specs still use no longer exists). Slow hydration can
  *  swallow the first click, so we retry; never re-click once dispatched. */
 async function clickPill(page: Page, title: string, message: string) {
@@ -98,7 +98,7 @@ test.describe("A2UI Error Recovery (ADK-only)", () => {
       .toBeGreaterThanOrEqual(2);
 
     // The healed surface, NOT the hard-failure UI, and no render-error banners.
-    await expect(page.getByText("Couldn't generate the UI")).toHaveCount(0);
+    await expect(page.getByText("Part of this UI couldn't be shown.")).toHaveCount(0);
     await expect(page.getByText(/Catalog not found/i)).toHaveCount(0);
     await expect(
       page.getByText(/Cannot create component .* without a type/i),
@@ -110,10 +110,11 @@ test.describe("A2UI Error Recovery (ADK-only)", () => {
   }) => {
     await clickPill(page, EXHAUST_PILL, EXHAUST_MSG);
 
-    // Hard-failure UI appears once the attempt cap is hit (A2UIRecoveryStates
-    // renders this on status: "failed" = the a2ui_recovery_exhausted envelope).
+    // Hard-failure UI appears once the attempt cap is hit (the runtime
+    // sends an error surface for the a2ui_recovery_exhausted envelope, and the
+    // chat card shows this alert).
     await expect(
-      page.getByText("Couldn't generate the UI").first(),
+      page.getByText("Part of this UI couldn't be shown.").first(),
     ).toBeVisible({ timeout: 90_000 });
 
     // No faulty surface ever paints (server-side no-wipe guarantee: middleware

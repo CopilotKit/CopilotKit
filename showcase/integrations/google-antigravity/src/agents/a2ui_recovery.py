@@ -5,7 +5,7 @@ Same backend-owned ``generate_a2ui`` server tool as declarative-gen-ui (see
 ``render_a2ui`` attempt and retries with the validation errors appended to the
 sub-agent prompt, up to ``MAX_ATTEMPTS``. When every attempt fails it returns
 the toolkit's ``a2ui_recovery_exhausted`` envelope, which the A2UI middleware
-turns into the "Couldn't generate the UI" card instead of a broken surface.
+turns into the "Part of this UI couldn't be shown." card instead of a broken surface.
 
 The two pills drive the loop deterministically through aimock
 (``showcase/aimock/d6/google-antigravity/a2ui-recovery.json``): heal fails
