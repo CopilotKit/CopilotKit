@@ -399,6 +399,31 @@ func v09SurfaceIDOf(op any) (string, bool) {
 	return "", false
 }
 
+// failedLifecycleError is the error of a failed lifecycle snapshot (the agent's A2UI
+// recovery gave up). ok is false for any other content.
+func failedLifecycleError(content any) (string, bool) {
+	m, isRecord := record(content)
+	if !isRecord || m["status"] != "failed" {
+		return "", false
+	}
+	message, _ := m["error"].(string)
+	if message == "" {
+		message = "A2UI generation failed"
+	}
+	length := 0
+	for i, r := range message {
+		size := 1
+		if r >= 0x10000 {
+			size = 2
+		}
+		if length+size > maxRejectionLength {
+			return message[:i], true
+		}
+		length += size
+	}
+	return message, true
+}
+
 func readV09Operations(content any) []any {
 	m, ok := record(content)
 	if !ok {
@@ -688,15 +713,32 @@ func (s *surfaceState) deletePart(messageID string) bool {
 // ACTIVITY_DELTA. A surface written in native 1.0 (for example by ADK) has no
 // a2uiSourceVersion, so a click on it reaches the agent unchanged. One surface has one
 // version, the version of its first operation; an operation of the other version is
-// rejected. A lifecycle snapshot (no operations) names no surface, so it is consumed.
+// rejected. A lifecycle snapshot (no operations) names no surface, so it is consumed. A
+// failed one (the agent's recovery gave up) becomes a surface with no operations, status
+// "error", and its error as the one rejected entry, so the chat shows that the UI could not
+// be made. Its surfaceId is the source messageId.
 type a2uiV09Upgrader struct {
 	sources      map[string]any
 	surfaces     map[string]*surfaceState
 	surfaceOrder []string
+	// The source messages whose failed snapshot was sent.
+	failures map[string]bool
 }
 
 func newA2UIV09Upgrader() *a2uiV09Upgrader {
-	return &a2uiV09Upgrader{sources: map[string]any{}, surfaces: map[string]*surfaceState{}}
+	return &a2uiV09Upgrader{sources: map[string]any{}, surfaces: map[string]*surfaceState{}, failures: map[string]bool{}}
+}
+
+// failure is the surface that shows a failed lifecycle snapshot, sent once.
+func (u *a2uiV09Upgrader) failure(messageID, message string) []Event {
+	if u.failures[messageID] {
+		return nil
+	}
+	u.failures[messageID] = true
+	content := newOrdered().set("surfaceId", messageID).set("target", generativeUIChatTarget).set("catalogId", standardCatalogID).set("operations", []any{}).set("status", "error").set("rejected", []any{map[string]any{"index": 0, "reason": message}}).set("a2uiSourceVersion", "0.9")
+	var copy any
+	json.Unmarshal([]byte(compactJSON(content)), &copy)
+	return []Event{{"type": "ACTIVITY_SNAPSHOT", "messageId": surfaceMessageID(messageID), "activityType": generativeUIActivityType, "content": copy, "replace": true}}
 }
 
 func (u *a2uiV09Upgrader) snapshot(surfaceID string, state *surfaceState, operations, rejected []any, version string) []Event {
@@ -832,6 +874,9 @@ func (u *a2uiV09Upgrader) refresh(messageID string) []Event {
 	events := []Event{}
 	for _, surfaceID := range touched {
 		events = append(events, u.emit(surfaceID)...)
+	}
+	if message, failed := failedLifecycleError(u.sources[messageID]); failed {
+		events = append(events, u.failure(messageID, message)...)
 	}
 	return events
 }
