@@ -20,6 +20,31 @@ const runners = {
   javascript: { file: "main.js", command: "node" },
 } as const;
 
+async function runOnMachine(code: string, language: keyof typeof runners) {
+  const machine = await boxd.machines.create({
+    org: process.env.BOXD_ORG,
+    isolated: true,
+    deleteAfter: 600, // seconds: a backstop if the delete below can't run
+  });
+  try {
+    await boxd.machines.waitUntilReady(machine.id);
+    const { file, command } = runners[language];
+    const path = `/home/boxd/runcode/${file}`;
+    await boxd.machines.fs.write(machine.id, path, code);
+    const res = await boxd.machines.exec(machine.id, {
+      command: [command, path],
+      timeout: 60_000,
+    });
+    return { stdout: res.stdout, stderr: res.stderr, exitCode: res.exitCode };
+  } finally {
+    await boxd.machines
+      .delete(machine.id)
+      .catch((err) =>
+        console.error(`Failed to delete machine ${machine.id}`, err),
+      );
+  }
+}
+
 const runCode = defineTool({
   name: "runCode",
   description:
@@ -33,29 +58,11 @@ const runCode = defineTool({
         "Language runtime for the code. TypeScript runs on Node with type stripping: no enums or namespaces.",
       ),
   }),
-  execute: async ({ code, language }) => {
-    const machine = await boxd.machines.create({
-      org: process.env.BOXD_ORG,
-      isolated: true,
-    });
-    try {
-      await boxd.machines.waitUntilReady(machine.id);
-      const { file, command } = runners[language];
-      const path = `/home/boxd/runcode/${file}`;
-      await boxd.machines.fs.write(machine.id, path, code);
-      const res = await boxd.machines.exec(machine.id, {
-        command: [command, path],
-        timeout: 60_000,
-      });
-      return { stdout: res.stdout, stderr: res.stderr, exitCode: res.exitCode };
-    } finally {
-      await boxd.machines
-        .delete(machine.id)
-        .catch((err) =>
-          console.error(`Failed to delete machine ${machine.id}`, err),
-        );
-    }
-  },
+  // A thrown error never reaches the tool card, so return it as a result.
+  execute: ({ code, language }) =>
+    runOnMachine(code, language).catch((err) => ({
+      error: err instanceof Error ? err.message : String(err),
+    })),
 });
 
 const agent = new BuiltInAgent({

@@ -63,7 +63,7 @@ const runners = {
   javascript: { file: "main.js", command: "node" },
 } as const;
 
-const runCode = defineTool({ // [!code highlight:30]
+const runCode = defineTool({ // [!code highlight:35]
   name: "runCode",
   description: "Execute code on an isolated boxd machine and return its output.",
   parameters: z.object({
@@ -79,6 +79,7 @@ const runCode = defineTool({ // [!code highlight:30]
     const machine = await boxd.machines.create({
       org: process.env.BOXD_ORG,
       isolated: true,
+      deleteAfter: 600, // seconds: a backstop if the delete below can't run
     });
     try {
       await boxd.machines.waitUntilReady(machine.id);
@@ -126,9 +127,10 @@ export const DELETE = handler;
   still has outbound internet access, so it can download packages from npm or PyPI.
 </Callout>
 
-The `finally` block deletes the machine when the call ends, also when the code fails or times out. It
-can't run if your server process dies mid-call. If that matters for your deployment, pass
-`deleteAfter: 600` to `create` and boxd deletes the machine after ten minutes regardless.
+The `finally` block deletes the machine when the call ends, also when the code fails or times out. A
+failed delete is logged, not thrown. `deleteAfter: 600` is the backstop: if the delete fails, or your
+server process dies mid-call, boxd deletes the machine ten minutes after it was created. Keep that
+limit above the `exec` timeout.
 
 ## Try it
 
@@ -168,29 +170,37 @@ Paste this prompt into your coding agent (Cursor, Claude Code, etc.) to add the 
 Built-in Agent app:
 
 ```text
-In my existing CopilotKit Built-in Agent app, add a boxd-backed code execution tool:
+In my existing CopilotKit Built-in Agent app, add a boxd-backed code
+execution tool:
 
-1. Install the boxd SDK: `npm install @boxd-sh/sdk`. It is ESM-only and needs Node 20+.
-2. Add BOXD_API_KEY to my .env (I'll supply the value). BOXD_ORG is optional.
-3. In my CopilotKit runtime route, create a boxd client with `new Boxd()` (from "@boxd-sh/sdk") and
-   define a server tool with `defineTool` from "@copilotkit/runtime/v2":
+1. Install the boxd SDK: `npm install @boxd-sh/sdk`. It is ESM-only and
+   needs Node 20+.
+2. Add BOXD_API_KEY to my .env (I'll supply the value). BOXD_ORG is
+   optional.
+3. In my CopilotKit runtime route, create a boxd client with `new Boxd()`
+   (from "@boxd-sh/sdk") and define a server tool with `defineTool` from
+   "@copilotkit/runtime/v2":
    - name: "runCode"
-   - description: "Execute code on an isolated boxd machine and return its output."
-   - parameters: a Zod object with a `code` string field and a `language` enum
-     ("python" | "typescript" | "javascript", default "python").
+   - description: "Execute code on an isolated boxd machine and return its
+     output."
+   - parameters: a Zod object with a `code` string field and a `language`
+     enum ("python" | "typescript" | "javascript", default "python").
    - execute: create a machine with
-     `boxd.machines.create({ org: process.env.BOXD_ORG, isolated: true })`, then
-     `await boxd.machines.waitUntilReady(machine.id)`. Write the code to
-     `/home/boxd/runcode/main.py` (or `main.ts` / `main.js`) with
+     `boxd.machines.create({ org: process.env.BOXD_ORG, isolated: true, deleteAfter: 600 })`,
+     then `await boxd.machines.waitUntilReady(machine.id)`. Write the code
+     to `/home/boxd/runcode/main.py` (or `main.ts` / `main.js`) with
      `boxd.machines.fs.write(machine.id, path, code)`. Run it with
      `boxd.machines.exec(machine.id, { command: [interpreter, path], timeout: 60_000 })`,
-     using `python3` for Python and `node` for TypeScript and JavaScript (Node strips TypeScript
-     types, so tell the model to avoid enums and namespaces). Return
-     `{ stdout: res.stdout, stderr: res.stderr, exitCode: res.exitCode }`. Call
-     `boxd.machines.delete(machine.id)` in a finally block so the machine is removed even on error,
-     and log a failed delete instead of throwing.
-4. Register the tool on my BuiltInAgent (`tools: [runCode]`) and set `maxSteps: 2` so it can call the
-   tool and then respond.
+     using `python3` for Python and `node` for TypeScript and JavaScript
+     (Node strips TypeScript types, so tell the model to avoid enums and
+     namespaces). Return
+     `{ stdout: res.stdout, stderr: res.stderr, exitCode: res.exitCode }`.
+     Call `boxd.machines.delete(machine.id)` in a finally block so the
+     machine is removed even on error, and log a failed delete instead of
+     throwing. `deleteAfter: 600` (seconds) stays as the backstop for a
+     delete that can't run.
+4. Register the tool on my BuiltInAgent (`tools: [runCode]`) and set
+   `maxSteps: 2` so it can call the tool and then respond.
 
 Keep my existing model and runtime setup unchanged.
 ```
