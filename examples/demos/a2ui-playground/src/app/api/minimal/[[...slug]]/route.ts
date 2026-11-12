@@ -26,7 +26,7 @@ function minimalHandler(): (request: Request) => Promise<Response> {
     runtime: new CopilotRuntime({
       agents: {
         default: new BuiltInAgent({
-          model: openaiText("gpt-5.5"),
+          model: openaiText("gpt-6-luna"),
           prompt:
             "Answer with UI: call render_ui with A2UI 1.0 operations built from the components in the generative UI guide.",
         }),
