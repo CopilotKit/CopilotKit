@@ -286,9 +286,23 @@ export function Workbench({ embed = false }: { embed?: boolean }) {
                 "min-[900px]:border-r min-[900px]:border-[var(--pg-line)]",
             )}
           >
-            {landing ? (
-              <div className="wb-scroll flex min-h-0 flex-1 flex-col overflow-y-auto">
-                <div className="my-auto py-12 max-[899px]:py-8" data-wb-landing>
+            {/* One Composer for the landing and the chat: it only changes layout, so the first send (and New
+                chat) keeps the prompt focused instead of swapping in another textarea. */}
+            <div
+              className={cn(
+                "flex min-h-0 flex-1 flex-col",
+                landing && "wb-scroll overflow-y-auto",
+              )}
+            >
+              <div
+                className={
+                  landing
+                    ? "my-auto py-12 max-[899px]:py-8"
+                    : "flex min-h-0 flex-1 flex-col"
+                }
+                data-wb-landing={landing || undefined}
+              >
+                {landing ? (
                   <header className="mx-auto max-w-[680px] px-6 text-center max-[899px]:px-4">
                     <h1 className="wb-rise text-balance text-[32px] font-semibold leading-[1.08] tracking-[-0.025em] max-[899px]:text-[26px]">
                       Watch an&nbsp;agent write&nbsp;UI.
@@ -301,29 +315,22 @@ export function Workbench({ embed = false }: { embed?: boolean }) {
                       protocol, and your design system draws it.
                     </p>
                   </header>
-                  <Composer
-                    landing
-                    empty
-                    onSent={onSent}
-                    onStartWithoutAI={startWithoutAI}
+                ) : (
+                  <Thread
+                    turns={turns}
+                    selection={selection}
+                    onSelect={onSelect}
                   />
-                </div>
-              </div>
-            ) : (
-              <>
-                <Thread
-                  turns={turns}
-                  selection={selection}
-                  onSelect={onSelect}
-                />
+                )}
                 <Composer
+                  landing={landing}
                   empty={!turns.length}
                   noAILine={!hand}
                   onSent={onSent}
                   onStartWithoutAI={startWithoutAI}
                 />
-              </>
-            )}
+              </div>
+            </div>
           </section>
 
           {landing ? null : (
