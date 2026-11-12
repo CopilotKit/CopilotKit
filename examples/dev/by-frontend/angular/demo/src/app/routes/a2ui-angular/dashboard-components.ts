@@ -1,26 +1,33 @@
 import { Component, computed, input } from "@angular/core";
-import { CopilotA2UIChild } from "@copilotkit/angular/a2ui";
-import type { A2UIProps } from "@copilotkit/angular/a2ui";
-import type { dashboardDefinitions } from "./dashboard-catalog";
+import { CopilotGenerativeUIChildren } from "@copilotkit/angular/generative-ui";
+import type { GenerativeUIChildren } from "@copilotkit/angular/generative-ui";
 
-type Props<K extends keyof typeof dashboardDefinitions> = A2UIProps<
-  typeof dashboardDefinitions,
-  K
->;
+type Trend = "up" | "down" | "neutral";
+type BadgeVariant = "success" | "warning" | "error" | "info";
+interface Bar {
+  label: string;
+  value: number;
+}
 
-/** Replaces the basic Card: adds a title and subtitle above the child. */
+/**
+ * The dashboard components. The renderer sets one input per prop, with
+ * bindings such as `{ "@path": "/revenue" }` already resolved, and a
+ * `GenerativeUIChildren` handle for a slot.
+ */
+
+/** A card with a title and a subtitle above its child. */
 @Component({
-  selector: "demo-a2ui-card",
-  imports: [CopilotA2UIChild],
+  selector: "demo-dashboard-card",
+  imports: [CopilotGenerativeUIChildren],
   template: `
     <section class="card">
       <header>
-        <h3>{{ props().title }}</h3>
-        @if (props().subtitle) {
-          <p>{{ props().subtitle }}</p>
+        <h3>{{ title() }}</h3>
+        @if (subtitle()) {
+          <p>{{ subtitle() }}</p>
         }
       </header>
-      <copilot-a2ui-child [child]="props().child" />
+      <ng-container *copilotGenerativeUIChildren="child()" />
     </section>
   `,
   styles: `
@@ -48,18 +55,20 @@ type Props<K extends keyof typeof dashboardDefinitions> = A2UIProps<
   `,
 })
 export class DashboardCardComponent {
-  readonly props = input.required<Props<"Card">>();
+  readonly title = input.required<string>();
+  readonly subtitle = input<string>();
+  readonly child = input<GenerativeUIChildren>();
 }
 
 @Component({
-  selector: "demo-a2ui-metric",
+  selector: "demo-dashboard-metric",
   template: `
     <div class="metric">
-      <span class="label">{{ props().label }}</span>
-      <strong class="value">{{ props().value }}</strong>
-      @if (props().trendValue) {
-        <span class="trend" [class]="props().trend ?? 'neutral'">
-          {{ arrow() }} {{ props().trendValue }}
+      <span class="label">{{ label() }}</span>
+      <strong class="value">{{ value() }}</strong>
+      @if (trendValue()) {
+        <span class="trend" [class]="trend() ?? 'neutral'">
+          {{ arrow() }} {{ trendValue() }}
         </span>
       }
     </div>
@@ -101,19 +110,20 @@ export class DashboardCardComponent {
   `,
 })
 export class MetricComponent {
-  readonly props = input.required<Props<"Metric">>();
+  readonly label = input.required<string>();
+  readonly value = input.required<string>();
+  readonly trend = input<Trend>();
+  readonly trendValue = input<string>();
   protected readonly arrow = computed(() => {
-    const trend = this.props().trend;
+    const trend = this.trend();
     return trend === "up" ? "▲" : trend === "down" ? "▼" : "•";
   });
 }
 
 @Component({
-  selector: "demo-a2ui-status-badge",
+  selector: "demo-dashboard-status-badge",
   template: `
-    <span class="badge" [class]="props().variant ?? 'info'">{{
-      props().text
-    }}</span>
+    <span class="badge" [class]="variant() ?? 'info'">{{ text() }}</span>
   `,
   styles: `
     :host {
@@ -146,12 +156,13 @@ export class MetricComponent {
   `,
 })
 export class StatusBadgeComponent {
-  readonly props = input.required<Props<"StatusBadge">>();
+  readonly text = input.required<string>();
+  readonly variant = input<BadgeVariant>();
 }
 
-/** Binds by convention: one input per schema key instead of `props`. */
+/** A "label: value" row. */
 @Component({
-  selector: "demo-a2ui-info-row",
+  selector: "demo-dashboard-info-row",
   template: `
     <div class="row">
       <span>{{ label() }}</span>
@@ -173,16 +184,16 @@ export class StatusBadgeComponent {
   `,
 })
 export class InfoRowComponent {
-  readonly label = input("");
-  readonly value = input("");
+  readonly label = input.required<string>();
+  readonly value = input.required<string>();
 }
 
 @Component({
-  selector: "demo-a2ui-bar-chart",
+  selector: "demo-dashboard-bar-chart",
   template: `
     <figure class="chart">
-      <figcaption>{{ props().title }}</figcaption>
-      @for (bar of props().data; track bar.label) {
+      <figcaption>{{ title() }}</figcaption>
+      @for (bar of data(); track bar.label) {
         <div class="bar">
           <span class="bar-label">{{ bar.label }}</span>
           <span class="bar-track">
@@ -233,8 +244,9 @@ export class InfoRowComponent {
   `,
 })
 export class BarChartComponent {
-  readonly props = input.required<Props<"BarChart">>();
+  readonly title = input.required<string>();
+  readonly data = input.required<Bar[]>();
   protected readonly max = computed(() =>
-    Math.max(1, ...this.props().data.map((bar) => bar.value)),
+    Math.max(1, ...this.data().map((bar) => bar.value)),
   );
 }

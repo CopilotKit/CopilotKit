@@ -1,12 +1,8 @@
-import type { A2UIRecoveryRendererOptions } from "../components/a2ui/A2UIRecoveryStates";
 import type {
-  ɵA2UIActionInterceptor,
-  ɵA2UIBaseOptions,
   ɵCopilotKitLearningOptions,
   ɵCopilotKitProviderBaseOptions,
 } from "@copilotkit/core";
 import type {
-  A2UITheme,
   SandboxFunction,
   VueActivityMessageRenderer,
   VueCustomMessageRenderer,
@@ -14,7 +10,6 @@ import type {
   VueHumanInTheLoop,
   VueToolCallRenderer,
 } from "../types";
-import type { Component } from "vue";
 import type { MarkdownRendererValue } from "./markdown-renderer";
 import type { GenerativeUIConfig } from "../generative-ui/runtime-context";
 
@@ -45,24 +40,6 @@ export interface CopilotKitProviderProps extends ɵCopilotKitProviderBaseOptions
    * always disabled in production and during server rendering.
    */
   enableInspector?: boolean;
-  a2ui?: ɵA2UIBaseOptions & {
-    theme?: A2UITheme;
-    catalog?: any;
-    loadingComponent?: Component;
-    /**
-     * Options for the A2UI error-recovery status UI: how long before the
-     * transient "Retrying…" hint appears, after how many attempts, and how
-     * much retry/debug detail to surface. When omitted, defaults apply.
-     */
-    recovery?: A2UIRecoveryRendererOptions;
-    /**
-     * Intercept A2UI user actions before they reach the agent: return `null`
-     * to handle an action client-side (e.g. a `navigate` event), return an
-     * action to forward that one instead, or return nothing to forward it
-     * unchanged.
-     */
-    onAction?: ɵA2UIActionInterceptor;
-  };
   /**
    * Experimental. Native generative UI. Pass `ui` from `createGenerativeUI`,
    * and the agent renders your Vue components in the chat or in a
@@ -72,6 +49,10 @@ export interface CopilotKitProviderProps extends ɵCopilotKitProviderBaseOptions
    *
    * Bind it in camelCase, as `:generativeUI`. Vue reads the kebab-case
    * `:generative-ui` as a different prop (`generativeUi`).
+   *
+   * When you leave it out and the runtime turns generative UI on, the
+   * provider uses `standardUI` for the agents of the runtime. It loads the
+   * standard components only then.
    *
    * @example
    * ```vue

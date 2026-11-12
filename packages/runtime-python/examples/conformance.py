@@ -8,7 +8,7 @@ import socket
 import uvicorn
 
 from copilotkit_runtime import (
-    A2UIConfig,
+    GenerativeUIConfig,
     HttpAgent,
     IntelligenceRuntime,
     MCPAppsConfig,
@@ -17,6 +17,24 @@ from copilotkit_runtime import (
     Telemetry,
     User,
 )
+
+
+def generative_ui(option):
+    """Map the TypeScript `generativeUI` runtime option to the Python configuration."""
+    if option is None or isinstance(option, bool):
+        return option
+    recovery = option.get("recovery", {})
+    return GenerativeUIConfig(
+        agents=tuple(option["agents"]) if "agents" in option else None,
+        a2ui_version=option.get("a2uiVersion", "1.0"),
+        schema=option.get("schema"),
+        inject_a2ui_tool=option.get("injectA2UITool"),
+        a2ui_tool_names=tuple(option.get("a2uiToolNames", ["render_a2ui"])),
+        default_catalog_id=option.get("defaultCatalogId"),
+        max_attempts=recovery.get("maxAttempts", 3),
+        show_progress_tokens=recovery.get("showProgressTokens", True),
+        debug_exposure=recovery.get("debugExposure"),
+    )
 
 
 async def main():
@@ -47,19 +65,7 @@ async def main():
             license_token=config.get("licenseToken"),
             url=config.get("telemetryUrl", "https://telemetry.copilotkit.ai/ingest"),
         ),
-        a2ui=A2UIConfig(
-            enabled=config["a2ui"].get("enabled", True),
-            agents=tuple(config["a2ui"]["agents"]) if "agents" in config["a2ui"] else None,
-            schema=config["a2ui"].get("schema"),
-            inject_tool=config["a2ui"].get("injectA2UITool", False),
-            tool_names=tuple(config["a2ui"].get("a2uiToolNames", ["render_a2ui"])),
-            default_catalog_id=config["a2ui"].get("defaultCatalogId"),
-            max_attempts=config["a2ui"].get("recovery", {}).get("maxAttempts", 3),
-            show_progress_tokens=config["a2ui"].get("recovery", {}).get("showProgressTokens", True),
-            debug_exposure=config["a2ui"].get("recovery", {}).get("debugExposure"),
-        )
-        if config.get("a2ui") is not None
-        else None,
+        generative_ui=generative_ui(config.get("generativeUI")),
         mcp_apps=MCPAppsConfig(
             servers=tuple(
                 MCPServer(

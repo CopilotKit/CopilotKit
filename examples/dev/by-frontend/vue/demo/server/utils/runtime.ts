@@ -37,9 +37,11 @@ const createTranscriptionService = () => {
 /**
  * Minimal demo agent that drives the `/a2ui-demo` route.
  *
- * First run  → emits an A2UI surface with a "Confirm" button.
- * Button click → runAgent fires again with forwardedProps.a2uiAction set,
- *                and the agent replies with a confirmation text message.
+ * First run  → emits an A2UI v0.9 surface with a "Confirm" button. The
+ *              runtime converts it to A2UI 1.0 for the client.
+ * Button click → runAgent fires again; the runtime turns the click on the
+ *                converted surface into forwardedProps.a2uiAction, and the
+ *                agent replies with a confirmation text message.
  *
  * Mirrors `DemoButtonAgent` in the React demo's
  * `src/app/api/copilotkit/[[...slug]]/route.ts`.
@@ -82,9 +84,8 @@ class DemoButtonAgent extends AbstractAgent {
           activityType: "a2ui-surface",
           content: {
             // Canonical A2UI v0.9 content key + operation format (matches
-            // @ag-ui/a2ui-middleware, @copilotkit/vue's A2UIMessageRenderer,
-            // @a2ui/web_core, and the Python SDK). The root component must
-            // have id "root".
+            // @ag-ui/a2ui-middleware and the Python SDK). The root component
+            // must have id "root".
             a2ui_operations: [
               {
                 version: "v0.9",
@@ -168,14 +169,15 @@ export const createDefaultRuntime = () =>
     },
     runner: new InMemoryAgentRunner(),
     transcriptionService: createTranscriptionService(),
-    a2ui: {},
+    // Generative UI on every run; the demo-button agent speaks A2UI v0.9.
+    generativeUI: { a2uiVersion: { "demo-button": "0.9" } },
   });
 
 /**
  * Catalog-on-provider runtime: same DemoButtonAgent, but the runtime has NO
- * `a2ui` config. A2UI is meant to switch on purely from the client passing
- * `a2ui.catalog` to the provider (which forwards `a2uiCatalogAvailable`).
- * Used by `/a2ui-catalog` to validate the #5774 fix in isolation.
+ * `generativeUI` config. Generative UI is meant to switch on purely from the
+ * client passing a UI to the provider (which sends its catalog with each
+ * run). Used by `/a2ui-catalog` to validate that path in isolation.
  */
 export const createCatalogOnlyRuntime = () =>
   new CopilotRuntime({

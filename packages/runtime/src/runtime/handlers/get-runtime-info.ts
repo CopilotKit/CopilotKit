@@ -2,13 +2,10 @@ import { getRuntimeLogger } from "../core/logger";
 import type { AgentCapabilities } from "@ag-ui/core";
 import type { CopilotRuntimeLike } from "../core/runtime";
 import { hasLearningContainerConfiguration } from "../core/learning";
-import {
-  isA2UIEnabled,
-  isIntelligenceRuntime,
-  resolveAgents,
-} from "../core/runtime";
+import { isIntelligenceRuntime, resolveAgents } from "../core/runtime";
 import type {
   AgentDescription,
+  GenerativeUIRuntimeInfo,
   RuntimeInfo,
   RuntimeEntitlementResponse,
   ThreadEndpointRuntimeInfo,
@@ -201,21 +198,8 @@ export async function handleGetRuntimeInfo({
               : {}),
           }
         : {}),
-      // Legacy flat flag, kept for older clients. The `a2ui` object below is
-      // the source of truth: it preserves the per-agent scoping that this
-      // boolean discards (see CopilotKit/CopilotKit#5369). Both go through the
-      // shared isA2UIEnabled() predicate so an explicit `enabled: false`
-      // disables a2ui here exactly as it does on the run path.
-      a2uiEnabled: webEnabled && isA2UIEnabled(runtime.a2ui),
-      ...(webEnabled && isA2UIEnabled(runtime.a2ui)
-        ? {
-            a2ui: {
-              enabled: true,
-              ...(runtime.a2ui.agents ? { agents: runtime.a2ui.agents } : {}),
-            },
-          }
-        : {}),
       openGenerativeUIEnabled: webEnabled && !!runtime.openGenerativeUI,
+      generativeUI: resolveGenerativeUIInfo(runtime, webEnabled),
       ...(isIntelligenceRuntime(runtime)
         ? {
             licenseStatus: resolveCompatibilityLicenseStatus(
@@ -244,6 +228,26 @@ export async function handleGetRuntimeInfo({
       },
     );
   }
+}
+
+/**
+ * Report generative UI with the rules `configureAgentForRequest` uses to
+ * attach the generative UI middlewares: it is on unless `generativeUI` is
+ * `false`, and `{ agents }` limits it to those agents. The A2UI version of an
+ * agent (`a2uiVersion`) does not change it: the client renders 1.0 for both,
+ * as the runtime converts v0.9 surfaces. When the option is omitted, the
+ * middlewares run only for a client that asks for them, so the client can
+ * still turn generative UI on.
+ */
+function resolveGenerativeUIInfo(
+  runtime: CopilotRuntimeLike,
+  webEnabled: boolean,
+): GenerativeUIRuntimeInfo {
+  const generativeUI = runtime.generativeUI;
+  if (!webEnabled || generativeUI === false) return { enabled: false };
+  const agents =
+    typeof generativeUI === "object" ? generativeUI.agents : undefined;
+  return { enabled: true, ...(agents ? { agents } : {}) };
 }
 
 function resolveThreadEndpointInfo(

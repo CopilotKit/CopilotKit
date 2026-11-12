@@ -2,7 +2,6 @@ import { fireEvent, render, screen, within } from "@testing-library/vue";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { defineComponent, h, nextTick, onMounted, ref } from "vue";
 import type { Component, PropType } from "vue";
-import { ComponentModel } from "@a2ui/web_core/v0_9";
 import { z } from "zod";
 import type {
   A2UIComponentNode,
@@ -549,11 +548,11 @@ describe("SurfaceView", () => {
     // The manager rejects self-references at ingest, so inject the node directly
     // to exercise the renderer's own defence.
     const { push, manager } = setup();
-    manager
-      .getSurface("t1", S)!
-      .model.componentsModel.addComponent(
-        new ComponentModel("root", "Grid", { children: ["root"] }),
-      );
+    manager.getSurface("t1", S)!.model.componentsModel.addComponent({
+      id: "root",
+      type: "Grid",
+      properties: { children: ["root"] },
+    });
     await push(data("/tick", 1));
     expect(alertText()).toContain("cyclic reference to root");
   });

@@ -20,8 +20,9 @@ import {
   useCopilotKit,
 } from "../../../providers";
 import { IntelligenceAgent } from "@copilotkit/core";
-import { createA2UIMessageRenderer } from "../../../a2ui/A2UIMessageRenderer";
-import type { Theme } from "@copilotkit/a2ui-renderer";
+import { GENERATIVE_UI_ACTIVITY_TYPE } from "@copilotkit/shared";
+import { STANDARD_CATALOG_ID } from "@copilotkit/shared/generative-ui";
+import { standardUI } from "../../../generative-ui/standard";
 import { CopilotChat } from "..";
 
 const {
@@ -173,6 +174,34 @@ vi.mock("@copilotkit/core", async (importOriginal) => {
     ɵOpenGenerativeUIController: TestOpenGenerativeUIController,
   };
 });
+
+const generativeUI = { ui: standardUI };
+
+/** A completed generative UI surface on the standard catalog. */
+function restoredSurfaceContent(surfaceId: string) {
+  return {
+    surfaceId,
+    target: "chat",
+    catalogId: STANDARD_CATALOG_ID,
+    operations: [
+      {
+        version: "1.0",
+        createSurface: { surfaceId, catalogId: STANDARD_CATALOG_ID },
+      },
+      {
+        version: "1.0",
+        updateComponents: {
+          surfaceId,
+          components: [
+            { id: "root", component: "Text", text: "Restored dashboard" },
+          ],
+        },
+      },
+    ],
+    status: "ready",
+    rejected: [],
+  };
+}
 
 function jsonResponse(body: unknown, status = 200): Response {
   return {
@@ -449,18 +478,15 @@ describe("CopilotChat activity message rendering", () => {
     expect(capturedAgent).not.toBe(otherAgent);
   });
 
-  it("restores a completed A2UI surface after reconnect from an event-native baseline", async () => {
+  it("restores a completed generative UI surface after reconnect from an event-native baseline", async () => {
     const agent = new MockReconnectableAgent();
-    const threadId = testId("a2ui-thread");
+    const threadId = testId("generative-ui-thread");
     const surfaceId = testId("surface");
-    const a2uiRenderer = createA2UIMessageRenderer({
-      theme: {} as Theme,
-    });
 
     const { unmount } = renderWithCopilotKit({
       agent,
       threadId,
-      renderActivityMessages: [a2uiRenderer],
+      generativeUI,
     });
 
     const input = await screen.findByRole("textbox");
@@ -474,62 +500,30 @@ describe("CopilotChat activity message rendering", () => {
     agent.emit(runStartedEvent());
     agent.emit(
       activitySnapshotEvent({
-        messageId: testId("a2ui-activity"),
-        activityType: "a2ui-surface",
-        content: {
-          a2ui_operations: [
-            {
-              version: "v0.9",
-              createSurface: {
-                surfaceId,
-                catalogId:
-                  "https://a2ui.org/specification/v0_9/basic_catalog.json",
-              },
-            },
-            {
-              version: "v0.9",
-              updateComponents: {
-                surfaceId,
-                components: [
-                  {
-                    id: "root",
-                    component: "Text",
-                    text: "Restored dashboard",
-                    variant: "body",
-                  },
-                ],
-              },
-            },
-          ],
-        },
+        messageId: testId("generative-ui-activity"),
+        activityType: GENERATIVE_UI_ACTIVITY_TYPE,
+        content: restoredSurfaceContent(surfaceId),
       }),
     );
     agent.emit(runFinishedEvent());
     agent.complete();
 
-    await waitFor(() => {
-      expect(
-        document.querySelector(`[data-surface-id='${surfaceId}']`),
-      ).not.toBeNull();
-    });
+    expect(await screen.findByText("Restored dashboard")).toBeDefined();
 
     unmount();
     agent.reset();
+    expect(screen.queryByText("Restored dashboard")).toBeNull();
 
     renderWithCopilotKit({
       agent,
       threadId,
-      renderActivityMessages: [a2uiRenderer],
+      generativeUI,
     });
 
-    await waitFor(() => {
-      expect(
-        document.querySelector(`[data-surface-id='${surfaceId}']`),
-      ).not.toBeNull();
-    });
+    expect(await screen.findByText("Restored dashboard")).toBeDefined();
   });
 
-  it("restores a completed A2UI surface from IntelligenceAgent /connect gateway replay", async () => {
+  it("restores a completed generative UI surface from IntelligenceAgent /connect gateway replay", async () => {
     const threadId = testId("intelligence-connect-thread");
     const surfaceId = testId("intelligence-connect-surface");
     const fetchMock = vi.fn().mockResolvedValueOnce(
@@ -551,15 +545,11 @@ describe("CopilotChat activity message rendering", () => {
       runtimeUrl: "http://localhost:4000",
       agentId: "my-agent",
     });
-    const a2uiRenderer = createA2UIMessageRenderer({
-      theme: {} as Theme,
-    });
-
     try {
       renderWithCopilotKit({
         agent,
         threadId,
-        renderActivityMessages: [a2uiRenderer],
+        generativeUI,
       });
 
       await waitFor(() => {
@@ -595,34 +585,9 @@ describe("CopilotChat activity message rendering", () => {
       });
       channel.serverPush("ag_ui_event", {
         type: EventType.ACTIVITY_SNAPSHOT,
-        messageId: testId("connect-a2ui-activity"),
-        activityType: "a2ui-surface",
-        content: {
-          a2ui_operations: [
-            {
-              version: "v0.9",
-              createSurface: {
-                surfaceId,
-                catalogId:
-                  "https://a2ui.org/specification/v0_9/basic_catalog.json",
-              },
-            },
-            {
-              version: "v0.9",
-              updateComponents: {
-                surfaceId,
-                components: [
-                  {
-                    id: "root",
-                    component: "Text",
-                    text: "Restored dashboard",
-                    variant: "body",
-                  },
-                ],
-              },
-            },
-          ],
-        },
+        messageId: testId("connect-generative-ui-activity"),
+        activityType: GENERATIVE_UI_ACTIVITY_TYPE,
+        content: restoredSurfaceContent(surfaceId),
       });
       channel.serverPush("ag_ui_event", {
         type: EventType.RUN_FINISHED,
@@ -632,11 +597,7 @@ describe("CopilotChat activity message rendering", () => {
       await waitFor(() => {
         expect(screen.getByText("show me the restored ui")).toBeDefined();
       });
-      await waitFor(() => {
-        expect(
-          document.querySelector(`[data-surface-id='${surfaceId}']`),
-        ).not.toBeNull();
-      });
+      expect(await screen.findByText("Restored dashboard")).toBeDefined();
 
       const [url, options] = fetchMock.mock.calls[0] as [string, RequestInit];
       expect(url).toContain("/agent/my-agent/connect");

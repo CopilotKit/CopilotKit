@@ -17,26 +17,10 @@ import {
 } from "./open-generative-ui";
 import { CopilotOpenGenerativeUIActivityRenderer } from "./components/open-generative-ui/open-generative-ui-activity-renderer";
 import { CopilotOpenGenerativeUIToolRenderer } from "./components/open-generative-ui/open-generative-ui-tool-renderer";
-import { CopilotA2UIActivityRenderer } from "./components/a2ui/a2ui-activity-renderer";
-import { CopilotA2UIRenderToolCall } from "./components/a2ui/a2ui-render-tool-call";
-import { CopilotA2UIToolRenderer } from "./components/a2ui/a2ui-tool-renderer";
-import {
-  AGUI_SEND_STATE_SNAPSHOT_TOOL_NAME,
-  RENDER_A2UI_TOOL_NAME,
-} from "./components/a2ui/a2ui-tool-types";
-import { A2UI_SCHEMA_CONTEXT_DESCRIPTION } from "./components/a2ui/a2ui-catalog-context";
-import type { A2UICatalog } from "./components/a2ui/a2ui-types";
-import { Catalog } from "@a2ui/web_core/v0_9";
-import {
-  A2UI_DEFAULT_DESIGN_GUIDELINES,
-  A2UI_DEFAULT_GENERATION_GUIDELINES,
-} from "@copilotkit/shared";
-
-// Registered only, never rendered, so any component will do.
-const testCatalog: A2UICatalog = Object.assign(
-  new Catalog("copilotkit://test", []),
-  { surfaceComponent: CopilotA2UIActivityRenderer },
-);
+import { provideGenerativeUI } from "../generative-ui/lib/provide";
+import { CopilotGenerativeUI } from "../generative-ui/lib/generative-ui";
+import { standardUI } from "../generative-ui/lib/standard/index";
+import { GENERATIVE_UI_ACTIVITY_TYPE } from "@copilotkit/shared";
 
 const mockSubscribe = vi.fn();
 const mockAddTool = vi.fn();
@@ -50,7 +34,6 @@ const mockGetAgent = vi.fn();
 const mockGetTool = vi.fn();
 const mockAddContext = vi.fn();
 const mockRemoveContext = vi.fn();
-const mockSetCatalogComponents = vi.fn();
 
 const licenseKey = "ck_pub_" + "a".repeat(32);
 
@@ -87,17 +70,11 @@ vi.mock("@copilotkit/core", async (importOriginal) => {
     readonly removeContext = mockRemoveContext;
     readonly dispose = mockDispose;
     readonly ɵhumanInTheLoop = new actual.ɵHumanInTheLoopRegistry();
-    readonly setCatalogComponents = mockSetCatalogComponents;
-    disabledCatalogComponents = new Set<string>();
-    isCatalogComponentEnabled(name: string) {
-      return !this.disabledCatalogComponents.has(name);
-    }
-    a2uiAgents: string[] | undefined = undefined;
     agents: Record<string, any> = {};
     runtimeUrl = undefined;
     runtimeTransport = "auto";
     headers: Record<string, string> = {};
-    a2uiEnabled = false;
+    generativeUIEnabled = false;
     openGenerativeUIEnabled = false;
     audioFileTranscriptionEnabled = false;
     runtimeConnectionStatus =
@@ -105,8 +82,7 @@ vi.mock("@copilotkit/core", async (importOriginal) => {
     get ɵruntimeInfo() {
       return {
         status: this.runtimeConnectionStatus,
-        a2uiEnabled: this.a2uiEnabled,
-        a2uiAgents: this.a2uiAgents,
+        generativeUIEnabled: this.generativeUIEnabled,
         openGenerativeUIEnabled: this.openGenerativeUIEnabled,
       };
     }
@@ -389,245 +365,112 @@ describe("CopilotKit", () => {
     expect(result).toBe("UI generated");
   });
 
-  it("registers A2UI renderers and agent contexts for a configured catalog", () => {
+  it("passes initial and updated runtime properties to core unchanged", () => {
     TestBed.configureTestingModule({
       providers: [
-        provideCopilotKit({ licenseKey, a2ui: { catalog: testCatalog } }),
+        provideCopilotKit({ licenseKey, properties: { region: "eu" } }),
       ],
     });
 
     const copilotKit = TestBed.inject(CopilotKit);
 
-    expect(copilotKit.activityMessageRenderConfigs()).toEqual([
-      expect.objectContaining({
-        activityType: "a2ui-surface",
-        component: CopilotA2UIActivityRenderer,
-      }),
-    ]);
-    expect(copilotKit.toolCallRenderConfigs()).toEqual([
-      expect.objectContaining({
-        name: RENDER_A2UI_TOOL_NAME,
-        component: CopilotA2UIRenderToolCall,
-      }),
-      expect.objectContaining({
-        name: AGUI_SEND_STATE_SNAPSHOT_TOOL_NAME,
-        component: CopilotA2UIToolRenderer,
-        passAgent: true,
-      }),
-    ]);
-    expect(mockAddContext).toHaveBeenCalledWith(
-      expect.objectContaining({
-        description:
-          "A2UI catalog capabilities: available catalog IDs and custom component definitions the client can render.",
-        value: expect.stringContaining("Available A2UI catalog:"),
-      }),
-    );
-    expect(mockAddContext).toHaveBeenCalledWith(
-      expect.objectContaining({
-        description: A2UI_SCHEMA_CONTEXT_DESCRIPTION,
-        value: expect.stringContaining('"catalogId"'),
-      }),
-    );
-    expect(mockAddContext).toHaveBeenCalledWith(
-      expect.objectContaining({
-        description:
-          "A2UI generation guidelines — protocol rules, tool arguments, path rules, data model format, and form/two-way-binding instructions.",
-        value: A2UI_DEFAULT_GENERATION_GUIDELINES,
-      }),
-    );
-    expect(mockAddContext).toHaveBeenCalledWith(
-      expect.objectContaining({
-        description:
-          "A2UI design guidelines — visual design rules, component hierarchy tips, and action handler patterns.",
-        value: A2UI_DEFAULT_DESIGN_GUIDELINES,
-      }),
-    );
-  });
+    expect(lastCoreConfig.properties).toEqual({ region: "eu" });
 
-  it("scopes the A2UI context to the runtime's A2UI agents (#5369)", () => {
-    TestBed.configureTestingModule({
-      providers: [
-        provideCopilotKit({ licenseKey, a2ui: { catalog: testCatalog } }),
-      ],
-    });
-    const copilotKit = TestBed.inject(CopilotKit);
-    const core = copilotKit.core as any;
-    mockAddContext.mockClear();
-
-    core.a2uiAgents = ["chat"];
-    core.listener!.onRuntimeConnectionStatusChanged({ status: "connected" });
-
-    expect(
-      mockAddContext.mock.calls.map(([context]) => context.agentIds),
-    ).toEqual([["chat"], ["chat"], ["chat"], ["chat"]]);
-  });
-
-  it("registers catalog components for the Inspector and drops disabled ones", () => {
-    const customCatalog: A2UICatalog = Object.assign(
-      new Catalog("copilotkit://custom-catalog", [
-        { name: "FlightCard", schema: zodV3.object({}) },
-        { name: "Badge", schema: zodV3.object({}) },
-      ]),
-      { surfaceComponent: CopilotA2UIActivityRenderer },
-    );
-    TestBed.configureTestingModule({
-      providers: [
-        provideCopilotKit({ licenseKey, a2ui: { catalog: customCatalog } }),
-      ],
-    });
-    const copilotKit = TestBed.inject(CopilotKit);
-    const core = copilotKit.core as any;
-    expect(
-      mockSetCatalogComponents.mock.calls
-        .at(-1)![0]
-        .map((component: { name: string }) => component.name),
-    ).toEqual(["FlightCard", "Badge"]);
-
-    core.disabledCatalogComponents.add("Badge");
-    for (const [subscriber] of mockSubscribe.mock.calls) {
-      subscriber.onCatalogComponentsChanged?.({});
-    }
-
-    const filtered = copilotKit.ɵa2uiCatalog()!;
-    expect([...filtered.components.keys()]).toEqual(["FlightCard"]);
-    expect(filtered.surfaceComponent).toBe(CopilotA2UIActivityRenderer);
-  });
-
-  it("keeps A2UI off and warns once when the runtime enables it without a catalog", () => {
-    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
-    TestBed.configureTestingModule({
-      providers: [provideCopilotKit({ licenseKey })],
-    });
-
-    const copilotKit = TestBed.inject(CopilotKit);
-    const core = copilotKit.core as any;
-    core.a2uiEnabled = true;
-    core.listener!.onRuntimeConnectionStatusChanged({ status: "connected" });
-    core.listener!.onRuntimeConnectionStatusChanged({ status: "connected" });
-
-    expect(copilotKit.activityMessageRenderConfigs()).toEqual([]);
-    expect(copilotKit.toolCallRenderConfigs()).toEqual([]);
-    expect(mockAddContext).not.toHaveBeenCalled();
-    expect(
-      warn.mock.calls.filter(([message]) =>
-        String(message).includes("no `a2ui.catalog` is configured"),
-      ),
-    ).toHaveLength(1);
-    warn.mockRestore();
-  });
-
-  it("describes only the catalog when includeSchema is false", () => {
-    TestBed.configureTestingModule({
-      providers: [
-        provideCopilotKit({
-          licenseKey,
-          a2ui: { catalog: testCatalog, includeSchema: false },
-        }),
-      ],
-    });
-
-    TestBed.inject(CopilotKit);
-
-    expect(
-      mockAddContext.mock.calls.map(([context]) => context.description),
-    ).toEqual([
-      "A2UI catalog capabilities: available catalog IDs and custom component definitions the client can render.",
-    ]);
-  });
-
-  it("lists custom components by name only when includeSchema is false", () => {
-    const customCatalog: A2UICatalog = Object.assign(
-      new Catalog("copilotkit://custom-catalog", [
-        {
-          name: "FlightCard",
-          schema: zodV3.object({ airline: zodV3.string() }),
-        },
-      ]),
-      { surfaceComponent: CopilotA2UIActivityRenderer },
-    );
-    TestBed.configureTestingModule({
-      providers: [
-        provideCopilotKit({
-          licenseKey,
-          a2ui: { catalog: customCatalog, includeSchema: false },
-        }),
-      ],
-    });
-
-    TestBed.inject(CopilotKit);
-
-    expect(mockAddContext.mock.calls.map(([context]) => context.value)).toEqual(
-      [
-        [
-          "Available A2UI catalog:",
-          "- copilotkit://custom-catalog",
-          "  Custom catalog (does NOT include all basic components).",
-          "  Custom components:",
-          "  - FlightCard",
-        ].join("\n"),
-      ],
-    );
-  });
-
-  it("includes custom component schemas in the catalog description by default", () => {
-    const customCatalog: A2UICatalog = Object.assign(
-      new Catalog("copilotkit://custom-catalog", [
-        {
-          name: "FlightCard",
-          schema: zodV3.object({ airline: zodV3.string() }),
-        },
-      ]),
-      { surfaceComponent: CopilotA2UIActivityRenderer },
-    );
-    TestBed.configureTestingModule({
-      providers: [
-        provideCopilotKit({ licenseKey, a2ui: { catalog: customCatalog } }),
-      ],
-    });
-
-    TestBed.inject(CopilotKit);
-
-    expect(mockAddContext).toHaveBeenCalledWith(
-      expect.objectContaining({
-        description:
-          "A2UI catalog capabilities: available catalog IDs and custom component definitions the client can render.",
-        value: expect.stringContaining("  - FlightCard:\n    {"),
-      }),
-    );
-    expect(mockAddContext).toHaveBeenCalledWith(
-      expect.objectContaining({
-        value: expect.stringContaining('"airline"'),
-      }),
-    );
-  });
-
-  it("advertises a provided A2UI catalog in initial and updated runtime properties", () => {
-    const initialProperties = { region: "eu" };
-    const updatedProperties = { locale: "en" };
-    TestBed.configureTestingModule({
-      providers: [
-        provideCopilotKit({
-          licenseKey,
-          properties: initialProperties,
-          a2ui: { catalog: testCatalog },
-        }),
-      ],
-    });
-
-    const copilotKit = TestBed.inject(CopilotKit);
-
-    expect(lastCoreConfig.properties).toEqual({
-      region: "eu",
-      a2uiCatalogAvailable: true,
-    });
-    expect(initialProperties).toEqual({ region: "eu" });
-
-    copilotKit.updateRuntime({ properties: updatedProperties });
+    copilotKit.updateRuntime({ properties: { locale: "en" } });
 
     expect(mockUpdateConfig).toHaveBeenCalledWith({
-      properties: { locale: "en", a2uiCatalogAvailable: true },
+      properties: { locale: "en" },
     });
-    expect(updatedProperties).toEqual({ locale: "en" });
+  });
+
+  describe("when the runtime turns generative UI on", () => {
+    const missingGenerativeUIWarnings = (warn: ReturnType<typeof vi.spyOn>) =>
+      warn.mock.calls.filter(([message]) =>
+        String(message).includes("no generative UI is set up"),
+      );
+
+    function connectWithGenerativeUI(copilotKit: CopilotKit) {
+      const core = copilotKit.core as any;
+      core.generativeUIEnabled = true;
+      core.listener!.onRuntimeConnectionStatusChanged({ status: "connected" });
+    }
+
+    it("warns once that provideGenerativeUI is missing", () => {
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+      TestBed.configureTestingModule({
+        providers: [provideCopilotKit({ licenseKey })],
+      });
+      const copilotKit = TestBed.inject(CopilotKit);
+
+      connectWithGenerativeUI(copilotKit);
+      connectWithGenerativeUI(copilotKit);
+
+      const warnings = missingGenerativeUIWarnings(warn);
+      expect(warnings).toHaveLength(1);
+      expect(String(warnings[0]![0])).toContain(
+        "provideGenerativeUI({ ui: standardUI })",
+      );
+      warn.mockRestore();
+    });
+
+    it("does not warn while the runtime keeps generative UI off", () => {
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+      TestBed.configureTestingModule({
+        providers: [provideCopilotKit({ licenseKey })],
+      });
+      const copilotKit = TestBed.inject(CopilotKit);
+
+      (copilotKit.core as any).listener!.onRuntimeConnectionStatusChanged({
+        status: "connected",
+      });
+
+      expect(missingGenerativeUIWarnings(warn)).toHaveLength(0);
+      warn.mockRestore();
+    });
+
+    it("does not warn when provideGenerativeUI is registered", () => {
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+      TestBed.configureTestingModule({
+        providers: [
+          provideCopilotKit({ licenseKey }),
+          provideGenerativeUI({ ui: standardUI }),
+          // The real root needs a real core; only its registration matters here.
+          { provide: CopilotGenerativeUI, useValue: { start: () => {} } },
+        ],
+      });
+      const copilotKit = TestBed.inject(CopilotKit);
+
+      connectWithGenerativeUI(copilotKit);
+
+      expect(missingGenerativeUIWarnings(warn)).toHaveLength(0);
+      warn.mockRestore();
+    });
+
+    it("does not warn when the app renders generative UI surfaces itself", () => {
+      @Component({ selector: "test-surface", template: "" })
+      class TestSurface {}
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+      TestBed.configureTestingModule({
+        providers: [
+          provideCopilotKit({
+            licenseKey,
+            renderActivityMessages: [
+              {
+                activityType: GENERATIVE_UI_ACTIVITY_TYPE,
+                content: z.unknown(),
+                component: TestSurface,
+              },
+            ],
+          }),
+        ],
+      });
+      const copilotKit = TestBed.inject(CopilotKit);
+
+      connectWithGenerativeUI(copilotKit);
+
+      expect(missingGenerativeUIWarnings(warn)).toHaveLength(0);
+      warn.mockRestore();
+    });
   });
 
   it("removes the built-in Open Generative UI tool when the runtime turns it off", () => {

@@ -40,8 +40,6 @@ export interface ɵProviderConfigInput {
   agents__unsafe_dev_only?: Readonly<Record<string, AbstractAgent>>;
   selfManagedAgents?: Readonly<Record<string, AbstractAgent>>;
   properties?: Record<string, unknown>;
-  /** The `a2ui.catalog` option. Any truthy value counts as a catalog. */
-  a2uiCatalog?: unknown;
 }
 
 /** @internal Codes of the problems {@link ɵresolveProviderConfig} reports. */
@@ -102,8 +100,7 @@ function toRuntimeTransport(
  * - The transport is `runtimeTransport`, else `useSingleEndpoint` mapped to
  *   `"single"` (true), `"rest"` (false) or `"auto"` (unset).
  * - The agents are the dev agents with `selfManagedAgents` on top.
- * - The properties get `a2uiCatalogAvailable: true` when a catalog is set.
- *   Without a catalog the input object is returned as is.
+ * - The properties are the input object, or a shared empty object.
  * - The header defaults carry the public key header when a key is set.
  *
  * It does not log or throw. The provider reports `diagnostics` (see
@@ -119,10 +116,7 @@ export function ɵresolveProviderConfig(input: ɵProviderConfigInput) {
     ...input.agents__unsafe_dev_only,
     ...input.selfManagedAgents,
   };
-  const baseProperties = input.properties ?? EMPTY_PROPERTIES;
-  const properties = input.a2uiCatalog
-    ? { ...baseProperties, a2uiCatalogAvailable: true }
-    : baseProperties;
+  const properties = input.properties ?? EMPTY_PROPERTIES;
   const headerDefaults = ɵpublicKeyHeaderDefaults(publicKey);
 
   const diagnostics: ɵProviderConfigDiagnostic[] = [];
@@ -474,77 +468,82 @@ export function ɵassembleProviderToolRenderers<TRenderer, TRender>(input: {
   return renderToolCalls;
 }
 
-/** @internal The input of {@link ɵresolveA2UIActivation}. */
-export interface ɵA2UIActivationInput {
-  /** The runtime reports `a2uiEnabled`. */
+/** @internal The input of {@link ɵresolveGenerativeUIDefault}. */
+export interface ɵGenerativeUIDefaultInput {
+  /** The runtime reports generative UI as on (`ɵruntimeInfo.generativeUIEnabled`). */
   runtimeEnabled: boolean;
-  /** The provider has an `a2ui.catalog`. */
-  hasCatalog: boolean;
   /**
-   * Keep A2UI off without a catalog, even when the runtime enables it.
-   * Angular sets it: it has no default catalog to render surfaces with.
+   * The agents the runtime limits generative UI to
+   * (`ɵruntimeInfo.generativeUIAgents`). `undefined` means every agent.
    */
-  requireCatalog?: boolean;
+  runtimeAgents?: string[] | undefined;
+  /** The provider has a `generativeUI` config with a `ui` of its own. */
+  hasUI: boolean;
 }
 
 /**
- * @internal Whether the provider turns on A2UI: its built-in renderers and
- * its agent context.
+ * @internal The result of {@link ɵresolveGenerativeUIDefault}. When `active`,
+ * the provider renders generative UI with the standard UI (`standardUI`),
+ * scoped to `agentIds` (`undefined` means every agent).
+ */
+export type ɵGenerativeUIDefault =
+  | { active: false }
+  | { active: true; agentIds: string[] | undefined };
+
+/**
+ * @internal Whether the provider falls back to the standard UI for generative
+ * UI. That is when the provider has no `generativeUI` UI of its own and the
+ * runtime turns generative UI on. A UI of the app always wins, with its own
+ * `agentIds`.
  *
- * A2UI is active when the runtime enables it or the provider has a catalog.
- * With `requireCatalog`, only a catalog turns it on. `missingCatalog` is
- * true when the runtime enables A2UI but `requireCatalog` keeps it off;
- * the provider should tell the developer to configure a catalog.
+ * The fallback is scoped to the agents of the runtime: pass `agentIds` on as
+ * the `agentIds` of the generative UI config, so only those agents get the
+ * envelope.
  *
  * @example
- * ɵresolveA2UIActivation({ runtimeEnabled: true, hasCatalog: false });
- * // { active: true, missingCatalog: false }
- * ɵresolveA2UIActivation({ runtimeEnabled: true, hasCatalog: false, requireCatalog: true });
- * // { active: false, missingCatalog: true }
+ * const fallback = ɵresolveGenerativeUIDefault({
+ *   runtimeEnabled: runtimeInfo.generativeUIEnabled,
+ *   runtimeAgents: runtimeInfo.generativeUIAgents,
+ *   hasUI: !!generativeUI?.ui,
+ * });
+ * const config =
+ *   generativeUI ??
+ *   (fallback.active
+ *     ? { ui: standardUI, agentIds: fallback.agentIds }
+ *     : undefined);
  */
-export function ɵresolveA2UIActivation({
+export function ɵresolveGenerativeUIDefault({
   runtimeEnabled,
-  hasCatalog,
-  requireCatalog = false,
-}: ɵA2UIActivationInput) {
-  if (requireCatalog) {
-    return {
-      active: hasCatalog,
-      missingCatalog: runtimeEnabled && !hasCatalog,
-    };
-  }
-  return { active: runtimeEnabled || hasCatalog, missingCatalog: false };
+  runtimeAgents,
+  hasUI,
+}: ɵGenerativeUIDefaultInput): ɵGenerativeUIDefault {
+  if (hasUI || !runtimeEnabled) return { active: false };
+  return { active: true, agentIds: runtimeAgents };
 }
 
 /** @internal The input of {@link ɵassembleActivityRenderers}. */
 export interface ɵActivityRenderersInput<R> {
   /** The app's activity renderers. They come first, so they win. */
   app?: readonly R[];
-  /** The A2UI surface renderer, when A2UI is active. */
-  a2ui?: R;
   /** The other built-in renderers, in order. */
   builtIns?: readonly (R | undefined | false)[];
 }
 
 /**
  * @internal The provider's activity renderer list: the app's renderers, then
- * the A2UI renderer, then the other built-in renderers. Missing entries are
- * left out.
+ * the built-in renderers. Missing entries are left out.
  *
  * @example
  * ɵassembleActivityRenderers({
  *   app: props.renderActivityMessages,
- *   a2ui: a2uiActive ? a2uiRenderer : undefined,
- *   builtIns: [mcpAppsRenderer, openGenUIActive && openGenUIRenderer],
+ * *   builtIns: [mcpAppsRenderer, openGenUIActive && openGenUIRenderer],
  * });
  */
 export function ɵassembleActivityRenderers<R>({
   app = [],
-  a2ui,
   builtIns = [],
 }: ɵActivityRenderersInput<R>): R[] {
   const renderers = [...app];
-  if (a2ui) renderers.push(a2ui);
   for (const renderer of builtIns) {
     if (renderer) renderers.push(renderer);
   }
@@ -566,26 +565,6 @@ export type ɵCopilotKitLearningOptions = LearningConfig & {
    */
   learningContainerIds?: string[];
 };
-
-/** @internal The `a2ui` provider options every framework shares. */
-export interface ɵA2UIBaseOptions {
-  /**
-   * When true (the default), the full component schemas from the catalog are
-   * sent as agent context so the agent knows what components and props are
-   * available. The A2UI middleware can overwrite this with a server-side
-   * schema if configured.
-   *
-   * When false, the agent context still describes the catalog, but only by its
-   * catalog ID and the names of its custom components, without their JSON
-   * schemas. The component schema entry and the A2UI generation and design
-   * guidelines are not sent. With the CopilotKit LangGraph middleware's
-   * injected A2UI tool, the A2UI subagent then gets the component names only;
-   * a host can still give it a composition guide through the middleware's
-   * guidelines (`a2uiParams.guidelines.compositionGuide` in TypeScript,
-   * `a2ui_params["guidelines"]["composition_guide"]` in Python).
-   */
-  includeSchema?: boolean;
-}
 
 /**
  * @internal The provider options that React, Vue and React Native share with

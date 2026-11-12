@@ -25,7 +25,7 @@ Nuxt SSR demo for `@copilotkit/vue` with strict parity intent against the React 
   - `/mcp-apps`
   - `/sidebar`
   - `/popup`
-  - `/a2ui-demo` (A2UI confirm-button route, parity with React)
+  - `/a2ui-demo` (A2UI v0.9 confirm-button agent rendered with generative UI)
   - `/generative-ui` (native generative UI store, parity with React)
   - `/generative-ui-standard` (standard catalog in the chat)
 - Endpoint routes are present for:

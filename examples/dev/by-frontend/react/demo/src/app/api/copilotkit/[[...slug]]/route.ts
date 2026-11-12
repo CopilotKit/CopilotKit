@@ -74,7 +74,9 @@ const runtime = new CopilotRuntime({
   },
   runner: new InMemoryAgentRunner(),
   transcriptionService,
-  a2ui: {},
+  // The agent renders UI with the render_ui tool; with no generativeUI
+  // prop, the provider renders it with the standard catalog.
+  generativeUI: true,
   openGenerativeUI: true,
 });
 

@@ -12,13 +12,7 @@
 export const hostStyles = `
 @layer theme, base, components, utilities;
 @layer base {
-  /* Dark values for the A2UI catalog in @copilotkit/angular/a2ui; the light
-     values are its fallbacks. */
   :where(.dark [data-copilotkit], [data-copilotkit].dark) {
-    --a2ui-color-input: #2c2c2c;
-    --a2ui-color-on-input: #fff;
-    --a2ui-color-placeholder: #262626;
-    --a2ui-color-placeholder-highlight: #3f3f46;
     --copilot-kit-error-background: #7f1d1d;
     --copilot-kit-error-border: #dc2626;
     --copilot-kit-error-text: #fca5a5;

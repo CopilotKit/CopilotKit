@@ -197,7 +197,7 @@ export class GenerativeUINodeRenderer {
   /** The wire props of the node; a new object is a new agent revision. */
   readonly properties = computed(() => {
     this.runtime.version();
-    return this.component()?.properties as Record<string, unknown> | undefined;
+    return this.component()?.properties;
   });
 
   readonly definition = computed(() => {

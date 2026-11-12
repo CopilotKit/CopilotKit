@@ -3,7 +3,7 @@ import { fireEvent, waitFor } from "@testing-library/react";
 import { standardUI } from "../index";
 import { renderSurface } from "./render";
 
-/** Tests ported from the a2ui-renderer standard catalog. */
+/** Tests ported from the standard catalog of the retired v0.9 renderer. */
 
 // maplibre-gl is an optional peer dependency. Without it the Map lists its places.
 vi.mock("maplibre-gl", () => {

@@ -9,7 +9,6 @@ import {
   watch,
 } from "vue";
 import type { ComputedRef, InjectionKey, PropType, Ref, VNode } from "vue";
-import type { DataModel } from "@a2ui/web_core/v0_9";
 import {
   A2UI_COMPONENT_ENVELOPE_KEYS,
   GENERATIVE_UI_ROOT_ID,
@@ -45,6 +44,7 @@ import {
   wrapperAria,
 } from "@copilotkit/core/generative-ui";
 import type {
+  DataModel,
   GenerativeUIAccessibility,
   ManagedSurface,
 } from "@copilotkit/core/generative-ui";
@@ -88,8 +88,8 @@ function shallowEqual(a: Record<string, unknown>, b: Record<string, unknown>) {
 
 /**
  * A value that a prop resolved to, with a new identity when it is a list or
- * an object. web_core changes lists and objects in place, so a value read
- * straight from the data model keeps its identity across a change. Vue
+ * an object. The data model changes lists and objects in place, so a value
+ * read straight from it keeps its identity across a change. Vue
  * compares props by identity and would not update the component; the copy
  * makes the change visible. A prop is resolved again only when something
  * changed, so the copy happens only then.
@@ -171,9 +171,9 @@ function sameModelData(a: ModelData, b: ModelData) {
  * its own.
  *
  * A prop is resolved again only when its raw value or a data model value it
- * read has changed. `invalidate()` drops the cache: web_core changes lists
- * and objects in place, so a changed item inside one keeps the identity of
- * the list.
+ * read has changed. `invalidate()` drops the cache: the data model changes
+ * lists and objects in place, so a changed item inside one keeps the
+ * identity of the list.
  */
 class ModelPropsResolver {
   #cache = new Map<string, ResolvedProp>();
@@ -668,8 +668,8 @@ const ResolvedNode = defineComponent({
       },
       (a, b) => a.pathKey === b.pathKey && sameModelData(a.data, b.data),
     );
-    // The data model paths that the props read. web_core never replays the
-    // current value on subscribe, so a write that landed between the
+    // The data model paths that the props read. The data model never replays
+    // the current value on subscribe, so a write that landed between the
     // resolution and the subscription is caught by the staleness check.
     watch(
       [dataModel, () => resolution.value.pathKey],

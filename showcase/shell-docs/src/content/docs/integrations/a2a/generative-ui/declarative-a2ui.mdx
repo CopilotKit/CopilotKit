@@ -168,7 +168,9 @@ An A2A agent answers in text unless it sends UI. With A2UI, the agent sends a de
     AG-UI connects to your A2A agent and passes the A2UI messages to the app as `ActivityMessage` objects.
     To render them in your frontend, you need to configure activity message rendering.
 
-    The starter registers its own v0.8 renderer with `renderActivityMessages`. This renderer draws the restaurant cards with Tailwind classes. The setup below is a trimmed copy of the starter's `app/page.tsx`. The starter also passes its A2UI theme with `a2ui={{ theme }}` and adds a threads drawer. Neither one is needed to render the cards. For the v0.9 renderer and the `a2ui_operations` envelope, see [A2UI](/a2a/generative-ui/a2ui).
+    The starter registers its own v0.8 renderer with `renderActivityMessages`. This renderer draws the restaurant cards with Tailwind classes. The setup below is a trimmed copy of the starter's `app/page.tsx`. The starter also adds a threads drawer, which is not needed to render the cards.
+
+    The Copilot Runtime converts A2UI v0.9 to the 1.0 surfaces that CopilotKit renders, but it does not convert v0.8. So the starter keeps its own renderer. Set `generativeUI: false` on the `CopilotRuntime`. Otherwise the runtime treats the `a2ui-surface` activity of the agent as generative UI and drops the v0.8 operations. For an agent that writes A2UI v0.9, see [Keep a v0.9 agent](/generative-ui/components/from-a2ui#keep-a-v09-agent).
 
     ```tsx title="app/page.tsx"
     "use client";

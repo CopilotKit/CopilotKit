@@ -25,11 +25,6 @@ describe("package exports", () => {
     expect(typeof VuePackage.CopilotSidebar).toBe("object");
     expect(VuePackage.MCPAppsActivityType).toBe("mcp-apps");
     expect(typeof VuePackage.MCPAppsActivityRenderer).toBe("object");
-    expect(VuePackage.A2UISurfaceActivityType).toBe("a2ui-surface");
-    expect(typeof VuePackage.A2UISurfaceActivityRenderer).toBe("object");
-    expect(
-      VuePackage.getOperationSurfaceId({ createSurface: { surfaceId: "s" } }),
-    ).toBe("s");
     // Standard Schemas since 2.0 (see the generative UI migration guide).
     expect(VuePackage.OpenGenerativeUIContentSchema["~standard"].vendor).toBe(
       "copilotkit",
@@ -39,11 +34,20 @@ describe("package exports", () => {
     );
   });
 
-  it("exports the default A2UI catalog for the catalog-on-provider path", () => {
-    // Users pass this to `a2ui.catalog` to enable A2UI from the provider.
-    // Guards against the library build tree-shaking the re-export away.
-    expect(VuePackage.vueBasicCatalog).toBeDefined();
-    expect(VuePackage.vueBasicCatalog.components.size).toBeGreaterThan(0);
+  it("no longer exports the A2UI v0.9 renderer, since 2.0", () => {
+    // Generative UI (`/v2/generative-ui`) is the only A2UI path now.
+    for (const name of [
+      "A2UISurfaceActivityRenderer",
+      "A2UISurfaceActivityType",
+      "A2UIActivityContentSchema",
+      "createA2UIMessageRenderer",
+      "getOperationSurfaceId",
+      "vueBasicCatalog",
+      "A2uiSurface",
+      "createVueComponent",
+    ]) {
+      expect(VuePackage).not.toHaveProperty(name);
+    }
   });
 
   it("exports CopilotKitStyles and no stylesheet, since the CSS is injected", () => {

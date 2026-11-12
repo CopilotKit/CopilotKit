@@ -39,7 +39,7 @@ const runtime = new CopilotIntelligenceRuntime({
     : {}),
   telemetryId: configuration.telemetryId,
   licenseToken: configuration.licenseToken,
-  a2ui: configuration.a2ui,
+  generativeUI: configuration.generativeUI,
   mcpApps: configuration.mcpApps,
 });
 const listener = createCopilotNodeListener({

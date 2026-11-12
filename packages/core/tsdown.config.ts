@@ -37,8 +37,6 @@ export default defineConfig([
       "@ag-ui/core",
       "rxjs",
       "zod",
-      "@a2ui/web_core",
-      "@a2ui/web_core/v0_9",
     ],
     // Bundle websandbox so its dynamic import is inlined: a UMD script cannot
     // `import()` a bare specifier, and the ES2018 target has no `import()`.
@@ -55,8 +53,6 @@ export default defineConfig([
         rxjs: "rxjs",
         "rxjs/operators": "rxjs.operators",
         zod: "Zod",
-        "@a2ui/web_core": "A2UIWebCore",
-        "@a2ui/web_core/v0_9": "A2UIWebCoreV09",
       };
       return options;
     },

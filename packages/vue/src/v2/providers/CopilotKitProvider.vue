@@ -12,7 +12,6 @@ import {
   watch,
 } from "vue";
 import type { Component, FunctionalComponent } from "vue";
-import type { Catalog, ComponentApi } from "@a2ui/web_core/v0_9";
 import {
   ɵLearningAutoStarter,
   ɵassembleActivityRenderers,
@@ -20,7 +19,7 @@ import {
   ɵassembleProviderToolRenderers,
   ɵassembleProviderTools,
   ɵhitlRenderProps,
-  ɵresolveA2UIActivation,
+  ɵresolveGenerativeUIDefault,
   ɵstableArrayPropWarning,
   ɵtoLearningConfig,
 } from "@copilotkit/core";
@@ -43,9 +42,6 @@ import {
 } from "@copilotkit/core";
 import { shouldEnableInspector } from "@copilotkit/shared";
 import { CopilotKitCoreVue } from "../lib/vue-core";
-import { createA2UIMessageRenderer } from "../components/A2UIMessageRenderer";
-import { registerA2UIBuiltInToolCallRenderer } from "../components/a2ui/A2UIBuiltInToolCallRenderer";
-import { registerA2UICatalog } from "../components/a2ui/A2UICatalogContext";
 import {
   OpenGenerativeUIActivityRenderer,
   OpenGenerativeUIActivityType,
@@ -62,7 +58,9 @@ import {
   createGenerativeUIFunctionCallActivityRenderer,
   registerGenerativeUIToolCallRenderer,
 } from "../generative-ui/chat";
+import type { GenerativeUI } from "../generative-ui/catalog";
 import { GenerativeUIRuntimeKey } from "../generative-ui/runtime-context";
+import type { GenerativeUIConfig } from "../generative-ui/runtime-context";
 import { useGenerativeUIRoot } from "../generative-ui/use-generative-ui-root";
 import {
   CopilotKitKey,
@@ -102,7 +100,6 @@ const props = withDefaults(defineProps<CopilotKitProviderProps>(), {
   renderActivityMessages: () => [],
   openGenerativeUI: undefined,
   useSingleEndpoint: undefined,
-  a2ui: undefined,
   generativeUI: undefined,
   mcpApps: undefined,
   enableInspector: undefined,
@@ -179,8 +176,8 @@ for (const [name, read] of Object.entries(stableArrayProps)) {
   });
 }
 
-// Key fallback, Copilot Cloud URL, transport, agent merge and the catalog
-// property all come from core.
+// Key fallback, Copilot Cloud URL, transport and agent merge all come from
+// core.
 const resolvedConfig = computed(() =>
   ɵresolveProviderConfig({
     runtimeUrl: props.runtimeUrl,
@@ -190,7 +187,6 @@ const resolvedConfig = computed(() =>
     agents__unsafe_dev_only: props.agents__unsafe_dev_only,
     selfManagedAgents: props.selfManagedAgents,
     properties: props.properties,
-    a2uiCatalog: props.a2ui?.catalog,
   }),
 );
 // Strings, so dependents only re-run when the value really changes.
@@ -286,9 +282,6 @@ const allRenderCustomMessages = computed(
 );
 // Core's runtime info snapshot, projected from the core watcher below.
 const runtimeInfo = shallowRef<ɵRuntimeInfo | null>(null);
-const runtimeA2UIEnabled = computed(
-  () => runtimeInfo.value?.a2uiEnabled ?? false,
-);
 const runtimeOpenGenerativeUIEnabled = computed(
   () => runtimeInfo.value?.openGenerativeUIEnabled ?? false,
 );
@@ -305,25 +298,42 @@ const openGenerativeUIActive = computed(() =>
     configured: !!props.openGenerativeUI,
   }),
 );
-// A catalog passed to the provider is enough to turn A2UI on: render the
-// surfaces locally and forward the catalog signal so the runtime injects the
-// render tool — no runtime-side `a2ui` config required.
-const a2uiActive = computed(
-  () =>
-    ɵresolveA2UIActivation({
-      runtimeEnabled: runtimeA2UIEnabled.value,
-      hasCatalog: !!props.a2ui?.catalog,
-    }).active,
+// Without a `generativeUI` UI of the app, the provider falls back to the
+// standard UI when the runtime turns generative UI on (rule from core).
+const generativeUIDefault = computed(() =>
+  ɵresolveGenerativeUIDefault({
+    runtimeEnabled: runtimeInfo.value?.generativeUIEnabled ?? false,
+    runtimeAgents: runtimeInfo.value?.generativeUIAgents,
+    hasUI: !!props.generativeUI?.ui,
+  }),
 );
-// The catalog with components disabled in the Inspector removed; set by
-// `registerA2UICatalog` below once the core exists.
-const a2uiFilteredCatalog = shallowRef<Catalog<ComponentApi> | undefined>(
-  undefined,
+// The standard UI is loaded only for the fallback, so an app that does not
+// use generative UI never downloads its components.
+const standardUI = shallowRef<GenerativeUI | undefined>(undefined);
+let standardUILoad: Promise<void> | undefined;
+watch(
+  () => generativeUIDefault.value.active,
+  (active) => {
+    if (!active || standardUILoad) return;
+    standardUILoad = import("../generative-ui/standard").then(
+      (module) => {
+        standardUI.value = module.standardUI;
+      },
+      (error: unknown) => {
+        standardUILoad = undefined;
+        console.error("[generativeUI] could not load the standard UI:", error);
+      },
+    );
+  },
+  { immediate: true },
 );
-const generativeUIActive = computed(() => !!props.generativeUI?.ui);
-// Forward a per-run signal when the provider has an A2UI catalog so the
-// runtime can turn A2UI on (and inject the render tool) without a separate
-// `a2ui.injectA2UITool` flag on the runtime.
+const generativeUIConfig = computed<GenerativeUIConfig | undefined>(() => {
+  if (props.generativeUI) return props.generativeUI;
+  const fallback = generativeUIDefault.value;
+  if (!fallback.active || !standardUI.value) return undefined;
+  return { ui: standardUI.value, agentIds: fallback.agentIds };
+});
+const generativeUIActive = computed(() => !!generativeUIConfig.value?.ui);
 const resolvedProperties = computed(() => resolvedConfig.value.properties);
 const sandboxFunctions = computed<readonly SandboxFunction[]>(() =>
   rawEntries(props.openGenerativeUI?.sandboxFunctions),
@@ -343,15 +353,6 @@ const builtInFrontendTools = computed<VueFrontendTool[]>(() => {
 const allRenderActivityMessages = computed(() =>
   ɵassembleActivityRenderers<VueActivityMessageRenderer<unknown>>({
     app: rawEntries(props.renderActivityMessages),
-    a2ui: a2uiActive.value
-      ? createA2UIMessageRenderer({
-          theme: props.a2ui?.theme ?? {},
-          catalog: a2uiFilteredCatalog.value ?? props.a2ui?.catalog,
-          loadingComponent: props.a2ui?.loadingComponent,
-          recovery: props.a2ui?.recovery,
-          onAction: props.a2ui?.onAction,
-        })
-      : undefined,
     builtIns: [
       {
         activityType: MCPAppsActivityType,
@@ -555,32 +556,13 @@ onMounted(() => {
 
 const learningStarter = new ɵLearningAutoStarter(copilotkit.value);
 
-const a2uiTheme = computed(() => props.a2ui?.theme);
-const a2uiCatalog = computed(() => props.a2ui?.catalog);
-const a2uiLoadingComponent = computed(() => props.a2ui?.loadingComponent);
-const a2uiIncludeSchema = computed(() => props.a2ui?.includeSchema ?? true);
-
-// A2UI tool call renderer (progress indicator) — auto-registered when A2UI enabled
-registerA2UIBuiltInToolCallRenderer(copilotkit, () => a2uiActive.value);
-
-// A2UI catalog: component registration for the Inspector, the filtered
-// catalog, and the agent context (schema, generation/design guidelines).
-registerA2UICatalog(copilotkit, {
-  enabled: () => a2uiActive.value,
-  catalog: () => props.a2ui?.catalog,
-  includeSchema: () => props.a2ui?.includeSchema ?? true,
-  onFilteredCatalog: (catalog) => {
-    a2uiFilteredCatalog.value = catalog;
-  },
-});
-
 // Native generative UI: the surface manager, the envelope of each run, and
 // the `render_ui` renderer that keeps a wildcard tool renderer from showing
 // the raw arguments. The envelope goes in as scoped properties, so
 // `setProperties` in `syncRuntimeConfig` does not replace it.
 const generativeUIRuntime = useGenerativeUIRoot(
   copilotkit,
-  () => props.generativeUI,
+  () => generativeUIConfig.value,
 );
 provide(GenerativeUIRuntimeKey, generativeUIRuntime);
 registerGenerativeUIToolCallRenderer(
@@ -610,10 +592,6 @@ watch(
 provide(CopilotKitKey, {
   copilotkit,
   executingToolCallIds,
-  a2uiTheme,
-  a2uiCatalog,
-  a2uiLoadingComponent,
-  a2uiIncludeSchema,
 });
 provide(SandboxFunctionsKey, sandboxFunctions);
 provide(MARKDOWN_RENDERER_KEY, props.markdownRenderer);

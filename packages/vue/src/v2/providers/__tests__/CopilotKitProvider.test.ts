@@ -249,35 +249,6 @@ describe("CopilotKitProvider", () => {
         source: "self-managed",
       });
     });
-
-    it("exposes a2ui theme through provider context", () => {
-      const Child = defineComponent({
-        setup() {
-          const { a2uiTheme } = useCopilotKit();
-          return () =>
-            h(
-              "span",
-              { "data-testid": "a2ui-theme" },
-              String(
-                (a2uiTheme.value as { mode?: string } | undefined)?.mode ??
-                  "missing",
-              ),
-            );
-        },
-      });
-
-      const wrapper = mount(CopilotKitProvider, {
-        props: {
-          runtimeUrl: "/api/copilotkit",
-          a2ui: {
-            theme: { mode: "storybook" },
-          },
-        },
-        slots: { default: () => h(Child) },
-      });
-
-      expect(wrapper.find("[data-testid=a2ui-theme]").text()).toBe("storybook");
-    });
   });
 
   describe("frontendTools prop", () => {

@@ -23,8 +23,8 @@ export class CatalogAgent extends AbstractAgent {
       const emit = (event: Record<string, unknown>) =>
         observer.next(event as BaseEvent);
       void Promise.all([
-        import("../../../../../../../../showcase/shared/generative-ui-catalog/samples"),
-        import("../../../../../../../../showcase/shared/generative-ui-catalog/operations"),
+        import("../../../../../../../../../showcase/shared/generative-ui-catalog/samples"),
+        import("../../../../../../../../../showcase/shared/generative-ui-catalog/operations"),
       ]).then(
         ([{ SAMPLES }, { sampleOperations, sampleSurfaceId }]) => {
           emit({

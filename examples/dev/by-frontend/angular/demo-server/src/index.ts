@@ -14,7 +14,6 @@ import { openaiText } from "@tanstack/ai-openai";
 import { openaiCompatibleText } from "@tanstack/ai-openai/compatible";
 import { SlowToolCallStreamingAgent } from "./agents/slow-tool-call-streaming.js";
 import { A2UIDashboardAgent } from "./agents/a2ui-dashboard.js";
-import { A2UIRecoveryAgent } from "./agents/a2ui-recovery.js";
 import { GenerativeUIStoreAgent } from "./agents/generative-ui-store.js";
 
 const openRouterApiKey = process.env.OPENROUTER_API_KEY?.trim();
@@ -130,10 +129,8 @@ const agents = {
   default: builtInAgent,
   "slow-tools": new SlowToolCallStreamingAgent(),
   "mcp-apps": mcpAgent,
-  // Scripted A2UI agent for the /a2ui-angular route; needs no API key.
+  // Scripted A2UI v0.9 agent for the /a2ui-angular route; needs no API key.
   "a2ui-dashboard": new A2UIDashboardAgent(),
-  // Scripted A2UI recovery lifecycle for the /a2ui-recovery route.
-  "a2ui-recovery": new A2UIRecoveryAgent(),
   // Native generative UI with the standard catalog, scripted (no API key).
   "generative-ui": new GenerativeUIStoreAgent(),
 };
@@ -141,9 +138,10 @@ const agents = {
 const runtime = new CopilotRuntime({
   agents,
   runner: new InMemoryAgentRunner(),
-  a2ui: {},
-  // The native generative UI tool transport for model-backed agents.
-  generativeUI: true,
+  // The native generative UI tool transport for model-backed agents. The
+  // dashboard agent speaks A2UI v0.9: the runtime converts its surfaces to
+  // A2UI 1.0 and sends clicks back to it in v0.9 form.
+  generativeUI: { a2uiVersion: { "a2ui-dashboard": "0.9" } },
   openGenerativeUI: true,
 });
 

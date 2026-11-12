@@ -163,7 +163,6 @@ const FORBIDDEN_HEAVY = [
   "cytoscape",
   "katex",
   "streamdown",
-  "@copilotkit/a2ui-renderer",
   "@copilotkit/web-inspector",
   "@copilotkit/runtime-client-gql",
 ];

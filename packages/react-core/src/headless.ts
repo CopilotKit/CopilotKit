@@ -81,8 +81,8 @@ export {
 // registered renderers. Like useRenderTool it introduces no host DOM of its own
 // (the app-supplied renderers do) and pulls no chat-UI rendering stack — unlike
 // useDefaultRenderTool (renders web-only <div>/<svg>) or useRenderCustomMessages
-// / useRenderActivityMessage (link @copilotkit/a2ui-renderer), which stay in the
-// main /v2 entry.
+// / useRenderActivityMessage (import the web providers barrel), which stay in
+// the main /v2 entry.
 export { useRenderToolCall } from "./hooks/use-render-tool-call";
 export { defineToolCallRenderer } from "./types/defineToolCallRenderer";
 // The canonical tool-call renderer contract. Exported from the headless entry

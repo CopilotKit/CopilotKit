@@ -97,10 +97,8 @@
     "test:browser": "playwright test --config browser/playwright.config.ts"
   },
   "dependencies": {
-    "@a2ui/web_core": "0.15.0",
     "@ag-ui/client": "1.0.4",
     "@ag-ui/core": "1.0.4",
-    "@copilotkit/a2ui-renderer": "workspace:*",
     "@copilotkit/core": "workspace:*",
     "@copilotkit/markdown": "workspace:*",
     "@copilotkit/mcp-apps-renderer": "workspace:*",
@@ -143,8 +141,7 @@
     "valibot": "^1.2.0",
     "vitest": "^3.2.4",
     "@playwright/test": "^1.59.1",
-    "rxjs": "7.8.1",
-    "zod-v3": "npm:zod@^3.25.76"
+    "rxjs": "7.8.1"
   },
   "peerDependencies": {
     "maplibre-gl": "^5.0.0",

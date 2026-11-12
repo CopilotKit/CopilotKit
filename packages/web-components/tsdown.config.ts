@@ -3,8 +3,7 @@ import { defineConfig } from "tsdown";
 /**
  * Build configuration for `@copilotkit/web-components`.
  *
- * Mirrors the multi-format layout used by `packages/a2ui-renderer`:
- * an unbundled ESM/CJS build (with `.d.ts`) for the root and the
+ * An unbundled ESM/CJS build (with `.d.ts`) for the root and the
  * `./drawer` subpath, plus a single-file UMD bundle for `<script>`
  * consumers.
  *

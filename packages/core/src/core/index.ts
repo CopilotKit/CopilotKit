@@ -68,7 +68,6 @@ export {
   ɵtoolRendererShapeChanged,
 } from "./provider-config";
 export type {
-  ɵA2UIBaseOptions,
   ɵCopilotKitLearningOptions,
   ɵCopilotKitProviderBaseOptions,
   ɵProviderConfigDiagnostic,
@@ -86,13 +85,14 @@ export {
   ɵassembleProviderRegistry,
   ɵassembleProviderToolRenderers,
   ɵassembleProviderTools,
-  ɵresolveA2UIActivation,
+  ɵresolveGenerativeUIDefault,
   ɵstableArrayPropWarning,
 } from "./provider-config";
 export type {
-  ɵA2UIActivationInput,
   ɵActivityRenderersInput,
   ɵAssembledHumanInTheLoop,
+  ɵGenerativeUIDefault,
+  ɵGenerativeUIDefaultInput,
   ɵProviderFrontendTool,
   ɵProviderHumanInTheLoop,
   ɵProviderRegistryInput,

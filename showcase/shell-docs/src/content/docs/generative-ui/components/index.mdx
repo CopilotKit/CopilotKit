@@ -6,11 +6,6 @@ description: "Let your agent render your own components, in the chat and in area
 
 import InspectorPaneGenerativeUI from "@/snippets/shared/inspector/open-inspector-pane-generative-ui.mdx";
 
-
-<Callout type="warn" title="Experimental">
-  Components and surfaces implements [A2UI 1.0](https://a2ui.org) as of spec revision [`cbaa5ee`](https://github.com/a2ui-project/a2ui/tree/cbaa5ee62c737b50d0695c1e5794d0f648b61dca/specification/v1_0) (October 2026). Upstream still calls 1.0 a candidate, and the API of this feature can change. The [support matrix](/generative-ui/components/from-a2ui#support-matrix) lists what is supported. Anything that it does not list is not supported.
-</Callout>
-
 ## What is this?
 
 A text answer is often the wrong answer. "Compare these three plans" wants a table. "Show me cheap running shoes" wants product cards, and maybe in the product row of your page, not in the chat.
@@ -22,11 +17,13 @@ With components and surfaces, the agent renders real React, Angular, React Nativ
 
 You decide what the agent can render. The agent decides what to show and fills in the values. Users can type into the UI, press its buttons, and ask follow-up questions about it.
 
+The feature implements [A2UI 1.0](https://a2ui.org) as of spec revision [`cbaa5ee`](https://github.com/a2ui-project/a2ui/tree/cbaa5ee62c737b50d0695c1e5794d0f648b61dca/specification/v1_0) (October 2026). The [support matrix](/generative-ui/components/from-a2ui#support-matrix) lists what is supported.
+
 ## Try it
 
 These steps add generative UI to a Next.js, Angular, React Native or Vue app, with an OpenAI model through TanStack AI.
 
-Already have CopilotKit running? Do step 3 only. Your runtime needs no change: when the provider sends a catalog with at least one component, the runtime gives that run a `render_ui` tool and a short guide. Your agent must pass the run's tools and context to its model, as in step 2. For a LangGraph Python agent, add `CopilotKitMiddleware`.
+Already have CopilotKit running? Do step 3 only. Your runtime needs no change: when the provider sends a catalog with at least one component, the runtime gives that run a `render_ui` tool and a short guide. In React and Vue, the provider uses the standard catalog when you pass no `generativeUI`, so step 3 is only needed for your own components. Your agent must pass the run's tools and context to its model, as in step 2. For a LangGraph Python agent, add `CopilotKitMiddleware`.
 
 <Steps>
   <Step>
@@ -278,6 +275,8 @@ Already have CopilotKit running? Do step 3 only. Your runtime needs no change: w
   ### Turn on generative UI
 
   Give the provider the standard catalog. It has 69 ready-made components: layout, text, inputs, tables, charts, maps, and more. On React Native, you give it a catalog of your own native components.
+
+  In React and Vue, the provider uses the standard catalog on its own when you pass no `generativeUI` and the runtime has generative UI on (the default). The code below passes it explicitly. Angular has no default: add `provideGenerativeUI`.
 
   <Tabs groupId="frontend_framework" items={["React", "Angular", "React Native", "Vue"]} persist>
     <Tab value="React">
@@ -746,7 +745,7 @@ The agent answered, but the UI did not show, or it shows the wrong thing. Open I
 
 | What you see | Open | What to look for |
 | --- | --- | --- |
-| The pane says "No generative UI" | Nothing to open | The provider has no `generativeUI` config. Pass `generativeUI={{ ui }}` to `CopilotKitProvider`, or add `provideGenerativeUI({ ui })` to the root providers in Angular. In Vue, bind `:generativeUI="{ ui }"` in camelCase. |
+| The pane says "No generative UI" | Nothing to open | The provider has no `generativeUI` config, and the runtime has `generativeUI: false`. Pass `generativeUI={{ ui }}` to `CopilotKitProvider`, or add `provideGenerativeUI({ ui })` to the root providers in Angular. In Vue, bind `:generativeUI="{ ui }"` in camelCase. |
 | The surface stays empty, or shows its fallback | **Surfaces** | Find the surface and open its card. **Rejected operations** gives the reason for each dropped operation, for example an unknown component. |
 | A component shows wrong or missing values | **Surfaces** | The component tree shows each rendered component with the props that the agent sent. |
 | The agent never uses a component or a function | **Catalog** | Search for its name. A component that is not in the list is not sent to the model. A function with no mounted handler gets a warning. |
@@ -768,7 +767,7 @@ Three ideas carry the whole feature:
 - [Connect app state and actions](/generative-ui/components/state-and-actions): show live app data, run your code on a click, and keep what users type.
 - [Theme the components](/generative-ui/components/theming): your colors and fonts, and dark mode.
 - [Markdown mode](/generative-ui/components/markdown-mode): the agent writes the UI inside its reply, with no tool call.
-- [Adopt from A2UI](/generative-ui/components/from-a2ui): move from the `a2ui` renderer, with the v0.9 to 1.0 mapping and a support matrix.
+- [Adopt from A2UI](/generative-ui/components/from-a2ui): move from the `a2ui` provider option, keep an agent that writes A2UI v0.9, and see the support matrix.
 
 ## See it in an app
 

@@ -10,7 +10,7 @@ import React from "react";
  * the provider's passive subscribe effect until AFTER `/info` has already
  * resolved and notified. When that happens the event is missed, so the
  * provider must instead READ the already-settled runtime info immediately. It
- * once read only `a2uiEnabled`, leaving `licenseStatus` null forever →
+ * once read only a feature flag, leaving `licenseStatus` null forever →
  * `licensePending` never clears → <CopilotThreadsDrawer> is pinned to
  * "Loading threads…".
  *
@@ -31,7 +31,7 @@ const { FAKE_LICENSE_STATUS } = vi.hoisted(() => ({
 vi.mock("../../lib/react-core", () => {
   const settledInfo = Object.freeze({
     status: "connected",
-    a2uiEnabled: false,
+    generativeUIEnabled: false,
     openGenerativeUIEnabled: false,
     licenseStatus: FAKE_LICENSE_STATUS,
     runtimeEntitlementRetryPending: false,

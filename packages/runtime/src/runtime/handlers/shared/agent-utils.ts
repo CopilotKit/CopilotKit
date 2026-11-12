@@ -5,13 +5,13 @@ import { A2UIMiddleware } from "@ag-ui/a2ui-middleware";
 import { OpenGenerativeUIMiddleware } from "../../event-transforms";
 import { MCPAppsMiddleware } from "@ag-ui/mcp-apps-middleware";
 import { MCPMiddleware } from "@ag-ui/mcp-middleware";
-import { GenerativeUIMiddleware } from "../../generative-ui";
-import type { CopilotRuntimeLike } from "../../core/runtime";
 import {
-  isA2UIEnabled,
-  isIntelligenceRuntime,
-  resolveAgents,
-} from "../../core/runtime";
+  A2UIV09BridgeMiddleware,
+  GenerativeUIMiddleware,
+  resolveA2UIVersion,
+} from "../../generative-ui";
+import type { CopilotRuntimeLike } from "../../core/runtime";
+import { isIntelligenceRuntime, resolveAgents } from "../../core/runtime";
 import {
   INTELLIGENCE_MEMORY_GRANT_HEADER,
   INTELLIGENCE_USER_ID_HEADER,
@@ -88,13 +88,6 @@ export function configureAgentForRequest(params: {
   agentId: string;
   agent: AbstractAgent;
   /**
-   * True when the React provider was given an A2UI catalog
-   * (`<CopilotKit a2ui={{ catalog }}>`), forwarded per-run. A catalog alone is
-   * enough to enable A2UI and inject the render tool — the developer no longer
-   * has to also set `a2ui.injectA2UITool` on the runtime.
-   */
-  providerA2UIHasCatalog?: boolean;
-  /**
    * The transport of the generative UI envelope that the client sent on this
    * run (`forwardedProps.copilotkit.ui`). Not set when the run has no envelope.
    */
@@ -102,42 +95,50 @@ export function configureAgentForRequest(params: {
   /** Retain proxy rejection even when no server is available to this agent. */
   isMcpProxyRequest?: boolean;
 }): void {
-  const {
-    runtime,
-    request,
-    agentId,
-    providerA2UIHasCatalog,
-    isMcpProxyRequest,
-  } = params;
+  const { runtime, request, agentId, isMcpProxyRequest } = params;
   const agent = params.agent as MiddlewareCapableAgent;
 
-  // A2UI is on when the runtime explicitly enables it, OR when the provider
-  // forwarded a catalog — but an explicit `enabled: false` always wins (we
-  // provide a quick default, never override a deeper opt-out).
-  const a2uiEnabledByCatalog =
-    !!providerA2UIHasCatalog && runtime.a2ui?.enabled !== false;
+  // Generative UI is on for a run with a "tool" envelope, and for every run
+  // when the runtime turns it on. A "markdown" envelope means the model writes
+  // ```a2ui fences, so the run gets no render tool, even when the runtime
+  // turns generative UI on. `false` and the `agents` filter always win.
+  const generativeUI = runtime.generativeUI;
+  const generativeUIOptions =
+    typeof generativeUI === "object" ? generativeUI : undefined;
+  const transport = params.providerGenerativeUITransport;
+  const isGenerativeUIRun =
+    generativeUI !== false &&
+    (transport === "tool" || (transport !== "markdown" && !!generativeUI)) &&
+    (!generativeUIOptions?.agents ||
+      generativeUIOptions.agents.includes(agentId)) &&
+    typeof agent.use === "function";
+  const a2uiVersion = resolveA2UIVersion(generativeUI, agentId);
 
-  if (isA2UIEnabled(runtime.a2ui) || a2uiEnabledByCatalog) {
-    // `enabled` is a CopilotKit-level switch, not an A2UIMiddleware option —
-    // drop it (alongside the agent filter) before forwarding to the middleware.
-    const {
-      agents: targetAgents,
-      enabled: _enabled,
-      injectA2UITool,
-      ...a2uiOptions
-    } = runtime.a2ui ?? {};
-    const shouldApply = !targetAgents || targetAgents.includes(agentId);
-    if (shouldApply && typeof agent.use === "function") {
+  if (isGenerativeUIRun) {
+    // The bridge comes first, so it is the outermost middleware: it changes
+    // the input before `A2UIMiddleware` reads it, and converts the v0.9
+    // surfaces that `A2UIMiddleware` emits.
+    agent.use(new A2UIV09BridgeMiddleware({ agentVersion: a2uiVersion }));
+    if (a2uiVersion === "0.9") {
+      const {
+        agents: _agents,
+        a2uiVersion: _a2uiVersion,
+        injectA2UITool,
+        ...a2uiOptions
+      } = generativeUIOptions ?? {};
       agent.use(
         new A2UIMiddleware({
           ...a2uiOptions,
-          // Default render-tool injection on when a catalog is present and the
-          // developer hasn't set it explicitly. `??` means an explicit value
-          // (including `false`) is always respected.
-          injectA2UITool:
-            injectA2UITool ?? (providerA2UIHasCatalog ? true : undefined),
+          // The envelope of a "tool" run carries the client's catalog, so the
+          // agent gets the render tool. An explicit value (also `false`) wins.
+          injectA2UITool: injectA2UITool ?? transport === "tool",
         }),
       );
+    } else {
+      // No tool and no schema, so the agent gets no v0.9 prompt. It still
+      // turns v0.9 operations in tool results (`{ "a2ui_operations": [...] }`)
+      // into surfaces, which the bridge converts to 1.0.
+      agent.use(new A2UIMiddleware());
     }
   }
 
@@ -170,22 +171,9 @@ export function configureAgentForRequest(params: {
     }
   }
 
-  // A "markdown" envelope means the model writes ```a2ui fences, so the run
-  // gets no render tool, even when the runtime turns generative UI on.
-  const generativeUI = runtime.generativeUI;
-  const transport = params.providerGenerativeUITransport;
-  const isGenerativeUIRun =
-    transport === "tool" || (transport !== "markdown" && !!generativeUI);
-  if (
-    isGenerativeUIRun &&
-    generativeUI !== false &&
-    typeof agent.use === "function"
-  ) {
-    const targetAgents =
-      typeof generativeUI === "object" ? generativeUI.agents : undefined;
-    if (!targetAgents || targetAgents.includes(agentId)) {
-      agent.use(new GenerativeUIMiddleware());
-    }
+  // A v0.9 agent gets `render_a2ui` (above) instead of `render_ui`.
+  if (isGenerativeUIRun && a2uiVersion === "1.0") {
+    agent.use(new GenerativeUIMiddleware());
   }
 
   // Forward eligible inbound headers onto the outgoing agent call under the

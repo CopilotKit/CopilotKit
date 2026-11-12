@@ -35,14 +35,8 @@ export default defineConfig({
     rollupOptions: {
       external: [
         "vue",
-        /^@a2ui\/web_core(\/.*)?$/,
         "@ag-ui/client",
         "@ag-ui/core",
-        // The framework-neutral A2UI catalog description subpath (no React).
-        "@copilotkit/a2ui-renderer/catalog-schema",
-        // The framework-neutral A2UI engine subpath (no React).
-        "@copilotkit/a2ui-renderer/engine",
-        "@copilotkit/a2ui-renderer/engine-core",
         // Core and its subpaths: `/styles`, so the stylesheet isn't bundled
         // here, and the framework-free `/generative-ui` layer the Vue
         // generative UI wraps.

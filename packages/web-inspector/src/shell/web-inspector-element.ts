@@ -2921,7 +2921,7 @@ export class WebInspectorElement extends LitElement {
         this.learningSupported &&
         this.learningError === null &&
         this.learningSnapshot?.configuration.state === "configured",
-      a2uiOn: this._core?.a2uiEnabled === true,
+      a2uiOn: this._core?.generativeUIEnabled === true,
       openGenUiOn: this._core?.openGenerativeUIEnabled === true,
       suggestionsOn: this._core?.suggestions === true,
       audioOn: this._core?.audioFileTranscriptionEnabled === true,
