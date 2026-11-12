@@ -49,6 +49,7 @@ export function createCollector(options: CollectorOptions) {
     network: true,
     inputs: true,
     errors: true,
+    alerts: false,
     ...options.capture,
   };
   let session: Session | null = null;
@@ -159,7 +160,11 @@ export function createCollector(options: CollectorOptions) {
     }
     if (capture.errors)
       current.uninstalls.push(
-        installErrorCapture({ emit: recordCurrent, redact }),
+        installErrorCapture({
+          emit: recordCurrent,
+          redact,
+          alerts: capture.alerts,
+        }),
       );
     const onPageHide = () => flush({ beacon: true });
     window.addEventListener("pagehide", onPageHide);

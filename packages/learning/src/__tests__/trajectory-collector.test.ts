@@ -228,6 +228,22 @@ describe("Trajectory capture contract", () => {
     expect(second.value).not.toHaveProperty("appVersion");
   });
 
+  it("records alert text only when capture.alerts is true", async () => {
+    const send = vi.fn();
+    const names = async (capture?: { alerts?: boolean }) => {
+      send.mockClear();
+      const collector = createTrajectoryCollector({ send, capture });
+      collector.start();
+      document.body.innerHTML = '<div role="alert">Could not save</div>';
+      await vi.advanceTimersByTimeAsync(0);
+      collector.stop();
+      document.body.innerHTML = "";
+      return send.mock.calls.map(([event]) => event.name);
+    };
+    expect(await names()).toEqual(["page"]);
+    expect(await names({ alerts: true })).toEqual(["page", "page.error"]);
+  });
+
   it("records page errors by default and stops when capture.errors is false", () => {
     const handled = (event: Event) => event.preventDefault();
     window.addEventListener("error", handled);

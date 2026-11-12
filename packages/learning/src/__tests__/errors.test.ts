@@ -13,9 +13,13 @@ afterEach(() => {
   document.body.innerHTML = "";
 });
 
-function setup() {
+function setup(options: { alerts?: boolean } = {}) {
   const emit = vi.fn();
-  uninstall = installErrorCapture({ emit, redact: createRedactor() });
+  uninstall = installErrorCapture({
+    emit,
+    redact: createRedactor(),
+    ...options,
+  });
   return emit;
 }
 
@@ -101,8 +105,16 @@ describe("error capture", () => {
     expect(JSON.stringify(value)).not.toContain("not-an-email-jane");
   });
 
-  it("records text added to an alert region", async () => {
+  it("does not record alert text unless alerts is true", async () => {
     const emit = setup();
+    document.body.innerHTML =
+      '<div role="alert">Jane Smith was not saved</div>';
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(emit).not.toHaveBeenCalled();
+  });
+
+  it("records text added to an alert region when alerts is true", async () => {
+    const emit = setup({ alerts: true });
     document.body.innerHTML = '<div role="alert" id="a"></div>';
     await Promise.resolve();
     document.getElementById("a")!.textContent =
@@ -114,7 +126,7 @@ describe("error capture", () => {
   });
 
   it("skips alert regions and fields inside data-copilotkit-ignore", async () => {
-    const emit = setup();
+    const emit = setup({ alerts: true });
     document.body.innerHTML =
       '<div data-copilotkit-ignore><div role="alert">Private</div><form><input required></form></div>';
     document.querySelector("form")!.checkValidity();

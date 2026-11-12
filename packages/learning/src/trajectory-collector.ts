@@ -183,7 +183,13 @@ export function createTrajectoryCollector(
           );
         }
         if (options.capture?.errors !== false) {
-          uninstalls.push(installErrorCapture({ emit: capture, redact }));
+          uninstalls.push(
+            installErrorCapture({
+              emit: capture,
+              redact,
+              alerts: options.capture?.alerts === true,
+            }),
+          );
         }
         record("page", {
           route: getRoute(),

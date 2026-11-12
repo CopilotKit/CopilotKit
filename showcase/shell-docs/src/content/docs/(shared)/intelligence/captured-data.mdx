@@ -21,7 +21,7 @@ Capture records browser-visible data by default. Your app can exclude or change 
 - A short, cleaned name of each edited field in `target.label`. See [Field labels](#field-labels).
 - Input, select, text area, and editable element values on input and change events.
 - Browser-visible request and response headers and bounded body snapshots.
-- Errors that the page reports: uncaught errors, unhandled promise rejections, failed resource loads, form validation failures, and alert text. See [Page errors](#page-errors).
+- Errors that the page reports: uncaught errors, unhandled promise rejections, failed resource loads, and form validation failures. Alert text only when you turn it on. See [Page errors](#page-errors).
 - Reply ratings with their comment and the first 500 characters of the rated reply. See [`message.feedback`](#events) below.
 
 ## Credential redaction
@@ -182,11 +182,35 @@ Many apps have no logging that Learning can read. Page errors show Learning wher
 | `rejection` | A promise rejects and nothing handles it. | `name`, `message`, and `stack` when the reason has them. `reasonType` when the reason is not an object. |
 | `resource` | An image, script, stylesheet, media file, or frame fails to load. | `tag`, `source` |
 | `invalid` | The browser's form validation rejects a field. | `label` (see [Field labels](#field-labels)), `failed` (the failed validity checks, such as `valueMissing`), `validationMessage` |
-| `alert` | Text appears in a `role="alert"` or `aria-live="assertive"` region. | `text` |
+| `alert` | Text appears in a `role="alert"` or `aria-live="assertive"` region. Off by default. Set `capture: { alerts: true }` to record it. | `text` |
 
 Capture cleans `message`, `validationMessage`, and `text` with the label cleanup steps above, and cuts them at 300 characters (200 for `text`). The `stack` holds the cleaned message, has the URL and credential redaction, and stops at 1,000 characters. `source` URLs have the URL redaction. An `invalid` event never contains the field's value. Fields and alert regions inside `data-copilotkit-ignore` are skipped.
 
-Alert text is what the page shows the user, so it can contain names or other app data. To keep it out, drop `alert` events in `beforeSend`, or turn off error capture with `capture: { errors: false }`.
+The cleanup removes emails, URLs, and credentials. It does not find names or other personal data. Error messages and stacks are written by your code and its libraries, and they can contain anything that the code puts in them, for example `User Jane Smith not found`. Alert text is what the page shows the user, so it can contain names, account details, or text that the user typed. For this reason, alert capture is off by default.
+
+To keep personal data out of `page.error` events:
+
+- Do not put personal data in error messages that your code throws.
+- Put `data-copilotkit-ignore` on alert regions that show personal data.
+- Remove fields in `beforeSend`, as in the example below.
+- Turn off error capture with `capture: { errors: false }`.
+
+This `beforeSend` function keeps the error name and location, and removes the message, the stack, and alert text:
+
+```ts
+import type { TrajectoryEvent } from "@copilotkit/learning";
+
+function withoutErrorText(event: TrajectoryEvent): TrajectoryEvent {
+  const value = event.value;
+  if (event.name !== "page.error" || !value || typeof value !== "object" || Array.isArray(value)) {
+    return event;
+  }
+  delete value.message;
+  delete value.stack;
+  delete value.text;
+  return event;
+}
+```
 
 To limit volume, capture sends each distinct error at its 1st, 10th, 100th, and later powers-of-ten occurrence, with the occurrence number in `count`. A capture session sends at most 50 `page.error` events. Capture only listens. It does not change how your app handles errors.
 

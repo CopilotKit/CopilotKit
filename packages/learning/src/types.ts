@@ -77,8 +77,14 @@ export interface CaptureOptions {
   navigation?: boolean;
   network?: boolean;
   inputs?: boolean;
-  /** Uncaught errors, unhandled rejections, failed resource loads, form validation failures, and alert text. */
+  /** Uncaught errors, unhandled rejections, failed resource loads, and form validation failures. */
   errors?: boolean;
+  /**
+   * Text shown in `role="alert"` and `aria-live="assertive"` regions, as
+   * `page.error` events. Off by default: alert text is page content and can
+   * contain names. Needs `errors`.
+   */
+  alerts?: boolean;
 }
 
 export interface CollectorOptions {
@@ -87,7 +93,7 @@ export interface CollectorOptions {
   routes?: string[];
   /** URLs (prefix match on the absolute URL) or patterns that network capture skips. */
   ignoreUrls?: (string | RegExp)[];
-  /** Turns capture modules on or off. All are on by default. */
+  /** Turns capture modules on or off. All are on by default, except `alerts`. */
   capture?: CaptureOptions;
   /** Runs last, in the browser. Return the event to send, or `null` to drop it. */
   beforeSend?: (event: LearningEvent) => LearningEvent | null;

@@ -29,11 +29,17 @@ type ErrorLike = { name?: unknown; message?: unknown; stack?: unknown };
 /**
  * Records errors that the page or the browser reports: uncaught errors,
  * unhandled promise rejections, failed resource loads, native form validation
- * failures, and text shown in alert regions. Messages are cleaned like labels;
- * nothing here changes how the host app handles its errors.
+ * failures, and, when `alerts` is true, text shown in alert regions. Messages
+ * are cleaned like labels; nothing here changes how the host app handles its
+ * errors.
  */
-export function installErrorCapture(params: { emit: Emit; redact: Redactor }) {
-  const { emit, redact } = params;
+export function installErrorCapture(params: {
+  emit: Emit;
+  redact: Redactor;
+  /** Alert text is page content that can contain names, so it is opt-in. */
+  alerts?: boolean;
+}) {
+  const { emit, redact, alerts = false } = params;
   let sent = 0;
   const counts = new Map<string, number>();
   const clean = (text: unknown, max: number) =>
@@ -180,8 +186,8 @@ export function installErrorCapture(params: { emit: Emit; redact: Redactor }) {
   window.addEventListener("invalid", onInvalid, true);
   let observer: MutationObserver | undefined;
   try {
-    observer = new MutationObserver(onMutations);
-    observer.observe(document, {
+    if (alerts) observer = new MutationObserver(onMutations);
+    observer?.observe(document, {
       subtree: true,
       childList: true,
       characterData: true,
