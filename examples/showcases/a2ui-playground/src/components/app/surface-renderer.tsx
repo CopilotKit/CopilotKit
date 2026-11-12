@@ -61,9 +61,10 @@ function Mirrored(props: Props) {
   useEffect(() => {
     if (!Array.isArray(ops) || !ops.length || sig === last.current) return;
     last.current = sig;
+    // A snapshot per version: the store and its readers key on identity, and the live array keeps changing.
     runStore.upsertSurface(
       key,
-      ops as unknown as Array<Record<string, unknown>>,
+      JSON.parse(sig) as Array<Record<string, unknown>>,
     );
     setHasFrame(true);
     // `sig` stands for `ops`: the same array can carry new operations.

@@ -69,8 +69,38 @@ export default function Page() {
   );
 }`;
 
+/** The standard Button's behaviour, shared by the Button overrides below. */
+const STANDARD_BUTTON = `// Everything the standard Button does besides drawing, so a replacement behaves the same.
+function useStandardButton(p: Props) {
+  const label = p.children ?? p.child ?? p.label ?? p.text;
+  // A failed check of severity "error" holds the Button back, as the standard one does.
+  const blocked = (p.checks ?? []).some(({ condition: c }: Props) =>
+    c === false ||
+    (c && typeof c === "object" && !c.valid && (c.severity ?? "error") === "error"),
+  );
+  return {
+    label,
+    // An icon-only Button still needs a name.
+    name: !label && p.icon ? String(p.icon) : undefined,
+    disabled: Boolean(p.disabled || p.loading || blocked),
+    onClick: (e: MouseEvent<HTMLButtonElement>) => {
+      // In order: a Form submits; a link opens; a copy copies; anything else reaches the agent.
+      if (p.submit && e.currentTarget.form) return;
+      const href = String(p.href ?? "").trim();
+      if (href) {
+        if (/^(https?:|mailto:)/i.test(href))
+          window.open(href, "_blank", "noopener,noreferrer");
+        return;
+      }
+      if (p.copy) return void navigator.clipboard?.writeText(String(p.copy));
+      p.onClick?.({});
+    },
+  };
+}`;
+
 /** app/genui.tsx for shadcn/ui: the standard catalog with its Button, Badge and Divider drawn by shadcn. */
 export const GENUI_SHADCN = `"use client";
+import type { MouseEvent } from "react";
 import {
   createGenerativeUI,
   standardUI,
@@ -83,22 +113,22 @@ import { Separator } from "@/components/ui/separator";
 // Each wrapper takes the props of the standard component it replaces.
 type Props = Record<string, any>;
 
+${STANDARD_BUTTON}
+
 function ShadcnButton(p: Props) {
   const a11y = useGenerativeUIAccessibility();
+  const b = useStandardButton(p);
   const solid = p.variant === "primary" || p.variant === "solid";
   return (
     <Button
       {...a11y}
+      aria-label={a11y["aria-label"] ?? b.name}
       type={p.submit ? "submit" : "button"}
-      disabled={Boolean(p.disabled || p.loading)}
+      disabled={b.disabled}
       variant={solid ? "default" : "outline"}
-      onClick={() => {
-        // A link opens; anything else is the click the agent hears about.
-        if (/^https?:/.test(p.href ?? "")) window.open(p.href, "_blank");
-        else if (!p.submit) p.onClick?.({});
-      }}
+      onClick={b.onClick}
     >
-      {p.children ?? p.child ?? p.label}
+      {b.label}
     </Button>
   );
 }
@@ -125,6 +155,7 @@ export const ui = createGenerativeUI({
 
 /** app/genui.tsx for Material 3: the standard catalog with its Button and Divider drawn by Material 3 Expressive. */
 export const GENUI_MATERIAL = `"use client";
+import type { MouseEvent } from "react";
 import "@language-lit/material3-expressive/styles.css";
 import {
   createGenerativeUI,
@@ -136,22 +167,22 @@ import { Button, Divider } from "@language-lit/material3-expressive";
 // Each wrapper takes the props of the standard component it replaces.
 type Props = Record<string, any>;
 
+${STANDARD_BUTTON}
+
 function MaterialButton(p: Props) {
   const a11y = useGenerativeUIAccessibility();
+  const b = useStandardButton(p);
   const solid = p.variant === "primary" || p.variant === "solid";
   return (
     <Button
       {...a11y}
+      aria-label={a11y["aria-label"] ?? b.name}
       type={p.submit ? "submit" : "button"}
-      disabled={Boolean(p.disabled || p.loading)}
+      disabled={b.disabled}
       variant={solid ? "filled" : "outlined"}
-      onClick={() => {
-        // A link opens; anything else is the click the agent hears about.
-        if (/^https?:/.test(p.href ?? "")) window.open(p.href, "_blank");
-        else if (!p.submit) p.onClick?.({});
-      }}
+      onClick={b.onClick}
     >
-      {p.children ?? p.child ?? p.label}
+      {b.label}
     </Button>
   );
 }

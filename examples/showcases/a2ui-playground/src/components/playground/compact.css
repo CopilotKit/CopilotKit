@@ -149,10 +149,11 @@
     }
   }
 
-  /* The line under the prompt ("start without AI", or New chat) goes: the answer needs the row. */
+  /* The line under the prompt ("start without AI", or New chat) stays, as the only way to either: closer and smaller. */
   .wb-page [data-wb-no-ai-line],
   .wb-page [data-wb-new-chat-line] {
-    display: none;
+    margin-top: 4px;
+    font-size: 12px;
   }
 
   /* The smallest embeds (480px tall or less, a 320 to 480 square on a phone or in a docs column): the answer

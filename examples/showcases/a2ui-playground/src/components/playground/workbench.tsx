@@ -120,18 +120,6 @@ export function Workbench({ embed = false }: { embed?: boolean }) {
     setPane(stored === "collapsed" ? "collapsed" : "open");
   }, [embed]);
   const collapsed = pane === "collapsed";
-  // The first prompt of an empty chat opens the side panel (beside the conversation, not over it on a phone),
-  // so the A2UI can be watched streaming in. It does not overwrite the stored choice.
-  const hadTurns = useRef(turns.length > 0);
-  useEffect(() => {
-    if (!turns.length) {
-      hadTurns.current = false;
-      return;
-    }
-    if (hadTurns.current) return;
-    hadTurns.current = true;
-    if (!embed && !matchMedia(NARROW).matches) setPane("open");
-  }, [turns.length, embed]);
   const setCollapsed = useCallback(
     (next: boolean) => {
       setPane(next ? "collapsed" : "open");
@@ -235,10 +223,17 @@ export function Workbench({ embed = false }: { embed?: boolean }) {
   };
 
   // A prompt went out: its answer is the selected surface, in the conversation.
+  // The first prompt of an empty chat also opens the side panel (beside the conversation, not over it on a
+  // phone), so the A2UI can be watched streaming in. It does not overwrite the stored choice, and a chat
+  // restored from earlier, which sends nothing, leaves the panel as it was.
+  const emptyChat = useRef(!turns.length);
+  emptyChat.current = !turns.length;
   const onSent = useCallback(() => {
     setPicked(null);
     setCodeOpen(false);
-  }, []);
+    if (emptyChat.current && !embed && !matchMedia(NARROW).matches)
+      setPane("open");
+  }, [embed]);
 
   // The JSON editor's "Ask the model to change this" sends the request: show the conversation it lands in.
   useEffect(() => {

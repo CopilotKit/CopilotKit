@@ -789,6 +789,12 @@ export function Composer({
                     side="top"
                     align="end"
                     sideOffset={8}
+                    onPointerDown={(e) => {
+                      touched.current = e.pointerType === "touch";
+                    }}
+                    onKeyDown={() => {
+                      touched.current = false;
+                    }}
                     onCloseAutoFocus={onMenuClose}
                     className={cn(menu, "max-[639px]:w-[17rem]")}
                   >

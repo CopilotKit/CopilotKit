@@ -149,12 +149,15 @@ export function Thread({
     });
     const content = el.firstElementChild;
     if (content) ro.observe(content);
-    // Any wheel, touch, scroll key or press in the thread (dragging its scrollbar included) hands the view back.
+    // Any wheel, touch, scroll key or press in the thread (dragging its scrollbar included), or a jump to a
+    // component from the lines pane, hands the view back.
     el.addEventListener("wheel", stop, { passive: true });
     el.addEventListener("touchmove", stop, { passive: true });
     el.addEventListener("pointerdown", stop);
     el.addEventListener("keydown", keys);
+    el.addEventListener("a2ui:visitor-scroll", stop);
     return () => {
+      el.removeEventListener("a2ui:visitor-scroll", stop);
       ro.disconnect();
       el.removeEventListener("wheel", stop);
       el.removeEventListener("touchmove", stop);
@@ -626,6 +629,8 @@ function LinkOverlay({
               above || r.height > s.height - 64
                 ? r.top - s.top - 40
                 : r.bottom - s.bottom + 40;
+            // The visitor asked for this component: the pin on the newest turn lets go.
+            sc.dispatchEvent(new Event("a2ui:visitor-scroll"));
             sc.scrollBy({
               top: delta,
               behavior: reducedMotion() ? "auto" : "smooth",
