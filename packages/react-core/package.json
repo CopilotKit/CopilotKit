@@ -1,6 +1,6 @@
 {
   "name": "@copilotkit/react-core",
-  "version": "1.85.0",
+  "version": "1.87.1",
   "private": false,
   "keywords": [
     "ai",
@@ -46,6 +46,10 @@
       "import": "./dist/v2/generative-ui.mjs",
       "require": "./dist/v2/generative-ui.cjs"
     },
+    "./v2/generative-ui/native": {
+      "import": "./dist/v2/generative-ui/native.mjs",
+      "require": "./dist/v2/generative-ui/native.cjs"
+    },
     "./package.json": "./package.json",
     "./v2/context": {
       "import": "./dist/v2/context.mjs",
@@ -62,14 +66,14 @@
   },
   "scripts": {
     "build:css": "tailwindcss -i ./src/v2/styles/globals.css -o ./dist/v2/index.css -m && node scripts/scope-preflight.mjs ./dist/v2/index.css",
-    "build": "node scripts/generate-external-reexports.mjs --check && tsdown && node ../../scripts/deprecations/v1-dist-notices.mjs --entrypoint react-core && pnpm run build:css && node scripts/context-singleton-preflight.mjs",
+    "build": "node scripts/generate-external-reexports.mjs --check && tsdown && node ../../scripts/deprecations/v1-dist-notices.mjs --entrypoint react-core && pnpm run build:css && node scripts/context-singleton-preflight.mjs && node scripts/assert-dist-context-types.mjs",
     "size": "size-limit",
     "size:headline": "node scripts/measure-copilotchat.mjs",
     "size:assert-headless": "node scripts/assert-headless-purity.mjs",
     "compat-check": "es-check es2022 --module 'dist/**/!(*.umd).{mjs,cjs,js}' && es-check es2020 'dist/**/*.umd.js'",
     "dev": "tsdown --watch",
     "test": "vitest run && pnpm run test:scripts",
-    "test:scripts": "node --test scripts/__tests__/measure-copilotchat.test.mjs scripts/__tests__/assert-headless-purity.test.mjs scripts/__tests__/generate-external-reexports.test.mjs",
+    "test:scripts": "node --test scripts/__tests__/measure-copilotchat.test.mjs scripts/__tests__/assert-headless-purity.test.mjs scripts/__tests__/generate-external-reexports.test.mjs scripts/__tests__/assert-dist-context-types.test.mjs",
     "test:watch": "vitest",
     "check-types": "tsc --noEmit",
     "link:global": "pnpm link --global",

@@ -32,7 +32,7 @@ function MainContent() {
       <h1 className="text-3xl font-semibold mb-4">
         Popup demo — look for the floating launcher
       </h1>
-      <p className="text-gray-600 max-w-xl">
+      <p className="text-gray-600 max-w-xl dark:text-muted-foreground">
         This page showcases the pre-built <code>&lt;CopilotPopup /&gt;</code>{" "}
         component. A floating launcher bubble sits in the corner, opening an
         overlay chat window on top of the page content. It starts open by

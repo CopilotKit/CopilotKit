@@ -10,22 +10,31 @@ description: "Copilot Runtime adapter for OpenAI Assistant API."
   * packages/runtime/src/v1-deprecated/service-adapters/openai/openai-assistant-adapter.ts
   */
 }
+<Callout type="info">
+  `OpenAIAssistantAdapter` has no direct v2 replacement. For v2, see [Runtime server adapter](/runtime-server-adapter).
+</Callout>
+
 Copilot Runtime adapter for the OpenAI Assistant API.
- 
+
+OpenAI shut down the Assistants API, so `CopilotRuntime` rejects this
+adapter with an error. Use `OpenAIAdapter` instead.
+
 ## Example
- 
+
+Pass `copilotKit` and `serviceAdapter` to your runtime endpoint.
+
 ```ts
 import { CopilotRuntime, OpenAIAssistantAdapter } from "@copilotkit/runtime";
 import OpenAI from "openai";
- 
+
 const copilotKit = new CopilotRuntime();
- 
+
 const openai = new OpenAI({
   organization: "<your-organization-id>",
   apiKey: "<your-api-key>",
 });
- 
-return new OpenAIAssistantAdapter({
+
+const serviceAdapter = new OpenAIAssistantAdapter({
   openai,
   assistantId: "<your-assistant-id>",
   codeInterpreterEnabled: true,
@@ -53,13 +62,13 @@ Whether to enable file search.
 
 <PropertyReference name="disableParallelToolCalls" type="boolean"  default="false"> 
 Whether to disable parallel tool calls.
-  You can disable parallel tool calls to force the model to execute tool calls sequentially.
-  This is useful if you want to execute tool calls in a specific order so that the state changes
-  introduced by one tool call are visible to the next tool call. (i.e. new actions or readables)
+You can disable parallel tool calls to force the model to execute tool calls sequentially.
+This is useful if you want to execute tool calls in a specific order so that the state changes
+introduced by one tool call are visible to the next tool call. (i.e. new actions or readables)
 </PropertyReference>
 
 <PropertyReference name="keepSystemRole" type="boolean"  default="false"> 
 Whether to keep the role in system messages as "System".
-  By default, it is converted to "developer", which is used by newer OpenAI models
+By default, it is converted to "developer", which is used by newer OpenAI models
 </PropertyReference>
 

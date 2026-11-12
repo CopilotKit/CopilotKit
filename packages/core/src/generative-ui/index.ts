@@ -18,3 +18,4 @@ export * from "./action-message";
 export * from "./debug-source";
 export * from "./accessibility";
 export * from "./targets";
+export * from "./activity-content";

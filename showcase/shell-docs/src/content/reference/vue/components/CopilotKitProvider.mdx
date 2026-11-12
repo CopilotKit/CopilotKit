@@ -58,12 +58,14 @@ builder that calls the network every time adds one call per request.
 If the builder throws or rejects, that request is not sent and `onError`
 gets `header_resolution_failed`.
 
-Re-passing the same builder function is a no-op, and so is passing a new
-function through the `headers` prop: the provider keeps one stable wrapper for
-any builder. On a user switch, remount the provider (for example with a `key`),
-or call `copilotkit.value.setHeaders(...)` with a new function or a record, so
-Inspector metadata and thread lists reload for the new user. This does not
-refetch the runtime's `/info`.
+Passing the same builder again does nothing. Passing a new builder function
+through the `headers` prop also does nothing, because the provider keeps one
+stable wrapper for any builder. When the user changes, do one of these:
+
+- Remount the provider, for example with a `key`.
+- Call `copilotkit.value.setHeaders(...)` with a new function or a record. The
+  Inspector metadata and thread lists reload for the new user. The runtime's
+  `/info` is not fetched again.
 
 `copilotkit.value.headers` is the last resolved value. Use
 `await copilotkit.value.resolveHeaders()` for your own requests.
@@ -88,8 +90,8 @@ bearer token in core headers if those agents point at a third party.
   Rewrites the message list sent to the agent on every run.
 
 CopilotKit sends the whole thread with each request. When your agent already
-stores the conversation — a LangGraph checkpointer, a Mastra memory store, a
-Strands `SessionManager` — most of that payload is waste, and an agent that
+stores the conversation (a LangGraph checkpointer, a Mastra memory store, a
+Strands `SessionManager`), most of that payload is waste, and an agent that
 merges the inbound list with its own store can show the model every turn twice.
 
 Return the messages to send:
@@ -161,7 +163,7 @@ Don't have it yet? Go to https://dashboard.operations.copilotkit.ai and get one 
 </PropertyReference>
 
 <PropertyReference name="selfManagedAgents" type="Record<string, AbstractAgent>" default="{}">
-  Self-managed agents keyed by agent ID. Merged with `agents__unsafe_dev_only` (these take precedence on key collisions).
+  Self-managed agents keyed by agent ID. Merged with `agents__unsafe_dev_only`. On a key collision, the agent in `selfManagedAgents` wins.
 </PropertyReference>
 
 <PropertyReference name="renderToolCalls" type="VueToolCallRenderer<any>[]">
@@ -173,7 +175,7 @@ Don't have it yet? Go to https://dashboard.operations.copilotkit.ai and get one 
 </PropertyReference>
 
 <PropertyReference name="renderCustomMessages" type="VueCustomMessageRenderer[]" default="[]">
-  Renderers for custom message types.
+  Renderers that draw extra content before or after each message. Each renderer receives the `message`, its `position` (`"before"` or `"after"`), and run metadata. Set `agentId` to limit a renderer to one agent.
 </PropertyReference>
 
 <PropertyReference name="frontendTools" type="VueFrontendTool[]" default="[]">
@@ -195,7 +197,7 @@ Don't have it yet? Go to https://dashboard.operations.copilotkit.ai and get one 
 </PropertyReference>
 
 <PropertyReference name="showDevConsole" type="boolean | &quot;auto&quot;">
-  **Deprecated:** use `enableInspector`. This prop no longer controls the
+  **Deprecated:** use `enableInspector`. This prop does not control the
   Inspector.
 </PropertyReference>
 
@@ -242,6 +244,62 @@ function handleError(event: {
 
 </PropertyReference>
 
+<PropertyReference name="generativeUI" type="GenerativeUIConfig">
+  Experimental. Turns on native generative UI. The agent renders your Vue components in the chat, or in a [`GenerativeUISurface`](/reference/vue/components/GenerativeUISurface) on the page. Import the types from `@copilotkit/vue/v2/generative-ui`.
+
+Bind it in camelCase, as `:generativeUI`. Vue reads the kebab-case `:generative-ui` as a different prop (`generativeUi`), so the config does not reach the provider.
+
+```vue
+<script setup lang="ts">
+import { CopilotChat, CopilotKitProvider } from "@copilotkit/vue/v2";
+import { shopUI } from "./shop-ui";
+</script>
+
+<template>
+  <CopilotKitProvider runtime-url="/api/copilotkit" :generativeUI="{ ui: shopUI }">
+    <CopilotChat />
+  </CopilotKitProvider>
+</template>
+```
+
+  <PropertyReference name="ui" type="GenerativeUI" required>
+    The object from `createGenerativeUI`: the components the model can render, the app state they read, and the functions they call.
+  </PropertyReference>
+
+  <PropertyReference name="transport" type='"tool" | "markdown"' default='"tool"'>
+    How the model sends UI operations.
+
+    - `"tool"`: the model calls the `render_ui` tool. The runtime validates each operation before it streams it to the client.
+    - `"markdown"`: the model writes the operations in `a2ui` code fences in its reply. The client reads and validates them.
+  </PropertyReference>
+
+  <PropertyReference name="agentIds" type="string[]">
+    The agents that get the generative UI. When you omit it, every agent gets it.
+  </PropertyReference>
+
+  <PropertyReference name="theme" type="GenerativeUITheme">
+    Values for the `--a2ui-*` CSS variables and the map style. Top-level values apply in light and dark mode. Values under `dark` apply in dark mode, which is on under a `.dark` class.
+  </PropertyReference>
+
+  <PropertyReference name="errorBoundary" type="{ fallback?: Component; onError?: (info: GenerativeUIErrorInfo) => void }">
+    Fallback UI and error reports for generated UI.
+
+    - `fallback`: a Vue component that replaces the default fallback of a failed component. It gets `error`, `retry`, `surfaceId`, and `componentId` as props.
+    - `onError`: called for render, props, operation, function, and event failures.
+  </PropertyReference>
+
+  <PropertyReference name="sendContext" type="boolean" default="true">
+    Markdown transport only. Sends the component schema and the fence guideline as context entries. Set `false` when your backend builds its own prompt.
+  </PropertyReference>
+
+  <PropertyReference name="includeCatalog" type="boolean" default="true">
+    Markdown transport only. Sends the component schemas in the envelope (`catalog.components`).
+  </PropertyReference>
+
+For a full walkthrough, see [Surfaces](/generative-ui/components/surfaces) and [State and actions](/generative-ui/components/state-and-actions).
+
+</PropertyReference>
+
 <PropertyReference name="mcpApps" type="{ allowSameOriginFallback?: boolean }">
   Configuration for the built-in MCP Apps renderer. `allowSameOriginFallback` restores `allow-same-origin` on the MCP App sandbox; by default widgets get an opaque origin. **Unsafe:** with it set, a widget runs with your page's origin and can read your cookies, storage and DOM. Only use it for widgets you trust that need `localStorage`, `IndexedDB` or cookies. See [Sandbox and widget storage](/vue/generative-ui/mcp-apps#sandbox-and-widget-storage).
 </PropertyReference>
@@ -265,10 +323,3 @@ function handleError(event: {
 ```
 
 </PropertyReference>
-
-## Related
-
-- [`useCopilotKit`](/reference/vue/hooks/useCopilotKit) -- Low-level composable for accessing the provider context
-- [`useAgent`](/reference/vue/hooks/useAgent) -- High-level composable for accessing agent instances
-- [`useFrontendTool`](/reference/vue/hooks/useFrontendTool) -- Register frontend tools dynamically
-- [`useHumanInTheLoop`](/reference/vue/hooks/useHumanInTheLoop) -- Register human-in-the-loop tools dynamically

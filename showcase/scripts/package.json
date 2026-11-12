@@ -29,6 +29,9 @@
         "inputs": [
           "test",
           "{projectRoot}/verify-docs-deployment.ts",
+          "{projectRoot}/verify-image-deployment.ts",
+          "{projectRoot}/advance-latest-tag.ts",
+          "{projectRoot}/redeploy-env.ts",
           "{workspaceRoot}/showcase/shell-docs/src/content/docs/generative-ui/components/index.mdx",
           "{workspaceRoot}/showcase/shell-docs/src/content/docs/generative-ui/components/standard-catalog.mdx",
           "{workspaceRoot}/showcase/*/Dockerfile",
@@ -36,7 +39,9 @@
           "!{workspaceRoot}/showcase/pocketbase/Dockerfile",
           "{workspaceRoot}/examples/integrations/*/Dockerfile",
           "{workspaceRoot}/.github/workflows/showcase_build.yml",
+          "{workspaceRoot}/.github/workflows/showcase_deploy.yml",
           "{workspaceRoot}/.github/workflows/showcase_build_check.yml",
+          "{workspaceRoot}/.github/workflows/showcase_reconcile_staging.yml",
           "{workspaceRoot}/.github/workflows/showcase_eval-webhook_build.yml"
         ]
       }

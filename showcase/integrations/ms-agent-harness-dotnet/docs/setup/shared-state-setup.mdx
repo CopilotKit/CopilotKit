@@ -1,0 +1,86 @@
+<Steps>
+  <Step>
+    ### Map JSON content to a state snapshot
+
+    A .NET agent publishes state as a `DataContent` update with the
+    `application/json` media type. The `MapContent` mapping on
+    `AGUIStreamOptions` is what turns that content into a `STATE_SNAPSHOT`
+    event for the frontend. Register it next to `AddAGUIServer`:
+
+    ```csharp title="Program.cs"
+    using System.Text.Json;
+    using AGUI.Abstractions;
+    using AGUI.Server;
+    using Microsoft.Extensions.AI;
+
+    var builder = WebApplication.CreateBuilder(args);
+    builder.Services.AddAGUIServer();
+    // Turn the wrapper's JSON DataContent into a STATE_SNAPSHOT event
+    builder.Services.Configure<AGUIStreamOptions>(options => options.MapContent(content =>
+    {
+        if (content is not DataContent { MediaType: "application/json" } data) return null;
+        try
+        {
+            using var document = JsonDocument.Parse(data.Data);
+            return [new StateSnapshotEvent { Snapshot = document.RootElement.Clone() }];
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
+    }));
+    var app = builder.Build();
+    ```
+
+  </Step>
+  <Step>
+    ### Read and write state in an agent wrapper
+
+    `AsHarnessAgent` returns an ordinary `AIAgent`, so wrap it in a
+    `DelegatingAIAgent`. The state the UI sent arrives on
+    the AG-UI request, which `TryGetRunAgentInput` recovers from the chat
+    options. To update the UI, yield the new state as JSON `DataContent`:
+
+    ```csharp title="Program.cs (excerpt)"
+    internal sealed class StateStreamingAgent : DelegatingAIAgent
+    {
+        // ...
+
+        protected override async IAsyncEnumerable<AgentResponseUpdate> RunCoreStreamingAsync(
+            IEnumerable<AIChatMessage> messages,
+            AgentSession? session = null,
+            AgentRunOptions? options = null,
+            [EnumeratorCancellation] CancellationToken cancellationToken = default)
+        {
+            // Recover the state sent in the AG-UI request
+            JsonElement? currentState = null;
+            if (options is ChatClientAgentRunOptions { ChatOptions: { } chatOptions } &&
+                chatOptions.TryGetRunAgentInput(out RunAgentInput? input) &&
+                input?.State is { ValueKind: JsonValueKind.Object } state)
+            {
+                currentState = state;
+            }
+
+            // ... run the inner agent and build the new state snapshot
+
+            byte[] stateBytes = JsonSerializer.SerializeToUtf8Bytes(
+                parsedStateSnapshot,
+                this._jsonSerializerOptions.GetTypeInfo(typeof(JsonElement)));
+
+            // Emit state snapshot as DataContent
+            yield return new AgentResponseUpdate
+            {
+                Contents = [new DataContent(stateBytes, "application/json")]
+            };
+        }
+    }
+    ```
+
+    For a full agent that does this, see
+    [`SharedStateAgent.cs`](https://github.com/CopilotKit/CopilotKit/blob/main/showcase/integrations/ms-agent-harness-dotnet/agent/SharedStateAgent.cs),
+    or the
+    [SharedStateAgent sample](https://github.com/microsoft/agent-framework/blob/main/dotnet/samples/05-end-to-end/AGUIClientServer/AGUIDojoServer/SharedState/SharedStateAgent.cs)
+    in the Agent Framework repository.
+
+  </Step>
+</Steps>

@@ -13,8 +13,7 @@
   </Step>
   <Step>
     ### Choose your component
-    CopilotKit ships with a number of highly flexible components that will scale to your needs. Choose whichever one you like,
-    they functionally are they same but have different layouts.
+    CopilotKit has three chat components. They have the same features and different layouts. Pick one:
 
     <Tabs items={["CopilotChat", "CopilotSidebar", "CopilotPopup"]}>
       <Tab value="CopilotChat">
@@ -32,17 +31,18 @@
   <Step>
     ### Use the components
 
-    Now that you've chosen your component, just import it and use it in your page!
+    Import the component and render it in your page:
 
     ```tsx filename="page.tsx"
-    import { CopilotChat, CopilotSidebar, CopilotPopup } from "@copilotkit/react-core/v2";
+    import { CopilotChat } from "@copilotkit/react-core/v2";
 
+    // Or use CopilotSidebar or CopilotPopup the same way.
     return <div>
       <CopilotChat />
-      <CopilotSidebar />
-      <CopilotPopup />
     </div>
     ```
 
   </Step>
 </Steps>
+
+Run your app and open the page. The chat shows, and it answers when you send a message.

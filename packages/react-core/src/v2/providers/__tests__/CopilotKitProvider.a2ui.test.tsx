@@ -5,7 +5,10 @@ import {
   A2UI_SCHEMA_CONTEXT_DESCRIPTION,
   buildCatalogContextValue,
   Catalog,
+  basicCatalogV1,
+  extractCatalogComponentSchemas,
 } from "@copilotkit/a2ui-renderer";
+import type { InlineCatalogSchema } from "@copilotkit/a2ui-renderer";
 import { randomUUID } from "@copilotkit/shared";
 import type { CopilotKitCore } from "@copilotkit/core";
 import { CopilotKitProvider, useCopilotKit } from "../CopilotKitProvider";
@@ -53,6 +56,14 @@ function capabilitiesValue(): string | undefined {
 }
 
 describe("CopilotKitProvider a2ui catalog context", () => {
+  it("accepts an optional catalog through the public schema export", () => {
+    const extractOptional = (catalog?: Catalog<ComponentApi>) =>
+      extractCatalogComponentSchemas(catalog);
+    const legacy: InlineCatalogSchema = extractCatalogComponentSchemas();
+    expect(extractOptional()).toEqual(legacy);
+    expect(extractCatalogComponentSchemas(undefined)).toEqual(legacy);
+  });
+
   beforeEach(() => {
     capturedCore = null;
     // The shared test setup pins randomUUID to a single value, which would make
@@ -63,6 +74,45 @@ describe("CopilotKitProvider a2ui catalog context", () => {
 
   afterEach(() => {
     vi.mocked(randomUUID).mockImplementation(() => "mock-thread-id");
+  });
+
+  it("advertises native 1.0 schemas and guidelines when opted in", () => {
+    render(
+      <CopilotKitProvider a2ui={{ catalog: basicCatalogV1 }}>
+        <CoreCapture />
+      </CopilotKitProvider>,
+    );
+    const entries = Object.values(capturedCore!.context);
+    const schema = JSON.parse(
+      entries.find(
+        (entry) => entry.description === A2UI_SCHEMA_CONTEXT_DESCRIPTION,
+      )!.value,
+    );
+    expect(schema.protocolVersion).toBe("1.0");
+    const guidelines = entries.find(
+      (entry) => entry.description === GENERATION_GUIDELINES_DESCRIPTION,
+    )!.value;
+    expect(guidelines).toContain("Generate A2UI 1.0 JSON.");
+    expect(guidelines).toContain('"@path"');
+    expect(guidelines).toContain('"@call"');
+    expect(guidelines).toContain(
+      'children: { componentId: "card-id", path: "/items" }',
+    );
+    expect(guidelines).not.toContain("Generate A2UI v0.9 JSON");
+    expect(guidelines).not.toContain('"value": { "path":');
+  });
+
+  it("retains the legacy generation guideline for existing catalogs", () => {
+    render(
+      <CopilotKitProvider a2ui={{ catalog: makeCustomCatalog() }}>
+        <CoreCapture />
+      </CopilotKitProvider>,
+    );
+    const guidelines = Object.values(capturedCore!.context).find(
+      (entry) => entry.description === GENERATION_GUIDELINES_DESCRIPTION,
+    )!.value;
+    expect(guidelines).toContain("Generate A2UI v0.9 JSON.");
+    expect(guidelines).toContain('"value": { "path":');
   });
 
   it("lists custom components by name only when includeSchema is false", () => {

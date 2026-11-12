@@ -14,7 +14,7 @@ In Vue, the renderer is a Vue render function or a Vue component (not JSX). It r
 
 <Callout type="info">
   `useDefaultRenderTool` must be called within a component that has access to the
-  CopilotKit instance provided by `CopilotKitProvider`. Like all Vue composables,
+  CopilotKit instance provided by [`CopilotKitProvider`](/reference/vue/components/CopilotKitProvider). Like all Vue composables,
   call it synchronously inside `<script setup>` or a `setup()` function so its
   reactive scope is bound to the component lifecycle.
 </Callout>
@@ -85,9 +85,10 @@ needed) and `status` is always the string union below (mapped from the
 </PropertyReference>
 
 <PropertyReference name="status" type='"inProgress" | "executing" | "complete"'>
-  The lifecycle status of the tool call. `inProgress` while arguments stream in,
-  `executing` once arguments are complete and the tool runs, `complete` when a
-  result is available.
+  The lifecycle status of the tool call. `inProgress` until the call runs in the
+  browser or a result arrives. `executing` while a frontend tool's handler runs.
+  `complete` when a result is available. A backend tool call goes from
+  `inProgress` to `complete`.
 </PropertyReference>
 
 <PropertyReference name="result" type="string | undefined">
@@ -215,9 +216,3 @@ useDefaultRenderTool(
 - **Status mapping**: The `ToolCallStatus` enum is mapped to the `"inProgress" | "executing" | "complete"` union. An unknown or future enum value falls back to `"inProgress"` and logs a one-time `console.warn` per distinct value.
 - **No cleanup removal**: Registered renderers are intentionally not removed on cleanup, so past tool calls keep rendering correctly in chat history.
 - **Return value**: The composable returns `void`.
-
-## Related
-
-- [`useRenderTool`](/reference/vue/hooks/useRenderTool) - register a renderer for a specific named tool, or the wildcard this composable wraps
-- [`useFrontendTool`](/reference/vue/hooks/useFrontendTool) - define a browser-side tool the agent can call
-- [`CopilotKitProvider`](/reference/vue/components/CopilotKitProvider) - provides the CopilotKit instance to descendant composables

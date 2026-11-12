@@ -17,5 +17,21 @@
 
     <DemoCode file="src/agent/shared-state-streaming.ts" region="state-streaming-middleware" />
 
+    To push progress from your own code instead of a tool call, call
+    `copilotkitEmitState` with the state you want the UI to show:
+
+    ```ts title="agent-js/src/agent.ts"
+    import { copilotkitEmitState } from "@copilotkit/sdk-js/langgraph";
+
+    for (const step of steps) {
+        state.observed_steps = [...(state.observed_steps ?? []), step];
+        await copilotkitEmitState(config, state);
+    }
+    ```
+
+    Streamed values are previews. When the node finishes, the state it
+    returns replaces them, so return every key you want to keep, or the UI
+    loses the streamed value.
+
   </Step>
 </Steps>

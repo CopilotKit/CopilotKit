@@ -5,7 +5,7 @@ description: "Vue 3 threads drawer that lists and manages conversations next to 
 
 ## Overview
 
-`CopilotThreadsDrawer` renders the prebuilt conversation drawer beside [`CopilotChat`](/reference/vue/components/CopilotChat). It is a thin Vue wrapper around the framework-agnostic `<copilotkit-threads-drawer>` custom element and stays SSR-safe by loading that element only on mount. The drawer reads from [`useThreads`](/reference/vue/hooks/useThreads), follows the surrounding chat configuration when one is present, and lets the user switch, start, archive, unarchive, delete, and filter threads.
+`CopilotThreadsDrawer` renders the prebuilt conversation drawer beside [`CopilotChat`](/reference/vue/components/CopilotChat). The drawer lists the threads from [`useThreads`](/reference/vue/hooks/useThreads). The user can switch, start, archive, unarchive, delete, and filter threads. The drawer uses the surrounding chat configuration when one is present. It wraps the `<copilotkit-threads-drawer>` custom element and loads that element only in the browser, so it is safe for SSR.
 
 When `onThreadSelect` and `onNewThread` are omitted, the wrapper drives the surrounding chat configuration directly: selecting a row calls `setActiveThreadId(threadId, { explicit: true })`, and the "New Conversation" action resets the chat with `startNewThread()`. Provide those callbacks only if you want to control the active thread yourself.
 
@@ -48,9 +48,9 @@ import "@copilotkit/vue/styles.css";
   This is not a notification that the license check has completed.
 </PropertyReference>
 
-<PropertyReference name="licenseUrl" type="string">
-  URL shown in the licensed upsell state. When omitted, the underlying element's
-  default license URL is used.
+<PropertyReference name="licenseUrl" type="string" default="https://docs.copilotkit.ai/intelligence">
+  The page that the Upgrade button in the locked view opens in a new tab. Set it
+  to an empty string to open no tab and handle the click in `onLicensed` only.
 </PropertyReference>
 
 <PropertyReference name="label" type="string" default="Threads">
@@ -105,13 +105,24 @@ Light-DOM children with these `slot` names are projected into the drawer:
 | `launcher-icon` | The icon inside the mobile launcher |
 | `licensed` | The licensed upsell content |
 
-Style the shadow DOM with `::part()`. The drawer exposes the usual structural and action parts, including the root, header, list, row, menu, new-thread button, section heading, filter controls, collapse controls, launcher, load-more, fetch-more-error, and licensed surfaces.
+Style the shadow DOM with `::part()`, for example `copilotkit-threads-drawer::part(row-active)`. The drawer exposes these parts:
+
+| Area | Parts |
+| --- | --- |
+| Drawer | `root`, `header`, `backdrop`, `close-toggle`, `collapse-toggle` |
+| Launcher | `launcher`, `launcher-cluster`, `launcher-new-thread` |
+| Thread list | `new-thread-button`, `section-heading`, `list`, `loading`, `empty`, `error`, `retry-button` |
+| Pagination | `load-more`, `fetching-more`, `fetch-more-error`, `fetch-more-retry` |
+| Filters | `filter-toggle`, `filter-indicator`, `filters`, `filter-all`, `filter-active` |
+| Rows | `row`, `row-active`, `row-name`, `row-menu`, `row-menu-popover`, `row-archive`, `row-unarchive`, `row-delete` |
+| Delete confirmation | `confirm-dialog`, `confirm-cancel`, `confirm-delete` |
+| Memories, footer, and locked state | `memories`, `footer`, `licensed`, `licensed-cta` |
 
 ## Usage
 
 ### Basic usage
 
-Wrap the drawer and `CopilotChat` in a shared `CopilotChatConfigurationProvider` so they operate on the same active thread. This example includes the surrounding `CopilotKitProvider`, so it is runnable as shown.
+Wrap the drawer and `CopilotChat` in a shared [`CopilotChatConfigurationProvider`](/reference/vue/hooks/useCopilotChatConfiguration) so they operate on the same active thread. This example includes the surrounding `CopilotKitProvider`, so it is runnable as shown.
 
 ```vue
 <script setup lang="ts">
@@ -179,9 +190,3 @@ function onCollapseChange(collapsed: boolean) {
 - The drawer stays inert while unlicensed, which keeps the thread store from fetching until licensing resolves.
 - Rename is headless only; use `useThreads().renameThread()` if you need that action.
 - The wrapper is SSR-safe because the custom element is imported lazily on the client.
-
-## Related
-
-- [`CopilotChat`](/reference/vue/components/CopilotChat) - the chat surface this drawer usually drives
-- [`CopilotChatConfigurationProvider`](/reference/vue/hooks/useCopilotChatConfiguration) - shared configuration context
-- [`useThreads`](/reference/vue/hooks/useThreads) - the headless thread data and mutation layer
