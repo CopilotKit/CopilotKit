@@ -3619,8 +3619,8 @@ importers:
   packages/runtime:
     dependencies:
       '@ag-ui/a2ui-middleware':
-        specifier: 0.0.15
-        version: 0.0.15(@ag-ui/client@1.0.2)(rxjs@7.8.1)
+        specifier: 0.0.16
+        version: 0.0.16(@ag-ui/client@1.0.2)(rxjs@7.8.1)
       '@ag-ui/client':
         specifier: 1.0.2
         version: 1.0.2
@@ -3990,8 +3990,8 @@ importers:
   packages/shared:
     dependencies:
       '@ag-ui/a2ui-middleware':
-        specifier: 0.0.15
-        version: 0.0.15(@ag-ui/client@1.0.2)(rxjs@7.8.1)
+        specifier: 0.0.16
+        version: 0.0.16(@ag-ui/client@1.0.2)(rxjs@7.8.1)
       '@ag-ui/client':
         specifier: 1.0.2
         version: 1.0.2
@@ -4763,8 +4763,8 @@ packages:
       '@ag-ui/client': '>=0.0.42'
       '@ag-ui/core': '>=0.0.42'
 
-  '@ag-ui/a2ui-middleware@0.0.15':
-    resolution: {integrity: sha512-jDxq+3tlaSo3KjkOiIFCnr00cmV/uHjBU0Cnj4KuQZ7eEN7JRBItc6mPCPYUcTjDmpCYoop4JX7Y7mE/sKSfKw==}
+  '@ag-ui/a2ui-middleware@0.0.16':
+    resolution: {integrity: sha512-Q/yUAZWGzQDip2aVxfeCu2+HmfcPJrw6XOQwGeX9znxqC/S9xzdBpH/c8eVWZvab6KyxitfgaKBzUyPOkBFj4Q==}
     peerDependencies:
       '@ag-ui/client': '>=1.0.0'
       rxjs: 7.8.1
@@ -28761,7 +28761,7 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  '@ag-ui/a2ui-middleware@0.0.15(@ag-ui/client@1.0.2)(rxjs@7.8.1)':
+  '@ag-ui/a2ui-middleware@0.0.16(@ag-ui/client@1.0.2)(rxjs@7.8.1)':
     dependencies:
       '@ag-ui/a2ui-toolkit': 0.0.5
       '@ag-ui/client': 1.0.2
