@@ -5,6 +5,11 @@ const DynString = z
   .union([z.string(), z.object({ path: z.string() })])
   .describe("REF:common_types.json#/$defs/DynamicString");
 
+/** The v0.9 action of the interactive components. */
+const ActionSchema = z
+  .union([z.object({ event: z.object({ name: z.string() }) }), z.null()])
+  .optional();
+
 export const demoDefinitions = {
   Row: {
     description: "Horizontal layout container.",
@@ -40,12 +45,7 @@ export const demoDefinitions = {
       note: z
         .string()
         .describe("REF:common_types.json#/$defs/DynamicString|A short note."),
-      action: z
-        .union([
-          z.object({ event: z.object({ name: z.string() }) }),
-          z.null(),
-        ])
-        .optional(),
+      action: ActionSchema,
     }),
   },
 };

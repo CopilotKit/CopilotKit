@@ -841,6 +841,8 @@ function definitionEdits(
   framework: Framework,
   source: string,
   state: State,
+  /** Counts the identifiers that a moved action prop used as its schema. */
+  movedSchemas: Map<string, number>,
 ): Edit[] {
   const value = unwrap(entry.kind() === "pair" ? entry.field("value") : null);
   const fields = value?.kind() === "object" ? entriesOf(value) : null;
@@ -899,6 +901,8 @@ function definitionEdits(
           ? `{ ${parameters} }`
           : `{ description: ${description}, ${parameters} }`;
       edits.push(removeEntry(prop, source));
+      if (/^[A-Za-z_$][\w$]*$/.test(compact))
+        movedSchemas.set(compact, (movedSchemas.get(compact) ?? 0) + 1);
       // The comments right above the prop describe it: they go with it.
       for (const comment of leadingComments(shape!, prop))
         edits.push(deleteLines(comment, source));
@@ -967,12 +971,65 @@ function definitionsEdits(rootNode: Node, state: State): Edit[] {
       if (!objects.has(start)) objects.set(start, { object, framework });
     }
   }
+  const movedSchemas = new Map<string, number>();
   for (const { object, framework } of objects.values()) {
     for (const entry of entriesOf(object) ?? []) {
       edits.push(
-        ...definitionEdits(entry, z, actionSchemas, framework, source, state),
+        ...definitionEdits(
+          entry,
+          z,
+          actionSchemas,
+          framework,
+          source,
+          state,
+          movedSchemas,
+        ),
       );
     }
+  }
+  // A local action schema that only the moved props used goes too, with
+  // the comments above it.
+  for (const [name, moved] of movedSchemas) {
+    if (actionSchemas.has(name)) continue;
+    const declarator = rootNode.find({
+      rule: {
+        kind: "variable_declarator",
+        has: { field: "name", regex: `^${name.replace(/\$/g, "\\$")}$` },
+      },
+    });
+    const declaration = declarator?.parent();
+    if (
+      !declarator ||
+      declaration?.kind() !== "lexical_declaration" ||
+      declaration.parent()?.kind() !== "program" ||
+      declaration
+        .children()
+        .filter((child) => child.kind() === "variable_declarator").length !== 1
+    )
+      continue;
+    const uses = references(rootNode, name).filter(
+      (reference) =>
+        reference.range().start.index !==
+        declarator.field("name")!.range().start.index,
+    ).length;
+    if (uses !== moved) continue;
+    // One edit from the first comment to the end of the declaration, so
+    // that no blank lines pile up where they were.
+    const first = leadingComments(rootNode, declaration)[0] ?? declaration;
+    let start = charIndex(source, first.range().start.index);
+    let end = charIndex(source, declaration.range().end.index);
+    while (start > 0 && /[ \t]/.test(source[start - 1]!)) start--;
+    if (source[end] === "\n") end++;
+    if (
+      source[end] === "\n" &&
+      (start === 0 || source.slice(0, start).endsWith("\n\n"))
+    )
+      end++;
+    edits.push({
+      startPos: byteIndex(source, start),
+      endPos: byteIndex(source, end),
+      insertedText: "",
+    });
   }
   return edits;
 }
