@@ -75,6 +75,10 @@ This page lists the `learning` prop, the Core methods, and the `CopilotKitIntell
     `TrajectoryEvent` is `{ type: "CUSTOM"; name: string; timestamp: number; value: JsonValue }`.
   </PropertyReference>
 
+  <PropertyReference name="appVersion" type="string">
+    Your app's version, such as a release tag or commit. Capture sends it as `appVersion` in the `page` event at start, so Learning can tell app releases apart. Values longer than 200 characters are cut.
+  </PropertyReference>
+
   <PropertyReference name="onError" type="(error: { code: string; message: string }) => void">
     Receives capture errors without interrupting the app. Errors thrown by the callback are ignored. Without `onError`, Core logs a warning with a setup hint once per error code when capture fails to start or stops on its own. See [Error codes](#error-codes).
   </PropertyReference>

@@ -70,7 +70,7 @@ Sequence numbers start from the Core instance's creation time in microseconds. T
 
 | `name` | Main `value` fields | Source |
 | --- | --- | --- |
-| `page` | `route`, `url`, `title`, `referrer` | Browser, at start |
+| `page` | `route`, `url`, `title`, `referrer`, `sdkVersion`, `appVersion` | Browser, at start |
 | `navigation` | `from`, `to`, `navigationType` | Browser |
 | `click` | `target` (`tag`, `role`, `action`, `text`, `label`, `attributes`, control values, `input`), `route`, `url` | Browser |
 | `input` | `eventType`, `target` (element details, `label`, and control values), `route`, `url` | Browser |
@@ -81,6 +81,8 @@ Sequence numbers start from the Core instance's creation time in microseconds. T
 Core emits `thread.linked` once for each Thread, when Runtime starts a run in it. Clicks do not carry Thread, message, or tool fields. A Trajectory can contain interactions without any Thread.
 
 A `message.feedback` event records a [reply rating](/intelligence/capture-interactions#collect-reply-ratings). `rating` is `"up"`, `"down"`, or `null` when the user removed the rating. `comment` is trimmed, cut at 1,000 characters, and omitted when empty. `response` holds the first 500 characters of the rated reply. `runId` is omitted when the chat does not know the reply's run. `feedbackId` is `threadId:messageId`; the newest event for a `feedbackId` is the current rating.
+
+The `page` event carries the version of `@copilotkit/learning` in `sdkVersion`. It carries `appVersion` only when you set the `appVersion` option.
 
 Control values include `value`, `checked` for checkboxes and radio buttons, `selectedValues` for select elements, and file metadata for file inputs.
 
@@ -199,6 +201,7 @@ In code (see the [API reference](/intelligence/trajectories-reference#learning-p
 | `ignoreUrls` | URL prefixes or patterns that network capture skips. |
 | `capture` | Turn off `clicks`, `inputs`, `navigation`, or `network`. All four default to on. |
 | `beforeSend` | Runs last, in the browser. Return the event, a changed copy, or `null` to drop it. |
+| `appVersion` | Your app's version, sent in the `page` event at start. |
 
 In markup:
 

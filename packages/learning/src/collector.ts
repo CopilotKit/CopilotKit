@@ -5,6 +5,7 @@ import { installNetworkCapture } from "./network";
 import { createRedactor } from "./redact";
 import { toRoute } from "./routes";
 import { BUILT_IN_EVENT_NAMES } from "./types";
+import { appContext } from "./version";
 import type {
   BuiltInEventName,
   Collector,
@@ -165,6 +166,7 @@ export function createCollector(options: CollectorOptions) {
       url: redact.url(location.href),
       title: document.title,
       referrer: redact.url(document.referrer),
+      ...appContext(options.appVersion),
     });
   };
 

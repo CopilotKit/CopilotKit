@@ -22,6 +22,7 @@ try {
     sourcemap: false,
     outDir,
     logLevel: "error",
+    define: { __LEARNING_VERSION__: JSON.stringify("0.0.0") },
   });
   const size = gzipSync(readFileSync(join(outDir, "index.mjs"))).length;
   console.log(

@@ -205,6 +205,29 @@ describe("Trajectory capture contract", () => {
     expect(send).toHaveBeenCalledTimes(1);
   });
 
+  it("adds the SDK version, and the app version when configured, to the start page event", () => {
+    const send = vi.fn();
+    const withVersion = createTrajectoryCollector({
+      send,
+      appVersion: "2026.11.3",
+    });
+    withVersion.start();
+    withVersion.stop();
+    const blank = createTrajectoryCollector({ send, appVersion: "  " });
+    blank.start();
+    blank.stop();
+    const [first, second] = send.mock.calls.map(([event]) => event);
+    expect(first).toMatchObject({
+      name: "page",
+      value: {
+        sdkVersion: expect.stringMatching(/^\d+\.\d+\.\d+/),
+        appVersion: "2026.11.3",
+      },
+    });
+    expect(second.value).toHaveProperty("sdkVersion");
+    expect(second.value).not.toHaveProperty("appVersion");
+  });
+
   it("supports capture switches while retaining initial page context", () => {
     const { collector, send } = setup({
       capture: {

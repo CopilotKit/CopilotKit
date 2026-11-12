@@ -89,6 +89,8 @@ export interface CollectorOptions {
   /** Runs last, in the browser. Return the event to send, or `null` to drop it. */
   beforeSend?: (event: LearningEvent) => LearningEvent | null;
   enrich?: EnrichFn;
+  /** Your app's version, sent as `appVersion` in the `page` event at start. */
+  appVersion?: string;
 }
 
 export interface StartOptions {
