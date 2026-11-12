@@ -1,17 +1,21 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useLayoutEffect, useState } from "react";
 import { SiteNav, PageHeader } from "@/components/Brand";
+import { HttpAgent } from "@ag-ui/client";
+import { EventType } from "@ag-ui/core";
+import { CopilotKitProvider } from "@copilotkit/react-core";
 import {
-  A2UIProvider,
-  A2UIRenderer,
-  useA2UIActions,
-} from "@copilotkit/a2ui-renderer";
+  GenerativeUISurface,
+  useGenerativeUIFunction,
+  useGenerativeUIRuntime,
+} from "@copilotkit/react-core/generative-ui";
 import { catalog, CATALOG_ID } from "@/a2ui/catalog";
 
-/* Each example renders a complete tiny A2UI surface. The shape mirrors
- * how the agent emits surfaces over the wire so the showcase doubles as
- * a sanity check on the catalog. */
+/* Each example renders a complete tiny surface. The components are A2UI
+ * component nodes, the shape the agent's surfaces have once the runtime has
+ * converted them to A2UI 1.0, so the showcase doubles as a sanity check on
+ * the catalog. */
 type Example = {
   group: "layout" | "content" | "data" | "interactive";
   name: string;
@@ -525,21 +529,24 @@ const EXAMPLES: Example[] = [
           component: "Button",
           label: "Primary",
           variant: "primary",
-          action: { event: { name: "noop" } },
+          // A v0.9 `action` arrives as `onClick`.
+          onClick: { event: { name: "noop" } },
         },
         {
           id: "s",
           component: "Button",
           label: "Secondary",
           variant: "secondary",
-          action: { event: { name: "noop" } },
+          // A v0.9 `action` arrives as `onClick`.
+          onClick: { event: { name: "noop" } },
         },
         {
           id: "g",
           component: "Button",
           label: "Ghost",
           variant: "ghost",
-          action: { event: { name: "noop" } },
+          // A v0.9 `action` arrives as `onClick`.
+          onClick: { event: { name: "noop" } },
         },
       ],
     },
@@ -560,7 +567,7 @@ const EXAMPLES: Example[] = [
             { label: "APAC", value: "apac" },
             { label: "LATAM", value: "latam" },
           ],
-          value: { path: "/regions" },
+          value: { "@path": "/regions" },
         },
       ],
       data: { regions: ["na", "emea"] },
@@ -619,11 +626,13 @@ export default function CatalogPage() {
           </span>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-          {items.map((ex) => (
-            <ShowcaseTile key={ex.name} example={ex} />
-          ))}
-        </div>
+        <PreviewProvider>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+            {items.map((ex) => (
+              <ShowcaseTile key={ex.name} example={ex} />
+            ))}
+          </div>
+        </PreviewProvider>
       </main>
 
       <footer className="border-t border-[var(--line)] py-6 mt-10">
@@ -685,50 +694,103 @@ function ShowcaseTile({ example }: { example: Example }) {
         </span>
       </header>
       <div className="p-5 bg-[var(--surface-soft)] flex-1">
-        <SurfacePreview surface={example.surface} />
+        <SurfacePreview name={example.name} surface={example.surface} />
       </div>
     </div>
   );
 }
 
-function SurfacePreview({
-  surface,
-}: {
-  surface: { components: unknown[]; data?: Record<string, unknown> };
-}) {
+/* A CopilotKit of its own for the previews, apart from the app's agents:
+ * each preview draws its surface straight from the operations, with no
+ * model or runtime. A local agent takes the events a Button click sends, so
+ * a click goes somewhere and does nothing. */
+const PREVIEW_THREAD = "catalog-preview";
+const PREVIEW_AGENT = "catalog-preview";
+const PREVIEW_UI = { ui: catalog };
+
+function createPreviewAgent() {
+  return new HttpAgent({
+    agentId: PREVIEW_AGENT,
+    threadId: PREVIEW_THREAD,
+    url: "/catalog/agent",
+    fetch: async (_url, init) => {
+      const { threadId, runId } = JSON.parse(String(init?.body)) as {
+        threadId: string;
+        runId: string;
+      };
+      const events = [
+        { type: EventType.RUN_STARTED, threadId, runId },
+        { type: EventType.RUN_FINISHED, threadId, runId },
+      ];
+      return new Response(
+        events.map((event) => `data: ${JSON.stringify(event)}\n\n`).join(""),
+        { headers: { "Content-Type": "text/event-stream" } },
+      );
+    },
+  });
+}
+
+function PreviewProvider({ children }: { children: React.ReactNode }) {
+  const [agents] = useState(() => ({ [PREVIEW_AGENT]: createPreviewAgent() }));
   return (
-    <div className="a2ui-surface rounded-[var(--radius)]">
-      <A2UIProvider catalog={catalog}>
-        <PreviewInner surface={surface} />
-      </A2UIProvider>
-    </div>
+    <CopilotKitProvider
+      agents__unsafe_dev_only={agents}
+      enableInspector={false}
+      generativeUI={PREVIEW_UI}
+    >
+      <InertChips />
+      {children}
+    </CopilotKitProvider>
   );
 }
 
-function PreviewInner({
+/* ChoiceChips calls `selectChip` on click. Here it does nothing. */
+function InertChips() {
+  useGenerativeUIFunction(catalog, "selectChip", () => undefined);
+  return null;
+}
+
+function SurfacePreview({
+  name,
   surface,
 }: {
+  name: string;
   surface: { components: unknown[]; data?: Record<string, unknown> };
 }) {
-  const actions = useA2UIActions();
-  useEffect(() => {
-    const messages: Array<Record<string, unknown>> = [
+  const runtime = useGenerativeUIRuntime();
+  const surfaceId = `preview-${name}`;
+  useLayoutEffect(() => {
+    if (!runtime) return;
+    const operations: Array<Record<string, unknown>> = [
       {
-        createSurface: { surfaceId: "preview", catalogId: CATALOG_ID },
+        version: "1.0",
+        createSurface: { surfaceId, catalogId: CATALOG_ID },
       },
       {
-        updateComponents: {
-          surfaceId: "preview",
-          components: surface.components,
-        },
+        version: "1.0",
+        updateComponents: { surfaceId, components: surface.components },
       },
     ];
     if (surface.data) {
-      messages.push({
-        updateDataModel: { surfaceId: "preview", value: surface.data },
+      operations.push({
+        version: "1.0",
+        updateDataModel: { surfaceId, value: surface.data },
       });
     }
-    actions.processMessages(messages);
-  }, [actions, surface]);
-  return <A2UIRenderer surfaceId="preview" />;
+    runtime.manager.setActiveThread(PREVIEW_THREAD);
+    runtime.manager.ingest(PREVIEW_THREAD, PREVIEW_AGENT, {
+      surfaceId,
+      // Each preview is its own target, so GenerativeUISurface finds it.
+      target: surfaceId,
+      catalogId: CATALOG_ID,
+      operations: operations as never,
+      status: "ready",
+      rejected: [],
+    });
+  }, [runtime, surfaceId, surface]);
+  return (
+    <div className="a2ui-surface rounded-[var(--radius)]">
+      <GenerativeUISurface id={surfaceId} ui={catalog} autoScroll={false} />
+    </div>
+  );
 }

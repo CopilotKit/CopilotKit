@@ -13,7 +13,7 @@
  *
  * The wire message is untouched; this only affects display.
  */
-import { CopilotChatAssistantMessage } from "@copilotkit/react-core/v2";
+import { CopilotChatAssistantMessage } from "@copilotkit/react-core";
 import type { ComponentProps } from "react";
 
 type Props = ComponentProps<typeof CopilotChatAssistantMessage>;
