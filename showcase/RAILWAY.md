@@ -234,8 +234,10 @@ flipping the SSOT gate.
   in this promote's closure", before anything deploys. The failed run still
   sends the workflow's failure notification. Pass `hold` only for the run whose
   closure contains that service.
-- **Serialization.** All promote runs share one concurrency group and are
-  never cancelled, so runs dispatched back to back queue and run one at a time.
+- **Serialization.** Promote runs, except `validate_registry_only`, share one
+  concurrency group. A running promote is not cancelled by a later dispatch.
+  GitHub keeps one pending run per group, so a later dispatch cancels an
+  earlier pending run. Wait for each run to finish before dispatching the next.
 - **No-change modes.** `verify_only` checks the current prod images without
   promoting. `validate_registry_only` checks the registry reader without
   promoting or probing.
