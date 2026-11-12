@@ -86,12 +86,22 @@ interface BaseCopilotRuntimeMiddlewareOptions {
   agents?: string[];
 }
 
-/** Per-server tool policy belongs to the external middleware, and the release the runtime depends on does not support it. */
 export type McpAppsServerConfig = MCPClientConfig & {
   /** Intelligence-only HTTP/SSE credentials from trusted server config, never iframe input. */
   headers?: Record<string, string>;
   /** Agent to bind this server to. If omitted, the server is available to all agents. */
   agentId?: string;
+  /**
+   * MCP tool names to expose from this server. When set, every other tool is
+   * omitted. Names are the `tools/list` names, before any host prefix. An
+   * empty list exposes no tools from the server.
+   */
+  includeTools?: string[];
+  /**
+   * MCP tool names to omit. Applied after `includeTools`, so a name present in
+   * both lists is excluded.
+   */
+  excludeTools?: string[];
 };
 
 export interface McpAppsConfig {

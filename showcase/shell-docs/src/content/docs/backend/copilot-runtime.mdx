@@ -297,7 +297,22 @@ const runtime = new CopilotRuntime({
 
 Each server entry optionally accepts an `agentId` field to scope that server to a single agent. Without it, the server is available to all agents.
 
-Per-tool filtering belongs to `@ag-ui/mcp-apps-middleware`. The release the runtime depends on does not support `includeTools` or `excludeTools`. Supplying either key raises a configuration error instead of silently ignoring it. A newer middleware release alone does not change this: the runtime has to adopt the policy first. Follow [#5930](https://github.com/CopilotKit/CopilotKit/issues/5930) for that work.
+`includeTools` and `excludeTools` choose which of that server's MCP tools are exposed. Names are the tool names from `tools/list`, before any host prefix. When `includeTools` is set, only those tools are injected. An empty list skips tool discovery and exposes no tools. A proxied `resources/read` can still contact that server. `excludeTools` is applied after the allowlist, so a name in both lists is excluded. Omitted lists leave the server's tools unchanged. A filtered-out tool is not added to the run. If the model calls it, and that name is not an independently registered frontend tool, the runtime answers the call with a rejection before the run finishes. When a server sets either list, a proxied `tools/call` is accepted for a discovered UI tool that passed the filter, and a rejection is returned with `isError: true`. When no server sets `includeTools` or `excludeTools`, the proxy is unchanged and may also forward a non-UI tool.
+
+```ts
+mcpApps: {
+  servers: [
+    {
+      type: "http",
+      url: "https://mcp.example.com/mcp",
+      serverId: "crm",
+      agentId: "support-agent",
+      includeTools: ["generate_qr"],
+      excludeTools: ["admin_dashboard"],
+    },
+  ],
+},
+```
 
 ## Forwarding request headers to your agent
 
