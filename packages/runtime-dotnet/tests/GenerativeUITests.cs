@@ -186,12 +186,33 @@ internal static class GenerativeUITests
 
     private static JsonObject Activity(string messageId, JsonNode operations) => new() { ["type"] = "ACTIVITY_SNAPSHOT", ["messageId"] = messageId, ["activityType"] = "a2ui-surface", ["content"] = new JsonObject { ["a2ui_operations"] = operations }, ["replace"] = true };
 
+    private static void FailedLifecycle()
+    {
+        var upgrader = new A2UIV09ActivityUpgrader();
+        List<JsonObject> Lifecycle(string messageId, JsonObject content)
+        {
+            var activity = Activity(messageId, new JsonArray());
+            activity["content"] = content;
+            return upgrader.Transform(activity);
+        }
+        Check(Lifecycle("a2ui-surface-call1", new JsonObject { ["status"] = "retrying", ["attempt"] = 2 }).Count == 0, "a retrying lifecycle snapshot is consumed");
+        var failed = Lifecycle("a2ui-surface-call1", new JsonObject { ["status"] = "failed", ["error"] = "root is missing", ["attempts"] = new JsonArray() });
+        Check(failed.Count == 1 && JsonText.Compact(failed[0]) == $$$"""{"type":"ACTIVITY_SNAPSHOT","messageId":"genui:a2ui-surface-call1","activityType":"generative-ui-surface","content":{"surfaceId":"a2ui-surface-call1","target":"chat","catalogId":"{{{Standard}}}","operations":[],"status":"error","rejected":[{"index":0,"reason":"root is missing"}],"a2uiSourceVersion":"0.9"},"replace":true}""",
+            "a failed lifecycle snapshot becomes an error surface");
+        Check(Lifecycle("a2ui-surface-call1", new JsonObject { ["status"] = "failed", ["error"] = "root is missing" }).Count == 0, "the error surface is sent once");
+        var longError = Lifecycle("a2ui-surface-call2", new JsonObject { ["status"] = "failed", ["error"] = new string('x', 600) }).Single();
+        Check(longError["content"]!["rejected"]![0]!["reason"]!.GetValue<string>().Length == 500, "a long error is cut to the rejection length");
+        var generic = Lifecycle("a2ui-surface-call3", new JsonObject { ["status"] = "failed" }).Single();
+        Check(JsonText.Compact(generic["content"]!["rejected"]) == """[{"index":0,"reason":"A2UI generation failed"}]""", "a failed snapshot with no error gets a generic reason");
+    }
+
     private static void Upgrader()
     {
         var plan = JsonNode.Parse(PlanV09)!.AsArray();
         var upgrader = new A2UIV09ActivityUpgrader();
         var building = Activity("m", new JsonArray()); building["content"] = new JsonObject { ["status"] = "building" };
         Check(upgrader.Transform(building).Count == 0, "a lifecycle snapshot names no surface and is consumed");
+        FailedLifecycle();
         var first = upgrader.Transform(Activity("m", new JsonArray(plan[0]!.DeepClone(), plan[1]!.DeepClone()))).Single();
         Check(first["messageId"]!.GetValue<string>() == "genui:plans" && first["content"]!["status"]!.GetValue<string>() == "ready" && first["content"]!["a2uiSourceVersion"]!.GetValue<string>() == "0.9"
             && first["content"]!["target"]!.GetValue<string>() == "chat" && first["content"]!["catalogId"]!.GetValue<string>() == Standard, "a v0.9 surface becomes one ready 1.0 chat surface");
