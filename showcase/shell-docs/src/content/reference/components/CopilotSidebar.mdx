@@ -9,6 +9,8 @@ description: "Sidebar variant of CopilotChat that renders in a fixed side panel"
 
 See [`CopilotPopup`](/reference/components/CopilotPopup) for a popup variant of this component.
 
+For a walkthrough, see [Sidebar](/prebuilt-components/sidebar).
+
 ## Import
 
 ```tsx
@@ -77,8 +79,12 @@ import { CopilotSidebar } from "@copilotkit/react-core";
 </PropertyReference>
 
 <PropertyReference name="autoScroll" type='AutoScrollMode | boolean' default="true">
-  How the chat scrolls as messages arrive. See
-  [`CopilotChat`](/reference/components/CopilotChat).
+  How the chat scrolls when messages arrive:
+
+- `"pin-to-bottom"` or `true`: keep the latest message in view while the user is at the bottom.
+- `"pin-to-send"`: when the user sends a message, scroll that message to the top of the view and keep it there while the reply streams.
+- `"none"` or `false`: do not scroll automatically.
+
 </PropertyReference>
 
 <PropertyReference
@@ -88,7 +94,7 @@ import { CopilotSidebar } from "@copilotkit/react-core";
   Controls the welcome screen shown when no messages exist.
 </PropertyReference>
 
-All `CopilotChatView` slot props (`messageView`, `input`, `scrollView`, `suggestionView`) are also accepted and forwarded through.
+The `CopilotChatView` slots `messageView`, `input`, `scrollView`, and `suggestionView` are also accepted and forwarded. To pass props to the input, use the `input` slot, for example `input={{ autoFocus: true }}`. To change the disclaimer, use `input={{ disclaimer: MyDisclaimer }}`. To hide it, use `input={{ showDisclaimer: false }}`. To change only its text, set `labels.chatDisclaimerText`.
 
 ## Slot System
 
@@ -143,12 +149,6 @@ function App() {
 
 - **Toggle button**: Renders a floating toggle button that opens and closes the sidebar. The button uses `CopilotChatToggleButton` internally.
 - **Modal state**: Open/close state is managed via the chat configuration context. The `defaultOpen` prop sets the initial state; after that, state changes come from user interaction (toggle button, close button in the header). Pass `open` and `onOpenChange` to own the state yourself, and to open or close the sidebar from your own UI.
-- **Layout**: The sidebar uses `CopilotSidebarView` internally, which provides a sidebar-specific welcome screen layout with suggestions at the top, the welcome message in the middle, and the input fixed at the bottom.
-- **Fixed positioning**: The sidebar renders as a fixed panel on one side of the viewport, pushing or overlaying content depending on CSS.
+- **Layout**: The sidebar uses `CopilotSidebarView` internally. `CopilotSidebarView` builds on [`CopilotChatView`](/reference/components/CopilotChatView) and provides a sidebar-specific welcome screen layout with the welcome message centered and the suggestions just above the input at the bottom.
+- **Fixed positioning**: The sidebar renders as a fixed panel on one side of the viewport. On screens 768 px wide or wider, the open sidebar adds a margin to `document.body` on its side, so your page content moves aside. On narrower screens, it covers the page.
 - **Agent connection**: All agent wiring (messages, running state, suggestions) is handled by the parent `CopilotChat` logic.
-
-## Related
-
-- [`CopilotChat`](/reference/components/CopilotChat) -- the base chat component used internally
-- [`CopilotPopup`](/reference/components/CopilotPopup) -- popup variant
-- [`CopilotChatView`](/reference/components/CopilotChatView) -- the layout component used internally

@@ -3,9 +3,6 @@ title: Quickstart
 nav_title: Quickstart
 description: Run Intelligence locally with the CopilotKit CLI and record your first Trajectory from a React app.
 icon: "lucide/Play"
-frontend:
-  kind: frontend-variant
-  fallback: hide
 doc_type: how-to
 earlyAccess: trajectories
 search: false
@@ -93,7 +90,7 @@ const intelligence = new CopilotKitIntelligence({
 
 const runtime = new CopilotRuntime({
   // Your existing agent registration
-  agents: { default: new BuiltInAgent({ model: openaiText("gpt-5.5") }) },
+  agents: { default: new BuiltInAgent({ model: openaiText("gpt-6-luna") }) },
   intelligence,
   identifyUser,
 });

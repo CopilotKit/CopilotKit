@@ -6,8 +6,8 @@ import {
   EvalSummary,
   EvalTasks,
   hasScores,
-  type EvalData,
 } from "@/components/evals/eval-results";
+import type { EvalData } from "@/components/evals/eval-results";
 import { SiteHeader } from "@/components/site/site-header";
 import { CodeBlock } from "@/components/start/code-block";
 import results from "@/data/evals.json";

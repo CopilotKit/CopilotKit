@@ -45,28 +45,30 @@ export function BrowseResultsCard({
   return (
     <div
       data-testid="browse-results-card"
-      className="my-3 rounded-2xl border border-[#DBDBE5] bg-white p-5 shadow-sm"
+      className="my-3 rounded-2xl border border-[#DBDBE5] bg-white p-5 shadow-sm dark:border-border dark:bg-card"
     >
       <div className="mb-4 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <span
-            className="flex h-8 w-8 items-center justify-center rounded-full bg-[#BEC2FF1A] text-[#010507]"
+            className="flex h-8 w-8 items-center justify-center rounded-full bg-[#BEC2FF1A] text-[#010507] dark:text-foreground"
             aria-hidden
           >
             🌐
           </span>
-          <div className="font-semibold text-[#010507]">{heading}</div>
+          <div className="font-semibold text-[#010507] dark:text-foreground">
+            {heading}
+          </div>
         </div>
         {loading ? (
-          <span className="text-[10px] uppercase tracking-[0.14em] text-[#57575B]">
+          <span className="text-[10px] uppercase tracking-[0.14em] text-[#57575B] dark:text-muted-foreground">
             browsing…
           </span>
         ) : error ? (
-          <span className="rounded-full border border-[#F1B0B0] bg-[#FDEAEA] px-2.5 py-0.5 text-[10px] font-medium uppercase tracking-[0.14em] text-[#B42318]">
+          <span className="rounded-full border border-[#F1B0B0] bg-[#FDEAEA] px-2.5 py-0.5 text-[10px] font-medium uppercase tracking-[0.14em] text-[#B42318] dark:border-red-900 dark:bg-red-950/40 dark:text-red-300">
             error
           </span>
         ) : (
-          <span className="rounded-full border border-[#DBDBE5] bg-[#F7F7F9] px-2.5 py-0.5 text-[10px] font-medium uppercase tracking-[0.14em] text-[#57575B]">
+          <span className="rounded-full border border-[#DBDBE5] bg-[#F7F7F9] px-2.5 py-0.5 text-[10px] font-medium uppercase tracking-[0.14em] text-[#57575B] dark:border-border dark:bg-muted dark:text-muted-foreground">
             {results.length} result{results.length === 1 ? "" : "s"}
           </span>
         )}
@@ -81,7 +83,7 @@ export function BrowseResultsCard({
       ) : error ? (
         <p
           data-testid="browse-error"
-          className="text-sm text-[#B42318] leading-relaxed"
+          className="text-sm text-[#B42318] leading-relaxed dark:text-red-300"
         >
           {error}
         </p>
@@ -89,7 +91,7 @@ export function BrowseResultsCard({
         <>
           <ul className="space-y-2">
             {results.length === 0 ? (
-              <li className="text-sm italic text-[#57575B]">
+              <li className="text-sm italic text-[#57575B] dark:text-muted-foreground">
                 No results returned.
               </li>
             ) : (
@@ -97,7 +99,7 @@ export function BrowseResultsCard({
                 <li
                   key={`${r.url ?? r.title ?? "result"}-${i}`}
                   data-testid="browse-result-row"
-                  className="flex items-start justify-between gap-3 rounded-xl border border-[#E9E9EF] bg-[#FAFAFC] px-3 py-2.5 text-sm"
+                  className="flex items-start justify-between gap-3 rounded-xl border border-[#E9E9EF] bg-[#FAFAFC] px-3 py-2.5 text-sm dark:border-border dark:bg-muted"
                 >
                   <div className="min-w-0">
                     {r.url ? (
@@ -105,23 +107,23 @@ export function BrowseResultsCard({
                         href={r.url}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="font-medium text-[#010507] hover:underline break-words"
+                        className="font-medium text-[#010507] hover:underline break-words dark:text-foreground"
                       >
                         {r.title ?? r.url}
                       </a>
                     ) : (
-                      <span className="font-medium text-[#010507] break-words">
+                      <span className="font-medium text-[#010507] break-words dark:text-foreground">
                         {r.title ?? "—"}
                       </span>
                     )}
                     {r.source ? (
-                      <div className="mt-0.5 text-xs text-[#838389]">
+                      <div className="mt-0.5 text-xs text-[#838389] dark:text-muted-foreground">
                         {r.source}
                       </div>
                     ) : null}
                   </div>
                   {typeof r.points === "number" ? (
-                    <span className="shrink-0 font-mono text-xs font-medium text-[#189370]">
+                    <span className="shrink-0 font-mono text-xs font-medium text-[#189370] dark:text-[#85ECCE]">
                       {r.points} pts
                     </span>
                   ) : null}
@@ -130,7 +132,7 @@ export function BrowseResultsCard({
             )}
           </ul>
           {text ? (
-            <p className="mt-3 border-t border-[#E9E9EF] pt-3 text-xs text-[#57575B] leading-relaxed line-clamp-6">
+            <p className="mt-3 border-t border-[#E9E9EF] pt-3 text-xs text-[#57575B] leading-relaxed line-clamp-6 dark:border-border dark:text-muted-foreground">
               {text}
             </p>
           ) : null}
@@ -142,6 +144,9 @@ export function BrowseResultsCard({
 
 function Skeleton() {
   return (
-    <div className="h-10 animate-pulse rounded-xl bg-[#F0F0F4]" aria-hidden />
+    <div
+      className="h-10 animate-pulse rounded-xl bg-[#F0F0F4] dark:bg-muted"
+      aria-hidden
+    />
   );
 }

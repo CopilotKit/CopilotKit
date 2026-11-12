@@ -41,15 +41,17 @@ import {
   collectChildRefs,
   GENERATIVE_UI_FUNCTIONS,
   validateOperation,
-  type GenerativeUIManifest,
 } from "@copilotkit/shared";
+import type { GenerativeUIManifest } from "@copilotkit/shared";
 import type { ComponentType } from "react";
 import { ownEntries } from "../src/a2ui/catalog/entries";
 import { CATALOG_ID } from "../src/a2ui/catalog/ids";
-import { compose, type ComposeInput } from "../src/agent/composer";
+import { compose } from "../src/agent/composer";
+import type { ComposeInput } from "../src/agent/composer";
 import { composeExpress } from "../src/agent/compose-express";
 import { EventQueue } from "../src/agent/events";
-import { MODELS, type ModelId } from "../src/agent/models";
+import { MODELS } from "../src/agent/models";
+import type { ModelId } from "../src/agent/models";
 import { EVAL_TASKS } from "../src/evals/tasks";
 
 const arg = (name: string) => {

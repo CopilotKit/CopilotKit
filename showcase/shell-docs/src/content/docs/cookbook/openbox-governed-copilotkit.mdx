@@ -211,7 +211,7 @@ const defaultAgent = new LangGraphAgent({
 const runtime = new CopilotRuntime({
   agents: { default: defaultAgent },
   runner: new InMemoryAgentRunner(),
-  generativeUI: { a2uiVersion: "0.9", injectA2UITool: false },
+  a2ui: { injectA2UITool: false },
 });
 
 // Governs the runtime's own runner, so every run of "default" goes through OpenBox.

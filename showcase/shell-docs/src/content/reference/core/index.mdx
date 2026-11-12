@@ -8,7 +8,7 @@ description: "Framework-agnostic TypeScript client for CopilotKit. Runs anywhere
 ## Install
 
 ```bash
-npm install @copilotkit/core
+npm install @copilotkit/core zod
 ```
 
 ## Quick start
@@ -33,25 +33,30 @@ copilotkit.addTool({
 });
 
 // Agents populate after the runtime responds, so run once they arrive.
-copilotkit.subscribe({
+const sub = copilotkit.subscribe({
   onAgentsChanged: async ({ agents }) => {
     const agent = agents["default"];
-    if (agent) {
-      await copilotkit.runAgent({ agent });
-    }
+    if (!agent) return;
+    sub.unsubscribe();
+    agent.addMessage({
+      id: crypto.randomUUID(),
+      role: "user",
+      content: "Show an alert that says hi",
+    });
+    await copilotkit.runAgent({ agent });
   },
 });
 ```
 
 ## Reference
 
-- [CopilotKitCore](/reference/core/classes/CopilotKitCore) — the main client class.
-- [ProxiedCopilotRuntimeAgent](/reference/core/classes/ProxiedCopilotRuntimeAgent) — AG-UI agent that proxies a CopilotRuntime agent.
-- [CopilotKitCoreConfig](/reference/core/types/CopilotKitCoreConfig) — options accepted by the `CopilotKitCore` constructor.
-- [ProxiedCopilotRuntimeAgentConfig](/reference/core/types/ProxiedCopilotRuntimeAgentConfig) — options accepted by the `ProxiedCopilotRuntimeAgent` constructor.
-- [FrontendTool](/reference/core/types/FrontendTool) — shape of a tool registered with `addTool`.
-- [CopilotKitCoreSubscriber](/reference/core/types/CopilotKitCoreSubscriber) — callbacks passed to `subscribe`.
-- [Suggestion](/reference/core/types/Suggestion) / [SuggestionsConfig](/reference/core/types/SuggestionsConfig) — suggestion data and configuration.
-- [ToolCallStatus](/reference/core/enums/ToolCallStatus) — tool-call lifecycle states.
-- [CopilotKitCoreErrorCode](/reference/core/enums/CopilotKitCoreErrorCode) — error codes surfaced through `onError`.
-- [CopilotKitCoreRuntimeConnectionStatus](/reference/core/enums/CopilotKitCoreRuntimeConnectionStatus) — runtime connection states.
+- [CopilotKitCore](/reference/core/classes/CopilotKitCore): the main client class.
+- [ProxiedCopilotRuntimeAgent](/reference/core/classes/ProxiedCopilotRuntimeAgent): AG-UI agent that proxies a CopilotRuntime agent.
+- [CopilotKitCoreConfig](/reference/core/types/CopilotKitCoreConfig): options accepted by the `CopilotKitCore` constructor.
+- [ProxiedCopilotRuntimeAgentConfig](/reference/core/types/ProxiedCopilotRuntimeAgentConfig): options accepted by the `ProxiedCopilotRuntimeAgent` constructor.
+- [FrontendTool](/reference/core/types/FrontendTool): shape of a tool registered with `addTool`.
+- [CopilotKitCoreSubscriber](/reference/core/types/CopilotKitCoreSubscriber): callbacks passed to `subscribe`.
+- [Suggestion](/reference/core/types/Suggestion) / [SuggestionsConfig](/reference/core/types/SuggestionsConfig): suggestion data and configuration.
+- [ToolCallStatus](/reference/core/enums/ToolCallStatus): tool-call lifecycle states.
+- [CopilotKitCoreErrorCode](/reference/core/enums/CopilotKitCoreErrorCode): error codes surfaced through `onError`.
+- [CopilotKitCoreRuntimeConnectionStatus](/reference/core/enums/CopilotKitCoreRuntimeConnectionStatus): runtime connection states.

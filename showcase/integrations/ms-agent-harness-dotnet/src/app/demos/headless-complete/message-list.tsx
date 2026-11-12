@@ -58,7 +58,7 @@ export function MessageList({
     >
       <div className="space-y-3">
         {renderedMessages.length === 0 && (
-          <div className="text-center text-sm text-[#838389] mt-8">
+          <div className="text-center text-sm text-[#838389] mt-8 dark:text-muted-foreground">
             Try weather, a stock, a highlighted note, or an Excalidraw sketch.
           </div>
         )}
@@ -89,7 +89,7 @@ export function MessageList({
 function UserBubble({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex justify-end">
-      <div className="max-w-[75%] rounded-2xl rounded-br-sm bg-[#010507] text-white px-4 py-2 text-sm whitespace-pre-wrap break-words">
+      <div className="max-w-[75%] rounded-2xl rounded-br-sm bg-[#010507] text-white px-4 py-2 text-sm whitespace-pre-wrap break-words dark:bg-primary dark:text-primary-foreground">
         {children}
       </div>
     </div>
@@ -101,7 +101,7 @@ function AssistantBubble({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex justify-start">
       <div className="max-w-[85%] flex flex-col gap-2">
-        <div className="rounded-2xl rounded-bl-sm bg-[#F0F0F4] text-[#010507] px-4 py-2 text-sm">
+        <div className="rounded-2xl rounded-bl-sm bg-[#F0F0F4] text-[#010507] px-4 py-2 text-sm dark:bg-muted dark:text-foreground">
           {children}
         </div>
       </div>
@@ -120,8 +120,8 @@ function isEmpty(node: React.ReactNode): boolean {
 function TypingIndicator() {
   return (
     <div className="flex justify-start">
-      <div className="rounded-2xl rounded-bl-sm bg-[#F0F0F4] px-4 py-3">
-        <span className="inline-block w-2 h-2 bg-[#838389] rounded-full animate-pulse" />
+      <div className="rounded-2xl rounded-bl-sm bg-[#F0F0F4] px-4 py-3 dark:bg-muted">
+        <span className="inline-block w-2 h-2 bg-[#838389] rounded-full animate-pulse dark:bg-muted-foreground" />
       </div>
     </div>
   );

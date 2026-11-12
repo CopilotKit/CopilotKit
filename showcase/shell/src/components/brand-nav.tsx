@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { SearchTrigger } from "./search-trigger";
+import { ThemeSwitch } from "./theme-switch";
 
 function CopilotKitIcon({ className }: { className?: string }) {
   return (
@@ -210,14 +211,16 @@ export function BrandNav(_props: BrandNavProps = {}) {
           ))}
         </div>
 
-        {/* Desktop search */}
-        <div className="hidden sm:block">
+        {/* Desktop search + theme toggle */}
+        <div className="hidden sm:flex items-center gap-2">
           <SearchTrigger />
+          <ThemeSwitch />
         </div>
 
-        {/* Mobile: search icon + hamburger */}
+        {/* Mobile: search icon + theme toggle + hamburger */}
         <div className="flex sm:hidden items-center gap-1">
           <SearchTrigger iconOnly />
+          <ThemeSwitch />
           <button
             onClick={() => setMobileMenuOpen(true)}
             className="flex items-center justify-center w-8 h-8 rounded-md text-[var(--text-muted)] hover:text-[var(--text-secondary)] hover:bg-[var(--bg-elevated)] transition-colors cursor-pointer"

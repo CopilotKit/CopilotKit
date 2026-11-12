@@ -6,10 +6,17 @@ description: "The CopilotKit provider component, wrapping your application."
 `<CopilotKitProvider>` is the CopilotKit provider. It will typically wrap your entire application (or a sub-tree of your application where you want to have a copilot). It provides the copilot context to all other components and hooks.
 
 <Callout type="info" title="Upgrading from v1?">
-  The v1 `<CopilotKit>` provider was removed in 2.0. Use `<CopilotKitProvider>`
-  instead, and rename its `agent` prop to `agentId`. See the
+  `<CopilotKit>` is still exported as an alias of `<CopilotKitProvider>`: the
+  same component with the same 2.0 props. **Prefer `<CopilotKitProvider>`** in
+  new code. The v1 `agent` prop is now `agentId`. See the
   [migration guide](/migrate/v2).
 </Callout>
+
+The prop that names the agent changed in 2.0:
+
+|                | v1 `<CopilotKit>`  | 2.0 `<CopilotKit>` / `<CopilotKitProvider>` |
+| -------------- | ------------------ | ------------------------------------------- |
+| Name the agent | `agent="my_agent"` | `agentId="my_agent"`                        |
 
 You can also name the agent per chat with `<CopilotChat agentId="my_agent">`, or
 for a subtree with `<CopilotChatConfigurationProvider agentId="my_agent">`. Both
@@ -21,7 +28,7 @@ Runtime info response.
 
 ## Example
 
-You can find more information about self-hosting CopilotKit [here](/direct-to-llm/guides/self-hosting).
+To host the runtime yourself, see [Copilot Runtime](/backend/copilot-runtime).
 
 ```tsx
 import type { ReactNode } from "react";
@@ -137,7 +144,7 @@ export function Providers({ children }: { children: ReactNode }) {
 }
 ```
 
-Note: The `authorization` property is automatically forwarded to LangGraph agents. See the LangGraph Agent Authentication Guide (see code examples above) for details.
+Note: The `authorization` property is automatically forwarded to LangGraph agents. See [Authentication](/auth) for details.
 
 </PropertyReference>
 
@@ -175,7 +182,7 @@ import { BuiltInAgent } from "@copilotkit/runtime/agent";
 import { openaiText } from "@tanstack/ai-openai";
 
 const runtime = new CopilotRuntime({
-  agents: { default: new BuiltInAgent({ model: openaiText("gpt-5.5") }) },
+  agents: { default: new BuiltInAgent({ model: openaiText("gpt-6-luna") }) },
 });
 
 const handler = createCopilotRuntimeHandler({
@@ -213,6 +220,10 @@ const handler = createCopilotRuntimeHandler({
   hosts, and is always disabled on remote hosts, in production, and during
   server rendering. An explicit value takes priority over `CopilotChat`'s
   `inspectorTools` prop.
+
+  2.0 removed the `showDevConsole` prop and its error banners. Runtime, agent,
+  and tool errors show in the Inspector. To handle them in your code, use
+  `onError`.
 </PropertyReference>
 
 <PropertyReference name="showIntelligenceIndicator" type="boolean">
@@ -264,6 +275,51 @@ status UI. Defaults to `true`.
   this. See [`CopilotChatAssistantMessage`](/reference/components/CopilotChatAssistantMessage).
 </PropertyReference>
 
+<PropertyReference name="a2ui" type="{ theme?: Theme; catalog?: any; loadingComponent?: React.ComponentType; includeSchema?: boolean; recovery?: A2UIRecoveryRendererOptions }">
+Configuration for the A2UI (Agent-to-UI) renderer.
+
+The built-in A2UI renderer is activated automatically when the runtime reports
+that `a2ui` is configured in `CopilotRuntime`. This prop is optional. Use it to
+override:
+
+- `theme`: the A2UI viewer theme.
+- `catalog`: the component catalog. The default is the basic catalog.
+- `loadingComponent`: the component shown while a surface generates.
+- `includeSchema`: whether the catalog schemas go to the agent as context.
+- `recovery`: the error-recovery status UI.
+
+`includeSchema` defaults to `true`, which sends the catalog's component schemas
+and the A2UI generation and design guidelines to the agent as context. With
+`includeSchema: false`, the agent still receives the catalog ID and the names of
+the catalog's custom components, without their JSON schemas or the guidelines.
+A LangGraph agent that uses the CopilotKit middleware's injected A2UI tool then
+gives its A2UI subagent the component names only. To give the subagent more
+detail, pass a composition guide through the middleware's A2UI guidelines:
+`a2uiParams.guidelines.compositionGuide` in TypeScript, or
+`a2ui_params["guidelines"]["composition_guide"]` in Python.
+
+```tsx
+import type { ReactNode } from "react";
+import {
+  CopilotKitProvider,
+  a2uiDefaultTheme,
+  type A2UITheme,
+} from "@copilotkit/react-core";
+
+// Start from the default theme and override what you need.
+const myCustomTheme: A2UITheme = { ...a2uiDefaultTheme };
+
+export function Providers({ children }: { children: ReactNode }) {
+  return (
+    <CopilotKitProvider runtimeUrl="/api/copilotkit" a2ui={{ theme: myCustomTheme }}>
+      {children}
+    </CopilotKitProvider>
+  );
+}
+```
+
+</PropertyReference>
+
 <PropertyReference name="mcpApps" type="{ allowSameOriginFallback?: boolean }">
 Configuration for the built-in MCP Apps renderer.
 
@@ -282,11 +338,9 @@ for widgets you trust that need `localStorage`, `IndexedDB` or cookies. See
 </PropertyReference>
 
 <PropertyReference name="generativeUI" type="GenerativeUIConfig">
-  Native generative UI: `generativeUI={{ ui }}`, where `ui` comes from
-  `createGenerativeUI`. The agent renders your React components into chat or
-  into `<GenerativeUISurface id>` mounts. When you leave it out and the runtime
-  has generative UI on, the provider uses the standard catalog (`standardUI`).
-  See [Components and surfaces](/generative-ui/components).
+  Experimental. Native generative UI: `generativeUI={{ ui }}`, where `ui` comes
+  from `createGenerativeUI`. The agent renders your React components into chat
+  or into `<GenerativeUISurface id>` mounts.
 </PropertyReference>
 
 <PropertyReference name="defaultThrottleMs" type="number">

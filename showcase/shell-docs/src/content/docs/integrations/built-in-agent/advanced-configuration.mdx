@@ -309,7 +309,26 @@ const agent = new BuiltInAgent({
 });
 ```
 
-The frontend sends the values as `forwardedProps`. You can list these properties:
+The frontend sends overrides in the provider's `properties`, which reach the
+agent as `forwardedProps`. The agent applies only the keys in
+`overridableProperties`:
+
+```tsx
+import { CopilotKitProvider } from "@copilotkit/react-core";
+
+export function Providers({ children }: { children: React.ReactNode }) {
+  return (
+    <CopilotKitProvider
+      runtimeUrl="/api/copilotkit"
+      properties={{ prompt: "Answer in French." }}
+    >
+      {children}
+    </CopilotKitProvider>
+  );
+}
+```
+
+You can list these properties:
 
 - `model`: a model name, such as `"smart"`. Your `resolveModel` function turns
   it into an adapter. See
@@ -319,6 +338,13 @@ The frontend sends the values as `forwardedProps`. You can list these properties
 - `modelOptions`: an object that replaces the configured `modelOptions`.
 
 The agent ignores a value with the wrong type.
+
+<Callout type="warn">
+  The browser picks these values. With `prompt` overridable, any client can
+  replace the system prompt. With `modelOptions` overridable, any client can
+  replace the provider options. With `model` overridable, a client can pick
+  only the names that your `resolveModel` accepts.
+</Callout>
 
 ## Message forwarding
 

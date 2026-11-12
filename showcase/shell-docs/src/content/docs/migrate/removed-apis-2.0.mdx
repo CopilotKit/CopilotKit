@@ -125,9 +125,20 @@ export function Providers({ children }: { children: ReactNode }) {
 
 ## A2UI renderer
 
-2.0 does not publish `@copilotkit/a2ui-renderer`, so all of its exports are removed, for example `useA2UIStore`, `useA2UIContext`, `createA2UICatalog`, `createCatalog` and `A2UIRenderer`. The provider renders A2UI with [components and surfaces](/generative-ui/components). Move each catalog to `createGenerativeUI`:
+| Removed | Use |
+| --- | --- |
+| `useA2UIStore` | `useA2UIContext` |
+| `useA2UIStoreSelector(selector)` | `selector(useA2UIContext())` |
+| `createA2UICatalog(components, options)` | `createCatalog(definitions, renderers, options)` |
+| `extractA2UISchema(components)` | `extractSchema(definitions)` |
+| `A2UIComponentDefinition`, `A2UIComponentMap` | `CatalogDefinitions`, `CatalogRenderers` |
 
-{/* kiira: ignore, the before code of a migration: @copilotkit/a2ui-renderer is not published for 2.0 */}
+`A2UIComponentProps`, `ComponentLoader`, `ComponentRegistration`, and the `registry` prop have no replacement. The catalog loads the components, so delete them.
+
+### Move a catalog to `createCatalog`
+
+`createA2UICatalog` took one object, with the `props`, `description`, and `render` of each component. `createCatalog` takes the definitions and the renderers as two objects:
+
 ```tsx ignore title="Before"
 import { createA2UICatalog } from "@copilotkit/a2ui-renderer";
 import { z } from "zod";
@@ -145,26 +156,30 @@ export const catalog = createA2UICatalog(
 ```
 
 ```tsx title="After"
-import { z } from "zod";
 import {
-  createGenerativeUI,
-  standardUI,
-} from "@copilotkit/react-core/generative-ui";
+  createCatalog,
+  type CatalogDefinitions,
+  type CatalogRenderers,
+} from "@copilotkit/a2ui-renderer";
+import { z } from "zod";
 
-export const appUI = createGenerativeUI({
-  id: "acme/app@1",
-  extends: [standardUI],
-  components: {
-    StatusBadge: {
-      component: ({ text }: { text: string }) => <span>{text}</span>,
-      description: "A small pill that shows a status.",
-      props: z.object({ text: z.string() }),
-    },
+const definitions = {
+  StatusBadge: {
+    description: "A small pill that shows a status.",
+    props: z.object({ text: z.string() }),
   },
+} satisfies CatalogDefinitions;
+
+const renderers: CatalogRenderers<typeof definitions> = {
+  StatusBadge: ({ props }) => <span>{String(props.text)}</span>,
+};
+
+export const catalog = createCatalog(definitions, renderers, {
+  includeBasicCatalog: true,
 });
 ```
 
-Pass it to the provider with `generativeUI={{ ui: appUI }}`. See [Adopt from A2UI](/generative-ui/components/from-a2ui) for the provider, the runtime, and agents that write A2UI v0.9.
+If you called `extractA2UISchema(components)`, call `extractSchema(definitions)` with the same `definitions` object.
 
 ## Message types from `@copilotkit/shared`
 

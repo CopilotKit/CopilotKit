@@ -7,15 +7,15 @@
     },
     "hitl-in-chat": {
       "og_docs_url": "https://docs.copilotkit.ai/ag2/human-in-the-loop",
-      "shell_docs_path": "/generative-ui/your-components/interactive"
+      "shell_docs_path": "/human-in-the-loop"
     },
     "tool-rendering": {
       "og_docs_url": "https://docs.copilotkit.ai/ag2/generative-ui/tool-rendering",
       "shell_docs_path": "/generative-ui/tool-rendering"
     },
     "gen-ui-tool-based": {
-      "og_docs_url": "https://docs.copilotkit.ai/ag2/generative-ui/your-components/display-only",
-      "shell_docs_path": "/generative-ui/your-components/display-only"
+      "og_docs_url": "https://docs.copilotkit.ai/ag2/generative-ui/display",
+      "shell_docs_path": "/generative-ui/display"
     },
     "gen-ui-agent": {
       "og_docs_url": "https://docs.copilotkit.ai/ag2/generative-ui/state-rendering",
@@ -26,22 +26,16 @@
       "shell_docs_path": "/shared-state"
     },
     "shared-state-streaming": {
-      "og_docs_url": "https://docs.copilotkit.ai/ag2/shared-state/write",
+      "og_docs_url": "https://docs.copilotkit.ai/ag2/shared-state",
       "shell_docs_path": "/shared-state"
     },
     "subagents": {
-      "og_docs_url": "https://docs.copilotkit.ai/ag2",
+      "og_docs_url": "https://docs.copilotkit.ai/ag2/multi-agent/subagents",
       "shell_docs_path": "/multi-agent/subagents"
     },
     "auth": {
       "og_docs_url": "https://docs.copilotkit.ai/ag2/auth",
       "shell_docs_path": "/auth"
     }
-  },
-  "missing": [
-    {
-      "feature": "subagents",
-      "reason": "No /ag2/multi-agent/subagents page on docs.copilotkit.ai (SPA fallback). OG falls back to the ag2 framework root; shell points at the unified /multi-agent/subagents content."
-    }
-  ]
+  }
 }

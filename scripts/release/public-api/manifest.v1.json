@@ -18,8 +18,153 @@
   },
   "packages": [
     {
+      "name": "@copilotkit/a2ui-renderer",
+      "version": "1.87.0",
+      "sourceDirectory": "packages/a2ui-renderer",
+      "entrypoints": [
+        {
+          "importPath": "@copilotkit/a2ui-renderer",
+          "exportKey": ".",
+          "kind": "code",
+          "conditions": {
+            "import": {
+              "types": "./dist/index.d.mts",
+              "default": "./dist/index.mjs"
+            },
+            "require": {
+              "types": "./dist/index.d.cts",
+              "default": "./dist/index.cjs"
+            }
+          },
+          "provenance": {
+            "kind": "package-json",
+            "path": "packages/a2ui-renderer/package.json",
+            "selector": "exports[\".\"]"
+          }
+        },
+        {
+          "importPath": "@copilotkit/a2ui-renderer/catalog-schema",
+          "exportKey": "./catalog-schema",
+          "kind": "code",
+          "conditions": {
+            "import": {
+              "types": "./dist/catalog-schema.d.mts",
+              "default": "./dist/catalog-schema.mjs"
+            },
+            "require": {
+              "types": "./dist/catalog-schema.d.cts",
+              "default": "./dist/catalog-schema.cjs"
+            }
+          },
+          "provenance": {
+            "kind": "package-json",
+            "path": "packages/a2ui-renderer/package.json",
+            "selector": "exports[\"./catalog-schema\"]"
+          }
+        },
+        {
+          "importPath": "@copilotkit/a2ui-renderer/engine",
+          "exportKey": "./engine",
+          "kind": "code",
+          "conditions": {
+            "import": {
+              "types": "./dist/engine.d.mts",
+              "default": "./dist/engine.mjs"
+            },
+            "require": {
+              "types": "./dist/engine.d.cts",
+              "default": "./dist/engine.cjs"
+            }
+          },
+          "provenance": {
+            "kind": "package-json",
+            "path": "packages/a2ui-renderer/package.json",
+            "selector": "exports[\"./engine\"]"
+          }
+        },
+        {
+          "importPath": "@copilotkit/a2ui-renderer/engine-core",
+          "exportKey": "./engine-core",
+          "kind": "code",
+          "conditions": {
+            "import": {
+              "types": "./dist/engine-core.d.mts",
+              "default": "./dist/engine-core.mjs"
+            },
+            "require": {
+              "types": "./dist/engine-core.d.cts",
+              "default": "./dist/engine-core.cjs"
+            }
+          },
+          "provenance": {
+            "kind": "package-json",
+            "path": "packages/a2ui-renderer/package.json",
+            "selector": "exports[\"./engine-core\"]"
+          }
+        },
+        {
+          "importPath": "@copilotkit/a2ui-renderer/package.json",
+          "exportKey": "./package.json",
+          "kind": "metadata",
+          "conditions": "./package.json",
+          "provenance": {
+            "kind": "package-json",
+            "path": "packages/a2ui-renderer/package.json",
+            "selector": "exports[\"./package.json\"]"
+          }
+        }
+      ],
+      "compatibility": {
+        "engines": {
+          "node": ">=20"
+        },
+        "peerDependencies": {
+          "react": "^18 || ^19 || ^19.0.0-rc",
+          "react-dom": "^18 || ^19 || ^19.0.0-rc"
+        },
+        "optionalPeerDependencies": [
+          "react",
+          "react-dom"
+        ],
+        "provenance": [
+          {
+            "kind": "package-json",
+            "path": "packages/a2ui-renderer/package.json",
+            "selector": "engines"
+          },
+          {
+            "kind": "package-json",
+            "path": "packages/a2ui-renderer/package.json",
+            "selector": "peerDependencies"
+          },
+          {
+            "kind": "package-json",
+            "path": "packages/a2ui-renderer/package.json",
+            "selector": "peerDependenciesMeta.*.optional"
+          }
+        ]
+      },
+      "provenance": {
+        "name": {
+          "kind": "package-json",
+          "path": "packages/a2ui-renderer/package.json",
+          "selector": "name"
+        },
+        "version": {
+          "kind": "package-json",
+          "path": "packages/a2ui-renderer/package.json",
+          "selector": "version"
+        },
+        "releaseScope": {
+          "kind": "release-config",
+          "path": "release.config.json",
+          "selector": "scopes.monorepo.packages"
+        }
+      }
+    },
+    {
       "name": "@copilotkit/agentcore-runner",
-      "version": "1.85.0",
+      "version": "1.87.0",
       "sourceDirectory": "packages/agentcore-runner",
       "entrypoints": [
         {
@@ -95,6 +240,20 @@
             "kind": "package-json",
             "path": "packages/angular/package.json",
             "selector": "exports[\".\"]"
+          }
+        },
+        {
+          "importPath": "@copilotkit/angular/a2ui",
+          "exportKey": "./a2ui",
+          "kind": "code",
+          "conditions": {
+            "types": "./dist/types/copilotkit-angular-a2ui.d.ts",
+            "default": "./dist/fesm2022/copilotkit-angular-a2ui.mjs"
+          },
+          "provenance": {
+            "kind": "package-json",
+            "path": "packages/angular/package.json",
+            "selector": "exports[\"./a2ui\"]"
           }
         },
         {
@@ -980,7 +1139,7 @@
     },
     {
       "name": "@copilotkit/core",
-      "version": "1.85.0",
+      "version": "1.87.0",
       "sourceDirectory": "packages/core",
       "entrypoints": [
         {
@@ -1236,7 +1395,7 @@
     },
     {
       "name": "@copilotkit/learning",
-      "version": "1.85.0",
+      "version": "1.87.0",
       "sourceDirectory": "packages/learning",
       "entrypoints": [
         {
@@ -1434,7 +1593,7 @@
     },
     {
       "name": "@copilotkit/mcp-apps-renderer",
-      "version": "1.85.0",
+      "version": "1.87.0",
       "sourceDirectory": "packages/mcp-apps-renderer",
       "entrypoints": [
         {
@@ -1525,7 +1684,7 @@
     },
     {
       "name": "@copilotkit/react-core",
-      "version": "1.85.0",
+      "version": "1.87.0",
       "sourceDirectory": "packages/react-core",
       "entrypoints": [
         {
@@ -1660,7 +1819,7 @@
     },
     {
       "name": "@copilotkit/react-native",
-      "version": "1.85.0",
+      "version": "1.87.0",
       "sourceDirectory": "packages/react-native",
       "entrypoints": [
         {
@@ -1869,7 +2028,7 @@
     },
     {
       "name": "@copilotkit/runtime",
-      "version": "1.85.0",
+      "version": "1.87.0",
       "sourceDirectory": "packages/runtime",
       "entrypoints": [
         {
@@ -2002,7 +2161,7 @@
     },
     {
       "name": "@copilotkit/sdk-js",
-      "version": "1.85.0",
+      "version": "1.87.0",
       "sourceDirectory": "packages/sdk-js",
       "entrypoints": [
         {
@@ -2116,7 +2275,7 @@
     },
     {
       "name": "@copilotkit/shared",
-      "version": "1.85.0",
+      "version": "1.87.0",
       "sourceDirectory": "packages/shared",
       "entrypoints": [
         {
@@ -2199,7 +2358,7 @@
     },
     {
       "name": "@copilotkit/sqlite-runner",
-      "version": "1.85.0",
+      "version": "1.87.0",
       "sourceDirectory": "packages/sqlite-runner",
       "entrypoints": [
         {
@@ -2276,7 +2435,7 @@
     },
     {
       "name": "@copilotkit/voice",
-      "version": "1.85.0",
+      "version": "1.87.0",
       "sourceDirectory": "packages/voice",
       "entrypoints": [
         {
@@ -2345,7 +2504,7 @@
     },
     {
       "name": "@copilotkit/vue",
-      "version": "1.85.0",
+      "version": "1.87.0",
       "sourceDirectory": "packages/vue",
       "entrypoints": [
         {
@@ -2513,7 +2672,7 @@
     },
     {
       "name": "@copilotkit/web-components",
-      "version": "1.85.0",
+      "version": "1.87.0",
       "sourceDirectory": "packages/web-components",
       "entrypoints": [
         {
@@ -2600,7 +2759,7 @@
     },
     {
       "name": "@copilotkit/web-inspector",
-      "version": "1.85.0",
+      "version": "1.87.0",
       "sourceDirectory": "packages/web-inspector",
       "entrypoints": [
         {

@@ -58,12 +58,14 @@ builder that calls the network every time adds one call per request.
 If the builder throws or rejects, that request is not sent and `onError`
 gets `header_resolution_failed`.
 
-Re-passing the same builder function is a no-op, and so is passing a new
-function through the `headers` prop: the provider keeps one stable wrapper for
-any builder. On a user switch, remount the provider (for example with a `key`),
-or call `copilotkit.value.setHeaders(...)` with a new function or a record, so
-Inspector metadata and thread lists reload for the new user. This does not
-refetch the runtime's `/info`.
+Passing the same builder again does nothing. Passing a new builder function
+through the `headers` prop also does nothing, because the provider keeps one
+stable wrapper for any builder. When the user changes, do one of these:
+
+- Remount the provider, for example with a `key`.
+- Call `copilotkit.value.setHeaders(...)` with a new function or a record. The
+  Inspector metadata and thread lists reload for the new user. The runtime's
+  `/info` is not fetched again.
 
 `copilotkit.value.headers` is the last resolved value. Use
 `await copilotkit.value.resolveHeaders()` for your own requests.
@@ -96,8 +98,8 @@ bearer token in core headers if those agents point at a third party.
   Rewrites the message list sent to the agent on every run.
 
 CopilotKit sends the whole thread with each request. When your agent already
-stores the conversation — a LangGraph checkpointer, a Mastra memory store, a
-Strands `SessionManager` — most of that payload is waste, and an agent that
+stores the conversation (a LangGraph checkpointer, a Mastra memory store, a
+Strands `SessionManager`), most of that payload is waste, and an agent that
 merges the inbound list with its own store can show the model every turn twice.
 
 Return the messages to send:
@@ -172,7 +174,7 @@ const properties: CopilotKitProviderProps["properties"] = {
 </PropertyReference>
 
 <PropertyReference name="selfManagedAgents" type="Record<string, AbstractAgent>" default="{}">
-  Self-managed agents keyed by agent ID. Merged with `agents__unsafe_dev_only` (these take precedence on key collisions).
+  Self-managed agents keyed by agent ID. Merged with `agents__unsafe_dev_only`. On a key collision, the agent in `selfManagedAgents` wins.
 </PropertyReference>
 
 <PropertyReference name="renderToolCalls" type="VueToolCallRenderer<any>[]">
@@ -180,11 +182,11 @@ const properties: CopilotKitProviderProps["properties"] = {
 </PropertyReference>
 
 <PropertyReference name="renderActivityMessages" type="VueActivityMessageRenderer<unknown>[]" default="[]">
-  Renderers for activity messages, mapping an activity type and content schema to a Vue component. The built-in MCP Apps renderer is always merged in automatically; the generative UI and Open Generative UI renderers are merged in when those features are active.
+  Renderers for activity messages, mapping an activity type and content schema to a Vue component. The built-in MCP Apps renderer is always merged in automatically; the A2UI and Open Generative UI renderers are merged in when those features are active.
 </PropertyReference>
 
 <PropertyReference name="renderCustomMessages" type="VueCustomMessageRenderer[]" default="[]">
-  Renderers for custom message types.
+  Renderers that draw extra content before or after each message. Each renderer receives the `message`, its `position` (`"before"` or `"after"`), and run metadata. Set `agentId` to limit a renderer to one agent.
 </PropertyReference>
 
 <PropertyReference name="frontendTools" type="VueFrontendTool[]" default="[]">
@@ -203,6 +205,10 @@ const properties: CopilotKitProviderProps["properties"] = {
   Controls the CopilotKit Inspector during development. It is enabled by
   default in browser development builds and is never loaded in production or
   during SSR. In a Vue template, pass `:enable-inspector="false"` to disable it.
+
+  2.0 removed the `showDevConsole` prop and its error banners. Runtime, agent,
+  and tool errors show in the Inspector. To handle them in your code, use
+  `onError`.
 </PropertyReference>
 
 <PropertyReference name="onError" type="(event: { error: Error; code: CopilotKitCoreErrorCode; context: Record<string, any> }) => void | Promise<void>">
@@ -230,8 +236,34 @@ function handleError(event: {
 
 </PropertyReference>
 
+<PropertyReference name="a2ui" type="{ theme?: A2UITheme; catalog?: any; loadingComponent?: Component; includeSchema?: boolean; recovery?: A2UIRecoveryRendererOptions }">
+  Configuration for the A2UI (Agent-to-UI) renderer. The built-in A2UI renderer activates automatically when the runtime reports that `a2ui` is configured in `CopilotRuntime`, so this prop is optional and only needed to override the theme, supply a custom component `catalog`, set a `loadingComponent`, or toggle whether the schema is included (`includeSchema`).
+
+  `includeSchema` defaults to `true`, which sends the catalog's component schemas and the A2UI generation and design guidelines to the agent as context. With `includeSchema: false`, the agent still receives the catalog ID and the names of the catalog's custom components, without their JSON schemas or the guidelines. A LangGraph agent that uses the CopilotKit middleware's injected A2UI tool then gives its A2UI subagent the component names only. To give the subagent more detail, pass a composition guide through the middleware's A2UI guidelines: `a2uiParams.guidelines.compositionGuide` in TypeScript, or `a2ui_params["guidelines"]["composition_guide"]` in Python.
+
+  Until a surface paints, the A2UI middleware sets a `status` on the activity, and the chat shows it in place:
+
+  - `"building"`: a skeleton with "Building interface" and a token count. A `loadingComponent` replaces this state.
+  - `"retrying"`: the same skeleton. When the retry takes longer than `recovery.showAfterMs` (default `2000`), or the attempt number reaches `recovery.showAfterAttempts` (default `2`), the label changes to "Retrying generation… (2/3 attempts)".
+  - `"failed"`: a "Couldn't generate the UI" card.
+
+  `recovery.debugExposure` sets how much retry and error detail these states show: `"hidden"`, `"collapsed"` (the default, in a closed `<details>`), or `"verbose"` (open). A `debugExposure` that the middleware sets on the activity wins over this option.
+
+```vue
+<template>
+  <CopilotKitProvider
+    runtime-url="/api/copilotkit"
+    :a2ui="{ theme: myCustomTheme }"
+  >
+    <!-- ... your app ... -->
+  </CopilotKitProvider>
+</template>
+```
+
+</PropertyReference>
+
 <PropertyReference name="generativeUI" type="GenerativeUIConfig">
-  Turns on native generative UI. The agent renders your Vue components in the chat, or in a [`GenerativeUISurface`](/reference/vue/components/GenerativeUISurface) on the page. Import the types from `@copilotkit/vue/v2/generative-ui`. When you leave it out and the runtime has generative UI on, the provider uses the standard catalog (`standardUI`).
+  Experimental. Turns on native generative UI. The agent renders your Vue components in the chat, or in a [`GenerativeUISurface`](/reference/vue/components/GenerativeUISurface) on the page. Import the types from `@copilotkit/vue/v2/generative-ui`.
 
 Bind it in camelCase, as `:generativeUI`. Vue reads the kebab-case `:generative-ui` as a different prop (`generativeUi`), so the config does not reach the provider.
 
@@ -330,10 +362,3 @@ For a full walkthrough, see [Surfaces](/generative-ui/components/surfaces) and [
 ```
 
 </PropertyReference>
-
-## Related
-
-- [`useCopilotKit`](/reference/vue/hooks/useCopilotKit) -- Low-level composable for accessing the provider context
-- [`useAgent`](/reference/vue/hooks/useAgent) -- High-level composable for accessing agent instances
-- [`useFrontendTool`](/reference/vue/hooks/useFrontendTool) -- Register frontend tools dynamically
-- [`useHumanInTheLoop`](/reference/vue/hooks/useHumanInTheLoop) -- Register human-in-the-loop tools dynamically

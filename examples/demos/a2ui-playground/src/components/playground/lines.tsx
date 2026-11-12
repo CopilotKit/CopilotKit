@@ -23,12 +23,8 @@ import {
   lineId,
   splitStatements,
 } from "@/lib/express-lines";
-import {
-  latestComponents,
-  type A2UIOp,
-  type RunLine,
-  type RunRecord,
-} from "@/lib/run-store";
+import { latestComponents } from "@/lib/run-store";
+import type { A2UIOp, RunLine, RunRecord } from "@/lib/run-store";
 import { useDecompiled } from "./json-tab";
 import { sendable } from "./sendable";
 
@@ -132,7 +128,7 @@ const NO_LINES: RunLine[] = [];
 /** What a run is doing: its latest step ("First token" is a timing mark, not a step). */
 export const runStatus = (run: RunRecord) =>
   [...run.events]
-    .reverse()
+    .toReversed()
     .find((e) => STATUS_KINDS.has(e.kind) && e.label !== "First token")
     ?.label ?? "Sending the prompt";
 
@@ -169,7 +165,7 @@ export function useShownLines({
         })),
       );
       const format: LineFormat =
-        [...written].reverse().find((l) => l.kind === "line")?.format ??
+        [...written].toReversed().find((l) => l.kind === "line")?.format ??
         "express";
       const chars = written.reduce(
         (a, l) => a + (l.kind === "line" ? l.text.length : 0),

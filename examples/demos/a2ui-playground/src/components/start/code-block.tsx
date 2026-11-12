@@ -1,6 +1,7 @@
 import { cn } from "@/lib/utils";
 import { CopyButton } from "./copy-button";
-import { highlightCode, type Lang } from "./highlight";
+import { highlightCode } from "./highlight";
+import type { Lang } from "./highlight";
 
 /** A code file: its path in a header bar, a copy button, and the highlighted source. */
 export function CodeBlock({

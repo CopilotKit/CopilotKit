@@ -22,6 +22,10 @@ const headers = {
 };
 const predecessorPolicySha256 =
   "4ded223bb02ea0cdf7ffed4fb8f78b70fbb50c9f74ae82d34addfc94f712c751";
+// Superseded intermediate policy (docs-preview only); no longer a valid publisher.
+const docsPreviewOnlyPolicySha256 =
+  "d3a7fe0c6eeda2fce0dc73779d2e19fdfbf9174abeaa07468b3aca21bd097410";
+const bridgedPermanentNames = ["docs-preview", "showcase-openai-agents-python"];
 const now = new Date("2026-11-05T12:20:00.000Z");
 const recoveryRun: RunRecord = {
   runId: "policy-recovery-test",
@@ -130,14 +134,14 @@ it("authenticates a fresh snapshot and acknowledges its exact bytes and policy",
 });
 
 it.each(["image-gate", "ruby-promotion", "harness"])(
-  "recovers the reviewed docs-preview policy transition for %s",
+  "recovers the reviewed permanent-services policy transition for %s",
   async (consumer) => {
     vi.stubEnv("SHOWCASE_REGISTRY_CONSUMER", consumer);
     // Any future policy change must make this recovery test fail for review.
     const predecessor = {
       ...DISPOSABLE_LIFECYCLE_POLICY,
       permanentServices: DISPOSABLE_LIFECYCLE_POLICY.permanentServices.filter(
-        ({ name }) => name !== "docs-preview",
+        ({ name }) => !bridgedPermanentNames.includes(name),
       ),
     };
     expect(sha256(JSON.stringify(predecessor))).toBe(predecessorPolicySha256);
@@ -173,17 +177,20 @@ it.each(["image-gate", "ruby-promotion", "harness"])(
   },
 );
 
-it.each([
-  ["name", "permanent-collision"],
-  ["serviceId", "permanent-collision"],
-  ["image", "unapproved-image"],
-  ["environment", "forbidden-environment"],
-])(
-  "still enforces current %s protection during recovery",
-  async (collision, code) => {
+it.each(
+  bridgedPermanentNames.flatMap((permanentName) => [
+    [permanentName, "name", "permanent-collision"],
+    [permanentName, "serviceId", "permanent-collision"],
+    [permanentName, "image", "unapproved-image"],
+    [permanentName, "environment", "forbidden-environment"],
+  ]),
+)(
+  "still enforces current %s %s protection during recovery",
+  async (permanentName, collision, code) => {
     const permanent = DISPOSABLE_LIFECYCLE_POLICY.permanentServices.find(
-      ({ name }) => name === "docs-preview",
+      ({ name }) => name === permanentName,
     )!;
+    expect(permanent).toBeDefined();
     const snapshot = JSON.stringify({
       schemaVersion: 1,
       runs: [
@@ -265,6 +272,46 @@ it.each([
     expect(fetcher).toHaveBeenCalledTimes(1);
   },
 );
+
+it("refuses the superseded docs-preview-only publisher", async () => {
+  const fetcher = vi.fn(
+    async () =>
+      new Response(bytes, {
+        headers: { ...headers, "x-policy-sha256": docsPreviewOnlyPolicySha256 },
+      }),
+  );
+  vi.stubGlobal("fetch", fetcher);
+  await expect(
+    readRailwayLifecycleEvidence(
+      endpoint,
+      DISPOSABLE_LIFECYCLE_POLICY,
+      new Date(),
+    ),
+  ).resolves.toMatchObject({
+    status: "invalid",
+    issues: [{ code: "records-policy-mismatch" }],
+  });
+  expect(fetcher).toHaveBeenCalledTimes(1);
+});
+
+it("refuses the reverse direction: current publisher, predecessor validator", async () => {
+  const predecessor = {
+    ...DISPOSABLE_LIFECYCLE_POLICY,
+    permanentServices: DISPOSABLE_LIFECYCLE_POLICY.permanentServices.filter(
+      ({ name }) => !bridgedPermanentNames.includes(name),
+    ),
+  };
+  expect(sha256(JSON.stringify(predecessor))).toBe(predecessorPolicySha256);
+  const fetcher = vi.fn(async () => new Response(bytes, { headers }));
+  vi.stubGlobal("fetch", fetcher);
+  await expect(
+    readRailwayLifecycleEvidence(endpoint, predecessor, new Date()),
+  ).resolves.toMatchObject({
+    status: "invalid",
+    issues: [{ code: "records-policy-mismatch" }],
+  });
+  expect(fetcher).toHaveBeenCalledTimes(1);
+});
 
 it.each([
   [headers["x-policy-sha256"], "x-policy-sha256"],

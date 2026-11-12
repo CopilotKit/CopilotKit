@@ -1,0 +1,70 @@
+---
+title: "Slots (Subcomponents)"
+description: Replace an assistant message or another part of the Angular chat with your own standalone component or template.
+icon: "lucide/Brush"
+doc_type: how-to
+---
+
+Swap one part of the prebuilt chat from [Prebuilt Components](/angular/prebuilt-components)
+for your own standalone component or template. The rest of the chat keeps working as before.
+
+## Replace an assistant message
+
+Pass a standalone component class to `assistantMessageComponent`. CopilotKit
+creates it for each assistant message and binds its `message` input.
+
+```ts title="src/app/custom-assistant-message.component.ts"
+import { ChangeDetectionStrategy, Component, input } from "@angular/core";
+
+type AssistantMessage = {
+  id: string;
+  role: "assistant";
+  content?: string;
+};
+
+@Component({
+  selector: "app-custom-assistant-message",
+  changeDetection: ChangeDetectionStrategy.OnPush,
+  template: `
+    <article class="answer">
+      <span class="answer__label">Assistant</span>
+      <p>{{ message().content }}</p>
+    </article>
+  `,
+})
+export class CustomAssistantMessageComponent {
+  readonly message = input.required<AssistantMessage>();
+}
+```
+
+```ts title="src/app/support-chat.component.ts"
+import { Component } from "@angular/core";
+import { CopilotChat } from "@copilotkit/angular";
+import { CustomAssistantMessageComponent } from "./custom-assistant-message.component";
+
+@Component({
+  selector: "app-support-chat",
+  imports: [CopilotChat],
+  template: `
+    <copilot-chat
+      [assistantMessageComponent]="assistantMessageComponent"
+      assistantMessageClass="support-answer"
+    />
+  `,
+})
+export class SupportChatComponent {
+  protected readonly assistantMessageComponent =
+    CustomAssistantMessageComponent;
+}
+```
+
+`CopilotChat` also accepts component or template slots for reasoning messages,
+the composer, and content after the transcript. Use `CopilotChatView` directly
+when you need its scroll view, disclaimer, feather, input-container, or
+scroll-to-bottom slots.
+
+## Next steps
+
+- [CopilotChat API](/reference/angular/components/CopilotChat)
+- [CopilotChatView slots](/reference/angular/components/CopilotChatView)
+- [CSS customization](/angular/custom-look-and-feel/css)

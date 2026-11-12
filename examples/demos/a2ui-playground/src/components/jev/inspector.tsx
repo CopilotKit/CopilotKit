@@ -3,15 +3,12 @@
 import { useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Check } from "lucide-react";
 import { JsonView } from "@/components/app/json-view";
-import { USE_CASES, type UseCaseId } from "@/jev/usecases";
+import { USE_CASES } from "@/jev/usecases";
+import type { UseCaseId } from "@/jev/usecases";
 import { cn } from "@/lib/utils";
 import { LAYOUT_LABEL } from "./parts";
-import {
-  ms,
-  type JevEvent,
-  type JevResult,
-  type JevRunState,
-} from "./use-jev-run";
+import { ms } from "./use-jev-run";
+import type { JevEvent, JevResult, JevRunState } from "./use-jev-run";
 
 /** transitions.dev tabs sliding (the playground inspector's tabs). */
 export function SlidingTabs<T extends string>({

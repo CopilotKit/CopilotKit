@@ -1,0 +1,60 @@
+{
+  "_meta": {
+    "description": "D6 fixtures for openai-agents-python / shared-state-read",
+    "created": "2026-11-03",
+    "copiedFrom": "ms-agent-python"
+  },
+  "fixtures": [
+    {
+      "_comment": "D5 fixture for /demos/shared-state-read (recipe-editor) turn 1. Substring 'Italian pasta recipe' is unique. Text-only — agent has no tools.",
+      "match": {
+        "userMessage": "Italian pasta recipe",
+        "turnIndex": 0,
+        "context": "openai-agents-python"
+      },
+      "response": {
+        "content": "Great choice — looking at your current recipe state, I'd build an Italian pasta around the existing ingredients: a quick spaghetti aglio e olio, finishing with parmesan and a squeeze of lemon. Want me to suggest substitutions or adjust the cooking time?"
+      }
+    },
+    {
+      "_comment": "D5 fixture for /demos/shared-state-read (recipe-editor) turn 2. Reply mentions recipe-context tokens so the probe's soft assertion lands. No turnIndex gate — multi-turn probe; turnIndex would 503 on turn 2.",
+      "match": {
+        "userMessage": "healthier with more vegetables",
+        "context": "openai-agents-python"
+      },
+      "response": {
+        "content": "Here are a few healthier ingredient additions for the recipe: roasted bell peppers, baby spinach folded in at the end, and cherry tomatoes for brightness. The Italian flavor profile holds up well, and the vegetable swap keeps the dish lighter without losing the comfort of pasta."
+      }
+    },
+    {
+      "_comment": "shared-state-read e2e pill. google-antigravity's leg called its get_app_context / get_shared_state tool first; here the context and state are already in the instructions, so the reply comes straight away.",
+      "match": {
+        "userMessage": "Suggest some creative variations of this recipe.",
+        "context": "openai-agents-python"
+      },
+      "response": {
+        "content": "Three variations on your recipe: swap the flour for chickpea flour for a gluten-free version, turn the carrots into a roasted carrot and ginger soup, or bake them into a spiced carrot cake with the same 45-minute timing."
+      }
+    },
+    {
+      "_comment": "shared-state-read e2e pill. google-antigravity's leg called its get_app_context / get_shared_state tool first; here the context and state are already in the instructions, so the reply comes straight away.",
+      "match": {
+        "userMessage": "Improve the recipe",
+        "context": "openai-agents-python"
+      },
+      "response": {
+        "content": "To improve the recipe, give it a clear title, add salt, eggs and butter to the ingredients, and break the instructions into steps after preheating the oven to 350°F. Apply the changes in the form and I'll review them."
+      }
+    },
+    {
+      "_comment": "shared-state-read e2e pill. google-antigravity's leg called its get_app_context / get_shared_state tool first; here the context and state are already in the instructions, so the reply comes straight away.",
+      "match": {
+        "userMessage": "What recipe am I making?",
+        "context": "openai-agents-python"
+      },
+      "response": {
+        "content": "You're making \"Make Your Recipe\": an intermediate, 45-minute recipe with 3 large grated carrots and 2 cups of all-purpose flour, starting with preheating the oven to 350°F."
+      }
+    }
+  ]
+}

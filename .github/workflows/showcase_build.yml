@@ -61,6 +61,7 @@ on:
           - pydantic-ai
           - google-adk
           - google-antigravity
+          - openai-agents-python
           - ag2
           - agno
           - llamaindex
@@ -142,6 +143,8 @@ jobs:
           # single-line strings, but mixing styles (list vs. string)
           # in the same filters block is easy to misread during review.
           filters: |
+            shared_theme:
+              - 'showcase/integrations/_shared/ts/theme.ts'
             workflow_config:
               - '.github/workflows/showcase_build_check.yml'
             angular:
@@ -178,6 +181,8 @@ jobs:
               - 'showcase/integrations/google-adk/**'
             google_antigravity:
               - 'showcase/integrations/google-antigravity/**'
+            openai_agents_python:
+              - 'showcase/integrations/openai-agents-python/**'
             ag2:
               - 'showcase/integrations/ag2/**'
             agno:
@@ -319,6 +324,7 @@ jobs:
             {"dispatch_name":"pydantic-ai","filter_key":"pydantic_ai","context":"showcase/integrations/pydantic-ai","image":"showcase-pydantic-ai","railway_id":"0a106173-2282-4887-a994-0ca276a99d69","timeout":25,"build_args":"","dockerfile":"","health_path":"/api/health"},
             {"dispatch_name":"google-adk","filter_key":"google_adk","context":"showcase/integrations/google-adk","image":"showcase-google-adk","railway_id":"87f60507-5a3d-4b8a-9e23-2b1de85d939c","timeout":25,"build_args":"","dockerfile":"","health_path":"/api/health"},
             {"dispatch_name":"google-antigravity","filter_key":"google_antigravity","context":"showcase/integrations/google-antigravity","image":"showcase-google-antigravity","railway_id":"6441783f-3e93-40cf-b75d-872c6713d7f2","timeout":30,"build_args":"","dockerfile":"","health_path":"/api/health"},
+            {"dispatch_name":"openai-agents-python","filter_key":"openai_agents_python","context":"showcase/integrations/openai-agents-python","image":"showcase-openai-agents-python","railway_id":"be6a4cb2-6258-4994-bd20-4c6e0eb37e96","timeout":25,"build_args":"","dockerfile":"","health_path":"/api/health"},
             {"dispatch_name":"ag2","filter_key":"ag2","context":"showcase/integrations/ag2","image":"showcase-ag2","railway_id":"4a37481b-f264-4eb7-a9cd-0a9ebb9ac05c","timeout":25,"build_args":"","dockerfile":"","health_path":"/api/health"},
             {"dispatch_name":"agno","filter_key":"agno","context":"showcase/integrations/agno","image":"showcase-agno","railway_id":"32cab80b-e329-45bd-9c73-c4e1ddc94305","timeout":25,"build_args":"","dockerfile":"","health_path":"/api/health"},
             {"dispatch_name":"llamaindex","filter_key":"llamaindex","context":"showcase/integrations/llamaindex","image":"showcase-llamaindex","railway_id":"285386e8-492d-4cb8-b632-0a7d4607378f","timeout":25,"build_args":"","dockerfile":"","health_path":"/api/health"},
@@ -367,6 +373,10 @@ jobs:
               ($dispatch == "" and (
                 ($workflow_changed or ($changes | index("workflow_config") != null)) or
                 ($changes | index($fk) != null) or
+                (($changes | index("shared_theme") != null) and (
+                  (.context | startswith("showcase/integrations/")) or
+                  (.dispatch_name | IN("shell", "shell-dojo", "shell-dashboard", "shell-docs"))
+                )) or
                 (($changes | index("angular") != null) and (
                   (.context | startswith("showcase/integrations/")) or
                   .dispatch_name == "shell"
@@ -427,7 +437,7 @@ jobs:
       # drifted from package.json whenever the repo bumped pnpm —
       # resulting in lockfile-vs-engine mismatches that only surfaced on
       # the slow `--frozen-lockfile` path.
-      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 22.x
@@ -479,7 +489,7 @@ jobs:
 
       - name: Setup pnpm
         if: needs.detect-changes.outputs.needs_angular == 'true'
-        uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+        uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
 
       - name: Setup Node
         if: needs.detect-changes.outputs.needs_angular == 'true'
@@ -521,11 +531,11 @@ jobs:
 
       - name: Setup pnpm
         if: needs.detect-changes.outputs.needs_vue == 'true'
-        uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+        uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
 
       - name: Setup Node
         if: needs.detect-changes.outputs.needs_vue == 'true'
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 22.x
 
@@ -589,7 +599,7 @@ jobs:
 
       - name: Download canonical Vue browser artifact
         if: startsWith(matrix.service.context, 'showcase/integrations/')
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: showcase-vue-browser-${{ github.sha }}
           path: ${{ runner.temp }}/showcase-vue-browser
@@ -598,7 +608,7 @@ jobs:
         uses: depot/setup-action@91bc8495a33ebfc504ffc89e5674379ccf23c29c # v1
 
       - name: Login to GHCR
-        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -693,7 +703,7 @@ jobs:
 
       - name: Build and push
         if: ${{ matrix.service.skip_build != true }}
-        uses: depot/build-push-action@98e78adca7817480b8185f474a400b451d74e287 # v1.18.0
+        uses: depot/build-push-action@0f27be7c41d76663a98518dfe68f1c46582242c4 # v1.19.0
         with:
           project: m2kw2wmmcp
           context: ${{ matrix.service.context }}
@@ -927,14 +937,14 @@ jobs:
         uses: depot/setup-action@91bc8495a33ebfc504ffc89e5674379ccf23c29c # v1
 
       - name: Login to GHCR
-        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build and push starter image
-        uses: depot/build-push-action@98e78adca7817480b8185f474a400b451d74e287 # v1.18.0
+        uses: depot/build-push-action@0f27be7c41d76663a98518dfe68f1c46582242c4 # v1.19.0
         with:
           project: m2kw2wmmcp
           context: examples/starters/${{ matrix.starter.slug }}
@@ -1016,7 +1026,7 @@ jobs:
           persist-credentials: false
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+        uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
       - name: Setup Node
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
@@ -1137,7 +1147,7 @@ jobs:
       # "unknown revision" and advances anyway — i.e. without this step it
       # would silently FAIL OPEN and never actually guard.
       - name: Login to GHCR
-        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -1353,7 +1363,7 @@ jobs:
       # these packages are private, and an unauthenticated read makes the
       # guard fail open instead of guarding.
       - name: Login to GHCR
-        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}

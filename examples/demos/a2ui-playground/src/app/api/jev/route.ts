@@ -1,7 +1,8 @@
 import { searchPlaces } from "@/agent/apis";
 import { runJev } from "@/jev/decide.server";
 import { parseWhere } from "@/jev/usecases";
-import { USE_CASES, type UseCaseId } from "@/jev/usecases";
+import { USE_CASES } from "@/jev/usecases";
+import type { UseCaseId } from "@/jev/usecases";
 import { admitAgentRun, MAX_BODY, readBody, tooLarge } from "@/lib/limits";
 
 export const runtime = "nodejs";

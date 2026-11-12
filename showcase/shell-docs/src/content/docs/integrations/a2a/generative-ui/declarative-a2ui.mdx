@@ -4,7 +4,7 @@ icon: "lucide/Bot"
 description: Use A2UI to declaratively generate user interfaces.
 ---
 
-Build an A2A agent, configure it to use A2UI, use the A2UI composer to generate widgets, and render them in your CopilotKit powered app.
+An A2A agent answers in text unless it sends UI. With A2UI, the agent sends a description of the UI, such as a list of cards, and CopilotKit draws it in the chat. Start from the A2A starter, then use the A2UI Composer to design components.
 
 <div>
   <video
@@ -34,14 +34,26 @@ Build an A2A agent, configure it to use A2UI, use the A2UI composer to generate 
     cd CopilotKit/examples/starters/a2a-a2ui
     ```
 
-    The archived `copilotkit/with-a2a-a2ui` starter now lives at this monorepo path. The current starter uses its local v0.8 renderer and emits a JSON list of v0.8 operation objects. This page documents that accepted starter payload. Migrating the starter to the v0.9 renderer and `a2ui_operations` envelope requires changes outside this documentation target.
+    The starter uses its own v0.8 renderer. Its agent emits a JSON list of v0.8 operation objects.
 
   </Step>
   <Step>
     ### Install dependencies
 
+    The install also sets up the Python agent. You need Python 3.13 or later and `uv`.
+
     ```
     pnpm install
+    ```
+
+  </Step>
+  <Step>
+    ### Add your Gemini API key
+
+    Create `agent/.env` with your key. The agent does not start without it.
+
+    ```bash title="agent/.env"
+    GEMINI_API_KEY=your-gemini-api-key
     ```
 
   </Step>
@@ -57,12 +69,18 @@ Build an A2A agent, configure it to use A2UI, use the A2UI composer to generate 
   <Step>
     ### Configure your agent to use A2UI
 
+    The starter's agent already uses A2UI:
+
+    - `agent/__main__.py` lists the A2UI extension on the agent card.
+    - `agent/agent_executor.py` switches to the A2UI prompt when the client asks for the extension.
+    - The runtime's `A2AAgent` (from `@ag-ui/a2a`) asks for the extension on every request.
+
   </Step>
 
   <Step>
     ### Setting up your agent with components
 
-    The starter's current agent accepts the v0.8 operation list below. Keep the operation order and shapes when adding your own components; each list entry is sent as an individual A2A data part by the starter agent.
+    The starter's agent accepts the v0.8 operation list below. The starter agent sends each list entry as a separate A2A data part. The starter's renderer (`app/components/a2ui-v0-8-renderer.tsx`) draws only this list: the `title-heading` text and one card per entry in `items`. It does not draw other components.
 
     ```python title="agent/prompt_builder.py"
       RESTAURANT_UI_EXAMPLES = """
@@ -117,41 +135,40 @@ Build an A2A agent, configure it to use A2UI, use the A2UI composer to generate 
       # ... more examples below
       ```
 
-    The widgets are injected into the agent's prompt, in this case using the `RESTAURANT_UI_EXAMPLES` variable.
-    Widgets are defined for the agent using an example of the JSON array it should output, wrapped in a comment block.
+    The starter adds the component examples to the agent's prompt with the `RESTAURANT_UI_EXAMPLES` variable.
+    Each component is defined for the agent by an example of the JSON array that the agent outputs, wrapped in marker lines:
     - A comment indicating the start of the example
     - beginRendering: Starts the v0.8 surface
     - surfaceUpdate: Defines the v0.8 component tree
     - dataModelUpdate: Provides the v0.8 data model contents
     - A comment indicating the end of the example
 
-    In the example repo, all of the widgets are defined in a single variable in the prompt_builder.py file, but you can structure them however you like,
-    they simply need to be injected into the agent's prompt in a clearly delineated way. The v0.9 SDK migration is not demonstrated by this starter page.
+    The starter keeps all examples in one variable in `agent/prompt_builder.py`. You can split them up. Each example must sit between its own BEGIN and END marker lines.
 
-    The current starter's v0.8 renderer displays the `Book Now` control without an `onClick` handler or action dispatch. The button is inert, so no click reaches the agent and the executor's `book_restaurant` branch is not reached. Adding action wiring is outside this documentation-only change.
+    The starter's v0.8 renderer displays the `Book Now` control without an `onClick` handler or action dispatch. The button is inert, so no click reaches the agent and the executor's `book_restaurant` branch is not reached.
 
   </Step>
   <Step>
     ### Generating components with the A2UI Composer
     If you want an easy way to generate components, you can use the A2UI Composer.
     Go to https://a2ui-composer.ag-ui.com/ to create your own components.
-    The composer will generate the JSON spec for you, all you have to do is copy and paste it into your agent's prompt.
+    The Composer gives you the JSON spec for a component. The starter's renderer in `app/components/a2ui-v0-8-renderer.tsx` draws only the restaurant cards. A Composer component that you paste into the prompt does not render until you replace that renderer.
     <a href="https://a2ui-editor.ag-ui.com/gallery" target="_blank" rel="noopener noreferrer">
-      <Image 
-        src="/images/a2ui-composer.png" 
-        alt="Agentic Backend to Agentic Application" 
-        width={4096} 
-        height={2304}
-        className="mx-auto w-1/2"
+      <Image
+        src="/images/a2ui-composer.png"
+        alt="The A2UI Composer gallery"
+        width={1583}
+        height={1154}
+        className="w-full"
       />
     </a>
   </Step>
   <Step>
     ### Configuring your application to render A2UI
-    AG-UI handles communicating with your a2a agent, and passes the a2ui messages back and forth as `ActivityMessage` objects.
-    In order to render them in your frontend, you need to configure activity message rendering.
+    AG-UI connects to your A2A agent and passes the A2UI messages to the app as `ActivityMessage` objects.
+    To render them in your frontend, you need to configure activity message rendering.
 
-    The current starter registers its local v0.8 renderer as an activity renderer. The Copilot Runtime converts A2UI v0.9 to the 1.0 surfaces that CopilotKit renders, but it does not convert v0.8, so the starter keeps its own renderer. Set `generativeUI: false` on the `CopilotRuntime`. Otherwise the runtime treats the `a2ui-surface` activity of the agent as v0.9 and drops the v0.8 operations. The setup below mirrors that `app/page.tsx`. For an agent that writes A2UI v0.9, see [Keep a v0.9 agent](/generative-ui/components/from-a2ui#keep-a-v09-agent).
+    The starter registers its own v0.8 renderer with `renderActivityMessages`. This renderer draws the restaurant cards with Tailwind classes. The setup below is a trimmed copy of the starter's `app/page.tsx`. The starter also passes its A2UI theme with `a2ui={{ theme }}` and adds a threads drawer. Neither one is needed to render the cards. For the v0.9 renderer and the `a2ui_operations` envelope, see [A2UI](/a2a/generative-ui/a2ui).
 
     ```tsx title="app/page.tsx"
     "use client";
@@ -184,9 +201,9 @@ Build an A2A agent, configure it to use A2UI, use the A2UI composer to generate 
 
   </Step>
   <Step>
-    ### Give it a try!
+    ### Give it a try
 
-    That's it! When your agent generates an A2UI message, it will be rendered in your frontend. The current starter's v0.8 `Book Now` control is inert because its renderer doesn't attach a click handler or dispatch an action. No button click reaches the agent until that starter behavior is implemented.
+    Open http://localhost:3000 and ask: `Find me the top 3 Chinese restaurants in New York`. The chat draws the restaurants as a list of cards.
 
   </Step>
 </Steps>

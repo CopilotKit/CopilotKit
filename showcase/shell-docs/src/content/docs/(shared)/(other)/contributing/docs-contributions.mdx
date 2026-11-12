@@ -1,0 +1,80 @@
+---
+title: Documentation Contributions
+---
+
+We move quickly and our docs sometimes lag the code, so contributions to the documentation site are very welcome.
+
+The documentation site lives in `showcase/shell-docs` inside the [CopilotKit](https://github.com/CopilotKit/CopilotKit) monorepo. It is a [Fumadocs](https://fumadocs.dev/) site. Author pages under `showcase/shell-docs/src/content/`.
+
+## Prerequisites
+
+- [Node.js](https://nodejs.org/en/) 20.x or later
+- [pnpm](https://pnpm.io/) v10.x installed globally (`npm i -g pnpm@^10`)
+- [Nx](https://nx.dev/): drives all tasks in the monorepo. You don't need to install it globally; the repo's `pnpm install` provides everything.
+
+## How To Contribute
+
+<Steps>
+  <Step>
+  ### Fork and clone the repository
+
+First, fork the [CopilotKit GitHub repository](https://github.com/CopilotKit/CopilotKit), then clone your fork:
+
+```shell
+git clone https://github.com/<your-username>/CopilotKit
+cd CopilotKit
+pnpm install
+```
+
+`pnpm install` at the repo root installs every package in the workspace and wires up the lefthook pre-commit hook (lint, format, test). You must run it once before your first commit.
+
+  </Step>
+  <Step>
+  ### Run the documentation site locally
+
+The shell-docs site is a standalone npm app, so the root `pnpm install` does not install its dependencies. Install and run it from its own folder:
+
+```shell
+cd showcase/scripts && npm install
+cd ../shell-docs && npm install
+npm run dev
+```
+
+The site is served at [http://localhost:3003](http://localhost:3003).
+
+  </Step>
+  <Step>
+  ### Make your changes
+
+Documentation pages live under:
+
+```
+showcase/shell-docs/src/content/docs/
+```
+
+A few conventions to keep in mind:
+
+- The site is built with **Fumadocs**. Content is authored in MDX. Frontmatter (`title`, `description`, `icon`, etc.) drives the sidebar and metadata.
+- For code samples, use **`<Snippet>`** to show code from a showcase demo under `showcase/integrations/<framework>/...`. Do not paste the code inline.
+- Mark the code in the demo with `// @region[name]` and `// @endregion[name]`. To see the pattern, look at how an adjacent page references the same integration.
+- Reference pages for hooks, components, and runtime APIs use a `<PropertyReference>` component to render the prop / parameter table. Match the style of an existing reference page in the same directory.
+
+<Callout type="info">
+Please review your changes for grammar, spelling, and formatting, and confirm that links, code blocks, and images render correctly in the local dev server before opening a PR.
+</Callout>
+
+  </Step>
+  <Step>
+
+  ### Review changes and submit a pull request
+
+When you commit, the lefthook pre-commit hook lints and formats staged code files and tests changed packages. It does not check `.mdx` pages. If the hook fails, fix the issue and commit again. Do not bypass the hook.
+
+When you're happy with the result, push and open a PR against the [CopilotKit/CopilotKit](https://github.com/CopilotKit/CopilotKit/pulls) repo. Thank you for your contribution.
+
+  </Step>
+</Steps>
+
+## Need help?
+
+If you need help with anything, please don't hesitate to reach out on [Discord](https://discord.gg/6dffbvGU3D). There's a dedicated [#contributing](https://discord.com/channels/1122926057641742418/1183863183149117561) channel.
