@@ -358,6 +358,47 @@ function clickLabel(element: Element, redact: Redactor): string | undefined {
   );
 }
 
+/** A `<label>`'s own text: fields inside it, and their values and options, are left out. */
+function captionText(label: HTMLLabelElement) {
+  if (label.closest("[data-copilotkit-ignore]") !== null) return "";
+  const copy = label.cloneNode(true) as Element;
+  for (const field of Array.from(copy.querySelectorAll(EDITABLE)))
+    field.remove();
+  return safeText(copy, false);
+}
+
+/**
+ * A short name for an edited field, from the first source that yields one:
+ * `aria-labelledby`, `aria-label`, then the field's `<label>` elements. Never
+ * the value, the placeholder, `title`, or the field's own text. For a select,
+ * the visible text of the chosen options follows the name, as in
+ * `Stage: negotiation`.
+ */
+export function fieldLabel(
+  element: Element,
+  redact: Redactor,
+): string | undefined {
+  const labels =
+    "labels" in element && element.labels instanceof NodeList
+      ? Array.from(element.labels as NodeListOf<HTMLLabelElement>)
+      : [];
+  const caption = firstLabel(
+    [
+      () => labelledBy(element),
+      () => element.getAttribute("aria-label"),
+      () => labels.map(captionText).join(" "),
+    ],
+    redact,
+  );
+  if (!(element instanceof HTMLSelectElement)) return caption;
+  const chosen = cleanLabel(
+    Array.from(element.selectedOptions, (option) => option.label).join(", "),
+    redact,
+  );
+  if (!chosen) return caption;
+  return caption ? cleanLabel(`${caption}: ${chosen}`, redact) : chosen;
+}
+
 /** Snapshot live control properties; HTML attributes do not reflect edited values. */
 export function readControlValue(element: Element, redact: Redactor) {
   if (element instanceof HTMLInputElement) {

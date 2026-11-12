@@ -18,6 +18,7 @@ Capture records browser-visible data by default. Your app can exclude or change 
 - URLs, including query strings and hashes, plus the page title and referrer, subject to the redaction rules below.
 - Clicked element text and attributes, plus live control values, subject to the redaction rules below.
 - A short, cleaned name of each clicked control in `target.label`. See [Click labels](#click-labels).
+- A short, cleaned name of each edited field in `target.label`. See [Field labels](#field-labels).
 - Input, select, text area, and editable element values on input and change events.
 - Browser-visible request and response headers and bounded body snapshots.
 - Reply ratings with their comment and the first 500 characters of the rated reply. See [`message.feedback`](#events) below.
@@ -72,7 +73,7 @@ Sequence numbers start from the Core instance's creation time in microseconds. T
 | `page` | `route`, `url`, `title`, `referrer` | Browser, at start |
 | `navigation` | `from`, `to`, `navigationType` | Browser |
 | `click` | `target` (`tag`, `role`, `action`, `text`, `label`, `attributes`, control values, `input`), `route`, `url` | Browser |
-| `input` | `eventType`, `target` (element details and control values), `route`, `url` | Browser |
+| `input` | `eventType`, `target` (element details, `label`, and control values), `route`, `url` | Browser |
 | `network` | `transport`, `method`, `url`, `origin`, `route`, `status`, `durationMs`, `outcome`, `request`, `response` | Browser |
 | `thread.linked` | `threadId` | Core |
 | `message.feedback` | `feedbackId`, `threadId`, `messageId`, `agentId`, `runId`, `rating`, `comment`, `response` | Chat, when a user rates a reply, changes the comment, or removes the rating |
@@ -133,14 +134,14 @@ Capture cleans the chosen name in this order:
 
 Only the matching part is replaced. When no name remains, `label` is omitted. This label cleanup does not change `text`, `attributes`, or control values. Attributes and control values keep their separate credential redaction rules. A clean label does not mean that the rest of the event contains no sensitive data.
 
-`data-copilotkit-action` gives a control an explicit name in `target.action`. To exclude a control, add `data-copilotkit-ignore`. To send clicks without labels, remove the field in `beforeSend`:
+`data-copilotkit-action` gives a control an explicit name in `target.action`. To exclude a control, add `data-copilotkit-ignore`. To send clicks and edits without labels, remove the field in `beforeSend`:
 
 ```ts
 import type { TrajectoryEvent } from "@copilotkit/learning";
 
-function withoutClickLabel(event: TrajectoryEvent): TrajectoryEvent {
+function withoutLabels(event: TrajectoryEvent): TrajectoryEvent {
   const value = event.value;
-  if (event.name !== "click" || !value || typeof value !== "object" || Array.isArray(value)) {
+  if ((event.name !== "click" && event.name !== "input") || !value || typeof value !== "object" || Array.isArray(value)) {
     return event;
   }
   const target = value.target;
@@ -151,7 +152,21 @@ function withoutClickLabel(event: TrajectoryEvent): TrajectoryEvent {
 }
 ```
 
-Pass this function as `learning={{ beforeSend: withoutClickLabel }}` on the React provider.
+Pass this function as `learning={{ beforeSend: withoutLabels }}` on the React provider.
+
+## Field labels
+
+Input events include `target.label`, a short name of the edited field, such as `Greeting`. With this name, Automatic Learning can tell which field a person edits again and again, without the typed text. Capture uses the first of these sources that gives a name:
+
+1. The text of the elements that `aria-labelledby` references, with the same limits as for clicks.
+2. `aria-label`.
+3. The text of the field's `<label>` elements. Fields inside a `<label>`, with their values and options, are left out.
+
+The name never comes from the value, the placeholder, `title`, or the field's own text. Editable content and ARIA text boxes get a name only from `aria-labelledby` or `aria-label`. A `<label>` inside `data-copilotkit-ignore` is not used.
+
+For a select, the visible text of the chosen options follows the name, as in `Deal stage: Negotiation`. Without a name, the label is the option text only. Option text can name a person or a customer. To keep it out, remove the label in `beforeSend`.
+
+Capture cleans field labels with the same steps as click labels, and reads the label when the edit starts. When no name remains, `label` is omitted.
 
 ## Form edit timing
 
