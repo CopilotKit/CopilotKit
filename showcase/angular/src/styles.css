@@ -739,6 +739,7 @@ showcase-root {
 }
 
 .showcase-tool-card.haiku p {
+  /* impeccable-disable-next-line design-system-font -- the haiku demo card sets its poem in a serif on purpose */
   font-family: ui-serif, Georgia, serif;
   font-size: 1rem;
 }
