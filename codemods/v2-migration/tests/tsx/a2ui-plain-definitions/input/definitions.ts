@@ -1,7 +1,9 @@
 import { z } from "zod";
 
 /** A literal string or a data-model path binding. */
-const DynString = z.union([z.string(), z.object({ path: z.string() })]);
+const DynString = z
+  .union([z.string(), z.object({ path: z.string() })])
+  .describe("REF:common_types.json#/$defs/DynamicString");
 
 export const demoDefinitions = {
   Row: {
@@ -26,6 +28,9 @@ export const demoDefinitions = {
     props: z.object({
       airline: DynString,
       price: DynString.optional(),
+      note: z
+        .string()
+        .describe("REF:common_types.json#/$defs/DynamicString|A short note."),
       action: z
         .union([
           z.object({ event: z.object({ name: z.string() }) }),

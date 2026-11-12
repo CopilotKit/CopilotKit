@@ -748,6 +748,15 @@ function typedObjects(
 }
 
 /**
+ * The callee of a call without whitespace: `z\n  .union` is `z.union`.
+ * `undefined` for a node that is not a call.
+ */
+function calleeOf(node: Node | null | undefined): string | undefined {
+  if (node?.kind() !== "call_expression") return undefined;
+  return node.field("function")?.text().replace(/\s/g, "");
+}
+
+/**
  * A prop schema without its trailing `.optional()` and `.describe(text)`
  * calls: the base schema, whether it was optional, and the description.
  */
@@ -822,7 +831,7 @@ function definitionEdits(
   if (
     !propsEntry ||
     propsValue?.kind() !== "call_expression" ||
-    propsValue.field("function")?.text() !== `${z}.object`
+    calleeOf(propsValue) !== `${z}.object`
   )
     return [];
   const shape = unwrap(argumentNodes(propsValue)[0]);
@@ -1420,7 +1429,39 @@ function unionEdits(rootNode: Node, state: State): Edit[] {
 function zodRecordEdits(rootNode: Node, state: State): Edit[] {
   const z = zodName(rootNode);
   if (z === undefined || !state.v09Schemas) return [];
-  return recordEdits(rootNode, z);
+  return [...recordEdits(rootNode, z), ...refMarkerEdits(rootNode)];
+}
+
+/**
+ * `.describe("REF:<ref>|<description>")` was a v0.9 marker that the v0.9
+ * schema export turned into a `$ref`. 2.0 passes a description as is, so
+ * the marker goes and the description after `|` stays.
+ */
+function refMarkerEdits(rootNode: Node): Edit[] {
+  const edits: Edit[] = [];
+  for (const call of rootNode.findAll({ rule: { kind: "call_expression" } })) {
+    const callee = call.field("function");
+    const object = callee?.field("object");
+    if (
+      callee?.kind() !== "member_expression" ||
+      callee.field("property")?.text() !== "describe" ||
+      !object
+    )
+      continue;
+    const args = argumentNodes(call);
+    if (args.length !== 1 || args[0]!.kind() !== "string") continue;
+    const text = args[0]!.text();
+    const quote = text[0]!;
+    const value = text.slice(1, -1);
+    if (!value.startsWith("REF:")) continue;
+    const bar = value.indexOf("|");
+    edits.push(
+      bar === -1
+        ? call.replace(object.text())
+        : args[0]!.replace(`${quote}${value.slice(bar + 1)}${quote}`),
+    );
+  }
+  return edits;
 }
 
 /**
@@ -1440,7 +1481,7 @@ function isV09SchemaFile(rootNode: Node, z: string) {
 function isBindingUnion(call: Node, z: string) {
   const callee = call.field("function");
   const args = argumentNodes(call);
-  if (callee?.text() === `${z}.union` && args[0]?.kind() === "array") {
+  if (calleeOf(call) === `${z}.union` && args[0]?.kind() === "array") {
     return args[0]
       .children()
       .some((item) => item.isNamed() && isPathBinding(item, z));
@@ -1495,7 +1536,7 @@ function exportedDefinitionObjects(rootNode: Node, z: string): Node[] {
       const props = fields && entryNamed(fields, "props");
       return (
         props?.kind() === "pair" &&
-        props.field("value")?.field("function")?.text() === `${z}.object`
+        calleeOf(props.field("value")) === `${z}.object`
       );
     };
     if (entries.every(isDefinition)) result.push(object);
@@ -1514,10 +1555,7 @@ function isTemplateObject(node: Node, z: string) {
 
 /** `z.union([z.array(z.string()), <template>])`: a v0.9 child list. */
 function isTemplateChildUnion(node: Node, z: string) {
-  if (
-    node.kind() !== "call_expression" ||
-    node.field("function")?.text() !== `${z}.union`
-  )
+  if (node.kind() !== "call_expression" || calleeOf(node) !== `${z}.union`)
     return false;
   const array = argumentNodes(node)[0];
   if (array?.kind() !== "array") return false;
@@ -1540,7 +1578,7 @@ function isTemplateChildUnion(node: Node, z: string) {
 function recordEdits(rootNode: Node, z: string): Edit[] {
   const edits: Edit[] = [];
   for (const call of rootNode.findAll({ rule: { kind: "call_expression" } })) {
-    if (call.field("function")?.text() !== `${z}.record`) continue;
+    if (calleeOf(call) !== `${z}.record`) continue;
     const args = argumentNodes(call);
     if (args.length !== 1) continue;
     const start = args[0]!.range().start.index;
@@ -1567,7 +1605,7 @@ function bindingUnionEdits(rootNode: Node, z: string): Edit[] {
   for (const call of rootNode.findAll({ rule: { kind: "call_expression" } })) {
     const callee = call.field("function");
     const args = argumentNodes(call);
-    if (callee?.text() === `${z}.union` && args.length === 1) {
+    if (calleeOf(call) === `${z}.union` && args.length === 1) {
       const array = args[0]!;
       if (array.kind() !== "array") continue;
       const items = array

@@ -24,6 +24,9 @@ export const demoDefinitions = {
     props: z.object({
       airline: DynString,
       price: DynString.optional(),
+      note: z
+        .string()
+        .describe("A short note."),
     }),
     events: { action: { parameters: z.object({}) } },
   },
