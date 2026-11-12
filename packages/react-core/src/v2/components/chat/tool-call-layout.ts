@@ -180,8 +180,14 @@ export interface TurnWork {
   key: string;
   /** The first assistant-side message, where the "Worked for" line goes. */
   firstMessageId: string;
-  /** Everything up to and including the last message with a tool call. */
+  /** Everything the reply did before its answer: see {@link getTurnWork}. */
   workMessageIds: ReadonlySet<string>;
+  /**
+   * The reply's reasoning messages, in order. While the agent works, only the
+   * last one shows: thinking is one live line that replaces itself, not a row
+   * per thought. The whole trace comes back when the folded work is opened.
+   */
+  reasoningIds: readonly string[];
   /**
    * The reply's last assistant message, when it has text and is part of the
    * work (it also calls a tool). Its text is the answer, so it stays out.
@@ -194,9 +200,14 @@ export interface TurnWork {
 
 /**
  * Finds the working phase of every reply in `rendered`: its messages up to the
- * last one that calls a tool. Text in there was narration; what follows is the
+ * last one that calls a tool, plus the thinking and the silent messages that
+ * trail it. Text in there was narration; the first text after the work is the
  * reply itself. Replies that called no tools are omitted, except the latest,
  * which may be about to.
+ *
+ * The trailing part matters: an agent that thinks once more after its last
+ * tool call would otherwise leave those "Thought for 2 seconds" lines outside
+ * the work, where nothing ever folds them away.
  */
 export function getTurnWork(
   rendered: Message[],
@@ -233,6 +244,22 @@ export function getTurnWork(
       }
     });
 
+    // Work runs past the last tool call, over the thinking and the silent
+    // messages that follow it, and stops at the text that answers.
+    let workEnd = lastWork;
+    for (let index = lastWork + 1; index < visible.length; index++) {
+      const message = visible[index]!;
+      const content = message.content;
+      if (
+        message.role === "assistant" &&
+        typeof content === "string" &&
+        content.trim()
+      ) {
+        break;
+      }
+      workEnd = index;
+    }
+
     const first = visible[0];
     if (first && (calls.length > 0 || isLatest)) {
       let lastAssistant = -1;
@@ -242,16 +269,19 @@ export function getTurnWork(
       const replyText = visible[lastAssistant]?.content;
       const endsWithWork =
         lastAssistant >= 0 &&
-        lastAssistant <= lastWork &&
+        lastAssistant <= workEnd &&
         typeof replyText === "string" &&
         replyText.trim().length > 0;
+
+      const work = visible.slice(0, workEnd + 1);
 
       turns.set(key, {
         key,
         firstMessageId: first.id,
-        workMessageIds: new Set(
-          visible.slice(0, lastWork + 1).map((message) => message.id),
-        ),
+        workMessageIds: new Set(work.map((message) => message.id)),
+        reasoningIds: work
+          .filter((message) => message.role === "reasoning")
+          .map((message) => message.id),
         replyTextMessageId: endsWithWork
           ? visible[lastAssistant]!.id
           : undefined,
