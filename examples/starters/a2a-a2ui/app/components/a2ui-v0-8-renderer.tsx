@@ -1,6 +1,6 @@
 "use client";
 
-import type { ReactActivityMessageRenderer } from "@copilotkit/react-core/v2";
+import type { ReactActivityMessageRenderer } from "@copilotkit/react-core";
 import { z } from "zod";
 
 type A2UIOperation = {

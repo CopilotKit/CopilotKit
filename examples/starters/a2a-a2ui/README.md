@@ -85,6 +85,8 @@ The following scripts can also be run using your preferred package manager:
 The main UI component is in `app/page.tsx`, but most of the UI comes from the agent in the form of A2UI declarative components. To see and edit the components it can generate, look in `agent/prompt_builder.py`.
 To generate new components, try the [A2UI Composer](https://a2ui-editor.ag-ui.com)
 
+The agent writes A2UI v0.8, and `@ag-ui/a2a` forwards it to the chat as `a2ui-surface` activity messages. CopilotKit's generative UI renders A2UI v0.9 and 1.0 only, so the runtime in `app/api/copilotkit/[[...slug]]/route.tsx` turns generative UI off, and `app/components/a2ui-v0-8-renderer.tsx` renders the restaurant list.
+
 ## 📚 Documentation
 
 - [A2UI + CopilotKit Documentation](https://docs.copilotkit.ai/a2a) - Learn more about how to use A2UI with CopilotKit
