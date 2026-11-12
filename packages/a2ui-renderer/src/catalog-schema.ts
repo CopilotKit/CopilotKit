@@ -14,6 +14,8 @@ export {
 export type {
   CatalogSchemaSource,
   InlineCatalogSchema,
+  NativeInlineCatalogSchema,
+  A2UICatalogSchema,
 } from "./catalog-description";
 export {
   A2UI_CAPABILITIES_CONTEXT_DESCRIPTION,

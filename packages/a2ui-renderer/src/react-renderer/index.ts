@@ -32,7 +32,11 @@ export {
   buildCatalogContextValue,
   extractCatalogComponentSchemas,
 } from "./catalog-utils";
-export type { InlineCatalogSchema } from "./catalog-utils";
+export type {
+  InlineCatalogSchema,
+  NativeInlineCatalogSchema,
+  A2UICatalogSchema,
+} from "./catalog-utils";
 
 // Catalog creation — new API (definitions + renderers)
 export { createCatalog, extractSchema } from "./create-catalog";
@@ -72,7 +76,7 @@ export type {
 // Low-level a2ui-react primitives (vendored from @a2ui/react)
 export { createReactComponent } from "./a2ui-react/adapter";
 export type { ReactComponentImplementation } from "./a2ui-react/adapter";
-export { basicCatalog } from "./a2ui-react/catalog/basic";
+export { basicCatalog, basicCatalogV1 } from "./a2ui-react/catalog/basic";
 export { Catalog } from "@a2ui/web_core/v0_9";
 
 // Prop schemas for catalog definitions. A prop the A2UI schema binds to the
@@ -88,6 +92,19 @@ export {
   DynamicStringListSchema,
   DataBindingSchema,
 } from "@a2ui/web_core/v0_9";
+
+/** Native 1.0 prop schemas for explicitly versioned custom catalogs. */
+export {
+  DynamicStringSchema as DynamicStringSchemaV1,
+  DynamicNumberSchema as DynamicNumberSchemaV1,
+  DynamicBooleanSchema as DynamicBooleanSchemaV1,
+  DynamicStringListSchema as DynamicStringListSchemaV1,
+  DataBindingSchema as DataBindingSchemaV1,
+  ChildListSchema as ChildListSchemaV1,
+  ActionSchema as ActionSchemaV1,
+  CheckRuleSchema as CheckRuleSchemaV1,
+  CreateSurfaceMessageSchema as CreateSurfaceMessageSchemaV1,
+} from "@a2ui/web_core/v1_0";
 export type {
   DynamicString,
   DynamicNumber,

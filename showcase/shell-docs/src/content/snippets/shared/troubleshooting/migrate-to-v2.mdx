@@ -44,7 +44,10 @@ so you must still rename `agent` to `agentId`.
 {/* kiira: ignore, shows the v1 code this guide migrates away from */}
 ```tsx ignore
 import { CopilotKit } from "@copilotkit/react-core";
-import { useCopilotReadable, useCopilotAction } from "@copilotkit/react-core";
+import {
+  useCopilotReadable,
+  useCopilotAction,
+} from "@copilotkit/react-core";
 ```
 
 #### After
@@ -61,19 +64,19 @@ import {
 
 Use this table to find the 2.0 replacement for each v1 hook:
 
-| v1 hook | 2.0 hook |
-| --- | --- |
-| `useCopilotAction` | `useFrontendTool` (or `useHumanInTheLoop` when the action waits for the user) |
-| `useCopilotReadable` | `useAgentContext` |
-| `useCopilotAdditionalInstructions` | `useAgentContext` |
-| `useCoAgent` | `useAgent` |
-| `useCoAgentStateRender` | `useAgent` |
-| `useCopilotChat` | `useAgent` |
-| `useCopilotChatHeadless_c` | `useAgent` |
-| `useCopilotChatSuggestions` | `useConfigureSuggestions` |
-| `useLangGraphInterrupt` | `useInterrupt` |
-| `useRenderToolCall` (v1) | `useRenderTool` |
-| `useDefaultTool` | `useDefaultRenderTool` |
+| v1 hook | 2.0 hook | What changes |
+| --- | --- | --- |
+| `useCopilotAction` | `useFrontendTool` (or `useHumanInTheLoop` when the action waits for the user) | `parameters` is a Standard Schema, such as a Zod 4 schema, instead of an array. |
+| `useCopilotReadable` | `useAgentContext` | Same `description` and `value`. |
+| `useCopilotAdditionalInstructions` | `useAgentContext` | Pass the instructions as `value`, with a `description`. |
+| `useCoAgent` | `useAgent` | Pass `agentId` instead of `name`. The hook returns `{ agent }`. Read `agent.state` and call `agent.setState(...)`. |
+| `useCoAgentStateRender` | `useAgent` | Read `agent.state` and render it in your component. |
+| `useCopilotChat` | `useAgent` | Read `agent.messages`. Add a message with `agent.addMessage(...)` and run with `copilotkit.runAgent({ agent })`. |
+| `useCopilotChatHeadless_c` | `useAgent` | Same as `useCopilotChat`. |
+| `useCopilotChatSuggestions` | `useConfigureSuggestions` | |
+| `useLangGraphInterrupt` | `useInterrupt` | |
+| `useRenderToolCall` (v1) | `useRenderTool` | |
+| `useDefaultTool` | `useDefaultRenderTool` | |
 
 Chat-UI customization props were also renamed in 2.0:
 

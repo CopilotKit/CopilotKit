@@ -111,7 +111,7 @@ const agent = new BuiltInAgent({
 });
 ```
 
-Use `gemini-3.5-flash-lite` for lower cost and latency. Google no longer gives
+Use `gemini-3.5-flash-lite` for lower cost and latency. Google does not give
 new API keys access to the Gemini 2.5 models. A key that used them before can
 still call them, but a new key gets a 404. See Google's
 [model list](https://ai.google.dev/gemini-api/docs/models).
@@ -248,8 +248,9 @@ const agent = new BuiltInAgent({
 
 Use `openaiCompatibleText` for any server with an OpenAI-compatible API. For
 example: [OpenRouter](https://openrouter.ai), [Together](https://together.ai),
-[Groq](https://groq.com), [Novita](https://novita.ai), a self-hosted gateway, or
-your own fine-tuned endpoint. It sends requests to the Chat Completions API:
+[Groq](https://groq.com), [Novita](https://novita.ai), [Ollama](https://ollama.com),
+a self-hosted gateway, an internal LLM proxy, or your own fine-tuned endpoint.
+It sends requests to the Chat Completions API:
 
 ```typescript
 import { BuiltInAgent } from "@copilotkit/runtime/agent";

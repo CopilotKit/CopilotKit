@@ -14,7 +14,7 @@ import { convertJsonSchemaToZodSchema } from "./json-schema-to-zod";
 /**
  * Customize the LangGraph configuration for use in CopilotKit.
  *
- * To the CopilotKit SDK, run:
+ * To install the CopilotKit SDK, run:
  *
  * ```bash
  * npm install @copilotkit/sdk-js
@@ -25,13 +25,15 @@ import { convertJsonSchemaToZodSchema } from "./json-schema-to-zod";
  * Disable emitting messages and tool calls:
  *
  * ```typescript
- * import { copilotkitCustomizeConfig } from "@copilotkit/sdk-js";
+ * import type { RunnableConfig } from "@langchain/core/runnables";
+ * import { copilotkitCustomizeConfig } from "@copilotkit/sdk-js/langgraph";
  *
- * config = copilotkitCustomizeConfig(
- *   config,
- *   emitMessages=false,
- *   emitToolCalls=false
- * )
+ * function customize(config: RunnableConfig) {
+ *   return copilotkitCustomizeConfig(config, {
+ *     emitMessages: false,
+ *     emitToolCalls: false,
+ *   });
+ * }
  * ```
  *
  * To emit a tool call as streaming LangGraph state, pass the destination key in state,
@@ -39,18 +41,20 @@ import { convertJsonSchemaToZodSchema } from "./json-schema-to-zod";
  * all arguments are emitted under the state key.)
  *
  * ```typescript
- * import { copilotkitCustomizeConfig } from "@copilotkit/sdk-js";
+ * import type { RunnableConfig } from "@langchain/core/runnables";
+ * import { copilotkitCustomizeConfig } from "@copilotkit/sdk-js/langgraph";
  *
- * config = copilotkitCustomizeConfig(
- *   config,
- *   emitIntermediateState=[
- *     {
- *       "stateKey": "steps",
- *       "tool": "SearchTool",
- *       "toolArgument": "steps",
- *     },
- *   ],
- * )
+ * function customize(config: RunnableConfig) {
+ *   return copilotkitCustomizeConfig(config, {
+ *     emitIntermediateState: [
+ *       {
+ *         stateKey: "steps",
+ *         tool: "SearchTool",
+ *         toolArgument: "steps",
+ *       },
+ *     ],
+ *   });
+ * }
  * ```
  */
 export function copilotkitCustomizeConfig(
@@ -159,18 +163,23 @@ export function copilotkitCustomizeConfig(
   }
 }
 /**
- * Exits the current agent after the run completes. Calling copilotkit_exit() will
+ * Exits the current agent after the run completes. Calling copilotkitExit() will
  * not immediately stop the agent. Instead, it signals to CopilotKit to stop the agent after
  * the run completes.
  *
  * ### Examples
  *
  * ```typescript
- * import { copilotkitExit } from "@copilotkit/sdk-js";
+ * import type { RunnableConfig } from "@langchain/core/runnables";
+ * import type { MessagesAnnotation } from "@langchain/langgraph";
+ * import { copilotkitExit } from "@copilotkit/sdk-js/langgraph";
  *
- * async function myNode(state: Any):
- *   await copilotkitExit(config)
- *   return state
+ * type AgentState = typeof MessagesAnnotation.State;
+ *
+ * async function myNode(state: AgentState, config: RunnableConfig) {
+ *   await copilotkitExit(config);
+ *   return state;
+ * }
  * ```
  */
 export async function copilotkitExit(
@@ -200,11 +209,16 @@ export async function copilotkitExit(
  * ### Examples
  *
  * ```typescript
- * import { copilotkitEmitState } from "@copilotkit/sdk-js";
+ * import type { RunnableConfig } from "@langchain/core/runnables";
+ * import { copilotkitEmitState } from "@copilotkit/sdk-js/langgraph";
  *
- * for (let i = 0; i < 10; i++) {
- *   await someLongRunningOperation(i);
- *   await copilotkitEmitState(config, { progress: i });
+ * declare function someLongRunningOperation(step: number): Promise<void>;
+ *
+ * async function myNode(config: RunnableConfig) {
+ *   for (let i = 0; i < 10; i++) {
+ *     await someLongRunningOperation(i);
+ *     await copilotkitEmitState(config, { progress: i });
+ *   }
  * }
  * ```
  */
@@ -249,14 +263,18 @@ export async function copilotkitEmitState(
  * ### Examples
  *
  * ```typescript
- * import { copilotkitEmitMessage } from "@copilotkit/sdk-js";
+ * import type { RunnableConfig } from "@langchain/core/runnables";
+ * import { AIMessage } from "@langchain/core/messages";
+ * import { copilotkitEmitMessage } from "@copilotkit/sdk-js/langgraph";
  *
- * const message = "Step 1 of 10 complete";
- * await copilotkitEmitMessage(config, message);
+ * async function myNode(config: RunnableConfig) {
+ *   const message = "Step 1 of 10 complete";
+ *   await copilotkitEmitMessage(config, message);
  *
- * // Return the message from the node
- * return {
- *   "messages": [AIMessage(content=message)]
+ *   // Return the message from the node
+ *   return {
+ *     messages: [new AIMessage({ content: message })],
+ *   };
  * }
  * ```
  */
@@ -300,15 +318,18 @@ export async function copilotkitEmitMessage(
  * ### Examples
  *
  * ```typescript
- * import { copilotkitEmitToolCall } from "@copilotkit/sdk-js";
+ * import type { RunnableConfig } from "@langchain/core/runnables";
+ * import { copilotkitEmitToolCall } from "@copilotkit/sdk-js/langgraph";
  *
- * const autoId = await copilotkitEmitToolCall(config, "SearchTool", { steps: 10 });
+ * async function myNode(config: RunnableConfig) {
+ *   const autoId = await copilotkitEmitToolCall(config, "SearchTool", { steps: 10 });
  *
- * // With a custom ID for correlation/idempotency:
- * const customId = await copilotkitEmitToolCall(config, "SearchTool", { steps: 10 }, { toolCallId: "my-custom-id" });
+ *   // With a custom ID for correlation/idempotency:
+ *   const customId = await copilotkitEmitToolCall(config, "SearchTool", { steps: 10 }, { toolCallId: "my-custom-id" });
+ * }
  * ```
  *
- * @returns The tool call ID used for the emitted call — equals `options.toolCallId`
+ * @returns The tool call ID used for the emitted call. It equals `options.toolCallId`
  *          when provided, otherwise a randomly generated ID.
  */
 export async function copilotkitEmitToolCall(
@@ -446,7 +467,7 @@ export function convertActionToDynamicStructuredTool(
  * ### Examples
  *
  * ```typescript
- * import { convertActionsToDynamicStructuredTools } from "@copilotkit/sdk-js";
+ * import { convertActionsToDynamicStructuredTools } from "@copilotkit/sdk-js/langgraph";
  *
  * const tools = convertActionsToDynamicStructuredTools(state.copilotkit.actions);
  * ```

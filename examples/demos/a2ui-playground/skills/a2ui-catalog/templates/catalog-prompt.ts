@@ -14,8 +14,8 @@ import { createHash } from "node:crypto";
 import {
   A2UI_CHILD_LIST_MARK,
   A2UI_COMPONENT_ID_MARK,
-  type GenerativeUIManifest,
 } from "@copilotkit/shared";
+import type { GenerativeUIManifest } from "@copilotkit/shared";
 import { definitions } from "@/a2ui/catalog/definitions"; // your React-free definitions index (for categories)
 import type { Category } from "@/a2ui/catalog/definitions/shared"; // definitions-shared.ts
 

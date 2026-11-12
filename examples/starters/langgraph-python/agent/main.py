@@ -10,9 +10,8 @@ from langchain.agents import create_agent
 from src.query import query_data
 from src.todos import AgentState, todo_tools
 
-# A2UI tools
-from src.a2ui_dynamic_schema import generate_a2ui
-from src.a2ui_fixed_schema import search_flights
+# Flight data, rendered as generative UI with render_ui
+from src.flights import search_flights
 
 from src.model import create_chat_model
 
@@ -26,9 +25,10 @@ SYSTEM_PROMPT = """
         You are a polished, professional demo assistant. Keep responses to 1-2 sentences.
 
         Tool guidance:
-        - Flights: call search_flights to show flight cards with a pre-built schema.
-        - Dashboards & rich UI: call generate_a2ui to create dashboard UIs with metrics,
-          charts, tables, and cards. It handles rendering automatically.
+        - Flights: call search_flights, then show the flights with render_ui as a Row
+          of FlightCard components.
+        - Dashboards & rich UI: call render_ui to build dashboards with metrics, charts,
+          tables, and cards from the generative UI catalog.
         - Charts: call query_data first, then render with the chart component.
         - Todos: enable app mode first, then manage todos.
         - Diagrams (Excalidraw): call `create_view` ONCE with 3-5 shapes and arrows.
@@ -36,13 +36,13 @@ SYSTEM_PROMPT = """
           with text. Connect shapes with arrows. Include ONE `cameraUpdate` at the END of
           the elements array, do not call `read_me` or refine the diagram, then reply with
           ONE short sentence describing what you drew.
-        - A2UI actions: when you see a log_a2ui_event result (e.g. "view_details"),
-          respond with a brief confirmation. The UI already updated on the frontend.
+        - Generative UI actions: a click on a button you rendered (e.g. selecting a
+          flight) arrives as a user message. Respond with a brief confirmation.
     """
 
 agent = create_agent(
     model=model,
-    tools=[query_data, *todo_tools, generate_a2ui, search_flights],
+    tools=[query_data, *todo_tools, search_flights],
     middleware=[
         CopilotKitMiddleware(),
         StateStreamingMiddleware(

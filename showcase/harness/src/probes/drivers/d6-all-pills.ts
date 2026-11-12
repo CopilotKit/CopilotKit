@@ -1,3 +1,4 @@
+import { withA2uiFormat } from "../helpers/a2ui-format.js";
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -101,6 +102,7 @@ const inputSchema = z
   .object({
     key: z.string().min(1),
     backendUrl: z.string().url().optional(),
+    a2uiFormat: z.enum(["express", "direct_json"]).optional(),
     publicUrl: z.string().url().optional(),
     name: z.string().optional(),
     features: z.array(z.string()).optional(),
@@ -1201,7 +1203,7 @@ export function createE2eFullDriver(
           const route = (script.preNavigateRoute ?? defaultRoute)(ft, {
             demos: input.demos,
           });
-          const url = `${backendUrl}${route}`;
+          const url = withA2uiFormat(`${backendUrl}${route}`, input.a2uiFormat);
 
           await sem.acquire();
           const featureStart = Date.now();
@@ -1319,6 +1321,7 @@ export function createE2eFullDriver(
                   integrationSlug: slug,
                   featureType: ft,
                   baseUrl: backendUrl,
+                  a2uiFormat: input.a2uiFormat,
                 },
                 abortSignal: attemptAbort.signal,
                 logger: ctx.logger,

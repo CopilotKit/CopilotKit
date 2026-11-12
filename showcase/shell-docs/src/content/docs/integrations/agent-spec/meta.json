@@ -1,18 +1,5 @@
 {
   "title": "Open Agent Spec",
   "root": true,
-  "pages": [
-    "index",
-    "---Generative UI---",
-    "...generative-ui",
-    "---Agent Spec---",
-    "langgraph",
-    "wayflow",
-    "---Intelligence---",
-    {
-      "title": "Threads",
-      "defaultOpen": true,
-      "pages": ["AG-UI-Streams", "headless-threads"]
-    }
-  ]
+  "pages": ["---Agent Spec---", "langgraph", "wayflow"]
 }

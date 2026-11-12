@@ -70,14 +70,13 @@
       "dependencies.@copilotkit/react-ui",
       "dependencies.@copilotkit/runtime",
       "dependencies.@copilotkit/shared",
-      "dependencies.@copilotkit/a2ui-renderer",
       "dependencies.@radix-ui/react-checkbox",
       "dependencies.@radix-ui/react-label",
       "dependencies.@radix-ui/react-separator",
       "dependencies.class-variance-authority",
       "dependencies.clsx",
-      "dependencies.hono",
       "dependencies.lucide-react",
+      "dependencies.maplibre-gl",
       "dependencies.next",
       "dependencies.react",
       "dependencies.react-dom",
@@ -95,7 +94,7 @@
       "devDependencies.typescript"
     ],
     "agentSurface": {
-      "toolNames": ["query_data", "generate_a2ui", "search_flights"],
+      "toolNames": ["query_data", "search_flights"],
       "stateKeys": ["todos", "messages"],
       "modelFamily": "openai"
     }

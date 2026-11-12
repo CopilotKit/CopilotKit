@@ -5,7 +5,7 @@ description: "Vue 3 component for rendering a list of chat messages"
 
 ## Overview
 
-`CopilotChatMessageView` renders a list of chat messages and, optionally, a typing cursor while the agent is running. It dispatches each message to a default child component based on its `role` (assistant, user, or reasoning) and exposes named slots so you can replace or wrap that rendering. A pulsing cursor is shown after the last message while `isRunning` is `true`.
+`CopilotChatMessageView` renders a list of chat messages and, optionally, a typing cursor while the agent is running. It dispatches each message to a default child component based on its `role` (assistant, user, or reasoning) and exposes named slots so you can replace or wrap that rendering. A pulsing cursor is shown after the last message while `isRunning` is `true`. [`CopilotChatView`](/reference/vue/components/CopilotChatView) uses this component to render its messages.
 
 Unlike the React reference component, customization in Vue is driven entirely through named slots rather than render props or a slot-prop system. The component also surfaces slots for interrupts, activity messages, tool calls, and custom message renderers registered on the CopilotKit instance.
 
@@ -18,6 +18,8 @@ import { CopilotChatMessageView } from "@copilotkit/vue/v2";
 ```
 
 ## Example
+
+This example reads `messages` and `isRunning` from [`useAgent`](/reference/vue/hooks/useAgent).
 
 ```vue
 <script setup lang="ts">
@@ -130,10 +132,12 @@ Each slot below is named. Use a `<template #slot-name="slotProps">` block to ove
 
 </PropertyReference>
 
-<PropertyReference name="interrupt" type="{ event: unknown; result: unknown; resolve: (value: unknown) => void }">
+<PropertyReference name="interrupt" type="{ event: InterruptEvent, interrupt: Interrupt | null, interrupts: Interrupt[], result: unknown, resolve: (payload?: unknown, interruptId?: string) => Promise<RunAgentResult | void>, cancel: (interruptId?: string) => Promise<RunAgentResult | void> }">
   Rendered when the CopilotKit instance reports an active interrupt
-  (human-in-the-loop). Receives the interrupt `event`, the current `result`,
-  and a `resolve` callback to complete the interrupt.
+  (human-in-the-loop). Receives the interrupt `event`, the primary standard
+  `interrupt` (or `null`), all open `interrupts`, the current `result`, and a
+  `resolve` callback to complete the interrupt. Call `cancel` to cancel the
+  interrupt without a response.
 </PropertyReference>
 
 <PropertyReference name="message-before" type="{ message: Message; position: 'before'; runId: string; messageIndex: number; messageIndexInRun: number; numberOfMessagesInRun: number; agentId: string; stateSnapshot: unknown }">
@@ -330,10 +334,3 @@ const { agent } = useAgent();
 - **Slot forwarding**: Slots passed to `CopilotChatMessageView` (including `tool-call` and `tool-call-<name>`) are forwarded to the default assistant and user message children, so tool rendering works without re-implementing those components.
 - **Tool-call groups**: The view lays out the tool calls of the whole list, because a group can span messages. Each group is closed at first. Its toggle has `aria-expanded` and `aria-controls`, and closed rows are `inert`, so the keyboard skips them. A closed stack names the status of its latest call in a polite live region, so screen readers hear it change. A call without a result shows as running while the agent runs, and as stopped after the run ends.
 - **Custom and activity renderers**: When `message-before`, `message-after`, or `activity-message` slots are omitted, the component falls back to renderers registered on the CopilotKit instance, scoped to the active `agentId` when applicable.
-
-## Related
-
-- [`CopilotChatAssistantMessage`](/reference/vue/components/CopilotChatAssistantMessage) - Default assistant message child component
-- [`CopilotChatUserMessage`](/reference/vue/components/CopilotChatUserMessage) - Default user message child component
-- [`CopilotChatView`](/reference/vue/components/CopilotChatView) - Higher-level chat view that composes this component
-- [`useAgent`](/reference/vue/hooks/useAgent) - Composable for accessing the agent's `messages` and `isRunning` state

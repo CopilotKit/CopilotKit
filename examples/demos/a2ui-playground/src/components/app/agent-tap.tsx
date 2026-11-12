@@ -7,7 +7,8 @@ import {
   useCopilotKit,
 } from "@copilotkit/react-core/v2";
 import type { Message } from "@ag-ui/client";
-import { runStore, type RunRecord } from "@/lib/run-store";
+import { runStore } from "@/lib/run-store";
+import type { RunRecord } from "@/lib/run-store";
 
 type Pipeline = { stage: string; t: number; [k: string]: unknown };
 

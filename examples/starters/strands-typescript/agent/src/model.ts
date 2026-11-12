@@ -1,7 +1,6 @@
 import { AnthropicModel } from "@strands-agents/sdk/models/anthropic";
 import { GoogleModel } from "@strands-agents/sdk/models/google";
 import { OpenAIModel } from "@strands-agents/sdk/models/openai";
-import OpenAI from "openai";
 import type { ClientOptions } from "openai";
 
 /** The providers a `COPILOTKIT_AGENT_MODEL` value can name. */
@@ -40,10 +39,9 @@ export function parseAgentModel(value: string): AgentModelSpec {
 /**
  * The model this agent runs on.
  *
- * `COPILOTKIT_AGENT_MODEL` overrides BOTH model sites (the Strands agent and
- * the A2UI generator). When it is unset, both keep this starter's previous
- * default: the OpenAI model named by the older `MODEL_ID` variable, else
- * gpt-6-luna. An OpenAI-compatible provider is `openai:<its model id>` plus
+ * `COPILOTKIT_AGENT_MODEL` overrides it. When it is unset, it keeps this
+ * starter's previous default: the OpenAI model named by the older `MODEL_ID`
+ * variable, else gpt-6-luna. An OpenAI-compatible provider is `openai:<its model id>` plus
  * `OPENAI_BASE_URL`.
  */
 export function resolveAgentModel(): AgentModelSpec {
@@ -70,7 +68,7 @@ function requireApiKey(provider: AgentModelProvider): string {
   return value;
 }
 
-/** Options shared by every OpenAI-SDK client this agent builds. */
+/** Options for the OpenAI-SDK client the OpenAI model builds. */
 export type OpenAIClientExtras = Pick<
   ClientOptions,
   "defaultHeaders" | "fetch"
@@ -103,34 +101,4 @@ export function createStrandsModel(
         },
       });
   }
-}
-
-/**
- * Base URLs of the Chat Completions endpoints Anthropic and Google serve for
- * the OpenAI SDK. The A2UI generator calls Chat Completions directly, so a
- * non-OpenAI provider reaches it through these.
- */
-const CHAT_COMPLETIONS_BASE_URLS: Record<
-  AgentModelProvider,
-  string | undefined
-> = {
-  openai: undefined,
-  anthropic: "https://api.anthropic.com/v1/",
-  google: "https://generativelanguage.googleapis.com/v1beta/openai/",
-};
-
-/** Build an OpenAI-SDK client that speaks Chat Completions for the provider. */
-export function createChatCompletionsClient(
-  { provider }: AgentModelSpec,
-  openaiExtras: OpenAIClientExtras,
-): OpenAI {
-  const baseURL =
-    provider === "openai"
-      ? process.env.OPENAI_BASE_URL
-      : CHAT_COMPLETIONS_BASE_URLS[provider];
-  return new OpenAI({
-    apiKey: requireApiKey(provider),
-    ...(baseURL ? { baseURL } : {}),
-    ...openaiExtras,
-  });
 }

@@ -36,7 +36,7 @@ Other public repos with failing CI to try:
 - `kurtmckee/feedparser`: the Test workflow's test suite step fails in `test_strict_parser`, 6 cases on the strict XML parser.
 
 How it is built, tool by tool, is in [docs/architecture.md](docs/architecture.md). The step-by-step recipe is in the
-[CopilotKit cookbook](https://docs.copilotkit.ai/cookbook/antigravity-repo-doctor).
+[CopilotKit cookbook](https://docs.copilotkit.ai/cookbook/google-antigravity).
 
 ## Prerequisites
 

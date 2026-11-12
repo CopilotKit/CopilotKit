@@ -36,10 +36,11 @@ into the rest of the app.
 ## CSS Variables (Easiest)
 
 The easiest way to change the colors used in the Copilot UI components is to
-override CSS variables. The demo defines its palette on the scope wrapper so
-it cascades into every nested chat component:
+override the shadcn tokens listed in [Design Tokens](#design-tokens-shadcn).
+The demo overrides these tokens on the `[data-copilotkit]` element inside its
+scope wrapper:
 
-<Snippet region="design-tokens" title="frontend/src/app/theme.css: design-token overrides" />
+<Snippet region="v2-token-overrides" title="frontend/src/app/theme.css: token overrides" />
 
 ## Design Tokens (shadcn)
 
@@ -50,8 +51,9 @@ set on the `[data-copilotkit]` root. You can re-skin the entire chat UI by
 overriding a handful of CSS custom properties. Every component picks the change
 up automatically.
 
-Override them on the `[data-copilotkit]` element (or any ancestor) the same way
-you would in a shadcn project:
+Override them with a selector that matches the `[data-copilotkit]` element,
+the same way you would in a shadcn project. A value set only on an ancestor has
+no effect, because CopilotKit declares each token on that element:
 
 ```css title="globals.css"
 [data-copilotkit] {
@@ -77,7 +79,7 @@ you would in a shadcn project:
 These are the most commonly overridden tokens. Each light value has a
 matching dark-mode value under `.dark [data-copilotkit]`. The full set
 (popover, accent, destructive, chart, and sidebar variants) is in
-[`base.css`](https://github.com/CopilotKit/CopilotKit/blob/main/packages/core/src/styles/css/base.css).
+[`theme.css`](https://github.com/CopilotKit/CopilotKit/blob/main/packages/core/src/styles/css/theme.css).
 
 | Token | Description |
 |-------|-------------|
@@ -145,21 +147,22 @@ that file:
 | `.copilotKitAssistantMessage` | Styling for AI responses |
 | `.copilotKitHeader` | Top bar of chat window containing title and controls |
 | `.copilotKitButton` | Primary chat toggle button |
+| `.copilotKitWindow` | Root container defining overall chat window dimensions |
 | `.copilotKitSidebar` | Styles for sidebar chat mode |
 | `.copilotKitPopup` | Styles for popup chat mode |
 
 ## Custom Fonts
 
-You can customize the fonts by updating the `fontFamily` property on the
+You can customize the fonts by updating the `font-family` property on the
 relevant CopilotKit classes:
 
 ```css title="globals.css"
 .copilotKitMessages {
-  font-family: "Arial, sans-serif";
+  font-family: Arial, sans-serif;
 }
 
 .copilotKitInput {
-  font-family: "Arial, sans-serif";
+  font-family: Arial, sans-serif;
 }
 ```
 

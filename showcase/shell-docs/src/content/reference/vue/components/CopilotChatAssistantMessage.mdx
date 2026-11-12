@@ -5,7 +5,18 @@ description: "Vue 3 component for displaying assistant messages with Markdown, t
 
 ## Overview
 
-`CopilotChatAssistantMessage` is a Vue 3 component that displays assistant messages with Markdown support, tool call rendering, and an action toolbar. Markdown is rendered with `streamdown-vue` (`StreamMarkdown`), which supports GitHub Flavored Markdown tables, math expressions (KaTeX styles are loaded automatically), and syntax-highlighted code blocks via Shiki (`github-light` / `github-dark` themes). Tables and code blocks include built-in copy and download actions, and images get a hover download button.
+`CopilotChatAssistantMessage` is a Vue 3 component that displays assistant messages with Markdown support, tool call rendering, and an action toolbar. [`CopilotChatMessageView`](/reference/vue/components/CopilotChatMessageView) renders it as the default assistant message. For user messages, see [`CopilotChatUserMessage`](/reference/vue/components/CopilotChatUserMessage).
+
+Markdown is rendered with CopilotKit's streaming renderer from
+[`@copilotkit/markdown`](/reference/packages/markdown):
+
+- GitHub Flavored Markdown: headings, lists, task lists, block quotes, fenced code, tables, strikethrough, and autolinks.
+- Citations, and a fade-in for each new token while the message streams.
+- No math and no syntax highlighting. Fenced code shows as plain code.
+
+To add math or highlighting, pass your own renderer with the provider's
+`markdownRenderer` prop, or use the `message-renderer` slot. See
+[Markdown Rendering](/markdown-rendering).
 
 The toolbar provides copy, thumbs up, thumbs down, read aloud, and regenerate buttons, and an Inspector button in local development. Each icon button shows its label in a tooltip on hover and on keyboard focus. The tooltip and aria labels come from the nearest `CopilotChatConfigurationProvider` (see [`useCopilotChatConfiguration`](/reference/vue/hooks/useCopilotChatConfiguration)). The thumbs up, thumbs down, read aloud, and regenerate buttons are only rendered when a listener for the corresponding event is attached. The thumbs also render while Automatic Learning records [reply ratings](#reply-ratings). The copy button is always shown when the toolbar is visible.
 
@@ -123,7 +134,7 @@ behavior to the message and toolbar handlers.
 
 <PropertyReference name="message-renderer" type="slot">
   Replaces the Markdown renderer. Receives `message` and `content` (the
-  normalized text). Use this to swap out `StreamMarkdown` for a custom renderer.
+  normalized text). Use this to swap out the built-in renderer for a custom renderer.
 </PropertyReference>
 
 <PropertyReference name="tool-calls-view" type="slot">
@@ -169,13 +180,13 @@ behavior to the message and toolbar handlers.
 </PropertyReference>
 
 <PropertyReference name="read-aloud-button" type="slot">
-  Replaces the read-aloud button. Receives `on-read-aloud` and `label`. Only
-  rendered when a `read-aloud` listener is attached.
+  Replaces the read-aloud button. Receives `on-read-aloud` and `label`. Rendered
+  when a `read-aloud` listener is attached or when you provide this slot.
 </PropertyReference>
 
 <PropertyReference name="regenerate-button" type="slot">
-  Replaces the regenerate button. Receives `on-regenerate` and `label`. Only
-  rendered when a `regenerate` listener is attached.
+  Replaces the regenerate button. Receives `on-regenerate` and `label`. Rendered
+  when a `regenerate` listener is attached or when you provide this slot.
 </PropertyReference>
 
 <PropertyReference name="toolbar-items" type="slot">
@@ -330,10 +341,3 @@ When this component renders inside `CopilotChatMessageView` under a `CopilotChat
 ## Inspector button
 
 While the [Inspector](/inspector) is enabled, the toolbar shows an Inspector button, also for a message with no text. A click, Enter, or Space opens the message in the Inspector. Pointing at the button, or ArrowDown, opens a menu that explains the button and can hide it until the page reloads. The `inspector-button` slot replaces it.
-
-## Related
-
-- `CopilotChatToolCallsView` - Renders the tool calls contained in an assistant message
-- [`CopilotChatUserMessage`](/reference/vue/components/CopilotChatUserMessage) - Companion component for user messages
-- [`CopilotChatMessageView`](/reference/vue/components/CopilotChatMessageView) - Parent component that renders this as the default assistant message
-- [`useCopilotChatConfiguration`](/reference/vue/hooks/useCopilotChatConfiguration) - Provides the localized toolbar labels

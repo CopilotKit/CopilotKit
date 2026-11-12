@@ -32,10 +32,10 @@ interface ShowcaseReasoningMessage {
       display: block;
       margin: 0.5rem 0;
       padding: 0.75rem;
-      border: 1px solid #f0c94a;
+      border: 1px solid light-dark(#f0c94a, #92400e);
       border-radius: 0.6rem;
-      color: #713f12;
-      background: #fffbeb;
+      color: light-dark(#713f12, #fcd34d);
+      background: light-dark(#fffbeb, rgb(69 26 3 / 40%));
     }
     header {
       display: flex;
@@ -46,9 +46,9 @@ interface ShowcaseReasoningMessage {
     }
     header span {
       padding: 0.2rem 0.4rem;
-      border: 1px solid #d6a72a;
+      border: 1px solid light-dark(#d6a72a, #b45309);
       border-radius: 999px;
-      background: #fff;
+      background: light-dark(#fff, #191a1e);
       font-size: 0.62rem;
       letter-spacing: 0.1em;
       text-transform: uppercase;
@@ -56,7 +56,7 @@ interface ShowcaseReasoningMessage {
     p {
       margin: 0.5rem 0 0;
       white-space: pre-wrap;
-      color: #854d0e;
+      color: light-dark(#854d0e, #fde68a);
       font-style: italic;
       line-height: 1.5;
     }
@@ -98,7 +98,7 @@ export class CustomReasoningMessageComponent {
       min-height: 0;
       grid-template-rows: auto minmax(0, 1fr);
       padding: 1rem;
-      background: #eef3f7;
+      background: light-dark(#eef3f7, #0a0a0a);
     }
     .reasoning-page > section {
       width: min(52rem, 100%);
@@ -111,7 +111,7 @@ export class CustomReasoningMessageComponent {
     }
     section > p:last-child {
       margin: 0;
-      color: #52637a;
+      color: light-dark(#52637a, #adadb2);
     }
     .chat-surface {
       width: min(56rem, calc(100% - 2rem));

@@ -1,72 +1,27 @@
 /**
  * Demonstration Catalog — Component Definitions
  *
- * Platform-agnostic definitions: component names, props (Zod), descriptions.
- * This is the contract between the app and the AI agent. Agents receive these
- * definitions as context so they know what components are available.
+ * Platform-agnostic definitions: component names, descriptions, props (Zod),
+ * slots and events. This is the contract between the app and the AI agent:
+ * the runtime sends these to the agent with the `render_ui` tool, so it knows
+ * which components it can render.
  *
- * Renderers (React, React Native, etc.) import these definitions and provide
- * platform-specific implementations, type-checked against the Zod schemas.
+ * The renderers (renderers.tsx) add a React component to each definition.
+ * The layout components (Row, Column, Title, Text, Button, Badge, ...) come
+ * from the standard catalog, which the demo catalog extends.
  */
 
 import { z } from "zod";
 
-/**
- * Dynamic string: accepts either a literal string or a data-model path binding
- * like `{ path: "airline" }`. The GenericBinder resolves path bindings to the
- * actual value at render time.
- */
-const DynString = z.union([z.string(), z.object({ path: z.string() })]);
-
 export const demonstrationCatalogDefinitions = {
-  Title: {
-    description: "A heading. Use for section titles and page headers.",
-    props: z.object({
-      text: z.string(),
-      level: z.string().optional(),
-    }),
-  },
-
-  // Text: removed — the basic catalog's Text uses DynamicStringSchema
-  // which supports path bindings (e.g. { path: "flights[*].airline" }).
-  // Overriding it with z.string() breaks fixed-schema data binding.
-
-  Row: {
-    description: "Horizontal layout container.",
-    props: z.object({
-      gap: z.number().optional(),
-      align: z.string().optional(),
-      justify: z.string().optional(),
-      // Union with { componentId, path } so GenericBinder treats this as
-      // STRUCTURAL and resolves template children from the data model.
-      children: z.union([
-        z.array(z.string()),
-        z.object({ componentId: z.string(), path: z.string() }),
-      ]),
-    }),
-  },
-
-  Column: {
-    description: "Vertical layout container.",
-    props: z.object({
-      gap: z.number().optional(),
-      align: z.string().optional(),
-      // Same union as Row — required for template children support.
-      children: z.union([
-        z.array(z.string()),
-        z.object({ componentId: z.string(), path: z.string() }),
-      ]),
-    }),
-  },
-
   DashboardCard: {
     description:
-      "A card container with title and optional subtitle. Has a 'child' slot for content (chart, metrics, etc). Use 'child' with a single component ID.",
+      "A card with a title and an optional subtitle. Put one component (a chart, a Metric, a Row of Metrics, ...) in its 'child' slot.",
     props: z.object({
       title: z.string(),
       subtitle: z.string().optional(),
-      child: z.string().optional(),
     }),
+    slots: { child: "single" },
   },
 
   Metric: {
@@ -104,81 +59,36 @@ export const demonstrationCatalogDefinitions = {
     }),
   },
 
-  Badge: {
-    description:
-      "A small status badge/tag. Use for labels, statuses, categories.",
-    props: z.object({
-      text: z.string(),
-      variant: z
-        .enum(["success", "warning", "error", "info", "neutral"])
-        .optional(),
-    }),
-  },
-
   DataTable: {
     description: "A data table with columns and rows.",
     props: z.object({
       columns: z.array(z.object({ key: z.string(), label: z.string() })),
-      rows: z.array(z.record(z.any())),
-    }),
-  },
-
-  Button: {
-    description:
-      "An interactive button with an action event. Use 'child' with a Text component ID for the label. 'action' is dispatched on click.",
-    props: z.object({
-      child: z
-        .string()
-        .describe(
-          "The ID of the child component (e.g. a Text component for the label).",
-        ),
-      variant: z.enum(["primary", "secondary", "ghost"]).optional(),
-      // Union with { event } so GenericBinder resolves this as ACTION → callable () => void.
-      action: z
-        .union([
-          z.object({
-            event: z.object({
-              name: z.string(),
-              context: z.record(z.any()).optional(),
-            }),
-          }),
-          z.null(),
-        ])
-        .optional(),
+      rows: z.array(z.record(z.string(), z.unknown())),
     }),
   },
 
   FlightCard: {
     description:
-      "A rich flight result card. Displays airline, flight number, route, times, duration, status, and price. Use inside a Row for side-by-side layout.",
+      "A rich flight result card. Displays airline, flight number, route, times, duration, status, and price. Put several in a Row for side-by-side layout. Bind onSelect to an event named book_flight, with the flight in its context.",
     props: z.object({
-      airline: DynString,
-      airlineLogo: DynString,
-      flightNumber: DynString,
-      origin: DynString,
-      destination: DynString,
-      date: DynString,
-      departureTime: DynString,
-      arrivalTime: DynString,
-      duration: DynString,
-      status: DynString,
-      statusColor: DynString.optional(),
-      price: DynString,
-      action: z
-        .union([
-          z.object({
-            event: z.object({
-              name: z.string(),
-              context: z.record(z.any()).optional(),
-            }),
-          }),
-          z.null(),
-        ])
-        .optional(),
+      airline: z.string(),
+      airlineLogo: z.string(),
+      flightNumber: z.string(),
+      origin: z.string(),
+      destination: z.string(),
+      date: z.string(),
+      departureTime: z.string(),
+      arrivalTime: z.string(),
+      duration: z.string(),
+      status: z.string(),
+      statusColor: z.string().optional(),
+      price: z.string(),
     }),
+    events: {
+      onSelect: {
+        description: "Sent when the user selects the flight.",
+        parameters: z.object({}),
+      },
+    },
   },
-};
-
-/** Type helper for renderers */
-export type DemonstrationCatalogDefinitions =
-  typeof demonstrationCatalogDefinitions;
+} as const;

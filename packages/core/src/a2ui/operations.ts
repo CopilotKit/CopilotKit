@@ -85,27 +85,65 @@ function hasValue(value: unknown) {
 }
 
 /**
+ * The component definitions an operation carries: those of an
+ * `updateComponents`, or those a native (A2UI 1.0) `createSurface` carries
+ * inline.
+ *
+ * @param operation - One A2UI operation.
+ */
+export function getA2UIOperationComponents(operation: A2UIOperation) {
+  const update = operation.updateComponents;
+  const create = operation.createSurface;
+  const components = isRecord(update)
+    ? update.components
+    : operation.version === "1.0" && isRecord(create)
+      ? create.components
+      : undefined;
+  return Array.isArray(components) ? (components as unknown[]) : [];
+}
+
+/**
  * Whether operations are enough to paint a visible card yet. A data-bound
- * surface addresses its values by `path` and draws nothing until a data model
- * update carries a non-empty value; a static surface paints from its
- * components alone. Times the loader → surface hand-off to real content rather
- * than a fixed delay (OSS-162).
+ * surface addresses its values by `path` (`@path` in A2UI 1.0) and draws
+ * nothing until a data model update, or a native create's inline data model,
+ * carries a non-empty value; a static surface paints from its components
+ * alone. Times the loader → surface hand-off to real content rather than a
+ * fixed delay (OSS-162).
  *
  * @param operations - The operations of one surface or of a whole activity.
  */
 export function surfaceHasRenderableContent(
   operations: readonly A2UIOperation[],
 ) {
-  const componentOperations = operations.filter((operation) =>
-    isRecord(operation.updateComponents),
-  );
-  if (componentOperations.length === 0) return false;
-  const needsData = JSON.stringify(componentOperations).includes('"path"');
+  const components = operations.flatMap(getA2UIOperationComponents);
+  if (components.length === 0) return false;
+  const serialized = JSON.stringify(components);
+  const needsData =
+    serialized.includes('"path"') || serialized.includes('"@path"');
   if (!needsData) return true;
   return operations.some((operation) => {
-    const update = operation.updateDataModel;
-    if (!isRecord(update)) return false;
-    const value = update.value;
+    const update = isRecord(operation.updateDataModel)
+      ? operation.updateDataModel
+      : undefined;
+    const create = operation.createSurface;
+    const value =
+      update?.value ??
+      (operation.version === "1.0" && isRecord(create)
+        ? create.dataModel
+        : undefined);
+    if (
+      typeof value === "string" ||
+      typeof value === "number" ||
+      typeof value === "boolean"
+    ) {
+      // A scalar leaf update paints only the binding that reads it, not a
+      // structural {componentId, path} template or an unrelated binding.
+      const path = typeof update?.path === "string" ? update.path : "/";
+      const key = operation.version === "1.0" ? "@path" : "path";
+      return (
+        value !== "" && serialized.includes(JSON.stringify({ [key]: path }))
+      );
+    }
     if (typeof value !== "object" || value === null) return false;
     return Object.values(value).some(hasValue);
   });

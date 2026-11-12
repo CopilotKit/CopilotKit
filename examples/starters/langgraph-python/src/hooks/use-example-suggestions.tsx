@@ -6,10 +6,10 @@
  *
  * Showcase mode (showcase.json) controls which pills are visually highlighted.
  * Highlight styling: globals.css (.a2ui-highlight, .opengenui-highlight)
- * A2UI agent tools: agent/src/a2ui_fixed_schema.py, a2ui_dynamic_schema.py
- * A2UI catalog: src/app/declarative-generative-ui/
+ * Generative UI (A2UI) catalog: src/app/declarative-generative-ui/
+ * Flight data tool: agent/src/flights.py; the agent renders it with render_ui
  */
-import { useConfigureSuggestions } from "@copilotkit/react-core/v2";
+import { useConfigureSuggestions } from "@copilotkit/react-core";
 import showcaseConfig from "../../showcase.json";
 
 const showcase = showcaseConfig.showcase;
@@ -33,14 +33,14 @@ export const useExampleSuggestions = () => {
           "I'd like to schedule a 30-minute meeting to learn about CopilotKit. Please use the scheduleTime tool to let me pick a time.",
       },
       {
-        title: "Search Flights (A2UI Fixed Schema)",
+        title: "Search Flights (A2UI)",
         message: "Find flights from SFO to JFK for next Tuesday.",
         className: showcase === "a2ui" ? "a2ui-highlight" : undefined,
       },
       {
-        title: "Sales Dashboard (A2UI Dynamic)",
+        title: "Sales Dashboard (A2UI)",
         message:
-          "First use the query_data tool to fetch the financial sales data, then using A2UI, show me a sales dashboard with total revenue, new customers, and conversion rate metrics. Include a pie chart of revenue by category and a bar chart of monthly sales.",
+          "First use the query_data tool to fetch the financial sales data, then show me a sales dashboard with total revenue, new customers, and conversion rate metrics. Include a pie chart of revenue by category and a bar chart of monthly sales.",
         className: showcase === "a2ui" ? "a2ui-highlight" : undefined,
       },
       {

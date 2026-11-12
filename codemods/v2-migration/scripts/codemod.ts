@@ -13,6 +13,7 @@ import { migrateCoAgents } from "./coagent.ts";
 import { migrateChatHooks } from "./chat-hook.ts";
 import { migrateGqlMessages } from "./gql-messages.ts";
 import { migrateV1Endpoints } from "./v1-endpoints.ts";
+import { mergeCopilotKitImports } from "./merge-imports.ts";
 import type { Codemod, Edit, SgNode } from "codemod:ast-grep";
 import type TS from "codemod:ast-grep/langs/typescript";
 import type TSX from "codemod:ast-grep/langs/tsx";
@@ -771,7 +772,14 @@ const codemod: Codemod<Lang> = async (root, options) => {
       : parse<Lang>(options.language, afterAngular).root(),
     (text) => parse<Lang>(options.language, text).root(),
   );
-  return a2ui ?? afterAngular;
+  const afterA2UI = a2ui ?? afterAngular;
+  // Last: merge the CopilotKit imports the earlier steps added.
+  const merged = mergeCopilotKitImports(
+    afterA2UI === null
+      ? rootNode
+      : parse<Lang>(options.language, afterA2UI).root(),
+  );
+  return merged ?? afterA2UI;
 };
 
 function collectProviderNames(

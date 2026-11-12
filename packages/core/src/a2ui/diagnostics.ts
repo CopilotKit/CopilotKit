@@ -1,6 +1,10 @@
 import { A2UI_ROOT_COMPONENT_ID } from "./constants";
 import type { A2UIOperation } from "./operations";
-import { isRecord, surfaceHasRenderableContent } from "./operations";
+import {
+  getA2UIOperationComponents,
+  isRecord,
+  surfaceHasRenderableContent,
+} from "./operations";
 
 /**
  * How long a surface may take to report its first paint before the loader
@@ -28,10 +32,8 @@ function describeOperationKinds(operations: readonly A2UIOperation[]) {
 function componentLists(operations: readonly A2UIOperation[]) {
   const lists: unknown[][] = [];
   for (const operation of operations) {
-    const update = operation.updateComponents;
-    if (isRecord(update) && Array.isArray(update.components)) {
-      lists.push(update.components);
-    }
+    const components = getA2UIOperationComponents(operation);
+    if (components.length > 0) lists.push(components);
   }
   return lists;
 }
