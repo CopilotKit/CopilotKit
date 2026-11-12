@@ -12,7 +12,8 @@ import { z } from "zod";
 // --- The cookbook recipe: a server tool that runs code on a boxd machine ---
 const boxd = new Boxd(); // reads BOXD_API_KEY
 
-// File name and interpreter per language. Node runs TypeScript directly.
+// File name and interpreter per language. Node strips TypeScript types, so
+// TypeScript must use erasable syntax only (no enums or namespaces).
 const runners = {
   python: { file: "main.py", command: "python3" },
   typescript: { file: "main.ts", command: "node" },
@@ -28,7 +29,9 @@ const runCode = defineTool({
     language: z
       .enum(["python", "typescript", "javascript"])
       .default("python")
-      .describe("Language runtime for the code"),
+      .describe(
+        "Language runtime for the code. TypeScript runs on Node with type stripping: no enums or namespaces.",
+      ),
   }),
   execute: async ({ code, language }) => {
     const machine = await boxd.machines.create({
@@ -46,7 +49,11 @@ const runCode = defineTool({
       });
       return { stdout: res.stdout, stderr: res.stderr, exitCode: res.exitCode };
     } finally {
-      await boxd.machines.delete(machine.id);
+      await boxd.machines
+        .delete(machine.id)
+        .catch((err) =>
+          console.error(`Failed to delete machine ${machine.id}`, err),
+        );
     }
   },
 });

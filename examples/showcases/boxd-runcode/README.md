@@ -23,8 +23,7 @@ as it streams in and the output when it finishes.
 - An OpenAI API key (`OPENAI_API_KEY`). The recipe defaults to `openai:gpt-6-luna`, overridable via
   the `MODEL` env var.
 - A boxd API key (`BOXD_API_KEY`). Create one in the [boxd console](https://app.boxd.sh?ref=CopilotKit)
-  or with `boxd auth keys create copilotkit`. Set `BOXD_ORG` to create machines in an organization,
-  and `BOXD_REGION` (`fra` or `nyc`) to pick a region.
+  or with `boxd auth keys create copilotkit`. Set `BOXD_ORG` to create machines in an organization.
 
 ## Run locally
 
@@ -47,8 +46,11 @@ Open the page, click into the chat, and ask something like:
   `npm install` here installs against published `@copilotkit/*@1.58.0`, which is the same surface the
   recipe targets.
 - Each tool call gets its own machine, and the machine is deleted when the call ends, also when the
-  code fails or times out (60 seconds).
+  code fails or times out (60 seconds). A failed delete is logged, not thrown. If the server process
+  dies mid-call the delete can't run; pass `deleteAfter: 600` to `create` if that matters to you.
 - Machines are created with `isolated: true`: they are not on your organization's private network and
   hold no boxd credentials. They do have outbound internet access.
+- TypeScript runs on Node with type stripping, so it must use erasable syntax only (no enums or
+  namespaces). The tool description tells the model so.
 - For other languages, add an entry to `runners` in the route, or pass a shell command line to
   `boxd.machines.exec(...)`. Every machine is a full Ubuntu system with Python, Node, Go and Docker.
