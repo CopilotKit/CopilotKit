@@ -748,6 +748,21 @@ function typedObjects(
 }
 
 /**
+ * A `.describe()` argument without the v0.9 `REF:<ref>|` marker: the text
+ * after `|` as a string literal, `undefined` for a bare marker, and any
+ * other argument as written.
+ */
+function withoutRefMarker(arg: Node): string | undefined {
+  const text = arg.text();
+  if (arg.kind() !== "string") return text;
+  const value = text.slice(1, -1);
+  if (!value.startsWith("REF:")) return text;
+  const bar = value.indexOf("|");
+  if (bar === -1) return undefined;
+  return `${text[0]}${value.slice(bar + 1)}${text[0]}`;
+}
+
+/**
  * The callee of a call without whitespace: `z\n  .union` is `z.union`.
  * `undefined` for a node that is not a call.
  */
@@ -758,16 +773,20 @@ function calleeOf(node: Node | null | undefined): string | undefined {
 
 /**
  * A prop schema without its trailing `.optional()` and `.describe(text)`
- * calls: the base schema, whether it was optional, and the description.
+ * calls: the base schema, whether it was optional, the description, and
+ * the common type a v0.9 `REF:common_types.json#/$defs/<type>` marker
+ * names (`ComponentId`, `ChildList`, `Action`, ...).
  */
 function peelSchema(schema: Node): {
   base: Node;
   optional: boolean;
   description?: string;
+  ref?: string;
 } {
   let base = schema;
   let optional = false;
   let description: string | undefined;
+  let ref: string | undefined;
   for (;;) {
     const callee =
       base.kind() === "call_expression" ? base.field("function") : null;
@@ -782,11 +801,12 @@ function peelSchema(schema: Node): {
       args.length === 1 &&
       description === undefined
     ) {
-      description = args[0]!.text();
+      description = withoutRefMarker(args[0]!);
+      ref ??= /^["'`]REF:[^"'`|]*#\/\$defs\/(\w+)/.exec(args[0]!.text())?.[1];
     } else break;
     base = object;
   }
-  return { base, optional, description };
+  return { base, optional, description, ref };
 }
 
 /** The comments right before `entry` in `object`, with nothing between. */
@@ -846,25 +866,32 @@ function definitionEdits(
     if (prop.kind() !== "pair") continue;
     const schema = prop.field("value");
     if (!schema) continue;
-    const { base, optional, description } = peelSchema(schema);
+    const { base, optional, description, ref } = peelSchema(schema);
     const compact = base.text().replace(/\s/g, "");
     const suffix = optional ? ".optional()" : "";
     const key = keyOf(prop);
     if (
-      key === "children" &&
-      (compact === `${z}.array(${z}.string())` || isTemplateChildUnion(base, z))
+      ref === "ChildList" ||
+      (key === "children" &&
+        (compact === `${z}.array(${z}.string())` ||
+          isTemplateChildUnion(base, z)))
     ) {
       need(state, from, "childList");
       edits.push(schema.replace(`childList(${description ?? ""})${suffix}`));
-    } else if (key === "child" && compact === `${z}.string()`) {
+    } else if (
+      ref === "ComponentId" ||
+      (key === "child" && compact === `${z}.string()`)
+    ) {
       need(state, from, "child");
       edits.push(schema.replace(`child(${description ?? ""})${suffix}`));
     } else if (
-      key === "action" &&
-      (actionSchemas.has(compact) || !plain.test(compact)) &&
+      (ref === "Action" ||
+        (key === "action" &&
+          (actionSchemas.has(compact) || !plain.test(compact)))) &&
       entryNamed(fields, "events") === undefined
     ) {
-      const name = keyOf(entry) === "Button" ? "onClick" : "action";
+      const name =
+        keyOf(entry) === "Button" && key === "action" ? "onClick" : key;
       // An event that matches no declared function needs its parameters.
       const parameters = `parameters: ${z}.object({})`;
       const event =

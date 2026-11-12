@@ -17,6 +17,15 @@ export const demoDefinitions = {
       ]),
     }),
   },
+  Card: {
+    description: "A card with one child.",
+    props: z.object({
+      child: z
+        .string()
+        .describe("REF:common_types.json#/$defs/ComponentId|The card body."),
+      footer: z.string().describe("REF:common_types.json#/$defs/ComponentId"),
+    }),
+  },
   DataTable: {
     description: "A data table.",
     props: z.object({

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { childList } from "@copilotkit/react-core/generative-ui";
+import { childList, child } from "@copilotkit/react-core/generative-ui";
 
 /** A literal string or a data-model path binding. */
 const DynString = z.string();
@@ -11,6 +11,13 @@ export const demoDefinitions = {
       gap: z.number().optional(),
       // Union with { componentId, path } for template children.
       children: childList(),
+    }),
+  },
+  Card: {
+    description: "A card with one child.",
+    props: z.object({
+      child: child("The card body."),
+      footer: child(),
     }),
   },
   DataTable: {
