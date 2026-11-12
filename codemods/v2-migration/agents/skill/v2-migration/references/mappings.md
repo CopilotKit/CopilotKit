@@ -308,7 +308,7 @@ Docs: https://docs.copilotkit.ai/generative-ui/components/from-a2ui
 | `z.union([z.string(), z.object({ path: z.string() })])`                        | `z.string()`                                                                                                     |
 | `children: z.array(z.string())` in a definition                                | `children: childList()`                                                                                          |
 | `child: z.string()` in a definition                                            | `child: child()`                                                                                                 |
-| `action: ActionSchema` (or `z.unknown()`, `z.any()`) in a definition           | `events: { action: {} }` on the entry; the component calls `action?.()`                                          |
+| `action: ActionSchema` (or `z.unknown()`, `z.any()`) in a definition           | `events: { action: {} }` on the entry (`onClick` on a `Button`); the component calls it                          |
 | `{ ... } satisfies CatalogDefinitions`, `: CatalogRenderers<T>`                | Deleted                                                                                                          |
 | `import { z } from "zod-v3"`                                                   | `import { z } from "zod"`                                                                                        |
 | `<CopilotKitProvider a2ui={{ catalog: myCatalog }}>`                           | `<CopilotKitProvider generativeUI={{ ui: myCatalog }}>`                                                          |

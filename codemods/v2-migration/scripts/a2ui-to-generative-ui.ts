@@ -736,19 +736,63 @@ function typedObjects(
   return result;
 }
 
-/** `text` without `.optional()` at the end, and whether it had it. */
-function splitOptional(text: string): [string, boolean] {
-  return text.endsWith(".optional()")
-    ? [text.slice(0, -".optional()".length), true]
-    : [text, false];
+/**
+ * A prop schema without its trailing `.optional()` and `.describe(text)`
+ * calls: the base schema, whether it was optional, and the description.
+ */
+function peelSchema(schema: Node): {
+  base: Node;
+  optional: boolean;
+  description?: string;
+} {
+  let base = schema;
+  let optional = false;
+  let description: string | undefined;
+  for (;;) {
+    const callee =
+      base.kind() === "call_expression" ? base.field("function") : null;
+    const object = callee?.field("object");
+    if (callee?.kind() !== "member_expression" || !object) break;
+    const method = callee.field("property")?.text();
+    const args = argumentNodes(base);
+    if (method === "optional" && args.length === 0 && !optional) {
+      optional = true;
+    } else if (
+      method === "describe" &&
+      args.length === 1 &&
+      description === undefined
+    ) {
+      description = args[0]!.text();
+    } else break;
+    base = object;
+  }
+  return { base, optional, description };
+}
+
+/** The comments right before `entry` in `object`, with nothing between. */
+function leadingComments(object: Node, entry: Node): Node[] {
+  const comments: Node[] = [];
+  for (const child of object.children()) {
+    if (child.kind() === "comment") {
+      comments.push(child);
+      continue;
+    }
+    if (child.range().start.index === entry.range().start.index)
+      return comments;
+    if (child.isNamed()) comments.length = 0;
+  }
+  return [];
 }
 
 /**
  * The v0.9 conventions in the props of one component definition:
  * `children: z.array(z.string())` is a child list and `child: z.string()`
- * a child, which the v0.9 renderer drew with `children(id)`; an `action`
- * prop (`ActionSchema`, `z.unknown()` or `z.any()`) was passed to
- * `dispatch`, and is an event in 2.0.
+ * a child, which the v0.9 renderer drew with `children(id)`. An `action`
+ * prop with a schema that is not a plain value was passed to `dispatch`;
+ * in 2.0 it is an event. The runtime turns a v0.9 action into an event
+ * binding under the same name, except `Button.action`, which becomes
+ * `onClick` (the name of the standard Button), so a `Button` gets the
+ * event `onClick`.
  */
 function definitionEdits(
   entry: Node,
@@ -774,33 +818,41 @@ function definitionEdits(
   const props = shape?.kind() === "object" ? entriesOf(shape) : null;
   if (!props) return [];
   const from = GENERATIVE_UI_SOURCE[framework];
+  const plain = new RegExp(
+    `^${z.replace(/\$/g, "\\$")}\\.(string|number|boolean|enum|literal)\\(`,
+  );
   const edits: Edit[] = [];
   for (const prop of props) {
     if (prop.kind() !== "pair") continue;
     const schema = prop.field("value");
     if (!schema) continue;
-    const [base, optional] = splitOptional(schema.text().replace(/\s/g, ""));
+    const { base, optional, description } = peelSchema(schema);
+    const compact = base.text().replace(/\s/g, "");
     const suffix = optional ? ".optional()" : "";
     const key = keyOf(prop);
-    if (key === "children" && base === `${z}.array(${z}.string())`) {
+    if (key === "children" && compact === `${z}.array(${z}.string())`) {
       need(state, from, "childList");
-      edits.push(schema.replace(`childList()${suffix}`));
-    } else if (key === "child" && base === `${z}.string()`) {
+      edits.push(schema.replace(`childList(${description ?? ""})${suffix}`));
+    } else if (key === "child" && compact === `${z}.string()`) {
       need(state, from, "child");
-      edits.push(schema.replace(`child()${suffix}`));
+      edits.push(schema.replace(`child(${description ?? ""})${suffix}`));
     } else if (
       key === "action" &&
-      (actionSchemas.has(base) ||
-        base === `${z}.unknown()` ||
-        base === `${z}.any()`) &&
+      (actionSchemas.has(compact) || !plain.test(compact)) &&
       entryNamed(fields, "events") === undefined
     ) {
+      const name = keyOf(entry) === "Button" ? "onClick" : "action";
+      const event =
+        description === undefined ? "{}" : `{ description: ${description} }`;
       edits.push(removeEntry(prop, source));
+      // The comments right above the prop describe it: they go with it.
+      for (const comment of leadingComments(shape!, prop))
+        edits.push(deleteLines(comment, source));
       const end = propsEntry.range().end.index;
       edits.push({
         startPos: end,
         endPos: end,
-        insertedText: `,\n${indentOf(propsEntry, source)}events: { action: {} }`,
+        insertedText: `,\n${indentOf(propsEntry, source)}events: { ${name}: ${event} }`,
       });
     }
   }

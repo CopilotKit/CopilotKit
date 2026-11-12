@@ -23,6 +23,16 @@ export const myRenderers = {
     </button>
   ),
   // TODO(copilotkit-2.0): This was a v0.9 renderer, which got `{ props, children, dispatch }`. A 2.0 component gets its resolved props directly, child components as slots or `child()` / `childList()` props, and calls an event or a function instead of `dispatch`. Rewrite it. See https://docs.copilotkit.ai/generative-ui/components/from-a2ui#convert-a-custom-catalog
+  Button: ({ props, children, dispatch }) => (
+    <button onClick={() => props.action && dispatch?.(props.action)}>
+      {children(props.child)}
+    </button>
+  ),
+  // TODO(copilotkit-2.0): This was a v0.9 renderer, which got `{ props, children, dispatch }`. A 2.0 component gets its resolved props directly, child components as slots or `child()` / `childList()` props, and calls an event or a function instead of `dispatch`. Rewrite it. See https://docs.copilotkit.ai/generative-ui/components/from-a2ui#convert-a-custom-catalog
+  Shortcut: ({ props }) => (
+    <kbd title={props.action}>{props.keys}</kbd>
+  ),
+  // TODO(copilotkit-2.0): This was a v0.9 renderer, which got `{ props, children, dispatch }`. A 2.0 component gets its resolved props directly, child components as slots or `child()` / `childList()` props, and calls an event or a function instead of `dispatch`. Rewrite it. See https://docs.copilotkit.ai/generative-ui/components/from-a2ui#convert-a-custom-catalog
   Metric: ({ props }) => (
     <dl>
       <dt>{props.label}</dt>

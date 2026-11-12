@@ -20,6 +20,14 @@ export const myRenderers: CatalogRenderers<MyDefinitions> = {
       {props.label}
     </button>
   ),
+  Button: ({ props, children, dispatch }) => (
+    <button onClick={() => props.action && dispatch?.(props.action)}>
+      {children(props.child)}
+    </button>
+  ),
+  Shortcut: ({ props }) => (
+    <kbd title={props.action}>{props.keys}</kbd>
+  ),
   Metric: ({ props }) => (
     <dl>
       <dt>{props.label}</dt>

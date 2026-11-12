@@ -20,12 +20,26 @@ export const myDefinitions = {
     description: "A call-to-action button.",
     props: z.object({
       label: z.string(),
-      // Dispatched back to the agent on click.
     }),
     events: { action: {} },
   },
   Metric: {
     props: z.object({ label: z.string(), value: z.string() }),
+  },
+  Button: {
+    description: "A button with a label child.",
+    props: z.object({
+      child: child("The id of the label component."),
+    }),
+    events: { onClick: {} },
+  },
+  Shortcut: {
+    description: "A keyboard shortcut hint.",
+    props: z.object({
+      // A plain label, not a v0.9 action.
+      action: z.string(),
+      keys: z.string(),
+    }),
   },
 };
 

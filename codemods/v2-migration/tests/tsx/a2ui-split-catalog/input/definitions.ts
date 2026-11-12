@@ -27,6 +27,26 @@ export const myDefinitions = {
   Metric: {
     props: z.object({ label: z.string(), value: z.string() }),
   },
+  Button: {
+    description: "A button with a label child.",
+    props: z.object({
+      child: z.string().describe("The id of the label component."),
+      action: z
+        .union([
+          z.object({ event: z.object({ name: z.string() }) }),
+          z.null(),
+        ])
+        .optional(),
+    }),
+  },
+  Shortcut: {
+    description: "A keyboard shortcut hint.",
+    props: z.object({
+      // A plain label, not a v0.9 action.
+      action: z.string(),
+      keys: z.string(),
+    }),
+  },
 } satisfies CatalogDefinitions;
 
 export type MyDefinitions = typeof myDefinitions;
