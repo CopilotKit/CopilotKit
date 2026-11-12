@@ -134,7 +134,7 @@ import { CopilotRuntime } from "@copilotkit/runtime";
 import { BuiltInAgent } from "@copilotkit/runtime/v2";
 
 const agent = new BuiltInAgent({
-  model: "openai/gpt-4o",
+  model: "openai/gpt-6-luna",
   systemPrompt: "You are a helpful shopping assistant.",
 });
 
@@ -446,12 +446,12 @@ const app = express();
 
 // Create agents
 const generalAgent = new BuiltInAgent({
-  model: "openai/gpt-4o",
+  model: "openai/gpt-6-luna",
   systemPrompt: "You are a helpful assistant.",
 });
 
 const codeAgent = new BuiltInAgent({
-  model: "openai/gpt-4o",
+  model: "openai/gpt-6-luna",
   systemPrompt: "You are a coding expert. Always provide code examples.",
 });
 

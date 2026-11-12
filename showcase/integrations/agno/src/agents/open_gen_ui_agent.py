@@ -20,7 +20,7 @@ load_dotenv()
 
 
 agent = Agent(
-    model=OpenAIChat(id="gpt-4o", timeout=120),
+    model=OpenAIChat(reasoning_effort="none", id="gpt-6-luna", timeout=120),
     tools=[],
     tool_call_limit=10,
     description=(

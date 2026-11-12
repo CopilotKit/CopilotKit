@@ -259,5 +259,23 @@ describe("Backward compatibility", () => {
       );
       expect(afterCalls).toEqual(["after-called"]);
     });
+
+    it("does not clone the response when no afterRequestMiddleware is set", async () => {
+      // An unread clone buffers every chunk of a streamed response.
+      const clone = vi.spyOn(Response.prototype, "clone");
+      try {
+        const runtime = createMockRuntime();
+        const endpoint = createCopilotEndpoint({ runtime, basePath: "/" });
+
+        const response = await endpoint.fetch(
+          new Request("https://example.com/info"),
+        );
+
+        expect(response.status).toBe(200);
+        expect(clone).not.toHaveBeenCalled();
+      } finally {
+        clone.mockRestore();
+      }
+    });
   });
 });

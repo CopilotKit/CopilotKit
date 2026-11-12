@@ -30,26 +30,33 @@ Keep the `<CopilotKit>` provider name, but import it from `@copilotkit/react-cor
 
 ```tsx
 import { CopilotKit } from "@copilotkit/react-core";
-import { useCopilotReadable, useCopilotAction } from "@copilotkit/react-core";
+import {
+  useCopilotReadable,
+  useCopilotAction,
+} from "@copilotkit/react-core";
 ```
 
 #### After
 
 ```tsx
-import { CopilotKit, useAgent } from "@copilotkit/react-core/v2";
+import {
+  CopilotKit,
+  useAgentContext,
+  useFrontendTool,
+} from "@copilotkit/react-core/v2";
 ```
 
 #### Hook mapping from v1 to v2
 
 Use this table to find the v2 replacement for each v1 hook:
 
-| v1 hook | v2 hook |
-| --- | --- |
-| `useCopilotAction` | `useFrontendTool` |
-| `useCopilotReadable` | `useAgentContext` |
-| `useCopilotAdditionalInstructions` | `useAgentContext` |
-| `useCoAgent` | `useAgent` |
-| `useCopilotChat` | `useAgent` (low-level headless chat: `useCopilotChatHeadless_c`) |
+| v1 hook | v2 hook | What changes |
+| --- | --- | --- |
+| `useCopilotAction` | `useFrontendTool` | `parameters` is a Zod schema instead of an array. |
+| `useCopilotReadable` | `useAgentContext` | Same `description` and `value`. |
+| `useCopilotAdditionalInstructions` | `useAgentContext` | Pass the instructions as `value`, with a `description`. |
+| `useCoAgent` | `useAgent` | Pass `agentId` instead of `name`. The hook returns `{ agent }`. Read `agent.state` and call `agent.setState(...)`. |
+| `useCopilotChat` | `useAgent` | Read `agent.messages`. Add a message with `agent.addMessage(...)` and run with `copilotkit.runAgent({ agent })`. |
 
 Chat-UI customization props were also renamed in v2:
 

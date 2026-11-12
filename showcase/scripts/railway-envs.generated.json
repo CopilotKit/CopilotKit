@@ -72,6 +72,10 @@
         "serviceId": "6441783f-3e93-40cf-b75d-872c6713d7f2"
       },
       {
+        "name": "showcase-openai-agents-python",
+        "serviceId": "be6a4cb2-6258-4994-bd20-4c6e0eb37e96"
+      },
+      {
         "name": "showcase-langgraph-fastapi",
         "serviceId": "06cccb5c-59f4-46b5-8adc-7113e77011a4"
       },
@@ -150,6 +154,10 @@
       {
         "name": "showcase-intelligence-test-runner",
         "serviceId": "4922b45b-6981-4559-be2f-fbbca9123323"
+      },
+      {
+        "name": "docs-preview",
+        "serviceId": "a5ff33b4-8b8d-4fbc-94b1-177374464bb8"
       },
       {
         "name": "starter-adk",
@@ -324,6 +332,33 @@
       "autoUpdates": {
         "staging": "disabled",
         "prod": "disabled"
+      }
+    },
+    {
+      "name": "docs-preview",
+      "serviceId": "a5ff33b4-8b8d-4fbc-94b1-177374464bb8",
+      "prodInstanceId": "a5ff33b4-8b8d-4fbc-94b1-177374464bb8",
+      "stagingInstanceId": "99cd81df-b32e-413a-9c04-91811ec59806",
+      "ciBuilt": false,
+      "gateValidated": false,
+      "gateIgnore": true,
+      "gatePolicy": {
+        "presence": "optional",
+        "image": "ignored"
+      },
+      "onlyEnvironment": "staging",
+      "domains": {
+        "staging": "",
+        "prod": ""
+      },
+      "probe": {
+        "staging": false,
+        "prod": false,
+        "driver": "shell"
+      },
+      "promoteTier": 2,
+      "autoUpdates": {
+        "staging": "unmanaged"
       }
     },
     {
@@ -1413,6 +1448,45 @@
       }
     },
     {
+      "name": "showcase-openai-agents-python",
+      "serviceId": "be6a4cb2-6258-4994-bd20-4c6e0eb37e96",
+      "prodInstanceId": "a86ab35f-5646-48cd-bdd8-617d394d304f",
+      "stagingInstanceId": "aa2c2665-331f-4a2a-821a-79859ae87994",
+      "ciBuilt": true,
+      "gateValidated": true,
+      "gateIgnore": false,
+      "gatePolicy": {
+        "presence": "required",
+        "image": "showcase-convention"
+      },
+      "dispatchName": "openai-agents-python",
+      "domains": {
+        "staging": "showcase-openai-agents-python-staging.up.railway.app",
+        "prod": "showcase-openai-agents-python-production.up.railway.app"
+      },
+      "probe": {
+        "staging": true,
+        "prod": true,
+        "driver": "agent"
+      },
+      "promoteTier": 2,
+      "runtimeDeps": ["aimock"],
+      "serviceRefs": [
+        {
+          "key": "OPENAI_BASE_URL",
+          "target": "aimock"
+        }
+      ],
+      "healthcheckPath": {
+        "prod": "/api/health",
+        "staging": "/api/health"
+      },
+      "autoUpdates": {
+        "staging": "disabled",
+        "prod": "disabled"
+      }
+    },
+    {
       "name": "showcase-pydantic-ai",
       "serviceId": "0a106173-2282-4887-a994-0ca276a99d69",
       "prodInstanceId": "192cd647-6824-4f01-937a-1da675d83805",
@@ -2145,6 +2219,10 @@
         "tier": 2
       },
       {
+        "name": "showcase-openai-agents-python",
+        "tier": 2
+      },
+      {
         "name": "showcase-langgraph-fastapi",
         "tier": 2
       },
@@ -2272,6 +2350,10 @@
       },
       {
         "name": "showcase-intelligence-test-runner",
+        "reason": "no \"prod\" environment in the SSOT — cannot be promoted (it exists in: staging)."
+      },
+      {
+        "name": "docs-preview",
         "reason": "no \"prod\" environment in the SSOT — cannot be promoted (it exists in: staging)."
       }
     ]

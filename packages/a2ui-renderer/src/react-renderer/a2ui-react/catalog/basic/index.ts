@@ -16,6 +16,11 @@
 
 import { Catalog } from "@a2ui/web_core/v0_9";
 import { BASIC_FUNCTIONS } from "@a2ui/web_core/v0_9/basic_catalog";
+import {
+  BASIC_COMPONENTS as V1_COMPONENTS,
+  BASIC_FUNCTIONS as V1_FUNCTIONS,
+  BasicCatalogThemeSchema,
+} from "@a2ui/web_core/catalogs/basic/v1";
 import type { ReactComponentImplementation } from "../../adapter";
 
 import { Text } from "./components/Text";
@@ -62,6 +67,18 @@ export const basicCatalog = new Catalog<ReactComponentImplementation>(
   "https://a2ui.org/specification/v0_9/basic_catalog.json",
   basicComponents,
   BASIC_FUNCTIONS,
+);
+
+/** Native A2UI 1.0 schemas and functions with the existing React renderers. */
+export const basicCatalogV1 = new Catalog<ReactComponentImplementation>(
+  "https://a2ui.org/specification/v1_0/catalogs/basic/catalog.json",
+  "1.0",
+  V1_COMPONENTS.map((api) => ({
+    ...api,
+    render: basicCatalog.components.get(api.name)!.render,
+  })),
+  V1_FUNCTIONS,
+  { themeSchema: BasicCatalogThemeSchema },
 );
 
 export {

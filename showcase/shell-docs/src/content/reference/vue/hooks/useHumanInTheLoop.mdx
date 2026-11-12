@@ -5,13 +5,13 @@ description: "Vue 3 composable for interactive tools that pause agent execution 
 
 ## Overview
 
-`useHumanInTheLoop` registers an interactive frontend tool that pauses agent execution until the user responds through your custom UI. Unlike `useFrontendTool`, you do not supply a `handler`. Instead, the composable manages an internal status machine (`InProgress` -> `Executing` -> `Complete`) and passes a `respond` callback to your render component while the tool is in the `executing` phase. The agent stays paused until `respond` is called with the user's input.
+`useHumanInTheLoop` registers an interactive frontend tool that pauses agent execution until the user responds through your custom UI. Unlike [`useFrontendTool`](/reference/vue/hooks/useFrontendTool), you do not supply a `handler`. Instead, the composable manages an internal status machine (`InProgress` -> `Executing` -> `Complete`) and passes a `respond` callback to your render component while the tool is in the `executing` phase. The agent stays paused until `respond` is called with the user's input.
 
-Internally the composable wraps `useFrontendTool`. It generates a handler that returns a promise, holds onto that promise's `resolve` in a ref, and resolves it when `respond` is invoked, which sends the result back to the agent and resumes execution. Use it for confirmation dialogs, approval workflows, form collection, or any scenario where a human must provide input before the agent can continue.
+Internally the composable wraps `useFrontendTool`. The composable generates a handler that returns a promise. The composable keeps the `resolve` function of that promise. When your UI calls `respond`, the promise resolves, the result goes to the agent, and the run continues. Use it for confirmation dialogs, approval workflows, form collection, or any scenario where a human must provide input before the agent can continue.
 
 <Callout type="info">
   `useHumanInTheLoop` must be called within a component that has access to the
-  CopilotKit instance provided by `CopilotKitProvider`. Like all Vue
+  CopilotKit instance provided by [`CopilotKitProvider`](/reference/vue/components/CopilotKitProvider). Like all Vue
   composables, call it synchronously inside `<script setup>` or a `setup()`
   function so its reactive scope is bound to the component lifecycle. The tool
   is unregistered automatically on scope cleanup.
@@ -42,7 +42,7 @@ function useHumanInTheLoop<T extends Record<string, unknown>>(
 
 <PropertyReference name="description" type="string">
   A natural-language description that tells the agent what the tool does and
-  when to invoke it (e.g., "Ask the user to confirm before deleting records").
+  when to call it (e.g., "Ask the user to confirm before deleting records").
 </PropertyReference>
 
 <PropertyReference name="parameters" type="StandardSchemaV1 (e.g. z.ZodSchema)">
@@ -58,6 +58,7 @@ function useHumanInTheLoop<T extends Record<string, unknown>>(
     - `name: string` -- the tool name
     - `description: string` -- the tool description (an empty string when the tool defines none)
     - `toolCallId: string` -- the unique id of this tool call
+    - `agentId?: string` -- the `agentId` of the tool, when the tool has one
     - `status: ToolCallStatus` -- the current phase (`"inProgress"`, `"executing"`, or `"complete"`)
 
     **When `status` is `ToolCallStatus.InProgress` (`"inProgress"`):**
@@ -107,7 +108,7 @@ A common pattern where the agent asks the user to confirm a destructive action.
 
 ```vue
 <script setup lang="ts">
-import { ToolCallStatus } from "@copilotkit/core";
+import { ToolCallStatus } from "@copilotkit/vue/v2";
 
 defineProps<{
   status: ToolCallStatus;
@@ -187,7 +188,7 @@ Collect structured input from the user before the agent proceeds. Local form sta
 ```vue
 <script setup lang="ts">
 import { ref } from "vue";
-import { ToolCallStatus } from "@copilotkit/core";
+import { ToolCallStatus } from "@copilotkit/vue/v2";
 
 defineProps<{
   status: ToolCallStatus;
@@ -266,7 +267,7 @@ useHumanInTheLoop({
 
 ```vue
 <script setup lang="ts">
-import { ToolCallStatus } from "@copilotkit/core";
+import { ToolCallStatus } from "@copilotkit/vue/v2";
 
 defineProps<{
   status: ToolCallStatus;
@@ -356,34 +357,15 @@ useHumanInTheLoop({
 - **Blocks agent execution**: The internally generated handler returns a promise that does not resolve until `respond` is called, so the agent pauses on this tool call and waits for the user.
 - **Internal status machine**: The composable drives three phases - `inProgress` (arguments streaming in), `executing` (waiting for the user, `respond` available), and `complete` (user has responded, `result` available). Your render component receives the appropriate props for each phase.
 - **`respond` is only passed during `executing`**: In the `inProgress` and `complete` phases, `respond` is `undefined`. Guard on `status === ToolCallStatus.Executing && respond` before calling it.
-- **Single response**: Calling `respond` resolves the pending promise once and clears the stored resolver, so subsequent calls are no-ops for that tool invocation.
+- **Single response**: Calling `respond` resolves the pending promise once and clears the stored resolver, so subsequent calls are no-ops for that tool call.
+- **Stop while waiting**: If the user stops the agent while the tool waits, the pending call rejects with `Human-in-the-loop interaction aborted`. A later `respond` call does nothing.
 - **Built on `useFrontendTool`**: The composable forwards a `VueFrontendTool` (your tool plus the generated `handler` and a wrapping render component) to `useFrontendTool`, so the same registration lifecycle applies.
-- **Scope lifecycle**: The tool and its render component are registered while the composable's reactive scope is active and removed automatically on scope cleanup — the render component via `onScopeDispose`, and the tool via the underlying `useFrontendTool` watch's cleanup.
+- **Scope lifecycle**: The tool and its render component are registered while the composable's reactive scope is active and removed automatically on scope cleanup: the render component via `onScopeDispose`, and the tool via the underlying `useFrontendTool` watch's cleanup.
 - **No return value**: The composable returns `void`.
-
-## Related
-
-<Cards>
-  <Card
-    title="useFrontendTool"
-    href="/reference/vue/hooks/useFrontendTool"
-    description="Register tools with automated handlers that do not require user interaction."
-  />
-  <Card
-    title="useCopilotKit"
-    href="/reference/vue/hooks/useCopilotKit"
-    description="Access the underlying CopilotKit instance."
-  />
-  <Card
-    title="CopilotKitProvider"
-    href="/reference/vue/components/CopilotKitProvider"
-    description="Provides the CopilotKit instance to descendant composables."
-  />
-</Cards>
 
 ## ToolCallStatus
 
-The `ToolCallStatus` enum is exported from `@copilotkit/core` and defines the three phases of tool execution. Its string values are what appear in the render component's `status` prop.
+The `ToolCallStatus` enum is exported from `@copilotkit/vue/v2` and defines the three phases of tool execution. Its string values are what appear in the render component's `status` prop.
 
 | Value                       | String value   | Description                                                                              |
 | --------------------------- | -------------- | ---------------------------------------------------------------------------------------- |

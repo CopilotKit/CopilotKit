@@ -15,6 +15,7 @@ import type {
   VueToolCallRenderer,
 } from "../types";
 import type { Component } from "vue";
+import type { GenerativeUIConfig } from "../generative-ui/runtime-context";
 
 export interface CopilotKitProviderProps {
   runtimeUrl?: string;
@@ -90,8 +91,41 @@ export interface CopilotKitProviderProps {
     theme?: A2UITheme;
     catalog?: any;
     loadingComponent?: Component;
+    /**
+     * When true (the default), the full component schemas from the catalog are
+     * sent as agent context so the agent knows what components and props are
+     * available. The A2UI middleware can overwrite this with a server-side
+     * schema if configured.
+     *
+     * When false, the agent context still describes the catalog, but only by its
+     * catalog ID and the names of its custom components, without their JSON
+     * schemas. The component schema entry and the A2UI generation and design
+     * guidelines are not sent. With the CopilotKit LangGraph middleware's
+     * injected A2UI tool, the A2UI subagent then gets the component names only;
+     * a host can still give it a composition guide through the middleware's
+     * guidelines (`a2uiParams.guidelines.compositionGuide` in TypeScript,
+     * `a2ui_params["guidelines"]["composition_guide"]` in Python).
+     */
     includeSchema?: boolean;
   };
+  /**
+   * Experimental. Native generative UI. Pass `ui` from `createGenerativeUI`,
+   * and the agent renders your Vue components in the chat or in a
+   * `<GenerativeUISurface id>` on the page. The library binds the props that
+   * match the declared state and the events that match the declared
+   * functions. The model does not see them.
+   *
+   * Bind it in camelCase, as `:generativeUI`. Vue reads the kebab-case
+   * `:generative-ui` as a different prop (`generativeUi`).
+   *
+   * @example
+   * ```vue
+   * <CopilotKitProvider runtime-url="/api/copilotkit" :generativeUI="{ ui }">
+   *   <CopilotChat />
+   * </CopilotKitProvider>
+   * ```
+   */
+  generativeUI?: GenerativeUIConfig;
   /** Configuration for the built-in MCP Apps renderer. */
   mcpApps?: {
     /**

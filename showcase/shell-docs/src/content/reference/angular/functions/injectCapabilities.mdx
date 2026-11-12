@@ -7,7 +7,7 @@ description: "Angular function for reading an agent's declared capabilities as a
 
 `injectCapabilities` returns the [AG-UI `AgentCapabilities`](https://docs.ag-ui.com/concepts/capabilities) declared by the resolved agent as an Angular signal.
 
-Capabilities are populated from the runtime `/info` response. This function is a convenience selector over `injectAgentStore`; it does not keep separate capability state or make its own request. The signal is `undefined` until runtime discovery completes or when the agent does not declare capabilities.
+Capabilities are populated from the runtime `/info` response. This function is a convenience selector over [`injectAgentStore`](/reference/angular/functions/injectAgentStore); it does not keep separate capability state or make its own request. The signal is `undefined` until runtime discovery completes or when the agent does not declare capabilities.
 
 ## Signature
 
@@ -29,8 +29,9 @@ function injectCapabilities(
   required={false}
 >
   ID of the agent whose capabilities to read. A provided id takes precedence.
-  When omitted or `undefined`, the function uses the surrounding
-  `CopilotChatConfiguration` agent and then falls back to the default agent.
+  When omitted, the function uses the agent of the surrounding
+  `provideCopilotChatConfiguration`. Without that provider, it uses the
+  `"default"` agent. A signal that returns `undefined` also uses `"default"`.
   Pass a signal to switch agents reactively.
 </PropertyReference>
 
@@ -76,14 +77,3 @@ export class AgentCapabilitiesComponent {
   readonly capabilities = injectCapabilities(this.agentId);
 }
 ```
-
-## Related
-
-<Cards>
-  <Card
-    title="injectAgentStore"
-    description="Access the resolved agent and its reactive messages, state, and run status."
-    href="/reference/angular/functions/injectAgentStore"
-    icon={<LinkIcon />}
-  />
-</Cards>

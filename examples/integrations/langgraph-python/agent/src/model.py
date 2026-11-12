@@ -46,13 +46,19 @@ def create_chat_model(default_spec: str, **openai_kwargs) -> BaseChatModel:
     """Build this site's chat model.
 
     Args:
-        default_spec: This site's default, e.g. ``"openai:gpt-5.4"``.
+        default_spec: This site's default, e.g. ``"openai:gpt-6-luna"``.
         **openai_kwargs: Extra ChatOpenAI options, applied only for OpenAI.
     """
     provider, model = parse_agent_model(
         (os.getenv("COPILOTKIT_AGENT_MODEL") or "").strip() or default_spec
     )
-    kwargs = openai_kwargs if provider == "openai" else {}
+    kwargs = dict(openai_kwargs) if provider == "openai" else {}
+    if (
+        provider == "openai"
+        and model == "gpt-6-luna"
+        and not kwargs.get("use_responses_api")
+    ):
+        kwargs["reasoning_effort"] = "none"
     return init_chat_model(
         model, model_provider=_LANGCHAIN_PROVIDERS[provider], **kwargs
     )

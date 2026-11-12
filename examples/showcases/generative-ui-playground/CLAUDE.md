@@ -83,7 +83,7 @@ npm run dev
 
 ```bash
 # .env
-OPENAI_API_KEY=sk-...          # OpenAI API key for gpt-5.2
+OPENAI_API_KEY=sk-...          # OpenAI API key for gpt-6-luna
 MCP_SERVER_URL=http://localhost:3001/mcp
 A2A_AGENT_URL=http://localhost:10002
 ```

@@ -901,6 +901,11 @@ export const STARTER_COLUMNS: ReadonlySet<string> = new Set([
  * showcase package itself is not deployed yet, so `build-starters` publishes
  * no `starter-antigravity` image and no Railway service exists to probe.
  *
+ * `openai-agents-python` joined on 2026-11-11. Its starter is
+ * `examples/integrations/openai-agents-python` (same name as the column). It
+ * is in the CI smoke matrix, but no Railway starter service exists, so
+ * `build-starters` publishes no `starter-openai-agents-python` image to probe.
+ *
  * Membership is guarded against the filesystem by
  * `starter-mapping-drift.test.ts`: a column may only sit here if an
  * identically-named directory exists under `examples/integrations/`, and no
@@ -919,6 +924,7 @@ export const STARTER_COLUMNS_UNPROBED: ReadonlySet<string> = new Set([
   "claude-sdk-typescript",
   "crewai-conversational-flows",
   "google-antigravity",
+  "openai-agents-python",
 ]);
 
 /**

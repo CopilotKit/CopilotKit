@@ -407,6 +407,19 @@ export const COMPATIBILITY_MAPPING: VariantMapping[] = [
     excludedLibraries: [],
   },
   {
+    slug: "openai-agents-python",
+    language: "python",
+    libraries: [
+      framework(
+        "openai-agents",
+        "pypi",
+        requirements("openai-agents-python"),
+        "OpenAI Agents SDK agent framework",
+      ),
+    ],
+    excludedLibraries: [adapter("ag-ui-openai-agents")],
+  },
+  {
     slug: "pydantic-ai",
     language: "python",
     libraries: [

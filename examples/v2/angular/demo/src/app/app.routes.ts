@@ -16,6 +16,22 @@ export const routes: Routes = [
       ),
   },
   {
+    path: "generative-ui",
+    title: "Native generative UI",
+    loadComponent: () =>
+      import("./routes/generative-ui/generative-ui-demo.component").then(
+        (m) => m.GenerativeUIDemoComponent,
+      ),
+  },
+  {
+    path: "generative-ui/catalog",
+    title: "Standard components",
+    loadComponent: () =>
+      import("./routes/generative-ui/generative-ui-catalog.component").then(
+        (m) => m.GenerativeUICatalogComponent,
+      ),
+  },
+  {
     path: "mcp-apps",
     title: "MCP Apps Demo",
     loadComponent: () =>

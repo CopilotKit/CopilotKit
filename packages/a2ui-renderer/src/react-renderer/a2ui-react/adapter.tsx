@@ -120,28 +120,78 @@ export function createReactComponent<Api extends ComponentApi>(
     buildChild: (id: string, basePath?: string) => React.ReactNode;
     properties: ComponentContext["componentModel"]["properties"];
   }> = ({ context, buildChild, properties }) => {
+    // The visual implementation can be shared across protocol catalogs; binding
+    // must use the schema of the catalog that owns this component instance.
+    const schema =
+      context.componentModel.catalog?.components.get(api.name)?.schema ??
+      api.schema;
     // Rebuild on wire updates as well as context changes, so a previously
     // failed binding cannot leave stale resolved props on a corrected component.
-    const binding = useMemo(
-      () => new GenericBinder<Props>(context, api.schema),
-      [context, properties],
-    );
+    // web_core reports a failed evaluation (unknown function, malformed
+    // arguments) on the surface's error channel instead of throwing. Errors
+    // dispatched while the binder resolves its initial props belong to this
+    // component, so collect them and show the failure in place.
+    const {
+      binding: binder,
+      subscribe,
+      getSnapshot,
+    } = useMemo(() => {
+      const createBinding = () => {
+        const errors: string[] = [];
+        const subscription = context.dataContext.surface?.onError.subscribe(
+          (error) => {
+            errors.push(error.message);
+          },
+        );
+        try {
+          return {
+            binding: new GenericBinder<Props>(context, schema),
+            bindError: errors.length > 0 ? errors.join("; ") : null,
+          };
+        } finally {
+          subscription?.unsubscribe();
+        }
+      };
+      const initial = createBinding();
+      const binding = initial.binding;
+      let snapshot = { props: binding.snapshot, bindError: initial.bindError };
 
-    const subscribe = useCallback(
-      (callback: () => void) => {
-        const sub = binding.subscribe(callback);
-        return () => sub.unsubscribe();
-      },
-      [binding],
-    );
+      return {
+        binding,
+        getSnapshot: () => snapshot,
+        subscribe: (callback: () => void) => {
+          const update = () => {
+            if (snapshot.props === binding.snapshot) return;
+            let bindError = snapshot.bindError;
+            if (bindError) {
+              // A partial snapshot is not proof of recovery: another prop may
+              // have changed while a function still fails. Re-evaluate this
+              // component only, collecting errors for the synchronous attempt.
+              const retry = createBinding();
+              bindError = retry.bindError;
+              retry.binding.dispose();
+            }
+            snapshot = { props: binding.snapshot, bindError };
+            callback();
+          };
+          const sub = binding.subscribe(update);
+          // Connecting the binder rebuilds its snapshot before registering us.
+          update();
+          return () => sub.unsubscribe();
+        },
+      };
+    }, [context, properties, schema]);
 
-    const getSnapshot = useCallback(() => binding.snapshot, [binding]);
-    const props = useSyncExternalStore(subscribe, getSnapshot);
+    const { props, bindError } = useSyncExternalStore(subscribe, getSnapshot);
 
     // Prevent DataModel subscription leaks on unmount
     useEffect(() => {
-      return () => binding.dispose();
-    }, [binding]);
+      return () => binder.dispose();
+    }, [binder]);
+
+    if (bindError) {
+      return <ComponentFailure name={api.name} detail={bindError} />;
+    }
 
     return (
       <RenderBoundary name={api.name} snapshot={props}>
@@ -176,7 +226,19 @@ export function createReactComponent<Api extends ComponentApi>(
     // Validate the wire props, not the bound props: the binder turns valid
     // actions into callbacks and child templates into resolved child lists.
     // A plain string schema deliberately does not accept a { path } binding.
-    const validation = api.schema.safeParse(properties);
+    const schema =
+      context.componentModel.catalog?.components.get(api.name)?.schema ??
+      api.schema;
+    // In 1.0, accessibility belongs to ComponentCommon, which the processor
+    // already validates. It remains on the model but is not a prop of the
+    // strict component-specific schema.
+    const { accessibility: _accessibility, ...componentProperties } =
+      properties;
+    const validation = schema.safeParse(
+      context.dataContext.surface?.protocolVersion === "1.0"
+        ? componentProperties
+        : properties,
+    );
     if (!validation.success) {
       const fields = validation.error.issues
         .map((issue) => `${issue.path.join(".") || "props"}: ${issue.message}`)

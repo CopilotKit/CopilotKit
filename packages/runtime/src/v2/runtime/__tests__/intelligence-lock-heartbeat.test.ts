@@ -104,6 +104,9 @@ class DeferredRenewalIntelligence extends CopilotKitIntelligence {
     };
   }
 
+  // The run handler releases the lock when the runner's stream ends.
+  override async ɵcleanupThreadLock() {}
+
   override async ɵrenewThreadLock() {
     this.markRenewalStarted();
     return new Promise<{ ttlSeconds: number }>((_resolve, reject) => {
@@ -201,6 +204,9 @@ class ScriptedRenewalIntelligence extends CopilotKitIntelligence {
   override ɵrenewThreadLock() {
     return this.renew();
   }
+
+  // The run handler releases the lock when the runner's stream ends.
+  override async ɵcleanupThreadLock() {}
 }
 
 async function startRun(intelligence: ScriptedRenewalIntelligence) {

@@ -32,8 +32,14 @@
  * - oss.runtime.agent_execution_stream_errored - when an agent execution fails
  */
 
-import { InMemoryAgentRunner } from "../../../v2/runtime/runner";
-import type { AgentRunner } from "../../../v2/runtime/runner";
+import {
+  InMemoryAgentRunner,
+  enforcesThreadOwnership,
+} from "../../../v2/runtime/runner";
+import type {
+  AgentRunner,
+  ThreadOwnershipRunner,
+} from "../../../v2/runtime/runner";
 import { createHash } from "node:crypto";
 import { tap, catchError, finalize } from "rxjs";
 import telemetry from "../telemetry-client";
@@ -76,12 +82,24 @@ export class TelemetryAgentRunner implements AgentRunner {
   private readonly hashedLgcKey: string | undefined;
   private readonly telemetry: TelemetryCapture;
 
+  /**
+   * The wrapped runner's thread owner check, present only when that runner
+   * has one, so the runtime checks owners before a run exactly as it would
+   * without this wrapper.
+   */
+  readonly isThreadAccessible?: ThreadOwnershipRunner["isThreadAccessible"];
+
   constructor(config?: TelemetryAgentRunnerConfig) {
     this._runner = config?.runner ?? new InMemoryAgentRunner();
     this.telemetry = config?.telemetry ?? telemetry;
     this.hashedLgcKey = config?.langsmithApiKey
       ? createHash("sha256").update(config.langsmithApiKey).digest("hex")
       : undefined;
+    const inner = this._runner;
+    if (enforcesThreadOwnership(inner)) {
+      this.isThreadAccessible = (threadId, scope) =>
+        inner.isThreadAccessible(threadId, scope);
+    }
   }
 
   /**
@@ -135,9 +153,10 @@ export class TelemetryAgentRunner implements AgentRunner {
       catchError((error) => {
         // Capture stream error event
         streamErrored = true;
+        // Outcome only: the message can quote prompts, arguments or URLs.
         this.telemetry.capture("oss.runtime.agent_execution_stream_errored", {
           ...streamInfo,
-          error: error instanceof Error ? error.message : String(error),
+          error: "AGENT_EXECUTION_FAILED",
         });
         throw error;
       }),

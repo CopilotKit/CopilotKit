@@ -92,9 +92,6 @@ Return information the model can act on:
 - Return or throw the real failure reason so the model can recover.
 - Do not manually `JSON.stringify` successful data.
 
-Want the agent to turn data into an image? Post your own presentational React
-markup through [Posting JSX as images](/channels/posting-jsx-as-images).
-
 ## Add stable context
 
 Channel context is sent on every agent run:
@@ -177,14 +174,6 @@ Add native context when you run the agent:
 ```ts title="channel.ts"
 channel.onMessage(async ({ thread, message }) => {
   await thread.runAgent({
-    prompt: message.contentParts?.length
-      ? [
-          ...(message.text
-            ? [{ type: "text" as const, text: message.text }]
-            : []),
-          ...message.contentParts,
-        ]
-      : message.text,
     context: [
       { description: "Originating platform", value: message.platform },
       {
@@ -201,13 +190,14 @@ pass it for that run. Its closure captures the trusted inbound identity:
 
 ```ts title="channel.ts"
 channel.onMessage(async ({ thread, message }) => {
-  if (!message.user) return;
+  const user = message.user;
+  if (!user) return;
   const listMyApprovals = defineChannelTool({
     name: "list_my_approvals",
     description: "List approvals assigned to the requesting user.",
     parameters: z.object({}),
     async handler() {
-      return approvals.forApplicationUser(message.user.id);
+      return approvals.forApplicationUser(user.id);
     },
   });
 
@@ -276,6 +266,9 @@ Intelligence sends it to the conversation.
 
 </FrontendOnly>
 
+To post a result as an image, see
+[Posting JSX as images](/channels/posting-jsx-as-images).
+
 ## Where MCP belongs
 
 Connect MCP servers to the selected agent backend. The Channels SDK forwards
@@ -283,6 +276,9 @@ channel tools over AG-UI alongside the tools already exposed by that agent, so
 you do not need a second channel-specific MCP transport. Start with
 [MCP tools](/agentic-protocols/mcp), then use `defineChannelTool` only for
 actions that need the current channel conversation.
+
+To check the tool, mention the bot and ask for the status of INC-421. The agent
+calls `get_incident` and replies with the incident status.
 
 Continue with [interactive messages and approvals](/channels/interactive), or
 use the [Channel API reference](/reference/channels/classes/Channel).

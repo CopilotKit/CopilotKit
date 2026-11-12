@@ -1,3 +1,16 @@
+<Callout type="warn" title="ADK agents must put the context in the prompt">
+  Unlike the Built-in Agent, an ADK agent does **not** receive this context
+  automatically. The AG-UI adapter stores it in ADK session state under
+  `CONTEXT_STATE_KEY` (`"_ag_ui_context"`) and stops there. Nothing puts it in
+  the prompt.
+
+  An `LlmAgent` built with a plain string `instruction` therefore never sees
+  it. The agent still answers, fluently and in the right shape, from nothing.
+  That reads like a working integration until you check the answer against
+  your own records. The instruction provider below is the step that connects
+  them.
+</Callout>
+
 <Steps>
   <Step>
     ### Install the ADK + AG-UI bridge
@@ -72,6 +85,21 @@
     `AGUIToolset()` exposes frontend tools; it does not automatically add
     context to the model's instructions. The instruction provider above
     performs that step. Expose this agent through your `ADKAgent` endpoint.
+
+    When only one tool needs the data, read the same entries from
+    `tool_context.state[CONTEXT_STATE_KEY]` inside that tool instead of adding
+    them to the whole prompt. On `google-adk` 1.22.0 or later,
+    `ctx.run_config.custom_metadata["ag_ui_context"]` holds the same entries.
+
+  </Step>
+  <Step>
+    ### Check that the agent really reads it
+
+    This is the one integration that fails quietly, so check the answer
+    against your own records. The reliable check is a control: send the same
+    request once with the context and once with an empty context. Two answers
+    that describe the same record mean the context changed nothing, and the
+    agent is answering from its own invention.
 
   </Step>
 </Steps>

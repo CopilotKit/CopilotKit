@@ -30,6 +30,11 @@ on:
         required: false
         default: false
         type: boolean
+      verify_only:
+        description: "Verify current production images without promoting or redeploying services"
+        required: false
+        default: false
+        type: boolean
       service:
         description: "Service to promote (dispatch_name or SSOT key). 'all' = whole fleet. Leave the placeholder to abort."
         required: true
@@ -57,6 +62,7 @@ on:
           - ms-agent-dotnet
           - ms-agent-harness-dotnet
           - ms-agent-python
+          - openai-agents-python
           - pydantic-ai
           - shell
           - shell-dashboard
@@ -166,7 +172,7 @@ jobs:
         run: showcase/scripts/resolve-promote-targets.sh
 
   verify-staging-precondition:
-    if: ${{ inputs.validate_registry_only != true }}
+    if: ${{ inputs.validate_registry_only != true && inputs.verify_only != true }}
     needs: [resolve-targets]
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -246,7 +252,7 @@ jobs:
       # not promoted, but the promoted services now run against them, so prod
       # health, compatibility and equivalence must still check them on their
       # CURRENT image. Equals succeeded_csv when nothing is held.
-      verify_csv: ${{ steps.promote.outputs.verify_csv }}
+      verify_csv: ${{ steps.promote.outputs.verify_csv || steps.verification-scope.outputs.verify_csv }}
       # Aggregated staging-drift payload: non-empty when any promoted service's
       # staging RUNNING digest differed from the current GHCR :latest (i.e.
       # staging was NOT serving :latest). Folded into the Slack notify payload
@@ -261,10 +267,15 @@ jobs:
       # total-failure blob in that case).
       results_b64: ${{ steps.promote.outputs.results_b64 }}
     steps:
+      - name: Reject conflicting validation modes
+        if: ${{ inputs.validate_registry_only == true && inputs.verify_only == true }}
+        run: |
+          echo "::error::Choose registry validation or production verification, not both."
+          exit 1
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
-      - uses: ruby/setup-ruby@651ff0d62c5c79bed6d53ec518387aae20e72c1a # v1.329.0
+      - uses: ruby/setup-ruby@b3aaceaef7e0ee231b499e7b5f49c03fc1d32199 # v1.338.0
         with:
           ruby-version: "3.3"
           bundler-cache: false
@@ -272,7 +283,7 @@ jobs:
         with:
           node-version: 22.x
       # The Ruby lifecycle bridge resolves tsx from repository-root node_modules.
-      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
       - name: Install registry reader tooling
         run: pnpm install --filter CopilotKit --frozen-lockfile --ignore-scripts
       - working-directory: showcase/scripts
@@ -296,22 +307,32 @@ jobs:
         run: ruby showcase/scripts/validate-registry.rb "$RUNNER_TEMP/registry-validation.json"
       - name: Retain safe registry validation receipt
         if: ${{ inputs.validate_registry_only == true }}
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: showcase_promote-registry-validation
           path: ${{ runner.temp }}/registry-validation.json
           if-no-files-found: error
           retention-days: 14
 
+      - name: Resolve current production verification scope
+        id: verification-scope
+        if: ${{ inputs.verify_only == true && inputs.validate_registry_only != true }}
+        env:
+          CLOSURE_CSV: ${{ needs.resolve-targets.outputs.closure_csv }}
+          HELD_CSV: ${{ needs.resolve-targets.outputs.held_csv }}
+        run: |
+          set -euo pipefail
+          test -n "$CLOSURE_CSV"
+          VERIFY_CSV="${CLOSURE_CSV}${HELD_CSV:+,$HELD_CSV}"
+          echo "verify_csv=$VERIFY_CSV" >> "$GITHUB_OUTPUT"
+          echo "Verification only: checking current production images for $VERIFY_CSV. No promotion or redeployment." >> "$GITHUB_STEP_SUMMARY"
+
       - name: bin/railway promote
-        if: ${{ inputs.validate_registry_only != true }}
+        if: ${{ inputs.validate_registry_only != true && inputs.verify_only != true }}
         id: promote
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
           GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          SHOWCASE_DISPOSABLE_RUN_RECORDS_FILE: ${{ vars.SHOWCASE_DISPOSABLE_RUN_RECORDS_FILE }}
-          SHOWCASE_DISPOSABLE_RUN_RECORDS_TOKEN: ${{ secrets.SHOWCASE_DISPOSABLE_RUN_RECORDS_TOKEN }}
-          SHOWCASE_REGISTRY_CONSUMER: ruby-promotion
           # Tier-ordered closure plan (U4): promote-fleet.sh prefers CLOSURE_PLAN
           # over SERVICES_CSV, promoting BY TIER (0->1->2) with dependent-tier
           # gating AND within-tier parallel fan-out (PROMOTE_FANOUT). A serial
@@ -334,12 +355,8 @@ jobs:
             echo "::error::RAILWAY_TOKEN is not set"
             exit 1
           fi
-          if [ -z "$SHOWCASE_DISPOSABLE_RUN_RECORDS_FILE" ] && [ -z "$SHOWCASE_DISPOSABLE_RUN_RECORDS_TOKEN" ]; then
-            unset SHOWCASE_DISPOSABLE_RUN_RECORDS_FILE
-          elif [ -z "$SHOWCASE_DISPOSABLE_RUN_RECORDS_FILE" ] || [ -z "$SHOWCASE_DISPOSABLE_RUN_RECORDS_TOKEN" ]; then
-            echo "::error::Configure both registry URL and token, or neither."
-            exit 1
-          fi
+          # Not connected to the disposable-runner registry (PNI-786): static fleet
+          # mode. See "Registry disconnected" in showcase/scripts/railway-lifecycle.md.
           # promote-fleet.sh runs each service in turn BEST-EFFORT: a single
           # red service (e.g. a chronically-broken integration in the `all`
           # set) must not abort promotion of the rest of the fleet. The script
@@ -483,7 +500,7 @@ jobs:
       # the gate step so the no-op (unconfigured) path stays cheap.
       - name: Set up pnpm (equivalence gate only)
         if: ${{ steps.verify.outputs.status == 'success' && vars.SHOWCASE_PROD_POCKETBASE_URL != '' && vars.SHOWCASE_STAGING_POCKETBASE_URL != '' && vars.SHOWCASE_RAILWAY_ENV_ID_PROD != '' }}
-        uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+        uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
       - name: pnpm install (equivalence gate only)
         if: ${{ steps.verify.outputs.status == 'success' && vars.SHOWCASE_PROD_POCKETBASE_URL != '' && vars.SHOWCASE_STAGING_POCKETBASE_URL != '' && vars.SHOWCASE_RAILWAY_ENV_ID_PROD != '' }}
         run: pnpm install --ignore-scripts
@@ -507,6 +524,8 @@ jobs:
           # §4.4 annotation: flip to "false" once prod harness-workers are
           # provisioned-but-degraded is the default-true full-throughput path.
           PROD_HARNESS_WORKERS_PROVISIONED: ${{ vars.SHOWCASE_PROD_HARNESS_WORKERS_PROVISIONED }}
+          PROD_HARNESS_BASE_URL: ${{ vars.SHOWCASE_PROD_HARNESS_BASE_URL }}
+          PROD_HARNESS_TRIGGER_TOKEN: ${{ secrets.SHOWCASE_PROD_HARNESS_TRIGGER_TOKEN }}
         run: |
           set -euo pipefail
           # OUT-OF-PR PREREQ GATE: the equivalence gate is inert until the prod
@@ -572,7 +591,7 @@ jobs:
     #                                  service failed).
     #   verify-prod                  = verifies the succeeded subset.
     needs: [resolve-targets, verify-staging-precondition, promote, verify-prod]
-    if: ${{ always() && inputs.validate_registry_only != true }}
+    if: ${{ always() && inputs.validate_registry_only != true && inputs.verify_only != true }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:

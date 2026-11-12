@@ -29,7 +29,8 @@
  * const copilotKit = new CopilotRuntime();
  *
  * const model = new ChatOpenAI({
- *   model: "gpt-4o",
+ *   model: "gpt-6-luna",
+ *   reasoning: { effort: "none" },
  *   apiKey: "<your-api-key>",
  * });
  *
@@ -59,6 +60,7 @@ import type {
 import {
   convertActionInputToLangChainTool,
   convertMessageToLangChainMessage,
+  mergeAssistantToolCalls,
   streamLangChainResponse,
 } from "./utils";
 import type { DynamicStructuredTool } from "@langchain/core/tools";
@@ -103,7 +105,9 @@ export class LangChainAdapter implements CopilotServiceAdapter {
       } = request;
       const threadId = threadIdFromRequest ?? randomUUID();
       const result = await this.options.chainFn({
-        messages: messages.map(convertMessageToLangChainMessage),
+        messages: mergeAssistantToolCalls(
+          messages.map(convertMessageToLangChainMessage),
+        ),
         tools: actions.map(convertActionInputToLangChainTool),
         model,
         threadId,

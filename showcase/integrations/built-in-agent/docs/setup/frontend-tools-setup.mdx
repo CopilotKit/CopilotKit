@@ -4,14 +4,15 @@
 
     A `BuiltInAgent` built from configuration merges the request's tool
     definitions into the tool list it hands the model, so the agent declares
-    none of its own. A component registered with `useComponent` reaches the
-    model by name with no extra wiring.
+    none of its own. A tool registered with `useFrontendTool`, or a component
+    registered with `useComponent`, reaches the model by name with no extra
+    wiring.
 
     ```ts title="app/api/copilotkit/[[...slug]]/route.ts"
     import { BuiltInAgent } from "@copilotkit/runtime/v2";
 
     const builtInAgent = new BuiltInAgent({
-      model: "openai:gpt-5.4-mini",
+      model: "openai:gpt-6-luna",
       prompt: SYSTEM_PROMPT,
     });
     ```
@@ -41,7 +42,7 @@
       type: "aisdk",
       factory: ({ input, abortSignal }) =>
         streamText({
-          model: openai("gpt-4o"),
+          model: openai("gpt-6-luna"),
           messages: convertMessagesToVercelAISDKMessages(input.messages),
           tools: convertToolsToVercelAITools(input.tools),
           abortSignal,

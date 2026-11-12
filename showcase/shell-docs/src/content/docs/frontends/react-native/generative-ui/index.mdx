@@ -1,0 +1,26 @@
+---
+title: Generative UI
+description: Let your agent answer with React Native components, not just text.
+---
+
+Your agent can answer with UI in place of text. On React Native, you build the components, and the agent's tool calls and state decide what they show.
+
+## Controlled
+
+- [Components as Tools](/generative-ui/tool-based): the agent calls your React Native components as tools, with `useComponent`.
+- [Tool Call Rendering](/generative-ui/tool-rendering): render your agent's tool calls with your own components, with `useRenderTool`.
+- [State Rendering](/generative-ui/state-rendering): render UI from agent state, with `useAgent`.
+
+## Interactive
+
+- [Human-in-the-loop](/human-in-the-loop): the agent pauses for a decision in a component you build, with `useHumanInTheLoop` or `useInterrupt`.
+
+## Where the UI renders
+
+The rendered `CopilotChat` and `CopilotModal` from `@copilotkit/react-native/components` draw tool calls and interrupts in the conversation. In a chat you build yourself, `useRenderToolCall` returns a React Native element for each tool call, ready for a `FlatList`. See [Headless UI](/custom-look-and-feel/headless-ui).
+
+Every renderer must return a React Native element or `null`. React Native throws when a bare string reaches a view outside a `Text`.
+
+## Not on React Native yet
+
+The declarative and open-ended approaches render web content, so `@copilotkit/react-native` doesn't include them: A2UI, JSON Render, Hashbrown, MCP Apps, and Open Generative UI. The package also leaves out `useDefaultRenderTool`, whose card uses web elements, and the activity and custom message renderers. For a card your app inserts on its own, add a row to your own `FlatList` data.

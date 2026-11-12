@@ -29,7 +29,7 @@ export async function research(query: string) {
         )} in plain English.`,
       },
     ],
-    model: process.env.OPENAI_MODEL || "gpt-4",
+    model: process.env.OPENAI_MODEL || "gpt-6-luna",
   });
 
   return completion.choices[0].message.content;

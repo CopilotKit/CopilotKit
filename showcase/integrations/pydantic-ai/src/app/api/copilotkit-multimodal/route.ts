@@ -3,7 +3,7 @@
 // Mirrors showcase/integrations/langgraph-python/src/app/api/copilotkit-multimodal/route.ts
 // but proxies to the PydanticAI backend's `/multimodal/` mount
 // (see src/agent_server.py). A dedicated route keeps the vision-capable
-// model (gpt-4o) scoped to this one demo so other cells keep their
+// model (gpt-6-luna) scoped to this one demo so other cells keep their
 // cheaper, text-only models.
 
 import type { NextRequest } from "next/server";

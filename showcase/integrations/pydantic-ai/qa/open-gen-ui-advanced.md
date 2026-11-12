@@ -4,7 +4,7 @@
 
 - Demo is deployed and accessible
 - Agent backend is healthy (check /api/health)
-- `OPENAI_API_KEY` set so the PydanticAI agent can reach gpt-4.1
+- `OPENAI_API_KEY` set so the PydanticAI agent can reach gpt-6-luna
 
 ## Test Steps
 
