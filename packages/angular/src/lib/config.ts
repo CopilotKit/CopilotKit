@@ -1,4 +1,4 @@
-import type { Provider, Type } from "@angular/core";
+import type { Provider } from "@angular/core";
 import { inject, InjectionToken } from "@angular/core";
 import type { AbstractAgent } from "@ag-ui/client";
 import type {
@@ -15,42 +15,10 @@ import type { RenderActivityMessageConfig } from "./activity-renderer";
 import type {
   CopilotRuntimeTransport,
   SuggestionsConfig,
-  ɵA2UIBaseOptions,
   ɵCopilotKitLearningOptions,
   ɵCopilotKitProviderBaseOptions,
 } from "@copilotkit/core";
 import type { OpenGenerativeUIConfig } from "./open-generative-ui";
-import type { A2UICatalog } from "./components/a2ui/a2ui-types";
-import type { ɵA2UIActionInterceptor } from "@copilotkit/core";
-
-export interface A2UIConfig extends ɵA2UIBaseOptions {
-  theme?: Record<string, unknown>;
-  /**
-   * The catalog surfaces render with: `basicCatalog`, or one from
-   * `createAngularCatalog`, both in `@copilotkit/angular/a2ui`. Without one,
-   * A2UI stays off, even when the runtime enables it.
-   */
-  catalog?: A2UICatalog;
-  /** Shown until the first surface renders. */
-  loadingComponent?: Type<unknown>;
-  recovery?: A2UIRecoveryOptions;
-  /**
-   * Intercept A2UI user actions before they reach the agent: return `null`
-   * to handle an action client-side (e.g. a `navigate` event), return an
-   * action to forward that one instead, or return nothing to forward it
-   * unchanged.
-   */
-  onAction?: ɵA2UIActionInterceptor;
-}
-
-export interface A2UIRecoveryOptions {
-  /** Delay before revealing a transient retry. Defaults to 2000ms. */
-  showAfterMs?: number;
-  /** Attempt number that reveals retry state immediately. Defaults to 2. */
-  showAfterAttempts?: number;
-  /** Client diagnostic visibility, overridden by server lifecycle content. */
-  debugExposure?: "hidden" | "collapsed" | "verbose";
-}
 
 /**
  * The options of `provideCopilotKit`. The options shared with the React and
@@ -89,7 +57,6 @@ export interface CopilotKitConfig extends Pick<
   humanInTheLoop?: HumanInTheLoopConfig[];
   /** Opt in to a text-only renderer for otherwise unknown tool calls. */
   defaultToolRendering?: boolean;
-  a2ui?: A2UIConfig;
   openGenerativeUI?: OpenGenerativeUIConfig;
   /**
    * Disable the CopilotKit Inspector in development.

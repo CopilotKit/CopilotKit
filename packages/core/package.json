@@ -1,6 +1,6 @@
 {
   "name": "@copilotkit/core",
-  "version": "1.85.0",
+  "version": "1.87.0",
   "description": "Core web utilities for CopilotKit2",
   "license": "MIT",
   "repository": {
@@ -64,7 +64,6 @@
     "attw": "attw --pack . --profile node16 --exclude-entrypoints ./styles.css"
   },
   "dependencies": {
-    "@a2ui/web_core": "0.15.0",
     "@ag-ui/client": "1.0.4",
     "@ag-ui/core": "1.0.4",
     "@copilotkit/learning": "workspace:*",

@@ -1,0 +1,80 @@
+---
+title: "A2UI"
+description: Render the A2UI surfaces of an agent in Angular chat, also when the agent writes A2UI v0.9.
+icon: "lucide/FileJson"
+doc_type: how-to
+---
+
+Your agent writes A2UI, and you want its surfaces to render in Angular chat.
+Angular renders A2UI with [components and surfaces](/generative-ui/components):
+a catalog of Angular components that the agent can use.
+
+## Turn it on
+
+Add `provideGenerativeUI` next to `provideCopilotKit`, at the root:
+
+```ts title="src/app/app.config.ts"
+import type { ApplicationConfig } from "@angular/core";
+import { provideCopilotKit } from "@copilotkit/angular";
+import {
+  provideGenerativeUI,
+  standardUI,
+} from "@copilotkit/angular/generative-ui";
+
+export const appConfig: ApplicationConfig = {
+  providers: [
+    provideCopilotKit({ runtimeUrl: "/api/copilotkit" }),
+    provideGenerativeUI({ ui: standardUI }),
+  ],
+};
+```
+
+`standardUI` has the 18 basic A2UI components and more. Without
+`provideGenerativeUI`, no surface renders, and CopilotKit warns once in dev
+mode when the runtime has generative UI on.
+
+## Keep an agent that writes A2UI v0.9
+
+Set `a2uiVersion` on the runtime. The runtime converts the v0.9 operations of
+the agent to A2UI 1.0, and Angular renders them:
+
+```ts title="server.ts"
+import { HttpAgent } from "@ag-ui/client";
+import { CopilotRuntime } from "@copilotkit/runtime";
+
+const runtime = new CopilotRuntime({
+  agents: { default: new HttpAgent({ url: "http://localhost:8000/" }) },
+  generativeUI: { a2uiVersion: "0.9" },
+});
+```
+
+A custom v0.9 component renders only when your catalog has a component with
+the same name. Add it with `createGenerativeUI`, as in
+[Convert a custom catalog](/generative-ui/components/from-a2ui#convert-a-custom-catalog).
+See [Keep a v0.9 agent](/generative-ui/components/from-a2ui#keep-a-v09-agent)
+for what the runtime converts and the limits.
+
+An agent that sends A2UI 1.0 operations, for example a Google ADK agent, needs
+no runtime option. The runtime passes them through as they are. See
+[Keep an agent that sends A2UI 1.0](/generative-ui/components/from-a2ui#keep-an-agent-that-sends-a2ui-10).
+
+## Style rendered components
+
+Set the `--a2ui-*` variables with the `theme` option of `provideGenerativeUI`.
+See [Theme the components](/generative-ui/components/theming).
+
+## Angular support boundaries
+
+- **Hashbrown is unsupported.** The stable Hashbrown Angular package does not support the Angular 22 policy.
+  Use A2UI with a typed catalog instead.
+- **JSON Renderer is not applicable.** JSON Renderer does not provide an Angular renderer. Use A2UI for declarative Angular interfaces.
+
+## Check the result
+
+Ask the agent to show your data with a component from your catalog. The chat
+renders that component.
+
+## Next steps
+
+- [Components and surfaces](/generative-ui/components): your own components, surfaces on the page, state and actions.
+- [Other generative UI paths](/angular/generative-ui)

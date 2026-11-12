@@ -13,7 +13,7 @@ await using var runtime = new IntelligenceRuntime(new RuntimeOptions
 {
     ApiUrl = new Uri(config["apiUrl"]!.GetValue<string>()), RunnerUrl = new Uri(config["runnerUrl"]!.GetValue<string>()), ClientUrl = new Uri(config["clientUrl"]!.GetValue<string>()), ApiKey = config["apiKey"]!.GetValue<string>(),
     Agents = new Dictionary<string, IRuntimeAgent> { ["default"] = new HttpAgent(new Uri(config["agentUrl"]!.GetValue<string>()), agentHttp, "Conformance agent") },
-    A2UI = config["a2ui"] is JsonObject a2ui ? A2UIOptions.FromJson(a2ui) : null,
+    GenerativeUI = GenerativeUIOptions.FromJson(config["generativeUI"]),
     McpAppsServers = (config["mcpApps"]?["servers"] as JsonArray ?? []).Select(server => McpAppServer.FromJson(server!.AsObject())).ToList(),
     IdentifyUser = (context, _) => ValueTask.FromResult<RuntimeUser?>(new RuntimeUser(context.Request.Headers["x-test-user-id"].FirstOrDefault() ?? "test-user", context.Request.Headers["x-test-user-name"].FirstOrDefault() ?? "Test User")),
     MemoryGrant = config["omitMemoryPolicy"]?.GetValue<bool>() != true && config.AsObject().ContainsKey("memoryGrant") ? (_, _, _) => ValueTask.FromResult(config["memoryGrant"]?.DeepClone() as JsonObject) : null,

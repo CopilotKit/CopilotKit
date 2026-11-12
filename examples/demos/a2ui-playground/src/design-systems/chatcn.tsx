@@ -17,13 +17,8 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
-import {
-  str,
-  trendOf,
-  useButton,
-  valueText,
-  type StandardProps,
-} from "./shared";
+import { str, trendOf, useButton, valueText } from "./shared";
+import type { StandardProps } from "./shared";
 
 function ShadcnCard({
   className,

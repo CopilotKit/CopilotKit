@@ -3,7 +3,6 @@ import type { ReactNode } from "react";
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
-import { ComponentModel } from "@a2ui/web_core/state";
 import { GenerativeUISurfaceManager } from "@copilotkit/core/generative-ui";
 import { createGenerativeUI } from "../catalog";
 import { domGenerativeUIHost } from "../host";
@@ -267,11 +266,11 @@ describe("host element failures stay inside the surface", () => {
       ],
       {
         prepare: (manager) =>
-          manager
-            .getSurface("t1", S)!
-            .model.componentsModel.addComponent(
-              new ComponentModel("u", "Nope", {}),
-            ),
+          manager.getSurface("t1", S)!.model.componentsModel.addComponent({
+            id: "u",
+            type: "Nope",
+            properties: {},
+          }),
       },
     );
     expectContained(onEscape);

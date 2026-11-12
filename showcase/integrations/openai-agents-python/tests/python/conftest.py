@@ -1,0 +1,21 @@
+"""Puts the package's ``src/`` and root on sys.path, as the image does.
+
+``agent_server.py`` runs with ``/app`` (the package root, where ``tools`` and
+``_shared`` live) and the agent modules side by side, so ``demo_agents.*``
+and ``tools.*`` resolve the same way here.
+"""
+
+from __future__ import annotations
+
+import os
+import sys
+
+os.environ.setdefault("OPENAI_API_KEY", "sk-test")
+# The SDK uploads traces to the OpenAI platform by default.
+os.environ.setdefault("OPENAI_AGENTS_DISABLE_TRACING", "1")
+
+_PKG_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+_SRC_DIR = os.path.join(_PKG_DIR, "src")
+for path in (_PKG_DIR, _SRC_DIR):
+    if path not in sys.path:
+        sys.path.insert(0, path)

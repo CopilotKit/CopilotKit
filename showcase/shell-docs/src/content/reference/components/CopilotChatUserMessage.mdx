@@ -5,7 +5,9 @@ description: "Component for displaying user-authored messages with branch naviga
 
 ## Overview
 
-`CopilotChatUserMessage` shows user-authored messages aligned to the right with optional branch navigation. The default message renderer formats content with `white-space: pre-wrap` to preserve line breaks. Branch navigation controls only render when `numberOfBranches` is greater than 1 and an `onSwitchToBranch` handler is provided, enabling users to navigate between alternative conversation branches.
+`CopilotChatUserMessage` shows user-authored messages aligned to the right with optional branch navigation. The default message renderer formats content with `white-space: pre-wrap` to preserve line breaks. Branch navigation controls only render when `numberOfBranches` is greater than 1 and an `onSwitchToBranch` handler is provided. Users can then move between the alternative branches of the conversation.
+
+[`CopilotChatMessageView`](/reference/components/CopilotChatMessageView) renders this component for each user message. For assistant messages, see [`CopilotChatAssistantMessage`](/reference/components/CopilotChatAssistantMessage).
 
 ## Import
 
@@ -33,8 +35,8 @@ import { CopilotChatUserMessage } from "@copilotkit/react-core";
   type="(props: { message: UserMessage; branchIndex: number; numberOfBranches: number }) => void"
 >
   Callback invoked when the user navigates to a different branch. Receives the
-  target `branchIndex` and total `numberOfBranches`. The branch navigation
-  controls are only rendered when this callback is provided and
+  target `branchIndex` and total `numberOfBranches`. The component renders the
+  branch navigation controls only when you pass this callback and
   `numberOfBranches` is greater than 1.
 </PropertyReference>
 
@@ -44,9 +46,9 @@ import { CopilotChatUserMessage } from "@copilotkit/react-core";
 </PropertyReference>
 
 <PropertyReference name="numberOfBranches" type="number">
-  The total number of available branches for this message. Branch navigation is
-  only rendered when this value is greater than 1 and `onSwitchToBranch` is
-  provided.
+  The total number of available branches for this message. The component
+  renders branch navigation only when this value is greater than 1 and you pass
+  `onSwitchToBranch`.
 </PropertyReference>
 
 <PropertyReference name="additionalToolbarItems" type="React.ReactNode">
@@ -129,7 +131,7 @@ export function HoverToolbarMessage({ message }: { message: UserMessage }) {
   type="SlotValue<typeof CopilotChatUserMessage.CopyButton>"
 >
   Slot for the copy-to-clipboard button. Defaults to
-  `CopilotChatUserMessage.CopyButton`. The tooltip label is sourced from
+  `CopilotChatUserMessage.CopyButton`. The button takes its tooltip from
   `CopilotChatLabels.userMessageToolbarCopyMessageLabel`.
 </PropertyReference>
 
@@ -138,8 +140,9 @@ export function HoverToolbarMessage({ message }: { message: UserMessage }) {
   type="SlotValue<typeof CopilotChatUserMessage.EditButton>"
 >
   Slot for the edit button. Defaults to `CopilotChatUserMessage.EditButton`.
-  Only rendered when `onEditMessage` is provided. The tooltip label is sourced
-  from `CopilotChatLabels.userMessageToolbarEditMessageLabel`.
+  The component renders the edit button only when you pass `onEditMessage`.
+  The button takes its tooltip from
+  `CopilotChatLabels.userMessageToolbarEditMessageLabel`.
 </PropertyReference>
 
 <PropertyReference name="branchNavigation" type="SlotValue<typeof CopilotChatUserMessage.BranchNavigation>">
@@ -337,10 +340,3 @@ function FullFeaturedUserMessage({
 - **Conditional Branch Navigation**: The branch navigation controls are only rendered when both conditions are met: `numberOfBranches > 1` and `onSwitchToBranch` is provided. This prevents showing navigation for single-branch conversations.
 - **Conditional Edit Button**: The edit button only appears in the toolbar when `onEditMessage` is provided.
 - **Localized Labels**: Toolbar button tooltips are sourced from the nearest `CopilotChatConfigurationProvider`. See [`useCopilotChatConfiguration`](/reference/hooks/useCopilotChatConfiguration) for available label keys.
-- **Slot System**: Each slot prop accepts three forms -- a replacement component, a className string merged into the default, or a partial props object that extends the default component's props.
-
-## Related
-
-- [`CopilotChatMessageView`](/reference/components/CopilotChatMessageView) -- Parent component that uses this as the default user message slot
-- [`CopilotChatAssistantMessage`](/reference/components/CopilotChatAssistantMessage) -- Companion component for assistant messages
-- [`useCopilotChatConfiguration`](/reference/hooks/useCopilotChatConfiguration) -- Provider for localized toolbar labels

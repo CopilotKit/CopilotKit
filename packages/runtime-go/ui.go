@@ -5,58 +5,80 @@ import (
 	"errors"
 )
 
+// uiAgent applies the UI middlewares of one run. The order matches the TypeScript runtime,
+// outermost first: the A2UI v0.9 bridge, A2UI v0.9, MCP Apps, then render_ui.
 type uiAgent struct {
 	next Agent
-	a2ui *A2UIConfig
 	mcp  []MCPServer
+	// generative turns on generative UI for this run; version is the agent's A2UI version.
+	generative bool
+	version    string
+	option     *GenerativeUIConfig
 }
 
-func (a *uiAgent) Run(ctx context.Context, input map[string]any, emit func(Event) error) error {
-	if request, ok := object(input["forwardedProps"])["__proxiedMCPRequest"]; ok {
-		return a.proxy(ctx, input, object(request), emit)
+func (a *uiAgent) Run(ctx context.Context, clientInput map[string]any, emit func(Event) error) error {
+	if request, ok := object(clientInput["forwardedProps"])["__proxiedMCPRequest"]; ok {
+		return a.proxy(ctx, clientInput, object(request), emit)
 	}
+	// Only the agent side gets the bridged input; the stored thread keeps the client's input.
+	input := shallowCopy(clientInput)
 	var a2ui *a2uiStream
-	if a.a2ui != nil {
-		a2ui = newA2UI(a.a2ui, prepareA2UI(a.a2ui, input))
+	var upgrader *a2uiV09Upgrader
+	if a.generative {
+		input = prepareV09AgentInput(input, a.version)
+		config := a2uiMiddlewareConfig(a.option, a.version, input["forwardedProps"])
+		a2ui = newA2UI(config, prepareA2UI(config, input))
+		upgrader = newA2UIV09Upgrader()
 	}
 	tools, err := a.discover(ctx, input)
 	if err != nil {
 		return err
 	}
-	calls := map[string]*mcpCall{}
-	order := []string{}
-	var terminal Event
+	// A v0.9 agent gets render_a2ui instead of render_ui.
+	var genui *generativeUIRun
+	if a.generative && a.version == a2uiVersion10 {
+		if manifest := readToolManifest(input["forwardedProps"]); manifest != nil {
+			prepareGenerativeUI(manifest, input)
+			genui = newGenerativeUIRun(manifest, input)
+		}
+	}
+	// out is the outermost step: the bridge converts v0.9 surfaces to 1.0.
+	out := func(event Event) error {
+		if upgrader == nil {
+			return emit(event)
+		}
+		for _, converted := range upgrader.transform(event) {
+			if err := emit(converted); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+	// forward applies A2UI v0.9: its activities follow a tool result and precede other events.
 	forward := func(event Event) error {
 		result := event["type"] == "TOOL_CALL_RESULT"
 		if result {
-			if err := emit(event); err != nil {
+			if err := out(event); err != nil {
 				return err
 			}
 		}
 		if a2ui != nil {
 			for _, activity := range a2ui.process(event) {
-				if err := emit(activity); err != nil {
+				if err := out(activity); err != nil {
 					return err
 				}
 			}
 		}
 		if !result {
-			return emit(event)
+			return out(event)
 		}
 		return nil
 	}
-	err = a.next.Run(ctx, input, func(event Event) error {
+	calls := map[string]*mcpCall{}
+	order := []string{}
+	// observe applies MCP Apps to the events that render_ui passes on.
+	observe := func(event Event) error {
 		kind, id := str(event["type"]), str(event["toolCallId"])
-		if terminal != nil {
-			return errors.New("agent emitted events after RUN_FINISHED")
-		}
-		if kind == "RUN_FINISHED" {
-			terminal = event
-			return nil
-		}
-		if kind == "RUN_STARTED" {
-			event["input"] = input
-		}
 		switch kind {
 		case "TOOL_CALL_START":
 			if tool, ok := tools[str(event["toolCallName"])]; ok {
@@ -76,9 +98,40 @@ func (a *uiAgent) Run(ctx context.Context, input map[string]any, emit func(Event
 			}
 		}
 		return forward(event)
+	}
+	observeAll := func(events []Event) error {
+		for _, event := range events {
+			if err := observe(event); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+	var terminal Event
+	err = a.next.Run(ctx, input, func(event Event) error {
+		if terminal != nil {
+			return errors.New("agent emitted events after RUN_FINISHED")
+		}
+		kind := str(event["type"])
+		if kind == "RUN_FINISHED" {
+			terminal = event
+			return nil
+		}
+		if kind == "RUN_STARTED" {
+			event["input"] = input
+		}
+		if genui != nil {
+			return observeAll(genui.handle(event))
+		}
+		return observe(event)
 	})
 	if err != nil {
 		return err
+	}
+	if genui != nil {
+		if err := observeAll(genui.complete(terminal != nil)); err != nil {
+			return err
+		}
 	}
 	if terminal == nil {
 		return nil
@@ -93,10 +146,10 @@ func (a *uiAgent) Run(ctx context.Context, input map[string]any, emit func(Event
 	}
 	if a2ui != nil {
 		for _, event := range a2ui.finish() {
-			if err := emit(event); err != nil {
+			if err := out(event); err != nil {
 				return err
 			}
 		}
 	}
-	return emit(terminal)
+	return out(terminal)
 }

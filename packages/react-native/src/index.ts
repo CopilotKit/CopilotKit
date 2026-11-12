@@ -60,7 +60,8 @@ export type { CopilotPopupProps, CopilotPopupHandle } from "./CopilotPopup";
 // Deliberately NOT re-exported — these genuinely render host DOM or link the
 // web chat-message stack, from @copilotkit/react-core (the fat entry):
 //   useDefaultRenderTool  — DefaultToolCallRenderer uses <div>, <svg>, etc.
-//   useRenderCustomMessages / useRenderActivityMessage — link @copilotkit/a2ui-renderer
+//   useRenderCustomMessages / useRenderActivityMessage — import the web providers
+//     barrel (the web CopilotKitProvider and its inspector)
 //
 // NOTE: useRenderToolCall is NOT in this list. It was excluded until 2026-07-23
 // on the stated grounds that it "depends on DOM via DefaultToolCallRenderer" —

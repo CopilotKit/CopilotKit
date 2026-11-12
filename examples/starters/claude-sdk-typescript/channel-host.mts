@@ -23,7 +23,7 @@ import {
   CopilotRuntime,
   CopilotKitIntelligence,
   createCopilotRuntimeHandler,
-} from "@copilotkit/runtime/v2";
+} from "@copilotkit/runtime";
 import { createDefaultChannel, resolveChannelName } from "./channels.mjs";
 
 /** Reads a required env var, or exits naming the one that is missing. */

@@ -127,8 +127,8 @@ export class CopilotKitCoreReact extends CopilotKitCore {
   }
 
   /**
-   * @internal Add a renderer for a tool a built-in feature owns (A2UI,
-   * generative UI). Prop and hook renderers with the same name and agent win
+   * @internal Add a renderer for a tool a built-in feature owns
+   * (generative UI). Prop and hook renderers with the same name and agent win
    * over it, and `setRenderToolCalls` never removes it.
    *
    * @returns A function that removes the renderer.

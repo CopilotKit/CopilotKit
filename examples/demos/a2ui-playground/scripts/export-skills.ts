@@ -6,7 +6,8 @@
  */
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
-import { generateSkills, type SkillFormat } from "../src/a2ui/export/skills";
+import { generateSkills } from "../src/a2ui/export/skills";
+import type { SkillFormat } from "../src/a2ui/export/skills";
 
 for (const format of ["express", "json"] as SkillFormat[]) {
   const dir = join(__dirname, "../skills/generated", format);

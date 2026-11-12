@@ -48,8 +48,8 @@ export async function handleRunAgent({
     agent.agentId = agentId;
 
     // Parse the body before configuring middleware: middleware configuration
-    // needs the A2UI catalog signal the React provider forwards (see
-    // `a2uiCatalogAvailable` below). Middleware is applied to the agent here;
+    // needs the generative UI envelope the React provider forwards (see
+    // `providerGenerativeUITransport` below). Middleware is applied to the agent here;
     // the run itself is kicked off later, so this is safe. The body is read
     // from a clone, so `identifyUser` can still read the original request.
     const parsed = await parseRunRequest(
@@ -85,12 +85,6 @@ export async function handleRunAgent({
       ownerId = owner;
     }
 
-    // `<CopilotKit a2ui={{ catalog }}>` forwards this flag on every run. Its
-    // presence alone is enough to turn A2UI on end-to-end — no runtime-side
-    // `a2ui` config required.
-    const providerA2UIHasCatalog =
-      (input.forwardedProps as Record<string, unknown> | undefined)
-        ?.a2uiCatalogAvailable === true;
     // The generative UI envelope (`forwardedProps.copilotkit.ui`) picks the
     // transport of this run.
     const providerGenerativeUITransport = readCopilotKitUIEnvelope(
@@ -102,7 +96,6 @@ export async function handleRunAgent({
       request,
       agentId,
       agent,
-      providerA2UIHasCatalog,
       providerGenerativeUITransport,
       isMcpProxyRequest: Object.prototype.hasOwnProperty.call(
         input.forwardedProps ?? {},

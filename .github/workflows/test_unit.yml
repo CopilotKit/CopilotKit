@@ -48,8 +48,8 @@ jobs:
       matrix:
         node-version: [20.x, 22.x, 24.x]
         # React 18 + 19 span the supported peer range
-        # ("^18 || ^19") declared by @copilotkit/react-core, react-ui, and
-        # a2ui-renderer. 19 is the repo default (frozen lockfile); 18 is
+        # ("^18 || ^19") declared by @copilotkit/react-core and react-ui.
+        # 19 is the repo default (frozen lockfile); 18 is
         # installed by overriding the root pnpm.overrides in the install step.
         react-version: ["18", "19"]
         include:
@@ -79,7 +79,7 @@ jobs:
       - name: Setup pnpm
         # Omit `version:` so pnpm/action-setup inherits from the repo's
         # `packageManager` field in package.json (via corepack).
-        uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+        uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
 
       - name: Use Node.js ${{ matrix.node-version }}
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0

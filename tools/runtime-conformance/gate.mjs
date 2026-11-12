@@ -80,7 +80,6 @@ export const SKIP_DIRECTORIES = [
   "tools/compatibility-monitor",
   "tools/intelligence-smoke",
   "tools/learned-skill-conformance",
-  "packages/a2ui-renderer",
   "packages/agentcore-runner",
   "packages/angular",
   "packages/intelligence-adk-python",

@@ -15,7 +15,6 @@
     "@ag-ui/core": "1.0.4",
     "@ag-ui/encoder": "1.0.4",
     "@ag-ui/proto": "1.0.4",
-    "@a2ui/web_core": "0.15.0",
     "@angular/animations": "22.0.0",
     "@angular/cdk": "22.0.0",
     "@angular/common": "22.0.0",
@@ -51,7 +50,6 @@
     "uuid": "^11.1.0",
     "zod": "^4.2.0",
     "zod-to-json-schema": "^3.24.6",
-    "zod-v3": "npm:zod@^3.25.76",
     "@copilotkit/mcp-apps-renderer": "workspace:*"
   },
   "devDependencies": {

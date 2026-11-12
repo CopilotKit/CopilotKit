@@ -1,4 +1,10 @@
-"""Native A2UI v0.9 middleware, aligned with AG-UI middleware 0.0.10."""
+"""Native A2UI v0.9 middleware, aligned with AG-UI middleware 0.0.10.
+
+The runtime applies it per run from the `generativeUI` option (see `generative_ui.py`):
+fully configured for an agent that speaks A2UI v0.9, and for extraction of
+`{"a2ui_operations": [...]}` tool results only for a 1.0 agent. Its `a2ui-surface` output is
+converted to A2UI 1.0 surfaces by `a2ui_upgrade.py`.
+"""
 
 import copy
 import json
@@ -17,10 +23,8 @@ _OPS = ("createSurface", "updateComponents", "updateDataModel", "deleteSurface")
 
 @dataclass(frozen=True)
 class A2UIConfig:
-    """Configure per-agent A2UI context, tool injection and recovery presentation."""
+    """Configure A2UI v0.9 schema context, tool injection and recovery presentation."""
 
-    enabled: bool = True
-    agents: tuple[str, ...] | None = None
     schema: Json | list[Json] | None = None
     inject_tool: bool | str = False
     tool_names: tuple[str, ...] = ("render_a2ui",)
@@ -39,9 +43,17 @@ class A2UIConfig:
         if self.debug_exposure not in (None, "hidden", "collapsed", "verbose"):
             raise ValueError("Invalid A2UI debug exposure")
 
-    def applies(self, agent_id: str) -> bool:
-        """Return whether A2UI is enabled for this configured agent."""
-        return self.enabled and (self.agents is None or agent_id in self.agents)
+
+def _compact(value: Any) -> str:
+    """Serialize like `JSON.stringify`, as the TypeScript middleware does."""
+    return json.dumps(value, separators=(",", ":"), ensure_ascii=False)
+
+
+def _has_components(schema: Json | list[Json] | None) -> bool:
+    """Only a schema with components reaches the agent, as in the TypeScript middleware."""
+    if isinstance(schema, list):
+        return len(schema) > 0
+    return bool(schema and schema.get("components"))
 
 
 def _references(value: Any, path: str) -> list[tuple[str, str]]:
@@ -275,7 +287,7 @@ class A2UIMiddleware:
             text = f'User performed action "{action.get("name", "unknown_action")}" on surface "{action.get("surfaceId", "unknown_surface")}"'
             if action.get("sourceComponentId"):
                 text += f" (component: {action['sourceComponentId']})"
-            text += ". Context: " + json.dumps(action.get("context", {}), separators=(",", ":"))
+            text += ". Context: " + _compact(action.get("context") or {})
             result.setdefault("messages", []).extend(
                 [
                     {
@@ -288,7 +300,7 @@ class A2UIMiddleware:
                                 "type": "function",
                                 "function": {
                                     "name": "log_a2ui_event",
-                                    "arguments": json.dumps(action),
+                                    "arguments": _compact(action),
                                 },
                             }
                         ],
@@ -296,12 +308,12 @@ class A2UIMiddleware:
                     {"id": str(uuid4()), "role": "tool", "toolCallId": call_id, "content": text},
                 ]
             )
-        if self.config.schema:
+        if _has_components(self.config.schema):
             context[:] = [
                 entry for entry in context if entry.get("description") != SCHEMA_DESCRIPTION
             ]
             context.append(
-                {"description": SCHEMA_DESCRIPTION, "value": json.dumps(self.config.schema)}
+                {"description": SCHEMA_DESCRIPTION, "value": _compact(self.config.schema)}
             )
         if self.config.inject_tool:
             result["tools"] = [
@@ -408,7 +420,7 @@ class A2UIMiddleware:
                 ):
                     state["tokens"] = tokens
                     yield self._activity(key, {"status": "building", "progressTokens": tokens})
-                surface = _value(raw, "surfaceId") or call_id
+                surface = _value(raw, "surfaceId")
                 streamed_catalog = _value(raw, "catalogId")
                 catalog_id = (
                     self.config.default_catalog_id
@@ -420,7 +432,9 @@ class A2UIMiddleware:
                     )
                 )
                 components_advanced = False
-                if state["components"] is None and not state["rejected"]:
+                # Nothing is painted before the surface id is known: a surface is keyed by it.
+                has_surface = isinstance(surface, str) and surface != ""
+                if state["components"] is None and not state["rejected"] and has_surface:
                     components, closed = _array(_field(raw, "components"))
                     if closed:
                         errors = validate_components(components, catalog)

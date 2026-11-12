@@ -74,7 +74,7 @@ describe("Angular source content", () => {
       'type: spec.mimeType === "application/pdf" ? "document" : "image"',
     );
     expect(content.regions["a2ui-schema-and-recovery"]?.content).toContain(
-      "recovery: { showAfterMs: 2_000, showAfterAttempts: 2 }",
+      'case "a2ui-recovery":',
     );
     expect(content.regions["a2ui-fixed-schema"]?.content).toContain(
       "props: z.object",

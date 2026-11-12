@@ -4,6 +4,7 @@ import { angularCopyButtonEdits } from "./angular-copy-buttons.ts";
 import { migrateAngularChatConfiguration } from "./angular-chat-configuration.ts";
 import { migrateDeprecatedApis } from "./deprecated-apis.ts";
 import { migrateGenerativeUI } from "./generative-ui.ts";
+import { migrateA2UI } from "./a2ui-to-generative-ui.ts";
 import { migrateRuntimeAdapters } from "./runtime-adapters.ts";
 import { migrateCopilotActions } from "./copilot-action.ts";
 import { migrateChatComponents } from "./chat-components.ts";
@@ -12,6 +13,7 @@ import { migrateCoAgents } from "./coagent.ts";
 import { migrateChatHooks } from "./chat-hook.ts";
 import { migrateGqlMessages } from "./gql-messages.ts";
 import { migrateV1Endpoints } from "./v1-endpoints.ts";
+import { mergeCopilotKitImports } from "./merge-imports.ts";
 import type { Codemod, Edit, SgNode } from "codemod:ast-grep";
 import type TS from "codemod:ast-grep/langs/typescript";
 import type TSX from "codemod:ast-grep/langs/tsx";
@@ -763,7 +765,21 @@ const codemod: Codemod<Lang> = async (root, options) => {
       ? rootNode
       : parse<Lang>(options.language, afterGenerativeUI).root(),
   );
-  return angular ?? afterGenerativeUI;
+  const afterAngular = angular ?? afterGenerativeUI;
+  const a2ui = migrateA2UI(
+    afterAngular === null
+      ? rootNode
+      : parse<Lang>(options.language, afterAngular).root(),
+    (text) => parse<Lang>(options.language, text).root(),
+  );
+  const afterA2UI = a2ui ?? afterAngular;
+  // Last: merge the CopilotKit imports the earlier steps added.
+  const merged = mergeCopilotKitImports(
+    afterA2UI === null
+      ? rootNode
+      : parse<Lang>(options.language, afterA2UI).root(),
+  );
+  return merged ?? afterA2UI;
 };
 
 function collectProviderNames(

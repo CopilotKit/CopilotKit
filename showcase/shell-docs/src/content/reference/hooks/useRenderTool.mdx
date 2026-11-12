@@ -6,11 +6,11 @@ description: "Register typed renderers for tool calls, by tool name or wildcard"
 ## Overview
 
 `useRenderTool` registers a chat renderer for tool calls.
-You can target a specific tool name (with a typed Zod `parameters` schema) or use a wildcard (`"*"`) fallback renderer.
+You can target a specific tool name (with a typed `parameters` schema, for example Zod) or use a wildcard (`"*"`) fallback renderer.
 
 This is part of the tool rendering hook set with [`useComponent`](/reference/hooks/useComponent), [`useDefaultRenderTool`](/reference/hooks/useDefaultRenderTool), and [`useRenderToolCall`](/reference/hooks/useRenderToolCall).
 
-This hook only handles rendering. It does not register a frontend handler.
+This hook only handles rendering. It does not register a frontend handler. To also run a handler in the browser, use [`useFrontendTool`](/reference/hooks/useFrontendTool).
 
 ## Signature
 
@@ -90,16 +90,13 @@ For a named tool, `render` receives one of these states:
 
 ## Behavior
 
-- `render` may return `null` to draw nothing for a tool call. `null` was always
-  legal where a renderer is *invoked* — `ReactToolCallRenderer.render` is a
-  `React.ComponentType`, a function component returns `ReactNode`, and `null` is
-  a member of `ReactNode` — so only the build-side signature forbade it.
+- `render` can return `null` to draw nothing for a tool call.
 - Builds a renderer entry with `defineToolCallRenderer`.
 - `group: true` lets the chat collapse calls this renderer draws into its tool-call groups (see [`toolCallDisplay`](/reference/components/CopilotChatMessageView#toolcalldisplay)). Leave it unset for renderers that are part of your UI, or that may draw nothing; their calls always show on their own.
 - Deduplicates by `agentId:name` key (latest registration wins).
 - Intentionally does not remove the renderer on cleanup so previous chat history can still render.
 - Tracks updates by `config.name` plus values in `deps` (include changing captures in `deps`).
-- **`deps` comparison**: compares plain data (strings, numbers, booleans, `null`, dates, and plain objects and arrays of those) by value, so an inline literal such as `[{ status }]` re-registers only when its contents change. A function never counts as changed, as before, so keep a changing callback in a ref. Class instances and other objects compare by identity, so a circular value such as the `agent` from `useAgent` is safe to pass. Adding or removing an entry counts as a change.
+- **`deps` comparison**: compares plain data (strings, numbers, booleans, `null`, dates, and plain objects and arrays of those) by value, so an inline literal such as `[{ status }]` re-registers only when its contents change. A function never counts as changed, so keep a changing callback in a ref. Class instances and other objects compare by identity, so a circular value such as the `agent` from `useAgent` is safe to pass. Adding or removing an entry counts as a change.
 
 ## Usage
 
@@ -159,20 +156,12 @@ import { z } from "zod";
 import { useRenderTool } from "@copilotkit/react-core";
 
 function App() {
-  // One specific tool…
+  // Hide one tool from the useDefaultRenderTool() card.
   useRenderTool(
     { name: "searchDocs", parameters: z.any(), render: () => null },
     [],
   );
-  // …or everything without its own renderer.
-  useRenderTool({ name: "*", render: () => null }, []);
 
   return null;
 }
 ```
-
-## Related
-
-- [`useDefaultRenderTool`](/reference/hooks/useDefaultRenderTool)
-- [`useRenderToolCall`](/reference/hooks/useRenderToolCall)
-- [`useFrontendTool`](/reference/hooks/useFrontendTool)

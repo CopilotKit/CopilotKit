@@ -1,31 +1,48 @@
 <Steps>
   <Step>
-    ### Nothing to wire on the agent
+    ### Add a stub for each frontend tool
 
-    The AG-UI protocol forwards frontend tool definitions to the agent at
-    request time, so the backend agent declares no bespoke tools. The LLM sees
-    a component registered with `useComponent` through the AG-UI request payload
-    and picks it when the user asks for what it draws.
+    The LlamaIndex AG-UI router (`llama_index.protocols.ag_ui`) gives the
+    model only the tools you pass to `get_ag_ui_workflow_router`. It does not
+    read the tool list CopilotKit sends with each run. So a tool registered
+    with `useFrontendTool`, `useComponent`, or `useHumanInTheLoop` reaches the
+    model only when `frontend_tools` holds a stub with the same name and
+    arguments.
 
-    ```python title="src/agents/chart_agent.py"
+    ```python title="agent.py"
+    from typing import Annotated
+
     from llama_index.llms.openai import OpenAI
+    from llama_index.protocols.ag_ui.router import get_ag_ui_workflow_router
 
-    llm = OpenAI(model="gpt-6-luna")
+
+    def change_background(
+        background: Annotated[str, "CSS background value. Prefer gradients."],
+    ) -> str:
+        """Change the background color/gradient of the chat area."""
+        return f"Background changed to {background}"
+
+
+    agentic_chat_router = get_ag_ui_workflow_router(
+        llm=OpenAI(model="gpt-6-luna"),
+        frontend_tools=[change_background],
+        system_prompt=(
+            "You are a helpful assistant. "
+            "Change the UI background when asked (via frontend tool)."
+        ),
+    )
     ```
+
+    The browser runs the tool, so the stub body is never called. A missing
+    stub fails quietly: the model never sees the tool and answers in prose.
 
   </Step>
   <Step>
     ### Tell the model when to call it
 
-    The tool arrives on every run, but a model with no instruction about it will
-    answer in prose instead of calling it. Name the tool in the system prompt.
-
-    ```python title="src/agents/chart_agent.py"
-    SYSTEM_PROMPT = """You are a data visualization assistant.
-
-    When the user asks for a chart, call `render_bar_chart` with a concise
-    title and a `data` array of `{label, value}` items."""
-    ```
+    Even with the stub in place, a model with no instruction about the tool
+    tends to answer in prose. Name the tool in `system_prompt` and say what it
+    is for.
 
   </Step>
 </Steps>

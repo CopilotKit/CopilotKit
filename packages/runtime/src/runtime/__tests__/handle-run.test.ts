@@ -3,6 +3,11 @@ import { describe, it, expect, vi } from "vitest";
 import type { BaseEvent, RunAgentInput, RunAgentResult } from "@ag-ui/client";
 import { AbstractAgent, EventType, HttpAgent } from "@ag-ui/client";
 import { A2UIMiddleware } from "@ag-ui/a2ui-middleware";
+import type { CopilotKitUIEnvelope } from "@copilotkit/shared";
+import {
+  A2UIV09BridgeMiddleware,
+  GenerativeUIMiddleware,
+} from "../generative-ui";
 import { handleRunAgent } from "../handlers/handle-run";
 import { CopilotRuntime } from "../core/runtime";
 import type { CopilotRuntimeMemoryConfig } from "../core/runtime";
@@ -10,6 +15,20 @@ import { resolveForwardHeadersPolicy } from "../handlers/header-utils";
 import { IntelligenceAgentRunner } from "../runner/intelligence";
 import { PlatformRequestError } from "../intelligence-platform/client";
 import { InMemoryAgentRunner } from "../runner/in-memory";
+
+/** The classes of the middlewares that the run added, in order. */
+function appliedMiddlewares(useSpy: ReturnType<typeof vi.fn>) {
+  return useSpy.mock.calls.map(([middleware]) => middleware.constructor);
+}
+
+/** The `injectA2UITool` of the `A2UIMiddleware` that the run added. */
+function injectA2UIToolOf(useSpy: ReturnType<typeof vi.fn>) {
+  const middleware = useSpy.mock.calls.find(
+    ([candidate]) => candidate instanceof A2UIMiddleware,
+  )?.[0] as { config: { injectA2UITool?: unknown } } | undefined;
+  expect(middleware).toBeDefined();
+  return middleware?.config.injectA2UITool;
+}
 
 describe("handleRunAgent", () => {
   const createMockRuntime = (
@@ -315,8 +334,29 @@ describe("handleRunAgent", () => {
     stop: async () => false,
   });
 
-  const createRunRequest = (headers?: Record<string, string>) =>
-    new Request("https://example.com/agent/my-agent/run", {
+  /** A run request; `transport` adds a generative UI envelope with that transport. */
+  const createRunRequest = (
+    headers?: Record<string, string>,
+    transport?: "tool" | "markdown",
+  ) => {
+    const envelope: CopilotKitUIEnvelope | undefined = transport && {
+      "1.0": {
+        supportedCatalogIds: ["shop"],
+        inlineCatalogs: [
+          { catalogId: "shop", protocolVersion: "1.0", functions: {} },
+        ],
+      },
+      metadata: {
+        extensions: {
+          copilotkit_format: 3,
+          copilotkit_transport: transport,
+          copilotkit_targets: [{ id: "chat", kind: "chat" }],
+          copilotkit_surfaces: {},
+          copilotkit_contextSent: false,
+        },
+      },
+    };
+    return new Request("https://example.com/agent/my-agent/run", {
       method: "POST",
       headers: { "Content-Type": "application/json", ...headers },
       body: JSON.stringify({
@@ -326,266 +366,134 @@ describe("handleRunAgent", () => {
         messages: [],
         tools: [],
         context: [],
-        forwardedProps: {},
+        forwardedProps: envelope ? { copilotkit: { ui: envelope } } : {},
       }),
     });
-
-  it("applies A2UIMiddleware to all agents when a2ui.enabled is true and no agents filter", async () => {
-    const { agent, useSpy } = createMockAgentWithUse();
-
-    const runtime = {
-      agents: Promise.resolve({ "my-agent": agent }),
-      transcriptionService: undefined,
-      beforeRequestMiddleware: undefined,
-      afterRequestMiddleware: undefined,
-      forwardHeadersPolicy: resolveForwardHeadersPolicy(undefined),
-      runner: createMockRunner(),
-      a2ui: { enabled: true, injectA2UITool: true },
-    } as unknown as CopilotRuntime;
-
-    await handleRunAgent({
-      runtime,
-      request: createRunRequest(),
-      agentId: "my-agent",
-    });
-
-    expect(useSpy).toHaveBeenCalledOnce();
-    expect(useSpy.mock.calls[0][0]).toBeInstanceOf(A2UIMiddleware);
-  });
-
-  it("applies A2UIMiddleware only to matching agent when agents filter is set", async () => {
-    const { agent: matchingAgent, useSpy: matchingSpy } =
-      createMockAgentWithUse();
-    const { agent: otherAgent, useSpy: otherSpy } = createMockAgentWithUse();
-
-    const makeRuntime = (agentId: string, targetAgent: AbstractAgent) =>
-      ({
-        agents: Promise.resolve({ [agentId]: targetAgent }),
-        transcriptionService: undefined,
-        beforeRequestMiddleware: undefined,
-        afterRequestMiddleware: undefined,
-        forwardHeadersPolicy: resolveForwardHeadersPolicy(undefined),
-        runner: createMockRunner(),
-        a2ui: { enabled: true, agents: ["my-agent"] },
-      }) as unknown as CopilotRuntime;
-
-    // Should apply for "my-agent"
-    await handleRunAgent({
-      runtime: makeRuntime("my-agent", matchingAgent),
-      request: createRunRequest(),
-      agentId: "my-agent",
-    });
-    expect(matchingSpy).toHaveBeenCalledOnce();
-
-    // Should NOT apply for "other-agent"
-    const otherRequest = new Request("https://example.com/agent/other/run", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        threadId: "thread-1",
-        runId: "run-1",
-        state: {},
-        messages: [],
-        tools: [],
-        context: [],
-        forwardedProps: {},
-      }),
-    });
-    await handleRunAgent({
-      runtime: makeRuntime("other", otherAgent),
-      request: otherRequest,
-      agentId: "other",
-    });
-    expect(otherSpy).not.toHaveBeenCalled();
-  });
-
-  it("does not apply A2UIMiddleware when a2ui is omitted", async () => {
-    const { agent, useSpy } = createMockAgentWithUse();
-
-    const runtime = {
-      agents: Promise.resolve({ "my-agent": agent }),
-      transcriptionService: undefined,
-      beforeRequestMiddleware: undefined,
-      afterRequestMiddleware: undefined,
-      forwardHeadersPolicy: resolveForwardHeadersPolicy(undefined),
-      runner: createMockRunner(),
-    } as unknown as CopilotRuntime;
-
-    await handleRunAgent({
-      runtime,
-      request: createRunRequest(),
-      agentId: "my-agent",
-    });
-
-    expect(useSpy).not.toHaveBeenCalled();
-  });
-
-  it("does not apply A2UIMiddleware when a2ui.enabled is false", async () => {
-    const { agent, useSpy } = createMockAgentWithUse();
-
-    const runtime = {
-      agents: Promise.resolve({ "my-agent": agent }),
-      transcriptionService: undefined,
-      beforeRequestMiddleware: undefined,
-      afterRequestMiddleware: undefined,
-      forwardHeadersPolicy: resolveForwardHeadersPolicy(undefined),
-      runner: createMockRunner(),
-      // Config object present but explicitly disabled — the run path must
-      // honor the opt-out, not just `!!runtime.a2ui`.
-      a2ui: { enabled: false, injectA2UITool: true },
-    } as unknown as CopilotRuntime;
-
-    await handleRunAgent({
-      runtime,
-      request: createRunRequest(),
-      agentId: "my-agent",
-    });
-
-    expect(useSpy).not.toHaveBeenCalled();
-  });
-
-  // A run request whose forwardedProps signal that the React provider was
-  // given an A2UI catalog (`<CopilotKit a2ui={{ catalog }}>`). This is the
-  // signal that lets a catalog alone turn A2UI on end-to-end.
-  const createCatalogRunRequest = () =>
-    new Request("https://example.com/agent/my-agent/run", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        threadId: "thread-1",
-        runId: "run-1",
-        state: {},
-        messages: [],
-        tools: [],
-        context: [],
-        forwardedProps: { a2uiCatalogAvailable: true },
-      }),
-    });
-
-  const getAppliedA2UIMiddleware = (useSpy: ReturnType<typeof vi.fn>) => {
-    const call = useSpy.mock.calls.find((c) => c[0] instanceof A2UIMiddleware);
-    return call?.[0] as A2UIMiddleware | undefined;
   };
 
-  it("applies A2UIMiddleware with tool injection when a catalog is forwarded and the runtime has no a2ui config", async () => {
-    const { agent, useSpy } = createMockAgentWithUse();
-
-    const runtime = {
+  const createGenerativeUIRuntime = (
+    agent: AbstractAgent,
+    generativeUI: CopilotRuntime["generativeUI"],
+  ) =>
+    ({
       agents: Promise.resolve({ "my-agent": agent }),
       transcriptionService: undefined,
       beforeRequestMiddleware: undefined,
       afterRequestMiddleware: undefined,
       forwardHeadersPolicy: resolveForwardHeadersPolicy(undefined),
       runner: createMockRunner(),
-      // No `a2ui` config at all — the provider's catalog alone must enable it.
-    } as unknown as CopilotRuntime;
+      generativeUI,
+    }) as unknown as CopilotRuntime;
+
+  it("gives a v0.9 agent the bridge and A2UIMiddleware with the render tool, and no render_ui", async () => {
+    const { agent, useSpy } = createMockAgentWithUse();
 
     await handleRunAgent({
-      runtime,
-      request: createCatalogRunRequest(),
+      runtime: createGenerativeUIRuntime(agent, { a2uiVersion: "0.9" }),
+      request: createRunRequest(undefined, "tool"),
       agentId: "my-agent",
     });
 
-    const middleware = getAppliedA2UIMiddleware(useSpy);
-    expect(middleware).toBeInstanceOf(A2UIMiddleware);
-    expect(
-      (middleware as unknown as { config: { injectA2UITool?: unknown } }).config
-        .injectA2UITool,
-    ).toBe(true);
+    expect(appliedMiddlewares(useSpy)).toEqual([
+      A2UIV09BridgeMiddleware,
+      A2UIMiddleware,
+    ]);
+    expect(injectA2UIToolOf(useSpy)).toBe(true);
   });
 
-  it("respects an explicit injectA2UITool: false even when a catalog is forwarded", async () => {
+  it("gives a 1.0 agent the bridge, a passive A2UIMiddleware and render_ui", async () => {
     const { agent, useSpy } = createMockAgentWithUse();
 
-    const runtime = {
-      agents: Promise.resolve({ "my-agent": agent }),
-      transcriptionService: undefined,
-      beforeRequestMiddleware: undefined,
-      afterRequestMiddleware: undefined,
-      forwardHeadersPolicy: resolveForwardHeadersPolicy(undefined),
-      runner: createMockRunner(),
-      // Deeper, explicit opt-out — the catalog default must NOT override it.
-      a2ui: { enabled: true, injectA2UITool: false },
-    } as unknown as CopilotRuntime;
-
     await handleRunAgent({
-      runtime,
-      request: createCatalogRunRequest(),
+      runtime: createGenerativeUIRuntime(agent, undefined),
+      request: createRunRequest(undefined, "tool"),
       agentId: "my-agent",
     });
 
-    const middleware = getAppliedA2UIMiddleware(useSpy);
-    expect(middleware).toBeInstanceOf(A2UIMiddleware);
-    expect(
-      (middleware as unknown as { config: { injectA2UITool?: unknown } }).config
-        .injectA2UITool,
-    ).toBe(false);
+    expect(appliedMiddlewares(useSpy)).toEqual([
+      A2UIV09BridgeMiddleware,
+      A2UIMiddleware,
+      GenerativeUIMiddleware,
+    ]);
+    expect(injectA2UIToolOf(useSpy)).toBeUndefined();
   });
 
-  it("does not apply A2UIMiddleware when a catalog is forwarded but a2ui.enabled is false", async () => {
+  it("respects an explicit injectA2UITool: false for a v0.9 agent", async () => {
     const { agent, useSpy } = createMockAgentWithUse();
 
-    const runtime = {
-      agents: Promise.resolve({ "my-agent": agent }),
-      transcriptionService: undefined,
-      beforeRequestMiddleware: undefined,
-      afterRequestMiddleware: undefined,
-      forwardHeadersPolicy: resolveForwardHeadersPolicy(undefined),
-      runner: createMockRunner(),
-      a2ui: { enabled: false },
-    } as unknown as CopilotRuntime;
+    await handleRunAgent({
+      runtime: createGenerativeUIRuntime(agent, {
+        a2uiVersion: "0.9",
+        injectA2UITool: false,
+      }),
+      request: createRunRequest(undefined, "tool"),
+      agentId: "my-agent",
+    });
+
+    expect(injectA2UIToolOf(useSpy)).toBe(false);
+  });
+
+  it("adds no render tool for a v0.9 agent when the run has no envelope", async () => {
+    const { agent, useSpy } = createMockAgentWithUse();
 
     await handleRunAgent({
-      runtime,
-      request: createCatalogRunRequest(),
+      runtime: createGenerativeUIRuntime(agent, { a2uiVersion: "0.9" }),
+      request: createRunRequest(),
+      agentId: "my-agent",
+    });
+
+    expect(appliedMiddlewares(useSpy)).toEqual([
+      A2UIV09BridgeMiddleware,
+      A2UIMiddleware,
+    ]);
+    expect(injectA2UIToolOf(useSpy)).toBe(false);
+  });
+
+  it("applies generative UI only to the agents in the agents filter", async () => {
+    const { agent, useSpy } = createMockAgentWithUse();
+
+    await handleRunAgent({
+      runtime: createGenerativeUIRuntime(agent, {
+        a2uiVersion: "0.9",
+        agents: ["other-agent"],
+      }),
+      request: createRunRequest(undefined, "tool"),
       agentId: "my-agent",
     });
 
     expect(useSpy).not.toHaveBeenCalled();
   });
 
-  it("defaults injectA2UITool to true when a catalog is forwarded and a2ui is enabled without an explicit flag", async () => {
+  it("applies no generative UI middleware when generativeUI is false", async () => {
     const { agent, useSpy } = createMockAgentWithUse();
 
-    const runtime = {
-      agents: Promise.resolve({ "my-agent": agent }),
-      transcriptionService: undefined,
-      beforeRequestMiddleware: undefined,
-      afterRequestMiddleware: undefined,
-      forwardHeadersPolicy: resolveForwardHeadersPolicy(undefined),
-      runner: createMockRunner(),
-      a2ui: { enabled: true },
-    } as unknown as CopilotRuntime;
-
     await handleRunAgent({
-      runtime,
-      request: createCatalogRunRequest(),
+      runtime: createGenerativeUIRuntime(agent, false),
+      request: createRunRequest(undefined, "tool"),
       agentId: "my-agent",
     });
 
-    const middleware = getAppliedA2UIMiddleware(useSpy);
-    expect(middleware).toBeInstanceOf(A2UIMiddleware);
-    expect(
-      (middleware as unknown as { config: { injectA2UITool?: unknown } }).config
-        .injectA2UITool,
-    ).toBe(true);
+    expect(useSpy).not.toHaveBeenCalled();
   });
 
-  it("does not apply A2UIMiddleware when neither a catalog is forwarded nor a2ui is configured", async () => {
+  it("applies no generative UI middleware without an envelope or a runtime option", async () => {
     const { agent, useSpy } = createMockAgentWithUse();
 
-    const runtime = {
-      agents: Promise.resolve({ "my-agent": agent }),
-      transcriptionService: undefined,
-      beforeRequestMiddleware: undefined,
-      afterRequestMiddleware: undefined,
-      forwardHeadersPolicy: resolveForwardHeadersPolicy(undefined),
-      runner: createMockRunner(),
-    } as unknown as CopilotRuntime;
+    await handleRunAgent({
+      runtime: createGenerativeUIRuntime(agent, undefined),
+      request: createRunRequest(),
+      agentId: "my-agent",
+    });
+
+    expect(useSpy).not.toHaveBeenCalled();
+  });
+
+  it("applies no generative UI middleware for a markdown envelope", async () => {
+    const { agent, useSpy } = createMockAgentWithUse();
 
     await handleRunAgent({
-      runtime,
-      request: createRunRequest(),
+      runtime: createGenerativeUIRuntime(agent, { a2uiVersion: "0.9" }),
+      request: createRunRequest(undefined, "markdown"),
       agentId: "my-agent",
     });
 

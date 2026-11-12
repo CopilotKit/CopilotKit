@@ -1,0 +1,40 @@
+<Steps>
+  <Step>
+    ### Nothing to wire for `useHumanInTheLoop`
+
+    A tool registered with `useHumanInTheLoop` is a frontend tool. The AG-UI
+    server forwards its definition to the agent in the `AgentRunOptions` of
+    each run, and the chat client sees it alongside the agent's own tools.
+    The agent declares nothing for it:
+
+    ```csharp title="Program.cs"
+    #pragma warning disable OPENAI001
+    using Microsoft.Extensions.AI;
+    using Microsoft.Agents.AI;
+    using Microsoft.Agents.AI.Hosting.AGUI.AspNetCore;
+    using OpenAI;
+    using OpenAI.Chat;
+
+    var builder = WebApplication.CreateBuilder(args);
+    builder.Services.AddAGUIServer();
+    var app = builder.Build();
+
+    string openAiApiKey = builder.Configuration["OPENAI_API_KEY"]
+        ?? throw new InvalidOperationException("Set OPENAI_API_KEY");
+
+    // Create the agent - frontend tools are automatically available
+    var agent = new OpenAIClient(openAiApiKey)
+        .GetChatClient("gpt-6-luna")
+        .AsIChatClient().AsBuilder()
+        .ConfigureOptions(options => options.RawRepresentationFactory = _ =>
+            new OpenAI.Chat.ChatCompletionOptions { ReasoningEffortLevel = new("none") })
+        .Build()
+        .AsAIAgent(name: "AGUIAssistant", instructions: "You are a helpful assistant.");
+
+    // Map the AG-UI endpoint
+    app.MapAGUIServer("/", agent);
+    await app.RunAsync();
+    ```
+
+  </Step>
+</Steps>

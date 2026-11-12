@@ -74,7 +74,7 @@ overrides:
   storybook@>=8.0.0 <8.6.17: 8.6.17
   path-to-regexp@>=8.0.0 <8.4.0: '>=8.4.0'
 
-pnpmfileChecksum: sha256-Yeprb3L5TyOmoppd3E/Q880zwJi1e3M2rgrViqRvicc=
+pnpmfileChecksum: sha256-vyxcgvPoM2UHVMRitJp153LEQnT9Dzt0lV8ocwfLGNw=
 
 patchedDependencies:
   eventsource@3.0.7:
@@ -229,9 +229,6 @@ importers:
       '@a2a-js/sdk':
         specifier: ^0.2.5
         version: 0.2.5
-      '@a2ui/lit':
-        specifier: ^0.8.1
-        version: 0.8.3(signal-polyfill@0.2.2)
       '@ag-ui/a2a':
         specifier: ^0.0.6
         version: 0.0.6(@ag-ui/client@1.0.4(zod@4.6.7))(@ag-ui/core@1.0.4(zod@4.6.7))
@@ -244,9 +241,6 @@ importers:
       '@ag-ui/mcp-apps-middleware':
         specifier: ^0.0.1
         version: 0.0.1(@ag-ui/client@1.0.4(zod@4.6.7))(@cfworker/json-schema@4.1.1)(rxjs@7.8.1)(zod@4.6.7)
-      '@copilotkit/a2ui-renderer':
-        specifier: workspace:*
-        version: link:../../../packages/a2ui-renderer
       '@copilotkit/core':
         specifier: workspace:*
         version: link:../../../packages/core
@@ -563,9 +557,6 @@ importers:
 
   examples/dev/by-frontend/angular/demo:
     dependencies:
-      '@a2ui/web_core':
-        specifier: 0.15.0
-        version: 0.15.0
       '@ag-ui/client':
         specifier: 1.0.4
         version: 1.0.4(zod@4.6.7)
@@ -683,9 +674,6 @@ importers:
       zod-to-json-schema:
         specifier: ^3.24.6
         version: 3.25.1(zod@4.6.7)
-      zod-v3:
-        specifier: npm:zod@^3.25.76
-        version: zod@3.25.76
     devDependencies:
       '@angular/build':
         specifier: 22.0.0
@@ -1501,61 +1489,6 @@ importers:
         specifier: ^4.1.3
         version: 4.1.5(@edge-runtime/vm@5.0.0)(@opentelemetry/api@1.9.1)(@types/node@22.19.11)(@vitest/coverage-v8@4.1.5)(jsdom@29.1.0(@noble/hashes@1.8.0))(vite@7.3.2(@types/node@22.19.11)(jiti@2.7.0)(less@4.6.7)(lightningcss@1.33.0)(sass@1.101.0)(terser@5.49.0)(tsx@4.21.0)(yaml@2.9.0))
 
-  packages/a2ui-renderer:
-    dependencies:
-      '@a2ui/web_core':
-        specifier: 0.15.0
-        version: 0.15.0
-      '@copilotkit/core':
-        specifier: workspace:*
-        version: link:../core
-      '@copilotkit/shared':
-        specifier: workspace:*
-        version: link:../shared
-      clsx:
-        specifier: ^2.1.1
-        version: 2.1.1
-      react:
-        specifier: 19.2.3
-        version: 19.2.3
-      react-dom:
-        specifier: 19.2.3
-        version: 19.2.3(react@19.2.3)
-      zod:
-        specifier: ^3.25.76
-        version: 3.25.76
-      zod-to-json-schema:
-        specifier: ^3.25.2
-        version: 3.25.2(zod@3.25.76)
-    devDependencies:
-      '@tanstack/intent':
-        specifier: ^0.0.29
-        version: 0.0.29
-      '@testing-library/react':
-        specifier: ^16.0.0
-        version: 16.3.1(@testing-library/dom@10.4.1)(@types/react-dom@19.2.3(@types/react@19.1.8))(@types/react@19.1.8)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
-      '@types/markdown-it':
-        specifier: ^14.1.2
-        version: 14.1.2
-      '@types/react':
-        specifier: 19.1.8
-        version: 19.1.8
-      '@types/react-dom':
-        specifier: ^19.0.2
-        version: 19.2.3(@types/react@19.1.8)
-      jsdom:
-        specifier: ^26.1.0
-        version: 26.1.0
-      tsdown:
-        specifier: ^0.20.3
-        version: 0.20.3(@arethetypeswrong/core@0.18.2)(@emnapi/core@1.11.2)(@emnapi/runtime@1.11.3)(oxc-resolver@11.24.2)(publint@0.3.17)(synckit@0.11.12)(typescript@5.9.2)
-      typescript:
-        specifier: 5.9.2
-        version: 5.9.2
-      vitest:
-        specifier: ^3.2.4
-        version: 3.2.4(@edge-runtime/vm@5.0.0)(@types/debug@4.1.12)(@types/node@25.6.0)(@vitest/ui@3.2.4)(jiti@2.7.0)(jsdom@26.1.0)(less@4.6.7)(lightningcss@1.33.0)(sass@1.101.0)(terser@5.49.0)(tsx@4.21.0)(yaml@2.9.0)
-
   packages/agentcore-runner:
     dependencies:
       '@ag-ui/client':
@@ -1586,18 +1519,12 @@ importers:
 
   packages/angular:
     dependencies:
-      '@a2ui/web_core':
-        specifier: 0.15.0
-        version: 0.15.0
       '@ag-ui/client':
         specifier: 1.0.4
         version: 1.0.4(zod@4.6.7)
       '@ag-ui/core':
         specifier: 1.0.4
         version: 1.0.4(zod@4.6.7)
-      '@copilotkit/a2ui-renderer':
-        specifier: workspace:^
-        version: link:../a2ui-renderer
       '@copilotkit/core':
         specifier: workspace:^
         version: link:../core
@@ -2008,9 +1935,6 @@ importers:
 
   packages/core:
     dependencies:
-      '@a2ui/web_core':
-        specifier: 0.15.0
-        version: 0.15.0
       '@ag-ui/client':
         specifier: 1.0.4
         version: 1.0.4(zod@4.6.7)
@@ -2286,18 +2210,12 @@ importers:
 
   packages/react-core:
     dependencies:
-      '@a2ui/web_core':
-        specifier: 0.15.0
-        version: 0.15.0
       '@ag-ui/client':
         specifier: 1.0.4
         version: 1.0.4(zod@4.6.7)
       '@ag-ui/core':
         specifier: 1.0.4
         version: 1.0.4(zod@4.6.7)
-      '@copilotkit/a2ui-renderer':
-        specifier: workspace:*
-        version: link:../a2ui-renderer
       '@copilotkit/core':
         specifier: workspace:*
         version: link:../core
@@ -2422,9 +2340,6 @@ importers:
       vitest:
         specifier: ^3.2.4
         version: 3.2.4(@edge-runtime/vm@5.0.0)(@types/debug@4.1.12)(@types/node@25.6.0)(@vitest/ui@3.2.4)(jiti@2.7.0)(jsdom@26.1.0)(less@4.6.7)(lightningcss@1.33.0)(sass@1.101.0)(terser@5.49.0)(tsx@4.21.0)(yaml@2.9.0)
-      zod-v3:
-        specifier: npm:zod@^3.25.76
-        version: zod@3.25.76
 
   packages/react-native:
     dependencies:
@@ -2493,8 +2408,8 @@ importers:
   packages/runtime:
     dependencies:
       '@ag-ui/a2ui-middleware':
-        specifier: 0.0.10
-        version: 0.0.10(@ag-ui/client@1.0.4(zod@4.6.7))(rxjs@7.8.1)
+        specifier: 0.0.15
+        version: 0.0.15(@ag-ui/client@1.0.4(zod@4.6.7))(rxjs@7.8.1)
       '@ag-ui/client':
         specifier: 1.0.4
         version: 1.0.4(zod@4.6.7)
@@ -2505,7 +2420,7 @@ importers:
         specifier: 1.0.4
         version: 1.0.4(zod@4.6.7)
       '@ag-ui/mcp-apps-middleware':
-        specifier: ^0.1.1
+        specifier: 0.1.1
         version: 0.1.1(@ag-ui/client@1.0.4(zod@4.6.7))(@cfworker/json-schema@4.1.1)(rxjs@7.8.1)(zod@4.6.7)
       '@ag-ui/mcp-middleware':
         specifier: 0.0.2
@@ -2816,18 +2731,12 @@ importers:
 
   packages/vue:
     dependencies:
-      '@a2ui/web_core':
-        specifier: 0.15.0
-        version: 0.15.0
       '@ag-ui/client':
         specifier: 1.0.4
         version: 1.0.4(zod@4.6.7)
       '@ag-ui/core':
         specifier: 1.0.4
         version: 1.0.4(zod@4.6.7)
-      '@copilotkit/a2ui-renderer':
-        specifier: workspace:*
-        version: link:../a2ui-renderer
       '@copilotkit/core':
         specifier: workspace:*
         version: link:../core
@@ -2925,9 +2834,6 @@ importers:
       vue-tsc:
         specifier: ^2.1.10
         version: 2.2.12(typescript@5.8.2)
-      zod-v3:
-        specifier: npm:zod@^3.25.76
-        version: zod@3.25.76
 
   packages/web-components:
     dependencies:
@@ -3017,9 +2923,6 @@ importers:
 
   showcase/angular:
     dependencies:
-      '@a2ui/web_core':
-        specifier: 0.15.0
-        version: 0.15.0
       '@angular/cdk':
         specifier: 21.2.14
         version: 21.2.14(@angular/common@21.2.18(@angular/core@21.2.18(@angular/compiler@21.2.18)(rxjs@7.8.1)(zone.js@0.15.1))(rxjs@7.8.1))(@angular/core@21.2.18(@angular/compiler@21.2.18)(rxjs@7.8.1)(zone.js@0.15.1))(@angular/platform-browser@21.2.18(@angular/common@21.2.18(@angular/core@21.2.18(@angular/compiler@21.2.18)(rxjs@7.8.1)(zone.js@0.15.1))(rxjs@7.8.1))(@angular/core@21.2.18(@angular/compiler@21.2.18)(rxjs@7.8.1)(zone.js@0.15.1)))(rxjs@7.8.1)
@@ -3059,9 +2962,6 @@ importers:
       zod-to-json-schema:
         specifier: ^3.24.1
         version: 3.25.1(zod@4.6.7)
-      zod-v3:
-        specifier: npm:zod@^3.25.76
-        version: zod@3.25.76
     devDependencies:
       '@angular/build':
         specifier: 21.2.14
@@ -3075,12 +2975,18 @@ importers:
       '@angular/compiler-cli':
         specifier: 21.2.18
         version: 21.2.18(@angular/compiler@21.2.18)(typescript@5.9.3)
+      '@copilotkit/markdown':
+        specifier: workspace:*
+        version: link:../../packages/markdown
       '@types/node':
         specifier: ^22.5.1
         version: 22.19.11
       jsdom:
         specifier: ^24.0.0
         version: 24.1.3
+      katex:
+        specifier: ^0.16.22
+        version: 0.16.27
       typescript:
         specifier: 5.9.3
         version: 5.9.3
@@ -3416,15 +3322,6 @@ packages:
       express:
         optional: true
 
-  '@a2ui/lit@0.8.3':
-    resolution: {integrity: sha512-YXJksuier3nZLFtdrXfMNd7WdEOldQEfXGDMqoBTMVIM8xU22F/SvfNeDJoKQ4Wn7hXzRMi0vnwq0HI7Lzpyow==}
-
-  '@a2ui/web_core@0.15.0':
-    resolution: {integrity: sha512-S3k9rAJ9O55z5TlDeWy22ly3yQnDLO+XBWihlL5JQSuyxaCUmd7jgFnxO4eq/Bn6dSgdBF0WG8cve/euMoz8SA==}
-
-  '@a2ui/web_core@0.8.0':
-    resolution: {integrity: sha512-UG8IDsiLYuZjnEmqH7129EbN1Ds3DfC8FXPSI/E+0kcZ4VGxo//Kij6ZF2jBXBKyrHYPehoDtffFFIIFvgBp6g==}
-
   '@adobe/css-tools@4.4.4':
     resolution: {integrity: sha512-Elp+iwUx5rN5+Y8xLt5/GRoG20WGoDCQ/1Fb+1LiGtvwbDavuSk0jhD/eZdckHAuzcDzccnkv+rEjyWfRx18gg==}
 
@@ -3439,14 +3336,17 @@ packages:
       '@ag-ui/client': '>=0.0.42'
       '@ag-ui/core': '>=0.0.42'
 
-  '@ag-ui/a2ui-middleware@0.0.10':
-    resolution: {integrity: sha512-2BQFUQ9vJzUAQSR0dNW/ijhyH8KpiRWISSLTP6mIe6ENyQ2cM1/XLG38/Dcb69olcs36gtZADZzAQWcno5H6fA==}
+  '@ag-ui/a2ui-middleware@0.0.15':
+    resolution: {integrity: sha512-jDxq+3tlaSo3KjkOiIFCnr00cmV/uHjBU0Cnj4KuQZ7eEN7JRBItc6mPCPYUcTjDmpCYoop4JX7Y7mE/sKSfKw==}
     peerDependencies:
-      '@ag-ui/client': '>=0.0.40'
+      '@ag-ui/client': '>=1.0.0'
       rxjs: 7.8.1
 
   '@ag-ui/a2ui-toolkit@0.0.4':
     resolution: {integrity: sha512-9VPmgpCAsFVICk7z23kh+Kp/BwYMxw0D0KGjOiKXhm1MAH+Wid2iC3yKsXso+q7UZZiyhWgeDUSgaAkltyLmGg==}
+
+  '@ag-ui/a2ui-toolkit@0.0.5':
+    resolution: {integrity: sha512-klYOXh+L+X8yM0EdrHJGrKmh7G1bKBvO/Zo4ryl6w5JlkXCrqkCeiSLtwB3UeN2Z1w61y1eMmzWn92q9c4/D8w==}
 
   '@ag-ui/client@0.0.36':
     resolution: {integrity: sha512-1Ey2KqK9KQpRJcnJvKPfVyLiTK4+CLBQZ085oJvr6T1nznw224j0KyzXNJ7cRjXeEGnuafmXTgpU+xEbN3xuYQ==}
@@ -8080,14 +7980,8 @@ packages:
       '@inquirer/prompts': '>= 3 < 9'
       listr2: 10.2.1
 
-  '@lit-labs/signals@0.1.3':
-    resolution: {integrity: sha512-P0yWgH5blwVyEwBg+WFspLzeu1i0ypJP1QB0l1Omr9qZLIPsUu0p4Fy2jshOg7oQyha5n163K3GJGeUhQQ682Q==}
-
   '@lit-labs/ssr-dom-shim@1.5.1':
     resolution: {integrity: sha512-Aou5UdlSpr5whQe8AA/bZG0jMj96CoJIWbGfZ91qieWu5AWUMKw8VR/pAkQkJYvBNhmCcWnZlyyk5oze8JIqYA==}
-
-  '@lit/context@1.1.6':
-    resolution: {integrity: sha512-M26qDE6UkQbZA2mQ3RjJ3Gzd8TxP+/0obMgE5HfkfLhEEyYE3Bui4A5XHiGPjy0MUGAyxB3QgVuw2ciS0kHn6A==}
 
   '@lit/reactive-element@2.1.2':
     resolution: {integrity: sha512-pbCDiVMnne1lYUIaYNN5wrwQXDtHaYtg7YEFPeW+hws6U47WeFvISGUWekPGKWOP1ygrs0ef0o1VJMk1exos5A==}
@@ -10441,9 +10335,6 @@ packages:
 
   '@posthog/types@1.411.1':
     resolution: {integrity: sha512-Gd7tnSYctcSXup3naVlAgavvenByRao6rsSYdMgWgP35KE9jFn+rMHNRJeI5LNjJuLzMXHEVcgzAN7xcATefdw==}
-
-  '@preact/signals-core@1.14.4':
-    resolution: {integrity: sha512-HNB6HYeYKhQbJ1aKl+YRjrS4+QWHLKX6qKoUsfS/m0vqzsVaEBiZiaKbG/e+NKk2ch5ALQr/ihWaMHxiCuuWHA==}
 
   '@prisma/adapter-better-sqlite3@6.19.3':
     resolution: {integrity: sha512-Zz1n2Z9+F0QH/f7k51lL6qQGOokTlKc4pi/s9S8MZl5vjXvhg0n5cgu51TrunVaAoLC15tASL38lSdHAuhbVnQ==}
@@ -13153,17 +13044,8 @@ packages:
   '@types/less@3.0.8':
     resolution: {integrity: sha512-Gjm4+H9noDJgu5EdT3rUw5MhPBag46fiOy27BefvWkNL8mlZnKnCaVVVTLKj6RYXed9b62CPKnPav9govyQDzA==}
 
-  '@types/linkify-it@5.0.0':
-    resolution: {integrity: sha512-sVDA58zAw4eWAffKOaQH5/5j3XeayukzDk+ewSsnv3p4yJEZHCCzMDiZM8e0OUrRvmpGZ85jf4yDHkHsgBNr9Q==}
-
-  '@types/markdown-it@14.1.2':
-    resolution: {integrity: sha512-promo4eFwuiW+TfGxhi+0x3czqTYJkG8qB17ZUJiVF10Xm7NLVRSLUsfRTU/6h1e24VvRnXCx+hG7li58lkzog==}
-
   '@types/mdast@4.0.4':
     resolution: {integrity: sha512-kGaNbPh1k7AFzgpud/gMdvIm5xuECykRR+JnWKQno9TAXVa6WIVCGTPvYGekIDL4uwCZQSYbUxNBSb1aUo79oA==}
-
-  '@types/mdurl@2.0.0':
-    resolution: {integrity: sha512-RGdgjQUZba5p6QEFAVx2OGb8rQDL/cPRG7GiedRzMcJ1tYnUANBncjbSB1NRGwbvjcPeikRABz2nshyPk1bhWg==}
 
   '@types/mdx@2.0.13':
     resolution: {integrity: sha512-+OWZQfAYyio6YkJb3HLxDrvnx6SWWDbC0zVPfBRzUk0/nqoDyf6dNxQi3eArPe8rJ473nobTMQ/8Zk+LxJ+Yuw==}
@@ -18093,9 +17975,6 @@ packages:
   lit@3.3.2:
     resolution: {integrity: sha512-NF9zbsP79l4ao2SNrH3NkfmFgN/hBYSQo90saIVI1o5GpjAdCPVstVzO1MrLOakHoEhYkrtRjPK6Ob521aoYWQ==}
 
-  lit@3.3.3:
-    resolution: {integrity: sha512-fycuvZg/hkpozL00lm1pEJH5nN/lr9ZXd6mJI2HSN4+Bzc+LDNdEApJ6HFbPkdFNHLvOplIIuJvxkS4XUxqirw==}
-
   lmdb@3.5.1:
     resolution: {integrity: sha512-NYHA0MRPjvNX+vSw8Xxg6FLKxzAG+e7Pt8RqAQA/EehzHVXq9SxDqJIN3JL1hK0dweb884y8kIh6rkWvPyg9Wg==}
     hasBin: true
@@ -20694,11 +20573,6 @@ packages:
     resolution: {integrity: sha512-DJnGAeenTdpMEH6uAJRK/uiyEIH9WVsUmoLwzudwGJUwZPp80PDBWPHXSAGNPwNvIXAbe7MSUB1zQFugFml66A==}
     engines: {node: '>=4'}
 
-  redos-detector@6.1.4:
-    resolution: {integrity: sha512-lPlka1rEH6kK42gtgokvvxMmpAvyc28DcRjQbGxeP5RJsJWgAduBOdGedVCDPdSyCr4ay/JDxq3nGYsJZyt8tA==}
-    engines: {node: '>=16.0.0'}
-    hasBin: true
-
   redux-thunk@3.1.0:
     resolution: {integrity: sha512-NW2r5T6ksUKXCabzhL9z+h206HQw/NJkcLm1GPImRQ8IzfXwRGqjVhKJGauHirT0DAuyy6hjdnMZaRoAcy0Klw==}
     peerDependencies:
@@ -21249,14 +21123,6 @@ packages:
   signal-exit@4.1.0:
     resolution: {integrity: sha512-bzyZ1e88w9O1iNJbKnOlvYTrWPDl46O1bG0D3XInv+9tkPrxrN8jUUTiFlDkkmKWgn1M6CfIA13SuGqOa9Korw==}
     engines: {node: '>=14'}
-
-  signal-polyfill@0.2.2:
-    resolution: {integrity: sha512-p63Y4Er5/eMQ9RHg0M0Y64NlsQKpiu6MDdhBXpyywRuWiPywhJTpKJ1iB5K2hJEbFZ0BnDS7ZkJ+0AfTuL37Rg==}
-
-  signal-utils@0.21.1:
-    resolution: {integrity: sha512-i9cdLSvVH4j8ql8mz2lyrA93xL499P8wEbIev3ldSriXeUwqh+wM4Q5VPhIZ19gPtIS4BOopJuKB8l1+wH9LCg==}
-    peerDependencies:
-      signal-polyfill: ^0.2.0
 
   sigstore@4.1.1:
     resolution: {integrity: sha512-endqECJkfhozrXMK5ngu/UAA0xVcVEFdnHJCElGaExypjW+HK5i6zu3NteLoaX/iFbRUbC3+DjttQs0GARr+5w==}
@@ -22609,9 +22475,6 @@ packages:
       typescript:
         optional: true
 
-  validate-color@2.2.4:
-    resolution: {integrity: sha512-Znolz+b6CwW6eBXYld7MFM3O7funcdyRfjKC/X9hqYV/0VcC5LB/L45mff7m3dIn9wdGdNOAQ/fybNuD5P/HDw==}
-
   validate-npm-package-name@5.0.1:
     resolution: {integrity: sha512-OljLrQ9SQdOUqTaQxqL5dEfZWrXExyyWsozYlAWFawPVNuD83igl7uJD2RTkNMbniIYgt8l81eCJGIdQF7avLQ==}
     engines: {node: ^14.17.0 || ^16.13.0 || >=18.0.0}
@@ -23562,31 +23425,6 @@ snapshots:
       '@bufbuild/protobuf': 2.11.0
       express: 5.2.1
 
-  '@a2ui/lit@0.8.3(signal-polyfill@0.2.2)':
-    dependencies:
-      '@a2ui/web_core': 0.8.0
-      '@lit-labs/signals': 0.1.3
-      '@lit/context': 1.1.6
-      lit: 3.3.2
-      signal-utils: 0.21.1(signal-polyfill@0.2.2)
-    transitivePeerDependencies:
-      - signal-polyfill
-
-  '@a2ui/web_core@0.15.0':
-    dependencies:
-      '@lit/context': 1.1.6
-      '@preact/signals-core': 1.14.4
-      lit: 3.3.3
-      redos-detector: 6.1.4
-      validate-color: 2.2.4
-      zod: 3.25.76
-      zod-to-json-schema: 3.25.2(zod@3.25.76)
-
-  '@a2ui/web_core@0.8.0':
-    dependencies:
-      zod: 3.25.76
-      zod-to-json-schema: 3.25.2(zod@3.25.76)
-
   '@adobe/css-tools@4.4.4': {}
 
   '@ag-ui/a2a-middleware@0.0.2(rxjs@7.8.1)':
@@ -23608,14 +23446,16 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  '@ag-ui/a2ui-middleware@0.0.10(@ag-ui/client@1.0.4(zod@4.6.7))(rxjs@7.8.1)':
+  '@ag-ui/a2ui-middleware@0.0.15(@ag-ui/client@1.0.4(zod@4.6.7))(rxjs@7.8.1)':
     dependencies:
-      '@ag-ui/a2ui-toolkit': 0.0.4
+      '@ag-ui/a2ui-toolkit': 0.0.5
       '@ag-ui/client': 1.0.4(zod@4.6.7)
       clarinet: 0.12.6
       rxjs: 7.8.1
 
   '@ag-ui/a2ui-toolkit@0.0.4': {}
+
+  '@ag-ui/a2ui-toolkit@0.0.5': {}
 
   '@ag-ui/client@0.0.36':
     dependencies:
@@ -30964,16 +30804,7 @@ snapshots:
     transitivePeerDependencies:
       - '@types/node'
 
-  '@lit-labs/signals@0.1.3':
-    dependencies:
-      lit: 3.3.2
-      signal-polyfill: 0.2.2
-
   '@lit-labs/ssr-dom-shim@1.5.1': {}
-
-  '@lit/context@1.1.6':
-    dependencies:
-      '@lit/reactive-element': 2.1.2
 
   '@lit/reactive-element@2.1.2':
     dependencies:
@@ -32996,8 +32827,6 @@ snapshots:
       '@posthog/types': 1.411.1
 
   '@posthog/types@1.411.1': {}
-
-  '@preact/signals-core@1.14.4': {}
 
   '@prisma/adapter-better-sqlite3@6.19.3':
     dependencies:
@@ -36405,18 +36234,9 @@ snapshots:
 
   '@types/less@3.0.8': {}
 
-  '@types/linkify-it@5.0.0': {}
-
-  '@types/markdown-it@14.1.2':
-    dependencies:
-      '@types/linkify-it': 5.0.0
-      '@types/mdurl': 2.0.0
-
   '@types/mdast@4.0.4':
     dependencies:
       '@types/unist': 3.0.3
-
-  '@types/mdurl@2.0.0': {}
 
   '@types/mdx@2.0.13': {}
 
@@ -42791,12 +42611,6 @@ snapshots:
       lit-element: 4.2.2
       lit-html: 3.3.2
 
-  lit@3.3.3:
-    dependencies:
-      '@lit/reactive-element': 2.1.2
-      lit-element: 4.2.2
-      lit-html: 3.3.2
-
   lmdb@3.5.1:
     dependencies:
       '@harperfast/extended-iterable': 1.0.3
@@ -46678,10 +46492,6 @@ snapshots:
     dependencies:
       redis-errors: 1.2.0
 
-  redos-detector@6.1.4:
-    dependencies:
-      regjsparser: 0.13.0
-
   redux-thunk@3.1.0(redux@5.0.1):
     dependencies:
       redux: 5.0.1
@@ -47529,12 +47339,6 @@ snapshots:
   signal-exit@4.0.2: {}
 
   signal-exit@4.1.0: {}
-
-  signal-polyfill@0.2.2: {}
-
-  signal-utils@0.21.1(signal-polyfill@0.2.2):
-    dependencies:
-      signal-polyfill: 0.2.2
 
   sigstore@4.1.1:
     dependencies:
@@ -49001,8 +48805,6 @@ snapshots:
   valibot@1.4.0(typescript@5.8.2):
     optionalDependencies:
       typescript: 5.8.2
-
-  validate-color@2.2.4: {}
 
   validate-npm-package-name@5.0.1: {}
 

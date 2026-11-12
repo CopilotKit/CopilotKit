@@ -74,9 +74,6 @@
         "src/render/takumi.ts!"
       ]
     },
-    "packages/a2ui-renderer": {
-      "entry": ["src/index.ts!", "src/__tests__/clsx-shim.ts"]
-    },
     "packages/react-core": {
       "entry": [
         "{index,cli,main}.{js,cjs,mjs,jsx,ts,cts,mts,tsx}!",

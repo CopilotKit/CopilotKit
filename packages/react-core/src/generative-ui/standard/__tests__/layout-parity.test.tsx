@@ -6,8 +6,8 @@ import { standardUI } from "../index";
 import { renderSurface } from "./render";
 
 /**
- * Tests ported from the a2ui-renderer standard catalog, so the behaviour
- * that catalog had is kept on the generative UI engine.
+ * Tests ported from the standard catalog of the retired v0.9 renderer, so
+ * the behaviour that catalog had is kept on the generative UI engine.
  */
 
 afterEach(() => {

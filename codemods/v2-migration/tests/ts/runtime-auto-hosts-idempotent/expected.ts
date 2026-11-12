@@ -2,9 +2,12 @@ import assert from "node:assert/strict";
 import type { AddressInfo } from "node:net";
 import express from "express";
 import { Hono } from "hono";
-import { CopilotRuntime } from "@copilotkit/runtime";
+import {
+  CopilotRuntime,
+  createCopilotRuntimeHandler,
+  createCopilotRuntimeHandler as createCopilotEndpointSingleRoute,
+} from "@copilotkit/runtime";
 import { createCopilotNodeListener, createCopilotNodeListener as createCopilotEndpointSingleRouteExpress } from "@copilotkit/runtime/node";
-import { createCopilotRuntimeHandler, createCopilotRuntimeHandler as createCopilotEndpointSingleRoute } from "@copilotkit/runtime";
 
 const paths: string[] = [];
 const hooks = { onRequest: ({ request }: { request: Request }) => { paths.push(new URL(request.url).pathname); } };

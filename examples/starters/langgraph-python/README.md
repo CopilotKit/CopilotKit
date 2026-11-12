@@ -141,42 +141,38 @@ The following scripts can also be run using your preferred package manager:
 └── package.json
 ```
 
-## A2UI — Agent-to-User Interface
+## Generative UI (A2UI)
 
-This starter includes [A2UI](https://a2ui.org/specification/) support, allowing the agent to generate rich, interactive UI surfaces declaratively. Instead of returning plain text, the agent sends a JSON description of the UI it wants to render, and the frontend turns it into real components.
+This starter lets the agent build rich, interactive UI in the chat. Instead of plain text, the agent writes [A2UI](https://a2ui.org/specification/) 1.0 operations, and the frontend renders them with your React components.
 
 ### How it works
 
-A2UI uses three concepts:
+1. **Catalog** — the components the agent can use, each with a description and a Zod schema of its props. The demo catalog extends the standard catalog (Row, Column, Title, Text, Button, Badge, Table, ...). It is registered once in `layout.tsx` via `<CopilotKitProvider generativeUI={{ ui: demonstrationUI }}>`.
+2. **`render_ui`** — when a run carries the catalog, the runtime gives the agent a `render_ui` tool and a guide to the catalog. The agent calls it with the operations, and the runtime checks each one before the browser renders it.
+3. **Surface** — the rendered UI in the chat. A button the agent binds to an event sends a user message to the agent when it is clicked.
 
-1. **Catalog** — a set of component definitions (schema) paired with React renderers. Registered once in `layout.tsx` via `<CopilotKitProvider a2ui={{ catalog: demonstrationCatalog }}>`.
-2. **Surface** — a rendered UI instance. The agent creates a surface, sets its components, and binds data to it.
-3. **Operations** — the agent returns `a2ui.render(operations=[...])` from a tool, which the middleware streams to the frontend.
+The agent must pass the run's tools and context to the model. In this starter, `CopilotKitMiddleware` does that.
 
-### Two patterns
+### Examples
 
-| Pattern            | Description                                                                   | Agent tool       | Frontend                                    |
-| ------------------ | ----------------------------------------------------------------------------- | ---------------- | ------------------------------------------- |
-| **Fixed schema**   | Pre-defined component layout. Only the data changes per invocation.           | `search_flights` | Schema in `a2ui/schemas/flight_schema.json` |
-| **Dynamic schema** | A secondary LLM generates both components and data based on the conversation. | `generate_a2ui`  | Components decided at runtime               |
-
-Both patterns use the same catalog on the frontend — the difference is where the component tree comes from.
+| Suggestion          | What the agent does                                                                    |
+| ------------------- | -------------------------------------------------------------------------------------- |
+| **Search Flights**  | Calls `search_flights` for the data, then renders a `Row` of `FlightCard` components.  |
+| **Sales Dashboard** | Calls `query_data`, then renders `DashboardCard`, `Metric`, `PieChart` and `BarChart`. |
 
 ### Key files
 
-| Purpose                              | Path                                               |
-| ------------------------------------ | -------------------------------------------------- |
-| Catalog definitions (Zod schemas)    | `src/app/declarative-generative-ui/definitions.ts` |
-| Catalog renderers (React components) | `src/app/declarative-generative-ui/renderers.tsx`  |
-| Catalog registration                 | `src/app/layout.tsx`                               |
-| Fixed-schema agent tool              | `agent/src/a2ui_fixed_schema.py`                   |
-| Dynamic-schema agent tool            | `agent/src/a2ui_dynamic_schema.py`                 |
-| Flight schema JSON                   | `agent/src/a2ui/schemas/flight_schema.json`        |
-| Showcase config                      | `showcase.json`                                    |
+| Purpose                           | Path                                               |
+| --------------------------------- | -------------------------------------------------- |
+| Catalog definitions (Zod schemas) | `src/app/declarative-generative-ui/definitions.ts` |
+| Catalog components (React)        | `src/app/declarative-generative-ui/renderers.tsx`  |
+| Catalog registration              | `src/app/layout.tsx`                               |
+| Flight data tool                  | `agent/src/flights.py`                             |
+| Showcase config                   | `showcase.json`                                    |
 
 ### Adding a custom component
 
-1. **Define** the component schema in `definitions.ts`:
+1. **Define** the component in `definitions.ts`:
 
    ```typescript
    MyWidget: {
@@ -185,22 +181,20 @@ Both patterns use the same catalog on the frontend — the difference is where t
    },
    ```
 
-2. **Render** it in `renderers.tsx`:
+2. **Render** it in `renderers.tsx`, and add it to `createGenerativeUI`:
 
-   ```typescript
-   MyWidget: ({ props }) => (
-     <div>{props.title}: {props.value}</div>
-   ),
+   ```tsx
+   function MyWidget({ title, value }: Props<"MyWidget">) {
+     return <div>{title}: {value}</div>;
+   }
+
+   // in createGenerativeUI({ components: { ... } }):
+   MyWidget: { ...definitions.MyWidget, component: MyWidget },
    ```
 
-   Renderers are type-checked against the definitions — TypeScript will error if props don't match.
+   The props are typed from the schema, so TypeScript errors if the component and the definition do not match.
 
-3. **Use it** from the agent. The component is automatically available to both fixed-schema templates and the dynamic-schema LLM.
-
-### Adding a new fixed-schema tool
-
-1. Create a JSON schema file in `agent/src/a2ui/schemas/` describing the component tree.
-2. Create a Python tool that loads the schema with `a2ui.load_schema()` and returns `a2ui.render(operations=[...])` with your data. See `a2ui_fixed_schema.py` for the pattern.
+3. **Use it** from the agent. The runtime lists every component of the catalog in the `render_ui` guide.
 
 ### Showcase mode
 
@@ -208,8 +202,9 @@ Both patterns use the same catalog on the frontend — the difference is where t
 
 ### Further reading
 
+- [Generative UI components](https://docs.copilotkit.ai/generative-ui/components)
+- [Adopt from A2UI](https://docs.copilotkit.ai/generative-ui/components/from-a2ui)
 - [A2UI Specification](https://a2ui.org/specification/)
-- [CopilotKit A2UI Documentation](https://docs.copilotkit.ai)
 
 ## Documentation
 

@@ -1,4 +1,4 @@
-import { LangGraphAgent } from "@copilotkit/runtime/langgraph";
+import { LangGraphAgent } from "@ag-ui/langgraph";
 
 /** Builds this starter's agent. See channel-host.mts for why this is shared. */
 export function createDefaultAgent(): LangGraphAgent {

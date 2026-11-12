@@ -15,19 +15,7 @@
     {
       "match": { "toolCallId": "call_query_data_dashboard_001" },
       "response": {
-        "toolCalls": [
-          {
-            "name": "generate_a2ui",
-            "arguments": "{}",
-            "id": "call_generate_a2ui_001"
-          }
-        ]
-      }
-    },
-    {
-      "match": { "toolCallId": "call_generate_a2ui_001" },
-      "response": {
-        "content": "Here's your sales dashboard with total revenue, new customers, and conversion rate, plus a revenue-by-category pie chart and a monthly-sales bar chart, rendered above."
+        "content": "Here's your sales dashboard with total revenue, new customers, and conversion rate, plus a revenue-by-category pie chart and a monthly-sales bar chart."
       }
     },
     {

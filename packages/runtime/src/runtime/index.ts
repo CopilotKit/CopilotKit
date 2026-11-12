@@ -1,7 +1,11 @@
 export * from "./core/runtime";
 
-// Export experimental generative UI middleware and surface writer
-export { GenerativeUIMiddleware, createSurfaceWriter } from "./generative-ui";
+// Export the generative UI middlewares and surface writer
+export {
+  A2UIV09BridgeMiddleware,
+  GenerativeUIMiddleware,
+  createSurfaceWriter,
+} from "./generative-ui";
 export type { GenerativeUISurfaceWriter } from "./generative-ui";
 
 // Export the A2UI / Open Generative UI middleware and the recorded-event

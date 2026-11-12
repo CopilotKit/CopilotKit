@@ -1,15 +1,14 @@
 ---
 title: Generative UI in 2.0
-description: Update code that parses the Open Generative UI schemas, calls filterCatalog with a type argument, or reads A2UI recovery state, and check the generative UI behavior that changed in 2.0.
+description: Move from the A2UI v0.9 renderer, update code that parses the Open Generative UI schemas, and check the generative UI behavior that changed in 2.0.
 ---
 
 In 2.0, code that uses the generative UI APIs can fail to type-check or fail at run time. Some tests and styles can also stop matching. The cause is one of these changes:
 
+- The A2UI v0.9 renderer is removed. A2UI renders with components and surfaces.
 - The Vue and Angular Open Generative UI schemas are Standard Schemas, not zod schemas.
-- The `filterCatalog` type parameter is the catalog type.
-- Angular `CopilotA2UIRecovery` exposes fewer members.
 - Some test IDs, CSS classes, and labels changed.
-- A2UI, Open Generative UI, and MCP Apps behave the same in React, Vue, and Angular.
+- Open Generative UI and MCP Apps behave the same in React, Vue, and Angular.
 
 Run the codemod first:
 
@@ -17,7 +16,13 @@ Run the codemod first:
 npx codemod @copilotkit/v2-migration
 ```
 
-The codemod removes type arguments from `filterCatalog` calls. For the other API changes, it adds a `TODO(copilotkit-2.0)` comment above each line to change. Use the sections below for those lines.
+For the API changes, the codemod adds a `TODO(copilotkit-2.0)` comment above each line to change. Use the sections below for those lines.
+
+## A2UI v0.9 renderer
+
+The `a2ui` provider option, the `a2ui` option of Angular's `provideCopilotKit`, `@copilotkit/angular/a2ui` and `@copilotkit/a2ui-renderer` are removed, with `filterCatalog`, `CopilotA2UIRecovery` and the other v0.9 renderer exports. A2UI renders with [components and surfaces](/generative-ui/components). The runtime option `a2ui` is now `generativeUI`, and an agent that writes A2UI v0.9 needs `generativeUI: { a2uiVersion: "0.9" }`.
+
+See [Adopt from A2UI](/generative-ui/components/from-a2ui) for the steps.
 
 ## Open Generative UI schemas
 
@@ -76,38 +81,6 @@ In 2.0, both schemas are [Standard Schemas](https://standardschema.dev). They ha
 
 Both schemas drop unknown keys, as the zod schemas did. A tool that you define with `GenerateSandboxedUiArgsSchema` as its `parameters` still sends the same JSON Schema to the model.
 
-## filterCatalog type parameter
-
-The type parameter of `filterCatalog` from `@copilotkit/a2ui-renderer` is now the catalog type, not the component type. TypeScript infers it from the catalog argument. As a result, an explicit type argument can fail to type-check. The codemod removes it:
-
-```ts ignore title="Before"
-const visible = filterCatalog<MyComponentApi>(catalog, (name) => name !== "Badge");
-```
-
-```ts ignore title="After"
-const visible = filterCatalog(catalog, (name) => name !== "Badge");
-```
-
-The returned catalog keeps the class of the catalog that you pass, and its other fields.
-
-## Angular A2UI recovery state
-
-`CopilotA2UIRecovery` keeps its `content` and `options` inputs. It no longer exposes `lifecycle`, `retryRevealed`, `debugExposure`, `label`, `phase`, `failureDiagnostics`, or `retryDiagnostics`.
-
-If your code reads the lifecycle from the component, read it from the activity content with `readA2UILifecycleContent`:
-
-```ts ignore title="Before"
-const status = recovery.lifecycle().status;
-```
-
-```ts title="After"
-import { readA2UILifecycleContent } from "@copilotkit/angular";
-
-export function lifecycleStatus(content: unknown) {
-  return readA2UILifecycleContent(content).status;
-}
-```
-
 ## Test IDs, CSS classes, and labels
 
 Update tests and stylesheets that target these:
@@ -116,37 +89,18 @@ Update tests and stylesheets that target these:
 | --- | --- | --- |
 | Test ID `open-generative-ui-placeholder` is removed. | Vue, Angular | While the agent generates, query `open-generative-ui-progress-overlay`, or `open-generative-ui-spinner` inside it. When generation is done, neither shows. The codemod marks tests that use the old ID. |
 | CSS class `copilot-mcp-apps-frame` is removed from the MCP Apps iframe. | Angular | Select the iframe with `[data-testid="mcp-app-iframe"]`. The iframe gets its size and border styles inline. |
-| The A2UI debug summaries are `developer details` and `validation issues`. | Angular | Update tests that look for `Developer details` or `Validation issues`. |
 | The MCP Apps error without an agent is `No agent available to fetch resource`. | Angular | Update tests that look for `No agent is available to load this MCP App.` |
-
-The Vue `A2UISurfaceActivityRenderer` component types its `agent` prop as an AG-UI `AbstractAgent`, not as `object`. Pass the agent that the activity renderer receives.
 
 ## Behavior that changed
 
 These changes need no code change. Read them if your app or your tests depend on the old behavior.
 
-A2UI in React, Vue, and Angular:
-
-- A `createSurface` operation always uses the catalog that the app renders with. Before, an unknown `catalogId` from the model showed an empty surface.
-- An operation for a surface that does not exist yet creates that surface.
-- Each new snapshot of the same activity applies only the new operations.
-- Operations that are not A2UI v0.9 messages, for example v0.8 messages, are dropped with a console warning.
-- An MCP App iframe grows to 5000 px at most.
+- An MCP App iframe grows to 5000 px at most, in React, Vue, and Angular.
 
 Vue:
 
-- The A2UI loader stays on top of the new surface until the surface shows content. After 8 seconds, the surface shows anyway.
-- A button click on an A2UI surface sends the action to the agent as `a2uiAction.userAction`.
-- `getOperationSurfaceId` reads the surface ID inside the operation before a top-level `surfaceId`.
-- A2UI components that you turn off in the Inspector are removed from the catalog that the agent sees and from the surfaces.
 - The Open Generative UI context tells the model to call sandbox functions as `await Websandbox.connection.remote.<functionName>(args)`.
 
 Angular:
 
-- A slow A2UI retry shows `Retrying generation` after `showAfterMs`, also while the agent streams progress.
-- `a2ui.loadingComponent` shows while a surface builds, before the first paint.
-- The A2UI catalog context goes only to the agents that the runtime applies A2UI to.
-- A2UI components that you turn off in the Inspector are removed from the catalog that the agent sees and from the surfaces.
 - The MCP App loading text goes away when the resource arrives, and the iframe takes the width that the app reports.
-
-Vue and Angular also accept `a2ui.onAction` on the provider, as React does. It lets your app handle an A2UI action before the agent gets it.

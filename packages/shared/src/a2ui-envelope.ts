@@ -201,7 +201,8 @@ function isSurfaceEntry(value: unknown): value is GenerativeUISurfaceSummary {
     (value.rejected === undefined || isRejectionList(value.rejected)) &&
     (value.status === undefined ||
       value.status === "deleted" ||
-      value.status === "failed")
+      value.status === "failed") &&
+    (value.a2uiSourceVersion === undefined || value.a2uiSourceVersion === "0.9")
   );
 }
 

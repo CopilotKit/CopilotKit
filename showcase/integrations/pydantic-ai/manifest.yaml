@@ -8,7 +8,7 @@ partner_docs: null
 repo: https://github.com/CopilotKit/CopilotKit/tree/main/showcase/integrations/pydantic-ai
 copilotkit_version: 2.0.0
 deployed: true
-docs_mode: authored
+docs_mode: generated
 sort_order: 50
 generative_ui:
   - constrained-explicit
@@ -20,15 +20,6 @@ interaction_modalities:
   - chat
 not_supported_features:
   - shared-state-streaming
-  # QUARANTINED pending a @copilotkit/react-core release. gen-ui-interrupt /
-  # interrupt-headless fail turn-2 on a useInterrupt/useHeadlessInterrupt
-  # RESUME-PATH hook bug in @copilotkit/react-core/v2: backend resumes + streams
-  # (HTTP 200) but the frontend never appends the confirmation assistant bubble,
-  # so the harness DOM settle-check times out. Fix is a published-package change
-  # (out of scope here); honestly marked not-supported (skipped-incapable, not
-  # green, not red) rather than a regression. Demos remain wired below.
-  - gen-ui-interrupt
-  - interrupt-headless
   - reasoning-default-render
   - agentic-chat-reasoning
   - tool-rendering-reasoning-chain
@@ -70,6 +61,8 @@ features:
   - reasoning-custom
   - mcp-apps
   - shared-state-read
+  - gen-ui-interrupt
+  - interrupt-headless
 a2ui_pattern: schema-loading
 interrupt_pattern: promise-based
 agent_config_pattern: shared-state

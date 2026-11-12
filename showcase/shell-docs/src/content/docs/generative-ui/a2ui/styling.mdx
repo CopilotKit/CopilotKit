@@ -1,0 +1,68 @@
+---
+title: "Styling"
+icon: "lucide/Palette"
+description: "Customize the appearance of A2UI surfaces with the generative UI theme and CSS variables."
+---
+A2UI surfaces render with the standard components of [Components and surfaces](/generative-ui/components). Every color, radius, shadow, and font of those components is a CSS variable.
+
+## Theme the components
+
+Set the variables with the `theme` option of `generativeUI`:
+
+```tsx title="app/providers.tsx"
+"use client";
+import { CopilotKitProvider } from "@copilotkit/react-core";
+import { standardUI } from "@copilotkit/react-core/generative-ui";
+
+export function Providers({ children }: { children: React.ReactNode }) {
+  return (
+    <CopilotKitProvider
+      runtimeUrl="/api/copilotkit"
+      generativeUI={{
+        ui: standardUI,
+        theme: {
+          "--a2ui-color-accent": "#111111",
+          "--a2ui-font-family": '"Plus Jakarta Sans", system-ui, sans-serif',
+          "--a2ui-radius-md": "12px",
+          dark: { "--a2ui-color-accent": "#e5e5e5" },
+        },
+      }}
+    >
+      {children}
+    </CopilotKitProvider>
+  );
+}
+```
+
+Values under `dark` apply in dark mode only. See [Theme the components](/generative-ui/components/theming) for the full list of variables.
+
+## Set variables in CSS
+
+You can also set the variables in your stylesheet, on the `.a2ui-surface` element that wraps every surface:
+
+```css title="src/a2ui/theme.css"
+.a2ui-surface {
+  --a2ui-color-accent: #111111;
+  --a2ui-radius-md: 12px;
+}
+```
+
+```tsx title="src/app/layout.tsx"
+import "@/a2ui/theme.css";
+```
+
+A value in `theme` wins over the same variable in your CSS.
+
+## Image sizing
+
+A2UI surfaces render Image components at their natural size. For consistent layouts (for example, airline logos and avatars), constrain images with CSS:
+
+```css title="src/a2ui/theme.css"
+.a2ui-surface img {
+  max-width: 28px;
+  max-height: 28px;
+  border-radius: 4px;
+}
+```
+
+To change how a component looks beyond its variables, replace it with your own component. See [Replace a component](/generative-ui/components/standard-catalog#replace-a-component).

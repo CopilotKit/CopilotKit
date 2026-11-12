@@ -5,7 +5,7 @@ const themeCss = readFileSync("src/styles/css/theme.css", {
   encoding: "utf8",
 });
 
-// The A2UI basic catalog paints its cards, chips and buttons with
+// The generative UI standard catalog paints its cards, chips and buttons with
 // --a2ui-color-* variables whose fallbacks are light colours. In dark mode the
 // chat sets them from its own tokens, the way the Angular stylesheet does, so a
 // card's light text doesn't land on a white background.

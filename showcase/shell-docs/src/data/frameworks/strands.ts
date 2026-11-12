@@ -59,7 +59,7 @@ const data: FrameworkOverviewData = {
     code: `import {
   CopilotRuntime,
   createCopilotRuntimeHandler,
-} from "@copilotkit/runtime/v2";
+} from "@copilotkit/runtime";
 import { HttpAgent } from "@ag-ui/client";
 
 const runtime = new CopilotRuntime({

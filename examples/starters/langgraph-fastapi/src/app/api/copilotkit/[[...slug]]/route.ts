@@ -1,18 +1,17 @@
 import {
   CopilotRuntime,
   CopilotKitIntelligence,
-  createCopilotEndpoint,
   InMemoryAgentRunner,
-} from "@copilotkit/runtime/v2";
-import { handle } from "hono/vercel";
-import { LangGraphHttpAgent } from "@copilotkit/runtime/langgraph";
+  createCopilotRuntimeHandler,
+} from "@copilotkit/runtime";
+import { LangGraphHttpAgent } from "@ag-ui/langgraph";
 
 // FastAPI-specific: the agent runs under uvicorn + ag-ui-langgraph, which
 // speaks AG-UI directly. We talk to it via HttpAgent, not LangGraphAgent
 // (LangGraphAgent targets the LangGraph Platform / langgraph-cli dev
 // surface, which is a different protocol). Everything else — runtime
-// config, v2 endpoint wiring, MCP apps, openGenerativeUI, a2ui — mirrors
-// the reference demo.
+// config, endpoint wiring, MCP apps, openGenerativeUI — mirrors the
+// reference demo.
 // `LANGGRAPH_DEPLOYMENT_URL` is accepted alongside `AGENT_URL` for parity with
 // the langgraph-python / langgraph-js starters, whose `createDefaultAgent()`
 // reads both: the LangGraph docs teach `LANGGRAPH_DEPLOYMENT_URL`, so a reader
@@ -49,9 +48,6 @@ const runtime = new CopilotRuntime({
     : { runner: new InMemoryAgentRunner() }),
   // --- /copilotkit:intelligence ---
   openGenerativeUI: true,
-  a2ui: {
-    injectA2UITool: false,
-  },
   mcpApps: {
     servers: [
       {
@@ -63,12 +59,13 @@ const runtime = new CopilotRuntime({
   },
 });
 
-const app = createCopilotEndpoint({
+const app = createCopilotRuntimeHandler({
+  cors: true,
   runtime,
   basePath: "/api/copilotkit",
 });
 
-export const GET = handle(app);
-export const POST = handle(app);
-export const PATCH = handle(app);
-export const DELETE = handle(app);
+export const GET = app;
+export const POST = app;
+export const PATCH = app;
+export const DELETE = app;

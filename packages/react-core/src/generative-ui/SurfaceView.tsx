@@ -10,7 +10,6 @@ import React, {
   useSyncExternalStore,
 } from "react";
 import type { ReactNode } from "react";
-import type { ComponentModel, SurfaceModel } from "@a2ui/web_core/state";
 import {
   A2UI_COMPONENT_ENVELOPE_KEYS,
   GENERATIVE_UI_ROOT_ID,
@@ -70,8 +69,10 @@ import {
 } from "./runtime-context";
 import type { GenerativeUIRuntime } from "./runtime-context";
 import type {
+  ComponentModel,
   GenerativeUISurfaceManager,
   ManagedSurface,
+  SurfaceModel,
 } from "@copilotkit/core/generative-ui";
 
 const NO_ANCESTORS: readonly string[] = [];
@@ -206,17 +207,14 @@ export function SurfaceView({ surface }: { surface: ManagedSurface }) {
 }
 
 /**
- * Resolves a component by id. Subscribes to the manager rather than web_core's
- * `onCreated`/`onDeleted`: web_core's EventEmitter awaits each listener in turn,
- * so with several subscribers (one per slotted child, or one per mount of the
- * same surface) all but the first are notified a microtask late. That is only
- * visible inside synchronous flushes such as `act()` / `flushSync`, where the
- * old tree would still be on screen, but it makes updates order-dependent.
- * The manager notifies synchronously once an ingest has been fully applied.
+ * Resolves a component by id. Subscribes to the manager, which notifies
+ * synchronously once an ingest has been fully applied, so every subscriber
+ * (one per slotted child, or one per mount of the same surface) sees the
+ * same, complete update. The components model has no events of its own.
  */
 function useComponentModel(
   manager: GenerativeUISurfaceManager,
-  model: SurfaceModel<any>,
+  model: SurfaceModel,
   id: string,
 ): ComponentModel | undefined {
   return useSyncExternalStore(
@@ -226,7 +224,7 @@ function useComponentModel(
   );
 }
 
-/** Same reasoning as `useComponentModel`: never rely on web_core's emitters. */
+/** Same reasoning as `useComponentModel`: the manager notifies. */
 function useComponentProperties(
   manager: GenerativeUISurfaceManager,
   component: ComponentModel | undefined,
@@ -497,8 +495,8 @@ function useModelDataProps(
     const cached = cache.current.get(key);
     // A cached resolution holds while the raw prop, the template item and
     // every value it read are the same. A data model notification clears
-    // the cache (below), because web_core changes lists and objects in
-    // place, so a changed item inside one keeps the identity of the list.
+    // the cache (below), because the data model changes lists and objects
+    // in place, so a changed item inside one keeps the identity of the list.
     const isFresh =
       cached !== undefined &&
       cached.raw === raw &&
@@ -542,8 +540,8 @@ function useModelDataProps(
     if (!isPathBinding(properties[key])) values[key] = value;
   }
   // The values this render was based on, so the effect can detect a write that
-  // landed between render and subscription (web_core never replays the current
-  // value on subscribe).
+  // landed between render and subscription (the data model never replays the
+  // current value on subscribe).
   const rendered = useRef(next);
   rendered.current = next;
   const pathKey = [...paths].sort().join("\n");

@@ -187,7 +187,6 @@ test("public example workflow watches its complete shared input set", () => {
     "pnpm-workspace.yaml",
     "nx.json",
     "patches/**",
-    "packages/a2ui-renderer/**",
     "packages/channels*/**",
     "packages/core/**",
     "packages/react-core/**",

@@ -1,5 +1,5 @@
 date,category,subcategory,amount,type,notes
-2026-01-05,Revenue,Enterprise Subscriptions,28000,income,3 new enterprise customers (Acme Corp, TechFlow, DataViz Inc)
+2026-01-05,Revenue,Enterprise Subscriptions,28000,income,"3 new enterprise customers (Acme Corp, TechFlow, DataViz Inc)"
 2026-01-05,Revenue,Pro Tier Upgrades,18000,income,24 users upgraded from free to pro
 2026-01-08,Revenue,API Usage Overages,9500,income,High API usage from top 5 customers
 2026-01-10,Expenses,Engineering Salaries,42000,expense,7 engineers + 2 contractors

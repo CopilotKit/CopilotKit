@@ -114,7 +114,6 @@
       // intelligence-delivery-core). Each entry replaces kiira's generated
       // entry for the same key. A new export that is missing here fails loudly
       // with "Cannot find module", so add it here when that happens.
-      "@copilotkit/a2ui-renderer": ["./packages/a2ui-renderer/src/index.ts"],
       "@copilotkit/agentcore-runner": [
         "./packages/agentcore-runner/src/index.ts"
       ],
@@ -231,7 +230,6 @@
       // targets are dist/types/*.d.ts. Its entry files are declared in the
       // ng-package.json files, so map them directly.
       "@copilotkit/angular": ["./packages/angular/src/index.ts"],
-      "@copilotkit/angular/a2ui": ["./packages/angular/src/a2ui/index.ts"],
       "@copilotkit/angular/generative-ui": [
         "./packages/angular/src/generative-ui/index.ts"
       ],

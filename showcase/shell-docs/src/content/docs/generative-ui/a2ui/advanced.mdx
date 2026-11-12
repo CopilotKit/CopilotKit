@@ -1,0 +1,184 @@
+---
+title: "Advanced"
+icon: "lucide/SlidersHorizontal"
+description: "Custom progress rendering and A2UI action handling."
+---
+This page covers two A2UI tasks:
+
+- [Show your own loading state](#custom-a2ui-progress-renderer) while a surface builds.
+- [Handle button clicks](#action-handlers): what the agent receives, and how to run code in the browser instead.
+
+## Custom A2UI Progress Renderer
+
+When using [Dynamic Schema A2UI](/generative-ui/a2ui/dynamic-schema), a secondary LLM generates the UI schema and data. This takes a few seconds.
+
+You can show your own progress component with `useRenderTool`.
+
+### How it works
+
+The dynamic schema flow calls a tool named `render_a2ui` under the hood. While the tool call is in progress (`status === "inProgress"`), your custom renderer is shown. Once the A2UI surface starts rendering (`status === "complete"`), your component is hidden and the actual surface takes over.
+
+### Implementation
+
+<Steps>
+<Step>
+### Create a progress component
+
+```tsx title="src/components/a2ui-progress.tsx"
+"use client";
+
+import { memo } from "react";
+
+interface A2UIProgressProps {
+  parameters: Record<string, unknown>;
+}
+
+export const A2UIProgress = memo(function A2UIProgress({
+  parameters,
+}: A2UIProgressProps) {
+  // You can inspect `parameters` to show partial progress.
+  // As the LLM streams, `parameters.components` and `parameters.items`
+  // will progressively populate.
+  const componentCount = Array.isArray(parameters?.components)
+    ? parameters.components.length
+    : 0;
+  const itemCount = Array.isArray(parameters?.items)
+    ? parameters.items.length
+    : 0;
+
+  return (
+    <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
+      <div className="flex items-center gap-2 text-sm text-gray-600">
+        <div className="h-4 w-4 animate-spin rounded-full border-2 border-gray-300 border-t-gray-600" />
+        <span>Building interface...</span>
+      </div>
+      {componentCount > 0 && (
+        <p className="mt-2 text-xs text-gray-500">
+          {componentCount} components, {itemCount} items
+        </p>
+      )}
+    </div>
+  );
+});
+```
+</Step>
+
+<Step>
+### Register the renderer
+
+Use `useRenderTool` to intercept the `render_a2ui` tool call and show your component while it's in progress:
+
+```tsx title="src/hooks/use-a2ui-progress.tsx"
+"use client";
+
+import { useRenderTool } from "@copilotkit/react-core";
+import { z } from "zod";
+import { A2UIProgress } from "@/components/a2ui-progress";
+
+export function useA2UIProgress() {
+  useRenderTool(
+    {
+      name: "render_a2ui",
+      parameters: z.any(),
+      render: ({ status, parameters }) => {
+        // Hide when complete — the A2UI surface renderer takes over
+        if (status === "complete") return <></>;
+        return <A2UIProgress parameters={parameters ?? {}} />;
+      },
+    },
+    [],
+  );
+}
+```
+</Step>
+
+<Step>
+### Call the hook in your page
+
+```tsx title="src/app/page.tsx"
+"use client";
+
+import { CopilotChat } from "@copilotkit/react-core";
+import { useA2UIProgress } from "@/hooks/use-a2ui-progress";
+
+function Chat() {
+  useA2UIProgress();
+
+  return <CopilotChat className="flex-1" />;
+}
+```
+</Step>
+</Steps>
+
+<Callout type="info">
+The `parameters` object updates progressively as the LLM streams the `render_a2ui` tool call. You can use this to show a skeleton that fills in as components and data arrive.
+</Callout>
+
+### What's in `parameters`?
+
+As the secondary LLM generates the A2UI surface, the `parameters` object accumulates:
+
+| Field | Type | Description |
+|---|---|---|
+| `surfaceId` | `string` | Unique ID for this surface |
+| `components` | `array` | The component tree (schema) — arrives first |
+| `root` | `string` | Root component ID |
+| `items` | `array` | Data items — arrive after the schema |
+
+A common pattern is to show a skeleton layout once `components` has data, then show item count as `items` streams in.
+
+## Action Handlers
+
+A button on an A2UI surface sends its action to the agent. This section
+shows the v0.9 button format, what the agent receives, and how to handle
+a click in the browser instead.
+
+### Schema button with action context
+
+The v0.9 A2UI schema defines buttons with an event and data-bound context fields. Components inside a repeating list use relative paths, so the context values resolve from the clicked item. The [fixed-schema guide](/generative-ui/a2ui/fixed-schema#action-handlers-reference) shows this button in a full schema.
+
+```json
+{
+  "id": "book-button",
+  "component": "Button",
+  "child": "book-label",
+  "variant": "primary",
+  "action": {
+    "event": {
+      "name": "book_flight",
+      "context": {
+        "flightNumber": { "path": "flightNumber" },
+        "price": { "path": "price" }
+      }
+    }
+  }
+}
+```
+
+### What the agent receives
+
+The runtime converts the surface to A2UI 1.0 for the browser. When the
+user clicks the button, the runtime converts the click back to the v0.9
+user action. The agent reads it from `forwardedProps.a2uiAction.userAction`:
+
+```json
+{
+  "name": "book_flight",
+  "surfaceId": "flight-search-results",
+  "sourceComponentId": "book-button",
+  "timestamp": "2025-01-01T00:00:00.000Z",
+  "context": { "flightNumber": "AA100", "price": "$350" }
+}
+```
+
+The chat also shows the click as a user message. The current Python SDK
+does not create server-side action handlers from an `action_handlers=`
+argument, so read the action in your agent code.
+
+### Handle a click in the browser
+
+To run code in the browser and skip the agent, use a function call
+instead of an event. Declare the function in your UI with
+`createGenerativeUI({ functions })`, and mount its handler with
+`useGenerativeUIFunction`. The v0.9 `functionCall` action of the agent
+calls it. See [Connect app state and actions](/generative-ui/components/state-and-actions).

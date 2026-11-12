@@ -7,7 +7,8 @@
  * the generation animation over the surface is the transitions.dev runtime
  * (src/components/app/use-ui-generation.ts), not this file.
  */
-import { latestComponents, type A2UIOp } from "./run-store";
+import { latestComponents } from "./run-store";
+import type { A2UIOp } from "./run-store";
 
 /** Structure stays real as soon as it arrives so the layout is exact; everything else is a leaf. */
 export const STRUCTURE = new Set([

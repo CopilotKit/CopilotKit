@@ -1,8 +1,7 @@
-import Image from "next/image";
 
 # A2UI - Google's Generative UI Spec
 
-**A2UI** is Google's declarative, LLM-friendly Generative UI specification that enables agents to generate dynamic user interfaces.
+Your agent can return [A2UI](https://a2ui.org/), Google's spec for declarative UI. Set its A2UI version in your runtime, and the chat renders it. To compare A2UI with the other specs, see the [Generative UI specs overview](/concepts/generative-ui-overview).
 
 <Image
   src="/images/gen-ui-specs-light.webp"
@@ -19,34 +18,11 @@ import Image from "next/image";
   className="hidden dark:block mb-8"
 />
 
-## What is A2UI?
-
-A2UI is a declarative generative UI specification launched by Google. It's designed to be:
-
-- **JSONL-based** - Uses JSON Lines format for streaming
-- **LLM-friendly** - Easy for language models to generate
-- **Platform-agnostic** - Can be rendered on any platform
-- **Streaming-first** - Built for real-time, progressive rendering
-
-## Why A2UI?
-
-### Declarative Approach
-
-A2UI allows agents to describe UI components declaratively, making it easier for LLMs to generate dynamic interfaces without needing to understand implementation details.
-
-### Streaming Support
-
-Built with streaming in mind, A2UI enables progressive rendering as the agent generates responses, providing a better user experience.
-
-### Platform Agnostic
-
-A2UI specifications can be rendered on web, mobile, or any other platform, making your agent's UI truly universal.
-
 ## Setup with CopilotKit
 
 ### Backend
 
-Enable A2UI in `CopilotRuntime` by passing `a2ui: {}`:
+Tell `CopilotRuntime` that your agent writes A2UI v0.9 with `generativeUI: { a2uiVersion: "0.9" }`:
 
 ```ts title="app/api/copilotkit/route.ts"
 import { HttpAgent } from "@ag-ui/client";
@@ -60,7 +36,7 @@ const myAgent = new HttpAgent({ url: "http://localhost:8000/" });
 
 const runtime = new CopilotRuntime({
   agents: { default: myAgent },
-  a2ui: {},
+  generativeUI: { a2uiVersion: "0.9" },
 });
 
 // Single-route: only POST needed, no catch-all [...path] required
@@ -73,50 +49,20 @@ const handler = createCopilotRuntimeHandler({
 export { handler as POST };
 ```
 
-This automatically applies `A2UIMiddleware` to all registered agents. To scope it to specific agents, you can specify agents with the `agents` property: `a2ui: { agents: ["my-agent"] }`.
+The runtime converts the A2UI v0.9 output of your agent to A2UI 1.0, which the browser renders. To limit this to some agents, use a record: `generativeUI: { a2uiVersion: { "my-agent": "0.9" } }`. See [Keep a v0.9 agent](/generative-ui/components/from-a2ui#keep-a-v09-agent).
+
+An agent that already sends A2UI 1.0 operations needs no option. The runtime passes them through as they are.
 
 This page uses `@copilotkit/runtime` on the server and `@copilotkit/react-core` in the browser. See [Deploy to any runtime](/runtime-server-adapter) for the other hosts.
 
-Once configured, any A2UI output returned from your agent will automatically be rendered in the chat interface — no additional frontend code required.
-
 ### Frontend
 
-The A2UI renderer activates automatically — no extra configuration needed on the frontend. Optionally, pass a custom theme:
+In React and Vue, no frontend code is needed. The provider renders the surfaces with the [standard catalog](/generative-ui/components/standard-catalog). In Angular, add `provideGenerativeUI({ ui: standardUI })` to the root providers.
 
-```tsx
-import type { ReactNode } from "react";
-import { CopilotKitProvider, type A2UITheme } from "@copilotkit/react-core";
-
-// Your own theme object — the renderer reads the keys it understands.
-// Leave the `a2ui` prop off entirely to keep the built-in theme.
-const myCustomTheme: A2UITheme = {
-  // ...your theme keys
-};
-
-export function Providers({ children }: { children: ReactNode }) {
-  return (
-    <CopilotKitProvider
-      runtimeUrl="/api/copilotkit"
-      a2ui={{ theme: myCustomTheme }}
-    >
-      {children}
-    </CopilotKitProvider>
-  );
-}
-```
-
-The `a2ui` prop on `<CopilotKitProvider>` is only needed if you want to override the default theme provided.
+To let the agent use your own components, or to change the colors, see [Components and surfaces](/generative-ui/components) and [Theme the components](/generative-ui/components/theming).
 
 ## Using A2UI with CopilotKit
 
-[Get started with A2UI](/docs/integrations/a2a/generative-ui/declarative-a2ui) and A2A with CopilotKit
+[Get started with A2UI](/a2a/generative-ui/declarative-a2ui) and A2A with CopilotKit
 
 Check out the [A2UI Composer](https://a2ui-editor.ag-ui.com/gallery) to create and find widgets
-
-## Learn More
-
-- [Generative UI Specs Overview](/concepts/generative-ui-overview) - Compare all supported specifications
-- [Generative UI Guide](/generative-ui/tool-based) - Build with Generative UI in CopilotKit
-- [A2UI Site](https://a2ui.org/) - Visit the A2UI site
-- [AG-UI Protocol](/agentic-protocols/ag-ui) - Learn about the protocol that supports A2UI
-- [MCP Apps](/generative-ui/mcp-apps) - Iframe-based Generative UI extending MCP

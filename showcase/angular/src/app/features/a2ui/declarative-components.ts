@@ -1,79 +1,75 @@
 import { Component, computed, input } from "@angular/core";
-import type { A2UIProps } from "@copilotkit/angular/a2ui";
-import {
-  CopilotA2UIChild,
-  injectA2UIComponentContext,
-} from "@copilotkit/angular/a2ui";
+import { CopilotGenerativeUIChildren } from "@copilotkit/angular/generative-ui";
+import type { GenerativeUIChildren } from "@copilotkit/angular/generative-ui";
 
-import type { declarativeDefinitions } from "./a2ui-definitions";
 import { a2uiHost as host } from "./a2ui-host";
 
-type Props<K extends keyof typeof declarativeDefinitions> = A2UIProps<
-  typeof declarativeDefinitions,
-  K
->;
+type Align = "start" | "center" | "end" | "stretch" | "baseline";
+type ChartDatum = { label: string; value: number };
+type TableColumn = { key: string; label: string };
 
 @Component({
   selector: "showcase-a2ui-row",
-  imports: [CopilotA2UIChild],
+  imports: [CopilotGenerativeUIChildren],
   host,
   template: `
-    <div class="a2ui-row" [style.gap.px]="props().gap ?? 16">
-      @for (child of props().children; track $index) {
-        <copilot-a2ui-child [child]="child" />
-      }
+    <div class="a2ui-row" [style.gap.px]="gap() ?? 16">
+      <ng-container *copilotGenerativeUIChildren="children()" />
     </div>
   `,
 })
 export class DeclarativeRowComponent {
-  readonly props = input.required<Props<"Row">>();
+  readonly gap = input<number>();
+  readonly align = input<Align>();
+  readonly justify = input<"start" | "center" | "end" | "spaceBetween">();
+  readonly children = input<GenerativeUIChildren>();
 }
 
 @Component({
   selector: "showcase-a2ui-column",
-  imports: [CopilotA2UIChild],
+  imports: [CopilotGenerativeUIChildren],
   host,
   template: `
-    <div class="a2ui-column" [style.gap.px]="props().gap ?? 12">
-      @for (child of props().children; track $index) {
-        <copilot-a2ui-child [child]="child" />
-      }
+    <div class="a2ui-column" [style.gap.px]="gap() ?? 12">
+      <ng-container *copilotGenerativeUIChildren="children()" />
     </div>
   `,
 })
 export class DeclarativeColumnComponent {
-  readonly props = input.required<Props<"Column">>();
+  readonly gap = input<number>();
+  readonly align = input<Align>();
+  readonly children = input<GenerativeUIChildren>();
 }
 
 @Component({
   selector: "showcase-a2ui-text",
   host,
   template: `
-    <p class="a2ui-text">{{ props().text }}</p>
+    <p class="a2ui-text">{{ text() }}</p>
   `,
 })
 export class DeclarativeTextComponent {
-  readonly props = input.required<Props<"Text">>();
+  readonly text = input.required<string>();
 }
 
 @Component({
   selector: "showcase-a2ui-card",
-  imports: [CopilotA2UIChild],
+  imports: [CopilotGenerativeUIChildren],
   host,
   template: `
-    <article data-testid="declarative-card" [attr.data-card-id]="props().title">
-      <h3>{{ props().title }}</h3>
-      @if (props().subtitle) {
-        <p>{{ props().subtitle }}</p>
+    <article data-testid="declarative-card" [attr.data-card-id]="title()">
+      <h3>{{ title() }}</h3>
+      @if (subtitle()) {
+        <p>{{ subtitle() }}</p>
       }
-      @if (props().child) {
-        <copilot-a2ui-child [child]="props().child" />
-      }
+      <ng-container *copilotGenerativeUIChildren="child()" />
     </article>
   `,
 })
 export class DeclarativeCardComponent {
-  readonly props = input.required<Props<"Card">>();
+  readonly title = input.required<string>();
+  readonly subtitle = input<string>();
+  readonly child = input<GenerativeUIChildren>();
 }
 
 @Component({
@@ -81,15 +77,16 @@ export class DeclarativeCardComponent {
   host,
   template: `
     <span
-      [class]="'a2ui-status a2ui-status-' + (props().variant ?? 'info')"
+      [class]="'a2ui-status a2ui-status-' + (variant() ?? 'info')"
       data-testid="declarative-status-badge"
     >
-      {{ props().text }}
+      {{ text() }}
     </span>
   `,
 })
 export class DeclarativeStatusBadgeComponent {
-  readonly props = input.required<Props<"StatusBadge">>();
+  readonly text = input.required<string>();
+  readonly variant = input<"success" | "warning" | "error" | "info">();
 }
 
 @Component({
@@ -97,16 +94,19 @@ export class DeclarativeStatusBadgeComponent {
   host,
   template: `
     <section data-testid="declarative-metric" class="a2ui-metric">
-      <span>{{ props().label }}</span
-      ><strong>{{ props().value }}</strong>
-      @if (props().trendValue) {
-        <small>{{ props().trendValue }}</small>
+      <span>{{ label() }}</span
+      ><strong>{{ value() }}</strong>
+      @if (trendValue()) {
+        <small>{{ trendValue() }}</small>
       }
     </section>
   `,
 })
 export class DeclarativeMetricComponent {
-  readonly props = input.required<Props<"Metric">>();
+  readonly label = input.required<string>();
+  readonly value = input.required<string>();
+  readonly trend = input<"up" | "down" | "neutral">();
+  readonly trendValue = input<string>();
 }
 
 @Component({
@@ -114,13 +114,14 @@ export class DeclarativeMetricComponent {
   host,
   template: `
     <div data-testid="declarative-info-row" class="a2ui-info-row">
-      <span>{{ props().label }}</span
-      ><strong>{{ props().value }}</strong>
+      <span>{{ label() }}</span
+      ><strong>{{ value() }}</strong>
     </div>
   `,
 })
 export class DeclarativeInfoRowComponent {
-  readonly props = input.required<Props<"InfoRow">>();
+  readonly label = input.required<string>();
+  readonly value = input.required<string>();
 }
 
 @Component({
@@ -131,15 +132,15 @@ export class DeclarativeInfoRowComponent {
       <table>
         <thead>
           <tr>
-            @for (column of props().columns; track $index) {
+            @for (column of columns(); track $index) {
               <th>{{ column.label }}</th>
             }
           </tr>
         </thead>
         <tbody>
-          @for (row of props().rows; track $index) {
+          @for (row of rows(); track $index) {
             <tr>
-              @for (column of props().columns; track $index) {
+              @for (column of columns(); track $index) {
                 <td>{{ row[column.key] }}</td>
               }
             </tr>
@@ -150,21 +151,23 @@ export class DeclarativeInfoRowComponent {
   `,
 })
 export class DeclarativeDataTableComponent {
-  readonly props = input.required<Props<"DataTable">>();
+  readonly columns = input.required<TableColumn[]>();
+  readonly rows = input.required<Record<string, string | number>[]>();
 }
 
 @Component({
   selector: "showcase-a2ui-primary-button",
   host,
   template: `
-    <button type="button" (click)="context.dispatch(props().action)">
-      {{ props().label }}
+    <button type="button" (click)="action()?.()">
+      {{ label() }}
     </button>
   `,
 })
 export class DeclarativePrimaryButtonComponent {
-  readonly props = input.required<Props<"PrimaryButton">>();
-  protected readonly context = injectA2UIComponentContext();
+  readonly label = input.required<string>();
+  /** Set when the agent binds an action to the button. */
+  readonly action = input<() => unknown>();
 }
 
 @Component({
@@ -172,11 +175,11 @@ export class DeclarativePrimaryButtonComponent {
   host,
   template: `
     <article data-testid="declarative-pie-chart" class="a2ui-chart-card">
-      <h3>{{ props().title }}</h3>
-      <p>{{ props().description }}</p>
-      <div class="a2ui-donut" role="img" [attr.aria-label]="props().title"></div>
+      <h3>{{ title() }}</h3>
+      <p>{{ description() }}</p>
+      <div class="a2ui-donut" role="img" [attr.aria-label]="title()"></div>
       <ul>
-        @for (datum of props().data; track $index) {
+        @for (datum of data(); track $index) {
           <li>
             <span>{{ datum.label }}</span
             ><strong>{{ datum.value }}</strong>
@@ -187,7 +190,9 @@ export class DeclarativePrimaryButtonComponent {
   `,
 })
 export class DeclarativePieChartComponent {
-  readonly props = input.required<Props<"PieChart">>();
+  readonly title = input.required<string>();
+  readonly description = input.required<string>();
+  readonly data = input.required<ChartDatum[]>();
 }
 
 @Component({
@@ -195,10 +200,10 @@ export class DeclarativePieChartComponent {
   host,
   template: `
     <article data-testid="declarative-bar-chart" class="a2ui-chart-card">
-      <h3>{{ props().title }}</h3>
-      <p>{{ props().description }}</p>
-      <div class="a2ui-bars" role="img" [attr.aria-label]="props().title">
-        @for (datum of props().data; track $index) {
+      <h3>{{ title() }}</h3>
+      <p>{{ description() }}</p>
+      <div class="a2ui-bars" role="img" [attr.aria-label]="title()">
+        @for (datum of data(); track $index) {
           <span [title]="datum.label + ': ' + datum.value">
             <i [style.height.%]="barHeight(datum.value)"></i>
             <small>{{ datum.label }}</small>
@@ -209,9 +214,11 @@ export class DeclarativePieChartComponent {
   `,
 })
 export class DeclarativeBarChartComponent {
-  readonly props = input.required<Props<"BarChart">>();
+  readonly title = input.required<string>();
+  readonly description = input.required<string>();
+  readonly data = input.required<ChartDatum[]>();
   private readonly max = computed(() =>
-    Math.max(1, ...this.props().data.map(({ value }) => value)),
+    Math.max(1, ...this.data().map(({ value }) => value)),
   );
   protected barHeight(value: number): number {
     return Math.max(8, (value / this.max()) * 100);

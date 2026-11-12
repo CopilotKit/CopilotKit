@@ -13,6 +13,7 @@ import type {
   ɵRuntimeInfo,
 } from "@copilotkit/core";
 import type { DebugConfig } from "@copilotkit/shared";
+import { GENERATIVE_UI_ACTIVITY_TYPE } from "@copilotkit/shared";
 import {
   CopilotKitCore,
   CopilotKitCoreRuntimeConnectionStatus,
@@ -22,7 +23,6 @@ import {
   ɵRendererRegistry,
   ɵassembleActivityRenderers,
   ɵpublicKeyHeaderDefaults,
-  ɵresolveA2UIActivation,
   ɵreportProviderConfigDiagnostics,
   ɵresolveProviderConfig,
   ɵwithHeaderDefaults,
@@ -53,19 +53,6 @@ import {
 } from "./activity-renderer";
 import { injectCopilotKitConfig } from "./config";
 import type { CopilotKitConfig } from "./config";
-import { CopilotA2UIActivityRenderer } from "./components/a2ui/a2ui-activity-renderer";
-import {
-  A2UI_BASIC_CATALOG_ID,
-  A2UICatalogController,
-} from "@copilotkit/a2ui-renderer/catalog-schema";
-import type { A2UICatalog } from "./components/a2ui/a2ui-types";
-import { CopilotA2UIRenderToolCall } from "./components/a2ui/a2ui-render-tool-call";
-import { CopilotA2UIToolRenderer } from "./components/a2ui/a2ui-tool-renderer";
-import {
-  AGUI_SEND_STATE_SNAPSHOT_TOOL_NAME,
-  RENDER_A2UI_TOOL_NAME,
-  RenderA2UIArgsSchema,
-} from "./components/a2ui/a2ui-tool-types";
 import type { GenerateSandboxedUiArgs } from "./open-generative-ui";
 import {
   GENERATE_SANDBOXED_UI_TOOL_NAME,
@@ -91,7 +78,6 @@ function toProviderConfigInput(config: CopilotKitConfig): ɵProviderConfigInput 
     agents__unsafe_dev_only: config.agents,
     selfManagedAgents: config.selfManagedAgents,
     properties: config.properties,
-    a2uiCatalog: config.a2ui?.catalog,
   };
 }
 
@@ -201,7 +187,7 @@ export class CopilotKit {
 
   /**
    * The provider inputs core normalizes (key fallback, Copilot Cloud URL,
-   * transport, agent merge, catalog property). `updateRuntime` replaces the
+   * transport, agent merge). `updateRuntime` replaces the
    * keys it is given and resolves again.
    */
   #providerInput = toProviderConfigInput(this.#config);
@@ -252,8 +238,7 @@ export class CopilotKit {
   /**
    * App tool-call renderers and activity renderers. Config renderers are the
    * prop list; `addRenderToolCall` adds hook entries, so the latest
-   * registration for a name and agent wins. A2UI's tool renderers are
-   * built-in entries, which app renderers with the same name replace.
+   * registration for a name and agent wins.
    */
   readonly #renderers = new ɵRendererRegistry<
     RenderToolCallConfig,
@@ -291,8 +276,6 @@ export class CopilotKit {
       ...this.#extensionActivityMessageRenderers,
       ...this.#builtInActivityMessageRenderConfigs(),
     ]);
-  /** Removes the built-in A2UI tool renderers, while they are registered. */
-  #removeA2UIToolRenderers: (() => void) | undefined;
 
   readonly #executingToolCallIds = signal(this.core.executingToolCallIds);
   /**
@@ -305,23 +288,7 @@ export class CopilotKit {
   /** Removes the built-in Open Generative UI tool, while it is registered. */
   #unregisterOpenGenerativeUITool: (() => void) | undefined;
   #removeOpenGenerativeUIContexts: (() => void) | undefined;
-  #warnedMissingA2UICatalog = false;
-  /**
-   * Shared with React and Vue: registers the catalog's components with core
-   * (for the Inspector), filters out the disabled ones, and owns the A2UI agent
-   * context, scoped to `core.ɵruntimeInfo.a2uiAgents` (#5369).
-   */
-  readonly #a2uiCatalog = new A2UICatalogController<A2UICatalog>(this.core, {
-    id: A2UI_BASIC_CATALOG_ID,
-    components: new Map(),
-  });
-  readonly #filteredA2UICatalog = signal<A2UICatalog | undefined>(undefined);
-  /**
-   * @internal
-   * The configured A2UI catalog without the components disabled in the
-   * Inspector. Surfaces render with it.
-   */
-  readonly ɵa2uiCatalog = this.#filteredA2UICatalog.asReadonly();
+  #warnedMissingGenerativeUI = false;
 
   constructor() {
     // Chat configurations register their shown Thread with this core.
@@ -330,12 +297,8 @@ export class CopilotKit {
     // This service creates `core`, so it owns it and stops it on destroy.
     inject(DestroyRef).onDestroy(() => {
       openThreads.attach(undefined);
-      this.#a2uiCatalog.dispose();
       this.core.dispose();
     });
-    this.#a2uiCatalog.subscribe(() =>
-      this.#filteredA2UICatalog.set(this.#a2uiCatalog.getSnapshot()),
-    );
     // Throws in production for a missing runtime config; otherwise warns.
     ɵreportProviderConfigDiagnostics(this.#initialConfig.diagnostics, {
       isProduction: !isDevMode(),
@@ -408,6 +371,7 @@ export class CopilotKit {
       onRuntimeConnectionStatusChanged: () => {
         this.#syncBuiltInActivityMessageRenderers();
         this.#syncBuiltInOpenGenerativeUI();
+        this.#warnIfGenerativeUIMissing();
       },
       onHeadersChanged: ({ headers }) => {
         this.#headers.set(headers);
@@ -550,16 +514,8 @@ export class CopilotKit {
   }
 
   #syncBuiltInActivityMessageRenderers(): void {
-    const a2uiActive = this.#isA2UIActive();
     this.#builtInActivityMessageRenderConfigs.set(
       ɵassembleActivityRenderers<RenderActivityMessageConfig>({
-        a2ui: a2uiActive
-          ? {
-              activityType: "a2ui-surface",
-              content: anyActivityContentSchema,
-              component: CopilotA2UIActivityRenderer,
-            }
-          : undefined,
         builtIns: [
           this.#isOpenGenerativeUIActive() && {
             activityType: OPEN_GENERATIVE_UI_ACTIVITY_TYPE,
@@ -569,58 +525,29 @@ export class CopilotKit {
         ],
       }),
     );
-    this.#syncBuiltInA2UI(a2uiActive);
-  }
-
-  #syncBuiltInA2UI(active: boolean): void {
-    this.#a2uiCatalog.update({
-      enabled: active,
-      catalog: this.#config.a2ui?.catalog,
-      includeSchema: this.#config.a2ui?.includeSchema,
-    });
-    if (!active) {
-      this.#removeA2UIToolRenderers?.();
-      this.#removeA2UIToolRenderers = undefined;
-      return;
-    }
-    if (this.#removeA2UIToolRenderers) return;
-    const removers = [
-      this.#renderers.addBuiltInToolCall({
-        name: RENDER_A2UI_TOOL_NAME,
-        args: RenderA2UIArgsSchema,
-        component: CopilotA2UIRenderToolCall,
-      }),
-      this.#renderers.addBuiltInToolCall({
-        name: AGUI_SEND_STATE_SNAPSHOT_TOOL_NAME,
-        args: RenderA2UIArgsSchema,
-        component: CopilotA2UIToolRenderer,
-        passAgent: true,
-      }),
-    ];
-    this.#removeA2UIToolRenderers = () => {
-      for (const remove of removers) remove();
-    };
   }
 
   /**
-   * A2UI renders only with a configured catalog. Without one, the runtime may
-   * still enable it, but surfaces could not render, so CopilotKit registers no
-   * renderers or agent context and says how to fix it.
+   * The runtime turns generative UI on, but nothing in the app renders its
+   * surfaces. React and Vue fall back to `standardUI` here. Angular cannot:
+   * `@copilotkit/angular/generative-ui` imports this entry, so this entry
+   * cannot load it, not even lazily (ng-packagr rejects the cycle). The app
+   * opts in with `provideGenerativeUI`, which registers the surface
+   * renderer, so a missing renderer means a missing provider.
    */
-  #isA2UIActive(): boolean {
-    const { active, missingCatalog } = ɵresolveA2UIActivation({
-      runtimeEnabled: this.core.ɵruntimeInfo.a2uiEnabled,
-      hasCatalog: this.#config.a2ui?.catalog !== undefined,
-      requireCatalog: true,
-    });
-    if (missingCatalog && !this.#warnedMissingA2UICatalog) {
-      this.#warnedMissingA2UICatalog = true;
-      console.warn(
-        "[CopilotKit] The runtime enables A2UI, but no `a2ui.catalog` is configured, so A2UI stays off. " +
-          "Pass `basicCatalog` or a catalog from `createAngularCatalog`, both in `@copilotkit/angular/a2ui`.",
-      );
-    }
-    return active;
+  #warnIfGenerativeUIMissing(): void {
+    if (this.#warnedMissingGenerativeUI || !isDevMode()) return;
+    if (!this.core.ɵruntimeInfo.generativeUIEnabled) return;
+    const rendered = [
+      ...this.#extensionActivityMessageRenderers,
+      ...this.#renderers.activity,
+    ].some((renderer) => renderer.activityType === GENERATIVE_UI_ACTIVITY_TYPE);
+    if (rendered) return;
+    this.#warnedMissingGenerativeUI = true;
+    console.warn(
+      "[CopilotKit] The runtime turns generative UI on, but no generative UI is set up, so its surfaces do not render. " +
+        "Add `provideGenerativeUI({ ui: standardUI })` from `@copilotkit/angular/generative-ui` to the application providers.",
+    );
   }
 
   #isOpenGenerativeUIActive(): boolean {

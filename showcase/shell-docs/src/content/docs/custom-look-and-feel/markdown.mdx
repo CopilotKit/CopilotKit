@@ -4,14 +4,16 @@ icon: "lucide/TextSelect"
 description: "Restyle the markdown in assistant messages, or replace the markdown renderer entirely, via the markdownRenderer slot."
 ---
 
-Assistant replies arrive as markdown. CopilotKit renders them through the
-`markdownRenderer` slot on `CopilotChatAssistantMessage`. Its default is the
-built-in streaming renderer from
-[`@copilotkit/markdown`](/reference/packages/markdown), which
-is built for text that is still streaming in. It renders GFM, tables, autolinks,
-and citations. It does not do syntax highlighting, math, or diagrams.
+To make links, headings, and code in assistant replies match your app,
+override the `markdownRenderer` slot on
+[`CopilotChatAssistantMessage`](/reference/components/CopilotChatAssistantMessage).
+By default, this slot uses the built-in streaming renderer from
+[`@copilotkit/markdown`](/reference/packages/markdown), a markdown renderer for
+text that is still streaming. It renders GFM, tables, autolinks, and citations.
+It does not do syntax highlighting, math, or diagrams.
 
-You reach the slot by drilling down from the chat component:
+Set the [slot](/custom-look-and-feel/slots) through the `messageView` prop of
+the chat component:
 
 ```tsx title="page.tsx"
 import { CopilotChat } from "@copilotkit/react-core";
@@ -38,7 +40,7 @@ chat, pass the same value to the `markdownRenderer` prop of
 
 ## Restyle individual nodes
 
-This is the route to reach for first. A config object for the built-in renderer
+Try this route first. A config object for the built-in renderer
 can set `nodeRenderers`, which swaps the output for one node type. The keys are
 node types, not HTML tags: `link`, `heading`, `codeBlock`, `inlineCode`,
 `image`, `table`, `listItem`, and so on.
@@ -107,7 +109,8 @@ export function Chat() {
 
 Passing a component instead of an object replaces the renderer outright. It
 receives `MarkdownRendererProps`: `content`, which holds the assistant message's
-raw markdown, and the optional `isStreaming` and `className`:
+raw markdown, and the optional `isStreaming` and `className`. It also receives
+`messageId`, the id of the message:
 
 ```tsx title="page.tsx"
 import {
@@ -128,12 +131,16 @@ export function Chat() {
 }
 ```
 
-Reach for this only when you want a different markdown engine, for example for
-syntax highlighting or math. The built-in renderer does real work that you take
-over with it: it parses markdown that is still half-written without flashing
-broken output, escapes raw HTML, and allows only safe link and image URLs. That
-last one matters. `content` is raw model output, so anything you render it with
-has to be safe against it.
+CAUTION: `content` is raw model output. Sanitize it before you render it as
+HTML.
+
+Replace the renderer only when you want a different markdown engine, for example
+for syntax highlighting or math. You then take over the work that the built-in
+renderer does:
+
+- It parses markdown that is still half-written without flashing broken output.
+- It escapes raw HTML.
+- It allows only safe link and image URLs.
 
 ## Custom tags are not supported
 
@@ -161,9 +168,3 @@ under different names:
   replace the renderer, use a `#markdownRenderer` `ng-template` (or
   `markdownRendererComponent`). There is no `nodeRenderers` prop. See the
   [Angular `CopilotChatAssistantMessage` reference](/reference/angular/components/CopilotChatAssistantMessage).
-
-## Reference
-
-- [`CopilotChatAssistantMessage`](/reference/components/CopilotChatAssistantMessage) — every slot on the assistant message.
-- [`@copilotkit/markdown`](/reference/packages/markdown) — every config field and node type.
-- [Slots](/custom-look-and-feel/slots) — how slot overrides work in general.

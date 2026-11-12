@@ -19,13 +19,14 @@ const RENAMED: Record<string, Record<string, string>> = {
   "@copilotkit/runtime/node": {
     createNodeFetchHandler: "createCopilotNodeHandler",
   },
-  "@copilotkit/a2ui-renderer": {
-    useA2UIStore: "useA2UIContext",
-  },
 };
 
-const A2UI_CATALOG_NOTE =
-  "v0.9 components come from the catalog. See https://docs.copilotkit.ai/generative-ui/a2ui";
+/** `@copilotkit/a2ui-renderer` is gone in 2.0: generative UI replaces it. */
+const A2UI_GUIDE =
+  "https://docs.copilotkit.ai/generative-ui/components/from-a2ui";
+const A2UI_CATALOG_NOTE = `Declare the components with \`createGenerativeUI({ id, components })\` from "@copilotkit/react-core/generative-ui": one entry per component with \`component\`, \`description\` and \`props\`. See ${A2UI_GUIDE}#convert-a-custom-catalog`;
+const A2UI_STORE_NOTE =
+  'Generative UI has no A2UI store. Declare app state as `state` on `createGenerativeUI`, set it with `useGenerativeUIState(ui, key, value)` from "@copilotkit/react-core/generative-ui", and components read it as bound props. See https://docs.copilotkit.ai/generative-ui/components/state-and-actions';
 
 /**
  * Exports that were deprecated in 1.x and removed in 2.0 without a same-API
@@ -37,16 +38,12 @@ const REMOVED: Record<string, Record<string, string>> = {
       "Use `CopilotRuntimeFetchHandler`. It takes the `Request` directly, not `{ request }`.",
   },
   "@copilotkit/a2ui-renderer": {
-    useA2UIStoreSelector:
-      "Call `useA2UIContext()` and read the value from its result.",
-    createA2UICatalog:
-      "Use `createCatalog(definitions, renderers)`. Put each component's `props` and `description` in `definitions`, and its `render` in `renderers`.",
-    extractA2UISchema:
-      "Use `extractSchema(definitions)` with the definitions you pass to `createCatalog`.",
-    A2UIComponentDefinition:
-      "Use `createCatalog(definitions, renderers)`, which takes definitions and renderers separately.",
-    A2UIComponentMap:
-      "Use `createCatalog(definitions, renderers)`, which takes definitions and renderers separately.",
+    useA2UIStore: A2UI_STORE_NOTE,
+    useA2UIStoreSelector: A2UI_STORE_NOTE,
+    createA2UICatalog: A2UI_CATALOG_NOTE,
+    extractA2UISchema: `Use \`exportA2UICatalog(ui)\` from "@copilotkit/react-core/generative-ui", with a UI from \`createGenerativeUI\`. See ${A2UI_GUIDE}`,
+    A2UIComponentDefinition: A2UI_CATALOG_NOTE,
+    A2UIComponentMap: A2UI_CATALOG_NOTE,
     A2UIComponentProps: A2UI_CATALOG_NOTE,
     ComponentLoader: A2UI_CATALOG_NOTE,
     ComponentRegistration: A2UI_CATALOG_NOTE,
@@ -73,10 +70,6 @@ const REMOVED_PROPS: Record<
       disclaimer:
         "`disclaimer` was removed from `CopilotChatView`. Pass it to the input slot: `input={{ disclaimer: ... }}`.",
     },
-  },
-  A2UIRenderer: {
-    source: "@copilotkit/a2ui-renderer",
-    props: { registry: null },
   },
 };
 

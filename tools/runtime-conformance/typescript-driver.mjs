@@ -39,7 +39,7 @@ const runtime = new CopilotIntelligenceRuntime({
     : {}),
   telemetryId: configuration.telemetryId,
   licenseToken: configuration.licenseToken,
-  a2ui: configuration.a2ui,
+  generativeUI: configuration.generativeUI,
   mcpApps: configuration.mcpApps,
 });
 const listener = createCopilotNodeListener({
@@ -49,7 +49,12 @@ const listener = createCopilotNodeListener({
 });
 const server = createServer(listener);
 server.listen(configuration.port ?? 0, "127.0.0.1", () => {
-  process.stdout.write(JSON.stringify({ port: server.address().port }) + "\n");
+  process.stdout.write(
+    JSON.stringify({
+      port: server.address().port,
+      expectedA2uiActionHistory: "private-user-json",
+    }) + "\n",
+  );
 });
 
 /** Close fixture HTTP resources when the harness ends this isolated process. */

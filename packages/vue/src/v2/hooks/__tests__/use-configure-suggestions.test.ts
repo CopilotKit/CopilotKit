@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { defineComponent, h, nextTick, reactive, ref } from "vue";
+import { flushPromises } from "@vue/test-utils";
 import type {
   AbstractAgent,
   AgentSubscriber,
@@ -268,13 +269,13 @@ describe("useConfigureSuggestions", () => {
       },
     });
 
-    await nextTick();
-    await nextTick();
+    // The reload runs the provider agent, so wait for its promises to settle
+    // rather than for a fixed number of ticks.
+    await flushPromises();
     expect(wrapper.find("[data-testid=json]").text()).toContain("Version 0");
 
     await wrapper.find("[data-testid=bump]").trigger("click");
-    await nextTick();
-    await nextTick();
+    await flushPromises();
 
     expect(wrapper.find("[data-testid=json]").text()).toContain("Version 1");
   });

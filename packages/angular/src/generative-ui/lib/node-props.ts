@@ -1,4 +1,3 @@
-import type { DataModel } from "@a2ui/web_core/v0_9";
 import {
   A2UI_COMPONENT_ENVELOPE_KEYS,
   isPathBinding,
@@ -15,7 +14,10 @@ import {
   readAccessibility,
   tryResolveDynamicValue,
 } from "@copilotkit/core/generative-ui";
-import type { GenerativeUIAccessibility } from "@copilotkit/core/generative-ui";
+import type {
+  DataModel,
+  GenerativeUIAccessibility,
+} from "@copilotkit/core/generative-ui";
 import type { ResolvedGenerativeUIComponent } from "./catalog";
 
 // The data props of a node: resolve the model-set props from the data model,
@@ -34,8 +36,8 @@ function shallowEqual(a: Record<string, unknown>, b: Record<string, unknown>) {
 
 /**
  * A value that a prop resolved to, with a new identity when it is a list or
- * an object. web_core changes lists and objects in place, so a value read
- * straight from the data model keeps its identity across a change. A signal
+ * an object. The data model changes lists and objects in place, so a value
+ * read straight from it keeps its identity across a change. A signal
  * input compares by identity and would not see the change; the copy makes
  * it visible. A prop is resolved again only when something changed, so the
  * copy happens only then.
@@ -90,9 +92,9 @@ export function sameModelData(a: ModelData, b: ModelData) {
  * its own.
  *
  * A prop is resolved again only when its raw value or a data model value it
- * read has changed. `invalidate()` drops the cache: web_core changes lists
- * and objects in place, so a changed item inside one keeps the identity of
- * the list.
+ * read has changed. `invalidate()` drops the cache: the data model changes
+ * lists and objects in place, so a changed item inside one keeps the
+ * identity of the list.
  */
 export class ModelPropsResolver {
   #cache = new Map<string, ResolvedProp>();

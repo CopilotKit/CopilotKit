@@ -9,7 +9,7 @@ Generative UI playground showcasing three protocols for AI-powered interfaces.
 │  FRONTEND (Next.js)                                                  │
 │  ├── Protocol tabs: [Static+MCP] [A2UI]                             │
 │  ├── CopilotKitProvider with agent switching                        │
-│  ├── renderActivityMessages: A2UIRenderer (a2ui mode only)          │
+│  ├── generativeUI: standardUI (a2ui mode only)                      │
 │  ├── useRenderToolCall: WeatherCard, StockCard                      │
 │  ├── useHumanInTheLoop: TaskApprovalCard                            │
 │  └── CopilotSidebar                                                 │
@@ -51,7 +51,7 @@ Agent-composed declarative JSON UI, rendered dynamically.
 - Python agent (Google ADK) generates A2UI JSON at runtime
 - General-purpose UI generator: forms, lists, cards, confirmations
 - No external data dependencies - generates UI from user descriptions
-- A2UIRenderer processes activity messages
+- The runtime serves the surfaces as generative UI; the provider renders them with `standardUI`
 - **Files**: `a2a-agent/agent/*.py`
 
 ## Widget Builder
@@ -98,7 +98,7 @@ The legacy `ui-protocols-demo` Railway deployment is being retired. Do not use i
 {
   "@copilotkit/react-core": "Frontend provider and hooks",
   "@copilotkit/react-ui": "CopilotSidebar component",
-  "@copilotkit/a2ui-renderer": "A2UI message renderer",
+  "@copilotkit/react-core/generative-ui": "standardUI catalog for A2UI surfaces",
   "@copilotkit/runtime": "CopilotRuntime backend",
   "@copilotkit/runtime/agent": "BuiltInAgent class",
   "@tanstack/ai-openai": "OpenAI adapter (openaiText) for the BuiltInAgent model",
@@ -220,24 +220,3 @@ When using a fixed-position 400px sidebar, apply `paddingRight: '400px'` to the 
   </div>
 </div>
 ```
-
-### A2UI Button Text Color
-
-A2UI uses Lit web components with shadow DOM. Button text is rendered inside nested `<a2ui-text>` elements that use `<p>` tags with `color-c-n30` class.
-
-**Required**: Import `a2ui-theme.css` in layout.tsx - this defines the CSS custom properties (`--n-100: #ffffff`, `--n-30: #474747`, etc.) that A2UI components need.
-
-**Theme additionalStyles** override button text color:
-
-```typescript
-additionalStyles: {
-  Button: {
-    "--n-35": "var(--n-100)",  // Ensures hover state also uses white text
-    "--n-30": "var(--n-100)",  // Override text color inside button to white
-  },
-}
-```
-
-**Why `--n-30`?** A2UI buttons render labels via `<a2ui-text>` → `<p class="color-c-n30">`. The `color-c-n30` class references `--n-30` CSS variable. Setting it to `var(--n-100)` (white) makes button text readable on the lilac background.
-
-**Note:** A2UI agents cannot write their own styles. The @a2ui/lit renderer intentionally ignores `beginRendering.styles.font` and `beginRendering.styles.primaryColor` to prevent agent styles from overriding app-level themes. All A2UI styling is controlled via the theme object passed to `createA2UIMessageRenderer`.

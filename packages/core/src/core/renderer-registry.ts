@@ -28,7 +28,7 @@ function toolCallKey(entry: { name: string; agentId?: string }) {
  * Tool-call renderers come from three places. Prop renderers are the list the
  * provider was given (`setPropToolCalls`). Hook renderers are added one at a
  * time (`addHookToolCall`), for example by `useRenderTool`. Built-in
- * renderers are added by CopilotKit features such as A2UI
+ * renderers are added by CopilotKit features such as generative UI
  * (`addBuiltInToolCall`). Each renderer has a key made of its `agentId` and
  * `name`. A hook renderer replaces a prop renderer with the same key, and a
  * later hook renderer replaces an earlier one with the same key, so the
@@ -179,7 +179,7 @@ export class ɵRendererRegistry<
 
   /**
    * Add a built-in renderer, for a tool that a CopilotKit feature owns (for
-   * example the A2UI render tool). Prop and hook renderers with the same
+   * example the generative UI render tool). Prop and hook renderers with the same
    * `agentId` and `name` win over it, and setting the prop renderers never
    * removes it.
    *
@@ -190,7 +190,7 @@ export class ɵRendererRegistry<
    *
    * @example
    * ```ts
-   * const remove = registry.addBuiltInToolCall({ name: "render_a2ui", render: Nothing });
+   * const remove = registry.addBuiltInToolCall({ name: "render_ui", render: Nothing });
    * // when the feature turns off
    * remove();
    * ```

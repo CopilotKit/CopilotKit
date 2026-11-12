@@ -1,0 +1,106 @@
+---
+title: Prebuilt Components
+description: Add a full Angular chat and choose its layout, inline, popup, or sidebar.
+icon: "lucide/MessageSquare"
+doc_type: how-to
+---
+
+`CopilotChat` gives you a complete chat surface backed by the agent from your
+Copilot Runtime. It owns message streaming, suggestions, the composer,
+attachments, transcription, and the active thread.
+
+You need the provider from the [Angular quickstart](/angular).
+
+## Choose a chat surface
+
+| Surface           | Use it when                                                        |
+| ----------------- | ------------------------------------------------------------------ |
+| `CopilotChat`     | Chat belongs inside an existing page or panel.                     |
+| `CopilotPopup`    | Chat should open from a floating launcher.                         |
+| `CopilotSidebar`  | Chat should sit beside the main application or open as an overlay. |
+| `CopilotChatView` | You own the agent wiring and only need the chat layout.            |
+
+All four are standalone Angular components.
+
+## Add an inline chat
+
+Import `CopilotChat`, give its host a real height, and point it at an agent when
+you do not want the default agent.
+
+```ts title="src/app/support-chat.component.ts"
+import { ChangeDetectionStrategy, Component } from "@angular/core";
+import { CopilotChat } from "@copilotkit/angular";
+
+@Component({
+  selector: "app-support-chat",
+  imports: [CopilotChat],
+  changeDetection: ChangeDetectionStrategy.OnPush,
+  template: `
+    <section class="chat-shell" aria-label="Support assistant">
+      <copilot-chat agentId="support" />
+    </section>
+  `,
+  styles: `
+    .chat-shell {
+      height: min(48rem, 80vh);
+      overflow: hidden;
+      border: 1px solid #dbe3eb;
+      border-radius: 1rem;
+    }
+  `,
+})
+export class SupportChatComponent {}
+```
+
+The chat components include their own styles. You don't import a stylesheet.
+See [Styling](/reference/angular#styling) to load the CSS as a cached file or to
+use a CSP nonce.
+
+## Use a popup or sidebar
+
+Both modal surfaces manage focus, Escape closing, and launcher-focus restore.
+Their `open` model supports two-way binding.
+
+```ts title="src/app/app.component.ts"
+import { Component, signal } from "@angular/core";
+import { CopilotPopup, CopilotSidebar } from "@copilotkit/angular";
+
+@Component({
+  selector: "app-root",
+  imports: [CopilotPopup, CopilotSidebar],
+  template: `
+    <copilot-popup
+      [(open)]="popupOpen"
+      title="Support assistant"
+      [clickOutsideToClose]="true"
+    />
+
+    <copilot-sidebar
+      [(open)]="sidebarOpen"
+      mode="docked"
+      position="right"
+      title="Workspace assistant"
+      [width]="480"
+    />
+  `,
+})
+export class AppComponent {
+  readonly popupOpen = signal(false);
+  readonly sidebarOpen = signal(false);
+}
+```
+
+Compact viewports render the sidebar as a modal even when `mode` is `"docked"`.
+Only one open docked sidebar can own the page margin at a time.
+
+Run `npm start` and open the app. Click the popup launcher button. The popup
+opens, and a message you send gets its reply in the popup.
+
+## Next steps
+
+- [Slots](/angular/custom-look-and-feel/slots): replace an assistant message or another part of the chat.
+- [CSS customization](/angular/custom-look-and-feel/css): restyle the chat classes.
+- [CopilotChat API](/reference/angular/components/CopilotChat)
+- [CopilotChatView slots](/reference/angular/components/CopilotChatView)
+- [CopilotPopup API](/reference/angular/components/CopilotPopup)
+- [CopilotSidebar API](/reference/angular/components/CopilotSidebar)

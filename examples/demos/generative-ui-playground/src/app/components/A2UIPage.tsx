@@ -3,8 +3,9 @@
 /**
  * A2UI Page Component
  *
- * Uses @copilotkit/react-core/v2 for A2A compatibility.
- * The A2AAgent from @ag-ui/a2a works with the v2 runtime API.
+ * The A2A agent (from @ag-ui/a2a) writes A2UI surfaces. The runtime serves
+ * them as generative UI surfaces, and the provider renders them with the
+ * standard catalog.
  */
 
 import {
@@ -12,13 +13,11 @@ import {
   CopilotSidebar,
   CopilotPopup,
 } from "@copilotkit/react-core";
-import { createA2UIMessageRenderer } from "@copilotkit/a2ui-renderer";
-import { a2uiTheme } from "../theme";
+import { standardUI } from "@copilotkit/react-core/generative-ui";
 import { useMediaQuery } from "@/hooks/use-media-query";
 
-// Create A2UI renderer with custom theme - module level for stable reference
-const A2UIRenderer = createA2UIMessageRenderer({ theme: a2uiTheme });
-const activityRenderers = [A2UIRenderer];
+// Module level for a stable reference
+const generativeUI = { ui: standardUI };
 
 interface A2UIPageProps {
   children: React.ReactNode;
@@ -31,7 +30,7 @@ export function A2UIPage({ children }: A2UIPageProps) {
     <CopilotKitProvider
       runtimeUrl="/api/copilotkit-a2ui"
       enableInspector={false}
-      renderActivityMessages={activityRenderers}
+      generativeUI={generativeUI}
     >
       {isDesktop ? (
         // Desktop: Sidebar layout

@@ -5,5 +5,4 @@ export * from "./frontend-tool";
 export * from "./human-in-the-loop";
 export * from "./defineToolCallRenderer";
 export * from "./interrupt";
-export * from "./a2ui";
 export * from "./sandbox-function";

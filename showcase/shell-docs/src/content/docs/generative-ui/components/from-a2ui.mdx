@@ -1,20 +1,31 @@
 ---
 title: "Adopt from A2UI"
 icon: "lucide/ArrowRightLeft"
-description: "Move an app from the a2ui renderer (A2UI v0.9) to components and surfaces (A2UI 1.0): the provider, the catalog, the operations, and what the agent receives."
+description: "Move an app from the a2ui provider option to components and surfaces (A2UI 1.0), and keep agents that write A2UI v0.9 or send A2UI 1.0."
 ---
 
 ## What is this?
 
-The `a2ui` provider option and `@copilotkit/a2ui-renderer` render A2UI v0.9: you build a catalog with `createCatalog`, and the agent streams a fixed or a generated schema into it. Components and surfaces is the A2UI 1.0 engine. The idea is the same: the agent writes operations, and the browser renders your components. The engine adds typed catalogs, the [standard catalog](/generative-ui/components/standard-catalog), areas of the page as targets, two transports, dynamic values that compute in the browser, and functions the agent can call. This page maps one to the other.
+CopilotKit 2.0 renders A2UI 1.0 only, with components and surfaces. The `a2ui` provider option, the `a2ui` option of `provideCopilotKit`, `@copilotkit/angular/a2ui` and `@copilotkit/a2ui-renderer` are removed. The runtime option `a2ui` is now `generativeUI`.
+
+The idea stays the same: the agent writes operations, and the browser renders your components. Components and surfaces adds typed catalogs, the [standard catalog](/generative-ui/components/standard-catalog), areas of the page as targets, two transports, dynamic values that compute in the browser, and functions the agent can call.
+
+Your agent does not have to change. The runtime converts A2UI v0.9 to 1.0, and it passes A2UI 1.0 operations through as they are. See [Keep a v0.9 agent](#keep-a-v09-agent) and [Keep an agent that sends A2UI 1.0](#keep-an-agent-that-sends-a2ui-10).
+
+Start with the codemod. It does most of this move, and it leaves a `TODO(copilotkit-2.0)` comment where you must finish by hand:
+
+```bash
+npx codemod @copilotkit/v2-migration
+```
 
 ## Before and after
 
-The provider takes a UI instead of a catalog, and the runtime needs no A2UI option. `myCatalog` and `appUI` are the catalogs from [Convert a custom catalog](#convert-a-custom-catalog) below:
+The provider takes a UI instead of a catalog. `myCatalog` and `appUI` are the catalogs from [Convert a custom catalog](#convert-a-custom-catalog) below. In React and Vue, an app with no components of its own can drop the option: the provider then uses the standard catalog. In Angular, add `provideGenerativeUI({ ui: standardUI })`.
 
 <Tabs groupId="frontend_framework" items={["React", "Angular", "Vue"]} persist>
   <Tab value="React">
-    ```tsx title="Before" group=a2ui-before
+    {/* kiira: ignore, the before code of a migration: the a2ui prop is removed in 2.0 */}
+    ```tsx ignore title="Before"
     "use client";
     import { CopilotKitProvider } from "@copilotkit/react-core";
 
@@ -41,7 +52,7 @@ The provider takes a UI instead of a catalog, and the runtime needs no A2UI opti
     ```
   </Tab>
   <Tab value="Angular">
-    {/* kiira: ignore, imports the reader's own Angular files and components, which kiira cannot see */}
+    {/* kiira: ignore, the before code of a migration: @copilotkit/angular/a2ui is removed in 2.0 */}
     ```ts ignore title="Before"
     import type { ApplicationConfig } from "@angular/core";
     import { provideCopilotKit } from "@copilotkit/angular";
@@ -80,7 +91,10 @@ The provider takes a UI instead of a catalog, and the runtime needs no A2UI opti
   </Tab>
 </Tabs>
 
-```ts title="Runtime, before"
+On the runtime, the `a2ui` options move to `generativeUI`. Add `a2uiVersion: "0.9"` when the agent writes A2UI v0.9:
+
+{/* kiira: ignore, the before code of a migration: the runtime a2ui option is removed in 2.0 */}
+```ts ignore title="Runtime, before"
 import { CopilotRuntime } from "@copilotkit/runtime";
 import { BuiltInAgent } from "@copilotkit/runtime/agent";
 import { openaiText } from "@tanstack/ai-openai";
@@ -91,27 +105,150 @@ const runtime = new CopilotRuntime({
 });
 ```
 
-```ts title="Runtime, after"
+```ts title="Runtime, after (the agent writes A2UI v0.9)"
 import { CopilotRuntime } from "@copilotkit/runtime";
 import { BuiltInAgent } from "@copilotkit/runtime/agent";
 import { openaiText } from "@tanstack/ai-openai";
 
-// Nothing: a run that carries a catalog gets the render_ui tool and the guide.
+const runtime = new CopilotRuntime({
+  agents: { shop: new BuiltInAgent({ model: openaiText("gpt-6-luna") }) },
+  generativeUI: { a2uiVersion: "0.9", injectA2UITool: false, agents: ["shop"] },
+});
+```
+
+```ts title="Runtime, after (the agent writes A2UI 1.0)"
+import { CopilotRuntime } from "@copilotkit/runtime";
+import { BuiltInAgent } from "@copilotkit/runtime/agent";
+import { openaiText } from "@tanstack/ai-openai";
+
+// No option: a run that carries a catalog gets the render_ui tool and the guide.
 // To force or limit it: generativeUI: true, or generativeUI: { agents: ["shop"] }.
 const runtime = new CopilotRuntime({
   agents: { shop: new BuiltInAgent({ model: openaiText("gpt-6-luna") }) },
 });
 ```
 
-The chat renders surfaces on its own. For an area of the page, mount [`<GenerativeUISurface id="...">`](/generative-ui/components/surfaces), or `<copilot-generative-ui-surface>` in Angular. For an agent that cannot call tools, use the [markdown transport](/generative-ui/components/markdown-mode). The agent keeps writing A2UI operations; see [Bindings and actions](#bindings-and-actions) for what changed in them.
+The chat renders surfaces on its own. For an area of the page, mount [`<GenerativeUISurface id="...">`](/generative-ui/components/surfaces), or `<copilot-generative-ui-surface>` in Angular. For an agent that cannot call tools, use the [markdown transport](/generative-ui/components/markdown-mode).
+
+## Keep a v0.9 agent
+
+Some agents write A2UI v0.9, and you cannot change them now. For example:
+
+- A Python agent that uses the `copilotkit.a2ui` helpers.
+- An A2A agent.
+- A LangGraph agent that emits A2UI on its own.
+- An agent that calls the `render_a2ui` tool.
+
+Set `a2uiVersion` on the runtime. The browser still renders A2UI 1.0, and the runtime converts between the two versions.
+
+<Steps>
+<Step>
+### Set the version of the agent
+
+For one version for every agent, pass a string:
+
+```ts title="app/api/copilotkit/[[...slug]]/route.ts"
+import { HttpAgent } from "@ag-ui/client";
+import { CopilotRuntime } from "@copilotkit/runtime";
+
+const runtime = new CopilotRuntime({
+  agents: { flights: new HttpAgent({ url: "http://localhost:8000/" }) },
+  generativeUI: { a2uiVersion: "0.9" },
+});
+```
+
+For a different version per agent, pass a record of agent id to version. An agent that is not in the record uses `"1.0"`:
+
+```ts title="app/api/copilotkit/[[...slug]]/route.ts"
+import { HttpAgent } from "@ag-ui/client";
+import { CopilotRuntime } from "@copilotkit/runtime";
+import { BuiltInAgent } from "@copilotkit/runtime/agent";
+import { openaiText } from "@tanstack/ai-openai";
+
+const runtime = new CopilotRuntime({
+  agents: {
+    flights: new HttpAgent({ url: "http://localhost:8000/" }),
+    shop: new BuiltInAgent({ model: openaiText("gpt-6-luna") }),
+  },
+  generativeUI: { a2uiVersion: { flights: "0.9" } },
+});
+```
+</Step>
+<Step>
+### Give the client a catalog
+
+The client catalog decides what the v0.9 agent can draw. In React and Vue, the standard catalog is the default. In Angular, add `provideGenerativeUI({ ui: standardUI })`. Without it, Angular warns once in dev mode, and no surface renders.
+
+A custom v0.9 component renders only when the client catalog has a component with the same name. Add it to your UI with `createGenerativeUI`, as in [Convert a custom catalog](#convert-a-custom-catalog). A surface with a custom catalog id renders only when that id is the `id` of your UI.
+</Step>
+</Steps>
+
+That is all. The agent keeps its code, and its surfaces render in the chat.
+
+### What each version gets
+
+| `a2uiVersion` | The agent gets | It writes |
+| --- | --- | --- |
+| `"1.0"` (default) | The `render_ui` tool and the generative UI guide | A2UI 1.0 |
+| `"0.9"` | The v0.9 `render_a2ui` tool, its guide, and a v0.9 component schema | A2UI v0.9 |
+
+The runtime builds the v0.9 component schema from the client catalog. It has the 18 basic components of A2UI v0.9 (for example `Text`, `Row`, `Button`, `TextField`) and the components of your app. A run without a client catalog gets no schema.
+
+### What the runtime converts
+
+- **Surfaces.** The runtime converts every v0.9 operation to 1.0 before it reaches the browser. This applies to a `"1.0"` agent too, for example when a tool result has v0.9 operations.
+- **Bindings.** `{ "path": "/x" }` becomes `{ "@path": "/x" }`, and `{ "call": ... }` becomes `{ "@call": ... }`.
+- **Basic components.** `Button.action` becomes `onClick`. A heading `Text` becomes `Title`, and a caption `Text` becomes `Caption`.
+- **The catalog id.** The v0.9 basic catalog id becomes the standard catalog id. A custom catalog id stays the same.
+- **Clicks.** A click on a converted surface reaches the agent as the v0.9 user action, `forwardedProps.a2uiAction.userAction`. The thread keeps the visible click message.
+
+### Options for v0.9 agents
+
+These options apply only to agents with `a2uiVersion: "0.9"`:
+
+| Option | What it does |
+| --- | --- |
+| `injectA2UITool` | `true` adds `render_a2ui`, a string adds it with that name, `false` adds no tool. Default: `true` when the client sends a catalog. |
+| `schema` | A component schema that replaces the one the runtime builds from the client catalog. |
+| `a2uiToolNames` | The tool names whose calls stream into surfaces. Default: `["render_a2ui"]`. |
+| `defaultCatalogId` | The catalog id of a surface that a streamed tool call creates. |
+
+Set `injectA2UITool: false` when the agent has its own tool that returns v0.9 operations. The runtime still converts the surfaces in the tool results.
+
+### Limits
+
+- **No progress or retry UI.** The browser does not show the v0.9 building skeleton, the progress tokens, or the retry details. The `recovery` option (`debugExposure`, `showProgressTokens`, `maxAttempts`) has no visible effect.
+- **Custom components need a match.** A v0.9 custom component renders only when the client catalog has a component with the same name. Otherwise the browser rejects the component, and Inspector shows the reason.
+- **Old prop names are not mapped.** A v0.9 prop name that `@a2ui/web_core` 0.15 already rejected (an older draft name) is not converted. Use the v0.9 names.
+- **No v0.8.** The runtime does not convert A2UI v0.8. It drops v0.8 operations.
+
+### Other runtimes
+
+The Python, Go, Ruby and .NET runtimes have the same option and convert the same way:
+
+| Runtime | Option |
+| --- | --- |
+| Python | `generative_ui=GenerativeUIConfig(a2ui_version="0.9")` |
+| Go | `GenerativeUI: &GenerativeUIConfig{A2UIVersion: "0.9"}`, or `A2UIVersions` for one version per agent |
+| Ruby | `generative_ui: { "a2uiVersion" => "0.9" }` |
+| .NET | `GenerativeUI = new GenerativeUIOptions { A2UIVersion = "0.9" }`, or `A2UIVersions` for one version per agent |
+
+## Keep an agent that sends A2UI 1.0
+
+Some agents already write A2UI 1.0 operations on the A2UI path, in an `a2ui-surface` activity. Google ADK agents are an example. They need no option. The runtime passes their 1.0 operations through to generative UI as they are, and the browser renders them like any other surface.
+
+- **The basic catalog.** A surface with the A2UI 1.0 basic catalog id renders with the standard catalog.
+- **A custom catalog.** A surface with a custom catalog id renders only when that id is the `id` of your UI, or of a catalog in its `extends`. Give your components the names that the agent uses.
+- **Clicks.** A click reaches the agent as a generative UI action. See [What the agent receives](#what-the-agent-receives).
 
 ## Convert a custom catalog
 
-Before, a catalog was definitions plus renderers, and a bound prop had to be declared as a union with the binding object:
+A v0.9 catalog was definitions plus renderers, and a bound prop had to be declared as a union with the binding object:
 
 <Tabs groupId="frontend_framework" items={["React", "Angular", "Vue"]} persist>
   <Tab value="React">
-    ```tsx title="Before" group=a2ui-before
+    {/* kiira: ignore, the before code of a migration: @copilotkit/a2ui-renderer is not published for 2.0 */}
+    ```tsx ignore title="Before"
     import { z } from "zod";
     import { createCatalog, DynamicStringSchema } from "@copilotkit/a2ui-renderer";
 
@@ -138,7 +275,8 @@ Before, a catalog was definitions plus renderers, and a bound prop had to be dec
     ```
   </Tab>
   <Tab value="Angular">
-    ```ts title="Before"
+    {/* kiira: ignore, the before code of a migration: @copilotkit/angular/a2ui is removed in 2.0 */}
+    ```ts ignore title="Before"
     import { z } from "zod";
     import { createAngularCatalog, DynamicStringSchema } from "@copilotkit/angular/a2ui";
     import { Airport, Arrow } from "./flight-components";
@@ -157,11 +295,11 @@ Before, a catalog was definitions plus renderers, and a bound prop had to be dec
     ```
   </Tab>
   <Tab value="Vue">
-    In Vue, the `a2ui` option takes `vueBasicCatalog`. `@copilotkit/vue` has no function that builds a custom v0.9 catalog, so there is no custom catalog to convert. Declare your components as shown in the After tab.
+    In Vue, the `a2ui` option took `vueBasicCatalog`. `@copilotkit/vue` had no function that built a custom v0.9 catalog, so there is no custom catalog to convert. Declare your components as shown in the After tab.
   </Tab>
 </Tabs>
 
-After, each component is one entry, with the component, a description and plain prop types:
+In 2.0, each component is one entry, with the component, a description and plain prop types. To keep a v0.9 agent working, give each component the name the agent uses, and give the UI the `id` that the agent writes as `catalogId`:
 
 <Tabs groupId="frontend_framework" items={["React", "Angular", "Vue"]} persist>
   <Tab value="React">
@@ -248,20 +386,25 @@ After, each component is one entry, with the component, a description and plain 
   </Tab>
 </Tabs>
 
-What to change:
+What every app changes:
 
 - **Prop types are plain.** Drop `DynamicStringSchema` and the unions. Any prop takes a literal, a binding `{ "@path": "/x" }` or a function value `{ "@call": ... }`, and the engine resolves it before your component renders. A component never sees a binding object.
 - **Every component gets a `description`.** The agent reads it to pick components.
+- **The catalog id** is `id`. A v0.9 agent that writes a custom `catalogId` needs the same `id` here. A surface with no `catalogId` pins to it. The run also lists the ids of the catalogs in `extends`, so an operation or a component can name `copilotkit/standard@1` or the id of any other base. Any other `catalogId` is rejected.
+
+What to change if you use them:
+
 - **Children** are `slots` (`{ children: "multiple" }`, `{ child: "single" }`) or `child()` / `childList()` inside the props schema, for example `tabs: z.array(z.object({ title: z.string(), child: child() }))`. See [Catalogs](/generative-ui/components/catalogs).
 - **The basic catalog** is `extends: [standardUI]`. Drop components with `standardUI.omit([...])` and replace one with `overrides`; see [the standard catalog](/generative-ui/components/standard-catalog#replace-a-component).
-- **The catalog id** is `id`. A surface with no `catalogId` pins to it. The run also lists the ids of the catalogs in `extends`, so an operation or a component can name `copilotkit/standard@1` or the id of any other base. Any other `catalogId` is rejected.
 - **Actions and app state** become `functions` with `useGenerativeUIFunction`, and `state` with `useGenerativeUIState`; in Angular, `registerGenerativeUIFunction` and `connectGenerativeUIState`. See [Connect app state and actions](/generative-ui/components/state-and-actions).
 
 Your renderers stay as they are, apart from the props they read: a bound prop arrives resolved, and a slot or a child reference arrives as a React node, or as a `GenerativeUIChildren` handle in Angular. In Vue, a slot arrives as a named slot, and a child reference as a `VNode`.
 
 ## Bindings and actions
 
-The engine takes A2UI 1.0 operations only. A v0.9 shape is rejected with a reason that names the 1.0 form, and the agent sees the reason in the next run.
+The browser renders A2UI 1.0 operations. The runtime converts v0.9 operations to 1.0 (see [Keep a v0.9 agent](#keep-a-v09-agent)). A 1.0 operation with a v0.9 shape inside it, for example `{ "path" }` in an operation with `"version": "1.0"`, is rejected with a reason that names the 1.0 form. The agent sees the reason in the next run.
+
+The table maps v0.9 to 1.0, for an agent that you move to 1.0:
 
 | v0.9                                              | 1.0                                                                                                                                                               |
 | ------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -271,15 +414,17 @@ The engine takes A2UI 1.0 operations only. A v0.9 shape is rejected with a reaso
 | `"action": { "name": "buy", "context": { ... } }` | `"onClick": { "event": { "name": "buy", "userMessage": "Buy it", "context": { ... } } }` or `{ "functionCall": { "@call": "addToCart", "args": { ... } } }`       |
 | `"children": ["a", "b"]`                          | The same, or a template `{ "componentId": "row", "path": "/items" }` with `{ "@call": "@index" }` inside                                                          |
 | Validation in the agent                           | `"checks": [{ "condition": { "@call": "email", "args": { ... } }, "message": "..." }]`                                                                            |
-| An agent tool call per function                   | Not in this version: the agent cannot call renderer functions; see [Who may call a function](/generative-ui/components/state-and-actions#who-may-call-a-function) |
+| An agent tool call per function                   | Not in this version: the agent cannot call renderer functions; see [Who may call a function](/generative-ui/components/catalogs#who-may-call-a-function) |
 
-A2UI 1.0 has no arithmetic. CopilotKit adds `calc` and `series` as catalog functions, listed like the others, so a renderer without them rejects the call rather than misrendering. See [Compute values in the browser](/generative-ui/components/state-and-actions#compute-values-in-the-browser).
+A2UI 1.0 has no arithmetic. CopilotKit adds `calc` and `series` as catalog functions, listed like the others. Another A2UI client that does not have them rejects the call. It does not render a wrong value. See [Compute values in the browser](/generative-ui/components/state-and-actions#compute-values-in-the-browser).
 
 ## What the agent receives
 
-A click on an `{ "event" }` action becomes a visible user message: the `userMessage`, then the context as lines. The run also carries the structured A2UI action message (`name`, `surfaceId`, `sourceComponentId`, `timestamp`, `userMessage`, `context`) in `forwardedProps.copilotkit.ui.metadata.extensions.copilotkit_action`; `envelopeToManifest` from `@copilotkit/shared` gives it back as `action`. A second click while the agent runs is dropped, so a double click does not start two runs.
+A click on an `{ "event" }` action becomes a visible user message: the `userMessage`, then the context as lines. The run also carries the A2UI action message. It has `name`, `surfaceId`, `sourceComponentId`, `timestamp`, `userMessage`, and `context`. It is in `forwardedProps.copilotkit.ui.metadata.extensions.copilotkit_action`. To read it, call `envelopeToManifest` from `@copilotkit/shared` and use `action`. A second click while the agent runs is dropped, so a double click does not start two runs.
 
-The agent cannot call renderer functions in this version: a `callRendererFunction` operation is rejected with a reason, and the prompts do not mention it. See [Who may call a function](/generative-ui/components/state-and-actions#who-may-call-a-function).
+For a surface that the runtime converted from v0.9, the agent gets the v0.9 user action in `forwardedProps.a2uiAction.userAction` instead.
+
+The agent cannot call renderer functions in this version: a `callRendererFunction` operation is rejected with a reason, and the prompts do not mention it. See [Who may call a function](/generative-ui/components/catalogs#who-may-call-a-function).
 
 ## What changes in markdown mode
 
@@ -291,13 +436,9 @@ In the tool transport, the browser renders what the agent wrote. In the markdown
 
 See [Markdown mode](/generative-ui/components/markdown-mode).
 
-## Map and route
-
-`Map` takes `markers` (a list, or a binding to one), `selected` (writable: bind it to read the user's choice), `zoom`, `center` and `route: true`, which draws a line through the markers in order. It needs `npm install maplibre-gl` and the map opt-in of your framework (see [the standard catalog](/generative-ui/components/standard-catalog#what-is-in-it)); without them it shows the places as a list.
-
 ## Support matrix
 
-The integration is experimental and implements A2UI 1.0 as of spec revision [`cbaa5ee`](https://github.com/a2ui-project/a2ui/tree/cbaa5ee62c737b50d0695c1e5794d0f648b61dca/specification/v1_0) (October 2026); upstream still calls 1.0 a candidate on [a2ui.org](https://a2ui.org/), so this table can change. This table is the supported scope. A 1.0 catalog and a complete 1.0 runtime are different claims: the catalog export is conforming, the runtime covers the rows marked Yes and nothing more.
+Components and surfaces implements A2UI 1.0 as of spec revision [`cbaa5ee`](https://github.com/a2ui-project/a2ui/tree/cbaa5ee62c737b50d0695c1e5794d0f648b61dca/specification/v1_0) (October 2026). Upstream still calls 1.0 a candidate on [a2ui.org](https://a2ui.org/). This table is the supported scope. A 1.0 catalog and a complete 1.0 runtime are different claims: the catalog export is conforming, and the runtime covers the rows marked Yes and nothing more.
 
 | A2UI 1.0 | Components and surfaces |
 | --- | --- |
@@ -314,5 +455,7 @@ The integration is experimental and implements A2UI 1.0 as of spec revision [`cb
 | Catalog definition JSON | Yes, `exportA2UICatalog(ui)` |
 | Several catalogs in one surface | Partly: one UI per provider, and `supportedCatalogIds` lists the UI and every catalog in its `extends`. A component name comes from one catalog only, and a component is not checked against the catalog that the surface names |
 | `allowedParents` and `allowedChildren` | Not enforced |
-| v0.9 operations and `{ "path" }` bindings | No; rejected with a reason that names the 1.0 form |
-| Agent tools built with `@ag-ui/a2ui-toolkit` 0.0.5 | No: the toolkit writes v0.9 operations. Use the `render_ui` tool that the runtime adds |
+| v0.9 operations and `{ "path" }` bindings | Yes: the runtime converts them to 1.0. See [Keep a v0.9 agent](#keep-a-v09-agent) for the limits |
+| 1.0 operations in an `a2ui-surface` activity | Yes: the runtime passes them through. See [Keep an agent that sends A2UI 1.0](#keep-an-agent-that-sends-a2ui-10) |
+| v0.8 operations | No: the runtime drops them |
+| Agent tools built with `@ag-ui/a2ui-toolkit` 0.0.5 | Yes: the toolkit writes v0.9 operations, and the runtime converts them. Set `a2uiVersion: "0.9"` for the agent |

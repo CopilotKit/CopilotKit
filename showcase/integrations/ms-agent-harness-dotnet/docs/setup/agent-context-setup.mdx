@@ -1,0 +1,72 @@
+<Steps>
+  <Step>
+    ### Add the context to the model's messages yourself
+
+    The AG-UI hosting layer does not add `useAgentContext` entries to the
+    prompt. They arrive in the request's `RunAgentInput.Context` as
+    `AGUIContext` entries, and the model never sees them unless your agent
+    copies them into a message. Without this step the agent answers as if no
+    context were registered.
+
+    `AsHarnessAgent` returns an ordinary `AIAgent`, so wrap it with run
+    middleware before you map it. `TryGetRunAgentInput` recovers the AG-UI
+    request from the chat options, and the middleware appends the context as a
+    system message:
+
+    ```csharp title="Program.cs"
+    using System.Runtime.CompilerServices;
+    using System.Text;
+    using AGUI.Abstractions;
+    using AGUI.Server;
+    using Microsoft.Agents.AI;
+    using Microsoft.Agents.AI.Hosting.AGUI.AspNetCore;
+    using Microsoft.Extensions.AI;
+    using AIChatMessage = Microsoft.Extensions.AI.ChatMessage;
+
+    // baseAgent is the AIAgent your AsHarnessAgent call returns.
+    // Wrap the agent with middleware to inject context
+    AIAgent agent = baseAgent
+        .AsBuilder()
+        .Use(runFunc: null, runStreamingFunc: InjectContextMiddleware)
+        .Build();
+
+    // Map the AG-UI endpoint
+    app.MapAGUIServer("/", agent);
+    await app.RunAsync();
+
+    // Middleware to inject useAgentContext context as a system message
+    async IAsyncEnumerable<AgentResponseUpdate> InjectContextMiddleware(
+        IEnumerable<AIChatMessage> messages,
+        AgentSession? session,
+        AgentRunOptions? options,
+        AIAgent innerAgent,
+        [EnumeratorCancellation] CancellationToken cancellationToken)
+    {
+        // Recover the AG-UI request and inject its context if present
+        if (options is ChatClientAgentRunOptions { ChatOptions: { } chatOptions } &&
+            chatOptions.TryGetRunAgentInput(out RunAgentInput? input) &&
+            input?.Context is { Count: > 0 } context)
+        {
+            var contextBuilder = new StringBuilder();
+            contextBuilder.AppendLine("The following context from the user's application is available:");
+            foreach (AGUIContext item in context)
+            {
+                contextBuilder.AppendLine($"- {item.Description}: {item.Value}");
+            }
+
+            var contextMessage = new AIChatMessage(
+                ChatRole.System,
+                [new TextContent(contextBuilder.ToString())]);
+
+            messages = messages.Append(contextMessage);
+        }
+
+        await foreach (var update in innerAgent.RunStreamingAsync(messages, session, options, cancellationToken))
+        {
+            yield return update;
+        }
+    }
+    ```
+
+  </Step>
+</Steps>

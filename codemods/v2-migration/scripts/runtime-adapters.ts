@@ -193,14 +193,20 @@ function options(
     !hasCors ? "cors: true" : "",
     adapter.single && !hasMode ? 'mode: "single-route"' : "",
   ].filter(Boolean);
-  if (defaults.length)
+  if (defaults.length) {
+    // A multi-line object gets the defaults on lines of their own, indented
+    // like its first property.
+    const indent = /^\{[ \t]*\n([ \t]*)/.exec(node.text())?.[1];
     edits.push(
       span(
         node.range().start.index + 1,
         node.range().start.index + 1,
-        ` ${defaults.join(", ")},`,
+        indent === undefined
+          ? ` ${defaults.join(", ")},`
+          : defaults.map((d) => `\n${indent}${d},`).join(""),
       ),
     );
+  }
   return { text: patch(node, edits), basePath };
 }
 
@@ -666,14 +672,25 @@ export function migrateRuntimeAdapters(root: Node): string | null {
         !uses.length || !uses.every((n) => removedWrapperCalls.has(n.id()))
       );
     });
-    if (kept.length !== specs.length)
+    if (kept.length === specs.length) continue;
+    if (kept.length) {
       edits.push(
         imp.replace(
-          kept.length
-            ? `import { ${kept.map((n) => n.text()).join(", ")} } from ${imp.field("source")!.text()};`
-            : "",
+          `import { ${kept.map((n) => n.text()).join(", ")} } from ${imp.field("source")!.text()};`,
         ),
       );
+      continue;
+    }
+    // Nothing is left: delete the import with its line.
+    const text = root.text();
+    const end = charIndex(text, imp.range().end.index);
+    edits.push(
+      span(
+        imp.range().start.index,
+        imp.range().end.index + (text[end] === "\n" ? 1 : 0),
+        "",
+      ),
+    );
   }
   return edits.length ? root.commitEdits(edits) : null;
 }
