@@ -54,7 +54,7 @@ const data: FrameworkOverviewData = {
 import {
   CopilotRuntime,
   createCopilotRuntimeHandler,
-} from "@copilotkit/runtime/v2";
+} from "@copilotkit/runtime";
 import type { NextRequest } from "next/server";
 
 const runtime = new CopilotRuntime({

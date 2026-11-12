@@ -16,6 +16,78 @@ releases have no changelog: the per-package files from the changesets era stoppe
 at `1.55.2` while the lane shipped `1.69.3`, and they are recoverable from git
 history (for example `git show v1.69.3:packages/core/CHANGELOG.md`).
 
+## 1.87.0 - 2026-11-11
+
+This release adds support for rendering A2UI 1.0 operations alongside the existing v0.9 protocol, so agents emitting native 1.0 surfaces (such as those from ADK) now render correctly without breaking existing integrations.
+
+## Features
+
+- **A2UI 1.0 rendering support** (#8353) — `A2UIMessageRenderer` now renders native 1.0 `a2ui_operations` alongside v0.9 surfaces, with v0.9 remaining the default. The SDK's multi-version processor includes a native React basic catalog, and both protocol versions can coexist in chat history with their metadata preserved.
+- **Explicit 1.0 custom catalogs** (#8353) — You can now configure explicit 1.0 custom catalogs while keeping the v0.9 default. Native 1.0 schemas and generation guidelines are now advertised and exported, and user actions can include catalog IDs, messages, and extension metadata.
+- **Markdown formatting for native 1.0 text** (#8353) — Native Text now supports safe Markdown headings, paragraphs, emphasis, and strong emphasis, rendered as safe React elements.
+- **Accessibility attributes** (#8353) — Common accessibility fields are now applied to basic DOM elements across built-in components.
+
+## Fixes
+
+- **Preserve edits across snapshot replay** (#8353) — Inline A2UI snapshots now replay component and data changes without remounting, preserving local edits across later streaming snapshots.
+- **Native 1.0 snapshot safety** (#8353) — Native 1.0 A2UI snapshots are now replayed safely in `react-core`.
+- **Primitive data bindings** (#8353) — Surfaces bound to primitive data are now revealed correctly, and bound text is coerced to strings (including numeric zero) to match SDK behavior.
+- **Preserve bindings and legacy payloads** (#8353) — SDK bindings and legacy payloads are retained when filtering surfaces.
+- **Merged catalog themes** (#8353) — Merged native catalogs now retain the basic theme schema.
+- **Component rendering corrections** (#8353) — Improved slider step handling, text-field placeholders, video poster safety, and rendering with custom catalogs.
+
+## Notes
+
+- Automatic generation-catalog switching for updates to older cards is not yet included (tracked in PNI-801).
+- The AG-UI Direct JSON streaming middleware fix is still required before 1.0 works end to end in that mode.
+
+## 1.86.0 - 2026-11-11
+
+This release extends native generative UI to Vue and React Native, bumps the A2UI middleware, and hardens the runtime's MCP Apps and A2UI integration.
+
+## Features
+
+### Native generative UI for Vue (#8280)
+
+Vue apps can now let agents render their own Vue components, matching the generative UI already available in React. The new `@copilotkit/vue/v2/generative-ui` entry exports the same names as React's `/v2/generative-ui`.
+
+- **Setup:** enable the feature with `<CopilotKitProvider :generativeUI="{ ui }">`. Both the tool transport (`render_ui`) and the markdown transport (a2ui fences) are supported.
+- **Where UI renders:** agents render into the chat or into a `<GenerativeUISurface id="...">` placed anywhere on the page. The surface's default slot is its fallback content.
+- **App integration:** `useGenerativeUIState` and `useGenerativeUIFunction` connect generated UI to your app's state and functions.
+- **Standard catalog:** `standardUI` ships all 69 components as Vue SFCs. Chart and Map are opt-in via `app.use(GenerativeUIChart)` and `app.use(GenerativeUIMap)`; without them, Chart falls back to a table and Map to a list.
+- **Chat card:** a `#generative-ui-surface` slot on `CopilotChat`, `CopilotPopup`, and `CopilotSidebar` replaces the default card.
+- **Compatibility:** standard component IDs work on Vue 3.3 and 3.4 (not just 3.5+ `useId`).
+
+> **Note:** write the binding in camelCase (`:generativeUI`). Vue reads `:generative-ui` as a different prop (`generativeUi`).
+
+This change is additive and opt-in — nothing changes unless an app sets `generativeUI` or imports `/v2/generative-ui`. As part of the port, `toError`, `withCause`, the surface activity content parser, and several framework-free catalog helpers moved into `@copilotkit/shared/generative-ui` and `@copilotkit/core/generative-ui`; React and Angular re-export them, so their public exports are unchanged.
+
+### Native generative UI for React Native (#8260)
+
+React Native apps can now let agents render their own native components via the new `@copilotkit/react-native/generative-ui` entry. No runtime changes are required.
+
+- **`GenerativeUIProvider`:** goes inside `CopilotKitProvider` and supplies React Native host elements (overridable with `host`). Tool transport only for now.
+- **`GenerativeUIActivity`:** renders any agent's activity message surface, in a chat list or on a screen with no chat at all (for example, a home screen composed by a background agent run).
+- **`GenerativeUISurface`:** a named target with `onGenerationStart` (StrictMode-safe) in place of the DOM `autoScroll`.
+- **New react-core entry `@copilotkit/react-core/v2/generative-ui/native`:** a DOM-free entry exposing the catalog API, hooks, root wiring, and `SurfaceView` without react-dom, KaTeX, or streamdown. Existing web output is unchanged.
+- **Hermes/Metro compatibility:** `@copilotkit/shared` adds `cloneValue` (uses native `structuredClone` when available, otherwise a deep-copy fallback with matching semantics). The engine and host elements avoid browser-only APIs, and every published entry imports polyfills first.
+- **Error containment:** throwing app or host fallbacks stay inside their node, any thrown value becomes an `Error` (with the original value as its `cause`), malformed activity messages are skipped with a dev warning, and failures are reported once per place until content changes.
+
+`zod` remains an optional peer at `>=3.0.0`; pin `zod@^3.25` since `child()`/`childList()` return zod 3 schemas.
+
+**Not yet included on React Native:** the markdown transport, a native standard catalog, `theme`, and rendering surfaces inside the prebuilt RN `CopilotChat`.
+
+### A2UI middleware bump (#8137)
+
+`@ag-ui/a2ui-middleware` is bumped to `0.0.15`, enabling the opt-in `a2uiGenerationToolNames` option on `CopilotRuntime`'s `a2ui` config. This also pulls in upstream behavior changes:
+
+- After the middleware answers a render call in the current run, it continues the agent with that result in the same run (up to 10 rounds).
+- A render call left unanswered by an earlier run is now answered with a `cancelled` result at `RUN_STARTED`, rather than `rendered` at `RUN_FINISHED`.
+
+## Fixes
+
+- **runtime:** pin `@ag-ui/mcp-apps-middleware` to exactly `0.1.1` (#8319). This prevents fresh installs from selecting `0.1.2`/`0.1.3`, whose automatic continuations can replay resume inputs. A2UI conformance checks were also aligned so the runtime validates A2UI action history in the private user context for the TypeScript driver.
+
 ## 1.85.0 - 2026-11-06
 
 This release introduces native Generative UI for Angular, adds analytics context forwarding for Intelligence runs, and fixes several reliability issues around Intelligence run stops and A2UI rendering.

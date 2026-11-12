@@ -117,7 +117,18 @@ export class ReferenceDoc {
         console.warn(`${fn} not found in ${this.referenceDoc.sourcePath}`);
         continue;
       }
-      const comment = source.getFunctionComment(fn);
+      const fullComment = source.getFunctionComment(fn);
+      // A trailing `@returns` tag becomes its own section after the
+      // parameters instead of leaking into the page as a raw JSDoc tag.
+      const [rawComment, rawReturns] = (fullComment ?? "").split(
+        /^@returns\s+/m,
+      );
+      const comment = rawComment.trim();
+      const returns = rawReturns
+        ?.split("\n")
+        .map((line) => line.trim())
+        .join("\n")
+        .trim();
 
       result += `## ${fn}\n\n`;
       if (comment) {
@@ -130,6 +141,9 @@ export class ReferenceDoc {
           result += `${arg.description}\n`;
           result += `</PropertyReference>\n\n`;
         }
+      }
+      if (returns) {
+        result += `### Returns\n\n${returns}\n\n`;
       }
     }
     return result;

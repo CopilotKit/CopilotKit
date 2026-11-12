@@ -2,7 +2,7 @@
 
 import React from "react";
 
-import { SubAgentName } from "./delegation-log";
+import type { SubAgentName } from "./delegation-log";
 
 // @region[active-subagent-banner]
 // Compact sticky banner at the top of the chat panel that names the
@@ -23,13 +23,18 @@ export function SupervisorActivityBanner({
   return (
     <div
       data-testid="active-subagent-banner"
-      className="flex items-start gap-2 border-b border-[#E9E9EF] bg-[#FAFAFC] px-4 py-2"
+      className="flex items-start gap-2 border-b border-[#E9E9EF] bg-[#FAFAFC] px-4 py-2 dark:border-border dark:bg-muted"
     >
-      <span className="mt-1 inline-block h-1.5 w-1.5 shrink-0 animate-pulse rounded-full bg-[#010507]" />
-      <div className="min-w-0 text-xs text-[#010507]">
+      <span className="mt-1 inline-block h-1.5 w-1.5 shrink-0 animate-pulse rounded-full bg-[#010507] dark:bg-foreground" />
+      <div className="min-w-0 text-xs text-[#010507] dark:text-foreground">
         <span className="font-semibold">{labels[subAgent]}</span>
-        <span className="text-[#57575B]"> is running:</span>{" "}
-        <span className="text-[#57575B] line-clamp-2">{task}</span>
+        <span className="text-[#57575B] dark:text-muted-foreground">
+          {" "}
+          is running:
+        </span>{" "}
+        <span className="text-[#57575B] line-clamp-2 dark:text-muted-foreground">
+          {task}
+        </span>
       </div>
     </div>
   );

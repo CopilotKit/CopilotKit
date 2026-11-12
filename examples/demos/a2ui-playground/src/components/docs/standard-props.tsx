@@ -1,7 +1,8 @@
 "use client";
 
 import { standardUI } from "@copilotkit/react-core/v2/generative-ui";
-import { PropsTable, type PropRow } from "./props-table";
+import { PropsTable } from "./props-table";
+import type { PropRow } from "./props-table";
 
 /**
  * Props tables for the Gen UI 2.0 standard components, read from the

@@ -38,6 +38,10 @@ export interface A2UICatalogSchemaSource {
   /** A `ReadonlyMap` on a real `Catalog`; anything else is tolerated. */
   readonly functions?: unknown;
   readonly themeSchema?: unknown;
+  /** `"1.0"` for a native A2UI 1.0 catalog; a v0.9 catalog reads `"0.9"` or nothing. */
+  readonly protocolVersion?: string;
+  /** The catalog document; a native 1.0 catalog is described with it. */
+  toJson?(): Record<string, unknown>;
 }
 
 /** One entry of {@link A2UIInlineCatalogSchema.functions}. */
@@ -76,6 +80,32 @@ export type CatalogSchemaSource = A2UICatalogSchemaSource;
  */
 export type InlineCatalogSchema = A2UIInlineCatalogSchema;
 
+/** Native A2UI 1.0 catalog document, including function maps and local defs. */
+export interface NativeInlineCatalogSchema {
+  protocolVersion: "1.0";
+  catalogId: string;
+  components: Record<string, Record<string, unknown>>;
+  functions?: Record<string, Record<string, unknown>>;
+  $defs?: Record<string, Record<string, unknown>>;
+  theme?: never;
+  "common_types.json"?: never;
+  [key: string]: unknown;
+}
+
+/** The schema payload for a catalog, in the catalog's own protocol format. */
+export type A2UICatalogSchema = InlineCatalogSchema | NativeInlineCatalogSchema;
+
+/**
+ * The document of a native A2UI 1.0 catalog, or undefined for a v0.9 one.
+ * Native catalogs carry function maps and local `$defs`; sending them through
+ * the v0.9 serializer would change their wire semantics.
+ */
+function nativeCatalogDocument(catalog: CatalogSchemaSource) {
+  if (catalog.protocolVersion !== "1.0" || typeof catalog.toJson !== "function")
+    return undefined;
+  return catalog.toJson() as NativeInlineCatalogSchema;
+}
+
 const basicComponentNames: ReadonlySet<string> = new Set(
   BASIC_COMPONENTS.map((api) => api.name),
 );
@@ -92,20 +122,34 @@ export function buildCatalogContextValue(
   catalog: CatalogSchemaSource,
   options?: { includeSchema?: boolean },
 ): string {
+  if (catalog.protocolVersion === "1.0") {
+    if (options?.includeSchema === false) {
+      return [
+        "Available A2UI catalog (protocol 1.0):",
+        `- ${catalog.id}`,
+        ...Array.from(catalog.components.keys(), (name) => `  - ${name}`),
+      ].join("\n");
+    }
+    const document = nativeCatalogDocument(catalog);
+    if (document) {
+      return `Available A2UI catalog:\n${JSON.stringify(document, null, 2)}`;
+    }
+  }
   return buildA2UICatalogContextValue(catalog, basicComponentNames, options);
 }
 
 /**
- * Extract component, function and theme schemas from a catalog in the A2UI
- * v0.9 inline catalog format. See {@link extractA2UICatalogSchemas}.
+ * Extract schemas in the catalog's protocol format: a native 1.0 catalog's
+ * own document, keeping its function maps and local definitions, or the
+ * A2UI v0.9 inline catalog format. See {@link extractA2UICatalogSchemas}.
  *
  * When sent via agent context with `A2UI_SCHEMA_CONTEXT_DESCRIPTION`,
  * the middleware can optionally overwrite it with a server-side schema.
  */
 export function extractCatalogComponentSchemas(
   catalog: CatalogSchemaSource,
-): InlineCatalogSchema {
-  return extractA2UICatalogSchemas(catalog);
+): A2UICatalogSchema {
+  return nativeCatalogDocument(catalog) ?? extractA2UICatalogSchemas(catalog);
 }
 
 /**

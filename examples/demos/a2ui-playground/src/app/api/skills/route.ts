@@ -6,9 +6,8 @@ import {
   generateSkills,
   skillComponents,
   skillName,
-  type SkillFormat,
-  type SkillSelection,
 } from "@/a2ui/export/skills";
+import type { SkillFormat, SkillSelection } from "@/a2ui/export/skills";
 import {
   MAX_BODY,
   RATE_LIMITS,

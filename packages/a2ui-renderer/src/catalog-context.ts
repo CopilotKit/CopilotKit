@@ -1,13 +1,11 @@
-import {
-  A2UI_DEFAULT_DESIGN_GUIDELINES,
-  A2UI_DEFAULT_GENERATION_GUIDELINES,
-} from "@copilotkit/shared";
+import { A2UI_DEFAULT_DESIGN_GUIDELINES } from "@copilotkit/shared";
 import {
   A2UI_SCHEMA_CONTEXT_DESCRIPTION,
   buildCatalogContextValue,
   extractCatalogComponentSchemas,
 } from "./catalog-description";
 import type { CatalogSchemaSource } from "./catalog-description";
+import { a2uiGenerationGuidelines } from "./generation-guidelines";
 
 /** One agent context entry, as `CopilotKitCore.addContext` takes it. */
 export interface A2UIContextEntry {
@@ -26,7 +24,8 @@ export const A2UI_DESIGN_GUIDELINES_CONTEXT_DESCRIPTION =
 /**
  * The agent context entries that describe an A2UI catalog: its capabilities
  * always; its component schemas and the generation and design guidelines
- * unless `includeSchema` is `false`. The schema entry uses the description
+ * unless `includeSchema` is `false`. A native 1.0 catalog gets the 1.0
+ * generation guidelines. The schema entry uses the description
  * the A2UI middleware looks for, so a server-side schema can replace it.
  *
  * @param catalog - The catalog the client renders.
@@ -56,7 +55,7 @@ export function buildA2UIContextEntries(
     },
     {
       description: A2UI_GENERATION_GUIDELINES_CONTEXT_DESCRIPTION,
-      value: A2UI_DEFAULT_GENERATION_GUIDELINES,
+      value: a2uiGenerationGuidelines(catalog.protocolVersion),
       ...scope,
     },
     {

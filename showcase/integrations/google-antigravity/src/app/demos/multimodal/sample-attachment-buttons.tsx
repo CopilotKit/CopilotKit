@@ -25,9 +25,8 @@
  *
  * The modern `image|document` parts go to the agent unchanged: the
  * ag-ui-antigravity adapter forwards them to Gemini as inline media, so
- * this package needs no legacy-shape rewrite (langgraph-python's
- * `LegacyConverterShim` would append `binary` parts that AG-UI 1.0
- * rejects at `RunAgentInput` validation).
+ * this package needs no legacy-shape rewrite (AG-UI 1.0 rejects legacy
+ * `binary` parts at `RunAgentInput` validation).
  */
 
 import { useCallback, useState } from "react";

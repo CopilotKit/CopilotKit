@@ -7,13 +7,10 @@ import {
   useEffect,
   useRef,
   useState,
-  type ReactNode,
 } from "react";
-import {
-  DEFAULT_DESIGN_SYSTEM,
-  isDesignSystem,
-  type DesignSystemId,
-} from "./registry";
+import type { ReactNode } from "react";
+import { DEFAULT_DESIGN_SYSTEM, isDesignSystem } from "./registry";
+import type { DesignSystemId } from "./registry";
 
 const STORAGE_KEY = "a2ui-design-system";
 

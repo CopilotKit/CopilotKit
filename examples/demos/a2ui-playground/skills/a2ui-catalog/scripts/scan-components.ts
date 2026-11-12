@@ -67,7 +67,7 @@ function listFiles(d: string): string[] {
   return fs.readdirSync(d, { withFileTypes: true }).flatMap((e) => {
     const p = path.join(d, e.name);
     if (e.isDirectory()) return e.name === "node_modules" ? [] : listFiles(p);
-    return /\.tsx$/.test(e.name) && !/\.(test|stories)\.tsx$/.test(e.name)
+    return e.name.endsWith(".tsx") && !/\.(test|stories)\.tsx$/.test(e.name)
       ? [p]
       : [];
   });

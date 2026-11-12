@@ -18,23 +18,15 @@
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import data from "@/data/replay.json";
-import { present, type Snapshot } from "@/lib/build-timeline";
-import {
-  latestComponents,
-  type A2UIOp,
-  type RunLine,
-  type TimelineEvent,
-} from "@/lib/run-store";
+import { present } from "@/lib/build-timeline";
+import type { Snapshot } from "@/lib/build-timeline";
+import { latestComponents } from "@/lib/run-store";
+import type { A2UIOp, RunLine, TimelineEvent } from "@/lib/run-store";
 import { lineId } from "@/lib/express-lines";
 import { modelLabel } from "@/lib/model-options";
 import { useDecompiled } from "./json-tab";
-import {
-  decompiledLines,
-  EMPTY_SHOWN,
-  numbered,
-  sentOf,
-  type Shown,
-} from "./lines";
+import { decompiledLines, EMPTY_SHOWN, numbered, sentOf } from "./lines";
+import type { Shown } from "./lines";
 
 type Recording = {
   prompt: string;

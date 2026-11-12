@@ -1,4 +1,5 @@
-import { definitions, type ComponentName } from "@/a2ui/catalog/definitions";
+import { definitions } from "@/a2ui/catalog/definitions";
+import type { ComponentName } from "@/a2ui/catalog/definitions";
 import type { Category } from "@/a2ui/catalog/definitions/shared";
 
 /** Category order used by the sidebar, the overview and the command menu. */

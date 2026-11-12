@@ -4,8 +4,9 @@ import {
   A2UI_CHILD_LIST_MARK,
   A2UI_COMPONENT_ID_MARK,
 } from "@copilotkit/shared";
-import { z } from "zod";
-import { definitions, type ComponentName } from "@/a2ui/catalog/definitions";
+import type { z } from "zod";
+import { definitions } from "@/a2ui/catalog/definitions";
+import type { ComponentName } from "@/a2ui/catalog/definitions";
 import type { PropRow } from "./props-table";
 
 const ROOT = process.cwd();
@@ -45,7 +46,7 @@ function sliceEntry(src: string, start: RegExp): string | null {
   while (
     j < lines.length &&
     !/^ {2}[A-Z][A-Za-z0-9]*:\s/.test(lines[j]) &&
-    !/^}/.test(lines[j])
+    !lines[j].startsWith("}")
   )
     j++;
   let end = j;

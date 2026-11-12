@@ -1,8 +1,8 @@
 # CopilotKit Examples
 
-This directory contains 63 examples, grouped by what you want to do with them:
+This directory contains 64 examples, grouped by what you want to do with them:
 
-- **[Starters](#starters-25)** — pick your agent framework and start building.
+- **[Starters](#starters-26)** — pick your agent framework and start building.
 - **[Demos](#demos-33)** — full applications that show CopilotKit in a real-world scenario.
 - **[Templates](#templates-5)** — pick a surface or use case (Slack, Teams, Flutter, a shop, a custom chat UI) and start from there.
 - **[Dev](#dev)** — small apps the CopilotKit team uses to develop and test the packages in this repo.
@@ -19,7 +19,7 @@ Starters, demos, and the `shadcn` and `claude-managed-agents-flutter` templates 
 
 ---
 
-## Starters (25)
+## Starters (26)
 
 Framework starters demonstrating CopilotKit with each supported agent framework. Starter parity tooling lives in [`starters/_parity/`](./starters/_parity/).
 
@@ -33,6 +33,7 @@ Framework starters demonstrating CopilotKit with each supported agent framework.
 | [crewai-crews](./starters/crewai-crews/)                           | Starter template for building AI agents using CrewAI Crews                           |
 | [llamaindex](./starters/llamaindex/)                               | Starter template with a LlamaIndex investment analyst agent                          |
 | [pydantic-ai](./starters/pydantic-ai/)                             | Starter template with a PydanticAI investment analyst agent                          |
+| [openai-agents-python](./starters/openai-agents-python/)           | Starter template using the OpenAI Agents SDK (Python) with a proverbs agent          |
 | [ms-agent-framework-python](./starters/ms-agent-framework-python/) | CopilotKit with Microsoft Agent Framework (Python/FastAPI, AG-UI protocol)           |
 | [ms-agent-framework-dotnet](./starters/ms-agent-framework-dotnet/) | CopilotKit with Microsoft Agent Framework (.NET/C#, AG-UI protocol)                  |
 | [strands-python](./starters/strands-python/)                       | Starter template with a Strands investment analyst agent                             |

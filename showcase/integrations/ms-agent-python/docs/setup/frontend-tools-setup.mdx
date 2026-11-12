@@ -3,8 +3,9 @@
     ### Nothing to wire on the agent
 
     CopilotKit's runtime forwards frontend tool definitions to the agent at
-    request time, so the agent can call a component registered with
-    `useComponent` by name. There are no backend tools to declare.
+    request time, so the agent can call a tool registered with
+    `useFrontendTool`, or a component registered with `useComponent`, by name.
+    There are no backend tools to declare.
 
     ```python title="src/agents/chart_agent.py"
     from agent_framework import Agent

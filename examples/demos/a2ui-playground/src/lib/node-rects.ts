@@ -10,12 +10,8 @@
  * component once per item of the list at `path`; only the first instance is
  * kept, like the old per-definition measurement.
  */
-import {
-  latestComponents,
-  latestData,
-  pointerSegments,
-  type A2UIOp,
-} from "./run-store";
+import { latestComponents, latestData, pointerSegments } from "./run-store";
+import type { A2UIOp } from "./run-store";
 
 type Comp = { id: string; component: string } & Record<string, unknown>;
 

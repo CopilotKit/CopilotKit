@@ -55,15 +55,16 @@ const config = {
 </PropertyReference>
 
 <PropertyReference name="agents__unsafe_dev_only" type="Record<string, AbstractAgent>">
-  Mapping from agent name to its `AbstractAgent` instance. For development only — production requires a CopilotRuntime.
+  Mapping from agent name to its `AbstractAgent` instance. For development only. Production requires a CopilotRuntime.
 </PropertyReference>
 
-<PropertyReference name="headers" type="Record<string, string> | (() => Record<string, string>) | (() => Promise<Record<string, string>>)" default="{}">
+<PropertyReference name="headers" type="CopilotKitHeadersSource" default="{}">
   Headers appended to every HTTP request made by `CopilotKitCore`. Pass a
   record for static headers, or a function (sync or async) to build them
   fresh. A builder runs when each request is sent, so a refreshed token is
-  always used. Cache inside the builder — a builder that calls the network
-  every time adds one call per request.
+  always used. Cache inside the builder. A builder that calls the network
+  every time adds one call per request. A header value of `null` or
+  `undefined` leaves that header out.
 
   If the builder throws or rejects, the request is not sent and `onError`
   gets [`HEADER_RESOLUTION_FAILED`](/reference/core/enums/CopilotKitCoreErrorCode).
@@ -79,9 +80,9 @@ const config = {
 <PropertyReference name="messageFilter" type="CopilotKitMessageFilter">
   Rewrites the message list sent to runtime agents on every run. Use it when the
   agent already stores the conversation and re-sending it is waste or
-  duplication. The filter changes the request body only — the transcript the UI
-  renders is untouched — and broken tool-call pairs are repaired before the
-  request goes out. Intelligence runs and suggestion runs are never filtered.
+  duplication. The filter changes only the request body. The transcript in the
+  UI does not change. CopilotKit repairs broken tool-call pairs before it sends
+  the request. Intelligence runs and suggestion runs are never filtered.
   Change it later with `setMessageFilter`.
 </PropertyReference>
 
@@ -102,9 +103,9 @@ const config = {
 </PropertyReference>
 
 <PropertyReference name="learning" type="LearningConfig">
-  Turns on interaction capture (`@copilotkit/learning`). Capture starts only
-  when `startTrajectory()` authenticates. Change it later with
-  `setLearningConfig`.
+  Turns on interaction capture with `@copilotkit/learning`. Capture starts only
+  after a `startTrajectory()` call connects to the capture channel. Change it
+  later with `setLearningConfig`.
 </PropertyReference>
 
 ## Usage
@@ -127,9 +128,3 @@ const copilotkit = new CopilotKitCore({
   ],
 });
 ```
-
-## Related
-
-- [CopilotKitCore](/reference/core/classes/CopilotKitCore)
-- [FrontendTool](/reference/core/types/FrontendTool)
-- [SuggestionsConfig](/reference/core/types/SuggestionsConfig)

@@ -250,27 +250,22 @@ test("has no dedicated Angular host, image, proxy, or server", async () => {
   ).rejects.toMatchObject({ code: "ENOENT" });
 });
 
-test("generates shell-docs data before tests on a fresh checkout", async () => {
+test("generates shell-docs data, with Angular but not Vue source, before dev and build", async () => {
   const packageJson = JSON.parse(
     await readFile(
       resolve(repositoryRoot, "showcase/shell-docs/package.json"),
       "utf8",
     ),
   ) as { scripts?: Record<string, string> };
+  const showcaseData = await readFile(
+    resolve(repositoryRoot, "showcase/shell-docs/scripts/showcase-data.mjs"),
+    "utf8",
+  );
 
-  expect(packageJson.scripts?.pretest).toBe("npm run pretypecheck");
-  expect(packageJson.scripts?.predev).toContain(
-    "bundle-angular-source-content.ts",
-  );
-  expect(packageJson.scripts?.predev).not.toContain(
-    "bundle-vue-source-content.ts",
-  );
-  expect(packageJson.scripts?.build).not.toContain(
-    "bundle-vue-source-content.ts",
-  );
-  expect(packageJson.scripts?.pretypecheck).not.toContain(
-    "bundle-vue-source-content.ts",
-  );
+  expect(packageJson.scripts?.predev).toContain("scripts/showcase-data.mjs");
+  expect(packageJson.scripts?.prebuild).toContain("scripts/showcase-data.mjs");
+  expect(showcaseData).toContain('"bundle-angular-source-content"');
+  expect(showcaseData).not.toContain("bundle-vue-source-content");
 });
 test("generates Angular source content in the shell-docs image", async () => {
   const dockerfile = await readFile(
@@ -278,10 +273,9 @@ test("generates Angular source content in the shell-docs image", async () => {
     "utf8",
   );
 
-  expect(dockerfile).toContain("COPY showcase/angular/src/ ./angular/src/");
-  expect(dockerfile).toContain(
-    "node node_modules/tsx/dist/cli.mjs bundle-angular-source-content.ts",
-  );
+  // `npm run build` runs prebuild, which runs showcase-data's generators.
+  expect(dockerfile).toContain("COPY showcase/angular/ ../angular/");
+  expect(dockerfile).toContain("RUN npm run build");
 });
 
 test("does not bundle Vue source content in the shell-docs image", async () => {

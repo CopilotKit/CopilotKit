@@ -1,0 +1,221 @@
+---
+title: Quickstart
+description: Run an OpenAI Agents SDK agent behind CopilotKit.
+icon: "lucide/Play"
+hideTOC: true
+---
+
+import OpenInspectorStep from "@/snippets/shared/inspector/open-inspector-step.mdx";
+
+## Start with your coding agent
+
+Use this prompt to connect your OpenAI Agents SDK agent to CopilotKit and verify a working conversation. Your coding agent will follow this guide in your project, or you can work through the manual steps below.
+
+<PageAgentPrompt />
+
+This quickstart exposes an agent built with the OpenAI Agents SDK (Python) over AG-UI and connects it to a React app.
+
+## Prerequisites
+
+Before you begin, you'll need the following:
+
+- Node.js 20+
+- Python 3.10+
+- `uv` for Python dependency management
+- An OpenAI API key, as `OPENAI_API_KEY`
+
+## Getting started
+
+<Steps>
+  <Step>
+    ### Install the required Python packages
+
+    From your agent project, install the OpenAI Agents SDK, its AG-UI adapter and FastAPI:
+
+    ```bash
+    uv add openai-agents ag-ui-openai-agents fastapi uvicorn
+    ```
+  </Step>
+
+  <Step>
+    ### Configure your agent environment
+
+    Create a `.env` file for the process that runs your agent. The SDK's OpenAI client reads the key from the environment:
+
+    ```plaintext title=".env"
+    OPENAI_API_KEY=your_openai_api_key
+    ```
+
+    To send the model calls to another OpenAI-compatible server, such as a gateway, also set `OPENAI_BASE_URL`.
+  </Step>
+
+  <Step>
+    ### Expose the agent over AG-UI
+
+    CopilotKit talks to agents over AG-UI. Wrap your SDK `Agent` in the adapter's `OpenAIAgentsAgent` and mount it with `add_openai_agents_fastapi_endpoint`. The adapter translates each AG-UI request into a streamed SDK run and streams the run back as AG-UI events, so you don't write the event loop yourself.
+
+    ```python title="main.py"
+    from agents import Agent
+    from ag_ui_openai_agents import (
+        OpenAIAgentsAgent,
+        add_openai_agents_fastapi_endpoint,
+    )
+    from fastapi import FastAPI
+
+    agent = OpenAIAgentsAgent(
+        Agent(
+            name="assistant",
+            instructions="You are a helpful assistant embedded in a CopilotKit app.",
+        )
+    )
+
+    app = FastAPI()
+    add_openai_agents_fastapi_endpoint(app, agent, "/agent")
+    ```
+
+    This adds `POST /agent`, the AG-UI endpoint, and `GET /agent/health`. Start the server and confirm the health check:
+
+    ```bash
+    uv run --env-file .env uvicorn main:app --reload --host 0.0.0.0 --port 8000
+    curl http://localhost:8000/agent/health
+    ```
+
+    <Callout type="info" title="Already serving the agent from a FastAPI app?">
+      Call `add_openai_agents_fastapi_endpoint` on the `FastAPI` instance you already have, with
+      a path of your choice, and point the runtime's `HttpAgent` at that path. Your existing
+      routes keep working alongside it. Pass `include_health=False` if the app owns its health
+      checks.
+    </Callout>
+  </Step>
+
+  <Step>
+    ### Create your frontend
+
+    CopilotKit works with any React app. This example uses Next.js App Router:
+
+    ```bash
+    npx create-next-app@latest frontend
+    cd frontend
+    npm install @copilotkit/runtime @copilotkit/react-core @ag-ui/client@1.0.4
+    ```
+  </Step>
+
+  <Step>
+    ### Add the CopilotKit runtime route
+
+    Create `app/api/copilotkit/route.ts` in your Next.js app. It registers your agent as an AG-UI `HttpAgent`.
+
+    ```ts title="app/api/copilotkit/route.ts"
+    import { HttpAgent } from "@ag-ui/client";
+    import {
+      CopilotRuntime,
+      createCopilotRuntimeHandler,
+    } from "@copilotkit/runtime";
+    import type { NextRequest } from "next/server";
+
+    const runtime = new CopilotRuntime({
+      agents: {
+        openai_agent: new HttpAgent({
+          url: process.env.AGENT_URL ?? "http://localhost:8000/agent",
+        }),
+      },
+    });
+
+    const handler = createCopilotRuntimeHandler({
+      runtime,
+      basePath: "/api/copilotkit",
+      mode: "single-route",
+    });
+
+    export const POST = (req: NextRequest) => handler(req);
+    ```
+
+    <Callout type="info" title="A named client">
+      `@ag-ui/openai-agents` exports the same client as `OpenAIAgentsHttpAgent`, if you prefer
+      the runtime to name the framework it talks to. It behaves exactly like `HttpAgent`.
+    </Callout>
+  </Step>
+
+  <Step>
+    ### Mount CopilotKit in React
+
+    Wrap your app with `CopilotKit` and target the agent name you registered in the runtime route.
+
+    ```tsx title="app/layout.tsx"
+    import { CopilotKit } from "@copilotkit/react-core";
+    import "./globals.css";
+
+    export default function RootLayout({ children }: { children: React.ReactNode }) {
+      return (
+        <html lang="en">
+          <body>
+            <CopilotKit runtimeUrl="/api/copilotkit" agentId="openai_agent">
+              {children}
+            </CopilotKit>
+          </body>
+        </html>
+      );
+    }
+    ```
+
+    <Callout type="info" title="This relative runtimeUrl assumes Next.js serves the runtime">
+      `/api/copilotkit` resolves only because Next.js serves your app and the runtime from the
+      same origin. A client-only frontend has no shared origin, so it needs a standalone runtime
+      server of its own and an absolute `runtimeUrl` such as
+      `http://localhost:8200/api/copilotkit`. The per-frontend guides at `/react-spa`, `/vue`,
+      `/angular` and `/react-native` each show that setup.
+    </Callout>
+
+    Add a chat surface:
+
+    ```tsx title="app/page.tsx"
+    "use client";
+
+    import { CopilotSidebar } from "@copilotkit/react-core";
+
+    export default function Page() {
+      return (
+        <main>
+          <CopilotSidebar />
+        </main>
+      );
+    }
+    ```
+  </Step>
+
+  <Step>
+    ### Start the UI
+
+    Keep the FastAPI agent server running, then start the frontend in a second terminal:
+
+    ```bash
+    npm run dev
+    ```
+  </Step>
+
+  <Step>
+    ### Verify the integration
+
+    Open `http://localhost:3000` and ask:
+
+    ```plaintext
+    Tell me in one sentence what this app can do.
+    ```
+
+    If the chat streams a response, CopilotKit is connected to your OpenAI Agents SDK agent.
+
+    <Accordions className="mb-4">
+      <Accordion title="Troubleshooting">
+        - If the runtime cannot reach the agent, check that the FastAPI server is running and that `AGENT_URL` includes the endpoint's path, `http://localhost:8000/agent` in this example.
+        - If every chat turn fails with an authentication error, set `OPENAI_API_KEY` in the environment of the agent process, not only in the frontend.
+        - If a run stops right after a tool call, check whether the tool is a frontend tool. Those end the run until the browser answers, and the next request carries the result back to the model.
+        - If a run keeps ending with the same interrupt, an approval for a `needs_approval=True` tool is still open. A new message does not decide it; resume the interrupt with `{"approved": true}` or `{"approved": false}`.
+      </Accordion>
+    </Accordions>
+  </Step>
+
+  <Step>
+    <OpenInspectorStep components={props.components} />
+  </Step>
+
+</Steps>

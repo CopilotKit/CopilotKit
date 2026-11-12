@@ -11,10 +11,6 @@ snippet_cell: shared-state-streaming
 
 State rendering lets you build UI that reflects your agent's state in real-time. As your agent progresses through nodes and emits state updates, your frontend renders those changes, showing progress, drafts, or intermediate results.
 
-<Callout type="info">
-  **Free course:** See this pattern built end-to-end in [Build Interactive Agents with Generative UI](https://www.deeplearning.ai/short-courses/build-interactive-agents-with-generative-ui/) — a free DeepLearning.AI short course taught by CopilotKit's CEO covering the full Generative UI spectrum (Controlled, Declarative, and Open-Ended).
-</Callout>
-
 ## When should I use this?
 
 Use state rendering when you want to:
@@ -26,21 +22,74 @@ Use state rendering when you want to:
 
 ## How it works in code
 
-On the frontend, subscribe to the agent's state. Each time the backend
-forwards a fresh value, your component re-renders with the latest partial
-output.
+<FrameworkSetup concept="shared-state-setup" />
 
-<Snippet region="frontend-use-coagent-state" title="frontend/src/app/page.tsx — agent state subscription" />
+1. On the backend, write the value to a key in the
+   [agent state](/shared-state). To stream a tool argument into a state key
+   token by token, see [State Streaming](/shared-state/streaming).
+2. On the frontend, import `useAgent` from `@copilotkit/react-core`:
 
-On the backend, a state-streaming mapping forwards a specific tool argument
-straight into a state key *as it's being generated*. Some frameworks provide
-that as middleware; direct SDK adapters can emit `STATE_SNAPSHOT` events from
-their streaming loop. Either way, the UI can watch the answer assemble
-token-by-token rather than appearing in one burst between checkpoints.
+   ```tsx
+   import { useAgent, UseAgentUpdate } from "@copilotkit/react-core";
+   ```
 
-<FrameworkSetup concept="state-streaming-setup" />
+3. Subscribe to the agent state. Each time the state changes, your component
+   renders again with the latest value:
 
-<Snippet region="state-streaming-middleware" title="backend — state streaming mapping" />
+   <Snippet region="frontend-use-coagent-state" title="frontend/src/app/page.tsx — agent state subscription" />
+
+4. Read the key from `agent.state` and render it:
+
+   ```tsx
+   import { useAgent } from "@copilotkit/react-core";
+
+   export function DocumentView() {
+     const { agent } = useAgent({ agentId: "sample_agent" });
+     const document = (agent.state as { document?: string }).document ?? "";
+     return <article>{document}</article>;
+   }
+   ```
+
+To check it, ask the agent to write a short poem. Your component renders the
+poem each time the agent updates `document` in its state.
+
+To render the state inside the chat instead, pass a `children` function to
+the chat's `messageView` slot and add your UI next to the messages. For
+example, to list the searches an agent keeps in a `searches` key:
+
+```tsx
+import { CopilotChat, useAgent } from "@copilotkit/react-core";
+
+type SearchState = { searches?: { query: string; done: boolean }[] };
+
+export function Chat() {
+  const { agent } = useAgent({ agentId: "sample_agent" });
+  const state = agent.state as SearchState;
+
+  return (
+    <CopilotChat
+      agentId="sample_agent"
+      messageView={{
+        children: ({ messageElements, interruptElement }) => (
+          <div>
+            {messageElements}
+            {state.searches?.map((search, index) => (
+              <div key={index}>{search.done ? "✅" : "❌"} {search.query}</div>
+            ))}
+            {interruptElement}
+          </div>
+        ),
+      }}
+    />
+  );
+}
+```
+
+Here `state` is `agent.state` from `useAgent`.
+
+<Callout type="info">
+  **Free course:** See this pattern built end-to-end in [Build Interactive Agents with Generative UI](https://www.deeplearning.ai/short-courses/build-interactive-agents-with-generative-ui/). This free DeepLearning.AI short course is taught by CopilotKit's CEO. It covers the full Generative UI spectrum (Controlled, Declarative, and Open-Ended).
+</Callout>
 
 <IntegrationGrid
   path="generative-ui/state-rendering"
