@@ -326,6 +326,19 @@ def _surface_id_of(op: Any) -> str | None:
     return None
 
 
+_MAX_REJECTION_LENGTH = 500
+
+
+def _failed_lifecycle_error(content: Any) -> str | None:
+    """The error of a `failed` lifecycle snapshot (the agent's A2UI recovery gave up), or None."""
+    if not is_record(content) or content.get("status") != "failed":
+        return None
+    error = content.get("error")
+    if not isinstance(error, str) or not error:
+        error = "A2UI generation failed"
+    return error[:_MAX_REJECTION_LENGTH]
+
+
 def _read_operations(content: Any) -> list[Any]:
     if not is_record(content):
         return []
@@ -471,12 +484,40 @@ class A2UIV09ActivityUpgrader:
     ADK) has no `a2uiSourceVersion`, so a click on it reaches the agent unchanged. One
     surface has one version, the version of its first operation; an operation of the other
     version is rejected. A lifecycle snapshot (no operations) names no surface, so it is
-    consumed.
+    consumed. A `failed` one (the agent's recovery gave up) becomes a surface with no
+    operations, status "error", and its error as the one rejected entry, so the chat shows
+    that the UI could not be made. Its surfaceId is the source messageId.
     """
 
     def __init__(self) -> None:
         self._sources: dict[Any, Any] = {}
         self._surfaces: dict[str, _SurfaceState] = {}
+        # The source messages whose `failed` snapshot was sent.
+        self._failures: set[str] = set()
+
+    def _failure(self, message_id: str, error: str) -> list[Json]:
+        """The surface that shows a failed lifecycle snapshot, sent once."""
+        if message_id in self._failures:
+            return []
+        self._failures.add(message_id)
+        content: Json = {
+            "surfaceId": message_id,
+            "target": GENERATIVE_UI_CHAT_TARGET,
+            "catalogId": STANDARD_CATALOG_ID,
+            "operations": [],
+            "status": "error",
+            "rejected": [{"index": 0, "reason": error}],
+            "a2uiSourceVersion": "0.9",
+        }
+        return [
+            {
+                "type": "ACTIVITY_SNAPSHOT",
+                "messageId": surface_message_id(message_id),
+                "activityType": GENERATIVE_UI_ACTIVITY_TYPE,
+                "content": content,
+                "replace": True,
+            }
+        ]
 
     def _snapshot(
         self,
@@ -601,7 +642,11 @@ class A2UIV09ActivityUpgrader:
                 touched[surface_id] = None
         for surface_id, part in parts.items():
             self._surfaces.setdefault(surface_id, _SurfaceState()).parts[message_id] = part
-        return [event for surface_id in touched for event in self._emit(surface_id)]
+        events = [event for surface_id in touched for event in self._emit(surface_id)]
+        error = _failed_lifecycle_error(self._sources.get(message_id))
+        if error is not None and isinstance(message_id, str):
+            events.extend(self._failure(message_id, error))
+        return events
 
     def transform(self, event: Json) -> list[Json]:
         """The events that replace one event of the run."""

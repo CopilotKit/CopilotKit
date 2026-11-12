@@ -565,6 +565,64 @@ const a2uiCases = [
     },
   })),
   {
+    id: "a2ui.recovery-exhausted-shows-an-error-surface",
+    configuration: {
+      generativeUI: { a2uiVersion: "0.9", injectA2UITool: true, schema },
+    },
+    async run(context) {
+      // An agent's A2UI tool gave up after its retries. The A2UI middleware
+      // sends a `failed` lifecycle snapshot, which names no surface.
+      context.platform.faults.agentEvents = (request) => [
+        {
+          type: "RUN_STARTED",
+          threadId: request.threadId,
+          runId: request.runId,
+        },
+        {
+          type: "TOOL_CALL_START",
+          toolCallId: "generate-call",
+          toolCallName: "generate_a2ui",
+          parentMessageId: "assistant-message",
+        },
+        { type: "TOOL_CALL_ARGS", toolCallId: "generate-call", delta: "{}" },
+        { type: "TOOL_CALL_END", toolCallId: "generate-call" },
+        {
+          type: "TOOL_CALL_RESULT",
+          messageId: "generate-result",
+          toolCallId: "generate-call",
+          content: JSON.stringify({
+            code: "a2ui_recovery_exhausted",
+            error: "root is missing",
+            attempts: [{ attempt: 1 }, { attempt: 2 }, { attempt: 3 }],
+          }),
+        },
+        {
+          type: "RUN_FINISHED",
+          threadId: request.threadId,
+          runId: request.runId,
+        },
+      ];
+      const events = await runAndWait(context);
+      assertNoV09Activity(events);
+      const failures = surfaceSnapshots(events).filter(
+        (event) => event.content.status === "error",
+      );
+      assert.equal(
+        failures.length,
+        1,
+        "The failure must reach the browser once",
+      );
+      const [failure] = failures;
+      assert.equal(failure.messageId, `genui:${failure.content.surfaceId}`);
+      assert.equal(failure.content.target, "chat");
+      assert.deepEqual(failure.content.operations, []);
+      assert.deepEqual(failure.content.rejected, [
+        { index: 0, reason: "root is missing" },
+      ]);
+      assert.equal(failure.content.a2uiSourceVersion, "0.9");
+    },
+  },
+  {
     id: "a2ui.custom-tool-included-agent",
     configuration: {
       generativeUI: {
@@ -742,9 +800,15 @@ const a2uiCases = [
         "The v0.9 render path must be active",
       );
       assertNoV09Activity(events);
-      assert.equal(
-        surfaceSnapshots(events).length,
-        0,
+      // A runtime may show that the UI failed: a surface with status
+      // "error" and no operations. Nothing of the tree may be painted.
+      assert.deepEqual(
+        surfaceSnapshots(events).filter(
+          (event) =>
+            event.content.status !== "error" ||
+            event.content.operations.length > 0,
+        ),
+        [],
         "A tree with an unresolved child was painted",
       );
       assert.equal(

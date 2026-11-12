@@ -259,6 +259,14 @@ module CopilotKit
       nil
     end
 
+    # The error of a `failed` lifecycle snapshot (the agent's A2UI recovery gave up), or nil.
+    def failed_lifecycle_error(content)
+      return nil unless content.is_a?(Hash) && content['status'] == 'failed'
+      error = content['error']
+      error = 'A2UI generation failed' unless error.is_a?(String) && !error.empty?
+      error[0, GUI::MAX_REJECTION_LENGTH]
+    end
+
     def read_operations(content)
       return [] unless content.is_a?(Hash)
       operations = content[OPERATIONS_KEY]
@@ -387,10 +395,15 @@ module CopilotKit
     # has no `a2uiSourceVersion`, so a click on it reaches the agent unchanged. One surface
     # has one version, the version of its first operation; an operation of the other version
     # is rejected. A lifecycle snapshot (no operations) names no surface, so it is consumed.
+    # A `failed` one (the agent's recovery gave up) becomes a surface with no operations,
+    # status "error", and its error as the one rejected entry, so the chat shows that the UI
+    # could not be made. Its surfaceId is the source messageId.
     class ActivityUpgrader
       def initialize
         @sources = {}
         @surfaces = {}
+        # The source messages whose `failed` snapshot was sent.
+        @failures = {}
       end
 
       # The events that replace one event of the run.
@@ -431,6 +444,19 @@ module CopilotKit
         state.last_snapshot = serialized
         [{ 'type' => 'ACTIVITY_SNAPSHOT', 'messageId' => GUI.surface_message_id(surface_id), 'activityType' => GUI::ACTIVITY_TYPE,
            'content' => GUI.deep_copy(content), 'replace' => true }]
+      end
+
+      # The surface that shows a failed lifecycle snapshot, sent once.
+      def failure(message_id, error)
+        return [] if @failures.key?(message_id)
+        @failures[message_id] = true
+        content = {
+          'surfaceId' => message_id, 'target' => GUI::CHAT_TARGET, 'catalogId' => GUI::STANDARD_CATALOG_ID,
+          'operations' => [], 'status' => 'error', 'rejected' => [{ 'index' => 0, 'reason' => error }],
+          'a2uiSourceVersion' => '0.9'
+        }
+        [{ 'type' => 'ACTIVITY_SNAPSHOT', 'messageId' => GUI.surface_message_id(message_id), 'activityType' => GUI::ACTIVITY_TYPE,
+           'content' => content, 'replace' => true }]
       end
 
       def delta(surface_id, state, operations, rejected)
@@ -493,7 +519,10 @@ module CopilotKit
           touched << surface_id if !parts.key?(surface_id) && !state.parts.delete(message_id).nil?
         end
         parts.each { |surface_id, part| (@surfaces[surface_id] ||= SurfaceState.create).parts[message_id] = part }
-        touched.flat_map { |surface_id| emit(surface_id) }
+        events = touched.flat_map { |surface_id| emit(surface_id) }
+        error = A2UIUpgrade.failed_lifecycle_error(@sources[message_id])
+        events.concat(failure(message_id, error)) if error && message_id.is_a?(String)
+        events
       end
     end
 

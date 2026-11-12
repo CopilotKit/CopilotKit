@@ -126,6 +126,45 @@ func TestUpgraderSendsOneCumulativeSurfacePerSurfaceID(t *testing.T) {
 	}
 }
 
+func TestUpgraderShowsAFailedLifecycleSnapshotAsAnErrorSurfaceOnce(t *testing.T) {
+	upgrader := newA2UIV09Upgrader()
+	lifecycle := func(messageID string, content map[string]any) []Event {
+		event := v09Activity(messageID, nil)
+		event["content"] = content
+		return upgrader.transform(event)
+	}
+	if out := lifecycle("a2ui-surface-call1", map[string]any{"status": "retrying", "attempt": 2}); len(out) != 0 {
+		t.Fatalf("retrying: %v", out)
+	}
+	failed := map[string]any{"status": "failed", "error": "root is missing", "attempts": []any{}}
+	out := lifecycle("a2ui-surface-call1", failed)
+	assertJSON(t, out, []any{map[string]any{
+		"type":         "ACTIVITY_SNAPSHOT",
+		"messageId":    "genui:a2ui-surface-call1",
+		"activityType": "generative-ui-surface",
+		"content": map[string]any{
+			"surfaceId":         "a2ui-surface-call1",
+			"target":            "chat",
+			"catalogId":         standardCatalogID,
+			"operations":        []any{},
+			"status":            "error",
+			"rejected":          []any{map[string]any{"index": 0, "reason": "root is missing"}},
+			"a2uiSourceVersion": "0.9",
+		},
+		"replace": true,
+	}})
+	if again := lifecycle("a2ui-surface-call1", failed); len(again) != 0 {
+		t.Fatalf("again: %v", again)
+	}
+	long := lifecycle("a2ui-surface-call2", map[string]any{"status": "failed", "error": strings.Repeat("x", 600)})
+	reason := object(object(long[0]["content"])["rejected"].([]any)[0])["reason"].(string)
+	if len(reason) != 500 {
+		t.Fatalf("long reason: %d", len(reason))
+	}
+	generic := lifecycle("a2ui-surface-call3", map[string]any{"status": "failed"})
+	assertJSON(t, object(generic[0]["content"])["rejected"], []any{map[string]any{"index": 0, "reason": "A2UI generation failed"}})
+}
+
 func TestUpgraderAppendsUpdatesOfASurfaceFromAnEarlierRun(t *testing.T) {
 	upgrader := newA2UIV09Upgrader()
 	update := map[string]any{"version": "v0.9", "updateDataModel": map[string]any{"surfaceId": "old", "path": "/a", "value": 1}}
