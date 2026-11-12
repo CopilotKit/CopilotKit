@@ -9,8 +9,9 @@ as it streams in and the output when it finishes.
 ## What's inside
 
 - `app/api/copilotkit-single/route.ts`: the recipe's `runCode` tool wired into a `BuiltInAgent` on
-  `createCopilotEndpointSingleRoute`. Pure recipe code: `boxd.machines.create({ isolated: true })`,
-  `fs.write` for the code, `exec` to run it, `delete` in a `finally` block.
+  `createCopilotEndpointSingleRoute`. The recipe code: `boxd.machines.create({ isolated: true })`,
+  `fs.write` for the code, `exec` to run it, `delete` in a `finally` block. One addition: the tool
+  returns a thrown error as `{ error }` so the card can show it.
 - `app/page.tsx`: `CopilotKitProvider` + `CopilotChat` + a `useRenderTool({ name: "runCode" })`
   renderer using `react-syntax-highlighter` (Prism + `vscDarkPlus`, mirroring
   `@copilotkit/react-ui`'s own `CodeBlock`).
@@ -34,6 +35,9 @@ echo "BOXD_API_KEY=…"          >> .env.local
 npm run dev   # http://localhost:3000
 ```
 
+`npm run dev` listens on 127.0.0.1 only. The endpoint has no authentication, and every call spends
+your OpenAI and boxd keys, so put your own auth in front of it before you serve it to anyone else.
+
 Open the page, click into the chat, and ask something like:
 
 > Run a Python snippet that prints the first 10 Fibonacci numbers.
@@ -46,8 +50,10 @@ Open the page, click into the chat, and ask something like:
   `npm install` here installs against published `@copilotkit/*@1.58.0`, which is the same surface the
   recipe targets.
 - Each tool call gets its own machine, and the machine is deleted when the call ends, also when the
-  code fails or times out (60 seconds). A failed delete is logged, not thrown. If the server process
-  dies mid-call the delete can't run; pass `deleteAfter: 600` to `create` if that matters to you.
+  code fails or times out (60 seconds). A failed delete is logged, not thrown. `deleteAfter: 600` on
+  `create` is the backstop: if the delete can't run or fails, boxd deletes the machine after ten minutes.
+- When a run fails before the code finishes (the machine can't be created, or the code runs past the
+  timeout), the card shows "failed" with the error text.
 - Machines are created with `isolated: true`: they are not on your organization's private network and
   hold no boxd credentials. They do have outbound internet access.
 - TypeScript runs on Node with type stripping, so it must use erasable syntax only (no enums or

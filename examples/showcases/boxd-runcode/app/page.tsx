@@ -185,14 +185,23 @@ function RunCodeCard({
 
   let stdout = "";
   let stderr = "";
-  let exitCode = 0;
+  let exitCode: number | null = null;
   try {
-    const parsed = JSON.parse(result ?? "{}");
-    stdout = typeof parsed.stdout === "string" ? parsed.stdout : "";
-    stderr = typeof parsed.stderr === "string" ? parsed.stderr : "";
-    exitCode = typeof parsed.exitCode === "number" ? parsed.exitCode : 0;
+    const parsed = JSON.parse(result ?? "");
+    if (typeof parsed?.exitCode === "number") {
+      stdout = typeof parsed.stdout === "string" ? parsed.stdout : "";
+      stderr = typeof parsed.stderr === "string" ? parsed.stderr : "";
+      exitCode = parsed.exitCode;
+    } else if (typeof parsed?.error === "string") {
+      // The tool failed before the code finished (create, write, exec or the timeout).
+      stderr = parsed.error;
+    }
   } catch {
-    stdout = String(result ?? "");
+    // Not JSON: handled below.
+  }
+  // Anything that is not a finished run is a failure. Show the error, not "done".
+  if (exitCode === null && !stderr) {
+    stderr = String(result ?? "") || "The tool returned no result.";
   }
   const ok = exitCode === 0;
 
@@ -200,7 +209,11 @@ function RunCodeCard({
     <div style={card}>
       {head(
         <span style={{ color: ok ? "#15803d" : "#b91c1c" }}>
-          {ok ? "✓ done" : `✗ exit ${exitCode}`}
+          {ok
+            ? "✓ done"
+            : exitCode === null
+              ? "✗ failed"
+              : `✗ exit ${exitCode}`}
         </span>,
       )}
       {codeBlock}
