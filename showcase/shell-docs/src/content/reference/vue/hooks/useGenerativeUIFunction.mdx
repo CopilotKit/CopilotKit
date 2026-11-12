@@ -8,7 +8,7 @@ description: "Run your own code when a generated component calls a declared func
 A user clicks "Add to cart" on a generated `ProductCard`. That click must add to the cart, with no message to the agent. `useGenerativeUIFunction` mounts the handler of a function that you declare in `createGenerativeUI({ functions })`. When generated UI calls the function, your handler runs.
 
 <Callout type="warn">
-  Generative UI is experimental. Call `useGenerativeUIFunction` in `setup()`
+  Call `useGenerativeUIFunction` in `setup()`
   (or `<script setup>`) of a component under a
   [`CopilotKitProvider`](/reference/vue/components/CopilotKitProvider) that has
   a `generativeUI` config. Outside such a provider, the composable throws an

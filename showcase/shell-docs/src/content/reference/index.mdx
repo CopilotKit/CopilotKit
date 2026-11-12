@@ -199,18 +199,11 @@ export function Providers({ children }: { children: ReactNode }) {
   Whether to mount the Intelligence indicator in chat automatically.
 </PropertyReference>
 
-<PropertyReference name="a2ui" type="{ theme?: A2UITheme; catalog?: any; loadingComponent?: React.ComponentType; includeSchema?: boolean; recovery?: A2UIRecoveryRendererOptions }">
-  Options for the A2UI renderer. The renderer turns on when `a2ui` is
-  configured in `CopilotRuntime`. Use this prop to override the theme, the
-  component catalog, the loading component, or the error-recovery UI
-  (`recovery`). `includeSchema` (default `true`) sends the component schemas of
-  the catalog to the agent as context.
-</PropertyReference>
-
 <PropertyReference name="generativeUI" type="GenerativeUIConfig">
-  Experimental. Native generative UI: pass `{ ui }`, where `ui` comes from
+  Native generative UI: pass `{ ui }`, where `ui` comes from
   `createGenerativeUI`. The agent renders your React components into chat or
-  into `<GenerativeUISurface id>` mounts.
+  into `<GenerativeUISurface id>` mounts. When you leave it out and the runtime
+  has generative UI on, the provider uses the standard catalog.
 </PropertyReference>
 
 <PropertyReference name="mcpApps" type="{ allowSameOriginFallback?: boolean }">
@@ -269,7 +262,7 @@ export function Providers({ children }: { children: ReactNode }) {
 
 ## Import Surfaces
 
-Use the main entry when your app renders CopilotKit's web UI components or A2UI surfaces:
+Use the main entry when your app renders CopilotKit's web UI components or generative UI surfaces:
 
 ```tsx
 import {
@@ -290,7 +283,7 @@ import {
 } from "@copilotkit/react-core/headless";
 ```
 
-The headless entry exports the provider context, chat configuration provider, `useAgent`, tool hooks, suggestions, threads, capabilities, and shared types. It does not export `CopilotKitProvider`, `CopilotChat`, `CopilotPopup`, `CopilotSidebar`, `useDefaultRenderTool`, or A2UI render helpers.
+The headless entry exports the provider context, chat configuration provider, `useAgent`, tool hooks, suggestions, threads, capabilities, and shared types. It does not export `CopilotKitProvider`, `CopilotChat`, `CopilotPopup`, `CopilotSidebar`, `useDefaultRenderTool`, or generative UI render helpers.
 
 ## Styling
 

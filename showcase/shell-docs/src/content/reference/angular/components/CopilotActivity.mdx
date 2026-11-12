@@ -50,7 +50,7 @@ For a given `activityType`, the first matching renderer wins in this order:
 2. a renderer for that type without an `agentId` (global)
 3. the `"*"` wildcard renderer
 
-Within a tier, the first registered renderer wins. Renderers from `provideCopilotKit` and runtime registrations come before the built-in renderers (A2UI, Open Generative UI, MCP Apps). So your renderer can override a built-in renderer for the same activity type.
+Within a tier, the first registered renderer wins. Renderers from `provideCopilotKit` and runtime registrations come before the built-in renderers (generative UI, Open Generative UI, MCP Apps). So your renderer can override a built-in renderer for the same activity type.
 
 If no renderer matches, nothing is rendered. If the renderer's content schema rejects the message content, nothing is rendered and a warning is logged.
 

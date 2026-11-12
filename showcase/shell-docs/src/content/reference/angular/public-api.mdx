@@ -4,14 +4,13 @@ description: "Supported entry points and API families for @copilotkit/angular."
 ---
 
 The supported entry points are `@copilotkit/angular`,
-`@copilotkit/angular/a2ui`, `@copilotkit/angular/generative-ui`, and
-`@copilotkit/angular/mcp-apps`. Three more subpaths add optional renderers to
+`@copilotkit/angular/generative-ui`, and `@copilotkit/angular/mcp-apps`. Three more subpaths add optional renderers to
 generative UI: `@copilotkit/angular/generative-ui/chart`,
 `@copilotkit/angular/generative-ui/map`, and
 `@copilotkit/angular/generative-ui/icons`.
 
 The published package includes `API.md`, an alphabetized, machine-validated
-list of every exported value and type. A test resolves the root, A2UI,
+list of every exported value and type. A test resolves the root,
 generative UI, and MCP Apps entry points and requires every export to appear
 exactly once in that inventory.
 
@@ -35,9 +34,9 @@ exactly once in that inventory.
 - **Interrupts:** `injectInterrupt`, `InterruptController`,
   `InterruptExpiredError`, and the event, view, runner, handler, and options
   types.
-- **Generative UI:** A2UI configuration, activity/tool/progress/recovery
-  components and lifecycle schemas; Open Generative UI configuration,
-  sandboxes, activity/tool renderers, content schemas, and constants.
+- **Open Generative UI:** configuration, sandboxes, activity/tool renderers,
+  content schemas, and constants. Generative UI (A2UI 1.0) is in
+  `@copilotkit/angular/generative-ui`.
 - **Attachments and transcription:** attachment types, queue and renderer
   components, attachment directive, audio recorder controls, transcription
   function, errors, and result/state types.
@@ -56,12 +55,6 @@ These exports are internal:
 
 They exist only for CopilotKit-maintained code. Applications must not depend on
 them.
-
-## A2UI API family
-
-The `@copilotkit/angular/a2ui` entry point exports `basicCatalog`,
-`createAngularCatalog`, `injectA2UIComponentContext`, and the catalog,
-component, and schema types for rendering A2UI with your own Angular components.
 
 ## Generative UI API family
 
