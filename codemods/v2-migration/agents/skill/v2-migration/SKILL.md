@@ -12,7 +12,7 @@ allowed-tools:
 codemod-compatibility: skill-package-v1
 codemod-skill-version: 0.1.0
 
-The codemod already did the mechanical part: `/v2` import paths now point at the package roots, `<CopilotKit>` is `<CopilotKitProvider>`, `agent=` is `agentId=`, LangGraph agents import from `@ag-ui/langgraph`, and `BuiltInAgent` model strings are TanStack AI adapters. Each `useCopilotReadable` call is now `useAgentContext`, each destructured `useCoAgent` and `useCopilotChat()` call is `useAgent` with the same values, `new TextMessage(...)` is a plain AG-UI message, a v1 App Router endpoint with an OpenAI, Anthropic, Google or empty service adapter is `createCopilotRuntimeHandler` with a `BuiltInAgent`, and each `useCopilotAction` call with a literal `Parameter[]` is now `useFrontendTool`, `useHumanInTheLoop` or `useRenderTool` with a Zod schema, and the `labels` of the v1 chat components use the 2.0 keys. Everything it could not do safely is marked with a `TODO(copilotkit-2.0):` comment next to the code.
+The codemod already did the mechanical part: `/v2` import paths now point at the package roots, `<CopilotKit>` is `<CopilotKitProvider>`, `agent=` is `agentId=`, LangGraph agents import from `@ag-ui/langgraph`, and `BuiltInAgent` model strings are TanStack AI adapters. Each `useCopilotReadable` call is now `useAgentContext`, each destructured `useCoAgent` and `useCopilotChat()` call is `useAgent` with the same values, `new TextMessage(...)` is a plain AG-UI message, a v1 App Router endpoint with an OpenAI, Anthropic, Google or empty service adapter is `createCopilotRuntimeHandler` with a `BuiltInAgent`, and each `useCopilotAction` call with a literal `Parameter[]` is now `useFrontendTool`, `useHumanInTheLoop` or `useRenderTool` with a Zod schema, and the `labels` of the v1 chat components use the 2.0 keys. A v0.9 A2UI catalog (`createCatalog`, `createAngularCatalog`) is now `createGenerativeUI` with plain prop types, the `a2ui` provider option is `generativeUI={{ ui }}` (`provideGenerativeUI` in Angular), and the runtime `a2ui` option is `generativeUI: { a2uiVersion: "0.9", ... }`. Everything it could not do safely is marked with a `TODO(copilotkit-2.0):` comment next to the code.
 
 ## Rules
 
@@ -20,6 +20,7 @@ The codemod already did the mechanical part: `/v2` import paths now point at the
 - **Read the docs link in the TODO** before you rewrite a call. The link points at the exact 2.0 API.
 - **Delete each TODO comment once its code is fixed.** A TODO left in the file means the work is not done.
 - **Markdown lost features by default.** The built-in renderer does no syntax highlighting, math, or mermaid diagrams. Before you delete a Streamdown prop, read the "Markdown rendering" section of `references/mappings.md`.
+- **A converted A2UI catalog still needs its components rewritten.** Each component under a renderer TODO still reads `props.x`, calls `children(id)` or calls `dispatch`. Rewrite it to take plain props, slots and events, as the "A2UI v0.9 to generative UI" section of `references/mappings.md` shows. Write a real `description` for each component: the agent reads it to choose components.
 - **Keep behavior the same.** If a v1 feature has no 2.0 equivalent, stop and ask the user before you drop it.
 
 ## Steps
@@ -28,7 +29,7 @@ The codemod already did the mechanical part: `/v2` import paths now point at the
 2. Fix each TODO with `references/mappings.md`, then delete the comment.
 3. Update `package.json`:
    - set every `@copilotkit/*` dependency to the same 2.x version;
-   - remove `@copilotkit/react-ui`, `@copilotkit/react-textarea`, and `@copilotkit/runtime-client-gql`;
+   - remove `@copilotkit/react-ui`, `@copilotkit/react-textarea`, `@copilotkit/runtime-client-gql`, and `@copilotkit/a2ui-renderer` (2.0 has no v0.9 client). Remove a `zod-v3` alias if the code no longer imports it;
    - use `zod` 4 (`^4.2.0`): add it if the code imports it and `package.json` does not list it (the codemod writes the tool schemas with Zod), and move an app on zod 3 to zod 4 (Zod's v3-to-v4 guide covers the API changes). Keep one zod major in the tree, with an override if a dependency pulls zod 3: `@ag-ui/client` has zod as a peer, so a second zod installs a second `AbstractAgent`;
    - add `@ag-ui/langgraph` if the code now imports from it;
    - set `@ag-ui/client`, `@ag-ui/core` and `@ag-ui/encoder` to the version the `@copilotkit/*` packages depend on (`npm ls @ag-ui/client` shows it). If an agent integration brings its own `@ag-ui/client`, force one version with `pnpm.overrides`, npm `overrides` or yarn `resolutions`: two copies of `AbstractAgent` make every agent fail to type-check ("missing the following properties: \_threadId, ...");
