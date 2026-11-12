@@ -11,7 +11,7 @@ dependencies = [
   "uvicorn>=0.34.3",
   "strands-agents[OpenAI,anthropic,gemini]==1.64.0",
   "strands-agents-tools==0.2.16",
-  "ag_ui_strands==1.0.3",
+  "ag_ui_strands==1.0.4",
   "openai==1.109.1",
   "python-dotenv>=1.0.0,<2.0.0",
   "pydantic>=2.0.0,<3.0.0",
