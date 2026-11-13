@@ -998,6 +998,7 @@
     "/react-native/shared-state/agent-readonly",
     "/react-native/shared-state/rendering-in-app",
     "/react-spa",
+    "/reference",
     "/reference/angular",
     "/reference/angular/components/CopilotActivity",
     "/reference/angular/components/CopilotChat",

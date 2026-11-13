@@ -23,9 +23,9 @@ import { frameworkHref } from "./routes";
  * trip: a single dot runs from a frontend into CopilotKit and out to an
  * agent, then the reply comes back, lighting the wire it's on, and
  * CopilotKit pulses softly as each passes through. Each column is a fisheye,
- * largest level with CopilotKit, and each mark opens its docs. The reader's
- * own stack is a solid white tile on a solid wire, and every other trip
- * takes its wires. All of
+ * largest level with CopilotKit, and each mark opens its docs. The middle
+ * row of each column is a solid white tile on a solid wire, whichever mark
+ * is in it, and every other trip takes those wires. All of
  * it stops off screen and for reduced motion; the carousels also pause on
  * hover.
  */
@@ -52,6 +52,8 @@ const rowScale = (k: number) => ROW_SCALE[k + 1];
 const rowOpacity = (k: number) => ROW_OPACITY[k + 1];
 /** The rows in view, top to bottom. */
 const ROWS = ROW_Y.slice(1, 1 + VISIBLE);
+/** The middle row, level with CopilotKit: the largest, and always white. */
+const CENTER = Math.floor(VISIBLE / 2);
 /** The columns scroll in turn, one row every TURN. */
 const TURN = 2100;
 /** Where the arrows sit, above and below the columns. */
@@ -192,7 +194,7 @@ function useTurns(
 }
 
 const ROW_EASE =
-  "transition-[translate,scale,opacity] duration-[640ms] ease-[cubic-bezier(0.16,1,0.3,1)] motion-reduce:transition-none";
+  "transition-[translate,scale,opacity,background-color,border-color] duration-[640ms] ease-[cubic-bezier(0.16,1,0.3,1)] motion-reduce:transition-none";
 
 function Tile({
   x,
@@ -255,7 +257,6 @@ function Column({
   x,
   pool,
   offset,
-  isPick,
   label,
   logo,
   href,
@@ -263,7 +264,6 @@ function Column({
   x: number;
   pool: string[];
   offset: number;
-  isPick: (id: string) => boolean;
   label: (id: string) => string;
   logo: (id: string) => ReactNode;
   href: (id: string) => string;
@@ -281,7 +281,7 @@ function Column({
         label={label(id)}
         href={href(id)}
         hidden={!shown}
-        selected={isPick(id)}
+        selected={k === CENTER}
         className={cn(
           ROW_EASE,
           "outline-none hover:border-white focus-visible:ring-2 focus-visible:ring-white",
@@ -481,21 +481,10 @@ export function StackDiagram() {
   const fe = frontendById(frontend)?.name ?? frontend;
   const fw = frameworkById(framework)?.name ?? framework;
 
-  const shown = (pool: string[], offset: number) =>
-    ROWS.map((_, i) => pool[mod(offset + i, pool.length)]);
-  const leftIds = shown(FRONTEND_POOL, leftOffset);
-  const rightIds = shown(AGENT_POOL, rightOffset);
-  const isFrontend = (id: string) => family(id) === family(frontend);
-  const isAgent = (id: string) =>
-    !!agentPick && family(id) === family(agentPick);
-
   const [pulse, setPulse] = useState(0);
   const { left, right, dot, lit } = useTraffic(
     live,
-    {
-      left: leftIds.findIndex(isFrontend),
-      right: rightIds.findIndex(isAgent),
-    },
+    { left: CENTER, right: CENTER },
     () => setPulse((n) => n + 1),
   );
 
@@ -515,7 +504,7 @@ export function StackDiagram() {
           <Wire
             key={`l${y}`}
             d={`M${LEFT_X + (TILE / 2) * rowScale(i)} ${y} C 128 ${y}, 128 ${MID}, 180 ${MID}`}
-            picked={isFrontend(leftIds[i])}
+            picked={i === CENTER}
             lit={lit?.side === "left" && lit.row === i}
             pathRef={(el) => {
               left.current[i] = el;
@@ -526,7 +515,7 @@ export function StackDiagram() {
           <Wire
             key={`r${y}`}
             d={`M260 ${MID} C 312 ${MID}, 312 ${y}, ${RIGHT_X - (TILE / 2) * rowScale(i)} ${y}`}
-            picked={isAgent(rightIds[i])}
+            picked={i === CENTER}
             lit={lit?.side === "right" && lit.row === i}
             pathRef={(el) => {
               right.current[i] = el;
@@ -548,7 +537,6 @@ export function StackDiagram() {
         x={LEFT_X}
         pool={FRONTEND_POOL}
         offset={leftOffset}
-        isPick={isFrontend}
         label={(id) => frontendById(id as FrontendId)?.name ?? id}
         logo={(id) => <FrontendLogo icon={id as FrontendId} size={22} />}
         href={(id) => frontendHref([], id as FrontendId, "")}
@@ -557,7 +545,6 @@ export function StackDiagram() {
         x={RIGHT_X}
         pool={AGENT_POOL}
         offset={rightOffset}
-        isPick={isAgent}
         label={(id) => frameworkById(id)?.name ?? id}
         logo={(id) => <FrameworkLogo slug={id} size={22} />}
         href={(id) => frameworkHref("d", id)}
