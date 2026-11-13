@@ -13,6 +13,9 @@ export {
   formatSkillCatalog,
   loadSkill,
   readSkillFile,
+  hasSkillScripts,
+  runSkillScript,
+  RUN_SKILL_SCRIPT_DESCRIPTION,
 } from "@copilotkit/runtime/internal/learned-skills";
 export type {
   SkillRegistryOptions,

@@ -1,12 +1,15 @@
 import { jsonSchema, tool } from "ai";
-import type { ToolSet } from "ai";
+import type { ModelMessage, ToolSet } from "ai";
 import type { SkillRegistry } from "../v2/runtime/intelligence-platform/skill-registry";
 import {
   formatSkillCatalog,
+  hasSkillScripts,
   loadSkill,
   readSkillFile,
+  runSkillScript,
 } from "../v2/runtime/intelligence-platform/skill-registry";
 import type { SkillRegistryOptions } from "../v2/runtime/intelligence-platform/skill-registry";
+import { RUN_SKILL_SCRIPT_DESCRIPTION } from "../v2/runtime/intelligence-platform/skill-registry";
 
 /** Opt in to learned skills from one or more Intelligence learning containers. */
 export type BuiltInAgentLearnedSkillsOptions = SkillRegistryOptions;
@@ -24,6 +27,7 @@ const empty: BuiltInAgentLearnedSkills = Object.freeze({
 const toolNames = [
   "copilotkit_load_skill",
   "copilotkit_read_skill_file",
+  "copilotkit_run_skill_script",
 ] as const;
 
 /** Do not allow client, host, or MCP tools to impersonate the delivery tools. */
@@ -33,6 +37,23 @@ export function assertNoSkillToolConflicts(tools: ToolSet): void {
       throw new Error(`Tool name is reserved for learned skills: ${name}`);
     }
   }
+}
+
+/** The latest result of a tool in the conversation. Throws when there is none. */
+function latestToolResult(
+  messages: readonly ModelMessage[],
+  toolName: string,
+): unknown {
+  for (const message of [...messages].reverse()) {
+    if (message.role !== "tool") continue;
+    for (const part of [...message.content].reverse()) {
+      if (part.type !== "tool-result" || part.toolName !== toolName) continue;
+      const output = part.output;
+      if (output.type === "json") return output.value;
+      if (output.type === "text") return output.value;
+    }
+  }
+  throw new Error(`No result of ${toolName} in this conversation.`);
 }
 
 /** Cancel this waiter, not the registry request shared by other agent clones. */
@@ -101,6 +122,51 @@ export async function prepareLearnedSkills(
         readSkillFile(snapshot, skill_name, path),
     }),
   };
+  if (hasSkillScripts(snapshot)) {
+    tools.copilotkit_run_skill_script = tool({
+      description: RUN_SKILL_SCRIPT_DESCRIPTION,
+      inputSchema: jsonSchema<{
+        skill_name: string;
+        script: string;
+        input?: unknown;
+        input_from_tool?: string;
+      }>({
+        type: "object",
+        properties: {
+          skill_name: {
+            type: "string",
+            description: "Exact skill name from the catalog.",
+          },
+          script: {
+            type: "string",
+            description: "Script name, as the skill's SKILL.md names it.",
+          },
+          input: {
+            description: "JSON input that the SKILL.md says the script reads.",
+          },
+          input_from_tool: {
+            type: "string",
+            description:
+              "Instead of input: the name of a tool whose latest result in this conversation is the input. Use it when the script reads a tool result as it is.",
+          },
+        },
+        required: ["skill_name", "script"],
+        additionalProperties: false,
+      }),
+      execute: async (
+        { skill_name, script, input, input_from_tool },
+        options,
+      ) =>
+        runSkillScript(
+          snapshot,
+          skill_name,
+          script,
+          input_from_tool === undefined
+            ? input
+            : latestToolResult(options.messages, input_from_tool),
+        ),
+    });
+  }
   return Object.freeze({
     catalog: formatSkillCatalog(snapshot),
     tools: Object.freeze(tools),

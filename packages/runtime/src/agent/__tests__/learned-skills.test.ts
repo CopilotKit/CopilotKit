@@ -10,6 +10,12 @@ import { LearnedSkillsError } from "../../v2/runtime/intelligence-platform/learn
 import type { LearnedSkillsSnapshotResult } from "../../v2/runtime/intelligence-platform/learned-skills";
 import fixtures from "../../../../intelligence-delivery-core/conformance/snapshots.v1.json";
 import { createDefaultInput, collectEvents } from "./agent-test-helpers";
+import {
+  assertNoSkillToolConflicts,
+  prepareLearnedSkills,
+} from "../learned-skills";
+import type { SkillRegistry } from "../../v2/runtime/intelligence-platform/skill-registry";
+import { scriptedSnapshot } from "../../v2/runtime/intelligence-platform/__tests__/scripted-snapshot";
 import { mockStreamTextResponse, finish } from "./test-helpers";
 
 vi.mock("ai", async (original) => ({
@@ -433,4 +439,84 @@ it("provides both container catalogs and executable tools to BuiltInAgent factor
     }),
   ).toContain("published refund policy");
   expect(fetch).toHaveBeenCalledTimes(2);
+});
+
+it("offers the script tool only when a skill delivers a script, and runs that script", async () => {
+  const registry = {
+    acquireSnapshot: async () => scriptedSnapshot(),
+  } as unknown as SkillRegistry;
+  const prepared = await prepareLearnedSkills(
+    registry,
+    new AbortController().signal,
+  );
+  expect(Object.keys(prepared.tools)).toEqual([
+    "copilotkit_load_skill",
+    "copilotkit_read_skill_file",
+    "copilotkit_run_skill_script",
+  ]);
+  expect(prepared.catalog).toContain("copilotkit_run_skill_script");
+  expect(prepared.tools.copilotkit_run_skill_script.description).toContain(
+    "Load the skill with copilotkit_load_skill first",
+  );
+  const result = await prepared.tools.copilotkit_run_skill_script.execute!(
+    {
+      skill_name: "pipeline-total",
+      script: "usd-total",
+      input: {
+        deals: [{ amount: 100, currency: "EUR" }],
+        rates: { EUR: 1.08 },
+      },
+    },
+    { toolCallId: "test", messages: [] },
+  );
+  expect(JSON.parse(result as string).output).toEqual({ totalUsd: 108 });
+});
+
+it("reserves the script tool name even when no skill delivers a script", () => {
+  expect(() =>
+    assertNoSkillToolConflicts({
+      copilotkit_run_skill_script: { description: "x" } as ToolSet[string],
+    }),
+  ).toThrow("copilotkit_run_skill_script");
+});
+
+it("runs a script on an earlier tool's result, so the model does not retype it", async () => {
+  const registry = {
+    acquireSnapshot: async () => scriptedSnapshot(),
+  } as unknown as SkillRegistry;
+  const prepared = await prepareLearnedSkills(
+    registry,
+    new AbortController().signal,
+  );
+  const deals = {
+    deals: [
+      { amount: 100, currency: "USD" },
+      { amount: 100, currency: "EUR" },
+    ],
+    rates: { USD: 1, EUR: 1.08 },
+  };
+  const result = await prepared.tools.copilotkit_run_skill_script.execute!(
+    {
+      skill_name: "pipeline-total",
+      script: "usd-total",
+      input_from_tool: "list_deals",
+    },
+    {
+      toolCallId: "test",
+      messages: [
+        {
+          role: "tool",
+          content: [
+            {
+              type: "tool-result",
+              toolCallId: "c1",
+              toolName: "list_deals",
+              output: { type: "json", value: deals },
+            },
+          ],
+        },
+      ],
+    },
+  );
+  expect(JSON.parse(result as string).output).toEqual({ totalUsd: 208 });
 });
