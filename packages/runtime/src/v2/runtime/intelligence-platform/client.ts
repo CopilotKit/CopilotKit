@@ -2526,6 +2526,7 @@ export class CopilotKitIntelligence {
     threadId: string;
     userId: string;
     agentId: string;
+    signal?: AbortSignal;
   }): Promise<ConnectThreadResponse> {
     const result = await this.#request<ThreadConnectionResponse>(
       "POST",
@@ -2534,6 +2535,8 @@ export class CopilotKitIntelligence {
         userId: params.userId,
         agentId: params.agentId,
       },
+      undefined,
+      params.signal,
     );
 
     // request() returns undefined for empty/204 responses
