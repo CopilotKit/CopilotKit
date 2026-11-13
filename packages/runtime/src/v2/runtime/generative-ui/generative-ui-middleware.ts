@@ -4,11 +4,12 @@ import type {
   BaseEvent,
   Message,
   RunAgentInput,
+  TextMessageContentEvent,
   ToolCallArgsEvent,
   ToolCallEndEvent,
   ToolCallStartEvent,
 } from "@ag-ui/client";
-import { Observable } from "rxjs";
+import { EMPTY, Observable, concat, defer, of } from "rxjs";
 import {
   GENERATIVE_UI_ACTIVITY_TYPE,
   GENERATIVE_UI_CONTEXT_DESCRIPTION,
@@ -33,7 +34,11 @@ import type {
   GenerativeUISurfaceContent,
 } from "@copilotkit/shared";
 
-type EventWithState = { event: BaseEvent; messages: Message[] };
+type EventWithState = {
+  event: BaseEvent;
+  messages: Message[];
+  state?: unknown;
+};
 type JsonPatchOperation = {
   op: "add" | "replace";
   path: string;
@@ -119,21 +124,262 @@ function prepareInput(input: RunAgentInput, manifest: GenerativeUIManifest) {
  * validated against the catalog in the envelope and committed immediately:
  * - `ACTIVITY_SNAPSHOT` for a new surface, `ACTIVITY_DELTA` for every further
  *   operation on it.
+ * - On runs the runtime sets up, when every operation of the turn's render_ui
+ *   calls is rejected, the agent runs again (at most
+ *   `MAX_REJECTED_RENDER_RETRIES` times) with the rejection reasons in the
+ *   tool results, inside the same run. Each extra turn gets its own `runId`,
+ *   with `parentRunId` set to the turn it retries; the client still sees one
+ *   run.
  * - One `ACTIVITY_SNAPSHOT` of type `generative-ui-function-call` for each
  *   `callRendererFunction`. The client runs the function.
  */
 export class GenerativeUIMiddleware extends Middleware {
+  private readonly maxRejectedRetries: number;
+  private retriesCancelled = false;
+
+  constructor(options: GenerativeUIMiddlewareOptions = {}) {
+    super();
+    const retries = options.maxRejectedRetries ?? 0;
+    if (!Number.isInteger(retries) || retries < 0) {
+      throw new RangeError(
+        `maxRejectedRetries must be a non-negative integer, got ${retries}`,
+      );
+    }
+    this.maxRejectedRetries = retries;
+  }
+
+  /**
+   * @internal Called when the run is stopped. Between a rejected turn and its
+   * retry no agent turn is live, so `abortRun()` alone would not stop the
+   * retry from starting.
+   */
+  cancelRetries(): void {
+    this.retriesCancelled = true;
+  }
+
   run(input: RunAgentInput, next: AbstractAgent): Observable<BaseEvent> {
     const manifest = readManifest(input.forwardedProps);
     if (!manifest) return this.runNext(input, next);
-    return processStream(
-      this.runNextWithState(
-        prepareInput(input, manifest),
-        next,
-      ) as Observable<EventWithState>,
-      manifest,
-    );
+    const maxRetries = this.maxRejectedRetries;
+    const outerRunId = input.runId;
+    const attempt = (
+      attemptInput: RunAgentInput,
+      retriesLeft: number,
+      droppedMessageIds: Set<string>,
+    ): Observable<BaseEvent> =>
+      defer(() => {
+        const outcome: StreamOutcome = {};
+        // The turn's history as it was sent: an agent may change the input's
+        // messages in place, and the retry adds the turn's writes to these.
+        // Only a turn that may retry reads it.
+        const inputMessages =
+          retriesLeft > 0
+            ? attemptInput.messages.map(snapshotOf)
+            : attemptInput.messages;
+        return concat(
+          processStream(
+            this.runNextWithState(
+              prepareInput(attemptInput, manifest),
+              next,
+            ) as Observable<EventWithState>,
+            manifest,
+            {
+              outcome,
+              canRetry: retriesLeft > 0,
+              // Retry turns report their RUN_FINISHED as the outer run.
+              outerRunId: retriesLeft < maxRetries ? outerRunId : undefined,
+              inputMessages,
+              droppedMessageIds,
+            },
+          ),
+          defer(() => {
+            const { retry } = outcome;
+            if (!retry) return EMPTY;
+            // Stopped before the retry started: end the run as it would have
+            // ended without the retry, with the rejected turn's RUN_FINISHED.
+            if (this.retriesCancelled) return of(retry.finish);
+            // A retry continues the turn: resume answers were consumed by it.
+            const { resume: _consumed, ...rest } = attemptInput;
+            return attempt(
+              {
+                ...rest,
+                runId: randomUUID(),
+                parentRunId: attemptInput.runId,
+                messages: retry.messages,
+                state:
+                  retry.state === undefined ? attemptInput.state : retry.state,
+              },
+              retriesLeft - 1,
+              droppedMessageIds,
+            );
+          }),
+        );
+      });
+    // Ids a MESSAGES_SNAPSHOT removed in a turn of this run, per subscription.
+    return defer(() => attempt(input, maxRetries, new Set<string>()));
   }
+}
+
+interface GenerativeUIMiddlewareOptions {
+  /**
+   * @internal Extra agent turns after a fully rejected render_ui call.
+   * Defaults to 0 (off): a retry is only safe where a stop reaches
+   * `cancelRetries()`, which `configureAgentForRequest` wires up. Not a
+   * supported setting.
+   */
+  maxRejectedRetries?: number;
+}
+
+/**
+ * How many extra agent turns the runtime allows one run when every operation
+ * of its render_ui calls was rejected. Repeated rejections still end the run.
+ */
+export const MAX_REJECTED_RENDER_RETRIES = 2;
+
+interface StreamOutcome {
+  /** Set when the agent must take another turn, with the rejections visible. */
+  retry?: {
+    messages: Message[];
+    /** The agent state at the end of the rejected turn. */
+    state: unknown;
+    /** The rejected turn's RUN_FINISHED, emitted if the retry is cancelled. */
+    finish: BaseEvent;
+  };
+}
+
+/** Messages in order, each id once: a later message with the same id replaces the earlier one in place. */
+function mergeMessages(...lists: Message[][]): Message[] {
+  const merged = new Map<string, Message>();
+  for (const list of lists) for (const m of list) merged.set(m.id, m);
+  return [...merged.values()];
+}
+
+/** What a turn streamed: the tool calls it started, and its text by message id. */
+interface TurnWrites {
+  toolCallIds: ReadonlySet<string>;
+  text: ReadonlyMap<string, string>;
+}
+
+/**
+ * The history of a retry turn. The tracked messages start from the agent's
+ * own list, which lacks earlier retry turns and still holds a message as it
+ * was before an earlier turn's MESSAGES_SNAPSHOT edited or removed it. So
+ * unless this turn sent a snapshot, which replaces the whole list, the
+ * history is the turn's input, then the turn's new messages, and what the
+ * turn wrote to a message already in the input is added to the input's
+ * version of it: a call's rejection result still follows its call, and an
+ * edit stays. A message a snapshot removed stays out, unless this turn wrote
+ * to it again: then it holds only what this turn wrote.
+ */
+function retryMessages(
+  inputMessages: Message[],
+  agentMessages: Message[],
+  resultMessages: Message[],
+  sawMessagesSnapshot: boolean,
+  writes: TurnWrites,
+  droppedMessageIds: ReadonlySet<string>,
+): Message[] {
+  if (sawMessagesSnapshot) return mergeMessages(agentMessages, resultMessages);
+  const tracked = new Map(agentMessages.map((m) => [m.id, m]));
+  const inputIds = new Set(inputMessages.map((m) => m.id));
+  const added = agentMessages
+    .filter((m) => !inputIds.has(m.id))
+    .flatMap((m) => {
+      if (!droppedMessageIds.has(m.id)) return [m];
+      // Only what this turn wrote: the snapshot removed the rest.
+      const bare = { id: m.id, role: m.role } as Message;
+      const written = turnWritesTo(bare, m, writes);
+      return written ? [{ ...bare, ...written } as Message] : [];
+    });
+  return mergeMessages(
+    inputMessages.map((m) => {
+      const written = turnWritesTo(m, tracked.get(m.id), writes);
+      return written ? ({ ...m, ...written } as Message) : m;
+    }),
+    added,
+    resultMessages,
+  );
+}
+
+type WithToolCalls = Message & { toolCalls?: Array<{ id: string }> };
+
+/**
+ * The fields the turn wrote to `message`, or undefined when it wrote none:
+ * its text appended as the client appends it, and the calls the turn started
+ * on the message's tracked copy.
+ */
+function turnWritesTo(
+  message: Message,
+  trackedCopy: Message | undefined,
+  writes: TurnWrites,
+): { content?: string; toolCalls?: Array<{ id: string }> } | undefined {
+  const own = (message as WithToolCalls).toolCalls ?? [];
+  const started = ((trackedCopy as WithToolCalls | undefined)?.toolCalls ?? [])
+    .filter((call) => writes.toolCallIds.has(call.id))
+    .filter((call) => !own.some((ownCall) => ownCall.id === call.id));
+  // As @ag-ui/client's reducer does (src/apply/default.ts): text replaces
+  // non-string content, and is never streamed into an activity message.
+  const text =
+    message.role === "activity" ? undefined : writes.text.get(message.id);
+  if (started.length === 0 && text === undefined) return undefined;
+  const content = (message as { content?: unknown }).content;
+  return {
+    ...(text !== undefined && {
+      content: `${typeof content === "string" ? content : ""}${text}`,
+    }),
+    ...(started.length > 0 && { toolCalls: [...own, ...started] }),
+  };
+}
+
+/**
+ * A copy of a message that edits made in place cannot reach, for the fields a
+ * retry reads (content and tool calls); everything else is shared.
+ */
+function snapshotOf(message: Message): Message {
+  const { content, toolCalls } = message as {
+    content?: unknown;
+    toolCalls?: Array<{ function?: object }>;
+  };
+  return {
+    ...message,
+    ...(Array.isArray(content) && {
+      content: content.map((part: object) => ({ ...part })),
+    }),
+    ...(toolCalls && {
+      toolCalls: toolCalls.map((c) => ({
+        ...c,
+        ...(c.function && { function: { ...c.function } }),
+      })),
+    }),
+  } as Message;
+}
+
+/**
+ * Records what a turn's MESSAGES_SNAPSHOT removed from the turn's input, and
+ * forgets an earlier drop the snapshot brings back: the latest snapshot is
+ * the authoritative list.
+ */
+function recordSnapshotDrops(
+  inputMessages: Message[],
+  agentMessages: Message[],
+  droppedMessageIds: Set<string>,
+) {
+  const kept = new Set(agentMessages.map((m) => m.id));
+  for (const id of kept) droppedMessageIds.delete(id);
+  for (const m of inputMessages)
+    if (!kept.has(m.id)) droppedMessageIds.add(m.id);
+}
+
+/** Every tool call the messages hold, in order. */
+function toolCallsOf(messages: Message[]) {
+  return messages.flatMap(
+    (m) => (m as { toolCalls?: Array<{ id: string }> }).toolCalls ?? [],
+  );
+}
+
+/** No operation applied and no function called: the call drew nothing. */
+function fullyRejected(state: RenderCallState) {
+  return state.applied === 0 && state.calls === 0;
 }
 
 /**
@@ -158,6 +404,15 @@ function beginSurfaceUpdate(
 function processStream(
   source: Observable<EventWithState>,
   manifest: GenerativeUIManifest,
+  options: {
+    outcome: StreamOutcome;
+    canRetry: boolean;
+    /** Set on a retry turn: the run id the client knows the run by. */
+    outerRunId?: string;
+    inputMessages: Message[];
+    /** Ids a snapshot removed; shared by every turn of the run. */
+    droppedMessageIds: Set<string>;
+  },
 ) {
   return new Observable<BaseEvent>((subscriber) => {
     const entries = Object.entries(manifest.surfaces);
@@ -181,6 +436,12 @@ function processStream(
     const functionCallIds = new Set<string>();
     const calls = new Map<string, RenderCallState>();
     let heldFinish: EventWithState | null = null;
+    let sawMessagesSnapshot = false;
+    // What this turn streamed, for the retry turn's history.
+    const writes = {
+      toolCallIds: new Set<string>(),
+      text: new Map<string, string>(),
+    };
 
     const emit = (event: BaseEvent) => subscriber.next(event);
     const patch = (surfaceId: string, ops: JsonPatchOperation[]) =>
@@ -436,11 +697,33 @@ function processStream(
       }
     };
 
-    const handleEvent = ({ event, messages }: EventWithState) => {
+    const handleEvent = ({
+      event: received,
+      messages,
+      state: agentState,
+    }: EventWithState) => {
       flushFinish();
-      if (event.type === EventType.RUN_FINISHED) {
-        heldFinish = { event, messages };
+      const { outerRunId } = options;
+      // A retry turn continues the same run: the client saw RUN_STARTED once,
+      // and the turn's RUN_FINISHED must name the run the client knows.
+      if (outerRunId !== undefined && received.type === EventType.RUN_STARTED)
         return;
+      const event =
+        outerRunId !== undefined && received.type === EventType.RUN_FINISHED
+          ? ({ ...received, runId: outerRunId } as BaseEvent)
+          : received;
+      if (event.type === EventType.RUN_FINISHED) {
+        heldFinish = { event, messages, state: agentState };
+        return;
+      }
+      if (event.type === EventType.MESSAGES_SNAPSHOT)
+        sawMessagesSnapshot = true;
+      if (event.type === EventType.TOOL_CALL_START)
+        writes.toolCallIds.add((event as ToolCallStartEvent).toolCallId);
+      // runNext expands chunks, so text arrives as TEXT_MESSAGE_CONTENT.
+      if (event.type === EventType.TEXT_MESSAGE_CONTENT) {
+        const { messageId, delta } = event as TextMessageContentEvent;
+        writes.text.set(messageId, (writes.text.get(messageId) ?? "") + delta);
       }
       emit(event);
       if (event.type === EventType.TOOL_CALL_START) {
@@ -483,35 +766,88 @@ function processStream(
             .filter((m) => m.role === "tool")
             .map((m) => (m as { toolCallId: string }).toolCallId),
         );
-        for (const [toolCallId, state] of calls) {
-          if (answered.has(toolCallId)) continue;
+        const resultMessages: Message[] = [];
+        const pending = [...calls].filter(([id]) => !answered.has(id));
+        for (const [toolCallId, state] of pending) {
           const nothingParsed =
-            state.applied === 0 &&
-            state.calls === 0 &&
-            state.rejected.length === 0;
+            fullyRejected(state) && state.rejected.length === 0;
           // `applied` counts the surface operations, `calls` the function calls.
+          const messageId = randomUUID();
+          const content = JSON.stringify(
+            nothingParsed
+              ? {
+                  status: "error",
+                  applied: 0,
+                  calls: 0,
+                  rejected: [],
+                  reason:
+                    "operations must be a JSON array of A2UI operation objects; nothing was rendered",
+                }
+              : {
+                  status: "rendered",
+                  applied: state.applied,
+                  calls: state.calls,
+                  rejected: state.rejected,
+                },
+          );
           emit({
             type: EventType.TOOL_CALL_RESULT,
-            messageId: randomUUID(),
+            messageId,
             toolCallId,
-            content: JSON.stringify(
-              nothingParsed
-                ? {
-                    status: "error",
-                    applied: 0,
-                    calls: 0,
-                    rejected: [],
-                    reason:
-                      "operations must be a JSON array of A2UI operation objects; nothing was rendered",
-                  }
-                : {
-                    status: "rendered",
-                    applied: state.applied,
-                    calls: state.calls,
-                    rejected: state.rejected,
-                  },
-            ),
+            content,
           });
+          resultMessages.push({
+            id: messageId,
+            role: "tool",
+            toolCallId,
+            content,
+          } as Message);
+        }
+        // Every render_ui call of the turn was fully rejected, and nothing
+        // else in the turn waits for an answer: give the agent another turn
+        // so it can act on the reasons, instead of ending with an empty reply.
+        const inputCallIds = new Set(
+          toolCallsOf(options.inputMessages).map((c) => c.id),
+        );
+        const turnCalls = toolCallsOf(heldFinish.messages).filter(
+          (c) => !inputCallIds.has(c.id),
+        );
+        const onlyRenderCalls =
+          turnCalls.length > 0 &&
+          turnCalls.every((c) => calls.has(c.id) || answered.has(c.id));
+        // An interrupt or a cancelled finish is not ours to override.
+        const finishOutcome = (
+          heldFinish.event as { outcome?: { type?: string } }
+        ).outcome;
+        const plainFinish = !finishOutcome || finishOutcome.type === "success";
+        if (
+          options.canRetry &&
+          plainFinish &&
+          pending.length > 0 &&
+          onlyRenderCalls &&
+          // Every render_ui call of the turn, answered or not: a retry starts
+          // from the run's manifest, so it must not follow a call that drew.
+          [...calls.values()].every(fullyRejected)
+        ) {
+          if (sawMessagesSnapshot)
+            recordSnapshotDrops(
+              options.inputMessages,
+              heldFinish.messages,
+              options.droppedMessageIds,
+            );
+          options.outcome.retry = {
+            messages: retryMessages(
+              options.inputMessages,
+              heldFinish.messages,
+              resultMessages,
+              sawMessagesSnapshot,
+              writes,
+              options.droppedMessageIds,
+            ),
+            state: heldFinish.state,
+            finish: heldFinish.event,
+          };
+          heldFinish = null;
         }
         flushFinish();
       }
