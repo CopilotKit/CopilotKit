@@ -4,7 +4,7 @@ import React, {
   useMemo,
   useSyncExternalStore,
 } from "react";
-import type { AssistantMessage, Message, ToolMessage } from "@ag-ui/core";
+import type { AssistantMessage, Message } from "@ag-ui/core";
 import { useRenderToolCall } from "../../hooks";
 import { useCopilotKit } from "../../context";
 import { useToolCallRendererNames } from "../../hooks/use-render-tool-call";
@@ -17,7 +17,7 @@ import {
 } from "./CopilotChatToolCallGroup";
 import type { CopilotChatToolCallGroupAppearance } from "./CopilotChatToolCallGroup";
 import { ToolCallDisplayContext } from "./tool-call-display-context";
-import { getToolCallLayouts } from "./tool-call-layout";
+import { getToolCallLayouts, getToolResults } from "./tool-call-layout";
 import type {
   CopilotChatToolCallDisplay,
   ToolCallEntry,
@@ -38,6 +38,24 @@ export type CopilotChatToolCallsViewProps = {
    */
   group?: SlotValue<typeof CopilotChatToolCallGroup>;
 };
+
+/**
+ * Messages that can carry the results of this message's calls: the rest of its
+ * turn, up to the next assistant message.
+ */
+function getTurnMessages(
+  messages: Message[],
+  message: AssistantMessage,
+): Message[] {
+  // Match by id: a transform may hand this view a copy of the message rather
+  // than the object held in `messages`.
+  const start = messages.findIndex((candidate) => candidate.id === message.id);
+  if (start < 0) return messages;
+  const end = messages.findIndex(
+    (candidate, index) => index > start && candidate.role === "assistant",
+  );
+  return messages.slice(start + 1, end < 0 ? undefined : end);
+}
 
 const appearances: Partial<
   Record<CopilotChatToolCallDisplay, CopilotChatToolCallGroupAppearance>
@@ -106,12 +124,14 @@ export function CopilotChatToolCallsView({
   };
 
   if (!layout) {
+    // Replayed history can hold both the transport placeholder and the saved
+    // result for a call, and a later turn may reuse a call id. Index only this
+    // message's turn so the answer wins without borrowing another turn's result.
+    const results = getToolResults(getTurnMessages(messages, message));
     return (
       <>
         {message.toolCalls.map((toolCall) => {
-          const toolMessage = messages.find(
-            (m) => m.role === "tool" && m.toolCallId === toolCall.id,
-          ) as ToolMessage | undefined;
+          const toolMessage = results.get(toolCall.id);
           return (
             <React.Fragment key={toolCall.id}>
               {renderCall({ toolCall, toolMessage })}
