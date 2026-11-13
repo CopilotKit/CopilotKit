@@ -420,6 +420,8 @@ export interface ChannelsIntelligenceModule {
         runId: string;
         userId: string;
         user?: CopilotRuntimeUser | null;
+        /** The delivery's resolved Channel Memory, when the Channel has it. */
+        memory?: ResolvedChannelMemory;
         agentId: string;
         tools: readonly {
           name: string;
