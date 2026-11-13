@@ -151,13 +151,14 @@ function setup() {
   const connect = (
     options: {
       list?: boolean;
+      inspect?: boolean;
       mutations?: boolean;
       wsUrl?: string;
     } = {},
   ): void => {
     stub.setThreadEndpoints({
       list: options.list ?? true,
-      inspect: true,
+      inspect: options.inspect ?? true,
       mutations: options.mutations ?? true,
       realtimeMetadata: false,
     });
@@ -659,8 +660,8 @@ describe("injectThreads", () => {
 
     const fixture = TestBed.createComponent(Host);
     fixture.detectChanges();
-    // Connect with list=false so the endpoints dev error fires.
-    active!.connect({ list: false });
+    // Connect to a runtime without thread endpoints so the dev error fires.
+    active!.connect({ list: false, inspect: false });
     fixture.detectChanges();
 
     const result = fixture.componentInstance.threads;

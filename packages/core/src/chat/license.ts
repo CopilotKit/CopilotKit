@@ -1,6 +1,8 @@
 import { createLicenseContextValue } from "@copilotkit/shared";
 import { ɵformatLabel } from "./labels";
 import type { CopilotChatLabels } from "./labels";
+import { CopilotKitCoreRuntimeConnectionStatus } from "../core/core";
+import type { ɵRuntimeInfo } from "../core/runtime-info";
 import type {
   LicenseContextValue,
   RuntimeEntitlementResponse,
@@ -114,6 +116,15 @@ function resolveLicenseBannerType(
 }
 
 /**
+ * The runtime info fields {@link ɵresolveThreadsLicense} reads. Pass core's
+ * `ɵruntimeInfo` snapshot.
+ */
+export type ɵThreadsLicenseRuntime = Pick<
+  ɵRuntimeInfo,
+  "status" | "licenseStatus" | "runtimeEntitlements"
+>;
+
+/**
  * Resolves whether the threads drawer can load its thread list.
  *
  * - `licensed` is `true` when the status is `unknown` (an entitlement lookup
@@ -121,23 +132,41 @@ function resolveLicenseBannerType(
  *   status is `valid` or `expiring` and `checkFeature("threads")` is `true`.
  * - `licensePending` is `true` while the status is `null` (the runtime has
  *   not reported yet). Show the loading state then, not the locked view.
+ * - A connected runtime that reports no license status and no entitlements
+ *   (a runtime without Intelligence) never will, so its `null` status is
+ *   not pending: it counts as `unknown` and the threads endpoint decides.
  *
  * @param context - The license context from {@link ɵresolveLicenseState}.
+ * @param runtime - Core's runtime info snapshot (`core.ɵruntimeInfo`), or
+ *   `undefined` when there is no core.
  *
  * @example
  * ```ts
- * const { licensed, licensePending } = ɵresolveThreadsLicense(context);
+ * const { licensed, licensePending } = ɵresolveThreadsLicense(
+ *   context,
+ *   core.ɵruntimeInfo,
+ * );
  * ```
  */
-export function ɵresolveThreadsLicense(context: LicenseContextValue) {
+export function ɵresolveThreadsLicense(
+  context: LicenseContextValue,
+  runtime: ɵThreadsLicenseRuntime | undefined,
+) {
   const { status } = context;
   const isLicensePresent = status === "valid" || status === "expiring";
-  const isUnresolved = status === "unknown";
+  // Read from the same runtime snapshot, so a license status that the
+  // context has not caught up with yet still counts as reported.
+  const hasNoLicenseAuthority =
+    runtime?.status === CopilotKitCoreRuntimeConnectionStatus.Connected &&
+    runtime.licenseStatus === undefined &&
+    runtime.runtimeEntitlements === undefined;
+  const isUnresolved =
+    status === "unknown" || (status === null && hasNoLicenseAuthority);
 
   return {
     licensed:
       isUnresolved || (isLicensePresent && context.checkFeature("threads")),
-    licensePending: status === null,
+    licensePending: status === null && !hasNoLicenseAuthority,
   };
 }
 

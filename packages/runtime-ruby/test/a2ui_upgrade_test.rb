@@ -79,6 +79,38 @@ class A2UIUpgradeTest < Minitest::Test
     { 'type' => kind, 'messageId' => message_id, 'activityType' => 'a2ui-surface', 'content' => { 'a2ui_operations' => operations }, 'replace' => true }
   end
 
+  def progressive_render(components, data = {})
+    [
+      { 'version' => 'v0.9', 'createSurface' => { 'surfaceId' => 's', 'catalogId' => BASIC } },
+      { 'version' => 'v0.9', 'updateComponents' => { 'surfaceId' => 's', 'components' => components } },
+      { 'version' => 'v0.9', 'updateDataModel' => { 'surfaceId' => 's', 'path' => '/', 'value' => data } }
+    ]
+  end
+
+  def test_upgrader_appends_components_that_a_progressive_render_rewrites
+    upgrader = UP::ActivityUpgrader.new
+    draft = [{ 'id' => 'root', 'component' => 'Text', 'text' => 'Loading' }]
+    final = [{ 'id' => 'root', 'component' => 'Column', 'children' => ['title'] },
+             { 'id' => 'title', 'component' => 'Text', 'text' => 'Q2' }]
+    sent = upgrader.transform(activity('m', progressive_render(draft)))[0].dig('content', 'operations')
+    ops = upgrader.transform(activity('m', progressive_render(final)))[0].dig('content', 'operations')
+    # The operation at the last applied index is unchanged, so the client applies only
+    # what comes after it: the final components, then the same data.
+    assert_equal sent, ops[0, 3]
+    assert_equal 5, ops.length
+    assert_equal 'Column', ops[3].dig('updateComponents', 'components', 0, 'component')
+    assert ops[4].key?('updateDataModel')
+  end
+
+  def test_upgrader_sends_new_operations_as_they_are_when_the_client_rebuilds
+    upgrader = UP::ActivityUpgrader.new
+    components = [{ 'id' => 'root', 'component' => 'Text', 'text' => 'Q2' }]
+    upgrader.transform(activity('m', progressive_render(components, { 'name' => 'A' })))
+    ops = upgrader.transform(activity('m', progressive_render(components, { 'name' => 'Ada' })))[0].dig('content', 'operations')
+    assert_equal 3, ops.length
+    assert_equal({ 'name' => 'Ada' }, ops[2].dig('updateDataModel', 'value'))
+  end
+
   def test_upgrader_shows_a_failed_lifecycle_snapshot_as_an_error_surface_once
     upgrader = UP::ActivityUpgrader.new
     lifecycle = ->(message_id, content) { upgrader.transform(activity(message_id, []).merge('content' => content)) }

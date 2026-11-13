@@ -462,11 +462,49 @@ class _SourcePart:
     rejected: list[Json] = field(default_factory=list)
 
 
+def _client_operations(
+    last_source: list[Json] | None, sent: list[Json] | None, source: list[Json]
+) -> list[Json]:
+    """The operations of the next snapshot of a surface, so that the client applies every
+    change of the source.
+
+    The client applies only the operations after the ones it applied, when the operation
+    at its last applied index did not change. A source that changes an earlier operation
+    but not that one (a progressive render that rewrites its components, then sends the
+    same data again) would lose the change. In that case the changed operations of the
+    source are appended to the sent ones: v0.9 updates replace by id or path, so sending
+    them again is safe, and a second createSurface is left out. In every other case the
+    source operations go as they are: the client either extends its surface with them or
+    builds it again from them.
+    """
+    if last_source is None or sent is None:
+        return source
+    same = 0
+    while (
+        same < len(last_source)
+        and same < len(source)
+        and compact_json(last_source[same]) == compact_json(source[same])
+    ):
+        same += 1
+    appended = source[same:]
+    if same == len(last_source):
+        return [*sent, *appended]
+    # The client builds the surface again when the list is shorter than the one it
+    # applied, or when the operation at its last applied index changed.
+    last = len(sent) - 1
+    if len(source) < len(sent) or compact_json(source[last]) != compact_json(sent[last]):
+        return source
+    return [*sent, *(op for op in appended if "createSurface" not in op)]
+
+
 @dataclass
 class _SurfaceState:
     # The part of each source message, in the order they first touched the surface.
     parts: dict[Any, _SourcePart] = field(default_factory=dict)
     last_snapshot: str | None = None
+    # The converted source operations, and the operations sent, at the last snapshot.
+    snapshot_source: list[Json] | None = None
+    snapshot_operations: list[Json] | None = None
     # Operations sent as deltas, for a surface created in an earlier run.
     sent_operations: list[Json] = field(default_factory=list)
     sent_rejected: str = "[]"
@@ -523,10 +561,11 @@ class A2UIV09ActivityUpgrader:
         self,
         surface_id: str,
         state: _SurfaceState,
-        operations: list[Json],
+        source: list[Json],
         rejected: list[Json],
         version: str,
     ) -> list[Json]:
+        operations = _client_operations(state.snapshot_source, state.snapshot_operations, source)
         create = next((op for op in operations if "createSurface" in op), None)
         catalog_id = (
             create["createSurface"].get("catalogId")
@@ -547,6 +586,8 @@ class A2UIV09ActivityUpgrader:
         if serialized == state.last_snapshot:
             return []
         state.last_snapshot = serialized
+        state.snapshot_source = source
+        state.snapshot_operations = operations
         return [
             {
                 "type": "ACTIVITY_SNAPSHOT",

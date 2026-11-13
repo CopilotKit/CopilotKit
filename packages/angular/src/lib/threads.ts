@@ -80,7 +80,8 @@ export interface InjectThreadsResult {
    * List/mutation errors only — excludes developer/config errors (missing
    * runtime URL, runtime without thread endpoints) so consumer UIs do not
    * surface dev strings to end users. Prefer this over `error` for
-   * user-facing error display.
+   * user-facing error display. Also reports a runtime that refuses to list
+   * threads for a caller without identity (no `identifyUser`).
    */
   listError: Signal<Error | null>;
   /**

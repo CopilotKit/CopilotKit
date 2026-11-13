@@ -1069,6 +1069,9 @@ internal sealed class A2UIV09ActivityUpgrader
         // The part of each source message, in the order they first touched the surface.
         internal List<KeyValuePair<string, SourcePart>> Parts { get; } = [];
         internal string? LastSnapshot { get; set; }
+        // The converted source operations, and the operations sent, at the last snapshot.
+        internal List<JsonObject>? SnapshotSource { get; set; }
+        internal List<JsonObject>? SnapshotOperations { get; set; }
         // Operations sent as deltas, for a surface created in an earlier run.
         internal List<string> SentOperations { get; set; } = [];
         internal string SentRejected { get; set; } = "[]";
@@ -1105,8 +1108,34 @@ internal sealed class A2UIV09ActivityUpgrader
         return [new JsonObject { ["type"] = "ACTIVITY_SNAPSHOT", ["messageId"] = GenerativeUI.SurfaceMessageId(surfaceId), ["activityType"] = GenerativeUI.ActivityType, ["content"] = content, ["replace"] = true }];
     }
 
-    private static List<JsonObject> Snapshot(string surfaceId, SurfaceState state, List<JsonObject> operations, JsonArray rejected, string version)
+    /// <summary>
+    /// The operations of the next snapshot of a surface, so that the client applies every change of the source.
+    /// </summary>
+    /// <remarks>
+    /// The client applies only the operations after the ones it applied, when the operation at its last applied
+    /// index did not change. A source that changes an earlier operation but not that one (a progressive render that
+    /// rewrites its components, then sends the same data again) would lose the change. In that case the changed
+    /// operations of the source are appended to the sent ones: v0.9 updates replace by id or path, so sending them
+    /// again is safe, and a second createSurface is left out. In every other case the source operations go as they
+    /// are: the client either extends its surface with them or builds it again from them.
+    /// </remarks>
+    private static List<JsonObject> ClientOperations(List<JsonObject>? lastSource, List<JsonObject>? sent, List<JsonObject> source)
     {
+        if (lastSource is null || sent is null) return source;
+        var same = 0;
+        while (same < lastSource.Count && same < source.Count && JsonText.Compact(lastSource[same]) == JsonText.Compact(source[same])) same++;
+        var appended = source.Skip(same).ToList();
+        if (same == lastSource.Count) return [.. sent, .. appended];
+        // The client builds the surface again when the list is shorter than the one it applied, or when the
+        // operation at its last applied index changed.
+        var last = sent.Count - 1;
+        if (source.Count < sent.Count || JsonText.Compact(source[last]) != JsonText.Compact(sent[last])) return source;
+        return [.. sent, .. appended.Where(op => !op.ContainsKey("createSurface"))];
+    }
+
+    private static List<JsonObject> Snapshot(string surfaceId, SurfaceState state, List<JsonObject> source, JsonArray rejected, string version)
+    {
+        var operations = ClientOperations(state.SnapshotSource, state.SnapshotOperations, source);
         var create = operations.FirstOrDefault(op => op.ContainsKey("createSurface"));
         var catalogId = create?["createSurface"] is JsonObject payload && JsonText.Truthy(payload["catalogId"]) ? payload["catalogId"]!.DeepClone() : JsonValue.Create(GenerativeUI.StandardCatalogId);
         var content = new JsonObject
@@ -1122,6 +1151,8 @@ internal sealed class A2UIV09ActivityUpgrader
         var serialized = JsonText.Compact(content);
         if (serialized == state.LastSnapshot) return [];
         state.LastSnapshot = serialized;
+        state.SnapshotSource = source;
+        state.SnapshotOperations = operations;
         return [new JsonObject { ["type"] = "ACTIVITY_SNAPSHOT", ["messageId"] = GenerativeUI.SurfaceMessageId(surfaceId), ["activityType"] = GenerativeUI.ActivityType, ["content"] = content, ["replace"] = true }];
     }
 

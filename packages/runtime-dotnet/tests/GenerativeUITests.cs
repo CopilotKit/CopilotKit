@@ -206,6 +206,25 @@ internal static class GenerativeUITests
         Check(JsonText.Compact(generic["content"]!["rejected"]) == """[{"index":0,"reason":"A2UI generation failed"}]""", "a failed snapshot with no error gets a generic reason");
     }
 
+    private static JsonArray ProgressiveRender(string components, string data) => JsonNode.Parse($$$"""[{"version":"v0.9","createSurface":{"surfaceId":"s","catalogId":"https://a2ui.org/specification/v0_9/basic_catalog.json"}},{"version":"v0.9","updateComponents":{"surfaceId":"s","components":{{{components}}}}},{"version":"v0.9","updateDataModel":{"surfaceId":"s","path":"/","value":{{{data}}}}}]""")!.AsArray();
+
+    private static void ProgressiveRewrite()
+    {
+        var upgrader = new A2UIV09ActivityUpgrader();
+        const string draft = """[{"id":"root","component":"Text","text":"Loading"}]""";
+        const string final = """[{"id":"root","component":"Column","children":["title"]},{"id":"title","component":"Text","text":"Q2"}]""";
+        var sent = upgrader.Transform(Activity("m", ProgressiveRender(draft, "{}"))).Single()["content"]!["operations"]!.AsArray();
+        var ops = upgrader.Transform(Activity("m", ProgressiveRender(final, "{}"))).Single()["content"]!["operations"]!.AsArray();
+        // The operation at the last applied index is unchanged, so the client applies only what comes after it.
+        Check(ops.Count == 5 && JsonText.Compact(new JsonArray(ops.Take(3).Select(op => op!.DeepClone()).ToArray())) == JsonText.Compact(sent)
+            && ops[3]!["updateComponents"]!["components"]![0]!["component"]!.GetValue<string>() == "Column" && ops[4]!["updateDataModel"] is not null,
+            "the components that a progressive render rewrites are appended");
+        var rebuild = new A2UIV09ActivityUpgrader();
+        rebuild.Transform(Activity("m", ProgressiveRender(final, """{"name":"A"}""")));
+        var next = rebuild.Transform(Activity("m", ProgressiveRender(final, """{"name":"Ada"}"""))).Single()["content"]!["operations"]!.AsArray();
+        Check(next.Count == 3 && next[2]!["updateDataModel"]!["value"]!["name"]!.GetValue<string>() == "Ada", "new operations go as they are when the client builds the surface again");
+    }
+
     private static void Upgrader()
     {
         var plan = JsonNode.Parse(PlanV09)!.AsArray();
@@ -213,6 +232,7 @@ internal static class GenerativeUITests
         var building = Activity("m", new JsonArray()); building["content"] = new JsonObject { ["status"] = "building" };
         Check(upgrader.Transform(building).Count == 0, "a lifecycle snapshot names no surface and is consumed");
         FailedLifecycle();
+        ProgressiveRewrite();
         var first = upgrader.Transform(Activity("m", new JsonArray(plan[0]!.DeepClone(), plan[1]!.DeepClone()))).Single();
         Check(first["messageId"]!.GetValue<string>() == "genui:plans" && first["content"]!["status"]!.GetValue<string>() == "ready" && first["content"]!["a2uiSourceVersion"]!.GetValue<string>() == "0.9"
             && first["content"]!["target"]!.GetValue<string>() == "chat" && first["content"]!["catalogId"]!.GetValue<string>() == Standard, "a v0.9 surface becomes one ready 1.0 chat surface");

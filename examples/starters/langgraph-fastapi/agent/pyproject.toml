@@ -5,12 +5,13 @@ description = ""
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
-  # 2.0 runtime: 0.1.96 works here. LangGraphAGUIAgent copies the run's tools
-  # and context from state["ag-ui"] to state["copilotkit"], where
-  # CopilotKitMiddleware reads them, so the model sees the render_ui guide.
-  # (Under langgraph-cli, as in langgraph-python, nothing copies them, so that
-  # starter needs the release after 0.1.96 — sdk-python f49db3c876.)
-  "copilotkit==0.1.96",
+  # 2.0 runtime: LangGraphAGUIAgent copies the run's tools and context from
+  # state["ag-ui"] to state["copilotkit"], where CopilotKitMiddleware reads
+  # them, so the model sees the render_ui guide. (Under langgraph-cli, as in
+  # langgraph-python, nothing copies them, so that starter needs 0.1.97 or
+  # later — sdk-python f49db3c876.) Kept in step with langgraph-python, and
+  # with this starter's Dockerfile pin.
+  "copilotkit==0.1.97",
   "langchain==1.4.0",
   "langchain-openai==1.1.9",
   "langchain-anthropic==1.4.1",

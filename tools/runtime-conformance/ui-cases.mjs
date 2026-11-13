@@ -623,6 +623,90 @@ const a2uiCases = [
     },
   },
   {
+    id: "a2ui.progressive-rewrite-reaches-the-client",
+    configuration: { generativeUI: { a2uiVersion: "0.9" } },
+    async run(context) {
+      // A progressive render (the ADK express stream) sends a draft, then the
+      // same operations with the final components and the same data.
+      const draft = [{ id: "root", component: "Text", text: "Loading" }];
+      const final = [
+        { id: "root", component: "Column", children: ["title"] },
+        { id: "title", component: "Text", text: "Q2 revenue" },
+      ];
+      const snapshot = (components) => ({
+        type: "ACTIVITY_SNAPSHOT",
+        messageId: "a2ui-surface-render-call",
+        activityType: V09_SURFACE_ACTIVITY,
+        replace: true,
+        content: {
+          a2ui_operations: [
+            {
+              version: "v0.9",
+              createSurface: {
+                surfaceId: "report",
+                catalogId:
+                  "https://a2ui.org/specification/v0_9/basic_catalog.json",
+              },
+            },
+            {
+              version: "v0.9",
+              updateComponents: { surfaceId: "report", components },
+            },
+            {
+              version: "v0.9",
+              updateDataModel: { surfaceId: "report", path: "/", value: {} },
+            },
+          ],
+        },
+      });
+      context.platform.faults.agentEvents = (request) => [
+        {
+          type: "RUN_STARTED",
+          threadId: request.threadId,
+          runId: request.runId,
+        },
+        snapshot(draft),
+        snapshot(final),
+        {
+          type: "RUN_FINISHED",
+          threadId: request.threadId,
+          runId: request.runId,
+        },
+      ];
+      const events = await runAndWait(context);
+      assertNoV09Activity(events);
+      // The browser keeps what it applied when the operation at its last
+      // applied index is unchanged, and applies only the operations after
+      // it. Otherwise it builds the surface again from the new list.
+      let applied = [];
+      const nodes = new Map();
+      for (const event of surfaceSnapshots(events)) {
+        const { operations } = event.content;
+        const last = applied.length - 1;
+        const extendsApplied =
+          operations.length >= applied.length &&
+          (last < 0 ||
+            JSON.stringify(operations[last]) === JSON.stringify(applied[last]));
+        if (!extendsApplied) {
+          applied = [];
+          nodes.clear();
+        }
+        for (const operation of operations.slice(applied.length)) {
+          for (const node of operation.updateComponents?.components ?? []) {
+            nodes.set(node.id, node);
+          }
+        }
+        applied = operations;
+      }
+      assert.equal(
+        nodes.get("root")?.component,
+        "Column",
+        "The browser must show the final components of a progressive render",
+      );
+      assert.equal(nodes.get("title")?.text, "Q2 revenue");
+    },
+  },
+  {
     id: "a2ui.custom-tool-included-agent",
     configuration: {
       generativeUI: {

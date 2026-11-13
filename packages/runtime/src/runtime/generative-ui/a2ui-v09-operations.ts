@@ -619,11 +619,62 @@ interface SourcePart {
   rejected: GenerativeUIRejectedOperation[];
 }
 
+/**
+ * The operations of the next snapshot of a surface, so that the client
+ * applies every change of the source.
+ *
+ * The client applies only the operations after the ones it applied, when the
+ * operation at its last applied index did not change. A source that changes
+ * an earlier operation but not that one (a progressive render that rewrites
+ * its components, then sends the same data again) would lose the change. In
+ * that case the changed operations of the source are appended to the sent
+ * ones: v0.9 updates replace by id or path, so sending them again is safe,
+ * and a second createSurface is left out. In every other case the source
+ * operations go as they are: the client either extends its surface with them
+ * or builds it again from them.
+ *
+ * @param lastSource - The source operations of the last snapshot (none
+ *   before the first one).
+ * @param sent - The operations of the last snapshot.
+ * @param source - The source operations now.
+ * @returns The operations of the next snapshot.
+ */
+function clientOperations(
+  lastSource: A2UIOperation[],
+  sent: A2UIOperation[],
+  source: A2UIOperation[],
+): A2UIOperation[] {
+  let same = 0;
+  while (
+    same < lastSource.length &&
+    same < source.length &&
+    JSON.stringify(lastSource[same]) === JSON.stringify(source[same])
+  ) {
+    same++;
+  }
+  const appended = source.slice(same);
+  if (same === lastSource.length) return [...sent, ...appended];
+  // The client builds the surface again when the list is shorter than the
+  // one it applied, or when the operation at its last applied index changed.
+  const last = sent.length - 1;
+  if (
+    source.length < sent.length ||
+    JSON.stringify(source[last]) !== JSON.stringify(sent[last])
+  ) {
+    return source;
+  }
+  return [...sent, ...appended.filter((op) => !("createSurface" in op))];
+}
+
 interface SurfaceState {
   /** The part of each source message, in the order they first touched it. */
   parts: Map<string, SourcePart>;
   /** JSON of the last snapshot content. */
   lastSnapshot?: string;
+  /** The converted operations of the source, at the last snapshot. */
+  snapshotSource: A2UIOperation[];
+  /** The operations of the last snapshot, as the client applied them. */
+  snapshotOperations: A2UIOperation[];
   /** Operations sent as deltas, for a surface created in an earlier run. */
   sentOperations: A2UIOperation[];
   /** JSON of the last `rejected` sent as a delta. */
@@ -702,10 +753,15 @@ export function createA2UIV09ActivityUpgrader(): {
   const snapshotOf = (
     surfaceId: string,
     state: SurfaceState,
-    operations: A2UIOperation[],
+    source: A2UIOperation[],
     rejected: GenerativeUIRejectedOperation[],
     version: SourceVersion,
   ): BaseEvent[] => {
+    const operations = clientOperations(
+      state.snapshotSource,
+      state.snapshotOperations,
+      source,
+    );
     const create = operations.find((op) => "createSurface" in op);
     const catalogId =
       (create && "createSurface" in create && create.createSurface.catalogId) ||
@@ -722,6 +778,8 @@ export function createA2UIV09ActivityUpgrader(): {
     const json = JSON.stringify(content);
     if (json === state.lastSnapshot) return [];
     state.lastSnapshot = json;
+    state.snapshotSource = source;
+    state.snapshotOperations = operations;
     const event: ActivitySnapshotEvent = {
       type: EventType.ACTIVITY_SNAPSHOT,
       messageId: generativeUISurfaceMessageId(surfaceId),
@@ -831,7 +889,13 @@ export function createA2UIV09ActivityUpgrader(): {
     for (const [surfaceId, part] of parts) {
       let state = surfaces.get(surfaceId);
       if (!state) {
-        state = { parts: new Map(), sentOperations: [], sentRejected: "[]" };
+        state = {
+          parts: new Map(),
+          snapshotSource: [],
+          snapshotOperations: [],
+          sentOperations: [],
+          sentRejected: "[]",
+        };
         surfaces.set(surfaceId, state);
       }
       state.parts.set(messageId, part);
