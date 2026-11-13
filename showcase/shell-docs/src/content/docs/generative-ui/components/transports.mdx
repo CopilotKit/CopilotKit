@@ -94,7 +94,7 @@ The runtime option `generativeUI` controls when the tool is added:
 ```ts title="app/api/copilotkit/[[...slug]]/route.ts"
 import {
   CopilotRuntime,
-  createCopilotRuntimeHandler,
+  createCopilotKitRuntimeHandler,
 } from "@copilotkit/runtime";
 import { BuiltInAgent } from "@copilotkit/runtime/agent";
 import { openaiText } from "@tanstack/ai-openai";
@@ -104,7 +104,7 @@ const runtime = new CopilotRuntime({
   generativeUI: true,
 });
 
-const handler = createCopilotRuntimeHandler({ runtime, basePath: "/api/copilotkit" });
+const handler = createCopilotKitRuntimeHandler({ runtime, basePath: "/api/copilotkit" });
 
 export const GET = handler;
 export const POST = handler;

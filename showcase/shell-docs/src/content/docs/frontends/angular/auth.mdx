@@ -94,12 +94,12 @@ unauthorized sessions before CopilotKit discovers or runs an agent:
 ```ts title="server.ts"
 import { createServer } from "node:http";
 import { CopilotRuntime } from "@copilotkit/runtime";
-import { createCopilotNodeListener } from "@copilotkit/runtime/node";
+import { createCopilotKitNodeListener } from "@copilotkit/runtime/node";
 import { verifySession } from "./auth";
 
 const runtime = new CopilotRuntime({ agents: {} }); // Supply your agents.
 
-const listener = createCopilotNodeListener({
+const listener = createCopilotKitNodeListener({
   runtime,
   basePath: "/api/copilotkit",
   cors: true,

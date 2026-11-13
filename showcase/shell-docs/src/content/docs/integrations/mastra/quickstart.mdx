@@ -262,7 +262,7 @@ Before you begin, you'll need the following:
                 import {
                   CopilotKitIntelligence,
                   CopilotRuntime,
-                  createCopilotRuntimeHandler,
+                  createCopilotKitRuntimeHandler,
                 } from "@copilotkit/runtime";
                 import { MastraAgent } from "@ag-ui/mastra";
                 import { MastraClient } from "@mastra/client-js";
@@ -291,7 +291,7 @@ Before you begin, you'll need the following:
                   }),
                 });
 
-                const handler = createCopilotRuntimeHandler({
+                const handler = createCopilotKitRuntimeHandler({
                   runtime,
                   basePath: "/api/copilotkit",
                 });

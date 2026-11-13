@@ -53,7 +53,7 @@ const data: FrameworkOverviewData = {
     code: `import { HttpAgent } from "@ag-ui/client";
 import {
   CopilotRuntime,
-  createCopilotRuntimeHandler,
+  createCopilotKitRuntimeHandler,
 } from "@copilotkit/runtime";
 import type { NextRequest } from "next/server";
 
@@ -65,7 +65,7 @@ const runtime = new CopilotRuntime({
   },
 });
 
-const handler = createCopilotRuntimeHandler({
+const handler = createCopilotKitRuntimeHandler({
   runtime,
   basePath: "/api/copilotkit",
   mode: "single-route",

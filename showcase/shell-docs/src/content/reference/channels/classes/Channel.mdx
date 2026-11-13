@@ -229,7 +229,7 @@ provider setup cannot prevent graceful teardown:
 ```ts title="channel.ts"
 import { createChannel } from "@copilotkit/channels";
 import { CopilotKitIntelligence, CopilotRuntime } from "@copilotkit/runtime";
-import { createCopilotNodeListener } from "@copilotkit/runtime/node";
+import { createCopilotKitNodeListener } from "@copilotkit/runtime/node";
 
 const channel = createChannel({ name: "support", identifyUser: "platform" });
 
@@ -241,7 +241,7 @@ const runtime = new CopilotRuntime({
   channels: [channel],
 });
 
-const listener = createCopilotNodeListener({ runtime });
+const listener = createCopilotKitNodeListener({ runtime });
 const channels = listener.channels;
 
 const shutdown = async () => {

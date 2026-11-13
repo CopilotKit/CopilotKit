@@ -33,7 +33,7 @@ npx codemod @copilotkit/v2-migration
 | `@copilotkit/react-ui`                   | `@copilotkit/react-core`              |
 | `@copilotkit/react-ui/styles.css`        | No stylesheet import                  |
 | `@copilotkit/react-core/v2`              | `@copilotkit/react-core`              |
-| `@copilotkit/runtime` service adapters   | `BuiltInAgent` and `createCopilotRuntimeHandler` from `@copilotkit/runtime` |
+| `@copilotkit/runtime` service adapters   | `BuiltInAgent` and `createCopilotKitRuntimeHandler` from `@copilotkit/runtime` |
 | `@copilotkit/runtime/v2`                 | `@copilotkit/runtime`                 |
 | `@copilotkit/vue`                        | `@copilotkit/vue/v2`                  |
 | `CopilotTextarea` (`@copilotkit/react-textarea`) | Removed. 2.0 has no equivalent. |
@@ -208,7 +208,7 @@ import { CopilotChat } from "@copilotkit/react-core";
 
 2.0 has no service adapters (`OpenAIAdapter`, `AnthropicAdapter`, ...) and no
 GraphQL endpoint. A model runs in a `BuiltInAgent`, and
-`createCopilotRuntimeHandler` serves the runtime. Read
+`createCopilotKitRuntimeHandler` serves the runtime. Read
 [Runtime HTTP handlers in 2.0](/migrate/runtime-2.0) for Express, Hono, and
 Node, and [Deploy to any runtime](/runtime-server-adapter) for other hosts.
 
@@ -243,7 +243,7 @@ In `app/api/copilotkit/[[...slug]]/route.ts`:
 ```ts
 import {
   CopilotRuntime,
-  createCopilotRuntimeHandler,
+  createCopilotKitRuntimeHandler,
 } from "@copilotkit/runtime";
 import { BuiltInAgent } from "@copilotkit/runtime/agent";
 import { openaiText } from "@tanstack/ai-openai";
@@ -252,7 +252,7 @@ const runtime = new CopilotRuntime({
   agents: { default: new BuiltInAgent({ model: openaiText("gpt-6-luna") }) },
 });
 
-const handler = createCopilotRuntimeHandler({
+const handler = createCopilotKitRuntimeHandler({
   runtime,
   basePath: "/api/copilotkit",
 });

@@ -5,8 +5,8 @@ description: "The HTTP routes exposed by the CopilotKit runtime for self-hosting
 ---
 
 When you mount the [CopilotKit runtime](/backend/copilot-runtime) with
-`createCopilotRuntimeHandler` (Fetch hosts such as Next.js, Hono, Bun, and
-Cloudflare Workers) or `createCopilotNodeListener` (Node.js HTTP and Express), it
+`createCopilotKitRuntimeHandler` (Fetch hosts such as Next.js, Hono, Bun, and
+Cloudflare Workers) or `createCopilotKitNodeListener` (Node.js HTTP and Express), it
 serves a small set of HTTP routes under the `basePath` you choose, such as
 `/api/copilotkit`. Most applications never call these routes directly. The
 frontend proxy (`ProxiedCopilotRuntimeAgent`) calls them for you. See
@@ -82,10 +82,10 @@ the transport from `/info`; set it to `true` for a single-route handler or
 
 | Mode                  | Handlers                                                                                           |
 | --------------------- | -------------------------------------------------------------------------------------------------- |
-| Multi-route (default) | `createCopilotRuntimeHandler`, `createCopilotNodeListener`, `createCopilotNodeHandler`             |
-| Single-route          | `createCopilotRuntimeHandler` or `createCopilotNodeListener` with `mode: "single-route"`           |
+| Multi-route (default) | `createCopilotKitRuntimeHandler`, `createCopilotKitNodeListener`, `createCopilotKitNodeHandler`             |
+| Single-route          | `createCopilotKitRuntimeHandler` or `createCopilotKitNodeListener` with `mode: "single-route"`           |
 
-`createCopilotNodeHandler` wraps a Fetch handler you already built, so it serves
+`createCopilotKitNodeHandler` wraps a Fetch handler you already built, so it serves
 whichever mode that handler was created with.
 
 CopilotKit 2.0 removed the Express and Hono adapters, their deprecated aliases,
@@ -93,11 +93,11 @@ and the v1 framework wrappers. Replace them like this:
 
 | Removed                                                                                                                       | Use instead                                                          |
 | ----------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------- |
-| `createCopilotHonoHandler`, `createCopilotEndpoint`                                                                           | `createCopilotRuntimeHandler`                                        |
-| `createCopilotEndpointSingleRoute`                                                                                            | `createCopilotRuntimeHandler` with `mode: "single-route"`            |
-| `createCopilotExpressHandler`, `createCopilotEndpointExpress`                                                                 | `createCopilotNodeListener` from `@copilotkit/runtime/node`          |
-| `createCopilotEndpointSingleRouteExpress`                                                                                     | `createCopilotNodeListener` with `mode: "single-route"`              |
-| `copilotRuntimeNextJSAppRouterEndpoint`, `copilotRuntimeNextJSPagesRouterEndpoint`, `copilotRuntimeNodeHttpEndpoint`, `copilotRuntimeNodeExpressEndpoint`, `copilotRuntimeNestEndpoint` | `createCopilotRuntimeHandler` or `createCopilotNodeListener` with `mode: "single-route"` to keep the old single-route transport |
+| `createCopilotHonoHandler`, `createCopilotEndpoint`                                                                           | `createCopilotKitRuntimeHandler`                                        |
+| `createCopilotEndpointSingleRoute`                                                                                            | `createCopilotKitRuntimeHandler` with `mode: "single-route"`            |
+| `createCopilotExpressHandler`, `createCopilotEndpointExpress`                                                                 | `createCopilotKitNodeListener` from `@copilotkit/runtime/node`          |
+| `createCopilotEndpointSingleRouteExpress`                                                                                     | `createCopilotKitNodeListener` with `mode: "single-route"`              |
+| `copilotRuntimeNextJSAppRouterEndpoint`, `copilotRuntimeNextJSPagesRouterEndpoint`, `copilotRuntimeNodeHttpEndpoint`, `copilotRuntimeNodeExpressEndpoint`, `copilotRuntimeNestEndpoint` | `createCopilotKitRuntimeHandler` or `createCopilotKitNodeListener` with `mode: "single-route"` to keep the old single-route transport |
 
 See [Runtime HTTP handlers in 2.0](/migrate/runtime-2.0) for the full migration.
 
@@ -329,7 +329,7 @@ Single-route and multi-route handlers both expose Intelligence's AG-UI streams. 
 when your server should expose only one `POST` endpoint:
 
 ```ts title="lib/copilotkit.ts"
-import { CopilotRuntime, createCopilotRuntimeHandler } from "@copilotkit/runtime";
+import { CopilotRuntime, createCopilotKitRuntimeHandler } from "@copilotkit/runtime";
 import { BuiltInAgent } from "@copilotkit/runtime/agent";
 import { openaiText } from "@tanstack/ai-openai";
 
@@ -337,7 +337,7 @@ const runtime = new CopilotRuntime({
   agents: { default: new BuiltInAgent({ model: openaiText("gpt-6-luna") }) },
 });
 
-export const handler = createCopilotRuntimeHandler({
+export const handler = createCopilotKitRuntimeHandler({
   runtime,
   basePath: "/api/copilotkit",
   mode: "single-route",
@@ -542,7 +542,7 @@ import express from "express";
 import { CopilotRuntime } from "@copilotkit/runtime";
 import { BuiltInAgent } from "@copilotkit/runtime/agent";
 import { openaiText } from "@tanstack/ai-openai";
-import { createCopilotNodeListener } from "@copilotkit/runtime/node";
+import { createCopilotKitNodeListener } from "@copilotkit/runtime/node";
 
 const runtime = new CopilotRuntime({
   agents: { default: new BuiltInAgent({ model: openaiText("gpt-6-luna") }) },
@@ -553,7 +553,7 @@ const app = express();
 // Express strips the mount prefix, so basePath is relative to the mount.
 app.use(
   "/api/copilotkit",
-  createCopilotNodeListener({
+  createCopilotKitNodeListener({
     runtime,
     basePath: "/",
     mode: "single-route",
@@ -660,11 +660,11 @@ and registered agents.
 The handlers send no CORS headers by default. That suits a same-origin app. Pass
 `cors: true` for permissive defaults (`origin: "*"`, all standard methods, all
 headers), or pass a `CopilotCorsConfig` object to scope it for production. The
-option is the same on `createCopilotRuntimeHandler` and
-`createCopilotNodeListener`:
+option is the same on `createCopilotKitRuntimeHandler` and
+`createCopilotKitNodeListener`:
 
 ```ts
-import { CopilotRuntime, createCopilotRuntimeHandler } from "@copilotkit/runtime";
+import { CopilotRuntime, createCopilotKitRuntimeHandler } from "@copilotkit/runtime";
 import { BuiltInAgent } from "@copilotkit/runtime/agent";
 import { openaiText } from "@tanstack/ai-openai";
 
@@ -672,7 +672,7 @@ const runtime = new CopilotRuntime({
   agents: { default: new BuiltInAgent({ model: openaiText("gpt-6-luna") }) },
 });
 
-const handler = createCopilotRuntimeHandler({
+const handler = createCopilotKitRuntimeHandler({
   runtime,
   basePath: "/api/copilotkit",
   cors: {
@@ -693,7 +693,7 @@ auth. The handlers accept lifecycle `hooks`. An `onRequest` hook runs before
 every request and can reject the request by throwing a `Response`:
 
 ```ts
-import { CopilotRuntime, createCopilotRuntimeHandler } from "@copilotkit/runtime";
+import { CopilotRuntime, createCopilotKitRuntimeHandler } from "@copilotkit/runtime";
 import { BuiltInAgent } from "@copilotkit/runtime/agent";
 import { openaiText } from "@tanstack/ai-openai";
 
@@ -701,7 +701,7 @@ const runtime = new CopilotRuntime({
   agents: { default: new BuiltInAgent({ model: openaiText("gpt-6-luna") }) },
 });
 
-const handler = createCopilotRuntimeHandler({
+const handler = createCopilotKitRuntimeHandler({
   runtime,
   basePath: "/api/copilotkit",
   hooks: {
@@ -719,7 +719,7 @@ per-thread decisions use `onBeforeHandler`, which runs after routing and
 receives the resolved `route`, including its `threadId`:
 
 ```ts
-import { CopilotRuntime, createCopilotRuntimeHandler } from "@copilotkit/runtime";
+import { CopilotRuntime, createCopilotKitRuntimeHandler } from "@copilotkit/runtime";
 import { BuiltInAgent } from "@copilotkit/runtime/agent";
 import { openaiText } from "@tanstack/ai-openai";
 import { resolveUser, userOwnsThread } from "./auth";
@@ -728,7 +728,7 @@ const runtime = new CopilotRuntime({
   agents: { default: new BuiltInAgent({ model: openaiText("gpt-6-luna") }) },
 });
 
-const handler = createCopilotRuntimeHandler({
+const handler = createCopilotKitRuntimeHandler({
   runtime,
   basePath: "/api/copilotkit",
   hooks: {

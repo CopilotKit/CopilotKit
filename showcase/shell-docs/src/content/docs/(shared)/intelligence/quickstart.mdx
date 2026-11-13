@@ -142,9 +142,9 @@ Before you start, have a working CopilotKit frontend and agent. The TypeScript t
     Create one handler and mount it for all runtime subpaths and HTTP methods in the server you already use. For Next.js, use a catch-all route:
 
     ```ts title="app/api/copilotkit/[[...slug]]/route.ts" group=intelligence-runtime
-    import { createCopilotRuntimeHandler } from "@copilotkit/runtime";
+    import { createCopilotKitRuntimeHandler } from "@copilotkit/runtime";
 
-    const handler = createCopilotRuntimeHandler({
+    const handler = createCopilotKitRuntimeHandler({
       runtime,
       basePath: "/api/copilotkit",
     });

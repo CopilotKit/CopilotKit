@@ -33,10 +33,10 @@ The codemod makes these changes:
 | --- | --- |
 | `BasicAgent` | `BuiltInAgent` from `@copilotkit/runtime/agent` |
 | `BasicAgentConfiguration` | `BuiltInAgentClassicConfig` from `@copilotkit/runtime/agent` |
-| `createNodeFetchHandler` from `@copilotkit/runtime/node` | `createCopilotNodeHandler` |
+| `createNodeFetchHandler` from `@copilotkit/runtime/node` | `createCopilotKitNodeHandler` |
 | `CopilotKitRequestHandler` | `CopilotRuntimeFetchHandler` |
 
-`createCopilotNodeHandler` takes the same arguments as `createNodeFetchHandler`. For the `BuiltInAgent` options, see [Runtime HTTP handlers in 2.0](/migrate/runtime-2.0).
+`createCopilotKitNodeHandler` takes the same arguments as `createNodeFetchHandler`. For the `BuiltInAgent` options, see [Runtime HTTP handlers in 2.0](/migrate/runtime-2.0).
 
 `CopilotRuntimeFetchHandler` takes the `Request` directly. Remove the `{ request }` object from each call:
 

@@ -307,7 +307,7 @@ and the `generativeUI` option passes the agent's test results cards to the chat.
 import { HttpAgent } from "@ag-ui/client";
 import {
   CopilotRuntime,
-  createCopilotRuntimeHandler,
+  createCopilotKitRuntimeHandler,
 } from "@copilotkit/runtime";
 import { AGENT_ID } from "@/lib/agent-id";
 import { serverEnv } from "@/lib/env";
@@ -323,7 +323,7 @@ const runtime = new CopilotRuntime({
   // ...
 });
 
-const handler = createCopilotRuntimeHandler({
+const handler = createCopilotKitRuntimeHandler({
   runtime,
   basePath: "/api/copilotkit",
 });
@@ -900,7 +900,7 @@ import {
   CopilotKitIntelligence,
   CopilotRuntime,
   InMemoryAgentRunner,
-  createCopilotRuntimeHandler,
+  createCopilotKitRuntimeHandler,
 } from "@copilotkit/runtime";
 import { AGENT_ID } from "@/lib/agent-id";
 import { serverEnv } from "@/lib/env";
@@ -941,7 +941,7 @@ const runtime = new CopilotRuntime({
     : { runner: new InMemoryAgentRunner() }),
 });
 
-const handler = createCopilotRuntimeHandler({
+const handler = createCopilotKitRuntimeHandler({
   runtime,
   basePath: "/api/copilotkit",
 });

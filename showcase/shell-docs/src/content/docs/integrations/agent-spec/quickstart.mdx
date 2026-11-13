@@ -259,7 +259,7 @@ Use this prompt to connect your Agent Spec agent to CopilotKit and verify a work
           import {
             CopilotKitIntelligence,
             CopilotRuntime,
-            createCopilotRuntimeHandler,
+            createCopilotKitRuntimeHandler,
           } from "@copilotkit/runtime";
           import { HttpAgent } from "@ag-ui/client";
 
@@ -279,7 +279,7 @@ Use this prompt to connect your Agent Spec agent to CopilotKit and verify a work
             }),
           });
 
-          const handler = createCopilotRuntimeHandler({
+          const handler = createCopilotKitRuntimeHandler({
             runtime,
             basePath: "/api/copilotkit",
           });

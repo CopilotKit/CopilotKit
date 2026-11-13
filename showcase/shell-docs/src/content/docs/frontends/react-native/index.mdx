@@ -115,7 +115,7 @@ Use this prompt to set up CopilotKit in your React Native app, configure Metro a
         import { CopilotRuntime } from "@copilotkit/runtime";
         import { BuiltInAgent } from "@copilotkit/runtime/agent";
         import { openaiText } from "@tanstack/ai-openai";
-        import { createCopilotNodeListener } from "@copilotkit/runtime/node";
+        import { createCopilotKitNodeListener } from "@copilotkit/runtime/node";
 
         const runtime = new CopilotRuntime({
           agents: {
@@ -129,7 +129,7 @@ Use this prompt to set up CopilotKit in your React Native app, configure Metro a
         const port = Number(process.env.PORT ?? 8200);
 
         createServer(
-          createCopilotNodeListener({
+          createCopilotKitNodeListener({
             runtime,
             basePath: "/api/copilotkit",
             cors: true,
@@ -333,7 +333,7 @@ Supporting entry points:
 | `@copilotkit/react-native/generative-ui` | Experimental. [Generative UI](#generative-ui-with-your-own-components): `GenerativeUIProvider`, `GenerativeUIActivity`, `GenerativeUISurface` and the catalog API (`createGenerativeUI`). Opt-in: the other entries never import it. No native peers. |
 | `@copilotkit/react-native/polyfills` | Barrel that installs every polyfill (streams, encoding, crypto, dom, location) plus the streaming-fetch shim |
 | `@copilotkit/react-native/polyfills/{streams,encoding,crypto,dom,location}` | Granular subpaths for installing a single polyfill |
-| `@copilotkit/runtime` | Server-side runtime (`CopilotRuntime` / `BuiltInAgent` / `createCopilotNodeListener`) used to host your agent |
+| `@copilotkit/runtime` | Server-side runtime (`CopilotRuntime` / `BuiltInAgent` / `createCopilotKitNodeListener`) used to host your agent |
 
 <Callout type="warn" title="`CopilotChat` means two different things">
   The root barrel's `CopilotChat` and `CopilotModal` are **context-only wrappers**: they render only context and `children`, no messages and no tool UI. The versions that actually draw a chat are the same-named exports from `@copilotkit/react-native/components`. If you imported `CopilotChat` expecting a chat and got a blank screen, you imported the root one.
@@ -530,7 +530,7 @@ export default function App({ runtimeUrl, token, userId }: AppProps) {
 
 ## Runtime and model wiring
 
-The runtime from the quickstart hosts a `BuiltInAgent` and serves it with `createCopilotNodeListener`, which plugs straight into Node's built-in `node:http` `createServer`, with no Hono or Express dependency. `createCopilotNodeListener({ runtime, basePath, cors })` returns a request listener.
+The runtime from the quickstart hosts a `BuiltInAgent` and serves it with `createCopilotKitNodeListener`, which plugs straight into Node's built-in `node:http` `createServer`, with no Hono or Express dependency. `createCopilotKitNodeListener({ runtime, basePath, cors })` returns a request listener.
 
 `cors: true` adds `Access-Control-*` response headers and answers `OPTIONS` preflights. That matters for **browser** clients (Expo Web or `react-native-web`), but it has no bearing on whether a native iOS or Android build can reach the server: CORS is enforced by the browser, and React Native's native networking stack (`NSURLSession` / OkHttp) neither sends an `Origin` header nor consults `Access-Control-Allow-Origin`. Native reachability is decided by the server's bind address, LAN routing and firewall, and platform transport security. See [Connecting from a device or bench](#connecting-from-a-device-or-bench).
 

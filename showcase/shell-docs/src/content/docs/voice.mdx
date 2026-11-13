@@ -32,7 +32,7 @@ The `runtimeUrl="/api/copilotkit-voice"` points the browser to your Next.js API 
 ### Next.js API route
 
 1. Create the route file `app/api/copilotkit-voice/[[...slug]]/route.ts`. The `[[...slug]]` catch-all lets the runtime serve `/info`, `/agent/:id/run`, and `/transcribe` under the `/api/copilotkit-voice` base path.
-2. In that file, create a `CopilotRuntime` with a `transcriptionService`. Serve it with `createCopilotRuntimeHandler` from `@copilotkit/runtime`.
+2. In that file, create a `CopilotRuntime` with a `transcriptionService`. Serve it with `createCopilotKitRuntimeHandler` from `@copilotkit/runtime`.
 3. Set `basePath` to `/api/copilotkit-voice`, the directory path of the route.
 
 <Snippet region="voice-runtime" title="app/api/copilotkit-voice/[[...slug]]/route.ts" />

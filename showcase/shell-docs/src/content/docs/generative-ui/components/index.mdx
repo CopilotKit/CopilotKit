@@ -93,7 +93,7 @@ Already have CopilotKit running? Do step 3 only. Your runtime needs no change: w
     import { openaiText } from "@tanstack/ai-openai";
     import {
       CopilotRuntime,
-      createCopilotRuntimeHandler,
+      createCopilotKitRuntimeHandler,
       InMemoryAgentRunner,
     } from "@copilotkit/runtime";
     import {
@@ -124,7 +124,7 @@ Already have CopilotKit running? Do step 3 only. Your runtime needs no change: w
       runner: new InMemoryAgentRunner(),
     });
 
-    const handler = createCopilotRuntimeHandler({ runtime, basePath: "/api/copilotkit" });
+    const handler = createCopilotKitRuntimeHandler({ runtime, basePath: "/api/copilotkit" });
 
     export const GET = handler;
     export const POST = handler;
@@ -138,7 +138,7 @@ Already have CopilotKit running? Do step 3 only. Your runtime needs no change: w
     import { chat } from "@tanstack/ai";
     import { openaiText } from "@tanstack/ai-openai";
     import { CopilotRuntime, InMemoryAgentRunner } from "@copilotkit/runtime";
-    import { createCopilotNodeListener } from "@copilotkit/runtime/node";
+    import { createCopilotKitNodeListener } from "@copilotkit/runtime/node";
     import {
       BuiltInAgent,
       convertInputToTanStackAI,
@@ -168,7 +168,7 @@ Already have CopilotKit running? Do step 3 only. Your runtime needs no change: w
     });
 
     createServer(
-      createCopilotNodeListener({ runtime, basePath: "/api/copilotkit", cors: true }),
+      createCopilotKitNodeListener({ runtime, basePath: "/api/copilotkit", cors: true }),
     ).listen(8200, () => {
       console.log("Copilot Runtime listening at http://localhost:8200/api/copilotkit");
     });
@@ -182,7 +182,7 @@ Already have CopilotKit running? Do step 3 only. Your runtime needs no change: w
     import { chat } from "@tanstack/ai";
     import { openaiText } from "@tanstack/ai-openai";
     import { CopilotRuntime, InMemoryAgentRunner } from "@copilotkit/runtime";
-    import { createCopilotNodeListener } from "@copilotkit/runtime/node";
+    import { createCopilotKitNodeListener } from "@copilotkit/runtime/node";
     import {
       BuiltInAgent,
       convertInputToTanStackAI,
@@ -212,7 +212,7 @@ Already have CopilotKit running? Do step 3 only. Your runtime needs no change: w
     });
 
     createServer(
-      createCopilotNodeListener({ runtime, basePath: "/api/copilotkit", cors: true }),
+      createCopilotKitNodeListener({ runtime, basePath: "/api/copilotkit", cors: true }),
     ).listen(8200, () => {
       console.log("Copilot Runtime listening at http://localhost:8200/api/copilotkit");
     });
@@ -226,7 +226,7 @@ Already have CopilotKit running? Do step 3 only. Your runtime needs no change: w
     import { chat } from "@tanstack/ai";
     import { openaiText } from "@tanstack/ai-openai";
     import { CopilotRuntime, InMemoryAgentRunner } from "@copilotkit/runtime";
-    import { createCopilotNodeListener } from "@copilotkit/runtime/node";
+    import { createCopilotKitNodeListener } from "@copilotkit/runtime/node";
     import {
       BuiltInAgent,
       convertInputToTanStackAI,
@@ -256,7 +256,7 @@ Already have CopilotKit running? Do step 3 only. Your runtime needs no change: w
     });
 
     createServer(
-      createCopilotNodeListener({ runtime, basePath: "/api/copilotkit", cors: true }),
+      createCopilotKitNodeListener({ runtime, basePath: "/api/copilotkit", cors: true }),
     ).listen(8200, () => {
       console.log("Copilot Runtime listening at http://localhost:8200/api/copilotkit");
     });

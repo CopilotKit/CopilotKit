@@ -59,7 +59,7 @@ const data: FrameworkOverviewData = {
     language: "ts",
     code: `import {
   CopilotRuntime,
-  createCopilotRuntimeHandler,
+  createCopilotKitRuntimeHandler,
 } from "@copilotkit/runtime";
 import { HttpAgent } from "@ag-ui/client";
 
@@ -69,7 +69,7 @@ const runtime = new CopilotRuntime({
   },
 });
 
-const handler = createCopilotRuntimeHandler({
+const handler = createCopilotKitRuntimeHandler({
   runtime,
   basePath: "/api/copilotkit",
 });

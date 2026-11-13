@@ -239,7 +239,7 @@ Before you begin, you'll need the following:
                 import {
                   CopilotKitIntelligence,
                   CopilotRuntime,
-                  createCopilotRuntimeHandler,
+                  createCopilotKitRuntimeHandler,
                 } from "@copilotkit/runtime";
                 import { HttpAgent } from "@ag-ui/client";
 
@@ -258,7 +258,7 @@ Before you begin, you'll need the following:
                   }),
                 });
 
-                const handler = createCopilotRuntimeHandler({
+                const handler = createCopilotKitRuntimeHandler({
                   runtime,
                   basePath: "/api/copilotkit",
                 });

@@ -75,7 +75,7 @@ The chat components use `default` when you do not name an agent.
 ```ts title="app/api/copilotkit/[[...slug]]/route.ts"
 import {
   CopilotRuntime,
-  createCopilotRuntimeHandler,
+  createCopilotKitRuntimeHandler,
   InMemoryAgentRunner,
 } from "@copilotkit/runtime";
 import { EchoAgent } from "@/lib/echo-agent";
@@ -85,7 +85,7 @@ const runtime = new CopilotRuntime({
   runner: new InMemoryAgentRunner(),
 });
 
-const handler = createCopilotRuntimeHandler({
+const handler = createCopilotKitRuntimeHandler({
   runtime,
   basePath: "/api/copilotkit",
 });

@@ -25,14 +25,14 @@ place because other routes may use them.
 ## Fetch and Next.js
 
 Replace `createCopilotHonoHandler` or `createCopilotEndpoint` with
-`createCopilotRuntimeHandler`. It returns a function, not a Hono app. Remove
+`createCopilotKitRuntimeHandler`. It returns a function, not a Hono app. Remove
 `handle(app)` from `hono/vercel` and calls to `app.fetch(request)`.
 
 ```ts
-import { CopilotRuntime, createCopilotRuntimeHandler } from "@copilotkit/runtime";
+import { CopilotRuntime, createCopilotKitRuntimeHandler } from "@copilotkit/runtime";
 
 const runtime = new CopilotRuntime({ agents: {} }); // Supply your agents.
-const handler = createCopilotRuntimeHandler({
+const handler = createCopilotKitRuntimeHandler({
   runtime,
   basePath: "/api/copilotkit",
   cors: true,
@@ -50,10 +50,10 @@ mount a route that passes the raw request to the handler:
 
 ```ts
 import { Hono } from "hono";
-import { CopilotRuntime, createCopilotRuntimeHandler } from "@copilotkit/runtime";
+import { CopilotRuntime, createCopilotKitRuntimeHandler } from "@copilotkit/runtime";
 
 const runtime = new CopilotRuntime({ agents: {} }); // Supply your agents.
-const handler = createCopilotRuntimeHandler({
+const handler = createCopilotKitRuntimeHandler({
   runtime,
   basePath: "/api/copilotkit",
   cors: true,
@@ -66,15 +66,15 @@ app.all("/api/copilotkit/*", (c) => handler(c.req.raw));
 ## Node and Express
 
 Replace `createCopilotExpressHandler` or `createCopilotEndpointExpress` with
-`createCopilotNodeListener` from `@copilotkit/runtime/node`.
+`createCopilotKitNodeListener` from `@copilotkit/runtime/node`.
 
 ```ts
 import { createServer } from "node:http";
 import { CopilotRuntime } from "@copilotkit/runtime";
-import { createCopilotNodeListener } from "@copilotkit/runtime/node";
+import { createCopilotKitNodeListener } from "@copilotkit/runtime/node";
 
 const runtime = new CopilotRuntime({ agents: {} }); // Supply your agents.
-const listener = createCopilotNodeListener({
+const listener = createCopilotKitNodeListener({
   runtime,
   basePath: "/api/copilotkit",
   cors: true,
@@ -88,14 +88,14 @@ to that mount. Express strips the mount prefix from `req.url`:
 ```ts
 import express from "express";
 import { CopilotRuntime } from "@copilotkit/runtime";
-import { createCopilotNodeListener } from "@copilotkit/runtime/node";
+import { createCopilotKitNodeListener } from "@copilotkit/runtime/node";
 
 const runtime = new CopilotRuntime({ agents: {} }); // Supply your agents.
 const app = express();
 
 app.use(
   "/api/copilotkit",
-  createCopilotNodeListener({
+  createCopilotKitNodeListener({
     runtime,
     basePath: "/",
     cors: true,
@@ -111,13 +111,24 @@ Existing `express.json()` body parsing is supported.
 
 ## Single-route endpoints
 
-For `createCopilotEndpointSingleRoute`, use `createCopilotRuntimeHandler` with
+For `createCopilotEndpointSingleRoute`, use `createCopilotKitRuntimeHandler` with
 `mode: "single-route"`. For `createCopilotEndpointSingleRouteExpress`, use
-`createCopilotNodeListener` with the same option. Keep the frontend's
+`createCopilotKitNodeListener` with the same option. Keep the frontend's
 `useSingleEndpoint` setting and the existing endpoint URL.
 
 The generated Hono wildcard mount covers the base path and its descendants;
 the Fetch handler validates the endpoint path and single-route envelope.
+
+## Renamed handler factories
+
+The 2.0 release candidates named the handler factories without "Kit". The old
+names still work, but they are deprecated. The codemod renames them.
+
+| Deprecated name               | Name to use                      |
+| ----------------------------- | -------------------------------- |
+| `createCopilotRuntimeHandler` | `createCopilotKitRuntimeHandler` |
+| `createCopilotNodeListener`   | `createCopilotKitNodeListener`   |
+| `createCopilotNodeHandler`    | `createCopilotKitNodeHandler`    |
 
 ## CORS and lifecycle
 

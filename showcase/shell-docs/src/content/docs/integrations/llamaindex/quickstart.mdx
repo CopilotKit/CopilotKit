@@ -252,7 +252,7 @@ Before you begin, you'll need the following:
                 import {
                   CopilotKitIntelligence,
                   CopilotRuntime,
-                  createCopilotRuntimeHandler,
+                  createCopilotKitRuntimeHandler,
                 } from "@copilotkit/runtime";
                 import { LlamaIndexAgent } from "@ag-ui/llamaindex";
 
@@ -272,7 +272,7 @@ Before you begin, you'll need the following:
                   }),
                 });
 
-                const handler = createCopilotRuntimeHandler({
+                const handler = createCopilotKitRuntimeHandler({
                   runtime,
                   basePath: "/api/copilotkit",
                 });

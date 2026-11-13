@@ -14,10 +14,10 @@ This guide covers the TypeScript runtime, which works with or without Intelligen
 
 | Runtime | Import Path | Key Function |
 |---------|------------|--------------|
-| **Fetch-native** (Bun, Deno, CF Workers, Next.js App Router) | `@copilotkit/runtime` | `createCopilotRuntimeHandler` |
-| **Node.js HTTP** | `@copilotkit/runtime/node` | `createCopilotNodeHandler` / `createCopilotNodeListener` |
-| **Express** | `@copilotkit/runtime/node` | `createCopilotNodeListener` |
-| **Hono** | `@copilotkit/runtime` | `createCopilotRuntimeHandler` |
+| **Fetch-native** (Bun, Deno, CF Workers, Next.js App Router) | `@copilotkit/runtime` | `createCopilotKitRuntimeHandler` |
+| **Node.js HTTP** | `@copilotkit/runtime/node` | `createCopilotKitNodeHandler` / `createCopilotKitNodeListener` |
+| **Express** | `@copilotkit/runtime/node` | `createCopilotKitNodeListener` |
+| **Hono** | `@copilotkit/runtime` | `createCopilotKitRuntimeHandler` |
 
 ## Multi-Route vs Single-Route
 
@@ -51,10 +51,10 @@ Single-route mode is useful when your platform only allows one route handler, or
 
 ## Fetch-Native Runtimes
 
-If your platform supports the Fetch API natively (Bun, Deno, Cloudflare Workers, etc.), you can use `createCopilotRuntimeHandler` directly. No adapter is needed.
+If your platform supports the Fetch API natively (Bun, Deno, Cloudflare Workers, etc.), you can use `createCopilotKitRuntimeHandler` directly. No adapter is needed.
 
 ```ts
-import { CopilotRuntime, createCopilotRuntimeHandler } from "@copilotkit/runtime";
+import { CopilotRuntime, createCopilotKitRuntimeHandler } from "@copilotkit/runtime";
 import { BuiltInAgent } from "@copilotkit/runtime/agent";
 import { openaiText } from "@tanstack/ai-openai";
 
@@ -66,7 +66,7 @@ const runtime = new CopilotRuntime({
 });
 
 // 2. Create a Fetch handler — takes Request, returns Response
-const handler = createCopilotRuntimeHandler({
+const handler = createCopilotKitRuntimeHandler({
   runtime,
   basePath: "/api/copilotkit",
   cors: true,
@@ -83,7 +83,7 @@ For framework-specific examples, see the sections below.
 <Tabs groupId="runtime-mode" items={["Multi-route", "Single-route", "Existing server"]}>
 <Tab value="Multi-route">
 ```ts title="server.ts"
-import { CopilotRuntime, createCopilotRuntimeHandler } from "@copilotkit/runtime";
+import { CopilotRuntime, createCopilotKitRuntimeHandler } from "@copilotkit/runtime";
 import { BuiltInAgent } from "@copilotkit/runtime/agent";
 import { openaiText } from "@tanstack/ai-openai";
 
@@ -95,7 +95,7 @@ const runtime = new CopilotRuntime({
 });
 
 // Create a Fetch handler with multi-route endpoints (GET /info, POST /agent/:id/run, etc.)
-const handler = createCopilotRuntimeHandler({
+const handler = createCopilotKitRuntimeHandler({
   runtime,
   basePath: "/api/copilotkit",
   cors: true,
@@ -107,7 +107,7 @@ Bun.serve({ fetch: handler, port: 4000 });
 </Tab>
 <Tab value="Single-route">
 ```ts title="server.ts"
-import { CopilotRuntime, createCopilotRuntimeHandler } from "@copilotkit/runtime";
+import { CopilotRuntime, createCopilotKitRuntimeHandler } from "@copilotkit/runtime";
 import { BuiltInAgent } from "@copilotkit/runtime/agent";
 import { openaiText } from "@tanstack/ai-openai";
 
@@ -118,7 +118,7 @@ const runtime = new CopilotRuntime({
 });
 
 // Single-route mode: one POST endpoint that dispatches via JSON envelope
-const handler = createCopilotRuntimeHandler({
+const handler = createCopilotKitRuntimeHandler({
   runtime,
   basePath: "/api/copilotkit",
   mode: "single-route",
@@ -130,7 +130,7 @@ Bun.serve({ fetch: handler, port: 4000 });
 </Tab>
 <Tab value="Existing server">
 ```ts title="server.ts"
-import { CopilotRuntime, createCopilotRuntimeHandler } from "@copilotkit/runtime";
+import { CopilotRuntime, createCopilotKitRuntimeHandler } from "@copilotkit/runtime";
 import { BuiltInAgent } from "@copilotkit/runtime/agent";
 import { openaiText } from "@tanstack/ai-openai";
 
@@ -140,7 +140,7 @@ const runtime = new CopilotRuntime({
   },
 });
 
-const copilotHandler = createCopilotRuntimeHandler({
+const copilotHandler = createCopilotKitRuntimeHandler({
   runtime,
   basePath: "/api/copilotkit",
   cors: true,
@@ -173,7 +173,7 @@ Bun.serve({
 <Tabs groupId="runtime-mode" items={["Multi-route", "Single-route", "Existing server"]}>
 <Tab value="Multi-route">
 ```ts title="server.ts"
-import { CopilotRuntime, createCopilotRuntimeHandler } from "@copilotkit/runtime";
+import { CopilotRuntime, createCopilotKitRuntimeHandler } from "@copilotkit/runtime";
 import { BuiltInAgent } from "@copilotkit/runtime/agent";
 import { openaiText } from "@tanstack/ai-openai";
 
@@ -183,7 +183,7 @@ const runtime = new CopilotRuntime({
   },
 });
 
-const handler = createCopilotRuntimeHandler({
+const handler = createCopilotKitRuntimeHandler({
   runtime,
   basePath: "/api/copilotkit",
   cors: true,
@@ -195,7 +195,7 @@ Deno.serve({ port: 4000 }, handler);
 </Tab>
 <Tab value="Single-route">
 ```ts title="server.ts"
-import { CopilotRuntime, createCopilotRuntimeHandler } from "@copilotkit/runtime";
+import { CopilotRuntime, createCopilotKitRuntimeHandler } from "@copilotkit/runtime";
 import { BuiltInAgent } from "@copilotkit/runtime/agent";
 import { openaiText } from "@tanstack/ai-openai";
 
@@ -206,7 +206,7 @@ const runtime = new CopilotRuntime({
 });
 
 // Single-route mode: one POST endpoint that dispatches via JSON envelope
-const handler = createCopilotRuntimeHandler({
+const handler = createCopilotKitRuntimeHandler({
   runtime,
   basePath: "/api/copilotkit",
   mode: "single-route",
@@ -218,7 +218,7 @@ Deno.serve({ port: 4000 }, handler);
 </Tab>
 <Tab value="Existing server">
 ```ts title="server.ts"
-import { CopilotRuntime, createCopilotRuntimeHandler } from "@copilotkit/runtime";
+import { CopilotRuntime, createCopilotKitRuntimeHandler } from "@copilotkit/runtime";
 import { BuiltInAgent } from "@copilotkit/runtime/agent";
 import { openaiText } from "@tanstack/ai-openai";
 
@@ -228,7 +228,7 @@ const runtime = new CopilotRuntime({
   },
 });
 
-const copilotHandler = createCopilotRuntimeHandler({
+const copilotHandler = createCopilotKitRuntimeHandler({
   runtime,
   basePath: "/api/copilotkit",
   cors: true,
@@ -283,7 +283,7 @@ Worker's `env` to `createOpenaiChat()` instead.
 <Tabs groupId="runtime-mode" items={["Multi-route", "Single-route", "Existing worker"]}>
 <Tab value="Multi-route">
 ```ts title="src/index.ts"
-import { CopilotRuntime, createCopilotRuntimeHandler } from "@copilotkit/runtime";
+import { CopilotRuntime, createCopilotKitRuntimeHandler } from "@copilotkit/runtime";
 import { BuiltInAgent } from "@copilotkit/runtime/agent";
 import { createOpenaiChat } from "@tanstack/ai-openai";
 
@@ -302,7 +302,7 @@ export default {
     });
 
     // Workers use the Fetch API natively — handler plugs in directly
-    const handler = createCopilotRuntimeHandler({
+    const handler = createCopilotKitRuntimeHandler({
       runtime,
       basePath: "/api/copilotkit",
       cors: true,
@@ -315,7 +315,7 @@ export default {
 </Tab>
 <Tab value="Single-route">
 ```ts title="src/index.ts"
-import { CopilotRuntime, createCopilotRuntimeHandler } from "@copilotkit/runtime";
+import { CopilotRuntime, createCopilotKitRuntimeHandler } from "@copilotkit/runtime";
 import { BuiltInAgent } from "@copilotkit/runtime/agent";
 import { createOpenaiChat } from "@tanstack/ai-openai";
 
@@ -334,7 +334,7 @@ export default {
     });
 
     // Single-route: one POST endpoint with JSON envelope dispatch
-    const handler = createCopilotRuntimeHandler({
+    const handler = createCopilotKitRuntimeHandler({
       runtime,
       basePath: "/api/copilotkit",
       mode: "single-route",
@@ -348,7 +348,7 @@ export default {
 </Tab>
 <Tab value="Existing worker">
 ```ts title="src/index.ts"
-import { CopilotRuntime, createCopilotRuntimeHandler } from "@copilotkit/runtime";
+import { CopilotRuntime, createCopilotKitRuntimeHandler } from "@copilotkit/runtime";
 import { BuiltInAgent } from "@copilotkit/runtime/agent";
 import { createOpenaiChat } from "@tanstack/ai-openai";
 
@@ -370,7 +370,7 @@ export default {
         },
       });
 
-      const handler = createCopilotRuntimeHandler({
+      const handler = createCopilotKitRuntimeHandler({
         runtime,
         basePath: "/api/copilotkit",
         cors: true,
@@ -396,7 +396,7 @@ export default {
 <Tabs groupId="runtime-mode" items={["Multi-route", "Single-route"]}>
 <Tab value="Multi-route">
 ```ts title="app/api/copilotkit/[...path]/route.ts"
-import { CopilotRuntime, createCopilotRuntimeHandler } from "@copilotkit/runtime";
+import { CopilotRuntime, createCopilotKitRuntimeHandler } from "@copilotkit/runtime";
 import { BuiltInAgent } from "@copilotkit/runtime/agent";
 import { openaiText } from "@tanstack/ai-openai";
 
@@ -406,7 +406,7 @@ const runtime = new CopilotRuntime({
   },
 });
 
-const handler = createCopilotRuntimeHandler({
+const handler = createCopilotKitRuntimeHandler({
   runtime,
   basePath: "/api/copilotkit",
 });
@@ -417,7 +417,7 @@ export { handler as GET, handler as POST, handler as PATCH, handler as DELETE };
 </Tab>
 <Tab value="Single-route">
 ```ts title="app/api/copilotkit/[[...slug]]/route.ts"
-import { CopilotRuntime, createCopilotRuntimeHandler } from "@copilotkit/runtime";
+import { CopilotRuntime, createCopilotKitRuntimeHandler } from "@copilotkit/runtime";
 import { BuiltInAgent } from "@copilotkit/runtime/agent";
 import { openaiText } from "@tanstack/ai-openai";
 
@@ -428,7 +428,7 @@ const runtime = new CopilotRuntime({
 });
 
 // Single-route: only POST needed, no catch-all [...path] required
-const handler = createCopilotRuntimeHandler({
+const handler = createCopilotKitRuntimeHandler({
   runtime,
   basePath: "/api/copilotkit",
   mode: "single-route",
@@ -454,7 +454,7 @@ React Router v7 in framework mode uses file-based routing with Fetch API handler
 <Tabs groupId="runtime-mode" items={["Multi-route", "Single-route"]}>
 <Tab value="Multi-route">
 ```ts title="app/routes/api.copilotkit.$.ts"
-import { CopilotRuntime, createCopilotRuntimeHandler } from "@copilotkit/runtime";
+import { CopilotRuntime, createCopilotKitRuntimeHandler } from "@copilotkit/runtime";
 import { BuiltInAgent } from "@copilotkit/runtime/agent";
 import { openaiText } from "@tanstack/ai-openai";
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "react-router";
@@ -465,7 +465,7 @@ const runtime = new CopilotRuntime({
   },
 });
 
-const handler = createCopilotRuntimeHandler({
+const handler = createCopilotKitRuntimeHandler({
   runtime,
   basePath: "/api/copilotkit",
 });
@@ -487,7 +487,7 @@ The `$` splat segment in the filename (`api.copilotkit.$.ts`) captures all subpa
 </Tab>
 <Tab value="Single-route">
 ```ts title="app/routes/api.copilotkit.ts"
-import { CopilotRuntime, createCopilotRuntimeHandler } from "@copilotkit/runtime";
+import { CopilotRuntime, createCopilotKitRuntimeHandler } from "@copilotkit/runtime";
 import { BuiltInAgent } from "@copilotkit/runtime/agent";
 import { openaiText } from "@tanstack/ai-openai";
 import type { ActionFunctionArgs } from "react-router";
@@ -499,7 +499,7 @@ const runtime = new CopilotRuntime({
 });
 
 // Single-route: only action (POST) needed, no splat segment required
-const handler = createCopilotRuntimeHandler({
+const handler = createCopilotKitRuntimeHandler({
   runtime,
   basePath: "/api/copilotkit",
   mode: "single-route",
@@ -525,7 +525,7 @@ TanStack Start serves API requests from [server routes](https://tanstack.com/sta
 {/* kiira: ignore, the route path and the `server` option are typed by the routeTree.gen.ts that TanStack Start generates in the reader's project; the CopilotKit handler code is the same as the checked tabs above */}
 ```ts ignore title="src/routes/api/copilotkit/$.ts"
 import { createFileRoute } from "@tanstack/react-router";
-import { CopilotRuntime, createCopilotRuntimeHandler } from "@copilotkit/runtime";
+import { CopilotRuntime, createCopilotKitRuntimeHandler } from "@copilotkit/runtime";
 import { BuiltInAgent } from "@copilotkit/runtime/agent";
 import { openaiText } from "@tanstack/ai-openai";
 
@@ -535,7 +535,7 @@ const runtime = new CopilotRuntime({
   },
 });
 
-const handler = createCopilotRuntimeHandler({
+const handler = createCopilotKitRuntimeHandler({
   runtime,
   basePath: "/api/copilotkit",
 });
@@ -561,7 +561,7 @@ The `$` in the filename is TanStack Start's splat parameter, matching all subpat
 {/* kiira: ignore, the route path and the `server` option are typed by the routeTree.gen.ts that TanStack Start generates in the reader's project; the CopilotKit handler code is the same as the checked tabs above */}
 ```ts ignore title="src/routes/api/copilotkit.ts"
 import { createFileRoute } from "@tanstack/react-router";
-import { CopilotRuntime, createCopilotRuntimeHandler } from "@copilotkit/runtime";
+import { CopilotRuntime, createCopilotKitRuntimeHandler } from "@copilotkit/runtime";
 import { BuiltInAgent } from "@copilotkit/runtime/agent";
 import { openaiText } from "@tanstack/ai-openai";
 
@@ -572,7 +572,7 @@ const runtime = new CopilotRuntime({
 });
 
 // Single-route: only POST needed, no $ splat required
-const handler = createCopilotRuntimeHandler({
+const handler = createCopilotKitRuntimeHandler({
   runtime,
   basePath: "/api/copilotkit",
   mode: "single-route",
@@ -604,7 +604,7 @@ import { createServer } from "node:http";
 import { CopilotRuntime } from "@copilotkit/runtime";
 import { BuiltInAgent } from "@copilotkit/runtime/agent";
 import { openaiText } from "@tanstack/ai-openai";
-import { createCopilotNodeListener } from "@copilotkit/runtime/node";
+import { createCopilotKitNodeListener } from "@copilotkit/runtime/node";
 
 const runtime = new CopilotRuntime({
   agents: {
@@ -612,9 +612,9 @@ const runtime = new CopilotRuntime({
   },
 });
 
-// createCopilotNodeListener returns a Node request listener (req, res) => void
+// createCopilotKitNodeListener returns a Node request listener (req, res) => void
 // that bridges to the Fetch handler internally
-const listener = createCopilotNodeListener({
+const listener = createCopilotKitNodeListener({
   runtime,
   basePath: "/api/copilotkit",
   cors: true,
@@ -631,7 +631,7 @@ import { createServer } from "node:http";
 import { CopilotRuntime } from "@copilotkit/runtime";
 import { BuiltInAgent } from "@copilotkit/runtime/agent";
 import { openaiText } from "@tanstack/ai-openai";
-import { createCopilotNodeListener } from "@copilotkit/runtime/node";
+import { createCopilotKitNodeListener } from "@copilotkit/runtime/node";
 
 const runtime = new CopilotRuntime({
   agents: {
@@ -639,7 +639,7 @@ const runtime = new CopilotRuntime({
   },
 });
 
-const listener = createCopilotNodeListener({
+const listener = createCopilotKitNodeListener({
   runtime,
   basePath: "/api/copilotkit",
   mode: "single-route",
@@ -654,10 +654,10 @@ createServer(listener).listen(4000, () => {
 <Tab value="Existing server">
 ```ts title="server.ts"
 import { createServer } from "node:http";
-import { CopilotRuntime, createCopilotRuntimeHandler } from "@copilotkit/runtime";
+import { CopilotRuntime, createCopilotKitRuntimeHandler } from "@copilotkit/runtime";
 import { BuiltInAgent } from "@copilotkit/runtime/agent";
 import { openaiText } from "@tanstack/ai-openai";
-import { createCopilotNodeHandler } from "@copilotkit/runtime/node";
+import { createCopilotKitNodeHandler } from "@copilotkit/runtime/node";
 
 const runtime = new CopilotRuntime({
   agents: {
@@ -666,14 +666,14 @@ const runtime = new CopilotRuntime({
 });
 
 // 1. Create the Fetch handler
-const copilotHandler = createCopilotRuntimeHandler({
+const copilotHandler = createCopilotKitRuntimeHandler({
   runtime,
   basePath: "/api/copilotkit",
   cors: true,
 });
 
 // 2. Wrap it as a Node (req, res) handler
-const copilotNodeHandler = createCopilotNodeHandler(copilotHandler);
+const copilotNodeHandler = createCopilotKitNodeHandler(copilotHandler);
 
 // 3. Use it in your existing server with manual routing
 const server = createServer(async (req, res) => {
@@ -709,7 +709,7 @@ Express has no dedicated adapter. Mount the Node listener from
 `basePath: "/"`. Express strips the mount prefix from `req.url`, so the base
 path is relative to the mount.
 
-`createCopilotNodeListener` returns a Node request listener, `(req, res) => void`.
+`createCopilotKitNodeListener` returns a Node request listener, `(req, res) => void`.
 It is not an Express router. Keep `.use()`, `.get()`, and your other
 routes on your own app. Mount the listener only on the runtime path: a request
 that matches no runtime route gets a runtime 404 and does not call `next()`.
@@ -728,7 +728,7 @@ import express from "express";
 import { CopilotRuntime } from "@copilotkit/runtime";
 import { BuiltInAgent } from "@copilotkit/runtime/agent";
 import { openaiText } from "@tanstack/ai-openai";
-import { createCopilotNodeListener } from "@copilotkit/runtime/node";
+import { createCopilotKitNodeListener } from "@copilotkit/runtime/node";
 
 const runtime = new CopilotRuntime({
   agents: {
@@ -741,7 +741,7 @@ const app = express();
 // Mount the CopilotKit listener under /api/copilotkit
 app.use(
   "/api/copilotkit",
-  createCopilotNodeListener({
+  createCopilotKitNodeListener({
     runtime,
     basePath: "/",
     cors: true,
@@ -759,7 +759,7 @@ import express from "express";
 import { CopilotRuntime } from "@copilotkit/runtime";
 import { BuiltInAgent } from "@copilotkit/runtime/agent";
 import { openaiText } from "@tanstack/ai-openai";
-import { createCopilotNodeListener } from "@copilotkit/runtime/node";
+import { createCopilotKitNodeListener } from "@copilotkit/runtime/node";
 
 const runtime = new CopilotRuntime({
   agents: {
@@ -772,7 +772,7 @@ const app = express();
 // Single-route: one POST endpoint that dispatches via JSON envelope
 app.use(
   "/api/copilotkit",
-  createCopilotNodeListener({
+  createCopilotKitNodeListener({
     runtime,
     basePath: "/",
     mode: "single-route",
@@ -791,7 +791,7 @@ import express from "express";
 import { CopilotRuntime } from "@copilotkit/runtime";
 import { BuiltInAgent } from "@copilotkit/runtime/agent";
 import { openaiText } from "@tanstack/ai-openai";
-import { createCopilotNodeListener } from "@copilotkit/runtime/node";
+import { createCopilotKitNodeListener } from "@copilotkit/runtime/node";
 
 const runtime = new CopilotRuntime({
   agents: {
@@ -813,7 +813,7 @@ app.get("/health", (req, res) => {
 // Mount CopilotKit alongside your existing routes
 app.use(
   "/api/copilotkit",
-  createCopilotNodeListener({
+  createCopilotKitNodeListener({
     runtime,
     basePath: "/",
     cors: true,
@@ -829,7 +829,7 @@ app.listen(4000, () => {
 
 ### Node listener options
 
-`createCopilotNodeListener` takes the same options as `createCopilotRuntimeHandler`.
+`createCopilotKitNodeListener` takes the same options as `createCopilotKitRuntimeHandler`.
 
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
@@ -846,7 +846,7 @@ The listener works with `express.json()` body parsing. If you have `app.use(expr
 ## Hono
 
 Hono has no dedicated adapter. Create a Fetch handler with
-`createCopilotRuntimeHandler` and add a route that passes the raw request,
+`createCopilotKitRuntimeHandler` and add a route that passes the raw request,
 `c.req.raw`, to it.
 
 ```
@@ -858,7 +858,7 @@ npm install hono @hono/node-server
 ```ts title="server.ts"
 import { Hono } from "hono";
 import { serve } from "@hono/node-server";
-import { CopilotRuntime, createCopilotRuntimeHandler } from "@copilotkit/runtime";
+import { CopilotRuntime, createCopilotKitRuntimeHandler } from "@copilotkit/runtime";
 import { BuiltInAgent } from "@copilotkit/runtime/agent";
 import { openaiText } from "@tanstack/ai-openai";
 
@@ -868,7 +868,7 @@ const runtime = new CopilotRuntime({
   },
 });
 
-const handler = createCopilotRuntimeHandler({
+const handler = createCopilotKitRuntimeHandler({
   runtime,
   basePath: "/api/copilotkit",
 });
@@ -887,7 +887,7 @@ serve({ fetch: app.fetch, port: 4000 }, () => {
 ```ts title="server.ts"
 import { Hono } from "hono";
 import { serve } from "@hono/node-server";
-import { CopilotRuntime, createCopilotRuntimeHandler } from "@copilotkit/runtime";
+import { CopilotRuntime, createCopilotKitRuntimeHandler } from "@copilotkit/runtime";
 import { BuiltInAgent } from "@copilotkit/runtime/agent";
 import { openaiText } from "@tanstack/ai-openai";
 
@@ -898,7 +898,7 @@ const runtime = new CopilotRuntime({
 });
 
 // Single-route: one POST endpoint that dispatches via JSON envelope
-const handler = createCopilotRuntimeHandler({
+const handler = createCopilotKitRuntimeHandler({
   runtime,
   basePath: "/api/copilotkit",
   mode: "single-route",
@@ -917,7 +917,7 @@ serve({ fetch: app.fetch, port: 4000 }, () => {
 ```ts title="server.ts"
 import { Hono } from "hono";
 import { serve } from "@hono/node-server";
-import { CopilotRuntime, createCopilotRuntimeHandler } from "@copilotkit/runtime";
+import { CopilotRuntime, createCopilotKitRuntimeHandler } from "@copilotkit/runtime";
 import { BuiltInAgent } from "@copilotkit/runtime/agent";
 import { openaiText } from "@tanstack/ai-openai";
 
@@ -927,7 +927,7 @@ const runtime = new CopilotRuntime({
   },
 });
 
-const handler = createCopilotRuntimeHandler({
+const handler = createCopilotKitRuntimeHandler({
   runtime,
   basePath: "/api/copilotkit",
 });
@@ -950,7 +950,7 @@ serve({ fetch: app.fetch, port: 4000 }, () => {
 
 ## Elysia (Bun)
 
-Elysia runs on Bun and supports the Fetch API natively, so you use `createCopilotRuntimeHandler` directly.
+Elysia runs on Bun and supports the Fetch API natively, so you use `createCopilotKitRuntimeHandler` directly.
 
 ```
 bun add elysia
@@ -960,7 +960,7 @@ bun add elysia
 <Tab value="Multi-route">
 ```ts title="server.ts"
 import { Elysia } from "elysia";
-import { CopilotRuntime, createCopilotRuntimeHandler } from "@copilotkit/runtime";
+import { CopilotRuntime, createCopilotKitRuntimeHandler } from "@copilotkit/runtime";
 import { BuiltInAgent } from "@copilotkit/runtime/agent";
 import { openaiText } from "@tanstack/ai-openai";
 
@@ -971,7 +971,7 @@ const runtime = new CopilotRuntime({
 });
 
 // Create a Fetch handler — Elysia passes the raw Request through
-const handler = createCopilotRuntimeHandler({ runtime, cors: true });
+const handler = createCopilotKitRuntimeHandler({ runtime, cors: true });
 
 new Elysia()
   .all("/api/copilotkit/*", ({ request }) => handler(request))
@@ -981,7 +981,7 @@ new Elysia()
 <Tab value="Single-route">
 ```ts title="server.ts"
 import { Elysia } from "elysia";
-import { CopilotRuntime, createCopilotRuntimeHandler } from "@copilotkit/runtime";
+import { CopilotRuntime, createCopilotKitRuntimeHandler } from "@copilotkit/runtime";
 import { BuiltInAgent } from "@copilotkit/runtime/agent";
 import { openaiText } from "@tanstack/ai-openai";
 
@@ -992,7 +992,7 @@ const runtime = new CopilotRuntime({
 });
 
 // Single-route: one POST endpoint, no wildcard needed
-const handler = createCopilotRuntimeHandler({
+const handler = createCopilotKitRuntimeHandler({
   runtime,
   basePath: "/api/copilotkit",
   mode: "single-route",
@@ -1007,7 +1007,7 @@ new Elysia()
 <Tab value="Existing server">
 ```ts title="server.ts"
 import { Elysia } from "elysia";
-import { CopilotRuntime, createCopilotRuntimeHandler } from "@copilotkit/runtime";
+import { CopilotRuntime, createCopilotKitRuntimeHandler } from "@copilotkit/runtime";
 import { BuiltInAgent } from "@copilotkit/runtime/agent";
 import { openaiText } from "@tanstack/ai-openai";
 
@@ -1017,7 +1017,7 @@ const runtime = new CopilotRuntime({
   },
 });
 
-const handler = createCopilotRuntimeHandler({ runtime, cors: true });
+const handler = createCopilotKitRuntimeHandler({ runtime, cors: true });
 
 new Elysia()
   // Your existing routes
@@ -1032,10 +1032,10 @@ new Elysia()
 
 ## Lifecycle Hooks
 
-`createCopilotRuntimeHandler` and `createCopilotNodeListener` both take lifecycle hooks for cross-cutting concerns like authentication, logging, and response modification.
+`createCopilotKitRuntimeHandler` and `createCopilotKitNodeListener` both take lifecycle hooks for cross-cutting concerns like authentication, logging, and response modification.
 
 ```ts
-import { CopilotRuntime, createCopilotRuntimeHandler } from "@copilotkit/runtime";
+import { CopilotRuntime, createCopilotKitRuntimeHandler } from "@copilotkit/runtime";
 import { BuiltInAgent } from "@copilotkit/runtime/agent";
 import { openaiText } from "@tanstack/ai-openai";
 
@@ -1045,7 +1045,7 @@ const runtime = new CopilotRuntime({
   },
 });
 
-const handler = createCopilotRuntimeHandler({
+const handler = createCopilotKitRuntimeHandler({
   runtime,
   basePath: "/api/copilotkit",
   hooks: {
@@ -1091,10 +1091,10 @@ const handler = createCopilotRuntimeHandler({
 
 ## CORS Configuration
 
-The handlers send no CORS headers by default. Pass `cors: true` for permissive defaults (`Access-Control-Allow-Origin: *`), or provide a `CopilotCorsConfig` object. The same option works on `createCopilotRuntimeHandler` (Fetch runtimes and Hono) and on `createCopilotNodeListener` (Node.js HTTP and Express):
+The handlers send no CORS headers by default. Pass `cors: true` for permissive defaults (`Access-Control-Allow-Origin: *`), or provide a `CopilotCorsConfig` object. The same option works on `createCopilotKitRuntimeHandler` (Fetch runtimes and Hono) and on `createCopilotKitNodeListener` (Node.js HTTP and Express):
 
 ```ts
-import { CopilotRuntime, createCopilotRuntimeHandler } from "@copilotkit/runtime";
+import { CopilotRuntime, createCopilotKitRuntimeHandler } from "@copilotkit/runtime";
 import { BuiltInAgent } from "@copilotkit/runtime/agent";
 import { openaiText } from "@tanstack/ai-openai";
 
@@ -1104,7 +1104,7 @@ const runtime = new CopilotRuntime({
   },
 });
 
-const handler = createCopilotRuntimeHandler({
+const handler = createCopilotKitRuntimeHandler({
   runtime,
   basePath: "/api/copilotkit",
   cors: {

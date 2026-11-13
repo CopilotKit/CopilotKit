@@ -326,7 +326,7 @@ using Microsoft.Extensions.AI;
                 import {
                   CopilotKitIntelligence,
                   CopilotRuntime,
-                  createCopilotRuntimeHandler,
+                  createCopilotKitRuntimeHandler,
                 } from "@copilotkit/runtime";
                 import { HttpAgent } from "@ag-ui/client";
 
@@ -347,7 +347,7 @@ using Microsoft.Extensions.AI;
                   }),
                 });
 
-                const handler = createCopilotRuntimeHandler({
+                const handler = createCopilotKitRuntimeHandler({
                   runtime,
                   basePath: "/api/copilotkit",
                 });

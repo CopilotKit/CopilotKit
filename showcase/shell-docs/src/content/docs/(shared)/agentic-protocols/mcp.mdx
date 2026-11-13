@@ -65,7 +65,7 @@ For the protocol itself, see the [Model Context Protocol](https://modelcontextpr
     ```ts title="app/api/copilotkit/[[...slug]]/route.ts"
     import {
       CopilotRuntime,
-      createCopilotRuntimeHandler,
+      createCopilotKitRuntimeHandler,
     } from "@copilotkit/runtime";
     import { BuiltInAgent } from "@copilotkit/runtime/agent";
     import { openaiText } from "@tanstack/ai-openai";
@@ -92,7 +92,7 @@ For the protocol itself, see the [Model Context Protocol](https://modelcontextpr
       },
     });
 
-    const handler = createCopilotRuntimeHandler({
+    const handler = createCopilotKitRuntimeHandler({
       runtime,
       basePath: "/api/copilotkit",
     });

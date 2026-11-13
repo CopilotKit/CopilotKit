@@ -261,7 +261,7 @@ Before you begin, you'll need the following:
           import { HttpAgent } from "@ag-ui/client";
           import {
             CopilotRuntime,
-            createCopilotRuntimeHandler,
+            createCopilotKitRuntimeHandler,
           } from "@copilotkit/runtime";
           import type { NextRequest } from "next/server";
 
@@ -273,7 +273,7 @@ Before you begin, you'll need the following:
             },
           });
 
-          const handler = createCopilotRuntimeHandler({
+          const handler = createCopilotKitRuntimeHandler({
             runtime,
             basePath: "/api/copilotkit",
             mode: "single-route",

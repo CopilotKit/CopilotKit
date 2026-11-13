@@ -60,7 +60,7 @@ Wire authentication into the runtime via the `onRequest` hook. The hook runs bef
 import type { NextRequest } from "next/server";
 import {
   CopilotRuntime,
-  createCopilotRuntimeHandler,
+  createCopilotKitRuntimeHandler,
 } from "@copilotkit/runtime";
 import { BuiltInAgent } from "@copilotkit/runtime/agent";
 import { openaiText } from "@tanstack/ai-openai";
@@ -70,7 +70,7 @@ const runtime = new CopilotRuntime({
   agents: { default: new BuiltInAgent({ model: openaiText("gpt-6-luna") }) },
 });
 
-const handler = createCopilotRuntimeHandler({
+const handler = createCopilotKitRuntimeHandler({
   runtime,
   basePath: "/api/copilotkit",
   hooks: {
@@ -557,7 +557,7 @@ The Intelligence runtime requires an `identifyUser` callback. Construction throw
 import {
   CopilotKitIntelligence,
   CopilotRuntime,
-  createCopilotRuntimeHandler,
+  createCopilotKitRuntimeHandler,
 } from "@copilotkit/runtime";
 import { BuiltInAgent } from "@copilotkit/runtime/agent";
 import { openaiText } from "@tanstack/ai-openai";
@@ -647,7 +647,7 @@ Write a row when a conversation is first created. See [minting a thread with you
 ```ts title="app/api/copilotkit/[[...slug]]/route.ts"
 import {
   CopilotRuntime,
-  createCopilotRuntimeHandler,
+  createCopilotKitRuntimeHandler,
 } from "@copilotkit/runtime";
 import { BuiltInAgent } from "@copilotkit/runtime/agent";
 import { openaiText } from "@tanstack/ai-openai";
@@ -657,7 +657,7 @@ const runtime = new CopilotRuntime({
   agents: { default: new BuiltInAgent({ model: openaiText("gpt-6-luna") }) },
 });
 
-const handler = createCopilotRuntimeHandler({
+const handler = createCopilotKitRuntimeHandler({
   runtime,
   basePath: "/api/copilotkit",
   hooks: {

@@ -64,7 +64,7 @@ npx copilotkit create -f mcp-apps
     ```typescript title="app/api/copilotkit/[[...slug]]/route.ts" doctest="component"
     import {
       CopilotRuntime,
-      createCopilotRuntimeHandler,
+      createCopilotKitRuntimeHandler,
       InMemoryAgentRunner,
     } from "@copilotkit/runtime";
     import { BuiltInAgent } from "@copilotkit/runtime/agent";
@@ -94,7 +94,7 @@ npx copilotkit create -f mcp-apps
     });
 
     // 3. Create the API route
-    const handler = createCopilotRuntimeHandler({
+    const handler = createCopilotKitRuntimeHandler({
       runtime,
       basePath: "/api/copilotkit",
     });

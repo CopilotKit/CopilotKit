@@ -174,11 +174,11 @@ export function runtimeSnippet(frameworkId: string): string {
   }
   return `import {
   CopilotRuntime,
-  createCopilotRuntimeHandler,
+  createCopilotKitRuntimeHandler,
 } from "@copilotkit/runtime";
 ${imports}
 
-const handler = createCopilotRuntimeHandler({
+const handler = createCopilotKitRuntimeHandler({
   runtime: new CopilotRuntime({
     agents: {
       default: ${agent},

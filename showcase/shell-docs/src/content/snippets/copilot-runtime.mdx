@@ -14,7 +14,7 @@ The runtime is a lightweight server endpoint that you add to your backend:
 npm install @copilotkit/runtime @tanstack/ai-openai
 ```
 
-Here's a minimal example using Next.js. `createCopilotRuntimeHandler` returns a
+Here's a minimal example using Next.js. `createCopilotKitRuntimeHandler` returns a
 plain fetch handler. It lives at a **catch-all**
 path and exports **GET, POST, PATCH, and DELETE**, so the runtime can serve its sub-routes (`/info`,
 agent runs, threads) rather than a single URL:
@@ -22,7 +22,7 @@ agent runs, threads) rather than a single URL:
 ```ts title="app/api/copilotkit/[[...slug]]/route.ts" doctest="component"
 import {
   CopilotRuntime,
-  createCopilotRuntimeHandler,
+  createCopilotKitRuntimeHandler,
   InMemoryAgentRunner,
 } from "@copilotkit/runtime";
 
@@ -33,7 +33,7 @@ const runtime = new CopilotRuntime({
   runner: new InMemoryAgentRunner(),
 });
 
-const handler = createCopilotRuntimeHandler({
+const handler = createCopilotKitRuntimeHandler({
   runtime,
   basePath: "/api/copilotkit",
 });
@@ -67,7 +67,7 @@ export function Providers({ children }: { children: ReactNode }) {
 <Callout type="info">
   When you omit `useSingleEndpoint`, `<CopilotKitProvider>` negotiates the
   transport from `GET /info` and uses the REST transport that
-  `createCopilotRuntimeHandler` serves. See [Provider and handler
+  `createCopilotKitRuntimeHandler` serves. See [Provider and handler
   pairs](/backend/runtime-endpoints#provider-and-handler-pairs).
 
   To keep a single POST-only URL instead, create the handler with
@@ -111,7 +111,7 @@ When you register multiple agents, the `"default"` agent powers the chat unless 
 
 ### Authentication and Security
 
-The runtime runs on your server, which means agent communication stays server-side. This gives you a trusted environment to enforce authentication, validate requests, and keep API keys secure. The runtime does not authenticate requests by default. Add your check in the `onRequest` hook of `createCopilotRuntimeHandler`.
+The runtime runs on your server, which means agent communication stays server-side. This gives you a trusted environment to enforce authentication, validate requests, and keep API keys secure. The runtime does not authenticate requests by default. Add your check in the `onRequest` hook of `createCopilotKitRuntimeHandler`.
 
 ### AG-UI Middleware
 

@@ -190,11 +190,11 @@ When you click **Approve** on the service credit, the UI posts to `/api/openbox/
 
 The frontend's `/api/copilotkit` route hosts the CopilotKit runtime and wraps it with `createOpenBoxCopilotRuntime`, so every agent run is governed at the runtime boundary:
 
-{/* kiira: ignore, @openbox-ai/openbox-sdk 0.1.1 types the governed `runtime` as Record<string, any>, which createCopilotRuntimeHandler rejects. Remove once the SDK ships CopilotKit 2.0 types. */}
+{/* kiira: ignore, @openbox-ai/openbox-sdk 0.1.1 types the governed `runtime` as Record<string, any>, which createCopilotKitRuntimeHandler rejects. Remove once the SDK ships CopilotKit 2.0 types. */}
 ```ts ignore title="frontend/src/app/api/copilotkit/[[...slug]]/route.ts"
 import {
   CopilotRuntime,
-  createCopilotRuntimeHandler,
+  createCopilotKitRuntimeHandler,
   InMemoryAgentRunner,
 } from "@copilotkit/runtime";
 import { LangGraphAgent } from "@ag-ui/langgraph";
@@ -231,7 +231,7 @@ const openboxRuntime = createOpenBoxCopilotRuntime({ // [!code highlight]
   }),
 });
 
-const handler = createCopilotRuntimeHandler({
+const handler = createCopilotKitRuntimeHandler({
   runtime: openboxRuntime.runtime,
   basePath: "/api/copilotkit",
   hooks: openboxRuntime.hooks,

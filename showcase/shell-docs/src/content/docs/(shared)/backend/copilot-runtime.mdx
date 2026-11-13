@@ -23,7 +23,7 @@ Add the route file. Here is a minimal example for Next.js:
 ```ts title="app/api/copilotkit/[[...slug]]/route.ts" doctest="component"
 import {
   CopilotRuntime,
-  createCopilotRuntimeHandler,
+  createCopilotKitRuntimeHandler,
   InMemoryAgentRunner,
 } from "@copilotkit/runtime";
 
@@ -34,7 +34,7 @@ const runtime = new CopilotRuntime({
   runner: new InMemoryAgentRunner(),
 });
 
-const handler = createCopilotRuntimeHandler({
+const handler = createCopilotKitRuntimeHandler({
   runtime,
   basePath: "/api/copilotkit",
 });
@@ -100,8 +100,8 @@ see [Runtime HTTP endpoints](/backend/runtime-endpoints).
 
   | Host | 2.0 handler |
   | --- | --- |
-  | Fetch: Next.js App Router, Hono, Bun, Deno, Cloudflare Workers | `createCopilotRuntimeHandler` (from `@copilotkit/runtime`) |
-  | Node.js HTTP, Express | `createCopilotNodeListener` (from `@copilotkit/runtime/node`) |
+  | Fetch: Next.js App Router, Hono, Bun, Deno, Cloudflare Workers | `createCopilotKitRuntimeHandler` (from `@copilotkit/runtime`) |
+  | Node.js HTTP, Express | `createCopilotKitNodeListener` (from `@copilotkit/runtime/node`) |
 
   See [Runtime HTTP handlers in 2.0](/migrate/runtime-2.0) and [Deploy to any runtime](/runtime-server-adapter).
 </Callout>
@@ -173,7 +173,7 @@ When you register multiple agents, the `"default"` agent is what powers the chat
 
 ### Authentication & security
 
-The runtime runs on your server, which means agent communication stays server-side. This gives you a trusted environment to enforce authentication, validate requests, and keep API keys secure. The runtime does not reject unauthenticated requests on its own. Reject them in the `onRequest` hook of `createCopilotRuntimeHandler`, and pass `identifyUser` to `CopilotRuntime` to scope threads per user. See [Authentication](/auth).
+The runtime runs on your server, which means agent communication stays server-side. This gives you a trusted environment to enforce authentication, validate requests, and keep API keys secure. The runtime does not reject unauthenticated requests on its own. Reject them in the `onRequest` hook of `createCopilotKitRuntimeHandler`, and pass `identifyUser` to `CopilotRuntime` to scope threads per user. See [Authentication](/auth).
 
 ### AG-UI middleware
 

@@ -97,7 +97,7 @@ Use this prompt to connect your agent to Slack, start the runner, and verify a r
       CopilotKitIntelligence,
       CopilotRuntime,
     } from "@copilotkit/runtime";
-    import { createCopilotNodeListener } from "@copilotkit/runtime/node";
+    import { createCopilotKitNodeListener } from "@copilotkit/runtime/node";
     import { makeAgent } from "./agent.js";
 
     function required(name: string): string {
@@ -144,7 +144,7 @@ Use this prompt to connect your agent to Slack, start the runner, and verify a r
     process.once("SIGINT", shutdown);
     process.once("SIGTERM", shutdown);
 
-    const listener = createCopilotNodeListener({
+    const listener = createCopilotKitNodeListener({
       runtime,
       basePath: "/api/copilotkit",
     });
@@ -169,7 +169,7 @@ Use this prompt to connect your agent to Slack, start the runner, and verify a r
     });
     ```
 
-    Calling `createCopilotNodeListener` starts the Channel. `ready()` is
+    Calling `createCopilotKitNodeListener` starts the Channel. `ready()` is
     optional. It waits until the start settles and throws if it fails.
     `ready()` can settle while setup is still incomplete, so check `status()`
     before you report the Channel online. Without `ready()`, start failures

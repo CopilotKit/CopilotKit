@@ -62,7 +62,7 @@ const data: FrameworkOverviewData = {
       "Your graph stays where it runs today: LangGraph Platform, LangSmith, or your own FastAPI service. CopilotKit reaches it over AG-UI, so nothing inside the graph changes.",
     filename: "app/api/copilotkit/[[...slug]]/route.ts",
     language: "ts",
-    code: `import { CopilotRuntime, createCopilotRuntimeHandler } from "@copilotkit/runtime";
+    code: `import { CopilotRuntime, createCopilotKitRuntimeHandler } from "@copilotkit/runtime";
 import { LangGraphAgent } from "@ag-ui/langgraph";
 
 const runtime = new CopilotRuntime({
@@ -75,7 +75,7 @@ const runtime = new CopilotRuntime({
   },
 });
 
-const handler = createCopilotRuntimeHandler({
+const handler = createCopilotKitRuntimeHandler({
   runtime,
   basePath: "/api/copilotkit",
 });

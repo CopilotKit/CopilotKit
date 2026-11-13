@@ -44,7 +44,7 @@ import { pipeline } from "node:stream/promises";
 import type { LambdaFunctionURLEvent } from "aws-lambda";
 import {
   CopilotRuntime,
-  createCopilotRuntimeHandler,
+  createCopilotKitRuntimeHandler,
 } from "@copilotkit/runtime";
 import { BuiltInAgent } from "@copilotkit/runtime/agent";
 import { openaiText } from "@tanstack/ai-openai";
@@ -56,7 +56,7 @@ const runtime = new CopilotRuntime({
   },
 });
 
-const copilotHandler = createCopilotRuntimeHandler({
+const copilotHandler = createCopilotKitRuntimeHandler({
   runtime,
   basePath: "/api/copilotkit",
   cors: true,
@@ -390,7 +390,7 @@ import serverlessHttp from "serverless-http";
 import { CopilotRuntime } from "@copilotkit/runtime";
 import { BuiltInAgent } from "@copilotkit/runtime/agent";
 import { openaiText } from "@tanstack/ai-openai";
-import { createCopilotNodeListener } from "@copilotkit/runtime/node";
+import { createCopilotKitNodeListener } from "@copilotkit/runtime/node";
 
 const runtime = new CopilotRuntime({
   agents: {
@@ -403,7 +403,7 @@ const app = express();
 // Express strips the mount prefix, so basePath is relative to the mount.
 app.use(
   "/api/copilotkit",
-  createCopilotNodeListener({
+  createCopilotKitNodeListener({
     runtime,
     basePath: "/",
     cors: true,
@@ -426,7 +426,7 @@ import serverlessHttp from "serverless-http";
 import { CopilotRuntime } from "@copilotkit/runtime";
 import { BuiltInAgent } from "@copilotkit/runtime/agent";
 import { openaiText } from "@tanstack/ai-openai";
-import { createCopilotNodeListener } from "@copilotkit/runtime/node";
+import { createCopilotKitNodeListener } from "@copilotkit/runtime/node";
 
 const runtime = new CopilotRuntime({
   agents: {
@@ -438,7 +438,7 @@ const app = express();
 
 app.use(
   "/api/copilotkit",
-  createCopilotNodeListener({
+  createCopilotKitNodeListener({
     runtime,
     basePath: "/",
     mode: "single-route",
@@ -454,7 +454,7 @@ export const handler = serverlessHttp(app);
 Use the runtime's `onRequest` hook to reject unauthenticated calls before any routing happens. It works identically on every front door above.
 
 ```ts title="src/handler.ts"
-import { CopilotRuntime, createCopilotRuntimeHandler } from "@copilotkit/runtime";
+import { CopilotRuntime, createCopilotKitRuntimeHandler } from "@copilotkit/runtime";
 import { BuiltInAgent } from "@copilotkit/runtime/agent";
 import { openaiText } from "@tanstack/ai-openai";
 import { verifyToken } from "./auth";
@@ -465,7 +465,7 @@ const runtime = new CopilotRuntime({
   },
 });
 
-const copilotHandler = createCopilotRuntimeHandler({
+const copilotHandler = createCopilotKitRuntimeHandler({
   runtime,
   basePath: "/api/copilotkit",
   cors: true,

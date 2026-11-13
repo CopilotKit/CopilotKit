@@ -133,14 +133,14 @@ wherever the demo is deployed.
 
 At runtime, the AG-UI adapter owns managed-session creation and maps it to the CopilotKit thread. The visual tool
 is supplied as a session override, so changing its schema does not require a new managed-agent version.
-`CopilotSseRuntime` is CopilotKit's runtime for direct SSE connections. `createCopilotNodeListener` from
+`CopilotSseRuntime` is CopilotKit's runtime for direct SSE connections. `createCopilotKitNodeListener` from
 `@copilotkit/runtime/node` serves it from Express. The adapter requires only the managed agent and environment
 IDs, while this recipe adds `backendTools` for the interactive projection:
 
 ```ts title="server/src/index.ts"
 import express from "express";
 import { CopilotSseRuntime } from "@copilotkit/runtime";
-import { createCopilotNodeListener } from "@copilotkit/runtime/node";
+import { createCopilotKitNodeListener } from "@copilotkit/runtime/node";
 import { ManagedAgentsAgent } from "@ag-ui/claude-managed-agents";
 import { financialAssistantTools } from "./financialAssistantTools";
 import {
@@ -169,7 +169,7 @@ const app = express();
 configureDemoRunLimits(app, createCopilotRequestBodyParser());
 app.use(
   "/api/copilotkit",
-  createCopilotNodeListener({ runtime, basePath: "/", cors: true }),
+  createCopilotKitNodeListener({ runtime, basePath: "/", cors: true }),
 );
 app.listen(8787);
 ```
