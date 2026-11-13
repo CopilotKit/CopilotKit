@@ -488,7 +488,9 @@ describe("a run that does not finish", () => {
     // for that stop never settles.
     class StopNeverSettles extends IntelligenceAgentRunner {
       override stop(request: Parameters<IntelligenceAgentRunner["stop"]>[0]) {
-        void super.stop(request);
+        // The real stop fails here: the lost lock refuses the run's last
+        // events. Its outcome is what this runner withholds.
+        super.stop(request).catch(() => undefined);
         return new Promise<boolean | undefined>(() => {});
       }
     }
