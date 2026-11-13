@@ -8,7 +8,6 @@ import type {
   RunAgentInput,
 } from "@ag-ui/client";
 import type { CopilotKitIntelligence } from "../intelligence-platform";
-import { PlatformRequestError } from "../intelligence-platform/client";
 import type { AcquireThreadLockRequest } from "../intelligence-platform/client";
 import { startThreadLockHeartbeat } from "../intelligence-platform/thread-lock-heartbeat";
 import type { AgentRunner } from "../runner/agent-runner";
@@ -745,24 +744,17 @@ function sharedRunnerFor(intelligence: CopilotKitIntelligence): AgentRunner {
 
 /**
  * The state a Thread last stored, or undefined when it has none. A platform
- * that does not serve stored state answers 404 and is read as having none;
- * state that cannot be decoded fails the run rather than let it start from
- * an empty state and store that over the real one.
+ * that does not serve stored state is read as having none; state that cannot
+ * be decoded fails the run rather than let it start from an empty state and
+ * store that over the real one.
  */
 async function storedState(
   intelligence: CopilotKitIntelligence,
   thread: { threadId: string; userId: string },
 ): Promise<{ given: unknown } | undefined> {
-  let read: Awaited<ReturnType<CopilotKitIntelligence["getThreadState"]>>;
-  try {
-    read = await intelligence.getThreadState(thread);
-  } catch (error) {
-    if (error instanceof PlatformRequestError && error.status === 404)
-      return undefined;
-    throw error;
-  }
-  if (read.kind === "snapshot") return { given: read.state };
-  if (read.kind === "snapshot-decode-error") {
+  const read = await intelligence.ɵgetStoredThreadState(thread);
+  if (read?.kind === "snapshot") return { given: read.state };
+  if (read?.kind === "snapshot-decode-error") {
     throw new Error(
       "The Thread's stored state could not be decoded, so the run did not start",
     );

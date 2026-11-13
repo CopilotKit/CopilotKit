@@ -3,6 +3,7 @@ import type { BaseEvent, Message, RunAgentInput } from "@ag-ui/client";
 import { Observable } from "rxjs";
 import { WebSocket } from "ws";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { logger } from "@copilotkit/shared";
 import { runAgentInThread, ThreadRunError } from "../index";
 import type { RunAgentInThreadOptions } from "../index";
 import {
@@ -403,6 +404,23 @@ describe("the state a run starts from", () => {
 
     expect(agent.inputs[0]?.state).toEqual({ count: 7 });
     expect(lastSnapshot()).toEqual({ count: 8 });
+  });
+
+  it("is the agent's own on a platform that does not serve stored state, which is not logged as a failure", async () => {
+    const loggedErrors = vi.spyOn(logger, "error").mockImplementation(() => {});
+    try {
+      const runtime = await platform({ servesNoState: true });
+      const agent = new ScriptedAgent(counts);
+      agent.setState({ count: 7 });
+
+      await run(runtime, agent);
+
+      expect(agent.inputs[0]?.state).toEqual({ count: 7 });
+      expect(lastSnapshot()).toEqual({ count: 8 });
+      expect(loggedErrors).not.toHaveBeenCalled();
+    } finally {
+      loggedErrors.mockRestore();
+    }
   });
 });
 

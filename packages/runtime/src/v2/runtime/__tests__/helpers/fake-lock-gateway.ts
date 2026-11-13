@@ -59,6 +59,8 @@ export interface FakeLockGatewayOptions {
   holdLockResponse?: boolean;
   /** Never answer a lock release, as a platform that stopped answering. */
   holdRelease?: boolean;
+  /** Answer 404 for a thread's stored state, as a platform that does not serve it. */
+  servesNoState?: boolean;
 }
 
 /** A message as app-api stores and returns it. */
@@ -136,6 +138,7 @@ export async function startFakeLockGateway(
       /^\/api\/_inspect\/threads\/([^/]+)\/state$/,
     );
     if (method === "GET" && inspected) {
+      if (options.servesNoState) return send(404);
       // The stored state as app-api folds it: the last snapshot, and the
       // deltas after it, which this fake refuses rather than fold wrongly.
       const [, inspectedId] = inspected;
