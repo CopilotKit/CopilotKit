@@ -92,7 +92,7 @@
     "@ai-sdk/google": "^3.0.33",
     "@ai-sdk/google-vertex": "^3.0.97",
     "@ai-sdk/mcp": "^1.0.21",
-    "@ai-sdk/openai": "^3.0.36",
+    "@ai-sdk/openai": "^3.0.140",
     "@cfworker/json-schema": "^4.1.1",
     "@copilotkit/channels-core": "workspace:^",
     "@copilotkit/channels-intelligence": "workspace:^",

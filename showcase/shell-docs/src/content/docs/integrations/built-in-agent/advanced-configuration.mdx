@@ -66,6 +66,8 @@ const agent = new BuiltInAgent({
 
 <Callout type="info">
 Not all parameters are supported by every provider. For example, `topK` is supported by Google but not OpenAI. Unsupported parameters are ignored.
+
+OpenAI reasoning models (the `o` series, GPT-5 and later, including `gpt-6-luna`) ignore `temperature` and `topP`. GPT-5.1 and later GPT-5 versions accept them only with `reasoningEffort: "none"`. Tune `providerOptions.openai.reasoningEffort` instead.
 </Callout>
 
 ## Provider-specific options
