@@ -74,8 +74,9 @@ console.log("[whatsapp-bot] listening for webhooks");
 (default 3000) that handles the Meta webhook: a `GET /webhook` verification
 handshake and signed `POST /webhook` event delivery. You must expose this port
 publicly (e.g. via ngrok) and register the URL + `verifyToken` in the Meta app
-configuration. See [`examples/whatsapp`](../../examples/whatsapp) for a complete
-setup walkthrough.
+configuration. See the WhatsApp section of
+[`examples/slack`](../../examples/slack/README.md#whatsapp-inbound-webhook-needs-a-public-domain)
+for the deployment setup (public webhook URL, env vars, Meta callback config).
 
 ### Required env
 
@@ -92,7 +93,7 @@ setup walkthrough.
 | ------------------- | --------- | -------------------------------------------------------------- |
 | `supportsStreaming` | false     | WhatsApp messages are immutable; there is no edit-message API. |
 | `supportsModals`    | false     | No modal surface in the Cloud API.                             |
-| `supportsTyping`    | false     | No typing-indicator API for business accounts.                 |
+| `supportsTyping`    | true      | Sends a typing indicator when acknowledging inbound messages.  |
 | `supportsReactions` | false     | No reaction API for business-sent messages.                    |
 
 Because messages are immutable, `thread.stream(...)` buffers the full iterable
@@ -233,7 +234,8 @@ user directory. It always returns `undefined`.
 
 This package is the **library**. A runnable end-to-end demo wiring everything
 against a real WhatsApp number lives in
-[`examples/whatsapp`](../../examples/whatsapp).
+[`examples/slack`](../../examples/slack), which runs the WhatsApp adapter
+alongside the other platforms.
 
 ## What's NOT in v1
 
