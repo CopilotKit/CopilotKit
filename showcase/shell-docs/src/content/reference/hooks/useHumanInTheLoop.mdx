@@ -157,13 +157,19 @@ function DeleteConfirmation() {
           );
         }
 
-        if (
-          status === ToolCallStatus.Complete &&
-          result &&
-          error === undefined
-        ) {
-          const parsed = parseResponse(result);
-          if (!parsed) return null;
+        if (status === ToolCallStatus.Complete && error !== undefined) {
+          return (
+            <div className="p-2 text-sm text-red-600">Request failed.</div>
+          );
+        }
+
+        if (status === ToolCallStatus.Complete) {
+          const parsed = parseResponse(result ?? "");
+          if (!parsed) {
+            return (
+              <div className="p-2 text-sm text-red-600">Request failed.</div>
+            );
+          }
           return (
             <div className="p-2 text-sm text-gray-600">
               {parsed.confirmed ? "Items deleted." : "Deletion cancelled."}
@@ -297,7 +303,7 @@ function ExpenseApproval() {
         category: z.string().describe("Expense category"),
         description: z.string().describe("Description of the expense"),
       }),
-      render: ({ args, status, respond, result, error }) => {
+      render: ({ args, status, respond, result, aborted, error }) => {
         if (status === ToolCallStatus.Executing && respond) {
           return (
             <div className="p-4 border rounded">
@@ -328,13 +334,25 @@ function ExpenseApproval() {
           );
         }
 
-        if (
-          status === ToolCallStatus.Complete &&
-          result &&
-          error === undefined
-        ) {
-          const parsed = parseResponse(result);
-          if (!parsed) return null;
+        if (status === ToolCallStatus.Complete && aborted) {
+          return (
+            <div className="p-2 text-sm text-gray-500">Approval cancelled.</div>
+          );
+        }
+
+        if (status === ToolCallStatus.Complete && error !== undefined) {
+          return (
+            <div className="p-2 text-sm text-red-600">Approval failed.</div>
+          );
+        }
+
+        if (status === ToolCallStatus.Complete) {
+          const parsed = parseResponse(result ?? "");
+          if (!parsed) {
+            return (
+              <div className="p-2 text-sm text-red-600">Approval failed.</div>
+            );
+          }
           return (
             <div
               className={`p-2 text-sm ${parsed.approved ? "text-green-600" : "text-red-600"}`}
