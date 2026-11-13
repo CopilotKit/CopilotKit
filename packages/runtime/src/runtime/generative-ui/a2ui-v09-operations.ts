@@ -633,17 +633,17 @@ interface SourcePart {
  * operations go as they are: the client either extends its surface with them
  * or builds it again from them.
  *
- * @param lastSource - The source operations of the last snapshot.
+ * @param lastSource - The source operations of the last snapshot (none
+ *   before the first one).
  * @param sent - The operations of the last snapshot.
  * @param source - The source operations now.
  * @returns The operations of the next snapshot.
  */
 function clientOperations(
-  lastSource: A2UIOperation[] | undefined,
-  sent: A2UIOperation[] | undefined,
+  lastSource: A2UIOperation[],
+  sent: A2UIOperation[],
   source: A2UIOperation[],
 ): A2UIOperation[] {
-  if (!lastSource || !sent) return source;
   let same = 0;
   while (
     same < lastSource.length &&
@@ -672,9 +672,9 @@ interface SurfaceState {
   /** JSON of the last snapshot content. */
   lastSnapshot?: string;
   /** The converted operations of the source, at the last snapshot. */
-  snapshotSource?: A2UIOperation[];
+  snapshotSource: A2UIOperation[];
   /** The operations of the last snapshot, as the client applied them. */
-  snapshotOperations?: A2UIOperation[];
+  snapshotOperations: A2UIOperation[];
   /** Operations sent as deltas, for a surface created in an earlier run. */
   sentOperations: A2UIOperation[];
   /** JSON of the last `rejected` sent as a delta. */
@@ -889,7 +889,13 @@ export function createA2UIV09ActivityUpgrader(): {
     for (const [surfaceId, part] of parts) {
       let state = surfaces.get(surfaceId);
       if (!state) {
-        state = { parts: new Map(), sentOperations: [], sentRejected: "[]" };
+        state = {
+          parts: new Map(),
+          snapshotSource: [],
+          snapshotOperations: [],
+          sentOperations: [],
+          sentRejected: "[]",
+        };
         surfaces.set(surfaceId, state);
       }
       state.parts.set(messageId, part);
