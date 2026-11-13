@@ -224,6 +224,7 @@ export type {
 export {
   ACTIVITY_HISTORY_METADATA,
   AGUIConnectNotImplementedError,
+  AGUIEnforcementLimitError,
   AGUIError,
   AGUI_METADATA_KEY,
   AbstractAgent,
@@ -231,6 +232,7 @@ export {
   BackwardCompatibility_0_0_45,
   BackwardCompatibility_0_0_57,
   CompatibilityBoundary,
+  DEFAULT_MAX_ENFORCED_ENTRIES,
   DebugLogger,
   EventType,
   FilterToolCallsMiddleware,
@@ -305,6 +307,7 @@ export type {
   DocumentInputContent,
   DocumentInputPart,
   DocumentPart,
+  EnforcementOptions,
   Event,
   EventPayloadOf,
   ExecutionCapabilities,
