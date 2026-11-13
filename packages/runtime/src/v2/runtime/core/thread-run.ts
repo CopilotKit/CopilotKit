@@ -73,6 +73,8 @@ export interface LockedRunArgs {
    * call waits for the runner.
    */
   stopTimeoutMs?: number;
+  /** Called once, as soon as the lock is lost and before the run is stopped. */
+  onLockLost?: (error: unknown) => void;
 }
 
 /**
@@ -161,6 +163,11 @@ export async function runWithThreadLock(
     unref: true,
     onLost: (error) => {
       lockLost = { error };
+      try {
+        args.onLockLost?.(error);
+      } catch {
+        // A caller's observer must not keep the run from being stopped.
+      }
       stopRun();
     },
   });
@@ -378,6 +385,13 @@ export interface RunAgentInThreadOptions {
    * Unset, the call waits for the runner.
    */
   stopTimeoutMs?: number;
+  /**
+   * Called once, as soon as the Thread's lock is lost and before the run is
+   * stopped, so a caller can tell this stop from one somebody else made. The
+   * call still rejects with a {@link ThreadRunError} whose reason is
+   * `"lock_lost"` once the run has ended.
+   */
+  onLockLost?: (error: unknown) => void;
 }
 
 /** What a finished {@link runAgentInThread} call returns. */
@@ -484,6 +498,7 @@ export async function runAgentInThread(
     ...(options.stopTimeoutMs !== undefined
       ? { stopTimeoutMs: options.stopTimeoutMs }
       : {}),
+    ...(options.onLockLost ? { onLockLost: options.onLockLost } : {}),
     start: async ({ threadId, runId }) => {
       // Read once the lock is held, so no other run can add to the Thread
       // between this read and the run.

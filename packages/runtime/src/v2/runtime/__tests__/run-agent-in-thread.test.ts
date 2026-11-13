@@ -449,9 +449,21 @@ describe("a run that does not finish", () => {
       {},
       { lockTtlSeconds: 120, lockHeartbeatIntervalSeconds: 0.05 },
     );
-    const agent = new ScriptedAgent(keepsWorking);
+    const order: string[] = [];
+    const agent = new (class extends ScriptedAgent {
+      override abortRun(): void {
+        order.push("run stopped");
+        super.abortRun();
+      }
+    })(keepsWorking);
+    const lost: unknown[] = [];
 
-    const running = run(runtime, agent).catch((error: unknown) => error);
+    const running = run(runtime, agent, {
+      onLockLost: (error) => {
+        lost.push(error);
+        order.push("told the lock was lost");
+      },
+    }).catch((error: unknown) => error);
     await vi.waitFor(() =>
       expect(storedTypes()).toContain(EventType.TEXT_MESSAGE_CONTENT),
     );
@@ -463,6 +475,9 @@ describe("a run that does not finish", () => {
     expect((failure as ThreadRunError).cause).toBeInstanceOf(
       PlatformRequestError,
     );
+    expect(lost).toEqual([(failure as ThreadRunError).cause]);
+    expect(order[0]).toBe("told the lock was lost");
+    expect(order).toContain("run stopped");
     expect(position(/^stop recorded/)).toBe(-1);
     expect(fake.lockOwner(threadId)).toBe("browser-run");
   });
