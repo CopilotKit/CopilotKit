@@ -4515,8 +4515,8 @@ importers:
   showcase/scripts:
     dependencies:
       '@copilotkit/aimock':
-        specifier: 1.37.4
-        version: 1.37.4(jest@29.7.0(@types/node@22.19.11)(babel-plugin-macros@3.1.0)(ts-node@10.9.2(@swc/core@1.15.8(@swc/helpers@0.5.23))(@types/node@22.19.11)(typescript@6.0.3)))(vitest@4.1.5)
+        specifier: 1.48.0
+        version: 1.48.0(jest@29.7.0(@types/node@22.19.11)(babel-plugin-macros@3.1.0)(ts-node@10.9.2(@swc/core@1.15.8(@swc/helpers@0.5.23))(@types/node@22.19.11)(typescript@6.0.3)))(vitest@4.1.5)
       '@playwright/test':
         specifier: ^1.59.1
         version: 1.59.1
@@ -4783,9 +4783,6 @@ packages:
 
   '@ag-ui/core@0.0.36':
     resolution: {integrity: sha512-uYUrzw6uxuw4qVQ61mdSeiG0mFh2n/VAWmWsWzwETDuhqJZT7rFmd07IajcFWcyItMr1wjqxFDdlklucAyEYNA==}
-
-  '@ag-ui/core@0.0.49':
-    resolution: {integrity: sha512-9ywypwjUGtIvTxJ2eKQjhPZgLnSFAfNK7vZUcT7Bz4ur4yAIB+lAFtzvu7VDYe6jsUx/6N/71Dh4R0zX5woNVw==}
 
   '@ag-ui/core@0.0.52':
     resolution: {integrity: sha512-Xo0bUaNV56EqylzcrAuhUkQX7et7+SZIrqZZtEByGwEq/I1EHny6ZMkWHLkKR7UNi0FJZwJyhKYmKJS3B2SEgA==}
@@ -7498,7 +7495,6 @@ packages:
 
   '@browserbasehq/stagehand@1.14.0':
     resolution: {integrity: sha512-Hi/EzgMFWz+FKyepxHTrqfTPjpsuBS4zRy3e9sbMpBgLPv+9c0R+YZEvS7Bw4mTS66QtvvURRT6zgDGFotthVQ==}
-    deprecated: This version is no longer maintained. Please upgrade to the latest version of @browserbasehq/stagehand.
     peerDependencies:
       '@playwright/test': ^1.42.1
       deepmerge: ^4.3.1
@@ -7693,8 +7689,8 @@ packages:
       vitest:
         optional: true
 
-  '@copilotkit/aimock@1.37.4':
-    resolution: {integrity: sha512-3fKSBrs7QDTRmYQM9RVh+2aC95KJcEbNHtAAuD8fJ3NdIx1bNdgWvwgWNJLzAuiZI3kSDwRgA0HlCVD6n0eP+A==}
+  '@copilotkit/aimock@1.48.0':
+    resolution: {integrity: sha512-i6gNetBqgelSi3+Lf+y7Z1vUivxWbioImnb/FuVkVHzh7HwVyO/vQ9UA/IBcqWtsL6QOLgrr1w7KHsyyuHTiCg==}
     engines: {node: '>=20.15.0'}
     hasBin: true
     peerDependencies:
@@ -15393,11 +15389,6 @@ packages:
   '@tanstack/ai-client@0.22.1':
     resolution: {integrity: sha512-+v/elGbZveKSgAYaCkS/9V+Ii12RZvm9WQ+ifvJlN5bVwAf5jakxLvh4j1e/tEkPuPiwYdPJmVUYQXK/Rfm5Aw==}
 
-  '@tanstack/ai-event-client@0.2.8':
-    resolution: {integrity: sha512-pdvT1hh7UorwBiDLrXnI5BFDfc7JSqnN06LaQHG4TGRl/621UnUrh16hQKOMn/msArKiCj+n+TG+cw4mDwMaLw==}
-    peerDependencies:
-      '@tanstack/ai': 0.14.0
-
   '@tanstack/ai-event-client@0.6.8':
     resolution: {integrity: sha512-h7/HLz9u2LF9ba6uKFMnSZkFlkzQONJ5u3Hi+4qGxpsHyvcGRtW6v186jaFLoklndhEwyC49ytkC4eafi7Qq8w==}
 
@@ -15409,13 +15400,6 @@ packages:
     resolution: {integrity: sha512-gXv/D2CKBVjJxdJOawJ00wFCwKDuO3Br1y/nfgOqNKsH75cq+wVc9nBsxTEPZIK5N1zb+TDLQqUy1OfMvaQCpg==}
     peerDependencies:
       '@tanstack/ai': ^0.42.0
-      zod: '>=3.22.3'
-
-  '@tanstack/ai-openai@0.8.2':
-    resolution: {integrity: sha512-fnrY2nPhn+KZzBbMU84vmuaK74+SAOjs5XtsW/2eX1Ke3Gj3ItGrXDks7Gt9pDrDADjYK6ZSsgtUCm9F++OFOg==}
-    peerDependencies:
-      '@tanstack/ai': ^0.14.0
-      '@tanstack/ai-client': ^0.8.0
       zod: '>=3.22.3'
 
   '@tanstack/ai-react@0.18.1':
@@ -15431,10 +15415,6 @@ packages:
 
   '@tanstack/ai-utils@0.3.1':
     resolution: {integrity: sha512-fgbjd5DohL3k5rTWr/KInauLVYMiHVm0cnmTsNrzL3cr4wWhEld5vmFSrjiwUWACAuONjZa+uBXuS+ZSO8fwDQ==}
-
-  '@tanstack/ai@0.14.0':
-    resolution: {integrity: sha512-oiyYHcWMmyVoKDf018xZMEX62BaJVhdgeeRQeRbqP3p5Nvar2UZUhKzFkUiE4L9KzklPqrtI5aYhVdAp9Z142g==}
-    engines: {node: '>=18'}
 
   '@tanstack/ai@0.42.0':
     resolution: {integrity: sha512-OyUA1tl6Oj93jjdyDofMb53tf3GhHgLWJ376h/5qjdwtUG1YOr6134khd1Aq2lfIZbmj2HR+y3XqD9UMXSjk1A==}
@@ -28802,10 +28782,6 @@ snapshots:
       rxjs: 7.8.1
       zod: 3.25.76
 
-  '@ag-ui/core@0.0.49':
-    dependencies:
-      zod: 3.25.76
-
   '@ag-ui/core@0.0.52':
     dependencies:
       zod: 3.25.76
@@ -34143,7 +34119,7 @@ snapshots:
       jest: 29.7.0(@types/node@18.19.130)(babel-plugin-macros@3.1.0)(ts-node@10.9.2(@swc/core@1.5.28(@swc/helpers@0.5.23))(@types/node@18.19.130)(typescript@5.9.3))
       vitest: 3.2.4(@types/debug@4.1.12)(@types/node@18.19.130)(@vitest/ui@3.2.4)(jiti@2.7.0)(jsdom@29.1.0(@noble/hashes@1.8.0))(less@4.6.7)(lightningcss@1.32.0)(sass@1.101.0)(terser@5.49.0)(tsx@4.21.0)(yaml@2.9.0)
 
-  '@copilotkit/aimock@1.37.4(jest@29.7.0(@types/node@22.19.11)(babel-plugin-macros@3.1.0)(ts-node@10.9.2(@swc/core@1.15.8(@swc/helpers@0.5.23))(@types/node@22.19.11)(typescript@6.0.3)))(vitest@4.1.5)':
+  '@copilotkit/aimock@1.48.0(jest@29.7.0(@types/node@22.19.11)(babel-plugin-macros@3.1.0)(ts-node@10.9.2(@swc/core@1.15.8(@swc/helpers@0.5.23))(@types/node@22.19.11)(typescript@6.0.3)))(vitest@4.1.5)':
     optionalDependencies:
       jest: 29.7.0(@types/node@22.19.11)(babel-plugin-macros@3.1.0)(ts-node@10.9.2(@swc/core@1.15.8(@swc/helpers@0.5.23))(@types/node@22.19.11)(typescript@6.0.3))
       vitest: 4.1.5(@opentelemetry/api@1.9.0)(@types/node@22.19.11)(@vitest/coverage-v8@4.1.5)(jsdom@29.1.0(@noble/hashes@1.8.0))(vite@7.3.2(@types/node@22.19.11)(jiti@2.7.0)(less@4.6.7)(lightningcss@1.32.0)(sass@1.101.0)(terser@5.49.0)(tsx@4.21.0)(yaml@2.8.3))
@@ -43362,11 +43338,6 @@ snapshots:
     transitivePeerDependencies:
       - '@opentelemetry/api'
 
-  '@tanstack/ai-event-client@0.2.8(@tanstack/ai@0.14.0)':
-    dependencies:
-      '@tanstack/ai': 0.14.0
-      '@tanstack/devtools-event-client': 0.4.3
-
   '@tanstack/ai-event-client@0.6.8':
     dependencies:
       '@tanstack/devtools-event-client': 0.4.3
@@ -43391,15 +43362,6 @@ snapshots:
     transitivePeerDependencies:
       - ws
 
-  '@tanstack/ai-openai@0.8.2(@tanstack/ai-client@0.22.1(@opentelemetry/api@1.9.0))(@tanstack/ai@0.14.0)(ws@8.21.3)(zod@3.25.76)':
-    dependencies:
-      '@tanstack/ai': 0.14.0
-      '@tanstack/ai-client': 0.22.1(@opentelemetry/api@1.9.0)
-      openai: 6.44.0(ws@8.21.3)(zod@3.25.76)
-      zod: 3.25.76
-    transitivePeerDependencies:
-      - ws
-
   '@tanstack/ai-react@0.18.1(@opentelemetry/api@1.9.0)(@tanstack/ai@0.42.0(@opentelemetry/api@1.9.0))(@types/react@19.1.8)(react@19.2.3)':
     dependencies:
       '@tanstack/ai': 0.42.0(@opentelemetry/api@1.9.0)
@@ -43410,12 +43372,6 @@ snapshots:
       - '@opentelemetry/api'
 
   '@tanstack/ai-utils@0.3.1': {}
-
-  '@tanstack/ai@0.14.0':
-    dependencies:
-      '@ag-ui/core': 0.0.49
-      '@tanstack/ai-event-client': 0.2.8(@tanstack/ai@0.14.0)
-      partial-json: 0.1.7
 
   '@tanstack/ai@0.42.0(@opentelemetry/api@1.9.0)':
     dependencies:
@@ -48300,7 +48256,7 @@ snapshots:
       eslint: 9.39.2(jiti@2.7.0)
       eslint-import-resolver-node: 0.3.9
       eslint-import-resolver-typescript: 3.10.1(eslint-plugin-import@2.32.0(eslint@9.39.2(jiti@2.7.0)))(eslint@9.39.2(jiti@2.7.0))
-      eslint-plugin-import: 2.32.0(eslint-import-resolver-typescript@3.10.1)(eslint@9.39.2(jiti@2.7.0))
+      eslint-plugin-import: 2.32.0(eslint-import-resolver-typescript@3.10.1(eslint-plugin-import@2.32.0(eslint@9.39.2(jiti@2.7.0)))(eslint@9.39.2(jiti@2.7.0)))(eslint@9.39.2(jiti@2.7.0))
       eslint-plugin-jsx-a11y: 6.10.2(eslint@9.39.2(jiti@2.7.0))
       eslint-plugin-react: 7.37.5(eslint@9.39.2(jiti@2.7.0))
       eslint-plugin-react-hooks: 7.1.1(eslint@9.39.2(jiti@2.7.0))
@@ -48333,7 +48289,7 @@ snapshots:
       tinyglobby: 0.2.17
       unrs-resolver: 1.11.1
     optionalDependencies:
-      eslint-plugin-import: 2.32.0(eslint-import-resolver-typescript@3.10.1)(eslint@9.39.2(jiti@2.7.0))
+      eslint-plugin-import: 2.32.0(eslint-import-resolver-typescript@3.10.1(eslint-plugin-import@2.32.0(eslint@9.39.2(jiti@2.7.0)))(eslint@9.39.2(jiti@2.7.0)))(eslint@9.39.2(jiti@2.7.0))
     transitivePeerDependencies:
       - supports-color
 
@@ -48402,7 +48358,7 @@ snapshots:
       - eslint-import-resolver-webpack
       - supports-color
 
-  eslint-plugin-import@2.32.0(eslint-import-resolver-typescript@3.10.1)(eslint@9.39.2(jiti@2.7.0)):
+  eslint-plugin-import@2.32.0(eslint-import-resolver-typescript@3.10.1(eslint-plugin-import@2.32.0(eslint@9.39.2(jiti@2.7.0)))(eslint@9.39.2(jiti@2.7.0)))(eslint@9.39.2(jiti@2.7.0)):
     dependencies:
       '@rtsao/scc': 1.1.0
       array-includes: 3.1.9
