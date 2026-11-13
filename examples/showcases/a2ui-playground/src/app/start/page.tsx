@@ -12,7 +12,7 @@ import { SITE_URL, withBase } from "@/lib/site";
 export const metadata: Metadata = {
   title: "Get started · A2UI Playground",
   description:
-    "Add A2UI 1.0 to your app with one prompt for your coding agent: CopilotKit's standard catalog, shadcn/ui through ChatCN, Material 3 or your own components.",
+    "Add A2UI 1.0 to your app with one prompt for your coding agent: CopilotKit's standard catalog, shadcn/ui, Material 3 or your own components.",
   alternates: { canonical: `${SITE_URL}/start` },
 };
 

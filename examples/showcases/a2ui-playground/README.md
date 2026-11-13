@@ -12,7 +12,7 @@ The hosted playground runs at https://open.bot/a2ui. Its earlier addresses, `a2u
 - **A2UI Express by default.** The model writes one line per component and Google's `@a2ui/agent` SDK compiles it, usually about half the size of the same UI in JSON. JSON is the alternative. Express that still fails to compile after a retry is rewritten as JSON on the same surface.
 - **Any model.** Gemini Flash (`gemini-flash-latest`) is the default; Gemma 4 runs locally through Ollama (or any OpenAI-compatible server); GPT is in the picker too.
 - **A real catalog.** The 69 Gen UI 2.0 standard components, 52 of the playground's own (shadcn/ui, TanStack Charts, MapLibre) and 3 macros, `FlightCard`, `ProductCard` and `WeatherReport`, that the server expands into standard components.
-- **Any design system.** The first picker in the prompt box's "+" menu chooses what draws each surface: CopilotKit's standard catalog, ChatCN (shadcn/ui), Material (Material 3 Expressive), or a hand-written in-house set standing in for your own components. The agent's A2UI never changes; switching repaints every surface on the page, which is the point of a catalog: a contract, not a look. `src/design-systems/` swaps leaf components (Button, Badge, Stat, Heading and the like) and themes the rest; `?ds=chatcn`, `?ds=material` or `?ds=byoc` picks one in a link. Material's stylesheet and typeface load the first time it is picked.
+- **Any design system.** The first picker in the prompt box's "+" menu chooses what draws each surface: CopilotKit's standard catalog, shadcn/ui, Material (Material 3 Expressive), or a hand-written in-house set standing in for your own components. The agent's A2UI never changes; switching repaints every surface on the page, which is the point of a catalog: a contract, not a look. `src/design-systems/` swaps leaf components (Button, Badge, Stat, Heading and the like) and themes the rest; `?ds=shadcn`, `?ds=material` or `?ds=byoc` picks one in a link. Material's stylesheet and typeface load the first time it is picked.
 - **Chat first, with the code beside it.** Each prompt shows its UI inline as it paints. The side pane shows the selected surface's Express (or JSON) lines as they are written, the JSON with an editor (live preview, no model; then "Ask the model to change this"), and the run's timings.
 - **Light or dark, and embeddable.** Light by default, dark from the header or `?theme=dark`; `?embed=1` is a compact version for an iframe (see Embed it).
 - **Take it home.** `/start` is one Copy prompt for a coding agent (Claude Code, Codex, Cursor, Antigravity CLI, OpenCode, Hermes) that adds A2UI to an existing app for the design system you pick, plus the two lines it comes down to by hand. `/catalog.json` and the agent skill download (`/api/skills?format=express&download=1`) carry the catalog to other renderers and agents, `/evals` shows per-model scores (`pnpm evals`), and `examples/adk` is a Google ADK agent on the same catalog.
@@ -107,7 +107,7 @@ The website and docs show the playground in an iframe. `?embed=1` drops the site
 ></iframe>
 ```
 
-The page is light unless it is opened with `?theme=dark` (for a dark page) or the visitor picks dark in the header. `?ds=` picks the design system (`copilotkit`, `chatcn`, `material`, `byoc`). Only `copilotkit.ai`, its subdomains and the origins in `FRAME_ANCESTORS` may frame it (`Content-Security-Policy: frame-ancestors`). Runs from an embed spend the same key under the same limits as the site, so a busy launch page brings the day's ceiling closer.
+The page is light unless it is opened with `?theme=dark` (for a dark page) or the visitor picks dark in the header. `?ds=` picks the design system (`copilotkit`, `shadcn`, `material`, `byoc`; the older `chatcn` still means shadcn). Only `copilotkit.ai`, its subdomains and the origins in `FRAME_ANCESTORS` may frame it (`Content-Security-Policy: frame-ancestors`). Runs from an embed spend the same key under the same limits as the site, so a busy launch page brings the day's ceiling closer.
 
 ## Use it in your app
 
@@ -134,17 +134,17 @@ pnpm dev                         # from the repo root, then open http://localhos
 
 ## Layout
 
-| Path                         | What it holds                                                                       |
-| ---------------------------- | ----------------------------------------------------------------------------------- |
-| `src/agent/`                 | The agent: router, composers (Express and JSON), models, surfaces, templates, tools |
-| `src/a2ui/catalog/`          | Definitions (Zod), renderers and samples of the playground's components             |
-| `src/a2ui/macros/`           | The three macros and their samples                                                  |
-| `src/components/playground/` | The chat, composer, lines pane and the JSON editor                                  |
-| `src/design-systems/`        | CopilotKit, ChatCN, Material and Bring-your-own implementations of the same catalog |
-| `src/app/`                   | Pages (`/`, `/evals`, `/start`, `/watch`) and API routes                            |
-| `skills/`                    | The catalog skill and the generated agent skills                                    |
-| `examples/adk/`              | A Google ADK agent served over AG-UI                                                |
-| `scripts/`                   | Catalog and skill export, evals, the replay recorder, browser checks                |
+| Path                         | What it holds                                                                          |
+| ---------------------------- | -------------------------------------------------------------------------------------- |
+| `src/agent/`                 | The agent: router, composers (Express and JSON), models, surfaces, templates, tools    |
+| `src/a2ui/catalog/`          | Definitions (Zod), renderers and samples of the playground's components                |
+| `src/a2ui/macros/`           | The three macros and their samples                                                     |
+| `src/components/playground/` | The chat, composer, lines pane and the JSON editor                                     |
+| `src/design-systems/`        | CopilotKit, shadcn/ui, Material and Bring-your-own implementations of the same catalog |
+| `src/app/`                   | Pages (`/`, `/evals`, `/start`, `/watch`) and API routes                               |
+| `skills/`                    | The catalog skill and the generated agent skills                                       |
+| `examples/adk/`              | A Google ADK agent served over AG-UI                                                   |
+| `scripts/`                   | Catalog and skill export, evals, the replay recorder, browser checks                   |
 
 ## Known limitations
 

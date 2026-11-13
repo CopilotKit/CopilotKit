@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * ChatCN: the catalog drawn with shadcn/ui, the primitives ChatCN's registry builds on. Each component
+ * shadcn/ui: the catalog drawn with shadcn/ui's Radix and Tailwind primitives. Each component
  * here takes the same props the standard (or playground) component of that name takes. Only leaves are
  * swapped: a container (Card, Section) keeps its own implementation and picks up shadcn's palette from
  * the theme, so switching never remounts what is inside it (typed values, a table's sort, a tab).
@@ -53,7 +53,7 @@ function TrendBadge({ delta, trend }: { delta?: string; trend?: string }) {
   );
 }
 
-function ChatcnBadge(p: StandardProps) {
+function ShadcnBadge(p: StandardProps) {
   const aria = useGenerativeUIAccessibility();
   return (
     <Badge
@@ -73,7 +73,7 @@ function ChatcnBadge(p: StandardProps) {
   );
 }
 
-function ChatcnButton(p: StandardProps) {
+function ShadcnButton(p: StandardProps) {
   const { content, attributes } = useButton(p);
   return (
     <Button
@@ -97,9 +97,9 @@ function ChatcnButton(p: StandardProps) {
   );
 }
 
-export const chatcnStandard: Record<string, (p: StandardProps) => ReactNode> = {
-  Badge: ChatcnBadge,
-  Button: ChatcnButton,
+export const shadcnStandard: Record<string, (p: StandardProps) => ReactNode> = {
+  Badge: ShadcnBadge,
+  Button: ShadcnButton,
   Divider: (p) => (
     <Separator
       orientation={p.axis === "vertical" ? "vertical" : "horizontal"}
@@ -116,7 +116,7 @@ type Own =
   | "Callout"
   | "Progress";
 
-export const chatcnOwn: Partial<RendererMap<Own>> = {
+export const shadcnOwn: Partial<RendererMap<Own>> = {
   Stat: ({ props }) => (
     <ShadcnCard className="gap-2 py-4">
       <span className="truncate text-sm text-muted-foreground">
