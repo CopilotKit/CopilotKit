@@ -100,6 +100,16 @@ A common pattern where the agent asks the user to confirm a destructive action.
 import { useHumanInTheLoop, ToolCallStatus } from "@copilotkit/react-core/v2";
 import { z } from "zod";
 
+// A restored failure whose `error` the history store dropped arrives as
+// plain text, so parse defensively.
+function parseResponse(result: string) {
+  try {
+    return JSON.parse(result);
+  } catch {
+    return undefined;
+  }
+}
+
 function DeleteConfirmation() {
   useHumanInTheLoop(
     {
@@ -109,7 +119,7 @@ function DeleteConfirmation() {
         itemName: z.string().describe("Name of the item to delete"),
         itemCount: z.number().describe("Number of items to delete"),
       }),
-      render: ({ args, status, respond, result, error }) => {
+      render: ({ args, status, respond, result, aborted, error }) => {
         if (status === ToolCallStatus.InProgress) {
           return (
             <div className="p-4 text-gray-500">Preparing confirmation...</div>
@@ -141,8 +151,19 @@ function DeleteConfirmation() {
           );
         }
 
-        if (status === ToolCallStatus.Complete && result && !error) {
-          const parsed = JSON.parse(result);
+        if (status === ToolCallStatus.Complete && aborted) {
+          return (
+            <div className="p-2 text-sm text-gray-500">Request cancelled.</div>
+          );
+        }
+
+        if (
+          status === ToolCallStatus.Complete &&
+          result &&
+          error === undefined
+        ) {
+          const parsed = parseResponse(result);
+          if (!parsed) return null;
           return (
             <div className="p-2 text-sm text-gray-600">
               {parsed.confirmed ? "Items deleted." : "Deletion cancelled."}
@@ -228,7 +249,7 @@ function ShippingAddressForm() {
           );
         }
 
-        if (status === ToolCallStatus.Complete && error) {
+        if (status === ToolCallStatus.Complete && error !== undefined) {
           return (
             <div className="p-2 text-red-600">Address request failed.</div>
           );
@@ -255,6 +276,16 @@ function ShippingAddressForm() {
 ### Approval Workflow with Context
 
 ```tsx
+// A restored failure whose `error` the history store dropped arrives as
+// plain text, so parse defensively.
+function parseResponse(result: string) {
+  try {
+    return JSON.parse(result);
+  } catch {
+    return undefined;
+  }
+}
+
 function ExpenseApproval() {
   useHumanInTheLoop(
     {
@@ -297,8 +328,13 @@ function ExpenseApproval() {
           );
         }
 
-        if (status === ToolCallStatus.Complete && result && !error) {
-          const parsed = JSON.parse(result);
+        if (
+          status === ToolCallStatus.Complete &&
+          result &&
+          error === undefined
+        ) {
+          const parsed = parseResponse(result);
+          if (!parsed) return null;
           return (
             <div
               className={`p-2 text-sm ${parsed.approved ? "text-green-600" : "text-red-600"}`}
@@ -326,6 +362,7 @@ function ExpenseApproval() {
 - **Internal status machine**: The hook manages three states -- `InProgress` (arguments streaming in), `Executing` (waiting for user response), and `Complete` (the call has finished). Your render component receives the appropriate props for each state.
 - **Single response**: Call the `respond` callback only once per tool call. Calling it resolves the tool call promise with the provided value.
 - **Stopped runs**: If the run stops before the user answers, the tool call completes without an answer: `aborted` is `true`, `error` holds the abort message (`Human-in-the-loop interaction aborted`), `result` is `undefined`, and `respond` has no effect. Check `aborted` before treating a `Complete` render as the user's decision.
+- **Restored history**: `aborted` and `error` come from the tool message's `error` field, so a history store must keep that field for a restored abort to render as aborted. If it drops `error`, the call arrives as `Complete` with the failure text in `result` and no `aborted`, so don't assume `result` holds a valid response.
 - **Built on `useFrontendTool`**: Internally, this hook wraps `useFrontendTool` with an internally generated handler, so all the same lifecycle behavior (mount/unmount registration, duplicate warnings) applies.
 - **Mount/Unmount lifecycle**: The tool and its render component are registered on mount and removed on unmount.
 - **Calls after unmount**: If the agent calls the tool after it was removed (for example, the component unmounted while the run was in flight), CopilotKit answers the call with a `Tool not found` error result and reports a `TOOL_NOT_FOUND` error, so the conversation can continue. This applies only to tools that were sent to the agent for that run, and only when the run finishes normally; an interrupted, stopped or failed run leaves the call open. A call to a name that was not sent to the agent for that run stays unanswered; register a wildcard tool (`name: "*"`) to handle those.
