@@ -143,6 +143,19 @@ export function resolveForwardHeadersPolicy(
 }
 
 /**
+ * Resolves the forward headers policy for a given runtime, falling back to
+ * the default resolved policy (default-on denylist) if the runtime does not
+ * specify one or is undefined.
+ */
+export function policyFor(
+  runtime?: { forwardHeadersPolicy?: ResolvedForwardHeadersPolicy } | null,
+): ResolvedForwardHeadersPolicy {
+  return (
+    runtime?.forwardHeadersPolicy ?? resolveForwardHeadersPolicy(undefined)
+  );
+}
+
+/**
  * True iff the (already-lowercased) header name matches the integrator's OWN
  * `deny` / `denyPrefixes`. This is the authoritative subtractive check: it is
  * consulted in BOTH allowlist and denylist mode. It deliberately does NOT
