@@ -112,6 +112,73 @@ const AG_UI_STREAMS_REDIRECTS = [
 ];
 
 // ---------------------------------------------------------------------------
+// Retired React overview pages: every framework's overview URL opens the
+// section's first page. Frontends that keep their own overview page (listed
+// per overview) aren't matched.
+// ---------------------------------------------------------------------------
+/**
+ * @param {string} slug the retired overview's slug
+ * @param {string} target the page it now opens
+ * @param {string[]} ownOverview frontends that keep their own overview
+ * @returns {Redirect[]}
+ */
+function retiredOverviewRedirects(slug, target, ownOverview) {
+  const notFramework = [
+    "angular",
+    "react-native",
+    "react",
+    "vue",
+    "react-spa",
+    "slack",
+    "teams",
+    "reference",
+    "intelligence",
+  ].join("|");
+  const framework = `:framework((?!(?:${notFramework})(?:/|$))${V2_RESERVED_SEGMENTS}[^/]+)`;
+  const redirected = ["vue", "react-spa"].filter(
+    (f) => !ownOverview.includes(f),
+  );
+  return [
+    ...["", "/react"].flatMap((prefix) =>
+      permanentRedirectsWithSuffixes(`${prefix}/${slug}`, `/${target}`),
+    ),
+    ...permanentRedirectsWithSuffixes(
+      `/${framework}/${slug}`,
+      `/:framework/${target}`,
+    ),
+    ...permanentRedirectsWithSuffixes(
+      `/react/:framework/${slug}`,
+      `/:framework/${target}`,
+    ),
+    ...redirected.flatMap((frontend) => [
+      ...permanentRedirectsWithSuffixes(
+        `/${frontend}/${slug}`,
+        `/${frontend}/${target}`,
+      ),
+      ...permanentRedirectsWithSuffixes(
+        `/${frontend}/:framework/${slug}`,
+        `/${frontend}/:framework/${target}`,
+      ),
+    ]),
+  ];
+}
+
+/** @type {Redirect[]} */
+const RETIRED_OVERVIEW_REDIRECTS = [
+  // Angular and React Native keep their own Generative UI overview.
+  ...retiredOverviewRedirects("generative-ui", "generative-ui/tool-based", [
+    "angular",
+    "react-native",
+  ]),
+  // Vue, Angular and React Native keep their own Prebuilt Components page.
+  ...retiredOverviewRedirects(
+    "prebuilt-components",
+    "prebuilt-components/chat",
+    ["vue", "angular", "react-native"],
+  ),
+];
+
+// ---------------------------------------------------------------------------
 // Open-JSON-UI is retired: every published HTML and raw-doc URL goes to the
 // matching A2UI page in one hop.
 // ---------------------------------------------------------------------------
@@ -756,7 +823,7 @@ const PAGE_REDIRECTS = [
   // catch-all so the rename wins.
   {
     source: "/unselected/agentic-chat-ui",
-    destination: "/prebuilt-components",
+    destination: "/prebuilt-components/chat",
     permanent: true,
   },
   {
@@ -970,6 +1037,7 @@ const ANTIGRAVITY_COOKBOOK_REDIRECTS = [
 export const nextConfigRedirects = [
   ...ANTIGRAVITY_COOKBOOK_REDIRECTS,
   ...AG_UI_STREAMS_REDIRECTS,
+  ...RETIRED_OVERVIEW_REDIRECTS,
   ...OPEN_JSON_UI_RETIREMENT_REDIRECTS,
   ...THREADS_SELF_MANAGED_RETIREMENT_REDIRECTS,
   ...ANGULAR_GUIDE_REDIRECTS,

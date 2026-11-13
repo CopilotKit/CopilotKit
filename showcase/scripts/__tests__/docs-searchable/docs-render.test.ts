@@ -310,7 +310,7 @@ it("keeps the existing-thread guide discoverable in root and framework sidebars"
   }
 });
 
-it("lists the Trajectories overview among the other Intelligence features", () => {
+it("nests Trajectories and Automatic Learning under Intelligence features", () => {
   const expectedSlugs = [
     "intelligence/trajectories",
     "intelligence/trajectories-quickstart",
@@ -328,16 +328,30 @@ it("lists the Trajectories overview among the other Intelligence features", () =
   ]) {
     const features = (slug: string) =>
       navAncestorBreadcrumbsForSlug(nav, slug)?.map(({ label }) => label);
-    // docs/(shared)/meta.json lists the Trajectories overview and Automatic
-    // Learning as single Features rows; the other Trajectories guides and
-    // Skill delivery left the sidebar and are linked from those pages.
+    // docs/(shared)/meta.json nests Trajectories and Automatic Learning as
+    // Features groups, as docs.copilotkit.ai does: each overview sits in its
+    // group with its guides (Skill delivery under Automatic Learning).
     expect(features("intelligence/trajectories")).toEqual([
       "Intelligence",
       "Features",
+      "Trajectories",
     ]);
-    expect(features("learning")).toEqual(["Intelligence", "Features"]);
+    expect(features("learning")).toEqual([
+      "Intelligence",
+      "Features",
+      "Automatic Learning",
+    ]);
+    expect(features("intelligence/learned-skills")).toEqual([
+      "Intelligence",
+      "Features",
+      "Automatic Learning",
+    ]);
     for (const slug of expectedSlugs.slice(1)) {
-      expect(navAncestorBreadcrumbsForSlug(nav, slug), slug).toBeNull();
+      expect(features(slug), slug).toEqual([
+        "Intelligence",
+        "Features",
+        "Trajectories",
+      ]);
     }
     expect(hasSectionPage(nav, "Intelligence", "User Memories")).toBe(true);
     // Angular capture routes to the standalone collector, so it stays in the

@@ -190,7 +190,7 @@ const CURATED_LLM_PAGES: readonly CuratedPage[] = [
       "Select and configure the model provider used by CopilotKit's built-in agent.",
   },
   {
-    url: "prebuilt-components",
+    url: "prebuilt-components/chat",
     title: "Prebuilt Chat Components",
     description:
       "Choose among embedded chat, sidebar, and popup components for a ready-made interface.",

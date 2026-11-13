@@ -4,6 +4,8 @@
   "pages": [
     "---Getting Started---",
     "index",
-    "quickstart"
+    "quickstart",
+    "---Pydantic AI---",
+    "multi-agent-flows"
   ]
 }

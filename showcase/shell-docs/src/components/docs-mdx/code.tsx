@@ -3,7 +3,7 @@ import type { ShikiTransformer } from "shiki";
 import { ServerCodeBlock } from "fumadocs-ui/components/codeblock.rsc";
 import {
   STAGE_WINDOW,
-  Stage,
+  CodeFrame,
   UNTITLED_VIEWPORT,
   isCommandLang,
 } from "@/components/brand/stage";
@@ -60,8 +60,8 @@ export async function DocsCode({
     rendered = await block("plaintext");
   }
   return (
-    <Stage compact={isCommandLang(lang)} className={className}>
+    <CodeFrame compact={isCommandLang(lang)} className={className}>
       {rendered}
-    </Stage>
+    </CodeFrame>
   );
 }

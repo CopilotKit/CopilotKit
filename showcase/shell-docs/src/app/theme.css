@@ -152,6 +152,19 @@ html [data-copilotkit] {
     0 2px 4px rgb(20 16 33 / 0.04), 0 14px 30px rgb(117 124 242 / 0.18);
   /* The website's broad shell shadow, for framed illustrations. */
   --lift-stage: 12px 24px 29px -6px rgb(0 0 0 / 0.06);
+  /* Code's frame (CodeFrame in stage.tsx): a soft indigo lift. */
+  --code-lift:
+    0 1px 2px rgb(80 87 204 / 0.06), 0 6px 14px -8px rgb(99 87 229 / 0.28);
+  /* Cards standing on the page with no tray (Tray variant "bare"). */
+  --card-lift:
+    0 1px 2px rgb(20 16 33 / 0.04), 0 4px 12px -6px rgb(80 87 204 / 0.14);
+  --card-lift-hover:
+    0 2px 4px rgb(20 16 33 / 0.04), 0 10px 22px -10px rgb(80 87 204 / 0.26);
+  /* The navbar menus: a faintly lilac panel over the page, so its white
+   * cards stand out on it and it stands out over the white page. */
+  --menu-surface: #f7f7fb;
+  --menu-lift:
+    0 2px 6px rgb(20 16 33 / 0.05), 0 28px 56px -20px rgb(20 16 33 / 0.22);
 }
 
 /* ---------- dark: ink, not grey ---------- */
@@ -207,14 +220,25 @@ html.dark [data-copilotkit] {
   --tile-mint-ink: #85ecce;
   --edge-action: rgb(190 194 255 / 0.45);
   --code-well: #111118;
+  /* Night stage: ink at the edges so it sits in the page, with the
+   * stage's sky-to-indigo kept as light rising from inside it. */
   --stage:
-    radial-gradient(ellipse at 53% 74%, #241f63a6, transparent 75%),
-    linear-gradient(145deg, #1b3452 4%, #24276a 103%);
+    radial-gradient(ellipse at 50% 115%, #5b52e8b3, transparent 62%),
+    radial-gradient(ellipse at 8% 0%, #2f6fb066, transparent 55%),
+    linear-gradient(160deg, #121831 0%, #15143a 55%, #1c1650 100%);
   --glyph-tile: linear-gradient(145deg, #2c5683 4%, #3a3f9e 103%);
-  --stage-tile: rgb(255 255 255 / 0.1);
-  --stage-rim: rgb(255 255 255 / 0.18);
-  --stage-line: rgb(255 255 255 / 0.45);
-  --matrix-square: rgb(190 194 255 / 0.4);
+  --stage-tile: rgb(22 22 40 / 0.72);
+  --stage-rim: rgb(165 170 255 / 0.22);
+  --stage-line: rgb(190 194 255 / 0.55);
+  --matrix-square: #9aa6ff;
+  --matrix-strength: 0.22;
+  --code-lift:
+    0 1px 2px rgb(0 0 0 / 0.4), 0 6px 14px -8px rgb(99 87 229 / 0.35);
+  --card-lift: 0 1px 2px rgb(0 0 0 / 0.4), 0 4px 12px -6px rgb(0 0 0 / 0.5);
+  --card-lift-hover:
+    0 2px 4px rgb(0 0 0 / 0.4), 0 10px 22px -10px rgb(99 87 229 / 0.3);
+  --menu-surface: #111118;
+  --menu-lift: 0 2px 6px rgb(0 0 0 / 0.4), 0 28px 56px -20px rgb(0 0 0 / 0.8);
   --tray-card: #20202c;
   --accent-gradient: linear-gradient(90deg, #a3aaff 7%, #5fe3bd 96%);
   --lift: 0 1px 2px rgb(0 0 0 / 0.4), 0 4px 10px rgb(0 0 0 / 0.3);
@@ -301,18 +325,11 @@ html .copilotKitChat:hover ::-webkit-scrollbar-thumb {
   --shadow-lift: var(--lift);
   --shadow-lift-hover: var(--lift-hover);
   --shadow-lift-stage: var(--lift-stage);
+  --shadow-code: var(--code-lift);
+  --shadow-card: var(--card-lift);
+  --shadow-card-hover: var(--card-lift-hover);
 }
 
-/* The stack diagram's traffic and rolling logos (src/proto/stack-diagram.tsx):
- * a packet runs from just before a wire's start (9 of its 100) to past its end. */
-@keyframes travel {
-  from {
-    stroke-dashoffset: 9;
-  }
-  to {
-    stroke-dashoffset: -100;
-  }
-}
 /* Ask CopilotKit's welcome: each piece rises in, in turn (chat-parts.tsx). */
 @keyframes rise-in {
   from {
@@ -320,20 +337,23 @@ html .copilotKitChat:hover ::-webkit-scrollbar-thumb {
     transform: translateY(6px);
   }
 }
-@keyframes roll-in {
+/* The stack diagram's CopilotKit tile, as a request passes through it: a
+ * ring eases out and fades, and the tile gives a small beat. */
+@keyframes core-pulse {
   from {
-    opacity: 0;
-    transform: translateY(70%);
+    opacity: 0.7;
+    scale: 1;
   }
-}
-
-@keyframes roll-out {
   to {
     opacity: 0;
-    transform: translateY(-70%);
+    scale: 1.45;
   }
 }
-
+@keyframes core-beat {
+  40% {
+    scale: 1.05;
+  }
+}
 /* Callout states, from the brand palette. */
 @theme static {
   --color-fd-info: #5057cc;
@@ -396,19 +416,20 @@ html .copilotKitChat:hover ::-webkit-scrollbar-thumb {
 }
 
 /*
- * The navbar's dropdowns: the lilac-grey tray, as under the home's card
- * grids. Fumadocs' own popup draws its popover color at 80% over a backdrop
- * blur; here it is the solid frame with the frame's rim, and the cards in it
- * are the tray's white cards, borderless at rest (link-card.tsx). The menus
+ * The navbar's dropdowns: a faint lilac panel (--menu-surface) with a
+ * hairline and a real overlay shadow (--menu-lift), so the menu reads as a
+ * surface over the page. Its cards are the home's cards: white (night
+ * #1a1a24) with a hairline and a small lift (link-card.tsx,
+ * layout-client.tsx). Solid, no blur. The menus
  * opt in with a hidden [data-menu-tray] item (src/proto/layout-client.tsx).
  */
 [data-base-ui-portal] nav:has([data-menu-tray]) {
-  --color-fd-card: var(--tray-card);
-  --color-fd-accent: var(--tray-card);
-  background-color: var(--frame);
-  border-color: var(--frame-rim);
+  --color-fd-card: var(--card);
+  --color-fd-accent: var(--card);
+  background-color: var(--menu-surface);
+  border-color: var(--border);
   backdrop-filter: none;
-  box-shadow: var(--lift);
+  box-shadow: var(--menu-lift);
   /* It hangs straight out of the navbar: square on top, no top edge. */
   border-top-width: 0;
   border-top-left-radius: 0;

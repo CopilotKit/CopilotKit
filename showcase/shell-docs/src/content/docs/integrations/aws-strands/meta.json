@@ -5,6 +5,8 @@
     "---Getting Started---",
     "index",
     "quickstart",
+    "---AWS Strands---",
+    "deploy-agentcore",
     "---Intelligence---",
     "threads-import"
   ]

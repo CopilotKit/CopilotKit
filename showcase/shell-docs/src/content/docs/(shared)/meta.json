@@ -24,9 +24,24 @@
             "intelligence/threads-explained"
           ]
         },
-        "learning",
+        {
+          "title": "Automatic Learning",
+          "pages": [
+            "[Overview](/learning)",
+            "intelligence/learned-skills"
+          ]
+        },
         "intelligence/memories",
-        "intelligence/trajectories",
+        {
+          "title": "Trajectories",
+          "pages": [
+            "[Overview](/intelligence/trajectories)",
+            "[Quickstart](/intelligence/trajectories-quickstart)",
+            "[Capture interactions](/intelligence/capture-interactions)",
+            "intelligence/captured-data",
+            "[API reference](/intelligence/trajectories-reference)"
+          ]
+        },
         "intelligence/standalone-collector",
         "intelligence/analytics",
         "intelligence/channels"
@@ -80,11 +95,7 @@
         "concepts/generative-ui-overview",
         "[Which Hook for Which Job](/concepts/which-hook)",
         "concepts/oss-vs-enterprise",
-        "[Overview](/agentic-protocols)",
-        "agentic-protocols/ag-ui",
-        "agentic-protocols/ag-ui-middleware",
-        "agentic-protocols/mcp",
-        "agentic-protocols/a2a"
+        "agentic-protocols"
       ]
     },
     "[Cookbook](/cookbook)",
@@ -93,7 +104,7 @@
     {
       "title": "Contributing",
       "pages": [
-        "(other)/contributing/code-contributions",
+        "[Code Contributions](/contributing/code-contributions)",
         "(other)/contributing/docs-contributions"
       ]
     },

@@ -1,4 +1,5 @@
-import { Children, isValidElement, type ReactNode } from "react";
+import { Children, isValidElement } from "react";
+import type { ReactNode } from "react";
 import { cn } from "@/lib/cn";
 import { PixelMatrix } from "./pixel-matrix";
 
@@ -56,6 +57,35 @@ export function Stage({
       )}
     >
       <PixelMatrix interactive />
+      {children}
+    </div>
+  );
+}
+
+/**
+ * Code's frame: no matrix. The code window takes the grey hairline and a
+ * soft indigo lift, the same on every code block, so code carries the
+ * brand without a stage around it.
+ * Nothing pads it, so on a phone the code keeps the full column. `compact`
+ * is accepted for the stage's API and changes nothing. The window's own
+ * white rim and shadow give way to these.
+ */
+export function CodeFrame({
+  children,
+  className,
+}: {
+  compact?: boolean;
+  children: ReactNode;
+  className?: string;
+}) {
+  return (
+    <div
+      className={cn(
+        "not-prose relative rounded-xl shadow-code",
+        "[&>*]:rounded-xl! [&>*]:border! [&>*]:border-border! [&>*]:shadow-none!",
+        className,
+      )}
+    >
       {children}
     </div>
   );
