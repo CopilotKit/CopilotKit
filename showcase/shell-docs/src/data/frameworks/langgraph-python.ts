@@ -41,7 +41,7 @@ const data: FrameworkOverviewData = {
       iconKey: "user",
       description:
         "A node calls interrupt() and stops mid-execution. CopilotKit catches that event, renders your own UI for the decision, and resumes the graph with the answer.",
-      documentationLink: "/langgraph/human-in-the-loop/interrupt-flow",
+      documentationLink: "/langgraph-python/human-in-the-loop/useInterrupt",
     },
     {
       title: "Shared state",
@@ -116,7 +116,7 @@ export const DELETE = handler;
   architectureImage:
     "https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/coagents-highlevel-overview.png",
   liveDemos: [],
-  tutorialLink: "/langgraph/tutorials/ai-travel-app",
+  tutorialLink: "/langgraph-python/quickstart",
   cta: {
     variant: "card",
     title: "Bring your LangGraph agents to production",

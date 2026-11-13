@@ -1,11 +1,11 @@
 ---
 title: "CopilotMarkdown"
-description: "Render Markdown text with React Native styling tuned for chat. Handles streaming content gracefully."
+description: "Render Markdown text with React Native styling tuned for chat. Renders streaming content as it arrives."
 ---
 
 ## Overview
 
-`CopilotMarkdown` renders a Markdown string with sensible React Native styling, built on [`react-native-streamdown`](https://www.npmjs.com/package/react-native-streamdown). It handles incomplete (streaming) Markdown gracefully, rendering incrementally as content arrives, which makes it ideal for assistant messages. Requires the `react-native-streamdown` peer dependency.
+`CopilotMarkdown` renders a Markdown string with sensible React Native styling, built on [`react-native-streamdown`](https://www.npmjs.com/package/react-native-streamdown). It renders incomplete (streaming) Markdown incrementally as content arrives, which makes it ideal for assistant messages. Requires the `react-native-streamdown` peer dependency. [`AssistantMessage`](/reference/react-native/components/AssistantMessage) renders its content with this component.
 
 ## Import
 
@@ -22,7 +22,8 @@ import { CopilotMarkdown, defaultMarkdownStyles } from "@copilotkit/react-native
 <PropertyReference name="style" type="MarkdownStyle">
   Optional style overrides merged on top of the defaults. A map of Markdown
   element names (e.g. `paragraph`, `h1`, `link`, `code`) to style objects, so
-  you only override what you need.
+  you pass only the elements you change. A key you pass replaces the whole
+  default style of that element.
 </PropertyReference>
 
 <PropertyReference name="streamingAnimation" type="boolean" default="true">
@@ -31,17 +32,16 @@ import { CopilotMarkdown, defaultMarkdownStyles } from "@copilotkit/react-native
 
 ## `defaultMarkdownStyles`
 
-The default style map. Spread it to extend rather than replace the built-in styling:
+The default style map. The component merges `style` over these defaults one element at a time. To change one property of an element, spread the default for that element:
 
 ```tsx
 import { CopilotMarkdown, defaultMarkdownStyles } from "@copilotkit/react-native/components";
 
 const styles = {
-  ...defaultMarkdownStyles,
-  h1: { fontSize: 28, fontWeight: "800" },
+  h1: { ...defaultMarkdownStyles.h1, fontSize: 28, fontWeight: "800" },
 };
 
-<CopilotMarkdown content="# Hello\nThis is **bold**." style={styles} />;
+<CopilotMarkdown content={"# Hello\nThis is **bold**."} style={styles} />;
 ```
 
 ## Usage
@@ -51,7 +51,3 @@ import { CopilotMarkdown } from "@copilotkit/react-native/components";
 
 <CopilotMarkdown content="**Hello** from CopilotKit!" />;
 ```
-
-## Related
-
-- [`AssistantMessage`](/reference/react-native/components/AssistantMessage): renders its content through `CopilotMarkdown`

@@ -33,7 +33,8 @@ All reactive state is exposed as read-only Angular signals. Read a signal by cal
 
 <PropertyReference name="agents" type="Signal<Record<string, AbstractAgent>>">
   The agents currently registered, keyed by agent id. Updated when the core's
-  agents change.
+  agents change. To follow one agent's messages and running state, use
+  [`injectAgentStore`](/reference/angular/functions/injectAgentStore).
 </PropertyReference>
 
 <PropertyReference name="runtimeConnectionStatus" type="Signal<CopilotKitCoreRuntimeConnectionStatus>">
@@ -51,10 +52,9 @@ All reactive state is exposed as read-only Angular signals. Read a signal by cal
 </PropertyReference>
 
 <PropertyReference name="headers" type="Signal<Record<string, string>>">
-  The headers as of the last header source change (a `setHeaders`-style call
-  through `updateRuntime`), not necessarily current when `headers` is a
-  builder. It updates from `onHeadersChanged`, which fires only on a real
-  source change — never when a builder merely resolves a fresh token for a
+  The headers from the last header source change. A source change is an
+  `updateRuntime({ headers })` call. It updates from `onHeadersChanged`, which fires only on a real
+  source change, never when a builder merely resolves a fresh token for a
   request. With a builder this can read `{}` (or a stale record) between
   source changes even though requests already carry the current token. For
   the value a builder would resolve right now, call
@@ -84,6 +84,16 @@ All reactive state is exposed as read-only Angular signals. Read a signal by cal
 <PropertyReference name="licenseStatus" type="Signal<RuntimeLicenseStatus | undefined>">
   License status reported by the connected runtime, or `undefined` before the
   runtime reports it.
+</PropertyReference>
+
+<PropertyReference name="runtimeEntitlements" type="Signal<RuntimeEntitlementResponse | undefined>">
+  Structured entitlement data from the connected runtime's `/info` response, or
+  `undefined` before the runtime reports it.
+</PropertyReference>
+
+<PropertyReference name="runtimeEntitlementRetryPending" type="Signal<boolean>">
+  `true` while the core still waits for its one retry of a failed entitlement
+  lookup.
 </PropertyReference>
 
 <PropertyReference name="suggestionsByAgent" type="Signal<Record<string, CopilotKitCoreGetSuggestionsResult>>">
@@ -184,15 +194,24 @@ All reactive state is exposed as read-only Angular signals. Read a signal by cal
   Return the agent registered under `agentId`, or `undefined`.
 </PropertyReference>
 
-<PropertyReference name="updateRuntime" type="(options) => void">
-  Update the runtime connection at runtime. `options` may include `runtimeUrl`,
-  `runtimeTransport`, `headers`, `credentials`, `messageFilter`, `properties`,
-  `agents`, and `selfManagedAgents`. Only the fields you pass are applied;
-  `runtimeUrl`, `runtimeTransport`, `headers`, and `credentials` also update the
-  corresponding signals. `credentials` and `messageFilter` are applied whenever
-  the key is present, so passing either as `undefined` clears it.
+<PropertyReference name="updateRuntime" type="(options: { runtimeUrl?: string; runtimeTransport?: CopilotRuntimeTransport; headers?: CopilotKitHeadersSource; credentials?: RequestCredentials; messageFilter?: CopilotKitMessageFilter; properties?: Record<string, unknown>; agents?: Record<string, AbstractAgent>; selfManagedAgents?: Record<string, AbstractAgent> }) => void">
+  Update the runtime connection at runtime. Only the fields you pass are
+  applied. The options are:
 
-  `headers` accepts a record, a sync builder, or an async builder — the same
+  - `runtimeUrl`: the runtime endpoint URL. Also updates the `runtimeUrl` signal.
+  - `runtimeTransport`: `"rest"`, `"single"`, or `"auto"`. Also updates the `runtimeTransport` signal.
+  - `headers`: the header source, described below. Also updates the `headers` signal.
+  - `credentials`: the Fetch credentials mode. Also updates the `credentials` signal. Passing `undefined` clears it.
+  - `messageFilter`: the filter for the messages sent on each run. Passing `undefined` clears it.
+  - `properties`: the properties sent to the runtime.
+  - `agents`: the agents to register.
+  - `selfManagedAgents`: the self-managed agents to register.
+
+  When you pass `agents` or `selfManagedAgents`, CopilotKit replaces the
+  registered agents with both sets. A set that you leave out comes from
+  `provideCopilotKit`.
+
+  `headers` accepts a record, a sync builder, or an async builder, the same
   as [`provideCopilotKit`](/reference/angular/functions/provideCopilotKit).
   Re-passing the same builder function is a no-op. On a user switch, call
   `updateRuntime({ headers })` with a new function (or a record), or remount,
@@ -268,23 +287,3 @@ export class SuggestionsComponent {
   }
 }
 ```
-
-## Related
-
-<Cards>
-  <Card
-    title="provideCopilotKit"
-    description="Register the configuration that this service reads to build its core."
-    href="/reference/angular/functions/provideCopilotKit"
-  />
-  <Card
-    title="registerFrontendTool"
-    description="Register a client-side tool from an injection context, with name-based cleanup on destroy."
-    href="/reference/angular/functions/registerFrontendTool"
-  />
-  <Card
-    title="injectAgentStore"
-    description="Subscribe to a single agent's reactive state (messages, running status, and more)."
-    href="/reference/angular/functions/injectAgentStore"
-  />
-</Cards>

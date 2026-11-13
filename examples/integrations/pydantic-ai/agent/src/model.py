@@ -73,7 +73,7 @@ def resolve_model(default_spec: str) -> str:
     """Return a Pydantic AI model string, e.g. ``"anthropic:claude-sonnet-4-6"``.
 
     Args:
-        default_spec: The default when the variable is unset, e.g. ``"openai:gpt-5-mini"``.
+        default_spec: The default when the variable is unset, e.g. ``"openai:gpt-6-luna"``.
     """
     provider, model = parse_agent_model(
         (os.getenv("COPILOTKIT_AGENT_MODEL") or "").strip() or default_spec
@@ -82,3 +82,10 @@ def resolve_model(default_spec: str) -> str:
     if provider == "openai" and uses_chat_completions():
         prefix = "openai-chat"
     return f"{prefix}:{model}"
+
+
+def model_settings(default_spec: str) -> dict:
+    """Keep Luna tool calling compatible when routed through Chat Completions."""
+    if resolve_model(default_spec) == "openai-chat:gpt-6-luna":
+        return {"openai_reasoning_effort": "none"}
+    return {}

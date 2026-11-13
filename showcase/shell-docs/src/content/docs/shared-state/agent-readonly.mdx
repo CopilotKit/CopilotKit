@@ -7,6 +7,8 @@ snippet_cell: readonly-state-agent-context
 ---
 
 import InspectorPaneContext from "@/snippets/shared/inspector/open-inspector-pane-context.mdx";
+import AgentContextJsonString from "@/snippets/shared/basics/agent-context-json-string.mdx";
+
 
 <InlineDemo demo="readonly-state-agent-context" />
 
@@ -36,6 +38,8 @@ Reach for `useAgentContext` instead of full shared state when:
 
 Think of it as "props for the agent".
 
+If the agent must also write the value, use **[shared state](/shared-state)**. To stream agent-written state to the UI during a run, see [State streaming](/shared-state/streaming).
+
 ## How it works in code
 
 <FrameworkSetup concept="agent-context-setup" />
@@ -46,14 +50,23 @@ runtime that is:
 
 - Refreshed whenever `value` changes (React re-renders).
 - Automatically removed when the component unmounts.
-- Surfaced to the agent via the backend's `CopilotKitMiddleware`, which
-  threads the entries into the model's message history on every turn.
+- Sent to the agent with every run. The Built-in Agent adds each entry to
+  the system prompt. Python LangGraph agents need `CopilotKitMiddleware`
+  to add the entries, and ADK agents need an instruction provider.
+  Microsoft Agent Framework, CrewAI Flows and Pydantic AI agents drop the
+  entries silently unless you wire them. The setup above shows the code
+  for your framework.
 
 <Snippet region="use-agent-context-call" title="frontend/src/app/page.tsx — useAgentContext" />
 
 The `description` is important: it's a short human-readable label the
 agent sees alongside the value, so it knows what to do with it. Treat
 it like a parameter docstring.
+
+Call `useAgentContext` in as many components as you like. The agent
+receives every registered entry.
+
+<AgentContextJsonString components={props.components} />
 
 ## Wire it to your own state
 
@@ -66,20 +79,15 @@ provider, a router hook, and your domain state stores.
 
 <Snippet region="context-provider-sketch" title="frontend/src/app/page.tsx — sourcing context values" />
 
-## Read-only, by design
+## Treat entries as untrusted input
 
-Because the agent never sees a setter or a mutation tool for these
-values, there's no way for a confused LLM to "update" them. That
-makes `useAgentContext` the right tool whenever the value in question
-is an input, not a field: the "context object passed to the agent on
-every turn", rather than "shared workspace you both edit".
+Every entry is a claim your frontend made, and a user can change it. It
+never proves who is making the request. Let entries inform the agent's
+answer, but take facts that grant access, such as the authenticated user,
+the workspace, or the tenant, from your server. If your agent builds its
+prompt from entries, keep them apart from your own instructions, so text in
+an entry can't override them.
 
-When you need both reads *and* writes, you want full
-**[shared state](/shared-state)** instead.
+## Try it
 
-## Related
-
-- **[Shared State (overview)](/shared-state)** — bidirectional
-  reads + writes.
-- **[State streaming](/shared-state/streaming)** — stream
-  agent-written state back to the UI during a run.
+Ask the agent: "What is my name?" It answers with the value of `userName`. Change the name in your UI and ask again: the answer changes.

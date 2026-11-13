@@ -17,7 +17,12 @@
 import React, { useState } from "react";
 import { createReactComponent } from "../../../adapter";
 import { ChoicePickerApi } from "@a2ui/web_core/v0_9/basic_catalog";
-import { LEAF_MARGIN, STANDARD_BORDER, STANDARD_RADIUS } from "../utils";
+import {
+  getAccessibilityProps,
+  LEAF_MARGIN,
+  STANDARD_BORDER,
+  STANDARD_RADIUS,
+} from "../utils";
 
 // The type of an option is deeply nested into the ChoicePickerApi schema, and
 // it seems z.infer is not inferring it correctly (?). We use `any` for now.
@@ -26,6 +31,7 @@ type _Option = any;
 
 export const ChoicePicker = createReactComponent(
   ChoicePickerApi,
+  /** Describe the picker as a whole without replacing its individual option names. */
   ({ props, context }) => {
     const [filter, setFilter] = useState("");
 
@@ -66,7 +72,10 @@ export const ChoicePicker = createReactComponent(
     };
 
     return (
-      <div style={containerStyle}>
+      <div
+        {...getAccessibilityProps(props.accessibility)}
+        style={containerStyle}
+      >
         {props.label && (
           <strong style={{ fontSize: "14px" }}>{props.label}</strong>
         )}

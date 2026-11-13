@@ -12,13 +12,13 @@ By default, the agent performs a single generation step. Set `maxSteps` to allow
 
 ```typescript title="src/copilotkit.ts"
 const agent = new BuiltInAgent({
-  model: "openai:gpt-5.4-mini",
+  model: "openai:gpt-6-luna",
   maxSteps: 5, // [!code highlight]
   tools: [searchDocs, createTicket],
 });
 ```
 
-With `maxSteps: 5`, the agent can call a tool, process the result, call another tool, and so on — up to 5 iterations. This is essential for workflows where the agent needs to chain multiple tool calls.
+With `maxSteps: 5`, the agent can call a tool, process the result, call another tool, and so on, up to 5 iterations. This is essential for workflows where the agent needs to chain multiple tool calls.
 
 ## Tool choice
 
@@ -26,7 +26,7 @@ Control how the agent selects tools:
 
 ```typescript
 const agent = new BuiltInAgent({
-  model: "openai:gpt-5.4-mini",
+  model: "openai:gpt-6-luna",
   toolChoice: "auto",       // Let the model decide (default)
   // toolChoice: "required", // Force the model to call a tool
   // toolChoice: "none",     // Disable tool calling
@@ -40,7 +40,7 @@ Customize the agent's system prompt:
 
 ```typescript
 const agent = new BuiltInAgent({
-  model: "openai:gpt-5.4-mini",
+  model: "openai:gpt-6-luna",
   prompt: "You are a customer support agent for Acme Corp. Be concise and helpful. Always check the knowledge base before answering.", // [!code highlight]
 });
 ```
@@ -51,7 +51,7 @@ Fine-tune the model's output:
 
 ```typescript
 const agent = new BuiltInAgent({
-  model: "openai:gpt-5.4-mini",
+  model: "openai:gpt-6-luna",
   temperature: 0.7,        // Creativity (0 = deterministic, 1+ = creative)
   topP: 0.9,               // Nucleus sampling
   topK: 40,                // Top-K sampling (provider-dependent)
@@ -73,9 +73,9 @@ Not all parameters are supported by every provider. For example, `topK` is suppo
 Pass options specific to a model provider using `providerOptions`:
 
 ```typescript
-// OpenAI reasoning models (o3, o4-mini) with reasoning effort
+// OpenAI reasoning models (`gpt-6-luna`) with reasoning effort
 const agent = new BuiltInAgent({
-  model: "openai:o3",
+  model: "openai:gpt-6-luna",
   providerOptions: { // [!code highlight:3]
     openai: { reasoningEffort: "high" },
   },
@@ -98,11 +98,30 @@ Allow the frontend to override specific configuration at runtime. This is useful
 
 ```typescript
 const agent = new BuiltInAgent({
-  model: "openai:gpt-5.4-mini",
+  model: "openai:gpt-6-luna",
   temperature: 0.5,
   overridableProperties: ["model", "temperature", "prompt"], // [!code highlight]
 });
 ```
+
+The frontend sends overrides in the provider's `properties`, which reach the agent as `forwardedProps`. The agent applies only the keys in `overridableProperties`:
+
+```tsx
+<CopilotKitProvider
+  runtimeUrl="/api/copilotkit"
+  properties={{ model: "anthropic:claude-sonnet-4-6" }}
+>
+  {children}
+</CopilotKitProvider>
+```
+
+<Callout type="warn">
+  The browser picks these values. With `model` overridable, any client can run
+  any provider and model on your server's keys. With `prompt` overridable, any
+  client can replace the system prompt. To let users choose from a fixed set,
+  check the value on the server in a
+  [factory](/backend/custom-agent#with-forwardedprops).
+</Callout>
 
 The full list of overridable properties:
 `model`, `toolChoice`, `maxOutputTokens`, `temperature`, `topP`, `topK`, `presencePenalty`, `frequencyPenalty`, `stopSequences`, `seed`, `maxRetries`, `prompt`, `providerOptions`
@@ -113,7 +132,7 @@ Control whether system and developer messages from the conversation are forwarde
 
 ```typescript
 const agent = new BuiltInAgent({
-  model: "openai:gpt-5.4-mini",
+  model: "openai:gpt-6-luna",
   forwardSystemMessages: true,    // Forward system-role messages
   forwardDeveloperMessages: true, // Forward developer-role messages (as system messages)
 });
@@ -125,7 +144,7 @@ When a message has an image or file given by URL, and the model cannot take that
 
 ```typescript
 const agent = new BuiltInAgent({
-  model: "openai:gpt-5.4-mini",
+  model: "openai:gpt-6-luna",
   urlDownload: { // [!code highlight:4]
     allowedHosts: ["cdn.example.com", "*.example-uploads.com"],
     maxBytes: 10 * 1024 * 1024,
@@ -133,7 +152,13 @@ const agent = new BuiltInAgent({
 });
 ```
 
-- **Default**: download only from public internet addresses. The server resolves the hostname and refuses loopback, private, link-local (including cloud metadata), and other non-public addresses. It connects only to the addresses it checked, checks each redirect again, and refuses a redirect from https to http. It limits each download to 20 MiB (`maxBytes`) and 30 seconds (`timeoutMs`), and each model call to 20 distinct URLs (`maxDownloads`) and 50 MiB in total (`maxTotalBytes`). The AI SDK downloads the attachments again for each step of a multi-step run, so each step counts on its own.
+- **Default**: download only from public internet addresses. The server resolves the hostname and refuses loopback, private, link-local (including cloud metadata), and other non-public addresses. It connects only to the addresses it checked, checks each redirect again, and refuses a redirect from https to http. It applies these limits:
+  - `maxBytes`: 20 MiB per download.
+  - `timeoutMs`: 30 seconds per download.
+  - `maxDownloads`: 20 distinct URLs per model call.
+  - `maxTotalBytes`: 50 MiB in total per model call.
+
+  The AI SDK downloads the attachments again for each step of a multi-step run, so each step counts on its own.
 - **`allowedHosts`**: download only from the hostnames you list. The addresses must still be public, and each redirect target must also be in the list. `cdn.example.com` matches only that host. `*.example-uploads.com` matches its subdomains but not `example-uploads.com` itself; list both if you need both. Matching ignores case and a trailing dot. Give hostnames only: an entry with a scheme, port, or path, and a wildcard over an IP address (`*.1.2.3.4`), are rejected when the agent is created. An empty list refuses every server-side download.
 - **`"disabled"`**: never download from the network. Any attachment URL other than `data:` that the model cannot take directly fails the run.
 - **A function**: your own AI SDK download function (`Experimental_DownloadFunction` from `ai`). Use this only if you must fetch from a private network, and check each URL yourself.
@@ -161,29 +186,31 @@ factory: (ctx) =>
 
 | Property | Type | Default | Description |
 |----------|------|---------|-------------|
-| `model` | `string \| LanguageModel` | — | Model specifier or AI SDK instance |
+| `model` | `string \| LanguageModel` | none | Model specifier or AI SDK instance |
 | `apiKey` | `string` | env var | API key for the provider |
-| `maxSteps` | `number` | `1` | Max tool-calling iterations |
-| `toolChoice` | `"auto" \| "required" \| "none" \| { type: "tool", toolName: string }` | `"auto"` | How tools are selected |
-| `maxOutputTokens` | `number` | — | Max tokens in response |
-| `temperature` | `number` | — | Sampling temperature |
-| `topP` | `number` | — | Nucleus sampling |
-| `topK` | `number` | — | Top-K sampling |
-| `presencePenalty` | `number` | — | Presence penalty |
-| `frequencyPenalty` | `number` | — | Frequency penalty |
-| `stopSequences` | `string[]` | — | Stop sequences |
-| `seed` | `number` | — | Random seed |
-| `maxRetries` | `number` | — | Retry count |
-| `prompt` | `string` | — | System prompt |
+| `maxSteps` | `number` | `1` (`10` when learned skills load) | Max tool-calling iterations |
+| `toolChoice` | `ToolChoice` | `"auto"` | How tools are selected: `"auto"`, `"required"`, `"none"`, or `{ type: "tool", toolName: string }` |
+| `maxOutputTokens` | `number` | none | Max tokens in response |
+| `temperature` | `number` | none | Sampling temperature |
+| `topP` | `number` | none | Nucleus sampling |
+| `topK` | `number` | none | Top-K sampling |
+| `presencePenalty` | `number` | none | Presence penalty |
+| `frequencyPenalty` | `number` | none | Frequency penalty |
+| `stopSequences` | `string[]` | none | Stop sequences |
+| `seed` | `number` | none | Random seed |
+| `maxRetries` | `number` | none | Retry count |
+| `prompt` | `string` | none | System prompt |
 | `tools` | `ToolDefinition[]` | `[]` | Server-side tools |
 | `mcpServers` | `MCPClientConfig[]` | `[]` | MCP server connections (agent-managed, per-request) |
 | `mcpClients` | `MCPClientProvider[]` | `[]` | User-managed MCP clients (persistent, user controls lifecycle) |
 | `overridableProperties` | `string[]` | `[]` | Properties the frontend can override |
-| `providerOptions` | `Record<string, any>` | — | Provider-specific options |
+| `providerOptions` | `Record<string, any>` | none | Provider-specific options |
 | `forwardSystemMessages` | `boolean` | `false` | Forward system messages |
 | `forwardDeveloperMessages` | `boolean` | `false` | Forward developer messages |
-| `urlDownload` | `"disabled" \| SafeUrlDownloadOptions \| Experimental_DownloadFunction` | public addresses only | Server-side download of URL attachments |
+| `urlDownload` | `"disabled"`, object, or function | public addresses only | Server-side download of URL attachments. Pass `"disabled"`, a `SafeUrlDownloadOptions` object, or an `Experimental_DownloadFunction` |
+| `capabilities` | `Partial<AgentCapabilities>` | inferred | Capabilities the agent reports. Each category you set replaces the inferred one |
+| `learnedSkills` | `BuiltInAgentLearnedSkillsOptions` | none | Loads learned skills before each run. See [Skill delivery](/intelligence/learned-skills#builtinagent) |
 
 <Callout type="info" title="Need even more control?">
-  If `BuiltInAgent`'s configuration options don't cover your needs — for example, if you want to use TanStack AI, a custom LLM backend, or async initialization — see [Custom Agent](/backend/custom-agent).
+  If `BuiltInAgent`'s configuration options don't cover your needs (for example, if you want to use TanStack AI, a custom LLM backend, or async initialization), see [Custom Agent](/backend/custom-agent).
 </Callout>

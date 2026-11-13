@@ -159,7 +159,7 @@ The adapter forwards inline `image`/`document`/`audio`/`video` parts to Gemini
 as inline media; a remote URL becomes a text note for the model. The
 `multimodal` cell has its own route (`/api/copilotkit-multimodal`) and agent
 (`multimodal-demo`). Unlike langgraph-python it ships no
-`legacy-converter-shim.tsx`: the shim appends legacy `binary` parts, which
+`legacy-converter-shim.tsx`: the shim used to append legacy `binary` parts, which
 AG-UI 1.0 rejects at `RunAgentInput` validation. PDFs reach the model as
 documents, not flattened text. aimock matches on the prompt text only, so
 fixture selection does not prove the attachment arrived; a capturing proxy saw
@@ -327,16 +327,15 @@ generative_ui approach`. It is a regression-test page (`kind: testing` in
 feature cell, and every other integration that ships the page treats it the
 same way.
 
-## Logo and icon placeholders
+## Logo, icon and docs links
 
-`shell/public/logos/google-antigravity.svg` is a copy of `google-adk.svg`,
-used as a placeholder until a real Antigravity mark is available under a
-permissive licence. `showcase/shell-docs/src/data/frameworks/google-antigravity.ts`
-carries the matching placeholder for the shell-docs landing page: its
-`iconKey` is `"adk"` (there is no `google-antigravity` entry in
-`showcase/shell-docs/src/components/icons/index.ts`'s icon registry yet),
-called out with an inline comment at the `iconKey` line so a future pass
-replacing the logo knows to replace the icon key too.
+`shell/public/logos/google-antigravity.svg` and
+`shell-docs/public/logos/google-antigravity.svg` draw the Antigravity mark in
+grey on the same tile as the other integrations' logo files. Shell-docs draws
+a flat, accent-coloured version with `AntigravityIcon` in
+`showcase/shell-docs/src/components/icons/framework-icons.tsx`, used by the
+framework pickers and, through the `antigravity` key in
+`showcase/shell-docs/src/components/icons/index.ts`, by the landing page.
 
 `docs-links.json` is now populated with per-feature entries — see
 "Documentation" below — rather than the placeholder `missing` block this

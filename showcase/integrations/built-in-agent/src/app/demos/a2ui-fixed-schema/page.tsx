@@ -31,8 +31,8 @@ export default function A2UIFixedSchemaDemo() {
       agent="a2ui-fixed-schema"
       a2ui={{ catalog: catalog }}
     >
-      <div className="flex justify-center items-center h-screen w-full bg-neutral-50">
-        <div className="h-full w-full max-w-4xl border-x border-neutral-200 bg-white">
+      <div className="flex justify-center items-center h-screen w-full bg-neutral-50 dark:bg-background">
+        <div className="h-full w-full max-w-4xl border-x border-neutral-200 bg-white dark:border-border dark:bg-background">
           <Chat />
         </div>
       </div>

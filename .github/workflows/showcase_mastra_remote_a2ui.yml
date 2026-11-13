@@ -7,7 +7,7 @@ on:
       - "showcase/aimock/d6/mastra/gen-ui-declarative.json"
       - "showcase/harness/src/probes/scripts/d6-gen-ui-remote.mjs"
       - "showcase/shell-docs/src/content/docs/integrations/mastra/generative-ui/a2ui/dynamic-schema.mdx"
-      - "showcase/shell-docs/src/lib/docs-render.tsx"
+      - "showcase/shell-docs/src/components/docs-mdx/showcase/snippet.tsx"
       - ".github/workflows/showcase_mastra_remote_a2ui.yml"
 
 permissions:
@@ -26,7 +26,7 @@ jobs:
         with:
           node-version: 22
 
-      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
 
       - name: Install test dependencies
         run: |

@@ -11,7 +11,7 @@ partner_docs: https://antigravity.google/product/antigravity-sdk/
 repo: https://github.com/CopilotKit/CopilotKit/tree/main/showcase/integrations/google-antigravity
 copilotkit_version: 2.0.0
 deployed: true
-docs_mode: hidden
+docs_mode: generated
 sort_order: 61
 generative_ui:
   - constrained-explicit
@@ -71,10 +71,6 @@ not_supported_features:
   # Streaming state needs tool arguments streamed token by token; the harness
   # hands each tool call over with its arguments complete.
   - shared-state-streaming
-  # Quarantined upstream (react-core resume-path hook bug); langgraph-python
-  # declares these too.
-  - gen-ui-interrupt
-  - interrupt-headless
 demos:
   - id: cli-start
     name: CLI Start Command

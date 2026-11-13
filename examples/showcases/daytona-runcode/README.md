@@ -19,7 +19,7 @@ syntax highlighting and a fixed-height result pane).
 ## Prerequisites
 
 - Node 18+
-- An OpenAI API key (`OPENAI_API_KEY`) — the recipe defaults to `openai:gpt-5.4-mini`, overridable via
+- An OpenAI API key (`OPENAI_API_KEY`) — the recipe defaults to `openai:gpt-6-luna`, overridable via
   the `MODEL` env var.
 - A Daytona API key (`DAYTONA_API_KEY`) — create one in the
   [Daytona dashboard](https://app.daytona.io/dashboard/keys).

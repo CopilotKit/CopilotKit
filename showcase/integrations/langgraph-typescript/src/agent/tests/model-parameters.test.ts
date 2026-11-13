@@ -13,7 +13,7 @@ for (const [name, graph] of [
   ["Beautiful Chat", beautifulChat],
   ["interrupt agent", interruptAgent],
 ] as const) {
-  test(`${name} sends supported gpt-5-mini parameters`, async (t) => {
+  test(`${name} sends supported gpt-6-luna parameters`, async (t) => {
     const oldKey = process.env.OPENAI_API_KEY;
     process.env.OPENAI_API_KEY = "model-parameters-test";
     t.after(() => {
@@ -28,7 +28,7 @@ for (const [name, graph] of [
         id: "chatcmpl-model-parameters",
         object: "chat.completion",
         created: 0,
-        model: "gpt-5-mini",
+        model: "gpt-6-luna",
         choices: [
           {
             index: 0,
@@ -46,13 +46,9 @@ for (const [name, graph] of [
     );
 
     assert.equal(requests.length, 1);
-    assert.equal(requests[0].model, "gpt-5-mini");
-    // GPT-5 mini supports its default temperature only. Check the serialized
-    // SDK request, so a constructor or wrapper default cannot reintroduce 0.
-    assert.ok(
-      requests[0].temperature === undefined || requests[0].temperature === 1,
-      `Unsupported temperature: ${requests[0].temperature}`,
-    );
+    assert.equal(requests[0].model, "gpt-6-luna");
+    // Luna function calls through Chat Completions require reasoning disabled.
+    assert.equal(requests[0].reasoning_effort, "none");
   });
 }
 
@@ -72,6 +68,7 @@ for (const [name, modulePath] of [
       model: string;
       temperature?: number;
       stream?: boolean;
+      reasoning_effort?: string;
       tools?: { function: { name: string } }[];
       messages: { role: string }[];
     };
@@ -124,7 +121,7 @@ for (const [name, modulePath] of [
         id: "chatcmpl-generator",
         object: "chat.completion",
         created: 0,
-        model: "gpt-5-mini",
+        model: "gpt-6-luna",
         choices: [
           { index: 0, message, finish_reason: call ? "tool_calls" : "stop" },
         ],
@@ -200,11 +197,8 @@ for (const [name, modulePath] of [
     const envelope = JSON.parse(String(generationResult.content));
     assert.ok(envelope.a2ui_operations, JSON.stringify(envelope));
     for (const request of requests) {
-      assert.equal(request.model, "gpt-5-mini");
-      assert.ok(
-        request.temperature === undefined || request.temperature === 1,
-        `Unsupported temperature: ${request.temperature}`,
-      );
+      assert.equal(request.model, "gpt-6-luna");
+      assert.equal(request.reasoning_effort, "none");
     }
   });
 }

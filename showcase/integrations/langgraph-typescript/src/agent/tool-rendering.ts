@@ -187,7 +187,7 @@ const tools = [getWeather, searchFlights, getStockPrice, rollD20];
 // ---------------------------------------------------------------------------
 
 async function chatNode(state: AgentState, config: RunnableConfig) {
-  const model = makeChatOpenAI(config, { model: "gpt-5.4" });
+  const model = makeChatOpenAI(config, { model: "gpt-6-luna" });
 
   const modelWithTools = model.bindTools!([
     ...convertActionsToDynamicStructuredTools(state.copilotkit?.actions ?? []),

@@ -1,6 +1,6 @@
 {
   "name": "@copilotkit/shared",
-  "version": "1.83.0",
+  "version": "1.87.1",
   "private": false,
   "keywords": [
     "ai",
@@ -36,6 +36,10 @@
       "import": "./dist/event-transforms/index.mjs",
       "require": "./dist/event-transforms/index.cjs"
     },
+    "./generative-ui": {
+      "import": "./dist/generative-ui/index.mjs",
+      "require": "./dist/generative-ui/index.cjs"
+    },
     "./telemetry": {
       "import": "./dist/telemetry/index.mjs",
       "require": "./dist/telemetry/index.cjs"
@@ -68,7 +72,7 @@
     "attw": "attw --pack . --profile node16"
   },
   "dependencies": {
-    "@ag-ui/a2ui-middleware": "0.0.10",
+    "@ag-ui/a2ui-middleware": "0.0.16",
     "@ag-ui/client": "1.0.2",
     "@copilotkit/license-verifier": "~0.5.0",
     "@segment/analytics-node": "^2.1.2",

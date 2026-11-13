@@ -198,7 +198,7 @@ mount_agent("/subagents", subagents_agent, SubagentsState)
 # ── Tool-Based Generative UI — chart-viz system prompt ───────────────
 mount_agent("/gen_ui_tool_based", gen_ui_tool_based_agent)
 
-# ── Reasoning trio (gpt-5 reasoning model) ───────────────────────────
+# ── Reasoning trio (gpt-6-luna reasoning model) ───────────────────────────
 # Same reasoning agent backs both `agentic-chat-reasoning` and
 # `reasoning-default-render` (custom slot vs built-in slot).
 mount_agent("/reasoning", reasoning_agent)

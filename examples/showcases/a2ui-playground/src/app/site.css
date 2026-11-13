@@ -1,0 +1,21 @@
+/* Site chrome (the header). Reuses the tokens in globals.css. Light by default, with the dark values under
+   .dark (src/lib/theme.ts). */
+
+.site-container {
+  width: 100%;
+  max-width: 1400px;
+  margin-inline: auto;
+  padding-inline: 24px;
+}
+@media (max-width: 640px) {
+  .site-container {
+    padding-inline: 16px;
+  }
+}
+
+.site-header {
+  background: var(--background);
+}
+.dark .site-header {
+  background: #000;
+}

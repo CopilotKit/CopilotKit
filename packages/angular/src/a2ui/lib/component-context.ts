@@ -42,7 +42,10 @@ export function createA2UIComponentContext(
     theme: (context.theme ?? {}) as Record<string, unknown>,
     surface,
     dataContext: context.dataContext,
-    dispatch: (action) => context.dispatchAction(action),
+    dispatch: (action) =>
+      context.dispatchAction(
+        action as Parameters<ComponentContext["dispatchAction"]>[0],
+      ),
     set: (path, value) => context.dataContext.set(path, value),
   };
 }

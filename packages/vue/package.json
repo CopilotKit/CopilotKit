@@ -1,6 +1,6 @@
 {
   "name": "@copilotkit/vue",
-  "version": "1.83.0",
+  "version": "1.87.1",
   "private": false,
   "description": "Vue 3 components and composables for CopilotKit",
   "keywords": [
@@ -30,6 +30,15 @@
     "*": {
       "v2": [
         "./dist/v2/index.d.cts"
+      ],
+      "v2/generative-ui": [
+        "./dist/v2/generative-ui/index.d.cts"
+      ],
+      "v2/generative-ui/chart": [
+        "./dist/v2/generative-ui-chart/index.d.cts"
+      ],
+      "v2/generative-ui/map": [
+        "./dist/v2/generative-ui-map/index.d.cts"
       ]
     }
   },
@@ -54,6 +63,36 @@
         "default": "./dist/v2/index.cjs"
       }
     },
+    "./v2/generative-ui": {
+      "import": {
+        "types": "./dist/v2/generative-ui/index.d.mts",
+        "default": "./dist/v2/generative-ui/index.mjs"
+      },
+      "require": {
+        "types": "./dist/v2/generative-ui/index.d.cts",
+        "default": "./dist/v2/generative-ui/index.cjs"
+      }
+    },
+    "./v2/generative-ui/chart": {
+      "import": {
+        "types": "./dist/v2/generative-ui-chart/index.d.mts",
+        "default": "./dist/v2/generative-ui/chart.mjs"
+      },
+      "require": {
+        "types": "./dist/v2/generative-ui-chart/index.d.cts",
+        "default": "./dist/v2/generative-ui/chart.cjs"
+      }
+    },
+    "./v2/generative-ui/map": {
+      "import": {
+        "types": "./dist/v2/generative-ui-map/index.d.mts",
+        "default": "./dist/v2/generative-ui/map.mjs"
+      },
+      "require": {
+        "types": "./dist/v2/generative-ui-map/index.d.cts",
+        "default": "./dist/v2/generative-ui/map.cjs"
+      }
+    },
     "./styles.css": "./dist/styles.css",
     "./package.json": "./package.json"
   },
@@ -63,7 +102,7 @@
   "scripts": {
     "build": "vite build && pnpm build:css && pnpm build:types",
     "build:css": "npx @tailwindcss/cli -i ./src/styles/globals.css -o ./dist/styles.css -m && node scripts/scope-preflight.mjs ./dist/styles.css",
-    "build:types": "vue-tsc -p tsconfig.json --declaration --emitDeclarationOnly --outDir dist --skipLibCheck && node -e \"const fs=require('fs');fs.cpSync('./dist/index.d.ts','./dist/index.d.mts');fs.cpSync('./dist/index.d.ts','./dist/index.d.cts');fs.cpSync('./dist/v2/index.d.ts','./dist/v2/index.d.mts');fs.cpSync('./dist/v2/index.d.ts','./dist/v2/index.d.cts')\"",
+    "build:types": "vue-tsc -p tsconfig.json --declaration --emitDeclarationOnly --outDir dist --skipLibCheck && node -e \"const fs=require('fs');for(const d of ['index','v2/index','v2/generative-ui/index','v2/generative-ui-chart/index','v2/generative-ui-map/index']){const f='./dist/'+d;fs.cpSync(f+'.d.ts',f+'.d.mts');fs.cpSync(f+'.d.ts',f+'.d.cts')}\"",
     "dev:css": "npx @tailwindcss/cli -i ./src/styles/globals.css -o ./dist/styles.css --watch --minify",
     "dev": "concurrently \"pnpm dev:css\" \"vite build --watch\"",
     "test": "vitest run",
@@ -71,13 +110,13 @@
     "test:coverage": "vitest run --coverage",
     "test:ui": "vitest --ui",
     "lint": "eslint .",
-    "check-types": "vue-tsc --noEmit",
+    "check-types": "vue-tsc --noEmit && vue-tsc --noEmit -p tsconfig.typetests.json",
     "publint": "publint .",
     "attw": "attw --pack . --profile node16 --exclude-entrypoints ./styles.css --ignore-rules internal-resolution-error",
     "clean": "node -e \"const fs=require('fs');fs.rmSync('dist',{recursive:true,force:true})\""
   },
   "dependencies": {
-    "@a2ui/web_core": "0.10.4",
+    "@a2ui/web_core": "0.15.0",
     "@ag-ui/client": "1.0.2",
     "@ag-ui/core": "1.0.2",
     "@copilotkit/core": "workspace:*",
@@ -104,11 +143,13 @@
     "@vue/compiler-sfc": "^3.5.14",
     "@vue/test-utils": "^2.4.6",
     "arktype": "^2.1.29",
+    "chart.js": "^4.4.0",
     "concurrently": "^9.1.0",
     "eslint": "^9.30.0",
     "eslint-plugin-vue": "^10.8.0",
     "globals": "^16.5.0",
     "jsdom": "^26.1.0",
+    "maplibre-gl": "^5.0.0",
     "phoenix": "^1.8.4",
     "postcss": "^8.5.6",
     "rxjs": "7.8.1",
@@ -124,7 +165,17 @@
     "vue-tsc": "^2.1.10"
   },
   "peerDependencies": {
+    "chart.js": "^4.4.0",
+    "maplibre-gl": "^5.0.0",
     "vue": ">=3.3.0"
+  },
+  "peerDependenciesMeta": {
+    "chart.js": {
+      "optional": true
+    },
+    "maplibre-gl": {
+      "optional": true
+    }
   },
   "engines": {
     "node": ">=20"

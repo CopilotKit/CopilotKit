@@ -1,89 +1,76 @@
+# docs.copilotkit.ai. Build it from the repo root:
+#
+#   docker build -f showcase/shell-docs/Dockerfile .
+#
+# The app keeps its place in the repo layout because the prebuild step
+# (scripts/showcase-data.mjs) and the standard catalog pages read sibling
+# showcase/ folders by relative path.
 FROM node:22.23.4-bookworm-slim@sha256:de170b39439eb0e5a3444ad7d60b015614a381e10fecae2e30ec9e735122f38d AS builder
+WORKDIR /app/showcase/shell-docs
+
+COPY showcase/shell-docs/package.json showcase/shell-docs/package-lock.json ./
+RUN npm ci
+
+# What showcase-data's generators read (integration registry, catalog, demo
+# and Angular source), plus the harness catalog code generate-registry imports.
+COPY showcase/scripts/ ../scripts/
+COPY showcase/harness/src/shared/ ../harness/src/shared/
+COPY showcase/integrations/ ../integrations/
+COPY showcase/shared/ ../shared/
+COPY showcase/angular/ ../angular/
+COPY showcase/shell-docs/ ./
+
+# A checkout without Git LFS has pointer files for the page images.
+RUN node scripts/fetch-lfs.mjs
+
+# showcase_build passes these. The image has no git, so generate-registry
+# (in showcase-data) stamps frontend-catalog.json's source commit from
+# NEXT_PUBLIC_COMMIT_SHA; nothing reads them at runtime.
 ARG COMMIT_SHA=unknown
 ARG BRANCH=unknown
-WORKDIR /app
-
-# Copy only what shell-docs + scripts need
-COPY showcase/scripts/package.json ./scripts/package.json
-COPY showcase/scripts/package-lock.json ./scripts/package-lock.json
-COPY showcase/shell-docs/package.json ./shell-docs/package.json
-COPY showcase/shell-docs/package-lock.json ./shell-docs/package-lock.json
-
-# Install deps for both (standalone, no workspace)
-RUN cd scripts && npm ci --silent && cd ../shell-docs && npm ci --silent
-
-# Copy source
-COPY showcase/shared/ ./shared/
-COPY showcase/integrations/ ./integrations/
-COPY showcase/scripts/ ./scripts/
-COPY showcase/shell-docs/ ./shell-docs/
-COPY showcase/angular/src/ ./angular/src/
-
-# Bake commit info into Next.js build
 ENV NEXT_PUBLIC_COMMIT_SHA=${COMMIT_SHA}
 ENV NEXT_PUBLIC_BRANCH=${BRANCH}
 
-# generate-registry.ts imports the catalog cross-join/flatten fold from
-# ../harness/src/shared/catalog/catalog-flatten.js. That file is ESM (relies on
-# the harness package.json's `"type": "module"`) and does `import yaml from
-# "js-yaml"`, resolved by walking up from the harness tree. Stage the harness's
-# shared tree + the harness package.json for the ESM scope, then point
-# harness/node_modules at the already-installed scripts node_modules so js-yaml
-# (+ its argparse dep) resolve — no second install of the harness package.
-#
-# Copy the WHOLE `src/shared` tree, not just `catalog/`. This used to stage
-# `catalog/` alone, which held only as long as catalog-flatten.ts imported
-# nothing outside it; the moment Step 5 read `STARTER_CEILING` from
-# `../cell-model/cell-model.combine.js` the build died with
-# ERR_MODULE_NOT_FOUND at `generate-registry.ts`. A whole-tree copy means the
-# next shared-path import cannot reintroduce that.
-COPY showcase/harness/src/shared/ ./harness/src/shared/
-COPY showcase/harness/package.json ./harness/package.json
-RUN ln -s ../scripts/node_modules harness/node_modules
-
-# Generate registry + content, then build Next.js
-RUN cd scripts && node node_modules/tsx/dist/cli.mjs generate-registry.ts \
-    && node node_modules/tsx/dist/cli.mjs bundle-demo-content.ts \
-    && node node_modules/tsx/dist/cli.mjs bundle-angular-source-content.ts \
-    && node node_modules/tsx/dist/cli.mjs bundle-setup-content.ts \
-    && node node_modules/tsx/dist/cli.mjs generate-search-index.ts \
-    && cd ../shell-docs && npx next build
+# `npm run build` runs prebuild (showcase-data) first.
+RUN npm run build
 
 FROM node:22.23.4-bookworm-slim@sha256:de170b39439eb0e5a3444ad7d60b015614a381e10fecae2e30ec9e735122f38d AS runner
-# Preserve the builder layout: Turbopack's .next/node_modules aliases contain
-# relative links back to /app/shell-docs/node_modules.
-WORKDIR /app/shell-docs
-ARG COMMIT_SHA=unknown
-ARG BRANCH=unknown
+WORKDIR /app/showcase/shell-docs
 ENV NODE_ENV=production
+# The Railway docs service routes to 10000.
 ENV PORT=10000
-ENV NEXT_PUBLIC_COMMIT_SHA=${COMMIT_SHA}
-ENV NEXT_PUBLIC_BRANCH=${BRANCH}
-
-COPY --from=builder /app/shell-docs/.next ./.next
-COPY --from=builder /app/shell-docs/node_modules ./node_modules
-COPY --from=builder /app/shell-docs/package.json ./
-COPY --from=builder /app/shell-docs/public ./public
-COPY --from=builder /app/shell-docs/src/content ./src/content
-
+# server.js listens on HOSTNAME, which Docker sets to the container's name.
+ENV HOSTNAME=0.0.0.0
+# The standalone server and the files it traced, laid out from the tracing
+# root (showcase/). Next leaves out static assets and public/, and the app
+# reads src/content and src/data from disk at request time. Owned by `node`
+# so the server can write its .next/cache as that user.
+COPY --from=builder --chown=node:node /app/showcase/shell-docs/.next/standalone/ /app/showcase/
+COPY --from=builder --chown=node:node /app/showcase/shell-docs/.next/static ./.next/static
+COPY --from=builder --chown=node:node /app/showcase/shell-docs/public ./public
+COPY --from=builder --chown=node:node /app/showcase/shell-docs/src/content ./src/content
+COPY --from=builder --chown=node:node /app/showcase/shell-docs/src/data ./src/data
+USER node
 EXPOSE 10000
-CMD ["npx", "next", "start", "-p", "10000"]
+CMD ["node", "server.js"]
 
 # Fail the build if any base or install path regresses the accepted Node runtime.
 RUN test "$(node --version)" = "v22.23.4"
 
-# Exercise the final runtime filesystem, including Turbopack's generated module
-# links. Compilation and a Node-version check cannot catch a broken MDX import.
-# Only loopback is available; this check needs no model, credentials, or backend.
-RUN --network=none node --input-type=module <<'JS'
+# Start the server from the final filesystem and fetch pages that render on
+# request: `next build` prerenders only a handful, so a module missing from
+# this stage, or a page that throws while rendering, would otherwise first
+# show up on staging. Loopback only; this needs no model, key or backend. No
+# `--network=none`: Railway, which builds the docs PR previews from this file,
+# rejects that RUN flag.
+RUN node --input-type=module <<'JS'
 import { spawn } from 'node:child_process';
 import { connect } from 'node:net';
 import { setTimeout as delay } from 'node:timers/promises';
 
-const server = spawn(process.execPath, [
-  'node_modules/next/dist/bin/next', 'start',
-  '--hostname', '127.0.0.1', '--port', '10000',
-], { stdio: 'inherit' });
+const server = spawn(process.execPath, ['server.js'], {
+  stdio: 'inherit', env: { ...process.env, HOSTNAME: '127.0.0.1' },
+});
 
 try {
   const deadline = Date.now() + 30_000;
@@ -102,9 +89,17 @@ try {
   }
 
   for (const [path, marker] of [
-    ['/generative-ui/components', 'Let your agent render your React components'],
+    ['/', '<title>'],
+    ['/quickstart', '<title>Quickstart</title>'],
+    // Read from the Markdown sources at request time.
+    ['/quickstart.md', '# Quickstart'],
+    // The standard catalog imports its samples from ../shared, which this
+    // stage doesn't have.
+    ['/generative-ui/components', 'Let your agent render your own components'],
     ['/generative-ui/components/standard-catalog', 'standardUI'],
-    ['/generative-ui/components/standard-catalog/button', 'Button'],
+    ['/generative-ui/components/standard-catalog/button', '<title>Button</title>'],
+    // What verify-deploy's docs driver checks on every environment.
+    ['/api/telemetry/config', '"posthogKey"'],
   ]) {
     const response = await fetch(`http://127.0.0.1:10000${path}`, {
       redirect: 'error', signal: AbortSignal.timeout(15_000),
