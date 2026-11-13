@@ -22,7 +22,7 @@ const PICKS: Record<
     label: "CopilotKit",
     note: "The standard catalog",
   },
-  chatcn: {
+  shadcn: {
     label: "shadcn/ui",
     note: "Your shadcn components",
   },
