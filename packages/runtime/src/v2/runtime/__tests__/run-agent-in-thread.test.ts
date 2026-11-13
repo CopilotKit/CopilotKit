@@ -671,7 +671,7 @@ describe("a run that does not finish", () => {
     expect(failure).toBeInstanceOf(ThreadRunError);
     expect(failure).toMatchObject({ reason: "stop_timeout", threadId, runId });
     expect(fake.timeline).not.toContain("runner joined");
-    expect(fake.lockOwner(threadId)).toBeUndefined();
+    await vi.waitFor(() => expect(fake.lockOwner(threadId)).toBeUndefined());
   });
 
   it("gives up waiting after stopTimeoutMs and frees the Thread when Intelligence stops answering", async () => {
@@ -693,6 +693,6 @@ describe("a run that does not finish", () => {
     expect(failure).toBeInstanceOf(ThreadRunError);
     expect(failure).toMatchObject({ reason: "stop_timeout", threadId, runId });
     expect(Date.now() - stoppedAt).toBeLessThan(5_000);
-    expect(fake.lockOwner(threadId)).toBeUndefined();
+    await vi.waitFor(() => expect(fake.lockOwner(threadId)).toBeUndefined());
   });
 });

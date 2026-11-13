@@ -95,4 +95,6 @@ A run that started and did not finish rejects with a `ThreadRunError`. Its `reas
 | `lock_lost` | The lock could not be renewed, so the run was stopped. Another run may now hold the thread. Pass `onLockLost` to hear about it at once, before the run is stopped. |
 | `stop_timeout` | The run was stopped and did not end within `stopTimeoutMs`. |
 
-The lock has been released by the time either error reaches you.
+The runtime stops renewing the lock before the call returns. The stream, lock release, and final stop wait share one `stopTimeoutMs` deadline.
+
+If the deadline expires, a bounded release attempt continues in the background. If Intelligence cannot confirm the release, the lock expires through its TTL.

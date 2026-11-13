@@ -68,9 +68,9 @@ export interface LockedRunArgs {
   signal?: AbortSignal;
   /**
    * How long to wait for the run to end once it has been asked to stop. When
-   * it has not ended by then the lock is released anyway and the call rejects
-   * with a {@link ThreadRunError} whose reason is `"stop_timeout"`. Unset, the
-   * call waits for the runner.
+   * it has not ended by then the call rejects with `"stop_timeout"` (or
+   * `"lock_lost"` for a lost lock) and release continues in the background.
+   * Unset, the call waits for the runner.
    */
   stopTimeoutMs?: number;
   /** Called once, as soon as the lock is lost and before the run is stopped. */
@@ -86,8 +86,9 @@ export interface LockedRunArgs {
  *
  * @throws The lock request's error when the lock is refused, an error thrown
  *   by `start`, the runner's stream error, or a {@link ThreadRunError} with
- *   reason `"stop_timeout"`. The lock is released in every case where it was
- *   acquired.
+ *   reason `"stop_timeout"`. Lock release is attempted whenever it was
+ *   acquired. If the stop deadline expires, release continues in the
+ *   background for a bounded time, with the lock's TTL as the backstop.
  */
 export async function runWithThreadLock(
   args: LockedRunArgs,
@@ -135,18 +136,12 @@ export async function runWithThreadLock(
   let lockLost: { error: unknown } | undefined;
   let stoppedBySignal = false;
   let stopTimer: ReturnType<typeof setTimeout> | undefined;
+  let stopDeadline: number | undefined;
   let failStop: ((error: Error) => void) | undefined;
 
   const stopRun = (): void => {
-    try {
-      agent?.abortRun();
-    } catch {
-      // The exact runner stop remains the authoritative cancellation path.
-    }
-    stopPromise ??= Promise.resolve()
-      .then(() => runner.stop({ threadId, runId }))
-      .catch(() => false);
-    if (args.stopTimeoutMs !== undefined && stopTimer === undefined) {
+    if (args.stopTimeoutMs !== undefined && stopDeadline === undefined) {
+      stopDeadline = Date.now() + args.stopTimeoutMs;
       stopTimer = setTimeout(() => {
         failStop?.(
           new ThreadRunError(
@@ -158,7 +153,19 @@ export async function runWithThreadLock(
       }, args.stopTimeoutMs);
       stopTimer.unref?.();
     }
+    try {
+      agent?.abortRun();
+    } catch {
+      // The exact runner stop remains the authoritative cancellation path.
+    }
+    stopPromise ??= Promise.resolve()
+      .then(() => runner.stop({ threadId, runId }))
+      .catch(() => false);
   };
+  const remainingStopMs = () =>
+    stopDeadline === undefined
+      ? undefined
+      : Math.max(0, stopDeadline - Date.now());
   // A signal that aborts goes nowhere near Intelligence's own run stop, so
   // this runtime records it. A lost lock also stops the run, but that is a
   // failure rather than a cancellation, so it records nothing.
@@ -262,21 +269,21 @@ export async function runWithThreadLock(
     // Always release the lock from the runtime side. The gateway also
     // releases it when it stores the run's terminal event; the release is a
     // compare-and-delete by run ID, so a second one changes nothing and never
-    // frees a lock a newer run holds. It is bounded: a stopped run waits no
-    // longer than `stopTimeoutMs` for it, and a release that cannot be
-    // confirmed leaves the lock to its TTL, now that nothing renews it.
-    await releaseLock(
+    // frees a lock a newer run holds. Cleanup shares the stop's deadline.
+    // Past that deadline, still try a bounded release in the background;
+    // a release that cannot be confirmed leaves the lock to its TTL.
+    const remaining = remainingStopMs();
+    const releasing = releaseLock(
       intelligence,
       { threadId, runId },
-      stopPromise !== undefined && args.stopTimeoutMs !== undefined
-        ? args.stopTimeoutMs
-        : CLEANUP_TIMEOUT_MS,
+      remaining !== undefined && remaining > 0 ? remaining : CLEANUP_TIMEOUT_MS,
     );
+    if (remaining !== 0) await releasing;
   }
 
   // The stop a lost lock made is awaited before it is reported, as long as
-  // `stopTimeoutMs` allows; the lock is already released.
-  if (lockLost) await settled(stopPromise, args.stopTimeoutMs);
+  // the original stop deadline allows; lock release has already been attempted.
+  if (lockLost) await settled(stopPromise, remainingStopMs());
   return {
     threadId,
     runId,
@@ -350,6 +357,7 @@ async function settled(
     await promise;
     return;
   }
+  if (timeoutMs <= 0) return;
   let timer: ReturnType<typeof setTimeout> | undefined;
   await Promise.race([
     promise,
@@ -371,8 +379,9 @@ export type ThreadRunErrorReason =
   | "stop_timeout";
 
 /**
- * A run that {@link runAgentInThread} started and that did not finish. The
- * lock has been released by the time it is thrown.
+ * A run that {@link runAgentInThread} started and that did not finish.
+ * The runtime no longer renews its lock. If the stop deadline expired,
+ * a bounded release continues in the background, with the TTL as backstop.
  */
 export class ThreadRunError extends Error {
   readonly reason: ThreadRunErrorReason;
@@ -509,9 +518,11 @@ export interface RunAgentInThreadOptions {
    */
   signal?: AbortSignal;
   /**
-   * How long to wait for the run to end once it has been stopped, by
-   * `signal` or by a lost lock. Past it, the lock is released and the call
-   * rejects with a {@link ThreadRunError} whose reason is `"stop_timeout"`.
+   * How long to wait after `signal` or a lost lock stops the run. The stream,
+   * lock release and final runner stop wait share one deadline. Past it,
+   * release continues in the background for a bounded time, with the lock's
+   * TTL as backstop. A run still active at the deadline rejects with
+   * `"stop_timeout"`; a lost lock remains `"lock_lost"`.
    * Unset, the call waits for the runner.
    */
   stopTimeoutMs?: number;
