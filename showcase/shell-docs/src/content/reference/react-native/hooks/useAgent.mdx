@@ -38,9 +38,10 @@ import { useAgent } from "@copilotkit/react-native/headless";
   Configuration object for the hook.
 
 <PropertyReference name="agentId" type="string" default='"default"'>
-  ID of the agent to retrieve. Resolution order is: explicit `agentId`, the
-  surrounding chat configuration's `agentId`, the provider-level `agentId`,
-  then `"default"`.
+  ID of the agent to retrieve. If omitted, the hook uses the agent of the
+  surrounding headless `CopilotChat` or `CopilotChatConfigurationProvider`, then
+  `"default"`. The React Native `CopilotKitProvider` does not set an agent ID,
+  so outside a chat, pass `agentId` for any agent other than `"default"`.
 </PropertyReference>
 
   <PropertyReference name="threadId" type="string">
@@ -100,10 +101,10 @@ There are two valid option shapes:
     </PropertyReference>
 
     <PropertyReference name="messages" type="Message[]">
-      Array of conversation messages. Each message contains:
+      Array of AG-UI conversation messages. Each message contains:
       - `id: string` - Unique message identifier
-      - `role: "user" | "assistant" | "system"` - Message role
-      - `content: string` - Message content
+      - `role: "user" | "assistant" | "system" | "developer" | "tool" | "activity" | "reasoning"` - Message role
+      - `content` - Message content. Usually a string. User and tool messages can hold an array of content parts, an assistant message that only calls tools can omit it, and an activity message holds an object
     </PropertyReference>
 
     <PropertyReference name="state" type="any">
@@ -117,17 +118,29 @@ There are two valid option shapes:
     ### Methods
 
     <PropertyReference name="runAgent" type="(parameters?: RunAgentParameters, subscriber?: AgentSubscriber) => Promise<RunAgentResult>">
-      Manually triggers agent execution. Resolves with a `RunAgentResult` (`{ result, newMessages }`) once the run finalizes. `result` is the final value of the run and `newMessages` are the messages produced during it.
+      Low-level: sends a run to the agent and resolves with a `RunAgentResult` (`{ result, newMessages }`) once the run finalizes. `result` is the final value of the run and `newMessages` are the messages produced during it.
+
+      For a normal run, call `copilotkit.runAgent({ agent })` from [`useCopilotKit`](/reference/react-native/hooks/useCopilotKit). It takes the same `forwardedProps` and resolves with the same `RunAgentResult`. `agent.runAgent()` does not:
+
+      - send your registered frontend tools or context
+      - run frontend tool calls
+      - start follow-up runs
+
+      Unlike `agent.runAgent()`, `copilotkit.runAgent()` does not reject when the run itself fails. The core reports the error (code `AGENT_RUN_FAILED`) to its error subscribers and resolves with `{ result: undefined, newMessages: [] }`.
 
       **Parameters:**
       - `parameters.forwardedProps?: any` - Data to pass to the agent execution context
 
+      To answer an interrupt, use [`useInterrupt`](/reference/react-native/hooks/useInterrupt). It resumes the run for you. To resume by hand, pass the standard `resume` array with the id of the interrupt that the paused run reported: `copilotkit.runAgent({ agent, resume: [{ interruptId: interrupt.id, status: "resolved", payload }] })`. If your agent emits an `on_interrupt` custom event, resume it with `forwardedProps: { command: { resume } }`.
+
       **Example:**
       ```tsx
-      const { result, newMessages } = await agent.runAgent({
-        forwardedProps: {
-          command: { resume: "user response" }
-        }
+      const { copilotkit } = useCopilotKit();
+
+      const { result, newMessages } = await copilotkit.runAgent({
+        agent,
+        // Any data your agent reads from the run input.
+        forwardedProps: { source: "refresh-button" },
       });
       ```
     </PropertyReference>
@@ -151,8 +164,8 @@ There are two valid option shapes:
       - `onCustomEvent?: ({ event: { name: string, value: any } }) => void` - Custom events
       - `onRunStartedEvent?: () => void` - Agent execution starts
       - `onRunFinalized?: () => void` - Agent execution completes
-      - `onStateChanged?: (state: any) => void` - State changes
-      - `onMessagesChanged?: (messages: Message[]) => void` - Messages added/modified
+      - `onStateChanged?: ({ state, messages, agent }) => void` - State changes
+      - `onMessagesChanged?: ({ messages, state, agent }) => void` - Messages added/modified
     </PropertyReference>
 
     <PropertyReference name="addMessage" type="(message: Message) => void">
@@ -242,16 +255,17 @@ import { useEffect } from "react";
 import { useAgent } from "@copilotkit/react-native";
 
 function EventListener() {
-  const { agent } = useAgent();
+  const { agent, isReady } = useAgent();
 
   useEffect(() => {
+    if (!isReady) return;
     const { unsubscribe } = agent.subscribe({
       onRunStartedEvent: () => console.log("Started"),
       onRunFinalized: () => console.log("Finished"),
     });
 
     return unsubscribe;
-  }, []);
+  }, [agent, isReady]);
 
   return null;
 }
@@ -323,9 +337,3 @@ function MessageCount() {
 - **Thread Scoping**: `threadId` and `runtimeAgentId` must be passed together with an explicit local `agentId`; partial combinations throw at runtime and are rejected by the TypeScript type.
 - **State Synchronization**: State updates via `setState()` are immediately available to both app and agent
 - **Event Subscriptions**: Subscribe/unsubscribe pattern for lifecycle and custom events
-
-## Related
-
-- [AG-UI AbstractAgent](https://docs.ag-ui.com/sdk/js/client/abstract-agent) - Full agent interface documentation
-- [`useCopilotKit`](/reference/react-native/hooks/useCopilotKit) - Low-level hook for accessing the CopilotKit core instance
-- [React (V2) reference](/reference/v2/hooks/useAgent) - The web equivalent this page mirrors

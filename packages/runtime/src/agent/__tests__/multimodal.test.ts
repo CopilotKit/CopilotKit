@@ -1,13 +1,13 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { convertMessagesToVercelAISDKMessages } from "../index";
-import type { Message, InputContent } from "@ag-ui/client";
-import type { UserModelMessage } from "ai";
+import type { Message, ContentPart } from "@ag-ui/client";
+import type { ToolModelMessage, ToolResultPart, UserModelMessage } from "ai";
 
 /**
  * Helper: build a user message with the given content parts and convert it.
  * Returns the converted UserModelMessage for assertion.
  */
-function convertUserContent(content: string | InputContent[]) {
+function convertUserContent(content: string | ContentPart[]) {
   const messages: Message[] = [{ id: "1", role: "user", content }];
   const result = convertMessagesToVercelAISDKMessages(messages);
   return result[0] as UserModelMessage;
@@ -28,7 +28,7 @@ describe("convertMessagesToVercelAISDKMessages — multimodal", () => {
     expect(result).toEqual({ role: "user", content: "Hello" });
   });
 
-  it("converts text-only InputContent[] to parts array", () => {
+  it("converts text-only ContentPart[] to parts array", () => {
     const result = convertUserContent([{ type: "text", text: "Hello world" }]);
     expect(result.role).toBe("user");
     expect(result.content).toEqual([{ type: "text", text: "Hello world" }]);
@@ -116,61 +116,147 @@ describe("convertMessagesToVercelAISDKMessages — multimodal", () => {
     expect(result.content).toBe("");
   });
 
-  it("skips image parts with malformed URLs without crashing", () => {
-    const result = convertUserContent([
-      { type: "text", text: "check this" },
-      { type: "image", source: { type: "url", value: "not-a-url" } },
-    ]);
-    // Malformed URL part is skipped, text part preserved
-    expect(result.content).toEqual([{ type: "text", text: "check this" }]);
+  // AG-UI 1.0: a tool result is a string or a list of the same parts. The AI
+  // SDK's tool result output has a matching content form, so parts reach the
+  // model as parts rather than as flattened text.
+  describe("tool result content", () => {
+    function convertToolResult(content: string | ContentPart[]) {
+      const messages: Message[] = [
+        {
+          id: "a1",
+          role: "assistant",
+          toolCalls: [
+            {
+              id: "tc-1",
+              type: "function",
+              function: { name: "get_invoice", arguments: "{}" },
+            },
+          ],
+        },
+        { id: "t1", role: "tool", toolCallId: "tc-1", content },
+      ];
+      const result = convertMessagesToVercelAISDKMessages(messages);
+      const tool = result[1] as ToolModelMessage;
+      expect(tool.role).toBe("tool");
+      return tool.content[0] as ToolResultPart;
+    }
+
+    it("passes a string result through as text output", () => {
+      const part = convertToolResult("3 results found.");
+      expect(part.toolCallId).toBe("tc-1");
+      expect(part.output).toEqual({ type: "text", value: "3 results found." });
+    });
+
+    it("keeps a text-only parts result as one text output, so providers see one response per call", () => {
+      const part = convertToolResult([
+        { type: "text", text: "a" },
+        { type: "text", text: "b" },
+      ]);
+      expect(part.output).toEqual({ type: "text", value: "ab" });
+    });
+
+    it("collects all text into one entry ahead of the media, even when media sits between text parts", () => {
+      const part = convertToolResult([
+        { type: "text", text: "before" },
+        { type: "image", source: dataSource("aGk=", "image/png") },
+        { type: "text", text: "after" },
+      ]);
+      expect(part.output).toEqual({
+        type: "content",
+        value: [
+          { type: "text", text: "before\nafter" },
+          { type: "media", data: "aGk=", mediaType: "image/png" },
+        ],
+      });
+    });
+
+    it("maps parts with inline media onto the AI SDK content output", () => {
+      const part = convertToolResult([
+        { type: "text", text: "Invoice " },
+        { type: "text", text: "attached." },
+        { type: "document", source: dataSource("JVBERi0x", "application/pdf") },
+        {
+          type: "image",
+          source: urlSource("https://example.com/scan.png", "image/png"),
+        },
+      ]);
+      // The URL-referenced image rides as its URL for now: the AI SDK media
+      // entry wants bytes. Passing typed URLs to the adapters that accept them
+      // is a follow-up, not something this mapping does yet.
+      expect(part.output).toEqual({
+        type: "content",
+        value: [
+          {
+            type: "text",
+            text: "Invoice attached.\nhttps://example.com/scan.png",
+          },
+          { type: "media", data: "JVBERi0x", mediaType: "application/pdf" },
+        ],
+      });
+    });
+
+    it("keeps separate URL references on separate lines", () => {
+      const part = convertToolResult([
+        {
+          type: "image",
+          source: urlSource("https://example.com/one.png", "image/png"),
+        },
+        {
+          type: "image",
+          source: urlSource("https://example.com/two.png", "image/png"),
+        },
+      ]);
+      expect(part.output).toEqual({
+        type: "text",
+        value: "https://example.com/one.png\nhttps://example.com/two.png",
+      });
+    });
+
+    it("sends a media-only result as media alone, inventing no text", () => {
+      const part = convertToolResult([
+        { type: "image", source: dataSource("aGk=", "image/png") },
+      ]);
+      expect(part.output).toEqual({
+        type: "content",
+        value: [{ type: "media", data: "aGk=", mediaType: "image/png" }],
+      });
+    });
+
+    it("treats an empty parts list as an empty text result", () => {
+      const part = convertToolResult([]);
+      expect(part.output).toEqual({ type: "text", value: "" });
+    });
+
+    it("drops a provider file handle with a warning, never sending it as bytes or a URL", () => {
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+      const part = convertToolResult([
+        { type: "text", text: "see " },
+        { type: "document", source: { type: "file", value: "file-abc123" } },
+        { type: "text", text: "attached" },
+      ]);
+      expect(part.output).toEqual({ type: "text", value: "see attached" });
+      expect(warn).toHaveBeenCalledTimes(1);
+      warn.mockRestore();
+    });
+
+    it("answers with the empty string when every part was a dropped file handle", () => {
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+      const part = convertToolResult([
+        { type: "image", source: { type: "file", value: "file-abc123" } },
+      ]);
+      expect(part.output).toEqual({ type: "text", value: "" });
+      warn.mockRestore();
+    });
   });
 
-  // Legacy backward compat — BinaryInputContent is not in the current schema
-  // but older clients may still send it. We intentionally construct untyped
-  // objects here to simulate that scenario.
-  describe("legacy BinaryInputContent backward compat", () => {
-    it("converts binary with image mimeType and data to ImagePart", () => {
-      const legacyPart = {
-        type: "binary",
-        mimeType: "image/jpeg",
-        data: "legacybase64",
-      };
-      const messages: Message[] = [
-        {
-          id: "1",
-          role: "user",
-          content: [legacyPart] as unknown as InputContent[],
-        },
-      ];
-      const result = convertMessagesToVercelAISDKMessages(messages);
-      const userMsg = result[0] as UserModelMessage;
-      expect(userMsg.content).toEqual([
-        { type: "image", image: "legacybase64", mediaType: "image/jpeg" },
-      ]);
-    });
-
-    it("converts binary with non-image mimeType and url to FilePart", () => {
-      const legacyPart = {
-        type: "binary",
-        mimeType: "application/pdf",
-        url: "https://example.com/doc.pdf",
-      };
-      const messages: Message[] = [
-        {
-          id: "1",
-          role: "user",
-          content: [legacyPart] as unknown as InputContent[],
-        },
-      ];
-      const result = convertMessagesToVercelAISDKMessages(messages);
-      const userMsg = result[0] as UserModelMessage;
-      expect(userMsg.content).toEqual([
-        {
-          type: "file",
-          data: new URL("https://example.com/doc.pdf"),
-          mediaType: "application/pdf",
-        },
-      ]);
-    });
+  it("drops a user image that references a provider file handle, with a warning", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const result = convertUserContent([
+      { type: "text", text: "look" },
+      { type: "image", source: { type: "file", value: "file-abc123" } },
+    ]);
+    expect(result.content).toEqual([{ type: "text", text: "look" }]);
+    expect(warn).toHaveBeenCalledTimes(1);
+    warn.mockRestore();
   });
 });

@@ -1,7 +1,22 @@
 @import "tailwindcss";
 
+/* Tailwind's `dark:` follows the dashboard theme (`data-theme` on <html>,
+   see theme-toggle.tsx), not just the OS: explicit "dark", or "system"
+   while the OS prefers dark. */
+@custom-variant dark {
+  &:where([data-theme="dark"], [data-theme="dark"] *) {
+    @slot;
+  }
+  @media (prefers-color-scheme: dark) {
+    &:where([data-theme="system"], [data-theme="system"] *) {
+      @slot;
+    }
+  }
+}
+
 /* ── Light theme (default) ────────────────────────────────────────── */
 :root {
+  color-scheme: light;
   --bg: #ffffff;
   --bg-surface: #ffffff;
   --bg-muted: #f7f8fa;
@@ -15,11 +30,15 @@
   --accent-hover: #1d4ed8;
   --ok: #059669;
   --amber: #d97706;
+  --compatibility-amber-light: #fde68a;
+  --compatibility-amber-medium: #fbbf24;
+  --compatibility-amber-deep: #d97706;
   --danger: #dc2626;
 }
 
 /* ── Dark theme ───────────────────────────────────────────────────── */
 [data-theme="dark"] {
+  color-scheme: dark;
   --bg: #0f1117;
   --bg-surface: #1a1d27;
   --bg-muted: #22252f;
@@ -33,12 +52,16 @@
   --accent-hover: #4a7de8;
   --ok: #34d399;
   --amber: #fbbf24;
+  --compatibility-amber-light: #fcd34d;
+  --compatibility-amber-medium: #f59e0b;
+  --compatibility-amber-deep: #d97706;
   --danger: #f87171;
 }
 
 /* ── System-auto: dark when no explicit theme set ─────────────────── */
 @media (prefers-color-scheme: dark) {
   [data-theme="system"] {
+    color-scheme: dark;
     --bg: #0f1117;
     --bg-surface: #1a1d27;
     --bg-muted: #22252f;
@@ -52,6 +75,9 @@
     --accent-hover: #4a7de8;
     --ok: #34d399;
     --amber: #fbbf24;
+    --compatibility-amber-light: #fcd34d;
+    --compatibility-amber-medium: #f59e0b;
+    --compatibility-amber-deep: #d97706;
     --danger: #f87171;
   }
 }

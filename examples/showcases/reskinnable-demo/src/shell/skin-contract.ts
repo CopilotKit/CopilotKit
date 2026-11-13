@@ -192,6 +192,43 @@ export interface Skin {
    * explains when you probably want REST instead.
    */
   useData?: () => unknown;
+  /**
+   * OPTIONAL: this skin's default chat layout. Omit to keep the shell's
+   * defaults (chat docked left, conversation rail left and open). A skin that
+   * sets it gets its own stored layout preference (keyed by skin id), so the
+   * presenter's ⇆ choice on one skin never moves another skin's chat.
+   */
+  layoutDefaults?: {
+    /** Which side the chat panel docks on. Shell default: "left". */
+    chatSide?: "left" | "right";
+    /** Which side of the chat the conversation rail sits on. Shell default: "left". */
+    inboxSide?: "left" | "right";
+    /**
+     * Where the conversation rail lives. "inside" (shell default): within the
+     * chat card, beside the conversation. "column": its own column on the
+     * chat's outer edge that slides open and pushes the app narrower, so the
+     * conversation keeps its full width and nothing is overlaid.
+     */
+    inboxPlacement?: "inside" | "column";
+    /** Whether the conversation rail starts open. Shell default: true. */
+    inboxOpen?: boolean;
+    /** The chat panel's default width in px. Shell default: 600. */
+    chatWidthPx?: number;
+  };
+  /**
+   * Optional tidying for this skin's thread rail, for a skin that runs without
+   * Intelligence (where the runtime names no threads and cannot delete them).
+   */
+  threadList?: {
+    /** Title an unnamed thread from its first user message instead of "New chat". */
+    titleFromFirstMessage?: boolean;
+    /**
+     * Hide threads last active before this epoch-ms time (e.g. the last demo
+     * reset), so the rail shows only the current run. Called as a hook inside
+     * the rail. Return null to show everything.
+     */
+    useHiddenBefore?: () => number | null;
+  };
 }
 
 // NOTE: A skin's AGENT is intentionally NOT part of this client contract.

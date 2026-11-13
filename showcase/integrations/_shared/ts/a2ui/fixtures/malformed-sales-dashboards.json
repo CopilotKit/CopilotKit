@@ -1,0 +1,385 @@
+[
+  {
+    "threadId": "16058baf-c068-44ce-87e5-d274be624c9c",
+    "args": {
+      "surfaceId": "sales-dashboard-2026-q1",
+      "components": [
+        {
+          "id": "root",
+          "type": "container",
+          "children": ["metrics_row", "charts_row"],
+          "props": {
+            "style": {
+              "padding": "16px",
+              "gap": "16px"
+            }
+          }
+        },
+        {
+          "id": "metrics_row",
+          "type": "row",
+          "children": ["card_revenue", "card_new_customers", "card_conversion"],
+          "props": {
+            "style": {
+              "display": "flex",
+              "gap": "12px"
+            }
+          }
+        },
+        {
+          "id": "card_revenue",
+          "type": "metric_card",
+          "title": "Total Revenue",
+          "value": "$327,700",
+          "subtitle": "Jan–Mar 2026",
+          "props": {
+            "style": {
+              "flex": "1"
+            }
+          }
+        },
+        {
+          "id": "card_new_customers",
+          "type": "metric_card",
+          "title": "New Customers",
+          "value": "6",
+          "subtitle": "Enterprise new customers (extracted from notes)",
+          "props": {
+            "style": {
+              "flex": "1"
+            }
+          }
+        },
+        {
+          "id": "card_conversion",
+          "type": "metric_card",
+          "title": "Conversion Rate (proxy)",
+          "value": "16.7%",
+          "subtitle": "Pro upgrades / revenue events (3/18)",
+          "props": {
+            "style": {
+              "flex": "1"
+            }
+          }
+        },
+        {
+          "id": "charts_row",
+          "type": "row",
+          "children": ["pie_revenue_by_category", "bar_monthly_sales"],
+          "props": {
+            "style": {
+              "display": "flex",
+              "gap": "16px",
+              "marginTop": "12px"
+            }
+          }
+        },
+        {
+          "id": "pie_revenue_by_category",
+          "type": "pie_chart",
+          "title": "Revenue by Category",
+          "dataKey": "revenueByCategory",
+          "props": {
+            "style": {
+              "flex": "1",
+              "minHeight": "320px"
+            }
+          }
+        },
+        {
+          "id": "bar_monthly_sales",
+          "type": "bar_chart",
+          "title": "Monthly Sales (last available months)",
+          "dataKey": "monthlySales",
+          "props": {
+            "style": {
+              "flex": "1",
+              "minHeight": "320px"
+            }
+          }
+        }
+      ],
+      "data": {
+        "revenueByCategory": [
+          {
+            "label": "Enterprise Subscriptions",
+            "value": 94000
+          },
+          {
+            "label": "Pro Tier Upgrades",
+            "value": 66500
+          },
+          {
+            "label": "API Usage Overages",
+            "value": 34500
+          },
+          {
+            "label": "Consulting Services",
+            "value": 54000
+          },
+          {
+            "label": "Marketplace Sales",
+            "value": 42800
+          },
+          {
+            "label": "Partnership Revenue",
+            "value": 25700
+          },
+          {
+            "label": "Training & Workshops",
+            "value": 10200
+          }
+        ],
+        "monthlySales": [
+          {
+            "label": "Jan 2026",
+            "value": 82800
+          },
+          {
+            "label": "Feb 2026",
+            "value": 109000
+          },
+          {
+            "label": "Mar 2026",
+            "value": 135900
+          }
+        ],
+        "metrics": {
+          "totalRevenue": 327700,
+          "newCustomers": 6,
+          "conversionRateProxy": 0.167
+        }
+      }
+    }
+  },
+  {
+    "threadId": "229a8f30-397c-4565-ba00-921cb9043730",
+    "args": {
+      "surfaceId": "sales_dashboard_v1",
+      "components": [
+        {
+          "id": "root",
+          "type": "grid",
+          "props": {
+            "columns": 3,
+            "gap": 16,
+            "padding": 16
+          },
+          "children": [
+            "card_totalRevenue",
+            "card_newCustomers",
+            "card_conversionRate",
+            "pie_revenueByCategory",
+            "bar_monthlySales"
+          ]
+        },
+        {
+          "id": "card_totalRevenue",
+          "type": "card",
+          "props": {
+            "title": "Total Revenue",
+            "value": "$327,700",
+            "subtitle": "Jan–Mar 2026",
+            "visual": {
+              "type": "sparkline",
+              "data": [82800, 109000, 135900]
+            }
+          }
+        },
+        {
+          "id": "card_newCustomers",
+          "type": "card",
+          "props": {
+            "title": "New Customers (estimated)",
+            "value": "110",
+            "subtitle": "Count extracted from transaction notes"
+          }
+        },
+        {
+          "id": "card_conversionRate",
+          "type": "card",
+          "props": {
+            "title": "Conversion Rate (estimated)",
+            "value": "88.2%",
+            "subtitle": "Pro upgrades ÷ total acquisitions"
+          }
+        },
+        {
+          "id": "pie_revenueByCategory",
+          "type": "chart.pie",
+          "props": {
+            "title": "Revenue by Category",
+            "description": "Share of total revenue by product line",
+            "data": [
+              {
+                "label": "Enterprise Subscriptions",
+                "value": 94000
+              },
+              {
+                "label": "Pro Tier Upgrades",
+                "value": 66500
+              },
+              {
+                "label": "API Usage Overages",
+                "value": 34500
+              },
+              {
+                "label": "Consulting Services",
+                "value": 54000
+              },
+              {
+                "label": "Marketplace Sales",
+                "value": 42800
+              },
+              {
+                "label": "Partnership Revenue",
+                "value": 25700
+              },
+              {
+                "label": "Training & Workshops",
+                "value": 10200
+              }
+            ]
+          }
+        },
+        {
+          "id": "bar_monthlySales",
+          "type": "chart.bar",
+          "props": {
+            "title": "Monthly Sales",
+            "description": "Total revenue per month",
+            "data": [
+              {
+                "label": "Jan 2026",
+                "value": 82800
+              },
+              {
+                "label": "Feb 2026",
+                "value": 109000
+              },
+              {
+                "label": "Mar 2026",
+                "value": 135900
+              }
+            ]
+          }
+        }
+      ]
+    }
+  },
+  {
+    "threadId": "62bad67d-c1ee-4865-89d6-a92b14842a25",
+    "args": {
+      "surfaceId": "sales-dashboard-2026-q1",
+      "components": [
+        {
+          "id": "root",
+          "type": "surface",
+          "props": {
+            "title": "Sales Dashboard (Q1 2026)",
+            "layout": "grid",
+            "columns": 2
+          }
+        },
+        {
+          "id": "total_revenue_card",
+          "type": "card",
+          "parent": "root",
+          "props": {
+            "title": "Total Revenue",
+            "value": "$327,700",
+            "subtitle": "Jan–Mar 2026"
+          }
+        },
+        {
+          "id": "new_customers_card",
+          "type": "card",
+          "parent": "root",
+          "props": {
+            "title": "New Enterprise Customers",
+            "value": "6",
+            "subtitle": "Explicitly recorded in notes"
+          }
+        },
+        {
+          "id": "conversion_card",
+          "type": "card",
+          "parent": "root",
+          "props": {
+            "title": "Conversion Metrics",
+            "value": "103 conversions",
+            "subtitle": "97 Pro upgrades + 6 new enterprise customers",
+            "note": "Conversion rate not computed — missing denominator (visitors/trials). Provide visitors or trial counts to calculate %."
+          }
+        },
+        {
+          "id": "pie_revenue",
+          "type": "pieChart",
+          "parent": "root",
+          "props": {
+            "title": "Revenue by Category",
+            "description": "Revenue split by subcategory (Jan–Mar 2026)",
+            "data": [
+              {
+                "label": "Enterprise Subscriptions",
+                "value": 94000
+              },
+              {
+                "label": "Pro Tier Upgrades",
+                "value": 66500
+              },
+              {
+                "label": "Consulting Services",
+                "value": 54000
+              },
+              {
+                "label": "Marketplace Sales",
+                "value": 42800
+              },
+              {
+                "label": "API Usage Overages",
+                "value": 34500
+              },
+              {
+                "label": "Partnership Revenue",
+                "value": 25700
+              },
+              {
+                "label": "Training & Workshops",
+                "value": 10200
+              }
+            ]
+          }
+        },
+        {
+          "id": "bar_monthly",
+          "type": "barChart",
+          "parent": "root",
+          "props": {
+            "title": "Monthly Sales",
+            "description": "Total revenue by month",
+            "data": [
+              {
+                "label": "January 2026",
+                "value": 82800
+              },
+              {
+                "label": "February 2026",
+                "value": 109000
+              },
+              {
+                "label": "March 2026",
+                "value": 135900
+              }
+            ]
+          }
+        }
+      ],
+      "data": {
+        "totalRevenue": 327700,
+        "newCustomers": 6,
+        "conversionEvents": 103
+      }
+    }
+  }
+]

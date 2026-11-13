@@ -1,33 +1,32 @@
-import { Place, Trip } from "@/lib/types";
+import type { Place, Trip } from "@/lib/types";
 import { PlaceCard } from "@/components/PlaceCard";
 import { X, Plus } from "lucide-react";
 import { ActionButtons } from "./ActionButtons";
-import { RenderFunctionStatus } from "@copilotkit/react-core";
-import { useEffect, useState } from "react";
-import { useTrips } from "@/lib/hooks/use-trips";
+import type { PlaceSelectionsByTrip } from "./ActionButtons";
+import type { ToolCallStatus } from "@copilotkit/react-core/v2";
+import { useState } from "react";
 
 export type AddTripsProps = {
-  args: any;
-  status: RenderFunctionStatus;
-  handler: any;
+  args: Partial<{ trips: Trip[] }>;
+  status: ToolCallStatus;
+  respond?: (result: unknown) => Promise<void>;
 };
 
-export const AddTrips = ({ args, status, handler }: AddTripsProps) => {
-  useEffect(() => {
-    console.log(args, "argsAddTripsargsAddTripsargsAddTrips");
-  }, [args]);
-  const [selectedPlaceIds, setSelectedPlaceIds] = useState<Set<string>>(
-    new Set(),
+export const AddTrips = ({ args, status, respond }: AddTripsProps) => {
+  const [selectedPlaceIdsByTrip, setSelectedPlaceIdsByTrip] = useState(
+    new Map<string, Set<string>>(),
   );
-  const handleCheck = (placeId: string, checked: boolean) => {
-    setSelectedPlaceIds((prev) => {
-      const newSet = new Set(prev);
+  const handleCheck = (tripId: string, placeId: string, checked: boolean) => {
+    setSelectedPlaceIdsByTrip((previousSelections) => {
+      const nextSelections: PlaceSelectionsByTrip = new Map(previousSelections);
+      const selectedPlaceIds = new Set(nextSelections.get(tripId));
       if (checked) {
-        newSet.add(placeId);
+        selectedPlaceIds.add(placeId);
       } else {
-        newSet.delete(placeId);
+        selectedPlaceIds.delete(placeId);
       }
-      return newSet;
+      nextSelections.set(tripId, selectedPlaceIds);
+      return nextSelections;
     });
   };
 
@@ -43,21 +42,24 @@ export const AddTrips = ({ args, status, handler }: AddTripsProps) => {
               <PlaceCard
                 key={place.id}
                 place={place}
-                checked={selectedPlaceIds.has(place.id)}
-                onCheck={(checked) => handleCheck(place.id, checked as boolean)}
+                checked={selectedPlaceIdsByTrip.get(trip.id)?.has(place.id)}
+                onCheck={(checked) =>
+                  handleCheck(trip.id, place.id, checked as boolean)
+                }
               />
             ))}
           </div>
         </div>
       ))}
       <ActionButtons
-        selectedPlaceIds={selectedPlaceIds}
-        setSelectedPlaceIds={setSelectedPlaceIds}
-        placeIds={args.trips?.map((trip: Trip) =>
-          trip.places?.map((place: Place) => place.id),
-        )}
+        selectedPlaceIdsByTrip={selectedPlaceIdsByTrip}
+        setSelectedPlaceIdsByTrip={setSelectedPlaceIdsByTrip}
+        tripPlaceIds={args.trips?.map((trip: Trip) => ({
+          tripId: trip.id,
+          placeIds: trip.places?.map((place: Place) => place.id),
+        }))}
         status={status}
-        handler={handler}
+        respond={respond}
         approve={
           <>
             <Plus className="w-4 h-4 mr-2" /> Add

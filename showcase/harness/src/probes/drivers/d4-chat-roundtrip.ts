@@ -8,8 +8,12 @@ import {
 } from "../discovery/railway-services.js";
 import type { BrowserPool } from "../helpers/browser-pool.js";
 import { clearRemoteThreads } from "../helpers/clear-remote-threads.js";
+import {
+  captureProbeThreads,
+  cleanupProbeThreads,
+} from "../helpers/probe-langgraph-threads.js";
 import type { ProbeDriver } from "../types.js";
-import type { ProbeContext, ProbeResult } from "../../types/index.js";
+import type { Logger, ProbeContext, ProbeResult } from "../../types/index.js";
 import { mintRunId } from "../helpers/cv-diag.js";
 import { attachSseInterceptor } from "../helpers/sse-interceptor.js";
 import { CvdiagEmitter, filterEdgeHeaders } from "../../cvdiag/index.js";
@@ -262,6 +266,13 @@ export interface E2ePage {
    */
   evaluate<R>(fn: () => R): Promise<R>;
   close(): Promise<void>;
+  route?(
+    pattern: RegExp,
+    handler: (
+      route: { continue(options?: { postData?: string }): Promise<void> },
+      request: { url(): string; method(): string; postData(): string | null },
+    ) => Promise<void>,
+  ): Promise<unknown>;
 
   // ── CVDIAG event-source seams (optional) ─────────────────────────────────
   //
@@ -741,6 +752,13 @@ interface PlaywrightPageLike {
   evaluate<R>(fn: () => R): Promise<R>;
   close(): Promise<void>;
   on(event: string, handler: (arg: unknown) => void): void;
+  route?(
+    pattern: RegExp,
+    handler: (
+      route: { continue(options?: { postData?: string }): Promise<void> },
+      request: { url(): string; method(): string; postData(): string | null },
+    ) => Promise<void>,
+  ): Promise<unknown>;
 }
 
 /**
@@ -800,6 +818,10 @@ export function wirePlaywrightPage(
   // even with multiplexing the FIFO pairing keeps durations bounded and
   // non-zero rather than colliding to 0.)
   const requestStartsByUrl = new Map<string, number[]>();
+  // Response headers already consume a FIFO start, even when the body later
+  // fails. Weak identities prevent that failure from evicting a sibling start
+  // without retaining completed requests on a pooled, long-lived page.
+  const respondedRequests = new WeakSet<object>();
   return {
     goto: async (url, opts) => {
       // Install the SSE interceptor's `document_start` init scripts BEFORE
@@ -829,6 +851,9 @@ export function wirePlaywrightPage(
     textContent: (sel) => page.textContent(sel),
     evaluate: <R>(fn: () => R) => page.evaluate(fn),
     close: () => page.close(),
+    route: page.route
+      ? (pattern, handler) => page.route!(pattern, handler)
+      : undefined,
     async readTurnState(): Promise<TurnState> {
       // Read the page-side globals `attachSseInterceptor` seeds at
       // document_start. `__hk_runsFinished` is the transport-level turn-complete
@@ -903,6 +928,8 @@ export function wirePlaywrightPage(
           }
           const durationMs =
             startedAt !== undefined ? Math.round(nowMonoMs() - startedAt) : 0;
+          const req = resp.request();
+          respondedRequests.add(req);
           handler({
             url,
             status: resp.status(),
@@ -916,7 +943,7 @@ export function wirePlaywrightPage(
             // issues unrelated POSTs (telemetry/analytics/beacons) around the
             // agent message, and matching any POST let the LAST one overwrite
             // the captured agent-message response. See `isAgentMessagePost`.
-            isMessagePost: isAgentMessagePost(resp.request().method(), url),
+            isMessagePost: isAgentMessagePost(req.method(), url),
             // L2-C raw-byte seam: defer the (potentially large) body read until
             // the DEBUG-tier stub actually wants it. Swallow read errors so a
             // body that's already been consumed never throws into the probe.
@@ -969,6 +996,7 @@ export function wirePlaywrightPage(
       page.on("requestfailed", (arg) => {
         try {
           const req = arg as { url(): string };
+          if (respondedRequests.has(req)) return;
           const url = req.url();
           const queue = requestStartsByUrl.get(url);
           if (queue !== undefined && queue.length > 0) {
@@ -987,17 +1015,28 @@ export function wirePlaywrightPage(
         try {
           const req = arg as {
             url(): string;
-            failure(): { errorText: string } | null;
-            response(): { status(): number } | null;
+            failure?(): { errorText: string } | null;
+            response(): Promise<{ status(): number } | null>;
           };
-          const resp = req.response?.();
-          handler({
-            url: req.url(),
-            errorClass: req.failure()?.errorText ?? "unknown",
-            responseStatus: resp ? resp.status() : null,
+          // Capture the original failure before response lookup can outlive
+          // the request/browser. Status is best-effort diagnostic enrichment.
+          const url = req.url();
+          const errorClass = req.failure?.()?.errorText ?? "unknown";
+          void (async () => {
+            let responseStatus: number | null = null;
+            try {
+              const resp = await req.response?.();
+              responseStatus = resp?.status() ?? null;
+            } catch {
+              // Browser closure must not discard the original diagnostic.
+            }
+            await handler({ url, errorClass, responseStatus });
+          })().catch(() => {
+            // EventEmitter does not await listeners. Consume a diagnostic
+            // consumer's exception instead of leaking a rejected Promise.
           });
         } catch {
-          /* ignore */
+          /* malformed request accessor: never throw out of a listener */
         }
       });
     },
@@ -1387,6 +1426,7 @@ export function createE2eSmokeDriver(
           pageTimeoutMs,
           textPollTimeoutMs,
           now: ctx.now,
+          logger: ctx.logger,
           cvdiagEmitter,
           cvdiagBufferDir,
           cvdiagPbWriter,
@@ -1511,6 +1551,7 @@ export function createE2eSmokeDriver(
             pageTimeoutMs,
             textPollTimeoutMs,
             now: ctx.now,
+            logger: ctx.logger,
             cvdiagEmitter,
             cvdiagBufferDir,
             cvdiagPbWriter,
@@ -1704,6 +1745,7 @@ async function runLevel(opts: {
   pageTimeoutMs: number;
   textPollTimeoutMs: number;
   now: () => Date;
+  logger: Logger;
   /** CVDIAG emitter (L1-A); absent → no CVDIAG emission (instrumentation off). */
   cvdiagEmitter?: CvdiagEmitter;
   /** Replay-fallback ndjson buffer root for this level's CVDIAG session. */
@@ -1752,6 +1794,7 @@ async function runLevel(opts: {
     pageTimeoutMs,
     textPollTimeoutMs,
     now,
+    logger,
     cvdiagEmitter,
     cvdiagBufferDir,
     cvdiagPbWriter,
@@ -1808,6 +1851,7 @@ async function runLevel(opts: {
 
   let context: E2eBrowserContext | undefined;
   let page: E2ePage | undefined;
+  let threadIds = new Set<string>();
   // CVDIAG terminal-outcome tracking. `timeout` is inferred from an aborted
   // signal at the point the level errors; `err` from any other throw; `ok`
   // from a clean completion. The exit boundary is emitted exactly once in the
@@ -1866,6 +1910,7 @@ async function runLevel(opts: {
       },
     });
     page = await context.newPage();
+    threadIds = await captureProbeThreads(page, testId);
 
     // ── CVDIAG event-source wiring (best-effort) ────────────────────────────
     // Register handlers for the network/console/SSE seams the real launcher
@@ -2777,6 +2822,7 @@ async function runLevel(opts: {
         /* swallow — browser.close() in outer finally catches remnants. */
       }
     }
+    await cleanupProbeThreads(backendUrl, testId, threadIds, logger);
   }
 
   /** Emit `probe.exit` with the total level duration (best-effort). */

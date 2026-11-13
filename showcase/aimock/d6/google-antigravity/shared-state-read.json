@@ -1,0 +1,172 @@
+{
+  "_meta": {
+    "description": "D6 fixtures for google-antigravity / shared-state-read (recipe editor). Every prompt is two legs: the built-in `get_shared_state` read, then the answer.",
+    "created": "2026-09-30",
+    "copiedFrom": "langgraph-python",
+    "googleAntigravityStaging": "google-antigravity staging: the Antigravity Go harness owns the conversation history and never sends role:\"tool\" messages, so hasToolResult/toolCallId never fire and every leg is staged on turnIndex (aimock's count of assistant messages; +2 per tool round-trip, +1 per text answer). The highest turnIndex <= assistantCount wins, so each leg carries every absolute position a test reaches it from: a fresh thread (0/2...) AND its slot in the probe's single-thread sequence."
+  },
+  "fixtures": [
+    {
+      "_comment": "Italian-recipe pill, and turn 1 of d5-shared-state-read.ts (one thread: this turn, then the 'healthier' pill). The model first calls the adapter's silent built-in `get_shared_state` (no TOOL_CALL events, no card) to read the recipe the page published with agent.setState, then answers. Text-only after that: this agent has no tool that writes the recipe.",
+      "match": {
+        "userMessage": "Create a delicious Italian pasta recipe.",
+        "turnIndex": 0,
+        "context": "google-antigravity"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_ga_ssr_001",
+            "name": "get_shared_state",
+            "arguments": "{}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Create a delicious Italian pasta recipe.",
+        "turnIndex": 2,
+        "context": "google-antigravity"
+      },
+      "response": {
+        "content": "Looking at your current recipe (carrots and flour, intermediate, 45 minutes), here's an Italian pasta take: fresh egg tagliatelle made with that flour, tossed with a carrot and garlic soffritto, olive oil, parmesan and a squeeze of lemon. Want me to suggest the ingredient list so you can add it in the form?"
+      }
+    },
+    {
+      "_comment": "'Make it healthier' pill on a fresh thread.",
+      "match": {
+        "userMessage": "Make the recipe healthier with more vegetables.",
+        "turnIndex": 0,
+        "context": "google-antigravity"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_ga_ssr_002",
+            "name": "get_shared_state",
+            "arguments": "{}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Make the recipe healthier with more vegetables.",
+        "turnIndex": 2,
+        "context": "google-antigravity"
+      },
+      "response": {
+        "content": "Here are a few healthier ingredient additions for the recipe: roasted bell peppers, baby spinach folded in at the end, and cherry tomatoes for brightness. The Italian flavor profile holds up well, and the vegetable swap keeps the pasta lighter."
+      }
+    },
+    {
+      "_comment": "Turn 2 of d5-shared-state-read.ts: turn 1 left the thread at assistantCount 3 (tool round-trip + answer). The probe asserts the cumulative text mentions recipe/pasta/italian/vegetable/ingredient/healthy.",
+      "match": {
+        "userMessage": "Make the recipe healthier with more vegetables.",
+        "turnIndex": 3,
+        "context": "google-antigravity"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_ga_ssr_003",
+            "name": "get_shared_state",
+            "arguments": "{}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Make the recipe healthier with more vegetables.",
+        "turnIndex": 5,
+        "context": "google-antigravity"
+      },
+      "response": {
+        "content": "Here are a few healthier ingredient additions for the recipe: roasted bell peppers, baby spinach folded in at the end, and cherry tomatoes for brightness. The Italian flavor profile holds up well, and the vegetable swap keeps the pasta lighter."
+      }
+    },
+    {
+      "_comment": "'Suggest variations' pill.",
+      "match": {
+        "userMessage": "Suggest some creative variations of this recipe.",
+        "turnIndex": 0,
+        "context": "google-antigravity"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_ga_ssr_004",
+            "name": "get_shared_state",
+            "arguments": "{}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Suggest some creative variations of this recipe.",
+        "turnIndex": 2,
+        "context": "google-antigravity"
+      },
+      "response": {
+        "content": "Three variations on your recipe: swap the flour for chickpea flour for a gluten-free version, turn the carrots into a roasted carrot and ginger soup, or bake them into a spiced carrot cake with the same 45-minute timing."
+      }
+    },
+    {
+      "_comment": "The recipe card's Improve button (page.tsx handleImprove sends \"Improve the recipe\").",
+      "match": {
+        "userMessage": "Improve the recipe",
+        "turnIndex": 0,
+        "context": "google-antigravity"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_ga_ssr_005",
+            "name": "get_shared_state",
+            "arguments": "{}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Improve the recipe",
+        "turnIndex": 2,
+        "context": "google-antigravity"
+      },
+      "response": {
+        "content": "To improve the recipe, give it a clear title, add salt, eggs and butter to the ingredients, and break the instructions into steps after preheating the oven to 350°F. Apply the changes in the form and I'll review them."
+      }
+    },
+    {
+      "_comment": "shared-state-read.spec.ts 'sending a sidebar message returns an assistant response'.",
+      "match": {
+        "userMessage": "What recipe am I making?",
+        "turnIndex": 0,
+        "context": "google-antigravity"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_ga_ssr_006",
+            "name": "get_shared_state",
+            "arguments": "{}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "What recipe am I making?",
+        "turnIndex": 2,
+        "context": "google-antigravity"
+      },
+      "response": {
+        "content": "You're making \"Make Your Recipe\": an intermediate, 45-minute recipe with 3 large grated carrots and 2 cups of all-purpose flour, starting with preheating the oven to 350°F."
+      }
+    }
+  ]
+}

@@ -1,0 +1,70 @@
+/* Beautiful Chat tokens shared with the LangGraph starter. */
+:root {
+  --background: #fff;
+  --foreground: #010507;
+  --card: #fff;
+  --card-foreground: #010507;
+  --popover: #fff;
+  --popover-foreground: #010507;
+  --primary: #010507;
+  --primary-foreground: #fff;
+  --secondary: #ededf5;
+  --secondary-foreground: #010507;
+  --muted: #ededf5;
+  --muted-foreground: #57575b;
+  --accent: #eee6fe;
+  --accent-foreground: #010507;
+  --destructive: #dc2626;
+  --border: #dbdbe5;
+  --input: #dbdbe5;
+  --ring: #bec2ff;
+  --radius: 0.75rem;
+  --cpk-default-font-family: "Plus Jakarta Sans Variable", sans-serif;
+  font-family: var(--cpk-default-font-family);
+  color: var(--foreground);
+  background: var(--background);
+}
+* {
+  box-sizing: border-box;
+}
+html,
+body {
+  height: 100%;
+  margin: 0;
+}
+button,
+input,
+textarea {
+  font: inherit;
+}
+button {
+  cursor: pointer;
+}
+button:focus-visible {
+  outline: 3px solid #7076c9;
+  outline-offset: 3px;
+}
+.shell {
+  display: grid;
+  grid-template-columns: var(--cpk-drawer-reserved-width, 320px) minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
+  height: 100dvh;
+  overflow: hidden;
+  --cpk-drawer-launcher-top: 16px;
+  --cpk-drawer-launcher-left: 16px;
+}
+.chat {
+  grid-column: 2;
+  min-width: 0;
+  min-height: 0;
+  padding: 16px;
+}
+@media (max-width: 768px) {
+  .shell {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .chat {
+    grid-column: auto;
+    padding: 12px;
+  }
+}

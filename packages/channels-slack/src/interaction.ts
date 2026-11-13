@@ -17,6 +17,49 @@ export function conversationKeyOf(key: ConversationKey): string {
 }
 
 /**
+ * The conversation scope of a click on a message: its thread when it is in
+ * one, `DM_SCOPE` for an unthreaded DM, else the message's own ts (a top-level
+ * channel message is the root of its own conversation).
+ */
+function clickScope(
+  channelId: string,
+  threadTs: string | undefined,
+  messageTs: string | undefined,
+): string {
+  if (threadTs) return threadTs;
+  if (channelId.startsWith("D")) return DM_SCOPE;
+  return messageTs ?? "";
+}
+
+/**
+ * The conversation scope of a reaction on a message. Slack's reaction events
+ * carry no thread ts, so the reacted message's own ts is the scope (DMs stay
+ * `DM_SCOPE`).
+ */
+function reactionScope(channelId: string, messageTs: string): string {
+  return channelId.startsWith("D") ? DM_SCOPE : messageTs;
+}
+
+/**
+ * The conversation key {@link decodeInteraction} (`"action"`) or
+ * {@link decodeReaction} (`"reaction"`) reports for a message the bot posted to
+ * `target` as `messageTs`. A slash-command reply or a flat channel reply is
+ * keyed by its own ts, not by the turn that posted it, so actions bound in it
+ * are scoped to this key once it is posted.
+ */
+export function postedMessageConversationKey(
+  target: ReplyTarget,
+  messageTs: string,
+  kind: "action" | "reaction",
+): string {
+  const scope =
+    kind === "reaction"
+      ? reactionScope(target.channel, messageTs)
+      : clickScope(target.channel, target.threadTs, messageTs);
+  return conversationKeyOf({ channelId: target.channel, scope });
+}
+
+/**
  * Decode a Slack `block_actions` payload into a bot `InteractionEvent`.
  *
  * Carries the opaque minted action id (`ck:...`), the clicked element's own
@@ -68,12 +111,10 @@ export function decodeInteraction(raw: unknown): InteractionEvent | undefined {
   // Scope MUST match what the listener emits per turn (see assistant.ts /
   // adapter.ts), or the HITL `awaitChoice` waiter is stranded and the run
   // never resumes: the thread ts for ANY threaded conversation (assistant-pane
-  // DMs included), and DM_SCOPE only for a genuinely unthreaded DM.
-  const scope = explicitThreadTs
-    ? explicitThreadTs
-    : isDm
-      ? DM_SCOPE
-      : (threadTs ?? "");
+  // DMs included), and DM_SCOPE only for a genuinely unthreaded DM. The
+  // adapter binds a posted message's actions through the same helper
+  // (`postedMessageConversationKey`), so the two cannot drift apart.
+  const scope = clickScope(channelId, explicitThreadTs, threadTs);
   const conversationKey = conversationKeyOf({ channelId, scope });
   const replyTarget: ReplyTarget = {
     channel: channelId,
@@ -84,6 +125,7 @@ export function decodeInteraction(raw: unknown): InteractionEvent | undefined {
   // message's input state below so a control reports identically whichever of
   // the two it arrives in.
   const value = elementStateValue(action);
+  const rawValue = selectedOptionRawValue(action);
 
   const actor = body.user?.id
     ? {
@@ -97,8 +139,10 @@ export function decodeInteraction(raw: unknown): InteractionEvent | undefined {
   // targets this message in place (the adapter's `update` reads `channel`
   // off the ref).
   const messageTs = body.message?.ts ?? body.container?.message_ts;
+  // `threadTs` records where the message is (its thread, or `null` when it
+  // is top-level) so an update of it keeps its actions in that conversation.
   const messageRef = messageTs
-    ? { id: messageTs, channel: channelId }
+    ? { id: messageTs, channel: channelId, threadTs: explicitThreadTs ?? null }
     : undefined;
 
   // Stable per-click id for inbound dedup: the channel + picker message ts +
@@ -121,6 +165,7 @@ export function decodeInteraction(raw: unknown): InteractionEvent | undefined {
     conversationKey,
     replyTarget,
     value,
+    ...(rawValue !== undefined ? { rawValue } : {}),
     ...(Object.keys(values).length > 0 ? { values } : {}),
     actor,
     messageRef,
@@ -245,6 +290,23 @@ interface SlackBlockState {
  * Order mirrors the managed normalizer arm-for-arm so the two produce the same
  * map for the same payload; the families are disjoint in practice.
  */
+/**
+ * A select's chosen option value(s) exactly as Slack sent them, before
+ * {@link elementStateValue} decodes them as JSON (`"9.90"` would otherwise
+ * read as `9.9`). `undefined` for any other element.
+ */
+function selectedOptionRawValue(
+  el: SlackElementState,
+): string | string[] | undefined {
+  if (Array.isArray(el.selected_options)) {
+    return el.selected_options
+      .map((o) => o?.value)
+      .filter((v): v is string => typeof v === "string");
+  }
+  const raw = el.selected_option?.value;
+  return typeof raw === "string" ? raw : undefined;
+}
+
 function elementStateValue(el: SlackElementState): unknown {
   if (Array.isArray(el.selected_options)) {
     // An empty multi-select reports `[]`, which must stay an empty array rather
@@ -348,7 +410,7 @@ export function decodeReaction(
   const channel = e.item.channel;
   const ts = e.item.ts;
   if (!channel || !ts || !e.reaction) return undefined;
-  const scope = channel.startsWith("D") ? DM_SCOPE : ts;
+  const scope = reactionScope(channel, ts);
   return {
     rawEmoji: e.reaction,
     added,

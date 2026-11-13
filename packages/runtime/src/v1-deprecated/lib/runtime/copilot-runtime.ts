@@ -132,8 +132,10 @@ import {
 // +++ MCP Imports +++
 import { extractParametersFromSchema } from "./mcp-tools-utils";
 import type { MCPClient, MCPEndpointConfig, MCPTool } from "./mcp-tools-utils";
-import { BuiltInAgent } from "../../../agent";
+import { BuiltInAgent, resolveModel } from "../../../agent";
 import type { BuiltInAgentClassicConfig } from "../../../agent";
+import { LegacyServiceAdapterAgent } from "./legacy-service-adapter-agent";
+import { resolveMCPToolNames } from "../../../agent/mcp-tool-names";
 // Define the function type alias here or import if defined elsewhere
 type CreateMCPClientFunction = (
   config: MCPEndpointConfig,
@@ -422,6 +424,11 @@ interface CopilotRuntimeConstructorParams<T extends Parameter[] | [] = []>
   agents?: AgentsConfig;
 
   intelligence?: CopilotIntelligenceRuntimeOptions["intelligence"];
+  /**
+   * Used only with `intelligence`. Without it, this runtime ignores the
+   * option, and local threads stay reachable by id for every caller, as in
+   * earlier releases. For per-user local threads, use the v2 `CopilotRuntime`.
+   */
   identifyUser?: CopilotIntelligenceRuntimeOptions["identifyUser"];
   memory?: CopilotIntelligenceRuntimeOptions["memory"];
   channels?: CopilotIntelligenceRuntimeOptions["channels"];
@@ -429,9 +436,26 @@ interface CopilotRuntimeConstructorParams<T extends Parameter[] | [] = []>
   generateThreadNames?: CopilotIntelligenceRuntimeOptions["generateThreadNames"];
   maxReconnectMs?: CopilotIntelligenceRuntimeOptions["maxReconnectMs"];
   maxRejoinMs?: CopilotIntelligenceRuntimeOptions["maxRejoinMs"];
+  heartbeatIntervalMs?: CopilotIntelligenceRuntimeOptions["heartbeatIntervalMs"];
   lockTtlSeconds?: CopilotIntelligenceRuntimeOptions["lockTtlSeconds"];
   lockKeyPrefix?: CopilotIntelligenceRuntimeOptions["lockKeyPrefix"];
   lockHeartbeatIntervalSeconds?: CopilotIntelligenceRuntimeOptions["lockHeartbeatIntervalSeconds"];
+}
+
+/**
+ * Whether the adapter's `provider/model` strings name a model BuiltInAgent can
+ * build. `BedrockAdapter` sets `provider = "bedrock"`, which it cannot.
+ */
+function canResolveModel(serviceAdapter: CopilotServiceAdapter): boolean {
+  if (!serviceAdapter.provider || !serviceAdapter.model) {
+    return false;
+  }
+  try {
+    resolveModel(`${serviceAdapter.provider}/${serviceAdapter.model}`);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 /**
@@ -546,6 +570,7 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
       [runtimeErrorReporterOption]: createRuntimeErrorReporter(params?.onError),
       forwardHeaders: params?.forwardHeaders,
       exposeMemoryRoutes: params?.exposeMemoryRoutes,
+      threads: params?.threads,
     };
     if (params?.intelligence !== undefined) {
       // The compatibility constructor keeps Intelligence identity optional at
@@ -561,11 +586,16 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
         generateThreadNames: params.generateThreadNames,
         maxReconnectMs: params.maxReconnectMs,
         maxRejoinMs: params.maxRejoinMs,
+        heartbeatIntervalMs: params.heartbeatIntervalMs,
         lockTtlSeconds: params.lockTtlSeconds,
         lockKeyPrefix: params.lockKeyPrefix,
         lockHeartbeatIntervalSeconds: params.lockHeartbeatIntervalSeconds,
       } as CopilotRuntimeOptions;
     } else {
+      // `identifyUser` is an Intelligence option here and is not forwarded
+      // without Intelligence: on this compatibility runtime, local threads
+      // stay reachable by id as in earlier releases, and a runner that does
+      // not record owners keeps working.
       this.runtimeArgs = {
         ...sharedRuntimeArgs,
         runner,
@@ -653,10 +683,23 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
 
       // `actions` and `mcpServers` are attached independently: a runtime may
       // configure MCP servers without any local actions.
-      const mcpTools = await this.getToolsFromMCP({ properties });
+      const mcpSources = await this.getToolsFromMCP({ properties });
       const actionTools = actions
         ? this.getToolsFromActions(actions, { properties, url: request.url })
         : [];
+      // An MCP tool that shares a name with an action, or with another
+      // server's tool, is prefixed rather than dropped or duplicated.
+      const mcpNames = resolveMCPToolNames(
+        new Set(actionTools.map((tool) => tool.name)),
+        mcpSources.map(({ label, tools }) => ({
+          label,
+          names: tools.map((tool) => tool.name),
+        })),
+        "",
+      );
+      const mcpTools = mcpSources.flatMap(({ tools }, i) =>
+        tools.map((tool, j) => ({ ...tool, name: mcpNames[i]![j]! })),
+      );
       const tools = [...actionTools, ...mcpTools];
 
       // Nothing to attach means nothing to isolate: hand the record back
@@ -723,21 +766,25 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
       if (languageModel) {
         // Adapter exposes a pre-configured LanguageModel (e.g. OpenAI/Anthropic adapters)
         agentsList.default = new BuiltInAgent({ model: languageModel });
-      } else if (serviceAdapter.provider && serviceAdapter.model) {
-        // Adapter exposes provider/model strings
+      } else if (canResolveModel(serviceAdapter)) {
+        // Adapter exposes provider/model strings BuiltInAgent understands
         agentsList.default = new BuiltInAgent({
           model: `${serviceAdapter.provider}/${serviceAdapter.model}`,
         });
-      } else {
+      } else if (serviceAdapter.name === "OpenAIAssistantAdapter") {
+        // Its `process()` needs the OpenAI thread and run ids carried between
+        // requests, and the Assistants API it calls was shut down by OpenAI on
+        // 2026-08-26. Fail clearly rather than run it and fail on the network.
         throw new CopilotKitMisuseError({
           message:
-            `Service adapter "${serviceAdapter.name ?? "unknown"}" does not provide model information. ` +
-            `When using adapters like LangChainAdapter without an explicit agents list, ` +
-            `please provide a default agent in the runtime config. Example:\n` +
-            `  new CopilotRuntime({\n` +
-            `    agents: { default: new BuiltInAgent({ model: "openai/gpt-4o" }) }\n` +
-            `  })`,
+            `OpenAIAssistantAdapter is not supported: OpenAI shut down the Assistants API ` +
+            `on 2026-08-26. Use OpenAIAdapter, or a BuiltInAgent in the runtime's agents.`,
         });
+      } else {
+        // Everything else -- LangChainAdapter's `chainFn`, BedrockAdapter
+        // ("bedrock" is not a BuiltInAgent provider), custom adapters -- runs
+        // through its own `process()`, as in v1 (#3217).
+        agentsList.default = new LegacyServiceAdapterAgent(serviceAdapter);
       }
     }
 
@@ -1021,7 +1068,9 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
   // Optionally accepts request-scoped properties to merge request-provided mcpServers
   private async getToolsFromMCP(options?: {
     properties?: Record<string, unknown>;
-  }): Promise<BuiltInAgentClassicConfig["tools"]> {
+  }): Promise<
+    { label: string; tools: NonNullable<BuiltInAgentClassicConfig["tools"]> }[]
+  > {
     const runtimeMcpServers = (this.params?.mcpServers ??
       []) as MCPEndpointConfig[];
     const createMCPClient = this.params?.createMCPClient as
@@ -1074,9 +1123,12 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
       return Array.from(byUrl.values());
     })();
 
-    const allTools: BuiltInAgentClassicConfig["tools"] = [];
+    const sources: {
+      label: string;
+      tools: NonNullable<BuiltInAgentClassicConfig["tools"]>;
+    }[] = [];
 
-    for (const config of effectiveEndpoints) {
+    for (const [index, config] of effectiveEndpoints.entries()) {
       // Everything that leaves this process with the endpoint in it uses the
       // redacted form: the raw URL's query can carry the credential, which is
       // exactly what the #2407 workaround puts there.
@@ -1125,7 +1177,7 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
           },
         );
 
-        allTools.push(...(entry.tools ?? []));
+        sources.push({ label: `mcp${index + 1}`, tools: entry.tools ?? [] });
       } catch (error) {
         console.error(
           `MCP: Failed to fetch tools from endpoint ${endpointLabel}. Skipping. Error:`,
@@ -1138,13 +1190,7 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
       }
     }
 
-    // Dedupe tools by name while preserving last-in wins (request overrides)
-    const dedupedByName = new Map<string, (typeof allTools)[number]>();
-    for (const tool of allTools) {
-      dedupedByName.set(tool.name, tool);
-    }
-
-    return Array.from(dedupedByName.values());
+    return sources;
   }
 }
 

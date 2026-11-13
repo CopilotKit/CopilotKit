@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterAll } from "vitest";
+import { describe, it, expect, beforeAll, afterAll, vi } from "vitest";
 import { spawn, spawnSync } from "node:child_process";
 import type { ChildProcess } from "node:child_process";
 import { mkdtempSync, rmSync, existsSync } from "node:fs";
@@ -782,14 +782,17 @@ describe("cvdiag pb-writer — assertCollectionExists gates BOTH collections (FI
     await expect(writer.assertCollectionExists()).resolves.toBe(false);
   });
 
-  it("GREEN: BOTH collections present (or 403 = present) → TRUE", async () => {
-    const writer = new CvdiagPbWriter({
-      pb: perCollectionClient({
-        [CVDIAG_EVENTS_COLLECTION]: "ok",
-        [CVDIAG_RAW_BYTE_SAMPLES_COLLECTION]: "ok",
-      }),
-      logger,
+  it("checks both present collections without counting all records", async () => {
+    const client = perCollectionClient({
+      [CVDIAG_EVENTS_COLLECTION]: "ok",
+      [CVDIAG_RAW_BYTE_SAMPLES_COLLECTION]: "ok",
     });
+    const list = vi.spyOn(client, "list");
+    const writer = new CvdiagPbWriter({ pb: client, logger });
     await expect(writer.assertCollectionExists()).resolves.toBe(true);
+    expect(list.mock.calls).toEqual([
+      [CVDIAG_EVENTS_COLLECTION, { perPage: 1, skipTotal: true }],
+      [CVDIAG_RAW_BYTE_SAMPLES_COLLECTION, { perPage: 1, skipTotal: true }],
+    ]);
   });
 });

@@ -1,13 +1,25 @@
 import React, { useCallback, useEffect, useId, useRef, useState } from "react";
 import { createPortal, flushSync } from "react-dom";
 import { X } from "lucide-react";
+import {
+  useCopilotChatConfiguration,
+  CopilotChatDefaultLabels,
+} from "../../providers/CopilotChatConfigurationProvider";
 
 interface LightboxProps {
   onClose: () => void;
   children: React.ReactNode;
 }
 
+/**
+ * A full-screen preview portalled to `document.body`. It closes on Escape, a
+ * click on the backdrop, or its close button, which is named by
+ * `labels.attachmentPreviewCloseButtonLabel`.
+ */
 export function Lightbox({ onClose, children }: LightboxProps) {
+  const config = useCopilotChatConfiguration();
+  const labels = config?.labels ?? CopilotChatDefaultLabels;
+
   useEffect(() => {
     const handleKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
@@ -26,7 +38,7 @@ export function Lightbox({ onClose, children }: LightboxProps) {
       <button
         onClick={onClose}
         className="cpk:absolute cpk:top-4 cpk:right-4 cpk:text-white cpk:bg-white/10 cpk:hover:bg-white/20 cpk:rounded-full cpk:w-10 cpk:h-10 cpk:flex cpk:items-center cpk:justify-center cpk:cursor-pointer cpk:border-none cpk:z-10"
-        aria-label="Close preview"
+        aria-label={labels.attachmentPreviewCloseButtonLabel}
       >
         <X className="cpk:w-5 cpk:h-5" />
       </button>

@@ -1,9 +1,7 @@
 import { FinancingForm } from "@/components/generative-ui/financing-form";
 import { useGlobalState } from "@/lib/stages";
-import {
-  useCopilotAction,
-  useCopilotAdditionalInstructions,
-} from "@copilotkit/react-core";
+import { useHumanInTheLoop } from "@copilotkit/react-core/v2";
+import { z } from "zod";
 
 /**
   useStateGetFinancingInfo is a hook that will add this stage to the state machine. It is responsible for:
@@ -14,37 +12,30 @@ import {
 export function useStageGetFinancingInfo() {
   const { setFinancingInfo, stage, setStage } = useGlobalState();
 
-  // Conditionally add additional instructions for the agent's prompt.
-  useCopilotAdditionalInstructions(
-    {
-      instructions:
-        "CURRENT STATE: You are now getting the financing information of the user. Say, 'Great! To process your financing application, I'll need some financial information from you.' and then call the 'getFinancingInformation' tool. Never ask the user for anything, just call the `getFinancingInformation` tool.",
-      available: stage === "getFinancingInfo" ? "enabled" : "disabled",
-    },
-    [stage],
-  );
-
   // Render the FinancingForm component and wait for the user's response.
-  useCopilotAction(
+  useHumanInTheLoop(
     {
       name: "getFinancingInformation",
       description: "Get the financing information of the user",
-      available: stage === "getFinancingInfo" ? "enabled" : "disabled",
-      renderAndWaitForResponse: ({ status, respond }) => {
+      available: stage === "getFinancingInfo",
+      parameters: z.object({}),
+      render: ({ status, respond }) => {
         return (
           <FinancingForm
             status={status}
-            onSubmit={(creditScore, loanTerm) => {
+            onSubmit={async (creditScore, loanTerm) => {
+              if (!respond) return;
+
               // Store the financing information in the global state.
               setFinancingInfo({ creditScore, loanTerm });
 
-              // Let the agent know that the user has submitted their financing information.
-              respond?.(
-                "User has submitted their financing information, moving to the next state",
-              );
-
               // Move to the next stage, confirmOrder.
               setStage("confirmOrder");
+
+              // Let the agent know that the user has submitted their financing information.
+              await respond(
+                "User has submitted their financing information, moving to the next state",
+              );
             }}
           />
         );

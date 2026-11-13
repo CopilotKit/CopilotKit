@@ -13,6 +13,7 @@ name: Lint Release Workflows
 #   release / create-pr  -> .github/workflows/stable-release.yml
 #   release / publish    -> .github/workflows/publish-release.yml
 #   canary / publish     -> .github/workflows/canary.yml
+#   release / rc         -> .github/workflows/rc.yml
 
 on:
   push:
@@ -21,6 +22,7 @@ on:
       - ".github/workflows/stable-release.yml"
       - ".github/workflows/publish-release.yml"
       - ".github/workflows/canary.yml"
+      - ".github/workflows/rc.yml"
       - ".github/workflows/lint-release-workflows.yml"
       - "scripts/release/**"
       - "release.config.json"
@@ -30,6 +32,7 @@ on:
       - ".github/workflows/stable-release.yml"
       - ".github/workflows/publish-release.yml"
       - ".github/workflows/canary.yml"
+      - ".github/workflows/rc.yml"
       - ".github/workflows/lint-release-workflows.yml"
       - "scripts/release/**"
       - "release.config.json"
@@ -41,12 +44,13 @@ permissions:
 jobs:
   actionlint:
     runs-on: ubuntu-latest
+    timeout-minutes: 10 # observed max 0.5m over 25 runs
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
       - name: Run actionlint on release workflows
-        uses: reviewdog/action-actionlint@2085657ab2c7f48c58edcc767fba576f63bea76b # v1.77.0
+        uses: reviewdog/action-actionlint@ae857e78c1b42b3d0a49637181b09d3d56d402b4 # v1.84.1
         with:
           reporter: github-check
           level: error
@@ -55,10 +59,12 @@ jobs:
             .github/workflows/stable-release.yml
             .github/workflows/publish-release.yml
             .github/workflows/canary.yml
+            .github/workflows/rc.yml
             .github/workflows/lint-release-workflows.yml
 
   shellcheck:
     runs-on: ubuntu-latest
+    timeout-minutes: 10 # observed max 0.4m over 25 runs
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
@@ -84,6 +90,7 @@ jobs:
     # weren't canary-selectable; stale scopes lingered), so this guard fails
     # CI whenever they diverge again.
     runs-on: ubuntu-latest
+    timeout-minutes: 5 # observed max 0.2m over 25 runs
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:

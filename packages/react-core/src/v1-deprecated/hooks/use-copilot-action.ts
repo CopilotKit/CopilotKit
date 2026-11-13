@@ -149,7 +149,7 @@
  *
  * This hooks enables you to dynamically generate UI elements and render them in the copilot chat. For more information, check out the [Generative UI](/guides/generative-ui) page.
  */
-import { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { Parameter } from "@copilotkit/shared";
 import {
   CatchAllFrontendAction,
@@ -165,6 +165,21 @@ import {
   UseHumanInTheLoopArgs,
 } from "./use-human-in-the-loop";
 import { useCopilotContext } from "../context";
+
+// The v1 types allow `render` to be a plain string; useRenderToolCall calls
+// `render` as a function, so wrap a string in a renderer that returns it.
+function toRenderToolCallArgs<const T extends Parameter[] | [] = []>(
+  action: FrontendAction<T> | CatchAllFrontendAction,
+): UseRenderToolCallArgs<T> {
+  const { render } = action;
+  if (typeof render === "string") {
+    return {
+      ...action,
+      render: () => React.createElement(React.Fragment, null, render),
+    } as unknown as UseRenderToolCallArgs<T>;
+  }
+  return action as UseRenderToolCallArgs<T>;
+}
 
 // Helper to determine which component and action config to use
 function getActionConfig<const T extends Parameter[] | [] = []>(
@@ -222,7 +237,7 @@ function getActionConfig<const T extends Parameter[] | [] = []>(
     if (action.available === "frontend" || action.available === "disabled") {
       return {
         type: "render" as const,
-        action: action as UseRenderToolCallArgs<T>,
+        action: toRenderToolCallArgs(action),
       };
     }
   }
@@ -234,7 +249,20 @@ function getActionConfig<const T extends Parameter[] | [] = []>(
     };
   }
 
-  throw new Error("Invalid action configuration");
+  // A render function with no handler renders the agent's tool calls, as the
+  // v1 types and the useRenderToolCall migration docs describe.
+  if ("render" in action && action.render) {
+    return {
+      type: "render" as const,
+      action: toRenderToolCallArgs(action),
+    };
+  }
+
+  throw new Error(
+    `useCopilotAction(${JSON.stringify(action.name)}): this action has no handler and no render function. ` +
+      "Add a handler to run the action in the browser, " +
+      "or a render function to render a tool call that the agent runs.",
+  );
 }
 
 /**

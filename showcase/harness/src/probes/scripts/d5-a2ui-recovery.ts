@@ -1,3 +1,7 @@
+import {
+  prepareA2uiEvidence,
+  checkA2uiEvidence,
+} from "../helpers/a2ui-format.js";
 /**
  * D5 — a2ui-recovery script.
  *
@@ -98,6 +102,16 @@ const PROMPTS: Readonly<Record<string, { heal: string; exhaust: string }>> = {
     heal: "Render my Q2 sales dashboard, recovering if the first attempt is malformed.",
     exhaust:
       "Render a dashboard that keeps failing validation so I can see the fallback.",
+  },
+  "google-antigravity": {
+    heal: "Chart the Antigravity quarterly revenue board and repair a malformed first render.",
+    exhaust:
+      "Chart an Antigravity board that never passes validation so I can preview the fallback.",
+  },
+  "openai-agents-python": {
+    heal: "Compose the OpenAI Agents quarterly revenue board and repair a malformed first render.",
+    exhaust:
+      "Compose an OpenAI Agents board that never passes validation so I can preview the fallback.",
   },
   "langgraph-python": {
     heal: "Build my Q2 revenue summary and self-correct a malformed first attempt.",
@@ -298,11 +312,35 @@ export function buildTurns(ctx: D5BuildContext): ConversationTurn[] {
     captured: false,
   };
 
+  let format = ctx.a2uiFormat;
+  let reloaded = false;
+  const prepareHeal: NonNullable<ConversationTurn["preFill"]> = async (
+    page,
+  ) => {
+    await buildBaselineCapture(healRef)(page);
+    format = await prepareA2uiEvidence(page, ctx.a2uiFormat);
+  };
+  const prepareExhaust: NonNullable<ConversationTurn["preFill"]> = async (
+    page,
+  ) => {
+    await buildBaselineCapture(exhaustRef)(page);
+    format = await prepareA2uiEvidence(page, ctx.a2uiFormat);
+  };
   return [
     {
       input: prompts.heal,
-      preFill: buildBaselineCapture(healRef),
-      assertions: buildHealAssertion(healRef),
+      preFill: prepareHeal,
+      afterReload: async (page) => {
+        reloaded = true;
+        await prepareHeal(page);
+      },
+      assertions: async (page) => {
+        await buildHealAssertion(healRef)(page);
+        // A reload can consume the scripted rejection; the replay fallback
+        // must still prove progressive rendering on the recovered attempt.
+        if (format)
+          await checkA2uiEvidence(page, format, reloaded ? "stream" : "heal");
+      },
       responseTimeoutMs: RECOVERY_RESPONSE_TIMEOUT_MS,
       // The healed surface paints `render_a2ui` output; treat the turn as
       // complete when the metric surface mounts (same swap the declarative
@@ -315,8 +353,12 @@ export function buildTurns(ctx: D5BuildContext): ConversationTurn[] {
     },
     {
       input: prompts.exhaust,
-      preFill: buildBaselineCapture(exhaustRef),
-      assertions: buildExhaustAssertion(exhaustRef),
+      preFill: prepareExhaust,
+      afterReload: prepareExhaust,
+      assertions: async (page) => {
+        await buildExhaustAssertion(exhaustRef)(page);
+        if (format) await checkA2uiEvidence(page, format, "exhaust");
+      },
       responseTimeoutMs: RECOVERY_RESPONSE_TIMEOUT_MS,
       // The hard-failure card renders REAL text ("Couldn't generate the
       // UI") inside the assistant bubble, so the runner's default

@@ -9,7 +9,6 @@ import {
   Type,
   afterNextRender,
   computed,
-  effect,
   inject,
   input,
   model,
@@ -20,6 +19,7 @@ import { isPlatformBrowser } from "@angular/common";
 import { randomUUID } from "@copilotkit/shared";
 
 import { CopilotChat } from "../chat/copilot-chat";
+import { explicitEffect } from "../../explicit-effect";
 import { DockedSidebarRegistry } from "./docked-sidebar-registry";
 import { dimensionToCss } from "./modal-utils";
 
@@ -260,25 +260,36 @@ export class CopilotSidebar {
       );
     });
 
-    effect(() => {
-      const shouldDock = this.isBrowser && this.open() && !this.isModal();
-      if (!shouldDock) {
-        this.releaseDock();
-        this.dockAccepted.set(true);
-        return;
-      }
-      if (!this.ownsDock) {
-        this.ownsDock = this.registry.acquire(this.owner);
-        this.dockAccepted.set(this.ownsDock);
-        if (!this.ownsDock) {
-          console.warn(
-            "[CopilotKit] Only one docked CopilotSidebar may be open per document.",
-          );
+    // `position` and `resolvedWidth` are dependencies even though they are only
+    // consumed on the docked path: a width or side change while docked must
+    // re-push the registry entry. On the undocked path the extra re-run is
+    // inert — `releaseDock()` is a no-op without ownership and `dockAccepted`
+    // is set to the value it already holds.
+    explicitEffect(
+      () => ({
+        shouldDock: this.isBrowser && this.open() && !this.isModal(),
+        position: this.position(),
+        width: this.resolvedWidth(),
+      }),
+      ({ shouldDock, position, width }) => {
+        if (!shouldDock) {
+          this.releaseDock();
+          this.dockAccepted.set(true);
           return;
         }
-      }
-      this.registry.update(this.owner, this.position(), this.resolvedWidth());
-    });
+        if (!this.ownsDock) {
+          this.ownsDock = this.registry.acquire(this.owner);
+          this.dockAccepted.set(this.ownsDock);
+          if (!this.ownsDock) {
+            console.warn(
+              "[CopilotKit] Only one docked CopilotSidebar may be open per document.",
+            );
+            return;
+          }
+        }
+        this.registry.update(this.owner, position, width);
+      },
+    );
 
     this.destroyRef.onDestroy(() => this.releaseDock());
   }

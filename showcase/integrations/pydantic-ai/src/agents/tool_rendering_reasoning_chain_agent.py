@@ -3,7 +3,7 @@
 Mirrors
 ``showcase/integrations/langgraph-python/src/agents/tool_rendering_reasoning_chain_agent.py``.
 
-A reasoning-capable agent (gpt-5 via the Responses API) that exposes the
+A reasoning-capable agent (gpt-6-luna via the Responses API) that exposes the
 same shared backend tools used by the ``tool-rendering`` cell, so the
 frontend cell can observe a full ``reasoning → tool call → reasoning →
 tool call`` chain.
@@ -49,7 +49,7 @@ SYSTEM_PROMPT = dedent(
 ).strip()
 
 
-_REASONING_MODEL = os.environ.get("REASONING_MODEL", "gpt-5")
+_REASONING_MODEL = os.environ.get("REASONING_MODEL", "gpt-6-luna")
 
 agent = Agent(
     model=OpenAIResponsesModel(_REASONING_MODEL),

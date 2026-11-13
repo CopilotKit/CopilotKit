@@ -1,3 +1,5 @@
+using AGUI.Abstractions;
+using AGUI.Server;
 using Microsoft.Agents.AI;
 using Microsoft.Agents.AI.Hosting.AGUI.AspNetCore;
 using Microsoft.AspNetCore.Http.Json;
@@ -6,12 +8,33 @@ using Microsoft.Extensions.Options;
 using OpenAI;
 using OpenAI.Chat;
 using System.ComponentModel;
+using System.Text.Json;
 using System.Text.Json.Serialization;
 
 WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 
 builder.Services.ConfigureHttpJsonOptions(options => options.SerializerOptions.TypeInfoResolverChain.Add(ProverbsAgentSerializerContext.Default));
 builder.Services.AddAGUIServer();
+// The AG-UI converter requires an explicit mapping for the wrapper's JSON
+// DataContent; otherwise its merged state never reaches the client.
+builder.Services.Configure<AGUIStreamOptions>(options => options.MapContent(content =>
+{
+    if (content is not DataContent { MediaType: "application/json" } data) return null;
+    try
+    {
+        using var document = JsonDocument.Parse(data.Data);
+        var state = document.RootElement;
+        if (state.ValueKind != JsonValueKind.Object ||
+            !state.TryGetProperty("proverbs", out var proverbs) ||
+            proverbs.ValueKind != JsonValueKind.Array ||
+            proverbs.EnumerateArray().Any(proverb => proverb.ValueKind != JsonValueKind.String)) return null;
+        return [new StateSnapshotEvent { Snapshot = state.Clone() }];
+    }
+    catch (JsonException)
+    {
+        return null; // Malformed or unrelated data is not a proverbs state snapshot.
+    }
+}));
 
 WebApplication app = builder.Build();
 
@@ -41,6 +64,7 @@ public class ProverbsAgentFactory
     private readonly IConfiguration _configuration;
     private readonly ProverbsState _state;
     private readonly OpenAIClient _openAiClient;
+    private readonly string _model;
     private readonly ILogger _logger;
     private readonly System.Text.Json.JsonSerializerOptions _jsonSerializerOptions;
 
@@ -51,40 +75,92 @@ public class ProverbsAgentFactory
         _logger = loggerFactory.CreateLogger<ProverbsAgentFactory>();
         _jsonSerializerOptions = jsonSerializerOptions;
 
-        var openAiApiKey = _configuration["OPENAI_API_KEY"]
+        // COPILOTKIT_AGENT_MODEL (e.g. "anthropic:claude-sonnet-4-5") picks the
+        // provider and model; unset, the agent uses gpt-6-luna on OpenAI. Like
+        // OPENAI_API_KEY it is read from configuration (user-secrets or an
+        // environment variable). Anthropic and Google are reached through their
+        // OpenAI-compatible Chat Completions endpoints, so the OpenAI client
+        // serves all three. An OpenAI-compatible provider is
+        // openai:<its model id> plus OPENAI_BASE_URL.
+        var agentModel = _configuration["COPILOTKIT_AGENT_MODEL"];
+        var (provider, model) = ParseAgentModel(
+            string.IsNullOrWhiteSpace(agentModel) ? "openai:gpt-6-luna" : agentModel);
+        _model = model;
+
+        var apiKeyName = provider switch
+        {
+            "anthropic" => "ANTHROPIC_API_KEY",
+            "google" => "GOOGLE_API_KEY",
+            _ => "OPENAI_API_KEY",
+        };
+        var apiKey = _configuration[apiKeyName]
             ?? throw new InvalidOperationException(
-                "OPENAI_API_KEY not found in configuration. " +
-                "Set it with: dotnet user-secrets set OPENAI_API_KEY \"<your-openai-api-key>\"");
+                $"{apiKeyName} not found in configuration. " +
+                $"Set it with: dotnet user-secrets set {apiKeyName} \"<your-api-key>\"");
 
         var openAiBaseUrl = _configuration["OPENAI_BASE_URL"];
-        _openAiClient = string.IsNullOrWhiteSpace(openAiBaseUrl)
-            ? new OpenAIClient(openAiApiKey)
+        Uri? endpoint = provider switch
+        {
+            "anthropic" => new Uri("https://api.anthropic.com/v1/"),
+            "google" => new Uri("https://generativelanguage.googleapis.com/v1beta/openai/"),
+            _ => string.IsNullOrWhiteSpace(openAiBaseUrl) ? null : new Uri(openAiBaseUrl),
+        };
+        _openAiClient = endpoint is null
+            ? new OpenAIClient(apiKey)
             : new OpenAIClient(
-                new System.ClientModel.ApiKeyCredential(openAiApiKey),
-                new OpenAIClientOptions { Endpoint = new Uri(openAiBaseUrl) });
+                new System.ClientModel.ApiKeyCredential(apiKey),
+                new OpenAIClientOptions { Endpoint = endpoint });
+    }
+
+    /// <summary>
+    /// Parses <c>&lt;provider&gt;:&lt;model&gt;</c> (or <c>&lt;provider&gt;/&lt;model&gt;</c>).
+    /// Providers: openai, anthropic, google (gemini and google-gemini are aliases
+    /// of google). The model id after the first ':' or '/' is kept unchanged.
+    /// </summary>
+    internal static (string Provider, string Model) ParseAgentModel(string value)
+    {
+        var match = System.Text.RegularExpressions.Regex.Match(value.Trim(), "^([A-Za-z0-9-]+)[:/](.+)$");
+        var provider = !match.Success ? null : match.Groups[1].Value.ToLowerInvariant() switch
+        {
+            "openai" => "openai",
+            "anthropic" => "anthropic",
+            "google" or "gemini" or "google-gemini" => "google",
+            _ => null,
+        };
+        if (provider is null)
+        {
+            throw new InvalidOperationException(
+                $"COPILOTKIT_AGENT_MODEL=\"{value}\" is not <provider>:<model> with provider openai, anthropic or google");
+        }
+        return (provider, match.Groups[2].Value);
     }
 
     public AIAgent CreateProverbsAgent()
     {
-        var chatClientAgent = _openAiClient.GetChatClient("gpt-5-mini").AsAIAgent(
-            new ChatClientAgentOptions
+        IChatClient provider = _openAiClient.GetChatClient(_model).AsIChatClient();
+        var agentOptions = new ChatClientAgentOptions
+        {
+            Name = "ProverbsAgent",
+            Description = "A helpful assistant that helps manage and discuss proverbs.",
+            ChatOptions = new ChatOptions
             {
-                Name = "ProverbsAgent",
-                Description = "A helpful assistant that helps manage and discuss proverbs.",
-                ChatOptions = new ChatOptions
-                {
-                    Instructions = @"You have tools available to add, set, or retrieve proverbs from the list.
+                Reasoning = _model == "gpt-6-luna" ? new ReasoningOptions { Effort = ReasoningEffort.None } : null,
+                Instructions = @"You have tools available to add, set, or retrieve proverbs from the list.
                     When discussing proverbs, ALWAYS use the get_proverbs tool to see the current list before mentioning, updating, or discussing proverbs with the user.",
-                    Tools = [
-                        AIFunctionFactory.Create(GetProverbs, options: new() { Name = "get_proverbs", SerializerOptions = _jsonSerializerOptions }),
-                        AIFunctionFactory.Create(AddProverbs, options: new() { Name = "add_proverbs", SerializerOptions = _jsonSerializerOptions }),
-                        AIFunctionFactory.Create(SetProverbs, options: new() { Name = "set_proverbs", SerializerOptions = _jsonSerializerOptions }),
-                        AIFunctionFactory.Create(GetWeather, options: new() { Name = "get_weather", SerializerOptions = _jsonSerializerOptions })
-                    ]
-                }
-            });
+                Tools = [
+                    AIFunctionFactory.Create(GetProverbs, options: new() { Name = "get_proverbs", SerializerOptions = _jsonSerializerOptions }),
+                    AIFunctionFactory.Create(AddProverbs, options: new() { Name = "add_proverbs", SerializerOptions = _jsonSerializerOptions }),
+                    AIFunctionFactory.Create(SetProverbs, options: new() { Name = "set_proverbs", SerializerOptions = _jsonSerializerOptions }),
+                    AIFunctionFactory.Create(GetWeather, options: new() { Name = "get_weather", SerializerOptions = _jsonSerializerOptions })
+                ]
+            }
+        };
+        var chatClientAgent = provider.AsAIAgent(agentOptions);
 
-        return new SharedStateAgent(chatClientAgent, _jsonSerializerOptions);
+        // Reapply the complete SDK default middleware recipe around the guarded
+        // provider. The original agent still owns both runs and session/history.
+        return new SharedStateAgent(chatClientAgent, _jsonSerializerOptions,
+            decorateProvider => decorateProvider(provider).AsAIAgent(agentOptions).ChatClient);
     }
 
     // =================

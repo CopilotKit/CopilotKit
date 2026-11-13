@@ -28,20 +28,20 @@ alwaysApply: false
 ## Frontend Example Categories
 
 ### Basic Integration Examples
-- **[copilot-chat-with-your-data/](mdc:examples/copilot-chat-with-your-data/)** - Chat with custom data
-- **[copilot-form-filling/](mdc:examples/copilot-form-filling/)** - AI-powered form filling
+- **[chat-with-your-data/](mdc:examples/v1/chat-with-your-data/)** - Chat with custom data
+- **[form-filling/](mdc:examples/v1/form-filling/)** - AI-powered form filling
 - **[copilot-fully-custom/](mdc:examples/copilot-fully-custom/)** - Custom copilot implementation
 
 ### Advanced UI Examples
-- **[copilot-state-machine/](mdc:examples/copilot-state-machine/)** - State machine integration
+- **[state-machine/](mdc:examples/v1/state-machine/)** - State machine integration
 - **[demo-viewer/](mdc:examples/demo-viewer/)** - Demo viewer application
 - **[saas-dynamic-dashboards/frontend/](mdc:examples/saas-dynamic-dashboards/frontend/)** - Dynamic dashboard UI
 
 ### Coagents UI Examples
 Most coagents examples have a `ui/` folder with Next.js applications:
 - **[coagents-starter/ui/](mdc:examples/coagents-starter/ui/)** - Basic coagents UI
-- **[coagents-travel/ui/](mdc:examples/coagents-travel/ui/)** - Travel planning UI
-- **[coagents-research-canvas/ui/](mdc:examples/coagents-research-canvas/ui/)** - Research canvas UI
+- **[travel/](mdc:examples/v1/travel/)** - Travel planning UI
+- **[research-canvas/](mdc:examples/v1/research-canvas/)** - Research canvas UI
 
 ## Component Registry
 - **[registry/](mdc:registry/)** - Reusable component registry
@@ -148,5 +148,4 @@ function MyComponent() {
 - Shared configuration in [utilities/tailwind-config/](mdc:utilities/tailwind-config/)
 - Custom components in [components.json](mdc:docs/components.json)
 - UI components follow modern design patterns
-
 

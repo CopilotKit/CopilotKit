@@ -14,6 +14,8 @@
     "@ag-ui/a2ui-toolkit": "0.0.4",
     "@ag-ui/aws-strands": "0.2.3",
     "@ag-ui/core": "0.0.59",
+    "@anthropic-ai/sdk": "0.92.0",
+    "@google/genai": "1.52.0",
     "@modelcontextprotocol/sdk": "1.29.0",
     "@strands-agents/sdk": "1.6.0",
     "csv-parse": "^6.1.0",

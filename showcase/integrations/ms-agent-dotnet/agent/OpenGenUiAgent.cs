@@ -72,7 +72,7 @@ rendered visualisation.";
 
     public AIAgent CreateAgent()
     {
-        var chatClient = _openAiClient.GetChatClient("gpt-5-mini").AsIChatClient();
+        var chatClient = _openAiClient.GetChatClient("gpt-6-luna").AsLunaChatClient();
 
         // No backend tools. The `generateSandboxedUi` tool is registered
         // on the frontend by CopilotKitProvider (when `openGenerativeUI`

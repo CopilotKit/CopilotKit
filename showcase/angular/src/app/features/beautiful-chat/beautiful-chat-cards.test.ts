@@ -1,18 +1,19 @@
-import { ApplicationRef, provideZonelessChangeDetection } from "@angular/core";
 import type { Type } from "@angular/core";
+import { ApplicationRef, provideZonelessChangeDetection } from "@angular/core";
 import { TestBed } from "@angular/core/testing";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
   BarChartCard,
   BeautifulToolReasoningCard,
-  FlightSearchCard,
   MeetingTimePickerCard,
   PieChartCard,
 } from "./beautiful-chat-cards";
 import { toggleDocumentTheme } from "./beautiful-chat-model";
-import { BeautifulTodoCanvas } from "./beautiful-todo-canvas";
-import { readBeautifulTodos } from "./beautiful-todo-canvas";
+import {
+  BeautifulTodoCanvas,
+  readBeautifulTodos,
+} from "./beautiful-todo-canvas";
 
 describe("Angular Beautiful Chat renderers", () => {
   afterEach(() => TestBed.resetTestingModule());
@@ -87,49 +88,6 @@ describe("Angular Beautiful Chat renderers", () => {
     });
 
     expect(visible.textContent).toContain("query_data");
-  });
-
-  it("keeps completed fixed-schema flight results visible", async () => {
-    const element = await render(FlightSearchCard, {
-      toolCall: {
-        name: "search_flights",
-        args: {
-          flights: [
-            {
-              airline: "United Airlines",
-              flightNumber: "UA231",
-              origin: "SFO",
-              destination: "JFK",
-              departureTime: "08:00",
-              arrivalTime: "16:30",
-              duration: "5h 30m",
-              status: "On Time",
-              price: "$349",
-            },
-            {
-              airline: "Delta",
-              flightNumber: "DL412",
-              origin: "SFO",
-              destination: "JFK",
-              departureTime: "10:15",
-              arrivalTime: "18:45",
-              duration: "5h 30m",
-              status: "On Time",
-              price: "$289",
-            },
-          ],
-        },
-        status: "complete",
-      },
-    });
-
-    expect(
-      element.querySelector('[data-testid="beautiful-flight-results"]'),
-    ).not.toBeNull();
-    expect(element.textContent).toContain("United Airlines");
-    expect(element.textContent).toContain("$349");
-    expect(element.textContent).toContain("Delta");
-    expect(element.textContent).toContain("$289");
   });
 
   it("renders and immutably updates the state-backed task canvas", async () => {

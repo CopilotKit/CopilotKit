@@ -3,7 +3,7 @@
 Copy each block into `src/skins/<id>/<file>` and replace `<id>` / `<Brand>` /
 domain specifics. These are written against this app's frozen `Skin` contract
 (`src/shell/skin-contract.ts`) and mirror every shipped skin
-(`src/skins/{banking,airline,logistics,keel,people,commerce,bookstore,exec}/`) — see
+(`src/skins/{banking,airline,logistics,keel,people,commerce,bookstore,exec,myelin,ledgerline}/`) — see
 [demo-beats.md](./demo-beats.md) § "Which skin to copy for what" for which one to
 open for which problem.
 
@@ -1239,10 +1239,10 @@ import { BuiltInAgent } from "@copilotkit/runtime/v2";
 
 export const <id>Agent = () =>
   new BuiltInAgent({
-    model: "openai/gpt-5.4", // the alias used across this repo
+    model: "openai/gpt-6-luna", // the alias used across this repo
     prompt: <ID>_PROMPT,
     // tools: [...]       // optional server-side agent tools (defineTool)
-    // NO `temperature`: gpt-5.4 is a reasoning model that REJECTS the
+    // NO `temperature`: gpt-6-luna is a reasoning model that REJECTS the
     // parameter — the dev server logs 'The feature "temperature" is not
     // supported' on every run and discards the value. Get determinism from
     // the prompt's explicit routing rules instead, not from this option.
@@ -1301,7 +1301,7 @@ const renderReportTool = defineTool({
 
 export const <id>Agent = () =>
   new BuiltInAgent({
-    model: "openai/gpt-5.4",
+    model: "openai/gpt-6-luna",
     prompt: "You are the <Brand> agent. ...",
     tools: [renderReportTool],
   });

@@ -8,7 +8,7 @@ partner_docs: null
 repo: https://github.com/CopilotKit/CopilotKit/tree/main/showcase/integrations/pydantic-ai
 copilotkit_version: 2.0.0
 deployed: true
-docs_mode: authored
+docs_mode: generated
 sort_order: 50
 generative_ui:
   - constrained-explicit
@@ -20,15 +20,6 @@ interaction_modalities:
   - chat
 not_supported_features:
   - shared-state-streaming
-  # QUARANTINED pending a @copilotkit/react-core release. gen-ui-interrupt /
-  # interrupt-headless fail turn-2 on a useInterrupt/useHeadlessInterrupt
-  # RESUME-PATH hook bug in @copilotkit/react-core/v2: backend resumes + streams
-  # (HTTP 200) but the frontend never appends the confirmation assistant bubble,
-  # so the harness DOM settle-check times out. Fix is a published-package change
-  # (out of scope here); honestly marked not-supported (skipped-incapable, not
-  # green, not red) rather than a regression. Demos remain wired below.
-  - gen-ui-interrupt
-  - interrupt-headless
   - reasoning-default-render
   - agentic-chat-reasoning
   - tool-rendering-reasoning-chain
@@ -70,6 +61,8 @@ features:
   - reasoning-custom
   - mcp-apps
   - shared-state-read
+  - gen-ui-interrupt
+  - interrupt-headless
 a2ui_pattern: schema-loading
 interrupt_pattern: promise-based
 agent_config_pattern: shared-state
@@ -454,7 +447,13 @@ demos:
     highlight:
       - src/agents/byoc_hashbrown_agent.py
       - src/app/demos/declarative-hashbrown/page.tsx
+      - src/app/demos/declarative-hashbrown/chat.tsx
       - src/app/demos/declarative-hashbrown/hashbrown-renderer.tsx
+      - src/app/demos/declarative-hashbrown/metric-card.tsx
+      - src/app/demos/declarative-hashbrown/charts/chart-config.ts
+      - src/app/demos/declarative-hashbrown/charts/bar-chart.tsx
+      - src/app/demos/declarative-hashbrown/charts/pie-chart.tsx
+      - src/app/demos/declarative-hashbrown/types.ts
       - src/app/demos/declarative-hashbrown/suggestions.ts
       - src/app/api/copilotkit-declarative-hashbrown/route.ts
   - id: multimodal
@@ -529,7 +528,7 @@ demos:
       - src/app/api/copilotkit/route.ts
   - id: tool-rendering-reasoning-chain
     name: Tool Rendering (Reasoning Chain)
-    description: Reasoning + sequential tool calls (get_weather, search_flights, get_stock_price, roll_dice) in a single cell — gpt-5 reasoning model emits REASONING events between each tool call
+    description: Reasoning + sequential tool calls (get_weather, search_flights, get_stock_price, roll_dice) in a single cell — gpt-6-luna reasoning model emits REASONING events between each tool call
     tags:
       - generative-ui
     route: /demos/tool-rendering-reasoning-chain

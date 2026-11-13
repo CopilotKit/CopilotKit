@@ -3,8 +3,8 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "tsx ../scripts/generate-registry.ts && tsx ../scripts/bundle-demo-content.ts && tsx ../scripts/bundle-angular-source-content.ts && tsx ../scripts/bundle-starter-content.ts && tsx ../scripts/generate-search-index.ts && npx -y concurrently -k -n bundle,next \"tsx ../scripts/bundle-demo-content.ts --watch\" \"next dev\"",
-    "build": "tsx ../scripts/generate-registry.ts && tsx ../scripts/bundle-demo-content.ts && tsx ../scripts/bundle-angular-source-content.ts && tsx ../scripts/bundle-starter-content.ts && tsx ../scripts/generate-search-index.ts && next build",
+    "dev": "tsx ../scripts/generate-registry.ts && tsx ../scripts/bundle-demo-content.ts && tsx ../scripts/bundle-angular-source-content.ts && tsx ../scripts/bundle-vue-source-content.ts && tsx ../scripts/bundle-starter-content.ts && tsx ../scripts/generate-search-index.ts && npx -y concurrently -k -n bundle,next \"tsx ../scripts/bundle-demo-content.ts --watch\" \"next dev\"",
+    "build": "tsx ../scripts/generate-registry.ts && tsx ../scripts/bundle-demo-content.ts && tsx ../scripts/bundle-angular-source-content.ts && tsx ../scripts/bundle-vue-source-content.ts && tsx ../scripts/bundle-starter-content.ts && tsx ../scripts/generate-search-index.ts && next build",
     "start": "next start",
     "lint": "next lint",
     "test": "vitest run",
@@ -39,6 +39,10 @@
     "tailwindcss": "^4.0.0",
     "tsx": "^4.19.0",
     "typescript": "^5.7.0",
-    "vitest": "^4.1.4"
+    "vitest": "^4.1.4",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "lucide-react": "^1.14.0",
+    "tailwind-merge": "^3.5.0"
   }
 }

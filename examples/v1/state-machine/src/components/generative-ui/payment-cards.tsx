@@ -1,16 +1,21 @@
 import { useState } from "react";
 import { motion } from "motion/react";
 import { cn } from "@/lib/utils/cn";
-import { availableCardInfo, CardInfo } from "@/lib/types";
+import { availableCardInfo } from "@/lib/types";
+import type { CardInfo } from "@/lib/types";
+import { ToolCallStatus } from "@copilotkit/react-core/v2";
 
 interface PaymentCardsProps {
   onSubmit: (cardInfo: CardInfo) => void;
+  status: ToolCallStatus;
 }
 
-export function PaymentCards({ onSubmit }: PaymentCardsProps) {
+export function PaymentCards({ onSubmit, status }: PaymentCardsProps) {
   const [selectedCard, setSelectedCard] = useState<string | null>(null);
 
   const handleCardSelect = (cardInfo: CardInfo) => {
+    if (status !== ToolCallStatus.Executing) return;
+
     setSelectedCard(cardInfo.name);
     onSubmit(cardInfo);
   };
@@ -27,6 +32,7 @@ export function PaymentCards({ onSubmit }: PaymentCardsProps) {
         cardInfo={cardInfo}
         onClick={() => handleCardSelect(cardInfo)}
         isAnySelected={selectedCard !== null}
+        disabled={status !== ToolCallStatus.Executing}
       />
     </motion.div>
   );
@@ -53,14 +59,16 @@ const CreditCard = ({
   cardInfo,
   onClick,
   isAnySelected,
+  disabled,
 }: {
   cardInfo: CardInfo;
   onClick: () => void;
   isAnySelected: boolean;
+  disabled: boolean;
 }) => {
   const cardClassName = cn(
     "w-[350px] h-[200px] rounded-xl p-6 relative overflow-hidden transition-all duration-300",
-    !isAnySelected
+    !isAnySelected && !disabled
       ? "hover:transform hover:-translate-y-2 hover:shadow-xl cursor-pointer"
       : "cursor-not-allowed",
   );
@@ -68,6 +76,7 @@ const CreditCard = ({
   return (
     <button
       onClick={onClick}
+      disabled={disabled}
       className={cardClassName}
       style={{
         background: "linear-gradient(135deg, #000428 0%, #004e92 100%)",

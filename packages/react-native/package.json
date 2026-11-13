@@ -1,6 +1,6 @@
 {
   "name": "@copilotkit/react-native",
-  "version": "1.74.0",
+  "version": "1.87.1",
   "private": false,
   "keywords": [
     "ai",
@@ -20,10 +20,14 @@
   "sideEffects": [
     "./src/index.*",
     "./src/headless.*",
+    "./src/components/index.*",
+    "./src/generative-ui/index.*",
     "./src/polyfills.*",
     "./src/polyfills/**/*",
     "./dist/index.*",
     "./dist/headless.*",
+    "./dist/components/index.*",
+    "./dist/generative-ui/index.*",
     "./dist/polyfills.*",
     "./dist/polyfills/**/*"
   ],
@@ -38,6 +42,10 @@
     "./headless": {
       "import": "./dist/headless.mjs",
       "require": "./dist/headless.cjs"
+    },
+    "./generative-ui": {
+      "import": "./dist/generative-ui/index.mjs",
+      "require": "./dist/generative-ui/index.cjs"
     },
     "./polyfills": {
       "import": "./dist/polyfills.mjs",
@@ -85,7 +93,7 @@
     "size:headless": "node scripts/measure-headless.mjs"
   },
   "dependencies": {
-    "@ag-ui/client": "0.0.59",
+    "@ag-ui/client": "1.0.2",
     "@copilotkit/core": "workspace:*",
     "@copilotkit/react-core": "workspace:*",
     "@copilotkit/shared": "workspace:*",

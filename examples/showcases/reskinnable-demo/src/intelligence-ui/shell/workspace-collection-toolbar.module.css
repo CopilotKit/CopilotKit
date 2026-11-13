@@ -1,0 +1,35 @@
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+/* The shared SearchField draws the field; the toolbar only lets it grow. */
+.search {
+  flex: 1;
+}
+.auxiliary {
+  flex: 0 1 210px;
+  min-width: 150px;
+}
+.mobile {
+  display: none;
+}
+@media (max-width: 620px) {
+  .toolbar {
+    flex-wrap: wrap;
+  }
+  .search {
+    flex-basis: calc(100% - 44px);
+  }
+  .auxiliary {
+    order: 3;
+    flex-basis: 100%;
+  }
+  .desktop {
+    display: none;
+  }
+  .mobile {
+    display: block;
+  }
+}

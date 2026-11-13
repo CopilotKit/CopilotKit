@@ -12,8 +12,14 @@ import {
   Row,
   Cell,
   Image,
+  Render,
+  Carousel,
+  CarouselCard,
   Select,
   Chart,
+  Input,
+  isChannelComponent,
+  CHANNEL_COMPONENT,
 } from "./components.js";
 
 /**
@@ -35,6 +41,25 @@ const __typeGuards = () => {
   <Divider>x</Divider>;
   // @ts-expect-error Image.url is required
   <Image alt="x" />;
+  // @ts-expect-error Render.alt is required
+  <Render>
+    <div />
+  </Render>;
+  <Render alt="card">
+    <div />
+  </Render>;
+  <Render alt="card" width={400}>
+    <div />
+  </Render>;
+  <Carousel>
+    <CarouselCard>
+      <Header>Shoes</Header>
+      <Render alt="shoes">
+        <div />
+      </Render>
+    </CarouselCard>
+    <Image url="https://example.com/x.png" alt="x" />
+  </Carousel>;
   // @ts-expect-error Select.options is required
   <Select placeholder="p" />;
   // @ts-expect-error Chart.data is required
@@ -138,5 +163,57 @@ describe("component vocabulary", () => {
     expect(chart.props.title).toBe("Revenue");
     expect(chart.props.yAxisTitle).toBe("USD");
     expect(chart.props.data).toEqual(data);
+  });
+});
+
+describe("component branding", () => {
+  it("Render is intrinsic type render and keeps alt and width", () => {
+    const [node] = renderToIR(
+      <Render alt="card" width={400}>
+        <div />
+      </Render>,
+    );
+    expect(node!.type).toBe("render");
+    expect(node!.props.alt).toBe("card");
+    expect(node!.props.width).toBe(400);
+    expect(isChannelComponent(Render)).toBe(true);
+  });
+
+  it("Carousel and CarouselCard are branded intrinsic types", () => {
+    const [card] = renderToIR(
+      <CarouselCard>
+        <Header>Shoes</Header>
+      </CarouselCard>,
+    );
+    const [carousel] = renderToIR(<Carousel>{card}</Carousel>);
+    expect(card!.type).toBe("carouselCard");
+    expect(carousel!.type).toBe("carousel");
+    expect(isChannelComponent(Carousel)).toBe(true);
+    expect(isChannelComponent(CarouselCard)).toBe(true);
+  });
+
+  it("brands every channel component so it is recognizable", () => {
+    for (const c of [
+      Message,
+      Button,
+      Select,
+      Input,
+      Table,
+      Chart,
+      Image,
+      Divider,
+    ]) {
+      expect(isChannelComponent(c)).toBe(true);
+      expect((c as unknown as Record<symbol, unknown>)[CHANNEL_COMPONENT]).toBe(
+        true,
+      );
+    }
+  });
+
+  it("does not brand arbitrary functions", () => {
+    const notOurs = (props: { x: number }) => props;
+    expect(isChannelComponent(notOurs)).toBe(false);
+    expect(isChannelComponent(undefined)).toBe(false);
+    expect(isChannelComponent("message")).toBe(false);
   });
 });

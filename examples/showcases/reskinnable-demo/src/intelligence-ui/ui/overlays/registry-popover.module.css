@@ -1,0 +1,12 @@
+.content {
+  z-index: var(--cpki-z-index-popover, 1100);
+  width: 18rem;
+  max-width: calc(100vw - 24px);
+  padding: 0.25rem;
+  border: 1px solid var(--border, var(--cpki-color-border));
+  border-radius: var(--radius-surface, var(--cpki-radius-overlay));
+  background: var(--popover, var(--cpki-color-surface-raised));
+  box-shadow: var(--overlay-shadow, var(--cpki-shadow-overlay));
+  color: var(--popover-foreground, var(--cpki-color-foreground));
+  outline: none;
+}

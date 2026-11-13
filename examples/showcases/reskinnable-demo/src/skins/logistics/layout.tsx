@@ -19,6 +19,7 @@ import { usePlannerAuth } from "./components/planner-auth-context";
 import { useAskCopilot } from "./components/use-ask-copilot";
 import { cn } from "@/lib/utils";
 
+import { GovernancePopover } from "@/shell/governance-popover";
 const SIDEBAR_WIDTH_PX = 240;
 
 export function LogisticsLayout({ children }: { children: ReactNode }) {
@@ -115,6 +116,12 @@ export function LogisticsLayout({ children }: { children: ReactNode }) {
           {/* Meta-utility strip — Reset (presenter-gated), theme toggle, and a
               copilot Help shortcut. Semantic utilities only, so a reskin swaps
               the palette without touching this chrome. */}
+          {/* Which CUSTOMER is signed in, and how much memory they are allowed.
+              Shell-owned — every skin scopes memory through the same two runtime
+              callbacks — but placed here, in the skin's own chrome beside the
+              on-duty planner, because together they answer one question: the
+              memory bucket is <organization>:<planner>. */}
+          <GovernancePopover />
           <TooltipProvider>
             <div className="flex items-center gap-1 border-t border-hairline px-1 pt-3">
               {resetEnabled && (

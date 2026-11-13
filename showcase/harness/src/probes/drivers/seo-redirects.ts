@@ -99,11 +99,6 @@ const SUBPATH_RENAMES: { specId: string; from: string; to: string }[] = [
     to: "generative-ui/your-components/display-only",
   },
   {
-    specId: "S9",
-    from: "generative-ui/tool-based",
-    to: "generative-ui/tool-rendering",
-  },
-  {
     specId: "S10",
     from: "custom-look-and-feel/bring-your-own-components",
     to: "custom-look-and-feel/slots",
@@ -688,7 +683,7 @@ const FOLDER_INDEX: RedirectEntry[] = [
   {
     id: "FI-migrate",
     // Mirrors the existing /migrate → /migrate/v2 entry in
-    // showcase/shell-docs/next.config.ts, kept here so the SHELL host's
+    // showcase/shell-docs/src/lib/redirects/seo-redirects.ts, kept here so the SHELL host's
     // middleware also covers it during the cutover.
     source: "/migrate",
     destination: "/migrate/v2",

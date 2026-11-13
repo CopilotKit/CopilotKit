@@ -136,15 +136,19 @@ function ɵcreatePhoenixJoinOutcome$(
  *
  * The socket is constructed and connected on subscription, and disconnected on
  * teardown. Each subscription creates an isolated socket instance.
+ *
+ * Heartbeats default to every 15s: Phoenix's own 30s default matches common
+ * reverse-proxy WebSocket idle timeouts (e.g. Azure Application Gateway), which
+ * would drop the socket during a quiet run. Callers may override it.
  */
 export function ɵphoenixSocket$(
   options: ɵPhoenixSocketOptions,
 ): Observable<ɵPhoenixSocketSession> {
   return defer(() => {
-    const socket = new Socket(
-      options.url,
-      options.options as ConstructorParameters<typeof Socket>[1],
-    ) as ɵPhoenixSocketLike;
+    const socket = new Socket(options.url, {
+      heartbeatIntervalMs: 15_000,
+      ...options.options,
+    } as ConstructorParameters<typeof Socket>[1]) as ɵPhoenixSocketLike;
     const signals$ = ɵcreatePhoenixSocketSignals$(socket).pipe(
       shareReplay({ bufferSize: 1, refCount: true }),
     );

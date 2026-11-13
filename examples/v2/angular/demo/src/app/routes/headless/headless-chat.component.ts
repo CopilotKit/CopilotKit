@@ -18,8 +18,8 @@ import {
   CopilotKit,
   injectAgentStore,
   registerHumanInTheLoop,
+  RenderToolCalls,
 } from "@copilotkit/angular";
-import { RenderToolCalls } from "@copilotkit/angular";
 import { z } from "zod";
 
 @Component({
@@ -64,7 +64,7 @@ export class RequireApprovalComponent implements HumanInTheLoopToolRenderer {
           color: #111827;
         "
       >
-        @for (m of messages(); track m) {
+        @for (m of messages(); track m.id) {
           <div style="margin-bottom: 16px">
             <div style="font-weight: 600; color: #374151">
               {{ m.role | titlecase }}
@@ -142,7 +142,7 @@ export class RequireApprovalComponent implements HumanInTheLoopToolRenderer {
   `,
 })
 export class HeadlessChatComponent {
-  readonly agentStore = injectAgentStore("openai");
+  readonly agentStore = injectAgentStore("default");
   readonly agent = computed(() => this.agentStore()?.agent);
   readonly isRunning = computed(() => !!this.agentStore()?.isRunning());
   readonly messages = computed(() => this.agentStore()?.messages());

@@ -1,8 +1,15 @@
 import type { NextConfig } from "next";
+import { fileURLToPath } from "node:url";
 
 const nextConfig: NextConfig = {
+  // Next.js 16.3 writes AGENTS.md and CLAUDE.md into the project when `next dev`
+  // detects an AI coding agent. Keep the project as it was scaffolded.
+  agentRules: false,
+  // Pin the root to this folder. Otherwise a lockfile in a parent folder
+  // becomes the workspace root. This value also sets the file tracing root.
+  turbopack: { root: fileURLToPath(new URL(".", import.meta.url)) },
   typescript: { ignoreBuildErrors: true },
-  serverExternalPackages: ["pino", "thread-stream"],
+  serverExternalPackages: ["@copilotkit/runtime", "pino", "thread-stream"],
   env: {
     // NEXT_PUBLIC_* resolves at build time while the Runtime reads the project key
     // per request. Provide CPK_INTELLIGENCE_API_KEY during the host build so the

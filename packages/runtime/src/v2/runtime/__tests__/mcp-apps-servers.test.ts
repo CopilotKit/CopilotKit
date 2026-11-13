@@ -44,9 +44,31 @@ describe("resolveMcpAppsServers", () => {
       ),
     ).toThrow(
       new RegExp(
-        `${key}.*server\\[0\\].*weather.*@ag-ui/mcp-apps-middleware@0\\.0\\.3.*https://github\\.com/CopilotKit/CopilotKit/issues/5930`,
+        `${key}.*server\\[0\\].*weather.*@ag-ui/mcp-apps-middleware owns.*https://github\\.com/CopilotKit/CopilotKit/issues/5930`,
       ),
     );
+  });
+
+  it("names a server without serverId by its URL minus credentials", () => {
+    // This message reaches the client, so the URL's userinfo and query stay out.
+    const { serverId: _serverId, ...withoutId } = baseServer;
+    let message = "";
+    try {
+      resolveMcpAppsServers(
+        [
+          asServer({
+            ...withoutId,
+            url: "https://user:pass@mcp.example.com/sse?token=secret-123",
+            includeTools: [],
+          }),
+        ],
+        "default",
+      );
+    } catch (error) {
+      message = (error as Error).message;
+    }
+    expect(message).toContain("server[0] (https://mcp.example.com/sse)");
+    expect(message).not.toMatch(/secret-123|user:pass/);
   });
 
   it("reports every unsupported key before filtering by agent", () => {

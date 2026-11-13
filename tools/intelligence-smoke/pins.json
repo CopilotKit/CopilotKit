@@ -1,0 +1,43 @@
+{
+  "intelligenceVersion": "0.13.9",
+  "chart": {
+    "reference": "oci://ghcr.io/copilotkit/charts/intelligence",
+    "version": "0.13.9",
+    "digest": "sha256:8eaec4009266bec67a5d2c10072579daa7212c135d997e19c20a51bae450bffd"
+  },
+  "images": {
+    "appApi": {
+      "repository": "ghcr.io/copilotkit/intelligence/app-api",
+      "digest": "sha256:7a8ec342df388c1e5ebf48defdfdff99cdb2ca292a079e8141da98a91874fef9"
+    },
+    "realtimeGateway": {
+      "repository": "ghcr.io/copilotkit/intelligence/realtime-gateway",
+      "digest": "sha256:a641e73bee38c1ada2ef2c1ee1963bea1aa9163e503e8ef7cc4addcbc7ce0e91"
+    },
+    "migrations": {
+      "repository": "ghcr.io/copilotkit/intelligence/db-migrations",
+      "digest": "sha256:52fa9a6b4aafa658a112eae623533583c30d669d2e66060906f12af331a1d5f9"
+    },
+    "postgresql": {
+      "repository": "ghcr.io/copilotkit/intelligence/postgres-pgvector",
+      "digest": "sha256:91c40627db16d6d6c4e3c284c69c01ccdfd9172fac89e1b7d453ebb01127c205"
+    },
+    "redis": {
+      "repository": "docker.io/bitnamilegacy/redis",
+      "digest": "sha256:a25b5d07a14ec13730022c7cd9bab6308d55ccd86b74af7315553c17be884889"
+    },
+    "objectStorage": {
+      "repository": "ghcr.io/copilotkit/intelligence/local-object-storage",
+      "digest": "sha256:1c2a56bcd21e6ef33b77ddefec998ba09b026c339af1c2827d312ee3df7b7280"
+    },
+    "objectStorageInit": {
+      "repository": "ghcr.io/copilotkit/intelligence/local-object-storage-init",
+      "digest": "sha256:1c2a56bcd21e6ef33b77ddefec998ba09b026c339af1c2827d312ee3df7b7280"
+    },
+    "k3s": {
+      "repository": "docker.io/rancher/k3s",
+      "digest": "sha256:53cf744fe2fabf140cee240d2db70d13a4f2d98f1a13c98f58f457f423096917"
+    }
+  },
+  "intelligenceSource": "f1d326e8e6924da8186cf1d3d23277cc8bda80de"
+}

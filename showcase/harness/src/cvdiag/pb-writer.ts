@@ -253,7 +253,8 @@ export class CvdiagPbWriter {
    */
   private async probeCollection(collection: string): Promise<boolean> {
     try {
-      await this.pb.list(collection, { perPage: 1 });
+      // Presence checks do not need a count of the entire diagnostic table.
+      await this.pb.list(collection, { perPage: 1, skipTotal: true });
       return true;
     } catch (err) {
       // Branch on the TYPED HTTP status carried by the rejection

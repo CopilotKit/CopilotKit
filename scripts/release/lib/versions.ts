@@ -19,16 +19,46 @@ export interface PublishablePackage {
   pkg: Record<string, any>;
 }
 
+/**
+ * The folders that hold releasable packages, searched in this order.
+ *
+ * `community/` holds community-maintained packages (see community/README.md).
+ * They are not pnpm workspace members, but they release through this same
+ * pipeline under their own scope, so every lookup here has to see them too.
+ */
+export const PACKAGE_ROOTS = ["packages", "community"] as const;
+
+/** Every package one level under a {@link PACKAGE_ROOTS} folder. */
+function listPackages(): PublishablePackage[] {
+  const found: PublishablePackage[] = [];
+  for (const root of PACKAGE_ROOTS) {
+    const rootDir = path.join(ROOT, root);
+    if (!fs.existsSync(rootDir)) continue;
+    for (const dir of fs.readdirSync(rootDir)) {
+      const pkgJsonPath = path.join(rootDir, dir, "package.json");
+      if (!fs.existsSync(pkgJsonPath)) continue;
+      const pkg = JSON.parse(fs.readFileSync(pkgJsonPath, "utf8"));
+      found.push({
+        name: pkg.name,
+        dir: path.join(rootDir, dir),
+        pkgJsonPath,
+        pkg,
+      });
+    }
+  }
+  return found;
+}
+
 /** Find a package directory by its npm name. */
 function findPackageDir(packageName: string): string {
-  const packagesDir = path.join(ROOT, "packages");
-  for (const dir of fs.readdirSync(packagesDir)) {
-    const pkgJsonPath = path.join(packagesDir, dir, "package.json");
-    if (!fs.existsSync(pkgJsonPath)) continue;
-    const pkg = JSON.parse(fs.readFileSync(pkgJsonPath, "utf8"));
-    if (pkg.name === packageName) return path.join(packagesDir, dir);
-  }
+  const match = listPackages().find((p) => p.name === packageName);
+  if (match) return match.dir;
   throw new Error(`Package not found: ${packageName}`);
+}
+
+/** Whether a package lives under `community/` rather than `packages/`. */
+export function isCommunityPackage(pkg: PublishablePackage): boolean {
+  return path.dirname(pkg.dir) === path.join(ROOT, "community");
 }
 
 /** Get the current version for a scope (reads from the scope's versionSource package). */
@@ -116,23 +146,81 @@ export function computePrereleaseVersion(
   return `${base}-${tag}.${resolvePrereleaseId(suffix)}`;
 }
 
+/** Prerelease identifier of a release candidate: `2.0.0-rc.3`. */
+export const RC_TAG = "rc";
+
+/**
+ * npm dist-tag release candidates publish under, so `@copilotkit/<pkg>@next`
+ * always installs the newest candidate of the upcoming major.
+ */
+export const RC_DIST_TAG = "next";
+
+/**
+ * The next release candidate of `base`: one past the highest `<base>-rc.<n>`
+ * in `published`, or `<base>-rc.0` when there is none.
+ *
+ * `published` must cover every package in the scope, not just the version
+ * source. A run that dies partway leaves some packages on rc.N and others
+ * without it, and npm refuses to republish a version, so the next run has to
+ * move past N for all of them.
+ */
+export function computeNextRcVersion(
+  base: string,
+  published: Iterable<string>,
+): string {
+  const prefix = `${base}-${RC_TAG}.`;
+  let next = 0;
+  for (const version of published) {
+    if (!version.startsWith(prefix)) continue;
+    const n = version.slice(prefix.length);
+    if (/^\d+$/.test(n)) next = Math.max(next, Number(n) + 1);
+  }
+  return `${prefix}${next}`;
+}
+
+/**
+ * Throws unless `base` is ahead of the scope's `current` version.
+ *
+ * `next` must point at the upcoming release, so a release candidate of an
+ * older line (say a branch named `1.0.0` on a 1.83 checkout) must not publish.
+ * `base` may equal `current` only while `current` is itself a prerelease of it.
+ */
+export function assertRcBaseAhead(base: string, current: string): void {
+  const b = parseSemver(base);
+  const c = parseSemver(current);
+  const order = b.major - c.major || b.minor - c.minor || b.patch - c.patch;
+  if (order > 0 || (order === 0 && c.prerelease)) return;
+  throw new Error(
+    `--rc ${base} is not ahead of the current version ${current}; release candidates must target an upcoming version.`,
+  );
+}
+
+/**
+ * The dist-tag a prerelease publishes under. Release candidates go to
+ * `RC_DIST_TAG` (`2.0.0-rc.3` → `next`); every other prerelease goes to its
+ * prerelease identifier (`1.80.1-canary.123` → `canary`).
+ *
+ * Throws on a stable version. The prerelease lane must never publish one: it
+ * would burn that version number under a non-`latest` tag.
+ */
+export function prereleaseDistTag(version: string): string {
+  const { prerelease } = parseSemver(version);
+  if (!prerelease) {
+    throw new Error(
+      `${version} is not a prerelease; refusing to publish it from the prerelease lane.`,
+    );
+  }
+  const id = prerelease.split(".")[0];
+  return id === RC_TAG ? RC_DIST_TAG : id;
+}
+
 /** Get all publishable packages in the order configured for a release scope. */
 export function getPackagesForScope(scope: ReleaseScope): PublishablePackage[] {
   const scopeConfig = getScopeConfig(scope);
-  const packagesDir = path.join(ROOT, "packages");
   const packagesByName = new Map<string, PublishablePackage>();
-
-  for (const dir of fs.readdirSync(packagesDir)) {
-    const pkgJsonPath = path.join(packagesDir, dir, "package.json");
-    if (!fs.existsSync(pkgJsonPath)) continue;
-
-    const pkg = JSON.parse(fs.readFileSync(pkgJsonPath, "utf8"));
-    packagesByName.set(pkg.name, {
-      name: pkg.name,
-      dir: path.join(packagesDir, dir),
-      pkgJsonPath,
-      pkg,
-    });
+  for (const pkg of listPackages()) {
+    // packages/ is listed first; keep its entry if a name ever appears twice.
+    if (!packagesByName.has(pkg.name)) packagesByName.set(pkg.name, pkg);
   }
 
   return scopeConfig.packages.map((name) => {
@@ -142,6 +230,65 @@ export function getPackagesForScope(scope: ReleaseScope): PublishablePackage[] {
     }
     return pkg;
   });
+}
+
+/**
+ * Order packages so each one comes after the packages in the same list that it
+ * depends on, keeping the configured order otherwise.
+ *
+ * The stable publisher goes package by package and stops at the first failure,
+ * and `pnpm pack` turns `workspace:*` into an exact version. Publishing in the
+ * configured (alphabetical) order put `@copilotkit/core` on npm before the
+ * `@copilotkit/learning` and `@copilotkit/shared` versions it pins, so a failure
+ * between them left an uninstallable Core until a retry. A dependency cycle
+ * cannot be satisfied by any order; it is broken at the edge that closes it.
+ */
+export function orderByDependencies(
+  packages: PublishablePackage[],
+): PublishablePackage[] {
+  const byName = new Map(packages.map((p) => [p.name, p]));
+  const seen = new Set<string>();
+  const ordered: PublishablePackage[] = [];
+
+  const visit = (p: PublishablePackage) => {
+    if (seen.has(p.name)) return;
+    seen.add(p.name);
+    for (const field of [
+      "dependencies",
+      "peerDependencies",
+      "optionalDependencies",
+    ] as const) {
+      for (const name of Object.keys(p.pkg[field] ?? {})) {
+        const dependency = byName.get(name);
+        if (dependency) visit(dependency);
+      }
+    }
+    ordered.push(p);
+  };
+
+  packages.forEach(visit);
+  return ordered;
+}
+
+/**
+ * The community packages (those under `community/`) in the given scopes, in
+ * scope order, without duplicates. The publish workflow's root build only
+ * reaches `packages/**` through nx, so these are the packages it must build
+ * separately before they can be packed.
+ */
+export function getCommunityPackagesForScopes(
+  scopes: readonly ReleaseScope[],
+): PublishablePackage[] {
+  const seen = new Set<string>();
+  const result: PublishablePackage[] = [];
+  for (const scope of scopes) {
+    for (const pkg of getPackagesForScope(scope)) {
+      if (!isCommunityPackage(pkg) || seen.has(pkg.name)) continue;
+      seen.add(pkg.name);
+      result.push(pkg);
+    }
+  }
+  return result;
 }
 
 /** Bump all packages in a scope to a new version. For sharedVersion scopes, also updates internal deps. */

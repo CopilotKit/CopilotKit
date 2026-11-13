@@ -18,16 +18,7 @@ interaction_modalities:
   - sidebar
   - embedded
   - chat
-not_supported_features:
-  # QUARANTINED pending a @copilotkit/react-core release. gen-ui-interrupt /
-  # interrupt-headless fail turn-2 on a useInterrupt/useHeadlessInterrupt
-  # RESUME-PATH hook bug in @copilotkit/react-core/v2: backend resumes + streams
-  # (HTTP 200) but the frontend never appends the confirmation assistant bubble,
-  # so the harness DOM settle-check times out. Fix is a published-package change
-  # (out of scope here); honestly marked not-supported (skipped-incapable, not
-  # green, not red) rather than a regression. Demos remain wired below.
-  - gen-ui-interrupt
-  - interrupt-headless
+not_supported_features: []
 features:
   - beautiful-chat
   - cli-start
@@ -66,6 +57,8 @@ features:
   - open-gen-ui-advanced
   - voice
   - agent-config
+  - gen-ui-interrupt
+  - interrupt-headless
 agent_config_pattern: shared-state
 interrupt_pattern: promise-based
 a2ui_pattern: schema-loading
@@ -339,7 +332,14 @@ demos:
       - src/agent_server.ts
       - src/agent/byoc-hashbrown-prompt.ts
       - src/app/demos/declarative-hashbrown/page.tsx
+      - src/app/demos/declarative-hashbrown/chat.tsx
       - src/app/demos/declarative-hashbrown/hashbrown-renderer.tsx
+      - src/app/demos/declarative-hashbrown/metric-card.tsx
+      - src/app/demos/declarative-hashbrown/charts/chart-config.ts
+      - src/app/demos/declarative-hashbrown/charts/bar-chart.tsx
+      - src/app/demos/declarative-hashbrown/charts/pie-chart.tsx
+      - src/app/demos/declarative-hashbrown/types.ts
+      - src/app/demos/declarative-hashbrown/suggestions.ts
       - src/app/api/copilotkit-declarative-hashbrown/route.ts
   - id: mcp-apps
     name: MCP Apps

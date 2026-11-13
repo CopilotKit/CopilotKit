@@ -7,11 +7,12 @@
  * separately — the cell model incorporates all relevant signals.
  */
 import { describe, it, expect } from "vitest";
-import { render, fireEvent } from "@testing-library/react";
+import { render, fireEvent, within } from "@testing-library/react";
 import { LiveIndicator, computeColumnTally, FeatureGrid } from "./feature-grid";
 import type { CellContext, CellRenderer } from "./feature-grid";
 import { OverlayColumnHeader } from "./overlay-column-header";
 import type { Overlay } from "@/lib/overlay-types";
+import type { CatalogData } from "@/data/catalog-types";
 import { urlsFor } from "./cell-pieces";
 import { getIntegrations, getFeatures } from "@/lib/registry";
 import { starterIsSupported, STARTER_LEVELS } from "@/lib/live-status";
@@ -124,6 +125,68 @@ function row(key: string, dim: string, state: StatusRow["state"]): StatusRow {
     first_failure_at: null,
   };
 }
+
+it("uses the catalog reference integration for the parity depth column", () => {
+  const catalog: CatalogData = {
+    metadata: {
+      reference: "mastra",
+      total_cells: 2,
+      wired: 2,
+      stub: 0,
+      unshipped: 0,
+      unsupported: 0,
+      docs_only: 0,
+    },
+    cells: ["agno", "mastra"].map((slug) => ({
+      id: `${slug}/agentic-chat`,
+      manifestation: "integrated",
+      integration: slug,
+      integration_name: slug,
+      feature: "agentic-chat",
+      feature_name: "Agentic Chat",
+      status: "wired",
+      parity_tier: "at_parity",
+      max_depth: 6,
+      category: "chat-ui",
+      category_name: "Chat",
+    })),
+  };
+  const liveStatus: LiveStatusMap = new Map([
+    ["e2e:mastra/agentic-chat", row("e2e:mastra/agentic-chat", "e2e", "green")],
+    ["e2e:agno/agentic-chat", row("e2e:agno/agentic-chat", "e2e", "red")],
+  ]);
+  const props = {
+    title: "Feature Matrix",
+    renderCell: () => null,
+    liveStatus,
+    connection: "live" as const,
+    now: Date.now(),
+    overlays: new Set<Overlay>(["parity"]),
+    shellUrl: "https://example.test",
+  };
+  const { getByTestId, getByRole, rerender } = render(
+    <FeatureGrid {...props} catalog={catalog} />,
+  );
+  expect(
+    getByRole("columnheader", { name: /Ref\s*Depth/ }),
+  ).toBeInTheDocument();
+  expect(
+    within(getByTestId("feature-row-agentic-chat")).getByTestId("depth-chip"),
+  ).toHaveAttribute("data-depth", "3");
+
+  rerender(
+    <FeatureGrid
+      {...props}
+      catalog={{
+        ...catalog,
+        metadata: { ...catalog.metadata, reference: "agno" },
+      }}
+    />,
+  );
+  expect(
+    within(getByTestId("feature-row-agentic-chat")).getByTestId("depth-chip"),
+  ).toHaveAttribute("data-depth", "0");
+});
 
 describe("FeatureGrid: server-threaded shellUrl builds real-host anchors", () => {
   const REAL_HOST = "https://showcase.staging.copilotkit.ai";
@@ -388,9 +451,7 @@ describe("computeColumnTally", () => {
 });
 
 /* ------------------------------------------------------------------ */
-/*  Starter row-group (spec §d) — must render in the LIVE FeatureGrid   */
-/*  (it was ported here from the dead CellMatrix, where it could never   */
-/*   reach the served dashboard).                                        */
+/*  Starter row-group in FeatureGrid.                                  */
 /* ------------------------------------------------------------------ */
 
 describe("FeatureGrid — Starter row-group", () => {

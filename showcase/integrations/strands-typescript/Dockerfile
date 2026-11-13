@@ -1,13 +1,14 @@
 # Stage 1: Build Next.js frontend
-FROM node:22-slim AS frontend
+FROM node:22.23.4-bookworm-slim@sha256:de170b39439eb0e5a3444ad7d60b015614a381e10fecae2e30ec9e735122f38d AS frontend
 WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci --legacy-peer-deps
 COPY . .
 RUN npx next build
+RUN npm run typecheck:json-render
 
 # Stage 2: Install agent (Strands TS) dependencies
-FROM node:22-slim AS agent-deps
+FROM node:22.23.4-bookworm-slim@sha256:de170b39439eb0e5a3444ad7d60b015614a381e10fecae2e30ec9e735122f38d AS agent-deps
 WORKDIR /agent
 COPY src/agent/package.json src/agent/package-lock.json ./
 # `npm ci` without --omit=dev because the agent uses `tsx` as an ESM loader
@@ -17,7 +18,7 @@ COPY src/agent/package.json src/agent/package-lock.json ./
 RUN npm ci --legacy-peer-deps
 
 # Stage 3: Production image — runtime only (no build tools)
-FROM node:22-slim AS runner
+FROM node:22.23.4-bookworm-slim@sha256:de170b39439eb0e5a3444ad7d60b015614a381e10fecae2e30ec9e735122f38d AS runner
 WORKDIR /app
 
 # curl — entrypoint.sh watchdog probes the agent's /health endpoint with it.
@@ -40,6 +41,7 @@ COPY --chown=app:app --from=frontend /app/public ./public
 # Agent code + prod-only deps (installed in agent-deps stage, not at runtime)
 COPY --chown=app:app --from=agent-deps /agent/node_modules ./src/agent/node_modules
 COPY --chown=app:app src/agent ./src/agent
+COPY --chown=app:app shared-tools/ ./shared-tools/
 COPY --chown=app:app src/cvdiag ./src/cvdiag
 
 # Entrypoint
@@ -61,3 +63,6 @@ EXPOSE 10000
 ENV PORT=10000
 ENV HOSTNAME=0.0.0.0
 CMD ["./entrypoint.sh"]
+
+# Fail the build if any base or install path regresses the accepted Node runtime.
+RUN test "$(node --version)" = "v22.23.4"

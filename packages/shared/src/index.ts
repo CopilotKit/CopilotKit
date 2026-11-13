@@ -40,6 +40,7 @@ export {
   type FinalizeRunOptions,
   type RunEventFinalizer,
 } from "./finalize-events";
+export { stripIntelligenceRoutingFields } from "./intelligence-routing-fields";
 
 export {
   TranscriptionErrorCode,
@@ -173,6 +174,41 @@ export function createLicenseContextValue(
 export {
   A2UI_DEFAULT_GENERATION_GUIDELINES,
   A2UI_DEFAULT_DESIGN_GUIDELINES,
+  ALL_GENERATIVE_UI_GUIDE_FEATURES,
+  buildGenerativeUIMarkdownGuidelines,
+  generativeUIGuideFeatures,
+  GENERATIVE_UI_MARKDOWN_GUIDELINES,
+  GENERATIVE_UI_MARKDOWN_GUIDELINES_DESCRIPTION,
+  GENERATIVE_UI_MARKDOWN_SCHEMA_CONTEXT_DESCRIPTION,
 } from "./a2ui-prompts";
+export type { GenerativeUIGuideFeatures } from "./a2ui-prompts";
+export {
+  A2UI_BASIC_CATALOG_ID,
+  A2UI_SCHEMA_CONTEXT_DESCRIPTION,
+  buildA2UICatalogContextValue,
+  extractA2UICatalogSchemas,
+  serializeA2UISchema,
+} from "./a2ui-catalog-schema";
+export type {
+  A2UICatalogSchemaSource,
+  A2UICommonTypes,
+  A2UIFunctionSchema,
+  A2UIInlineCatalogSchema,
+} from "./a2ui-catalog-schema";
+export {
+  COPILOTKIT_FORWARDED_PROPS_KEY,
+  COPILOTKIT_UI_ENVELOPE_FORMAT,
+  envelopeToManifest,
+  readCopilotKitUIEnvelope,
+} from "./a2ui-envelope";
+export type { CopilotKitUIEnvelope } from "./a2ui-envelope";
 
 export type { DebugEventEnvelope } from "./debug-event-envelope";
+
+export { GENERATE_SANDBOXED_UI_DESCRIPTION } from "./open-generative-ui-prompts";
+export * from "./generative-ui/base";
+// On the root, not only on `@copilotkit/shared/generative-ui`: the core
+// root entry needs it, and importing the generative UI barrel there would
+// load its validators and catalogs in every app (Metro does not
+// tree-shake), and leave the UMD build without a global for the subpath.
+export { cloneValue } from "./generative-ui/clone-value";

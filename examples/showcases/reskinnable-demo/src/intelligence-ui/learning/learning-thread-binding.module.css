@@ -1,0 +1,661 @@
+/*
+ * Import threads dialog. The shared Dialog header carries the step title,
+ * breadcrumb, and close button; this module lays out the steps, the Select
+ * body (search, filters, shared DataTable), and the fixed footer.
+ */
+.stepTitle:focus {
+  outline: none;
+}
+.breadcrumbCurrent {
+  color: var(--foreground);
+  font-weight: 500;
+}
+
+/* Numbered step pills: done and current steps filled, later steps muted. */
+.steps {
+  align-items: center;
+  color: var(--muted-foreground);
+  display: flex;
+  flex-shrink: 0;
+  flex-wrap: wrap;
+  font-size: var(--text-caption);
+  gap: 4px;
+  list-style: none;
+  margin: 0;
+  padding: 4px 28px 0;
+}
+.steps li {
+  align-items: center;
+  display: inline-flex;
+  gap: 7px;
+}
+.steps li[data-state="current"] {
+  color: var(--foreground);
+  font-weight: 600;
+}
+.stepNumber {
+  align-items: center;
+  background: var(--muted);
+  border-radius: 999px;
+  color: var(--muted-foreground);
+  display: inline-flex;
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  height: 20px;
+  justify-content: center;
+  width: 20px;
+}
+.steps li[data-state="current"] .stepNumber {
+  background: var(--primary);
+  color: var(--primary-foreground);
+}
+.steps li[data-state="complete"] .stepNumber {
+  background: var(--learning);
+  color: var(--learning-foreground);
+}
+.stepSeparator {
+  color: var(--muted-foreground);
+  height: 12px;
+  margin: 0 6px;
+  width: 12px;
+}
+
+.footer {
+  align-items: center;
+  border-top: 1px solid var(--border);
+  display: flex;
+  flex-shrink: 0;
+  gap: 16px;
+  justify-content: space-between;
+  padding: 16px 28px 20px;
+}
+.footerSummary {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+.footerSummary strong {
+  color: var(--foreground);
+  font-size: var(--text-body);
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+.footer small {
+  color: var(--muted-foreground);
+  display: block;
+  font-size: var(--text-caption);
+}
+
+.browse {
+  display: flex;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+.body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 14px;
+  min-height: 0;
+  min-width: 0;
+  overflow: auto;
+  padding: 16px 28px 20px;
+}
+.body p {
+  line-height: 1.6;
+  margin: 0;
+}
+.statusText {
+  color: var(--muted-foreground);
+  font-size: var(--text-control);
+}
+
+/* Search (shared collection-toolbar look), then the Filters row. */
+.filters {
+  display: grid;
+  flex-shrink: 0;
+  gap: 10px;
+}
+.filters label {
+  color: var(--muted-foreground);
+  display: grid;
+  font-size: var(--text-caption);
+  gap: 6px;
+}
+.filterBar {
+  align-items: center;
+  display: flex;
+  gap: 8px 12px;
+}
+.filterHint {
+  color: var(--muted-foreground);
+  flex: 1 1 auto;
+  font-size: var(--text-caption);
+  line-height: 1.5;
+  min-width: 0;
+}
+.filterFields {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  padding-top: 4px;
+}
+.filterFields[hidden] {
+  display: none;
+}
+.filterFields input,
+.filterFields select {
+  min-width: 0;
+  width: 100%;
+}
+/* The note explains the date fields, so it reads as a footnote under the whole
+   grid rather than as a fifth field wherever the column count leaves a gap. */
+.filterFields > p,
+.note {
+  color: var(--muted-foreground);
+  font-size: var(--text-caption);
+  line-height: 1.6;
+  margin: 0;
+}
+.filterFields > p {
+  grid-column: 1 / -1;
+}
+
+.selection {
+  align-items: center;
+  color: var(--muted-foreground);
+  display: flex;
+  flex-shrink: 0;
+  flex-wrap: wrap;
+  font-size: var(--text-caption);
+  font-variant-numeric: tabular-nums;
+  gap: 4px 12px;
+  justify-content: space-between;
+  margin-bottom: -6px;
+}
+.selectionActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-right: -8px;
+}
+
+/* The shared table frame scrolls inside the body with its sticky header. */
+.tableRegion {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 132px;
+}
+.tableRegion > [data-slot="table-viewport"] {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+.tableRegion th:first-child,
+.tableRegion td:first-child {
+  padding-right: 0;
+  width: 36px;
+}
+.threadCell {
+  display: grid;
+  gap: 3px;
+  justify-items: start;
+  min-width: 0;
+}
+.threadName {
+  background: none;
+  border: 0;
+  border-radius: 4px;
+  color: var(--foreground);
+  cursor: pointer;
+  font: inherit;
+  font-weight: 500;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+  padding: 0;
+  text-align: left;
+}
+.threadName:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.threadName:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+.threadCell small {
+  color: var(--muted-foreground);
+  font-size: var(--text-caption);
+  overflow-wrap: anywhere;
+}
+.agentCell {
+  overflow-wrap: anywhere;
+}
+.createdCell {
+  color: var(--muted-foreground);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.rowSelected {
+  background: var(--muted);
+}
+.rowIneligible {
+  color: var(--muted-foreground);
+}
+
+.pagination {
+  display: flex;
+  flex-shrink: 0;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.limitNote,
+.inlineError,
+.error {
+  border-radius: var(--radius-control);
+  font-size: var(--text-control);
+  line-height: 1.6;
+}
+.limitNote {
+  background: var(--warning-subtle);
+  border: 1px solid color-mix(in oklch, var(--warning) 24%, var(--border));
+  color: var(--foreground);
+  flex-shrink: 0;
+  padding: 10px 14px;
+}
+.inlineError,
+.error {
+  align-items: center;
+  background: var(--danger-subtle);
+  border: 1px solid color-mix(in oklch, var(--destructive) 24%, var(--border));
+  color: var(--destructive);
+  display: flex;
+  flex-shrink: 0;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  justify-content: space-between;
+  padding: 10px 14px;
+}
+.error {
+  margin: 12px 28px 0;
+}
+
+/* Review and Results steps. */
+.resultTitle {
+  color: var(--foreground);
+  font-size: var(--text-section);
+  font-weight: 600;
+}
+.metrics {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+.metric {
+  display: grid;
+  gap: 4px;
+}
+.metric strong {
+  font-size: 20px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  line-height: 1.3;
+}
+.metric span {
+  color: var(--muted-foreground);
+  font-size: var(--text-caption);
+  line-height: 1.5;
+}
+.notice {
+  background: var(--muted);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  font-size: var(--text-control);
+  padding: 12px 14px;
+}
+.notice p {
+  color: var(--muted-foreground);
+  margin: 4px 0 0;
+}
+.details {
+  margin: 0;
+}
+.details > div {
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+  padding: 10px 0;
+}
+.details dt {
+  color: var(--muted-foreground);
+  font-size: var(--text-control);
+}
+.details dd {
+  font-size: var(--text-body);
+  font-variant-numeric: tabular-nums;
+  margin: 0;
+}
+.preview {
+  display: flex;
+  flex-direction: column;
+  width: 340px;
+  flex-shrink: 0;
+  border-left: 1px solid var(--cpki-color-border);
+  background: var(--cpki-color-surface-subtle);
+}
+.preview header {
+  padding: 20px;
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: flex-start;
+}
+.preview header small,
+.previewMeta {
+  color: var(--cpki-color-muted-foreground);
+  font-size: 11px;
+}
+.preview h4 {
+  font-size: 14px;
+  line-height: 1.6;
+  margin: 6px 0 0;
+  font-weight: 600;
+}
+.previewMeta {
+  padding: 0 20px 16px;
+}
+/* The transcript scrolls between meta and footer, with shared edge shadows. */
+.messagesScroll {
+  flex: 1;
+  min-height: 0;
+}
+.messages {
+  padding: 0 20px 20px;
+}
+.message {
+  padding: 16px 0;
+  border-top: 1px solid var(--cpki-color-border);
+  font-size: 12px;
+}
+.message strong {
+  font-size: 10px;
+  text-transform: capitalize;
+  color: var(--cpki-color-muted-foreground);
+}
+.message p {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  line-height: 1.8;
+  margin: 8px 0 0;
+}
+/* Tool results are JSON payloads, the one place this dialog uses mono. */
+.message[data-role="tool"] p {
+  font-family: var(--cpki-font-mono);
+  font-size: var(--text-caption);
+  line-height: 1.7;
+}
+.preview footer {
+  padding: 16px 20px;
+  border-top: 1px solid var(--cpki-color-border);
+}
+.emptyEntry {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 36px 0;
+}
+.emptyEntry h3 {
+  margin: 0 0 10px;
+  font-size: 22px;
+  font-weight: 600;
+  letter-spacing: -0.5px;
+}
+.emptyEntry p {
+  margin: 0 0 22px;
+  font-size: 13px;
+  color: var(--cpki-color-muted-foreground);
+}
+.emptyEntry small {
+  display: block;
+  margin-top: 12px;
+  font-size: 11px;
+  color: var(--cpki-color-muted-foreground);
+}
+.entryActions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.entryArt {
+  width: 112px;
+  height: 112px;
+  color: var(--cpki-color-border-strong);
+  flex-shrink: 0;
+}
+.sdkDetails {
+  padding: 20px 0;
+  border-top: 1px solid var(--cpki-color-border);
+}
+.sdkDetails summary {
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+}
+.sdkDetails[open] summary {
+  margin-bottom: 24px;
+}
+@media (max-width: 1000px) {
+  .browse[data-preview="true"] {
+    flex-direction: column;
+  }
+  .preview {
+    width: auto;
+    border-left: 0;
+    border-top: 1px solid var(--cpki-color-border);
+  }
+  .messages {
+    max-height: 320px;
+  }
+}
+@media (max-width: 600px) {
+  .steps,
+  .body,
+  .footer {
+    padding-left: 20px;
+    padding-right: 20px;
+  }
+  .error {
+    margin-left: 20px;
+    margin-right: 20px;
+  }
+  .filterBar {
+    flex-wrap: wrap;
+  }
+  .filterHint {
+    flex-basis: 100%;
+    order: 3;
+  }
+  .filterFields {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  /* Agent is secondary on a phone; name, ID and date stay. */
+  :global(:root[data-cpki-design]) .tableRegion table {
+    min-inline-size: 0;
+  }
+  .tableRegion :is(th, td):nth-child(3) {
+    display: none;
+  }
+  .metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .emptyEntry {
+    padding: 28px 0;
+  }
+  .entryArt {
+    display: none;
+  }
+}
+.body[hidden] {
+  display: none;
+}
+@media (max-width: 1000px) {
+  .browse[data-preview="true"] .preview {
+    flex: 1;
+    min-height: 0;
+    border-top: 0;
+  }
+  .browse[data-preview="true"] .messages {
+    max-height: none;
+  }
+}
+
+.setupSurface {
+  padding-block: 20px;
+}
+.setupLoading {
+  padding: 56px 0;
+  color: var(--cpki-color-muted-foreground);
+  font-size: 13px;
+}
+.availabilityError {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 16px 0;
+  font-size: 12px;
+  color: var(--cpki-color-muted-foreground);
+}
+.sdkSetup {
+  background: var(--cpki-color-surface);
+  border: 1px solid var(--cpki-color-border);
+  border-radius: var(--radius-surface);
+  box-sizing: border-box;
+  width: 100%;
+  padding: 1.25rem;
+}
+.sdkSetupCopy {
+  display: grid;
+  gap: 0.5rem 0.875rem;
+  grid-template-columns: 2.125rem minmax(0, 1fr);
+  max-width: none;
+}
+.sdkSetup .sdkSetupCopy > :not(.setupIcon) {
+  grid-column: 2;
+}
+.setupIcon {
+  align-items: center;
+  background: var(--cpki-color-lilac-subtle);
+  border-radius: var(--radius-control);
+  display: inline-flex;
+  font-family: var(--cpki-font-sans);
+  font-variant-numeric: tabular-nums;
+  color: var(--cpki-color-foreground);
+  font-size: 0.875rem;
+  grid-column: 1;
+  grid-row: 1 / 5;
+  height: 2.125rem;
+  justify-content: center;
+  width: 2.125rem;
+}
+.sdkSetup h2 {
+  margin: 0;
+  font-size: 0.9375rem;
+  letter-spacing: 0;
+  font-weight: 600;
+}
+.sdkSetupCopy > p {
+  margin: 0;
+  color: var(--cpki-color-muted-foreground);
+  line-height: 1.5;
+  font-size: 13px;
+}
+.sdkSetupCopy > button {
+  justify-self: start;
+  margin-top: 0.25rem;
+}
+.sdkSetupCopy > small {
+  display: block;
+  font-size: 11px;
+  margin-top: 0;
+  color: var(--cpki-color-muted-foreground);
+}
+.sdkSetupCopy > .copyStatus {
+  font-size: 12px;
+  margin: 12px 0 0;
+  color: var(--cpki-color-foreground);
+}
+.sdkSetup .integrationDetails {
+  margin: 1rem 0 0 3rem;
+  font-size: 12px;
+}
+.integrationDetails summary {
+  cursor: pointer;
+  color: var(--cpki-color-muted-foreground);
+}
+.integrationDetails pre {
+  margin: 16px 0 0;
+  padding: 20px;
+  font-family: var(--cpki-font-mono);
+  font-size: 11px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  line-height: 1.8;
+  border-left: 2px solid var(--cpki-color-border-strong);
+  background: var(--cpki-color-surface-subtle);
+}
+.sdkDetails .sdkSetup {
+  padding: 24px 0 8px;
+}
+@media (max-width: 600px) {
+  .sdkSetup {
+    padding: 1rem;
+  }
+  .sdkSetup h2 {
+    font-size: 0.875rem;
+  }
+  .sdkSetupCopy > button {
+    min-height: 44px;
+  }
+  .sdkSetup .integrationDetails {
+    margin-left: 0;
+  }
+}
+
+/* Keep agent setup visible after importing history without crowding the
+ * workspace: a Learning notice, with the prompt disclosure under it. */
+.sdkReminder {
+  display: grid;
+  gap: 8px;
+}
+.sdkReminder .integrationDetails {
+  padding: 0 20px;
+  font-size: var(--text-caption);
+}
+
+.importDialog[data-size="lg"] {
+  width: min(1120px, 100%);
+}
+.compactDialog[data-size="lg"] {
+  width: min(600px, 100%);
+}
+/* The shared header stays; the body is a flex column so only the Select body
+   and its table scroll while the steps and footer stay fixed. The sections pad
+   themselves, so the body drops the shared workspace padding. */
+:global(:root[data-cpki-design])
+  .importDialog
+  :global([data-cpki-dialog-body]) {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 0;
+}
+.importPanel {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+}

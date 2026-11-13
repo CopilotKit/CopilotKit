@@ -72,6 +72,9 @@ on:
         options:
           - crewai-crews
           - langgraph-python
+          - google-antigravity
+          - ag2
+          - openai-agents-python
 
 # Default to read-only at the job level. The only step that needs write access
 # is "Post result to PR" at the end — we grant it write perms inline there.
@@ -159,13 +162,13 @@ jobs:
           # depth cheap — disable credential persistence.
           persist-credentials: false
 
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 22.x
 
       # Omit `version:` so pnpm/action-setup inherits from the repo's
       # `packageManager` field in package.json (via corepack).
-      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
 
       - name: Determine slug
         id: slug
@@ -309,7 +312,11 @@ jobs:
           # Fixture layout matches docker-compose.local.yml: feature-parity.json
           # was split into per-framework shared/d4/d5-recorded/d6 directories
           # (directory-based loading, one --fixtures per directory).
-          "$AIMOCK_BIN" --port 4010 --host 127.0.0.1 \
+          # AIMOCK_STRICT_TURN_INDEX=1: without it aimock "relaxes" turnIndex and
+          # re-serves a turnIndex:0 tool-call fixture on the follow-up turn,
+          # so agents whose follow-up is keyed on toolCallId loop forever.
+          # Mirrors the env set on the aimock service in docker-compose.local.yml.
+          AIMOCK_STRICT_TURN_INDEX=1 "$AIMOCK_BIN" --port 4010 --host 127.0.0.1 \
             --fixtures showcase/aimock/shared \
             --fixtures showcase/aimock/d4 \
             --fixtures showcase/aimock/d5-recorded \
@@ -341,7 +348,7 @@ jobs:
 
       - name: Setup Python agent
         if: steps.pkg-type.outputs.has_python == 'true'
-        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: "3.12"
           # Cache pip to avoid reinstalling CrewAI's heavy transitive dep
@@ -401,6 +408,30 @@ jobs:
               exit 1
             fi
             export PYTHONPATH="$PWD/src:${PYTHONPATH:-}"
+            if [ "$SLUG" = "google-antigravity" ]; then
+              # Antigravity talks the native Gemini API, not OpenAI, so point it
+              # at aimock with GOOGLE_GEMINI_BASE_URL. Its Go harness refuses
+              # to start a conversation without a key, even against aimock.
+              # The workspace and save_dir default to /data, which exists only
+              # in the Docker image.
+              export GOOGLE_GEMINI_BASE_URL=http://localhost:4010
+              export GEMINI_API_KEY=fake-gemini-key
+              export ANTIGRAVITY_WORKSPACE="$RUNNER_TEMP/ag-ws"
+              export ANTIGRAVITY_SAVE_DIR="$RUNNER_TEMP/ag-sessions"
+            fi
+            if [ "$SLUG" = "ag2" ]; then
+              # ag2 does not ship aimock_toggle.py; its OpenAI client reads
+              # OPENAI_BASE_URL straight from the environment.
+              export OPENAI_BASE_URL=http://localhost:4010/v1
+              export OPENAI_API_KEY=sk-aimock-dev-ci-only
+            fi
+            if [ "$SLUG" = "openai-agents-python" ]; then
+              # The Agents SDK's OpenAI client reads OPENAI_BASE_URL itself;
+              # there is no aimock_toggle.py in this package.
+              export OPENAI_BASE_URL=http://localhost:4010/v1
+              export OPENAI_API_KEY=sk-aimock-dev-ci-only
+              export OPENAI_AGENTS_DISABLE_TRACING=1
+            fi
             AIMOCK_URL=http://localhost:4010/v1 \
             python -m uvicorn "agent_server:app" --host 127.0.0.1 --port "$AGENT_PORT" &
           fi
@@ -522,7 +553,7 @@ jobs:
 
       - name: Upload test artifacts
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: playwright-report-${{ steps.slug.outputs.slug }}
           path: showcase/integrations/${{ steps.slug.outputs.slug }}/playwright-report/

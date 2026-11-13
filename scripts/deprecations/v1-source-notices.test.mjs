@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { test } from "node:test";
 import path from "node:path";
 import {
@@ -9,6 +9,7 @@ import {
   repoRoot,
   V2_DOCS,
   V2_REFERENCE,
+  supportedEntrypoints,
   v1Entrypoints,
 } from "./v1-public-api.mjs";
 
@@ -20,7 +21,6 @@ const expectedCounts = new Map([
   ["runtime-langgraph", 6],
   ["sdk-js", 2],
   ["sdk-js-langchain", 15],
-  ["sdk-js-langgraph", 23],
   ["sdk-js-langgraph-middlewares", 3],
 ]);
 
@@ -144,7 +144,33 @@ test("inventory covers every public v1 package entrypoint", () => {
     }
   }
 
+  for (const { importPath } of supportedEntrypoints) {
+    discovered.delete(importPath);
+  }
+
   assert.deepEqual([...configured].sort(), [...discovered].sort());
+});
+
+test("supported entrypoints carry no v1 deprecation", () => {
+  for (const { importPath, sourceRoot } of supportedEntrypoints) {
+    assert.ok(
+      !v1Entrypoints.some((entrypoint) => entrypoint.importPath === importPath),
+      `${importPath} is in the v1 inventory`,
+    );
+    const stamped = inventory.inventories.flatMap(({ exports }) =>
+      exports
+        .filter((item) => item.declarationFile?.startsWith(sourceRoot))
+        .map((item) => `${item.declarationFile}:${item.name}`),
+    );
+    assert.deepEqual(stamped, [], `${sourceRoot} gets a v1 file notice`);
+
+    const directory = path.join(repoRoot, sourceRoot);
+    for (const file of readdirSync(directory)) {
+      if (!file.endsWith(".ts")) continue;
+      const source = readFileSync(path.join(directory, file), "utf8");
+      assert.doesNotMatch(source, /V1 SDK DEPRECATED|@deprecated Since/, file);
+    }
+  }
 });
 
 test("inventory covers every configured v1 importable export", () => {
@@ -161,7 +187,7 @@ test("inventory covers every configured v1 importable export", () => {
     );
     total += exports.length;
   }
-  assert.equal(total, 249);
+  assert.equal(total, 226);
 });
 
 test("every v1 importable export has an IDE-visible use-v2 deprecation", () => {
@@ -534,7 +560,7 @@ test("related v2 concepts cover other clear migration families", () => {
       },
     ],
     [
-      "sdk-js-langgraph:copilotkitMiddleware",
+      "sdk-js-langchain:CopilotKitStateAnnotation",
       {
         label: "LangGraph agents",
         url: "https://docs.copilotkit.ai/agent-spec/langgraph",
@@ -582,7 +608,7 @@ test("the generic v2 reference is never mislabeled as the v2 docs homepage", () 
   }
 });
 
-test("the agent-readable docs map contains all 249 v1 exports", () => {
+test("the agent-readable docs map contains all 226 v1 exports", () => {
   const source = readFileSync(
     path.join(
       repoRoot,
@@ -608,7 +634,7 @@ test("the agent-readable docs map contains all 249 v1 exports", () => {
       rows += 1;
     }
   }
-  assert.equal(rows, 249);
+  assert.equal(rows, 226);
 });
 
 // PE-123. The replacement lookup used to consult a single `v2File`, and five of

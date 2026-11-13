@@ -229,8 +229,9 @@ export function validateAngularPackageManifest(manifest: unknown): string[] {
 
 /**
  * Creates a consumer that installs the packed library against one exact
- * framework toolchain. Overrides are restricted to local CopilotKit siblings;
- * Angular itself always resolves normally so peer incompatibilities fail CI.
+ * framework toolchain. Local tarball overrides cover CopilotKit siblings and
+ * verified AG-UI previews. Angular itself resolves normally so incompatible
+ * framework peers fail CI.
  */
 export function createAngularConsumerManifest({
   agUiClient,
@@ -423,6 +424,7 @@ import { provideRouter } from "@angular/router";
 import { AbstractAgent, type BaseEvent, type RunAgentInput } from "@ag-ui/client";
 import { provideCopilotKit } from "@copilotkit/angular";
 import { provideMCPApps } from "@copilotkit/angular/mcp-apps";
+import { provideGenerativeUI, standardUI } from "@copilotkit/angular/generative-ui";
 import { EMPTY, type Observable } from "rxjs";
 import { z } from "zod";
 import { SmokeToolRenderer } from "./app";
@@ -444,6 +446,7 @@ export const appConfig: ApplicationConfig = {
     provideClientHydration(withEventReplay()),
     provideRouter([]),
     provideMCPApps(),
+    provideGenerativeUI({ ui: standardUI }),
     provideCopilotKit({
       licenseKey: "ck_pub_00000000000000000000000000000000",
       agents: { default: new SmokeAgent() },
@@ -545,6 +548,7 @@ import {
   type ToolRenderer,
   registerFrontendTool,
 } from "@copilotkit/angular";
+import { CopilotGenerativeUISurface } from "@copilotkit/angular/generative-ui";
 import { z } from "zod";
 
 interface SmokeToolArgs extends Record<string, unknown> {
@@ -582,11 +586,14 @@ class LifecycleProbe {
 
 @Component({
   selector: "copilot-smoke",
-  imports: [CopilotPopup, LifecycleProbe, RenderToolCalls],
+  imports: [CopilotGenerativeUISurface, CopilotPopup, LifecycleProbe, RenderToolCalls],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: \`
     <main data-testid="ssr-smoke">
       <h1>CopilotKit Angular packed consumer</h1>
+      <copilot-generative-ui-surface id="smoke" description="Packed smoke target">
+        <span data-testid="generative-ui-surface">empty</span>
+      </copilot-generative-ui-surface>
       <p data-testid="lifecycle-count">
         {{ copilotKit.clientToolCallRenderConfigs().length }}
       </p>
@@ -662,6 +669,11 @@ export function validateAngularSsrHtml(html: string): string[] {
   }
   if (!html.includes("packed:complete")) {
     problems.push("SSR response is missing the completed packed tool result");
+  }
+  if (!html.includes('data-testid="generative-ui-surface"')) {
+    problems.push(
+      'SSR response is missing data-testid="generative-ui-surface"',
+    );
   }
   return problems;
 }

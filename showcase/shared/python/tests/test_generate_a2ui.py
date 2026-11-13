@@ -44,7 +44,7 @@ def test_build_operations_empty_components_warns(caplog):
         build_a2ui_operations_from_tool_call(
             {"surfaceId": "s1", "catalogId": "cat1", "components": []}
         )
-    assert "empty components" in caplog.text.lower()
+    assert "all components were dropped" in caplog.text.lower()
 
 
 def test_context_entries_with_values_appear_in_system_prompt():

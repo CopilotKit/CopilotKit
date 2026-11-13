@@ -5,6 +5,10 @@ import { twMerge } from "tailwind-merge";
 import { Streamdown } from "streamdown";
 import type { WithSlots } from "../../lib/slots";
 import { renderSlot } from "../../lib/slots";
+import {
+  useCopilotChatConfiguration,
+  CopilotChatDefaultLabels,
+} from "../../providers/CopilotChatConfigurationProvider";
 
 export type CopilotChatReasoningMessageProps = WithSlots<
   {
@@ -16,6 +20,13 @@ export type CopilotChatReasoningMessageProps = WithSlots<
     message: ReasoningMessage;
     messages?: Message[];
     isRunning?: boolean;
+    /**
+     * Whether this is the last message the chat renders. The message view
+     * passes it, because the rendered list can differ from `messages` when
+     * `transformMessages` drops, replaces or reorders messages. Defaults to
+     * comparing against the last entry of `messages`.
+     */
+    isLatest?: boolean;
   } & React.HTMLAttributes<HTMLDivElement>
 >;
 
@@ -31,10 +42,17 @@ function formatDuration(seconds: number): string {
   return `${mins}m ${secs}s`;
 }
 
+/**
+ * A reasoning message as a collapsible block. While the model reasons it is
+ * open and the header shows `labels.reasoningMessageThinkingLabel`; when
+ * streaming ends it collapses and the header reads "Thought for …". The
+ * `header` slot also receives `elapsedSeconds`.
+ */
 export function CopilotChatReasoningMessage({
   message,
   messages,
   isRunning,
+  isLatest: isLatestProp,
   header,
   contentView,
   toggle,
@@ -42,7 +60,10 @@ export function CopilotChatReasoningMessage({
   className,
   ...props
 }: CopilotChatReasoningMessageProps) {
-  const isLatest = messages?.[messages.length - 1]?.id === message.id;
+  const config = useCopilotChatConfiguration();
+  const labels = config?.labels ?? CopilotChatDefaultLabels;
+  const isLatest =
+    isLatestProp ?? messages?.[messages.length - 1]?.id === message.id;
   const isStreaming = !!(isRunning && isLatest);
   const hasContent = !!(message.content && message.content.length > 0);
 
@@ -98,7 +119,7 @@ export function CopilotChatReasoningMessage({
     : undefined;
 
   const label = isStreaming
-    ? "Thinking…"
+    ? labels.reasoningMessageThinkingLabel
     : `Thought for ${formatDuration(elapsed)}`;
 
   const boundHeader = renderSlot(header, CopilotChatReasoningMessage.Header, {
@@ -106,6 +127,7 @@ export function CopilotChatReasoningMessage({
     label,
     hasContent,
     isStreaming,
+    elapsedSeconds: elapsed,
     onClick: handleToggle,
   });
 
@@ -158,12 +180,19 @@ export namespace CopilotChatReasoningMessage {
       label?: string;
       hasContent?: boolean;
       isStreaming?: boolean;
+      /**
+       * Seconds spent reasoning so far, updated every second while streaming.
+       * The default label formats it in English ("Thought for 12 seconds");
+       * a custom header can use it to build a localized label.
+       */
+      elapsedSeconds?: number;
     }
   > = ({
     isOpen,
     label = "Thoughts",
     hasContent,
     isStreaming,
+    elapsedSeconds: _elapsedSeconds,
     className,
     children: headerChildren,
     ...headerProps
@@ -183,7 +212,11 @@ export namespace CopilotChatReasoningMessage {
         aria-expanded={isExpandable ? isOpen : undefined}
         {...headerProps}
       >
-        <span className="cpk:font-medium">{label}</span>
+        <span
+          className={twMerge("cpk:font-medium", isStreaming && "cpk-shimmer")}
+        >
+          {label}
+        </span>
         {isStreaming && !hasContent && (
           <span className="cpk:inline-flex cpk:items-center cpk:ml-1">
             <span className="cpk:w-1.5 cpk:h-1.5 cpk:rounded-full cpk:bg-muted-foreground cpk:animate-pulse" />

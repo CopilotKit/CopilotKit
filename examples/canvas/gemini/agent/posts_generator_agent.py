@@ -39,7 +39,7 @@ async def chat_node(state: AgentState, config: RunnableConfig):
     # 2. Defining a condition to check if the last message is a tool so as to handle the FE tool responses
     if state["messages"][-1].type == "tool":
         client = ChatGoogleGenerativeAI(
-            model="gemini-2.5-pro",
+            model="gemini-3.8-flash",
             temperature=1.0,
             max_retries=2,
             google_api_key=os.getenv("GOOGLE_API_KEY"),
@@ -69,7 +69,7 @@ async def chat_node(state: AgentState, config: RunnableConfig):
         )
     # 4. Generating the response using the model. This returns the response along with the web search queries.
     response = await model.aio.models.generate_content(
-        model="gemini-2.5-pro",
+        model="gemini-3.8-flash",
         contents=[
             types.Content(role="user", parts=[types.Part(text=system_prompt)]),
             types.Content(
@@ -125,7 +125,7 @@ async def fe_actions_node(state: AgentState, config: RunnableConfig):
     await copilotkit_emit_state(config, state)
     # 6. Initializing the model to generate the post along with the content that was scraped from the google search previously.
     model = ChatGoogleGenerativeAI(
-        model="gemini-2.5-pro",
+        model="gemini-3.8-flash",
         temperature=1.0,
         max_retries=2,
         google_api_key=os.getenv("GOOGLE_API_KEY"),

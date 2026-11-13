@@ -30,7 +30,7 @@
 import { useCallback, useState } from "react";
 import { useAgent, useCopilotKit } from "@copilotkit/react-core/v2";
 
-interface SampleSpec {
+export interface SampleSpec {
   readonly buttonLabel: string;
   readonly filename: string;
   readonly mimeType: string;
@@ -47,7 +47,7 @@ interface SampleSpec {
   readonly autoPrompt: string;
 }
 
-const SAMPLES: readonly SampleSpec[] = [
+export const SAMPLES: readonly SampleSpec[] = [
   {
     buttonLabel: "Try with sample image",
     filename: "sample.png",
@@ -99,7 +99,7 @@ function bytesStartWith(bytes: Uint8Array, prefix: number[]): boolean {
   return true;
 }
 
-interface FetchedSample {
+export interface FetchedSample {
   bytes: Uint8Array;
   base64: string;
   size: number;
@@ -184,52 +184,78 @@ function generateMessageId(): string {
   });
 }
 
+/** The slice of the CopilotKit core that `submitSample` needs. */
+type SampleSender = Pick<
+  ReturnType<typeof useCopilotKit>["copilotkit"],
+  "getAgent" | "runAgent"
+>;
+
+/**
+ * Fetches the sample and sends it, with its prompt, to the agent the chat
+ * observes once the file has loaded. The agent is looked up by id AFTER
+ * the fetch, never captured at click time: a click that raced runtime
+ * discovery could otherwise hold a provisional stand-in the chat has
+ * since dropped, and the reply would land where nothing renders it
+ * (PNI-575).
+ */
+export async function submitSample(
+  copilotkit: SampleSender,
+  agentId: string,
+  spec: SampleSpec,
+  load: (spec: SampleSpec) => Promise<FetchedSample> = fetchSample,
+): Promise<void> {
+  const sample = await load(spec);
+  const target = copilotkit.getAgent(agentId);
+  if (!target) {
+    throw new Error(
+      `Agent "${agentId}" is not available. Try again in a moment.`,
+    );
+  }
+  const partType = spec.mimeType === "application/pdf" ? "document" : "image";
+
+  // Build a multimodal user message as content parts: prompt text +
+  // the attachment. The CrewAI bridge consumes this modern
+  // shape without a LangGraph compatibility mirror.
+  target.addMessage({
+    id: generateMessageId(),
+    role: "user",
+    content: [
+      { type: "text", text: spec.autoPrompt },
+      {
+        type: partType,
+        source: {
+          type: "data",
+          value: sample.base64,
+          mimeType: spec.mimeType,
+        },
+        metadata: {
+          filename: spec.filename,
+          size: sample.size,
+        },
+      },
+    ],
+  } as Parameters<typeof target.addMessage>[0]);
+
+  await copilotkit.runAgent({ agent: target });
+}
+
 export function SampleAttachmentButtons({
   agentId,
 }: SampleAttachmentButtonsProps) {
-  const { agent } = useAgent({ agentId });
+  const { isReady } = useAgent({ agentId });
   const { copilotkit } = useCopilotKit();
   const [loading, setLoading] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const sendSample = useCallback(
     async (spec: SampleSpec): Promise<void> => {
+      // Until runtime discovery finishes, useAgent hands out a provisional
+      // agent the chat will not keep (PNI-575). Nothing to send to yet.
+      if (!isReady) return;
       setError(null);
       setLoading(spec.testId);
       try {
-        if (!agent) {
-          throw new Error(
-            `Agent "${agentId}" is not yet available. Try again in a moment.`,
-          );
-        }
-        const sample = await fetchSample(spec);
-        const partType =
-          spec.mimeType === "application/pdf" ? "document" : "image";
-
-        // Build a multimodal user message as content parts: prompt text +
-        // the attachment. The CrewAI bridge consumes this modern
-        // shape without a LangGraph compatibility mirror.
-        agent.addMessage({
-          id: generateMessageId(),
-          role: "user",
-          content: [
-            { type: "text", text: spec.autoPrompt },
-            {
-              type: partType,
-              source: {
-                type: "data",
-                value: sample.base64,
-                mimeType: spec.mimeType,
-              },
-              metadata: {
-                filename: spec.filename,
-                size: sample.size,
-              },
-            },
-          ],
-        } as Parameters<typeof agent.addMessage>[0]);
-
-        await copilotkit.runAgent({ agent });
+        await submitSample(copilotkit, agentId, spec);
       } catch (err) {
         console.error("[multimodal-demo] sample-attachment send failed", err);
         setError(err instanceof Error ? err.message : "Sample send failed.");
@@ -237,7 +263,7 @@ export function SampleAttachmentButtons({
         setLoading(null);
       }
     },
-    [agent, agentId, copilotkit],
+    [agentId, copilotkit, isReady],
   );
 
   return (
@@ -255,7 +281,7 @@ export function SampleAttachmentButtons({
             key={spec.testId}
             type="button"
             data-testid={spec.testId}
-            disabled={loading !== null}
+            disabled={!isReady || loading !== null}
             onClick={() => void sendSample(spec)}
             className="rounded border border-black/15 bg-white px-3 py-1 text-xs font-medium text-black transition hover:bg-black/5 disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/15 dark:bg-neutral-900 dark:text-white dark:hover:bg-white/5"
           >

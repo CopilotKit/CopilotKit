@@ -16,7 +16,7 @@ import type {
   ReasoningMessageEndEvent,
   ReasoningEndEvent,
 } from "@ag-ui/client";
-import { EventType } from "@ag-ui/client";
+import { contentToText, EventType } from "@ag-ui/client";
 import { randomUUID } from "@copilotkit/shared";
 import { createStateEventNormalizer } from "../state-delta";
 import {
@@ -144,6 +144,11 @@ function convertUserContent(
               mimeType: source.mimeType,
             },
           });
+        } else if (source.type === "file") {
+          // AG-UI 1.0 provider file handle: not a URL or inline data.
+          console.warn(
+            `[CopilotKit] Dropping a ${partType} part that references a provider file handle: it is not a URL or inline data, so it cannot be sent to the model here.`,
+          );
         } else if (source.type === "url") {
           parts.push({
             type: partType,
@@ -267,9 +272,13 @@ export function convertInputToTanStackAI(
         content:
           m.role === "user"
             ? convertUserContent(m.content)
-            : typeof m.content === "string"
-              ? m.content
-              : null,
+            : m.role === "tool"
+              ? // A tool result is a string or a list of parts; TanStack takes
+                // text here, so the text parts are concatenated.
+                contentToText(m.content)
+              : typeof m.content === "string"
+                ? m.content
+                : null,
       };
       if (m.role === "assistant" && "toolCalls" in m && m.toolCalls) {
         msg.toolCalls = m.toolCalls.map((tc) => ({
@@ -610,18 +619,23 @@ function collectTanStackRunFinishedDetails(
 ): void {
   if (!details) return;
 
-  if (typeof event.finishReason === "string") {
-    details.finishReason = event.finishReason;
-  }
-
   const fallbackIdentity = {
     provider: getNonEmptyString(event.provider),
     model: getNonEmptyString(event.model),
   };
+  collectStandardRunFinishedDetails(event, details, fallbackIdentity);
+
+  // TanStack's native finish reason becomes AG-UI terminal metadata.
+  if (typeof event.finishReason === "string") {
+    details.metadata = {
+      ...details.metadata,
+      finishReason: event.finishReason,
+    };
+  }
+
   const usage = event.usage;
 
   if (Array.isArray(usage)) {
-    collectStandardRunFinishedDetails(event, details, fallbackIdentity);
     return;
   }
 

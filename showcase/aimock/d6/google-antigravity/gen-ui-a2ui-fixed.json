@@ -1,0 +1,38 @@
+{
+  "_meta": {
+    "description": "D6 fixtures for google-antigravity / gen-ui-a2ui-fixed (a2ui-fixed-schema flight card pill)",
+    "created": "2026-09-28",
+    "copiedFrom": "langgraph-python",
+    "googleAntigravityStaging": "Staged on turnIndex, not hasToolResult: the Antigravity Go harness never sends role:\"tool\" messages (see PARITY_NOTES.md, 'Why every reachable tool leg is staged on turnIndex'). turnIndex 0 = fresh thread, 2 = after the display_flight round-trip."
+  },
+  "fixtures": [
+    {
+      "_comment": "a2ui-fixed-schema pill — the backend's display_flight server tool returns an a2ui_operations container (v0.9 shape); the adapter streams it as TOOL_CALL_RESULT and the runtime A2UI middleware forwards the surface to the page's catalog.",
+      "match": {
+        "userMessage": "Find me a flight from SFO to JFK on United for $289",
+        "turnIndex": 0,
+        "context": "google-antigravity"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_a2ui_fixed_google_antigravity_sfo_jfk_001",
+            "name": "display_flight",
+            "arguments": "{\"origin\":\"SFO\",\"destination\":\"JFK\",\"airline\":\"United\",\"price\":\"$289\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "a2ui-fixed-schema pill — narration after the display_flight round-trip. Without this leg the tool-call fixture keeps matching and the run re-issues display_flight.",
+      "match": {
+        "userMessage": "Find me a flight from SFO to JFK on United for $289",
+        "turnIndex": 2,
+        "context": "google-antigravity"
+      },
+      "response": {
+        "content": "Here's your flight: United Airlines, SFO → JFK, $289 — rendered in the card above. Tap \"Book flight\" to confirm."
+      }
+    }
+  ]
+}

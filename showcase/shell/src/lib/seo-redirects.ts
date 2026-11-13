@@ -132,11 +132,6 @@ const SUBPATH_RENAMES: { specId: string; from: string; to: string }[] = [
     to: "generative-ui/your-components/display-only",
   },
   {
-    specId: "S9",
-    from: "generative-ui/tool-based",
-    to: "generative-ui/tool-rendering",
-  },
-  {
     specId: "S10",
     from: "custom-look-and-feel/bring-your-own-components",
     to: "custom-look-and-feel/slots",
@@ -720,7 +715,7 @@ const MIGRATION_GUIDES: RedirectEntry[] = [
 
 // ---------------------------------------------------------------------------
 // Retired Intelligence pages. Mirrors INTEL-observability-root in
-// showcase/shell-docs/src/lib/seo-redirects.ts (same id, so the
+// showcase/shell-docs/src/lib/redirects/seo-redirects.ts (same id, so the
 // decommission report cross-references one entry across both hosts).
 //
 // It MUST live on this host too: P7 below now renames the folder
@@ -765,7 +760,7 @@ const FOLDER_INDEX: RedirectEntry[] = [
   {
     id: "FI-migrate",
     // Mirrors the existing /migrate → /migrate/v2 entry in
-    // showcase/shell-docs/next.config.ts, kept here so the SHELL host's
+    // showcase/shell-docs/src/lib/redirects/seo-redirects.ts, kept here so the SHELL host's
     // middleware also covers it during the cutover.
     source: "/migrate",
     destination: "/migrate/v2",

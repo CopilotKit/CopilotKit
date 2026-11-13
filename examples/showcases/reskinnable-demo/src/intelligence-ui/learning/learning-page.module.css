@@ -1,0 +1,651 @@
+/*
+ * Learning runs edge to edge inside the shell content surface, which gives up
+ * its padding through the `.learning-surface` rule in `styles.css`. The surface
+ * keeps its own scrollbar: the page scrolls as one, so a long evidence list
+ * gets the whole viewport instead of a band beneath a pinned header.
+ */
+.page {
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+  min-width: 0;
+}
+
+.usageSlot {
+  flex: 0 0 auto;
+  padding: var(--cpki-space-5) var(--cpki-space-6) 0;
+}
+
+.usageSlot:empty {
+  display: none;
+}
+
+/* First-use Learning keeps the same inset and neutral canvas as its directory. */
+.onboardingSlot {
+  background: transparent;
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+  padding: 24px 28px 30px;
+}
+.onboardingSlot > :global(.shell-page__header) {
+  margin-bottom: 24px;
+}
+
+/*
+ * One content column for the space: header, tabs, and every tab body share the
+ * same inset, so the tab strip's baseline spans the content width only.
+ */
+.workspace {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+  padding: 24px 28px 32px;
+}
+
+/* Page header, 20px, then the tab strip (visuals from the shared tab slots). */
+.containerHeader {
+  display: grid;
+  flex: 0 0 auto;
+  gap: 20px;
+}
+
+.tabs {
+  min-width: 0;
+}
+
+/* Tab bodies start 24px under the tabs; sections sit 28px apart. */
+.tabPanel {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 28px;
+  min-width: 0;
+  padding-top: 24px;
+}
+
+@media (max-width: 767px) {
+  .onboardingSlot,
+  .workspace {
+    padding: 22px 18px 28px;
+  }
+  .tabPanel {
+    gap: 24px;
+    padding-top: 20px;
+  }
+}
+
+/* Unwired space: the setup surface and its schedule disclosure. The tab panel
+ * owns the spacing, so neither adds its own block padding. */
+.tabPanel > .setupPanel {
+  min-width: 0;
+  padding-block: 0;
+}
+.tabPanel > .scheduleDisclosure {
+  min-width: 0;
+  padding-bottom: 0;
+}
+.embeddedSchedule > section {
+  margin: 0;
+  padding: 0 0 var(--cpki-space-5);
+  border: 0;
+  background: transparent;
+}
+
+/* Readiness notice (shared Learning notice layout; see learning-notice.module.css). */
+.runReadiness {
+  min-width: 0;
+}
+.activeRun {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+}
+.activeRun strong {
+  color: var(--foreground);
+  font-weight: 500;
+}
+.readinessMeter {
+  display: grid;
+  gap: 6px;
+  justify-items: end;
+  min-width: 168px;
+}
+.readinessCount {
+  color: var(--foreground);
+  font-size: var(--text-control);
+  font-variant-numeric: tabular-nums;
+  font-weight: 500;
+  margin: 0;
+}
+.evidenceTrack {
+  background: var(--secondary);
+  border-radius: 999px;
+  height: 4px;
+  overflow: hidden;
+  width: 168px;
+}
+.evidenceFill {
+  background: var(--primary);
+  border-radius: inherit;
+  display: block;
+  height: 100%;
+  transition: width var(--cpki-duration-normal) var(--cpki-ease-standard);
+}
+/* An analysis in flight is not measuring progress toward the next one, so the
+ * bar sweeps instead of reporting a fraction that cannot move. */
+.evidenceTrack[data-analyzing="true"] .evidenceFill {
+  animation: evidence-scan 1.6s var(--cpki-ease-standard) infinite;
+  width: 34% !important;
+}
+@keyframes evidence-scan {
+  0% {
+    transform: translateX(-120%);
+  }
+
+  100% {
+    transform: translateX(350%);
+  }
+}
+/* Analysis results keep the readiness line but not the container facts. */
+.analysisAutomation .runFacts {
+  display: none;
+}
+.manualAction {
+  align-items: center;
+  color: var(--muted-foreground);
+  display: flex;
+  flex-wrap: wrap;
+  font-size: var(--text-caption);
+  gap: 8px 12px;
+}
+.manualAction svg {
+  flex: 0 0 0.875rem;
+  height: 0.875rem;
+  width: 0.875rem;
+}
+@media (max-width: 767px) {
+  .readinessMeter {
+    justify-items: start;
+  }
+}
+
+/* Insights: caption row above the shared finding list. */
+.insightsSection {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+}
+.sectionCaption {
+  align-items: center;
+  color: var(--muted-foreground);
+  display: flex;
+  font-size: var(--text-caption);
+  font-variant-numeric: tabular-nums;
+  gap: 16px;
+  justify-content: space-between;
+}
+.sectionCaption p {
+  margin: 0;
+}
+
+/* Skills: section heading rows (14px/600) over one card of rows. */
+.skillSection {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+}
+.sectionHead {
+  align-items: center;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+  min-height: 32px;
+}
+.sectionHead h2 {
+  color: var(--foreground);
+  font-size: var(--text-section);
+  font-weight: 600;
+  margin: 0;
+}
+.sectionHint {
+  color: var(--muted-foreground);
+  font-size: var(--text-control);
+  line-height: 1.6;
+  margin: -6px 0 2px;
+}
+
+/* The command is the payload of this dialog, so it gets terminal treatment. */
+.commandBox {
+  background: var(--secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  color: var(--foreground);
+  margin: 0;
+  overflow-x: auto;
+  padding: var(--cpki-space-3) var(--cpki-space-4);
+}
+
+.commandBox code {
+  font-family: var(--cpki-font-mono);
+  font-size: var(--text-caption);
+  white-space: nowrap;
+}
+
+/* Analysis results: section header, then the shared DataTable frame. */
+.analysisHistory {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+}
+.analysisHistoryToolbar {
+  align-items: center;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+}
+.analysisHistoryHeading {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+.analysisHistoryHeading h2 {
+  color: var(--foreground);
+  font-size: var(--text-section);
+  font-weight: 600;
+  margin: 0;
+}
+.analysisHistoryHeading p {
+  color: var(--muted-foreground);
+  font-size: var(--text-caption);
+  margin: 0;
+}
+.analysisRefreshing {
+  color: var(--muted-foreground);
+  font-size: var(--text-caption);
+  margin-left: auto;
+}
+.analysisTable {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  min-width: 0;
+}
+.analysisTable > * {
+  min-height: 0;
+}
+.analysisName {
+  align-items: center;
+  display: inline-flex;
+  flex-wrap: nowrap;
+  font-weight: 500;
+  gap: 8px;
+  white-space: nowrap;
+}
+.analysisStatus {
+  align-items: center;
+  display: inline-flex;
+  gap: 8px;
+  white-space: nowrap;
+}
+.analysisStatus code {
+  color: var(--muted-foreground);
+  font-size: var(--text-caption);
+}
+.analysisCoverage {
+  color: var(--muted-foreground);
+  font-size: var(--text-caption);
+  margin: 0;
+}
+/* On wide screens the table scrolls inside the page, under a steady header. */
+@media (min-width: 901px) {
+  .page:has(.analysisTabPanel) {
+    height: 100%;
+    max-height: 100%;
+    min-height: 0;
+    overflow: hidden;
+  }
+  .page:has(.analysisTabPanel) .workspace {
+    min-height: 0;
+  }
+  .analysisTabPanel {
+    min-height: 0;
+  }
+  .analysisTabPanel .analysisHistory {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    min-height: 0;
+  }
+  .analysisTabPanel .analysisHistory > nav {
+    flex: 0 0 auto;
+  }
+}
+
+/* Landing and empty states */
+
+.landing {
+  align-items: center;
+  display: flex;
+  flex: 1;
+  justify-content: center;
+  padding: var(--cpki-space-8);
+}
+
+.landingCard {
+  background: var(--cpki-color-surface-raised);
+  border: var(--cpki-border-width) solid var(--cpki-color-border);
+  border-radius: var(--cpki-radius-panel);
+  display: grid;
+  gap: var(--cpki-space-3);
+  justify-items: center;
+  max-width: 30rem;
+  padding: var(--cpki-space-8);
+  text-align: center;
+}
+
+.landingIcon {
+  align-items: center;
+  background: var(--cpki-color-info-muted);
+  border-radius: var(--cpki-radius-round);
+  color: var(--cpki-color-accent);
+  display: inline-flex;
+  height: 3rem;
+  justify-content: center;
+  margin-bottom: var(--cpki-space-1);
+  width: 3rem;
+}
+
+.landingIcon svg {
+  height: 1.5rem;
+  width: 1.5rem;
+}
+
+.landingCard h2 {
+  color: var(--cpki-color-foreground);
+  font-size: var(--cpki-font-size-4);
+  line-height: var(--cpki-line-height-tight);
+  margin: 0;
+}
+
+.landingCard p {
+  color: var(--cpki-color-muted-foreground);
+  line-height: var(--cpki-line-height-relaxed);
+  margin: 0;
+}
+
+.landingCard button {
+  margin-top: var(--cpki-space-2);
+}
+
+/* Settings: the integration prompt as a full-width Card below the grid. */
+.connectSettingsCard {
+  min-width: 0;
+}
+.cardHeading {
+  font: inherit;
+  margin: 0;
+}
+.connectSettingsBody {
+  display: grid;
+  gap: 8px;
+}
+.connectSettingsBody > small {
+  color: var(--muted-foreground);
+  font-size: var(--text-caption);
+}
+.connectSettingsBody > details {
+  font-size: var(--text-control);
+}
+.connectSettingsBody > details summary {
+  color: var(--muted-foreground);
+  cursor: pointer;
+}
+.connectSettingsBody > details pre {
+  background: var(--secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  font-family: var(--cpki-font-mono);
+  font-size: var(--text-caption);
+  line-height: 1.8;
+  margin: 12px 0 0;
+  overflow-wrap: anywhere;
+  padding: 16px;
+  white-space: pre-wrap;
+}
+
+/* Actions, status, and errors */
+
+.help {
+  color: var(--cpki-color-muted-foreground);
+  font-size: var(--text-control);
+  margin: 0;
+}
+
+.status,
+.error {
+  color: var(--cpki-color-muted-foreground);
+  font-size: var(--text-control);
+  margin: 0;
+}
+
+.error {
+  color: var(--cpki-color-foreground);
+}
+
+.errorState {
+  align-items: start;
+  display: grid;
+  gap: var(--cpki-space-3);
+  justify-items: start;
+}
+
+.errorState p {
+  margin: 0;
+}
+
+/* Page-level loading and failure copy keeps the page inset. */
+.page > .status,
+.page > .errorState {
+  padding: 24px 28px;
+}
+
+.integrationCode:focus-visible {
+  outline: var(--cpki-focus-ring-width) solid var(--cpki-color-focus-ring);
+  outline-offset: calc(var(--cpki-focus-ring-offset) * -1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .evidenceTrack[data-analyzing="true"] .evidenceFill {
+    animation: none;
+  }
+}
+
+/* First-run wiring */
+
+.connectGrid {
+  align-items: stretch;
+  display: grid;
+  gap: var(--cpki-space-5);
+  grid-template-columns: repeat(auto-fit, minmax(21rem, 1fr));
+  margin: 0 auto;
+  max-width: 68rem;
+  padding: var(--cpki-space-6);
+}
+
+/* The steps column carries prose and the connect column carries a code block,
+   so they do not want the same width. */
+@media (min-width: 60rem) {
+  .connectGrid {
+    grid-template-columns: minmax(0, 1.05fr) minmax(22rem, 0.95fr);
+  }
+}
+
+.connectCopy,
+.connectCard {
+  border: var(--cpki-border-width) solid var(--cpki-color-border);
+  border-radius: var(--cpki-radius-panel);
+  display: grid;
+  gap: var(--cpki-space-3);
+  padding: var(--cpki-space-6);
+}
+
+.connectCopy {
+  align-content: start;
+  background: var(--cpki-color-surface-raised);
+}
+
+/* The connect card is the whole screen on an empty Container, so it earns a
+   wash of its own rather than reading as a grey box. */
+.connectCard {
+  align-content: start;
+  background:
+    radial-gradient(
+      22rem 14rem at 88% 6%,
+      color-mix(in srgb, var(--cpki-brand-aquamarine-green) 15%, transparent),
+      transparent 70%
+    ),
+    var(--cpki-color-surface-subtle);
+}
+
+.connectEyebrow {
+  color: var(--cpki-color-accent);
+  font-size: var(--text-caption);
+  letter-spacing: 0.08em;
+  margin: 0;
+  text-transform: uppercase;
+}
+
+.connectMark {
+  align-items: center;
+  background: var(--cpki-color-info-muted);
+  border-radius: var(--cpki-radius-control);
+  color: var(--cpki-color-accent);
+  display: inline-flex;
+  font-family: var(--cpki-font-sans);
+  font-variant-numeric: tabular-nums;
+  font-size: var(--cpki-font-size-1);
+  height: 2.25rem;
+  justify-content: center;
+  width: 2.25rem;
+}
+
+.connectCopy h3,
+.connectCard h3 {
+  color: var(--cpki-color-foreground);
+  font-size: var(--cpki-font-size-4);
+  line-height: var(--cpki-line-height-tight);
+  margin: 0;
+}
+
+.connectCopy > p,
+.connectCard > p {
+  color: var(--cpki-color-muted-foreground);
+  font-size: var(--cpki-font-size-1);
+  line-height: var(--cpki-line-height-normal);
+  margin: 0;
+}
+
+.setupList {
+  counter-reset: setup;
+  display: grid;
+  list-style: none;
+  margin: var(--cpki-space-2) 0 0;
+  padding: 0;
+}
+
+.setupList li {
+  border-top: var(--cpki-border-width) solid var(--cpki-color-border);
+  column-gap: var(--cpki-space-3);
+  counter-increment: setup;
+  display: grid;
+  grid-template-columns: 1.75rem minmax(0, 1fr);
+  padding: var(--cpki-space-4) 0;
+  row-gap: var(--cpki-space-1);
+}
+
+.setupList li::before {
+  align-items: center;
+  background: var(--cpki-color-info-muted);
+  border-radius: var(--cpki-radius-control);
+  color: var(--cpki-color-accent);
+  content: counter(setup);
+  display: inline-flex;
+  font-size: var(--text-caption);
+  font-variant-numeric: tabular-nums;
+  grid-row: span 2;
+  height: 1.75rem;
+  justify-content: center;
+  width: 1.75rem;
+}
+
+.setupList strong {
+  color: var(--cpki-color-foreground);
+  font-size: var(--cpki-font-size-1);
+  grid-column: 2;
+}
+
+.setupList span {
+  color: var(--cpki-color-muted-foreground);
+  font-size: var(--cpki-font-size-0);
+  grid-column: 2;
+  line-height: var(--cpki-line-height-normal);
+}
+
+/* The whole prompt is the point, so it is not capped: clipping it mid-sentence
+   would hide the part that says what to leave unchanged. The tab panel below
+   the header owns the scrolling. */
+/* The prompt is written for a coding agent, so it is prose rather than a snippet
+   and runs long. Capped and scrolled, it reads as one block to copy instead of
+   a wall of text that pushes the copy button off screen. `tabIndex={0}` on the
+   element makes the overflow reachable by keyboard, which a scrollable region
+   needs. */
+.integrationCode {
+  background: var(--cpki-color-surface-subtle);
+  border: 1px solid var(--cpki-color-border);
+  border-radius: var(--cpki-radius-control);
+  color: var(--cpki-color-foreground);
+  margin: 0;
+  max-height: 13rem;
+  overflow: auto;
+  overscroll-behavior: contain;
+  padding: var(--cpki-space-4);
+}
+
+.integrationCode code {
+  font-family: var(--cpki-font-mono);
+  font-size: var(--cpki-font-size-0);
+  line-height: var(--cpki-line-height-relaxed);
+  white-space: pre-wrap;
+}
+
+.connectAction {
+  justify-content: center;
+  width: 100%;
+}
+
+/* How to connect a model: prose, the command on its own row, then prose. */
+.modelHint {
+  color: var(--muted-foreground);
+  display: grid;
+  font-size: var(--text-caption);
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.modelHint p {
+  margin: 0;
+}
+
+.modelCommand {
+  align-items: center;
+  display: flex;
+  gap: 4px;
+}
+
+.modelCommand code {
+  color: var(--foreground);
+  font-family: var(--font-mono);
+}

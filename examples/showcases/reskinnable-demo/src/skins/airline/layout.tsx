@@ -16,6 +16,7 @@ import { cn } from "@/lib/utils";
 import { useSkin } from "@/shell/skin-provider";
 import { useSkinHref, useSkinSegments } from "@/shell/skin-path";
 import { usePresenterReset } from "@/shell/presenter-reset-context";
+import { GovernancePopover } from "@/shell/governance-popover";
 import { useConciergeView } from "./components/concierge-view";
 import { PassengerHeader } from "./components/passenger-header";
 
@@ -165,8 +166,16 @@ export function AirlineLayout({ children }: { children: ReactNode }) {
 
       {/* Main region */}
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="border-b border-hairline bg-surface/80 px-5 py-4 backdrop-blur">
-          <PassengerHeader passenger={data.passenger} flight={data.flight} />
+        <header className="flex items-center gap-4 border-b border-hairline bg-surface/80 px-5 py-4 backdrop-blur">
+          <div className="min-w-0 flex-1">
+            <PassengerHeader passenger={data.passenger} flight={data.flight} />
+          </div>
+          {/* Which CUSTOMER is signed in, and how much memory they are allowed.
+              Shell-owned — every skin scopes memory through the same two runtime
+              callbacks — but placed in the skin's own chrome beside the
+              passenger's own identity, because together they answer one
+              question: the memory bucket is <organization>:<traveller>. */}
+          <GovernancePopover />
         </header>
         <main className="flex-1 overflow-y-auto px-5 py-6">{children}</main>
       </div>

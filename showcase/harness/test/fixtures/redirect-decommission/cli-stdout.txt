@@ -1,8 +1,8 @@
 :bar_chart: *SEO Redirect Decommission Report* (last 30 days)
-Total redirects defined: 395
+Total redirects defined: 382
 Total hits: 12,537
 
-:warning: *382 redirect(s) with zero hits — decommission candidates:*
+:warning: *369 redirect(s) with zero hits — decommission candidates:*
   • B1
   • B2
   • B3
@@ -139,7 +139,6 @@ Total hits: 12,537
   • S6: 13 entries (S6×a2a, S6×adk, S6×ag2, ...)
   • S7: 13 entries (S7×a2a, S7×adk, S7×ag2, ...)
   • S8: 13 entries (S8×a2a, S8×adk, S8×ag2, ...)
-  • S9: 13 entries (S9×a2a, S9×adk, S9×ag2, ...)
   • SR-root: 6 entries (SR-root×adk, SR-root×aws-strands, SR-root×crewai-flows, ...)
   • SR-wild: 6 entries (SR-wild×adk, SR-wild×aws-strands, SR-wild×crewai-flows, ...)
 

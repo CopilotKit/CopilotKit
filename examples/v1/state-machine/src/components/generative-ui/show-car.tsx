@@ -1,17 +1,17 @@
 import { cn } from "@/lib/utils/cn";
-import { Car } from "@/lib/types";
+import type { Car } from "@/lib/types";
 import { AnimatedCard } from "@/components/animated-card";
 import { motion } from "motion/react";
 import { useState } from "react";
 import Image from "next/image";
 
-import { RenderFunctionStatus } from "@copilotkit/react-core";
+import { ToolCallStatus } from "@copilotkit/react-core/v2";
 
 interface ShowCarProps {
   car: Car;
   onSelect: () => void;
   onReject?: () => void;
-  status: RenderFunctionStatus;
+  status: ToolCallStatus;
   className?: string;
 }
 
@@ -101,17 +101,25 @@ export function ShowCar({
         <div
           className={cn(
             "px-6 pt-2",
-            status === "complete" ? "hidden" : "animate-fade-in",
+            status === ToolCallStatus.Complete ? "hidden" : "animate-fade-in",
           )}
         >
           <hr className="mb-4 border-gray-100" />
           <div className="flex gap-3">
             {onReject && (
-              <button className={rejectButtonStyles} onClick={onReject}>
+              <button
+                className={rejectButtonStyles}
+                disabled={status !== ToolCallStatus.Executing}
+                onClick={onReject}
+              >
                 Other options
               </button>
             )}
-            <button className={acceptButtonStyles} onClick={onSelect}>
+            <button
+              className={acceptButtonStyles}
+              disabled={status !== ToolCallStatus.Executing}
+              onClick={onSelect}
+            >
               Select
             </button>
           </div>
@@ -124,13 +132,15 @@ export function ShowCar({
 interface ShowCarsProps {
   cars: Car[];
   onSelect: (car: Car) => void;
-  status: RenderFunctionStatus;
+  status: ToolCallStatus;
 }
 
 export function ShowCars({ cars, onSelect, status }: ShowCarsProps) {
   const [selectedCar, setSelectedCar] = useState<Car | null>(null);
 
   const handleSelect = (car: Car) => {
+    if (status !== ToolCallStatus.Executing) return;
+
     setSelectedCar(car);
     onSelect(car);
   };

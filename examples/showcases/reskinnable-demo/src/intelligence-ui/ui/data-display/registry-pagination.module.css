@@ -1,0 +1,48 @@
+.pagination {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+  margin-inline: auto;
+}
+.content {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+/* Size, type, corners, fills and hover come from the Button `icon` / `md`
+ * sizes and `ghost` / `outline` variants. Previous and Next keep the
+ * reference's tighter inline padding. */
+.edge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-width: auto;
+}
+.edge[data-size] {
+  padding-inline: 0.5rem;
+}
+/* Same box as a numbered link so skipped ranges keep the row's rhythm. */
+.ellipsis {
+  display: grid;
+  place-items: center;
+  inline-size: var(--control-height, 2.25rem);
+  block-size: var(--control-height, 2.25rem);
+  color: var(--cpki-color-muted-foreground);
+}
+.link[aria-disabled="true"] {
+  pointer-events: none;
+  opacity: 0.45;
+}
+.link:disabled {
+  cursor: default;
+  opacity: 0.45;
+}
+@media (max-width: 479px) {
+  .edge span {
+    display: none;
+  }
+}

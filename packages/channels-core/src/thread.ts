@@ -15,6 +15,9 @@ import type {
   Thread as ThreadInterface,
   EmojiValue,
   EphemeralResult,
+  ReactElementLike,
+  PostFileResult,
+  ChannelNode,
 } from "@copilotkit/channels-ui";
 import { runAgentLoop } from "./run-loop.js";
 import type { RunLoopArgs } from "./run-loop.js";
@@ -35,6 +38,44 @@ import { channelActorIdentity } from "./identity.js";
 import { hasMemoryAccess, resolveMemoryGrant } from "./memory.js";
 import type { MemoryGrant, ResolvedChannelMemory } from "./memory.js";
 import type { ChannelComponentRenderContext } from "./channel-component.js";
+import type { RenderConfig, ResolvedRenderConfig } from "./render/config.js";
+import type {
+  AwaitChoiceOptions,
+  ChoiceAnswerableBy,
+  PostImageOptions,
+} from "@copilotkit/channels-ui";
+import { isHostElement } from "@copilotkit/channels-ui";
+import { resolveArbitraryElement } from "./render/detect.js";
+import { mintActionId, stableStringify } from "./mint-id.js";
+import { resolveRenders } from "./render/resolve-renders.js";
+import { validateRenderTree } from "./render/validate-render.js";
+import { defaultAllowImageUrl } from "./render/url-policy.js";
+
+/**
+ * Warn once per platform that an image post produced no addressable message id.
+ * Once per platform, not per post: on a surface that structurally never reports
+ * one (the managed transport hands uploads to an async outbox) this would
+ * otherwise fire on every single image.
+ */
+const warnedNoMessageId = new Set<string>();
+function warnNoMessageId(platform: string): void {
+  if (warnedNoMessageId.has(platform)) return;
+  warnedNoMessageId.add(platform);
+  console.warn(
+    `[channel] post(image): the upload reported no message id on ${platform}; ` +
+      "the returned ref cannot be used for delete/react/update (the upload itself succeeded)",
+  );
+}
+
+// Image rendering is opt-in. Nothing here imports the Takumi renderer: app
+// bundlers follow every literal import, so a default import would put Takumi's
+// native binary (or an unresolvable optional peer) into every app that loads
+// the runtime. Apps that post images pass `render.renderer` instead.
+async function missingRenderer(): Promise<Uint8Array> {
+  throw new Error(
+    "Posting JSX as an image needs a renderer. Install `react` and `takumi-js`, then pass `render: { renderer: takumiRenderer }` to createChannel, with `takumiRenderer` from `@copilotkit/channels/takumi`.",
+  );
+}
 
 /**
  * Default retention for a captured interrupt value (7 days) — deliberately the
@@ -99,10 +140,22 @@ export interface ThreadDeps {
   tools: Map<string, ChannelTool>;
   toolDescriptors: AgentToolDescriptor[];
   context: ContextEntry[];
-  registerWaiter: (
-    conversationKey: string,
-    resolve: (value: unknown) => void,
-  ) => void;
+  /**
+   * Register a pending choice under `conversationKey`. Returns a function that
+   * retires it (unregisters it and revokes its controls) if it is still the
+   * pending choice there.
+   */
+  registerWaiter: (conversationKey: string, waiter: ChoiceWaiter) => () => void;
+  /**
+   * Claim a picker's controls for `actorId` (`undefined`: anyone) before the
+   * picker is posted: until {@link registerWaiter} opens its choice, no click
+   * runs them. Returns a function that abandons the claim (and revokes the
+   * controls) if the picker never became a pending choice.
+   */
+  reserveChoiceControls: (
+    controlIds: Iterable<string>,
+    actorId: string | undefined,
+  ) => () => void;
   interruptHandlers: Map<
     string,
     (args: {
@@ -149,6 +202,89 @@ export interface ThreadDeps {
   telemetry?: {
     capture(event: string, properties: Record<string, unknown>): void;
   };
+  /** Channel-wide image-render config (fonts + compiled CSS), from createChannel({ render }). */
+  render?: RenderConfig;
+  /**
+   * Test seam: override the image renderer. Defaults to `render.renderer`.
+   */
+  renderImage?: (
+    node: unknown,
+    cfg: ResolvedRenderConfig,
+  ) => Promise<Uint8Array>;
+}
+
+/**
+ * A pending `awaitChoice` was settled because a newer `awaitChoice` was posted
+ * in the same conversation. Its picker no longer answers anything.
+ */
+export class ChannelChoiceSupersededError extends Error {
+  readonly code = "channel_choice_superseded";
+
+  constructor() {
+    super(
+      "This awaitChoice was superseded by a newer awaitChoice in the same conversation",
+    );
+    this.name = "ChannelChoiceSupersededError";
+  }
+}
+
+/**
+ * How long `awaitChoice` waits for an answer by default: one hour. While it
+ * waits, the turn (and, with `concurrency: "serial"`, the conversation's turn
+ * queue) stays open; pass `timeoutMs` per call to change it.
+ */
+export const DEFAULT_AWAIT_CHOICE_TIMEOUT_MS = 60 * 60 * 1000;
+
+/**
+ * Longest finite `awaitChoice` timeout: 2^31-1 ms (about 24.8 days), the
+ * largest delay a timer holds. Node runs a longer delay after 1 ms, so a
+ * longer finite timeout is rejected with a `RangeError` when `awaitChoice` is
+ * called; pass `Infinity` for no limit.
+ */
+const MAX_AWAIT_CHOICE_TIMEOUT_MS = 2_147_483_647;
+
+/**
+ * Who may answer an `awaitChoice` picker when the call does not say: the
+ * actor who started the turn. This is the one place the default is defined;
+ * flip it here to make pickers answerable by anyone in the conversation.
+ */
+export const DEFAULT_AWAIT_CHOICE_ANSWERABLE_BY: ChoiceAnswerableBy =
+  "initiator";
+
+/**
+ * An `answerableBy: "initiator"` choice was requested in a turn whose actor
+ * has no usable id, so no click could ever be matched to it. Use
+ * `answerableBy: "conversation"` for such turns.
+ */
+export class ChannelChoiceInitiatorUnknownError extends Error {
+  readonly code = "channel_choice_initiator_unknown";
+
+  constructor() {
+    super(
+      'awaitChoice cannot be limited to the initiator: the turn\'s actor has no id. Pass answerableBy: "conversation" to let anyone in the conversation answer.',
+    );
+    this.name = "ChannelChoiceInitiatorUnknownError";
+  }
+}
+
+/** A pending `awaitChoice` got no answer within its timeout. */
+export class ChannelChoiceTimeoutError extends Error {
+  readonly code = "channel_choice_timeout";
+
+  constructor(readonly timeoutMs: number) {
+    super(`awaitChoice got no answer within ${timeoutMs} ms`);
+    this.name = "ChannelChoiceTimeoutError";
+  }
+}
+
+/** A pending `awaitChoice` was aborted through its `signal`. */
+export class ChannelChoiceAbortedError extends Error {
+  readonly code = "channel_choice_aborted";
+
+  constructor(reason: unknown) {
+    super("awaitChoice was aborted", { cause: reason });
+    this.name = "ChannelChoiceAbortedError";
+  }
 }
 
 /** Stable rejection for surfaces that cannot hold one run open for a choice. */
@@ -195,6 +331,34 @@ export class Thread implements ThreadInterface {
     );
   }
 
+  /**
+   * Validate bound IR and rewrite every `<Render>` to a staged `image` node.
+   * `bound.root` may be one node or an array; the return matches `adapter.post`.
+   */
+  private async prepareNative(
+    root: ChannelNode | readonly ChannelNode[],
+  ): Promise<ChannelNode[]> {
+    const roots = Array.isArray(root) ? root : [root];
+    validateRenderTree(roots);
+    if (!containsType(roots, "render")) return roots;
+    if (!this.deps.adapter.stageFile) {
+      throw new Error(
+        `channels.render: ${this.platform} does not support stageFile`,
+      );
+    }
+    const g = this.deps.render ?? {};
+    return resolveRenders(roots, {
+      renderJsxToPng: this.deps.renderImage ?? g.renderer ?? missingRenderer,
+      stageFile: (args) =>
+        this.deps.adapter.stageFile!(this.deps.replyTarget, args),
+      defaultWidth: g.width ?? 720,
+      defaultHeight: g.height ?? 480,
+      fonts: g.fonts,
+      stylesheets: g.stylesheets,
+      allowImageUrl: g.allowImageUrl,
+    });
+  }
+
   private trackOperation<T>(operation: () => Promise<T>): Promise<T> {
     if (!this.deps.adapter.trackThreadOperation) {
       try {
@@ -225,30 +389,141 @@ export class Thread implements ThreadInterface {
    * reaction after a restart re-derives it (parity with a component `onClick`).
    */
   private async bindReaction(
-    messageId: string,
+    ref: MessageRef,
     bound: Awaited<ReturnType<Thread["bindForPost"]>>,
   ): Promise<void> {
+    if (!bound.onReaction && !bound.reactionComponent) return;
+    const conversationKey = this.postedConversationKey(ref, "reaction");
     if (bound.onReaction) {
-      this.deps.registry.registerMessageReaction(messageId, bound.onReaction);
+      this.deps.registry.registerMessageReaction(ref.id, bound.onReaction, {
+        conversationKey,
+        platform: this.platform,
+      });
     }
     if (bound.reactionComponent) {
-      await this.deps.registry.persistMessageReaction(messageId, {
+      await this.deps.registry.persistMessageReaction(ref.id, {
         ...bound.reactionComponent,
-        conversationKey: this.deps.conversationKey,
+        conversationKey,
       });
     }
   }
 
-  post(ui: Renderable): Promise<MessageRef> {
-    return this.trackOperation(async () => {
-      const bound = await this.bindForPost(ui);
-      const ref = await this.deps.adapter.post(
+  /**
+   * The conversation key a click (or reaction) on the posted message `ref`
+   * arrives with. The adapter decides when it differs from this turn's key.
+   */
+  private postedConversationKey(
+    ref: MessageRef,
+    kind: "action" | "reaction",
+  ): string {
+    return (
+      this.deps.adapter.postedConversationKey?.(
         this.deps.replyTarget,
-        bound.root,
-      );
-      await this.bindReaction(ref.id, bound);
+        ref,
+        kind,
+      ) ?? this.deps.conversationKey
+    );
+  }
+
+  /**
+   * Move the actions bound in a posted message to the conversation a click on
+   * it arrives from, when the adapter keys that differently from this turn. A
+   * click's Thread takes that key as its thread id too unless the adapter
+   * resolves a canonical one, so a continuation's thread binding follows it
+   * then, and `resume()` from the click matches.
+   */
+  private async rescopePosted(
+    ref: MessageRef,
+    root: readonly ChannelNode[],
+  ): Promise<void> {
+    const actionKey = this.postedConversationKey(ref, "action");
+    if (actionKey === this.deps.conversationKey) return;
+    await this.deps.registry.rescopeActions(root, {
+      conversationKey: actionKey,
+      ...(this.deps.adapter.getCanonicalThreadId
+        ? {}
+        : { threadId: actionKey }),
+    });
+  }
+
+  /**
+   * Finish a post or update: scope the message's actions to the conversation a
+   * click on it will arrive from, then wire its reaction handler.
+   */
+  private async bindPosted(
+    ref: MessageRef,
+    bound: Awaited<ReturnType<Thread["bindForPost"]>>,
+  ): Promise<void> {
+    await this.rescopePosted(ref, bound.root);
+    await this.bindReaction(ref, bound);
+  }
+
+  post(
+    ui: Renderable | ReactElementLike,
+    opts?: PostImageOptions,
+  ): Promise<MessageRef> {
+    return this.trackOperation(async () => {
+      const bound = await this.bindForPost(ui as Renderable);
+      const el = resolveArbitraryElement(bound.root);
+      if (el) return this.postImage(el, opts);
+      const ir = await this.prepareNative(bound.root);
+      const ref = await this.deps.adapter.post(this.deps.replyTarget, ir);
+      await this.bindPosted(ref, bound);
       return ref;
     });
+  }
+
+  /**
+   * Render a resolved React element to a PNG via the configured renderer,
+   * then upload it through `postFile`.
+   */
+  private async postImage(
+    node: unknown,
+    opts?: PostImageOptions,
+  ): Promise<MessageRef> {
+    if (!this.deps.adapter.supportsJsxImages) {
+      throw new Error(
+        "JSX image posts require a managed Slack or Teams channel.",
+      );
+    }
+    // Fail fast BEFORE the (expensive) render if the surface can't upload files
+    // at all — no point rasterizing a PNG we could never post.
+    if (!this.deps.adapter.postFile) {
+      throw new Error(
+        `post(image): ${this.platform} does not support file upload`,
+      );
+    }
+    const g = this.deps.render ?? {};
+    const cfg: ResolvedRenderConfig = {
+      fonts: opts?.fonts ?? g.fonts ?? [],
+      stylesheets: opts?.stylesheets ?? g.stylesheets ?? [],
+      width: opts?.width ?? g.width ?? 720,
+      height: opts?.height ?? g.height ?? 480,
+      // Channel-wide only (not per-post): a fetch policy is a security boundary,
+      // and a per-call override is exactly the knob an injected tool argument
+      // would reach for.
+      allowImageUrl: g.allowImageUrl ?? defaultAllowImageUrl,
+    };
+    const renderFn = this.deps.renderImage ?? g.renderer ?? missingRenderer;
+    const bytes = await renderFn(node, cfg);
+    // post() already tracks this operation; calling postFile() would track it twice.
+    const res = await this.deps.adapter.postFile(this.deps.replyTarget, {
+      bytes,
+      filename: opts?.filename ?? "image.png",
+      title: opts?.title,
+      altText: opts?.altText,
+    });
+    if (!res.ok) {
+      throw new Error(
+        `post(image): upload failed — ${res.error ?? "unknown error"}`,
+      );
+    }
+    // Only a *message* id is a usable MessageRef. Platforms that upload media
+    // separately from posting it (Slack, Telegram, WhatsApp) also return a
+    // media id in `fileId`, which their delete/react/update APIs reject — so
+    // never pass that off as a message id.
+    if (!res.messageRef && !res.messageId) warnNoMessageId(this.platform);
+    return res.messageRef ?? { id: res.messageId ?? "" };
   }
 
   /** @internal Post a registered component through the normal bind and adapter path. */
@@ -265,11 +540,9 @@ export class Thread implements ThreadInterface {
         this.activeContinuation,
         renderContext,
       );
-      const ref = await this.deps.adapter.post(
-        this.deps.replyTarget,
-        bound.root,
-      );
-      await this.bindReaction(ref.id, bound);
+      const ir = await this.prepareNative(bound.root);
+      const ref = await this.deps.adapter.post(this.deps.replyTarget, ir);
+      await this.bindPosted(ref, bound);
       return ref;
     });
   }
@@ -277,8 +550,14 @@ export class Thread implements ThreadInterface {
   update(ref: MessageRef, ui: Renderable): Promise<MessageRef> {
     return this.trackOperation(async () => {
       const bound = await this.bindForPost(ui);
-      await this.deps.adapter.update(ref, bound.root);
-      await this.bindReaction(ref.id, bound);
+      if (resolveArbitraryElement(bound.root)) {
+        throw new Error(
+          "thread.update does not support arbitrary JSX (an image post can't be edited in place). Post a new image instead.",
+        );
+      }
+      const ir = await this.prepareNative(bound.root);
+      await this.deps.adapter.update(ref, ir);
+      await this.bindPosted(ref, bound);
       return ref;
     });
   }
@@ -304,12 +583,7 @@ export class Thread implements ThreadInterface {
     filename: string;
     title?: string;
     altText?: string;
-  }): Promise<{
-    ok: boolean;
-    fileId?: string;
-    assetId?: string;
-    error?: string;
-  }> {
+  }): Promise<PostFileResult> {
     return this.trackOperation(async () => {
       const adapter = this.deps.adapter;
       if (!adapter.postFile) {
@@ -405,10 +679,31 @@ export class Thread implements ThreadInterface {
           error: `${this.platform} does not support ephemeral messages`,
         };
       }
+      const bound = await this.bindForPost(ui);
+      if (resolveArbitraryElement(bound.root)) {
+        throw new Error(
+          "thread.postEphemeral does not support arbitrary JSX. Post an image with thread.post, or pass channel components.",
+        );
+      }
+      if (containsType(bound.root, "render")) {
+        throw new Error(
+          "thread.postEphemeral does not support <Render> snapshots. Use thread.post, or pass native channel components.",
+        );
+      }
+      validateRenderTree(bound.root);
       // Ephemeral messages can't be reacted to, so any `onReaction` is dropped
       // (stripped by bindForPost) rather than registered.
-      const { root } = await this.bindForPost(ui);
-      return adapter.postEphemeral(this.deps.replyTarget, user, root, opts);
+      const { root } = bound;
+      const result = await adapter.postEphemeral(
+        this.deps.replyTarget,
+        user,
+        root,
+        opts,
+      );
+      if (result?.ok && result.ref?.id) {
+        await this.rescopePosted(result.ref, root);
+      }
+      return result;
     });
   }
 
@@ -509,20 +804,132 @@ export class Thread implements ThreadInterface {
     return this.trackOperation(() => this.deps.adapter.lookupUser({ query }));
   }
 
-  /** Post a picker and wait until an interaction in this conversation resolves it. */
-  awaitChoice<T = unknown>(ui: Renderable): Promise<T> {
+  /**
+   * Post a picker and wait until a click on one of its own controls, in this
+   * conversation on this platform, answers it with the value the picker
+   * offered for that control.
+   *
+   * `options.answerableBy` decides who may answer (default
+   * {@link DEFAULT_AWAIT_CHOICE_ANSWERABLE_BY}): `"initiator"` accepts only
+   * the provider account that started the turn, matched by its id (its
+   * `kind` is never consulted), and rejects at once with
+   * {@link ChannelChoiceInitiatorUnknownError} when that actor has no id;
+   * `"conversation"` accepts anyone in the conversation.
+   *
+   * A conversation has at most one pending choice: a newer `awaitChoice`
+   * there rejects this one with {@link ChannelChoiceSupersededError}. It also
+   * rejects after `options.timeoutMs` ({@link ChannelChoiceTimeoutError};
+   * a finite timeout above 2^31-1 ms is rejected at once with a `RangeError`),
+   * when `options.signal` aborts ({@link ChannelChoiceAbortedError}), or with
+   * the error the clicked control's own handler throws. Once settled, the
+   * picker's controls neither run nor answer anything.
+   */
+  awaitChoice<T = unknown>(
+    ui: Renderable,
+    options: AwaitChoiceOptions = {},
+  ): Promise<T> {
     if (this.supportsBlockingChoice === false) {
       return Promise.reject(new ChannelAwaitChoiceNotSupportedError());
     }
-    return this.trackOperation(async () => {
-      const p = new Promise<T>((resolve) =>
-        this.deps.registerWaiter(
-          this.deps.conversationKey,
-          resolve as (value: unknown) => void,
+    const timeoutMs = options.timeoutMs ?? DEFAULT_AWAIT_CHOICE_TIMEOUT_MS;
+    if (
+      !(timeoutMs > 0) ||
+      (Number.isFinite(timeoutMs) && timeoutMs > MAX_AWAIT_CHOICE_TIMEOUT_MS)
+    ) {
+      return Promise.reject(
+        new RangeError(
+          `awaitChoice timeoutMs must be a positive number of milliseconds no larger than ${MAX_AWAIT_CHOICE_TIMEOUT_MS} (about 24.8 days), or Infinity for no limit; got ${timeoutMs}`,
         ),
       );
-      await this.post(ui);
-      return p;
+    }
+    const { signal } = options;
+    const answerableBy =
+      options.answerableBy ?? DEFAULT_AWAIT_CHOICE_ANSWERABLE_BY;
+    if (answerableBy !== "initiator" && answerableBy !== "conversation") {
+      return Promise.reject(
+        new RangeError(
+          'awaitChoice answerableBy must be "initiator" or "conversation"',
+        ),
+      );
+    }
+    const actorId =
+      answerableBy === "initiator" ? initiatorId(this.deps.actor) : undefined;
+    if (answerableBy === "initiator" && actorId === undefined) {
+      return Promise.reject(new ChannelChoiceInitiatorUnknownError());
+    }
+    if (signal?.aborted) {
+      return Promise.reject(new ChannelChoiceAbortedError(signal.reason));
+    }
+    return this.trackOperation(async () => {
+      const bound = await this.bindForPost(ui);
+      if (resolveArbitraryElement(bound.root)) {
+        throw new Error(
+          "thread.awaitChoice does not support arbitrary JSX — use native channel components.",
+        );
+      }
+      // Controls without a handler get a per-post id too, so every control of
+      // this picker round-trips on every platform, and no other control (a
+      // stale picker, an unrelated card) shares an id with it.
+      const unboundActionIds = stampUnboundPickerControls(bound.root);
+      const ir = await this.prepareNative(bound.root);
+      const controls = collectChoiceControls(ir, unboundActionIds);
+      // The controls' ids can reach the platform as soon as the post starts:
+      // claim them for this choice first, and revoke them if the post fails.
+      const abandon = this.deps.reserveChoiceControls(controls.keys(), actorId);
+      let ref: MessageRef;
+      try {
+        ref = await this.deps.adapter.post(this.deps.replyTarget, ir);
+        await this.bindPosted(ref, bound);
+      } catch (err) {
+        abandon();
+        throw err;
+      }
+      // Registered only once the picker is posted (a failed post leaves no
+      // waiter behind), under the key a click on the posted picker carries.
+      return new Promise<T>((resolve, reject) => {
+        let timer: ReturnType<typeof setTimeout> | undefined;
+        const onAbort = () =>
+          giveUp(new ChannelChoiceAbortedError(signal?.reason));
+        const cleanup = () => {
+          if (timer !== undefined) clearTimeout(timer);
+          signal?.removeEventListener("abort", onAbort);
+        };
+        const retire = this.deps.registerWaiter(
+          this.postedConversationKey(ref, "action"),
+          {
+            resolve: (value) => {
+              cleanup();
+              resolve(value as T);
+            },
+            reject: (reason) => {
+              cleanup();
+              reject(reason);
+            },
+            platform: this.platform,
+            controls,
+            actorId,
+          },
+        );
+        // Give up on the choice: retire the picker so it answers nothing more,
+        // then settle with `reason`.
+        const giveUp = (reason: Error) => {
+          cleanup();
+          retire();
+          reject(reason);
+        };
+        if (Number.isFinite(timeoutMs)) {
+          timer = setTimeout(
+            () => giveUp(new ChannelChoiceTimeoutError(timeoutMs)),
+            timeoutMs,
+          );
+          // A pending choice must not keep the process alive on its own.
+          if (typeof timer === "object" && "unref" in timer) timer.unref();
+        }
+        signal?.addEventListener("abort", onAbort, { once: true });
+        // An abort fires its event once: one that landed while the picker was
+        // being posted happened before this listener existed.
+        if (signal?.aborted) onAbort();
+      });
     });
   }
 
@@ -965,6 +1372,276 @@ function promptMatchesInbound(
     message.contentParts !== undefined &&
     JSON.stringify(prompt) === JSON.stringify(message.contentParts)
   );
+}
+
+/** A pending `awaitChoice`: who may answer it, and with which controls. */
+export interface ChoiceWaiter {
+  resolve: (value: unknown) => void;
+  /**
+   * Settle the choice with an error: the picker's own handler threw, or a
+   * newer `awaitChoice` in the same conversation superseded it
+   * ({@link ChannelChoiceSupersededError}).
+   */
+  reject: (reason: unknown) => void;
+  /** Ingress platform the picker was posted on. */
+  platform: string;
+  /**
+   * The picker's own controls, by the per-post action id a click on each one
+   * arrives with. A click with any other id never answers the picker.
+   */
+  controls: ReadonlyMap<string, ChoiceControl>;
+  /**
+   * The only provider account allowed to answer (`answerableBy: "initiator"`),
+   * or `undefined` when anyone in the conversation may (`"conversation"`).
+   */
+  actorId?: string;
+}
+
+/**
+ * The provider id an `"initiator"` picker is locked to: the id of the actor
+ * who started the turn, as the platform's ingress event reported it. The
+ * actor's `kind` is untrusted metadata and is never consulted, so a bot, app,
+ * system or `kind: "unknown"` initiator with an id locks the picker to that id
+ * like any other. Returns `undefined` when the actor has no usable id (empty,
+ * or the `"unknown"` placeholder adapters use for an unidentified sender):
+ * nobody could then be matched against it.
+ */
+function initiatorId(actor: ProviderActor): string | undefined {
+  if (!actor.id || actor.id === "unknown") return undefined;
+  return actor.id;
+}
+
+/**
+ * One control of a pending picker, and what a click on it may answer with.
+ * `bound` is true when the control has its own handler in the registry; an
+ * unbound control only answers the picker.
+ */
+export type ChoiceControl =
+  | { kind: "button"; value: unknown; bound: boolean }
+  | {
+      kind: "select";
+      options: readonly unknown[];
+      multi: boolean;
+      bound: boolean;
+    }
+  | { kind: "input"; bound: boolean };
+
+/**
+ * The value a click on `control` answers the picker with, or `ok: false` when
+ * the clicked value is not one the control offers.
+ *
+ * - A button answers with its own `value` as rendered; the value a click
+ *   carries back is ignored.
+ * - A select answers with the picker's own option value(s) matching the
+ *   clicked one(s). When the platform delivered the clicked value as a raw
+ *   string (`raw`, see `InteractionEvent.rawValue`), a primitive option
+ *   matches when its string form equals that string exactly. Otherwise
+ *   platforms carry option values as strings, so a primitive matches by its
+ *   string form and an object by its stable JSON. A value that matches no
+ *   option (or an array for a single select) is refused. A multi select
+ *   also accepts a single value: a platform without multi select (WhatsApp,
+ *   Telegram) sends the one option the user picked.
+ * - An input answers with the text the user typed.
+ */
+export function choiceAnswer(
+  control: ChoiceControl,
+  clicked: unknown,
+  raw?: string | readonly string[],
+): { ok: true; value: unknown } | { ok: false } {
+  switch (control.kind) {
+    case "button":
+      return { ok: true, value: control.value };
+    case "input":
+      return clicked === undefined || typeof clicked === "string"
+        ? { ok: true, value: clicked }
+        : { ok: false };
+    case "select": {
+      const match = (v: unknown, r: string | undefined) =>
+        control.options.find((own) =>
+          r !== undefined && (own === null || typeof own !== "object")
+            ? String(own) === r
+            : sameChoiceValue(own, v),
+        );
+      if (control.multi) {
+        if (clicked === undefined) return { ok: false };
+        const values = Array.isArray(clicked) ? clicked : [clicked];
+        const raws = Array.isArray(raw)
+          ? raw
+          : typeof raw === "string"
+            ? [raw]
+            : undefined;
+        const chosen: unknown[] = [];
+        for (const [i, v] of values.entries()) {
+          const own = match(v, raws?.[i]);
+          if (own === undefined) return { ok: false };
+          chosen.push(own);
+        }
+        return { ok: true, value: chosen };
+      }
+      const own = match(clicked, typeof raw === "string" ? raw : undefined);
+      return own === undefined ? { ok: false } : { ok: true, value: own };
+    }
+  }
+}
+
+/** Whether a clicked option value is the picker's own option value `own`. */
+function sameChoiceValue(own: unknown, clicked: unknown): boolean {
+  if (Object.is(own, clicked)) return true;
+  if (clicked === undefined || clicked === null) return false;
+  if (own === null || typeof own !== "object") {
+    return typeof clicked !== "object" && String(own) === String(clicked);
+  }
+  return (
+    typeof clicked === "object" &&
+    stableStringify(own) === stableStringify(clicked)
+  );
+}
+
+const CHOICE_EVENT_PROPS = ["onClick", "onSelect", "onSubmit"];
+
+/** The event prop that carries each picker control's action id. */
+const PICKER_CONTROL_EVENT_PROP: Readonly<Record<string, string>> = {
+  button: "onClick",
+  select: "onSelect",
+  input: "onSubmit",
+};
+
+/**
+ * Give every picker control that has no handler its own per-post action id
+ * (`{ id }` on its event prop, unregistered: there is no handler to run).
+ * Without one, each renderer derives a fallback id that may not round-trip:
+ * Slack truncates a long JSON `action_id` and uses `"action"` / `"input"` for
+ * valueless buttons and inputs, and Teams sends no `ckActionId` at all, so the
+ * picker could never be answered. Link buttons never dispatch and are skipped.
+ * Returns the ids it minted. Walks every prop, so provider-native slots are
+ * covered; `<Render>` snapshots and host elements are not.
+ */
+function stampUnboundPickerControls(
+  value: unknown,
+  ids = new Set<string>(),
+): Set<string> {
+  if (Array.isArray(value)) {
+    for (const v of value) stampUnboundPickerControls(v, ids);
+    return ids;
+  }
+  if (
+    typeof value !== "object" ||
+    value === null ||
+    !("type" in value) ||
+    !("props" in value) ||
+    typeof value.props !== "object" ||
+    value.props === null
+  ) {
+    return ids;
+  }
+  const node = value as ChannelNode;
+  // A <Render> snapshot becomes an image, and a host (React DOM) element is
+  // part of one: neither holds picker controls, and React freezes its props.
+  if (isOpaqueNode(node)) return ids;
+  const eventProp =
+    typeof node.type === "string"
+      ? PICKER_CONTROL_EVENT_PROP[node.type]
+      : undefined;
+  const isLink =
+    typeof node.props.url === "string" && node.props.url.length > 0;
+  if (eventProp && !isLink && !isActionRef(node.props[eventProp])) {
+    const id = mintActionId();
+    node.props[eventProp] = { id };
+    ids.add(id);
+  }
+  for (const [name, v] of Object.entries(node.props)) {
+    if (!CHOICE_EVENT_PROPS.includes(name)) stampUnboundPickerControls(v, ids);
+  }
+  return ids;
+}
+
+/**
+ * A node whose props are not channel IR: a `<Render>` snapshot or a host
+ * (React DOM) element. `ActionRegistry` skips the same nodes when it binds.
+ */
+function isOpaqueNode(node: ChannelNode): boolean {
+  return node.type === "render" || isHostElement(node);
+}
+
+/** A registry-minted `{ id }` reference on an event prop. */
+function isActionRef(ref: unknown): ref is { id: string } {
+  return (
+    typeof ref === "object" &&
+    ref !== null &&
+    "id" in ref &&
+    typeof ref.id === "string"
+  );
+}
+
+/**
+ * The picker's controls by the action id a click on each arrives with. After
+ * {@link stampUnboundPickerControls} every button, select and input carries a
+ * per-post `{ id }` on its event prop; `unbound` holds the ids that have no
+ * registered handler. Walks every prop, so provider-native slots are covered;
+ * `<Render>` snapshots and host elements are not.
+ */
+function collectChoiceControls(
+  value: unknown,
+  unbound: ReadonlySet<string>,
+  controls = new Map<string, ChoiceControl>(),
+): Map<string, ChoiceControl> {
+  if (Array.isArray(value)) {
+    for (const v of value) collectChoiceControls(v, unbound, controls);
+    return controls;
+  }
+  if (
+    typeof value !== "object" ||
+    value === null ||
+    !("type" in value) ||
+    !("props" in value) ||
+    typeof value.props !== "object" ||
+    value.props === null
+  ) {
+    return controls;
+  }
+  const node = value as ChannelNode;
+  if (isOpaqueNode(node)) return controls;
+  for (const prop of CHOICE_EVENT_PROPS) {
+    const ref = node.props[prop];
+    if (!isActionRef(ref)) continue;
+    const bound = !unbound.has(ref.id);
+    if (node.type === "select") {
+      const options =
+        (node.props.options as { value: unknown }[] | undefined) ?? [];
+      controls.set(ref.id, {
+        kind: "select",
+        options: options.map((o) => o.value),
+        multi: node.props.multi === true,
+        bound,
+      });
+    } else if (node.type === "input") {
+      controls.set(ref.id, { kind: "input", bound });
+    } else {
+      controls.set(ref.id, { kind: "button", value: node.props.value, bound });
+    }
+  }
+  for (const [name, v] of Object.entries(node.props)) {
+    if (!CHOICE_EVENT_PROPS.includes(name)) {
+      collectChoiceControls(v, unbound, controls);
+    }
+  }
+  return controls;
+}
+
+function containsType(nodes: readonly ChannelNode[], type: string): boolean {
+  for (const node of nodes) {
+    if (node.type === type) return true;
+    const raw = node.props.children;
+    const kids = Array.isArray(raw) ? raw : raw != null ? [raw] : [];
+    const next: ChannelNode[] = [];
+    for (const k of kids) {
+      if (typeof k === "object" && k !== null && "type" in k) {
+        next.push(k as ChannelNode);
+      }
+    }
+    if (containsType(next, type)) return true;
+  }
+  return false;
 }
 
 let transcriptWarned = false;

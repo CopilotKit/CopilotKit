@@ -1,11 +1,13 @@
 import type { AbstractAgent, RunAgentInput } from "@ag-ui/client";
-import { RunAgentInputSchema } from "@ag-ui/client";
+import { RunAgentInputSchema } from "@ag-ui/core/schemas";
+import type { CopilotKitUIEnvelope } from "@copilotkit/shared";
 import {
   A2UIMiddleware,
   OpenGenerativeUIMiddleware,
 } from "@copilotkit/shared/event-transforms";
 import { MCPAppsMiddleware } from "@ag-ui/mcp-apps-middleware";
 import { MCPMiddleware } from "@ag-ui/mcp-middleware";
+import { GenerativeUIMiddleware } from "../../generative-ui";
 import type { CopilotRuntimeLike } from "../../core/runtime";
 import {
   isA2UIEnabled,
@@ -92,6 +94,11 @@ export function configureAgentForRequest(params: {
    * has to also set `a2ui.injectA2UITool` on the runtime.
    */
   providerA2UIHasCatalog?: boolean;
+  /**
+   * The transport of the generative UI envelope that the client sent on this
+   * run (`forwardedProps.copilotkit.ui`). Not set when the run has no envelope.
+   */
+  providerGenerativeUITransport?: CopilotKitUIEnvelope["metadata"]["extensions"]["copilotkit_transport"];
   /** Retain proxy rejection even when no server is available to this agent. */
   isMcpProxyRequest?: boolean;
 }): void {
@@ -160,6 +167,24 @@ export function configureAgentForRequest(params: {
     const shouldApply = !targetAgents || targetAgents.includes(agentId);
     if (shouldApply && typeof agent.use === "function") {
       agent.use(new OpenGenerativeUIMiddleware());
+    }
+  }
+
+  // A "markdown" envelope means the model writes ```a2ui fences, so the run
+  // gets no render tool, even when the runtime turns generative UI on.
+  const generativeUI = runtime.generativeUI;
+  const transport = params.providerGenerativeUITransport;
+  const isGenerativeUIRun =
+    transport === "tool" || (transport !== "markdown" && !!generativeUI);
+  if (
+    isGenerativeUIRun &&
+    generativeUI !== false &&
+    typeof agent.use === "function"
+  ) {
+    const targetAgents =
+      typeof generativeUI === "object" ? generativeUI.agents : undefined;
+    if (!targetAgents || targetAgents.includes(agentId)) {
+      agent.use(new GenerativeUIMiddleware());
     }
   }
 
@@ -293,12 +318,172 @@ export async function attachIntelligenceEnterpriseLearning(params: {
   );
 }
 
+// Intentional local exception: HTTP request parsing runs before AG-UI's event
+// compatibility boundary. Mirror its historically accepted optional-null rules
+// and its legacy binary-part upgrade here, without depending on a new public
+// AG-UI helper (AG-UI does not export one). Keep these aligned
+// with client/src/middleware/compatibility-boundary.ts and AG-UI's migration guide.
+// Required nulls and nulls within application data must remain untouched.
+function warnCompatibility(what: string, replacement: string) {
+  if (
+    typeof process !== "undefined" &&
+    typeof process.env !== "undefined" &&
+    process.env.SUPPRESS_TRANSFORMATION_WARNINGS
+  )
+    return;
+  console.warn(
+    `[ag-ui][compat] Converting deprecated ${what} to ${replacement}. The old shape leaves the protocol after its shim window — see the repo-root DEPRECATIONS.md. Set SUPPRESS_TRANSFORMATION_WARNINGS=true to silence.`,
+  );
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function omitLegacyNull(
+  value: unknown,
+  field: string,
+  context: string,
+): unknown {
+  if (!isRecord(value) || value[field] !== null) return value;
+  warnCompatibility(`${context}.${field}: null`, "an absent field");
+  const { [field]: _null, ...rest } = value;
+  return rest;
+}
+
+function mapProtocolArray(
+  value: unknown,
+  field: string,
+  normalize: (entry: unknown) => unknown,
+): unknown {
+  if (!isRecord(value) || !Array.isArray(value[field])) return value;
+  const original = value[field];
+  const entries = original.map(normalize);
+  return entries.some((entry, index) => entry !== original[index])
+    ? { ...value, [field]: entries }
+    : value;
+}
+
+function mediaTypeFor(
+  mimeType: string,
+): "image" | "audio" | "video" | "document" {
+  if (mimeType.startsWith("image/")) return "image";
+  if (mimeType.startsWith("audio/")) return "audio";
+  if (mimeType.startsWith("video/")) return "video";
+  return "document";
+}
+
+function sameSource(part: unknown, converted: Record<string, unknown>) {
+  if (!isRecord(part) || part.type !== converted.type) return false;
+  const a = part.source;
+  const b = converted.source as Record<string, unknown>;
+  return (
+    isRecord(a) &&
+    a.type === b.type &&
+    a.value === b.value &&
+    a.mimeType === b.mimeType
+  );
+}
+
+/**
+ * The 0.x `{ type: "binary" }` part, which 1.0 retired and main accepted.
+ * Mirrors AG-UI's outgoing upgrade (client/src/middleware/legacy-content.ts):
+ * data or url becomes the media part its mime type names, and a binary part
+ * that only mirrors a modern part already in the message is dropped. A part
+ * with only an `id` has no 1.0 form; it is dropped with a warning instead of
+ * failing the whole request, which is what BuiltInAgent already did with it.
+ */
+function upgradeLegacyBinaryParts(content: unknown[]): unknown[] {
+  return content.flatMap((part) => {
+    if (
+      !isRecord(part) ||
+      part.type !== "binary" ||
+      typeof part.mimeType !== "string"
+    )
+      return [part];
+    const kind =
+      typeof part.data === "string"
+        ? "data"
+        : typeof part.url === "string"
+          ? "url"
+          : null;
+    if (kind === null) {
+      console.warn(
+        "[CopilotKit] Dropping a legacy binary content part that has no data or url; AG-UI 1.0 has no equivalent for it.",
+      );
+      return [];
+    }
+    warnCompatibility("binary input content", "the modern media content part");
+    const converted: Record<string, unknown> = {
+      type: mediaTypeFor(part.mimeType),
+      source: {
+        type: kind,
+        value: kind === "data" ? part.data : part.url,
+        mimeType: part.mimeType,
+      },
+      ...(typeof part.filename === "string"
+        ? { metadata: { filename: part.filename } }
+        : {}),
+    };
+    return content.some((other) => sameSource(other, converted))
+      ? []
+      : [converted];
+  });
+}
+
+function normalizeLegacyMessageContent(message: unknown): unknown {
+  const upgraded =
+    isRecord(message) &&
+    Array.isArray(message.content) &&
+    message.content.some((part) => isRecord(part) && part.type === "binary")
+      ? {
+          ...message,
+          content: upgradeLegacyBinaryParts(message.content),
+        }
+      : message;
+  return mapProtocolArray(upgraded, "content", (part) => {
+    if (!isRecord(part)) return part;
+    switch (part.type) {
+      case "image":
+      case "audio":
+      case "video":
+      case "document":
+        return omitLegacyNull(part, "metadata", `${part.type} input content`);
+      default:
+        return part;
+    }
+  });
+}
+
+function normalizeLegacyRunAgentInput(input: unknown): unknown {
+  let normalized = omitLegacyNull(input, "forwardedProps", "RunAgentInput");
+  normalized = mapProtocolArray(normalized, "tools", (tool) =>
+    omitLegacyNull(tool, "parameters", "Tool"),
+  );
+  normalized = mapProtocolArray(normalized, "resume", (entry) =>
+    omitLegacyNull(entry, "payload", "ResumeEntry"),
+  );
+  return mapProtocolArray(
+    normalized,
+    "messages",
+    normalizeLegacyMessageContent,
+  );
+}
+
+function parseRunAgentInput(value: unknown): RunAgentInput {
+  // With strictNullChecks disabled, Zod infers some required nested fields
+  // (such as image.source) as optional. The schema still validates them.
+  return RunAgentInputSchema.parse(
+    normalizeLegacyRunAgentInput(value),
+  ) as RunAgentInput;
+}
+
 export async function parseRunRequest(
   request: Request,
 ): Promise<RunAgentInput | Response> {
   try {
     const requestBody = await request.json();
-    return RunAgentInputSchema.parse(requestBody);
+    return parseRunAgentInput(requestBody);
   } catch (error) {
     logger.error("Invalid run request body:", error);
     return new Response(
@@ -323,7 +508,7 @@ export async function parseConnectRequest(request: Request): Promise<
 > {
   try {
     const requestBody = await request.json();
-    const input = RunAgentInputSchema.parse(requestBody);
+    const input = parseRunAgentInput(requestBody);
     let lastSeenEventId: string | null = null;
 
     if (

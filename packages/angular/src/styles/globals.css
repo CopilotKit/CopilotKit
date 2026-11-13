@@ -71,6 +71,15 @@
   --copilot-kit-error-background: #7f1d1d;
   --copilot-kit-error-border: #dc2626;
   --copilot-kit-error-text: #fca5a5;
+  /* A2UI components from @copilotkit/angular/a2ui; light values are their fallbacks. */
+  --a2ui-color-surface: var(--copilot-kit-secondary-color);
+  --a2ui-color-border: rgb(64, 64, 64);
+  --a2ui-color-muted: #a1a1aa;
+  --a2ui-color-error: #f87171;
+  --a2ui-color-input: var(--copilot-kit-input-background-color);
+  --a2ui-color-on-input: var(--copilot-kit-secondary-contrast-color);
+  --a2ui-color-placeholder: #262626;
+  --a2ui-color-placeholder-highlight: #3f3f46;
   --copilot-kit-shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.3);
   --copilot-kit-shadow-md:
     0 4px 6px -1px rgba(0, 0, 0, 0.4), 0 2px 4px -1px rgba(0, 0, 0, 0.3);

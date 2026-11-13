@@ -1,0 +1,21 @@
+.summary {
+  align-items: center;
+}
+
+.content {
+  min-width: 0;
+}
+
+.heading {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+}
+
+.meta {
+  color: var(--muted-foreground);
+  font-size: var(--text-caption);
+  font-variant-numeric: tabular-nums;
+  margin: 0;
+}

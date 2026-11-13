@@ -1,0 +1,50 @@
+.layout {
+  display: grid;
+  /*
+    Reserve the desktop drawer's width (its default 320px) as a fixed first
+    column so the layout doesn't shift when the client-only <CopilotThreadsDrawer>
+    mounts after hydration. On mobile the drawer is an off-canvas overlay (out
+    of flow), so the column collapses and the content fills the width.
+  */
+  grid-template-columns: var(--cpk-drawer-reserved-width, 320px) minmax(0, 1fr);
+  /* Drawer sets --cpk-drawer-reserved-width to 0 on desktop-collapse, so the
+     reserved column collapses and the chat reclaims the space. */
+  transition: grid-template-columns 0.2s ease;
+  /*
+    Bound the single grid row to the viewport (minmax(0,1fr) lets it shrink
+    below content) so a long thread list scrolls INTERNALLY in the drawer with
+    the header pinned, instead of the drawer growing past the viewport and the
+    page scrolling the header away.
+  */
+  grid-template-rows: minmax(0, 1fr);
+  height: 100dvh;
+  width: 100%;
+  overflow: hidden;
+}
+
+.mainPanel {
+  /*
+    Pin the content to the SECOND track explicitly. The client-only drawer
+    renders nothing during SSR, so without this the content would flow into the
+    reserved first column at first paint and then jump once the drawer mounts.
+  */
+  grid-column: 2;
+  min-width: 0;
+  height: 100dvh;
+  overflow: hidden;
+}
+
+/*
+  Mobile (≤768px): the drawer is an off-canvas overlay — collapse to a single
+  track. MUST come after the base rules (media queries add no specificity, so a
+  later same-specificity base rule would otherwise win and leak the two-column
+  desktop layout onto mobile).
+*/
+@media (max-width: 768px) {
+  .layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .mainPanel {
+    grid-column: auto;
+  }
+}

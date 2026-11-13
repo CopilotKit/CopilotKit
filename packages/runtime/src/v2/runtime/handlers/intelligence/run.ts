@@ -20,6 +20,9 @@ import {
   resolveLearningContainerSelector,
 } from "../../core/learning";
 import { getPlatformErrorStatus } from "../shared/intelligence-utils";
+import { startThreadLockHeartbeat } from "../../intelligence-platform/thread-lock-heartbeat";
+import { normalizeAnalyticsContext } from "../../intelligence-platform/analytics-context";
+import type { ThreadSummary } from "../../intelligence-platform";
 
 /**
  * Builds browser-facing realtime connection metadata owned by the runtime.
@@ -62,6 +65,11 @@ interface HandleIntelligenceRunParams {
   agentId: string;
   agent: AbstractAgent;
   input: RunAgentInput;
+  /**
+   * The app's analytics context, already taken off `input.forwardedProps` by
+   * `takeAnalyticsContext`. Sent on the lock request only.
+   */
+  analyticsContext?: unknown;
   startTime?: number;
 }
 
@@ -71,6 +79,7 @@ export async function handleIntelligenceRun({
   agentId,
   agent,
   input,
+  analyticsContext: forwardedAnalyticsContext,
   startTime,
 }: HandleIntelligenceRunParams): Promise<Response> {
   const runtimeTelemetry = runtime.telemetry ?? telemetry;
@@ -90,6 +99,27 @@ export async function handleIntelligenceRun({
     return user;
   }
   const userId = user.id;
+
+  const proxyRequest = (
+    input.forwardedProps as Record<string, unknown> | undefined
+  )?.__proxiedMCPRequest;
+  const isDirectResourceRead =
+    input.forwardedProps?.__copilotkitMcpResourceReadOnly === true &&
+    proxyRequest &&
+    typeof proxyRequest === "object" &&
+    (proxyRequest as { method?: unknown }).method === "resources/read";
+
+  // CopilotKit core sends one request ID across a request's follow-up runs
+  // and resumes. Older clients send none, and the platform then uses the run ID.
+  const forwardedRequestId = input.forwardedProps?.__copilotkitRequestId;
+  const requestId =
+    typeof forwardedRequestId === "string" && forwardedRequestId.length > 0
+      ? forwardedRequestId
+      : undefined;
+
+  // An app's analytics context labels the run in Intelligence. A missing or
+  // malformed one is left off the lock request and never fails the run.
+  const analyticsContext = normalizeAnalyticsContext(forwardedAnalyticsContext);
 
   let learningContainerId: string | undefined;
   try {
@@ -117,13 +147,16 @@ export async function handleIntelligenceRun({
     );
   }
 
+  let thread: ThreadSummary;
   try {
-    const { thread, created } = await runtime.intelligence.getOrCreateThread({
+    const initialized = await runtime.intelligence.getOrCreateThread({
       threadId: input.threadId,
       userId,
       agentId,
       ...(learningContainerId !== undefined ? { learningContainerId } : {}),
     });
+    thread = initialized.thread;
+    const { created } = initialized;
 
     if (created && runtime.generateThreadNames && !thread.name?.trim()) {
       void generateThreadNameForNewThread({
@@ -155,16 +188,59 @@ export async function handleIntelligenceRun({
     );
   }
 
+  // MCP App resources are presentation data. Initialize the thread through the
+  // usual path, then fetch without claiming its mutation lock so an approval
+  // can continue while the resource server is still answering.
+  if (isDirectResourceRead) {
+    try {
+      if (thread.agentId && thread.agentId !== agentId) {
+        return Response.json(
+          { error: "Thread belongs to another agent" },
+          { status: 403 },
+        );
+      }
+      agent.threadId = thread.id;
+      const run = await agent.runAgent({
+        runId: input.runId,
+        tools: input.tools,
+        context: input.context,
+        forwardedProps: input.forwardedProps,
+      });
+      return Response.json({
+        kind: "mcp-resource-read",
+        threadId: thread.id,
+        runId: input.runId,
+        result: run.result ?? null,
+      });
+    } catch (error) {
+      logger.error("MCP resource read failed:", error);
+      const status = getPlatformErrorStatus(error);
+      return Response.json(
+        { error: "MCP resource read failed" },
+        { status: status && status >= 400 && status < 500 ? status : 502 },
+      );
+    }
+  }
+
   let canonicalThreadId = input.threadId;
   let canonicalRunId = input.runId;
   let joinToken: string | undefined;
+  let backendThreadId: string | undefined;
+  let lockTtlSeconds: number | undefined;
+  let lockRequestedAt = 0;
   try {
+    // The platform starts the lock's TTL when it handles the request, so time
+    // the lifetime from the send rather than from the response.
+    lockRequestedAt = Date.now();
     const lockResult = await runtime.intelligence.ɵacquireThreadLock({
+      supportsBackendThreadId: true,
       threadId: input.threadId,
       runId: input.runId,
       userId,
       agentId,
       ...(learningContainerId !== undefined ? { learningContainerId } : {}),
+      ...(requestId !== undefined ? { requestId } : {}),
+      ...(analyticsContext !== undefined ? { analyticsContext } : {}),
       ...(runtime.lockKeyPrefix !== undefined
         ? { lockKeyPrefix: runtime.lockKeyPrefix }
         : {}),
@@ -173,6 +249,8 @@ export async function handleIntelligenceRun({
     canonicalThreadId = lockResult.threadId;
     canonicalRunId = lockResult.runId;
     joinToken = lockResult.joinToken;
+    backendThreadId = lockResult.backendThreadId;
+    lockTtlSeconds = lockResult.ttlSeconds;
   } catch (error) {
     logger.error("Thread lock denied:", error);
     const platformStatus = getPlatformErrorStatus(error);
@@ -220,12 +298,11 @@ export async function handleIntelligenceRun({
   let persistedInputMessages: Message[] | undefined;
   if (Array.isArray(input.messages)) {
     try {
-      const history = await runtime.intelligence.getThreadMessages({
-        threadId: canonicalThreadId,
-        userId,
-      });
       const historicMessageIds = new Set(
-        history.messages.map((message) => message.id),
+        await runtime.intelligence.ɵgetThreadMessageIds({
+          threadId: canonicalThreadId,
+          userId,
+        }),
       );
       persistedInputMessages = input.messages.filter(
         (message) => !historicMessageIds.has(message.id),
@@ -244,54 +321,80 @@ export async function handleIntelligenceRun({
 
   runtimeTelemetry.capture("oss.runtime.agent_execution_stream_started", {});
 
-  // Start heartbeat timer to renew the thread lock.
-  let heartbeatStopped = false;
-  let heartbeatTimer: ReturnType<typeof setInterval> | undefined;
-  heartbeatTimer = setInterval(() => {
-    runtime.intelligence
-      .ɵrenewThreadLock({
+  // Keep the thread lock alive while the run executes. Transient renewal
+  // failures are retried within the lock's remaining TTL; only a lost lock
+  // (or running out of time) aborts the run.
+  const heartbeat = startThreadLockHeartbeat({
+    renew: (signal) =>
+      runtime.intelligence.ɵrenewThreadLock({
         threadId: canonicalThreadId,
         runId: canonicalRunId,
         ttlSeconds: runtime.lockTtlSeconds,
         ...(runtime.lockKeyPrefix !== undefined
           ? { lockKeyPrefix: runtime.lockKeyPrefix }
           : {}),
-      })
-      .catch((err) => {
-        if (heartbeatStopped) {
-          return;
-        }
-
-        logger.error("Failed to renew thread lock:", err);
-        clearHeartbeat();
-        try {
-          agent.abortRun();
-        } catch (abortError) {
-          logger.error(
-            "Failed to abort agent after lock renewal failure:",
-            abortError,
-          );
-        }
-      });
-  }, runtime.lockHeartbeatIntervalSeconds * 1_000);
+        signal,
+      }),
+    intervalMs: runtime.lockHeartbeatIntervalSeconds * 1_000,
+    fallbackTtlSeconds: runtime.lockTtlSeconds,
+    // The acquire round trip and the history lookup above both run between
+    // the lock request and now, so pass the lifetime the platform set minus
+    // the time already spent.
+    initialTtlSeconds:
+      lockTtlSeconds === undefined
+        ? undefined
+        : lockTtlSeconds - (Date.now() - lockRequestedAt) / 1_000,
+    onLost: (err) => {
+      logger.error("Failed to renew thread lock:", err);
+      try {
+        agent.abortRun();
+      } catch (abortError) {
+        logger.error(
+          "Failed to abort agent after lock renewal failure:",
+          abortError,
+        );
+      }
+    },
+  });
 
   const clearHeartbeat = () => {
-    heartbeatStopped = true;
-    if (heartbeatTimer !== undefined) {
-      clearInterval(heartbeatTimer);
-      heartbeatTimer = undefined;
-    }
+    heartbeat.stop();
   };
 
   const runStarted = { current: false };
   let immediateStartupErrorMessage: string | undefined;
-  let immediateStartupCleanup: Promise<void> | undefined;
+
+  // The runner sends the run's events to Intelligence, whose gateway checks
+  // this lock each time it stores a batch and releases it when it stores the
+  // run's terminal event. Release it here only once the runner's stream has
+  // ended, after the runner delivered the run's last events or failed to for
+  // good. A RUN_ERROR reaches this handler before the runner has sent it, so
+  // releasing then got the runner's next batch refused. The release is a
+  // compare-and-delete by run ID: a second one, or one after the gateway's,
+  // changes nothing and never frees a lock a newer run holds.
+  let lockRelease: Promise<void> | undefined;
+  const releaseLock = (reason: string): Promise<void> => {
+    clearHeartbeat();
+    lockRelease ??= cleanupLock(reason);
+    return lockRelease;
+  };
 
   const runRequest: AgentRunnerRunRequest = {
     threadId: canonicalThreadId,
+    ...(backendThreadId === undefined ? {} : { backendThreadId }),
     agent,
     input: canonicalInput,
     ...(persistedInputMessages !== undefined ? { persistedInputMessages } : {}),
+    // A stop made by this runtime (its stop route, a server-side caller) never
+    // passes through Intelligence, which would count the run as finished.
+    recordStop: (signal) =>
+      runtime.intelligence.ɵrecordRunStop({
+        threadId: canonicalThreadId,
+        runId: canonicalRunId,
+        userId,
+        agentId,
+        signal,
+      }),
   };
 
   const runtimeErrorReporter = getRuntimeErrorReporter(runtime);
@@ -340,10 +443,10 @@ export async function handleIntelligenceRun({
               ? "intelligence.subscription"
               : "intelligence.startup",
           );
+          // The runner may still be sending this error and the events before
+          // it, so the lock stays held until its stream ends.
           if (!runStarted.current) {
-            clearHeartbeat();
             immediateStartupErrorMessage = message;
-            immediateStartupCleanup = cleanupLock("runner-start-failed");
           }
         }
       },
@@ -354,18 +457,19 @@ export async function handleIntelligenceRun({
             ? "intelligence.subscription"
             : "intelligence.startup",
         );
-        clearHeartbeat();
         if (!runStarted.current) {
           immediateStartupErrorMessage =
             error instanceof Error ? error.message : String(error);
-          immediateStartupCleanup = cleanupLock("runner-start-error");
-        } else {
-          cleanupLock("runner-error");
         }
+        // The runner gave up delivering the run's events.
+        void releaseLock(
+          runStarted.current ? "runner-error" : "runner-start-error",
+        );
         logger.error("Error running agent:", error);
       },
       complete: () => {
-        clearHeartbeat();
+        // The runner has delivered the run's last events.
+        void releaseLock("run-ended");
         // Preserve the existing completion count even when the stream contains
         // RUN_ERROR. Failure reporting is separate and carries only a safe code.
         runtimeTelemetry.capture(
@@ -378,8 +482,7 @@ export async function handleIntelligenceRun({
     await runStart.startup;
   } catch (error) {
     reportAgentError(error, "intelligence.startup");
-    clearHeartbeat();
-    await (immediateStartupCleanup ?? cleanupLock("runner-start-threw"));
+    await releaseLock("runner-start-threw");
     logger.error("Error starting agent runner:", error);
     return Response.json(
       {
@@ -391,7 +494,9 @@ export async function handleIntelligenceRun({
   }
 
   if (immediateStartupErrorMessage) {
-    await immediateStartupCleanup;
+    // A run that failed before it started has nothing left to send, and this
+    // request gives it up.
+    await releaseLock("runner-start-failed");
     return Response.json(
       {
         error: "Failed to start runner",

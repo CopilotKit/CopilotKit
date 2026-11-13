@@ -312,6 +312,39 @@ describe("IntelligenceAgentRunner", () => {
     sub.unsubscribe();
   });
 
+  it("sends Phoenix heartbeats every 15s on the runner socket by default", () => {
+    const threadId = "t-heartbeat-default";
+    const input = createRunInput({ threadId, runId: "r-heartbeat-default" });
+    const agent = new MockAgent();
+
+    const sub = runner.run({ threadId, agent, input }).subscribe();
+
+    expect(mockSockets[0]?.opts).toMatchObject({
+      heartbeatIntervalMs: 15_000,
+    });
+
+    sub.unsubscribe();
+  });
+
+  it("passes a configured heartbeatIntervalMs to the runner socket", () => {
+    runner = new IntelligenceAgentRunner({
+      url: "ws://localhost:4000/runner",
+      heartbeatIntervalMs: 5_000,
+    });
+
+    const threadId = "t-heartbeat-override";
+    const input = createRunInput({ threadId, runId: "r-heartbeat-override" });
+    const agent = new MockAgent();
+
+    const sub = runner.run({ threadId, agent, input }).subscribe();
+
+    expect(mockSockets[0]?.opts).toMatchObject({
+      heartbeatIntervalMs: 5_000,
+    });
+
+    sub.unsubscribe();
+  });
+
   it("uses a per-run Phoenix authToken instead of the configured token", () => {
     runner = new IntelligenceAgentRunner({
       url: "ws://localhost:4000/runner",
@@ -379,9 +412,11 @@ describe("IntelligenceAgentRunner", () => {
 
       const events = await eventsPromise;
 
-      // Agent events are NOT emitted to the Observable — only to the channel.
-      // The Observable only receives finalization events (none needed here).
-      expect(events).toHaveLength(0);
+      // Agent events go to the channel only. The Observable tells the request
+      // handler that the run started, and would carry a RUN_ERROR.
+      expect(events.map((event) => event.type)).toEqual([
+        EventType.RUN_STARTED,
+      ]);
     });
 
     it("pushes agent events to the Phoenix channel", async () => {
@@ -1806,7 +1841,9 @@ describe("IntelligenceAgentRunner", () => {
       expect(await runner.isRunning({ threadId })).toBe(true);
       expect(ch.left).toBe(false);
       ch.triggerJoin("ok");
-      expect(await eventsPromise).toEqual([]);
+      expect((await eventsPromise).map((event) => event.type)).toEqual([
+        EventType.RUN_STARTED,
+      ]);
     });
 
     it("throws when the thread is already running", () => {

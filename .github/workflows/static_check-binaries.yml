@@ -2,7 +2,7 @@ name: static / check binaries
 
 on:
   pull_request:
-    branches: [main]
+    branches: [main, "[0-9]+.[0-9]+.[0-9]+"]
 
 permissions:
   contents: read
@@ -10,6 +10,7 @@ permissions:
 jobs:
   check-config-files:
     runs-on: ubuntu-latest
+    timeout-minutes: 5 # observed max 0.2m over 24 runs
     permissions:
       contents: read
     steps:
@@ -23,6 +24,7 @@ jobs:
 
   check-binaries:
     runs-on: ubuntu-latest
+    timeout-minutes: 10 # observed max 1.5m over 24 runs
     permissions:
       contents: read
     steps:

@@ -22,6 +22,13 @@ discovery:
   filter:
     namePrefix: "showcase-"
     nameExcludes:
+      # These staging-only services use pinned Intelligence/database images.
+      - "showcase-intelligence-api"
+      - "showcase-intelligence-composite"
+      - "showcase-intelligence-gateway"
+      - "showcase-intelligence-gateway-proxy"
+      - "showcase-intelligence-postgres"
+      - "showcase-intelligence-redis"
       # Decommissioned starters — Railway services stopped (PR #4390)
       - "showcase-starter-ag2"
       - "showcase-starter-agno"

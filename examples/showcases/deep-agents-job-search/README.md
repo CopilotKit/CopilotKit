@@ -82,7 +82,7 @@ Create the `agent/.env` and set your keys:
 ```dotenv
 OPENAI_API_KEY=sk-proj-...
 TAVILY_API_KEY=tvly-dev-...
-OPENAI_MODEL=gpt-4-turbo
+OPENAI_MODEL=gpt-6-luna
 ```
 
 ## Setup & Installation
@@ -130,4 +130,4 @@ Navigate to [http://localhost:3000](http://localhost:3000) in your browser.
 
 ## License
 
-This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
+This project is licensed under the MIT License. See the [LICENSE](../../../LICENSE) file for details.

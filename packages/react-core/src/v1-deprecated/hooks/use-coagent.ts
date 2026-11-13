@@ -74,7 +74,7 @@
  *   running,  // A boolean indicating if the agent is currently running.
  *   start,    // A function to start the agent.
  *   stop,     // A function to stop the agent.
- *   run,      // A function to (re-)run the agent. Maps to the v2 agent's `runAgent()`.
+ *   run,      // A function to (re-)run the agent through the v2 core (`copilotkit.runAgent`).
  * } = agent;
  * ```
  *
@@ -207,10 +207,21 @@ export interface UseCoagentReturnType<T> {
    */
   stop: () => void;
   /**
-   * A function to (re-)run the agent. In v2 this maps to the underlying
-   * agent's `runAgent()`.
+   * A function to (re-)run the agent. In v2 this runs it through the core
+   * (`copilotkit.runAgent`), so the run carries the configured properties,
+   * the registered frontend tools and the readable context. It honors
+   * `forwardedProps` and `runId` from its first argument; the core builds the
+   * tools and context itself. A failed run does not reject: the core reports
+   * the error to its error subscribers (code `AGENT_RUN_FAILED`) and resolves
+   * with an empty result.
    */
   run: (...args: any[]) => Promise<any>;
+}
+
+/** The fields of `run`'s first argument that the v2 core accepts. */
+interface UseCoagentRunParameters {
+  forwardedProps?: Record<string, unknown>;
+  runId?: string;
 }
 
 export interface HintFunctionParams {
@@ -349,6 +360,29 @@ export function useCoAgent<T = any>(
     };
   }, [agent, handleStateUpdate, hasStateValues]);
 
+  // start, run and stop go through the v2 core, as the v1 chat path does.
+  // copilotkit.runAgent sends the config set above (setProperties), the
+  // registered frontend tools and the readable context, and it executes the
+  // frontend tool calls the agent makes. stopAgent also cancels those tool
+  // handlers and the follow-up run. The bare agent.runAgent / agent.abortRun
+  // skipped all of that, and as detached prototype methods they threw (#3132).
+  // useCallback keeps each function stable across state changes, as the bare
+  // methods were.
+  const runAgent = useCallback(
+    async (parameters?: UseCoagentRunParameters) => {
+      if (!agent) return undefined;
+      return copilotkit.runAgent({
+        agent,
+        forwardedProps: parameters?.forwardedProps,
+        runId: parameters?.runId,
+      });
+    },
+    [agent, copilotkit],
+  );
+  const stopAgent = useCallback(() => {
+    if (agent) copilotkit.stopAgent({ agent });
+  }, [agent, copilotkit]);
+
   // Return a consistent shape whether or not the agent is available
   return useMemo<UseCoagentReturnType<T>>(() => {
     if (!agent) {
@@ -381,15 +415,14 @@ export function useCoAgent<T = any>(
       state: agent.state,
       setState: handleStateUpdate,
       // TODO: start and run both have same thing. need to figure out
-      start: agent.runAgent,
-      stop: agent.abortRun,
-      run: agent.runAgent,
+      start: runAgent,
+      stop: stopAgent,
+      run: runAgent,
     };
   }, [
     agent?.state,
-    agent?.runAgent,
-    agent?.abortRun,
-    agent?.runAgent,
+    runAgent,
+    stopAgent,
     agent?.threadId,
     agent?.isRunning,
     agent?.agentId,

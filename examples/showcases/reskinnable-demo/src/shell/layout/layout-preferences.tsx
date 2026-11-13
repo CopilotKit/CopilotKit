@@ -9,6 +9,7 @@ import {
   useSyncExternalStore,
 } from "react";
 import type { ReactNode } from "react";
+import { useOptionalSkin } from "@/shell/skin-provider";
 
 import {
   DEFAULT_LAYOUT_PREFERENCES,
@@ -44,7 +45,10 @@ const LayoutPreferencesContext = createContext<LayoutPreferencesValue | null>(
  * The snapshot is cached because `getSnapshot` must return a stable reference
  * between changes; returning a fresh object each call would loop React.
  */
-function createPreferencesStore() {
+function createPreferencesStore(
+  key: string = LAYOUT_PREFERENCES_KEY,
+  defaults: StoredLayoutPreferences = DEFAULT_LAYOUT_PREFERENCES,
+) {
   let snapshot: StoredLayoutPreferences | null = null;
   const listeners = new Set<() => void>();
 
@@ -52,11 +56,11 @@ function createPreferencesStore() {
     if (snapshot) return snapshot;
     let stored: string | null = null;
     try {
-      stored = window.localStorage.getItem(LAYOUT_PREFERENCES_KEY);
+      stored = window.localStorage.getItem(key);
     } catch {
       // Privacy-mode browsers throw on access; the defaults are fine.
     }
-    snapshot = parseLayoutPreferences(stored);
+    snapshot = stored ? parseLayoutPreferences(stored) : defaults;
     return snapshot;
   }
 
@@ -68,7 +72,7 @@ function createPreferencesStore() {
     getSnapshot,
     /** SSR has no storage, so the server always renders the defaults. */
     getServerSnapshot(): StoredLayoutPreferences {
-      return DEFAULT_LAYOUT_PREFERENCES;
+      return defaults;
     },
     /**
      * Write-through: storage is only touched by a deliberate user action, so the
@@ -77,10 +81,7 @@ function createPreferencesStore() {
     commit(next: StoredLayoutPreferences) {
       snapshot = next;
       try {
-        window.localStorage.setItem(
-          LAYOUT_PREFERENCES_KEY,
-          serializeLayoutPreferences(next),
-        );
+        window.localStorage.setItem(key, serializeLayoutPreferences(next));
       } catch {
         // A non-persisted layout is cosmetic; never break the app over it.
       }
@@ -102,7 +103,20 @@ export function LayoutPreferencesProvider({
   // (a module-level store would leak a cached snapshot between cases). Held in
   // `useState` with a lazy initialiser: constructed exactly once, and legal to
   // read during render, unlike a lazily-assigned ref.
-  const [store] = useState(createPreferencesStore);
+  // A skin that declares `layoutDefaults` keeps its own preference under its
+  // own key, so its default (and the presenter's ⇆ choice on it) never moves
+  // another skin's chat.
+  const skin = useOptionalSkin();
+  const [store] = useState(() =>
+    skin?.layoutDefaults
+      ? createPreferencesStore(`${LAYOUT_PREFERENCES_KEY}:${skin.id}`, {
+          ...DEFAULT_LAYOUT_PREFERENCES,
+          sidebarSide:
+            skin.layoutDefaults.chatSide ??
+            DEFAULT_LAYOUT_PREFERENCES.sidebarSide,
+        })
+      : createPreferencesStore(),
+  );
 
   const preferences = useSyncExternalStore(
     store.subscribe,

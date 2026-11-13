@@ -19,12 +19,13 @@ export function clampSize(
   minWidth: number,
   minHeight: number,
 ): Size {
-  const maxWidth = Math.max(minWidth, viewport.width - edgeMargin * 2);
-  const maxHeight = Math.max(minHeight, viewport.height - edgeMargin * 2);
+  // The viewport wins over the minimums, so the size always fits on screen.
+  const maxWidth = Math.max(0, viewport.width - edgeMargin * 2);
+  const maxHeight = Math.max(0, viewport.height - edgeMargin * 2);
 
   return {
-    width: clamp(size.width, minWidth, maxWidth),
-    height: clamp(size.height, minHeight, maxHeight),
+    width: clamp(size.width, Math.min(minWidth, maxWidth), maxWidth),
+    height: clamp(size.height, Math.min(minHeight, maxHeight), maxHeight),
   };
 }
 

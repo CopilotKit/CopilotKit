@@ -1,9 +1,5 @@
-import {
-  AbstractAgent,
-  RunAgentInput,
-  EventType,
-  BaseEvent,
-} from "@ag-ui/client";
+import type { RunAgentInput, BaseEvent } from "@ag-ui/client";
+import { AbstractAgent, EventType, contentToText } from "@ag-ui/client";
 import { Observable } from "rxjs";
 import { OpenAI } from "openai";
 import type { ChatCompletionMessageParam } from "openai/resources/chat/completions";
@@ -28,9 +24,9 @@ export class OpenAIAgent extends AbstractAgent {
         runId: input.runId,
       } as BaseEvent);
 
-      this.openai.chat.completions
-        .create({
-          model: "gpt-4o",
+      const request: OpenAI.Chat.Completions.ChatCompletionCreateParamsStreaming =
+        {
+          model: "gpt-6-luna",
           stream: true,
           tools: input.tools.map((tool) => ({
             type: "function",
@@ -45,7 +41,9 @@ export class OpenAIAgent extends AbstractAgent {
               if (message.role === "tool") {
                 return {
                   role: "tool",
-                  content: message.content ?? "",
+                  // Chat Completions takes text here; a parts-shaped result is
+                  // rendered as its text parts (media stays on the AG-UI message).
+                  content: contentToText(message.content),
                   tool_call_id: message.toolCallId ?? "",
                 };
               } else if (message.role === "assistant" && message.toolCalls) {
@@ -62,7 +60,9 @@ export class OpenAIAgent extends AbstractAgent {
               }
             },
           ),
-        })
+        };
+      this.openai.chat.completions
+        .create(request, { body: { ...request, reasoning_effort: "none" } })
         .then(async (response) => {
           const messageId = Date.now().toString();
           for await (const chunk of response) {

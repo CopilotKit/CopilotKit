@@ -10,9 +10,10 @@ import type {
 } from "@ag-ui/client";
 import {
   ɵInterruptState,
-  type ɵInterruptDecision,
-  type ɵPendingInterrupt,
+  ɵgetAgentInterruptState,
+  ɵclearAgentInterruptState,
 } from "@copilotkit/core";
+import type { ɵInterruptDecision, ɵPendingInterrupt } from "@copilotkit/core";
 
 const INTERRUPT_EVENT_NAME = "on_interrupt";
 
@@ -67,6 +68,7 @@ export type InterruptRunner = (
 
 /** Error surfaced when an application attempts to resume an expired interrupt. */
 export class InterruptExpiredError extends Error {
+  /** Describe the interrupt whose expiry prevents resolution. */
   constructor(readonly interrupt: Interrupt) {
     super(
       `Interrupt ${interrupt.id} expired at ${interrupt.expiresAt ?? "an unknown time"}.`,
@@ -106,8 +108,7 @@ export class InterruptController<TValue = unknown, TResult = never> {
   readonly #accepted = signal(false);
   readonly #result = signal<TResult | null>(null);
   readonly #error = signal<unknown | null>(null);
-  readonly #interruptState = new ɵInterruptState<TValue>();
-  readonly #interruptRunIds = new Map<string, string>();
+  #interruptState = new ɵInterruptState<TValue>();
   readonly #runner: InterruptRunner;
   readonly #options: InjectInterruptOptions<TValue, TResult>;
   #agent?: AbstractAgent;
@@ -150,6 +151,7 @@ export class InterruptController<TValue = unknown, TResult = never> {
     };
   });
 
+  /** Configure the runner and optional interrupt filtering and preprocessing. */
   constructor(
     runner: InterruptRunner,
     options: InjectInterruptOptions<TValue, TResult> = {},
@@ -179,13 +181,18 @@ export class InterruptController<TValue = unknown, TResult = never> {
       },
       onRunFinishedEvent: (params) => {
         if (params.outcome === "interrupt") {
-          for (const interrupt of params.interrupts) {
-            this.#interruptRunIds.set(interrupt.id, params.input.runId);
-          }
           standard = params.interrupts;
         }
       },
-      onRunStartedEvent: () => {
+      onRunStartedEvent: (params) => {
+        // A reconnect replays RUN_STARTED without answering pending interrupts.
+        // Genuine SDK runs either have no pending batch or carry resume entries.
+        if (
+          !agent.pendingInterrupts?.length ||
+          params?.input?.resume !== undefined
+        ) {
+          ɵclearAgentInterruptState(agent);
+        }
         legacy = null;
         standard = null;
         this.#threadId = agent.threadId;
@@ -258,9 +265,15 @@ export class InterruptController<TValue = unknown, TResult = never> {
 
     const id = this.#targetId(current.interrupts, interruptId);
     if (!id) return;
+    if (this.#interruptState.isCompletedToolCall(id, agent.messages)) {
+      console.warn(
+        "[CopilotKit] injectInterrupt: ignoring an answer for an already completed frontend tool call.",
+      );
+      return;
+    }
     return this.#handleStandardDecision(
       agent,
-      this.#interruptState.resolve(payload, id),
+      this.#interruptState.resolve(payload, id, agent.messages),
     );
   };
 
@@ -287,7 +300,16 @@ export class InterruptController<TValue = unknown, TResult = never> {
 
     const id = this.#targetId(current.interrupts, interruptId);
     if (!id) return;
-    return this.#handleStandardDecision(agent, this.#interruptState.cancel(id));
+    if (this.#interruptState.isCompletedToolCall(id, agent.messages)) {
+      console.warn(
+        "[CopilotKit] injectInterrupt: ignoring an answer for an already completed frontend tool call.",
+      );
+      return;
+    }
+    return this.#handleStandardDecision(
+      agent,
+      this.#interruptState.cancel(id, agent.messages),
+    );
   };
 
   /** Alias retained for parity with other CopilotKit framework adapters. */
@@ -303,6 +325,7 @@ export class InterruptController<TValue = unknown, TResult = never> {
     this.#clear();
   }
 
+  /** Adopt the shared batch and prepare the interrupt view for this controller. */
   #setPending(pending: PendingInterrupt<TValue>): void {
     this.#handlerGeneration += 1;
     const generation = this.#handlerGeneration;
@@ -311,8 +334,12 @@ export class InterruptController<TValue = unknown, TResult = never> {
     this.#result.set(null);
     this.#error.set(null);
     if (pending.kind === "standard") {
-      this.#interruptState.setStandard(pending.interrupts);
+      this.#interruptState = ɵgetAgentInterruptState(
+        this.#agent!,
+        pending.interrupts,
+      ) as ɵInterruptState<TValue>;
     } else {
+      this.#interruptState = new ɵInterruptState<TValue>();
       this.#interruptState.setLegacy(pending.event);
     }
 
@@ -425,9 +452,6 @@ export class InterruptController<TValue = unknown, TResult = never> {
     if (decision.kind !== "resume") return;
 
     try {
-      const runId = decision.resume
-        .map((entry) => this.#interruptRunIds.get(entry.interruptId))
-        .find((candidate): candidate is string => candidate !== undefined);
       const toolMessages = decision.toolResults.map(
         (toolResult): Message =>
           ({
@@ -440,7 +464,6 @@ export class InterruptController<TValue = unknown, TResult = never> {
       for (const message of toolMessages) agent.addMessage(message);
       return this.#startResume(agent, {
         resume: decision.resume,
-        ...(runId !== undefined ? { runId } : {}),
       });
     } catch (error) {
       this.#clear(error);
@@ -482,6 +505,7 @@ export class InterruptController<TValue = unknown, TResult = never> {
     return false;
   }
 
+  /** Invalidate pending preparation and clear this controller without erasing shared decisions. */
   #clear(error: unknown | null = null): void {
     this.#handlerGeneration += 1;
     this.#pending.set(null);
@@ -489,7 +513,6 @@ export class InterruptController<TValue = unknown, TResult = never> {
     this.#result.set(null);
     this.#error.set(error);
     this.#resumePromise = undefined;
-    this.#interruptState.clear();
-    this.#interruptRunIds.clear();
+    this.#interruptState = new ɵInterruptState<TValue>();
   }
 }

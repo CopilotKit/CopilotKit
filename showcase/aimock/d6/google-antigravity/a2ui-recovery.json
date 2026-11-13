@@ -1,0 +1,180 @@
+{
+  "_meta": {
+    "description": "D6 fixtures for google-antigravity / a2ui-recovery (A2UI error recovery)",
+    "created": "2026-09-30",
+    "copiedFrom": "langgraph-python",
+    "_note": "Backend-owned A2UI with the toolkit validate->retry loop (src/agents/a2ui_dynamic.py, injectA2UITool=false). Prompts are unique to this slug (a2ui-recovery/suggestions.ts, mirrored in harness d5-a2ui-recovery.ts PROMPTS). The heal retry is told apart from attempt 1 by systemMessage, not sequenceIndex, so it does not depend on per-process match counts.",
+    "googleAntigravityStaging": "Staged on turnIndex, not hasToolResult/toolCallId: the Antigravity Go harness never sends role:\"tool\" messages (see PARITY_NOTES.md). turnIndex is the assistant-message count: +2 per tool round trip, +1 per text answer."
+  },
+  "fixtures": [
+    {
+      "_comment": "HEAL — inner render_a2ui RETRY (attempt 2+): matched by the fix-it block the toolkit's recovery loop appends to the sub-agent system prompt. VALID surface (Column + two Metric tiles) -> paints (declarative-metric x2). Listed BEFORE the attempt-1 leg: at the same position aimock serves the first-registered untagged candidate, and turnIndex 0 (the inner request's count) only keeps this leg's match key distinct from the attempt-1 leg's.",
+      "match": {
+        "userMessage": "Chart the Antigravity quarterly revenue board and repair a malformed first render.",
+        "toolName": "render_a2ui",
+        "systemMessage": "## Previous attempt was invalid",
+        "turnIndex": 0,
+        "context": "google-antigravity"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_ga_recover_heal_good",
+            "name": "render_a2ui",
+            "arguments": "{\"surfaceId\": \"recovery-demo\", \"components\": \"[{\\\"id\\\": \\\"root\\\", \\\"component\\\": \\\"Column\\\", \\\"gap\\\": 16, \\\"children\\\": [\\\"m1\\\", \\\"m2\\\"]}, {\\\"id\\\": \\\"m1\\\", \\\"component\\\": \\\"Metric\\\", \\\"label\\\": \\\"Quarterly Revenue\\\", \\\"value\\\": \\\"$4.2M\\\", \\\"trend\\\": \\\"up\\\", \\\"trendValue\\\": \\\"+12% QoQ\\\"}, {\\\"id\\\": \\\"m2\\\", \\\"component\\\": \\\"Metric\\\", \\\"label\\\": \\\"Win Rate\\\", \\\"value\\\": \\\"31%\\\", \\\"trend\\\": \\\"down\\\", \\\"trendValue\\\": \\\"-2 pts\\\"}]\", \"data\": \"{}\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "HEAL — inner render_a2ui attempt 1: structurally INVALID (root references the missing child 'missing-metric') -> the validate->retry loop rejects it and retries with the errors in the system prompt.",
+      "match": {
+        "userMessage": "Chart the Antigravity quarterly revenue board and repair a malformed first render.",
+        "toolName": "render_a2ui",
+        "context": "google-antigravity"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_ga_recover_heal_bad",
+            "name": "render_a2ui",
+            "arguments": "{\"surfaceId\": \"recovery-demo\", \"components\": \"[{\\\"id\\\": \\\"root\\\", \\\"component\\\": \\\"Column\\\", \\\"gap\\\": 16, \\\"children\\\": [\\\"missing-metric\\\"]}]\", \"data\": \"{}\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "EXHAUST — inner render_a2ui: structurally INVALID on every attempt (unresolved child) -> the loop hits its 3-attempt cap and generate_a2ui returns the a2ui_recovery_exhausted envelope (the 'Couldn't generate the UI' card).",
+      "match": {
+        "userMessage": "Chart an Antigravity board that never passes validation so I can preview the fallback.",
+        "toolName": "render_a2ui",
+        "context": "google-antigravity"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_ga_recover_exhaust_design",
+            "name": "render_a2ui",
+            "arguments": "{\"surfaceId\": \"recovery-demo-fail\", \"components\": \"[{\\\"id\\\": \\\"root\\\", \\\"component\\\": \\\"Column\\\", \\\"gap\\\": 16, \\\"children\\\": [\\\"never-defined\\\"]}]\", \"data\": \"{}\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "HEAL — outer agent calls generate_a2ui (thread position 0; the d5 probe sends heal at 0 then exhaust at 3, the e2e spec each at 0).",
+      "match": {
+        "userMessage": "Chart the Antigravity quarterly revenue board and repair a malformed first render.",
+        "toolName": "generate_a2ui",
+        "turnIndex": 0,
+        "context": "google-antigravity"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_ga_recover_heal_outer_00",
+            "name": "generate_a2ui",
+            "arguments": "{\"request\": \"Chart the Antigravity quarterly revenue board and repair a malformed first render.\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "HEAL — narration after the generate_a2ui round trip (position 0+2).",
+      "match": {
+        "userMessage": "Chart the Antigravity quarterly revenue board and repair a malformed first render.",
+        "turnIndex": 2,
+        "context": "google-antigravity"
+      },
+      "response": {
+        "content": "The first render came back malformed - I recovered and painted your quarterly revenue board."
+      }
+    },
+    {
+      "_comment": "HEAL — outer agent calls generate_a2ui (thread position 3; the d5 probe sends heal at 0 then exhaust at 3, the e2e spec each at 0).",
+      "match": {
+        "userMessage": "Chart the Antigravity quarterly revenue board and repair a malformed first render.",
+        "toolName": "generate_a2ui",
+        "turnIndex": 3,
+        "context": "google-antigravity"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_ga_recover_heal_outer_03",
+            "name": "generate_a2ui",
+            "arguments": "{\"request\": \"Chart the Antigravity quarterly revenue board and repair a malformed first render.\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "HEAL — narration after the generate_a2ui round trip (position 3+2).",
+      "match": {
+        "userMessage": "Chart the Antigravity quarterly revenue board and repair a malformed first render.",
+        "turnIndex": 5,
+        "context": "google-antigravity"
+      },
+      "response": {
+        "content": "The first render came back malformed - I recovered and painted your quarterly revenue board."
+      }
+    },
+    {
+      "_comment": "EXHAUST — outer agent calls generate_a2ui (thread position 0; the d5 probe sends heal at 0 then exhaust at 3, the e2e spec each at 0).",
+      "match": {
+        "userMessage": "Chart an Antigravity board that never passes validation so I can preview the fallback.",
+        "toolName": "generate_a2ui",
+        "turnIndex": 0,
+        "context": "google-antigravity"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_ga_recover_exhaust_outer_00",
+            "name": "generate_a2ui",
+            "arguments": "{\"request\": \"Chart an Antigravity board that never passes validation so I can preview the fallback.\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "EXHAUST — narration after the generate_a2ui round trip (position 0+2).",
+      "match": {
+        "userMessage": "Chart an Antigravity board that never passes validation so I can preview the fallback.",
+        "turnIndex": 2,
+        "context": "google-antigravity"
+      },
+      "response": {
+        "content": "I couldn't produce a valid surface after several attempts - showing a graceful fallback instead."
+      }
+    },
+    {
+      "_comment": "EXHAUST — outer agent calls generate_a2ui (thread position 3; the d5 probe sends heal at 0 then exhaust at 3, the e2e spec each at 0).",
+      "match": {
+        "userMessage": "Chart an Antigravity board that never passes validation so I can preview the fallback.",
+        "toolName": "generate_a2ui",
+        "turnIndex": 3,
+        "context": "google-antigravity"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_ga_recover_exhaust_outer_03",
+            "name": "generate_a2ui",
+            "arguments": "{\"request\": \"Chart an Antigravity board that never passes validation so I can preview the fallback.\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "EXHAUST — narration after the generate_a2ui round trip (position 3+2).",
+      "match": {
+        "userMessage": "Chart an Antigravity board that never passes validation so I can preview the fallback.",
+        "turnIndex": 5,
+        "context": "google-antigravity"
+      },
+      "response": {
+        "content": "I couldn't produce a valid surface after several attempts - showing a graceful fallback instead."
+      }
+    }
+  ]
+}

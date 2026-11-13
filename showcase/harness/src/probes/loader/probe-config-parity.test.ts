@@ -3,6 +3,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, it, expect } from "vitest";
 import yaml from "js-yaml";
+import { D6_DISCOVERY_FILTER } from "../../fleet/control-plane/catalog-enumerator.js";
 
 // `import.meta.url` is stable regardless of cwd; see `configsDir()` for
 // the full rationale on why we resolve relative to this file rather
@@ -78,6 +79,15 @@ const RAILWAY_PROBES_EXEMPT_FROM_EXCLUDES_FLOOR: Record<string, string> = {
 };
 
 describe("probe-config nameExcludes parity", () => {
+  const stagingOnlyIntelligenceServices = [
+    "showcase-intelligence-api",
+    "showcase-intelligence-composite",
+    "showcase-intelligence-gateway",
+    "showcase-intelligence-gateway-proxy",
+    "showcase-intelligence-postgres",
+    "showcase-intelligence-redis",
+  ];
+
   function configsDir(): string {
     // Resolve relative to this file (probes/loader/) up to showcase/harness
     // root, then into config/probes. cwd-relative resolution was wrong
@@ -114,6 +124,28 @@ describe("probe-config nameExcludes parity", () => {
     }
     return prefix;
   }
+
+  it("keeps staging-only Intelligence services out of demo and drift probes", async () => {
+    const probeFiles = [
+      "smoke.yml",
+      "e2e-smoke.yml",
+      "e2e-demos.yml",
+      "e2e-deep.yml",
+      "d6-all-pills-e2e.yml",
+      "image-drift.yml",
+      "cross-env-pin-drift.yml",
+    ];
+
+    for (const file of probeFiles) {
+      const excludes = await readNameExcludes(file);
+      expect(excludes, file).toEqual(
+        expect.arrayContaining(stagingOnlyIntelligenceServices),
+      );
+    }
+    expect(D6_DISCOVERY_FILTER.nameExcludes).toEqual(
+      expect.arrayContaining(stagingOnlyIntelligenceServices),
+    );
+  });
 
   it("smoke / e2e-smoke / e2e-demos all share an identical nameExcludes list", async () => {
     const [smoke, e2eSmoke, e2eDemos] = await Promise.all([

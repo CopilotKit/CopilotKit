@@ -1,13 +1,19 @@
 import React from "react";
 import { render, act } from "@testing-library/react";
 import { CopilotKitProvider } from "../../providers/CopilotKitProvider";
+import type { CopilotKitProviderProps } from "../../providers/CopilotKitProvider";
 import { CopilotChat } from "../../components/chat/CopilotChat";
 import { CopilotChatConfigurationProvider } from "../../providers/CopilotChatConfigurationProvider";
 import { DEFAULT_AGENT_ID } from "@copilotkit/shared";
 import { AbstractAgent, EventType } from "@ag-ui/client";
-import type { BaseEvent, RunAgentInput } from "@ag-ui/client";
+import type {
+  BaseEvent,
+  RunAgentInput,
+  RunStartedEvent,
+  RunFinishedEvent,
+} from "@ag-ui/client";
 import type { Observable } from "rxjs";
-import { Subject, from, delay } from "rxjs";
+import { Subject, from, delay, takeWhile } from "rxjs";
 import type {
   ReactActivityMessageRenderer,
   ReactToolCallRenderer,
@@ -85,7 +91,16 @@ export class MockStepwiseAgent extends AbstractAgent {
   async detachActiveRun(): Promise<void> {}
 
   run(_input: RunAgentInput): Observable<BaseEvent> {
-    return this.subject.asObservable();
+    // Finish each run's subscription at its terminal event, while keeping the
+    // shared subject available for the next run in a multi-turn test.
+    return this.subject.pipe(
+      takeWhile(
+        (event) =>
+          event.type !== EventType.RUN_FINISHED &&
+          event.type !== EventType.RUN_ERROR,
+        true,
+      ),
+    );
   }
 }
 
@@ -180,6 +195,7 @@ export function renderWithCopilotKit({
   agentId,
   threadId,
   defaultThrottleMs,
+  mcpApps,
   children,
 }: {
   agent?: AbstractAgent;
@@ -192,6 +208,7 @@ export function renderWithCopilotKit({
   agentId?: string;
   threadId?: string;
   defaultThrottleMs?: number;
+  mcpApps?: CopilotKitProviderProps["mcpApps"];
   children?: React.ReactNode;
 }): ReturnType<typeof render> {
   const resolvedAgents = agents || (agent ? { default: agent } : undefined);
@@ -207,6 +224,7 @@ export function renderWithCopilotKit({
       frontendTools={frontendTools}
       humanInTheLoop={humanInTheLoop}
       defaultThrottleMs={defaultThrottleMs}
+      mcpApps={mcpApps}
     >
       <CopilotChatConfigurationProvider
         agentId={resolvedAgentId}
@@ -225,15 +243,33 @@ export function renderWithCopilotKit({
 /**
  * Helper to create a RUN_STARTED event
  */
-export function runStartedEvent(): BaseEvent {
-  return { type: EventType.RUN_STARTED } as BaseEvent;
+export function runStartedEvent(
+  input: Pick<RunAgentInput, "threadId" | "runId"> = {
+    threadId: "test-thread",
+    runId: "test-run",
+  },
+): RunStartedEvent {
+  return {
+    type: EventType.RUN_STARTED,
+    threadId: input.threadId,
+    runId: input.runId,
+  };
 }
 
 /**
  * Helper to create a RUN_FINISHED event
  */
-export function runFinishedEvent(): BaseEvent {
-  return { type: EventType.RUN_FINISHED } as BaseEvent;
+export function runFinishedEvent(
+  input: Pick<RunAgentInput, "threadId" | "runId"> = {
+    threadId: "test-thread",
+    runId: "test-run",
+  },
+): RunFinishedEvent {
+  return {
+    type: EventType.RUN_FINISHED,
+    threadId: input.threadId,
+    runId: input.runId,
+  };
 }
 
 /**
@@ -571,7 +607,7 @@ export class SuggestionsProviderAgent extends MockStepwiseAgent {
     // Use setTimeout to emit events asynchronously through the existing subject
     setTimeout(() => {
       const messageId = testId("suggest-msg");
-      this.emit({ type: EventType.RUN_STARTED } as BaseEvent);
+      this.emit(runStartedEvent(_input));
 
       emitSuggestionToolCall(this, {
         toolCallId: testId("tc"),
@@ -579,7 +615,7 @@ export class SuggestionsProviderAgent extends MockStepwiseAgent {
         suggestions: this._shared.suggestions,
       });
 
-      this.emit({ type: EventType.RUN_FINISHED } as BaseEvent);
+      this.emit(runFinishedEvent(_input));
       this.complete();
     }, 0);
 

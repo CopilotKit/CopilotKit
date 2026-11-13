@@ -1,0 +1,257 @@
+.control {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 36px;
+  color: var(--cpki-color-foreground, #023047);
+  font: inherit;
+  line-height: 1.4;
+  outline: none;
+  transition:
+    border-color 140ms ease,
+    box-shadow 140ms ease,
+    background-color 140ms ease;
+}
+
+/* Field frame: the control itself, or a SearchField around a bare input. */
+.control,
+.searchField {
+  border: 1px solid var(--cpki-color-border, #b8c7d1);
+  border-radius: 2px;
+  background: var(--cpki-color-surface, #ffffff);
+}
+
+.control:focus-visible,
+.searchField:focus-within {
+  border-color: var(--cpki-color-focus-ring, #219ebc);
+  outline: 2px solid var(--cpki-color-focus-ring, #219ebc);
+  outline-offset: 2px;
+}
+
+/* Workspace fields: input border, 8px corners, a hairline lift, soft ring.
+ * `:where()` keeps the base specificity, so page layout rules cascade exactly
+ * as they do against the base rules, and Ops keeps the base theme above. */
+:global(:where(:root[data-cpki-design="workspace"]))
+  :is(.control, .searchField) {
+  border-color: var(--input);
+  border-radius: var(--radius-control);
+  background: var(--cpki-color-field-background);
+  box-shadow: var(--shadow-xs);
+}
+
+:global(:where(:root[data-cpki-design="workspace"]))
+  :is(.control:focus-visible, .searchField:focus-within) {
+  border-color: var(--cpki-color-focus-ring);
+  outline: none;
+  box-shadow: var(--cpki-shadow-focus);
+}
+
+/* An input inside a frame that draws the border and the focus ring itself
+ * (SearchField, or a composite such as a one-time key reveal). */
+.control[data-embedded="true"],
+.control[data-embedded="true"]:focus-visible {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  outline: none;
+}
+
+.searchField {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  box-sizing: border-box;
+  height: 36px;
+  padding: 0 10px;
+  color: var(--cpki-color-muted-foreground, #4f6b7a);
+  transition:
+    border-color 140ms ease,
+    box-shadow 140ms ease;
+}
+
+.searchField > .control {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  min-height: 0;
+  padding: 0;
+}
+
+/* Flush search row at the top of a popover or menu: divider and underline. */
+.searchField[data-variant="inset"] {
+  gap: 10px;
+  height: 44px;
+  padding: 0 14px;
+  border-width: 0 0 1px;
+  border-color: var(--cpki-color-border, #b8c7d1);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.searchField[data-variant="inset"]:focus-within {
+  border-color: var(--cpki-color-border, #b8c7d1);
+  outline: none;
+  box-shadow: inset 0 -2px var(--cpki-color-focus-ring, #219ebc);
+}
+
+/* Programmatic focus on open (caret only); keyboard navigation restores it. */
+.searchField[data-focus-indicator="false"]:focus-within {
+  outline: none;
+  box-shadow: none;
+}
+
+.control:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.control[data-invalid="true"],
+.searchField:has(> .control[data-invalid="true"]) {
+  border-color: var(--cpki-color-danger, #b42318);
+}
+
+.input,
+.select {
+  padding: 7px 10px;
+}
+
+.textarea {
+  min-height: 88px;
+  resize: vertical;
+  padding: 8px 10px;
+}
+
+.choice {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 8px;
+  align-items: start;
+  color: var(--cpki-color-foreground, #023047);
+}
+
+.choiceInput {
+  width: 16px;
+  height: 16px;
+  margin: 2px 0 0;
+  accent-color: var(--cpki-color-primary, #219ebc);
+}
+
+.choiceInput:focus-visible {
+  outline: 2px solid var(--cpki-color-focus-ring, #219ebc);
+  outline-offset: 2px;
+}
+
+.choiceInput[data-invalid="true"] {
+  outline: 2px solid var(--cpki-color-danger, #b42318);
+  outline-offset: 2px;
+}
+
+.choiceText {
+  display: grid;
+  gap: 4px;
+}
+
+/* Unlike a checkbox (which top-aligns with the first label line), a switch track
+   is taller than one line of text, so its label reads best vertically centered
+   against the track. */
+.switchChoice {
+  align-items: center;
+}
+
+.switchControl {
+  display: inline-flex;
+  position: relative;
+  align-items: center;
+  width: 38px;
+  height: 22px;
+}
+
+.switchInput {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.switchTrack {
+  display: block;
+  position: relative;
+  width: 38px;
+  height: 22px;
+  border-radius: 999px;
+  background: var(--cpki-color-surface-hover, #e9edf3);
+  transition:
+    background-color 140ms ease,
+    opacity 140ms ease;
+}
+
+.switchTrack::after {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--cpki-color-surface, #ffffff);
+  box-shadow: 0 1px 2px rgb(24 28 31 / 20%);
+  content: "";
+  transition:
+    background-color 140ms ease,
+    transform 140ms ease;
+}
+
+.switchInput:checked + .switchTrack {
+  background: var(--cpki-color-accent, #757cf2);
+}
+
+.switchInput:checked + .switchTrack::after {
+  transform: translateX(16px);
+}
+
+.switchInput:focus-visible + .switchTrack {
+  outline: 2px solid var(--cpki-color-focus-ring, #219ebc);
+  outline-offset: 2px;
+}
+
+.switchInput[data-invalid="true"] + .switchTrack {
+  background: var(--cpki-color-danger-hover, #ff7474);
+}
+
+.switchInput:disabled + .switchTrack {
+  opacity: 0.56;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .control,
+  .searchField,
+  .switchTrack,
+  .switchTrack::after {
+    transition-duration: 1ms;
+  }
+
+  .switchInput:checked + .switchTrack::after {
+    transform: translateX(16px);
+  }
+}
+
+/* Workspace fields match control type; 16px below tablet avoids iOS zoom. */
+:global(:root[data-cpki-design="workspace"]) .control {
+  font-size: var(--text-control);
+}
+
+@media (max-width: 767px) {
+  :global(:root[data-cpki-design="workspace"]) .control {
+    font-size: 1rem;
+  }
+}
+
+/* Read-only values (webhooks, generated codes) read as quiet, copyable text. */
+:global(:root[data-cpki-design="workspace"]) .control:read-only:not(select) {
+  background: var(--muted);
+  color: var(--muted-foreground);
+}

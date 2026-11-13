@@ -1,0 +1,184 @@
+name: test / community
+
+# Gates for community-maintained packages under community/<name>/.
+#
+# WHY THIS WORKFLOW EXISTS
+# ------------------------
+# Community packages are deliberately NOT pnpm workspace members (see
+# community/README.md). Nx discovers projects through the pnpm workspace, so
+# no repo-wide sweep (static_compat, static_quality, test_unit) ever builds,
+# type-checks or tests them. This workflow is the only CI that does. It follows
+# the shape of test_reskinnable-demo.yml, which exists for the same reason.
+#
+# It runs ONLY when files under community/ (or this file) change, and only for
+# the packages that changed. A community package therefore cannot redden a
+# CopilotKit pull request, and a CopilotKit pull request cannot redden it.
+#
+# NO `continue-on-error` AND NO `|| true` ON A GATE, BY DESIGN. A gate that
+# cannot fail is not a gate.
+
+on:
+  pull_request:
+    paths:
+      - "community/**"
+      - ".github/workflows/test_community.yml"
+  push:
+    branches: [main]
+    paths:
+      - "community/**"
+      - ".github/workflows/test_community.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  detect:
+    name: "detect changed community packages"
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      packages: ${{ steps.detect.outputs.packages }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: List the packages to gate
+        id: detect
+        # Event data goes through env, never straight into the script.
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BASE_REF: ${{ github.base_ref }}
+          BEFORE_SHA: ${{ github.event.before }}
+          HEAD_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+
+          # Every folder directly under community/ that has a package.json.
+          all="$(find community -mindepth 2 -maxdepth 2 -name package.json -exec dirname {} \; 2>/dev/null | sort -u || true)"
+
+          if [ "$EVENT_NAME" = "pull_request" ]; then
+            changed="$(git diff --name-only "origin/${BASE_REF}...HEAD")"
+          elif [ -z "$BEFORE_SHA" ] || [ "$BEFORE_SHA" = "0000000000000000000000000000000000000000" ]; then
+            # A push with no previous commit to compare against: gate everything.
+            changed=".github/workflows/test_community.yml"
+          else
+            changed="$(git diff --name-only "${BEFORE_SHA}..${HEAD_SHA}")"
+          fi
+
+          if printf '%s\n' "$changed" | grep -qx ".github/workflows/test_community.yml"; then
+            # A change to this workflow re-gates every package.
+            selected="$all"
+          else
+            touched="$(printf '%s\n' "$changed" | grep -E '^community/[^/]+/' | cut -d/ -f1-2 | sort -u || true)"
+            # Keep only folders that still are packages (a deleted package has nothing to gate).
+            selected="$(comm -12 <(printf '%s\n' "$all") <(printf '%s\n' "$touched") || true)"
+          fi
+
+          json="$(printf '%s\n' "$selected" | jq -R -s -c 'split("\n") | map(select(length > 0))')"
+          echo "packages to gate: ${json}"
+          echo "packages=${json}" >> "$GITHUB_OUTPUT"
+
+  gates:
+    name: "gates (${{ matrix.package }})"
+    needs: detect
+    if: needs.detect.outputs.packages != '[]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        package: ${{ fromJSON(needs.detect.outputs.packages) }}
+    defaults:
+      run:
+        # Every step runs inside the package. It is NOT a workspace member, so
+        # there is no root-level task that reaches it.
+        working-directory: ${{ matrix.package }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+
+      - name: Check the package contract
+        # The requirements in community/README.md, enforced here so that they
+        # cannot quietly drift. Each failure names the rule it broke.
+        run: |
+          set -euo pipefail
+          node <<'EOF'
+          const fs = require("node:fs");
+          const pkg = JSON.parse(fs.readFileSync("package.json", "utf8"));
+          const errors = [];
+
+          if (!/^pnpm@\d+\.\d+\.\d+/.test(pkg.packageManager ?? "")) {
+            errors.push('packageManager must pin an exact pnpm version, for example "pnpm@10.33.4"');
+          }
+          if (!fs.existsSync("pnpm-lock.yaml")) {
+            errors.push("the package must commit its own pnpm-lock.yaml");
+          }
+          // Without its own workspace file, pnpm walks up to the repository's
+          // pnpm-workspace.yaml and installs the monorepo instead of this
+          // package (measured on reskinnable-demo: "Scope: all 70 workspace
+          // projects", and the package got no node_modules at all).
+          const workspace = fs.existsSync("pnpm-workspace.yaml")
+            ? fs.readFileSync("pnpm-workspace.yaml", "utf8")
+            : "";
+          if (!/^packages:\s*(\[\s*["']\.["']\s*\]|\n\s*-\s*["']\.["']\s*$)/m.test(workspace)) {
+            errors.push('the package must commit a pnpm-workspace.yaml with packages: ["."], so pnpm does not install the monorepo');
+          }
+          for (const script of ["lint", "typecheck", "test", "build"]) {
+            if (!pkg.scripts?.[script]) errors.push(`missing the "${script}" script`);
+          }
+          for (const field of ["dependencies", "devDependencies", "peerDependencies"]) {
+            for (const [name, spec] of Object.entries(pkg[field] ?? {})) {
+              if (String(spec).startsWith("workspace:")) {
+                errors.push(`${field}.${name} uses "${spec}"; community packages depend on published versions`);
+              } else if (name.startsWith("@copilotkit/") && field !== "peerDependencies" && !/^\d+\.\d+\.\d+(-[\w.]+)?$/.test(spec)) {
+                errors.push(`${field}.${name} is "${spec}"; pin @copilotkit/* to an exact version`);
+              }
+            }
+          }
+
+          if (errors.length > 0) {
+            for (const error of errors) console.log(`::error::${error}`);
+            process.exit(1);
+          }
+          console.log("package contract: ok");
+          EOF
+
+      - name: Activate the package's pnpm via corepack
+        # corepack reads the nearest package.json, which is the package's own,
+        # so each package runs the pnpm version it pins.
+        run: |
+          set -euo pipefail
+          corepack enable pnpm
+          corepack install
+          pnpm --version
+
+      - name: Install dependencies
+        # --frozen-lockfile fails when the committed lockfile no longer
+        # satisfies package.json, which keeps the exact pins honest.
+        run: pnpm install --frozen-lockfile
+
+      - name: Lint
+        run: pnpm run lint
+
+      - name: Typecheck
+        run: pnpm run typecheck
+
+      - name: Test
+        run: pnpm run test
+
+      - name: Build
+        run: pnpm run build

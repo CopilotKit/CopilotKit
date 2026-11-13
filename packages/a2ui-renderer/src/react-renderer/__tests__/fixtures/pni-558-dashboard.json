@@ -1,0 +1,118 @@
+{
+  "surfaceId": "sales-dashboard-v2",
+  "components": [
+    {
+      "id": "root",
+      "component": "Row",
+      "children": {
+        "componentId": "metric",
+        "path": "/metrics"
+      },
+      "gap": 16
+    },
+    {
+      "id": "metric",
+      "component": "Metric",
+      "title": {
+        "path": "title"
+      },
+      "value": {
+        "path": "value"
+      }
+    },
+    {
+      "id": "chartsRow",
+      "component": "Row",
+      "children": [
+        {
+          "componentId": "pieChart",
+          "path": "/pieData"
+        },
+        {
+          "componentId": "barChart",
+          "path": "/barData"
+        }
+      ],
+      "gap": 24
+    },
+    {
+      "id": "pieChart",
+      "component": "PieChart",
+      "title": "Revenue by Category",
+      "data": {
+        "path": "/pieData"
+      }
+    },
+    {
+      "id": "barChart",
+      "component": "BarChart",
+      "title": "Monthly Sales",
+      "data": {
+        "path": "/barData"
+      }
+    }
+  ],
+  "data": {
+    "metrics": [
+      {
+        "id": "totalRevenue",
+        "title": "Total Revenue",
+        "value": "$327,700"
+      },
+      {
+        "id": "customers",
+        "title": "New Customers",
+        "value": "5"
+      },
+      {
+        "id": "conversionRate",
+        "title": "Conversion Rate",
+        "value": "20.3%"
+      }
+    ],
+    "pieData": [
+      {
+        "label": "Enterprise Subscriptions",
+        "value": 94000
+      },
+      {
+        "label": "Pro Tier Upgrades",
+        "value": 66500
+      },
+      {
+        "label": "Consulting Services",
+        "value": 54000
+      },
+      {
+        "label": "Marketplace Sales",
+        "value": 42800
+      },
+      {
+        "label": "API Usage Overages",
+        "value": 34500
+      },
+      {
+        "label": "Partnership Revenue",
+        "value": 25700
+      },
+      {
+        "label": "Training & Workshops",
+        "value": 10200
+      }
+    ],
+    "barData": [
+      {
+        "label": "Jan 2026",
+        "value": 82800
+      },
+      {
+        "label": "Feb 2026",
+        "value": 109000
+      },
+      {
+        "label": "Mar 2026",
+        "value": 135900
+      }
+    ]
+  }
+}

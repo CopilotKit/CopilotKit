@@ -24,6 +24,8 @@ The handler is wired up by ``agent_server.py`` at ``POST /subagents``.
 # @region[subagent-setup]
 from __future__ import annotations
 
+from agents._openai_params import LunaCallParams
+
 import functools
 import json
 import logging
@@ -102,9 +104,9 @@ def _resolve_sub_model() -> str:
 
     Mirrors ``_resolve_a2ui_model`` in ``agents.agent``: bare model name
     (langroid passes the string literally to the OpenAI SDK, which
-    rejects ``openai/gpt-5-mini`` as "model not found").
+    rejects ``openai/gpt-6-luna`` as "model not found").
     """
-    return os.getenv("SUBAGENT_MODEL") or os.getenv("LANGROID_MODEL") or "gpt-5-mini"
+    return os.getenv("SUBAGENT_MODEL") or os.getenv("LANGROID_MODEL") or "gpt-6-luna"
 
 
 @functools.lru_cache(maxsize=8)
@@ -125,6 +127,7 @@ def _build_sub_llm_config(name: str) -> lm.OpenAIGPTConfig:
     model = _resolve_sub_model()
     return lm.OpenAIGPTConfig(
         chat_model=model,
+        params=LunaCallParams() if model == "gpt-6-luna" else None,
         # Sub-agents are single-shot — non-streaming keeps the supervisor
         # turn deterministic (we want the full result before recording
         # the delegation as completed).
@@ -283,8 +286,12 @@ _SUPERVISOR_PROMPT = (
 
 
 def _create_supervisor() -> lr.ChatAgent:
-    model = os.getenv("LANGROID_MODEL", "gpt-5-mini")
-    llm_config = lm.OpenAIGPTConfig(chat_model=model, stream=False)
+    model = os.getenv("LANGROID_MODEL", "gpt-6-luna")
+    llm_config = lm.OpenAIGPTConfig(
+        chat_model=model,
+        params=LunaCallParams() if model == "gpt-6-luna" else None,
+        stream=False,
+    )
     agent_config = lr.ChatAgentConfig(llm=llm_config, system_message=_SUPERVISOR_PROMPT)
     agent = lr.ChatAgent(agent_config)
     agent.enable_message(list(_SUPERVISOR_TOOLS))

@@ -24,17 +24,7 @@ interaction_modalities:
 managed_platform:
   name: LangGraph Platform
   url: https://langsmith.com
-not_supported_features:
-  # QUARANTINED pending a @copilotkit/react-core release. gen-ui-interrupt /
-  # interrupt-headless fail turn-2 on a useInterrupt/useHeadlessInterrupt
-  # RESUME-PATH hook bug in @copilotkit/react-core/v2: backend resumes + streams
-  # (HTTP 200) but the frontend never appends the confirmation assistant bubble,
-  # so the harness DOM settle-check times out. Fix is a published-package change
-  # (out of scope here); honestly marked not-supported (skipped-incapable, not
-  # green, not red) rather than a regression. Demos remain wired below. Shared
-  # upstream limit — red/NSF on the langgraph-python north star too.
-  - gen-ui-interrupt
-  - interrupt-headless
+not_supported_features: []
 features:
   - beautiful-chat
   - cli-start
@@ -74,6 +64,8 @@ features:
   - open-gen-ui-advanced
   - voice
   - agent-config
+  - gen-ui-interrupt
+  - interrupt-headless
 a2ui_pattern: schema-loading
 interrupt_pattern: native
 thread_persistence_pattern: langgraph
@@ -521,8 +513,10 @@ demos:
     highlight:
       - src/agent/byoc-hashbrown.ts
       - src/app/demos/declarative-hashbrown/page.tsx
+      - src/app/demos/declarative-hashbrown/chat.tsx
       - src/app/demos/declarative-hashbrown/hashbrown-renderer.tsx
       - src/app/demos/declarative-hashbrown/metric-card.tsx
+      - src/app/demos/declarative-hashbrown/charts/chart-config.ts
       - src/app/demos/declarative-hashbrown/charts/bar-chart.tsx
       - src/app/demos/declarative-hashbrown/charts/pie-chart.tsx
       - src/app/demos/declarative-hashbrown/types.ts

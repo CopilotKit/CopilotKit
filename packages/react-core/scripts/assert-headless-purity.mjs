@@ -1,13 +1,43 @@
-// Fails if a React-Native-reachable chunk references the chat-message rendering
-// stack. @copilotkit/react-native imports two react-core entries — /v2/headless
-// and /v2/context — and neither may drag the ~5.5 MB shiki grammars/themes plus
-// mermaid, cytoscape and katex (issue #4893). This script guards both built
-// entries: the /v2/headless entry exists so consumers with a custom UI can import
-// hooks without that weight, and /v2/context carries CopilotKitCoreReact, so its
-// transitive subtree must stay clean too. (The RN import-graph guard in
+// Fails if a React-Native-reachable react-core entry breaks its contract.
+// @copilotkit/react-native imports three react-core entries (/v2/headless,
+// /v2/context and /v2/generative-ui/native, and no other: the test file checks
+// this against packages/react-native/src), so Hermes loads all three and Metro
+// bundles all three. Each built entry (.mjs and .cjs) is checked against the
+// contract for its target (see CONTRACTS below). The HEADLESS contract covers
+// /v2/headless and /v2/context, and the NATIVE contract covers
+// /v2/generative-ui/native. Both enforce the same rules. They differ only in
+// their advice, i.e. where offending code should go instead:
+//
+//   • No chat-message rendering stack: none of the ~5.5 MB shiki grammars/themes,
+//     mermaid, cytoscape, katex or streamdown (issue #4893). /v2/headless exists
+//     so consumers with a custom UI can import hooks without that weight, and
+//     /v2/context carries CopilotKitCoreReact, so its transitive subtree must stay
+//     clean too.
+//   • Nothing Hermes or Metro cannot take. The graph may not contain:
+//       - the packages react-dom (and its subpaths), lit, lit-html, lit-element,
+//         or anything under the @lit/ or @lit-labs/ scopes (lit-html reads
+//         `document` while its module loads, which throws under Hermes);
+//       - a module of @a2ui/web_core under src/universal/ or
+//         src/v0_9/basic_catalog/, which are its Lit-based parts (the
+//         `@a2ui/web_core/v0_9` barrel re-exports both). This holds whether the
+//         package resolves from node_modules or from a linked local checkout;
+//       - a class `static {}` block in ANY JavaScript file of the graph, ours or a
+//         dependency's: Metro runs Babel over node_modules too, and its preset
+//         cannot parse one. The build lowers a `static` class FIELD such as
+//         `static contextType = …` to such a block, so assign that static after
+//         the class (`MyBoundary.contextType = …`) instead.
+//     These are checks by package name, by resolved path and by syntax. Nothing
+//     here detects DOM use in general: a module that reads `document` or `window`
+//     without importing one of the packages above is not caught.
+//
+// A dependency file that its package's `browser` field maps to `false` appears in
+// the graph as `(disabled):…`. esbuild bundles an empty module in its place, so it
+// ships no code, and every check below skips it instead of calling it unreadable.
+//
+// (The RN import-graph guard in
 // packages/react-native/src/__tests__/headless-entry-surface.test.ts allows these
-// same two entries but only walks that package's own source; this script walks
-// the built graph, so it follows relative chunk edges and into node_modules.)
+// same entries but only walks that package's own source; this script walks the
+// built graph, so it follows relative chunk edges and into node_modules.)
 //
 // This is a STRUCTURAL assertion, not a size budget: it names the specific
 // regression instead of guarding a byte threshold, so it hard-fails legitimately
@@ -15,28 +45,20 @@
 // see dev-docs/bundle-size.md.
 //
 // ─── Why it drives esbuild instead of grepping the entry files ───────────────
-// The first version read the four entry files and asked `code.includes(dep)`.
-// That was weaker than it claimed, in both directions, and every item below was
-// reproduced against a real build before this rewrite:
+// Reading the entry files and asking `code.includes(dep)` is wrong in both
+// directions:
 //
-//  1. It only inspected those four files, so any violation reached through an
-//     edge OUT of them was invisible. Proven: re-exporting one hook from the fat
-//     `@copilotkit/react-core/v2` entry (which links the whole render stack) left
-//     `dist/v2/headless.mjs` with an unresolved bare import of that entry — and
-//     the guard printed "clean" for all four files. Same for a heavy dep reached
-//     through `@copilotkit/core`, which is external to this build: the entry says
-//     only `from "@copilotkit/core"`, and grepping that string finds nothing.
-//     A split-out chunk (`import "./chunk-abc.mjs"`) escaped the same way.
-//  2. The header used to claim the check "follows into node_modules". It did not
-//     follow anything — not node_modules, not even a relative sibling chunk.
-//  3. `code.includes(dep)` is unanchored, so it matched comments, strings and
-//     identifiers. Not hypothetical: the five banned tokens sit in
-//     `src/v2/headless.ts`'s own file banner, and the built artifact IS
-//     comment-preserving (233 lines of block comments survive in
-//     dist/v2/headless.mjs). They are absent only because that module is a
-//     re-export shell whose banner attaches to no retained code. Moving the same
-//     sentence into any module that ships code hard-failed CI on all five tokens
-//     while linking none of them.
+//  1. It sees only the entry files, so any violation reached through an edge OUT
+//     of them is invisible: a re-export from the fat `@copilotkit/react-core/v2`
+//     entry (which links the whole render stack) is just a bare import string in
+//     `dist/v2/headless.mjs`; a heavy dep reached through `@copilotkit/core`,
+//     which is external to this build, shows up only as `from "@copilotkit/core"`;
+//     and a split-out chunk (`import "./chunk-abc.mjs"`) hides the same way.
+//  2. `code.includes(dep)` is unanchored, so it matches comments, strings and
+//     identifiers. The build output is comment-preserving, and the five banned
+//     tokens sit in `src/v2/headless.ts`'s own file banner: the same sentence in
+//     any module that ships code would fail CI on all five tokens while linking
+//     none of them.
 //
 // So the graph — not the text — is the thing to assert. esbuild bundles each
 // built entry with `metafile: true` and reports every file it had to load;
@@ -50,7 +72,7 @@
 // One edge shape stays invisible even to a bundler: `import(name)` /
 // `require(name)` with a non-literal argument. esbuild leaves those alone and (for
 // ESM `import()`) does not even warn, so the graph would look clean while a fat
-// entry hid behind a variable. The one place this script therefore reads text is
+// entry hid behind a variable. The first place this script therefore reads text is
 // to find those calls in the graph's FIRST-PARTY files (our own and our workspace
 // siblings' built output — third-party dynamic requires are endemic and say
 // nothing about #4893). That scan runs over a TOKENIZED view of the file in which
@@ -62,8 +84,17 @@
 //
 // esbuild is already this package's devDependency and already runs in the same CI
 // job (scripts/measure-copilotchat.mjs), and react/react-dom stay external there
-// for the same reason as here: a host app ships them, they cannot reach the
-// render stack, and bundling them buries the signal in thousands of inputs.
+// too: they cannot reach the render stack, and bundling them buries the signal in
+// thousands of inputs. Staying external does not hide them: esbuild still records
+// every external import edge in the metafile, and `forbiddenHits` matches those
+// specifiers too, which is how both contracts catch a react-dom import.
+//
+// The static-block check is the second place this script reads text, and it uses
+// the same tokenized view (`classStaticBlocks`), so a `static {` in a comment or
+// string (such as a comment explaining the workaround above) cannot trip it.
+// Unlike the loader-call scan it reads every JavaScript file in the graph,
+// node_modules included, because Metro transforms those too; a raw
+// `includes("static")` check skips the tokenizer for files that cannot match.
 //
 // Covered by scripts/__tests__/assert-headless-purity.test.mjs (`test:scripts`).
 import fs from "node:fs";
@@ -73,18 +104,100 @@ import { fileURLToPath } from "node:url";
 import { build } from "esbuild";
 
 const FORBIDDEN = ["shiki", "mermaid", "cytoscape", "katex", "streamdown"];
+
+/**
+ * What Hermes and Metro cannot take, enforced on every target: each one is
+ * imported by @copilotkit/react-native. `lit` stands for the Lit packages in
+ * PACKAGE_FAMILIES.lit. The path patterns are matched against an input's
+ * package-qualified path (`packagePathFor`), so a linked local checkout of
+ * @a2ui/web_core is caught exactly like one under node_modules.
+ */
+const REACT_NATIVE_RULES = {
+  forbidden: [...FORBIDDEN, "react-dom", "lit"],
+  forbiddenPaths: [
+    /^@a2ui\/web_core\/src\/universal\//,
+    /^@a2ui\/web_core\/src\/v0_9\/basic_catalog\//,
+  ],
+  forbidStaticBlocks: true,
+};
+
+const REACT_NATIVE_SUMMARY =
+  "must not link the chat-message rendering stack (#4893: " +
+  FORBIDDEN.join(", ") +
+  "), and, because @copilotkit/react-native loads it under Hermes and bundles " +
+  "it with Metro, must not link react-dom, Lit, or the Lit-based parts of " +
+  "@a2ui/web_core, and no JavaScript file in its graph may contain a class " +
+  "`static {}` block";
+
+const STATIC_BLOCK_ADVICE =
+  "For a static block, assign the static after the class\n" +
+  "(`MyBoundary.contextType = …`) instead of declaring a `static` class field,\n" +
+  "which the build lowers to a `static {}` block (see the header of\n" +
+  "scripts/assert-headless-purity.mjs).";
+
+/**
+ * What each target may not link. `forbidden` is matched against package names
+ * (see `isForbiddenPackage`), `forbiddenPaths` against package-qualified graph
+ * inputs, and `forbidStaticBlocks` scans every JavaScript file in the graph for
+ * class static blocks. Both contracts carry REACT_NATIVE_RULES; `advice`, printed
+ * when a target of that contract breaks it, is what differs.
+ */
+const CONTRACTS = {
+  headless: {
+    name: "headless",
+    summary: REACT_NATIVE_SUMMARY,
+    ...REACT_NATIVE_RULES,
+    advice:
+      "If a hook you added needs the render stack, it belongs in the main /v2 entry instead,\n" +
+      "and so does DOM or Lit code: React Native imports this entry too.\n" +
+      STATIC_BLOCK_ADVICE,
+  },
+  native: {
+    name: "native",
+    summary: REACT_NATIVE_SUMMARY,
+    ...REACT_NATIVE_RULES,
+    advice:
+      "DOM and Lit code belongs in the web /v2/generative-ui entry, not in\n" +
+      "/v2/generative-ui/native. Import @a2ui/web_core models from its DOM-free\n" +
+      "subpaths (`@a2ui/web_core/state`, `/catalog`), never the `/v0_9` barrel.\n" +
+      STATIC_BLOCK_ADVICE,
+  },
+};
+
+/**
+ * The contract a built target (a path relative to dist/v2) is checked against.
+ *
+ * @param {string} target - e.g. `headless.mjs` or `generative-ui/native.cjs`.
+ * @returns {{ name: string, summary: string, forbidden: string[], forbiddenPaths: RegExp[], forbidStaticBlocks: boolean, advice: string }}
+ */
+export function contractFor(target) {
+  return /^generative-ui\/native\.[cm]js$/.test(target)
+    ? CONTRACTS.native
+    : CONTRACTS.headless;
+}
 // `fileURLToPath(import.meta.url)`, not `import.meta.dirname`: the latter landed
 // in Node 20.11 and is `undefined` below it, which would turn this hard-fail gate
-// into an opaque ERR_INVALID_ARG_TYPE for anyone on the `engines: ">=18"` floor
-// the root package.json still declares. Same idiom as scripts/measure-copilotchat.mjs.
-const dist = path.resolve(
+// into an opaque ERR_INVALID_ARG_TYPE on Node 20.0–20.10, which the root
+// package.json's `engines` floor (">=20") still admits. Same idiom as scripts/measure-copilotchat.mjs.
+const builtDist = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
   "../dist/v2",
 );
-const targets = ["headless.mjs", "headless.cjs", "context.mjs", "context.cjs"];
+export const targets = [
+  "headless.mjs",
+  "headless.cjs",
+  "context.mjs",
+  "context.cjs",
+  // @copilotkit/react-native/generative-ui imports this entry.
+  "generative-ui/native.mjs",
+  "generative-ui/native.cjs",
+];
 
-// A host React app already ships these, and none of them can reach the render
-// stack. Mirrors scripts/measure-copilotchat.mjs.
+// None of these can reach the render stack, so they stay out of the bundle
+// (mirrors scripts/measure-copilotchat.mjs). A web host ships them, while a React
+// Native host ships `react` but not react-dom. Externals are still checked:
+// `forbiddenHits` reads every external specifier, which is how both contracts
+// reject a react-dom import.
 const DEFAULT_EXTERNAL = [
   "react",
   "react-dom",
@@ -116,10 +229,9 @@ const GRAPH_BLINDING_WARNINGS = [
 ];
 
 // ─── Why the text scan is a tokenizer and not an alternation of regexes ──────
-// The previous version layered two regexes: one comment/string/template
-// alternation to blank comments, and one `\b(?:import|require)\s*\(` to find
-// loader calls. It gave WRONG VERDICTS IN BOTH DIRECTIONS, and every case below
-// was reproduced against the real gate before this rewrite:
+// Two layered regexes — one comment/string/template alternation to blank
+// comments, and one `\b(?:import|require)\s*\(` to find loader calls — give
+// WRONG VERDICTS IN BOTH DIRECTIONS:
 //
 //   false FAIL  throw new Error("use require(path) instead")  ← import-shaped TEXT
 //   false FAIL  `import(${x})`                                ← inside a template
@@ -132,7 +244,7 @@ const GRAPH_BLINDING_WARNINGS = [
 //   false PASS  __require(name)                               ← no \b inside `__require`
 //
 // The first four are one root cause: a regex cannot know whether the text it
-// matched is CODE. So the scan now runs a real (small) tokenizer, `scanSource`,
+// matched is CODE. So the scan runs a real (small) tokenizer, `scanSource`,
 // which walks the file once and classifies every character as code, comment,
 // string, template or regex. Only ONE regex survives, and it is applied
 // exclusively to the tokenizer's code-only output, so it can no longer see into a
@@ -207,7 +319,8 @@ function regexAllowedAfter(code, lastIndex) {
  *   `masked` has the SAME LENGTH as `code`, with every comment, string, template
  *   and regex character replaced by a space and every newline preserved — so
  *   offsets and line numbers still line up with the original. `literals` holds one
- *   span per string/template literal in source order, `end` exclusive and
+ *   span per string/template literal in the order the literals CLOSE (so a string
+ *   inside a template's `${…}` comes before that template), `end` exclusive and
  *   including the closing quote; `interpolated` is true for a template containing
  *   `${…}`, and `terminated` is false for a literal the file never closes.
  */
@@ -423,9 +536,9 @@ export function scanSource(code) {
  * Blanks comments, string/template literals AND regex literals, preserving both
  * length and newlines (and therefore offsets and line numbers).
  *
- * Named for what it does: the previous `stripComments` blanked comments only and
- * left literals intact, which is precisely how import-shaped TEXT reached the
- * loader-call matcher and hard-failed CI on code that links nothing.
+ * Literals are blanked as well as comments because import-shaped TEXT in a
+ * string would otherwise reach the loader-call matcher and fail CI on code that
+ * links nothing.
  *
  * @param {string} code
  * @returns {string}
@@ -452,7 +565,11 @@ const LOADER_CALL =
 /**
  * True when the loader word starting at `index` is a property access — `o.import(x)`,
  * `mod?.require(x)`, or the same split over a line break — which loads nothing.
- * `...import(x)` is a spread, not a member access.
+ * A `.` preceded by another `.` is a spread, not a member access, so
+ * `... import(x)` with whitespace after the spread is still reported. With no
+ * whitespace (`...import(x)`, `...require(x)`) the call is NOT reported: the `.`
+ * directly before the loader word fails LOADER_CALL's lookbehind, so the match
+ * never reaches this function. That is a known gap, not a supported case.
  *
  * @param {string} masked
  * @param {number} index
@@ -545,6 +662,91 @@ export function unanalyzableLoaderCalls(code) {
 }
 
 /**
+ * `static` followed by `{`, the shape of a class static block. A static field
+ * (`static x = {}`), a static method (`static f() {}`) and an object key
+ * (`{ static: {} }`) all put something else between the two. The lookbehind
+ * rejects a member access and an identifier that merely ends in `static`.
+ *
+ * The shape alone is not enough: outside strict mode `static` is a legal
+ * identifier, so sloppy third-party CommonJS can hold `static` at the end of a
+ * statement followed by a block on the next line (ASI). `classStaticBlocks`
+ * therefore also requires the innermost open brace to be a class body.
+ *
+ * Only ever applied to `scanSource`'s masked output, never to raw source.
+ */
+const STATIC_BLOCK = /(?<![.\w$])static\s*\{/y;
+
+/**
+ * The `class` keyword, not a property NAMED `class`. The keyword is always
+ * followed by its name, `extends` or its body's `{`, so this requires the next
+ * code character to start an identifier or be `{`. That rejects a member
+ * (`o.class`, `#class`), an object key (`class:`), a method or accessor
+ * (`class()`, `get class()`, `static class()`) and a field (`class = …`,
+ * `class;`), none of which opens a class body.
+ */
+const CLASS_KEYWORD = /(?<![.\w$#])class(?![\w$])(?=\s*[{\p{ID_Start}$_\\])/uy;
+
+/**
+ * Class static blocks (`static { … }`) in a source file. Metro's Babel preset
+ * cannot parse them, so a React Native app fails to bundle any file that has one.
+ * Runs over the masked source, so a mention in a comment, string, template or
+ * regex is not a block.
+ *
+ * One pass tracks every open bracket. A `{` opened at the same nesting level as
+ * a preceding `class` keyword is that class's body (a `{` inside its `extends`
+ * expression sits deeper), and a `static {` counts only directly inside one.
+ * Classes waiting for their body form a stack, not a single slot: the `extends`
+ * clause can hold class expressions of its own (`class A extends Mixin(class {})`,
+ * `class A extends class B {}`), and each of those opens and closes its body
+ * before the outer class opens its own.
+ *
+ * @param {string} code
+ * @returns {string[]} `line N: <excerpt>` per block.
+ */
+export function classStaticBlocks(code) {
+  const { masked } = scanSource(code);
+  const found = [];
+  /** One entry per open bracket: true for a class body. */
+  const open = [];
+  /**
+   * Nesting level of each `class` keyword whose body is not open yet, innermost
+   * last. Levels never decrease from bottom to top: an inner class keyword in an
+   * `extends` clause sits at the outer one's level or deeper.
+   */
+  const pending = [];
+  for (let i = 0; i < masked.length; i += 1) {
+    const char = masked[i];
+    if (char === "{") {
+      const isClassBody = pending[pending.length - 1] === open.length;
+      if (isClassBody) pending.pop();
+      open.push(isClassBody);
+    } else if (char === "(" || char === "[") {
+      open.push(false);
+    } else if (char === "}" || char === ")" || char === "]") {
+      open.pop();
+      // A class keyword left inside a closed bracket never got a body here.
+      while (pending.length && pending[pending.length - 1] > open.length) {
+        pending.pop();
+      }
+    } else if (char === "c") {
+      CLASS_KEYWORD.lastIndex = i;
+      if (CLASS_KEYWORD.test(masked)) pending.push(open.length);
+    } else if (char === "s" && open[open.length - 1] === true) {
+      STATIC_BLOCK.lastIndex = i;
+      if (!STATIC_BLOCK.test(masked)) continue;
+      const line = masked.slice(0, i).split("\n").length;
+      found.push(
+        `line ${line}: ${code
+          .slice(i, i + 48)
+          .replace(/\s+/g, " ")
+          .trim()}`,
+      );
+    }
+  }
+  return found;
+}
+
+/**
  * The npm package a resolved graph input belongs to, or null for first-party
  * files. Uses the LAST `node_modules/` segment so pnpm's
  * `node_modules/.pnpm/zod@3.25.76/node_modules/zod/lib/index.mjs` yields `zod`
@@ -564,18 +766,106 @@ export function packageNameFor(inputPath) {
 }
 
 /**
+ * esbuild's metafile key for a file a package's `browser` field maps to `false`.
+ * esbuild bundles an empty module in its place, so the file ships no code.
+ */
+const DISABLED_INPUT = /^\(disabled\):/;
+
+/**
+ * Whether a graph input is a file that ships: not one disabled by a `browser`
+ * field.
+ *
+ * @param {string} input
+ * @returns {boolean}
+ */
+export function isShippedInput(input) {
+  return !DISABLED_INPUT.test(input);
+}
+
+/**
+ * `<package name>/<path inside the package>` for a resolved graph input, or null
+ * when no named package owns it. Under node_modules this reads the path (the last
+ * `node_modules/` segment). Anywhere else, such as a linked local checkout that
+ * esbuild resolved through a symlink to its real path, it walks up to the
+ * nearest package.json that has a `name`, so a path rule anchored on the package
+ * still matches.
+ *
+ * @param {string} input
+ * @param {string} pkgRoot - What `input` is relative to.
+ * @param {Map<string, { name: string, dir: string } | null>} [cache] - Directory lookups.
+ * @returns {string | null}
+ */
+export function packagePathFor(input, pkgRoot, cache = new Map()) {
+  const name = packageNameFor(input);
+  if (name) {
+    const parts = input.split("node_modules/");
+    return parts[parts.length - 1];
+  }
+  const absolute = path.resolve(pkgRoot, input);
+  const owner = owningPackage(path.dirname(absolute), cache);
+  return owner
+    ? `${owner.name}/${path.relative(owner.dir, absolute).split(path.sep).join("/")}`
+    : null;
+}
+
+/** The nearest enclosing package.json with a `name`, memoized per directory. */
+function owningPackage(dir, cache) {
+  if (cache.has(dir)) return cache.get(dir);
+  let owner = null;
+  const manifest = path.join(dir, "package.json");
+  if (fs.existsSync(manifest)) {
+    try {
+      const { name } = JSON.parse(fs.readFileSync(manifest, "utf8"));
+      if (typeof name === "string" && name) owner = { name, dir };
+    } catch {
+      // An unparsable manifest names nothing; keep walking up.
+    }
+  }
+  if (!owner) {
+    const parent = path.dirname(dir);
+    owner = parent === dir ? null : owningPackage(parent, cache);
+  }
+  cache.set(dir, owner);
+  return owner;
+}
+
+/**
+ * Forbidden deps whose packages are listed exactly instead of matched by the
+ * prefix rule in `isForbiddenPackage`. `lit` needs this: a prefix would also
+ * catch unrelated packages such as `@litert/x`, `@lit-protocol/x` or `@lite/x`.
+ * So does `react-dom`, which ships as one package: a prefix would catch
+ * `react-dom-confetti` or a `@react-domx/…` scope.
+ */
+const PACKAGE_FAMILIES = {
+  "react-dom": { names: ["react-dom"], scopes: [] },
+  lit: {
+    names: ["lit", "lit-html", "lit-element"],
+    scopes: ["@lit", "@lit-labs"],
+  },
+};
+
+/**
  * Whether a package name belongs to a forbidden dependency's family.
  *
- * Anchored at the START of the package NAME (never mid-string, and never over
- * file contents), so it catches the family a dep ships as — `@shikijs/langs`,
- * `cytoscape-fcose` — without matching an unrelated file that merely mentions
- * the word.
+ * Matches package NAMES, never file contents. A dep listed in PACKAGE_FAMILIES
+ * matches exactly its listed names (and their subpaths) and every package in its
+ * listed scopes. Any other dep matches by prefix: the name itself, `dep/…`,
+ * `dep-…`, and any scope that starts with `@dep` — so `@shikijs/langs` and
+ * `cytoscape-fcose` are caught, while `shikimori` and `react-katexish` are not.
  *
  * @param {string} packageName
  * @param {string} dep
  * @returns {boolean}
  */
 export function isForbiddenPackage(packageName, dep) {
+  const family = PACKAGE_FAMILIES[dep];
+  if (family) {
+    return (
+      family.names.some(
+        (name) => packageName === name || packageName.startsWith(`${name}/`),
+      ) || family.scopes.some((scope) => packageName.startsWith(`${scope}/`))
+    );
+  }
   return (
     packageName === dep ||
     packageName.startsWith(`${dep}/`) ||
@@ -590,12 +880,19 @@ export function isForbiddenPackage(packageName, dep) {
  * @param {object} options
  * @param {string[]} options.inputs - Resolved graph input paths (esbuild metafile keys).
  * @param {string[]} [options.externalSpecifiers] - Bare specifiers left external, which resolve to no input.
+ * @param {string[]} [options.linkedPackages] - Names of packages whose files are in the graph from outside node_modules (a linked local checkout).
  * @param {string[]} options.forbidden - Dependency names that must not appear.
  * @returns {{ dep: string, via: string[] }[]} One entry per forbidden dep that is present.
  */
-export function forbiddenHits({ inputs, externalSpecifiers = [], forbidden }) {
-  const names = new Set();
+export function forbiddenHits({
+  inputs,
+  externalSpecifiers = [],
+  linkedPackages = [],
+  forbidden,
+}) {
+  const names = new Set(linkedPackages);
   for (const input of inputs) {
+    if (!isShippedInput(input)) continue;
     const name = packageNameFor(input);
     if (name) names.add(name);
   }
@@ -664,7 +961,11 @@ export async function collectModuleGraph({
 
   const inputs = Object.keys(result.metafile.inputs);
   // A graph that does not even contain its own entry means we measured nothing.
-  const entryKey = path.relative(pkgRoot, path.resolve(pkgRoot, entryFile));
+  // esbuild keys the metafile with forward slashes on every platform.
+  const entryKey = path
+    .relative(pkgRoot, path.resolve(pkgRoot, entryFile))
+    .split(path.sep)
+    .join("/");
   if (!inputs.includes(entryKey) && !inputs.includes(entryFile)) {
     throw new Error(
       `the module graph of ${path.basename(entryFile)} does not contain the entry ` +
@@ -697,8 +998,8 @@ export async function collectModuleGraph({
  * a bundler cannot see through. Third-party files are skipped on purpose: their
  * dynamic requires are endemic and say nothing about #4893.
  *
- * A first-party input that is not readable is itself reported — silence about a
- * file we were supposed to check is the failure mode this guard shipped with.
+ * A first-party input that is not readable is itself reported: a file the scan
+ * could not read must not count as clean.
  *
  * @param {object} options
  * @param {string[]} options.inputs
@@ -708,7 +1009,7 @@ export async function collectModuleGraph({
 export function unanalyzableEdgesIn({ inputs, pkgRoot }) {
   const found = [];
   for (const input of inputs) {
-    if (input.includes("node_modules")) continue;
+    if (input.includes("node_modules") || !isShippedInput(input)) continue;
     const absolute = path.resolve(pkgRoot, input);
     if (!fs.existsSync(absolute)) {
       found.push(`${input} — in the graph but not readable on disk`);
@@ -724,21 +1025,125 @@ export function unanalyzableEdgesIn({ inputs, pkgRoot }) {
 }
 
 /**
- * Walk one built entry's graph and report forbidden dependencies in it.
+ * Graph inputs Metro would run through Babel, by extension: JavaScript and
+ * TypeScript sources, never CSS or JSON. The tokenizer reads plain JavaScript
+ * only (see `scanSource`), which is what the built targets and node_modules hold;
+ * a TypeScript or JSX input would be scanned on a best-effort basis.
+ */
+const SCRIPT_INPUT = /\.[cm]?[jt]sx?$/;
+
+/**
+ * Every class static block in the graph's JavaScript files, node_modules
+ * included: Metro runs Babel over dependencies too, so a dependency's static
+ * block breaks the bundle exactly like one of ours. A file that does not contain
+ * the text `static` cannot hold a block, so it skips the tokenizer.
+ *
+ * Every unreadable input, first-party or dependency, is returned in
+ * `unreadable`: a file this scan could not read cannot be called clean, and this
+ * function is exported, so it must not rely on a caller having run
+ * `unanalyzableEdgesIn` too (`assertEntryPurity` merges the two lists with
+ * `mergeUnreadable`). An input disabled by a `browser` field ships no code and is
+ * skipped.
+ *
+ * @param {object} options
+ * @param {string[]} options.inputs
+ * @param {string} options.pkgRoot
+ * @returns {{ blocks: string[], unreadable: string[] }}
+ */
+export function staticBlocksIn({ inputs, pkgRoot }) {
+  const blocks = [];
+  const unreadable = [];
+  for (const input of inputs) {
+    if (!SCRIPT_INPUT.test(input) || !isShippedInput(input)) continue;
+    const absolute = path.resolve(pkgRoot, input);
+    if (!fs.existsSync(absolute)) {
+      unreadable.push(
+        `${input} — in the graph but not readable on disk, so it was not ` +
+          `scanned for class static blocks`,
+      );
+      continue;
+    }
+    const code = fs.readFileSync(absolute, "utf8");
+    if (!code.includes("static")) continue;
+    for (const block of classStaticBlocks(code)) {
+      blocks.push(`${input} — ${block}`);
+    }
+  }
+  return { blocks, unreadable };
+}
+
+/**
+ * The unreadable-input reports of `unanalyzableEdgesIn` and `staticBlocksIn` as
+ * one list, naming each input once (both scans see the same missing first-party
+ * file). Each report starts with `<input> — `.
+ *
+ * @param {string[]} edges - From `unanalyzableEdgesIn`.
+ * @param {string[]} unreadable - From `staticBlocksIn`.
+ * @returns {string[]}
+ */
+export function mergeUnreadable(edges, unreadable) {
+  const named = new Set(edges.map((report) => report.split(" — ")[0]));
+  return [
+    ...edges,
+    ...unreadable.filter((report) => !named.has(report.split(" — ")[0])),
+  ];
+}
+
+/**
+ * Walk one built entry's graph and report what in it breaks the contract.
  *
  * @param {object} options
  * @param {string} options.entryFile
  * @param {string} options.pkgRoot
- * @param {string[]} options.forbidden
- * @returns {Promise<{ hits: { dep: string, via: string[] }[], inputCount: number, unanalyzable: string[], blindingWarnings: string[], otherWarnings: string[] }>}
+ * @param {string[]} options.forbidden - Package names (and families) that must not appear.
+ * @param {RegExp[]} [options.forbiddenPaths] - Package-qualified input paths (`packagePathFor`) that must not appear.
+ * @param {boolean} [options.forbidStaticBlocks] - Also report class static blocks in the graph's JavaScript files.
+ * @returns {Promise<{ hits: { dep: string, via: string[] }[], pathHits: string[], staticBlocks: string[], inputCount: number, unanalyzable: string[], blindingWarnings: string[], otherWarnings: string[] }>}
  */
-export async function assertEntryPurity({ entryFile, pkgRoot, forbidden }) {
-  const { inputs, externalSpecifiers, blindingWarnings, otherWarnings } =
-    await collectModuleGraph({ entryFile, pkgRoot });
+export async function assertEntryPurity({
+  entryFile,
+  pkgRoot,
+  forbidden,
+  forbiddenPaths = [],
+  forbidStaticBlocks = false,
+}) {
+  const graph = await collectModuleGraph({ entryFile, pkgRoot });
+  const { externalSpecifiers, blindingWarnings, otherWarnings } = graph;
+  const inputs = graph.inputs.filter(isShippedInput);
+  const statics = forbidStaticBlocks
+    ? staticBlocksIn({ inputs, pkgRoot })
+    : { blocks: [], unreadable: [] };
+  const cache = new Map();
+  const qualified = inputs.map((input) => ({
+    input,
+    packagePath: packagePathFor(input, pkgRoot, cache),
+  }));
+  const linkedPackages = qualified
+    .filter(({ input, packagePath }) => packagePath && !packageNameFor(input))
+    .map(({ packagePath }) =>
+      packagePath.split("/", packagePath.startsWith("@") ? 2 : 1).join("/"),
+    );
   return {
-    hits: forbiddenHits({ inputs, externalSpecifiers, forbidden }),
-    inputCount: inputs.length,
-    unanalyzable: unanalyzableEdgesIn({ inputs, pkgRoot }),
+    hits: forbiddenHits({
+      inputs,
+      externalSpecifiers,
+      linkedPackages,
+      forbidden,
+    }),
+    pathHits: qualified
+      .filter(
+        ({ packagePath }) =>
+          packagePath &&
+          forbiddenPaths.some((pattern) => pattern.test(packagePath)),
+      )
+      .map(({ input }) => input)
+      .sort(),
+    staticBlocks: statics.blocks,
+    inputCount: graph.inputs.length,
+    unanalyzable: mergeUnreadable(
+      unanalyzableEdgesIn({ inputs, pkgRoot }),
+      statics.unreadable,
+    ),
     blindingWarnings,
     otherWarnings,
   };
@@ -788,49 +1193,90 @@ export function isEntrypoint(moduleUrl, argv1) {
   return realPath(modulePath) === realPath(argv1);
 }
 
-// CLI entry — only runs when invoked directly, so importing this module from
-// tests does not walk the real dist graph at module-load time.
-const isMain = isEntrypoint(import.meta.url, process.argv[1]);
+/** At most `limit` lines of a long list, so one leak does not flood the log. */
+function listed(items, limit = 10) {
+  const shown = items
+    .slice(0, limit)
+    .map((item) => `\n      ${item}`)
+    .join("");
+  const rest = items.length - limit;
+  return rest > 0 ? `${shown}\n      … and ${rest} more` : shown;
+}
 
-if (isMain) {
-  const pkgRoot = path.resolve(dist, "../..");
-  let failed = false;
+/**
+ * The gate itself: scan every target against its contract, print one line per
+ * target, and return the process exit code (0 only when every target was scanned
+ * AND meets its contract).
+ *
+ * Two kinds of failure are kept apart. A target that could not be scanned (not
+ * built, an edge that cannot be resolved, an edge the scan cannot see through)
+ * gets scan advice. A target whose scan found a definite violation gets that
+ * contract's summary and advice, naming only the entries that broke it. A target
+ * can be both: an opaque edge hides only what lies behind it, so the violations
+ * the scan did see are still reported, with their advice, next to the scan
+ * failure.
+ *
+ * @param {object} options
+ * @param {string} options.dist - The built dist/v2 directory.
+ * @param {string} options.pkgRoot - Working directory for esbuild resolution.
+ * @param {string[]} [options.targets] - Paths relative to `dist`.
+ * @param {{ log: Function, warn: Function, error: Function }} [options.log]
+ * @returns {Promise<number>}
+ */
+export async function runGate({
+  dist,
+  pkgRoot,
+  targets: files = targets,
+  log = console,
+}) {
+  /** Failing targets per contract, for the contract advice at the end. */
+  const broken = new Map();
+  /** Targets that could not be scanned at all. */
+  const unscanned = [];
+  const brokeContract = (file, contract, message) => {
+    log.error(`✗ ${file} ${message}`);
+    broken.set(contract, [...(broken.get(contract) ?? []), file]);
+  };
+  const couldNotScan = (file, message) => {
+    log.error(`✗ ${file} ${message}`);
+    unscanned.push(file);
+  };
 
-  for (const file of targets) {
+  for (const file of files) {
     const full = path.join(dist, file);
     if (!fs.existsSync(full)) {
-      console.error(
-        `✗ ${file} not found — run \`nx run @copilotkit/react-core:build\` first`,
-      );
-      failed = true;
+      couldNotScan(file, "not found");
       continue;
     }
 
+    const contract = contractFor(file);
     let report;
     try {
       report = await assertEntryPurity({
         entryFile: full,
         pkgRoot,
-        forbidden: FORBIDDEN,
+        forbidden: contract.forbidden,
+        forbiddenPaths: contract.forbiddenPaths,
+        forbidStaticBlocks: contract.forbidStaticBlocks,
       });
     } catch (error) {
-      console.error(`✗ ${file}: ${error.message}`);
-      failed = true;
+      couldNotScan(file, `— ${error.message}`);
       continue;
     }
 
     for (const text of report.otherWarnings) {
-      console.warn(`  (esbuild warning, not fatal) ${file}: ${text}`);
+      log.warn(`  (esbuild warning, not fatal) ${file}: ${text}`);
     }
     const opaque = [...report.blindingWarnings, ...report.unanalyzable];
     if (opaque.length) {
-      console.error(
-        `✗ ${file} has edges this scan cannot follow, so it cannot be called clean:\n  ` +
+      couldNotScan(
+        file,
+        "has edges this scan cannot follow, so it cannot be called clean:\n  " +
           opaque.join("\n  "),
       );
-      failed = true;
-      continue;
     }
+
+    const problems = [];
     if (report.hits.length) {
       const detail = report.hits
         .map(({ dep, via }) =>
@@ -839,24 +1285,60 @@ if (isMain) {
             : `${dep} (via ${via.join(", ")})`,
         )
         .join(", ");
-      console.error(
-        `✗ ${file} links the heavy render stack: ${detail}\n` +
-          `  (${report.inputCount} modules in its graph)`,
+      problems.push(`links forbidden packages: ${detail}`);
+    }
+    if (report.pathHits.length) {
+      problems.push(`links forbidden modules:${listed(report.pathHits)}`);
+    }
+    if (report.staticBlocks.length) {
+      problems.push(
+        `has class static blocks, which Metro cannot parse:${listed(report.staticBlocks)}`,
       );
-      failed = true;
+    }
+    if (problems.length) {
+      brokeContract(
+        file,
+        contract,
+        `breaks the ${contract.name} contract (${report.inputCount} modules in its graph):\n` +
+          problems.map((problem) => `  - ${problem}`).join("\n"),
+      );
       continue;
     }
-    console.log(
-      `✓ ${file} (${fs.statSync(full).size} B, ${report.inputCount} modules in graph) — clean`,
+    if (opaque.length) continue;
+    log.log(
+      `✓ ${file} (${fs.statSync(full).size} B, ${report.inputCount} modules in graph) — ` +
+        `meets the ${contract.name} contract`,
     );
   }
 
-  if (failed) {
-    console.error(
-      "\nThe React-Native-reachable entries (/v2/headless, /v2/context) must not link\n" +
-        "the chat-message rendering stack (#4893).\n" +
-        "If a hook you added needs it, it belongs in the main /v2 entry instead.",
+  for (const [contract, failed] of broken) {
+    const entries = failed.map(
+      (target) => `/v2/${target.replace(/\.[cm]js$/, "")}`,
     );
-    process.exit(1);
+    log.error(
+      `\n${[...new Set(entries)].join(", ")} (${contract.name} contract) ` +
+        `${contract.summary}.\n${contract.advice}`,
+    );
   }
+  if (unscanned.length) {
+    log.error(
+      `\n${unscanned.join(", ")} could not be scanned, so the gate cannot say ` +
+        `whether ${unscanned.length === 1 ? "it meets its" : "they meet their"} ` +
+        `contract. Run \`nx run @copilotkit/react-core:build\` if dist is ` +
+        `missing; otherwise fix the edge named above.`,
+    );
+  }
+  return broken.size || unscanned.length ? 1 : 0;
+}
+
+// CLI entry — only runs when invoked directly, so importing this module from
+// tests does not walk the real dist graph at module-load time.
+const isMain = isEntrypoint(import.meta.url, process.argv[1]);
+
+if (isMain) {
+  const exitCode = await runGate({
+    dist: builtDist,
+    pkgRoot: path.resolve(builtDist, "../.."),
+  });
+  if (exitCode) process.exit(exitCode);
 }

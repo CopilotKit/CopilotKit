@@ -122,27 +122,36 @@ export const INTELLIGENCE_TURN_HEAD = "__cpk_turn_head__";
  * emits exactly one `IntelligenceIndicator` per entry, keyed by the turn id and
  * positioned at the anchor; the per-turn key also lets every past turn keep its
  * own indicator in scroll-back.
+ *
+ * `visibleMessages` is what actually renders, when that differs from
+ * `messages` (the chat's `transformMessages`). Turns are still read from the
+ * full list, so hiding a user message does not merge its turn into the one
+ * before it, and anchors are only chosen among visible messages. A message the
+ * transform built itself joins the turn of the visible message before it.
  */
 export function getIntelligenceTurnAnchors(
   messages: readonly Message[],
+  visibleMessages: readonly Message[] = messages,
 ): Map<string, string> {
-  const anchors = new Map<string, string>();
+  const turnOfMessage = new Map<string, string>();
   let turnId = INTELLIGENCE_TURN_HEAD;
-  let anchorId: string | null = null;
-  const commit = (): void => {
-    if (anchorId !== null) anchors.set(anchorId, turnId);
-    anchorId = null;
-  };
   for (const m of messages) {
-    if (m.role === "user") {
-      commit();
-      turnId = m.id;
-      continue;
-    }
-    // First bash-using message of the turn wins; later ones don't move it.
-    if (anchorId === null && messageHasMatchingToolCall(m)) anchorId = m.id;
+    if (m.role === "user") turnId = m.id;
+    turnOfMessage.set(m.id, turnId);
   }
-  commit();
+
+  const anchors = new Map<string, string>();
+  const anchoredTurns = new Set<string>();
+  let currentTurn = INTELLIGENCE_TURN_HEAD;
+  for (const m of visibleMessages) {
+    currentTurn = turnOfMessage.get(m.id) ?? currentTurn;
+    if (m.role === "user") continue;
+    // First bash-using message of the turn wins; later ones don't move it.
+    if (!anchoredTurns.has(currentTurn) && messageHasMatchingToolCall(m)) {
+      anchors.set(m.id, currentTurn);
+      anchoredTurns.add(currentTurn);
+    }
+  }
   return anchors;
 }
 

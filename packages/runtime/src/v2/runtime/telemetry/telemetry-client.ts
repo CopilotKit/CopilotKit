@@ -6,7 +6,10 @@ import {
   TELEMETRY_EMITTER_V2,
   TELEMETRY_SURFACE_V2,
 } from "@copilotkit/shared";
-import * as packageJson from "../../../../package.json";
+import {
+  RUNTIME_PACKAGE_NAME,
+  RUNTIME_PACKAGE_VERSION,
+} from "../core/package-info";
 import { firstNonBlankTelemetryId } from "./telemetry-identity";
 
 /** Transport identity and sampling authority resolved for one runtime. */
@@ -144,7 +147,9 @@ export class TelemetryClient {
     properties: AnalyticsEvents[K],
     identity: ResolvedTelemetryIdentity,
   ): Promise<void> {
-    if (this.telemetryDisabled) return;
+    // Re-read the environment: an opt-out set after import (for example a
+    // dotenv call below the imports) must still stop events.
+    if (this.telemetryDisabled || isTelemetryDisabled()) return;
     // Nothing is gated at the default rate of 1. A caller who dialled it
     // down means it, and identified callers are exempt either way.
     if (!identity.licenseTelemetryId && !this.shouldSendEvent()) return;
@@ -180,8 +185,8 @@ export class TelemetryClient {
         // event whichever client produced it (OSS-1019).
         telemetry_transport: "lambda",
       },
-      packageName: packageJson.name,
-      packageVersion: packageJson.version,
+      packageName: RUNTIME_PACKAGE_NAME,
+      packageVersion: RUNTIME_PACKAGE_VERSION,
       telemetryId: identity.telemetryId ?? undefined,
       licenseToken: identity.licenseToken ?? undefined,
     });

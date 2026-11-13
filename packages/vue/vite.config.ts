@@ -14,6 +14,18 @@ export default defineConfig({
       entry: {
         index: resolve(__dirname, "src/index.ts"),
         "v2/index": resolve(__dirname, "src/v2/index.ts"),
+        "v2/generative-ui/index": resolve(
+          __dirname,
+          "src/v2/generative-ui/index.ts",
+        ),
+        "v2/generative-ui/chart": resolve(
+          __dirname,
+          "src/v2/generative-ui-chart/index.ts",
+        ),
+        "v2/generative-ui/map": resolve(
+          __dirname,
+          "src/v2/generative-ui-map/index.ts",
+        ),
       },
       name: "CopilotKitVue",
       formats: ["es", "cjs"],
@@ -23,13 +35,20 @@ export default defineConfig({
     rollupOptions: {
       external: [
         "vue",
-        "@a2ui/web_core",
-        "@a2ui/web_core/v0_9",
-        "@a2ui/web_core/v0_9/basic_catalog",
+        /^@a2ui\/web_core(\/.*)?$/,
         "@ag-ui/client",
         "@ag-ui/core",
-        "@copilotkit/core",
-        "@copilotkit/shared",
+        // The core and shared packages plus their subpaths, such as the
+        // framework-free `/generative-ui` layer the Vue generative UI wraps.
+        /^@copilotkit\/core(\/.*)?$/,
+        // Keep the shared MCP Apps host + its subpaths external. The root entry
+        // carries the ext-apps AppBridge and is loaded through a dynamic
+        // import() in the renderer, so it must stay a real runtime import (not
+        // be inlined, which would pull the bridge into the eager chunk and undo
+        // the lazy-loading); `/activity` is the bridge-free surface imported
+        // statically for activity registration.
+        /^@copilotkit\/mcp-apps-renderer(\/.*)?$/,
+        /^@copilotkit\/shared(\/.*)?$/,
         "@copilotkit/web-inspector",
         // Keep @copilotkit/web-components (the Lit drawer element) + its subpaths
         // external. It's a runtime dependency loaded via the drawer wrapper's
@@ -40,9 +59,13 @@ export default defineConfig({
         /^@copilotkit\/web-components(\/.*)?$/,
         "@jetbrains/websandbox",
         "streamdown-vue",
-        "katex",
-        "lucide-vue-next",
-        "zod",
+        /^katex(\/.*)?$/,
+        /^lucide-vue-next(\/.*)?$/,
+        /^zod(\/.*)?$/,
+        // Optional peers of the generative UI chart and map plugins. The
+        // plugins load them with a dynamic import(), so they stay imports.
+        /^chart\.js(\/.*)?$/,
+        /^maplibre-gl(\/.*)?$/,
         "zod-to-json-schema",
       ],
       output: {

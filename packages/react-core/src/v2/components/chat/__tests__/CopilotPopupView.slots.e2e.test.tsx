@@ -429,6 +429,36 @@ describe("CopilotPopupView Slot System E2E Tests", () => {
       expect(popup).toBeDefined();
     });
 
+    it("stays open when the user clicks into a chat popover", () => {
+      render(
+        <TestWrapper>
+          <CopilotPopupView
+            messages={sampleMessages}
+            defaultOpen={true}
+            clickOutsideToClose={true}
+          />
+          <div data-copilotkit-popover>
+            <input aria-label="Comment" />
+          </div>
+          <div data-slot="popover-content">
+            <button type="button">App popover</button>
+          </div>
+        </TestWrapper>,
+      );
+      const popup = screen.getByTestId("copilot-popup");
+      const isOpen = () => popup.className.includes("cpk:pointer-events-auto");
+      expect(isOpen()).toBe(true);
+
+      fireEvent.pointerDown(screen.getByRole("textbox", { name: "Comment" }));
+      expect(isOpen()).toBe(true);
+
+      // The app's own popovers are outside the chat.
+      fireEvent.pointerDown(
+        screen.getByRole("button", { name: "App popover" }),
+      );
+      expect(isOpen()).toBe(false);
+    });
+
     it("should support clickOutsideToClose prop", () => {
       const { container } = render(
         <TestWrapper>
@@ -448,6 +478,23 @@ describe("CopilotPopupView Slot System E2E Tests", () => {
   // 8. INTEGRATION TESTS
   // ============================================================================
   describe("8. Integration Tests", () => {
+    it("keeps the transparent-background utility on the positioning wrapper", () => {
+      const { container } = render(
+        <TestWrapper>
+          <CopilotPopupView messages={sampleMessages} defaultOpen={true} />
+        </TestWrapper>,
+      );
+
+      const popup = container.querySelector("[data-copilot-popup]");
+      const positioningWrapper = popup?.parentElement;
+
+      expect(positioningWrapper?.hasAttribute("data-copilotkit")).toBe(true);
+      // jsdom does not load the generated stylesheet; this guards the utility-class contract only.
+      expect(positioningWrapper?.classList.contains("cpk:bg-transparent")).toBe(
+        true,
+      );
+    });
+
     it("should render popup with all default components when open", () => {
       const { container } = render(
         <TestWrapper>

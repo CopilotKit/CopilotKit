@@ -7,7 +7,13 @@ description: "Angular standalone component that renders a single assistant messa
 
 `CopilotChatAssistantMessage` renders one assistant message. It shows the message content through a markdown renderer, renders attached tool calls, and shows a toolbar with copy, thumbs up/down, read-aloud, and regenerate actions.
 
-The toolbar appears only when the message has non-empty text content. The copy button always renders; the thumbs up and thumbs down buttons render when you provide a custom slot for them or when a thumbs handler is available from a surrounding [`CopilotChatView`](/reference/angular/components/CopilotChatView). The read-aloud and regenerate buttons render only when you provide a custom slot for them.
+The toolbar appears only when the message has non-empty text content. Inside the toolbar:
+
+- Copy: always renders.
+- Thumbs up and thumbs down: render when you provide a custom slot for them, or when a thumbs handler is available from a surrounding [`CopilotChatView`](/reference/angular/components/CopilotChatView).
+- Read aloud and regenerate: render only when you provide a custom slot for them.
+
+By default, [`CopilotChatMessageView`](/reference/angular/components/CopilotChatMessageView) renders this component for every assistant message.
 
 The component is standalone and uses `OnPush` change detection. Reactive inputs are Angular [signals](https://angular.dev/guide/signals).
 
@@ -159,26 +165,3 @@ You can override any piece of the message by projecting a named template. A proj
   </ng-template>
 </copilot-chat-assistant-message>
 ```
-
-## Related
-
-<Cards>
-  <Card
-    title="CopilotChatMessageView"
-    description="Renders a list of messages, routing each to assistant, user, reasoning, or activity rendering."
-    href="/reference/angular/components/CopilotChatMessageView"
-    icon={<LinkIcon />}
-  />
-  <Card
-    title="CopilotChatUserMessage"
-    description="Renders a single user message with copy, edit, and branch navigation."
-    href="/reference/angular/components/CopilotChatUserMessage"
-    icon={<LinkIcon />}
-  />
-  <Card
-    title="CopilotChatView"
-    description="The full chat layout: scroll container, message view, and input."
-    href="/reference/angular/components/CopilotChatView"
-    icon={<LinkIcon />}
-  />
-</Cards>

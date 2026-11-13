@@ -195,18 +195,26 @@ const RunAgentHarness: React.FC<{ withIntelligence: boolean }> = ({
 interface RenderOptions {
   withIntelligence?: boolean;
   intelligenceIndicator?: IndicatorSlot;
+  showIntelligenceIndicator?: boolean;
 }
 
 const renderForIndicator = (
   agent: MockStepwiseAgent,
   options: RenderOptions = {},
 ): void => {
-  const { withIntelligence = true, intelligenceIndicator } = options;
+  const {
+    withIntelligence = true,
+    intelligenceIndicator,
+    showIntelligenceIndicator,
+  } = options;
 
   // No `renderCustomMessages` prop is passed — the indicator
   // auto-mounts when intelligence is configured.
   render(
-    <CopilotKitProvider agents__unsafe_dev_only={{ default: agent }}>
+    <CopilotKitProvider
+      agents__unsafe_dev_only={{ default: agent }}
+      showIntelligenceIndicator={showIntelligenceIndicator}
+    >
       <CopilotChatConfigurationProvider agentId="default" threadId="t">
         <RunAgentHarness withIntelligence={withIntelligence} />
         <div style={{ height: 400 }}>
@@ -437,6 +445,28 @@ describe('IntelligenceIndicator — "CopilotKit Intelligence" (auto-mounted)', (
 
     await waitFor(() => expectIndicatorOn("m1"));
     expectIndicatorCount(1);
+  });
+
+  it("provider opt-out: does not auto-mount the indicator", async () => {
+    const agent = makeAgent();
+    renderForIndicator(agent, { showIntelligenceIndicator: false });
+    await screen.findByTestId("trigger-run");
+
+    await triggerRun(agent);
+    startRun(agent);
+    emitAssistantMessageWithToolCalls(agent, "m1", [{ id: "tc1", arg: "{}" }]);
+    emitToolResult(agent, "tc1", "tr1");
+    emitAssistantProse(agent, "m2", "Done.");
+    agent.emit(runFinishedEvent());
+
+    await waitFor(() =>
+      expect(
+        screen
+          .getAllByTestId("copilot-assistant-message")
+          .map((element) => element.getAttribute("data-message-id")),
+      ).toContain("m2"),
+    );
+    expectNoIndicatorAnywhere();
   });
 
   // NOTE: replay-flash suppression (a tool call + result that resolve before

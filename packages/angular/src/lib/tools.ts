@@ -1,7 +1,10 @@
 import { DestroyRef, Injector, Signal, Type, inject } from "@angular/core";
 import type { AbstractAgent } from "@ag-ui/client";
 import { FrontendTool, FrontendToolHandlerContext } from "@copilotkit/core";
-import type { WebMCPToolConfig } from "@copilotkit/core";
+import type {
+  FrontendToolReconnectBehavior,
+  WebMCPToolConfig,
+} from "@copilotkit/core";
 import type { StandardSchemaV1 } from "@copilotkit/shared";
 import { CopilotKit } from "./copilotkit";
 
@@ -103,6 +106,12 @@ export interface FrontendToolConfig<
     context: FrontendToolHandlerContext,
   ) => Promise<unknown>;
   followUp?: boolean;
+  /**
+   * Whether to run the handler again for a call that is still unanswered when
+   * the thread's history is restored. Defaults to `"passive"`. See
+   * `FrontendToolReconnectBehavior` in `@copilotkit/core`.
+   */
+  reconnectBehavior?: FrontendToolReconnectBehavior;
   agentId?: string;
   /**
    * Also expose this tool to browser agents through the WebMCP API
@@ -174,10 +183,9 @@ export function registerFrontendTool<
 /**
  * Registers an Angular component as a tool the agent can call to display it.
  *
- * The simplest generative-UI registration there is, and the only one that needs
- * nothing on the agent side: the tool is declared by the frontend and forwarded to
- * the agent over AG-UI, so it works the same behind a Python agent as a TypeScript
- * one. Contrast `registerRenderToolCall`, which draws a tool the agent already
+ * It needs nothing on the agent side: the tool is declared by the frontend and
+ * forwarded to the agent over AG-UI, so it works the same behind a Python agent as
+ * a TypeScript one. Contrast `registerRenderToolCall`, which draws a tool the agent already
  * has and therefore requires that tool to exist in the agent.
  *
  * The component is an ordinary `ToolRenderer`: it takes the required `toolCall`

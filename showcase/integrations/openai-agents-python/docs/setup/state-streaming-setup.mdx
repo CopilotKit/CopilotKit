@@ -1,0 +1,18 @@
+The adapter streams a tool call's arguments as `TOOL_CALL_ARGS` events while
+the model writes them, but it does not copy them into state. The tool writes
+the finished value to state when it runs:
+
+<DemoCode file="src/demo_agents/shared_state_streaming.py" region="state-streaming-tool" />
+
+To fill the state while the model is still writing the argument, subclass
+`OpenAIAgentsAgent` and turn those argument chunks into `STATE_DELTA` events.
+The arguments are unfinished JSON until the call ends, so parse them with
+`pydantic_core.from_json(..., allow_partial="trailing-strings")`, which keeps
+a string that is cut off mid-way:
+
+<DemoCode file="src/demo_agents/shared_state_streaming.py" region="state-streaming-middleware" />
+
+Mount the agent wrapped in that subclass,
+`DocumentStreamingAgent(shared_state_streaming_agent)`, instead of a plain
+`OpenAIAgentsAgent`. The page then sees the document grow token by token, and
+the tool's own `STATE_SNAPSHOT` settles it once the call runs.

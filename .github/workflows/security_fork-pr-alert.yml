@@ -1,7 +1,9 @@
 name: "Security: Fork PR Alert"
 
 on:
-  pull_request:
+  # Fork pull_request tokens are read-only. Use the trusted base workflow so
+  # this API-only monitor can post alerts; never check out or execute PR code.
+  pull_request_target:
     types: [opened, synchronize, closed, reopened]
 
 permissions:
@@ -12,6 +14,7 @@ jobs:
   fork-pr-monitor:
     if: github.event.pull_request.head.repo.full_name != github.repository
     runs-on: ubuntu-latest
+    timeout-minutes: 5 # observed max 0.1m over 1 runs
     steps:
       - name: Check for suspicious patterns
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
@@ -76,7 +79,15 @@ jobs:
               );
 
               if (largeNewFiles.length > 0) {
-                alerts.push(`⚠️ **Large files added by fork PR** — ${largeNewFiles.map(f => '`' + f.filename + '` (' + f.additions + ' lines)').join(', ')}. Bundled payloads are a common supply-chain attack vector.`);
+                // Keep fork-controlled filenames inside a single Markdown code span.
+                const inlineCode = value => {
+                  const text = value.replace(/\r/g, '\\r').replace(/\n/g, '\\n');
+                  const runs = text.match(/`+/g) || [];
+                  const delimiter = '`'.repeat(Math.max(0, ...runs.map(run => run.length)) + 1);
+                  const padding = /^ +$/.test(text) ? '' : ' ';
+                  return delimiter + padding + text + padding + delimiter;
+                };
+                alerts.push(`⚠️ **Large files added by fork PR** — ${largeNewFiles.map(f => inlineCode(f.filename) + ' (' + f.additions + ' lines)').join(', ')}. Bundled payloads are a common supply-chain attack vector.`);
               }
             }
 

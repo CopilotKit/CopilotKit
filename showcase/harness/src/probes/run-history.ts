@@ -25,6 +25,8 @@ export type ProbeRunState = "running" | "completed" | "failed";
 
 /** JSON blob persisted into the `summary` column. */
 export interface ProbeRunSummary {
+  /** Written only after all selected observations commit. */
+  selectedObservationFingerprint?: string;
   total: number;
   passed: number;
   failed: number;
@@ -71,6 +73,7 @@ export interface ProbeRunByJob {
   id: string;
   /** True once the row reached a terminal state (`completed` | `failed`). */
   terminal: boolean;
+  selectedObservationFingerprint?: string;
 }
 
 export interface ProbeRunWriter {
@@ -108,20 +111,29 @@ export interface ProbeRunWriter {
    * has a null summary, and the boot-time `sweepStaleRuns` has nothing to
    * preserve — the dashboard then shows `failed / total:0` even though
    * dozens of features actually passed. State stays `running`; only
-   * `summary` is updated. Best-effort, like `finish()`.
+   * `summary` is updated. `reopen` restores running and clears terminal timing.
+   * A missing row rejects only when `reopen` is required.
    */
-  update(opts: { id: string; summary: ProbeRunSummary }): Promise<void>;
+  update(opts: {
+    id: string;
+    summary: ProbeRunSummary;
+    /** Reopen an uncertified selected run; reject a missing row. */
+    reopen?: true;
+  }): Promise<void>;
   /**
    * Mark a row finished. `duration_ms` is computed from
    * `finishedAt - row.started_at` (read off the persisted row, not from a
    * caller-supplied startedAt) so the contract holds even if the caller
    * forgets to thread the same monotonic clock through both calls.
+   * A missing row rejects when `required` is set; ordinary callers still warn.
    */
   finish(opts: {
     id: string;
     finishedAt: number;
     state: "completed" | "failed";
     summary: ProbeRunSummary | null;
+    /** Reject a missing selected run row. */
+    required?: true;
   }): Promise<void>;
   /**
    * Return the last `limit` runs for `probeId`, sorted by `started_at`
@@ -198,6 +210,8 @@ export function createProbeRunWriter(pb: PbClient): ProbeRunWriter {
       return {
         id: row.id,
         terminal: row.state === "completed" || row.state === "failed",
+        selectedObservationFingerprint:
+          row.summary?.selectedObservationFingerprint,
       };
     },
 
@@ -213,12 +227,17 @@ export function createProbeRunWriter(pb: PbClient): ProbeRunWriter {
         opts.id,
       );
       if (!existing) {
+        if (opts.reopen)
+          throw new Error("run-history.resume: selected run row missing");
         // eslint-disable-next-line no-console
         console.warn("run-history.update: row missing", { runId: opts.id });
         return;
       }
       await pb.update<ProbeRunRow>(PROBE_RUNS_COLLECTION, opts.id, {
         summary: opts.summary,
+        ...(opts.reopen
+          ? { state: "running", finished_at: "", duration_ms: 0 }
+          : {}),
       });
     },
 
@@ -240,6 +259,8 @@ export function createProbeRunWriter(pb: PbClient): ProbeRunWriter {
         opts.id,
       );
       if (!existing) {
+        if (opts.required)
+          throw new Error("run-history.finish: selected run row missing");
         // eslint-disable-next-line no-console
         console.warn("run-history.finish: row missing", {
           runId: opts.id,

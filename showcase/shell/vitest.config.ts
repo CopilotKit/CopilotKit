@@ -25,6 +25,24 @@ export default defineConfig({
   },
   resolve: {
     alias: {
+      // Shared frontend regression tests import cards from every standalone
+      // integration. Resolve their UI dependencies here so those apps do not
+      // each need an install, and all cards use the same React instance.
+      ...Object.fromEntries(
+        [
+          "react",
+          "react-dom",
+          "lucide-react",
+          "class-variance-authority",
+          "clsx",
+          "tailwind-merge",
+        ].map((name) => [
+          name,
+          name === "react" || name === "react-dom"
+            ? path.dirname(require.resolve(`${name}/package.json`))
+            : require.resolve(name),
+        ]),
+      ),
       "@": path.resolve(__dirname, "./src"),
       // `server-only` (imported by src/lib/runtime-config.ts as a
       // client-bundle guard) THROWS under the plain-Node `default`

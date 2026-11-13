@@ -12,6 +12,11 @@ export type { CopilotKitCoreReactConfig };
 export interface CopilotKitContextValue {
   copilotkit: CopilotKitCoreReact;
   /**
+   * Whether CopilotKit should automatically mount Intelligence indicators.
+   * Defaults to true when omitted for compatibility with custom providers.
+   */
+  showIntelligenceIndicator?: boolean;
+  /**
    * Set of tool call IDs currently being executed.
    * This is tracked at the provider level to ensure tool execution events
    * are captured even before child components mount.

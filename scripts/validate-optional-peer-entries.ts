@@ -73,7 +73,7 @@ export function packageNameOf(specifier: string): string {
   return specifier.startsWith("@") ? parts.slice(0, 2).join("/") : parts[0];
 }
 
-function parse(file: string): ts.SourceFile {
+export function parse(file: string): ts.SourceFile {
   return ts.createSourceFile(
     file,
     fs.readFileSync(file, "utf8"),
@@ -103,7 +103,7 @@ function esmSpecifiers(file: string): string[] {
 }
 
 /** Nodes whose body runs on call, not on module initialization. */
-function isDeferred(node: ts.Node): boolean {
+export function isDeferred(node: ts.Node): boolean {
   return (
     ts.isFunctionDeclaration(node) ||
     ts.isFunctionExpression(node) ||
@@ -185,6 +185,19 @@ export function reachableBareSpecifiers(
   entry: string,
   format: Format = "esm",
 ): Map<string, string> {
+  return walkEagerGraph(entry, format).bare;
+}
+
+/**
+ * The package files `entry` loads eagerly, and the bare specifiers they load.
+ *
+ * Shared with validate-module-scope-create-require.ts, which inspects the files
+ * themselves rather than what they import.
+ */
+export function walkEagerGraph(
+  entry: string,
+  format: Format = "esm",
+): { files: Set<string>; bare: Map<string, string> } {
   const seen = new Set<string>();
   const queue = [entry];
   /** bare specifier -> the file that imports it */
@@ -211,7 +224,7 @@ export function reachableBareSpecifiers(
       }
     }
   }
-  return bare;
+  return { files: seen, bare };
 }
 
 /**
@@ -226,7 +239,7 @@ export function isDedicatedEntry(entry: string, peer: string): boolean {
 }
 
 /** The published targets of one exports entry, by format. */
-function targetsOf(condition: unknown): Array<[Format, string]> {
+export function targetsOf(condition: unknown): Array<[Format, string]> {
   if (!condition || typeof condition !== "object") return [];
   const record = condition as Record<string, unknown>;
   const targets: Array<[Format, string]> = [];

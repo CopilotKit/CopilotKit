@@ -540,22 +540,46 @@ export const uiCases = [
         }),
       );
       const messages = context.platform.agentInputs[0].messages;
-      const assistant = messages.find(
-        (message) => message.toolCalls?.[0]?.function.name === "log_a2ui_event",
-      );
-      assert.deepEqual(
-        JSON.parse(assistant.toolCalls[0].function.arguments),
-        action,
-      );
-      assert.ok(
-        messages.some(
+      if (context.expectedA2uiActionHistory === "private-user-json") {
+        const actionPrefix = "A2UI user action:\n";
+        const actionMessages = messages.filter(
           (message) =>
-            message.role === "tool" &&
-            message.toolCallId === assistant.toolCalls[0].id &&
-            message.content ===
-              'User performed action "confirm" on surface "card" (component: button). Context: {"selected":2}',
-        ),
-      );
+            message.role === "user" &&
+            typeof message.content === "string" &&
+            message.content.startsWith(actionPrefix),
+        );
+        assert.equal(actionMessages.length, 1);
+        assert.deepEqual(
+          JSON.parse(actionMessages[0].content.slice(actionPrefix.length)),
+          action,
+        );
+        assert.ok(
+          !messages.some((message) =>
+            message.toolCalls?.some(
+              (call) => call.function.name === "log_a2ui_event",
+            ),
+          ),
+        );
+      } else {
+        assert.equal(context.expectedA2uiActionHistory, undefined);
+        const assistant = messages.find(
+          (message) =>
+            message.toolCalls?.[0]?.function.name === "log_a2ui_event",
+        );
+        assert.deepEqual(
+          JSON.parse(assistant.toolCalls[0].function.arguments),
+          action,
+        );
+        assert.ok(
+          messages.some(
+            (message) =>
+              message.role === "tool" &&
+              message.toolCallId === assistant.toolCalls[0].id &&
+              message.content ===
+                'User performed action "confirm" on surface "card" (component: button). Context: {"selected":2}',
+          ),
+        );
+      }
       const painted = events.find((event) => event.content?.a2ui_operations);
       assert.equal(
         painted.content.a2ui_operations[0].createSurface.catalogId,

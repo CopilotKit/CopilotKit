@@ -54,6 +54,8 @@ function readDocumentedExports(section: string): string[] {
 test.each([
   ["root", "src/public-api.ts"],
   ["mcp-apps", "src/mcp-apps/index.ts"],
+  ["a2ui", "src/a2ui/index.ts"],
+  ["generative-ui", "src/generative-ui/index.ts"],
 ] as const)(
   "documents every %s entry-point export exactly once",
   (section, entryPoint) => {

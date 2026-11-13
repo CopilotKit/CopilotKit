@@ -6,7 +6,10 @@ readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
   "uvicorn",
-  "pydantic-ai-slim[ag-ui,openai]==2.22.0",
+  "pydantic-ai-slim[ag-ui,openai,anthropic,google]==2.22.0",
+  # anthropic 1.x moved to httpx2 and rejects the httpx client pydantic-ai
+  # 2.22.0 hands it ("Invalid `http_client` argument"), so stay on 0.x.
+  "anthropic>=0.108.0,<1",
   "ag-ui-protocol==0.1.19",
   "python-dotenv",
   "logfire>=4.10.0",

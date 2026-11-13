@@ -20,6 +20,7 @@ import type { StrandsAgent } from "@ag-ui/aws-strands";
 import { strandsCvdiagMiddleware } from "./cvdiag-backend-strands.js";
 import {
   buildShowcaseAgent,
+  buildRichChatAgent,
   buildVoiceAgent,
   buildByocHashbrownAgent,
   buildByocJsonRenderAgent,
@@ -41,7 +42,7 @@ function mountAgent(
   agent: StrandsAgent,
   // Reported to CVDIAG so a diagnostic row names the model the mount actually
   // uses. The reasoning mounts run a different model from the shared agent.
-  modelId: string = process.env.MODEL_ID ?? "gpt-4o",
+  modelId: string = process.env.MODEL_ID ?? "gpt-6-luna",
 ): void {
   // Mount the CVDIAG / header-forwarding middleware on the SAME path FIRST so
   // Express runs it BEFORE the aws-strands POST handler. It seeds the
@@ -84,6 +85,7 @@ async function main(): Promise<void> {
 
   const [
     showcase,
+    richChat,
     voice,
     hashbrown,
     jsonRender,
@@ -95,6 +97,7 @@ async function main(): Promise<void> {
     reasoningChain,
   ] = await Promise.all([
     buildShowcaseAgent(),
+    buildRichChatAgent(),
     buildVoiceAgent(),
     buildByocHashbrownAgent(),
     buildByocJsonRenderAgent(),
@@ -107,6 +110,7 @@ async function main(): Promise<void> {
   ]);
 
   mountAgent(app, "/voice", voice);
+  mountAgent(app, "/beautiful-chat", richChat);
   mountAgent(app, "/byoc-hashbrown", hashbrown);
   mountAgent(app, "/byoc-json-render", jsonRender);
   // Fixed-schema A2UI: the dedicated agent wires its OWN backend tool

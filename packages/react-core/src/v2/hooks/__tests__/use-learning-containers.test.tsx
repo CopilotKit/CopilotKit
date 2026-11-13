@@ -223,6 +223,115 @@ test("unmount → emits reset [project] for the captured threadId", async () => 
   restore();
 });
 
+// ─── #1937: neither emit forwards a copilotkit.headers snapshot ──
+
+/**
+ * A fetch stub that records the headers it actually received AND overlays a
+ * "current" header, modeling `ɵruntimeFetch`'s real send-time resolution.
+ * Unlike a plain snapshot spread, this does NOT strip whatever the caller
+ * already put in `init.headers` — so a regression (the hook spreading
+ * `copilotkit.headers` again) is not masked.
+ */
+function mockRuntimeFetch(
+  responses: Array<{ status: number; body: unknown }>,
+): {
+  calls: Array<{
+    url: string;
+    headers: Record<string, string>;
+    body: Record<string, unknown> | null;
+  }>;
+  runtimeFetch: typeof globalThis.fetch;
+} {
+  const calls: Array<{
+    url: string;
+    headers: Record<string, string>;
+    body: Record<string, unknown> | null;
+  }> = [];
+  let index = 0;
+  const runtimeFetch = vi.fn(async (url: unknown, init?: RequestInit) => {
+    let parsedBody: Record<string, unknown> | null = null;
+    if (init?.body && typeof init.body === "string") {
+      try {
+        parsedBody = JSON.parse(init.body);
+      } catch {
+        parsedBody = null;
+      }
+    }
+    calls.push({
+      url: String(url),
+      headers: {
+        ...(init?.headers as Record<string, string> | undefined),
+        "X-Current": "fresh-value",
+      },
+      body: parsedBody,
+    });
+    const response = responses[index++] ?? responses[responses.length - 1]!;
+    return new Response(JSON.stringify(response.body), {
+      status: response.status,
+      headers: { "Content-Type": "application/json" },
+    });
+  });
+  return {
+    calls,
+    runtimeFetch: runtimeFetch as unknown as typeof globalThis.fetch,
+  };
+}
+
+test("Effect 1's mount emit does not forward a copilotkit.headers snapshot", async () => {
+  const { calls, runtimeFetch } = mockRuntimeFetch([
+    { status: 200, body: { id: "1", duplicate: false } },
+  ]);
+  mockUseCopilotKit.mockReturnValue({
+    copilotkit: {
+      runtimeUrl: "https://bff.example.com/api/copilotkit",
+      // A stale snapshot the hook must NOT read from directly.
+      headers: { "X-Stale-Snapshot": "old-value" },
+      ɵruntimeFetch: runtimeFetch,
+    },
+  });
+
+  renderHook(() =>
+    useLearningContainers({ threadId: "t1", learningContainers: ["team"] }),
+  );
+
+  await act(async () => {});
+
+  expect(calls).toHaveLength(1);
+  expect(calls[0]!.headers["X-Stale-Snapshot"]).toBeUndefined();
+  expect(calls[0]!.headers["X-Current"]).toBe("fresh-value");
+});
+
+test("the unmount/reset emit (cleanup) does not forward a copilotkit.headers snapshot", async () => {
+  const { calls, runtimeFetch } = mockRuntimeFetch([
+    { status: 200, body: { id: "1", duplicate: false } },
+    { status: 200, body: { id: "2", duplicate: false } },
+  ]);
+  mockUseCopilotKit.mockReturnValue({
+    copilotkit: {
+      runtimeUrl: "https://bff.example.com/api/copilotkit",
+      headers: { "X-Stale-Snapshot": "old-value" },
+      ɵruntimeFetch: runtimeFetch,
+    },
+  });
+
+  const { unmount } = renderHook(() =>
+    useLearningContainers({
+      threadId: "thread-xyz",
+      learningContainers: ["team"],
+    }),
+  );
+
+  await act(async () => {});
+  expect(calls).toHaveLength(1); // mount emit
+
+  unmount();
+  await act(async () => {});
+
+  expect(calls).toHaveLength(2); // + reset emit
+  expect(calls[1]!.headers["X-Stale-Snapshot"]).toBeUndefined();
+  expect(calls[1]!.headers["X-Current"]).toBe("fresh-value");
+});
+
 test("threadId change → resets old thread then syncs new thread", async () => {
   installCopilotKit();
   const { calls, restore } = mockFetch([

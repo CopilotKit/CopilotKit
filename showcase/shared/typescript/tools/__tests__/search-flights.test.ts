@@ -19,34 +19,71 @@ describe("searchFlightsImpl", () => {
     currency: "USD",
   };
 
-  it("returns flights and schema", () => {
-    const result = searchFlightsImpl([mockFlight]);
-    expect(result).toHaveProperty("flights");
-    expect(result).toHaveProperty("schema");
+  it("emits a renderable A2UI surface with the flight data", () => {
+    expect(searchFlightsImpl([mockFlight])).toMatchObject({
+      a2ui_operations: [
+        {
+          version: "v0.9",
+          createSurface: {
+            surfaceId: "flight-search-results",
+            catalogId: "copilotkit://app-dashboard-catalog",
+          },
+        },
+        {
+          version: "v0.9",
+          updateComponents: {
+            surfaceId: "flight-search-results",
+            components: expect.arrayContaining([
+              {
+                id: "root",
+                component: "Row",
+                children: { componentId: "flight-card", path: "/flights" },
+                gap: 16,
+              },
+              expect.objectContaining({
+                id: "flight-card",
+                component: "FlightCard",
+                airline: { path: "airline" },
+                price: { path: "price" },
+              }),
+            ]),
+          },
+        },
+        {
+          version: "v0.9",
+          updateDataModel: {
+            surfaceId: "flight-search-results",
+            path: "/",
+            value: { flights: [mockFlight] },
+          },
+        },
+      ],
+    });
   });
 
-  it("passes flights through unchanged", () => {
-    const result = searchFlightsImpl([mockFlight]);
-    expect(result.flights).toHaveLength(1);
-    expect(result.flights[0]).toEqual(mockFlight);
-  });
-
-  it("returns empty schema object", () => {
-    const result = searchFlightsImpl([mockFlight]);
-    expect(result.schema).toEqual({});
-  });
-
-  it("handles empty flights array", () => {
-    const result = searchFlightsImpl([]);
-    expect(result.flights).toHaveLength(0);
-  });
-
-  it("handles multiple flights", () => {
-    const result = searchFlightsImpl([
-      mockFlight,
-      { ...mockFlight, flightNumber: "TA200" },
-    ]);
-    expect(result.flights).toHaveLength(2);
-    expect(result.flights[1].flightNumber).toBe("TA200");
-  });
+  it.each(
+    [
+      [],
+      [mockFlight],
+      [mockFlight, { ...mockFlight, flightNumber: "TA200" }],
+    ].map((flights) => ({ flights })),
+  )(
+    "provides the same flights to plain renderers and A2UI: %j",
+    ({ flights }) => {
+      const result = searchFlightsImpl(flights);
+      expect(result.flights).toEqual(flights);
+      expect(result).toMatchObject({
+        a2ui_operations: expect.arrayContaining([
+          {
+            version: "v0.9",
+            updateDataModel: {
+              surfaceId: "flight-search-results",
+              path: "/",
+              value: { flights },
+            },
+          },
+        ]),
+      });
+    },
+  );
 });

@@ -9,18 +9,19 @@ import OpenAI from "openai";
 import { AbstractAgent, EventType } from "@ag-ui/client";
 import type { BaseEvent, RunAgentInput } from "@ag-ui/client";
 import { Observable } from "rxjs";
+import { PRODUCTS } from "../../generative-ui/products";
 
 const determineModel = () => {
   if (process.env.OPENAI_API_KEY?.trim()) {
-    return "openai/gpt-5-mini";
+    return "openai/gpt-6-luna";
   }
   if (process.env.ANTHROPIC_API_KEY?.trim()) {
     return "anthropic/claude-sonnet-4-6";
   }
   if (process.env.GOOGLE_API_KEY?.trim()) {
-    return "google/gemini-2.5-pro";
+    return "google/gemini-3.8-flash";
   }
-  return "openai/gpt-5-mini";
+  return "openai/gpt-6-luna";
 };
 
 const createTranscriptionService = () => {
@@ -182,6 +183,48 @@ export const createCatalogOnlyRuntime = () =>
       "demo-button": new DemoButtonAgent(),
     },
     runner: new InMemoryAgentRunner(),
+  });
+
+/**
+ * Runtime of the `/generative-ui` store page. `generativeUI: true` gives the
+ * agent the `render_ui` tool on every run, built from the catalog that the
+ * page sends. Mirrors `src/app/api/copilotkit-generative-ui` of the React
+ * demo.
+ */
+export const createGenerativeUIRuntime = () =>
+  new CopilotRuntime({
+    agents: {
+      default: new BuiltInAgent({
+        model: determineModel(),
+        prompt: `You are the shopping assistant for Acme Audio.
+Catalog (the only products that exist): ${JSON.stringify(PRODUCTS)}
+
+Use the render_ui tool for UI:
+- Show product recommendations as a ProductGrid root plus one ProductCard per product. Send the root first with every card id already in its children, then each card in its own operation.
+- ProductCard props are exactly productId, name, price, tagline; set productId to the product's id; never add other props (no category).
+- To refine recommendations later, update the existing surface instead of creating a new one.
+Keep text replies short; let the UI carry the details.`,
+      }),
+    },
+    runner: new InMemoryAgentRunner(),
+    generativeUI: true,
+  });
+
+/**
+ * Runtime of the `/generative-ui-standard` page. The page sends the standard
+ * catalog, and `generativeUI: true` gives the agent the `render_ui` tool for
+ * it. The agent renders into the chat.
+ */
+export const createStandardCatalogRuntime = () =>
+  new CopilotRuntime({
+    agents: {
+      default: new BuiltInAgent({
+        model: determineModel(),
+        prompt: `You are a helpful assistant in a chat. Answer with UI from the standard catalog by calling the render_ui tool, for example a Card with a Title, Text, Badge, Table, Chart, List, Tabs or a Form with inputs and a Button. Render into the chat. Keep text replies to one short sentence and let the UI carry the details.`,
+      }),
+    },
+    runner: new InMemoryAgentRunner(),
+    generativeUI: true,
   });
 
 export const createMcpRuntime = () => {

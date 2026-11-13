@@ -1,16 +1,14 @@
-import type { AngularToolCall } from "../../tools";
+import { AngularToolCall } from "../../tools";
 import {
-  type A2UIOperation,
+  A2UIOperation,
   getA2UIOperations,
   isRecord,
 } from "./a2ui-surface-host";
 import {
   AGUI_SEND_STATE_SNAPSHOT_TOOL_NAME,
-  type RenderA2UIArgs,
+  RenderA2UIArgs,
 } from "./a2ui-tool-types";
-
-const BASIC_CATALOG_ID =
-  "https://a2ui.org/specification/v0_9/basic_catalog.json";
+import { A2UI_BASIC_CATALOG_ID } from "./a2ui-catalog-context";
 
 type A2UISnapshot = {
   surfaceId: string;
@@ -52,7 +50,7 @@ function operationsFromSnapshot(snapshot: A2UISnapshot): A2UIOperation[] {
       version: "v0.9",
       createSurface: {
         surfaceId: snapshot.surfaceId,
-        catalogId: snapshot.catalogId ?? BASIC_CATALOG_ID,
+        catalogId: snapshot.catalogId ?? A2UI_BASIC_CATALOG_ID,
         theme: {},
       },
     },

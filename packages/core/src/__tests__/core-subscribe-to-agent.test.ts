@@ -61,6 +61,7 @@ function notifyLifecycle(
   agent: TestAgent,
   event:
     | "onRunInitialized"
+    | "onRunStartedEvent"
     | "onRunFinalized"
     | "onRunFailed"
     | "onRunErrorEvent",
@@ -74,6 +75,17 @@ function notifyLifecycle(
   if (event === "onRunFailed") {
     const params = { ...base, error: new Error("run failed") };
     agent.subscribers.forEach((s) => s.onRunFailed?.(params));
+  } else if (event === "onRunStartedEvent") {
+    agent.subscribers.forEach((s) =>
+      s.onRunStartedEvent?.({
+        ...base,
+        event: {
+          type: EventType.RUN_STARTED,
+          threadId: RUN_INPUT.threadId,
+          runId: RUN_INPUT.runId,
+        },
+      }),
+    );
   } else if (event === "onRunErrorEvent") {
     const errorEvent: RunErrorEvent = {
       type: EventType.RUN_ERROR,
@@ -360,6 +372,7 @@ describe("CopilotKitCore.subscribeToAgentWithOptions", () => {
 
   it.each([
     "onRunInitialized",
+    "onRunStartedEvent",
     "onRunFinalized",
     "onRunFailed",
     "onRunErrorEvent",

@@ -24,7 +24,10 @@ from ag_ui_crewai import (  # noqa: E402
     add_crewai_crew_fastapi_endpoint,
     add_crewai_flow_fastapi_endpoint,
 )
-from _shared.ag_ui_crewai_compat import install_resume_status_compat  # noqa: E402
+from _shared.ag_ui_crewai_compat import (  # noqa: E402
+    install_memory_compat,
+    install_resume_status_compat,
+)
 from fastapi import FastAPI  # noqa: E402
 from fastapi.middleware.cors import CORSMiddleware  # noqa: E402
 from starlette.middleware.base import BaseHTTPMiddleware  # noqa: E402
@@ -61,6 +64,7 @@ except ImportError:
 
 
 app = FastAPI(title="CrewAI (Crews) Agent Server")
+install_memory_compat(app)
 
 
 class HealthMiddleware(BaseHTTPMiddleware):

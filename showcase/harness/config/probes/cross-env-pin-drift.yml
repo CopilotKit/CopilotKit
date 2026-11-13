@@ -30,6 +30,13 @@ discovery:
   filter:
     namePrefix: "showcase-"
     nameExcludes:
+      # Staging-only Intelligence services have no production counterpart.
+      - "showcase-intelligence-api"
+      - "showcase-intelligence-composite"
+      - "showcase-intelligence-gateway"
+      - "showcase-intelligence-gateway-proxy"
+      - "showcase-intelligence-postgres"
+      - "showcase-intelligence-redis"
       # Decommissioned starters — Railway services stopped (PR #4390).
       # Mirrors image-drift.yml's exclusion list (the cross-env probe
       # enumerates the same railway-services roster).

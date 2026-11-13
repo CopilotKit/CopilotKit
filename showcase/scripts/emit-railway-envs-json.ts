@@ -48,11 +48,14 @@ import {
   SERVICES,
   STAGING_ENV_ID,
   computePromoteClosure,
+  effectiveStaticGatePolicy,
+  DISPOSABLE_LIFECYCLE_POLICY,
 } from "./railway-envs";
 import type {
   AutoUpdatesPolicy,
   ClosurePlan,
   WorkerProvisioning,
+  StaticGatePolicy,
 } from "./railway-envs";
 
 const DEFAULT_OUTPUT_PATH = resolve(
@@ -61,6 +64,7 @@ const DEFAULT_OUTPUT_PATH = resolve(
 );
 
 interface Emitted {
+  disposableLifecyclePolicy: typeof DISPOSABLE_LIFECYCLE_POLICY;
   projectId: string;
   envIds: { staging: string; prod: string };
   services: Array<{
@@ -70,6 +74,8 @@ interface Emitted {
     stagingInstanceId: string;
     ciBuilt: boolean;
     gateValidated: boolean;
+    gateIgnore: boolean;
+    gatePolicy: StaticGatePolicy;
     // Present only when the SSOT declares exactly one environment. Ruby uses
     // this explicit marker to distinguish intentional fleet asymmetry from
     // unknown live Railway drift during a full-fleet promote.
@@ -121,10 +127,9 @@ interface Emitted {
       prod: WorkerProvisioning;
       staging: WorkerProvisioning;
     };
-    // Railway auto-updates policy (ADDITIVE, PER-ENV). ALWAYS emitted with both
-    // env keys so the sibling drift gate can enforce the managed policies.
-    // Today both staging and prod are "disabled" for every service.
-    autoUpdates: { staging: AutoUpdatesPolicy; prod: AutoUpdatesPolicy };
+    // Railway auto-updates policy (ADDITIVE, PER-ENV). Only declared envs
+    // carry policies; the sibling drift gate skips "unmanaged" envs.
+    autoUpdates: { staging?: AutoUpdatesPolicy; prod?: AutoUpdatesPolicy };
   }>;
   // --- Top-level promote-closure plan (ADDITIVE, U2). The tier-ordered
   // closure for the FULL fleet (`all`), computed via `computePromoteClosure`.
@@ -228,6 +233,8 @@ function projectServiceToLegacyJson(
     stagingInstanceId: stagingEnv?.instanceId ?? entry.serviceId,
     ciBuilt: entry.ciBuilt,
     gateValidated: entry.gateValidated,
+    gateIgnore: entry.gateIgnore ?? false,
+    gatePolicy: effectiveStaticGatePolicy(entry),
     ...(onlyEnvironment !== undefined ? { onlyEnvironment } : {}),
     dispatchName: entry.dispatchName,
     repoNameOverride,
@@ -268,10 +275,9 @@ function projectServiceToLegacyJson(
     ...(entry.workerProvisioning !== undefined
       ? { workerProvisioning: entry.workerProvisioning }
       : {}),
-    // Railway auto-updates policy, appended LAST (additive) — PER-ENV. ALWAYS
-    // present with both env keys — the golden test projects only LEGACY_KEYS,
-    // so this stays byte-safe there, and the drift gate reads the per-env
-    // policy (enforces "disabled" envs, skips "unmanaged" ones).
+    // Railway auto-updates policy, appended LAST (additive) — PER-ENV. The
+    // golden test projects only LEGACY_KEYS, so this stays byte-safe there;
+    // the drift gate enforces "disabled" and skips "unmanaged" envs.
     autoUpdates: {
       staging: entry.autoUpdates.staging,
       prod: entry.autoUpdates.prod,
@@ -289,6 +295,7 @@ function buildPayload(): Emitted {
   // re-implementing the closure math in bash.
   const closure = computePromoteClosure(Object.keys(SERVICES));
   return {
+    disposableLifecyclePolicy: DISPOSABLE_LIFECYCLE_POLICY,
     projectId: PROJECT_ID,
     envIds: { staging: STAGING_ENV_ID, prod: PRODUCTION_ENV_ID },
     services,

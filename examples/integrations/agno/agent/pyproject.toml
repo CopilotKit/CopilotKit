@@ -4,7 +4,7 @@ version = "0.1.0"
 description = "An Agno Agent with Finance tools exposed in an AG-UI compatible way"
 requires-python = ">=3.12"
 dependencies = [
-  "agno>=1.7.8",
+  "agno>=2.3.3",
   "openai>=1.88.0",
   "yfinance>=0.2.63",
   "fastapi>=0.115.13",
@@ -13,4 +13,8 @@ dependencies = [
   "ag-ui-protocol>=0.1.8",
   "packaging>=25.0.0",
   "python-dotenv>=1.0.0",
+  # anthropic 1.x moved to httpx2 and rejects the httpx client Agno's Claude
+  # model hands it ("Invalid `http_client` argument"), so stay on 0.x.
+  "anthropic>=0.108.0,<1",
+  "google-genai>=2.29.0,<3",
 ]

@@ -3,10 +3,15 @@
 import dynamic from "next/dynamic";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { TripsProvider } from "@/lib/hooks/use-trips";
-import { CopilotKit } from "@copilotkit/react-core";
-import { CopilotSidebar, useChatContext } from "@copilotkit/react-ui";
-import "@copilotkit/react-ui/styles.css";
+import {
+  CopilotChatConfigurationProvider,
+  CopilotKit,
+  CopilotSidebar,
+  useCopilotChatConfiguration,
+} from "@copilotkit/react-core/v2";
+import "@copilotkit/react-core/v2/styles.css";
 import { useEffect } from "react";
+import type { CSSProperties } from "react";
 import { useMediaQuery } from "@/lib/hooks/use-media-query";
 
 // Disable server-side rendering for the MapCanvas component, this
@@ -23,18 +28,18 @@ MapCanvas = dynamic(
 );
 
 function MainContent() {
-  const { setOpen } = useChatContext();
+  const setModalOpen = useCopilotChatConfiguration()?.setModalOpen;
   const isDesktop = useMediaQuery("(min-width: 900px)");
 
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
     const copilotOpenParam = urlParams.get("copilotOpen");
     if (copilotOpenParam !== null) {
-      setOpen(copilotOpenParam === "true");
+      setModalOpen?.(copilotOpenParam === "true");
     } else {
-      setOpen(isDesktop);
+      setModalOpen?.(isDesktop);
     }
-  }, [setOpen, isDesktop]);
+  }, [setModalOpen, isDesktop]);
 
   return (
     <TooltipProvider>
@@ -48,32 +53,34 @@ function MainContent() {
 }
 
 export default function Home() {
-  const lgcDeploymentUrl =
-    globalThis.window === undefined
-      ? null
-      : new URL(window.location.href).searchParams.get("lgcDeploymentUrl");
+  const publicApiKey = process.env.NEXT_PUBLIC_CPK_PUBLIC_API_KEY;
 
   return (
     <CopilotKit
-      agent="travel"
-      runtimeUrl={
-        process.env.NEXT_PUBLIC_CPK_PUBLIC_API_KEY == undefined
-          ? `/api/copilotkit?lgcDeploymentUrl=${lgcDeploymentUrl ?? ""}`
-          : "https://api.cloud.copilotkit.ai/copilotkit/v1"
-      }
-      publicApiKey={process.env.NEXT_PUBLIC_CPK_PUBLIC_API_KEY}
+      runtimeUrl={publicApiKey ? undefined : "/api/copilotkit"}
+      publicApiKey={publicApiKey}
     >
-      <CopilotSidebar
-        defaultOpen={false}
-        clickOutsideToClose={false}
-        labels={{
-          title: "Travel Planner",
-          initial:
-            "Hi! 👋 I'm here to plan your trips. I can help you manage your trips, add places to them, or just generally work with you to plan a new one.",
-        }}
+      <CopilotChatConfigurationProvider
+        agentId="travel"
+        isModalDefaultOpen={false}
       >
         <MainContent />
-      </CopilotSidebar>
+        <CopilotSidebar
+          defaultOpen={false}
+          style={
+            {
+              "--primary": "#000000",
+              "--primary-foreground": "#ffffff",
+              "--ring": "#000000",
+            } as CSSProperties
+          }
+          labels={{
+            modalHeaderTitle: "Travel Planner",
+            welcomeMessageText:
+              "Hi! 👋 I'm here to plan your trips. I can help you manage your trips, add places to them, or just generally work with you to plan a new one.",
+          }}
+        />
+      </CopilotChatConfigurationProvider>
     </CopilotKit>
   );
 }

@@ -3,13 +3,14 @@ import type {
   AgentRunnerIsRunningRequest,
   AgentRunnerRunRequest,
 } from "./agent-runner";
-import { AgentRunner } from "./agent-runner";
+import { AgentRunner, ThreadAlreadyRunningError } from "./agent-runner";
 import type { AgentRunnerStopRequest } from "./agent-runner";
 import { Observable } from "rxjs";
 import type { AbstractAgent, BaseEvent, RunStartedEvent } from "@ag-ui/client";
 import { EventType } from "@ag-ui/client";
 import {
   finalizeRunEvents,
+  stripIntelligenceRoutingFields,
   AG_UI_CHANNEL_EVENT,
   phoenixExponentialBackoff,
   logger,
@@ -27,6 +28,12 @@ export interface IntelligenceAgentRunnerOptions {
   maxReconnectMs?: number;
   /** Max delay (ms) for channel rejoin backoff. @default 30_000 */
   maxRejoinMs?: number;
+  /**
+   * Interval (ms) between Phoenix heartbeats on the runner WebSocket. Keep it
+   * below the idle timeout of any proxy between the runtime and Intelligence.
+   * @default 15_000
+   */
+  heartbeatIntervalMs?: number;
 }
 
 export interface RunnerStartupBoundary {
@@ -53,6 +60,10 @@ interface ThreadState {
   completion: Promise<boolean>;
   resolveCompletion: (completed: boolean) => void;
   stopTimer: ReturnType<typeof setTimeout> | null;
+  /** Records a runtime-side stop with Intelligence; see AgentRunnerRunRequest. */
+  recordStop?: (signal: AbortSignal) => Promise<void>;
+  /** Settles once a runtime-side stop is recorded, failed or timed out. */
+  stopRecorded: Promise<void> | null;
   pendingEvents: Map<
     string,
     { payload: Record<string, unknown>; queuedAt: number }
@@ -75,6 +86,12 @@ const RUNNER_EVENT_BATCH_CAPABILITY = "runner_event_batch_v1";
 const MAX_RUNNER_EVENT_BATCH_SIZE = 32;
 const RUNNER_EVENT_BATCH_FLUSH_MS = 5;
 const EVENT_DURABILITY_DEADLINE_MS = 60_000;
+/**
+ * How long a runtime-side stop waits for Intelligence to record it before the
+ * terminal event is sent anyway. The agent is aborted at once; only the
+ * terminal event waits, so a slow or failing record never keeps a run going.
+ */
+export const STOP_RECORD_DEADLINE_MS = 2_000;
 
 export class IntelligenceAgentRunner extends AgentRunner {
   private options: IntelligenceAgentRunnerOptions;
@@ -106,6 +123,12 @@ export class IntelligenceAgentRunner extends AgentRunner {
    * socket.disconnect() in an onError handler will set
    * closeWasClean = true and reset the reconnect timer — permanently
    * killing retries.
+   *
+   * heartbeatIntervalMs — how often Phoenix pings the server
+   *   (default 15s). Phoenix's own default is 30s, which equals a common
+   *   reverse-proxy WebSocket idle timeout (e.g. Azure Application Gateway
+   *   behind AGIC), so a run that emits no events for 30s would have its
+   *   socket dropped by the proxy. The proxy timeout must exceed this value.
    */
   private createSocket(authToken = this.options.authToken): Socket {
     const socket = new Socket(this.options.url, {
@@ -118,6 +141,7 @@ export class IntelligenceAgentRunner extends AgentRunner {
         1_000,
         this.options.maxRejoinMs ?? 30_000,
       ),
+      heartbeatIntervalMs: this.options.heartbeatIntervalMs ?? 15_000,
     });
     socket.connect();
     return socket;
@@ -225,12 +249,12 @@ export class IntelligenceAgentRunner extends AgentRunner {
 
     const existing = this.threads.get(threadId);
     if (existing?.isRunning) {
-      throw new Error("Thread already running");
+      throw new ThreadAlreadyRunningError();
     }
 
     return new Observable((observer) => {
       if (this.threads.get(threadId)?.isRunning) {
-        observer.error(new Error("Thread already running"));
+        observer.error(new ThreadAlreadyRunningError());
         return;
       }
 
@@ -268,6 +292,8 @@ export class IntelligenceAgentRunner extends AgentRunner {
         completion,
         resolveCompletion,
         stopTimer: null,
+        ...(request.recordStop ? { recordStop: request.recordStop } : {}),
+        stopRecorded: null,
         pendingEvents: new Map(),
         activeEventBatch: null,
         nextEventPushAttempt: 0,
@@ -292,7 +318,9 @@ export class IntelligenceAgentRunner extends AgentRunner {
           return;
         }
         plannedRestart = plannedRestart || event?.code === 1012;
-        if (event?.code !== 1000 && state.socketReconnectWatchdog === null) {
+        // Phoenix does not retry a normal (1000) close. A live run still
+        // needs its transport; removeThread marks intentional cleanup inactive.
+        if (state.socketReconnectWatchdog === null) {
           state.socketReconnectWatchdog = setTimeout(() => {
             state.socketReconnectWatchdog = null;
             if (!state.isRunning || socket.isConnected()) {
@@ -346,7 +374,11 @@ export class IntelligenceAgentRunner extends AgentRunner {
           payload.type === EventType.CUSTOM &&
           (payload as BaseEvent & { name?: string }).name === "stop"
         ) {
-          this.stop({ threadId, runId: state.runId }).catch((error) => {
+          // Intelligence relayed this stop, so it has already recorded it.
+          this.stopRun(
+            { threadId, runId: state.runId },
+            { recordWithIntelligence: false },
+          ).catch((error) => {
             logger.error(
               { err: error, threadId, runId: state.runId },
               "Failed to stop Intelligence run",
@@ -382,7 +414,7 @@ export class IntelligenceAgentRunner extends AgentRunner {
           state.hasJoined = true;
           startupBoundary?.resolveStartup();
           void this.executeAgentRun(request, state, threadId, (event) => {
-            observer.next(event);
+            observer.next(stripIntelligenceRoutingFields(event));
           });
         })
         .receive("error", (resp) => {
@@ -501,6 +533,13 @@ export class IntelligenceAgentRunner extends AgentRunner {
 
   /** Stops this run and waits until its terminal events have been acknowledged. */
   stop(request: AgentRunnerStopRequest): Promise<boolean | undefined> {
+    return this.stopRun(request, { recordWithIntelligence: true });
+  }
+
+  private stopRun(
+    request: AgentRunnerStopRequest,
+    options: { recordWithIntelligence: boolean },
+  ): Promise<boolean | undefined> {
     const state = this.threads.get(request.threadId);
     if (!state || !state.isRunning || state.stopRequested) {
       return Promise.resolve(false);
@@ -510,6 +549,13 @@ export class IntelligenceAgentRunner extends AgentRunner {
     }
 
     state.stopRequested = true;
+
+    // A stop made here never reached Intelligence, which would otherwise count
+    // the run's terminal event as a normal finish. Record it first; the
+    // terminal event waits for this, the agent does not.
+    if (options.recordWithIntelligence && state.recordStop) {
+      state.stopRecorded = recordStopWithin(state, STOP_RECORD_DEADLINE_MS);
+    }
 
     // Fence output before abort: adapters may emit synchronously, throw, or
     // ignore cancellation. Finalization must not depend on their cooperation.
@@ -562,7 +608,7 @@ export class IntelligenceAgentRunner extends AgentRunner {
     request: AgentRunnerRunRequest,
     state: ThreadState,
     threadId: string,
-    onRunError: (event: BaseEvent) => void,
+    notifyHandler: (event: BaseEvent) => void,
   ): Promise<void> {
     const { currentEvents } = state;
     const pushCanonicalEvent = (event: BaseEvent): void => {
@@ -586,10 +632,15 @@ export class IntelligenceAgentRunner extends AgentRunner {
         this.createRunnerEventPayload(canonicalEvent, request, state),
         state,
       );
-      // Notify the request handler without publishing the persisted error twice.
-      // An agent may emit RUN_ERROR and complete normally instead of throwing.
-      if (canonicalEvent.type === EventType.RUN_ERROR) {
-        onRunError(canonicalEvent);
+      // Tell the request handler when the run starts and when it fails; every
+      // other event goes to the gateway only. RUN_STARTED lets the handler
+      // tell a run that failed from one that never started. An agent may emit
+      // RUN_ERROR and complete normally instead of throwing.
+      if (
+        canonicalEvent.type === EventType.RUN_STARTED ||
+        canonicalEvent.type === EventType.RUN_ERROR
+      ) {
+        notifyHandler(canonicalEvent);
       }
     };
 
@@ -630,6 +681,8 @@ export class IntelligenceAgentRunner extends AgentRunner {
 
     try {
       if (state.stopRequested) return;
+      const backendThreadId = request.backendThreadId ?? request.threadId;
+      request.agent.threadId = backendThreadId;
       await Promise.race([
         request.agent.runAgent(request.input, {
           onEvent: ({ event }: { event: BaseEvent }) => {
@@ -663,12 +716,17 @@ export class IntelligenceAgentRunner extends AgentRunner {
         pushCanonicalEvent(errorEvent);
       }
     } finally {
+      // A stop the runtime made goes on record before the terminal event.
+      if (state.stopRecorded) {
+        await state.stopRecorded;
+      }
       if (!this.isCurrentThreadState(threadId, state)) {
         return;
       }
       ensureRunStarted();
       const appended = finalizeRunEvents(currentEvents, {
         stopRequested: state.stopRequested,
+        protocolVersion: request.input.protocolVersion,
       });
       for (const event of appended) {
         pushCanonicalEvent(event);
@@ -1110,4 +1168,44 @@ export class IntelligenceAgentRunner extends AgentRunner {
       // Socket may already be disconnected.
     }
   }
+}
+
+/**
+ * Runs a thread's stop record, bounded by a deadline. Never rejects: a stop
+ * that Intelligence could not record still stops the run.
+ */
+function recordStopWithin(
+  state: ThreadState,
+  deadlineMs: number,
+): Promise<void> {
+  const record = state.recordStop;
+  if (!record) return Promise.resolve();
+  const scope = { threadId: state.threadId, runId: state.runId };
+  return new Promise<void>((resolve) => {
+    const controller = new AbortController();
+    const deadline = setTimeout(() => {
+      controller.abort();
+      logger.warn(
+        scope,
+        "Timed out recording the run's stop with Intelligence",
+      );
+      resolve();
+    }, deadlineMs);
+    Promise.resolve()
+      .then(() => record(controller.signal))
+      .then(
+        () => {
+          clearTimeout(deadline);
+          resolve();
+        },
+        (error: unknown) => {
+          clearTimeout(deadline);
+          logger.warn(
+            { ...scope, err: error },
+            "Failed to record the run's stop with Intelligence",
+          );
+          resolve();
+        },
+      );
+  });
 }

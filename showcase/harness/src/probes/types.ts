@@ -53,6 +53,12 @@ export interface DiscoverySource<Output = unknown> {
    */
   configSchema: z.ZodType;
   /**
+   * Fresh-only calls require current authoritative evidence. Cache consumers
+   * must invalidate prior results, avoid storing the returned roster, and
+   * avoid joining another in-flight call. Omitted means stale-on-error.
+   */
+  cachePolicy?(ctx: DiscoveryContext): "stale-on-error" | "fresh-only";
+  /**
    * Produce the per-tick list of targets. Throws on transport / auth /
    * schema errors — the invoker converts thrown errors into a single
    * synthetic `state:"error"` ProbeResult so per-source failures are

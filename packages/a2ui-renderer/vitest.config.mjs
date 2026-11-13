@@ -15,7 +15,7 @@ export default defineConfig({
     globals: true,
     server: {
       deps: {
-        inline: ["@a2ui/lit", "clsx", "markdown-it", "zod"],
+        inline: ["clsx", "markdown-it", "zod"],
       },
     },
   },

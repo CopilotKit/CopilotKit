@@ -1,6 +1,9 @@
 import { describe, it, expect, afterEach, beforeEach, vi } from "vitest";
+import { readFileSync, readdirSync } from "node:fs";
+import yaml from "js-yaml";
 import { promises as fs } from "node:fs";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import os from "node:os";
 import net from "node:net";
 import {
@@ -15,6 +18,7 @@ import {
   envForCfg,
   createRailwayAdapter,
   registerAllProbeDrivers,
+  registerAllDiscoverySources,
   buildPooledBrowserDrivers,
   buildCvdiagPersistenceWriter,
   buildProducerSchedules,
@@ -82,6 +86,7 @@ import type { DiscoverySource } from "./probes/types.js";
 import type { RailwayServiceInfo } from "./probes/discovery/railway-services.js";
 import { BrowserPool } from "./probes/helpers/browser-pool.js";
 import { createProbeRegistry } from "./probes/drivers/index.js";
+import { createDiscoveryRegistry } from "./probes/discovery/index.js";
 import type { createScheduler } from "./scheduler/scheduler.js";
 import { createEventBus } from "./events/event-bus.js";
 import { logger } from "./logger.js";
@@ -2584,6 +2589,48 @@ describe("orchestrator.registerAllProbeDrivers (post-#4292 hotfix guard)", () =>
 });
 
 /**
+ * Regression guard: both probe loaders (`boot()` and the control-plane's
+ * in-process HTTP loader) register discovery sources via
+ * `registerAllDiscoverySources`. Before that helper existed the control-plane
+ * registry lacked `cross-env-pin-drift`, so every fleet control-plane boot
+ * logged `probe-loader.file-failed ... discovery.source 'cross-env-pin-drift'
+ * is not registered` and the weekly `pin_drift_cross_env` probe never ran.
+ */
+describe("orchestrator.registerAllDiscoverySources", () => {
+  it("registers every discovery.source referenced by config/probes/*.yml", () => {
+    const registry = createDiscoveryRegistry();
+    registerAllDiscoverySources(registry, {
+      logger,
+      authTracker: {
+        recordSuccess: async () => {},
+        recordFailure: async () => {},
+      },
+    });
+    const registered = registry.list();
+
+    const probesDir = path.resolve(
+      path.dirname(fileURLToPath(import.meta.url)),
+      "../config/probes",
+    );
+    const referenced = new Set<string>();
+    for (const file of readdirSync(probesDir)) {
+      if (!/\.ya?ml$/.test(file)) continue;
+      const doc = yaml.load(
+        readFileSync(path.join(probesDir, file), "utf8"),
+      ) as { discovery?: { source?: string } } | null;
+      const source = doc?.discovery?.source;
+      if (source) referenced.add(source);
+    }
+
+    expect(referenced.size).toBeGreaterThan(0);
+    expect(referenced).toContain("cross-env-pin-drift");
+    for (const source of referenced) {
+      expect(registered).toContain(source);
+    }
+  });
+});
+
+/**
  * Pins the producer↔worker driver-kind contract for the fleet worker registry.
  *
  * Two failure modes guarded:
@@ -4442,7 +4489,7 @@ describe("orchestrator runControlPlane REQ-B worker-self-report wiring (aggregat
     });
 
     // pb fake: getFirst(status, key=d6:selfreport-svc) returns a prior RED row
-    // so the wired resolvePriorState reads "red"; getOne unused on this leg;
+    // so the wired resolvePriorState reads "red"; getOne supplies the job scope;
     // health() true so the role boots clean.
     vi.doMock("./storage/pb-client.js", async () => {
       const actual = await vi.importActual<
@@ -4452,7 +4499,10 @@ describe("orchestrator runControlPlane REQ-B worker-self-report wiring (aggregat
         ...actual,
         createPbClient: () => ({
           health: async () => true,
-          getOne: async () => null,
+          getOne: async (collection: string, id: string) =>
+            collection === "probe_jobs" && id === "job-selfreport-1"
+              ? { id, payload: { driverKind: "e2e_d6" } }
+              : null,
           getFirst: async (collection: string, filter: string) => {
             if (
               collection === "status" &&

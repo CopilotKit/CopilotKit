@@ -1,0 +1,117 @@
+name: test / unit-shell-docs
+
+on:
+  pull_request:
+    branches: [main, "[0-9]+.[0-9]+.[0-9]+"]
+    paths:
+      - "showcase/shell-docs/**"
+      - "showcase/scripts/**"
+      - "showcase/harness/src/shared/**"
+      - "showcase/integrations/**"
+      - "showcase/angular/src/**"
+      - "showcase/shared/**"
+      - "showcase/*.json"
+      - ".github/workflows/test_unit-shell-docs.yml"
+  push:
+    branches: [main]
+    paths:
+      - "showcase/shell-docs/**"
+      - "showcase/scripts/**"
+      - "showcase/harness/src/shared/**"
+      - "showcase/integrations/**"
+      - "showcase/angular/src/**"
+      - "showcase/shared/**"
+      - "showcase/*.json"
+      - ".github/workflows/test_unit-shell-docs.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}-${{ github.event_name }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  docs:
+    name: shell-docs unit suite
+    runs-on: depot-ubuntu-24.04-4
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      id-token: write # Depot runner OIDC auth.
+    env:
+      NODE_OPTIONS: "--max-old-space-size=4096"
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: showcase/shell-docs/package-lock.json
+
+      # shell-docs is outside the pnpm workspace and has no Nx target. None of
+      # these checks needs a dependency's install script.
+      - name: Install shell-docs dependencies
+        working-directory: showcase/shell-docs
+        run: npm ci --ignore-scripts
+
+      - name: Generate docs data
+        working-directory: showcase/shell-docs
+        run: npm run showcase-data
+
+      - name: Typecheck shell-docs
+        working-directory: showcase/shell-docs
+        run: npm run typecheck
+
+      - name: Lint shell-docs
+        working-directory: showcase/shell-docs
+        run: npm run lint
+
+      # The checkout has Git LFS pointer files for the page images, and
+      # compiling a page reads the size of each image it shows.
+      - name: Fetch the page images
+        working-directory: showcase/shell-docs
+        run: node scripts/fetch-lfs.mjs
+
+      - name: Compile every docs page
+        working-directory: showcase/shell-docs
+        run: npm run check-live-mdx
+
+      # next build prerenders only a few pages; the docs pages render on
+      # request. So serve the production build, then request the legacy URLs
+      # check-redirects samples and every docs and reference page.
+      - name: Build shell-docs
+        working-directory: showcase/shell-docs
+        run: node_modules/.bin/next build
+
+      - name: Check redirects and every page against next start
+        working-directory: showcase/shell-docs
+        run: |
+          log="$RUNNER_TEMP/next-start.log"
+          node_modules/.bin/next start --hostname 127.0.0.1 --port 3003 > "$log" 2>&1 &
+          server=$!
+          trap 'kill "$server" 2>/dev/null || true' EXIT
+          for _ in $(seq 1 60); do
+            curl -sf -o /dev/null http://127.0.0.1:3003/llms.txt && break
+            if ! kill -0 "$server" 2>/dev/null; then cat "$log"; exit 1; fi
+            sleep 1
+          done
+          export BASE_URL=http://127.0.0.1:3003
+          status=0
+          npm run check-redirects || status=1
+          npm run check-live-pages || status=1
+          npm run check-page-inventory || status=1
+          if [ "$status" -ne 0 ]; then
+            echo "::group::next start log"
+            cat "$log"
+            echo "::endgroup::"
+          fi
+          exit "$status"

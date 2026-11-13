@@ -3,7 +3,7 @@
 Ensures ``src/`` (so ``agents.*`` imports resolve) and the integration root
 (so the ``_shared`` symlink → ``../_shared`` resolves as a package) are on
 ``sys.path``. Mirrors the strands integration's conftest path setup; ag2 tests
-import the real agent modules (autogen is installed in CI / the image), so no
+import the real agent modules (ag2 is installed in CI / the image), so no
 stub modules are installed here.
 """
 

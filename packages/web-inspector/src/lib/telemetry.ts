@@ -101,7 +101,7 @@ const PACKAGE_NAME = "@copilotkit/web-inspector";
 const PACKAGE_VERSION = packageJson.version;
 
 // 3-second cap so a slow gateway can't hang the host app. Matches the
-// runtime's existing scarf-client convention.
+// timeout used by the shared telemetry client (lambda-client.ts).
 const FETCH_TIMEOUT_MS = 3000;
 
 export type RuntimeUrlType =
@@ -419,6 +419,7 @@ export type InspectorLeafKey =
   | "frontend-tools"
   | "capabilities"
   | "agent-context"
+  | "generative-ui"
   | "memories";
 export type MetadataActionPlacement = "threads_footer" | "threads_locked";
 export type ExampleTourStep = 1 | 2 | 3;
@@ -723,6 +724,8 @@ export function trackLearningPaneViewed(props: {
 
 export function trackLearningSetupPromptClicked(props: {
   outcome: "success" | "failure";
+  /** The id substituted into the copied prompt, so the click joins its CLI run. */
+  onboarding_run_id: string;
 }): void {
   track(TELEMETRY_EVENTS.learningSetupPromptClicked, props);
 }
@@ -755,7 +758,7 @@ export function trackLearningPageChanged(props: {
 }
 
 export function trackLearningWebAppOpened(props: {
-  category: "learning" | "runs" | "candidates";
+  category: "learning" | "runs" | "candidates" | "trajectory";
 }): void {
   track(TELEMETRY_EVENTS.learningWebAppOpened, props);
 }

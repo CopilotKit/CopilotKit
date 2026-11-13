@@ -1,21 +1,7 @@
 {
   "title": "Intelligence",
-  "frontend": {
-    "kind": "universal"
-  },
   "pages": [
-    "overview",
-    "quickstart",
-    "intelligence-platform",
-    "memories",
-    "learned-skills",
-    "analytics",
-    "channels",
-    "managed-intelligence-platform",
-    "plans",
-    "self-hosting",
-    "self-hosting-ecs",
-    "self-hosting-observability",
-    "threads-explained"
+    "trajectories-quickstart",
+    "capture-interactions"
   ]
 }

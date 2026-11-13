@@ -17,6 +17,19 @@ import type {
 import { afterEach, expect, test, vi } from "vitest";
 
 import { WebInspectorElement } from "../index.js";
+import { parseHudFeed } from "../lib/hud-config.js";
+import type { HudFeed } from "../lib/hud-config.js";
+import type { NotificationContext } from "../lib/notifications.js";
+
+// The loader owns one request per page; its fetch and caching are covered by
+// loader tests, so each test here supplies the parsed feed directly.
+const hudFeedSource = vi.hoisted(() => ({
+  feed: null as HudFeed | null,
+}));
+vi.mock("../lib/hud-loader.js", () => ({
+  loadHudFeed: vi.fn(async () => hudFeedSource.feed),
+}));
+import { loadHudFeed } from "../lib/hud-loader.js";
 
 const RUNTIME_URL = "https://runtime.launcher-hud.test";
 const ANNOUNCEMENT_URL = "https://cdn.copilotkit.ai/announcements.json";
@@ -33,8 +46,16 @@ type Options = Readonly<{
   intelligence?: boolean;
   licenseStatus?: RuntimeLicenseStatus;
   learningSnapshot?: InspectorLearningSnapshotV1;
-  learningStatus?: number;
+  learningStatus?: number | (() => number);
+  notificationContext?: NotificationContext;
+  hudFeed?: unknown;
 }>;
+
+const DEVELOPMENT_CONTEXT: NotificationContext = {
+  development: true,
+  framework: "react",
+  sdkVersion: "1.78.0",
+};
 
 class HudTestCore extends CopilotKitCore {
   private readonly learningSupported: boolean;
@@ -136,6 +157,7 @@ let cleanup: (() => void) | null = null;
 afterEach(() => {
   cleanup?.();
   cleanup = null;
+  hudFeedSource.feed = null;
   vi.useRealTimers();
 });
 
@@ -165,7 +187,10 @@ async function setup(options: Options = {}): Promise<{
         ).href;
         if (href.startsWith(`${RUNTIME_URL}/inspector-learning`)) {
           return new Response(JSON.stringify(options.learningSnapshot), {
-            status: options.learningStatus ?? 200,
+            status:
+              typeof options.learningStatus === "function"
+                ? options.learningStatus()
+                : (options.learningStatus ?? 200),
           });
         }
         if (href === ANNOUNCEMENT_URL) {
@@ -177,7 +202,15 @@ async function setup(options: Options = {}): Promise<{
     ),
   );
 
+  hudFeedSource.feed =
+    options.hudFeed === undefined ? null : parseHudFeed(options.hudFeed);
+  if (options.hudFeed !== undefined && !hudFeedSource.feed) {
+    throw new Error("Invalid HUD test feed");
+  }
   const inspector = new WebInspectorElement();
+  if (options.notificationContext) {
+    inspector.notificationContext = options.notificationContext;
+  }
   const core = new HudTestCore(options);
   document.body.append(inspector);
   inspector.core = core;
@@ -582,17 +615,208 @@ test.each(["not_configured", "selection_required"] as const)(
   },
 );
 
-test("launcher does not treat an advertised endpoint with a failed Learning read as enabled", async () => {
+test.each([503, 404])(
+  "launcher shows unavailable Learning after HTTP %s and retries",
+  async (initialStatus) => {
+    let status = initialStatus;
+    const { inspector, openHud } = await setup({
+      intelligence: true,
+      learningSnapshot: configuredLearning,
+      learningStatus: () => status,
+    });
+    await openHud();
+    await settle(inspector);
+    const row = requireElement(
+      root(inspector).querySelector('[data-cpk-hud-row="learning"]'),
+    );
+    expect(row.textContent).toContain("Learning status unavailable");
+    expect(row.querySelector("[data-cpk-hud-toggle]")).toBeNull();
+    const retry = requireElement(
+      row.querySelector<HTMLButtonElement>(
+        'button[aria-label="Retry Learning status"]',
+      ),
+    );
+
+    status = 200;
+    retry.click();
+    await vi.waitFor(() => {
+      expect(
+        root(inspector).querySelector('[data-cpk-hud-row="learning"]'),
+      ).toBeNull();
+    });
+  },
+);
+
+function hudFeed(
+  features: Record<string, Record<string, string>>,
+  rule: Partial<{ framework: string; sdkVersion: string }> = {},
+): unknown {
+  return {
+    schemaVersion: 1,
+    rules: [
+      { framework: "react", sdkVersion: ">=1.78.0 <2.0.0", ...rule, features },
+    ],
+  };
+}
+
+function hudTooltip(
+  inspector: WebInspectorElement,
+  row: string,
+): string | null {
+  const help = requireElement(
+    root(inspector).querySelector<HTMLButtonElement>(
+      `[data-cpk-hud-learn-more="${row}"]`,
+    ),
+  );
+  return requireElement(
+    root(inspector).getElementById(help.getAttribute("aria-describedby") ?? ""),
+  ).textContent;
+}
+
+test("a production Inspector does not load remote HUD content", async () => {
   const { inspector, openHud } = await setup({
-    intelligence: true,
-    learningSnapshot: configuredLearning,
-    learningStatus: 503,
+    hudFeed: hudFeed({ threads: { label: "Remote Threads" } }),
   });
   await openHud();
-  await settle(inspector);
+  expect(loadHudFeed).not.toHaveBeenCalled();
+  expect(hudRowLabels(inspector)).toEqual([
+    "Rich Threads",
+    "Automatic Learning",
+  ]);
+});
+
+test("a matching feed rule replaces row labels, tooltips, and destinations", async () => {
+  const { inspector, openHud, clickHud } = await setup({
+    notificationContext: DEVELOPMENT_CONTEXT,
+    hudFeed: hudFeed({
+      threads: {
+        label: "Thread History",
+        description: "Open any past conversation with its full state.",
+        destination: "memories",
+      },
+      learning: { label: "Learning" },
+    }),
+  });
+  await openHud();
+  expect(loadHudFeed).toHaveBeenCalledTimes(1);
+  expect(hudRowLabels(inspector)).toEqual(["Thread History", "Learning"]);
+  expect(hudTooltip(inspector, "threads")).toBe(
+    "Open any past conversation with its full state.",
+  );
+  expect(hudTooltip(inspector, "learning")).toBe("Click to learn more");
   expect(
     root(inspector)
-      .querySelector('[data-cpk-hud-row="learning"] [data-cpk-hud-toggle]')
-      ?.getAttribute("data-enabled"),
-  ).toBe("false");
+      .querySelector('[data-cpk-hud-toggle="threads"]')
+      ?.getAttribute("aria-label"),
+  ).toBe("Open Thread History in Inspector");
+
+  await clickHud("threads");
+  expect(currentMenu(inspector)).toBe("memories");
+});
+
+test.each([
+  ["the feed is unavailable", undefined],
+  [
+    "no rule matches",
+    hudFeed({ threads: { label: "Vue Threads" } }, { framework: "vue" }),
+  ],
+])("the HUD keeps its built-in content when %s", async (_case, feed) => {
+  const { inspector, openHud, clickHud } = await setup({
+    notificationContext: DEVELOPMENT_CONTEXT,
+    hudFeed: feed,
+  });
+  await openHud();
+  expect(loadHudFeed).toHaveBeenCalledTimes(1);
+  expect(hudRowLabels(inspector)).toEqual([
+    "Rich Threads",
+    "Automatic Learning",
+  ]);
+  expect(hudTooltip(inspector, "threads")).toBe("Click to learn more");
+  await clickHud("learning");
+  expect(currentMenu(inspector)).toBe("memories");
+});
+
+test("an unknown destination keeps the row's built-in destination", async () => {
+  const { inspector, openHud, clickHud } = await setup({
+    notificationContext: DEVELOPMENT_CONTEXT,
+    hudFeed: hudFeed({
+      threads: { label: "Thread History", destination: "thread-replay" },
+    }),
+  });
+  await openHud();
+  expect(hudRowLabels(inspector)[0]).toBe("Thread History");
+  await clickHud("threads");
+  expect(currentMenu(inspector)).toBe("threads");
+});
+
+test("feed text containing markup renders literally", async () => {
+  const label = "<img src=x onerror=alert(1)>";
+  const description = "<b>Bold</b> &amp; <a href='#'>link</a>";
+  const { inspector, openHud } = await setup({
+    notificationContext: DEVELOPMENT_CONTEXT,
+    hudFeed: hudFeed({ threads: { label, description } }),
+  });
+  await openHud();
+  const row = requireElement(
+    root(inspector).querySelector<HTMLElement>('[data-cpk-hud-row="threads"]'),
+  );
+  expect(hudRowLabels(inspector)[0]).toBe(label);
+  expect(hudTooltip(inspector, "threads")).toBe(description);
+  expect(row.querySelector("img, b, a")).toBeNull();
+});
+
+test("a destination hidden in this app keeps the row's built-in destination", async () => {
+  // Frontend Tools is a real screen, but only listed when the app has tools.
+  const { inspector, openHud, clickHud } = await setup({
+    notificationContext: DEVELOPMENT_CONTEXT,
+    hudFeed: hudFeed({ threads: { destination: "frontend-tools" } }),
+  });
+  await openHud();
+  await clickHud("threads");
+  expect(currentMenu(inspector)).toBe("threads");
+});
+
+test("a context change re-resolves HUD content from the loaded feed", async () => {
+  const { inspector, openHud } = await setup({
+    notificationContext: DEVELOPMENT_CONTEXT,
+    hudFeed: hudFeed({ threads: { label: "Thread History" } }),
+  });
+  await openHud();
+  expect(hudRowLabels(inspector)[0]).toBe("Thread History");
+
+  inspector.notificationContext = { ...DEVELOPMENT_CONTEXT, framework: "vue" };
+  await inspector.updateComplete;
+  expect(hudRowLabels(inspector)[0]).toBe("Rich Threads");
+  expect(loadHudFeed).toHaveBeenCalledTimes(1);
+});
+
+test("Home keeps unavailable Learning out of features available to add and retries", async () => {
+  let status = 503;
+  const { inspector, pressLauncher } = await setup({
+    intelligence: true,
+    learningSnapshot: configuredLearning,
+    learningStatus: () => status,
+  });
+  await pressLauncher();
+  const learning = requireElement(
+    root(inspector).querySelector('[data-inspector-service="memory"]'),
+  );
+  expect(learning.textContent).toContain("Learning status unavailable");
+  expect(learning.closest('[data-feature-state-group="available"]')).toBeNull();
+  expect(
+    learning.querySelector("[data-inspector-home-feature-prompt]"),
+  ).toBeNull();
+
+  status = 200;
+  requireElement(
+    learning.querySelector<HTMLButtonElement>(
+      'button[aria-label="Retry Learning status"]',
+    ),
+  ).click();
+  await vi.waitFor(() => {
+    expect(
+      root(inspector).querySelector('[data-inspector-service="memory"]')
+        ?.textContent,
+    ).toContain("Learning configured");
+  });
 });

@@ -1,5 +1,7 @@
 # Deep Research Assistant
 
+> **Hosted demo retirement:** This hosted demo is being retired from the public catalog. Source remains available for historical reference and local use. There is no replacement hosted deployment.
+
 A [CopilotKit](https://copilotkit.ai) Deep Agents demo showcasing planning, memory/files, and generative UI using [Tavily](https://www.tavily.com/) for web research.
 
 https://github.com/user-attachments/assets/68d5729f-91f9-4fd9-a579-cd1a8f4aad8d
@@ -66,7 +68,7 @@ deep-research-v2/
 | -------------------------- | -------- | ----------------------- | --------------------------------------------------- |
 | `OPENAI_API_KEY`           | Yes      | -                       | [Get API key](https://platform.openai.com/api-keys) |
 | `TAVILY_API_KEY`           | Yes      | -                       | [Get API key](https://app.tavily.com/home)          |
-| `OPENAI_MODEL`             | No       | `gpt-5.2`               | Model to use (gpt-5.2, gpt-5, etc.)                 |
+| `OPENAI_MODEL`             | No       | `gpt-6-luna`            | OpenAI chat model                                   |
 | `LANGGRAPH_DEPLOYMENT_URL` | No       | `http://localhost:8123` | Backend URL                                         |
 | `SERVER_HOST`              | No       | `0.0.0.0`               | Backend host                                        |
 | `SERVER_PORT`              | No       | `8123`                  | Backend port                                        |
@@ -140,7 +142,7 @@ useDefaultTool({
 
 ```python
 agent_graph = create_deep_agent(
-    model=ChatOpenAI(model="gpt-5.2"),
+    model=ChatOpenAI(model="gpt-6-luna", reasoning_effort="none"),
     system_prompt=MAIN_SYSTEM_PROMPT,
     tools=[research],
     middleware=[CopilotKitMiddleware()],

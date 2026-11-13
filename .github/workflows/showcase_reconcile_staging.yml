@@ -40,7 +40,9 @@ jobs:
   reconcile:
     name: Reconcile staging vs GHCR :latest
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    # Six deployment slots include registry reads and exact-deployment polling;
+    # allow a full lagging fleet the same budget as the build redeploy lanes.
+    timeout-minutes: 45
     # `railway` scopes the Railway/GHCR/Slack secrets to this job. It carries NO
     # protection rules (no required reviewers, no wait timer, no branch policy),
     # so it does NOT gate or stall the */15 cron self-heal — it is purely secret
@@ -53,13 +55,22 @@ jobs:
         with:
           persist-credentials: false
 
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 22.x
 
       - name: Install scripts deps
         working-directory: showcase/scripts
         run: npm ci
+
+      # Remediation verifies private image identities with Docker, using the
+      # same effective credential as reconcile-staging's HTTP digest reader.
+      - name: Login to GHCR
+        uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GHCR_TOKEN || secrets.GITHUB_TOKEN }}
 
       - name: Reconcile staging (compare + self-heal + alert)
         working-directory: showcase/scripts

@@ -1,0 +1,181 @@
+/*
+ * Range calendar. Workspace roles come first with legacy `--cpki-*` fallbacks,
+ * so the same grid works in Intelligence and in the base theme. Range fills
+ * paint on a pseudo-element behind each day, so adjacent days join into one
+ * band while the start and end days keep their rounded filled marker.
+ */
+.calendar {
+  --calendar-cell-size: 32px;
+  --calendar-row-gap: 6px;
+  --calendar-radius: var(--radius-control, var(--cpki-radius-control, 8px));
+  --calendar-fill: var(--accent, var(--cpki-color-surface-hover));
+  --calendar-fill-strong: var(--primary, var(--cpki-color-primary));
+  --calendar-fill-strong-text: var(
+    --primary-foreground,
+    var(--cpki-color-primary-foreground)
+  );
+  position: relative;
+  display: inline-block;
+  padding: 12px;
+  color: var(--foreground, var(--cpki-color-foreground));
+  font-family: var(--font-sans, var(--cpki-font-sans, inherit));
+  font-size: var(--text-control, 0.75rem);
+  font-variant-numeric: tabular-nums;
+}
+
+.nav {
+  position: absolute;
+  inset-block-start: 12px;
+  inset-inline: 12px;
+  display: flex;
+  justify-content: space-between;
+  pointer-events: none;
+}
+
+.nav > * {
+  pointer-events: auto;
+}
+
+.months {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 24px;
+}
+
+.month {
+  display: grid;
+  align-content: start;
+  gap: 4px;
+}
+
+.caption {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  block-size: var(--calendar-cell-size);
+  padding-inline: var(--calendar-cell-size);
+  font-size: var(--text-body, 0.8125rem);
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.grid {
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+.weekday {
+  inline-size: var(--calendar-cell-size);
+  block-size: 24px;
+  padding: 0;
+  color: var(--muted-foreground, var(--cpki-color-muted-foreground));
+  font-size: var(--text-caption, 0.6875rem);
+  font-weight: 400;
+  text-align: center;
+}
+
+.day {
+  position: relative;
+  inline-size: var(--calendar-cell-size);
+  padding: var(--calendar-row-gap) 0 0;
+  text-align: center;
+}
+
+.day::before {
+  position: absolute;
+  inset: var(--calendar-row-gap) 0 0;
+  content: "";
+}
+
+.day[data-range-middle="true"]::before {
+  background: var(--calendar-fill);
+}
+
+/* Half fills join the start and end markers to the band beside them. */
+.day[data-range-start="true"]:not([data-range-end="true"])::before {
+  background: var(--calendar-fill);
+  inset-inline-start: 50%;
+}
+
+.day[data-range-end="true"]:not([data-range-start="true"])::before {
+  background: var(--calendar-fill);
+  inset-inline-end: 50%;
+}
+
+/* Round the band where a week or a month edge interrupts it. */
+.day:first-child[data-range-middle="true"]::before,
+.day[data-hidden="true"] + .day[data-range-middle="true"]::before {
+  border-start-start-radius: var(--calendar-radius);
+  border-end-start-radius: var(--calendar-radius);
+}
+
+.day:last-child[data-range-middle="true"]::before,
+.day[data-range-middle="true"]:has(+ .day[data-hidden="true"])::before {
+  border-start-end-radius: var(--calendar-radius);
+  border-end-end-radius: var(--calendar-radius);
+}
+
+.dayButton {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  inline-size: var(--calendar-cell-size);
+  block-size: var(--calendar-cell-size);
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: var(--calendar-radius);
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  transition:
+    background-color 120ms ease,
+    color 120ms ease;
+}
+
+.dayButton:not(:disabled):hover {
+  background: var(--calendar-fill);
+}
+
+.day[data-today="true"] .dayButton {
+  background: var(--calendar-fill);
+  font-weight: 600;
+}
+
+.day[data-range-middle="true"] .dayButton {
+  background: transparent;
+}
+
+.day:is([data-range-start="true"], [data-range-end="true"]) .dayButton {
+  background: var(--calendar-fill-strong);
+  color: var(--calendar-fill-strong-text);
+  font-weight: 600;
+}
+
+.day[data-outside="true"] .dayButton {
+  color: var(--muted-foreground, var(--cpki-color-muted-foreground));
+}
+
+.dayButton:disabled {
+  color: var(--muted-foreground, var(--cpki-color-muted-foreground));
+  cursor: default;
+  opacity: 0.45;
+}
+
+.dayButton:focus-visible {
+  z-index: 2;
+  outline: 2px solid var(--ring, var(--cpki-color-focus-ring));
+  outline-offset: 1px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dayButton {
+    transition: none;
+  }
+}

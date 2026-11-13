@@ -1,0 +1,96 @@
+/*
+ * One compact Learning notice: copy on the left (13px/600 title, 12px
+ * description, optional 11px captions), a status or action on the right.
+ * Used by the directory prompt, the space readiness strip, and Skills delivery.
+ */
+.notice {
+  align-items: center;
+  background: var(--muted);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-surface);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px 24px;
+  justify-content: space-between;
+  min-width: 0;
+  padding: 16px 20px;
+}
+.notice[data-tone="learning"] {
+  background: var(--learning-prompt);
+  border-color: var(--learning-prompt-border);
+}
+
+.text {
+  align-content: start;
+  display: grid;
+  flex: 1 1 22rem;
+  gap: 4px;
+  min-width: 0;
+}
+
+.title {
+  color: var(--foreground);
+  font-size: var(--text-body);
+  font-weight: 600;
+  line-height: 1.45;
+  margin: 0;
+}
+
+.description {
+  color: var(--muted-foreground);
+  font-size: var(--text-control);
+  line-height: 1.6;
+  margin: 0;
+}
+
+/* Secondary facts under the description, e.g. "Threads collected 3". */
+.captions {
+  color: var(--muted-foreground);
+  display: flex;
+  flex-wrap: wrap;
+  font-size: var(--text-caption);
+  font-variant-numeric: tabular-nums;
+  gap: 2px 16px;
+  line-height: 1.5;
+  margin: 4px 0 0;
+}
+.captions > div {
+  display: flex;
+  gap: 5px;
+}
+.captions dt,
+.captions dd {
+  margin: 0;
+}
+.captions dd {
+  color: var(--foreground);
+  font-weight: 500;
+}
+
+.aside {
+  align-items: center;
+  display: flex;
+  flex: 0 0 auto;
+  flex-wrap: wrap;
+  gap: 12px 20px;
+  justify-content: flex-end;
+  min-width: 0;
+}
+.aside:empty {
+  display: none;
+}
+
+@media (max-width: 767px) {
+  .notice {
+    align-items: stretch;
+    flex-direction: column;
+    padding: 16px;
+  }
+  /* Stacked, the row basis would become a height. */
+  .text {
+    flex: 0 0 auto;
+  }
+  .aside {
+    justify-content: flex-start;
+  }
+}

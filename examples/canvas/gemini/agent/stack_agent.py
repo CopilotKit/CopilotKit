@@ -389,7 +389,7 @@ async def analyze_with_gemini_node(state: StackAgentState, config: RunnableConfi
 
     # 9. Initialize Gemini client for tool call and fallback passes
     model = ChatGoogleGenerativeAI(
-        model="gemini-2.5-pro",
+        model="gemini-3.8-flash",
         temperature=0.4,
         max_retries=2,
         google_api_key=os.getenv("GOOGLE_API_KEY"),
@@ -461,7 +461,7 @@ async def analyze_with_gemini_node(state: StackAgentState, config: RunnableConfi
 
     # 13. Generate a user-facing summary referencing the tool call outcome
     client = ChatGoogleGenerativeAI(
-        model="gemini-2.5-pro",
+        model="gemini-3.8-flash",
         temperature=0.4,
         max_retries=2,
         google_api_key=os.getenv("GOOGLE_API_KEY"),

@@ -5,7 +5,7 @@
  * a search index JSON for the shell's Cmd-K search modal.
  *
  * Docs pages are filtered to the ones a reader can actually reach from a
- * sidebar — see shell-docs/src/lib/searchable-pages.ts.
+ * sidebar — see lib/docs-searchable/searchable-pages.ts.
  *
  * Usage: npx tsx showcase/scripts/generate-search-index.ts
  *
@@ -20,15 +20,11 @@ import os from "os";
 import path from "path";
 import { fileURLToPath } from "url";
 
-import { buildAngularFeatureSearchEntries } from "./lib/angular-feature-search";
-
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, "..");
-// MDX docs content now lives in shell-docs. shell-docs consumes the index
-// at build time for <SearchModal>; shell keeps a copy so its header search
-// (which links to docs routes) stays functional — destinations 301 across
-// to docs.showcase.copilotkit.ai. We SCAN from shell-docs (source of truth)
-// and WRITE to both.
+// The docs pages live in shell-docs. The showcase shell's header search links
+// to docs routes, so the index scans shell-docs' pages. It also still writes a
+// copy into shell-docs/src/data, which the docs app itself doesn't read.
 const SHELL_DOCS_ROOT = path.join(ROOT, "shell-docs");
 const SHELL_DOCS_DIR = path.join(SHELL_DOCS_ROOT, "src");
 const SHELL_DIR = path.join(ROOT, "shell", "src");
@@ -59,11 +55,13 @@ const DROPPED_REPORT_PATH = path.join(
 );
 
 // Coverage floor for the docs portion of the shell-docs index. Measured at
-// 583 entries when the navigability filter was introduced; the floor sits
-// ~15% under that so ordinary content churn (a section retired, a folder
-// merged) passes while a broken navigation walk — which collapses the
-// union to near zero — fails the build instead of shipping an empty search.
-const MIN_DOCS_ENTRIES = 495;
+// 256 entries once the frontend-neutral pages moved into `docs/(shared)`
+// and every frontend's pages were placed by where they live (255 in the
+// build test's tree, which stages no snippets); the floor sits ~15% under
+// that so ordinary content churn (a section retired, a folder merged)
+// passes while a broken navigation walk — which collapses the union to
+// near zero — fails the build instead of shipping an empty search.
+const MIN_DOCS_ENTRIES = 218;
 
 interface SearchEntry {
   type: "page" | "reference";
@@ -76,13 +74,12 @@ interface SearchEntry {
 interface FrontendSearchPage {
   id: string;
   name: string;
-  guidanceTitle?: "Docs status";
 }
 
 const FRONTEND_SEARCH_PAGES: readonly FrontendSearchPage[] = [
-  { id: "vue", name: "Vue", guidanceTitle: "Docs status" },
-  { id: "react-native", name: "React Native", guidanceTitle: "Docs status" },
-  { id: "angular", name: "Angular", guidanceTitle: "Docs status" },
+  { id: "vue", name: "Vue" },
+  { id: "react-native", name: "React Native" },
+  { id: "angular", name: "Angular" },
   { id: "slack", name: "Slack" },
   { id: "teams", name: "Microsoft Teams" },
 ];
@@ -184,19 +181,8 @@ function normalizeDocsSearchEntry(entry: SearchEntry): SearchEntry[] {
   if (!entry.href.startsWith(frontendPrefix)) return [entry];
 
   const slugPath = entry.href.slice(frontendPrefix.length);
-  if (slugPath === "using-these-docs") {
+  if (slugPath === "using-these-docs" || slugPath === "docs-status") {
     return [];
-  }
-
-  if (slugPath === "docs-status") {
-    return FRONTEND_SEARCH_PAGES.filter(
-      (frontend) => frontend.guidanceTitle === "Docs status",
-    ).map((frontend) => ({
-      ...entry,
-      title: `${frontend.name}: ${frontend.guidanceTitle}`,
-      section: "Frontends",
-      href: `/${frontend.id}/using-these-docs`,
-    }));
   }
 
   const [frontend, ...tail] = slugPath.split("/").filter(Boolean);
@@ -216,6 +202,16 @@ function normalizeDocsSearchEntry(entry: SearchEntry): SearchEntry[] {
   ];
 }
 
+/** Keep the first entry for each destination after all URL rewrites. */
+function dedupeByHref(entries: SearchEntry[]): SearchEntry[] {
+  const seen = new Set<string>();
+  return entries.filter((entry) => {
+    if (seen.has(entry.href)) return false;
+    seen.add(entry.href);
+    return true;
+  });
+}
+
 interface SearchablePagesPayload {
   slugs: string[];
   navTitles: Record<string, string>;
@@ -227,22 +223,13 @@ interface SearchablePagesPayload {
 }
 
 /**
- * Ask shell-docs which docs pages a reader can reach.
+ * Work out which docs pages a reader can reach
+ * (lib/docs-searchable/emit-searchable-pages.ts).
  *
- * Run as a SUBPROCESS, not imported. This script is invoked from several
- * working directories — shell-docs locally and in its Docker build, `shell`
- * in its own build and in Validate Showcase — and the rules it needs live
- * in shell-docs behind two things that do not survive a cross-directory
- * import: the `@/…` path alias, which tsx resolves from whichever tsconfig
- * it finds at startup, and `gray-matter`, which Node resolves from the
- * importing package's tree. An earlier version pointed `process.chdir` at
- * shell-docs and imported dynamically; that fixed neither, because alias
- * resolution is fixed when tsx boots and dependency resolution follows the
- * file, not the cwd. It passed locally (run from shell-docs) and failed in
- * both CI build contexts.
- *
- * A child process with its own cwd and its own resolution root fixes both,
- * and keeps the reachability rules defined exactly once.
+ * Run as a SUBPROCESS, not imported, with shell-docs as the working
+ * directory: the rules read the docs content and the generated registry
+ * relative to it. The rules sit in this package, so `gray-matter` resolves
+ * from its node_modules and no shell-docs install is needed.
  *
  * Throws when the toolchain is missing. It used to return null and let the
  * caller ship an index with no docs rows, which was wrong: the `shell`
@@ -254,8 +241,9 @@ interface SearchablePagesPayload {
  */
 function loadSearchablePages(): SearchablePagesPayload {
   const emitScript = path.join(
-    SHELL_DOCS_ROOT,
-    "scripts",
+    __dirname,
+    "lib",
+    "docs-searchable",
     "emit-searchable-pages.ts",
   );
   const scriptsModules = path.join(__dirname, "node_modules");
@@ -275,8 +263,7 @@ function loadSearchablePages(): SearchablePagesPayload {
         `${SHELL_DOCS_ROOT}/node_modules or ${scriptsModules}.\n` +
         `Every build that ships docs rows needs the reachability decision, so ` +
         `this cannot be skipped.\n` +
-        `A Docker build must stage shell-docs/src/lib, shell-docs/scripts and ` +
-        `shell-docs/tsconfig.json (see showcase/shell/Dockerfile).`,
+        `A Docker build must stage showcase/scripts (see showcase/shell/Dockerfile).`,
     );
   }
 
@@ -288,18 +275,7 @@ function loadSearchablePages(): SearchablePagesPayload {
   const result = spawnSync(process.execPath, [tsxCli, emitScript, outputPath], {
     cwd: SHELL_DOCS_ROOT,
     stdio: ["ignore", "inherit", "inherit"],
-    env: {
-      ...process.env,
-      // shell-docs' library imports `gray-matter`, which Node resolves by
-      // walking up from the importing FILE — so when shell-docs is not
-      // installed, its own tree carries nothing. This package declares
-      // gray-matter too; NODE_PATH is what lets the child find it there.
-      // Only meaningful for CommonJS resolution, which is what tsx uses for
-      // shell-docs (its package.json has no `"type": "module"`).
-      NODE_PATH: [scriptsModules, process.env.NODE_PATH]
-        .filter(Boolean)
-        .join(path.delimiter),
-    },
+    env: process.env,
   });
 
   if (result.status !== 0) {
@@ -494,18 +470,7 @@ async function main() {
     );
   }
 
-  const frontendRegistry = JSON.parse(
-    fs.readFileSync(path.join(SHARED_DIR, "frontend-registry.json"), "utf-8"),
-  );
-  const featureRegistry = JSON.parse(
-    fs.readFileSync(path.join(SHARED_DIR, "feature-registry.json"), "utf-8"),
-  );
-  const angularFeatureEntries = buildAngularFeatureSearchEntries(
-    frontendRegistry,
-    featureRegistry,
-  );
-  entries.push(...angularFeatureEntries);
-  console.log(`  Angular features: ${angularFeatureEntries.length} entries`);
+  const deduplicatedEntries = dedupeByHref(entries);
 
   // Fail loudly rather than shipping a nearly empty search. Keyed on the
   // content tree, not on whether the filter ran: an earlier version skipped
@@ -516,7 +481,7 @@ async function main() {
     throw new Error(
       `[generate-search-index] docs coverage collapsed: ${docsEntryCount} ` +
         `docs entries, expected at least ${MIN_DOCS_ENTRIES}. The navigation ` +
-        `walk in shell-docs/src/lib/searchable-pages is the likely cause — ` +
+        `walk in lib/docs-searchable/searchable-pages is the likely cause — ` +
         `a nearly empty search must not ship.`,
     );
   }
@@ -528,8 +493,10 @@ async function main() {
   for (const { target, path: outputPath } of OUTPUTS) {
     const payload =
       target === "shell-docs"
-        ? entries.filter((entry) => !SHOWCASE_HOST_DESTINATIONS.has(entry.href))
-        : entries;
+        ? deduplicatedEntries.filter(
+            (entry) => !SHOWCASE_HOST_DESTINATIONS.has(entry.href),
+          )
+        : deduplicatedEntries;
     fs.mkdirSync(path.dirname(outputPath), { recursive: true });
     fs.writeFileSync(outputPath, JSON.stringify(payload, null, 2) + "\n");
     console.log(`\nSearch index: ${outputPath} (${payload.length} entries)`);

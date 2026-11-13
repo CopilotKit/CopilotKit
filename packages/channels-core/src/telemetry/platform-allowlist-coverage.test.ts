@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import { readFileSync, readdirSync, existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { join } from "node:path";
+import catalog from "../../telemetry-events.json" with { type: "json" };
 import { normalizePlatform } from "./sanitize-error.js";
 
 // Monorepo invariant: every official channel adapter's `platform` label must be in
@@ -32,14 +33,32 @@ function discoverAdapterPlatforms(): { pkg: string; platform: string }[] {
 }
 
 describe("normalizePlatform allow-list coverage (monorepo invariant)", () => {
+  it("documents only the current official platforms and custom bucket", () => {
+    const platformProperties = Object.values(catalog.events).map(
+      ({ properties }) =>
+        "platforms" in properties ? properties.platforms : properties.platform,
+    );
+    expect(platformProperties).toEqual([
+      "string[] (each normalized: slack|discord|whatsapp|teams|custom)",
+      "string[] (each normalized: slack|discord|whatsapp|teams|custom)",
+      "string (normalized: slack|discord|whatsapp|teams|custom)",
+      "string (normalized: slack|discord|whatsapp|teams|custom)",
+      "string (normalized: slack|discord|whatsapp|teams|custom)",
+    ]);
+  });
+
   it("covers every official channel adapter's declared platform", () => {
     const discovered = discoverAdapterPlatforms();
-    // Guard against a broken scan path silently passing: we ship at least
-    // slack/discord/telegram/whatsapp.
+    // Guard against an incomplete scan or a retired adapter returning.
     expect(
-      discovered.length,
+      discovered.sort((a, b) => a.pkg.localeCompare(b.pkg)),
       `expected to discover the official channel adapters under ${packagesDir}`,
-    ).toBeGreaterThanOrEqual(4);
+    ).toEqual([
+      { pkg: "channels-discord", platform: "discord" },
+      { pkg: "channels-slack", platform: "slack" },
+      { pkg: "channels-teams", platform: "teams" },
+      { pkg: "channels-whatsapp", platform: "whatsapp" },
+    ]);
 
     const missing = discovered.filter(
       ({ platform }) => normalizePlatform(platform) !== platform,

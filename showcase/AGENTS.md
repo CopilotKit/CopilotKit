@@ -65,6 +65,10 @@ ls -l showcase/integrations/<slug>/shared-tools   # should print "-> ../../share
 
 ## Preflight checklist (before editing a cell)
 
+These checks apply to changes to integration behavior, shared feature frontends,
+fixtures, and the probes that exercise them. For changes confined to the dashboard,
+use the verification scope below.
+
 1. **Locate the shared source first.** Is what you're about to edit a shared probe (rule 1), a shared frontend (rule 2), shared tool logic (rule 3), or a per-integration fixture (rule 4)? Edit the correct layer.
 2. **Confirm symlink integrity.** If you're editing anything under `shared-tools/` / `tools/` / `_shared/`, verify it's a symlink (`ls -l`). If it's a real file, you're looking at drift — fix the shared source and restore the symlink instead.
 3. **Never per-integration-copy a test or frontend.** Differences go in the fixture (`showcase/aimock/d6/<slug>/`) only.
@@ -73,6 +77,32 @@ ls -l showcase/integrations/<slug>/shared-tools   # should print "-> ../../share
    bin/showcase test <slug>:<feature> --d6 --direct
    ```
    (run from within `showcase/`, i.e. `showcase/bin/showcase`). Observe **RED** on the failing cell BEFORE your change, then **GREEN** after — on **≥3 real cells**. Unit tests against fakes are NOT sufficient proof.
+
+---
+
+## Verification scope for dashboard changes
+
+Choose checks that exercise the behavior being changed:
+
+- **Integration, fixture, shared feature frontend, or probe behavior:** the
+  real-probe requirement above still applies, including before/after evidence on
+  at least three real cells. Dashboard tests do not replace that evidence.
+- **Dashboard rendering, navigation, or removal of unused display code:** run the
+  relevant dashboard checks and inspect the affected view in a browser. For
+  deletions, also check that active code no longer imports the removed files. A
+  successful integration probe does not prove that dashboard rendering works;
+  these changes do not require manufacturing a failing integration probe.
+- **Dashboard status fetching or result interpretation:** test the changed read,
+  update, and failure paths, then compare the displayed results with real probe
+  records. If the change also affects integration or probe behavior, apply the
+  real-probe requirement as well.
+- **Instructions or prose only:** check the wording against the referenced code
+  and commands, verify links, and check formatting. Application tests and live
+  probe runs are not evidence that an instruction is accurate.
+
+The dashboard's [verification guide](./shell-dashboard/README.md#verification)
+contains its standalone setup and application-check commands. The four iron rules
+continue to apply whenever integration or probe code is changed.
 
 ---
 

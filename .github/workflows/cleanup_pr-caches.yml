@@ -10,6 +10,7 @@ permissions:
 jobs:
   pr-caches:
     runs-on: ubuntu-latest
+    timeout-minutes: 10 # observed max 0.1m over 22 runs; deletes up to 100 caches
     permissions:
       contents: read
       # Needed to delete repository actions caches via `gh cache delete`

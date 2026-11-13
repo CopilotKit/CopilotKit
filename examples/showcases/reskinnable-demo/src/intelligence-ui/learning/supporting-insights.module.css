@@ -1,0 +1,67 @@
+.list {
+  display: grid;
+  gap: var(--cpki-space-2);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.insight {
+  min-width: 0;
+}
+
+.disclosure {
+  align-items: start;
+  background: transparent;
+  border: 0;
+  border-radius: var(--cpki-radius-control);
+  color: var(--cpki-color-foreground);
+  cursor: pointer;
+  display: flex;
+  font: inherit;
+  font-size: var(--cpki-font-size-1);
+  gap: var(--cpki-space-2);
+  line-height: 1.55;
+  min-height: 2.75rem;
+  padding: var(--cpki-space-2) 0;
+  text-align: left;
+  width: 100%;
+  overflow-wrap: anywhere;
+}
+
+.disclosure:hover {
+  background: var(--cpki-color-surface-subtle);
+}
+
+.disclosure:focus-visible {
+  outline: 2px solid var(--cpki-color-focus-ring);
+  outline-offset: 2px;
+}
+
+.chevron {
+  display: flex;
+  flex: 0 0 auto;
+  margin-top: 0.2em;
+}
+
+.disclosure[aria-expanded="true"] .chevron {
+  transform: rotate(90deg);
+}
+
+.content,
+.evidence {
+  display: grid;
+  gap: var(--cpki-space-3);
+}
+
+.impact {
+  color: var(--cpki-color-muted-foreground);
+  font-size: var(--cpki-font-size-1);
+  line-height: 1.55;
+  margin: 0;
+}
+
+.chevron svg {
+  height: 1rem;
+  width: 1rem;
+}

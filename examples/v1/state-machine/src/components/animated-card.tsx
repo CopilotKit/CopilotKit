@@ -1,11 +1,11 @@
 import { cn } from "@/lib/utils/cn";
-import { RenderFunctionStatus } from "@copilotkit/react-core";
+import type { ToolCallStatus } from "@copilotkit/react-core/v2";
 import { AnimatePresence } from "motion/react";
 import * as motion from "motion/react-client";
 
 interface AnimatedCardProps {
   children: React.ReactNode;
-  status: RenderFunctionStatus;
+  status: ToolCallStatus;
   className?: string;
 }
 

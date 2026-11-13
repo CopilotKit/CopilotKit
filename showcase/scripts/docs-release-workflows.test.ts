@@ -168,7 +168,9 @@ describe("docs_promote.yml", () => {
       group: string;
       "cancel-in-progress": boolean;
     };
-    expect(concurrency.group).toBe("docs-promote");
+    expect(concurrency.group).toBe(
+      "${{ inputs.validate_registry_only == true && format('docs-promote-registry-validation-{0}', github.run_id) || 'docs-promote' }}",
+    );
     expect(concurrency["cancel-in-progress"]).toBe(false);
     const yaml = readFileSync(join(workflowsDir, "docs_promote.yml"), "utf8");
     expect(yaml).not.toMatch(/showcase-promote/);

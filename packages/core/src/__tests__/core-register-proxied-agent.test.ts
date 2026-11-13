@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, vi } from "vitest";
 import { CopilotKitCore } from "../core";
 import { ProxiedCopilotRuntimeAgent } from "../agent";
 import { MockAgent } from "./test-utils";
@@ -103,13 +103,31 @@ describe("CopilotKitCore.registerProxiedAgent", () => {
     expect(events.at(-1)).not.toContain("chat-1");
   });
 
-  it("inherits headers from core when registered", () => {
-    core.setHeaders({ Authorization: "Bearer abc" });
-    const { agent } = core.registerProxiedAgent({
-      agentId: "chat-1",
-      runtimeAgentId: "default",
-    });
-    expect(agent.headers?.Authorization).toBe("Bearer abc");
+  it("sends core headers on requests from a registered proxy (headers now applied at send time, #1937)", async () => {
+    // Headers are no longer baked onto the agent at registration time (see
+    // #1937) — `ɵruntimeFetch` (installed as `agent.fetch`) adds the current
+    // core headers when the request is actually sent. Assert on the request.
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(new Response("{}", { status: 200 }));
+    const realFetch = global.fetch;
+    global.fetch = fetchMock as unknown as typeof fetch;
+    try {
+      core.setHeaders({ Authorization: "Bearer abc" });
+      const { agent } = core.registerProxiedAgent({
+        agentId: "chat-1",
+        runtimeAgentId: "default",
+      });
+      expect(agent.headers).toEqual({});
+
+      await agent.fetch("http://localhost:4000/agent/default/run", {});
+      const [, init] = fetchMock.mock.calls.at(-1)!;
+      expect(
+        new Headers((init as RequestInit).headers).get("authorization"),
+      ).toBe("Bearer abc");
+    } finally {
+      global.fetch = realFetch;
+    }
   });
 });
 

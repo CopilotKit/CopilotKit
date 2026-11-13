@@ -21,8 +21,6 @@ export interface ChartArgs extends Record<string, unknown> {
   readonly data?: readonly ChartDatum[];
 }
 
-const CHART_COLORS = ["#4263eb", "#845ef7", "#d6336c", "#f59f00", "#0ca678"];
-
 @Component({
   selector: "showcase-beautiful-pie-chart",
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -38,7 +36,7 @@ const CHART_COLORS = ["#4263eb", "#845ef7", "#d6336c", "#f59f00", "#0ca678"];
           cy="120"
           r="86"
           fill="none"
-          stroke="#edf0f5"
+          stroke="light-dark(#edf0f5, #242529)"
           stroke-width="36"
         />
         @for (slice of slices(); track slice.label) {
@@ -71,10 +69,10 @@ const CHART_COLORS = ["#4263eb", "#845ef7", "#d6336c", "#f59f00", "#0ca678"];
       max-width: 36rem;
       margin: 1rem auto;
       padding: 1rem;
-      border: 1px solid #d8e0ea;
+      border: 1px solid light-dark(#d8e0ea, #303136);
       border-radius: 1rem;
-      color: #14213d;
-      background: #fff;
+      color: light-dark(#14213d, #fafafa);
+      background: light-dark(#fff, #191a1e);
     }
     header h3,
     header p {
@@ -82,7 +80,7 @@ const CHART_COLORS = ["#4263eb", "#845ef7", "#d6336c", "#f59f00", "#0ca678"];
     }
     header p {
       margin-top: 0.25rem;
-      color: #66758a;
+      color: light-dark(#66758a, #adadb2);
       font-size: 0.82rem;
     }
     svg {
@@ -183,10 +181,10 @@ export class PieChartCard {
       max-width: 44rem;
       margin: 1rem auto;
       padding: 1rem;
-      border: 1px solid #d8e0ea;
+      border: 1px solid light-dark(#d8e0ea, #303136);
       border-radius: 1rem;
-      color: #14213d;
-      background: #fff;
+      color: light-dark(#14213d, #fafafa);
+      background: light-dark(#fff, #191a1e);
     }
     header h3,
     header p {
@@ -194,7 +192,7 @@ export class PieChartCard {
     }
     header p {
       margin-top: 0.25rem;
-      color: #66758a;
+      color: light-dark(#66758a, #adadb2);
       font-size: 0.82rem;
     }
     .recharts-responsive-container {
@@ -209,7 +207,7 @@ export class PieChartCard {
       overflow: visible;
     }
     text {
-      fill: #66758a;
+      fill: light-dark(#66758a, #adadb2);
       font-size: 12px;
     }
   `,
@@ -239,118 +237,6 @@ export class BarChartCard {
       };
     });
   });
-}
-
-interface FlightResult extends Record<string, unknown> {
-  readonly airline?: string;
-  readonly flightNumber?: string;
-  readonly origin?: string;
-  readonly destination?: string;
-  readonly date?: string;
-  readonly departureTime?: string;
-  readonly arrivalTime?: string;
-  readonly duration?: string;
-  readonly status?: string;
-  readonly price?: string;
-}
-
-interface FlightSearchArgs extends Record<string, unknown> {
-  readonly flights?: readonly FlightResult[];
-}
-
-@Component({
-  selector: "showcase-beautiful-flight-search",
-  changeDetection: ChangeDetectionStrategy.OnPush,
-  template: `
-    <section
-      class="flight-results"
-      data-testid="beautiful-flight-results"
-      aria-label="Flight search results"
-    >
-      @for (flight of flights(); track flightKey(flight, $index)) {
-        <article class="flight-card">
-          <header>
-            <strong>{{ flight.airline ?? "Airline" }}</strong>
-            <strong>{{ flight.price ?? "Price unavailable" }}</strong>
-          </header>
-          <div class="flight-meta">
-            <span>{{ flight.flightNumber ?? "Flight" }}</span>
-            <span>{{ flight.date ?? "" }}</span>
-          </div>
-          <div class="flight-times">
-            <strong>{{ flight.departureTime ?? "—" }}</strong>
-            <small>{{ flight.duration ?? "" }}</small>
-            <strong>{{ flight.arrivalTime ?? "—" }}</strong>
-          </div>
-          <div class="flight-route">
-            <strong>{{ flight.origin ?? "—" }}</strong>
-            <span aria-hidden="true">→</span>
-            <strong>{{ flight.destination ?? "—" }}</strong>
-          </div>
-          @if (flight.status; as status) {
-            <small class="flight-status">{{ status }}</small>
-          }
-        </article>
-      } @empty {
-        <p>No matching flights were returned.</p>
-      }
-    </section>
-  `,
-  styles: `
-    .flight-results {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(min(100%, 15rem), 1fr));
-      gap: 0.75rem;
-      margin: 0.75rem 0;
-    }
-    .flight-card {
-      display: grid;
-      gap: 0.65rem;
-      padding: 1rem;
-      border: 1px solid #d8e0ea;
-      border-radius: 1rem;
-      color: #14213d;
-      background: #fff;
-    }
-    header,
-    .flight-meta,
-    .flight-times,
-    .flight-route {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 0.75rem;
-    }
-    .flight-meta,
-    .flight-times,
-    .flight-status {
-      color: #66758a;
-    }
-    .flight-route {
-      font-size: 1.05rem;
-    }
-    .flight-times small {
-      text-align: center;
-    }
-    p {
-      margin: 0;
-      color: #66758a;
-    }
-  `,
-})
-export class FlightSearchCard {
-  readonly toolCall = input.required<AngularToolCall<FlightSearchArgs>>();
-  protected readonly flights = computed(() => {
-    const flights = this.toolCall().args.flights;
-    return Array.isArray(flights)
-      ? flights.filter((flight): flight is FlightResult => isRecord(flight))
-      : [];
-  });
-
-  /** Produce a stable repeat key without requiring every backend to emit IDs. */
-  protected flightKey(flight: FlightResult, index: number): string {
-    return `${flight.flightNumber ?? flight.airline ?? "flight"}-${index}`;
-  }
 }
 
 interface MeetingArgs extends Record<string, unknown> {
@@ -398,11 +284,11 @@ interface MeetingArgs extends Record<string, unknown> {
       max-width: 28rem;
       margin: 1rem auto;
       padding: 1.25rem;
-      border: 1px solid #d8e0ea;
+      border: 1px solid light-dark(#d8e0ea, #303136);
       border-radius: 1rem;
       text-align: center;
-      background: #fff;
-      color: #14213d;
+      background: light-dark(#fff, #191a1e);
+      color: light-dark(#14213d, #fafafa);
     }
     h3,
     p {
@@ -416,8 +302,8 @@ interface MeetingArgs extends Record<string, unknown> {
       margin: 0 auto;
       place-items: center;
       border-radius: 50%;
-      background: #eef2ff;
-      color: #4263eb;
+      background: light-dark(#eef2ff, rgb(30 27 75 / 40%));
+      color: light-dark(#4263eb, #91a7ff);
       font-size: 1.25rem;
     }
     .confirmation {
@@ -434,10 +320,10 @@ interface MeetingArgs extends Record<string, unknown> {
       align-items: center;
       justify-content: space-between;
       padding: 0.75rem;
-      border: 1px solid #d8e0ea;
+      border: 1px solid light-dark(#d8e0ea, #303136);
       border-radius: 0.7rem;
       color: inherit;
-      background: #fff;
+      background: light-dark(#fff, #191a1e);
       cursor: pointer;
     }
     .meeting-options span {
@@ -447,14 +333,14 @@ interface MeetingArgs extends Record<string, unknown> {
     }
     small,
     em {
-      color: #66758a;
+      color: light-dark(#66758a, #adadb2);
       font-size: 0.75rem;
       font-style: normal;
     }
     .decline {
       margin-top: 0.75rem;
       border: 0;
-      color: #66758a;
+      color: light-dark(#66758a, #adadb2);
       background: transparent;
       cursor: pointer;
     }
@@ -521,10 +407,10 @@ const INTERNAL_TOOLS = new Set([
     .reasoning-card {
       margin: 0.5rem 0;
       padding: 0.65rem 0.8rem;
-      border: 1px solid #d8e0ea;
+      border: 1px solid light-dark(#d8e0ea, #303136);
       border-radius: 0.75rem;
-      background: #f8fafc;
-      color: #314158;
+      background: light-dark(#f8fafc, #242529);
+      color: light-dark(#314158, #fafafa);
     }
     summary {
       cursor: pointer;
@@ -561,11 +447,9 @@ function validData(value: readonly ChartDatum[] | undefined): ChartDatum[] {
 }
 
 /** Resolve a stable color for one chart-series index. */
-function colorAt(index: number): string {
-  return CHART_COLORS[index % CHART_COLORS.length] ?? CHART_COLORS[0];
-}
 
-/** Narrow unknown fixture and provider payloads to safe flight records. */
-function isRecord(value: unknown): value is FlightResult {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
+/** The showcase chart palette, cycling by index. */
+function colorAt(index: number): string {
+  const colors = ["#4263eb", "#845ef7", "#d6336c", "#f59f00", "#0ca678"];
+  return colors[index % colors.length];
 }

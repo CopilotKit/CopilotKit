@@ -441,7 +441,21 @@ describe("fixture collision detection", () => {
     // matrix adds 69 intentional aliases: 26 scoped to regular Flows, 36 scoped
     // to Conversational Flows, and 7 shared-scope fixtures. Every alias is
     // disambiguated at runtime by fixture context, route, or fixtureFile.
-    const KNOWN_DUPLICATE_CEILING = 364;
+    // Bumped 364 → 378 for google-antigravity. Its headless-complete.json and
+    // gen-ui-headless-complete.json alias share 32 match keys: the four pills
+    // staged at every turnIndex the harness can reach (it never sends
+    // role:"tool" messages, so turnIndex is the only staging signal). The
+    // aliases are disambiguated by the probe's fixtureFile, like the other
+    // slugs' headless-complete pairs; main already sat 18 under the ceiling.
+    // Bumped 378 → 393 for openai-agents-python. Its fixtures start from
+    // ms-agent-python's and inherit the same 15 intentional aliases
+    // (headless-complete ×8, shared-state-streaming/tool-rendering ×3,
+    // gen-ui-custom/render-a2ui ×2, custom-catchall/tool-rendering ×2), each
+    // disambiguated at runtime by the probe's route or fixtureFile.
+    // Bumped 393 → 395 for openai-agents-python's interrupt demos: as in
+    // strands, interrupt-headless.json repeats gen-ui-interrupt.json's two
+    // first legs (both demos share one backend agent and the same prompts).
+    const KNOWN_DUPLICATE_CEILING = 395;
 
     const collisions: string[] = [];
 

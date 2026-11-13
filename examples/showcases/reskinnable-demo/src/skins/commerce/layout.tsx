@@ -24,6 +24,7 @@ import { describeError, resetLandedWrites } from "./settle";
 import { useAskCopilot } from "./components/use-ask-copilot";
 import { SkuTile } from "./components/sku-tile";
 
+import { GovernancePopover } from "@/shell/governance-popover";
 const SIDEBAR_WIDTH_PX = 240;
 
 /**
@@ -303,6 +304,12 @@ export function CommerceLayout({ children }: { children: ReactNode }) {
             new skin gets none of these for free; the shell provides no Reset,
             no theme toggle and no Help. */}
         <div className="mt-auto">
+          {/* Which CUSTOMER is signed in, and how much memory they are allowed.
+              Shell-owned — every skin scopes memory through the same two runtime
+              callbacks — but placed here, in the skin's own chrome beside the
+              signed-in operator, because together they answer one question: the
+              memory bucket is <organization>:<operator>. */}
+          <GovernancePopover />
           <TooltipProvider delayDuration={200}>
             <div className="flex items-center gap-1 border-t border-hairline px-1 pt-3">
               {resetEnabled ? (

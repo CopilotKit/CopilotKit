@@ -1,0 +1,10 @@
+# Dependencies for showcase/shared/python/tests (CI: showcase_validate.yml).
+pytest
+pydantic
+jsonschema
+typing_extensions
+ag-ui-a2ui-toolkit==0.0.4
+# Exercise the OpenAI 3/httpx2 path as well as legacy httpx forwarding.
+openai>=3,<4
+httpx>=0.27
+starlette

@@ -18,6 +18,7 @@ interface FrontendCatalogCell {
   feature: string;
   frontend_status: FrontendSupportState;
   backend_status: "wired" | "stub" | "unshipped" | "unsupported";
+  demo_route: string;
   runnable: boolean;
   exception: {
     reason: string;
@@ -180,7 +181,7 @@ export function resolveShowcaseCell(
   }
 
   const demo = getDemo(integration.slug, feature.id)?.demo;
-  if (!demo?.route) {
+  if (!demo?.route || !cell.demo_route.startsWith("/")) {
     return {
       ...common,
       kind: "backend-unavailable",
@@ -196,9 +197,6 @@ export function resolveShowcaseCell(
   return {
     ...common,
     kind: "runnable",
-    iframeUrl:
-      frontend.id === "angular"
-        ? `${integrationOrigin}/angular/${encodeURIComponent(feature.id)}`
-        : `${integrationOrigin}${demo.route}`,
+    iframeUrl: `${integrationOrigin}${cell.demo_route}`,
   };
 }

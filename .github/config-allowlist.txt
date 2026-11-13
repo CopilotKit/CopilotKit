@@ -13,8 +13,10 @@ examples/integrations/agent-spec/next.config.ts
 examples/integrations/agentcore/frontend/src/vite-env.d.ts
 examples/integrations/agentcore/frontend/vite.config.ts
 examples/integrations/agno/next.config.ts
+examples/integrations/antigravity/next.config.ts
 examples/integrations/claude-sdk-python/next.config.ts
 examples/integrations/claude-sdk-typescript/next.config.ts
+examples/integrations/claude-managed-agents/next.config.mjs
 examples/integrations/crewai-crews/next.config.ts
 examples/integrations/crewai-flows/next.config.ts
 examples/integrations/langgraph-fastapi/next.config.ts
@@ -26,12 +28,16 @@ examples/integrations/mcp-apps/next.config.ts
 examples/integrations/mcp-apps/threejs-server/vite.config.ts
 examples/integrations/ms-agent-framework-dotnet/next.config.ts
 examples/integrations/ms-agent-framework-python/next.config.ts
+examples/integrations/omnara/next.config.mjs
+examples/integrations/openai-agents-python/next.config.ts
 examples/integrations/pydantic-ai/next.config.ts
 examples/integrations/strands-python/next.config.ts
 examples/integrations/strands-typescript/next.config.ts
 examples/showcases/a2a-travel/next.config.ts
 examples/showcases/a2ui-pdf-analyst/next.config.ts
+examples/showcases/a2ui-playground/next.config.ts
 examples/showcases/adk-dashboard/next.config.ts
+examples/showcases/antigravity-repo-doctor/next.config.ts
 examples/showcases/arcade-tools/next.config.ts
 examples/showcases/chatkit-studio/apps/playground/next.config.ts
 examples/showcases/chatkit-studio/apps/studio/next.config.ts
@@ -78,6 +84,8 @@ examples/v1/next-pages-router/next.config.mjs
 examples/v1/research-canvas/next.config.mjs
 examples/v1/state-machine/next.config.mjs
 examples/v1/travel/next.config.mjs
+examples/v2/a2ui-markdown/next.config.mjs
+examples/v2/generative-ui-shop/vite.config.ts
 examples/v2/interrupts-langgraph/apps/web/next.config.ts
 examples/v2/next-pages-router/next.config.mjs
 examples/v2/react-router/vite.config.ts
@@ -91,6 +99,7 @@ packages/demo-agents/tsdown.config.ts
 packages/intelligence-delivery-core/tsdown.config.ts
 packages/intelligence-langgraph/tsdown.config.ts
 packages/intelligence-mastra/tsdown.config.ts
+packages/learning/tsdown.config.ts
 packages/mcp-apps-renderer/tsdown.config.ts
 packages/react-core/tsdown.config.ts
 packages/react-native/tsdown.config.ts
@@ -114,6 +123,7 @@ showcase/integrations/claude-sdk-typescript/next.config.ts
 showcase/integrations/crewai-conversational-flows/next.config.ts
 showcase/integrations/crewai-crews/next.config.ts
 showcase/integrations/google-adk/next.config.ts
+showcase/integrations/google-antigravity/next.config.ts
 showcase/integrations/langgraph-fastapi/next.config.ts
 showcase/integrations/langgraph-python/next.config.ts
 showcase/integrations/langgraph-typescript/next.config.ts
@@ -123,11 +133,13 @@ showcase/integrations/mastra/next.config.ts
 showcase/integrations/ms-agent-dotnet/next.config.ts
 showcase/integrations/ms-agent-harness-dotnet/next.config.ts
 showcase/integrations/ms-agent-python/next.config.ts
+showcase/integrations/openai-agents-python/next.config.ts
 showcase/integrations/pydantic-ai/next.config.ts
 showcase/integrations/spring-ai/next.config.ts
 showcase/integrations/strands/next.config.ts
 showcase/integrations/strands-typescript/next.config.ts
 showcase/shell-dashboard/next.config.ts
-showcase/shell-docs/next.config.ts
+showcase/shell-docs/next.config.mjs
 showcase/shell-dojo/next.config.ts
 showcase/shell/next.config.ts
+showcase/vue/vite.config.ts

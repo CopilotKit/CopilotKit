@@ -1,0 +1,91 @@
+{
+  "_meta": {
+    "description": "D6 fixtures for google-antigravity / readonly-state-agent-context. Every prompt is two legs: the built-in `get_app_context` read, then the answer (src/agents/app_context.py).",
+    "created": "2026-09-30",
+    "copiedFrom": "langgraph-python",
+    "googleAntigravityStaging": "google-antigravity staging: the Antigravity Go harness owns the conversation history and never sends role:\"tool\" messages, so hasToolResult/toolCallId never fire and every leg is staged on turnIndex (aimock's count of assistant messages; +2 per tool round-trip, +1 per text answer). The highest turnIndex <= assistantCount wins, so each leg carries every absolute position a test reaches it from: a fresh thread (0/2...) AND its slot in the probe's single-thread sequence."
+  },
+  "fixtures": [
+    {
+      "_comment": "'Who am I?' pill, and the single turn of d5-readonly-state-context.ts (which only checks that the request body carries the name it typed and that the turn settles). The model first calls the adapter's silent built-in `get_app_context` (no TOOL_CALL events, no card), which returns the page's useAgentContext entries. readonly-state-agent-context.spec.ts expects the answer to start with \"I see you're Atai\".",
+      "match": {
+        "userMessage": "What do you know about me from my context?",
+        "turnIndex": 0,
+        "context": "google-antigravity"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_ga_ctx_001",
+            "name": "get_app_context",
+            "arguments": "{}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "What do you know about me from my context?",
+        "turnIndex": 2,
+        "context": "google-antigravity"
+      },
+      "response": {
+        "content": "I see you're Atai, and you're in the America/Los_Angeles timezone. Recently, you viewed the pricing page and watched the product demo video. How can I assist you today?"
+      }
+    },
+    {
+      "_comment": "'Suggest next steps' pill. The spec expects \"Since you recently viewed the pricing page and watched the product demo video\".",
+      "match": {
+        "userMessage": "Based on my recent activity, what should I try next?",
+        "turnIndex": 0,
+        "context": "google-antigravity"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_ga_ctx_002",
+            "name": "get_app_context",
+            "arguments": "{}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Based on my recent activity, what should I try next?",
+        "turnIndex": 2,
+        "context": "google-antigravity"
+      },
+      "response": {
+        "content": "Since you recently viewed the pricing page and watched the product demo video, it might be a good idea to explore user testimonials or case studies to see how others have benefited from the Pro Plan. You could also start the 14-day free trial to experience the features firsthand."
+      }
+    },
+    {
+      "_comment": "'Plan my morning' pill.",
+      "match": {
+        "userMessage": "What time is it in my timezone and what should I do for the next hour?",
+        "turnIndex": 0,
+        "context": "google-antigravity"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_ga_ctx_003",
+            "name": "get_app_context",
+            "arguments": "{}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "What time is it in my timezone and what should I do for the next hour?",
+        "turnIndex": 2,
+        "context": "google-antigravity"
+      },
+      "response": {
+        "content": "You're on America/Los_Angeles time. For the next hour, pick up where you left off: you watched the product demo video, so spend 20 minutes trying the features it showed, then compare plans on the pricing page."
+      }
+    }
+  ]
+}

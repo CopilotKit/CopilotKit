@@ -1,3 +1,7 @@
+import type {
+  ObservationApplyRequest,
+  ObservationApplyResponse,
+} from "../writers/selected-observation.js";
 import type { Logger } from "../types/index.js";
 import { formatCvdiag } from "../probes/helpers/cv-diag.js";
 
@@ -52,6 +56,9 @@ export interface ListResult<T> {
 }
 
 export interface PbClient {
+  applyFleetObservation?(
+    input: ObservationApplyRequest,
+  ): Promise<ObservationApplyResponse>;
   getOne<T>(collection: string, id: string): Promise<T | null>;
   getFirst<T>(collection: string, filter: string): Promise<T | null>;
   list<T>(collection: string, opts?: ListOpts): Promise<ListResult<T>>;
@@ -480,10 +487,8 @@ export function createPbClient(config: PbClientConfig): PbClient {
     collection: string,
     id: string,
   ): Promise<boolean> {
-    const res = await request(
-      `/api/collections/${encodeURIComponent(collection)}/records/${encodeURIComponent(id)}`,
-      { method: "DELETE" },
-    );
+    const path = `/api/collections/${encodeURIComponent(collection)}/records/${encodeURIComponent(id)}`;
+    const res = await request(path, { method: "DELETE" });
     if (res.status === 404) {
       // Delete-of-missing is idempotent but we want to surface the gap
       // for anyone asking "why didn't my delete do anything?".
@@ -491,12 +496,34 @@ export function createPbClient(config: PbClientConfig): PbClient {
       return false;
     }
     if (!res.ok) {
-      throw new Error(`pb delete failed: ${res.status}`);
+      // Typed status so callers can tell a per-row refusal (e.g. a 400 from
+      // a required relation) from a systemic failure such as PB being down.
+      throw new PbHttpError({
+        statusCode: res.status,
+        bodyText: await res.text().catch(() => ""),
+        path,
+      });
     }
     return true;
   }
 
   const client: PbClient = {
+    async applyFleetObservation(input) {
+      const path = "/api/fleet/observations/apply";
+      const res = await request(path, {
+        method: "POST",
+        body: JSON.stringify(input),
+      });
+      if (!res.ok) {
+        throw new PbHttpError({
+          statusCode: res.status,
+          bodyText: await res.text(),
+          path,
+        });
+      }
+      return (await res.json()) as ObservationApplyResponse;
+    },
+
     async getOne<T>(collection: string, id: string): Promise<T | null> {
       const res = await request(
         `/api/collections/${encodeURIComponent(collection)}/records/${encodeURIComponent(id)}`,

@@ -6,6 +6,7 @@
         "@copilotkit/a2ui-renderer",
         "@copilotkit/agentcore-runner",
         "@copilotkit/core",
+        "@copilotkit/learning",
         "@copilotkit/mcp-apps-renderer",
         "@copilotkit/react-core",
         "@copilotkit/react-native",
@@ -38,7 +39,6 @@
         "@copilotkit/channels-teams",
         "@copilotkit/channels-intelligence",
         "@copilotkit/channels-discord",
-        "@copilotkit/channels-telegram",
         "@copilotkit/channels-whatsapp",
         "@copilotkit/channels"
       ],

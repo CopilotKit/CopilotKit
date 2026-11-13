@@ -1,7 +1,7 @@
 // Dedicated runtime for the Multimodal Attachments demo (Wave 2b).
 //
 // Why its own route? The backing graph (`multimodal`, from
-// src/agents/multimodal_agent.py) runs a vision-capable model (gpt-4o). Every
+// src/agents/multimodal_agent.py) runs a vision-capable model (gpt-6-luna). Every
 // other cell in the showcase uses a text-only, cheaper model. Registering
 // `multimodal` under the shared `/api/copilotkit` runtime would silently upgrade
 // *all* cells that share that runtime to a vision model whenever the browser

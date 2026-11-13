@@ -10,8 +10,8 @@ snippet_cell: prebuilt-popup
 ## What is this?
 
 `<CopilotPopup>` is a prebuilt floating launcher that opens an overlay chat
-window on top of your page content. It's the lightest-weight way to add a
-copilot to an existing app. Drop it in once and a bubble appears in the
+window on top of your page content. It adds a copilot to an existing app
+without changing your page layout. Drop it in once and a bubble appears in the
 corner ready to chat.
 
 ## When should I use this?
@@ -38,13 +38,11 @@ import { CopilotKit, CopilotPopup } from "@copilotkit/react-core/v2";
 import "@copilotkit/react-core/v2/styles.css";
 ```
 
-<Callout type="warn">
-  `@copilotkit/react-ui` also exports a component named `CopilotPopup`. That one
-  is the [deprecated v1 popup](/migrate/v2). This page documents the v2 popup,
-  which you import from `@copilotkit/react-core/v2`.
-</Callout>
+Import from `@copilotkit/react-core/v2`. The `CopilotPopup` in `@copilotkit/react-ui` is the [deprecated v1 popup](/migrate/v2).
 
 <Snippet region="popup-basic-setup" title="frontend/src/app/page.tsx — CopilotPopup wired up" />
+
+`<MainContent />` and `<Suggestions />` are demo components. Replace them with your own content.
 
 ## Configuring the popup
 
@@ -54,9 +52,10 @@ its own. Commonly used options:
 | Prop | Description |
 |------|-------------|
 | `defaultOpen` | Whether the popup starts open on first render. |
+| `open` / `onOpenChange` | Control the open state from your own UI. See [Open, close, and feedback](/prebuilt-components/chat-controls). |
 | `agentId` | Agent slug the popup should talk to (must match an agent configured on the runtime). |
 | `labels` | User-facing copy for the header, placeholder, and disclaimer. |
-| `header` | Slot for the popup header bar — see the [slot system](/custom-look-and-feel/slots). |
+| `header` | Slot for the popup header bar. See the [slot system](/custom-look-and-feel/slots). |
 | `toggleButton` | Slot for the floating launcher button. |
 
 ## Styling

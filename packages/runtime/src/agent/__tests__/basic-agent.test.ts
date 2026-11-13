@@ -1,7 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { z } from "zod";
 import { BasicAgent, defineTool } from "../index";
-import type { ToolDefinition } from "../index";
 import { EventType } from "@ag-ui/client";
 import type {
   BaseEvent,
@@ -9,6 +8,7 @@ import type {
   RunAgentInput,
 } from "@ag-ui/client";
 import { streamText } from "ai";
+import type { SystemModelMessage } from "ai";
 import type * as AISDK from "ai";
 import {
   mockStreamTextResponse,
@@ -22,6 +22,7 @@ import {
   toolCallDelta,
   toolCall,
   toolResult,
+  toolError,
   reasoningStart,
   reasoningDelta,
   reasoningEnd,
@@ -278,6 +279,83 @@ describe("BasicAgent", () => {
         toolCallId: "call1",
       });
     });
+
+    it("should emit a visible tool result when execution throws", async () => {
+      const agent = new BasicAgent({
+        model: "openai/gpt-4o",
+      });
+
+      vi.mocked(streamText).mockReturnValue(
+        mockStreamTextResponse([
+          toolCall("call-error", "getCats", { limit: 1 }),
+          toolError("call-error", "getCats", new Error("Missing API key")),
+          finish(),
+        ]) as any,
+      );
+
+      const input: RunAgentInput = {
+        threadId: "thread1",
+        runId: "run1",
+        messages: [],
+        tools: [],
+        context: [],
+        state: {},
+      };
+
+      const events = await collectEvents(agent["run"](input));
+      const resultEvent = events.find(
+        (event) => event.type === EventType.TOOL_CALL_RESULT,
+      );
+
+      expect(resultEvent).toMatchObject({
+        type: EventType.TOOL_CALL_RESULT,
+        toolCallId: "call-error",
+        content: "Error: Missing API key",
+      });
+      expect(events.some((event) => event.type === EventType.RUN_ERROR)).toBe(
+        false,
+      );
+    });
+
+    it("should warn once and keep running on an unknown stream part", async () => {
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+      const agent = new BasicAgent({
+        model: "openai/gpt-4o",
+      });
+
+      vi.mocked(streamText).mockReturnValue(
+        mockStreamTextResponse([
+          { type: "future-part" },
+          textDelta("still here"),
+          { type: "future-part" },
+          finish(),
+        ]) as any,
+      );
+
+      const input: RunAgentInput = {
+        threadId: "thread1",
+        runId: "run1",
+        messages: [],
+        tools: [],
+        context: [],
+        state: {},
+      };
+
+      const events = await collectEvents(agent["run"](input));
+
+      expect(events.some((event) => event.type === EventType.RUN_ERROR)).toBe(
+        false,
+      );
+      expect(events.at(-1)?.type).toBe(EventType.RUN_FINISHED);
+      expect(
+        warn.mock.calls.filter((call) =>
+          String(call[0]).includes("future-part"),
+        ),
+      ).toEqual([
+        ["[BuiltInAgent] Ignoring unhandled AI SDK stream part: future-part"],
+      ]);
+      warn.mockRestore();
+    });
   });
 
   describe("Prompt Building", () => {
@@ -306,7 +384,7 @@ describe("BasicAgent", () => {
       expect(callArgs.messages[0].role).toBe("user");
     });
 
-    it("should prepend system message with config prompt", async () => {
+    it("should pass config prompt via the system option, not messages", async () => {
       const agent = new BasicAgent({
         model: "openai/gpt-4o",
         prompt: "You are a helpful assistant.",
@@ -328,11 +406,35 @@ describe("BasicAgent", () => {
       await collectEvents(agent["run"](input));
 
       const callArgs = vi.mocked(streamText).mock.calls[0][0];
-      expect(callArgs.messages).toHaveLength(2);
-      expect(callArgs.messages[0]).toMatchObject({
-        role: "system",
-        content: "You are a helpful assistant.",
+      expect(callArgs.system).toEqual([
+        { role: "system", content: "You are a helpful assistant." },
+      ]);
+      expect(callArgs.messages).toHaveLength(1);
+      expect(callArgs.messages[0].role).toBe("user");
+    });
+
+    it("should not pass an empty system option when there is no prompt", async () => {
+      const agent = new BasicAgent({
+        model: "openai/gpt-4o",
       });
+
+      vi.mocked(streamText).mockReturnValue(
+        mockStreamTextResponse([finish()]) as any,
+      );
+
+      const input: RunAgentInput = {
+        threadId: "thread1",
+        runId: "run1",
+        messages: [{ id: "1", role: "user", content: "Hello" }],
+        tools: [],
+        context: [],
+        state: {},
+      };
+
+      await collectEvents(agent["run"](input));
+
+      const callArgs = vi.mocked(streamText).mock.calls[0][0];
+      expect(callArgs.system).toBeUndefined();
     });
 
     it("should include context in system message", async () => {
@@ -347,7 +449,7 @@ describe("BasicAgent", () => {
       const input: RunAgentInput = {
         threadId: "thread1",
         runId: "run1",
-        messages: [],
+        messages: [{ id: "1", role: "user", content: "Hello" }],
         tools: [],
         context: [
           { description: "User Name", value: "John Doe" },
@@ -359,7 +461,7 @@ describe("BasicAgent", () => {
       await collectEvents(agent["run"](input));
 
       const callArgs = vi.mocked(streamText).mock.calls[0][0];
-      const systemMessage = callArgs.messages[0];
+      const [systemMessage] = callArgs.system as SystemModelMessage[];
       expect(systemMessage.role).toBe("system");
       expect(systemMessage.content).toContain("Context from the application");
       expect(systemMessage.content).toContain("User Name");
@@ -380,7 +482,7 @@ describe("BasicAgent", () => {
       const input: RunAgentInput = {
         threadId: "thread1",
         runId: "run1",
-        messages: [],
+        messages: [{ id: "1", role: "user", content: "Hello" }],
         tools: [],
         context: [],
         state: { counter: 0, items: ["a", "b"] },
@@ -389,7 +491,7 @@ describe("BasicAgent", () => {
       await collectEvents(agent["run"](input));
 
       const callArgs = vi.mocked(streamText).mock.calls[0][0];
-      const systemMessage = callArgs.messages[0];
+      const [systemMessage] = callArgs.system as SystemModelMessage[];
       expect(systemMessage.role).toBe("system");
       expect(systemMessage.content).toContain("Application State");
       expect(systemMessage.content).toContain("AGUISendStateSnapshot");
@@ -411,7 +513,7 @@ describe("BasicAgent", () => {
       const input: RunAgentInput = {
         threadId: "thread1",
         runId: "run1",
-        messages: [],
+        messages: [{ id: "1", role: "user", content: "Hello" }],
         tools: [],
         context: [{ description: "Context", value: "Data" }],
         state: { value: 1 },
@@ -420,7 +522,7 @@ describe("BasicAgent", () => {
       await collectEvents(agent["run"](input));
 
       const callArgs = vi.mocked(streamText).mock.calls[0][0];
-      const systemMessage = callArgs.messages[0];
+      const [systemMessage] = callArgs.system as SystemModelMessage[];
       expect(systemMessage.content).toContain("You are helpful.");
       expect(systemMessage.content).toContain("Context from the application");
       expect(systemMessage.content).toContain("Application State");
@@ -631,21 +733,21 @@ describe("BasicAgent", () => {
       await collectEvents(agent["run"](input));
 
       const callArgs = vi.mocked(streamText).mock.calls[0][0];
-      // Config prompt is prepended as first system message
-      expect(callArgs.messages).toHaveLength(4);
+      // Config prompt goes in `system`, which the AI SDK places before
+      // `messages`; forwarded system/developer messages stay in `messages`.
+      expect(callArgs.system).toEqual([
+        { role: "system", content: "You are a helpful assistant." },
+      ]);
+      expect(callArgs.messages).toHaveLength(3);
       expect(callArgs.messages[0]).toMatchObject({
-        role: "system",
-        content: "You are a helpful assistant.",
-      });
-      expect(callArgs.messages[1]).toMatchObject({
         role: "system",
         content: "System instruction",
       });
-      expect(callArgs.messages[2]).toMatchObject({
+      expect(callArgs.messages[1]).toMatchObject({
         role: "system",
         content: "Developer hint",
       });
-      expect(callArgs.messages[3].role).toBe("user");
+      expect(callArgs.messages[2].role).toBe("user");
     });
   });
 
@@ -1344,6 +1446,38 @@ describe("BasicAgent", () => {
 
       // Stream still completes with RUN_FINISHED
       expect(eventTypes[eventTypes.length - 1]).toBe(EventType.RUN_FINISHED);
+    });
+
+    it("declares its protocol version and finishes an aborted run as cancelled for a 1.0 client", async () => {
+      const agent = new BasicAgent({ model: "openai/gpt-4o" });
+      const runWith = async (protocolVersion?: string) => {
+        vi.mocked(streamText).mockReturnValue(
+          mockStreamTextResponse([abort()]),
+        );
+        const events = await collectEvents(
+          agent["run"]({
+            threadId: "thread1",
+            runId: "run1",
+            messages: [],
+            tools: [],
+            context: [],
+            state: {},
+            ...(protocolVersion ? { protocolVersion } : {}),
+          }),
+        );
+        return {
+          started: events.find((e) => e.type === EventType.RUN_STARTED),
+          finished: events.find((e) => e.type === EventType.RUN_FINISHED),
+        };
+      };
+
+      const modern = await runWith("1.0");
+      expect(modern.started).toMatchObject({ protocolVersion: "1.0" });
+      expect(modern.finished).toMatchObject({ outcome: { type: "cancelled" } });
+
+      // A 0.x client declares no version and cannot parse the cancelled outcome.
+      const legacy = await runWith(undefined);
+      expect(legacy.finished).not.toHaveProperty("outcome");
     });
 
     it("should auto-close reasoning when stream errors mid-reasoning", async () => {

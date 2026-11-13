@@ -82,6 +82,10 @@ import {
 import { handleRunAgent } from "../handlers/handle-run";
 import { handleSuggestAgent } from "../handlers/handle-suggest";
 import { handleConnectAgent } from "../handlers/handle-connect";
+import {
+  handleTrajectoryConnect,
+  trajectoryErrorResponse,
+} from "../handlers/handle-trajectory-connect";
 import { handleStopAgent } from "../handlers/handle-stop";
 import { handleGetRuntimeInfo } from "../handlers/get-runtime-info";
 import { handleInspectorMetadata } from "../handlers/handle-inspector-metadata";
@@ -118,6 +122,7 @@ import {
 import type { MethodCall } from "../endpoints/single-route-helpers";
 import { logger } from "@copilotkit/shared";
 import { fireInstanceCreatedTelemetry } from "../telemetry/instance-created";
+import type { RuntimeInstanceCreatedInfo } from "../telemetry/events";
 
 /**
  * Emitted when a single-route client's JSON envelope reaches a runtime mounted
@@ -193,6 +198,14 @@ export interface CopilotRuntimeHandlerOptions {
    * API and may change or be removed without notice.
    */
   __channelEngine?: ActivateChannelEngine;
+
+  /**
+   * @internal Payload for the `oss.runtime.instance_created` event, used in
+   * place of the v2 defaults. The v1 integration wrappers pass the v1 payload
+   * here so that the event fires once, from this factory, with the v1 data.
+   * Not part of the public API and may change or be removed without notice.
+   */
+  __instanceCreatedInfo?: RuntimeInstanceCreatedInfo;
 }
 
 /**
@@ -325,7 +338,10 @@ export function createCopilotRuntimeHandler(
 ): CopilotRuntimeFetchHandler {
   const { runtime, basePath, mode = "multi-route", cors, hooks } = options;
 
-  fireInstanceCreatedTelemetry({ runtime });
+  fireInstanceCreatedTelemetry({
+    runtime,
+    info: options.__instanceCreatedInfo,
+  });
 
   const corsConfig = resolveCorsConfig(cors);
 
@@ -512,17 +528,21 @@ export function createCopilotRuntimeHandler(
 
       // 9. Legacy afterRequestMiddleware (non-blocking)
       // Clone the response so middleware can read the body without consuming
-      // the original stream that will be sent to the client.
-      callAfterRequestMiddleware({
-        runtime,
-        response: response.clone(),
-        path: handlerPath,
-      }).catch((error: unknown) => {
-        logger.error(
-          { err: error, url: request.url, path: handlerPath },
-          "Error running after request middleware",
-        );
-      });
+      // the original stream that will be sent to the client. Only clone when
+      // middleware is set: an unread clone still buffers every streamed chunk
+      // until the response ends.
+      if (runtime.afterRequestMiddleware) {
+        callAfterRequestMiddleware({
+          runtime,
+          response: response.clone(),
+          path: handlerPath,
+        }).catch((error: unknown) => {
+          logger.error(
+            { err: error, url: request.url, path: handlerPath },
+            "Error running after request middleware",
+          );
+        });
+      }
 
       return response;
     } catch (error) {
@@ -615,7 +635,8 @@ function dispatchRoute(
   if (
     isIntelligenceRuntime(runtime) &&
     runtime.identifyUser === undefined &&
-    route.method !== "info"
+    route.method !== "info" &&
+    route.method !== "trajectory/connect"
   ) {
     throw jsonResponse({ error: "Not found" }, 404);
   }
@@ -634,6 +655,12 @@ function dispatchRoute(
   }
 
   switch (route.method) {
+    case "trajectory/connect":
+      return handleTrajectoryConnect({
+        runtime,
+        request,
+        trajectoryId: route.trajectoryId,
+      });
     case "agent/run":
       return handleRunAgent({
         runtime,
@@ -677,7 +704,7 @@ function dispatchRoute(
     case "transcribe":
       return handleTranscribe({ runtime, request });
     case "threads/clear":
-      return Promise.resolve(handleClearThreads({ runtime, request }));
+      return handleClearThreads({ runtime, request });
     case "threads/list":
       return handleListThreads({ runtime, request });
     case "memories/list":
@@ -762,8 +789,16 @@ async function resolveSingleRoute(
       basePath.length > 1 && basePath.endsWith("/")
         ? basePath.slice(0, -1)
         : basePath;
-    if (!pathname.startsWith(normalizedBase)) {
-      throw jsonResponse({ error: "Not found" }, 404);
+    // Same boundary rule as multi-route matchRoute: "/" matches everything;
+    // otherwise the character after basePath must be "/" or end of string.
+    if (normalizedBase !== "/") {
+      const afterBase = pathname.slice(normalizedBase.length);
+      if (
+        !pathname.startsWith(normalizedBase) ||
+        (afterBase.length > 0 && !afterBase.startsWith("/"))
+      ) {
+        throw jsonResponse({ error: "Not found" }, 404);
+      }
     }
   }
 
@@ -775,6 +810,18 @@ async function resolveSingleRoute(
 
   let route: RouteInfo;
   switch (methodCall.method) {
+    case "trajectory/connect": {
+      const trajectoryId = methodCall.params?.trajectoryId;
+      if (typeof trajectoryId !== "string") {
+        throw trajectoryErrorResponse(
+          "INVALID_REQUEST",
+          "A valid trajectoryId is required",
+          400,
+        );
+      }
+      route = { method: "trajectory/connect", trajectoryId };
+      break;
+    }
     case "agent/run":
       route = {
         method: "agent/run",

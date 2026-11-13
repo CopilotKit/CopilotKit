@@ -73,6 +73,13 @@ discovery:
       - "showcase-shell-dashboard"
       - "showcase-shell-docs"
       - "showcase-shell-dojo"
+      # Staging-only Intelligence infrastructure has no Showcase runtime.
+      - "showcase-intelligence-api"
+      - "showcase-intelligence-composite"
+      - "showcase-intelligence-gateway"
+      - "showcase-intelligence-gateway-proxy"
+      - "showcase-intelligence-postgres"
+      - "showcase-intelligence-redis"
       # Decommissioned starters — Railway services stopped, deployments
       # halted (PR #4390). Excluded so probes don't scan dead endpoints.
       - "showcase-starter-ag2"

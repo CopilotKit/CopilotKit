@@ -114,6 +114,26 @@ describe("Content Bundler", () => {
     expect(lgAgent.language).toBe("python");
   });
 
+  it("exposes the Mastra fixed-schema tool's required companion file", () => {
+    const demo = runBundlerAndRead().demos["mastra::a2ui-fixed-schema"];
+    const tool = demo.files.find(
+      (file: any) => file.filename === "src/mastra/tools/a2ui-generate.ts",
+    );
+    const context = demo.files.find(
+      (file: any) => file.filename === "src/mastra/tools/a2ui-context.ts",
+    );
+
+    expect(tool.content).toContain('from "./a2ui-context"');
+    expect(context).toMatchObject({
+      highlighted: true,
+      language: "typescript",
+    });
+    expect(context.content).toContain(
+      "export function readForwardedA2uiContext",
+    );
+    expect(context.content).toContain("export function systemPromptFrom");
+  });
+
   it("includes core langgraph-python demos", () => {
     const content = runBundlerAndRead();
 
@@ -133,6 +153,31 @@ describe("Content Bundler", () => {
       expect(content.demos[key]).toBeDefined();
       expect(content.demos[key].files.length).toBeGreaterThan(0);
     }
+  });
+
+  it("exposes the Mastra subagents working-memory companion", () => {
+    const demo = runBundlerAndRead().demos["mastra::subagents"];
+    const tool = demo.files.find(
+      (file: any) => file.filename === "src/mastra/tools/subagents.ts",
+    );
+    const memory = demo.files.find(
+      (file: any) => file.filename === "src/mastra/tools/working-memory.ts",
+    );
+    const provider = demo.files.find(
+      (file: any) => file.filename === "src/mastra/_header_forwarding.ts",
+    );
+
+    expect(tool.content).toContain('from "./working-memory"');
+    expect(memory).toMatchObject({ highlighted: true, language: "typescript" });
+    expect(memory.content).toContain(
+      "export async function writeDelegationsToWorkingMemory",
+    );
+    expect(tool.content).toContain('from "@/mastra/_header_forwarding"');
+    expect(provider).toMatchObject({
+      highlighted: true,
+      language: "typescript",
+    });
+    expect(provider.content).toContain("export const openai = createOpenAI");
   });
 
   it("bundles the Strands TypeScript sub-agent documentation regions", () => {

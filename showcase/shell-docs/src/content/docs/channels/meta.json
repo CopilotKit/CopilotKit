@@ -1,0 +1,24 @@
+{
+  "title": "Channels",
+  "pages": [
+    "---Getting Started---",
+    "[Overview](/channels)",
+    "intelligence",
+    "[Connect and run your agent](/connect)",
+    "---Build---",
+    "tools",
+    "identity-and-memory",
+    "rich-messages",
+    "posting-jsx-as-images",
+    "render-and-carousel",
+    "interactive",
+    "commands-and-reactions",
+    "files-and-multimodality",
+    "threads-and-state",
+    "---Production---",
+    "persistence-and-scaling",
+    "history-and-transcripts",
+    "deploy-and-operate",
+    "[API reference](/reference/channels)"
+  ]
+}

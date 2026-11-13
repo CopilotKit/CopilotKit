@@ -42,8 +42,9 @@
 # reference machine. Once built, the image is tagged `cpki/intelligence-composite`
 # and reused on subsequent `up`s.
 #
-# Seeded by the app-db-migrations seed.sql (run by the composite's migrations
-# oneshot before app-api starts):
+# Seeded by the Intelligence repo's app-db-migrations/seed.sql, which
+# run-demo.sh applies after the stack is healthy (the composite image stopped
+# seeding demo data; a bare `docker compose up` leaves no API keys → 401s):
 #   org  casa-de-erlang   project elixir4days
 #   key  cpk_sPRVSEED_seed0privat0longtoken00
 #   users jordan-beamson / morgan-fluxx
@@ -88,8 +89,11 @@ services:
       retries: 5
     restart: unless-stopped
 
+  # MinIO no longer publishes minio/minio or minio/mc on Docker Hub (pulls fail
+  # with "pull access denied"). Chainguard's image ships both `minio` and `mc`
+  # plus /bin/sh, so it serves the server and the minio-init oneshot below.
   minio:
-    image: minio/minio:latest
+    image: cgr.dev/chainguard/minio:latest
     command: server /data --console-address ":9001"
     ports:
       - "${MINIO_HOST_PORT:-7260}:9000"
@@ -113,7 +117,7 @@ services:
   # service name at container start, so retry `mc alias set` until it resolves.
   # The `$$` escapes compose interpolation so the container shell sees `$`.
   minio-init:
-    image: minio/mc:latest
+    image: cgr.dev/chainguard/minio:latest
     depends_on:
       minio:
         condition: service_healthy
@@ -187,9 +191,9 @@ services:
   # app-api (:4201 -> host 7250) + realtime-gateway (:4401 -> host 7253) +
   # thread-culler + the db-migrations oneshot, all under s6-overlay. Built
   # from the Intelligence repo's Dockerfile.composite (memory/SL gates are
-  # compiled in). The migrations oneshot runs graphile-migrate + seed.sql
-  # against postgres before app-api/gateway start, so the seeded org/key/users
-  # exist by the time the surface is healthy.
+  # compiled in). The migrations oneshot runs graphile-migrate against postgres
+  # before app-api/gateway start. It does NOT seed demo data; run-demo.sh
+  # applies seed.sql once this service is healthy.
   intelligence:
     image: cpki/intelligence-composite:local
     build:

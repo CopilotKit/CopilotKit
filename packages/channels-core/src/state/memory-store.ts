@@ -7,8 +7,25 @@ type Expiring<V> = { value: V; expiresAt?: number };
 const live = <V>(e: Expiring<V> | undefined): e is Expiring<V> =>
   !!e && (e.expiresAt === undefined || Date.now() <= e.expiresAt);
 
+/** Writes between sweeps of expired entries out of the in-memory maps. */
+const SWEEP_EVERY_WRITES = 256;
+
+/** Drop every expired entry from `map` (entries without a TTL are kept). */
+function sweepExpired<V>(map: Map<string, Expiring<V>>): void {
+  for (const [key, entry] of map) {
+    if (!live(entry)) map.delete(key);
+  }
+}
+
+/**
+ * In-process {@link StateStore}. Entries written with a TTL expire: they are
+ * dropped when read after their expiry, and every
+ * {@link SWEEP_EVERY_WRITES} writes a sweep drops the expired ones nobody read,
+ * so short-lived keys do not accumulate. Entries without a TTL are kept.
+ */
 export class MemoryStore implements StateStore {
   private kvMap = new Map<string, Expiring<unknown>>();
+  private writesSinceSweep = 0;
   private lists = new Map<string, Expiring<unknown[]>>();
   private locks = new Map<string, { token: string; expiresAt?: number }>();
   private queues = new Map<string, unknown[]>();
@@ -23,6 +40,10 @@ export class MemoryStore implements StateStore {
       return e.value as T;
     },
     set: async <T>(key: string, value: T, ttlMs?: number): Promise<void> => {
+      if (++this.writesSinceSweep >= SWEEP_EVERY_WRITES) {
+        this.writesSinceSweep = 0;
+        sweepExpired(this.kvMap);
+      }
       this.kvMap.set(key, {
         value,
         expiresAt: ttlMs ? Date.now() + ttlMs : undefined,

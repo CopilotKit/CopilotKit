@@ -6,6 +6,7 @@ import type {
 import CopilotChatView from "./CopilotChatView";
 import CopilotChatToggleButton from "./CopilotChatToggleButton";
 import { CopilotModalHeader } from "./CopilotModalHeader";
+import type { CopilotModalHeaderProps } from "./CopilotModalHeader";
 import { cn } from "../../lib/utils";
 import type { SlotValue } from "../../lib/slots";
 import { renderSlot } from "../../lib/slots";
@@ -21,7 +22,8 @@ const DEFAULT_POPUP_WIDTH = 420;
 const DEFAULT_POPUP_HEIGHT = 560;
 
 export type CopilotPopupViewProps = CopilotChatViewProps & {
-  header?: SlotValue<typeof CopilotModalHeader>;
+  /** Accepts a className, partial props, or any component with CopilotModalHeader props — static namespace members are not required. */
+  header?: SlotValue<React.ComponentType<CopilotModalHeaderProps>>;
   toggleButton?: SlotValue<typeof CopilotChatToggleButton>;
   width?: number | string;
   height?: number | string;
@@ -190,6 +192,15 @@ function CopilotPopupViewInternal({
         return;
       }
 
+      // Popovers of the chat, such as a reply rating's comment, render in a
+      // portal outside the container.
+      if (
+        target instanceof Element &&
+        target.closest("[data-copilotkit-popover]")
+      ) {
+        return;
+      }
+
       setModalOpen?.(false);
     };
 
@@ -233,7 +244,7 @@ function CopilotPopupViewInternal({
     <div
       data-copilotkit
       className={cn(
-        "cpk:fixed cpk:inset-0 cpk:z-[1200] cpk:flex cpk:max-w-full cpk:flex-col cpk:items-stretch",
+        "cpk:fixed cpk:inset-0 cpk:z-[1200] cpk:flex cpk:max-w-full cpk:flex-col cpk:items-stretch cpk:bg-transparent",
         "cpk:md:inset-auto cpk:md:bottom-24 cpk:md:right-6 cpk:md:items-end cpk:md:gap-4",
       )}
     >

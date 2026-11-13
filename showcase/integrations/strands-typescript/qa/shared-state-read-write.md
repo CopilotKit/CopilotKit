@@ -24,7 +24,7 @@
 - [ ] Change `data-testid="pref-tone"` to `formal`; verify the JSON preview reflects `"tone": "formal"`
 - [ ] Change `data-testid="pref-language"` to `Spanish`; verify the JSON preview reflects `"language": "Spanish"`
 - [ ] Click the `Cooking` and `Travel` interest pills; verify both show the selected style (border `#BEC2FF`, bg `#BEC2FF1A`) and the JSON preview's `interests` array contains both entries
-- [ ] Send "What do you know about me?"; verify within 10s the assistant reply references the name "Atai", a formal tone, Spanish, and the Cooking/Travel interests (the `build_state_prompt` Strands `state_context_builder` injects these into the user message each turn)
+- [ ] Send "What do you know about me?"; verify within 10s the assistant reply references the name "Atai", a formal tone, Spanish, and the Cooking/Travel interests (current preferences reach the model through transient request context; saved user messages retain their original text)
 - [ ] Click the "Plan a weekend" suggestion; verify the reply is tailored to the selected interests
 
 #### Agent Writes -> UI Reads (notes via `set_notes` tool)
@@ -49,7 +49,7 @@
 ### 3. Error Handling
 
 - [ ] Attempt to send an empty message; verify it is a no-op (no user bubble, no assistant response)
-- [ ] Deselect all interests and clear the name; send "Who am I?"; verify the agent answers without crashing (`build_state_prompt` skips injection when `preferences` is empty)
+- [ ] Deselect all interests and clear the name; send "Who am I?"; verify the agent answers without crashing (empty `preferences` adds no preference context)
 - [ ] Verify DevTools -> Console shows no uncaught errors during any flow above
 
 ## Expected Results

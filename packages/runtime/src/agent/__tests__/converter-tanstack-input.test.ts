@@ -81,6 +81,41 @@ describe("convertInputToTanStackAI", () => {
   // -------------------------------------------------------------------------
   // Tool call mapping
   // -------------------------------------------------------------------------
+  describe("tool result content", () => {
+    it("keeps a string tool result as its string", () => {
+      const input = createDefaultInput({
+        messages: [
+          { id: "t1", role: "tool", toolCallId: "tc-1", content: "answer" },
+        ],
+      });
+      const { messages } = convertInputToTanStackAI(input);
+      expect(messages[0].content).toBe("answer");
+      expect(messages[0].toolCallId).toBe("tc-1");
+    });
+
+    it("renders a parts-shaped tool result as its text rather than dropping it", () => {
+      const input = createDefaultInput({
+        messages: [
+          {
+            id: "t1",
+            role: "tool",
+            toolCallId: "tc-1",
+            content: [
+              { type: "text", text: "ans" },
+              {
+                type: "image",
+                source: { type: "url", value: "https://example.com/x.png" },
+              },
+              { type: "text", text: "wer" },
+            ],
+          },
+        ],
+      });
+      const { messages } = convertInputToTanStackAI(input);
+      expect(messages[0].content).toBe("answer");
+    });
+  });
+
   describe("tool call mapping", () => {
     it("maps assistant message toolCalls to TanStack format", () => {
       const input = createDefaultInput({

@@ -93,10 +93,15 @@ function createAgent(resourceText = "<h1>MCP App</h1>"): AgentHarness {
   return agent as unknown as AgentHarness;
 }
 
+/**
+ * Reset TestBed with `provideMCPApps` (timeouts and `allowSameOriginFallback`)
+ * and a `CopilotKit` stub whose core runs follow-ups through `runAgent`.
+ */
 function configureTestingModule(
   runAgent = vi.fn(async () => ({ result: undefined, newMessages: [] })),
   idleTimeoutMs = 30_000,
   initializationTimeoutMs = 30_000,
+  allowSameOriginFallback?: boolean,
 ): void {
   TestBed.resetTestingModule();
   TestBed.configureTestingModule({
@@ -104,6 +109,7 @@ function configureTestingModule(
       provideMCPApps({
         idleTimeoutMs,
         initializationTimeoutMs,
+        allowSameOriginFallback,
       }),
       {
         provide: CopilotKit,
@@ -142,7 +148,10 @@ function dispatchFrameMessage(
   window.dispatchEvent(new MessageEvent("message", { data, source }));
 }
 
-async function bootWidget(agent: AgentHarness): Promise<{
+async function bootWidget(
+  agent: AgentHarness,
+  messageId?: string,
+): Promise<{
   fixture: ReturnType<typeof TestBed.createComponent<CopilotMCPAppsWidget>>;
   frame: HTMLIFrameElement;
   postMessage: ReturnType<typeof vi.spyOn>;
@@ -150,6 +159,7 @@ async function bootWidget(agent: AgentHarness): Promise<{
   const fixture = TestBed.createComponent(CopilotMCPAppsWidget);
   fixture.componentRef.setInput("data", snapshot);
   fixture.componentRef.setInput("agent", agent);
+  if (messageId) fixture.componentRef.setInput("messageId", messageId);
   await settle(fixture);
 
   const frame = fixture.nativeElement.querySelector<HTMLIFrameElement>(
@@ -166,6 +176,17 @@ async function bootWidget(agent: AgentHarness): Promise<{
     jsonrpc: "2.0",
     method: "ui/notifications/sandbox-proxy-ready",
     params: {},
+  });
+  await settle(fixture);
+  dispatchFrameMessage(frame, {
+    jsonrpc: "2.0",
+    id: "initialize",
+    method: "ui/initialize",
+    params: {
+      appInfo: { name: "test", version: "1" },
+      appCapabilities: {},
+      protocolVersion: "2026-01-26",
+    },
   });
   await settle(fixture);
   dispatchFrameMessage(frame, {
@@ -193,15 +214,16 @@ test("loads the resource through the selected agent and boots the sandbox", asyn
       },
     },
   });
-  expect(frame.getAttribute("sandbox")).toBe(
-    "allow-scripts allow-same-origin allow-forms",
-  );
+  expect(frame.getAttribute("sandbox")).toBe("allow-scripts allow-forms");
   expect(frame.srcdoc).toContain("Content-Security-Policy");
   expect(postMessage).toHaveBeenCalledWith(
     expect.objectContaining({
       jsonrpc: "2.0",
       method: "ui/notifications/sandbox-resource-ready",
-      params: { html: "<h1>MCP App</h1>" },
+      params: {
+        html: "<h1>MCP App</h1>",
+        sandbox: "allow-scripts allow-forms",
+      },
     }),
     "*",
   );
@@ -290,6 +312,10 @@ test("accepts JSON-RPC only from the exact iframe window", async () => {
     params: {},
   });
 
+  await waitFor(
+    () => postMessage.mock.calls.length > 0,
+    "initialize response missing",
+  );
   expect(postMessage).toHaveBeenCalledTimes(1);
   expect(postMessage).toHaveBeenCalledWith(
     expect.objectContaining({ jsonrpc: "2.0", id: 3 }),
@@ -387,6 +413,11 @@ test("drops a queued UI follow-up after its agent switches threads", async () =>
       followUp: true,
     },
   });
+  // AppBridge dispatch is asynchronous; switch after the request was queued.
+  await waitFor(
+    () => agent.addMessage.mock.calls.length === 1,
+    "message was not handled",
+  );
   agent.threadId = "thread-2";
   agent.finishRun();
   await new Promise((resolve) => setTimeout(resolve, 0));
@@ -408,11 +439,15 @@ test("rejects unsafe open-link schemes without opening a window", async () => {
     params: { url: "javascript:alert(document.cookie)" },
   });
 
+  await waitFor(
+    () => postMessage.mock.calls.length > 0,
+    "open-link response missing",
+  );
   expect(open).not.toHaveBeenCalled();
   expect(postMessage).toHaveBeenCalledWith(
     expect.objectContaining({
       id: "unsafe-link",
-      error: expect.objectContaining({ code: -32602 }),
+      result: { isError: true },
     }),
     "*",
   );
@@ -463,21 +498,34 @@ test("matches the React SDK sandbox and resource CSP contract", async () => {
       "ui/notifications/sandbox-resource-ready",
   )?.[0];
 
-  expect(frame.getAttribute("sandbox")).toBe(
-    "allow-scripts allow-same-origin allow-forms",
-  );
+  expect(frame.getAttribute("sandbox")).toBe("allow-scripts allow-forms");
   expect(frame.getAttribute("src")).toBeNull();
   expect(frame.srcdoc).toContain(
     "script-src 'self' 'wasm-unsafe-eval' 'unsafe-inline' 'unsafe-eval' blob: data: http://localhost:* https://localhost:* https://cdn.example.com",
   );
   expect(frame.srcdoc).toContain(
-    'inner.setAttribute("sandbox","allow-scripts allow-same-origin allow-forms")',
+    'inner.setAttribute("sandbox","allow-scripts allow-forms")',
   );
   expect(resourceReady).toEqual({
     jsonrpc: "2.0",
     method: "ui/notifications/sandbox-resource-ready",
-    params: { html: "<h1>MCP App</h1>" },
+    params: { html: "<h1>MCP App</h1>", sandbox: "allow-scripts allow-forms" },
   });
+});
+
+test("restores allow-same-origin with allowSameOriginFallback", async () => {
+  configureTestingModule(undefined, undefined, undefined, true);
+  const { frame, postMessage } = await bootWidget(createAgent());
+
+  const sameOrigin = "allow-scripts allow-same-origin allow-forms";
+  expect(frame.getAttribute("sandbox")).toBe(sameOrigin);
+  expect(postMessage).toHaveBeenCalledWith(
+    expect.objectContaining({
+      method: "ui/notifications/sandbox-resource-ready",
+      params: { html: "<h1>MCP App</h1>", sandbox: sameOrigin },
+    }),
+    "*",
+  );
 });
 
 test("shows accessible loading and missing-resource errors", async () => {
@@ -503,7 +551,7 @@ test("shows accessible loading and missing-resource errors", async () => {
 
   expect(
     fixture.nativeElement.querySelector("[role='alert']")?.textContent,
-  ).toContain("No matching MCP App resource");
+  ).toContain("No resource content in response");
 });
 
 test("shows an accessible error when the sandbox handshake times out", async () => {
@@ -518,7 +566,7 @@ test("shows an accessible error when the sandbox handshake times out", async () 
 
   expect(
     fixture.nativeElement.querySelector("[role='alert']")?.textContent,
-  ).toContain("Timed out waiting 5ms for the MCP App sandbox");
+  ).toContain("Timed out after 5ms waiting for the MCP App sandbox");
 });
 
 test("renders through the built-in activity config and passes the agent", async () => {
@@ -570,4 +618,392 @@ test("provideMCPApps registers a lower-precedence built-in renderer", () => {
     CustomMCPAppsRenderer,
     CopilotMCPAppsActivityRenderer,
   ]);
+});
+
+test("forwards changed results without reloading the sandbox", async () => {
+  configureTestingModule();
+  const agent = createAgent();
+  const { fixture, frame, postMessage } = await bootWidget(agent);
+  const srcdoc = frame.srcdoc;
+  postMessage.mockClear();
+  const result = {
+    content: [{ type: "text", text: "updated" }],
+    _meta: { private: true },
+  };
+  fixture.componentRef.setInput("data", { ...snapshot, result });
+  await settle(fixture);
+  expect(agent.runAgent).toHaveBeenCalledTimes(1);
+  expect(frame.srcdoc).toBe(srcdoc);
+  expect(postMessage).toHaveBeenCalledWith(
+    expect.objectContaining({
+      method: "ui/notifications/tool-result",
+      params: result,
+    }),
+    "*",
+  );
+});
+
+test("rejects a single resource with the wrong URI", async () => {
+  configureTestingModule();
+  const agent = createAgent();
+  agent.runAgent.mockResolvedValueOnce({
+    result: { contents: [{ uri: "ui://wrong", text: "wrong" }] },
+    newMessages: [],
+  });
+  const fixture = TestBed.createComponent(CopilotMCPAppsWidget);
+  fixture.componentRef.setInput("data", snapshot);
+  fixture.componentRef.setInput("agent", agent);
+  await settle(fixture);
+  await waitFor(
+    () => Boolean(fixture.nativeElement.querySelector("[role=alert]")),
+    "missing error",
+  );
+  expect(fixture.nativeElement.querySelector("iframe").srcdoc).toBe("");
+});
+
+test("retains the positive finite height clamp", async () => {
+  configureTestingModule();
+  const { fixture, frame } = await bootWidget(createAgent());
+  dispatchFrameMessage(frame, {
+    jsonrpc: "2.0",
+    method: "ui/notifications/size-changed",
+    params: { height: 6000 },
+  });
+  await settle(fixture);
+  expect(frame.style.height).toBe("5000px");
+  dispatchFrameMessage(frame, {
+    jsonrpc: "2.0",
+    method: "ui/notifications/size-changed",
+    params: { height: -2 },
+  });
+  await settle(fixture);
+  expect(frame.style.height).toBe("5000px");
+});
+
+test("cancels a queued follow-up when the widget is destroyed", async () => {
+  const runFollowUp = vi.fn(async () => ({
+    result: undefined,
+    newMessages: [],
+  }));
+  configureTestingModule(runFollowUp);
+  const agent = createAgent();
+  const { fixture, frame } = await bootWidget(agent);
+  agent.isRunning = true;
+  dispatchFrameMessage(frame, {
+    jsonrpc: "2.0",
+    id: "queued",
+    method: "ui/message",
+    params: { content: [{ type: "text", text: "hello" }] },
+  });
+  await waitFor(
+    () => agent.addMessage.mock.calls.length === 1,
+    "message was not queued",
+  );
+  fixture.destroy();
+  agent.finishRun();
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  expect(runFollowUp).not.toHaveBeenCalled();
+});
+
+test("uses the shared metadata follow-up extension", async () => {
+  const runFollowUp = vi.fn(async () => ({
+    result: undefined,
+    newMessages: [],
+  }));
+  configureTestingModule(runFollowUp);
+  const agent = createAgent();
+  const { fixture, frame } = await bootWidget(agent);
+  dispatchFrameMessage(frame, {
+    jsonrpc: "2.0",
+    id: "meta",
+    method: "ui/message",
+    params: {
+      content: [{ type: "text", text: "hello" }],
+      _meta: { copilotkit: { role: "assistant", followUp: false } },
+    },
+  });
+  await settle(fixture);
+  expect(agent.addMessage).toHaveBeenCalledWith(
+    expect.objectContaining({ role: "assistant", content: "hello" }),
+  );
+  expect(runFollowUp).not.toHaveBeenCalled();
+});
+
+test("reads store updates by message id and recovers from invalid content", async () => {
+  configureTestingModule();
+  const agent = createAgent();
+  const activity = {
+    id: "act-1",
+    role: "activity" as const,
+    activityType: "mcp-apps",
+    content: snapshot,
+  };
+  agent.messages = [activity];
+  const { fixture, frame, postMessage } = await bootWidget(agent, "act-1");
+  const listener = vi
+    .mocked(agent.subscribe)
+    .mock.calls.map(([callbacks]) => callbacks)
+    .find((callbacks) => callbacks.onMessagesChanged);
+  expect(listener).toBeDefined();
+  const emit = (content: unknown) => {
+    agent.messages = [{ ...activity, content: content as typeof snapshot }];
+    listener!.onMessagesChanged!({ messages: agent.messages } as Parameters<
+      NonNullable<typeof listener.onMessagesChanged>
+    >[0]);
+  };
+  postMessage.mockClear();
+  emit({ ...snapshot, result: { content: [{ type: "unknown" }] } });
+  await settle(fixture);
+  expect(fixture.nativeElement.querySelector("[role=alert]")).not.toBeNull();
+  const result = { content: [{ type: "text", text: "recovered" }] };
+  emit({ ...snapshot, result });
+  await settle(fixture);
+  expect(fixture.nativeElement.querySelector("[role=alert]")).toBeNull();
+  expect(frame.srcdoc).toContain("sandbox-proxy-ready");
+  expect(agent.runAgent).toHaveBeenCalledTimes(1);
+  expect(postMessage).toHaveBeenCalledWith(
+    expect.objectContaining({
+      method: "ui/notifications/tool-result",
+      params: result,
+    }),
+    "*",
+  );
+});
+
+test("reports failed follow-ups through the Angular error UI", async () => {
+  configureTestingModule(
+    vi.fn(async () => {
+      throw new Error("follow-up failed");
+    }),
+  );
+  const { fixture, frame } = await bootWidget(createAgent());
+  dispatchFrameMessage(frame, {
+    jsonrpc: "2.0",
+    id: "failure",
+    method: "ui/message",
+    params: { content: [{ type: "text", text: "hello" }] },
+  });
+  await settle(fixture);
+  expect(
+    fixture.nativeElement.querySelector("[role=alert]")?.textContent,
+  ).toContain("follow-up failed");
+  expect(frame.srcdoc).toBe("");
+});
+
+test.each([0, -1, Infinity, NaN])(
+  "rejects invalid idle timeouts: %s",
+  (idleTimeoutMs) => {
+    expect(() => provideMCPApps({ idleTimeoutMs })).toThrow(/positive finite/);
+  },
+);
+
+test("names the missing packages when the MCP Apps bridge cannot be loaded", async () => {
+  // The bridge is imported lazily. A raw module-resolution failure ("Failed to
+  // fetch dynamically imported module...") tells a user nothing about what to
+  // install, so the widget must translate it into the same actionable message
+  // React and Vue already show.
+  vi.doMock("@copilotkit/mcp-apps-renderer", () => {
+    throw new Error("Failed to fetch dynamically imported module");
+  });
+  try {
+    configureTestingModule();
+    const agent = createAgent();
+    const fixture = TestBed.createComponent(CopilotMCPAppsWidget);
+    fixture.componentRef.setInput("data", snapshot);
+    fixture.componentRef.setInput("agent", agent);
+    await settle(fixture);
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    await settle(fixture);
+
+    const alert: HTMLElement | null =
+      fixture.nativeElement.querySelector('[role="alert"]');
+    expect(alert?.textContent).toContain(
+      "MCP Apps require '@copilotkit/mcp-apps-renderer'",
+    );
+    expect(alert?.textContent).toContain("@modelcontextprotocol/ext-apps");
+    expect(alert?.textContent).toContain("Reinstall your dependencies");
+  } finally {
+    vi.doUnmock("@copilotkit/mcp-apps-renderer");
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Adaptation of react-core's `MCPAppsProxy.e2e.test.tsx`.
+//
+// Angular now speaks the protocol through the same shared session as React, so
+// the negotiation and proxy-error contracts must be verified here too - the
+// existing Angular suite covered the happy paths and its own UI guarantees, not
+// these. Case names are kept word-for-word with React where the behaviour is
+// identical; the two intentional divergences are called out inline.
+// ---------------------------------------------------------------------------
+
+test("negotiates and returns the host context for a well-formed initialize", async () => {
+  configureTestingModule();
+  const agent = createAgent();
+  const { frame, postMessage } = await bootWidget(agent);
+
+  postMessage.mockClear();
+  dispatchFrameMessage(frame, {
+    jsonrpc: "2.0",
+    id: "init-ok",
+    method: "ui/initialize",
+    params: {
+      appInfo: { name: "test-widget", version: "1.0.0" },
+      appCapabilities: {},
+      protocolVersion: "2026-01-26",
+    },
+  });
+  await waitFor(
+    () =>
+      postMessage.mock.calls.some(
+        ([message]) => (message as { id?: string })?.id === "init-ok",
+      ),
+    "initialize was never answered",
+  );
+
+  const response = postMessage.mock.calls
+    .map(([message]) => message as Record<string, any>)
+    .find((message) => message?.id === "init-ok");
+  expect(response?.error).toBeUndefined();
+  expect(response?.result?.protocolVersion).toBe("2026-01-26");
+  expect(response?.result?.hostContext).toMatchObject({ platform: "web" });
+});
+
+test("rejects an initialize that omits required fields with -32603", async () => {
+  configureTestingModule();
+  const agent = createAgent();
+  const { frame, postMessage } = await bootWidget(agent);
+
+  postMessage.mockClear();
+  dispatchFrameMessage(frame, {
+    jsonrpc: "2.0",
+    id: "init-bad",
+    method: "ui/initialize",
+    params: {},
+  });
+  await waitFor(
+    () =>
+      postMessage.mock.calls.some(
+        ([message]) => (message as { id?: string })?.id === "init-bad",
+      ),
+    "invalid initialize was never answered",
+  );
+
+  const response = postMessage.mock.calls
+    .map(([message]) => message as Record<string, any>)
+    .find((message) => message?.id === "init-bad");
+  expect(response?.error?.code).toBe(-32603);
+});
+
+test("returns the host protocol version, not the widget's, when they differ", async () => {
+  configureTestingModule();
+  const agent = createAgent();
+  const { frame, postMessage } = await bootWidget(agent);
+
+  postMessage.mockClear();
+  // "2025-06-18" is what Angular's hand-rolled router used to hardcode before
+  // the migration: the bridge answers with its own version instead of echoing.
+  dispatchFrameMessage(frame, {
+    jsonrpc: "2.0",
+    id: "init-version",
+    method: "ui/initialize",
+    params: {
+      appInfo: { name: "legacy-widget", version: "1.0.0" },
+      appCapabilities: {},
+      protocolVersion: "2025-06-18",
+    },
+  });
+  await waitFor(
+    () =>
+      postMessage.mock.calls.some(
+        ([message]) => (message as { id?: string })?.id === "init-version",
+      ),
+    "legacy initialize was never answered",
+  );
+
+  const response = postMessage.mock.calls
+    .map(([message]) => message as Record<string, any>)
+    .find((message) => message?.id === "init-version");
+  expect(response?.result?.protocolVersion).toBe("2026-01-26");
+});
+
+test("returns a JSON-RPC error when the agent throws during tools/call", async () => {
+  configureTestingModule();
+  const agent = createAgent();
+  const { frame, postMessage } = await bootWidget(agent);
+
+  agent.runAgent.mockRejectedValueOnce(new Error("agent exploded"));
+  postMessage.mockClear();
+  dispatchFrameMessage(frame, {
+    jsonrpc: "2.0",
+    id: "call-fails",
+    method: "tools/call",
+    params: { name: "do_thing", arguments: {} },
+  });
+  await waitFor(
+    () =>
+      postMessage.mock.calls.some(
+        ([message]) => (message as { id?: string })?.id === "call-fails",
+      ),
+    "failing tools/call was never answered",
+  );
+
+  // The widget gets an explicit error rather than waiting forever.
+  const response = postMessage.mock.calls
+    .map(([message]) => message as Record<string, any>)
+    .find((message) => message?.id === "call-fails");
+  expect(response?.error).toBeDefined();
+});
+
+test("calls window.open with the correct URL when the iframe sends ui/open-link", async () => {
+  configureTestingModule();
+  const agent = createAgent();
+  const { frame } = await bootWidget(agent);
+  const openSpy = vi.spyOn(window, "open").mockImplementation(() => null);
+
+  dispatchFrameMessage(frame, {
+    jsonrpc: "2.0",
+    id: "open-ok",
+    method: "ui/open-link",
+    params: { url: "https://example.com/docs" },
+  });
+  await waitFor(
+    () => openSpy.mock.calls.length > 0,
+    "open-link was never opened",
+  );
+
+  expect(openSpy).toHaveBeenCalledWith(
+    "https://example.com/docs",
+    "_blank",
+    "noopener,noreferrer",
+  );
+  openSpy.mockRestore();
+});
+
+test("allows a custom-scheme deep link (only script/HTML schemes are blocked)", async () => {
+  // Angular used to opt into an https-only policy here. The frontends now share
+  // ONE link policy, so this case is word-for-word React's: a deep link hands
+  // off to an OS handler and is not a script-execution vector.
+  configureTestingModule();
+  const agent = createAgent();
+  const { frame } = await bootWidget(agent);
+  const openSpy = vi.spyOn(window, "open").mockImplementation(() => null);
+
+  dispatchFrameMessage(frame, {
+    jsonrpc: "2.0",
+    id: "deep-link",
+    method: "ui/open-link",
+    params: { url: "myapp://open/thing" },
+  });
+  await waitFor(
+    () => openSpy.mock.calls.length > 0,
+    "custom-scheme deep link was never opened",
+  );
+
+  expect(openSpy).toHaveBeenCalledWith(
+    "myapp://open/thing",
+    "_blank",
+    "noopener,noreferrer",
+  );
+  openSpy.mockRestore();
 });

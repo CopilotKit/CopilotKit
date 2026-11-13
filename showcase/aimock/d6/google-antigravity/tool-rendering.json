@@ -1,0 +1,578 @@
+{
+  "_meta": {
+    "description": "D6 fixtures for google-antigravity / tool-rendering. Owns the FIVE tool-rendering suggestion pills (\"What's the weather in San Francisco?\", \"Find flights from SFO to JFK.\", \"What's the current price of AAPL?\", \"Roll a 20-sided die.\", \"Chain a few tools in this single turn: ...\") for the whole tool-rendering family — the default-catchall and custom-catchall pages ship the same four prompts and are served from here, so neither of those files may carry a duplicate copy (they load first alphabetically and would shadow these).",
+    "sourceFile": "d5-all.json",
+    "created": "2026-05-21",
+    "copiedFrom": "langgraph-python",
+    "googleAntigravityStaging": "google-antigravity staging: the Antigravity Go harness owns the conversation history and never sends role:\"tool\" messages -- a completed tool call comes back as an assistant message whose text is 'Tool response for <name>: ...'. hasToolResult/toolCallId therefore never fire here, so every leg is staged on turnIndex (aimock's count of assistant messages; +2 per tool round-trip, +1 per text answer). turnIndex is a POSITION disambiguator, not a reject gate (aimock selectByTurnIndex): the candidate with the highest turnIndex <= assistantCount wins, so a leg must carry EVERY absolute position a test can reach it from -- a fresh thread (0/2) AND its slot in a multi-pill single-thread sequence."
+  },
+  "fixtures": [
+    {
+      "_comment": "tool-rendering pill 'Chain tools' — leg 1: three tool calls in one assistant turn (get_weather Tokyo + search_flights SFO->Tokyo + roll_d20=11). MUST stay ABOVE the 'weather in Tokyo' group at the bottom of this file: the pill's prompt contains the substring 'weather in Tokyo', so both groups content-match it and a turnIndex tie is broken by registration order.",
+      "match": {
+        "userMessage": "Chain a few tools in this single turn",
+        "context": "google-antigravity",
+        "turnIndex": 0
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_tr_chain_weather_001",
+            "name": "get_weather",
+            "arguments": "{\"location\":\"Tokyo\"}"
+          },
+          {
+            "id": "call_tr_chain_flights_001",
+            "name": "search_flights",
+            "arguments": "{\"origin\":\"SFO\",\"destination\":\"Tokyo\"}"
+          },
+          {
+            "id": "call_tr_chain_roll_001",
+            "name": "roll_d20",
+            "arguments": "{\"value\":11}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "'Chain tools' — narration after all three tools ran. Staged at turnIndex 2 (the lowest count the tool round-trip can land on); it also wins at 4 or 6 if the harness emits one tool-response message per call, because no higher at-or-behind position is scripted for this prompt.",
+      "match": {
+        "userMessage": "Chain a few tools in this single turn",
+        "context": "google-antigravity",
+        "turnIndex": 2
+      },
+      "response": {
+        "content": "Done — Tokyo is sunny, three flights found, and the d20 came up 11."
+      }
+    },
+    {
+      "_comment": "'Chain tools' as the THIRD pill of tool-rendering-custom-catchall.spec.ts's 'sequential pills in one thread' test: Find flights (0->3) then the 5-roll d20 chain (3->14) leave the thread at assistantCount 14.",
+      "match": {
+        "userMessage": "Chain a few tools in this single turn",
+        "context": "google-antigravity",
+        "turnIndex": 14
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_tr_chain_weather_t14",
+            "name": "get_weather",
+            "arguments": "{\"location\":\"Tokyo\"}"
+          },
+          {
+            "id": "call_tr_chain_flights_t14",
+            "name": "search_flights",
+            "arguments": "{\"origin\":\"SFO\",\"destination\":\"Tokyo\"}"
+          },
+          {
+            "id": "call_tr_chain_roll_t14",
+            "name": "roll_d20",
+            "arguments": "{\"value\":11}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Chain a few tools in this single turn",
+        "context": "google-antigravity",
+        "turnIndex": 16
+      },
+      "response": {
+        "content": "Done — Tokyo is sunny, three flights found, and the d20 came up 11."
+      }
+    },
+    {
+      "_comment": "tool-rendering pill 'Weather in SF' — leg 1: emit get_weather(San Francisco). Also serves the identically-worded pill on the tool-rendering-default-catchall and tool-rendering-custom-catchall pages; those files must NOT carry a second copy (this file loads AFTER them alphabetically, so a duplicate there would shadow this one).",
+      "match": {
+        "userMessage": "What's the weather in San Francisco?",
+        "context": "google-antigravity",
+        "turnIndex": 0
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_tr_weather_sf_001",
+            "name": "get_weather",
+            "arguments": "{\"location\":\"San Francisco\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "'Weather in SF' — narration after the get_weather result.",
+      "match": {
+        "userMessage": "What's the weather in San Francisco?",
+        "context": "google-antigravity",
+        "turnIndex": 2
+      },
+      "response": {
+        "content": "San Francisco is currently 68°F and sunny with light winds."
+      }
+    },
+    {
+      "_comment": "tool-rendering pill 'Find flights' — leg 1: emit search_flights(SFO->JFK). The backend tool executes for real and returns the 3-flight list, so the wildcard renderer on the custom-catchall page surfaces United/Delta/JetBlue from the tool RESULT, not from this narration.",
+      "match": {
+        "userMessage": "Find flights from SFO to JFK.",
+        "context": "google-antigravity",
+        "turnIndex": 0
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_tr_flights_sfo_jfk_001",
+            "name": "search_flights",
+            "arguments": "{\"origin\":\"SFO\",\"destination\":\"JFK\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "'Find flights' — narration after the search_flights result.",
+      "match": {
+        "userMessage": "Find flights from SFO to JFK.",
+        "context": "google-antigravity",
+        "turnIndex": 2
+      },
+      "response": {
+        "content": "Three flights from SFO to JFK — United UA231 at 08:15 ($348), Delta DL412 at 11:20 ($312), and JetBlue B6722 at 17:05 ($289)."
+      }
+    },
+    {
+      "_comment": "tool-rendering pill 'Stock price' — leg 1: emit get_stock_price(AAPL). MUST stay ABOVE the bare 'AAPL' group further down: this prompt contains 'AAPL', both groups content-match, and the turnIndex-0 tie is broken by registration order.",
+      "match": {
+        "userMessage": "What's the current price of AAPL?",
+        "context": "google-antigravity",
+        "turnIndex": 0
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_tr_stock_aapl_001",
+            "name": "get_stock_price",
+            "arguments": "{\"ticker\":\"AAPL\",\"price_usd\":338.37,\"change_pct\":-2.96}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "'Stock price' — narration after the get_stock_price result.",
+      "match": {
+        "userMessage": "What's the current price of AAPL?",
+        "context": "google-antigravity",
+        "turnIndex": 2
+      },
+      "response": {
+        "content": "AAPL is trading at $338.37, down 2.96% on the day."
+      }
+    },
+    {
+      "_comment": "tool-rendering pill 'Roll a d20' — exactly FIVE sequential roll_d20 calls returning [7, 14, 3, 19, 20], then a closing text. The chain used to be linked by toolCallId, which cannot work here (no role:\"tool\" messages, and the adapter mints its own uuid for every server-tool call anyway), so each roll is pinned to an absolute turnIndex. Two interleaved chains are scripted because the specs reach this pill from two positions and the two ladders never collide: a fresh thread walks the EVEN counts 0/2/4/6/8 (text at 10) and the 'sequential pills in one thread' test, which clicks Find flights first, walks the ODD counts 3/5/7/9/11 (text at 13). Both ladders yield exactly 5 cards with 20 last.",
+      "match": {
+        "userMessage": "Roll a 20-sided die.",
+        "context": "google-antigravity",
+        "turnIndex": 0
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_tr_d20_t0",
+            "name": "roll_d20",
+            "arguments": "{\"value\":7}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Roll a 20-sided die.",
+        "context": "google-antigravity",
+        "turnIndex": 2
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_tr_d20_t2",
+            "name": "roll_d20",
+            "arguments": "{\"value\":14}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Roll a 20-sided die.",
+        "context": "google-antigravity",
+        "turnIndex": 4
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_tr_d20_t4",
+            "name": "roll_d20",
+            "arguments": "{\"value\":3}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Roll a 20-sided die.",
+        "context": "google-antigravity",
+        "turnIndex": 6
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_tr_d20_t6",
+            "name": "roll_d20",
+            "arguments": "{\"value\":19}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Roll a 20-sided die.",
+        "context": "google-antigravity",
+        "turnIndex": 8
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_tr_d20_t8",
+            "name": "roll_d20",
+            "arguments": "{\"value\":20}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Roll a 20-sided die.",
+        "context": "google-antigravity",
+        "turnIndex": 10
+      },
+      "response": {
+        "content": "Rolled the d20 five times — landed on 20 on the final roll."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Roll a 20-sided die.",
+        "context": "google-antigravity",
+        "turnIndex": 3
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_tr_d20_t3",
+            "name": "roll_d20",
+            "arguments": "{\"value\":7}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Roll a 20-sided die.",
+        "context": "google-antigravity",
+        "turnIndex": 5
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_tr_d20_t5",
+            "name": "roll_d20",
+            "arguments": "{\"value\":14}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Roll a 20-sided die.",
+        "context": "google-antigravity",
+        "turnIndex": 7
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_tr_d20_t7",
+            "name": "roll_d20",
+            "arguments": "{\"value\":3}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Roll a 20-sided die.",
+        "context": "google-antigravity",
+        "turnIndex": 9
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_tr_d20_t9",
+            "name": "roll_d20",
+            "arguments": "{\"value\":19}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Roll a 20-sided die.",
+        "context": "google-antigravity",
+        "turnIndex": 11
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_tr_d20_t11",
+            "name": "roll_d20",
+            "arguments": "{\"value\":20}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Roll a 20-sided die.",
+        "context": "google-antigravity",
+        "turnIndex": 13
+      },
+      "response": {
+        "content": "Rolled the d20 five times — landed on 20 on the final roll."
+      }
+    },
+    {
+      "_comment": "Shared d5-tool-rendering probe prompt (ONE user turn). leg 1: emit get_weather(Tokyo). BOTH gates are load-bearing. `toolName` keeps the leg out of requests from agents that do not declare get_weather — the shared smoke probe's `tools:` row sends \"What is the weather in Tokyo?\" to an agent whose tool list is ['manage_task','schedule'], and without the gate the harness aborted the run with `unknown_tool: get_weather` (measured). `turnIndex: 0` pins the POSITION: an untagged leg is eligible at every position and beats an equal-position scripted leg registered after it, which let this fixture answer the 'Chain tools' pill's second turn (that pill's prompt contains the substring 'weather in Tokyo').",
+      "match": {
+        "userMessage": "weather in Tokyo",
+        "toolName": "get_weather",
+        "context": "google-antigravity",
+        "turnIndex": 0
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_get_weather_001",
+            "name": "get_weather",
+            "arguments": "{\"location\":\"Tokyo\"}"
+          }
+        ],
+        "reasoning": "The user asked about Tokyo weather. I'll call get_weather with location='Tokyo' to get the current conditions.",
+        "content": "Looking up the weather in Tokyo for you."
+      }
+    },
+    {
+      "_comment": "Shared d5-tool-rendering probe — narration after the get_weather result.",
+      "match": {
+        "userMessage": "weather in Tokyo",
+        "context": "google-antigravity",
+        "turnIndex": 2
+      },
+      "response": {
+        "content": "Tokyo is 22°C and partly cloudy."
+      }
+    },
+    {
+      "_comment": "Shared d5-tool-rendering probe — final fallback for an agent that declares neither get_weather nor get-weather: narrated content, no tool call. Registered AFTER the leg-1 emit above so the emit wins the turnIndex-0 tie whenever get_weather IS declared; this entry is then the only at-or-behind candidate left when it is not.",
+      "match": {
+        "userMessage": "weather in Tokyo",
+        "context": "google-antigravity",
+        "turnIndex": 0
+      },
+      "response": {
+        "content": "The weather in Tokyo is currently 22°C with partly cloudy skies and light easterly winds."
+      }
+    },
+    {
+      "_comment": "Mastra registers the weather tool as get-weather (hyphen); duplicate kept from the mirrored canonical fixture. Inert here — no google-antigravity agent declares `get-weather`, so the toolName gate keeps it out of every candidate set.",
+      "match": {
+        "userMessage": "weather in Tokyo",
+        "toolName": "get-weather",
+        "context": "google-antigravity"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_get_weather_001",
+            "name": "get-weather",
+            "arguments": "{\"location\":\"Tokyo\"}"
+          }
+        ],
+        "reasoning": "The user asked about Tokyo weather. I'll call get_weather with location='Tokyo' to get the current conditions.",
+        "content": "Looking up the weather in Tokyo for you."
+      }
+    },
+    {
+      "_comment": "Bare 'AAPL' prompt (d4/smoke-style). leg 1 at turnIndex 0, narration at 2 — the previous narration was toolCallId-gated and therefore dead. Ordered AFTER the 'What's the current price of AAPL?' group above, which contains this substring.",
+      "match": {
+        "userMessage": "AAPL",
+        "context": "google-antigravity",
+        "turnIndex": 0
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_get_stock_price_001",
+            "name": "get_stock_price",
+            "arguments": "{\"ticker\":\"AAPL\"}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "AAPL",
+        "context": "google-antigravity",
+        "turnIndex": 2
+      },
+      "response": {
+        "content": "AAPL is trading at $189.42, up 1.27% on the day. The card above shows the live ticker and the percentage change."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "d5 beautiful-chat probe: search flights from SFO to JFK",
+        "context": "google-antigravity",
+        "turnIndex": 0
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_bc_search_flights_001",
+            "name": "search_flights",
+            "arguments": "{\"flights\":[{\"airline\":\"United Airlines\",\"airlineLogo\":\"https://www.google.com/s2/favicons?domain=united.com&sz=128\",\"flightNumber\":\"UA123\",\"origin\":\"SFO\",\"destination\":\"JFK\",\"date\":\"Tue, Apr 15\",\"departureTime\":\"08:00\",\"arrivalTime\":\"16:30\",\"duration\":\"5h 30m\",\"status\":\"On Time\",\"price\":\"$349\"},{\"airline\":\"Delta\",\"airlineLogo\":\"https://www.google.com/s2/favicons?domain=delta.com&sz=128\",\"flightNumber\":\"DL456\",\"origin\":\"SFO\",\"destination\":\"JFK\",\"date\":\"Tue, Apr 15\",\"departureTime\":\"10:15\",\"arrivalTime\":\"18:45\",\"duration\":\"5h 30m\",\"status\":\"On Time\",\"price\":\"$289\"}]}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "d5 beautiful-chat probe: search flights from SFO to JFK",
+        "context": "google-antigravity",
+        "turnIndex": 2
+      },
+      "response": {
+        "content": "Two flights shown above — United at $349 (08:00) and Delta at $289 (10:15), both on time."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "SFO to JFK",
+        "toolCallId": "call_d5_display_flight_001",
+        "context": "google-antigravity"
+      },
+      "response": {
+        "content": "Flight rendered. Tap 'Book flight' to confirm."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "SFO to JFK",
+        "toolName": "display_flight",
+        "context": "google-antigravity"
+      },
+      "response": {
+        "content": "Here is the SFO to JFK flight on United.",
+        "toolCalls": [
+          {
+            "name": "display_flight",
+            "arguments": {
+              "origin": "SFO",
+              "destination": "JFK",
+              "airline": "United",
+              "price": "$289"
+            },
+            "id": "call_d5_display_flight_001"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "poem about autumn leaves",
+        "toolCallId": "call_d5_write_document_poem_001",
+        "context": "google-antigravity"
+      },
+      "response": {
+        "content": "Done — the poem has been written into the shared document state."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "poem about autumn leaves",
+        "toolName": "write_document",
+        "context": "google-antigravity"
+      },
+      "response": {
+        "content": "Streaming the poem now.",
+        "toolCalls": [
+          {
+            "id": "call_d5_write_document_poem_001",
+            "name": "write_document",
+            "arguments": "{\"document\":\"Crimson and amber in slow descent, / each leaf a quiet ledger of summer spent. / The wind, a courier with nothing to say, / files them gently into the morning's gray. / Somewhere a kettle hums, and afternoons grow brief — / autumn keeps its books in vermilion and gold leaf.\"}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "polite email declining",
+        "toolCallId": "call_d5_write_document_email_001",
+        "context": "google-antigravity"
+      },
+      "response": {
+        "content": "Done — the decline-email draft has been written into the shared document state."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "polite email declining",
+        "toolName": "write_document",
+        "context": "google-antigravity"
+      },
+      "response": {
+        "content": "Drafting the email now.",
+        "toolCalls": [
+          {
+            "id": "call_d5_write_document_email_001",
+            "name": "write_document",
+            "arguments": "{\"document\":\"Hi — thanks for sending the invite for Tuesday afternoon. Unfortunately I won't be able to make it this week. I'd love to find time later in the month if your schedule allows. In the meantime, feel free to send any pre-reads my way and I'll review them async so we don't lose momentum. Best, [name]\"}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "quantum computing for a curious teenager",
+        "toolCallId": "call_d5_write_document_quantum_001",
+        "context": "google-antigravity"
+      },
+      "response": {
+        "content": "Done — the quantum-computing explainer has been written into the shared document state."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "quantum computing for a curious teenager",
+        "toolName": "write_document",
+        "context": "google-antigravity"
+      },
+      "response": {
+        "content": "Streaming the explainer now.",
+        "toolCalls": [
+          {
+            "id": "call_d5_write_document_quantum_001",
+            "name": "write_document",
+            "arguments": "{\"document\":\"A regular computer stores information in bits — tiny switches that are either on (1) or off (0). A quantum computer uses qubits, which can sit in a fuzzy superposition of both states at once until you check them. Stack many qubits together and they can explore lots of possibilities in parallel, which is why people are excited.\\n\\nThis doesn't make quantum computers faster at everything. They're great at problems with hidden structure — like factoring big numbers, simulating molecules, or searching certain databases — but useless for, say, opening Excel. Today's machines are noisy and small, so we mostly use them to test ideas rather than replace your laptop.\"}"
+          }
+        ]
+      }
+    }
+  ]
+}

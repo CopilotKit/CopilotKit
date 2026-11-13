@@ -9,14 +9,12 @@
 import { z } from "zod";
 import { tool } from "@langchain/core/tools";
 import { tavily } from "@tavily/core";
-import { AgentState } from "./state";
-import { RunnableConfig } from "@langchain/core/runnables";
-import {
-  AIMessage,
-  SystemMessage,
-  ToolMessage,
-} from "@langchain/core/messages";
+import type { AgentState } from "./state";
+import type { RunnableConfig } from "@langchain/core/runnables";
+import type { AIMessage } from "@langchain/core/messages";
+import { SystemMessage, ToolMessage } from "@langchain/core/messages";
 import { getModel } from "./model";
+import { createSearchProgress } from "./search-progress";
 import {
   copilotkitCustomizeConfig,
   copilotkitEmitState,
@@ -48,12 +46,7 @@ export async function search_node(state: AgentState, config: RunnableConfig) {
 
   const queries = aiMessage.tool_calls![0]["args"]["queries"];
 
-  for (const query of queries) {
-    logs.push({
-      message: `Search for ${query}`,
-      done: false,
-    });
-  }
+  const searchProgress = createSearchProgress(logs, queries);
   const { messages, ...restOfState } = state;
   await copilotkitEmitState(config, {
     ...restOfState,
@@ -67,7 +60,7 @@ export async function search_node(state: AgentState, config: RunnableConfig) {
     const query = queries[i];
     const response = await tavilyClient.search(query, {});
     search_results.push(response);
-    logs[i]["done"] = true;
+    searchProgress.complete(i);
     await copilotkitEmitState(config, {
       ...restOfState,
       logs,

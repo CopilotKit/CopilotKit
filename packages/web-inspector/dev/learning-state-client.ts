@@ -167,6 +167,7 @@ export async function readyIntegratedLearningState(
     "threads-available": "ready",
     success: "results",
     "insights-only": "results",
+    "trajectory-evidence": "results",
     "multiple-skills": "results",
     "new-threads": "results",
     "empty-results": "empty",

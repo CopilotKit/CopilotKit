@@ -61,6 +61,10 @@ export async function startPlatform() {
   const faults = {
     dropAcks: 0,
     disconnectAfterPersist: 0,
+    clientDisconnectAfterReplay: 0,
+    clientRejectUnusedTokens: 0,
+    clientTokenSequence: null,
+    clientTokenAttempts: [],
     joinDelayMs: 0,
     joinReject: false,
     http: new Map(),
@@ -213,7 +217,7 @@ export async function startPlatform() {
           typeof faults.agentEvents === "function"
             ? faults.agentEvents(body)
             : faults.agentEvents;
-        for (const event of scripted) {
+        for await (const event of scripted) {
           if (response.destroyed) break;
           response.write(`data: ${JSON.stringify(event)}\n\n`);
           if (faults.agentChunkDelayMs) await delay(faults.agentChunkDelayMs);
@@ -356,8 +360,16 @@ export async function startPlatform() {
       }
       if (!checkOwner(thread, userId, response)) return;
       if (operation === "connect") {
-        clientGateway.registerToken(`connect-token-${id}`, id, userId);
-        json(response, 200, { threadId: id, joinToken: `connect-token-${id}` });
+        const token =
+          faults.clientTokenSequence === null
+            ? `connect-token-${id}`
+            : `connect-token-${id}-${++faults.clientTokenSequence}`;
+        clientGateway.registerToken(token, id, userId);
+        json(response, 200, {
+          threadId: id,
+          joinToken: token,
+          ...(locks.has(id) ? { runId: locks.get(id).runId } : {}),
+        });
       } else if (operation === "lock") {
         if (locks.has(id)) {
           json(response, 409, { error: "Thread locked" });
@@ -511,6 +523,7 @@ export async function startPlatform() {
   const clientGateway = createClientGateway({
     events,
     locks,
+    faults,
     stopRun: (_threadId, runId) => stopRun(runId),
   });
   server.on("upgrade", (request, socket, head) => {

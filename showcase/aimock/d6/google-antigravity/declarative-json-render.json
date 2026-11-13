@@ -1,0 +1,43 @@
+{
+  "_meta": {
+    "description": "D6 fixtures for google-antigravity / declarative-json-render. The tool-less AntigravityAgent replies with the renderer's JSON as plain assistant text.",
+    "created": "2026-09-30",
+    "copiedFrom": "strands",
+    "googleAntigravityStaging": "turnIndex 0: every probe and e2e test sends one pill on a fresh thread, and the answer is a single text turn."
+  },
+  "fixtures": [
+    {
+      "_comment": "Pill prompt from the page's suggestions.ts; the tool-less agent answers with the JSON text the assistant-message renderer parses. Content copied verbatim from strands.",
+      "match": {
+        "userMessage": "Show me the sales dashboard with metrics and a revenue chart",
+        "turnIndex": 0,
+        "context": "google-antigravity"
+      },
+      "response": {
+        "content": "{\"root\":\"revenue-metric\",\"elements\":{\"revenue-metric\":{\"type\":\"MetricCard\",\"props\":{\"label\":\"Total Revenue\",\"value\":\"$2.4M\",\"trend\":\"+12% YoY\"},\"children\":[\"revenue-bar\"]},\"revenue-bar\":{\"type\":\"BarChart\",\"props\":{\"title\":\"Quarterly Revenue\",\"description\":\"Revenue by quarter\",\"data\":[{\"label\":\"Q1\",\"value\":520000},{\"label\":\"Q2\",\"value\":580000},{\"label\":\"Q3\",\"value\":640000},{\"label\":\"Q4\",\"value\":700000}]}}}}"
+      }
+    },
+    {
+      "_comment": "Pill prompt from the page's suggestions.ts; the tool-less agent answers with the JSON text the assistant-message renderer parses. Content copied verbatim from strands.",
+      "match": {
+        "userMessage": "Break down revenue by category as a pie chart",
+        "turnIndex": 0,
+        "context": "google-antigravity"
+      },
+      "response": {
+        "content": "{\"root\":\"category-metric\",\"elements\":{\"category-metric\":{\"type\":\"MetricCard\",\"props\":{\"label\":\"Total Revenue\",\"value\":\"$2.4M\",\"trend\":null},\"children\":[\"category-pie\"]},\"category-pie\":{\"type\":\"PieChart\",\"props\":{\"title\":\"Revenue by Category\",\"description\":\"Share of revenue per category\",\"data\":[{\"label\":\"Platform\",\"value\":960000},{\"label\":\"Analytics\",\"value\":600000},{\"label\":\"Integrations\",\"value\":480000},{\"label\":\"Support\",\"value\":360000}]}}}}"
+      }
+    },
+    {
+      "_comment": "Pill prompt from the page's suggestions.ts; the tool-less agent answers with the JSON text the assistant-message renderer parses. Content copied verbatim from strands.",
+      "match": {
+        "userMessage": "Show me monthly expenses as a bar chart",
+        "turnIndex": 0,
+        "context": "google-antigravity"
+      },
+      "response": {
+        "content": "{\"root\":\"opex-metric\",\"elements\":{\"opex-metric\":{\"type\":\"MetricCard\",\"props\":{\"label\":\"Avg Monthly OpEx\",\"value\":\"$612K\",\"trend\":\"+2% MoM\"},\"children\":[\"opex-bar\"]},\"opex-bar\":{\"type\":\"BarChart\",\"props\":{\"title\":\"Monthly Operating Expenses\",\"description\":\"Last six months\",\"data\":[{\"label\":\"Jul\",\"value\":580000},{\"label\":\"Aug\",\"value\":595000},{\"label\":\"Sep\",\"value\":610000},{\"label\":\"Oct\",\"value\":625000},{\"label\":\"Nov\",\"value\":630000},{\"label\":\"Dec\",\"value\":632000}]}}}}"
+      }
+    }
+  ]
+}

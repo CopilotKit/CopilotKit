@@ -193,7 +193,6 @@ jobs:
         working-directory: examples/integrations
         env:
           STARTER: ${{ matrix.starter }}
-          GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
         run: |
           docker compose -f docker-compose.production-image.yml \
             up --build --abort-on-container-exit --exit-code-from tests
@@ -237,6 +236,8 @@ jobs:
           - pydantic-ai
           - adk
           - agno
+          - antigravity
+          - openai-agents-python
           - llamaindex
           - langgraph-fastapi
           - strands-python
@@ -252,16 +253,21 @@ jobs:
           lfs: false
           persist-credentials: false
 
+      - name: Set up pnpm for the Agno starter
+        if: matrix.starter == 'agno'
+        uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+
+      - name: Verify the documented Agno pnpm path
+        if: matrix.starter == 'agno'
+        working-directory: examples/integrations/agno
+        run: |
+          pnpm install --ignore-workspace --ignore-scripts --no-lockfile
+          pnpm build
+
       - name: Run starter smoke tests
         working-directory: examples/integrations/${{ matrix.starter }}
         env:
           STARTER: ${{ matrix.starter }}
-          # Starters whose SDK can't be intercepted by aimock (currently
-          # google-adk — google-genai ignores endpoint overrides) need a
-          # real provider key. docker-compose.test.yml for those starters
-          # reads this via `${GOOGLE_API_KEY:-test-key-for-aimock}` so
-          # unaffected starters still run offline against aimock.
-          GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
         run: |
           docker compose -f docker-compose.test.yml up --abort-on-container-exit --exit-code-from tests
 
@@ -326,7 +332,7 @@ jobs:
 
       - name: Upload test artifacts on failure
         if: failure()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: smoke-starter-${{ matrix.starter }}
           path: showcase/tests/test-results/

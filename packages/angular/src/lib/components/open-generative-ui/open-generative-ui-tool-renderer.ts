@@ -3,13 +3,13 @@ import {
   Component,
   DestroyRef,
   computed,
-  effect,
   inject,
   input,
   signal,
 } from "@angular/core";
 import type { AngularToolCall, ToolRenderer } from "../../tools";
 import type { GenerateSandboxedUiArgs } from "../../open-generative-ui";
+import { explicitEffect } from "../../explicit-effect";
 
 @Component({
   selector: "copilot-open-generative-ui-tool-renderer",
@@ -57,8 +57,7 @@ export class CopilotOpenGenerativeUIToolRenderer implements ToolRenderer<Generat
   constructor() {
     this.destroyRef.onDestroy(() => this.clearTimer());
 
-    effect((onCleanup) => {
-      const call = this.toolCall();
+    explicitEffect(this.toolCall, (call, onCleanup) => {
       const messages = call.args.placeholderMessages;
       this.clearTimer();
 

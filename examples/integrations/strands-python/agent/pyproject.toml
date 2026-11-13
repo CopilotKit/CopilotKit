@@ -9,7 +9,7 @@ dependencies = [
   "ag-ui-protocol==0.1.18",
   "fastapi>=0.115.12",
   "uvicorn>=0.34.3",
-  "strands-agents[OpenAI]==1.18.0",
+  "strands-agents[OpenAI,anthropic,gemini]==1.18.0",
   "strands-agents-tools==0.2.16",
   "ag_ui_strands==0.1.9",
   "copilotkit==0.1.94",
@@ -18,4 +18,6 @@ dependencies = [
   "openai==1.109.1",
   "python-dotenv>=1.0.0,<2.0.0",
   "pydantic>=2.0.0,<3.0.0",
+  "langchain-anthropic==1.4.3",
+  "langchain-google-genai==4.2.5",
 ]

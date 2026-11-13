@@ -12,6 +12,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { execFileSync } from "node:child_process";
 import {
+  DOCS_CALLEE_NAMES,
   buildRuntimeEvents,
   extractCallees,
   readRuntimeCatalog,
@@ -118,7 +119,7 @@ function docsFragment(): {
   const srcDir = path.join(REPO_ROOT, "showcase/shell-docs/src");
   const files = load(walk(srcDir, [".ts", ".tsx"]));
   const events = extractCallees(files, {
-    calleeNames: ["posthog.capture", "capture"],
+    calleeNames: DOCS_CALLEE_NAMES,
     callSites: "file",
   })
     // Drop PostHog-reserved events ($pageview et al.) — those are analytics

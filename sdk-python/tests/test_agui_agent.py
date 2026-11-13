@@ -7,7 +7,9 @@ Covers:
 """
 
 import json
+import logging
 from contextlib import contextmanager
+from typing import Any, List
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -19,6 +21,9 @@ from ag_ui.core import (
     ToolCallStartEvent,
 )
 from ag_ui_langgraph import LangGraphAgent as AGUIBase
+from langgraph.constants import END, START
+from langgraph.graph import StateGraph
+from typing_extensions import TypedDict
 from copilotkit import CopilotKitRemoteEndpoint
 from copilotkit.langgraph_agui_agent import (
     CustomEventNames,
@@ -800,3 +805,244 @@ class TestAgentMetadata:
                 "type": "langgraph_agui",
             }
         ]
+
+
+class TestConfiguredSchemaKeys:
+    """get_schema_keys merges keys declared in config["schema_keys"]."""
+
+    @staticmethod
+    def _agent(config=None):
+        mock_graph = MagicMock()
+        mock_graph.get_state = MagicMock()
+        return LangGraphAGUIAgent(name="test", graph=mock_graph, config=config)
+
+    @contextmanager
+    def _base_returns(self, schema_keys):
+        """Patch the base class's derived keys so only the merge is under test."""
+        with patch.object(AGUIBase, "get_schema_keys", return_value=schema_keys):
+            yield
+
+    def test_configured_output_key_is_added(self):
+        """A key only declared in config should join the graph-derived output keys."""
+        agent = self._agent({"schema_keys": {"output": ["steps"]}})
+        with self._base_returns(
+            {"input": ["messages"], "output": ["messages"], "config": [], "context": []}
+        ):
+            keys = agent.get_schema_keys({})
+
+        assert keys["output"] == ["messages", "steps"]
+
+    def test_unmentioned_buckets_keep_derived_keys(self):
+        """Declaring output keys must not disturb input, config or context."""
+        agent = self._agent({"schema_keys": {"output": ["steps"]}})
+        with self._base_returns(
+            {
+                "input": ["messages"],
+                "output": ["messages"],
+                "config": ["thread_id"],
+                "context": ["user_id"],
+            }
+        ):
+            keys = agent.get_schema_keys({})
+
+        assert keys["input"] == ["messages"]
+        assert keys["config"] == ["thread_id"]
+        assert keys["context"] == ["user_id"]
+
+    def test_all_buckets_can_be_configured(self):
+        """input, output, config and context are each mergeable."""
+        agent = self._agent(
+            {
+                "schema_keys": {
+                    "input": ["a"],
+                    "output": ["b"],
+                    "config": ["c"],
+                    "context": ["d"],
+                }
+            }
+        )
+        with self._base_returns(
+            {"input": [], "output": [], "config": [], "context": []}
+        ):
+            keys = agent.get_schema_keys({})
+
+        assert keys == {
+            "input": ["a"],
+            "output": ["b"],
+            "config": ["c"],
+            "context": ["d"],
+        }
+
+    def test_derived_keys_are_never_replaced(self):
+        """Configured keys append; a derived key is never dropped."""
+        agent = self._agent({"schema_keys": {"output": ["steps"]}})
+        with self._base_returns(
+            {"input": [], "output": ["messages", "tools"], "config": [], "context": []}
+        ):
+            keys = agent.get_schema_keys({})
+
+        assert keys["output"] == ["messages", "tools", "steps"]
+
+    def test_configured_key_already_derived_is_not_duplicated(self):
+        """Declaring a key the graph already exposes leaves the list unchanged."""
+        agent = self._agent({"schema_keys": {"output": ["messages"]}})
+        with self._base_returns(
+            {"input": [], "output": ["messages"], "config": [], "context": []}
+        ):
+            keys = agent.get_schema_keys({})
+
+        assert keys["output"] == ["messages"]
+
+    def test_unknown_bucket_is_ignored_with_a_warning(self, caplog):
+        """A bucket the base class does not return is not invented, but is reported."""
+        with caplog.at_level(logging.WARNING, logger="copilotkit.langgraph_agui_agent"):
+            agent = self._agent({"schema_keys": {"outputs": ["steps"]}})
+        with self._base_returns(
+            {"input": [], "output": [], "config": [], "context": []}
+        ):
+            keys = agent.get_schema_keys({})
+
+        assert "outputs" not in keys
+        assert keys["output"] == []
+        assert "unknown config['schema_keys'] buckets ['outputs']" in caplog.text
+
+    def test_no_config_leaves_base_result_untouched(self):
+        """Without config["schema_keys"], get_schema_keys returns the base result."""
+        derived = {
+            "input": ["messages"],
+            "output": ["messages"],
+            "config": [],
+            "context": [],
+        }
+        agent = self._agent()
+        with self._base_returns(dict(derived)):
+            assert agent.get_schema_keys({}) == derived
+
+    def test_configured_keys_survive_base_introspection_fallback(self):
+        """The base class's fallback path must still honour configured keys."""
+        agent = self._agent({"schema_keys": {"output": ["steps"]}})
+        # The shape the base class returns when graph introspection raises.
+        with self._base_returns(
+            {
+                "input": ["messages", "tools", "copilotkit"],
+                "output": ["messages", "tools", "copilotkit"],
+                "config": [],
+                "context": [],
+            }
+        ):
+            keys = agent.get_schema_keys({})
+
+        assert keys["output"] == ["messages", "tools", "copilotkit", "steps"]
+
+    @pytest.mark.parametrize(
+        ("schema_keys", "match"),
+        [
+            pytest.param(["steps"], "expected a dict", id="not-a-dict"),
+            pytest.param(
+                {"output": "steps"},
+                "expected a list of strings",
+                id="bucket-is-a-string",
+            ),
+            pytest.param(
+                {"output": 1}, "expected a list of strings", id="bucket-is-not-a-list"
+            ),
+            pytest.param(
+                {"output": ["steps", 2]},
+                "expected a list of strings",
+                id="bucket-holds-a-non-string",
+            ),
+        ],
+    )
+    def test_malformed_schema_keys_warn_and_fall_back(self, schema_keys, match, caplog):
+        """Malformed config is reported at construction and never stops the agent.
+
+        Before this option existed a stray `schema_keys` was silently ignored, so
+        raising here would stop an upgraded app from booting.
+        """
+        derived = {"input": [], "output": ["messages"], "config": [], "context": []}
+        with caplog.at_level(logging.WARNING, logger="copilotkit.langgraph_agui_agent"):
+            agent = self._agent({"schema_keys": schema_keys})
+        with self._base_returns(dict(derived)):
+            keys = agent.get_schema_keys({})
+
+        assert keys == derived
+        assert match in caplog.text
+
+    def test_malformed_bucket_does_not_discard_valid_ones(self):
+        """One bad bucket is skipped; the other configured buckets still apply."""
+        agent = self._agent({"schema_keys": {"input": "a", "output": ["steps"]}})
+        with self._base_returns(
+            {"input": [], "output": [], "config": [], "context": []}
+        ):
+            keys = agent.get_schema_keys({})
+
+        assert keys["input"] == []
+        assert keys["output"] == ["steps"]
+
+    def test_configured_keys_survive_clone(self):
+        """The FastAPI endpoint clones the agent per request; the keys must travel."""
+        agent = self._agent({"schema_keys": {"output": ["steps"]}})
+        with self._base_returns(
+            {"input": [], "output": ["messages"], "config": [], "context": []}
+        ):
+            keys = agent.clone().get_schema_keys({})
+
+        assert keys["output"] == ["messages", "steps"]
+
+
+class TestConfiguredSchemaKeysStateSnapshot:
+    """A configured output key survives the STATE_SNAPSHOT filter end to end."""
+
+    @staticmethod
+    def _real_graph():
+        """A graph whose state schema declares only `messages`."""
+
+        class DemoState(TypedDict):
+            messages: List[Any]
+
+        builder = StateGraph(DemoState)
+        builder.add_node("node", lambda state: state)
+        builder.add_edge(START, "node")
+        builder.add_edge("node", END)
+        return builder.compile()
+
+    def test_undeclared_state_key_reaches_the_snapshot(self):
+        """`steps` is absent from the state schema but declared in config."""
+        agent = LangGraphAGUIAgent(
+            name="demo",
+            graph=self._real_graph(),
+            config={"schema_keys": {"output": ["steps"]}},
+        )
+        agent.active_run = {"schema_keys": agent.get_schema_keys({})}
+
+        snapshot = agent.get_state_snapshot(
+            {"messages": [], "steps": ["research", "write"]}
+        )
+
+        assert snapshot["steps"] == ["research", "write"]
+
+    def test_undeclared_state_key_is_still_filtered_without_config(self):
+        """Without config, the pre-existing filtering behaviour is unchanged."""
+        agent = LangGraphAGUIAgent(name="demo", graph=self._real_graph())
+        agent.active_run = {"schema_keys": agent.get_schema_keys({})}
+
+        snapshot = agent.get_state_snapshot(
+            {"messages": [], "steps": ["research", "write"]}
+        )
+
+        assert "steps" not in snapshot
+
+    def test_keys_outside_the_schema_and_config_stay_filtered(self):
+        """Declaring `steps` must not turn the filter into a passthrough."""
+        agent = LangGraphAGUIAgent(
+            name="demo",
+            graph=self._real_graph(),
+            config={"schema_keys": {"output": ["steps"]}},
+        )
+        agent.active_run = {"schema_keys": agent.get_schema_keys({})}
+
+        snapshot = agent.get_state_snapshot(
+            {"messages": [], "steps": [], "internal_scratchpad": "secret"}
+        )
+
+        assert "internal_scratchpad" not in snapshot

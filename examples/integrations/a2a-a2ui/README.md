@@ -82,7 +82,7 @@ The following scripts can also be run using your preferred package manager:
 
 ## Documentation
 
-The main UI component is in `app/page.tsx`, but most of the UI comes from from the agent in the form of A2UI declarative components. To see and edit the components it can generate, look in `agent/prompt_builder.py`.
+The main UI component is in `app/page.tsx`, but most of the UI comes from the agent in the form of A2UI declarative components. To see and edit the components it can generate, look in `agent/prompt_builder.py`.
 To generate new components, try the [A2UI Composer](https://a2ui-editor.ag-ui.com)
 
 ## 📚 Documentation

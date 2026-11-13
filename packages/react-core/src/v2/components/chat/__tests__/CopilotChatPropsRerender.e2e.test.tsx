@@ -19,17 +19,18 @@ import {
   waitFor,
   act,
 } from "@testing-library/react";
-import {
-  AbstractAgent,
-  EventType,
-  type BaseEvent,
-  type RunAgentInput,
-} from "@ag-ui/client";
-import { Observable, Subject } from "rxjs";
+import { AbstractAgent, EventType } from "@ag-ui/client";
+import type { BaseEvent, RunAgentInput } from "@ag-ui/client";
+import type { Observable } from "rxjs";
+import { Subject } from "rxjs";
 import { CopilotKitProvider } from "../../../providers/CopilotKitProvider";
 import { CopilotChat } from "../CopilotChat";
-import { CopilotChatAssistantMessage } from "../CopilotChatAssistantMessage";
+import type { CopilotChatAssistantMessage } from "../CopilotChatAssistantMessage";
 import { useCopilotChatConfiguration } from "../../../providers/CopilotChatConfigurationProvider";
+import {
+  runStartedEvent,
+  runFinishedEvent,
+} from "../../../__tests__/utils/test-helpers";
 
 // ---------------------------------------------------------------------------
 // Shared mock agent (same pattern as CopilotChatToolRerenders.e2e.test.tsx)
@@ -90,13 +91,13 @@ async function submitAndReceiveAssistantMessage(
     expect(screen.getByText("hello")).toBeDefined();
   });
 
-  agent.emit({ type: EventType.RUN_STARTED } as BaseEvent);
+  agent.emit(runStartedEvent());
   agent.emit({
     type: EventType.TEXT_MESSAGE_CHUNK,
     messageId,
     delta: "assistant reply",
   } as BaseEvent);
-  agent.emit({ type: EventType.RUN_FINISHED } as BaseEvent);
+  agent.emit(runFinishedEvent());
 
   await waitFor(() => {
     expect(screen.getByTestId("counting-assistant")).toBeDefined();

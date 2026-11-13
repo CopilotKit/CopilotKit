@@ -28,7 +28,13 @@ describe("single-source symlink erosion guard", () => {
   it("recognizes shared Python data as the only valid data target", () => {
     const integrationDir = path.join(FIXTURE_INTEGRATIONS, "crewai-crews");
     expect(expectedTargets(integrationDir, "data")).toEqual([
-      path.join(path.dirname(FIXTURE_INTEGRATIONS), "shared", "python", "data"),
+      path.join(
+        path.dirname(FIXTURE_INTEGRATIONS),
+        "shared",
+        "python",
+        "tools",
+        "data",
+      ),
     ]);
   });
 

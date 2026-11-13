@@ -10,8 +10,14 @@
  * numbers are the only ones the layout needs.
  */
 
-/** The assistant can be dragged this narrow. */
-export const ASSISTANT_MIN_PX = 250;
+/**
+ * The assistant can be dragged this narrow. Deliberately low: the presenter
+ * decides how much room the chat gets (a sliver while the app is the story, wide
+ * while the transcript is), so the floor only stops the column vanishing
+ * outright. Everything inside is `min-w-0` + truncate, so it squeezes rather
+ * than overflows.
+ */
+export const ASSISTANT_MIN_PX = 120;
 
 /**
  * Where the assistant starts.

@@ -12,7 +12,7 @@
  */
 import React from "react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render } from "@testing-library/react";
+import { render, fireEvent } from "@testing-library/react";
 import { UnifiedCell, arePropsEqual } from "../unified-cell";
 import type { UnifiedCellProps } from "../unified-cell";
 import type { CellContext } from "@/components/feature-grid";
@@ -210,6 +210,56 @@ function overlaySet(...overlays: Overlay[]): Set<Overlay> {
 describe("UnifiedCell", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+  });
+
+  it("passes each Demo and Code URL to its link preview", () => {
+    const { getByRole } = render(
+      <UnifiedCell
+        ctx={makeCtx()}
+        model={makeModel()}
+        overlays={overlaySet("links")}
+      />,
+    );
+    for (const [name, href] of [
+      [/Demo/, "https://demo.test/preview"],
+      [/Code/, "https://demo.test/code"],
+    ] as const) {
+      const link = getByRole("link", { name });
+      expect(link).toHaveAttribute("href", href);
+      expect(link.parentElement).toHaveAttribute("data-href", href);
+    }
+  });
+
+  it("renders command demos without ordinary Demo and Code links", () => {
+    const ctx = makeCtx();
+    ctx.demo = { ...ctx.demo, command: "npx copilotkit init" };
+    const { getByTestId, queryByRole } = render(
+      <UnifiedCell
+        ctx={ctx}
+        model={makeModel()}
+        overlays={overlaySet("links")}
+      />,
+    );
+    expect(getByTestId("mock-command-cell")).toHaveTextContent(
+      "npx copilotkit init",
+    );
+    expect(queryByRole("link")).not.toBeInTheDocument();
+  });
+
+  it("opens and closes the drilldown when the depth chip is clicked twice", () => {
+    const { getByTestId, queryByTestId } = render(
+      <UnifiedCell
+        ctx={makeCtx()}
+        model={makeModel()}
+        overlays={overlaySet("depth")}
+      />,
+    );
+    const button = getByTestId("depth-btn-next-agentic-chat");
+    expect(queryByTestId("mock-cell-drilldown")).not.toBeInTheDocument();
+    fireEvent.click(button);
+    expect(getByTestId("mock-cell-drilldown")).toBeInTheDocument();
+    fireEvent.click(button);
+    expect(queryByTestId("mock-cell-drilldown")).not.toBeInTheDocument();
   });
 
   // ── Test 1: Unsupported cell renders only the ∅ chip (Bug 3) ──────

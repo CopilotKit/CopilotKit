@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { PlusCircle, Plus } from "lucide-react";
-import { Resource } from "@/lib/types";
+import type { Resource } from "@/lib/types";
 
 type AddResourceDialogProps = {
   isOpen: boolean;

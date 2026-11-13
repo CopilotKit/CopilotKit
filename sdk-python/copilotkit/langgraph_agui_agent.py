@@ -18,7 +18,9 @@ from ag_ui.core import (
 from ag_ui_langgraph import LangGraphAgent
 from langchain_core.runnables import RunnableConfig
 from langgraph.graph.state import CompiledStateGraph
+from langgraph.types import Command
 
+from .copilotkit_lg_middleware import _AGUI_CANCELLED_KEY
 from .exc import CopilotKitMisuseError
 
 logger = logging.getLogger(__name__)
@@ -54,6 +56,9 @@ class PredictStateTool:
 
 State = Dict[str, Any]
 SchemaKeys = Dict[str, List[str]]
+# The buckets the base class's get_schema_keys returns. Keys under any other
+# name in config["schema_keys"] are ignored rather than merged blindly.
+SCHEMA_KEY_BUCKETS = ("input", "output", "config", "context")
 TextMessageEvents = Union[
     TextMessageStartEvent, TextMessageContentEvent, TextMessageEndEvent
 ]
@@ -89,6 +94,85 @@ class LangGraphAGUIAgent(LangGraphAgent):
         )
         self.constant_schema_keys = self.constant_schema_keys + ["copilotkit"]
         self._copilotkit_runtime_payload: dict[str, Any] | None = None
+        # Validated at construction rather than inside get_schema_keys, which runs
+        # once per run, so a bad `schema_keys` is reported once, before the first
+        # run. It warns instead of raising: before this option existed a stray
+        # `schema_keys` was silently ignored, and an app carrying one must keep
+        # booting after an upgrade.
+        self._configured_schema_keys = self._read_configured_schema_keys(config)
+
+    @staticmethod
+    def _read_configured_schema_keys(
+        config: Union[Optional[RunnableConfig], dict],
+    ) -> SchemaKeys:
+        """Extract `config["schema_keys"]`, warning about and skipping bad entries."""
+        if not isinstance(config, dict):
+            return {}
+
+        configured = config.get("schema_keys")
+        if configured is None:
+            return {}
+        if not isinstance(configured, dict):
+            logger.warning(
+                "Ignoring config['schema_keys']: expected a dict, got %s",
+                type(configured).__name__,
+            )
+            return {}
+
+        unknown = [bucket for bucket in configured if bucket not in SCHEMA_KEY_BUCKETS]
+        if unknown:
+            logger.warning(
+                "Ignoring unknown config['schema_keys'] buckets %s; expected any of %s",
+                unknown,
+                list(SCHEMA_KEY_BUCKETS),
+            )
+
+        validated: SchemaKeys = {}
+        for bucket in SCHEMA_KEY_BUCKETS:
+            keys = configured.get(bucket)
+            if keys is None:
+                continue
+            if not isinstance(keys, (list, tuple)) or not all(
+                isinstance(key, str) for key in keys
+            ):
+                logger.warning(
+                    "Ignoring config['schema_keys']['%s']: expected a list of strings, got %r",
+                    bucket,
+                    keys,
+                )
+                continue
+            validated[bucket] = list(keys)
+
+        return validated
+
+    def get_schema_keys(self, config: RunnableConfig) -> SchemaKeys:
+        """Add keys declared in `config["schema_keys"]` to the graph-derived ones.
+
+        Graph introspection only sees fields declared on the output schema, so a
+        state key outside the output schema is filtered out of every
+        STATE_SNAPSHOT. Declaring it in the agent's `config` puts it back:
+
+            LangGraphAGUIAgent(
+                name="demo",
+                graph=graph,
+                config={"schema_keys": {"output": ["steps"]}},
+            )
+
+        Configured keys are appended to what the base class derived, never
+        substituted for them, so a bucket the caller does not mention keeps its
+        derived keys exactly. Wrapping `super()` also means the base class's
+        introspection-failure fallback still honours configured keys.
+        """
+        schema_keys = super().get_schema_keys(config)
+
+        for bucket, configured in self._configured_schema_keys.items():
+            derived = schema_keys.get(bucket) or []
+            # Append only what is missing, preserving the derived order. The
+            # filter does a membership test, so duplicates are harmless, but
+            # keeping the lists minimal makes them readable when logged.
+            schema_keys[bucket] = derived + [k for k in configured if k not in derived]
+
+        return schema_keys
 
     def _dispatch_event(self, event) -> str:
         """Override the dispatch event method to handle custom CopilotKit events and filtering.
@@ -466,6 +550,124 @@ class LangGraphAGUIAgent(LangGraphAgent):
                 ],
             },
         }
+
+    async def prepare_stream(
+        self, input: Any, agent_state: Any, config: RunnableConfig
+    ):
+        """Reject a legacy resume while several interrupts are open.
+
+        ``forwardedProps.command.resume`` carries one value and no interrupt id,
+        and LangGraph refuses it once more than one interrupt is pending — for
+        example one per parallel frontend tool call. Its ``RuntimeError`` would
+        escape the run on every retry, so name the fix instead. A value already
+        keyed by interrupt id is LangGraph's own format and goes through.
+
+        Remove once ag-ui-langgraph ships a fix for
+        https://github.com/ag-ui-protocol/ag-ui/issues/2855.
+        """
+        command = (getattr(input, "forwarded_props", None) or {}).get("command")
+        value = command.get("resume") if isinstance(command, dict) else None
+        open_ids = {
+            interrupt.id
+            for interrupt in self._collect_interrupts(
+                getattr(agent_state, "tasks", None)
+            )
+        }
+        if isinstance(value, str):
+            try:
+                value = json.loads(value)
+            except ValueError:
+                pass
+        keyed_by_id = isinstance(value, dict) and value and set(value) <= open_ids
+        if (
+            value is not None
+            and not getattr(input, "resume", None)
+            and len(open_ids) > 1
+            and not keyed_by_id
+        ):
+            raise CopilotKitMisuseError(
+                "Several interrupts are pending, and forwardedProps.command.resume "
+                "cannot say which one it answers. Resume them by id with "
+                "RunAgentInput.resume[]: create LangGraphAGUIAgent with "
+                "emit_interrupt_outcome=True (ag-ui-langgraph >= 0.0.43)."
+            )
+        return await super().prepare_stream(
+            input=input, agent_state=agent_state, config=config
+        )
+
+    @staticmethod
+    def _collect_interrupts(tasks) -> list:
+        """Open interrupts only: skip those on tasks that already finished.
+
+        After a partial resume of parallel interrupts, LangGraph still lists the
+        answered task's interrupt in ``get_state().tasks`` next to that task's
+        result. Re-emitting it would ask the client to answer it again; the
+        step stays uncommitted, so that task will not run a second time anyway.
+
+        Replaces upstream's implementation rather than filtering its output, so
+        a later upstream change here is not picked up.
+
+        Remove once ag-ui-langgraph ships a fix for
+        https://github.com/ag-ui-protocol/ag-ui/issues/2854.
+        """
+        return [
+            item
+            for task in tasks or []
+            if getattr(task, "result", None) is None
+            for item in (getattr(task, "interrupts", None) or [])
+        ]
+
+    def _build_command_from_agui_resume(
+        self,
+        entries: list,
+        *,
+        open_interrupts: Optional[list] = None,
+    ) -> Command:
+        """Resume parallel interrupts with LangGraph's own id-keyed map.
+
+        Upstream (ag-ui-langgraph >= 0.0.43) sends one entry as a bare value and
+        several as one ``{"__agui_resume_map__": ...}`` value. Both only work
+        while a single LangGraph interrupt is pending: with parallel ones, such
+        as one per frontend tool call, LangGraph rejects any resume that is not
+        keyed by interrupt id — even a partial answer to just one of them.
+
+        So when several interrupts are open, key the answers by id and let each
+        task read its own. That needs the AG-UI ids to be the LangGraph ids,
+        which holds unless ``_interrupts_to_agui`` is overridden. A ``None``
+        payload is keyed too, even for a single interrupt: upstream would send
+        it bare, and LangGraph reads ``Command(resume=None)`` as no resume at
+        all. Anything else — one open interrupt, an id that is not open — goes
+        to upstream as is.
+
+        Remove once ag-ui-langgraph ships a fix for
+        https://github.com/ag-ui-protocol/ag-ui/issues/2178.
+        """
+        open_ids = {interrupt.id for interrupt in open_interrupts or []}
+        has_none_payload = any(
+            entry.status == "resolved" and entry.payload is None for entry in entries
+        )
+        if (
+            (len(open_ids) > 1 or has_none_payload)
+            and entries
+            and all(entry.interrupt_id in open_ids for entry in entries)
+            and type(self)._interrupts_to_agui is LangGraphAgent._interrupts_to_agui
+        ):
+            return Command(
+                resume={
+                    entry.interrupt_id: (
+                        entry.payload
+                        if entry.status == "resolved"
+                        else {
+                            _AGUI_CANCELLED_KEY: True,
+                            "interrupt_id": entry.interrupt_id,
+                        }
+                    )
+                    for entry in entries
+                }
+            )
+        return super()._build_command_from_agui_resume(
+            entries, open_interrupts=open_interrupts
+        )
 
     def dict_repr(self):
         """Return dictionary representation of the agent"""

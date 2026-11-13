@@ -57,6 +57,17 @@ const runtimeV2Modules = [
   },
 ];
 
+// `@copilotkit/sdk-js/langgraph` is the supported agent SDK for LangGraph
+// TypeScript. It has no v2 counterpart, like the Python `copilotkit.langgraph`
+// module. The deprecated `/langchain` entrypoint re-exports these files, so a
+// file-level notice must not land on them.
+export const supportedEntrypoints = [
+  {
+    importPath: "@copilotkit/sdk-js/langgraph",
+    sourceRoot: "packages/sdk-js/src/langgraph/",
+  },
+];
+
 export const v1Entrypoints = [
   {
     id: "react-core",
@@ -161,21 +172,6 @@ export const v1Entrypoints = [
     distFiles: [
       "packages/sdk-js/dist/langchain.d.mts",
       "packages/sdk-js/dist/langchain.d.cts",
-    ],
-  },
-  {
-    id: "sdk-js-langgraph",
-    file: "packages/sdk-js/src/langgraph/index.ts",
-    packageRoot: "packages/sdk-js",
-    importPath: "@copilotkit/sdk-js/langgraph",
-    v2Modules: runtimeV2Modules,
-    v2ImportPath: "@copilotkit/runtime/v2",
-    v2Source: "packages/runtime/src/v2/index.ts",
-    docsKind: "runtime",
-    version: "1.68.2",
-    distFiles: [
-      "packages/sdk-js/dist/langgraph.d.mts",
-      "packages/sdk-js/dist/langgraph.d.cts",
     ],
   },
   {
@@ -521,11 +517,6 @@ const sdkLangGraphMigrationExports = [
 ];
 addRelatedConcept(
   "sdk-js-langchain",
-  sdkLangGraphMigrationExports,
-  relatedConcepts.langGraph,
-);
-addRelatedConcept(
-  "sdk-js-langgraph",
   sdkLangGraphMigrationExports,
   relatedConcepts.langGraph,
 );
@@ -975,7 +966,10 @@ export function getV1PublicApi() {
           directSource,
           declarationFile:
             isLocalV1Declaration(entrypoint, declarationFile) &&
-            declarationRelative.startsWith("packages/")
+            declarationRelative.startsWith("packages/") &&
+            !supportedEntrypoints.some(({ sourceRoot }) =>
+              declarationRelative.startsWith(sourceRoot),
+            )
               ? declarationRelative
               : null,
           replacement: hasReplacement
