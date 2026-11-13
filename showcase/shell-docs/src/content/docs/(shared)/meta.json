@@ -19,6 +19,7 @@
           "pages": [
             "[Overview](/AG-UI-Streams)",
             "intelligence/bring-your-own-thread-system",
+            "intelligence/server-side-runs",
             "threads-import",
             "[Thread & History Lifecycle](/threads-lifecycle)",
             "intelligence/threads-explained"
