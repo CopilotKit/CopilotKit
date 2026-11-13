@@ -750,6 +750,17 @@ export function CopilotChatMessageView({
     return { workOpen: open, workTextOpen: textOpen };
   }, [turnWork, toggledTurns, isRunning, latestTurnKey]);
 
+  // Thinking is one live line while the agent works: the reply's latest
+  // thought, replacing the one before it. The earlier ones aren't dropped —
+  // they come back with the rest of the work when "Worked for 9s" is opened.
+  const supersededReasoning = useMemo(() => {
+    const ids = new Set<string>();
+    if (!isRunning) return ids;
+    const turn = turnWork?.get(latestTurnKey);
+    for (const id of turn?.reasoningIds.slice(0, -1) ?? []) ids.add(id);
+    return ids;
+  }, [turnWork, latestTurnKey, isRunning]);
+
   const toolCallDisplayContext = useMemo<ToolCallDisplayContextValue>(
     () => ({
       display: toolCallDisplay,
@@ -1397,12 +1408,20 @@ export function CopilotChatMessageView({
           slotProps={reasoningSlotProps}
         />
       );
-      // Reasoning during a reply's working phase folds away with the work.
-      // Always wrapped in this display, so reasoning that turns into work
-      // keeps its node (and its "Thought for" timer) instead of remounting.
+      // Reasoning during a reply's working phase folds away with the work,
+      // and a thought the agent has already moved on from folds away while it
+      // works. Always wrapped in this display, so reasoning that turns into
+      // work keeps its node (and its "Thought for" timer) instead of
+      // remounting.
       elements.push(
         toolCallDisplay === "turn" ? (
-          <Collapsible key={rowKey} open={workOpen.get(message.id) ?? true}>
+          <Collapsible
+            key={rowKey}
+            open={
+              (workOpen.get(message.id) ?? true) &&
+              !supersededReasoning.has(message.id)
+            }
+          >
             {reasoning}
           </Collapsible>
         ) : (
