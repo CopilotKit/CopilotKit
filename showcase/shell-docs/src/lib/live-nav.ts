@@ -5,6 +5,7 @@ import type { PageIndex } from "./live-pages";
 import {
   LIVE_FRAMEWORKS,
   REFERENCE_FOLDERS,
+  REFERENCE_OVERVIEW,
   REFERENCE_ROOT_VERSION,
 } from "./live-scope";
 import {
@@ -94,6 +95,9 @@ export function getLiveNav(): LiveNav {
 function referenceNav(): Record<string, PageTree.Node[]> {
   const out: Record<string, PageTree.Node[]> = { [REFERENCE_ROOT_VERSION]: [] };
   for (const node of strip(referenceSource.getPageTree().children)) {
+    // The reference's own overview heads the sidebar (live-tree.tsx), not React's list.
+    if (node.type === "page" && node.url === `/reference/${REFERENCE_OVERVIEW}`)
+      continue;
     const sdk = node.type === "folder" ? sdkOf(node) : undefined;
     if (node.type === "folder" && sdk && REFERENCE_FOLDERS.has(sdk)) {
       out[sdk] = node.index ? [node.index, ...node.children] : node.children;
