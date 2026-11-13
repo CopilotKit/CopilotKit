@@ -41,6 +41,7 @@ import {
 } from "./service-url.js";
 import type { TeamsServer } from "./listener.js";
 import { conversationKeyOf, parseCardAction } from "./interaction.js";
+import { isRecipientMentioned } from "./mention.js";
 import { createRunRenderer } from "./event-renderer.js";
 import { renderTeamsMarkdown } from "./render/markdown.js";
 import { renderAdaptiveCard, isPlainText } from "./render/adaptive-card.js";
@@ -165,7 +166,15 @@ export class TeamsAdapter implements PlatformAdapter {
     sink: IngressSink,
   ): Promise<void> {
     const activity = context.activity;
-    if (activity.type !== ActivityTypes.Message) return;
+    // An `Action.Execute` click arrives as an `adaptiveCard/action` invoke, not
+    // a Message activity. It carries the same `data`, so route it the same way.
+    const isCardInvoke =
+      activity.type === ActivityTypes.Invoke &&
+      activity.name === CARD_ACTION_INVOKE_NAME;
+    if (activity.type !== ActivityTypes.Message && !isCardInvoke) return;
+    // Teams shows an error on the card unless the invoke gets a response. Ack
+    // it now: the click's work runs after the turn, like any other interaction.
+    if (isCardInvoke) await acknowledgeCardInvoke(context);
 
     const conversationKey = conversationKeyOf(activity);
     const reference = activity.getConversationReference();
@@ -227,8 +236,12 @@ export class TeamsAdapter implements PlatformAdapter {
       }
       return;
     }
+    // An invoke without our action id is not a chat message.
+    if (isCardInvoke) return;
 
-    // Ordinary chat message. Strip any `<at>bot</at>` mention (channel scope).
+    // Ordinary chat message. Read the mention before we strip the
+    // `<at>bot</at>` tag from the text (channel scope).
+    const mentioned = isRecipientMentioned(activity);
     let text = "";
     try {
       text = (activity.removeRecipientMention() ?? activity.text ?? "").trim();
@@ -282,7 +295,7 @@ export class TeamsAdapter implements PlatformAdapter {
             kind: "created",
             logicalMessageId: activity.id ?? conversationKey,
             revisionId: activity.id ?? conversationKey,
-            mentioned: false,
+            mentioned,
           },
           actor,
           identityContext,
@@ -830,4 +843,24 @@ function mimeFromFilename(filename: string): string {
     default:
       return "image/png";
   }
+}
+
+/** The invoke name Teams uses for an Adaptive Card `Action.Execute` click. */
+const CARD_ACTION_INVOKE_NAME = "adaptiveCard/action";
+
+/** Answer an `adaptiveCard/action` invoke so Teams keeps the card as it is. */
+async function acknowledgeCardInvoke(context: TurnContext): Promise<void> {
+  await context.sendActivity(
+    Activity.fromObject({
+      type: ActivityTypes.InvokeResponse,
+      value: {
+        status: 200,
+        body: {
+          statusCode: 200,
+          type: "application/vnd.microsoft.activity.message",
+          value: "",
+        },
+      },
+    }),
+  );
 }

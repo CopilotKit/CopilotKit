@@ -126,7 +126,7 @@ payloads. The strategy:
 - **0 actions** → plain `text` message (markdown converted to WhatsApp formatting).
 - **1–3 button actions** → interactive `button` message (reply buttons).
 - **4–10 actions** → interactive `list` message (list picker).
-- **>10 actions** → numbered text menu (degraded fallback).
+- **>10 actions** → several list messages of up to 10 rows each, so every option stays tappable.
 
 Image nodes always emit their own `image` payload. Markdown is translated to
 WhatsApp formatting: `**bold**`, `_italic_`, `~~strikethrough~~`, `` `code` ``, and
