@@ -1,5 +1,10 @@
-import { AbstractAgent } from "@ag-ui/client";
-import { A2UIClientEventMessage, A2UISurfaceError } from "./a2ui-types";
+import type { AbstractAgent } from "@ag-ui/client";
+import type {
+  A2UIActionInterceptor,
+  A2UIClientEventMessage,
+  A2UISurfaceError,
+  A2UIUserAction,
+} from "./a2ui-types";
 
 export const A2UI_OPERATIONS_KEY = "a2ui_operations";
 
@@ -54,17 +59,32 @@ export async function bridgeA2UIAction(
   copilotKit: CopilotKitActionBridge | null | undefined,
   agent: AbstractAgent | undefined,
   message: A2UIClientEventMessage,
+  onAction?: A2UIActionInterceptor,
 ): Promise<void> {
   if (!copilotKit || !agent) return;
 
-  try {
-    copilotKit.core.setProperties({
-      ...copilotKit.core.properties,
-      a2uiAction: message,
-    });
-    await copilotKit.core.runAgent({ agent });
-  } finally {
-    const { a2uiAction: _a2uiAction, ...rest } = copilotKit.core.properties;
-    copilotKit.core.setProperties(rest);
+  const forward = async (action?: A2UIUserAction): Promise<void> => {
+    try {
+      copilotKit.core.setProperties({
+        ...copilotKit.core.properties,
+        a2uiAction:
+          action === undefined ? message : { ...message, userAction: action },
+      });
+      await copilotKit.core.runAgent({ agent });
+    } finally {
+      const { a2uiAction: _a2uiAction, ...rest } = copilotKit.core.properties;
+      copilotKit.core.setProperties(rest);
+    }
+  };
+
+  if (onAction) {
+    const result = await onAction(message.userAction, forward);
+    if (result === null) return;
+    if (result) {
+      await forward(result);
+      return;
+    }
   }
+
+  await forward();
 }

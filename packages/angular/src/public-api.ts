@@ -83,9 +83,11 @@ export * from "./lib/components/a2ui/a2ui-recovery";
 export * from "./lib/components/a2ui/a2ui-tool-renderer";
 export * from "./lib/components/a2ui/a2ui-tool-types";
 export type {
+  A2UIActionInterceptor,
   A2UIClientEventMessage,
   A2UISurfaceError,
   A2UICatalog,
+  A2UIUserAction,
 } from "./lib/components/a2ui/a2ui-types";
 export * from "./lib/components/open-generative-ui/open-generative-ui-activity-renderer";
 export * from "./lib/components/open-generative-ui/open-generative-ui-tool-renderer";

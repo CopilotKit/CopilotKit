@@ -1,11 +1,11 @@
 import { Component, computed, inject, input, output } from "@angular/core";
-import { AbstractAgent } from "@ag-ui/client";
+import type { AbstractAgent } from "@ag-ui/client";
 import { COPILOT_KIT_CONFIG } from "../../config";
 import { CopilotKit } from "../../copilotkit";
 import { CopilotSlot } from "../../slots/copilot-slot";
-import { SlotOutputs } from "../../slots/slot.types";
+import type { SlotOutputs } from "../../slots/slot.types";
 import { bridgeA2UIAction, logA2UIRenderError } from "./a2ui-surface-host";
-import { A2UIClientEventMessage } from "./a2ui-types";
+import type { A2UIClientEventMessage } from "./a2ui-types";
 
 /**
  * @internal
@@ -45,7 +45,12 @@ export class CopilotA2UISurfaceOutlet {
 
   protected readonly outputs: SlotOutputs = {
     action: (message: A2UIClientEventMessage) =>
-      bridgeA2UIAction(this.copilotKit, this.agent(), message),
+      bridgeA2UIAction(
+        this.copilotKit,
+        this.agent(),
+        message,
+        this.a2ui?.onAction,
+      ),
     error: logA2UIRenderError,
     rendered: () => this.rendered.emit(),
   };
