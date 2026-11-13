@@ -33,7 +33,7 @@ The call:
 
 1. Creates the thread if it does not exist yet.
 2. Takes the thread's lock, so no other run writes to the thread at the same time.
-3. Reads the thread's history and gives the agent that history followed by `messages`.
+3. Reads the thread's history and the state it last stored, and gives the agent that history followed by `messages`, starting from that state.
 4. Stores the run in the thread, keeping the lock alive while the agent works.
 5. Releases the lock once the run's last event is stored, whether the run finished, failed, or was stopped.
 
@@ -57,11 +57,11 @@ await runAgentInThread({
 
 The function also receives the thread and run IDs the lock issued, for message IDs that name the run. When the agent should be sent more than the thread shows, for example a brief that quotes another conversation, pass `persistedInputMessages` with the short request to keep on record.
 
-The run also accepts `tools`, `context`, `forwardedProps`, and `resume`, which reach the agent as they do on a browser run.
+The run also accepts `tools`, `context`, `forwardedProps`, and `resume`, which reach the agent as they do on a browser run. Pass `state` to start the run from a state of your own instead of the one the thread stored.
 
 ## Stop a run
 
-Pass an `AbortSignal` as `signal`. When it aborts, the runtime stops the run and records the stop with Intelligence, so the thread shows the run as stopped rather than finished. The call then resolves with `stopped: true` and whatever the agent had written.
+Pass an `AbortSignal` as `signal`. When it aborts, the runtime stops the run and records the stop with Intelligence, so the thread shows the run as stopped rather than finished. The call then resolves with `stopped: true` and whatever the agent had written. A run stopped before it started, while the thread was being created or its lock taken, runs nothing and resolves with no messages.
 
 Use `AbortSignal.timeout()` for a deadline, and `AbortSignal.any()` to combine it with your own cancellation. Set `stopTimeoutMs` to bound how long the call waits for a stopped run to end. Past it, the lock is released and the call rejects.
 
