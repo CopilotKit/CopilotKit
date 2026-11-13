@@ -1,7 +1,7 @@
 import type { NextRequest } from "next/server";
 import {
   CopilotRuntime,
-  createCopilotRuntimeHandler,
+  createCopilotKitRuntimeHandler,
 } from "@copilotkit/runtime";
 import { HttpAgent } from "@ag-ui/client";
 
@@ -11,7 +11,7 @@ const runtime = new CopilotRuntime({
 });
 
 export const POST = async (req: NextRequest) => {
-  const handleRequest = createCopilotRuntimeHandler({
+  const handleRequest = createCopilotKitRuntimeHandler({
     runtime,
     basePath: "/api/copilotkit-recovery",
     mode: "single-route",

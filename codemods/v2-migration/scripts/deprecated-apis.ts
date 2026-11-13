@@ -8,16 +8,19 @@ type Node = SgNode<TS | TSX>;
 const TODO = "TODO(copilotkit-2.0):";
 
 /**
- * Exports that were deprecated in 1.x and removed in 2.0, and the 2.0 export
- * with the same API. The import and every reference in the file are renamed.
+ * Exports that were deprecated or renamed, and the 2.0 export with the same
+ * API. The import and every reference in the file are renamed.
  */
 const RENAMED: Record<string, Record<string, string>> = {
   "@copilotkit/runtime": {
     BasicAgent: "BuiltInAgent",
     BasicAgentConfiguration: "BuiltInAgentClassicConfig",
+    createCopilotRuntimeHandler: "createCopilotKitRuntimeHandler",
   },
   "@copilotkit/runtime/node": {
-    createNodeFetchHandler: "createCopilotNodeHandler",
+    createNodeFetchHandler: "createCopilotKitNodeHandler",
+    createCopilotNodeHandler: "createCopilotKitNodeHandler",
+    createCopilotNodeListener: "createCopilotKitNodeListener",
   },
 };
 

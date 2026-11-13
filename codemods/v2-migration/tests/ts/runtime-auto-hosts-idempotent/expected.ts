@@ -4,17 +4,17 @@ import express from "express";
 import { Hono } from "hono";
 import {
   CopilotRuntime,
-  createCopilotRuntimeHandler,
-  createCopilotRuntimeHandler as createCopilotEndpointSingleRoute,
+  createCopilotKitRuntimeHandler,
+  createCopilotKitRuntimeHandler as createCopilotEndpointSingleRoute,
 } from "@copilotkit/runtime";
-import { createCopilotNodeListener, createCopilotNodeListener as createCopilotEndpointSingleRouteExpress } from "@copilotkit/runtime/node";
+import { createCopilotKitNodeListener, createCopilotKitNodeListener as createCopilotEndpointSingleRouteExpress } from "@copilotkit/runtime/node";
 
 const paths: string[] = [];
 const hooks = { onRequest: ({ request }: { request: Request }) => { paths.push(new URL(request.url).pathname); } };
 const runtime = new CopilotRuntime({ agents: {} });
 const app = express();
 app.use(express.json());
-const nodeEndpoint = createCopilotNodeListener({ runtime, hooks, basePath: "/api", cors: { allowMethods: ["GET", "HEAD", "PUT", "PATCH", "POST", "DELETE"], origin: "https://example.com", credentials: true, allowHeaders: ["authorization", "content-type"] } });
+const nodeEndpoint = createCopilotKitNodeListener({ runtime, hooks, basePath: "/api", cors: { allowMethods: ["GET", "HEAD", "PUT", "PATCH", "POST", "DELETE"], origin: "https://example.com", credentials: true, allowHeaders: ["authorization", "content-type"] } });
 const copilotListener = createCopilotEndpointSingleRouteExpress({ mode: "single-route", runtime, hooks, basePath: "/", cors: false });
 const copilotRouter_ = express.Router();
 copilotRouter_.post("/", copilotListener);
@@ -27,7 +27,7 @@ copilotRouter.all(new RegExp("^/api(/.*)?$"), nodeEndpoint);
 app.use(copilotRouter);
 app.get("/health", (_req, res) => { res.json({ ok: true }); });
 const hono = new Hono();
-const copilotHandler = createCopilotRuntimeHandler({ cors: true, runtime, basePath: "/api" });
+const copilotHandler = createCopilotKitRuntimeHandler({ cors: true, runtime, basePath: "/api" });
 hono.all("/api/*", (copilotContext) => copilotHandler(copilotContext.req.raw));
 const single = createCopilotEndpointSingleRoute({ cors: true, mode: "single-route", runtime, basePath: "/rpc" });
 hono.all("/rpc/*", (copilotContext_) => single(copilotContext_.req.raw));

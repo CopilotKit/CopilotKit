@@ -7,7 +7,7 @@ import {
 } from "@copilotkit/runtime/agent";
 import {
   CopilotRuntime,
-  createCopilotRuntimeHandler,
+  createCopilotKitRuntimeHandler,
   type MCPClientConfig,
   type MCPClientProvider,
 } from "@copilotkit/runtime";
@@ -67,6 +67,6 @@ export const runtime = new CopilotRuntime({
   },
 });
 
-export const handler = createCopilotRuntimeHandler({ runtime });
+export const handler = createCopilotKitRuntimeHandler({ runtime });
 export const resolved = resolveModel("openai/gpt-5");
 export const host = classifyModelSpec("openai/gpt-5");

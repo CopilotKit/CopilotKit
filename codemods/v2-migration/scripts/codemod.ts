@@ -76,7 +76,7 @@ const RUNTIME_ADAPTERS = new Set([
   "CopilotEndpointCorsConfig",
 ]);
 const ADAPTER_NOTE =
-  'Express/Hono adapters were removed in 2.0. Use createCopilotRuntimeHandler from "@copilotkit/runtime" (Request => Response), or createCopilotNodeListener from "@copilotkit/runtime/node". Remove handle(app)/.fetch wrappers, set mode: "single-route" for single endpoints, and set cors explicitly. Router methods and framework CORS options require manual migration. See ' +
+  'Express/Hono adapters were removed in 2.0. Use createCopilotKitRuntimeHandler from "@copilotkit/runtime" (Request => Response), or createCopilotKitNodeListener from "@copilotkit/runtime/node". Remove handle(app)/.fetch wrappers, set mode: "single-route" for single endpoints, and set cors explicitly. Router methods and framework CORS options require manual migration. See ' +
   "https://docs.copilotkit.ai/migrate/runtime-2.0";
 
 /**
@@ -533,6 +533,9 @@ const codemod: Codemod<Lang> = async (root, options) => {
       ) &&
       (specifiersOf(statement) ?? []).some((specifier) =>
         [
+          "createCopilotKitRuntimeHandler",
+          "createCopilotKitNodeListener",
+          "createCopilotKitNodeHandler",
           "createCopilotRuntimeHandler",
           "createCopilotNodeListener",
           "createCopilotNodeHandler",

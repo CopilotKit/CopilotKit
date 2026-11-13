@@ -1,6 +1,6 @@
 import {
   CopilotRuntime,
-  createCopilotRuntimeHandler,
+  createCopilotKitRuntimeHandler,
 } from "@copilotkit/runtime";
 import { LangGraphAgent } from "@ag-ui/langgraph";
 import type { NextRequest } from "next/server";
@@ -18,7 +18,7 @@ const runtime = new CopilotRuntime({
 });
 
 export const POST = async (req: NextRequest) => {
-  const handleRequest = createCopilotRuntimeHandler({
+  const handleRequest = createCopilotKitRuntimeHandler({
     runtime,
     basePath: "/api/copilotkit",
     mode: "single-route",
@@ -29,7 +29,7 @@ export const POST = async (req: NextRequest) => {
 
 // Only agents: the empty adapter adds nothing.
 export async function PUT(req: NextRequest) {
-  const handle = createCopilotRuntimeHandler({
+  const handle = createCopilotKitRuntimeHandler({
     runtime: new CopilotRuntime({ agents: {} }),
     basePath: req.nextUrl.pathname,
     mode: "single-route",

@@ -6,7 +6,7 @@ import {
 } from "@copilotkit/runtime/agent";
 import {
   CopilotRuntime,
-  createCopilotRuntimeHandler,
+  createCopilotKitRuntimeHandler,
   type MCPClient,
 } from "@copilotkit/runtime";
 // TODO(copilotkit-2.0): `resolveModel` was removed in 2.0 and has no direct replacement. See https://docs.copilotkit.ai/migrate/runtime-2.0#built-in-agent
@@ -46,7 +46,7 @@ export const runtime = new CopilotRuntime({
   },
 });
 
-export const handler = createCopilotRuntimeHandler({ runtime });
+export const handler = createCopilotKitRuntimeHandler({ runtime });
 export const model = resolveModel("openai/gpt-5");
 export const awaited = async () => await resolveModel("openai/gpt-5");
 export const toMessages = convertMessagesToVercelAISDKMessages;

@@ -2,7 +2,7 @@ import {
   CopilotRuntime,
   CopilotKitIntelligence,
   InMemoryAgentRunner,
-  createCopilotRuntimeHandler,
+  createCopilotKitRuntimeHandler,
 } from "@copilotkit/runtime";
 import { createDefaultAgent } from "@/agent";
 
@@ -11,7 +11,7 @@ const runtime = new CopilotRuntime({
   runner: new InMemoryAgentRunner(),
 });
 
-const app = createCopilotRuntimeHandler({
+const app = createCopilotKitRuntimeHandler({
   cors: true,
   runtime,
   basePath: "/api/copilotkit",

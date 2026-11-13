@@ -722,7 +722,7 @@ export const V1_API: Record<string, Record<string, V1Export>> = {
     },
     copilotRuntimeNextJSAppRouterEndpoint: {
       replacement: {
-        name: "createCopilotRuntimeHandler",
+        name: "createCopilotKitRuntimeHandler",
         importPath: "@copilotkit/runtime",
         docs: "https://docs.copilotkit.ai/runtime-server-adapter",
       },
@@ -739,7 +739,7 @@ export const V1_API: Record<string, Record<string, V1Export>> = {
     },
     copilotRuntimeNodeHttpEndpoint: {
       replacement: {
-        name: "createCopilotRuntimeHandler",
+        name: "createCopilotKitRuntimeHandler",
         importPath: "@copilotkit/runtime",
         docs: "https://docs.copilotkit.ai/runtime-server-adapter",
       },
