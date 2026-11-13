@@ -43,9 +43,11 @@ colors:
   night-sky: "#8cb9f2"
   night-frame: "#16161f"
   night-frame-foreground: "#c4c4d0"
-  night-stage-sky: "#2c5683"
-  night-stage-lilac: "#3a3f9e"
-  night-stage-bloom: "#2f2a8c"
+  night-stage-ink: "#121831"
+  night-stage-indigo: "#1c1650"
+  night-stage-bloom: "#5b52e8"
+  menu-surface: "#f7f7fb"
+  night-menu-surface: "#111118"
   glyph-tile-sky: "#5b86de"
   glyph-tile-lilac: "#5d5fd8"
 typography:
@@ -115,15 +117,15 @@ rounded:
   3xl: "48px"
   full: "9999px"
 components:
-  tray:
-    backgroundColor: "{colors.frame}"
-    rounded: "{rounded.2xl}"
-    padding: "12px"
   link-card:
     backgroundColor: "{colors.canvas}"
     textColor: "{colors.plum}"
     rounded: "{rounded.lg}"
     padding: "20px"
+  menu-panel:
+    backgroundColor: "{colors.menu-surface}"
+    rounded: "{rounded.xl}"
+    padding: "12px"
   primary-pill:
     backgroundColor: "{colors.plum}"
     textColor: "{colors.canvas}"
@@ -145,14 +147,14 @@ components:
 
 **Creative North Star: "Daylight, with the kite's colors."**
 
-White reading sheets set in the website's own lilac-grey room (`#ededf5`, copilotkit.ai's `--new-background`), with the website's plum ink (`#141021`) and its palette carried with restraint. Everything a reader reads sits on white; the frame around it (the docs sidebar and gutters, the trays that hold card grids and menus, the playground's ground) is the lilac-grey, so white panels separate from the room by color, the way the website separates its tabs and panels, instead of by shadows. Lilac is the voice: actions, "you are here", inline code, the code theme's keywords. Mint is the second voice: live demos, success, and Intelligence. The mood is calm, precise, a little playful: light display type, nested radii (12px cards in 24px trays), solid glyphs with no tiles, round pills, and the product drawn as a picture on the website's protocol-map stage. No glows and no glass: the navbar's menus are trays like the rest. Two gradients, both the website's own: the protocol-map stage, and the lilac-to-mint accent on the home headline's "any agent".
+White reading sheets set in the website's own lilac-grey room (`#ededf5`, copilotkit.ai's `--new-background`), with the website's plum ink (`#141021`) and its palette carried with restraint. Everything a reader reads sits on white; the frame around it (the docs sidebar and gutters, the playground's ground) is the lilac-grey, so white panels separate from the room by color, the way the website separates its tabs and panels. Cards that stand on the white page (the home's card grids, the navbar menus' cards) carry a hairline and a small indigo-tinted lift instead, and code blocks a hairline and a soft indigo lift. Lilac is the voice: actions, "you are here", inline code, the code theme's keywords. Mint is the second voice: live demos, success, and Intelligence. The mood is calm, precise, a little playful: light display type, 12px cards, solid lilac glyphs with no tiles, round pills, and the product drawn as a picture on the website's protocol-map stage, which also frames live demos. No glows and no glass: the navbar's menus are a solid, faint lilac panel over the page. Two gradients, both the website's own: the protocol-map stage, and the lilac-to-mint accent on the home headline's "any agent".
 
 The system stays on stock Fumadocs. `global.css` loads Fumadocs' own **shadcn bridge preset** (`fumadocs-ui/css/shadcn.css`), which points every `--color-fd-*` token and the sidebar at the shadcn variables; `src/app/theme.css` sets those variables to brand values and follows the shape of Fumadocs' shipped presets (prose variables, inline code, the sidebar, code figures; compare `fumadocs-ui/css/vitepress.css`). So Fumadocs and shadcn/ui read one palette, and a Fumadocs upgrade only needs `theme.css` checked.
 
 **Key Characteristics:**
 
 - White content in light mode; ink (#0b0b10, not grey) in dark mode.
-- The website's lilac-grey frame (#ededf5; night #16161f) for chrome and trays, never under prose.
+- The website's lilac-grey frame (#ededf5; night #16161f) for chrome, never under prose. Cards on the page stand on a hairline and a small indigo lift.
 - Plum ink (#141021) for type; plum-grey (#3f3d4a) for the frame's navigation text.
 - Lilac for what you act on and where you are; mint for live things and Intelligence.
 - shadcn/ui for every component Fumadocs doesn't ship (`src/components/ui`, Base UI primitives, the `base-nova` style).
@@ -173,14 +175,14 @@ The system stays on stock Fumadocs. `global.css` loads Fumadocs' own **shadcn br
 ### Neutrals
 
 - **Canvas** (#ffffff) for the page, the docs panel, cards, and popovers. **Plum** (#141021, the website redesign's ink) for type and the primary pill; **slate** (#57575b) for secondary text.
-- **Frame** (#ededf5, the website's page color) for the docs frame, trays, and the playground ground, with **frame foreground** (#3f3d4a, 9:1) for the sidebar's rows and **frame rim** (#dbdbe5, the website's `border-container`) for its edges. Hover rows on the frame are white at 60%, the website's translucent white.
+- **Frame** (#ededf5, the website's page color) for the docs frame and the playground ground, with **frame foreground** (#3f3d4a, 9:1) for the sidebar's rows and **frame rim** (#dbdbe5, the website's `border-container`) for its edges. Hover rows on the frame are white at 60%, the website's translucent white.
 - **Stage** (`--stage`, the website's protocol-map ground: `stage-sky` #8dc1f1 to `stage-lilac` #686fdf at 145°, with a `stage-bloom` #6357e5 radial): the ground under every pixel matrix (the home diagram and demo frames), with translucent white tiles (60%) and white rims (70%). It replaced the website's lilac use-case ground on the docs owner's call (October 29 2026).
 - **Grey wash** (#f4f4f8) for `--secondary` and `--muted`, **code well** (#f7f7f9), **hairline** (#e9e9ef) and **input edge** (#e2e2ea): the website's cool greys, used only as accents.
 - **Night set**: canvas #0b0b10, card #111118, popover #15151d, wash #1b1b25, frame #16161f (rows #c4c4d0), text #f4f4f7, slate #a3a3b0; the stage turns to ink at its edges (#121831 to #1c1650) with indigo light from its foot.
 
 ### Named Rules
 
-**The Daylight Rule.** Everything a reader reads is on white (ink in dark mode): the docs panel, the home page, cards, code. The website's lilac-grey frames it: the docs frame, the trays under card grids, the playground ground. Prose never sits on the frame, and the frame never sits inside the panel. Grey draws hairlines, holds code, and fills quiet controls.
+**The Daylight Rule.** Everything a reader reads is on white (ink in dark mode): the docs panel, the home page, cards, code. The website's lilac-grey frames it: the docs frame and the playground ground; cards on the page stand on a hairline and a small lift instead of a tray. Prose never sits on the frame, and the frame never sits inside the panel. Grey draws hairlines, holds code, and fills quiet controls.
 
 **The Two Voices Rule.** Lilac means "act here" or "you are here"; mint means "live". Card and menu glyphs take the lilac accent (official colors for a framework logo); sidebar-row glyphs are plum ink (the active row's turns lilac with its text), and the sidebar's section headings are all the same lilac. Selection is a lilac-mid outline (frontend chips), never a lilac fill. Brand color marks things (outlines, pills, dots, the active row, section headings), never a reading surface.
 
@@ -223,7 +225,7 @@ White separates from the frame by color first, as on the website. Cards that sta
 
 ## Shapes
 
-The brand radius scale (4 / 8 / 12 / 16 / 24 / 48px) on Tailwind's `sm` to `3xl`, nested the website's way (outer = inner + padding): cards at 12px inside 20px trays with 8px padding, inputs at 12px, the docs panel at 24px, the stage at 20px with tiles at a quarter of their size. Primary and secondary actions are fully round pills, like the website's "Book a demo" and "Copy prompt".
+The brand radius scale (4 / 8 / 12 / 16 / 24 / 48px) on Tailwind's `sm` to `3xl`, nested the website's way (outer = inner + padding): cards at 12px, code windows at 12px, inputs at 12px, the docs panel at 24px, the stage at 20px with tiles at a quarter of their size. Primary and secondary actions are fully round pills, like the website's "Book a demo" and "Copy prompt".
 
 ## Components
 
@@ -266,7 +268,7 @@ The official CopilotKit logotype (`src/components/copilotkit-logo.tsx`), 22px ta
 
 ### Do:
 
-- **Do** keep everything a reader reads on white (ink in dark mode), and chrome and trays on the frame.
+- **Do** keep everything a reader reads on white (ink in dark mode), and chrome on the frame. Cards on the page take a hairline and `--card-lift`; code takes a hairline and `--code-lift`.
 - **Do** set colors as shadcn variables in `src/app/theme.css`; Fumadocs reads them through its shadcn preset.
 - **Do** use Fumadocs' components for docs chrome and shadcn/ui for everything else.
 - **Do** spend lilac on what the reader acts on and where they are, and mint on live things and Intelligence.
