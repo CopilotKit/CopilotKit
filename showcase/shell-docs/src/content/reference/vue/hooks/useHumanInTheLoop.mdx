@@ -73,8 +73,10 @@ function useHumanInTheLoop<T extends Record<string, unknown>>(
 
     **When `status` is `ToolCallStatus.Complete` (`"complete"`):**
     - `args: T` -- the original arguments
-    - `result: string` -- the serialized result
+    - `result: string | undefined` -- the serialized response provided via `respond()`, or `undefined` when the request was abandoned (see `aborted`)
     - `respond: undefined` -- no longer available
+    - `aborted?: true` -- set when the run was stopped while the request was still waiting on the user. There is no answer, so render the request as abandoned rather than reading `result`.
+    - `error?: string` -- set when the call ended without an answer. When `aborted` is set, it is always the abort message. Otherwise it is the tool message's raw `error` field: usually the failure message, but some history adapters restore it as a bare marker such as `"error"`. When `error` is set and `aborted` is not, `result` holds the failure text sent to the agent, not the user's response.
 
   </PropertyReference>
 
@@ -116,6 +118,7 @@ defineProps<{
   name: string;
   description: string;
   result?: string;
+  error?: string;
   respond?: (result: unknown) => Promise<void>;
 }>();
 </script>
@@ -147,7 +150,7 @@ defineProps<{
   </div>
 
   <div
-    v-else-if="status === ToolCallStatus.Complete && result"
+    v-else-if="status === ToolCallStatus.Complete && result && !error"
     class="p-2 text-sm text-gray-600"
   >
     {{ JSON.parse(result).confirmed ? "Items deleted." : "Deletion cancelled." }}
@@ -196,6 +199,8 @@ defineProps<{
   name: string;
   description: string;
   result?: string;
+  aborted?: boolean;
+  error?: string;
   respond?: (result: unknown) => Promise<void>;
 }>();
 
@@ -230,6 +235,20 @@ const address = ref({ street: "", city: "", zip: "" });
     >
       Submit Address
     </button>
+  </div>
+
+  <div
+    v-else-if="status === ToolCallStatus.Complete && aborted"
+    class="p-2 text-gray-500"
+  >
+    Address request cancelled.
+  </div>
+
+  <div
+    v-else-if="status === ToolCallStatus.Complete && error"
+    class="p-2 text-red-600"
+  >
+    Address request failed.
   </div>
 
   <div v-else-if="status === ToolCallStatus.Complete" class="p-2 text-green-600">
@@ -280,6 +299,7 @@ defineProps<{
   name: string;
   description: string;
   result?: string;
+  error?: string;
   respond?: (result: unknown) => Promise<void>;
 }>();
 </script>
@@ -313,7 +333,7 @@ defineProps<{
   </div>
 
   <div
-    v-else-if="status === ToolCallStatus.Complete && result"
+    v-else-if="status === ToolCallStatus.Complete && result && !error"
     class="p-2 text-sm"
     :class="JSON.parse(result).approved ? 'text-green-600' : 'text-red-600'"
   >
@@ -355,7 +375,8 @@ useHumanInTheLoop({
 ## Behavior
 
 - **Blocks agent execution**: The internally generated handler returns a promise that does not resolve until `respond` is called, so the agent pauses on this tool call and waits for the user.
-- **Internal status machine**: The composable drives three phases - `inProgress` (arguments streaming in), `executing` (waiting for the user, `respond` available), and `complete` (user has responded, `result` available). Your render component receives the appropriate props for each phase.
+- **Internal status machine**: The composable drives three phases - `inProgress` (arguments streaming in), `executing` (waiting for the user, `respond` available), and `complete` (the call has finished). Your render component receives the appropriate props for each phase.
+- **Stopping a pending request**: If the run is stopped while the request is waiting on the user, the tool call completes without an answer: `aborted` is `true`, `error` holds the abort message, and `result` is `undefined`. Check `aborted` before treating a `complete` render as the user's decision. A component that declares `aborted` as a `boolean` prop receives `false` when it is not set, as Vue casts absent boolean props.
 - **`respond` is only passed during `executing`**: In the `inProgress` and `complete` phases, `respond` is `undefined`. Guard on `status === ToolCallStatus.Executing && respond` before calling it.
 - **Single response**: Calling `respond` resolves the pending promise once and clears the stored resolver, so subsequent calls are no-ops for that tool call.
 - **Stop while waiting**: If the user stops the agent while the tool waits, the pending call rejects with `Human-in-the-loop interaction aborted`. A later `respond` call does nothing.
@@ -372,4 +393,4 @@ The `ToolCallStatus` enum is exported from `@copilotkit/vue/v2` and defines the 
 | --------------------------- | -------------- | ---------------------------------------------------------------------------------------- |
 | `ToolCallStatus.InProgress` | `"inProgress"` | Arguments are being streamed from the agent. The tool has not started executing yet.     |
 | `ToolCallStatus.Executing`  | `"executing"`  | Arguments are fully resolved. For `useHumanInTheLoop`, the `respond` callback is passed.  |
-| `ToolCallStatus.Complete`   | `"complete"`   | Execution is finished. The `result` string is available.                                 |
+| `ToolCallStatus.Complete`   | `"complete"`   | Execution is finished. The `result` string is available unless the call was aborted.     |

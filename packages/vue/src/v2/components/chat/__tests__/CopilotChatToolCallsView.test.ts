@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { defineComponent, h, nextTick, ref } from "vue";
 import { mount } from "@vue/test-utils";
+import { ToolCallStatus } from "@copilotkit/core";
 import type { AssistantMessage, Message, ToolMessage } from "@ag-ui/core";
 import CopilotKitProvider from "../../../providers/CopilotKitProvider.vue";
 import CopilotChatConfigurationProvider from "../../../providers/CopilotChatConfigurationProvider.vue";
@@ -635,6 +636,70 @@ describe("CopilotChatToolCallsView", () => {
 
     expect(wrapper.find("[data-testid='tool-status']").text()).toBe(
       "complete:found docs",
+    );
+  });
+
+  it("hands a failed tool message's error to the renderer, and re-renders when only the error changes", async () => {
+    const message = baseAssistantMessage("search_docs");
+    const failed: ToolMessage = {
+      id: "tool-result-1",
+      role: "tool",
+      toolCallId: "tc-1",
+      content: "Error: Disk full",
+      error: "Disk full",
+    };
+    const messages = ref<Message[]>([message, failed]);
+    const RegisterRenderer = defineComponent({
+      setup() {
+        const { copilotkit } = useCopilotKit();
+        copilotkit.value.setRenderToolCalls([
+          defineToolCallRenderer({
+            name: "*",
+            render: (props) =>
+              h(
+                "div",
+                { "data-testid": "error-card" },
+                `${props.status}:${
+                  props.status === ToolCallStatus.Complete
+                    ? (props.error ?? "none")
+                    : "pending"
+                }`,
+              ),
+          }),
+        ]);
+        return () => null;
+      },
+    });
+    const Harness = defineComponent({
+      setup() {
+        return () =>
+          h("div", [
+            h(RegisterRenderer),
+            h(CopilotChatToolCallsView, { message, messages: messages.value }),
+          ]);
+      },
+    });
+
+    const wrapper = mount(CopilotKitProvider, {
+      props: { runtimeUrl: "/api/copilotkit" },
+      slots: {
+        default: () =>
+          h(
+            CopilotChatConfigurationProvider,
+            { threadId: "thread-1", agentId: "default" },
+            { default: () => h(Harness) },
+          ),
+      },
+    });
+    await nextTick();
+    expect(wrapper.get("[data-testid='error-card']").text()).toBe(
+      "complete:Disk full",
+    );
+
+    messages.value = [message, { ...failed, error: "error" }];
+    await nextTick();
+    expect(wrapper.get("[data-testid='error-card']").text()).toBe(
+      "complete:error",
     );
   });
 
