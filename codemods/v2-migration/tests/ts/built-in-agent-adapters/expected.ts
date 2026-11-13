@@ -6,7 +6,7 @@ import {
   BuiltInAgent,
 } from "@copilotkit/runtime/agent";
 import {
-  CopilotRuntime,
+  CopilotKitRuntime,
   createCopilotKitRuntimeHandler,
   type MCPClientConfig,
   type MCPClientProvider,
@@ -30,7 +30,7 @@ const clients: MCPClientProvider[] = [];
 const conversion: MessageConversionOptions = {};
 const maxRetries = 2;
 
-export const runtime = new CopilotRuntime({
+export const runtime = new CopilotKitRuntime({
   agents: {
     openai: new BuiltInAgent({ model: openaiText("gpt-5") }),
     openaiColon: new BuiltInAgent({ model: openaiText("gpt-4o") }),

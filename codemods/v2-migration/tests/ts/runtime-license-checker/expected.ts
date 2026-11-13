@@ -1,6 +1,6 @@
-import { CopilotRuntime, createCopilotKitRuntimeHandler } from "@copilotkit/runtime";
+import { CopilotKitRuntime, createCopilotKitRuntimeHandler } from "@copilotkit/runtime";
 
-const runtime = new CopilotRuntime({ agents: {} });
+const runtime = new CopilotKitRuntime({ agents: {} });
 
 export const handler = createCopilotKitRuntimeHandler({ runtime, basePath: "/api/copilotkit" });
 

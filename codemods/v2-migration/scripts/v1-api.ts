@@ -813,7 +813,7 @@ export const V1_API: Record<string, Record<string, V1Export>> = {
     LangGraphHttpAgent: {
       docs: "https://docs.copilotkit.ai/agent-spec/langgraph",
       notes: [
-        "Use `HttpAgent` from `@ag-ui/client`, passed to the v2 `CopilotRuntime`.",
+        "Use `HttpAgent` from `@ag-ui/client`, passed to the 2.0 `CopilotKitRuntime`.",
         "Exception: a v1 client still resuming interrupts through `forwardedProps.command.resume` — `LangGraphHttpAgent` keeps a back-compat bridge for that channel.",
       ],
     },
@@ -911,7 +911,7 @@ export const V1_API: Record<string, Record<string, V1Export>> = {
     LangGraphHttpAgent: {
       docs: "https://docs.copilotkit.ai/agent-spec/langgraph",
       notes: [
-        "Use `HttpAgent` from `@ag-ui/client`, passed to the v2 `CopilotRuntime`.",
+        "Use `HttpAgent` from `@ag-ui/client`, passed to the 2.0 `CopilotKitRuntime`.",
         "Exception: a v1 client still resuming interrupts through `forwardedProps.command.resume` — `LangGraphHttpAgent` keeps a back-compat bridge for that channel.",
       ],
     },

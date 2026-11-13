@@ -2,7 +2,7 @@ import { parse } from "codemod:ast-grep";
 import { chatApiEdits } from "./chat-apis.ts";
 import { angularCopyButtonEdits } from "./angular-copy-buttons.ts";
 import { migrateAngularChatConfiguration } from "./angular-chat-configuration.ts";
-import { migrateDeprecatedApis } from "./deprecated-apis.ts";
+import { migrateDeprecatedApis, migrateKitNames } from "./deprecated-apis.ts";
 import { migrateGenerativeUI } from "./generative-ui.ts";
 import { migrateA2UI } from "./a2ui-to-generative-ui.ts";
 import { migrateRuntimeAdapters } from "./runtime-adapters.ts";
@@ -658,7 +658,8 @@ const codemod: Codemod<Lang> = async (root, options) => {
         renamed !== undefined ||
         (isRuntimeRoot &&
           (RUNTIME_ADAPTERS.has(name) ||
-            (hasRuntimeHandler && name === "CopilotRuntime"))) ||
+            (hasRuntimeHandler &&
+              (name === "CopilotRuntime" || name === "CopilotKitRuntime")))) ||
         // Same name in v1 and 2.0: only a use in the v1 shape needs work.
         (v1Shape !== undefined && !v1Shape(rootNode, localName(specifier)));
       if (!skipsTodo) todos.push(...todoLines(name, entry));
@@ -779,13 +780,19 @@ const codemod: Codemod<Lang> = async (root, options) => {
     root.filename(),
   );
   const afterA2UI = a2ui ?? afterAngular;
-  // Last: merge the CopilotKit imports the earlier steps added.
-  const merged = mergeCopilotKitImports(
+  const kitNames = migrateKitNames(
     afterA2UI === null
       ? rootNode
       : parse<Lang>(options.language, afterA2UI).root(),
   );
-  return merged ?? afterA2UI;
+  const afterKitNames = kitNames ?? afterA2UI;
+  // Last: merge the CopilotKit imports the earlier steps added.
+  const merged = mergeCopilotKitImports(
+    afterKitNames === null
+      ? rootNode
+      : parse<Lang>(options.language, afterKitNames).root(),
+  );
+  return merged ?? afterKitNames;
 };
 
 function collectProviderNames(

@@ -5,7 +5,7 @@ import {
   defineTool,
 } from "@copilotkit/runtime/agent";
 import {
-  CopilotRuntime,
+  CopilotKitRuntime,
   createCopilotKitRuntimeHandler,
   type MCPClient,
 } from "@copilotkit/runtime";
@@ -29,7 +29,7 @@ const weather = defineTool({
 
 const config: BuiltInAgentClassicConfig = { model: "openai/gpt-5" };
 
-export const runtime = new CopilotRuntime({
+export const runtime = new CopilotKitRuntime({
   agents: {
     default: new BuiltInAgent({
       model: openaiText("gpt-5"),

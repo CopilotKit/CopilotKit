@@ -1,10 +1,10 @@
-import { CopilotRuntime } from "@copilotkit/runtime";
+import { CopilotKitRuntime } from "@copilotkit/runtime";
 import { BuiltInAgent } from "@copilotkit/runtime/agent";
 import { openaiText } from "@tanstack/ai-openai";
 
 const agent = new BuiltInAgent({ model: openaiText("gpt-5") });
 
-export const runtime = new CopilotRuntime({
+export const runtime = new CopilotKitRuntime({
   agents: { shop: agent },
   generativeUI: {
     a2uiVersion: "0.9",
@@ -13,18 +13,18 @@ export const runtime = new CopilotRuntime({
   },
 });
 
-export const inline = new CopilotRuntime({ agents: { shop: agent }, generativeUI: { a2uiVersion: "0.9" } });
+export const inline = new CopilotKitRuntime({ agents: { shop: agent }, generativeUI: { a2uiVersion: "0.9" } });
 
-export const disabled = new CopilotRuntime({
+export const disabled = new CopilotKitRuntime({
   agents: { shop: agent },
 });
 
-export const enabled = new CopilotRuntime({
+export const enabled = new CopilotKitRuntime({
   agents: { shop: agent },
   generativeUI: { a2uiVersion: "0.9", agents: ["shop"] },
 });
 
-export const withTrue = new CopilotRuntime({
+export const withTrue = new CopilotKitRuntime({
   agents: { shop: agent },
   generativeUI: {
     a2uiVersion: "0.9",
@@ -32,7 +32,7 @@ export const withTrue = new CopilotRuntime({
   },
 });
 
-export const withObject = new CopilotRuntime({
+export const withObject = new CopilotKitRuntime({
   agents: { shop: agent },
   generativeUI: {
     a2uiVersion: "0.9",
@@ -41,7 +41,7 @@ export const withObject = new CopilotRuntime({
   },
 });
 
-export const conflicting = new CopilotRuntime({
+export const conflicting = new CopilotKitRuntime({
   agents: { shop: agent },
   generativeUI: { agents: ["shop"] },
   // TODO(copilotkit-2.0): The runtime `a2ui` option moved to `generativeUI: { a2uiVersion: "0.9", ...options }` in 2.0. The codemod could not move this one: its value is not an object literal, its `enabled` is not `true` or `false`, or `generativeUI` already sets one of its keys. Move it by hand, or delete it if it was off. See https://docs.copilotkit.ai/generative-ui/components/from-a2ui#before-and-after
@@ -49,7 +49,7 @@ export const conflicting = new CopilotRuntime({
 });
 
 const a2uiOptions = { injectA2UITool: true };
-export const fromVariable = new CopilotRuntime({
+export const fromVariable = new CopilotKitRuntime({
   agents: { shop: agent },
   // TODO(copilotkit-2.0): The runtime `a2ui` option moved to `generativeUI: { a2uiVersion: "0.9", ...options }` in 2.0. The codemod could not move this one: its value is not an object literal, its `enabled` is not `true` or `false`, or `generativeUI` already sets one of its keys. Move it by hand, or delete it if it was off. See https://docs.copilotkit.ai/generative-ui/components/from-a2ui#before-and-after
   a2ui: a2uiOptions,

@@ -3,7 +3,7 @@ import type { AddressInfo } from "node:net";
 import express from "express";
 import { Hono } from "hono";
 import {
-  CopilotRuntime,
+  CopilotKitRuntime,
   createCopilotKitRuntimeHandler,
   createCopilotKitRuntimeHandler as createCopilotEndpointSingleRoute,
 } from "@copilotkit/runtime";
@@ -11,7 +11,7 @@ import { createCopilotKitNodeListener, createCopilotKitNodeListener as createCop
 
 const paths: string[] = [];
 const hooks = { onRequest: ({ request }: { request: Request }) => { paths.push(new URL(request.url).pathname); } };
-const runtime = new CopilotRuntime({ agents: {} });
+const runtime = new CopilotKitRuntime({ agents: {} });
 const app = express();
 app.use(express.json());
 const nodeEndpoint = createCopilotKitNodeListener({ runtime, hooks, basePath: "/api", cors: { allowMethods: ["GET", "HEAD", "PUT", "PATCH", "POST", "DELETE"], origin: "https://example.com", credentials: true, allowHeaders: ["authorization", "content-type"] } });

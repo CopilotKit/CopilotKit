@@ -184,6 +184,9 @@ const RUNTIME_CLASSES = [
   "CopilotRuntime",
   "CopilotSseRuntime",
   "CopilotIntelligenceRuntime",
+  "CopilotKitRuntime",
+  "CopilotKitSseRuntime",
+  "CopilotKitIntelligenceRuntime",
 ];
 const ZOD_SOURCES = new Set(["zod", "zod/v4", "zod-v3"]);
 

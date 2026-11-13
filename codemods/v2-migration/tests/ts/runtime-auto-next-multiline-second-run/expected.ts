@@ -1,12 +1,12 @@
 import {
-  CopilotRuntime,
+  CopilotKitRuntime,
   CopilotKitIntelligence,
   InMemoryAgentRunner,
   createCopilotKitRuntimeHandler,
 } from "@copilotkit/runtime";
 import { createDefaultAgent } from "@/agent";
 
-const runtime = new CopilotRuntime({
+const runtime = new CopilotKitRuntime({
   agents: { default: createDefaultAgent() },
   runner: new InMemoryAgentRunner(),
 });

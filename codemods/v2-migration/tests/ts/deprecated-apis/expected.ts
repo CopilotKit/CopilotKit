@@ -1,7 +1,7 @@
 import { BuiltInAgent } from "@copilotkit/runtime/agent";
-import { CopilotRuntime } from "@copilotkit/runtime";
+import { CopilotKitRuntime } from "@copilotkit/runtime";
 import type { BuiltInAgentClassicConfig as AgentConfig } from "@copilotkit/runtime/agent";
-// TODO(copilotkit-2.0): `CopilotKitRequestHandler` was removed in 2.0. Use `CopilotRuntimeFetchHandler`. It takes the `Request` directly, not `{ request }`.
+// TODO(copilotkit-2.0): `CopilotKitRequestHandler` was removed in 2.0. Use `CopilotKitRuntimeFetchHandler`. It takes the `Request` directly, not `{ request }`.
 import type { CopilotKitRequestHandler } from "@copilotkit/runtime";
 import { createCopilotKitNodeHandler } from "@copilotkit/runtime/node";
 // TODO(copilotkit-2.0): `createA2UICatalog` was removed in 2.0. Declare the components with `createGenerativeUI({ id, components })` from "@copilotkit/react-core/generative-ui": one entry per component with `component`, `description` and `props`. See https://docs.copilotkit.ai/generative-ui/components/from-a2ui#convert-a-custom-catalog
@@ -13,7 +13,7 @@ import type { ImageData } from "@copilotkit/shared";
 
 const config: AgentConfig = { model: "openai/gpt-5" };
 export const agent = new BuiltInAgent(config);
-export const runtime = new CopilotRuntime({ agents: { default: agent } });
+export const runtime = new CopilotKitRuntime({ agents: { default: agent } });
 export const listener = createCopilotKitNodeHandler(async () => new Response());
 export const store = useA2UIStore;
 export const catalog = createA2UICatalog;

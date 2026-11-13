@@ -315,7 +315,7 @@ Docs: https://docs.copilotkit.ai/generative-ui/components/from-a2ui
 | `<CopilotKitProvider a2ui={{ catalog: myCatalog }}>`                           | `<CopilotKitProvider generativeUI={{ ui: myCatalog }}>`                                                           |
 | `a2ui={{}}`, `a2ui={{ catalog: basicCatalog }}`                                | Deleted. The client uses the standard catalog when the runtime enables generative UI.                             |
 | `provideCopilotKit({ ..., a2ui: { catalog } })`                                | `provideCopilotKit({ ... })` and `provideGenerativeUI({ ui: catalog })` from `@copilotkit/angular/generative-ui`  |
-| `new CopilotRuntime({ a2ui: { agents, injectA2UITool } })`                     | `new CopilotRuntime({ generativeUI: { a2uiVersion: "0.9", agents, injectA2UITool } })`                            |
+| `new CopilotRuntime({ a2ui: { agents, injectA2UITool } })`                     | `new CopilotKitRuntime({ generativeUI: { a2uiVersion: "0.9", agents, injectA2UITool } })`                         |
 | `new CopilotRuntime({ a2ui: { enabled: false } })`                             | Deleted.                                                                                                          |
 
 When the definitions and the renderers are in their own modules (`./definitions`, `./renderers`), the catalog reads them by name (`component: renderers.Card`, `...definitions.Card`), and each renderer gets its TODO in the renderers module.
@@ -497,9 +497,9 @@ TODO(copilotkit-2.0): The runtime `a2ui` option moved to `generativeUI: { a2uiVe
 Move the options under `generativeUI` with `a2uiVersion: "0.9"`, which keeps the v0.9 behavior for the agents:
 
 ```ts
-import { CopilotRuntime } from "@copilotkit/runtime";
+import { CopilotKitRuntime } from "@copilotkit/runtime";
 
-const runtime = new CopilotRuntime({
+const runtime = new CopilotKitRuntime({
   agents: { shop },
   generativeUI: { a2uiVersion: "0.9", agents: ["shop"], injectA2UITool: true },
 });
@@ -529,13 +529,13 @@ becomes, in `app/api/copilotkit/[[...slug]]/route.ts`:
 
 ```ts
 import {
-  CopilotRuntime,
+  CopilotKitRuntime,
   createCopilotKitRuntimeHandler,
 } from "@copilotkit/runtime";
 import { BuiltInAgent } from "@copilotkit/runtime/agent";
 import { openaiText } from "@tanstack/ai-openai";
 
-const runtime = new CopilotRuntime({
+const runtime = new CopilotKitRuntime({
   agents: { default: new BuiltInAgent({ model: openaiText("gpt-5.5") }) },
 });
 
