@@ -14,7 +14,7 @@ import {
   CopilotRuntime,
   createCopilotRuntimeHandler,
   InMemoryAgentRunner,
-} from "@copilotkit/runtime/v2";
+} from "@copilotkit/runtime";
 import { createBuiltInAgent } from "@/lib/factory/tanstack-factory";
 import { createTranscriptionService } from "@/lib/transcription-service";
 // Wrap handlers so inbound x-* headers (e.g. x-aimock-context) are bound

@@ -18,8 +18,8 @@ import { NextResponse } from "next/server";
 import {
   CopilotRuntime,
   createCopilotRuntimeHandler,
-} from "@copilotkit/runtime/v2";
-import { LangGraphAgent } from "@copilotkit/runtime/langgraph";
+} from "@copilotkit/runtime";
+import { LangGraphAgent } from "@ag-ui/langgraph";
 
 const LANGGRAPH_URL =
   process.env.LANGGRAPH_DEPLOYMENT_URL || "http://localhost:8123";
@@ -46,7 +46,8 @@ const runtime = new CopilotRuntime({
   agents,
   // Canonical: openGenerativeUI: true, a2ui.injectA2UITool: false, mcpApps.
   openGenerativeUI: true,
-  a2ui: {
+  generativeUI: {
+    a2uiVersion: "0.9",
     // The backend graph has its own `generate_a2ui` tool, so we must NOT
     // inject the runtime's default A2UI tool on top (that would double-bind
     // the tool slot and confuse the LLM).

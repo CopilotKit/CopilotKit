@@ -46,14 +46,14 @@ BOOKED_SCHEMA = _load_schema("booked_schema.json")  # noqa: F841
 
 @lru_cache(maxsize=1)
 def compile_flight_template() -> list[dict[str, Any]]:
-    """Compile the authored tree with the build-exported frontend catalog."""
+    """Compile the authored tree with the v0.9 catalog of the frontend."""
     from ag_ui_adk import compile_a2ui_express
 
-    catalog_path = _SCHEMAS_DIR / "flight_catalog.generated.json"
-    if not catalog_path.exists():
-        raise RuntimeError(
-            "Run npm run export:a2ui-catalogs before using Express flight templates"
-        )
+    # The A2UI v0.9 catalog of the flight card, for the A2UI SDK's Express
+    # compiler. The agent writes v0.9; CopilotKit's runtime upgrades the
+    # operations to A2UI 1.0 for the browser. Keep it in sync with
+    # src/app/demos/a2ui-fixed-schema/a2ui/definitions.ts.
+    catalog_path = _SCHEMAS_DIR / "flight_catalog.v09.json"
     catalog = json.loads(catalog_path.read_text(encoding="utf-8"))
     return compile_a2ui_express(
         (_SCHEMAS_DIR / "flight_schema.express").read_text(encoding="utf-8"),

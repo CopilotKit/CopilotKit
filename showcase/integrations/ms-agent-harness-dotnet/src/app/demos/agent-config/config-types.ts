@@ -2,11 +2,11 @@ export type Tone = "professional" | "casual" | "enthusiastic";
 export type Expertise = "beginner" | "intermediate" | "expert";
 export type ResponseLength = "concise" | "detailed";
 
-export interface AgentConfig {
+export type AgentConfig = {
   tone: Tone;
   expertise: Expertise;
   responseLength: ResponseLength;
-}
+};
 
 export const DEFAULT_AGENT_CONFIG: AgentConfig = {
   tone: "professional",

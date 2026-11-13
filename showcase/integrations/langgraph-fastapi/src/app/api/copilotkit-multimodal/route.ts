@@ -18,8 +18,8 @@ import { NextResponse } from "next/server";
 import {
   CopilotRuntime,
   createCopilotRuntimeHandler,
-} from "@copilotkit/runtime/v2";
-import { LangGraphAgent } from "@copilotkit/runtime/langgraph";
+} from "@copilotkit/runtime";
+import { LangGraphAgent } from "@ag-ui/langgraph";
 
 const AGENT_URL = process.env.AGENT_URL || "http://localhost:8123";
 

@@ -2,7 +2,7 @@ import {
   CopilotRuntime,
   createCopilotRuntimeHandler,
   InMemoryAgentRunner,
-} from "@copilotkit/runtime/v2";
+} from "@copilotkit/runtime";
 import { createBeautifulChatAgent } from "@/lib/factory/beautiful-chat-factory";
 // Wrap handlers so inbound x-* headers (e.g. x-aimock-context) are bound
 // into ALS for the factory's `forwardingFetch` to re-attach on outbound
@@ -29,7 +29,8 @@ const runtime = new CopilotRuntime({
   agents: { "beautiful-chat": createBeautifulChatAgent() },
   runner: new InMemoryAgentRunner(),
   openGenerativeUI: true,
-  a2ui: {
+  generativeUI: {
+    a2uiVersion: "0.9",
     // Inject the dynamic A2UI render tool (`render_a2ui`) into the agent.
     injectA2UITool: true,
     // Models follow the tool-usage guide and omit `catalogId`; the middleware

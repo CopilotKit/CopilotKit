@@ -12,7 +12,7 @@ import { NextResponse } from "next/server";
 import {
   CopilotRuntime,
   createCopilotRuntimeHandler,
-} from "@copilotkit/runtime/v2";
+} from "@copilotkit/runtime";
 import { HttpAgent } from "@ag-ui/client";
 import { extractForwardedHeaders } from "@/lib/header-forwarding";
 
@@ -31,7 +31,8 @@ export const POST = async (req: NextRequest) => {
 
     const runtime = new CopilotRuntime({
       agents: { "a2ui-fixed-schema": a2uiFixedSchemaAgent },
-      a2ui: {
+      generativeUI: {
+        a2uiVersion: "0.9",
         // The backend agent emits its own `a2ui_operations` container inside
         // `display_flight` (see src/agents/a2ui_fixed_agent.py). We still run
         // the A2UI middleware so it detects the container in tool results and

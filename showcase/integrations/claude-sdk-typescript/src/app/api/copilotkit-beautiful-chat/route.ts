@@ -18,7 +18,7 @@ import type { NextRequest } from "next/server";
 import {
   CopilotRuntime,
   createCopilotRuntimeHandler,
-} from "@copilotkit/runtime/v2";
+} from "@copilotkit/runtime";
 import type { AbstractAgent } from "@ag-ui/client";
 import { createClaudeHttpAgent } from "@/app/api/_shared/claude-http-agent";
 import { internalRuntimeErrorResponse } from "@/app/api/_shared/route-error";
@@ -38,7 +38,8 @@ const runtime = new CopilotRuntime({
   // @ts-ignore -- see main route.ts
   agents,
   openGenerativeUI: true,
-  a2ui: {
+  generativeUI: {
+    a2uiVersion: "0.9",
     // Do NOT inject a competing runtime render_a2ui tool. Frontend +
     // middleware own the a2ui surface here.
     injectA2UITool: false,

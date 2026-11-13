@@ -15,7 +15,7 @@
 // same runtime URL (/api/copilotkit). The only difference is whether
 // the `messageView.reasoningMessage` slot is overridden.
 
-import { CopilotKit, CopilotChat } from "@copilotkit/react-core/v2";
+import { CopilotKitProvider, CopilotChat } from "@copilotkit/react-core";
 import { useReasoningDefaultSuggestions } from "./suggestions";
 
 // @region[default-reasoning-zero-config]
@@ -23,13 +23,13 @@ const AGENT_ID = "reasoning-default";
 
 export default function ReasoningDefaultDemo() {
   return (
-    <CopilotKit runtimeUrl="/api/copilotkit" agent={AGENT_ID}>
+    <CopilotKitProvider runtimeUrl="/api/copilotkit" agentId={AGENT_ID}>
       <div className="flex justify-center items-center h-screen w-full">
         <div className="h-full w-full max-w-4xl">
           <Chat />
         </div>
       </div>
-    </CopilotKit>
+    </CopilotKitProvider>
   );
 }
 

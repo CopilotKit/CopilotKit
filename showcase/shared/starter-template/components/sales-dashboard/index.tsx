@@ -1,4 +1,4 @@
-import { useAgent } from "@copilotkit/react-core/v2";
+import { useAgent } from "@copilotkit/react-core";
 import { TodoList } from "./todo-list";
 import type { SalesTodo } from "../../types";
 import { SALES_STAGES } from "../../types";

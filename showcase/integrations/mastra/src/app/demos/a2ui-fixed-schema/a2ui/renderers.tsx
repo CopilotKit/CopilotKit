@@ -1,9 +1,9 @@
 "use client";
 
 /**
- * A2UI catalog RENDERERS — React implementations for the custom components
- * declared in `./definitions`. TypeScript enforces that the renderer map's
- * keys and prop shapes match the definitions exactly.
+ * Generative UI RENDERERS — React implementations for the custom components
+ * declared in `./definitions`. Each component's props are typed from its
+ * schema, so the renderer and the definition cannot drift apart.
  *
  * Visual style: ShadCN aesthetic (neutral palette, rounded-xl, subtle
  * borders, clean typography). Tailwind utility classes only — no `cn()` /
@@ -11,7 +11,8 @@
  * `../_components/`.
  */
 import React, { useState } from "react";
-import type { CatalogRenderers } from "@copilotkit/a2ui-renderer";
+
+import type { z } from "zod";
 
 import type { Definitions } from "./definitions";
 import { Card } from "../_components/card";
@@ -19,22 +20,17 @@ import { Badge } from "../_components/badge";
 import { Button as UIButton } from "../_components/button";
 import { Separator } from "../_components/separator";
 
-// `DynString` props are typed as `string | { path }` (see definitions.ts), but
-// the A2UI binder resolves path bindings before render — renderers only ever
-// see resolved strings. One shared helper keeps that narrowing in one place.
-const s = (v: unknown): string => (typeof v === "string" ? v : "");
-
 /**
- * ActionButton: wires the A2UI Button's `action` to a click handler and tracks
- * its own `done` state so clicking "Book flight" flips to a "Booked" confirmation.
- * The GenericBinder resolves the schema `action` (with `{ event }`) into a
- * callable, so `props.action` is a `() => void` at render time.
+ * ActionButton: wires the Button's `onClick` event to a click handler and
+ * tracks its own `done` state so clicking "Book flight" flips to a "Booked"
+ * confirmation. The agent's v0.9 `action` arrives as the `onClick` event, a
+ * function the button calls to send the event back to the agent.
  */
 function ActionButton({
   action,
   children: child,
 }: {
-  action: unknown;
+  action?: () => void;
   children?: React.ReactNode;
 }) {
   const [done, setDone] = useState(false);
@@ -45,7 +41,7 @@ function ActionButton({
       className="w-full"
       onClick={() => {
         if (done) return;
-        if (typeof action === "function") (action as () => void)();
+        action?.();
         setDone(true);
       }}
     >
@@ -69,27 +65,36 @@ function ActionButton({
   );
 }
 
+/**
+ * The props a component gets: the output of its schema. Generative UI
+ * resolves data bindings before render, and hands `child` / `children` over
+ * as rendered nodes.
+ */
+type PropsOf<Name extends keyof Definitions> = z.output<
+  Definitions[Name]["props"]
+>;
+
 // @region[renderers-tsx]
-export const renderers: CatalogRenderers<Definitions> = {
+export const renderers = {
   /**
-   * Card override: ShadCN-style outer container. The basic catalog's Card
+   * Card override: ShadCN-style outer container. The standard Card
    * uses inline styles; overriding here keeps the demo's tailwind aesthetic.
    * The flight schema renders Card > Column > [Title, Row, …]; the inner
    * Column adds the vertical spacing.
    */
-  Card: ({ props, children }) => (
+  Card: (props: PropsOf<"Card">) => (
     <Card className="w-full max-w-md p-5" data-testid="a2ui-fixed-card">
-      {props.child ? children(props.child) : null}
+      {props.child}
     </Card>
   ),
-  Title: ({ props }) => (
+  Title: (props: PropsOf<"Title">) => (
     <div className="flex items-center justify-between">
       <div className="space-y-1">
         <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-neutral-500 dark:text-muted-foreground">
           Itinerary
         </p>
         <h3 className="text-base font-semibold leading-none tracking-tight text-neutral-900 dark:text-foreground">
-          {s(props.text)}
+          {props.text}
         </h3>
       </div>
       <Badge variant="outline" className="font-mono">
@@ -97,10 +102,10 @@ export const renderers: CatalogRenderers<Definitions> = {
       </Badge>
     </div>
   ),
-  Airport: ({ props }) => (
+  Airport: (props: PropsOf<"Airport">) => (
     <div className="flex flex-col items-center">
       <span className="font-mono text-2xl font-semibold tracking-wider text-neutral-900 dark:text-foreground">
-        {s(props.code)}
+        {props.code}
       </span>
     </div>
   ),
@@ -125,18 +130,18 @@ export const renderers: CatalogRenderers<Definitions> = {
       <Separator className="flex-1 bg-neutral-200 dark:bg-border" />
     </div>
   ),
-  AirlineBadge: ({ props }) => (
+  AirlineBadge: (props: PropsOf<"AirlineBadge">) => (
     <Badge variant="secondary" className="uppercase tracking-[0.08em]">
-      {s(props.name)}
+      {props.name}
     </Badge>
   ),
-  PriceTag: ({ props }) => (
+  PriceTag: (props: PropsOf<"PriceTag">) => (
     <div className="flex items-baseline gap-1">
       <span className="text-[11px] font-medium uppercase tracking-[0.14em] text-neutral-500 dark:text-muted-foreground">
         Total
       </span>
       <span className="font-mono text-base font-semibold text-neutral-900 dark:text-foreground">
-        {s(props.amount)}
+        {props.amount}
       </span>
     </div>
   ),
@@ -145,10 +150,8 @@ export const renderers: CatalogRenderers<Definitions> = {
    * "Booked" confirmation after click (see ActionButton above). Mirrors the
    * built-in-agent a2ui-fixed-schema renderer.
    */
-  Button: ({ props, children }) => (
-    <ActionButton action={(props as { action?: unknown }).action}>
-      {props.child ? children(props.child) : null}
-    </ActionButton>
+  Button: (props: PropsOf<"Button"> & { onClick?: () => void }) => (
+    <ActionButton action={props.onClick}>{props.child}</ActionButton>
   ),
 };
 // @endregion[renderers-tsx]

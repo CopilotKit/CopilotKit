@@ -10,10 +10,10 @@
 
 import React from "react";
 import {
-  CopilotKit,
+  CopilotKitProvider,
   CopilotChat,
   useDefaultRenderTool,
-} from "@copilotkit/react-core/v2";
+} from "@copilotkit/react-core";
 import {
   CustomCatchallRenderer,
   type CatchallToolStatus,
@@ -22,16 +22,16 @@ import { useSuggestions } from "./suggestions";
 
 export default function ToolRenderingCustomCatchallDemo() {
   return (
-    <CopilotKit
+    <CopilotKitProvider
       runtimeUrl="/api/copilotkit"
-      agent="tool-rendering-custom-catchall"
+      agentId="tool-rendering-custom-catchall"
     >
       <div className="flex justify-center items-center h-screen w-full">
         <div className="h-full w-full max-w-4xl">
           <Chat />
         </div>
       </div>
-    </CopilotKit>
+    </CopilotKitProvider>
   );
 }
 

@@ -2,7 +2,7 @@
 //
 // Why its own route (and not the shared /api/copilotkit)?
 // The page registers a client-side A2UI catalog (copilotkit://flight-fixed-catalog)
-// and passes it via <CopilotKit a2ui={{ catalog }}>. A provider that ships a
+// and passes it via <CopilotKitProvider generativeUI={{ ui: catalog }}>. A provider that ships a
 // catalog makes the runtime default `injectA2UITool` to true (see
 // packages/runtime/.../shared/agent-utils.ts). But weatherAgent already owns
 // its own `generate_a2ui` tool, so we must set injectA2UITool:false to avoid a
@@ -23,7 +23,7 @@ import { NextResponse } from "next/server";
 import {
   CopilotRuntime,
   createCopilotRuntimeHandler,
-} from "@copilotkit/runtime/v2";
+} from "@copilotkit/runtime";
 import { getLocalAgent } from "@ag-ui/mastra";
 import { mastra } from "@/mastra";
 import { withForwardedHeaders } from "@/mastra/_header_forwarding";
@@ -48,7 +48,8 @@ const runtime = new CopilotRuntime({
     // Internal components call useAgent() with no args (defaults to "default").
     default: a2uiFixedAgent,
   },
-  a2ui: {
+  generativeUI: {
+    a2uiVersion: "0.9",
     // weatherAgent already has its own `generate_a2ui` tool — don't double-bind.
     injectA2UITool: false,
     // Pin the catalog the page registers so a model omitting catalogId still

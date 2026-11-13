@@ -9,4 +9,4 @@ container directly in the tool result.
 The dedicated runtime route (`/api/copilotkit-a2ui-fixed-schema`) runs with
 `a2ui.injectA2UITool: false` because the backend owns the rendering tool;
 the A2UI middleware still detects the operations container and forwards
-surfaces to the frontend catalog wired via `<CopilotKit a2ui={{ catalog }}>`.
+surfaces to the frontend catalog wired via `<CopilotKitProvider generativeUI={{ ui: catalog }}>`.

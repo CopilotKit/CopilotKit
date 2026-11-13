@@ -7,7 +7,7 @@ import { NextResponse } from "next/server";
 import {
   CopilotRuntime,
   createCopilotRuntimeHandler,
-} from "@copilotkit/runtime/v2";
+} from "@copilotkit/runtime";
 import { HttpAgent } from "@ag-ui/client";
 import { extractForwardedHeaders } from "@/lib/header-forwarding";
 
@@ -25,6 +25,10 @@ export const POST = async (req: NextRequest) => {
 
     const runtime = new CopilotRuntime({
       agents: { "declarative-gen-ui": declarativeGenUiAgent },
+      // The agent speaks A2UI v0.9. The page passes a catalog to the provider,
+      // so the runtime turns on `injectA2UITool` for the run, and the agent
+      // adapter adds `generate_a2ui` and paints the surfaces it returns.
+      generativeUI: { a2uiVersion: "0.9" },
     });
 
     const copilotHandler = createCopilotRuntimeHandler({

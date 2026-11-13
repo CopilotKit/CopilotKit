@@ -18,7 +18,7 @@ import type { NextRequest } from "next/server";
 import {
   CopilotRuntime,
   createCopilotRuntimeHandler,
-} from "@copilotkit/runtime/v2";
+} from "@copilotkit/runtime";
 import { getLocalAgent } from "@ag-ui/mastra";
 import { mastra } from "@/mastra";
 import { DEMO_AUTH_HEADER } from "@/app/demos/auth/demo-token";

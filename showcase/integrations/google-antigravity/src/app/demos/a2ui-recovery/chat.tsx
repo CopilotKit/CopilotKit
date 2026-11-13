@@ -1,6 +1,6 @@
 "use client";
 
-import { CopilotChat } from "@copilotkit/react-core/v2";
+import { CopilotChat } from "@copilotkit/react-core";
 import { useA2uiRecoverySuggestions } from "./suggestions";
 // Reuse the declarative-gen-ui sales dataset/context so the healed surface has
 // real numbers to render.

@@ -1,4 +1,4 @@
-import type { TanStackChatMessage } from "@copilotkit/runtime/v2";
+import type { TanStackChatMessage } from "@copilotkit/runtime/agent";
 import { extractText, getDocumentProxy } from "unpdf";
 import { createBuiltInAgent } from "./tanstack-factory";
 

@@ -48,9 +48,9 @@ describe("browser structural SSE arrival evidence", () => {
     controller.enqueue(
       encoder.encode(
         sseEvent("ACTIVITY_SNAPSHOT", {
-          messageId: "a2ui-surface-1",
-          activityType: "a2ui-surface",
-          content: { inferenceFormat: "express", a2ui_operations: [{ a: 1 }] },
+          messageId: "genui:surface-1",
+          activityType: "generative-ui-surface",
+          content: { operations: [{ a: 1 }] },
         }),
       ),
     );
@@ -58,12 +58,9 @@ describe("browser structural SSE arrival evidence", () => {
     controller.enqueue(
       encoder.encode(
         sseEvent("ACTIVITY_SNAPSHOT", {
-          messageId: "a2ui-surface-1",
-          activityType: "a2ui-surface",
-          content: {
-            inferenceFormat: "express",
-            a2ui_operations: [{ a: 1 }, { b: 2 }],
-          },
+          messageId: "genui:surface-1",
+          activityType: "generative-ui-surface",
+          content: { operations: [{ a: 1 }, { b: 2 }] },
         }),
       ),
     );
@@ -116,11 +113,15 @@ function progressive(): A2uiEvidence {
         batch: i + 2,
         payload: {
           type: "ACTIVITY_SNAPSHOT",
-          messageId: "a2ui-surface-outer",
-          activityType: "a2ui-surface",
+          messageId: "genui:one-surface",
+          activityType: "generative-ui-surface",
           content: {
-            inferenceFormat: "express",
-            a2ui_operations: [
+            surfaceId: "one-surface",
+            target: "chat",
+            catalogId: "catalog",
+            status: "ready",
+            rejected: [],
+            operations: [
               {
                 createSurface: {
                   surfaceId: "one-surface",
@@ -188,7 +189,7 @@ function surfaceSnapshots(evidence: A2uiEvidence) {
   return evidence.events.filter(
     (event) =>
       event.payload.type === "ACTIVITY_SNAPSHOT" &&
-      event.payload.content?.a2ui_operations,
+      event.payload.content?.operations,
   );
 }
 
@@ -213,7 +214,7 @@ describe("A2UI format contract", () => {
       surfaceSnapshots(e)[1]!.batch = surfaceSnapshots(e)[0]!.batch;
     if (defect === "after-result") surfaceSnapshots(e)[1]!.at = 31;
     if (defect === "wrong-id")
-      surfaceSnapshots(e)[1]!.payload.messageId = "a2ui-surface-other";
+      surfaceSnapshots(e)[1]!.payload.messageId = "genui:other";
     if (defect === "no-dom-update")
       e.paints[1]!.signature = e.paints[0]!.signature;
     expect(() => assertA2uiEvidence(e, "express", "stream")).toThrow(
@@ -226,7 +227,7 @@ describe("A2UI format contract", () => {
       (item) => item.payload.type !== "ACTIVITY_SNAPSHOT",
     );
     expect(() => assertA2uiEvidence(e, "express", "stream")).toThrow(
-      /no server surface/,
+      /no generative-ui-surface/,
     );
   });
   it("checks fixed SDK output instead of relying on a selector label", () => {
@@ -269,6 +270,44 @@ describe("A2UI format contract", () => {
     expect(() => assertA2uiEvidence(e, "express", "exhaust")).toThrow(
       /painted/,
     );
+  });
+  it("requires the error surface of an exhausted recovery", () => {
+    const e: A2uiEvidence = {
+      newSurfaceCount: 0,
+      paints: [],
+      events: [
+        {
+          at: 2,
+          batch: 1,
+          payload: {
+            type: "TOOL_CALL_RESULT",
+            content: JSON.stringify({ code: "a2ui_recovery_exhausted" }),
+          },
+        },
+        { at: 3, batch: 2, payload: { type: "RUN_FINISHED" } },
+      ],
+    };
+    expect(() => assertA2uiEvidence(e, "express", "exhaust")).toThrow(
+      /missing error surface/,
+    );
+    e.events.splice(1, 0, {
+      at: 2.5,
+      batch: 1,
+      payload: {
+        type: "ACTIVITY_SNAPSHOT",
+        activityType: "generative-ui-surface",
+        messageId: "genui:a2ui-surface-outer",
+        content: {
+          surfaceId: "a2ui-surface-outer",
+          target: "chat",
+          catalogId: "copilotkit/standard@1",
+          operations: [],
+          status: "error",
+          rejected: [{ index: 0, reason: "root is missing" }],
+        },
+      },
+    });
+    expect(() => assertA2uiEvidence(e, "express", "exhaust")).not.toThrow();
   });
   it("preserves the default URL and existing query parameters", () => {
     expect(withA2uiFormat("http://localhost/demos/a2ui")).toBe(
@@ -332,40 +371,39 @@ it("requires one final surface even when progressive events are valid", () => {
   );
 });
 
-it("requires a rejected first recovery attempt before any painted surface", () => {
+it("accepts a healed surface and rejects one that ended as an error surface", () => {
   const e = progressive();
-  expect(() => assertA2uiEvidence(e, "express", "heal")).toThrow(
-    /rejected first attempt/,
-  );
+  expect(() => assertA2uiEvidence(e, "express", "heal")).not.toThrow();
   e.events.splice(2, 0, {
     at: 5,
     batch: 1,
     payload: {
       type: "ACTIVITY_SNAPSHOT",
-      activityType: "a2ui-surface",
-      messageId: "a2ui-surface-outer",
+      activityType: "generative-ui-surface",
+      messageId: "genui:a2ui-surface-outer",
       content: {
-        inferenceFormat: "express",
-        status: "retrying",
-        errors: [{ code: "invalid" }],
+        surfaceId: "a2ui-surface-outer",
+        target: "chat",
+        catalogId: "copilotkit/standard@1",
+        operations: [],
+        status: "error",
+        rejected: [{ index: 0, reason: "invalid" }],
       },
     },
   });
-  expect(() => assertA2uiEvidence(e, "express", "heal")).not.toThrow();
-  e.paints.unshift({ at: 3, signature: "invalid first draft", count: 1 });
   expect(() => assertA2uiEvidence(e, "express", "heal")).toThrow(
-    /before retry/,
+    /error surface/,
   );
 });
 
 it("counts changed component data as progress even when component and operation counts are unchanged", () => {
   const e = progressive();
-  surfaceSnapshots(e)[1]!.payload.content.a2ui_operations = structuredClone(
-    surfaceSnapshots(e)[0]!.payload.content.a2ui_operations,
+  surfaceSnapshots(e)[1]!.payload.content.operations = structuredClone(
+    surfaceSnapshots(e)[0]!.payload.content.operations,
   );
   surfaceSnapshots(
     e,
-  )[1]!.payload.content.a2ui_operations[2].updateDataModel.value.summary =
+  )[1]!.payload.content.operations[2].updateDataModel.value.summary =
     "Final revenue summary";
   e.paints[1] = { at: 21, signature: "Final revenue summary", count: 1 };
   expect(() => assertA2uiEvidence(e, "express", "stream")).not.toThrow();
@@ -387,8 +425,8 @@ function reorder(value: any): any {
 
 it("ignores object key ordering as evidence of structural progress", () => {
   const e = progressive();
-  surfaceSnapshots(e)[1]!.payload.content.a2ui_operations = reorder(
-    surfaceSnapshots(e)[0]!.payload.content.a2ui_operations,
+  surfaceSnapshots(e)[1]!.payload.content.operations = reorder(
+    surfaceSnapshots(e)[0]!.payload.content.operations,
   );
   expect(() => assertA2uiEvidence(e, "express", "stream")).toThrow(
     /no distinct current-state/,
@@ -426,9 +464,9 @@ it("allows the middleware's final surface snapshot after a fixed template result
         batch: 2,
         payload: {
           type: "ACTIVITY_SNAPSHOT",
-          activityType: "a2ui-surface",
-          messageId: "a2ui-surface-fixed",
-          content: { a2ui_operations: [{ createSurface: {} }] },
+          activityType: "generative-ui-surface",
+          messageId: "genui:fixed",
+          content: { operations: [{ createSurface: {} }] },
         },
       },
       { at: 5, batch: 3, payload: { type: "RUN_FINISHED" } },
@@ -477,7 +515,7 @@ it("retains tool lifecycles and run completion after the argument-event budget",
       sseEvent("TOOL_CALL_ARGS", { toolCallId: "g", delta: "x" }),
     ).join("") +
     sseEvent("ACTIVITY_SNAPSHOT", {
-      activityType: "a2ui-surface",
+      activityType: "generative-ui-surface",
       content: {},
     }) +
     sseEvent("TOOL_CALL_END", { toolCallId: "g" }) +
@@ -507,15 +545,16 @@ it("retains tool lifecycles and run completion after the argument-event budget",
   await handle.stop();
 });
 
-it("requires HEAL rejection initially but accepts progressive replay after reload", async () => {
+it("checks the HEAL turn for a progressive surface, also after reload", async () => {
   const { buildTurns } = await import("../scripts/d5-a2ui-recovery.js");
   let metrics = 0;
+  let evidence = progressive();
   const page = {
     evaluate: async (fn: () => unknown) => {
       const body = fn.toString();
-      if (body.includes("Couldn't generate the UI"))
+      if (body.includes("Part of this UI couldn't be shown."))
         return { metric: metrics, failure: 0 };
-      if (body.includes("newSurfaceCount")) return progressive();
+      if (body.includes("newSurfaceCount")) return evidence;
       return undefined;
     },
   } as unknown as ConversationPage;
@@ -529,7 +568,23 @@ it("requires HEAL rejection initially but accepts progressive replay after reloa
   metrics = 2;
   await expect(
     turn.assertions!(page, { bubbleIndex: 0, text: "" }),
-  ).rejects.toThrow("heal did not report a rejected first attempt");
+  ).resolves.toBeUndefined();
+  // A heal that ended as an error surface fails.
+  evidence = progressive();
+  evidence.events.splice(2, 0, {
+    at: 5,
+    batch: 1,
+    payload: {
+      type: "ACTIVITY_SNAPSHOT",
+      activityType: "generative-ui-surface",
+      messageId: "genui:a2ui-surface-outer",
+      content: { operations: [], status: "error", rejected: [{ index: 0 }] },
+    },
+  });
+  await expect(
+    turn.assertions!(page, { bubbleIndex: 0, text: "" }),
+  ).rejects.toThrow("error surface");
+  evidence = progressive();
   metrics = 0;
   await turn.afterReload?.(page);
   metrics = 2;

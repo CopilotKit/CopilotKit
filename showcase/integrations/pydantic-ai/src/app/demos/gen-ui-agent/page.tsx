@@ -3,10 +3,10 @@
 import React from "react";
 import {
   CopilotChat,
-  CopilotKit,
+  CopilotKitProvider,
   useAgent,
   UseAgentUpdate,
-} from "@copilotkit/react-core/v2";
+} from "@copilotkit/react-core";
 import type { Step } from "./InlineAgentStateCard";
 import { MessageListWithState } from "./message-list-with-state";
 import { useSuggestions } from "./suggestions";
@@ -37,13 +37,13 @@ import { useSuggestions } from "./suggestions";
  */
 export default function GenUiAgentDemo() {
   return (
-    <CopilotKit runtimeUrl="/api/copilotkit" agent="gen-ui-agent">
+    <CopilotKitProvider runtimeUrl="/api/copilotkit" agentId="gen-ui-agent">
       <div className="flex justify-center items-center h-screen w-full">
         <div className="h-full w-full max-w-4xl">
           <Chat />
         </div>
       </div>
-    </CopilotKit>
+    </CopilotKitProvider>
   );
 }
 

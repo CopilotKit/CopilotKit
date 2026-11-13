@@ -18,7 +18,7 @@ import { NextResponse } from "next/server";
 import {
   CopilotRuntime,
   createCopilotRuntimeHandler,
-} from "@copilotkit/runtime/v2";
+} from "@copilotkit/runtime";
 import type { AbstractAgent } from "@ag-ui/client";
 import { HttpAgent } from "@ag-ui/client";
 
@@ -37,7 +37,8 @@ const runtime = new CopilotRuntime({
   // @ts-ignore -- see main route.ts
   agents,
   openGenerativeUI: true,
-  a2ui: {
+  generativeUI: {
+    a2uiVersion: "0.9",
     // The targeted unified Langroid agent ("/") already registers the
     // `generate_a2ui` tool itself (GenerateA2UITool in ALL_TOOLS, enabled
     // via create_agent), so the runtime must NOT inject a second copy —

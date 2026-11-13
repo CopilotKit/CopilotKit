@@ -32,14 +32,14 @@ def test_express_fixed_tree_matches_direct_json_and_keeps_runtime_bindings():
     assert len([op for op in express["a2ui_operations"] if "createSurface" in op]) == 1
 
 
-def test_raw_express_fixtures_use_the_build_exported_frontend_catalog():
+def test_raw_express_fixtures_use_the_v09_frontend_catalog():
     import json
     from pathlib import Path
 
     integration = Path(__file__).resolve().parents[2]
     catalog = json.loads(
         (
-            integration / "src/agents/a2ui_schemas/declarative_catalog.generated.json"
+            integration / "src/agents/a2ui_schemas/declarative_catalog.v09.json"
         ).read_text()
     )
     fixtures = json.loads(
@@ -73,7 +73,7 @@ def test_raw_recovery_fixtures_reject_bad_blocks_and_compile_the_repair():
     integration = Path(__file__).resolve().parents[2]
     catalog = json.loads(
         (
-            integration / "src/agents/a2ui_schemas/declarative_catalog.generated.json"
+            integration / "src/agents/a2ui_schemas/declarative_catalog.v09.json"
         ).read_text()
     )
     fixtures = json.loads(

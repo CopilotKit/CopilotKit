@@ -3,18 +3,21 @@
 import React from "react";
 import {
   CopilotChat,
-  CopilotKit,
+  CopilotKitProvider,
   useComponent,
-} from "@copilotkit/react-core/v2";
+} from "@copilotkit/react-core";
 import { BarChart, barChartPropsSchema } from "./bar-chart";
 import { PieChart, pieChartPropsSchema } from "./pie-chart";
 import { useSuggestions } from "./suggestions";
 
 export default function ControlledGenUiDemo() {
   return (
-    <CopilotKit runtimeUrl="/api/copilotkit" agent="gen-ui-tool-based">
+    <CopilotKitProvider
+      runtimeUrl="/api/copilotkit"
+      agentId="gen-ui-tool-based"
+    >
       <Chat />
-    </CopilotKit>
+    </CopilotKitProvider>
   );
 }
 

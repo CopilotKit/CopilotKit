@@ -16,7 +16,7 @@ import { randomUUID } from "node:crypto";
 import {
   CopilotRuntime,
   createCopilotRuntimeHandler,
-} from "@copilotkit/runtime/v2";
+} from "@copilotkit/runtime";
 import type { AbstractAgent } from "@ag-ui/client";
 import { createClaudeHttpAgent } from "@/app/api/_shared/claude-http-agent";
 

@@ -1,8 +1,8 @@
 "use client";
 
 import React from "react";
-import { CopilotChatAssistantMessage } from "@copilotkit/react-core/v2";
-import type { CopilotChatAssistantMessageProps } from "@copilotkit/react-core/v2";
+import { CopilotChatAssistantMessage } from "@copilotkit/react-core";
+import type { CopilotChatAssistantMessageProps } from "@copilotkit/react-core";
 
 // Custom assistantMessage sub-slot of messageView — wraps the default assistant
 // message in a visibly tinted card with a corner "slot" badge, proving the slot

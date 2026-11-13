@@ -6,7 +6,7 @@ import type { Page } from "@playwright/test";
 //
 // Pattern: A2UI dynamic-schema BYOC. The frontend registers a custom catalog
 // (Row, Column, Card, StatusBadge, Metric, InfoRow, DataTable, PrimaryButton,
-// PieChart, BarChart) via `a2ui={{ catalog: myCatalog }}`. The agent plays a
+// PieChart, BarChart) via `generativeUI={{ ui: myCatalog }}`. The agent plays a
 // sales analyst for the fictional "Vantage Threads" company; the dataset and
 // per-question composition rules are registered as agent context in
 // `declarative-gen-ui/sales-context.ts`. Suggestion pills are natural

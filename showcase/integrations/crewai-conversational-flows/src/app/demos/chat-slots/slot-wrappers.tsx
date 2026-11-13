@@ -9,13 +9,13 @@ import {
   CopilotChatView,
   CopilotChatInput,
   CopilotChatSuggestionPill,
-} from "@copilotkit/react-core/v2";
+} from "@copilotkit/react-core";
 import type {
   CopilotChatAssistantMessageProps,
   CopilotChatUserMessageProps,
   CopilotChatReasoningMessageProps,
   CopilotChatSuggestionPillProps,
-} from "@copilotkit/react-core/v2";
+} from "@copilotkit/react-core";
 import { SlotMarker } from "./slot-marker";
 
 // =====================================================================

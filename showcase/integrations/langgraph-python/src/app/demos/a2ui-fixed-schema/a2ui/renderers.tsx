@@ -1,9 +1,9 @@
 "use client";
 
 /**
- * A2UI catalog RENDERERS — React implementations for the custom components
- * declared in `./definitions`. TypeScript enforces that the renderer map's
- * keys and prop shapes match the definitions exactly.
+ * Generative UI RENDERERS — React implementations for the custom components
+ * declared in `./definitions`. Each component's props are typed from its
+ * schema, so the renderer and the definition cannot drift apart.
  *
  * Visual style: ShadCN aesthetic (neutral palette, rounded-xl, subtle
  * borders, clean typography). Tailwind utility classes only — no `cn()` /
@@ -11,7 +11,7 @@
  * `../_components/`.
  */
 import React from "react";
-import type { CatalogRenderers } from "@copilotkit/a2ui-renderer";
+import type { z } from "zod";
 
 import type { Definitions } from "./definitions";
 import { Card } from "../_components/card";
@@ -19,32 +19,36 @@ import { Badge } from "../_components/badge";
 import { Button as UIButton } from "../_components/button";
 import { Separator } from "../_components/separator";
 
-// `DynString` props are typed as `string | { path }` (see definitions.ts), but
-// the A2UI binder resolves path bindings before render — renderers only ever
-// see resolved strings. One shared helper keeps that narrowing in one place.
-const s = (v: unknown): string => (typeof v === "string" ? v : "");
+/**
+ * The props a component gets: the output of its schema. Generative UI
+ * resolves path bindings before render, and hands `child` over as a
+ * rendered node.
+ */
+type PropsOf<Name extends keyof Definitions> = z.output<
+  Definitions[Name]["props"]
+>;
 
 // @region[renderers-tsx]
-export const renderers: CatalogRenderers<Definitions> = {
+export const renderers = {
   /**
-   * Card override: ShadCN-style outer container. The basic catalog's Card
+   * Card override: ShadCN-style outer container. The standard Card
    * uses inline styles; overriding here keeps the demo's tailwind aesthetic.
    * The flight schema renders Card > Column > [Title, Row, …]; the inner
    * Column adds the vertical spacing.
    */
-  Card: ({ props, children }) => (
+  Card: (props: PropsOf<"Card">) => (
     <Card className="w-full max-w-md p-5" data-testid="a2ui-fixed-card">
-      {props.child ? children(props.child) : null}
+      {props.child}
     </Card>
   ),
-  Title: ({ props }) => (
+  Title: (props: PropsOf<"Title">) => (
     <div className="flex items-center justify-between">
       <div className="space-y-1">
         <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-neutral-500 dark:text-muted-foreground">
           Itinerary
         </p>
         <h3 className="text-base font-semibold leading-none tracking-tight text-neutral-900 dark:text-foreground">
-          {s(props.text)}
+          {props.text}
         </h3>
       </div>
       <Badge variant="outline" className="font-mono">
@@ -52,10 +56,10 @@ export const renderers: CatalogRenderers<Definitions> = {
       </Badge>
     </div>
   ),
-  Airport: ({ props }) => (
+  Airport: (props: PropsOf<"Airport">) => (
     <div className="flex flex-col items-center">
       <span className="font-mono text-2xl font-semibold tracking-wider text-neutral-900 dark:text-foreground">
-        {s(props.code)}
+        {props.code}
       </span>
     </div>
   ),
@@ -80,31 +84,30 @@ export const renderers: CatalogRenderers<Definitions> = {
       <Separator className="flex-1 bg-neutral-200 dark:bg-border" />
     </div>
   ),
-  AirlineBadge: ({ props }) => (
+  AirlineBadge: (props: PropsOf<"AirlineBadge">) => (
     <Badge variant="secondary" className="uppercase tracking-[0.08em]">
-      {s(props.name)}
+      {props.name}
     </Badge>
   ),
-  PriceTag: ({ props }) => (
+  PriceTag: (props: PropsOf<"PriceTag">) => (
     <div className="flex items-baseline gap-1">
       <span className="text-[11px] font-medium uppercase tracking-[0.14em] text-neutral-500 dark:text-muted-foreground">
         Total
       </span>
       <span className="font-mono text-base font-semibold text-neutral-900 dark:text-foreground">
-        {s(props.amount)}
+        {props.amount}
       </span>
     </div>
   ),
   /**
    * Button override: this is a pure-presentation demo, so the button just
-   * renders its label. The schema declares an `action` for visual fidelity,
-   * but the click handler is inert until the Python SDK exposes
-   * `action_handlers=` on `a2ui.render` (see `src/agents/a2ui_fixed.py`).
+   * renders its label. The schema declares an `onClick` event (the agent's
+   * v0.9 `action`) for visual fidelity, but the click handler is inert until
+   * the Python SDK exposes `action_handlers=` on `a2ui.render` (see
+   * `src/agents/a2ui_fixed.py`).
    */
-  Button: ({ props, children }) => (
-    <UIButton className="w-full">
-      {props.child ? children(props.child) : null}
-    </UIButton>
+  Button: (props: PropsOf<"Button">) => (
+    <UIButton className="w-full">{props.child}</UIButton>
   ),
 };
 // @endregion[renderers-tsx]

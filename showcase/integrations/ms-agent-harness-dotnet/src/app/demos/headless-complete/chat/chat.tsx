@@ -18,7 +18,7 @@
  */
 
 import React, { useCallback, useState } from "react";
-import { useAgent, useCopilotKit } from "@copilotkit/react-core/v2";
+import { useAgent, useCopilotKit } from "@copilotkit/react-core";
 import type { Attachment, InputContent } from "@copilotkit/shared";
 import { Card, CardContent } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";

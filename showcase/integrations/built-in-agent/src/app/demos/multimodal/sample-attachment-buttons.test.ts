@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 // The component module imports the React hooks, whose package also pulls in
 // CSS that Node cannot load. submitSample takes the core explicitly, so the
 // hooks are never called here.
-vi.mock("@copilotkit/react-core/v2", () => ({
+vi.mock("@copilotkit/react-core", () => ({
   useAgent: vi.fn(),
   useCopilotKit: vi.fn(),
 }));

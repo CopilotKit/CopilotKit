@@ -70,8 +70,11 @@ try {
             message: boundedText(event.message),
           });
         }
-        if (event.type === "ACTIVITY_SNAPSHOT") {
-          operations.push(...(event.content?.a2ui_operations ?? []));
+        if (
+          event.type === "ACTIVITY_SNAPSHOT" &&
+          event.activityType === "generative-ui-surface"
+        ) {
+          operations.push(...(event.content?.operations ?? []));
         }
       }
     }

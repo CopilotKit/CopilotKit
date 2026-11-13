@@ -22,8 +22,8 @@ import type { NextRequest } from "next/server";
 import {
   CopilotRuntime,
   createCopilotRuntimeHandler,
-} from "@copilotkit/runtime/v2";
-import { LangGraphAgent } from "@copilotkit/runtime/langgraph";
+} from "@copilotkit/runtime";
+import { LangGraphAgent } from "@ag-ui/langgraph";
 import { DEMO_AUTH_HEADER } from "@/app/demos/auth/demo-token";
 
 const LANGGRAPH_URL =

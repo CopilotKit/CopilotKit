@@ -2,11 +2,11 @@
 
 import React from "react";
 import {
-  CopilotKit,
+  CopilotKitProvider,
   useAgent,
   UseAgentUpdate,
   useRenderTool,
-} from "@copilotkit/react-core/v2";
+} from "@copilotkit/react-core";
 import { z } from "zod";
 
 import type { Delegation } from "./delegation-log";
@@ -22,9 +22,9 @@ interface SubagentsAgentState {
 
 export default function SubagentsDemo() {
   return (
-    <CopilotKit runtimeUrl="/api/copilotkit" agent="subagents">
+    <CopilotKitProvider runtimeUrl="/api/copilotkit" agentId="subagents">
       <DemoContent />
-    </CopilotKit>
+    </CopilotKitProvider>
   );
 }
 

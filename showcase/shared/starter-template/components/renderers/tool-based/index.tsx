@@ -1,8 +1,7 @@
 "use client";
 
 import React from "react";
-import { CopilotKit } from "@copilotkit/react-core";
-import { CopilotSidebar } from "@copilotkit/react-core/v2";
+import { CopilotKitProvider, CopilotSidebar } from "@copilotkit/react-core";
 import { useShowcaseHooks } from "../../../hooks/use-showcase-hooks";
 import { useShowcaseSuggestions } from "../../../hooks/use-showcase-suggestions";
 import { SalesDashboard } from "../../sales-dashboard";
@@ -30,8 +29,8 @@ function DashboardContent({ agentId }: ToolBasedDashboardProps) {
 
 export function ToolBasedDashboard({ agentId }: ToolBasedDashboardProps) {
   return (
-    <CopilotKit runtimeUrl="/api/copilotkit" agent={agentId}>
+    <CopilotKitProvider runtimeUrl="/api/copilotkit" agentId={agentId}>
       <DashboardContent agentId={agentId} />
-    </CopilotKit>
+    </CopilotKitProvider>
   );
 }

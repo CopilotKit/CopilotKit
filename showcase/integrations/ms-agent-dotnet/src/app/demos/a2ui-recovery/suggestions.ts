@@ -1,4 +1,4 @@
-import { useConfigureSuggestions } from "@copilotkit/react-core/v2";
+import { useConfigureSuggestions } from "@copilotkit/react-core";
 
 // Two pills exercise the recovery loop deterministically via aimock fixtures
 // (showcase/aimock/d6/ms-agent-dotnet/a2ui-recovery.json). ms-agent-dotnet's
@@ -12,7 +12,7 @@ import { useConfigureSuggestions } from "@copilotkit/react-core/v2";
 //                is valid -> painted (>= 2 declarative-metric tiles).
 //   - "exhaust": inner _design_a2ui_surface is invalid on every attempt ->
 //                attempt cap hit -> a2ui_recovery_exhausted -> tasteful
-//                `failed` state ("Couldn't generate the UI").
+//                `failed` state ("Part of this UI couldn't be shown.").
 export function useA2uiRecoverySuggestions() {
   useConfigureSuggestions({
     suggestions: [

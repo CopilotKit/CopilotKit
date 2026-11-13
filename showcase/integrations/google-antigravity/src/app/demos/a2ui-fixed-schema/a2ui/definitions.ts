@@ -1,44 +1,35 @@
 /**
- * A2UI catalog DEFINITIONS — platform-agnostic.
+ * Generative UI component DEFINITIONS — platform-agnostic.
  *
- * Each entry declares a component name + its Zod props schema. The basic
+ * Each entry declares a component name + its Zod props schema. The standard
  * catalog (Card, Column, Row, Text, Button, …) ships with CopilotKit and
- * is mixed in via `createCatalog(..., { includeBasicCatalog: true })`, so
- * we only declare the project-specific additions and the visual overrides
- * here. (Custom entries with the same name as a basic component override
- * the basic one — Catalog dedupes by `comp.name`, last-write-wins.)
+ * is mixed in via `extends: [standardUI]` in `./catalog.ts`, so we only
+ * declare the project-specific additions and the visual overrides here.
+ * (`./catalog.ts` omits the standard components that these entries replace.)
  *
- * IMPORTANT — path bindings: fields that can be bound to a data-model path
- * (e.g. `{ path: "/origin" }` in the fixed schema JSON) must declare their
- * Zod type as a union of `z.string()` and `z.object({ path: z.string() })`.
- * The A2UI `GenericBinder` uses this union to detect the field as dynamic
- * and resolve the path against the current data model at render time. Using
- * plain `z.string()` causes the raw `{ path }` object to reach the
- * renderer, which React then throws on (error #31 "object with keys {path}").
- * This matches the canonical catalog's `DynString` helper:
- *   examples/starters/langgraph-python/src/app/declarative-generative-ui/definitions.ts
+ * Path bindings: fields that the fixed schema JSON binds to a data-model
+ * path (e.g. `{ path: "/origin" }`) are plain `z.string()`. CopilotKit
+ * resolves the binding before render, so the renderer only ever sees the
+ * resolved string.
  */
 // @region[definitions-types]
 import { z } from "zod";
-import type { CatalogDefinitions } from "@copilotkit/a2ui-renderer";
+import { child } from "@copilotkit/react-core/generative-ui";
 
-/**
- * Dynamic string: literal OR a data-model path binding. The GenericBinder
- * resolves path bindings to the actual value at render time.
- */
-const DynString = z.union([z.string(), z.object({ path: z.string() })]);
+/** A string the fixed schema may bind to a data-model path. */
+const DynString = z.string();
 
 export const definitions = {
   /**
    * Card override: gives the outer flight-card container a ShadCN look
-   * (rounded-xl, neutral-200 border, soft shadow). The basic catalog's
+   * (rounded-xl, neutral-200 border, soft shadow). The standard
    * Card uses inline styles; overriding here lets the demo's renderer
    * adopt the demo's Tailwind aesthetic without touching the schema JSON.
    */
   Card: {
     description: "A container card with a single child.",
     props: z.object({
-      child: z.string(),
+      child: child(),
     }),
   },
   Title: {
@@ -72,7 +63,7 @@ export const definitions = {
   /**
    * Button override: swaps in an ActionButton renderer that tracks
    * its own `done` state so clicking "Book flight" visually updates to
-   * a "Booked ✓" confirmation. The basic catalog's Button is stateless,
+   * a "Booked ✓" confirmation. The standard Button is stateless,
    * so without this override the click fires the action but the button
    * looks unchanged. Mirrors the pattern in beautiful-chat
    * (src/app/demos/beautiful-chat/declarative-generative-ui/renderers.tsx).
@@ -81,27 +72,14 @@ export const definitions = {
     description:
       "An interactive button with an action event. Use 'child' with a Text component ID for the label. After click, the button shows a confirmation state.",
     props: z.object({
-      child: z
-        .string()
-        .describe(
-          "The ID of the child component (e.g. a Text component for the label).",
-        ),
+      child: child(
+        "The ID of the child component (e.g. a Text component for the label).",
+      ),
       variant: z.enum(["primary", "secondary", "ghost"]).optional(),
-      // Union with { event } so GenericBinder resolves this as ACTION → callable () => void.
-      action: z
-        .union([
-          z.object({
-            event: z.object({
-              name: z.string(),
-              context: z.record(z.any()).optional(),
-            }),
-          }),
-          z.null(),
-        ])
-        .optional(),
     }),
+    events: { onClick: { parameters: z.object({}) } },
   },
-} satisfies CatalogDefinitions;
+};
 // @endregion[definitions-types]
 
 export type Definitions = typeof definitions;

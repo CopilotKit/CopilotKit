@@ -16,10 +16,10 @@
 // @region[sandbox-function-registration]
 import React from "react";
 import {
-  CopilotKit,
+  CopilotKitProvider,
   CopilotChat,
   useConfigureSuggestions,
-} from "@copilotkit/react-core/v2";
+} from "@copilotkit/react-core";
 import { openGenUiSandboxFunctions } from "./sandbox-functions";
 import { openGenUiSuggestions } from "./suggestions";
 
@@ -28,9 +28,9 @@ export default function OpenGenUiAdvancedDemo() {
     // Pass the sandbox-function array on the `openGenerativeUI` provider prop.
     // The built-in `OpenGenerativeUIActivityRenderer` wires these as callable
     // remotes inside the agent-authored iframe.
-    <CopilotKit
+    <CopilotKitProvider
       runtimeUrl="/api/copilotkit-ogui"
-      agent="open-gen-ui-advanced"
+      agentId="open-gen-ui-advanced"
       openGenerativeUI={{ sandboxFunctions: openGenUiSandboxFunctions }}
     >
       <div className="flex justify-center items-center h-screen w-full">
@@ -38,7 +38,7 @@ export default function OpenGenUiAdvancedDemo() {
           <Chat />
         </div>
       </div>
-    </CopilotKit>
+    </CopilotKitProvider>
     // @endregion[sandbox-function-registration]
   );
 }

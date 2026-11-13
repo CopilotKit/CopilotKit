@@ -5,7 +5,7 @@
 - Demo is deployed and accessible at `/demos/a2ui-recovery` on the dashboard host
 - Agent backend is healthy (`/api/health`); `GEMINI_API_KEY` (or `GOOGLE_API_KEY`) is set (the Go harness calls Gemini itself, and `generate_a2ui` makes its own Gemini call; `GOOGLE_GEMINI_BASE_URL` points both at aimock in tests)
 - The page uses its own runtime route, `/api/copilotkit-a2ui-recovery`, which proxies agent `a2ui-recovery` to the agent server's `/a2ui_recovery` mount, bound in `src/agents/registry.py` to `a2ui_recovery_agent()` from `src/agents/a2ui_recovery.py`. The route sets `injectA2UITool: false` and `defaultCatalogId: "declarative-gen-ui-catalog"`.
-- Backend-owned recovery: the agent uses the same `generate_a2ui` server tool as declarative-gen-ui (`src/agents/a2ui_dynamic.py`). Each forced `render_a2ui` Gemini call is validated structurally; on failure the tool retries with the validation errors appended to the prompt, up to 3 attempts. It returns an `a2ui_operations` envelope on success, or the `a2ui_recovery_exhausted` envelope once every attempt failed, which the A2UI middleware shows as a "Couldn't generate the UI" failure card.
+- Backend-owned recovery: the agent uses the same `generate_a2ui` server tool as declarative-gen-ui (`src/agents/a2ui_dynamic.py`). Each forced `render_a2ui` Gemini call is validated structurally; on failure the tool retries with the validation errors appended to the prompt, up to 3 attempts. It returns an `a2ui_operations` envelope on success, or the `a2ui_recovery_exhausted` envelope once every attempt failed, which the A2UI middleware shows as a "Part of this UI couldn't be shown." failure card.
 - Differences from the reference: the surface arrives whole in the `TOOL_CALL_RESULT`, so there is no progressive "building" stream and no "Retrying… (N/M)" state between attempts — the retries happen inside the tool call.
 - Reuses the **declarative-gen-ui** catalog (`catalogId: "declarative-gen-ui-catalog"`) and the Vantage Threads sales context — no new components
 - The pills are deterministic only against aimock (`showcase/aimock/d6/google-antigravity/a2ui-recovery.json`): heal returns an invalid first render (the root references a missing child) and a valid one once the retry prompt carries "## Previous attempt was invalid"; exhaust is invalid on every attempt. Against real Gemini the model may render validly on the first try.
@@ -32,7 +32,7 @@
 ### 3. Hard-fail (recovery exhausted) path
 
 - [ ] Click "Show an unrecoverable failure" (sends "Chart an Antigravity board that never passes validation so I can preview the fallback.")
-- [ ] Verify the result is a tidy failure card ("Couldn't generate the UI"), NOT a broken or half-rendered surface and NOT a silent drop
+- [ ] Verify the result is a tidy failure card ("Part of this UI couldn't be shown."), NOT a broken or half-rendered surface and NOT a silent drop
 - [ ] Backend logs: verify three `[a2ui recovery] attempt …: invalid` lines and no valid one
 - [ ] DevTools → Network: verify the tool result is an `a2ui_recovery_exhausted` envelope (no `a2ui_operations` painted)
 - [ ] Verify the chat reply explains the fallback in one short sentence and the agent does not call `generate_a2ui` again

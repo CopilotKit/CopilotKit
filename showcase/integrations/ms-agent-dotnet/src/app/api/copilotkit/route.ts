@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import {
   CopilotRuntime,
   createCopilotRuntimeHandler,
-} from "@copilotkit/runtime/v2";
+} from "@copilotkit/runtime";
 import type { AbstractAgent, BaseEvent } from "@ag-ui/client";
 import { EventType, FunctionMiddleware, HttpAgent } from "@ag-ui/client";
 import { Observable } from "rxjs";
@@ -40,7 +40,7 @@ function createAgent(path = "/") {
         ...input,
         messages: (input.messages ?? []).map(
           stripReplaySafeToolCallIdsFromMessage,
-        ),
+        ) as typeof input.messages,
       });
     }),
   );
@@ -372,7 +372,9 @@ function createReplaySafeAgent(path: string, replaySafeToolNames: string[]) {
         const toolCallIds = new Map<string, string>();
         const sanitizedInput = {
           ...input,
-          messages: prepareReplaySafeMessages(input.messages),
+          messages: prepareReplaySafeMessages(
+            input.messages,
+          ) as typeof input.messages,
         };
 
         const subscription = next.run(sanitizedInput).subscribe({

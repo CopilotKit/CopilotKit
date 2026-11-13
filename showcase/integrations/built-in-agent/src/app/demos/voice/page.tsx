@@ -1,14 +1,14 @@
 "use client";
 
 // @region[voice-page]
-import { CopilotKit } from "@copilotkit/react-core/v2";
+import { CopilotKitProvider } from "@copilotkit/react-core";
 import { VoiceChat } from "./voice-chat";
 
 export default function VoiceDemoPage() {
   return (
-    <CopilotKit
+    <CopilotKitProvider
       runtimeUrl="/api/copilotkit-voice"
-      agent="voice-demo"
+      agentId="voice-demo"
       useSingleEndpoint={false}
       // The dev-only `<cpk-web-inspector>` overlay (auto-enabled on
       // localhost via shouldShowDevConsole) intercepts pointer events
@@ -20,7 +20,7 @@ export default function VoiceDemoPage() {
       enableInspector={false}
     >
       <VoiceChat />
-    </CopilotKit>
+    </CopilotKitProvider>
   );
 }
 // @endregion[voice-page]

@@ -13,14 +13,14 @@
 //      mirroring the `tool-rendering` (primary) cell.
 
 import React from "react";
-import type { CopilotChatReasoningMessage } from "@copilotkit/react-core/v2";
+import type { CopilotChatReasoningMessage } from "@copilotkit/react-core";
 import {
-  CopilotKit,
+  CopilotKitProvider,
   CopilotChat,
   useRenderTool,
   useDefaultRenderTool,
   useConfigureSuggestions,
-} from "@copilotkit/react-core/v2";
+} from "@copilotkit/react-core";
 import { z } from "zod";
 import { ReasoningBlock } from "./reasoning-block";
 import { WeatherCard } from "./weather-card";
@@ -46,16 +46,16 @@ interface FlightSearchResult {
 
 export default function ToolRenderingReasoningChainDemo() {
   return (
-    <CopilotKit
+    <CopilotKitProvider
       runtimeUrl="/api/copilotkit"
-      agent="tool-rendering-reasoning-chain"
+      agentId="tool-rendering-reasoning-chain"
     >
       <div className="flex justify-center items-center h-screen w-full">
         <div className="h-full w-full max-w-4xl">
           <Chat />
         </div>
       </div>
-    </CopilotKit>
+    </CopilotKitProvider>
   );
 }
 

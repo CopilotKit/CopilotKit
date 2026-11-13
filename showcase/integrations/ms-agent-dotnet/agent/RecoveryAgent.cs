@@ -12,17 +12,16 @@ using Microsoft.Extensions.Logging;
 // declarative-gen-ui catalog's structural rules, RETRY on validation failure up
 // to `MaxAttempts`, and — when every attempt is invalid — surface the
 // `a2ui_recovery_exhausted` HARD-FAIL as the renderer's `status: "failed"`
-// lifecycle card ("Couldn't generate the UI"). A single healed attempt paints
-// the declarative surface.
+// lifecycle snapshot. The chat shows it as "Part of this UI couldn't be shown."
+// A single healed attempt paints the declarative surface.
 //
 // -----------------------------------------------------------------------------
 // WHY A RAW-SSE ENDPOINT (MapPost) INSTEAD OF A ChatClientAgent + MapAGUI
 // -----------------------------------------------------------------------------
-// The recovery-exhausted FAILURE card is rendered by `@copilotkit/react-core`'s
-// `A2UIRecoveryStates` ONLY when the `a2ui-surface` activity content carries
-// `status: "failed"` (see packages/react-core/src/v2/a2ui/A2UIMessageRenderer.tsx
-// -> renderLifecycle). On this repo's client stack (`@ag-ui/a2ui-middleware@0.0.5`)
-// that middleware NEVER stamps `status` — it only synthesises `a2ui-surface`
+// The recovery-exhausted FAILURE card shows ONLY when an `a2ui-surface`
+// activity content carries `status: "failed"`: the CopilotKit 2.0 runtime turns
+// it into an error surface, and the chat card shows its alert. On this repo's
+// client stack (`@ag-ui/a2ui-middleware@0.0.5`) that middleware NEVER stamps `status` — it only synthesises `a2ui-surface`
 // activities from a tool result's `a2ui_operations`. So a `status: "failed"`
 // surface can only reach the client as a BACKEND-emitted AG-UI `ACTIVITY_SNAPSHOT`
 // event (activityType `a2ui-surface`), exactly as LangGraph's `get_a2ui_tools`
@@ -181,7 +180,7 @@ internal static class RecoveryAgent
             {
                 // Exhausted: emit the recovery-exhausted hard-fail as the
                 // `status: "failed"` lifecycle card (react-core A2UIRecoveryFailure
-                // -> "Couldn't generate the UI"). No a2ui_operations => no surface
+                // -> "Part of this UI couldn't be shown."). No a2ui_operations => no surface
                 // paints (the server-side no-wipe guarantee).
                 await WriteEventAsync(context, new
                 {

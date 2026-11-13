@@ -5,7 +5,7 @@ import { test, expect } from "@playwright/test";
 //
 // Pattern: A2UI dynamic-schema BYOC. The frontend registers a 7-component
 // catalog (Card, StatusBadge, Metric, InfoRow, PrimaryButton, PieChart,
-// BarChart) via `a2ui={{ catalog: myCatalog }}`. The Python Flow forces the
+// BarChart) via `generativeUI={{ ui: myCatalog }}`. The Python Flow forces the
 // runtime-injected `render_a2ui` action; the runtime then emits operations
 // bound to the registered React catalog.
 //

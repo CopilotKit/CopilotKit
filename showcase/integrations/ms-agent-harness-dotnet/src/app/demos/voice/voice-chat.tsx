@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback } from "react";
-import { CopilotChat } from "@copilotkit/react-core/v2";
+import { CopilotChat } from "@copilotkit/react-core";
 import { SampleAudioButton } from "./sample-audio-button";
 
 const AGENT_ID = "voice-demo";

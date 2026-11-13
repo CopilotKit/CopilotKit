@@ -25,7 +25,7 @@
 
 ### 2. Feature-Specific Checks
 
-#### Catalog Wiring (provider `a2ui={{ catalog: myCatalog }}`)
+#### Catalog Wiring (provider `generativeUI={{ ui: myCatalog }}`)
 
 - [ ] DevTools → Network: on the first surface-producing reply, verify the `generate_a2ui` tool result contains an `a2ui_operations` container with `catalogId: "declarative-gen-ui-catalog"`
 
