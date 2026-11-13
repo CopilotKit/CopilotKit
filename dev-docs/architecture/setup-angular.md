@@ -21,7 +21,7 @@ graph LR
     end
 
     subgraph Your Server
-        Runtime["CopilotRuntime<br/><i>Express / Hono</i>"]
+        Runtime["CopilotKitRuntime<br/><i>Express / Hono</i>"]
     end
 
     DI -->|configures| Service

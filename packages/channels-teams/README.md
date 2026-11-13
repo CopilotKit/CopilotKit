@@ -12,7 +12,7 @@ the successor to the Bot Framework SDK.
 The adapter keeps its own Teams/Microsoft 365 credentials (`clientId` /
 `clientSecret` / `tenantId`, or none for anonymous local dev) — in the managed
 path the Channel runs inside a CopilotKit Intelligence-configured
-`CopilotRuntime` (free plan available), which starts and owns the channel's
+`CopilotKitRuntime` (free plan available), which starts and owns the channel's
 lifecycle. Building and operating your own channel runner on the SDK primitives
 is also a supported path.
 
@@ -69,7 +69,7 @@ Error [ERR_MODULE_NOT_FOUND]: Cannot find package '@microsoft/agents-hosting'
 ```ts
 import { createChannel } from "@copilotkit/channels";
 import { teams } from "@copilotkit/channels-teams";
-import { CopilotRuntime, CopilotKitIntelligence } from "@copilotkit/runtime";
+import { CopilotKitRuntime, CopilotKitIntelligence } from "@copilotkit/runtime";
 import { createCopilotKitNodeListener } from "@copilotkit/runtime/node";
 
 const bot = createChannel({
@@ -81,7 +81,7 @@ const bot = createChannel({
 bot.onMessage(({ thread, message }) => thread.post(`Echo: ${message.text}`));
 
 // The runtime owns the channel's lifecycle — there is no `bot.start()`.
-const runtime = new CopilotRuntime({
+const runtime = new CopilotKitRuntime({
   intelligence: new CopilotKitIntelligence({
     // apiUrl and wsUrl default to cloud-hosted CopilotKit Intelligence — override
     // both together only for a self-hosted deployment.

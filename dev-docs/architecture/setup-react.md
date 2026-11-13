@@ -22,7 +22,7 @@ graph LR
     end
 
     subgraph Your Server
-        Runtime["CopilotRuntime<br/><i>Express / Hono</i>"]
+        Runtime["CopilotKitRuntime<br/><i>Express / Hono</i>"]
     end
 
     Provider -->|creates| Core
@@ -146,7 +146,7 @@ function ProductPage({ products }) {
 ```mermaid
 sequenceDiagram
     participant Agent as AI Agent
-    participant Runtime as CopilotRuntime
+    participant Runtime as CopilotKitRuntime
     participant Core as CopilotKitCore
     participant Tool as addToCart handler
 

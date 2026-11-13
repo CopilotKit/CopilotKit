@@ -4,7 +4,7 @@
 provides the engine, JSX vocabulary, UI primitives, testing API, and every supported adapter.
 
 **Channels run through a channel runner.** CopilotKit Intelligence provides the
-managed runner, available on a free plan: the `CopilotRuntime` starts and owns
+managed runner, available on a free plan: the `CopilotKitRuntime` starts and owns
 each Channel's lifecycle once Intelligence is configured. You can also build and
 operate your own channel runner on the lower-level SDK primitives, with no
 Intelligence dependency — a supported path where your team owns state,
@@ -30,7 +30,7 @@ Configure TypeScript to use the Channels JSX runtime:
 ```tsx
 import { createChannel, Message, Section } from "@copilotkit/channels";
 import { slack } from "@copilotkit/channels/slack";
-import { CopilotRuntime, CopilotKitIntelligence } from "@copilotkit/runtime";
+import { CopilotKitRuntime, CopilotKitIntelligence } from "@copilotkit/runtime";
 import { createCopilotKitNodeListener } from "@copilotkit/runtime/node";
 
 const channel = createChannel({
@@ -53,7 +53,7 @@ channel.onMessage(({ thread, message }) =>
 );
 
 // The runtime owns the Channel's lifecycle — there is no `channel.start()`.
-const runtime = new CopilotRuntime({
+const runtime = new CopilotKitRuntime({
   intelligence: new CopilotKitIntelligence({
     // apiUrl and wsUrl default to cloud-hosted CopilotKit Intelligence — override
     // both together only for a self-hosted deployment.

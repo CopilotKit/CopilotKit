@@ -257,7 +257,7 @@ required.
 
 `@copilotkit/react-native/generative-ui` lets the agent render a catalog of your
 own native components with the `render_ui` tool. Write the catalog with `zod`
-4.2 or later: `child()` and `childList()` return zod 4 schemas. The runtime needs no change by default: `CopilotRuntime` adds the
+4.2 or later: `child()` and `childList()` return zod 4 schemas. The runtime needs no change by default: `CopilotKitRuntime` adds the
 tool when the app sends a catalog with at least one component, unless the
 server sets `generativeUI: false` or limits it with
 `generativeUI: { agents: [...] }`. This example needs a `home` agent on the
