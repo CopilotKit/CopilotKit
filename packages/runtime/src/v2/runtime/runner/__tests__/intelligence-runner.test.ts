@@ -277,7 +277,8 @@ async function collectEvents(
 }
 
 // Must come after vi.mock so phoenix/ws are mocked when the module is loaded.
-const { IntelligenceAgentRunner } = await import("../intelligence");
+const { IntelligenceAgentRunner, RunnerEventQueueFullError } =
+  await import("../intelligence");
 
 describe("IntelligenceAgentRunner", () => {
   let runner: InstanceType<typeof IntelligenceAgentRunner>;
@@ -1210,6 +1211,85 @@ describe("IntelligenceAgentRunner", () => {
       expect(seqs).toEqual(
         Array.from({ length: 14_301 }, (_, index) => index + 1),
       );
+    });
+
+    it("fails the run when more events wait for acknowledgement than maxPendingEvents", async () => {
+      vi.useFakeTimers();
+      autoAcknowledgePushes = false;
+      const boundedRunner = new IntelligenceAgentRunner({
+        url: "ws://localhost:4000/runner",
+        maxPendingEvents: 10,
+      });
+      const threadId = "t-event-queue-full";
+      const input = createRunInput({ threadId, runId: "r-event-queue-full" });
+      const agent = new MockAgent(
+        Array.from(
+          { length: 40 },
+          (_, index) =>
+            ({
+              type: EventType.CUSTOM,
+              name: "progress",
+              value: index,
+            }) as BaseEvent,
+        ),
+      );
+      let receivedError: Error | undefined;
+
+      boundedRunner.run({ threadId, agent, input }).subscribe({
+        error: (error) => (receivedError = error),
+      });
+      const ch = mockChannels[0];
+      ch.triggerJoin("ok", { capabilities: ["runner_event_batch_v1"] });
+      await vi.advanceTimersByTimeAsync(5);
+
+      expect(receivedError).toBeInstanceOf(RunnerEventQueueFullError);
+      expect(receivedError).toMatchObject({
+        threadId,
+        runId: "r-event-queue-full",
+        maxPendingEvents: 10,
+      });
+      expect(agent.aborted).toBe(true);
+      expect(await boundedRunner.isRunning({ threadId })).toBe(false);
+      // Nothing past the limit was queued or sent.
+      const sent = ch.pushLog.flatMap((push) => push.payload.events);
+      expect(sent.length).toBeLessThanOrEqual(10);
+    });
+
+    it("completes a run whose pending events stay within maxPendingEvents", async () => {
+      // The 40 events below and the RUN_STARTED the runner adds are all
+      // queued before the first acknowledgement, so 41 is the smallest limit
+      // this run fits in: a run may hold exactly maxPendingEvents.
+      const boundedRunner = new IntelligenceAgentRunner({
+        url: "ws://localhost:4000/runner",
+        maxPendingEvents: 41,
+      });
+      const threadId = "t-event-queue-under-limit";
+      const input = createRunInput({
+        threadId,
+        runId: "r-event-queue-under-limit",
+      });
+      const agent = new MockAgent(
+        Array.from(
+          { length: 40 },
+          (_, index) =>
+            ({
+              type: EventType.CUSTOM,
+              name: "progress",
+              value: index,
+            }) as BaseEvent,
+        ),
+      );
+      let errors = 0;
+      let completions = 0;
+
+      boundedRunner.run({ threadId, agent, input }).subscribe({
+        error: () => errors++,
+        complete: () => completions++,
+      });
+      mockChannels[0].triggerJoin("ok");
+
+      await vi.waitFor(() => expect(completions).toBe(1));
+      expect(errors).toBe(0);
     });
 
     it("fails once the gateway stops acknowledging for the durability deadline after earlier progress", async () => {

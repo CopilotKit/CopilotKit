@@ -42,6 +42,36 @@ export interface IntelligenceAgentRunnerOptions {
    * accepts them. Errors thrown by the callback are logged and ignored.
    */
   onEventDeliveryStats?: (stats: RunnerEventDeliveryStats) => void;
+  /**
+   * Most events one run may hold while they wait for Intelligence to
+   * acknowledge them. A run whose agent outpaces Intelligence long enough to
+   * exceed it fails with `RunnerEventQueueFullError` instead of growing the
+   * queue without bound. The default is far above what a healthy gateway
+   * leaves pending; a stalled one fails the run on the durability deadline
+   * first.
+   * @default 50_000
+   */
+  maxPendingEvents?: number;
+}
+
+/**
+ * A run produced events faster than Intelligence acknowledged them until
+ * `maxPendingEvents` were waiting. The run is failed and its agent aborted.
+ */
+export class RunnerEventQueueFullError extends Error {
+  readonly threadId: string;
+  readonly runId: string;
+  readonly maxPendingEvents: number;
+
+  constructor(threadId: string, runId: string, maxPendingEvents: number) {
+    super(
+      `Run ${runId} on thread ${threadId} has ${maxPendingEvents} events waiting for Intelligence to acknowledge them, the most a run may hold. The agent produces events faster than Intelligence accepts them.`,
+    );
+    this.name = "RunnerEventQueueFullError";
+    this.threadId = threadId;
+    this.runId = runId;
+    this.maxPendingEvents = maxPendingEvents;
+  }
 }
 
 export interface RunnerEventDeliveryStats {
@@ -97,9 +127,8 @@ interface ThreadState {
    * The deadline runs from here, so it measures a stalled gateway, not a long
    * queue. While the gateway keeps acknowledging, `pendingEvents` can hold up
    * to the rest of the current run: at most the run's own events, which the
-   * runner used to retain in full anyway. Nothing limits how large a single
-   * run gets; that is a separate question from delivery. Watch the queue
-   * through `onEventDeliveryStats`.
+   * runner used to retain in full anyway, and never more than
+   * `maxPendingEvents`. Watch the queue through `onEventDeliveryStats`.
    */
   durableProgressAt: number;
   /** Highest `cpki_event_seq` queued so far in this run. */
@@ -124,6 +153,7 @@ const RUNNER_EVENT_BATCH_CAPABILITY = "runner_event_batch_v1";
 const MAX_RUNNER_EVENT_BATCH_SIZE = 32;
 const RUNNER_EVENT_BATCH_FLUSH_MS = 5;
 const EVENT_DURABILITY_DEADLINE_MS = 60_000;
+const DEFAULT_MAX_PENDING_EVENTS = 50_000;
 /**
  * How long a runtime-side stop waits for Intelligence to record it before the
  * terminal event is sent anyway. The agent is aborted at once; only the
@@ -792,6 +822,20 @@ export class IntelligenceAgentRunner extends AgentRunner {
     }
     const eventId = this.runnerEventId(payload);
     if (!state.pendingEvents.has(eventId)) {
+      const maxPendingEvents =
+        this.options.maxPendingEvents ?? DEFAULT_MAX_PENDING_EVENTS;
+      if (state.pendingEvents.size >= maxPendingEvents) {
+        this.failThread(
+          state.threadId,
+          state,
+          new RunnerEventQueueFullError(
+            state.threadId,
+            state.runId,
+            maxPendingEvents,
+          ),
+        );
+        return;
+      }
       const queuedAt = Date.now();
       const wasEmpty = state.pendingEvents.size === 0;
       const eventSeq = this.runnerEventSeq(payload);
