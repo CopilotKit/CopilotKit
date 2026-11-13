@@ -150,6 +150,13 @@ interface CompleteStateWait<T extends Parameter[] | [] = []> {
   handler: undefined;
   respond: undefined;
   result: any;
+  /**
+   * `true` when the run was stopped while the request was still waiting on
+   * the user. `result` is then `undefined` and `error` holds the reason.
+   */
+  aborted?: boolean;
+  /** Failure message when the call ended without an answer. */
+  error?: string;
 }
 
 interface InProgressStateNoArgsWait<T extends Parameter[] | [] = []> {

@@ -1566,4 +1566,273 @@ describe("HITL Run Abort", () => {
       expect(last.error).not.toBe("");
     });
   });
+
+  it("renders an aborted request as Complete with aborted: true and no result", async () => {
+    const agent = new MockStepwiseAgent();
+    const renderedProps: Array<{
+      status: string;
+      result?: unknown;
+      aborted?: boolean;
+      error?: string;
+    }> = [];
+
+    const AbortHITLComponent: React.FC = () => {
+      const hitlTool: ReactHumanInTheLoop<{ action: string }> = {
+        name: "abortPropsTool",
+        description: "Requires human approval",
+        parameters: z.object({ action: z.string() }),
+        render: (props) => {
+          renderedProps.push(props);
+          return (
+            <div data-testid="abort-props-hitl">
+              <div data-testid="abort-props-status">{props.status}</div>
+            </div>
+          );
+        },
+      };
+
+      useHumanInTheLoop(hitlTool);
+      return null;
+    };
+
+    renderWithCopilotKit({
+      agent,
+      children: (
+        <>
+          <AbortHITLComponent />
+          <div style={{ height: 400 }}>
+            <CopilotChat welcomeScreen={false} />
+          </div>
+        </>
+      ),
+    });
+
+    const input = await screen.findByRole("textbox");
+    fireEvent.change(input, { target: { value: "Request approval" } });
+    fireEvent.keyDown(input, { key: "Enter", code: "Enter" });
+
+    await waitFor(() => {
+      expect(screen.getByText("Request approval")).toBeDefined();
+    });
+
+    const messageId = testId("msg");
+    const toolCallId = testId("tc");
+
+    agent.emit(runStartedEvent());
+    agent.emit(
+      toolCallChunkEvent({
+        toolCallId,
+        toolCallName: "abortPropsTool",
+        parentMessageId: messageId,
+        delta: JSON.stringify({ action: "delete" }),
+      }),
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId("abort-props-status").textContent).toBe(
+        ToolCallStatus.InProgress,
+      );
+    });
+
+    agent.emit(runFinishedEvent());
+    agent.complete();
+
+    await waitFor(() => {
+      expect(screen.getByTestId("abort-props-status").textContent).toBe(
+        ToolCallStatus.Executing,
+      );
+    });
+
+    act(() => {
+      agent.abortRun();
+    });
+
+    await waitFor(() => {
+      const complete = renderedProps.filter(
+        (p) => p.status === ToolCallStatus.Complete,
+      );
+      expect(complete.length).toBeGreaterThan(0);
+      const last = complete[complete.length - 1];
+      expect(last.aborted).toBe(true);
+      expect(last.result).toBeUndefined();
+      expect(last.error).toBe("Human-in-the-loop interaction aborted");
+    });
+
+    // The record core writes for the stop. The restored-history test below
+    // feeds this same content back with `error` reduced to a status.
+    expect(agent.messages).toContainEqual(
+      expect.objectContaining({
+        role: "tool",
+        toolCallId,
+        content: "Error: Human-in-the-loop interaction aborted",
+        error: "Human-in-the-loop interaction aborted",
+      }),
+    );
+  });
+
+  it("renders a real respond() as Complete with the answer and no aborted flag", async () => {
+    const agent = new MockStepwiseAgent();
+    const renderedProps: Array<{
+      status: string;
+      result?: unknown;
+      aborted?: boolean;
+      error?: string;
+    }> = [];
+
+    const RespondHITLComponent: React.FC = () => {
+      const hitlTool: ReactHumanInTheLoop<{ action: string }> = {
+        name: "respondPropsTool",
+        description: "Requires human approval",
+        parameters: z.object({ action: z.string() }),
+        render: (props) => {
+          renderedProps.push(props);
+          return (
+            <div data-testid="respond-props-hitl">
+              <div data-testid="respond-props-status">{props.status}</div>
+              {props.respond && (
+                <button
+                  data-testid="respond-props-approve"
+                  onClick={() => {
+                    void props.respond?.("approved");
+                  }}
+                >
+                  Approve
+                </button>
+              )}
+            </div>
+          );
+        },
+      };
+
+      useHumanInTheLoop(hitlTool);
+      return null;
+    };
+
+    renderWithCopilotKit({
+      agent,
+      children: (
+        <>
+          <RespondHITLComponent />
+          <div style={{ height: 400 }}>
+            <CopilotChat welcomeScreen={false} />
+          </div>
+        </>
+      ),
+    });
+
+    const input = await screen.findByRole("textbox");
+    fireEvent.change(input, { target: { value: "Request approval" } });
+    fireEvent.keyDown(input, { key: "Enter", code: "Enter" });
+
+    await waitFor(() => {
+      expect(screen.getByText("Request approval")).toBeDefined();
+    });
+
+    const messageId = testId("msg");
+    const toolCallId = testId("tc");
+
+    agent.emit(runStartedEvent());
+    agent.emit(
+      toolCallChunkEvent({
+        toolCallId,
+        toolCallName: "respondPropsTool",
+        parentMessageId: messageId,
+        delta: JSON.stringify({ action: "delete" }),
+      }),
+    );
+
+    agent.emit(runFinishedEvent());
+    agent.complete();
+
+    await waitFor(() => {
+      expect(screen.getByTestId("respond-props-status").textContent).toBe(
+        ToolCallStatus.Executing,
+      );
+    });
+
+    fireEvent.click(screen.getByTestId("respond-props-approve"));
+
+    await waitFor(() => {
+      const complete = renderedProps.filter(
+        (p) => p.status === ToolCallStatus.Complete,
+      );
+      expect(complete.length).toBeGreaterThan(0);
+      const last = complete[complete.length - 1];
+      expect(String(last.result)).toContain("approved");
+      expect(last.aborted).toBeUndefined();
+    });
+  });
+
+  // @ag-ui/langgraph 0.0.44 restores a checkpointed tool error as
+  // `error: "error"`, dropping the message. A stopped request reloaded from
+  // history must still not show the stop text as the user's answer.
+  it("renders a stopped request restored from history as aborted", async () => {
+    const agent = new MockStepwiseAgent();
+    const toolCallId = testId("tc");
+    agent.setMessages([
+      {
+        id: testId("msg"),
+        role: "assistant",
+        content: "",
+        toolCalls: [
+          {
+            id: toolCallId,
+            type: "function",
+            function: {
+              name: "restoredAbortTool",
+              arguments: JSON.stringify({ action: "delete" }),
+            },
+          },
+        ],
+      },
+      {
+        id: testId("tool"),
+        role: "tool",
+        toolCallId,
+        content: "Error: Human-in-the-loop interaction aborted",
+        error: "error",
+      },
+    ]);
+    const renderedProps: Array<{
+      status: string;
+      result?: unknown;
+      aborted?: boolean;
+      error?: string;
+    }> = [];
+
+    const RestoredHITLComponent: React.FC = () => {
+      useHumanInTheLoop({
+        name: "restoredAbortTool",
+        description: "Requires human approval",
+        parameters: z.object({ action: z.string() }),
+        render: (props) => {
+          renderedProps.push(props);
+          return <div data-testid="restored-abort-status">{props.status}</div>;
+        },
+      });
+      return null;
+    };
+
+    renderWithCopilotKit({
+      agent,
+      children: (
+        <>
+          <RestoredHITLComponent />
+          <div style={{ height: 400 }}>
+            <CopilotChat welcomeScreen={false} />
+          </div>
+        </>
+      ),
+    });
+
+    await waitFor(() => {
+      expect(screen.getByTestId("restored-abort-status").textContent).toBe(
+        ToolCallStatus.Complete,
+      );
+    });
+    const last = renderedProps[renderedProps.length - 1];
+    expect(last.aborted).toBe(true);
+    expect(last.result).toBeUndefined();
+    expect(last.error).toBe("Human-in-the-loop interaction aborted");
+  });
 });

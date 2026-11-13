@@ -6,6 +6,10 @@ import { ToolCallStatus } from "@copilotkit/core";
 import { useCallback, useLayoutEffect, useRef } from "react";
 import React from "react";
 import { useFrontendTool } from "./use-frontend-tool";
+import {
+  HUMAN_IN_THE_LOOP_ABORTED_MESSAGE,
+  withAbortedState,
+} from "../utils/human-in-the-loop-abort";
 
 /** Registration name of a catch-all tool: handles any otherwise-unhandled call. */
 const WILDCARD_TOOL_NAME = "*";
@@ -37,7 +41,7 @@ export function useHumanInTheLoop<
         // immediately so core records an explicit error tool result instead of
         // silently resolving to an empty string.
         if (signal?.aborted) {
-          reject(new Error("Human-in-the-loop interaction aborted"));
+          reject(new Error(HUMAN_IN_THE_LOOP_ABORTED_MESSAGE));
           return;
         }
 
@@ -47,7 +51,7 @@ export function useHumanInTheLoop<
           const onAbort = () => {
             cleanupAbortRef.current = null;
             resolvePromiseRef.current = null;
-            reject(new Error("Human-in-the-loop interaction aborted"));
+            reject(new Error(HUMAN_IN_THE_LOOP_ABORTED_MESSAGE));
           };
           signal.addEventListener("abort", onAbort, { once: true });
           cleanupAbortRef.current = () => {
@@ -94,13 +98,13 @@ export function useHumanInTheLoop<
         };
         return React.createElement(ToolComponent, enhancedProps);
       } else if (props.status === ToolCallStatus.Complete) {
-        const enhancedProps = {
+        const enhancedProps = withAbortedState({
           ...props,
           name,
           description: tool.description || "",
           agentId: tool.agentId,
           respond: undefined,
-        };
+        });
         return React.createElement(ToolComponent, enhancedProps);
       }
 

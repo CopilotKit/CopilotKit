@@ -1,6 +1,10 @@
 "use client";
 
 import {
+  HUMAN_IN_THE_LOOP_ABORTED_MESSAGE,
+  withAbortedState,
+} from "../utils/human-in-the-loop-abort";
+import {
   GENERATE_SANDBOXED_UI_DESCRIPTION,
   randomUUID,
 } from "@copilotkit/shared";
@@ -116,10 +120,6 @@ const EMPTY_PROPERTIES: Readonly<Record<string, unknown>> = Object.freeze({});
 const EMPTY_AGENTS: Readonly<Record<string, AbstractAgent>> = Object.freeze({});
 /** Registration name of a catch-all tool: handles any otherwise-unhandled call. */
 const WILDCARD_TOOL_NAME = "*";
-// Same message `useHumanInTheLoop` rejects with, so an aborted interrupt reads
-// identically whichever registration path declared the tool (see #5554).
-const HUMAN_IN_THE_LOOP_ABORTED_MESSAGE =
-  "Human-in-the-loop interaction aborted";
 const DEFAULT_DESIGN_SKILL = `When generating UI with generateSandboxedUi, follow these design principles inspired by shadcn/ui:
 
 - Use a minimal, flat aesthetic. Avoid drop shadows and gradients — rely on subtle borders (1px solid, light gray like #e5e7eb) to define surfaces.
@@ -797,29 +797,32 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
       if (tool.render) {
         const ToolComponent = tool.render as React.ComponentType<any>;
         const RenderComponent: React.ComponentType<any> = (props) =>
-          createElement(ToolComponent, {
-            ...props,
-            // `props.name` is the tool actually invoked. It equals `tool.name`
-            // for a named registration; for a catch-all it is the only place
-            // the real name exists, which is what lets one render serve N tools.
-            name: tool.name === WILDCARD_TOOL_NAME ? props.name : tool.name,
-            description: tool.description || "",
-            agentId: tool.agentId,
-            // `respond` is live only while the call is executing — the one
-            // phase with a promise waiting on the user.
-            respond:
-              props.status === ToolCallStatus.Executing
-                ? async (result: unknown) => {
-                    const pending = pendingHumanInTheLoopRef.current.get(
-                      props.toolCallId,
-                    );
-                    if (!pending) return;
-                    pending.detachAbort?.();
-                    pendingHumanInTheLoopRef.current.delete(props.toolCallId);
-                    pending.resolve(result);
-                  }
-                : undefined,
-          });
+          createElement(
+            ToolComponent,
+            withAbortedState({
+              ...props,
+              // `props.name` is the tool actually invoked. It equals `tool.name`
+              // for a named registration; for a catch-all it is the only place
+              // the real name exists, which is what lets one render serve N tools.
+              name: tool.name === WILDCARD_TOOL_NAME ? props.name : tool.name,
+              description: tool.description || "",
+              agentId: tool.agentId,
+              // `respond` is live only while the call is executing — the one
+              // phase with a promise waiting on the user.
+              respond:
+                props.status === ToolCallStatus.Executing
+                  ? async (result: unknown) => {
+                      const pending = pendingHumanInTheLoopRef.current.get(
+                        props.toolCallId,
+                      );
+                      if (!pending) return;
+                      pending.detachAbort?.();
+                      pendingHumanInTheLoopRef.current.delete(props.toolCallId);
+                      pending.resolve(result);
+                    }
+                  : undefined,
+            }),
+          );
 
         processedRenderToolCalls.push({
           name: tool.name,

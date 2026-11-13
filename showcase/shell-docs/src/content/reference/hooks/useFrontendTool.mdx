@@ -69,7 +69,7 @@ function useFrontendTool<T extends Record<string, unknown>>(
 
 <PropertyReference
   name="render"
-  type="React.ComponentType<{ name: string; toolCallId: string; args: Partial<T>; status: ToolCallStatus; result: string | undefined }>"
+  type="React.ComponentType<{ name: string; toolCallId: string; args: Partial<T>; status: ToolCallStatus; result: string | undefined; error?: string }>"
 >
   An optional React component rendered in the chat interface to visualize tool
   execution. The component receives:
@@ -79,6 +79,7 @@ function useFrontendTool<T extends Record<string, unknown>>(
   - `args`: the arguments. Partial while streaming, complete once execution starts.
   - `status`: one of `ToolCallStatus.InProgress`, `ToolCallStatus.Executing`, or `ToolCallStatus.Complete`.
   - `result`: the string result returned by the handler. Only available when status is `Complete`.
+  - `error`: set when the call failed. `result` then holds the failure text sent to the agent, not a tool result. A failed call restored from history can arrive without `error`, so don't assume `result` is valid output.
 
   To render backend tool calls, use [`useRenderTool`](/reference/hooks/useRenderTool). To show a component from the tool arguments, use [`useComponent`](/reference/hooks/useComponent).
 </PropertyReference>
@@ -170,13 +171,16 @@ function WeatherWidget() {
         const data = await response.json();
         return JSON.stringify(data);
       },
-      render: ({ args, status, result }) => {
+      render: ({ args, status, result, error }) => {
         if (status === ToolCallStatus.InProgress) {
           return (
             <div className="animate-pulse">
               Fetching weather for {args.city}...
             </div>
           );
+        }
+        if (status === ToolCallStatus.Complete && error !== undefined) {
+          return <div className="p-4 text-red-600">Weather lookup failed.</div>;
         }
         if (status === ToolCallStatus.Complete && result) {
           const data = JSON.parse(result);
