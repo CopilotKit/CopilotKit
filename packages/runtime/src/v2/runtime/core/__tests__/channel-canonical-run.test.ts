@@ -634,13 +634,17 @@ test("runCanonical cleans up the lock when Channel Memory cannot attach to the a
   const agent = new NoopAgent();
   Object.defineProperty(agent, "use", { value: undefined });
 
-  await expect(
-    runCanonical({
-      ...runArgs(),
-      agent,
-      memory: { grant: { user: "none", project: "read" }, user: null },
-    }),
-  ).rejects.toMatchObject({ code: "channel_memory_agent_unsupported" });
+  // The transport passes a delivery's resolved Memory through with its args;
+  // the launcher's declared type does not name it.
+  const delivery = {
+    ...runArgs(),
+    agent,
+    memory: { grant: { user: "none", project: "read" }, user: null },
+  } as Parameters<RunCanonical>[0];
+
+  await expect(runCanonical(delivery)).rejects.toMatchObject({
+    code: "channel_memory_agent_unsupported",
+  });
   expect(run).not.toHaveBeenCalled();
   expect(cleanup).toHaveBeenCalledWith(canonicalIdentity);
 });
