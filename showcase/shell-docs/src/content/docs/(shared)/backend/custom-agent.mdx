@@ -40,7 +40,7 @@ npm install @copilotkit/runtime ai @ai-sdk/openai
 
 ```typescript title="src/copilotkit.ts"
 import {
-  CopilotRuntime,
+  CopilotKitRuntime,
   createCopilotKitRuntimeHandler,
   InMemoryAgentRunner,
 } from "@copilotkit/runtime";
@@ -61,7 +61,7 @@ const agent = new BuiltInAgent({
     }),
 });
 
-const runtime = new CopilotRuntime({
+const runtime = new CopilotKitRuntime({
   agents: { default: agent },
   runner: new InMemoryAgentRunner(),
 });
@@ -80,7 +80,7 @@ npm install @copilotkit/runtime @tanstack/ai @tanstack/ai-openai
 
 ```typescript title="src/copilotkit.ts"
 import {
-  CopilotRuntime,
+  CopilotKitRuntime,
   createCopilotKitRuntimeHandler,
   InMemoryAgentRunner,
 } from "@copilotkit/runtime";
@@ -105,7 +105,7 @@ const agent = new BuiltInAgent({
   },
 });
 
-const runtime = new CopilotRuntime({
+const runtime = new CopilotKitRuntime({
   agents: { default: agent },
   runner: new InMemoryAgentRunner(),
 });
@@ -124,7 +124,7 @@ npm install @copilotkit/runtime @ag-ui/client@1.0.4
 
 ```typescript title="src/copilotkit.ts"
 import {
-  CopilotRuntime,
+  CopilotKitRuntime,
   createCopilotKitRuntimeHandler,
   InMemoryAgentRunner,
 } from "@copilotkit/runtime";
@@ -158,7 +158,7 @@ const agent = new BuiltInAgent({
   },
 });
 
-const runtime = new CopilotRuntime({
+const runtime = new CopilotKitRuntime({
   agents: { default: agent },
   runner: new InMemoryAgentRunner(),
 });
@@ -220,7 +220,7 @@ abstraction and how to swap in durable persistence, see
 
 <Callout type="info" title="Using CopilotKit Intelligence? Replace runner with intelligence">
   Intelligence stores the threads and runs for you, so remove `runner` and pass
-  `intelligence` (and `identifyUser`) to `CopilotRuntime` instead. The custom
+  `intelligence` (and `identifyUser`) to `CopilotKitRuntime` instead. The custom
   agent and its `factory` do not change. See
   [An existing runtime that already has a runner](/intelligence/quickstart#an-existing-runtime-that-already-has-a-runner).
 </Callout>

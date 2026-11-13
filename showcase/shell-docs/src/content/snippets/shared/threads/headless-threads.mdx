@@ -43,19 +43,19 @@ Already have threads in LangGraph, ADK, Mastra, or Strands? See
       <Step>
         ### Configure your Runtime with CopilotKit Intelligence
 
-        The thread UI lists and resumes conversations only when `CopilotRuntime` is connected to Intelligence. Connect it with the `intelligence` option. CLI starters already include it. For the full setup, see [Connect your runtime to Intelligence](/intelligence/quickstart).
+        The thread UI lists and resumes conversations only when `CopilotKitRuntime` is connected to Intelligence. Connect it with the `intelligence` option. CLI starters already include it. For the full setup, see [Connect your runtime to Intelligence](/intelligence/quickstart).
 
         ```typescript title="server.ts"
         import {
           CopilotKitIntelligence,
-          CopilotRuntime,
+          CopilotKitRuntime,
         } from "@copilotkit/runtime";
         import { BuiltInAgent } from "@copilotkit/runtime/agent";
         import { openaiText } from "@tanstack/ai-openai";
         // Your app's own session check.
         import { verifyAppSession } from "./auth";
 
-        const runtime = new CopilotRuntime({
+        const runtime = new CopilotKitRuntime({
           agents: {
             default: new BuiltInAgent({ model: openaiText("gpt-6-luna") }),
           },

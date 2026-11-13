@@ -5,7 +5,7 @@ description: "Configuration object passed to the CopilotKitCore constructor."
 
 ## Overview
 
-`CopilotKitCoreConfig` is the configuration object accepted by the [`CopilotKitCore`](/reference/core/classes/CopilotKitCore) constructor. It wires the core to a CopilotRuntime endpoint and seeds it with frontend tools, suggestions, request headers, and forwarded properties.
+`CopilotKitCoreConfig` is the configuration object accepted by the [`CopilotKitCore`](/reference/core/classes/CopilotKitCore) constructor. It wires the core to a CopilotKitRuntime endpoint and seeds it with frontend tools, suggestions, request headers, and forwarded properties.
 
 ## Import
 
@@ -40,11 +40,11 @@ const config = {
 ## Properties
 
 <PropertyReference name="runtimeUrl" type="string">
-  The endpoint of the CopilotRuntime.
+  The endpoint of the CopilotKitRuntime.
 </PropertyReference>
 
 <PropertyReference name="runtimeTransport" type='"rest" | "single" | "auto"' default="auto">
-  Transport style for CopilotRuntime endpoints. `"auto"` probes REST and falls back to single-route.
+  Transport style for CopilotKitRuntime endpoints. `"auto"` probes REST and falls back to single-route.
 </PropertyReference>
 
 <PropertyReference name="deferInitialConnection" type="boolean" default="false">
@@ -55,7 +55,7 @@ const config = {
 </PropertyReference>
 
 <PropertyReference name="agents__unsafe_dev_only" type="Record<string, AbstractAgent>">
-  Mapping from agent name to its `AbstractAgent` instance. For development only. Production requires a CopilotRuntime.
+  Mapping from agent name to its `AbstractAgent` instance. For development only. Production requires a CopilotKitRuntime.
 </PropertyReference>
 
 <PropertyReference name="headers" type="CopilotKitHeadersSource" default="{}">

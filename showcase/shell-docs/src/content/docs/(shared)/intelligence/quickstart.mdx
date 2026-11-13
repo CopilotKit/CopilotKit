@@ -73,7 +73,7 @@ Before you start, have a working CopilotKit frontend and agent. The TypeScript t
     ```ts title="Your CopilotKit runtime" group=intelligence-runtime
     import {
       CopilotKitIntelligence,
-      CopilotRuntime,
+      CopilotKitRuntime,
     } from "@copilotkit/runtime";
     import { BuiltInAgent } from "@copilotkit/runtime/agent";
     import { openaiText } from "@tanstack/ai-openai";
@@ -84,7 +84,7 @@ Before you start, have a working CopilotKit frontend and agent. The TypeScript t
       apiKey: process.env.CPK_INTELLIGENCE_API_KEY!,
     });
 
-    const runtime = new CopilotRuntime({
+    const runtime = new CopilotKitRuntime({
       // Your existing agent registration
       agents: { default: new BuiltInAgent({ model: openaiText("gpt-6-luna") }) },
       // Pass the Intelligence client to the runtime
@@ -118,7 +118,7 @@ Before you start, have a working CopilotKit frontend and agent. The TypeScript t
 
     {/* kiira: ignore, a diff that shows the `runner` line to remove; TypeScript rejects `runner` with `intelligence` on purpose, and the checked setup above is the result */}
     ```ts ignore
-    const runtime = new CopilotRuntime({
+    const runtime = new CopilotKitRuntime({
       agents,
       runner: new InMemoryAgentRunner(), // [!code --]
       intelligence, // [!code ++]
@@ -409,7 +409,7 @@ Install steps are on [Self-host on Kubernetes](/intelligence/self-hosting) and [
 
 <Accordions>
   <Accordion title="Chat works, and the project has no thread">
-    In TypeScript, check that `intelligence` was passed to `CopilotRuntime`; otherwise it stays in SSE mode. The other runtimes have no SSE-only fallback. Check their server diagnostics and Intelligence endpoint settings.
+    In TypeScript, check that `intelligence` was passed to `CopilotKitRuntime`; otherwise it stays in SSE mode. The other runtimes have no SSE-only fallback. Check their server diagnostics and Intelligence endpoint settings.
   </Accordion>
   <Accordion title="An auth error on the first request">
     `CPK_INTELLIGENCE_API_KEY` is empty, or it belongs to another project. Copy the key from the `.env` that `project select` wrote into the environment of the runtime process. Then restart the runtime.

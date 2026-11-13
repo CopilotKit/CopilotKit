@@ -124,7 +124,7 @@ operation. Given a `basePath` of `/api/copilotkit`, the routes are:
 | `POST /api/copilotkit/transcribe`                    | Transcribe audio (used by the voice / transcription input).                                                                                                                                                  |
 
 `:agentId` is the key under which you registered the agent in
-`new CopilotRuntime({ agents: { ... } })`, for example `default` or
+`new CopilotKitRuntime({ agents: { ... } })`, for example `default` or
 `research-agent`. `:threadId` is the thread the run belongs to.
 
 <Callout type="info">
@@ -257,7 +257,7 @@ routes exist in multi-route mode whichever
 | `POST /api/copilotkit/threads/subscribe` | Subscribe to thread changes. Intelligence only. |
 
 An Intelligence runtime answers `GET /threads` with `400` when the request has
-no `agentId`. Send the agent key you registered in `CopilotRuntime`. The
+no `agentId`. Send the agent key you registered in `CopilotKitRuntime`. The
 request also has to carry the auth that your `identifyUser` reads, because the
 list holds only that user's threads:
 
@@ -276,7 +276,7 @@ On the default `InMemoryAgentRunner`, and on anything extending it, such as
 `identifyUser`, a thread id works as a capability: any caller with the id can
 read, connect to, continue, and stop that thread. `GET /threads` and
 `POST /threads/clear` return `403` unless you pass
-`threads: { access: "open" }` to `CopilotRuntime`. With `identifyUser`, every
+`threads: { access: "open" }` to `CopilotKitRuntime`. With `identifyUser`, every
 route reaches only the caller's own threads. A runner that keeps no local
 store, such as `SqliteAgentRunner`, answers the four read routes with a `422`
 instead.
@@ -329,11 +329,11 @@ Single-route and multi-route handlers both expose Intelligence's AG-UI streams. 
 when your server should expose only one `POST` endpoint:
 
 ```ts title="lib/copilotkit.ts"
-import { CopilotRuntime, createCopilotKitRuntimeHandler } from "@copilotkit/runtime";
+import { CopilotKitRuntime, createCopilotKitRuntimeHandler } from "@copilotkit/runtime";
 import { BuiltInAgent } from "@copilotkit/runtime/agent";
 import { openaiText } from "@tanstack/ai-openai";
 
-const runtime = new CopilotRuntime({
+const runtime = new CopilotKitRuntime({
   agents: { default: new BuiltInAgent({ model: openaiText("gpt-6-luna") }) },
 });
 
@@ -426,7 +426,7 @@ to an application user. Add `identifyUser` and resolve the user from a
 server-verified session or token:
 
 ```ts title="lib/copilotkit.ts"
-import { CopilotKitIntelligence, CopilotRuntime } from "@copilotkit/runtime";
+import { CopilotKitIntelligence, CopilotKitRuntime } from "@copilotkit/runtime";
 import { BuiltInAgent } from "@copilotkit/runtime/agent";
 import { openaiText } from "@tanstack/ai-openai";
 import { authenticateApplicationUser } from "./auth";
@@ -435,7 +435,7 @@ const intelligence = new CopilotKitIntelligence({
   apiKey: process.env.CPK_INTELLIGENCE_API_KEY!,
 });
 
-const runtime = new CopilotRuntime({
+const runtime = new CopilotKitRuntime({
   agents: { default: new BuiltInAgent({ model: openaiText("gpt-6-luna") }) },
   intelligence,
   identifyUser: async (request) => {
@@ -539,12 +539,12 @@ the runtime exposes one `POST {basePath}` endpoint that accepts a JSON envelope
 
 ```ts title="server.ts (Express)"
 import express from "express";
-import { CopilotRuntime } from "@copilotkit/runtime";
+import { CopilotKitRuntime } from "@copilotkit/runtime";
 import { BuiltInAgent } from "@copilotkit/runtime/agent";
 import { openaiText } from "@tanstack/ai-openai";
 import { createCopilotKitNodeListener } from "@copilotkit/runtime/node";
 
-const runtime = new CopilotRuntime({
+const runtime = new CopilotKitRuntime({
   agents: { default: new BuiltInAgent({ model: openaiText("gpt-6-luna") }) },
 });
 
@@ -570,7 +570,7 @@ app.listen(4000);
 </Callout>
 
 <Callout type="warn" title="Import the runtime from the package root">
-  Import `CopilotRuntime` and the handlers from `@copilotkit/runtime`, and the
+  Import `CopilotKitRuntime` and the handlers from `@copilotkit/runtime`, and the
   Node listener from `@copilotkit/runtime/node`. The `/v2`, `/v2/express`, and
   `/v2/hono` subpaths do not exist in 2.0.
 </Callout>
@@ -659,16 +659,16 @@ and registered agents.
 
 The handlers send no CORS headers by default. That suits a same-origin app. Pass
 `cors: true` for permissive defaults (`origin: "*"`, all standard methods, all
-headers), or pass a `CopilotCorsConfig` object to scope it for production. The
+headers), or pass a `CopilotKitCorsConfig` object to scope it for production. The
 option is the same on `createCopilotKitRuntimeHandler` and
 `createCopilotKitNodeListener`:
 
 ```ts
-import { CopilotRuntime, createCopilotKitRuntimeHandler } from "@copilotkit/runtime";
+import { CopilotKitRuntime, createCopilotKitRuntimeHandler } from "@copilotkit/runtime";
 import { BuiltInAgent } from "@copilotkit/runtime/agent";
 import { openaiText } from "@tanstack/ai-openai";
 
-const runtime = new CopilotRuntime({
+const runtime = new CopilotKitRuntime({
   agents: { default: new BuiltInAgent({ model: openaiText("gpt-6-luna") }) },
 });
 
@@ -693,11 +693,11 @@ auth. The handlers accept lifecycle `hooks`. An `onRequest` hook runs before
 every request and can reject the request by throwing a `Response`:
 
 ```ts
-import { CopilotRuntime, createCopilotKitRuntimeHandler } from "@copilotkit/runtime";
+import { CopilotKitRuntime, createCopilotKitRuntimeHandler } from "@copilotkit/runtime";
 import { BuiltInAgent } from "@copilotkit/runtime/agent";
 import { openaiText } from "@tanstack/ai-openai";
 
-const runtime = new CopilotRuntime({
+const runtime = new CopilotKitRuntime({
   agents: { default: new BuiltInAgent({ model: openaiText("gpt-6-luna") }) },
 });
 
@@ -719,12 +719,12 @@ per-thread decisions use `onBeforeHandler`, which runs after routing and
 receives the resolved `route`, including its `threadId`:
 
 ```ts
-import { CopilotRuntime, createCopilotKitRuntimeHandler } from "@copilotkit/runtime";
+import { CopilotKitRuntime, createCopilotKitRuntimeHandler } from "@copilotkit/runtime";
 import { BuiltInAgent } from "@copilotkit/runtime/agent";
 import { openaiText } from "@tanstack/ai-openai";
 import { resolveUser, userOwnsThread } from "./auth";
 
-const runtime = new CopilotRuntime({
+const runtime = new CopilotKitRuntime({
   agents: { default: new BuiltInAgent({ model: openaiText("gpt-6-luna") }) },
 });
 

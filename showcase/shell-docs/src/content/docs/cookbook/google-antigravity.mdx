@@ -9,7 +9,7 @@ agentPrompt: |
 
   1. Create the web app. Add `@copilotkit/react-core@2`, `@copilotkit/runtime@2`, `@ag-ui/client@1.0.4` and `zod@^4.2.0` to my Next.js app with pnpm. Wrap the app in `<CopilotKitProvider runtimeUrl="/api/copilotkit" generativeUI={{ ui }} enableInspector={process.env.NODE_ENV === "development"}>` and render `<CopilotChat agentId=... />`.
   2. Create the agent. Run `uv init --package` in `agent/` and `uv add ag-ui-antigravity==0.2.1 google-antigravity==0.1.22 ag-ui-protocol==1.0.0 fastapi uvicorn[standard] pydantic pydantic-settings`. Create it with `AntigravityAgent` from `ag_ui_antigravity`: a Gemini `model`, `system_instructions`, `capabilities=CapabilitiesConfig(enabled_tools=[...])` with only the built-ins you need (always keep `BuiltinTools.FINISH`), `workspaces=[<a short absolute path>]`, `tool_approval=True`, and `auto_approve_tools` for the read-only tools. Serve it with `create_antigravity_app(agent, path="/")` on 127.0.0.1:8000. Put `GEMINI_API_KEY`, `GITHUB_TOKEN` and `AGENT_URL` in `.env` and ask me for the Gemini key.
-  3. Connect the runtime. In my CopilotKit runtime route, add an `HttpAgent` from `@ag-ui/client` pointed at `AGENT_URL`, and add `generativeUI: { a2uiVersion: "0.9", injectA2UITool: false }` to `new CopilotRuntime(...)`. Start both servers and check that the agent answers "hello".
+  3. Connect the runtime. In my CopilotKit runtime route, add an `HttpAgent` from `@ag-ui/client` pointed at `AGENT_URL`, and add `generativeUI: { a2uiVersion: "0.9", injectA2UITool: false }` to `new CopilotKitRuntime(...)`. Start both servers and check that the agent answers "hello".
   4. Give the agent its CI tools: plain async functions with docstrings, returned from `build_tools(workspace, settings)` and bound to one folder: `clone_repo`, `ci_status`, `install_dependencies`, `run_tests`, `run_check`, `show_diff` and `git_push` (pushes only to a local bare repository, never to GitHub). Tools record their results with `experimental_set_state` from `ag_ui_antigravity`.
   5. Prove the fix with `run_check`: one command that must fail before the fix and pass after, recorded under `checks` in shared state.
   6. Render approval interrupts with `useInterrupt` from "@copilotkit/react-core" when `event.value.reason === "tool_approval"`. Read `tool_name` and `args` from `interrupt.metadata`, show Approve and Deny, and call `resolve({ approved: true }, interrupt.id)` or `resolve({ approved: false, message }, interrupt.id)`.
@@ -306,7 +306,7 @@ and the `generativeUI` option passes the agent's test results cards to the chat.
 ```ts title="src/app/api/copilotkit/[[...slug]]/route.ts"
 import { HttpAgent } from "@ag-ui/client";
 import {
-  CopilotRuntime,
+  CopilotKitRuntime,
   createCopilotKitRuntimeHandler,
 } from "@copilotkit/runtime";
 import { AGENT_ID } from "@/lib/agent-id";
@@ -317,7 +317,7 @@ const env = serverEnv();
 
 const agent = new HttpAgent({ url: env.AGENT_URL }); // [!code highlight]
 
-const runtime = new CopilotRuntime({
+const runtime = new CopilotKitRuntime({
   agents: { [AGENT_ID]: agent },
   generativeUI: { a2uiVersion: "0.9", injectA2UITool: false }, // [!code highlight]
   // ...
@@ -898,7 +898,7 @@ runs stay in memory:
 import { HttpAgent } from "@ag-ui/client";
 import {
   CopilotKitIntelligence,
-  CopilotRuntime,
+  CopilotKitRuntime,
   InMemoryAgentRunner,
   createCopilotKitRuntimeHandler,
 } from "@copilotkit/runtime";
@@ -909,7 +909,7 @@ import { userFromCookieHeader } from "@/lib/user";
 const env = serverEnv();
 const agent = new HttpAgent({ url: env.AGENT_URL });
 
-const runtime = new CopilotRuntime({
+const runtime = new CopilotKitRuntime({
   agents: { [AGENT_ID]: agent },
   generativeUI: { a2uiVersion: "0.9", injectA2UITool: false },
   ...(env.CPK_INTELLIGENCE_API_KEY

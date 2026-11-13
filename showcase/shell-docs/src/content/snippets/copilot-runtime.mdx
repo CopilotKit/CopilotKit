@@ -21,12 +21,12 @@ agent runs, threads) rather than a single URL:
 
 ```ts title="app/api/copilotkit/[[...slug]]/route.ts" doctest="component"
 import {
-  CopilotRuntime,
+  CopilotKitRuntime,
   createCopilotKitRuntimeHandler,
   InMemoryAgentRunner,
 } from "@copilotkit/runtime";
 
-const runtime = new CopilotRuntime({
+const runtime = new CopilotKitRuntime({
   agents: {
     // your agents go here
   },
@@ -95,9 +95,9 @@ If you register an agent with the name `"default"`, CopilotKit's prebuilt UI com
 
 ```ts title="app/api/copilotkit/[[...slug]]/route.ts"
 import { HttpAgent } from "@ag-ui/client";
-import { CopilotRuntime } from "@copilotkit/runtime";
+import { CopilotKitRuntime } from "@copilotkit/runtime";
 
-const runtime = new CopilotRuntime({
+const runtime = new CopilotKitRuntime({
   agents: {
     // Frontend APIs use this agent when no other agent id is selected.
     default: new HttpAgent({ url: "https://my-agent.example.com" }),
@@ -127,7 +127,7 @@ Features like [threads](/AG-UI-Streams) and the [inspector](/inspector) are prov
 
 ## Built-in Middleware
 
-The runtime has built-in middleware options that you can enable directly on `CopilotRuntime`, without a call to `.use()` on each agent. This section covers two of them.
+The runtime has built-in middleware options that you can enable directly on `CopilotKitRuntime`, without a call to `.use()` on each agent. This section covers two of them.
 
 ### Generative UI
 
@@ -139,11 +139,11 @@ The `generativeUI` option gives the agent the `render_ui` tool and its guide, so
 - `false`: off.
 
 ```ts title="app/api/copilotkit/[[...slug]]/route.ts"
-import { CopilotRuntime } from "@copilotkit/runtime";
+import { CopilotKitRuntime } from "@copilotkit/runtime";
 import { BuiltInAgent } from "@copilotkit/runtime/agent";
 import { openaiText } from "@tanstack/ai-openai";
 
-const runtime = new CopilotRuntime({
+const runtime = new CopilotKitRuntime({
   agents: { "my-agent": new BuiltInAgent({ model: openaiText("gpt-6-luna") }) },
   generativeUI: { agents: ["my-agent"] },
 });
@@ -153,9 +153,9 @@ An agent that writes A2UI v0.9 (for example, with the Python `copilotkit.a2ui` h
 
 ```ts title="app/api/copilotkit/[[...slug]]/route.ts"
 import { HttpAgent } from "@ag-ui/client";
-import { CopilotRuntime } from "@copilotkit/runtime";
+import { CopilotKitRuntime } from "@copilotkit/runtime";
 
-const runtime = new CopilotRuntime({
+const runtime = new CopilotKitRuntime({
   agents: { default: new HttpAgent({ url: "http://localhost:8000/" }) },
   generativeUI: { a2uiVersion: "0.9" },
 });
@@ -192,11 +192,11 @@ To use your own components or colors, see [Components and surfaces](/generative-
 Pass `mcpApps` to configure MCP servers for all agents from a single place:
 
 ```ts title="app/api/copilotkit/[[...slug]]/route.ts"
-import { CopilotRuntime } from "@copilotkit/runtime";
+import { CopilotKitRuntime } from "@copilotkit/runtime";
 import { BuiltInAgent } from "@copilotkit/runtime/agent";
 import { openaiText } from "@tanstack/ai-openai";
 
-const runtime = new CopilotRuntime({
+const runtime = new CopilotKitRuntime({
   agents: { default: new BuiltInAgent({ model: openaiText("gpt-6-luna") }) },
   mcpApps: {
     servers: [

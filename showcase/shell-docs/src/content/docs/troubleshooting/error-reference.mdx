@@ -93,11 +93,11 @@ agents at all. The prebuilt components default to the agent named `"default"`.
 - Register the agent under the id you're requesting (or under `"default"` if you
   pass no `agentId`):
   ```ts
-  import { CopilotRuntime } from "@copilotkit/runtime";
+  import { CopilotKitRuntime } from "@copilotkit/runtime";
   import { BuiltInAgent } from "@copilotkit/runtime/agent";
   import { openaiText } from "@tanstack/ai-openai";
 
-  const runtime = new CopilotRuntime({
+  const runtime = new CopilotKitRuntime({
     agents: { default: new BuiltInAgent({ model: openaiText("gpt-6-luna") }) },
   });
   ```
@@ -131,7 +131,7 @@ Agent '<id>' does not exist
 named an `agentId` that isn't registered on the runtime. This is the server-side
 counterpart to the client-side errors in [Agent discovery failed](#agent-discovery-failed).
 
-**Fix:** register the agent under that key in `new CopilotRuntime({ agents: { ... } })`.
+**Fix:** register the agent under that key in `new CopilotKitRuntime({ agents: { ... } })`.
 If you see this on the `/connect` route **before sending any message**, also read
 [the `/connect` 404 entry](/troubleshooting/common-issues#connect-route-returns-404-on-a-fresh-thread).
 

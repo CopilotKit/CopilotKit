@@ -54,12 +54,12 @@ const data: FrameworkOverviewData = {
     language: "ts",
     code: `import { HttpAgent } from "@ag-ui/client";
 import {
-  CopilotRuntime,
+  CopilotKitRuntime,
   createCopilotKitRuntimeHandler,
 } from "@copilotkit/runtime";
 import type { NextRequest } from "next/server";
 
-const runtime = new CopilotRuntime({
+const runtime = new CopilotKitRuntime({
   agents: {
     openai_agent: new HttpAgent({
       url: process.env.AGENT_URL ?? "http://localhost:8000/agent",

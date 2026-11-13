@@ -35,6 +35,7 @@ npx codemod @copilotkit/v2-migration
 | `@copilotkit/react-core/v2`              | `@copilotkit/react-core`              |
 | `@copilotkit/runtime` service adapters   | `BuiltInAgent` and `createCopilotKitRuntimeHandler` from `@copilotkit/runtime` |
 | `@copilotkit/runtime/v2`                 | `@copilotkit/runtime`                 |
+| `CopilotRuntime`                         | `CopilotKitRuntime`                   |
 | `@copilotkit/vue`                        | `@copilotkit/vue/v2`                  |
 | `CopilotTextarea` (`@copilotkit/react-textarea`) | Removed. 2.0 has no equivalent. |
 
@@ -242,13 +243,13 @@ In `app/api/copilotkit/[[...slug]]/route.ts`:
 
 ```ts
 import {
-  CopilotRuntime,
+  CopilotKitRuntime,
   createCopilotKitRuntimeHandler,
 } from "@copilotkit/runtime";
 import { BuiltInAgent } from "@copilotkit/runtime/agent";
 import { openaiText } from "@tanstack/ai-openai";
 
-const runtime = new CopilotRuntime({
+const runtime = new CopilotKitRuntime({
   agents: { default: new BuiltInAgent({ model: openaiText("gpt-6-luna") }) },
 });
 

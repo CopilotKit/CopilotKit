@@ -65,7 +65,7 @@ function channelSnippet(adapter: "slack" | "teams") {
     lang: "ts",
     code: `import { createChannel } from "@copilotkit/channels";
 ${imports}
-import { CopilotRuntime, CopilotKitIntelligence } from "@copilotkit/runtime";
+import { CopilotKitRuntime, CopilotKitIntelligence } from "@copilotkit/runtime";
 
 const bot = createChannel({
   name: "support-bot",
@@ -79,7 +79,7 @@ const bot = createChannel({
 bot.onMention(({ thread }) => thread.runAgent());
 
 // The runtime owns the channel's lifecycle.
-export const runtime = new CopilotRuntime({
+export const runtime = new CopilotKitRuntime({
   intelligence: new CopilotKitIntelligence({
     apiKey: process.env.CPK_INTELLIGENCE_API_KEY!,
   }),
@@ -173,13 +173,13 @@ export function runtimeSnippet(frameworkId: string): string {
     agent = `new HttpAgent({ url: process.env.AGENT_URL! }) // your ${name} agent`;
   }
   return `import {
-  CopilotRuntime,
+  CopilotKitRuntime,
   createCopilotKitRuntimeHandler,
 } from "@copilotkit/runtime";
 ${imports}
 
 const handler = createCopilotKitRuntimeHandler({
-  runtime: new CopilotRuntime({
+  runtime: new CopilotKitRuntime({
     agents: {
       default: ${agent},
     },

@@ -10,7 +10,7 @@ agentPrompt: |
   1. Next to my web app, scaffold the MCP App with `npx create-mcp-use-app@latest fizzy-maps --template mcp-apps`. Delete the template's starter view (views/my-view) and replace index.ts with one tool made with `server.tool({ name: "show-map", description, inputSchema, outputSchema, view: { name: "map-view" } }, handler)`. The handler returns `{ content: [{ type: "text", text }], structuredContent }`.
   2. Build the view in views/map-view/view.tsx. Read the result with `useToolContext<"show-map">()` from "mcp-use/react", and check `status` ("pending" | "ready" | "error") before reading `toolOutput`. The view loads map tiles from https://tile.openstreetmap.org, so list that host in the tool's `view.csp` (`resourceDomains`, `connectDomains`).
   3. Run it with `npm run dev -- --port 3001` and check that the tool renders in the mcp-use Inspector at http://localhost:3001/mcp/inspector.
-  4. Add `MAP_MCP_URL=http://localhost:3001/mcp` to my web app's .env. In my CopilotKit runtime route, add `mcpApps: { servers: [{ type: "http", url: process.env.MAP_MCP_URL ?? "http://localhost:3001/mcp", serverId: "fizzy-maps" }] }` to `new CopilotRuntime(...)`.
+  4. Add `MAP_MCP_URL=http://localhost:3001/mcp` to my web app's .env. In my CopilotKit runtime route, add `mcpApps: { servers: [{ type: "http", url: process.env.MAP_MCP_URL ?? "http://localhost:3001/mcp", serverId: "fizzy-maps" }] }` to `new CopilotKitRuntime(...)`.
   5. Share the sample orders and the complete `show-map` arguments with `useAgentContext({ description, value })` from "@copilotkit/react-core". Don't add a frontend renderer. CopilotKit renders MCP Apps on its own.
 
   If I don't have a CopilotKit app yet, start from https://github.com/CopilotKit/CopilotKit/tree/main/examples/demos/manufact-mcp-apps. Keep my existing model, provider, and runtime setup unchanged.
@@ -409,7 +409,7 @@ runs.
 
 ```ts title="app/api/copilotkit/[[...slug]]/route.ts" doctest="component"
 import {
-  CopilotRuntime,
+  CopilotKitRuntime,
   createCopilotKitRuntimeHandler,
 } from "@copilotkit/runtime";
 import { BuiltInAgent } from "@copilotkit/runtime/agent";
@@ -423,7 +423,7 @@ const agent = new BuiltInAgent({
     "Each call replaces the map, so always pass the complete marker set. Never invent locations.",
 });
 
-const runtime = new CopilotRuntime({
+const runtime = new CopilotKitRuntime({
   agents: { default: agent },
   mcpApps: { // [!code highlight:10]
     servers: [

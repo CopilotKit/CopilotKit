@@ -20,11 +20,11 @@ Key benefits:
 Add your servers to `mcpApps.servers` on the runtime. The runtime adds the MCP Apps middleware to every registered agent. When an agent calls a tool that has a UI resource, the middleware gets the resource and sends an `activity` event. The Vue `MCPAppsActivityRenderer` shows it in the chat as a sandboxed iframe.
 
 ```ts title="server.ts"
-import { CopilotRuntime } from "@copilotkit/runtime";
+import { CopilotKitRuntime } from "@copilotkit/runtime";
 import { BuiltInAgent } from "@copilotkit/runtime/agent";
 import { openaiText } from "@tanstack/ai-openai";
 
-const runtime = new CopilotRuntime({
+const runtime = new CopilotKitRuntime({
   agents: { default: new BuiltInAgent({ model: openaiText("gpt-5-mini") }) },
   mcpApps: {
     servers: [

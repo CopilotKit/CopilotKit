@@ -260,12 +260,12 @@ Before you begin, you'll need the following:
           ```ts title="app/api/copilotkit/route.ts"
           import { HttpAgent } from "@ag-ui/client";
           import {
-            CopilotRuntime,
+            CopilotKitRuntime,
             createCopilotKitRuntimeHandler,
           } from "@copilotkit/runtime";
           import type { NextRequest } from "next/server";
 
-          const runtime = new CopilotRuntime({
+          const runtime = new CopilotKitRuntime({
             agents: {
               default: new HttpAgent({
                 url: process.env.AGENT_URL ?? "http://localhost:8000",

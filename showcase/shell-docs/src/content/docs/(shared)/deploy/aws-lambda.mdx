@@ -43,14 +43,14 @@ import { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
 import type { LambdaFunctionURLEvent } from "aws-lambda";
 import {
-  CopilotRuntime,
+  CopilotKitRuntime,
   createCopilotKitRuntimeHandler,
 } from "@copilotkit/runtime";
 import { BuiltInAgent } from "@copilotkit/runtime/agent";
 import { openaiText } from "@tanstack/ai-openai";
 
 // Created once per container, reused across warm invocations.
-const runtime = new CopilotRuntime({
+const runtime = new CopilotKitRuntime({
   agents: {
     default: new BuiltInAgent({ model: openaiText("gpt-6-luna") }),
   },
@@ -387,12 +387,12 @@ npm install express serverless-http @copilotkit/runtime @tanstack/ai-openai
 ```ts title="src/handler.ts"
 import express from "express";
 import serverlessHttp from "serverless-http";
-import { CopilotRuntime } from "@copilotkit/runtime";
+import { CopilotKitRuntime } from "@copilotkit/runtime";
 import { BuiltInAgent } from "@copilotkit/runtime/agent";
 import { openaiText } from "@tanstack/ai-openai";
 import { createCopilotKitNodeListener } from "@copilotkit/runtime/node";
 
-const runtime = new CopilotRuntime({
+const runtime = new CopilotKitRuntime({
   agents: {
     default: new BuiltInAgent({ model: openaiText("gpt-6-luna") }),
   },
@@ -423,12 +423,12 @@ Single-route mode pairs well here, since it collapses the runtime to one `POST` 
 ```ts title="src/handler.ts"
 import express from "express";
 import serverlessHttp from "serverless-http";
-import { CopilotRuntime } from "@copilotkit/runtime";
+import { CopilotKitRuntime } from "@copilotkit/runtime";
 import { BuiltInAgent } from "@copilotkit/runtime/agent";
 import { openaiText } from "@tanstack/ai-openai";
 import { createCopilotKitNodeListener } from "@copilotkit/runtime/node";
 
-const runtime = new CopilotRuntime({
+const runtime = new CopilotKitRuntime({
   agents: {
     default: new BuiltInAgent({ model: openaiText("gpt-6-luna") }),
   },
@@ -454,12 +454,12 @@ export const handler = serverlessHttp(app);
 Use the runtime's `onRequest` hook to reject unauthenticated calls before any routing happens. It works identically on every front door above.
 
 ```ts title="src/handler.ts"
-import { CopilotRuntime, createCopilotKitRuntimeHandler } from "@copilotkit/runtime";
+import { CopilotKitRuntime, createCopilotKitRuntimeHandler } from "@copilotkit/runtime";
 import { BuiltInAgent } from "@copilotkit/runtime/agent";
 import { openaiText } from "@tanstack/ai-openai";
 import { verifyToken } from "./auth";
 
-const runtime = new CopilotRuntime({
+const runtime = new CopilotKitRuntime({
   agents: {
     default: new BuiltInAgent({ model: openaiText("gpt-6-luna") }),
   },
@@ -488,7 +488,7 @@ See [Authentication](/auth) for forwarding user identity through to your agent.
 ## Operational notes
 
 - **Bundle your dependencies.** `@copilotkit/runtime` is not in any AWS-managed layer. Use `NodejsFunction` (CDK), `BuildMethod: esbuild` (SAM), or your own bundler.
-- **Construct the runtime outside the handler.** Putting `new CopilotRuntime(...)` at module scope means warm invocations reuse it rather than rebuilding it per request.
+- **Construct the runtime outside the handler.** Putting `new CopilotKitRuntime(...)` at module scope means warm invocations reuse it rather than rebuilding it per request.
 - **Set the timeout to cover a full agent run.** Lambda's maximum is 15 minutes; the default of 3 seconds will cut off almost anything.
 - **Cold starts are visible in chat.** Provisioned concurrency is the usual fix if first-token latency matters.
 - **Streaming has its own limits.** A streamed response can reach 200 MB against the 6 MB buffered ceiling, but Lambda throttles to 2 MB/s past the first 6 MB (API Gateway, past the first 10 MB). Streaming also incurs cost, and a streamed run is billed for the full function duration even if the client disconnects. See [Lambda response streaming](https://docs.aws.amazon.com/lambda/latest/dg/configuration-response-streaming.html) for the current limits.

@@ -89,7 +89,7 @@ Runtime, implement `identifyUser(request)` with the server-verified session or
 token from your auth provider and return a stable user `id` and `name`:
 
 ```ts title="app/api/copilotkit/[[...slug]]/route.ts"
-import { CopilotKitIntelligence, CopilotRuntime } from "@copilotkit/runtime";
+import { CopilotKitIntelligence, CopilotKitRuntime } from "@copilotkit/runtime";
 import { BuiltInAgent } from "@copilotkit/runtime/agent";
 import { openaiText } from "@tanstack/ai-openai";
 // Your app's own server-side session check.
@@ -101,7 +101,7 @@ const intelligence = new CopilotKitIntelligence({
   apiKey: process.env.CPK_INTELLIGENCE_API_KEY!,
 });
 
-const runtime = new CopilotRuntime({
+const runtime = new CopilotKitRuntime({
   agents: { default: new BuiltInAgent({ model: openaiText("gpt-6-luna") }) },
   intelligence,
   identifyUser: async (request) => {

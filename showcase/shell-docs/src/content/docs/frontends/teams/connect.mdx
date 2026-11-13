@@ -97,7 +97,7 @@ Use this prompt to connect your agent to Microsoft Teams, start the runner, and 
     import { createChannel } from "@copilotkit/channels";
     import {
       CopilotKitIntelligence,
-      CopilotRuntime,
+      CopilotKitRuntime,
     } from "@copilotkit/runtime";
     import { createCopilotKitNodeListener } from "@copilotkit/runtime/node";
     import { makeAgent } from "./agent.js";
@@ -130,7 +130,7 @@ Use this prompt to connect your agent to Microsoft Teams, start the runner, and 
       wsUrl: process.env.INTELLIGENCE_GATEWAY_WS_URL,
     });
 
-    const runtime = new CopilotRuntime({
+    const runtime = new CopilotKitRuntime({
       agents: {},
       intelligence,
       channels: [channel],

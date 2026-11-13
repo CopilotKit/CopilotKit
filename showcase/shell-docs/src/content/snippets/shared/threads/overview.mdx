@@ -141,11 +141,11 @@ Threads Drawer and Headless Threads both use Intelligence’s AG-UI streams. A s
 />
 
 1. Your UI opens a conversation with a stable `threadId`.
-2. `CopilotRuntime` runs your agent and sends conversation events to CopilotKit Intelligence.
+2. `CopilotKitRuntime` runs your agent and sends conversation events to CopilotKit Intelligence.
 3. When users return, CopilotKit Intelligence replays the stored history, reconnects any live run, and synchronizes thread metadata.
 
 <Callout type="info" title="How are threads scoped to each user?">
-  Your application authenticates its users, and `CopilotRuntime` resolves that
+  Your application authenticates its users, and `CopilotKitRuntime` resolves that
   verified identity on the server with `identifyUser`. CopilotKit Intelligence
   uses the stable user ID to scope thread lists and lifecycle actions. See
   [Scope CopilotKit threads to the signed-in user](/threads-lifecycle#scope-copilotkit-threads-to-the-signed-in-user)

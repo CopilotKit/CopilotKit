@@ -139,7 +139,7 @@ rules for each tool definition:
 
 ```ts title="app/api/copilotkit/[[...slug]]/route.ts"
 import {
-  CopilotRuntime,
+  CopilotKitRuntime,
   createCopilotKitRuntimeHandler,
 } from "@copilotkit/runtime";
 import { BuiltInAgent, defineTool } from "@copilotkit/runtime/agent";
@@ -219,7 +219,7 @@ function authorizeRuntimeRequest(request: Request): void {
   }
 }
 
-const runtime = new CopilotRuntime({
+const runtime = new CopilotKitRuntime({
   // Per request → a fresh agent scoped to THIS user's id. // [!code highlight]
   agents: ({ request }) => ({ default: buildAgent(resolveArcadeUserId(request)) }),
 });

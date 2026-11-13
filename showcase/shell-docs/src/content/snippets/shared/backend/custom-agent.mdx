@@ -28,7 +28,7 @@ npm install @copilotkit/runtime ai @ai-sdk/openai
 
 ```typescript title="src/copilotkit.ts"
 import {
-  CopilotRuntime,
+  CopilotKitRuntime,
   createCopilotKitRuntimeHandler,
   InMemoryAgentRunner,
 } from "@copilotkit/runtime";
@@ -49,7 +49,7 @@ const agent = new BuiltInAgent({
     }),
 });
 
-const runtime = new CopilotRuntime({
+const runtime = new CopilotKitRuntime({
   agents: { default: agent },
   runner: new InMemoryAgentRunner(),
 });
@@ -68,7 +68,7 @@ npm install @copilotkit/runtime @tanstack/ai @tanstack/ai-openai
 
 ```typescript title="src/copilotkit.ts"
 import {
-  CopilotRuntime,
+  CopilotKitRuntime,
   createCopilotKitRuntimeHandler,
   InMemoryAgentRunner,
 } from "@copilotkit/runtime";
@@ -93,7 +93,7 @@ const agent = new BuiltInAgent({
   },
 });
 
-const runtime = new CopilotRuntime({
+const runtime = new CopilotKitRuntime({
   agents: { default: agent },
   runner: new InMemoryAgentRunner(),
 });
@@ -112,7 +112,7 @@ npm install @copilotkit/runtime
 
 ```typescript title="src/copilotkit.ts"
 import {
-  CopilotRuntime,
+  CopilotKitRuntime,
   createCopilotKitRuntimeHandler,
   InMemoryAgentRunner,
 } from "@copilotkit/runtime";
@@ -146,7 +146,7 @@ const agent = new BuiltInAgent({
   },
 });
 
-const runtime = new CopilotRuntime({
+const runtime = new CopilotKitRuntime({
   agents: { default: agent },
   runner: new InMemoryAgentRunner(),
 });

@@ -92,7 +92,7 @@ Already have CopilotKit running? Do step 3 only. Your runtime needs no change: w
     import { chat } from "@tanstack/ai";
     import { openaiText } from "@tanstack/ai-openai";
     import {
-      CopilotRuntime,
+      CopilotKitRuntime,
       createCopilotKitRuntimeHandler,
       InMemoryAgentRunner,
     } from "@copilotkit/runtime";
@@ -119,7 +119,7 @@ Already have CopilotKit running? Do step 3 only. Your runtime needs no change: w
       },
     });
 
-    const runtime = new CopilotRuntime({
+    const runtime = new CopilotKitRuntime({
       agents: { default: agent },
       runner: new InMemoryAgentRunner(),
     });
@@ -137,7 +137,7 @@ Already have CopilotKit running? Do step 3 only. Your runtime needs no change: w
     import { createServer } from "node:http";
     import { chat } from "@tanstack/ai";
     import { openaiText } from "@tanstack/ai-openai";
-    import { CopilotRuntime, InMemoryAgentRunner } from "@copilotkit/runtime";
+    import { CopilotKitRuntime, InMemoryAgentRunner } from "@copilotkit/runtime";
     import { createCopilotKitNodeListener } from "@copilotkit/runtime/node";
     import {
       BuiltInAgent,
@@ -162,7 +162,7 @@ Already have CopilotKit running? Do step 3 only. Your runtime needs no change: w
       },
     });
 
-    const runtime = new CopilotRuntime({
+    const runtime = new CopilotKitRuntime({
       agents: { default: agent },
       runner: new InMemoryAgentRunner(),
     });
@@ -181,7 +181,7 @@ Already have CopilotKit running? Do step 3 only. Your runtime needs no change: w
     import { createServer } from "node:http";
     import { chat } from "@tanstack/ai";
     import { openaiText } from "@tanstack/ai-openai";
-    import { CopilotRuntime, InMemoryAgentRunner } from "@copilotkit/runtime";
+    import { CopilotKitRuntime, InMemoryAgentRunner } from "@copilotkit/runtime";
     import { createCopilotKitNodeListener } from "@copilotkit/runtime/node";
     import {
       BuiltInAgent,
@@ -206,7 +206,7 @@ Already have CopilotKit running? Do step 3 only. Your runtime needs no change: w
       },
     });
 
-    const runtime = new CopilotRuntime({
+    const runtime = new CopilotKitRuntime({
       agents: { default: agent },
       runner: new InMemoryAgentRunner(),
     });
@@ -225,7 +225,7 @@ Already have CopilotKit running? Do step 3 only. Your runtime needs no change: w
     import { createServer } from "node:http";
     import { chat } from "@tanstack/ai";
     import { openaiText } from "@tanstack/ai-openai";
-    import { CopilotRuntime, InMemoryAgentRunner } from "@copilotkit/runtime";
+    import { CopilotKitRuntime, InMemoryAgentRunner } from "@copilotkit/runtime";
     import { createCopilotKitNodeListener } from "@copilotkit/runtime/node";
     import {
       BuiltInAgent,
@@ -250,7 +250,7 @@ Already have CopilotKit running? Do step 3 only. Your runtime needs no change: w
       },
     });
 
-    const runtime = new CopilotRuntime({
+    const runtime = new CopilotKitRuntime({
       agents: { default: agent },
       runner: new InMemoryAgentRunner(),
     });

@@ -93,11 +93,11 @@ unauthorized sessions before CopilotKit discovers or runs an agent:
 
 ```ts title="server.ts"
 import { createServer } from "node:http";
-import { CopilotRuntime } from "@copilotkit/runtime";
+import { CopilotKitRuntime } from "@copilotkit/runtime";
 import { createCopilotKitNodeListener } from "@copilotkit/runtime/node";
 import { verifySession } from "./auth";
 
-const runtime = new CopilotRuntime({ agents: {} }); // Supply your agents.
+const runtime = new CopilotKitRuntime({ agents: {} }); // Supply your agents.
 
 const listener = createCopilotKitNodeListener({
   runtime,
@@ -141,9 +141,9 @@ agent needs only specific context:
 
 ```ts
 import { HttpAgent } from "@ag-ui/client";
-import { CopilotRuntime } from "@copilotkit/runtime";
+import { CopilotKitRuntime } from "@copilotkit/runtime";
 
-const runtime = new CopilotRuntime({
+const runtime = new CopilotKitRuntime({
   agents: { default: new HttpAgent({ url: "https://agent.example.com" }) },
   forwardHeaders: {
     allow: ["authorization", "x-tenant-id"],

@@ -79,7 +79,7 @@ To use A2A agents with CopilotKit, you need to first install the CopilotKit midd
     ### Configure the A2A middleware
     ```tsx title="app/api/copilotkit/[[...slug]]/route.ts" doctest="component"
     import {
-      CopilotRuntime,
+      CopilotKitRuntime,
       createCopilotKitRuntimeHandler,
       InMemoryAgentRunner,
     } from "@copilotkit/runtime";
@@ -143,7 +143,7 @@ To use A2A agents with CopilotKit, you need to first install the CopilotKit midd
     });
 
     // CopilotKit runtime connects frontend to agent system
-    const runtime = new CopilotRuntime({
+    const runtime = new CopilotKitRuntime({
       agents: {
         a2a_chat: a2aMiddlewareAgent, // Use this same id in the frontend.
       },
