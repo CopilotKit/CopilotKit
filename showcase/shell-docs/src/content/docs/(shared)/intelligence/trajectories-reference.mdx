@@ -63,6 +63,14 @@ This page lists the `learning` prop, the Core methods, and the `CopilotKitIntell
     <PropertyReference name="network" type="boolean" default="true">
       Records `network` events for browser `fetch` and XHR requests.
     </PropertyReference>
+
+    <PropertyReference name="errors" type="boolean" default="true">
+      Records `page.error` events: uncaught errors, unhandled promise rejections, failed resource loads, and form validation failures. See [Page errors](/intelligence/captured-data#page-errors).
+    </PropertyReference>
+
+    <PropertyReference name="alerts" type="boolean" default="false">
+      Records the text of `role="alert"` and `aria-live="assertive"` regions as `page.error` events. Alert text can contain names or other personal data. Has no effect when `errors` is `false`.
+    </PropertyReference>
   </PropertyReference>
 
   <PropertyReference name="ignoreUrls" type="(string | RegExp)[]" default="[]">
@@ -73,6 +81,10 @@ This page lists the `learning` prop, the Core methods, and the `CopilotKitIntell
     Runs in the browser for each event, after built-in redaction and before validation and delivery. Return the event, a changed copy, or `null` to drop it. It also runs for developer events and `thread.linked`. If it throws or returns an invalid event, Core drops the event and reports `INVALID_EVENT`.
 
     `TrajectoryEvent` is `{ type: "CUSTOM"; name: string; timestamp: number; value: JsonValue }`.
+  </PropertyReference>
+
+  <PropertyReference name="appVersion" type="string">
+    Your app's version, such as a release tag or commit. Capture sends it as `appVersion` in the `page` event at start, so Learning can tell app releases apart. Values longer than 200 characters are cut.
   </PropertyReference>
 
   <PropertyReference name="onError" type="(error: { code: string; message: string }) => void">

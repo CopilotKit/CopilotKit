@@ -18,8 +18,10 @@ Capture records browser-visible data by default. Your app can exclude or change 
 - URLs, including query strings and hashes, plus the page title and referrer, subject to the redaction rules below.
 - Clicked element text and attributes, plus live control values, subject to the redaction rules below.
 - A short, cleaned name of each clicked control in `target.label`. See [Click labels](#click-labels).
+- A short, cleaned name of each edited field in `target.label`. See [Field labels](#field-labels).
 - Input, select, text area, and editable element values on input and change events.
 - Browser-visible request and response headers and bounded body snapshots.
+- Errors that the page reports: uncaught errors, unhandled promise rejections, failed resource loads, and form validation failures. Alert text only when you turn it on. See [Page errors](#page-errors).
 - Reply ratings with their comment and the first 500 characters of the rated reply. See [`message.feedback`](#events) below.
 
 ## Credential redaction
@@ -69,10 +71,11 @@ Sequence numbers start from the Core instance's creation time in microseconds. T
 
 | `name` | Main `value` fields | Source |
 | --- | --- | --- |
-| `page` | `route`, `url`, `title`, `referrer` | Browser, at start |
+| `page` | `route`, `url`, `title`, `referrer`, `sdkVersion`, `appVersion` | Browser, at start |
 | `navigation` | `from`, `to`, `navigationType` | Browser |
 | `click` | `target` (`tag`, `role`, `action`, `text`, `label`, `attributes`, control values, `input`), `route`, `url` | Browser |
-| `input` | `eventType`, `target` (element details and control values), `route`, `url` | Browser |
+| `input` | `eventType`, `target` (element details, `label`, and control values), `route`, `url` | Browser |
+| `page.error` | `kind`, then fields for that kind, `count`, `route`, `url` | Browser. See [Page errors](#page-errors) |
 | `network` | `transport`, `method`, `url`, `origin`, `route`, `status`, `durationMs`, `outcome`, `request`, `response` | Browser |
 | `thread.linked` | `threadId` | Core |
 | `message.feedback` | `feedbackId`, `threadId`, `messageId`, `agentId`, `runId`, `rating`, `comment`, `response` | Chat, when a user rates a reply, changes the comment, or removes the rating |
@@ -80,6 +83,8 @@ Sequence numbers start from the Core instance's creation time in microseconds. T
 Core emits `thread.linked` once for each Thread, when Runtime starts a run in it. Clicks do not carry Thread, message, or tool fields. A Trajectory can contain interactions without any Thread.
 
 A `message.feedback` event records a [reply rating](/intelligence/capture-interactions#collect-reply-ratings). `rating` is `"up"`, `"down"`, or `null` when the user removed the rating. `comment` is trimmed, cut at 1,000 characters, and omitted when empty. `response` holds the first 500 characters of the rated reply. `runId` is omitted when the chat does not know the reply's run. `feedbackId` is `threadId:messageId`; the newest event for a `feedbackId` is the current rating.
+
+The `page` event carries the version of `@copilotkit/learning` in `sdkVersion`. It carries `appVersion` only when you set the `appVersion` option.
 
 Control values include `value`, `checked` for checkboxes and radio buttons, `selectedValues` for select elements, and file metadata for file inputs.
 
@@ -133,14 +138,14 @@ Capture cleans the chosen name in this order:
 
 Only the matching part is replaced. When no name remains, `label` is omitted. This label cleanup does not change `text`, `attributes`, or control values. Attributes and control values keep their separate credential redaction rules. A clean label does not mean that the rest of the event contains no sensitive data.
 
-`data-copilotkit-action` gives a control an explicit name in `target.action`. To exclude a control, add `data-copilotkit-ignore`. To send clicks without labels, remove the field in `beforeSend`:
+`data-copilotkit-action` gives a control an explicit name in `target.action`. To exclude a control, add `data-copilotkit-ignore`. To send clicks and edits without labels, remove the field in `beforeSend`:
 
 ```ts
 import type { TrajectoryEvent } from "@copilotkit/learning";
 
-function withoutClickLabel(event: TrajectoryEvent): TrajectoryEvent {
+function withoutLabels(event: TrajectoryEvent): TrajectoryEvent {
   const value = event.value;
-  if (event.name !== "click" || !value || typeof value !== "object" || Array.isArray(value)) {
+  if ((event.name !== "click" && event.name !== "input") || !value || typeof value !== "object" || Array.isArray(value)) {
     return event;
   }
   const target = value.target;
@@ -151,7 +156,63 @@ function withoutClickLabel(event: TrajectoryEvent): TrajectoryEvent {
 }
 ```
 
-Pass this function as `learning={{ beforeSend: withoutClickLabel }}` on the React provider.
+Pass this function as `learning={{ beforeSend: withoutLabels }}` on the React provider.
+
+## Field labels
+
+Input events include `target.label`, a short name of the edited field, such as `Greeting`. With this name, Automatic Learning can tell which field a person edits again and again, without the typed text. Capture uses the first of these sources that gives a name:
+
+1. The text of the elements that `aria-labelledby` references, with the same limits as for clicks.
+2. `aria-label`.
+3. The text of the field's `<label>` elements. Fields inside a `<label>`, with their values and options, are left out.
+
+The name never comes from the value, the placeholder, `title`, or the field's own text. Editable content and ARIA text boxes get a name only from `aria-labelledby` or `aria-label`. A `<label>` inside `data-copilotkit-ignore` is not used.
+
+For a select, the visible text of the chosen options follows the name, as in `Deal stage: Negotiation`. Without a name, the label is the option text only. Option text can name a person or a customer. To keep it out, remove the label in `beforeSend`.
+
+Capture cleans field labels with the same steps as click labels, and reads the label when the edit starts. When no name remains, `label` is omitted.
+
+## Page errors
+
+Many apps have no logging that Learning can read. Page errors show Learning where the app failed for the user. Each `page.error` event has a `kind`:
+
+| `kind` | Recorded when | Fields |
+| --- | --- | --- |
+| `uncaught` | A script throws an error that nothing catches. | `name`, `message`, `stack`, `source`, `line`, `column` |
+| `rejection` | A promise rejects and nothing handles it. | `name`, `message`, and `stack` when the reason has them. `reasonType` when the reason is not an object. |
+| `resource` | An image, script, stylesheet, media file, or frame fails to load. | `tag`, `source` |
+| `invalid` | The browser's form validation rejects a field. | `label` (see [Field labels](#field-labels)), `failed` (the failed validity checks, such as `valueMissing`), `validationMessage` |
+| `alert` | Text appears in a `role="alert"` or `aria-live="assertive"` region. Off by default. Set `capture: { alerts: true }` to record it. | `text` |
+
+Capture cleans `message`, `validationMessage`, and `text` with the label cleanup steps above, and cuts them at 300 characters (200 for `text`). The `stack` holds the cleaned message, has the URL and credential redaction, and stops at 1,000 characters. `source` URLs have the URL redaction. An `invalid` event never contains the field's value. Fields and alert regions inside `data-copilotkit-ignore` are skipped.
+
+The cleanup removes emails, URLs, and credentials. It does not find names or other personal data. Error messages and stacks are written by your code and its libraries, and they can contain anything that the code puts in them, for example `User Jane Smith not found`. Alert text is what the page shows the user, so it can contain names, account details, or text that the user typed. For this reason, alert capture is off by default.
+
+To keep personal data out of `page.error` events:
+
+- Do not put personal data in error messages that your code throws.
+- Put `data-copilotkit-ignore` on alert regions that show personal data.
+- Remove fields in `beforeSend`, as in the example below.
+- Turn off error capture with `capture: { errors: false }`.
+
+This `beforeSend` function keeps the error name and location, and removes the message, the stack, and alert text:
+
+```ts
+import type { TrajectoryEvent } from "@copilotkit/learning";
+
+function withoutErrorText(event: TrajectoryEvent): TrajectoryEvent {
+  const value = event.value;
+  if (event.name !== "page.error" || !value || typeof value !== "object" || Array.isArray(value)) {
+    return event;
+  }
+  delete value.message;
+  delete value.stack;
+  delete value.text;
+  return event;
+}
+```
+
+To limit volume, capture sends each distinct error at its 1st, 10th, 100th, and later powers-of-ten occurrence, with the occurrence number in `count`. A capture session sends at most 50 `page.error` events. Capture only listens. It does not change how your app handles errors.
 
 ## Form edit timing
 
@@ -182,8 +243,9 @@ In code (see the [API reference](/intelligence/trajectories-reference#learning-p
 | Option | Effect |
 | --- | --- |
 | `ignoreUrls` | URL prefixes or patterns that network capture skips. |
-| `capture` | Turn off `clicks`, `inputs`, `navigation`, or `network`. All four default to on. |
+| `capture` | Turn off `clicks`, `inputs`, `navigation`, `network`, or `errors`. All five default to on. |
 | `beforeSend` | Runs last, in the browser. Return the event, a changed copy, or `null` to drop it. |
+| `appVersion` | Your app's version, sent in the `page` event at start. |
 
 In markup:
 
