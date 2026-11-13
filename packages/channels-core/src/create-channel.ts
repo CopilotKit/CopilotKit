@@ -3,6 +3,7 @@ import type {
   IngressSink,
   IncomingTurn,
   InteractionEvent,
+  InteractionRefusalReason,
   IncomingCommand,
   IncomingThreadStart,
   IncomingWelcome,
@@ -676,7 +677,7 @@ const INTERACTION_REFUSALS = {
     log: "the awaitChoice picker is still being posted",
     tell: "This choice is not open yet. Try again in a moment.",
   },
-} as const;
+} satisfies Record<InteractionRefusalReason, { log: string; tell: string }>;
 
 /** Who owns one awaitChoice picker control, and whether it is open (see `choiceControlOwners`). */
 interface ChoiceControlOwner {
@@ -687,21 +688,20 @@ interface ChoiceControlOwner {
   waiter?: ChoiceWaiter;
 }
 
-type InteractionRefusal = keyof typeof INTERACTION_REFUSALS;
-
 /**
  * Log a refused or expired interaction at warn (action id, conversation
  * reference, reason) and, where the platform has native ephemeral messages,
  * tell the person who clicked. Telling them is best-effort and never falls
- * back to a direct message.
+ * back to a direct message. Resolves to the `refused` outcome the sink returns.
  */
 async function refuseInteraction(
   adapter: PlatformAdapter,
   platform: string,
   evt: InteractionEvent,
   actor: ProviderActor,
-  reason: InteractionRefusal,
-): Promise<void> {
+  reason: InteractionRefusalReason,
+) {
+  const refused = { status: "refused" as const, reason };
   const refusal = INTERACTION_REFUSALS[reason];
   console.warn(
     `[channel] refused ${platform} interaction ${evt.id} in conversation ${conversationLogRef(evt.conversationKey)}: ${refusal.log}`,
@@ -712,7 +712,7 @@ async function refuseInteraction(
     !actor.id ||
     actor.id === "unknown"
   ) {
-    return;
+    return refused;
   }
   try {
     await adapter.postEphemeral(
@@ -727,6 +727,7 @@ async function refuseInteraction(
       err,
     );
   }
+  return refused;
 }
 
 function ingressPlatform(
@@ -1225,7 +1226,9 @@ export function createChannel<
         if (evt.eventId && !adapter.skipIngressDedup) {
           const dupKey = `evt:${platform}:${evt.eventId}`;
           try {
-            if (await store.dedup.seen(dupKey, cfg.dedupTtl ?? 300_000)) return;
+            if (await store.dedup.seen(dupKey, cfg.dedupTtl ?? 300_000)) {
+              return { status: "ignored" };
+            }
           } catch (err) {
             console.warn(
               `[channel] dedup check failed for ${platform}; processing without dedup`,
@@ -1288,24 +1291,22 @@ export function createChannel<
             owner.actorId !== undefined &&
             owner.actorId !== identityContext.actor.id
           ) {
-            await refuseInteraction(
+            return refuseInteraction(
               adapter,
               platform,
               evt,
               identityContext.actor,
               "not-initiator",
             );
-            return;
           }
           if (owner.state === "reserved") {
-            await refuseInteraction(
+            return refuseInteraction(
               adapter,
               platform,
               evt,
               identityContext.actor,
               "not-open",
             );
-            return;
           }
         }
         const waiter = waiters.get(evt.conversationKey);
@@ -1318,14 +1319,13 @@ export function createChannel<
           picker?.actorId !== undefined &&
           picker.actorId !== identityContext.actor.id
         ) {
-          await refuseInteraction(
+          return refuseInteraction(
             adapter,
             platform,
             evt,
             identityContext.actor,
             "not-initiator",
           );
-          return;
         }
         // What the click answers the picker with: the picker's own value for
         // the control, never one the click merely claims. A select value that
@@ -1334,19 +1334,20 @@ export function createChannel<
           ? choiceAnswer(control, evt.value, evt.rawValue)
           : undefined;
         if (answer && !answer.ok) {
-          await refuseInteraction(
+          return refuseInteraction(
             adapter,
             platform,
             evt,
             identityContext.actor,
             "value-not-offered",
           );
-          return;
         }
+        let handlerRan = false;
         try {
           const explicit = interactionHandlers.get(evt.id);
           if (explicit) {
             await explicit(ctx);
+            handlerRan = true;
           } else if (control && !control.bound) {
             // A picker control without a handler: nothing to dispatch.
           } else {
@@ -1354,19 +1355,19 @@ export function createChannel<
               conversationKey: evt.conversationKey,
               platform,
             });
+            handlerRan = true;
           }
         } catch (err) {
           // An action presented from another conversation never runs and never
           // answers a pending choice here.
           if (err instanceof ActionScopeMismatchError) {
-            await refuseInteraction(
+            return refuseInteraction(
               adapter,
               platform,
               evt,
               identityContext.actor,
               "outside-conversation",
             );
-            return;
           }
           if (err instanceof ActionExpiredError) {
             // A control that never had an action (a link button, a button
@@ -1376,19 +1377,18 @@ export function createChannel<
               console.debug(
                 `[channel] ignored ${platform} interaction in conversation ${conversationLogRef(evt.conversationKey)}: the control has no action`,
               );
-              return;
+              return { status: "ignored" };
             }
             // A pending picker still answers from its own record of the
             // control; any other expired or revoked action is refused.
             if (!picker) {
-              await refuseInteraction(
+              return refuseInteraction(
                 adapter,
                 platform,
                 evt,
                 identityContext.actor,
                 "expired",
               );
-              return;
             }
             console.warn(
               `[channel] ${platform} interaction ${evt.id} in conversation ${conversationLogRef(evt.conversationKey)}: the picker control's handler has expired; answering the picker without it`,
@@ -1412,11 +1412,22 @@ export function createChannel<
         ) {
           retireWaiter(evt.conversationKey, picker);
           picker.resolve(answer.value);
+          return { status: "handled" };
         } else if (waiter && !picker) {
           console.debug(
             `[channel] ${platform} interaction ${evt.id} in conversation ${conversationLogRef(evt.conversationKey)} is not a control of the pending awaitChoice picker; the picker stays pending`,
           );
         }
+        // The picker closed (before this reply resolved it) while dispatch
+        // waited, and no handler finished: the reply answered nothing.
+        if (
+          picker &&
+          waiters.get(evt.conversationKey) !== picker &&
+          !handlerRan
+        ) {
+          return { status: "ignored" };
+        }
+        return { status: "handled" };
       },
       async onCommand(cmd: IncomingCommand) {
         const platform = ingressPlatform(adapter, cmd);

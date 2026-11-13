@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
+import { ActionExpiredError } from "./action-registry.js";
 import { createChannel } from "./create-channel.js";
 import type { Channel } from "./create-channel.js";
 import { FakeAdapter } from "./testing/fake-adapter.js";
@@ -10,7 +11,7 @@ import type { ChannelNode, ProviderActor } from "@copilotkit/channels-ui";
  * A refused or expired interaction is logged at warn with the action id, a
  * reference to the conversation that does not reveal its key, and the reason.
  * Where the platform has native ephemeral messages, the person who clicked is
- * told why nothing happened.
+ * told why nothing happened. The sink also returns the outcome to the adapter.
  */
 
 const tick = async () => {
@@ -77,17 +78,17 @@ async function start(opts: { nativeEphemeral: boolean; picker: boolean }) {
   fake.emitTurn({ userText: "go", conversationKey: KEY, actor: alice });
   await tick();
   const warned = () => warn.mock.calls.map((c) => c.map(String).join(" "));
-  return { fake, warned, id: buttonIds(fake.posted[0]!)[0]! };
+  return { fake, channel, warned, id: buttonIds(fake.posted[0]!)[0]! };
 }
 
-describe("feedback on refused and expired interactions", () => {
-  afterEach(async () => {
-    vi.restoreAllMocks();
-    while (activeChannels.length > 0) {
-      await activeChannels.pop()!.ɵruntime.stop();
-    }
-  });
+afterEach(async () => {
+  vi.restoreAllMocks();
+  while (activeChannels.length > 0) {
+    await activeChannels.pop()!.ɵruntime.stop();
+  }
+});
 
+describe("feedback on refused and expired interactions", () => {
   it("warns and tells the clicker when only the initiator may answer", async () => {
     const { fake, warned, id } = await start({
       nativeEphemeral: true,
@@ -159,5 +160,128 @@ describe("feedback on refused and expired interactions", () => {
     await tick();
     expect(warned().some((l) => l.includes("expired"))).toBe(true);
     expect(fake.ephemeralPosts).toEqual([]);
+  });
+});
+
+/** Deliver a click on `id` in KEY straight to the sink and return its outcome. */
+function interact(
+  fake: FakeAdapter,
+  click: { id: string; actor: ProviderActor; eventId?: string },
+) {
+  return fake
+    .getSink()
+    .onInteraction({ ...click, conversationKey: KEY, replyTarget: {} });
+}
+
+describe("the outcome the sink returns for an interaction", () => {
+  it("refuses a non-initiator's answer to an initiator-only awaitChoice", async () => {
+    const { fake, id } = await start({ nativeEphemeral: true, picker: true });
+
+    const outcome = await interact(fake, { id, actor: mallory });
+
+    expect(outcome).toEqual({ status: "refused", reason: "not-initiator" });
+  });
+
+  it("reports the initiator's pick as handled", async () => {
+    const { fake, id } = await start({ nativeEphemeral: true, picker: true });
+
+    const outcome = await interact(fake, { id, actor: alice });
+
+    expect(outcome).toEqual({ status: "handled" });
+  });
+
+  it("ignores a pick whose picker closed while its handler was dispatched, when no handler finished", async () => {
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    vi.spyOn(console, "debug").mockImplementation(() => {});
+    const fake = new FakeAdapter({ nativeEphemeral: true });
+    const channel = createChannel({
+      identifyUser: "platform",
+      adapters: [fake],
+      agent: () => new FakeAgent(),
+    });
+    const card = Actions({
+      children: [
+        Button({ value: { ok: true }, onClick: () => {}, children: "OK" }),
+      ],
+    });
+    // The picker closes only when the test aborts it, never on a timer.
+    const abort = new AbortController();
+    let pickerClosed!: () => void;
+    const closed = new Promise<void>((resolve) => {
+      pickerClosed = resolve;
+    });
+    channel.onMention(async ({ thread }) => {
+      await thread.awaitChoice(card, { signal: abort.signal }).catch(() => {});
+      pickerClosed();
+    });
+    await channel.ɵruntime.start();
+    activeChannels.push(channel);
+    fake.emitTurn({ userText: "go", conversationKey: KEY, actor: alice });
+    await tick();
+    const id = buttonIds(fake.posted[0]!)[0]!;
+    // Once dispatch has started, close the picker; then the handler turns
+    // out to be gone.
+    channel.onInteraction(id, async () => {
+      abort.abort();
+      await closed;
+      throw new ActionExpiredError(id);
+    });
+
+    const outcome = await interact(fake, { id, actor: alice });
+
+    expect(outcome).toEqual({ status: "ignored" });
+  });
+
+  it("reports a pick as handled when the picker answers without its expired handler", async () => {
+    const { fake, channel, id } = await start({
+      nativeEphemeral: true,
+      picker: true,
+    });
+    channel.onInteraction(id, async () => {
+      throw new ActionExpiredError(id);
+    });
+
+    const outcome = await interact(fake, { id, actor: alice });
+
+    expect(outcome).toEqual({ status: "handled" });
+  });
+
+  it("reports a pick on a picker control with no handler as handled", async () => {
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    vi.spyOn(console, "debug").mockImplementation(() => {});
+    const fake = new FakeAdapter({ nativeEphemeral: true });
+    const channel = createChannel({
+      identifyUser: "platform",
+      adapters: [fake],
+      agent: () => new FakeAgent(),
+    });
+    const card = Actions({
+      children: [Button({ value: "ship", children: "Ship" })],
+    });
+    channel.onMention(async ({ thread }) => {
+      await thread.awaitChoice(card);
+    });
+    await channel.ɵruntime.start();
+    activeChannels.push(channel);
+    fake.emitTurn({ userText: "go", conversationKey: KEY, actor: alice });
+    await tick();
+    const id = buttonIds(fake.posted[0]!)[0]!;
+
+    const outcome = await interact(fake, { id, actor: alice });
+
+    expect(outcome).toEqual({ status: "handled" });
+  });
+
+  it("ignores a second delivery of the same event", async () => {
+    const { fake, id } = await start({ nativeEphemeral: true, picker: true });
+    const pick = { id, actor: alice, eventId: "evt-1" };
+
+    const first = await interact(fake, pick);
+    const second = await interact(fake, pick);
+
+    expect([first, second]).toEqual([
+      { status: "handled" },
+      { status: "ignored" },
+    ]);
   });
 });

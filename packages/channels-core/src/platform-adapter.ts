@@ -276,9 +276,40 @@ export interface ModalSubmitResult {
   errors?: Record<string, string>;
 }
 
+/** Why the engine refused an interaction instead of running it. */
+export type InteractionRefusalReason =
+  | "not-initiator"
+  | "value-not-offered"
+  | "outside-conversation"
+  | "expired"
+  | "not-open";
+
+/**
+ * What the engine did with an interaction passed to
+ * {@link IngressSink.onInteraction}:
+ * - `handled`: it ran the action, or answered a pending `awaitChoice`.
+ * - `refused`: it ran nothing, for `reason` (for example `"not-initiator"`
+ *   when someone other than the initiator answers an initiator-only
+ *   `awaitChoice`). An adapter that consumed state for the interaction, such
+ *   as a numbered choice list, can restore it.
+ * - `ignored`: it ran nothing and refused nothing (a duplicate delivery, or a
+ *   control with no action).
+ */
+export type InteractionOutcome =
+  | { status: "handled" }
+  | { status: "refused"; reason: InteractionRefusalReason }
+  | { status: "ignored" };
+
 export interface IngressSink {
   onTurn(turn: IncomingTurn): void | Promise<void>;
-  onInteraction(evt: InteractionEvent): void | Promise<void>;
+  /**
+   * An interaction (a button click, a select, a picked choice) arrived. The
+   * engine's sink returns an {@link InteractionOutcome}; a custom sink may
+   * return nothing. A handler error still rejects.
+   */
+  onInteraction(
+    evt: InteractionEvent,
+  ): void | InteractionOutcome | Promise<void | InteractionOutcome>;
   /** A provider installation or conversation activation became usable. */
   onWelcome(evt: IncomingWelcome): void | Promise<void>;
   /** A slash command fired. Routed to the matching `channel.onCommand` handler (ignored if none). */

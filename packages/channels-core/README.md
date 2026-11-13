@@ -338,6 +338,28 @@ top-level message by that message's own ts), implement
 message's actions to the key your `decodeInteraction` will report.
 See `@copilotkit/channels-slack` for a complete implementation.
 
+`sink.onInteraction(evt)` resolves to an `InteractionOutcome`. The status is
+`"handled"`, `"refused"` (with a `reason` such as `"not-initiator"`), or
+`"ignored"` (a duplicate delivery, or a control with no action). A handler
+error still rejects the promise. A comment-based adapter can remove its pending
+numbered-choice list before the call. Restore the list unless the status is
+`"handled"`, so that the initiator can still answer the `awaitChoice`. Restore
+on `"ignored"` too: a redelivery of a refused reply is a duplicate, so it comes
+back as `"ignored"`. Guard the restore:
+
+- Restore only when no newer list was saved for the conversation meanwhile.
+  Never overwrite a newer list.
+- Keep the list's original expiry. Do not start a new one.
+- Do not restore when the promise rejects. A failing handler closes the
+  choice, so a restored list would point at a closed choice. The cost: when
+  `identifyUser` throws, the choice stays open without its list until it
+  times out, is aborted, or a newer choice replaces it. With
+  `timeoutMs: Infinity` it never times out.
+
+A restored list whose choice already closed (timed out, or answered another
+way) does no harm: a reply to it is not handled, and the list still expires at
+its original time.
+
 ## Exports
 
 `createChannel`, `Channel`, `CreateChannelOptions`, `ChannelHandler`,
