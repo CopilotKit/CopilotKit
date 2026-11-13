@@ -26,7 +26,7 @@ import {
  * website lays its use-case tabs: white, borderless, 12px corners inside the
  * tray's 20px over its 8px padding, so the two radii read as one shape. The
  * glyph is a solid ink mark with no tile (official colors for a logo). Hover
- * takes the website's lilac border-action edge and turns a docs glyph lilac.
+ * takes the website's lilac border-action edge, a deeper lift, and a lilac title.
  */
 const GLYPH = {
   ink: "text-primary",
@@ -34,7 +34,7 @@ const GLYPH = {
 } as const;
 
 const CARD =
-  "items-start gap-3.5 rounded-lg bg-tray-card p-4 transition-[border-color,background-color,box-shadow,translate] duration-200 hover:border-edge-action focus-visible:border-ring motion-reduce:transition-none sm:p-5 [a]:hover:bg-tray-card group-data-[tray=bare]/tray:border-border group-data-[tray=bare]/tray:bg-card dark:group-data-[tray=bare]/tray:bg-[#13131b] group-data-[tray=bare]/tray:shadow-card group-data-[tray=bare]/tray:hover:-translate-y-px group-data-[tray=bare]/tray:hover:border-edge-action group-data-[tray=bare]/tray:hover:shadow-card-hover group-data-[tray=bare]/tray:[a]:hover:bg-card";
+  "items-start gap-3.5 rounded-lg bg-tray-card p-4 transition-[border-color,background-color,box-shadow,translate] duration-200 hover:border-edge-action focus-visible:border-ring motion-reduce:transition-none sm:p-5 [a]:hover:bg-tray-card group-data-[tray=bare]/tray:border-frame-rim dark:group-data-[tray=bare]/tray:border-border dark:group-data-[tray=bare]/tray:hover:border-edge-action dark:group-data-[tray=bare]/tray:hover:bg-[#1a1a24] group-data-[tray=bare]/tray:bg-card dark:group-data-[tray=bare]/tray:bg-[#13131b] group-data-[tray=bare]/tray:shadow-card group-data-[tray=bare]/tray:hover:-translate-y-0.5 group-data-[tray=bare]/tray:hover:border-edge-action group-data-[tray=bare]/tray:hover:shadow-card-hover group-data-[tray=bare]/tray:[a]:hover:bg-card";
 const MEDIA =
   "size-6 transition-colors duration-200 motion-reduce:transition-none [&_svg]:size-[22px] [&_img]:size-[22px]";
 
@@ -94,7 +94,7 @@ export function LinkCard({
     <Item render={<Link href={href} />} className={CARD}>
       <ItemMedia className={cn(MEDIA, GLYPH[glyph])}>{icon}</ItemMedia>
       <ItemContent className="gap-1.5">
-        <ItemTitle className="text-base leading-6 font-semibold">
+        <ItemTitle className="text-base leading-6 font-semibold transition-colors duration-200 group-hover/item:text-primary motion-reduce:transition-none">
           {title}
         </ItemTitle>
         {description ? (
@@ -215,18 +215,9 @@ function VariantLinks({ variants }: { variants: Variant[] }) {
   ));
 }
 
-/** A framework's mark on a white tile, like an app icon. */
-function LogoTile({ slug }: { slug: string }) {
-  return (
-    <span className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-black/5 bg-white shadow-[0_1px_3px_rgb(38_32_116/0.1)] dark:border-white/10 dark:bg-white/5">
-      <FrameworkLogo slug={slug} size={20} />
-    </span>
-  );
-}
-
 /**
  * The body of a card in the navbar's Integrations menu, a tile rather than a
- * row: the logo's tile with, for a family, its languages' marks across from
+ * row: the logo with, for a family, its languages' marks across from
  * it, and the name under them.
  */
 export function IntegrationCardBody({
@@ -240,10 +231,10 @@ export function IntegrationCardBody({
 }) {
   return (
     <>
-      <span className="flex w-full items-start justify-between gap-2">
-        <LogoTile slug={slug} />
+      <span className="flex w-full items-center justify-between gap-2">
+        <FrameworkLogo slug={slug} size={24} className="shrink-0" />
         {langs ? (
-          <span className="flex items-center gap-1.5 pt-1" aria-hidden="true">
+          <span className="flex items-center gap-1.5" aria-hidden="true">
             {langs.map((lang) => (
               <LangIcon key={lang} lang={lang} size={13} />
             ))}
