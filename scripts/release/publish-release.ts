@@ -30,6 +30,12 @@ import { ROOT, getScopeConfig, loadConfig } from "./lib/config.js";
 import type { ReleaseScope } from "./lib/config.js";
 import { emitGithubOutputs } from "./lib/github-output.js";
 import { resolvePublishNpm } from "./lib/npm-cli.js";
+import { runCaptured } from "./lib/run-captured.js";
+import {
+  matchesPublishedTarball,
+  publishWithRetry,
+} from "./lib/publish-retry.js";
+import { checkRegistry, unregisteredHelp } from "./lib/publish-preflight.js";
 
 type PublishPhase = "all" | "dependencies" | "umbrella";
 
@@ -179,31 +185,85 @@ async function main() {
   // is granted, eliminating the need for long-lived NPM_TOKEN secrets.
   // Skips packages already published at this version (idempotent retries).
   //
-  // The npm CLI is resolved ONCE up front rather than via `npx npm@<v>` per
-  // package — see lib/npm-cli.ts for the measured cost of the old approach.
-  const npmBin = resolvePublishNpm();
-  console.log("\nPublishing packages...");
-  let skipped = 0;
-  for (const p of packagesToPublish) {
-    const pubVersion = getPublishedVersion(p.name);
-    if (pubVersion === version) {
+  // Nothing is published until every package is known to npm and every
+  // tarball has packed and passed the license check: a failure on the fifth
+  // package must not leave the first four on `latest`. Each publish is then
+  // retried through transient registry failures (lib/publish-retry.ts).
+  //
+  // The Channels dependencies phase checks the umbrella as well, so an
+  // umbrella that cannot ship stops the run before its dependencies go out.
+  const preflight = phase === "dependencies" ? packages : packagesToPublish;
+  const registry = await checkRegistry(
+    preflight.map((p) => ({ name: p.name, version })),
+  );
+  if (registry.unregistered.length > 0) {
+    console.error(unregisteredHelp(registry.unregistered));
+    process.exit(1);
+  }
+  // A package already at this version is skipped only while it is `latest`,
+  // where an interrupted run of this same release leaves it. Any other copy
+  // of the version was published by something else.
+  const elsewhere: string[] = [];
+  const toPack = preflight.filter((p) => {
+    if (!registry.published.includes(`${p.name}@${version}`)) return true;
+    if (getPublishedVersion(p.name) === version) {
       console.log(`  Skipping ${p.name}@${version} (already published)`);
-      skipped++;
-      continue;
+    } else {
+      elsewhere.push(`${p.name}@${version}`);
     }
-    console.log(`  Publishing ${p.name}@${version}...`);
+    return false;
+  });
+  if (elsewhere.length > 0) {
+    console.error(
+      `Refusing to publish: npm already has ${elsewhere.join(", ")}, but not as latest.`,
+    );
+    process.exit(1);
+  }
+  const tarballOf = (name: string) =>
+    `${name.replace("@", "").replace("/", "-")}-${version}.tgz`;
+  for (const p of toPack) {
     run("pnpm", ["pack"], { cwd: p.dir });
-    const tarball = `${p.name.replace("@", "").replace("/", "-")}-${version}.tgz`;
     run(process.execPath, [
       "scripts/package-licenses/check.mjs",
       "archive",
-      join(p.dir, tarball),
+      join(p.dir, tarballOf(p.name)),
       relative(ROOT, p.dir),
     ]);
-    run(npmBin, ["publish", tarball, "--tag", "latest", "--access", "public"], {
-      cwd: p.dir,
-    });
   }
+
+  // The npm CLI is resolved ONCE up front rather than via `npx npm@<v>` per
+  // package — see lib/npm-cli.ts for the measured cost of the old approach.
+  const npmBin = resolvePublishNpm();
+  const toPublish = toPack.filter((p) => packagesToPublish.includes(p));
+  console.log("\nPublishing packages...");
+  for (const p of toPublish) {
+    console.log(`  Publishing ${p.name}@${version}...`);
+    await publishWithRetry(
+      `${p.name}@${version}`,
+      () =>
+        runCaptured(
+          npmBin,
+          [
+            "publish",
+            tarballOf(p.name),
+            "--tag",
+            "latest",
+            "--access",
+            "public",
+          ],
+          { cwd: p.dir, stream: true },
+        ),
+      {
+        confirmPublished: () =>
+          matchesPublishedTarball(
+            p.name,
+            version,
+            join(p.dir, tarballOf(p.name)),
+          ),
+      },
+    );
+  }
+  const skipped = packagesToPublish.length - toPublish.length;
   if (skipped > 0) {
     console.log(`\n${skipped} package(s) skipped (already at ${version}).`);
   }
