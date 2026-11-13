@@ -615,6 +615,7 @@ function eventErrorKeyForCode(
     case CopilotKitCoreErrorCode.AGENT_RUN_FAILED:
     case CopilotKitCoreErrorCode.AGENT_RUN_FAILED_EVENT:
     case CopilotKitCoreErrorCode.AGENT_RUN_ERROR_EVENT:
+    case CopilotKitCoreErrorCode.HEADER_RESOLUTION_FAILED:
       return "run";
     default:
       return null;

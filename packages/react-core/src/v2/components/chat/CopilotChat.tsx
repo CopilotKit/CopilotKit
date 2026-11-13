@@ -230,6 +230,11 @@ export function CopilotChat({
     const expectedThreadId = resolvedThreadId;
     const subscription = copilotkit.subscribe({
       onError: (event) => {
+        if (event.code === CopilotKitCoreErrorCode.HEADER_RESOLUTION_FAILED) {
+          failInspectorOverride(requestId);
+          return;
+        }
+
         if (event.code !== CopilotKitCoreErrorCode.AGENT_CONNECT_FAILED) return;
         if (event.context?.agentId !== resolvedAgentId) return;
         if (event.context?.threadId !== expectedThreadId) return;
