@@ -157,8 +157,8 @@ const PREFERENCES = [
       display: grid;
       gap: 1.25rem;
       padding: 1.25rem;
-      border: 1px solid #dbe3eb;
-      background: #fff;
+      border: 1px solid light-dark(#dbe3eb, #303136);
+      background: light-dark(#fff, #191a1e);
     }
     header {
       display: grid;
@@ -166,7 +166,7 @@ const PREFERENCES = [
     }
     .eyebrow {
       margin: 0;
-      color: #52637a;
+      color: light-dark(#52637a, #adadb2);
       font-size: 0.72rem;
       font-weight: 700;
       letter-spacing: 0.1em;
@@ -174,8 +174,8 @@ const PREFERENCES = [
     }
     header > input {
       border: 0;
-      border-bottom: 1px solid #dbe3eb;
-      color: #14213d;
+      border-bottom: 1px solid light-dark(#dbe3eb, #303136);
+      color: light-dark(#14213d, #fafafa);
       font-size: clamp(1.5rem, 3vw, 2.2rem);
       font-weight: 700;
     }
@@ -187,7 +187,7 @@ const PREFERENCES = [
     label {
       display: grid;
       gap: 0.35rem;
-      color: #31465e;
+      color: light-dark(#31465e, #fafafa);
       font-size: 0.78rem;
       font-weight: 700;
     }
@@ -196,9 +196,9 @@ const PREFERENCES = [
     textarea {
       min-height: 2.5rem;
       padding: 0.55rem 0.7rem;
-      border: 1px solid #9fb3c8;
+      border: 1px solid light-dark(#9fb3c8, #303136);
       border-radius: 0.35rem;
-      background: #fff;
+      background: light-dark(#fff, #191a1e);
       font: inherit;
     }
     fieldset {
@@ -208,7 +208,7 @@ const PREFERENCES = [
     }
     legend,
     h2 {
-      color: #14213d;
+      color: light-dark(#14213d, #fafafa);
       font-size: 0.95rem;
       font-weight: 700;
     }
@@ -223,10 +223,10 @@ const PREFERENCES = [
     }
     button {
       padding: 0.42rem 0.7rem;
-      border: 1px solid #9fb3c8;
+      border: 1px solid light-dark(#9fb3c8, #303136);
       border-radius: 0.35rem;
-      color: #31465e;
-      background: #fff;
+      color: light-dark(#31465e, #fafafa);
+      background: light-dark(#fff, #191a1e);
       cursor: pointer;
     }
     .choice-list button {

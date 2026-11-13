@@ -2233,6 +2233,9 @@ importers:
       '@copilotkit/vue':
         specifier: workspace:*
         version: link:../../../../packages/vue
+      chart.js:
+        specifier: ^4.4.0
+        version: 4.6.1
       h3:
         specifier: ^1.15.4
         version: 1.15.11
@@ -2359,6 +2362,9 @@ importers:
       clsx:
         specifier: ^2.1.1
         version: 2.1.1
+      marked:
+        specifier: 12.0.2
+        version: 12.0.2
       react:
         specifier: 19.2.3
         version: 19.2.3
@@ -3613,8 +3619,8 @@ importers:
   packages/runtime:
     dependencies:
       '@ag-ui/a2ui-middleware':
-        specifier: 0.0.10
-        version: 0.0.10(@ag-ui/client@1.0.2)(rxjs@7.8.1)
+        specifier: 0.0.16
+        version: 0.0.16(@ag-ui/client@1.0.2)(rxjs@7.8.1)
       '@ag-ui/client':
         specifier: 1.0.2
         version: 1.0.2
@@ -3628,7 +3634,7 @@ importers:
         specifier: 0.0.44
         version: 0.0.44(@ag-ui/client@1.0.2)(@ag-ui/core@1.0.2(zod@3.25.76))(@opentelemetry/api@1.9.0)(openai@4.104.0(encoding@0.1.13)(ws@8.19.0)(zod@3.25.76))(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(ws@8.19.0)
       '@ag-ui/mcp-apps-middleware':
-        specifier: ^0.1.1
+        specifier: 0.1.1
         version: 0.1.1(@ag-ui/client@1.0.2)(@cfworker/json-schema@4.1.1)(rxjs@7.8.1)(zod@3.25.76)
       '@ag-ui/mcp-middleware':
         specifier: 0.0.2
@@ -3984,8 +3990,8 @@ importers:
   packages/shared:
     dependencies:
       '@ag-ui/a2ui-middleware':
-        specifier: 0.0.10
-        version: 0.0.10(@ag-ui/client@1.0.2)(rxjs@7.8.1)
+        specifier: 0.0.16
+        version: 0.0.16(@ag-ui/client@1.0.2)(rxjs@7.8.1)
       '@ag-ui/client':
         specifier: 1.0.2
         version: 1.0.2
@@ -4201,6 +4207,9 @@ importers:
       arktype:
         specifier: ^2.1.29
         version: 2.1.29
+      chart.js:
+        specifier: ^4.4.0
+        version: 4.6.1
       concurrently:
         specifier: ^9.1.0
         version: 9.2.1
@@ -4216,6 +4225,9 @@ importers:
       jsdom:
         specifier: ^26.1.0
         version: 26.1.0
+      maplibre-gl:
+        specifier: ^5.0.0
+        version: 5.24.0
       phoenix:
         specifier: ^1.8.4
         version: 1.8.4
@@ -4751,14 +4763,17 @@ packages:
       '@ag-ui/client': '>=0.0.42'
       '@ag-ui/core': '>=0.0.42'
 
-  '@ag-ui/a2ui-middleware@0.0.10':
-    resolution: {integrity: sha512-2BQFUQ9vJzUAQSR0dNW/ijhyH8KpiRWISSLTP6mIe6ENyQ2cM1/XLG38/Dcb69olcs36gtZADZzAQWcno5H6fA==}
+  '@ag-ui/a2ui-middleware@0.0.16':
+    resolution: {integrity: sha512-Q/yUAZWGzQDip2aVxfeCu2+HmfcPJrw6XOQwGeX9znxqC/S9xzdBpH/c8eVWZvab6KyxitfgaKBzUyPOkBFj4Q==}
     peerDependencies:
-      '@ag-ui/client': '>=0.0.40'
+      '@ag-ui/client': '>=1.0.0'
       rxjs: 7.8.1
 
   '@ag-ui/a2ui-toolkit@0.0.4':
     resolution: {integrity: sha512-9VPmgpCAsFVICk7z23kh+Kp/BwYMxw0D0KGjOiKXhm1MAH+Wid2iC3yKsXso+q7UZZiyhWgeDUSgaAkltyLmGg==}
+
+  '@ag-ui/a2ui-toolkit@0.0.5':
+    resolution: {integrity: sha512-klYOXh+L+X8yM0EdrHJGrKmh7G1bKBvO/Zo4ryl6w5JlkXCrqkCeiSLtwB3UeN2Z1w61y1eMmzWn92q9c4/D8w==}
 
   '@ag-ui/client@0.0.36':
     resolution: {integrity: sha512-1Ey2KqK9KQpRJcnJvKPfVyLiTK4+CLBQZ085oJvr6T1nznw224j0KyzXNJ7cRjXeEGnuafmXTgpU+xEbN3xuYQ==}
@@ -28746,14 +28761,16 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  '@ag-ui/a2ui-middleware@0.0.10(@ag-ui/client@1.0.2)(rxjs@7.8.1)':
+  '@ag-ui/a2ui-middleware@0.0.16(@ag-ui/client@1.0.2)(rxjs@7.8.1)':
     dependencies:
-      '@ag-ui/a2ui-toolkit': 0.0.4
+      '@ag-ui/a2ui-toolkit': 0.0.5
       '@ag-ui/client': 1.0.2
       clarinet: 0.12.6
       rxjs: 7.8.1
 
   '@ag-ui/a2ui-toolkit@0.0.4': {}
+
+  '@ag-ui/a2ui-toolkit@0.0.5': {}
 
   '@ag-ui/client@0.0.36':
     dependencies:

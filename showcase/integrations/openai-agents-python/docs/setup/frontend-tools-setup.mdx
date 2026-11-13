@@ -1,0 +1,34 @@
+<Steps>
+  <Step>
+    ### Nothing to wire on the agent
+
+    On every run, the OpenAI Agents AG-UI adapter adds each tool the frontend
+    registered to a per-request copy of the agent, so the agent declares no
+    tools of its own for this. When the model calls one, the run stops there,
+    because the browser owns that call. The browser runs the handler, and the
+    next request carries the result as a tool message, which the model sees as
+    the call's output before it continues.
+
+    If a frontend tool has the same name as one of the agent's own tools, the
+    agent's tool wins and the frontend one is ignored.
+
+  </Step>
+  <Step>
+    ### Tell the model when to call it
+
+    This is the part that is easy to miss. The tool arrives on every run, but a
+    model with no instruction about it will answer in prose and never call it.
+    Name the tool in the instructions and say what it is for.
+
+    <DemoCode file="src/demo_agents/gen_ui_tool_based.py" region="frontend-tools-agent" />
+
+  </Step>
+</Steps>
+
+<Callout type="info" title="Backend tools in the same turn">
+  A frontend tool call ends the run as soon as the model makes it. A backend
+  tool the model called in the same turn and that has not finished is
+  cancelled, and the next request answers it as not having run. Where that
+  matters, turn off parallel tool calls on the agent with
+  `ModelSettings(parallel_tool_calls=False)`.
+</Callout>

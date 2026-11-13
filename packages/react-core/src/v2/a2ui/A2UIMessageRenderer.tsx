@@ -11,6 +11,7 @@ import {
   injectStyles,
   DEFAULT_SURFACE_ID,
   ROOT_COMPONENT_ID,
+  CreateSurfaceMessageSchemaV1,
 } from "@copilotkit/a2ui-renderer";
 import type { Theme, A2UIClientEventMessage } from "@copilotkit/a2ui-renderer";
 import {
@@ -48,6 +49,10 @@ export type A2UIUserAction = {
   timestamp: string;
   context?: Record<string, unknown>;
   dataContextPath?: string;
+  /** Optional native action details retained when forwarding to the agent. */
+  catalogId?: string;
+  userMessage?: string;
+  metadata?: { extensions?: Record<string, unknown> };
 };
 
 /**
@@ -147,9 +152,9 @@ function warnAboutUnpaintedSurfaces(grouped: Map<string, any[]>): void {
   for (const [surfaceId, operations] of grouped) {
     if (surfaceHasRenderableContent(operations)) continue;
 
-    const componentOps = operations.filter((o) => o?.updateComponents);
+    const components = operations.flatMap(getOperationComponents);
     const cause =
-      componentOps.length === 0
+      components.length === 0
         ? "no updateComponents operation arrived, so the surface was never given anything to draw"
         : 'its components address their values by "path" and no updateDataModel carried a non-empty value, so every bound component drew empty';
 
@@ -173,9 +178,7 @@ function warnAboutUnpaintedSurfaces(grouped: Map<string, any[]>): void {
 function describeComponentIds(operations: any[]): string {
   const ids: string[] = [];
   for (const operation of operations) {
-    const components = operation?.updateComponents?.components;
-    if (!Array.isArray(components)) continue;
-    for (const component of components) {
+    for (const component of getOperationComponents(operation)) {
       const id = component?.id;
       if (typeof id === "string" && !ids.includes(id)) ids.push(id);
     }
@@ -213,14 +216,10 @@ export function warnAboutUnresolvedRoot(
 
   // No components at all is the never-painted report's case, and it names the
   // cause better than this one can. Reporting both would say it twice.
-  const componentOps = operations.filter((o) => o?.updateComponents);
-  if (componentOps.length === 0) return;
+  const components = operations.flatMap(getOperationComponents);
+  if (components.length === 0) return;
 
-  const rootWasSent = componentOps.some((o) =>
-    o.updateComponents?.components?.some?.(
-      (c: any) => c?.id === ROOT_COMPONENT_ID,
-    ),
-  );
+  const rootWasSent = components.some((c) => c?.id === ROOT_COMPONENT_ID);
 
   const cause = rootWasSent
     ? `a component with id "${ROOT_COMPONENT_ID}" WAS sent, so the components ` +
@@ -525,7 +524,7 @@ function ReactSurfaceHost({
           operations={operations}
           onReady={onReady}
         />
-        <A2UISurfaceOrError surfaceId={surfaceId} />
+        <A2UISurfaceOrError surfaceId={surfaceId} onReady={onReady} />
       </A2UIProvider>
     </div>
   );
@@ -535,16 +534,104 @@ function ReactSurfaceHost({
  * Renders the A2UI surface, or an error message if processing failed.
  * Must be a child of A2UIProvider to access the error state.
  */
-function A2UISurfaceOrError({ surfaceId }: { surfaceId: string }) {
+function A2UISurfaceOrError({
+  surfaceId,
+  onReady,
+}: {
+  surfaceId: string;
+  onReady?: () => void;
+}) {
   const error = useA2UIError();
-  if (error) {
-    return (
-      <div className="cpk:rounded-lg cpk:border cpk:border-red-200 cpk:bg-red-50 cpk:p-3 cpk:text-sm cpk:text-red-700">
-        A2UI render error: {error}
-      </div>
-    );
-  }
-  return <A2UIRenderer surfaceId={surfaceId} className="cpk:flex cpk:flex-1" />;
+  // A rejected first snapshot can have no live root. Still reveal its error
+  // promptly, rather than leaving the failure hidden behind the loader.
+  useEffect(() => {
+    if (error) onReady?.();
+  }, [error, onReady]);
+  return (
+    <>
+      {error && (
+        <div
+          role="alert"
+          className="cpk:rounded-lg cpk:border cpk:border-red-200 cpk:bg-red-50 cpk:p-3 cpk:text-sm cpk:text-red-700"
+        >
+          A2UI render error: {error}
+        </div>
+      )}
+      <A2UIRenderer surfaceId={surfaceId} className="cpk:flex cpk:flex-1" />
+    </>
+  );
+}
+
+/**
+ * Full activity snapshots repeat creation. Native 1.0 can carry the current
+ * components and data inline there, so replay changed initialization data and
+ * components as updates for an existing surface. Compare against the previous
+ * wire snapshot, rather than the SDK's mutable data model, to retain local edits.
+ * Retain invalid or version-changing creates for the
+ * provider/SDK to reject, instead of sanitizing them while replaying.
+ */
+function replaySnapshotOperations(
+  operations: any[],
+  existing: any,
+  previousOperations: any[],
+): any[] {
+  if (!existing) return operations;
+  let nativeSurfaceDeleted = false;
+  return operations.flatMap((operation) => {
+    if (
+      operation?.version === "1.0" &&
+      operation.deleteSurface?.surfaceId === existing.id
+    )
+      nativeSurfaceDeleted = true;
+    // A native delete ends the existing instance. Subsequent creation must
+    // reach the SDK as creation, rather than updates to the removed model.
+    if (nativeSurfaceDeleted) return [operation];
+    if (!operation?.createSurface) return [operation];
+    const version = String(operation.version ?? "v0.9").replace(/^v/, "");
+    if (version !== String(existing.protocolVersion).replace(/^v/, ""))
+      return [operation];
+    if (version === "0.9") return [];
+    if (operation.version !== "1.0") return [operation];
+    const validation = CreateSurfaceMessageSchemaV1.safeParse(operation);
+    if (!validation.success) return [operation];
+    const create = validation.data.createSurface;
+    if (
+      create.catalogId !== undefined &&
+      create.catalogId !== existing.catalog?.id
+    )
+      return [operation];
+    const updates = [];
+    const previousCreate = previousOperations.find(
+      (previous) =>
+        previous?.version === "1.0" &&
+        previous.createSurface?.surfaceId === create.surfaceId,
+    )?.createSurface;
+    // Initial data is applied before components by the native create operation.
+    // Repeated unchanged initialization must not replace client-side edits.
+    if (
+      Object.hasOwn(create, "dataModel") &&
+      (!previousCreate ||
+        !Object.hasOwn(previousCreate, "dataModel") ||
+        JSON.stringify(create.dataModel) !==
+          JSON.stringify(previousCreate.dataModel))
+    )
+      updates.push({
+        version: "1.0",
+        updateDataModel: {
+          surfaceId: create.surfaceId,
+          value: create.dataModel,
+        },
+      });
+    if (Object.hasOwn(create, "components"))
+      updates.push({
+        version: "1.0",
+        updateComponents: {
+          surfaceId: create.surfaceId,
+          components: create.components,
+        },
+      });
+    return updates;
+  });
 }
 
 /**
@@ -568,15 +655,19 @@ function SurfaceMessageProcessor({
     // the same logical content but different object references.
     const hash = JSON.stringify(operations);
     if (hash === lastHashRef.current) return;
+    // Preserve wire values before processing: the SDK may mutate input data
+    // objects when a bound control updates the surface's data model.
+    const previousOperations = lastHashRef.current
+      ? JSON.parse(lastHashRef.current)
+      : [];
     lastHashRef.current = hash;
 
-    // Filter out createSurface if the surface already exists — the
-    // MessageProcessor throws on duplicate createSurface, but content
-    // snapshots always include the full operation list.
     const existing = getSurface(surfaceId);
-    const ops = existing
-      ? operations.filter((op) => !op?.createSurface)
-      : operations;
+    const ops = replaySnapshotOperations(
+      operations,
+      existing,
+      previousOperations,
+    );
 
     // Error handling is done inside A2UIProvider.processMessages
     processMessages(ops.map(stripRoutingSurfaceId));
@@ -585,7 +676,12 @@ function SurfaceMessageProcessor({
     // card. A data-bound list renders nothing until its data model arrives, so
     // for those we wait for the first non-empty updateDataModel; static surfaces
     // are renderable from components alone. Latency-independent. (OSS-162)
-    if (onReady && surfaceHasRenderableContent(operations)) onReady();
+    if (
+      onReady &&
+      getSurface(surfaceId)?.componentsModel.get(ROOT_COMPONENT_ID) &&
+      surfaceHasRenderableContent(operations)
+    )
+      onReady();
 
     // Everything below only reports; it never changes what renders.
     if (!IS_DEVELOPMENT) return;
@@ -637,12 +733,27 @@ function SurfaceMessageProcessor({
  * arrival rather than a fixed delay. (OSS-162)
  */
 function surfaceHasRenderableContent(operations: any[]): boolean {
-  const componentOps = operations.filter((o) => o?.updateComponents);
-  if (!componentOps.length) return false;
-  const needsData = JSON.stringify(componentOps).includes('"path"');
+  const components = operations.flatMap(getOperationComponents);
+  if (!components.length) return false;
+  const serialized = JSON.stringify(components);
+  const needsData =
+    serialized.includes('"path"') || serialized.includes('"@path"');
   if (!needsData) return true;
   return operations.some((o) => {
-    const v = o?.updateDataModel?.value;
+    const v =
+      o?.updateDataModel?.value ??
+      (o?.version === "1.0" ? o?.createSurface?.dataModel : undefined);
+    if (
+      typeof v === "string" ||
+      typeof v === "number" ||
+      typeof v === "boolean"
+    ) {
+      const path = o?.updateDataModel?.path ?? "/";
+      const key = o?.version === "1.0" ? "@path" : "path";
+      // Match the value binding itself, not a structural {componentId, path}
+      // template or a scalar update to an unrelated part of the data model.
+      return v !== "" && serialized.includes(JSON.stringify({ [key]: path }));
+    }
     if (!v || typeof v !== "object") return false;
     return Object.values(v).some((x) =>
       Array.isArray(x)
@@ -650,6 +761,16 @@ function surfaceHasRenderableContent(operations: any[]): boolean {
         : x !== null && x !== undefined && x !== "",
     );
   });
+}
+
+/** Component definitions can arrive in an update or a native inline create. */
+function getOperationComponents(operation: any): any[] {
+  const components =
+    operation?.updateComponents?.components ??
+    (operation?.version === "1.0"
+      ? operation?.createSurface?.components
+      : undefined);
+  return Array.isArray(components) ? components : [];
 }
 
 const V0_9_ACTION_KEYS = [
@@ -678,6 +799,7 @@ function stripRoutingSurfaceId(operation: any): any {
   if (
     !operation ||
     typeof operation !== "object" ||
+    !(operation.version === undefined || operation.version === "v0.9") ||
     !("surfaceId" in operation) ||
     !V0_9_ACTION_KEYS.some((key) => key in operation)
   ) {

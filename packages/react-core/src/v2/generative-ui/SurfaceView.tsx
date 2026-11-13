@@ -2,6 +2,7 @@ import React, {
   memo,
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useReducer,
   useRef,
@@ -9,7 +10,7 @@ import React, {
   useSyncExternalStore,
 } from "react";
 import type { ReactNode } from "react";
-import type { ComponentModel, SurfaceModel } from "@a2ui/web_core/v0_9";
+import type { ComponentModel, SurfaceModel } from "@a2ui/web_core/state";
 import {
   A2UI_COMPONENT_ENVELOPE_KEYS,
   GENERATIVE_UI_ROOT_ID,
@@ -32,17 +33,25 @@ import {
 } from "@copilotkit/core/generative-ui";
 import {
   formatIssues,
+  hasOwnKey,
   isAsyncIssue,
   issueKey,
   validateSchemaSync,
   withoutRejectedNulls,
 } from "@copilotkit/shared/generative-ui";
 import {
-  DefaultNodeFallback,
+  createFailureLog,
+  failureSlots,
+  GenerativeUIFailureLogContext,
+  GuardedNodeFallback,
   NodeBoundary,
   NodePlaceholder,
   SurfaceBoundary,
+  toError,
+  useFailureLog,
 } from "./boundaries";
+import type { GenerativeUIFailureLog } from "./boundaries";
+import { useGenerativeUIHost } from "./host";
 import {
   accessibilityAttributes,
   readAccessibility,
@@ -60,14 +69,12 @@ import {
   useRequiredGenerativeUIRuntime,
 } from "./runtime-context";
 import type { GenerativeUIRuntime } from "./runtime-context";
-import { themeStyleSheet } from "@copilotkit/shared/generative-ui";
 import type {
   GenerativeUISurfaceManager,
   ManagedSurface,
 } from "@copilotkit/core/generative-ui";
 
 const NO_ANCESTORS: readonly string[] = [];
-const ROOT_STYLE = { display: "contents" } as const;
 // No surface state exists on the server or during hydration.
 const undefinedSnapshot = () => undefined;
 const noopSubscribe = () => () => {};
@@ -89,33 +96,112 @@ function isTemplateChildren(
 
 export function SurfaceView({ surface }: { surface: ManagedSurface }) {
   const runtime = useRequiredGenerativeUIRuntime();
-  const { theme } = runtime;
-  const sheet = useMemo(() => themeStyleSheet(theme), [theme]);
-  // The root element is always there, so a theme change does not remount
-  // the surface. `display: contents` keeps it out of the layout, and the
-  // CSS variables still reach every component of the surface. The
-  // `a2ui-surface` class scopes the standard catalog's surface CSS rules.
-  // The theme is a stylesheet, not an inline style, so that its `dark`
-  // values can apply in dark mode only. The values are checked in
-  // `themeStyleSheet`, and the HTML is set as is, so the server render
-  // keeps the quotes of the rule.
+  // The host draws the root (on the web, a DOM element that carries the
+  // theme's stylesheet). It is always there, so a theme change does not
+  // remount the surface.
+  const { SurfaceRoot } = useGenerativeUIHost();
+  // A failed surface tries again with new content, as a failed node does
+  // with new props. New content is a new operation applied: the manager
+  // gives `surface.operations` a new array on every ingest, also one that
+  // delivers the same operations again (a replay, a status change), so its
+  // identity would retry (and report again) on every chunk. The count of
+  // applied operations grows only with new ones, and an ingest that does
+  // not extend them rebuilds the surface as a new object.
+  const appliedCount = useSyncExternalStore(
+    runtime.manager.subscribe,
+    () => surface.operations.length,
+    undefinedSnapshot,
+  );
+  const revision = useMemo(
+    () => ({ surface, appliedCount }),
+    [surface, appliedCount],
+  );
+  // What this surface reported, so that a failure that stays the same is
+  // reported once, not on each revision. The log belongs to the surface:
+  // a named target can show another surface in the same view, and that
+  // surface's failures are its own, even the same error at the same place.
+  const [scopedLog, setScopedLog] = useState(() => ({
+    key: surface.key,
+    log: createFailureLog(),
+  }));
+  let failureLog = scopedLog.log;
+  if (scopedLog.key !== surface.key) {
+    const next = { key: surface.key, log: createFailureLog() };
+    setScopedLog(next);
+    failureLog = next.log;
+  }
+  // A place that unmounted and did not mount again before new content of
+  // this surface arrived went away: forget what it reported (see
+  // GenerativeUIFailureLog). New content is a new applied operation
+  // (`appliedCount` grows) or a rebuilt surface (a new object). The manager
+  // also notifies for every other surface, for ingests that bring nothing
+  // new, for `setState` and for target changes, none of which is new content
+  // of this one; the user's data-model writes do not notify it at all.
+  //
+  // What the view last saw outlives the subscription: <Activity> disconnects
+  // it while the surface is hidden, and content that arrived meanwhile is
+  // settled as missed when the surface is shown again (the boundaries have
+  // retained their slots by then). A layout effect, so that this runs before
+  // the nodes' effects report their failures again.
+  const { threadId, surfaceId } = surface;
+  const { manager } = runtime;
+  const seen = useRef<
+    | { log: GenerativeUIFailureLog; current: unknown; applied: unknown }
+    | undefined
+  >(undefined);
+  useLayoutEffect(() => {
+    const contentOf = () => {
+      const current = manager.getSurface(threadId, surfaceId);
+      return { log: failureLog, current, applied: current?.operations.length };
+    };
+    const observe = (missed: boolean) => {
+      const last = seen.current;
+      const next = contentOf();
+      seen.current = next;
+      if (
+        last?.log === failureLog &&
+        (next.current !== last.current || next.applied !== last.applied)
+      ) {
+        failureLog.settle(missed);
+      }
+    };
+    observe(true);
+    return manager.subscribe(() => observe(false));
+  }, [manager, threadId, surfaceId, failureLog]);
+  // Two boundaries. The inner one sits inside the root, so a failed surface
+  // keeps the root and its theme (on the web, the same output as before the
+  // host existed). The outer one catches what the host's root throws itself,
+  // which must not reach the chat or the host page, and offers Retry.
   return (
-    <div
-      className="a2ui-surface"
-      data-generative-ui-root={surface.surfaceId}
-      data-a2ui-theme={sheet?.id}
-      style={ROOT_STYLE}
-    >
-      {sheet ? <style dangerouslySetInnerHTML={{ __html: sheet.css }} /> : null}
-      <SurfaceBoundary surfaceId={surface.surfaceId} runtime={runtime}>
-        <NodeView
-          surface={surface}
-          componentId={GENERATIVE_UI_ROOT_ID}
-          basePath={undefined}
-          ancestors={NO_ANCESTORS}
-        />
+    <GenerativeUIFailureLogContext.Provider value={failureLog}>
+      <SurfaceBoundary
+        surfaceId={surface.surfaceId}
+        runtime={runtime}
+        log={failureLog}
+        level="outer"
+        revision={revision}
+        retryable
+      >
+        <SurfaceRoot surfaceId={surface.surfaceId} theme={runtime.theme}>
+          <SurfaceBoundary
+            surfaceId={surface.surfaceId}
+            runtime={runtime}
+            log={failureLog}
+            level="inner"
+            revision={revision}
+          >
+            <NodeView
+              surface={surface}
+              componentId={GENERATIVE_UI_ROOT_ID}
+              basePath={undefined}
+              ancestors={NO_ANCESTORS}
+              parentPlace=""
+              via=""
+            />
+          </SurfaceBoundary>
+        </SurfaceRoot>
       </SurfaceBoundary>
-    </div>
+    </GenerativeUIFailureLogContext.Provider>
   );
 }
 
@@ -158,7 +244,23 @@ function useComponentProperties(
  * repeats both.
  */
 function scopedId(componentId: string, basePath: string | undefined) {
-  return `${basePath ?? ""}#${componentId}`;
+  // Quoted, so that an id or a path that holds the separators of a place
+  // (`/`, `:`, `#`) cannot read as the place of another node.
+  const item = basePath === undefined ? "" : JSON.stringify(basePath);
+  return `${item}#${JSON.stringify(componentId)}`;
+}
+
+/**
+ * Where one rendered copy of a node is: the place of its parent, the slot
+ * or child reference of the parent it renders in, and its scoped id. Names
+ * the node's failure-log slots. A scoped id alone is not enough: the same
+ * id can render under two parents, and a cyclic reference repeats the
+ * scoped id of an ancestor. Each copy keeps its own memory of what it
+ * reported, so one copy that renders, goes away or remounts does not clear
+ * the memory of another that still fails.
+ */
+function placeOf(parentPlace: string, via: string, position: string) {
+  return `${parentPlace}/${via === "" ? "" : JSON.stringify(via)}${position}`;
 }
 
 const NodeView = memo(function NodeView({
@@ -166,6 +268,8 @@ const NodeView = memo(function NodeView({
   componentId,
   basePath,
   ancestors,
+  parentPlace,
+  via,
 }: {
   surface: ManagedSurface;
   componentId: string;
@@ -176,19 +280,47 @@ const NodeView = memo(function NodeView({
   basePath: string | undefined;
   /** Scoped ids of the nodes above this one; used to cut cyclic references. */
   ancestors: readonly string[];
+  /** The place of the parent (see `placeOf`); "" for the root. */
+  parentPlace: string;
+  /** The slot or child reference of the parent this node renders in. */
+  via: string;
 }) {
   const runtime = useRequiredGenerativeUIRuntime();
+  const log = useFailureLog();
   const component = useComponentModel(
     runtime.manager,
     surface.model,
     componentId,
   );
   const properties = useComponentProperties(runtime.manager, component);
-  if (ancestors.includes(scopedId(componentId, basePath))) {
+  const position = scopedId(componentId, basePath);
+  const place = placeOf(parentPlace, via, position);
+  // A node that goes away takes the memory of its failures with it, so the
+  // same failure in a node added later is reported. A node that only
+  // remounts (StrictMode, <Activity>, an ancestor that remounts) keeps it:
+  // the log forgets a slot let go of only once new content arrives.
+  useEffect(() => {
+    const slots = [
+      failureSlots.fallback(place),
+      failureSlots.cycle(place),
+      failureSlots.props(place),
+    ];
+    for (const slot of slots) log.retain(slot);
+    return () => {
+      for (const slot of slots) log.release(slot);
+    };
+  }, [log, place]);
+  // The fallbacks below get another chance with a new message or a new
+  // revision of the node (`properties`): nothing above them remounts them.
+  if (ancestors.includes(position)) {
     return (
-      <DefaultNodeFallback
-        message={`cyclic reference to ${componentId}`}
+      <GuardedNodeFallback
+        surfaceId={surface.surfaceId}
         componentId={componentId}
+        runtime={runtime}
+        message={`cyclic reference to ${componentId}`}
+        slot={failureSlots.cycle(place)}
+        revision={properties}
       />
     );
   }
@@ -197,9 +329,13 @@ const NodeView = memo(function NodeView({
   const definition = runtime.ui.components.get(component.type);
   if (!definition) {
     return (
-      <DefaultNodeFallback
-        message={`unknown component "${component.type}"`}
+      <GuardedNodeFallback
+        surfaceId={surface.surfaceId}
         componentId={componentId}
+        runtime={runtime}
+        message={`unknown component "${component.type}"`}
+        slot={failureSlots.fallback(place)}
+        revision={properties}
       />
     );
   }
@@ -208,8 +344,10 @@ const NodeView = memo(function NodeView({
       key={component.type}
       surfaceId={surface.surfaceId}
       componentId={componentId}
+      place={place}
       revision={properties}
       runtime={runtime}
+      log={log}
     >
       <ResolvedNode
         surface={surface}
@@ -219,6 +357,7 @@ const NodeView = memo(function NodeView({
         runtime={runtime}
         basePath={basePath}
         ancestors={ancestors}
+        place={place}
       />
     </NodeBoundary>
   );
@@ -233,11 +372,15 @@ function TemplateChildren({
   template,
   basePath,
   ancestors,
+  parentPlace,
+  via,
 }: {
   surface: ManagedSurface;
   template: GenerativeUITemplateChildren;
   basePath: string | undefined;
   ancestors: readonly string[];
+  parentPlace: string;
+  via: string;
 }) {
   const dataModel = surface.model.dataModel;
   const listPath = resolvePath(template.path, basePath);
@@ -263,6 +406,8 @@ function TemplateChildren({
           componentId={template.componentId}
           basePath={joinPath(listPath, String(index))}
           ancestors={ancestors}
+          parentPlace={parentPlace}
+          via={via}
         />
       ))}
     </>
@@ -293,11 +438,17 @@ type ModelData =
 /**
  * The props the model sets, with their dynamic values resolved from the
  * surface data model: `{"@path"}` bindings, `{"@call"}` function values and
- * `{"@call":"@index"}` in a template, at any depth. A literal writable prop
- * that the component set shows the local value from `overrides`. Bound
- * props, events and slots are left out, and so are the keys of the A2UI
- * component envelope; `accessibility` is resolved the same way and given
- * on its own.
+ * `{"@call":"@index"}` in a template, at any depth. Bound props, events and
+ * slots are left out, and so are the keys of the A2UI component envelope;
+ * `accessibility` is resolved the same way and given on its own.
+ *
+ * A writable prop that is not bound to a path and that the component set
+ * shows the local value from `overrides`, also when the model never set the
+ * prop. That is intended: the user's edit wins over the model's literal
+ * value, also over a newer literal the agent sends later, until the node
+ * remounts. A literal is not data the agent and the user share; a prop
+ * that both must write is bound to a path, and the setter writes the data
+ * model.
  *
  * A prop is resolved again only when its raw value or a data model value it
  * read has changed, so the result keeps its identity otherwise. A function
@@ -320,7 +471,7 @@ function useModelDataProps(
       if (
         definition.events?.[key] ||
         definition.slots?.[key] ||
-        Object.hasOwn(definition.selectors, key) ||
+        hasOwnKey(definition.selectors, key) ||
         A2UI_COMPONENT_ENVELOPE_KEYS.has(key)
       ) {
         continue;
@@ -460,7 +611,7 @@ function select(
     try {
       values[key] = selector(state, modelProps);
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
+      const { message } = toError(error);
       return { ok: false, problem: `${key}: selector threw: ${message}` };
     }
   }
@@ -476,8 +627,10 @@ interface SelectionCache {
 /**
  * The values of the bound props of a node, read from the app state.
  *
- * The selectors run again only when the state object or the parsed model
- * props change. When the new values are shallow-equal to the last ones, the
+ * The selectors get the checked model props: the resolved values that
+ * passed the props schema (without the nulls it rejected), not the
+ * schema's parsed output, so its defaults and transforms are not applied
+ * yet. They run again only when the state object or those props change. When the new values are shallow-equal to the last ones, the
  * last snapshot is kept. So the node re-renders only when a selected value
  * changes. A selector that returns a new array on each call cannot cause a
  * render loop: with the same inputs, the cached snapshot comes back.
@@ -532,7 +685,10 @@ type ModelCheck =
  * Checks the model-set props with the props schema before the selectors run.
  * The bound props are not set yet, so their issues do not count. Neither do
  * issues with no path (a check over several props), which the full check
- * after the selectors reports.
+ * after the selectors reports. The exception is the issue that an async
+ * props schema gives (`isAsyncIssue`): the render checks props
+ * synchronously only, so the full check would fail the same way, and it is
+ * reported here.
  */
 function checkModelProps(
   definition: ResolvedGenerativeUIComponent,
@@ -554,7 +710,7 @@ function checkModelProps(
       const key = issueKey(issue);
       return key === undefined
         ? isAsyncIssue(issue)
-        : !Object.hasOwn(definition.selectors, key);
+        : !hasOwnKey(definition.selectors, key);
     });
     if (issues.length > 0) return { ok: false, problem: formatIssues(issues) };
   }
@@ -632,7 +788,7 @@ function useEventProps(
   const boundNames = Object.keys(definition.events ?? {})
     .filter(
       (name) =>
-        Object.hasOwn(definition.eventFunctions, name) ||
+        hasOwnKey(definition.eventFunctions, name) ||
         isActionBinding(properties[name]),
     )
     .join("|");
@@ -650,7 +806,7 @@ function useEventProps(
         name,
         parameters: definition.events?.[name]?.parameters,
       };
-      const functionName = Object.hasOwn(definition.eventFunctions, name)
+      const functionName = hasOwnKey(definition.eventFunctions, name)
         ? definition.eventFunctions[name]
         : undefined;
       handlers[name] =
@@ -672,7 +828,9 @@ function useEventProps(
  * The setter props of a node: `setValue` for the writable prop `value`. For
  * a prop the model bound to `{"@path"}`, the setter writes the data model
  * and makes the path user-owned. For a literal prop, it sets `overrides`, a
- * local value of this mounted node. The setters keep their identity.
+ * local value of this mounted node that wins over the model's value until
+ * the node remounts (see `useModelDataProps`). The setters keep their
+ * identity.
  */
 function useSetterProps(
   runtime: GenerativeUIRuntime,
@@ -702,8 +860,7 @@ function useSetterProps(
             value,
           );
         } catch (cause) {
-          const message =
-            cause instanceof Error ? cause.message : String(cause);
+          const { message } = toError(cause);
           reportErrorSafely(runtime, {
             kind: "props",
             surfaceId: surface.surfaceId,
@@ -725,12 +882,14 @@ function useSlotProps(
   componentId: string,
   basePath: string | undefined,
   ancestors: readonly string[],
+  place: string,
 ) {
   return useMemo(() => {
     const childAncestors = [...ancestors, scopedId(componentId, basePath)];
     const slots: Record<string, ReactNode> = {};
     for (const [name, kind] of Object.entries(definition.slots ?? {})) {
       const value = properties[name];
+      const via = `${name}:`;
       if (kind === "single" && typeof value === "string") {
         slots[name] = (
           <NodeView
@@ -738,6 +897,8 @@ function useSlotProps(
             componentId={value}
             basePath={basePath}
             ancestors={childAncestors}
+            parentPlace={place}
+            via={via}
           />
         );
       } else if (kind === "multiple" && isTemplateChildren(value)) {
@@ -747,6 +908,8 @@ function useSlotProps(
             template={value}
             basePath={basePath}
             ancestors={childAncestors}
+            parentPlace={place}
+            via={via}
           />
         );
       } else if (kind === "multiple" && Array.isArray(value)) {
@@ -763,12 +926,22 @@ function useSlotProps(
             componentId={id}
             basePath={basePath}
             ancestors={childAncestors}
+            parentPlace={place}
+            via={via}
           />
         ));
       }
     }
     return slots;
-  }, [surface, definition, properties, componentId, basePath, ancestors]);
+  }, [
+    surface,
+    definition,
+    properties,
+    componentId,
+    basePath,
+    ancestors,
+    place,
+  ]);
 }
 
 /**
@@ -783,11 +956,16 @@ function useChildRefProps(
   componentId: string,
   basePath: string | undefined,
   ancestors: readonly string[],
+  place: string,
 ) {
   return useMemo(() => {
     if (props === undefined || refs.length === 0) return props;
     const childAncestors = [...ancestors, scopedId(componentId, basePath)];
-    const render = (kind: ChildRef["kind"], value: unknown): unknown => {
+    const render = (
+      kind: ChildRef["kind"],
+      value: unknown,
+      via: string,
+    ): unknown => {
       if (kind === "single") {
         return typeof value === "string" ? (
           <NodeView
@@ -795,6 +973,8 @@ function useChildRefProps(
             componentId={value}
             basePath={basePath}
             ancestors={childAncestors}
+            parentPlace={place}
+            via={via}
           />
         ) : undefined;
       }
@@ -805,6 +985,8 @@ function useChildRefProps(
             template={value}
             basePath={basePath}
             ancestors={childAncestors}
+            parentPlace={place}
+            via={via}
           />
         );
       }
@@ -819,17 +1001,23 @@ function useChildRefProps(
           componentId={id}
           basePath={basePath}
           ancestors={childAncestors}
+          parentPlace={place}
+          via={via}
         />
       ));
     };
     let result: unknown = props;
     for (const ref of refs) {
-      result = mapAtChildRef(result, ref.path, (found) =>
-        render(ref.kind, found),
+      // A path through an array (`"*"`) finds a reference in each item;
+      // they are told apart by their order.
+      let found = 0;
+      const path = ref.path.join(".");
+      result = mapAtChildRef(result, ref.path, (value) =>
+        render(ref.kind, value, `${path}[${found++}]:`),
       );
     }
     return result as Record<string, unknown>;
-  }, [surface, refs, props, componentId, basePath, ancestors]);
+  }, [surface, refs, props, componentId, basePath, ancestors, place]);
 }
 
 function ResolvedNode({
@@ -840,6 +1028,7 @@ function ResolvedNode({
   runtime,
   basePath,
   ancestors,
+  place,
 }: {
   surface: ManagedSurface;
   componentId: string;
@@ -848,7 +1037,10 @@ function ResolvedNode({
   runtime: GenerativeUIRuntime;
   basePath: string | undefined;
   ancestors: readonly string[];
+  /** Where this copy of the node is (see `placeOf`). */
+  place: string;
 }) {
+  const { AccessibilityWrapper } = useGenerativeUIHost();
   const { overrides, setters } = useSetterProps(
     runtime,
     surface,
@@ -880,6 +1072,7 @@ function ResolvedNode({
     componentId,
     basePath,
     ancestors,
+    place,
   );
   const childRefProps = useChildRefProps(
     surface,
@@ -888,6 +1081,7 @@ function ResolvedNode({
     componentId,
     basePath,
     ancestors,
+    place,
   );
   const accessibility = dataProps.ok ? dataProps.accessibility : undefined;
   const nodeContext = useMemo(
@@ -900,23 +1094,40 @@ function ResolvedNode({
     [surface.key, surface.surfaceId, componentId, accessibility],
   );
   const problem = dataProps.ok ? undefined : dataProps.problem;
+  const log = useFailureLog();
 
+  // The node renders: a fallback that failed in its place before (invalid
+  // props, an unknown type, a cycle) is a new failure if it fails again,
+  // and so are invalid props.
+  useEffect(() => {
+    if (!problem) {
+      log.clear(failureSlots.fallback(place));
+      log.clear(failureSlots.props(place));
+    }
+  }, [problem, log, place]);
+
+  // Through the failure log, so that the same problem is reported once,
+  // also when this node remounts (a new type, a boundary that resets).
   useEffect(() => {
     if (problem) {
-      reportErrorSafely(runtime, {
+      log.report(runtime, failureSlots.props(place), {
         kind: "props",
         surfaceId: surface.surfaceId,
         componentId,
         error: new Error(`Invalid props: ${problem}`),
       });
     }
-  }, [problem, runtime, surface.surfaceId, componentId]);
+  }, [problem, log, place, runtime, surface.surfaceId, componentId]);
 
   if (!dataProps.ok) {
     return (
-      <DefaultNodeFallback
-        message={`invalid props (${problem})`}
+      <GuardedNodeFallback
+        surfaceId={surface.surfaceId}
         componentId={componentId}
+        runtime={runtime}
+        message={`invalid props (${problem})`}
+        slot={failureSlots.fallback(place)}
+        revision={properties}
       />
     );
   }
@@ -925,30 +1136,32 @@ function ResolvedNode({
     <Component {...childRefProps} {...eventProps} {...slotProps} {...setters} />
   );
   // The hidden state and the live region of the envelope apply to every
-  // component here, in a wrapper with no box of its own. A label or a
-  // description needs an element with a role, so the component sets those
-  // itself (the standard ones do; see useGenerativeUIAccessibility). The
-  // wrapper is there whenever the component has an envelope (unless the
-  // component applies the envelope itself: a table row or cell cannot sit
-  // in a span), whatever its values: a bound `hidden` that flips must not remount the component and
-  // lose what the user typed into it. A component that is sent again with
-  // an envelope added or removed does remount: a wrapper on every node
-  // would break the stylesheet's child selectors (table rows and cells,
-  // the last text of a spaceBetween row), and bound inputs keep their
-  // values in the data model anyway.
+  // component here, in the host's AccessibilityWrapper (on the web, a span
+  // with no box of its own). A label or a description needs an element with
+  // a role, so the component sets those itself (the standard ones do; see
+  // useGenerativeUIAccessibility).
+  //
+  // The wrapper is there whenever the component has an envelope, whatever
+  // its values, so a bound `hidden` that flips does not remount the
+  // component and lose what the user typed into it. A component that applies
+  // the envelope itself (`accessibility: "self"`) gets no wrapper: a table
+  // row or cell cannot sit in one.
+  //
+  // A component sent again with an envelope added or removed does remount.
+  // On the web, a wrapper on every node would break the stylesheet's child
+  // selectors (table rows and cells, the last text of a spaceBetween row),
+  // and bound inputs keep their values in the data model anyway.
   const hasEnvelope =
     properties.accessibility !== undefined &&
     definition.accessibility !== "self";
   return (
     <GenerativeUINodeContext.Provider value={nodeContext}>
       {hasEnvelope ? (
-        <span
-          data-a2ui-accessibility=""
-          style={ROOT_STYLE}
-          {...wrapperAria(accessibilityAttributes(accessibility))}
+        <AccessibilityWrapper
+          attributes={wrapperAria(accessibilityAttributes(accessibility))}
         >
           {rendered}
-        </span>
+        </AccessibilityWrapper>
       ) : (
         rendered
       )}

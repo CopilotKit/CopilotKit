@@ -19,7 +19,7 @@ function injectCopilotKitConfig(): CopilotKitConfig;
 
 ## Return Value
 
-Returns the `CopilotKitConfig` bound to the `COPILOT_KIT_CONFIG` token. Note that the `headers` field reflects the merged headers computed by `provideCopilotKit`, which may include the `X-CopilotCloud-Public-Api-Key` header derived from your `licenseKey`.
+Returns the `CopilotKitConfig` bound to the `COPILOT_KIT_CONFIG` token. This is the object that you passed to `provideCopilotKit`, unchanged.
 
 ## Usage
 
@@ -38,18 +38,3 @@ export class RuntimeInfoService {
   }
 }
 ```
-
-## Related
-
-<Cards>
-  <Card
-    title="provideCopilotKit"
-    description="Register the CopilotKitConfig that this function reads back."
-    href="/reference/angular/functions/provideCopilotKit"
-  />
-  <Card
-    title="CopilotKit"
-    description="The service that consumes the configuration and exposes runtime state as signals."
-    href="/reference/angular/services/CopilotKit"
-  />
-</Cards>

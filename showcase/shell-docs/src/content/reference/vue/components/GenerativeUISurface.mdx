@@ -1,0 +1,108 @@
+---
+title: "GenerativeUISurface"
+description: "Vue 3 component that marks a named area of your page where the agent can render generated UI."
+---
+
+## Overview
+
+The chat is not always the right place for generated UI. A product grid belongs in the product area of your page. `GenerativeUISurface` marks that area as a target. The agent can then render your components into it.
+
+Until the agent renders into the target, the component shows its default slot.
+
+<Callout type="warn">
+  Generative UI is experimental. Use `GenerativeUISurface` under a
+  [`CopilotKitProvider`](/reference/vue/components/CopilotKitProvider) that has
+  a [`generativeUI`](/reference/vue/components/CopilotKitProvider)
+  config. Outside such a provider, the component throws an error.
+</Callout>
+
+For a full walkthrough, see [Surfaces](/generative-ui/components/surfaces).
+
+## Import
+
+```ts
+import { GenerativeUISurface } from "@copilotkit/vue/v2/generative-ui";
+```
+
+## Props
+
+<PropertyReference name="id" type="string" required>
+  The target id. The agent renders into this id. Two mounts with the same id are one target.
+</PropertyReference>
+
+<PropertyReference name="description" type="string">
+  Tells the model where this area is and what to show in it. For example: "Next to the product list. Use it for product recommendations."
+</PropertyReference>
+
+<PropertyReference name="ui" type="GenerativeUI">
+  The object from `createGenerativeUI`. It gives the names in `components` their types. Pass the same object that you give the provider as `generativeUI.ui`. In development, a different object logs a warning.
+</PropertyReference>
+
+<PropertyReference name="components" type="readonly GenerativeUIComponentName<UI>[]">
+  The only components that the agent can use in this target, the root component included. The agent gets this list. An operation that uses another component is rejected. When you omit it, the agent can use every component of the UI.
+</PropertyReference>
+
+<PropertyReference name="autoScroll" type="boolean" default="true">
+  Scrolls the page to the target when the agent starts to render into it. If the target is already on screen, the page does not scroll. With a sticky header, give the target a `scroll-margin-top`:
+
+```css
+[data-generative-ui-surface] {
+  scroll-margin-top: 5rem;
+}
+```
+
+</PropertyReference>
+
+Other attributes, such as `class` and `style`, go to the element around the rendered surface. That element has a `data-generative-ui-surface` attribute with the `id`.
+
+## Slots
+
+<PropertyReference name="default" type="slot">
+  The fallback content. It shows until the agent renders a surface into this target. When the agent deletes the surface, the fallback shows again.
+</PropertyReference>
+
+## Example
+
+```vue
+<script setup lang="ts">
+import { GenerativeUISurface } from "@copilotkit/vue/v2/generative-ui";
+import { shopUI } from "./shop-ui";
+import ProductRow from "./ProductRow.vue";
+
+defineProps<{ products: { id: string; name: string }[] }>();
+</script>
+
+<template>
+  <GenerativeUISurface
+    id="featured"
+    :ui="shopUI"
+    description="The Featured Products row. Show products here as a ProductGrid with one ProductCard for each product."
+    :components="['ProductGrid', 'ProductCard']"
+    class="featured-row"
+  >
+    <ProductRow :products="products" />
+  </GenerativeUISurface>
+</template>
+```
+
+`shopUI` is the object from `createGenerativeUI`. The provider gets the same object:
+
+```vue
+<CopilotKitProvider runtime-url="/api/copilotkit" :generativeUI="{ ui: shopUI }">
+  <App />
+</CopilotKitProvider>
+```
+
+## Behavior
+
+- The target registers after mount, so server rendering registers nothing.
+- The agent knows about the target only while it is mounted. When it unmounts, the agent cannot render into it.
+- If `components` names a component that the UI does not have, the name is dropped. In development, a warning is logged.
+- A change to `id`, `description`, or `components` registers the target again. A new array with the same names does not.
+
+## Related
+
+- [`CopilotKitProvider`](/reference/vue/components/CopilotKitProvider) - give the provider the `generativeUI` config
+- [`useGenerativeUIState`](/reference/vue/hooks/useGenerativeUIState) - give generated components live app state
+- [`useGenerativeUIFunction`](/reference/vue/hooks/useGenerativeUIFunction) - run your code when generated UI calls a function
+- [`CopilotChat`](/reference/vue/components/CopilotChat) - change the card around surfaces in the chat

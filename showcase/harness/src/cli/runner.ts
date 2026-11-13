@@ -1,3 +1,4 @@
+import type { A2uiFormat } from "../probes/helpers/a2ui-format.js";
 /**
  * CLI test runner — orchestrates probe execution against locally running
  * showcase services. Wires targets (from B4), lifecycle management (from
@@ -58,6 +59,7 @@ import type { CvdiagPbWriter } from "../cvdiag/pb-writer.js";
 
 export interface RunOptions {
   level: TestLevel;
+  format?: A2uiFormat;
   /** Launch Playwright in headed mode (visible browser window). */
   headed?: boolean;
   /** Number of times to repeat the probe execution. */
@@ -193,7 +195,9 @@ export async function run(
   const allResults: TerminalResult[] = [];
 
   // -- 1. Resolve targets ----------------------------------------------------
-  const targets = resolveTargets(target, options.level, config);
+  const targets = resolveTargets(target, options.level, config).map((t) =>
+    options.format ? { ...t, a2uiFormat: options.format } : t,
+  );
 
   logger.info("cli.runner.resolved-targets", {
     target,
@@ -424,6 +428,7 @@ export async function run(
               {
                 level: depth as ControlPlaneLevel,
                 verbose: options.verbose,
+                a2uiFormat: options.format,
               },
               config,
               logger,

@@ -17,13 +17,15 @@
 import { createReactComponent } from "../../../adapter";
 import { ColumnApi } from "@a2ui/web_core/v0_9/basic_catalog";
 import { ChildList } from "./ChildList";
-import { mapJustify, mapAlign } from "../utils";
+import { getAccessibilityProps, mapJustify, mapAlign } from "../utils";
 
 export const Column = createReactComponent(
   ColumnApi,
+  /** Apply layout accessibility to the existing flex container without adding a wrapper. */
   ({ props, buildChild, context }) => {
     return (
       <div
+        {...getAccessibilityProps(props.accessibility)}
         style={{
           display: "flex",
           flexDirection: "column",

@@ -94,3 +94,43 @@ body,
     border: 0;
   }
 }
+
+/*
+ * Dark theme. The theme script in index.html puts class="dark" on <html>;
+ * CopilotKit's chat follows the same class. Colors match the dark tokens the
+ * React demos use (background, foreground, card, muted, border).
+ */
+:root.dark {
+  color-scheme: dark;
+  color: #fafafa;
+  background: #0a0a0a;
+}
+
+.dark .feature-page {
+  background: #0a0a0a;
+}
+
+.dark .feature-header {
+  border-bottom-color: #303136;
+  background: #191a1e;
+}
+
+.dark .feature-header h1 {
+  color: #fafafa;
+}
+
+.dark .feature-header p,
+.dark .status-page {
+  color: #adadb2;
+}
+
+.dark .framework-badge {
+  border-color: #57575b;
+  color: #fafafa;
+  background: #242529;
+}
+
+.dark .chat-surface {
+  border-color: #303136;
+  background: #0a0a0a;
+}

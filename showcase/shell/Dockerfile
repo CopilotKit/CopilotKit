@@ -5,14 +5,13 @@ WORKDIR /app
 
 # Copy only what the shell + scripts need
 COPY showcase/scripts/package.json ./scripts/package.json
+COPY showcase/scripts/package-lock.json ./scripts/package-lock.json
 COPY showcase/shell/package.json ./shell/package.json
 COPY showcase/shell/package-lock.json ./shell/package-lock.json
 
-# The scripts package is workspace-managed and has no standalone npm lockfile.
-# Ignore optional peer auto-installation here: npm 10 can crash while resolving
-# Vitest's optional Vite devtools peers. The shell is standalone and must use its
-# committed lockfile so a partially-published CopilotKit release cannot break CI.
-RUN cd scripts && npm install --legacy-peer-deps --no-audit --no-fund \
+# Use both committed standalone locks so partially-published dependencies cannot
+# break an otherwise unchanged build.
+RUN cd scripts && npm ci --no-audit --no-fund \
     && cd ../shell && npm ci --no-audit --no-fund
 
 # Copy source
@@ -25,18 +24,10 @@ COPY showcase/vue/src/ ./vue/src/
 COPY showcase/shell-docs/src/content/ ./shell-docs/src/content/
 
 # generate-search-index.ts only indexes docs pages a reader can reach from a
-# sidebar, and that decision is computed by shell-docs (see
-# shell-docs/scripts/emit-searchable-pages.ts). This app consumes the docs rows
-# too — its header search links across to the docs host — so it needs the same
-# decision, or its search silently loses every docs row.
-#
-# Stage the two trees the emit script needs plus the tsconfig that resolves
-# shell-docs' `@/…` alias. No shell-docs install is needed: the generator
-# runs the emit script with this image's scripts node_modules on NODE_PATH,
-# and `scripts/package.json` declares tsx and gray-matter for exactly that.
-COPY showcase/shell-docs/src/lib/ ./shell-docs/src/lib/
-COPY showcase/shell-docs/scripts/ ./shell-docs/scripts/
-COPY showcase/shell-docs/tsconfig.json ./shell-docs/tsconfig.json
+# sidebar (scripts/lib/docs-searchable/emit-searchable-pages.ts). This app
+# consumes the docs rows too: its header search links across to the docs host.
+# The rules read shell-docs/src/content, staged above, and run on this image's
+# scripts node_modules.
 
 # Bake commit info into Next.js build
 ENV NEXT_PUBLIC_COMMIT_SHA=${COMMIT_SHA}

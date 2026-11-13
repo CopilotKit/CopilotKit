@@ -4,9 +4,10 @@ description: "Supported entry points and API families for @copilotkit/angular."
 ---
 
 The supported entry points are `@copilotkit/angular`,
-`@copilotkit/angular/mcp-apps`, and `@copilotkit/angular/styles.css`. The
+`@copilotkit/angular/a2ui`, `@copilotkit/angular/mcp-apps`, and
+`@copilotkit/angular/styles.css`. The
 published package includes `API.md`, an alphabetized, machine-validated list of
-every exported value and type. A test resolves both TypeScript entry points and
+every exported value and type. A test resolves all three TypeScript entry points and
 requires every export to appear exactly once in that inventory.
 
 ## Root API families
@@ -42,13 +43,24 @@ requires every export to appear exactly once in that inventory.
   memory types are re-exported so application signatures use the same types as
   the SDK.
 
-The exported `ɵCOPILOTKIT_BUILT_IN_ACTIVITY_RENDERERS` token is explicitly
-internal. It exists only for CopilotKit-maintained secondary entry points and
-applications must not depend on it.
+These exports are internal:
+
+- `ɵCOPILOTKIT_BUILT_IN_ACTIVITY_RENDERERS`
+- `ɵCOPILOTKIT_INSPECTOR_DEVELOPMENT_MODE`
+- `ɵresolvePublicKeyHeaderDefaults`
+
+They exist only for CopilotKit-maintained code. Applications must not depend on
+them.
+
+## A2UI API family
+
+The `@copilotkit/angular/a2ui` entry point exports `basicCatalog`,
+`createAngularCatalog`, `injectA2UIComponentContext`, and the catalog,
+component, and schema types for rendering A2UI with your own Angular components.
 
 ## MCP Apps API family
 
-The secondary entry point exports `provideMCPApps`, its configuration and DI
+The `@copilotkit/angular/mcp-apps` entry point exports `provideMCPApps`, its configuration and DI
 tokens, the snapshot schema and type, the ready-made activity renderer config,
 and `CopilotMCPAppsActivityRenderer`/`CopilotMCPAppsWidget` for advanced hosts.
 

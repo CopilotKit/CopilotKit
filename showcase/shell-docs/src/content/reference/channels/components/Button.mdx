@@ -36,5 +36,6 @@ Managed Slack renders a Block Kit button. Managed Teams renders
 arrive without a source message reference, so only call `thread.update()` when
 `ctx.message.ref.id` is non-empty.
 
-Register the named component that owns `onClick`. Add a durable `StateStore`
-when buttons must remain usable across a runner restart.
+Register the named component that owns `onClick`. Buttons stay usable across a
+runner restart when the snapshot is in a durable `StateStore`: the default
+managed store, or your own `store.adapter`.

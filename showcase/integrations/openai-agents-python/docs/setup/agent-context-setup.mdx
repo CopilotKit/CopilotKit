@@ -1,0 +1,43 @@
+<Steps>
+  <Step>
+    ### Say in the instructions what the context is for
+
+    Each `useAgentContext` entry reaches the agent in the run's
+    `RunAgentInput.context`. `OpenAIAgentsAgent` appends the entries to the
+    agent's instructions on every model call, under
+    `Context from the application:` as `description: value` lines, so the
+    model always sees the current values. The instructions only have to say
+    how to use them:
+
+    <DemoCode file="src/demo_agents/app_context.py" region="agent-context-setup" />
+
+  </Step>
+  <Step>
+    ### Or read the context in code
+
+    When the agent has no SDK context of its own, the wrapper also passes the
+    AG-UI context list as the SDK's run context. Tools and dynamic
+    instructions can read it through `RunContextWrapper.context`, for example
+    to filter a query by the user's timezone without asking the model to pass
+    it along:
+
+    ```python
+    from ag_ui.core import Context
+    from agents import RunContextWrapper, function_tool
+
+
+    @function_tool
+    def upcoming_events(ctx: RunContextWrapper[list[Context]]) -> list[dict]:
+        """Lists the user's upcoming events in their own timezone."""
+        timezone = next(
+            (c.value for c in ctx.context or [] if "timezone" in c.description),
+            "UTC",
+        )
+        ...
+    ```
+
+    To place the context yourself, pass `context_in_instructions=False` to
+    `OpenAIAgentsAgent` and the wrapper leaves the instructions alone.
+
+  </Step>
+</Steps>

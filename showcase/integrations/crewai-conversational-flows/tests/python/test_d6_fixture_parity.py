@@ -11,6 +11,9 @@ AIMOCK_ROOT = SHOWCASE_ROOT / "aimock" / "d6"
 CREWAI_ROOT = SHOWCASE_ROOT / "integrations" / "crewai-conversational-flows"
 DOCS_ROOT = SHOWCASE_ROOT / "shell-docs" / "src" / "content" / "docs"
 CREWAI_DOCS_ROOT = DOCS_ROOT / "integrations" / "crewai-flows"
+# Pages every frontend shares live in the `(shared)` route group, which
+# isn't part of their URL: /backend/ag-ui is docs/(shared)/backend/ag-ui.mdx.
+SHARED_DOCS_ROOT = DOCS_ROOT / "(shared)"
 PARITY_FIXTURES = [
     "beautiful-chat.json",
     "gen-ui-a2ui-fixed.json",
@@ -41,6 +44,8 @@ def _docs_path_exists(shell_path: str) -> bool:
         CREWAI_DOCS_ROOT / relative / "index.mdx",
         DOCS_ROOT / f"{relative}.mdx",
         DOCS_ROOT / relative / "index.mdx",
+        SHARED_DOCS_ROOT / f"{relative}.mdx",
+        SHARED_DOCS_ROOT / relative / "index.mdx",
     ]
     return any(candidate.exists() for candidate in candidates)
 

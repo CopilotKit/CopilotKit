@@ -9,6 +9,16 @@ You want native text plus React cards in one message. A header, a sale note, and
 Wrap each snapshot in `<Render alt>`. Group the slides in `<Carousel>`. The SDK draws each snapshot to a PNG and keeps the rest as native channel UI.
 
 ```tsx
+import {
+  Button,
+  Carousel,
+  CarouselCard,
+  Header,
+  Message,
+  Render,
+  Section,
+} from "@copilotkit/channels/ui";
+
 <Message>
   <Header>This week</Header>
   <Carousel>
@@ -36,7 +46,10 @@ Wrap each snapshot in `<Render alt>`. Group the slides in `<Carousel>`. The SDK 
 
 `alt` is required and must not be blank on `<Render>`. Its canvas inherits `render.width` and `render.height`, defaulting to 720 by 480 pixels. Set `width` and `height` on an individual `<Render>` to override them.
 
-`<Image url>` is still a public URL image. It does not take children. Inside a carousel, supply both a URL and nonblank `alt` text. A carousel accepts 1 to 10 slides; each `<CarouselCard>` allows one header, one section, one image or snapshot, and up to three native buttons.
+`<Image url>` shows a public URL image. It does not take children. Inside a carousel, supply both a URL and nonblank `alt` text. Carousel limits:
+
+- A carousel holds 1 to 10 slides.
+- A `<CarouselCard>` holds at most one header, one section, one image or snapshot, and three native buttons.
 
 Use `thread.post()` or `thread.update()` for messages containing `<Render>`. These native messages keep normal message references and button callbacks. Ephemeral snapshots are unsupported: `thread.postEphemeral()` rejects `<Render>` before posting.
 
@@ -46,14 +59,14 @@ Use `thread.post()` or `thread.update()` for messages containing `<Render>`. The
 
 Set the renderer, fonts, and styles once on `createChannel({ render })`. `<Render>` needs `render.renderer`, the same as an image post. See [Posting JSX as images](/channels/posting-jsx-as-images).
 
-The Slack example posts this mix with `/carousel` or by asking the bot to show a carousel (`render_carousel` in `examples/slack`).
+The Slack example posts this mix when you ask the agent to show a carousel. The agent calls the `render_carousel` tool in `examples/slack`.
 
 This feature targets managed Slack and Teams:
 
 - **Slack:** the SDK stores each PNG and puts its file handle in `slack_file.id`. Intelligence stages the image in Slack before posting the native message or carousel. Native buttons keep their action callbacks.
 - **Teams:** the SDK embeds snapshots as data URIs in an Adaptive Card. The complete delivery packet, including all images, text, and actions, must fit the existing **64 KiB** limit. Oversized cards fail with an error explaining the limit. Reduce the snapshot dimensions, use public `<Image url>` images, or post a larger snapshot separately with `thread.post(jsx)`, which uses the managed upload path.
 
-Run `pnpm channel` in `examples/slack` for the managed example. Existing direct adapters and Discord and WhatsApp behavior are unchanged.
+Run `pnpm channel` in `examples/slack` for the managed example. Direct adapters, including Discord and WhatsApp, reject `<Render>` with an error.
 
 | Managed platform | Carousel output |
 | --- | --- |

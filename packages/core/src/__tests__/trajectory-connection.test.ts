@@ -142,6 +142,7 @@ function makeCore(overrides: Partial<CopilotKitCoreConfig> = {}) {
     headers: { Authorization: "Bearer app-session", "X-App": "test" },
     credentials: "include",
     learning: {
+      appVersion: "app-2026.11",
       routes: ["/products/:id"],
       capture: {
         clicks: false,
@@ -288,6 +289,9 @@ describe("Core trajectory connection", () => {
                 url: "https://app.invalid/products/alice?private=secret",
                 title: "Synthetic app",
                 referrer: "",
+                // Core passes the app's version through to the collector.
+                sdkVersion: expect.any(String),
+                appVersion: "app-2026.11",
                 seq: SEQ_BASE,
               },
             },

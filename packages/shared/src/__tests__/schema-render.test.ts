@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import { defaultGenerativeUIPromptSpec } from "../generative-ui/prompt-spec";
 import type { GenerativeUISchemaSettings } from "../generative-ui/prompt-spec";
@@ -217,6 +219,82 @@ describe("applyDescriptionOverrides", () => {
     expect(unknown).toEqual(["Nope", "Text.nope"]);
     // The input is not changed.
     expect(manifest.components.Text.description).toBe("Shows text");
+  });
+
+  it("runs without a global structuredClone (Hermes has none)", () => {
+    const saved = Object.getOwnPropertyDescriptor(
+      globalThis,
+      "structuredClone",
+    );
+    delete (globalThis as { structuredClone?: unknown }).structuredClone;
+    try {
+      const { manifest: next } = applyDescriptionOverrides(manifest, {
+        Text: "Prose in a surface",
+      });
+      expect(next.components.Text.description).toBe("Prose in a surface");
+      expect(manifest.components.Text.description).toBe("Shows text");
+    } finally {
+      if (saved) Object.defineProperty(globalThis, "structuredClone", saved);
+    }
+  });
+
+  it("keeps defaults that JSON cannot hold, without a global structuredClone", () => {
+    const saved = Object.getOwnPropertyDescriptor(
+      globalThis,
+      "structuredClone",
+    );
+    delete (globalThis as { structuredClone?: unknown }).structuredClone;
+    try {
+      expect(typeof globalThis.structuredClone).toBe("undefined");
+      const since = new Date(0);
+      const limits = {
+        description: "Limits",
+        props: {
+          type: "object",
+          properties: {
+            max: { type: "number", default: Number.POSITIVE_INFINITY },
+            min: { type: "number", default: Number.NaN },
+            since: { type: "string", default: since },
+            gone: { default: undefined },
+          },
+        },
+      };
+      const input = { components: { Limits: limits } };
+      const { manifest: next } = applyDescriptionOverrides(input, {
+        "Limits.max": "Upper bound",
+      });
+      const properties = next.components.Limits.props.properties as Record<
+        string,
+        Record<string, unknown>
+      >;
+      expect(properties.max).toEqual({
+        type: "number",
+        default: Number.POSITIVE_INFINITY,
+        description: "Upper bound",
+      });
+      expect(properties.min.default).toBeNaN();
+      expect(properties.since.default).toBeInstanceOf(Date);
+      expect(properties.since.default).not.toBe(since);
+      expect("default" in properties.gone).toBe(true);
+      // The copy shares no object with the input.
+      expect(next.components.Limits).not.toBe(limits);
+      expect(next.components.Limits.props).not.toBe(limits.props);
+      expect(properties.max).not.toBe(limits.props.properties.max);
+      expect(limits.props.properties.max).not.toHaveProperty("description");
+    } finally {
+      if (saved) Object.defineProperty(globalThis, "structuredClone", saved);
+    }
+  });
+
+  it("does not import a value from @ag-ui/client", () => {
+    // schema-render is reachable from the @copilotkit/shared root entry.
+    const source = readFileSync(
+      resolve(__dirname, "../generative-ui/schema-render.ts"),
+      "utf8",
+    );
+    expect(source).not.toMatch(
+      /^import\s+\{[^}]*\}\s+from\s+"@ag-ui\/client"/m,
+    );
   });
 });
 

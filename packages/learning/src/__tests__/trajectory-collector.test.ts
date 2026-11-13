@@ -205,6 +205,79 @@ describe("Trajectory capture contract", () => {
     expect(send).toHaveBeenCalledTimes(1);
   });
 
+  it("adds the SDK version, and the app version when configured, to the start page event", () => {
+    const send = vi.fn();
+    const withVersion = createTrajectoryCollector({
+      send,
+      appVersion: "2026.11.3",
+    });
+    withVersion.start();
+    withVersion.stop();
+    const blank = createTrajectoryCollector({ send, appVersion: "  " });
+    blank.start();
+    blank.stop();
+    const [first, second] = send.mock.calls.map(([event]) => event);
+    expect(first).toMatchObject({
+      name: "page",
+      value: {
+        sdkVersion: expect.stringMatching(/^\d+\.\d+\.\d+/),
+        appVersion: "2026.11.3",
+      },
+    });
+    expect(second.value).toHaveProperty("sdkVersion");
+    expect(second.value).not.toHaveProperty("appVersion");
+  });
+
+  it("records alert text only when capture.alerts is true", async () => {
+    const send = vi.fn();
+    const names = async (capture?: { alerts?: boolean }) => {
+      send.mockClear();
+      const collector = createTrajectoryCollector({ send, capture });
+      collector.start();
+      document.body.innerHTML = '<div role="alert">Could not save</div>';
+      await vi.advanceTimersByTimeAsync(0);
+      collector.stop();
+      document.body.innerHTML = "";
+      return send.mock.calls.map(([event]) => event.name);
+    };
+    expect(await names()).toEqual(["page"]);
+    expect(await names({ alerts: true })).toEqual(["page", "page.error"]);
+  });
+
+  it("records page errors by default and stops when capture.errors is false", () => {
+    const handled = (event: Event) => event.preventDefault();
+    window.addEventListener("error", handled);
+    try {
+      const send = vi.fn();
+      const on = createTrajectoryCollector({ send });
+      on.start();
+      window.dispatchEvent(
+        new ErrorEvent("error", { error: new Error("boom") }),
+      );
+      on.stop();
+      const off = createTrajectoryCollector({
+        send,
+        capture: { errors: false },
+      });
+      off.start();
+      window.dispatchEvent(
+        new ErrorEvent("error", { error: new Error("boom") }),
+      );
+      off.stop();
+      expect(send.mock.calls.map(([event]) => event.name)).toEqual([
+        "page",
+        "page.error",
+        "page",
+      ]);
+      expect(send.mock.calls[1]![0].value).toMatchObject({
+        kind: "uncaught",
+        message: "boom",
+      });
+    } finally {
+      window.removeEventListener("error", handled);
+    }
+  });
+
   it("supports capture switches while retaining initial page context", () => {
     const { collector, send } = setup({
       capture: {

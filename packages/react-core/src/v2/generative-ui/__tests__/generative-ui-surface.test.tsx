@@ -162,3 +162,95 @@ describe("GenerativeUISurface autoScroll", () => {
     expect(scrollIntoView).not.toHaveBeenCalled();
   });
 });
+
+function Broken(): React.ReactNode {
+  throw new Error("card exploded");
+}
+const failing = createGenerativeUI({
+  id: "failing",
+  components: { Broken: { component: Broken } },
+});
+/** Surface `surfaceId` in the "panel" target, whose root always throws. */
+const failingContent = (surfaceId: string, extra = 0) => ({
+  surfaceId,
+  target: "panel",
+  catalogId: "failing",
+  operations: [
+    {
+      version: "1.0" as const,
+      createSurface: { surfaceId, catalogId: "failing" },
+    },
+    ...Array.from({ length: extra + 1 }, () => ({
+      version: "1.0" as const,
+      updateComponents: {
+        surfaceId,
+        components: [{ id: "root", component: "Broken" }],
+      },
+    })),
+  ],
+  status: "streaming" as const,
+  rejected: [],
+});
+
+describe("GenerativeUISurface failure reports", () => {
+  function setup() {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const reportError = vi.fn();
+    const runtime: GenerativeUIRuntime = {
+      manager: new GenerativeUISurfaceManager(failing),
+      ui: failing,
+      transport: "tool",
+      config: { ui: failing },
+      reportError,
+      forwardEvent: vi.fn(async () => ({
+        ok: true as const,
+        result: undefined,
+      })),
+      dispatcher: createGenerativeUIDispatcher({
+        getDeclared: () => failing.functions,
+      }),
+    };
+    runtime.manager.setActiveThread("t1");
+    const { container } = render(
+      <React.StrictMode>
+        <GenerativeUIRuntimeContext.Provider value={runtime}>
+          <GenerativeUISurface id="panel" />
+        </GenerativeUIRuntimeContext.Provider>
+      </React.StrictMode>,
+    );
+    const ingest = (surfaceId: string, extra?: number) =>
+      act(() =>
+        runtime.manager.ingest(
+          "t1",
+          "default",
+          failingContent(surfaceId, extra),
+        ),
+      );
+    const surfaceIds = () =>
+      reportError.mock.calls.map(([info]) => info.surfaceId);
+    return { container, ingest, surfaceIds };
+  }
+
+  it("reports the same failure of a new surface in the same target", () => {
+    const { container, ingest, surfaceIds } = setup();
+    ingest("s1");
+    expect(surfaceIds()).toEqual(["s1"]);
+    const target = container.querySelector(
+      '[data-generative-ui-surface="panel"]',
+    );
+    ingest("s2");
+    expect(surfaceIds()).toEqual(["s1", "s2"]);
+    // The surface is replaced in place: the target element stays.
+    expect(
+      container.querySelector('[data-generative-ui-surface="panel"]'),
+    ).toBe(target);
+  });
+
+  it("reports the same failure once across revisions of one surface", () => {
+    const { ingest, surfaceIds } = setup();
+    ingest("s1");
+    ingest("s1", 1);
+    ingest("s1", 2);
+    expect(surfaceIds()).toEqual(["s1"]);
+  });
+});

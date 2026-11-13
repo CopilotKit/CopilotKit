@@ -10,7 +10,7 @@ partner_docs: null
 repo: https://github.com/CopilotKit/CopilotKit/tree/main/showcase/integrations/built-in-agent
 copilotkit_version: 2.0.0
 deployed: true
-docs_mode: authored
+docs_mode: generated
 sort_order: 5
 generative_ui:
   - constrained-explicit
@@ -64,8 +64,12 @@ features:
   - voice
   - agent-config
   - threadid-frontend-tool-roundtrip
-# All features above are D6-GREEN locally when aimock is scoped to this
-# integration's own fixtures (verified with per-demo probes). declarative-gen-ui
+  - gen-ui-interrupt
+  - interrupt-headless
+# All features above except gen-ui-interrupt and interrupt-headless are
+# D6-GREEN locally when aimock is scoped to this integration's own fixtures
+# (verified with per-demo probes). Those two left the react-core resume-path
+# quarantine (fixed in @copilotkit/* 1.62.1) and await a D6 rerun. declarative-gen-ui
 # and mcp-apps — earlier suspected downstream-host RED — are in fact green:
 # declarative-gen-ui was purely cross-slug fixture shadowing (a2ui-fixed-schema
 # passes on the same renderer host), and mcp-apps needed a fixture fix (the
@@ -75,16 +79,6 @@ features:
 not_supported_features:
   - hitl
   - shared-state-streaming
-  # QUARANTINED pending a @copilotkit/react-core release. gen-ui-interrupt /
-  # interrupt-headless fail turn-2 due to a useInterrupt/useHeadlessInterrupt
-  # RESUME-PATH hook bug in @copilotkit/react-core/v2: the backend resumes and
-  # streams fine (HTTP 200), but the frontend never appends the confirmation
-  # assistant bubble, so the harness DOM settle-check times out. The fix is a
-  # published-package change (out of scope here), so these demos are honestly
-  # marked not-supported (skipped-incapable side-rows, not green, not red)
-  # rather than counting as a regression. The demos remain wired below.
-  - gen-ui-interrupt
-  - interrupt-headless
   - reasoning-default-render
   - agentic-chat-reasoning
   - tool-rendering-reasoning-chain

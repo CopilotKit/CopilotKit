@@ -4,10 +4,10 @@ description: "The useDefaultTool hook enables rendering of a default UI which ca
 ---
 
 <Callout type="warning">
-  `useDefaultTool` is still supported, but we recommend migrating to [`useFrontendTool`](/reference/v2/hooks/useFrontendTool) from the v2 API.
+  `useDefaultTool` is still supported, but we recommend migrating to [`useDefaultRenderTool`](/reference/v2/hooks/useDefaultRenderTool) from the v2 API.
 </Callout>
 
-`useDefaultTool` is a React hook that allows you to render custom UI for any tool
+`useDefaultTool` is a React hook that lets you render custom UI for any tool
 call that doesn't have a specific renderer
 
 ## Usage
@@ -72,10 +72,10 @@ useDefaultTool({
 
 ## Parameters
 
-<PropertyReference name="tool" type="ReactRenderToolCall<T>" required>
+<PropertyReference name="tool" type='Omit<CatchAllFrontendAction, "name">' required>
   The tool rendering configuration object.
-    <PropertyReference name="render" type="React.ComponentType<RenderProps>">
-      A React component that renders the tool call UI. The component receives props with:
+    <PropertyReference name="render" type="(props: CatchAllActionRenderProps<any>) => React.ReactElement">
+      A function that returns the tool call UI. It receives props with:
 
       <div className="ml-8">
         <PropertyReference name="status" type="'inProgress' | 'executing' | 'complete'">
@@ -97,11 +97,11 @@ useDefaultTool({
           The actual name of the tool being executed. Particularly useful for
           catch-all renderers to know which tool is being rendered.
         </PropertyReference>
-
-        <PropertyReference name="description" type="string">
-          The description of the tool being executed.
-        </PropertyReference>
       </div>
+    </PropertyReference>
+
+    <PropertyReference name="renderAndWaitForResponse" type="(props: CatchAllActionRenderPropsWait<any>) => React.ReactElement">
+      Use it in place of `render`. The tool call waits until you call `respond` with the result. Read `name` to tell the calls apart.
     </PropertyReference>
 </PropertyReference>
 
@@ -138,4 +138,4 @@ useDefaultTool({
 });
 ```
 
-The migration is straightforward - just change the hook name. The render props remain the same.
+Change the hook name to `useDefaultTool` and remove `name: "*"`. The render props remain the same.

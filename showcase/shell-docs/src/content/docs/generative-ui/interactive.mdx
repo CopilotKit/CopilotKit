@@ -29,14 +29,20 @@ Use interactive generative UI when you need:
 
 On the frontend, register an interrupt renderer with `useInterrupt`. When the
 agent pauses, your component mounts inline in the chat, captures the user's
-choice, and resumes the run with that input.
+choice, and resumes the run with that input. The excerpt imports the demo's
+`TimePickerCard`, its fallback slots, and its suggestions. Use your own picker
+component in their place.
 
 <Snippet region="frontend-useinterrupt-render" title="frontend/src/app/page.tsx — useInterrupt" />
 
-On the backend, the agent calls into the interrupt primitive and waits for
-the resumed response before continuing the graph.
+On the backend, the agent pauses the run with its framework's interrupt
+primitive and waits for the user's answer before it continues.
 
 <Snippet region="backend-interrupt-tool" title="backend — interrupt tool" />
+
+Ask the agent to book a call, for example `Book an intro call with the sales
+team to discuss pricing`. The time picker appears in the chat. Pick a slot,
+and the agent confirms the booked time.
 
 </WhenFrameworkHas>
 
@@ -44,14 +50,18 @@ the resumed response before continuing the graph.
 
 <FrameworkSetup concept="human-in-the-loop-setup" />
 
-This framework implements the same interactive pause shape with a
-Promise-based frontend tool. The agent calls `schedule_meeting`, the client
-renders the picker, and the tool result resolves only after the user chooses a
-slot or cancels.
+This framework registers `schedule_meeting` as a frontend tool with
+`useHumanInTheLoop`. The agent calls the tool, and the chat renders the picker.
+The tool call resolves when the picker calls `respond(...)`, after the user
+chooses a slot or cancels.
 
-<Snippet region="frontend-promise-handler" title="frontend/src/app/page.tsx — Promise-based frontend tool" />
+<Snippet region="frontend-useinterrupt-render" title="frontend/src/app/page.tsx — Promise-based frontend tool" />
 
 <Snippet region="backend-tool-call" title="backend — agent instructed to call schedule_meeting" />
+
+Ask the agent to book a call, for example `Book an intro call with the sales
+team to discuss pricing`. The time picker appears in the chat. Pick a slot,
+and the agent confirms the booked time.
 
 </WhenFrameworkHas>
 

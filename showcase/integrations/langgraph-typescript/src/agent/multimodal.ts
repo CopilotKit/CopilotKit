@@ -18,11 +18,8 @@
 
 import type { RunnableConfig } from "@langchain/core/runnables";
 import type { AIMessage } from "@langchain/core/messages";
-import {
-  HumanMessage,
-  SystemMessage,
-  type BaseMessage,
-} from "@langchain/core/messages";
+import { HumanMessage, SystemMessage } from "@langchain/core/messages";
+import type { BaseMessage } from "@langchain/core/messages";
 import {
   MemorySaver,
   START,

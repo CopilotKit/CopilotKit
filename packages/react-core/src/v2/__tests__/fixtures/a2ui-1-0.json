@@ -1,0 +1,22 @@
+{
+  "a2ui_operations": [
+    {
+      "version": "1.0",
+      "createSurface": {
+        "surfaceId": "s",
+        "catalogId": "https://a2ui.org/specification/v1_0/catalogs/basic/catalog.json"
+      }
+    },
+    {
+      "version": "1.0",
+      "updateComponents": {
+        "surfaceId": "s",
+        "components": [{ "id": "root", "component": "Text", "text": "Hello" }]
+      }
+    },
+    {
+      "version": "1.0",
+      "updateDataModel": { "surfaceId": "s", "path": "/", "value": {} }
+    }
+  ]
+}

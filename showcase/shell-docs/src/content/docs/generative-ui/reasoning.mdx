@@ -1,7 +1,7 @@
 ---
 title: Reasoning
 icon: "lucide/Brain"
-description: Surface the agent's thinking chain in the chat — default or fully custom.
+description: Surface the agent's thinking chain in the chat, with the default card or a fully custom one.
 hideTOC: true
 snippet_cell: reasoning-custom
 ---
@@ -17,9 +17,8 @@ these as first-class messages: when a `REASONING_MESSAGE_*` event arrives
 from the agent, the chat renders it inline so the user can follow the
 agent's thinking.
 
-Reasoning isn't a custom-renderer plumb-in; it's a dedicated message type
-on the chat view. You can either accept the built-in rendering or override
-the `reasoningMessage` slot with your own component.
+Reasoning is its own message type in the chat. Keep the built-in card, or
+pass your own component to the `reasoningMessage` slot.
 
 ## When should I use this?
 
@@ -32,7 +31,7 @@ Expose reasoning in the UI when you want to:
 
 ## Default reasoning rendering (zero-config)
 
-Out of the box, reasoning events render inside CopilotKit's built-in
+By default, reasoning events render inside CopilotKit's built-in
 `CopilotChatReasoningMessage` card:
 
 - A **"Thinking…"** label with a pulsing indicator while the model reasons.
@@ -56,10 +55,20 @@ Here's what the built-in card looks like while the model thinks through a multi-
 ## Custom reasoning rendering
 
 For full control over the reasoning card, pass a component to the
-`reasoningMessage` slot on `messageView`. Your component receives the
-`ReasoningMessage` object (`.content` holds the streaming text), the full
-`messages` list, and `isRunning`, enough to decide whether this block is
-still streaming and whether it's the active trailing message:
+`reasoningMessage` slot on `messageView`. Your component receives these props:
+
+- `message`: the `ReasoningMessage`. `message.content` holds the streaming text.
+- `messages`: the full message list.
+- `isRunning`: `true` while the agent runs.
+- `isLatest`: `true` for the last rendered message in the list.
+
+Import the slot type and your component in `page.tsx`:
+
+```tsx
+import type { CopilotChatReasoningMessage } from "@copilotkit/react-core/v2";
+import { CopilotKit, CopilotChat } from "@copilotkit/react-core/v2";
+import { ReasoningBlock } from "./reasoning-block";
+```
 
 <Tabs items={['page.tsx', 'reasoning-block.tsx']}>
   <Tab value="page.tsx">
@@ -70,16 +79,13 @@ still streaming and whether it's the active trailing message:
   </Tab>
 </Tabs>
 
-The `ReasoningBlock` (imported above) renders the reasoning as an
-amber-tagged inline banner, intentionally louder than the default card
-so the thinking chain is the focal UI of the demo. Swap in your own
-component to match your product's tone.
+Replace `ReasoningBlock` with your own component.
 
 <Callout type="info">
-  The `messageView.reasoningMessage` slot accepts either a full component
-  (as shown) or a sub-slot object like
-  `{ header, contentView, toggle }` if you just want to tweak parts of the
-  default card. See the reference docs for sub-slot props.
+  The `messageView.reasoningMessage` slot also accepts a sub-slot object,
+  `{ header, contentView, toggle }`. Use it to change parts of the default
+  card. For the props of each sub-slot, see
+  [Customizing the Reasoning Message](/custom-look-and-feel/reasoning-messages#customizing-the-reasoning-message).
 </Callout>
 
 <IntegrationGrid path="generative-ui/reasoning" />

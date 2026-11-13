@@ -39,23 +39,23 @@
  *   - Per-service Railway failures (including the all-services-fail case)
  *     print FAIL lines to stdout and land in the markdown summary written
  *     to $GITHUB_STEP_SUMMARY (mirrored to stderr). Exit-code policy is
- *     FAIL-LOUD BY DEFAULT: any per-service failure yields a non-zero
- *     exitCode for EVERY env except ordinary staging services. A staging
- *     docs or harness-workers failure is release-blocking: docs must prove
- *     the selected image serves its routes, and workers must apply `ALWAYS`.
- *     Other staging failures remain non-fatal because verify-deploy is their gate.
+ *     FAIL-LOUD: every per-service failure yields a non-zero exitCode.
+ *     Managed staging images get fresh deployments and verify the selected
+ *     image and SUCCESS for each returned deployment ID in six bounded slots.
+ *     Docs additionally verify serving routes; workers apply `ALWAYS`.
+ *     Production and unmanaged pinned services retain snapshot redeploys.
  *   - Operator/config errors (bad env name, unknown service, missing or
  *     malformed token) ALWAYS fail loud with a non-zero exit.
  *
  * Auth: RAILWAY_TOKEN env var or ~/.railway/config.json.
- * Exit code: non-zero for staging docs/harness-workers failures, per-service
- * failures in any other env, and operator/config errors.
+ * Exit code: non-zero for any per-service failure or operator/config error.
  */
 
 import fs from "fs";
 import { fileURLToPath } from "url";
 import {
   CI_BUILT_SERVICES,
+  effectiveStaticGatePolicy,
   ENV_IDS,
   ENV_ID_BY_NAME,
   SERVICES,
@@ -75,6 +75,13 @@ import {
   readExpectedDocsImage,
   verifyDocsDeployment,
 } from "./verify-docs-deployment";
+
+import {
+  SupersededImageError,
+  readExpectedImage,
+  verifyImageDeployment,
+} from "./verify-image-deployment";
+import type { ExpectedImage } from "./verify-image-deployment";
 
 const RAILWAY_API = RAILWAY_GRAPHQL_ENDPOINT;
 
@@ -108,7 +115,32 @@ export interface RedeployFailure {
   error: string;
   deploymentId?: string;
 }
-export type RedeployOutcome = RedeployResult | RedeployFailure;
+export interface RedeploySkipped {
+  ok: false;
+  skipped: true;
+  reason: "superseded";
+  supersededBy: string;
+  supersedingImageDigest: string;
+  deploymentId?: string;
+}
+export type RedeployOutcome =
+  | RedeployResult
+  | RedeployFailure
+  | RedeploySkipped;
+
+function skippedOutcome(
+  error: SupersededImageError,
+  deploymentId?: string,
+): RedeploySkipped {
+  return {
+    ok: false,
+    skipped: true,
+    reason: "superseded",
+    supersededBy: error.supersededBy,
+    supersedingImageDigest: error.supersedingImageDigest,
+    ...(deploymentId ? { deploymentId } : {}),
+  };
+}
 
 export type RedeployFn = (
   serviceId: string,
@@ -158,22 +190,66 @@ async function railwayMutation(
  */
 export function makeLiveRedeploy(
   token: string,
-  options: { docsExpectedImage?: string } = {},
+  options: { docsExpectedImage?: string; expectedImageTag?: string } = {},
 ): RedeployFn {
   return async function liveRedeploy(
     serviceId: string,
     environmentId: string,
   ): Promise<RedeployOutcome> {
+    const isStaging = environmentId === STAGING_ENV_ID;
+    const service = Object.entries(SERVICES).find(
+      ([, entry]) => entry.serviceId === serviceId,
+    );
+    if (isStaging && !service) {
+      return { ok: false, error: `Unknown staging service ${serviceId}` };
+    }
+    const isManagedStaging =
+      isStaging &&
+      service !== undefined &&
+      effectiveStaticGatePolicy(service[1]).image === "showcase-convention";
     const isStagingWorker =
       serviceId === SERVICES["harness-workers"].serviceId &&
       environmentId === STAGING_ENV_ID;
     const isStagingDocs =
       serviceId === SERVICES.docs.serviceId && environmentId === STAGING_ENV_ID;
-    // Resolve before issuing a mutation, including refusal of superseded builds.
-    const expectedDocsImage =
-      isStagingDocs && options.docsExpectedImage !== undefined
-        ? readExpectedDocsImage(options.docsExpectedImage)
+    let expectedImage: ExpectedImage | undefined;
+    try {
+      // Resolve before issuing a mutation, including refusal of superseded builds.
+      const expectedDocsImage =
+        isStagingDocs && options.docsExpectedImage !== undefined
+          ? await readExpectedDocsImage(options.docsExpectedImage)
+          : undefined;
+      // CI names its immutable build tag. Out-of-band images (webhooks) have no
+      // tag from this run; resolve their configured staging :latest instead.
+      // Reading before the mutation refuses superseded builds without rolling
+      // staging back, while post-deploy verification catches a tag moving later.
+      const imageOwner = service && SERVICES[service[1].imageOf ?? service[0]];
+      const commitTag =
+        isManagedStaging && imageOwner?.ciBuilt
+          ? options.expectedImageTag
+          : undefined;
+      if (commitTag !== undefined && !/^[0-9a-f]{40}$/.test(commitTag)) {
+        return {
+          ok: false,
+          error: "staging expected image tag must be a full commit SHA",
+        };
+      }
+      expectedImage = isManagedStaging
+        ? (expectedDocsImage ??
+          (await readExpectedImage(
+            `ghcr.io/copilotkit/${repoNameFor(service![0], "staging")}:${commitTag ?? "latest"}`,
+            {
+              requireCommit: commitTag !== undefined,
+              checkLatest: commitTag !== undefined,
+              label: service![0],
+            },
+          )))
         : undefined;
+    } catch (error) {
+      if (error instanceof SupersededImageError) return skippedOutcome(error);
+      throw error;
+    }
+
     if (isStagingWorker) {
       const provisioning = workerProvisioningFor("harness-workers", "staging");
       if (provisioning === undefined) {
@@ -219,9 +295,10 @@ export function makeLiveRedeploy(
       }
     }
 
-    if (isStagingWorker || isStagingDocs) {
-      // Redeploy replays the previous deployment's image snapshot. Docs may
-      // have a pinned snapshot even while its configured source is :latest.
+    if (isManagedStaging) {
+      // Redeploy replays the previous image snapshot. Deploy from desired
+      // source instead, so managed staging services pull the selected image.
+      // Independent pinned services retain their configured snapshot below.
       const deploy = await railwayMutation(
         token,
         `mutation serviceInstanceDeployV2($serviceId: String!, $environmentId: String!) {
@@ -237,30 +314,31 @@ export function makeLiveRedeploy(
           error: `serviceInstanceDeployV2 returned ${JSON.stringify(deploy.value)}`,
         };
       }
-      if (isStagingDocs) {
-        try {
-          const receipt = expectedDocsImage
-            ? {
-                ...(await verifyDocsDeployment(
-                  token,
-                  deploy.value,
-                  expectedDocsImage,
-                )),
-                verified: true as const,
-              }
-            : {};
-          return { ok: true, deploymentId: deploy.value, ...receipt };
-        } catch (error) {
-          return {
-            ok: false,
-            deploymentId: deploy.value,
-            error: sanitizeErrorBody(
-              error instanceof Error ? error.message : String(error),
-            ),
-          };
-        }
+      try {
+        const receipt = isStagingDocs
+          ? await verifyDocsDeployment(token, deploy.value, expectedImage!)
+          : await verifyImageDeployment(token, deploy.value, expectedImage!, {
+              serviceId,
+              environmentId,
+              label: service![0],
+            });
+        return {
+          ok: true,
+          deploymentId: deploy.value,
+          ...receipt,
+          verified: true,
+        };
+      } catch (error) {
+        if (error instanceof SupersededImageError)
+          return skippedOutcome(error, deploy.value);
+        return {
+          ok: false,
+          deploymentId: deploy.value,
+          error: sanitizeErrorBody(
+            error instanceof Error ? error.message : String(error),
+          ),
+        };
       }
-      return { ok: true };
     }
 
     const redeploy = await railwayMutation(
@@ -298,12 +376,16 @@ export interface RunRedeployOpts {
    * expandImageConsumers).
    */
   services?: string[];
+  /** Staging verifies several independent deployments concurrently; prod stays serial. */
+  concurrency?: number;
 }
 
 /**
- * A single per-service redeploy outcome. `status:"ok"` means Railway accepted
- * the deployment request for that service; `status:"error"` carries the
- * sanitized failure. Callers that must confirm a SPECIFIC service was actually
+ * A single per-service redeploy outcome. Managed staging `status:"ok"` includes
+ * the verified deployment/image receipt; other environments and unmanaged
+ * services acknowledge the deployment request. `status:"error"` carries the
+ * sanitized failure; `status:"skipped"` records proven newer image ownership.
+ * Callers that must confirm a SPECIFIC service was actually
  * redeployed (e.g. reconcile-staging's per-service remediation check) match on
  * these records rather than the post-expansion `attempted` COUNT — imageOf
  * expansion inflates `attempted` above the requested set, so a count alone can
@@ -311,7 +393,10 @@ export interface RunRedeployOpts {
  */
 export interface RedeployServiceRecord {
   service: string;
-  status: "ok" | "error";
+  status: "ok" | "error" | "skipped";
+  reason?: "superseded";
+  supersededBy?: string;
+  supersedingImageDigest?: string;
   error?: string;
   deploymentId?: string;
   imageDigest?: string;
@@ -322,6 +407,7 @@ export interface RunRedeploySummary {
   exitCode: number;
   attempted: number;
   succeeded: number;
+  skipped?: number;
   failed: number;
   /**
    * Per-service outcomes for EVERY service the run attempted (post-expansion),
@@ -556,16 +642,20 @@ export async function runRedeploy(
   // Per-service structured records — cross-workstream contract consumed
   // by showcase_deploy.yml's `enforce-redeploy-gate` (A.7) via the
   // REDEPLOY_SUMMARY_JSON artifact. Shape:
-  //   Array<{ service: string; status: "ok" | "error"; error?: string }>
+  //   Array<RedeployServiceRecord>
   // Built in parallel with the existing `failures`/`succeeded` tallies.
   const records: RedeployServiceRecord[] = [];
   let succeeded = 0;
-  let hasReleaseBlockingFailure = false;
 
   appendSummary(`## Railway redeploy — env=${env}`);
   appendSummary("");
 
-  for (const name of names) {
+  const concurrency = opts.concurrency ?? (env === "staging" ? 6 : 1);
+  if (!Number.isInteger(concurrency) || concurrency < 1 || concurrency > 6) {
+    throw new Error("redeploy concurrency must be an integer from 1 to 6");
+  }
+  let cursor = 0;
+  const attempt = async (name: string): Promise<void> => {
     // Defensive own-property lookup. Currently unreachable: every name here
     // came through resolveTargetServices (which rejects non-SSOT names,
     // including inherited Object.prototype keys) and expandImageConsumers
@@ -579,25 +669,26 @@ export async function runRedeploy(
         `Unknown service "${name}" — not an SSOT key in railway-envs.ts. Add it to SERVICES or fix the caller.`,
       );
     }
-    const isReleaseBlocking =
-      env === "staging" && (name === "harness-workers" || name === "docs");
-    process.stdout.write(`  ${name.padEnd(36)} `);
     try {
       const outcome = await redeploy(entry.serviceId, envId);
-      if (outcome.ok) {
+      if ("skipped" in outcome) {
+        const { ok: _ok, skipped: _skipped, ...proof } = outcome;
+        records.push({ service: name, status: "skipped", ...proof });
+        process.stdout.write(
+          `  ${name.padEnd(36)} SKIP: superseded by ${outcome.supersededBy}\n`,
+        );
+      } else if (outcome.ok) {
         succeeded++;
         const { ok: _ok, ...receipt } = outcome;
         records.push({ service: name, status: "ok", ...receipt });
-        process.stdout.write("OK\n");
+        process.stdout.write(`  ${name.padEnd(36)} OK\n`);
       } else {
-        if (isReleaseBlocking) hasReleaseBlockingFailure = true;
         failures.push({ service: name, error: outcome.error });
         const { ok: _ok, ...receipt } = outcome;
         records.push({ service: name, status: "error", ...receipt });
-        process.stdout.write(`FAIL: ${outcome.error}\n`);
+        process.stdout.write(`  ${name.padEnd(36)} FAIL: ${outcome.error}\n`);
       }
     } catch (e: unknown) {
-      if (isReleaseBlocking) hasReleaseBlockingFailure = true;
       // Sanitize like the non-throw FAIL path: makeLiveRedeploy pre-sanitizes
       // the errors it RETURNS, but a rejection thrown by the redeploy fn
       // (e.g. an AbortSignal timeout, or a fetch error wrapping a multi-KB
@@ -608,17 +699,44 @@ export async function runRedeploy(
       );
       failures.push({ service: name, error });
       records.push({ service: name, status: "error", error });
-      process.stdout.write(`FAIL (threw): ${error}\n`);
+      process.stdout.write(`  ${name.padEnd(36)} FAIL (threw): ${error}\n`);
     }
-  }
+  };
+  // Submit and verify a bounded number of independent services at a time.
+  // Each task's outcome retains its exact deployment ID, never "latest".
+  await Promise.all(
+    Array.from({ length: Math.min(concurrency, names.length) }, async () => {
+      while (cursor < names.length) {
+        const name = names[cursor++];
+        await attempt(name);
+      }
+    }),
+  );
+  records.sort((a, b) => a.service.localeCompare(b.service));
+  failures.sort((a, b) => a.service.localeCompare(b.service));
 
   const attempted = names.length;
   const failed = failures.length;
+  const skips = records.filter((record) => record.status === "skipped");
+  const skipped = skips.length;
 
   appendSummary(`- attempted: **${attempted}**`);
   appendSummary(`- succeeded: **${succeeded}**`);
+  appendSummary(`- skipped: **${skipped}**`);
   appendSummary(`- failed: **${failed}**`);
   appendSummary("");
+
+  if (skipped > 0) {
+    appendSummary("### Skipped superseded builds");
+    appendSummary("");
+    appendSummary("| service | status | newer build | image digest |");
+    appendSummary("| --- | --- | --- | --- |");
+    for (const record of skips)
+      appendSummary(
+        `| \`${record.service}\` | SKIP | \`${record.supersededBy}\` | \`${record.supersedingImageDigest}\` |`,
+      );
+    appendSummary("");
+  }
 
   if (failures.length > 0) {
     appendSummary("### Failures");
@@ -632,15 +750,9 @@ export async function runRedeploy(
       appendSummary(`| \`${f.service}\` | FAIL | ${safeErr} |`);
     }
     appendSummary("");
-    if (env === "staging" && hasReleaseBlockingFailure) {
-      appendSummary(
-        "The docs/harness-workers failure is release-blocking; independent staging services were still attempted.",
-      );
-    } else if (env === "staging") {
-      appendSummary(
-        "Staging redeploys are non-fatal — the verify-deploy workflow is the gate.",
-      );
-    }
+    appendSummary(
+      "Deployment verification failed; independent services were still attempted.",
+    );
   }
 
   // A.4: optional per-service JSON summary for showcase_deploy.yml's
@@ -676,11 +788,9 @@ export async function runRedeploy(
     }
   }
 
-  // Fail-loud by default. Ordinary staging services keep their historical
-  // non-fatal behavior; docs and the clean-recycling worker are release-blocking.
-  const exitCode =
-    failed > 0 && (env !== "staging" || hasReleaseBlockingFailure) ? 1 : 0;
-  return { exitCode, attempted, succeeded, failed, records };
+  // A healthy old snapshot is a release failure, including in staging.
+  const exitCode = failed > 0 ? 1 : 0;
+  return { exitCode, attempted, succeeded, skipped, failed, records };
 }
 
 async function main(): Promise<void> {
@@ -721,6 +831,7 @@ async function main(): Promise<void> {
   const token = getToken();
   const redeploy = makeLiveRedeploy(token, {
     docsExpectedImage: process.env.DOCS_EXPECTED_IMAGE,
+    expectedImageTag: process.env.STAGING_EXPECTED_IMAGE_TAG,
   });
 
   const result = await runRedeploy({
@@ -730,7 +841,7 @@ async function main(): Promise<void> {
     services,
   });
   console.log(
-    `\n${result.succeeded}/${result.attempted} redeploys triggered (${result.failed} failed)`,
+    `\n${result.succeeded}/${result.attempted} deployments verified/triggered (${result.skipped ?? 0} skipped, ${result.failed} failed)`,
   );
   process.exit(result.exitCode);
 }
