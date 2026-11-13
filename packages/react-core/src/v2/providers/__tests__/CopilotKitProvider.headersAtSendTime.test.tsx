@@ -10,6 +10,7 @@ import { HttpAgent } from "@ag-ui/client";
 import type { CopilotKitHeadersSource } from "@copilotkit/core";
 import { CopilotKitCoreRuntimeConnectionStatus } from "@copilotkit/core";
 import { CopilotKitProvider, useCopilotKit } from "../CopilotKitProvider";
+import { useAgent } from "../../hooks/use-agent";
 import { useThreads } from "../../hooks/use-threads";
 import { CopilotKitCoreReact } from "../../lib/react-core";
 
@@ -524,6 +525,110 @@ describe("CopilotKitProvider — headers builder evaluated at send time (#1937)"
     act(() => setAuth("a2"));
 
     await waitFor(() => expect(setContextSpy).toHaveBeenCalledTimes(1));
+  });
+
+  it("a token change at re-render does not re-run useAgent's agent memo or header effect, and a run still sends the current token", async () => {
+    const calls: Call[] = [];
+    vi.stubGlobal("fetch", stubFetch(calls));
+    let core!: CopilotKitCoreReact;
+    let bumpChild!: () => void;
+    const agent = new HttpAgent({ url: "http://agent.test/run" });
+
+    function AgentConsumer() {
+      useAgent({ agentId: "default" });
+      return null;
+    }
+
+    function Child() {
+      const { copilotkit } = useCopilotKit();
+      core = copilotkit;
+      const [, set] = useState(0);
+      bumpChild = () => set((n) => n + 1);
+      return <AgentConsumer />;
+    }
+
+    function App() {
+      return (
+        <CopilotKitProvider
+          agents__unsafe_dev_only={{ default: agent }}
+          headers={() => ({ Authorization: `Bearer ${token}` })}
+        >
+          <Child />
+        </CopilotKitProvider>
+      );
+    }
+
+    render(<App />);
+    await waitFor(() => expect(core.getAgent("default")).toBeDefined());
+    // The provider's config effect replaces `copilotkit.agents` after mount
+    // without re-rendering the hook, so its next render re-runs the agent
+    // memo regardless of headers. Spend that render before spying.
+    act(() => bumpChild());
+
+    const applySpy = vi.spyOn(core, "applyHeadersToAgent");
+    const getAgentSpy = vi.spyOn(core, "getAgent");
+
+    token = "tok-2";
+    await core.resolveHeaders();
+    expect(core.headers).toEqual({ Authorization: "Bearer tok-2" });
+    act(() => bumpChild());
+
+    expect(applySpy).not.toHaveBeenCalled();
+    expect(getAgentSpy).not.toHaveBeenCalled();
+
+    token = "tok-3";
+    await act(async () => {
+      await core.runAgent({ agent }).catch(() => {});
+    });
+
+    const runCalls = calls.filter((c) => c.url === "http://agent.test/run");
+    expect(runCalls.length).toBeGreaterThan(0);
+    expect(runCalls.every((c) => c.auth === "Bearer tok-3")).toBe(true);
+  });
+
+  it("a setHeaders() call re-runs useAgent's agent memo and header effect once", async () => {
+    vi.stubGlobal("fetch", stubFetch([]));
+    let core!: CopilotKitCoreReact;
+    let bumpChild!: () => void;
+    const agent = new HttpAgent({ url: "http://agent.test/run" });
+
+    function AgentConsumer() {
+      useAgent({ agentId: "default" });
+      return null;
+    }
+
+    function Child() {
+      const { copilotkit } = useCopilotKit();
+      core = copilotkit;
+      const [, set] = useState(0);
+      bumpChild = () => set((n) => n + 1);
+      return <AgentConsumer />;
+    }
+
+    function App() {
+      return (
+        <CopilotKitProvider
+          agents__unsafe_dev_only={{ default: agent }}
+          headers={{ Authorization: "Bearer a1" }}
+        >
+          <Child />
+        </CopilotKitProvider>
+      );
+    }
+
+    render(<App />);
+    await waitFor(() => expect(core.getAgent("default")).toBeDefined());
+    // Same post-mount render as above.
+    act(() => bumpChild());
+
+    const applySpy = vi.spyOn(core, "applyHeadersToAgent");
+    const getAgentSpy = vi.spyOn(core, "getAgent");
+
+    act(() => core.setHeaders({ Authorization: "Bearer a2" }));
+
+    await waitFor(() => expect(applySpy).toHaveBeenCalledTimes(1));
+    expect(getAgentSpy).toHaveBeenCalledTimes(1);
+    expect(agent.headers).toMatchObject({ Authorization: "Bearer a2" });
   });
 
   it("a child effect firing in the same commit as a token bump reads the new token, not the previous commit's closure", async () => {
