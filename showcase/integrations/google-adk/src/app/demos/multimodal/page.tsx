@@ -30,7 +30,10 @@ import { MultimodalChat } from "./multimodal-chat";
 
 export default function MultimodalDemoPage() {
   return (
-    <CopilotKitProvider runtimeUrl="/api/copilotkit-multimodal" agentId="multimodal-demo">
+    <CopilotKitProvider
+      runtimeUrl="/api/copilotkit-multimodal"
+      agentId="multimodal-demo"
+    >
       <LegacyConverterShim />
       <MultimodalChat />
     </CopilotKitProvider>

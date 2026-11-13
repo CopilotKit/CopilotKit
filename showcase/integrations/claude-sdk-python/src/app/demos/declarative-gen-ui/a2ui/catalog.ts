@@ -16,7 +16,10 @@
 
 import { myDefinitions } from "./definitions";
 import { myRenderers } from "./renderers";
-import { createGenerativeUI, standardUI } from "@copilotkit/react-core/generative-ui";
+import {
+  createGenerativeUI,
+  standardUI,
+} from "@copilotkit/react-core/generative-ui";
 
 export const myCatalog = createGenerativeUI({
   id: "declarative-gen-ui-catalog",

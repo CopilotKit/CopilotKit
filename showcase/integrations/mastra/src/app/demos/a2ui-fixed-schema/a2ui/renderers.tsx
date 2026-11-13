@@ -65,7 +65,6 @@ function ActionButton({
   );
 }
 
-
 /**
  * The props a component gets: the output of its schema. Generative UI
  * resolves data bindings before render, and hands `child` / `children` over
@@ -152,9 +151,7 @@ export const renderers = {
    * built-in-agent a2ui-fixed-schema renderer.
    */
   Button: (props: PropsOf<"Button"> & { onClick?: () => void }) => (
-    <ActionButton action={props.onClick}>
-      {props.child}
-    </ActionButton>
+    <ActionButton action={props.onClick}>{props.child}</ActionButton>
   ),
 };
 // @endregion[renderers-tsx]

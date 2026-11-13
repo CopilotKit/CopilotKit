@@ -29,7 +29,10 @@ import {
 import { demonstrationCatalogDefinitions } from "./definitions";
 import type { DemonstrationCatalogDefinitions } from "./definitions";
 import type { z } from "zod";
-import { createGenerativeUI, standardUI } from "@copilotkit/react-core/generative-ui";
+import {
+  createGenerativeUI,
+  standardUI,
+} from "@copilotkit/react-core/generative-ui";
 
 // ─── Theme-aware colors ─────────────────────────────────────────────
 
@@ -213,7 +216,9 @@ export const demonstrationCatalog = createGenerativeUI({
           }}
         >
           <div>
-            <div style={{ fontWeight: 600, fontSize: "0.9rem", color: c.cardFg }}>
+            <div
+              style={{ fontWeight: 600, fontSize: "0.9rem", color: c.cardFg }}
+            >
               {props.title}
             </div>
             {props.subtitle && (
@@ -258,7 +263,9 @@ export const demonstrationCatalog = createGenerativeUI({
             >
               {props.label}
             </span>
-            <div style={{ display: "flex", alignItems: "baseline", gap: "8px" }}>
+            <div
+              style={{ display: "flex", alignItems: "baseline", gap: "8px" }}
+            >
               <span
                 style={{
                   fontSize: "1.5rem",
@@ -428,7 +435,10 @@ export const demonstrationCatalog = createGenerativeUI({
               </thead>
               <tbody>
                 {rows.map((row: any, i: number) => (
-                  <tr key={i} style={{ borderBottom: `1px solid ${c.divider}` }}>
+                  <tr
+                    key={i}
+                    style={{ borderBottom: `1px solid ${c.divider}` }}
+                  >
                     {cols.map((col: any) => (
                       <td
                         key={col.key}
@@ -491,7 +501,9 @@ export const demonstrationCatalog = createGenerativeUI({
                 alignItems: "center",
               }}
             >
-              <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+              <div
+                style={{ display: "flex", alignItems: "center", gap: "8px" }}
+              >
                 <img
                   src={props.airlineLogo}
                   alt={props.airline}
@@ -583,7 +595,9 @@ export const demonstrationCatalog = createGenerativeUI({
               />
 
               {/* Status */}
-              <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+              <div
+                style={{ display: "flex", alignItems: "center", gap: "6px" }}
+              >
                 <span
                   style={{
                     width: 8,

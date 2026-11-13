@@ -13,7 +13,10 @@
 
 import { definitions } from "./definitions";
 import { renderers } from "./renderers";
-import { createGenerativeUI, standardUI } from "@copilotkit/react-core/generative-ui";
+import {
+  createGenerativeUI,
+  standardUI,
+} from "@copilotkit/react-core/generative-ui";
 
 export const CATALOG_ID = "copilotkit://flight-fixed-catalog";
 

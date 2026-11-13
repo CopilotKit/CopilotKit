@@ -24,23 +24,12 @@
             },
             "variant": {
               "type": "string",
-              "enum": [
-                "h1",
-                "h2",
-                "h3",
-                "h4",
-                "h5",
-                "caption",
-                "body"
-              ],
+              "enum": ["h1", "h2", "h3", "h4", "h5", "caption", "body"],
               "default": "body",
               "description": "A hint for the base text style."
             }
           },
-          "required": [
-            "component",
-            "text"
-          ]
+          "required": ["component", "text"]
         }
       ]
     },
@@ -71,13 +60,7 @@
             },
             "fit": {
               "type": "string",
-              "enum": [
-                "contain",
-                "cover",
-                "fill",
-                "none",
-                "scaleDown"
-              ],
+              "enum": ["contain", "cover", "fill", "none", "scaleDown"],
               "default": "fill",
               "description": "Specifies how the image should be resized to fit its container. This corresponds to the CSS 'object-fit' property."
             },
@@ -95,10 +78,7 @@
               "description": "A hint for the image size and style."
             }
           },
-          "required": [
-            "component",
-            "url"
-          ]
+          "required": ["component", "url"]
         }
       ]
     },
@@ -192,9 +172,7 @@
                       "type": "string"
                     }
                   },
-                  "required": [
-                    "svgPath"
-                  ],
+                  "required": ["svgPath"],
                   "additionalProperties": false
                 },
                 {
@@ -204,10 +182,7 @@
               "description": "The name of the icon to display."
             }
           },
-          "required": [
-            "component",
-            "name"
-          ]
+          "required": ["component", "name"]
         }
       ]
     },
@@ -233,10 +208,7 @@
               "description": "The URL of the video to display."
             }
           },
-          "required": [
-            "component",
-            "url"
-          ]
+          "required": ["component", "url"]
         }
       ]
     },
@@ -266,10 +238,7 @@
               "description": "A description of the audio, such as a title or summary."
             }
           },
-          "required": [
-            "component",
-            "url"
-          ]
+          "required": ["component", "url"]
         }
       ]
     },
@@ -311,20 +280,12 @@
             },
             "align": {
               "type": "string",
-              "enum": [
-                "start",
-                "center",
-                "end",
-                "stretch"
-              ],
+              "enum": ["start", "center", "end", "stretch"],
               "default": "stretch",
               "description": "Defines the alignment of children along the cross axis (vertically). This is similar to the CSS 'align-items' property, but uses camelCase values (e.g., 'start')."
             }
           },
-          "required": [
-            "component",
-            "children"
-          ]
+          "required": ["component", "children"]
         }
       ]
     },
@@ -366,20 +327,12 @@
             },
             "align": {
               "type": "string",
-              "enum": [
-                "center",
-                "end",
-                "start",
-                "stretch"
-              ],
+              "enum": ["center", "end", "start", "stretch"],
               "default": "stretch",
               "description": "Defines the alignment of children along the cross axis (horizontally). This is similar to the CSS 'align-items' property."
             }
           },
-          "required": [
-            "component",
-            "children"
-          ]
+          "required": ["component", "children"]
         }
       ]
     },
@@ -406,29 +359,18 @@
             },
             "direction": {
               "type": "string",
-              "enum": [
-                "vertical",
-                "horizontal"
-              ],
+              "enum": ["vertical", "horizontal"],
               "default": "vertical",
               "description": "The direction in which the list items are laid out."
             },
             "align": {
               "type": "string",
-              "enum": [
-                "start",
-                "center",
-                "end",
-                "stretch"
-              ],
+              "enum": ["start", "center", "end", "stretch"],
               "default": "stretch",
               "description": "Defines the alignment of children along the cross axis."
             }
           },
-          "required": [
-            "component",
-            "children"
-          ]
+          "required": ["component", "children"]
         }
       ]
     },
@@ -446,10 +388,7 @@
               "$ref": "common_types.json#/$defs/ComponentId"
             }
           },
-          "required": [
-            "component",
-            "child"
-          ]
+          "required": ["component", "child"]
         }
       ]
     },
@@ -484,20 +423,14 @@
                     "description": "The ID of the child component."
                   }
                 },
-                "required": [
-                  "title",
-                  "child"
-                ],
+                "required": ["title", "child"],
                 "additionalProperties": false
               },
               "minItems": 1,
               "description": "An array of objects, where each object defines a tab with a title and a child component."
             }
           },
-          "required": [
-            "component",
-            "tabs"
-          ]
+          "required": ["component", "tabs"]
         }
       ]
     },
@@ -520,17 +453,12 @@
             },
             "axis": {
               "type": "string",
-              "enum": [
-                "horizontal",
-                "vertical"
-              ],
+              "enum": ["horizontal", "vertical"],
               "default": "horizontal",
               "description": "The orientation of the divider."
             }
           },
-          "required": [
-            "component"
-          ]
+          "required": ["component"]
         }
       ]
     },
@@ -560,11 +488,7 @@
               "description": "The ID of the component to be displayed inside the modal."
             }
           },
-          "required": [
-            "component",
-            "trigger",
-            "content"
-          ]
+          "required": ["component", "trigger", "content"]
         }
       ]
     },
@@ -584,20 +508,13 @@
             },
             "variant": {
               "type": "string",
-              "enum": [
-                "primary",
-                "secondary",
-                "ghost"
-              ]
+              "enum": ["primary", "secondary", "ghost"]
             },
             "action": {
               "$ref": "common_types.json#/$defs/Action"
             }
           },
-          "required": [
-            "component",
-            "child"
-          ]
+          "required": ["component", "child"]
         }
       ]
     },
@@ -635,12 +552,7 @@
             },
             "variant": {
               "type": "string",
-              "enum": [
-                "longText",
-                "number",
-                "shortText",
-                "obscured"
-              ],
+              "enum": ["longText", "number", "shortText", "obscured"],
               "default": "shortText",
               "description": "The type of input field to display."
             },
@@ -649,10 +561,7 @@
               "description": "A regular expression used for client-side validation of the input."
             }
           },
-          "required": [
-            "component",
-            "label"
-          ]
+          "required": ["component", "label"]
         }
       ]
     },
@@ -689,11 +598,7 @@
               "description": "The current state of the checkbox (true for checked, false for unchecked)."
             }
           },
-          "required": [
-            "component",
-            "label",
-            "value"
-          ]
+          "required": ["component", "label", "value"]
         }
       ]
     },
@@ -728,10 +633,7 @@
             },
             "variant": {
               "type": "string",
-              "enum": [
-                "multipleSelection",
-                "mutuallyExclusive"
-              ],
+              "enum": ["multipleSelection", "mutuallyExclusive"],
               "default": "mutuallyExclusive",
               "description": "A hint for how the choice picker should be displayed and behave."
             },
@@ -749,10 +651,7 @@
                     "description": "The stable value associated with this option."
                   }
                 },
-                "required": [
-                  "label",
-                  "value"
-                ],
+                "required": ["label", "value"],
                 "additionalProperties": false
               },
               "description": "The list of available options to choose from."
@@ -763,10 +662,7 @@
             },
             "displayStyle": {
               "type": "string",
-              "enum": [
-                "checkbox",
-                "chips"
-              ],
+              "enum": ["checkbox", "chips"],
               "default": "checkbox",
               "description": "The display style of the component."
             },
@@ -776,11 +672,7 @@
               "description": "If true, displays a search input to filter the options."
             }
           },
-          "required": [
-            "component",
-            "options",
-            "value"
-          ]
+          "required": ["component", "options", "value"]
         }
       ]
     },
@@ -826,11 +718,7 @@
               "description": "The current value of the slider."
             }
           },
-          "required": [
-            "component",
-            "max",
-            "value"
-          ]
+          "required": ["component", "max", "value"]
         }
       ]
     },
@@ -885,10 +773,7 @@
               "description": "The text label for the input field."
             }
           },
-          "required": [
-            "component",
-            "value"
-          ]
+          "required": ["component", "value"]
         }
       ]
     },
@@ -915,18 +800,13 @@
                       "type": "string"
                     }
                   },
-                  "required": [
-                    "path"
-                  ],
+                  "required": ["path"],
                   "additionalProperties": false
                 }
               ]
             }
           },
-          "required": [
-            "component",
-            "text"
-          ]
+          "required": ["component", "text"]
         }
       ]
     },
@@ -953,18 +833,13 @@
                       "type": "string"
                     }
                   },
-                  "required": [
-                    "path"
-                  ],
+                  "required": ["path"],
                   "additionalProperties": false
                 }
               ]
             }
           },
-          "required": [
-            "component",
-            "code"
-          ]
+          "required": ["component", "code"]
         }
       ]
     },
@@ -979,9 +854,7 @@
               "const": "Arrow"
             }
           },
-          "required": [
-            "component"
-          ]
+          "required": ["component"]
         }
       ]
     },
@@ -1008,18 +881,13 @@
                       "type": "string"
                     }
                   },
-                  "required": [
-                    "path"
-                  ],
+                  "required": ["path"],
                   "additionalProperties": false
                 }
               ]
             }
           },
-          "required": [
-            "component",
-            "name"
-          ]
+          "required": ["component", "name"]
         }
       ]
     },
@@ -1046,18 +914,13 @@
                       "type": "string"
                     }
                   },
-                  "required": [
-                    "path"
-                  ],
+                  "required": ["path"],
                   "additionalProperties": false
                 }
               ]
             }
           },
-          "required": [
-            "component",
-            "amount"
-          ]
+          "required": ["component", "amount"]
         }
       ]
     }
@@ -1076,10 +939,7 @@
             "type": "number"
           }
         },
-        "required": [
-          "a",
-          "b"
-        ],
+        "required": ["a", "b"],
         "additionalProperties": false
       }
     },
@@ -1096,10 +956,7 @@
             "type": "number"
           }
         },
-        "required": [
-          "a",
-          "b"
-        ],
+        "required": ["a", "b"],
         "additionalProperties": false
       }
     },
@@ -1116,10 +973,7 @@
             "type": "number"
           }
         },
-        "required": [
-          "a",
-          "b"
-        ],
+        "required": ["a", "b"],
         "additionalProperties": false
       }
     },
@@ -1136,10 +990,7 @@
             "type": "number"
           }
         },
-        "required": [
-          "a",
-          "b"
-        ],
+        "required": ["a", "b"],
         "additionalProperties": false
       }
     },
@@ -1152,10 +1003,7 @@
           "a": {},
           "b": {}
         },
-        "required": [
-          "a",
-          "b"
-        ],
+        "required": ["a", "b"],
         "additionalProperties": false
       }
     },
@@ -1168,10 +1016,7 @@
           "a": {},
           "b": {}
         },
-        "required": [
-          "a",
-          "b"
-        ],
+        "required": ["a", "b"],
         "additionalProperties": false
       }
     },
@@ -1188,10 +1033,7 @@
             "type": "number"
           }
         },
-        "required": [
-          "a",
-          "b"
-        ],
+        "required": ["a", "b"],
         "additionalProperties": false
       }
     },
@@ -1208,10 +1050,7 @@
             "type": "number"
           }
         },
-        "required": [
-          "a",
-          "b"
-        ],
+        "required": ["a", "b"],
         "additionalProperties": false
       }
     },
@@ -1228,10 +1067,7 @@
             "type": "string"
           }
         },
-        "required": [
-          "string",
-          "substring"
-        ],
+        "required": ["string", "substring"],
         "additionalProperties": false
       }
     },
@@ -1248,10 +1084,7 @@
             "type": "string"
           }
         },
-        "required": [
-          "string",
-          "prefix"
-        ],
+        "required": ["string", "prefix"],
         "additionalProperties": false
       }
     },
@@ -1268,10 +1101,7 @@
             "type": "string"
           }
         },
-        "required": [
-          "string",
-          "suffix"
-        ],
+        "required": ["string", "suffix"],
         "additionalProperties": false
       }
     },
@@ -1285,9 +1115,7 @@
             "description": "The value to check."
           }
         },
-        "required": [
-          "value"
-        ],
+        "required": ["value"],
         "additionalProperties": false
       }
     },
@@ -1305,10 +1133,7 @@
             "description": "The regex pattern to match against."
           }
         },
-        "required": [
-          "value",
-          "pattern"
-        ],
+        "required": ["value", "pattern"],
         "additionalProperties": false
       }
     },
@@ -1330,9 +1155,7 @@
             "description": "The maximum allowed length."
           }
         },
-        "required": [
-          "value"
-        ],
+        "required": ["value"],
         "additionalProperties": false
       }
     },
@@ -1354,9 +1177,7 @@
             "description": "The maximum allowed value."
           }
         },
-        "required": [
-          "value"
-        ],
+        "required": ["value"],
         "additionalProperties": false
       }
     },
@@ -1370,9 +1191,7 @@
             "$ref": "common_types.json#/$defs/DynamicString"
           }
         },
-        "required": [
-          "value"
-        ],
+        "required": ["value"],
         "additionalProperties": false
       }
     },
@@ -1386,9 +1205,7 @@
             "$ref": "common_types.json#/$defs/DynamicString"
           }
         },
-        "required": [
-          "value"
-        ],
+        "required": ["value"],
         "additionalProperties": false
       }
     },
@@ -1411,9 +1228,7 @@
             "description": "Optional. If true, uses locale-specific grouping separators (e.g. '1,000'). If false, returns raw digits (e.g. '1000'). Defaults to true."
           }
         },
-        "required": [
-          "value"
-        ],
+        "required": ["value"],
         "additionalProperties": false
       }
     },
@@ -1440,10 +1255,7 @@
             "description": "Optional. If true, uses locale-specific grouping separators (e.g. '1,000'). If false, returns raw digits (e.g. '1000'). Defaults to true."
           }
         },
-        "required": [
-          "value",
-          "currency"
-        ],
+        "required": ["value", "currency"],
         "additionalProperties": false
       }
     },
@@ -1483,10 +1295,7 @@
             "description": "A Unicode TR35 date pattern string.\n\nToken Reference:\n- Year: 'yy' (26), 'yyyy' (2026)\n- Month: 'M' (1), 'MM' (01), 'MMM' (Jan), 'MMMM' (January)\n- Day: 'd' (1), 'dd' (01), 'E' (Tue), 'EEEE' (Tuesday)\n- Hour (12h): 'h' (1-12), 'hh' (01-12) - requires 'a' for AM/PM\n- Hour (24h): 'H' (0-23), 'HH' (00-23) - Military Time\n- Minute: 'mm' (00-59)\n- Second: 'ss' (00-59)\n- Period: 'a' (AM/PM)\n\nExamples:\n- 'MMM dd, yyyy' -> 'Jan 16, 2026'\n- 'HH:mm' -> '14:30' (Military)\n- 'h:mm a' -> '2:30 PM'\n- 'EEEE, d MMMM' -> 'Friday, 16 January'"
           }
         },
-        "required": [
-          "value",
-          "format"
-        ],
+        "required": ["value", "format"],
         "additionalProperties": false
       }
     },
@@ -1525,10 +1334,7 @@
             "description": "The default/fallback string (used for general plural cases)."
           }
         },
-        "required": [
-          "value",
-          "other"
-        ],
+        "required": ["value", "other"],
         "additionalProperties": false
       }
     },
@@ -1543,9 +1349,7 @@
             "description": "The URL to open."
           }
         },
-        "required": [
-          "url"
-        ],
+        "required": ["url"],
         "additionalProperties": false
       }
     },
@@ -1564,9 +1368,7 @@
             "description": "The list of boolean values to evaluate."
           }
         },
-        "required": [
-          "values"
-        ],
+        "required": ["values"],
         "additionalProperties": false
       }
     },
@@ -1585,9 +1387,7 @@
             "description": "The list of boolean values to evaluate."
           }
         },
-        "required": [
-          "values"
-        ],
+        "required": ["values"],
         "additionalProperties": false
       }
     },
@@ -1602,9 +1402,7 @@
             "description": "The boolean value to negate."
           }
         },
-        "required": [
-          "value"
-        ],
+        "required": ["value"],
         "additionalProperties": false
       }
     }
@@ -1619,9 +1417,7 @@
             "description": "A JSON Pointer path to a value in the data model."
           }
         },
-        "required": [
-          "path"
-        ],
+        "required": ["path"],
         "additionalProperties": false
       },
       "DynamicValue": {
@@ -1683,9 +1479,7 @@
             "default": "boolean"
           }
         },
-        "required": [
-          "call"
-        ],
+        "required": ["call"],
         "additionalProperties": false
       },
       "DynamicString": {
@@ -1741,10 +1535,7 @@
                 "description": "The path to the list of component property objects in the data model."
               }
             },
-            "required": [
-              "componentId",
-              "path"
-            ],
+            "required": ["componentId", "path"],
             "additionalProperties": false,
             "description": "A template for generating a dynamic list of children from a data model list. The `componentId` is the component to use as a template."
           }
@@ -1766,15 +1557,11 @@
                     "additionalProperties": {}
                   }
                 },
-                "required": [
-                  "name"
-                ],
+                "required": ["name"],
                 "additionalProperties": false
               }
             },
-            "required": [
-              "event"
-            ],
+            "required": ["event"],
             "additionalProperties": false
           },
           {
@@ -1808,10 +1595,7 @@
             "description": "The error message to display if the check fails."
           }
         },
-        "required": [
-          "condition",
-          "message"
-        ],
+        "required": ["condition", "message"],
         "additionalProperties": false
       },
       "DynamicStringList": {

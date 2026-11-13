@@ -88,7 +88,9 @@ test.describe("A2UI Error Recovery", () => {
       .toBeGreaterThanOrEqual(2);
 
     // The healed surface, NOT the hard-failure UI, and no render-error banners.
-    await expect(page.getByText("Part of this UI couldn't be shown.")).toHaveCount(0);
+    await expect(
+      page.getByText("Part of this UI couldn't be shown."),
+    ).toHaveCount(0);
     await expect(page.getByText(/Catalog not found/i)).toHaveCount(0);
     await expect(
       page.getByText(/Cannot create component .* without a type/i),

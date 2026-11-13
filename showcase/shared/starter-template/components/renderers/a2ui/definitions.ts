@@ -119,7 +119,9 @@ export const demonstrationCatalogDefinitions = {
     description:
       "An interactive button with an action event. Use 'child' with a Text component ID for the label. 'action' is sent to the agent on click.",
     props: z.object({
-      child: child("The ID of the child component (e.g. a Text component for the label)."),
+      child: child(
+        "The ID of the child component (e.g. a Text component for the label).",
+      ),
       variant: z.enum(["primary", "secondary", "ghost"]).optional(),
     }),
     events: { onClick: { parameters: z.object({}) } },

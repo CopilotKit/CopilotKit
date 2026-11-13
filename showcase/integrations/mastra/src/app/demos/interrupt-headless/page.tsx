@@ -35,7 +35,10 @@ type SuspendPayload = {
 
 export default function InterruptHeadlessDemo() {
   return (
-    <CopilotKitProvider runtimeUrl="/api/copilotkit" agentId="interrupt-headless">
+    <CopilotKitProvider
+      runtimeUrl="/api/copilotkit"
+      agentId="interrupt-headless"
+    >
       <Layout />
     </CopilotKitProvider>
   );

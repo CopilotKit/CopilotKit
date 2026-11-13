@@ -1,5 +1,8 @@
 // @region[backend-render-operations]
-import { BuiltInAgent, convertInputToTanStackAI } from "@copilotkit/runtime/agent";
+import {
+  BuiltInAgent,
+  convertInputToTanStackAI,
+} from "@copilotkit/runtime/agent";
 import { chat, toolDefinition } from "@tanstack/ai";
 import { openaiText } from "../openai-text";
 import { z } from "zod";

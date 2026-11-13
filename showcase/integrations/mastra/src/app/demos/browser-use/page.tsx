@@ -23,7 +23,10 @@ import { Chat } from "./chat";
 
 export default function BrowserUseDemo() {
   return (
-    <CopilotKitProvider runtimeUrl="/api/copilotkit-browser-use" agentId="browser-use">
+    <CopilotKitProvider
+      runtimeUrl="/api/copilotkit-browser-use"
+      agentId="browser-use"
+    >
       <div className="flex justify-center items-center h-screen w-full">
         <div className="h-full w-full max-w-4xl">
           <Chat />

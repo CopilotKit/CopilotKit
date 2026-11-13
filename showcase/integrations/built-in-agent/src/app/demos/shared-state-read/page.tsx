@@ -24,7 +24,10 @@ import type { RecipeAgentState, RecipeData } from "./types";
 
 export default function SharedStateReadDemo() {
   return (
-    <CopilotKitProvider runtimeUrl="/api/copilotkit" agentId="shared-state-read">
+    <CopilotKitProvider
+      runtimeUrl="/api/copilotkit"
+      agentId="shared-state-read"
+    >
       <div className="h-full w-full overflow-y-auto bg-gray-50 dark:bg-background">
         <div className="mx-auto max-w-2xl px-4 py-8 md:py-12">
           <Recipe />

@@ -34,7 +34,10 @@ const AGENT_ID = "headless-complete";
 
 export default function HeadlessCompleteDemo() {
   return (
-    <CopilotKitProvider runtimeUrl="/api/copilotkit-mcp-apps" agentId={AGENT_ID}>
+    <CopilotKitProvider
+      runtimeUrl="/api/copilotkit-mcp-apps"
+      agentId={AGENT_ID}
+    >
       <HeadlessCompleteRoot />
     </CopilotKitProvider>
   );

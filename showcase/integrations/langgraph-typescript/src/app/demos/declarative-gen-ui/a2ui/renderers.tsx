@@ -340,11 +340,7 @@ export const myRenderers = {
 
   PrimaryButton: (
     props: PropsOf<"PrimaryButton"> & { action?: () => void },
-  ) => (
-    <Button onClick={() => props.action?.()}>
-      {props.label}
-    </Button>
-  ),
+  ) => <Button onClick={() => props.action?.()}>{props.label}</Button>,
 
   PieChart: (props: PropsOf<"PieChart">) => {
     // Coerce values to numbers — the LLM sometimes emits them as strings.

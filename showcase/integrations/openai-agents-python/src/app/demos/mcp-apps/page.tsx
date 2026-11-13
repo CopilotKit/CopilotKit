@@ -28,7 +28,10 @@ export default function MCPAppsDemo() {
   // CopilotKitProvider auto-registers the built-in `MCPAppsActivityRenderer`
   // for the "mcp-apps" activity type. A plain <CopilotChat /> is enough.
   return (
-    <CopilotKitProvider runtimeUrl="/api/copilotkit-mcp-apps" agentId="mcp-apps">
+    <CopilotKitProvider
+      runtimeUrl="/api/copilotkit-mcp-apps"
+      agentId="mcp-apps"
+    >
       <div className="flex justify-center items-center h-screen w-full">
         <div className="h-full w-full max-w-4xl">
           <Chat />

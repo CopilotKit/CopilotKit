@@ -1,4 +1,7 @@
-import { BuiltInAgent, convertInputToTanStackAI } from "@copilotkit/runtime/agent";
+import {
+  BuiltInAgent,
+  convertInputToTanStackAI,
+} from "@copilotkit/runtime/agent";
 import { chat } from "@tanstack/ai";
 import { openaiText } from "../openai-text";
 // Custom fetch that injects ALS-bound inbound x-* headers (e.g.

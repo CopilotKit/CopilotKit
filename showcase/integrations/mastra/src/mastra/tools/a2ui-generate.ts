@@ -118,7 +118,9 @@ export const generateA2uiTool = createTool({
   id: "generate-a2ui",
   description: "Generate dynamic A2UI surface components",
   inputSchema: z.object({
-    messages: z.array(z.record(z.string(), z.unknown())).describe("Chat messages"),
+    messages: z
+      .array(z.record(z.string(), z.unknown()))
+      .describe("Chat messages"),
     contextEntries: z
       .array(z.record(z.string(), z.unknown()))
       .optional()

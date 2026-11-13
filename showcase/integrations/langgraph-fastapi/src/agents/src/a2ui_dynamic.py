@@ -47,7 +47,6 @@ SYSTEM_PROMPT = (
 )
 
 
-
 graph = create_agent(
     model=ChatOpenAI(
         reasoning_effort="none", model=os.getenv("OPENAI_MODEL", "gpt-6-luna")

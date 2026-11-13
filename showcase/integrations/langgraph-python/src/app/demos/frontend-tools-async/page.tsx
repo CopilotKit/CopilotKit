@@ -14,7 +14,10 @@ import { parseJsonResult } from "../_shared/parse-json-result";
 
 export default function FrontendToolsAsyncDemo() {
   return (
-    <CopilotKitProvider runtimeUrl="/api/copilotkit" agentId="frontend-tools-async">
+    <CopilotKitProvider
+      runtimeUrl="/api/copilotkit"
+      agentId="frontend-tools-async"
+    >
       <div className="flex justify-center items-center h-screen w-full">
         <div className="h-full w-full max-w-4xl">
           <Chat />

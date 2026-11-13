@@ -12,7 +12,10 @@ import { useSuggestions } from "./suggestions";
 
 export default function ControlledGenUiDemo() {
   return (
-    <CopilotKitProvider runtimeUrl="/api/copilotkit" agentId="gen-ui-tool-based">
+    <CopilotKitProvider
+      runtimeUrl="/api/copilotkit"
+      agentId="gen-ui-tool-based"
+    >
       <Chat />
     </CopilotKitProvider>
   );

@@ -20,7 +20,6 @@ import { Badge } from "../_components/badge";
 import { Button as UIButton } from "../_components/button";
 import { Separator } from "../_components/separator";
 
-
 /**
  * The props a component gets: the output of its schema. Generative UI
  * resolves data bindings before render, and hands `child` / `children` over
@@ -109,9 +108,7 @@ export const renderers = {
    * `action_handlers=` on `a2ui.render` (see `src/demo_agents/a2ui_fixed.py`).
    */
   Button: (props: PropsOf<"Button">) => (
-    <UIButton className="w-full">
-      {props.child}
-    </UIButton>
+    <UIButton className="w-full">{props.child}</UIButton>
   ),
 };
 // @endregion[renderers-tsx]

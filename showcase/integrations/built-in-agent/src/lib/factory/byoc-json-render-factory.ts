@@ -1,4 +1,7 @@
-import { BuiltInAgent, convertInputToTanStackAI } from "@copilotkit/runtime/agent";
+import {
+  BuiltInAgent,
+  convertInputToTanStackAI,
+} from "@copilotkit/runtime/agent";
 import type { TanStackChatMessage } from "@copilotkit/runtime/agent";
 import { EventType } from "@ag-ui/client";
 import type { BaseEvent } from "@ag-ui/client";

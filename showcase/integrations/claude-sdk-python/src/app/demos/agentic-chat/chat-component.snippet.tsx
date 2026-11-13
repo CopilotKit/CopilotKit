@@ -9,10 +9,7 @@
 // can live alongside the production demo without being wired into the
 // route. See: showcase/scripts/bundle-demo-content.ts.
 
-import {
-  CopilotChat,
-  useConfigureSuggestions,
-} from "@copilotkit/react-core";
+import { CopilotChat, useConfigureSuggestions } from "@copilotkit/react-core";
 
 // @region[chat-component]
 export function Chat() {

@@ -160,7 +160,6 @@ function AnimatedBar(props: any) {
   );
 }
 
-
 /**
  * The props a component gets: the output of its schema. Generative UI
  * resolves data bindings before render, and hands `child` / `children` over
@@ -182,9 +181,7 @@ export const myRenderers = {
         {props.subtitle && <CardDescription>{props.subtitle}</CardDescription>}
       </CardHeader>
       {props.child && (
-        <CardContent className="flex flex-col gap-4">
-          {props.child}
-        </CardContent>
+        <CardContent className="flex flex-col gap-4">{props.child}</CardContent>
       )}
     </Card>
   ),
@@ -298,7 +295,9 @@ export const myRenderers = {
     );
   },
 
-  PrimaryButton: (props: PropsOf<"PrimaryButton"> & { action?: () => void }) => (
+  PrimaryButton: (
+    props: PropsOf<"PrimaryButton"> & { action?: () => void },
+  ) => (
     <Button
       onClick={() => {
         props.action?.();

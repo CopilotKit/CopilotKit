@@ -110,7 +110,6 @@ function CardShell({
   );
 }
 
-
 /**
  * The props a component gets: the output of its schema. Generative UI
  * resolves data bindings before render, and hands `child` / `children` over
@@ -339,7 +338,9 @@ export const myRenderers = {
     );
   },
 
-  PrimaryButton: (props: PropsOf<"PrimaryButton"> & { action?: () => void }) => (
+  PrimaryButton: (
+    props: PropsOf<"PrimaryButton"> & { action?: () => void },
+  ) => (
     <Button
       onClick={() => {
         props.action?.();

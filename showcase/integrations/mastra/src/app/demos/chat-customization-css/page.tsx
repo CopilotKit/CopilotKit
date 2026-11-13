@@ -15,7 +15,10 @@ import "./theme.css";
 
 export default function ChatCustomizationCssDemo() {
   return (
-    <CopilotKitProvider runtimeUrl="/api/copilotkit" agentId="chat-customization-css">
+    <CopilotKitProvider
+      runtimeUrl="/api/copilotkit"
+      agentId="chat-customization-css"
+    >
       <div className="flex justify-center items-center h-screen w-full bg-white p-6 dark:bg-background">
         <div className="chat-css-demo-scope h-full w-full max-w-4xl">
           <CopilotChat
