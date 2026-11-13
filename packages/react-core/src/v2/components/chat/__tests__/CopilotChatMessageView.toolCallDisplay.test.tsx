@@ -1,7 +1,12 @@
 import React from "react";
 import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { z } from "zod";
-import type { AssistantMessage, Message, ToolMessage } from "@ag-ui/core";
+import type {
+  AssistantMessage,
+  Message,
+  ToolMessage,
+  UserMessage,
+} from "@ag-ui/core";
 import { CopilotChatMessageView } from "../CopilotChatMessageView";
 import { CopilotChatToolCallsView } from "../CopilotChatToolCallsView";
 import { CopilotChatConfigurationProvider } from "../../../providers/CopilotChatConfigurationProvider";
@@ -549,6 +554,67 @@ describe("CopilotChatWorkSummary timing", () => {
     vi.setSystemTime(190_000);
     rerender(view(finished, { toolCallDisplay: "turn", isRunning: false }));
     expect(summary()).toContain("Worked for 10s");
+  });
+
+  it("keeps a queued message out of the reply it waits on, and out of its timing", () => {
+    const followUp: UserMessage = { id: "u2", role: "user", content: "And?" };
+    const paused = [question, callMessage("a")];
+    const { rerender } = renderView([question], {
+      toolCallDisplay: "turn",
+      isRunning: true,
+    });
+
+    // The run pauses on a card and the user sends a follow-up meanwhile.
+    vi.setSystemTime(5_000);
+    rerender(
+      view(paused, {
+        toolCallDisplay: "turn",
+        isRunning: true,
+        queuedMessages: [followUp],
+      }),
+    );
+    // The paused reply stays open and working; nothing works under the
+    // queued message, which sits after the reply.
+    const summaries = screen.getAllByTestId("copilot-work-summary");
+    expect(summaries).toHaveLength(1);
+    expect(summaries[0]!.getAttribute("data-state")).toBe("working");
+    expect(summaries[0]!.getAttribute("aria-expanded")).toBe("true");
+    expect(
+      summaries[0]!.compareDocumentPosition(screen.getByText("And?")) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+
+    // Three minutes on the card, then the run ends and the follow-up is sent.
+    vi.setSystemTime(185_000);
+    rerender(
+      view(finished, {
+        toolCallDisplay: "turn",
+        isRunning: false,
+        queuedMessages: [followUp],
+      }),
+    );
+    rerender(
+      view([...finished, followUp], {
+        toolCallDisplay: "turn",
+        isRunning: true,
+      }),
+    );
+    vi.setSystemTime(190_000);
+    rerender(
+      view(
+        [
+          ...finished,
+          followUp,
+          callMessage("b"),
+          result("b"),
+          say("t2", "Ok."),
+        ],
+        { toolCallDisplay: "turn", isRunning: false },
+      ),
+    );
+    // The follow-up's reply took 5s; the wait on the card is not in it.
+    const [, followUpSummary] = screen.getAllByTestId("copilot-work-summary");
+    expect(followUpSummary!.textContent).toContain("Worked for 5s");
   });
 });
 

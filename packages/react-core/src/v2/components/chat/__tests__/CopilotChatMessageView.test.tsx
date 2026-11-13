@@ -2,7 +2,10 @@ import React from "react";
 import { render, screen } from "@testing-library/react";
 import { z } from "zod";
 import { vi } from "vitest";
-import { CopilotKitProvider } from "../../../providers/CopilotKitProvider";
+import {
+  CopilotKitProvider,
+  useCopilotKit,
+} from "../../../providers/CopilotKitProvider";
 import { CopilotChatConfigurationProvider } from "../../../providers/CopilotChatConfigurationProvider";
 import CopilotChatMessageView, {
   deduplicateMessages,
@@ -360,5 +363,89 @@ describe("deduplicateMessages duplicate tool-call ids", () => {
     expect(
       (deduplicateMessages(messages)[0] as AssistantMessage).toolCalls,
     ).toBe(original);
+  });
+});
+
+const follows = (earlier: Element, later: Element) =>
+  !!(earlier.compareDocumentPosition(later) & Node.DOCUMENT_POSITION_FOLLOWING);
+
+describe("CopilotChatMessageView queued messages", () => {
+  const sent = userMsg("u1", "Book a call");
+  const queued: UserMessage[] = [
+    userMsg("q1", "First queued"),
+    userMsg("q2", "Second queued"),
+  ];
+
+  // Shows a card the way a pending interrupt does.
+  function InterruptCard() {
+    const { copilotkit } = useCopilotKit();
+    React.useEffect(() => {
+      copilotkit.setInterruptElement(<div data-testid="interrupt-card" />);
+      return () => copilotkit.setInterruptElement(null);
+    }, [copilotkit]);
+    return null;
+  }
+
+  it("renders them in order after the interrupt card and the cursor", () => {
+    render(
+      <CopilotKitProvider>
+        <CopilotChatConfigurationProvider
+          agentId={AGENT_ID}
+          threadId={THREAD_ID}
+        >
+          <InterruptCard />
+          <CopilotChatMessageView
+            messages={[sent]}
+            queuedMessages={queued}
+            isRunning
+          />
+        </CopilotChatConfigurationProvider>
+      </CopilotKitProvider>,
+    );
+
+    const first = screen.getByText("First queued");
+    const second = screen.getByText("Second queued");
+    expect(follows(screen.getByText("Book a call"), first)).toBe(true);
+    expect(follows(screen.getByTestId("interrupt-card"), first)).toBe(true);
+    expect(follows(screen.getByTestId("copilot-loading-cursor"), first)).toBe(
+      true,
+    );
+    expect(follows(first, second)).toBe(true);
+  });
+
+  it("hands them to a children render prop as queuedMessageElements", () => {
+    const children = vi.fn(
+      ({
+        messageElements,
+        queuedMessageElements,
+      }: {
+        messageElements: React.ReactElement[];
+        queuedMessageElements: React.ReactElement[];
+      }) => (
+        <div>
+          {messageElements}
+          <div data-testid="queued-slot">{queuedMessageElements}</div>
+        </div>
+      ),
+    );
+    render(
+      <CopilotKitProvider>
+        <CopilotChatConfigurationProvider
+          agentId={AGENT_ID}
+          threadId={THREAD_ID}
+        >
+          <CopilotChatMessageView messages={[sent]} queuedMessages={queued}>
+            {children}
+          </CopilotChatMessageView>
+        </CopilotChatConfigurationProvider>
+      </CopilotKitProvider>,
+    );
+
+    const lastCall = children.mock.calls[children.mock.calls.length - 1]![0];
+    // `messages` and `messageElements` stay the agent's list alone.
+    expect(lastCall.messageElements).toHaveLength(1);
+    const slot = screen.getByTestId("queued-slot");
+    expect(slot.textContent).toContain("First queued");
+    expect(slot.textContent).toContain("Second queued");
   });
 });

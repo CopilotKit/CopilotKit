@@ -38,7 +38,7 @@ import {
   useLicenseContext,
 } from "../../context";
 import { InlineFeatureWarning } from "../../components/license-warning-banner";
-import type { AbstractAgent } from "@ag-ui/client";
+import type { AbstractAgent, UserMessage } from "@ag-ui/client";
 import type { SlotValue } from "../../lib/slots";
 import { renderSlot, useShallowStableRef } from "../../lib/slots";
 import {
@@ -59,6 +59,7 @@ export type CopilotChatProps = Omit<
   CopilotChatViewProps,
   | "messages"
   | "isRunning"
+  | "queuedMessages"
   | "suggestions"
   | "suggestionLoadingIndexes"
   | "onSelectSuggestion"
@@ -121,6 +122,32 @@ export type CopilotChatProps = Omit<
    */
   generativeUISurface?: React.ComponentType<GenerativeUIChatSurfaceProps>;
 };
+/** The id of the last user message, for scroll pinning. */
+function lastUserMessageIdOf(
+  messages: ReadonlyArray<{ id: string; role: string }>,
+): string | null {
+  for (let i = messages.length - 1; i >= 0; i--) {
+    if (messages[i].role === "user") return messages[i].id;
+  }
+  return null;
+}
+
+/**
+ * The in-flight run a new send must wait for, if the agent is running and
+ * exposes its completion (see `waitForActiveRunToSettle`).
+ */
+function getActiveRunCompletion(
+  agent: AbstractAgent,
+): Promise<void> | undefined {
+  if (!agent.isRunning) return undefined;
+  // Widen to `unknown` before the guard: narrowing `AbstractAgent` directly
+  // would intersect with its PRIVATE `activeRunCompletionPromise` declaration
+  // and collapse the narrowed type to `never`.
+  const maybeAware: unknown = agent;
+  return isRunCompletionAware(maybeAware)
+    ? maybeAware.activeRunCompletionPromise
+    : undefined;
+}
 export function CopilotChat({
   agentId,
   threadId,
@@ -249,6 +276,45 @@ export function CopilotChat({
   const [transcribeMode, setTranscribeMode] =
     useState<CopilotChatInputMode>("input");
   const [inputValue, setInputValue] = useState("");
+  // Messages accepted from the composer but not yet dispatched because the
+  // send has to wait (behind an earlier submission, e.g. one paused on a
+  // confirmation card, or on an in-flight run). Shown so the cleared
+  // composer never looks like data loss; a send that dispatches at once is
+  // never queued.
+  const [queuedMessages, setQueuedMessages] = useState<UserMessage[]>([]);
+
+  // The message to pin and a nonce that increments each time a new one
+  // appears: a sent user message, or a queued one when it is accepted (it
+  // renders below the run it waits on, which can leave it offscreen). The id
+  // only changes with the nonce, so it always names the message whose arrival
+  // bumped it. A queued message keeps its id when dispatched, so the send
+  // pins it again; one dropped without being sent pins nothing.
+  // Using useState ensures the context value propagates correctly on the
+  // render that follows the state update (approach b from the design doc).
+  const [lastUserMessageState, setLastUserMessageState] =
+    useState<LastUserMessageState>(() => ({
+      id: lastUserMessageIdOf(agent.messages),
+      sendNonce: 0,
+    }));
+  const pinMessage = useCallback((id: string) => {
+    setLastUserMessageState((pin) => ({ id, sendNonce: pin.sendNonce + 1 }));
+  }, []);
+  // The last user message in the list that a pin already accounts for: the
+  // effect below pins a new last user message unless this already names it.
+  // Seeded with the current value so restoring a thread with existing
+  // messages does not count as a new send.
+  const pinnedUserMessageIdRef = useRef(lastUserMessageState.id);
+  // A send the chat makes is pinned here, not by the effect that watches the
+  // messages, so pins keep the order of events: a message queued in the same
+  // render batch as this send must not take the pin after it.
+  const sendUserMessage = useCallback(
+    (message: UserMessage) => {
+      pinnedUserMessageIdRef.current = message.id;
+      pinMessage(message.id);
+      agent.addMessage(message);
+    },
+    [agent, pinMessage],
+  );
   const [transcriptionError, setTranscriptionError] = useState<string | null>(
     null,
   );
@@ -306,6 +372,10 @@ export function CopilotChat({
   const pendingConnectionsRef = useRef(new Map<AbstractAgent, Promise<void>>());
   const failedConnectionsRef = useRef(new WeakSet<AbstractAgent>());
   const submissionQueueRef = useRef(Promise.resolve());
+  // True while a submission on the current queue has not settled. A new send
+  // waits behind it (say, one whose run is paused on a confirmation card,
+  // where the agent itself is no longer running).
+  const submissionQueueBusyRef = useRef(false);
   const trackConnection = useCallback(
     (connectingAgent: AbstractAgent, connect: () => Promise<void>) => {
       const selection = previousThreadRef.current;
@@ -477,6 +547,10 @@ export function CopilotChat({
     };
     previousThreadRef.current = selection;
     submissionQueueRef.current = Promise.resolve();
+    submissionQueueBusyRef.current = false;
+    // Submissions queued on the previous selection are never dispatched here
+    // (enqueueSubmission checks the selection), so drop their placeholders too.
+    setQueuedMessages((q) => (q.length > 0 ? [] : q));
     failedConnectionsRef.current.delete(agent);
     const discardedThreadId =
       previousThread?.agent === agent
@@ -885,14 +959,8 @@ export function CopilotChat({
       );
       return "failed";
     }
-    // Widen to `unknown` before the guard: narrowing `AbstractAgent` directly
-    // would intersect with its PRIVATE `activeRunCompletionPromise` declaration
-    // and collapse the narrowed type to `never`.
-    const maybeAware: unknown = agent;
-    const activeRunCompletionPromise = isRunCompletionAware(maybeAware)
-      ? maybeAware.activeRunCompletionPromise
-      : undefined;
-    if (agent.isRunning && activeRunCompletionPromise) {
+    const activeRunCompletionPromise = getActiveRunCompletion(agent);
+    if (activeRunCompletionPromise) {
       try {
         await activeRunCompletionPromise;
       } catch (error) {
@@ -907,9 +975,21 @@ export function CopilotChat({
     return isCurrentSelection();
   }, [agent]);
 
+  // Whether a send made now has to wait before it is dispatched: behind an
+  // earlier submission, or on what `waitForActiveRunToSettle` awaits (this
+  // agent's pending connection or its in-flight run).
+  const submissionWillWait = useCallback(
+    () =>
+      submissionQueueBusyRef.current ||
+      pendingConnectionsRef.current.has(agent) ||
+      getActiveRunCompletion(agent) !== undefined,
+    [agent],
+  );
+
   const enqueueSubmission = useCallback((submit: () => Promise<void>) => {
     const selection = previousThreadRef.current;
-    const pending = submissionQueueRef.current
+    submissionQueueBusyRef.current = true;
+    const pending: Promise<void> = submissionQueueRef.current
       .then(async () => {
         if (selection?.active && previousThreadRef.current === selection) {
           await submit();
@@ -917,6 +997,14 @@ export function CopilotChat({
       })
       .catch((error) => {
         console.error("CopilotChat: queued submission failed", error);
+      })
+      .finally(() => {
+        // Only the newest submission marks the queue idle; after a thread
+        // switch the queue is a new one, which an old submission says
+        // nothing about.
+        if (submissionQueueRef.current === pending) {
+          submissionQueueBusyRef.current = false;
+        }
       });
     submissionQueueRef.current = pending;
     return pending;
@@ -944,11 +1032,30 @@ export function CopilotChat({
       // below so it is never silently lost.
       setInputValue("");
 
+      const queuedId = randomUUID();
+      const dropQueued = () =>
+        setQueuedMessages((q) =>
+          q.some((m) => m.id === queuedId)
+            ? q.filter((m) => m.id !== queuedId)
+            : q,
+        );
+      if (value.trim() && submissionWillWait()) {
+        setQueuedMessages((q) => [
+          ...q,
+          { id: queuedId, role: "user", content: value },
+        ]);
+        // A user message already in the list arrived before this one, even
+        // if it has not rendered yet: the effect below must not pin it after.
+        pinnedUserMessageIdRef.current = lastUserMessageIdOf(agent.messages);
+        pinMessage(queuedId);
+      }
+
       await enqueueSubmission(async () => {
         // If a run is already in flight, let it finish before sending the new
         // message instead of pre-empting it (see waitForActiveRunToSettle).
         const ready = await waitForActiveRunToSettle();
         if (ready !== true) {
+          dropQueued();
           if (ready === "failed") setInputValue(value);
           return;
         }
@@ -967,6 +1074,7 @@ export function CopilotChat({
             "[CopilotKit] Cannot send while attachments are uploading (post-await re-check)",
           );
           setTranscriptionError("Cannot send while attachments are uploading.");
+          dropQueued();
           setInputValue(value);
           return;
         }
@@ -981,18 +1089,21 @@ export function CopilotChat({
           for (const att of readyAttachments) {
             contentParts.push(createAttachmentContent(att));
           }
-          agent.addMessage({
-            id: randomUUID(),
+          sendUserMessage({
+            id: queuedId,
             role: "user",
             content: contentParts,
           });
         } else {
-          agent.addMessage({
-            id: randomUUID(),
+          sendUserMessage({
+            id: queuedId,
             role: "user",
             content: value,
           });
         }
+        // Dropped in the same tick the agent gains the message, so the queued
+        // copy and the sent message never render together.
+        dropQueued();
 
         const localRunId = hasNativeIntelligenceRunActivity
           ? randomUUID()
@@ -1025,7 +1136,7 @@ export function CopilotChat({
             }
           }
         }
-      });
+      }).finally(dropQueued);
     },
     // copilotkit is intentionally excluded — it is a stable ref that never changes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1033,9 +1144,12 @@ export function CopilotChat({
       agent,
       consumeAttachments,
       waitForActiveRunToSettle,
+      submissionWillWait,
       enqueueSubmission,
       hasNativeIntelligenceRunActivity,
       rememberRecentlyLocalRunId,
+      pinMessage,
+      sendUserMessage,
     ],
   );
 
@@ -1048,7 +1162,7 @@ export function CopilotChat({
         // typed-Enter path got — here for the suggestion path).
         if ((await waitForActiveRunToSettle()) !== true) return;
 
-        agent.addMessage({
+        sendUserMessage({
           id: randomUUID(),
           role: "user",
           content: suggestion.message,
@@ -1097,6 +1211,7 @@ export function CopilotChat({
       enqueueSubmission,
       hasNativeIntelligenceRunActivity,
       rememberRecentlyLocalRunId,
+      sendUserMessage,
     ],
   );
 
@@ -1309,40 +1424,30 @@ export function CopilotChat({
     [messagesMemoKey],
   );
 
-  // Compute the ID of the last user message for scroll-pinning logic.
-  const lastUserMessageId = useMemo(() => {
-    for (let i = messages.length - 1; i >= 0; i--) {
-      if (messages[i].role === "user") return messages[i].id;
-    }
-    return null;
-  }, [messages]);
-
-  // Track a nonce that increments each time a new user message ID appears.
-  // Using useState ensures the context value propagates correctly on the
-  // render that follows the state update (approach b from the design doc).
-  const [sendNonce, setSendNonce] = useState(0);
-  // Seed with the current value so restoring a thread with existing messages
-  // does not count as a new send. Only later-render id transitions bump.
-  const prevLastUserMessageIdRef = useRef<string | null>(lastUserMessageId);
-
+  // A user message that arrives without passing through onSubmitInput (a
+  // thread switch, a programmatic send) is pinned when it appears.
+  const lastUserMessageId = useMemo(
+    () => lastUserMessageIdOf(messages),
+    [messages],
+  );
   useEffect(() => {
+    // The history changed again since this render (a view replaced it in a
+    // layout effect, say), and a pin made since may already account for the
+    // newer one: the render that shows it decides.
+    if (lastUserMessageId !== lastUserMessageIdOf(agent.messages)) return;
     if (
       lastUserMessageId &&
-      lastUserMessageId !== prevLastUserMessageIdRef.current
+      lastUserMessageId !== pinnedUserMessageIdRef.current
     ) {
-      setSendNonce((n) => n + 1);
-      prevLastUserMessageIdRef.current = lastUserMessageId;
+      pinMessage(lastUserMessageId);
+      pinnedUserMessageIdRef.current = lastUserMessageId;
     }
-  }, [lastUserMessageId]);
-
-  const lastUserMessageState = useMemo<LastUserMessageState>(
-    () => ({ id: lastUserMessageId, sendNonce }),
-    [lastUserMessageId, sendNonce],
-  );
+  }, [agent, lastUserMessageId, pinMessage]);
 
   const finalProps: CopilotChatViewProps = {
     ...mergedProps,
     messages,
+    queuedMessages,
     // Input behavior props
     // Gate submission on runtime readiness. While `isReady` is false the
     // `agent` returned by useAgent is a provisional stand-in that `/info` will

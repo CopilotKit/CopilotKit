@@ -105,6 +105,15 @@ Pass a `children` function to get the `messageView`, `input`, `scrollView`, and 
   own, pass the messages yourself.
 </PropertyReference>
 
+<PropertyReference name="queuedMessages" type="UserMessage[]">
+  User messages accepted but not yet sent, because the current run has to
+  finish first. Shown after the conversation; see
+  [`CopilotChatMessageView`](/reference/components/CopilotChatMessageView).
+  They are passed to the `messageView` slot, so a custom message view should
+  render them too. When used via `CopilotChat`, this is managed
+  automatically.
+</PropertyReference>
+
 <PropertyReference name="autoScroll" type='"pin-to-bottom" | "pin-to-send" | "none" | boolean' default="true">
   How the view scrolls when messages arrive:
 
@@ -140,7 +149,7 @@ Pass a `children` function to get the `messageView`, `input`, `scrollView`, and 
 </PropertyReference>
 
 <PropertyReference name="welcomeScreen" type='SlotValue<React.FC<WelcomeScreenProps>> | boolean'>
-  Controls the welcome screen shown when the `messages` array is empty.
+  Controls the welcome screen shown when the `messages` array is empty and no `queuedMessages` are waiting.
 
 - `true` -- show the default welcome screen
 - `false` -- disable the welcome screen
@@ -243,7 +252,7 @@ function Chat({ messages, isRunning }) {
 ## Behavior
 
 - **Auto-scroll**: When `autoScroll` is `true`, the view uses a stick-to-bottom strategy that keeps the latest message visible. A scroll-to-bottom button appears when the user scrolls up.
-- **Welcome screen**: When `messages` is empty and `welcomeScreen` is not `false`, a welcome screen is rendered in place of the transcript. The welcome screen also stays hidden while the thread connects (`isConnecting`) and when the chat targets a specific thread (`hasExplicitThreadId`). The welcome screen receives the `input` and `suggestionView` elements so they can be placed within the welcome layout.
+- **Welcome screen**: When `messages` is empty, no `queuedMessages` are waiting, and `welcomeScreen` is not `false`, a welcome screen is rendered in place of the transcript. The welcome screen also stays hidden while the thread connects (`isConnecting`) and when the chat targets a specific thread (`hasExplicitThreadId`). The welcome screen receives the `input` and `suggestionView` elements so they can be placed within the welcome layout.
 - **Connecting state**: While a thread's initial connect is in flight and no messages have arrived, the `connectingIndicator` is rendered in the transcript area. The root element exposes `data-copilot-connecting="true"` for the duration of the connect, so apps can style their own loading state with CSS.
 - **Input container positioning**: The input container is absolutely positioned at the bottom of the chat, and the scroll area pads its content to avoid overlap.
 - **Resize handling**: The scroll view monitors input container height changes to keep padding in sync and hides the scroll-to-bottom button during resize transitions.
