@@ -56,6 +56,9 @@ Open the page, click into the chat, and ask something like:
   timeout), the card shows "failed" with the error text.
 - Machines are created with `isolated: true`: they are not on your organization's private network and
   hold no boxd credentials. They do have outbound internet access.
+- [Env vars and secrets](https://docs.boxd.sh/guides/env-secrets?ref=CopilotKit) you have set in boxd
+  reach every machine in their scope, isolated ones included, so the code the agent runs can read
+  them. Keep values it should not see out of that scope, or use a separate organization for this demo.
 - TypeScript runs on Node with type stripping, so it must use erasable syntax only (no enums or
   namespaces). The tool description tells the model so.
 - For other languages, add an entry to `runners` in the route, or pass a shell command line to

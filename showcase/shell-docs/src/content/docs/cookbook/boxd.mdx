@@ -125,6 +125,11 @@ export const DELETE = handler;
   `isolated: true` keeps the machine off your organization's private network and leaves it without
   boxd credentials, so code the agent writes can't reach your other machines over that network. It
   still has outbound internet access, so it can download packages from npm or PyPI.
+
+  [Env vars and secrets](https://docs.boxd.sh/guides/env-secrets?ref=CopilotKit) you have set in boxd
+  reach every machine in their scope, isolated ones included, and `exec` runs the code with them. Keep
+  values the agent's code should not read out of that scope, or use a separate organization for this
+  tool.
 </Callout>
 
 The `finally` block deletes the machine when the call ends, also when the code fails or times out. A
@@ -150,8 +155,9 @@ The agent writes the code, calls `runCode`, and reports back the machine's outpu
 ## Going further
 
 - **Reuse a machine** to skip the per-call create: create one lazily, keep its id, and drop the
-  `delete` call. Call `boxd.machines.hibernate(id)` when the user goes idle; the next `exec` wakes it
-  with its files intact. Delete it yourself when the session ends.
+  `delete` call. Raise `deleteAfter` to cover the whole session, or leave it out, because boxd still
+  deletes the machine when that timer ends. Call `boxd.machines.hibernate(id)` when the user goes
+  idle; the next `exec` wakes it with its files intact. Delete it yourself when the session ends.
 - **Run a server and preview it**: start the app on port 8000 in the background, for example
   `exec(id, { command: "nohup python3 -m http.server 8000 > server.log 2>&1 &" })`, and the machine
   serves it at `machine.access.url`. That URL is public, so only do this for apps you're happy to share.
