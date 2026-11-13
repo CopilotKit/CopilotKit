@@ -9,6 +9,7 @@ import { DESIGN_SYSTEM_THEMES } from "@/design-systems/themes";
 import { MODEL_OPTIONS } from "@/lib/model-options";
 import type { Format, ModelChoice, ModelId } from "@/lib/model-options";
 import { surfaceRenderer } from "./surface-renderer";
+import { withBase } from "@/lib/site";
 
 export type Mode = "auto" | "fixed" | "dynamic";
 
@@ -44,7 +45,7 @@ function useModelChoices() {
   const [models, setModels] = useState(DEFAULT_CHOICES);
   useEffect(() => {
     let live = true;
-    fetch("/api/models")
+    fetch(withBase("/api/models"))
       .then((r) => (r.ok ? r.json() : null))
       .then((body: { models?: Array<Omit<ModelChoice, "label">> } | null) => {
         if (!live || !Array.isArray(body?.models)) return;
@@ -167,7 +168,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
       value={{ mode, setMode, model, setModel, format, setFormat, models }}
     >
       <CopilotKitProvider
-        runtimeUrl="/api/copilotkit"
+        runtimeUrl={withBase("/api/copilotkit")}
         properties={properties}
         generativeUI={generativeUI}
         renderActivityMessages={RENDERERS}

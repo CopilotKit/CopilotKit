@@ -7,11 +7,13 @@ import { DOCS_URL, REPO_URL } from "@/components/start/links";
 import { StartFlow } from "@/components/start/start-flow";
 import { DesignSystemProvider } from "@/design-systems/context";
 import { focusRing } from "@/lib/utils";
+import { SITE_URL, withBase } from "@/lib/site";
 
 export const metadata: Metadata = {
   title: "Get started · A2UI Playground",
   description:
     "Add A2UI 1.0 to your app with one prompt for your coding agent: CopilotKit's standard catalog, shadcn/ui through ChatCN, Material 3 or your own components.",
+  alternates: { canonical: `${SITE_URL}/start` },
 };
 
 /** Where to go once the app answers with UI: the catalog, an agent skill, any agent. */
@@ -24,14 +26,14 @@ const NEXT: Array<{
   download?: boolean;
 }> = [
   {
-    href: "/catalog.json",
+    href: withBase("/catalog.json"),
     title: "Catalog JSON",
     body: "A2UI 1.0 schema for other renderers.",
     Icon: FileJson,
     external: true,
   },
   {
-    href: "/api/skills?format=express&download=1",
+    href: withBase("/api/skills?format=express&download=1"),
     title: "Agent skill",
     body: "For agents outside CopilotKit.",
     Icon: Download,

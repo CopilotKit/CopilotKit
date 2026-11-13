@@ -7,6 +7,7 @@
  * Railway instance the playground runs on; with more instances, each one counts
  * on its own and the real limits multiply by the number of instances.
  */
+import { createHash, timingSafeEqual } from "node:crypto";
 import type { CopilotRuntimeHooks } from "@copilotkit/runtime/v2";
 
 const MINUTE = 60_000;
@@ -75,13 +76,48 @@ export const COMPOSER_MAX_TOKENS = 16384;
 /* ───────────────────────── rate limiting ───────────────────────── */
 
 /**
- * The visitor's address: the first X-Forwarded-For entry (Railway's proxy sets it), else X-Real-IP.
- * An IPv6 visitor counts by its /64, the block one home or server gets, so cycling addresses inside it
- * doesn't earn a fresh limit; an IPv4 address loses any port.
+ * open.bot serves the playground at open.bot/a2ui by passing requests on from Vercel, so Railway's proxy sees one
+ * of Vercel's addresses, not the visitor's, and every open.bot visitor would share one limit. open.bot's proxy (in
+ * the openbot.co repo) sends the visitor's address in VISITOR_IP_HEADER and A2UI_PROXY_SECRET in
+ * PROXY_SECRET_HEADER. The address counts only when the secret matches, so a request sent straight to Railway
+ * can't pick its own address. Without the variable (local dev, or before it is set) every request counts as direct.
+ */
+export const PROXY_SECRET_HEADER = "x-a2ui-proxy-secret";
+export const VISITOR_IP_HEADER = "x-a2ui-visitor-ip";
+/** Shorter secrets are ignored: one that can be guessed would let anyone name their own address. */
+const MIN_SECRET_LENGTH = 32;
+
+const sha256 = (s: string) => createHash("sha256").update(s).digest();
+let warnedShortSecret = false;
+
+/** Whether the request came through open.bot's proxy: it carries A2UI_PROXY_SECRET. */
+function fromOpenBot(request: Request) {
+  const secret = process.env.A2UI_PROXY_SECRET?.trim();
+  if (!secret) return false;
+  if (secret.length < MIN_SECRET_LENGTH) {
+    if (!warnedShortSecret)
+      console.warn(
+        `A2UI_PROXY_SECRET is under ${MIN_SECRET_LENGTH} characters, so it is ignored: open.bot visitors share one rate limit.`,
+      );
+    warnedShortSecret = true;
+    return false;
+  }
+  const sent = request.headers.get(PROXY_SECRET_HEADER);
+  // Hashing both sides gives equal lengths, which timingSafeEqual needs, without telling the length apart.
+  return !!sent && timingSafeEqual(sha256(sent), sha256(secret));
+}
+
+/**
+ * The visitor's address: the one open.bot's proxy names (see fromOpenBot), else the first X-Forwarded-For entry
+ * (Railway's proxy sets it), else X-Real-IP. An IPv6 visitor counts by its /64, the block one home or server gets,
+ * so cycling addresses inside it doesn't earn a fresh limit; an IPv4 address loses any port.
  */
 // Tested on the live Railway deploy: a spoofed X-Forwarded-For did not get past the limit.
 export function clientIp(request: Request) {
   const ip =
+    (fromOpenBot(request)
+      ? request.headers.get(VISITOR_IP_HEADER)?.split(",")[0]?.trim()
+      : undefined) ||
     request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
     request.headers.get("x-real-ip")?.trim() ||
     "unknown";

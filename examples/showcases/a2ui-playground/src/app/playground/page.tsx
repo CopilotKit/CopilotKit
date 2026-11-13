@@ -1,10 +1,23 @@
 import { SiteHeader } from "@/components/site/site-header";
 import { PlaygroundClient } from "./playground-client";
+import { SITE_URL } from "@/lib/site";
 
+const title = "A2UI Playground: Live A2UI Examples by CopilotKit";
+const description =
+  "Try A2UI in your browser: ask an agent for an interface, watch it write A2UI 1.0, and explore A2UI examples drawn with CopilotKit, ChatCN or your own UI.";
+
+/** Written for searches like "A2UI playground" and "A2UI examples". / and /playground are one page, so both name open.bot/a2ui as canonical. */
 export const metadata = {
-  title: "A2UI Playground by CopilotKit",
-  description:
-    "Ask an agent for an interface and watch it write A2UI 1.0, one line per component, then draw the same answer with CopilotKit's standard catalog, ChatCN or your own components.",
+  title,
+  description,
+  alternates: { canonical: SITE_URL },
+  openGraph: {
+    title,
+    description,
+    url: SITE_URL,
+    siteName: "A2UI Playground",
+    type: "website",
+  },
 };
 
 type Search = Record<string, string | string[] | undefined>;

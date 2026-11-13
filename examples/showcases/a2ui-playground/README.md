@@ -4,7 +4,7 @@ Watch an agent write UI. Ask for anything ("Q3 sales by region as a dashboard", 
 
 This playground uses published `@copilotkit/*` 1.85.0 packages with canonical `"1.0"` wire operations and `@a2ui/agent` 0.1.0 native streaming. These include the canonical protocol changes first released in CopilotKit 1.84.0 from [#8155](https://github.com/CopilotKit/CopilotKit/pull/8155).
 
-The hosted playground runs at https://a2ui-playground.copilotkit.ai.
+The hosted playground runs at https://open.bot/a2ui. Its earlier addresses, `a2ui-playground.copilotkit.ai` and `a2ui.open.bot`, redirect there.
 
 ## What it shows
 
@@ -24,7 +24,7 @@ Requires Node 22+, pnpm 10, and a key for at least one model: `GEMINI_API_KEY` (
 ```bash
 pnpm install
 cp .env.example .env.local      # then set GEMINI_API_KEY (and/or OPENAI_API_KEY)
-pnpm dev                        # http://localhost:3100
+pnpm dev                        # http://localhost:3100/a2ui
 ```
 
 Production: `pnpm build && pnpm start` (`PORT`, default 3100).
@@ -48,20 +48,23 @@ node scripts/record-replay.mjs dynamic "<prompt>"     # re-record the /watch run
 
 ## Hosting it safely
 
-The public site is one Railway service running `pnpm start` behind Railway's proxy. Every prompt spends the server's model keys, so a production build carries limits, a daily ceiling and a kill switch.
+The public site is one Railway service running `pnpm start` behind Railway's proxy. open.bot serves it at open.bot/a2ui: a rewrite in the openbot.co repo passes `/a2ui` and everything under it to the service's Railway address, which is why every page, route and file here sits under `/a2ui` (`src/lib/site.ts`). The addresses it moved from answer a 301 to the same page on open.bot, and a path from before `/a2ui` moves under it on any other host.
+
+Every prompt spends the server's model keys, so a production build carries limits, a daily ceiling and a kill switch.
 
 Set on Railway (keys come from the team's secret store; never commit one):
 
-| Variable                             |                                                                                                                                                                     |
-| ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `GEMINI_API_KEY`                     | Required. Gemini Flash, the default model. Use a key made for this deploy, so it can be revoked alone.                                                              |
-| `DISABLED_MODELS`                    | Comma-separated model ids (`gpt`, `gemma`) to show as unavailable without removing their keys. Set `gemma,gpt` on the public deploy unless you mean to offer them.  |
-| `COPILOTKIT_TELEMETRY_DISABLED=true` | Optional. Turns off the CopilotKit runtime's usage telemetry.                                                                                                       |
-| `OPENAI_API_KEY`                     | Optional. Turns on GPT in the model picker.                                                                                                                         |
-| `AGENT_RUNS_PAUSED=1`                | The kill switch. Every agent route refuses runs, and the model picker says why.                                                                                     |
-| `AGENT_RUNS_PER_DAY`                 | Optional. Runs across every visitor per UTC day (default 3,000): the spend ceiling.                                                                                 |
-| `AGENT_RUNS_PER_10_MIN`              | Optional. The per-visitor run limit (default 12).                                                                                                                   |
-| `FRAME_ANCESTORS`                    | Optional. More https origins that may show the playground in an iframe, space-separated, applied on the next deploy. `copilotkit.ai` and its subdomains always may. |
+| Variable                             |                                                                                                                                                                                                                                                                                                   |
+| ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GEMINI_API_KEY`                     | Required. Gemini Flash, the default model. Use a key made for this deploy, so it can be revoked alone.                                                                                                                                                                                            |
+| `DISABLED_MODELS`                    | Comma-separated model ids (`gpt`, `gemma`) to show as unavailable without removing their keys. Set `gemma,gpt` on the public deploy unless you mean to offer them.                                                                                                                                |
+| `COPILOTKIT_TELEMETRY_DISABLED=true` | Optional. Turns off the CopilotKit runtime's usage telemetry.                                                                                                                                                                                                                                     |
+| `OPENAI_API_KEY`                     | Optional. Turns on GPT in the model picker.                                                                                                                                                                                                                                                       |
+| `AGENT_RUNS_PAUSED=1`                | The kill switch. Every agent route refuses runs, and the model picker says why.                                                                                                                                                                                                                   |
+| `AGENT_RUNS_PER_DAY`                 | Optional. Runs across every visitor per UTC day (default 3,000): the spend ceiling.                                                                                                                                                                                                               |
+| `AGENT_RUNS_PER_10_MIN`              | Optional. The per-visitor run limit (default 12).                                                                                                                                                                                                                                                 |
+| `A2UI_PROXY_SECRET`                  | Required behind open.bot. The secret open.bot's proxy sends with each request, the same value as on open.bot's Vercel project, at least 32 characters. With it the rate limits count each open.bot visitor on their own; without it every open.bot visitor shares the limits of Vercel's address. |
+| `FRAME_ANCESTORS`                    | Optional. More https origins that may show the playground in an iframe, space-separated, applied on the next deploy. `copilotkit.ai` and its subdomains always may.                                                                                                                               |
 
 Leave every `GEMMA_*` unset: Gemma on the shared Gemini key runs into its per-minute token limit, and without `GEMMA_BASE_URL` the picker tells visitors to run Gemma locally. Leave `ENABLE_MINIMAL`, `ENABLE_JEV`, `ENABLE_ADK` and `ENABLE_SNAPSHOT` unset too: in production `/minimal`, `/jev*`, `/adk`, `/snapshot` and their API routes answer 404 unless the matching one is `1` (`src/proxy.ts`). `/minimal` in particular is a stock agent on GPT-5.5 with no output cap that reads the visitor's whole chat (up to the 1 MB body cap).
 
@@ -82,7 +85,7 @@ The limits are constants in `src/lib/limits.ts`:
 | The catalog the browser sends                                                              | 80,000 characters once it is a prompt (the real one is about 26,000)                             |
 | Model output per call                                                                      | router 4,096 tokens, composer 16,384 tokens                                                      |
 
-A refused request gets a 429 (with `Retry-After`) or a 413, with a short message the chat shows, such as "You're sending a lot of requests. Try again in a minute." The page's startup calls (`info`, `connect`) and requests that can't start a run are not counted as runs. A run must be sent as `application/json`, so a page on another site can't start runs from its visitors' browsers (415 otherwise). The IP is the first `X-Forwarded-For` address, else `X-Real-IP`; an IPv6 address counts by its /64. The counts are kept in memory: right for one instance, but each extra replica counts on its own, and a redeploy resets them. Listing and clearing threads answers 403, since the runtime has no `identifyUser`.
+A refused request gets a 429 (with `Retry-After`) or a 413, with a short message the chat shows, such as "You're sending a lot of requests. Try again in a minute." The page's startup calls (`info`, `connect`) and requests that can't start a run are not counted as runs. A run must be sent as `application/json`, so a page on another site can't start runs from its visitors' browsers (415 otherwise). The IP is the one open.bot's proxy names in `x-a2ui-visitor-ip` when the request also carries `A2UI_PROXY_SECRET` in `x-a2ui-proxy-secret`, else the first `X-Forwarded-For` address (Railway's proxy replaces any a visitor sends), else `X-Real-IP`; an IPv6 address counts by its /64. The counts are kept in memory: right for one instance, but each extra replica counts on its own, and a redeploy resets them. Listing and clearing threads answers 403, since the runtime has no `identifyUser`.
 
 **Turning live runs off.** `AGENT_RUNS_PAUSED=1` makes every agent route refuse runs with "Live runs are paused on this server for now." `/watch` keeps playing, since it never runs the agent. Railway applies a variable change by redeploying the service, so time one before launch. To stop spending at once without a deploy, disable the key at the provider: runs then fail with a short error. After `AGENT_RUNS_PER_DAY` runs in a UTC day, runs are refused the same way until midnight UTC.
 
@@ -94,7 +97,7 @@ The website and docs show the playground in an iframe. `?embed=1` drops the site
 
 ```html
 <iframe
-  src="https://a2ui-playground.copilotkit.ai/?embed=1&ds=material"
+  src="https://open.bot/a2ui?embed=1&ds=material"
   width="600"
   height="600"
   title="A2UI Playground by CopilotKit"
@@ -124,7 +127,7 @@ npm i @copilotkit/react-core@1.85.0 @copilotkit/runtime@1.85.0 zod@3.25.76
 cd examples/adk && uv sync
 export GOOGLE_API_KEY=your-key
 uv run server.py                 # http://localhost:8000/
-pnpm dev                         # from the repo root, then open http://localhost:3100/adk
+pnpm dev                         # from the repo root, then open http://localhost:3100/a2ui/adk
 ```
 
 **Any renderer, any agent.** `/catalog.json` serves the catalog as an A2UI 1.0 catalog document (from `exportA2UICatalog`), for renderers outside React and for validators; `/api/skills` serves agent skills generated from the same catalog (`/skills` now redirects to `/start`).

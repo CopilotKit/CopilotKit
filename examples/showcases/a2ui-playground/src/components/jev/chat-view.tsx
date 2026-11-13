@@ -16,6 +16,7 @@ import {
   useElapsed,
 } from "./parts";
 import { ms, useFixtureFlag } from "./use-jev-run";
+import { withBase } from "@/lib/site";
 
 type Decision = {
   jevMs: number;
@@ -40,7 +41,7 @@ type Turn = {
 /** Version 2: chat first. CopilotKit runs the agent over AG-UI; the surface lands in the thread. */
 export function ChatView() {
   return (
-    <CopilotKit runtimeUrl="/api/jev-chat" enableInspector={false}>
+    <CopilotKit runtimeUrl={withBase("/api/jev-chat")} enableInspector={false}>
       <Chat />
     </CopilotKit>
   );

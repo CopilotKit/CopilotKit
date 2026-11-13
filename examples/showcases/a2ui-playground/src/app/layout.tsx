@@ -12,9 +12,9 @@ const geist = Geist({ subsets: ["latin"], variable: "--font-sans" });
 const geistMono = Geist_Mono({ subsets: ["latin"], variable: "--font-mono" });
 
 export const metadata = {
-  title: "A2UI Playground by CopilotKit",
+  title: "A2UI Playground: Live A2UI Examples by CopilotKit",
   description:
-    "Ask an agent for an interface and watch it write A2UI 1.0, then draw the same answer with CopilotKit's standard catalog, ChatCN or your own components.",
+    "Try A2UI in your browser: ask an agent for an interface, watch it write A2UI 1.0, and explore A2UI examples drawn with CopilotKit, ChatCN or your own UI.",
 };
 
 export default function RootLayout({

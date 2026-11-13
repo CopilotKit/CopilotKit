@@ -39,6 +39,7 @@ import { FORMAT_OPTIONS, modelLabel } from "@/lib/model-options";
 import type { Format, ModelId } from "@/lib/model-options";
 import { runStore } from "@/lib/run-store";
 import { cn } from "@/lib/utils";
+import { withBase } from "@/lib/site";
 
 type Tag = "macro" | "template";
 
@@ -73,7 +74,7 @@ function ModelLogo({ id, small }: { id: ModelId; small?: boolean }) {
     return (
       // eslint-disable-next-line @next/next/no-img-element
       <img
-        src={`/brand/models/${logo.file}.svg`}
+        src={withBase(`/brand/models/${logo.file}.svg`)}
         alt=""
         aria-hidden
         className={small ? "size-[13px] flex-none" : "size-4 flex-none"}
@@ -83,7 +84,9 @@ function ModelLogo({ id, small }: { id: ModelId; small?: boolean }) {
     <span
       aria-hidden
       className={`${small ? "size-[13px]" : "size-4"} flex-none bg-current [mask-position:center] [mask-repeat:no-repeat] [mask-size:contain]`}
-      style={{ maskImage: `url(/brand/models/${logo.file}.svg)` }}
+      style={{
+        maskImage: `url(${withBase(`/brand/models/${logo.file}.svg`)})`,
+      }}
     />
   );
 }
