@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({ subsets: ["latin"], variable: "--font-mono" });
 export const metadata = {
   title: "A2UI Playground: Live A2UI Examples by CopilotKit",
   description:
-    "Try A2UI in your browser: ask an agent for an interface, watch it write A2UI 1.0, and explore A2UI examples drawn with CopilotKit, ChatCN or your own UI.",
+    "Try A2UI in your browser: ask an agent for an interface, watch it write A2UI 1.0, and explore A2UI examples drawn with CopilotKit, shadcn/ui or your own UI.",
 };
 
 export default function RootLayout({
