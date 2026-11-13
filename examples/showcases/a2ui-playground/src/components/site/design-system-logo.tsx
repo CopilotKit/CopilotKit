@@ -19,7 +19,7 @@ export function DesignSystemLogo({
   switch (id) {
     case "copilotkit":
       return <CopilotKitKite className={cn(cls, "!opacity-100")} />;
-    case "chatcn":
+    case "shadcn":
       return (
         <ShadcnMark className={cn(cls, "!text-foreground !opacity-100")} />
       );

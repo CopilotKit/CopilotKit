@@ -3,7 +3,7 @@
  * the catalog (component names and props) is the contract, and a design system is one implementation of it.
  * Switching repaints every surface on the page without asking the model again.
  */
-export type DesignSystemId = "copilotkit" | "chatcn" | "material" | "byoc";
+export type DesignSystemId = "copilotkit" | "shadcn" | "material" | "byoc";
 
 export const DESIGN_SYSTEMS: Array<{
   id: DesignSystemId;
@@ -20,10 +20,10 @@ export const DESIGN_SYSTEMS: Array<{
     hint: "The Gen UI 2.0 standard components, as CopilotKit ships them.",
   },
   {
-    id: "chatcn",
-    label: "ChatCN",
-    note: "shadcn/ui",
-    hint: "The same catalog drawn with shadcn/ui primitives, the components ChatCN builds on.",
+    id: "shadcn",
+    label: "shadcn/ui",
+    note: "Radix and Tailwind",
+    hint: "The same catalog drawn with shadcn/ui components in its neutral palette.",
   },
   {
     id: "material",
@@ -48,6 +48,15 @@ export const HOST_CLASS: Partial<Record<DesignSystemId, string>> = {
 
 export const isDesignSystem = (v: unknown): v is DesignSystemId =>
   DESIGN_SYSTEMS.some((d) => d.id === v);
+
+/** Ids that were renamed, so a link or a saved pick made under the old one still finds its design system. */
+const RENAMED: Record<string, DesignSystemId> = { chatcn: "shadcn" };
+
+/** The design system a `?ds=` value or a saved pick names, or null when it names none. */
+export const toDesignSystem = (v: string | null): DesignSystemId | null => {
+  const id = v === null ? null : (RENAMED[v] ?? v);
+  return isDesignSystem(id) ? id : null;
+};
 
 export const designSystemLabel = (id: DesignSystemId) =>
   DESIGN_SYSTEMS.find((d) => d.id === id)?.label ?? id;

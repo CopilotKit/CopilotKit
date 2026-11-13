@@ -360,7 +360,7 @@ const scenes = [
         "Get started: one prompt for a coding agent, written for the design system you pick.",
       );
       await sleep(2200);
-      await d.click('[data-start-design-system="chatcn"]');
+      await d.click('[data-start-design-system="shadcn"]');
       await sleep(1200);
       await d.click("[data-copy-prompt]");
       d.caption(

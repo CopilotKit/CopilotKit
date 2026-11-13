@@ -18,7 +18,7 @@ import {
 /** app/genui.tsx when you set A2UI up by hand. CopilotKit's standard catalog needs none: the page imports it. */
 export const GENUI_SNIPPET: Record<DesignSystemId, string | null> = {
   copilotkit: null,
-  chatcn: GENUI_SHADCN,
+  shadcn: GENUI_SHADCN,
   material: GENUI_MATERIAL,
   byoc: CATALOG,
 };
@@ -30,7 +30,7 @@ export const providerSnippet = (ds: DesignSystemId) =>
 /** What the catalog step says for each design system, in one line. */
 export const GENUI_NOTE: Record<DesignSystemId, string> = {
   copilotkit: "",
-  chatcn:
+  shadcn:
     "The standard catalog, with its Button, Badge and Divider drawn by your shadcn/ui components. Add them first: npx shadcn@latest add badge button separator.",
   material:
     "The standard catalog, with its Button and Divider drawn by Material 3 Expressive. Install it first: npm install @language-lit/material3-expressive.",
@@ -45,7 +45,7 @@ const BUTTON_CONTRACT = `A replacement Button takes the standard Button's props 
 
 const CATALOG_STEP: Record<DesignSystemId, string> = {
   copilotkit: `Use CopilotKit's standard catalog as it ships, with no catalog file of your own: the page in step 4 imports \`standardUI\` from "@copilotkit/react-core/v2/generative-ui" and passes it as \`ui\`. That is 69 components: Column, Row, Card, Text, Button, TextField, Table, Chart, Map and more. To match this app's look, pass a \`theme\` with the \`--a2ui-*\` CSS variables next to \`ui\` in \`generativeUI\`.`,
-  chatcn: `This app should use shadcn/ui (run \`npx shadcn@latest init\` if it does not). Add the primitives the surfaces need: \`npx shadcn@latest add badge button separator\`. ChatCN's chat components install from its shadcn registry the same way, if you also want them for the chat itself. ${GENUI_FILE}, then:
+  shadcn: `This app should use shadcn/ui (run \`npx shadcn@latest init\` if it does not). Add the primitives the surfaces need: \`npx shadcn@latest add badge button separator\`. ${GENUI_FILE}, then:
 \`export const ui = createGenerativeUI({ id: "<app-name>/genui@1", extends: [standardUI], overrides: { Button: { component: ShadcnButton }, Badge: { component: ShadcnBadge }, Divider: { component: ShadcnSeparator } }, components: {} });\`
 Each override is a small wrapper around the shadcn component that takes the props of the standard component it replaces. Badge gets \`label\`, \`variant\` and \`color\`. ${BUTTON_CONTRACT} Override leaves like these, not containers: Card and the layout components keep their implementation and match shadcn through \`theme\` (map your shadcn tokens onto the \`--a2ui-*\` variables), so a surface's inputs keep their state.`,
   material: `This app should use a Material 3 React component library. If it already has one, use it; if not, install \`@language-lit/material3-expressive\` (the Material 3 Expressive components this playground draws with), import its \`styles.css\` once, after the app's global CSS (if it comes first, Tailwind's preflight outranks it and flattens its buttons), load Roboto Flex, and set \`--m3e-ref-typeface-plain\` and \`--m3e-ref-typeface-brand\` to it. ${GENUI_FILE}, then:
@@ -59,7 +59,7 @@ Keep \`extends: [standardUI]\` so the agent can lay your components out with Col
 /** How the prompt's first line names what draws the UI. */
 const DRAWN_WITH: Record<DesignSystemId, string> = {
   copilotkit: "built from CopilotKit's standard catalog",
-  chatcn: "drawn with shadcn/ui components",
+  shadcn: "drawn with shadcn/ui components",
   material: "drawn with Material 3 components",
   byoc: "built from this app's own components",
 };
