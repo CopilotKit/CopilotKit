@@ -263,6 +263,30 @@ describe("a run with no browser attached", () => {
     expect(storedRunStarted()?.input.messages).toEqual([ask("ask-3", "Go on")]);
   });
 
+  it("sends the agent a brief while the Thread records a short request", async () => {
+    const runtime = await platform();
+    const agent = new ScriptedAgent(says("Here is what I found."));
+
+    await run(runtime, agent, {
+      messages: (_history, issued) => [
+        ask(
+          `brief-${issued.runId}`,
+          "Earlier: a long conversation. Now: find it.",
+        ),
+      ],
+      persistedInputMessages: (issued) => [
+        ask(`brief-${issued.runId}`, "Asked to find it"),
+      ],
+    });
+
+    expect(agent.inputs[0]?.messages).toEqual([
+      ask(`brief-${runId}`, "Earlier: a long conversation. Now: find it."),
+    ]);
+    expect(storedRunStarted()?.input.messages).toEqual([
+      ask(`brief-${runId}`, "Asked to find it"),
+    ]);
+  });
+
   it("passes the run's options through to the agent and the lock", async () => {
     const runtime = await platform();
     const agent = new ScriptedAgent(says("Sure."));

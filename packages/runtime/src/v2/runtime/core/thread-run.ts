@@ -316,13 +316,26 @@ export interface RunAgentInThreadOptions {
   /**
    * The run's input. An array is this run's new messages, appended to the
    * Thread's stored history. A function receives that history, converted to
-   * AG-UI messages, and returns the whole conversation the agent sees.
-   * Either way, only messages whose IDs the Thread does not already hold are
-   * stored.
+   * AG-UI messages, and the Thread and run IDs the lock issued, and returns
+   * the whole conversation the agent sees. Unless `persistedInputMessages`
+   * says otherwise, only messages whose IDs the Thread does not already hold
+   * are stored.
    */
   messages?:
     | Message[]
-    | ((history: Message[]) => Message[] | Promise<Message[]>);
+    | ((
+        history: Message[],
+        run: { threadId: string; runId: string },
+      ) => Message[] | Promise<Message[]>);
+  /**
+   * The input messages the Thread stores for this run, when that is not the
+   * new part of the conversation: for example a short request on record
+   * while the agent is sent a longer brief. A function receives the Thread
+   * and run IDs the lock issued.
+   */
+  persistedInputMessages?:
+    | Message[]
+    | ((run: { threadId: string; runId: string }) => Message[]);
   /** Tools offered to the agent for this run. */
   tools?: RunAgentInput["tools"];
   /** Context passed to the agent for this run. */
@@ -473,7 +486,7 @@ export async function runAgentInThread(
       );
       const conversation =
         typeof options.messages === "function"
-          ? await options.messages(history)
+          ? await options.messages(history, { threadId, runId })
           : [...history, ...(options.messages ?? [])];
       const historic = new Set(stored.messages.map((message) => message.id));
       // AG-UI agents build a run's input from their own Thread ID, messages
@@ -493,9 +506,11 @@ export async function runAgentInThread(
           forwardedProps: options.forwardedProps,
           ...(options.resume !== undefined ? { resume: options.resume } : {}),
         },
-        persistedInputMessages: conversation.filter(
-          (message) => !historic.has(message.id),
-        ),
+        persistedInputMessages:
+          typeof options.persistedInputMessages === "function"
+            ? options.persistedInputMessages({ threadId, runId })
+            : (options.persistedInputMessages ??
+              conversation.filter((message) => !historic.has(message.id))),
       };
     },
   }).finally(() => subscription?.unsubscribe());

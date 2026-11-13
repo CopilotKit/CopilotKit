@@ -55,6 +55,8 @@ await runAgentInThread({
 });
 ```
 
+The function also receives the thread and run IDs the lock issued, for message IDs that name the run. When the agent should be sent more than the thread shows, for example a brief that quotes another conversation, pass `persistedInputMessages` with the short request to keep on record.
+
 The run also accepts `tools`, `context`, `forwardedProps`, and `resume`, which reach the agent as they do on a browser run.
 
 ## Stop a run
