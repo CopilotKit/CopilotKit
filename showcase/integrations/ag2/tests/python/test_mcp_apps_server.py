@@ -18,9 +18,7 @@ HEADERS = {
     "Content-Type": "application/json",
     "Accept": "application/json, text/event-stream",
 }
-ELEMENTS = [
-    {"id": "a", "type": "rectangle", "x": 0, "y": 0, "width": 100, "height": 50}
-]
+ELEMENTS = [{"id": "a", "type": "rectangle", "x": 0, "y": 0, "width": 100, "height": 50}]
 
 
 def _body(response: httpx.Response) -> dict:
@@ -46,9 +44,7 @@ async def _session(*requests: tuple[str, dict]) -> list[dict]:
                         "protocolVersion": "2025-06-18",
                         "capabilities": {
                             "extensions": {
-                                "io.modelcontextprotocol/ui": {
-                                    "mimeTypes": ["text/html;profile=mcp-app"]
-                                }
+                                "io.modelcontextprotocol/ui": {"mimeTypes": ["text/html;profile=mcp-app"]}
                             }
                         },
                         "clientInfo": {"name": "t", "version": "1"},
@@ -58,22 +54,11 @@ async def _session(*requests: tuple[str, dict]) -> list[dict]:
             headers = dict(HEADERS)
             if sid := init.headers.get("mcp-session-id"):
                 headers["Mcp-Session-Id"] = sid
-            await c.post(
-                "/mcp/",
-                headers=headers,
-                json={"jsonrpc": "2.0", "method": "notifications/initialized"},
-            )
+            await c.post("/mcp/", headers=headers, json={"jsonrpc": "2.0", "method": "notifications/initialized"})
             results = []
             for i, (method, params) in enumerate(requests, start=2):
                 r = await c.post(
-                    "/mcp/",
-                    headers=headers,
-                    json={
-                        "jsonrpc": "2.0",
-                        "id": i,
-                        "method": method,
-                        "params": params,
-                    },
+                    "/mcp/", headers=headers, json={"jsonrpc": "2.0", "id": i, "method": method, "params": params}
                 )
                 results.append(_body(r)["result"])
             return results
@@ -85,10 +70,7 @@ def test_mcp_app_round_trip():
     listing, called, read = asyncio.run(
         _session(
             ("tools/list", {}),
-            (
-                "tools/call",
-                {"name": "create_view", "arguments": {"elements": ELEMENTS}},
-            ),
+            ("tools/call", {"name": "create_view", "arguments": {"elements": ELEMENTS}}),
             ("resources/read", {"uri": DIAGRAM_URI}),
         )
     )
