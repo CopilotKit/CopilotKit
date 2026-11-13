@@ -7,7 +7,7 @@
     },
     "agentic-chat": {
       "og_docs_url": "https://docs.copilotkit.ai/openai-agents-python/prebuilt-components",
-      "shell_docs_path": "/prebuilt-components"
+      "shell_docs_path": "/prebuilt-components/chat"
     },
     "prebuilt-sidebar": {
       "og_docs_url": "https://docs.copilotkit.ai/openai-agents-python/prebuilt-components/sidebar",

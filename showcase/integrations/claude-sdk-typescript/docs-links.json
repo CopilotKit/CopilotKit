@@ -7,7 +7,7 @@
     },
     "agentic-chat": {
       "og_docs_url": "https://docs.copilotkit.ai/claude-sdk-typescript/prebuilt-components",
-      "shell_docs_path": "/prebuilt-components"
+      "shell_docs_path": "/prebuilt-components/chat"
     },
     "frontend-tools": {
       "og_docs_url": "https://docs.copilotkit.ai/claude-sdk-typescript/frontend-tools",
