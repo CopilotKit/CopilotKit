@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import { CopilotRuntime } from "../core/runtime";
-import { createCopilotRuntimeHandler } from "../core/fetch-handler";
+import { createCopilotKitRuntimeHandler } from "../core/fetch-handler";
 import { CopilotKitIntelligence } from "../intelligence-platform";
 import { createChannel } from "@copilotkit/channels";
 import { InMemoryAgentRunner } from "../runner/in-memory";
@@ -98,7 +98,7 @@ describe("CopilotRuntime — channels option", () => {
       exposeMemoryRoutes: true,
       channels: [createChannel({ identifyUser: "platform", name: "support" })],
     });
-    const handler = createCopilotRuntimeHandler({
+    const handler = createCopilotKitRuntimeHandler({
       runtime,
       activateChannels: false,
     });

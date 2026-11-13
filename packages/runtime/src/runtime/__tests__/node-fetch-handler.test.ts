@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { createServer } from "node:http";
 import type { Server } from "node:http";
-import { createCopilotNodeHandler } from "../endpoints/node-fetch-handler";
+import { createCopilotKitNodeHandler } from "../endpoints/node-fetch-handler";
 import type { CopilotRuntimeFetchHandler } from "../core/fetch-handler";
 
 const getPort = (() => {
@@ -19,7 +19,7 @@ function close(server: Server): Promise<void> {
   );
 }
 
-describe("createCopilotNodeHandler", () => {
+describe("createCopilotKitNodeHandler", () => {
   it("converts Node request to Fetch and sends response back", async () => {
     const fetchHandler: CopilotRuntimeFetchHandler = async (request) => {
       const url = new URL(request.url);
@@ -32,7 +32,7 @@ describe("createCopilotNodeHandler", () => {
       );
     };
 
-    const nodeHandler = createCopilotNodeHandler(fetchHandler);
+    const nodeHandler = createCopilotKitNodeHandler(fetchHandler);
     const port = getPort();
     const server = createServer(nodeHandler);
     await listen(server, port);
@@ -56,7 +56,7 @@ describe("createCopilotNodeHandler", () => {
       });
     };
 
-    const nodeHandler = createCopilotNodeHandler(fetchHandler);
+    const nodeHandler = createCopilotKitNodeHandler(fetchHandler);
     const port = getPort();
     const server = createServer(nodeHandler);
     await listen(server, port);
@@ -80,7 +80,7 @@ describe("createCopilotNodeHandler", () => {
       throw new Error("Unexpected error");
     };
 
-    const nodeHandler = createCopilotNodeHandler(fetchHandler);
+    const nodeHandler = createCopilotKitNodeHandler(fetchHandler);
     const port = getPort();
     const server = createServer(nodeHandler);
     await listen(server, port);
@@ -114,7 +114,7 @@ describe("createCopilotNodeHandler", () => {
       });
     };
 
-    const nodeHandler = createCopilotNodeHandler(fetchHandler);
+    const nodeHandler = createCopilotKitNodeHandler(fetchHandler);
     const port = getPort();
     const server = createServer(nodeHandler);
     await listen(server, port);
@@ -142,7 +142,7 @@ describe("createCopilotNodeHandler", () => {
       });
     };
 
-    const nodeHandler = createCopilotNodeHandler(fetchHandler);
+    const nodeHandler = createCopilotKitNodeHandler(fetchHandler);
     const port = getPort();
     const server = createServer(nodeHandler);
     await listen(server, port);

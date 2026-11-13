@@ -7,9 +7,9 @@
  *
  * @example
  * ```typescript
- * import { CopilotRuntime, createCopilotRuntimeHandler } from "@copilotkit/runtime";
+ * import { CopilotRuntime, createCopilotKitRuntimeHandler } from "@copilotkit/runtime";
  *
- * const handler = createCopilotRuntimeHandler({
+ * const handler = createCopilotKitRuntimeHandler({
  *   runtime: new CopilotRuntime({ agents: { ... } }),
  *   basePath: "/api/copilotkit",
  *   cors: true,
@@ -44,13 +44,13 @@
  *
  * This laziness is a property of THIS handler, because it is the one entry point
  * that must stay serverless-safe. The process-owning wrappers do not inherit it:
- * `createCopilotNodeListener` STARTS activation
+ * `createCopilotKitNodeListener` STARTS activation
  * at creation (OSS-641), so `ready()` there is optional and await-and-observe.
  *
  * @example
  * ```typescript
  * // Long-running host: open the managed-Channel listener once at startup.
- * const handler = createCopilotRuntimeHandler({ runtime });
+ * const handler = createCopilotKitRuntimeHandler({ runtime });
  * await handler.channels.ready();
  * ```
  */
@@ -320,7 +320,7 @@ function getOrCreateChannelManager(
  * `.channels`) falls through to the optional-shape overload below rather than
  * dishonestly promising a control surface that will not exist.
  */
-export function createCopilotRuntimeHandler(
+export function createCopilotKitRuntimeHandler(
   options: CopilotRuntimeHandlerOptions & {
     runtime: RuntimeWithDeclaredChannels;
     activateChannels?: true | undefined;
@@ -330,10 +330,10 @@ export function createCopilotRuntimeHandler(
  * Overload: every other runtime (SSE, Intelligence without channels, or with
  * activation disabled) yields a handler whose `.channels` is optional.
  */
-export function createCopilotRuntimeHandler(
+export function createCopilotKitRuntimeHandler(
   options: CopilotRuntimeHandlerOptions,
 ): CopilotRuntimeFetchHandler;
-export function createCopilotRuntimeHandler(
+export function createCopilotKitRuntimeHandler(
   options: CopilotRuntimeHandlerOptions,
 ): CopilotRuntimeFetchHandler {
   const { runtime, basePath, mode = "multi-route", cors, hooks } = options;
@@ -618,6 +618,33 @@ export function createCopilotRuntimeHandler(
   }
 
   return handler;
+}
+
+/**
+ * @deprecated Use createCopilotKitRuntimeHandler. This old name is an alias
+ * with the same behavior.
+ */
+export function createCopilotRuntimeHandler(
+  options: CopilotRuntimeHandlerOptions & {
+    runtime: RuntimeWithDeclaredChannels;
+    activateChannels?: true | undefined;
+  },
+): CopilotRuntimeFetchHandlerWithChannels;
+/**
+ * @deprecated Use createCopilotKitRuntimeHandler. This old name is an alias
+ * with the same behavior.
+ */
+export function createCopilotRuntimeHandler(
+  options: CopilotRuntimeHandlerOptions,
+): CopilotRuntimeFetchHandler;
+/**
+ * @deprecated Use createCopilotKitRuntimeHandler. This old name is an alias
+ * with the same behavior.
+ */
+export function createCopilotRuntimeHandler(
+  options: CopilotRuntimeHandlerOptions,
+): CopilotRuntimeFetchHandler {
+  return createCopilotKitRuntimeHandler(options);
 }
 
 /* ------------------------------------------------------------------------------------------------

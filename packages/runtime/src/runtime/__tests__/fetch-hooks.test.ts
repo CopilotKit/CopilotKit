@@ -1,4 +1,4 @@
-import { createCopilotRuntimeHandler } from "../core/fetch-handler";
+import { createCopilotKitRuntimeHandler } from "../core/fetch-handler";
 import { describe, it, expect, vi } from "vitest";
 import type { AbstractAgent } from "@ag-ui/client";
 
@@ -24,13 +24,13 @@ describe("Fetch handler with hooks", () => {
       ...opts,
     });
 
-  describe("createCopilotRuntimeHandler", () => {
+  describe("createCopilotKitRuntimeHandler", () => {
     const createEndpoint = (
-      hooks?: Parameters<typeof createCopilotRuntimeHandler>[0]["hooks"],
+      hooks?: Parameters<typeof createCopilotKitRuntimeHandler>[0]["hooks"],
       runtimeOpts?: Partial<CopilotSseRuntimeOptions>,
     ) => {
       const runtime = createMockRuntime(runtimeOpts);
-      const endpoint = createCopilotRuntimeHandler({
+      const endpoint = createCopilotKitRuntimeHandler({
         cors: true,
         runtime,
         basePath: "/",
@@ -115,10 +115,10 @@ describe("Fetch handler with hooks", () => {
     });
   });
 
-  describe("createCopilotRuntimeHandler", () => {
+  describe("createCopilotKitRuntimeHandler", () => {
     it("dispatches single-route with method envelope", async () => {
       const runtime = createMockRuntime();
-      const endpoint = createCopilotRuntimeHandler({
+      const endpoint = createCopilotKitRuntimeHandler({
         mode: "single-route",
         cors: true,
         runtime,

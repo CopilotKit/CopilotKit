@@ -1,4 +1,4 @@
-import { createCopilotRuntimeHandler } from "../core/fetch-handler";
+import { createCopilotKitRuntimeHandler } from "../core/fetch-handler";
 import { describe, it, expect } from "vitest";
 import type { AbstractAgent } from "@ag-ui/client";
 
@@ -31,7 +31,7 @@ describe("CopilotEndpointSingleRoute routing", () => {
 
   const callEndpoint = async (body: Record<string, unknown>) => {
     const runtime = createMockRuntime();
-    const endpoint = createCopilotRuntimeHandler({
+    const endpoint = createCopilotKitRuntimeHandler({
       mode: "single-route",
       cors: true,
       runtime,
@@ -130,7 +130,7 @@ describe("CopilotEndpointSingleRoute routing", () => {
 
     it("handles query parameters", async () => {
       const runtime = createMockRuntime();
-      const endpoint = createCopilotRuntimeHandler({
+      const endpoint = createCopilotKitRuntimeHandler({
         mode: "single-route",
         cors: true,
         runtime,
@@ -158,7 +158,7 @@ describe("CopilotEndpointSingleRoute routing", () => {
   describe("invalid inputs", () => {
     it("returns 415 for non-JSON content", async () => {
       const runtime = createMockRuntime();
-      const endpoint = createCopilotRuntimeHandler({
+      const endpoint = createCopilotKitRuntimeHandler({
         mode: "single-route",
         cors: true,
         runtime,
@@ -182,7 +182,7 @@ describe("CopilotEndpointSingleRoute routing", () => {
 
     it("returns 404 for unmatched path", async () => {
       const runtime = createMockRuntime();
-      const endpoint = createCopilotRuntimeHandler({
+      const endpoint = createCopilotKitRuntimeHandler({
         mode: "single-route",
         cors: true,
         runtime,

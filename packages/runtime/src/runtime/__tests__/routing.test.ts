@@ -1,4 +1,4 @@
-import { createCopilotRuntimeHandler } from "../core/fetch-handler";
+import { createCopilotKitRuntimeHandler } from "../core/fetch-handler";
 
 import { CopilotRuntime } from "../core/runtime";
 import { describe, it, expect } from "vitest";
@@ -42,7 +42,7 @@ describe("CopilotEndpoint routing", () => {
     body?: unknown,
   ) => {
     const runtime = createMockRuntime();
-    const endpoint = createCopilotRuntimeHandler({
+    const endpoint = createCopilotKitRuntimeHandler({
       cors: true,
       runtime,
       basePath: "/",

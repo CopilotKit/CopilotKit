@@ -1,4 +1,4 @@
-import { createCopilotNodeListener } from "../endpoints/node";
+import { createCopilotKitNodeListener } from "../endpoints/node";
 /**
  * Integration test: a self-hosted SSE runtime constructed with a license token
  * must carry that token (and therefore its telemetry_id) all the way to the
@@ -68,7 +68,9 @@ describe("SSE runtime license token → telemetry sink (integration)", () => {
   it("forwards the license token to the sink on a real endpoint request", async () => {
     const runtime = makeSseRuntimeWithLicense();
     const app = express();
-    app.use(createCopilotNodeListener({ cors: true, runtime, basePath: "/" }));
+    app.use(
+      createCopilotKitNodeListener({ cors: true, runtime, basePath: "/" }),
+    );
 
     await request(app)
       .post("/agent/default/run")

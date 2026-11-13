@@ -16,7 +16,7 @@ import type { AbstractAgent } from "@ag-ui/client";
 import { Observable, of } from "rxjs";
 import { lambdaClient } from "@copilotkit/shared";
 
-import { createCopilotRuntimeHandler } from "../core/fetch-handler";
+import { createCopilotKitRuntimeHandler } from "../core/fetch-handler";
 import { CopilotRuntime } from "../core/runtime";
 import type { AgentRunner } from "../runner/agent-runner";
 
@@ -70,7 +70,7 @@ describe("SSE license env fallback → telemetry sink (integration)", () => {
       runner: makeSseRunner(),
       // intentionally no `licenseToken` option — must fall back to the env var
     });
-    const handler = createCopilotRuntimeHandler({ runtime, basePath: "/" });
+    const handler = createCopilotKitRuntimeHandler({ runtime, basePath: "/" });
 
     await handler(
       new Request("http://localhost/agent/default/run", {

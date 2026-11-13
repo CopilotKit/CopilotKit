@@ -1,4 +1,4 @@
-import { createCopilotRuntimeHandler } from "../core/fetch-handler";
+import { createCopilotKitRuntimeHandler } from "../core/fetch-handler";
 /**
  * Integration tests proving the license token (the Intelligence/EIP key that
  * carries telemetry_id) rides all the way to the telemetry sink through every
@@ -74,7 +74,7 @@ describe("license token → telemetry sink across endpoints/modes (integration)"
       runner: makeSseRunner(),
       licenseToken: TOKEN,
     });
-    const endpoint = createCopilotRuntimeHandler({
+    const endpoint = createCopilotKitRuntimeHandler({
       cors: true,
       runtime,
       basePath: "/",
@@ -100,7 +100,7 @@ describe("license token → telemetry sink across endpoints/modes (integration)"
       runner: makeSseRunner(),
       licenseToken: TOKEN,
     });
-    const handler = createCopilotRuntimeHandler({ runtime, basePath: "/" });
+    const handler = createCopilotKitRuntimeHandler({ runtime, basePath: "/" });
 
     await handler(runRequest());
 
@@ -164,7 +164,7 @@ describe("license token → telemetry sink across endpoints/modes (integration)"
     );
     runtime.runner = stubRunner;
 
-    const handler = createCopilotRuntimeHandler({ runtime, basePath: "/" });
+    const handler = createCopilotKitRuntimeHandler({ runtime, basePath: "/" });
 
     await handler(
       new Request("http://localhost/agent/my-agent/run", {

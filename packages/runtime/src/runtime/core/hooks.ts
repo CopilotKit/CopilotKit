@@ -9,7 +9,7 @@
  *
  * @example
  * ```typescript
- * const handler = createCopilotRuntimeHandler({
+ * const handler = createCopilotKitRuntimeHandler({
  *   runtime,
  *   hooks: {
  *     onRequest: async ({ request }) => {

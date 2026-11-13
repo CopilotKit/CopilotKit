@@ -1,4 +1,4 @@
-import { createCopilotRuntimeHandler } from "../core/fetch-handler";
+import { createCopilotKitRuntimeHandler } from "../core/fetch-handler";
 import { describe, it, expect } from "vitest";
 
 import { CopilotRuntime } from "../core/runtime";
@@ -20,10 +20,10 @@ const createMockRuntime = (options: { beforeRequestMiddleware?: any } = {}) => {
 };
 
 describe("CORS credentials configuration", () => {
-  describe("createCopilotRuntimeHandler", () => {
+  describe("createCopilotKitRuntimeHandler", () => {
     it("sets Access-Control-Allow-Credentials header when credentials is true", async () => {
       const runtime = createMockRuntime();
-      const endpoint = createCopilotRuntimeHandler({
+      const endpoint = createCopilotKitRuntimeHandler({
         runtime,
         basePath: "/",
         cors: {
@@ -53,7 +53,7 @@ describe("CORS credentials configuration", () => {
 
     it("does not set Access-Control-Allow-Credentials header when credentials is false", async () => {
       const runtime = createMockRuntime();
-      const endpoint = createCopilotRuntimeHandler({
+      const endpoint = createCopilotKitRuntimeHandler({
         runtime,
         basePath: "/",
         cors: {
@@ -83,7 +83,7 @@ describe("CORS credentials configuration", () => {
 
     it("defaults to no credentials when cors config is not provided", async () => {
       const runtime = createMockRuntime();
-      const endpoint = createCopilotRuntimeHandler({
+      const endpoint = createCopilotKitRuntimeHandler({
         cors: true,
         runtime,
         basePath: "/",
@@ -123,7 +123,7 @@ describe("CORS credentials configuration", () => {
         },
       });
 
-      const endpoint = createCopilotRuntimeHandler({
+      const endpoint = createCopilotKitRuntimeHandler({
         runtime,
         basePath: "/",
         cors: {
@@ -148,10 +148,10 @@ describe("CORS credentials configuration", () => {
     });
   });
 
-  describe("createCopilotRuntimeHandler", () => {
+  describe("createCopilotKitRuntimeHandler", () => {
     it("sets Access-Control-Allow-Credentials header when credentials is true", async () => {
       const runtime = createMockRuntime();
-      const endpoint = createCopilotRuntimeHandler({
+      const endpoint = createCopilotKitRuntimeHandler({
         mode: "single-route",
         runtime,
         basePath: "/api/copilotkit",
@@ -192,7 +192,7 @@ describe("CORS credentials configuration", () => {
         },
       });
 
-      const endpoint = createCopilotRuntimeHandler({
+      const endpoint = createCopilotKitRuntimeHandler({
         mode: "single-route",
         runtime,
         basePath: "/api/copilotkit",
@@ -222,7 +222,7 @@ describe("CORS credentials configuration", () => {
   describe("origin configuration", () => {
     it("supports string origin", async () => {
       const runtime = createMockRuntime();
-      const endpoint = createCopilotRuntimeHandler({
+      const endpoint = createCopilotKitRuntimeHandler({
         runtime,
         basePath: "/",
         cors: {
@@ -248,7 +248,7 @@ describe("CORS credentials configuration", () => {
 
     it("supports array of origins", async () => {
       const runtime = createMockRuntime();
-      const endpoint = createCopilotRuntimeHandler({
+      const endpoint = createCopilotKitRuntimeHandler({
         runtime,
         basePath: "/",
         cors: {
@@ -288,7 +288,7 @@ describe("CORS credentials configuration", () => {
 
     it("supports function origin for dynamic resolution", async () => {
       const runtime = createMockRuntime();
-      const endpoint = createCopilotRuntimeHandler({
+      const endpoint = createCopilotKitRuntimeHandler({
         runtime,
         basePath: "/",
         cors: {

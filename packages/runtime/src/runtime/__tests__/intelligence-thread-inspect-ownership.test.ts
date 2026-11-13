@@ -10,7 +10,7 @@
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { CopilotRuntime } from "../core/runtime";
-import { createCopilotRuntimeHandler } from "../core/fetch-handler";
+import { createCopilotKitRuntimeHandler } from "../core/fetch-handler";
 import { CopilotKitIntelligence } from "../intelligence-platform";
 
 const PLATFORM = "https://platform.test";
@@ -93,7 +93,10 @@ function makeHandler() {
       return { id, name: id };
     },
   });
-  return createCopilotRuntimeHandler({ runtime, basePath: "/api/copilotkit" });
+  return createCopilotKitRuntimeHandler({
+    runtime,
+    basePath: "/api/copilotkit",
+  });
 }
 
 function get(

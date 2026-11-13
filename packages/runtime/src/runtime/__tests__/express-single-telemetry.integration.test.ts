@@ -1,4 +1,4 @@
-import { createCopilotNodeListener } from "../endpoints/node";
+import { createCopilotKitNodeListener } from "../endpoints/node";
 /**
  * Integration test: Node single-route listener + telemetry.
  */
@@ -39,7 +39,7 @@ test("Node single-route listener fires instance_created on handler creation", as
     .mockResolvedValue(undefined);
 
   try {
-    createCopilotNodeListener({
+    createCopilotKitNodeListener({
       mode: "single-route",
       cors: true,
       runtime,

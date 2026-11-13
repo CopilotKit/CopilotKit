@@ -120,32 +120,75 @@ interface DeprecationSpec {
   };
 }
 
+const RUNTIME_HANDLER_PATH =
+  "packages/runtime/src/runtime/core/fetch-handler.ts";
+const NODE_HANDLER_PATH =
+  "packages/runtime/src/runtime/endpoints/node-fetch-handler.ts";
+const NODE_LISTENER_PATH = "packages/runtime/src/runtime/endpoints/node.ts";
+
 const HOST_FACTORIES: HostFactorySpec[] = [
+  "createCopilotKitRuntimeHandler",
+  "createCopilotRuntimeHandler",
+].map((symbol) => ({
+  importPath: "@copilotkit/runtime",
+  entrySource: "packages/runtime/src/index.ts",
+  symbol,
+  declarationPath: RUNTIME_HANDLER_PATH,
+  configurationType: "CopilotRuntimeHandlerOptions",
+}));
+HOST_FACTORIES.push(
+  ...["createCopilotKitNodeHandler", "createCopilotNodeHandler"].map(
+    (symbol) => ({
+      importPath: "@copilotkit/runtime/node",
+      entrySource: "packages/runtime/src/node.ts",
+      symbol,
+      declarationPath: NODE_HANDLER_PATH,
+    }),
+  ),
+  ...["createCopilotKitNodeListener", "createCopilotNodeListener"].map(
+    (symbol) => ({
+      importPath: "@copilotkit/runtime/node",
+      entrySource: "packages/runtime/src/node.ts",
+      symbol,
+      declarationPath: NODE_LISTENER_PATH,
+      configurationType: "CopilotRuntimeHandlerOptions",
+      configurationPath: RUNTIME_HANDLER_PATH,
+    }),
+  ),
+);
+
+const DEPRECATIONS: DeprecationSpec[] = [
   {
     importPath: "@copilotkit/runtime",
     entrySource: "packages/runtime/src/index.ts",
     symbol: "createCopilotRuntimeHandler",
-    declarationPath: "packages/runtime/src/runtime/core/fetch-handler.ts",
-    configurationType: "CopilotRuntimeHandlerOptions",
+    declarationPath: RUNTIME_HANDLER_PATH,
+    replacement: {
+      importPath: "@copilotkit/runtime",
+      symbol: "createCopilotKitRuntimeHandler",
+    },
   },
   {
     importPath: "@copilotkit/runtime/node",
     entrySource: "packages/runtime/src/node.ts",
     symbol: "createCopilotNodeHandler",
-    declarationPath:
-      "packages/runtime/src/runtime/endpoints/node-fetch-handler.ts",
+    declarationPath: NODE_HANDLER_PATH,
+    replacement: {
+      importPath: "@copilotkit/runtime/node",
+      symbol: "createCopilotKitNodeHandler",
+    },
   },
   {
     importPath: "@copilotkit/runtime/node",
     entrySource: "packages/runtime/src/node.ts",
     symbol: "createCopilotNodeListener",
-    declarationPath: "packages/runtime/src/runtime/endpoints/node.ts",
-    configurationType: "CopilotRuntimeHandlerOptions",
-    configurationPath: "packages/runtime/src/runtime/core/fetch-handler.ts",
+    declarationPath: NODE_LISTENER_PATH,
+    replacement: {
+      importPath: "@copilotkit/runtime/node",
+      symbol: "createCopilotKitNodeListener",
+    },
   },
 ];
-
-const DEPRECATIONS: DeprecationSpec[] = [];
 
 function readJson<T>(path: string): T {
   try {

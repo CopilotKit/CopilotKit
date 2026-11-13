@@ -4,7 +4,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { CopilotRuntime } from "../core/runtime";
 import type { CopilotRuntimeLike, IdentifyUserCallback } from "../core/runtime";
-import { createCopilotRuntimeHandler } from "../core/fetch-handler";
+import { createCopilotKitRuntimeHandler } from "../core/fetch-handler";
 import { resolveIntelligenceUser } from "../handlers/shared/resolve-intelligence-user";
 import {
   BASE,
@@ -127,7 +127,7 @@ describe("an identifyUser that is not a function", () => {
     // list and clear to anonymous callers in the default mode.
     const runtime = new CopilotRuntime({ agents: testAgents() });
     Object.defineProperty(runtime, "identifyUser", { value: null });
-    const handler = createCopilotRuntimeHandler({
+    const handler = createCopilotKitRuntimeHandler({
       runtime,
       basePath: "/api/copilotkit",
     });

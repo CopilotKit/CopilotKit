@@ -12,11 +12,11 @@
  * @example
  * ```typescript
  * import { createServer } from "node:http";
- * import { createCopilotRuntimeHandler } from "@copilotkit/runtime";
- * import { createCopilotNodeHandler } from "@copilotkit/runtime/node";
+ * import { createCopilotKitRuntimeHandler } from "@copilotkit/runtime";
+ * import { createCopilotKitNodeHandler } from "@copilotkit/runtime/node";
  *
- * const handler = createCopilotRuntimeHandler({ runtime, basePath: "/api/copilotkit", cors: true });
- * const nodeHandler = createCopilotNodeHandler(handler);
+ * const handler = createCopilotKitRuntimeHandler({ runtime, basePath: "/api/copilotkit", cors: true });
+ * const nodeHandler = createCopilotKitNodeHandler(handler);
  * createServer(nodeHandler).listen(3000);
  * ```
  */
@@ -38,7 +38,7 @@ export type NodeFetchHandler = (
   res: ServerResponse,
 ) => Promise<void>;
 
-export function createCopilotNodeHandler(
+export function createCopilotKitNodeHandler(
   handler: CopilotRuntimeFetchHandler,
   logger: CopilotRuntimeLogger = getRuntimeLogger(),
 ): NodeFetchHandler {
@@ -59,6 +59,17 @@ export function createCopilotNodeHandler(
       }
     }
   };
+}
+
+/**
+ * @deprecated Use createCopilotKitNodeHandler. This old name is an alias with
+ * the same behavior.
+ */
+export function createCopilotNodeHandler(
+  handler: CopilotRuntimeFetchHandler,
+  logger: CopilotRuntimeLogger = getRuntimeLogger(),
+): NodeFetchHandler {
+  return createCopilotKitNodeHandler(handler, logger);
 }
 
 /**

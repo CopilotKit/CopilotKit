@@ -20,7 +20,7 @@ import type {
   LocalThreadEndpointRecord,
 } from "../runner/agent-runner";
 import { InMemoryAgentRunner } from "../runner/in-memory";
-import { createCopilotRuntimeHandler } from "../core/fetch-handler";
+import { createCopilotKitRuntimeHandler } from "../core/fetch-handler";
 import type {
   RuntimeErrorReporter,
   RuntimeErrorReporterOptions,

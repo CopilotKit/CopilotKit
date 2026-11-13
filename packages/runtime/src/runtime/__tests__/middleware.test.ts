@@ -1,4 +1,4 @@
-import { createCopilotRuntimeHandler } from "../core/fetch-handler";
+import { createCopilotKitRuntimeHandler } from "../core/fetch-handler";
 import { vi } from "vitest";
 import type { MockedFunction } from "vitest";
 
@@ -66,7 +66,7 @@ describe("CopilotEndpoint middleware", () => {
       afterRequestMiddleware: after,
     });
 
-    const endpoint = createCopilotRuntimeHandler({
+    const endpoint = createCopilotKitRuntimeHandler({
       cors: true,
       runtime,
       basePath: "/",
@@ -104,7 +104,7 @@ describe("CopilotEndpoint middleware", () => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       .mockImplementation(() => undefined as any);
 
-    const endpoint = createCopilotRuntimeHandler({
+    const endpoint = createCopilotKitRuntimeHandler({
       cors: true,
       runtime,
       basePath: "/",
@@ -136,7 +136,7 @@ describe("CopilotEndpoint middleware", () => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       .mockImplementation(() => undefined as any);
 
-    const endpoint = createCopilotRuntimeHandler({
+    const endpoint = createCopilotKitRuntimeHandler({
       cors: true,
       runtime,
       basePath: "/",
@@ -178,7 +178,7 @@ describe("CopilotEndpoint middleware", () => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       .mockImplementation(() => undefined as any);
 
-    const endpoint = createCopilotRuntimeHandler({
+    const endpoint = createCopilotKitRuntimeHandler({
       cors: true,
       runtime,
       basePath: "/",
@@ -210,7 +210,7 @@ describe("CopilotEndpoint middleware", () => {
       afterRequestMiddleware: after,
     });
 
-    const endpoint = createCopilotRuntimeHandler({
+    const endpoint = createCopilotKitRuntimeHandler({
       cors: true,
       runtime,
       basePath: "/",
@@ -238,7 +238,7 @@ describe("CopilotEndpoint middleware", () => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       .mockImplementation(() => undefined as any);
 
-    const endpoint = createCopilotRuntimeHandler({
+    const endpoint = createCopilotKitRuntimeHandler({
       cors: true,
       runtime,
       basePath: "/",

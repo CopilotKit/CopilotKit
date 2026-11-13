@@ -1,4 +1,4 @@
-import { createCopilotRuntimeHandler } from "../core/fetch-handler";
+import { createCopilotKitRuntimeHandler } from "../core/fetch-handler";
 import { describe, it, expect } from "vitest";
 import type { AbstractAgent } from "@ag-ui/client";
 
@@ -20,7 +20,7 @@ describe("single-route envelope against a multi-route runtime", () => {
   };
 
   const createEndpoint = () =>
-    createCopilotRuntimeHandler({
+    createCopilotKitRuntimeHandler({
       cors: true,
       runtime: new CopilotRuntime({ agents: { default: createMockAgent() } }),
       basePath: "/api/copilotkit",

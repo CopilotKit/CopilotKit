@@ -15,7 +15,7 @@ import {
   it,
   vi,
 } from "vitest";
-import { createCopilotRuntimeHandler } from "../core/fetch-handler";
+import { createCopilotKitRuntimeHandler } from "../core/fetch-handler";
 import { CopilotIntelligenceRuntime, CopilotSseRuntime } from "../core/runtime";
 import { CopilotKitIntelligence } from "../intelligence-platform/client";
 import { IntelligenceAgentRunner } from "../runner/intelligence";
@@ -199,7 +199,7 @@ function createIntelligenceHandler() {
       };
     },
   );
-  const handler = createCopilotRuntimeHandler({
+  const handler = createCopilotKitRuntimeHandler({
     runtime,
     basePath: "/api/copilotkit",
   });
@@ -439,7 +439,7 @@ describe("runs that never reach Intelligence", () => {
     const runtime = new CopilotSseRuntime({
       agents: { test: new RecordingAgent({ threadId }) },
     });
-    return createCopilotRuntimeHandler({
+    return createCopilotKitRuntimeHandler({
       runtime,
       basePath: "/api/copilotkit",
     });

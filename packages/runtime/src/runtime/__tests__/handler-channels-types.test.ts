@@ -1,6 +1,6 @@
 import { test, expect } from "vitest";
-import { createCopilotRuntimeHandler } from "../core/fetch-handler";
-import { createCopilotNodeListener } from "../endpoints/node";
+import { createCopilotKitRuntimeHandler } from "../core/fetch-handler";
+import { createCopilotKitNodeListener } from "../endpoints/node";
 import { CopilotRuntime } from "../core/runtime";
 import type { IdentifyUserCallback } from "../core/runtime";
 import type { CopilotRuntimeOptions } from "../core/runtime";
@@ -49,7 +49,7 @@ async function _channelsHandlerTypeContracts(): Promise<void> {
     identifyUser,
     channels: [support],
   });
-  const handler = createCopilotRuntimeHandler({
+  const handler = createCopilotKitRuntimeHandler({
     runtime,
     basePath: "/api/copilotkit",
   });
@@ -73,13 +73,13 @@ async function _channelsHandlerTypeContracts(): Promise<void> {
     },
     channels: [support],
   });
-  const hybridHandler = createCopilotRuntimeHandler({
+  const hybridHandler = createCopilotKitRuntimeHandler({
     runtime: hybridWithMemory,
   });
   assertTrue<KeyIsRequired<typeof hybridHandler, "channels">>();
 
   // A plain SSE runtime's handler must keep `.channels` OPTIONAL (not required).
-  const sseHandler = createCopilotRuntimeHandler({
+  const sseHandler = createCopilotKitRuntimeHandler({
     runtime: new CopilotRuntime({ agents: {} }),
   });
   assertTrue<
@@ -88,7 +88,7 @@ async function _channelsHandlerTypeContracts(): Promise<void> {
 
   // Opting out of activation keeps the optional shape even for a runtime that
   // declares Channels.
-  const optedOut = createCopilotRuntimeHandler({
+  const optedOut = createCopilotKitRuntimeHandler({
     runtime,
     activateChannels: false,
   });
@@ -166,7 +166,7 @@ async function _channelsNodeListenerTypeContracts(): Promise<void> {
     identifyUser,
     channels: [support],
   });
-  const listener = createCopilotNodeListener({
+  const listener = createCopilotKitNodeListener({
     runtime,
     basePath: "/api/copilotkit",
   });
@@ -180,7 +180,7 @@ async function _channelsNodeListenerTypeContracts(): Promise<void> {
   assertTrue<KeyIsRequired<typeof listener, "channels">>();
 
   // A plain SSE runtime's listener must keep `.channels` OPTIONAL.
-  const sseListener = createCopilotNodeListener({
+  const sseListener = createCopilotKitNodeListener({
     runtime: new CopilotRuntime({ agents: {} }),
   });
   assertTrue<
@@ -189,7 +189,7 @@ async function _channelsNodeListenerTypeContracts(): Promise<void> {
 
   // Opting out of activation keeps the optional shape even for a runtime that
   // declares Channels — there is no control surface to promise.
-  const optedOut = createCopilotNodeListener({
+  const optedOut = createCopilotKitNodeListener({
     runtime,
     activateChannels: false,
   });

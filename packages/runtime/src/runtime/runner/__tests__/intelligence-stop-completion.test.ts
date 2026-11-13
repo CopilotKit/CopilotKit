@@ -5,7 +5,7 @@ import { WebSocket, WebSocketServer } from "ws";
 import { expect, test, vi } from "vitest";
 import { IntelligenceAgentRunner } from "../intelligence";
 import { CopilotRuntime } from "../../core/runtime";
-import { createCopilotRuntimeHandler } from "../../core/fetch-handler";
+import { createCopilotKitRuntimeHandler } from "../../core/fetch-handler";
 
 type Frame = [string | null, string, string, string, Record<string, unknown>];
 
@@ -430,7 +430,7 @@ for (const mode of ["multi-route", "single-route"] as const) {
         runner: fixture.runner,
         threads: { access: "open" },
       });
-      const handler = createCopilotRuntimeHandler({
+      const handler = createCopilotKitRuntimeHandler({
         runtime,
         mode,
         activateChannels: false,

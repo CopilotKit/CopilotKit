@@ -1,4 +1,4 @@
-import { createCopilotNodeListener } from "../endpoints/node";
+import { createCopilotKitNodeListener } from "../endpoints/node";
 import express from "express";
 import request from "supertest";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -23,7 +23,9 @@ describe("CopilotEndpointExpress middleware", () => {
 
   const buildApp = (runtime: CopilotRuntime) => {
     const app = express();
-    app.use(createCopilotNodeListener({ cors: true, runtime, basePath: "/" }));
+    app.use(
+      createCopilotKitNodeListener({ cors: true, runtime, basePath: "/" }),
+    );
     return app;
   };
 

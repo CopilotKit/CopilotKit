@@ -3,7 +3,7 @@ import type { BaseEvent, RunAgentInput } from "@ag-ui/client";
 import { Observable, Subject } from "rxjs";
 import { WebSocket } from "ws";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { createCopilotRuntimeHandler } from "../core/fetch-handler";
+import { createCopilotKitRuntimeHandler } from "../core/fetch-handler";
 import { CopilotIntelligenceRuntime } from "../core/runtime";
 import { CopilotKitIntelligence } from "../intelligence-platform/client";
 import { STOP_RECORD_DEADLINE_MS } from "../runner/intelligence";
@@ -86,7 +86,7 @@ async function startRun(options: { connect: ConnectMode; stop: StopMode }) {
     identifyUser: () => ({ id: "user-1", name: "User One" }),
     generateThreadNames: false,
   });
-  const handler = createCopilotRuntimeHandler({
+  const handler = createCopilotKitRuntimeHandler({
     runtime,
     basePath: "/api/copilotkit",
   });

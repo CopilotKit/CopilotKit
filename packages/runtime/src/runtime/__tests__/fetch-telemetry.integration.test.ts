@@ -1,4 +1,4 @@
-import { createCopilotRuntimeHandler } from "../core/fetch-handler";
+import { createCopilotKitRuntimeHandler } from "../core/fetch-handler";
 /**
  * Integration test: Fetch handler + telemetry.
  *
@@ -41,7 +41,7 @@ test("Fetch handler fires instance_created on handler creation (multi-route)", a
   const { runtime, captureSpy, teardown } = setup();
 
   try {
-    createCopilotRuntimeHandler({ cors: true, runtime, basePath: "/" });
+    createCopilotKitRuntimeHandler({ cors: true, runtime, basePath: "/" });
 
     await vi.waitFor(() => {
       expect(captureSpy).toHaveBeenCalledWith(
@@ -63,7 +63,7 @@ test("Fetch handler fires copilot_request_created for a real HTTP request", asyn
   const { runtime, captureSpy, teardown } = setup();
 
   try {
-    const endpoint = createCopilotRuntimeHandler({
+    const endpoint = createCopilotKitRuntimeHandler({
       cors: true,
       runtime,
       basePath: "/",
@@ -93,7 +93,7 @@ test("Fetch handler includes cloud.public_api_key when the header is present", a
   const { runtime, captureSpy, teardown } = setup();
 
   try {
-    const endpoint = createCopilotRuntimeHandler({
+    const endpoint = createCopilotKitRuntimeHandler({
       cors: true,
       runtime,
       basePath: "/",

@@ -2,7 +2,7 @@ import { test, expect, vi } from "vitest";
 // Import the handler factory through the package's PUBLIC `/v2` entry, whose
 // source barrel is `src/index.ts` (two levels up from this __tests__ dir).
 // This is the specifier a consumer compiles down to when they write
-// `import { createCopilotRuntimeHandler } from "@copilotkit/runtime"`, so it
+// `import { createCopilotKitRuntimeHandler } from "@copilotkit/runtime"`, so it
 // exercises the full public re-export chain (v2 index -> runtime index ->
 // core/fetch-handler) rather than the deep internal module. It locks the
 // contract that the public surface still carries `handler.channels`.
@@ -11,7 +11,7 @@ import { test, expect, vi } from "vitest";
 // package specifier on purpose: that specifier resolves to the gitignored,
 // prebuilt `dist/`, which the `test` target does not rebuild and which can lag
 // behind source — testing it would assert against a stale artifact.
-import { createCopilotRuntimeHandler } from "../../index";
+import { createCopilotKitRuntimeHandler } from "../../index";
 import type { CopilotRuntimeFetchHandler } from "../../index";
 import { CopilotRuntime } from "../core/runtime";
 import { CopilotKitIntelligence } from "../intelligence-platform";
@@ -59,7 +59,7 @@ const fakeChannelEngine =
   });
 
 test("public /v2 entry exposes handler.channels for an intelligence+channels runtime", async () => {
-  const handler: CopilotRuntimeFetchHandler = createCopilotRuntimeHandler({
+  const handler: CopilotRuntimeFetchHandler = createCopilotKitRuntimeHandler({
     runtime: intelRuntimeWith1Channel(),
     __channelEngine: fakeChannelEngine(),
   });
@@ -72,7 +72,7 @@ test("public /v2 entry exposes handler.channels for an intelligence+channels run
 });
 
 test("public /v2 entry omits handler.channels for a plain runtime", () => {
-  const handler = createCopilotRuntimeHandler({
+  const handler = createCopilotKitRuntimeHandler({
     runtime: new CopilotRuntime({ agents: {} }),
     __channelEngine: fakeChannelEngine(),
   });

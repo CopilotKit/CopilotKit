@@ -1,7 +1,7 @@
 import { expect, test, vi } from "vitest";
 
 import type { CopilotRuntimeLike } from "../core/runtime";
-import { createCopilotRuntimeHandler } from "../core/fetch-handler";
+import { createCopilotKitRuntimeHandler } from "../core/fetch-handler";
 import type {
   HandlerHookContext,
   ResponseHookContext,
@@ -34,7 +34,7 @@ function setup() {
       stop: vi.fn(),
     },
   } as unknown as CopilotRuntimeLike;
-  const handler = createCopilotRuntimeHandler({
+  const handler = createCopilotKitRuntimeHandler({
     runtime,
     basePath: "/api/copilotkit",
     mode: "single-route",
@@ -200,7 +200,7 @@ test("single-route resource requests preserve every Intelligence REST operation"
     agents: {},
     exposeMemoryRoutes: true,
   });
-  const handler = createCopilotRuntimeHandler({
+  const handler = createCopilotKitRuntimeHandler({
     runtime,
     basePath: "/api/copilotkit",
     mode: "single-route",
@@ -268,7 +268,7 @@ test("single-route info advertises resource operations without changing legacy t
 test("single-route resource requests reject hidden memory routes before hooks", async () => {
   const onBeforeHandler = vi.fn(({ request }: HandlerHookContext) => request);
   const runtime = new CopilotRuntime({ agents: {} });
-  const handler = createCopilotRuntimeHandler({
+  const handler = createCopilotKitRuntimeHandler({
     runtime,
     basePath: "/api/copilotkit",
     mode: "single-route",
@@ -290,7 +290,7 @@ test("single-route resource requests reject hidden memory routes before hooks", 
 
 test("single-route hidden memory routes return 404 before method validation", async () => {
   const runtime = new CopilotRuntime({ agents: {} });
-  const handler = createCopilotRuntimeHandler({
+  const handler = createCopilotKitRuntimeHandler({
     runtime,
     basePath: "/api/copilotkit",
     mode: "single-route",
@@ -311,7 +311,7 @@ test("single-route hidden memory routes return 404 before method validation", as
 
 test("single-route resource requests reject unsafe paths and non-resource routes", async () => {
   const runtime = new CopilotRuntime({ agents: {} });
-  const handler = createCopilotRuntimeHandler({
+  const handler = createCopilotKitRuntimeHandler({
     runtime,
     basePath: "/api/copilotkit",
     mode: "single-route",
@@ -338,7 +338,7 @@ test("single-route resource requests reject unsafe paths and non-resource routes
 test("single-route resource requests preserve REST method errors", async () => {
   const onResponse = vi.fn(({ response }: ResponseHookContext) => response);
   const runtime = new CopilotRuntime({ agents: {} });
-  const handler = createCopilotRuntimeHandler({
+  const handler = createCopilotKitRuntimeHandler({
     runtime,
     basePath: "/api/copilotkit",
     mode: "single-route",
@@ -367,7 +367,7 @@ test("single-route resource requests preserve REST method errors", async () => {
 test("single-route resource errors report the matched resource path", async () => {
   const onError = vi.fn().mockReturnValue(new Response(null, { status: 503 }));
   const runtime = new CopilotRuntime({ agents: {} });
-  const handler = createCopilotRuntimeHandler({
+  const handler = createCopilotKitRuntimeHandler({
     runtime,
     basePath: "/api/copilotkit",
     mode: "single-route",

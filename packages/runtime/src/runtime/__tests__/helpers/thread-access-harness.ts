@@ -6,7 +6,7 @@ import { afterEach, expect } from "vitest";
 import type { AbstractAgent } from "@ag-ui/client";
 import { CopilotRuntime } from "../../core/runtime";
 import type { CopilotRuntimeOptions } from "../../core/runtime";
-import { createCopilotRuntimeHandler } from "../../core/fetch-handler";
+import { createCopilotKitRuntimeHandler } from "../../core/fetch-handler";
 import { ɵGLOBAL_STORE } from "../../runner/in-memory";
 import { OwnershipTestAgent } from "../../runner/__tests__/ownership-test-agent";
 
@@ -47,7 +47,10 @@ export function makeHandler(
     agents,
     ...extra,
   } as CopilotRuntimeOptions);
-  return createCopilotRuntimeHandler({ runtime, basePath: "/api/copilotkit" });
+  return createCopilotKitRuntimeHandler({
+    runtime,
+    basePath: "/api/copilotkit",
+  });
 }
 
 export function headersFor(user?: string): Record<string, string> {

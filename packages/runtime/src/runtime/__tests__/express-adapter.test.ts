@@ -1,4 +1,4 @@
-import { createCopilotNodeListener } from "../endpoints/node";
+import { createCopilotKitNodeListener } from "../endpoints/node";
 import express from "express";
 import request from "supertest";
 import { describe, it, expect, vi } from "vitest";
@@ -59,12 +59,12 @@ describe("Express adapter with hooks", () => {
     });
   };
 
-  describe("createCopilotNodeListener", () => {
+  describe("createCopilotKitNodeListener", () => {
     const createApp = (
       runtimeOpts?: Partial<CopilotSseRuntimeOptions>,
       endpointOpts?: Partial<
         Omit<
-          Parameters<typeof createCopilotNodeListener>[0],
+          Parameters<typeof createCopilotKitNodeListener>[0],
           "runtime" | "basePath"
         >
       >,
@@ -72,7 +72,7 @@ describe("Express adapter with hooks", () => {
       const runtime = createMockRuntime(runtimeOpts);
       const app = express();
       app.use(
-        createCopilotNodeListener({
+        createCopilotKitNodeListener({
           cors: true,
           runtime,
           basePath: "/",
@@ -151,14 +151,14 @@ describe("Express adapter with hooks", () => {
     });
   });
 
-  describe("createCopilotNodeListener", () => {
+  describe("createCopilotKitNodeListener", () => {
     const createSingleApp = (
-      hooks?: Parameters<typeof createCopilotNodeListener>[0]["hooks"],
+      hooks?: Parameters<typeof createCopilotKitNodeListener>[0]["hooks"],
     ) => {
       const runtime = createMockRuntime();
       const app = express();
       app.use(
-        createCopilotNodeListener({
+        createCopilotKitNodeListener({
           mode: "single-route",
           cors: true,
           runtime,

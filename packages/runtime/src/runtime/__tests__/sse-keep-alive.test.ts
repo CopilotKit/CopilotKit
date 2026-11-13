@@ -7,7 +7,7 @@ import {
   MAX_SSE_KEEP_ALIVE_INTERVAL_SECONDS,
 } from "../handlers/shared/sse-keep-alive";
 import { createSseEventResponse } from "../handlers/shared/sse-response";
-import { createCopilotRuntimeHandler } from "../core/fetch-handler";
+import { createCopilotKitRuntimeHandler } from "../core/fetch-handler";
 import { CopilotRuntime } from "../core/runtime";
 import type { AgentRunner } from "../runner/agent-runner";
 
@@ -153,7 +153,7 @@ describe("runtime option on the wire", () => {
     setState() {},
   } as unknown as AbstractAgent;
   const handlerFor = (sseKeepAliveIntervalSeconds: number) =>
-    createCopilotRuntimeHandler({
+    createCopilotKitRuntimeHandler({
       runtime: new CopilotRuntime({
         agents: { default: agent },
         runner: quietRunner,

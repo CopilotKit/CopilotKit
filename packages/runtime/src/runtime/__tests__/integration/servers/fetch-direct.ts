@@ -1,4 +1,4 @@
-import { createCopilotRuntimeHandler } from "../../../core/fetch-handler";
+import { createCopilotKitRuntimeHandler } from "../../../core/fetch-handler";
 import { createTestRuntime } from "../helpers/create-test-runtime";
 import type { ServerHandle } from "./types";
 
@@ -21,7 +21,7 @@ export function createFetchDirectHandler(
 ): ServerHandle & { handler: (request: Request) => Promise<Response> } {
   const runtime = createTestRuntime(opts);
 
-  const handler = createCopilotRuntimeHandler({
+  const handler = createCopilotKitRuntimeHandler({
     runtime,
     basePath: BASE_PATH,
     mode,

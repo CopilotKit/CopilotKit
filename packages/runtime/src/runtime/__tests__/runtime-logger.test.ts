@@ -10,7 +10,7 @@ import type {
   CopilotRuntimeLogger,
   CopilotSseRuntimeOptions,
 } from "../core/runtime";
-import { createCopilotRuntimeHandler } from "../core/fetch-handler";
+import { createCopilotKitRuntimeHandler } from "../core/fetch-handler";
 
 type Level = "debug" | "info" | "warn" | "error";
 
@@ -74,7 +74,7 @@ function createHandler(
     agents: { finishing: new FinishingAgent(), failing: new FailingAgent() },
     ...options,
   });
-  return createCopilotRuntimeHandler({ runtime, basePath: "/api" });
+  return createCopilotKitRuntimeHandler({ runtime, basePath: "/api" });
 }
 
 async function runAgent(

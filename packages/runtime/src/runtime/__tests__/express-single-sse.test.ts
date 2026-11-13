@@ -1,4 +1,4 @@
-import { createCopilotNodeListener } from "../endpoints/node";
+import { createCopilotKitNodeListener } from "../endpoints/node";
 import express from "express";
 import type { AddressInfo } from "node:net";
 import { afterEach, describe, expect, it } from "vitest";
@@ -84,7 +84,7 @@ describe("Express single-route SSE streaming", () => {
     const runtime = buildRuntime();
     const app = express();
     app.use(
-      createCopilotNodeListener({
+      createCopilotKitNodeListener({
         mode: "single-route",
         cors: true,
         runtime,

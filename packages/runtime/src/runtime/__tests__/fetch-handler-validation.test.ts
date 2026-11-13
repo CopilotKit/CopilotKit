@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { createCopilotRuntimeHandler } from "../core/fetch-handler";
+import { createCopilotKitRuntimeHandler } from "../core/fetch-handler";
 import { CopilotRuntime } from "../core/runtime";
 import type { AbstractAgent } from "@ag-ui/client";
 
@@ -32,7 +32,7 @@ const post = (url: string, body?: unknown) =>
 
 describe("fetch-handler validation — single-route malformed input", () => {
   const runtime = createRuntime();
-  const handler = createCopilotRuntimeHandler({
+  const handler = createCopilotKitRuntimeHandler({
     runtime,
     basePath: "/api",
     mode: "single-route",
@@ -124,7 +124,7 @@ describe("fetch-handler validation — single-route malformed input", () => {
 
 describe("fetch-handler validation — single-route missing params", () => {
   const runtime = createRuntime();
-  const handler = createCopilotRuntimeHandler({
+  const handler = createCopilotKitRuntimeHandler({
     runtime,
     basePath: "/api",
     mode: "single-route",
@@ -267,7 +267,7 @@ describe("fetch-handler validation — multi-route edge cases", () => {
   const runtime = createRuntime();
 
   it("handles request with no body on a POST route gracefully", async () => {
-    const handler = createCopilotRuntimeHandler({
+    const handler = createCopilotKitRuntimeHandler({
       runtime,
       basePath: "/api",
     });
@@ -282,7 +282,7 @@ describe("fetch-handler validation — multi-route edge cases", () => {
   });
 
   it("CORS headers present on error responses too", async () => {
-    const handler = createCopilotRuntimeHandler({
+    const handler = createCopilotKitRuntimeHandler({
       runtime,
       basePath: "/api",
       cors: true,
@@ -295,7 +295,7 @@ describe("fetch-handler validation — multi-route edge cases", () => {
   });
 
   it("CORS headers present on 405 responses", async () => {
-    const handler = createCopilotRuntimeHandler({
+    const handler = createCopilotKitRuntimeHandler({
       runtime,
       basePath: "/api",
       cors: true,
@@ -315,7 +315,7 @@ describe("fetch-handler validation — multi-route edge cases", () => {
       clone: () => agent,
     };
     const errorRuntime = createRuntime({ default: agent as AbstractAgent });
-    const handler = createCopilotRuntimeHandler({
+    const handler = createCopilotKitRuntimeHandler({
       runtime: errorRuntime,
       basePath: "/api",
       cors: true,
@@ -336,7 +336,7 @@ describe("fetch-handler validation — multi-route edge cases", () => {
   });
 
   it("error response does not leak error details to clients", async () => {
-    const handler = createCopilotRuntimeHandler({
+    const handler = createCopilotKitRuntimeHandler({
       runtime,
       basePath: "/api",
       hooks: {
@@ -357,7 +357,7 @@ describe("fetch-handler validation — multi-route edge cases", () => {
   });
 
   it("error response returns internal_error for non-Error throws", async () => {
-    const handler = createCopilotRuntimeHandler({
+    const handler = createCopilotKitRuntimeHandler({
       runtime,
       basePath: "/api",
       hooks: {
@@ -387,7 +387,7 @@ describe("fetch-handler validation — multi-route edge cases", () => {
 
 describe("fetch-handler validation — GET-only enforcement on threads read endpoints", () => {
   const runtime = createRuntime();
-  const handler = createCopilotRuntimeHandler({
+  const handler = createCopilotKitRuntimeHandler({
     runtime,
     basePath: "/api",
   });

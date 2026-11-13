@@ -1,4 +1,4 @@
-import { createCopilotRuntimeHandler } from "../core/fetch-handler";
+import { createCopilotKitRuntimeHandler } from "../core/fetch-handler";
 import { expect, test, vi } from "vitest";
 import { lambdaClient, logger } from "@copilotkit/shared";
 import { CopilotIntelligenceRuntime } from "../core/runtime";
@@ -31,7 +31,7 @@ function setup(mode: Mode) {
       getTrajectoryLearningContainerIds: selector,
     }),
   });
-  const app = createCopilotRuntimeHandler({
+  const app = createCopilotKitRuntimeHandler({
     cors: true,
     runtime,
     mode,

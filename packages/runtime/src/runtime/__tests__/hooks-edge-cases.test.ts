@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { createCopilotRuntimeHandler } from "../core/fetch-handler";
+import { createCopilotKitRuntimeHandler } from "../core/fetch-handler";
 import { CopilotRuntime } from "../core/runtime";
 import type { CopilotSseRuntimeOptions } from "../core/runtime";
 import type { AbstractAgent } from "@ag-ui/client";
@@ -41,7 +41,7 @@ describe("hooks edge cases — onRequest errors", () => {
     const onError = vi
       .fn()
       .mockReturnValue(new Response("handled", { status: 503 }));
-    const handler = createCopilotRuntimeHandler({
+    const handler = createCopilotKitRuntimeHandler({
       runtime: createRuntime(),
       basePath: "/api",
       hooks: {
@@ -66,7 +66,7 @@ describe("hooks edge cases — onRequest errors", () => {
     const onError = vi
       .fn()
       .mockReturnValue(new Response("handled", { status: 503 }));
-    const handler = createCopilotRuntimeHandler({
+    const handler = createCopilotKitRuntimeHandler({
       runtime: createRuntime(),
       basePath: "/api",
       hooks: {
@@ -85,7 +85,7 @@ describe("hooks edge cases — onRequest errors", () => {
   });
 
   it("onRequest returning non-Request value is ignored (uses original)", async () => {
-    const handler = createCopilotRuntimeHandler({
+    const handler = createCopilotKitRuntimeHandler({
       runtime: createRuntime(),
       basePath: "/api",
       hooks: {
@@ -110,7 +110,7 @@ describe("hooks edge cases — onBeforeHandler errors", () => {
     const onError = vi
       .fn()
       .mockReturnValue(new Response("handled", { status: 503 }));
-    const handler = createCopilotRuntimeHandler({
+    const handler = createCopilotKitRuntimeHandler({
       runtime: createRuntime(),
       basePath: "/api",
       hooks: {
@@ -132,7 +132,7 @@ describe("hooks edge cases — onBeforeHandler errors", () => {
   });
 
   it("onBeforeHandler returning non-Request value is ignored", async () => {
-    const handler = createCopilotRuntimeHandler({
+    const handler = createCopilotKitRuntimeHandler({
       runtime: createRuntime(),
       basePath: "/api",
       hooks: {
@@ -148,7 +148,7 @@ describe("hooks edge cases — onBeforeHandler errors", () => {
 
   it("is NOT called when 405 (wrong HTTP method)", async () => {
     const onBeforeHandler = vi.fn();
-    const handler = createCopilotRuntimeHandler({
+    const handler = createCopilotKitRuntimeHandler({
       runtime: createRuntime(),
       basePath: "/api",
       hooks: { onBeforeHandler },
@@ -166,7 +166,7 @@ describe("hooks edge cases — onBeforeHandler errors", () => {
 
 describe("hooks edge cases — onResponse", () => {
   it("onResponse returning non-Response value is ignored (uses original)", async () => {
-    const handler = createCopilotRuntimeHandler({
+    const handler = createCopilotKitRuntimeHandler({
       runtime: createRuntime(),
       basePath: "/api",
       hooks: {
@@ -190,7 +190,7 @@ describe("hooks edge cases — onResponse", () => {
       return new Response(response.body, { status: response.status, headers });
     });
 
-    const handler = createCopilotRuntimeHandler({
+    const handler = createCopilotKitRuntimeHandler({
       runtime: createRuntime(),
       basePath: "/api",
       hooks: {
@@ -209,7 +209,7 @@ describe("hooks edge cases — onResponse", () => {
 
   it("onResponse is NOT called when onError handles a non-Response error", async () => {
     const onResponse = vi.fn();
-    const handler = createCopilotRuntimeHandler({
+    const handler = createCopilotKitRuntimeHandler({
       runtime: createRuntime(),
       basePath: "/api",
       hooks: {
@@ -235,7 +235,7 @@ describe("hooks edge cases — onResponse", () => {
 describe("hooks edge cases — onError", () => {
   it("onError is NOT called when a Response is thrown", async () => {
     const onError = vi.fn();
-    const handler = createCopilotRuntimeHandler({
+    const handler = createCopilotKitRuntimeHandler({
       runtime: createRuntime(),
       basePath: "/api",
       hooks: {
@@ -252,7 +252,7 @@ describe("hooks edge cases — onError", () => {
   });
 
   it("onError itself throwing returns a 500 fallback instead of rejecting", async () => {
-    const handler = createCopilotRuntimeHandler({
+    const handler = createCopilotKitRuntimeHandler({
       runtime: createRuntime(),
       basePath: "/api",
       hooks: {
@@ -277,7 +277,7 @@ describe("hooks edge cases — onError", () => {
     const onError = vi
       .fn()
       .mockReturnValue(new Response("handled", { status: 503 }));
-    const handler = createCopilotRuntimeHandler({
+    const handler = createCopilotKitRuntimeHandler({
       runtime: createRuntime(),
       basePath: "/api",
       hooks: {
@@ -311,7 +311,7 @@ describe("hooks edge cases — onError", () => {
     const onError = vi
       .fn()
       .mockReturnValue(new Response("handled", { status: 503 }));
-    const handler = createCopilotRuntimeHandler({
+    const handler = createCopilotKitRuntimeHandler({
       runtime: createRuntime(),
       basePath: "/api",
       hooks: {
@@ -351,7 +351,7 @@ describe("hooks edge cases — full pipeline", () => {
       },
     };
 
-    const handler = createCopilotRuntimeHandler({
+    const handler = createCopilotKitRuntimeHandler({
       runtime: createRuntime(),
       basePath: "/api",
       hooks,
@@ -365,7 +365,7 @@ describe("hooks edge cases — full pipeline", () => {
   it("onRequest can modify request seen by onBeforeHandler", async () => {
     let headerInBeforeHandler: string | null = null;
 
-    const handler = createCopilotRuntimeHandler({
+    const handler = createCopilotKitRuntimeHandler({
       runtime: createRuntime(),
       basePath: "/api",
       hooks: {
@@ -385,7 +385,7 @@ describe("hooks edge cases — full pipeline", () => {
   });
 
   it("onResponse can read and modify response body", async () => {
-    const handler = createCopilotRuntimeHandler({
+    const handler = createCopilotKitRuntimeHandler({
       runtime: createRuntime(),
       basePath: "/api",
       hooks: {
@@ -411,7 +411,7 @@ describe("hooks edge cases — full pipeline", () => {
     const onBeforeHandler = vi.fn();
     const onResponse = vi.fn();
 
-    const handler = createCopilotRuntimeHandler({
+    const handler = createCopilotKitRuntimeHandler({
       runtime: createRuntime(),
       basePath: "/api",
       mode: "single-route",
@@ -431,7 +431,7 @@ describe("hooks edge cases — full pipeline", () => {
 
   it("onBeforeHandler receives correct agentId in single-route mode", async () => {
     const onBeforeHandler = vi.fn();
-    const handler = createCopilotRuntimeHandler({
+    const handler = createCopilotKitRuntimeHandler({
       runtime: createRuntime(),
       basePath: "/api",
       mode: "single-route",

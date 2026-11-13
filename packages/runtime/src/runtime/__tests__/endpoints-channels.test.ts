@@ -1,9 +1,9 @@
-import { createCopilotNodeListener } from "../endpoints/node";
-import { createCopilotRuntimeHandler } from "../core/fetch-handler";
+import { createCopilotKitNodeListener } from "../endpoints/node";
+import { createCopilotKitRuntimeHandler } from "../core/fetch-handler";
 /**
  * Managed-Channel lifecycle across the endpoint wrappers.
  *
- * `createCopilotRuntimeHandler` constructs the control surface but opens NO
+ * `createCopilotKitRuntimeHandler` constructs the control surface but opens NO
  * socket at creation: activation stays LAZY there because the generic Fetch
  * handler is the serverless/edge entry point (see `handler-channels.test.ts`).
  *
@@ -11,8 +11,8 @@ import { createCopilotRuntimeHandler } from "../core/fetch-handler";
  * that owns its own lifetime, so they AUTO-START activation at creation
  * (OSS-641) and `ready()` becomes await-and-observe rather than the trigger:
  *
- * - Node (`createCopilotNodeListener`) — auto-starts.
- * - Fetch (`createCopilotRuntimeHandler`) — stays LAZY: it is our Next.js App
+ * - Node (`createCopilotKitNodeListener`) — auto-starts.
+ * - Fetch (`createCopilotKitRuntimeHandler`) — stays LAZY: it is our Next.js App
  *   Router / edge surface (every `examples/demos/*` route handler builds one
  *   at module scope), where per-isolate auto-start would mint competing
  *   listeners for the same Channel.
@@ -109,7 +109,7 @@ describe("endpoint wrappers — managed channels propagation", () => {
   it("Node listener starts activation at creation, without any ready() call", () => {
     const { engine, state } = countingEngine();
 
-    const listener = createCopilotNodeListener({
+    const listener = createCopilotKitNodeListener({
       runtime: intelRuntimeWith1Channel(),
       __channelEngine: engine,
     });
@@ -125,7 +125,7 @@ describe("endpoint wrappers — managed channels propagation", () => {
   it("Node listener's ready() observes the auto-started activation instead of a second one", async () => {
     const { engine, state } = countingEngine();
 
-    const listener = createCopilotNodeListener({
+    const listener = createCopilotKitNodeListener({
       runtime: intelRuntimeWith1Channel(),
       __channelEngine: engine,
     });
@@ -140,7 +140,7 @@ describe("endpoint wrappers — managed channels propagation", () => {
   it("Node listener has no .channels for a plain SSE runtime", () => {
     const { engine, state } = countingEngine();
 
-    const listener = createCopilotNodeListener({
+    const listener = createCopilotKitNodeListener({
       runtime: new CopilotRuntime({ agents: {} }),
       __channelEngine: engine,
     });
@@ -152,7 +152,7 @@ describe("endpoint wrappers — managed channels propagation", () => {
   it("activateChannels: false opts a Node listener out of the auto-start", () => {
     const { engine, state } = countingEngine();
 
-    const listener = createCopilotNodeListener({
+    const listener = createCopilotKitNodeListener({
       runtime: intelRuntimeWith1Channel(),
       activateChannels: false,
       __channelEngine: engine,
@@ -165,10 +165,10 @@ describe("endpoint wrappers — managed channels propagation", () => {
   it("Node listener logs a failed auto-start instead of leaving an unhandled rejection", async () => {
     vi.spyOn(logger, "warn").mockImplementation(() => logger);
     const errorSpy = vi.spyOn(logger, "error").mockImplementation(() => logger);
-    let listener!: ReturnType<typeof createCopilotNodeListener>;
+    let listener!: ReturnType<typeof createCopilotKitNodeListener>;
 
     const unhandled = await unhandledRejectionsDuring(() => {
-      listener = createCopilotNodeListener({
+      listener = createCopilotKitNodeListener({
         runtime: intelRuntimeWith1Channel(),
         __channelEngine: failingEngine,
       });
@@ -198,7 +198,7 @@ describe("endpoint wrappers — managed channels propagation", () => {
 
     const unhandled = await unhandledRejectionsDuring(() => {
       expect(() =>
-        createCopilotNodeListener({ runtime, __channelEngine: engine }),
+        createCopilotKitNodeListener({ runtime, __channelEngine: engine }),
       ).not.toThrow();
     });
 
@@ -215,7 +215,7 @@ describe("endpoint wrappers — managed channels propagation", () => {
   it("Node listener exposes .channels at a configured base path", async () => {
     const { engine, state } = countingEngine();
 
-    const router = createCopilotNodeListener({
+    const router = createCopilotKitNodeListener({
       cors: true,
       runtime: intelRuntimeWith1Channel(),
       basePath: "/api/copilotkit",
@@ -237,11 +237,11 @@ describe("endpoint wrappers — managed channels propagation", () => {
     // Auto-start makes the per-runtime manager cache load-bearing: before
     // OSS-641 a second wrapper could only double-activate if someone called
     // ready() twice, now merely constructing it would.
-    const listener = createCopilotNodeListener({
+    const listener = createCopilotKitNodeListener({
       runtime,
       __channelEngine: engine,
     });
-    const router = createCopilotRuntimeHandler({
+    const router = createCopilotKitRuntimeHandler({
       cors: true,
       runtime,
       basePath: "/api/copilotkit",
@@ -258,7 +258,7 @@ describe("endpoint wrappers — managed channels propagation", () => {
   it("Fetch handler stays lazy so an edge/serverless isolate opens no socket at creation", async () => {
     const { engine, state } = countingEngine();
 
-    const app = createCopilotRuntimeHandler({
+    const app = createCopilotKitRuntimeHandler({
       cors: true,
       runtime: intelRuntimeWith1Channel(),
       basePath: "/api/copilotkit",

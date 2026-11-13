@@ -38,7 +38,10 @@ export {
 } from "./intelligence-platform";
 
 // Export framework-agnostic fetch handler
-export { createCopilotRuntimeHandler } from "./core/fetch-handler";
+export {
+  createCopilotKitRuntimeHandler,
+  createCopilotRuntimeHandler,
+} from "./core/fetch-handler";
 export type {
   CopilotRuntimeHandlerOptions,
   CopilotRuntimeFetchHandler,

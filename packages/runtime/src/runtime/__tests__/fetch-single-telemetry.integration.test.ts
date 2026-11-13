@@ -1,4 +1,4 @@
-import { createCopilotRuntimeHandler } from "../core/fetch-handler";
+import { createCopilotKitRuntimeHandler } from "../core/fetch-handler";
 /**
  * Integration test: Fetch single-route handler + telemetry.
  */
@@ -20,7 +20,7 @@ test("Fetch single-route handler fires instance_created on handler creation", as
     .mockResolvedValue(undefined);
 
   try {
-    createCopilotRuntimeHandler({
+    createCopilotKitRuntimeHandler({
       mode: "single-route",
       cors: true,
       runtime,

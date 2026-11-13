@@ -1,7 +1,7 @@
 import { createServer } from "node:http";
 import type { AddressInfo } from "node:net";
-import { createCopilotRuntimeHandler } from "../../../core/fetch-handler";
-import { createCopilotNodeHandler } from "../../../endpoints/node-fetch-handler";
+import { createCopilotKitRuntimeHandler } from "../../../core/fetch-handler";
+import { createCopilotKitNodeHandler } from "../../../endpoints/node-fetch-handler";
 import { createTestRuntime } from "../helpers/create-test-runtime";
 import type { ServerHandle } from "./types";
 
@@ -12,13 +12,13 @@ export async function createNodeMultiServer(
 ): Promise<ServerHandle> {
   const runtime = createTestRuntime(opts);
 
-  const handler = createCopilotRuntimeHandler({
+  const handler = createCopilotKitRuntimeHandler({
     runtime,
     basePath: BASE_PATH,
     cors: true,
   });
 
-  const nodeHandler = createCopilotNodeHandler(handler);
+  const nodeHandler = createCopilotKitNodeHandler(handler);
 
   const server = createServer(async (req, res) => {
     const url = new URL(req.url ?? "/", `http://${req.headers.host}`);

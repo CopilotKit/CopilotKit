@@ -1,4 +1,4 @@
-import { createCopilotNodeListener } from "../endpoints/node";
+import { createCopilotKitNodeListener } from "../endpoints/node";
 import express from "express";
 import request from "supertest";
 import { describe, expect, it, vi } from "vitest";
@@ -67,7 +67,7 @@ describe("CopilotEndpointSingleRouteExpress routing", () => {
     const runtime = createMockRuntime();
     const app = express();
     app.use(
-      createCopilotNodeListener({
+      createCopilotKitNodeListener({
         mode: "single-route",
         cors: true,
         runtime,

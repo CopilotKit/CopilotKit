@@ -1,4 +1,4 @@
-import { createCopilotRuntimeHandler } from "../core/fetch-handler";
+import { createCopilotKitRuntimeHandler } from "../core/fetch-handler";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { AbstractAgent } from "@ag-ui/client";
 
@@ -38,7 +38,7 @@ describe("CopilotEndpointSingleRoute middleware", () => {
       afterRequestMiddleware: after,
     });
 
-    const endpoint = createCopilotRuntimeHandler({
+    const endpoint = createCopilotKitRuntimeHandler({
       mode: "single-route",
       cors: true,
       runtime,
@@ -75,7 +75,7 @@ describe("CopilotEndpointSingleRoute middleware", () => {
       .spyOn(logger, "error")
       .mockImplementation(() => undefined as unknown as void);
 
-    const endpoint = createCopilotRuntimeHandler({
+    const endpoint = createCopilotKitRuntimeHandler({
       mode: "single-route",
       cors: true,
       runtime,
@@ -107,7 +107,7 @@ describe("CopilotEndpointSingleRoute middleware", () => {
       .spyOn(logger, "error")
       .mockImplementation(() => undefined as unknown as void);
 
-    const endpoint = createCopilotRuntimeHandler({
+    const endpoint = createCopilotKitRuntimeHandler({
       mode: "single-route",
       cors: true,
       runtime,
@@ -146,7 +146,7 @@ describe("CopilotEndpointSingleRoute middleware", () => {
       .spyOn(logger, "error")
       .mockImplementation(() => undefined as unknown as void);
 
-    const endpoint = createCopilotRuntimeHandler({
+    const endpoint = createCopilotKitRuntimeHandler({
       mode: "single-route",
       cors: true,
       runtime,
@@ -176,7 +176,7 @@ describe("CopilotEndpointSingleRoute middleware", () => {
       afterRequestMiddleware: after,
     });
 
-    const endpoint = createCopilotRuntimeHandler({
+    const endpoint = createCopilotKitRuntimeHandler({
       mode: "single-route",
       cors: true,
       runtime,
@@ -206,7 +206,7 @@ describe("CopilotEndpointSingleRoute middleware", () => {
       .spyOn(logger, "error")
       .mockImplementation(() => undefined as unknown as void);
 
-    const endpoint = createCopilotRuntimeHandler({
+    const endpoint = createCopilotKitRuntimeHandler({
       mode: "single-route",
       cors: true,
       runtime,

@@ -905,7 +905,7 @@ export function isIntelligenceRuntime(
  * Compile-time phantom brand marking a {@link CopilotRuntime} that was
  * constructed with at least one declared Intelligence Channel. It has no runtime
  * representation — the shim never sets this property; it exists purely so
- * `createCopilotRuntimeHandler` can tell, at the type level, that the resulting
+ * `createCopilotKitRuntimeHandler` can tell, at the type level, that the resulting
  * handler will carry a non-optional `.channels` control surface.
  */
 export interface RuntimeWithDeclaredChannels {
@@ -943,7 +943,7 @@ export interface CopilotRuntime extends CopilotRuntimeLike {
  *
  * The first overload fires when the caller passes `intelligence` together with a
  * non-empty `channels` tuple: it returns a {@link RuntimeWithDeclaredChannels}-
- * branded runtime, which `createCopilotRuntimeHandler` maps to a handler whose
+ * branded runtime, which `createCopilotKitRuntimeHandler` maps to a handler whose
  * `.channels` is non-optional. Every other configuration (SSE, or Intelligence
  * without channels, or an empty `channels: []`) falls through to the second
  * overload and stays unbranded, so its handler keeps `.channels` optional.
