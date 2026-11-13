@@ -9,7 +9,8 @@ export default function NotFound() {
   return (
     <div className="pg-root min-h-[100dvh] dark:bg-black">
       <SiteHeader />
-      <main className="landing-container pb-24 pt-20">
+      {/* Centred as one block in what is left of the window under the 64px header, like the landing. */}
+      <main className="landing-container flex min-h-[calc(100dvh-64px)] flex-col items-center justify-center py-20 text-center">
         <p className="font-mono text-[13px] text-muted-foreground">404</p>
         <h1 className="mt-3 text-[36px] font-semibold leading-[1.1] tracking-[-0.02em] sm:text-[44px]">
           This page does not exist
@@ -18,7 +19,7 @@ export default function NotFound() {
           The link may be old, or the address may have a typo. Try one of these
           instead.
         </p>
-        <div className="mt-8 flex flex-wrap items-center gap-3">
+        <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
           <Link
             href="/playground"
             className="inline-flex h-10 items-center gap-2 rounded-lg bg-foreground px-4 text-[14px] font-medium text-background transition-opacity hover:opacity-90"
