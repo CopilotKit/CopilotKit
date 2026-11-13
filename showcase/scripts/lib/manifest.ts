@@ -104,6 +104,8 @@ export interface ManifestDemo {
  */
 export interface Manifest {
   readonly slug: string;
+  /** Explicit shared harness coverage; absent retains the legacy spec floor. */
+  readonly test_coverage?: "shared-d6";
   readonly name?: string;
   readonly deployed?: boolean;
   /**
@@ -276,6 +278,18 @@ export function parseManifest(
   // not need a blanket `as Record<string, unknown>` cast — every read
   // below is narrowed by the predicate it just passed.
   const obj: object = parsed;
+
+  let testCoverage: "shared-d6" | undefined;
+  if (hasOwnProp(obj, "test_coverage")) {
+    if (obj.test_coverage !== "shared-d6") {
+      return {
+        kind: "malformed",
+        subkind: "shape",
+        error: 'expected "test_coverage" to be "shared-d6" when present',
+      };
+    }
+    testCoverage = obj.test_coverage;
+  }
 
   // slug is required — every consumer (audit.ts / validate-parity.ts /
   // capture-previews.ts) assumes a slug exists. A manifest without one is
@@ -519,6 +533,7 @@ export function parseManifest(
   // fields on Manifest match the runtime behavior.
   const manifest: Manifest = Object.freeze({
     slug,
+    ...(testCoverage !== undefined ? { test_coverage: testCoverage } : {}),
     ...(name !== undefined ? { name } : {}),
     ...(deployed !== undefined ? { deployed } : {}),
     ...(backendUrl !== undefined ? { backend_url: backendUrl } : {}),

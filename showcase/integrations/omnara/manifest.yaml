@@ -1,0 +1,66 @@
+name: Omnara
+slug: omnara
+category: agent-framework
+language: typescript
+description: Hosted Omnara agents connected through the published AG-UI adapter and standalone CopilotKit demos.
+partner_docs: https://docs.omnara.com
+repo: https://github.com/CopilotKit/CopilotKit/tree/main/showcase/integrations/omnara
+copilotkit_version: 1.79.0
+deployed: false
+test_coverage: shared-d6
+# PNI-775 enables generated docs after hosted/session/probe evidence exists.
+docs_mode: hidden
+sort_order: 90
+generative_ui:
+  - constrained-explicit
+interaction_modalities:
+  - embedded
+  - chat
+  - sidebar
+managed_platform:
+  name: Omnara
+  url: https://omnara.com
+# Implemented demo routes. Passing hosted coverage is tracked separately;
+# see PARITY_NOTES.md and PNI-773/774/775 before publishing this integration.
+features:
+  - agentic-chat
+  - frontend-tools
+  - tool-rendering-default-catchall
+demos:
+  - id: agentic-chat
+    name: Agentic Chat
+    description: Chat surface backed by a real hosted Omnara agent.
+    tags: [chat-ui]
+    route: /demos/agentic-chat
+    highlight:
+      - src/lib/agents.ts
+      - src/lib/omnara-config.ts
+      - src/app/api/copilotkit/[[...slug]]/route.ts
+      - src/app/demos/agentic-chat/page.tsx
+      - src/app/demos/agentic-chat/suggestions.ts
+  - id: frontend-tools
+    name: Frontend Tools
+    description: Background-change demo using browser tool continuation.
+    tags: [interactivity]
+    route: /demos/frontend-tools
+    highlight:
+      - src/lib/agents.ts
+      - src/app/api/copilotkit/[[...slug]]/route.ts
+      - src/app/demos/frontend-tools/page.tsx
+      - src/app/demos/frontend-tools/suggestions.ts
+      - src/app/demos/frontend-tools/background.tsx
+  - id: tool-rendering-default-catchall
+    name: Tool Rendering (Default Catch-All)
+    description: Backend tools rendered with CopilotKit's default tool cards.
+    tags: [generative-ui]
+    route: /demos/tool-rendering-default-catchall
+    highlight:
+      - src/lib/agents.ts
+      - src/lib/backend-tools.ts
+      - src/lib/tool-rendering.ts
+      - src/lib/weather-tool.ts
+      - src/app/api/copilotkit/[[...slug]]/route.ts
+      - src/app/demos/tool-rendering-default-catchall/page.tsx
+      - src/app/demos/tool-rendering-default-catchall/suggestions.ts
+starter_validation:
+  path: examples/integrations/omnara

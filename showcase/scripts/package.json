@@ -10,6 +10,7 @@
     "probe-claude-quickstarts": "tsx probe-claude-quickstarts.ts",
     "check-claude-quickstarts:runtime": "tsx check-claude-quickstarts-runtime.ts",
     "validate-manifests": "tsx generate-registry.ts --validate-only",
+    "validate-e2e-coverage": "tsx validate-e2e-coverage.ts",
     "validate-routes": "tsx validate-runtime-routes.ts --all",
     "check-aeo-synthetics": "tsx check-aeo-synthetics.ts",
     "showcase:audit": "tsx audit.ts",
@@ -25,6 +26,10 @@
   },
   "nx": {
     "targets": {
+      "validate-e2e-coverage": {
+        "dependsOn": [],
+        "cache": false
+      },
       "test": {
         "inputs": [
           "test",

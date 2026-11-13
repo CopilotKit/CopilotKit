@@ -393,6 +393,29 @@ services:
     volumes:
       - ./integrations/langgraph-python/src:/app/src
 
+  # Hosted Omnara cannot reach the local aimock container. Provider routing
+  # and strict fixture isolation are verified separately in PNI-773.
+  omnara:
+    build: ./integrations/omnara
+    image: showcase-omnara:local
+    container_name: showcase-omnara
+    env_file: .env
+    ports:
+      - "3123:10000"
+    profiles: ["omnara", "all"]
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:10000/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 15s
+
   langgraph-typescript:
     <<: *integration-defaults
     build: ./integrations/langgraph-typescript

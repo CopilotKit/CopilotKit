@@ -1,7 +1,8 @@
 name: "Showcase: Build Check (PR)"
 
-# Pre-merge Docker build check. Runs the same Depot Docker builds as the
-# post-merge showcase_build.yml pipeline but with push: false, so
+# Pre-merge Docker build check. Covers the Depot Docker builds from the
+# post-merge showcase_build.yml pipeline plus undeployed build-only sources,
+# all with push: false, so
 # Dockerfile-specific failures (missing deps that exist in the monorepo
 # but not in the isolated Docker context) are caught before merge. Final images
 # are loaded locally and run ONLY Node with networking disabled, never the app.
@@ -131,6 +132,8 @@ jobs:
               - 'showcase/integrations/langgraph-typescript/**'
             langroid:
               - 'showcase/integrations/langroid/**'
+            omnara:
+              - 'showcase/integrations/omnara/**'
             spring_ai:
               - 'showcase/integrations/spring-ai/**'
             strands:
@@ -182,13 +185,12 @@ jobs:
           PR_HEAD_REF: ${{ github.head_ref || github.ref_name }}
           FILTER_CHANGES: ${{ github.event_name == 'workflow_dispatch' && '["workflow_config"]' || steps.filter.outputs.changes }}
         run: |
-          # Showcase entries mirror ALL_SERVICES in showcase_build.yml; starter
-          # entries mirror ALL_STARTERS, and webhooks is built here without push.
-          # This covers every Node-bearing Showcase image recipe.
-          # Mirror of the ALL_SERVICES definition from showcase_build.yml.
-          # Keep in sync — the matrix here must match the production build
-          # workflow so that every service buildable post-merge is also
-          # checked pre-merge.
+          # Include ALL_SERVICES from showcase_build.yml plus undeployed
+          # build-only integrations. Starter entries mirror ALL_STARTERS,
+          # and webhooks is built here without push. This covers every
+          # Node-bearing Showcase image recipe without provisioning services.
+          # Keep production entries in sync so every service buildable
+          # post-merge is also checked pre-merge.
           #
           # Fields carried over: dispatch_name, filter_key, context, image,
           # timeout, build_args_*, dockerfile.
@@ -209,6 +211,7 @@ jobs:
             {"dispatch_name":"langgraph-fastapi","filter_key":"langgraph_fastapi","context":"showcase/integrations/langgraph-fastapi","image":"showcase-langgraph-fastapi","timeout":30,"build_args":"","dockerfile":""},
             {"dispatch_name":"langgraph-typescript","filter_key":"langgraph_typescript","context":"showcase/integrations/langgraph-typescript","image":"showcase-langgraph-typescript","timeout":30,"build_args":"","dockerfile":""},
             {"dispatch_name":"langroid","filter_key":"langroid","context":"showcase/integrations/langroid","image":"showcase-langroid","timeout":30,"build_args":"","dockerfile":""},
+            {"dispatch_name":"omnara","filter_key":"omnara","context":"showcase/integrations/omnara","image":"showcase-omnara","timeout":30,"build_args":"","dockerfile":""},
             {"dispatch_name":"spring-ai","filter_key":"spring_ai","context":"showcase/integrations/spring-ai","image":"showcase-spring-ai","timeout":30,"build_args":"","dockerfile":""},
             {"dispatch_name":"strands","filter_key":"strands","context":"showcase/integrations/strands","image":"showcase-strands","timeout":30,"build_args":"","dockerfile":""},
             {"dispatch_name":"strands-typescript","filter_key":"strands_typescript","context":"showcase/integrations/strands-typescript","image":"showcase-strands-typescript","timeout":30,"build_args":"","dockerfile":""},

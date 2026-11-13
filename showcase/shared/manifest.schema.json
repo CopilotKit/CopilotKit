@@ -74,6 +74,11 @@
       "default": false,
       "description": "Whether the backend is deployed and live. Stack nav and demo links only activate when true."
     },
+    "test_coverage": {
+      "type": "string",
+      "enum": ["shared-d6"],
+      "description": "Opt into structural coverage validation through the shared D6 scripts and slug-scoped fixtures. When absent, the legacy e2e spec count floor applies. This is not probe readiness evidence."
+    },
     "docs_mode": {
       "type": "string",
       "enum": ["generated", "authored", "hidden"],

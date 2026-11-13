@@ -924,6 +924,7 @@ export const STARTER_COLUMNS_UNPROBED: ReadonlySet<string> = new Set([
   "claude-sdk-typescript",
   "crewai-conversational-flows",
   "google-antigravity",
+  "omnara",
   "openai-agents-python",
 ]);
 
