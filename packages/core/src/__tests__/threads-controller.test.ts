@@ -31,9 +31,9 @@ function createCore({
     runtimeUrl: "https://runtime.local/api",
     ɵruntimeInfo: {
       status,
-      a2uiEnabled: false,
-      a2uiAgents: undefined,
       openGenerativeUIEnabled: false,
+      generativeUIEnabled: false,
+      generativeUIAgents: undefined,
       licenseStatus: undefined,
       runtimeEntitlements: undefined,
       runtimeEntitlementRetryPending: false,
