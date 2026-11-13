@@ -23,7 +23,7 @@ on:
     # services is confirmed, then retire in favour of the harness signal.
     - cron: "0 */6 * * *"
   workflow_run:
-    workflows: ["publish / release"]
+    workflows: ["release / publish"]
     types: [completed]
   pull_request:
     paths:
@@ -40,6 +40,50 @@ permissions:
   packages: read
 
 jobs:
+  # `release / publish` runs on every closed PR to main, and a run whose
+  # `build` job was skipped still concludes `success`, so neither the
+  # conclusion nor the head branch (an unmerged release/publish/* PR has
+  # one) proves a release happened. On workflow_run this gate proceeds only
+  # when that run's `build` job itself succeeded: a merged release PR or a
+  # manual dispatch. The prefilter keeps the API call off ordinary PR-close
+  # runs. Every other trigger (PR, schedule, dispatch) passes straight
+  # through. Both entry jobs below need it, so the full fleet and its Slack
+  # alert never start for a non-release.
+  release-gate:
+    runs-on: ubuntu-latest
+    if: >-
+      github.event_name != 'workflow_run' ||
+      (github.event.workflow_run.conclusion == 'success' &&
+        (startsWith(github.event.workflow_run.head_branch, 'release/publish/') ||
+          (github.event.workflow_run.event == 'workflow_dispatch' &&
+            github.event.workflow_run.head_branch == 'main')))
+    timeout-minutes: 2
+    permissions:
+      actions: read
+    outputs:
+      proceed: ${{ steps.check.outputs.proceed }}
+    steps:
+      - name: Check that the upstream build job succeeded
+        id: check
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EVENT_NAME: ${{ github.event_name }}
+          RUN_ID: ${{ github.event.workflow_run.id }}
+        run: |
+          set -euo pipefail
+          if [ "$EVENT_NAME" != "workflow_run" ]; then
+            echo "proceed=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          BUILD=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$RUN_ID/jobs" \
+            --jq '[.jobs[] | select(.name == "build")][0].conclusion // "missing"')
+          echo "release / publish build job: $BUILD"
+          if [ "$BUILD" = "success" ]; then
+            echo "proceed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "proceed=false" >> "$GITHUB_OUTPUT"
+          fi
+
   # ---------------------------------------------------------------------
   # Production-image gate (added 2026-09-14).
   #
@@ -74,6 +118,8 @@ jobs:
   #     and there is nothing here to gate. Add them to both if that changes.
   detect-production-starters:
     runs-on: ubuntu-latest
+    needs: release-gate
+    if: needs.release-gate.outputs.proceed == 'true'
     timeout-minutes: 5
     outputs:
       matrix: ${{ steps.matrix.outputs.matrix }}
@@ -222,6 +268,8 @@ jobs:
 
   smoke-starter:
     runs-on: ubuntu-latest
+    needs: release-gate
+    if: needs.release-gate.outputs.proceed == 'true'
     timeout-minutes: 20
     env:
       SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}
