@@ -919,6 +919,11 @@ export class IntelligenceAgent extends AbstractAgent {
               this.clearReconnectCursor(input.threadId);
             } else {
               this.advanceLastSeenEventId(input.threadId, reconnectCursor);
+              // The sequence guard still holds the replayed event that moved
+              // the cursor. Left in place, it would ignore the same events
+              // when the next connect replays them, and the cursor would stay
+              // behind them.
+              this.sharedState.lastSeenEventSeqs?.delete(input.threadId);
             }
             // `input` carries the canonical identity: a run stream keeps its
             // own run ID when refreshed credentials omit one.

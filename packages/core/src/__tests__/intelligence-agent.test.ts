@@ -635,6 +635,66 @@ describe("IntelligenceAgent", () => {
       });
     });
 
+    it("lets the next connect move the cursor through the run again after a replay fails", async () => {
+      const agent = createAgent();
+      const connectOnce = async () => {
+        mockFetch.mockResolvedValueOnce(
+          await jsonResponse(runtimeCredentials()),
+        );
+        connectWithTestAccess(agent, defaultInput).subscribe({
+          next: () => {},
+          error: () => {},
+        });
+        await waitForConnection(agent);
+        const channel = getChannel(agent)!;
+        channel.triggerJoin("ok");
+        return channel;
+      };
+
+      // An earlier connect leaves the cursor at a previous run's event.
+      const first = await connectOnce();
+      first.serverPush("ag_ui_event", {
+        type: EventType.RUN_FINISHED,
+        threadId: "thread-1",
+        runId: "run-0",
+        metadata: { cpki_event_id: "event-0", cpki_event_seq: 9 },
+      } as BaseEvent);
+
+      // The run's replay gets as far as seq 2, then fails.
+      const promise = collectEvents(agent);
+      await waitForConnection(agent);
+      const runChannel = getChannel(agent)!;
+      runChannel.triggerJoin("ok");
+      for (const seq of [1, 2]) {
+        runChannel.serverPush("ag_ui_event", {
+          type: seq === 1 ? EventType.RUN_STARTED : EventType.STEP_STARTED,
+          threadId: "thread-1",
+          runId: "run-1",
+          stepName: "step",
+          metadata: { cpki_event_id: `event-${seq}`, cpki_event_seq: seq },
+        } as BaseEvent);
+      }
+      runChannel.serverPush("replay_failed", { reason: "run_replay_gap" });
+      await promise;
+
+      // The next connect resumes from event-0 and replays the run from seq 1;
+      // the cursor follows it rather than staying at event-0.
+      const third = await connectOnce();
+      expect(third.params).toEqual({
+        stream_mode: "connect",
+        last_seen_event_id: "event-0",
+      });
+      third.serverPush("ag_ui_event", {
+        type: EventType.RUN_STARTED,
+        threadId: "thread-1",
+        runId: "run-1",
+        metadata: { cpki_event_id: "event-1", cpki_event_seq: 1 },
+      } as BaseEvent);
+
+      const fourth = await connectOnce();
+      expect(fourth.params.last_seen_event_id).toBe("event-1");
+    });
+
     it("names the client's run in the replay error when the credentials omit it", async () => {
       mockFetch.mockResolvedValueOnce(
         await jsonResponse(runtimeCredentials({ runId: null })),
