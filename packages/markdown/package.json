@@ -67,6 +67,17 @@
     "publint": "publint .",
     "attw": "attw --pack . --profile node16 --ignore-rules internal-resolution-error"
   },
+  "nx": {
+    "targets": {
+      "check-types": {
+        "dependsOn": [
+          "build",
+          "^build",
+          "^check-types"
+        ]
+      }
+    }
+  },
   "peerDependencies": {
     "react": ">=18",
     "react-native": ">=0.70",
