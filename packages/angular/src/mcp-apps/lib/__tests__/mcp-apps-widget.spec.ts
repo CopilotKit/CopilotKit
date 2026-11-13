@@ -1018,14 +1018,15 @@ test("allows a custom-scheme deep link (only script/HTML schemes are blocked)", 
 // widget's state for the next runs of its thread.
 // ---------------------------------------------------------------------------
 
+/** Opted in unless told otherwise; `{}` passes no `modelContext` at all. */
 function configureWithRealCore(
   core: CopilotKitCore,
-  { modelContext = true }: { modelContext?: boolean } = {},
+  config: Parameters<typeof provideMCPApps>[0] = { modelContext: true },
 ): void {
   TestBed.resetTestingModule();
   TestBed.configureTestingModule({
     providers: [
-      provideMCPApps({ modelContext }),
+      provideMCPApps(config),
       { provide: CopilotKit, useValue: { core } },
     ],
   });
@@ -1142,35 +1143,43 @@ test("does not announce or acknowledge model context when the core cannot store 
   expect(update?.error?.code).toBe(-32601);
 });
 
-test("does not announce or acknowledge model context without the modelContext opt-in", async () => {
-  const core = new CopilotKitCore({});
-  configureWithRealCore(core, { modelContext: false });
-  const agent = createAgent();
-  (agent as { agentId?: string }).agentId = "agent-1";
-  const { fixture, frame, postMessage } = await bootWidget(agent);
+// The default is the safety property: an app that sets nothing must not let
+// widgets write into the model's context.
+test.each([
+  ["without any modelContext option", {}],
+  ["with modelContext set to false", { modelContext: false }],
+])(
+  "does not announce or acknowledge model context %s",
+  async (_case, config) => {
+    const core = new CopilotKitCore({});
+    configureWithRealCore(core, config);
+    const agent = createAgent();
+    (agent as { agentId?: string }).agentId = "agent-1";
+    const { fixture, frame, postMessage } = await bootWidget(agent);
 
-  const init = await frameRequest(
-    fixture,
-    frame,
-    postMessage,
-    "init-opt-out",
-    "ui/initialize",
-    {
-      appInfo: { name: "test", version: "1" },
-      appCapabilities: {},
-      protocolVersion: "2026-01-26",
-    },
-  );
-  const update = await frameRequest(
-    fixture,
-    frame,
-    postMessage,
-    "umc-opt-out",
-    "ui/update-model-context",
-    { structuredContent: { stationId: "lyon" } },
-  );
+    const init = await frameRequest(
+      fixture,
+      frame,
+      postMessage,
+      "init-opt-out",
+      "ui/initialize",
+      {
+        appInfo: { name: "test", version: "1" },
+        appCapabilities: {},
+        protocolVersion: "2026-01-26",
+      },
+    );
+    const update = await frameRequest(
+      fixture,
+      frame,
+      postMessage,
+      "umc-opt-out",
+      "ui/update-model-context",
+      { structuredContent: { stationId: "lyon" } },
+    );
 
-  expect(init?.result?.hostCapabilities?.updateModelContext).toBeUndefined();
-  expect(update?.error?.code).toBe(-32601);
-  expect(core.getContextForAgent("agent-1", "thread-1")).toEqual([]);
-});
+    expect(init?.result?.hostCapabilities?.updateModelContext).toBeUndefined();
+    expect(update?.error?.code).toBe(-32601);
+    expect(core.getContextForAgent("agent-1", "thread-1")).toEqual([]);
+  },
+);

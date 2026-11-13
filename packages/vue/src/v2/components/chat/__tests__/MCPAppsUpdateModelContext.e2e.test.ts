@@ -104,13 +104,15 @@ async function sendUserMessage(text: string) {
   await waitFor(() => expect(screen.getByText(text)).toBeDefined());
 }
 
+/** Opted in unless told otherwise; `{}` sets no `mcpApps` option at all. */
 async function setupMCPActivity(
   agent: MockMCPProxyAgent,
-  { modelContext = true }: { modelContext?: boolean } = {},
+  { mcpApps }: { mcpApps?: { modelContext?: boolean } } = {
+    mcpApps: { modelContext: true },
+  },
 ) {
   const agentId = agent.agentId!;
   const threadId = testId("umc-thread");
-  const mcpApps = { modelContext };
   const Host = defineComponent({
     components: {
       CopilotKitProvider,
@@ -120,6 +122,7 @@ async function setupMCPActivity(
     setup() {
       return { agentId, threadId, mcpApps, agents: { [agentId]: agent } };
     },
+    // An undefined `mcpApps` binding is the same as leaving the prop out.
     template: `
       <CopilotKitProvider runtimeUrl="/api/copilotkit" :agents__unsafe_dev_only="agents" :mcp-apps="mcpApps">
         <CopilotChatConfigurationProvider :thread-id="threadId" :agent-id="agentId">
@@ -208,30 +211,45 @@ describe("MCP Apps ui/update-model-context", () => {
     document.body.innerHTML = "";
   });
 
-  it("refuses the update and keeps it out of the next run without mcpApps.modelContext", async () => {
-    const agent = new MockMCPProxyAgent();
-    agent.agentId = testId("umc-opt-out");
-    const iframe = await setupMCPActivity(agent, { modelContext: false });
+  // The default is the safety property: an app that sets nothing must not
+  // let widgets write into the model's context.
+  it.each([
+    ["without any mcpApps option", {}],
+    [
+      "with mcpApps.modelContext set to false",
+      { mcpApps: { modelContext: false } },
+    ],
+  ])(
+    "refuses the update and keeps it out of the next run %s",
+    async (_case, options) => {
+      const agent = new MockMCPProxyAgent();
+      agent.agentId = testId("umc-opt-out");
+      const iframe = await setupMCPActivity(agent, options);
 
-    const initialize = await request(iframe, "ui/initialize", {
-      appInfo: { name: "stations", version: "1.0.0" },
-      appCapabilities: {},
-      protocolVersion: "2026-01-26",
-    });
-    expect(
-      initialize.result.hostCapabilities.updateModelContext,
-    ).toBeUndefined();
+      const initialize = await request(iframe, "ui/initialize", {
+        appInfo: { name: "stations", version: "1.0.0" },
+        appCapabilities: {},
+        protocolVersion: "2026-01-26",
+      });
+      expect(
+        initialize.result.hostCapabilities.updateModelContext,
+      ).toBeUndefined();
 
-    const refused = await request(iframe, "ui/update-model-context", SELECTION);
-    expect(refused.error.code).toBe(-32601);
+      const refused = await request(
+        iframe,
+        "ui/update-model-context",
+        SELECTION,
+      );
+      expect(refused.error.code).toBe(-32601);
 
-    const runsBefore = agent.runInputs.length;
-    await sendUserMessage("Which departures are available?");
-    await waitFor(() =>
-      expect(agent.runInputs.length).toBeGreaterThan(runsBefore),
-    );
-    expect(widgetEntry(agent.runInputs.at(-1))).toBeUndefined();
-  });
+      const runsBefore = agent.runInputs.length;
+      await sendUserMessage("Which departures are available?");
+      await waitFor(() =>
+        expect(agent.runInputs.length).toBeGreaterThan(runsBefore),
+      );
+      expect(widgetEntry(agent.runInputs.at(-1))).toBeUndefined();
+    },
+  );
 
   it("announces updateModelContext at initialize", async () => {
     const agent = new MockMCPProxyAgent();
