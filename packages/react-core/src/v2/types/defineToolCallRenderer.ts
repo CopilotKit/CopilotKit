@@ -18,6 +18,7 @@ type RenderProps<T> =
       args: Partial<T>;
       status: ToolCallStatus.InProgress;
       result: undefined;
+      error?: undefined;
     }
   | {
       name: string;
@@ -25,6 +26,7 @@ type RenderProps<T> =
       args: T;
       status: ToolCallStatus.Executing;
       result: undefined;
+      error?: undefined;
     }
   | {
       name: string;

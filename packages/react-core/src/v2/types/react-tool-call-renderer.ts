@@ -27,6 +27,7 @@ export interface ReactToolCallRenderer<T = unknown> {
         args: Partial<T>;
         status: ToolCallStatus.InProgress;
         result: undefined;
+        error?: undefined;
       }
     | {
         name: string;
@@ -34,6 +35,7 @@ export interface ReactToolCallRenderer<T = unknown> {
         args: T;
         status: ToolCallStatus.Executing;
         result: undefined;
+        error?: undefined;
       }
     | {
         name: string;

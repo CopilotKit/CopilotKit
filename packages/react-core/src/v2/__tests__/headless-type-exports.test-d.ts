@@ -58,6 +58,7 @@ type CanonicalRendererProps =
       args: Partial<Args>;
       status: ToolCallStatus.InProgress;
       result: undefined;
+      error?: undefined;
     }
   | {
       name: string;
@@ -65,6 +66,7 @@ type CanonicalRendererProps =
       args: Args;
       status: ToolCallStatus.Executing;
       result: undefined;
+      error?: undefined;
     }
   | {
       name: string;
@@ -90,7 +92,7 @@ expectTypeOf<RendererProps>().not.toBeAny();
 // likely to be made deliberately (this entry's OTHER public `RenderToolProps`
 // calls the same payload `parameters` — see the divergence pinned below).
 expectTypeOf<keyof RendererProps>().toEqualTypeOf<
-  "name" | "toolCallId" | "args" | "status" | "result"
+  "name" | "toolCallId" | "args" | "status" | "result" | "error"
 >();
 
 // `status` is the `ToolCallStatus` enum from @copilotkit/core, not the bare
@@ -133,3 +135,14 @@ expectTypeOf<keyof WebRenderToolProps>().toEqualTypeOf<
   "name" | "toolCallId" | "parameters" | "status" | "result"
 >();
 expectTypeOf<WebRenderToolProps>().not.toEqualTypeOf<CanonicalRendererProps>();
+
+// A renderer can destructure `error` from every arm, as the useFrontendTool
+// docs do. Only the Complete arm carries a value, so the others declare
+// `error?: undefined` (the same shape the human-in-the-loop props use).
+const destructuresError: ReactToolCallRenderer<Args>["render"] = ({
+  error,
+}) => {
+  expectTypeOf(error).toEqualTypeOf<string | undefined>();
+  return null;
+};
+void destructuresError;
