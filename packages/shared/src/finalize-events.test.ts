@@ -254,9 +254,131 @@ describe("createRunEventFinalizer", () => {
       EventType.RUN_ERROR,
     ]);
   });
+
+  it("closes open steps in reverse order before the terminal event", () => {
+    const finalizer = createRunEventFinalizer();
+    finalizer.observe(
+      event({ type: EventType.STEP_STARTED, stepName: "outer" }),
+    );
+    finalizer.observe(
+      event({ type: EventType.STEP_STARTED, stepName: "inner" }),
+    );
+    // inner step finishes normally
+    finalizer.observe(
+      event({ type: EventType.STEP_FINISHED, stepName: "inner" }),
+    );
+
+    const appended = finalizer.finalize({ stopRequested: true });
+
+    expect(appended.map(({ type }) => type)).toEqual([
+      EventType.STEP_FINISHED,
+      EventType.RUN_FINISHED,
+    ]);
+    expect((appended[0] as { stepName?: string }).stepName).toBe("outer");
+  });
 });
 
 describe("finalizeRunEvents", () => {
+  it("splices lifecycle closers before an already-present terminal event", () => {
+    // Simulates a run aborted mid tool call: the agent emitted TOOL_CALL_START
+    // but the abort path pushed RUN_FINISHED before the tool call closed.
+    // finalizeRunEvents must insert TOOL_CALL_END + TOOL_CALL_RESULT before
+    // RUN_FINISHED so compactEvents sees a well-ordered stream on replay.
+    const events = [
+      event({ type: EventType.TEXT_MESSAGE_START, messageId: "msg-1" }),
+      event({ type: EventType.TOOL_CALL_START, toolCallId: "tc-1" }),
+      event({ type: EventType.RUN_FINISHED }),
+    ];
+
+    const spliced = finalizeRunEvents(events, { stopRequested: true });
+
+    // Returns [] — the terminal was already emitted live.
+    expect(spliced).toEqual([]);
+
+    expect(events.map(({ type }) => type)).toEqual([
+      EventType.TEXT_MESSAGE_START,
+      EventType.TOOL_CALL_START,
+      EventType.TEXT_MESSAGE_END,
+      EventType.TOOL_CALL_END,
+      EventType.TOOL_CALL_RESULT,
+      EventType.RUN_FINISHED,
+    ]);
+  });
+
+  it("splices lifecycle closers before an already-present RUN_ERROR terminal", () => {
+    // Simulates TOOL_CALL_START + TOOL_CALL_ARGS + RUN_ERROR: the agent errored
+    // mid tool call. The runner pushed RUN_ERROR before the tool call closed.
+    // finalizeRunEvents must insert TOOL_CALL_END + TOOL_CALL_RESULT before
+    // RUN_ERROR and use the error message in the synthetic result.
+    const events = [
+      event({ type: EventType.TOOL_CALL_START, toolCallId: "tc-1" }),
+      event({
+        type: EventType.TOOL_CALL_ARGS,
+        toolCallId: "tc-1",
+        delta: '{"x":1}',
+      }),
+      event({
+        type: EventType.RUN_ERROR,
+        message: "Agent crashed",
+        code: "AGENT_ERROR",
+      }),
+    ];
+
+    const spliced = finalizeRunEvents(events);
+
+    expect(spliced).toEqual([]);
+    expect(events.map(({ type }) => type)).toEqual([
+      EventType.TOOL_CALL_START,
+      EventType.TOOL_CALL_ARGS,
+      EventType.TOOL_CALL_END,
+      EventType.TOOL_CALL_RESULT,
+      EventType.RUN_ERROR,
+    ]);
+    const result = events[3] as ToolCallResultEvent;
+    const content = JSON.parse(result.content);
+    expect(content.status).toBe("error");
+    expect(content.message).toBe("Agent crashed");
+  });
+
+  it("no-ops when the terminal is already present with no open lifecycles", () => {
+    const events = [
+      event({ type: EventType.TOOL_CALL_START, toolCallId: "tc-1" }),
+      event({ type: EventType.TOOL_CALL_END, toolCallId: "tc-1" }),
+      event({
+        type: EventType.TOOL_CALL_RESULT,
+        toolCallId: "tc-1",
+        messageId: "r",
+        role: "tool",
+        content: "",
+      }),
+      event({ type: EventType.RUN_FINISHED }),
+    ];
+    const original = [...events];
+
+    const spliced = finalizeRunEvents(events, { stopRequested: true });
+
+    expect(spliced).toEqual([]);
+    expect(events).toEqual(original);
+  });
+
+  it("splices STEP_FINISHED before the terminal when a step was open at abort time", () => {
+    // Replay regression: a run stopped by the user while a step was still open.
+    const events = [
+      event({ type: EventType.STEP_STARTED, stepName: "planning" }),
+      event({ type: EventType.RUN_FINISHED }),
+    ];
+
+    const spliced = finalizeRunEvents(events, { stopRequested: true });
+
+    expect(spliced).toEqual([]);
+    expect(events.map(({ type }) => type)).toEqual([
+      EventType.STEP_STARTED,
+      EventType.STEP_FINISHED,
+      EventType.RUN_FINISHED,
+    ]);
+    expect((events[1] as { stepName?: string }).stepName).toBe("planning");
+  });
+
   it("appends the closers in place and keeps the interruption message", () => {
     const events = [
       event({ type: EventType.TOOL_CALL_START, toolCallId: "tool-1" }),
