@@ -198,10 +198,49 @@ flipping the SSOT gate.
      PocketBase record) as the discriminating GREEN signal, then let the tick
      clear the cells.
 
-Once promoted, run the digest promote itself the normal way —
-`showcase_promote.yml` (now listing the slug) or `bin/railway promote`; see
-[`./bin/README.md`](./bin/README.md) "Worked example: promote staging →
-production".
+6. **Run the integration promote.** Promote the slug the normal way —
+   `showcase_promote.yml` (now listing the slug) or `bin/railway promote`; see
+   [`./bin/README.md`](./bin/README.md) "Worked example: promote staging →
+   production". See "Promote workflow notes" below before setting `hold`.
+
+7. **Add the slug to keep-alive.** Add it to the matrix in
+   `.github/workflows/showcase_keep-alive.yml` so its prod `/api/health` is
+   pinged every 5 minutes. This can ride in the same PR as the SSOT change.
+
+8. **Promote the public sites.** The integration is not visible to users yet.
+   The shell (`showcase.copilotkit.ai`) and the docs site
+   (`docs.copilotkit.ai`) build the integration list and docs pages into their
+   own images, and an integration promote does not include either one. Once the
+   integration's PR and its docs PR have merged and staging shows the pages,
+   promote `shell` and `shell-docs` (one `showcase_promote.yml` run each).
+
+9. **Verify the public URLs on prod.** Each of these should return 200:
+   - `https://showcase.copilotkit.ai/integrations/<slug>`;
+   - `https://docs.copilotkit.ai/<slug>`.
+
+   Also check that the slug appears on `https://showcase.copilotkit.ai/integrations`.
+   A 404 on either page while staging serves it means the matching site was
+   not promoted.
+
+### Promote workflow notes
+
+- **Closure.** Each run promotes the selected service plus the shared services
+  it depends on (its closure). The `resolve-targets` job logs the final list as
+  `PROMOTED_CLOSURE_CSV`. An integration's closure includes shared services
+  such as aimock, pocketbase, dashboard, harness and harness-workers; a `shell`
+  or `shell-docs` closure does not include aimock.
+- **`hold`.** Every service named in `hold` must be in that run's closure.
+  Naming one that is not fails `resolve-targets` with "Cannot hold '<svc>': not
+  in this promote's closure", before anything deploys. The failed run still
+  sends the workflow's failure notification. Pass `hold` only for the run whose
+  closure contains that service.
+- **Serialization.** Promote runs, except `validate_registry_only`, share one
+  concurrency group. A running promote is not cancelled by a later dispatch.
+  GitHub keeps one pending run per group, so a later dispatch cancels an
+  earlier pending run. Wait for each run to finish before dispatching the next.
+- **No-change modes.** `verify_only` checks the current prod images without
+  promoting. `validate_registry_only` checks the registry reader without
+  promoting or probing.
 
 ### CVDIAG instrumentation + per-request `X-AIMock-Strict` forwarding (REQUIRED)
 

@@ -235,12 +235,24 @@ false-reds the whole column until the prod instance exists).
 - [ ] Set `deployed: true` in `manifest.yaml`
 - [ ] Verify constraint validation passes: `npx tsx showcase/scripts/validate-constraints.ts <slug>`
 - [ ] Regenerate registry: `npx tsx showcase/scripts/generate-registry.ts`
-- [ ] Commit and push — stack nav chip will light up automatically
+- [ ] Commit and push — once merged, the stack nav chip lights up on **staging** automatically
+- [ ] Add the slug to the matrix in `.github/workflows/showcase_keep-alive.yml` so its prod `/api/health` is pinged every 5 minutes
 
-### 6. Shell Updates (usually automatic)
+### 6. Public Sites (staging is automatic, prod is not)
+
+Merging to `main` rebuilds the shell (`showcase.copilotkit.ai`) and the docs
+site (`docs.copilotkit.ai`) on **staging** only. Their prod images change only
+when they are promoted, and an integration promote does not include them. Until
+they are promoted, the integration's prod page and docs pages return 404 even
+though its backend is live and green.
 
 - [ ] If the framework name in the stack nav differs from `manifest.yaml` name, verify `startsWith` matching works
 - [ ] Demo content (Code/Docs tabs): run `npx tsx showcase/scripts/generate-demo-content.ts` if it exists
+- [ ] After the integration's PR and its docs PR have merged, promote `shell` and `shell-docs` with `showcase_promote.yml`. See [`./RAILWAY.md`](./RAILWAY.md) → "Promoting a Staging-Only Integration to Production", steps 8–9.
+- [ ] Verify the public URLs return 200 on prod:
+      `https://showcase.copilotkit.ai/integrations/<slug>` and
+      `https://docs.copilotkit.ai/<slug>`, and that the slug appears on
+      `https://showcase.copilotkit.ai/integrations`
 
 ---
 
