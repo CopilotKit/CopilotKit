@@ -66,7 +66,6 @@ none("/threads-import");
 none("/threads-lifecycle");
 none("/headless-threads");
 // v2 serves the Generative UI overview at /generative-ui (seo-redirects.ts R7).
-none("/generative-ui");
 
 // --- next.config: retired Open-JSON-UI -----------------------------------
 withSuffixes(
@@ -394,7 +393,7 @@ for (const [from, to, status] of [
     "/reference/v2/hooks/useCapabilities",
     PERMANENT,
   ],
-  ["/generative-ui/agentic", "/generative-ui", PERMANENT],
+  ["/generative-ui/agentic", "/generative-ui/tool-based", PERMANENT],
   [
     "/cookbook/antigravity-repo-doctor",
     "/cookbook/google-antigravity",
@@ -463,10 +462,7 @@ for (const [from, to] of [
   ["/crewai-conversational-flows", "/crewai-crews/quickstart"],
   // A framework page's redirect also applies under a frontend prefix.
   ["/angular/mastra/ag-ui", "/angular/mastra/backend/ag-ui"],
-  [
-    "/vue/langgraph-python/deploy-langsmith",
-    "/vue/langgraph-python/deploy/langsmith",
-  ],
+  ["/vue/strands/copilot-runtime", "/vue/strands/backend/copilot-runtime"],
   ["/crewai-conversational-flows/feature-parity", "/crewai-crews/quickstart"],
   ["/crewai-conversational-flows/quickstart", "/crewai-flows/quickstart"],
   ["/langgraph/quickstart/langgraph", "/langgraph-python/quickstart"],
@@ -521,7 +517,7 @@ for (const [from, to] of [
   ["/troubleshooting", "/troubleshooting/common-issues"],
   ["/migrate", "/migrate/v2"],
   ["/concepts", "/concepts/architecture"],
-  ["/langgraph/agentic-chat-ui", "/langgraph-python/prebuilt-components"],
+  ["/langgraph/agentic-chat-ui", "/langgraph-python/prebuilt-components/chat"],
   [
     "/mastra/generative-ui/backend-tools",
     "/mastra/generative-ui/tool-rendering",

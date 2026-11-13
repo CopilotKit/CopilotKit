@@ -3,8 +3,6 @@
   "icon": "lucide/FileJson",
   "pages": [
     "dynamic-schema",
-    "fixed-schema",
-    "styling",
-    "advanced"
+    "fixed-schema"
   ]
 }

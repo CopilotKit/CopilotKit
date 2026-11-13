@@ -10,8 +10,11 @@
       "pages": ["threads-import"]
     },
     "---LangGraph---",
+    "agent-app-context",
     "configurable",
     "subgraphs",
-    "guardrails"
+    "guardrails",
+    "deploy-agentcore",
+    "deploy-langsmith"
   ]
 }
