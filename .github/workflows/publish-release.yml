@@ -30,9 +30,11 @@ name: release / publish
 #    (>= 11.5.1 for OIDC; the runner ships 10.x), and versioning/notes happen
 #    earlier, in the release PR that stable-release.yml opens.
 #
-# 2. PyPI (Python SDK) — fires on any merged PR that bumps sdk-python/pyproject.toml.
+# 2. PyPI (Python SDK) — fires on relevant pushes to main or manual dispatch.
 #    Detects version change vs PyPI registry, builds with poetry, publishes with uv.
-#    Ported from ag-ui's publish-release.yml Python lane.
+#    Ported from ag-ui's publish-release.yml Python lane. It runs on push, not on
+#    the merged PR, because the `pypi` environment only accepts main and
+#    release/sdk-python/v* refs. A pull_request run has refs/pull/<N>/merge.
 # 3. Intelligence Python — fires on relevant pushes to main or manual dispatch.
 #    Builds once and publishes the runtime and adapters through PyPI.
 
@@ -40,6 +42,7 @@ on:
   push:
     branches: [main]
     paths:
+      - "sdk-python/pyproject.toml"
       - "packages/runtime-python/**"
       - "packages/intelligence-langgraph-python/**"
       - "packages/intelligence-adk-python/**"
@@ -104,7 +107,9 @@ permissions:
 
 concurrency:
   # Serialize automatic and manual Intelligence Python releases against each
-  # other. Other lanes continue to use the selected scope or PR branch. Dry runs
+  # other. Python SDK pushes share this group too. A newer push can replace a
+  # pending one, which is safe: every push run compares sdk-python against PyPI.
+  # Other lanes continue to use the selected scope or PR branch. Dry runs
   # queue apart, so one cannot replace a pending publish of the same scope.
   group: publish-release-${{ (github.event_name == 'push' || inputs.intelligence_python_publish == true) && 'intelligence-python' || inputs.scope || github.head_ref || github.ref }}${{ inputs['dry-run'] == true && '-dry-run' || '' }}
   cancel-in-progress: false
@@ -668,11 +673,16 @@ jobs:
 
   build-python:
     # Fires when:
-    # 1. A PR merging to main touched sdk-python/pyproject.toml (version bump), OR
+    # 1. A push to main touched one of the `on.push.paths` (for example the
+    #    sdk-python/pyproject.toml version bump), OR
     # 2. Manual dispatch with python_publish=true
+    # The detect step is the real gate: it publishes only when the version in
+    # sdk-python/pyproject.toml is newer than PyPI. So a push for an
+    # Intelligence package is a quick no-op here, and a run that a newer push
+    # replaced is caught up by that newer run.
     if: >
       (github.event_name == 'workflow_dispatch' && inputs.python_publish == true && inputs.intelligence_python_publish != true) ||
-      (github.event_name == 'pull_request' && github.event.pull_request.merged == true)
+      github.event_name == 'push'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
@@ -681,13 +691,6 @@ jobs:
       should_publish: ${{ steps.detect.outputs.should_publish }}
       version: ${{ steps.detect.outputs.version }}
       name: ${{ steps.detect.outputs.name }}
-      # Earliest Python-release intent signal: emitted by the `changed` step
-      # BEFORE any failure-prone step (setup-python, detect, build). The notify
-      # job gates the PyPI FAILURE alert on this (not should_publish, which is
-      # emitted only at the END of detect) so a build-python failure at/before
-      # detect on a genuine release still pages instead of being silently
-      # swallowed.
-      pyproject_changed: ${{ steps.changed.outputs.pyproject_changed }}
     steps:
       - name: Checkout merged main
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -696,45 +699,12 @@ jobs:
           ref: main
           persist-credentials: false
 
-      # For PRs, skip early if this PR didn't touch pyproject.toml. Manual
-      # dispatch always continues (the user explicitly asked for it).
-      - name: Check if pyproject.toml changed in this PR
-        if: github.event_name == 'pull_request'
-        id: changed
-        env:
-          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
-          PR_HEAD_SHA: ${{ github.event.pull_request.merge_commit_sha }}
-        run: |
-          set -euo pipefail
-          if [ -z "$PR_BASE_SHA" ]; then
-            echo "::error::PR_BASE_SHA is empty — cannot determine PR base for diff. Refusing to silently skip Python publish."
-            exit 1
-          fi
-          if [ -z "$PR_HEAD_SHA" ]; then
-            echo "::error::PR_HEAD_SHA (merge_commit_sha) is empty — GitHub may not have computed the merge commit yet. Refusing to silently skip Python publish; rerun the workflow."
-            exit 1
-          fi
-          # Capture diff FIRST so a git failure trips set -e and fails loudly,
-          # rather than producing an empty pipe that grep silently routes to
-          # "not changed" — that path masked real version bumps before.
-          CHANGED="$(git diff --name-only "$PR_BASE_SHA" "$PR_HEAD_SHA")"
-          # grep -q exits 1 on legitimate no-match; guard with `if` so set -e
-          # doesn't kill the step on that expected case.
-          if printf '%s\n' "$CHANGED" | grep -q '^sdk-python/pyproject.toml$'; then
-            echo "pyproject_changed=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "pyproject_changed=false" >> "$GITHUB_OUTPUT"
-            echo "sdk-python/pyproject.toml not changed in this PR — skipping Python publish"
-          fi
-
       - name: Set up Python
-        if: github.event_name == 'workflow_dispatch' || steps.changed.outputs.pyproject_changed == 'true'
         uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: "3.12"
 
       - name: Detect version change
-        if: github.event_name == 'workflow_dispatch' || steps.changed.outputs.pyproject_changed == 'true'
         id: detect
         run: ./scripts/release/detect-py-version-changes.sh
 
@@ -1098,8 +1068,10 @@ jobs:
   notify:
     needs: [build, publish, build-python, publish-python]
     # always() so we still report on a failed lane, but guard on a real release
-    # context: a workflow_dispatch (manual release) OR a *merged* PR. A
-    # closed-unmerged PR is not a release attempt and must not notify.
+    # context: a workflow_dispatch (manual release), a *merged* PR, or a push
+    # where the Python SDK lane published or failed. A closed-unmerged PR is not
+    # a release attempt and must not notify. A push that only checked PyPI and
+    # found nothing to publish skips this job, so Intelligence pushes stay quiet.
     #
     # Canaries are excluded up front. For mode=prerelease the builder already
     # returns should_post=false and the self-watchdog's Slack post is already
@@ -1113,7 +1085,9 @@ jobs:
     if: >
       always() &&
       (github.event_name == 'workflow_dispatch' ||
-        github.event.pull_request.merged == true) &&
+        github.event.pull_request.merged == true ||
+        (github.event_name == 'push' &&
+          (needs.build-python.result == 'failure' || needs.build-python.outputs.should_publish == 'true'))) &&
       (inputs.mode != 'prerelease' || inputs.python_publish == true) &&
       inputs.intelligence_python_publish != true
     runs-on: ubuntu-latest
@@ -1124,9 +1098,9 @@ jobs:
       SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_ENGR }}
     steps:
       # Determine release intent IN THIS JOB, from the github.event payload +
-      # the PR changed-files API — NOT from needs.build*/needs.build-python
+      # the changed-files APIs — NOT from needs.build*/needs.build-python
       # outputs. The build jobs emit their intent signals (should_publish,
-      # pyproject_changed) AFTER failure-prone steps (SHA guards, setup-python,
+      # version) AFTER failure-prone steps (SHA guards, setup-python,
       # the PyPI version-compare), so a build job that dies before emitting them
       # on a REAL release would leave the intent empty → no alert. Computing
       # intent here, independent of whether the build jobs ran at all, closes
@@ -1146,6 +1120,9 @@ jobs:
         id: intent
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PUSH_BEFORE: ${{ github.event.before }}
+          PUSH_AFTER: ${{ github.event.after }}
+          PY_SHOULD_PUBLISH: ${{ needs.build-python.outputs.should_publish }}
         run: |
           set -euo pipefail
           # npm intent: a STABLE manual dispatch (mode != prerelease — the default
@@ -1161,20 +1138,26 @@ jobs:
           NPM_INTENDED="${{ ((github.event_name == 'workflow_dispatch' && inputs.mode != 'prerelease') || (github.event.pull_request.merged == true && startsWith(github.event.pull_request.head.ref, 'release/publish/'))) && 'true' || 'false' }}"
           echo "npm_intended=$NPM_INTENDED" >> "$GITHUB_OUTPUT"
 
-          # Python intent: a python_publish dispatch, OR a merged PR that changed
-          # sdk-python/pyproject.toml (per the GitHub PR changed-files API —
-          # robust to an uncomputed local merge_commit_sha). Default false.
+          # Python intent: a python_publish dispatch, OR a push to main that
+          # changed sdk-python/pyproject.toml (per the GitHub compare API), OR a
+          # push where detect found an unpublished version. The last case is a
+          # catch-up release: an earlier bump failed, and this push retries it
+          # without touching pyproject.toml. The compare API stays as the
+          # fallback for a build-python failure before detect.
+          # Merged PRs never carry Python intent: the Python lane runs on the
+          # push, not on the PR. Default false.
           PY_INTENDED="false"
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             if [ "${{ inputs.python_publish }}" = "true" ]; then PY_INTENDED="true"; fi
-          elif [ "${{ github.event.pull_request.merged }}" = "true" ]; then
-            # Query the merged PR's changed files. Fail TOWARD paging: if the API
-            # call fails on a merged PR, default PY_INTENDED=true (never toward
-            # silence) and emit a ::warning::.
-            if FILES="$(gh api "repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/files" --paginate --jq '.[].filename' 2>/dev/null)"; then
+          elif [ "${{ github.event_name }}" = "push" ] && [ "$PY_SHOULD_PUBLISH" = "true" ]; then
+            PY_INTENDED="true"
+          elif [ "${{ github.event_name }}" = "push" ]; then
+            # Fail TOWARD paging: if the API call fails, default
+            # PY_INTENDED=true (never toward silence) and emit a ::warning::.
+            if FILES="$(gh api "repos/${{ github.repository }}/compare/${PUSH_BEFORE}...${PUSH_AFTER}" --paginate --jq '.files[].filename' 2>/dev/null)"; then
               if printf '%s\n' "$FILES" | grep -qx 'sdk-python/pyproject.toml'; then PY_INTENDED="true"; fi
             else
-              echo "::warning::Could not list changed files for PR #${{ github.event.pull_request.number }} via the GitHub API — defaulting py_intended=true (fail toward paging, never toward silence)."
+              echo "::warning::Could not list changed files for push ${PUSH_BEFORE}...${PUSH_AFTER} via the GitHub API — defaulting py_intended=true (fail toward paging, never toward silence)."
               PY_INTENDED="true"
             fi
           fi
