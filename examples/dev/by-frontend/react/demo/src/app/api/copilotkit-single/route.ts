@@ -1,7 +1,7 @@
 import {
   CopilotRuntime,
   InMemoryAgentRunner,
-  createCopilotRuntimeHandler,
+  createCopilotKitRuntimeHandler,
 } from "@copilotkit/runtime";
 import { BuiltInAgent } from "@copilotkit/runtime/agent";
 import { anthropicText } from "@tanstack/ai-anthropic";
@@ -44,7 +44,7 @@ const singleRuntime = new CopilotRuntime({
   transcriptionService,
 });
 
-const app = createCopilotRuntimeHandler({
+const app = createCopilotKitRuntimeHandler({
   mode: "single-route",
   cors: true,
   runtime: singleRuntime,

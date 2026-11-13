@@ -8,7 +8,7 @@ import { AbstractAgent, EventType } from "@ag-ui/client";
 import type { BaseEvent, RunAgentInput } from "@ag-ui/client";
 import {
   CopilotRuntime,
-  createCopilotRuntimeHandler,
+  createCopilotKitRuntimeHandler,
 } from "@copilotkit/runtime";
 import { Observable } from "rxjs";
 
@@ -58,7 +58,7 @@ class EchoAgent extends AbstractAgent {
 const runtime = new CopilotRuntime({
   agents: () => ({ default: new EchoAgent() }),
 });
-const handler = createCopilotRuntimeHandler({
+const handler = createCopilotKitRuntimeHandler({
   runtime,
   basePath: "/api/copilotkit",
 });

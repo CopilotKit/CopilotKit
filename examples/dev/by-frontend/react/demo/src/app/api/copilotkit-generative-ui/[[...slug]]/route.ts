@@ -1,7 +1,7 @@
 import {
   CopilotRuntime,
   InMemoryAgentRunner,
-  createCopilotRuntimeHandler,
+  createCopilotKitRuntimeHandler,
 } from "@copilotkit/runtime";
 import { BuiltInAgent } from "@copilotkit/runtime/agent";
 import { anthropicText } from "@tanstack/ai-anthropic";
@@ -52,7 +52,7 @@ const runtime = new CopilotRuntime({
   generativeUI: true,
 });
 
-const app = createCopilotRuntimeHandler({
+const app = createCopilotKitRuntimeHandler({
   cors: true,
   runtime,
   basePath: "/api/copilotkit-generative-ui",

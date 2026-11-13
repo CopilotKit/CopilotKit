@@ -1,4 +1,4 @@
-import { createCopilotRuntimeHandler } from "@copilotkit/runtime";
+import { createCopilotKitRuntimeHandler } from "@copilotkit/runtime";
 import {
   createCatalogOnlyRuntime,
   createDefaultRuntime,
@@ -14,38 +14,38 @@ const catalogOnlyRuntime = createCatalogOnlyRuntime();
 const generativeUIRuntime = createGenerativeUIRuntime();
 const standardCatalogRuntime = createStandardCatalogRuntime();
 
-export const copilotEndpoint = createCopilotRuntimeHandler({
+export const copilotEndpoint = createCopilotKitRuntimeHandler({
   cors: true,
   runtime: defaultRuntime,
   basePath: "/api/copilotkit",
 });
 
-export const copilotSingleEndpoint = createCopilotRuntimeHandler({
+export const copilotSingleEndpoint = createCopilotKitRuntimeHandler({
   mode: "single-route",
   cors: true,
   runtime: singleRuntime,
   basePath: "/api/copilotkit-single",
 });
 
-export const copilotMcpEndpoint = createCopilotRuntimeHandler({
+export const copilotMcpEndpoint = createCopilotKitRuntimeHandler({
   cors: true,
   runtime: mcpRuntime,
   basePath: "/api/copilotkit-mcp",
 });
 
-export const copilotCatalogEndpoint = createCopilotRuntimeHandler({
+export const copilotCatalogEndpoint = createCopilotKitRuntimeHandler({
   cors: true,
   runtime: catalogOnlyRuntime,
   basePath: "/api/copilotkit-catalog",
 });
 
-export const copilotGenerativeUIEndpoint = createCopilotRuntimeHandler({
+export const copilotGenerativeUIEndpoint = createCopilotKitRuntimeHandler({
   cors: true,
   runtime: generativeUIRuntime,
   basePath: "/api/copilotkit-generative-ui",
 });
 
-export const copilotStandardCatalogEndpoint = createCopilotRuntimeHandler({
+export const copilotStandardCatalogEndpoint = createCopilotKitRuntimeHandler({
   cors: true,
   runtime: standardCatalogRuntime,
   basePath: "/api/copilotkit-generative-ui-standard",

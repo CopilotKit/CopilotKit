@@ -11,7 +11,8 @@ if (configuration.telemetryDisabled)
 
 const { CopilotIntelligenceRuntime, CopilotKitIntelligence } =
   await import("@copilotkit/runtime");
-const { createCopilotNodeListener } = await import("@copilotkit/runtime/node");
+const { createCopilotKitNodeListener } =
+  await import("@copilotkit/runtime/node");
 const { HttpAgent } = await import("@ag-ui/client");
 
 const intelligence = new CopilotKitIntelligence({
@@ -42,7 +43,7 @@ const runtime = new CopilotIntelligenceRuntime({
   generativeUI: configuration.generativeUI,
   mcpApps: configuration.mcpApps,
 });
-const listener = createCopilotNodeListener({
+const listener = createCopilotKitNodeListener({
   runtime,
   basePath: "/copilotkit",
   mode: "multi-route",

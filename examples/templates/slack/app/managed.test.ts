@@ -6,14 +6,14 @@ const fakes = vi.hoisted(() => {
   });
   const ready = vi.fn(async () => {});
   // The Node listener is a callable object carrying `.channels` (the activation
-  // + shutdown surface), mirroring the real `createCopilotNodeListener` return.
+  // + shutdown surface), mirroring the real `createCopilotKitNodeListener` return.
   const listener = Object.assign(vi.fn(), { channels: { ready, stop } });
   return {
     ready,
     stop,
     listener,
     closeBrowser: vi.fn(async () => {}),
-    createCopilotNodeListener: vi.fn(() => listener),
+    createCopilotKitNodeListener: vi.fn(() => listener),
     // Captures the options `new CopilotRuntime(...)` was constructed with so
     // the test can assert the runtime carries `channels`.
     runtimeOptions: undefined as unknown,
@@ -49,7 +49,7 @@ vi.mock("@copilotkit/runtime", () => ({
   CopilotKitIntelligence: fakes.CopilotKitIntelligence,
 }));
 vi.mock("@copilotkit/runtime/node", () => ({
-  createCopilotNodeListener: fakes.createCopilotNodeListener,
+  createCopilotKitNodeListener: fakes.createCopilotKitNodeListener,
 }));
 vi.mock("./tools/index.js", () => ({ appTools: [] }));
 vi.mock("./tools/render-mrr.js", () => ({
@@ -129,7 +129,7 @@ describe("managed channel entrypoint", () => {
 
     // The listener is created from the NORMAL runtime handler — no realtime
     // gateway launcher is involved.
-    expect(fakes.createCopilotNodeListener).toHaveBeenCalledWith(
+    expect(fakes.createCopilotKitNodeListener).toHaveBeenCalledWith(
       expect.objectContaining({ basePath: "/api/copilotkit" }),
     );
     // The runtime carries the Channel in `channels`.
@@ -185,7 +185,7 @@ describe("managed channel entrypoint", () => {
     async (port) => {
       for (const key of envKeys) previousEnv.set(key, process.env[key]);
       vi.resetModules();
-      fakes.createCopilotNodeListener.mockClear();
+      fakes.createCopilotKitNodeListener.mockClear();
       fakes.CopilotRuntime.mockClear();
       fakes.createServer.mockClear();
       process.env.PORT = port;
@@ -206,7 +206,7 @@ describe("managed channel entrypoint", () => {
         }),
       );
       expect(fakes.CopilotRuntime).not.toHaveBeenCalled();
-      expect(fakes.createCopilotNodeListener).not.toHaveBeenCalled();
+      expect(fakes.createCopilotKitNodeListener).not.toHaveBeenCalled();
       expect(fakes.createServer).not.toHaveBeenCalled();
     },
   );

@@ -3,7 +3,7 @@ import { serve } from "@hono/node-server";
 import { CopilotRuntime } from "@copilotkit/runtime";
 import { BuiltInAgent } from "@copilotkit/runtime/agent";
 import { openaiText } from "@tanstack/ai-openai";
-import { createCopilotRuntimeHandler } from "@copilotkit/runtime";
+import { createCopilotKitRuntimeHandler } from "@copilotkit/runtime";
 
 const runtime = new CopilotRuntime({
   agents: {
@@ -22,7 +22,7 @@ app.get("/", (c) =>
 app.get("/health", (c) => c.json({ status: "healthy" }));
 
 // CopilotKit endpoints
-const handler = createCopilotRuntimeHandler({
+const handler = createCopilotKitRuntimeHandler({
   cors: true,
   runtime,
   basePath: "/api/copilotkit",

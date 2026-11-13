@@ -2,7 +2,7 @@ import express from "express";
 import { CopilotRuntime } from "@copilotkit/runtime";
 import { BuiltInAgent } from "@copilotkit/runtime/agent";
 import { openaiText } from "@tanstack/ai-openai";
-import { createCopilotNodeListener } from "@copilotkit/runtime/node";
+import { createCopilotKitNodeListener } from "@copilotkit/runtime/node";
 
 const runtime = new CopilotRuntime({
   agents: {
@@ -12,7 +12,7 @@ const runtime = new CopilotRuntime({
 
 const app = express();
 app.use(
-  createCopilotNodeListener({
+  createCopilotKitNodeListener({
     cors: true,
     runtime,
     basePath: "/api/copilotkit",

@@ -1,7 +1,7 @@
 import { Elysia } from "elysia";
 import {
   CopilotRuntime,
-  createCopilotRuntimeHandler,
+  createCopilotKitRuntimeHandler,
 } from "@copilotkit/runtime";
 import { BuiltInAgent } from "@copilotkit/runtime/agent";
 import { openaiText } from "@tanstack/ai-openai";
@@ -12,7 +12,7 @@ const runtime = new CopilotRuntime({
   },
 });
 
-const handler = createCopilotRuntimeHandler({ runtime, cors: true });
+const handler = createCopilotKitRuntimeHandler({ runtime, cors: true });
 
 const port = Number(process.env.PORT ?? 4004);
 new Elysia()

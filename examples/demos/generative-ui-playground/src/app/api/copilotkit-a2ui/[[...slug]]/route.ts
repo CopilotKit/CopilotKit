@@ -7,7 +7,7 @@
 
 import {
   CopilotRuntime,
-  createCopilotRuntimeHandler,
+  createCopilotKitRuntimeHandler,
   InMemoryAgentRunner,
 } from "@copilotkit/runtime";
 import { A2AAgent } from "@ag-ui/a2a";
@@ -33,7 +33,7 @@ const runtime = new CopilotRuntime({
 });
 
 // Create Hono endpoint
-const app = createCopilotRuntimeHandler({
+const app = createCopilotKitRuntimeHandler({
   cors: true,
   runtime,
   basePath: "/api/copilotkit-a2ui",

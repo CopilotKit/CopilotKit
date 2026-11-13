@@ -3,7 +3,7 @@ import { openaiText } from "../lib/openai-text";
 import {
   CopilotRuntime,
   InMemoryAgentRunner,
-  createCopilotRuntimeHandler,
+  createCopilotKitRuntimeHandler,
 } from "@copilotkit/runtime";
 import {
   BuiltInAgent,
@@ -63,7 +63,7 @@ const runtime = new CopilotRuntime({
   generativeUI: true,
 });
 
-const handler = createCopilotRuntimeHandler({
+const handler = createCopilotKitRuntimeHandler({
   runtime,
   basePath: "/api/copilotkit",
 });

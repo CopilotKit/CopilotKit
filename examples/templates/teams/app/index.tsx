@@ -37,7 +37,7 @@ import {
   CopilotKitIntelligence,
 } from "@copilotkit/runtime";
 import { BuiltInAgent } from "@copilotkit/runtime/agent";
-import { createCopilotNodeListener } from "@copilotkit/runtime/node";
+import { createCopilotKitNodeListener } from "@copilotkit/runtime/node";
 import { openaiText } from "@tanstack/ai-openai";
 import { z } from "zod";
 import { hitlTools } from "./human-in-the-loop/index.js";
@@ -155,7 +155,7 @@ const runtime = new CopilotSseRuntime({
 // `runtimeAgentUrl` (localhost). Omitting the host would bind all interfaces and
 // expose it on a deployed host.
 createServer(
-  createCopilotNodeListener({ runtime, basePath: "/api/copilotkit" }),
+  createCopilotKitNodeListener({ runtime, basePath: "/api/copilotkit" }),
 ).listen(runtimePort, "127.0.0.1", () => {
   console.log(`Runtime (BuiltInAgent) listening on 127.0.0.1:${runtimePort}`);
 });
@@ -319,7 +319,7 @@ process.on("SIGTERM", () => runShutdown("SIGTERM"));
 // ingress (the Teams adapter has its own on :${port}); the listener only owns the
 // Channel lifecycle and keeps the process alive.
 const channelPort = Number(process.env.CHANNELS_PORT ?? 8300);
-const listener = createCopilotNodeListener({
+const listener = createCopilotKitNodeListener({
   runtime: channelRuntime,
   basePath: "/api/copilotkit",
 });

@@ -75,7 +75,7 @@ then drive activation through the returned handler:
 import { createChannel } from "@copilotkit/channels-core";
 import { slack } from "@copilotkit/channels-slack";
 import { CopilotRuntime, CopilotKitIntelligence } from "@copilotkit/runtime";
-import { createCopilotNodeListener } from "@copilotkit/runtime/node";
+import { createCopilotKitNodeListener } from "@copilotkit/runtime/node";
 
 const channel = createChannel({
   name: "support-bot", // project-unique Intelligence Channel name
@@ -93,7 +93,7 @@ const runtime = new CopilotRuntime({
 });
 
 // Creating the listener starts every declared channel's connection.
-const listener = createCopilotNodeListener({ runtime });
+const listener = createCopilotKitNodeListener({ runtime });
 // Optional: await that activation so a broken config fails startup loudly.
 await listener.channels.ready();
 // await listener.channels.stop(); // tears them down

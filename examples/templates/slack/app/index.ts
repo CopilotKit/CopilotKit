@@ -30,7 +30,7 @@ import "dotenv/config";
 import { createServer } from "node:http";
 import { createChannel, HttpAgent } from "@copilotkit/channels";
 import { CopilotRuntime, CopilotKitIntelligence } from "@copilotkit/runtime";
-import { createCopilotNodeListener } from "@copilotkit/runtime/node";
+import { createCopilotKitNodeListener } from "@copilotkit/runtime/node";
 import type {
   PlatformAdapter,
   ChannelTool,
@@ -359,7 +359,7 @@ async function main() {
   // (each platform adapter has its own — e.g. WhatsApp's webhook on $PORT); it
   // only owns the Channel lifecycle and keeps the process alive.
   const channelPort = Number(process.env.CHANNELS_PORT ?? 8300);
-  const listener = createCopilotNodeListener({
+  const listener = createCopilotKitNodeListener({
     runtime: channelRuntime,
     basePath: "/api/copilotkit",
   });

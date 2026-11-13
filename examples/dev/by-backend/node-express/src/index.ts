@@ -5,7 +5,7 @@ import type { ToolDefinition } from "@copilotkit/runtime/agent";
 import { CopilotRuntime } from "@copilotkit/runtime";
 import { BuiltInAgent, defineTool } from "@copilotkit/runtime/agent";
 import { openaiText } from "@tanstack/ai-openai";
-import { createCopilotNodeListener } from "@copilotkit/runtime/node";
+import { createCopilotKitNodeListener } from "@copilotkit/runtime/node";
 
 dotenv.config();
 
@@ -34,7 +34,7 @@ const app = express();
 
 app.use(
   "/api/copilotkit",
-  createCopilotNodeListener({
+  createCopilotKitNodeListener({
     mode: "single-route",
     cors: true,
     runtime,

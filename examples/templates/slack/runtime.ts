@@ -45,7 +45,7 @@ import {
   BuiltInAgent,
   convertInputToTanStackAI,
 } from "@copilotkit/runtime/agent";
-import { createCopilotNodeListener } from "@copilotkit/runtime/node";
+import { createCopilotKitNodeListener } from "@copilotkit/runtime/node";
 import { chat } from "@tanstack/ai";
 import { openaiText } from "./openai-text.js";
 import { webSearchTool } from "@tanstack/ai-openai/tools";
@@ -322,7 +322,7 @@ const runtime = new CopilotSseRuntime({
   agents: { triage: agent },
 });
 
-const listener = createCopilotNodeListener({
+const listener = createCopilotKitNodeListener({
   runtime,
   basePath: "/api/copilotkit",
   cors: true,

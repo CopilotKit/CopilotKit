@@ -1,7 +1,7 @@
 import {
   CopilotRuntime,
   InMemoryAgentRunner,
-  createCopilotRuntimeHandler,
+  createCopilotKitRuntimeHandler,
 } from "@copilotkit/runtime";
 import { ScriptedDealAgent } from "@/lib/scripted-deal-agent";
 
@@ -11,7 +11,7 @@ const runtime = new CopilotRuntime({
   runner: new InMemoryAgentRunner(),
 });
 
-const app = createCopilotRuntimeHandler({
+const app = createCopilotKitRuntimeHandler({
   mode: "single-route",
   cors: true,
   runtime,
