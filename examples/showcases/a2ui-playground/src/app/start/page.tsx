@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Download, FileJson, LayoutGrid, Plug } from "lucide-react";
+import { Download, FileJson, Plug } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { SiteHeader } from "@/components/site/site-header";
 import { DOCS_URL, REPO_URL } from "@/components/start/links";
@@ -14,7 +14,7 @@ export const metadata: Metadata = {
     "Add A2UI 1.0 to your app with one prompt for your coding agent: CopilotKit's standard catalog, shadcn/ui through ChatCN, Material 3 or your own components.",
 };
 
-/** Where to go once the app answers with UI: the components, the catalog, an agent skill, any agent. */
+/** Where to go once the app answers with UI: the catalog, an agent skill, any agent. */
 const NEXT: Array<{
   href: string;
   title: string;
@@ -23,12 +23,6 @@ const NEXT: Array<{
   external?: boolean;
   download?: boolean;
 }> = [
-  {
-    href: "/components",
-    title: "Component reference",
-    body: "Props and a live preview for each.",
-    Icon: LayoutGrid,
-  },
   {
     href: "/catalog.json",
     title: "Catalog JSON",
@@ -85,7 +79,7 @@ export default function StartPage() {
           >
             Go further
           </h2>
-          <ul className="mt-8 grid gap-3 sm:grid-cols-2">
+          <ul className="mt-8 grid gap-3 sm:grid-cols-3">
             {NEXT.map(({ Icon, ...n }) => {
               const body = (
                 <>

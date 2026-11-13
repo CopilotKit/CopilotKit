@@ -15,7 +15,7 @@ The hosted playground runs at https://a2ui-playground.copilotkit.ai.
 - **Any design system.** The first picker in the prompt box's "+" menu chooses what draws each surface: CopilotKit's standard catalog, ChatCN (shadcn/ui), Material (Material 3 Expressive), or a hand-written in-house set standing in for your own components. The agent's A2UI never changes; switching repaints every surface on the page, which is the point of a catalog: a contract, not a look. `src/design-systems/` swaps leaf components (Button, Badge, Stat, Heading and the like) and themes the rest; `?ds=chatcn`, `?ds=material` or `?ds=byoc` picks one in a link. Material's stylesheet and typeface load the first time it is picked.
 - **Chat first, with the code beside it.** Each prompt shows its UI inline as it paints. The side pane shows the selected surface's Express (or JSON) lines as they are written, the JSON with an editor (live preview, no model; then "Ask the model to change this"), and the run's timings.
 - **Light or dark, and embeddable.** Light by default, dark from the header or `?theme=dark`; `?embed=1` is a compact version for an iframe (see Embed it).
-- **Take it home.** `/start` is one Copy prompt for a coding agent (Claude Code, Codex, Cursor, Antigravity CLI, OpenCode, Hermes) that adds A2UI to an existing app for the design system you pick, plus the two lines it comes down to by hand. `/components` documents every component, `/catalog.json` and the agent skill download (`/api/skills?format=express&download=1`) carry the catalog to other renderers and agents, `/evals` shows per-model scores (`pnpm evals`), and `examples/adk` is a Google ADK agent on the same catalog.
+- **Take it home.** `/start` is one Copy prompt for a coding agent (Claude Code, Codex, Cursor, Antigravity CLI, OpenCode, Hermes) that adds A2UI to an existing app for the design system you pick, plus the two lines it comes down to by hand. `/catalog.json` and the agent skill download (`/api/skills?format=express&download=1`) carry the catalog to other renderers and agents, `/evals` shows per-model scores (`pnpm evals`), and `examples/adk` is a Google ADK agent on the same catalog.
 
 ## Run it
 
@@ -138,7 +138,7 @@ pnpm dev                         # from the repo root, then open http://localhos
 | `src/a2ui/macros/`           | The three macros and their samples                                                  |
 | `src/components/playground/` | The chat, composer, lines pane and the JSON editor                                  |
 | `src/design-systems/`        | CopilotKit, ChatCN, Material and Bring-your-own implementations of the same catalog |
-| `src/app/`                   | Pages (`/`, `/components`, `/evals`, `/start`, `/watch`) and API routes             |
+| `src/app/`                   | Pages (`/`, `/evals`, `/start`, `/watch`) and API routes                            |
 | `skills/`                    | The catalog skill and the generated agent skills                                    |
 | `examples/adk/`              | A Google ADK agent served over AG-UI                                                |
 | `scripts/`                   | Catalog and skill export, evals, the replay recorder, browser checks                |
