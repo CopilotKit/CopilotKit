@@ -977,6 +977,67 @@ describe("createA2UIV09ActivityUpgrader", () => {
     expectValid(content.operations);
   });
 
+  it("appends the components that a progressive render rewrites under the same data", () => {
+    const upgrader = createA2UIV09ActivityUpgrader();
+    const draft = [{ id: "root", component: "Text", text: "Loading" }];
+    const data = setData({ path: "/", value: {} });
+    // A progressive render (the ADK express stream) sends a draft, then the
+    // same operations with the final components and the same data.
+    const first = contentOf(
+      upgrader.transform(
+        surfaceSnapshot("a2ui-surface-call1", [create(), update(draft), data]),
+      )[0],
+    );
+    const second = contentOf(
+      upgrader.transform(
+        surfaceSnapshot("a2ui-surface-call1", [create(), update(card), data]),
+      )[0],
+    );
+    // The client sees that the operation at its last index did not change,
+    // so it applies only what comes after: the new components and the data.
+    expect(second.operations.slice(0, 3)).toEqual(first.operations);
+    expect(second.operations.slice(3)).toEqual([
+      {
+        version: "1.0",
+        updateComponents: {
+          surfaceId: "s",
+          components: [
+            { id: "root", component: "Card", child: "name" },
+            { id: "name", component: "Text", text: { "@path": "/name" } },
+          ],
+        },
+      },
+      first.operations[2],
+    ]);
+    expectValid(second.operations);
+  });
+
+  it("sends the new operations as they are when the client builds the surface again", () => {
+    const upgrader = createA2UIV09ActivityUpgrader();
+    upgrader.transform(
+      surfaceSnapshot("a2ui-surface-call1", [
+        create(),
+        update(card),
+        setData({ path: "/", value: { name: "A" } }),
+      ]),
+    );
+    // The last operation changed, so the client builds the surface again
+    // from the new list: nothing is appended.
+    const next = contentOf(
+      upgrader.transform(
+        surfaceSnapshot("a2ui-surface-call1", [
+          create(),
+          update(card),
+          setData({ path: "/", value: { name: "Ada" } }),
+        ]),
+      )[0],
+    );
+    expect(next.operations).toHaveLength(3);
+    expect(next.operations[2]).toMatchObject({
+      updateDataModel: { value: { name: "Ada" } },
+    });
+  });
+
   it("sends nothing for a snapshot that changes nothing", () => {
     const upgrader = createA2UIV09ActivityUpgrader();
     const event = surfaceSnapshot("m1", [create(), update(card)]);

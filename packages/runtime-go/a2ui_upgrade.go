@@ -677,6 +677,10 @@ type surfaceState struct {
 	parts        map[string]*sourcePart
 	partOrder    []string
 	lastSnapshot string
+	// The converted source operations, and the operations sent, at the last snapshot.
+	snapshotSource     []any
+	snapshotOperations []any
+	snapshotSent       bool
 	// Operations sent as deltas, for a surface created in an earlier run.
 	sentOperations []any
 	sentRejected   string
@@ -741,7 +745,47 @@ func (u *a2uiV09Upgrader) failure(messageID, message string) []Event {
 	return []Event{{"type": "ACTIVITY_SNAPSHOT", "messageId": surfaceMessageID(messageID), "activityType": generativeUIActivityType, "content": copy, "replace": true}}
 }
 
-func (u *a2uiV09Upgrader) snapshot(surfaceID string, state *surfaceState, operations, rejected []any, version string) []Event {
+// clientOperations returns the operations of the next snapshot of a surface, so that the
+// client applies every change of the source.
+//
+// The client applies only the operations after the ones it applied, when the operation at
+// its last applied index did not change. A source that changes an earlier operation but
+// not that one (a progressive render that rewrites its components, then sends the same
+// data again) would lose the change. In that case the changed operations of the source are
+// appended to the sent ones: v0.9 updates replace by id or path, so sending them again is
+// safe, and a second createSurface is left out. In every other case the source operations
+// go as they are: the client either extends its surface with them or builds it again from
+// them.
+func clientOperations(state *surfaceState, source []any) []any {
+	if !state.snapshotSent {
+		return source
+	}
+	lastSource, sent := state.snapshotSource, state.snapshotOperations
+	same := 0
+	for same < len(lastSource) && same < len(source) && compactJSON(lastSource[same]) == compactJSON(source[same]) {
+		same++
+	}
+	appended := source[same:]
+	if same == len(lastSource) {
+		return append(append([]any{}, sent...), appended...)
+	}
+	// The client builds the surface again when the list is shorter than the one it
+	// applied, or when the operation at its last applied index changed.
+	last := len(sent) - 1
+	if len(source) < len(sent) || (last >= 0 && compactJSON(source[last]) != compactJSON(sent[last])) {
+		return source
+	}
+	out := append([]any{}, sent...)
+	for _, op := range appended {
+		if _, isCreate := object(op)["createSurface"]; !isCreate {
+			out = append(out, op)
+		}
+	}
+	return out
+}
+
+func (u *a2uiV09Upgrader) snapshot(surfaceID string, state *surfaceState, source, rejected []any, version string) []Event {
+	operations := clientOperations(state, source)
 	catalogID := ""
 	for _, op := range operations {
 		if create, ok := object(op)["createSurface"]; ok {
@@ -761,6 +805,7 @@ func (u *a2uiV09Upgrader) snapshot(surfaceID string, state *surfaceState, operat
 		return nil
 	}
 	state.lastSnapshot = serialized
+	state.snapshotSource, state.snapshotOperations, state.snapshotSent = source, operations, true
 	var copy any
 	json.Unmarshal([]byte(serialized), &copy)
 	return []Event{{"type": "ACTIVITY_SNAPSHOT", "messageId": surfaceMessageID(surfaceID), "activityType": generativeUIActivityType, "content": copy, "replace": true}}

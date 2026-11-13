@@ -58,7 +58,7 @@ The driver mounts the library without reimplementing routes, middleware, telemet
 
 ## Coverage
 
-The suite has 148 cases. These include 17 initial cases, 47 UI cases, and 18 additional analytics cases.
+The suite has 149 cases. These include 17 initial cases, 48 UI cases, and 18 additional analytics cases.
 Fourteen runner cases, 18 access cases, and five frontend-client cases cover the remaining requirements.
 Six Inspector metadata cases cover discovery, independent module validation, action URLs, private responses, server credentials, and the five-second deadline.
 Twenty-three entitlement cases cover current and legacy responses, schema validation, safe errors, server credentials, concurrent requests, and request deadlines.

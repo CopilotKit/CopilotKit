@@ -159,6 +159,45 @@ def test_upgrader_sends_one_cumulative_surface_per_surface_id():
     assert upgrader.transform(other) == [other]
 
 
+def _render(components, data=None):
+    return [
+        {"version": "v0.9", "createSurface": {"surfaceId": "s", "catalogId": BASIC}},
+        {"version": "v0.9", "updateComponents": {"surfaceId": "s", "components": components}},
+        {
+            "version": "v0.9",
+            "updateDataModel": {"surfaceId": "s", "path": "/", "value": data or {}},
+        },
+    ]
+
+
+DRAFT = [{"id": "root", "component": "Text", "text": "Loading"}]
+FINAL = [
+    {"id": "root", "component": "Column", "children": ["title"]},
+    {"id": "title", "component": "Text", "text": "Q2"},
+]
+
+
+def test_upgrader_appends_components_that_a_progressive_render_rewrites():
+    upgrader = A2UIV09ActivityUpgrader()
+    [first] = upgrader.transform(activity("m", _render(DRAFT)))
+    [second] = upgrader.transform(activity("m", _render(FINAL)))
+    sent, ops = first["content"]["operations"], second["content"]["operations"]
+    # The operation at the last applied index is unchanged, so the client applies only
+    # what comes after it: the final components, then the same data.
+    assert ops[:3] == sent
+    assert [list(op)[1] for op in ops[3:]] == ["updateComponents", "updateDataModel"]
+    assert ops[3]["updateComponents"]["components"][0]["component"] == "Column"
+
+
+def test_upgrader_sends_new_operations_as_they_are_when_the_client_rebuilds():
+    upgrader = A2UIV09ActivityUpgrader()
+    upgrader.transform(activity("m", _render(FINAL, {"name": "A"})))
+    [second] = upgrader.transform(activity("m", _render(FINAL, {"name": "Ada"})))
+    ops = second["content"]["operations"]
+    assert len(ops) == 3
+    assert ops[2]["updateDataModel"]["value"] == {"name": "Ada"}
+
+
 def test_upgrader_shows_a_failed_lifecycle_snapshot_as_an_error_surface_once():
     upgrader = A2UIV09ActivityUpgrader()
 
