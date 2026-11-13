@@ -235,7 +235,7 @@ Soar is in early access today. 👉 **[Get early access →](https://intelligenc
   <tr>
     <td width="25%" valign="top"><b><a href="https://open.bot/?ref=github_readme">OpenBot</a></b><br /><sub>AI coworkers, each with a computer of its own.</sub><br /><br /><a href="https://github.com/CopilotKit/OpenBot"><img src="https://img.shields.io/github/stars/CopilotKit/OpenBot?style=flat&color=6666fc&label=%E2%98%85" alt="OpenBot stars"></a></td>
     <td width="25%" valign="top"><b><a href="https://github.com/CopilotKit/OpenDots">OpenDots</a></b><br /><sub>Always-on coworkers for text, calls, and Slack.</sub><br /><br /><img src="https://img.shields.io/github/stars/CopilotKit/OpenDots?style=flat&color=6666fc&label=%E2%98%85" alt="OpenDots stars"></td>
-    <td width="25%" valign="top"><b><a href="https://github.com/CopilotKit/OpenMuse">OpenMuse</a></b><br /><sub>A personal agent for iOS, Android, and web.</sub><br /><br /><img src="https://img.shields.io/github/stars/CopilotKit/OpenMuse?style=flat&color=6666fc&label=%E2%98%85" alt="OpenMuse stars"></td>
+    <td width="25%" valign="top"><b><a href="https://github.com/CopilotKit/OpenFuse">OpenFuse</a></b><br /><sub>A personal agent for iOS, Android, and web.</sub><br /><br /><img src="https://img.shields.io/github/stars/CopilotKit/OpenFuse?style=flat&color=6666fc&label=%E2%98%85" alt="OpenFuse stars"></td>
     <td width="25%" valign="top"><b><a href="https://github.com/CopilotKit/OpenTag">OpenTag</a></b><br /><sub>An on-call triage bot for Slack and Teams.</sub><br /><br /><img src="https://img.shields.io/github/stars/CopilotKit/OpenTag?style=flat&color=6666fc&label=%E2%98%85" alt="OpenTag stars"></td>
   </tr>
 </table>
