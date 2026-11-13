@@ -337,36 +337,21 @@ html .copilotKitChat:hover ::-webkit-scrollbar-thumb {
     transform: translateY(6px);
   }
 }
-@keyframes roll-in {
+/* The stack diagram's CopilotKit tile, as a request passes through it: a
+ * ring eases out and fades, and the tile gives a small beat. */
+@keyframes core-pulse {
   from {
-    opacity: 0;
-    transform: translateY(60%) scale(0.85);
+    opacity: 0.7;
+    scale: 1;
   }
-}
-
-@keyframes roll-out {
   to {
     opacity: 0;
-    transform: translateY(-60%) scale(0.85);
+    scale: 1.45;
   }
 }
-
-/* The stack diagram's packets: a 7-long head with a 22-long tail behind it,
- * both starting before the wire and leaving past its end. */
-@keyframes packet-head {
-  from {
-    stroke-dashoffset: 9;
-  }
-  to {
-    stroke-dashoffset: -122;
-  }
-}
-@keyframes packet-tail {
-  from {
-    stroke-dashoffset: 24;
-  }
-  to {
-    stroke-dashoffset: -107;
+@keyframes core-beat {
+  40% {
+    scale: 1.05;
   }
 }
 /* Callout states, from the brand palette. */
