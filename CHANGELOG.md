@@ -28,11 +28,11 @@ Thread naming (`generateThreadNames`, on by default) previously ran a clone of y
 
 The runtime now never runs your agent to name a thread:
 
-| `generateThreadNames` | Before | After |
-|---|---|---|
-| `true` (default) | Agent clone runs, up to 3 times | Title is the first user message, cut to 8 words. No model runs. |
-| `{ model, apiKey? }` | (did not exist) | One direct `generateText` call with no tools, no retries, and a 15s timeout. Falls back to the first user message if it fails or returns no valid title. |
-| `false` | No naming | No naming |
+| `generateThreadNames` | Before                          | After                                                                                                                                                    |
+| --------------------- | ------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `true` (default)      | Agent clone runs, up to 3 times | Title is the first user message, cut to 8 words. No model runs.                                                                                          |
+| `{ model, apiKey? }`  | (did not exist)                 | One direct `generateText` call with no tools, no retries, and a 15s timeout. Falls back to the first user message if it fails or returns no valid title. |
+| `false`               | No naming                       | No naming                                                                                                                                                |
 
 **Migration:** Apps that set nothing now get the first user message as the title instead of a model-generated summary. To restore summary titles, set `generateThreadNames: { model: "openai/gpt-5-mini" }`. The `model` option accepts a `"provider/model"` string or an AI SDK `LanguageModel`, and a new public type `ThreadNameGenerationConfig` is exported.
 
