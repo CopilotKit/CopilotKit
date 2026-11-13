@@ -6,7 +6,7 @@
  */
 
 import {
-  CopilotRuntime,
+  CopilotKitRuntime,
   createCopilotKitRuntimeHandler,
   InMemoryAgentRunner,
 } from "@copilotkit/runtime";
@@ -22,7 +22,7 @@ const a2aClient = new A2AClient(
 const a2uiAgent = new A2AAgent({ a2aClient });
 
 // Create CopilotKit runtime with A2UI agent as default
-const runtime = new CopilotRuntime({
+const runtime = new CopilotKitRuntime({
   agents: {
     default: a2uiAgent,
   },

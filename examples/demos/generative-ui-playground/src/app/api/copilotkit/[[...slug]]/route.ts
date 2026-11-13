@@ -9,7 +9,7 @@
  */
 
 import {
-  CopilotRuntime,
+  CopilotKitRuntime,
   createCopilotKitRuntimeHandler,
   InMemoryAgentRunner,
 } from "@copilotkit/runtime";
@@ -105,7 +105,7 @@ const a2aClient = new A2AClient(
 const a2uiAgent = new A2AAgent({ a2aClient });
 
 // Create CopilotKit runtime with both agents
-const runtime = new CopilotRuntime({
+const runtime = new CopilotKitRuntime({
   agents: {
     default: defaultAgent, // Static GenUI + MCP Apps
     a2ui: a2uiAgent, // A2UI with Python A2A server

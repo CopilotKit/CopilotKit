@@ -1,7 +1,7 @@
 import { chat } from "@tanstack/ai";
 import { openaiText } from "../lib/openai-text";
 import {
-  CopilotRuntime,
+  CopilotKitRuntime,
   InMemoryAgentRunner,
   createCopilotKitRuntimeHandler,
 } from "@copilotkit/runtime";
@@ -57,7 +57,7 @@ const shopAssistant = new BuiltInAgent({
 
 // generativeUI: true gives every run the render_ui tool, so the agent can
 // render surfaces into the page areas that are on screen.
-const runtime = new CopilotRuntime({
+const runtime = new CopilotKitRuntime({
   agents: { default: shopAssistant },
   runner: new InMemoryAgentRunner(),
   generativeUI: true,

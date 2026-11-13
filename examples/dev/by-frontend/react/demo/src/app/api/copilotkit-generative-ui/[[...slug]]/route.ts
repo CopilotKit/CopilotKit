@@ -1,5 +1,5 @@
 import {
-  CopilotRuntime,
+  CopilotKitRuntime,
   InMemoryAgentRunner,
   createCopilotKitRuntimeHandler,
 } from "@copilotkit/runtime";
@@ -46,7 +46,7 @@ Use the render_ui tool for UI:
 Keep text replies short; let the UI carry the details.`,
 });
 
-const runtime = new CopilotRuntime({
+const runtime = new CopilotKitRuntime({
   agents: { default: agent },
   runner: new InMemoryAgentRunner(),
   generativeUI: true,

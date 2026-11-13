@@ -1,5 +1,5 @@
 import {
-  CopilotRuntime,
+  CopilotKitRuntime,
   createCopilotKitRuntimeHandler,
   InMemoryAgentRunner,
 } from "@copilotkit/runtime";
@@ -68,7 +68,7 @@ const transcriptionService = openAIApiKey
     })
   : undefined;
 
-const runtime = new CopilotRuntime({
+const runtime = new CopilotKitRuntime({
   agents: {
     default: builtInAgent,
   },

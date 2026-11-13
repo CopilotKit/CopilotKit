@@ -14,10 +14,10 @@ const fakes = vi.hoisted(() => {
     listener,
     closeBrowser: vi.fn(async () => {}),
     createCopilotKitNodeListener: vi.fn(() => listener),
-    // Captures the options `new CopilotRuntime(...)` was constructed with so
+    // Captures the options `new CopilotKitRuntime(...)` was constructed with so
     // the test can assert the runtime carries `channels`.
     runtimeOptions: undefined as unknown,
-    CopilotRuntime: vi.fn(function CopilotRuntime(options: unknown) {
+    CopilotKitRuntime: vi.fn(function CopilotKitRuntime(options: unknown) {
       fakes.runtimeOptions = options;
     }),
     CopilotKitIntelligence: vi.fn(function CopilotKitIntelligence() {}),
@@ -45,7 +45,7 @@ vi.mock("@copilotkit/channels/slack", () => ({
   defaultSlackContext: [],
 }));
 vi.mock("@copilotkit/runtime", () => ({
-  CopilotRuntime: fakes.CopilotRuntime,
+  CopilotKitRuntime: fakes.CopilotKitRuntime,
   CopilotKitIntelligence: fakes.CopilotKitIntelligence,
 }));
 vi.mock("@copilotkit/runtime/node", () => ({
@@ -133,7 +133,7 @@ describe("managed channel entrypoint", () => {
       expect.objectContaining({ basePath: "/api/copilotkit" }),
     );
     // The runtime carries the Channel in `channels`.
-    expect(fakes.CopilotRuntime).toHaveBeenCalledOnce();
+    expect(fakes.CopilotKitRuntime).toHaveBeenCalledOnce();
     expect(fakes.runtimeOptions).toEqual(
       expect.objectContaining({ channels: [fakes.bot] }),
     );
@@ -186,7 +186,7 @@ describe("managed channel entrypoint", () => {
       for (const key of envKeys) previousEnv.set(key, process.env[key]);
       vi.resetModules();
       fakes.createCopilotKitNodeListener.mockClear();
-      fakes.CopilotRuntime.mockClear();
+      fakes.CopilotKitRuntime.mockClear();
       fakes.createServer.mockClear();
       process.env.PORT = port;
       vi.spyOn(process, "on").mockImplementation(
@@ -205,7 +205,7 @@ describe("managed channel entrypoint", () => {
           message: "PORT must be an integer between 0 and 65535.",
         }),
       );
-      expect(fakes.CopilotRuntime).not.toHaveBeenCalled();
+      expect(fakes.CopilotKitRuntime).not.toHaveBeenCalled();
       expect(fakes.createCopilotKitNodeListener).not.toHaveBeenCalled();
       expect(fakes.createServer).not.toHaveBeenCalled();
     },

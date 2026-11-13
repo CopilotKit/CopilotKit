@@ -1,5 +1,5 @@
 import {
-  CopilotRuntime,
+  CopilotKitRuntime,
   InMemoryAgentRunner,
   createCopilotKitRuntimeHandler,
 } from "@copilotkit/runtime";
@@ -36,7 +36,7 @@ const transcriptionService = process.env.OPENAI_API_KEY?.trim()
     })
   : undefined;
 
-const singleRuntime = new CopilotRuntime({
+const singleRuntime = new CopilotKitRuntime({
   agents: {
     default: agent,
   },

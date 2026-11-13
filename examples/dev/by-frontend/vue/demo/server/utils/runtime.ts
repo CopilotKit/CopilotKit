@@ -1,5 +1,5 @@
 import { MCPAppsMiddleware } from "@ag-ui/mcp-apps-middleware";
-import { CopilotRuntime, InMemoryAgentRunner } from "@copilotkit/runtime";
+import { CopilotKitRuntime, InMemoryAgentRunner } from "@copilotkit/runtime";
 import { BuiltInAgent } from "@copilotkit/runtime/agent";
 import { anthropicText } from "@tanstack/ai-anthropic";
 import { geminiText } from "@tanstack/ai-gemini";
@@ -159,7 +159,7 @@ class DemoButtonAgent extends AbstractAgent {
 }
 
 export const createDefaultRuntime = () =>
-  new CopilotRuntime({
+  new CopilotKitRuntime({
     agents: {
       default: new BuiltInAgent({
         model: determineModel(),
@@ -180,7 +180,7 @@ export const createDefaultRuntime = () =>
  * run). Used by `/a2ui-catalog` to validate that path in isolation.
  */
 export const createCatalogOnlyRuntime = () =>
-  new CopilotRuntime({
+  new CopilotKitRuntime({
     agents: {
       "demo-button": new DemoButtonAgent(),
     },
@@ -194,7 +194,7 @@ export const createCatalogOnlyRuntime = () =>
  * demo.
  */
 export const createGenerativeUIRuntime = () =>
-  new CopilotRuntime({
+  new CopilotKitRuntime({
     agents: {
       default: new BuiltInAgent({
         model: determineModel(),
@@ -218,7 +218,7 @@ Keep text replies short; let the UI carry the details.`,
  * it. The agent renders into the chat.
  */
 export const createStandardCatalogRuntime = () =>
-  new CopilotRuntime({
+  new CopilotKitRuntime({
     agents: {
       default: new BuiltInAgent({
         model: determineModel(),
@@ -252,7 +252,7 @@ export const createMcpRuntime = () => {
     }),
   );
 
-  return new CopilotRuntime({
+  return new CopilotKitRuntime({
     agents: { default: agent },
     runner: new InMemoryAgentRunner(),
   });

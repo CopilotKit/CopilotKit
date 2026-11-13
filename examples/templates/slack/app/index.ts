@@ -17,7 +17,7 @@
  * Slack/Discord/WhatsApp credentials + transports); the runtime OWNS
  * the Channel's lifecycle and STARTS all of its direct adapters for us. So all
  * three platforms stay on the ONE Channel — you declare it on
- * `new CopilotRuntime({ intelligence, identifyUser, channels: [bot] })` and mount
+ * `new CopilotKitRuntime({ intelligence, identifyUser, channels: [bot] })` and mount
  * a node listener — which starts the Channel. `listener.channels.ready()` waits
  * for it to be live and `.stop()` tears it down. There is no
  * `bot.start()`/`bot.stop()` and no standalone path.
@@ -29,7 +29,7 @@
 import "dotenv/config";
 import { createServer } from "node:http";
 import { createChannel, HttpAgent } from "@copilotkit/channels";
-import { CopilotRuntime, CopilotKitIntelligence } from "@copilotkit/runtime";
+import { CopilotKitRuntime, CopilotKitIntelligence } from "@copilotkit/runtime";
 import { createCopilotKitNodeListener } from "@copilotkit/runtime/node";
 import type {
   PlatformAdapter,
@@ -214,7 +214,7 @@ async function main() {
     name: "triage",
     adapters,
     // One AG-UI agent per conversation. The backend is a CopilotKit
-    // `BuiltInAgent` (CopilotSseRuntime), which does NOT require a UUID-format
+    // `BuiltInAgent` (CopilotKitSseRuntime), which does NOT require a UUID-format
     // threadId, so the raw conversation thread id is fine. Nothing here is
     // platform-specific, so one factory covers Slack, Discord, and WhatsApp
     // alike.
@@ -305,7 +305,7 @@ async function main() {
   // Channel (Slack + Discord + WhatsApp alike) — there is no
   // `bot.start()`. The runtime hosts no agents itself; the Channel supplies its
   // own (the HttpAgent above), so `agents` is empty.
-  const channelRuntime = new CopilotRuntime({
+  const channelRuntime = new CopilotKitRuntime({
     agents: {},
     intelligence,
     channels: [bot],

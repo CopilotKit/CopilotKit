@@ -9,7 +9,7 @@ process.env.COPILOTKIT_TELEMETRY_SAMPLE_RATE ??= String(
 if (configuration.telemetryDisabled)
   process.env.COPILOTKIT_TELEMETRY_DISABLED = "true";
 
-const { CopilotIntelligenceRuntime, CopilotKitIntelligence } =
+const { CopilotKitIntelligenceRuntime, CopilotKitIntelligence } =
   await import("@copilotkit/runtime");
 const { createCopilotKitNodeListener } =
   await import("@copilotkit/runtime/node");
@@ -20,7 +20,7 @@ const intelligence = new CopilotKitIntelligence({
   apiUrl: configuration.apiUrl,
   wsUrl: configuration.runnerUrl.replace(/\/runner\/?$/, ""),
 });
-const runtime = new CopilotIntelligenceRuntime({
+const runtime = new CopilotKitIntelligenceRuntime({
   intelligence,
   agents: {
     default: new HttpAgent({

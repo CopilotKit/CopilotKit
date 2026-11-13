@@ -6,7 +6,7 @@
  */
 
 import {
-  CopilotRuntime,
+  CopilotKitRuntime,
   createCopilotKitRuntimeHandler,
   InMemoryAgentRunner,
 } from "@copilotkit/runtime";
@@ -25,7 +25,7 @@ You can use CDN libraries like Chart.js, D3.js, Three.js, or x-data-spreadsheet 
 Be creative and build polished, well-styled interfaces. Always include proper CSS styling.`,
 });
 
-const runtime = new CopilotRuntime({
+const runtime = new CopilotKitRuntime({
   agents: { default: agent },
   runner: new InMemoryAgentRunner(),
   openGenerativeUI: true,

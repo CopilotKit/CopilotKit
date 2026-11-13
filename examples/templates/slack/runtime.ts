@@ -2,7 +2,7 @@
  * Agent backend for the Slack triage assistant.
  *
  * This is the brain behind the Slack bridge: a single CopilotKit
- * `BuiltInAgent` (LLM + MCP) served over AG-UI by a `CopilotSseRuntime`.
+ * `BuiltInAgent` (LLM + MCP) served over AG-UI by a `CopilotKitSseRuntime`.
  * It replaces the old vendored Python/LangGraph showcase backend — there
  * is no Python, no `langgraph dev`, no A2UI middleware. Everything is a
  * few dozen lines of TypeScript.
@@ -40,7 +40,7 @@
  */
 import "dotenv/config";
 import { createServer } from "node:http";
-import { CopilotSseRuntime } from "@copilotkit/runtime";
+import { CopilotKitSseRuntime } from "@copilotkit/runtime";
 import {
   BuiltInAgent,
   convertInputToTanStackAI,
@@ -318,7 +318,7 @@ const agent = new BuiltInAgent({
   },
 });
 
-const runtime = new CopilotSseRuntime({
+const runtime = new CopilotKitSseRuntime({
   agents: { triage: agent },
 });
 

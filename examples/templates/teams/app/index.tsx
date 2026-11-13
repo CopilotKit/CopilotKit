@@ -10,7 +10,7 @@
  * RUN MODEL — a Channel runs ONLY through the Intelligence runtime. The Teams
  * `teams({ port })` adapter stays DIRECT (it keeps its own transport / the
  * Playground ingress), but the runtime OWNS its lifecycle: the Channel is
- * declared on `new CopilotRuntime({ intelligence, identifyUser, channels })` and
+ * declared on `new CopilotKitRuntime({ intelligence, identifyUser, channels })` and
  * started by mounting the node listener; you observe readiness and drive shutdown
  * through the handler's `channels` control (`listener.channels.ready()` /
  * `.stop()`) — there is no `bot.start()`/`bot.stop()` and no standalone path.
@@ -32,8 +32,8 @@ import {
 } from "@copilotkit/channels";
 import { teams } from "@copilotkit/channels/teams";
 import {
-  CopilotSseRuntime,
-  CopilotRuntime,
+  CopilotKitSseRuntime,
+  CopilotKitRuntime,
   CopilotKitIntelligence,
 } from "@copilotkit/runtime";
 import { BuiltInAgent } from "@copilotkit/runtime/agent";
@@ -124,7 +124,7 @@ const SYSTEM_PROMPT =
   "acknowledge and do not send.";
 
 // The agent is a CopilotKit `BuiltInAgent` served over a local
-// `CopilotSseRuntime`, and the bot connects to it with an `HttpAgent` (as the
+// `CopilotKitSseRuntime`, and the bot connects to it with an `HttpAgent` (as the
 // Slack example does). A `BuiltInAgent` can't be handed to `createChannel`
 // directly: the bot's run loop re-invokes the agent once per tool round (call →
 // result → respond), and a single `BuiltInAgent` instance rejects a second
@@ -142,7 +142,7 @@ const model = (process.env.OPENAI_MODEL ?? "openai/gpt-6-luna").replace(
   "",
 ) as Parameters<typeof openaiText>[0];
 
-const runtime = new CopilotSseRuntime({
+const runtime = new CopilotKitSseRuntime({
   agents: {
     [agentId]: new BuiltInAgent({
       model: openaiText(model),
@@ -272,7 +272,7 @@ const intelligence = new CopilotKitIntelligence({
 // Teams adapter for us (there is no `bot.start()`). It hosts no agents itself —
 // the Channel supplies its own agent (the HttpAgent above, pointed at
 // the local BuiltInAgent runtime) — so `agents` is empty.
-const channelRuntime = new CopilotRuntime({
+const channelRuntime = new CopilotKitRuntime({
   agents: {},
   intelligence,
   channels: [bot],
