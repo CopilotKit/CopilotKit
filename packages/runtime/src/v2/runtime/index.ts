@@ -35,6 +35,16 @@ export {
 // into `mcpClients`; `MCPTransport` is the contract for custom transports.
 export type { MCPClient, MCPTransport } from "@ai-sdk/mcp";
 
+// Export runs in an Intelligence Thread with no client attached
+export {
+  runAgentInThread,
+  ThreadRunError,
+  type ThreadRunErrorReason,
+  type RunAgentInThreadOptions,
+  type RunAgentInThreadResult,
+  type RunAgentInThreadRuntime,
+} from "./core/thread-run";
+
 // Export framework-agnostic fetch handler
 export { createCopilotRuntimeHandler } from "./core/fetch-handler";
 export type {

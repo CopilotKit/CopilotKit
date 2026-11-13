@@ -85,6 +85,11 @@ export const FRONTEND_FOLDERS: Record<FrontendId, string[]> = {
 
 /** shell-docs serves the React reference at both `/reference/v2/*` and `/reference/*`. */
 export const REFERENCE_ROOT_VERSION = "v2";
+/**
+ * The reference's own overview (`reference/overview.mdx`), served at
+ * `/reference` itself; React's overview stays at `/reference/v2`.
+ */
+export const REFERENCE_OVERVIEW = "overview";
 /** The other SDKs' references live in their own folders under `reference/`. */
 export const REFERENCE_FOLDERS = new Set([
   "v1",

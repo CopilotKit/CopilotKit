@@ -5,6 +5,7 @@ import { frameworkSupports } from "@/components/docs-mdx/showcase/framework-gate
 import {
   LIVE_FRAMEWORKS,
   REFERENCE_FOLDERS,
+  REFERENCE_OVERVIEW,
   REFERENCE_ROOT_VERSION,
   ROOT_FRAMEWORK,
   frontendSegment,
@@ -127,7 +128,11 @@ export function resolveLivePage(input: string[]): ResolvedLivePage | null {
 
   if (path[0] === "reference") {
     const rest = path.slice(1);
-    const slugs = rest[0] === REFERENCE_ROOT_VERSION ? rest.slice(1) : rest;
+    const slugs = !rest.length
+      ? [REFERENCE_OVERVIEW]
+      : rest[0] === REFERENCE_ROOT_VERSION
+        ? rest.slice(1)
+        : rest;
     const page = referenceSource.getPage(slugs);
     return page
       ? {
@@ -294,6 +299,8 @@ function firstFrameworkFor(folder: string): string {
 
 /** A reference page's live URL: React's under `/reference/v2`, other SDKs under their folder. */
 export function referenceUrl(slugs: string[]): string {
+  if (slugs.length === 1 && slugs[0] === REFERENCE_OVERVIEW)
+    return "/reference";
   const path = REFERENCE_FOLDERS.has(slugs[0])
     ? slugs
     : [REFERENCE_ROOT_VERSION, ...slugs];
