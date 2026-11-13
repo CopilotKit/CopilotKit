@@ -57,7 +57,7 @@ COPY agent/ ./agent/
 # FAILS, 0.0.44 OK, 0.0.45 OK. 0.0.44 is also the newest version sdk-python's
 # own clone() CI matrix exercises (sdk-python/tests/test_agui_agent_clone.py).
 RUN uv pip install --system "ag-ui-langgraph[fastapi]==0.0.44" && \
-    uv pip install --system --no-deps "copilotkit==0.1.96" && \
+    uv pip install --system --no-deps "copilotkit==0.1.97" && \
     uv pip install --system "partialjson>=0.0.8,<0.0.9" "toml>=0.10.2,<0.11.0" && \
     uv pip install --system \
     "langchain==1.4.0" \
