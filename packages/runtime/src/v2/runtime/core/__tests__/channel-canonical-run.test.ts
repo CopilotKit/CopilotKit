@@ -617,6 +617,34 @@ test("runCanonical cleans up the lock when the runner cannot start", async () =>
   expect(cleanup).toHaveBeenCalledWith(canonicalIdentity);
 });
 
+test("runCanonical cleans up the lock when Channel Memory cannot attach to the agent", async () => {
+  const intelligence = new CopilotKitIntelligence({
+    apiUrl: "https://runtime.example",
+    wsUrl: "wss://runtime.example",
+    apiKey: "cpk-42_short_long",
+  });
+  const cleanup = vi
+    .spyOn(intelligence, "ɵcleanupThreadLock")
+    .mockResolvedValue(undefined);
+  const run = vi.fn(() => EMPTY);
+  const runCanonical = await captureRunCanonical(new TestRunner(run), {
+    intelligence,
+  });
+  // An agent with no middleware support cannot take the Memory tools.
+  const agent = new NoopAgent();
+  Object.defineProperty(agent, "use", { value: undefined });
+
+  await expect(
+    runCanonical({
+      ...runArgs(),
+      agent,
+      memory: { grant: { user: "none", project: "read" }, user: null },
+    }),
+  ).rejects.toMatchObject({ code: "channel_memory_agent_unsupported" });
+  expect(run).not.toHaveBeenCalled();
+  expect(cleanup).toHaveBeenCalledWith(canonicalIdentity);
+});
+
 test("runCanonical cleans up the lock after a successful runner stream", async () => {
   const intelligence = new CopilotKitIntelligence({
     apiUrl: "https://runtime.example",
