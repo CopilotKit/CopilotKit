@@ -1,5 +1,5 @@
 import { createServer } from "node:http";
-import type { Server } from "node:http";
+import type { IncomingMessage, Server } from "node:http";
 import type { AddressInfo } from "node:net";
 import { EventType } from "@ag-ui/client";
 import type { BaseEvent } from "@ag-ui/client";
@@ -22,6 +22,14 @@ import type { WebSocket } from "ws";
  *   event while the run holds the lock records the run as ended and deletes
  *   the lock.
  *
+ * - app-api's thread routes, when `threads` is set: a thread is unknown
+ *   (404) until `POST /api/threads` creates it, and its messages are the
+ *   ones it was given.
+ * - a browser's Stop, by the route the runtime also records its own stops:
+ *   `POST /api/threads/:id/connect` mints a single-use join token, and
+ *   `stop_run` on the thread's client channel stores the stop and relays it
+ *   to the run's runner.
+ *
  * `storeDelayMs` is how long the gateway takes to store a batch after it
  * arrives: the network and Redis time between the runner sending a batch and
  * the lock check that decides it.
@@ -38,6 +46,28 @@ export interface FakeLockGatewayOptions {
    * when a thread outgrows its share of the event store.
    */
   refuseBatch?: number;
+  /**
+   * The threads the platform holds, by ID, with their stored messages. When
+   * set, any other thread is unknown until it is created. Unset, every thread
+   * exists and has no messages.
+   */
+  threads?: Record<string, StoredMessage[]>;
+}
+
+/** A message as app-api stores and returns it. */
+export interface StoredMessage {
+  id: string;
+  role: string;
+  content?: unknown;
+  toolCalls?: Array<{ id: string; name: string; args: string }>;
+  toolCallId?: string;
+}
+
+/** One HTTP request the fake received, as a test reads it. */
+export interface FakeRequest {
+  method: string;
+  path: string;
+  body: Record<string, unknown>;
 }
 
 const RUNNER_EVENT_BATCH_CAPABILITY = "runner_event_batch_v1";
@@ -69,6 +99,13 @@ export async function startFakeLockGateway(
   let batchCount = 0;
   /** Batches received and not yet stored or refused. */
   let pendingBatches = 0;
+  /** Every HTTP request, in arrival order. */
+  const requests: FakeRequest[] = [];
+  const threads = options.threads
+    ? new Map(Object.entries(options.threads))
+    : undefined;
+  /** Join tokens minted for the client socket, each usable once. */
+  const joinTokens = new Set<string>();
 
   const server: Server = createServer(async (req, res) => {
     const chunks: Buffer[] = [];
@@ -81,16 +118,37 @@ export async function startFakeLockGateway(
       res.writeHead(status, { "Content-Type": "application/json" });
       res.end(payload === undefined ? "" : JSON.stringify(payload));
     };
+    requests.push({ method, path: url.pathname, body });
+    if (method === "POST" && url.pathname === "/api/threads") {
+      const id = body.threadId as string;
+      if (!threads) return send(404, { error: "not found" });
+      if (threads.has(id)) {
+        return send(409, { error: { code: "THREAD_EXISTS" } });
+      }
+      threads.set(id, []);
+      timeline.push("thread created");
+      return send(201, {
+        thread: { id, name: null, agentId: body.agentId },
+      });
+    }
     const match = url.pathname.match(/^\/api\/threads\/([^/]+)(\/[^/]+)?$/);
     if (!match) return send(404, { error: "not found" });
     const [, threadId, rest] = match;
+    if (threads && !threads.has(threadId)) {
+      return send(404, { error: { code: "THREAD_NOT_FOUND" } });
+    }
     if (method === "GET" && rest === undefined) {
       return send(200, {
         thread: { id: threadId, name: "Existing", agentId: "test" },
       });
     }
     if (method === "GET" && rest === "/messages") {
-      return send(200, { messages: [] });
+      return send(200, { messages: threads?.get(threadId) ?? [] });
+    }
+    if (method === "POST" && rest === "/connect") {
+      const joinToken = `join-token-${joinTokens.size + 1}`;
+      joinTokens.add(joinToken);
+      return send(200, { threadId, joinToken });
     }
     if (rest !== "/lock") return send(404, { error: "not found" });
 
@@ -132,7 +190,12 @@ export async function startFakeLockGateway(
   });
 
   const sockets = new WebSocketServer({ server });
-  sockets.on("connection", (socket: WebSocket) => {
+  sockets.on("connection", (socket: WebSocket, req: IncomingMessage) => {
+    const path = new URL(req.url ?? "/", "http://127.0.0.1");
+    if (path.pathname.startsWith("/client")) {
+      acceptClient(socket, path.searchParams.get("join_token") ?? "");
+      return;
+    }
     runnerSockets.add(socket);
     socket.on("close", () => runnerSockets.delete(socket));
     let joined: { threadId: string; runId: string } | undefined;
@@ -260,6 +323,45 @@ export async function startFakeLockGateway(
     });
   });
 
+  /** A browser's thread socket: here it only records a stop. */
+  function acceptClient(socket: WebSocket, joinToken: string) {
+    if (!joinTokens.delete(joinToken)) {
+      socket.close(1008);
+      return;
+    }
+    socket.on("message", (data) => {
+      const frame = JSON.parse(data.toString()) as Frame;
+      const [joinRef, ref, topic, event, payload] = frame;
+      socket.send(
+        JSON.stringify([
+          joinRef,
+          ref,
+          topic,
+          "phx_reply",
+          { status: "ok", response: {} },
+        ]),
+      );
+      if (event !== "stop_run") return;
+      const runId = (payload as { run_id: string }).run_id;
+      timeline.push(`stop recorded for ${runId}`);
+      relayStop(runId);
+    });
+  }
+
+  function relayStop(runId: string) {
+    for (const socket of runnerSockets) {
+      socket.send(
+        JSON.stringify([
+          null,
+          null,
+          `ingestion:${runId}`,
+          "ag-ui",
+          { type: EventType.CUSTOM, name: "stop" },
+        ]),
+      );
+    }
+  }
+
   await new Promise<void>((resolve) =>
     server.listen(0, "127.0.0.1", () => resolve()),
   );
@@ -275,18 +377,13 @@ export async function startFakeLockGateway(
     /** The run that holds the thread's lock, if any. */
     lockOwner: (threadId: string) => locks.get(threadId),
     /** Sends the stop the gateway relays to the runner after a browser Stop. */
-    relayStop(runId: string) {
-      for (const socket of runnerSockets) {
-        socket.send(
-          JSON.stringify([
-            null,
-            null,
-            `ingestion:${runId}`,
-            "ag-ui",
-            { type: EventType.CUSTOM, name: "stop" },
-          ]),
-        );
-      }
+    relayStop,
+    /** Every HTTP request the fake received, in order. */
+    requests,
+    /** Another run takes the thread's lock, as a person's browser run would. */
+    takeLock(threadId: string, runId: string) {
+      locks.set(threadId, runId);
+      timeline.push(`lock taken by ${runId}`);
     },
     async close() {
       sockets.clients.forEach((socket) => socket.terminate());
