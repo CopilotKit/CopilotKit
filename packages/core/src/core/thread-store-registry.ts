@@ -1,10 +1,7 @@
 import type { Subscription } from "rxjs";
-import type { ɵThreadStore } from "../threads";
+import { type ɵThreadStore } from "../threads";
 import type { CopilotKitCore } from "./core";
-import type {
-  CopilotKitCoreFriendsAccess,
-  CopilotKitCoreSubscriber,
-} from "./core";
+import { CopilotKitCoreFriendsAccess, CopilotKitCoreSubscriber } from "./core";
 
 export class ThreadStoreRegistry {
   private _stores: Record<string, ɵThreadStore> = {};
