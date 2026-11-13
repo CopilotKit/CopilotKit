@@ -28,9 +28,8 @@ _INTEGRATION_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(_INTEGRATION_ROOT / "src"))
 sys.path.insert(0, str(_INTEGRATION_ROOT))
 
-from pydantic import BaseModel  # noqa: E402
+from ag_ui.core import Context  # noqa: E402
 from pydantic_ai import RunContext  # noqa: E402
-from pydantic_ai.ui import StateDeps  # noqa: E402
 from pydantic_ai.messages import (  # noqa: E402
     ModelRequest,
     ModelResponse,
@@ -96,11 +95,11 @@ class _CapturingOpenAI:
 
 
 def _build_ctx() -> RunContext:
-    class _State(BaseModel):
-        pass
-
     return RunContext(
-        deps=StateDeps[_State](state=_State()),
+        deps=a2ui_dynamic.SalesAnalystDeps(
+            state=a2ui_dynamic.EmptyState(),
+            app_context=(Context(description="Sales fixture", value="Revenue: $4.2M"),),
+        ),
         model=TestModel(),
         usage=RunUsage(),
         messages=[
@@ -125,6 +124,7 @@ def test_secondary_call_includes_real_conversation(monkeypatch):
     result = _call_tool(_build_ctx())
 
     sent = _CapturingOpenAI.captured_messages
+    assert "Revenue: $4.2M" in sent[0]["content"]
     user_msgs = [m for m in sent if m.get("role") == "user"]
 
     # BEFORE the fix this list is EMPTY (copilotkit attr is always None) ->

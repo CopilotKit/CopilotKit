@@ -8,10 +8,8 @@ the runtime's A2UI middleware detects and forwards to the frontend renderer.
 The dedicated runtime route (`api/copilotkit-declarative-gen-ui/route.ts`)
 sets `injectA2UITool: false` so the runtime does not double-bind a second
 A2UI tool on top of this one — the registered client catalog is still
-serialised into `copilotkit.context` so the secondary LLM knows what's
-available.
-
-Mirrors the langgraph-python and ag2 references.
+forwarded in `RunAgentInput.context` with the sales data and composition
+rules for both Claude calls.
 """
 
 from __future__ import annotations
@@ -21,11 +19,11 @@ import json
 import os
 import traceback
 from collections.abc import AsyncIterator
-from textwrap import dedent
 from typing import Any
 
 import anthropic
 from ag_ui.core import (
+    Context,
     EventType,
     RunAgentInput,
     RunFinishedEvent,
@@ -40,6 +38,7 @@ from ag_ui.core import (
 )
 from ag_ui.encoder import EventEncoder
 
+from _shared.a2ui_sales import SALES_ANALYST_PROMPT, SALES_CATALOG_ID, with_app_context
 from tools import (
     RENDER_A2UI_TOOL_SCHEMA,
     build_a2ui_operations_from_tool_call,
@@ -48,20 +47,9 @@ from agents._anthropic_message_safety import sanitize_unresolved_tool_uses
 from agents.claude_agent_sdk_adapter import normalize_claude_model
 
 
-SYSTEM_PROMPT = dedent("""
-    You are a demo assistant for Declarative Generative UI (A2UI — Dynamic
-    Schema). Whenever a response would benefit from a rich visual — a
-    dashboard, status report, KPI summary, card layout, info grid, a
-    pie/donut chart of part-of-whole breakdowns, a bar chart comparing
-    values across categories, or anything more structured than plain text —
-    call `generate_a2ui` to draw it. The registered catalog includes
-    `Card`, `StatusBadge`, `Metric`, `InfoRow`, `PrimaryButton`, `PieChart`,
-    and `BarChart` (in addition to the basic A2UI primitives). Prefer
-    `PieChart` for part-of-whole breakdowns and `BarChart` for comparisons
-    across categories. `generate_a2ui` takes a single `context` argument
-    summarising the conversation. Keep chat replies to one short sentence;
-    let the UI do the talking.
-""").strip()
+SYSTEM_PROMPT = (
+    SALES_ANALYST_PROMPT + " Pass a `context` string summarizing what to render."
+)
 
 
 # @region[a2ui-backend-tool]
@@ -85,13 +73,16 @@ GENERATE_A2UI_TOOL = {
 
 
 def _generate_a2ui(
-    context: str, conversation_messages: list[dict[str, Any]] | None = None
+    context: str,
+    conversation_messages: list[dict[str, Any]] | None = None,
+    *,
+    app_context: tuple[Context, ...] = (),
 ) -> dict[str, Any]:
     """Invoke a secondary LLM bound to render_a2ui and return an operations container."""
     client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY", ""))
     render_tool_schema = {
         "name": RENDER_A2UI_TOOL_SCHEMA["name"],
-        "description": RENDER_A2UI_TOOL_SCHEMA["description"],
+        "description": f"Render a dynamic A2UI surface with catalogId {SALES_CATALOG_ID!r}.",
         "input_schema": RENDER_A2UI_TOOL_SCHEMA["parameters"],
     }
     llm_messages = (
@@ -107,14 +98,17 @@ def _generate_a2ui(
     response = client.messages.create(
         model=normalize_claude_model(os.getenv("ANTHROPIC_MODEL", "claude-opus-4-8")),
         max_tokens=4096,
-        system=context or "Generate a useful dashboard UI.",
+        system=with_app_context(
+            context or "Generate a useful dashboard UI.", app_context
+        ),
         messages=llm_messages,
         tools=[render_tool_schema],
         tool_choice={"type": "tool", "name": "render_a2ui"},
     )
     for block in response.content:
         if getattr(block, "type", None) == "tool_use" and block.name == "render_a2ui":
-            return build_a2ui_operations_from_tool_call(dict(block.input))
+            args = {**block.input, "catalogId": SALES_CATALOG_ID}
+            return build_a2ui_operations_from_tool_call(args)
     return {"error": "LLM did not call render_a2ui"}
 
 
@@ -126,6 +120,8 @@ async def run_a2ui_dynamic_agent(input_data: RunAgentInput) -> AsyncIterator[str
     encoder = EventEncoder()
     client = anthropic.AsyncAnthropic(api_key=os.getenv("ANTHROPIC_API_KEY", ""))
 
+    app_context = tuple(input_data.context)
+    system_prompt = with_app_context(SYSTEM_PROMPT, app_context)
     messages: list[dict[str, Any]] = []
     for msg in input_data.messages or []:
         role = msg.role.value if hasattr(msg.role, "value") else str(msg.role)
@@ -179,7 +175,7 @@ async def run_a2ui_dynamic_agent(input_data: RunAgentInput) -> AsyncIterator[str
                     os.getenv("ANTHROPIC_MODEL", "claude-opus-4-8")
                 ),
                 max_tokens=2048,
-                system=SYSTEM_PROMPT,
+                system=system_prompt,
                 messages=messages,
                 tools=[GENERATE_A2UI_TOOL],
             ) as stream:
@@ -298,7 +294,10 @@ async def run_a2ui_dynamic_agent(input_data: RunAgentInput) -> AsyncIterator[str
                     # would otherwise block the uvicorn event loop and wedge the
                     # :8000 /health endpoint under load.
                     result_obj = await asyncio.to_thread(
-                        _generate_a2ui, ctx, conversation_messages=messages
+                        _generate_a2ui,
+                        ctx,
+                        conversation_messages=messages,
+                        app_context=app_context,
                     )
                     result_text = json.dumps(result_obj)
                 except Exception as exc:  # noqa: BLE001 - surface as tool result

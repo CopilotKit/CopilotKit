@@ -18,7 +18,10 @@ automatically (see ag-ui-adk CONTEXT_STATE_KEY routing).
 
 from __future__ import annotations
 
+from ag_ui_adk import CONTEXT_STATE_KEY
+from ag_ui_a2ui_toolkit import build_context_prompt, split_a2ui_schema_context
 from google.adk.agents import LlmAgent
+from google.adk.agents.readonly_context import ReadonlyContext
 
 from agents.shared_chat import get_model, stop_on_terminal_text
 
@@ -40,6 +43,19 @@ _INSTRUCTION = (
     "real analytics product, not a single widget."
 )
 
+
+def _sales_instruction(context: ReadonlyContext) -> str:
+    # The ADK adapter stores App Context for tools. Give the primary model
+    # the same sales data and composition rules when it chooses a tool.
+    _, entries = split_a2ui_schema_context(context.state.get(CONTEXT_STATE_KEY))
+    app_context = build_context_prompt({"ag-ui": {"context": entries}})
+    return (
+        f"{_INSTRUCTION}\n\nApp Context:\n{app_context}"
+        if app_context
+        else _INSTRUCTION
+    )
+
+
 # Plain agent — no A2UI tool wired. The route's `injectA2UITool: true` makes the
 # ag-ui-adk adapter auto-inject the no-arg `generate_a2ui` tool before the run
 # (USER-PREVAILS: because this agent declares none, the adapter injects its own).
@@ -48,7 +64,7 @@ _INSTRUCTION = (
 declarative_gen_ui_agent = LlmAgent(
     name="DeclarativeGenUiAgent",
     model=get_model(),
-    instruction=_INSTRUCTION,
+    instruction=_sales_instruction,
     tools=[],
     after_model_callback=stop_on_terminal_text,
 )

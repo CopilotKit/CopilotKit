@@ -146,6 +146,9 @@ jobs:
           filters: |
             shared_theme:
               - 'showcase/integrations/_shared/ts/theme.ts'
+            shared_a2ui_sales:
+              - 'showcase/integrations/_shared/a2ui_sales.py'
+              - 'showcase/integrations/_shared/ts/a2ui/sales-context.ts'
             workflow_config:
               - '.github/workflows/showcase_build_check.yml'
             angular:
@@ -375,6 +378,11 @@ jobs:
               ($dispatch == "" and (
                 ($workflow_changed or ($changes | index("workflow_config") != null)) or
                 ($changes | index($fk) != null) or
+                (($changes | index("shared_a2ui_sales") != null) and (
+                  .dispatch_name | IN("ag2", "agno", "claude-sdk-python", "claude-sdk-typescript",
+                    "google-adk", "langgraph-fastapi", "langgraph-python", "langgraph-typescript",
+                    "llamaindex", "ms-agent-python", "pydantic-ai", "strands")
+                )) or
                 (($changes | index("shared_theme") != null) and (
                   (.context | startswith("showcase/integrations/")) or
                   (.dispatch_name | IN("shell", "shell-dojo", "shell-dashboard", "shell-docs"))
