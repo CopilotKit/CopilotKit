@@ -482,6 +482,91 @@ describe("a run that does not finish", () => {
     expect(fake.lockOwner(threadId)).toBe("browser-run");
   });
 
+  it("reports a lost lock within stopTimeoutMs even when the runner's stop never settles", async () => {
+    const { intelligence } = await platform();
+    // A runner that stops the run, as the real one does, but whose promise
+    // for that stop never settles.
+    class StopNeverSettles extends IntelligenceAgentRunner {
+      override stop(request: Parameters<IntelligenceAgentRunner["stop"]>[0]) {
+        void super.stop(request);
+        return new Promise<boolean | undefined>(() => {});
+      }
+    }
+    const runner = new StopNeverSettles({
+      url: intelligence.ɵgetRunnerWsUrl(),
+      authToken: intelligence.ɵgetRunnerAuthToken(),
+    });
+
+    const running = run(
+      {
+        intelligence,
+        runner,
+        lockTtlSeconds: 120,
+        lockHeartbeatIntervalSeconds: 0.05,
+      },
+      new ScriptedAgent(keepsWorking),
+      { stopTimeoutMs: 300 },
+    ).catch((error: unknown) => error);
+    await vi.waitFor(() =>
+      expect(storedTypes()).toContain(EventType.TEXT_MESSAGE_CONTENT),
+    );
+    const lostAt = Date.now();
+    fake.takeLock(threadId, "browser-run");
+    const failure = await running;
+
+    expect(failure).toMatchObject({ reason: "lock_lost" });
+    expect(Date.now() - lostAt).toBeLessThan(3_000);
+  });
+
+  it("is stopped while it is still being prepared, so nothing runs and the Thread is freed", async () => {
+    const runtime = await platform();
+    const agent = new ScriptedAgent(says("never said"));
+    const controller = new AbortController();
+    let prepared!: () => void;
+
+    const running = run(runtime, agent, {
+      signal: controller.signal,
+      messages: async () => {
+        await new Promise<void>((resolve) => {
+          prepared = resolve;
+        });
+        return [ask("ask-5", "Too late")];
+      },
+    });
+    await vi.waitFor(() => expect(prepared).toBeDefined());
+    controller.abort();
+    prepared();
+    const result = await running;
+
+    expect(result).toMatchObject({ stopped: true, newMessages: [] });
+    expect(agent.inputs).toEqual([]);
+    expect(fake.timeline).not.toContain("runner joined");
+    expect(fake.lockOwner(threadId)).toBeUndefined();
+  });
+
+  it("gives up on preparation that never finishes once stopTimeoutMs has passed after a stop", async () => {
+    const runtime = await platform();
+    const controller = new AbortController();
+    let preparing = false;
+
+    const running = run(runtime, new ScriptedAgent(says("never said")), {
+      signal: controller.signal,
+      stopTimeoutMs: 100,
+      messages: () => {
+        preparing = true;
+        return new Promise<Message[]>(() => {});
+      },
+    }).catch((error: unknown) => error);
+    await vi.waitFor(() => expect(preparing).toBe(true));
+    controller.abort();
+    const failure = await running;
+
+    expect(failure).toBeInstanceOf(ThreadRunError);
+    expect(failure).toMatchObject({ reason: "stop_timeout", threadId, runId });
+    expect(fake.timeline).not.toContain("runner joined");
+    expect(fake.lockOwner(threadId)).toBeUndefined();
+  });
+
   it("gives up waiting after stopTimeoutMs and frees the Thread when Intelligence stops answering", async () => {
     // The gateway takes far longer to store a batch than the caller waits.
     const runtime = await platform({ storeDelayMs: 30_000 });

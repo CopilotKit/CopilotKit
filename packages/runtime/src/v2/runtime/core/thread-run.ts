@@ -173,16 +173,28 @@ export async function runWithThreadLock(
   });
 
   let runError: BaseEvent | undefined;
+  // Rejects when a stop has not ended the run, or its preparation, within
+  // `stopTimeoutMs`.
+  const stopRanOut = new Promise<never>((_resolve, reject) => {
+    failStop = reject;
+  });
+  stopRanOut.catch(() => undefined);
   try {
-    const started = await args.start({ threadId, runId });
-    agent = started.agent;
-    // The lock was lost while the run was being prepared: nothing ran, so
-    // there is nothing to stop.
-    if (lockLost) return { threadId, runId, lockLost, stopped: false };
-
+    // Listened for from here, so a stop while the run is being prepared is
+    // heard, and bounded by `stopTimeoutMs`, as one during the run is.
     args.signal?.addEventListener("abort", stopBySignal, { once: true });
-    await new Promise<void>((resolve, reject) => {
-      failStop = reject;
+    if (args.signal?.aborted) stopBySignal();
+    const started = await Promise.race([
+      args.start({ threadId, runId }),
+      stopRanOut,
+    ]);
+    agent = started.agent;
+    // Stopped, or the lock lost, while the run was being prepared: nothing
+    // has run, so there is nothing to stop.
+    if (lockLost) return { threadId, runId, lockLost, stopped: false };
+    if (stoppedBySignal) return { threadId, runId, stopped: true };
+
+    const streamed = new Promise<void>((resolve, reject) => {
       const stream = runner.run({
         threadId,
         ...(lock.backendThreadId === undefined
@@ -213,8 +225,12 @@ export async function runWithThreadLock(
         error: (error: unknown) => (lockLost ? resolve() : reject(error)),
         complete: () => resolve(),
       });
-      if (args.signal?.aborted) stopBySignal();
     });
+    await Promise.race([streamed, stopRanOut]);
+  } catch (error) {
+    // Once the lock is lost, that is the failure to report, whatever else
+    // went wrong while the run was being stopped.
+    if (!lockLost) throw error;
   } finally {
     args.signal?.removeEventListener("abort", stopBySignal);
     heartbeat.stop();
@@ -228,7 +244,9 @@ export async function runWithThreadLock(
       .catch(() => undefined);
   }
 
-  if (lockLost) await stopPromise;
+  // The stop a lost lock made is awaited before it is reported, as long as
+  // `stopTimeoutMs` allows; the lock is already released.
+  if (lockLost) await settled(stopPromise, args.stopTimeoutMs);
   return {
     threadId,
     runId,
@@ -236,6 +254,27 @@ export async function runWithThreadLock(
     ...(lockLost ? { lockLost } : {}),
     stopped: stoppedBySignal,
   };
+}
+
+/** Wait for `promise`, for at most `timeoutMs` when it is set. */
+async function settled(
+  promise: Promise<unknown> | undefined,
+  timeoutMs: number | undefined,
+): Promise<void> {
+  if (!promise) return;
+  if (timeoutMs === undefined) {
+    await promise;
+    return;
+  }
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  await Promise.race([
+    promise,
+    new Promise<void>((resolve) => {
+      timer = setTimeout(resolve, timeoutMs);
+      timer.unref?.();
+    }),
+  ]);
+  if (timer !== undefined) clearTimeout(timer);
 }
 
 /** Why a {@link runAgentInThread} call failed after its run was started. */
@@ -402,7 +441,11 @@ export interface RunAgentInThreadResult {
   runId: string;
   /** The messages the run added to the conversation, in order. */
   newMessages: Message[];
-  /** True when `signal` stopped the run before it finished on its own. */
+  /**
+   * True when `signal` stopped the run before it finished on its own. A run
+   * stopped while it was still being prepared never started, and added no
+   * messages.
+   */
   stopped: boolean;
 }
 
