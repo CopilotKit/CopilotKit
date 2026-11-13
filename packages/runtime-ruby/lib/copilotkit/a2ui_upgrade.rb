@@ -377,11 +377,38 @@ module CopilotKit
     SourcePart = Struct.new(:operations, :rejected)
     # `parts` holds the part of each source message, in the order they first touched the
     # surface. `sent_operations` are the operations sent as deltas, for a surface created in
-    # an earlier run.
-    SurfaceState = Struct.new(:parts, :last_snapshot, :sent_operations, :sent_rejected) do
+    # an earlier run. `snapshot_source` and `snapshot_operations` are the converted source
+    # operations, and the operations sent, at the last snapshot.
+    SurfaceState = Struct.new(:parts, :last_snapshot, :sent_operations, :sent_rejected,
+                              :snapshot_source, :snapshot_operations) do
       def self.create
-        new({}, nil, [], '[]')
+        new({}, nil, [], '[]', nil, nil)
       end
+    end
+
+    # The operations of the next snapshot of a surface, so that the client applies every
+    # change of the source.
+    #
+    # The client applies only the operations after the ones it applied, when the operation
+    # at its last applied index did not change. A source that changes an earlier operation
+    # but not that one (a progressive render that rewrites its components, then sends the
+    # same data again) would lose the change. In that case the changed operations of the
+    # source are appended to the sent ones: v0.9 updates replace by id or path, so sending
+    # them again is safe, and a second createSurface is left out. In every other case the
+    # source operations go as they are: the client either extends its surface with them or
+    # builds it again from them.
+    def self.client_operations(last_source, sent, source)
+      return source if last_source.nil? || sent.nil?
+      same = 0
+      same += 1 while same < last_source.length && same < source.length &&
+                      GUI.compact_json(last_source[same]) == GUI.compact_json(source[same])
+      appended = source[same..]
+      return sent + appended if same == last_source.length
+      # The client builds the surface again when the list is shorter than the one it
+      # applied, or when the operation at its last applied index changed.
+      last = sent.length - 1
+      return source if source.length < sent.length || GUI.compact_json(source[last]) != GUI.compact_json(sent[last])
+      sent + appended.reject { |op| op.key?('createSurface') }
     end
 
     # Converts the `a2ui-surface` surfaces of one run (A2UI v0.9, or native 1.0) to
@@ -430,7 +457,8 @@ module CopilotKit
 
       private
 
-      def snapshot(surface_id, state, operations, rejected, version)
+      def snapshot(surface_id, state, source, rejected, version)
+        operations = A2UIUpgrade.client_operations(state.snapshot_source, state.snapshot_operations, source)
         create = operations.find { |op| op.key?('createSurface') }
         catalog_id = create && create['createSurface'].is_a?(Hash) ? create['createSurface']['catalogId'] : nil
         content = {
@@ -442,6 +470,8 @@ module CopilotKit
         serialized = GUI.compact_json(content)
         return [] if serialized == state.last_snapshot
         state.last_snapshot = serialized
+        state.snapshot_source = source
+        state.snapshot_operations = operations
         [{ 'type' => 'ACTIVITY_SNAPSHOT', 'messageId' => GUI.surface_message_id(surface_id), 'activityType' => GUI::ACTIVITY_TYPE,
            'content' => GUI.deep_copy(content), 'replace' => true }]
       end
