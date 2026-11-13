@@ -33,6 +33,7 @@ vi.mock("@tanstack/react-virtual", () => ({
         : [],
     getScrollElement: () => null,
     measureElement: vi.fn(),
+    measure: vi.fn(),
     scrollToIndex: vi.fn(),
   }),
 }));
