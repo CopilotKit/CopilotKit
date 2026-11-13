@@ -1,11 +1,11 @@
 import { Hono } from "hono";
 import { serve } from "@hono/node-server";
-import { CopilotRuntime } from "@copilotkit/runtime";
+import { CopilotKitRuntime } from "@copilotkit/runtime";
 import { BuiltInAgent } from "@copilotkit/runtime/agent";
 import { openaiText } from "@tanstack/ai-openai";
-import { createCopilotRuntimeHandler } from "@copilotkit/runtime";
+import { createCopilotKitRuntimeHandler } from "@copilotkit/runtime";
 
-const runtime = new CopilotRuntime({
+const runtime = new CopilotKitRuntime({
   agents: {
     default: new BuiltInAgent({ model: openaiText("gpt-6-luna") }),
   },
@@ -22,7 +22,7 @@ app.get("/", (c) =>
 app.get("/health", (c) => c.json({ status: "healthy" }));
 
 // CopilotKit endpoints
-const handler = createCopilotRuntimeHandler({
+const handler = createCopilotKitRuntimeHandler({
   cors: true,
   runtime,
   basePath: "/api/copilotkit",

@@ -1,6 +1,6 @@
 import type { Message, RunAgentInput } from "@ag-ui/client";
 import { getRuntimeLogger } from "../../core/logger";
-import type { CopilotIntelligenceRuntimeLike } from "../../core/runtime";
+import type { CopilotKitIntelligenceRuntimeLike } from "../../core/runtime";
 import {
   cloneAgentForRequest,
   configureAgentForRequest,
@@ -29,7 +29,7 @@ const MAX_TITLE_GENERATION_ATTEMPTS = 3;
 const FALLBACK_THREAD_TITLE = "Untitled";
 
 interface GenerateThreadNameParams {
-  runtime: CopilotIntelligenceRuntimeLike;
+  runtime: CopilotKitIntelligenceRuntimeLike;
   request: Request;
   agentId: string;
   sourceInput: RunAgentInput;
@@ -95,7 +95,7 @@ export async function generateThreadNameForNewThread({
 }
 
 async function runTitleGenerationAttempt(params: {
-  runtime: CopilotIntelligenceRuntimeLike;
+  runtime: CopilotKitIntelligenceRuntimeLike;
   request: Request;
   agentId: string;
   threadId: string;

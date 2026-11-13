@@ -1,11 +1,11 @@
 ---
 title: "CopilotKitCore"
-description: "Framework-agnostic client that connects to a CopilotRuntime and manages agents, tools, context, and suggestions."
+description: "Framework-agnostic client that connects to a CopilotKitRuntime and manages agents, tools, context, and suggestions."
 ---
 
 ## Overview
 
-`CopilotKitCore` is the main entry point of [`@copilotkit/core`](/reference/core). It connects to a CopilotRuntime over the AG-UI protocol, exposes the available agents, holds the registry of frontend tools, shared context, and suggestions, and notifies subscribers when any of that state changes. The React, Angular, and vanilla bindings all wrap a single instance of this class. Use it directly when you need an agent client outside of those frameworks.
+`CopilotKitCore` is the main entry point of [`@copilotkit/core`](/reference/core). It connects to a CopilotKitRuntime over the AG-UI protocol, exposes the available agents, holds the registry of frontend tools, shared context, and suggestions, and notifies subscribers when any of that state changes. The React, Angular, and vanilla bindings all wrap a single instance of this class. Use it directly when you need an agent client outside of those frameworks.
 
 ## Import
 
@@ -25,7 +25,7 @@ CopilotKitCore satisfies new (config: CopilotKitCoreConfig) => CopilotKitCore;
   Configuration object. See [CopilotKitCoreConfig](/reference/core/types/CopilotKitCoreConfig) for the full type.
 
   <PropertyReference name="runtimeUrl" type="string">
-    Endpoint of the CopilotRuntime that requests are sent to.
+    Endpoint of the CopilotKitRuntime that requests are sent to.
   </PropertyReference>
 
   <PropertyReference name="runtimeTransport" type='"rest" | "single" | "auto"' default="auto">
@@ -58,7 +58,7 @@ CopilotKitCore satisfies new (config: CopilotKitCoreConfig) => CopilotKitCore;
   </PropertyReference>
 
   <PropertyReference name="agents__unsafe_dev_only" type="Record<string, AbstractAgent>" default="{}">
-    Local agent instances keyed by name. These agents run in the browser and talk to their AG-UI endpoints directly, with no CopilotRuntime. The React `selfManagedAgents` prop uses this path in production.
+    Local agent instances keyed by name. These agents run in the browser and talk to their AG-UI endpoints directly, with no CopilotKitRuntime. The React `selfManagedAgents` prop uses this path in production.
   </PropertyReference>
 
   <PropertyReference name="debug" type="DebugConfig">
@@ -334,4 +334,4 @@ copilotkit.dispose();
 - **Unchanged values**: `setCredentials`, `setProperties`, `setMessageFilter`, `setHeaders`, and `setRuntimeUrl` do nothing when the new value equals the current value. So a framework can call them on every render.
 - **Subscriber isolation**: a throw in one subscriber callback is caught and logged; it does not stall notifications to other subscribers.
 - **Inspector metadata isolation**: metadata loads after the connected and agent notifications finish. A `setHeaders` call that changes the resolved values, or a credential change, refreshes it. It does not refetch `/info`. Runtime URL, transport, auth, connection, and capability checks prevent a stale request from replacing a newer value.
-- **`__unsafe_dev_only` APIs**: the `*Agent__unsafe_dev_only` methods register local agents that run in the browser and talk to their AG-UI endpoints directly, with no CopilotRuntime. The React `selfManagedAgents` prop uses this path in production.
+- **`__unsafe_dev_only` APIs**: the `*Agent__unsafe_dev_only` methods register local agents that run in the browser and talk to their AG-UI endpoints directly, with no CopilotKitRuntime. The React `selfManagedAgents` prop uses this path in production.

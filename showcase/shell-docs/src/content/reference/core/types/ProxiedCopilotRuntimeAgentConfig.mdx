@@ -5,7 +5,7 @@ description: "Configuration object for constructing a ProxiedCopilotRuntimeAgent
 
 ## Overview
 
-`ProxiedCopilotRuntimeAgentConfig` is the constructor argument for [`ProxiedCopilotRuntimeAgent`](/reference/core/classes/ProxiedCopilotRuntimeAgent). It extends AG-UI's `HttpAgentConfig` (omitting `url`, which is derived from `runtimeUrl`) and adds the routing, transport, and runtime-mode fields the proxy needs to reach a CopilotRuntime.
+`ProxiedCopilotRuntimeAgentConfig` is the constructor argument for [`ProxiedCopilotRuntimeAgent`](/reference/core/classes/ProxiedCopilotRuntimeAgent). It extends AG-UI's `HttpAgentConfig` (omitting `url`, which is derived from `runtimeUrl`) and adds the routing, transport, and runtime-mode fields the proxy needs to reach a CopilotKitRuntime.
 
 ## Import
 
@@ -40,7 +40,7 @@ const config = {
 ## Properties
 
 <PropertyReference name="runtimeUrl" type="string">
-  Base URL of the CopilotRuntime. The agent's request URL is derived from this value and the resolved transport.
+  Base URL of the CopilotKitRuntime. The agent's request URL is derived from this value and the resolved transport.
 </PropertyReference>
 
 <PropertyReference name="transport" type='"rest" | "single" | "auto"' default="auto">

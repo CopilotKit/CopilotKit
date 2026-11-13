@@ -59,18 +59,18 @@ Wire authentication into the runtime via the `onRequest` hook. The hook runs bef
 ```ts title="app/api/copilotkit/[[...slug]]/route.ts"
 import type { NextRequest } from "next/server";
 import {
-  CopilotRuntime,
-  createCopilotRuntimeHandler,
+  CopilotKitRuntime,
+  createCopilotKitRuntimeHandler,
 } from "@copilotkit/runtime";
 import { BuiltInAgent } from "@copilotkit/runtime/agent";
 import { openaiText } from "@tanstack/ai-openai";
 import { verifyJwt } from "./auth"; // Your token verifier.
 
-const runtime = new CopilotRuntime({
+const runtime = new CopilotKitRuntime({
   agents: { default: new BuiltInAgent({ model: openaiText("gpt-6-luna") }) },
 });
 
-const handler = createCopilotRuntimeHandler({
+const handler = createCopilotKitRuntimeHandler({
   runtime,
   basePath: "/api/copilotkit",
   hooks: {
@@ -545,8 +545,8 @@ If several users share one deployment, each user must reach only their own threa
 
 | Runtime | Who scopes threads to a user |
 | --- | --- |
-| `CopilotRuntime` with `intelligence` | The runtime, via [`identifyUser`](#copilotkit-intelligence-scopes-thread-routes). |
-| `CopilotRuntime` without `intelligence`, with `identifyUser` | The runtime, when the runner is `InMemoryAgentRunner` or `SqliteAgentRunner`. |
+| `CopilotKitRuntime` with `intelligence` | The runtime, via [`identifyUser`](#copilotkit-intelligence-scopes-thread-routes). |
+| `CopilotKitRuntime` without `intelligence`, with `identifyUser` | The runtime, when the runner is `InMemoryAgentRunner` or `SqliteAgentRunner`. |
 | Anything else: no `identifyUser`, a custom runner, or a custom store | You do. See [Scope threads yourself](#scope-threads-yourself). |
 
 ### CopilotKit Intelligence scopes thread routes
@@ -556,8 +556,8 @@ The Intelligence runtime requires an `identifyUser` callback. Construction throw
 ```ts title="app/api/copilotkit/[[...slug]]/route.ts"
 import {
   CopilotKitIntelligence,
-  CopilotRuntime,
-  createCopilotRuntimeHandler,
+  CopilotKitRuntime,
+  createCopilotKitRuntimeHandler,
 } from "@copilotkit/runtime";
 import { BuiltInAgent } from "@copilotkit/runtime/agent";
 import { openaiText } from "@tanstack/ai-openai";
@@ -567,7 +567,7 @@ const intelligence = new CopilotKitIntelligence({
   apiKey: process.env.CPK_INTELLIGENCE_API_KEY!,
 });
 
-const runtime = new CopilotRuntime({
+const runtime = new CopilotKitRuntime({
   agents: { default: new BuiltInAgent({ model: openaiText("gpt-6-luna") }) },
   intelligence,
   identifyUser: async (request) => {
@@ -646,18 +646,18 @@ Write a row when a conversation is first created. See [minting a thread with you
 
 ```ts title="app/api/copilotkit/[[...slug]]/route.ts"
 import {
-  CopilotRuntime,
-  createCopilotRuntimeHandler,
+  CopilotKitRuntime,
+  createCopilotKitRuntimeHandler,
 } from "@copilotkit/runtime";
 import { BuiltInAgent } from "@copilotkit/runtime/agent";
 import { openaiText } from "@tanstack/ai-openai";
 import { userOwnsThread, verifyRequest } from "./auth"; // Your auth and ownership checks.
 
-const runtime = new CopilotRuntime({
+const runtime = new CopilotKitRuntime({
   agents: { default: new BuiltInAgent({ model: openaiText("gpt-6-luna") }) },
 });
 
-const handler = createCopilotRuntimeHandler({
+const handler = createCopilotKitRuntimeHandler({
   runtime,
   basePath: "/api/copilotkit",
   hooks: {

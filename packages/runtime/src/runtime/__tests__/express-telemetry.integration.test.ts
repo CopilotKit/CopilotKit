@@ -1,4 +1,4 @@
-import { createCopilotNodeListener } from "../endpoints/node";
+import { createCopilotKitNodeListener } from "../endpoints/node";
 /**
  * Integration test: Express adapter + telemetry.
  */
@@ -8,7 +8,7 @@ import { expect, test, vi } from "vitest";
 import type { AbstractAgent, BaseEvent } from "@ag-ui/client";
 import { Observable, of } from "rxjs";
 
-import { CopilotRuntime } from "../core/runtime";
+import { CopilotKitRuntime } from "../core/runtime";
 
 function makeAgent(): AbstractAgent {
   const a: unknown = { execute: async () => ({ events: [] }) };
@@ -28,7 +28,7 @@ function makeRuntime() {
     isRunning: async () => false,
     stop: async () => true,
   };
-  return new CopilotRuntime({
+  return new CopilotKitRuntime({
     agents: { default: makeAgent() },
     runner,
   });
@@ -52,7 +52,7 @@ test("Express adapter fires instance_created on handler creation (multi-route)",
   const { runtime, captureSpy, teardown } = setup();
 
   try {
-    createCopilotNodeListener({ cors: true, runtime, basePath: "/" });
+    createCopilotKitNodeListener({ cors: true, runtime, basePath: "/" });
 
     await vi.waitFor(() => {
       expect(captureSpy).toHaveBeenCalledWith(
@@ -73,7 +73,9 @@ test("Express adapter fires copilot_request_created for a real HTTP request", as
 
   try {
     const app = express();
-    app.use(createCopilotNodeListener({ cors: true, runtime, basePath: "/" }));
+    app.use(
+      createCopilotKitNodeListener({ cors: true, runtime, basePath: "/" }),
+    );
 
     await request(app)
       .post("/agent/default/run")
@@ -97,7 +99,9 @@ test("Express adapter includes cloud.public_api_key when the header is present",
 
   try {
     const app = express();
-    app.use(createCopilotNodeListener({ cors: true, runtime, basePath: "/" }));
+    app.use(
+      createCopilotKitNodeListener({ cors: true, runtime, basePath: "/" }),
+    );
 
     await request(app)
       .post("/agent/default/run")

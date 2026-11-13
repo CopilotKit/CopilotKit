@@ -8,7 +8,7 @@ import {
   handleUpdateMemory,
   handleRemoveMemory,
 } from "../handlers/handle-memories";
-import { CopilotRuntime } from "../core/runtime";
+import { CopilotKitRuntime } from "../core/runtime";
 import { PlatformRequestError } from "../intelligence-platform/client";
 
 describe("memory handlers", () => {
@@ -34,10 +34,10 @@ describe("memory handlers", () => {
       identifyUser: options?.identifyUser ?? createIdentifyUser(),
       intelligence: options?.intelligence,
       memory: options?.memory,
-    }) as unknown as CopilotRuntime;
+    }) as unknown as CopilotKitRuntime;
 
   it("returns 422 when intelligence is not configured", async () => {
-    const runtime = new CopilotRuntime({ agents: {} });
+    const runtime = new CopilotKitRuntime({ agents: {} });
 
     const response = await handleListMemories({
       runtime,
@@ -567,7 +567,7 @@ describe("memory handlers", () => {
   });
 
   it("returns 422 for create when intelligence is not configured", async () => {
-    const runtime = new CopilotRuntime({ agents: {} });
+    const runtime = new CopilotKitRuntime({ agents: {} });
 
     const response = await handleCreateMemory({
       runtime,
@@ -649,7 +649,7 @@ describe("memory handlers", () => {
   });
 
   it("returns 422 for subscribe when intelligence is not configured", async () => {
-    const runtime = new CopilotRuntime({ agents: {} });
+    const runtime = new CopilotKitRuntime({ agents: {} });
 
     const response = await handleSubscribeToMemories({
       runtime,
@@ -831,7 +831,7 @@ describe("memory handlers", () => {
   });
 
   it("returns 422 for recall when intelligence is not configured", async () => {
-    const runtime = new CopilotRuntime({ agents: {} });
+    const runtime = new CopilotKitRuntime({ agents: {} });
 
     const response = await handleRecallMemories({
       runtime,

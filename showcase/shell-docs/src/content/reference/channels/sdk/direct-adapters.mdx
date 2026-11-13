@@ -17,7 +17,7 @@ Discord and WhatsApp are available as direct adapters only.
 
 <Callout type="info" title="Direct does not mean standalone">
   A direct adapter moves the provider connection into your process. The
-  `CopilotRuntime` still owns the Channel lifecycle and uses an Intelligence
+  `CopilotKitRuntime` still owns the Channel lifecycle and uses an Intelligence
   connection. Direct provider traffic does not traverse the managed Realtime
   Gateway or its canonical delivery, retry, and durability layer, so your
   process owns transport reliability. There is no public `channel.start()`
@@ -66,14 +66,14 @@ channel.onMessage(async ({ thread }) => {
 });
 ```
 
-Pass this Channel to `new CopilotRuntime({ channels: [channel], ... })` and
+Pass this Channel to `new CopilotKitRuntime({ channels: [channel], ... })` and
 start it through the runtime's Channels control, just as in the managed
 quickstarts. Intelligence-attached Slack and Teams connections select the
 managed provider; there is no `provider` option on `createChannel`. Direct
 adapters may coexist on the same Channel and keep their own provider traffic.
 
 One direct Channel may contain multiple direct adapters. Its `name` must still
-be present and unique among the Channels declared on that `CopilotRuntime`.
+be present and unique among the Channels declared on that `CopilotKitRuntime`.
 
 ## Provider entry points
 

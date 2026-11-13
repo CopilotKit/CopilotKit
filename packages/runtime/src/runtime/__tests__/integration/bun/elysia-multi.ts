@@ -1,5 +1,5 @@
 import { Elysia } from "elysia";
-import { createCopilotRuntimeHandler } from "../../../core/fetch-handler";
+import { createCopilotKitRuntimeHandler } from "../../../core/fetch-handler";
 import { createTestRuntime } from "../helpers/create-test-runtime";
 import type { ServerHandle } from "../servers/types";
 
@@ -9,7 +9,7 @@ export async function createElysiaMultiServer(
   opts: { capturedHeaders?: Record<string, string>[] } = {},
 ): Promise<ServerHandle> {
   const runtime = createTestRuntime(opts);
-  const handler = createCopilotRuntimeHandler({
+  const handler = createCopilotKitRuntimeHandler({
     runtime,
     basePath: BASE_PATH,
     cors: true,

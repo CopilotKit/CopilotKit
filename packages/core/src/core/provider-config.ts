@@ -572,7 +572,7 @@ export type ɵCopilotKitLearningOptions = LearningConfig & {
  * one place. Angular picks the options whose names match.
  */
 export interface ɵCopilotKitProviderBaseOptions {
-  /** The endpoint of your CopilotRuntime. */
+  /** The endpoint of your CopilotKitRuntime. */
   runtimeUrl?: string;
   /**
    * Headers sent with every request. A record, or a sync or async builder
@@ -600,7 +600,7 @@ export interface ɵCopilotKitProviderBaseOptions {
    * untouched. Broken tool-call pairs are repaired before the request is sent,
    * so a filter this blunt cannot strand a tool result mid-HITL.
    *
-   * Agents reached through your CopilotRuntime honor this. An agent your app
+   * Agents reached through your CopilotKitRuntime honor this. An agent your app
    * passes in directly does not, and neither Intelligence runs nor suggestion
    * runs are ever filtered.
    *
@@ -624,7 +624,7 @@ export interface ɵCopilotKitProviderBaseOptions {
    * transport. Omit it to detect the transport from the runtime.
    */
   useSingleEndpoint?: boolean;
-  /** Local agents, keyed by id. For development only; production uses CopilotRuntime. */
+  /** Local agents, keyed by id. For development only; production uses CopilotKitRuntime. */
   agents__unsafe_dev_only?: Record<string, AbstractAgent>;
   /**
    * Agents you host yourself, keyed by id. Part of the Enterprise

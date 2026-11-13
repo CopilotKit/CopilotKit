@@ -7,7 +7,7 @@ import { expect, test, vi } from "vitest";
 
 import type { ChannelsIntelligenceModule } from "../core/channel-manager";
 import { defaultActivateChannel } from "../core/channel-manager";
-import { CopilotIntelligenceRuntime } from "../core/runtime";
+import { CopilotKitIntelligenceRuntime } from "../core/runtime";
 import { handleIntelligenceRun } from "../handlers/intelligence/run";
 import { CopilotKitIntelligence } from "../intelligence-platform/client";
 import { AgentRunner } from "../runner/agent-runner";
@@ -80,7 +80,7 @@ function setup(
   vi.spyOn(intelligence, "ɵacquireThreadLock").mockRejectedValue(
     new Error("stop after thread assignment"),
   );
-  const runtime = new CopilotIntelligenceRuntime({
+  const runtime = new CopilotKitIntelligenceRuntime({
     agents: {},
     intelligence,
     identifyUser: async () => user,
@@ -122,7 +122,7 @@ test("the runtime rejects public and deprecated Learning Container selectors tog
 
   expect(
     () =>
-      new CopilotIntelligenceRuntime({
+      new CopilotKitIntelligenceRuntime({
         agents: {},
         intelligence,
         identifyUser: async () => ({ id: "user-1", name: "Ada Lovelace" }),

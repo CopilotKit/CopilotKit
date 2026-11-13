@@ -336,13 +336,13 @@ to the agent before you register the agent with the runtime:
 
 ```ts title="app/api/copilotkit/[[...slug]]/route.ts"
 import { HttpAgent } from "@ag-ui/client";
-import { CopilotRuntime } from "@copilotkit/runtime";
+import { CopilotKitRuntime } from "@copilotkit/runtime";
 import { lastTurnOnly, TrimHistoryMiddleware } from "./trim-history";
 
 const agent = new HttpAgent({ url: process.env.AGENT_URL! });
 agent.use(new TrimHistoryMiddleware(lastTurnOnly));
 
-const runtime = new CopilotRuntime({
+const runtime = new CopilotKitRuntime({
   agents: { default: agent },
 });
 ```

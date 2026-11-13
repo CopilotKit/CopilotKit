@@ -74,18 +74,18 @@ The chat components use `default` when you do not name an agent.
 
 ```ts title="app/api/copilotkit/[[...slug]]/route.ts"
 import {
-  CopilotRuntime,
-  createCopilotRuntimeHandler,
+  CopilotKitRuntime,
+  createCopilotKitRuntimeHandler,
   InMemoryAgentRunner,
 } from "@copilotkit/runtime";
 import { EchoAgent } from "@/lib/echo-agent";
 
-const runtime = new CopilotRuntime({
+const runtime = new CopilotKitRuntime({
   agents: { default: new EchoAgent() },
   runner: new InMemoryAgentRunner(),
 });
 
-const handler = createCopilotRuntimeHandler({
+const handler = createCopilotKitRuntimeHandler({
   runtime,
   basePath: "/api/copilotkit",
 });
@@ -201,9 +201,9 @@ subclass. Register an `HttpAgent` that points at the service:
 
 ```ts title="app/api/copilotkit/[[...slug]]/route.ts"
 import { HttpAgent } from "@ag-ui/client";
-import { CopilotRuntime, InMemoryAgentRunner } from "@copilotkit/runtime";
+import { CopilotKitRuntime, InMemoryAgentRunner } from "@copilotkit/runtime";
 
-const runtime = new CopilotRuntime({
+const runtime = new CopilotKitRuntime({
   agents: { default: new HttpAgent({ url: process.env.AGENT_URL! }) },
   runner: new InMemoryAgentRunner(),
 });

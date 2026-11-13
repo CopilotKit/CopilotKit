@@ -1,4 +1,4 @@
-import { createCopilotRuntimeHandler } from "../core/fetch-handler";
+import { createCopilotKitRuntimeHandler } from "../core/fetch-handler";
 /**
  * Integration tests proving the license token (the Intelligence/EIP key that
  * carries telemetry_id) rides all the way to the telemetry sink through every
@@ -18,7 +18,10 @@ import type { AbstractAgent, BaseEvent } from "@ag-ui/client";
 import { Observable, of } from "rxjs";
 import { lambdaClient } from "@copilotkit/shared";
 
-import { CopilotRuntime, CopilotIntelligenceRuntime } from "../core/runtime";
+import {
+  CopilotKitRuntime,
+  CopilotKitIntelligenceRuntime,
+} from "../core/runtime";
 import type { AgentRunner } from "../runner/agent-runner";
 import type { CopilotKitIntelligence } from "../intelligence-platform";
 import { IntelligenceAgentRunner } from "../runner/intelligence";
@@ -69,12 +72,12 @@ describe("license token → telemetry sink across endpoints/modes (integration)"
   });
 
   it("SSE via the Fetch handler forwards the token to the sink", async () => {
-    const runtime = new CopilotRuntime({
+    const runtime = new CopilotKitRuntime({
       agents: { default: makeSseAgent() },
       runner: makeSseRunner(),
       licenseToken: TOKEN,
     });
-    const endpoint = createCopilotRuntimeHandler({
+    const endpoint = createCopilotKitRuntimeHandler({
       cors: true,
       runtime,
       basePath: "/",
@@ -95,12 +98,12 @@ describe("license token → telemetry sink across endpoints/modes (integration)"
   it("SSE via the framework-agnostic fetch handler (node/custom adapters) forwards the token", async () => {
     // node + any custom adapter wrap this exact handler, so covering it covers
     // them without standing up an HTTP server.
-    const runtime = new CopilotRuntime({
+    const runtime = new CopilotKitRuntime({
       agents: { default: makeSseAgent() },
       runner: makeSseRunner(),
       licenseToken: TOKEN,
     });
-    const handler = createCopilotRuntimeHandler({ runtime, basePath: "/" });
+    const handler = createCopilotKitRuntimeHandler({ runtime, basePath: "/" });
 
     await handler(runRequest());
 
@@ -115,7 +118,7 @@ describe("license token → telemetry sink across endpoints/modes (integration)"
   });
 
   it("Intelligence mode forwards the token to the sink end-to-end", async () => {
-    // A real CopilotIntelligenceRuntime so the constructor's (now base-class)
+    // A real CopilotKitIntelligenceRuntime so the constructor's (now base-class)
     // telemetry scope setup runs. Its real IntelligenceAgentRunner would open a
     // WebSocket, so we swap in a stub runner whose observable completes
     // immediately — the request still flows through the real intelligence run
@@ -148,7 +151,7 @@ describe("license token → telemetry sink across endpoints/modes (integration)"
         runAgent: vi.fn().mockResolvedValue(undefined),
       }) as unknown as AbstractAgent;
 
-    const runtime = new CopilotIntelligenceRuntime({
+    const runtime = new CopilotKitIntelligenceRuntime({
       agents: { "my-agent": makeIntelligenceAgent() },
       intelligence: platform,
       identifyUser: vi
@@ -164,7 +167,7 @@ describe("license token → telemetry sink across endpoints/modes (integration)"
     );
     runtime.runner = stubRunner;
 
-    const handler = createCopilotRuntimeHandler({ runtime, basePath: "/" });
+    const handler = createCopilotKitRuntimeHandler({ runtime, basePath: "/" });
 
     await handler(
       new Request("http://localhost/agent/my-agent/run", {

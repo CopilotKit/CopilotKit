@@ -18,7 +18,7 @@ graph TB
     end
 
     subgraph Your Server
-        RT["CopilotRuntime"]
+        RT["CopilotKitRuntime"]
         CPK-I["CopilotKitIntelligence"]
         Runner["IntelligenceAgentRunner"]
     end
@@ -91,16 +91,16 @@ const intelligence = new CopilotKitIntelligence({
 });
 ```
 
-### 3. Pass it to `CopilotRuntime`
+### 3. Pass it to `CopilotKitRuntime`
 
 ```typescript
 import express from "express";
-import { CopilotRuntime } from "@copilotkit/runtime";
+import { CopilotKitRuntime } from "@copilotkit/runtime";
 import { createCopilotEndpointExpress } from "@copilotkit/runtime/express";
 
 const app = express();
 
-const runtime = new CopilotRuntime({
+const runtime = new CopilotKitRuntime({
   agents: {
     default: myAgent,
   },
@@ -120,9 +120,9 @@ That is the mode switch. You do **not** separately configure Intelligence handle
 
 ---
 
-## What `CopilotRuntime` Does For You
+## What `CopilotKitRuntime` Does For You
 
-When `intelligence` is present, `CopilotRuntime`:
+When `intelligence` is present, `CopilotKitRuntime`:
 
 - switches its mode from `"sse"` to `"intelligence"`
 - uses the Intelligence handler path for `run`, `connect`, and `threads`
@@ -208,7 +208,7 @@ In SSE mode they should reject with an explicit error, because SSE runtimes do n
 ```mermaid
 sequenceDiagram
     participant Client as Frontend
-    participant Runtime as CopilotRuntime
+    participant Runtime as CopilotKitRuntime
     participant CPK-I as CopilotKitIntelligence
     participant WS as Intelligence WebSocket
 
@@ -246,7 +246,7 @@ That lets application code override a runtime-reported agent with a local implem
 Think of Intelligence as a **runtime capability**, not a second transport API developers need to learn.
 
 - `CopilotKitIntelligence` configures the runtime's Intelligence backend.
-- `CopilotRuntime` exposes that capability through the same frontend-facing contract.
+- `CopilotKitRuntime` exposes that capability through the same frontend-facing contract.
 - `/info` tells the client which concrete remote-agent implementation to use.
 - Frontend app code stays mostly unchanged.
 

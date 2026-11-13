@@ -17,7 +17,48 @@ const RENAMED: Record<string, Record<string, string>> = {
     BasicAgentConfiguration: "BuiltInAgentClassicConfig",
   },
   "@copilotkit/runtime/node": {
-    createNodeFetchHandler: "createCopilotNodeHandler",
+    createNodeFetchHandler: "createCopilotKitNodeHandler",
+  },
+};
+
+/**
+ * Runtime exports that 2.0 renamed to include "Kit". The old names are
+ * deprecated aliases. This rename runs after every other step, because those
+ * steps find the runtime by its 1.x name, `CopilotRuntime`.
+ */
+const KIT_NAMES: Record<string, Record<string, string>> = {
+  "@copilotkit/runtime": {
+    createCopilotRuntimeHandler: "createCopilotKitRuntimeHandler",
+    ...Object.fromEntries(
+      [
+        "Runtime",
+        "SseRuntime",
+        "IntelligenceRuntime",
+        "RuntimeConstructor",
+        "RuntimeOptions",
+        "RuntimeLike",
+        "SseRuntimeOptions",
+        "SseRuntimeLike",
+        "IntelligenceRuntimeOptions",
+        "IntelligenceRuntimeLike",
+        "RuntimeMemoryConfig",
+        "RuntimeUser",
+        "RuntimeLearningConfig",
+        "RuntimeLearningContext",
+        "RuntimeLogger",
+        "RuntimeHandlerOptions",
+        "RuntimeFetchHandler",
+        "RuntimeFetchHandlerWithChannels",
+        "RuntimeHooks",
+        "CorsConfig",
+      ].map((name) => [`Copilot${name}`, `CopilotKit${name}`]),
+    ),
+  },
+  "@copilotkit/runtime/node": {
+    createCopilotNodeHandler: "createCopilotKitNodeHandler",
+    createCopilotNodeListener: "createCopilotKitNodeListener",
+    NodeCopilotListener: "NodeCopilotKitListener",
+    NodeCopilotListenerWithChannels: "NodeCopilotKitListenerWithChannels",
   },
 };
 
@@ -35,7 +76,7 @@ const A2UI_STORE_NOTE =
 const REMOVED: Record<string, Record<string, string>> = {
   "@copilotkit/runtime": {
     CopilotKitRequestHandler:
-      "Use `CopilotRuntimeFetchHandler`. It takes the `Request` directly, not `{ request }`.",
+      "Use `CopilotKitRuntimeFetchHandler`. It takes the `Request` directly, not `{ request }`.",
   },
   "@copilotkit/a2ui-renderer": {
     useA2UIStore: A2UI_STORE_NOTE,
@@ -179,6 +220,72 @@ export function migrateDeprecatedApis(
     }
   }
 
+  edits.push(...referenceEdits(rootNode, renames));
+
+  if (jsx && components.size > 0)
+    edits.push(...propEdits(rootNode, components, source));
+  if (baseClasses.size > 0)
+    edits.push(...superMethodEdits(rootNode, baseClasses, source));
+
+  if (edits.length === 0) return null;
+  return rootNode.commitEdits(edits);
+}
+
+/**
+ * Renames the runtime exports in KIT_NAMES to their "Kit" names: the import
+ * and every reference in the file. Runs last, before the imports merge.
+ * Returns `null` when the file does not change.
+ */
+export function migrateKitNames(rootNode: Node): string | null {
+  const source = rootNode.text();
+  if (!source.includes("@copilotkit/runtime")) return null;
+  const edits: Edit[] = [];
+  const renames = new Map<string, string>();
+  for (const statement of rootNode.findAll({
+    rule: {
+      any: [
+        { kind: "import_statement" },
+        { kind: "export_statement", has: { field: "source", kind: "string" } },
+      ],
+    },
+  })) {
+    const sourceNode = statement.field("source");
+    if (!sourceNode) continue;
+    const table = own(KIT_NAMES, sourceNode.text().slice(1, -1));
+    if (table === undefined) continue;
+    const specifiers = statement.findAll({
+      rule: {
+        any: [{ kind: "import_specifier" }, { kind: "export_specifier" }],
+      },
+    });
+    const imported = new Set(
+      specifiers
+        .filter((specifier) => !specifier.field("alias"))
+        .map((specifier) => specifier.field("name")?.text()),
+    );
+    for (const specifier of specifiers) {
+      const nameNode = specifier.field("name");
+      if (!nameNode) continue;
+      const name = nameNode.text();
+      const target = own(table, name);
+      if (target === undefined) continue;
+      const alias = specifier.field("alias")?.text();
+      edits.push(
+        alias === undefined && imported.has(target)
+          ? deleteSpecifier(specifier, source)
+          : nameNode.replace(target),
+      );
+      if (alias === undefined) renames.set(name, target);
+    }
+  }
+  edits.push(...referenceEdits(rootNode, renames));
+  if (edits.length === 0) return null;
+  return rootNode.commitEdits(edits);
+}
+
+/** Renames every reference to a renamed import, outside import and export specifiers. */
+function referenceEdits(rootNode: Node, renames: Map<string, string>): Edit[] {
+  const edits: Edit[] = [];
   for (const [from, to] of renames) {
     const references = rootNode.findAll({
       rule: {
@@ -193,14 +300,7 @@ export function migrateDeprecatedApis(
     });
     for (const reference of references) edits.push(reference.replace(to));
   }
-
-  if (jsx && components.size > 0)
-    edits.push(...propEdits(rootNode, components, source));
-  if (baseClasses.size > 0)
-    edits.push(...superMethodEdits(rootNode, baseClasses, source));
-
-  if (edits.length === 0) return null;
-  return rootNode.commitEdits(edits);
+  return edits;
 }
 
 /** Deletes a specifier with its comma, and its line when it is alone on one. */

@@ -3,11 +3,11 @@
  * Each describe block maps to a specific review item.
  */
 import { describe, it, expect, vi } from "vitest";
-import { createCopilotRuntimeHandler } from "../core/fetch-handler";
-import { CopilotRuntime } from "../core/runtime";
+import { createCopilotKitRuntimeHandler } from "../core/fetch-handler";
+import { CopilotKitRuntime } from "../core/runtime";
 import { matchRoute } from "../core/fetch-router";
 import { handleCors, addCorsHeaders } from "../core/fetch-cors";
-import type { CopilotCorsConfig } from "../core/fetch-cors";
+import type { CopilotKitCorsConfig } from "../core/fetch-cors";
 import type { AbstractAgent } from "@ag-ui/client";
 
 /* ------------------------------------------------------------------------------------------------
@@ -37,7 +37,7 @@ const createRunnableAgent = (): AbstractAgent => {
 };
 
 const createRuntime = () =>
-  new CopilotRuntime({ agents: { default: createMockAgent() } });
+  new CopilotKitRuntime({ agents: { default: createMockAgent() } });
 
 const get = (url: string) => new Request(url, { method: "GET" });
 
@@ -57,7 +57,7 @@ const post = (url: string, body?: unknown) =>
 
 describe("Item 1: methodCall preserved when hooks replace request", () => {
   it("single-route dispatch works after onBeforeHandler replaces request", async () => {
-    const handler = createCopilotRuntimeHandler({
+    const handler = createCopilotKitRuntimeHandler({
       runtime: createRuntime(),
       basePath: "/api",
       mode: "single-route",
@@ -82,8 +82,8 @@ describe("Item 1: methodCall preserved when hooks replace request", () => {
   });
 
   it("single-route agent/run works after onBeforeHandler replaces request", async () => {
-    const handler = createCopilotRuntimeHandler({
-      runtime: new CopilotRuntime({
+    const handler = createCopilotKitRuntimeHandler({
+      runtime: new CopilotKitRuntime({
         agents: { default: createRunnableAgent() },
       }),
       basePath: "/api",
@@ -133,7 +133,7 @@ describe("Item 2: credentials + wildcard CORS", () => {
       method: "OPTIONS",
       headers: { Origin: "https://app.example.com" },
     });
-    const config: CopilotCorsConfig = { credentials: true };
+    const config: CopilotKitCorsConfig = { credentials: true };
     const response = handleCors(request, config)!;
 
     expect(response.headers.get("Access-Control-Allow-Origin")).toBe(
@@ -146,7 +146,7 @@ describe("Item 2: credentials + wildcard CORS", () => {
 
   it("auto-resolves wildcard to request origin in addCorsHeaders", () => {
     const response = new Response("ok", { status: 200 });
-    const config: CopilotCorsConfig = { credentials: true };
+    const config: CopilotKitCorsConfig = { credentials: true };
     const result = addCorsHeaders(response, config, "https://mysite.com");
 
     expect(result.headers.get("Access-Control-Allow-Origin")).toBe(
@@ -160,7 +160,7 @@ describe("Item 2: credentials + wildcard CORS", () => {
       method: "OPTIONS",
       // No Origin header
     });
-    const config: CopilotCorsConfig = { credentials: true };
+    const config: CopilotKitCorsConfig = { credentials: true };
     const response = handleCors(request, config)!;
 
     // Should not set any CORS origin since there's no request origin to reflect
@@ -172,7 +172,7 @@ describe("Item 2: credentials + wildcard CORS", () => {
       method: "OPTIONS",
       headers: { Origin: "https://app.example.com" },
     });
-    const config: CopilotCorsConfig = {
+    const config: CopilotKitCorsConfig = {
       origin: "https://specific.example.com",
       credentials: true,
     };
@@ -184,7 +184,7 @@ describe("Item 2: credentials + wildcard CORS", () => {
   });
 
   it("end-to-end: handler CORS with credentials does not produce wildcard + credentials", async () => {
-    const handler = createCopilotRuntimeHandler({
+    const handler = createCopilotKitRuntimeHandler({
       runtime: createRuntime(),
       basePath: "/api",
       cors: { credentials: true },
@@ -217,7 +217,7 @@ describe("Item 2: credentials + wildcard CORS", () => {
 
 describe("Item 3: onError hook throwing is caught", () => {
   it("returns 500 when onError throws synchronously", async () => {
-    const handler = createCopilotRuntimeHandler({
+    const handler = createCopilotKitRuntimeHandler({
       runtime: createRuntime(),
       basePath: "/api",
       hooks: {
@@ -238,7 +238,7 @@ describe("Item 3: onError hook throwing is caught", () => {
   });
 
   it("returns 500 when onError throws asynchronously", async () => {
-    const handler = createCopilotRuntimeHandler({
+    const handler = createCopilotKitRuntimeHandler({
       runtime: createRuntime(),
       basePath: "/api",
       hooks: {
@@ -291,7 +291,7 @@ describe("Item 4: malformed URI encoding handled gracefully", () => {
   });
 
   it("end-to-end: malformed URL returns 404", async () => {
-    const handler = createCopilotRuntimeHandler({
+    const handler = createCopilotKitRuntimeHandler({
       runtime: createRuntime(),
       basePath: "/api",
     });
@@ -311,7 +311,7 @@ describe("Item 4: malformed URI encoding handled gracefully", () => {
 
 describe("Item 8: Allow header on 405 responses", () => {
   it("multi-route: 405 for POST to /info includes Allow: GET", async () => {
-    const handler = createCopilotRuntimeHandler({
+    const handler = createCopilotKitRuntimeHandler({
       runtime: createRuntime(),
       basePath: "/api",
     });
@@ -322,7 +322,7 @@ describe("Item 8: Allow header on 405 responses", () => {
   });
 
   it("multi-route: 405 for GET to /agent/:id/run includes Allow: POST", async () => {
-    const handler = createCopilotRuntimeHandler({
+    const handler = createCopilotKitRuntimeHandler({
       runtime: createRuntime(),
       basePath: "/api",
     });
@@ -335,7 +335,7 @@ describe("Item 8: Allow header on 405 responses", () => {
   });
 
   it("single-route: 405 for GET includes Allow: POST", async () => {
-    const handler = createCopilotRuntimeHandler({
+    const handler = createCopilotKitRuntimeHandler({
       runtime: createRuntime(),
       basePath: "/api",
       mode: "single-route",
@@ -356,7 +356,7 @@ describe("Item 8: Allow header on 405 responses", () => {
 
 describe("Item 9: error messages not leaked to clients", () => {
   it("500 response does not include error message", async () => {
-    const handler = createCopilotRuntimeHandler({
+    const handler = createCopilotKitRuntimeHandler({
       runtime: createRuntime(),
       basePath: "/api",
       hooks: {
@@ -375,7 +375,7 @@ describe("Item 9: error messages not leaked to clients", () => {
   });
 
   it("non-Error throws also produce clean 500", async () => {
-    const handler = createCopilotRuntimeHandler({
+    const handler = createCopilotKitRuntimeHandler({
       runtime: createRuntime(),
       basePath: "/api",
       hooks: {
@@ -433,7 +433,7 @@ describe("Item 12: Vary headers on preflight", () => {
 /* ------------------------------------------------------------------------------------------------
  * Item 7: synthesizeBody null guard uses wrong comparison
  *
- * Tested indirectly through createCopilotNodeHandler.
+ * Tested indirectly through createCopilotKitNodeHandler.
  * The synthesizeBody function should treat null bodies as empty (not serialize "null").
  * This is already mitigated by hasPreParsedBody rejecting null, but we test the
  * boundary to ensure the fix is correct.
@@ -444,7 +444,7 @@ describe("Item 7: synthesizeBody null guard", () => {
   // meaning the generic (stream-based) handler runs instead of trying to
   // serialize null into the string "null".
   it("null req.body is treated as no pre-parsed body (falls through to generic handler)", async () => {
-    const { createCopilotNodeHandler } =
+    const { createCopilotKitNodeHandler } =
       await import("../endpoints/node-fetch-handler");
 
     let handlerCalled = false;
@@ -453,7 +453,7 @@ describe("Item 7: synthesizeBody null guard", () => {
       return new Response("ok", { status: 200 });
     };
 
-    const nodeHandler = createCopilotNodeHandler(fetchHandler);
+    const nodeHandler = createCopilotKitNodeHandler(fetchHandler);
 
     // Use supertest-style approach: create a real HTTP server to exercise
     // the full path. Since we can't easily mock Node streams, we verify
@@ -473,7 +473,7 @@ describe("Item 7: synthesizeBody null guard", () => {
 
 describe("Item 10: after-request middleware gets cloned response", () => {
   it("response body is still readable after middleware runs", async () => {
-    const handler = createCopilotRuntimeHandler({
+    const handler = createCopilotKitRuntimeHandler({
       runtime: createRuntime(),
       basePath: "/api",
     });

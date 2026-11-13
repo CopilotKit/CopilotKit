@@ -1,10 +1,10 @@
-import { createCopilotNodeListener } from "../endpoints/node";
-import { createCopilotRuntimeHandler } from "../core/fetch-handler";
+import { createCopilotKitNodeListener } from "../endpoints/node";
+import { createCopilotKitRuntimeHandler } from "../core/fetch-handler";
 import express from "express";
 import request from "supertest";
 import { describe, expect, it, vi } from "vitest";
 
-import type { CopilotRuntimeLike } from "../core/runtime";
+import type { CopilotKitRuntimeLike } from "../core/runtime";
 
 const snapshot = {
   schemaVersion: 1,
@@ -27,7 +27,7 @@ const snapshot = {
   },
 } as const;
 
-function learningRuntime(): CopilotRuntimeLike {
+function learningRuntime(): CopilotKitRuntimeLike {
   return {
     mode: "intelligence",
     identifyUser: vi.fn().mockResolvedValue({ id: "user-1", name: "Ada" }),
@@ -35,14 +35,14 @@ function learningRuntime(): CopilotRuntimeLike {
       getInspectorLearning: vi.fn().mockResolvedValue(snapshot),
       ɵgetLearningContainerId: () => () => "container-1",
     },
-  } as unknown as CopilotRuntimeLike;
+  } as unknown as CopilotKitRuntimeLike;
 }
 
 describe("Inspector Learning endpoint wrappers", () => {
   it("serves Learning without extra flags through Express", async () => {
     const app = express();
     app.use(
-      createCopilotNodeListener({
+      createCopilotKitNodeListener({
         cors: true,
         runtime: learningRuntime(),
         basePath: "/",
@@ -53,7 +53,7 @@ describe("Inspector Learning endpoint wrappers", () => {
   });
 
   it("serves Learning without extra flags through Hono", async () => {
-    const app = createCopilotRuntimeHandler({
+    const app = createCopilotKitRuntimeHandler({
       cors: true,
       runtime: learningRuntime(),
       basePath: "/",

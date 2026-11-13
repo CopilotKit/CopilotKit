@@ -6,8 +6,8 @@ import {
   BuiltInAgent,
 } from "@copilotkit/runtime/agent";
 import {
-  CopilotRuntime,
-  createCopilotRuntimeHandler,
+  CopilotKitRuntime,
+  createCopilotKitRuntimeHandler,
   type MCPClientConfig,
   type MCPClientProvider,
 } from "@copilotkit/runtime";
@@ -30,7 +30,7 @@ const clients: MCPClientProvider[] = [];
 const conversion: MessageConversionOptions = {};
 const maxRetries = 2;
 
-export const runtime = new CopilotRuntime({
+export const runtime = new CopilotKitRuntime({
   agents: {
     openai: new BuiltInAgent({ model: openaiText("gpt-5") }),
     openaiColon: new BuiltInAgent({ model: openaiText("gpt-4o") }),
@@ -67,6 +67,6 @@ export const runtime = new CopilotRuntime({
   },
 });
 
-export const handler = createCopilotRuntimeHandler({ runtime });
+export const handler = createCopilotKitRuntimeHandler({ runtime });
 export const resolved = resolveModel("openai/gpt-5");
 export const host = classifyModelSpec("openai/gpt-5");

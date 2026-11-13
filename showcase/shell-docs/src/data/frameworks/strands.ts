@@ -57,18 +57,18 @@ const data: FrameworkOverviewData = {
     filename: "app/api/copilotkit/route.ts",
     language: "ts",
     code: `import {
-  CopilotRuntime,
-  createCopilotRuntimeHandler,
+  CopilotKitRuntime,
+  createCopilotKitRuntimeHandler,
 } from "@copilotkit/runtime";
 import { HttpAgent } from "@ag-ui/client";
 
-const runtime = new CopilotRuntime({
+const runtime = new CopilotKitRuntime({
   agents: {
     my_agent: new HttpAgent({ url: process.env.AGENT_URL! }),
   },
 });
 
-const handler = createCopilotRuntimeHandler({
+const handler = createCopilotKitRuntimeHandler({
   runtime,
   basePath: "/api/copilotkit",
 });

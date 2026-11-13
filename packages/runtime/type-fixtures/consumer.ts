@@ -1,10 +1,10 @@
 /** The generic Node listener mounts in both Express 4 and Express 5. */
 import express from "express";
-import { CopilotRuntime } from "@copilotkit/runtime";
-import { createCopilotNodeListener } from "@copilotkit/runtime/node";
+import { CopilotKitRuntime } from "@copilotkit/runtime";
+import { createCopilotKitNodeListener } from "@copilotkit/runtime/node";
 const app = express();
-const runtime = new CopilotRuntime({ agents: {} });
+const runtime = new CopilotKitRuntime({ agents: {} });
 app.use(
   "/api/copilotkit",
-  createCopilotNodeListener({ runtime, basePath: "/", cors: true }),
+  createCopilotKitNodeListener({ runtime, basePath: "/", cors: true }),
 );

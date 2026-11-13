@@ -5,7 +5,7 @@ import {
 } from "../handlers/shared/agent-utils";
 import { resolveForwardHeadersPolicy } from "../handlers/header-utils";
 import type { AbstractAgent } from "@ag-ui/client";
-import type { CopilotRuntimeLike } from "../core/runtime";
+import type { CopilotKitRuntimeLike } from "../core/runtime";
 
 /**
  * Minimal agent stub that satisfies the MiddlewareCapableAgent shape
@@ -19,14 +19,14 @@ function createMockAgent(headers?: Record<string, string>): AbstractAgent {
   } as unknown as AbstractAgent;
 }
 
-function createMockRuntime(): CopilotRuntimeLike {
+function createMockRuntime(): CopilotKitRuntimeLike {
   return {
     agents: Promise.resolve({}),
     // The /run call site reads the resolved policy off the runtime; default
     // (built-in denylist on) is fine here since these tests use non-denylisted
     // custom headers.
     forwardHeadersPolicy: resolveForwardHeadersPolicy(undefined),
-  } as unknown as CopilotRuntimeLike;
+  } as unknown as CopilotKitRuntimeLike;
 }
 
 function createRequest(headers: Record<string, string>): Request {
@@ -248,7 +248,7 @@ describe("configureAgentForRequest – header forwarding", () => {
       forwardHeadersPolicy: resolveForwardHeadersPolicy({
         useDefaultDenylist: false,
       }),
-    } as unknown as CopilotRuntimeLike;
+    } as unknown as CopilotKitRuntimeLike;
 
     configureAgentForRequest({
       runtime,
@@ -275,14 +275,14 @@ describe("configureAgentForRequest – header forwarding", () => {
       Authorization: "Bearer user-token",
     });
 
-    // A policy-less external `CopilotRuntimeLike` implementor: `forwardHeadersPolicy`
+    // A policy-less external `CopilotKitRuntimeLike` implementor: `forwardHeadersPolicy`
     // is OMITTED entirely (optional on the published interface). Before the fix the
     // /run call site passed `undefined` straight into the merge, which dereffed
     // `policy.allow` and threw. After the fix it coalesces to the default resolved
     // policy (default-on denylist).
     const policylessRuntime = {
       agents: Promise.resolve({}),
-    } as unknown as CopilotRuntimeLike;
+    } as unknown as CopilotKitRuntimeLike;
 
     expect(() =>
       configureAgentForRequest({
@@ -350,11 +350,11 @@ describe("clone isolation – registered agent is never mutated by a request (#5
     return agent as unknown as AbstractAgent;
   }
 
-  function createRuntimeWith(agent: AbstractAgent): CopilotRuntimeLike {
+  function createRuntimeWith(agent: AbstractAgent): CopilotKitRuntimeLike {
     return {
       agents: Promise.resolve({ "test-agent": agent }),
       forwardHeadersPolicy: resolveForwardHeadersPolicy(undefined),
-    } as unknown as CopilotRuntimeLike;
+    } as unknown as CopilotKitRuntimeLike;
   }
 
   it("merges inbound headers onto the clone WITHOUT touching the registered agent's headers", async () => {

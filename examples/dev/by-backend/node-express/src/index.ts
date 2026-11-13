@@ -2,10 +2,10 @@ import express from "express";
 import dotenv from "dotenv";
 import { z } from "zod";
 import type { ToolDefinition } from "@copilotkit/runtime/agent";
-import { CopilotRuntime } from "@copilotkit/runtime";
+import { CopilotKitRuntime } from "@copilotkit/runtime";
 import { BuiltInAgent, defineTool } from "@copilotkit/runtime/agent";
 import { openaiText } from "@tanstack/ai-openai";
-import { createCopilotNodeListener } from "@copilotkit/runtime/node";
+import { createCopilotKitNodeListener } from "@copilotkit/runtime/node";
 
 dotenv.config();
 
@@ -21,7 +21,7 @@ const roastTool = defineTool({
   },
 }) as unknown as ToolDefinition;
 
-const runtime = new CopilotRuntime({
+const runtime = new CopilotKitRuntime({
   agents: {
     default: new BuiltInAgent({
       model: openaiText("gpt-6-luna"),
@@ -34,7 +34,7 @@ const app = express();
 
 app.use(
   "/api/copilotkit",
-  createCopilotNodeListener({
+  createCopilotKitNodeListener({
     mode: "single-route",
     cors: true,
     runtime,

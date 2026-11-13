@@ -1,6 +1,6 @@
 import {
-  CopilotRuntime,
-  createCopilotRuntimeHandler,
+  CopilotKitRuntime,
+  createCopilotKitRuntimeHandler,
 } from "@copilotkit/runtime";
 import { BuiltInAgent } from "@copilotkit/runtime/agent";
 import { createOpenaiChat } from "@tanstack/ai-openai";
@@ -11,7 +11,7 @@ export interface Env {
 
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
-    const runtime = new CopilotRuntime({
+    const runtime = new CopilotKitRuntime({
       agents: {
         default: new BuiltInAgent({
           model: createOpenaiChat("gpt-6-luna", env.OPENAI_API_KEY),
@@ -19,7 +19,7 @@ export default {
       },
     });
 
-    const handler = createCopilotRuntimeHandler({
+    const handler = createCopilotKitRuntimeHandler({
       runtime,
       basePath: "/api/copilotkit",
       cors: true,

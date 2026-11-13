@@ -1,9 +1,9 @@
 import { describe, it, expect, vi } from "vitest";
-import { createCopilotRuntimeHandler } from "../core/fetch-handler";
-import { CopilotRuntime } from "../core/runtime";
-import type { CopilotSseRuntimeOptions } from "../core/runtime";
+import { createCopilotKitRuntimeHandler } from "../core/fetch-handler";
+import { CopilotKitRuntime } from "../core/runtime";
+import type { CopilotKitSseRuntimeOptions } from "../core/runtime";
 import type { AbstractAgent } from "@ag-ui/client";
-import type { CopilotRuntimeHooks } from "../core/hooks";
+import type { CopilotKitRuntimeHooks } from "../core/hooks";
 
 /* ------------------------------------------------------------------------------------------------
  * Helpers
@@ -17,8 +17,8 @@ const createMockAgent = () => {
   return agent as AbstractAgent;
 };
 
-const createRuntime = (opts?: Partial<CopilotSseRuntimeOptions>) =>
-  new CopilotRuntime({
+const createRuntime = (opts?: Partial<CopilotKitSseRuntimeOptions>) =>
+  new CopilotKitRuntime({
     agents: { default: createMockAgent() },
     ...opts,
   });
@@ -40,7 +40,7 @@ describe("hooks — onRequest", () => {
   it("is called for every request with correct context", async () => {
     const onRequest = vi.fn();
     const runtime = createRuntime();
-    const handler = createCopilotRuntimeHandler({
+    const handler = createCopilotKitRuntimeHandler({
       runtime,
       basePath: "/api",
       hooks: { onRequest },
@@ -59,7 +59,7 @@ describe("hooks — onRequest", () => {
 
   it("returning a modified Request replaces the original", async () => {
     const runtime = createRuntime();
-    const handler = createCopilotRuntimeHandler({
+    const handler = createCopilotKitRuntimeHandler({
       runtime,
       basePath: "/api",
       hooks: {
@@ -77,7 +77,7 @@ describe("hooks — onRequest", () => {
 
   it("returning void continues with original Request", async () => {
     const runtime = createRuntime();
-    const handler = createCopilotRuntimeHandler({
+    const handler = createCopilotKitRuntimeHandler({
       runtime,
       basePath: "/api",
       hooks: {
@@ -93,7 +93,7 @@ describe("hooks — onRequest", () => {
 
   it("throwing a Response short-circuits", async () => {
     const runtime = createRuntime();
-    const handler = createCopilotRuntimeHandler({
+    const handler = createCopilotKitRuntimeHandler({
       runtime,
       basePath: "/api",
       hooks: {
@@ -113,7 +113,7 @@ describe("hooks — onRequest", () => {
       .fn()
       .mockReturnValue(new Response("Custom error", { status: 503 }));
     const runtime = createRuntime();
-    const handler = createCopilotRuntimeHandler({
+    const handler = createCopilotKitRuntimeHandler({
       runtime,
       basePath: "/api",
       hooks: {
@@ -142,7 +142,7 @@ describe("hooks — onBeforeHandler", () => {
   it("is called after routing with route info", async () => {
     const onBeforeHandler = vi.fn();
     const runtime = createRuntime();
-    const handler = createCopilotRuntimeHandler({
+    const handler = createCopilotKitRuntimeHandler({
       runtime,
       basePath: "/api",
       hooks: { onBeforeHandler },
@@ -163,7 +163,7 @@ describe("hooks — onBeforeHandler", () => {
   it("receives agentId in route info for agent routes", async () => {
     const onBeforeHandler = vi.fn();
     const runtime = createRuntime();
-    const handler = createCopilotRuntimeHandler({
+    const handler = createCopilotKitRuntimeHandler({
       runtime,
       basePath: "/api",
       hooks: { onBeforeHandler },
@@ -189,7 +189,7 @@ describe("hooks — onBeforeHandler", () => {
   it("is NOT called when routing returns 404", async () => {
     const onBeforeHandler = vi.fn();
     const runtime = createRuntime();
-    const handler = createCopilotRuntimeHandler({
+    const handler = createCopilotKitRuntimeHandler({
       runtime,
       basePath: "/api",
       hooks: { onBeforeHandler },
@@ -202,7 +202,7 @@ describe("hooks — onBeforeHandler", () => {
 
   it("throwing a Response short-circuits before handler", async () => {
     const runtime = createRuntime();
-    const handler = createCopilotRuntimeHandler({
+    const handler = createCopilotKitRuntimeHandler({
       runtime,
       basePath: "/api",
       hooks: {
@@ -219,7 +219,7 @@ describe("hooks — onBeforeHandler", () => {
   it("returning a modified Request is passed to the handler", async () => {
     const runtime = createRuntime();
     const receivedHeaders: string[] = [];
-    const handler = createCopilotRuntimeHandler({
+    const handler = createCopilotKitRuntimeHandler({
       runtime,
       basePath: "/api",
       hooks: {
@@ -251,7 +251,7 @@ describe("hooks — onResponse", () => {
   it("is called with the response and route info", async () => {
     const onResponse = vi.fn();
     const runtime = createRuntime();
-    const handler = createCopilotRuntimeHandler({
+    const handler = createCopilotKitRuntimeHandler({
       runtime,
       basePath: "/api",
       hooks: { onResponse },
@@ -271,7 +271,7 @@ describe("hooks — onResponse", () => {
 
   it("returning a modified Response replaces the original", async () => {
     const runtime = createRuntime();
-    const handler = createCopilotRuntimeHandler({
+    const handler = createCopilotKitRuntimeHandler({
       runtime,
       basePath: "/api",
       hooks: {
@@ -292,7 +292,7 @@ describe("hooks — onResponse", () => {
 
   it("returning void continues with original Response", async () => {
     const runtime = createRuntime();
-    const handler = createCopilotRuntimeHandler({
+    const handler = createCopilotKitRuntimeHandler({
       runtime,
       basePath: "/api",
       hooks: {
@@ -309,7 +309,7 @@ describe("hooks — onResponse", () => {
   it("is called for error responses from handlers too", async () => {
     const onResponse = vi.fn();
     const runtime = createRuntime();
-    const handler = createCopilotRuntimeHandler({
+    const handler = createCopilotKitRuntimeHandler({
       runtime,
       basePath: "/api",
       hooks: {
@@ -341,7 +341,7 @@ describe("hooks — onError", () => {
   it("is called with error context", async () => {
     const onError = vi.fn();
     const runtime = createRuntime();
-    const handler = createCopilotRuntimeHandler({
+    const handler = createCopilotKitRuntimeHandler({
       runtime,
       basePath: "/api",
       hooks: {
@@ -366,7 +366,7 @@ describe("hooks — onError", () => {
 
   it("returning a Response overrides the default error response", async () => {
     const runtime = createRuntime();
-    const handler = createCopilotRuntimeHandler({
+    const handler = createCopilotKitRuntimeHandler({
       runtime,
       basePath: "/api",
       hooks: {
@@ -386,7 +386,7 @@ describe("hooks — onError", () => {
 
   it("returning void uses default JSON error response", async () => {
     const runtime = createRuntime();
-    const handler = createCopilotRuntimeHandler({
+    const handler = createCopilotKitRuntimeHandler({
       runtime,
       basePath: "/api",
       hooks: {
@@ -408,7 +408,7 @@ describe("hooks — onError", () => {
   it("route is present when error occurs after routing", async () => {
     const onError = vi.fn();
     const runtime = createRuntime();
-    const handler = createCopilotRuntimeHandler({
+    const handler = createCopilotKitRuntimeHandler({
       runtime,
       basePath: "/api",
       hooks: {
@@ -448,7 +448,7 @@ describe("hooks — composition with legacy middleware", () => {
     });
 
     const runtime = createRuntime({ beforeRequestMiddleware });
-    const handler = createCopilotRuntimeHandler({
+    const handler = createCopilotKitRuntimeHandler({
       runtime,
       basePath: "/api",
       hooks: { onRequest },
@@ -470,7 +470,7 @@ describe("hooks — composition with legacy middleware", () => {
     });
 
     const runtime = createRuntime({ afterRequestMiddleware });
-    const handler = createCopilotRuntimeHandler({
+    const handler = createCopilotKitRuntimeHandler({
       runtime,
       basePath: "/api",
       hooks: { onResponse },
@@ -494,7 +494,7 @@ describe("hooks — composition with legacy middleware", () => {
       order.push("legacy-after");
     });
 
-    const hooks: CopilotRuntimeHooks = {
+    const hooks: CopilotKitRuntimeHooks = {
       onRequest: () => {
         order.push("onRequest");
       },
@@ -510,7 +510,7 @@ describe("hooks — composition with legacy middleware", () => {
       beforeRequestMiddleware,
       afterRequestMiddleware,
     });
-    const handler = createCopilotRuntimeHandler({
+    const handler = createCopilotKitRuntimeHandler({
       runtime,
       basePath: "/api",
       hooks,
@@ -538,7 +538,7 @@ describe("hooks — composition with legacy middleware", () => {
       });
 
     const runtime = createRuntime({ beforeRequestMiddleware });
-    const handler = createCopilotRuntimeHandler({
+    const handler = createCopilotKitRuntimeHandler({
       runtime,
       basePath: "/api",
       hooks: {

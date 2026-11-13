@@ -33,12 +33,12 @@ The codemod makes these changes:
 | --- | --- |
 | `BasicAgent` | `BuiltInAgent` from `@copilotkit/runtime/agent` |
 | `BasicAgentConfiguration` | `BuiltInAgentClassicConfig` from `@copilotkit/runtime/agent` |
-| `createNodeFetchHandler` from `@copilotkit/runtime/node` | `createCopilotNodeHandler` |
-| `CopilotKitRequestHandler` | `CopilotRuntimeFetchHandler` |
+| `createNodeFetchHandler` from `@copilotkit/runtime/node` | `createCopilotKitNodeHandler` |
+| `CopilotKitRequestHandler` | `CopilotKitRuntimeFetchHandler` |
 
-`createCopilotNodeHandler` takes the same arguments as `createNodeFetchHandler`. For the `BuiltInAgent` options, see [Runtime HTTP handlers in 2.0](/migrate/runtime-2.0).
+`createCopilotKitNodeHandler` takes the same arguments as `createNodeFetchHandler`. For the `BuiltInAgent` options, see [Runtime HTTP handlers in 2.0](/migrate/runtime-2.0).
 
-`CopilotRuntimeFetchHandler` takes the `Request` directly. Remove the `{ request }` object from each call:
+`CopilotKitRuntimeFetchHandler` takes the `Request` directly. Remove the `{ request }` object from each call:
 
 ```ts ignore title="Before"
 import type { CopilotKitRequestHandler } from "@copilotkit/runtime";
@@ -49,9 +49,9 @@ export function forward(handler: CopilotKitRequestHandler, request: Request) {
 ```
 
 ```ts title="After"
-import type { CopilotRuntimeFetchHandler } from "@copilotkit/runtime";
+import type { CopilotKitRuntimeFetchHandler } from "@copilotkit/runtime";
 
-export function forward(handler: CopilotRuntimeFetchHandler, request: Request) {
+export function forward(handler: CopilotKitRuntimeFetchHandler, request: Request) {
   return handler(request);
 }
 ```

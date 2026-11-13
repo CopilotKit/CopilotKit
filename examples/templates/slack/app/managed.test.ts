@@ -6,18 +6,18 @@ const fakes = vi.hoisted(() => {
   });
   const ready = vi.fn(async () => {});
   // The Node listener is a callable object carrying `.channels` (the activation
-  // + shutdown surface), mirroring the real `createCopilotNodeListener` return.
+  // + shutdown surface), mirroring the real `createCopilotKitNodeListener` return.
   const listener = Object.assign(vi.fn(), { channels: { ready, stop } });
   return {
     ready,
     stop,
     listener,
     closeBrowser: vi.fn(async () => {}),
-    createCopilotNodeListener: vi.fn(() => listener),
-    // Captures the options `new CopilotRuntime(...)` was constructed with so
+    createCopilotKitNodeListener: vi.fn(() => listener),
+    // Captures the options `new CopilotKitRuntime(...)` was constructed with so
     // the test can assert the runtime carries `channels`.
     runtimeOptions: undefined as unknown,
-    CopilotRuntime: vi.fn(function CopilotRuntime(options: unknown) {
+    CopilotKitRuntime: vi.fn(function CopilotKitRuntime(options: unknown) {
       fakes.runtimeOptions = options;
     }),
     CopilotKitIntelligence: vi.fn(function CopilotKitIntelligence() {}),
@@ -45,11 +45,11 @@ vi.mock("@copilotkit/channels/slack", () => ({
   defaultSlackContext: [],
 }));
 vi.mock("@copilotkit/runtime", () => ({
-  CopilotRuntime: fakes.CopilotRuntime,
+  CopilotKitRuntime: fakes.CopilotKitRuntime,
   CopilotKitIntelligence: fakes.CopilotKitIntelligence,
 }));
 vi.mock("@copilotkit/runtime/node", () => ({
-  createCopilotNodeListener: fakes.createCopilotNodeListener,
+  createCopilotKitNodeListener: fakes.createCopilotKitNodeListener,
 }));
 vi.mock("./tools/index.js", () => ({ appTools: [] }));
 vi.mock("./tools/render-mrr.js", () => ({
@@ -129,11 +129,11 @@ describe("managed channel entrypoint", () => {
 
     // The listener is created from the NORMAL runtime handler — no realtime
     // gateway launcher is involved.
-    expect(fakes.createCopilotNodeListener).toHaveBeenCalledWith(
+    expect(fakes.createCopilotKitNodeListener).toHaveBeenCalledWith(
       expect.objectContaining({ basePath: "/api/copilotkit" }),
     );
     // The runtime carries the Channel in `channels`.
-    expect(fakes.CopilotRuntime).toHaveBeenCalledOnce();
+    expect(fakes.CopilotKitRuntime).toHaveBeenCalledOnce();
     expect(fakes.runtimeOptions).toEqual(
       expect.objectContaining({ channels: [fakes.bot] }),
     );
@@ -185,8 +185,8 @@ describe("managed channel entrypoint", () => {
     async (port) => {
       for (const key of envKeys) previousEnv.set(key, process.env[key]);
       vi.resetModules();
-      fakes.createCopilotNodeListener.mockClear();
-      fakes.CopilotRuntime.mockClear();
+      fakes.createCopilotKitNodeListener.mockClear();
+      fakes.CopilotKitRuntime.mockClear();
       fakes.createServer.mockClear();
       process.env.PORT = port;
       vi.spyOn(process, "on").mockImplementation(
@@ -205,8 +205,8 @@ describe("managed channel entrypoint", () => {
           message: "PORT must be an integer between 0 and 65535.",
         }),
       );
-      expect(fakes.CopilotRuntime).not.toHaveBeenCalled();
-      expect(fakes.createCopilotNodeListener).not.toHaveBeenCalled();
+      expect(fakes.CopilotKitRuntime).not.toHaveBeenCalled();
+      expect(fakes.createCopilotKitNodeListener).not.toHaveBeenCalled();
       expect(fakes.createServer).not.toHaveBeenCalled();
     },
   );

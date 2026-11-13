@@ -5,12 +5,12 @@ import type { Observable } from "rxjs";
 import { AbstractAgent } from "@ag-ui/client";
 import type { BaseEvent, RunAgentResult } from "@ag-ui/client";
 import type { AgentCapabilities } from "@ag-ui/core";
-import { CopilotRuntime } from "../core/runtime";
+import { CopilotKitRuntime } from "../core/runtime";
 import type {
-  CopilotRuntimeLogger,
-  CopilotSseRuntimeOptions,
+  CopilotKitRuntimeLogger,
+  CopilotKitSseRuntimeOptions,
 } from "../core/runtime";
-import { createCopilotRuntimeHandler } from "../core/fetch-handler";
+import { createCopilotKitRuntimeHandler } from "../core/fetch-handler";
 
 type Level = "debug" | "info" | "warn" | "error";
 
@@ -23,7 +23,9 @@ interface LogCall {
 /** A pino-shaped logger that records each call with the child bindings. */
 function createRecordingLogger() {
   const calls: LogCall[] = [];
-  const build = (bindings: Record<string, unknown>): CopilotRuntimeLogger => {
+  const build = (
+    bindings: Record<string, unknown>,
+  ): CopilotKitRuntimeLogger => {
     const method =
       (level: Level) =>
       (...args: unknown[]) => {
@@ -68,13 +70,13 @@ class FailingAgent extends FinishingAgent {
 }
 
 function createHandler(
-  options: Pick<CopilotSseRuntimeOptions, "logger" | "debug"> = {},
+  options: Pick<CopilotKitSseRuntimeOptions, "logger" | "debug"> = {},
 ): (request: Request) => Promise<Response> {
-  const runtime = new CopilotRuntime({
+  const runtime = new CopilotKitRuntime({
     agents: { finishing: new FinishingAgent(), failing: new FailingAgent() },
     ...options,
   });
-  return createCopilotRuntimeHandler({ runtime, basePath: "/api" });
+  return createCopilotKitRuntimeHandler({ runtime, basePath: "/api" });
 }
 
 async function runAgent(
@@ -99,7 +101,7 @@ async function runAgent(
   await response.text();
 }
 
-describe("CopilotRuntime logger option", () => {
+describe("CopilotKitRuntime logger option", () => {
   let consoleSpies: {
     [Method in "log" | "debug" | "warn" | "error"]: MockInstance<
       Console[Method]

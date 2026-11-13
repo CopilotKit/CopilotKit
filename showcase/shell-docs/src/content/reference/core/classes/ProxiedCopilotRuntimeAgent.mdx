@@ -1,11 +1,11 @@
 ---
 title: "ProxiedCopilotRuntimeAgent"
-description: "AG-UI agent that proxies a CopilotRuntime agent over REST, single-route, or Intelligence transports."
+description: "AG-UI agent that proxies a CopilotKitRuntime agent over REST, single-route, or Intelligence transports."
 ---
 
 ## Overview
 
-`ProxiedCopilotRuntimeAgent` is the AG-UI [`AbstractAgent`](https://docs.ag-ui.com/sdk/js/client/abstract-agent) implementation (extending `HttpAgent`) that `CopilotKitCore` uses to talk to a CopilotRuntime. You rarely construct this class. `CopilotKitCore` creates one for each runtime agent. To mount several frontend agents against one runtime agent, call [`registerProxiedAgent`](/reference/core/classes/CopilotKitCore).
+`ProxiedCopilotRuntimeAgent` is the AG-UI [`AbstractAgent`](https://docs.ag-ui.com/sdk/js/client/abstract-agent) implementation (extending `HttpAgent`) that `CopilotKitCore` uses to talk to a CopilotKitRuntime. You rarely construct this class. `CopilotKitCore` creates one for each runtime agent. To mount several frontend agents against one runtime agent, call [`registerProxiedAgent`](/reference/core/classes/CopilotKitCore).
 
 The agent builds the correct runtime URLs, picks the transport (`rest`, `single`, or auto-detected), and transparently delegates to an Intelligence agent when the runtime is in Intelligence mode.
 
@@ -32,7 +32,7 @@ ProxiedCopilotRuntimeAgent satisfies new (
   Configuration object. Extends AG-UI's `HttpAgentConfig` (minus `url`). See [ProxiedCopilotRuntimeAgentConfig](/reference/core/types/ProxiedCopilotRuntimeAgentConfig).
 
   <PropertyReference name="runtimeUrl" type="string">
-    Base URL of the CopilotRuntime. One trailing slash is removed before REST paths such as `/info` are joined. With `transport: "single"`, requests go to the URL exactly as you give it. Required when `transport` is `"single"`.
+    Base URL of the CopilotKitRuntime. One trailing slash is removed before REST paths such as `/info` are joined. With `transport: "single"`, requests go to the URL exactly as you give it. Required when `transport` is `"single"`.
   </PropertyReference>
 
   <PropertyReference name="transport" type="CopilotRuntimeTransport" default="auto">

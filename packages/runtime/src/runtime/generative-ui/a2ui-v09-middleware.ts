@@ -2,7 +2,7 @@ import { Middleware } from "@ag-ui/client";
 import type { AbstractAgent, BaseEvent, RunAgentInput } from "@ag-ui/client";
 import { concatMap } from "rxjs";
 import type { Observable } from "rxjs";
-import type { A2UIVersion, CopilotRuntimeOptions } from "../core/runtime";
+import type { A2UIVersion, CopilotKitRuntimeOptions } from "../core/runtime";
 import { downgradeA2UIV09Action } from "./a2ui-v09-actions";
 import { buildA2UIV09CatalogContext } from "./a2ui-v09-catalog";
 import { createA2UIV09ActivityUpgrader } from "./a2ui-v09-operations";
@@ -17,7 +17,7 @@ import { createA2UIV09ActivityUpgrader } from "./a2ui-v09-operations";
  * @returns `"0.9"` or `"1.0"`.
  */
 export function resolveA2UIVersion(
-  generativeUI: CopilotRuntimeOptions["generativeUI"],
+  generativeUI: CopilotKitRuntimeOptions["generativeUI"],
   agentId: string,
 ): A2UIVersion {
   const option =

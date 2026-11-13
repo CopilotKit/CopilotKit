@@ -99,7 +99,7 @@ The legacy `ui-protocols-demo` Railway deployment is being retired. Do not use i
   "@copilotkit/react-core": "Frontend provider and hooks",
   "@copilotkit/react-ui": "CopilotSidebar component",
   "@copilotkit/react-core/generative-ui": "standardUI catalog for A2UI surfaces",
-  "@copilotkit/runtime": "CopilotRuntime backend",
+  "@copilotkit/runtime": "CopilotKitRuntime backend",
   "@copilotkit/runtime/agent": "BuiltInAgent class",
   "@tanstack/ai-openai": "OpenAI adapter (openaiText) for the BuiltInAgent model",
   "@ag-ui/mcp-apps-middleware": "MCP Apps → AG-UI bridge"
@@ -114,8 +114,8 @@ ui-protocols-demo/
 │   ├── page.tsx                 # Main page with agent switching
 │   ├── theme.ts                 # A2UI v0.8 theme
 │   ├── api/
-│   │   ├── copilotkit/          # CopilotRuntime API route (default agent)
-│   │   └── copilotkit-a2ui/     # CopilotRuntime API route (A2UI agent)
+│   │   ├── copilotkit/          # CopilotKitRuntime API route (default agent)
+│   │   └── copilotkit-a2ui/     # CopilotKitRuntime API route (A2UI agent)
 │   └── components/
 │       ├── CopilotContextProvider.tsx   # Static tool hooks
 │       ├── static-tools/        # Weather, Stock, TaskApproval cards

@@ -3,8 +3,8 @@ import { AbstractAgent } from "@ag-ui/client";
 import type { RunAgentInput } from "@ag-ui/core";
 import type { Observable } from "rxjs";
 import type { BaseEvent } from "@ag-ui/client";
-import { createCopilotRuntimeHandler } from "../core/fetch-handler";
-import { CopilotRuntime } from "../core/runtime";
+import { createCopilotKitRuntimeHandler } from "../core/fetch-handler";
+import { CopilotKitRuntime } from "../core/runtime";
 import { CopilotKitIntelligence } from "../intelligence-platform";
 import { createChannel } from "@copilotkit/channels";
 import type {
@@ -16,7 +16,7 @@ import { telemetry } from "../telemetry";
 
 /* ------------------------------------------------------------------------------------------------
  * This suite proves handler-owned Channel activation end-to-end: a real
- * `createCopilotRuntimeHandler` drives a real `ChannelManager`, which derives a
+ * `createCopilotKitRuntimeHandler` drives a real `ChannelManager`, which derives a
  * real `ChannelActivationConfig` via `deriveChannelActivationConfig`, and hands
  * it to a FAKE `__channelEngine` — never touching the real Realtime Gateway
  * launcher (`@copilotkit/channels-intelligence` is intentionally not imported
@@ -98,12 +98,12 @@ function capturingEngine(): {
  * Tests
  * --------------------------------------------------------------------------------------------- */
 
-describe("createCopilotRuntimeHandler — channel activation (integration)", () => {
+describe("createCopilotKitRuntimeHandler — channel activation (integration)", () => {
   it("derives config purely from the intelligence config + channel, with no infra IDs, and drives ready/reconnect/stop through the real ChannelManager", async () => {
     const intelligence = fakeIntelligence();
     const identifyUser = vi.fn().mockResolvedValue({ id: "u", name: "U" });
     const agent = new FakeAgent();
-    const runtime = new CopilotRuntime({
+    const runtime = new CopilotKitRuntime({
       agents: {},
       intelligence,
       identifyUser,
@@ -119,7 +119,7 @@ describe("createCopilotRuntimeHandler — channel activation (integration)", () 
 
     const state = capturingEngine();
 
-    const handler = createCopilotRuntimeHandler({
+    const handler = createCopilotKitRuntimeHandler({
       runtime,
       __channelEngine: state.engine,
     });
@@ -172,7 +172,7 @@ describe("createCopilotRuntimeHandler — channel activation (integration)", () 
   });
 
   it("routes Channel drop telemetry through the Runtime capture scope", async () => {
-    const runtime = new CopilotRuntime({
+    const runtime = new CopilotKitRuntime({
       agents: {},
       intelligence: fakeIntelligence(),
       identifyUser: vi.fn().mockResolvedValue({ id: "u", name: "U" }),
@@ -193,7 +193,7 @@ describe("createCopilotRuntimeHandler — channel activation (integration)", () 
     const state = capturingEngine();
 
     try {
-      const handler = createCopilotRuntimeHandler({
+      const handler = createCopilotKitRuntimeHandler({
         runtime,
         __channelEngine: state.engine,
       });

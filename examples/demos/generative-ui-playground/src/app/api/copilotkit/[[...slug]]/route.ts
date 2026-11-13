@@ -9,8 +9,8 @@
  */
 
 import {
-  CopilotRuntime,
-  createCopilotRuntimeHandler,
+  CopilotKitRuntime,
+  createCopilotKitRuntimeHandler,
   InMemoryAgentRunner,
 } from "@copilotkit/runtime";
 import { BuiltInAgent } from "@copilotkit/runtime/agent";
@@ -105,7 +105,7 @@ const a2aClient = new A2AClient(
 const a2uiAgent = new A2AAgent({ a2aClient });
 
 // Create CopilotKit runtime with both agents
-const runtime = new CopilotRuntime({
+const runtime = new CopilotKitRuntime({
   agents: {
     default: defaultAgent, // Static GenUI + MCP Apps
     a2ui: a2uiAgent, // A2UI with Python A2A server
@@ -114,7 +114,7 @@ const runtime = new CopilotRuntime({
 });
 
 // Create Hono endpoint
-const app = createCopilotRuntimeHandler({
+const app = createCopilotKitRuntimeHandler({
   cors: true,
   runtime,
   basePath: "/api/copilotkit",

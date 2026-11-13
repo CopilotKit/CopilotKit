@@ -3,9 +3,9 @@ import type {
   InspectorMetadataV1,
 } from "@copilotkit/shared";
 import { describe, it, expect, test, vi } from "vitest";
-import { createCopilotRuntimeHandler } from "../core/fetch-handler";
-import { CopilotRuntime } from "../core/runtime";
-import type { CopilotRuntimeLike } from "../core/runtime";
+import { createCopilotKitRuntimeHandler } from "../core/fetch-handler";
+import { CopilotKitRuntime } from "../core/runtime";
+import type { CopilotKitRuntimeLike } from "../core/runtime";
 import { CopilotKitIntelligence } from "../intelligence-platform";
 import type { AbstractAgent } from "@ag-ui/client";
 
@@ -103,7 +103,7 @@ const createSuggestAgent = () => {
 
 const createRuntime = (
   agents: Record<string, AbstractAgent> = { default: createMockAgent() },
-) => new CopilotRuntime({ agents });
+) => new CopilotKitRuntime({ agents });
 
 const post = (url: string, body?: unknown) =>
   new Request(url, {
@@ -118,9 +118,9 @@ const get = (url: string) => new Request(url, { method: "GET" });
  * Multi-route with basePath
  * --------------------------------------------------------------------------------------------- */
 
-describe("createCopilotRuntimeHandler — multi-route with basePath", () => {
+describe("createCopilotKitRuntimeHandler — multi-route with basePath", () => {
   const runtime = createRuntime();
-  const handler = createCopilotRuntimeHandler({
+  const handler = createCopilotKitRuntimeHandler({
     runtime,
     basePath: "/api/copilotkit",
     mode: "multi-route",
@@ -218,8 +218,8 @@ describe("createCopilotRuntimeHandler — multi-route with basePath", () => {
   // Memory routes are opt-in (secure default off). These reachability tests use
   // a runtime with `exposeMemoryRoutes: true`; the gated-off (404) behavior is
   // covered in its own describe block below.
-  const memoryHandler = createCopilotRuntimeHandler({
-    runtime: new CopilotRuntime({
+  const memoryHandler = createCopilotKitRuntimeHandler({
+    runtime: new CopilotKitRuntime({
       agents: { default: createMockAgent() },
       exposeMemoryRoutes: true,
     }),
@@ -296,7 +296,7 @@ describe("createCopilotRuntimeHandler — multi-route with basePath", () => {
   });
 
   it("basePath with trailing slash still works", async () => {
-    const trailingSlashHandler = createCopilotRuntimeHandler({
+    const trailingSlashHandler = createCopilotKitRuntimeHandler({
       runtime: createRuntime(),
       basePath: "/api/copilotkit/",
       mode: "multi-route",
@@ -311,7 +311,7 @@ describe("createCopilotRuntimeHandler — multi-route with basePath", () => {
   });
 
   it("URL-encoded agentId is handled correctly", async () => {
-    const encodedHandler = createCopilotRuntimeHandler({
+    const encodedHandler = createCopilotKitRuntimeHandler({
       runtime: createRuntime({ "my agent": createMockAgent() }),
       basePath: "/api/copilotkit",
       mode: "multi-route",
@@ -331,15 +331,15 @@ describe("createCopilotRuntimeHandler — multi-route with basePath", () => {
  * Opt-in memory-proxy flag (exposeMemoryRoutes)
  * --------------------------------------------------------------------------------------------- */
 
-describe("createCopilotRuntimeHandler — exposeMemoryRoutes gate", () => {
-  const offHandler = createCopilotRuntimeHandler({
+describe("createCopilotKitRuntimeHandler — exposeMemoryRoutes gate", () => {
+  const offHandler = createCopilotKitRuntimeHandler({
     // Default: exposeMemoryRoutes omitted → off.
-    runtime: new CopilotRuntime({ agents: { default: createMockAgent() } }),
+    runtime: new CopilotKitRuntime({ agents: { default: createMockAgent() } }),
     basePath: "/api/copilotkit",
     mode: "multi-route",
   });
-  const onHandler = createCopilotRuntimeHandler({
-    runtime: new CopilotRuntime({
+  const onHandler = createCopilotKitRuntimeHandler({
+    runtime: new CopilotKitRuntime({
       agents: { default: createMockAgent() },
       exposeMemoryRoutes: true,
     }),
@@ -410,9 +410,9 @@ describe("createCopilotRuntimeHandler — exposeMemoryRoutes gate", () => {
  * Multi-route without basePath (suffix matching)
  * --------------------------------------------------------------------------------------------- */
 
-describe("createCopilotRuntimeHandler — multi-route without basePath", () => {
+describe("createCopilotKitRuntimeHandler — multi-route without basePath", () => {
   const runtime = createRuntime();
-  const handler = createCopilotRuntimeHandler({
+  const handler = createCopilotKitRuntimeHandler({
     runtime,
     mode: "multi-route",
   });
@@ -450,7 +450,7 @@ describe("createCopilotRuntimeHandler — multi-route without basePath", () => {
     // whose `runAgent` emits a `copilotkitSuggest` tool-call message proves the
     // multi-route dispatch reaches `handleSuggestAgent` and returns a real 200
     // transcript, not just a non-404/405 routing match.
-    const suggestHandler = createCopilotRuntimeHandler({
+    const suggestHandler = createCopilotKitRuntimeHandler({
       runtime: createRuntime({ default: createSuggestAgent() }),
       mode: "multi-route",
     });
@@ -514,9 +514,9 @@ describe("createCopilotRuntimeHandler — multi-route without basePath", () => {
  * Single-route mode
  * --------------------------------------------------------------------------------------------- */
 
-describe("createCopilotRuntimeHandler — single-route mode", () => {
+describe("createCopilotKitRuntimeHandler — single-route mode", () => {
   const runtime = createRuntime();
-  const handler = createCopilotRuntimeHandler({
+  const handler = createCopilotKitRuntimeHandler({
     runtime,
     basePath: "/api/copilotkit",
     mode: "single-route",
@@ -579,7 +579,7 @@ describe("createCopilotRuntimeHandler — single-route mode", () => {
     // Use a suggest-specific agent whose `runAgent` emits a tool-call message,
     // so a 200 + `messages` body proves the route ran the handler end to end.
     const suggestRuntime = createRuntime({ default: createSuggestAgent() });
-    const suggestHandler = createCopilotRuntimeHandler({
+    const suggestHandler = createCopilotKitRuntimeHandler({
       runtime: suggestRuntime,
       basePath: "/api/copilotkit",
       mode: "single-route",
@@ -653,7 +653,7 @@ describe("createCopilotRuntimeHandler — single-route mode", () => {
   });
 
   it("single-route without basePath dispatches any POST", async () => {
-    const noBasePathHandler = createCopilotRuntimeHandler({
+    const noBasePathHandler = createCopilotKitRuntimeHandler({
       runtime: createRuntime(),
       mode: "single-route",
     });
@@ -676,11 +676,11 @@ describe("createCopilotRuntimeHandler — single-route mode", () => {
  * CORS integration
  * --------------------------------------------------------------------------------------------- */
 
-describe("createCopilotRuntimeHandler — CORS", () => {
+describe("createCopilotKitRuntimeHandler — CORS", () => {
   const runtime = createRuntime();
 
   it("handles OPTIONS preflight when cors: true", async () => {
-    const handler = createCopilotRuntimeHandler({
+    const handler = createCopilotKitRuntimeHandler({
       runtime,
       basePath: "/api",
       cors: true,
@@ -695,7 +695,7 @@ describe("createCopilotRuntimeHandler — CORS", () => {
   });
 
   it("adds CORS headers to normal responses when cors: true", async () => {
-    const handler = createCopilotRuntimeHandler({
+    const handler = createCopilotKitRuntimeHandler({
       runtime,
       basePath: "/api",
       cors: true,
@@ -706,7 +706,7 @@ describe("createCopilotRuntimeHandler — CORS", () => {
   });
 
   it("does not add CORS headers when cors is omitted", async () => {
-    const handler = createCopilotRuntimeHandler({
+    const handler = createCopilotKitRuntimeHandler({
       runtime,
       basePath: "/api",
     });
@@ -716,7 +716,7 @@ describe("createCopilotRuntimeHandler — CORS", () => {
   });
 
   it("does not add CORS headers when cors: false", async () => {
-    const handler = createCopilotRuntimeHandler({
+    const handler = createCopilotKitRuntimeHandler({
       runtime,
       basePath: "/api",
       cors: false,
@@ -726,7 +726,7 @@ describe("createCopilotRuntimeHandler — CORS", () => {
   });
 
   it("uses custom CORS config", async () => {
-    const handler = createCopilotRuntimeHandler({
+    const handler = createCopilotKitRuntimeHandler({
       runtime,
       basePath: "/api",
       cors: {
@@ -749,7 +749,7 @@ describe("createCopilotRuntimeHandler — CORS", () => {
   });
 
   it("adds CORS headers to error responses", async () => {
-    const handler = createCopilotRuntimeHandler({
+    const handler = createCopilotKitRuntimeHandler({
       runtime,
       basePath: "/api",
       cors: true,
@@ -764,7 +764,7 @@ describe("createCopilotRuntimeHandler — CORS", () => {
  * Error handling
  * --------------------------------------------------------------------------------------------- */
 
-describe("createCopilotRuntimeHandler — error handling", () => {
+describe("createCopilotKitRuntimeHandler — error handling", () => {
   it("returns 500 JSON error for unhandled errors", async () => {
     const agent: unknown = {
       setMessages: () => {
@@ -775,7 +775,7 @@ describe("createCopilotRuntimeHandler — error handling", () => {
     const runtime = createRuntime({
       default: agent as AbstractAgent,
     });
-    const handler = createCopilotRuntimeHandler({
+    const handler = createCopilotKitRuntimeHandler({
       runtime,
       basePath: "/api",
     });
@@ -799,7 +799,7 @@ describe("createCopilotRuntimeHandler — error handling", () => {
   });
 
   it("returns thrown Response directly", async () => {
-    const handler = createCopilotRuntimeHandler({
+    const handler = createCopilotKitRuntimeHandler({
       runtime: createRuntime(),
       basePath: "/api",
       hooks: {
@@ -821,7 +821,7 @@ function setupInspectorMetadataRoute() {
     apiKey: "server-api-key",
   });
   const getInspectorMetadata = vi.spyOn(intelligence, "getInspectorMetadata");
-  const runtime = new CopilotRuntime({
+  const runtime = new CopilotKitRuntime({
     agents: {},
     intelligence,
     identifyUser: async () => ({ id: "user-1", name: "User One" }),
@@ -877,7 +877,7 @@ function setupInspectorLearningRoute(debug = false, configured = true) {
   const getInspectorLearning = vi
     .spyOn(intelligence, "getInspectorLearning")
     .mockResolvedValue(snapshot);
-  const runtime = new CopilotRuntime({
+  const runtime = new CopilotKitRuntime({
     agents: { checkout: createMockAgent() },
     intelligence,
     identifyUser: async () => ({ id: "user-1", name: "User One" }),
@@ -896,7 +896,7 @@ test.each(["multi-route", "single-route"] as const)(
         throw new Response("Unauthorized", { status: 401 });
       }
     });
-    const handler = createCopilotRuntimeHandler({
+    const handler = createCopilotKitRuntimeHandler({
       runtime,
       basePath: "/api/copilotkit",
       mode,
@@ -953,7 +953,7 @@ test.each(["multi-route", "single-route"] as const)(
 
 test("advertises and serves Inspector Learning without debug or a handler opt-in", async () => {
   const { runtime, snapshot } = setupInspectorLearningRoute();
-  const handler = createCopilotRuntimeHandler({
+  const handler = createCopilotKitRuntimeHandler({
     runtime,
     basePath: "/api/copilotkit",
   });
@@ -973,7 +973,7 @@ test("does not advertise or proxy Learning without container assignment configur
     false,
     false,
   );
-  const handler = createCopilotRuntimeHandler({
+  const handler = createCopilotKitRuntimeHandler({
     runtime,
     basePath: "/api/copilotkit",
   });
@@ -992,13 +992,13 @@ test("does not advertise or proxy Learning without container assignment configur
 
 test("keeps Inspector Learning unavailable for runtimes without a web identity resolver", async () => {
   const { runtime, getInspectorLearning } = setupInspectorLearningRoute();
-  const handler = createCopilotRuntimeHandler({
+  const handler = createCopilotKitRuntimeHandler({
     runtime: {
       ...runtime,
       mode: "intelligence",
       intelligence: runtime.intelligence,
       identifyUser: undefined,
-    } as unknown as CopilotRuntimeLike,
+    } as unknown as CopilotKitRuntimeLike,
     basePath: "/api/copilotkit",
   });
   const response = await handler(
@@ -1014,7 +1014,7 @@ test("fetch-handler routes multi-route inspector metadata through hooks without 
   getInspectorMetadata.mockResolvedValue(metadata);
   const onBeforeHandler = vi.fn();
   const onResponse = vi.fn();
-  const handler = createCopilotRuntimeHandler({
+  const handler = createCopilotKitRuntimeHandler({
     runtime,
     basePath: "/api/copilotkit",
     mode: "multi-route",
@@ -1044,7 +1044,7 @@ test("fetch-handler routes multi-route inspector metadata through hooks without 
 
 test("fetch-handler rejects POST on the multi-route inspector metadata endpoint", async () => {
   const { getInspectorMetadata, runtime } = setupInspectorMetadataRoute();
-  const handler = createCopilotRuntimeHandler({
+  const handler = createCopilotKitRuntimeHandler({
     runtime,
     basePath: "/api/copilotkit",
     mode: "multi-route",
@@ -1065,7 +1065,7 @@ test("fetch-handler dispatches single-route inspector metadata", async () => {
   getInspectorMetadata.mockResolvedValue(metadata);
   const onBeforeHandler = vi.fn();
   const onResponse = vi.fn();
-  const handler = createCopilotRuntimeHandler({
+  const handler = createCopilotKitRuntimeHandler({
     runtime,
     basePath: "/api/copilotkit",
     mode: "single-route",
@@ -1093,7 +1093,7 @@ test("fetch-handler dispatches single-route inspector metadata", async () => {
 test("fetch-handler keeps single-route provider failures isolated", async () => {
   const { getInspectorMetadata, runtime } = setupInspectorMetadataRoute();
   getInspectorMetadata.mockRejectedValue(new Error("provider unavailable"));
-  const handler = createCopilotRuntimeHandler({
+  const handler = createCopilotKitRuntimeHandler({
     runtime,
     basePath: "/api/copilotkit",
     mode: "single-route",

@@ -1,6 +1,6 @@
 import {
-  CopilotRuntime,
-  createCopilotRuntimeHandler,
+  CopilotKitRuntime,
+  createCopilotKitRuntimeHandler,
   InMemoryAgentRunner,
 } from "@copilotkit/runtime";
 import { BuiltInAgent } from "@copilotkit/runtime/agent";
@@ -68,7 +68,7 @@ const transcriptionService = openAIApiKey
     })
   : undefined;
 
-const runtime = new CopilotRuntime({
+const runtime = new CopilotKitRuntime({
   agents: {
     default: builtInAgent,
   },
@@ -80,7 +80,7 @@ const runtime = new CopilotRuntime({
   openGenerativeUI: true,
 });
 
-const app = createCopilotRuntimeHandler({
+const app = createCopilotKitRuntimeHandler({
   cors: true,
   runtime: runtime,
   basePath: "/api/copilotkit",

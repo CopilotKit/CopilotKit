@@ -1,4 +1,4 @@
-import { createCopilotRuntimeHandler } from "../core/fetch-handler";
+import { createCopilotKitRuntimeHandler } from "../core/fetch-handler";
 /**
  * Integration test: Fetch handler + telemetry.
  *
@@ -13,7 +13,7 @@ import { createCopilotRuntimeHandler } from "../core/fetch-handler";
 import { expect, test, vi } from "vitest";
 import type { AbstractAgent } from "@ag-ui/client";
 
-import { CopilotRuntime } from "../core/runtime";
+import { CopilotKitRuntime } from "../core/runtime";
 
 function makeAgent(): AbstractAgent {
   const a: unknown = {
@@ -25,7 +25,7 @@ function makeAgent(): AbstractAgent {
 
 /** Creates an isolated runtime and a spy on its bound telemetry capture. */
 function setup() {
-  const runtime = new CopilotRuntime({ agents: { default: makeAgent() } });
+  const runtime = new CopilotKitRuntime({ agents: { default: makeAgent() } });
   const captureSpy = vi
     .spyOn(runtime.telemetry, "capture")
     .mockResolvedValue(undefined);
@@ -41,7 +41,7 @@ test("Fetch handler fires instance_created on handler creation (multi-route)", a
   const { runtime, captureSpy, teardown } = setup();
 
   try {
-    createCopilotRuntimeHandler({ cors: true, runtime, basePath: "/" });
+    createCopilotKitRuntimeHandler({ cors: true, runtime, basePath: "/" });
 
     await vi.waitFor(() => {
       expect(captureSpy).toHaveBeenCalledWith(
@@ -63,7 +63,7 @@ test("Fetch handler fires copilot_request_created for a real HTTP request", asyn
   const { runtime, captureSpy, teardown } = setup();
 
   try {
-    const endpoint = createCopilotRuntimeHandler({
+    const endpoint = createCopilotKitRuntimeHandler({
       cors: true,
       runtime,
       basePath: "/",
@@ -93,7 +93,7 @@ test("Fetch handler includes cloud.public_api_key when the header is present", a
   const { runtime, captureSpy, teardown } = setup();
 
   try {
-    const endpoint = createCopilotRuntimeHandler({
+    const endpoint = createCopilotKitRuntimeHandler({
       cors: true,
       runtime,
       basePath: "/",

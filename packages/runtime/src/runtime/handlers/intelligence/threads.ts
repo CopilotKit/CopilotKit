@@ -1,10 +1,10 @@
 import type {
-  CopilotIntelligenceRuntimeLike,
-  CopilotRuntimeLike,
+  CopilotKitIntelligenceRuntimeLike,
+  CopilotKitRuntimeLike,
 } from "../../core/runtime";
 import { isIntelligenceRuntime } from "../../core/runtime";
 import { getRuntimeLogger } from "../../core/logger";
-import type { CopilotRuntimeLogger } from "../../core/logger";
+import type { CopilotKitRuntimeLogger } from "../../core/logger";
 import { errorResponse, isHandlerResponse } from "../shared/json-response";
 import {
   getPlatformErrorStatus,
@@ -16,7 +16,7 @@ import { supportsLocalThreadEndpoints } from "../../runner/agent-runner";
 import { resolveLocalThreadOwner } from "../shared/thread-access";
 
 interface ThreadsHandlerParams {
-  runtime: CopilotRuntimeLike;
+  runtime: CopilotKitRuntimeLike;
   request: Request;
 }
 
@@ -32,7 +32,7 @@ interface ThreadMutationContext {
 
 async function parseJsonBody(
   request: Request,
-  logger: CopilotRuntimeLogger,
+  logger: CopilotKitRuntimeLogger,
 ): Promise<Record<string, unknown> | Response> {
   try {
     return (await request.json()) as Record<string, unknown>;
@@ -43,11 +43,11 @@ async function parseJsonBody(
 }
 
 function requireIntelligenceRuntime(
-  runtime: CopilotRuntimeLike,
-): CopilotIntelligenceRuntimeLike | Response {
+  runtime: CopilotKitRuntimeLike,
+): CopilotKitIntelligenceRuntimeLike | Response {
   if (!isIntelligenceRuntime(runtime)) {
     return errorResponse(
-      "Missing CopilotKitIntelligence configuration. Thread operations require a CopilotKitIntelligence instance to be provided in CopilotRuntime options.",
+      "Missing CopilotKitIntelligence configuration. Thread operations require a CopilotKitIntelligence instance to be provided in CopilotKitRuntime options.",
       422,
     );
   }
@@ -56,7 +56,7 @@ function requireIntelligenceRuntime(
 }
 
 async function resolveThreadMutationContext(
-  runtime: CopilotIntelligenceRuntimeLike,
+  runtime: CopilotKitIntelligenceRuntimeLike,
   request: Request,
 ): Promise<ThreadMutationContext | Response> {
   const body = await parseJsonBody(request, getRuntimeLogger(runtime));
@@ -89,7 +89,7 @@ async function resolveThreadMutationContext(
  * for anything else (logged as an error).
  */
 async function requireUserThread(
-  runtime: CopilotIntelligenceRuntimeLike,
+  runtime: CopilotKitIntelligenceRuntimeLike,
   threadId: string,
   userId: string,
   failure: string,
@@ -178,7 +178,7 @@ export async function handleListThreads({
   }
 
   return errorResponse(
-    "Missing CopilotKitIntelligence configuration. Thread operations require a CopilotKitIntelligence instance to be provided in CopilotRuntime options.",
+    "Missing CopilotKitIntelligence configuration. Thread operations require a CopilotKitIntelligence instance to be provided in CopilotKitRuntime options.",
     422,
   );
 }
@@ -436,7 +436,7 @@ export async function handleGetThreadMessages({
   }
 
   return errorResponse(
-    "Missing CopilotKitIntelligence configuration. Thread operations require a CopilotKitIntelligence instance to be provided in CopilotRuntime options.",
+    "Missing CopilotKitIntelligence configuration. Thread operations require a CopilotKitIntelligence instance to be provided in CopilotKitRuntime options.",
     422,
   );
 }
@@ -496,7 +496,7 @@ export async function handleGetThreadEvents({
   }
 
   return errorResponse(
-    "Missing CopilotKitIntelligence configuration. Thread operations require a CopilotKitIntelligence instance to be provided in CopilotRuntime options.",
+    "Missing CopilotKitIntelligence configuration. Thread operations require a CopilotKitIntelligence instance to be provided in CopilotKitRuntime options.",
     422,
   );
 }
@@ -556,7 +556,7 @@ export async function handleGetThreadState({
   }
 
   return errorResponse(
-    "Missing CopilotKitIntelligence configuration. Thread operations require a CopilotKitIntelligence instance to be provided in CopilotRuntime options.",
+    "Missing CopilotKitIntelligence configuration. Thread operations require a CopilotKitIntelligence instance to be provided in CopilotKitRuntime options.",
     422,
   );
 }

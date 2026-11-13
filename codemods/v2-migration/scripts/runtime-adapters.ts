@@ -372,8 +372,8 @@ export function migrateRuntimeAdapters(root: Node): string | null {
       const references = refs(root, local).filter((n) => !inImport(n));
       if (!references.length) continue;
       const target = adapter.node
-        ? "createCopilotNodeListener"
-        : "createCopilotRuntimeHandler";
+        ? "createCopilotKitNodeListener"
+        : "createCopilotKitRuntimeHandler";
       const newLocal =
         spec.field("alias") || reserved.has(target) ? local : target;
       const planned: Edit[] = [];

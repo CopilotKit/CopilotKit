@@ -22,25 +22,25 @@ Your agent can return [A2UI](https://a2ui.org/), Google's spec for declarative U
 
 ### Backend
 
-Tell `CopilotRuntime` that your agent writes A2UI v0.9 with `generativeUI: { a2uiVersion: "0.9" }`:
+Tell `CopilotKitRuntime` that your agent writes A2UI v0.9 with `generativeUI: { a2uiVersion: "0.9" }`:
 
 ```ts title="app/api/copilotkit/route.ts"
 import { HttpAgent } from "@ag-ui/client";
 import {
-  CopilotRuntime,
-  createCopilotRuntimeHandler,
+  CopilotKitRuntime,
+  createCopilotKitRuntimeHandler,
 } from "@copilotkit/runtime";
 
 // Your AG-UI agent server.
 const myAgent = new HttpAgent({ url: "http://localhost:8000/" });
 
-const runtime = new CopilotRuntime({
+const runtime = new CopilotKitRuntime({
   agents: { default: myAgent },
   generativeUI: { a2uiVersion: "0.9" },
 });
 
 // Single-route: only POST needed, no catch-all [...path] required
-const handler = createCopilotRuntimeHandler({
+const handler = createCopilotKitRuntimeHandler({
   runtime,
   basePath: "/api/copilotkit",
   mode: "single-route",

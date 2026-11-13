@@ -5,7 +5,7 @@ import { RunAgentInputSchema } from "@ag-ui/core/schemas";
 import { describe, expect, it, vi } from "vitest";
 import { BuiltInAgent } from "../../../agent";
 import { mockCustomStream } from "../../../agent/__tests__/agent-test-helpers";
-import { CopilotRuntime } from "../../core/runtime";
+import { CopilotKitRuntime } from "../../core/runtime";
 import { handleRunAgent } from "../handle-run";
 import { parseConnectRequest, parseRunRequest } from "../shared/agent-utils";
 
@@ -133,7 +133,7 @@ describe.each(["http", "built-in"])(
                   return mockCustomStream([]);
                 },
               });
-        const runtime = new CopilotRuntime({ agents: { legacy: agent } });
+        const runtime = new CopilotKitRuntime({ agents: { legacy: agent } });
 
         const response = await handleRunAgent({
           runtime,

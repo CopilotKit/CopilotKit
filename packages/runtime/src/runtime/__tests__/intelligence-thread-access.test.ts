@@ -11,7 +11,7 @@ import {
   handleGetThreadState,
   handleListThreads,
 } from "../handlers/handle-threads";
-import { CopilotRuntime } from "../core/runtime";
+import { CopilotKitRuntime } from "../core/runtime";
 import { InMemoryAgentRunner } from "../runner/in-memory";
 import { PlatformRequestError } from "../intelligence-platform/client";
 
@@ -35,7 +35,7 @@ function intelligenceRuntime(intelligence: Record<string, unknown>) {
     generateThreadNames: false,
     identifyUser: vi.fn().mockResolvedValue({ id: "user-1", name: "User One" }),
     intelligence,
-  } as unknown as CopilotRuntime;
+  } as unknown as CopilotKitRuntime;
 }
 
 const request = () => new Request("https://example.com/threads/x/events");
@@ -140,7 +140,7 @@ describe.each(inspect)("Intelligence %s read", (_name, handler, method) => {
 describe("local thread routes when the runner throws", () => {
   function localRuntime() {
     const runner = new InMemoryAgentRunner();
-    const runtime = new CopilotRuntime({
+    const runtime = new CopilotKitRuntime({
       agents: {},
       runner,
       threads: { access: "open" },
@@ -152,7 +152,7 @@ describe("local thread routes when the runner throws", () => {
     [
       "list",
       "listThreads",
-      (runtime: CopilotRuntime) =>
+      (runtime: CopilotKitRuntime) =>
         handleListThreads({
           runtime,
           request: new Request("https://example.com/threads"),
@@ -162,7 +162,7 @@ describe("local thread routes when the runner throws", () => {
     [
       "clear",
       "clearThreads",
-      (runtime: CopilotRuntime) =>
+      (runtime: CopilotKitRuntime) =>
         handleClearThreads({
           runtime,
           request: new Request("https://example.com/threads/clear", {
@@ -174,7 +174,7 @@ describe("local thread routes when the runner throws", () => {
     [
       "messages",
       "getThreadMessages",
-      (runtime: CopilotRuntime) =>
+      (runtime: CopilotKitRuntime) =>
         handleGetThreadMessages({
           runtime,
           request: new Request("https://example.com/threads/t/messages"),

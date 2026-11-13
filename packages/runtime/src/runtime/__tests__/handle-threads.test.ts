@@ -11,7 +11,7 @@ import {
   handleSubscribeToThreads,
   handleUpdateThread,
 } from "../handlers/handle-threads";
-import { CopilotRuntime } from "../core/runtime";
+import { CopilotKitRuntime } from "../core/runtime";
 import { InMemoryAgentRunner } from "../runner/in-memory";
 import { PlatformRequestError } from "../intelligence-platform/client";
 
@@ -49,7 +49,7 @@ describe("thread handlers", () => {
           ),
         ...options.intelligence,
       },
-    }) as unknown as CopilotRuntime;
+    }) as unknown as CopilotKitRuntime;
 
   const createMutationRequest = (
     path: string,
@@ -63,7 +63,7 @@ describe("thread handlers", () => {
     });
 
   it("returns empty thread list when intelligence is not configured for listThreads", async () => {
-    const runtime = new CopilotRuntime({
+    const runtime = new CopilotKitRuntime({
       agents: {},
       threads: { access: "open" },
     });
@@ -143,7 +143,7 @@ describe("thread handlers", () => {
   });
 
   it("lists every local thread when the request has no agentId", async () => {
-    const runtime = new CopilotRuntime({
+    const runtime = new CopilotKitRuntime({
       agents: {},
       runner: new InMemoryAgentRunner(),
       threads: { access: "open" },
@@ -422,7 +422,7 @@ describe("thread handlers", () => {
   });
 
   it("returns 422 when intelligence is not configured for thread mutations", async () => {
-    const runtime = new CopilotRuntime({
+    const runtime = new CopilotKitRuntime({
       agents: {},
       threads: { access: "open" },
     });
@@ -462,7 +462,7 @@ describe("thread handlers", () => {
     it("clears the caller's in-memory threads and returns 204 for InMemoryAgentRunner", async () => {
       const runner = new InMemoryAgentRunner();
       const clearThreadsSpy = vi.spyOn(runner, "clearThreads");
-      const runtime = new CopilotRuntime({
+      const runtime = new CopilotKitRuntime({
         agents: {},
         runner,
         threads: { access: "open" },
@@ -499,7 +499,7 @@ describe("thread handlers", () => {
         { id: "m1", role: "user", content: "hello" } as never,
         { id: "m2", role: "assistant", content: "hi there" } as never,
       ]);
-      const runtime = new CopilotRuntime({
+      const runtime = new CopilotKitRuntime({
         agents: {},
         runner,
         threads: { access: "open" },
@@ -527,7 +527,7 @@ describe("thread handlers", () => {
     });
 
     it("returns empty messages for an unknown threadId", async () => {
-      const runtime = new CopilotRuntime({
+      const runtime = new CopilotKitRuntime({
         agents: {},
         threads: { access: "open" },
       });
@@ -604,7 +604,7 @@ describe("thread handlers", () => {
     });
 
     it("returns 422 when neither in-memory nor intelligence is configured", async () => {
-      // A CopilotRuntime with no runner defaults to InMemoryAgentRunner,
+      // A CopilotKitRuntime with no runner defaults to InMemoryAgentRunner,
       // so simulate a non-InMemory, non-intelligence setup via a custom runner stub.
       // Use the intelligence path but omit intelligence config.
       const runtime = createIntelligenceRuntime({ intelligence: undefined });
@@ -640,7 +640,7 @@ describe("thread handlers", () => {
         },
       ];
       vi.spyOn(runner, "getThreadMessages").mockReturnValue(messages);
-      const runtime = new CopilotRuntime({
+      const runtime = new CopilotKitRuntime({
         agents: {},
         runner,
         threads: { access: "open" },
@@ -673,7 +673,7 @@ describe("thread handlers", () => {
   });
 
   it("returns 422 when intelligence is not configured for thread subscription", async () => {
-    const runtime = new CopilotRuntime({
+    const runtime = new CopilotKitRuntime({
       agents: {},
       threads: { access: "open" },
     });
@@ -747,7 +747,7 @@ describe("thread handlers", () => {
         },
       ];
       vi.spyOn(runner, "getThreadEvents").mockReturnValue(fakeEvents as never);
-      const runtime = new CopilotRuntime({
+      const runtime = new CopilotKitRuntime({
         agents: {},
         runner,
         threads: { access: "open" },
@@ -766,7 +766,7 @@ describe("thread handlers", () => {
     });
 
     it("returns empty events for an unknown threadId via the in-memory runner", async () => {
-      const runtime = new CopilotRuntime({
+      const runtime = new CopilotKitRuntime({
         agents: {},
         threads: { access: "open" },
       });
@@ -845,7 +845,7 @@ describe("thread handlers", () => {
       vi.spyOn(runner, "getThreadEvents").mockImplementation(() => {
         throw new Error("boom");
       });
-      const runtime = new CopilotRuntime({
+      const runtime = new CopilotKitRuntime({
         agents: {},
         runner,
         threads: { access: "open" },
@@ -866,7 +866,7 @@ describe("thread handlers", () => {
       const runner = new InMemoryAgentRunner();
       const snapshot = { counter: 3, label: "alpha" };
       vi.spyOn(runner, "getThreadState").mockReturnValue(snapshot as never);
-      const runtime = new CopilotRuntime({
+      const runtime = new CopilotKitRuntime({
         agents: {},
         runner,
         threads: { access: "open" },
@@ -884,7 +884,7 @@ describe("thread handlers", () => {
     });
 
     it("returns state:null when the runner has no snapshot for the thread", async () => {
-      const runtime = new CopilotRuntime({
+      const runtime = new CopilotKitRuntime({
         agents: {},
         threads: { access: "open" },
       });
@@ -998,7 +998,7 @@ describe("thread handlers", () => {
       vi.spyOn(runner, "getThreadState").mockImplementation(() => {
         throw new Error("boom");
       });
-      const runtime = new CopilotRuntime({
+      const runtime = new CopilotKitRuntime({
         agents: {},
         runner,
         threads: { access: "open" },

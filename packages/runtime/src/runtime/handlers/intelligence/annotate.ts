@@ -1,8 +1,8 @@
 import { getRuntimeLogger } from "../../core/logger";
-import type { CopilotRuntimeLogger } from "../../core/logger";
+import type { CopilotKitRuntimeLogger } from "../../core/logger";
 import type {
-  CopilotIntelligenceRuntimeLike,
-  CopilotRuntimeLike,
+  CopilotKitIntelligenceRuntimeLike,
+  CopilotKitRuntimeLike,
 } from "../../core/runtime";
 import { isIntelligenceRuntime } from "../../core/runtime";
 import { PlatformRequestError } from "../../intelligence-platform/client";
@@ -10,7 +10,7 @@ import { errorResponse, isHandlerResponse } from "../shared/json-response";
 import { resolveIntelligenceUser } from "../shared/resolve-intelligence-user";
 
 interface AnnotateHandlerParams {
-  runtime: CopilotRuntimeLike;
+  runtime: CopilotKitRuntimeLike;
   request: Request;
 }
 
@@ -29,7 +29,7 @@ interface AnnotateBody {
 
 async function parseJsonBody(
   request: Request,
-  logger: CopilotRuntimeLogger,
+  logger: CopilotKitRuntimeLogger,
 ): Promise<Record<string, unknown> | Response> {
   try {
     return (await request.json()) as Record<string, unknown>;
@@ -40,11 +40,11 @@ async function parseJsonBody(
 }
 
 function requireIntelligenceRuntime(
-  runtime: CopilotRuntimeLike,
-): CopilotIntelligenceRuntimeLike | Response {
+  runtime: CopilotKitRuntimeLike,
+): CopilotKitIntelligenceRuntimeLike | Response {
   if (!isIntelligenceRuntime(runtime)) {
     return errorResponse(
-      "Missing CopilotKitIntelligence configuration. annotate requires a CopilotKitIntelligence instance to be provided in CopilotRuntime options.",
+      "Missing CopilotKitIntelligence configuration. annotate requires a CopilotKitIntelligence instance to be provided in CopilotKitRuntime options.",
       422,
     );
   }

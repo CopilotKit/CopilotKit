@@ -44,22 +44,22 @@ adapter from the Worker `env`:
 
 ```ts
 import {
-  CopilotRuntime,
-  createCopilotRuntimeHandler,
+  CopilotKitRuntime,
+  createCopilotKitRuntimeHandler,
 } from "@copilotkit/runtime";
 import { BuiltInAgent } from "@copilotkit/runtime/agent";
 import { createOpenaiChat } from "@tanstack/ai-openai";
 
 export default {
   fetch(request: Request, env: { OPENAI_API_KEY: string }) {
-    const runtime = new CopilotRuntime({
+    const runtime = new CopilotKitRuntime({
       agents: () => ({
         default: new BuiltInAgent({
           model: createOpenaiChat("gpt-5", env.OPENAI_API_KEY),
         }),
       }),
     });
-    const handler = createCopilotRuntimeHandler({
+    const handler = createCopilotKitRuntimeHandler({
       runtime,
       basePath: "/api/copilotkit",
     });

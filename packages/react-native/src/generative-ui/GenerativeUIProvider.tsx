@@ -70,7 +70,7 @@ export const GenerativeUIProviderPresentContext = createContext(false);
  * your own chat list or on a home screen) or `<GenerativeUISurface id>` (a
  * named place in your app).
  *
- * The runtime needs no setup: `CopilotRuntime` adds the `render_ui` tool to
+ * The runtime needs no setup: `CopilotKitRuntime` adds the `render_ui` tool to
  * the run when the app sends a catalog with at least one component. A
  * catalog with no components gets no `render_ui` tool.
  *

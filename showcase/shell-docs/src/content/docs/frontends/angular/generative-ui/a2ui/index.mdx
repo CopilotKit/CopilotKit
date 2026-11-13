@@ -40,9 +40,9 @@ the agent to A2UI 1.0, and Angular renders them:
 
 ```ts title="server.ts"
 import { HttpAgent } from "@ag-ui/client";
-import { CopilotRuntime } from "@copilotkit/runtime";
+import { CopilotKitRuntime } from "@copilotkit/runtime";
 
-const runtime = new CopilotRuntime({
+const runtime = new CopilotKitRuntime({
   agents: { default: new HttpAgent({ url: "http://localhost:8000/" }) },
   generativeUI: { a2uiVersion: "0.9" },
 });

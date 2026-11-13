@@ -90,13 +90,13 @@ OPENAI_API_KEY=your_openai_api_key
 ```ts
 // app/api/copilotkit/[[...slug]]/route.ts
 import {
-  CopilotRuntime,
+  CopilotKitRuntime,
   createCopilotRuntimeHandler,
 } from "@copilotkit/runtime";
 import { BuiltInAgent } from "@copilotkit/runtime/agent";
 import { openaiText } from "@tanstack/ai-openai";
 
-const runtime = new CopilotRuntime({
+const runtime = new CopilotKitRuntime({
   agents: { default: new BuiltInAgent({ model: openaiText("gpt-6-luna") }) },
 });
 

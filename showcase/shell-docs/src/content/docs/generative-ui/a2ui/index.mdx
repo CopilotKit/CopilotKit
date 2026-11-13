@@ -77,9 +77,9 @@ Tell the runtime that the agent writes A2UI v0.9 with
 
 ```typescript title="app/api/copilotkit/[[...slug]]/route.ts"
 import { LangGraphAgent } from "@ag-ui/langgraph";
-import { CopilotRuntime, InMemoryAgentRunner } from "@copilotkit/runtime";
+import { CopilotKitRuntime, InMemoryAgentRunner } from "@copilotkit/runtime";
 
-const runtime = new CopilotRuntime({
+const runtime = new CopilotKitRuntime({
   agents: {
     default: new LangGraphAgent({
       deploymentUrl: process.env.LANGGRAPH_DEPLOYMENT_URL ?? "http://localhost:8123",

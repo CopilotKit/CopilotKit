@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import type { CopilotRuntimeLike } from "../core/runtime";
+import type { CopilotKitRuntimeLike } from "../core/runtime";
 import { handleInspectorLearning } from "../handlers/handle-inspector-learning";
 
 const snapshot = {
@@ -35,14 +35,16 @@ const snapshot = {
   },
 } as const;
 
-function runtime(overrides: Record<string, unknown> = {}): CopilotRuntimeLike {
+function runtime(
+  overrides: Record<string, unknown> = {},
+): CopilotKitRuntimeLike {
   return {
     mode: "intelligence",
     intelligence: { getInspectorLearning: vi.fn().mockResolvedValue(snapshot) },
     identifyUser: vi.fn().mockResolvedValue({ id: "user-1", name: "Ada" }),
     learning: { containerId: "container-static" },
     ...overrides,
-  } as unknown as CopilotRuntimeLike;
+  } as unknown as CopilotKitRuntimeLike;
 }
 
 describe("handleInspectorLearning", () => {

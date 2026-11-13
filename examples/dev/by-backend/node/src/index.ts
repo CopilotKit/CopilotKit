@@ -1,25 +1,25 @@
 import { createServer } from "node:http";
 import {
-  CopilotRuntime,
-  createCopilotRuntimeHandler,
+  CopilotKitRuntime,
+  createCopilotKitRuntimeHandler,
 } from "@copilotkit/runtime";
 import { BuiltInAgent } from "@copilotkit/runtime/agent";
 import { openaiText } from "@tanstack/ai-openai";
-import { createCopilotNodeHandler } from "@copilotkit/runtime/node";
+import { createCopilotKitNodeHandler } from "@copilotkit/runtime/node";
 
-const runtime = new CopilotRuntime({
+const runtime = new CopilotKitRuntime({
   agents: {
     default: new BuiltInAgent({ model: openaiText("gpt-6-luna") }),
   },
 });
 
-const copilotHandler = createCopilotRuntimeHandler({
+const copilotHandler = createCopilotKitRuntimeHandler({
   runtime,
   basePath: "/api/copilotkit",
   cors: true,
 });
 
-const copilotNodeHandler = createCopilotNodeHandler(copilotHandler);
+const copilotNodeHandler = createCopilotKitNodeHandler(copilotHandler);
 
 const server = createServer(async (req, res) => {
   const url = new URL(req.url ?? "/", `http://${req.headers.host}`);

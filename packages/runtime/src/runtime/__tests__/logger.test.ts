@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { MockInstance } from "vitest";
 import { createLogger } from "../core/logger";
-import type { CopilotRuntimeLogger } from "../core/logger";
+import type { CopilotKitRuntimeLogger } from "../core/logger";
 
 let consoleLog: MockInstance<typeof console.log>;
 
@@ -27,7 +27,7 @@ function writtenRecords() {
 }
 
 /** Calls each log method one time and returns the levels that were written. */
-function writtenLevels(logger: CopilotRuntimeLogger) {
+function writtenLevels(logger: CopilotKitRuntimeLogger) {
   logger.debug("d");
   logger.info("i");
   logger.warn("w");

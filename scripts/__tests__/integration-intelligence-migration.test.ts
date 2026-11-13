@@ -1378,7 +1378,7 @@ function exportedEndpointHandlers(
         ? unwrapExpression(declaration.initializer)
         : null;
       // 1.x starters wrap the Hono app (`handle(app)`). 2.0 starters export
-      // the fetch handler from `createCopilotRuntimeHandler` directly (`app`).
+      // the fetch handler from `createCopilotKitRuntimeHandler` directly (`app`).
       const exportsApp =
         initializer &&
         ((ts.isIdentifier(initializer) && initializer.text === "app") ||

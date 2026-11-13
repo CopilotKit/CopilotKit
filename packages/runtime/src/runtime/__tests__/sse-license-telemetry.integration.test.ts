@@ -1,11 +1,11 @@
-import { createCopilotNodeListener } from "../endpoints/node";
+import { createCopilotKitNodeListener } from "../endpoints/node";
 /**
  * Integration test: a self-hosted SSE runtime constructed with a license token
  * must carry that token (and therefore its telemetry_id) all the way to the
  * telemetry sink when a real HTTP request hits the endpoint.
  *
  * This is the end-to-end proof of the construction → endpoint → sink chain for
- * the gap this change closes: previously CopilotSseRuntime never called
+ * the gap this change closes: previously CopilotKitSseRuntime never called
  * telemetry.setLicenseToken, so these events reached the sink anonymously.
  *
  * Own file so the telemetry singleton state stays
@@ -18,7 +18,7 @@ import request from "supertest";
 import express from "express";
 import { lambdaClient } from "@copilotkit/shared";
 
-import { CopilotRuntime } from "../core/runtime";
+import { CopilotKitRuntime } from "../core/runtime";
 import type { AgentRunner } from "../runner/agent-runner";
 
 // Real JWT shape with telemetry_id so the token parses to an identified
@@ -46,8 +46,8 @@ function makeSseRuntimeWithLicense() {
     stop: async () => true,
     isRunning: async () => false,
   } as unknown as AgentRunner;
-  // No `intelligence` option → the CopilotRuntime shim builds a CopilotSseRuntime.
-  return new CopilotRuntime({
+  // No `intelligence` option → the CopilotKitRuntime shim builds a CopilotKitSseRuntime.
+  return new CopilotKitRuntime({
     agents: { default: makeAgent() },
     runner,
     licenseToken: TOKEN,
@@ -68,7 +68,9 @@ describe("SSE runtime license token → telemetry sink (integration)", () => {
   it("forwards the license token to the sink on a real endpoint request", async () => {
     const runtime = makeSseRuntimeWithLicense();
     const app = express();
-    app.use(createCopilotNodeListener({ cors: true, runtime, basePath: "/" }));
+    app.use(
+      createCopilotKitNodeListener({ cors: true, runtime, basePath: "/" }),
+    );
 
     await request(app)
       .post("/agent/default/run")

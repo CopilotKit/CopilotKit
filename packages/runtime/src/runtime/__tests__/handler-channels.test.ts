@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
 import { logger } from "@copilotkit/shared";
-import { createCopilotRuntimeHandler } from "../core/fetch-handler";
-import { CopilotRuntime } from "../core/runtime";
+import { createCopilotKitRuntimeHandler } from "../core/fetch-handler";
+import { CopilotKitRuntime } from "../core/runtime";
 import { CopilotKitIntelligence } from "../intelligence-platform";
 import { createChannel } from "@copilotkit/channels";
 import type {
@@ -42,7 +42,7 @@ function countingEngine(): {
 }
 
 const intelRuntimeWith1Channel = () =>
-  new CopilotRuntime({
+  new CopilotKitRuntime({
     agents: {},
     intelligence: intelligence(),
     identifyUser,
@@ -53,11 +53,11 @@ const intelRuntimeWith1Channel = () =>
  * Tests
  * --------------------------------------------------------------------------------------------- */
 
-describe("createCopilotRuntimeHandler — managed channels", () => {
+describe("createCopilotKitRuntimeHandler — managed channels", () => {
   it("handler creation does not activate (engine never invoked until ready())", () => {
     const { engine, state } = countingEngine();
 
-    const handler = createCopilotRuntimeHandler({
+    const handler = createCopilotKitRuntimeHandler({
       runtime: intelRuntimeWith1Channel(),
       __channelEngine: engine,
     });
@@ -75,7 +75,7 @@ describe("createCopilotRuntimeHandler — managed channels", () => {
   it("defers activation to the first ready() — not creation, not the first request", async () => {
     const { engine, state } = countingEngine();
 
-    const handler = createCopilotRuntimeHandler({
+    const handler = createCopilotKitRuntimeHandler({
       runtime: intelRuntimeWith1Channel(),
       __channelEngine: engine,
     });
@@ -106,11 +106,11 @@ describe("createCopilotRuntimeHandler — managed channels", () => {
     const { engine, state } = countingEngine();
     const runtime = intelRuntimeWith1Channel();
 
-    const first = createCopilotRuntimeHandler({
+    const first = createCopilotKitRuntimeHandler({
       runtime,
       __channelEngine: engine,
     });
-    const second = createCopilotRuntimeHandler({
+    const second = createCopilotKitRuntimeHandler({
       runtime,
       __channelEngine: engine,
     });
@@ -133,8 +133,8 @@ describe("createCopilotRuntimeHandler — managed channels", () => {
   it("does not activate for a plain SSE runtime", () => {
     const { engine, state } = countingEngine();
 
-    const handler = createCopilotRuntimeHandler({
-      runtime: new CopilotRuntime({ agents: {} }),
+    const handler = createCopilotKitRuntimeHandler({
+      runtime: new CopilotKitRuntime({ agents: {} }),
       __channelEngine: engine,
     });
 
@@ -145,7 +145,7 @@ describe("createCopilotRuntimeHandler — managed channels", () => {
   it("does not activate when activateChannels is false", () => {
     const { engine, state } = countingEngine();
 
-    const handler = createCopilotRuntimeHandler({
+    const handler = createCopilotKitRuntimeHandler({
       runtime: intelRuntimeWith1Channel(),
       activateChannels: false,
       __channelEngine: engine,
@@ -157,7 +157,7 @@ describe("createCopilotRuntimeHandler — managed channels", () => {
 
   it("caches the un-activated manager; a duplicate-name misconfig surfaces on ready(), not at creation (RC9)", async () => {
     const { engine } = countingEngine();
-    const runtime = new CopilotRuntime({
+    const runtime = new CopilotKitRuntime({
       agents: {},
       intelligence: intelligence(),
       identifyUser,
@@ -170,7 +170,7 @@ describe("createCopilotRuntimeHandler — managed channels", () => {
     // Creation is lazy — it no longer activates, so the duplicate-name misconfig
     // does NOT throw at handler-creation time (serverless-safe: no socket, no
     // synchronous throw during module construction).
-    const handler = createCopilotRuntimeHandler({
+    const handler = createCopilotKitRuntimeHandler({
       runtime,
       __channelEngine: engine,
     });
@@ -182,7 +182,7 @@ describe("createCopilotRuntimeHandler — managed channels", () => {
     // A second handler for the SAME runtime reuses the cached (un-activated)
     // manager, and its ready() ALSO rejects — caching never swallows the
     // misconfig.
-    const retry = createCopilotRuntimeHandler({
+    const retry = createCopilotKitRuntimeHandler({
       runtime,
       __channelEngine: engine,
     });
@@ -197,7 +197,7 @@ describe("createCopilotRuntimeHandler — managed channels", () => {
         throw new Error("activation boom");
       };
 
-      const handler = createCopilotRuntimeHandler({
+      const handler = createCopilotKitRuntimeHandler({
         runtime: intelRuntimeWith1Channel(),
         __channelEngine: engine,
       });
@@ -223,7 +223,7 @@ describe("createCopilotRuntimeHandler — managed channels", () => {
         throw new Error("activation boom");
       };
 
-      const handler = createCopilotRuntimeHandler({
+      const handler = createCopilotKitRuntimeHandler({
         runtime: intelRuntimeWith1Channel(),
         __channelEngine: engine,
       });

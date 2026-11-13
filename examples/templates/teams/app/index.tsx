@@ -10,7 +10,7 @@
  * RUN MODEL — a Channel runs ONLY through the Intelligence runtime. The Teams
  * `teams({ port })` adapter stays DIRECT (it keeps its own transport / the
  * Playground ingress), but the runtime OWNS its lifecycle: the Channel is
- * declared on `new CopilotRuntime({ intelligence, identifyUser, channels })` and
+ * declared on `new CopilotKitRuntime({ intelligence, identifyUser, channels })` and
  * started by mounting the node listener; you observe readiness and drive shutdown
  * through the handler's `channels` control (`listener.channels.ready()` /
  * `.stop()`) — there is no `bot.start()`/`bot.stop()` and no standalone path.
@@ -32,12 +32,12 @@ import {
 } from "@copilotkit/channels";
 import { teams } from "@copilotkit/channels/teams";
 import {
-  CopilotSseRuntime,
-  CopilotRuntime,
+  CopilotKitSseRuntime,
+  CopilotKitRuntime,
   CopilotKitIntelligence,
 } from "@copilotkit/runtime";
 import { BuiltInAgent } from "@copilotkit/runtime/agent";
-import { createCopilotNodeListener } from "@copilotkit/runtime/node";
+import { createCopilotKitNodeListener } from "@copilotkit/runtime/node";
 import { openaiText } from "@tanstack/ai-openai";
 import { z } from "zod";
 import { hitlTools } from "./human-in-the-loop/index.js";
@@ -124,7 +124,7 @@ const SYSTEM_PROMPT =
   "acknowledge and do not send.";
 
 // The agent is a CopilotKit `BuiltInAgent` served over a local
-// `CopilotSseRuntime`, and the bot connects to it with an `HttpAgent` (as the
+// `CopilotKitSseRuntime`, and the bot connects to it with an `HttpAgent` (as the
 // Slack example does). A `BuiltInAgent` can't be handed to `createChannel`
 // directly: the bot's run loop re-invokes the agent once per tool round (call →
 // result → respond), and a single `BuiltInAgent` instance rejects a second
@@ -142,7 +142,7 @@ const model = (process.env.OPENAI_MODEL ?? "openai/gpt-6-luna").replace(
   "",
 ) as Parameters<typeof openaiText>[0];
 
-const runtime = new CopilotSseRuntime({
+const runtime = new CopilotKitSseRuntime({
   agents: {
     [agentId]: new BuiltInAgent({
       model: openaiText(model),
@@ -155,7 +155,7 @@ const runtime = new CopilotSseRuntime({
 // `runtimeAgentUrl` (localhost). Omitting the host would bind all interfaces and
 // expose it on a deployed host.
 createServer(
-  createCopilotNodeListener({ runtime, basePath: "/api/copilotkit" }),
+  createCopilotKitNodeListener({ runtime, basePath: "/api/copilotkit" }),
 ).listen(runtimePort, "127.0.0.1", () => {
   console.log(`Runtime (BuiltInAgent) listening on 127.0.0.1:${runtimePort}`);
 });
@@ -272,7 +272,7 @@ const intelligence = new CopilotKitIntelligence({
 // Teams adapter for us (there is no `bot.start()`). It hosts no agents itself —
 // the Channel supplies its own agent (the HttpAgent above, pointed at
 // the local BuiltInAgent runtime) — so `agents` is empty.
-const channelRuntime = new CopilotRuntime({
+const channelRuntime = new CopilotKitRuntime({
   agents: {},
   intelligence,
   channels: [bot],
@@ -319,7 +319,7 @@ process.on("SIGTERM", () => runShutdown("SIGTERM"));
 // ingress (the Teams adapter has its own on :${port}); the listener only owns the
 // Channel lifecycle and keeps the process alive.
 const channelPort = Number(process.env.CHANNELS_PORT ?? 8300);
-const listener = createCopilotNodeListener({
+const listener = createCopilotKitNodeListener({
   runtime: channelRuntime,
   basePath: "/api/copilotkit",
 });

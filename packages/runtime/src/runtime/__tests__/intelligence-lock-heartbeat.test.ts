@@ -4,7 +4,7 @@ import type { Subscriber } from "rxjs";
 import { EMPTY, Observable } from "rxjs";
 import { describe, expect, test, vi } from "vitest";
 
-import { CopilotIntelligenceRuntime } from "../core/runtime";
+import { CopilotKitIntelligenceRuntime } from "../core/runtime";
 import { handleIntelligenceRun } from "../handlers/intelligence/run";
 import {
   CopilotKitIntelligence,
@@ -127,7 +127,7 @@ test("does not abort a completed run when an in-flight lock renewal fails", asyn
   const agent = new HeartbeatTestAgent();
   const runner = new ControllableRunner();
   const intelligence = new DeferredRenewalIntelligence();
-  const runtime = new CopilotIntelligenceRuntime({
+  const runtime = new CopilotKitIntelligenceRuntime({
     agents: { "test-agent": agent },
     intelligence,
     identifyUser: async () => ({ id: "user-1", name: "User One" }),
@@ -212,7 +212,7 @@ class ScriptedRenewalIntelligence extends CopilotKitIntelligence {
 async function startRun(intelligence: ScriptedRenewalIntelligence) {
   const agent = new HeartbeatTestAgent();
   const runner = new ControllableRunner();
-  const runtime = new CopilotIntelligenceRuntime({
+  const runtime = new CopilotKitIntelligenceRuntime({
     agents: { "test-agent": agent },
     intelligence,
     identifyUser: async () => ({ id: "user-1", name: "User One" }),

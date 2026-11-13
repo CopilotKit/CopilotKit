@@ -1,17 +1,17 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { telemetry } from "..";
 import { fireInstanceCreatedTelemetry } from "../instance-created";
-import type { CopilotRuntimeLike } from "../../core/runtime";
+import type { CopilotKitRuntimeLike } from "../../core/runtime";
 
-// Minimal runtime stub: we only use `agents` from CopilotRuntimeLike inside
+// Minimal runtime stub: we only use `agents` from CopilotKitRuntimeLike inside
 // the helper, so we cast the stub rather than construct a full runtime.
 function makeRuntime(
   agents:
     | Record<string, unknown>
     | Promise<Record<string, unknown>>
     | ((ctx: { request: Request }) => Record<string, unknown>),
-): CopilotRuntimeLike {
-  return { agents } as unknown as CopilotRuntimeLike;
+): CopilotKitRuntimeLike {
+  return { agents } as unknown as CopilotKitRuntimeLike;
 }
 
 describe("fireInstanceCreatedTelemetry", () => {

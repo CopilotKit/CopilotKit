@@ -1,4 +1,4 @@
-import { createCopilotNodeListener } from "../endpoints/node";
+import { createCopilotKitNodeListener } from "../endpoints/node";
 import { createServer } from "node:http";
 import type { IncomingMessage, Server, ServerResponse } from "node:http";
 import type { AddressInfo } from "node:net";
@@ -6,10 +6,10 @@ import express from "express";
 import request from "supertest";
 import { describe, it, expect, vi } from "vitest";
 import type { AbstractAgent } from "@ag-ui/client";
-import { createCopilotNodeHandler } from "../endpoints/node-fetch-handler";
+import { createCopilotKitNodeHandler } from "../endpoints/node-fetch-handler";
 
-import { CopilotRuntime } from "../core/runtime";
-import type { CopilotRuntimeFetchHandler } from "../core/fetch-handler";
+import { CopilotKitRuntime } from "../core/runtime";
+import type { CopilotKitRuntimeFetchHandler } from "../core/fetch-handler";
 
 /* ------------------------------------------------------------------------------------------------
  * Helpers
@@ -20,11 +20,11 @@ import type { CopilotRuntimeFetchHandler } from "../core/fetch-handler";
  * simulating the "pre-parsed body" scenario.
  */
 function createApp(
-  fetchHandler: CopilotRuntimeFetchHandler,
+  fetchHandler: CopilotKitRuntimeFetchHandler,
   opts: { bodyParserFirst?: boolean } = {},
 ) {
   const app = express();
-  const nodeHandler = createCopilotNodeHandler(fetchHandler);
+  const nodeHandler = createCopilotKitNodeHandler(fetchHandler);
 
   if (opts.bodyParserFirst) {
     app.use(express.json());
@@ -38,9 +38,9 @@ function createApp(
  * Pre-parsed body (express.json() before handler)
  * --------------------------------------------------------------------------------------------- */
 
-describe("createCopilotNodeHandler (pre-parsed bodies) — pre-parsed body", () => {
+describe("createCopilotKitNodeHandler (pre-parsed bodies) — pre-parsed body", () => {
   it("receives JSON body when express.json() runs first", async () => {
-    const fetchHandler: CopilotRuntimeFetchHandler = async (req) => {
+    const fetchHandler: CopilotKitRuntimeFetchHandler = async (req) => {
       const body = await req.json();
       return new Response(JSON.stringify({ received: body }), {
         status: 200,
@@ -60,7 +60,7 @@ describe("createCopilotNodeHandler (pre-parsed bodies) — pre-parsed body", () 
   });
 
   it("receives JSON body when express.json() does NOT run first", async () => {
-    const fetchHandler: CopilotRuntimeFetchHandler = async (req) => {
+    const fetchHandler: CopilotKitRuntimeFetchHandler = async (req) => {
       const body = await req.json();
       return new Response(JSON.stringify({ received: body }), {
         status: 200,
@@ -80,7 +80,7 @@ describe("createCopilotNodeHandler (pre-parsed bodies) — pre-parsed body", () 
   });
 
   it("preserves nested objects in pre-parsed body", async () => {
-    const fetchHandler: CopilotRuntimeFetchHandler = async (req) => {
+    const fetchHandler: CopilotKitRuntimeFetchHandler = async (req) => {
       const body = await req.json();
       return new Response(JSON.stringify(body), {
         status: 200,
@@ -106,7 +106,7 @@ describe("createCopilotNodeHandler (pre-parsed bodies) — pre-parsed body", () 
   });
 
   it("preserves arrays in pre-parsed body", async () => {
-    const fetchHandler: CopilotRuntimeFetchHandler = async (req) => {
+    const fetchHandler: CopilotKitRuntimeFetchHandler = async (req) => {
       const body = await req.json();
       return new Response(JSON.stringify(body), {
         status: 200,
@@ -126,7 +126,7 @@ describe("createCopilotNodeHandler (pre-parsed bodies) — pre-parsed body", () 
   });
 
   it("empty object body is preserved", async () => {
-    const fetchHandler: CopilotRuntimeFetchHandler = async (req) => {
+    const fetchHandler: CopilotKitRuntimeFetchHandler = async (req) => {
       const body = await req.json();
       return new Response(JSON.stringify({ received: body }), {
         status: 200,
@@ -164,7 +164,7 @@ function legacyParserThatDeclinesToParse(): express.RequestHandler {
   };
 }
 
-const echoBody: CopilotRuntimeFetchHandler = async (req) => {
+const echoBody: CopilotKitRuntimeFetchHandler = async (req) => {
   const text = await req.text();
   return new Response(
     JSON.stringify({ text, contentType: req.headers.get("content-type") }),
@@ -172,10 +172,10 @@ const echoBody: CopilotRuntimeFetchHandler = async (req) => {
   );
 };
 
-describe("createCopilotNodeHandler (pre-parsed bodies) — req.body set but stream not consumed", () => {
-  function createLegacyApp(fetchHandler: CopilotRuntimeFetchHandler) {
+describe("createCopilotKitNodeHandler (pre-parsed bodies) — req.body set but stream not consumed", () => {
+  function createLegacyApp(fetchHandler: CopilotKitRuntimeFetchHandler) {
     const app = express();
-    const nodeHandler = createCopilotNodeHandler(fetchHandler);
+    const nodeHandler = createCopilotKitNodeHandler(fetchHandler);
 
     app.use(legacyParserThatDeclinesToParse());
     app.use(async (_req, _res, next) => {
@@ -217,9 +217,9 @@ describe("createCopilotNodeHandler (pre-parsed bodies) — req.body set but stre
  * URL reconstruction
  * --------------------------------------------------------------------------------------------- */
 
-describe("createCopilotNodeHandler (pre-parsed bodies) — URL reconstruction", () => {
+describe("createCopilotKitNodeHandler (pre-parsed bodies) — URL reconstruction", () => {
   it("preserves pathname in reconstructed URL", async () => {
-    const fetchHandler: CopilotRuntimeFetchHandler = async (req) => {
+    const fetchHandler: CopilotKitRuntimeFetchHandler = async (req) => {
       const url = new URL(req.url);
       return new Response(JSON.stringify({ path: url.pathname }), {
         status: 200,
@@ -239,7 +239,7 @@ describe("createCopilotNodeHandler (pre-parsed bodies) — URL reconstruction", 
   });
 
   it("preserves query string in reconstructed URL", async () => {
-    const fetchHandler: CopilotRuntimeFetchHandler = async (req) => {
+    const fetchHandler: CopilotKitRuntimeFetchHandler = async (req) => {
       const url = new URL(req.url);
       return new Response(
         JSON.stringify({
@@ -266,9 +266,9 @@ describe("createCopilotNodeHandler (pre-parsed bodies) — URL reconstruction", 
  * Header preservation
  * --------------------------------------------------------------------------------------------- */
 
-describe("createCopilotNodeHandler (pre-parsed bodies) — header preservation", () => {
+describe("createCopilotKitNodeHandler (pre-parsed bodies) — header preservation", () => {
   it("preserves custom headers from original request", async () => {
-    const fetchHandler: CopilotRuntimeFetchHandler = async (req) => {
+    const fetchHandler: CopilotKitRuntimeFetchHandler = async (req) => {
       return new Response(
         JSON.stringify({
           auth: req.headers.get("authorization"),
@@ -293,7 +293,7 @@ describe("createCopilotNodeHandler (pre-parsed bodies) — header preservation",
   });
 
   it("sets content-type to application/json for object bodies", async () => {
-    const fetchHandler: CopilotRuntimeFetchHandler = async (req) => {
+    const fetchHandler: CopilotKitRuntimeFetchHandler = async (req) => {
       return new Response(
         JSON.stringify({ contentType: req.headers.get("content-type") }),
         { status: 200, headers: { "Content-Type": "application/json" } },
@@ -316,9 +316,9 @@ describe("createCopilotNodeHandler (pre-parsed bodies) — header preservation",
  * HTTP method handling
  * --------------------------------------------------------------------------------------------- */
 
-describe("createCopilotNodeHandler (pre-parsed bodies) — HTTP methods", () => {
+describe("createCopilotKitNodeHandler (pre-parsed bodies) — HTTP methods", () => {
   it("GET requests bypass pre-parsed body logic", async () => {
-    const fetchHandler: CopilotRuntimeFetchHandler = async (req) => {
+    const fetchHandler: CopilotKitRuntimeFetchHandler = async (req) => {
       return new Response(JSON.stringify({ method: req.method }), {
         status: 200,
         headers: { "Content-Type": "application/json" },
@@ -334,7 +334,7 @@ describe("createCopilotNodeHandler (pre-parsed bodies) — HTTP methods", () => 
   });
 
   it("OPTIONS requests bypass pre-parsed body logic", async () => {
-    const fetchHandler: CopilotRuntimeFetchHandler = async (req) => {
+    const fetchHandler: CopilotKitRuntimeFetchHandler = async (req) => {
       return new Response(null, { status: 204 });
     };
 
@@ -350,9 +350,9 @@ describe("createCopilotNodeHandler (pre-parsed bodies) — HTTP methods", () => 
  * Error handling
  * --------------------------------------------------------------------------------------------- */
 
-describe("createCopilotNodeHandler (pre-parsed bodies) — error handling", () => {
+describe("createCopilotKitNodeHandler (pre-parsed bodies) — error handling", () => {
   it("returns 500 when fetch handler throws", async () => {
-    const fetchHandler: CopilotRuntimeFetchHandler = async () => {
+    const fetchHandler: CopilotKitRuntimeFetchHandler = async () => {
       throw new Error("handler exploded");
     };
 
@@ -368,7 +368,7 @@ describe("createCopilotNodeHandler (pre-parsed bodies) — error handling", () =
   });
 
   it("returns 500 when fetch handler throws (no body parser)", async () => {
-    const fetchHandler: CopilotRuntimeFetchHandler = async () => {
+    const fetchHandler: CopilotKitRuntimeFetchHandler = async () => {
       throw new Error("handler exploded");
     };
 
@@ -388,9 +388,9 @@ describe("createCopilotNodeHandler (pre-parsed bodies) — error handling", () =
  * Streaming responses
  * --------------------------------------------------------------------------------------------- */
 
-describe("createCopilotNodeHandler (pre-parsed bodies) — streaming responses", () => {
+describe("createCopilotKitNodeHandler (pre-parsed bodies) — streaming responses", () => {
   it("streams SSE response through pre-parsed body path", async () => {
-    const fetchHandler: CopilotRuntimeFetchHandler = async () => {
+    const fetchHandler: CopilotKitRuntimeFetchHandler = async () => {
       const stream = new ReadableStream({
         start(controller) {
           controller.enqueue(new TextEncoder().encode("data: event1\n\n"));
@@ -422,7 +422,7 @@ describe("createCopilotNodeHandler (pre-parsed bodies) — streaming responses",
  *
  * NestJS, a plain `http` server behind a body parser, or any framework that
  * hands us its Node request after reading the body. Before the pre-parsed path
- * moved into `createCopilotNodeHandler`, only the Express adapter handled this
+ * moved into `createCopilotKitNodeHandler`, only the Express adapter handled this
  * and every other server hung waiting on the drained stream.
  * --------------------------------------------------------------------------------------------- */
 
@@ -456,10 +456,10 @@ async function withServer<T>(
   }
 }
 
-describe("createCopilotNodeHandler (pre-parsed bodies) — non-Express servers", () => {
+describe("createCopilotKitNodeHandler (pre-parsed bodies) — non-Express servers", () => {
   it("answers a POST whose body a framework already parsed, instead of hanging", async () => {
     const server = createDrainingServer(
-      createCopilotNodeHandler(echoBody),
+      createCopilotKitNodeHandler(echoBody),
       (raw) => JSON.parse(raw.toString("utf8")),
     );
 
@@ -481,7 +481,7 @@ describe("createCopilotNodeHandler (pre-parsed bodies) — non-Express servers",
 
   it("passes a Buffer body through unchanged", async () => {
     const server = createDrainingServer(
-      createCopilotNodeHandler(echoBody),
+      createCopilotKitNodeHandler(echoBody),
       (raw) => raw,
     );
 
@@ -500,10 +500,10 @@ describe("createCopilotNodeHandler (pre-parsed bodies) — non-Express servers",
   });
 });
 
-describe("createCopilotNodeHandler (pre-parsed bodies) — express.text()", () => {
+describe("createCopilotKitNodeHandler (pre-parsed bodies) — express.text()", () => {
   it("passes a string body through unchanged", async () => {
     const app = express();
-    const nodeHandler = createCopilotNodeHandler(echoBody);
+    const nodeHandler = createCopilotKitNodeHandler(echoBody);
     app.use(express.text());
     app.all(/.*/, (req, res) => nodeHandler(req, res));
 
@@ -526,15 +526,15 @@ describe("createCopilotNodeHandler (pre-parsed bodies) — express.text()", () =
  * the prefix, missed the handler's `basePath`, and returned 404.
  * --------------------------------------------------------------------------------------------- */
 
-const echoPath: CopilotRuntimeFetchHandler = async (req) =>
+const echoPath: CopilotKitRuntimeFetchHandler = async (req) =>
   new Response(JSON.stringify({ path: new URL(req.url).pathname }), {
     status: 200,
     headers: { "Content-Type": "application/json" },
   });
 
-describe("createCopilotNodeHandler (pre-parsed bodies) — mounted router", () => {
+describe("createCopilotKitNodeHandler (pre-parsed bodies) — mounted router", () => {
   it("gives a parsed POST the same path as a GET and an unparsed POST", async () => {
-    const nodeHandler = createCopilotNodeHandler(echoPath);
+    const nodeHandler = createCopilotKitNodeHandler(echoPath);
     const router = express.Router();
     router.all(/.*/, (req, res) => nodeHandler(req, res));
 
@@ -560,19 +560,19 @@ describe("createCopilotNodeHandler (pre-parsed bodies) — mounted router", () =
     expect(parsedPost.body.path).toBe("/copilotkit/info");
   });
 
-  it("routes a parsed POST through createCopilotNodeListener mounted under a prefix", async () => {
+  it("routes a parsed POST through createCopilotKitNodeListener mounted under a prefix", async () => {
     const agent = {
       clone: () => agent,
       description: "test agent",
     } as unknown as AbstractAgent;
-    const runtime = new CopilotRuntime({ agents: { default: agent } });
+    const runtime = new CopilotKitRuntime({ agents: { default: agent } });
 
     const statusFor = async (parseFirst: boolean) => {
       const app = express();
       if (parseFirst) app.use(express.json());
       app.use(
         "/api/v1",
-        createCopilotNodeListener({
+        createCopilotKitNodeListener({
           runtime,
           basePath: "/copilotkit",
           cors: false,

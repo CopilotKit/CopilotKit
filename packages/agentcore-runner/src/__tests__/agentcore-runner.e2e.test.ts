@@ -7,7 +7,7 @@
  * the runner's run()/connect() outputs downstream.
  *
  * If these pass, the published package behaves correctly when consumed by
- * a real CopilotRuntime + HttpAgent stack pointed at AWS AgentCore, without
+ * a real CopilotKitRuntime + HttpAgent stack pointed at AWS AgentCore, without
  * requiring AWS, Docker, or a browser.
  */
 import { describe, it, expect } from "vitest";

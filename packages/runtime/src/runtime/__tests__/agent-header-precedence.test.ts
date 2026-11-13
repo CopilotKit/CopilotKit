@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import { HttpAgent } from "@ag-ui/client";
 import { configureAgentForRequest } from "../handlers/shared/agent-utils";
 import { resolveForwardHeadersPolicy } from "../handlers/header-utils";
-import type { CopilotRuntimeLike } from "../core/runtime";
+import type { CopilotKitRuntimeLike } from "../core/runtime";
 
 /**
  * Regression tests for #5712.
@@ -25,7 +25,7 @@ const runtime = {
   openGenerativeUI: undefined,
   // The /run call site reads the resolved forwarding policy off the runtime.
   forwardHeadersPolicy: resolveForwardHeadersPolicy(undefined),
-} as unknown as CopilotRuntimeLike;
+} as unknown as CopilotKitRuntimeLike;
 
 function makeRequest(headers: Record<string, string>): Request {
   return new Request("https://example.com/api/copilotkit", {

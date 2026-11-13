@@ -5,7 +5,7 @@ import { byteIndex, charIndex } from "./offsets.ts";
 /**
  * Merges named imports from the same `@copilotkit/*` module into the first of
  * them. The passes rename import sources one at a time, so a file that
- * imported from `@copilotkit/runtime/v2` and gets `createCopilotRuntimeHandler`
+ * imported from `@copilotkit/runtime/v2` and gets `createCopilotKitRuntimeHandler`
  * from `@copilotkit/runtime` would otherwise end with two imports of
  * `@copilotkit/runtime`.
  *

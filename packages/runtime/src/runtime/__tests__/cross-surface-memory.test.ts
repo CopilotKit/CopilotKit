@@ -9,7 +9,7 @@ import type {
   MemoryGrant as ChannelMemoryGrant,
   ResolvedChannelMemory,
 } from "@copilotkit/channels-core";
-import { CopilotRuntime } from "../core/runtime";
+import { CopilotKitRuntime } from "../core/runtime";
 import { handleCreateMemory } from "../handlers/handle-memories";
 import { CopilotKitIntelligence } from "../intelligence-platform";
 
@@ -124,7 +124,7 @@ test("Memory saved on web is recalled from Slack through one canonical user", as
     };
   });
   const identifyUser = vi.fn(async () => ({ id: "person-42", name: "Alice" }));
-  const runtime = new CopilotRuntime({
+  const runtime = new CopilotKitRuntime({
     agents: {},
     intelligence: platform,
     identifyUser,

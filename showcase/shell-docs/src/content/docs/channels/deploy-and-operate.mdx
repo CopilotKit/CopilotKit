@@ -41,12 +41,12 @@ Channel. Await `ready()` to wait for activation to settle, then inspect
 
 ```ts title="health.ts"
 import { createChannel } from "@copilotkit/channels";
-import { CopilotKitIntelligence, CopilotRuntime } from "@copilotkit/runtime";
-import { createCopilotNodeListener } from "@copilotkit/runtime/node";
+import { CopilotKitIntelligence, CopilotKitRuntime } from "@copilotkit/runtime";
+import { createCopilotKitNodeListener } from "@copilotkit/runtime/node";
 
 const channel = createChannel({ name: "support", identifyUser: "platform" });
 
-const runtime = new CopilotRuntime({
+const runtime = new CopilotKitRuntime({
   agents: {},
   intelligence: new CopilotKitIntelligence({
     apiKey: process.env.CPK_INTELLIGENCE_API_KEY!,
@@ -54,7 +54,7 @@ const runtime = new CopilotRuntime({
   channels: [channel],
 });
 
-const listener = createCopilotNodeListener({ runtime });
+const listener = createCopilotKitNodeListener({ runtime });
 const channels = listener.channels;
 
 await channels.ready({ timeoutMs: 30_000 });
@@ -115,12 +115,12 @@ default handler and leaves a live gateway session behind:
 ```ts title="channel.ts"
 import { createServer } from "node:http";
 import { createChannel } from "@copilotkit/channels";
-import { CopilotKitIntelligence, CopilotRuntime } from "@copilotkit/runtime";
-import { createCopilotNodeListener } from "@copilotkit/runtime/node";
+import { CopilotKitIntelligence, CopilotKitRuntime } from "@copilotkit/runtime";
+import { createCopilotKitNodeListener } from "@copilotkit/runtime/node";
 
 const channel = createChannel({ name: "support", identifyUser: "platform" });
 
-const runtime = new CopilotRuntime({
+const runtime = new CopilotKitRuntime({
   agents: {},
   intelligence: new CopilotKitIntelligence({
     apiKey: process.env.CPK_INTELLIGENCE_API_KEY!,
@@ -136,7 +136,7 @@ const shutdown = async () => {
 process.once("SIGINT", shutdown);
 process.once("SIGTERM", shutdown);
 
-const listener = createCopilotNodeListener({ runtime });
+const listener = createCopilotKitNodeListener({ runtime });
 const server = createServer(listener);
 teardown = async () => {
   await listener.channels.stop();

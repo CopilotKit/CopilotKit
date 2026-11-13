@@ -82,12 +82,12 @@ Use this prompt to connect your Vue app to Copilot Runtime with the selected age
 
         ```ts title="server.ts"
         import { createServer } from "node:http";
-        import { CopilotRuntime } from "@copilotkit/runtime";
+        import { CopilotKitRuntime } from "@copilotkit/runtime";
         import { BuiltInAgent } from "@copilotkit/runtime/agent";
         import { openaiText } from "@tanstack/ai-openai";
-        import { createCopilotNodeListener } from "@copilotkit/runtime/node";
+        import { createCopilotKitNodeListener } from "@copilotkit/runtime/node";
 
-        const runtime = new CopilotRuntime({
+        const runtime = new CopilotKitRuntime({
           agents: {
             default: new BuiltInAgent({
               model: openaiText("gpt-6-luna"),
@@ -99,7 +99,7 @@ Use this prompt to connect your Vue app to Copilot Runtime with the selected age
         const port = Number(process.env.PORT ?? 8200);
 
         createServer(
-          createCopilotNodeListener({
+          createCopilotKitNodeListener({
             runtime,
             basePath: "/api/copilotkit",
             cors: true,
@@ -112,7 +112,7 @@ Use this prompt to connect your Vue app to Copilot Runtime with the selected age
         ```
 
         <Callout type="info" title="Vite and Copilot Runtime run on separate origins">
-          Vite serves the Vue app (usually on `http://localhost:5173`) while the runtime server runs on `http://localhost:8200`. Because the browser calls across those origins, `cors: true` is required for local development. `createCopilotNodeListener` does not enable CORS by default.
+          Vite serves the Vue app (usually on `http://localhost:5173`) while the runtime server runs on `http://localhost:8200`. Because the browser calls across those origins, `cors: true` is required for local development. `createCopilotKitNodeListener` does not enable CORS by default.
         </Callout>
     </Step>
     <Step>
@@ -162,7 +162,7 @@ Use this prompt to connect your Vue app to Copilot Runtime with the selected age
         <Accordions className="mb-4">
             <Accordion title="Troubleshooting">
                 - **No response from the agent**: Confirm the runtime server is running and `http://localhost:8200/api/copilotkit/info` returns agent information.
-                - **CORS errors**: The Vite app and the runtime server use different origins. Keep `cors: true` in `createCopilotNodeListener` for local development. It is CORS-disabled by default. Configure an explicit allowed origin before deploying.
+                - **CORS errors**: The Vite app and the runtime server use different origins. Keep `cors: true` in `createCopilotKitNodeListener` for local development. It is CORS-disabled by default. Configure an explicit allowed origin before deploying.
                 - **Model auth errors**: Confirm `OPENAI_API_KEY` is set in the terminal running `npx tsx server.ts`.
             </Accordion>
         </Accordions>

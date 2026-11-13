@@ -2,7 +2,7 @@ import {
   parseInspectorLearningRequestV1,
   parseInspectorLearningSnapshotV1,
 } from "@copilotkit/shared";
-import type { CopilotRuntimeLike } from "../core/runtime";
+import type { CopilotKitRuntimeLike } from "../core/runtime";
 import { hasLearningContainerConfiguration } from "../core/learning";
 import { isIntelligenceRuntime } from "../core/runtime";
 import { PlatformRequestError } from "../intelligence-platform/client";
@@ -24,7 +24,7 @@ export async function handleInspectorLearning({
   runtime,
   request,
 }: {
-  readonly runtime: CopilotRuntimeLike;
+  readonly runtime: CopilotKitRuntimeLike;
   readonly request: Request;
 }): Promise<Response> {
   if (

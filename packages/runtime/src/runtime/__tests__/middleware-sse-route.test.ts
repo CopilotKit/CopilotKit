@@ -3,9 +3,9 @@ import type { BaseEvent } from "@ag-ui/client";
 import { EMPTY, Observable } from "rxjs";
 import { describe, expect, it } from "vitest";
 
-import { createCopilotRuntimeHandler } from "../core/fetch-handler";
+import { createCopilotKitRuntimeHandler } from "../core/fetch-handler";
 import type { AfterRequestMiddlewareParameters } from "../core/middleware";
-import { CopilotRuntime } from "../core/runtime";
+import { CopilotKitRuntime } from "../core/runtime";
 import type { AgentRunner } from "../runner/agent-runner";
 
 const messages = [
@@ -57,14 +57,14 @@ describe("SSE afterRequestMiddleware", () => {
         resolveObservation = resolve;
       },
     );
-    const runtime = new CopilotRuntime({
+    const runtime = new CopilotKitRuntime({
       agents: { default: new SseTestAgent() },
       runner: createRunner(),
       afterRequestMiddleware: (parameters) => {
         resolveObservation(parameters);
       },
     });
-    const handler = createCopilotRuntimeHandler({ runtime, basePath: "/" });
+    const handler = createCopilotKitRuntimeHandler({ runtime, basePath: "/" });
 
     const response = await handler(
       new Request("http://localhost/agent/default/run", {

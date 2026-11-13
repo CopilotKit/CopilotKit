@@ -1,4 +1,4 @@
-import { createCopilotRuntimeHandler } from "../../../core/fetch-handler";
+import { createCopilotKitRuntimeHandler } from "../../../core/fetch-handler";
 import { Hono } from "hono";
 
 import { createTestRuntime } from "../helpers/create-test-runtime";
@@ -11,7 +11,7 @@ export async function createHonoBunSingleServer(
 ): Promise<ServerHandle> {
   const runtime = createTestRuntime(opts);
   const app = new Hono();
-  const handler = createCopilotRuntimeHandler({
+  const handler = createCopilotKitRuntimeHandler({
     cors: true,
     runtime,
     basePath: BASE_PATH,

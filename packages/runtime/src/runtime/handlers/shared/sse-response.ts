@@ -13,7 +13,7 @@ import {
 } from "../../runner/agent-runner";
 import type { ResolvedDebugConfig } from "@copilotkit/shared";
 import { createDebugLogger, getRuntimeLogger } from "../../core/logger";
-import type { CopilotRuntimeLogger } from "../../core/logger";
+import type { CopilotKitRuntimeLogger } from "../../core/logger";
 import { telemetry as defaultTelemetry } from "../../telemetry";
 import type { TelemetryCapture } from "../../telemetry/telemetry-client";
 import type { AgentExecutionResponseInfo } from "../../telemetry/events";
@@ -45,9 +45,9 @@ interface CreateSseEventResponseParams {
   agentId?: string;
   debug?: ResolvedDebugConfig;
   /** Pre-created debug logger, so a request does not create its own. */
-  debugLogger?: CopilotRuntimeLogger;
+  debugLogger?: CopilotKitRuntimeLogger;
   /** Where errors and warnings go. Default: the console. */
-  logger?: CopilotRuntimeLogger;
+  logger?: CopilotKitRuntimeLogger;
   /** Runtime-bound telemetry capture. Falls back for external direct callers. */
   telemetry?: TelemetryCapture;
   /**

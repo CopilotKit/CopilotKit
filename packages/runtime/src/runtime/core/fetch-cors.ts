@@ -6,7 +6,7 @@
  * pass `cors: false` or omit it.
  */
 
-export interface CopilotCorsConfig {
+export interface CopilotKitCorsConfig {
   origin?: string | string[] | ((origin: string) => string | null);
   credentials?: boolean;
   allowMethods?: string[];
@@ -27,7 +27,7 @@ const DEFAULT_METHODS = [
 const DEFAULT_HEADERS = ["*"];
 
 function resolveOrigin(
-  config: CopilotCorsConfig,
+  config: CopilotKitCorsConfig,
   requestOrigin: string | null,
 ): string | null {
   const { origin } = config;
@@ -49,7 +49,7 @@ function resolveOrigin(
 
 function setCorsHeaders(
   headers: Headers,
-  config: CopilotCorsConfig,
+  config: CopilotKitCorsConfig,
   requestOrigin: string | null,
 ): void {
   let allowedOrigin = resolveOrigin(config, requestOrigin);
@@ -92,7 +92,7 @@ function setCorsHeaders(
  */
 export function handleCors(
   request: Request,
-  config: CopilotCorsConfig,
+  config: CopilotKitCorsConfig,
 ): Response | null {
   if (request.method !== "OPTIONS") return null;
 
@@ -123,7 +123,7 @@ export function handleCors(
  */
 export function addCorsHeaders(
   response: Response,
-  config: CopilotCorsConfig,
+  config: CopilotKitCorsConfig,
   requestOrigin: string | null,
 ): Response {
   const headers = new Headers(response.headers);

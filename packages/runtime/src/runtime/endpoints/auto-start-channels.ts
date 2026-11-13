@@ -1,5 +1,5 @@
 import { getRuntimeLogger } from "../core/logger";
-import type { CopilotRuntimeLogger } from "../core/logger";
+import type { CopilotKitRuntimeLogger } from "../core/logger";
 import type { ChannelsControl } from "../core/channel-manager";
 
 /**
@@ -36,7 +36,7 @@ import type { ChannelsControl } from "../core/channel-manager";
  */
 export function autoStartChannels(
   channels: ChannelsControl | undefined,
-  logger: CopilotRuntimeLogger = getRuntimeLogger(),
+  logger: CopilotKitRuntimeLogger = getRuntimeLogger(),
 ): void {
   if (!channels) {
     return;

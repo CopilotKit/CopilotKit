@@ -10,7 +10,7 @@ import {
   GenerativeUIMiddleware,
   resolveA2UIVersion,
 } from "../../generative-ui";
-import type { CopilotRuntimeLike } from "../../core/runtime";
+import type { CopilotKitRuntimeLike } from "../../core/runtime";
 import { isIntelligenceRuntime, resolveAgents } from "../../core/runtime";
 import {
   INTELLIGENCE_MEMORY_GRANT_HEADER,
@@ -26,7 +26,7 @@ import { grantAllowsMemory, resolveWebMemory } from "./memory-policy";
 import { errorResponse } from "./json-response";
 import { processEnv } from "@copilotkit/shared";
 import { getRuntimeLogger } from "../../core/logger";
-import type { CopilotRuntimeLogger } from "../../core/logger";
+import type { CopilotKitRuntimeLogger } from "../../core/logger";
 
 type MiddlewareCapableAgent = AbstractAgent & {
   use?: (middleware: unknown) => void;
@@ -35,7 +35,7 @@ type MiddlewareCapableAgent = AbstractAgent & {
 
 export interface RunAgentParameters {
   request: Request;
-  runtime: CopilotRuntimeLike;
+  runtime: CopilotKitRuntimeLike;
   agentId: string;
 }
 
@@ -60,7 +60,7 @@ export interface ConnectRequestBody extends RunAgentInput {
  * untouched.
  */
 export async function cloneAgentForRequest(
-  runtime: CopilotRuntimeLike,
+  runtime: CopilotKitRuntimeLike,
   agentId: string,
   request?: Request,
 ): Promise<AbstractAgent | Response> {
@@ -83,7 +83,7 @@ export async function cloneAgentForRequest(
 }
 
 export function configureAgentForRequest(params: {
-  runtime: CopilotRuntimeLike;
+  runtime: CopilotKitRuntimeLike;
   request: Request;
   agentId: string;
   agent: AbstractAgent;
@@ -187,7 +187,7 @@ export function configureAgentForRequest(params: {
   agent.headers = mergeForwardableHeaders(
     agent.headers,
     request,
-    // `forwardHeadersPolicy` is optional on the published `CopilotRuntimeLike`
+    // `forwardHeadersPolicy` is optional on the published `CopilotKitRuntimeLike`
     // interface (non-breaking minor release). Concrete runtimes always set it;
     // a policy-less external implementor falls back to the default resolved
     // policy (default-on denylist) so behavior stays identical and never derefs
@@ -226,7 +226,7 @@ const NO_MIDDLEWARE_WARNING =
  * `listTools` round-trip).
  */
 export async function attachIntelligenceEnterpriseLearning(params: {
-  runtime: CopilotRuntimeLike;
+  runtime: CopilotKitRuntimeLike;
   request: Request;
   agent: AbstractAgent;
 }): Promise<void | Response> {
@@ -315,7 +315,7 @@ export async function attachIntelligenceEnterpriseLearning(params: {
 function warnCompatibility(
   what: string,
   replacement: string,
-  logger: CopilotRuntimeLogger,
+  logger: CopilotKitRuntimeLogger,
 ) {
   if (
     typeof process !== "undefined" &&
@@ -336,7 +336,7 @@ function omitLegacyNull(
   value: unknown,
   field: string,
   context: string,
-  logger: CopilotRuntimeLogger,
+  logger: CopilotKitRuntimeLogger,
 ): unknown {
   if (!isRecord(value) || value[field] !== null) return value;
   warnCompatibility(`${context}.${field}: null`, "an absent field", logger);
@@ -388,7 +388,7 @@ function sameSource(part: unknown, converted: Record<string, unknown>) {
  */
 function upgradeLegacyBinaryParts(
   content: unknown[],
-  logger: CopilotRuntimeLogger,
+  logger: CopilotKitRuntimeLogger,
 ): unknown[] {
   return content.flatMap((part) => {
     if (
@@ -433,7 +433,7 @@ function upgradeLegacyBinaryParts(
 
 function normalizeLegacyMessageContent(
   message: unknown,
-  logger: CopilotRuntimeLogger,
+  logger: CopilotKitRuntimeLogger,
 ): unknown {
   const upgraded =
     isRecord(message) &&
@@ -465,7 +465,7 @@ function normalizeLegacyMessageContent(
 
 function normalizeLegacyRunAgentInput(
   input: unknown,
-  logger: CopilotRuntimeLogger,
+  logger: CopilotKitRuntimeLogger,
 ): unknown {
   let normalized = omitLegacyNull(
     input,
@@ -486,7 +486,7 @@ function normalizeLegacyRunAgentInput(
 
 function parseRunAgentInput(
   value: unknown,
-  logger: CopilotRuntimeLogger,
+  logger: CopilotKitRuntimeLogger,
 ): RunAgentInput {
   // With strictNullChecks disabled, Zod infers some required nested fields
   // (such as image.source) as optional. The schema still validates them.
@@ -497,7 +497,7 @@ function parseRunAgentInput(
 
 export async function parseRunRequest(
   request: Request,
-  logger: CopilotRuntimeLogger = getRuntimeLogger(),
+  logger: CopilotKitRuntimeLogger = getRuntimeLogger(),
 ): Promise<RunAgentInput | Response> {
   try {
     const requestBody = await request.json();
@@ -519,7 +519,7 @@ export async function parseRunRequest(
 
 export async function parseConnectRequest(
   request: Request,
-  logger: CopilotRuntimeLogger = getRuntimeLogger(),
+  logger: CopilotKitRuntimeLogger = getRuntimeLogger(),
 ): Promise<
   | Response
   | {

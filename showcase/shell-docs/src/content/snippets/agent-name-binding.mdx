@@ -7,9 +7,9 @@ free to differ.
 
 ```ts title="app/api/copilotkit/[[...slug]]/route.ts"
 import { HttpAgent } from "@ag-ui/client";
-import { CopilotRuntime } from "@copilotkit/runtime";
+import { CopilotKitRuntime } from "@copilotkit/runtime";
 
-const runtime = new CopilotRuntime({
+const runtime = new CopilotKitRuntime({
   agents: {
     // `my_agent` is the key — the one string the frontend may ask for.
     my_agent: new HttpAgent({ url: "http://localhost:8000/" }),
