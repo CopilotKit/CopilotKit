@@ -463,12 +463,29 @@ export function CopilotChatAssistantMessage({
     };
   };
 
+  const isLatestAssistantMessage =
+    message.role === "assistant" &&
+    (isLatest ?? messages?.[messages.length - 1]?.id === message.id);
+  // Streamdown's default streaming mode renders nothing when it mounts and
+  // fills the message in a transition a frame later. A message that is not
+  // being written renders at once in static mode, so a row of the virtual
+  // list does not change height right after the list measured it; in Safari
+  // that loop kept a long thread re-laying out for seconds after loading.
+  // Rendered on its own, without `isLatest` or `messages`, a message cannot
+  // tell whether it is the one being written, so it streams while running.
+  const isStreaming =
+    !!isRunning &&
+    (isLatest === undefined && messages === undefined
+      ? true
+      : isLatestAssistantMessage);
+
   const boundMarkdownRenderer = renderSlot(
     markdownRenderer,
     CopilotChatAssistantMessage.MarkdownRenderer,
     {
       content: message.content || "",
       messageId: message.id,
+      mode: isStreaming ? "streaming" : "static",
     },
   );
 
@@ -570,9 +587,6 @@ export function CopilotChatAssistantMessage({
 
   // Don't show toolbar if message has no content (only tool calls)
   const hasContent = !!(message.content && message.content.trim().length > 0);
-  const isLatestAssistantMessage =
-    message.role === "assistant" &&
-    (isLatest ?? messages?.[messages.length - 1]?.id === message.id);
   const shouldShowToolbar =
     toolbarVisible &&
     (hasContent || showInspectorShortcut) &&

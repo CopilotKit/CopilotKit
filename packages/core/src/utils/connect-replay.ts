@@ -179,7 +179,16 @@ export async function ɵconnectWithoutEventVerification(
       takeUntil(activeRunDetach$),
     );
 
-    const applied$ = self.apply(input, source$, subscribers);
+    // A connect replays a thread's history, which can arrive as one burst of
+    // thousands of events (IntelligenceAgent holds its replay until the
+    // gateway reports it complete). `coalesce` makes AG-UI emit one update
+    // for events that arrive together instead of one per event; each update
+    // copies the message list, so per-event updates made a long thread
+    // quadratic to load. Per-event subscriber hooks still run for every
+    // event. AG-UI versions without the option ignore it.
+    const applied$ = self.apply(input, source$, subscribers, {
+      coalesce: true,
+    });
     const processed$ = self.processApplyEvents(input, applied$, subscribers);
 
     await lastValueFrom(
