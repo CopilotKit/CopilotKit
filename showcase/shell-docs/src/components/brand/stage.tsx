@@ -82,7 +82,7 @@ export function CodeFrame({
     <div
       className={cn(
         "not-prose relative rounded-xl shadow-code",
-        "[&>*]:rounded-xl! [&>*]:border! [&>*]:border-border! [&>*]:shadow-none!",
+        "[&>*]:rounded-xl! [&>*]:border! [&>*]:border-border! [&>*]:shadow-none! dark:[&>*]:border-white/[0.12]!",
         className,
       )}
     >
@@ -102,7 +102,7 @@ export const STAGE_WINDOW =
  * components can read it.)
  */
 export const CODE_TABS_WINDOW = cn(
-  "my-0 overflow-hidden bg-fd-background [&>[role=tablist]]:h-9.5 [&>[role=tablist]]:items-center [&>[role=tablist]]:border-b [&>[role=tabpanel]]:rounded-none [&>[role=tabpanel]]:p-0 [&>[role=tabpanel]>figure]:m-0!",
+  "my-0 overflow-hidden bg-(--code-window) [&>[role=tablist]]:h-9.5 [&>[role=tablist]]:items-center [&>[role=tablist]]:border-b [&>[role=tabpanel]]:rounded-none [&>[role=tabpanel]]:p-0 [&>[role=tabpanel]>figure]:m-0!",
   STAGE_WINDOW,
 );
 

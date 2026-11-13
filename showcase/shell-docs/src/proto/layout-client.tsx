@@ -4,7 +4,6 @@ import { useEffect } from "react";
 import type { ComponentProps, ReactNode } from "react";
 import { usePathname } from "next/navigation";
 import Link from "fumadocs-core/link";
-import { buttonVariants } from "fumadocs-ui/components/ui/button";
 import {
   AskAIGlyph,
   BackendGlyph,
@@ -32,9 +31,14 @@ import { DocsLayout as SpaciousLayout } from "@/components/ai/docs-layout";
 import { ProtoStackAgent } from "@/components/ai/stack-agents";
 import { HomeLayout } from "fumadocs-ui/layouts/home";
 import { FullSearchTrigger } from "fumadocs-ui/layouts/shared/slots/search-trigger";
+import { Header as SpaciousHeader } from "fumadocs-ui/layouts/spacious/slots/header";
 import { CopilotKitLogo } from "@/components/copilotkit-logo";
 import { Button } from "@/components/ui/button";
-import { PanelActions } from "@/components/layout/panel-actions";
+import {
+  IconLinks,
+  PanelActions,
+  PanelSidebarToggle,
+} from "@/components/layout/panel-actions";
 import { AdaptiveThemeSwitch } from "@/components/layout/theme-toggle";
 import { FRAMEWORKS, FRAMEWORK_FAMILIES } from "./data";
 import { FamilyMenuCard, IntegrationCardBody } from "./link-card";
@@ -111,8 +115,10 @@ const INTELLIGENCE_MENU = [
 ];
 
 /**
- * Spacious' `actions` slot with the docs' three sections before the icon
- * links, where docs.copilotkit.ai's top bar has them: Cookbook and Reference
+ * The docs' top bar contents: the docs' three sections at its left edge, in
+ * line with the page panel, and the theme switch, Talk to an engineer, and
+ * the icon links at its right. Ask CopilotKit stays off the bar: the round
+ * chat button in the page's corner opens it. Cookbook and Reference
  * are one click from any page and Docs one click back, without taking a row
  * of the sidebar. Cookbook and Reference own their URL prefix; Docs is every
  * other docs page, and opens your framework's quickstart.
@@ -131,28 +137,65 @@ function SectionActions({ className, ...props }: ComponentProps<"div">) {
     { title: "Reference", url: "/reference", active: path[0] === "reference" },
   ];
   return (
-    <div className={cn("flex items-center gap-1", className)} {...props}>
-      <nav aria-label="Docs sections" className="flex items-center">
+    <div className={cn("flex w-full items-center gap-2", className)} {...props}>
+      <nav
+        aria-label="Docs sections"
+        className="ms-3.5 me-auto flex items-center gap-1"
+      >
         {sections.map((s) => (
           <Link
             key={s.title}
             href={s.url}
             aria-current={s.active ? "true" : undefined}
             className={cn(
-              buttonVariants({ variant: "ghost" }),
-              "h-7.5 px-2",
-              s.active ? "text-fd-primary" : "text-fd-muted-foreground",
+              "rounded-md px-2.5 py-1 text-[15px] transition-colors duration-150 focus-visible:outline-2 focus-visible:outline-fd-ring motion-reduce:transition-none",
+              s.active
+                ? "font-medium text-primary"
+                : "text-fd-muted-foreground hover:text-fd-foreground",
             )}
           >
             {s.title}
           </Link>
         ))}
       </nav>
-      <span aria-hidden="true" className="mx-1 h-4 w-px bg-fd-border" />
-      <PanelActions />
+      <AdaptiveThemeSwitch className="bg-fd-background" />
+      <TalkToEngineerPill className="h-8 px-3.5" />
+      <span
+        aria-hidden="true"
+        className="mx-1.5 h-5 w-px bg-frame-foreground/25"
+      />
+      <IconLinks className="gap-0.5" />
     </div>
   );
 }
+
+/**
+ * Spacious' `header` slot: its phone navbar, unchanged, and on tablets and
+ * desktops a compact bar on the frame above the page panel carrying the
+ * section links, icon links, and theme switch (the same `actions` component
+ * Spacious would otherwise draw in the panel's corner, where it competed with
+ * the breadcrumb). It spans the page's column and Ask CopilotKit's, so the
+ * chat opens under it. No search: it lives at the top of the sidebar. The panel's
+ * `actions` slot holds the sidebar toggle instead (`PanelSidebarToggle`).
+ */
+function topBar(Actions: (props: ComponentProps<"div">) => ReactNode) {
+  return function TopBar(props: ComponentProps<"header">) {
+    return (
+      <>
+        <SpaciousHeader {...props} />
+        <header
+          data-docs-topbar
+          className="[grid-area:1/2/2/-1] flex h-(--fd-header-height) items-center justify-end pe-3 max-md:hidden"
+        >
+          <Actions className="bg-transparent" />
+        </header>
+      </>
+    );
+  };
+}
+
+const SectionsTopBar = topBar(SectionActions);
+const PanelTopBar = topBar(PanelActions);
 
 /**
  * Sets a navbar dropdown on the lilac-grey tray: a hidden marker that
@@ -196,7 +239,7 @@ function card(icon: ReactNode) {
   };
 }
 
-/** Integrations cards: tiles, the logo's tile over the name. */
+/** Integrations cards: tiles, the logo over the name. */
 const TILE_CARD = `${HOVER} gap-3 p-3`;
 
 /**
@@ -389,6 +432,55 @@ function MiniDemo({
   );
 }
 
+/**
+ * The full-page Ask CopilotKit, as a white outlined pill, in the home
+ * navbar. Hidden on /ask itself.
+ */
+function AskCopilotKitPill({ className }: { className?: string }) {
+  const pathname = usePathname();
+  return (
+    <Button
+      variant="outline"
+      render={<Link href="/ask" />}
+      nativeButton={false}
+      aria-current={pathname === "/ask" ? "page" : undefined}
+      className={cn(
+        "h-9 gap-2 rounded-full bg-card px-3.5 shadow-lift aria-[current=page]:hidden [&_svg]:size-4",
+        className,
+      )}
+    >
+      <AskAIGlyph aria-hidden="true" />
+      Ask CopilotKit
+    </Button>
+  );
+}
+
+/**
+ * Talk to an engineer, as the solid indigo pill (the website's lilac-deep,
+ * white text) in both themes. Shared by the home navbar and the docs' top bar.
+ */
+function TalkToEngineerPill({ className }: { className?: string }) {
+  return (
+    <Button
+      render={
+        <a
+          href="https://www.copilotkit.ai/talk-to-an-engineer"
+          target="_blank"
+          rel="noreferrer noopener"
+        />
+      }
+      nativeButton={false}
+      onClick={() => trackEvent("talk_to_us_clicked", { location: "docs_nav" })}
+      className={cn(
+        "h-9 rounded-full bg-brand-lilac-deep px-4 text-white hover:bg-[#5057cc]",
+        className,
+      )}
+    >
+      Talk to an engineer
+    </Button>
+  );
+}
+
 /** Prototype D's home: Fumadocs' navbar-only Home Layout. */
 function DHomeLayout({
   examples,
@@ -398,7 +490,6 @@ function DHomeLayout({
   children: ReactNode;
 }) {
   const [framework] = useLastFramework();
-  const pathname = usePathname();
   useMenuSwitchClick();
   const links: LinkItemType[] = [
     {
@@ -482,41 +573,13 @@ function DHomeLayout({
       // The full-page Ask CopilotKit, as a pill beside the search pill.
       type: "custom",
       secondary: true,
-      children: (
-        <Button
-          variant="outline"
-          render={<Link href="/ask" />}
-          nativeButton={false}
-          aria-current={pathname === "/ask" ? "page" : undefined}
-          className="h-9 gap-2 rounded-full bg-card px-3.5 shadow-lift aria-[current=page]:hidden [&_svg]:size-4"
-        >
-          <AskAIGlyph aria-hidden="true" />
-          Ask CopilotKit
-        </Button>
-      ),
+      children: <AskCopilotKitPill />,
     },
     {
       // A custom item so the button can match the navbar's pill search.
       type: "custom",
       secondary: true,
-      children: (
-        <Button
-          render={
-            <a
-              href="https://www.copilotkit.ai/talk-to-an-engineer"
-              target="_blank"
-              rel="noreferrer noopener"
-            />
-          }
-          nativeButton={false}
-          onClick={() =>
-            trackEvent("talk_to_us_clicked", { location: "docs_nav" })
-          }
-          className="h-9 rounded-full bg-foreground px-4 text-background hover:bg-foreground/85"
-        >
-          Talk to an engineer
-        </Button>
-      ),
+      children: <TalkToEngineerPill />,
     },
   ];
   return (
@@ -591,7 +654,8 @@ export function ProtoLayout({
         githubUrl={GITHUB}
         links={[DISCORD, X]}
         slots={{
-          actions: variant === "d" && liveNav ? SectionActions : PanelActions,
+          header: variant === "d" && liveNav ? SectionsTopBar : PanelTopBar,
+          actions: PanelSidebarToggle,
           themeSwitch: AdaptiveThemeSwitch,
         }}
         agent={
@@ -604,11 +668,11 @@ export function ProtoLayout({
         searchToggle={{
           components: {
             lg: (
-              <div className="flex flex-col gap-2">
+              <div className="flex flex-col gap-3">
                 {top}
                 <FullSearchTrigger
                   hideIfDisabled
-                  className="h-10 gap-3 rounded-xl bg-card ps-[calc(--spacing(2.5)-1px)] pe-2 shadow-lift hover:bg-accent [&_svg]:shrink-0"
+                  className="h-10 gap-3 rounded-xl bg-card ps-[calc(--spacing(2.5)-1px)] pe-2 shadow-lift hover:bg-accent dark:bg-[#1e1e2a] dark:hover:bg-[#262634] [&_svg]:shrink-0"
                 />
               </div>
             ),

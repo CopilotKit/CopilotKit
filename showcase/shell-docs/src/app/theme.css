@@ -122,6 +122,8 @@ html [data-copilotkit] {
   --tile-mint-ink: #11785b;
   --edge-action: #bec2ff; /* the website's border-action */
   --code-well: #f7f7f9; /* website grey-100 */
+  /* A code block's window: the page's white by day. */
+  --code-window: var(--background);
   /* The pixel matrix: one look everywhere (src/components/brand/pixel-matrix.tsx),
    * white squares on a stage ground. Change it here and every matrix follows. */
   --matrix-square: #ffffff;
@@ -157,9 +159,9 @@ html [data-copilotkit] {
     0 1px 2px rgb(80 87 204 / 0.06), 0 6px 14px -8px rgb(99 87 229 / 0.28);
   /* Cards standing on the page with no tray (Tray variant "bare"). */
   --card-lift:
-    0 1px 2px rgb(20 16 33 / 0.04), 0 4px 12px -6px rgb(80 87 204 / 0.14);
+    0 1px 2px rgb(20 16 33 / 0.06), 0 6px 16px -8px rgb(80 87 204 / 0.22);
   --card-lift-hover:
-    0 2px 4px rgb(20 16 33 / 0.04), 0 10px 22px -10px rgb(80 87 204 / 0.26);
+    0 2px 6px rgb(20 16 33 / 0.06), 0 16px 32px -12px rgb(80 87 204 / 0.4);
   /* The navbar menus: a faintly lilac panel over the page, so its white
    * cards stand out on it and it stands out over the white page. */
   --menu-surface: #f7f7fb;
@@ -218,8 +220,10 @@ html.dark [data-copilotkit] {
   --tile-lilac-ink: #bec2ff;
   --tile-mint: rgb(133 236 206 / 0.12);
   --tile-mint-ink: #85ecce;
-  --edge-action: rgb(190 194 255 / 0.45);
+  --edge-action: rgb(190 194 255 / 0.6);
   --code-well: #111118;
+  /* At night a raised ink, a step above the page, so code doesn't sink into it. */
+  --code-window: #15151e;
   /* Night stage: ink at the edges so it sits in the page, with the
    * stage's sky-to-indigo kept as light rising from inside it. */
   --stage:
@@ -236,7 +240,7 @@ html.dark [data-copilotkit] {
     0 1px 2px rgb(0 0 0 / 0.4), 0 6px 14px -8px rgb(99 87 229 / 0.35);
   --card-lift: 0 1px 2px rgb(0 0 0 / 0.4), 0 4px 12px -6px rgb(0 0 0 / 0.5);
   --card-lift-hover:
-    0 2px 4px rgb(0 0 0 / 0.4), 0 10px 22px -10px rgb(99 87 229 / 0.3);
+    0 2px 6px rgb(0 0 0 / 0.5), 0 16px 32px -12px rgb(99 87 229 / 0.5);
   --menu-surface: #111118;
   --menu-lift: 0 2px 6px rgb(0 0 0 / 0.4), 0 28px 56px -20px rgb(0 0 0 / 0.8);
   --tray-card: #20202c;
@@ -416,6 +420,37 @@ html .copilotKitChat:hover ::-webkit-scrollbar-thumb {
 }
 
 /*
+ * The docs' top bar (section links, icon links, theme switch) sits on the
+ * frame above the page panel, its row the sidebar's logo row; the panel
+ * starts right under it, so the bar's own height is the gap.
+ */
+@media (min-width: 768px) {
+  #fd-spacious-layout:has(> [data-docs-topbar]) > #nd-page-panel {
+    margin-top: 0;
+  }
+
+  /*
+   * Ask CopilotKit's column (Spacious' AI chat panel) starts under the top
+   * bar, which spans it, level with the page panel.
+   */
+  #fd-spacious-layout:has(> [data-docs-topbar]) > aside:not(#nd-sidebar) {
+    grid-row: 2 / -1;
+    margin-top: 0;
+  }
+
+  /*
+   * The sidebar toggle has one home: the page panel's top-left corner
+   * (`PanelSidebarToggle`, Spacious' `actions` slot). Spacious' own toggles,
+   * beside the logo while open and in the panel while collapsed, step aside
+   * wherever that one is on the page. Targeted by attribute, as below.
+   */
+  #fd-spacious-layout:has([data-panel-sidebar-toggle])
+    button[aria-controls="nd-sidebar"]:not([data-panel-sidebar-toggle]) {
+    display: none;
+  }
+}
+
+/*
  * The navbar's dropdowns: a faint lilac panel (--menu-surface) with a
  * hairline and a real overlay shadow (--menu-lift), so the menu reads as a
  * surface over the page. Its cards are the home's cards: white (night
@@ -447,13 +482,16 @@ html .copilotKitChat:hover ::-webkit-scrollbar-thumb {
 #nd-sidebar {
   --color-fd-muted-foreground: var(--frame-foreground);
   --color-fd-primary: var(--sidebar-primary);
+  /* A 40px logo row (Spacious' is 56px): the logo centers with the panel's
+   * tabs, and the stack picker under it starts level with the page panel. */
+  --fd-header-height: 40px;
 }
 
 @layer utilities {
   /* Code blocks sit in a quiet grey well: one of grey's accent jobs. */
   /* Code is a white window (ink in dark mode) on its stage (src/components/brand/stage.tsx). */
   figure.shiki {
-    background-color: var(--color-fd-background);
+    background-color: var(--code-window);
   }
 
   /*
