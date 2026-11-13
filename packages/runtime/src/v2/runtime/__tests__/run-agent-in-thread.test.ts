@@ -366,6 +366,46 @@ describe("a run with no browser attached", () => {
   });
 });
 
+describe("the state a run starts from", () => {
+  /** Counts up from the state it is given, and stores the new count. */
+  const counts: Script = (input, emit) => {
+    const count = ((input.state as { count?: number }).count ?? 0) + 1;
+    emit({ type: EventType.STATE_SNAPSHOT, snapshot: { count } } as BaseEvent);
+    return "finish";
+  };
+  const lastSnapshot = () =>
+    (
+      fake.stored.filter(
+        (event) => event.type === EventType.STATE_SNAPSHOT,
+      ) as Array<BaseEvent & { snapshot: unknown }>
+    ).at(-1)?.snapshot;
+
+  it("is the state the Thread stored, so a fresh agent carries on where the last run left off", async () => {
+    const runtime = await platform();
+    const first = new ScriptedAgent(counts);
+    await run(runtime, first, { state: { count: 40 } });
+    expect(lastSnapshot()).toEqual({ count: 41 });
+
+    // A fresh instance, as `clone()` gives each run, with no state of its own.
+    const second = new ScriptedAgent(counts);
+    await run(runtime, second, { runId: "run-unattended-2" });
+
+    expect(second.inputs[0]?.state).toEqual({ count: 41 });
+    expect(lastSnapshot()).toEqual({ count: 42 });
+  });
+
+  it("is the agent's own on a Thread that has stored none", async () => {
+    const runtime = await platform();
+    const agent = new ScriptedAgent(counts);
+    agent.setState({ count: 7 });
+
+    await run(runtime, agent);
+
+    expect(agent.inputs[0]?.state).toEqual({ count: 7 });
+    expect(lastSnapshot()).toEqual({ count: 8 });
+  });
+});
+
 describe("a run that cannot go ahead", () => {
   it("is refused before anything runs when another run holds the Thread", async () => {
     const runtime = await platform({ threads: { [threadId]: [] } });
@@ -518,6 +558,53 @@ describe("a run that does not finish", () => {
 
     expect(failure).toMatchObject({ reason: "lock_lost" });
     expect(Date.now() - lostAt).toBeLessThan(3_000);
+  });
+
+  it("is stopped while its lock is being taken, and gives back a lock granted after that", async () => {
+    const runtime = await platform({ holdLockResponse: true });
+    const agent = new ScriptedAgent(says("never said"));
+    const controller = new AbortController();
+
+    const running = run(runtime, agent, {
+      signal: controller.signal,
+      stopTimeoutMs: 50,
+    });
+    await vi.waitFor(() => expect(fake.timeline).toContain("lock acquired"));
+    const stoppedAt = Date.now();
+    controller.abort();
+    const result = await running;
+
+    expect(Date.now() - stoppedAt).toBeLessThan(1_000);
+    expect(result).toMatchObject({ stopped: true, newMessages: [] });
+    // The platform's answer arrives after the stop: the lock it names is
+    // given back, and the agent never runs.
+    fake.answerLock();
+    await vi.waitFor(() => expect(fake.lockOwner(threadId)).toBeUndefined());
+    expect(agent.inputs).toEqual([]);
+    expect(fake.timeline).not.toContain("runner joined");
+  });
+
+  it("does not wait past stopTimeoutMs on a lock release that never answers", async () => {
+    const runtime = await platform({ holdRelease: true });
+    const controller = new AbortController();
+
+    const running = run(runtime, new ScriptedAgent(keepsWorking), {
+      signal: controller.signal,
+      stopTimeoutMs: 50,
+    });
+    await vi.waitFor(() =>
+      expect(storedTypes()).toContain(EventType.TEXT_MESSAGE_CONTENT),
+    );
+    controller.abort();
+    await vi.waitFor(() =>
+      expect(storedTypes()).toContain(EventType.RUN_FINISHED),
+    );
+    const endedAt = Date.now();
+    const result = await running;
+
+    expect(result.stopped).toBe(true);
+    expect(fake.timeline).toContain("release held");
+    expect(Date.now() - endedAt).toBeLessThan(1_000);
   });
 
   it("is stopped while it is still being prepared, so nothing runs and the Thread is freed", async () => {

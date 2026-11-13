@@ -52,6 +52,13 @@ export interface FakeLockGatewayOptions {
    * exists and has no messages.
    */
   threads?: Record<string, StoredMessage[]>;
+  /**
+   * Grant the lock but hold its response back until `answerLock()` is
+   * called, as a platform does whose answer is lost on the way back.
+   */
+  holdLockResponse?: boolean;
+  /** Never answer a lock release, as a platform that stopped answering. */
+  holdRelease?: boolean;
 }
 
 /** A message as app-api stores and returns it. */
@@ -96,6 +103,12 @@ export async function startFakeLockGateway(
   const terminalMarkers = new Map<string, string>();
   const storedEventIds = new Set<string>();
   const runnerSockets = new Set<WebSocket>();
+  /** threadId -> the state the thread's last STATE_SNAPSHOT stored. */
+  const snapshots = new Map<string, unknown>();
+  /** Threads that stored a STATE_DELTA, which this fake does not fold. */
+  const deltas = new Set<string>();
+  /** Lock responses held back by `holdLockResponse`. */
+  const heldLockAnswers: Array<() => void> = [];
   let batchCount = 0;
   /** Batches received and not yet stored or refused. */
   let pendingBatches = 0;
@@ -119,6 +132,27 @@ export async function startFakeLockGateway(
       res.end(payload === undefined ? "" : JSON.stringify(payload));
     };
     requests.push({ method, path: url.pathname, body });
+    const inspected = url.pathname.match(
+      /^\/api\/_inspect\/threads\/([^/]+)\/state$/,
+    );
+    if (method === "GET" && inspected) {
+      // The stored state as app-api folds it: the last snapshot, and the
+      // deltas after it, which this fake refuses rather than fold wrongly.
+      const [, inspectedId] = inspected;
+      if (deltas.has(inspectedId)) {
+        return send(500, { error: "the fake does not fold STATE_DELTA" });
+      }
+      return send(
+        200,
+        snapshots.has(inspectedId)
+          ? {
+              kind: "snapshot",
+              state: snapshots.get(inspectedId),
+              skippedDeltas: 0,
+            }
+          : { kind: "no-snapshot" },
+      );
+    }
     if (method === "POST" && url.pathname === "/api/threads") {
       const id = body.threadId as string;
       if (!threads) return send(404, { error: "not found" });
@@ -160,12 +194,18 @@ export async function startFakeLockGateway(
       }
       locks.set(threadId, runId);
       timeline.push("lock acquired");
-      return send(200, {
-        threadId,
-        runId,
-        joinToken: "browser-join-token",
-        ttlSeconds: 120,
-      });
+      const answer = () =>
+        send(200, {
+          threadId,
+          runId,
+          joinToken: "browser-join-token",
+          ttlSeconds: 120,
+        });
+      if (options.holdLockResponse) {
+        heldLockAnswers.push(answer);
+        return;
+      }
+      return answer();
     }
     if (method === "PATCH") {
       if (owner !== runId) {
@@ -177,6 +217,10 @@ export async function startFakeLockGateway(
       return send(200, { ttlSeconds: 120, status: "renewed" });
     }
     if (method === "DELETE") {
+      if (options.holdRelease) {
+        timeline.push("release held");
+        return;
+      }
       const released = owner === runId;
       if (released) locks.delete(threadId);
       timeline.push(
@@ -258,6 +302,11 @@ export async function startFakeLockGateway(
       for (const event of fresh) {
         storedEventIds.add(eventId(event));
         stored.push(event);
+        if (event.type === EventType.STATE_SNAPSHOT) {
+          snapshots.set(threadId, (event as { snapshot?: unknown }).snapshot);
+          deltas.delete(threadId);
+        }
+        if (event.type === EventType.STATE_DELTA) deltas.add(threadId);
       }
       timeline.push(
         `stored ${types} (lock ${owner === runId ? "held" : "not held"})`,
@@ -384,6 +433,10 @@ export async function startFakeLockGateway(
     takeLock(threadId: string, runId: string) {
       locks.set(threadId, runId);
       timeline.push(`lock taken by ${runId}`);
+    },
+    /** Sends the lock responses `holdLockResponse` held back. */
+    answerLock() {
+      for (const answer of heldLockAnswers.splice(0)) answer();
     },
     async close() {
       sockets.clients.forEach((socket) => socket.terminate());

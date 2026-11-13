@@ -732,6 +732,8 @@ export interface RenewThreadLockRequest {
 export interface CleanupThreadLockRequest {
   threadId: string;
   runId: string;
+  /** Aborts the request, e.g. when the caller stops waiting for it. */
+  signal?: AbortSignal;
 }
 
 export interface RenewThreadLockResponse {
@@ -2490,6 +2492,8 @@ export class CopilotKitIntelligence {
       {
         runId: params.runId,
       },
+      undefined,
+      params.signal,
     );
   }
 

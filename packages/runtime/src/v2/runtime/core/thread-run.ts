@@ -8,6 +8,7 @@ import type {
   RunAgentInput,
 } from "@ag-ui/client";
 import type { CopilotKitIntelligence } from "../intelligence-platform";
+import { PlatformRequestError } from "../intelligence-platform/client";
 import type { AcquireThreadLockRequest } from "../intelligence-platform/client";
 import { startThreadLockHeartbeat } from "../intelligence-platform/thread-lock-heartbeat";
 import type { AgentRunner } from "../runner/agent-runner";
@@ -93,18 +94,42 @@ export async function runWithThreadLock(
   args: LockedRunArgs,
 ): Promise<LockedRunOutcome> {
   const { runner, intelligence, lock: settings } = args;
+  const requested = {
+    threadId: args.acquire.threadId,
+    runId: args.acquire.runId,
+  };
+  // Stopped before the lock was asked for: nothing is sent.
+  if (args.signal?.aborted) return { ...requested, stopped: true };
   // The platform starts the lock's TTL when it handles the request, so time
   // the lifetime from the send rather than from the response.
   const lockRequestedAt = Date.now();
-  const lock = await intelligence.ɵacquireThreadLock({
+  const acquiring = intelligence.ɵacquireThreadLock({
     ...args.acquire,
     ttlSeconds: settings.ttlSeconds,
     ...(settings.keyPrefix !== undefined
       ? { lockKeyPrefix: settings.keyPrefix }
       : {}),
   });
-  const threadId = lock.threadId || args.acquire.threadId;
-  const runId = lock.runId || args.acquire.runId;
+  const lock = await untilAborted(acquiring, args.signal);
+  if (lock === ABORTED) {
+    // Stopped while the lock was being asked for. Nothing runs, and a lock
+    // the platform grants after all is given back as soon as it arrives.
+    void acquiring.then(
+      (late) =>
+        releaseLock(
+          intelligence,
+          {
+            threadId: late.threadId || requested.threadId,
+            runId: late.runId || requested.runId,
+          },
+          CLEANUP_TIMEOUT_MS,
+        ),
+      () => undefined,
+    );
+    return { ...requested, stopped: true };
+  }
+  const threadId = lock.threadId || requested.threadId;
+  const runId = lock.runId || requested.runId;
 
   let agent: AbstractAgent | undefined;
   let stopPromise: Promise<boolean | undefined> | undefined;
@@ -238,10 +263,16 @@ export async function runWithThreadLock(
     // Always release the lock from the runtime side. The gateway also
     // releases it when it stores the run's terminal event; the release is a
     // compare-and-delete by run ID, so a second one changes nothing and never
-    // frees a lock a newer run holds.
-    await intelligence
-      .ɵcleanupThreadLock({ threadId, runId })
-      .catch(() => undefined);
+    // frees a lock a newer run holds. It is bounded: a stopped run waits no
+    // longer than `stopTimeoutMs` for it, and a release that cannot be
+    // confirmed leaves the lock to its TTL, now that nothing renews it.
+    await releaseLock(
+      intelligence,
+      { threadId, runId },
+      stopPromise !== undefined && args.stopTimeoutMs !== undefined
+        ? args.stopTimeoutMs
+        : CLEANUP_TIMEOUT_MS,
+    );
   }
 
   // The stop a lost lock made is awaited before it is reported, as long as
@@ -254,6 +285,60 @@ export async function runWithThreadLock(
     ...(lockLost ? { lockLost } : {}),
     stopped: stoppedBySignal,
   };
+}
+
+/** Longest a lock release may take before the lock is left to its TTL. */
+const CLEANUP_TIMEOUT_MS = 10_000;
+
+/** What {@link untilAborted} resolves with when the signal aborts first. */
+const ABORTED: unique symbol = Symbol("aborted");
+
+/** `promise`'s value, or {@link ABORTED} as soon as `signal` aborts. */
+function untilAborted<T>(
+  promise: Promise<T>,
+  signal: AbortSignal | undefined,
+): Promise<T | typeof ABORTED> {
+  if (!signal) return promise;
+  if (signal.aborted) return Promise.resolve(ABORTED);
+  return new Promise<T | typeof ABORTED>((resolve, reject) => {
+    const onAbort = () => resolve(ABORTED);
+    signal.addEventListener("abort", onAbort, { once: true });
+    promise.then(
+      (value) => {
+        signal.removeEventListener("abort", onAbort);
+        resolve(value);
+      },
+      (error: unknown) => {
+        signal.removeEventListener("abort", onAbort);
+        reject(error);
+      },
+    );
+  });
+}
+
+/**
+ * Give a Thread's lock back, waiting at most `timeoutMs` for the platform to
+ * confirm it. Never rejects: the lock's TTL is the backstop for a release
+ * that cannot be confirmed.
+ */
+async function releaseLock(
+  intelligence: CopilotKitIntelligence,
+  run: { threadId: string; runId: string },
+  timeoutMs: number,
+): Promise<void> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  timer.unref?.();
+  try {
+    await untilAborted(
+      intelligence.ɵcleanupThreadLock({ ...run, signal: controller.signal }),
+      controller.signal,
+    );
+  } catch {
+    // The TTL releases a lock this call could not.
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 /** Wait for `promise`, for at most `timeoutMs` when it is set. */
@@ -388,6 +473,13 @@ export interface RunAgentInThreadOptions {
   persistedInputMessages?:
     | Message[]
     | ((run: { threadId: string; runId: string }) => Message[]);
+  /**
+   * The state the run starts from. Omitted, the run starts from the state
+   * the Thread last stored, so a fresh agent instance carries on where the
+   * Thread's previous run left off; a Thread with no stored state keeps the
+   * agent's own.
+   */
+  state?: RunAgentInput["state"];
   /** Tools offered to the agent for this run. */
   tools?: RunAgentInput["tools"];
   /** Context passed to the agent for this run. */
@@ -443,8 +535,8 @@ export interface RunAgentInThreadResult {
   newMessages: Message[];
   /**
    * True when `signal` stopped the run before it finished on its own. A run
-   * stopped while it was still being prepared never started, and added no
-   * messages.
+   * stopped before it started (while the Thread was being created, its lock
+   * taken, or the run prepared) added no messages.
    */
   stopped: boolean;
 }
@@ -498,16 +590,29 @@ export async function runAgentInThread(
       ? { learningContainerId: options.learningContainerId }
       : {};
 
+  const requestedRunId = options.runId ?? randomUUID();
+
   // No client created the Thread, so the run creates it.
-  await intelligence.getOrCreateThread({
-    threadId: options.threadId,
-    userId,
-    agentId,
-    ...learning,
-  });
+  const created = await untilAborted(
+    intelligence.getOrCreateThread({
+      threadId: options.threadId,
+      userId,
+      agentId,
+      ...learning,
+    }),
+    options.signal,
+  );
+  if (created === ABORTED)
+    return {
+      threadId: options.threadId,
+      runId: requestedRunId,
+      newMessages: [],
+      stopped: true,
+    };
 
   const runner = runtime.runner ?? sharedRunnerFor(intelligence);
-  let before = new Set<string>();
+  /** The conversation's ids as the run was given it; unset until it was. */
+  let before: Set<string> | undefined;
   const subscription = options.subscriber
     ? agent.subscribe(options.subscriber)
     : undefined;
@@ -526,7 +631,7 @@ export async function runAgentInThread(
     acquire: {
       supportsBackendThreadId: true,
       threadId: options.threadId,
-      runId: options.runId ?? randomUUID(),
+      runId: requestedRunId,
       userId,
       agentId,
       ...learning,
@@ -545,7 +650,12 @@ export async function runAgentInThread(
     start: async ({ threadId, runId }) => {
       // Read once the lock is held, so no other run can add to the Thread
       // between this read and the run.
-      const stored = await intelligence.getThreadMessages({ threadId, userId });
+      const [stored, state] = await Promise.all([
+        intelligence.getThreadMessages({ threadId, userId }),
+        "state" in options
+          ? Promise.resolve({ given: options.state })
+          : storedState(intelligence, { threadId, userId }),
+      ]);
       const history = await Promise.all(
         stored.messages.map((message) => toAgentMessage(message, intelligence)),
       );
@@ -558,6 +668,7 @@ export async function runAgentInThread(
       // and state, so the conversation goes on the agent.
       agent.threadId = threadId;
       agent.setMessages(conversation);
+      if (state) agent.setState(state.given);
       before = new Set(conversation.map((message) => message.id));
       return {
         agent,
@@ -610,7 +721,9 @@ export async function runAgentInThread(
   return {
     threadId,
     runId,
-    newMessages: agent.messages.filter((message) => !before.has(message.id)),
+    newMessages: before
+      ? agent.messages.filter((message) => !before?.has(message.id))
+      : [],
     stopped: outcome.stopped,
   };
 }
@@ -628,6 +741,33 @@ function sharedRunnerFor(intelligence: CopilotKitIntelligence): AgentRunner {
     sharedRunners.set(intelligence, runner);
   }
   return runner;
+}
+
+/**
+ * The state a Thread last stored, or undefined when it has none. A platform
+ * that does not serve stored state answers 404 and is read as having none;
+ * state that cannot be decoded fails the run rather than let it start from
+ * an empty state and store that over the real one.
+ */
+async function storedState(
+  intelligence: CopilotKitIntelligence,
+  thread: { threadId: string; userId: string },
+): Promise<{ given: unknown } | undefined> {
+  let read: Awaited<ReturnType<CopilotKitIntelligence["getThreadState"]>>;
+  try {
+    read = await intelligence.getThreadState(thread);
+  } catch (error) {
+    if (error instanceof PlatformRequestError && error.status === 404)
+      return undefined;
+    throw error;
+  }
+  if (read.kind === "snapshot") return { given: read.state };
+  if (read.kind === "snapshot-decode-error") {
+    throw new Error(
+      "The Thread's stored state could not be decoded, so the run did not start",
+    );
+  }
+  return undefined;
 }
 
 /** Convert canonical Intelligence history into AG-UI messages. */
