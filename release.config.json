@@ -17,7 +17,6 @@
         "@copilotkit/sdk-js",
         "@copilotkit/shared",
         "@copilotkit/sqlite-runner",
-        "@copilotkit/svelte",
         "@copilotkit/voice",
         "@copilotkit/vue",
         "@copilotkit/web-components",

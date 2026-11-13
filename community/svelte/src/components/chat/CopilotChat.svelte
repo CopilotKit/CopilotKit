@@ -11,6 +11,7 @@
   import { useCopilotKit } from "../../providers/useCopilotKit";
   import { setChatConfig, getChatConfig, ChatConfig } from "./chat-config-context.svelte";
   import CopilotChatView from "./CopilotChatView.svelte";
+  import { dispatchAfterActiveRunSettles } from "./dispatch-after-active-run";
   import type { CopilotChatProps, CopilotChatInputMode, ToolsMenuItem } from "./types";
 
   function normalizeAttachmentsConfig(
@@ -75,6 +76,7 @@
   let messages = $derived(agentHandle?.messages ?? []);
   let isRunning = $derived(agentHandle?.isRunning ?? false);
   let suggestions = $derived(suggestionsHandle?.suggestions ?? []);
+  let sendError = $state<string | null>(null);
 
   // Reactive config via getter so prop updates flow into the hook without
   // re-creating it. Refs bind through Svelte actions (see markup below).
@@ -93,30 +95,52 @@
     }, 100);
   }
 
+  async function sendMessage(value: string, includeAttachments = false) {
+    const activeAgent = agent;
+    if (!activeAgent) return;
+    sendError = null;
+
+    try {
+      await dispatchAfterActiveRunSettles(activeAgent, async () => {
+        if (includeAttachments && selectedAttachments.some((a) => a.status === "uploading")) {
+          sendError = "Wait for attachments to finish uploading before sending.";
+          return;
+        }
+
+        const ready = includeAttachments
+          ? attachmentsHandle.consumeAttachments()
+          : [];
+        if (ready.length > 0) {
+          const contentParts: InputContent[] = [];
+          if (value.trim()) {
+            contentParts.push({ type: "text", text: value });
+          }
+          for (const attachment of ready) {
+            contentParts.push(createAttachmentContent(attachment));
+          }
+          activeAgent.addMessage({
+            id: randomUUID(),
+            role: "user",
+            content: contentParts,
+          } as UserMessage);
+        } else {
+          activeAgent.addMessage({
+            id: randomUUID(),
+            role: "user",
+            content: value,
+          } as UserMessage);
+        }
+
+        await copilotkit.runAgent({ agent: activeAgent });
+      });
+    } catch (error) {
+      console.error("CopilotChat: runAgent failed after sending a message", error);
+      sendError = "The message could not be sent. Please try again.";
+    }
+  }
+
   function handleSubmitMessage(value: string) {
-    if (!agent) return;
-    if (selectedAttachments.some((a) => a.status === "uploading")) {
-      console.error("[CopilotKit] Cannot send while attachments are uploading");
-      return;
-    }
-    const ready = attachmentsHandle.consumeAttachments();
-    if (ready.length > 0) {
-      const contentParts: InputContent[] = [];
-      if (value.trim()) {
-        contentParts.push({ type: "text", text: value });
-      }
-      for (const attachment of ready) {
-        contentParts.push(createAttachmentContent(attachment));
-      }
-      agent.addMessage({
-        id: randomUUID(),
-        role: "user",
-        content: contentParts,
-      } as UserMessage);
-    } else {
-      agent.addMessage({ id: randomUUID(), role: "user", content: value } as UserMessage);
-    }
-    void copilotkit.runAgent({ agent });
+    return sendMessage(value, true);
   }
 
   function handleStop() {
@@ -130,9 +154,7 @@
   }
 
   function handleSelectSuggestion(suggestion: Suggestion) {
-    if (!agent) return;
-    agent.addMessage({ id: randomUUID(), role: "user", content: suggestion.message } as UserMessage);
-    void copilotkit.runAgent({ agent });
+    return sendMessage(suggestion.message);
   }
 </script>
 
@@ -141,6 +163,9 @@
   class="copilotkit-chat {className}"
   use:attachmentsHandle.containerAction
 >
+  {#if sendError}
+    <p class="copilotkit-chat-error" role="alert">{sendError}</p>
+  {/if}
   {#if attachmentsEnabled}
     <input
       type="file"
@@ -181,5 +206,13 @@
     flex-direction: column;
     height: 100%;
     overflow: hidden;
+  }
+
+  .copilotkit-chat-error {
+    margin: 0;
+    padding: 8px 12px;
+    color: #b91c1c;
+    background: #fef2f2;
+    font-size: 0.875rem;
   }
 </style>

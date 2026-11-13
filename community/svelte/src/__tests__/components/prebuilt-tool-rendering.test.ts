@@ -24,7 +24,9 @@ describe("prebuilt chat tool rendering", () => {
     const view = render(Harness);
 
     await waitFor(() =>
-      expect(view.getByText("weather:weather-1:complete:London:Sunny")).toBeTruthy(),
+      expect(
+        view.getByText("weather:weather-1:complete:London:Sunny"),
+      ).toBeTruthy(),
     );
     expect(view.queryByText("scoped-other")).toBeNull();
     expect(view.getByText("ping")).toBeTruthy();

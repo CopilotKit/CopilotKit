@@ -20,7 +20,12 @@ export default tseslint.config(
     },
   },
   {
-    ignores: ["coverage/**", "dist/**", "node_modules/**"],
+    ignores: [
+      "coverage/**",
+      "dist/**",
+      "node_modules/**",
+      "demo/.svelte-kit/**",
+    ],
   },
   {
     files: ["src/__tests__/**/*.{ts,svelte}"],

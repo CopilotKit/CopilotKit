@@ -1,26 +1,13 @@
 import { sveltekit } from "@sveltejs/kit/vite";
-import path from "path";
+import { fileURLToPath } from "node:url";
 import { loadEnv } from "vite";
 
-const workspaceRoot = path.resolve("../../../..");
+const packageRoot = fileURLToPath(new URL("..", import.meta.url));
 
 export default ({ mode }: { mode: string }) => {
   process.env = { ...process.env, ...loadEnv(mode, process.cwd(), "") };
   return {
     plugins: [sveltekit()],
-    resolve: {
-      alias: [
-        {
-          // Keep the SDK source hot-reloadable without intercepting public
-          // subpath exports such as @copilotkit/svelte/styles.css.
-          find: /^@copilotkit\/svelte$/,
-          replacement: path.resolve(
-            workspaceRoot,
-            "packages/svelte/src/index.ts",
-          ),
-        },
-      ],
-    },
     ssr: {
       noExternal: [
         "@copilotkit/svelte",
@@ -32,7 +19,7 @@ export default ({ mode }: { mode: string }) => {
     },
     server: {
       fs: {
-        allow: [workspaceRoot],
+        allow: [packageRoot],
       },
     },
     optimizeDeps: {

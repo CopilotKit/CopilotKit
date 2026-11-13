@@ -7,6 +7,8 @@ import AssistantToolbarHarness from "./assistant-toolbar-harness.svelte";
 import ChatHarness from "./copilot-chat-harness.svelte";
 import ChatAgentSwitchHarness from "./chat-agent-switch-harness.svelte";
 import ToolOnlyMessageHarness from "./tool-only-message-harness.svelte";
+import { dispatchAfterActiveRunSettles } from "../../components/chat/dispatch-after-active-run";
+import type { AbstractAgent } from "@ag-ui/client";
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -77,6 +79,26 @@ describe("CopilotChatInput", () => {
 });
 
 describe("CopilotChat", () => {
+  it("waits for an active stream before dispatching a second message", async () => {
+    let settleActiveRun!: () => void;
+    const activeRunCompletionPromise = new Promise<void>((resolve) => {
+      settleActiveRun = resolve;
+    });
+    const dispatch = vi.fn();
+    const agent = {
+      isRunning: true,
+      activeRunCompletionPromise,
+    } as unknown as AbstractAgent;
+
+    const secondMessage = dispatchAfterActiveRunSettles(agent, dispatch);
+    await Promise.resolve();
+    expect(dispatch).not.toHaveBeenCalled();
+
+    settleActiveRun();
+    await secondMessage;
+    expect(dispatch).toHaveBeenCalledOnce();
+  });
+
   it("passes reactive controlled inputValue updates through to CopilotChatInput", async () => {
     const view = render(ChatHarness);
     const textarea = view.getByPlaceholderText(
@@ -112,9 +134,7 @@ describe("CopilotChatMessageView", () => {
   it("renders assistant messages that contain only tool calls", async () => {
     const view = render(ToolOnlyMessageHarness);
 
-    await waitFor(() =>
-      expect(view.getByText("lookupWeather")).toBeTruthy(),
-    );
+    await waitFor(() => expect(view.getByText("lookupWeather")).toBeTruthy());
   });
 
   it("pins to the bottom when a streaming message changes without changing message count", async () => {

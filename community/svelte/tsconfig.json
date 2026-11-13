@@ -1,24 +1,25 @@
 {
   "$schema": "https://json.schemastore.org/tsconfig",
-  "extends": "@copilotkit/typescript-config/base.json",
   "compilerOptions": {
+    "declaration": true,
+    "declarationMap": true,
+    "esModuleInterop": true,
+    "incremental": false,
+    "isolatedModules": true,
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
     "module": "ESNext",
+    "moduleDetection": "force",
     "moduleResolution": "Bundler",
+    "noUncheckedIndexedAccess": true,
     "target": "ES2022",
+    "resolveJsonModule": true,
+    "skipLibCheck": true,
+    "strict": true,
     "outDir": "dist",
     "rootDir": "src",
     "baseUrl": ".",
     "paths": {
-      "@/*": ["./src/*"],
-      "@copilotkit/core": ["../core/dist/index.d.mts", "../core/src/index.ts"],
-      "@copilotkit/shared": [
-        "../shared/dist/index.d.mts",
-        "../shared/src/index.ts"
-      ],
-      "@copilotkit/web-inspector": [
-        "../web-inspector/dist/index.d.mts",
-        "../web-inspector/src/index.ts"
-      ]
+      "@/*": ["./src/*"]
     },
     "types": ["vitest/globals", "node"],
     "verbatimModuleSyntax": true

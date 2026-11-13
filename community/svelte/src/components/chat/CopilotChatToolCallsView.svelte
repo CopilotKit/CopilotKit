@@ -51,7 +51,19 @@
   }
 
   function getToolResult(toolCallId: string): string | undefined {
-    return findToolMessage(toolCallId)?.content;
+    const content = findToolMessage(toolCallId)?.content;
+    return content === undefined ? undefined : contentToText(content);
+  }
+
+  function contentToText(content: ToolMessage["content"]): string {
+    if (typeof content === "string") return content;
+    return content
+      .map((part) =>
+        "text" in part && typeof part.text === "string"
+          ? part.text
+          : JSON.stringify(part) ?? "",
+      )
+      .join("");
   }
 
   function toolArgs(raw: string): Record<string, unknown> {
@@ -89,7 +101,7 @@
         name: tc.function.name,
         args: parsedArgs,
         status: ToolCallStatus.Complete,
-        result: toolMessage.content,
+        result: contentToText(toolMessage.content),
         toolCall: tc,
         toolMessage,
       };
@@ -117,7 +129,7 @@
         toolCallId: tc.id,
         args,
         status: ToolCallStatus.Complete,
-        result: toolMessage.content,
+        result: contentToText(toolMessage.content),
       };
     }
 
