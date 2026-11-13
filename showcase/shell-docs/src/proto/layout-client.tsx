@@ -10,7 +10,6 @@ import {
   BackendGlyph,
   CookbookGlyph,
   OpenBotGlyph,
-  DirectoryGlyph,
   DeclarativeUIGlyph,
   FrontendToolsGlyph,
   GenerativeUIGlyph,
@@ -172,16 +171,15 @@ const TILES_TRAY: Extract<LinkItemType, { type: "custom" }> = {
 };
 
 /**
- * A menu card is a white card in the tray, as on the home (link-card.tsx):
- * borderless at rest (theme.css), and on hover it takes the website's lilac
- * border-action edge.
+ * A menu card is a card, as on the home (link-card.tsx): white with a
+ * hairline and a small lift on the menu's faint lilac panel (theme.css); on
+ * hover it takes the lilac border-action edge and a deeper lift.
  */
 const HOVER =
-  "group/card border-transparent transition-[border-color] duration-200 hover:border-edge-action focus-visible:border-ring motion-reduce:transition-none";
+  "group/card border-border shadow-card transition-[border-color,box-shadow] duration-200 hover:border-edge-action hover:shadow-card-hover focus-visible:border-ring motion-reduce:transition-none dark:bg-[#1a1a24]";
 
-/** A card's glyph: solid plum ink with no tile, lilac on hover. */
-const INK_GLYPH =
-  "text-foreground transition-colors duration-200 group-hover/card:text-primary motion-reduce:transition-none [&_svg]:size-[22px]";
+/** A card's glyph: solid, in the accent, with no tile. */
+const INK_GLYPH = "text-primary [&_svg]:size-[22px]";
 
 /**
  * Topic cards. Fumadocs draws `banner` above the title in place of its own
@@ -319,29 +317,75 @@ function MenuRow({
 }
 
 /**
- * The Examples menu's lead tile, two rows tall, on the home's blue stage:
- * the gallery of every demo, its glyph in white.
+ * The Examples menu's lead tile, two rows tall: a window onto the gallery.
+ * The words sit on the menu's white like every other card; beside them, a
+ * slice of the home's stage holds three demos in miniature (a chat, a
+ * generated card, an approval), which fan open when the tile is hovered.
  */
 function GalleryTile() {
   return (
     <>
-      <span aria-hidden="true" className="mb-auto text-white [&_svg]:size-6">
-        <DirectoryGlyph />
+      <span className="flex min-w-0 flex-1 flex-col justify-center gap-1">
+        <span className="text-sm font-semibold">Gallery</span>
+        <span className="text-xs leading-[1.45] text-fd-muted-foreground">
+          Every live demo, running on your framework.
+        </span>
+        <span className="mt-1 inline-flex items-center gap-1 text-xs font-medium text-primary">
+          Browse all demos
+          <ArrowRight
+            aria-hidden="true"
+            className="size-3.5 transition-transform duration-200 group-hover/all:translate-x-0.5 motion-reduce:transition-none"
+          />
+        </span>
       </span>
-      <span className="text-lg leading-6 font-semibold text-white">
-        Gallery
-      </span>
-      <span className="text-sm leading-5 text-white/90">
-        Every live demo in one place, running on the framework you use.
-      </span>
-      <span className="mt-1 inline-flex items-center gap-1.5 text-sm font-medium text-white">
-        Browse the demos
-        <ArrowRight
-          aria-hidden="true"
-          className="size-4 transition-transform group-hover/all:translate-x-0.5 motion-reduce:transition-none"
-        />
+      <span
+        aria-hidden="true"
+        className="relative w-[44%] max-w-40 shrink-0 self-stretch overflow-hidden rounded-[10px] border border-white/60 bg-(image:--stage) dark:border-white/10"
+      >
+        <MiniDemo className="-rotate-6 group-hover/all:-translate-x-2.5 group-hover/all:-rotate-10 left-[10%]">
+          <span className="h-1 w-3/4 rounded-full bg-black/10 dark:bg-white/15" />
+          <span className="h-1 w-1/2 rounded-full bg-black/10 dark:bg-white/15" />
+          <span className="mt-auto ms-auto h-2 w-3/5 rounded-full bg-primary/30" />
+        </MiniDemo>
+        <MiniDemo className="z-10 left-[30%] -translate-y-[56%] group-hover/all:-translate-y-[66%]">
+          <span className="h-1 w-2/3 rounded-full bg-black/15 dark:bg-white/20" />
+          <span className="flex flex-1 items-end gap-0.5">
+            <span className="h-[40%] flex-1 rounded-[1px] bg-primary/50" />
+            <span className="h-[75%] flex-1 rounded-[1px] bg-primary/70" />
+            <span className="h-[55%] flex-1 rounded-[1px] bg-brand-mint-deep/60" />
+            <span className="h-full flex-1 rounded-[1px] bg-primary" />
+          </span>
+        </MiniDemo>
+        <MiniDemo className="z-20 left-[50%] rotate-6 group-hover/all:translate-x-2.5 group-hover/all:rotate-10">
+          <span className="h-1 w-4/5 rounded-full bg-black/10 dark:bg-white/15" />
+          <span className="h-1 w-3/5 rounded-full bg-black/10 dark:bg-white/15" />
+          <span className="mt-auto flex gap-0.5">
+            <span className="h-2 flex-1 rounded-full bg-brand-plum dark:bg-white" />
+            <span className="h-2 flex-1 rounded-full border border-black/15 dark:border-white/25" />
+          </span>
+        </MiniDemo>
       </span>
     </>
+  );
+}
+
+/** A demo in miniature: a small white window on the gallery's stage. */
+function MiniDemo({
+  className,
+  children,
+}: {
+  className?: string;
+  children: ReactNode;
+}) {
+  return (
+    <span
+      className={cn(
+        "absolute top-1/2 flex aspect-[4/5] w-[42%] -translate-y-1/2 flex-col gap-1 rounded-md bg-white p-1.5 shadow-[0_6px_14px_-4px_rgb(38_32_116/0.4)] transition-[translate,rotate] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] motion-reduce:transition-none dark:bg-[#1b1b25]",
+        className,
+      )}
+    >
+      {children}
+    </span>
   );
 }
 
@@ -404,8 +448,7 @@ function DHomeLayout({
           text: "Gallery",
           url: "/examples",
           menu: {
-            className:
-              "group/all row-span-2 gap-1 border-white/60 bg-(image:--stage-captioned) p-4 transition-[border-color] duration-200 hover:border-edge-action motion-reduce:transition-none dark:border-white/10",
+            className: `${HOVER} group/all row-span-2 flex-row items-stretch gap-3 p-2.5`,
             children: <GalleryTile />,
           },
         },

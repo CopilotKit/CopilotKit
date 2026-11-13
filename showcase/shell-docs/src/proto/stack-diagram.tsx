@@ -1,16 +1,12 @@
 "use client";
 
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState } from "react";
+import type { ReactNode } from "react";
 import { cn } from "@/lib/cn";
 import { FrameworkLogo } from "@/components/icons/framework-icons";
 import { FrontendLogo } from "@/components/icons/frontend-logo";
-import {
-  FRAMEWORKS,
-  FRONTENDS,
-  frameworkById,
-  frontendById,
-  type FrontendId,
-} from "./data";
+import { FRAMEWORKS, FRONTENDS, frameworkById, frontendById } from "./data";
+import type { FrontendId } from "./data";
 import { useFrontend } from "./frontend";
 import { useLastFramework } from "./last-framework";
 
@@ -186,7 +182,7 @@ function Rolling({ id, children }: { id: string; children: ReactNode }) {
       {shown.prev ? (
         <span
           key={`out${shown.n}`}
-          className={`${layer} animate-[roll-out_420ms_cubic-bezier(0.22,1,0.36,1)_forwards]`}
+          className={`${layer} animate-[roll-out_240ms_cubic-bezier(0.4,0,1,1)_forwards]`}
         >
           {shown.prev}
         </span>
@@ -196,7 +192,7 @@ function Rolling({ id, children }: { id: string; children: ReactNode }) {
         className={cn(
           layer,
           shown.n > 0 &&
-            "animate-[roll-in_560ms_cubic-bezier(0.22,1,0.36,1)_both]",
+            "animate-[roll-in_420ms_cubic-bezier(0.16,1,0.3,1)_both]",
         )}
       >
         {shown.node}
@@ -246,19 +242,24 @@ function Tile({
 
 /**
  * A wire and its traffic: one packet out toward the agent and one back, half
- * a cycle apart. `pathLength` makes a packet the same share of every wire.
+ * a cycle apart, each a bright head with a fading comet tail. The return
+ * packet runs the reversed path, so head and tail stay in order.
+ * `pathLength` makes a packet the same share of every wire.
  */
 function Wire({
   d,
+  back: backD,
   picked,
   delay,
   live,
 }: {
   d: string;
+  back: string;
   picked: boolean;
   delay: number;
   live: boolean;
 }) {
+  const ink = picked ? "stroke-brand-plum dark:stroke-white" : "stroke-white";
   return (
     <g>
       <path
@@ -266,22 +267,44 @@ function Wire({
         className={picked ? "stroke-white" : "stroke-stage-line opacity-40"}
         strokeWidth={picked ? 2 : 1.25}
       />
-      {[0, 1].map((back) => (
-        <path
-          key={back}
-          d={d}
-          pathLength={100}
-          className={cn(
-            "[stroke-dasharray:9_191] [stroke-dashoffset:9] motion-safe:animate-[travel_2.6s_cubic-bezier(0.45,0,0.55,1)_infinite] motion-reduce:hidden",
-            back && "[animation-direction:reverse]",
-            !live && "[animation-play-state:paused]",
-            picked ? "stroke-brand-plum dark:stroke-white" : "stroke-white",
-          )}
-          style={{ animationDelay: `${-(delay + back * 1.3)}s` }}
-          strokeWidth={picked ? 3.25 : 2.5}
-          strokeLinecap="round"
-        />
-      ))}
+      {[d, backD].map((path, back) => {
+        const timing = {
+          animationDelay: `${-(delay + back * 1.3)}s`,
+        };
+        const run = cn(
+          "motion-reduce:hidden",
+          !live && "[animation-play-state:paused]",
+        );
+        return (
+          <g key={back}>
+            <path
+              d={path}
+              pathLength={100}
+              className={cn(
+                "[stroke-dasharray:22_178] [stroke-dashoffset:24] motion-safe:animate-[packet-tail_2.6s_cubic-bezier(0.45,0,0.55,1)_infinite]",
+                run,
+                ink,
+              )}
+              style={timing}
+              strokeOpacity={0.35}
+              strokeWidth={picked ? 3.25 : 2.5}
+              strokeLinecap="round"
+            />
+            <path
+              d={path}
+              pathLength={100}
+              className={cn(
+                "[stroke-dasharray:7_193] [stroke-dashoffset:9] motion-safe:animate-[packet-head_2.6s_cubic-bezier(0.45,0,0.55,1)_infinite]",
+                run,
+                ink,
+              )}
+              style={timing}
+              strokeWidth={picked ? 3.75 : 3}
+              strokeLinecap="round"
+            />
+          </g>
+        );
+      })}
     </g>
   );
 }
@@ -325,6 +348,7 @@ export function StackDiagram() {
                 {left === layer ? (
                   <Wire
                     d={`M64 ${y} C 128 ${y}, 128 132, 180 132`}
+                    back={`M180 132 C 128 132, 128 ${y}, 64 ${y}`}
                     picked={left}
                     delay={i * 0.65}
                     live={live}
@@ -333,6 +357,7 @@ export function StackDiagram() {
                 {right === layer ? (
                   <Wire
                     d={`M260 132 C 312 132, 312 ${y}, 376 ${y}`}
+                    back={`M376 ${y} C 312 ${y}, 312 132, 260 132`}
                     picked={right}
                     delay={i * 0.65 + 0.35}
                     live={live}

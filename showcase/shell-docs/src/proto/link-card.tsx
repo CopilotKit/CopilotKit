@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { useRef, type ReactNode } from "react";
+import { useCallback, useRef, useState } from "react";
+import type { ReactNode } from "react";
 import { ArrowRight } from "lucide-react";
 import { SiDotnet, SiFastapi, SiPython, SiTypescript } from "react-icons/si";
 import { cn } from "@/lib/cn";
@@ -28,42 +29,49 @@ import {
  * takes the website's lilac border-action edge and turns a docs glyph lilac.
  */
 const GLYPH = {
-  ink: "text-foreground group-hover/item:text-primary",
+  ink: "text-primary",
   logo: "",
 } as const;
 
 const CARD =
-  "items-start gap-3.5 rounded-lg bg-tray-card p-4 transition-[border-color,background-color] duration-200 hover:border-edge-action focus-visible:border-ring motion-reduce:transition-none sm:p-5 [a]:hover:bg-tray-card";
+  "items-start gap-3.5 rounded-lg bg-tray-card p-4 transition-[border-color,background-color,box-shadow,translate] duration-200 hover:border-edge-action focus-visible:border-ring motion-reduce:transition-none sm:p-5 [a]:hover:bg-tray-card group-data-[tray=bare]/tray:border-border group-data-[tray=bare]/tray:bg-card dark:group-data-[tray=bare]/tray:bg-[#13131b] group-data-[tray=bare]/tray:shadow-card group-data-[tray=bare]/tray:hover:-translate-y-px group-data-[tray=bare]/tray:hover:border-edge-action group-data-[tray=bare]/tray:hover:shadow-card-hover group-data-[tray=bare]/tray:[a]:hover:bg-card";
 const MEDIA =
   "size-6 transition-colors duration-200 motion-reduce:transition-none [&_svg]:size-[22px] [&_img]:size-[22px]";
 
 /**
- * The lilac-grey tray under a card grid. Every row is as tall as the tallest,
- * so all cards in a tray are one size. `matrix` sets the cards on the
- * matrix's stage ground instead, the same look as every other matrix: a
- * wider tray (12px cards in a 28px tray over 16px of padding) so the
- * squares show around and between them, lit under the pointer.
+ * How a tray holds its cards:
+ * - `frame`: the lilac-grey tray (20px over 8px of padding).
+ * - `bare`: no container; each card stands out on its own shadow.
+ * - `matrix`: the full protocol-map stage with the pixel matrix.
+ */
+export type TrayVariant = "frame" | "bare" | "matrix";
+
+/**
+ * A tray under a card grid. Every row is as tall as the tallest, so all
+ * cards in a tray are one size.
  */
 export function Tray({
   children,
-  matrix = false,
+  variant = "frame",
 }: {
   children: ReactNode;
-  matrix?: boolean;
+  variant?: TrayVariant;
 }) {
   return (
     <div
+      data-tray={variant}
       className={cn(
-        "relative isolate grid auto-rows-fr grid-cols-1 sm:grid-cols-2 lg:grid-cols-3",
-        matrix
-          ? cn(
-              "gap-3 overflow-hidden rounded-[28px] border-[1.5px] border-stage-rim p-3 sm:p-4",
-              MATRIX_GROUND,
-            )
-          : "gap-2 rounded-[20px] bg-frame p-2",
+        "group/tray relative isolate grid auto-rows-fr grid-cols-1 sm:grid-cols-2 lg:grid-cols-3",
+        variant === "matrix" &&
+          cn(
+            "gap-3 overflow-hidden rounded-[28px] border-[1.5px] border-stage-rim p-3 sm:p-4",
+            MATRIX_GROUND,
+          ),
+        variant === "bare" && "gap-4",
+        variant === "frame" && "gap-2 rounded-[20px] bg-frame p-2",
       )}
     >
-      {matrix ? <PixelMatrix interactive /> : null}
+      {variant === "matrix" ? <PixelMatrix interactive /> : null}
       {children}
     </div>
   );
@@ -265,20 +273,29 @@ export function FamilyMenuCard({
   const langs = variants
     .map((v) => v.lang)
     .filter((lang, i, all) => all.indexOf(lang) === i);
+  // The popover renders inside the navbar menu's own popup, not at the end
+  // of <body>: Fumadocs' menu closes when the pointer leaves its popup, so a
+  // popover portaled outside it vanished on the way to a language.
+  const [menu, setMenu] = useState<HTMLElement | null>(null);
+  const findMenu = useCallback((el: HTMLElement | null) => {
+    if (el) setMenu(el.closest<HTMLElement>("nav"));
+  }, []);
   return (
     <Popover>
       <PopoverTrigger
+        ref={findMenu}
         openOnHover
         delay={80}
         closeDelay={160}
         className={cn(
-          "flex cursor-pointer flex-col rounded-lg border bg-fd-card text-start data-popup-open:border-edge-action",
+          "flex cursor-pointer flex-col rounded-lg border bg-fd-card text-start data-popup-open:border-edge-action data-popup-open:shadow-card-hover",
           className,
         )}
       >
         <IntegrationCardBody slug={variants[0].id} name={name} langs={langs} />
       </PopoverTrigger>
       <PopoverContent
+        container={menu ?? undefined}
         side="bottom"
         align="start"
         sideOffset={6}

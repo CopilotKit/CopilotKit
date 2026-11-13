@@ -7,10 +7,11 @@ import {
   useMemo,
   useState,
   useSyncExternalStore,
-  type ReactNode,
 } from "react";
+import type { ReactNode } from "react";
 import { useStory } from "@fumadocs/story";
-import { defineStoryFactory, type Story } from "@fumadocs/story/next/client";
+import { defineStoryFactory } from "@fumadocs/story/next/client";
+import type { Story } from "@fumadocs/story/next/client";
 import { DynamicCodeBlock } from "fumadocs-ui/components/dynamic-codeblock";
 import {
   CopilotKitProvider,
@@ -22,14 +23,14 @@ import {
   standardUI,
   useGenerativeUIRuntime,
 } from "@copilotkit/react-core/v2/generative-ui";
-import { STAGE_WINDOW, Stage } from "@/components/brand/stage";
+import { STAGE_WINDOW, CodeFrame } from "@/components/brand/stage";
 import { brandDark, brandLight } from "@/proto/code-theme";
 import {
   catalogVariants,
   variantNode,
   variantOperations,
-  type CatalogVariant,
 } from "./catalog-story";
+import type { CatalogVariant } from "./catalog-story";
 
 // The catalog pages' previews: a Fumadocs Story per component, its controls
 // the component's props. Each preview draws its surface straight from the
@@ -152,7 +153,7 @@ function NodeCode({ name }: { name: string }) {
   const node = useSyncExternalStore(store.subscribe, store.get, store.get);
   if (!node) return null;
   return (
-    <Stage className="mt-4">
+    <CodeFrame className="mt-4">
       <DynamicCodeBlock
         lang="json"
         code={JSON.stringify(node, null, 2)}
@@ -162,7 +163,7 @@ function NodeCode({ name }: { name: string }) {
         }}
         options={{ themes: { light: brandLight, dark: brandDark } }}
       />
-    </Stage>
+    </CodeFrame>
   );
 }
 
