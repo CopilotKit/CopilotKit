@@ -2,6 +2,7 @@
 
 import React, {
   useCallback,
+  useContext,
   useEffect,
   useMemo,
   useRef,
@@ -36,7 +37,7 @@ import {
 import { useThreads } from "../../hooks/use-threads";
 import type { Thread } from "../../hooks/use-threads";
 import { useLicenseContext } from "../../providers/CopilotKitProvider";
-import { useDefaultAgentId } from "../../context";
+import { CopilotKitContext, useDefaultAgentId } from "../../context";
 import { useCopilotChatConfiguration } from "../../providers/CopilotChatConfigurationProvider";
 
 /**
@@ -188,8 +189,14 @@ export function CopilotThreadsDrawer({
   // `unknown` (an entitlement lookup that did not recover) is not a settled
   // negative, so core treats it as licensed and lets the threads endpoint
   // decide; `null` (not reported yet) is pending, never the locked view.
-  const { licensed, licensePending } =
-    ɵresolveThreadsLicense(useLicenseContext());
+  // A runtime that connects without reporting a license (no Intelligence)
+  // ends the pending. `useThreads` below re-renders this component on every
+  // connection change, so this read stays current.
+  const copilotkit = useContext(CopilotKitContext)?.copilotkit;
+  const { licensed, licensePending } = ɵresolveThreadsLicense(
+    useLicenseContext(),
+    copilotkit?.ɵruntimeInfo,
+  );
 
   const providerAgentId = useDefaultAgentId();
   const resolvedAgentId = ɵresolveAgentId({

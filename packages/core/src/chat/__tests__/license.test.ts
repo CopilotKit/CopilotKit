@@ -10,8 +10,28 @@ import {
   ɵreserveLicenseBannerOffset,
   ɵresolveLicenseState,
   ɵresolveThreadsLicense,
+  type ɵThreadsLicenseRuntime,
 } from "../license";
 import { CopilotChatDefaultLabels } from "../labels";
+import { CopilotKitCoreRuntimeConnectionStatus } from "../../core/core";
+
+/** Runtime info for a runtime whose `/info` has not answered yet. */
+const CONNECTING_RUNTIME: ɵThreadsLicenseRuntime = {
+  status: CopilotKitCoreRuntimeConnectionStatus.Connecting,
+  licenseStatus: undefined,
+  runtimeEntitlements: undefined,
+};
+
+/** Runtime info for a connected runtime. */
+function connectedRuntime(
+  licenseStatus?: RuntimeLicenseStatus,
+): ɵThreadsLicenseRuntime {
+  return {
+    status: CopilotKitCoreRuntimeConnectionStatus.Connected,
+    licenseStatus,
+    runtimeEntitlements: undefined,
+  };
+}
 
 function failedEntitlements(retryable: boolean): RuntimeEntitlementResponse {
   return {
@@ -243,7 +263,12 @@ describe("ɵresolveThreadsLicense", () => {
   ] as const)(
     "status $status with threads $threads gives licensed $licensed",
     ({ status, threads, licensed, licensePending }) => {
-      expect(ɵresolveThreadsLicense(licenseContext(status, threads))).toEqual({
+      expect(
+        ɵresolveThreadsLicense(
+          licenseContext(status, threads),
+          CONNECTING_RUNTIME,
+        ),
+      ).toEqual({
         licensed,
         licensePending,
       });
@@ -256,10 +281,26 @@ describe("ɵresolveThreadsLicense", () => {
       entitlements: managedEntitlements(true),
       retryPending: false,
     });
-    expect(ɵresolveThreadsLicense(context)).toEqual({
+    expect(ɵresolveThreadsLicense(context, CONNECTING_RUNTIME)).toEqual({
       licensed: true,
       licensePending: false,
     });
+  });
+
+  it("lets the threads endpoint decide for a runtime that connected without a license", () => {
+    // A runtime without Intelligence reports no license status at all.
+    expect(
+      ɵresolveThreadsLicense(licenseContext(null, true), connectedRuntime()),
+    ).toEqual({ licensed: true, licensePending: false });
+  });
+
+  it("stays pending while the context lags a license the runtime reported", () => {
+    expect(
+      ɵresolveThreadsLicense(
+        licenseContext(null, true),
+        connectedRuntime("none"),
+      ),
+    ).toEqual({ licensed: false, licensePending: true });
   });
 
   it("locks the drawer after a terminal entitlement failure", () => {
@@ -268,7 +309,7 @@ describe("ɵresolveThreadsLicense", () => {
       entitlements: failedEntitlements(false),
       retryPending: false,
     });
-    expect(ɵresolveThreadsLicense(context)).toEqual({
+    expect(ɵresolveThreadsLicense(context, CONNECTING_RUNTIME)).toEqual({
       licensed: false,
       licensePending: false,
     });

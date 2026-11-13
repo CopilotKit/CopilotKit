@@ -26,7 +26,11 @@ export interface UseThreadsResult {
   threads: Ref<Thread[]>;
   isLoading: Ref<boolean>;
   error: Ref<Error | null>;
-  /** Genuine list-load/mutation errors only — excludes dev/config errors. */
+  /**
+   * Genuine list-load/mutation errors only — excludes dev/config errors. Also
+   * reports a runtime that refuses to list threads for a caller without
+   * identity (no `identifyUser`).
+   */
   listError: Ref<Error | null>;
   /**
    * Error from the most recent FAILED next-page (fetch-more) load, or `null`.

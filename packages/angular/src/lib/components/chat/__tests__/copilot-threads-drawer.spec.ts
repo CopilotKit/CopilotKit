@@ -3,7 +3,10 @@ import { TestBed } from "@angular/core/testing";
 import { signal } from "@angular/core";
 import { test, expect, vi, beforeEach } from "vitest";
 import type { DrawerThread } from "@copilotkit/web-components/threads-drawer";
-import type { RuntimeLicenseStatus } from "@copilotkit/core";
+import {
+  CopilotKitCoreRuntimeConnectionStatus,
+  type RuntimeLicenseStatus,
+} from "@copilotkit/core";
 import {
   CopilotThreadsDrawer,
   CopilotThreadsDrawerRow,
@@ -14,13 +17,19 @@ import { CopilotKit } from "../../../copilotkit";
 
 // ---------------------------------------------------------------------------
 // Mock the `CopilotKit` service so the component's `inject(CopilotKit)` resolves
-// to a minimal fake exposing only the `licenseStatus` signal the drawer reads.
-// A module-level signal lets tests drive the license gate. Defaults to "valid"
-// (fully licensed) so non-license tests render the list path unchanged.
+// to a minimal fake exposing only the license and connection signals the
+// drawer reads. A module-level signal lets tests drive the license gate.
+// Defaults to "valid" (fully licensed) so non-license tests render the list
+// path unchanged. The runtime stays connecting, so a missing status is pending.
 // ---------------------------------------------------------------------------
 
 const licenseStatusSignal = signal<RuntimeLicenseStatus | undefined>("valid");
-const fakeCopilotKit = { licenseStatus: licenseStatusSignal };
+const fakeCopilotKit = {
+  licenseStatus: licenseStatusSignal,
+  runtimeConnectionStatus: signal(
+    CopilotKitCoreRuntimeConnectionStatus.Connecting,
+  ),
+};
 const copilotkitProvider = { provide: CopilotKit, useValue: fakeCopilotKit };
 
 // ---------------------------------------------------------------------------

@@ -82,7 +82,8 @@ useThreads satisfies (input: UseThreadsInput) => UseThreadsResult;
 
   <PropertyReference name="listError" type="Ref<Error | null>">
     The latest list or mutation error from the thread store, excluding runtime
-    and configuration errors.
+    and configuration errors. It also reports a runtime that refuses to list
+    threads because the caller has no identity (no `identifyUser`).
   </PropertyReference>
 
   <PropertyReference name="fetchMoreError" type="Ref<Error | null>">
