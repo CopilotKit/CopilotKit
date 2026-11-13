@@ -21,17 +21,14 @@ import {
   LANGUAGES,
   TOPICS,
   frameworkById,
-  type Language,
 } from "./data";
-import { navForFramework, type NavIcon, type NavItem } from "./nav-d";
+import type { Language } from "./data";
+import { navForFramework } from "./nav-d";
+import type { NavIcon, NavItem } from "./nav-d";
 import { FrameworkMenu, FrontendMenu, StackRows } from "./pieces";
 import { rememberFramework } from "./last-framework";
-import {
-  frameworkHref,
-  sectionHref,
-  type Location,
-  type VariantId,
-} from "./routes";
+import { frameworkHref, sectionHref } from "./routes";
+import type { Location, VariantId } from "./routes";
 
 export { VARIANTS, variantMeta } from "./meta";
 

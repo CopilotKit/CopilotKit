@@ -6,14 +6,13 @@
 // in as plain props.
 
 import Link from "next/link";
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState } from "react";
+import type { ReactNode } from "react";
 import { ArrowUpRight } from "lucide-react";
 import { DemoFrame } from "@/components/demo-frame";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import {
-  trackEvent,
-  type AnalyticsProperties,
-} from "@/lib/telemetry/analytics";
+import { trackEvent } from "@/lib/telemetry/analytics";
+import type { AnalyticsProperties } from "@/lib/telemetry/analytics";
 
 /** A link that sends a PostHog event (shell-docs' names) when followed. */
 export function TrackedLink({

@@ -18,8 +18,8 @@ import {
   frameworkById,
   frontendById,
   topicBySlug,
-  type TopicSlug,
 } from "./data";
+import type { TopicSlug } from "./data";
 import {
   Code,
   featureSnippet,
@@ -41,7 +41,8 @@ import {
   TwoQuestions,
 } from "./pieces";
 import { INTELLIGENCE_NAV, findNavTitle, navForFramework } from "./nav-d";
-import { sectionHref, type Location, type VariantId } from "./routes";
+import { sectionHref } from "./routes";
+import type { Location, VariantId } from "./routes";
 
 /* ---------- frontend-aware code ---------- */
 

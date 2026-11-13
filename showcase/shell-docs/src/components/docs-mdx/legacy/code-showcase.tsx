@@ -1,6 +1,7 @@
 // Import shim for the legacy landing snippet: `<CodeShowcase tabs={[...]}>`
 // with one `<CodePanel>` per tab, shown as Fumadocs tabs.
-import { Children, isValidElement, type ReactNode } from "react";
+import { Children, isValidElement } from "react";
+import type { ReactNode } from "react";
 import { Tab, Tabs } from "fumadocs-ui/components/tabs";
 
 export function CodeShowcase({

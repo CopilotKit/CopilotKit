@@ -1,5 +1,6 @@
 import generated from "@/data/examples.json";
-import { demoOrigin, type SiteHosts } from "@/lib/site-hosts";
+import { demoOrigin } from "@/lib/site-hosts";
+import type { SiteHosts } from "@/lib/site-hosts";
 import { FRAMEWORKS } from "./data";
 
 // The examples playground's catalog: the showcase's features with the demos

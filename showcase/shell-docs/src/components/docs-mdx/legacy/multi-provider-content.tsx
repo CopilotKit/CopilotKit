@@ -4,16 +4,11 @@
 // component for it, so those pages failed there): choose an LLM
 // provider, and `<If>` blocks and `{{key}}` placeholders in the code follow it.
 
-import {
-  createContext,
-  useContext,
-  useEffect,
-  useRef,
-  useState,
-  type ReactNode,
-} from "react";
+import { createContext, useContext, useEffect, useRef, useState } from "react";
+import type { ReactNode } from "react";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import { quickStartProviders, type ProviderConfig } from "./providers";
+import { quickStartProviders } from "./providers";
+import type { ProviderConfig } from "./providers";
 
 const ProviderContext = createContext<ProviderConfig | null>(null);
 

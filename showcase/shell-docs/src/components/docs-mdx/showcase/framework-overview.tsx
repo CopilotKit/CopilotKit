@@ -19,7 +19,8 @@ import type { DocsMdxContext } from "../context";
 import { getFrontendCatalog, getIntegration } from "../data";
 import { docsHref } from "../href";
 import type { DocsScope } from "../scope";
-import { FeatureExplorer, TrackedLink, type ExplorerFeature } from "./client";
+import { FeatureExplorer, TrackedLink } from "./client";
+import type { ExplorerFeature } from "./client";
 import { scopeRoot } from "./paths";
 import { ACTION_LINK, PRIMARY_PILL } from "./styles";
 

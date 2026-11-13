@@ -1,12 +1,7 @@
 "use client";
 
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useState,
-  type ComponentProps,
-} from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import type { ComponentProps } from "react";
 import { usePathname } from "next/navigation";
 import { CopilotChat, useAgent } from "@copilotkit/react-core/v2";
 import { sendAnswerFeedback } from "@/lib/feedback";
@@ -21,8 +16,8 @@ import {
   ChatSuggestions,
   ChatWelcome,
   RatingsContext,
-  type Rating,
 } from "./chat-parts";
+import type { Rating } from "./chat-parts";
 
 /** A message's text, without its attachments. */
 function textOf(content: unknown) {
