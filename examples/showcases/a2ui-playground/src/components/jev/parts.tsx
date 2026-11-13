@@ -9,6 +9,7 @@ import {
   CopilotKitWordmark,
 } from "@/components/site/brand";
 import { cn } from "@/lib/utils";
+import { withBase } from "@/lib/site";
 import { ms } from "./use-jev-run";
 import type { JevRunState } from "./use-jev-run";
 
@@ -47,7 +48,7 @@ export function JevBar({
         // inverted to black on the light page.
         <span className="flex items-center gap-2 text-foreground">
           <img
-            src="/brand/typesafe-mark.svg"
+            src={withBase("/brand/typesafe-mark.svg")}
             alt="TypeSafe"
             className="h-[28px] w-auto invert dark:invert-0"
           />
@@ -56,7 +57,7 @@ export function JevBar({
       ) : (
         // Official TypeSafe AI logo, from typesafe.ai (white; inverted to black on the light page)
         <img
-          src="/brand/typesafe-ai.svg"
+          src={withBase("/brand/typesafe-ai.svg")}
           alt="TypeSafe AI"
           className="h-[27px] w-auto invert dark:invert-0"
         />

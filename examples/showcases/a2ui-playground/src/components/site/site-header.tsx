@@ -7,6 +7,7 @@ import type { SyntheticEvent } from "react";
 import { Dialog as DialogPrimitive } from "radix-ui";
 import {
   BookOpen,
+  Bot,
   Maximize2,
   MessagesSquare,
   Menu,
@@ -19,7 +20,8 @@ import "@/app/site.css";
 import { readStoredDesignSystem } from "@/design-systems/context";
 import { setTheme, useTheme } from "@/lib/theme";
 import { cn, focusRing } from "@/lib/utils";
-import { SOURCE_URL } from "@/components/start/links";
+import { OPENBOT_URL, SOURCE_URL } from "@/components/start/links";
+import { withBase } from "@/lib/site";
 import { A2UIMark, CopilotKitKite } from "./brand";
 
 type Active = "playground" | "build" | "evals" | "start";
@@ -95,6 +97,7 @@ export function SiteHeader({
         {/* Under 960px all of it is in the menu sheet, so the header is the mark and the menu button. */}
         <div className="ml-auto flex min-w-0 items-center gap-2">
           <div className="flex min-w-0 items-center gap-2 max-[959px]:hidden">
+            <OpenBotLink />
             <SourceLink />
             <ThemeToggle />
           </div>
@@ -172,7 +175,7 @@ function EmbedHeader({ query }: { query: string }) {
         <div className="ml-auto flex flex-none items-center gap-1.5">
           <ThemeToggle />
           <a
-            href={`${path}${query ? `?${query}` : ""}`}
+            href={`${withBase(path)}${query ? `?${query}` : ""}`}
             target="_blank"
             rel="noopener"
             onPointerEnter={refresh}
@@ -205,6 +208,26 @@ function ThemeToggle() {
     >
       {dark ? <Sun className="size-4" /> : <Moon className="size-4" />}
     </button>
+  );
+}
+
+const OPENBOT_LABEL = "Run A2UI in OpenBot";
+
+/**
+ * The way to OpenBot, whose site serves the playground at open.bot/a2ui. A plain <a> in the header the server
+ * renders, so the link is in the page's HTML for search engines, not only after the scripts run.
+ */
+function OpenBotLink() {
+  return (
+    <a
+      href={OPENBOT_URL}
+      className={cn(
+        "whitespace-nowrap rounded-md px-3 py-1.5 text-[15px] font-medium text-muted-foreground transition-colors hover:text-foreground",
+        focusRing,
+      )}
+    >
+      {OPENBOT_LABEL}
+    </a>
   );
 }
 
@@ -286,6 +309,18 @@ function MenuSheet({ active }: { active?: Active }) {
                   </Link>
                 );
               })}
+              <a
+                href={OPENBOT_URL}
+                onClick={close}
+                className={cn(row, rowOff, focusRing)}
+              >
+                <Bot
+                  className={cn(iconCls, iconOff)}
+                  strokeWidth={1.75}
+                  aria-hidden
+                />
+                {OPENBOT_LABEL}
+              </a>
             </nav>
           </div>
 

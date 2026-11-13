@@ -25,7 +25,9 @@ export function proxy(request: NextRequest) {
   // A page gets the site's own not-found page: no route matches the rewritten path.
   return api
     ? Response.json({ error: "Not found" }, { status: 404 })
-    : NextResponse.rewrite(new URL("/_closed", request.url));
+    : NextResponse.rewrite(
+        new URL(`${request.nextUrl.basePath}/_closed`, request.url),
+      );
 }
 
 export const config = {

@@ -4,11 +4,13 @@ import { SiteHeader } from "@/components/site/site-header";
 import { BuildStudio } from "@/components/build-studio/build-studio";
 import { parseRecipes } from "@/components/build-studio/recipes";
 import type { RecordedRun } from "@/components/build-studio/types";
+import { SITE_URL } from "@/lib/site";
 
 export const metadata = {
   title: "Watch a build · A2UI Playground",
   description:
     "A recorded playground run, replayed: the layout is drawn first, then each A2UI component fills in as it arrives.",
+  alternates: { canonical: `${SITE_URL}/watch` },
 };
 export const dynamic = "force-dynamic";
 
