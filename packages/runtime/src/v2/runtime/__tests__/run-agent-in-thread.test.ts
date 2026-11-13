@@ -208,6 +208,32 @@ describe("a run with no browser attached", () => {
     expect(fake.lockOwner(threadId)).toBeUndefined();
   });
 
+  it("runs with only an Intelligence client, through one runner it keeps for that client", async () => {
+    const { intelligence } = await platform();
+
+    const first = await run(
+      { intelligence },
+      new ScriptedAgent(says("First.", "reply-a")),
+      { messages: [ask("ask-a", "One")] },
+    );
+    const second = await run(
+      { intelligence },
+      new ScriptedAgent(says("Second.", "reply-b")),
+      { runId: "run-unattended-2", messages: [ask("ask-b", "Two")] },
+    );
+
+    expect(first.newMessages.map((message) => message.content)).toEqual([
+      "First.",
+    ]);
+    expect(second.newMessages.map((message) => message.content)).toEqual([
+      "Second.",
+    ]);
+    expect(
+      storedTypes().filter((type) => type === EventType.RUN_FINISHED),
+    ).toHaveLength(2);
+    expect(fake.lockOwner(threadId)).toBeUndefined();
+  });
+
   it("shows the agent the Thread's history and stores only this run's new message", async () => {
     const history: StoredMessage[] = [
       { id: "earlier-ask", role: "user", content: "What is on today?" },

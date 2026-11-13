@@ -27,7 +27,7 @@ const { newMessages } = await runAgentInThread({
 });
 ```
 
-`runtime` is the runtime from the [quickstart](/intelligence/quickstart). `assistant` is the agent you registered on it. The agent is run in place, so give each run its own instance, for example with `clone()`.
+`runtime` is the runtime from the [quickstart](/intelligence/quickstart). In a process that has no runtime, such as a job worker, pass `{ intelligence }` with your `CopilotKitIntelligence` client instead. `assistant` is the agent you registered on it. The agent is run in place, so give each run its own instance, for example with `clone()`.
 
 The call:
 

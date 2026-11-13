@@ -11,6 +11,7 @@ import type { CopilotKitIntelligence } from "../intelligence-platform";
 import type { AcquireThreadLockRequest } from "../intelligence-platform/client";
 import { startThreadLockHeartbeat } from "../intelligence-platform/thread-lock-heartbeat";
 import type { AgentRunner } from "../runner/agent-runner";
+import { IntelligenceAgentRunner } from "../runner/intelligence";
 
 /** Lock TTL used when the runtime passed in does not set one. */
 const DEFAULT_LOCK_TTL_SECONDS = 20;
@@ -276,14 +277,19 @@ export class ThreadRunError extends Error {
 
 /**
  * The runtime a {@link runAgentInThread} call runs through. A `CopilotRuntime`
- * configured with `intelligence` is one; so is any object with an
- * Intelligence client and the runner that streams to it.
+ * configured with `intelligence` is one; so is an Intelligence client on its
+ * own, `{ intelligence }`.
  */
 export interface RunAgentInThreadRuntime {
   /** The Intelligence client that holds the Thread and issues its lock. */
   intelligence?: CopilotKitIntelligence;
-  /** The runner that streams the run's events to Intelligence. */
-  runner: AgentRunner;
+  /**
+   * The runner that streams the run's events to Intelligence. Omitted, the
+   * run uses one Intelligence runner per client, created on first use and
+   * shared by every later run, so a Thread already running in this process
+   * is refused at once.
+   */
+  runner?: AgentRunner;
   /** Lock TTL in seconds. @default 20 */
   lockTtlSeconds?: number;
   /** Interval in seconds at which the lock is renewed. @default 15 */
@@ -443,12 +449,13 @@ export async function runAgentInThread(
     ...learning,
   });
 
+  const runner = runtime.runner ?? sharedRunnerFor(intelligence);
   let before = new Set<string>();
   const subscription = options.subscriber
     ? agent.subscribe(options.subscriber)
     : undefined;
   const outcome = await runWithThreadLock({
-    runner: runtime.runner,
+    runner,
     intelligence,
     lock: {
       ttlSeconds: runtime.lockTtlSeconds ?? DEFAULT_LOCK_TTL_SECONDS,
@@ -548,6 +555,21 @@ export async function runAgentInThread(
     newMessages: agent.messages.filter((message) => !before.has(message.id)),
     stopped: outcome.stopped,
   };
+}
+
+/** One runner per Intelligence client, for runs given no runner of their own. */
+const sharedRunners = new WeakMap<CopilotKitIntelligence, AgentRunner>();
+
+function sharedRunnerFor(intelligence: CopilotKitIntelligence): AgentRunner {
+  let runner = sharedRunners.get(intelligence);
+  if (!runner) {
+    runner = new IntelligenceAgentRunner({
+      url: intelligence.ɵgetRunnerWsUrl(),
+      authToken: intelligence.ɵgetRunnerAuthToken(),
+    });
+    sharedRunners.set(intelligence, runner);
+  }
+  return runner;
 }
 
 /** Convert canonical Intelligence history into AG-UI messages. */
