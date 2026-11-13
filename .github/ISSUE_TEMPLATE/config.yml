@@ -1,7 +1,7 @@
 blank_issues_enabled: false
 contact_links:
   - name: Read the Documentation
-    url: https://docs.copilot.ai
+    url: https://docs.copilotkit.ai
     about: Read the documentation to get started.
   - name: Join our Discord
     url: https://discord.com/invite/6dffbvGU3D
