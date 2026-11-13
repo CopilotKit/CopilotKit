@@ -5,7 +5,7 @@ import { describe, expect, it, vi } from "vitest";
 import type { AbstractAgent, BaseEvent } from "@ag-ui/client";
 import { Observable, of } from "rxjs";
 
-import { CopilotRuntime } from "../core/runtime";
+import { CopilotKitRuntime } from "../core/runtime";
 
 vi.mock("../handlers/handle-run", () => ({
   handleRunAgent: vi
@@ -47,7 +47,7 @@ describe("CopilotEndpointExpress routing", () => {
       stop: async () => true,
     };
 
-    return new CopilotRuntime({
+    return new CopilotKitRuntime({
       agents: {
         default: createMockAgent(),
         myAgent: createMockAgent(),

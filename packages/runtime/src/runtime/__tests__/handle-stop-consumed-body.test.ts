@@ -1,6 +1,6 @@
 import { HttpAgent } from "@ag-ui/client";
 import { expect, test, vi } from "vitest";
-import { CopilotIntelligenceRuntime } from "../core/runtime";
+import { CopilotKitIntelligenceRuntime } from "../core/runtime";
 import { CopilotKitIntelligence } from "../intelligence-platform/client";
 import { handleStopAgent } from "../handlers/handle-stop";
 
@@ -14,7 +14,7 @@ test("stop retains its run ID when the identity callback consumes the body", asy
     await request.json();
     return { id: "alice", name: "Alice" };
   });
-  const runtime = new CopilotIntelligenceRuntime({
+  const runtime = new CopilotKitIntelligenceRuntime({
     intelligence,
     identifyUser,
     agents: { default: new HttpAgent({ url: "http://localhost:9999/agent" }) },

@@ -1,5 +1,5 @@
 import { handleTranscribe } from "../handlers/handle-transcribe";
-import type { CopilotRuntime } from "../core/runtime";
+import type { CopilotKitRuntime } from "../core/runtime";
 import type { TranscribeFileOptions } from "../transcription-service/transcription-service";
 import { TranscriptionService } from "../transcription-service/transcription-service";
 import { describe, it, expect } from "vitest";
@@ -27,13 +27,13 @@ class MockTranscriptionService extends TranscriptionService {
 describe("handleTranscribe", () => {
   const createMockRuntime = (
     transcriptionService?: TranscriptionService,
-  ): CopilotRuntime => {
+  ): CopilotKitRuntime => {
     return {
       agents: Promise.resolve({}),
       transcriptionService,
       beforeRequestMiddleware: undefined,
       afterRequestMiddleware: undefined,
-    } as unknown as CopilotRuntime;
+    } as unknown as CopilotKitRuntime;
   };
 
   const createMockAudioFile = (

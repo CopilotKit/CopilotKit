@@ -4,8 +4,8 @@ import type {
 } from "@copilotkit/shared";
 import { describe, it, expect, test, vi } from "vitest";
 import { createCopilotKitRuntimeHandler } from "../core/fetch-handler";
-import { CopilotRuntime } from "../core/runtime";
-import type { CopilotRuntimeLike } from "../core/runtime";
+import { CopilotKitRuntime } from "../core/runtime";
+import type { CopilotKitRuntimeLike } from "../core/runtime";
 import { CopilotKitIntelligence } from "../intelligence-platform";
 import type { AbstractAgent } from "@ag-ui/client";
 
@@ -103,7 +103,7 @@ const createSuggestAgent = () => {
 
 const createRuntime = (
   agents: Record<string, AbstractAgent> = { default: createMockAgent() },
-) => new CopilotRuntime({ agents });
+) => new CopilotKitRuntime({ agents });
 
 const post = (url: string, body?: unknown) =>
   new Request(url, {
@@ -219,7 +219,7 @@ describe("createCopilotKitRuntimeHandler — multi-route with basePath", () => {
   // a runtime with `exposeMemoryRoutes: true`; the gated-off (404) behavior is
   // covered in its own describe block below.
   const memoryHandler = createCopilotKitRuntimeHandler({
-    runtime: new CopilotRuntime({
+    runtime: new CopilotKitRuntime({
       agents: { default: createMockAgent() },
       exposeMemoryRoutes: true,
     }),
@@ -334,12 +334,12 @@ describe("createCopilotKitRuntimeHandler — multi-route with basePath", () => {
 describe("createCopilotKitRuntimeHandler — exposeMemoryRoutes gate", () => {
   const offHandler = createCopilotKitRuntimeHandler({
     // Default: exposeMemoryRoutes omitted → off.
-    runtime: new CopilotRuntime({ agents: { default: createMockAgent() } }),
+    runtime: new CopilotKitRuntime({ agents: { default: createMockAgent() } }),
     basePath: "/api/copilotkit",
     mode: "multi-route",
   });
   const onHandler = createCopilotKitRuntimeHandler({
-    runtime: new CopilotRuntime({
+    runtime: new CopilotKitRuntime({
       agents: { default: createMockAgent() },
       exposeMemoryRoutes: true,
     }),
@@ -821,7 +821,7 @@ function setupInspectorMetadataRoute() {
     apiKey: "server-api-key",
   });
   const getInspectorMetadata = vi.spyOn(intelligence, "getInspectorMetadata");
-  const runtime = new CopilotRuntime({
+  const runtime = new CopilotKitRuntime({
     agents: {},
     intelligence,
     identifyUser: async () => ({ id: "user-1", name: "User One" }),
@@ -877,7 +877,7 @@ function setupInspectorLearningRoute(debug = false, configured = true) {
   const getInspectorLearning = vi
     .spyOn(intelligence, "getInspectorLearning")
     .mockResolvedValue(snapshot);
-  const runtime = new CopilotRuntime({
+  const runtime = new CopilotKitRuntime({
     agents: { checkout: createMockAgent() },
     intelligence,
     identifyUser: async () => ({ id: "user-1", name: "User One" }),
@@ -998,7 +998,7 @@ test("keeps Inspector Learning unavailable for runtimes without a web identity r
       mode: "intelligence",
       intelligence: runtime.intelligence,
       identifyUser: undefined,
-    } as unknown as CopilotRuntimeLike,
+    } as unknown as CopilotKitRuntimeLike,
     basePath: "/api/copilotkit",
   });
   const response = await handler(

@@ -12,8 +12,8 @@ import { test, expect, vi } from "vitest";
 // prebuilt `dist/`, which the `test` target does not rebuild and which can lag
 // behind source — testing it would assert against a stale artifact.
 import { createCopilotKitRuntimeHandler } from "../../index";
-import type { CopilotRuntimeFetchHandler } from "../../index";
-import { CopilotRuntime } from "../core/runtime";
+import type { CopilotKitRuntimeFetchHandler } from "../../index";
+import { CopilotKitRuntime } from "../core/runtime";
 import { CopilotKitIntelligence } from "../intelligence-platform";
 import { createChannel } from "@copilotkit/channels";
 import type {
@@ -36,10 +36,10 @@ const intelligence = () =>
 /**
  * Build an Intelligence runtime declaring a single managed Channel.
  *
- * @returns A {@link CopilotRuntime} with one channel and a fake identify hook.
+ * @returns A {@link CopilotKitRuntime} with one channel and a fake identify hook.
  */
 const intelRuntimeWith1Channel = () =>
-  new CopilotRuntime({
+  new CopilotKitRuntime({
     agents: {},
     intelligence: intelligence(),
     identifyUser: vi.fn().mockResolvedValue({ id: "u", name: "U" }),
@@ -59,10 +59,12 @@ const fakeChannelEngine =
   });
 
 test("public /v2 entry exposes handler.channels for an intelligence+channels runtime", async () => {
-  const handler: CopilotRuntimeFetchHandler = createCopilotKitRuntimeHandler({
-    runtime: intelRuntimeWith1Channel(),
-    __channelEngine: fakeChannelEngine(),
-  });
+  const handler: CopilotKitRuntimeFetchHandler = createCopilotKitRuntimeHandler(
+    {
+      runtime: intelRuntimeWith1Channel(),
+      __channelEngine: fakeChannelEngine(),
+    },
+  );
 
   expect(handler.channels).toBeDefined();
   await handler.channels!.ready({ timeoutMs: 1000 });
@@ -73,7 +75,7 @@ test("public /v2 entry exposes handler.channels for an intelligence+channels run
 
 test("public /v2 entry omits handler.channels for a plain runtime", () => {
   const handler = createCopilotKitRuntimeHandler({
-    runtime: new CopilotRuntime({ agents: {} }),
+    runtime: new CopilotKitRuntime({ agents: {} }),
     __channelEngine: fakeChannelEngine(),
   });
 

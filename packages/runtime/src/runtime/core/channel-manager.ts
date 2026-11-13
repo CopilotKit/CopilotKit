@@ -36,12 +36,12 @@ import type {
   ReplyContinuationOptions,
   ResolvedChannelMemory,
 } from "@copilotkit/channels-core";
-import type { CopilotRuntimeLearningConfig } from "./learning";
+import type { CopilotKitRuntimeLearningConfig } from "./learning";
 import {
   resolveLearningContainerId,
   resolveLearningContainerSelector,
 } from "./learning";
-import type { CopilotRuntimeUser } from "./learning";
+import type { CopilotKitRuntimeUser } from "./learning";
 import { bytesToBase64 } from "./web-crypto";
 
 /**
@@ -318,7 +318,7 @@ export interface ChannelManagerArgs {
   /** Standard runtime AgentRunner used by managed Channel executions. */
   runner?: AgentRunner;
   /** Selects one stable Learning Container ID for each Channel run. */
-  learning?: CopilotRuntimeLearningConfig;
+  learning?: CopilotKitRuntimeLearningConfig;
   /** Standard thread-lock TTL forwarded to Channel AgentRunner heartbeats. */
   lockTtlSeconds?: number;
   /** Standard thread-lock heartbeat cadence used by Channel AgentRunner calls. */
@@ -419,7 +419,7 @@ export interface ChannelsIntelligenceModule {
         threadId: string;
         runId: string;
         userId: string;
-        user?: CopilotRuntimeUser | null;
+        user?: CopilotKitRuntimeUser | null;
         agentId: string;
         tools: readonly {
           name: string;
@@ -486,7 +486,7 @@ export async function defaultActivateChannel(
     lockTtlSeconds?: number;
     lockHeartbeatIntervalSeconds?: number;
     lockKeyPrefix?: string;
-    learning?: CopilotRuntimeLearningConfig;
+    learning?: CopilotKitRuntimeLearningConfig;
   },
 ): Promise<ChannelsHandle> {
   let mod: ChannelsIntelligenceModule;
@@ -519,7 +519,7 @@ export async function defaultActivateChannel(
       : {}),
     // Forward the app-api HTTP base URL so the transport wires file/history
     // (HTTP-only) on the NORMAL managed path — without this, Channels started by
-    // the CopilotRuntime handler run with no history/file support (OSS-476).
+    // the CopilotKitRuntime handler run with no history/file support (OSS-476).
     appApiBaseUrl: config.apiUrl,
     // Forward the manager's diagnostic sink down to the launcher/transport so a
     // transport-level drop (e.g. a version-skew missing-leaseToken outage) is
@@ -557,7 +557,7 @@ interface CanonicalRunArgs {
   threadId: string;
   runId: string;
   userId: string;
-  user?: CopilotRuntimeUser | null;
+  user?: CopilotKitRuntimeUser | null;
   memory?: ResolvedChannelMemory;
   agentId: string;
   tools: readonly {
@@ -672,7 +672,7 @@ async function runCanonicalChannelAgent(
   lockHeartbeatIntervalSeconds: number,
   args: CanonicalRunArgs,
   lockKeyPrefix?: string,
-  learning?: CopilotRuntimeLearningConfig,
+  learning?: CopilotKitRuntimeLearningConfig,
 ): Promise<{
   iterations: number;
   interrupted: boolean;
@@ -1144,7 +1144,7 @@ function withTimeout<T>(
 export class ChannelManager implements ChannelsControl {
   private readonly intelligence: CopilotKitIntelligence;
   private readonly runner?: AgentRunner;
-  private readonly learning?: CopilotRuntimeLearningConfig;
+  private readonly learning?: CopilotKitRuntimeLearningConfig;
   private readonly lockTtlSeconds: number;
   private readonly lockHeartbeatIntervalSeconds: number;
   private readonly lockKeyPrefix?: string;

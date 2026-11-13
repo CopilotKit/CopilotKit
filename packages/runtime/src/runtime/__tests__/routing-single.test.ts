@@ -2,7 +2,7 @@ import { createCopilotKitRuntimeHandler } from "../core/fetch-handler";
 import { describe, it, expect } from "vitest";
 import type { AbstractAgent } from "@ag-ui/client";
 
-import { CopilotRuntime } from "../core/runtime";
+import { CopilotKitRuntime } from "../core/runtime";
 
 describe("CopilotEndpointSingleRoute routing", () => {
   const createMockRuntime = () => {
@@ -14,7 +14,7 @@ describe("CopilotEndpointSingleRoute routing", () => {
       return agent as AbstractAgent;
     };
 
-    return new CopilotRuntime({
+    return new CopilotKitRuntime({
       agents: {
         default: createMockAgent(),
         myAgent: createMockAgent(),

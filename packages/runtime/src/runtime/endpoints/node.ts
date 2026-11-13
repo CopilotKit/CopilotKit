@@ -1,5 +1,5 @@
 import { createCopilotKitRuntimeHandler } from "../core/fetch-handler";
-import type { CopilotRuntimeHandlerOptions } from "../core/fetch-handler";
+import type { CopilotKitRuntimeHandlerOptions } from "../core/fetch-handler";
 import type { RuntimeWithDeclaredChannels } from "../core/runtime";
 import type { ChannelsControl } from "../core/channel-manager";
 import { createCopilotKitNodeHandler } from "./node-fetch-handler";
@@ -10,24 +10,24 @@ import { getRuntimeLogger } from "../core/logger";
 /**
  * A Node.js HTTP request listener that is also a callable object carrying an
  * optional {@link ChannelsControl} surface, mirroring
- * `CopilotRuntimeFetchHandler.channels`. Node is the long-running,
+ * `CopilotKitRuntimeFetchHandler.channels`. Node is the long-running,
  * lifecycle-owning entry point for the runtime, so it is the surface that
  * exposes `.channels` for callers that need to observe or stop the managed
  * Channel activation the listener starts at creation.
  */
-export type NodeCopilotListener = NodeFetchHandler & {
+export type NodeCopilotKitListener = NodeFetchHandler & {
   channels?: ChannelsControl;
 };
 
 /**
- * A {@link NodeCopilotListener} whose {@link ChannelsControl} surface is
+ * A {@link NodeCopilotKitListener} whose {@link ChannelsControl} surface is
  * guaranteed present. Returned when the runtime was constructed with at least
  * one declared Intelligence Channel and activation was not opted out of, so the
  * documented `listener.channels.ready(...)` call type-checks without a `!` or a
  * `?.` under strict TypeScript — the Node mirror of
- * `CopilotRuntimeFetchHandlerWithChannels`.
+ * `CopilotKitRuntimeFetchHandlerWithChannels`.
  */
-export type NodeCopilotListenerWithChannels = NodeFetchHandler & {
+export type NodeCopilotKitListenerWithChannels = NodeFetchHandler & {
   /** Lifecycle control surface for the runtime's declared managed Channels. */
   channels: ChannelsControl;
 };
@@ -65,11 +65,11 @@ export type NodeCopilotListenerWithChannels = NodeFetchHandler & {
  * @example
  * ```typescript
  * import { createServer } from "node:http";
- * import { CopilotRuntime } from "@copilotkit/runtime";
+ * import { CopilotKitRuntime } from "@copilotkit/runtime";
  * import { createCopilotKitNodeListener } from "@copilotkit/runtime/node";
  *
  * const listener = createCopilotKitNodeListener({
- *   runtime: new CopilotRuntime({ agents: { ... } }),
+ *   runtime: new CopilotKitRuntime({ agents: { ... } }),
  *   basePath: "/api/copilotkit",
  *   cors: true,
  * });
@@ -97,24 +97,24 @@ export type NodeCopilotListenerWithChannels = NodeFetchHandler & {
  * optional-shape overload and its call sites still need `?.`.
  */
 export function createCopilotKitNodeListener(
-  options: CopilotRuntimeHandlerOptions & {
+  options: CopilotKitRuntimeHandlerOptions & {
     runtime: RuntimeWithDeclaredChannels;
     activateChannels?: true | undefined;
   },
-): NodeCopilotListenerWithChannels;
+): NodeCopilotKitListenerWithChannels;
 /**
  * Overload: every other runtime (SSE, Intelligence without channels, or with
  * activation disabled) yields a listener whose `.channels` is optional.
  */
 export function createCopilotKitNodeListener(
-  options: CopilotRuntimeHandlerOptions,
-): NodeCopilotListener;
+  options: CopilotKitRuntimeHandlerOptions,
+): NodeCopilotKitListener;
 export function createCopilotKitNodeListener(
-  options: CopilotRuntimeHandlerOptions,
-): NodeCopilotListener {
+  options: CopilotKitRuntimeHandlerOptions,
+): NodeCopilotKitListener {
   const handler = createCopilotKitRuntimeHandler(options);
   const logger = getRuntimeLogger(options.runtime);
-  const listener: NodeCopilotListener = createCopilotKitNodeHandler(
+  const listener: NodeCopilotKitListener = createCopilotKitNodeHandler(
     handler,
     logger,
   );
@@ -128,24 +128,36 @@ export function createCopilotKitNodeListener(
  * the same behavior.
  */
 export function createCopilotNodeListener(
-  options: CopilotRuntimeHandlerOptions & {
+  options: CopilotKitRuntimeHandlerOptions & {
     runtime: RuntimeWithDeclaredChannels;
     activateChannels?: true | undefined;
   },
-): NodeCopilotListenerWithChannels;
+): NodeCopilotKitListenerWithChannels;
 /**
  * @deprecated Use createCopilotKitNodeListener. This old name is an alias with
  * the same behavior.
  */
 export function createCopilotNodeListener(
-  options: CopilotRuntimeHandlerOptions,
-): NodeCopilotListener;
+  options: CopilotKitRuntimeHandlerOptions,
+): NodeCopilotKitListener;
 /**
  * @deprecated Use createCopilotKitNodeListener. This old name is an alias with
  * the same behavior.
  */
 export function createCopilotNodeListener(
-  options: CopilotRuntimeHandlerOptions,
-): NodeCopilotListener {
+  options: CopilotKitRuntimeHandlerOptions,
+): NodeCopilotKitListener {
   return createCopilotKitNodeListener(options);
 }
+
+/**
+ * @deprecated Use NodeCopilotKitListener. This old name is an alias with the
+ * same behavior.
+ */
+export type NodeCopilotListener = NodeCopilotKitListener;
+/**
+ * @deprecated Use NodeCopilotKitListenerWithChannels. This old name is an
+ * alias with the same behavior.
+ */
+export type NodeCopilotListenerWithChannels =
+  NodeCopilotKitListenerWithChannels;

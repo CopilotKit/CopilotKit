@@ -98,7 +98,7 @@ need `identifyUser(request)`. Each Channel has its own `identifyUser` policy in
 functional web routes.
 
 ```ts
-const runtime = new CopilotRuntime({
+const runtime = new CopilotKitRuntime({
   agents,
   intelligence,
   identifyUser: authenticateApplicationUser,

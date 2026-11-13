@@ -5,7 +5,7 @@ import { describe, expect, it } from "vitest";
 
 import { createCopilotKitRuntimeHandler } from "../core/fetch-handler";
 import type { AfterRequestMiddlewareParameters } from "../core/middleware";
-import { CopilotRuntime } from "../core/runtime";
+import { CopilotKitRuntime } from "../core/runtime";
 import type { AgentRunner } from "../runner/agent-runner";
 
 const messages = [
@@ -57,7 +57,7 @@ describe("SSE afterRequestMiddleware", () => {
         resolveObservation = resolve;
       },
     );
-    const runtime = new CopilotRuntime({
+    const runtime = new CopilotKitRuntime({
       agents: { default: new SseTestAgent() },
       runner: createRunner(),
       afterRequestMiddleware: (parameters) => {

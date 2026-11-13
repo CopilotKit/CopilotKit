@@ -13,7 +13,7 @@ import { createCopilotKitRuntimeHandler } from "../core/fetch-handler";
 import { expect, test, vi } from "vitest";
 import type { AbstractAgent } from "@ag-ui/client";
 
-import { CopilotRuntime } from "../core/runtime";
+import { CopilotKitRuntime } from "../core/runtime";
 
 function makeAgent(): AbstractAgent {
   const a: unknown = {
@@ -25,7 +25,7 @@ function makeAgent(): AbstractAgent {
 
 /** Creates an isolated runtime and a spy on its bound telemetry capture. */
 function setup() {
-  const runtime = new CopilotRuntime({ agents: { default: makeAgent() } });
+  const runtime = new CopilotKitRuntime({ agents: { default: makeAgent() } });
   const captureSpy = vi
     .spyOn(runtime.telemetry, "capture")
     .mockResolvedValue(undefined);

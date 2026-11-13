@@ -2,12 +2,12 @@ import { createCopilotKitRuntimeHandler } from "../core/fetch-handler";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { AbstractAgent } from "@ag-ui/client";
 
-import { CopilotRuntime } from "../core/runtime";
-import type { CopilotSseRuntimeOptions } from "../core/runtime";
+import { CopilotKitRuntime } from "../core/runtime";
+import type { CopilotKitSseRuntimeOptions } from "../core/runtime";
 import { logger } from "@copilotkit/shared";
 
-const dummyRuntime = (opts: Partial<CopilotSseRuntimeOptions> = {}) => {
-  const runtime = new CopilotRuntime({
+const dummyRuntime = (opts: Partial<CopilotKitSseRuntimeOptions> = {}) => {
+  const runtime = new CopilotKitRuntime({
     agents: { agent: {} as unknown as AbstractAgent },
     ...opts,
   });

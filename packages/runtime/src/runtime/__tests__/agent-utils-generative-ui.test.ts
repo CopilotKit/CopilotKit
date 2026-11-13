@@ -1,6 +1,6 @@
 import { HttpAgent } from "@ag-ui/client";
 import { expect, test, vi } from "vitest";
-import { CopilotRuntime } from "../core/runtime";
+import { CopilotKitRuntime } from "../core/runtime";
 import { configureAgentForRequest } from "../handlers/shared/agent-utils";
 import { GenerativeUIMiddleware } from "../generative-ui";
 
@@ -9,7 +9,7 @@ type Transport = "tool" | "markdown" | undefined;
 
 function setup(generativeUI: RuntimeOption) {
   const agent = new HttpAgent({ url: "http://localhost:9999/agent" });
-  const runtime = new CopilotRuntime({
+  const runtime = new CopilotKitRuntime({
     agents: { default: agent },
     generativeUI,
   });

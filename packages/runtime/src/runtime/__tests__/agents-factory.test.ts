@@ -4,7 +4,7 @@ import { resolveAgents } from "../core/runtime";
 import type { AgentsConfig, AgentFactoryContext } from "../core/runtime";
 import { handleRunAgent } from "../handlers/handle-run";
 import { handleGetRuntimeInfo } from "../handlers/get-runtime-info";
-import type { CopilotRuntime } from "../core/runtime";
+import type { CopilotKitRuntime } from "../core/runtime";
 
 function createMockAgent(name = "test") {
   return new HttpAgent({ url: `https://example.com/${name}` });
@@ -18,7 +18,7 @@ function createMockRuntime(agents: AgentsConfig) {
     afterRequestMiddleware: undefined,
     runner: { stop: vi.fn().mockResolvedValue(true) },
     mode: "sse",
-  } as unknown as CopilotRuntime;
+  } as unknown as CopilotKitRuntime;
 }
 
 function createMockRequest(headers?: Record<string, string>) {

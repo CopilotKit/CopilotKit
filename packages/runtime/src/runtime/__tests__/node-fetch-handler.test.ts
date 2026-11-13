@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import { createServer } from "node:http";
 import type { Server } from "node:http";
 import { createCopilotKitNodeHandler } from "../endpoints/node-fetch-handler";
-import type { CopilotRuntimeFetchHandler } from "../core/fetch-handler";
+import type { CopilotKitRuntimeFetchHandler } from "../core/fetch-handler";
 
 const getPort = (() => {
   let port = 19000;
@@ -21,7 +21,7 @@ function close(server: Server): Promise<void> {
 
 describe("createCopilotKitNodeHandler", () => {
   it("converts Node request to Fetch and sends response back", async () => {
-    const fetchHandler: CopilotRuntimeFetchHandler = async (request) => {
+    const fetchHandler: CopilotKitRuntimeFetchHandler = async (request) => {
       const url = new URL(request.url);
       return new Response(
         JSON.stringify({ path: url.pathname, method: request.method }),
@@ -48,7 +48,7 @@ describe("createCopilotKitNodeHandler", () => {
   });
 
   it("handles POST with JSON body", async () => {
-    const fetchHandler: CopilotRuntimeFetchHandler = async (request) => {
+    const fetchHandler: CopilotKitRuntimeFetchHandler = async (request) => {
       const body = await request.json();
       return new Response(JSON.stringify({ received: body }), {
         status: 200,
@@ -76,7 +76,7 @@ describe("createCopilotKitNodeHandler", () => {
   });
 
   it("returns 500 for unhandled errors in the fetch handler", async () => {
-    const fetchHandler: CopilotRuntimeFetchHandler = async () => {
+    const fetchHandler: CopilotKitRuntimeFetchHandler = async () => {
       throw new Error("Unexpected error");
     };
 
@@ -96,7 +96,7 @@ describe("createCopilotKitNodeHandler", () => {
   });
 
   it("streams SSE responses without buffering", async () => {
-    const fetchHandler: CopilotRuntimeFetchHandler = async () => {
+    const fetchHandler: CopilotKitRuntimeFetchHandler = async () => {
       const stream = new ReadableStream({
         start(controller) {
           controller.enqueue(new TextEncoder().encode("data: event1\n\n"));
@@ -132,7 +132,7 @@ describe("createCopilotKitNodeHandler", () => {
   });
 
   it("preserves response headers", async () => {
-    const fetchHandler: CopilotRuntimeFetchHandler = async () => {
+    const fetchHandler: CopilotKitRuntimeFetchHandler = async () => {
       return new Response("ok", {
         status: 201,
         headers: {

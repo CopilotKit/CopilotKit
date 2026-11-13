@@ -16,7 +16,10 @@ import {
   vi,
 } from "vitest";
 import { createCopilotKitRuntimeHandler } from "../core/fetch-handler";
-import { CopilotIntelligenceRuntime, CopilotSseRuntime } from "../core/runtime";
+import {
+  CopilotKitIntelligenceRuntime,
+  CopilotKitSseRuntime,
+} from "../core/runtime";
 import { CopilotKitIntelligence } from "../intelligence-platform/client";
 import { IntelligenceAgentRunner } from "../runner/intelligence";
 
@@ -175,7 +178,7 @@ function createClient() {
  * `agent.runAgent` exactly as the runner does once its channel joins.
  */
 function createIntelligenceHandler() {
-  const runtime = new CopilotIntelligenceRuntime({
+  const runtime = new CopilotKitIntelligenceRuntime({
     agents: { test: new RecordingAgent({ threadId }) },
     intelligence: createClient(),
     identifyUser: () => ({ id: "user-1", name: "User One" }),
@@ -436,7 +439,7 @@ describe("headless lock calls", () => {
 
 describe("runs that never reach Intelligence", () => {
   function createSseHandler() {
-    const runtime = new CopilotSseRuntime({
+    const runtime = new CopilotKitSseRuntime({
       agents: { test: new RecordingAgent({ threadId }) },
     });
     return createCopilotKitRuntimeHandler({

@@ -8,7 +8,7 @@ import { expect, test, vi } from "vitest";
 import type { AbstractAgent, BaseEvent } from "@ag-ui/client";
 import { Observable, of } from "rxjs";
 
-import { CopilotRuntime } from "../core/runtime";
+import { CopilotKitRuntime } from "../core/runtime";
 
 function makeAgent(): AbstractAgent {
   const a: unknown = { execute: async () => ({ events: [] }) };
@@ -28,7 +28,7 @@ function makeRuntime() {
     isRunning: async () => false,
     stop: async () => true,
   };
-  return new CopilotRuntime({
+  return new CopilotKitRuntime({
     agents: { default: makeAgent() },
     runner,
   });

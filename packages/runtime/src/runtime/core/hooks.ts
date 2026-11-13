@@ -27,7 +27,7 @@
  */
 
 import type { MaybePromise } from "@copilotkit/shared";
-import type { CopilotRuntimeLike } from "./runtime";
+import type { CopilotKitRuntimeLike } from "./runtime";
 
 /* ------------------------------------------------------------------------------------------------
  * Route info
@@ -67,8 +67,8 @@ export interface HookContext {
   request: Request;
   /** The resolved URL pathname. */
   path: string;
-  /** The CopilotRuntimeLike instance. */
-  runtime: CopilotRuntimeLike;
+  /** The CopilotKitRuntimeLike instance. */
+  runtime: CopilotKitRuntimeLike;
 }
 
 export interface HandlerHookContext extends HookContext {
@@ -94,7 +94,7 @@ export interface ErrorHookContext extends HookContext {
  * Hooks interface
  * --------------------------------------------------------------------------------------------- */
 
-export interface CopilotRuntimeHooks {
+export interface CopilotKitRuntimeHooks {
   /**
    * Called at the start of every request, before routing.
    * Use to validate auth, attach headers, initialize correlation IDs, etc.
@@ -134,7 +134,7 @@ export interface CopilotRuntimeHooks {
  * --------------------------------------------------------------------------------------------- */
 
 export async function runOnRequest(
-  hooks: CopilotRuntimeHooks | undefined,
+  hooks: CopilotKitRuntimeHooks | undefined,
   ctx: HookContext,
 ): Promise<Request> {
   if (!hooks?.onRequest) return ctx.request;
@@ -143,7 +143,7 @@ export async function runOnRequest(
 }
 
 export async function runOnBeforeHandler(
-  hooks: CopilotRuntimeHooks | undefined,
+  hooks: CopilotKitRuntimeHooks | undefined,
   ctx: HandlerHookContext,
 ): Promise<Request> {
   if (!hooks?.onBeforeHandler) return ctx.request;
@@ -152,7 +152,7 @@ export async function runOnBeforeHandler(
 }
 
 export async function runOnResponse(
-  hooks: CopilotRuntimeHooks | undefined,
+  hooks: CopilotKitRuntimeHooks | undefined,
   ctx: ResponseHookContext,
 ): Promise<Response> {
   if (!hooks?.onResponse) return ctx.response;
@@ -161,7 +161,7 @@ export async function runOnResponse(
 }
 
 export async function runOnError(
-  hooks: CopilotRuntimeHooks | undefined,
+  hooks: CopilotKitRuntimeHooks | undefined,
   ctx: ErrorHookContext,
 ): Promise<Response | void> {
   if (!hooks?.onError) return;

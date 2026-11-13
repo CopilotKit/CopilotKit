@@ -23,7 +23,7 @@ import { createCopilotKitRuntimeHandler } from "../core/fetch-handler";
 import { describe, it, expect, vi, afterEach } from "vitest";
 import { logger } from "@copilotkit/shared";
 
-import { CopilotRuntime } from "../core/runtime";
+import { CopilotKitRuntime } from "../core/runtime";
 import { CopilotKitIntelligence } from "../intelligence-platform";
 import { createChannel } from "@copilotkit/channels";
 import type {
@@ -69,7 +69,7 @@ const failingEngine: ActivateChannelEngine = async () => {
 };
 
 const intelRuntimeWith1Channel = () =>
-  new CopilotRuntime({
+  new CopilotKitRuntime({
     agents: {},
     intelligence: intelligence(),
     identifyUser,
@@ -141,7 +141,7 @@ describe("endpoint wrappers — managed channels propagation", () => {
     const { engine, state } = countingEngine();
 
     const listener = createCopilotKitNodeListener({
-      runtime: new CopilotRuntime({ agents: {} }),
+      runtime: new CopilotKitRuntime({ agents: {} }),
       __channelEngine: engine,
     });
 
@@ -186,7 +186,7 @@ describe("endpoint wrappers — managed channels propagation", () => {
   it("Node listener logs a duplicate-Channel-name misconfiguration rather than throwing out of the factory", async () => {
     const errorSpy = vi.spyOn(logger, "error").mockImplementation(() => logger);
     const { engine, state } = countingEngine();
-    const runtime = new CopilotRuntime({
+    const runtime = new CopilotKitRuntime({
       agents: {},
       intelligence: intelligence(),
       identifyUser,

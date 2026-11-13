@@ -17,7 +17,7 @@ import { Observable, of } from "rxjs";
 import { lambdaClient } from "@copilotkit/shared";
 
 import { createCopilotKitRuntimeHandler } from "../core/fetch-handler";
-import { CopilotRuntime } from "../core/runtime";
+import { CopilotKitRuntime } from "../core/runtime";
 import type { AgentRunner } from "../runner/agent-runner";
 
 const TOKEN = `header.${Buffer.from('{"telemetry_id":"abc-123"}').toString(
@@ -65,7 +65,7 @@ describe("SSE license env fallback → telemetry sink (integration)", () => {
   it("forwards the COPILOTKIT_LICENSE_TOKEN env value (no explicit option) to the sink", async () => {
     process.env.COPILOTKIT_LICENSE_TOKEN = TOKEN;
 
-    const runtime = new CopilotRuntime({
+    const runtime = new CopilotKitRuntime({
       agents: { default: makeSseAgent() },
       runner: makeSseRunner(),
       // intentionally no `licenseToken` option — must fall back to the env var

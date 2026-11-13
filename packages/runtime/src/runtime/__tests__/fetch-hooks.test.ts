@@ -2,8 +2,8 @@ import { createCopilotKitRuntimeHandler } from "../core/fetch-handler";
 import { describe, it, expect, vi } from "vitest";
 import type { AbstractAgent } from "@ag-ui/client";
 
-import { CopilotRuntime } from "../core/runtime";
-import type { CopilotSseRuntimeOptions } from "../core/runtime";
+import { CopilotKitRuntime } from "../core/runtime";
+import type { CopilotKitSseRuntimeOptions } from "../core/runtime";
 
 describe("Fetch handler with hooks", () => {
   const createMockAgent = () => {
@@ -14,8 +14,8 @@ describe("Fetch handler with hooks", () => {
     return agent as AbstractAgent;
   };
 
-  const createMockRuntime = (opts?: Partial<CopilotSseRuntimeOptions>) =>
-    new CopilotRuntime({
+  const createMockRuntime = (opts?: Partial<CopilotKitSseRuntimeOptions>) =>
+    new CopilotKitRuntime({
       agents: {
         default: createMockAgent(),
         myAgent: createMockAgent(),
@@ -27,7 +27,7 @@ describe("Fetch handler with hooks", () => {
   describe("createCopilotKitRuntimeHandler", () => {
     const createEndpoint = (
       hooks?: Parameters<typeof createCopilotKitRuntimeHandler>[0]["hooks"],
-      runtimeOpts?: Partial<CopilotSseRuntimeOptions>,
+      runtimeOpts?: Partial<CopilotKitSseRuntimeOptions>,
     ) => {
       const runtime = createMockRuntime(runtimeOpts);
       const endpoint = createCopilotKitRuntimeHandler({

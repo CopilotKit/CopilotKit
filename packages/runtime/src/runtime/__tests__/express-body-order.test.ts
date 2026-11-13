@@ -4,7 +4,7 @@ import request from "supertest";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { AbstractAgent } from "@ag-ui/client";
 
-import { CopilotRuntime } from "../core/runtime";
+import { CopilotKitRuntime } from "../core/runtime";
 
 const handleRunAgentMock = vi.fn();
 
@@ -13,7 +13,7 @@ vi.mock("../handlers/handle-run", () => ({
 }));
 
 const createRuntime = () =>
-  new CopilotRuntime({
+  new CopilotKitRuntime({
     agents: {
       agent: {
         clone: () => ({

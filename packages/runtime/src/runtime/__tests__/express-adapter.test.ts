@@ -5,8 +5,8 @@ import { describe, it, expect, vi } from "vitest";
 import type { AbstractAgent, BaseEvent } from "@ag-ui/client";
 import { Observable, of } from "rxjs";
 
-import { CopilotRuntime } from "../core/runtime";
-import type { CopilotSseRuntimeOptions } from "../core/runtime";
+import { CopilotKitRuntime } from "../core/runtime";
+import type { CopilotKitSseRuntimeOptions } from "../core/runtime";
 
 vi.mock("../handlers/handle-run", () => ({
   handleRunAgent: vi
@@ -27,7 +27,7 @@ vi.mock("../handlers/handle-stop", () => ({
 }));
 
 describe("Express adapter with hooks", () => {
-  const createMockRuntime = (opts?: Partial<CopilotSseRuntimeOptions>) => {
+  const createMockRuntime = (opts?: Partial<CopilotKitSseRuntimeOptions>) => {
     const createMockAgent = () => {
       const agent: unknown = {
         execute: async () => ({ events: [] }),
@@ -48,7 +48,7 @@ describe("Express adapter with hooks", () => {
       stop: async () => true,
     };
 
-    return new CopilotRuntime({
+    return new CopilotKitRuntime({
       agents: {
         default: createMockAgent(),
         myAgent: createMockAgent(),
@@ -61,7 +61,7 @@ describe("Express adapter with hooks", () => {
 
   describe("createCopilotKitNodeListener", () => {
     const createApp = (
-      runtimeOpts?: Partial<CopilotSseRuntimeOptions>,
+      runtimeOpts?: Partial<CopilotKitSseRuntimeOptions>,
       endpointOpts?: Partial<
         Omit<
           Parameters<typeof createCopilotKitNodeListener>[0],
@@ -115,7 +115,7 @@ describe("Express adapter with hooks", () => {
         expect.objectContaining({
           request: expect.any(Request),
           path: expect.stringContaining("/info"),
-          runtime: expect.any(CopilotRuntime),
+          runtime: expect.any(CopilotKitRuntime),
         }),
       );
     });

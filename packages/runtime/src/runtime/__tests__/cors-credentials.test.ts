@@ -1,7 +1,7 @@
 import { createCopilotKitRuntimeHandler } from "../core/fetch-handler";
 import { describe, it, expect } from "vitest";
 
-import { CopilotRuntime } from "../core/runtime";
+import { CopilotKitRuntime } from "../core/runtime";
 import type { AbstractAgent } from "@ag-ui/client";
 
 const createMockRuntime = (options: { beforeRequestMiddleware?: any } = {}) => {
@@ -13,7 +13,7 @@ const createMockRuntime = (options: { beforeRequestMiddleware?: any } = {}) => {
     return agent as AbstractAgent;
   };
 
-  return new CopilotRuntime({
+  return new CopilotKitRuntime({
     agents: { default: createMockAgent() },
     ...options,
   });

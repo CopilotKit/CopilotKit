@@ -2694,7 +2694,7 @@
       {
         "importPath": "@copilotkit/runtime",
         "symbol": "createCopilotKitRuntimeHandler",
-        "configurationType": "CopilotRuntimeHandlerOptions",
+        "configurationType": "CopilotKitRuntimeHandlerOptions",
         "configurationKeys": [
           "runtime",
           "basePath",
@@ -2717,19 +2717,19 @@
           "configurationType": {
             "kind": "typescript-ast",
             "path": "packages/runtime/src/runtime/core/fetch-handler.ts",
-            "selector": "interface CopilotRuntimeHandlerOptions"
+            "selector": "interface CopilotKitRuntimeHandlerOptions"
           },
           "configurationKeys": {
             "kind": "typescript-ast",
             "path": "packages/runtime/src/runtime/core/fetch-handler.ts",
-            "selector": "interface CopilotRuntimeHandlerOptions public properties"
+            "selector": "interface CopilotKitRuntimeHandlerOptions public properties"
           }
         }
       },
       {
         "importPath": "@copilotkit/runtime",
         "symbol": "createCopilotRuntimeHandler",
-        "configurationType": "CopilotRuntimeHandlerOptions",
+        "configurationType": "CopilotKitRuntimeHandlerOptions",
         "configurationKeys": [
           "runtime",
           "basePath",
@@ -2752,12 +2752,12 @@
           "configurationType": {
             "kind": "typescript-ast",
             "path": "packages/runtime/src/runtime/core/fetch-handler.ts",
-            "selector": "interface CopilotRuntimeHandlerOptions"
+            "selector": "interface CopilotKitRuntimeHandlerOptions"
           },
           "configurationKeys": {
             "kind": "typescript-ast",
             "path": "packages/runtime/src/runtime/core/fetch-handler.ts",
-            "selector": "interface CopilotRuntimeHandlerOptions public properties"
+            "selector": "interface CopilotKitRuntimeHandlerOptions public properties"
           }
         }
       },
@@ -2808,7 +2808,7 @@
       {
         "importPath": "@copilotkit/runtime/node",
         "symbol": "createCopilotKitNodeListener",
-        "configurationType": "CopilotRuntimeHandlerOptions",
+        "configurationType": "CopilotKitRuntimeHandlerOptions",
         "configurationKeys": [
           "runtime",
           "basePath",
@@ -2831,19 +2831,19 @@
           "configurationType": {
             "kind": "typescript-ast",
             "path": "packages/runtime/src/runtime/core/fetch-handler.ts",
-            "selector": "interface CopilotRuntimeHandlerOptions"
+            "selector": "interface CopilotKitRuntimeHandlerOptions"
           },
           "configurationKeys": {
             "kind": "typescript-ast",
             "path": "packages/runtime/src/runtime/core/fetch-handler.ts",
-            "selector": "interface CopilotRuntimeHandlerOptions public properties"
+            "selector": "interface CopilotKitRuntimeHandlerOptions public properties"
           }
         }
       },
       {
         "importPath": "@copilotkit/runtime/node",
         "symbol": "createCopilotNodeListener",
-        "configurationType": "CopilotRuntimeHandlerOptions",
+        "configurationType": "CopilotKitRuntimeHandlerOptions",
         "configurationKeys": [
           "runtime",
           "basePath",
@@ -2866,12 +2866,12 @@
           "configurationType": {
             "kind": "typescript-ast",
             "path": "packages/runtime/src/runtime/core/fetch-handler.ts",
-            "selector": "interface CopilotRuntimeHandlerOptions"
+            "selector": "interface CopilotKitRuntimeHandlerOptions"
           },
           "configurationKeys": {
             "kind": "typescript-ast",
             "path": "packages/runtime/src/runtime/core/fetch-handler.ts",
-            "selector": "interface CopilotRuntimeHandlerOptions public properties"
+            "selector": "interface CopilotKitRuntimeHandlerOptions public properties"
           }
         }
       }
@@ -2940,6 +2940,626 @@
     ]
   },
   "deprecations": [
+    {
+      "importPath": "@copilotkit/runtime",
+      "symbol": "CopilotCorsConfig",
+      "replacement": {
+        "importPath": "@copilotkit/runtime",
+        "symbol": "CopilotKitCorsConfig"
+      },
+      "sourceMessage": "Use CopilotKitCorsConfig. This old name is an alias with the same behavior.",
+      "provenance": {
+        "importPath": {
+          "kind": "package-json",
+          "path": "packages/runtime/package.json",
+          "selector": "exports[\".\"]"
+        },
+        "symbol": {
+          "kind": "typescript-ast",
+          "path": "packages/runtime/src/runtime/index.ts",
+          "selector": "CopilotCorsConfig @deprecated tag"
+        },
+        "replacement": {
+          "kind": "typescript-ast",
+          "path": "packages/runtime/src/runtime/index.ts",
+          "selector": "CopilotCorsConfig @deprecated tag"
+        },
+        "sourceMessage": {
+          "kind": "typescript-ast",
+          "path": "packages/runtime/src/runtime/index.ts",
+          "selector": "CopilotCorsConfig @deprecated tag"
+        }
+      }
+    },
+    {
+      "importPath": "@copilotkit/runtime",
+      "symbol": "CopilotIntelligenceRuntime",
+      "replacement": {
+        "importPath": "@copilotkit/runtime",
+        "symbol": "CopilotKitIntelligenceRuntime"
+      },
+      "sourceMessage": "Use CopilotKitIntelligenceRuntime. This old name is an alias with the same behavior.",
+      "provenance": {
+        "importPath": {
+          "kind": "package-json",
+          "path": "packages/runtime/package.json",
+          "selector": "exports[\".\"]"
+        },
+        "symbol": {
+          "kind": "typescript-ast",
+          "path": "packages/runtime/src/runtime/index.ts",
+          "selector": "CopilotIntelligenceRuntime @deprecated tag"
+        },
+        "replacement": {
+          "kind": "typescript-ast",
+          "path": "packages/runtime/src/runtime/index.ts",
+          "selector": "CopilotIntelligenceRuntime @deprecated tag"
+        },
+        "sourceMessage": {
+          "kind": "typescript-ast",
+          "path": "packages/runtime/src/runtime/index.ts",
+          "selector": "CopilotIntelligenceRuntime @deprecated tag"
+        }
+      }
+    },
+    {
+      "importPath": "@copilotkit/runtime",
+      "symbol": "CopilotIntelligenceRuntimeLike",
+      "replacement": {
+        "importPath": "@copilotkit/runtime",
+        "symbol": "CopilotKitIntelligenceRuntimeLike"
+      },
+      "sourceMessage": "Use CopilotKitIntelligenceRuntimeLike. This old name is an alias with the same behavior.",
+      "provenance": {
+        "importPath": {
+          "kind": "package-json",
+          "path": "packages/runtime/package.json",
+          "selector": "exports[\".\"]"
+        },
+        "symbol": {
+          "kind": "typescript-ast",
+          "path": "packages/runtime/src/runtime/index.ts",
+          "selector": "CopilotIntelligenceRuntimeLike @deprecated tag"
+        },
+        "replacement": {
+          "kind": "typescript-ast",
+          "path": "packages/runtime/src/runtime/index.ts",
+          "selector": "CopilotIntelligenceRuntimeLike @deprecated tag"
+        },
+        "sourceMessage": {
+          "kind": "typescript-ast",
+          "path": "packages/runtime/src/runtime/index.ts",
+          "selector": "CopilotIntelligenceRuntimeLike @deprecated tag"
+        }
+      }
+    },
+    {
+      "importPath": "@copilotkit/runtime",
+      "symbol": "CopilotIntelligenceRuntimeOptions",
+      "replacement": {
+        "importPath": "@copilotkit/runtime",
+        "symbol": "CopilotKitIntelligenceRuntimeOptions"
+      },
+      "sourceMessage": "Use CopilotKitIntelligenceRuntimeOptions. This old name is an alias with the same behavior.",
+      "provenance": {
+        "importPath": {
+          "kind": "package-json",
+          "path": "packages/runtime/package.json",
+          "selector": "exports[\".\"]"
+        },
+        "symbol": {
+          "kind": "typescript-ast",
+          "path": "packages/runtime/src/runtime/index.ts",
+          "selector": "CopilotIntelligenceRuntimeOptions @deprecated tag"
+        },
+        "replacement": {
+          "kind": "typescript-ast",
+          "path": "packages/runtime/src/runtime/index.ts",
+          "selector": "CopilotIntelligenceRuntimeOptions @deprecated tag"
+        },
+        "sourceMessage": {
+          "kind": "typescript-ast",
+          "path": "packages/runtime/src/runtime/index.ts",
+          "selector": "CopilotIntelligenceRuntimeOptions @deprecated tag"
+        }
+      }
+    },
+    {
+      "importPath": "@copilotkit/runtime",
+      "symbol": "CopilotRuntime",
+      "replacement": {
+        "importPath": "@copilotkit/runtime",
+        "symbol": "CopilotKitRuntime"
+      },
+      "sourceMessage": "Use CopilotKitRuntime. This old name is an alias with the same behavior.",
+      "provenance": {
+        "importPath": {
+          "kind": "package-json",
+          "path": "packages/runtime/package.json",
+          "selector": "exports[\".\"]"
+        },
+        "symbol": {
+          "kind": "typescript-ast",
+          "path": "packages/runtime/src/runtime/index.ts",
+          "selector": "CopilotRuntime @deprecated tag"
+        },
+        "replacement": {
+          "kind": "typescript-ast",
+          "path": "packages/runtime/src/runtime/index.ts",
+          "selector": "CopilotRuntime @deprecated tag"
+        },
+        "sourceMessage": {
+          "kind": "typescript-ast",
+          "path": "packages/runtime/src/runtime/index.ts",
+          "selector": "CopilotRuntime @deprecated tag"
+        }
+      }
+    },
+    {
+      "importPath": "@copilotkit/runtime",
+      "symbol": "CopilotRuntimeConstructor",
+      "replacement": {
+        "importPath": "@copilotkit/runtime",
+        "symbol": "CopilotKitRuntimeConstructor"
+      },
+      "sourceMessage": "Use CopilotKitRuntimeConstructor. This old name is an alias with the same behavior.",
+      "provenance": {
+        "importPath": {
+          "kind": "package-json",
+          "path": "packages/runtime/package.json",
+          "selector": "exports[\".\"]"
+        },
+        "symbol": {
+          "kind": "typescript-ast",
+          "path": "packages/runtime/src/runtime/index.ts",
+          "selector": "CopilotRuntimeConstructor @deprecated tag"
+        },
+        "replacement": {
+          "kind": "typescript-ast",
+          "path": "packages/runtime/src/runtime/index.ts",
+          "selector": "CopilotRuntimeConstructor @deprecated tag"
+        },
+        "sourceMessage": {
+          "kind": "typescript-ast",
+          "path": "packages/runtime/src/runtime/index.ts",
+          "selector": "CopilotRuntimeConstructor @deprecated tag"
+        }
+      }
+    },
+    {
+      "importPath": "@copilotkit/runtime",
+      "symbol": "CopilotRuntimeFetchHandler",
+      "replacement": {
+        "importPath": "@copilotkit/runtime",
+        "symbol": "CopilotKitRuntimeFetchHandler"
+      },
+      "sourceMessage": "Use CopilotKitRuntimeFetchHandler. This old name is an alias with the same behavior.",
+      "provenance": {
+        "importPath": {
+          "kind": "package-json",
+          "path": "packages/runtime/package.json",
+          "selector": "exports[\".\"]"
+        },
+        "symbol": {
+          "kind": "typescript-ast",
+          "path": "packages/runtime/src/runtime/index.ts",
+          "selector": "CopilotRuntimeFetchHandler @deprecated tag"
+        },
+        "replacement": {
+          "kind": "typescript-ast",
+          "path": "packages/runtime/src/runtime/index.ts",
+          "selector": "CopilotRuntimeFetchHandler @deprecated tag"
+        },
+        "sourceMessage": {
+          "kind": "typescript-ast",
+          "path": "packages/runtime/src/runtime/index.ts",
+          "selector": "CopilotRuntimeFetchHandler @deprecated tag"
+        }
+      }
+    },
+    {
+      "importPath": "@copilotkit/runtime",
+      "symbol": "CopilotRuntimeFetchHandlerWithChannels",
+      "replacement": {
+        "importPath": "@copilotkit/runtime",
+        "symbol": "CopilotKitRuntimeFetchHandlerWithChannels"
+      },
+      "sourceMessage": "Use CopilotKitRuntimeFetchHandlerWithChannels. This old name is an alias with the same behavior.",
+      "provenance": {
+        "importPath": {
+          "kind": "package-json",
+          "path": "packages/runtime/package.json",
+          "selector": "exports[\".\"]"
+        },
+        "symbol": {
+          "kind": "typescript-ast",
+          "path": "packages/runtime/src/runtime/index.ts",
+          "selector": "CopilotRuntimeFetchHandlerWithChannels @deprecated tag"
+        },
+        "replacement": {
+          "kind": "typescript-ast",
+          "path": "packages/runtime/src/runtime/index.ts",
+          "selector": "CopilotRuntimeFetchHandlerWithChannels @deprecated tag"
+        },
+        "sourceMessage": {
+          "kind": "typescript-ast",
+          "path": "packages/runtime/src/runtime/index.ts",
+          "selector": "CopilotRuntimeFetchHandlerWithChannels @deprecated tag"
+        }
+      }
+    },
+    {
+      "importPath": "@copilotkit/runtime",
+      "symbol": "CopilotRuntimeHandlerOptions",
+      "replacement": {
+        "importPath": "@copilotkit/runtime",
+        "symbol": "CopilotKitRuntimeHandlerOptions"
+      },
+      "sourceMessage": "Use CopilotKitRuntimeHandlerOptions. This old name is an alias with the same behavior.",
+      "provenance": {
+        "importPath": {
+          "kind": "package-json",
+          "path": "packages/runtime/package.json",
+          "selector": "exports[\".\"]"
+        },
+        "symbol": {
+          "kind": "typescript-ast",
+          "path": "packages/runtime/src/runtime/index.ts",
+          "selector": "CopilotRuntimeHandlerOptions @deprecated tag"
+        },
+        "replacement": {
+          "kind": "typescript-ast",
+          "path": "packages/runtime/src/runtime/index.ts",
+          "selector": "CopilotRuntimeHandlerOptions @deprecated tag"
+        },
+        "sourceMessage": {
+          "kind": "typescript-ast",
+          "path": "packages/runtime/src/runtime/index.ts",
+          "selector": "CopilotRuntimeHandlerOptions @deprecated tag"
+        }
+      }
+    },
+    {
+      "importPath": "@copilotkit/runtime",
+      "symbol": "CopilotRuntimeHooks",
+      "replacement": {
+        "importPath": "@copilotkit/runtime",
+        "symbol": "CopilotKitRuntimeHooks"
+      },
+      "sourceMessage": "Use CopilotKitRuntimeHooks. This old name is an alias with the same behavior.",
+      "provenance": {
+        "importPath": {
+          "kind": "package-json",
+          "path": "packages/runtime/package.json",
+          "selector": "exports[\".\"]"
+        },
+        "symbol": {
+          "kind": "typescript-ast",
+          "path": "packages/runtime/src/runtime/index.ts",
+          "selector": "CopilotRuntimeHooks @deprecated tag"
+        },
+        "replacement": {
+          "kind": "typescript-ast",
+          "path": "packages/runtime/src/runtime/index.ts",
+          "selector": "CopilotRuntimeHooks @deprecated tag"
+        },
+        "sourceMessage": {
+          "kind": "typescript-ast",
+          "path": "packages/runtime/src/runtime/index.ts",
+          "selector": "CopilotRuntimeHooks @deprecated tag"
+        }
+      }
+    },
+    {
+      "importPath": "@copilotkit/runtime",
+      "symbol": "CopilotRuntimeLearningConfig",
+      "replacement": {
+        "importPath": "@copilotkit/runtime",
+        "symbol": "CopilotKitRuntimeLearningConfig"
+      },
+      "sourceMessage": "Use CopilotKitRuntimeLearningConfig. This old name is an alias with the same behavior.",
+      "provenance": {
+        "importPath": {
+          "kind": "package-json",
+          "path": "packages/runtime/package.json",
+          "selector": "exports[\".\"]"
+        },
+        "symbol": {
+          "kind": "typescript-ast",
+          "path": "packages/runtime/src/runtime/index.ts",
+          "selector": "CopilotRuntimeLearningConfig @deprecated tag"
+        },
+        "replacement": {
+          "kind": "typescript-ast",
+          "path": "packages/runtime/src/runtime/index.ts",
+          "selector": "CopilotRuntimeLearningConfig @deprecated tag"
+        },
+        "sourceMessage": {
+          "kind": "typescript-ast",
+          "path": "packages/runtime/src/runtime/index.ts",
+          "selector": "CopilotRuntimeLearningConfig @deprecated tag"
+        }
+      }
+    },
+    {
+      "importPath": "@copilotkit/runtime",
+      "symbol": "CopilotRuntimeLearningContext",
+      "replacement": {
+        "importPath": "@copilotkit/runtime",
+        "symbol": "CopilotKitRuntimeLearningContext"
+      },
+      "sourceMessage": "Use CopilotKitRuntimeLearningContext. This old name is an alias with the same behavior.",
+      "provenance": {
+        "importPath": {
+          "kind": "package-json",
+          "path": "packages/runtime/package.json",
+          "selector": "exports[\".\"]"
+        },
+        "symbol": {
+          "kind": "typescript-ast",
+          "path": "packages/runtime/src/runtime/index.ts",
+          "selector": "CopilotRuntimeLearningContext @deprecated tag"
+        },
+        "replacement": {
+          "kind": "typescript-ast",
+          "path": "packages/runtime/src/runtime/index.ts",
+          "selector": "CopilotRuntimeLearningContext @deprecated tag"
+        },
+        "sourceMessage": {
+          "kind": "typescript-ast",
+          "path": "packages/runtime/src/runtime/index.ts",
+          "selector": "CopilotRuntimeLearningContext @deprecated tag"
+        }
+      }
+    },
+    {
+      "importPath": "@copilotkit/runtime",
+      "symbol": "CopilotRuntimeLike",
+      "replacement": {
+        "importPath": "@copilotkit/runtime",
+        "symbol": "CopilotKitRuntimeLike"
+      },
+      "sourceMessage": "Use CopilotKitRuntimeLike. This old name is an alias with the same behavior.",
+      "provenance": {
+        "importPath": {
+          "kind": "package-json",
+          "path": "packages/runtime/package.json",
+          "selector": "exports[\".\"]"
+        },
+        "symbol": {
+          "kind": "typescript-ast",
+          "path": "packages/runtime/src/runtime/index.ts",
+          "selector": "CopilotRuntimeLike @deprecated tag"
+        },
+        "replacement": {
+          "kind": "typescript-ast",
+          "path": "packages/runtime/src/runtime/index.ts",
+          "selector": "CopilotRuntimeLike @deprecated tag"
+        },
+        "sourceMessage": {
+          "kind": "typescript-ast",
+          "path": "packages/runtime/src/runtime/index.ts",
+          "selector": "CopilotRuntimeLike @deprecated tag"
+        }
+      }
+    },
+    {
+      "importPath": "@copilotkit/runtime",
+      "symbol": "CopilotRuntimeLogger",
+      "replacement": {
+        "importPath": "@copilotkit/runtime",
+        "symbol": "CopilotKitRuntimeLogger"
+      },
+      "sourceMessage": "Use CopilotKitRuntimeLogger. This old name is an alias with the same behavior.",
+      "provenance": {
+        "importPath": {
+          "kind": "package-json",
+          "path": "packages/runtime/package.json",
+          "selector": "exports[\".\"]"
+        },
+        "symbol": {
+          "kind": "typescript-ast",
+          "path": "packages/runtime/src/runtime/index.ts",
+          "selector": "CopilotRuntimeLogger @deprecated tag"
+        },
+        "replacement": {
+          "kind": "typescript-ast",
+          "path": "packages/runtime/src/runtime/index.ts",
+          "selector": "CopilotRuntimeLogger @deprecated tag"
+        },
+        "sourceMessage": {
+          "kind": "typescript-ast",
+          "path": "packages/runtime/src/runtime/index.ts",
+          "selector": "CopilotRuntimeLogger @deprecated tag"
+        }
+      }
+    },
+    {
+      "importPath": "@copilotkit/runtime",
+      "symbol": "CopilotRuntimeMemoryConfig",
+      "replacement": {
+        "importPath": "@copilotkit/runtime",
+        "symbol": "CopilotKitRuntimeMemoryConfig"
+      },
+      "sourceMessage": "Use CopilotKitRuntimeMemoryConfig. This old name is an alias with the same behavior.",
+      "provenance": {
+        "importPath": {
+          "kind": "package-json",
+          "path": "packages/runtime/package.json",
+          "selector": "exports[\".\"]"
+        },
+        "symbol": {
+          "kind": "typescript-ast",
+          "path": "packages/runtime/src/runtime/index.ts",
+          "selector": "CopilotRuntimeMemoryConfig @deprecated tag"
+        },
+        "replacement": {
+          "kind": "typescript-ast",
+          "path": "packages/runtime/src/runtime/index.ts",
+          "selector": "CopilotRuntimeMemoryConfig @deprecated tag"
+        },
+        "sourceMessage": {
+          "kind": "typescript-ast",
+          "path": "packages/runtime/src/runtime/index.ts",
+          "selector": "CopilotRuntimeMemoryConfig @deprecated tag"
+        }
+      }
+    },
+    {
+      "importPath": "@copilotkit/runtime",
+      "symbol": "CopilotRuntimeOptions",
+      "replacement": {
+        "importPath": "@copilotkit/runtime",
+        "symbol": "CopilotKitRuntimeOptions"
+      },
+      "sourceMessage": "Use CopilotKitRuntimeOptions. This old name is an alias with the same behavior.",
+      "provenance": {
+        "importPath": {
+          "kind": "package-json",
+          "path": "packages/runtime/package.json",
+          "selector": "exports[\".\"]"
+        },
+        "symbol": {
+          "kind": "typescript-ast",
+          "path": "packages/runtime/src/runtime/index.ts",
+          "selector": "CopilotRuntimeOptions @deprecated tag"
+        },
+        "replacement": {
+          "kind": "typescript-ast",
+          "path": "packages/runtime/src/runtime/index.ts",
+          "selector": "CopilotRuntimeOptions @deprecated tag"
+        },
+        "sourceMessage": {
+          "kind": "typescript-ast",
+          "path": "packages/runtime/src/runtime/index.ts",
+          "selector": "CopilotRuntimeOptions @deprecated tag"
+        }
+      }
+    },
+    {
+      "importPath": "@copilotkit/runtime",
+      "symbol": "CopilotRuntimeUser",
+      "replacement": {
+        "importPath": "@copilotkit/runtime",
+        "symbol": "CopilotKitRuntimeUser"
+      },
+      "sourceMessage": "Use CopilotKitRuntimeUser. This old name is an alias with the same behavior.",
+      "provenance": {
+        "importPath": {
+          "kind": "package-json",
+          "path": "packages/runtime/package.json",
+          "selector": "exports[\".\"]"
+        },
+        "symbol": {
+          "kind": "typescript-ast",
+          "path": "packages/runtime/src/runtime/index.ts",
+          "selector": "CopilotRuntimeUser @deprecated tag"
+        },
+        "replacement": {
+          "kind": "typescript-ast",
+          "path": "packages/runtime/src/runtime/index.ts",
+          "selector": "CopilotRuntimeUser @deprecated tag"
+        },
+        "sourceMessage": {
+          "kind": "typescript-ast",
+          "path": "packages/runtime/src/runtime/index.ts",
+          "selector": "CopilotRuntimeUser @deprecated tag"
+        }
+      }
+    },
+    {
+      "importPath": "@copilotkit/runtime",
+      "symbol": "CopilotSseRuntime",
+      "replacement": {
+        "importPath": "@copilotkit/runtime",
+        "symbol": "CopilotKitSseRuntime"
+      },
+      "sourceMessage": "Use CopilotKitSseRuntime. This old name is an alias with the same behavior.",
+      "provenance": {
+        "importPath": {
+          "kind": "package-json",
+          "path": "packages/runtime/package.json",
+          "selector": "exports[\".\"]"
+        },
+        "symbol": {
+          "kind": "typescript-ast",
+          "path": "packages/runtime/src/runtime/index.ts",
+          "selector": "CopilotSseRuntime @deprecated tag"
+        },
+        "replacement": {
+          "kind": "typescript-ast",
+          "path": "packages/runtime/src/runtime/index.ts",
+          "selector": "CopilotSseRuntime @deprecated tag"
+        },
+        "sourceMessage": {
+          "kind": "typescript-ast",
+          "path": "packages/runtime/src/runtime/index.ts",
+          "selector": "CopilotSseRuntime @deprecated tag"
+        }
+      }
+    },
+    {
+      "importPath": "@copilotkit/runtime",
+      "symbol": "CopilotSseRuntimeLike",
+      "replacement": {
+        "importPath": "@copilotkit/runtime",
+        "symbol": "CopilotKitSseRuntimeLike"
+      },
+      "sourceMessage": "Use CopilotKitSseRuntimeLike. This old name is an alias with the same behavior.",
+      "provenance": {
+        "importPath": {
+          "kind": "package-json",
+          "path": "packages/runtime/package.json",
+          "selector": "exports[\".\"]"
+        },
+        "symbol": {
+          "kind": "typescript-ast",
+          "path": "packages/runtime/src/runtime/index.ts",
+          "selector": "CopilotSseRuntimeLike @deprecated tag"
+        },
+        "replacement": {
+          "kind": "typescript-ast",
+          "path": "packages/runtime/src/runtime/index.ts",
+          "selector": "CopilotSseRuntimeLike @deprecated tag"
+        },
+        "sourceMessage": {
+          "kind": "typescript-ast",
+          "path": "packages/runtime/src/runtime/index.ts",
+          "selector": "CopilotSseRuntimeLike @deprecated tag"
+        }
+      }
+    },
+    {
+      "importPath": "@copilotkit/runtime",
+      "symbol": "CopilotSseRuntimeOptions",
+      "replacement": {
+        "importPath": "@copilotkit/runtime",
+        "symbol": "CopilotKitSseRuntimeOptions"
+      },
+      "sourceMessage": "Use CopilotKitSseRuntimeOptions. This old name is an alias with the same behavior.",
+      "provenance": {
+        "importPath": {
+          "kind": "package-json",
+          "path": "packages/runtime/package.json",
+          "selector": "exports[\".\"]"
+        },
+        "symbol": {
+          "kind": "typescript-ast",
+          "path": "packages/runtime/src/runtime/index.ts",
+          "selector": "CopilotSseRuntimeOptions @deprecated tag"
+        },
+        "replacement": {
+          "kind": "typescript-ast",
+          "path": "packages/runtime/src/runtime/index.ts",
+          "selector": "CopilotSseRuntimeOptions @deprecated tag"
+        },
+        "sourceMessage": {
+          "kind": "typescript-ast",
+          "path": "packages/runtime/src/runtime/index.ts",
+          "selector": "CopilotSseRuntimeOptions @deprecated tag"
+        }
+      }
+    },
     {
       "importPath": "@copilotkit/runtime",
       "symbol": "createCopilotRuntimeHandler",
@@ -3030,6 +3650,68 @@
           "kind": "typescript-ast",
           "path": "packages/runtime/src/runtime/endpoints/node.ts",
           "selector": "createCopilotNodeListener @deprecated tag"
+        }
+      }
+    },
+    {
+      "importPath": "@copilotkit/runtime/node",
+      "symbol": "NodeCopilotListener",
+      "replacement": {
+        "importPath": "@copilotkit/runtime/node",
+        "symbol": "NodeCopilotKitListener"
+      },
+      "sourceMessage": "Use NodeCopilotKitListener. This old name is an alias with the\nsame behavior.",
+      "provenance": {
+        "importPath": {
+          "kind": "package-json",
+          "path": "packages/runtime/package.json",
+          "selector": "exports[\"./node\"]"
+        },
+        "symbol": {
+          "kind": "typescript-ast",
+          "path": "packages/runtime/src/runtime/endpoints/node.ts",
+          "selector": "NodeCopilotListener @deprecated tag"
+        },
+        "replacement": {
+          "kind": "typescript-ast",
+          "path": "packages/runtime/src/runtime/endpoints/node.ts",
+          "selector": "NodeCopilotListener @deprecated tag"
+        },
+        "sourceMessage": {
+          "kind": "typescript-ast",
+          "path": "packages/runtime/src/runtime/endpoints/node.ts",
+          "selector": "NodeCopilotListener @deprecated tag"
+        }
+      }
+    },
+    {
+      "importPath": "@copilotkit/runtime/node",
+      "symbol": "NodeCopilotListenerWithChannels",
+      "replacement": {
+        "importPath": "@copilotkit/runtime/node",
+        "symbol": "NodeCopilotKitListenerWithChannels"
+      },
+      "sourceMessage": "Use NodeCopilotKitListenerWithChannels. This old name is an\nalias with the same behavior.",
+      "provenance": {
+        "importPath": {
+          "kind": "package-json",
+          "path": "packages/runtime/package.json",
+          "selector": "exports[\"./node\"]"
+        },
+        "symbol": {
+          "kind": "typescript-ast",
+          "path": "packages/runtime/src/runtime/endpoints/node.ts",
+          "selector": "NodeCopilotListenerWithChannels @deprecated tag"
+        },
+        "replacement": {
+          "kind": "typescript-ast",
+          "path": "packages/runtime/src/runtime/endpoints/node.ts",
+          "selector": "NodeCopilotListenerWithChannels @deprecated tag"
+        },
+        "sourceMessage": {
+          "kind": "typescript-ast",
+          "path": "packages/runtime/src/runtime/endpoints/node.ts",
+          "selector": "NodeCopilotListenerWithChannels @deprecated tag"
         }
       }
     }

@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
 import { logger } from "@copilotkit/shared";
 import { createCopilotKitRuntimeHandler } from "../core/fetch-handler";
-import { CopilotRuntime } from "../core/runtime";
+import { CopilotKitRuntime } from "../core/runtime";
 import { CopilotKitIntelligence } from "../intelligence-platform";
 import { createChannel } from "@copilotkit/channels";
 import type {
@@ -42,7 +42,7 @@ function countingEngine(): {
 }
 
 const intelRuntimeWith1Channel = () =>
-  new CopilotRuntime({
+  new CopilotKitRuntime({
     agents: {},
     intelligence: intelligence(),
     identifyUser,
@@ -134,7 +134,7 @@ describe("createCopilotKitRuntimeHandler — managed channels", () => {
     const { engine, state } = countingEngine();
 
     const handler = createCopilotKitRuntimeHandler({
-      runtime: new CopilotRuntime({ agents: {} }),
+      runtime: new CopilotKitRuntime({ agents: {} }),
       __channelEngine: engine,
     });
 
@@ -157,7 +157,7 @@ describe("createCopilotKitRuntimeHandler — managed channels", () => {
 
   it("caches the un-activated manager; a duplicate-name misconfig surfaces on ready(), not at creation (RC9)", async () => {
     const { engine } = countingEngine();
-    const runtime = new CopilotRuntime({
+    const runtime = new CopilotKitRuntime({
       agents: {},
       intelligence: intelligence(),
       identifyUser,

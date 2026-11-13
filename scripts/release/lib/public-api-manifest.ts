@@ -134,7 +134,7 @@ const HOST_FACTORIES: HostFactorySpec[] = [
   entrySource: "packages/runtime/src/index.ts",
   symbol,
   declarationPath: RUNTIME_HANDLER_PATH,
-  configurationType: "CopilotRuntimeHandlerOptions",
+  configurationType: "CopilotKitRuntimeHandlerOptions",
 }));
 HOST_FACTORIES.push(
   ...["createCopilotKitNodeHandler", "createCopilotNodeHandler"].map(
@@ -151,13 +151,62 @@ HOST_FACTORIES.push(
       entrySource: "packages/runtime/src/node.ts",
       symbol,
       declarationPath: NODE_LISTENER_PATH,
-      configurationType: "CopilotRuntimeHandlerOptions",
+      configurationType: "CopilotKitRuntimeHandlerOptions",
       configurationPath: RUNTIME_HANDLER_PATH,
     }),
   ),
 );
 
+const DEPRECATED_NAMES_PATH = "packages/runtime/src/runtime/index.ts";
+
+/** Runtime exports that the 2.0 release candidates named without "Kit". */
+const RENAMED_RUNTIME_EXPORTS: Array<[string, string]> = [
+  ["CopilotRuntime", "CopilotKitRuntime"],
+  ["CopilotSseRuntime", "CopilotKitSseRuntime"],
+  ["CopilotIntelligenceRuntime", "CopilotKitIntelligenceRuntime"],
+  ["CopilotRuntimeConstructor", "CopilotKitRuntimeConstructor"],
+  ["CopilotRuntimeOptions", "CopilotKitRuntimeOptions"],
+  ["CopilotRuntimeLike", "CopilotKitRuntimeLike"],
+  ["CopilotSseRuntimeOptions", "CopilotKitSseRuntimeOptions"],
+  ["CopilotSseRuntimeLike", "CopilotKitSseRuntimeLike"],
+  ["CopilotIntelligenceRuntimeOptions", "CopilotKitIntelligenceRuntimeOptions"],
+  ["CopilotIntelligenceRuntimeLike", "CopilotKitIntelligenceRuntimeLike"],
+  ["CopilotRuntimeMemoryConfig", "CopilotKitRuntimeMemoryConfig"],
+  ["CopilotRuntimeUser", "CopilotKitRuntimeUser"],
+  ["CopilotRuntimeLearningConfig", "CopilotKitRuntimeLearningConfig"],
+  ["CopilotRuntimeLearningContext", "CopilotKitRuntimeLearningContext"],
+  ["CopilotRuntimeLogger", "CopilotKitRuntimeLogger"],
+  ["CopilotRuntimeHandlerOptions", "CopilotKitRuntimeHandlerOptions"],
+  ["CopilotRuntimeFetchHandler", "CopilotKitRuntimeFetchHandler"],
+  [
+    "CopilotRuntimeFetchHandlerWithChannels",
+    "CopilotKitRuntimeFetchHandlerWithChannels",
+  ],
+  ["CopilotRuntimeHooks", "CopilotKitRuntimeHooks"],
+  ["CopilotCorsConfig", "CopilotKitCorsConfig"],
+];
+
 const DEPRECATIONS: DeprecationSpec[] = [
+  ...RENAMED_RUNTIME_EXPORTS.map(([symbol, replacement]) => ({
+    importPath: "@copilotkit/runtime",
+    entrySource: "packages/runtime/src/index.ts",
+    symbol,
+    declarationPath: DEPRECATED_NAMES_PATH,
+    replacement: { importPath: "@copilotkit/runtime", symbol: replacement },
+  })),
+  ...[
+    ["NodeCopilotListener", "NodeCopilotKitListener"],
+    ["NodeCopilotListenerWithChannels", "NodeCopilotKitListenerWithChannels"],
+  ].map(([symbol, replacement]) => ({
+    importPath: "@copilotkit/runtime/node",
+    entrySource: "packages/runtime/src/node.ts",
+    symbol,
+    declarationPath: NODE_LISTENER_PATH,
+    replacement: {
+      importPath: "@copilotkit/runtime/node",
+      symbol: replacement,
+    },
+  })),
   {
     importPath: "@copilotkit/runtime",
     entrySource: "packages/runtime/src/index.ts",
@@ -542,16 +591,45 @@ function deprecationMessage(
   return tags[0].comment.trim();
 }
 
+/**
+ * The `@deprecated` message of a symbol. A deprecated class alias declares a
+ * value and a type with the same name: each must carry the same message.
+ */
+function deprecatedDeclarationMessage(
+  root: string,
+  path: string,
+  symbol: string,
+): string {
+  const statements = sourceFile(root, path).statements.filter(
+    (statement) => declarationName(statement) === symbol,
+  );
+  const valueAndType =
+    statements.length === 2 &&
+    statements.some(ts.isVariableStatement) &&
+    statements.some(ts.isTypeAliasDeclaration);
+  if (!valueAndType) {
+    return deprecationMessage(
+      findNamedDeclaration(root, path, symbol),
+      path,
+      symbol,
+    );
+  }
+  const messages = new Set(
+    statements.map((statement) => deprecationMessage(statement, path, symbol)),
+  );
+  if (messages.size !== 1) {
+    throw new Error(
+      `${symbol} in ${path} must have the same @deprecated message on its value and its type`,
+    );
+  }
+  return [...messages][0]!;
+}
+
 function deprecations(root: string): PublicApiManifest["deprecations"] {
   return DEPRECATIONS.map((spec) => {
     requireExport(root, spec.entrySource, spec.symbol);
-    const declaration = findNamedDeclaration(
+    const message = deprecatedDeclarationMessage(
       root,
-      spec.declarationPath,
-      spec.symbol,
-    );
-    const message = deprecationMessage(
-      declaration,
       spec.declarationPath,
       spec.symbol,
     );

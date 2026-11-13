@@ -1,9 +1,9 @@
 import { describe, it, expect, vi } from "vitest";
 import { createCopilotKitRuntimeHandler } from "../core/fetch-handler";
-import { CopilotRuntime } from "../core/runtime";
-import type { CopilotSseRuntimeOptions } from "../core/runtime";
+import { CopilotKitRuntime } from "../core/runtime";
+import type { CopilotKitSseRuntimeOptions } from "../core/runtime";
 import type { AbstractAgent } from "@ag-ui/client";
-import type { CopilotRuntimeHooks } from "../core/hooks";
+import type { CopilotKitRuntimeHooks } from "../core/hooks";
 
 /* ------------------------------------------------------------------------------------------------
  * Helpers
@@ -17,8 +17,8 @@ const createMockAgent = () => {
   return agent as AbstractAgent;
 };
 
-const createRuntime = (opts?: Partial<CopilotSseRuntimeOptions>) =>
-  new CopilotRuntime({
+const createRuntime = (opts?: Partial<CopilotKitSseRuntimeOptions>) =>
+  new CopilotKitRuntime({
     agents: { default: createMockAgent() },
     ...opts,
   });
@@ -339,7 +339,7 @@ describe("hooks edge cases — full pipeline", () => {
   it("all hooks fire in order on a successful request", async () => {
     const order: string[] = [];
 
-    const hooks: CopilotRuntimeHooks = {
+    const hooks: CopilotKitRuntimeHooks = {
       onRequest: () => {
         order.push("onRequest");
       },

@@ -1,5 +1,8 @@
 import { describe, it, expect, vi } from "vitest";
-import { CopilotRuntime, CopilotIntelligenceRuntime } from "../core/runtime";
+import {
+  CopilotKitRuntime,
+  CopilotKitIntelligenceRuntime,
+} from "../core/runtime";
 import { CopilotKitIntelligence } from "../intelligence-platform";
 import { createChannel } from "@copilotkit/channels-core";
 
@@ -11,13 +14,13 @@ const intelligence = () =>
   });
 const identifyUser = vi.fn().mockResolvedValue({ id: "u", name: "U" });
 
-describe("CopilotRuntime — managed channels option", () => {
+describe("CopilotKitRuntime — managed channels option", () => {
   it("stores declared channels on the intelligence runtime and exposes them via the facade", () => {
     const channel = createChannel({
       identifyUser: "platform",
       name: "support",
     });
-    const rt = new CopilotRuntime({
+    const rt = new CopilotKitRuntime({
       agents: {},
       intelligence: intelligence(),
       identifyUser,
@@ -28,12 +31,12 @@ describe("CopilotRuntime — managed channels option", () => {
   });
 
   it("exposes no channels on an SSE runtime", () => {
-    const rt = new CopilotRuntime({ agents: {} });
+    const rt = new CopilotKitRuntime({ agents: {} });
     expect(rt.channels).toBeUndefined();
   });
 
   it("defaults to an empty channels array when an intelligence runtime omits channels", () => {
-    const rt = new CopilotIntelligenceRuntime({
+    const rt = new CopilotKitIntelligenceRuntime({
       agents: {},
       intelligence: intelligence(),
       identifyUser,
@@ -46,19 +49,19 @@ describe("CopilotRuntime — managed channels option", () => {
     // caller would otherwise land on the SSE runtime and lose `channels` silently.
     expect(
       () =>
-        new CopilotRuntime({
+        new CopilotKitRuntime({
           agents: {},
           channels: [
             createChannel({ identifyUser: "platform", name: "support" }),
           ],
-        } as unknown as ConstructorParameters<typeof CopilotRuntime>[0]),
+        } as unknown as ConstructorParameters<typeof CopilotKitRuntime>[0]),
     ).toThrow(/Intelligence runtime/i);
   });
 
   it("throws at construction when a declared channel has no name (fail-fast)", () => {
     expect(
       () =>
-        new CopilotIntelligenceRuntime({
+        new CopilotKitIntelligenceRuntime({
           agents: {},
           intelligence: intelligence(),
           identifyUser,

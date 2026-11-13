@@ -4,7 +4,7 @@ import type { RunAgentInput } from "@ag-ui/core";
 import type { Observable } from "rxjs";
 import type { BaseEvent } from "@ag-ui/client";
 import { createCopilotKitRuntimeHandler } from "../core/fetch-handler";
-import { CopilotRuntime } from "../core/runtime";
+import { CopilotKitRuntime } from "../core/runtime";
 import { CopilotKitIntelligence } from "../intelligence-platform";
 import { createChannel } from "@copilotkit/channels";
 import type {
@@ -103,7 +103,7 @@ describe("createCopilotKitRuntimeHandler — channel activation (integration)", 
     const intelligence = fakeIntelligence();
     const identifyUser = vi.fn().mockResolvedValue({ id: "u", name: "U" });
     const agent = new FakeAgent();
-    const runtime = new CopilotRuntime({
+    const runtime = new CopilotKitRuntime({
       agents: {},
       intelligence,
       identifyUser,
@@ -172,7 +172,7 @@ describe("createCopilotKitRuntimeHandler — channel activation (integration)", 
   });
 
   it("routes Channel drop telemetry through the Runtime capture scope", async () => {
-    const runtime = new CopilotRuntime({
+    const runtime = new CopilotKitRuntime({
       agents: {},
       intelligence: fakeIntelligence(),
       identifyUser: vi.fn().mockResolvedValue({ id: "u", name: "U" }),

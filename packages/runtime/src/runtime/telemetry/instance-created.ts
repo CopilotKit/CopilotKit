@@ -1,5 +1,5 @@
 import { telemetry } from ".";
-import type { CopilotRuntimeLike } from "../core/runtime";
+import type { CopilotKitRuntimeLike } from "../core/runtime";
 import type { RuntimeInstanceCreatedInfo } from "./events";
 
 /**
@@ -39,7 +39,7 @@ export function fireInstanceCreatedTelemetry({
   runtime,
   info,
 }: {
-  runtime: CopilotRuntimeLike;
+  runtime: CopilotKitRuntimeLike;
   info?: RuntimeInstanceCreatedInfo;
 }): void {
   if (reportedRuntimes.has(runtime)) return;

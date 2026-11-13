@@ -4,10 +4,10 @@
  */
 import { describe, it, expect, vi } from "vitest";
 import { createCopilotKitRuntimeHandler } from "../core/fetch-handler";
-import { CopilotRuntime } from "../core/runtime";
+import { CopilotKitRuntime } from "../core/runtime";
 import { matchRoute } from "../core/fetch-router";
 import { handleCors, addCorsHeaders } from "../core/fetch-cors";
-import type { CopilotCorsConfig } from "../core/fetch-cors";
+import type { CopilotKitCorsConfig } from "../core/fetch-cors";
 import type { AbstractAgent } from "@ag-ui/client";
 
 /* ------------------------------------------------------------------------------------------------
@@ -37,7 +37,7 @@ const createRunnableAgent = (): AbstractAgent => {
 };
 
 const createRuntime = () =>
-  new CopilotRuntime({ agents: { default: createMockAgent() } });
+  new CopilotKitRuntime({ agents: { default: createMockAgent() } });
 
 const get = (url: string) => new Request(url, { method: "GET" });
 
@@ -83,7 +83,7 @@ describe("Item 1: methodCall preserved when hooks replace request", () => {
 
   it("single-route agent/run works after onBeforeHandler replaces request", async () => {
     const handler = createCopilotKitRuntimeHandler({
-      runtime: new CopilotRuntime({
+      runtime: new CopilotKitRuntime({
         agents: { default: createRunnableAgent() },
       }),
       basePath: "/api",
@@ -133,7 +133,7 @@ describe("Item 2: credentials + wildcard CORS", () => {
       method: "OPTIONS",
       headers: { Origin: "https://app.example.com" },
     });
-    const config: CopilotCorsConfig = { credentials: true };
+    const config: CopilotKitCorsConfig = { credentials: true };
     const response = handleCors(request, config)!;
 
     expect(response.headers.get("Access-Control-Allow-Origin")).toBe(
@@ -146,7 +146,7 @@ describe("Item 2: credentials + wildcard CORS", () => {
 
   it("auto-resolves wildcard to request origin in addCorsHeaders", () => {
     const response = new Response("ok", { status: 200 });
-    const config: CopilotCorsConfig = { credentials: true };
+    const config: CopilotKitCorsConfig = { credentials: true };
     const result = addCorsHeaders(response, config, "https://mysite.com");
 
     expect(result.headers.get("Access-Control-Allow-Origin")).toBe(
@@ -160,7 +160,7 @@ describe("Item 2: credentials + wildcard CORS", () => {
       method: "OPTIONS",
       // No Origin header
     });
-    const config: CopilotCorsConfig = { credentials: true };
+    const config: CopilotKitCorsConfig = { credentials: true };
     const response = handleCors(request, config)!;
 
     // Should not set any CORS origin since there's no request origin to reflect
@@ -172,7 +172,7 @@ describe("Item 2: credentials + wildcard CORS", () => {
       method: "OPTIONS",
       headers: { Origin: "https://app.example.com" },
     });
-    const config: CopilotCorsConfig = {
+    const config: CopilotKitCorsConfig = {
       origin: "https://specific.example.com",
       credentials: true,
     };

@@ -1,7 +1,10 @@
 import { createCopilotKitRuntimeHandler } from "../core/fetch-handler";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { lambdaClient, logger } from "@copilotkit/shared";
-import { CopilotIntelligenceRuntime, CopilotRuntime } from "../core/runtime";
+import {
+  CopilotKitIntelligenceRuntime,
+  CopilotKitRuntime,
+} from "../core/runtime";
 
 import { CopilotKitIntelligence } from "../intelligence-platform/client";
 
@@ -68,7 +71,7 @@ function setup(mode: Mode) {
     wsUrl: "wss://gateway.example",
     getLearningContainerId,
   });
-  const runtime = new CopilotIntelligenceRuntime({
+  const runtime = new CopilotKitIntelligenceRuntime({
     agents: {},
     intelligence,
     identifyUser,
@@ -346,7 +349,7 @@ describe.each(["single-route", "multi-route"] as const)(
     it("requires Intelligence configuration", async () => {
       const app = createCopilotKitRuntimeHandler({
         cors: true,
-        runtime: new CopilotRuntime({ agents: {} }),
+        runtime: new CopilotKitRuntime({ agents: {} }),
         mode,
         basePath: "/api/copilotkit",
       });

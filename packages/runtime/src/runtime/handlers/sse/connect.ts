@@ -1,5 +1,5 @@
 import type { AbstractAgent } from "@ag-ui/client";
-import type { CopilotRuntimeLike } from "../../core/runtime";
+import type { CopilotKitRuntimeLike } from "../../core/runtime";
 import { getRuntimeLogger } from "../../core/logger";
 import { createSseEventResponse } from "../shared/sse-response";
 import {
@@ -18,7 +18,7 @@ type AgentWithHeaders = AbstractAgent & {
 };
 
 interface HandleSseConnectParams {
-  runtime: CopilotRuntimeLike;
+  runtime: CopilotKitRuntimeLike;
   request: Request;
   agentId: string;
   threadId: string;
@@ -70,7 +70,7 @@ export function handleSseConnect({
         headers: mergeForwardableHeaders(
           agent?.headers,
           request,
-          // Optional on `CopilotRuntimeLike` (non-breaking minor release);
+          // Optional on `CopilotKitRuntimeLike` (non-breaking minor release);
           // coalesce a policy-less external implementor to the default resolved
           // policy (default-on denylist) instead of dereffing undefined.
           runtime.forwardHeadersPolicy ??

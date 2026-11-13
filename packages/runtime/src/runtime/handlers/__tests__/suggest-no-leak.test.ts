@@ -12,7 +12,7 @@ import { AbstractAgent, EventType } from "@ag-ui/client";
 import { handleRunAgent } from "../handle-run";
 import { handleSuggestAgent } from "../handle-suggest";
 import { handleListThreads } from "../handle-threads";
-import { CopilotRuntime } from "../../core/runtime";
+import { CopilotKitRuntime } from "../../core/runtime";
 import { InMemoryAgentRunner } from "../../runner/in-memory";
 
 /**
@@ -140,7 +140,7 @@ const drainSseEvents = async (
 };
 
 const listThreadIds = async (
-  runtime: CopilotRuntime,
+  runtime: CopilotKitRuntime,
   agentId: string,
 ): Promise<string[]> => {
   const response = await handleListThreads({
@@ -170,7 +170,7 @@ describe("stateless /suggest leaves no thread in the local listing", () => {
     // Clear the module-level GLOBAL_STORE shared across InMemoryAgentRunner
     // instances so this test fully encapsulates its own thread state.
     runner.clearThreads();
-    const runtime = new CopilotRuntime({
+    const runtime = new CopilotKitRuntime({
       agents: { helper: new SuggestStubAgent() },
       runner,
       threads: { access: "open" },

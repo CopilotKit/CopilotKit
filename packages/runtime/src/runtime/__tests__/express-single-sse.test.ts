@@ -5,7 +5,7 @@ import { afterEach, describe, expect, it } from "vitest";
 
 import type { AbstractAgent } from "@ag-ui/client";
 
-import { CopilotRuntime } from "../core/runtime";
+import { CopilotKitRuntime } from "../core/runtime";
 import { InMemoryAgentRunner } from "../runner/in-memory";
 
 const buildRuntime = () => {
@@ -39,7 +39,7 @@ const buildRuntime = () => {
     }),
   };
 
-  return new CopilotRuntime({
+  return new CopilotKitRuntime({
     agents: { default: fakeAgent as unknown as AbstractAgent },
     runner: new InMemoryAgentRunner(),
   });

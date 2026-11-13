@@ -6,8 +6,8 @@ import { describe, it, expect, vi } from "vitest";
 import type { AbstractAgent, BaseEvent } from "@ag-ui/client";
 import { Observable, of } from "rxjs";
 
-import { CopilotRuntime } from "../core/runtime";
-import type { CopilotSseRuntimeOptions } from "../core/runtime";
+import { CopilotKitRuntime } from "../core/runtime";
+import type { CopilotKitSseRuntimeOptions } from "../core/runtime";
 
 vi.mock("../handlers/handle-run", () => ({
   handleRunAgent: vi
@@ -36,7 +36,7 @@ describe("Backward compatibility", () => {
     return agent as AbstractAgent;
   };
 
-  const createMockRuntime = (opts?: Partial<CopilotSseRuntimeOptions>) => {
+  const createMockRuntime = (opts?: Partial<CopilotKitSseRuntimeOptions>) => {
     const runner = {
       run: () =>
         new Observable<BaseEvent>((observer) => {
@@ -49,7 +49,7 @@ describe("Backward compatibility", () => {
       stop: async () => true,
     };
 
-    return new CopilotRuntime({
+    return new CopilotKitRuntime({
       agents: {
         default: createMockAgent(),
         myAgent: createMockAgent(),
@@ -217,7 +217,7 @@ describe("Backward compatibility", () => {
    * Legacy middleware still executes
    * -------------------------------------------------------------------------- */
 
-  describe("CopilotRuntime legacy middleware still executes", () => {
+  describe("CopilotKitRuntime legacy middleware still executes", () => {
     it("beforeRequestMiddleware is called", async () => {
       const beforeCalls: string[] = [];
       const beforeRequestMiddleware = vi.fn().mockImplementation(() => {

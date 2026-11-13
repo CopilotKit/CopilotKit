@@ -5,7 +5,7 @@ import { createCopilotKitRuntimeHandler } from "../core/fetch-handler";
 import { expect, test, vi } from "vitest";
 import type { AbstractAgent } from "@ag-ui/client";
 
-import { CopilotRuntime } from "../core/runtime";
+import { CopilotKitRuntime } from "../core/runtime";
 
 function makeAgent(): AbstractAgent {
   const a: unknown = { execute: async () => ({ events: [] }) };
@@ -14,7 +14,7 @@ function makeAgent(): AbstractAgent {
 }
 
 test("Fetch single-route handler fires instance_created on handler creation", async () => {
-  const runtime = new CopilotRuntime({ agents: { default: makeAgent() } });
+  const runtime = new CopilotKitRuntime({ agents: { default: makeAgent() } });
   const captureSpy = vi
     .spyOn(runtime.telemetry, "capture")
     .mockResolvedValue(undefined);

@@ -385,7 +385,7 @@ export interface CopilotKitIntelligenceConfig {
    * Defaults to `false` — opt-in. Existing intelligence setups continue
    * to work without these tools unless they flip this flag.
    *
-   * @deprecated Configure `memory.access` on `CopilotRuntime` so each web
+   * @deprecated Configure `memory.access` on `CopilotKitRuntime` so each web
    * request receives an explicit agent or client Memory grant.
    */
   enableEnterpriseLearning?: boolean;
@@ -763,16 +763,16 @@ interface ThreadEnvelope {
  * Client for the CopilotKit Intelligence REST API.
  *
  * Construct the client once and pass it to any consumers that need it
- * (e.g. `CopilotRuntime`, `IntelligenceAgentRunner`):
+ * (e.g. `CopilotKitRuntime`, `IntelligenceAgentRunner`):
  *
  * ```ts
- * import { CopilotKitIntelligence, CopilotRuntime } from "@copilotkit/runtime";
+ * import { CopilotKitIntelligence, CopilotKitRuntime } from "@copilotkit/runtime";
  *
  * const intelligence = new CopilotKitIntelligence({
  *   apiKey: process.env.CPK_INTELLIGENCE_API_KEY!,
  * });
  *
- * const runtime = new CopilotRuntime({
+ * const runtime = new CopilotKitRuntime({
  *   agents,
  *   intelligence,
  * });

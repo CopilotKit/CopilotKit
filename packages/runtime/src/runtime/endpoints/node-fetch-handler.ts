@@ -1,7 +1,7 @@
 /**
  * Generic Node ↔ Fetch bridge for CopilotKit runtime.
  *
- * Wraps a `CopilotRuntimeFetchHandler` as a Node HTTP handler using
+ * Wraps a `CopilotKitRuntimeFetchHandler` as a Node HTTP handler using
  * `@remix-run/node-fetch-server` for reliable streaming and conversion.
  *
  * When body-parsing middleware (Express `express.json()`, NestJS's default
@@ -27,9 +27,9 @@ import {
   createRequest,
   sendResponse,
 } from "@remix-run/node-fetch-server";
-import type { CopilotRuntimeFetchHandler } from "../core/fetch-handler";
+import type { CopilotKitRuntimeFetchHandler } from "../core/fetch-handler";
 import { getRuntimeLogger } from "../core/logger";
-import type { CopilotRuntimeLogger } from "../core/logger";
+import type { CopilotKitRuntimeLogger } from "../core/logger";
 
 const METHODS_WITHOUT_BODY = new Set(["GET", "HEAD", "OPTIONS"]);
 
@@ -39,8 +39,8 @@ export type NodeFetchHandler = (
 ) => Promise<void>;
 
 export function createCopilotKitNodeHandler(
-  handler: CopilotRuntimeFetchHandler,
-  logger: CopilotRuntimeLogger = getRuntimeLogger(),
+  handler: CopilotKitRuntimeFetchHandler,
+  logger: CopilotKitRuntimeLogger = getRuntimeLogger(),
 ): NodeFetchHandler {
   return async (req: IncomingMessage, res: ServerResponse) => {
     try {
@@ -66,8 +66,8 @@ export function createCopilotKitNodeHandler(
  * the same behavior.
  */
 export function createCopilotNodeHandler(
-  handler: CopilotRuntimeFetchHandler,
-  logger: CopilotRuntimeLogger = getRuntimeLogger(),
+  handler: CopilotKitRuntimeFetchHandler,
+  logger: CopilotKitRuntimeLogger = getRuntimeLogger(),
 ): NodeFetchHandler {
   return createCopilotKitNodeHandler(handler, logger);
 }

@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import { createCopilotKitRuntimeHandler } from "../core/fetch-handler";
-import { CopilotRuntime } from "../core/runtime";
+import { CopilotKitRuntime } from "../core/runtime";
 import type { AbstractAgent } from "@ag-ui/client";
 
 /* ------------------------------------------------------------------------------------------------
@@ -17,7 +17,7 @@ const createMockAgent = () => {
 
 const createRuntime = (
   agents: Record<string, AbstractAgent> = { default: createMockAgent() },
-) => new CopilotRuntime({ agents });
+) => new CopilotKitRuntime({ agents });
 
 const post = (url: string, body?: unknown) =>
   new Request(url, {

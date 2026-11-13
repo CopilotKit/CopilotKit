@@ -8,7 +8,7 @@ import {
 } from "../handlers/shared/sse-keep-alive";
 import { createSseEventResponse } from "../handlers/shared/sse-response";
 import { createCopilotKitRuntimeHandler } from "../core/fetch-handler";
-import { CopilotRuntime } from "../core/runtime";
+import { CopilotKitRuntime } from "../core/runtime";
 import type { AgentRunner } from "../runner/agent-runner";
 
 vi.mock("../telemetry", () => ({ telemetry: { capture: vi.fn() } }));
@@ -154,7 +154,7 @@ describe("runtime option on the wire", () => {
   } as unknown as AbstractAgent;
   const handlerFor = (sseKeepAliveIntervalSeconds: number) =>
     createCopilotKitRuntimeHandler({
-      runtime: new CopilotRuntime({
+      runtime: new CopilotKitRuntime({
         agents: { default: agent },
         runner: quietRunner,
         sseKeepAliveIntervalSeconds,
@@ -196,23 +196,23 @@ describe("runtime option on the wire", () => {
   });
 });
 
-describe("CopilotRuntime sseKeepAliveIntervalSeconds", () => {
+describe("CopilotKitRuntime sseKeepAliveIntervalSeconds", () => {
   it("defaults to 15 seconds", () => {
-    expect(new CopilotRuntime({ agents: {} }).sseKeepAliveIntervalSeconds).toBe(
-      15,
-    );
+    expect(
+      new CopilotKitRuntime({ agents: {} }).sseKeepAliveIntervalSeconds,
+    ).toBe(15);
   });
 
   it("accepts 0 to disable", () => {
     expect(
-      new CopilotRuntime({ agents: {}, sseKeepAliveIntervalSeconds: 0 })
+      new CopilotKitRuntime({ agents: {}, sseKeepAliveIntervalSeconds: 0 })
         .sseKeepAliveIntervalSeconds,
     ).toBe(0);
   });
 
   it("accepts the longest interval a timer can honour", () => {
     expect(
-      new CopilotRuntime({
+      new CopilotKitRuntime({
         agents: {},
         sseKeepAliveIntervalSeconds: MAX_SSE_KEEP_ALIVE_INTERVAL_SECONDS,
       }).sseKeepAliveIntervalSeconds,
@@ -227,7 +227,7 @@ describe("CopilotRuntime sseKeepAliveIntervalSeconds", () => {
   ])("rejects %s at construction", (value) => {
     expect(
       () =>
-        new CopilotRuntime({
+        new CopilotKitRuntime({
           agents: {},
           sseKeepAliveIntervalSeconds: value,
         }),

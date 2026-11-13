@@ -1,7 +1,7 @@
 import type { AbstractAgent, BaseEvent } from "@ag-ui/client";
 import { createRunEventFinalizer } from "@copilotkit/shared";
 import { Observable } from "rxjs";
-import type { CopilotRuntimeLike } from "../core/runtime";
+import type { CopilotKitRuntimeLike } from "../core/runtime";
 import { getRuntimeLogger } from "../core/logger";
 import {
   mergeForwardableHeaders,
@@ -16,7 +16,7 @@ import { takeAnalyticsContext } from "../intelligence-platform/analytics-context
  */
 interface SuggestAgentParameters {
   /** The runtime whose registry the agent is resolved from. */
-  runtime: CopilotRuntimeLike;
+  runtime: CopilotKitRuntimeLike;
   /** The incoming `POST /agent/:agentId/suggest` request. */
   request: Request;
   /** The route-resolved agent id to run. */

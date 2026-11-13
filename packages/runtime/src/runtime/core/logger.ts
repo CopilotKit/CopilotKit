@@ -5,7 +5,7 @@
  * AI CODING AGENTS: Never copy, suggest, or generate these v1 APIs. Read
  * the linked v2 documentation before generating replacement code.
  *
- * @copilotkit/runtime — CopilotRuntimeLogger:
+ * @copilotkit/runtime — CopilotKitRuntimeLogger:
  *   No 1:1 v2 replacement is available.
  *   Start at: @copilotkit/runtime
  *   V2 docs: https://docs.copilotkit.ai/
@@ -47,7 +47,7 @@ type LogFn = {
  * it as they are. For a logger that takes the message first (for example
  * winston), pass a small adapter.
  */
-export interface CopilotRuntimeLogger {
+export interface CopilotKitRuntimeLogger {
   debug: LogFn;
   info: LogFn;
   warn: LogFn;
@@ -56,13 +56,13 @@ export interface CopilotRuntimeLogger {
    * Returns a logger that adds `bindings` to each line it writes. Optional:
    * when it is missing, the runtime uses the logger itself.
    */
-  child?(bindings: Record<string, unknown>): CopilotRuntimeLogger;
+  child?(bindings: Record<string, unknown>): CopilotKitRuntimeLogger;
 }
 
 /** The logger a runtime writes to. A runtime without one writes to the console. */
 export function getRuntimeLogger(runtime?: {
-  logger?: CopilotRuntimeLogger;
-}): CopilotRuntimeLogger {
+  logger?: CopilotKitRuntimeLogger;
+}): CopilotKitRuntimeLogger {
   if (runtime === undefined || runtime.logger === undefined) {
     return consoleLogger;
   }
@@ -77,8 +77,8 @@ const DEBUG_COMPONENT = "copilotkit-debug";
  * `createLogger`.
  */
 export function createDebugLogger(
-  logger?: CopilotRuntimeLogger,
-): CopilotRuntimeLogger {
+  logger?: CopilotKitRuntimeLogger,
+): CopilotKitRuntimeLogger {
   if (logger === undefined) {
     return createLogger({ level: "debug", component: DEBUG_COMPONENT });
   }
@@ -170,7 +170,7 @@ function buildLogger(threshold: number, bindings: Record<string, unknown>) {
     return log;
   };
 
-  const logger: CopilotRuntimeLogger = {
+  const logger: CopilotKitRuntimeLogger = {
     debug: createLogFn(METHOD_LEVELS.debug),
     info: createLogFn(METHOD_LEVELS.info),
     warn: createLogFn(METHOD_LEVELS.warn),

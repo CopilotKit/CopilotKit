@@ -5,7 +5,7 @@ import { createCopilotKitNodeListener } from "../endpoints/node";
  * telemetry sink when a real HTTP request hits the endpoint.
  *
  * This is the end-to-end proof of the construction → endpoint → sink chain for
- * the gap this change closes: previously CopilotSseRuntime never called
+ * the gap this change closes: previously CopilotKitSseRuntime never called
  * telemetry.setLicenseToken, so these events reached the sink anonymously.
  *
  * Own file so the telemetry singleton state stays
@@ -18,7 +18,7 @@ import request from "supertest";
 import express from "express";
 import { lambdaClient } from "@copilotkit/shared";
 
-import { CopilotRuntime } from "../core/runtime";
+import { CopilotKitRuntime } from "../core/runtime";
 import type { AgentRunner } from "../runner/agent-runner";
 
 // Real JWT shape with telemetry_id so the token parses to an identified
@@ -46,8 +46,8 @@ function makeSseRuntimeWithLicense() {
     stop: async () => true,
     isRunning: async () => false,
   } as unknown as AgentRunner;
-  // No `intelligence` option → the CopilotRuntime shim builds a CopilotSseRuntime.
-  return new CopilotRuntime({
+  // No `intelligence` option → the CopilotKitRuntime shim builds a CopilotKitSseRuntime.
+  return new CopilotKitRuntime({
     agents: { default: makeAgent() },
     runner,
     licenseToken: TOKEN,

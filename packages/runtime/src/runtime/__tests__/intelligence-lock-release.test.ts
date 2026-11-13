@@ -4,7 +4,7 @@ import { Observable } from "rxjs";
 import { WebSocket } from "ws";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createCopilotKitRuntimeHandler } from "../core/fetch-handler";
-import { CopilotIntelligenceRuntime } from "../core/runtime";
+import { CopilotKitIntelligenceRuntime } from "../core/runtime";
 import { CopilotKitIntelligence } from "../intelligence-platform/client";
 import { startFakeLockGateway } from "./helpers/fake-lock-gateway";
 import type { FakeLockGatewayOptions } from "./helpers/fake-lock-gateway";
@@ -114,7 +114,7 @@ async function startRun(
     ...gateway,
   });
   script = agentScript;
-  const runtime = new CopilotIntelligenceRuntime({
+  const runtime = new CopilotKitIntelligenceRuntime({
     agents: { test: new ScriptedAgent({ threadId }) },
     intelligence: new CopilotKitIntelligence({
       apiKey: "test-key",

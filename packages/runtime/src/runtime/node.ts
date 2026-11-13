@@ -3,6 +3,8 @@ export {
   createCopilotNodeListener,
 } from "./endpoints/node";
 export type {
+  NodeCopilotKitListener,
+  NodeCopilotKitListenerWithChannels,
   NodeCopilotListener,
   NodeCopilotListenerWithChannels,
 } from "./endpoints/node";

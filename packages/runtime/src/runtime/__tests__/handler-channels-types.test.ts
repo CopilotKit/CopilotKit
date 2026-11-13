@@ -1,9 +1,9 @@
 import { test, expect } from "vitest";
 import { createCopilotKitRuntimeHandler } from "../core/fetch-handler";
 import { createCopilotKitNodeListener } from "../endpoints/node";
-import { CopilotRuntime } from "../core/runtime";
+import { CopilotKitRuntime } from "../core/runtime";
 import type { IdentifyUserCallback } from "../core/runtime";
-import type { CopilotRuntimeOptions } from "../core/runtime";
+import type { CopilotKitRuntimeOptions } from "../core/runtime";
 import type { CopilotKitIntelligence } from "../intelligence-platform";
 import type { Channel } from "@copilotkit/channels";
 
@@ -30,7 +30,7 @@ type KeyIsRequired<T, K extends keyof T> = {} extends Pick<T, K> ? false : true;
 /** Compile error (constraint violation) unless `T` resolves to exactly `true`. */
 function assertTrue<_T extends true>(): void {}
 
-type IsRuntimeOption<T> = T extends CopilotRuntimeOptions ? true : false;
+type IsRuntimeOption<T> = T extends CopilotKitRuntimeOptions ? true : false;
 
 // Purely type-only fixtures — never constructed at runtime.
 declare const intelligence: CopilotKitIntelligence;
@@ -43,7 +43,7 @@ declare const support: Channel;
  */
 async function _channelsHandlerTypeContracts(): Promise<void> {
   // An Intelligence runtime declaring at least one Channel.
-  const runtime = new CopilotRuntime({
+  const runtime = new CopilotKitRuntime({
     agents: {},
     intelligence,
     identifyUser,
@@ -64,7 +64,7 @@ async function _channelsHandlerTypeContracts(): Promise<void> {
   // branded overload lands.
   assertTrue<KeyIsRequired<typeof handler, "channels">>();
 
-  const hybridWithMemory = new CopilotRuntime({
+  const hybridWithMemory = new CopilotKitRuntime({
     agents: {},
     intelligence,
     identifyUser,
@@ -80,7 +80,7 @@ async function _channelsHandlerTypeContracts(): Promise<void> {
 
   // A plain SSE runtime's handler must keep `.channels` OPTIONAL (not required).
   const sseHandler = createCopilotKitRuntimeHandler({
-    runtime: new CopilotRuntime({ agents: {} }),
+    runtime: new CopilotKitRuntime({ agents: {} }),
   });
   assertTrue<
     KeyIsRequired<typeof sseHandler, "channels"> extends false ? true : false
@@ -160,7 +160,7 @@ function _runtimeSurfaceTypeContracts(): void {
  * documented `listener.channels.ready(...)` snippet verbatim.
  */
 async function _channelsNodeListenerTypeContracts(): Promise<void> {
-  const runtime = new CopilotRuntime({
+  const runtime = new CopilotKitRuntime({
     agents: {},
     intelligence,
     identifyUser,
@@ -181,7 +181,7 @@ async function _channelsNodeListenerTypeContracts(): Promise<void> {
 
   // A plain SSE runtime's listener must keep `.channels` OPTIONAL.
   const sseListener = createCopilotKitNodeListener({
-    runtime: new CopilotRuntime({ agents: {} }),
+    runtime: new CopilotKitRuntime({ agents: {} }),
   });
   assertTrue<
     KeyIsRequired<typeof sseListener, "channels"> extends false ? true : false

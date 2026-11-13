@@ -19,7 +19,7 @@ import { handleRunAgent } from "../handlers/handle-run";
 import { IntelligenceAgentRunner } from "../runner/intelligence";
 import { telemetry } from "../telemetry";
 import { resolveForwardHeadersPolicy } from "../handlers/header-utils";
-import type { CopilotRuntime } from "../core/runtime";
+import type { CopilotKitRuntime } from "../core/runtime";
 import {
   attachRuntimeErrorReporter,
   createRuntimeErrorReporter,
@@ -56,7 +56,7 @@ function makeIntelligenceRuntime(
   runObservable: Observable<BaseEvent>,
   extraPlatform: MockIntelligencePlatform = {},
   onError?: ReturnType<typeof vi.fn>,
-): CopilotRuntime {
+): CopilotKitRuntime {
   const runner = Object.create(IntelligenceAgentRunner.prototype);
   runner.run = vi.fn(() => runObservable);
 
@@ -90,7 +90,7 @@ function makeIntelligenceRuntime(
     identifyUser: vi.fn().mockResolvedValue({ id: "user-1", name: "User One" }),
     lockTtlSeconds: 20,
     lockHeartbeatIntervalSeconds: 15,
-  } as unknown as CopilotRuntime;
+  } as unknown as CopilotKitRuntime;
   if (onError) {
     attachRuntimeErrorReporter(runtime, createRuntimeErrorReporter(onError));
   }

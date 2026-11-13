@@ -1,6 +1,6 @@
 import { expect, test, vi } from "vitest";
 import { createCopilotKitRuntimeHandler } from "../core/fetch-handler";
-import { CopilotRuntime } from "../core/runtime";
+import { CopilotKitRuntime } from "../core/runtime";
 import { CopilotKitIntelligence } from "../intelligence-platform";
 import { telemetry } from "../telemetry";
 
@@ -47,7 +47,7 @@ function setup(upstreamPayload: unknown) {
     wsUrl: "wss://ws.example.com",
     apiKey: "server-api-key",
   });
-  const runtime = new CopilotRuntime({
+  const runtime = new CopilotKitRuntime({
     agents: {},
     intelligence,
     identifyUser: async () => ({ id: "user-1", name: "User One" }),

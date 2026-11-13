@@ -1,10 +1,10 @@
 import type { RunAgentInput } from "@ag-ui/client";
 import type { MaybePromise } from "@copilotkit/shared";
-import type { CopilotRuntimeLike } from "./runtime";
+import type { CopilotKitRuntimeLike } from "./runtime";
 
 /** Checks configuration without invoking a selector that requires a real run. */
 export function hasLearningContainerConfiguration(
-  runtime: CopilotRuntimeLike,
+  runtime: CopilotKitRuntimeLike,
 ): boolean {
   return (
     runtime.intelligence?.ɵgetLearningContainerId?.() !== undefined ||
@@ -13,7 +13,7 @@ export function hasLearningContainerConfiguration(
 }
 
 /** Application user resolved by an Intelligence runtime. */
-export interface CopilotRuntimeUser {
+export interface CopilotKitRuntimeUser {
   readonly id: string;
   readonly name: string;
 }
@@ -22,13 +22,13 @@ export interface CopilotRuntimeUser {
 export type LearningContainerSelectorInput =
   | {
       readonly surface: "web";
-      readonly user: CopilotRuntimeUser;
+      readonly user: CopilotKitRuntimeUser;
       readonly agentId: string;
       readonly input: Readonly<RunAgentInput>;
     }
   | {
       readonly surface: "channel";
-      readonly user: CopilotRuntimeUser | null;
+      readonly user: CopilotKitRuntimeUser | null;
       readonly agentId: string;
       readonly input: Readonly<RunAgentInput>;
     };
@@ -45,7 +45,7 @@ export type GetLearningContainerId = (
  */
 export interface TrajectoryLearningContainerSelectorInput {
   readonly trajectoryId: string;
-  readonly user: CopilotRuntimeUser;
+  readonly user: CopilotKitRuntimeUser;
 }
 
 /**
@@ -105,7 +105,7 @@ export async function resolveTrajectoryLearningContainerIds(
 }
 
 /** Context for choosing one Learning Container for an Intelligence run. */
-export type CopilotRuntimeLearningContext =
+export type CopilotKitRuntimeLearningContext =
   | {
       readonly surface: "web";
       readonly request: Request;
@@ -124,11 +124,11 @@ export type CopilotRuntimeLearningContext =
     };
 
 /** Assigns each Intelligence Thread to one developer-created Learning Container. */
-export interface CopilotRuntimeLearningConfig {
+export interface CopilotKitRuntimeLearningConfig {
   readonly containerId:
     | string
     | ((
-        input: CopilotRuntimeLearningContext,
+        input: CopilotKitRuntimeLearningContext,
       ) => MaybePromise<string | null | undefined>);
 }
 
@@ -161,8 +161,8 @@ export async function resolveLearningContainerSelector(
 
 /** Resolves the configured Container once for one web or Channel run. */
 export async function resolveLearningContainerId(
-  config: CopilotRuntimeLearningConfig | undefined,
-  input: CopilotRuntimeLearningContext,
+  config: CopilotKitRuntimeLearningConfig | undefined,
+  input: CopilotKitRuntimeLearningContext,
 ): Promise<string | undefined> {
   if (config === undefined) return undefined;
   const value =

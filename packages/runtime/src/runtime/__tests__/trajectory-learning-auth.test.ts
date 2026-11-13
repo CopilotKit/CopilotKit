@@ -1,7 +1,7 @@
 import { createCopilotKitRuntimeHandler } from "../core/fetch-handler";
 import { expect, test, vi } from "vitest";
 import { lambdaClient, logger } from "@copilotkit/shared";
-import { CopilotIntelligenceRuntime } from "../core/runtime";
+import { CopilotKitIntelligenceRuntime } from "../core/runtime";
 
 import { CopilotKitIntelligence } from "../intelligence-platform/client";
 
@@ -21,7 +21,7 @@ function setup(mode: Mode) {
     );
   const selector = vi.fn(async () => ["server-space"]);
   const identifyUser = vi.fn(async (_request: Request) => user);
-  const runtime = new CopilotIntelligenceRuntime({
+  const runtime = new CopilotKitIntelligenceRuntime({
     agents: {},
     identifyUser,
     intelligence: new CopilotKitIntelligence({

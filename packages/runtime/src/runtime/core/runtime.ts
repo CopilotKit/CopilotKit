@@ -40,8 +40,8 @@ import type {
   AfterRequestMiddleware,
 } from "./middleware";
 import { createDebugLogger, getRuntimeLogger } from "./logger";
-import type { CopilotRuntimeLogger } from "./logger";
-export type { CopilotRuntimeLogger } from "./logger";
+import type { CopilotKitRuntimeLogger } from "./logger";
+export type { CopilotKitRuntimeLogger } from "./logger";
 import { logRuntimeTelemetryDisclosure } from "../telemetry/disclosure";
 import type { TranscriptionService } from "../transcription-service/transcription-service";
 import { DebugEventBus, isDebugEventFeedEnabled } from "./debug-event-bus";
@@ -66,15 +66,15 @@ import {
   getRuntimeErrorReporterFromOptions,
 } from "./runtime-error-reporter";
 import type {
-  CopilotRuntimeLearningConfig,
-  CopilotRuntimeUser,
+  CopilotKitRuntimeLearningConfig,
+  CopilotKitRuntimeUser,
 } from "./learning";
 import { assertStableLearningContainerId } from "./learning";
 
 export type {
-  CopilotRuntimeUser,
-  CopilotRuntimeLearningConfig,
-  CopilotRuntimeLearningContext,
+  CopilotKitRuntimeUser,
+  CopilotKitRuntimeLearningConfig,
+  CopilotKitRuntimeLearningContext,
   GetLearningContainerId,
   LearningContainerSelectorInput,
   GetTrajectoryLearningContainerIds,
@@ -118,7 +118,7 @@ export type A2UIVersion = "0.9" | "1.0";
  *
  * @example
  * ```ts
- * new CopilotRuntime({
+ * new CopilotKitRuntime({
  *   agents: { legacy: legacyAgent, current: currentAgent },
  *   generativeUI: { a2uiVersion: { legacy: "0.9" } },
  * });
@@ -308,7 +308,7 @@ interface BaseCopilotRuntimeOptions extends CopilotRuntimeMiddlewares {
    * Without it, the runtime writes to the console, and debug output is JSON
    * lines on stdout.
    */
-  logger?: CopilotRuntimeLogger;
+  logger?: CopilotKitRuntimeLogger;
   /**
    * Policy controlling which inbound HTTP headers are forwarded onto the
    * outgoing agent call. By default a built-in denylist strips known
@@ -364,7 +364,7 @@ interface BaseCopilotRuntimeOptions extends CopilotRuntimeMiddlewares {
 
 export type IdentifyUserCallback = (
   request: Request,
-) => MaybePromise<CopilotRuntimeUser>;
+) => MaybePromise<CopilotKitRuntimeUser>;
 
 export type MemoryAccess = "none" | "read" | "read-write";
 
@@ -375,16 +375,16 @@ export interface MemoryGrant {
 
 export type MemoryConsumer = "agent" | "client";
 
-export interface CopilotRuntimeMemoryConfig {
+export interface CopilotKitRuntimeMemoryConfig {
   /** Resolves immutable Memory access for one authenticated web request. */
   access(input: {
     readonly request: Request;
-    readonly user: CopilotRuntimeUser;
+    readonly user: CopilotKitRuntimeUser;
     readonly consumer: MemoryConsumer;
   }): MaybePromise<MemoryGrant | null>;
 }
 
-export interface CopilotSseRuntimeOptions extends BaseCopilotRuntimeOptions {
+export interface CopilotKitSseRuntimeOptions extends BaseCopilotRuntimeOptions {
   /** The runner to use for running agents in SSE mode. */
   runner?: AgentRunner;
   /**
@@ -414,7 +414,7 @@ interface CopilotIntelligenceRuntimeBaseOptions extends BaseCopilotRuntimeOption
    * Chooses one stable Learning Container ID for each web or Channel run.
    * @deprecated Configure `getLearningContainerId` on `CopilotKitIntelligence`.
    */
-  ɵlearning?: CopilotRuntimeLearningConfig;
+  ɵlearning?: CopilotKitRuntimeLearningConfig;
   /** Auto-generate short names for newly created threads. */
   generateThreadNames?: boolean;
   /** Max delay (ms) for WebSocket reconnect backoff. @default 10_000 */
@@ -445,14 +445,14 @@ interface CopilotIntelligenceRuntimeBaseOptions extends BaseCopilotRuntimeOption
 type NonEmptyChannels = readonly [Channel, ...Channel[]];
 
 /** Intelligence runtime options with web identity, Channels, or both. */
-export type CopilotIntelligenceRuntimeOptions =
+export type CopilotKitIntelligenceRuntimeOptions =
   CopilotIntelligenceRuntimeBaseOptions &
     (
       | {
           /** Resolves the authenticated user for web requests. */
           identifyUser: IdentifyUserCallback;
           /** Enables agent and browser Memory under one request policy. */
-          memory?: CopilotRuntimeMemoryConfig;
+          memory?: CopilotKitRuntimeMemoryConfig;
           channels?: readonly Channel[];
         }
       | {
@@ -463,19 +463,19 @@ export type CopilotIntelligenceRuntimeOptions =
         }
     );
 
-export type CopilotRuntimeOptions =
-  | CopilotSseRuntimeOptions
-  | CopilotIntelligenceRuntimeOptions;
+export type CopilotKitRuntimeOptions =
+  | CopilotKitSseRuntimeOptions
+  | CopilotKitIntelligenceRuntimeOptions;
 
-export interface CopilotRuntimeLike {
-  agents: CopilotRuntimeOptions["agents"];
-  transcriptionService: CopilotRuntimeOptions["transcriptionService"];
-  beforeRequestMiddleware: CopilotRuntimeOptions["beforeRequestMiddleware"];
-  afterRequestMiddleware: CopilotRuntimeOptions["afterRequestMiddleware"];
+export interface CopilotKitRuntimeLike {
+  agents: CopilotKitRuntimeOptions["agents"];
+  transcriptionService: CopilotKitRuntimeOptions["transcriptionService"];
+  beforeRequestMiddleware: CopilotKitRuntimeOptions["beforeRequestMiddleware"];
+  afterRequestMiddleware: CopilotKitRuntimeOptions["afterRequestMiddleware"];
   runner: AgentRunner;
-  mcpApps: CopilotRuntimeOptions["mcpApps"];
-  openGenerativeUI: CopilotRuntimeOptions["openGenerativeUI"];
-  generativeUI?: CopilotRuntimeOptions["generativeUI"];
+  mcpApps: CopilotKitRuntimeOptions["mcpApps"];
+  openGenerativeUI: CopilotKitRuntimeOptions["openGenerativeUI"];
+  generativeUI?: CopilotKitRuntimeOptions["generativeUI"];
   intelligence?: CopilotKitIntelligence;
   identifyUser?: IdentifyUserCallback;
   mode: RuntimeMode;
@@ -488,13 +488,13 @@ export interface CopilotRuntimeLike {
   getLicenseChecker?(): Promise<LicenseChecker | undefined>;
   debugEventBus?: DebugEventBus;
   debug: ResolvedDebugConfig;
-  debugLogger?: CopilotRuntimeLogger;
+  debugLogger?: CopilotKitRuntimeLogger;
   /**
    * The logger the runtime writes to. Optional so external implementations of
    * this published interface remain source-compatible; a missing value means
    * the console.
    */
-  logger?: CopilotRuntimeLogger;
+  logger?: CopilotKitRuntimeLogger;
   /**
    * Runtime-bound telemetry capture. Optional so external implementations of
    * this published interface remain source-compatible.
@@ -502,7 +502,7 @@ export interface CopilotRuntimeLike {
   telemetry?: TelemetryCapture;
   /**
    * Resolved inbound-header forwarding policy read by the /run and /connect call
-   * sites. Optional on the published interface so an external `CopilotRuntimeLike`
+   * sites. Optional on the published interface so an external `CopilotKitRuntimeLike`
    * implementor predating this field stays source-compatible (non-breaking minor
    * release). Concrete runtimes (`BaseCopilotRuntime`) always resolve and set it;
    * the call sites coalesce a missing value to the default resolved policy
@@ -517,7 +517,7 @@ export interface CopilotRuntimeLike {
   sseKeepAliveIntervalSeconds?: number;
   /**
    * Resolved opt-in flag for the client-facing memory proxy routes. Optional on
-   * the published interface so an external `CopilotRuntimeLike` implementor
+   * the published interface so an external `CopilotKitRuntimeLike` implementor
    * predating this field stays source-compatible; the dispatcher coalesces a
    * missing value to `false` (secure default — routes hidden). Concrete runtimes
    * (`BaseCopilotRuntime`) always resolve and set it.
@@ -529,16 +529,16 @@ export interface CopilotRuntimeLike {
    * the default (`DEFAULT_THREAD_ACCESS`).
    */
   threadAccess?: ThreadAccessMode;
-  memory?: CopilotRuntimeMemoryConfig;
-  learning?: CopilotRuntimeLearningConfig;
+  memory?: CopilotKitRuntimeMemoryConfig;
+  learning?: CopilotKitRuntimeLearningConfig;
 }
 
-export interface CopilotSseRuntimeLike extends CopilotRuntimeLike {
+export interface CopilotKitSseRuntimeLike extends CopilotKitRuntimeLike {
   intelligence?: undefined;
   mode: typeof RUNTIME_MODE_SSE;
 }
 
-export interface CopilotIntelligenceRuntimeLike extends CopilotRuntimeLike {
+export interface CopilotKitIntelligenceRuntimeLike extends CopilotKitRuntimeLike {
   intelligence: CopilotKitIntelligence;
   identifyUser?: IdentifyUserCallback;
   generateThreadNames: boolean;
@@ -546,34 +546,34 @@ export interface CopilotIntelligenceRuntimeLike extends CopilotRuntimeLike {
   lockKeyPrefix?: string;
   lockHeartbeatIntervalSeconds: number;
   channels: Channel[];
-  learning?: CopilotRuntimeLearningConfig;
+  learning?: CopilotKitRuntimeLearningConfig;
   mode: typeof RUNTIME_MODE_INTELLIGENCE;
 }
 
-abstract class BaseCopilotRuntime implements CopilotRuntimeLike {
-  public agents: CopilotRuntimeOptions["agents"];
-  public transcriptionService: CopilotRuntimeOptions["transcriptionService"];
-  public beforeRequestMiddleware: CopilotRuntimeOptions["beforeRequestMiddleware"];
-  public afterRequestMiddleware: CopilotRuntimeOptions["afterRequestMiddleware"];
+abstract class BaseCopilotRuntime implements CopilotKitRuntimeLike {
+  public agents: CopilotKitRuntimeOptions["agents"];
+  public transcriptionService: CopilotKitRuntimeOptions["transcriptionService"];
+  public beforeRequestMiddleware: CopilotKitRuntimeOptions["beforeRequestMiddleware"];
+  public afterRequestMiddleware: CopilotKitRuntimeOptions["afterRequestMiddleware"];
   public runner: AgentRunner;
-  public mcpApps: CopilotRuntimeOptions["mcpApps"];
-  public openGenerativeUI: CopilotRuntimeOptions["openGenerativeUI"];
-  public generativeUI: CopilotRuntimeOptions["generativeUI"];
+  public mcpApps: CopilotKitRuntimeOptions["mcpApps"];
+  public openGenerativeUI: CopilotKitRuntimeOptions["openGenerativeUI"];
+  public generativeUI: CopilotKitRuntimeOptions["generativeUI"];
   public readonly debugEventBus?: DebugEventBus;
   public debug: ResolvedDebugConfig;
-  public debugLogger?: CopilotRuntimeLogger;
-  public readonly logger: CopilotRuntimeLogger;
+  public debugLogger?: CopilotKitRuntimeLogger;
+  public readonly logger: CopilotKitRuntimeLogger;
   public readonly telemetry: TelemetryCapture;
   public readonly forwardHeadersPolicy: ResolvedForwardHeadersPolicy;
   public readonly sseKeepAliveIntervalSeconds: number;
   public readonly exposeMemoryRoutes: boolean;
   public readonly threadAccess: ThreadAccessMode;
-  public readonly memory?: CopilotRuntimeMemoryConfig;
+  public readonly memory?: CopilotKitRuntimeMemoryConfig;
 
   /**
    * License token resolved once with the env fallback, so telemetry
    * attribution (below) and subclass feature gating
-   * (CopilotIntelligenceRuntime's getLicenseChecker) read the exact same value
+   * (CopilotKitIntelligenceRuntime's getLicenseChecker) read the exact same value
    * instead of each re-applying `?? COPILOTKIT_LICENSE_TOKEN`.
    */
   protected readonly resolvedLicenseToken?: string;
@@ -663,22 +663,24 @@ abstract class BaseCopilotRuntime implements CopilotRuntimeLike {
     );
     // Secure default: the client-facing memory proxy routes stay hidden (404)
     // unless a deployment explicitly opts in.
-    this.memory = (options as { memory?: CopilotRuntimeMemoryConfig }).memory;
+    this.memory = (
+      options as { memory?: CopilotKitRuntimeMemoryConfig }
+    ).memory;
     this.exposeMemoryRoutes =
       this.memory !== undefined || (options.exposeMemoryRoutes ?? false);
     this.threadAccess = resolveThreadAccessMode(options.threads);
   }
 }
 
-export class CopilotSseRuntime
+export class CopilotKitSseRuntime
   extends BaseCopilotRuntime
-  implements CopilotSseRuntimeLike
+  implements CopilotKitSseRuntimeLike
 {
   readonly intelligence = undefined;
   readonly mode = RUNTIME_MODE_SSE;
   readonly identifyUser?: IdentifyUserCallback;
 
-  constructor(options: CopilotSseRuntimeOptions) {
+  constructor(options: CopilotKitSseRuntimeOptions) {
     // Runtime guard mirroring the discriminated-union type: the SSE runtime has
     // no Intelligence delivery path, so `channels` cannot be honored here. The
     // type forbids it, but a JS / `as any` caller passing `{ agents, channels }`
@@ -710,9 +712,9 @@ export class CopilotSseRuntime
   }
 }
 
-export class CopilotIntelligenceRuntime
+export class CopilotKitIntelligenceRuntime
   extends BaseCopilotRuntime
-  implements CopilotIntelligenceRuntimeLike
+  implements CopilotKitIntelligenceRuntimeLike
 {
   readonly intelligence: CopilotKitIntelligence;
   readonly identifyUser?: IdentifyUserCallback;
@@ -721,7 +723,7 @@ export class CopilotIntelligenceRuntime
   readonly lockKeyPrefix?: string;
   readonly lockHeartbeatIntervalSeconds: number;
   readonly channels: Channel[];
-  readonly learning?: CopilotRuntimeLearningConfig;
+  readonly learning?: CopilotKitRuntimeLearningConfig;
   readonly mode = RUNTIME_MODE_INTELLIGENCE;
   private licenseCheckerPromise?: Promise<LicenseChecker>;
 
@@ -730,7 +732,7 @@ export class CopilotIntelligenceRuntime
   /** Maximum allowed heartbeat interval in seconds (50 minutes). */
   static readonly MAX_HEARTBEAT_INTERVAL_SECONDS = 3_000;
 
-  constructor(options: CopilotIntelligenceRuntimeOptions) {
+  constructor(options: CopilotKitIntelligenceRuntimeOptions) {
     const rawOptions = options as CopilotIntelligenceRuntimeBaseOptions & {
       identifyUser?: unknown;
       channels?: unknown;
@@ -738,10 +740,10 @@ export class CopilotIntelligenceRuntime
       runner?: unknown;
       ɵlearning?: unknown;
     };
-    // Runtime guard mirroring the `channels` guard in `CopilotSseRuntime`: this
+    // Runtime guard mirroring the `channels` guard in `CopilotKitSseRuntime`: this
     // constructor hardcodes `IntelligenceAgentRunner` into its `super()` call,
     // so a caller-supplied `runner` can never be honored. The type forbids it
-    // (`runner` is declared only on `CopilotSseRuntimeOptions`), but that is an
+    // (`runner` is declared only on `CopilotKitSseRuntimeOptions`), but that is an
     // excess-property check — a JS / `as any` / non-literal caller passing
     // `{ intelligence, runner }` would otherwise land here and have `runner`
     // silently dropped in favor of the auto-wired one. Fail loud instead.
@@ -816,7 +818,7 @@ export class CopilotIntelligenceRuntime
       options.intelligence.ɵgetLearningContainerId?.() !== undefined
     ) {
       throw new Error(
-        "Configure Learning Containers with `getLearningContainerId` on `CopilotKitIntelligence`; do not also pass deprecated `ɵlearning` to `CopilotRuntime`",
+        "Configure Learning Containers with `getLearningContainerId` on `CopilotKitIntelligence`; do not also pass deprecated `ɵlearning` to `CopilotKitRuntime`",
       );
     }
     if (
@@ -846,12 +848,12 @@ export class CopilotIntelligenceRuntime
     this.generateThreadNames = options.generateThreadNames ?? true;
     this.lockTtlSeconds = Math.min(
       options.lockTtlSeconds ?? 20,
-      CopilotIntelligenceRuntime.MAX_LOCK_TTL_SECONDS,
+      CopilotKitIntelligenceRuntime.MAX_LOCK_TTL_SECONDS,
     );
     this.lockKeyPrefix = options.lockKeyPrefix;
     this.lockHeartbeatIntervalSeconds = Math.min(
       options.lockHeartbeatIntervalSeconds ?? 15,
-      CopilotIntelligenceRuntime.MAX_HEARTBEAT_INTERVAL_SECONDS,
+      CopilotKitIntelligenceRuntime.MAX_HEARTBEAT_INTERVAL_SECONDS,
     );
     // Declared Intelligence Channels. Lowercase kebab-case name-shape validation
     // (`assertValidChannelNames`) lives in the channels-intelligence launcher —
@@ -890,19 +892,19 @@ export class CopilotIntelligenceRuntime
 }
 
 function hasIntelligenceOptions(
-  options: CopilotRuntimeOptions,
-): options is CopilotIntelligenceRuntimeOptions {
+  options: CopilotKitRuntimeOptions,
+): options is CopilotKitIntelligenceRuntimeOptions {
   return "intelligence" in options && !!options.intelligence;
 }
 
 export function isIntelligenceRuntime(
-  runtime: CopilotRuntimeLike,
-): runtime is CopilotIntelligenceRuntimeLike {
+  runtime: CopilotKitRuntimeLike,
+): runtime is CopilotKitIntelligenceRuntimeLike {
   return runtime.mode === RUNTIME_MODE_INTELLIGENCE && !!runtime.intelligence;
 }
 
 /**
- * Compile-time phantom brand marking a {@link CopilotRuntime} that was
+ * Compile-time phantom brand marking a {@link CopilotKitRuntime} that was
  * constructed with at least one declared Intelligence Channel. It has no runtime
  * representation — the shim never sets this property; it exists purely so
  * `createCopilotKitRuntimeHandler` can tell, at the type level, that the resulting
@@ -916,12 +918,12 @@ export interface RuntimeWithDeclaredChannels {
 }
 
 /**
- * Instance shape of the {@link CopilotRuntime} compatibility shim. Extends
- * {@link CopilotRuntimeLike} with the Intelligence-only accessors the shim
+ * Instance shape of the {@link CopilotKitRuntime} compatibility shim. Extends
+ * {@link CopilotKitRuntimeLike} with the Intelligence-only accessors the shim
  * surfaces (all `undefined` in SSE mode). Declared explicitly so the exported
- * `CopilotRuntime` name resolves as a type as well as a value.
+ * `CopilotKitRuntime` name resolves as a type as well as a value.
  */
-export interface CopilotRuntime extends CopilotRuntimeLike {
+export interface CopilotKitRuntime extends CopilotKitRuntimeLike {
   /** Telemetry capture bound to this runtime's construction-time identity. */
   telemetry: TelemetryCapture;
   /** Auto-generate short thread names; `undefined` in SSE mode. */
@@ -935,11 +937,11 @@ export interface CopilotRuntime extends CopilotRuntimeLike {
   /** Declared Intelligence Channels; `undefined` in SSE mode. */
   channels?: Channel[];
   /** Learning Container selector; `undefined` in SSE mode. */
-  learning?: CopilotRuntimeLearningConfig;
+  learning?: CopilotKitRuntimeLearningConfig;
 }
 
 /**
- * Constructor type for the {@link CopilotRuntime} compatibility shim.
+ * Constructor type for the {@link CopilotKitRuntime} compatibility shim.
  *
  * The first overload fires when the caller passes `intelligence` together with a
  * non-empty `channels` tuple: it returns a {@link RuntimeWithDeclaredChannels}-
@@ -952,13 +954,13 @@ export interface CopilotRuntime extends CopilotRuntimeLike {
  * to the instance type), so the branding lives on this construct-signature
  * interface instead of on the class itself.
  */
-export interface CopilotRuntimeConstructor {
+export interface CopilotKitRuntimeConstructor {
   new (
     options: CopilotIntelligenceRuntimeBaseOptions &
       (
         | {
             identifyUser: IdentifyUserCallback;
-            memory?: CopilotRuntimeMemoryConfig;
+            memory?: CopilotKitRuntimeMemoryConfig;
             channels: NonEmptyChannels;
           }
         | {
@@ -967,25 +969,25 @@ export interface CopilotRuntimeConstructor {
             channels: NonEmptyChannels;
           }
       ),
-  ): CopilotRuntime & RuntimeWithDeclaredChannels;
-  new (options: CopilotRuntimeOptions): CopilotRuntime;
+  ): CopilotKitRuntime & RuntimeWithDeclaredChannels;
+  new (options: CopilotKitRuntimeOptions): CopilotKitRuntime;
 }
 
 /**
- * Compatibility shim that preserves the legacy `CopilotRuntime` entrypoint.
- * New code should prefer `CopilotSseRuntime` or `CopilotIntelligenceRuntime`.
+ * Compatibility shim that preserves the legacy `CopilotKitRuntime` entrypoint.
+ * New code should prefer `CopilotKitSseRuntime` or `CopilotKitIntelligenceRuntime`.
  *
- * Exported to consumers as the {@link CopilotRuntime} value (typed as
- * {@link CopilotRuntimeConstructor}) rather than as a class, so that the
+ * Exported to consumers as the {@link CopilotKitRuntime} value (typed as
+ * {@link CopilotKitRuntimeConstructor}) rather than as a class, so that the
  * channel-presence brand can flow from construction into the handler type.
  */
-class CopilotRuntimeShim implements CopilotRuntime {
-  private delegate: CopilotSseRuntime | CopilotIntelligenceRuntime;
+class CopilotRuntimeShim implements CopilotKitRuntime {
+  private delegate: CopilotKitSseRuntime | CopilotKitIntelligenceRuntime;
 
-  constructor(options: CopilotRuntimeOptions) {
+  constructor(options: CopilotKitRuntimeOptions) {
     this.delegate = hasIntelligenceOptions(options)
-      ? new CopilotIntelligenceRuntime(options)
-      : new CopilotSseRuntime(options);
+      ? new CopilotKitIntelligenceRuntime(options)
+      : new CopilotKitSseRuntime(options);
 
     const reporter = getRuntimeErrorReporterFromOptions(options);
     if (reporter) {
@@ -993,19 +995,19 @@ class CopilotRuntimeShim implements CopilotRuntime {
     }
   }
 
-  get agents(): CopilotRuntimeOptions["agents"] {
+  get agents(): CopilotKitRuntimeOptions["agents"] {
     return this.delegate.agents;
   }
 
-  get transcriptionService(): CopilotRuntimeOptions["transcriptionService"] {
+  get transcriptionService(): CopilotKitRuntimeOptions["transcriptionService"] {
     return this.delegate.transcriptionService;
   }
 
-  get beforeRequestMiddleware(): CopilotRuntimeOptions["beforeRequestMiddleware"] {
+  get beforeRequestMiddleware(): CopilotKitRuntimeOptions["beforeRequestMiddleware"] {
     return this.delegate.beforeRequestMiddleware;
   }
 
-  get afterRequestMiddleware(): CopilotRuntimeOptions["afterRequestMiddleware"] {
+  get afterRequestMiddleware(): CopilotKitRuntimeOptions["afterRequestMiddleware"] {
     return this.delegate.afterRequestMiddleware;
   }
 
@@ -1013,15 +1015,15 @@ class CopilotRuntimeShim implements CopilotRuntime {
     return this.delegate.runner;
   }
 
-  get mcpApps(): CopilotRuntimeOptions["mcpApps"] {
+  get mcpApps(): CopilotKitRuntimeOptions["mcpApps"] {
     return this.delegate.mcpApps;
   }
 
-  get openGenerativeUI(): CopilotRuntimeOptions["openGenerativeUI"] {
+  get openGenerativeUI(): CopilotKitRuntimeOptions["openGenerativeUI"] {
     return this.delegate.openGenerativeUI;
   }
 
-  get generativeUI(): CopilotRuntimeOptions["generativeUI"] {
+  get generativeUI(): CopilotKitRuntimeOptions["generativeUI"] {
     return this.delegate.generativeUI;
   }
 
@@ -1067,7 +1069,7 @@ class CopilotRuntimeShim implements CopilotRuntime {
       : undefined;
   }
 
-  get learning(): CopilotRuntimeLearningConfig | undefined {
+  get learning(): CopilotKitRuntimeLearningConfig | undefined {
     return isIntelligenceRuntime(this.delegate)
       ? this.delegate.learning
       : undefined;
@@ -1089,11 +1091,11 @@ class CopilotRuntimeShim implements CopilotRuntime {
     return this.delegate.debug;
   }
 
-  get debugLogger(): CopilotRuntimeLogger | undefined {
+  get debugLogger(): CopilotKitRuntimeLogger | undefined {
     return this.delegate.debugLogger;
   }
 
-  get logger(): CopilotRuntimeLogger {
+  get logger(): CopilotKitRuntimeLogger {
     return this.delegate.logger;
   }
 
@@ -1113,21 +1115,21 @@ class CopilotRuntimeShim implements CopilotRuntime {
     return this.delegate.exposeMemoryRoutes;
   }
 
-  get memory(): CopilotRuntimeMemoryConfig | undefined {
+  get memory(): CopilotKitRuntimeMemoryConfig | undefined {
     return this.delegate.memory;
   }
 }
 
 /**
- * The public `CopilotRuntime` constructor. Backed by {@link CopilotRuntimeShim}
- * but typed as {@link CopilotRuntimeConstructor} so that constructing with a
+ * The public `CopilotKitRuntime` constructor. Backed by {@link CopilotRuntimeShim}
+ * but typed as {@link CopilotKitRuntimeConstructor} so that constructing with a
  * non-empty `channels` array yields a {@link RuntimeWithDeclaredChannels}-branded
  * runtime type.
  *
  * The `as unknown as` cast is required (not dishonest widening): the brand is a
  * phantom, compile-time-only marker with no runtime representation, so the shim
  * instances legitimately do not carry the brand property. Behavior is identical
- * to the former `class CopilotRuntime` — this only refines the static type.
+ * to the former `class CopilotKitRuntime` — this only refines the static type.
  */
-export const CopilotRuntime: CopilotRuntimeConstructor =
-  CopilotRuntimeShim as unknown as CopilotRuntimeConstructor;
+export const CopilotKitRuntime: CopilotKitRuntimeConstructor =
+  CopilotRuntimeShim as unknown as CopilotKitRuntimeConstructor;
