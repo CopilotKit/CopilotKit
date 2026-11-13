@@ -126,6 +126,47 @@ func TestUpgraderSendsOneCumulativeSurfacePerSurfaceID(t *testing.T) {
 	}
 }
 
+func progressiveRender(components []any, data map[string]any) []any {
+	return []any{
+		map[string]any{"version": "v0.9", "createSurface": map[string]any{"surfaceId": "s", "catalogId": basicV09}},
+		map[string]any{"version": "v0.9", "updateComponents": map[string]any{"surfaceId": "s", "components": components}},
+		map[string]any{"version": "v0.9", "updateDataModel": map[string]any{"surfaceId": "s", "path": "/", "value": data}},
+	}
+}
+
+func TestUpgraderAppendsComponentsThatAProgressiveRenderRewrites(t *testing.T) {
+	upgrader := newA2UIV09Upgrader()
+	draft := []any{map[string]any{"id": "root", "component": "Text", "text": "Loading"}}
+	final := []any{
+		map[string]any{"id": "root", "component": "Column", "children": []any{"title"}},
+		map[string]any{"id": "title", "component": "Text", "text": "Q2"},
+	}
+	first := upgrader.transform(v09Activity("m", progressiveRender(draft, map[string]any{})))
+	second := upgrader.transform(v09Activity("m", progressiveRender(final, map[string]any{})))
+	sent := object(first[0]["content"])["operations"].([]any)
+	ops := object(second[0]["content"])["operations"].([]any)
+	// The operation at the last applied index is unchanged, so the client applies only
+	// what comes after it: the final components, then the same data.
+	if len(ops) != 5 || !reflect.DeepEqual(ops[:3], sent) {
+		t.Fatalf("ops: %v", ops)
+	}
+	root := object(object(object(ops[3])["updateComponents"])["components"].([]any)[0])
+	if root["component"] != "Column" || object(ops[4])["updateDataModel"] == nil {
+		t.Fatalf("appended: %v", ops[3:])
+	}
+}
+
+func TestUpgraderSendsNewOperationsAsTheyAreWhenTheClientRebuilds(t *testing.T) {
+	upgrader := newA2UIV09Upgrader()
+	components := []any{map[string]any{"id": "root", "component": "Text", "text": "Q2"}}
+	upgrader.transform(v09Activity("m", progressiveRender(components, map[string]any{"name": "A"})))
+	second := upgrader.transform(v09Activity("m", progressiveRender(components, map[string]any{"name": "Ada"})))
+	ops := object(second[0]["content"])["operations"].([]any)
+	if len(ops) != 3 || object(object(ops[2])["updateDataModel"])["value"].(map[string]any)["name"] != "Ada" {
+		t.Fatalf("ops: %v", ops)
+	}
+}
+
 func TestUpgraderShowsAFailedLifecycleSnapshotAsAnErrorSurfaceOnce(t *testing.T) {
 	upgrader := newA2UIV09Upgrader()
 	lifecycle := func(messageID string, content map[string]any) []Event {
