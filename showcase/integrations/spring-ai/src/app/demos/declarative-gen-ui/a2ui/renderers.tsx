@@ -223,6 +223,9 @@ export const myRenderers = {
         >
           <span>{props.value}</span>
           {arrow && <span className="text-base">{arrow}</span>}
+          {props.trendValue && (
+            <span className="text-sm font-medium">{props.trendValue}</span>
+          )}
         </div>
       </div>
     );

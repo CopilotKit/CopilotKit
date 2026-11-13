@@ -43,6 +43,7 @@ export const myDefinitions = {
       label: z.string(),
       value: z.string(),
       trend: z.enum(["up", "down", "neutral"]).optional(),
+      trendValue: z.string().optional(),
     }),
   },
 
