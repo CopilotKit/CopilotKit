@@ -790,7 +790,7 @@ describe("CopilotKitCore - Suggestions E2E", () => {
         agentIds: ["consumer"],
         threadId: "thread-b",
       });
-      let releaseHeaders: () => void = () => {};
+      let releaseHeaders!: () => void;
       const headersGate = new Promise<void>((resolve) => {
         releaseHeaders = resolve;
       });
@@ -959,7 +959,7 @@ describe("CopilotKitCore - Suggestions E2E", () => {
 
     /** A suggestion run held until `release`, then streaming `title`. */
     function gatedClone(providerAgent: MockAgent, title: string) {
-      let release: () => void = () => {};
+      let release!: () => void;
       const gate = new Promise<void>((resolve) => {
         release = resolve;
       });
@@ -1042,7 +1042,7 @@ describe("CopilotKitCore - Suggestions E2E", () => {
           }
         },
       });
-      let finishConnect: () => void = () => {};
+      let finishConnect!: () => void;
       const connected = new Promise<void>((resolve) => {
         finishConnect = resolve;
       });
