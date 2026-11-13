@@ -1,0 +1,16 @@
+# Top-level dependencies for the AG2 showcase agent. After editing this file,
+# regenerate both lock files from this directory, in this order:
+#
+#   uv pip compile requirements.in --universal --python-version 3.10 \
+#     -o requirements.txt
+#   uv pip compile requirements.txt --generate-hashes --python-version 3.12 \
+#     --python-platform x86_64-manylinux_2_28 -o requirements.lock
+#
+# requirements.txt pins every package exactly (Python 3.10+, used by CI and the
+# pin checks). requirements.lock adds hashes for the python:3.12.13 image and is
+# what the Dockerfile installs with --require-hashes.
+ag2[openai,ag-ui,mcp]==1.1.2
+fastapi>=0.115.0
+uvicorn>=0.34.0
+httpx>=0.27.0
+python-dotenv==1.0.1
