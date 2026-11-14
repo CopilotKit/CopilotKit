@@ -4,6 +4,14 @@ const isWhitespace = (c: string | undefined): boolean =>
 const isWordChar = (c: string | undefined): boolean =>
   c !== undefined && /[\p{L}\p{N}]/u.test(c);
 
+const canOpenEmphasis = (
+  prevChar: string | undefined,
+  nextChar: string | undefined,
+): boolean =>
+  nextChar === undefined
+    ? prevChar === undefined || isWhitespace(prevChar)
+    : !isWhitespace(nextChar);
+
 export function completePartialMarkdown(input: string): string {
   let s = input;
 
@@ -187,35 +195,38 @@ export function completePartialMarkdown(input: string): string {
       i++; // Skip next character
     }
 
-    // Handle single emphasis (*, _) - only if not part of double
+    // Handle single emphasis (*, _) - only if not part of double.
+    // A marker can open when text follows it (or it ends the text after
+    // whitespace) and can close when whitespace does not precede it, so
+    // "2 * 3", "snake_case" and "foo_bar_" are left alone.
     else if (char === "*" && prevChar !== "*" && nextChar !== "*") {
+      const canOpen = canOpenEmphasis(prevChar, nextChar);
+      const canClose = !isWhitespace(prevChar) && prevChar !== undefined;
       const existingIndex = openElements.findIndex(
         (el) => el.type === "italic_star",
       );
-      if (existingIndex !== -1) {
-        // Closes only when not preceded by whitespace ("2 * 3" is not a delimiter)
-        if (!isWhitespace(prevChar)) {
-          openElements.splice(existingIndex, 1);
-        }
-      } else if (!isWhitespace(nextChar)) {
+      if (existingIndex !== -1 && canClose) {
+        openElements.splice(existingIndex, 1);
+      } else if (canOpen) {
         openElements.push({ type: "italic_star", marker: "*", position: i });
       }
     } else if (char === "_" && prevChar !== "_" && nextChar !== "_") {
-      const existingIndex = openElements.findIndex(
-        (el) => el.type === "italic_underscore",
-      );
-      if (isWordChar(prevChar) && isWordChar(nextChar)) {
-        // Intraword underscore (snake_case) never opens or closes emphasis
-      } else if (existingIndex !== -1) {
-        if (!isWhitespace(prevChar)) {
+      // Intraword underscore (snake_case) never opens or closes emphasis
+      if (!(isWordChar(prevChar) && isWordChar(nextChar))) {
+        const canOpen = canOpenEmphasis(prevChar, nextChar);
+        const canClose = !isWhitespace(prevChar) && prevChar !== undefined;
+        const existingIndex = openElements.findIndex(
+          (el) => el.type === "italic_underscore",
+        );
+        if (existingIndex !== -1 && canClose) {
           openElements.splice(existingIndex, 1);
+        } else if (canOpen) {
+          openElements.push({
+            type: "italic_underscore",
+            marker: "_",
+            position: i,
+          });
         }
-      } else if (!isWhitespace(nextChar)) {
-        openElements.push({
-          type: "italic_underscore",
-          marker: "_",
-          position: i,
-        });
       }
     }
   }

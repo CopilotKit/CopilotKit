@@ -504,6 +504,9 @@ describe("completePartialMarkdown", () => {
       "- [ ] buy milk",
       "- [x] done\n- [ ] todo",
       "see [1] and [2]",
+      "foo_bar_",
+      "foo*",
+      "*foo *bar* baz*",
     ])("returns %j unchanged", (input) => {
       expect(completePartialMarkdown(input)).toBe(input);
     });
