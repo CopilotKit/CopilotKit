@@ -79,6 +79,35 @@ import { CopilotChat } from "@copilotkit/react-core/v2";
 />;
 ```
 
+### Errors replayed from thread history
+
+Connecting to an existing thread replays its history, including a `RUN_ERROR` from an earlier run. `onError` receives that error with the code `agent_run_error_event`, like a live failure. `event.context.phase` tells them apart: `"live"` for a run happening now, `"replay"` for thread history, and `"unknown"` when the connection can't tell.
+
+If your handler shows a banner, skip only `"replay"`. Keep `"unknown"` visible, so a live failure is never hidden:
+
+```tsx
+import {
+  CopilotKitProvider,
+  CopilotKitCoreErrorCode,
+} from "@copilotkit/react-core/v2";
+
+<CopilotKitProvider
+  runtimeUrl="/api/copilotkit"
+  onError={(event) => {
+    errorTracker.capture(event); // Still record every error.
+    if (
+      event.code === CopilotKitCoreErrorCode.AGENT_RUN_ERROR_EVENT &&
+      event.context.phase === "replay"
+    ) {
+      return; // An earlier run's failure, replayed on connect.
+    }
+    showErrorBanner(event.error.message);
+  }}
+>
+  <App />
+</CopilotKitProvider>;
+```
+
 ### Error codes
 
 | Code | Description |

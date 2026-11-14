@@ -184,6 +184,25 @@ export class AgentThreadLockedError extends Error {
 }
 
 /**
+ * The gateway could not replay a live run's events, so the client cannot
+ * verify the run it is following. The run itself may still be going on the
+ * server; reconnecting to the thread shows its real state.
+ */
+export class IntelligenceReplayFailedError extends Error {
+  readonly code = "INTELLIGENCE_REPLAY_FAILED";
+
+  constructor(
+    readonly threadId: string,
+    readonly runId: string | null,
+  ) {
+    super(
+      "The run's events could not be replayed. Reconnect to the thread to check the run's status.",
+    );
+    this.name = "IntelligenceReplayFailedError";
+  }
+}
+
+/**
  * Typed contract for agents that expose the completion promise of their
  * currently in-flight run.
  *
@@ -886,6 +905,33 @@ export class IntelligenceAgent extends AbstractAgent {
         ),
         tap(() => {
           controlCursor.replayFailed = true;
+          // A live run cannot continue from an incomplete replay: the events
+          // after it would be verified against a lifecycle missing its start.
+          // Settle the client run without stopping the one on the server.
+          // Keyed on streamMode, because refreshed run credentials join with
+          // the connect channel mode while still following a live run.
+          if (options.streamMode === "run") {
+            // Ending the stream here skips the replay_complete that would
+            // restore the join's checkpoint, so restore it now. Otherwise a
+            // replayed event that advanced the cursor makes the next connect
+            // skip the history this replay failed to deliver.
+            if (reconnectCursor === null) {
+              this.clearReconnectCursor(input.threadId);
+            } else {
+              this.advanceLastSeenEventId(input.threadId, reconnectCursor);
+              // The sequence guard still holds the replayed event that moved
+              // the cursor. Left in place, it would ignore the same events
+              // when the next connect replays them, and the cursor would stay
+              // behind them.
+              this.sharedState.lastSeenEventSeqs?.delete(input.threadId);
+            }
+            // `input` carries the canonical identity: a run stream keeps its
+            // own run ID when refreshed credentials omit one.
+            throw new IntelligenceReplayFailedError(
+              input.threadId,
+              input.runId ?? null,
+            );
+          }
         }),
       );
       // Controls are scoped to each replay epoch, not cached across rejoin.

@@ -251,23 +251,16 @@ export class ArgsParser {
   }
 }
 
-/**
- * Extract EventWithState type from Middleware.runNextWithState return type
- */
-type ExtractObservableType<T> = T extends Observable<infer U> ? U : never;
-type RunNextWithStateReturn = ReturnType<Middleware["runNextWithState"]>;
-type EventWithState = ExtractObservableType<RunNextWithStateReturn>;
-
 export class OpenGenerativeUIMiddleware extends Middleware {
   run(input: RunAgentInput, next: AbstractAgent): Observable<BaseEvent> {
-    return this.processStream(this.runNextWithState(input, next));
+    // Only the events are read, so `runNext`: `runNextWithState` copies the
+    // messages and state on every event for a consumer that never looks.
+    return this.processStream(this.runNext(input, next));
   }
 
-  private processStream(
-    source: Observable<EventWithState>,
-  ): Observable<BaseEvent> {
+  private processStream(source: Observable<BaseEvent>): Observable<BaseEvent> {
     return new Observable<BaseEvent>((subscriber) => {
-      let heldRunFinished: EventWithState | null = null;
+      let heldRunFinished: BaseEvent | null = null;
       // Track active generateSandboxedUi tool call IDs → their streaming parser
       const activeParsers = new Map<string, ArgsParser>();
       // Hold genui tool call events until the first activity event is emitted
@@ -287,16 +280,14 @@ export class OpenGenerativeUIMiddleware extends Middleware {
       };
 
       const subscription = source.subscribe({
-        next: (eventWithState) => {
-          const event = eventWithState.event;
-
+        next: (event) => {
           if (heldRunFinished) {
-            subscriber.next(heldRunFinished.event);
+            subscriber.next(heldRunFinished);
             heldRunFinished = null;
           }
 
           if (event.type === EventType.RUN_FINISHED) {
-            heldRunFinished = eventWithState;
+            heldRunFinished = event;
             return;
           }
 
@@ -366,7 +357,7 @@ export class OpenGenerativeUIMiddleware extends Middleware {
           heldToolCallEvents.clear();
 
           if (heldRunFinished) {
-            subscriber.next(heldRunFinished.event);
+            subscriber.next(heldRunFinished);
             heldRunFinished = null;
           }
           subscriber.error(err);
@@ -378,7 +369,7 @@ export class OpenGenerativeUIMiddleware extends Middleware {
           });
 
           if (heldRunFinished) {
-            subscriber.next(heldRunFinished.event);
+            subscriber.next(heldRunFinished);
             heldRunFinished = null;
           }
           activeParsers.clear();

@@ -25,6 +25,24 @@ export interface ConnectionReplayLifecycle {
 }
 
 /**
+ * Whether a RUN_ERROR received while connecting is stored history (`replay`)
+ * or a failure of a run that is happening now (`live`). `unknown` when the
+ * transport reports no replay boundaries, as with HTTP `/connect`.
+ */
+export type RunErrorPhase = "replay" | "live" | "unknown";
+
+const connectRunErrorPhases = new WeakMap<BaseEvent, "replay" | "live">();
+
+/**
+ * The phase in which a connection received `event`, as recorded when it
+ * arrived. Events that did not come through a connection with replay
+ * boundaries report `unknown`.
+ */
+export function ɵgetConnectRunErrorPhase(event: BaseEvent): RunErrorPhase {
+  return connectRunErrorPhases.get(event) ?? "unknown";
+}
+
+/**
  * Runs an agent's `connect()` stream through the AbstractAgent apply pipeline
  * with the `verifyEvents` step omitted.
  *
@@ -96,6 +114,9 @@ export async function ɵconnectWithoutEventVerification(
     // Record the phase when an error arrives: subscriber callbacks may run
     // asynchronously after replay_complete has already changed the phase.
     let isReplaying = true;
+    // Only a transport that reports replay boundaries can say which phase an
+    // error arrived in; without them the phase stays unknown.
+    let reportsReplayPhase = false;
     const liveErrors = new WeakSet<BaseEvent>();
     const subscribers: AgentSubscriber[] = [
       {
@@ -150,10 +171,12 @@ export async function ɵconnectWithoutEventVerification(
     // remains owned by the transport (Intelligence idle or HTTP EOF).
     const lifecycle: ConnectionReplayLifecycle = {
       onReplayStarted: () => {
+        reportsReplayPhase = true;
         isReplaying = true;
         agent.isRunning = true;
       },
       onReplayFinished: () => {
+        reportsReplayPhase = true;
         isReplaying = false;
       },
     };
@@ -169,8 +192,10 @@ export async function ɵconnectWithoutEventVerification(
     ).pipe(
       // NOTE: enforceEvents is intentionally omitted here. See JSDoc above.
       tap((event) => {
-        if (!isReplaying && event.type === EventType.RUN_ERROR) {
-          liveErrors.add(event);
+        if (event.type !== EventType.RUN_ERROR) return;
+        if (!isReplaying) liveErrors.add(event);
+        if (reportsReplayPhase) {
+          connectRunErrorPhases.set(event, isReplaying ? "replay" : "live");
         }
       }),
       // transformChunks reassembles partial/streamed messages — still needed.
