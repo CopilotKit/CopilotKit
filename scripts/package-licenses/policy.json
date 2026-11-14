@@ -1,5 +1,11 @@
 [
   {
+    "directory": "community/svelte",
+    "names": ["@copilotkit/svelte"],
+    "license": "MIT",
+    "notice": "LICENSE"
+  },
+  {
     "directory": "packages/a2ui-renderer",
     "names": ["@copilotkit/a2ui-renderer"],
     "license": "MIT",
