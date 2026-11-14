@@ -63,70 +63,49 @@ export function defaultContainerDimensions(
 }
 
 /**
- * Open the widget's `<dialog>` surface for a mode. `inline` opens it in normal
- * flow (`show()`); `fullscreen` opens it in the browser top layer
- * (`showModal()`), which fills the viewport whatever containing block an
- * ancestor establishes (CopilotKit's chat container uses `container-type`,
- * which would trap a `position: fixed` overlay inside the chat panel). The
- * iframe stays inside the dialog across transitions, so switching modes never
- * reloads the widget.
+ * The `role` an adapter gives the widget's `<dialog>` in a mode. Inline, the
+ * widget is content in the chat, not a dialog: it is exposed as a labelled
+ * group. Fullscreen keeps the dialog's own (modal) semantics.
+ */
+export function ɵdialogRoleForMode(
+  mode: McpAppsDisplayMode,
+): "group" | undefined {
+  return mode === "fullscreen" ? undefined : "group";
+}
+
+/**
+ * Put the widget's `<dialog>` surface in a mode. `fullscreen` opens it in the
+ * browser top layer (`showModal()`), which fills the viewport whatever
+ * containing block an ancestor establishes (CopilotKit's chat container uses
+ * `container-type`, which would trap a `position: fixed` overlay inside the
+ * chat panel). `inline` leaves it closed: the adapter renders the closed
+ * dialog in normal flow with `display: block`. Opening a dialog, even with
+ * `show()`, runs the browser's dialog focusing steps; a widget arriving in the
+ * chat while the user types must not move the focus away from the composer.
+ * The iframe stays inside the dialog across transitions, so switching modes
+ * never reloads the widget.
  *
- * Opening a dialog runs the browser's dialog focusing steps, which move focus
- * into it. That is wanted for `fullscreen` (the adapter then lands focus on
- * its exit button) but not for `inline`: a widget arriving in the chat while
- * the user types must not take the focus away from the composer, so the
- * element focused before an inline `show()` gets it back.
- *
- * The applied mode is recorded on `data-mcp-app-display-mode`, which is also
- * what tells a later call whether the dialog must be closed and reopened. Where
- * the top layer is unavailable (jsdom), the dialog is merely marked `open`.
+ * The applied mode is recorded on `data-mcp-app-display-mode`. Where the top
+ * layer is unavailable (jsdom), fullscreen merely marks the dialog `open`.
  */
 export function ɵshowDialogForMode(
   dialog: HTMLDialogElement,
   mode: McpAppsDisplayMode,
 ): void {
-  const modal = mode === "fullscreen";
-  if (
-    typeof dialog.showModal !== "function" ||
-    typeof dialog.show !== "function"
-  ) {
-    if (!dialog.open) dialog.setAttribute("open", "");
-    dialog.setAttribute("data-mcp-app-display-mode", mode);
-    return;
-  }
-  const wasModal =
-    dialog.getAttribute("data-mcp-app-display-mode") === "fullscreen";
-  if (dialog.open && wasModal !== modal) dialog.close();
-  if (!dialog.open) {
-    if (modal) {
-      dialog.showModal();
-    } else {
-      const focusedBefore = dialog.ownerDocument.activeElement;
-      dialog.show();
-      restoreFocus(dialog, focusedBefore);
+  const topLayer =
+    typeof dialog.showModal === "function" &&
+    typeof dialog.close === "function";
+  if (mode === "fullscreen") {
+    if (!dialog.open) {
+      if (topLayer) dialog.showModal();
+      else dialog.setAttribute("open", "");
     }
+  } else if (dialog.open) {
+    // Closing the modal dialog gives the focus back to what had it before.
+    if (topLayer) dialog.close();
+    else dialog.removeAttribute("open");
   }
   dialog.setAttribute("data-mcp-app-display-mode", mode);
-}
-
-/** Give the focus back to what had it before an inline `show()` moved it. */
-function restoreFocus(
-  dialog: HTMLDialogElement,
-  focusedBefore: Element | null,
-) {
-  const doc = dialog.ownerDocument;
-  const focusedNow = doc.activeElement;
-  if (focusedNow === focusedBefore || !dialog.contains(focusedNow)) return;
-  if (
-    focusedBefore instanceof HTMLElement &&
-    focusedBefore.isConnected &&
-    focusedBefore !== doc.body
-  ) {
-    focusedBefore.focus({ preventScroll: true });
-  } else if (focusedNow instanceof HTMLElement) {
-    // Nothing had the focus: do not leave it inside the widget either.
-    focusedNow.blur();
-  }
 }
 
 /**

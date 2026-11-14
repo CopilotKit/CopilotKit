@@ -68,17 +68,21 @@ synchronous activity registration.
 
 The bridge-free `/activity` entry ships the pieces the adapters need to render
 the surface without the bridge: `ɵshowDialogForMode(dialog, mode)` opens the
-widget's native `<dialog>` in normal flow for `inline` and in the browser top
-layer (`showModal()`) for `fullscreen`, so it fills the viewport whatever
-containing block an ancestor establishes, without ever reparenting the iframe;
-`ɵlockBodyScroll()` is the page-wide, ref-counted scroll lock behind a
-fullscreen widget. The dialog carries an accessible name in both modes
-("Interactive MCP application", with a fullscreen variant).
+widget's native `<dialog>` in the browser top layer (`showModal()`) for
+`fullscreen`, so it fills the viewport whatever containing block an ancestor
+establishes, and leaves it closed for `inline`, where the adapters render the
+closed dialog in normal flow (`display: block`), without ever reparenting the
+iframe. `ɵdialogRoleForMode(mode)` gives the role to render: inline the widget
+is chat content and is exposed as a group, fullscreen keeps the modal dialog's
+semantics. `ɵlockBodyScroll()` is the page-wide, ref-counted scroll lock
+behind a fullscreen widget. The surface carries an accessible name in both
+modes ("Interactive MCP application", with a fullscreen variant).
 
-Opening a dialog moves the focus into it. `ɵshowDialogForMode` gives it back
-for `inline`, so a widget arriving while the user types never takes the focus
-away from the composer; only `fullscreen` takes it, and the adapters then land
-it on the exit button. Escape exits fullscreen through the dialog's `cancel`
+Opening a dialog, even with `show()`, runs the browser's dialog focusing steps,
+which move the focus into it. The inline dialog is never opened, so a widget
+arriving while the user types never takes the focus from the composer (no blur
+either); only `fullscreen` takes it, and the adapters then land it on the exit
+button. Escape exits fullscreen through the dialog's `cancel`
 event, which the browser only fires while focus is on the host side: a key
 pressed inside the sandboxed widget never leaves its iframe. Once the user has
 clicked into the widget, the button (or the widget's own

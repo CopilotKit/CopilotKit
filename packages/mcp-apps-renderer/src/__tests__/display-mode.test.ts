@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   resolveHostDisplayModes,
+  ɵdialogRoleForMode,
   ɵlockBodyScroll,
   ɵshowDialogForMode,
   ɵwatchViewportResize,
@@ -38,15 +39,22 @@ afterEach(() => {
 });
 
 describe("ɵshowDialogForMode", () => {
-  it("gives the focus back to the composer when a widget opens inline", () => {
+  it("never opens the dialog inline, so the composer keeps the focus", () => {
     const { composer, dialog } = mountDialog();
+    const show = vi.spyOn(dialog, "show");
+    const blurred = vi.fn();
+    composer.addEventListener("blur", blurred);
     composer.focus();
 
     ɵshowDialogForMode(dialog, "inline");
 
-    expect(dialog.open).toBe(true);
+    // The adapter renders the closed dialog in flow; opening it would run
+    // the dialog focusing steps and blur the composer mid-typing.
+    expect(show).not.toHaveBeenCalled();
+    expect(dialog.open).toBe(false);
     expect(dialog.getAttribute("data-mcp-app-display-mode")).toBe("inline");
     expect(document.activeElement).toBe(composer);
+    expect(blurred).not.toHaveBeenCalled();
   });
 
   it("does not leave the focus inside a widget that opened inline while nothing was focused", () => {
@@ -68,13 +76,14 @@ describe("ɵshowDialogForMode", () => {
     expect(document.activeElement).toBe(inner);
   });
 
-  it("reopens the dialog in the other mode without reparenting its content", () => {
+  it("opens the dialog modally for fullscreen and closes it for inline, without reparenting its content", () => {
     const { dialog, inner } = mountDialog();
     ɵshowDialogForMode(dialog, "inline");
     ɵshowDialogForMode(dialog, "fullscreen");
     expect(dialog.getAttribute("data-test-modal")).toBe("true");
     ɵshowDialogForMode(dialog, "inline");
-    expect(dialog.getAttribute("data-test-modal")).toBe("false");
+    expect(dialog.open).toBe(false);
+    expect(dialog.getAttribute("data-mcp-app-display-mode")).toBe("inline");
     expect(inner.parentElement).toBe(dialog);
   });
 
@@ -88,6 +97,13 @@ describe("ɵshowDialogForMode", () => {
 
     expect(dialog.hasAttribute("open")).toBe(true);
     expect(dialog.getAttribute("data-mcp-app-display-mode")).toBe("fullscreen");
+  });
+});
+
+describe("ɵdialogRoleForMode", () => {
+  it("exposes an inline widget as a group and keeps the dialog role for fullscreen", () => {
+    expect(ɵdialogRoleForMode("inline")).toBe("group");
+    expect(ɵdialogRoleForMode("fullscreen")).toBeUndefined();
   });
 });
 

@@ -1322,18 +1322,24 @@ test("restores the inline height, not a size reported in fullscreen, when leavin
   expect(changes[changes.length - 1]).toEqual({ displayMode: "inline" });
 });
 
-test("labels the dialog in both modes, so screen readers never meet an unnamed dialog", async () => {
+test("labels the surface in both modes, inline as a group and fullscreen as a dialog", async () => {
   configureTestingModule();
   const agent = createAgent();
   const { fixture, frame } = await bootWidget(agent);
   const dialog = frame.closest("dialog")!;
   expect(dialog.getAttribute("aria-label")).toBe("Interactive MCP application");
+  // Inline the widget is chat content, not a dialog, and the closed dialog
+  // was never opened (so it never took the focus).
+  expect(dialog.getAttribute("role")).toBe("group");
+  expect(dialog.open).toBe(false);
 
   await requestDisplayMode(fixture, frame, "fs", "fullscreen");
 
   expect(dialog.getAttribute("aria-label")).toBe(
     "Interactive MCP application, fullscreen",
   );
+  expect(dialog.hasAttribute("role")).toBe(false);
+  expect(dialog.open).toBe(true);
 });
 
 test("locks the background scroll while fullscreen and restores it on exit", async () => {

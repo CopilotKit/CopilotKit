@@ -28,6 +28,7 @@ export type {
 } from "@copilotkit/mcp-apps-renderer/activity";
 
 import {
+  ɵdialogRoleForMode,
   ɵlockBodyScroll,
   ɵshowDialogForMode,
   ɵwatchViewportResize,
@@ -353,15 +354,18 @@ export const MCPAppsActivityRenderer = defineComponent({
 
     const isFullscreen = computed(() => displayMode.value === "fullscreen");
 
-    // The widget surface is a native <dialog>: inline neutralizes the UA dialog
-    // styles so it renders as an in-flow block, fullscreen fills the viewport
-    // from the top layer. Escape on the modal dialog fires `cancel`, mapped to
+    // The widget surface is a native <dialog>: inline it stays closed and is
+    // rendered as an in-flow block exposed as a group (never opened, so it
+    // never moves the focus), fullscreen fills the viewport from the top layer. Escape on the modal dialog fires `cancel`, mapped to
     // the host-initiated exit so the widget is notified like for the button.
     return () =>
       h(
         "dialog",
         {
           ref: containerRef,
+          role: ɵdialogRoleForMode(
+            isFullscreen.value ? "fullscreen" : "inline",
+          ),
           "aria-label": isFullscreen.value
             ? "Interactive MCP application, fullscreen"
             : "Interactive MCP application",
@@ -388,6 +392,8 @@ export const MCPAppsActivityRenderer = defineComponent({
                 color: "inherit",
               }
             : {
+                // A closed dialog is display: none by default.
+                display: "block",
                 position: "static",
                 margin: 0,
                 padding: 0,

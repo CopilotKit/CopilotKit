@@ -16,6 +16,7 @@ import {
 import { CopilotKit } from "@copilotkit/angular";
 import type { McpAppSession } from "@copilotkit/mcp-apps-renderer";
 import {
+  ɵdialogRoleForMode,
   ɵlockBodyScroll,
   ɵshowDialogForMode,
   ɵwatchViewportResize,
@@ -40,6 +41,7 @@ import { MCP_APPS_CONFIG } from "./mcp-apps-config";
       #surface
       class="copilot-mcp-apps-container"
       [class.copilot-mcp-apps-container--fullscreen]="fullscreen()"
+      [attr.role]="dialogRole()"
       [attr.aria-label]="
         fullscreen()
           ? 'Interactive MCP application, fullscreen'
@@ -77,8 +79,10 @@ import { MCP_APPS_CONFIG } from "./mcp-apps-config";
     </dialog>
   `,
   styles: `
-    /* Inline: neutralize the UA dialog styles so it renders as an in-flow block. */
+    /* Inline: the dialog stays closed (display: none by default) and renders as
+       an in-flow block; it is never opened, so it never moves the focus. */
     .copilot-mcp-apps-container {
+      display: block;
       position: static;
       width: 100%;
       max-width: none;
@@ -194,6 +198,9 @@ export class CopilotMCPAppsWidget {
   protected readonly displayMode = signal<McpAppsDisplayMode>("inline");
   protected readonly fullscreen = computed(
     () => this.displayMode() === "fullscreen",
+  );
+  protected readonly dialogRole = computed(() =>
+    ɵdialogRoleForMode(this.displayMode()),
   );
 
   constructor() {

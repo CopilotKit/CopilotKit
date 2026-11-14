@@ -644,7 +644,7 @@ describe("MCP Apps ui/request-display-mode", () => {
     await waitFor(() => expect(iframe.style.height).toBe("300px"));
   });
 
-  it("labels the dialog in both modes, so screen readers never meet an unnamed dialog", async () => {
+  it("labels the surface in both modes, inline as a group and fullscreen as a dialog", async () => {
     const agent = new MockMCPProxyAgent();
     agent.agentId = "rdm-label";
     const iframe = await setupMCPActivity(agent, "rdm-label");
@@ -652,6 +652,10 @@ describe("MCP Apps ui/request-display-mode", () => {
     expect(dialog.getAttribute("aria-label")).toBe(
       "Interactive MCP application",
     );
+    // Inline the widget is chat content, not a dialog, and the closed dialog
+    // was never opened (so it never took the focus).
+    expect(dialog.getAttribute("role")).toBe("group");
+    expect(dialog.open).toBe(false);
 
     await sendRequest(iframe, "ui/request-display-mode", {
       mode: "fullscreen",
@@ -660,6 +664,8 @@ describe("MCP Apps ui/request-display-mode", () => {
     expect(dialog.getAttribute("aria-label")).toBe(
       "Interactive MCP application, fullscreen",
     );
+    expect(dialog.hasAttribute("role")).toBe(false);
+    expect(dialog.open).toBe(true);
   });
 
   it("keeps widgets inline when <CopilotKit mcpApps> narrows the modes on offer", async () => {
