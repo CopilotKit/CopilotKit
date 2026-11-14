@@ -564,5 +564,86 @@ describe("CopilotChatMessageView virtual-scroll tuning", () => {
 
       expect(virtualizer().options.estimateSize(1)).toBe(300);
     });
+
+    it("keeps unmeasured rows above the viewport in place when a message is sent", async () => {
+      // A resumed thread long enough to virtualize. The rows near the bottom
+      // are far taller than the ones at the top.
+      const container = document.createElement("div");
+      Object.defineProperties(container, {
+        clientWidth: { value: 600 },
+        clientHeight: { value: 600 },
+        offsetWidth: { value: 600 },
+        offsetHeight: { value: 600 },
+        scrollHeight: { get: () => virtualizer().getTotalSize() },
+      });
+      container.getBoundingClientRect = () =>
+        ({ width: 600, height: 600 }) as DOMRect;
+      container.scrollTo = vi.fn(({ top }: ScrollToOptions) => {
+        container.scrollTop = top ?? 0;
+        container.dispatchEvent(new Event("scroll"));
+      }) as typeof container.scrollTo;
+      const rect = vi
+        .spyOn(HTMLElement.prototype, "getBoundingClientRect")
+        .mockImplementation(function (this: HTMLElement) {
+          const index = Number(this.dataset.index);
+          return {
+            width: 600,
+            height: Number.isInteger(index) ? (index >= 70 ? 1000 : 100) : 0,
+          } as DOMRect;
+        });
+      const thread = Array.from({ length: 80 }, (_, i) => message(`m-${i}`));
+      const scrollToBottom = () =>
+        act(() => {
+          container.scrollTop = virtualizer().getTotalSize() - 600;
+          container.dispatchEvent(new Event("scroll"));
+        });
+      try {
+        renderWithCopilotKit({
+          children: (
+            <ScrollElementContext.Provider value={container}>
+              <Harness isPinnedToBottom initialMessages={thread} />
+            </ScrollElementContext.Provider>
+          ),
+        });
+        expect(virtualizer().options.count).toBe(80);
+        // Pinned to the bottom: only the last rows get mounted and measured,
+        // and the rows in the middle of the thread stay unmeasured.
+        scrollToBottom();
+        scrollToBottom();
+        const measured = virtualizer()
+          .getVirtualItems()
+          .map((row) => row.index);
+        expect(measured.length).toBeGreaterThan(0);
+        expect(Math.min(...measured)).toBeGreaterThan(40);
+        // The tall rows moved the mean well away from the flat estimate.
+        expect(virtualizer().options.estimateSize(80)).toBeGreaterThan(200);
+        // Where the 40 rows at the top of the thread start. getTotalSize()
+        // brings the layout up to date before it is read.
+        const topRowStarts = () => {
+          virtualizer().getTotalSize();
+          return virtualizer()
+            .measurementsCache.slice(0, 40)
+            .map((row) => row.start);
+        };
+        const before = topRowStarts();
+
+        act(() => {
+          setMessages!([...thread, message("sent")]);
+        });
+
+        // Adding a row rebuilds the layout from the top. Re-estimating the
+        // rows above at the new mean would push each of them down by
+        // hundreds of pixels — the jump up the history seen after sending.
+        expect(virtualizer().options.count).toBe(81);
+        expect(topRowStarts()).toEqual(before);
+      } finally {
+        // TanStack's scroll-end debounce can notify after its listener is removed.
+        await act(async () => {
+          await new Promise((resolve) => setTimeout(resolve, 180));
+        });
+        cleanup();
+        rect.mockRestore();
+      }
+    });
   });
 });

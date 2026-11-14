@@ -1091,6 +1091,16 @@ export function CopilotChatMessageView({
     total: 0,
     sizes: new Map<string, number>(),
   });
+  // The estimate each unmeasured row was first laid out with. The mean moves
+  // every time a row is measured, and the virtualizer re-estimates every
+  // unmeasured row whenever it rebuilds its layout from the top (a row is
+  // added, the row keys change). Handing those rows the new mean resizes all
+  // of them at once, and nothing compensates the scroll position for it: in a
+  // long thread, sending a message grew the content above the viewport by
+  // thousands of pixels and threw the view up the history. Keeping each row's
+  // first estimate until it is measured means a rebuild leaves the rows above
+  // where they were; only rows laid out for the first time see the new mean.
+  const rowEstimatesRef = React.useRef(new Map<string, number>());
   const rowKeysRef = React.useRef(rowKeys);
   rowKeysRef.current = rowKeys;
 
@@ -1114,6 +1124,7 @@ export function CopilotChatMessageView({
     measuredThreadRef.current = firstMessageId;
     resizeAnchorRef.current = null;
     measuredRef.current = { total: 0, sizes: new Map() };
+    rowEstimatesRef.current = new Map();
   }
 
   // A row that left the list (messages folded into a group, a stand-in
@@ -1129,11 +1140,21 @@ export function CopilotChatMessageView({
         measured.total -= height;
       }
     }
+    for (const key of rowEstimatesRef.current.keys()) {
+      if (!live.has(key)) rowEstimatesRef.current.delete(key);
+    }
   }
 
-  const estimateRowSize = React.useCallback(() => {
+  const estimateRowSize = React.useCallback((index: number) => {
+    const key = rowKeysRef.current[index];
+    const kept =
+      key === undefined ? undefined : rowEstimatesRef.current.get(key);
+    if (kept !== undefined) return kept;
     const { total, sizes } = measuredRef.current;
-    return sizes.size > 0 ? Math.max(1, Math.round(total / sizes.size)) : 100;
+    const estimate =
+      sizes.size > 0 ? Math.max(1, Math.round(total / sizes.size)) : 100;
+    if (key !== undefined) rowEstimatesRef.current.set(key, estimate);
+    return estimate;
   }, []);
 
   // A new function whenever the keys change: the virtualizer only rebuilds
@@ -1281,6 +1302,10 @@ export function CopilotChatMessageView({
                 // Flush pending row updates before invalidating the cached prefix.
                 instance.getTotalSize();
                 measuredRef.current = { total: 0, sizes: new Map() };
+                // Every row's height changed with the width, so its first
+                // estimate no longer holds either. The reading anchor above
+                // restores the position across this rebuild.
+                rowEstimatesRef.current = new Map();
                 // Seed the new estimate before rebuilding offscreen offsets.
                 instance.elementsCache.forEach((element) => {
                   measureRowElement(element, undefined, instance);
