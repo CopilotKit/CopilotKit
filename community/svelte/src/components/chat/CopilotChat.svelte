@@ -77,6 +77,7 @@
   let isRunning = $derived(agentHandle?.isRunning ?? false);
   let suggestions = $derived(suggestionsHandle?.suggestions ?? []);
   let sendError = $state<string | null>(null);
+  let sentMessageId = $state<string | null>(null);
 
   // Reactive config via getter so prop updates flow into the hook without
   // re-creating it. Refs bind through Svelte actions (see markup below).
@@ -110,6 +111,7 @@
         const ready = includeAttachments
           ? attachmentsHandle.consumeAttachments()
           : [];
+        const messageId = randomUUID();
         if (ready.length > 0) {
           const contentParts: InputContent[] = [];
           if (value.trim()) {
@@ -119,18 +121,19 @@
             contentParts.push(createAttachmentContent(attachment));
           }
           activeAgent.addMessage({
-            id: randomUUID(),
+            id: messageId,
             role: "user",
             content: contentParts,
           } as UserMessage);
         } else {
           activeAgent.addMessage({
-            id: randomUUID(),
+            id: messageId,
             role: "user",
             content: value,
           } as UserMessage);
         }
 
+        sentMessageId = messageId;
         await copilotkit.runAgent({ agent: activeAgent });
       });
     } catch (error) {
@@ -181,6 +184,7 @@
     messages={messages}
     {isRunning}
     {autoScroll}
+    {sentMessageId}
     {welcomeScreen}
     suggestions={suggestions}
     attachments={selectedAttachments}

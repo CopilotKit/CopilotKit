@@ -102,7 +102,7 @@
   const flattenedContent = $derived(flattenUserMessageContent(message.content));
   const isMultiline = $derived(flattenedContent.includes("\n"));
 
-  const hasEditAction = true;
+  const hasEditAction = false;
   const showBranchNavigation = $derived(numberOfBranches > 1);
   const canGoPrev = $derived(branchIndex > 0);
   const canGoNext = $derived(branchIndex < numberOfBranches - 1);
@@ -186,7 +186,7 @@
     {#if toolbarSnippet}
       {@render toolbarSnippet({ message, showBranchNavigation, hasEditAction })}
     {:else}
-      <div class="cpk:w-full cpk:bg-transparent cpk:flex cpk:items-center cpk:justify-end cpk:-mr-[5px] cpk:mt-[4px] cpk:invisible cpk:group-hover:visible">
+      <div class="cpk:w-full cpk:bg-transparent cpk:flex cpk:items-center cpk:justify-end cpk:-mr-[5px] cpk:mt-[4px]">
         <div class="cpk:flex cpk:items-center cpk:gap-1 cpk:justify-end">
           {#if toolbarItems}{@render toolbarItems()}{/if}
 
@@ -209,10 +209,9 @@
             </button>
           {/if}
 
-          {#if hasEditAction}
-            {#if editButton}
-              {@render editButton({ onEdit: handleEditMessage, label: labels.userMessageToolbarEditMessageLabel })}
-            {:else}
+          {#if editButton}
+            {@render editButton({ onEdit: handleEditMessage, label: labels.userMessageToolbarEditMessageLabel })}
+          {:else if hasEditAction}
               <button
                 type="button"
                 class={toolbarBtnClass}
@@ -222,7 +221,6 @@
               >
                 <IconEdit class="cpk:size-[18px]" />
               </button>
-            {/if}
           {/if}
 
           {#if showBranchNavigation}

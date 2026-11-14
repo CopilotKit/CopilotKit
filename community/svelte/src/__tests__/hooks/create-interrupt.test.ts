@@ -1,4 +1,5 @@
 import type { AbstractAgent } from "@ag-ui/client";
+import type { SubscribeToAgentSubscriber } from "@copilotkit/core";
 import { CopilotKitCoreRuntimeConnectionStatus } from "@copilotkit/core";
 import { render, waitFor } from "@testing-library/svelte";
 import { describe, expect, it, vi } from "vitest";
@@ -18,6 +19,7 @@ describe("createInterrupt", () => {
     } as unknown as AbstractAgent;
 
     const unsubscribe = vi.fn();
+    let agentUpdateHandlers: SubscribeToAgentSubscriber | undefined;
 
     const core = {
       agents: { "test-agent": agent },
@@ -26,7 +28,12 @@ describe("createInterrupt", () => {
       runtimeTransport: "auto",
       headers: {},
       getAgent: vi.fn(() => agent),
-      subscribeToAgentWithOptions: vi.fn(() => ({ unsubscribe })),
+      subscribeToAgentWithOptions: vi.fn(
+        (_agent: AbstractAgent, handlers: SubscribeToAgentSubscriber) => {
+          agentUpdateHandlers = handlers;
+          return { unsubscribe };
+        },
+      ),
       setInterruptState: vi.fn(),
     } as unknown as CopilotKitCoreSvelte;
 
@@ -50,6 +57,11 @@ describe("createInterrupt", () => {
     await waitFor(() => {
       expect(agentSubscribe).toHaveBeenCalledTimes(1);
     });
+
+    agentUpdateHandlers?.onStateChanged?.({ agent } as never);
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(agentSubscribe).toHaveBeenCalledTimes(1);
 
     view.unmount();
   });

@@ -9,6 +9,15 @@ import ReactiveHarness from "./create-threads-reactive-harness.svelte";
 const LIVE_URL = "https://runtime.local/api/copilotkit";
 
 function mockCore(overrides?: Partial<CopilotKitCoreSvelte>) {
+  const stores = new Map<string, unknown>();
+  const registerThreadStore = vi.fn((id: string, store: unknown) => {
+    stores.set(id, store);
+    overrides?.registerThreadStore?.(id, store as never);
+  });
+  const unregisterThreadStore = vi.fn((id: string) => {
+    stores.delete(id);
+    overrides?.unregisterThreadStore?.(id);
+  });
   return {
     agents: {},
     runtimeConnectionStatus: CopilotKitCoreRuntimeConnectionStatus.Disconnected,
@@ -32,8 +41,9 @@ function mockCore(overrides?: Partial<CopilotKitCoreSvelte>) {
     addPropRenderToolCall: vi.fn(),
     removePropRenderToolCall: vi.fn(),
     setInterruptState: vi.fn(),
-    registerThreadStore: vi.fn(),
-    unregisterThreadStore: vi.fn(),
+    registerThreadStore,
+    unregisterThreadStore,
+    getThreadStore: vi.fn((id: string) => stores.get(id)),
     ɵruntimeFetch: vi.fn(() =>
       Promise.resolve({
         ok: true,
@@ -88,8 +98,6 @@ describe("createThreads", () => {
         inspect: true,
         realtimeMetadata: true,
       },
-      registerThreadStore: vi.fn(),
-      unregisterThreadStore: vi.fn(),
     });
     const context = mockContext(core);
     const view = render(Harness, { props: { context, agentId: "test-agent" } });
@@ -103,6 +111,26 @@ describe("createThreads", () => {
 
     view.unmount();
     expect(core.unregisterThreadStore).toHaveBeenCalledWith("test-agent");
+  });
+
+  it("does not unregister a newer store registered for the same agent", async () => {
+    const core = mockCore({
+      runtimeConnectionStatus: CopilotKitCoreRuntimeConnectionStatus.Connected,
+      runtimeUrl: LIVE_URL,
+    });
+    const view = render(Harness, {
+      props: { context: mockContext(core), agentId: "test-agent" },
+    });
+    await waitFor(() => {
+      expect(core.getThreadStore("test-agent")).toBeDefined();
+    });
+
+    const newerStore = {};
+    core.registerThreadStore("test-agent", newerStore as never);
+    view.unmount();
+
+    expect(core.getThreadStore("test-agent")).toBe(newerStore);
+    expect(core.unregisterThreadStore).not.toHaveBeenCalled();
   });
 
   it("throws if used outside CopilotKitProvider", () => {
@@ -161,8 +189,13 @@ function setupLifecycleCore() {
   const runtimeFetchMock = vi.fn((...args: unknown[]) =>
     (fetchMock as (...a: unknown[]) => unknown)(...args),
   );
-  const registerThreadStore = vi.fn();
-  const unregisterThreadStore = vi.fn();
+  const stores = new Map<string, unknown>();
+  const registerThreadStore = vi.fn((id: string, store: unknown) => {
+    stores.set(id, store);
+  });
+  const unregisterThreadStore = vi.fn((id: string) => {
+    stores.delete(id);
+  });
   const core = {
     agents: {},
     runtimeConnectionStatus: CopilotKitCoreRuntimeConnectionStatus.Disconnected,
@@ -179,6 +212,7 @@ function setupLifecycleCore() {
     ɵruntimeFetch: runtimeFetchMock,
     registerThreadStore,
     unregisterThreadStore,
+    getThreadStore: vi.fn((id: string) => stores.get(id)),
   } as unknown as CopilotKitCoreSvelte;
   return {
     core,

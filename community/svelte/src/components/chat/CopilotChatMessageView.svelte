@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { tick } from "svelte";
   import type { Message } from "@ag-ui/core";
   import CopilotChatMessage from "./CopilotChatMessage.svelte";
   import { normalizeAutoScroll, type AutoScrollMode } from "./types";
@@ -7,22 +8,43 @@
     messages = [] as Message[],
     isRunning = false,
     autoScroll = true as AutoScrollMode | boolean,
+    sentMessageId = null,
   }: {
     messages?: Message[];
     isRunning?: boolean;
     autoScroll?: AutoScrollMode | boolean;
+    sentMessageId?: string | null;
   } = $props();
 
   let container: HTMLDivElement | undefined = $state();
   const autoScrollMode = $derived(normalizeAutoScroll(autoScroll));
+  let handledSentMessageId: string | null = null;
 
   $effect(() => {
-    if (autoScrollMode !== "pin-to-bottom" || !container) return;
-    void messages;
-    void isRunning;
-    queueMicrotask(() => {
-      container!.scrollTop = container!.scrollHeight;
-    });
+    if (!container) return;
+    if (autoScrollMode === "pin-to-bottom") {
+      void messages;
+      void isRunning;
+      queueMicrotask(() => {
+        container!.scrollTop = container!.scrollHeight;
+      });
+    } else if (
+      autoScrollMode === "pin-to-send" &&
+      sentMessageId &&
+      sentMessageId !== handledSentMessageId
+    ) {
+      handledSentMessageId = sentMessageId;
+      void tick().then(() => {
+        const sentMessage = [...(container?.querySelectorAll<HTMLElement>(
+          "[data-message-id]",
+        ) ?? [])].find((element) => element.dataset.messageId === sentMessageId);
+        if (sentMessage && container) {
+          const containerTop = container.getBoundingClientRect().top;
+          const messageTop = sentMessage.getBoundingClientRect().top;
+          container.scrollTop += messageTop - containerTop;
+        }
+      });
+    }
   });
 </script>
 

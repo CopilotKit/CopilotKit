@@ -53,6 +53,20 @@ describe("CopilotChatInput", () => {
     expect(textarea.value).toBe("");
   });
 
+  it("does not submit Enter while IME composition is active", async () => {
+    const onSubmit = vi.fn();
+    const view = render(CopilotChatInput, {
+      props: { value: "composing", onSubmit, onInputChange: vi.fn() },
+    });
+    const textarea = view.getByPlaceholderText("Type a message...");
+    await fireEvent.keyDown(textarea, {
+      key: "Enter",
+      isComposing: true,
+      shiftKey: false,
+    });
+    expect(onSubmit).not.toHaveBeenCalled();
+  });
+
   it("reports edits, ignores Shift+Enter, and invokes stop while running", async () => {
     const onStop = vi.fn();
     const view = render(CopilotChatInput, {
@@ -84,7 +98,7 @@ describe("CopilotChat", () => {
     const activeRunCompletionPromise = new Promise<void>((resolve) => {
       settleActiveRun = resolve;
     });
-    const dispatch = vi.fn();
+    const dispatch = vi.fn(async () => {});
     const agent = {
       isRunning: true,
       activeRunCompletionPromise,
@@ -97,6 +111,30 @@ describe("CopilotChat", () => {
     settleActiveRun();
     await secondMessage;
     expect(dispatch).toHaveBeenCalledOnce();
+  });
+
+  it("keeps each queued send pending until its own run settles", async () => {
+    let finishFirst!: () => void;
+    const firstRun = new Promise<void>((resolve) => {
+      finishFirst = resolve;
+    });
+    const agent = { isRunning: false } as unknown as AbstractAgent;
+    const dispatched: string[] = [];
+
+    const first = dispatchAfterActiveRunSettles(agent, async () => {
+      dispatched.push("first");
+      await firstRun;
+    });
+    await Promise.resolve();
+    const second = dispatchAfterActiveRunSettles(agent, async () => {
+      dispatched.push("second");
+    });
+    await Promise.resolve();
+
+    expect(dispatched).toEqual(["first"]);
+    finishFirst();
+    await Promise.all([first, second]);
+    expect(dispatched).toEqual(["first", "second"]);
   });
 
   it("passes reactive controlled inputValue updates through to CopilotChatInput", async () => {

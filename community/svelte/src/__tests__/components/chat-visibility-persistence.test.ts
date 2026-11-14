@@ -108,6 +108,7 @@ describe.each([
       ".copilotkit-toggle-btn",
     ) as HTMLButtonElement;
     expect(toggle).toBeTruthy();
+    expect(toggle.getAttribute("aria-label")).toBe("Close chat");
 
     // Close: the chat subtree stays mounted but is hidden and non-interactive.
     await fireEvent.click(toggle);
@@ -118,6 +119,7 @@ describe.each([
     expect(view.container.querySelector(".copilotkit-chat")).toBe(chatNode);
     // The toggle remains available while closed.
     expect(view.container.querySelector(".copilotkit-toggle-btn")).toBeTruthy();
+    expect(toggle.getAttribute("aria-label")).toBe("Open chat");
 
     // Reopen: same DOM identity, same input state, no new subscriptions.
     await fireEvent.click(toggle);
@@ -133,6 +135,7 @@ describe.each([
     expect(reopenedTextarea.value).toBe("draft in progress");
     expect(view.container.querySelector(".copilotkit-chat")).toBe(chatNode);
     expect(subscriptionCounts(core)).toEqual(before);
+    expect(toggle.getAttribute("aria-label")).toBe("Close chat");
 
     // Submitted messages live on the mounted agent: they survive a close/reopen.
     await fireEvent.keyDown(textarea, { key: "Enter", shiftKey: false });
@@ -195,4 +198,58 @@ describe.each([
 
     view.unmount();
   });
+});
+
+it("traps popup focus and restores it to the toggle when closed", async () => {
+  const core = createCore();
+  const view = render(PopupHarness, { props: { core } });
+  const toggle = view.container.querySelector(
+    ".copilotkit-toggle-btn",
+  ) as HTMLButtonElement;
+  const dialog = view.container.querySelector('[role="dialog"]') as HTMLElement;
+  const closeButton = dialog.querySelector(
+    ".copilotkit-popup-close",
+  ) as HTMLButtonElement;
+
+  expect(dialog.getAttribute("aria-modal")).toBe("true");
+  expect(dialog.getAttribute("aria-labelledby")).toBe("copilot-popup-title");
+  await waitFor(() =>
+    expect(dialog.contains(document.activeElement)).toBe(true),
+  );
+  closeButton.focus();
+  await fireEvent.keyDown(closeButton, { key: "Tab", shiftKey: true });
+  expect(dialog.contains(document.activeElement)).toBe(true);
+  expect(document.activeElement).not.toBe(closeButton);
+
+  await fireEvent.click(closeButton);
+  await waitFor(() =>
+    expect(toggle.getAttribute("aria-label")).toBe("Open chat"),
+  );
+  await waitFor(() => expect(document.activeElement).toBe(toggle));
+  await fireEvent.click(toggle);
+  await waitFor(() =>
+    expect(dialog.contains(document.activeElement)).toBe(true),
+  );
+  view.unmount();
+});
+
+it("restores sidebar focus to the toggle after the sidebar closes", async () => {
+  const core = createCore();
+  const view = render(SidebarHarness, { props: { core } });
+  await waitFor(() =>
+    expect(view.getByPlaceholderText("Type a message...")).toBeTruthy(),
+  );
+  const toggle = view.container.querySelector(
+    ".copilotkit-toggle-btn",
+  ) as HTMLButtonElement;
+  const closeButton = view.container.querySelector(
+    ".copilotkit-sidebar-close",
+  ) as HTMLButtonElement;
+  closeButton.focus();
+  await fireEvent.click(closeButton);
+  await waitFor(() =>
+    expect(toggle.getAttribute("aria-label")).toBe("Open chat"),
+  );
+  await waitFor(() => expect(document.activeElement).toBe(toggle));
+  view.unmount();
 });

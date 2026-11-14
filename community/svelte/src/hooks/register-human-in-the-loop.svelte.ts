@@ -66,39 +66,39 @@ export function registerHumanInTheLoop<T extends Record<string, unknown>>(
     });
   };
 
-  const RenderComponent: SvelteToolCallRenderer<T>["render"] = (
-    props: SvelteToolCallRendererRenderProps<T>,
-  ) => {
-    const ToolComponent = tool.render;
-    const extendedProps = {
-      ...props,
-      name: tool.name,
-      description: tool.description || "",
-      respond:
-        props.status === "executing"
-          ? (result: unknown) => respond(props.toolCallId, result)
-          : undefined,
-    };
-    return ToolComponent(
-      extendedProps as Parameters<SvelteHumanInTheLoop<T>["render"]>[0],
-    );
-  };
-
-  const frontendTool: SvelteFrontendTool<T> = {
-    ...tool,
-    type: "human-in-the-loop",
-    handler,
-    render: RenderComponent,
-  };
-
   $effect(() => {
     const core = context.copilotkit;
+    const { name, agentId, parameters, description, render } = tool;
+    const RenderComponent: SvelteToolCallRenderer<T>["render"] = (
+      props: SvelteToolCallRendererRenderProps<T>,
+    ) => {
+      const extendedProps = {
+        ...props,
+        name,
+        description: description || "",
+        respond:
+          props.status === "executing"
+            ? (result: unknown) => respond(props.toolCallId, result)
+            : undefined,
+      };
+      return render(
+        extendedProps as Parameters<SvelteHumanInTheLoop<T>["render"]>[0],
+      );
+    };
+    const frontendTool: SvelteFrontendTool<T> = {
+      ...tool,
+      name,
+      agentId,
+      parameters,
+      type: "human-in-the-loop",
+      handler,
+      render: RenderComponent,
+    };
     core.addHookFrontendTool(frontendTool);
-    const name = tool.name;
     core.addHookRenderToolCall({
       name,
-      args: tool.parameters,
-      agentId: tool.agentId,
+      args: parameters,
+      agentId,
       render: RenderComponent,
     } as SvelteToolCallRenderer<unknown>);
     return () => {
@@ -110,8 +110,8 @@ export function registerHumanInTheLoop<T extends Record<string, unknown>>(
       for (const toolCallId of Object.keys(pendingResponses)) {
         delete pendingResponses[toolCallId];
       }
-      core.removeHookFrontendTool(name, tool.agentId);
-      core.removeHookRenderToolCall(name, tool.agentId);
+      core.removeHookFrontendTool(name, agentId);
+      core.removeHookRenderToolCall(name, agentId);
     };
   });
 }

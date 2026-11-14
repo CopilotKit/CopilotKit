@@ -32,6 +32,8 @@
       CopilotKitCoreRuntimeConnectionStatus.Connected,
     );
   let useThread = $state(false);
+  let runtimeUrl = $state(LIVE_URL);
+  let runtimeTransport = $state<"auto" | "rest">("auto");
 
   setContext<CopilotKitContextValue>(COPILOT_KIT_KEY, {
     get copilotkit() {
@@ -47,10 +49,10 @@
       return connectionStatus;
     },
     get runtimeUrl() {
-      return LIVE_URL;
+      return runtimeUrl;
     },
     get runtimeTransport() {
-      return "auto" as const;
+      return runtimeTransport;
     },
     get headers() {
       return providerHeaders;
@@ -101,6 +103,8 @@
 >
   rotate
 </button>
+<button data-testid="change-runtime-url" onclick={() => (runtimeUrl = "https://changed.test")}>change runtime URL</button>
+<button data-testid="change-runtime-transport" onclick={() => (runtimeTransport = "rest")}>change transport</button>
 <button data-testid="use-thread" onclick={() => (useThread = true)}>thread</button>
 <button
   data-testid="go-ghost-offline"

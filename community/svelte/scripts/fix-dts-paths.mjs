@@ -1,7 +1,8 @@
 import { readFileSync, writeFileSync, readdirSync, statSync } from "fs";
 import { join } from "path";
+import { fileURLToPath } from "node:url";
 
-const distDir = new URL("../dist", import.meta.url).pathname;
+const distDir = fileURLToPath(new URL("../dist", import.meta.url));
 
 // Map of workspace-relative path patterns → npm package names
 // These appear in generated .d.ts files from vite-plugin-dts

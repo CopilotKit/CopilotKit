@@ -135,15 +135,13 @@
     const combined: SvelteToolCallRenderer<unknown>[] = [...renderToolCalls];
     for (const tool of frontendTools) {
       if (tool.render) {
-        const args =
-          tool.parameters ?? (tool.name === "*" ? z.any() : undefined);
-        if (args) {
-          combined.push({
-            name: tool.name,
-            args,
-            render: tool.render,
-          } as SvelteToolCallRenderer<unknown>);
-        }
+        const args = tool.parameters ?? z.any();
+        combined.push({
+          name: tool.name,
+          args,
+          agentId: tool.agentId,
+          render: tool.render,
+        } as SvelteToolCallRenderer<unknown>);
       }
     }
     return combined;

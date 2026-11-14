@@ -293,6 +293,9 @@ attachments enabled. Copy `demo/.env.example` to `demo/.env.local`, add one of
 `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, or `GOOGLE_API_KEY`, then run:
 
 ```bash
+cd community/svelte
+pnpm install
+pnpm build
 cd demo
 pnpm install
 pnpm dev

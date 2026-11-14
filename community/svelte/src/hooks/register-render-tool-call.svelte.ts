@@ -51,26 +51,25 @@ export function registerRenderToolCall(config: {
   }
 
   $effect(() => {
+    const { name, agentId, parameters, render } = config;
     const schema =
-      config.name === "*" && !config.parameters
-        ? z.any()
-        : (config.parameters ?? z.any());
+      name === "*" && !parameters ? z.any() : (parameters ?? z.any());
 
     const renderer: SvelteToolCallRenderer<unknown> = {
-      name: config.name,
+      name,
       args: schema as StandardSchemaV1<unknown, unknown>,
       render: (props: SvelteToolCallRendererRenderProps<unknown>) =>
-        config.render({
+        render({
           ...props,
           parameters: props.args as Record<string, unknown>,
         } as RenderToolProps),
-      ...(config.agentId ? { agentId: config.agentId } : {}),
+      ...(agentId ? { agentId } : {}),
     };
 
     context.copilotkit.addHookRenderToolCall(renderer);
 
     return () => {
-      context.copilotkit.removeHookRenderToolCall(config.name, config.agentId);
+      context.copilotkit.removeHookRenderToolCall(name, agentId);
     };
   });
 }

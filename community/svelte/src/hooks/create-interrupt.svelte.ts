@@ -1,4 +1,5 @@
-import { getContext } from "svelte";
+import { getContext, untrack } from "svelte";
+import type { AbstractAgent } from "@ag-ui/client";
 import { buildResumeArray, isInterruptExpired } from "@ag-ui/client";
 import type { Interrupt, RunAgentResult } from "@ag-ui/client";
 import { COPILOT_KIT_KEY } from "../providers/context";
@@ -26,8 +27,18 @@ type ResumeResponse =
   | { status: "cancelled" };
 
 type PendingInterrupt =
-  | { kind: "legacy"; event: InterruptEvent }
-  | { kind: "standard"; interrupts: Interrupt[] };
+  | {
+      kind: "legacy";
+      event: InterruptEvent;
+      owner: AbstractAgent;
+      ownerVersion: number;
+    }
+  | {
+      kind: "standard";
+      interrupts: Interrupt[];
+      owner: AbstractAgent;
+      ownerVersion: number;
+    };
 
 type InterruptHandlerFn<TValue, TResult> = (
   props: InterruptHandlerProps<TValue>,
@@ -110,12 +121,24 @@ export function createInterrupt<TValue = unknown, TResult = never>(
     },
   });
 
-  let pending = $state<PendingInterrupt | null>(null);
+  let pending = $state.raw<PendingInterrupt | null>(null);
   let result = $state<InterruptResult<TValue, TResult>>(null);
   const responses: Record<string, ResumeResponse> = {};
+  let pendingAgentVersion: number | null = null;
+
+  function clearResponses(): void {
+    for (const key of Object.keys(responses)) delete responses[key];
+  }
 
   $effect(() => {
-    const resolvedAgent = agentHandle.agent;
+    const ownerVersion = agentHandle.agentInstanceVersion;
+    const resolvedAgent = untrack(() => agentHandle.agent);
+    if (pendingAgentVersion !== ownerVersion) {
+      pending = null;
+      result = null;
+      clearResponses();
+      pendingAgentVersion = ownerVersion;
+    }
     if (!resolvedAgent) {
       pending = null;
       result = null;
@@ -127,6 +150,7 @@ export function createInterrupt<TValue = unknown, TResult = never>(
 
     const subscription = resolvedAgent.subscribe({
       onCustomEvent: ({ event }) => {
+        if (agentHandle.agentInstanceVersion !== ownerVersion) return;
         if (event.name === INTERRUPT_EVENT_NAME) {
           localLegacy = {
             name: event.name,
@@ -135,34 +159,44 @@ export function createInterrupt<TValue = unknown, TResult = never>(
         }
       },
       onRunFinishedEvent: (params) => {
+        if (agentHandle.agentInstanceVersion !== ownerVersion) return;
         if (params.outcome === "interrupt") {
           localStandard = params.interrupts;
         }
       },
       onRunStartedEvent: () => {
+        if (agentHandle.agentInstanceVersion !== ownerVersion) return;
         localLegacy = null;
         localStandard = null;
-        for (const k of Object.keys(responses)) {
-          delete responses[k];
-        }
-        pending = null;
+        clearResponses();
+        if (pending?.ownerVersion === ownerVersion) pending = null;
       },
       onRunFinalized: () => {
+        if (agentHandle.agentInstanceVersion !== ownerVersion) return;
         if (localStandard && localStandard.length > 0) {
-          pending = { kind: "standard", interrupts: localStandard };
+          pending = {
+            kind: "standard",
+            interrupts: localStandard,
+            owner: resolvedAgent,
+            ownerVersion,
+          };
         } else if (localLegacy) {
-          pending = { kind: "legacy", event: localLegacy };
+          pending = {
+            kind: "legacy",
+            event: localLegacy,
+            owner: resolvedAgent,
+            ownerVersion,
+          };
         }
         localLegacy = null;
         localStandard = null;
       },
       onRunFailed: () => {
+        if (agentHandle.agentInstanceVersion !== ownerVersion) return;
         localLegacy = null;
         localStandard = null;
-        for (const k of Object.keys(responses)) {
-          delete responses[k];
-        }
-        pending = null;
+        clearResponses();
+        if (pending?.ownerVersion === ownerVersion) pending = null;
       },
     });
 
@@ -171,7 +205,15 @@ export function createInterrupt<TValue = unknown, TResult = never>(
 
   const submitStandardIfComplete = async (
     interrupts: Interrupt[],
+    owner: AbstractAgent,
+    ownerVersion: number,
   ): Promise<RunAgentResult | void> => {
+    if (
+      pending?.ownerVersion !== ownerVersion ||
+      agentHandle.agentInstanceVersion !== ownerVersion
+    ) {
+      return;
+    }
     const allAddressed = interrupts.every((i) => responses[i.id]);
     if (!allAddressed) return;
 
@@ -180,22 +222,17 @@ export function createInterrupt<TValue = unknown, TResult = never>(
       console.error(
         `[CopilotKit] createInterrupt: interrupt ${expired.id} expired at ${expired.expiresAt}; not resuming.`,
       );
-      for (const k of Object.keys(responses)) {
-        delete responses[k];
-      }
-      pending = null;
+      clearResponses();
+      if (pending?.ownerVersion === ownerVersion) pending = null;
       return;
     }
 
     const resume = buildResumeArray(interrupts, responses);
-    for (const k of Object.keys(responses)) {
-      delete responses[k];
-    }
-    const resolvedAgent = agentHandle.agent;
-    if (!resolvedAgent) return;
+    clearResponses();
+    if (agentHandle.agentInstanceVersion !== ownerVersion) return;
     try {
       return await context.copilotkit.runAgent({
-        agent: resolvedAgent,
+        agent: owner,
         resume,
       });
     } catch (err) {
@@ -203,7 +240,7 @@ export function createInterrupt<TValue = unknown, TResult = never>(
         "[CopilotKit] createInterrupt resolve: runAgent rejected; clearing pending + rethrowing",
         err,
       );
-      pending = null;
+      if (pending?.ownerVersion === ownerVersion) pending = null;
       throw err;
     }
   };
@@ -211,13 +248,12 @@ export function createInterrupt<TValue = unknown, TResult = never>(
   const resolve: InterruptResolveFn = async (payload?, interruptId?) => {
     const current = pending;
     if (!current) return;
-    const resolvedAgent = agentHandle.agent;
-    if (!resolvedAgent) return;
+    if (agentHandle.agentInstanceVersion !== current.ownerVersion) return;
 
     if (current.kind === "legacy") {
       try {
         return await context.copilotkit.runAgent({
-          agent: resolvedAgent,
+          agent: current.owner,
           forwardedProps: {
             command: {
               resume: payload,
@@ -230,7 +266,7 @@ export function createInterrupt<TValue = unknown, TResult = never>(
           "[CopilotKit] createInterrupt resolve: runAgent rejected; clearing pending + rethrowing",
           err,
         );
-        pending = null;
+        if (pending?.ownerVersion === current.ownerVersion) pending = null;
         throw err;
       }
     }
@@ -243,12 +279,17 @@ export function createInterrupt<TValue = unknown, TResult = never>(
     const id = interruptId ?? current.interrupts[0]?.id;
     if (!id) return;
     responses[id] = { status: "resolved", payload };
-    return submitStandardIfComplete(current.interrupts);
+    return submitStandardIfComplete(
+      current.interrupts,
+      current.owner,
+      current.ownerVersion,
+    );
   };
 
   const cancel: InterruptCancelFn = async (interruptId?) => {
     const current = pending;
     if (!current) return;
+    if (agentHandle.agentInstanceVersion !== current.ownerVersion) return;
 
     if (current.kind === "legacy") {
       console.warn(
@@ -266,7 +307,11 @@ export function createInterrupt<TValue = unknown, TResult = never>(
     const id = interruptId ?? current.interrupts[0]?.id;
     if (!id) return;
     responses[id] = { status: "cancelled" };
-    return submitStandardIfComplete(current.interrupts);
+    return submitStandardIfComplete(
+      current.interrupts,
+      current.owner,
+      current.ownerVersion,
+    );
   };
 
   const resolveInterrupt: InterruptResolveFn = resolve;
@@ -290,6 +335,7 @@ export function createInterrupt<TValue = unknown, TResult = never>(
     }
 
     let cancelled = false;
+    const ownerVersion = currentPending.ownerVersion;
     const maybePromise = handler({
       event: legacyEvent,
       interrupt:
@@ -305,12 +351,20 @@ export function createInterrupt<TValue = unknown, TResult = never>(
     if (isPromiseLike(maybePromise)) {
       normalizeAsyncResult(maybePromise)
         .then((resolved) => {
-          if (!cancelled) {
+          if (
+            !cancelled &&
+            agentHandle.agentInstanceVersion === ownerVersion &&
+            pending?.ownerVersion === ownerVersion
+          ) {
             result = resolved;
           }
         })
         .catch((err) => {
-          if (!cancelled) {
+          if (
+            !cancelled &&
+            agentHandle.agentInstanceVersion === ownerVersion &&
+            pending?.ownerVersion === ownerVersion
+          ) {
             console.error("[CopilotKit] createInterrupt handler failed:", err);
             result = null;
           }

@@ -18,6 +18,7 @@
     inputMode = "input" as CopilotChatInputMode,
     inputToolsMenu = [] as (ToolsMenuItem | "-")[],
     autoScroll = true as AutoScrollMode | boolean,
+    sentMessageId = null,
     onSubmitMessage,
     onStop,
     onInputChange,
@@ -40,6 +41,7 @@
     isConnecting?: boolean;
     hasExplicitThreadId?: boolean;
     autoScroll?: AutoScrollMode | boolean;
+    sentMessageId?: string | null;
     onSubmitMessage: (value: string) => void;
     onStop?: () => void;
     onInputChange: (value: string) => void;
@@ -77,7 +79,7 @@
       {/if}
     </div>
   {:else}
-    <CopilotChatMessageView {messages} {isRunning} {autoScroll} />
+    <CopilotChatMessageView {messages} {isRunning} {autoScroll} {sentMessageId} />
     {#if suggestions.length > 0}
       <CopilotChatSuggestionView
         {suggestions}

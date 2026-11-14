@@ -176,4 +176,29 @@ describe("createAgent reactive provider context", () => {
 
     view.unmount();
   });
+
+  it("replaces provisional agents when runtime URL or transport changes", async () => {
+    const { view, core } = setup();
+    await fireEvent.click(view.getByTestId("go-ghost-offline"));
+    await waitFor(() => {
+      expect(view.getByTestId("reactive-agent-identity").textContent).toBe(
+        "provisional",
+      );
+    });
+    const first = subscribedAgent(core) as HttpAgent;
+
+    await fireEvent.click(view.getByTestId("change-runtime-url"));
+    await waitFor(() => {
+      expect((subscribedAgent(core) as HttpAgent).url).toContain(
+        "changed.test",
+      );
+    });
+    const second = subscribedAgent(core);
+    expect(second).not.toBe(first);
+
+    await fireEvent.click(view.getByTestId("change-runtime-transport"));
+    await waitFor(() => expect(subscribedAgent(core)).not.toBe(second));
+
+    view.unmount();
+  });
 });

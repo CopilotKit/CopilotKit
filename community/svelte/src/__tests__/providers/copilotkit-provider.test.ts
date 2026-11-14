@@ -75,4 +75,12 @@ describe("CopilotKitProvider", () => {
       "true",
     );
   });
+
+  it("bridges named frontend tools without parameters to scoped renderers", async () => {
+    const view = render(Harness);
+    await fireEvent.click(view.getByTestId("check-auto-renderer"));
+    expect(view.getByTestId("auto-renderer-registered").textContent).toBe(
+      "true",
+    );
+  });
 });

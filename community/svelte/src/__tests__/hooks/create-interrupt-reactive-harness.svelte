@@ -15,4 +15,5 @@
 </script>
 
 <button data-testid="switch" onclick={() => (agentId = "agent-b")}>switch</button>
+<button data-testid="resolve" onclick={() => void interrupt.resolve("stale")}>resolve</button>
 <output data-testid="has-interrupt">{String(interrupt.hasInterrupt)}</output>

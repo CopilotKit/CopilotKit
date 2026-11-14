@@ -247,7 +247,9 @@ export function createThreads(input: CreateThreadsInput): CreateThreadsResult {
     }
     core.registerThreadStore(nextAgentId, store);
     return () => {
-      core.unregisterThreadStore(nextAgentId);
+      if (core.getThreadStore(nextAgentId) === store) {
+        core.unregisterThreadStore(nextAgentId);
+      }
     };
   });
 

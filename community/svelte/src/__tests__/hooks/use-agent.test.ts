@@ -122,6 +122,13 @@ describe("createAgent state updates", () => {
     const view = render(ThreadCloneEvictionHarness, {
       props: { context, threadId: "thread-0" },
     });
+    const pinnedView = render(ThreadCloneEvictionHarness, {
+      props: { context, threadId: "thread-0" },
+    });
+    const pinnedClone = globalThreadCloneMap
+      .get(source as unknown as AbstractAgent)
+      ?.get("thread-0");
+    expect(pinnedClone).toBeDefined();
 
     for (let index = 1; index <= 50; index += 1) {
       await view.rerender({ context, threadId: `thread-${index}` });
@@ -132,9 +139,27 @@ describe("createAgent state updates", () => {
         source as unknown as AbstractAgent,
       );
       expect(byThread?.size).toBe(50);
-      expect(byThread?.has("thread-0")).toBe(false);
+      expect(byThread?.get("thread-0")).toBe(pinnedClone);
       expect(byThread?.has("thread-50")).toBe(true);
     });
     expect(clones).toHaveLength(51);
+    expect(
+      pinnedView.container.querySelector("[data-testid='thread-clone']")
+        ?.textContent,
+    ).toBe("thread-0");
+    view.unmount();
+    pinnedView.unmount();
+
+    const nextView = render(ThreadCloneEvictionHarness, {
+      props: { context, threadId: "thread-51" },
+    });
+    await waitFor(() => {
+      const byThread = globalThreadCloneMap.get(
+        source as unknown as AbstractAgent,
+      );
+      expect(byThread?.has("thread-51")).toBe(true);
+      expect(byThread?.has("thread-0")).toBe(false);
+    });
+    nextView.unmount();
   });
 });

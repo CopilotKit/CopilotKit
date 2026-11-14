@@ -6,16 +6,22 @@ import type { CopilotKitCoreSvelte } from "../../lib/svelte-core";
 import type { CopilotKitContextValue } from "../../providers/context";
 import Harness from "./create-interrupt-reactive-harness.svelte";
 
+type AgentSubscriber = Parameters<AbstractAgent["subscribe"]>[0];
+
 describe("createInterrupt reactive agentId", () => {
   it("unsubscribes from the old agent and subscribes to the new agent", async () => {
     const unsubscribeA = vi.fn();
     const unsubscribeB = vi.fn();
+    let handlersA: AgentSubscriber | undefined;
     const agentA = {
       agentId: "agent-a",
       state: {},
       messages: [],
       isRunning: false,
-      subscribe: vi.fn(() => ({ unsubscribe: unsubscribeA })),
+      subscribe: vi.fn((handlers: AgentSubscriber) => {
+        handlersA = handlers;
+        return { unsubscribe: unsubscribeA };
+      }),
     } as unknown as AbstractAgent;
     const agentB = {
       agentId: "agent-b",
@@ -34,6 +40,7 @@ describe("createInterrupt reactive agentId", () => {
       getAgent: vi.fn((id: string) => (id === "agent-a" ? agentA : agentB)),
       subscribeToAgentWithOptions: vi.fn(() => ({ unsubscribe: vi.fn() })),
       setInterruptState: vi.fn(),
+      runAgent: vi.fn(async () => {}),
     } as unknown as CopilotKitCoreSvelte;
     const context = {
       copilotkit: core,
@@ -51,9 +58,22 @@ describe("createInterrupt reactive agentId", () => {
     const view = render(Harness, { props: { context } });
     await waitFor(() => expect(agentA.subscribe).toHaveBeenCalledOnce());
 
+    handlersA?.onCustomEvent?.({
+      event: { name: "on_interrupt", value: "approval" },
+    } as never);
+    handlersA?.onRunFinalized?.({} as never);
+    await waitFor(() =>
+      expect(view.getByTestId("has-interrupt").textContent).toBe("true"),
+    );
+
     await fireEvent.click(view.getByTestId("switch"));
     await waitFor(() => expect(agentB.subscribe).toHaveBeenCalledOnce());
     expect(unsubscribeA).toHaveBeenCalledOnce();
+    await waitFor(() =>
+      expect(view.getByTestId("has-interrupt").textContent).toBe("false"),
+    );
+    await fireEvent.click(view.getByTestId("resolve"));
+    expect(core.runAgent).not.toHaveBeenCalled();
 
     view.unmount();
     expect(unsubscribeB).toHaveBeenCalledOnce();

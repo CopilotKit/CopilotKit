@@ -37,6 +37,7 @@
 
   function handleKeydown(e: KeyboardEvent) {
     if (e.key === "Enter" && !e.shiftKey) {
+      if (e.isComposing) return;
       e.preventDefault();
       send();
     }

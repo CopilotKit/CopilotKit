@@ -120,7 +120,7 @@
   let copiedResetTimeout: ReturnType<typeof setTimeout> | null = null;
 
   const config = getChatConfig();
-  const labels = config?.labels ?? defaultLabels;
+  const labels = { ...defaultLabels, ...config?.labels };
 
   function normalizeContent(content: unknown): string {
     if (!content) return "";

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { tick } from "svelte";
   import CopilotChat from "./CopilotChat.svelte";
   import CopilotChatToggleButton from "./CopilotChatToggleButton.svelte";
   import type { CopilotSidebarProps } from "./types";
@@ -12,13 +13,21 @@
   // svelte-ignore state_referenced_locally
   let isOpen = $state(defaultOpen);
   let sidebarWidth = $derived(typeof width === "number" ? `${width}px` : width);
+  let wrapperRef: HTMLElement | undefined;
+  let sidebarRef: HTMLElement | undefined;
 
   function toggle() {
     isOpen = !isOpen;
   }
 
   function close() {
+    const restoreFocus = !!sidebarRef?.contains(document.activeElement);
     isOpen = false;
+    if (restoreFocus) {
+      void tick().then(() => {
+        wrapperRef?.querySelector<HTMLButtonElement>(".copilotkit-toggle-btn")?.focus();
+      });
+    }
   }
 
   function handleKeydown(e: KeyboardEvent) {
@@ -28,7 +37,7 @@
 
 <svelte:window onkeydown={handleKeydown} />
 
-<div class="copilotkit-sidebar-wrapper">
+<div class="copilotkit-sidebar-wrapper" bind:this={wrapperRef}>
   <CopilotChatToggleButton isOpen={isOpen} onclick={toggle} />
 
   <div
@@ -48,10 +57,11 @@
     aria-hidden={isOpen ? undefined : true}
     inert={!isOpen}
     hidden={!isOpen}
+    bind:this={sidebarRef}
   >
     <div class="copilotkit-sidebar-header">
       <h3 class="copilotkit-sidebar-title">Copilot</h3>
-      <button class="copilotkit-sidebar-close" onclick={close}>✕</button>
+      <button class="copilotkit-sidebar-close" aria-label="Close chat" onclick={close}>✕</button>
     </div>
     <div class="copilotkit-sidebar-body">
       <CopilotChat {...chatProps} />

@@ -105,7 +105,7 @@ export class CopilotKitCoreSvelte extends CopilotKitCore {
     this._renderCustomMessages = [...renderers];
     void this.notifySubscribers((subscriber) => {
       const svelteSubscriber = subscriber as CopilotKitCoreSvelteSubscriber;
-      svelteSubscriber.onRenderCustomMessagesChanged?.({
+      return svelteSubscriber.onRenderCustomMessagesChanged?.({
         copilotkit: this,
         renderCustomMessages: [...this.renderCustomMessages],
       });
@@ -163,7 +163,7 @@ export class CopilotKitCoreSvelte extends CopilotKitCore {
     void this.notifySubscribers((subscriber) => {
       const svelteSubscriber = subscriber as CopilotKitCoreSvelteSubscriber;
       if (svelteSubscriber.onRenderToolCallsChanged) {
-        svelteSubscriber.onRenderToolCallsChanged({
+        return svelteSubscriber.onRenderToolCallsChanged?.({
           copilotkit: this,
           renderToolCalls: [...this.renderToolCalls],
         });
@@ -177,7 +177,7 @@ export class CopilotKitCoreSvelte extends CopilotKitCore {
     this._interruptState = interruptState;
     void this.notifySubscribers((subscriber) => {
       const svelteSubscriber = subscriber as CopilotKitCoreSvelteSubscriber;
-      svelteSubscriber.onInterruptStateChanged?.({
+      return svelteSubscriber.onInterruptStateChanged?.({
         copilotkit: this,
         interruptState: this._interruptState,
       });

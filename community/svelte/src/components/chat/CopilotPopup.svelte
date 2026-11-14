@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { tick } from "svelte";
   import CopilotChat from "./CopilotChat.svelte";
   import CopilotChatToggleButton from "./CopilotChatToggleButton.svelte";
   import type { CopilotPopupProps } from "./types";
@@ -16,15 +17,59 @@
   let popupWidth = $derived(typeof width === "number" ? `${width}px` : width);
   let popupHeight = $derived(typeof height === "number" ? `${height}px` : height);
 
-  let popupRef: HTMLElement | undefined = $state();
+  let popupRef: HTMLElement | undefined;
+  let wrapperRef: HTMLElement | undefined;
 
   function toggle() {
-    isOpen = !isOpen;
+    if (isOpen) {
+      close();
+    } else {
+      isOpen = true;
+    }
   }
 
   function close() {
+    wrapperRef?.querySelector<HTMLButtonElement>(".copilotkit-toggle-btn")?.focus();
     isOpen = false;
   }
+
+  function trapFocus(event: KeyboardEvent) {
+    if (event.key === "Escape") {
+      close();
+      return;
+    }
+    if (event.key !== "Tab" || !popupRef) return;
+    const focusable = [...popupRef.querySelectorAll<HTMLElement>(
+      'button:not([disabled]), input:not([disabled]), textarea:not([disabled]), select:not([disabled]), a[href], [tabindex]:not([tabindex="-1"])',
+    )].filter((element) => !element.hasAttribute("hidden"));
+    if (focusable.length === 0) {
+      event.preventDefault();
+      popupRef.focus();
+      return;
+    }
+    const first = focusable[0]!;
+    const last = focusable[focusable.length - 1]!;
+    if (!popupRef.contains(document.activeElement)) {
+      event.preventDefault();
+      (event.shiftKey ? last : first).focus();
+    } else if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault();
+      first.focus();
+    }
+  }
+
+  $effect(() => {
+    if (!isOpen) return;
+    void tick().then(() => {
+      const firstFocusable = popupRef?.querySelector<HTMLElement>(
+        'button:not([disabled]), input:not([disabled]), textarea:not([disabled]), select:not([disabled]), a[href], [tabindex]:not([tabindex="-1"])',
+      );
+      (firstFocusable ?? popupRef)?.focus();
+    });
+  });
 
   function handleOverlayClick(e: MouseEvent) {
     if (clickOutsideToClose && e.target === e.currentTarget) {
@@ -39,7 +84,7 @@
 
 <svelte:window onkeydown={handleKeydown} />
 
-<div class="copilotkit-popup-wrapper">
+<div class="copilotkit-popup-wrapper" bind:this={wrapperRef}>
   <CopilotChatToggleButton isOpen={isOpen} onclick={toggle} />
 
   <div
@@ -55,11 +100,16 @@
     <div
       class="copilotkit-popup"
       style="width: {popupWidth}; height: {popupHeight}"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="copilot-popup-title"
+      tabindex="-1"
       bind:this={popupRef}
+      onkeydown={trapFocus}
     >
       <div class="copilotkit-popup-header">
-        <h3 class="copilotkit-popup-title">Copilot</h3>
-        <button class="copilotkit-popup-close" onclick={close}>✕</button>
+        <h3 id="copilot-popup-title" class="copilotkit-popup-title">Copilot</h3>
+        <button class="copilotkit-popup-close" aria-label="Close chat" onclick={close}>✕</button>
       </div>
       <div class="copilotkit-popup-body">
         <CopilotChat {...chatProps} />

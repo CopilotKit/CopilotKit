@@ -23,6 +23,11 @@ export default ({ mode }: { mode: string }) => {
       },
     },
     optimizeDeps: {
+      include: [
+        "@copilotkit/core",
+        "@copilotkit/shared",
+        "@copilotkit/shared > partial-json",
+      ],
       exclude: ["@copilotkit/svelte", "svelte/internal/client"],
     },
   };

@@ -33,6 +33,10 @@ export const globalThreadCloneMap = new WeakMap<
   AbstractAgent,
   SvelteMap<string, AbstractAgent>
 >();
+const globalThreadCloneConsumers = new WeakMap<
+  AbstractAgent,
+  SvelteMap<string, number>
+>();
 
 const MAX_CLONES_PER_AGENT = 50;
 
@@ -97,11 +101,40 @@ function getOrCreateThreadClone(
   const clone = cloneForThread(source, threadId);
   applyProviderHeaders(core, clone, headers);
   if (byThread.size >= MAX_CLONES_PER_AGENT) {
-    const oldest = byThread.keys().next().value;
-    if (oldest !== undefined) byThread.delete(oldest);
+    const consumers = globalThreadCloneConsumers.get(source);
+    const evictable = [...byThread.keys()].find(
+      (candidate) => !consumers?.get(candidate),
+    );
+    if (evictable !== undefined) byThread.delete(evictable);
   }
   byThread.set(threadId, clone);
   return clone;
+}
+
+function retainThreadClone(source: AbstractAgent, threadId: string): void {
+  let consumers = globalThreadCloneConsumers.get(source);
+  if (!consumers) {
+    consumers = new SvelteMap();
+    globalThreadCloneConsumers.set(source, consumers);
+  }
+  consumers.set(threadId, (consumers.get(threadId) ?? 0) + 1);
+}
+
+function releaseThreadClone(source: AbstractAgent, threadId: string): void {
+  const consumers = globalThreadCloneConsumers.get(source);
+  const count = consumers?.get(threadId);
+  if (count === undefined) return;
+  if (count <= 1) consumers?.delete(threadId);
+  else consumers?.set(threadId, count - 1);
+
+  const byThread = globalThreadCloneMap.get(source);
+  while (byThread && byThread.size > MAX_CLONES_PER_AGENT) {
+    const evictable = [...byThread.keys()].find(
+      (candidate) => !consumers?.get(candidate),
+    );
+    if (evictable === undefined) break;
+    byThread.delete(evictable);
+  }
 }
 
 export function createAgent(props: CreateAgentProps = {}) {
@@ -116,14 +149,33 @@ export function createAgent(props: CreateAgentProps = {}) {
   const hookThrottleMs = $derived(props.throttleMs);
 
   let agent = $state<AbstractAgent | null>(null);
+  let agentIdentity: AbstractAgent | null = null;
   let agentRevision = $state(0);
+  let agentInstanceRevision = $state(0);
   let messages = $state<Message[]>([]);
   let isRunning = $state(false);
   let subscriptionAgent = $state<AbstractAgent | null>(null);
   const provisionalAgentCache = new SvelteMap<
     string,
-    ProxiedCopilotRuntimeAgent
+    {
+      agent: ProxiedCopilotRuntimeAgent;
+      runtimeUrl: string;
+      transport: CopilotKitContextValue["runtimeTransport"];
+    }
   >();
+  let ownedClone: { source: AbstractAgent; threadId: string } | null = null;
+
+  function releaseOwnedClone(): void {
+    if (!ownedClone) return;
+    releaseThreadClone(ownedClone.source, ownedClone.threadId);
+    ownedClone = null;
+  }
+
+  function setResolvedAgent(next: AbstractAgent): void {
+    if (agentIdentity !== next) agentInstanceRevision += 1;
+    agentIdentity = next;
+    agent = next;
+  }
 
   const resolveAgent = () => {
     const id = agentId;
@@ -143,10 +195,34 @@ export function createAgent(props: CreateAgentProps = {}) {
       provisionalAgentCache.delete(cacheKey);
       provisionalAgentCache.delete(id);
       applyProviderHeaders(core, existing, headers);
-      const resolvedAgent = resolvedThreadId
-        ? getOrCreateThreadClone(core, existing, resolvedThreadId, headers)
-        : existing;
-      agent = resolvedAgent;
+      let resolvedAgent: AbstractAgent;
+      if (resolvedThreadId) {
+        if (
+          ownedClone &&
+          (ownedClone.source !== existing ||
+            ownedClone.threadId !== resolvedThreadId)
+        ) {
+          releaseOwnedClone();
+        }
+        resolvedAgent = getOrCreateThreadClone(
+          core,
+          existing,
+          resolvedThreadId,
+          headers,
+        );
+        if (
+          !ownedClone ||
+          ownedClone.source !== existing ||
+          ownedClone.threadId !== resolvedThreadId
+        ) {
+          retainThreadClone(existing, resolvedThreadId);
+          ownedClone = { source: existing, threadId: resolvedThreadId };
+        }
+      } else {
+        releaseOwnedClone();
+        resolvedAgent = existing;
+      }
+      setResolvedAgent(resolvedAgent);
       messages = [...(resolvedAgent.messages ?? [])];
       isRunning = resolvedAgent.isRunning ?? false;
       subscriptionAgent = resolvedAgent;
@@ -161,16 +237,24 @@ export function createAgent(props: CreateAgentProps = {}) {
         status === CopilotKitCoreRuntimeConnectionStatus.Connecting ||
         status === CopilotKitCoreRuntimeConnectionStatus.Error)
     ) {
-      const cached = provisionalAgentCache.get(cacheKey);
+      releaseOwnedClone();
+      let cached = provisionalAgentCache.get(cacheKey);
+      if (
+        cached &&
+        (cached.runtimeUrl !== runtimeUrl || cached.transport !== transport)
+      ) {
+        provisionalAgentCache.delete(cacheKey);
+        cached = undefined;
+      }
       if (cached) {
-        applyProviderHeaders(core, cached, headers);
+        applyProviderHeaders(core, cached.agent, headers);
         if (resolvedThreadId) {
-          cached.threadId = resolvedThreadId;
+          cached.agent.threadId = resolvedThreadId;
         }
-        agent = cached;
-        messages = [...(cached.messages ?? [])];
-        isRunning = cached.isRunning ?? false;
-        subscriptionAgent = cached;
+        setResolvedAgent(cached.agent);
+        messages = [...(cached.agent.messages ?? [])];
+        isRunning = cached.agent.isRunning ?? false;
+        subscriptionAgent = cached.agent;
         return;
       }
       const provisional = new ProxiedCopilotRuntimeAgent({
@@ -183,14 +267,19 @@ export function createAgent(props: CreateAgentProps = {}) {
       if (resolvedThreadId) {
         provisional.threadId = resolvedThreadId;
       }
-      provisionalAgentCache.set(cacheKey, provisional);
-      agent = provisional;
+      provisionalAgentCache.set(cacheKey, {
+        agent: provisional,
+        runtimeUrl: runtimeUrl!,
+        transport,
+      });
+      setResolvedAgent(provisional);
       messages = [...(provisional.messages ?? [])];
       isRunning = provisional.isRunning ?? false;
       subscriptionAgent = provisional;
       return;
     }
 
+    releaseOwnedClone();
     const knownAgents = Object.keys(registered);
     const runtimePart = isRuntimeConfigured
       ? `runtimeUrl=${runtimeUrl}`
@@ -207,6 +296,8 @@ export function createAgent(props: CreateAgentProps = {}) {
     resolveAgent();
   });
 
+  $effect(() => () => releaseOwnedClone());
+
   $effect(() => {
     // Track the provider getter so updates rerun this effect. The core owns
     // the merge baseline and preserves each HttpAgent's construction headers.
@@ -222,7 +313,7 @@ export function createAgent(props: CreateAgentProps = {}) {
       }
     }
     for (const provisional of provisionalAgentCache.values()) {
-      applyProviderHeaders(core, provisional, headers);
+      applyProviderHeaders(core, provisional.agent, headers);
     }
   });
 
@@ -311,6 +402,9 @@ export function createAgent(props: CreateAgentProps = {}) {
     get agent() {
       void agentRevision;
       return agent;
+    },
+    get agentInstanceVersion() {
+      return agentInstanceRevision;
     },
     get messages() {
       return messages;
