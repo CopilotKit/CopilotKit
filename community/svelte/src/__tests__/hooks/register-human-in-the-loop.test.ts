@@ -101,10 +101,12 @@ describe("registerHumanInTheLoop", () => {
     expect(removeHookFrontendTool).toHaveBeenCalledWith(
       "approve-action",
       undefined,
+      registeredTool,
     );
     expect(removeHookRenderToolCall).toHaveBeenCalledWith(
       "approve-action",
       undefined,
+      renderer,
     );
   });
 });

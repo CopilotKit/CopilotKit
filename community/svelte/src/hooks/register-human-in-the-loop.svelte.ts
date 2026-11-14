@@ -94,13 +94,14 @@ export function registerHumanInTheLoop<T extends Record<string, unknown>>(
       handler,
       render: RenderComponent,
     };
-    core.addHookFrontendTool(frontendTool);
-    core.addHookRenderToolCall({
+    const renderer = {
       name,
       args: parameters,
       agentId,
       render: RenderComponent,
-    } as SvelteToolCallRenderer<unknown>);
+    } as SvelteToolCallRenderer<unknown>;
+    core.addHookFrontendTool(frontendTool);
+    core.addHookRenderToolCall(renderer);
     return () => {
       for (const pending of Object.values(pendingResponses)) {
         if (!pending) continue;
@@ -110,8 +111,8 @@ export function registerHumanInTheLoop<T extends Record<string, unknown>>(
       for (const toolCallId of Object.keys(pendingResponses)) {
         delete pendingResponses[toolCallId];
       }
-      core.removeHookFrontendTool(name, agentId);
-      core.removeHookRenderToolCall(name, agentId);
+      core.removeHookFrontendTool(name, agentId, frontendTool);
+      core.removeHookRenderToolCall(name, agentId, renderer);
     };
   });
 }

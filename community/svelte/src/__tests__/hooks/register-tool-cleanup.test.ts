@@ -57,6 +57,7 @@ describe("registerRenderToolCall cleanup", () => {
       .removeHookRenderToolCall as ReturnType<typeof vi.fn>;
 
     const view = render(RegisterRenderToolCallHarness, { props: { context } });
+    const renderer = addHookRenderToolCall.mock.calls[0]?.[0];
 
     expect(addHookRenderToolCall).toHaveBeenCalledTimes(1);
     expect(addHookRenderToolCall).toHaveBeenCalledWith(
@@ -69,6 +70,7 @@ describe("registerRenderToolCall cleanup", () => {
     expect(removeHookRenderToolCall).toHaveBeenCalledWith(
       "test-renderer",
       undefined,
+      renderer,
     );
   });
 });
@@ -88,6 +90,8 @@ describe("registerFrontendTool cleanup", () => {
       .removeHookRenderToolCall as ReturnType<typeof vi.fn>;
 
     const view = render(RegisterFrontendToolHarness, { props: { context } });
+    const frontendTool = addTool.mock.calls[0]?.[0];
+    const renderer = addHookRenderToolCall.mock.calls[0]?.[0];
 
     expect(addTool).toHaveBeenCalledTimes(1);
     expect(addHookRenderToolCall).toHaveBeenCalledTimes(1);
@@ -95,11 +99,16 @@ describe("registerFrontendTool cleanup", () => {
     view.unmount();
 
     expect(removeTool).toHaveBeenCalledTimes(1);
-    expect(removeTool).toHaveBeenCalledWith("test-tool", undefined);
+    expect(removeTool).toHaveBeenCalledWith(
+      "test-tool",
+      undefined,
+      frontendTool,
+    );
     expect(removeHookRenderToolCall).toHaveBeenCalledTimes(1);
     expect(removeHookRenderToolCall).toHaveBeenCalledWith(
       "test-tool",
       undefined,
+      renderer,
     );
   });
 });

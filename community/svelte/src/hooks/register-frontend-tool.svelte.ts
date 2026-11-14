@@ -25,19 +25,20 @@ export function registerFrontendTool<T extends Record<string, unknown>>(
     }
     core.addHookFrontendTool(tool);
 
-    if (tool.render) {
-      core.addHookRenderToolCall({
-        name,
-        args: tool.parameters,
-        agentId: tool.agentId,
-        render: tool.render,
-      } as SvelteToolCallRenderer<unknown>);
-    }
+    const renderer = tool.render
+      ? ({
+          name,
+          args: tool.parameters,
+          agentId: tool.agentId,
+          render: tool.render,
+        } as SvelteToolCallRenderer<unknown>)
+      : undefined;
+    if (renderer) core.addHookRenderToolCall(renderer);
 
     return () => {
-      core.removeHookFrontendTool(name, tool.agentId);
-      if (tool.render) {
-        core.removeHookRenderToolCall(name, tool.agentId);
+      core.removeHookFrontendTool(name, tool.agentId, tool);
+      if (renderer) {
+        core.removeHookRenderToolCall(name, tool.agentId, renderer);
       }
     };
   });

@@ -187,6 +187,28 @@ describe("CopilotKitCoreSvelte", () => {
     expect(core.renderToolCalls.at(0)?.render).toBe(r2.render);
   });
 
+  it("does not remove a replacement hook renderer when its predecessor cleans up", () => {
+    const first = {
+      name: "toolA",
+      args: z.any(),
+      render: () => "first",
+      agentId: "agent-1",
+    };
+    const replacement = {
+      name: "toolA",
+      args: z.any(),
+      render: () => "replacement",
+      agentId: "agent-1",
+    };
+    const core = new CopilotKitCoreSvelte({});
+    core.addHookRenderToolCall(first);
+    core.addHookRenderToolCall(replacement);
+
+    core.removeHookRenderToolCall("toolA", "agent-1", first);
+
+    expect(core.renderToolCalls).toEqual([replacement]);
+  });
+
   it("removes hook render tool calls", () => {
     const r1 = {
       name: "toolA",
@@ -290,6 +312,26 @@ describe("CopilotKitCoreSvelte", () => {
 
     core.removeHookFrontendTool("showToast");
     expect(mockSetTools).toHaveBeenLastCalledWith([propTool]);
+  });
+
+  it("does not remove a replacement hook frontend tool when its predecessor cleans up", () => {
+    const core = new CopilotKitCoreSvelte({});
+    const first = {
+      name: "toolA",
+      agentId: "agent-1",
+      handler: vi.fn(),
+    } as any;
+    const replacement = {
+      name: "toolA",
+      agentId: "agent-1",
+      handler: vi.fn(),
+    } as any;
+    core.addHookFrontendTool(first);
+    core.addHookFrontendTool(replacement);
+
+    core.removeHookFrontendTool("toolA", "agent-1", first);
+
+    expect(mockSetTools).toHaveBeenLastCalledWith([replacement]);
   });
 
   it("sets defaultThrottleMs", () => {

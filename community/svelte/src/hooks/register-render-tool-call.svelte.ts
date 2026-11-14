@@ -69,7 +69,7 @@ export function registerRenderToolCall(config: {
     context.copilotkit.addHookRenderToolCall(renderer);
 
     return () => {
-      context.copilotkit.removeHookRenderToolCall(name, agentId);
+      context.copilotkit.removeHookRenderToolCall(name, agentId, renderer);
     };
   });
 }

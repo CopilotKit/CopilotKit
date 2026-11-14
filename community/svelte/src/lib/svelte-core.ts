@@ -78,8 +78,19 @@ export class CopilotKitCoreSvelte extends CopilotKitCore {
     this._syncFrontendTools();
   }
 
-  removeHookFrontendTool(name: string, agentId?: string): void {
-    if (this._hookFrontendTools.delete(`${agentId ?? ""}:${name}`)) {
+  removeHookFrontendTool(
+    name: string,
+    agentId?: string,
+    expectedTool?: FrontendTool<any>,
+  ): void {
+    const key = `${agentId ?? ""}:${name}`;
+    if (
+      expectedTool !== undefined &&
+      this._hookFrontendTools.get(key) !== expectedTool
+    ) {
+      return;
+    }
+    if (this._hookFrontendTools.delete(key)) {
       this._syncFrontendTools();
     }
   }
@@ -151,8 +162,18 @@ export class CopilotKitCoreSvelte extends CopilotKitCore {
     this._notifyRenderToolCallsChanged();
   }
 
-  removeHookRenderToolCall(name: string, agentId?: string): void {
+  removeHookRenderToolCall(
+    name: string,
+    agentId?: string,
+    expectedRenderer?: SvelteToolCallRenderer<unknown>,
+  ): void {
     const key = `${agentId ?? ""}:${name}`;
+    if (
+      expectedRenderer !== undefined &&
+      this._hookRenderToolCalls.get(key) !== expectedRenderer
+    ) {
+      return;
+    }
     if (this._hookRenderToolCalls.delete(key)) {
       this._cachedMergedRenderToolCalls = null;
       this._notifyRenderToolCallsChanged();
