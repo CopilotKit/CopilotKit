@@ -19,6 +19,9 @@ export default defineConfig([
     entry: ["src/index.ts"],
     format: ["umd"],
     globalName: "CopilotKitA2UIRenderer",
+    // A <script>-tag page has no bundler to replace process.env.NODE_ENV and
+    // usually no `process` global, so the UMD build fixes it to production.
+    define: { "process.env.NODE_ENV": JSON.stringify("production") },
     sourcemap: true,
     target: "es2018",
     outDir: "dist",
