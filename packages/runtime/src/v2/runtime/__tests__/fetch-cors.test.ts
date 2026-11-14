@@ -154,6 +154,16 @@ describe("fetch-cors", () => {
         "true",
       );
     });
+    it("adds Vary: Origin to a preflight from an origin that is not allowed", () => {
+      const request = new Request("http://localhost/api", {
+        method: "OPTIONS",
+        headers: { Origin: "https://other.com" },
+      });
+      const config: CopilotCorsConfig = { origin: ["https://myapp.com"] };
+      const response = handleCors(request, config)!;
+      expect(response.headers.get("Access-Control-Allow-Origin")).toBeNull();
+      expect(response.headers.get("Vary")).toContain("Origin");
+    });
   });
 
   describe("addCorsHeaders (response decoration)", () => {
@@ -200,6 +210,41 @@ describe("fetch-cors", () => {
       const config: CopilotCorsConfig = {};
       const result = addCorsHeaders(response, config, null);
       expect(result.headers.get("Vary")).toBeNull();
+    });
+
+    it("adds Vary: Origin when the request origin is not in the allowed array", () => {
+      const response = new Response(null, { status: 200 });
+      const config: CopilotCorsConfig = { origin: ["https://myapp.com"] };
+      const result = addCorsHeaders(response, config, "https://other.com");
+      expect(result.headers.get("Access-Control-Allow-Origin")).toBeNull();
+      expect(result.headers.get("Vary")).toContain("Origin");
+    });
+
+    it("adds Vary: Origin when an allowlisted endpoint gets no Origin header", () => {
+      // A same-origin or server-side GET sends no Origin. If a cache stores
+      // that response without Vary: Origin, it later serves it, with no
+      // Allow-Origin, to an allowed cross-origin caller.
+      const response = new Response(null, { status: 200 });
+      const config: CopilotCorsConfig = { origin: ["https://myapp.com"] };
+      const result = addCorsHeaders(response, config, null);
+      expect(result.headers.get("Access-Control-Allow-Origin")).toBeNull();
+      expect(result.headers.get("Vary")).toContain("Origin");
+    });
+
+    it("adds Vary: Origin when an origin function rejects the request origin", () => {
+      const response = new Response(null, { status: 200 });
+      const config: CopilotCorsConfig = { origin: () => null };
+      const result = addCorsHeaders(response, config, "https://other.com");
+      expect(result.headers.get("Access-Control-Allow-Origin")).toBeNull();
+      expect(result.headers.get("Vary")).toContain("Origin");
+    });
+
+    it("adds Vary: Origin when credentials are on and the request has no Origin", () => {
+      const response = new Response(null, { status: 200 });
+      const config: CopilotCorsConfig = { credentials: true };
+      const result = addCorsHeaders(response, config, null);
+      expect(result.headers.get("Access-Control-Allow-Origin")).toBeNull();
+      expect(result.headers.get("Vary")).toContain("Origin");
     });
   });
 });

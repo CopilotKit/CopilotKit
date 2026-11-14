@@ -53,7 +53,14 @@ function setCorsHeaders(
   requestOrigin: string | null,
 ): void {
   let allowedOrigin = resolveOrigin(config, requestOrigin);
-  if (!allowedOrigin) return;
+  if (!allowedOrigin) {
+    // The origin allowlist refused this request (or it sent no Origin). The
+    // response still depends on Origin, so shared caches must key on it.
+    // Otherwise a cached response without Allow-Origin is served to an
+    // allowed origin.
+    headers.append("Vary", "Origin");
+    return;
+  }
 
   // Per the Fetch spec, Access-Control-Allow-Origin: * combined with
   // Access-Control-Allow-Credentials: true causes browsers to reject the
@@ -63,6 +70,7 @@ function setCorsHeaders(
     if (requestOrigin) {
       allowedOrigin = requestOrigin;
     } else {
+      headers.append("Vary", "Origin");
       return;
     }
   }
