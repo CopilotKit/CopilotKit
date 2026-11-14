@@ -288,15 +288,15 @@ This release does not claim full React parity. Still missing:
 
 ## Try it
 
-The [SvelteKit demo](./demo) renders chat, sidebar, and popup tabs with
-attachments enabled. Copy `demo/.env.example` to `demo/.env.local`, add one of
+The [SvelteKit demo](./examples/demo) renders chat, sidebar, and popup tabs with
+attachments enabled. Copy `examples/demo/.env.example` to `examples/demo/.env.local`, add one of
 `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, or `GOOGLE_API_KEY`, then run:
 
 ```bash
 cd community/svelte
 pnpm install
 pnpm build
-cd demo
+cd examples/demo
 pnpm install
 pnpm dev
 ```

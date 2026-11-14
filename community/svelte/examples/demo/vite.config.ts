@@ -2,7 +2,7 @@ import { sveltekit } from "@sveltejs/kit/vite";
 import { fileURLToPath } from "node:url";
 import { loadEnv } from "vite";
 
-const packageRoot = fileURLToPath(new URL("..", import.meta.url));
+const packageRoot = fileURLToPath(new URL("../..", import.meta.url));
 
 export default ({ mode }: { mode: string }) => {
   process.env = { ...process.env, ...loadEnv(mode, process.cwd(), "") };

@@ -12,8 +12,8 @@ importers:
         specifier: 1.87.1
         version: 1.87.1(@langchain/core@1.4.0(@opentelemetry/api@1.10.0)(openai@5.23.2(ws@8.23.0)(zod@3.25.76))(ws@8.23.0))(@langchain/langgraph-sdk@1.16.0(@langchain/core@1.4.0(@opentelemetry/api@1.10.0)(openai@5.23.2(ws@8.23.0)(zod@3.25.76))(ws@8.23.0)))(@opentelemetry/api@1.10.0)(@types/express@5.0.6)(express@5.3.0)(langchain@1.6.5(@langchain/core@1.4.0(@opentelemetry/api@1.10.0)(openai@5.23.2(ws@8.23.0)(zod@3.25.76))(ws@8.23.0))(@opentelemetry/api@1.10.0)(openai@5.23.2(ws@8.23.0)(zod@3.25.76))(ws@8.23.0))(openai@5.23.2(ws@8.23.0)(zod@3.25.76))
       '@copilotkit/svelte':
-        specifier: file:..
-        version: file:..(lit@3.3.3)(svelte@5.57.3)
+        specifier: file:../..
+        version: file:../..(lit@3.3.3)(svelte@5.57.3)
       '@copilotkit/voice':
         specifier: 1.87.1
         version: 1.87.1(@copilotkit/runtime@1.87.1(@langchain/core@1.4.0(@opentelemetry/api@1.10.0)(openai@5.23.2(ws@8.23.0)(zod@3.25.76))(ws@8.23.0))(@langchain/langgraph-sdk@1.16.0(@langchain/core@1.4.0(@opentelemetry/api@1.10.0)(openai@5.23.2(ws@8.23.0)(zod@3.25.76))(ws@8.23.0)))(@opentelemetry/api@1.10.0)(@types/express@5.0.6)(express@5.3.0)(langchain@1.6.5(@langchain/core@1.4.0(@opentelemetry/api@1.10.0)(openai@5.23.2(ws@8.23.0)(zod@3.25.76))(ws@8.23.0))(@opentelemetry/api@1.10.0)(openai@5.23.2(ws@8.23.0)(zod@3.25.76))(ws@8.23.0))(openai@5.23.2(ws@8.23.0)(zod@3.25.76)))(ws@8.23.0)(zod@3.25.76)
@@ -260,8 +260,8 @@ packages:
     peerDependencies:
       '@ag-ui/core': '>=0.0.48'
 
-  '@copilotkit/svelte@file:..':
-    resolution: {directory: .., type: directory}
+  '@copilotkit/svelte@file:../..':
+    resolution: {directory: ../.., type: directory}
     engines: {node: '>=20'}
     peerDependencies:
       svelte: ^5.0.0
@@ -2530,7 +2530,7 @@ snapshots:
     transitivePeerDependencies:
       - encoding
 
-  '@copilotkit/svelte@file:..(lit@3.3.3)(svelte@5.57.3)':
+  '@copilotkit/svelte@file:../..(lit@3.3.3)(svelte@5.57.3)':
     dependencies:
       '@ag-ui/client': 1.0.2
       '@ag-ui/core': 1.0.2(zod@3.25.76)

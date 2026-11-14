@@ -144,4 +144,4 @@ showcase/shell-dojo/next.config.ts
 showcase/shell/next.config.ts
 showcase/vue/vite.config.ts
 community/svelte/vite.config.ts
-community/svelte/demo/vite.config.ts
+community/svelte/examples/demo/vite.config.ts

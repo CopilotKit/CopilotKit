@@ -24,7 +24,7 @@ export default tseslint.config(
       "coverage/**",
       "dist/**",
       "node_modules/**",
-      "demo/.svelte-kit/**",
+      "examples/**/.svelte-kit/**",
     ],
   },
   {
