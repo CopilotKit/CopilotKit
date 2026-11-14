@@ -158,7 +158,11 @@ export function LicenseWarningBanner({
       return (
         <BannerShell
           severity="warning"
-          message={`Your CopilotKit license expires in ${graceRemaining} day${graceRemaining !== 1 ? "s" : ""}. Please renew.`}
+          message={
+            graceRemaining === undefined
+              ? "Your CopilotKit license is expiring. Please renew."
+              : `Your CopilotKit license expires in ${graceRemaining} day${graceRemaining !== 1 ? "s" : ""}. Please renew.`
+          }
           actionLabel="Renew"
           actionUrl="https://dashboard.operations.copilotkit.ai"
           onDismiss={onDismiss}
