@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { screen, fireEvent, waitFor, act } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor, act } from "@testing-library/react";
 import { z } from "zod";
 import { useHumanInTheLoop } from "../use-human-in-the-loop";
 import type { ReactHumanInTheLoop } from "../../types";
@@ -1564,6 +1564,124 @@ describe("HITL Run Abort", () => {
       const last = toolExecutionEnds[toolExecutionEnds.length - 1];
       expect(last.error).toBeDefined();
       expect(last.error).not.toBe("");
+    });
+  });
+
+  describe("Concurrent HITL interactions (#8194)", () => {
+    // Drive the REAL registered tool (handler + row-scoped respond binding)
+    // straight through the core registry: two overlapping calls with distinct
+    // tool call ids, then one row's answer per click.
+    function setupHarness() {
+      let core: any = null;
+      const delivered: string[] = [];
+      const Harness: React.FC = () => {
+        const { copilotkit } = useCopilotKit();
+        core = copilotkit;
+        const hitlTool: ReactHumanInTheLoop = {
+          name: "confirmTool",
+          description: "Concurrent HITL tool",
+          parameters: z.object({}),
+          render: ({ status, respond, toolCallId }: any) => (
+            <button
+              data-testid="approve"
+              onClick={() => {
+                delivered.push(toolCallId);
+                void respond!(JSON.stringify({ approved: true }));
+              }}
+            >
+              Approve
+            </button>
+          ),
+        };
+        useHumanInTheLoop(hitlTool);
+        return null;
+      };
+      renderWithCopilotKit({ children: <Harness /> });
+      const registered = core.getTool({ toolName: "confirmTool" });
+      expect(registered).toBeDefined();
+      return { registered: registered!, delivered };
+    }
+
+    function rowProps(toolCallId: string | undefined): any {
+      return {
+        status: ToolCallStatus.Executing,
+        args: {},
+        toolCallId,
+        name: "confirmTool",
+        description: "",
+        agentId: undefined,
+        result: undefined,
+      };
+    }
+
+    it("routes concurrent interactions by tool call id", async () => {
+      const { registered, delivered } = setupHarness();
+      const controllerA = new AbortController();
+      let settledA: string | undefined;
+      let settledB: string | undefined;
+      const p1 = registered.handler!({}, {
+        toolCall: { id: "call-a" },
+        signal: controllerA.signal,
+      }).then((r: unknown) => { settledA = String(r); });
+      const p2 = registered.handler!({}, {
+        toolCall: { id: "call-b" },
+        signal: new AbortController().signal,
+      }).then((r: unknown) => { settledB = String(r); });
+
+      await act(async () => { await Promise.resolve(); });
+      expect(settledA).toBeUndefined();
+      expect(settledB).toBeUndefined();
+
+      // Row A answers first: only call A settles. The old single-slot resolver
+      // would have handed call B's answer to call A and left B hung.
+      const viewA = render(registered.render!(rowProps("call-a")));
+      fireEvent.click(viewA.getByTestId("approve"));
+      await act(async () => { await Promise.resolve(); await Promise.resolve(); });
+      expect(settledA).toBe(JSON.stringify({ approved: true }));
+      expect(settledB).toBeUndefined();
+      viewA.unmount();
+
+      render(registered.render!(rowProps("call-b")));
+      fireEvent.click(screen.getByTestId("approve"));
+      await act(async () => { await Promise.resolve(); await Promise.resolve(); });
+      expect(settledB).toBe(JSON.stringify({ approved: true }));
+      expect(delivered).toEqual(["call-a", "call-b"]);
+      await Promise.all([p1, p2]);
+    });
+
+    it("rejects a superseded re-registration of the same tool call id", async () => {
+      const { registered } = setupHarness();
+      const controller = new AbortController();
+      const p1 = registered.handler!({}, {
+        toolCall: { id: "call-a" },
+        signal: controller.signal,
+      });
+      const p2 = registered.handler!({}, {
+        toolCall: { id: "call-a" },
+        signal: new AbortController().signal,
+      });
+
+      // The retried registration rejects the previous promise instead of
+      // silently dropping its resolver (which would hang the caller).
+      await expect(p1).rejects.toThrow(/superseded/);
+
+      // The retried interaction stays pending and answerable via its row.
+      render(registered.render!(rowProps("call-a")));
+      fireEvent.click(screen.getByTestId("approve"));
+      await expect(p2).resolves.toBe(JSON.stringify({ approved: true }));
+    });
+
+    it("resolves the single anonymous pending interaction on a bare respond()", async () => {
+      const { registered } = setupHarness();
+      // Programmatic runTool calls arrive without a tool call id in the
+      // context; they key locally and keep the historical bare respond() form.
+      const p = registered.handler!({}, {
+        signal: new AbortController().signal,
+      });
+
+      render(registered.render!(rowProps(undefined)));
+      fireEvent.click(screen.getByTestId("approve"));
+      await expect(p).resolves.toBe(JSON.stringify({ approved: true }));
     });
   });
 });
