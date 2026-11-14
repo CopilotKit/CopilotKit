@@ -13,11 +13,25 @@ import { resolveDebugConfig } from "@copilotkit/shared";
 import type { ResolvedDebugConfig, DebugConfig } from "@copilotkit/shared";
 import { resolveForwardHeadersPolicy } from "../handlers/header-utils";
 import { resolveSseKeepAliveIntervalSeconds } from "../handlers/shared/sse-keep-alive";
+import {
+  resolveThreadAccessMode,
+  warnIfThreadListRefused,
+  warnIfThreadOwnershipUnenforced,
+} from "../handlers/shared/thread-access";
+import type {
+  ThreadAccessMode,
+  ThreadsConfig,
+} from "../handlers/shared/thread-access";
+export type {
+  ThreadAccessMode,
+  ThreadsConfig,
+} from "../handlers/shared/thread-access";
 import type {
   ForwardHeadersConfig,
   ResolvedForwardHeadersPolicy,
 } from "../handlers/header-utils";
 import type { AbstractAgent } from "@ag-ui/client";
+import type { ModelSpecifier } from "../../../agent";
 import type { MCPClientConfig } from "@ag-ui/mcp-apps-middleware";
 import type { A2UIMiddlewareConfig } from "@ag-ui/a2ui-middleware";
 import { RUNTIME_PACKAGE_VERSION } from "./package-info";
@@ -109,6 +123,19 @@ interface CopilotRuntimeMiddlewares {
   mcpApps?: McpAppsConfig;
   /** Auto-apply OpenGenerativeUIMiddleware to agents at run time. */
   openGenerativeUI?: OpenGenerativeUIConfig;
+  /**
+   * Experimental: CopilotKit generative UI surfaces (`render_ui`).
+   *
+   * - Omitted: applied to a run when the React provider sends a
+   *   tool-transport envelope (`forwardedProps.copilotkit.ui`).
+   * - `true`: applied to every run.
+   * - `{ agents }`: applied to every run of the named agents.
+   * - `false`: never applied.
+   *
+   * A run with a markdown-transport envelope never gets it: the model writes
+   * the UI in a2ui code fences, and the client renders them.
+   */
+  generativeUI?: boolean | BaseCopilotRuntimeMiddlewareOptions;
 }
 
 /**
@@ -243,6 +270,22 @@ interface BaseCopilotRuntimeOptions extends CopilotRuntimeMiddlewares {
    * policy enables and limits both agent and browser Memory.
    */
   exposeMemoryRoutes?: boolean;
+  /**
+   * How local Threads are shared among callers that `identifyUser` does not
+   * identify, when no Intelligence is configured. Has no effect on an
+   * Intelligence runtime, where the platform scopes Threads per user.
+   *
+   * With `identifyUser`, every Thread operation (list, read, connect, run,
+   * stop, clear) reaches only the caller's own Threads, whatever this says.
+   * Without it, by default (`access: "owner"`), a Thread id works as a
+   * capability: whoever holds it may read, connect to, continue and stop that
+   * Thread, but listing and clearing Threads are refused with HTTP 403.
+   * `access: "open"` also lets every caller list and clear the Threads created
+   * without identity, as in earlier releases. That is insecure for any
+   * deployment that more than one person can reach. A Thread created by an
+   * identified user is never reachable without that identity.
+   */
+  threads?: ThreadsConfig;
 }
 
 export type IdentifyUserCallback = (
@@ -270,10 +313,39 @@ export interface CopilotRuntimeMemoryConfig {
 export interface CopilotSseRuntimeOptions extends BaseCopilotRuntimeOptions {
   /** The runner to use for running agents in SSE mode. */
   runner?: AgentRunner;
+  /**
+   * Resolves the authenticated user for a request. When set, each Thread
+   * belongs to the user whose request created it, and only that user can list,
+   * read, replay, clear, continue or stop it. The runner must enforce owners
+   * (InMemoryAgentRunner and SqliteAgentRunner do); with a runner that does
+   * not, those requests are refused. See `threads`.
+   *
+   * Threads that SqliteAgentRunner stored before it recorded owners belong to
+   * nobody: as before the upgrade, whoever holds such a Thread's id can reach
+   * it, and continuing it does not claim it. The runner logs how many it holds
+   * when it opens the database. Every new Thread is owned. InMemoryAgentRunner
+   * keeps no Threads across a restart, so it holds no such Threads.
+   */
+  identifyUser?: IdentifyUserCallback;
   intelligence?: undefined;
   generateThreadNames?: undefined;
   /** Intelligence Channels require the Intelligence runtime; not available in SSE mode. */
   channels?: undefined;
+}
+
+/** Model configuration for {@link CopilotIntelligenceRuntimeOptions.generateThreadNames}. */
+export interface ThreadNameGenerationConfig {
+  /**
+   * The model that writes thread titles: a `"provider/model"` string such as
+   * `"openai/gpt-5-mini"`, or an AI SDK `LanguageModel`. A small, fast model
+   * is enough.
+   */
+  model: ModelSpecifier;
+  /**
+   * API key for a `"provider/model"` string. If it is not set, the provider's
+   * environment variable is used (for example `OPENAI_API_KEY`).
+   */
+  apiKey?: string;
 }
 
 interface CopilotIntelligenceRuntimeBaseOptions extends BaseCopilotRuntimeOptions {
@@ -284,8 +356,19 @@ interface CopilotIntelligenceRuntimeBaseOptions extends BaseCopilotRuntimeOption
    * @deprecated Configure `getLearningContainerId` on `CopilotKitIntelligence`.
    */
   ɵlearning?: CopilotRuntimeLearningConfig;
-  /** Auto-generate short names for newly created threads. */
-  generateThreadNames?: boolean;
+  /**
+   * Names each new thread when its first run creates it.
+   *
+   * - `true` (default): the name is the first user message, cut to 8 words.
+   *   No model runs, and the app's agent does not run.
+   * - `{ model }`: the runtime calls that model once, with no tools, for a
+   *   2 to 5 word title. If the call fails, the first user message is used.
+   * - `false`: threads are not named.
+   *
+   * The runtime never runs the app's agent to name a thread, because the
+   * agent's own server-side tools could run and change app data.
+   */
+  generateThreadNames?: boolean | ThreadNameGenerationConfig;
   /** Max delay (ms) for WebSocket reconnect backoff. @default 10_000 */
   maxReconnectMs?: number;
   /** Max delay (ms) for channel rejoin backoff. @default 30_000 */
@@ -345,6 +428,7 @@ export interface CopilotRuntimeLike {
   a2ui: CopilotRuntimeOptions["a2ui"];
   mcpApps: CopilotRuntimeOptions["mcpApps"];
   openGenerativeUI: CopilotRuntimeOptions["openGenerativeUI"];
+  generativeUI?: CopilotRuntimeOptions["generativeUI"];
   intelligence?: CopilotKitIntelligence;
   identifyUser?: IdentifyUserCallback;
   mode: RuntimeMode;
@@ -380,6 +464,12 @@ export interface CopilotRuntimeLike {
    * (`BaseCopilotRuntime`) always resolve and set it.
    */
   exposeMemoryRoutes?: boolean;
+  /**
+   * Resolved local Thread access mode. Optional on the published interface so
+   * an external implementor stays source-compatible; a missing value means
+   * the default (`DEFAULT_THREAD_ACCESS`).
+   */
+  threadAccess?: ThreadAccessMode;
   memory?: CopilotRuntimeMemoryConfig;
   learning?: CopilotRuntimeLearningConfig;
 }
@@ -392,7 +482,7 @@ export interface CopilotSseRuntimeLike extends CopilotRuntimeLike {
 export interface CopilotIntelligenceRuntimeLike extends CopilotRuntimeLike {
   intelligence: CopilotKitIntelligence;
   identifyUser?: IdentifyUserCallback;
-  generateThreadNames: boolean;
+  generateThreadNames: boolean | ThreadNameGenerationConfig;
   lockTtlSeconds: number;
   lockKeyPrefix?: string;
   lockHeartbeatIntervalSeconds: number;
@@ -410,6 +500,7 @@ abstract class BaseCopilotRuntime implements CopilotRuntimeLike {
   public a2ui: CopilotRuntimeOptions["a2ui"];
   public mcpApps: CopilotRuntimeOptions["mcpApps"];
   public openGenerativeUI: CopilotRuntimeOptions["openGenerativeUI"];
+  public generativeUI: CopilotRuntimeOptions["generativeUI"];
   public licenseChecker?: LicenseChecker;
   public readonly debugEventBus?: DebugEventBus;
   public debug: ResolvedDebugConfig;
@@ -418,6 +509,7 @@ abstract class BaseCopilotRuntime implements CopilotRuntimeLike {
   public readonly forwardHeadersPolicy: ResolvedForwardHeadersPolicy;
   public readonly sseKeepAliveIntervalSeconds: number;
   public readonly exposeMemoryRoutes: boolean;
+  public readonly threadAccess: ThreadAccessMode;
   public readonly memory?: CopilotRuntimeMemoryConfig;
 
   /**
@@ -442,6 +534,7 @@ abstract class BaseCopilotRuntime implements CopilotRuntimeLike {
       a2ui,
       mcpApps,
       openGenerativeUI,
+      generativeUI,
     } = options;
 
     this.agents = agents;
@@ -451,6 +544,7 @@ abstract class BaseCopilotRuntime implements CopilotRuntimeLike {
     this.a2ui = a2ui || undefined;
     this.mcpApps = mcpApps;
     this.openGenerativeUI = openGenerativeUI;
+    this.generativeUI = generativeUI;
     this.runner = runner;
 
     // Resolve the license token once (matching the license-verifier's env
@@ -513,6 +607,7 @@ abstract class BaseCopilotRuntime implements CopilotRuntimeLike {
     this.memory = (options as { memory?: CopilotRuntimeMemoryConfig }).memory;
     this.exposeMemoryRoutes =
       this.memory !== undefined || (options.exposeMemoryRoutes ?? false);
+    this.threadAccess = resolveThreadAccessMode(options.threads);
   }
 }
 
@@ -522,6 +617,7 @@ export class CopilotSseRuntime
 {
   readonly intelligence = undefined;
   readonly mode = RUNTIME_MODE_SSE;
+  readonly identifyUser?: IdentifyUserCallback;
 
   constructor(options: CopilotSseRuntimeOptions) {
     // Runtime guard mirroring the discriminated-union type: the SSE runtime has
@@ -542,7 +638,16 @@ export class CopilotSseRuntime
           "Learning Containers are not available in SSE mode.",
       );
     }
+    if (
+      options.identifyUser !== undefined &&
+      typeof options.identifyUser !== "function"
+    ) {
+      throw new Error("`identifyUser` must be a callback");
+    }
     super(options, options.runner ?? new InMemoryAgentRunner());
+    this.identifyUser = options.identifyUser;
+    warnIfThreadOwnershipUnenforced(this);
+    warnIfThreadListRefused(this);
   }
 }
 
@@ -552,7 +657,7 @@ export class CopilotIntelligenceRuntime
 {
   readonly intelligence: CopilotKitIntelligence;
   readonly identifyUser?: IdentifyUserCallback;
-  readonly generateThreadNames: boolean;
+  readonly generateThreadNames: boolean | ThreadNameGenerationConfig;
   readonly lockTtlSeconds: number;
   readonly lockKeyPrefix?: string;
   readonly lockHeartbeatIntervalSeconds: number;
@@ -594,6 +699,12 @@ export class CopilotIntelligenceRuntime
       typeof rawOptions.identifyUser !== "function"
     ) {
       throw new Error("Intelligence Runtime `identifyUser` must be a callback");
+    }
+    if (rawOptions.threads !== undefined) {
+      console.warn(
+        "[CopilotKit] `threads` has no effect on an Intelligence runtime: the " +
+          "platform scopes threads per user. Remove the option.",
+      );
     }
     if (
       rawOptions.channels !== undefined &&
@@ -758,8 +869,8 @@ export interface RuntimeWithDeclaredChannels {
 export interface CopilotRuntime extends CopilotRuntimeLike {
   /** Telemetry capture bound to this runtime's construction-time identity. */
   telemetry: TelemetryCapture;
-  /** Auto-generate short thread names; `undefined` in SSE mode. */
-  generateThreadNames?: boolean;
+  /** Thread naming configuration; `undefined` in SSE mode. */
+  generateThreadNames?: boolean | ThreadNameGenerationConfig;
   /** Thread lock TTL in seconds; `undefined` in SSE mode. */
   lockTtlSeconds?: number;
   /** Custom Redis key prefix for the thread lock; `undefined` in SSE mode. */
@@ -859,20 +970,26 @@ class CopilotRuntimeShim implements CopilotRuntime {
     return this.delegate.openGenerativeUI;
   }
 
+  get generativeUI(): CopilotRuntimeOptions["generativeUI"] {
+    return this.delegate.generativeUI;
+  }
+
   get intelligence(): CopilotKitIntelligence | undefined {
     return this.delegate.intelligence;
   }
 
-  get generateThreadNames(): boolean | undefined {
+  get generateThreadNames(): boolean | ThreadNameGenerationConfig | undefined {
     return isIntelligenceRuntime(this.delegate)
       ? this.delegate.generateThreadNames
       : undefined;
   }
 
   get identifyUser(): IdentifyUserCallback | undefined {
-    return isIntelligenceRuntime(this.delegate)
-      ? this.delegate.identifyUser
-      : undefined;
+    return this.delegate.identifyUser;
+  }
+
+  get threadAccess(): ThreadAccessMode {
+    return this.delegate.threadAccess;
   }
 
   get lockTtlSeconds(): number | undefined {

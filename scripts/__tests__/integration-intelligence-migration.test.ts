@@ -89,6 +89,7 @@ const INTELLIGENCE_CLI_FRAMEWORKS = [
   "microsoft-agent-framework-dotnet",
   "microsoft-agent-framework-py",
   "mcp-apps",
+  "openai-agents-py",
   "agentcore-langgraph",
   "agentcore-strands",
   "a2ui",
@@ -151,6 +152,14 @@ const INTELLIGENCE_DEV_STACKS = [
     redisPort: "6395",
     appApiPort: "4207",
     gatewayPort: "4407",
+  },
+  {
+    integration: "openai-agents-python",
+    projectName: "copilotkit-intelligence-dev-openai-agents-python",
+    postgresPort: "5489",
+    redisPort: "6396",
+    appApiPort: "4208",
+    gatewayPort: "4408",
   },
 ] as const;
 
@@ -394,6 +403,15 @@ const INTELLIGENCE_TEMPLATE_CONTRACTS = [
   {
     directory: "pydantic-ai",
     frameworks: ["pydantic-ai"],
+    runtimePath: "src/app/api/copilotkit/[[...slug]]/route.ts",
+    gatePath: "next.config.ts",
+    envPath: ".env.example",
+    readmePath: "README.md",
+    runtimeAgent: HTTP_LOCALHOST_SLASH_RUNTIME_AGENT_CONTRACT,
+  },
+  {
+    directory: "openai-agents-python",
+    frameworks: ["openai-agents-py"],
     runtimePath: "src/app/api/copilotkit/[[...slug]]/route.ts",
     gatePath: "next.config.ts",
     envPath: ".env.example",
@@ -2700,6 +2718,7 @@ function expectIntegrationParityWorkflowContract(contents: string): void {
   const expectedPaths = [
     "examples/integrations/**",
     "scripts/__tests__/integration-intelligence-migration.test.ts",
+    "scripts/__tests__/starter-model-env-contract.test.ts",
     ".github/workflows/integrations_parity.yml",
   ];
   expect(workflowEventPaths(contents, "pull_request")).toEqual(expectedPaths);
@@ -3720,7 +3739,7 @@ jobs:
   ).toThrow();
 });
 
-test("the 17 Intelligence template directories back all 19 in-repo CLI frameworks", () => {
+test("the 18 Intelligence template directories back all 20 in-repo CLI frameworks", () => {
   const frameworks = INTELLIGENCE_TEMPLATE_CONTRACTS.flatMap(
     (contract) => contract.frameworks,
   );
@@ -3728,9 +3747,9 @@ test("the 17 Intelligence template directories back all 19 in-repo CLI framework
     (contract) => "runtimeAgent" in contract,
   );
 
-  expect(INTELLIGENCE_TEMPLATE_CONTRACTS).toHaveLength(17);
-  expect(ordinaryRuntimeContracts).toHaveLength(14);
-  expect(new Set(frameworks).size).toBe(19);
+  expect(INTELLIGENCE_TEMPLATE_CONTRACTS).toHaveLength(18);
+  expect(ordinaryRuntimeContracts).toHaveLength(15);
+  expect(new Set(frameworks).size).toBe(20);
   expect([...frameworks].sort()).toEqual(
     [...INTELLIGENCE_CLI_FRAMEWORKS].sort(),
   );

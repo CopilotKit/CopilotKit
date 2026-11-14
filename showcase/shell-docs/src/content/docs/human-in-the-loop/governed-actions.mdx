@@ -42,7 +42,7 @@ The frontend should handle each verdict deterministically:
 | Verdict | UI behavior |
 | --- | --- |
 | `allow` | Execute the action without asking again, optionally showing an audit note. |
-| `deny` | Do not execute the action. Show the reason or reference and ask the agent to choose a safer path. |
+| `deny` | Do not execute the action. Close the request without asking the user. |
 | `require_approval` | Render a user approval card. Execute only if the user approves. |
 
 ## Inline approval with `useInterrupt`
@@ -57,8 +57,9 @@ import { useInterrupt } from "@copilotkit/react-core/v2";
 
 function GovernedActionApproval() {
   useInterrupt({
-    render: ({ interrupt, resolve, cancel }) => {
-      const action = interrupt?.metadata?.action as GovernedAction | undefined;
+    render: ({ event, interrupt, resolve, cancel }) => {
+      const action = (interrupt?.metadata?.action ??
+        parseInterruptValue(event.value)?.action) as GovernedAction | undefined;
 
       if (!action) {
         return null;
@@ -88,6 +89,16 @@ function GovernedActionApproval() {
   });
 
   return null;
+}
+
+// A custom-event interrupt can send its value as a JSON string.
+function parseInterruptValue(value: unknown): { action?: unknown } | undefined {
+  if (typeof value !== "string") return value as { action?: unknown } | undefined;
+  try {
+    return JSON.parse(value);
+  } catch {
+    return undefined;
+  }
 }
 
 function GovernedActionCard({
@@ -143,36 +154,62 @@ function GovernedActionCard({
 }
 ```
 
-On resume, the agent should execute only when it receives an approved
-response for the same action id and reference:
+The sample reads the action from either interrupt shape:
 
-```ts
-type ApprovalResponse = {
-  approved: boolean;
-  actionId: string;
-  reference: string;
-};
+- A standard AG-UI interrupt: the agent puts the action in
+  `interrupt.metadata.action`.
+- A custom `on_interrupt` event: `interrupt` is `null`, and `event.value`
+  holds the value from the agent. A LangGraph agent sends this event by
+  default, with the value that the graph passed to `interrupt()` as JSON.
 
-async function handleApproval(action: GovernedAction, response: ApprovalResponse) {
-  if (
-    response.approved &&
-    response.actionId === action.id &&
-    response.reference === action.reference
-  ) {
-    return executeSideEffect(action.tool, action.arguments);
-  }
+On resume, the agent executes only when it receives an approved response for
+the same action id and reference. In a LangGraph Python agent, the tool calls
+`interrupt()` with the action and checks the resume value:
 
-  return {
-    skipped: true,
-    reason: "The user did not approve this action.",
-  };
-}
+```python title="agent.py"
+import hashlib
+import json
+
+from langchain_core.tools import tool
+from langgraph.types import interrupt
+
+
+@tool
+def send_email(to: str, subject: str, body: str) -> str:
+    """Send an email. The user must approve it first."""
+    arguments = {"to": to, "subject": subject, "body": body}
+    action = {
+        # Derive the id from the arguments: LangGraph runs the tool again on resume.
+        "id": hashlib.sha256(json.dumps(arguments, sort_keys=True).encode()).hexdigest()[:16],
+        "summary": f"Send an email to {to}",
+        "tool": "send_email",
+        "reference": "policy:outbound-email",
+        "verdict": "require_approval",
+        "arguments": arguments,
+    }
+
+    response = interrupt({"action": action})
+
+    if (
+        isinstance(response, dict)
+        and response.get("approved")
+        and response.get("actionId") == action["id"]
+        and response.get("reference") == action["reference"]
+    ):
+        deliver_email(to, subject, body)  # your own email client
+        return f"Email sent to {to}."
+
+    return "The user did not approve this action. The email was not sent."
 ```
+
+For other agent frameworks, see [Pausing the Agent for Input](./useInterrupt)
+for how each one emits an interrupt.
 
 ## Tool-call approval with `useHumanInTheLoop`
 
 For LLM-initiated pauses, register the approval checkpoint as a
-human-in-the-loop tool. The model asks to call `approve_governed_action`,
+human-in-the-loop [frontend tool](../frontend-tools). To compare this pattern
+with interrupts, see the [HITL Overview](../human-in-the-loop). The model asks to call `approve_governed_action`,
 your UI renders the card, and the tool result tells the agent whether it
 may continue:
 
@@ -236,6 +273,10 @@ function GovernedActionTool() {
 }
 ```
 
+Ask the agent to send an email. The approval card shows the tool, the
+reference, and the arguments. Click **Reject**, and the agent replies that it
+did not send the email.
+
 ## Recommended guardrails
 
 - Check policy on the server before presenting the approval, not only in
@@ -247,12 +288,3 @@ function GovernedActionTool() {
   denied side effect from a later UI callback.
 - Log the proposal, verdict, user decision, and execution result so the
   action is auditable.
-
-## Going further
-
-- [Pausing the Agent for Input](./useInterrupt) — use graph-enforced
-  interrupts when the backend must stop before a side effect.
-- [HITL Overview](../human-in-the-loop) — compare tool-based and
-  interrupt-based human-in-the-loop patterns.
-- [Frontend Tools](../frontend-tools) — register browser-side tools that
-  can display approval UI or update application state.

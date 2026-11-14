@@ -5,21 +5,30 @@ Keep it updated whenever React parity work lands in `packages/vue`.
 
 ## Scope and source of truth
 
-- Scope: `packages/vue/**` only.
+- Primary implementation and parity-matrix scope: `packages/vue/**`. This file may point to executable Vue integration surfaces without duplicating their ownership data.
 - Canonical source: `packages/react-core/`, `packages/react-ui/`, `packages/react-textarea/`.
 - Goal: semantic parity plus high discoverability.
-- Current priority: package-only parity. Avoid upstream/shared changes outside the Vue package until the Vue port is ready to merge.
+- Current priority: package parity within the established Vue package, documentation, and Showcase integration boundaries. Avoid broad shared-policy changes.
 
 ## Package boundary and documentation placement
 
 - `@copilotkit/vue` follows the same single-package direction as `@copilotkit/react`.
 - Core hooks/providers/types and UI-facing rendering primitives should live in this package.
 - Keep scope aligned with React's package surface; avoid introducing a parallel `vue-ui` package split.
-- Do not add Vue-only hook/component pages to the shared `docs/` V2 reference unless the repository adopts an explicit Vue section there.
-- Keep user-facing package usage and API docs in `README.md`.
-- Keep user-facing visual docs/examples in `examples/v2/vue/storybook/**`.
+- Long-form user documentation and API reference belong in `showcase/shell-docs/`.
+- Keep `README.md` as the npm-facing package entry point for installation and concise usage.
+- Runnable visual examples belong to the Showcase Vue host and generated frontend catalogs; Storybook is not the canonical integration surface.
 - Keep parity policy, translation rules, checklist, and the living React-to-Vue matrix in this file.
-- Treat Storybook/demo parity as follow-up work outside this package unless the task explicitly enters a repo-wide parity phase.
+- Showcase coverage and build ownership live in `showcase/shared/frontend-registry.json`, the generated frontend catalogs, and the existing Showcase validation/build workflows. Link to those sources instead of duplicating cell counts, feature counts, or a second coverage table here.
+- Vue documentation governance: React root IA is canonical; Vue navigation is derived and filtered through frontend resolution; shared pages and Vue variants follow the established policy; automated tests, not a duplicated route table, verify parity.
+- Vue-local documentation exceptions preserve the shared AG-UI Streams, thread-import, and Inspector pages without changing other frontend policy, while keeping A2UI and detailed v1 material outside the accepted Vue surface.
+
+## Verification boundary
+
+- Package behavior is verified by the Vue package's Nx test, type-check, lint, and build targets as applicable.
+- Existing Showcase validation and build workflows provide automatic canonical-artifact, integration-image staging/build, and hosting-contract validation for relevant pull requests.
+- There is no full automatic Vue browser/runtime matrix on every pull request. Artifact and image-build success is not browser/runtime passing evidence.
+- Currently visible consumer type failures remain outside this passing evidence; this document does not suppress, allowlist, or redefine them.
 
 ## API compatibility policy
 
@@ -223,6 +232,109 @@ Angular use - so the renderer is a thin adapter: it owns the iframe
 8. Content rejected by the schema is reported as RECOVERABLE (`onContentError`)
    and cleared when valid content resumes, distinct from a fatal session error.
 
+## Architectural decision: Native generative UI
+
+`@copilotkit/vue/v2/generative-ui` is the Vue framework layer of native
+generative UI. The engine is framework-free, and React, Angular and Vue share it:
+
+- `@copilotkit/core/generative-ui`: the surface manager, the dispatcher, the
+  function-call runner, the markdown source, the envelope and the debug source.
+- `@copilotkit/shared/generative-ui`: the catalog builder, `child` and
+  `childList`, the standard declarations, the tokens, the theme and the checks.
+
+Vue adds the same layer that `packages/angular/src/generative-ui` adds for
+Angular: `useGenerativeUIRoot`, `SurfaceView`, the error boundaries, the chat
+wiring and the standard components as Vue SFCs.
+
+### Prop mapping
+
+| Catalog key                 | React                        | Vue                                                               |
+| --------------------------- | ---------------------------- | ----------------------------------------------------------------- |
+| Data props                  | Props                        | Vue props, declared explicitly                                    |
+| Writable props (`writable`) | `value` prop plus `setValue` | `value` prop plus an `update:value` emit (`defineModel("value")`) |
+| Events                      | Function props               | Function props with the same names, which the component awaits    |
+| `slots`, `child` and lists  | React nodes in props         | Vue named slots. A `childList` slot returns one VNode per child   |
+| A child inside a data prop  | `ReactNode`                  | `VNode`                                                           |
+
+- A component declares its data props explicitly. The SFC compiler cannot
+  resolve `GenerativeUIComponentProps` inside `defineProps`.
+- A `defineComponent` or SFC that types its props from `typeof ui` while it is
+  a component of that `ui` is a circular type. A function component can do it,
+  as in React. An override can type itself from the base UI.
+- Events stay props, not emits, because the component awaits the
+  `GenerativeUIInvokeResult` and checks if the event is bound (deterministic
+  rule 8 above).
+
+### Wiring
+
+- `CopilotKitProvider` takes a `generativeUI` prop with the React config type.
+  Write the binding in camelCase: `:generativeUI="{ ui }"`. Vue reads
+  `:generative-ui` as `generativeUi`, so it does not bind. The existing
+  `openGenerativeUI` prop has the same rule.
+- `CopilotChat`, `CopilotPopup` and `CopilotSidebar` take a
+  `#generative-ui-surface` scoped slot in place of React's
+  `generativeUISurface` prop (slot-first rule). The slot props are
+  `{ surfaceId, isStreaming, error, rejected, children }`, and `children` is
+  the VNode of the surface.
+- `GenerativeUISurface` takes React's `fallback` prop as its default slot.
+- `errorBoundary.fallback` is a Vue component that gets
+  `{ error, retry, surfaceId, componentId }`.
+- `CopilotChatAssistantMessage` renders `MarkdownSurfaces` for the markdown
+  transport, as React does.
+
+### Optional libraries
+
+- Chart and Map follow the Angular model. They are opt-in Vue plugins with their
+  own entries: `GenerativeUIChart` (`/v2/generative-ui/chart`, plus
+  `provideGenerativeUIChart` for one subtree) and `GenerativeUIMap`
+  (`/v2/generative-ui/map`). `chart.js` and `maplibre-gl` are optional peers.
+- Without a plugin, Chart shows its data as a table and Map shows its markers as
+  a list. The tests use these fallbacks where React mocks the library.
+- Icons follow the React model: Icon loads `lucide-vue-next` with a lazy
+  `import()`. There is no icons entry.
+
+### Type tests
+
+`*.test-d.ts` files hold type-only assertions. Vitest does not run them.
+`check-types` checks them with `tsconfig.typetests.json`.
+
+### Intentional divergences: engine
+
+1. `GenerativeUISurface` accepts `components` without `ui`. React types the
+   pair as a union that rejects this. `defineProps` cannot express that union.
+2. React's "renders the fence as code when MarkdownRenderer gets no message id"
+   has no Vue case. Vue has no standalone `MarkdownRenderer`, and
+   `AssistantMessage.id` is required, so `MarkdownSurfaces` always gets an id.
+3. The error boundaries use `onErrorCaptured`. They also catch errors from the
+   event handlers, watchers and lifecycle hooks of descendants, not only render
+   errors. A thrown value that is not an `Error` becomes an `Error`, as in
+   Angular.
+4. Server rendering: `useManagerVersion` and the other composables subscribe in
+   immediate watchers. Vue does not stop these watchers on the server, so the
+   subscriptions stay on the manager and are collected with it.
+5. The framework-free standard helpers (styles, URLs, chart config, map
+   filters) moved from Angular to `@copilotkit/shared/generative-ui`. Vue and
+   Angular import them. React keeps its own copies; moving React is a follow-up.
+
+### Intentional divergences: standard components
+
+1. Lightbox moves the focus to its close button when it opens, and restores the
+   focus when it closes. React and Angular do not. It emits `close`.
+2. Standard components make their ARIA ids with `useStandardId`. On Vue 3.5
+   and later it is `useId`, so server and client ids match. On Vue 3.3 and 3.4
+   it falls back to a module counter, which can differ after hydration.
+3. DateTimeInput uses a `value` prop and an `update:value` emit, not
+   `defineModel`. `defineModel` drops a write of the same value, and that write
+   marks a bound value as the user's.
+4. Vue adopts these Angular behaviors: Image tracks a failed load per `src`,
+   Video goes back to its poster when `url` changes, Carousel sizes its slides
+   from `visibleItems`, and Grid, GridItem and CarouselMediaItem send
+   `onVisible`.
+5. Markup: Modal renders only its trigger on the server and before mount, and
+   its dialog gets the theme from `data-a2ui-theme`, not inline variables. Table
+   renders a header section as `<thead>`, and a "number" List is `<ol start>`,
+   as in React (an Angular host cannot change its tag).
+
 ## Vue-specific translation principles
 
 - Providers:
@@ -373,14 +485,14 @@ For package-level parity work, all items below are required before a ported Reac
 4. Code-level docs parity:
    New public hooks/composables include JSDoc on implementation with at least one usage example.
 5. Package docs parity:
-   User-facing Vue notes remain documented in `README.md`.
+   Concise npm-facing Vue notes remain documented in `README.md`; long-form user documentation and reference live in shell-docs.
 
-Out-of-package follow-up, when the repo enters repo-wide parity work:
+Executable integration follow-up for user-visible features:
 
 1. Visual parity:
-   Add or update the corresponding Vue Storybook story for user-visible features.
+   Add or update the corresponding runnable surface in the Showcase Vue host/catalog.
 2. Demo/example parity:
-   Add or update runnable Vue demo/example usage for user-visible features.
+   Update the Showcase-owned registry/catalog inputs without duplicating coverage data in this file.
 
 ## React -> Vue Parity Matrix
 
@@ -397,8 +509,8 @@ Status values:
   not a licence to add Vue-specific coverage instead of mirroring React.
 
 Current snapshot: most mapped React->Vue counterpart rows are `matched` or
-`intentional-divergence`. The exceptions are tracked explicitly in the matrix and
-are all in the MCP Apps area: one `partial`, one `unmapped` and one `vue-only`.
+`intentional-divergence`. The exceptions are tracked explicitly in the matrix.
+They are in the MCP Apps area and in the generative UI area.
 
 ### APIs and render model
 
@@ -409,11 +521,21 @@ are all in the MCP Apps area: one `partial`, one `unmapped` and one `vue-only`.
 | `renderActivityMessages` / `useRenderActivityMessage`                                                                                            | `#activity-<type>` and `#activity-message` slots                                   | intentional-divergence | Slot translation, behavior parity required.                                                                                                                                                                                                                                                                                                                                                                                                                                       |
 | `renderCustomMessages` / `useRenderCustomMessages`                                                                                               | `#message-before` and `#message-after` slots, plus provider `renderCustomMessages` | intentional-divergence | Slots remain primary; provider registration is the approved secondary parity surface for ordered/agent-scoped custom message renderers.                                                                                                                                                                                                                                                                                                                                           |
 | `useRenderTool`, `useDefaultRenderTool`, `useComponent`                                                                                          | Same-named Vue composables in `src/hooks`                                          | matched                | Secondary programmatic APIs now exist with dedicated parity tests, including SFC/component renderer support and React-matching `toolCallId` threading through render-tool prop unions and `CopilotChatToolCallsView` core render props; slots remain the primary customization surface.                                                                                                                                                                                           |
+| `createGenerativeUI`, `child`, `childList` (`/v2/generative-ui`)                                                                                 | Same names from `@copilotkit/vue/v2/generative-ui`                                 | intentional-divergence | Same catalog builder. Generated components get the Vue prop mapping: explicit props, `update:x` emits, named slots. See "Architectural decision: Native generative UI".                                                                                                                                                                                                                                                                                                           |
+| `CopilotKitProvider` `generativeUI` prop                                                                                                         | `CopilotKitProvider` `generativeUI` prop                                           | matched                | Same config type. Bind it in camelCase (`:generativeUI`).                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| `CopilotChat` / `CopilotPopup` / `CopilotSidebar` `generativeUISurface` prop                                                                     | `#generative-ui-surface` scoped slot                                               | intentional-divergence | Slot-first rule. Slot props: `{ surfaceId, isStreaming, error, rejected, children }`.                                                                                                                                                                                                                                                                                                                                                                                             |
+| `GenerativeUISurface`                                                                                                                            | `GenerativeUISurface`                                                              | intentional-divergence | `fallback` is the default slot. `components` without `ui` is not a type error.                                                                                                                                                                                                                                                                                                                                                                                                    |
+| `useGenerativeUIState`, `useGenerativeUIFunction`, `useGenerativeUIRuntime`, `useGenerativeUIAccessibility`                                      | Same-named Vue composables                                                         | matched                | `useGenerativeUIState` follows a ref value. The handler and the state key unregister when the effect scope is disposed.                                                                                                                                                                                                                                                                                                                                                           |
+| `MarkdownSurfaces`, `DefaultGenerativeUIChatCard`                                                                                                | Same-named Vue components                                                          | matched                | `CopilotChatAssistantMessage` renders `MarkdownSurfaces` for the markdown transport.                                                                                                                                                                                                                                                                                                                                                                                              |
+| `standardUI`, `exportA2UICatalog`, `GenerativeUIError`                                                                                           | Same names                                                                         | matched                | `standardUI` passes React's catalog fixture. `exportA2UICatalog` and `GenerativeUIError` are re-exported from shared.                                                                                                                                                                                                                                                                                                                                                             |
+| `errorBoundary.fallback` render function                                                                                                         | `errorBoundary.fallback` Vue component                                             | intentional-divergence | The component gets `{ error, retry, surfaceId, componentId }`.                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| Standard Chart (recharts) and Map (maplibre-gl)                                                                                                  | `GenerativeUIChart` (`/chart`) and `GenerativeUIMap` (`/map`) plugins              | intentional-divergence | Angular model: opt-in plugins over optional peers (`chart.js`, `maplibre-gl`), with a table and a list as fallbacks.                                                                                                                                                                                                                                                                                                                                                              |
 
 ### Providers
 
 | React test/feature anchor                              | Vue counterpart                                       | Status  | Notes                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
 | ------------------------------------------------------ | ----------------------------------------------------- | ------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `CopilotKitProvider.sandboxReplay.test.tsx`            | `CopilotKitProvider.sandboxReplay.test.ts`            | matched | Real provider registration and core restore path: original sandbox results, pending approval gating, saved completions, and ordinary-handler safety.                                                                                                                                                                                                                                                                                                                 |
 | `CopilotKitProvider.test.tsx`                          | `CopilotKitProvider.test.ts`                          | matched | Core provider behavior, including the development-only Inspector default, production and SSR guards, hydration-safe post-mount activation, legacy `showDevConsole` isolation, client-only loading, and pre-connection core binding.                                                                                                                                                                                                                                  |
 | `CopilotKitProvider.wildcard.test.tsx`                 | `CopilotKitProvider.wildcard.test.ts`                 | matched | Wildcard behavior parity.                                                                                                                                                                                                                                                                                                                                                                                                                                            |
 | `CopilotChatConfigurationProvider.test.tsx`            | `CopilotChatConfigurationProvider.test.ts`            | matched | Configuration provider parity.                                                                                                                                                                                                                                                                                                                                                                                                                                       |
@@ -425,6 +547,8 @@ are all in the MCP Apps area: one `partial`, one `unmapped` and one `vue-only`.
 | `CopilotKitInspector.notificationContext.test.tsx`     | `CopilotKitInspector.notificationContext.test.ts`     | matched | Both pass the framework and SDK version to the development-only Inspector.                                                                                                                                                                                                                                                                                                                                                                                           |
 
 ### Chat/component integration
+
+A2UI routing parity: React and Vue share the `groups by the nested surface id, not a top-level one` regression. Both render a data-bound surface with conflicting routing metadata, strip only the top-level ID before strict v0.9 processing, and retain the nested ID.
 
 | React test anchor                                                                                  | Vue counterpart                                   | Status   | Notes                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
 | -------------------------------------------------------------------------------------------------- | ------------------------------------------------- | -------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -449,7 +573,7 @@ are all in the MCP Apps area: one `partial`, one `unmapped` and one `vue-only`.
 | `MCPAppsProxy.e2e.test.tsx`                                                                        | _(missing)_                                       | unmapped | `ui/initialize` negotiation, proxy error codes and the open-link policy are proven at the shared-package level and in Angular, not yet through the Vue adapter.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
 | `MCPAppsRequestDisplayMode.e2e.test.tsx`                                                           | `MCPAppsDisplayMode.e2e.test.ts`                  | matched  | Mirrors every React display-mode case through the Vue adapter: grant with the applied mode in the reply, `pip` kept at the current mode, the current-mode answer for an unavailable request, refusal of an undeclared mode and grant of a declared one, the widget-initiated fullscreen-then-inline round trip with its two `host-context-changed` notifications, `displayMode`/`availableDisplayModes` at initialize, the exit button (with focus on it) and Escape (dialog `cancel`) returning inline and notifying the widget, `containerDimensions` plus the iframe filling the top-layer `<dialog>`, and the page scroll lock.                   |
 | _(no React counterpart yet)_                                                                       | `MCPAppsActivityRendererContentError.test.ts`     | vue-only | Vue-first coverage of the recoverable-content contract: a rejected activity update shows an error that DISAPPEARS once valid content resumes, while a fatal session error stays. React wires the same `onContentError` hook but has no DOM counterpart yet.                                                                                                                                                                                                                                                                                                                                                                                           |
-| `A2UIMessageRenderer.test.tsx`                                                                     | `A2UIMessageRenderer.test.ts`                     | matched  | Dedicated strict counterpart mirrors the React A2UI rendering matrix (surface render, same-surface in-place update via `updateComponents` text flip, multi-surface independence) using the real `@copilotkit/a2ui-renderer` bridge, and asserts strict default-loading parity with React's `DefaultA2UILoading` (animated dot + `"Generating UI..."` label + three shimmer bars at 80% / 60% / 40% widths with staggered `cpk-a2ui-pulse` opacity animation and inline `@keyframes`). Custom `loadingComponent` override contract stays unchanged.                                                                                                    |
+| `A2UIMessageRenderer.test.tsx`                                                                     | `A2UIMessageRenderer.test.ts`                     | matched  | Dedicated strict counterpart mirrors the React A2UI rendering matrix (surface render, same-surface in-place update via `updateComponents` text flip, multi-surface independence) using the real `@copilotkit/a2ui-renderer` bridge, and asserts strict default-loading parity with React's `DefaultA2UILoading` (animated dot + `"Generating UI..."` label + three shimmer bars at 80% / 60% / 40% widths with staggered `cpk-a2ui-pulse` opacity animation and inline `@keyframes`). Custom `loadingComponent` override contract stays unchanged; nested-ID routing parity is covered.                                                               |
 | `OpenGenerativeUIRenderer.test.tsx`                                                                | `OpenGenerativeUIRenderer.test.ts`                | matched  | Dedicated strict counterpart mirrors the full React OpenGenerativeUI matrix — placeholder, final/preview sandbox creation, HTML wrapping/joining, `jsFunctions` and `jsExpressions` execution, recreation on html/function changes, `localApi` handler-identity (e.g. `localApi.addToCart.toBe(handler)`) and multi-handler identity, plus the progressive streaming matrix (chunk-arrival preview, throttled updates, preview→final handoff, `cssComplete` gating, non-meaningful body suppression, fast-path skip).                                                                                                                                 |
 | `CopilotChatMessageView.slots.e2e.test.tsx`                                                        | `CopilotChatMessageView.slots.e2e.test.ts`        | matched  | Dedicated slot precedence/fallback suite.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
 | `CopilotChatMessageView.test.tsx`                                                                  | `CopilotChatMessageView.test.ts`                  | matched  | Dedicated strict counterpart mirrors the React file shape and wording, including activity rendering and duplicate-id deduplication behavior.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
@@ -462,8 +586,8 @@ are all in the MCP Apps area: one `partial`, one `unmapped` and one `vue-only`.
 | React `CopilotChatInput.tsx` `bottomAnchored` prop + `CopilotChatView.tsx` main-overlay forwarding | `CopilotChatInput.bottomAnchored.test.ts`         | matched  | Dedicated Vue counterpart for the `P1` license-banner offset contract (no React test counterpart exists at this granularity, so the file documents the Vue-side contract directly). Verifies `padding-bottom: var(--copilotkit-license-banner-offset, 0px)` is applied on the `[data-testid="copilot-chat-input-container"]` when `positioning="absolute"`, when `bottomAnchored=true` with `positioning="static"`, and is **not** applied for the welcome-screen static input. Also asserts `CopilotChatView`'s main run-state input forwards `bottomAnchored=true`.                                                                                 |
 | React `CopilotChat.tsx` / `CopilotSidebar.tsx` / `CopilotPopup.tsx` inline feature-warning surface | `CopilotChat.licenseWarning.test.ts`              | matched  | Dedicated Vue counterpart for the `P1` inline license-warning parity surface. Mirrors React's `InlineFeatureWarning featureName="Chat"` / `"Sidebar"` / `"Popup"` rendering and `console.warn('[CopilotKit] Warning: "<feature>" feature is not licensed. Visit copilotkit.ai/pricing')` semantics. The default permissive `createLicenseContextValue(null)` path renders no warning; an explicit gated `LicenseContextKey` provided **inside** `CopilotKitProvider` (which itself re-`provide`s the permissive default) renders the inline warning + emits the matching console warning.                                                             |
 | `CopilotModalHeader.slots.e2e.test.tsx`                                                            | `CopilotModalHeader.slots.e2e.test.ts`            | matched  | Dedicated strict counterpart now mirrors React section/case structure (`24` cases) via Vue slot translation, including layout/drill-down and mixed integration scenarios.                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
-| `CopilotPopupView.slots.e2e.test.tsx`                                                              | `CopilotPopupView.slots.e2e.test.ts`              | matched  | Dedicated strict counterpart now mirrors the full React section/case structure (`31` cases) across header slots, inherited chat-view slots, popup-specific props, integration, and toggle-button matrix.                                                                                                                                                                                                                                                                                                                                                                                                                                              |
-| `CopilotSidebarView.slots.e2e.test.tsx`                                                            | `CopilotSidebarView.slots.e2e.test.ts`            | matched  | Dedicated strict counterpart now mirrors the full React section/case structure (`25` cases) across header slots, inherited chat-view slots, width/mixed customization, integration, and toggle-button matrix.                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| `CopilotPopupView.slots.e2e.test.tsx`                                                              | `CopilotPopupView.slots.e2e.test.ts`              | matched  | Dedicated strict counterpart now mirrors the full React section/case structure (`31` cases) across header slots, inherited chat-view slots, popup-specific props, integration, and toggle-button matrix. `CopilotPopupView` and `CopilotPopup` now forward every chat-view slot, including message-level slots such as `assistant-message` and `tool-call-<name>`.                                                                                                                                                                                                                                                                                    |
+| `CopilotSidebarView.slots.e2e.test.tsx`                                                            | `CopilotSidebarView.slots.e2e.test.ts`            | matched  | Dedicated strict counterpart now mirrors the full React section/case structure (`25` cases) across header slots, inherited chat-view slots, width/mixed customization, integration, and toggle-button matrix. `CopilotSidebarView` and `CopilotSidebar` now forward every chat-view slot, including message-level slots such as `assistant-message` and `tool-call-<name>`.                                                                                                                                                                                                                                                                           |
 
 ### Hooks and integration depth
 
@@ -494,6 +618,77 @@ are all in the MCP Apps area: one `partial`, one `unmapped` and one `vue-only`.
 | `inspector-thread-override.test.tsx`     | `inspector-thread-override.test.ts`                                             | matched | Dedicated integration counterparts mount a real `CopilotChat` and mirror the same eight cases: pinned-thread switching, agent filtering, restoration, consecutive Inspector requests, app-selected and new-thread exits, connect-failure rollback, and request-correlated lifecycle events.                                                                                                                                                                                                                                                                                                                       |
 | `use-katex-styles.test.tsx`              | `use-katex-styles.test.ts`                                                      | matched | Dedicated strict counterpart mirrors the React `useKatexStyles` suite (dynamic-import success path, failure path with no throw, regression guard that `CopilotChatAssistantMessage.vue` no longer statically imports `katex/dist/katex.min.css` and now calls `useKatexStyles()`).                                                                                                                                                                                                                                                                                                                                |
 | `use-pin-to-send.test.tsx`               | `use-pin-to-send.test.ts`                                                       | matched | Dedicated strict counterpart for the `N2` `usePinToSend` parity package. Mirrors React case wording 1:1 across spacer height math (`viewportHeight - bubbleHeight - topOffset`), `scrollTo` offset (`offsetTop - topOffset`), bi-directional spacer `ResizeObserver` semantics (grows back when content below the pinned message shrinks), and rAF cleanup on unmount. Vue uses `provide(LastUserMessageKey, ref(...))` instead of `LastUserMessageContext.Provider`, and reuses the same jsdom rAF + height-mock harness as React.                                                                               |
+
+### Generative UI
+
+React anchors are in `packages/react-core/src/v2/generative-ui/`. Angular anchors
+are in `packages/angular/src/generative-ui/lib/`. Vue paths are relative to
+`src/v2/generative-ui/`. Where Angular has the only counterpart (most standard
+components), Vue ports Angular's spec cases.
+
+Engine, chat and wiring:
+
+| React or Angular anchor                                                                            | Vue counterpart                                 | Status                 | Notes                                                                                                                                                              |
+| -------------------------------------------------------------------------------------------------- | ----------------------------------------------- | ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| React `__tests__/catalog.test.tsx`                                                                 | `__tests__/catalog.test.ts`                     | matched                | Same cases. "replaces the React component ..." reads "replaces the Vue component ...". A trailing Vue-specific block covers child references.                      |
+| React `__tests__/child-refs.test.tsx`                                                              | `__tests__/child-refs.test.ts`                  | matched                | "renders Tabs from typed child references" is the "standard Tabs" case of `standard/layout/__tests__/layout-parity.test.ts`.                                       |
+| React `__tests__/dynamic-values.test.tsx`                                                          | `__tests__/dynamic-values.test.ts`              | matched                | Same 23 cases.                                                                                                                                                     |
+| React `__tests__/generative-ui-surface.test.tsx` (+ the fallback case of `__tests__/ssr.test.tsx`) | `__tests__/generative-ui-surface.test.ts`       | intentional-divergence | Same cases. `fallback` is the default slot. The server case runs `useGenerativeUIRoot` in place of the provider. Vue-specific trailing block.                      |
+| React `__tests__/generative-ui.integration.test.tsx`                                               | `__tests__/provider-wiring.e2e.test.ts`         | intentional-divergence | Same 8 cases through the real provider and `CopilotChat`. React's `generativeUISurface` prop is the `#generative-ui-surface` slot. Vue-specific trailing block.    |
+| React `__tests__/surface-view.test.tsx`                                                            | `__tests__/surface-view.test.ts`                | matched                | Same cases. The two `useGenerativeUIState` cases are in `__tests__/hooks.test.ts`. Vue-specific block: `defineModel`, named slots, theme stylesheet.               |
+| React `__tests__/surface-view.test.tsx` (`useGenerativeUIState` cases)                             | `__tests__/hooks.test.ts`                       | matched                | The two React cases, then Vue-specific blocks for `useGenerativeUIFunction`, `useManagerVersion` and `useGenerativeUIAccessibility`. React has no suite for these. |
+| _(React boundaries, no suite of their own)_                                                        | `__tests__/boundaries.test.ts`                  | vue-only               | The `onErrorCaptured` boundaries: default fallback with Retry, host fallback props, non-`Error` values, setup errors, fallback errors.                             |
+| React `__tests__/use-generative-ui-root.test.tsx`                                                  | `__tests__/use-generative-ui-root.test.ts`      | matched                | Same 21 cases. Vue-specific block for a new theme, transport or `ui`.                                                                                              |
+| React `__tests__/standard-schema.test.tsx`                                                         | `__tests__/standard-schema.test.ts`             | matched                | Same 6 cases.                                                                                                                                                      |
+| React `__tests__/ssr.test.tsx`                                                                     | `__tests__/ssr.test.ts`                         | matched                | The surface case. The fallback case is in `__tests__/generative-ui-surface.test.ts`.                                                                               |
+| React `__tests__/markdown-context.test.ts`                                                         | `__tests__/markdown-context.test.ts`            | matched                | The engine cases. The `standardUI` block is in `standard/__tests__/compact-schema.test.ts`. Vue-specific block for `useGenerativeUIMarkdownContext`.               |
+| React `__tests__/markdown-transport.test.tsx` (context cases)                                      | `__tests__/markdown-transport.test.ts`          | partial                | Same 3 cases, but through `useGenerativeUIRoot`, not `<CopilotKitProvider :generativeUI>` as in React.                                                             |
+| React `__tests__/markdown-transport.test.tsx` (rendering cases)                                    | `__tests__/markdown-transport.chat.e2e.test.ts` | intentional-divergence | Same 5 cases through the provider and `CopilotChat`. The no-message-id case is not portable (engine divergence 2).                                                 |
+| Angular `__tests__/markdown-surfaces.spec.ts`                                                      | `__tests__/markdown-surfaces.test.ts`           | intentional-divergence | The rendering cases at the `MarkdownSurfaces` boundary. The no-message-id case is not portable. Vue-specific trailing block.                                       |
+| Angular `__tests__/chat.spec.ts`                                                                   | `__tests__/chat.test.ts`                        | matched                | The chat activity, function-call and `render_ui` renderers. The raw rejection list case is in `__tests__/provider-wiring.e2e.test.ts`.                             |
+| Angular `__tests__/node-bindings.spec.ts`                                                          | `__tests__/node-bindings.test.ts`               | partial                | React has no counterpart. Not ported: "leaves an unbound event without a handler", "replaces the component when the agent sends another type for the same id".     |
+| Angular `__tests__/styles.spec.ts`                                                                 | `__tests__/standard-styles.test.ts`             | partial                | `useStandardStyles` and `useThemeStyleSheet`. Not ported: "keeps a theme sheet that another app on the page still uses".                                           |
+| React `__tests__/component-props-types.test-d.ts` + `__tests__/overrides-omit-types.test-d.tsx`    | `__tests__/types.test-d.ts`                     | intentional-divergence | Type-only, checked with `tsconfig.typetests.json`. Vue prop mapping: `update:x` emits and slot types, no setters.                                                  |
+
+Standard catalog:
+
+| React or Angular anchor                                                                                       | Vue counterpart                                      | Status   | Notes                                                                                                                                                                   |
+| ------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------- | -------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| React `standard/__tests__/standard-ui.test.tsx` (+ the standard case of `__tests__/parameter-order.test.tsx`) | `standard/__tests__/standard-ui.test.ts`             | matched  | Reads React's catalog fixture. The Map shows its list of places with no mock.                                                                                           |
+| React `__tests__/markdown-context.test.ts` (`standardUI` block)                                               | `standard/__tests__/compact-schema.test.ts`          | matched  | Same 5 cases.                                                                                                                                                           |
+| React `__tests__/null-props.test.tsx`                                                                         | `standard/__tests__/null-props.test.ts`              | matched  | Same 5 cases, next to the standard tests.                                                                                                                               |
+| Angular `standard/__tests__/literal-bindings.spec.ts` (React `bindings-parity.test.tsx`)                      | `standard/__tests__/literal-bindings.test.ts`        | matched  | Same 6 cases through `standardUI`, including the Chart, List, FollowUp and ImageGrid cases.                                                                             |
+| React `*-parity.test.tsx` and `composites.test.tsx` cases that need two groups                                | `standard/__tests__/cross-group.test.ts`             | matched  | Each case through the real `standardUI`, with React names. Also Angular "Button icons".                                                                                 |
+| _(no counterpart)_                                                                                            | `standard/__tests__/foundation.test.ts`              | vue-only | The shared pieces on their own: `useGenerativeUILibrary`, `useOverlayEscape`, `useVisibleOnce` and Lightbox.                                                            |
+| React `standard/__tests__/layout.test.tsx`                                                                    | `standard/layout/__tests__/layout.test.ts`           | matched  | Same 19 cases.                                                                                                                                                          |
+| React `standard/__tests__/layout-parity.test.tsx` + Angular `standard/layout/__tests__/*.spec.ts`             | `standard/layout/__tests__/layout-parity.test.ts`    | matched  | Layout cases with a test-only Label. The text cases are in `cross-group.test.ts` and `text.test.ts`.                                                                    |
+| React `standard/__tests__/text.test.tsx` + Angular `standard/text/__tests__/*.spec.ts`                        | `standard/text/__tests__/text.test.ts`               | matched  | Not ported: React's "block markdown" helpers, which no component uses, and Angular's `math-loading.spec.ts` (Vue imports KaTeX as React does).                          |
+| React `standard/__tests__/inputs.test.tsx` + Angular `standard/inputs/__tests__/*.spec.ts`                    | `standard/inputs/__tests__/inputs.test.ts`           | matched  | Same 33 React cases, then the Angular cases React lacks. The icon svg cases are in `cross-group.test.ts`.                                                               |
+| React `standard/__tests__/inputs-parity.test.tsx`                                                             | `standard/inputs/__tests__/inputs-parity.test.ts`    | matched  | The input cases. The other cases are in `inputs.test.ts`, `cross-group.test.ts` and the other group suites.                                                             |
+| React `standard/__tests__/bindings-parity.test.tsx` (input cases)                                             | `standard/inputs/__tests__/bindings-parity.test.ts`  | matched  | The input cases with stand-ins. The other cases are in `literal-bindings.test.ts` and `table.test.ts`.                                                                  |
+| React `standard/__tests__/checks.test.tsx`                                                                    | `standard/inputs/__tests__/checks.test.ts`           | matched  | Same 8 cases with a stand-in Column.                                                                                                                                    |
+| React `standard/__tests__/feedback.test.tsx` + Angular `standard/feedback/__tests__/*.spec.ts`                | `standard/feedback/__tests__/feedback.test.ts`       | matched  | Same 17 React cases. Stand-ins replace the components of other groups. The real Button Popover case is in `cross-group.test.ts`.                                        |
+| React `standard/__tests__/composites.test.tsx` + Angular `standard/composites/__tests__/*.spec.ts`            | `standard/composites/__tests__/composites.test.ts`   | matched  | The composite cases. CarouselMediaItem, Image lightbox and Button cases are in the layout, media and inputs suites.                                                     |
+| React `standard/__tests__/media.test.tsx`                                                                     | `standard/media/__tests__/media.test.ts`             | matched  | Same 18 cases.                                                                                                                                                          |
+| React `standard/__tests__/data-media-parity.test.tsx` (media cases)                                           | `standard/media/__tests__/data-media-parity.test.ts` | matched  | The media cases. Table and List cases are in the data suites. The two recharts Chart cases have no Vue form.                                                            |
+| Angular `standard/media/__tests__/icon.spec.ts`                                                               | `standard/media/__tests__/icon.test.ts`              | matched  | The Icon cases React lacks. Not ported: the per-app loader case, because Vue imports `lucide-vue-next` as React does.                                                   |
+| Angular `standard/media/__tests__/image.spec.ts`                                                              | `standard/media/__tests__/image.test.ts`             | matched  | The Image cases React lacks. The shared cases are in `media.test.ts` and `data-media-parity.test.ts`.                                                                   |
+| Angular `standard/media/__tests__/video.spec.ts`                                                              | `standard/media/__tests__/video.test.ts`             | matched  | The Video cases React lacks. The shared cases are in `media.test.ts` and `data-media-parity.test.ts`.                                                                   |
+| React `standard/__tests__/data.test.tsx` (Table) + Angular `standard/data/__tests__/table.spec.ts`            | `standard/data/table/__tests__/table.test.ts`        | matched  | With the Table cases of `data-media-parity.test.tsx` and `bindings-parity.test.tsx`.                                                                                    |
+| React `standard/__tests__/data.test.tsx` (List) + Angular `standard/data/__tests__/list.spec.ts`              | `standard/data/list/__tests__/list.test.ts`          | matched  | With the List cases of `data-media-parity.test.tsx` and `bindings-parity.test.tsx`.                                                                                     |
+| Angular `standard/data/__tests__/map.spec.ts` (React `data.test.tsx` Map)                                     | `standard/data/map/__tests__/map.test.ts`            | matched  | A fake maplibre-gl. The three filter-guard cases are in shared `standard-helpers.test.ts`.                                                                              |
+| Angular `standard/data/__tests__/chart.spec.ts`                                                               | `standard/data/chart/__tests__/chart.test.ts`        | partial  | A fake chart.js. The config and format cases are in shared `standard-helpers.test.ts`. Not ported: leader lines, raw values with label positions, mixed scatter values. |
+
+React generative UI suites with no Vue counterpart:
+
+| React anchor                                                                                                                                          | Status                 | Notes                                                                                                     |
+| ----------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------- | --------------------------------------------------------------------------------------------------------- |
+| `__tests__/catalog-export.test.ts`, `__tests__/catalog-manifest.test.ts`                                                                              | unmapped               | `exportA2UICatalog` and the manifest come from shared, but no Vue suite runs them on Vue catalogs.        |
+| `__tests__/guide-components.test.ts`                                                                                                                  | unmapped               | No Vue check that `standardUI` has every component the markdown guide names.                              |
+| `__tests__/parameter-order.test.tsx` (three engine cases)                                                                                             | unmapped               | Only the standard case is ported, in `standard/__tests__/standard-ui.test.ts`.                            |
+| `__tests__/renderer-functions.test.tsx`                                                                                                               | unmapped               | `useGenerativeUIRoot` wires the function-call runner, but no Vue suite covers it.                         |
+| `__tests__/config-types.test-d.ts`, `create-generative-ui-types.test-d.ts`, `event-handler-types.test-d.ts`, `generative-ui-surface-types.test-d.tsx` | partial                | `__tests__/types.test-d.ts` covers part of this. The surface union is a divergence (engine divergence 1). |
+| `standard/__tests__/chart.test.tsx`, `standard/__tests__/chart-scatter.test.tsx`                                                                      | intentional-divergence | recharts suites. Vue draws with chart.js and ports Angular's `chart.spec.ts`.                             |
 
 ## Unmapped React Test Backlog
 

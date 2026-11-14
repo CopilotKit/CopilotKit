@@ -56,8 +56,16 @@ export type {
 } from "./identity.js";
 
 // Thread
-export { Thread } from "./thread.js";
-export type { ThreadDeps } from "./thread.js";
+export {
+  ChannelChoiceAbortedError,
+  ChannelChoiceInitiatorUnknownError,
+  ChannelChoiceSupersededError,
+  ChannelChoiceTimeoutError,
+  DEFAULT_AWAIT_CHOICE_ANSWERABLE_BY,
+  DEFAULT_AWAIT_CHOICE_TIMEOUT_MS,
+  Thread,
+} from "./thread.js";
+export type { ChoiceControl, ChoiceWaiter, ThreadDeps } from "./thread.js";
 
 // Platform adapter boundary
 export type {
@@ -85,6 +93,8 @@ export type {
   CanonicalRunIdentity,
   UserQuery,
   NativePayload,
+  StagedFile,
+  StageFileArgs,
 } from "./platform-adapter.js";
 
 // Slash commands
@@ -115,7 +125,11 @@ export {
   ActionRegistry,
   ActionContinuationMismatchError,
   ActionExpiredError,
+  ActionScopeMismatchError,
+  DEFAULT_ACTION_RETENTION_MS,
+  DEFAULT_MAX_HOT_ACTIONS,
 } from "./action-registry.js";
+export type { ActionDispatchScope } from "./action-registry.js";
 
 // State store
 export type { StateStore } from "./state/state-store.js";
@@ -197,3 +211,7 @@ export { FakeAgent } from "./testing/fake-agent.js";
 
 // Re-export the channels-ui component vocabulary + types for convenience.
 export * from "@copilotkit/channels-ui";
+
+// Image-render config + arbitrary-JSX detection
+export * from "./render/config.js";
+export * from "./render/detect.js";

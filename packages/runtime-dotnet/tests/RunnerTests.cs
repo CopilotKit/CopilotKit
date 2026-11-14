@@ -208,6 +208,7 @@ internal static class RunnerTests
         fixture.Platform.History = "{\"messages\":[{\"id\":\"old\",\"role\":\"user\",\"content\":\"historic\"}]}";
         var response = await fixture.StartRequestAsync([new { id = "old", role = "user", content = "historic" }, new { id = "new", role = "user", content = "fresh" }]);
         Check(response.IsSuccessStatusCode, "pre-yield fixture joins before response: " + mode);
+        Check(fixture.Platform.HistoryQuery == "?userId=user&fields=id", "history lookup requests only message ids: " + mode);
         await agent.Entered.Task.WaitAsync(TimeSpan.FromSeconds(2));
         if (mode != "error") await fixture.StopWithoutBodyAsync();
         await WaitAsync(() => fixture.Platform.Deleted);
@@ -377,7 +378,7 @@ internal static class RunnerTests
         public TaskCompletionSource SuccessorRenewed { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
         public TaskCompletionSource SuccessorDeleteEntered { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
         public TaskCompletionSource ReleaseSuccessorDelete { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
-        public string History = "{\"messages\":[]}";
+        public string History = "{\"messages\":[]}"; public string? HistoryQuery;
         public string ThreadAgent = "default"; public int ThreadReads; public int MemoryCalls;
         public string? ReceivedGrant;
         public System.Net.HttpStatusCode MemoryStatus = System.Net.HttpStatusCode.OK;
@@ -393,6 +394,7 @@ internal static class RunnerTests
             if (request.Method == HttpMethod.Post && path.EndsWith("/lock", StringComparison.Ordinal)) LockRun = runId;
             if (request.Method == HttpMethod.Patch) { Interlocked.Increment(ref Renewals); if (runId == "next") SuccessorRenewed.TrySetResult(); if (FailRenewal) return new HttpResponseMessage(System.Net.HttpStatusCode.Conflict); }
             if (request.Method == HttpMethod.Delete) { DeleteEntered.TrySetResult(); if (HoldDelete || HoldDeleteRun == runId) await ReleaseDelete.Task.WaitAsync(cancellationToken); if (runId == "next" && HoldSuccessorDelete) { SuccessorDeleteEntered.TrySetResult(); await ReleaseSuccessorDelete.Task.WaitAsync(IgnoreDeleteCancellation ? CancellationToken.None : cancellationToken); } if (LockRun == runId) LockRun = null; DeletedRuns.Add(runId); Deleted = true; }
+            if (path.EndsWith("/messages", StringComparison.Ordinal)) HistoryQuery = request.RequestUri!.Query;
             var value = path.EndsWith("/messages", StringComparison.Ordinal) ? History : new JsonObject { ["threadId"] = "thread", ["runId"] = runId, ["joinToken"] = "token" }.ToJsonString();
             return new HttpResponseMessage(System.Net.HttpStatusCode.OK) { Content = new StringContent(value) };
         }

@@ -70,7 +70,7 @@ function registerHumanInTheLoop<Args extends Record<string, unknown>>(
 
 ## The renderer component
 
-Your `component` implements the `HumanInTheLoopToolRenderer<Args>` interface. It exposes a single `toolCall` signal input, so declare it with Angular's `input()`:
+For a renderer with no handler, see [`registerRenderToolCall`](/reference/angular/functions/registerRenderToolCall). Your `component` implements the `HumanInTheLoopToolRenderer<Args>` interface. It exposes a single `toolCall` signal input, so declare it with Angular's `input()`:
 
 ```ts
 import { Signal } from "@angular/core";
@@ -109,7 +109,11 @@ type HumanInTheLoopToolCall<Args extends Record<string, unknown>> =
     };
 ```
 
-The `respond(result)` callback is how your component resumes the agent. The value you pass to `respond` becomes the tool result directly: a string is stored as-is, and any other value is serialized to JSON by core. It is not wrapped in an envelope, so the agent sees the same shape it would from the React and Vue adapters. While the agent waits, `status` is `executing` (or `in-progress` while the arguments are still streaming). Once the tool message arrives, `status` becomes `complete` and `result` contains the stored tool-message string.
+The `respond(result)` callback is how your component resumes the agent. The value you pass to `respond` becomes the tool result directly: a string is stored as-is, and any other value is serialized to JSON by core. The `status` values are:
+
+- `in-progress`: the agent run is still active, for example while the arguments stream.
+- `executing`: the agent waits for `respond`.
+- `complete`: the tool message arrived, and `result` contains the stored tool-message string.
 
 ## Usage
 
@@ -180,23 +184,3 @@ When the agent calls `confirmAction`, the dialog appears in the chat and the run
 Cleanup uses the same shared name-and-agent-id removal path as the other tool
 registration helpers. Frontend tools, human-in-the-loop tools, and tool-call
 renderers that share that key are removed together.
-
-## Related
-
-<Cards>
-  <Card
-    title="registerFrontendTool"
-    description="Register a client-side tool with an async handler and an optional renderer component."
-    href="/reference/angular/functions/registerFrontendTool"
-  />
-  <Card
-    title="registerRenderToolCall"
-    description="Register a renderer for a tool call with access to streaming status and results, without a handler."
-    href="/reference/angular/functions/registerRenderToolCall"
-  />
-  <Card
-    title="CopilotKit service"
-    description="The central service that holds agents, tools, and the runtime connection."
-    href="/reference/angular/services/CopilotKit"
-  />
-</Cards>

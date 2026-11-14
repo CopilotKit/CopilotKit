@@ -92,8 +92,8 @@ class DeferredRenewalIntelligence extends CopilotKitIntelligence {
     };
   }
 
-  override async getThreadMessages() {
-    return { messages: [] };
+  override async ɵgetThreadMessageIds() {
+    return [];
   }
 
   override async ɵacquireThreadLock() {
@@ -103,6 +103,9 @@ class DeferredRenewalIntelligence extends CopilotKitIntelligence {
       joinToken: "join-token-1",
     };
   }
+
+  // The run handler releases the lock when the runner's stream ends.
+  override async ɵcleanupThreadLock() {}
 
   override async ɵrenewThreadLock() {
     this.markRenewalStarted();
@@ -183,8 +186,8 @@ class ScriptedRenewalIntelligence extends CopilotKitIntelligence {
     };
   }
 
-  override async getThreadMessages() {
-    return { messages: [] };
+  override async ɵgetThreadMessageIds() {
+    return [];
   }
 
   override async ɵacquireThreadLock() {
@@ -201,6 +204,9 @@ class ScriptedRenewalIntelligence extends CopilotKitIntelligence {
   override ɵrenewThreadLock() {
     return this.renew();
   }
+
+  // The run handler releases the lock when the runner's stream ends.
+  override async ɵcleanupThreadLock() {}
 }
 
 async function startRun(intelligence: ScriptedRenewalIntelligence) {

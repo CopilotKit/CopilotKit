@@ -34,8 +34,9 @@ import { CopilotChat, useCopilotChatContext } from "@copilotkit/react-native";
 
 <PropertyReference name="onError" type="(event: { error: Error; code: CopilotKitCoreErrorCode; context: Record<string, any> }) => void | Promise<void>">
   Error handler scoped to this chat's agent. Fires in addition to the
-  provider-level `onError` (does not suppress it), receiving only errors whose
-  `context.agentId` matches this chat's agent.
+  provider-level `onError` (does not suppress it), receiving errors whose
+  `context.agentId` matches this chat's agent, and errors that carry no
+  `agentId` (for example runtime connection errors).
 </PropertyReference>
 
 <PropertyReference name="throttleMs" type="number">
@@ -148,7 +149,7 @@ export function ChatScreen() {
 
 ## Prebuilt UI
 
-For a ready-made interface, import `CopilotChat` from the `/components` subpath. It renders a full-screen chat with a message list, input bar, optional header, and inline tool-call rendering — it reads the shared renderer registry that [`useRenderTool`](/reference/react-native/hooks/useRenderTool), `useFrontendTool` and `useComponent` write to.
+For a ready-made interface, import `CopilotChat` from the `/components` subpath. It renders a full-screen chat with a message list, an input bar, an optional header, and tool calls. Tool calls render with the renderers that [`useRenderTool`](/reference/react-native/hooks/useRenderTool), `useFrontendTool`, and `useComponent` register. For a modal, a drawer, or a popup, see [`CopilotModal`](/reference/react-native/components/CopilotModal), [`CopilotSidebar`](/reference/react-native/components/CopilotSidebar), or [`CopilotPopup`](/reference/react-native/components/CopilotPopup).
 
 ```tsx
 import { CopilotChat } from "@copilotkit/react-native/components";
@@ -158,7 +159,7 @@ import { CopilotChat } from "@copilotkit/react-native/components";
 
 <Callout type="info">
   The prebuilt UI components select their agent with `agentName` (not the
-  headless `agentId`). The two are equivalent; `agentName` is simply the prop
+  headless `agentId`). The two are equivalent; `agentName` is the prop
   name the prebuilt components currently expose.
 </Callout>
 
@@ -232,10 +233,3 @@ export function ChatScreen() {
   );
 }
 ```
-
-## Related
-
-- [`useCopilotKit`](/reference/react-native/hooks/useCopilotKit): access the runtime client directly
-- [`useRenderTool`](/reference/react-native/hooks/useRenderTool): render React Native UI for agent tool calls
-- [`CopilotModal`](/reference/react-native/components/CopilotModal): modal variants of the chat
-- [`CopilotSidebar`](/reference/react-native/components/CopilotSidebar) · [`CopilotPopup`](/reference/react-native/components/CopilotPopup): prebuilt chrome

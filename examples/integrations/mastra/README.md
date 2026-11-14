@@ -13,11 +13,12 @@ This is a starter template for building AI agents using [Mastra](https://mastra.
 
 ## Getting Started
 
-1. Add your OpenAI API key
+1. Add your model key
 
 ```bash
-# you can use whatever model Mastra supports
-echo "OPENAI_API_KEY=your-key-here" >> .env
+cp .env.example .env
+# Add the key of the model provider in .env. COPILOTKIT_AGENT_MODEL chooses
+# the provider and model, for example anthropic:claude-sonnet-4-5.
 ```
 
 2. Install dependencies using your preferred package manager:

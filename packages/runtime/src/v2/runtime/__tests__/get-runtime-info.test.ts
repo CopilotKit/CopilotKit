@@ -368,6 +368,14 @@ describe("handleGetRuntimeInfo", () => {
     mutations: false,
     realtimeMetadata: false,
   };
+  // Without identity, a default SSE runtime refuses list but serves reads of
+  // a thread by id, so it advertises inspect only.
+  const unconfiguredLocalThreadEndpoints = {
+    list: false,
+    inspect: true,
+    mutations: false,
+    realtimeMetadata: false,
+  };
   const createRunner = (supportsLocalThreadEndpoints = false) =>
     ({
       ...(supportsLocalThreadEndpoints
@@ -418,7 +426,7 @@ describe("handleGetRuntimeInfo", () => {
       agents: {},
       audioFileTranscriptionEnabled: false,
       mode: "sse",
-      threadEndpoints: inMemoryThreadEndpoints,
+      threadEndpoints: unconfiguredLocalThreadEndpoints,
       suggestions: true,
       a2uiEnabled: false,
       openGenerativeUIEnabled: false,
@@ -446,7 +454,7 @@ describe("handleGetRuntimeInfo", () => {
       agents: {},
       audioFileTranscriptionEnabled: true,
       mode: "sse",
-      threadEndpoints: inMemoryThreadEndpoints,
+      threadEndpoints: unconfiguredLocalThreadEndpoints,
       suggestions: true,
       a2uiEnabled: false,
       openGenerativeUIEnabled: false,
@@ -486,7 +494,7 @@ describe("handleGetRuntimeInfo", () => {
       },
       audioFileTranscriptionEnabled: true,
       mode: "sse",
-      threadEndpoints: inMemoryThreadEndpoints,
+      threadEndpoints: unconfiguredLocalThreadEndpoints,
       suggestions: true,
       a2uiEnabled: false,
       openGenerativeUIEnabled: false,
@@ -528,6 +536,7 @@ describe("handleGetRuntimeInfo", () => {
   it("detects local thread endpoints from the runner capability flag", async () => {
     const runtime = createRuntimeLike({
       runner: createRunner(true),
+      threadAccess: "open",
     });
 
     const response = await handleGetRuntimeInfo({
@@ -543,8 +552,11 @@ describe("handleGetRuntimeInfo", () => {
   });
 
   it("reports no thread endpoints when multi-route REST endpoints are disabled", async () => {
+    // Open access would advertise list and inspect, so the disabled routes
+    // are the only reason left for them to be off.
     const runtime = createRuntimeLike({
       runner: createRunner(true),
+      threadAccess: "open",
     });
 
     const response = await handleGetRuntimeInfo({

@@ -3,7 +3,7 @@
 ## Prerequisites
 
 - Demo is deployed and accessible
-- Agent backend configured with a vision-capable model (gpt-4o)
+- Agent backend configured with a vision-capable model (gpt-6-luna)
 
 ## Test Steps
 

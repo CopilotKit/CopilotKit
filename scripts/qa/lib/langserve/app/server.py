@@ -33,7 +33,7 @@ app = FastAPI(
 # it looks tricky to support this in a generic way
 add_routes(
     app,
-    ChatOpenAI(),
+    ChatOpenAI(model="gpt-6-luna", model_kwargs={"reasoning_effort": "none"}),
     path="/openai",
 )
 
@@ -68,7 +68,12 @@ def get_eugene_thoughts(query: str) -> list:
 
 
 tools = [get_eugene_thoughts]
-llm = ChatOpenAI(model="gpt-3.5-turbo", temperature=0, streaming=True)
+llm = ChatOpenAI(
+    model="gpt-6-luna",
+    model_kwargs={"reasoning_effort": "none"},
+    temperature=0,
+    streaming=True,
+)
 llm_with_tools = llm.bind(functions=[format_tool_to_openai_function(t) for t in tools])
 prompt = ChatPromptTemplate.from_messages(
     [

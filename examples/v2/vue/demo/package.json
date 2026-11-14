@@ -17,6 +17,7 @@
     "@copilotkit/runtime": "workspace:*",
     "@copilotkit/voice": "workspace:*",
     "@copilotkit/vue": "workspace:*",
+    "chart.js": "^4.4.0",
     "h3": "^1.15.4",
     "hono": "^4.11.4",
     "nuxt": "3.17.5",

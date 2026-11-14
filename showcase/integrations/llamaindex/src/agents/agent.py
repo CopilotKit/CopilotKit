@@ -19,7 +19,7 @@ import json
 import os
 from typing import Annotated
 
-from llama_index.llms.openai import OpenAI
+from agents._openai_models import OpenAI
 from llama_index.protocols.ag_ui.router import get_ag_ui_workflow_router
 
 from agents.hitl_in_chat_agent import FixedAGUIChatWorkflow
@@ -171,7 +171,8 @@ def _generate_a2ui(context: str) -> str:
     }
 
     response = client.chat.completions.create(
-        model="gpt-5-mini",
+        reasoning_effort="none",
+        model="gpt-6-luna",
         messages=[
             {"role": "system", "content": context or "Generate a useful dashboard UI."},
             {
@@ -233,7 +234,7 @@ _AGENT_SYSTEM_PROMPT = (
 
 async def _agent_workflow_factory():
     wf = FixedAGUIChatWorkflow(
-        llm=OpenAI(model="gpt-5-mini", **_openai_kwargs),
+        llm=OpenAI(model="gpt-6-luna", **_openai_kwargs),
         frontend_tools=[
             change_background,
             generate_haiku,

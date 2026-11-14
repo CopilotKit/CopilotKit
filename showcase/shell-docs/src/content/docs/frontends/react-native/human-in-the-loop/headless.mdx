@@ -1,0 +1,206 @@
+---
+title: Headless Interrupts
+icon: "lucide/SquareDashedBottomCode"
+description: Answer agent interrupts from any React Native view, outside the chat.
+snippet_framework: built-in-agent
+---
+
+## What is this?
+
+Sometimes the agent's question belongs outside the chat: on a dashboard, in a bottom sheet, or in a native alert. A headless interrupt lets any view show the question and resume the run with the answer. No chat needs to be mounted.
+
+On React Native this is also how a custom chat shows interrupts. The root `CopilotChat`, `CopilotPopup`, and `CopilotSidebar` don't draw them, so your own UI places them.
+
+<WhenFrameworkHas flag="interrupt_pattern" equals="native">
+
+Set `renderInChat: false` on `useInterrupt`, and the hook returns the interrupt element instead of handing it to the chat. Render that element wherever you like. `resolve(...)` and `cancel(...)` resume the run. The hook handles both the standard AG-UI interrupt and the `on_interrupt` custom event that the LangGraph adapter sends by default.
+
+</WhenFrameworkHas>
+
+<WhenFrameworkHas flag="interrupt_pattern" equals="promise-based">
+
+Promise-based integrations have no native interrupt. Build the same experience with a frontend tool whose handler returns a Promise:
+
+- The handler holds the Promise open and stores the request in state.
+- Your screen renders the choice anywhere.
+- The user's answer resolves the Promise, which becomes the tool result.
+
+</WhenFrameworkHas>
+
+<WhenFrameworkHas flag="interrupt_pattern" absent>
+
+> **Use `useHumanInTheLoop` on this framework.** Headless interrupts need an agent that emits an AG-UI interrupt (`RUN_FINISHED` with `outcome.type === "interrupt"`) or an `on_interrupt` custom event, and a working resume path. On the Built-in Agent, interrupts are temporarily unavailable. [`useHumanInTheLoop`](/human-in-the-loop) pauses on a tool call instead. It works on every framework that supports tool calls.
+
+</WhenFrameworkHas>
+
+## When should I use this?
+
+- **Non-chat screens**: dashboards, settings, forms, or anywhere you want the agent's question without the transcript.
+- **Your own chat**: the question appears as a row in your `FlatList`, or as its footer.
+- **Testing**: a fixed button grid is easier to drive from Detox or Maestro than a picker that appears after a model call.
+- **Custom flow control**: you need to know exactly when the interrupt arrived (for example, to disable other controls) and when it was answered.
+
+If you just want a picker in the rendered chat, use [`useInterrupt`](/human-in-the-loop/useInterrupt) with the default `renderInChat: true`. For pauses that the model decides on, use [`useHumanInTheLoop`](/human-in-the-loop).
+
+<WhenFrameworkHas flag="interrupt_pattern" equals="native">
+
+## Use `useInterrupt` without the chat
+
+<FrameworkSetup concept="programmatic-control-setup" />
+
+This panel starts the run itself, then shows the slot buttons while the agent waits:
+
+```tsx title="src/HeadlessInterruptPanel.tsx"
+import { Button, Text, View } from "react-native";
+import {
+  useAgent,
+  useCopilotKit,
+  useInterrupt,
+} from "@copilotkit/react-native/headless";
+
+const SLOTS = [
+  { iso: "2026-11-17T15:00:00Z", label: "Tue 3 PM" },
+  { iso: "2026-11-18T10:00:00Z", label: "Wed 10 AM" },
+];
+
+export function HeadlessInterruptPanel() {
+  const { copilotkit } = useCopilotKit();
+  const { agent } = useAgent({ agentId: "interrupt-headless" });
+
+  const kickOff = (prompt: string) => {
+    agent.addMessage({ id: `user-${Date.now()}`, role: "user", content: prompt });
+    void copilotkit.runAgent({ agent });
+  };
+
+  const interruptElement = useInterrupt({ // [!code highlight:15]
+    agentId: "interrupt-headless",
+    renderInChat: false,
+    render: ({ interrupt, resolve, cancel }) => (
+      <View style={{ gap: 8 }}>
+        <Text>Pick a slot for {interrupt?.message ?? "a call"}:</Text>
+        {SLOTS.map((slot) => (
+          <Button
+            key={slot.iso}
+            title={slot.label}
+            onPress={() => resolve({ chosen_time: slot.iso, chosen_label: slot.label })}
+          />
+        ))}
+        <Button title="Cancel" onPress={() => cancel()} />
+      </View>
+    ),
+  });
+
+  if (interruptElement) {
+    return interruptElement;
+  }
+
+  return <Button title="Book call" onPress={() => kickOff("Book a call with sales.")} />;
+}
+```
+
+`interrupt` is the primary AG-UI `Interrupt` object (`{ id, reason, message?, responseSchema?, expiresAt?, ... }`) for a standard interrupt, and `null` for a custom event. For a custom event, read the payload from `event.value` instead. `resolve(payload)` sends the user's answer and resumes the agent. `cancel()` cancels a standard interrupt and resumes. Both return a Promise.
+
+Tap **Book call**. When the agent pauses, the slot buttons replace it. Tap a slot. The run resumes, and **Book call** comes back.
+
+In your own chat, render the element as the `ListFooterComponent` of your message list. That's where the rendered chat from `/components` puts it.
+
+## Subscribe to the interrupt yourself
+
+`useInterrupt` is built from two public APIs: `agent.subscribe(...)` to receive the pause, and `copilotkit.runAgent(...)` to resume. To build your own version, for test fixtures or custom logic, see [Resolving a LangGraph interrupt from a button](/programmatic-control#resolving-a-langgraph-interrupt-from-a-button). It shows a complete `useHeadlessInterrupt` hook for the `on_interrupt` custom event.
+
+</WhenFrameworkHas>
+
+<WhenFrameworkHas flag="interrupt_pattern" equals="promise-based">
+
+## The primitives
+
+The handler stores the request and its resolver. The `render` function returns `null`, so the chat stays clean and the question shows only where you render it:
+
+```tsx title="src/MeetingRequestPanel.tsx"
+import { useCallback, useRef, useState } from "react";
+import { Button, Text, View } from "react-native";
+import { useFrontendTool } from "@copilotkit/react-native/headless";
+import { z } from "zod";
+
+type Request = { topic: string };
+
+const SLOTS = [
+  { iso: "2026-11-17T15:00:00Z", label: "Tue 3 PM" },
+  { iso: "2026-11-18T10:00:00Z", label: "Wed 10 AM" },
+];
+
+export function MeetingRequestPanel() {
+  const [request, setRequest] = useState<Request | null>(null);
+  const resolver = useRef<((answer: unknown) => void) | null>(null);
+
+  useFrontendTool({
+    name: "schedule_meeting",
+    description: "Ask the user to pick a meeting time.",
+    parameters: z.object({ topic: z.string() }),
+    handler: (args) =>
+      new Promise((resolve) => {
+        resolver.current = resolve;
+        setRequest(args);
+      }),
+    render: () => null,
+  });
+
+  const answer = useCallback((value: unknown) => {
+    resolver.current?.(value);
+    resolver.current = null;
+    setRequest(null);
+  }, []);
+
+  if (!request) return null;
+
+  return (
+    <View style={{ gap: 8 }}>
+      <Text>Pick a slot for {request.topic}:</Text>
+      {SLOTS.map((slot) => (
+        <Button
+          key={slot.iso}
+          title={slot.label}
+          onPress={() => answer({ chosen_time: slot.iso, chosen_label: slot.label })}
+        />
+      ))}
+      <Button title="None of these work" onPress={() => answer({ cancelled: true })} />
+    </View>
+  );
+}
+```
+
+A few things this pattern is careful about:
+
+- `setRequest` runs inside the handler, so the panel shows the question as soon as the agent calls the tool, and hides it after the user answers.
+- The resolver lives in a ref, so a re-render doesn't lose it.
+- `render: () => null` keeps the call out of the chat.
+
+The agent sees the answer as the tool result and continues.
+
+## Provider setup
+
+The component that registers the tool must be under `CopilotKitProvider`:
+
+```tsx title="App.tsx"
+import { View } from "react-native";
+import { CopilotKitProvider } from "@copilotkit/react-native/headless";
+import { MeetingRequestPanel } from "./src/MeetingRequestPanel";
+import { ChatScreen } from "./src/ChatScreen";
+
+const runtimeUrl = "http://localhost:8200/api/copilotkit";
+
+export default function App() {
+  return (
+    <CopilotKitProvider runtimeUrl={runtimeUrl}>
+      <View style={{ flex: 1 }}>
+        <MeetingRequestPanel />
+        <ChatScreen />
+      </View>
+    </CopilotKitProvider>
+  );
+}
+```
+
+Ask the agent to book a call. The slot buttons appear above the chat. Tap a slot, and the agent continues with your choice.
+
+</WhenFrameworkHas>

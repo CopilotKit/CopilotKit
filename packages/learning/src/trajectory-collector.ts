@@ -1,10 +1,12 @@
 import { installClickCapture } from "./clicks";
+import { installErrorCapture } from "./errors";
 import { installNavigationCapture } from "./navigation";
 import { installInputCapture } from "./inputs";
 import { installNetworkCapture } from "./network";
 import { createRedactor } from "./redact";
 import { toRoute } from "./routes";
 import { BUILT_IN_EVENT_NAMES } from "./types";
+import { appContext } from "./version";
 import type {
   JsonValue,
   TrajectoryCaptureOptions,
@@ -180,11 +182,21 @@ export function createTrajectoryCollector(
             }),
           );
         }
+        if (options.capture?.errors !== false) {
+          uninstalls.push(
+            installErrorCapture({
+              emit: capture,
+              redact,
+              alerts: options.capture?.alerts === true,
+            }),
+          );
+        }
         record("page", {
           route: getRoute(),
           url: redact.url(location.href),
           title: document.title,
           referrer: redact.url(document.referrer),
+          ...appContext(options.appVersion),
         });
       } catch {
         stop();

@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import type { Browser, BrowserContext } from "playwright";
 import { BrowserPool } from "./browser-pool.js";
 import type { LaunchBrowser } from "./browser-pool.js";
@@ -600,6 +600,261 @@ describe("BrowserPool — context pooling over fixed browser set", () => {
     expect(rejected).toBeInstanceOf(Error);
     expect(launched[0]!.__closeCount).toBeGreaterThanOrEqual(1);
     void c1;
+  });
+
+  it.each(["recycle", "self-heal"] as const)(
+    "R2-A1: %s shutdown reaches browser close after a queued acquire times out during recovery open",
+    async (recovery) => {
+      const replacementCall = recovery === "recycle" ? 2 : 3;
+      const launcher = makeFakeLauncher({
+        failAtCalls: recovery === "self-heal" ? [2] : [],
+        parkLaunchForCalls: [replacementCall],
+        deferNewContextForCalls: [replacementCall],
+      });
+      const pool = new BrowserPool({
+        browsers: 1,
+        maxContexts: 1,
+        launchBrowser: launcher.launchBrowser,
+        launchStaggerMs: 0,
+        heartbeatMs: 0,
+        relaunchMaxRetries: 0,
+        selfHealIntervalMs: 5,
+      });
+      let acquireP: Promise<unknown> | undefined;
+      let shutdownP: Promise<void> | undefined;
+      let oracleTimer: ReturnType<typeof setTimeout> | undefined;
+      try {
+        await pool.init();
+        launcher.launched[0]!.__crash();
+        await waitFor(() => launcher.__parkedLaunches === 1);
+        expect(launcher.launched).toHaveLength(2);
+        const replacement = launcher.launched[1]!;
+
+        // Queue while recovery has no live browser, then let that recovery
+        // shift the waiter and park inside the replacement's newContext().
+        let callerSettled = false;
+        acquireP = pool.acquire(undefined, 150).catch((err: unknown) => {
+          callerSettled = true;
+          return err;
+        });
+        launcher.__releaseParkedLaunches();
+        await waitFor(() => replacement.__pendingNewContexts === 1);
+        expect(callerSettled).toBe(false);
+        expect(await acquireP).toEqual(
+          new Error("BrowserPool acquire timeout"),
+        );
+        expect(callerSettled).toBe(true);
+        expect(replacement.__pendingNewContexts).toBe(1);
+        expect(replacement.__closeCount).toBe(0);
+
+        // The caller can already finish/report. Internal recovery must not
+        // withhold browser closure while waiting for this protocol open.
+        shutdownP = pool.shutdown();
+        const shutdownReachedClose = await Promise.race([
+          shutdownP.then(() => true),
+          new Promise<boolean>((resolve) => {
+            oracleTimer = setTimeout(() => resolve(false), 150);
+          }),
+        ]);
+        clearTimeout(oracleTimer);
+        expect(
+          shutdownReachedClose,
+          `${recovery} shutdown must close the browser before the parked open settles`,
+        ).toBe(true);
+        expect(replacement.__closeCount).toBe(1);
+        expect(replacement.isConnected()).toBe(false);
+        expect(replacement.__pendingNewContexts).toBe(1);
+        expect(pool.stats().inUse).toBe(0);
+
+        // A protocol result may still arrive after shutdown. It must be
+        // closed as an orphan, never delivered or counted as a live context.
+        replacement.__releaseNewContexts();
+        await waitFor(() => replacement.__contexts[0]?.__closeCount === 1);
+        expect(replacement.__contexts).toHaveLength(1);
+        expect(pool.stats().inUse).toBe(0);
+      } finally {
+        // Release only AFTER recording the bounded shutdown oracle, so RED
+        // reports the behavioral assertion and never a leaked-test timeout.
+        clearTimeout(oracleTimer);
+        launcher.__releaseParkedLaunches();
+        for (const browser of launcher.launched) browser.__releaseNewContexts();
+        await acquireP;
+        await (shutdownP ?? pool.shutdown());
+        await drainMicrotasks(20);
+      }
+    },
+  );
+
+  it.each(["recycle", "self-heal"] as const)(
+    "R3-A1: %s releases completed serve cancellation subscriptions before shutdown",
+    async (recovery) => {
+      const launcher = makeFakeLauncher({
+        failAtCalls: recovery === "self-heal" ? [2, 4] : [],
+        parkLaunchForCalls: recovery === "self-heal" ? [3, 5] : [2, 3],
+      });
+      const pool = new BrowserPool({
+        browsers: 1,
+        maxContexts: 3,
+        recycleAfter: 1000,
+        launchBrowser: launcher.launchBrowser,
+        launchStaggerMs: 0,
+        heartbeatMs: 0,
+        relaunchMaxRetries: 0,
+        selfHealIntervalMs: 0,
+      });
+      const state = pool as unknown as {
+        shutdownSignal: Promise<void>;
+        inFlightRecycles: Set<Promise<void>>;
+        recoveryShutdownSubscribers?: Set<() => void>;
+      };
+      const oldSignalThen = vi.spyOn(state.shutdownSignal, "then");
+      const acquires: Promise<BrowserContext>[] = [];
+      try {
+        await pool.init();
+        for (let generation = 0; generation < 2; generation++) {
+          launcher.launched.at(-1)!.__crash();
+          await waitFor(() => launcher.__parkedLaunches === 1);
+          const batch = Array.from({ length: 3 }, () => pool.acquire());
+          acquires.push(...batch);
+          for (const acquire of batch) void acquire.catch(() => undefined);
+          launcher.__releaseParkedLaunches();
+          const contexts = await Promise.all(batch);
+          await waitFor(() => state.inFlightRecycles.size === 0);
+          expect(pool.stats().inUse).toBe(3);
+          // A reaction on the still-pending native signal cannot unsubscribe.
+          // Check before shutdown resolves it and hides the retained reactions.
+          expect(oldSignalThen).toHaveBeenCalledTimes(0);
+          expect(state.recoveryShutdownSubscribers?.size ?? 0).toBe(0);
+          for (const context of contexts) await pool.release(context);
+        }
+      } finally {
+        oldSignalThen.mockRestore();
+        launcher.__releaseParkedLaunches();
+        for (const browser of launcher.launched) browser.__releaseNewContexts();
+        await pool.shutdown();
+        await Promise.allSettled(acquires);
+      }
+    },
+  );
+
+  it.each(["recycle", "self-heal"] as const)(
+    "R3-A1: %s retains a cancellation subscriber only while the recovery open is active",
+    async (recovery) => {
+      const replacementCall = recovery === "recycle" ? 2 : 3;
+      const launcher = makeFakeLauncher({
+        failAtCalls: recovery === "self-heal" ? [2] : [],
+        parkLaunchForCalls: [replacementCall],
+        deferNewContextForCalls: [replacementCall],
+      });
+      const pool = new BrowserPool({
+        browsers: 1,
+        maxContexts: 1,
+        launchBrowser: launcher.launchBrowser,
+        launchStaggerMs: 0,
+        heartbeatMs: 0,
+        relaunchMaxRetries: 0,
+        selfHealIntervalMs: 0,
+      });
+      const state = pool as unknown as {
+        shutdownSignal: Promise<void>;
+        inFlightRecycles: Set<Promise<void>>;
+        recoveryShutdownSubscribers: Set<() => void>;
+      };
+      const oldSignalThen = vi.spyOn(state.shutdownSignal, "then");
+      let acquire: Promise<BrowserContext> | undefined;
+      try {
+        await pool.init();
+        launcher.launched[0]!.__crash();
+        await waitFor(() => launcher.__parkedLaunches === 1);
+        acquire = pool.acquire();
+        void acquire.catch(() => undefined);
+        launcher.__releaseParkedLaunches();
+        const replacement = launcher.launched[1]!;
+        await waitFor(() => replacement.__pendingNewContexts === 1);
+        expect(state.recoveryShutdownSubscribers.size).toBe(1);
+        expect(oldSignalThen).toHaveBeenCalledTimes(0);
+        replacement.__releaseNewContexts();
+        const context = await acquire;
+        await waitFor(() => state.inFlightRecycles.size === 0);
+        expect(state.recoveryShutdownSubscribers.size).toBe(0);
+        expect(oldSignalThen).toHaveBeenCalledTimes(0);
+        expect(pool.stats().inUse).toBe(1);
+        await pool.release(context);
+      } finally {
+        oldSignalThen.mockRestore();
+        launcher.__releaseParkedLaunches();
+        for (const browser of launcher.launched) browser.__releaseNewContexts();
+        await pool.shutdown();
+        if (acquire) await Promise.allSettled([acquire]);
+      }
+    },
+  );
+
+  it("R3-A1: a serve rejection propagates and removes its cancellation subscriber", async () => {
+    const pool = new BrowserPool({ heartbeatMs: 0 });
+    const state = pool as unknown as {
+      serveNextWaiter(): Promise<void>;
+      serveNextWaiterOrShutdown(): Promise<void>;
+      recoveryShutdownSubscribers: Set<() => void>;
+    };
+    let rejectServe!: (error: Error) => void;
+    const serve = new Promise<void>((_resolve, reject) => {
+      rejectServe = reject;
+    });
+    const serveSpy = vi.spyOn(state, "serveNextWaiter").mockReturnValue(serve);
+    try {
+      const recovery = state.serveNextWaiterOrShutdown();
+      const sentinel = new Error("controlled recovery serve rejection");
+      const observed = expect(recovery).rejects.toBe(sentinel);
+      expect(state.recoveryShutdownSubscribers.size).toBe(1);
+      rejectServe(sentinel);
+      await observed;
+      expect(state.recoveryShutdownSubscribers.size).toBe(0);
+      expect(serveSpy).toHaveBeenCalledTimes(1);
+    } finally {
+      serveSpy.mockRestore();
+      await pool.shutdown();
+    }
+  });
+
+  it("R3-A1: shutdown clears active subscribers and observes a late serve rejection", async () => {
+    const pool = new BrowserPool({ heartbeatMs: 0 });
+    const state = pool as unknown as {
+      serveNextWaiter(): Promise<void>;
+      serveNextWaiterOrShutdown(): Promise<void>;
+      recoveryShutdownSubscribers: Set<() => void>;
+    };
+    let rejectServe!: (error: Error) => void;
+    const serve = new Promise<void>((_resolve, reject) => {
+      rejectServe = reject;
+    });
+    const serveSpy = vi.spyOn(state, "serveNextWaiter").mockReturnValue(serve);
+    const unhandled: unknown[] = [];
+    const onUnhandled = (error: unknown): void => {
+      unhandled.push(error);
+    };
+    process.on("unhandledRejection", onUnhandled);
+    try {
+      const recovery = state.serveNextWaiterOrShutdown();
+      expect(state.recoveryShutdownSubscribers.size).toBe(1);
+      const shutdown = pool.shutdown();
+      expect(state.recoveryShutdownSubscribers.size).toBe(0);
+      await recovery;
+      await shutdown;
+      await state.serveNextWaiterOrShutdown();
+      expect(serveSpy).toHaveBeenCalledTimes(1);
+      expect(state.recoveryShutdownSubscribers.size).toBe(0);
+
+      rejectServe(new Error("controlled late recovery serve rejection"));
+      // One event-loop turn lets Node report any unobserved losing rejection.
+      // Do not attach another handler to serve: the production race owns it.
+      await new Promise<void>((resolve) => setImmediate(resolve));
+      expect(unhandled).toEqual([]);
+    } finally {
+      process.off("unhandledRejection", onUnhandled);
+      serveSpy.mockRestore();
+      await pool.shutdown();
+    }
   });
 
   // CASE 9 — stats() semantics.

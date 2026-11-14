@@ -21,7 +21,10 @@ from google.adk.tools import ToolContext
 from google.genai import types
 from pydantic import BaseModel, Field
 
-from model import resolve_model
+from model import resolve_model, warn_if_api_key_missing
+
+# The model when COPILOTKIT_AGENT_MODEL is unset.
+AGENT_MODEL_DEFAULT = "google:gemini-3.8-flash"
 
 load_dotenv()
 
@@ -157,7 +160,7 @@ proverbs_agent = LlmAgent(
     name="ProverbsAgent",
     # COPILOTKIT_AGENT_MODEL (e.g. "anthropic:claude-sonnet-4-5") overrides this;
     # unset, the agent uses gemini-3.8-flash.
-    model=resolve_model("google:gemini-3.8-flash"),
+    model=resolve_model(AGENT_MODEL_DEFAULT),
     instruction="""
         When a user asks you to do anything regarding proverbs, you MUST use the set_proverbs tool.
 
@@ -220,11 +223,7 @@ if __name__ == "__main__":
 
     import uvicorn
 
-    if not os.getenv("GOOGLE_API_KEY"):
-        print("⚠️  Warning: GOOGLE_API_KEY environment variable not set!")
-        print("   Set it with: export GOOGLE_API_KEY='your-key-here'")
-        print("   Get a key from: https://makersuite.google.com/app/apikey")
-        print()
+    warn_if_api_key_missing(AGENT_MODEL_DEFAULT)
 
     port = int(os.getenv("PORT", 8000))
     uvicorn.run(app, host="0.0.0.0", port=port)

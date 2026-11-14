@@ -11,7 +11,7 @@ built-in model strings or pass any custom AI SDK model.
 
 Specify a model using the `"provider:model"` format. `"provider/model"` also works.
 
-The tables list the models these docs use. The quickstart uses `openai:gpt-5.4-mini`.
+The tables list the models these docs use. The quickstart uses `openai:gpt-6-luna`.
 The Built-in Agent sends the model id to the provider unchanged, so other model ids
 from the same provider also work.
 
@@ -19,23 +19,11 @@ from the same provider also work.
 
 | Model        | Specifier             |
 | ------------ | --------------------- |
-| GPT-5.5      | `openai:gpt-5.5`      |
-| GPT-5.4      | `openai:gpt-5.4`      |
-| GPT-5.4 Mini | `openai:gpt-5.4-mini` |
-| GPT-5        | `openai:gpt-5`        |
-| GPT-5 Mini   | `openai:gpt-5-mini`   |
-| GPT-4.1      | `openai:gpt-4.1`      |
-| GPT-4.1 Mini | `openai:gpt-4.1-mini` |
-| GPT-4.1 Nano | `openai:gpt-4.1-nano` |
-| GPT-4o       | `openai:gpt-4o`       |
-| GPT-4o Mini  | `openai:gpt-4o-mini`  |
-| o3           | `openai:o3`           |
-| o3-mini      | `openai:o3-mini`      |
-| o4-mini      | `openai:o4-mini`      |
+| GPT-6 Luna | `openai:gpt-6-luna` |
 
 ```typescript
 const agent = new BuiltInAgent({
-  model: "openai:gpt-5.4-mini",
+  model: "openai:gpt-6-luna",
 });
 ```
 
@@ -68,7 +56,7 @@ const agent = new BuiltInAgent({
 });
 ```
 
-Use `gemini-3.5-flash-lite` for lower cost and latency. Google no longer gives
+Use `gemini-3.5-flash-lite` for lower cost and latency. Google does not give
 new API keys access to the Gemini 2.5 models. A key that used them before can
 still call them, but a new key gets a 404. See Google's
 [model list](https://ai.google.dev/gemini-api/docs/models).
@@ -137,14 +125,14 @@ Alternatively, pass the API key directly in your configuration:
 
 ```typescript
 const agent = new BuiltInAgent({
-  model: "openai:gpt-5.4-mini",
+  model: "openai:gpt-6-luna",
   apiKey: process.env.MY_OPENAI_KEY, // [!code highlight]
 });
 ```
 
 ## Custom Models (AI SDK)
 
-For models not in the built-in list, you can pass any Vercel AI SDK `LanguageModel` instance directly.
+To use a provider that model strings do not cover, or to configure the provider yourself (for example, a custom base URL), pass any Vercel AI SDK `LanguageModel` instance directly.
 First, install the provider package from its `ai-v6` release line:
 
 ```npm
@@ -161,19 +149,18 @@ npm install @ai-sdk/openai@ai-v6
 import { BuiltInAgent } from "@copilotkit/runtime/v2";
 import { createOpenAI } from "@ai-sdk/openai"; // [!code highlight]
 
-const customProvider = createOpenAI({
+const openai = createOpenAI({
   // [!code highlight]
-  apiKey: process.env.MY_API_KEY, // [!code highlight]
-  baseURL: "https://my-proxy.example.com/v1", // [!code highlight]
+  apiKey: process.env.OPENAI_API_KEY, // [!code highlight]
 }); // [!code highlight]
 
 const agent = new BuiltInAgent({
-  model: customProvider("my-fine-tuned-model"), // [!code highlight]
+  model: openai("my-fine-tuned-model"), // [!code highlight]
 });
 ```
 
-This works with any AI SDK provider, including Azure OpenAI, AWS Bedrock, Ollama,
-or any OpenAI-compatible endpoint:
+This works with any AI SDK provider, including Azure OpenAI, AWS Bedrock, and
+Ollama. For an OpenAI-compatible endpoint, read the next section first.
 
 ```typescript
 import { createAzure } from "@ai-sdk/azure";
@@ -188,6 +175,39 @@ const agent = new BuiltInAgent({
 });
 ```
 
+### OpenAI-compatible providers: use `provider.chat(model)`
+
+`@ai-sdk/openai` 3.x sends a bare `provider(model)` call to the OpenAI
+**Responses** API (`POST {baseURL}/responses`). Many OpenAI-compatible
+providers do not serve that endpoint. They serve only the Chat Completions API
+(`POST {baseURL}/chat/completions`). When you point `createOpenAI` at such a
+provider and call `provider(model)`, the agent run fails with an error from
+the provider, such as a 404.
+
+Call `provider.chat(model)` instead. It sends the request to the Chat
+Completions API:
+
+```typescript
+import { BuiltInAgent } from "@copilotkit/runtime/v2";
+import { createOpenAI } from "@ai-sdk/openai";
+
+const provider = createOpenAI({
+  apiKey: process.env.PROVIDER_API_KEY,
+  baseURL: "https://api.example-provider.com/v1",
+});
+
+const agent = new BuiltInAgent({
+  model: provider.chat("provider-model-id"), // [!code highlight]
+});
+```
+
+Use the bare `provider(model)` form only when the host serves the Responses
+API, such as OpenAI itself or a proxy that forwards to OpenAI. The
+`"openai:..."` model strings do not have this problem: with `OPENAI_BASE_URL`
+set to a host that is not OpenAI or Azure, the Built-in Agent picks the Chat
+Completions API for you (see
+[OpenAI-compatible endpoints](#openai-compatible-endpoints)).
+
 ## OpenRouter, proxies, and bring-your-own LLM
 
 Anything that exposes an **OpenAI-compatible** API, including [OpenRouter](https://openrouter.ai),
@@ -195,12 +215,6 @@ a self-hosted gateway, an internal LLM proxy, [Ollama](https://ollama.com), [Tog
 [Groq](https://groq.com), [Novita](https://novita.ai), or your own fine-tuned endpoint, works through the same
 `createOpenAI({ baseURL })` pattern shown in [Custom Models](#custom-models-ai-sdk)
 above. Point `baseURL` at the provider's OpenAI-compatible route and pass your key:
-
-<Callout type="warn" title="Novita: use provider.chat(model)">
-  Novita only implements the Chat Completions endpoint, not Responses. Call it as
-  `provider.chat("model")` (not `provider("model")`) — the bare call form used in
-  the example below routes through Responses and returns an error on Novita.
-</Callout>
 
 ```typescript
 import { BuiltInAgent } from "@copilotkit/runtime/v2";
@@ -214,7 +228,7 @@ const openrouter = createOpenAI({
 }); // [!code highlight]
 
 const agent = new BuiltInAgent({
-  model: openrouter("anthropic/claude-sonnet-4-6"), // [!code highlight]
+  model: openrouter.chat("anthropic/claude-sonnet-4-6"), // [!code highlight]
 });
 ```
 
@@ -229,13 +243,20 @@ AI SDK can talk to it, the Built-in Agent can use it.
   either as a `"provider:model"` string or an AI SDK `LanguageModel` instance:
 
 ```typescript
-new BuiltInAgent({ model: "openai:gpt-5.4-mini" }); // built-in string
-new BuiltInAgent({ model: openrouter("...") }); // any LanguageModel
+new BuiltInAgent({ model: "openai:gpt-6-luna" }); // built-in string
+new BuiltInAgent({ model: openrouter.chat("...") }); // any LanguageModel
 ```
 
-To switch models per user, request, or feature flag, construct the agent with
-the desired `model` on your own backend. For full control over the runtime you
-can also use a [Custom Agent](/backend/custom-agent).
+To let each request pick the model, add `overridableProperties: ["model"]` to
+the agent. The frontend then sends `model` in the provider's `properties`, which
+reach the agent as `forwardedProps`. See
+[Overridable properties](/advanced-configuration#overridable-properties).
+The agent then runs any provider and model the browser names, on your server's
+keys. To limit the choice, check `forwardedProps.model` against your own list in
+a [factory](/backend/custom-agent#with-forwardedprops) instead.
+Otherwise, construct the agent with the desired `model` on your own backend.
+For full control over the runtime you can also use a
+[Custom Agent](/backend/custom-agent).
 
 </Callout>
 
@@ -245,7 +266,7 @@ The Built-in Agent resolves model strings to AI SDK provider instances:
 
 | Model string                    | AI SDK provider     | Resolved call                    |
 | ------------------------------- | ------------------- | -------------------------------- |
-| `"openai:gpt-5.4-mini"`         | `@ai-sdk/openai`    | `openai("gpt-5.4-mini")`         |
+| GPT-6 Luna | `openai:gpt-6-luna` |
 | `"anthropic:claude-sonnet-4-6"` | `@ai-sdk/anthropic` | `anthropic("claude-sonnet-4-6")` |
 | `"google:gemini-3.8-flash"`     | `@ai-sdk/google`    | `google("gemini-3.8-flash")`     |
 

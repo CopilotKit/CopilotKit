@@ -326,7 +326,8 @@ export class MockPush {
 
 export class MockChannel {
   public topic: string;
-  public params: Record<string, any>;
+  /** The raw join params as given: an object, or a function as phoenix.js accepts. */
+  public paramsSource: Record<string, any> | (() => Record<string, any>);
   public joinPayload: Record<string, any> | null = null;
   /** Number of times `join()` was invoked — proves the consumer actually joined. */
   public joinCount = 0;
@@ -341,9 +342,22 @@ export class MockChannel {
   private errorHandlers: Array<(reason?: any) => void> = [];
   private nextRef = 1;
 
-  constructor(topic: string = "", params: Record<string, any> = {}) {
+  constructor(
+    topic: string = "",
+    params: Record<string, any> | (() => Record<string, any>) = {},
+  ) {
     this.topic = topic;
-    this.params = params;
+    this.paramsSource = params;
+  }
+
+  /**
+   * The params the next join or rejoin sends. Like phoenix.js, a function is
+   * evaluated each time, so this reflects any state it closes over.
+   */
+  get params(): Record<string, any> {
+    return typeof this.paramsSource === "function"
+      ? this.paramsSource()
+      : this.paramsSource;
   }
 
   on(event: string, callback: (payload: any) => void): number {
@@ -439,7 +453,10 @@ export class MockSocket {
     this.closeHandlers.push(callback);
   }
 
-  channel(topic: string, params: Record<string, any> = {}): MockChannel {
+  channel(
+    topic: string,
+    params: Record<string, any> | (() => Record<string, any>) = {},
+  ): MockChannel {
     const ch = new MockChannel(topic, params);
     this.channels.push(ch);
     return ch;

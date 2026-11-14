@@ -92,8 +92,8 @@ class TestToolOutputEquivalence:
         result = search_flights_impl(flights)
         assert "a2ui_operations" in result
         ops = result["a2ui_operations"]
-        assert any(op["type"] == "create_surface" for op in ops)
-        assert any(op["type"] == "update_components" for op in ops)
+        assert any("createSurface" in op for op in ops)
+        assert any("updateComponents" in op for op in ops)
 
     def test_generate_a2ui_returns_prompt_and_schema(self):
         result = generate_a2ui_impl(

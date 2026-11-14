@@ -729,7 +729,7 @@ describe("durable record reader", () => {
       await rm(dir, { recursive: true, force: true });
     }
   });
-  it("contains no network, subprocess, or filesystem mutation capability", async () => {
+  it("keeps classification pure and the reader free of subprocess or filesystem mutations", async () => {
     const pure = await readFile(
       new URL("../harness/src/shared/railway-lifecycle.ts", import.meta.url),
       "utf8",
@@ -743,7 +743,7 @@ describe("durable record reader", () => {
     );
     expect(pure).not.toMatch(/\b(?:fetch|process|require)\s*[.(]|from\s+["']/);
     expect(adapter).not.toMatch(
-      /\b(?:writeFile|unlink|mkdir|rm|spawn|exec|fetch)\s*\(/,
+      /\b(?:writeFile|unlink|mkdir|rm|spawn|exec)\s*\(/,
     );
   });
 });

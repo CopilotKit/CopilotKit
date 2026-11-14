@@ -352,7 +352,7 @@ module CopilotKit
         agent = UIAgent.new(agent: @agents.fetch(agent_id), a2ui: a2ui, mcp_servers: servers)
         runner = Runner.new(platform: @platform, url: @runner_url, auth_token: @api_key, lock: lock, agent: agent, input: canonical, messages: [], telemetry: @telemetry, on_error: @on_error, heartbeat_interval: @lock_heartbeat_interval, lock_ttl: @lock_ttl)
         runner.start_lease
-        history = @platform.request('GET', "/api/threads/#{escaped(lock['threadId'])}/messages?userId=#{escaped(user['id'])}").fetch('messages')
+        history = @platform.request('GET', "/api/threads/#{escaped(lock['threadId'])}/messages?userId=#{escaped(user['id'])}&fields=id").fetch('messages')
         prior_ids = history.map { |message| message['id'] }
         fresh = input['messages'].reject { |message| prior_ids.include?(message['id']) }
         # Stored messages are projection DTOs, not AG-UI model input. Use their

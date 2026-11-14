@@ -2,12 +2,11 @@
   "extends": "@copilotkit/typescript-config/base.json",
   "compilerOptions": {
     "jsx": "react-jsx",
-    "baseUrl": ".",
-    "paths": {
-      "@copilotkit/react-core/v2": ["../../packages/react-core/src/v2"],
-      "@/*": ["../../packages/react-core/src/v2/*"]
-    },
-    "types": ["node"]
+    "types": ["node"],
+    "moduleResolution": "bundler",
+    "module": "esnext",
+    "declaration": false,
+    "declarationMap": false
   },
   "include": [".storybook/**/*", "stories/**/*"]
 }

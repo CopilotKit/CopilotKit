@@ -128,6 +128,34 @@ describe("native AI SDK skill delivery over canonical HTTP transport", () => {
     },
   );
 
+  it("sends the catalog when a classic run has no conversation messages", async () => {
+    const server = await deliveryServer();
+    const model = new MockLanguageModelV3({
+      doStream: async () => ({
+        stream: simulateReadableStream<StreamPart>({
+          chunks: [
+            {
+              type: "finish",
+              finishReason: { unified: "stop", raw: "stop" },
+              usage,
+            },
+          ],
+        }),
+      }),
+    });
+    const agent = new BuiltInAgent({ model, learnedSkills: server.options });
+
+    const events = await collectEvents(agent.run(createDefaultInput()));
+
+    expect(events.some((event) => event.type === EventType.RUN_ERROR)).toBe(
+      false,
+    );
+    const prompt = model.doStreamCalls[0].prompt;
+    expect(prompt).toHaveLength(1);
+    expect(prompt[0].role).toBe("system");
+    expect(prompt[0].content).toContain("copilotkit_learned_skills");
+  });
+
   it.each(["classic", "factory", "classic-single-step"] as const)(
     "%s executes both skill tools and refreshes on resume",
     async (mode) => {

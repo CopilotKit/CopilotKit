@@ -25,21 +25,21 @@ export function NotesCard({ loading, keyword, notes }: NotesCardProps) {
   return (
     <div
       data-testid="notes-card"
-      className="rounded-2xl mt-4 mb-4 max-w-md w-full bg-white border border-[#DBDBE5] shadow-sm"
+      className="rounded-2xl mt-4 mb-4 max-w-md w-full bg-white dark:bg-card border border-[#DBDBE5] dark:border-border shadow-sm"
     >
       <div className="p-5">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <div className="text-[10px] uppercase tracking-[0.14em] text-[#57575B] mb-1">
+            <div className="text-[10px] uppercase tracking-[0.14em] text-[#57575B] dark:text-muted-foreground mb-1">
               Notes DB
             </div>
             <h3
               data-testid="notes-keyword"
-              className="text-base font-semibold text-[#010507]"
+              className="text-base font-semibold text-[#010507] dark:text-foreground"
             >
               Matching &ldquo;{keyword}&rdquo;
             </h3>
-            <p className="text-[#57575B] text-xs mt-0.5">
+            <p className="text-[#57575B] dark:text-muted-foreground text-xs mt-0.5">
               {loading
                 ? "Querying local notes DB..."
                 : `${notes?.length ?? 0} match${(notes?.length ?? 0) === 1 ? "" : "es"}`}
@@ -53,22 +53,26 @@ export function NotesCard({ loading, keyword, notes }: NotesCardProps) {
         {!loading && notes && notes.length > 0 && (
           <ul
             data-testid="notes-list"
-            className="mt-4 pt-4 border-t border-[#E9E9EF] space-y-2 text-sm"
+            className="mt-4 pt-4 border-t border-[#E9E9EF] dark:border-border space-y-2 text-sm"
           >
             {notes.map((n) => (
               <li
                 key={n.id}
                 data-testid={`note-${n.id}`}
-                className="rounded-xl border border-[#E9E9EF] bg-[#FAFAFC] p-2.5"
+                className="rounded-xl border border-[#E9E9EF] dark:border-border bg-[#FAFAFC] dark:bg-muted p-2.5"
               >
-                <p className="font-medium text-[#010507]">{n.title}</p>
-                <p className="text-[#57575B] text-xs mt-0.5">{n.excerpt}</p>
+                <p className="font-medium text-[#010507] dark:text-foreground">
+                  {n.title}
+                </p>
+                <p className="text-[#57575B] dark:text-muted-foreground text-xs mt-0.5">
+                  {n.excerpt}
+                </p>
                 {n.tags && n.tags.length > 0 && (
                   <div className="mt-2 flex flex-wrap gap-1">
                     {n.tags.map((t) => (
                       <span
                         key={t}
-                        className="text-[10px] font-medium uppercase tracking-[0.1em] bg-white border border-[#DBDBE5] text-[#57575B] rounded-full px-1.5 py-0.5"
+                        className="text-[10px] font-medium uppercase tracking-[0.1em] bg-white dark:bg-card border border-[#DBDBE5] dark:border-border text-[#57575B] dark:text-muted-foreground rounded-full px-1.5 py-0.5"
                       >
                         {t}
                       </span>
@@ -81,7 +85,7 @@ export function NotesCard({ loading, keyword, notes }: NotesCardProps) {
         )}
 
         {!loading && (!notes || notes.length === 0) && (
-          <p className="mt-4 pt-4 border-t border-[#E9E9EF] text-sm text-[#838389] italic">
+          <p className="mt-4 pt-4 border-t border-[#E9E9EF] dark:border-border text-sm text-[#838389] dark:text-muted-foreground italic">
             No notes matched.
           </p>
         )}

@@ -1,0 +1,717 @@
+"use client";
+
+import { useEffect } from "react";
+import type { ComponentProps, ReactNode } from "react";
+import { usePathname } from "next/navigation";
+import Link from "fumadocs-core/link";
+import {
+  AskAIGlyph,
+  BackendGlyph,
+  CookbookGlyph,
+  OpenBotGlyph,
+  DeclarativeUIGlyph,
+  FrontendToolsGlyph,
+  GenerativeUIGlyph,
+  HumanInTheLoopGlyph,
+  IntelligenceGlyph,
+  MCPAppsGlyph,
+  OpenGenUIGlyph,
+  SharedStateGlyph,
+  LearningGlyph,
+  MemoryGlyph,
+  QuickstartGlyph,
+  ReferenceGlyph,
+  ThreadsGlyph,
+} from "@/components/icons/glyphs";
+import { SiDiscord, SiX } from "react-icons/si";
+import { ArrowRight } from "lucide-react";
+import type { LinkItemType } from "fumadocs-ui/layouts/shared";
+// Spacious' DocsLayout with the CopilotKit "Ask AI" chat in its aiChat slot.
+import { DocsLayout as SpaciousLayout } from "@/components/ai/docs-layout";
+import { ProtoStackAgent } from "@/components/ai/stack-agents";
+import { HomeLayout } from "fumadocs-ui/layouts/home";
+import { FullSearchTrigger } from "fumadocs-ui/layouts/shared/slots/search-trigger";
+import { Header as SpaciousHeader } from "fumadocs-ui/layouts/spacious/slots/header";
+import { CopilotKitLogo } from "@/components/copilotkit-logo";
+import { Button } from "@/components/ui/button";
+import {
+  IconLinks,
+  PanelActions,
+  PanelSidebarToggle,
+} from "@/components/layout/panel-actions";
+import { AdaptiveThemeSwitch } from "@/components/layout/theme-toggle";
+import { FRAMEWORKS, FRAMEWORK_FAMILIES } from "./data";
+import { FamilyMenuCard, IntegrationCardBody } from "./link-card";
+import { rememberFramework, useLastFramework } from "./last-framework";
+import { useMenuSwitchClick } from "./use-menu-switch-click";
+import { frameworkHref, locationFromPathname } from "./routes";
+import type { VariantId } from "./routes";
+import { SidebarTop, buildTree, layoutTabs } from "./variants";
+import { liveTree } from "./live-tree";
+import { LivePagesProvider } from "./live-pages-context";
+import { trackEvent } from "@/lib/telemetry/analytics";
+import { cn } from "@/lib/cn";
+import type { LiveNav } from "@/lib/live-nav";
+import { ROOT_FRAMEWORK, liveFrontend, scopeFromPath } from "@/lib/live-scope";
+import { variantMeta } from "./meta";
+
+const GITHUB = "https://github.com/CopilotKit/CopilotKit";
+
+const DISCORD: LinkItemType = {
+  type: "icon",
+  text: "Discord",
+  label: "Discord",
+  url: "https://discord.gg/6dffbvGU3D",
+  icon: <SiDiscord />,
+  external: true,
+};
+
+const X: LinkItemType = {
+  type: "icon",
+  text: "X",
+  label: "CopilotKit on X",
+  url: "https://x.com/CopilotKit",
+  icon: <SiX />,
+  external: true,
+};
+
+const INTELLIGENCE_MENU = [
+  {
+    text: "Overview",
+    url: "/intelligence/overview",
+    icon: <IntelligenceGlyph />,
+    description: "What Intelligence adds to an agent app in production.",
+  },
+  {
+    text: "Quickstart",
+    url: "/intelligence/quickstart",
+    icon: <QuickstartGlyph />,
+    description: "Turn on Intelligence in your runtime.",
+  },
+  {
+    text: "AG-UI Streams",
+    url: "/AG-UI-Streams",
+    icon: <ThreadsGlyph />,
+    description: "Threads that persist with their generative UI.",
+  },
+  {
+    text: "Automatic learning",
+    url: "/learning",
+    icon: <LearningGlyph />,
+    description: "Agents that learn from real use.",
+  },
+  {
+    text: "User memories",
+    url: "/intelligence/memories",
+    icon: <MemoryGlyph />,
+    description: "Remember each user across conversations.",
+  },
+  {
+    text: "Self-hosted",
+    url: "/intelligence/self-hosting",
+    icon: <BackendGlyph />,
+    description: "Run Intelligence in your own infrastructure.",
+  },
+];
+
+/**
+ * The docs' top bar contents: the docs' three sections at its left edge, in
+ * line with the page panel, and the theme switch, Talk to an engineer, and
+ * the icon links at its right. Ask CopilotKit stays off the bar: the round
+ * chat button in the page's corner opens it. Cookbook and Reference
+ * are one click from any page and Docs one click back, without taking a row
+ * of the sidebar. Cookbook and Reference own their URL prefix; Docs is every
+ * other docs page, and opens your framework's quickstart.
+ */
+function SectionActions({ className, ...props }: ComponentProps<"div">) {
+  const path = usePathname().split("/").filter(Boolean);
+  const [lastFramework] = useLastFramework();
+  const framework = scopeFromPath(path).framework ?? lastFramework;
+  const sections = [
+    {
+      title: "Docs",
+      url: frameworkHref("d", framework, "quickstart"),
+      active: path[0] !== "cookbook" && path[0] !== "reference",
+    },
+    { title: "Cookbook", url: "/cookbook", active: path[0] === "cookbook" },
+    { title: "Reference", url: "/reference", active: path[0] === "reference" },
+  ];
+  return (
+    <div className={cn("flex w-full items-center gap-2", className)} {...props}>
+      <nav
+        aria-label="Docs sections"
+        className="ms-3.5 me-auto flex items-center gap-1"
+      >
+        {sections.map((s) => (
+          <Link
+            key={s.title}
+            href={s.url}
+            aria-current={s.active ? "true" : undefined}
+            className={cn(
+              "rounded-md px-2.5 py-1 text-[15px] transition-colors duration-150 focus-visible:outline-2 focus-visible:outline-fd-ring motion-reduce:transition-none",
+              s.active
+                ? "font-medium text-primary"
+                : "text-fd-muted-foreground hover:text-fd-foreground",
+            )}
+          >
+            {s.title}
+          </Link>
+        ))}
+      </nav>
+      <AdaptiveThemeSwitch className="bg-fd-background" />
+      <TalkToEngineerPill className="h-8 px-3.5" />
+      <span
+        aria-hidden="true"
+        className="mx-1.5 h-5 w-px bg-frame-foreground/25"
+      />
+      <IconLinks className="gap-0.5" />
+    </div>
+  );
+}
+
+/**
+ * Spacious' `header` slot: its phone navbar, unchanged, and on tablets and
+ * desktops a compact bar on the frame above the page panel carrying the
+ * section links, icon links, and theme switch (the same `actions` component
+ * Spacious would otherwise draw in the panel's corner, where it competed with
+ * the breadcrumb). It spans the page's column and Ask CopilotKit's, so the
+ * chat opens under it. No search: it lives at the top of the sidebar. The panel's
+ * `actions` slot holds the sidebar toggle instead (`PanelSidebarToggle`).
+ */
+function topBar(Actions: (props: ComponentProps<"div">) => ReactNode) {
+  return function TopBar(props: ComponentProps<"header">) {
+    return (
+      <>
+        <SpaciousHeader {...props} />
+        <header
+          data-docs-topbar
+          className="[grid-area:1/2/2/-1] flex h-(--fd-header-height) items-center justify-end pe-3 max-md:hidden"
+        >
+          <Actions className="bg-transparent" />
+        </header>
+      </>
+    );
+  };
+}
+
+const SectionsTopBar = topBar(SectionActions);
+const PanelTopBar = topBar(PanelActions);
+
+/**
+ * Sets a navbar dropdown on the lilac-grey tray: a hidden marker that
+ * theme.css finds to recolor Fumadocs' own popup, so it keeps the popup's
+ * rounding and resize animation. Hidden, it takes no grid cell.
+ */
+const MENU_TRAY: Extract<LinkItemType, { type: "custom" }> = {
+  type: "custom",
+  children: <span data-menu-tray hidden />,
+};
+
+/** The Integrations menu's marker: its cards lay out as tiles (theme.css). */
+const TILES_TRAY: Extract<LinkItemType, { type: "custom" }> = {
+  type: "custom",
+  children: <span data-menu-tray data-menu-tiles hidden />,
+};
+
+/**
+ * A menu card is a card, as on the home (link-card.tsx): white with a
+ * hairline and a small lift on the menu's faint lilac panel (theme.css); on
+ * hover it takes the lilac border-action edge and a deeper lift.
+ */
+const HOVER =
+  "group/card border-border shadow-card transition-[border-color,box-shadow] duration-200 hover:border-edge-action hover:shadow-card-hover focus-visible:border-ring motion-reduce:transition-none dark:bg-[#1a1a24]";
+
+/** A card's glyph: solid, in the accent, with no tile. */
+const INK_GLYPH = "text-primary [&_svg]:size-[22px]";
+
+/**
+ * Topic cards. Fumadocs draws `banner` above the title in place of its own
+ * tiled icon.
+ */
+function card(icon: ReactNode) {
+  return {
+    className: HOVER,
+    banner: (
+      <span aria-hidden="true" className={INK_GLYPH}>
+        {icon}
+      </span>
+    ),
+  };
+}
+
+/** Integrations cards: tiles, the logo over the name. */
+const TILE_CARD = `${HOVER} gap-3 p-3`;
+
+/**
+ * The Integrations menu: one card per framework, a family (LangGraph,
+ * Strands, ...) as one card whose languages open in a popover, as on the home.
+ */
+type MenuItem = Extract<LinkItemType, { type: "menu" }>["items"][number];
+
+const INTEGRATIONS_MENU: MenuItem[] = FRAMEWORKS.flatMap((f): MenuItem[] => {
+  const family = FRAMEWORK_FAMILIES.find((fam) =>
+    fam.variants.some((v) => v.id === f.id),
+  );
+  if (!family) {
+    return [
+      {
+        text: f.name,
+        url: frameworkHref("d", f.id, "quickstart"),
+        menu: {
+          className: TILE_CARD,
+          children: <IntegrationCardBody slug={f.id} name={f.name} />,
+        },
+      },
+    ];
+  }
+  if (family.variants[0].id !== f.id) return [];
+  return [
+    {
+      type: "custom",
+      children: (
+        <FamilyMenuCard
+          key={family.name}
+          name={family.name}
+          className={TILE_CARD}
+          variants={family.variants.map((v) => ({
+            ...v,
+            href: frameworkHref("d", v.id, "quickstart"),
+          }))}
+        />
+      ),
+    },
+  ];
+});
+
+/**
+ * The Examples menu: a two-row "all demos" tile, then seven demos worth
+ * opening first, filling three even columns. Each opens a live showcase demo
+ * in the playground (on your framework). Ids are showcase feature ids; the
+ * menu shows the ones the playground has (`examples`).
+ */
+const FEATURED_EXAMPLES = [
+  {
+    id: "gen-ui-tool-based",
+    title: "Generative UI",
+    description: "The agent renders your typed React components.",
+    icon: <GenerativeUIGlyph />,
+  },
+  {
+    id: "open-gen-ui",
+    title: "Open-ended UI",
+    description: "The agent builds UI from any component library.",
+    icon: <OpenGenUIGlyph />,
+  },
+  {
+    id: "declarative-gen-ui",
+    title: "A2UI",
+    description: "Declarative UI from your own component catalog.",
+    icon: <DeclarativeUIGlyph />,
+  },
+  {
+    id: "mcp-apps",
+    title: "MCP Apps",
+    description: "MCP servers that bring their own UI.",
+    icon: <MCPAppsGlyph />,
+  },
+  {
+    id: "hitl-in-chat",
+    title: "Human in the loop",
+    description: "An approval card inline in the chat.",
+    icon: <HumanInTheLoopGlyph />,
+  },
+  {
+    id: "frontend-tools",
+    title: "Frontend tools",
+    description: "The agent takes actions in your app.",
+    icon: <FrontendToolsGlyph />,
+  },
+  {
+    id: "shared-state-read-write",
+    title: "Shared state",
+    description: "Your UI and the agent edit the same state.",
+    icon: <SharedStateGlyph />,
+  },
+];
+
+/** A compact menu card: glyph, title, and a one-line description. */
+function MenuRow({
+  icon,
+  title,
+  description,
+}: {
+  icon: ReactNode;
+  title: string;
+  description: string;
+}) {
+  return (
+    <>
+      <span aria-hidden="true" className={INK_GLYPH}>
+        {icon}
+      </span>
+      <span className="flex min-w-0 flex-col gap-0.5">
+        <span className="text-sm font-medium">{title}</span>
+        <span className="truncate text-xs text-fd-muted-foreground">
+          {description}
+        </span>
+      </span>
+    </>
+  );
+}
+
+/**
+ * The Examples menu's lead tile, two rows tall: a window onto the gallery.
+ * The words sit on the menu's white like every other card; beside them, a
+ * slice of the home's stage holds three demos in miniature (a chat, a
+ * generated card, an approval), which fan open when the tile is hovered.
+ */
+function GalleryTile() {
+  return (
+    <>
+      <span className="flex min-w-0 flex-1 flex-col justify-center gap-1">
+        <span className="text-sm font-semibold">Gallery</span>
+        <span className="text-xs leading-[1.45] text-fd-muted-foreground">
+          Every live demo, running on your framework.
+        </span>
+        <span className="mt-1 inline-flex items-center gap-1 text-xs font-medium text-primary">
+          Browse all demos
+          <ArrowRight
+            aria-hidden="true"
+            className="size-3.5 transition-transform duration-200 group-hover/all:translate-x-0.5 motion-reduce:transition-none"
+          />
+        </span>
+      </span>
+      <span
+        aria-hidden="true"
+        className="relative w-[44%] max-w-40 shrink-0 self-stretch overflow-hidden rounded-[10px] border border-white/60 bg-(image:--stage) dark:border-white/10"
+      >
+        <MiniDemo className="-rotate-6 group-hover/all:-translate-x-2.5 group-hover/all:-rotate-10 left-[10%]">
+          <span className="h-1 w-3/4 rounded-full bg-black/10 dark:bg-white/15" />
+          <span className="h-1 w-1/2 rounded-full bg-black/10 dark:bg-white/15" />
+          <span className="mt-auto ms-auto h-2 w-3/5 rounded-full bg-primary/30" />
+        </MiniDemo>
+        <MiniDemo className="z-10 left-[30%] -translate-y-[56%] group-hover/all:-translate-y-[66%]">
+          <span className="h-1 w-2/3 rounded-full bg-black/15 dark:bg-white/20" />
+          <span className="flex flex-1 items-end gap-0.5">
+            <span className="h-[40%] flex-1 rounded-[1px] bg-primary/50" />
+            <span className="h-[75%] flex-1 rounded-[1px] bg-primary/70" />
+            <span className="h-[55%] flex-1 rounded-[1px] bg-brand-mint-deep/60" />
+            <span className="h-full flex-1 rounded-[1px] bg-primary" />
+          </span>
+        </MiniDemo>
+        <MiniDemo className="z-20 left-[50%] rotate-6 group-hover/all:translate-x-2.5 group-hover/all:rotate-10">
+          <span className="h-1 w-4/5 rounded-full bg-black/10 dark:bg-white/15" />
+          <span className="h-1 w-3/5 rounded-full bg-black/10 dark:bg-white/15" />
+          <span className="mt-auto flex gap-0.5">
+            <span className="h-2 flex-1 rounded-full bg-brand-plum dark:bg-white" />
+            <span className="h-2 flex-1 rounded-full border border-black/15 dark:border-white/25" />
+          </span>
+        </MiniDemo>
+      </span>
+    </>
+  );
+}
+
+/** A demo in miniature: a small white window on the gallery's stage. */
+function MiniDemo({
+  className,
+  children,
+}: {
+  className?: string;
+  children: ReactNode;
+}) {
+  return (
+    <span
+      className={cn(
+        "absolute top-1/2 flex aspect-[4/5] w-[42%] -translate-y-1/2 flex-col gap-1 rounded-md bg-white p-1.5 shadow-[0_6px_14px_-4px_rgb(38_32_116/0.4)] transition-[translate,rotate] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] motion-reduce:transition-none dark:bg-[#1b1b25]",
+        className,
+      )}
+    >
+      {children}
+    </span>
+  );
+}
+
+/**
+ * The full-page Ask CopilotKit, as a white outlined pill, in the home
+ * navbar. Hidden on /ask itself.
+ */
+function AskCopilotKitPill({ className }: { className?: string }) {
+  const pathname = usePathname();
+  return (
+    <Button
+      variant="outline"
+      render={<Link href="/ask" />}
+      nativeButton={false}
+      aria-current={pathname === "/ask" ? "page" : undefined}
+      className={cn(
+        "h-9 gap-2 rounded-full bg-card px-3.5 shadow-lift aria-[current=page]:hidden [&_svg]:size-4",
+        className,
+      )}
+    >
+      <AskAIGlyph aria-hidden="true" />
+      Ask CopilotKit
+    </Button>
+  );
+}
+
+/**
+ * Talk to an engineer, as the solid indigo pill (the website's lilac-deep,
+ * white text) in both themes. Shared by the home navbar and the docs' top bar.
+ */
+function TalkToEngineerPill({ className }: { className?: string }) {
+  return (
+    <Button
+      render={
+        <a
+          href="https://www.copilotkit.ai/talk-to-an-engineer"
+          target="_blank"
+          rel="noreferrer noopener"
+        />
+      }
+      nativeButton={false}
+      onClick={() => trackEvent("talk_to_us_clicked", { location: "docs_nav" })}
+      className={cn(
+        "h-9 rounded-full bg-brand-lilac-deep px-4 text-white hover:bg-[#5057cc]",
+        className,
+      )}
+    >
+      Talk to an engineer
+    </Button>
+  );
+}
+
+/** Prototype D's home: Fumadocs' navbar-only Home Layout. */
+function DHomeLayout({
+  examples,
+  children,
+}: {
+  examples: readonly string[];
+  children: ReactNode;
+}) {
+  const [framework] = useLastFramework();
+  useMenuSwitchClick();
+  const links: LinkItemType[] = [
+    {
+      type: "menu",
+      text: "Guides",
+      items: [
+        {
+          text: "Quickstart",
+          description: "Add a chat to your app and connect it to your agent.",
+          url: frameworkHref("d", framework, "quickstart"),
+          menu: card(<QuickstartGlyph />),
+        },
+        {
+          text: "Cookbook",
+          description: "Recipes for common patterns, start to finish.",
+          url: "/cookbook",
+          menu: card(<CookbookGlyph />),
+        },
+        {
+          text: "Reference",
+          description: "Every hook, component, and runtime API.",
+          url: "/reference",
+          menu: card(<ReferenceGlyph />),
+        },
+        {
+          text: "OpenBot",
+          description:
+            "The self-hostable workspace for AI coworkers, built on CopilotKit.",
+          url: "https://open.bot",
+          external: true,
+          menu: card(<OpenBotGlyph />),
+        },
+        MENU_TRAY,
+      ],
+    },
+    {
+      type: "menu",
+      text: "Integrations",
+      items: [...INTEGRATIONS_MENU, TILES_TRAY],
+    },
+    {
+      type: "menu",
+      text: "Examples",
+      url: "/examples",
+      items: [
+        {
+          text: "Gallery",
+          url: "/examples",
+          menu: {
+            className: `${HOVER} group/all row-span-2 flex-row items-stretch gap-3 p-2.5`,
+            children: <GalleryTile />,
+          },
+        },
+        ...FEATURED_EXAMPLES.filter((e) => examples.includes(e.id)).map(
+          (e) => ({
+            text: e.title,
+            url: `/examples?feature=${e.id}`,
+            menu: {
+              className: `${HOVER} flex-row items-center gap-3 p-2.5`,
+              children: <MenuRow {...e} />,
+            },
+          }),
+        ),
+        MENU_TRAY,
+      ],
+    },
+    {
+      type: "menu",
+      text: "Intelligence",
+      items: [
+        ...INTELLIGENCE_MENU.map((i) => ({
+          text: i.text,
+          description: i.description,
+          url: i.url,
+          menu: card(i.icon),
+        })),
+        MENU_TRAY,
+      ],
+    },
+    {
+      // The full-page Ask CopilotKit, as a pill beside the search pill.
+      type: "custom",
+      secondary: true,
+      children: <AskCopilotKitPill />,
+    },
+    {
+      // A custom item so the button can match the navbar's pill search.
+      type: "custom",
+      secondary: true,
+      children: <TalkToEngineerPill />,
+    },
+  ];
+  return (
+    <HomeLayout
+      nav={{
+        title: <CopilotKitLogo className="h-[22px] w-auto" />,
+        url: "/",
+      }}
+      links={links}
+      githubUrl={GITHUB}
+      slots={{ themeSwitch: AdaptiveThemeSwitch }}
+    >
+      {children}
+    </HomeLayout>
+  );
+}
+
+export function ProtoLayout({
+  variant,
+  liveNav,
+  examples = [],
+  children,
+}: {
+  variant: VariantId;
+  /** The live docs' sidebars; D's docs pages use them when given. */
+  liveNav?: LiveNav;
+  /** The feature ids the examples playground has, for the Examples menu. */
+  examples?: readonly string[];
+  children: ReactNode;
+}) {
+  const pathname = usePathname();
+  const [lastFramework] = useLastFramework();
+  const loc = liveLocation(
+    locationFromPathname(pathname).location,
+    liveNav ? pathname : null,
+  );
+  const meta = variantMeta(variant);
+  const framework = loc?.kind === "framework" ? loc.framework : undefined;
+
+  // Prototype D remembers the last framework so its home points at your docs.
+  useEffect(() => {
+    if (variant === "d" && framework) rememberFramework(framework);
+  }, [variant, framework]);
+
+  // The home, the playground, and the full-page Ask CopilotKit take the
+  // navbar-only Home Layout.
+  if (
+    variant === "d" &&
+    ((loc?.kind === "docs" && !loc.slug) ||
+      loc?.kind === "examples" ||
+      pathname === "/ask")
+  ) {
+    return <DHomeLayout examples={examples}>{children}</DHomeLayout>;
+  }
+
+  const tree =
+    variant === "d" && liveNav
+      ? liveTree(liveNav, pathname)
+      : buildTree(variant, loc, lastFramework);
+  const top = (
+    <SidebarTop variant={variant} loc={loc} lastFramework={lastFramework} />
+  );
+  return (
+    <LivePagesProvider index={liveNav?.index ?? null}>
+      <SpaciousLayout
+        tree={tree}
+        nav={{
+          title: <CopilotKitLogo className="h-[22px] w-auto" />,
+          url: meta.entry,
+        }}
+        tabs={layoutTabs(variant) ?? false}
+        githubUrl={GITHUB}
+        links={[DISCORD, X]}
+        slots={{
+          header: variant === "d" && liveNav ? SectionsTopBar : PanelTopBar,
+          actions: PanelSidebarToggle,
+          themeSwitch: AdaptiveThemeSwitch,
+        }}
+        agent={
+          <ProtoStackAgent
+            variant={variant}
+            framework={framework}
+            slug={loc?.kind === "framework" ? loc.slug : undefined}
+          />
+        }
+        searchToggle={{
+          components: {
+            lg: (
+              <div className="flex flex-col gap-3">
+                {top}
+                <FullSearchTrigger
+                  hideIfDisabled
+                  className="h-10 gap-3 rounded-xl bg-card ps-[calc(--spacing(2.5)-1px)] pe-2 shadow-lift hover:bg-accent dark:bg-[#1e1e2a] dark:hover:bg-[#262634] [&_svg]:shrink-0"
+                />
+              </div>
+            ),
+          },
+        }}
+      >
+        {children}
+      </SpaciousLayout>
+    </LivePagesProvider>
+  );
+}
+
+/**
+ * The live docs' unscoped pages are the built-in agent's, so the stack picker
+ * reads them as that framework: switching from `/frontend-tools` to Mastra
+ * opens `/mastra/frontend-tools`. A frontend's URL reads as the same page
+ * (`/vue/mastra/frontend-tools` as `/mastra/frontend-tools`, `/vue` as the
+ * built-in agent's). The reference and cookbook aren't per framework, so they
+ * take no stack picker.
+ */
+function liveLocation(
+  loc: ReturnType<typeof locationFromPathname>["location"],
+  pathname: string | null,
+): ReturnType<typeof locationFromPathname>["location"] {
+  if (loc || !pathname) return loc;
+  const path = pathname.split("/").filter(Boolean);
+  if (liveFrontend(path[0])) {
+    const page = `/${path.slice(1).join("/")}`;
+    return path.length > 1
+      ? liveLocation(locationFromPathname(page).location, page)
+      : { kind: "framework", framework: ROOT_FRAMEWORK, slug: "" };
+  }
+  if (!path.length || path[0] === "reference" || path[0] === "cookbook")
+    return loc;
+  const scope = scopeFromPath(path);
+  if (scope.framework || scope.prefix) return loc;
+  return {
+    kind: "framework" as const,
+    framework: ROOT_FRAMEWORK,
+    slug: path.join("/"),
+  };
+}

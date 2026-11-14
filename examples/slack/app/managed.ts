@@ -26,8 +26,10 @@
  * set (see `.env.example`).
  */
 import "dotenv/config";
+import { loadBrandRender } from "./render/brand.js";
 import { createServer } from "node:http";
 import { createChannel, HttpAgent } from "@copilotkit/channels";
+import { takumiRenderer } from "@copilotkit/channels/takumi";
 import {
   defaultSlackTools,
   defaultSlackContext,
@@ -35,6 +37,12 @@ import {
 import { CopilotRuntime, CopilotKitIntelligence } from "@copilotkit/runtime/v2";
 import { createCopilotNodeListener } from "@copilotkit/runtime/v2/node";
 import { appTools } from "./tools/index.js";
+import { renderMrrTool } from "./tools/render-mrr.js";
+import {
+  renderCarouselTool,
+  carouselCommand,
+} from "./tools/render-carousel.js";
+import { showcaseTools, showcaseCommands } from "./showcase/index.js";
 import { appContext } from "./context/app-context.js";
 import { appCommands } from "./commands/index.js";
 import { senderContext } from "./sender-context.js";
@@ -86,6 +94,11 @@ const requiredIntelligenceKey = (): string => {
 const channelName = "triage";
 
 async function main() {
+  const port = Number(process.env.PORT ?? 8300);
+  if (!Number.isInteger(port) || port < 0 || port > 65535) {
+    throw new Error("PORT must be an integer between 0 and 65535.");
+  }
+  const brand = await loadBrandRender();
   const agentUrl = required("AGENT_URL");
   const agentHeaders = process.env.AGENT_AUTH_HEADER
     ? { Authorization: process.env.AGENT_AUTH_HEADER }
@@ -97,6 +110,13 @@ async function main() {
   // Slack tools/context (the native example adds these conditionally per active
   // adapter).
   const support = createChannel({
+    render: {
+      renderer: takumiRenderer,
+      width: 760,
+      fonts: brand.fonts,
+      stylesheets: brand.stylesheets,
+      allowImageUrl: () => false,
+    },
     identifyUser: "platform",
     name: channelName,
     agent: (threadId) => {
@@ -107,9 +127,15 @@ async function main() {
       a.threadId = threadId;
       return a;
     },
-    tools: [...appTools, ...defaultSlackTools],
+    tools: [
+      ...appTools,
+      ...defaultSlackTools,
+      renderMrrTool,
+      renderCarouselTool,
+      ...showcaseTools,
+    ],
     context: [...appContext, ...defaultSlackContext],
-    commands: appCommands,
+    commands: [...appCommands, ...showcaseCommands, carouselCommand],
   });
 
   // Turn + feature handlers — identical to the native example (app/index.ts).
@@ -219,7 +245,6 @@ async function main() {
     basePath: "/api/copilotkit",
   });
   stopChannels = () => listener.channels.stop();
-  const port = Number(process.env.PORT ?? 8300);
   createServer(listener).listen(port, () => {
     console.log(`[channel] listener on :${port}`);
   });

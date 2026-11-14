@@ -1,10 +1,8 @@
 import type { Meta, StoryObj } from "@storybook/react";
-import {
-  CopilotChatSuggestionView,
-  CopilotChatSuggestionPill,
-} from "@copilotkit/react-core/v2";
-import { Suggestion } from "@copilotkit/core";
+import { CopilotChatSuggestionView } from "@copilotkit/react-core/v2";
+import type { Suggestion } from "@copilotkit/core";
 import { Sparkles } from "lucide-react";
+import { manySuggestions } from "./support/fixtures";
 
 const suggestions: Suggestion[] = [
   {
@@ -55,4 +53,18 @@ export const CustomSuggestionSlot: Story = {
       icon: <Sparkles className="h-4 w-4" aria-hidden="true" />,
     },
   },
+};
+
+/** Pills overflowing a narrow width: the row scrolls and its edge fades. */
+export const Overflowing: Story = {
+  args: {
+    suggestions: manySuggestions,
+  },
+  decorators: [
+    (Story) => (
+      <div className="w-[420px]">
+        <Story />
+      </div>
+    ),
+  ],
 };

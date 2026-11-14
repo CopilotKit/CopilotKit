@@ -1,0 +1,250 @@
+---
+title: Governed Action Approval UI
+icon: "lucide/ShieldCheck"
+description: Gate side-effecting agent actions with an approval card in your React Native app before they run.
+---
+
+## What is this?
+
+Some agent actions are safe to run immediately, while others should be blocked, or paused for the user's approval, before they create side effects. A governed action approval UI gives the user a clear checkpoint:
+
+- **What** the agent wants to do
+- **Why** it wants to do it
+- **Which reference or policy decision** produced the verdict
+- **What happens next** if the user approves or rejects it
+
+Use this pattern when the agent proposes an action such as sending an email, updating a record, creating a ticket, applying a discount, or calling any write API.
+
+## Action envelope
+
+Keep the approval payload small, serializable, and vendor-neutral. The agent or backend can attach any policy engine result to the action, as long as the UI receives the same basic envelope:
+
+```ts
+type GovernedAction = {
+  id: string;
+  summary: string;
+  tool: string;
+  reference: string;
+  verdict: "allow" | "deny" | "require_approval";
+  arguments: Record<string, unknown>;
+};
+```
+
+The app handles each verdict the same way every time:
+
+| Verdict | UI behavior |
+| --- | --- |
+| `allow` | Run the action without asking again, optionally with an audit note. |
+| `deny` | Don't run the action. Close the request without asking the user. |
+| `require_approval` | Show an approval card. Run the action only if the user approves. |
+
+## The approval card
+
+Both patterns below render the same card, built from React Native views:
+
+```tsx title="src/GovernedActionCard.tsx"
+import { useEffect } from "react";
+import { Button, ScrollView, Text, View } from "react-native";
+
+export type GovernedAction = {
+  id: string;
+  summary: string;
+  tool: string;
+  reference: string;
+  verdict: "allow" | "deny" | "require_approval";
+  arguments: Record<string, unknown>;
+};
+
+export function GovernedActionCard({
+  action,
+  onApprove,
+  onReject,
+  onBlock,
+}: {
+  action: GovernedAction;
+  onApprove: () => void;
+  onReject: () => void;
+  onBlock: () => void;
+}) {
+  // Policy verdicts that need no user decision answer at once.
+  useEffect(() => {
+    if (action.verdict === "allow") onApprove();
+    if (action.verdict === "deny") onBlock();
+  }, [action.id, action.verdict]);
+
+  const status =
+    action.verdict === "allow"
+      ? "Allowed by policy"
+      : action.verdict === "deny"
+        ? "Blocked by policy"
+        : "User approval required";
+
+  return (
+    <View style={{ padding: 16, borderRadius: 12, borderWidth: 1, borderColor: "#e2e2ea", gap: 6 }}>
+      <Text style={{ fontSize: 13, fontWeight: "500" }}>{status}</Text>
+      <Text style={{ fontSize: 16, fontWeight: "600" }}>{action.summary}</Text>
+      <Text style={{ color: "#57575b" }}>Tool: {action.tool}</Text>
+      <Text style={{ color: "#57575b" }}>Reference: {action.reference}</Text>
+      <ScrollView style={{ maxHeight: 160, backgroundColor: "#f7f7f9", borderRadius: 8, padding: 8 }}>
+        <Text style={{ fontFamily: "monospace", fontSize: 12 }}>
+          {JSON.stringify(action.arguments, null, 2)}
+        </Text>
+      </ScrollView>
+      {action.verdict === "require_approval" ? (
+        <View style={{ flexDirection: "row", gap: 8 }}>
+          <Button title="Approve and run" onPress={onApprove} />
+          <Button title="Reject" onPress={onReject} />
+        </View>
+      ) : null}
+    </View>
+  );
+}
+```
+
+## Inline approval with `useInterrupt`
+
+If your agent can pause a run, model the approval as an interrupt. The agent proposes the action, the UI renders the checkpoint, and the run resumes with the user's decision. The rendered `CopilotChat` from `/components` draws the card after the last message:
+
+```tsx title="src/GovernedActionApproval.tsx"
+import { Text } from "react-native";
+import { useInterrupt } from "@copilotkit/react-native/headless";
+import { GovernedActionCard, type GovernedAction } from "./GovernedActionCard";
+
+// A custom-event interrupt can send its value as a JSON string.
+function parseInterruptValue(value: unknown): { action?: unknown } | undefined {
+  if (typeof value !== "string") return value as { action?: unknown } | undefined;
+  try {
+    return JSON.parse(value);
+  } catch {
+    return undefined;
+  }
+}
+
+export function useGovernedActionApproval(agentId: string) {
+  useInterrupt({
+    agentId, // the same agent as your chat
+    render: ({ event, interrupt, resolve, cancel }) => {
+      const action = (interrupt?.metadata?.action ??
+        parseInterruptValue(event.value)?.action) as GovernedAction | undefined;
+
+      if (!action) {
+        return <Text>The agent is waiting for an approval it didn't describe.</Text>;
+      }
+
+      return (
+        <GovernedActionCard
+          action={action}
+          onApprove={() =>
+            resolve({ approved: true, actionId: action.id, reference: action.reference })
+          }
+          onReject={() =>
+            resolve({ approved: false, actionId: action.id, reference: action.reference })
+          }
+          onBlock={() => cancel()}
+        />
+      );
+    },
+  });
+}
+```
+
+The sample reads the action from either interrupt shape:
+
+- A standard AG-UI interrupt: the agent puts the action in `interrupt.metadata.action`.
+- A custom `on_interrupt` event: `interrupt` is `null`, and `event.value` holds the value from the agent. A LangGraph agent sends this event by default, with the value that the graph passed to `interrupt()` as JSON.
+
+On resume, the agent runs the action only when it receives an approved answer for the same action id and reference. In a LangGraph Python agent, the tool calls `interrupt()` with the action and checks the resume value:
+
+```python title="agent.py"
+import hashlib
+import json
+
+from langchain_core.tools import tool
+from langgraph.types import interrupt
+
+
+@tool
+def send_email(to: str, subject: str, body: str) -> str:
+    """Send an email. The user must approve it first."""
+    arguments = {"to": to, "subject": subject, "body": body}
+    action = {
+        # Derive the id from the arguments: LangGraph runs the tool again on resume.
+        "id": hashlib.sha256(json.dumps(arguments, sort_keys=True).encode()).hexdigest()[:16],
+        "summary": f"Send an email to {to}",
+        "tool": "send_email",
+        "reference": "policy:outbound-email",
+        "verdict": "require_approval",
+        "arguments": arguments,
+    }
+
+    response = interrupt({"action": action})
+
+    if (
+        isinstance(response, dict)
+        and response.get("approved")
+        and response.get("actionId") == action["id"]
+        and response.get("reference") == action["reference"]
+    ):
+        deliver_email(to, subject, body)  # your own email client
+        return f"Email sent to {to}."
+
+    return "The user did not approve this action. The email was not sent."
+```
+
+For other agent frameworks, see [Pausing the Agent for Input](/human-in-the-loop/useInterrupt) for how each one emits an interrupt. On the Built-in Agent, interrupts are temporarily unavailable, so use the tool-call pattern below.
+
+## Tool-call approval with `useHumanInTheLoop`
+
+For pauses the model decides on, register the approval checkpoint as a human-in-the-loop [frontend tool](/frontend-tools). To compare this pattern with interrupts, see the [HITL Overview](/human-in-the-loop). The model asks to call `approve_governed_action`, your UI renders the card, and the tool result tells the agent whether it may continue:
+
+```tsx title="src/GovernedActionTool.tsx"
+import { ToolCallStatus, useHumanInTheLoop } from "@copilotkit/react-native/headless";
+import { z } from "zod";
+import { GovernedActionCard } from "./GovernedActionCard";
+
+const governedActionSchema = z.object({
+  id: z.string(),
+  summary: z.string(),
+  tool: z.string(),
+  reference: z.string(),
+  verdict: z.enum(["allow", "deny", "require_approval"]),
+  arguments: z.record(z.unknown()),
+});
+
+export function useGovernedActionTool() {
+  useHumanInTheLoop({
+    name: "approve_governed_action",
+    description: "Ask the user to approve a governed side-effect action before it runs.",
+    parameters: governedActionSchema,
+    render: ({ args, status, respond }) => {
+      if (status !== ToolCallStatus.Executing || !respond) {
+        return null;
+      }
+
+      const answer = (approved: boolean) =>
+        respond({ approved, actionId: args.id, reference: args.reference });
+
+      return (
+        <GovernedActionCard
+          action={args}
+          onApprove={() => answer(true)}
+          onReject={() => answer(false)}
+          onBlock={() => answer(false)}
+        />
+      );
+    },
+  });
+}
+```
+
+The card shows only while the call is running, which is when `respond` is set. The rendered chat from `/components` draws it in the conversation. In your own chat, render tool calls with `useRenderToolCall`. See [Headless UI](/custom-look-and-feel/headless-ui).
+
+Ask the agent to send an email. The approval card shows the tool, the reference, and the arguments. Tap **Reject**, and the agent replies that it did not send the email.
+
+## Recommended guardrails
+
+- Check policy on the server before presenting the approval, not only in the app.
+- Include a stable `action.id` and `reference`, so the approval can't be replayed for a different action.
+- Show the exact action arguments before the user approves.
+- Treat `deny` as final for that proposed action. Don't run a denied side effect from a later UI callback.
+- Log the proposal, verdict, user decision, and execution result, so the action is auditable.

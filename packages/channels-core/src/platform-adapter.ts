@@ -9,6 +9,7 @@ import type {
   MessageOperation,
   ProviderActor,
   ThreadMessage,
+  PostFileResult,
 } from "@copilotkit/channels-ui";
 import type { IngressIdentityContext } from "./identity.js";
 import type { ResolvedChannelMemory } from "./memory.js";
@@ -171,6 +172,13 @@ export interface IncomingTurn extends IngressEventBase, IngressIds {
 export interface InteractionEvent extends IngressEventBase, IngressIds {
   id: string; // opaque minted action id (ck:...)
   value?: unknown;
+  /**
+   * The clicked element's value exactly as the platform delivered it, when
+   * the adapter decoded `value` from it (Slack decodes a select option's value
+   * as JSON, so `"9.90"` arrives in `value` as `9.9`). `awaitChoice` matches a
+   * select option by this raw string when it is present.
+   */
+  rawValue?: string | readonly string[];
   /** Submitted input id → value, separate from the clicked action's envelope. */
   values?: Record<string, unknown>;
   /** The message the interaction occurred on (the picker), so handlers can update it in place. */
@@ -331,12 +339,45 @@ export interface AdapterStartContext {
   channelName?: string;
 }
 
+export interface StagedFile {
+  fileId?: string;
+  dataUrl?: string;
+  attachmentName?: string;
+  bytes?: Uint8Array;
+}
+
+export interface StageFileArgs {
+  bytes: Uint8Array;
+  filename: string;
+  altText: string;
+}
+
 export interface PlatformAdapter {
+  /** Opt in to standalone JSX image posts. Managed Slack and Teams provide this. */
+  readonly supportsJsxImages?: boolean;
+
   readonly platform: string;
   readonly capabilities: SurfaceCapabilities;
   readonly ackDeadlineMs: number;
   /** Return the trusted canonical Thread bound to an opaque reply target. */
   getCanonicalThreadId?(target: ReplyTarget): string;
+  /**
+   * The `conversationKey` this adapter's decoders will report for a click on a
+   * control (`"action"`) or a reaction (`"reaction"`) on a message it posted to
+   * `target` and returned as `posted`. Actions and reactions bound in that
+   * message are scoped to this key, so a click is accepted only where the
+   * message actually lives.
+   *
+   * Implement it when that key can differ from the key of the turn that posted
+   * the message (Slack: a slash-command reply or a flat channel reply is keyed
+   * by the posted message's own ts). Omit it, or return `undefined`, when the
+   * two always agree; the posting turn's key is then used.
+   */
+  postedConversationKey?(
+    target: ReplyTarget,
+    posted: MessageRef,
+    kind: "action" | "reaction",
+  ): string | undefined;
   start(sink: IngressSink, ctx?: AdapterStartContext): Promise<void>;
   stop(): Promise<void>;
   render(ir: ChannelNode[]): NativePayload;
@@ -410,14 +451,13 @@ export interface PlatformAdapter {
       title?: string;
       altText?: string;
     },
-  ): Promise<{
-    ok: boolean;
-    /** Provider file or message ID for native adapters. */
-    fileId?: string;
-    /** Provider-neutral managed asset ID for Intelligence adapters. */
-    assetId?: string;
-    error?: string;
-  }>;
+  ): Promise<PostFileResult>;
+  /**
+   * Optional file staging. Hosts that can upload a file without posting it
+   * (or that return a data URL / bytes for later attach) implement this.
+   * Adapters that omit it leave image-hosting to the caller.
+   */
+  stageFile?(target: ReplyTarget, args: StageFileArgs): Promise<StagedFile>;
   /**
    * Optional slash-command support. Called once on `start()` with the channel's
    * declared commands, so a surface that registers commands up front (e.g.

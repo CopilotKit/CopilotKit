@@ -17,7 +17,7 @@
   "dependencies": {
     "@ag-ui/client": "1.0.2",
     "@ag-ui/llamaindex": "0.1.5",
-    "@copilotkit/channels": "0.11.0",
+    "@copilotkit/channels": "0.11.1",
     "@copilotkit/react-core": "1.79.0",
     "@copilotkit/runtime": "1.79.0",
     "@hono/node-server": "^1",
@@ -26,7 +26,7 @@
     "dotenv": "^16.4.7",
     "hono": "^4",
     "lucide-react": "^0.468.0",
-    "next": "16.0.8",
+    "next": "16.3.8",
     "react": "19.2.8",
     "react-dom": "19.2.8",
     "tailwind-merge": "^2.5.5",

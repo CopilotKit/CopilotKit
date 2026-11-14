@@ -1,0 +1,26 @@
+name: claude_managed_flutter
+description: A small Claude Managed Agents chat app.
+version: 0.1.0+1
+publish_to: none
+
+environment:
+  sdk: ^3.13.0
+  flutter: ^3.47.0
+
+workspace:
+  - .sdk/packages/copilotkit
+  - .sdk/packages/copilotkit_flutter
+  - .sdk/packages/json_utils
+
+dependencies:
+  copilotkit_flutter: ^0.1.0
+  flutter:
+    sdk: flutter
+  flutter_bloc: ^9.1.1
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+
+flutter:
+  uses-material-design: true

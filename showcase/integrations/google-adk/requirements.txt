@@ -2,15 +2,16 @@ fastapi>=0.115.0
 uvicorn[standard]>=0.34.0
 python-dotenv
 pydantic
-google-adk
-# google-genai is required by both the primary LlmAgent (via google-adk) and
-# the secondary generate_a2ui planner call. Explicit pin keeps the version
-# floor independent of google-adk's transitive resolution.
-google-genai>=0.8.0
-# 0.7.0 ships the OSS-158 A2UI middleware path (auto-injected generate_a2ui,
-# toolkit recovery loop, render_as_llm_instructions prompt + parse_and_fix
-# healing, hard-failure envelope). Raises the effective google-adk floor to
-# >=1.28.1 and adds a2ui-agent-sdk + ag-ui-a2ui-toolkit transitively.
-# ag-ui-protocol stays at 0.1.18 (satisfies the middleware's >=0.1.15 floor).
-ag-ui-adk==0.7.0
-ag-ui-protocol==0.1.18
+# Keep the Google agent/model pair reproducible. ADK 2.x requires GenAI <3.
+google-adk==2.14.0
+google-genai==2.34.0
+# A2UI Express needs ag-ui-adk >= 0.12.0 (published A2UI SDK streaming) and
+# the A2UI toolkit >= 0.0.6 (bounded inference-failure recovery). ag-ui-adk
+# 0.13.0 follows the catalog's declared A2UI version (0.9 or 1.0) and still
+# requires a2ui-agent-sdk 0.10 / a2ui-core 0.5. Keep these aligned with the
+# ADK starters.
+ag-ui-adk==0.13.0
+ag-ui-a2ui-toolkit==0.0.6
+a2ui-agent-sdk==0.10.0
+a2ui-core==0.5.0
+ag-ui-protocol==1.0.0

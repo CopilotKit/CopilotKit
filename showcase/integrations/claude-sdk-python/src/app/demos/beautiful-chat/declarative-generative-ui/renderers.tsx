@@ -44,6 +44,12 @@ const c = {
   btnDoneBg: "color-mix(in srgb, #22c55e 10%, var(--card))",
 };
 
+// Recharts' default tooltip is white with a #ccc border; follow the theme.
+const tooltipStyle = {
+  backgroundColor: c.card,
+  border: "1px solid light-dark(#ccc, var(--border))",
+};
+
 function ActionButton({
   label,
   doneLabel,
@@ -63,9 +69,11 @@ function ActionButton({
         width: "100%",
         padding: "10px 16px",
         borderRadius: "10px",
-        border: done ? "1px solid #bbf7d0" : `1px solid ${c.border}`,
+        border: done
+          ? "1px solid light-dark(#bbf7d0, #166534)"
+          : `1px solid ${c.border}`,
         background: done ? c.btnDoneBg : c.btnBg,
-        color: done ? "#059669" : c.cardFg,
+        color: done ? "light-dark(#059669, #34d399)" : c.cardFg,
         fontSize: "0.85rem",
         fontWeight: 500,
         cursor: done ? "default" : "pointer",
@@ -88,7 +96,7 @@ function ActionButton({
           height="16"
           viewBox="0 0 24 24"
           fill="none"
-          stroke="#059669"
+          stroke="currentColor"
           strokeWidth="2.5"
           strokeLinecap="round"
           strokeLinejoin="round"
@@ -240,8 +248,8 @@ const demonstrationCatalogRenderers: CatalogRenderers<DemonstrationCatalogDefini
 
     Metric: ({ props }) => {
       const trendColors: Record<string, string> = {
-        up: "#059669",
-        down: "#dc2626",
+        up: "light-dark(#059669, #34d399)",
+        down: "light-dark(#dc2626, #f87171)",
         neutral: c.muted,
       };
       const trendIcons: Record<string, string> = {
@@ -320,7 +328,7 @@ const demonstrationCatalogRenderers: CatalogRenderers<DemonstrationCatalogDefini
                   />
                 ))}
               </Pie>
-              <Tooltip />
+              <Tooltip contentStyle={tooltipStyle} />
             </RechartsPie>
           </ResponsiveContainer>
         </div>
@@ -336,7 +344,10 @@ const demonstrationCatalogRenderers: CatalogRenderers<DemonstrationCatalogDefini
               <CartesianGrid strokeDasharray="3 3" stroke={c.divider} />
               <XAxis dataKey="label" tick={{ fontSize: 11, fill: c.muted }} />
               <YAxis tick={{ fontSize: 11, fill: c.muted }} />
-              <Tooltip />
+              <Tooltip
+                contentStyle={tooltipStyle}
+                cursor={{ fill: "light-dark(#ccc, var(--muted))" }}
+              />
               <Bar
                 dataKey="value"
                 fill={props.color ?? "#3b82f6"}
@@ -350,10 +361,22 @@ const demonstrationCatalogRenderers: CatalogRenderers<DemonstrationCatalogDefini
 
     Badge: ({ props }) => {
       const variants: Record<string, { bg: string; color: string }> = {
-        success: { bg: "#dcfce7", color: "#166534" },
-        warning: { bg: "#fef3c7", color: "#92400e" },
-        error: { bg: "#fee2e2", color: "#991b1b" },
-        info: { bg: "#dbeafe", color: "#1e40af" },
+        success: {
+          bg: "light-dark(#dcfce7, color-mix(in srgb, #22c55e 15%, transparent))",
+          color: "light-dark(#166534, #86efac)",
+        },
+        warning: {
+          bg: "light-dark(#fef3c7, color-mix(in srgb, #f59e0b 15%, transparent))",
+          color: "light-dark(#92400e, #fcd34d)",
+        },
+        error: {
+          bg: "light-dark(#fee2e2, color-mix(in srgb, #ef4444 15%, transparent))",
+          color: "light-dark(#991b1b, #fca5a5)",
+        },
+        info: {
+          bg: "light-dark(#dbeafe, color-mix(in srgb, #3b82f6 15%, transparent))",
+          color: "light-dark(#1e40af, #93c5fd)",
+        },
         neutral: { bg: "var(--muted)", color: c.cardFg },
       };
       const v = variants[props.variant ?? "neutral"] ?? variants.neutral;

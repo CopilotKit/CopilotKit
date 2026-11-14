@@ -1,4 +1,29 @@
 import {
+  learningRunSchema,
+  learningCandidateSchema,
+  learningCandidateDetailSchema,
+  learningCandidateReviewSchema,
+  learningInsightEvidenceSchema,
+  learningObjectId,
+  learningContainerSchema,
+  learningContainerPageSchema,
+  learningContainerPath,
+  readLearningJson,
+} from "./learning-management";
+import type { ExperimentalLearningManagement } from "./experimental";
+import type {
+  LearningRun,
+  LearningCandidate,
+  LearningCandidateDetail,
+  LearningCandidateReview,
+  LearningInsightEvidence,
+  LearningCandidateRequest,
+  LearningContainer,
+  LearningContainerPage,
+  LearningRequestOptions,
+  LearningContainerRequest,
+} from "./learning-management";
+import {
   logger,
   parseInspectorLearningSnapshotV1,
   parseInspectorMetadataV1,
@@ -12,6 +37,8 @@ import type {
 import { randomUUID } from "crypto";
 import { z } from "zod";
 import { resolveTrajectoryLearningContainerIds } from "../core/learning";
+import { normalizeAnalyticsContext } from "./analytics-context";
+import { sendStopRun } from "./stop-run";
 import type {
   GetLearningContainerId,
   GetTrajectoryLearningContainerIds,
@@ -242,6 +269,8 @@ export class PlatformRequestError extends Error {
     public readonly status: number,
     /** Whether retrying may succeed without changing client configuration. */
     public readonly retryable?: boolean,
+    /** Stable backend error code, when supplied by a validated error envelope. */
+    public readonly code?: string,
   ) {
     super(message);
     this.name = "PlatformRequestError";
@@ -386,6 +415,10 @@ export interface CopilotKitIntelligenceConfig {
  * {@link CopilotKitIntelligence.getThreadMessages} for that.
  */
 export interface ThreadSummary {
+  /** Existing Learning membership for single-container Threads; null for zero or multiple memberships. */
+  learningContainerId?: string | null;
+  /** Existing Learning memberships. Absent on older platform responses; do not infer a new assignment from absence. */
+  learningContainerIds?: string[];
   /** Platform-assigned unique identifier. */
   id: string;
   /** Human-readable display name, or `null` if the thread has not been named. */
@@ -667,6 +700,18 @@ export interface AcquireThreadLockRequest {
   learningContainerId?: string;
   /** Internal managed-Channel delivery context for shared Thread access. */
   channelDeliveryId?: string;
+  /**
+   * The user request this run belongs to. Follow-up runs and resumes of one
+   * request send the same ID, so the platform counts the request once.
+   */
+  requestId?: string;
+  /**
+   * The app's analytics context for this run, sent as `analyticsContext`.
+   * Sent only when it is a plain JSON object of at most 4 KB serialized, and
+   * otherwise dropped without failing the lock. Intelligence validates the
+   * fields; the runtime does not read them.
+   */
+  analyticsContext?: Record<string, unknown>;
   /** Custom Redis key prefix for the lock (default: "thread"). */
   lockKeyPrefix?: string;
   /** Lock TTL in seconds. When set, the lock auto-expires after this duration. */
@@ -687,6 +732,8 @@ export interface RenewThreadLockRequest {
 export interface CleanupThreadLockRequest {
   threadId: string;
   runId: string;
+  /** Aborts the request, e.g. when the caller stops waiting for it. */
+  signal?: AbortSignal;
 }
 
 export interface RenewThreadLockResponse {
@@ -750,7 +797,35 @@ interface ThreadEnvelope {
  * });
  * ```
  */
+/**
+ * The thread events and state reads are scoped to one end user. A caller
+ * that omits `userId` (a JS caller, or one built against the earlier
+ * signature) would otherwise send the literal string "undefined" as the user.
+ */
+function requireThreadReadUserId(method: string, userId: unknown): void {
+  if (typeof userId !== "string" || userId === "") {
+    throw new TypeError(
+      `${method} requires a non-empty userId: the id identifyUser returned`,
+    );
+  }
+}
+
 export class CopilotKitIntelligence {
+  /** Experimental server-side APIs; their contracts may change before release. */
+  readonly experimental: { readonly learning: ExperimentalLearningManagement } =
+    {
+      learning: {
+        listLearningContainers: this.#listLearningContainers.bind(this),
+        getLearningContainer: this.#getLearningContainer.bind(this),
+        listLearningRuns: this.#listLearningRuns.bind(this),
+        startLearningRun: this.#startLearningRun.bind(this),
+        listLearningCandidates: this.#listLearningCandidates.bind(this),
+        getLearningCandidate: this.#getLearningCandidate.bind(this),
+        getLearningInsightEvidence: this.#getLearningInsightEvidence.bind(this),
+        reviewLearningCandidate: this.#reviewLearningCandidate.bind(this),
+      },
+    };
+
   #apiUrl: string;
   #runnerWsUrl: string;
   #clientWsUrl: string;
@@ -1240,6 +1315,191 @@ export class CopilotKitIntelligence {
       if (timeoutId !== undefined) {
         clearTimeout(timeoutId);
       }
+    }
+  }
+
+  /** Lists a bounded page of Learning spaces owned by this server's project key. */
+  async #listLearningContainers(
+    options: LearningRequestOptions & { readonly cursor?: string } = {},
+  ): Promise<LearningContainerPage> {
+    const query =
+      options.cursor === undefined
+        ? ""
+        : `?cursor=${encodeURIComponent(z.string().min(1).max(128).parse(options.cursor))}`;
+    return this.#learningRequest<LearningContainerPage>(
+      "GET",
+      `/api/v1/learning/containers${query}`,
+      learningContainerPageSchema,
+      options.signal,
+    );
+  }
+
+  /** Reads one Learning space; this does not assign or move any conversations. */
+  async #getLearningContainer(
+    options: LearningContainerRequest,
+  ): Promise<LearningContainer> {
+    const response = await this.#learningRequest<{
+      container: LearningContainer;
+    }>(
+      "GET",
+      learningContainerPath(options.containerId),
+      z.object({ container: learningContainerSchema }),
+      options.signal,
+    );
+    return response.container;
+  }
+
+  /** Reads the latest 100 Learning runs; queue admission is not completion. */
+  async #listLearningRuns(
+    options: LearningContainerRequest,
+  ): Promise<LearningRun[]> {
+    const response = await this.#learningRequest<{ runs: LearningRun[] }>(
+      "GET",
+      `${learningContainerPath(options.containerId)}/runs`,
+      z.object({ runs: z.array(learningRunSchema).max(100) }),
+      options.signal,
+    );
+    return response.runs;
+  }
+
+  /** Starts or recovers a manual run for all eligible evidence in this space. Never retries automatically. */
+  async #startLearningRun(
+    options: LearningContainerRequest,
+  ): Promise<LearningRun> {
+    const response = await this.#learningRequest<{ run: LearningRun }>(
+      "POST",
+      `${learningContainerPath(options.containerId)}/runs`,
+      z.object({ run: learningRunSchema }),
+      options.signal,
+    );
+    return response.run;
+  }
+
+  /** Reads the latest 500 proposed Skill changes, including completed reviews. */
+  async #listLearningCandidates(
+    options: LearningContainerRequest,
+  ): Promise<LearningCandidate[]> {
+    const response = await this.#learningRequest<{
+      candidates: LearningCandidate[];
+    }>(
+      "GET",
+      `${learningContainerPath(options.containerId)}/candidates`,
+      z.object({ candidates: z.array(learningCandidateSchema).max(500) }),
+      options.signal,
+    );
+    return response.candidates;
+  }
+
+  /** Reads proposed files and supporting Insights for an explicit review decision. */
+  async #getLearningCandidate(
+    options: LearningCandidateRequest,
+  ): Promise<LearningCandidateDetail> {
+    const response = await this.#learningRequest<{
+      candidate: LearningCandidateDetail;
+    }>(
+      "GET",
+      `${learningContainerPath(options.containerId)}/candidates/${learningObjectId(options.candidateId)}`,
+      z.object({ candidate: learningCandidateDetailSchema }),
+      options.signal,
+    );
+    return response.candidate;
+  }
+
+  /** Reads scoped source evidence, including unavailable-source reasons. */
+  async #getLearningInsightEvidence(
+    options: LearningContainerRequest & { readonly insightId: string },
+  ): Promise<LearningInsightEvidence[]> {
+    const response = await this.#learningRequest<{
+      evidence: LearningInsightEvidence[];
+    }>(
+      "GET",
+      `${learningContainerPath(options.containerId)}/insights/${learningObjectId(options.insightId)}/evidence`,
+      z.object({ evidence: z.array(learningInsightEvidenceSchema) }),
+      options.signal,
+    );
+    return response.evidence;
+  }
+
+  /** Publishes or rejects a proposal. The application must authorize its reviewer before calling. */
+  async #reviewLearningCandidate(
+    options: LearningCandidateRequest & {
+      readonly action: "approve" | "reject";
+    },
+  ): Promise<LearningCandidateReview> {
+    const action = z.enum(["approve", "reject"]).parse(options.action);
+    const response = await this.#learningRequest<{
+      review: LearningCandidateReview;
+    }>(
+      "POST",
+      `${learningContainerPath(options.containerId)}/candidates/${learningObjectId(options.candidateId)}/${action}`,
+      z.object({ review: learningCandidateReviewSchema }),
+      options.signal,
+    );
+    return response.review;
+  }
+
+  /** Uses server credentials, bounded JSON, and a deadline without retrying mutations. */
+  async #learningRequest<T>(
+    method: "GET" | "POST",
+    path: string,
+    schema: z.ZodTypeAny,
+    signal?: AbortSignal,
+  ): Promise<T> {
+    signal?.throwIfAborted();
+    const controller = new AbortController();
+    const abort = () => controller.abort(signal?.reason);
+    signal?.addEventListener("abort", abort, { once: true });
+    const timeout = setTimeout(
+      () => controller.abort(new Error("Learning request timed out")),
+      30_000,
+    );
+    try {
+      const response = await fetch(`${this.#apiUrl}${path}`, {
+        method,
+        headers: {
+          Authorization: `Bearer ${this.#apiKey}`,
+          "Content-Type": "application/json",
+        },
+        ...(method === "POST" ? { body: "{}" } : {}),
+        signal: controller.signal,
+      });
+      if (!response.ok) {
+        const body = await readLearningJson(
+          response,
+          64 * 1024,
+          controller.signal,
+        ).catch(() => undefined);
+        controller.signal.throwIfAborted();
+        const error = z
+          .object({
+            error: z.object({
+              code: z.string().regex(/^[A-Z][A-Z0-9_]{0,99}$/),
+              retryable: z.boolean(),
+            }),
+          })
+          .safeParse(body);
+        throw new PlatformRequestError(
+          `Learning request failed (${response.status}).`,
+          response.status,
+          error.success
+            ? error.data.error.retryable
+            : response.status === 429 || response.status >= 500,
+          error.success ? error.data.error.code : undefined,
+        );
+      }
+      try {
+        // Runtime schemas validate first. Explicit wire types avoid Zod inference
+        // losing required/null fields when this package emits non-strict declarations.
+        return schema.parse(
+          await readLearningJson(response, undefined, controller.signal),
+        ) as T;
+      } catch {
+        if (controller.signal.aborted) throw controller.signal.reason;
+        throw new PlatformRequestError("Invalid Learning response.", 502, true);
+      }
+    } finally {
+      clearTimeout(timeout);
+      signal?.removeEventListener("abort", abort);
     }
   }
 
@@ -1984,6 +2244,36 @@ export class CopilotKitIntelligence {
     );
   }
 
+  /**
+   * @internal Fetch only the ids of a thread's persisted messages.
+   *
+   * Sends `fields=id` so the platform can omit message content. Platform
+   * versions that do not know the parameter ignore it and return the full
+   * transcript; ids are read from `messages[].id` either way.
+   *
+   * @throws {@link PlatformRequestError} on non-2xx responses.
+   */
+  async ɵgetThreadMessageIds(params: {
+    threadId: string;
+    userId: string;
+    /** Internal managed-Channel delivery context for shared Thread access. */
+    channelDeliveryId?: string;
+  }): Promise<string[]> {
+    const qs = new URLSearchParams({
+      userId: params.userId,
+      fields: "id",
+    }).toString();
+    const response = await this.#request<{ messages: { id: string }[] }>(
+      "GET",
+      `/api/threads/${encodeURIComponent(params.threadId)}/messages?${qs}`,
+      undefined,
+      params.channelDeliveryId
+        ? { "X-Cpki-Channel-Delivery-Id": params.channelDeliveryId }
+        : undefined,
+    );
+    return response.messages.map((message) => message.id);
+  }
+
   /** @internal Fetches one authorized managed Channel asset for history hydration. */
   async ɵgetManagedChannelAsset(assetId: string): Promise<{
     bytes: Uint8Array;
@@ -2019,10 +2309,14 @@ export class CopilotKitIntelligence {
    */
   async getThreadEvents(params: {
     threadId: string;
+    /** The end user the read is for, as `identifyUser` returned it (not project-prefixed). */
+    userId: string;
   }): Promise<ThreadEventsResponse> {
+    requireThreadReadUserId("getThreadEvents", params.userId);
+    const qs = new URLSearchParams({ userId: params.userId }).toString();
     return this.#request<ThreadEventsResponse>(
       "GET",
-      `/api/_inspect/threads/${encodeURIComponent(params.threadId)}/events`,
+      `/api/_inspect/threads/${encodeURIComponent(params.threadId)}/events?${qs}`,
     );
   }
 
@@ -2041,10 +2335,46 @@ export class CopilotKitIntelligence {
    */
   async getThreadState(params: {
     threadId: string;
+    /** The end user the read is for, as `identifyUser` returned it (not project-prefixed). */
+    userId: string;
   }): Promise<ThreadStateResponse> {
+    return this.#getThreadState(params);
+  }
+
+  /**
+   * @internal Reads the state a run on the thread starts from, or undefined
+   * when the platform does not serve stored state. That platform answers
+   * 404, which is logged at debug rather than as a failed request.
+   *
+   * @throws {@link PlatformRequestError} on any other non-2xx response.
+   */
+  async ɵgetStoredThreadState(params: {
+    threadId: string;
+    userId: string;
+  }): Promise<ThreadStateResponse | undefined> {
+    try {
+      return await this.#getThreadState(params, NOT_FOUND);
+    } catch (error) {
+      if (error instanceof PlatformRequestError && error.status === 404) {
+        return undefined;
+      }
+      throw error;
+    }
+  }
+
+  async #getThreadState(
+    params: { threadId: string; userId: string },
+    expectedStatuses?: ReadonlySet<number>,
+  ): Promise<ThreadStateResponse> {
+    requireThreadReadUserId("getThreadState", params.userId);
+    const qs = new URLSearchParams({ userId: params.userId }).toString();
     return this.#request<ThreadStateResponse>(
       "GET",
-      `/api/_inspect/threads/${encodeURIComponent(params.threadId)}/state`,
+      `/api/_inspect/threads/${encodeURIComponent(params.threadId)}/state?${qs}`,
+      undefined,
+      undefined,
+      undefined,
+      expectedStatuses,
     );
   }
 
@@ -2154,6 +2484,9 @@ export class CopilotKitIntelligence {
   async ɵacquireThreadLock(
     params: AcquireThreadLockRequest,
   ): Promise<AcquireThreadLockResponse> {
+    // Checked here as well as in the run handler: headless callers reach the
+    // lock directly, without a run handler in between.
+    const analyticsContext = normalizeAnalyticsContext(params.analyticsContext);
     return this.#request<AcquireThreadLockResponse>(
       "POST",
       `/api/threads/${encodeURIComponent(params.threadId)}/lock`,
@@ -2167,6 +2500,10 @@ export class CopilotKitIntelligence {
         ...(params.learningContainerId !== undefined
           ? { learningContainerId: params.learningContainerId }
           : {}),
+        ...(params.requestId !== undefined
+          ? { requestId: params.requestId }
+          : {}),
+        ...(analyticsContext !== undefined ? { analyticsContext } : {}),
         ...(params.lockKeyPrefix !== undefined
           ? { lockKeyPrefix: params.lockKeyPrefix }
           : {}),
@@ -2187,6 +2524,8 @@ export class CopilotKitIntelligence {
       {
         runId: params.runId,
       },
+      undefined,
+      params.signal,
     );
   }
 
@@ -2235,6 +2574,47 @@ export class CopilotKitIntelligence {
 
     // request() returns undefined for empty/204 responses
     return result ?? null;
+  }
+
+  /**
+   * @internal Records that the runtime stopped a run, by the route a
+   * browser's Stop takes: mint a thread join token, join the thread's client
+   * channel and send `stop_run`. Intelligence stores the stop for the run, so
+   * it counts the run's terminal event as cancelled rather than finished.
+   *
+   * @throws {@link PlatformRequestError} when no join token is issued, or an
+   *   error when the channel or the stop is refused or `signal` aborts.
+   */
+  async ɵrecordRunStop(params: {
+    threadId: string;
+    runId: string;
+    /** The run's end user, as `identifyUser` returned it (not project-prefixed). */
+    userId: string;
+    agentId: string;
+    signal?: AbortSignal;
+  }): Promise<void> {
+    const connection = await this.#request<
+      ThreadConnectionResponse | undefined
+    >(
+      "POST",
+      `/api/threads/${encodeURIComponent(params.threadId)}/connect`,
+      { userId: params.userId, agentId: params.agentId },
+      undefined,
+      params.signal,
+    );
+    if (!connection?.joinToken) {
+      throw new PlatformRequestError(
+        "Intelligence issued no join token to record the stop",
+        502,
+      );
+    }
+    await sendStopRun({
+      url: this.#clientWsUrl,
+      joinToken: connection.joinToken,
+      threadId: params.threadId,
+      runId: params.runId,
+      ...(params.signal ? { signal: params.signal } : {}),
+    });
   }
 }
 

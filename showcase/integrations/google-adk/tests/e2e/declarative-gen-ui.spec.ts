@@ -29,7 +29,7 @@ import type { Page } from "@playwright/test";
  *  shows up.
  *
  *  The "dispatched" assertion is scoped to the chat-message list
- *  (`[data-message-role="user"]`), NOT a bare `getByText` — the pill
+ *  (`[data-testid="copilot-user-message"]`), NOT a bare `getByText` — the pill
  *  button itself contains the message text, so an unscoped match would
  *  satisfy the locator with the pill rather than the resulting user
  *  bubble, neutering the dispatch guard. Before each retry we also
@@ -43,7 +43,7 @@ async function clickPill(page: Page, title: string, message: string) {
     .first();
   await expect(pill).toBeVisible({ timeout: 15_000 });
   const userBubble = page
-    .locator('[data-message-role="user"]')
+    .locator('[data-testid="copilot-user-message"]')
     .filter({ hasText: message })
     .first();
   await expect(async () => {

@@ -301,6 +301,31 @@ describe("reconcileStaging (orchestration)", () => {
     expect(reconcileExitCode(summary)).not.toBe(0);
   });
 
+  it("never confirms a skipped lagging service as remediated", async () => {
+    const { deps } = makeDeps(
+      { "showcase-ag2": { deployed: DIGEST_A, latest: DIGEST_B } },
+      {
+        redeployReport: {
+          attempted: 1,
+          succeeded: 0,
+          failed: 0,
+          records: [
+            {
+              service: "showcase-ag2",
+              status: "skipped",
+              reason: "superseded",
+              supersededBy: "e".repeat(40),
+              supersedingImageDigest: DIGEST_B,
+            },
+          ],
+        },
+      },
+    );
+    const summary = await reconcileStaging(deps);
+    expect(summary.unconfirmed.map((u) => u.service)).toContain("showcase-ag2");
+    expect(reconcileExitCode(summary)).not.toBe(0);
+  });
+
   // ── Finding 5: a partial redeploy failure must not report green ────────────
   it("partial redeploy failure (failed>0) → non-zero exit", async () => {
     const { deps } = makeDeps(

@@ -46,9 +46,31 @@ def resolve_model(default_spec: str) -> str:
     """Return a LiteLLM model string, e.g. ``"anthropic/claude-sonnet-4-6"``.
 
     Args:
-        default_spec: The default when the variable is unset, e.g. ``"openai:gpt-5-mini"``.
+        default_spec: The default when the variable is unset, e.g. ``"openai:gpt-6-luna"``.
     """
     provider, model = parse_agent_model(
         (os.getenv("COPILOTKIT_AGENT_MODEL") or "").strip() or default_spec
     )
     return f"{_LITELLM_PREFIXES[provider]}/{model}"
+
+
+def completion_options(model: str) -> dict:
+    """Return the tool-call options for a LiteLLM ``completion`` call.
+
+    The agent turns parallel tool calls off, but LiteLLM refuses
+    ``parallel_tool_calls=False`` for Gemini when a request carries more than
+    one tool. Gemini gets the provider's default instead.
+
+    Args:
+        model: The LiteLLM model string from :func:`resolve_model`.
+    """
+    if model.startswith("gemini/"):
+        return {}
+    return {
+        "parallel_tool_calls": False,
+        **(
+            {"reasoning_effort": "none", "allowed_openai_params": ["reasoning_effort"]}
+            if model == "openai/gpt-6-luna"
+            else {}
+        ),
+    }

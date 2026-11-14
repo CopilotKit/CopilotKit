@@ -60,6 +60,12 @@ program
       "all",
     ]),
   )
+  .addOption(
+    new Option(
+      "--format <format>",
+      "assert A2UI server inference format",
+    ).choices(["express", "direct_json"]),
+  )
   .option("--d6", "shorthand for --level d6")
   .option("--d5", "shorthand for --level d5")
   .option("--d4", "shorthand for --level d4")
@@ -85,6 +91,7 @@ program
       target: string,
       opts: {
         level?: string;
+        format?: "express" | "direct_json";
         d6?: boolean;
         d5?: boolean;
         d4?: boolean;

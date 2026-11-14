@@ -39,13 +39,15 @@ const ACTIVE = {
     },
   ],
 };
-const INTELLIGENCE_IDS = {
+const STAGING_ONLY_IDS = {
   "showcase-intelligence-api": "2cf17267-31c4-4e92-8270-5ad92bd7ad19",
   "showcase-intelligence-composite": "70b24c88-81a5-469d-ae57-3df0daea2b3c",
   "showcase-intelligence-gateway": "f2eec3fd-d841-481b-9a9d-c8fd94c27870",
   "showcase-intelligence-gateway-proxy": "12513b2b-e368-4f7a-8141-1c28ab4f6f09",
   "showcase-intelligence-postgres": "6c2d2998-e7ae-413d-997d-7277f9fd6e07",
   "showcase-intelligence-redis": "7b99fa95-2124-4d19-838a-652464e351da",
+  "showcase-intelligence-test-runner": "4922b45b-6981-4559-be2f-fbbca9123323",
+  "docs-preview": "a5ff33b4-8b8d-4fbc-94b1-177374464bb8",
 };
 
 describe("permanent fleet lifecycle isolation", () => {
@@ -82,13 +84,13 @@ describe("permanent fleet lifecycle isolation", () => {
       appendSummary: () => {},
     });
     expect(result.exitCode).toBe(0);
-    expect(result.attempted).toBe(42);
+    expect(result.attempted).toBe(43);
     expect(redeploy).toHaveBeenCalledWith(
       SERVICES["harness-workers"].serviceId,
       STAGING_ENV_ID,
     );
     expect(redeploy).not.toHaveBeenCalledWith(TEMP_ID, expect.anything());
-    for (const id of Object.values(INTELLIGENCE_IDS)) {
+    for (const id of Object.values(STAGING_ONLY_IDS)) {
       expect(redeploy).not.toHaveBeenCalledWith(id, expect.anything());
     }
 
@@ -144,7 +146,7 @@ describe("permanent fleet lifecycle isolation", () => {
       log: () => {},
     });
     expect(reconcileExitCode(result)).toBe(0);
-    expect(result.checked).toBe(42);
+    expect(result.checked).toBe(43);
     expect(result.lagging).toEqual(["harness"]);
     expect(redeploy.mock.calls).toEqual([
       [SERVICES.harness.serviceId, STAGING_ENV_ID],
@@ -154,7 +156,7 @@ describe("permanent fleet lifecycle isolation", () => {
       TEMP_ID,
       expect.anything(),
     );
-    for (const id of Object.values(INTELLIGENCE_IDS)) {
+    for (const id of Object.values(STAGING_ONLY_IDS)) {
       expect(fetchDeployedDigest).not.toHaveBeenCalledWith(
         id,
         expect.anything(),
@@ -191,7 +193,7 @@ describe("permanent fleet lifecycle isolation", () => {
           entry.serviceId,
           { source: { autoUpdates: null } },
         ]),
-        ...Object.values(INTELLIGENCE_IDS).map((id) => [
+        ...Object.values(STAGING_ONLY_IDS).map((id) => [
           id,
           { source: { autoUpdates: { type: "minor" } } },
         ]),
@@ -205,10 +207,10 @@ describe("permanent fleet lifecycle isolation", () => {
       fetchEnvConfig,
     });
     expect(stagingResult).toEqual({
-      checked: 43,
+      checked: 44,
       skipped: 0,
       violations: [],
-      perEnv: { staging: { expected: 43, checked: 43, skipped: 0 } },
+      perEnv: { staging: { expected: 44, checked: 44, skipped: 0 } },
     });
     expect(summarizeAutoUpdatesFailures(stagingResult).shouldFail).toBe(false);
     expect(fetchEnvConfig).toHaveBeenCalledExactlyOnceWith(STAGING_ENV_ID);
@@ -232,8 +234,8 @@ describe("permanent fleet lifecycle isolation", () => {
           .filter(([, entry]) => entry.autoUpdates?.staging === "unmanaged")
           .map(([name, entry]) => [name, entry.serviceId]),
       ),
-    ).toEqual(INTELLIGENCE_IDS);
-    for (const id of Object.values(INTELLIGENCE_IDS)) {
+    ).toEqual(STAGING_ONLY_IDS);
+    for (const id of Object.values(STAGING_ONLY_IDS)) {
       expect(liveConfig.services[id]).toEqual({
         source: { autoUpdates: { type: "minor" } },
       });
@@ -266,7 +268,7 @@ describe("permanent fleet lifecycle isolation", () => {
         appendSummary: () => {},
       });
       expect(result.exitCode).toBe(0);
-      expect(result.attempted).toBe(42);
+      expect(result.attempted).toBe(43);
       expect(redeploy).not.toHaveBeenCalledWith(TEMP_ID, expect.anything());
       redeploy.mockClear();
       await expect(
@@ -281,15 +283,15 @@ describe("permanent fleet lifecycle isolation", () => {
       expect(computePromoteClosure(Object.keys(SERVICES))).toEqual(
         emitted.closure,
       );
-      expect(Object.keys(SERVICES)).toHaveLength(49);
+      expect(Object.keys(SERVICES)).toHaveLength(52);
     },
   );
 
-  it("keeps static Intelligence identities and the emitted permanent closure unchanged", () => {
-    expect(Object.keys(SERVICES)).toHaveLength(49);
+  it("keeps static staging-only identities and the emitted permanent closure unchanged", () => {
+    expect(Object.keys(SERVICES)).toHaveLength(52);
     expect(Object.hasOwn(SERVICES, TEMP_NAME)).toBe(false);
-    expect(DISPOSABLE_LIFECYCLE_POLICY.approvedImages).toEqual([]);
-    for (const [name, id] of Object.entries(INTELLIGENCE_IDS)) {
+    expect(DISPOSABLE_LIFECYCLE_POLICY.approvedImages).not.toContain(IMAGE);
+    for (const [name, id] of Object.entries(STAGING_ONLY_IDS)) {
       expect(SERVICES[name]).toMatchObject({
         serviceId: id,
         ciBuilt: false,
@@ -301,6 +303,16 @@ describe("permanent fleet lifecycle isolation", () => {
     }
     const closure = computePromoteClosure(Object.keys(SERVICES));
     expect(closure).toEqual(emitted.closure);
+    for (const name of Object.keys(STAGING_ONLY_IDS)) {
+      expect(closure.services.map((service) => service.name)).not.toContain(
+        name,
+      );
+      expect(closure.skipped).toContainEqual({
+        name,
+        reason:
+          'no "prod" environment in the SSOT — cannot be promoted (it exists in: staging).',
+      });
+    }
     expect(closure.services.map(({ name }) => name)).toContain(
       "harness-workers",
     );

@@ -549,3 +549,185 @@ describe("PE-369: starter lock outside the Intelligence adapter range", () => {
     assert.throws(() => pep440Satisfies("1.0", "~=1.0"), /unsupported/);
   });
 });
+
+// ---------------------------------------------------------------------------
+// PE-970 — the Turbopack dev server leaks PostCSS workers.
+//
+// On Next.js 16 below 16.3.1, `next dev` (Turbopack) runs PostCSS in a pool of
+// Node.js workers that can grow without a limit. The langgraph-js starter on
+// 16.1.6 reached about 74 GB of RAM. Next.js 16.3.1 fixes it.
+// ---------------------------------------------------------------------------
+
+const nextLock = (version) =>
+  JSON.stringify({
+    lockfileVersion: 3,
+    packages: {
+      "": { dependencies: { next: version } },
+      "node_modules/next": { version },
+    },
+  });
+
+const nextStarter = (range, lockedVersion) => ({
+  "package.json": JSON.stringify({ dependencies: { next: range } }),
+  ...(lockedVersion === undefined
+    ? {}
+    : { "package-lock.json": nextLock(lockedVersion) }),
+});
+
+describe("PE-970: Next.js with the Turbopack PostCSS worker leak", () => {
+  it("flags a lock that installs an affected Next.js 16 release", () => {
+    const violations = of(
+      check({
+        "langgraph-js": nextStarter("16.1.6", "16.1.6"),
+        agno: nextStarter("16.0.7", "16.0.7"),
+        "crewai-crews": nextStarter("16.2.9", "16.2.9"),
+      }),
+      "next-turbopack-worker-leak",
+    );
+    assert.deepEqual(
+      violations.map((v) => [v.starter, v.subject]),
+      [
+        ["agno", "next@16.0.7"],
+        ["crewai-crews", "next@16.2.9"],
+        ["langgraph-js", "next@16.1.6"],
+      ],
+    );
+    assert.match(violations[0].fix, /16\.3\.1/);
+  });
+
+  it("reads the locked version, so a caret range does not hide it", () => {
+    const violations = of(
+      check({ "a2a-a2ui": nextStarter("^16.0.10", "16.0.10") }),
+      "next-turbopack-worker-leak",
+    );
+    assert.deepEqual(
+      violations.map((v) => v.subject),
+      ["next@16.0.10"],
+    );
+  });
+
+  it("passes on 16.3.1 and later, and on Next.js 15", () => {
+    const violations = of(
+      check({
+        fixed: nextStarter("16.3.8", "16.3.8"),
+        floor: nextStarter("16.3.1", "16.3.1"),
+        newer: nextStarter("16.4.2", "16.4.2"),
+        "a2a-middleware": nextStarter("15.5.15", "15.5.15"),
+      }),
+      "next-turbopack-worker-leak",
+    );
+    assert.deepEqual(violations, []);
+  });
+
+  it("falls back to the lowest version package.json allows when there is no lockfile", () => {
+    const violations = of(
+      check({
+        unlocked: nextStarter("^16.1.0"),
+        "unlocked-fixed": nextStarter("^16.3.1"),
+      }),
+      "next-turbopack-worker-leak",
+    );
+    assert.deepEqual(
+      violations.map((v) => [v.starter, v.subject]),
+      [["unlocked", "next@16.1.0"]],
+    );
+  });
+
+  it("ignores a starter that does not use Next.js", () => {
+    const violations = of(
+      check({
+        angular: {
+          "package.json": JSON.stringify({
+            dependencies: { "@angular/core": "20.0.0" },
+          }),
+        },
+      }),
+      "next-turbopack-worker-leak",
+    );
+    assert.deepEqual(violations, []);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// PE-970 — `next dev` writes agent files into the scaffolded project.
+//
+// From 16.3, `next dev` writes AGENTS.md and CLAUDE.md into the project root
+// when it detects an AI coding agent, which is how most users run a starter.
+// The starters set `agentRules: false` so a project stays as it was scaffolded.
+// ---------------------------------------------------------------------------
+
+const withConfig = (version, configText, file = "next.config.ts") => ({
+  ...nextStarter(version, version),
+  [file]: configText,
+});
+
+describe("PE-970: next dev must not write agent files into a starter", () => {
+  it("flags a Next.js 16.3 starter whose next.config leaves agentRules on", () => {
+    const violations = of(
+      check({
+        "langgraph-js": withConfig(
+          "16.3.8",
+          'const nextConfig: NextConfig = {\n  output: "standalone",\n};\nexport default nextConfig;\n',
+        ),
+        "a2a-a2ui": withConfig(
+          "16.3.8",
+          "const nextConfig = {\n  agentRules: true,\n};\nmodule.exports = nextConfig;\n",
+          "next.config.js",
+        ),
+      }),
+      "next-agent-rules",
+    );
+    assert.deepEqual(
+      violations.map((v) => [v.starter, v.subject]),
+      [
+        ["a2a-a2ui", "next.config.js"],
+        ["langgraph-js", "next.config.ts"],
+      ],
+    );
+    assert.match(violations[0].fix, /agentRules: false/);
+  });
+
+  it("flags a Next.js 16.3 starter with no next.config at all", () => {
+    const violations = of(
+      check({ bare: nextStarter("16.3.8", "16.3.8") }),
+      "next-agent-rules",
+    );
+    assert.deepEqual(
+      violations.map((v) => v.subject),
+      ["next.config"],
+    );
+  });
+
+  it("passes when next.config sets agentRules: false", () => {
+    const violations = of(
+      check({
+        ts: withConfig(
+          "16.3.8",
+          "const nextConfig = {\n  agentRules: false,\n};\n",
+        ),
+        mjs: withConfig(
+          "16.4.2",
+          "const nextConfig = { agentRules : false };\nexport default nextConfig;\n",
+          "next.config.mjs",
+        ),
+      }),
+      "next-agent-rules",
+    );
+    assert.deepEqual(violations, []);
+  });
+
+  it("ignores Next.js releases before 16.3 and starters without Next.js", () => {
+    const violations = of(
+      check({
+        old: withConfig("15.5.15", "const nextConfig = {};\n"),
+        angular: {
+          "package.json": JSON.stringify({
+            dependencies: { "@angular/core": "20.0.0" },
+          }),
+        },
+      }),
+      "next-agent-rules",
+    );
+    assert.deepEqual(violations, []);
+  });
+});

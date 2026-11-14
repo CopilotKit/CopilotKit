@@ -1115,6 +1115,7 @@ describe("runConversation", () => {
     // on a fresh sustained banner, then `page.reload()` flips the page into a
     // clean state where the assistant responds and the turn SETTLES.
     let reloaded = false;
+    const preparation: string[] = [];
     const recorded = { fills: [] as string[], presses: [] as string[] };
     let userCalls = 0;
     let bannerReadsBeforeReload = 0;
@@ -1123,12 +1124,14 @@ describe("runConversation", () => {
       async waitForSelector() {},
       async fill(_selector, value) {
         recorded.fills.push(value);
+        preparation.push("send");
       },
       async press(_selector, key) {
         recorded.presses.push(key);
       },
       async reload() {
         reloaded = true;
+        preparation.push("reload");
         // Reset send-verification baseline so the re-send's fillAndVerifySend
         // observes fresh user-message growth.
         userCalls = 0;
@@ -1171,12 +1174,21 @@ describe("runConversation", () => {
 
     const result = await runConversation(
       page,
-      [{ input: "hello cold start", responseTimeoutMs: 5000 }],
+      [
+        {
+          input: "hello cold start",
+          responseTimeoutMs: 5000,
+          afterReload: async () => {
+            preparation.push("prepare");
+          },
+        },
+      ],
       { assistantSettleMs: 50 },
     );
 
     // The retry recovered the flap: the turn SUCCEEDED.
     expect(reloaded).toBe(true);
+    expect(preparation).toEqual(["send", "reload", "prepare", "send"]);
     expect(result.turns_completed).toBe(1);
     expect(result.total_turns).toBe(1);
     expect(result.failure_turn).toBeUndefined();
@@ -1185,6 +1197,118 @@ describe("runConversation", () => {
     expect(recorded.fills).toEqual(["hello cold start", "hello cold start"]);
     // Real multi-poll settle loop; explicit timeout for CI headroom.
   }, 20_000);
+
+  describe("pre-send error-banner baseline", () => {
+    function immediatePage(
+      options: { stale?: boolean; fails?: boolean; retryFails?: boolean } = {},
+    ) {
+      let sends = 0;
+      let reloads = 0;
+      let userMessages = 0;
+      const failing = () =>
+        userMessages > 0 &&
+        options.fails &&
+        (reloads === 0 || options.retryFails);
+      const page: Page = {
+        async waitForSelector() {},
+        async fill() {},
+        async press() {
+          sends++;
+          userMessages++;
+        },
+        async reload() {
+          reloads++;
+          userMessages = 0;
+        },
+        async evaluate<R>(fn: () => R, arg?: unknown): Promise<R> {
+          const body = fn.toString();
+          if (body.includes("copilot-error-banner")) {
+            const text = failing()
+              ? "fresh immediate failure"
+              : options.stale
+                ? "persisted prior error"
+                : null;
+            return { visible: text !== null, text: text ?? "" } as R;
+          }
+          if (body.includes("copilot-user-message")) return userMessages as R;
+          if (body.includes("__hk_copilotRunning"))
+            return {
+              attrPresent: false,
+              runningNow: null,
+              sawRunningTrue: false,
+              runStartCount: 0,
+              lastStoppedAtMs: 0,
+            } as R;
+          const count = userMessages > 0 && !failing() ? 1 : 0;
+          if (isReadCascadeStateBody(body))
+            return cascadeStateOf(count, (arg as number) ?? 0) as R;
+          return count as R;
+        },
+      };
+      return { page, sends: () => sends, reloads: () => reloads };
+    }
+
+    it("retries an error that appears immediately when Enter is pressed", async () => {
+      const fixture = immediatePage({ fails: true });
+      const result = await runConversation(
+        fixture.page,
+        [{ input: "controlled request", responseTimeoutMs: 1000 }],
+        { assistantSettleMs: 50 },
+      );
+      expect(result.turns_completed).toBe(1);
+      expect(fixture.sends()).toBe(2);
+      expect(fixture.reloads()).toBe(1);
+    });
+
+    it("reports an immediate retry failure instead of timing out or retrying again", async () => {
+      const fixture = immediatePage({ fails: true, retryFails: true });
+      const result = await runConversation(
+        fixture.page,
+        [{ input: "controlled request", responseTimeoutMs: 1000 }],
+        { assistantSettleMs: 50 },
+      );
+      expect(result.error).toBe(
+        new AssistantErroredError("fresh immediate failure").message,
+      );
+      expect(fixture.sends()).toBe(2);
+      expect(fixture.reloads()).toBe(1);
+    });
+
+    it("does not treat an unchanged pre-existing banner as a new error", async () => {
+      const fixture = immediatePage({ stale: true });
+      const result = await runConversation(
+        fixture.page,
+        [{ input: "controlled request", responseTimeoutMs: 1000 }],
+        { assistantSettleMs: 50 },
+      );
+      expect(result.turns_completed).toBe(1);
+      expect(fixture.sends()).toBe(1);
+      expect(fixture.reloads()).toBe(0);
+    });
+
+    it("captures the baseline before preFill when preFill submits the turn", async () => {
+      const fixture = immediatePage({ fails: true });
+      const result = await runConversation(
+        fixture.page,
+        [
+          {
+            input: "controlled request",
+            responseTimeoutMs: 1000,
+            skipSend: true,
+            preFill: async (page) => {
+              await page.press("input", "Enter");
+            },
+          },
+        ],
+        { assistantSettleMs: 50 },
+      );
+      expect(result.error).toBe(
+        new AssistantErroredError("fresh immediate failure").message,
+      );
+      expect(fixture.sends()).toBe(1);
+      expect(fixture.reloads()).toBe(0);
+    });
+  });
 
   it("cold-start retry does NOT mask a real failure: a banner that SURVIVES the reload still fast-fails", async () => {
     // The bound that keeps #5142 intact: the cold-start retry fires AT MOST

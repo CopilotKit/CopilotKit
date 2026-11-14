@@ -49,9 +49,18 @@ describe.each(manifestSources)("$name Slack app manifest", (manifestSource) => {
   it("defines all supported slash commands with non-empty required fields", async () => {
     const commands = await readSlashCommands(manifestSource);
 
-    expect(commands).toHaveLength(4);
+    expect(commands).toHaveLength(8);
     expect(commands.map(({ command }) => command)).toEqual(
-      expect.arrayContaining(["/agent", "/triage", "/preview", "/file-issue"]),
+      expect.arrayContaining([
+        "/agent",
+        "/triage",
+        "/preview",
+        "/file-issue",
+        "/prs",
+        "/pulse",
+        "/standup",
+        "/carousel",
+      ]),
     );
 
     for (const command of commands) {
@@ -83,6 +92,10 @@ describe.each(manifestSources)("$name Slack app manifest", (manifestSource) => {
     expect(byName.get("/preview")?.usage_hint).toBe("<issue title>");
     expect(byName.get("/triage")).not.toHaveProperty("usage_hint");
     expect(byName.get("/file-issue")).not.toHaveProperty("usage_hint");
+    expect(byName.get("/prs")).not.toHaveProperty("usage_hint");
+    expect(byName.get("/pulse")).not.toHaveProperty("usage_hint");
+    expect(byName.get("/standup")).not.toHaveProperty("usage_hint");
+    expect(byName.get("/carousel")).not.toHaveProperty("usage_hint");
   });
 });
 

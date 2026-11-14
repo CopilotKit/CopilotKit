@@ -72,6 +72,15 @@ export interface MCPAppsOptions {
    * (`inline` always stays); `theme` overrides the `.dark` detection.
    */
   hostContext?: Record<string, unknown>;
+  /**
+   * Restore `allow-same-origin` on the MCP App sandbox. Default `false`.
+   *
+   * **Unsafe.** The widget then runs with your page's origin: it can read
+   * your cookies, storage and DOM, and call your APIs as the signed-in user.
+   * Only set it for widgets you wrote and trust that need `localStorage`,
+   * `IndexedDB` or cookies. By default widgets get an opaque origin.
+   */
+  allowSameOriginFallback?: boolean;
 }
 
 /**
@@ -82,6 +91,12 @@ interface MCPAppsActivityRendererProps {
   content: MCPAppsActivityContent;
   message: unknown; // ActivityMessage from @ag-ui/core
   agent: AbstractAgent | undefined;
+  /**
+   * Restore `allow-same-origin` on the sandbox. Unsafe: the widget runs with
+   * the host page's origin. Usually set via `mcpApps.allowSameOriginFallback`
+   * on `CopilotKitProvider`; this prop, when given, takes precedence.
+   */
+  allowSameOriginFallback?: boolean;
 }
 
 /**
@@ -92,13 +107,24 @@ interface MCPAppsActivityRendererProps {
  * owns the iframe and the display surface; `bindMcpApp` owns the protocol.
  */
 export const MCPAppsActivityRenderer: React.FC<MCPAppsActivityRendererProps> =
-  function MCPAppsActivityRenderer({ content, message, agent }) {
+  function MCPAppsActivityRenderer({
+    content,
+    message,
+    agent,
+    allowSameOriginFallback,
+  }) {
     const { copilotkit, mcpApps } = useCopilotKit();
+    // One option shape: the provider's `mcpApps`, with the component prop for
+    // `allowSameOriginFallback` taking precedence when given.
+    const sessionOptions: MCPAppsOptions | undefined =
+      allowSameOriginFallback === undefined
+        ? mcpApps
+        : { ...mcpApps, allowSameOriginFallback };
     // Options written inline in JSX are a new object on every parent render;
     // re-binding on identity would reload the widget. Bind on their content.
-    const mcpAppsKey = JSON.stringify(mcpApps ?? null);
-    const mcpAppsRef = useRef(mcpApps);
-    mcpAppsRef.current = mcpApps;
+    const mcpAppsKey = JSON.stringify(sessionOptions ?? null);
+    const mcpAppsRef = useRef(sessionOptions);
+    mcpAppsRef.current = sessionOptions;
     // The activity message id. Passed to the session so it self-subscribes to the
     // agent's activity stream and pushes tool input/result itself (the adapter no
     // longer forwards them).

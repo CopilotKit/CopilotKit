@@ -1,5 +1,10 @@
 # Railway disposable ownership contract
 
+> **Registry disconnected (PNI-786).** No Showcase reader reads the disposable
+> runner's registry: the staging harness since 2026-11-10, and the image gate and
+> ordinary promote steps from this change. See
+> [Registry disconnected](#registry-disconnected).
+
 Set `SHOWCASE_DISPOSABLE_RUN_RECORDS_FILE` to a durable JSON snapshot published
 by the lifecycle writer. This contract covers read-only registry classification;
 the PNI-605/PNI-606 runbook remains the source for execution plans and status.
@@ -109,9 +114,13 @@ approvedImages}`, where `permanentServices` contains `{name, serviceId}` pairs
 and the other two lists contain strings. The generated JSON exposes the same
 object at `disposableLifecyclePolicy`.
 
-The initial committed `approvedImages` list is **empty**. No disposable service
-can be accepted until real immutable pins receive separate review and are added
-to that list. An empty-service setup record can validate; this does not authorize
+The committed `approvedImages` list contains the five reviewed image digests for
+the bounded Mastra and Strands TypeScript milestone: composite Intelligence,
+Postgres, Redis, the application/runtime/Mastra image, and the Strands image.
+Application pins come from [build 38765158954](https://github.com/CopilotKit/CopilotKit/actions/runs/38765158954)
+at revision `9e90057794443c46de8bf48ad9c94c1b44e3cee0`; the data-service pins use
+the existing composite smoke-test baseline. New builds still require separate
+review before adding their exact digests. An empty-service setup record can validate; this does not authorize
 deployment. Receipts cannot approve their own images. Each `expectedImage` must
 exactly match a listed `registry/repository@sha256:<64 lowercase hex characters>`
 reference. Nested GHCR repositories and external dependency registries work only
@@ -300,3 +309,118 @@ provider, reviewed real image pins, readiness and cleanup evidence, and the
 atomic writer before hosted use. PNI-606 must supply the four-hour schedule.
 Offline classifier tests and Docker receipts do not prove Railway deployment or
 live probe acceptance.
+
+## Registry disconnected
+
+The staging rich-thread runner is parked and the Showcase pipeline no longer
+reads its registry, so a new Showcase service no longer needs a reader policy
+transition or a runner deploy. Every reader runs in static-fleet mode: it grants
+no disposable exemptions, so any unregistered service in a runner environment
+shows up as unknown and fails. Static mode is therefore stricter, never looser.
+
+- **Workflows.** The image gate (`showcase_build.yml`,
+  `showcase_eval-webhook_build.yml`) and the ordinary promotion steps
+  (`showcase_promote.yml`, `docs_promote.yml`) no longer pass
+  `SHOWCASE_DISPOSABLE_RUN_RECORDS_FILE`, `SHOWCASE_DISPOSABLE_RUN_RECORDS_TOKEN`
+  or `SHOWCASE_REGISTRY_CONSUMER`. `registry-validation-workflows.test.ts`
+  enforces this. The opt-in `validate_registry_only` dispatch step stays bound,
+  so the registry can still be checked before reconnecting. The repository
+  variable and secret stay configured for that step.
+- **Staging harness.** Disconnected on 2026-11-10 at 07:32Z by removing the same
+  three variables from the staging `harness` Railway service together and
+  redeploying it. Discovery has logged no lifecycle lines since. The pre-change
+  values and restore source are recorded in PNI-786.
+- **Runner environments.** Without registry evidence the image gate cannot see
+  recorded runs, so it grants no unregistered-service exception in any
+  environment named `rich-…` (the runner's naming).
+
+Precondition: every `rich-*` environment has zero service instances. If any
+has instances, stop and reassess. Never delete runner journals, leases,
+recovery holds, volumes or `rich-*` resources to make a reader pass.
+
+To reconnect, first make the readers' committed policy hash match what the
+runner publishes, or add a reviewed transition. Then restore the three
+`env` entries (and the both-or-neither guard) on the image-gate and ordinary
+promote steps of the four workflows above, update the "registry disconnected"
+test in `registry-validation-workflows.test.ts`, and set all three harness
+variables (`SHOWCASE_REGISTRY_CONSUMER=harness`). The opt-in validation steps
+show the exact `env` entries. The sections
+below describe the connected design.
+
+## Hosted permanent-runner transport
+
+The shared reader also accepts an operator-configured HTTPS URL in
+`SHOWCASE_DISPOSABLE_RUN_RECORDS_FILE`, restricted to `/registry` without user
+info, query, fragment, or redirects. Set `SHOWCASE_DISPOSABLE_RUN_RECORDS_TOKEN`
+and the actual `SHOWCASE_REGISTRY_CONSUMER` role (`image-gate`, `ruby-promotion`,
+`harness`). Each classification fetches fresh bytes with a ten-second timeout
+and eight-MiB bound, verifies snapshot and committed-policy hashes (or the exact
+reviewed transition below), parses the same schema against the current committed
+policy, then acknowledges those bytes to `/consumers/<role>`.
+Configured network, authentication, hash, or acknowledgment errors return invalid
+evidence. There is no stale-file or empty-snapshot fallback.
+
+The permanent Railway runner serves snapshots from its durable volume. Consumers
+fetch fresh evidence on every classification. Publication verifies the current
+served bytes and each role's actual activation for the configured URL and committed
+policy; it does not wait for every consumer to classify every intermediate update.
+A prior activation receipt does not certify consumption of a newer snapshot.
+Changed URL or policy requires renewed activation. Merely deploying this reader
+or running a local test does not establish deployed consumer activation. Existing
+file readers remain supported for explicitly wired durable mirrors.
+
+The image-gate workflow and both Ruby promotion workflows (`showcase_promote.yml`
+and `docs_promote.yml`) bind the repository variable
+`SHOWCASE_DISPOSABLE_RUN_RECORDS_FILE` and secret
+`SHOWCASE_DISPOSABLE_RUN_RECORDS_TOKEN` to this transport. Each supplies its own
+consumer role. Both settings absent preserve static-fleet operation; a partial
+binding fails before classification. Each Ruby job installs the root `tsx`
+executable required by its classifier bridge. These bindings take effect only
+when the workflow revision containing them runs; configuring repository settings
+does not activate an older workflow or prove a consumer read. Retain invocation
+evidence for both Ruby workflow installations; one role acknowledgment does not
+prove that both are configured. The docs workflow skips Ruby in dry-run mode, so
+that mode cannot establish activation.
+
+For the Staging harness, bind the same URL and token on the Staging service and
+set `SHOWCASE_REGISTRY_CONSUMER=harness` only after deploying a reader image with
+the matching generated policy. Do not configure HTTPS on a file-only reader.
+The permanent runner, harness, and workflow readers must agree on the policy
+hash or use the exact reviewed transition below. Keep scheduled provisioning off until real consumer reads establish all
+three activations. Never run a Production promotion just to obtain a receipt.
+
+### Bounded permanent-services policy recovery
+
+Commit `21552a22b2` added `docs-preview` to permanent-service protection, and
+the OpenAI Agents Python integration added `showcase-openai-agents-python`
+(`be6a4cb2-6258-4994-bd20-4c6e0eb37e96`). The independently pinned staging
+runner still publishes the policy that predates both. The shared reader permits
+exactly this publisher/validator pair:
+
+- Publisher: `4ded223bb02ea0cdf7ffed4fb8f78b70fbb50c9f74ae82d34addfc94f712c751`
+- Current validator: `5c3ba2cd4f895fb8051a7e33eb55e2cda04bd3ac0b56acc2c205a442815e1b0b`
+
+The current validator adds only the permanent names and IDs for those two
+services; project, forbidden environments, previous permanent services and
+approved image pins are unchanged. This pair replaces the earlier
+docs-preview-only pair (`4ded…` → `d3a7fe0c…`), whose validator no committed
+policy produces any more; a publisher serving `d3a7fe0c…` is refused. Every
+record and inventory classification still uses the current policy, including
+rejection of disposable ownership of either service. The acknowledgement names
+the publisher policy and exact fetched bytes; it does not claim the runner has
+adopted the newer policy. Authentication, fresh reads, snapshot checksums and
+acknowledgement acceptance remain mandatory. Unknown policy pairs and the
+reverse direction fail with `records-policy-mismatch`. The regression test uses
+the real committed policy so further changes require compatibility review
+before merge.
+
+This recovery changes readers only. It neither replaces the runner nor clears
+its ownership journals, recovery blocks, leases or deployment fence, and the
+runner's own cleanup policy still lacks protection for both services. Scheduling
+stays off. Existing deployed consumers need the updated reader before they can
+use this transition; a local invocation does not prove workflow or harness rollout.
+The runner is parked and disconnected (see
+[Registry disconnected](#registry-disconnected)), so only the opt-in
+`validate_registry_only` dispatch step can still use this exception. Remove it
+with the registry reader code. A future policy must not inherit this exception
+without a new review.

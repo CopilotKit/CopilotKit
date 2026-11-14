@@ -203,7 +203,11 @@ CUSTOM_CATALOG_ID = "copilotkit://app-dashboard-catalog"
 
 # ─── Graph ──────────────────────────────────────────────────────────
 
-model = ChatOpenAI(model="gpt-5.4", model_kwargs={"parallel_tool_calls": False})
+model = ChatOpenAI(
+    reasoning_effort="none",
+    model="gpt-6-luna",
+    model_kwargs={"parallel_tool_calls": False},
+)
 
 agent = create_agent(
     model=model,

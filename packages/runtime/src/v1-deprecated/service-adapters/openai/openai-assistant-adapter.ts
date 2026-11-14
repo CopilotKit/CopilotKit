@@ -131,9 +131,8 @@ export class OpenAIAssistantAdapter implements CopilotServiceAdapter {
       this._openai = params.openai;
     }
     // If no instance provided, we'll lazy-load in ensureOpenAI()
-    this.codeInterpreterEnabled =
-      params.codeInterpreterEnabled === false || true;
-    this.fileSearchEnabled = params.fileSearchEnabled === false || true;
+    this.codeInterpreterEnabled = params.codeInterpreterEnabled !== false;
+    this.fileSearchEnabled = params.fileSearchEnabled !== false;
     this.assistantId = params.assistantId;
     this.disableParallelToolCalls = params?.disableParallelToolCalls || false;
     this.keepSystemRole = params?.keepSystemRole ?? false;

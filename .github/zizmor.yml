@@ -26,6 +26,11 @@ rules:
   # must come with a comment explaining why the workflow is safe.
   dangerous-triggers:
     ignore:
+      # security_fork-pr-alert.yml: API-only pull_request_target monitor needs
+      # write access to post alerts on forks. Runs trusted base-branch code;
+      # never checks out or executes PR code, installs dependencies, or reads
+      # PR artifacts. PR metadata is consumed as data through the GitHub API.
+      - security_fork-pr-alert.yml
       # update-branch.yml: pull_request_target gated on `types: [labeled]`
       # with a maintainer-applied "update-branch" label. The workflow uses
       # the base-repo checkout (not the PR head), so no fork-controlled
@@ -41,7 +46,7 @@ rules:
       - showcase_deploy.yml
       - showcase_capture-previews.yml
       # test_smoke-starter.yml: workflow_run triggered by the in-repo
-      # "publish / release" workflow. Listens to release completions; no
+      # "release / publish" workflow. Listens to release completions; no
       # fork-controlled refs reach this workflow.
       - test_smoke-starter.yml
       # docs_open_release_pr.yml: workflow_run triggered by the in-repo
@@ -49,6 +54,16 @@ rules:
       # re-checks head_branch == 'main' and checks out `ref: main` with
       # persist-credentials: false, so no fork-controlled ref is fetched.
       - docs_open_release_pr.yml
+      # showcase_eval.yml / test_e2e-showcase-on-demand.yml: issue_comment
+      # triggers for the `/eval` and `/test` commands, flagged since zizmor
+      # 1.32. showcase_eval.yml runs only for commenters with write access
+      # (getCollaboratorPermissionLevel); test_e2e-showcase-on-demand.yml only
+      # for OWNER, MEMBER or COLLABORATOR (author_association). Both check out
+      # PR-head code with a contents:read token and persist-credentials:
+      # false. Each workflow's SECURITY header records the remaining TOCTOU
+      # risk, which is accepted.
+      - showcase_eval.yml
+      - test_e2e-showcase-on-demand.yml
 
   # `unpinned-uses` is satisfied because every `uses:` is SHA-pinned and
   # Renovate keeps them current (see renovate.json → local>CopilotKit/renovate).
@@ -98,3 +113,15 @@ rules:
   cache-poisoning:
     ignore:
       - telemetry-runtime-fragment.yml
+
+  # `obfuscation` (since zizmor 1.32) flags `fromJSON('"\n"')`. These
+  # workflows use it to put a newline inside a one-line `format()`
+  # expression, where a literal newline is not valid YAML, so zizmor's own
+  # fix breaks the file.
+  obfuscation:
+    ignore:
+      - aeo_synthetics.yml
+      - showcase_build.yml
+      - showcase_validate.yml
+      - test_smoke-starter.yml
+      - test_starter-clean-install.yml

@@ -12,7 +12,7 @@
  * Does nothing, successfully, when the scope has no community packages, which
  * is every scope that exists today.
  *
- * Usage: tsx scripts/release/build-community-packages.ts --scope <scope from release.config.json | all | learning-preview>
+ * Usage: tsx scripts/release/build-community-packages.ts --scope <scope from release.config.json | all>
  */
 
 import { execFileSync } from "node:child_process";
@@ -26,7 +26,7 @@ function main() {
   const selector = scopeIdx >= 0 ? argv[scopeIdx + 1] : undefined;
   if (!selector) {
     console.error(
-      "Usage: tsx scripts/release/build-community-packages.ts --scope <scope | all | learning-preview>",
+      "Usage: tsx scripts/release/build-community-packages.ts --scope <scope | all>",
     );
     process.exit(1);
   }

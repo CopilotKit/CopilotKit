@@ -1,0 +1,128 @@
+{
+  "title": "Shared",
+  "pages": [
+    "---Intelligence---",
+    "[Overview](/intelligence/overview)",
+    {
+      "title": "Get started",
+      "pages": [
+        "intelligence/quickstart",
+        "intelligence/intelligence-platform",
+        "intelligence/plans"
+      ]
+    },
+    {
+      "title": "Features",
+      "pages": [
+        {
+          "title": "AG-UI Streams",
+          "pages": [
+            "[Overview](/AG-UI-Streams)",
+            "intelligence/bring-your-own-thread-system",
+            "intelligence/server-side-runs",
+            "threads-import",
+            "[Thread & History Lifecycle](/threads-lifecycle)",
+            "intelligence/threads-explained"
+          ]
+        },
+        {
+          "title": "Automatic Learning",
+          "pages": [
+            "[Overview](/learning)",
+            "intelligence/learned-skills"
+          ]
+        },
+        "intelligence/memories",
+        {
+          "title": "Trajectories",
+          "pages": [
+            "[Overview](/intelligence/trajectories)",
+            "[Quickstart](/intelligence/trajectories-quickstart)",
+            "[Capture interactions](/intelligence/capture-interactions)",
+            "intelligence/captured-data",
+            "[API reference](/intelligence/trajectories-reference)"
+          ]
+        },
+        "intelligence/standalone-collector",
+        "intelligence/analytics",
+        "intelligence/channels"
+      ]
+    },
+    {
+      "title": "Hosting",
+      "pages": [
+        "intelligence/managed-intelligence-platform",
+        "intelligence/self-hosting",
+        "intelligence/self-hosting-ecs",
+        "intelligence/self-hosting-local"
+      ]
+    },
+    "---Backend---",
+    {
+      "title": "Runtime",
+      "pages": [
+        "backend/copilot-runtime",
+        "backend/runtime-endpoints",
+        "backend/custom-agent",
+        "backend/custom-ag-ui-agent",
+        "backend/agent-runner",
+        "backend/message-history",
+        "backend/self-managed-agents",
+        "backend/ag-ui",
+        "runtime-server-adapter",
+        "[Authentication](/auth)"
+      ]
+    },
+    {
+      "title": "Deployment",
+      "pages": [
+        "deploy/agentcore",
+        "deploy/aws-lambda",
+        "deploy/langsmith"
+      ]
+    },
+    {
+      "title": "Debugging",
+      "pages": [
+        "inspector",
+        "vs-code-extension"
+      ]
+    },
+    "---Learn---",
+    {
+      "title": "Concepts",
+      "pages": [
+        "concepts/architecture",
+        "concepts/generative-ui-overview",
+        "[Which Hook for Which Job](/concepts/which-hook)",
+        "concepts/oss-vs-enterprise",
+        "agentic-protocols"
+      ]
+    },
+    "[Cookbook](/cookbook)",
+    "[Reference](/reference)",
+    "---Other---",
+    {
+      "title": "Contributing",
+      "pages": [
+        "[Code Contributions](/contributing/code-contributions)",
+        "(other)/contributing/docs-contributions"
+      ]
+    },
+    {
+      "title": "Troubleshooting",
+      "pages": [
+        "[Troubleshooting Angular apps](/troubleshooting)",
+        "troubleshooting/common-issues",
+        "[Error message reference](/troubleshooting/error-reference)",
+        "[Error Debugging & Observability](/troubleshooting/error-debugging)",
+        "[Inspector and dev console](/troubleshooting/inspector-dev-console)",
+        "troubleshooting/debug-mode",
+        "troubleshooting/event-inspector",
+        "[Hook Explorer](/troubleshooting/hook-explorer)"
+      ]
+    },
+    "(other)/telemetry",
+    "community-frameworks"
+  ]
+}

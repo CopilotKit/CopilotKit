@@ -125,7 +125,9 @@ export class TelemetryClient {
     properties: AnalyticsEvents[K],
     identity: ResolvedTelemetryIdentity,
   ): Promise<void> {
-    if (this.telemetryDisabled) {
+    // Re-read the environment: an opt-out set after import (for example a
+    // dotenv call below the imports) must still stop events.
+    if (this.telemetryDisabled || isTelemetryDisabled()) {
       return;
     }
 

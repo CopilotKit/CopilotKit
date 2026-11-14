@@ -64,7 +64,7 @@ describe("emit-railway-envs-json closure block", () => {
     const intelligence = services.filter((service) =>
       (service.name as string).startsWith("showcase-intelligence-"),
     );
-    expect(intelligence).toHaveLength(6);
+    expect(intelligence).toHaveLength(7);
     expect(intelligence.every((service) => service.gateIgnore === true)).toBe(
       true,
     );

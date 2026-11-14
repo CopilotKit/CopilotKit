@@ -72,6 +72,17 @@ export const MCPAppsActivityRenderer = defineComponent({
       required: false,
       default: undefined,
     },
+    /**
+     * Restore `allow-same-origin` on the sandbox. Unsafe: the widget runs with
+     * the host page's origin. Usually set via `mcpApps.allowSameOriginFallback`
+     * on `CopilotKitProvider`; this prop, when given, takes precedence.
+     * `default: undefined` keeps an absent prop from being cast to `false`.
+     */
+    allowSameOriginFallback: {
+      type: Boolean,
+      required: false,
+      default: undefined,
+    },
   },
   setup(props) {
     const { copilotkit, mcpApps } = useCopilotKit();
@@ -80,7 +91,15 @@ export const MCPAppsActivityRenderer = defineComponent({
     // written inline in a template are a new object on every parent render;
     // re-binding on identity would reload the widget, so the watcher follows
     // their content.
-    const mcpAppsOptions = () => mcpApps?.value;
+    // One option shape: the provider's `mcpApps`, with the component prop for
+    // `allowSameOriginFallback` taking precedence when given.
+    const mcpAppsOptions = () =>
+      props.allowSameOriginFallback === undefined
+        ? mcpApps?.value
+        : {
+            ...mcpApps?.value,
+            allowSameOriginFallback: props.allowSameOriginFallback,
+          };
     const mcpAppsKey = () => JSON.stringify(mcpAppsOptions() ?? null);
     const containerRef = ref<HTMLDialogElement | null>(null);
     const exitButtonRef = ref<HTMLButtonElement | null>(null);

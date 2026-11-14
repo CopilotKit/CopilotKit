@@ -27,12 +27,14 @@ jobs:
           script: |
             const prAuthor = context.payload.pull_request.user.login;
             try {
-              await github.rest.teams.getMembershipForUserInOrg({
+              const { data } = await github.rest.teams.getMembershipForUserInOrg({
                 org: 'CopilotKit',
                 team_slug: 'demo',
                 username: prAuthor,
               });
-              core.setOutput('is_demo', 'true');
+              // A pending invitation also returns 200; only an accepted
+              // membership counts.
+              core.setOutput('is_demo', String(data.state === 'active'));
             } catch {
               core.info(`${prAuthor} is not a member of CopilotKit/demo`);
               core.setOutput('is_demo', 'false');
@@ -44,14 +46,24 @@ jobs:
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
         with:
           script: |
-            const { data: files } = await github.rest.pulls.listFiles({
+            // Paginate: one page holds at most 100 files, and a file outside
+            // showcases on a later page must still block auto-approval.
+            const files = await github.paginate(github.rest.pulls.listFiles, {
               owner: context.repo.owner,
               repo: context.repo.repo,
               pull_number: context.payload.pull_request.number,
               per_page: 100,
             });
 
-            const allShowcases = files.every(f =>
+            // The endpoint returns at most 3,000 files. If the list is short
+            // of the PR's own count, some files were never checked: fail closed.
+            const complete =
+              files.length === context.payload.pull_request.changed_files;
+            if (!complete) {
+              core.info(`Listed ${files.length} of ${context.payload.pull_request.changed_files} changed files`);
+            }
+
+            const allShowcases = complete && files.every(f =>
               f.filename.startsWith('examples/showcases/')
             );
 

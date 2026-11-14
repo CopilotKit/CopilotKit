@@ -466,11 +466,118 @@ it("rechecks redaction when explicitly flushing a composing snapshot", () => {
   expect(JSON.stringify(emit.mock.calls)).not.toContain("new-secret");
 });
 
-it("does not add the click label to input events", () => {
-  const { emit, edit } = inputFixture(
-    '<input id="first" aria-label="Customer name">',
-  );
-  edit("first", "Jane", "change");
-  expect(emit).toHaveBeenCalledOnce();
-  expect(emit.mock.calls[0]?.[1].target).not.toHaveProperty("label");
+describe("field labels on edits", () => {
+  const labelOf = (markup: string, id: string, value = "typed value") => {
+    const { emit, edit } = inputFixture(markup);
+    edit(id, value, "change");
+    expect(emit).toHaveBeenCalledOnce();
+    return emit.mock.calls[0]?.[1].target.label as string | undefined;
+  };
+
+  it("names a field by aria-labelledby, aria-label, or its label", () => {
+    expect(
+      labelOf(
+        '<span id="cap">Greeting</span><input id="f" aria-labelledby="cap">',
+        "f",
+      ),
+    ).toBe("Greeting");
+    expect(labelOf('<input id="f" aria-label="Customer name">', "f")).toBe(
+      "Customer name",
+    );
+    expect(labelOf('<label for="f">Subject</label><input id="f">', "f")).toBe(
+      "Subject",
+    );
+    expect(
+      labelOf('<textarea id="f" aria-label="Notes"></textarea>', "f"),
+    ).toBe("Notes");
+  });
+
+  it("leaves the typed value and nested fields out of a wrapping label", () => {
+    const label = labelOf(
+      '<label>Greeting <input id="f" value="old text"> <select><option selected>Hidden option</option></select></label>',
+      "f",
+      "Hi Jane",
+    );
+    expect(label).toBe("Greeting");
+  });
+
+  it("never names a field from its placeholder, title, or own text", () => {
+    expect(
+      labelOf(
+        '<input id="f" placeholder="Type a greeting" title="Greeting">',
+        "f",
+      ),
+    ).toBeUndefined();
+    const { emit } = inputFixture(
+      '<div id="f" contenteditable="true">My private note</div>',
+    );
+    document
+      .getElementById("f")!
+      .dispatchEvent(new Event("input", { bubbles: true }));
+    vi.advanceTimersByTime(300);
+    expect(emit).toHaveBeenCalledOnce();
+    expect(emit.mock.calls[0]?.[1].target).not.toHaveProperty("label");
+  });
+
+  it("names a contenteditable field by aria-label only", () => {
+    const { emit } = inputFixture(
+      '<div id="f" contenteditable="true" aria-label="Email body">Draft</div>',
+    );
+    document
+      .getElementById("f")!
+      .dispatchEvent(new Event("input", { bubbles: true }));
+    vi.advanceTimersByTime(300);
+    expect(emit.mock.calls[0]?.[1].target.label).toBe("Email body");
+  });
+
+  it("adds the chosen option's visible text for a select", () => {
+    const markup =
+      '<label for="s">Deal stage</label><select id="s"><option value="1">Discovery</option><option value="2">Negotiation</option></select>';
+    expect(labelOf(markup, "s", "2")).toBe("Deal stage: Negotiation");
+    expect(
+      labelOf(
+        '<select id="s"><option value="1">Won</option></select>',
+        "s",
+        "1",
+      ),
+    ).toBe("Won");
+  });
+
+  it("cleans credentials, emails, and URLs out of a caption", () => {
+    expect(
+      labelOf(
+        '<label for="f">Reply to jane@example.com via https://crm.example.com/x</label><input id="f">',
+        "f",
+      ),
+    ).toBe("Reply to [email] via [url]");
+  });
+
+  it("keeps a password field's caption and redacts its value", () => {
+    const { emit, edit } = inputFixture(
+      '<label for="p">Password</label><input id="p" type="password">',
+    );
+    edit("p", "hunter2-secret", "change");
+    const target = emit.mock.calls[0]?.[1].target;
+    expect(target.label).toBe("Password");
+    expect(JSON.stringify(emit.mock.calls)).not.toContain("hunter2-secret");
+  });
+
+  it("keeps the label when the host removes the field before delivery", () => {
+    const { emit, edit } = inputFixture(
+      '<label for="f">Subject</label><input id="f">',
+    );
+    edit("f", "Hello");
+    document.body.innerHTML = "";
+    vi.advanceTimersByTime(300);
+    expect(emit.mock.calls[0]?.[1].target.label).toBe("Subject");
+  });
+
+  it("skips a label inside data-copilotkit-ignore", () => {
+    expect(
+      labelOf(
+        '<div data-copilotkit-ignore><label for="f">Acme Corp contact</label></div><input id="f">',
+        "f",
+      ),
+    ).toBeUndefined();
+  });
 });

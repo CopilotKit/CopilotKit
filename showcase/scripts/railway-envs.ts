@@ -1190,6 +1190,35 @@ export const SERVICES: Record<
       },
     },
   },
+  "showcase-openai-agents-python": {
+    serviceId: "be6a4cb2-6258-4994-bd20-4c6e0eb37e96",
+    autoUpdates: { staging: "disabled", prod: "disabled" },
+    ciBuilt: true,
+    gateValidated: true,
+    dispatchName: "openai-agents-python",
+    probeDriver: "agent",
+    // The production serviceInstance was provisioned, deployed and
+    // health-verified (see RAILWAY.md, "Promoting a Staging-Only Integration
+    // to Production"). Both env entries are read verbatim from the live
+    // Railway service. Runtime dep as ag2's: the Agents SDK's OpenAI client
+    // sends its traffic to the env-local aimock through OPENAI_BASE_URL.
+    runtimeDeps: ["aimock"],
+    serviceRefs: [{ key: "OPENAI_BASE_URL", target: "aimock" }],
+    environments: {
+      prod: {
+        instanceId: "a86ab35f-5646-48cd-bdd8-617d394d304f",
+        healthcheckPath: "/api/health",
+        domain: "showcase-openai-agents-python-production.up.railway.app",
+        probe: true,
+      },
+      staging: {
+        instanceId: "aa2c2665-331f-4a2a-821a-79859ae87994",
+        healthcheckPath: "/api/health",
+        domain: "showcase-openai-agents-python-staging.up.railway.app",
+        probe: true,
+      },
+    },
+  },
   "showcase-langgraph-fastapi": {
     serviceId: "06cccb5c-59f4-46b5-8adc-7113e77011a4",
     autoUpdates: { staging: "disabled", prod: "disabled" },
@@ -1561,7 +1590,7 @@ export const SERVICES: Record<
     },
   },
   // Staging-only Intelligence stack, deployed outside showcase_build.yml.
-  // These six services use pinned Intelligence/Caddy/database images rather
+  // These seven services use pinned Intelligence/Caddy/database images rather
   // than the Showcase staging :latest convention. Their registered names and
   // service IDs establish permanent identity in the image gate. Do not build,
   // probe, validate image shape, or promote them through the Showcase pipeline.
@@ -1646,6 +1675,38 @@ export const SERVICES: Record<
     environments: {
       staging: {
         instanceId: "4695150f-0de8-4b3b-b302-7a377621a200",
+        probe: false,
+      },
+    },
+  },
+  "showcase-intelligence-test-runner": {
+    serviceId: "4922b45b-6981-4559-be2f-fbbca9123323",
+    autoUpdates: { staging: "unmanaged" },
+    ciBuilt: false,
+    gateValidated: false,
+    gateIgnore: true,
+    probeDriver: "shell", // inert: staging probe is disabled
+    environments: {
+      staging: {
+        instanceId: "f96bf2d4-f4f0-41b6-a7e9-547f33c38961",
+        probe: false,
+      },
+    },
+  },
+  // Staging-only base for docs PR previews. Railway builds it from the repo
+  // (showcase/shell-docs/Dockerfile, watch path showcase/shell-docs/**), and
+  // the project's focused PR environments copy it for each PR that changes
+  // the docs. Not CI-built, probed, or promoted; `docs` stays the real site.
+  "docs-preview": {
+    serviceId: "a5ff33b4-8b8d-4fbc-94b1-177374464bb8",
+    autoUpdates: { staging: "unmanaged" },
+    ciBuilt: false,
+    gateValidated: false,
+    gateIgnore: true,
+    probeDriver: "shell", // inert: staging probe is disabled
+    environments: {
+      staging: {
+        instanceId: "99cd81df-b32e-413a-9c04-91811ec59806",
         probe: false,
       },
     },
@@ -2876,5 +2937,17 @@ export const DISPOSABLE_LIFECYCLE_POLICY: RailwayLifecyclePolicy = {
     name,
     serviceId: entry.serviceId,
   })),
-  approvedImages: [],
+  // Operator-approved for the bounded Railway milestone. Application and inspector pins come
+  // from build 38829560760 at 36dd3c5453076d1ed428cf03a0bc3dd98159608f;
+  // data-service pins match the existing composite smoke-test baseline.
+  approvedImages: [
+    "ghcr.io/copilotkit/intelligence/composite@sha256:1bc9dbc634a8b713af7dcf19266eb2b514cdfa3c7e7858476a6ebe5fced45f1d",
+    "ghcr.io/copilotkit/intelligence/postgres-pgvector@sha256:91c40627db16d6d6c4e3c284c69c01ccdfd9172fac89e1b7d453ebb01127c205",
+    "docker.io/bitnamilegacy/redis@sha256:a25b5d07a14ec13730022c7cd9bab6308d55ccd86b74af7315553c17be884889",
+    "ghcr.io/copilotkit/rich-thread-application@sha256:6b6d757e8c5c605c384673a4e8418cd7cd275de2b8b068ebb21856a1032fc71d",
+    "ghcr.io/copilotkit/rich-thread-strands@sha256:a24c58ee44b65fe723434027bf9f40e6b77e679db67ba6229f329676ead430b9",
+    "ghcr.io/copilotkit/rich-thread-inspector@sha256:e9404c9c986b73d0d980495f4bf0a63b174591770abeff80b9a4cb30c680d981",
+    // Reviewed against build39546386235 (9bd0e47): canonical schedule observations.
+    "ghcr.io/copilotkit/rich-thread-inspector@sha256:1c5249083985cde25d8422ebc6a7ca7007d8eb92477daa5b854fe10c7ed2dd71",
+  ],
 };

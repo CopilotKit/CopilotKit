@@ -16,6 +16,27 @@
 
 import type React from "react";
 
+/**
+ * Map the binder's resolved common accessibility values onto an existing host.
+ * Undefined values deliberately remove attributes left by an earlier snapshot.
+ */
+export function getAccessibilityProps(accessibility?: {
+  label?: string;
+  description?: string;
+  live?: React.AriaAttributes["aria-live"];
+  hidden?: boolean;
+}): React.AriaAttributes {
+  return {
+    "aria-label": accessibility?.label || undefined,
+    "aria-description": accessibility?.description || undefined,
+    "aria-live": accessibility?.live || undefined,
+    "aria-hidden":
+      typeof accessibility?.hidden === "boolean"
+        ? accessibility.hidden
+        : undefined,
+  };
+}
+
 /** Standard leaf margin from the implementation guide. */
 export const LEAF_MARGIN = "8px";
 
@@ -23,7 +44,7 @@ export const LEAF_MARGIN = "8px";
 export const CONTAINER_PADDING = "16px";
 
 /** Standard border for cards and inputs. */
-export const STANDARD_BORDER = "1px solid #ccc";
+export const STANDARD_BORDER = "1px solid var(--a2ui-color-border, #ccc)";
 
 /** Standard border radius. */
 export const STANDARD_RADIUS = "8px";

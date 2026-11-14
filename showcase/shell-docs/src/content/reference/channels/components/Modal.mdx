@@ -41,5 +41,45 @@ import {
 | `privateMetadata` | `string` | Opaque metadata echoed to submit or close handlers. |
 | `children` | `BotChildren` | Modal input components. |
 
+## TextInput props
+
+| Prop | Type | Description |
+| --- | --- | --- |
+| `id` | `string` | Required. Key of this input in `values` of the submit event. |
+| `label` | `string` | Required. Label shown above the input. |
+| `placeholder` | `string` | Optional placeholder text. |
+| `multiline` | `boolean` | Shows a multi-line text area. |
+| `optional` | `boolean` | Lets the user submit without a value. |
+| `maxLength` | `number` | Optional maximum length of the value. |
+| `initialValue` | `string` | Optional value shown when the modal opens. |
+
+## ModalSelect props
+
+| Prop | Type | Description |
+| --- | --- | --- |
+| `id` | `string` | Required. Key of this input in `values` of the submit event. |
+| `label` | `string` | Required. Label shown above the select. |
+| `placeholder` | `string` | Optional placeholder text. |
+| `optional` | `boolean` | Lets the user submit without a choice. |
+| `initialOption` | `string` | `value` of the option selected by default. |
+| `children` | `BotChildren` | `ModalSelectOption` elements. |
+
+## ModalSelectOption props
+
+| Prop | Type | Description |
+| --- | --- | --- |
+| `label` | `string` | Required. Text of the option. |
+| `value` | `string` | Required. Value sent to the submit handler. |
+
+## RadioButtons props
+
+| Prop | Type | Description |
+| --- | --- | --- |
+| `id` | `string` | Required. Key of this input in `values` of the submit event. |
+| `label` | `string` | Required. Label shown above the buttons. |
+| `optional` | `boolean` | Lets the user submit without a choice. |
+| `initialOption` | `string` | `value` of the option selected by default. |
+| `children` | `BotChildren` | `ModalSelectOption` elements, one for each button. |
+
 These components remain public for direct adapters. They are reference-only for
 the managed Slack and Teams setup documented here.

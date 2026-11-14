@@ -14,6 +14,7 @@ on:
       # docs-release-workflows.test.ts must gate changes to these workflows.
       - ".github/workflows/docs_open_release_pr.yml"
       - ".github/workflows/docs_promote.yml"
+      - ".github/workflows/showcase_promote.yml"
       # This job runs showcase/scripts/advance-latest-tag.test.ts, which
       # asserts against the LIVE text of showcase_build.yml (that the build
       # step pushes no `:latest`, stamps the revision label, and runs the
@@ -21,6 +22,7 @@ on:
       # PR that could break it — a change re-adding `:latest` to the push
       # would sail through untested.
       - ".github/workflows/showcase_build.yml"
+      - ".github/workflows/showcase_build_check.yml"
   push:
     branches: [main]
     paths:
@@ -34,7 +36,9 @@ on:
       - ".github/workflows/showcase_deploy.yml"
       - ".github/workflows/docs_open_release_pr.yml"
       - ".github/workflows/docs_promote.yml"
+      - ".github/workflows/showcase_promote.yml"
       - ".github/workflows/showcase_build.yml"
+      - ".github/workflows/showcase_build_check.yml"
 
 # Least-privilege by default. Individual jobs/steps can widen when needed.
 permissions:
@@ -94,7 +98,7 @@ jobs:
         # Pinned to a specific minor rather than floating @v4 so that a
         # silent upstream major/minor change can't alter install semantics
         # on a random CI run. Bump deliberately when refreshing the toolchain.
-        uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+        uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
 
       - name: Verify lockfile is up to date
         run: pnpm install --frozen-lockfile --ignore-scripts
@@ -743,7 +747,9 @@ jobs:
     # Separate job so pre-existing `validate-parity` failures don't mask new
     # Python unit-test regressions. pytest runs independently of JS/TS checks.
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    # Each integration gets its own venv + pip install, serially; slow runners
+    # reached ~9.5 min, so 10 timed out (reported as `cancelled`).
+    timeout-minutes: 15
     permissions:
       contents: read
     strategy:
@@ -792,7 +798,7 @@ jobs:
           fi
 
       - name: Setup Python
-        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: ${{ matrix.python-version }}
           cache: "pip"
@@ -810,11 +816,11 @@ jobs:
         with:
           node-version: 22
 
-      - name: Run showcase package Python unit tests
-        # Keep scope narrow: only showcase/integrations/*/tests/python/ directories
-        # (not e2e, not langgraph which has its own runtime). Each package has
-        # its own conftest.py that wires up import paths; we cd into the pkg
-        # dir so those apply.
+      - name: Run showcase package Python tests
+        # Keep scope narrow: showcase/integrations/*/tests/python/ directories
+        # and Strands tests/native/ (not e2e or langgraph's own runtime). Each
+        # package has its own conftest.py that wires up import paths; we cd into
+        # the pkg dir so those apply.
         #
         # Each package runs in its own virtual environment, which holds the
         # test deps plus that package's own `requirements.txt` (if present), so
@@ -861,8 +867,10 @@ jobs:
             # langroid: tests import `typing.Self` (3.11+); on 3.10 the import fails
             # at collection time. typing_extensions.Self would fix it but the tests
             # are tightly coupled to the modern typing module.
+            # google-adk: the pinned google-adk==2.12.0 declares `requires-python >=3.11`;
+            # the package Dockerfile uses Python 3.12.
             # Revisit when ag_ui_strands relaxes its floor or when 3.10 is dropped.
-            if [ "$py_mm" = "3.10" ] && { [ "$pkg" = "claude-sdk-python" ] || [ "$pkg" = "strands" ] || [ "$pkg" = "langroid" ]; }; then
+            if [ "$py_mm" = "3.10" ] && { [ "$pkg" = "claude-sdk-python" ] || [ "$pkg" = "strands" ] || [ "$pkg" = "langroid" ] || [ "$pkg" = "google-adk" ]; }; then
               echo "--- pytest: $pkg --- SKIPPED on Python $py_mm (requires >=3.11/3.12)"
               continue
             fi
@@ -902,17 +910,66 @@ jobs:
               }
               pkg_extra_env="LGT_REQUIRE_BEHAVIORAL=1"
             fi
+            if [ "$pkg" = "google-adk" ]; then
+              # The A2UI conformance tests read the catalogs the frontend
+              # registers. They are build artifacts (gitignored), exported
+              # from the same catalog objects the browser uses, as the
+              # Docker build does (including --legacy-peer-deps).
+              echo "Exporting google-adk A2UI catalogs (npm ci + export:a2ui-catalogs)"
+              (cd "$pkg_dir" && npm ci --legacy-peer-deps --no-audit --no-fund && npm run export:a2ui-catalogs) || {
+                echo "::error::A2UI catalog export failed for google-adk"
+                failed=1
+                continue
+              }
+            fi
             # Export PYTHONPATH so `from tools import ...` in agent modules
             # resolves via the `tools` symlink at the integration root.
             # Also include src/ so `from agents.X import ...` works even if
             # a conftest.py omits the sys.path setup. Mirrors the local dev
             # convention (`PYTHONPATH=. python ...` in package.json scripts).
             (cd "$pkg_dir" && env $pkg_extra_env PYTHONPATH=".:src:${PYTHONPATH:-}" "$pkg_python" -m pytest tests/python/ -v) || failed=1
+            if [ "$pkg" = "crewai-crews" ] || [ "$pkg" = "crewai-conversational-flows" ]; then
+              # Run the shared wire contract in the real SDK environment. The
+              # shared-tools venv below has no CrewAI and would skip this test.
+              "$pkg_python" -m pytest showcase/shared/python/tests/test_reasoning_chain_requests.py \
+                -k "$pkg" -v || failed=1
+            fi
+            if [ "$pkg" = "strands" ]; then
+              # A fresh process keeps tests/python/conftest.py's SDK substitutes
+              # out of the real SDK tool execution and session persistence gate.
+              echo "--- pytest native: $pkg ---"
+              (cd "$pkg_dir" && env PYTHONPATH=".:src:${PYTHONPATH:-}" "$pkg_python" -m pytest tests/native/ -v) || failed=1
+            fi
           done
           if [ "$found" -eq 0 ]; then
             echo "::warning::No showcase/integrations/*/tests/python/ directories found"
           fi
           exit "$failed"
+
+      - name: Run shared Python tool tests
+        # The shared tools every Python integration imports through its `tools`
+        # symlink. These tests had no CI entry point and drifted from the code
+        # unnoticed, so they run here even when the package tests above fail.
+        if: ${{ !cancelled() }}
+        run: |
+          set -euo pipefail
+          venv="${RUNNER_TEMP}/showcase-venv-shared-python"
+          python -m venv "$venv"
+          "$venv/bin/python" -m pip install --quiet -r showcase/shared/python/requirements-test.txt
+          "$venv/bin/python" -m pytest showcase/shared/python/tests -v
+
+      - name: Verify LangGraph model requests with its real SDKs
+        if: ${{ !cancelled() && matrix.python-version == '3.12' }}
+        run: |
+          set -euo pipefail
+          venv="${RUNNER_TEMP}/showcase-venv-langgraph-requests"
+          python -m venv "$venv"
+          # Use the integration's versions for the SDKs these builders import.
+          grep -E '^(copilotkit|ag-ui-protocol|ag-ui-langgraph|langchain|langchain-openai|langgraph|deepagents|openai)(==|>=)' \
+            showcase/integrations/langgraph-python/requirements.txt > "$venv/requirements.txt"
+          "$venv/bin/python" -m pip install --quiet pytest -r "$venv/requirements.txt"
+          "$venv/bin/python" -m pytest showcase/integrations/langgraph-python/tests/test_model_overrides.py -v
+          "$venv/bin/python" -m pytest showcase/shared/python/tests/test_reasoning_chain_requests.py -k langgraph-python -v
 
   notify:
     # Slack #oss-alerts on any red. Never #engr (engr is sacred — release alerts only).

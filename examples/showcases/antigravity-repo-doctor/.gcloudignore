@@ -1,0 +1,17 @@
+# What `gcloud builds submit` uploads. It ignores .dockerignore, so secrets and
+# local builds are listed here too.
+.gcloudignore
+.git
+node_modules/
+.next/
+.pnpm-store/
+agent/.venv/
+**/__pycache__/
+agent/.pytest_cache/
+agent/.mypy_cache/
+agent/.ruff_cache/
+.env*
+!.env.example
+.copilotkit/
+e2e/
+*.tsbuildinfo

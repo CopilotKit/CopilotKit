@@ -36,6 +36,16 @@ exemptions and adds no lifecycle subprocess dependency. Invalid evidence refuses
 promotion; lifecycle records never grant deletion authority. The committed image
 approval list starts empty, so disposable services cannot yet be accepted.
 
+### Validate the registry reader without promotion
+
+Dispatch `showcase_promote.yml` or `docs_promote.yml` with
+`validate_registry_only=true` to exercise that workflow's installed Ruby and
+TypeScript reader. The mode requires the configured HTTPS registry and credentials.
+It captures live inventory and runs the real reader acknowledgment, then uploads a
+receipt with the policy hash, time, and workflow identity. It never runs promotion,
+service probes, compatibility refresh, or notifications. Raw snapshots and
+credentials stay out of the receipt. The default remains `false`.
+
 ### Credentials
 
 The tool reads a Railway API token from (in order):

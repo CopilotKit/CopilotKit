@@ -17,6 +17,7 @@
   { "slug": "langroid", "name": "Langroid" },
   { "slug": "llamaindex", "name": "LlamaIndex" },
   { "slug": "mastra", "name": "Mastra" },
+  { "slug": "openai-agents-python", "name": "OpenAI Agents SDK (Python)" },
   { "slug": "ms-agent-dotnet", "name": "MS Agent .NET" },
   { "slug": "ms-agent-harness-dotnet", "name": "MS Agent Harness .NET" },
   { "slug": "ms-agent-python", "name": "MS Agent Python" },

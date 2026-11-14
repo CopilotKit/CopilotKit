@@ -57,6 +57,31 @@
 }
 /* @endregion[design-tokens] */
 
+/* HALCYON after dark — the same library with the lamps low. The root
+ * layout puts `.dark` on <html>; every rule below reads these tokens, so
+ * dark mode only swaps the palette: warm umber paper, parchment ink, and
+ * a brighter ember so it still reads as a signal on the dark page. */
+.dark .chat-css-demo-scope {
+  --halcyon-paper: #1b1814;
+  --halcyon-paper-soft: #26221c;
+  --halcyon-paper-elevated: #231f1a;
+  --halcyon-card: #211d18;
+  --halcyon-rule: #3a342b;
+  --halcyon-rule-strong: #5c5344;
+  --halcyon-ink: #f1ebdf;
+  --halcyon-ink-soft: #d4ccbc;
+  --halcyon-ink-mute: #a0988a;
+  --halcyon-ember: #e2683a;
+  --halcyon-ember-bright: #f07a4a;
+  --halcyon-ember-soft: #341d15;
+  --halcyon-champagne: #b89a6a;
+
+  --halcyon-shadow-soft:
+    0 1px 0 rgba(0, 0, 0, 0.3), 0 12px 32px -18px rgba(0, 0, 0, 0.6);
+  --halcyon-shadow-ember:
+    0 1px 0 rgba(226, 104, 58, 0.22), 0 14px 36px -16px rgba(226, 104, 58, 0.4);
+}
+
 /* @region[v2-token-overrides] */
 /* CopilotKit v2 reads these on the [data-copilotkit] root inside the chat.
  * Re-pointing them under our scope retints every Tailwind utility the
@@ -85,6 +110,31 @@
   --radius: 0px;
 }
 /* @endregion[v2-token-overrides] */
+
+/* CopilotKit's own `.dark [data-copilotkit]` token block has the same
+ * specificity as the override above, so repeat it under `.dark`. */
+.dark .chat-css-demo-scope [data-copilotkit] {
+  --background: var(--halcyon-paper);
+  --foreground: var(--halcyon-ink);
+  --card: var(--halcyon-card);
+  --card-foreground: var(--halcyon-ink);
+  --popover: var(--halcyon-paper-elevated);
+  --popover-foreground: var(--halcyon-ink);
+  --primary: var(--halcyon-ember);
+  --primary-foreground: var(--halcyon-paper-elevated);
+  --secondary: var(--halcyon-paper-soft);
+  --secondary-foreground: var(--halcyon-ink);
+  --muted: var(--halcyon-paper-soft);
+  --muted-foreground: var(--halcyon-ink-mute);
+  --accent: var(--halcyon-ember-soft);
+  --accent-foreground: var(--halcyon-ember);
+  --destructive: #b3361b;
+  --destructive-foreground: var(--halcyon-paper-elevated);
+  --border: var(--halcyon-rule);
+  --input: var(--halcyon-rule);
+  --ring: var(--halcyon-ember);
+  --radius: 0px;
+}
 
 /* @region[chat-shell] */
 /* The chat surface — warm parchment with a single ambient ember glow,
@@ -434,6 +484,22 @@
   margin: 1.6em auto;
 }
 /* @endregion[assistant-message] */
+
+/* After dark the ink is light, so the code card sinks below the paper
+ * instead of flipping against it. */
+.dark
+  .chat-css-demo-scope
+  .copilotKitMessage.copilotKitAssistantMessage
+  .prose
+  pre,
+.dark
+  .chat-css-demo-scope
+  .copilotKitMessage.copilotKitAssistantMessage
+  div[data-streamdown="code-block"]
+  > pre {
+  background: #12100d !important;
+  border-color: var(--halcyon-rule);
+}
 
 /* @region[input-composer] */
 /* Composer — a sharp paper card with an ember focus rule. The default

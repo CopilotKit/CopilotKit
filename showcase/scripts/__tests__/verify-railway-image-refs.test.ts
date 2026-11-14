@@ -37,10 +37,11 @@ describe("staging-only Intelligence services", () => {
     "showcase-intelligence-gateway-proxy",
     "showcase-intelligence-postgres",
     "showcase-intelligence-redis",
+    "showcase-intelligence-test-runner",
   ];
   const toDelete = ["showcase-intelligence-init"];
 
-  it("acknowledges all six retained services without claiming a prod instance", () => {
+  it("acknowledges all seven retained services without claiming a prod instance", () => {
     for (const name of kept) {
       const entry = SERVICES[name];
       expect(entry, name).toBeDefined();
@@ -279,8 +280,8 @@ describe("WS-C: all gate-managed services gateValidated, with correct overrides"
     ["harness", "showcase-harness"],
   ] as const;
 
-  it("has 43 gate-managed services plus six staging-only Intelligence services", () => {
-    expect(Object.keys(SERVICES)).toHaveLength(49);
+  it("has 44 gate-managed services plus eight staging-only services (seven Intelligence, docs-preview)", () => {
+    expect(Object.keys(SERVICES)).toHaveLength(52);
   });
 
   it("marks every gate-managed service gateValidated (no Phase-2 holdouts)", () => {
@@ -306,12 +307,14 @@ describe("WS-C: all gate-managed services gateValidated, with correct overrides"
   it("findMissingServices treats every gateValidated service as a target, per the envs it declares", () => {
     // With nothing "present", every gateValidated service should appear in
     // the missing set for each env it DECLARES. The dual-env gateValidated
-    // services (31 showcase/infra + 12 starters) carry both prod and staging
+    // services (32 showcase/infra + 12 starters) carry both prod and staging
     // and are demanded in BOTH envs.
     const missingProd = findMissingServices("prod", new Set<string>());
     const missingStaging = findMissingServices("staging", new Set<string>());
-    expect(missingProd).toHaveLength(43);
-    expect(missingStaging).toHaveLength(43);
+    expect(missingProd).toHaveLength(44);
+    expect(missingStaging).toHaveLength(44);
+    expect(missingStaging).toContain("showcase-openai-agents-python");
+    expect(missingProd).toContain("showcase-openai-agents-python");
     expect(missingStaging).toContain("showcase-google-antigravity");
     expect(missingProd).toContain("showcase-google-antigravity");
     // CrewAI Conversational Flows is now required in both envs.

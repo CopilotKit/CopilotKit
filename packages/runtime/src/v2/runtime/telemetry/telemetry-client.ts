@@ -147,7 +147,9 @@ export class TelemetryClient {
     properties: AnalyticsEvents[K],
     identity: ResolvedTelemetryIdentity,
   ): Promise<void> {
-    if (this.telemetryDisabled) return;
+    // Re-read the environment: an opt-out set after import (for example a
+    // dotenv call below the imports) must still stop events.
+    if (this.telemetryDisabled || isTelemetryDisabled()) return;
     // Nothing is gated at the default rate of 1. A caller who dialled it
     // down means it, and identified callers are exempt either way.
     if (!identity.licenseTelemetryId && !this.shouldSendEvent()) return;

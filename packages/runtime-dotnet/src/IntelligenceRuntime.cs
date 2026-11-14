@@ -278,7 +278,7 @@ public sealed class IntelligenceRuntime : IAsyncDisposable
                 await predecessor.Completion.WaitAsync(startup.Token);
             }
             var canonical = (JsonObject)input.DeepClone(); canonical["threadId"] = thread; canonical["runId"] = run;
-            var history = await PlatformAsync("GET", ThreadPath(thread) + "/messages?userId=" + Escape(user.Id), null, user, startup.Token);
+            var history = await PlatformAsync("GET", ThreadPath(thread) + "/messages?userId=" + Escape(user.Id) + "&fields=id", null, user, startup.Token);
             if (history?["messages"] is not JsonArray historic) throw new RuntimeRequestException(502, "Invalid thread history response");
             var ids = historic.Select(message => message?["id"]?.GetValue<string>()).ToHashSet();
             var persisted = new JsonArray(input["messages"]!.AsArray().Where(message => !ids.Contains(message?["id"]?.GetValue<string>())).Select(message => message?.DeepClone()).ToArray());

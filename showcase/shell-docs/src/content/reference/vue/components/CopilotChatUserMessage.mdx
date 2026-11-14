@@ -116,8 +116,8 @@ Each slot exposes scoped slot props (handlers and state) and falls back to the d
 
 <PropertyReference name="toolbar-items" type="(no props)">
   Inserts additional content at the start of the default toolbar, alongside the
-  copy, edit, and branch navigation controls. Use this to append custom actions
-  without replacing the whole toolbar.
+  copy, edit, and branch navigation controls. Use this to add custom actions
+  before the default buttons, without replacing the whole toolbar.
 
 ```vue
 <CopilotChatUserMessage :message="message">
@@ -303,8 +303,3 @@ function openEditModal(message: UserMessage) {
 - **Conditional edit button**: The edit button only appears when an `@edit-message` listener is attached.
 - **Conditional branch navigation**: The branch navigation only appears when `numberOfBranches` is greater than 1 and a `@switch-to-branch` listener is attached.
 - **Localized labels**: Toolbar button tooltips are sourced from the nearest configuration provider. See [`useCopilotChatConfiguration`](/reference/vue/hooks/useCopilotChatConfiguration) for available label keys.
-
-## Related
-
-- [`CopilotKitProvider`](/reference/vue/components/CopilotKitProvider) - Supplies the CopilotKit context to descendant components.
-- [`useCopilotChatConfiguration`](/reference/vue/hooks/useCopilotChatConfiguration) - Provider for localized toolbar labels.

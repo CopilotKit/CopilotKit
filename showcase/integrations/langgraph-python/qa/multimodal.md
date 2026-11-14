@@ -5,7 +5,7 @@
 - Demo deployed and accessible at `/demos/multimodal`
 - Railway service `showcase-langgraph-python` is healthy
 - `OPENAI_API_KEY` set on the Railway service (vision calls require it)
-- Agent is using a vision-capable model (`gpt-4o` or equivalent) — verifiable by
+- Agent is using a vision-capable model (`gpt-6-luna` or equivalent) — verifiable by
   inspecting the Railway logs for `src/agents/multimodal_agent.py` or by
   running one image round-trip
 - Sample files are bundled under `public/demo-files/`:

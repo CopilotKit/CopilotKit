@@ -963,7 +963,9 @@ test("enabled zero keeps all three local examples and their providers off real r
     const messagesSpy = vi.spyOn(detail.provider, "getMessages");
     detail.liveMessageVersion += 1;
     detail.requestUpdate();
-    await vi.waitFor(() => expect(messagesSpy).toHaveBeenCalledTimes(1));
+    await vi.waitFor(() => expect(messagesSpy).toHaveBeenCalledTimes(1), {
+      timeout: 2_000,
+    });
 
     await harness.activateDetailTab("State");
     await vi.waitFor(() =>

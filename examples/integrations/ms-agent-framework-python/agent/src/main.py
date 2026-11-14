@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+from pathlib import Path
 from urllib.parse import urlparse
 
 import uvicorn
@@ -15,7 +16,12 @@ from fastapi.middleware.cors import CORSMiddleware
 from agent import create_agent
 from model import parse_agent_model
 
+# agent/.env first: the CLI writes the model key there. Then the starter's
+# root .env, which holds COPILOTKIT_AGENT_MODEL and OPENAI_BASE_URL. A bare
+# load_dotenv() stops at agent/.env and would never read the root file. Values
+# already set win, so agent/.env and the shell override the root file.
 load_dotenv()
+load_dotenv(Path(__file__).resolve().parents[2] / ".env")
 
 
 # Chat Completions endpoints that Anthropic and Google serve for OpenAI clients.
@@ -65,7 +71,7 @@ def _build_chat_client() -> SupportsChatGetResponse:
     openai_api_key = os.getenv("OPENAI_API_KEY")
     # COPILOTKIT_AGENT_MODEL (e.g. "anthropic:claude-sonnet-4-5") picks the
     # provider and model when Azure OpenAI is not configured; unset, the agent
-    # uses OPENAI_CHAT_MODEL_ID or gpt-4o-mini on OpenAI. An OpenAI-compatible
+    # uses OPENAI_CHAT_MODEL_ID or gpt-6-luna on OpenAI. An OpenAI-compatible
     # provider is openai:<its model id> plus OPENAI_BASE_URL, which the OpenAI
     # clients read themselves (see _openai_client_class for which client).
     agent_model = (os.getenv("COPILOTKIT_AGENT_MODEL") or "").strip()
@@ -94,14 +100,14 @@ def _build_chat_client() -> SupportsChatGetResponse:
         if azure_endpoint:
             azure_api_key = os.getenv("AZURE_OPENAI_API_KEY")
             return OpenAIChatClient(
-                model=os.getenv("AZURE_OPENAI_CHAT_DEPLOYMENT_NAME", "gpt-4o-mini"),
+                model=os.getenv("AZURE_OPENAI_CHAT_DEPLOYMENT_NAME", "gpt-6-luna"),
                 api_key=azure_api_key,
                 credential=None if azure_api_key else DefaultAzureCredential(),
                 azure_endpoint=azure_endpoint,
             )
 
         return _openai_client_class()(
-            model=os.getenv("OPENAI_CHAT_MODEL_ID", "gpt-4o-mini"),
+            model=os.getenv("OPENAI_CHAT_MODEL_ID", "gpt-6-luna"),
             api_key=openai_api_key,
         )
 

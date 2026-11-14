@@ -15,9 +15,9 @@ import { SERVICES } from "../railway-envs";
 // records array to that path atomically (stage to .tmp, rename). When
 // unset, no JSON is written.
 //
-// PR #5093's exit-code contract MUST be preserved verbatim:
-//   - staging: exitCode === 0 even when all per-service redeploys fail
-//   - prod:    exitCode === 1 on any per-service failure
+// Any failed image/deployment verification must block the CI deployment lane,
+// including staging and starter-only pushes. Summary write failures remain
+// best-effort and do not change the deployment result.
 // The JSON write happens BEFORE the exit-code computation; it never
 // changes exit semantics on disk hiccups (write failures are warn-only).
 describe("redeploy-env per-service JSON summary", () => {
@@ -35,6 +35,38 @@ describe("redeploy-env per-service JSON summary", () => {
     rmSync(dir, { recursive: true, force: true });
   });
 
+  it("atomically persists all skipped proof records without successes or failures, including image consumers", async () => {
+    const proof = {
+      ok: false as const,
+      skipped: true as const,
+      reason: "superseded" as const,
+      supersededBy: "e".repeat(40),
+      supersedingImageDigest: `sha256:${"e".repeat(64)}`,
+    };
+    const summary = await runRedeploy({
+      env: "staging",
+      services: ["harness"],
+      appendSummary: () => {},
+      redeploy: async () => proof,
+    });
+    expect(summary).toMatchObject({
+      exitCode: 0,
+      attempted: 2,
+      succeeded: 0,
+      failed: 0,
+      skipped: 2,
+    });
+    const { ok: _ok, skipped: _skipped, ...metadata } = proof;
+    expect(JSON.parse(readFileSync(summaryPath, "utf8"))).toEqual(
+      ["harness", "harness-workers"].map((service) => ({
+        service,
+        status: "skipped",
+        ...metadata,
+      })),
+    );
+    expect(readdirSync(dir)).not.toContain("summary.json.tmp");
+  });
+
   it("writes one JSON record per attempted service with status", async () => {
     const ag2ServiceId = SERVICES["showcase-ag2"].serviceId;
     const summary = await runRedeploy({
@@ -48,7 +80,7 @@ describe("redeploy-env per-service JSON summary", () => {
         return { ok: true };
       },
     });
-    expect(summary.exitCode).toBe(0); // staging contract intact
+    expect(summary.exitCode).toBe(1); // failed deployment must block CI
     const records = JSON.parse(readFileSync(summaryPath, "utf8")) as Array<{
       service: string;
       status: "ok" | "error";
@@ -76,14 +108,14 @@ describe("redeploy-env per-service JSON summary", () => {
     expect(readdirSync(dir)).toEqual([]);
   });
 
-  it("preserves PR #5093 contract: staging exits 0 even when all fail", async () => {
+  it("fails staging while retaining every receipt when all deployments fail", async () => {
     const summary = await runRedeploy({
       env: "staging",
       services: ["showcase-mastra", "showcase-ag2"],
       appendSummary: () => {},
       redeploy: async () => ({ ok: false, error: "boom" }),
     });
-    expect(summary.exitCode).toBe(0);
+    expect(summary.exitCode).toBe(1);
     expect(summary.failed).toBe(2);
     const records = JSON.parse(readFileSync(summaryPath, "utf8")) as Array<{
       service: string;
@@ -121,7 +153,7 @@ describe("redeploy-env per-service JSON summary", () => {
         throw new Error("kaboom");
       },
     });
-    expect(summary.exitCode).toBe(0);
+    expect(summary.exitCode).toBe(1);
     expect(summary.failed).toBe(1);
     const records = JSON.parse(readFileSync(summaryPath, "utf8")) as Array<{
       service: string;

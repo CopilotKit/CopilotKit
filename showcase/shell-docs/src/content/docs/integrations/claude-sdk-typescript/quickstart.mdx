@@ -7,6 +7,7 @@ hideTOC: true
 
 import OpenInspectorStep from "@/snippets/shared/inspector/open-inspector-step.mdx";
 
+
 ## Start with your coding agent
 
 Use this prompt to connect your Claude Agent SDK for TypeScript agent to CopilotKit and verify a working conversation. Your coding agent will follow this guide in your project, or you can work through the manual steps below.
@@ -23,7 +24,7 @@ This quickstart gives you two working paths:
 Before you begin, you'll need the following:
 
 - An Anthropic API key
-- Node.js 20+
+- Node.js 20.9+
 - Your favorite package manager
 
 ## Getting started
@@ -45,24 +46,33 @@ Before you begin, you'll need the following:
           npx copilotkit@latest init --framework claude-sdk-typescript
           ```
 
-          The starter contains three pieces:
+          The starter contains these pieces:
 
-          - `src/agent_server.ts` - the Claude Agent SDK backend process
-          - `src/app/api/copilotkit/route.ts` - the CopilotKit runtime route that proxies to the agent
-          - `src/app/page.tsx` - the starter chat UI to inspect first
+          - `agent/src/server.ts` - the AG-UI server for the agent. It listens on port 8000.
+          - `agent/src/agent.ts` - the agent. It passes the system prompt and the backend tools to `ClaudeAgentAdapter`.
+          - `src/app/api/copilotkit/[[...slug]]/route.ts` - the CopilotKit runtime route. It registers the agent as `default` and reaches it with `HttpAgent`.
+          - `src/app/page.tsx` - the starter UI to inspect first
         </Step>
 
         <Step>
           ### Configure your environment
 
-          Create a `.env` file in the generated project root:
+          Copy the example file in the generated project root:
+
+          ```bash
+          cp .env.example .env
+          ```
+
+          Then add your Anthropic API key to `.env`:
 
           ```plaintext title=".env"
           ANTHROPIC_API_KEY=your_anthropic_api_key
-          CLAUDE_MODEL=claude-opus-4-8
           ```
 
-          The runtime route defaults to `AGENT_URL=http://localhost:8000`, which is where the starter's agent server listens.
+          The other values in `.env.example` are optional:
+
+          - `COPILOTKIT_AGENT_MODEL` sets the Claude model as `anthropic:<model>`. The agent runs Anthropic models only.
+          - `AGENT_URL` is the address the runtime route uses to reach the agent. The default is `http://localhost:8000`, where the starter's agent server listens.
         </Step>
 
         <Step>
@@ -90,6 +100,8 @@ Before you begin, you'll need the following:
               ```
             </Tab>
           </Tabs>
+
+          The `postinstall` script also installs the agent's own dependencies in `agent/`.
         </Step>
 
         <Step>
@@ -118,7 +130,7 @@ Before you begin, you'll need the following:
             </Tab>
           </Tabs>
 
-          This starts both the Next.js app and the TypeScript agent server.
+          This starts the Next.js app on `http://localhost:3000` and the agent server on `http://localhost:8000`.
         </Step>
       </TailoredContentOption>
 
@@ -169,7 +181,7 @@ Before you begin, you'll need the following:
           app.use(express.json({ limit: "10mb" }));
 
           const agent = new ClaudeAgentAdapter({
-            agentId: "claude_agent",
+            agentId: "claude-sdk-typescript",
             model: process.env.CLAUDE_MODEL ?? "claude-opus-4-8",
             systemPrompt: "You are a helpful assistant embedded in a CopilotKit app.",
             tools: [],
@@ -215,10 +227,15 @@ Before you begin, you'll need the following:
           });
           ```
 
-          Start it and confirm the health check:
+          Start the agent server:
 
           ```bash
           npx tsx src/agent-server.ts
+          ```
+
+          In a second terminal, check it. The response is `{"status":"ok"}`:
+
+          ```bash
           curl http://localhost:8000/health
           ```
         </Step>
@@ -238,7 +255,7 @@ Before you begin, you'll need the following:
         <Step>
           ### Add the CopilotKit runtime route
 
-          Create `app/api/copilotkit/route.ts` in your Next.js app. It registers the Claude agent server as an AG-UI `HttpAgent`.
+          Create `app/api/copilotkit/route.ts` in your Next.js app. It registers the Claude agent server as an AG-UI `HttpAgent` under the name `default`, the same name the starter uses.
 
           ```ts title="app/api/copilotkit/route.ts"
           import { HttpAgent } from "@ag-ui/client";
@@ -250,7 +267,7 @@ Before you begin, you'll need the following:
 
           const runtime = new CopilotRuntime({
             agents: {
-              claude_agent: new HttpAgent({
+              default: new HttpAgent({
                 url: process.env.AGENT_URL ?? "http://localhost:8000",
               }),
             },
@@ -278,15 +295,14 @@ Before you begin, you'll need the following:
 
           export function Providers({ children }: { children: React.ReactNode }) {
             return (
-              <CopilotKit runtimeUrl="/api/copilotkit" agent="claude_agent">
+              <CopilotKit runtimeUrl="/api/copilotkit" agent="default">
                 {children}
               </CopilotKit>
             );
           }
           ```
 
-          `app/layout.tsx` is a server component and cannot import the provider
-          directly, so it renders your client file instead:
+          Render `Providers` in `app/layout.tsx`:
 
           ```tsx title="app/layout.tsx"
           import { Providers } from "./providers";
@@ -306,13 +322,7 @@ Before you begin, you'll need the following:
           }
           ```
 
-          <Callout type="info" title="This relative runtimeUrl assumes Next.js serves the runtime">
-            `/api/copilotkit` resolves only because Next.js serves your app and the runtime from the
-            same origin. A client-only frontend has no shared origin, so it needs a standalone runtime
-            server of its own and an absolute `runtimeUrl` such as
-            `http://localhost:8200/api/copilotkit`. The per-frontend guides at `/react-spa`, `/vue`,
-            `/angular` and `/react-native` each show that setup.
-          </Callout>
+          Not using Next.js? See [React SPA](/react-spa), [Vue](/vue), [Angular](/angular), or [React Native](/react-native).
 
           Add a chat surface:
 
