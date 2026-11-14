@@ -30,6 +30,18 @@ export class SuggestionEngine {
   private _suggestionsConfig: Record<string, SuggestionsConfig> = {};
   private _suggestions: Record<string, Record<string, Suggestion[]>> = {};
   private _runningSuggestions: Record<string, AbortableSuggestionRun[]> = {};
+  /**
+   * The conversation a consumer's generated suggestions belong to, and the
+   * slots they fill in `_suggestions`. One reload seeds every generation from
+   * the same thread. Once the consumer shows another thread, those
+   * generations are aborted and their suggestions dropped (see
+   * `syncThread`); static suggestions do not depend on the conversation and
+   * stay.
+   */
+  private _generated: Record<
+    string,
+    { threadId: string | undefined; suggestionIds: Set<string> }
+  > = {};
 
   constructor(private core: CopilotKitCore) {}
 
@@ -107,6 +119,11 @@ export class SuggestionEngine {
           hasAnySuggestions = true;
           void this.notifySuggestionsStartedLoading(agentId);
         }
+        const generated = (this._generated[agentId] ??= {
+          threadId: agent.threadId,
+          suggestionIds: new Set(),
+        });
+        generated.suggestionIds.add(suggestionId);
         void this.generateSuggestions(suggestionId, config, agentId);
       } else if (isStaticSuggestionsConfig(config)) {
         this.addStaticSuggestions(suggestionId, config, agentId);
@@ -126,14 +143,54 @@ export class SuggestionEngine {
       delete this._runningSuggestions[agentId];
     }
     this._suggestions[agentId] = {};
+    delete this._generated[agentId];
 
     void this.notifySuggestionsChanged(agentId, []);
+  }
+
+  /**
+   * Drop what was generated for another conversation of `agentId`: once the
+   * consumer shows another thread, its in-flight generations are aborted and
+   * their suggestions removed, so nothing built from the previous
+   * conversation's messages and context reaches the new one. Static
+   * suggestions stay. Called when suggestions are read or published and when
+   * the agent connects to a thread, since an agent does not announce a
+   * thread change itself.
+   */
+  public syncThread(agentId: string): void {
+    const generated = this._generated[agentId];
+    if (!generated) return;
+    const agent = (
+      this.core as unknown as CopilotKitCoreFriendsAccess
+    ).getAgent(agentId);
+    if (!agent || agent.threadId === generated.threadId) return;
+
+    delete this._generated[agentId];
+    const running = this._runningSuggestions[agentId];
+    if (running) {
+      for (const run of running) run.abortRun();
+      delete this._runningSuggestions[agentId];
+    }
+    const slots = this._suggestions[agentId];
+    if (slots) {
+      for (const suggestionId of generated.suggestionIds) {
+        delete slots[suggestionId];
+      }
+    }
+
+    void this.notifySuggestionsChanged(
+      agentId,
+      Object.values(slots ?? {}).flat(),
+      "conversation changed",
+    );
+    if (running) void this.notifySuggestionsFinishedLoading(agentId);
   }
 
   /**
    * Get current suggestions for an agent
    */
   public getSuggestions(agentId: string): CopilotKitCoreGetSuggestionsResult {
+    this.syncThread(agentId);
     const suggestions = Object.values(this._suggestions[agentId] ?? {}).flat();
     const isLoading = (this._runningSuggestions[agentId]?.length ?? 0) > 0;
     return { suggestions, isLoading };
@@ -213,6 +270,10 @@ export class SuggestionEngine {
       const seededMessages: Message[] = JSON.parse(
         JSON.stringify(suggestionsConsumerAgent.messages),
       );
+      // The conversation those messages belong to: its thread-scoped context
+      // is the one to send, whatever the consumer shows by the time the
+      // request leaves.
+      const seededThreadId = suggestionsConsumerAgent.threadId;
       const seededState: unknown = JSON.parse(
         JSON.stringify(suggestionsConsumerAgent.state ?? {}),
       );
@@ -298,6 +359,13 @@ export class SuggestionEngine {
       // suggestions into whatever the current turn has become. `finally`
       // still performs its cleanup on this early return.
       if (aborted) return;
+      // The user switched conversations while the headers resolved: these
+      // messages are no longer the consumer's, so suggestions built on them
+      // would describe a conversation that is not on screen.
+      if (suggestionsConsumerAgent.threadId !== seededThreadId) {
+        this.syncThread(consumerAgentId);
+        return;
+      }
 
       suggestionAgent.addMessage({
         id: suggestionId,
@@ -307,7 +375,9 @@ export class SuggestionEngine {
 
       await suggestionAgent.runAgent(
         {
-          context: friends.getContextForAgent(consumerAgentId),
+          // The consumer's conversation, not the suggestion agent's own
+          // throwaway thread.
+          context: friends.getContextForAgent(consumerAgentId, seededThreadId),
           forwardedProps: {
             ...friends.getPropertiesForAgent(consumerAgentId),
             toolChoice: {
@@ -319,6 +389,12 @@ export class SuggestionEngine {
         },
         {
           onMessagesChanged: ({ messages }) => {
+            // The consumer may have moved to another conversation while
+            // this one streamed: drop it before anything is published.
+            if (suggestionsConsumerAgent.threadId !== seededThreadId) {
+              this.syncThread(consumerAgentId);
+              return;
+            }
             this.extractSuggestions(
               messages,
               suggestionId,
@@ -366,6 +442,9 @@ export class SuggestionEngine {
     suggestionId: string,
     consumerAgentId: string,
   ): void {
+    // A run can end without another message after the consumer moved to
+    // another conversation; its last streamed suggestions go too.
+    this.syncThread(consumerAgentId);
     const agentSuggestions = this._suggestions[consumerAgentId];
     const currentSuggestions = agentSuggestions?.[suggestionId];
 
@@ -460,8 +539,11 @@ export class SuggestionEngine {
       suggestions[suggestions.length - 1]!.isLoading = true;
     }
 
+    // Only a generation whose slot still exists publishes: `clearSuggestions`,
+    // a reload or a conversation change removes it, and a late result from
+    // the previous generation must not land among the new ones.
     const agentSuggestions = this._suggestions[consumerAgentId];
-    if (agentSuggestions) {
+    if (agentSuggestions && Object.hasOwn(agentSuggestions, suggestionId)) {
       agentSuggestions[suggestionId] = suggestions;
 
       // Get all aggregated suggestions for this agent

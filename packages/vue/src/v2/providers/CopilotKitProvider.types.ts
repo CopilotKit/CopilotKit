@@ -137,6 +137,16 @@ export interface CopilotKitProviderProps {
      * `IndexedDB` or cookies. By default widgets get an opaque origin.
      */
     allowSameOriginFallback?: boolean;
+    /**
+     * Let MCP Apps report their state to the model through
+     * `ui/update-model-context`. Default `false`.
+     *
+     * **Security.** The reported state goes with every later run of the
+     * conversation, and the built-in agent puts it in the system prompt. The
+     * user does not see it. With this on, the widget of any MCP server your
+     * agent uses can write there. Only enable it for MCP servers you trust.
+     */
+    modelContext?: boolean;
   };
   /**
    * Enable debug logging for the client-side event pipeline.

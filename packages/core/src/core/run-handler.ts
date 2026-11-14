@@ -582,6 +582,11 @@ export class RunHandler {
     const connection = {};
     this._connectionGenerations.set(agent, connection);
     const incomingThreadId = agent.threadId ?? null;
+    // Suggestions generated for the thread the agent leaves must not show in
+    // the one it connects to.
+    if (agent.agentId) {
+      this._internal.suggestionEngine.syncThread(agent.agentId);
+    }
     const previousReplay = this._interactionAbortControllers.get(agent);
     if (previousReplay && previousReplay.threadId !== incomingThreadId) {
       for (const controller of previousReplay.controllers) controller.abort();
@@ -670,7 +675,10 @@ export class RunHandler {
         {
           forwardedProps: this._internal.getPropertiesForAgent(agent.agentId),
           tools: this.buildFrontendTools(agent.agentId),
-          context: this._internal.getContextForAgent(agent.agentId),
+          context: this._internal.getContextForAgent(
+            agent.agentId,
+            agent.threadId,
+          ),
         },
         this.createAgentErrorSubscriber(agent),
       );
@@ -950,7 +958,11 @@ export class RunHandler {
         ...(resume !== undefined ? { resume } : {}),
         ...(pinRunIdOnWire ? { runId } : {}),
         tools,
-        context: this._internal.getContextForAgent(agent.agentId),
+        // The thread actually run: a per-thread clone carries its own.
+        context: this._internal.getContextForAgent(
+          agent.agentId,
+          agent.threadId,
+        ),
       };
       const runAgentResult = await agent.runAgent(
         agentRunInput,
