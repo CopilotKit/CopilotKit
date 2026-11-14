@@ -153,6 +153,12 @@ function convertJsonSchemaToParameter(
         type: "object",
       };
     case "array":
+      if (!schema.items) {
+        return {
+          ...baseParameter,
+          type: "string[]",
+        };
+      }
       if (schema.items.type === "object" && "properties" in schema.items) {
         const attributes: Parameter[] = [];
         const requiredFields = schema.items.required || [];
@@ -179,7 +185,7 @@ function convertJsonSchemaToParameter(
       } else {
         return {
           ...baseParameter,
-          type: `${schema.items.type}[]`,
+          type: `${schema.items.type || "string"}[]`,
         };
       }
     default:
@@ -257,6 +263,11 @@ export function convertJsonSchemaToZodSchema(
   definitions?: Record<string, any>,
   visitedRefs?: Set<string>,
 ): z.ZodSchema {
+  if (!jsonSchema || typeof jsonSchema !== "object") {
+    let schema = z.any();
+    return required ? schema : schema.optional();
+  }
+
   // Resolve $ref references
   if (jsonSchema.$ref && definitions) {
     const refPath = jsonSchema.$ref.replace(
@@ -369,12 +380,14 @@ export function convertJsonSchemaToZodSchema(
     let schema = z.boolean().describe(jsonSchema.description);
     return required ? schema : schema.optional();
   } else if (jsonSchema.type === "array") {
-    let itemSchema = convertJsonSchemaToZodSchema(
-      jsonSchema.items,
-      true,
-      defs,
-      visitedRefs,
-    );
+    let itemSchema = jsonSchema.items
+      ? convertJsonSchemaToZodSchema(
+          jsonSchema.items,
+          true,
+          defs,
+          visitedRefs,
+        )
+      : z.any();
     let schema = z.array(itemSchema).describe(jsonSchema.description);
     return required ? schema : schema.optional();
   } else if (jsonSchema.type === "null") {

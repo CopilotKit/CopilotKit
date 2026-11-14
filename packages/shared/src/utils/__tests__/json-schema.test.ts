@@ -87,6 +87,29 @@ describe("convertJsonSchemaToZodSchema", () => {
     expect(resultSchemaJson).toStrictEqual(expectedSchemaJson);
   });
 
+  it("should convert a JSON schema with untyped array (omitted items) to a Zod schema", () => {
+    const jsonSchema = {
+      type: "object",
+      properties: {
+        tags: {
+          type: "array",
+          description: "List of tags",
+        },
+      },
+      required: ["tags"],
+    };
+
+    const expectedSchema = z.object({
+      tags: z.array(z.any()).describe("List of tags"),
+    });
+
+    const result = convertJsonSchemaToZodSchema(jsonSchema, true);
+    const resultSchemaJson = zodToJsonSchema(result);
+    const expectedSchemaJson = zodToJsonSchema(expectedSchema);
+
+    expect(resultSchemaJson).toStrictEqual(expectedSchemaJson);
+  });
+
   it("should convert a JSON schema with optional properties to a Zod schema", () => {
     const jsonSchema = {
       type: "object",
@@ -675,6 +698,30 @@ describe("jsonSchemaToActionParameters", () => {
     expect(() => jsonSchemaToActionParameters(jsonSchema)).toThrow(
       "Nested arrays are not supported",
     );
+  });
+
+  it("should handle untyped array without items property", () => {
+    const jsonSchema: any = {
+      type: "object",
+      properties: {
+        tags: {
+          type: "array",
+          description: "List of tags",
+        },
+      },
+      required: ["tags"],
+    };
+
+    const expectedParameters: Parameter[] = [
+      {
+        name: "tags",
+        type: "string[]",
+        description: "List of tags",
+      },
+    ];
+
+    const result = jsonSchemaToActionParameters(jsonSchema);
+    expect(result).toEqual(expectedParameters);
   });
 
   it("should handle null-union type ['string', 'null'] as optional string", () => {
