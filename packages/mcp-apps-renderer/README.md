@@ -34,18 +34,22 @@ synchronous activity registration.
   narrows what the host offers (`inline` always stays); React exposes it as
   `<CopilotKit mcpApps>`, Vue as `<CopilotKitProvider :mcp-apps>`, Angular as
   `provideMCPApps()`.
-- `fullscreen` is only granted on the heels of a user action
-  (`navigator.userActivation.isActive`; a click inside the widget's iframe
-  counts). After the host took the widget out of fullscreen (close button,
-  Escape), requests are refused until the activation has been observed
-  inactive, then granted again on a fresh activation: activation outlives
-  the close click for a duration the browser chooses, so on its own it would
-  let a widget re-asking from its `host-context-changed` handler take the
-  page back at once, and the modal dialog makes the rest of the page inert.
-  Nothing the host can observe, focus included, proves a user interaction
-  with the sandboxed widget itself. Where the activation API is missing, the
-  activation check is skipped, and after a host-initiated exit fullscreen
-  stays refused for the rest of the session.
+- `fullscreen` is only granted on a user action in the widget itself.
+  Transient activation (`navigator.userActivation.isActive`) belongs to the
+  whole page, so a key press in the chat composer would count as much as a
+  click in the widget. The gate (`fullscreen-gate.ts`) therefore also requires
+  that the widget's iframe holds the focus and that no `pointerdown` or
+  `keydown` reached the host page in the last 5 seconds (the activation
+  window of Chromium and Firefox): events inside the iframe never reach the
+  host document, so a recent host-side gesture means the activation may come
+  from the host. Where the activation API is missing, the focus and
+  host-gesture checks still apply.
+- After the host took a widget out of fullscreen (close button, Escape), every
+  widget on the page is refused until the activation has been observed
+  inactive, then granted again on a fresh gesture: activation outlives the
+  closing gesture for a duration the browser chooses, and the modal dialog
+  makes the rest of the page inert. Without the activation API the block
+  stays for the rest of the page's life.
 - `hostContext` carries `displayMode` and `availableDisplayModes` from
   construction on, so the `ui/initialize` response already advertises them.
   Every change, widget-initiated or host-initiated, goes through the same path

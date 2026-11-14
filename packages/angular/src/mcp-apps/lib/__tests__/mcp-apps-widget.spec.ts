@@ -13,7 +13,8 @@ import {
 } from "../mcp-apps-activity-renderer";
 import { CopilotMCPAppsWidget } from "../mcp-apps-widget";
 import { provideMCPApps } from "../provide-mcp-apps";
-import { expect, test, vi } from "vitest";
+import { beforeEach, expect, test, vi } from "vitest";
+import { ɵresetFullscreenGate } from "@copilotkit/mcp-apps-renderer";
 
 type AgentHarness = AbstractAgent & {
   addMessage: ReturnType<typeof vi.fn>;
@@ -1014,6 +1015,12 @@ test("allows a custom-scheme deep link (only script/HTML schemes are blocked)", 
 // the host-initiated exits and that the widget is told about each change.
 // ---------------------------------------------------------------------------
 
+// The fullscreen gate is page-wide: a previous test's Escape or exit must not
+// decide the next one.
+beforeEach(() => {
+  ɵresetFullscreenGate();
+});
+
 function outgoingMessages(
   postMessage: ReturnType<typeof vi.spyOn>,
 ): Array<Record<string, any>> {
@@ -1036,6 +1043,9 @@ async function requestDisplayMode(
   id: string,
   mode: string,
 ): Promise<void> {
+  // The request follows a user action in the widget, which gives its iframe
+  // the focus: fullscreen is only granted on a gesture there.
+  frame.focus();
   dispatchFrameMessage(frame, {
     jsonrpc: "2.0",
     id,
@@ -1063,6 +1073,26 @@ test("advertises displayMode and availableDisplayModes at ui/initialize", async 
     displayMode: "inline",
     availableDisplayModes: ["inline", "fullscreen"],
   });
+});
+
+test("refuses fullscreen when the user's last gesture was on the host page", async () => {
+  configureTestingModule();
+  const agent = createAgent();
+  const { fixture, frame, postMessage } = await bootWidget(agent);
+
+  // A key press in the host page (the chat composer) activates the whole
+  // page; a widget asking right then, even with the focus, must not get
+  // fullscreen.
+  document.body.dispatchEvent(
+    new KeyboardEvent("keydown", { key: "a", bubbles: true }),
+  );
+  await requestDisplayMode(fixture, frame, "fs-host", "fullscreen");
+
+  const response = outgoingMessages(postMessage).find(
+    (m) => m?.id === "fs-host" && "result" in m,
+  );
+  expect(response?.result).toEqual({ mode: "inline" });
+  expect(exitFullscreenButton(fixture)).toBeNull();
 });
 
 test("grants fullscreen and replies with the applied mode", async () => {

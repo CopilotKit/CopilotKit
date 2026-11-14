@@ -208,9 +208,10 @@ it offers in the `hostContext` of the `ui/initialize` response, and every
 change, whether the widget asked for it or the user closed fullscreen, reaches
 the widget as a `ui/notifications/host-context-changed` notification. A widget
 that declares `availableDisplayModes` in its own `appCapabilities` is never
-switched to a mode outside that list, and fullscreen is only granted on the
-heels of a user action inside the widget, so a widget cannot take the page
-over on its own.
+switched to a mode outside that list. Fullscreen is only granted right after
+the user clicked or typed in that widget: a key press in the chat, or a click
+in another widget, does not count, so a widget cannot take the page over on
+its own.
 
 To keep widgets inline only, narrow the modes on offer through the host
 options. The option has the same shape in the three frontends:

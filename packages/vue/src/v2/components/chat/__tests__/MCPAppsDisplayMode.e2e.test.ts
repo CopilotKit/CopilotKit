@@ -27,6 +27,7 @@ import {
 import { AbstractAgent, EventType } from "@ag-ui/client";
 import type { BaseEvent, RunAgentInput, RunAgentResult } from "@ag-ui/client";
 import { Observable, Subject } from "rxjs";
+import { ɵresetFullscreenGate } from "@copilotkit/mcp-apps-renderer";
 import { MCPAppsActivityType } from "../../MCPAppsActivityRenderer";
 import CopilotChat from "../CopilotChat.vue";
 import CopilotKitProvider from "../../../providers/CopilotKitProvider.vue";
@@ -194,6 +195,10 @@ async function setupMCPActivity(
   );
   await flushVueUpdates();
   await new Promise((resolve) => setTimeout(resolve, 100));
+  // The user message that opened the widget was typed in the host page, and
+  // the gate refuses fullscreen while a host gesture is recent. Treat it as
+  // long past: each test acts in the widget itself.
+  ɵresetFullscreenGate();
   return iframe!;
 }
 
@@ -233,8 +238,14 @@ async function sendRequest(
   return id;
 }
 
-const requestMode = (iframe: HTMLIFrameElement, mode: string) =>
-  sendRequest(iframe, "ui/request-display-mode", { mode });
+/**
+ * The widget asks for `mode` after a user action in it, which gives its iframe
+ * the focus: fullscreen is only granted on a gesture in the widget.
+ */
+const requestMode = (iframe: HTMLIFrameElement, mode: string) => {
+  iframe.focus();
+  return sendRequest(iframe, "ui/request-display-mode", { mode });
+};
 
 const sendInitialize = (
   iframe: HTMLIFrameElement,
@@ -253,6 +264,9 @@ describe("MCP Apps ui/request-display-mode (Vue surface)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     document.body.style.overflow = "";
+    // The fullscreen gate is page-wide: a previous test's Escape or exit
+    // must not decide this one.
+    ɵresetFullscreenGate();
   });
 
   afterEach(() => {
@@ -280,6 +294,23 @@ describe("MCP Apps ui/request-display-mode (Vue surface)", () => {
     expect(contextChanges(spy).map((p) => p.displayMode)).toEqual([
       "fullscreen",
     ]);
+  });
+
+  it("refuses fullscreen when the user's last gesture was on the host page", async () => {
+    const agent = new MockMCPProxyAgent();
+    agent.agentId = "dm-host-gesture";
+    const iframe = await setupMCPActivity(agent, "Host gesture");
+    const spy = spyOnHostMessages(iframe);
+
+    // A key press in the chat composer activates the whole page; a widget
+    // asking right then, even with the focus, must not get fullscreen.
+    await fireEvent.keyDown(screen.getByRole("textbox"), { key: "a" });
+    const id = await requestMode(iframe, "fullscreen");
+
+    expect(responseFor(spy, id)?.result).toEqual({ mode: "inline" });
+    expect(
+      screen.queryByRole("button", { name: "Exit fullscreen" }),
+    ).toBeNull();
   });
 
   it("shows a close button in fullscreen; clicking it exits and notifies the widget", async () => {

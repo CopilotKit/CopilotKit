@@ -1,6 +1,10 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { AbstractAgent } from "@ag-ui/client";
 import { bindMcpApp } from "../session";
+import {
+  HOST_GESTURE_WINDOW_MS,
+  ɵresetFullscreenGate,
+} from "../fullscreen-gate";
 import type { McpAppSession } from "../session";
 import type { MCPAppsActivityContent } from "../content-schema";
 
@@ -1362,6 +1366,13 @@ const setActivation = (value: { isActive: boolean } | undefined) => {
 };
 
 describe("bindMcpApp ui/request-display-mode", () => {
+  // The fullscreen gate is page-wide: one test's host gesture or exit must not
+  // decide the next one.
+  afterEach(() => {
+    ɵresetFullscreenGate();
+    (document.activeElement as HTMLElement | null)?.blur?.();
+  });
+
   /** ui/initialize, so the bridge records what the app declared. */
   async function initialize(
     iframe: HTMLIFrameElement,
@@ -1380,11 +1391,18 @@ describe("bindMcpApp ui/request-display-mode", () => {
     await tick(20);
   }
 
+  /**
+   * The widget asks for `mode`. By default the request follows a user action
+   * in the widget, which gives its iframe the focus; `fromWidgetGesture:
+   * false` leaves the focus where it is.
+   */
   async function requestMode(
     iframe: HTMLIFrameElement,
     id: string,
     mode: string,
+    { fromWidgetGesture = true }: { fromWidgetGesture?: boolean } = {},
   ) {
+    if (fromWidgetGesture) iframe.focus();
     fromIframe(iframe, {
       jsonrpc: "2.0",
       id,
@@ -1668,6 +1686,100 @@ describe("bindMcpApp ui/request-display-mode", () => {
       // Nothing can tell a gesture from a script here, so the block stays.
       expect(responseTo(captured, "again").result).toEqual({ mode: "inline" });
       expect(session.getDisplayMode()).toBe("inline");
+    });
+
+    it("refuses fullscreen when the activation may come from the host page", async () => {
+      // A key press in the chat composer activates the whole page. A widget
+      // asking in a loop must not get fullscreen from it, even with the focus.
+      setActivation({ isActive: true });
+      const agent = makeAgent();
+      const iframe = mount();
+      const { session, captured } = await bindAndConnect(iframe, agent);
+      await initialize(iframe);
+      const composer = document.createElement("textarea");
+      document.body.appendChild(composer);
+      composer.focus();
+      composer.dispatchEvent(
+        new KeyboardEvent("keydown", { key: "a", bubbles: true }),
+      );
+
+      await requestMode(iframe, "unfocused", "fullscreen", {
+        fromWidgetGesture: false,
+      });
+      // Even once the widget took the focus by script.
+      await requestMode(iframe, "focused", "fullscreen");
+
+      expect(responseTo(captured, "unfocused").result).toEqual({
+        mode: "inline",
+      });
+      expect(responseTo(captured, "focused").result).toEqual({
+        mode: "inline",
+      });
+      expect(session.getDisplayMode()).toBe("inline");
+      composer.remove();
+    });
+
+    it("grants fullscreen once the host gesture is older than the activation window", async () => {
+      vi.useFakeTimers({ toFake: ["performance"] });
+      try {
+        setActivation({ isActive: true });
+        const agent = makeAgent();
+        const iframe = mount();
+        const { session, captured } = await bindAndConnect(iframe, agent);
+        await initialize(iframe);
+        document.body.dispatchEvent(
+          new Event("pointerdown", { bubbles: true }),
+        );
+
+        vi.advanceTimersByTime(HOST_GESTURE_WINDOW_MS + 1);
+        await requestMode(iframe, "fs", "fullscreen");
+
+        expect(responseTo(captured, "fs").result).toEqual({
+          mode: "fullscreen",
+        });
+        expect(session.getDisplayMode()).toBe("fullscreen");
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it("refuses fullscreen to a widget that does not hold the focus", async () => {
+      setActivation({ isActive: true });
+      const agent = makeAgent();
+      const iframe = mount();
+      const other = mount();
+      const { session, captured } = await bindAndConnect(iframe, agent);
+      await initialize(iframe);
+      // The user acted in another widget.
+      other.focus();
+
+      await requestMode(iframe, "fs", "fullscreen", {
+        fromWidgetGesture: false,
+      });
+
+      expect(responseTo(captured, "fs").result).toEqual({ mode: "inline" });
+      expect(session.getDisplayMode()).toBe("inline");
+    });
+
+    it("blocks every widget on the page after the host exited one, until the activation has been seen inactive", async () => {
+      const activation = { isActive: true };
+      setActivation(activation);
+      const first = mount();
+      const second = mount();
+      const a = await bindAndConnect(first, makeAgent());
+      const b = await bindAndConnect(second, makeAgent());
+      await initialize(first);
+      await initialize(second);
+      await requestMode(first, "fs", "fullscreen");
+      expect(a.session.getDisplayMode()).toBe("fullscreen");
+
+      a.session.setDisplayMode("inline");
+      await requestMode(second, "other", "fullscreen");
+
+      expect(responseTo(b.captured, "other").result).toEqual({
+        mode: "inline",
+      });
+      expect(b.session.getDisplayMode()).toBe("inline");
     });
 
     it("lets a widget that returned inline by itself ask for fullscreen again", async () => {

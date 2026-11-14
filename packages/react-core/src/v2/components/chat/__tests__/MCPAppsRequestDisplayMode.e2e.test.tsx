@@ -23,6 +23,7 @@ import {
   runStartedEvent,
   testId,
 } from "../../../__tests__/utils/test-helpers";
+import { ɵresetFullscreenGate } from "@copilotkit/mcp-apps-renderer";
 import { MCPAppsActivityType } from "../../../components/MCPAppsActivityRenderer";
 import type { RunAgentInput, RunAgentResult, BaseEvent } from "@ag-ui/client";
 import { AbstractAgent, EventType } from "@ag-ui/client";
@@ -176,6 +177,10 @@ async function setupMCPActivity(
     await new Promise((resolve) => setTimeout(resolve, 100));
   });
 
+  // The user message that opened the widget was typed in the host page, and
+  // the gate refuses fullscreen while a host gesture is recent. Treat it as
+  // long past: each test acts in the widget itself.
+  ɵresetFullscreenGate();
   return iframe!;
 }
 
@@ -204,6 +209,9 @@ async function sendRequest(
   method: string,
   params?: Record<string, unknown>,
 ): Promise<string> {
+  // A display-mode request follows a user action in the widget, which gives
+  // its iframe the focus: fullscreen is only granted on a gesture there.
+  if (method === "ui/request-display-mode") iframe.focus();
   const id = testId("req");
   const msg = new MessageEvent("message", {
     data: { jsonrpc: "2.0", id, method, params },
@@ -250,6 +258,28 @@ describe("MCP Apps ui/request-display-mode", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     document.body.style.overflow = "";
+    // The fullscreen gate is page-wide: a previous test's Escape or exit
+    // must not decide this one.
+    ɵresetFullscreenGate();
+  });
+
+  it("refuses fullscreen when the user's last gesture was on the host page", async () => {
+    const agent = new MockMCPProxyAgent();
+    agent.agentId = "rdm-host-gesture";
+    const iframe = await setupMCPActivity(agent, "rdm-host-gesture");
+    const spy = spyOnHostMessages(iframe);
+
+    // A key press in the chat composer activates the whole page; a widget
+    // asking right then, even with the focus, must not get fullscreen.
+    fireEvent.keyDown(screen.getByRole("textbox"), { key: "a" });
+    const id = await sendRequest(iframe, "ui/request-display-mode", {
+      mode: "fullscreen",
+    });
+
+    expect(responseFor(spy, id)?.result).toEqual({ mode: "inline" });
+    expect(
+      screen.queryByRole("button", { name: "Exit fullscreen" }),
+    ).toBeNull();
   });
 
   it("grants fullscreen and replies with the applied mode", async () => {
@@ -584,6 +614,7 @@ describe("MCP Apps ui/request-display-mode", () => {
 
     // The grant and the fullscreen-era size arrive in one batch: the adapter
     // has not re-rendered in between, so it must already know the mode.
+    iframe.focus();
     await act(async () => {
       window.dispatchEvent(
         message({
