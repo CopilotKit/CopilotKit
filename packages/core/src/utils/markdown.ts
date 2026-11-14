@@ -1,3 +1,9 @@
+const isWhitespace = (c: string | undefined): boolean =>
+  c !== undefined && /\s/.test(c);
+
+const isWordChar = (c: string | undefined): boolean =>
+  c !== undefined && /[\p{L}\p{N}]/u.test(c);
+
 export function completePartialMarkdown(input: string): string {
   let s = input;
 
@@ -127,8 +133,12 @@ export function completePartialMarkdown(input: string): string {
         }
       }
 
+      // A closed bracket pair that is not a link (arr[0], a "[ ]" task item)
+      // is complete text. Only a bracket with no matching "]" is still open.
+      const hasMatchingClose = bracketDepth === 0;
+
       // This is a standalone bracket, treat as markdown
-      if (!isCompleteLink) {
+      if (!isCompleteLink && !hasMatchingClose) {
         const existingIndex = openElements.findIndex(
           (el) => el.type === "bracket",
         );
@@ -183,17 +193,24 @@ export function completePartialMarkdown(input: string): string {
         (el) => el.type === "italic_star",
       );
       if (existingIndex !== -1) {
-        openElements.splice(existingIndex, 1);
-      } else {
+        // Closes only when not preceded by whitespace ("2 * 3" is not a delimiter)
+        if (!isWhitespace(prevChar)) {
+          openElements.splice(existingIndex, 1);
+        }
+      } else if (!isWhitespace(nextChar)) {
         openElements.push({ type: "italic_star", marker: "*", position: i });
       }
     } else if (char === "_" && prevChar !== "_" && nextChar !== "_") {
       const existingIndex = openElements.findIndex(
         (el) => el.type === "italic_underscore",
       );
-      if (existingIndex !== -1) {
-        openElements.splice(existingIndex, 1);
-      } else {
+      if (isWordChar(prevChar) && isWordChar(nextChar)) {
+        // Intraword underscore (snake_case) never opens or closes emphasis
+      } else if (existingIndex !== -1) {
+        if (!isWhitespace(prevChar)) {
+          openElements.splice(existingIndex, 1);
+        }
+      } else if (!isWhitespace(nextChar)) {
         openElements.push({
           type: "italic_underscore",
           marker: "_",
