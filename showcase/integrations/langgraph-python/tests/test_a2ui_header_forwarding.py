@@ -11,9 +11,7 @@ import pytest
 from copilotkit import copilotkit_lg_middleware
 from langchain_core.runnables.config import var_child_runnable_config
 
-from src.agents._header_forwarding_middleware import (
-    AuxiliaryModelHeaderForwardingMiddleware,
-)
+from _shared.langgraph_header_forwarding import AuxiliaryModelHeaderForwardingMiddleware
 
 
 _HEADER_CASES = (

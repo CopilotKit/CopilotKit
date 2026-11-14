@@ -153,6 +153,7 @@ jobs:
               - '.github/workflows/showcase_build_check.yml'
             angular:
               - 'showcase/angular/**'
+              - 'showcase/integrations/_shared/ts/a2ui/sales-context.ts'
               - 'packages/a2ui-renderer/**'
               - 'packages/angular/**'
               - 'packages/core/**'
@@ -174,6 +175,7 @@ jobs:
               - 'showcase/integrations/*/manifest.yaml'
             langgraph_python:
               - 'showcase/integrations/langgraph-python/**'
+              - 'showcase/integrations/_shared/langgraph_header_forwarding.py'
             mastra:
               - 'showcase/integrations/mastra/**'
             crewai_crews:
@@ -196,6 +198,7 @@ jobs:
               - 'showcase/integrations/llamaindex/**'
             langgraph_fastapi:
               - 'showcase/integrations/langgraph-fastapi/**'
+              - 'showcase/integrations/_shared/langgraph_header_forwarding.py'
             langgraph_typescript:
               - 'showcase/integrations/langgraph-typescript/**'
             langroid:

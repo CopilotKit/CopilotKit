@@ -44,9 +44,7 @@ from langchain.agents import create_agent
 from langchain_openai import ChatOpenAI
 from ag_ui_langgraph import get_a2ui_tools
 
-from src.agents._header_forwarding_middleware import (
-    AuxiliaryModelHeaderForwardingMiddleware,
-)
+from _shared.langgraph_header_forwarding import AuxiliaryModelHeaderForwardingMiddleware
 
 logger = logging.getLogger(__name__)
 

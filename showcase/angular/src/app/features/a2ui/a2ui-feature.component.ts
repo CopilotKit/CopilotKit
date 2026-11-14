@@ -1,4 +1,11 @@
-import { ChangeDetectionStrategy, Component } from "@angular/core";
+import { ChangeDetectionStrategy, Component, inject } from "@angular/core";
+import { ActivatedRoute } from "@angular/router";
+import { connectAgentContext } from "@copilotkit/angular";
+
+import {
+  dashboardCompositionContext,
+  salesDatasetContext,
+} from "../../../../../integrations/_shared/ts/a2ui/sales-context";
 
 import { FeatureHeaderComponent } from "../feature-header.component";
 import { ShowcaseChatHostComponent } from "../showcase-chat-host.component";
@@ -18,5 +25,12 @@ import { ShowcaseChatHostComponent } from "../showcase-chat-host.component";
   `,
 })
 export class A2UIFeatureComponent {
-  protected readonly demoLabel = "Angular A2UI demonstration";
+  private readonly feature = inject(ActivatedRoute).snapshot.data["feature"];
+
+  constructor() {
+    if (this.feature === "declarative-gen-ui") {
+      connectAgentContext(salesDatasetContext);
+      connectAgentContext(dashboardCompositionContext);
+    }
+  }
 }

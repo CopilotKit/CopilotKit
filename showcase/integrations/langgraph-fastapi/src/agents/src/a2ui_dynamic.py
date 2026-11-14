@@ -10,6 +10,8 @@ from copilotkit import CopilotKitMiddleware
 from langchain.agents import create_agent
 from langchain_openai import ChatOpenAI
 
+from _shared.langgraph_header_forwarding import AuxiliaryModelHeaderForwardingMiddleware
+
 
 SYSTEM_PROMPT = (
     "You are the embedded sales analyst for Vantage Threads, the fictional "
@@ -42,6 +44,9 @@ graph = create_agent(
             {"model": model, "default_catalog_id": "declarative-gen-ui-catalog"}
         )
     ],
-    middleware=[CopilotKitMiddleware()],
+    middleware=[
+        AuxiliaryModelHeaderForwardingMiddleware(model),
+        CopilotKitMiddleware(),
+    ],
     system_prompt=SYSTEM_PROMPT,
 )
