@@ -1,3 +1,17 @@
+const isWhitespace = (c: string | undefined): boolean =>
+  c !== undefined && /\s/.test(c);
+
+const isWordChar = (c: string | undefined): boolean =>
+  c !== undefined && /[\p{L}\p{N}]/u.test(c);
+
+const canOpenEmphasis = (
+  prevChar: string | undefined,
+  nextChar: string | undefined,
+): boolean =>
+  nextChar === undefined
+    ? prevChar === undefined || isWhitespace(prevChar)
+    : !isWhitespace(nextChar);
+
 export function completePartialMarkdown(input: string): string {
   let s = input;
 
@@ -127,8 +141,12 @@ export function completePartialMarkdown(input: string): string {
         }
       }
 
+      // A closed bracket pair that is not a link (arr[0], a "[ ]" task item)
+      // is complete text. Only a bracket with no matching "]" is still open.
+      const hasMatchingClose = bracketDepth === 0;
+
       // This is a standalone bracket, treat as markdown
-      if (!isCompleteLink) {
+      if (!isCompleteLink && !hasMatchingClose) {
         const existingIndex = openElements.findIndex(
           (el) => el.type === "bracket",
         );
@@ -177,28 +195,38 @@ export function completePartialMarkdown(input: string): string {
       i++; // Skip next character
     }
 
-    // Handle single emphasis (*, _) - only if not part of double
+    // Handle single emphasis (*, _) - only if not part of double.
+    // A marker can open when text follows it (or it ends the text after
+    // whitespace) and can close when whitespace does not precede it, so
+    // "2 * 3", "snake_case" and "foo_bar_" are left alone.
     else if (char === "*" && prevChar !== "*" && nextChar !== "*") {
+      const canOpen = canOpenEmphasis(prevChar, nextChar);
+      const canClose = !isWhitespace(prevChar) && prevChar !== undefined;
       const existingIndex = openElements.findIndex(
         (el) => el.type === "italic_star",
       );
-      if (existingIndex !== -1) {
+      if (existingIndex !== -1 && canClose) {
         openElements.splice(existingIndex, 1);
-      } else {
+      } else if (canOpen) {
         openElements.push({ type: "italic_star", marker: "*", position: i });
       }
     } else if (char === "_" && prevChar !== "_" && nextChar !== "_") {
-      const existingIndex = openElements.findIndex(
-        (el) => el.type === "italic_underscore",
-      );
-      if (existingIndex !== -1) {
-        openElements.splice(existingIndex, 1);
-      } else {
-        openElements.push({
-          type: "italic_underscore",
-          marker: "_",
-          position: i,
-        });
+      // Intraword underscore (snake_case) never opens or closes emphasis
+      if (!(isWordChar(prevChar) && isWordChar(nextChar))) {
+        const canOpen = canOpenEmphasis(prevChar, nextChar);
+        const canClose = !isWhitespace(prevChar) && prevChar !== undefined;
+        const existingIndex = openElements.findIndex(
+          (el) => el.type === "italic_underscore",
+        );
+        if (existingIndex !== -1 && canClose) {
+          openElements.splice(existingIndex, 1);
+        } else if (canOpen) {
+          openElements.push({
+            type: "italic_underscore",
+            marker: "_",
+            position: i,
+          });
+        }
       }
     }
   }
