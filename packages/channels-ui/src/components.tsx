@@ -72,11 +72,23 @@ export interface FieldProps extends WithChildren {
 export interface ContextProps extends WithChildren {}
 export interface ActionsProps extends WithChildren {}
 
+/** Rendered image size on surfaces that size images; ignored elsewhere. */
+export type ImageSize = "small" | "medium" | "large";
+
 export interface ImageProps {
   /** Image URL. */
   url: string;
   /** Alternative text for accessibility. */
   alt?: string;
+  /**
+   * Rendered size, for surfaces that let an image be smaller than the full
+   * width — a status icon or an avatar rather than a hero image. Teams maps it
+   * to the Adaptive Card `size`; surfaces without image sizing ignore it.
+   * Omitted keeps the surface default, which on Teams is `Auto`: the image's
+   * intrinsic size capped at the card width, so an image without an intrinsic
+   * size (e.g. an SVG with only a `viewBox`) fills the card.
+   */
+  size?: ImageSize;
 }
 
 export interface RenderProps extends WithChildren {

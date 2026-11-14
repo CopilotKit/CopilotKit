@@ -181,12 +181,35 @@ function imageUrl(props: Record<string, unknown>): string {
   return String(props.url ?? props.dataUrl ?? props.image_url ?? "");
 }
 
+/**
+ * Adaptive Card `size` values for the portable `<Image size>` vocabulary.
+ * A Map, not an object literal: an object lookup resolves inherited keys such
+ * as `__proto__` to something that is not a size.
+ */
+const IMAGE_SIZE_BY_PROP: ReadonlyMap<string, string> = new Map([
+  ["small", "Small"],
+  ["medium", "Medium"],
+  ["large", "Large"],
+]);
+
+/**
+ * Map the portable `size` prop onto an Adaptive Card `Image.size`. An absent or
+ * unrecognized value stays `Auto`, which renders the image at its intrinsic
+ * size capped at the card width - full width only for an image with no
+ * intrinsic size, such as an SVG with just a `viewBox`.
+ */
+function imageSize(props: Record<string, unknown>): string {
+  const size =
+    typeof props.size === "string" ? props.size.trim().toLowerCase() : "";
+  return IMAGE_SIZE_BY_PROP.get(size) ?? "Auto";
+}
+
 function renderImage(props: Record<string, unknown>): CardElement {
   return {
     type: "Image",
     url: imageUrl(props),
     altText: String(props.alt ?? props.altText ?? ""),
-    size: "Auto",
+    size: imageSize(props),
   };
 }
 

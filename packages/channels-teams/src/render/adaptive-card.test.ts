@@ -328,6 +328,74 @@ describe("renderAdaptiveCard", () => {
     });
   });
 
+  it("maps the portable image size onto the Adaptive Card size", () => {
+    // Every image used to render at `Auto`, because renderImage hard-coded
+    // `size: "Auto"` regardless of the portable `<Image size>` prop.
+    const sizes = { small: "Small", medium: "Medium", large: "Large" };
+    for (const [size, expected] of Object.entries(sizes)) {
+      const card = renderAdaptiveCard([
+        {
+          type: "image",
+          props: { url: "https://example.com/icon.svg", size },
+        },
+      ]);
+      expect(card.body[0]).toMatchObject({
+        type: "Image",
+        size: expected,
+      });
+    }
+  });
+
+  it("keeps Auto for an absent, unknown, or non-string image size", () => {
+    // `__proto__` and the inherited members are the interesting ones: a plain
+    // object lookup resolves them to something that is not an Adaptive Card
+    // size, so the card would carry `size: {}` or omit the key entirely.
+    const sizes = [undefined, "huge", "", 42, null, "__proto__", "constructor"];
+    for (const size of sizes) {
+      const card = renderAdaptiveCard([
+        {
+          type: "image",
+          props: { url: "https://example.com/hat.png", size },
+        },
+      ]);
+      expect(card.body[0]).toMatchObject({ type: "Image", size: "Auto" });
+    }
+  });
+
+  it("applies the image size to a carousel card's hero image", () => {
+    const card = renderAdaptiveCard([
+      {
+        type: "carousel",
+        props: {
+          children: [
+            {
+              type: "carouselCard",
+              props: {
+                children: [
+                  {
+                    type: "image",
+                    props: {
+                      url: "https://example.com/hat.png",
+                      size: "small",
+                    },
+                  },
+                  el("header", [text("Hat")]),
+                ],
+              },
+            },
+          ],
+        },
+      },
+    ]);
+    const carousel = card.body[0] as {
+      pages: { items: Record<string, unknown>[] }[];
+    };
+    expect(carousel.pages[0]!.items[0]).toMatchObject({
+      type: "Image",
+      size: "Small",
+    });
+  });
+
   it("renders a filled carousel IR as Adaptive Card Carousel pages", () => {
     const card = renderAdaptiveCard([
       {
