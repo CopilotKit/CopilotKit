@@ -39,6 +39,27 @@ describe("stripIntelligenceRoutingFields", () => {
     });
   });
 
+  it.each([
+    ["organization_id", { organization_id: "o1" }],
+    ["project_id", { project_id: "p1" }],
+    [
+      "organization_id and project_id",
+      { organization_id: "o1", project_id: "p1" },
+    ],
+  ])("removes %s the gateway adds to relayed events", (_, scope) => {
+    const events = [
+      { type: EventType.TEXT_MESSAGE_CONTENT, messageId: "m1", delta: "hi" },
+      { type: EventType.RUN_STARTED, threadId: "t1", runId: "r1" },
+      { type: EventType.RUN_FINISHED, threadId: "t1", runId: "r1" },
+    ];
+
+    for (const event of events) {
+      expect(
+        stripIntelligenceRoutingFields({ ...event, ...scope } as BaseEvent),
+      ).toEqual(event);
+    }
+  });
+
   it("returns an event without routing fields unchanged", () => {
     const event = {
       type: EventType.RUN_STARTED,
