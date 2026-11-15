@@ -22,6 +22,12 @@ from collections.abc import AsyncIterator
 from typing import Any
 
 import anthropic
+from _shared.a2ui_sales import (
+    SALES_ANALYST_PROMPT,
+    SALES_CATALOG_ID,
+    sales_render_tool_description,
+    with_app_context,
+)
 from ag_ui.core import (
     Context,
     EventType,
@@ -38,14 +44,12 @@ from ag_ui.core import (
 )
 from ag_ui.encoder import EventEncoder
 
-from _shared.a2ui_sales import SALES_ANALYST_PROMPT, SALES_CATALOG_ID, with_app_context
+from agents._anthropic_message_safety import sanitize_unresolved_tool_uses
+from agents.claude_agent_sdk_adapter import normalize_claude_model
 from tools import (
     RENDER_A2UI_TOOL_SCHEMA,
     build_a2ui_operations_from_tool_call,
 )
-from agents._anthropic_message_safety import sanitize_unresolved_tool_uses
-from agents.claude_agent_sdk_adapter import normalize_claude_model
-
 
 SYSTEM_PROMPT = (
     SALES_ANALYST_PROMPT + " Pass a `context` string summarizing what to render."
@@ -82,7 +86,9 @@ def _generate_a2ui(
     client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY", ""))
     render_tool_schema = {
         "name": RENDER_A2UI_TOOL_SCHEMA["name"],
-        "description": f"Render a dynamic A2UI surface with catalogId {SALES_CATALOG_ID!r}.",
+        "description": sales_render_tool_description(
+            RENDER_A2UI_TOOL_SCHEMA["description"]
+        ),
         "input_schema": RENDER_A2UI_TOOL_SCHEMA["parameters"],
     }
     llm_messages = (

@@ -4,7 +4,6 @@ from collections.abc import Iterable
 
 from ag_ui.core import Context
 
-
 SALES_CATALOG_ID = "declarative-gen-ui-catalog"
 
 SALES_ANALYST_PROMPT = (
@@ -17,6 +16,11 @@ SALES_ANALYST_PROMPT = (
     "`InfoRow` for account facts, `PieChart` for part-of-whole breakdowns, and "
     "`BarChart` for trends or comparisons. Never ask which chart to use."
 )
+
+
+def sales_render_tool_description(description: str) -> str:
+    """Use the demo catalog while preserving the shared render instructions."""
+    return description.replace("copilotkit://app-dashboard-catalog", SALES_CATALOG_ID)
 
 
 def with_app_context(prompt: str, context: Iterable[Context]) -> str:

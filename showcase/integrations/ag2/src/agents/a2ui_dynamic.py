@@ -4,6 +4,11 @@ from __future__ import annotations
 
 import json
 
+from _shared.a2ui_sales import (
+    SALES_ANALYST_PROMPT,
+    SALES_CATALOG_ID,
+    sales_render_tool_description,
+)
 from ag2 import Agent, Context
 from ag2.ag_ui import AGUIStream
 from ag2.config.openai import OpenAIResponsesConfig
@@ -11,7 +16,6 @@ from ag2.events import ModelRequest, ModelResponse, TextInput
 from fastapi import FastAPI
 from openai import AsyncOpenAI
 
-from _shared.a2ui_sales import SALES_ANALYST_PROMPT, SALES_CATALOG_ID
 from tools import RENDER_A2UI_TOOL_SCHEMA, build_a2ui_operations_from_tool_call
 
 from ._header_forwarding import get_forwarded_headers
@@ -23,8 +27,9 @@ SYSTEM_PROMPT = SALES_ANALYST_PROMPT + " Call `generate_a2ui` without arguments.
 async def generate_a2ui(ctx: Context) -> str:
     """Generate a dashboard from the conversation and the application's sales data."""
     planner_prompt = "Design a Vantage Threads dashboard and call `render_a2ui`."
+    app_prompts = [prompt for prompt in ctx.prompt if prompt != SYSTEM_PROMPT]
     messages = [
-        {"role": "system", "content": "\n\n".join([planner_prompt, *ctx.prompt])}
+        {"role": "system", "content": "\n\n".join([planner_prompt, *app_prompts])}
     ]
     for event in await ctx.stream.history.get_events():
         if isinstance(event, ModelRequest):
@@ -46,7 +51,9 @@ async def generate_a2ui(ctx: Context) -> str:
                     "type": "function",
                     "function": {
                         **RENDER_A2UI_TOOL_SCHEMA,
-                        "description": f"Render a dynamic A2UI surface with catalogId {SALES_CATALOG_ID!r}.",
+                        "description": sales_render_tool_description(
+                            RENDER_A2UI_TOOL_SCHEMA["description"]
+                        ),
                     },
                 }
             ],

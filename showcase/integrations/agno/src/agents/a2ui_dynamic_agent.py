@@ -6,18 +6,22 @@ import json
 from contextvars import ContextVar
 
 import openai
+from _shared.a2ui_sales import (
+    SALES_ANALYST_PROMPT,
+    SALES_CATALOG_ID,
+    sales_render_tool_description,
+    with_app_context,
+)
 from ag_ui.core import Context
+from agents._header_forwarding import get_forwarded_headers
 from agno.agent.agent import Agent
 from agno.models.openai import OpenAIChat
 from agno.run import RunContext
 from dotenv import load_dotenv
 
-from _shared.a2ui_sales import SALES_ANALYST_PROMPT, SALES_CATALOG_ID, with_app_context
-from agents._header_forwarding import get_forwarded_headers
-
 from tools import (
-    build_a2ui_operations_from_tool_call,
     RENDER_A2UI_TOOL_SCHEMA,
+    build_a2ui_operations_from_tool_call,
 )
 
 load_dotenv()
@@ -43,15 +47,8 @@ def generate_a2ui(run_context: RunContext, context: str) -> str:
     if context and context.strip():
         system_prompt = f"{system_prompt}\n\nConversation context:\n{context}"
 
-    # Forward the request-scoped CopilotKit ``x-*`` headers (notably
-    # ``x-aimock-context``) onto this SECONDARY OpenAI call explicitly.
-    # agno runs under uvloop in prod, where the executor-contextvar shim is
-    # inert; relying on the global httpx hook + ContextVar alone is fragile
-    # across loop types. Reading the captured headers here (on the request
-    # context that invoked the tool) and passing them as ``default_headers``
-    # makes the secondary call carry the context REGARDLESS of loop type, so
-    # aimock can match the fixture instead of returning 503 on an empty
-    # ``x-aimock-context``.
+    # Forward request-scoped headers to the secondary model, including the
+    # fixture selector used by aimock.
     forwarded_headers = get_forwarded_headers()
     client = openai.OpenAI(default_headers=forwarded_headers or None)
     response = client.chat.completions.create(
@@ -71,7 +68,9 @@ def generate_a2ui(run_context: RunContext, context: str) -> str:
                 "type": "function",
                 "function": {
                     **RENDER_A2UI_TOOL_SCHEMA,
-                    "description": f"Render a dynamic A2UI surface with catalogId {SALES_CATALOG_ID!r}.",
+                    "description": sales_render_tool_description(
+                        RENDER_A2UI_TOOL_SCHEMA["description"]
+                    ),
                 },
             }
         ],
@@ -96,5 +95,4 @@ agent = Agent(
     tools=[generate_a2ui],
     tool_call_limit=4,
     instructions=sales_instructions,
-    cache_callables=False,
 )

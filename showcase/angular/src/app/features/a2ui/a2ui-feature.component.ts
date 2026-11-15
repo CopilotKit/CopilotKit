@@ -25,6 +25,7 @@ import { ShowcaseChatHostComponent } from "../showcase-chat-host.component";
   `,
 })
 export class A2UIFeatureComponent {
+  protected readonly demoLabel = "Angular A2UI demonstration";
   private readonly feature = inject(ActivatedRoute).snapshot.data["feature"];
 
   constructor() {

@@ -30,18 +30,19 @@ import json
 from dataclasses import dataclass
 from textwrap import dedent
 
+from _shared.a2ui_sales import (
+    SALES_ANALYST_PROMPT,
+    SALES_CATALOG_ID,
+    with_app_context,
+)
 from ag_ui.core import Context
 from pydantic import BaseModel
 from pydantic_ai import Agent, RunContext
-from pydantic_ai.ui import StateDeps
 from pydantic_ai.messages import ModelRequest, ModelResponse
 from pydantic_ai.models.openai import OpenAIResponsesModel
+from pydantic_ai.ui import StateDeps
 
-from _shared.a2ui_sales import SALES_ANALYST_PROMPT, with_app_context
 from tools import build_a2ui_operations_from_tool_call
-
-
-CUSTOM_CATALOG_ID = "declarative-gen-ui-catalog"
 
 
 class EmptyState(BaseModel):
@@ -69,9 +70,10 @@ GEN_UI_SYSTEM_PROMPT = dedent(
     A2UI v0.9 surface that best presents the answer — a dashboard, status
     report, KPI summary, card layout, info grid, pie/donut chart for
     part-of-whole breakdowns, or bar chart for comparisons across
-    categories. Use the registered catalog components (Card, StatusBadge,
-    Metric, InfoRow, PrimaryButton, PieChart, BarChart) plus the basic A2UI
-    primitives. Always emit the surface by calling the `render_a2ui` tool.
+    categories. Ground the dashboard in the App Context data and follow its
+    composition rules. Use the registered catalog components, including
+    DataTable for sales team performance. Always emit the surface by calling
+    the `render_a2ui` tool.
     """
 ).strip()
 
@@ -208,7 +210,7 @@ def generate_a2ui(ctx: RunContext[SalesAnalystDeps]) -> str:
     if not isinstance(args, dict):
         return json.dumps({"error": "render_a2ui returned malformed arguments"})
     # Override catalog id to match the frontend's declarative-gen-ui catalog.
-    args.setdefault("catalogId", CUSTOM_CATALOG_ID)
+    args["catalogId"] = SALES_CATALOG_ID
     # Guard against missing/empty components so the downstream helper never
     # raises out of the tool; surface a structured error instead.
     if not args.get("components"):

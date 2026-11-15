@@ -86,7 +86,7 @@ class _CapturingOpenAI:
         valid_args = json.dumps(
             {
                 "surfaceId": "declarative-surface",
-                "catalogId": a2ui_dynamic.CUSTOM_CATALOG_ID,
+                "catalogId": "wrong-catalog",
                 "components": [{"id": "root", "component": "Card"}],
                 "data": {},
             }
@@ -125,6 +125,7 @@ def test_secondary_call_includes_real_conversation(monkeypatch):
 
     sent = _CapturingOpenAI.captured_messages
     assert "Revenue: $4.2M" in sent[0]["content"]
+    assert "DataTable" in sent[0]["content"]
     user_msgs = [m for m in sent if m.get("role") == "user"]
 
     # BEFORE the fix this list is EMPTY (copilotkit attr is always None) ->
@@ -139,7 +140,8 @@ def test_secondary_call_includes_real_conversation(monkeypatch):
 
     # And it still produces a valid a2ui_operations container.
     parsed = json.loads(result)
-    assert "a2ui_operations" in parsed, parsed
+    operations = parsed["a2ui_operations"]
+    assert operations[0]["createSurface"]["catalogId"] == "declarative-gen-ui-catalog"
 
 
 def test_part_content_with_none_text_does_not_crash():

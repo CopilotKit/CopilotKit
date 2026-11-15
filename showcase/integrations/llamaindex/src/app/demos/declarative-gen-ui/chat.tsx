@@ -1,16 +1,12 @@
 "use client";
 
-import { CopilotChat, useAgentContext } from "@copilotkit/react-core/v2";
-import {
-  dashboardCompositionContext,
-  salesDatasetContext,
-} from "../../../../_shared/ts/a2ui/sales-context";
+import { CopilotChat } from "@copilotkit/react-core/v2";
 import { useDeclarativeGenUISuggestions } from "./suggestions";
+import { useSalesAnalystContext } from "./sales-context";
 
 export function Chat() {
   useDeclarativeGenUISuggestions();
-  useAgentContext(salesDatasetContext);
-  useAgentContext(dashboardCompositionContext);
+  useSalesAnalystContext();
   return (
     <CopilotChat agentId="declarative-gen-ui" className="h-full rounded-2xl" />
   );
