@@ -377,6 +377,49 @@ describe("WebInspectorElement", () => {
     expect(content?.textContent).toBe("test");
   });
 
+  it("shows the active agent and event type in the AG-UI Events filters when the view is rendered again", async () => {
+    const { agent, controller } = createMockAgent("alpha");
+    const { core, emitAgentsChanged } = createMockCore({ alpha: agent });
+    const inspector = createInspectorWithCore(core);
+
+    emitAgentsChanged();
+    await inspector.updateComplete;
+    controller.emit("onRunStartedEvent", { event: { id: "run-1" } });
+    await inspector.updateComplete;
+
+    const internals = inspector as unknown as {
+      isOpen: boolean;
+      selectedMenu: string;
+      selectedContext: string;
+      eventTypeFilter: string;
+    };
+    const filterValue = (label: string) =>
+      inspector.shadowRoot?.querySelector<HTMLSelectElement>(
+        `select[aria-label="${label}"]`,
+      )?.value;
+    const showMenu = async (menu: string) => {
+      internals.selectedMenu = menu;
+      inspector.requestUpdate();
+      await inspector.updateComplete;
+    };
+
+    internals.isOpen = true;
+    internals.selectedContext = "alpha";
+    internals.eventTypeFilter = "STATE_SNAPSHOT";
+    await showMenu("ag-ui-events");
+
+    expect(filterValue("Filter events by agent")).toBe("alpha");
+    expect(filterValue("Filter events by type")).toBe("STATE_SNAPSHOT");
+
+    await showMenu("agents");
+    internals.eventTypeFilter = "all";
+    internals.selectedContext = "all-agents";
+    await showMenu("ag-ui-events");
+
+    expect(filterValue("Filter events by agent")).toBe("all-agents");
+    expect(filterValue("Filter events by type")).toBe("all");
+  });
+
   it("records step lifecycle events", async () => {
     const { agent, controller } = createMockAgent("alpha");
     const { core, emitAgentsChanged } = createMockCore({ alpha: agent });
