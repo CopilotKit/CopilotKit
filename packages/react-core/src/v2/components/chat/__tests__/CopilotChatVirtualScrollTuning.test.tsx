@@ -565,39 +565,77 @@ describe("CopilotChatMessageView virtual-scroll tuning", () => {
       expect(virtualizer().options.estimateSize(1)).toBe(300);
     });
 
-    it("keeps unmeasured rows above the viewport in place when a message is sent", async () => {
-      // A resumed thread long enough to virtualize. The rows near the bottom
-      // are far taller than the ones at the top.
-      const container = document.createElement("div");
-      Object.defineProperties(container, {
-        clientWidth: { value: 600 },
-        clientHeight: { value: 600 },
-        offsetWidth: { value: 600 },
-        offsetHeight: { value: 600 },
-        scrollHeight: { get: () => virtualizer().getTotalSize() },
-      });
-      container.getBoundingClientRect = () =>
-        ({ width: 600, height: 600 }) as DOMRect;
-      container.scrollTo = vi.fn(({ top }: ScrollToOptions) => {
-        container.scrollTop = top ?? 0;
-        container.dispatchEvent(new Event("scroll"));
-      }) as typeof container.scrollTo;
-      const rect = vi
-        .spyOn(HTMLElement.prototype, "getBoundingClientRect")
-        .mockImplementation(function (this: HTMLElement) {
-          const index = Number(this.dataset.index);
-          return {
-            width: 600,
-            height: Number.isInteger(index) ? (index >= 70 ? 1000 : 100) : 0,
-          } as DOMRect;
-        });
+    describe("rows above the viewport in a long thread", () => {
+      // A resumed thread long enough to virtualize, pinned to the bottom. The
+      // rows near the bottom are far taller than the ones at the top, so once
+      // they are measured the mean sits well above the flat estimate the
+      // rest of the thread was laid out with.
       const thread = Array.from({ length: 80 }, (_, i) => message(`m-${i}`));
-      const scrollToBottom = () =>
-        act(() => {
-          container.scrollTop = virtualizer().getTotalSize() - 600;
-          container.dispatchEvent(new Event("scroll"));
+      let container: HTMLDivElement;
+      let rect: { mockRestore: () => void };
+
+      beforeEach(() => {
+        container = document.createElement("div");
+        Object.defineProperties(container, {
+          clientWidth: { value: 600 },
+          clientHeight: { value: 600 },
+          offsetWidth: { value: 600 },
+          offsetHeight: { value: 600 },
+          scrollHeight: { get: () => virtualizer().getTotalSize() },
         });
-      try {
+        container.getBoundingClientRect = () =>
+          ({ width: 600, height: 600 }) as DOMRect;
+        container.scrollTo = vi.fn(({ top }: ScrollToOptions) => {
+          container.scrollTop = top ?? 0;
+          container.dispatchEvent(new Event("scroll"));
+        }) as typeof container.scrollTo;
+        rect = vi
+          .spyOn(HTMLElement.prototype, "getBoundingClientRect")
+          .mockImplementation(function (this: HTMLElement) {
+            const index = Number(this.dataset.index);
+            return {
+              width: 600,
+              height: Number.isInteger(index) ? (index >= 70 ? 1000 : 100) : 0,
+            } as DOMRect;
+          });
+      });
+
+      afterEach(async () => {
+        // TanStack's scroll-end debounce can notify after its listener is removed.
+        await act(async () => {
+          await new Promise((resolve) => setTimeout(resolve, 180));
+        });
+        cleanup();
+        rect.mockRestore();
+      });
+
+      /** Scrolls to the bottom so only the last, tall rows get measured. */
+      function settleAtBottom() {
+        expect(virtualizer().options.count).toBe(80);
+        for (let i = 0; i < 2; i++) {
+          act(() => {
+            container.scrollTop = virtualizer().getTotalSize() - 600;
+            container.dispatchEvent(new Event("scroll"));
+          });
+        }
+        const mounted = virtualizer()
+          .getVirtualItems()
+          .map((row) => row.index);
+        expect(mounted.length).toBeGreaterThan(0);
+        expect(Math.min(...mounted)).toBeGreaterThan(40);
+        expect(virtualizer().options.estimateSize(80)).toBeGreaterThan(200);
+      }
+
+      /** Where the 40 rows at the top of the thread start. */
+      function topRowStarts() {
+        // getTotalSize() brings the layout up to date before it is read.
+        virtualizer().getTotalSize();
+        return virtualizer()
+          .measurementsCache.slice(0, 40)
+          .map((row) => row.start);
+      }
+
+      it("keeps them in place when a message is sent", () => {
         renderWithCopilotKit({
           children: (
             <ScrollElementContext.Provider value={container}>
@@ -605,26 +643,7 @@ describe("CopilotChatMessageView virtual-scroll tuning", () => {
             </ScrollElementContext.Provider>
           ),
         });
-        expect(virtualizer().options.count).toBe(80);
-        // Pinned to the bottom: only the last rows get mounted and measured,
-        // and the rows in the middle of the thread stay unmeasured.
-        scrollToBottom();
-        scrollToBottom();
-        const measured = virtualizer()
-          .getVirtualItems()
-          .map((row) => row.index);
-        expect(measured.length).toBeGreaterThan(0);
-        expect(Math.min(...measured)).toBeGreaterThan(40);
-        // The tall rows moved the mean well away from the flat estimate.
-        expect(virtualizer().options.estimateSize(80)).toBeGreaterThan(200);
-        // Where the 40 rows at the top of the thread start. getTotalSize()
-        // brings the layout up to date before it is read.
-        const topRowStarts = () => {
-          virtualizer().getTotalSize();
-          return virtualizer()
-            .measurementsCache.slice(0, 40)
-            .map((row) => row.start);
-        };
+        settleAtBottom();
         const before = topRowStarts();
 
         act(() => {
@@ -636,14 +655,66 @@ describe("CopilotChatMessageView virtual-scroll tuning", () => {
         // hundreds of pixels — the jump up the history seen after sending.
         expect(virtualizer().options.count).toBe(81);
         expect(topRowStarts()).toEqual(before);
-      } finally {
-        // TanStack's scroll-end debounce can notify after its listener is removed.
-        await act(async () => {
-          await new Promise((resolve) => setTimeout(resolve, 180));
+      });
+
+      it("keeps them in place after React discards a render without one of them", () => {
+        const never = new Promise<never>(() => {});
+        function SuspendsWhile({ pending }: { pending: boolean }) {
+          if (pending) throw never;
+          return null;
+        }
+        let update: (messages: Message[], pending: boolean) => void;
+        function DiscardingHarness() {
+          const [messages, setThread] = React.useState(thread);
+          const [pending, setPending] = React.useState(false);
+          update = (next, nextPending) => {
+            setThread(next);
+            setPending(nextPending);
+          };
+          return (
+            <ScrollPinnedContext.Provider value={true}>
+              <React.Suspense fallback={null}>
+                <CopilotChatMessageView messages={messages} />
+                <SuspendsWhile pending={pending} />
+              </React.Suspense>
+            </ScrollPinnedContext.Provider>
+          );
+        }
+        renderWithCopilotKit({
+          children: (
+            <ScrollElementContext.Provider value={container}>
+              <DiscardingHarness />
+            </ScrollElementContext.Provider>
+          ),
         });
-        cleanup();
-        rect.mockRestore();
-      }
+        settleAtBottom();
+        const before = topRowStarts();
+
+        // The message view renders a list without m-5, then a sibling
+        // suspends, so React keeps the committed list and throws that render
+        // away. A second transition supersedes it.
+        act(() => {
+          React.startTransition(() => {
+            update(
+              thread.filter((m) => m.id !== "m-5"),
+              true,
+            );
+          });
+        });
+        act(() => {
+          React.startTransition(() => update(thread, false));
+        });
+
+        act(() => {
+          update([...thread, message("sent")], false);
+        });
+
+        // m-5 never left the committed list, so it keeps its estimate. Had
+        // the discarded render dropped it, m-5 would come back at the current
+        // mean and push every row below it down.
+        expect(virtualizer().options.count).toBe(81);
+        expect(topRowStarts()).toEqual(before);
+      });
     });
   });
 });

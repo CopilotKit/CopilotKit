@@ -1124,7 +1124,6 @@ export function CopilotChatMessageView({
     measuredThreadRef.current = firstMessageId;
     resizeAnchorRef.current = null;
     measuredRef.current = { total: 0, sizes: new Map() };
-    rowEstimatesRef.current = new Map();
   }
 
   // A row that left the list (messages folded into a group, a stand-in
@@ -1140,10 +1139,19 @@ export function CopilotChatMessageView({
         measured.total -= height;
       }
     }
+  }
+
+  // Kept estimates are pruned only once a list is committed. Unlike a
+  // measurement, which only nudges the mean, a dropped estimate resizes its
+  // own row; dropping it from a render React then discards would bring the
+  // row back at the current mean and move every row below it. A new thread
+  // brings new row keys, so this also clears the previous thread's estimates.
+  useLayoutEffect(() => {
+    const live = new Set(rowKeys);
     for (const key of rowEstimatesRef.current.keys()) {
       if (!live.has(key)) rowEstimatesRef.current.delete(key);
     }
-  }
+  }, [rowKeys]);
 
   const estimateRowSize = React.useCallback((index: number) => {
     const key = rowKeysRef.current[index];
