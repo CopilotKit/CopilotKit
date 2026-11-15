@@ -17,6 +17,13 @@
       "options": {
         "command": "tsc --noEmit --module ESNext --target ES2022 --moduleResolution bundler --lib ES2023,DOM,DOM.Iterable --types node --skipLibCheck packages/a11y-test-kit/src/*.ts"
       }
+    },
+    "report": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "nx run-many -t test:a11y --projects=@copilotkit/react-core,@copilotkit/vue,@copilotkit/angular --parallel=1 --skipNxCache"
+      },
+      "cache": false
     }
   }
 }

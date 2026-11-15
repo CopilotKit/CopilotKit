@@ -214,6 +214,7 @@ export function checkDOM(
   ignoreClicks: Element[] = [],
 ): Finding[] {
   const findings: Finding[] = [];
+  const view = root.ownerDocument.defaultView!;
   const add = (el: Element, rule: string, detail: string) =>
     findings.push({ rule, target: targetOf(el, root), detail });
   axe.setup(root.ownerDocument);
@@ -231,7 +232,11 @@ export function checkDOM(
           ((el as HTMLElement).onclick !== null &&
             (el as HTMLElement).onclick !== undefined) ||
           el.hasAttribute("onclick") ||
-          (el as HTMLElement).style.cursor === "pointer");
+          (el as HTMLElement).style.cursor === "pointer" ||
+          // Cursor is inherited: only infer a target where pointer starts.
+          (view.getComputedStyle(el).cursor === "pointer" &&
+            (!el.parentElement ||
+              view.getComputedStyle(el.parentElement).cursor !== "pointer")));
       if (clickable && !el.matches(":disabled") && !hidden) {
         if (!focusable(el))
           add(el, "click-focusable", "Click target cannot take focus");

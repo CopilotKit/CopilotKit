@@ -30,7 +30,7 @@
       "executor": "nx:run-commands",
       "options": {
         "cwd": "packages/angular",
-        "command": "tsc --noEmit -p a11y/tsconfig.json"
+        "command": "node scripts/generate-package-version.mjs && tsc --noEmit -p a11y/tsconfig.json"
       },
       "dependsOn": ["^build"],
       "inputs": [

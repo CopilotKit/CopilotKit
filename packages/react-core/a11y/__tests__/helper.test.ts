@@ -48,6 +48,50 @@ describe("framework-neutral accessibility helper", () => {
       "click-role",
     ]);
   });
+  it("detects stylesheet and inline pointer affordances for delegated clicks", () => {
+    document.body.innerHTML =
+      '<style>.delegated-action { cursor: pointer; }</style><div class="delegated-action">Stylesheet action</div><div style="cursor:pointer">Inline action</div>';
+    expect(getComputedStyle(document.querySelector("div")!).cursor).toBe(
+      "pointer",
+    );
+    expect(
+      checkDOM(document.body).map(({ rule, target }) => ({ rule, target })),
+    ).toEqual([
+      { rule: "click-focusable", target: "div:nth-of-type(1)" },
+      { rule: "click-role", target: "div:nth-of-type(1)" },
+      { rule: "click-focusable", target: "div:nth-of-type(2)" },
+      { rule: "click-role", target: "div:nth-of-type(2)" },
+    ]);
+  });
+  it("does not treat pointer-styled descendants as separate click targets", () => {
+    document.body.innerHTML =
+      '<style>.pointer, .pointer * { cursor: pointer; }</style><div class="pointer">Action<span>Label<svg aria-hidden="true"><path></path></svg></span></div>';
+    expect(getComputedStyle(document.querySelector("span")!).cursor).toBe(
+      "pointer",
+    );
+    expect(
+      checkDOM(document.body).map(({ rule, target }) => ({ rule, target })),
+    ).toEqual([
+      { rule: "click-focusable", target: "div:nth-of-type(1)" },
+      { rule: "click-role", target: "div:nth-of-type(1)" },
+    ]);
+  });
+  it("accepts native button children sharing their parent's pointer cursor", () => {
+    document.body.innerHTML =
+      '<style>.pointer, .pointer * { cursor: pointer; }</style><button class="pointer"><span>Save</span><svg aria-hidden="true"><path></path></svg></button>';
+    expect(getComputedStyle(document.querySelector("span")!).cursor).toBe(
+      "pointer",
+    );
+    expect(checkDOM(document.body)).toEqual([]);
+  });
+  it("still checks explicit inline pointer affordances under a pointer ancestor", () => {
+    document.body.innerHTML =
+      '<div role="button" tabindex="0" style="cursor:pointer">Ancestor<div style="cursor:pointer">Child action</div></div>';
+    expect(checkDOM(document.body).map((x) => x.rule)).toEqual([
+      "click-focusable",
+      "click-role",
+    ]);
+  });
   it("ignores controls hidden by ancestor CSS and hidden inputs with tabindex", () => {
     document.body.innerHTML =
       '<div style="display:none"><button></button></div><div aria-hidden="true"><input type="hidden" tabindex="0"></div>';

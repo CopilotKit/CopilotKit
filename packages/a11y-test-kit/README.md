@@ -14,12 +14,18 @@ pnpm nx run-many -t test:a11y --projects=@copilotkit/react-core,@copilotkit/vue,
 
 The same test files run in each package's ordinary `test` target and hence the existing `test_unit.yml` build/test selection. Project dependencies select the consumers. The ordinary `test`, focused `test:a11y` and `check-types:a11y` targets include each consumer's default project inputs and dependency production inputs, covering Vue `.vue` components and upstream renderer code as well as TypeScript. Explicit inputs also include this helper, its JSON fixtures, baselines and test configuration, so changes invalidate cached results. No workflow is added.
 
-To save per-fixture tool results and scan durations, set `A11Y_REPORT_DIR` to an absolute directory outside the checkout. Each returned and saved report includes the complete `classification: { known: string[], new: string[] }` signature arrays alongside the tool findings, warning counts and duration. Every new signature is also printed to stderr without truncation, allowing CI logs to show all findings even without saved reports. Nx cache hits do not rerun the scanner; use `--skipNxCache` when measuring or collecting reports.
+To save per-fixture tool results and scan durations, set `A11Y_REPORT_DIR` to an absolute directory outside the checkout and use the shared report target:
+
+```sh
+A11Y_REPORT_DIR=/absolute/path/to/a11y-reports pnpm nx run @copilotkit/a11y-test-kit:report
+```
+
+Each returned and saved report includes the complete `classification: { known: string[], new: string[] }` signature arrays alongside the tool findings, warning counts and duration. Every new signature is also printed to stderr without truncation, allowing CI logs to show all findings even without saved reports. The report target is uncached and passes `--skipNxCache` to its nested test run, so both levels execute rather than replaying results. Use it when measuring, collecting reports or updating baselines; ordinary test targets remain cached.
 
 To review a proposed baseline update locally:
 
 ```sh
-A11Y_UPDATE_BASELINE=1 pnpm nx run-many -t test:a11y --projects=@copilotkit/react-core,@copilotkit/vue,@copilotkit/angular --parallel=1 --skipNxCache
+A11Y_UPDATE_BASELINE=1 pnpm nx run @copilotkit/a11y-test-kit:report
 ```
 
 Review the diff and rerun without the flag. Updates are rejected in CI. All accessibility findings are non-blocking warnings, including new findings, additional occurrences and missing fixture baselines. Reviewed findings are classified as known; the baseline is a report reference and does not gate tests. Warnings go directly to stderr so React and Angular silent-console settings cannot hide them in CI. Known checker false positives remain visible. Blocking mode is not implemented; it can be considered after the findings are resolved.
